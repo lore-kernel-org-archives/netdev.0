@@ -1,73 +1,54 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Tue, 19 May 2009 10:58:25 +0200
-Message-ID: <20090519085825.GA9388@elte.hu>
-References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu> <20090518160254.GD6768@linux.vnet.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: Network stack timer hacks for power saving
+Date: Tue, 19 May 2009 11:04:08 +0200
+Message-ID: <4A127608.5020109@cosmosbay.com>
+References: <1F18D6510CF0474A8C9500565A7E41A20544D923FF@NOK-EUMSG-02.mgdnok.nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090518160254.GD6768@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Tero.Kristo@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59852 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbZESJEQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 05:04:16 -0400
+In-Reply-To: <1F18D6510CF0474A8C9500565A7E41A20544D923FF@NOK-EUMSG-02.mgdnok.nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Tero.Kristo@nokia.com a =E9crit :
+> Hi,
+>=20
+> I have been looking at network stack timer optimization for=20
+> power saving in embedded ARM environment, basically trying to=20
+> avoid as many wakeups as possible. I have changed several=20
+> timers in the network stack into deferred ones, i.e. they do=20
+> not wake up the device from low power modes but instead they=20
+> are deferred until next wakeup from some other source, like=20
+> another (non-deferred) timer or some I/O. Attached a patch=20
+> about the changes I've done, is something like this safe to do?
+>=20
+> -Tero
+
+Hi Tero
 
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+When tcp communications are active, we setup a timer for *every* frame
+we receive or we send. These timers wont be deferrable anyway.
 
-> On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
-> > 
-> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > > > i might be missing something fundamental here, but why not just 
-> > > > have per CPU helper threads, all on the same waitqueue, and wake 
-> > > > them up via a single wake_up() call? That would remove the SMP 
-> > > > cross call (wakeups do immediate cross-calls already).
-> > > 
-> > > My concern with this is that the cache misses accessing all the 
-> > > processes on this single waitqueue would be serialized, slowing 
-> > > things down. In contrast, the bitmask that smp_call_function() 
-> > > traverses delivers on the order of a thousand CPUs' worth of bits 
-> > > per cache miss.  I will give it a try, though.
-> > 
-> > At least if you go via the migration threads, you can queue up 
-> > requests to them locally. But there's going to be cachemisses 
-> > _anyway_, since you have to access them all from a single CPU, 
-> > and then they have to fetch details about what to do, and then 
-> > have to notify the originator about completion.
-> 
-> Ah, so you are suggesting that I use smp_call_function() to run 
-> code on each CPU that wakes up that CPU's migration thread?  I 
-> will take a look at this.
+delaying one wakeup every 60 seconds (if I take your net/ipv4/route.c c=
+hange)
+wont change that much power savings, or did I missed something ?
 
-My suggestion was to queue up a dummy 'struct migration_req' up with 
-it (change migration_req::task == NULL to mean 'nothing') and simply 
-wake it up using wake_up_process().
+On big routers, we need to set ip_rt_gc_interval from 60 seconds to one=
+ second,
+in order to perform an effective garbage collection.
 
-That will force a quiescent state, without the need for any extra 
-information, right?
+So, if we use a deferred timer and :
 
-This is what the scheduler code does, roughly:
+schedule_delayed_work(&expires_work, HZ);
 
-                wake_up_process(rq->migration_thread);
-                wait_for_completion(&req.done);
+How many times worker will be started every minute ?
 
-and this will always have to perform well. The 'req' could be put 
-into PER_CPU, and a loop could be done like this:
 
-	for_each_online_cpu(cpu)
-                wake_up_process(cpu_rq(cpu)->migration_thread);
-
-	for_each_online_cpu(cpu)
-                wait_for_completion(&per_cpu(req, cpu).done);
-
-hm?
-
-	Ingo
