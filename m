@@ -1,49 +1,60 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Tue, 19 May 2009 15:18:47 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0905191517350.4730@tyr.diku.dk>
-References: <20090517201528.GA8552@ami.dom.local> <20090518065629.GA6006@ff.dom.local>
- <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
- <20090518175352.GB2755@ami.dom.local> <298f5c050905181123o55c35e74n24cd4ee2c07d8fca@mail.gmail.com>
- <20090518183221.GC2755@ami.dom.local> <298f5c050905181156w2254fcb4p889d67e26fad6e6@mail.gmail.com>
- <20090518190541.GA3047@ami.dom.local>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bc47xx : fix ssb irq setup
+Date: Tue, 19 May 2009 15:19:58 +0200
+Message-ID: <200905191519.59193.mb@bu3sch.de>
+References: <4A11DBD4.7070706@free.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Antonio Almeida <vexwek@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	devik@cdi.cz, Eric Dumazet <dada1@cosmosbay.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	Daniel Mueller <daniel@danm.de>
+To: matthieu castet <castet.matthieu@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:51633 "EHLO mgw1.diku.dk"
+Received: from bu3sch.de ([62.75.166.246]:51221 "EHLO vs166246.vserver.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750849AbZESNTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 09:19:51 -0400
-In-Reply-To: <20090518190541.GA3047@ami.dom.local>
+	id S1752884AbZESNVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2009 09:21:19 -0400
+In-Reply-To: <4A11DBD4.7070706@free.fr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 19 May 2009 00:06:12 matthieu castet wrote:
+> Hi,
+> 
+> the current ssb irq setup (in ssb_mipscore_init) have some problem :
+> it configure some device on some irq without checking that the irq is 
+> not taken by an other device.
+> 
+> For example in my case PCI host is on irq 0 and IPSEC on irq 3.
+> The current code :
+> - store in dev->irq that IPSEC irq is 3+2
+> - do a set_irq 0->3 on PCI host
+> 
+> But now IPSEC irq is not routed anymore to the mips code and dev->irq is 
+> wrong. This cause problem described in [1].
+> 
+> This patch try to solve the problem by making set_irq configure the 
+> device we want to take the irq on the shared irq0.
+> The previous example become :
+> - store in dev->irq that IPSEC irq is 3+2
+> - do a set_irq 0->3 on PCI host :
+>    - irq 3 is already taken by IPSEC. do a set_irq 3->0 on IPSEC
+> 
+> 
+> I also added some code to print the irq configuration before and after 
+> irq setup to allow easier debugging. And I add extra checking in 
+> ssb_mips_irq to report device without irq or device with not routed irq.
+> 
+> 
+> [1] http://www.danm.de/files/src/bcm5365p/REPORTED_DEVICES
+> 
+> Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+> 
 
-On Mon, 18 May 2009, Jarek Poplawski wrote:
+If this works on all devices, I'm OK with this. Please submit to linville@tuxdriver.com
+You can add my ack.
 
-> Since you're so kind... :-) There is a line in net/sched/sch_htb.c:
->
-> #define HTB_HYSTERESIS 1        /* whether to use mode hysteresis for speedup */
->
-> Could you change 1 to 0, and repeat these tests above after recompiling?
-
-Notice its runtime adjustable via:
-  /sys/module/sch_htb/parameters/htb_hysteresis
-
-Since kernel version v2.6.26.
-
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+-- 
+Greetings, Michael.
