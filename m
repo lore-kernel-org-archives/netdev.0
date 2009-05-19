@@ -1,29 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] sit: Fail to create tunnel, if it already exists
-Date: Mon, 18 May 2009 19:31:45 -0700 (PDT)
-Message-ID: <20090518.193145.257080801.davem@davemloft.net>
-References: <1242396760-30568-1-git-send-email-contact@saschahlusiak.de>
-	<20090518.154806.174728278.davem@davemloft.net>
+Subject: Re: [PATCH] sch_teql: should not dereference skb after
+ ndo_start_xmit
+Date: Mon, 18 May 2009 19:34:38 -0700 (PDT)
+Message-ID: <20090518.193438.158960584.davem@davemloft.net>
+References: <4A11391D.8060503@cosmosbay.com>
+	<20090518.151256.217066131.davem@davemloft.net>
+	<4A120C8B.80108@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: contact@saschahlusiak.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43894
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40725
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752772AbZESCbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:31:47 -0400
-In-Reply-To: <20090518.154806.174728278.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1753112AbZESCek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:34:40 -0400
+In-Reply-To: <4A120C8B.80108@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxOCBN
-YXkgMjAwOSAxNTo0ODowNiAtMDcwMCAoUERUKQ0KDQo+IA0KPiBBbGwgNSBwYXRjaGVzIGFwcGxp
-ZWQgdG8gbmV0LW5leHQtMi42LCB0aGFua3MuDQoNCkFjdHVhbGx5LCBubywgSSByZXZlcnRlZCBh
-bGwgb2YgdGhpcyBnYXJiYWdlLg0KDQpMZXQgbWUga25vdyB3aGVuIHlvdSBoYXZlIGEgdmVyc2lv
-biBvZiB5b3VyIGNoYW5nZXMgdGhhdA0KYWN0dWFsbHkgY29tcGlsZS4NCg0KICBDQyBbTV0gIG5l
-dC9pcHY2L3NpdC5vDQpuZXQvaXB2Ni9zaXQuYzogSW4gZnVuY3Rpb24g4oCYaXBpcDZfdHVubmVs
-X3JzX3RpbWVy4oCZOg0KbmV0L2lwdjYvc2l0LmM6MjM1OiBlcnJvcjogaW5jb21wYXRpYmxlIHR5
-cGUgZm9yIGFyZ3VtZW50IDEgb2Yg4oCYX3NwaW5fbG9ja+KAmQ0KbmV0L2lwdjYvc2l0LmM6MjU2
-OiBlcnJvcjogaW52YWxpZCB0eXBlIGFyZ3VtZW50IG9mIOKAmC0+4oCZDQo=
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 19 May 2009 03:34:03 +0200
+
+> Looking again at teql_master_xmit(), I wonder if there is another
+> problem in it.
+> 
+>     int subq = skb_get_queue_mapping(skb);
+> 
+> But as a matter of fact, following code assumes subq is 0
+> 
+> struct netdev_queue *slave_txq = netdev_get_tx_queue(slave, 0);
+> ...
+> if (__netif_subqueue_stopped(slave, subq) ||
+> ...
+> 
+> Either we should set subq to 0, or call dev_pick_tx() to better
+> take into account multi queue slaves ?
+> 
+> (As teqlN has one queue, I assume original dev_queue_xmit() will
+> set skb queue_mapping to 0 before entering teql_master_xmit(), but
+> maybe other paths could call teql_master_xmit() not through dev_queue_xmit() ?
+> 
+> Oh well, time for sleeping a bit...
+
+I was admittedly very hasty with the multiqueue conversion here.
+I'll take a closer look at this.
