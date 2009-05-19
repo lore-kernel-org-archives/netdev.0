@@ -1,88 +1,75 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 19:53:18 +0200
-Message-ID: <20090519175318.GA2981@ami.dom.local>
-References: <20090519123417.GA7376@ff.dom.local> <4A12D10D.3000504@cosmosbay.com> <20090519162330.GC28034@hmsreliant.think-freely.org> <20090519171703.GA2749@ami.dom.local> <20090519174504.GD28034@hmsreliant.think-freely.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] pkt_sched: gen_estimator: use 64 bits intermediate	counters
+ for bps
+Date: Tue, 19 May 2009 20:03:24 +0200
+Message-ID: <4A12F46C.4070605@cosmosbay.com>
+References: <20090516141430.GB3013@ami.dom.local> <4A118F98.60101@cosmosbay.com> <20090518172349.GA2755@ami.dom.local> <20090518.145233.212710505.davem@davemloft.net> <4A11F67B.3050805@cosmosbay.com> <20090519070252.GA4210@ff.dom.local> <4A126058.7030605@cosmosbay.com> <20090519074247.GB4210@ff.dom.local> <20090519075715.GC4210@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, lav@yar.ru,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, vexwek@gmail.com,
+	netdev@vger.kernel.org, kaber@trash.net, devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f158.google.com ([209.85.220.158]:60277 "EHLO
-	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbZESRyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 13:54:49 -0400
-Received: by fxm2 with SMTP id 2so4034115fxm.37
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 10:54:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090519174504.GD28034@hmsreliant.think-freely.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:60187 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753260AbZESSDi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 14:03:38 -0400
+In-Reply-To: <20090519075715.GC4210@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 01:45:04PM -0400, Neil Horman wrote:
-> On Tue, May 19, 2009 at 07:17:03PM +0200, Jarek Poplawski wrote:
-...
-> > > diff --git a/include/net/dst.h b/include/net/dst.h
-> > > index 6be3b08..a39db6d 100644
-> > > --- a/include/net/dst.h
-> > > +++ b/include/net/dst.h
-> > > @@ -47,6 +47,7 @@ struct dst_entry
-> > >  #define DST_NOXFRM		2
-> > >  #define DST_NOPOLICY		4
-> > >  #define DST_NOHASH		8
-> > > +#define DST_GRPLDR		16
-> > >  	unsigned long		expires;
-> > >  
-> > >  	unsigned short		header_len;	/* more space at head required */
-> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > index c4c60e9..0120f0e 100644
-> > > --- a/net/ipv4/route.c
-> > > +++ b/net/ipv4/route.c
-> > > @@ -610,6 +610,8 @@ static inline int ip_rt_proc_init(void)
-> > >  
-> > >  static inline void rt_free(struct rtable *rt)
-> > >  {
-> > > +	if (rt->u.dst.flags & DST_GRPLDR)
-> > > +		rt->u.dst.rt_next->u.dst.flag |= DST_GRPLDR;
-> > >  	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
-> > >  }
-> > >  
-> > > @@ -1143,8 +1145,11 @@ restart:
-> > >  		 * relvant to the hash function together, which we use to adjust
-> > >  		 * our chain length
-> > >  		 */
-> > > -		if (*rthp && compare_hash_inputs(&(*rthp)->fl, &rt->fl))
-> > > +		if (!*rthi && *rthp && 
-> > > +		    compare_hash_inputs(&(*rthp)->fl, &rt->fl) &&
-> > > +		    (cand != rth))
-> > >  			rthi = rth;
-> > 
-> > Does it really prevent cand == rthi in the next loop?
-> > 
-> Yes, because cand and rthi are inspected during the same loop iteration, and
-> both assigned from rth.  since I added a check which requires !rthi (which is
-> actually a bug above that I need to fix), once rthi is set, it won't be moved,
-> and on the next iteration, if cand is assigned, it is assigned to rth, which
-> (being the next iteration), is a different rt cache entry
-> 
-> 
-> > I didn't check Eric's patch yet, but I really don't know what's wrong
-> > with something as simple as below for -stable, until "proper" fix is
-> > analyzed and tested.
-> > 
-> Because the above fixes it without continuing to break the ordering.  You're
-> change below prevents the leak, but still allows for disordered lists to form,
-> which IMHO doesn't really make it a candidate for -stable.  I'd much rather fix
-> both the leak and the ordering before pushing anything out
-> 
-> speaking of which, I'm going to ask again, I've been looking all morning, and
-> I'm unable to find the move to front heuristic that you mentioned creates furthe
-> list disordering.  If you can point it out to me, I can complete my patch and
-> present something for you to test more throughly.
+Jarek Poplawski a =E9crit :
+> On Tue, May 19, 2009 at 07:42:47AM +0000, Jarek Poplawski wrote:
+>> On Tue, May 19, 2009 at 09:31:36AM +0200, Eric Dumazet wrote:
+>>> Jarek Poplawski a =E9crit :
+>>>> On Tue, May 19, 2009 at 01:59:55AM +0200, Eric Dumazet wrote:
+>>>> ...
+>>>>> diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
+>>>> ...
+>>>>> -		e->avbps +=3D ((long)rate - (long)e->avbps) >> e->ewma_log;
+>>>>> +		e->avbps +=3D ((s64)(brate - e->avbps)) >> e->ewma_log;
+>>>> Btw., I'm a bit concerned about the syntax here: isn't such shifti=
+ng
+>>>> of signed ints implementation dependant?
+>>>>
+>>> You are right Jarek, I very often forget to never ever use signed q=
+uantities
+>>> at all ! (But also note original code has same undefined behavior)
+>> Sure, I've meant the original code including 5 lines below.
+>>
+>>> Apparently gcc does the *right* thing on x86_32, but we probably wa=
+nt something
+>>> stronger here. I could not find gcc documentation statement on righ=
+t shifts of=20
+>>> negative values.
+>> I guess gcc and most of others do this "right"; but it looks
+>> "unkosher" anyway.
+>=20
+> I might have missed your point here, but would it be so costly to do
+> these shifts separately here?
 
-As I've written already, your patch looks OK to me.
+You replied to yourself Jarek :)
 
-Thanks,
-Jarek P.
+As I said earlier, I found your concern right, so please submit a patch=
+ ?
+
+I found many occurrences of a right shift on a signed int/long in kerne=
+l.
+One example being :
+
+arch/x86/mm/init_64.c
+
+int kern_addr_valid(unsigned long addr)
+{
+	unsigned long above =3D ((long)addr) >> __VIRTUAL_MASK_SHIFT;
+
+
+and another rate estimator in drivers/atm/idt77252.c
+
+static void
+idt77252_est_timer(unsigned long data)
+
+
+We could aso check net/netfilter/ipvs/ip_vs_est.c (estimation_timer())
+
