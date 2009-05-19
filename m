@@ -1,38 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: make default for INET_LRO consistent with help
- text
-Date: Mon, 18 May 2009 21:49:10 -0700 (PDT)
-Message-ID: <20090518.214910.41457086.davem@davemloft.net>
-References: <200905150851.08286.elendil@planet.nl>
+Subject: Re: [PATCH] net: reduce number of reference taken on sk_refcnt
+Date: Mon, 18 May 2009 21:58:23 -0700 (PDT)
+Message-ID: <20090518.215823.98238538.davem@davemloft.net>
+References: <4A067D9E.7050706@cosmosbay.com>
+	<4A0685A0.8020002@cosmosbay.com>
+	<4A06B064.9080801@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: elendil@planet.nl
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, satoru.satoh@gmail.com
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52012
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54469
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753646AbZESEtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 00:49:12 -0400
-In-Reply-To: <200905150851.08286.elendil@planet.nl>
+	by vger.kernel.org with ESMTP id S1752060AbZESE6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 00:58:25 -0400
+In-Reply-To: <4A06B064.9080801@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frans Pop <elendil@planet.nl>
-Date: Fri, 15 May 2009 08:51:06 +0200
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Sun, 10 May 2009 12:45:56 +0200
 
-> Commit e81963b1 changed this config from tristate to bool.
-> Add default so that it is consistent with the help text.
-> 
-> Signed-off-by: Frans Pop <elendil@planet.nl>
+> Patch follows for RFC only (not Signed-of...), and based on net-next-2.6 
 
-Applied, but please also reference commits by header text,
-like this:
+Thanks for the analysis.
 
-    ipv4: make default for INET_LRO consistent with help text
-    
-    Commit e81963b1 ("ipv4: Make INET_LRO a bool instead of tristate.")
-    changed this config from tristate to bool.  Add default so that it is
-    consistent with the help text.
+> @@ -922,10 +922,13 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+>  	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
+>  		wake_up_interruptible_poll(sk->sk_sleep,
+>  					   POLLIN | POLLRDNORM | POLLRDBAND);
+> -		if (!inet_csk_ack_scheduled(sk))
+> +		if (!inet_csk_ack_scheduled(sk)) {
+> +			unsigned int delay = (3 * tcp_rto_min(sk)) / 4;
+> +
+> +			delay = min(inet_csk(sk)->icsk_ack.ato, delay);
+>  			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+> -						  (3 * tcp_rto_min(sk)) / 4,
+> -						  TCP_RTO_MAX);
+> +						  delay, TCP_RTO_MAX);
+> +		}
+>  	}
+>  	return 1;
 
-Thanks.
+I think this code is trying to aggressively stretch the ACK when
+prequeueing.  In order to make sure there is enough time to get
+the process on the CPU and send a response, and thus piggyback
+the ACK.
+
+If that turns out not to really matter, or matter less than your
+problem, then we can make your change and I'm all for it.
