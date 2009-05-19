@@ -1,47 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 15:05:17 -0700 (PDT)
-Message-ID: <20090519.150517.62361946.davem@davemloft.net>
-References: <20090519162048.GB28034@hmsreliant.think-freely.org>
-	<4A12FEDA.7040806@cosmosbay.com>
-	<20090519192450.GF28034@hmsreliant.think-freely.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [IGB 2.6.29.3 bug] Re: WARNING at dev_disable_lro when enabling
+	ip_forward
+Date: Tue, 19 May 2009 15:06:57 -0700
+Message-ID: <9929d2390905191506t1fc203d3q98a7f89cbcda38ca@mail.gmail.com>
+References: <20090519010147.772f0bff@vingilot.sergknet>
+	 <20090518.153531.126023429.davem@davemloft.net>
+	 <20090518155714.0f1a3b20@nehalam>
+	 <20090519234629.2b5f7550@vingilot.sergknet>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, jarkao2@gmail.com, lav@yar.ru,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sergey Kononenko <sergk@sergk.org.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58074
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751722AbZESWFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:05:19 -0400
-In-Reply-To: <20090519192450.GF28034@hmsreliant.think-freely.org>
+Received: from yx-out-2324.google.com ([74.125.44.28]:63069 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882AbZESWG4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:06:56 -0400
+Received: by yx-out-2324.google.com with SMTP id 3so53585yxj.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 15:06:57 -0700 (PDT)
+In-Reply-To: <20090519234629.2b5f7550@vingilot.sergknet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 19 May 2009 15:24:50 -0400
+On Tue, May 19, 2009 at 1:46 PM, Sergey Kononenko <sergk@sergk.org.ua> =
+wrote:
+>> Does this fix it?
+>>
+>> diff --git a/drivers/net/igb/igb_ethtool.c
+>> b/drivers/net/igb/igb_ethtool.c index 4bdfc2e..a425d85 100644
+>> --- a/drivers/net/igb/igb_ethtool.c
+>> +++ b/drivers/net/igb/igb_ethtool.c
+>> @@ -2028,6 +2028,10 @@ static struct ethtool_ops igb_ethtool_ops =3D=
+ {
+>> =C2=A0 =C2=A0 =C2=A0 .get_ethtool_stats =C2=A0 =C2=A0 =C2=A0=3D igb_=
+get_ethtool_stats,
+>> =C2=A0 =C2=A0 =C2=A0 .get_coalesce =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D igb_get_coalesce,
+>> =C2=A0 =C2=A0 =C2=A0 .set_coalesce =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =3D igb_set_coalesce,
+>> +#ifdef CONFIG_IGB_LRO
+>> + =C2=A0 =C2=A0 .get_flags =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0=3D ethtool_op_get_flags,
+>> + =C2=A0 =C2=A0 .set_flags =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0=3D ethtool_op_set_flags,
+>> +#endif
+>> =C2=A0};
+> Yes, patch have fixed the problem. Thank you.
+>
+> With best regards,
+> Sergey Kononenko.
+> --
 
->> Moving whole group in front would defeat the purpose of move, actually,
->> since rank in chain is used to decay the timeout in garbage collector.
->> (search for tmo >>= 1; )
->> 
-> Argh, so the list is implicitly ordered by expiration time.  That
-> really defeats the entire purpose of doing grouping in the ilst at
-> all.  If thats the case, then I agree, its probably better to to
-> take the additional visitation hit in in check_expire above than to
-> try and preserve ordering.
+Thanks Sergey and Stephen, I will get this queued up for the current
+and stable trees.
 
-Yes, this seems best.
-
-I was worried that somehow the ordering also influences lookups,
-because the TOS bits don't go into the hash so I worried that it would
-be important that explicit TOS values appear before wildcard ones.
-But it doesn't appear that this is an issue, we don't have wildcard
-TOSs in the rtable entries, they are always explicit.
-
-So I would like to see an explicit final patch from Eric so we can get
-this fixed now.
-
-Thanks!
+--=20
+Cheers,
+Jeff
