@@ -1,42 +1,43 @@
-From: Piotr =?iso-8859-2?q?Zi=EAcik?= <kosmo@semihalf.com>
-Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
-Date: Tue, 19 May 2009 13:26:28 +0200
-Message-ID: <200905191326.29122.kosmo@semihalf.com>
-References: <1241640919-4650-1-git-send-email-wd@denx.de>
-	<fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
-	<1242685051.16901.6.camel@pasglop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 19 May 2009 11:28:28 +0000
+Message-ID: <20090519112828.GA6918@ff.dom.local>
+References: <20090517201528.GA8552@ami.dom.local> <200905191404.50464.denys@visp.net.lb> <20090519111857.GC5521@ff.dom.local> <200905191421.28519.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: Becky Bruce <Becky.Bruce@freescale.com>, Wolfgang Denk <wd@denx.de>,
-	Detlev Zundel <dzu@denx.de>, John Rigby <jrigby@gmail.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Scott Wood <scottwood@freescale.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1242685051.16901.6.camel@pasglop>
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz, Eric Dumazet <dada1@cosmosbay.com>
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.239]:60223 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752713AbZESL2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 07:28:37 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1821771rvb.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 04:28:37 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200905191421.28519.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tuesday 19 May 2009 00:17:31 Benjamin Herrenschmidt wrote:
->
-> We are close to the point where we can make this a runtime option
-> though, by just having a different set of dma_ops hooked in.
->
+On Tue, May 19, 2009 at 02:21:28PM +0300, Denys Fedoryschenko wrote:
+> On Tuesday 19 May 2009 14:18:57 Jarek Poplawski wrote:
+> >
+> > Sure, if the queue is too short we could have a problem with reaching
+> > the expected rate; but here it's all backwards - it could actually
+> > "help" with the stats. ;-)
+> >
+> > Jarek P.
+> Well, i had real experience on HTB, when i set too short buffers on  my QoS 
+> qdiscs, the incoming rate jumped too high than overall. When i set larger 
+> buffers (and by the way dropped sfq and use bfifo) - it is dropped.  No idea 
+> why, bug or specific things in  protocols congestion control. Maybe worth to 
+> try...
+> 
 
-Is somebody currently working on it? If yes, where we can see
-code ?
+Very strange. Anyway, "overlimits 0" suggests HTB always got packets
+when it needed...
 
--- =
-
-Best Regards.
-Piotr Zi=EAcik
+Jarek P.
