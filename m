@@ -1,59 +1,288 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] sch_teql: should not dereference skb after ndo_start_xmit
-Date: Tue, 19 May 2009 03:34:03 +0200
-Message-ID: <4A120C8B.80108@cosmosbay.com>
-References: <4A11391D.8060503@cosmosbay.com> <20090518.151256.217066131.davem@davemloft.net>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH][be2net] remove napi in the tx path
+Date: Tue, 19 May 2009 07:06:20 +0530
+Message-ID: <20090519013616.GA25903@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37751 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853AbZESBeR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 21:34:17 -0400
-In-Reply-To: <20090518.151256.217066131.davem@davemloft.net>
+Received: from segment-124-30.sify.net ([124.30.166.146]:48873 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751403AbZESBf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 21:35:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Mon, 18 May 2009 12:31:57 +0200
->=20
->> [PATCH] sch_teql: should not dereference skb after ndo_start_xmit()
->>
->> It is illegal to dereference a skb after a successful ndo_start_xmit=
-()
->> call. We must store skb length in a local variable instead.
->>
->> Bug was introduced in 2.6.27 by commit 0abf77e55a2459aa9905be4b226e4=
-729d5b4f0cb
->> (net_sched: Add accessor function for packet length for qdiscs)
->>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->=20
-> Applied and queued up for -stable, thanks!
+David, I have spun this patch again and against the net-2.6 tree.
+This patch is based on a certain feedback that we got and hence
+it is equally urgent as the previous patch for this to get in the net-2.6
+tree.
+Please consider. I hope this applies cleanly!
 
-Looking again at teql_master_xmit(), I wonder if there is another
-problem in it.
+Thanks
+Ajit
 
-    int subq =3D skb_get_queue_mapping(skb);
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be.h      |    3 +-
+ drivers/net/benet/be_main.c |  132 ++++++++++++++++++++++++-------------------
+ 2 files changed, 74 insertions(+), 61 deletions(-)
 
-But as a matter of fact, following code assumes subq is 0
-
-struct netdev_queue *slave_txq =3D netdev_get_tx_queue(slave, 0);
-=2E..
-if (__netif_subqueue_stopped(slave, subq) ||
-=2E..
-
-Either we should set subq to 0, or call dev_pick_tx() to better
-take into account multi queue slaves ?
-
-(As teqlN has one queue, I assume original dev_queue_xmit() will
-set skb queue_mapping to 0 before entering teql_master_xmit(), but
-maybe other paths could call teql_master_xmit() not through dev_queue_x=
-mit() ?
-
-Oh well, time for sleeping a bit...
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index b4bb06f..6d149a4 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -159,8 +159,6 @@ struct be_eq_obj {
+ 	u16 min_eqd;		/* in usecs */
+ 	u16 max_eqd;		/* in usecs */
+ 	u16 cur_eqd;		/* in usecs */
+-
+-	struct napi_struct napi;
+ };
+ 
+ struct be_tx_obj {
+@@ -179,6 +177,7 @@ struct be_rx_page_info {
+ };
+ 
+ struct be_rx_obj {
++	struct napi_struct napi;
+ 	struct be_queue_info q;
+ 	struct be_queue_info cq;
+ 	struct be_rx_page_info page_info_tbl[RX_Q_LEN];
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 5c378b5..3f5d6e4 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -26,7 +26,12 @@ MODULE_LICENSE("GPL");
+ 
+ static unsigned int rx_frag_size = 2048;
+ module_param(rx_frag_size, uint, S_IRUGO);
+-MODULE_PARM_DESC(rx_frag_size, "Size of a fragment that holds rcvd data.");
++MODULE_PARM_DESC(rx_frag_size,
++	"Size of receive fragment buffer - 2048 (default), 4096 or 8192");
++
++static unsigned int lro = 1;
++module_param(lro, uint, S_IRUGO);
++MODULE_PARM_DESC(lro, "Configure LRO. 1=enable (default) or 0=disable");
+ 
+ static DEFINE_PCI_DEVICE_TABLE(be_dev_ids) = {
+ 	{ PCI_DEVICE(BE_VENDOR_ID, BE_DEVICE_ID1) },
+@@ -977,7 +982,7 @@ static void be_tx_compl_process(struct be_adapter *adapter, u16 last_index)
+ 
+ 	atomic_sub(num_wrbs, &txq->used);
+ 
+-	kfree_skb(sent_skb);
++	dev_kfree_skb_any(sent_skb);
+ }
+ 
+ static void be_rx_q_clean(struct be_adapter *adapter)
+@@ -1121,7 +1126,10 @@ static int be_rx_queues_create(struct be_adapter *adapter)
+ 	struct be_queue_info *eq, *q, *cq;
+ 	int rc;
+ 
+-	adapter->max_rx_coal = BE_MAX_FRAGS_PER_FRAME;
++	if (lro)
++		adapter->max_rx_coal = BE_MAX_FRAGS_PER_FRAME;
++	else
++		adapter->max_rx_coal = 0;
+ 	adapter->big_page_size = (1 << get_order(rx_frag_size)) * PAGE_SIZE;
+ 	adapter->rx_eq.max_eqd = BE_MAX_EQD;
+ 	adapter->rx_eq.min_eqd = 0;
+@@ -1202,20 +1210,66 @@ static int event_handle(struct be_ctrl_info *ctrl,
+ 
+ 	/* We can see an interrupt and no event */
+ 	be_eq_notify(ctrl, eq_obj->q.id, true, true, num);
+-	if (num)
+-		napi_schedule(&eq_obj->napi);
+ 
+ 	return num;
+ }
+ 
++static int rx_event_handle(struct be_adapter *adapter)
++{
++	int evts;
++
++	evts = event_handle(&adapter->ctrl, &adapter->rx_eq);
++	if (evts)
++		napi_schedule(&adapter->rx_obj.napi);
++
++	return evts;
++}
++
++static int tx_event_handle(struct be_adapter *adapter)
++{
++	struct be_tx_obj *tx_obj = &adapter->tx_obj;
++	struct be_queue_info *tx_cq = &tx_obj->cq;
++	struct be_queue_info *txq = &tx_obj->q;
++	struct be_eth_tx_compl *txcp;
++	u32 num_cmpl = 0;
++	u16 end_idx;
++	int evts;
++
++	evts = event_handle(&adapter->ctrl, &adapter->tx_eq);
++	if (!evts)
++		goto done;
++
++	while ((txcp = be_tx_compl_get(adapter))) {
++		end_idx = AMAP_GET_BITS(struct amap_eth_tx_compl,
++					wrb_index, txcp);
++		be_tx_compl_process(adapter, end_idx);
++		num_cmpl++;
++	}
++
++	/* As Tx wrbs have been freed up, wake up netdev queue if
++	 * it was stopped due to lack of tx wrbs.
++	 */
++	if (netif_queue_stopped(adapter->netdev) &&
++			atomic_read(&txq->used) < txq->len / 2) {
++		netif_wake_queue(adapter->netdev);
++	}
++
++	be_cq_notify(&adapter->ctrl, tx_cq->id, true, num_cmpl);
++
++	drvr_stats(adapter)->be_tx_events++;
++	drvr_stats(adapter)->be_tx_compl += num_cmpl;
++
++done:
++	return evts;
++}
++
+ static irqreturn_t be_intx(int irq, void *dev)
+ {
+ 	struct be_adapter *adapter = dev;
+-	struct be_ctrl_info *ctrl = &adapter->ctrl;
+ 	int rx, tx;
+ 
+-	tx = event_handle(ctrl, &adapter->tx_eq);
+-	rx = event_handle(ctrl, &adapter->rx_eq);
++	rx = rx_event_handle(adapter);
++	tx = tx_event_handle(adapter);
+ 
+ 	if (rx || tx)
+ 		return IRQ_HANDLED;
+@@ -1227,7 +1281,7 @@ static irqreturn_t be_msix_rx(int irq, void *dev)
+ {
+ 	struct be_adapter *adapter = dev;
+ 
+-	event_handle(&adapter->ctrl, &adapter->rx_eq);
++	rx_event_handle(adapter);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1236,7 +1290,7 @@ static irqreturn_t be_msix_tx(int irq, void *dev)
+ {
+ 	struct be_adapter *adapter = dev;
+ 
+-	event_handle(&adapter->ctrl, &adapter->tx_eq);
++	tx_event_handle(adapter);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1256,9 +1310,9 @@ static inline bool do_lro(struct be_adapter *adapter,
+ 
+ int be_poll_rx(struct napi_struct *napi, int budget)
+ {
+-	struct be_eq_obj *rx_eq = container_of(napi, struct be_eq_obj, napi);
++	struct be_rx_obj *rx_obj = container_of(napi, struct be_rx_obj, napi);
+ 	struct be_adapter *adapter =
+-		container_of(rx_eq, struct be_adapter, rx_eq);
++		container_of(rx_obj, struct be_adapter, rx_obj);
+ 	struct be_queue_info *rx_cq = &adapter->rx_obj.cq;
+ 	struct be_eth_rx_compl *rxcp;
+ 	u32 work_done;
+@@ -1274,7 +1328,8 @@ int be_poll_rx(struct napi_struct *napi, int budget)
+ 			be_rx_compl_process(adapter, rxcp);
+ 	}
+ 
+-	lro_flush_all(&adapter->rx_obj.lro_mgr);
++	if (lro)
++		lro_flush_all(&adapter->rx_obj.lro_mgr);
+ 
+ 	/* Refill the queue */
+ 	if (atomic_read(&adapter->rx_obj.q.used) < RX_FRAGS_REFILL_WM)
+@@ -1291,44 +1346,6 @@ int be_poll_rx(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
+-/* For TX we don't honour budget; consume everything */
+-int be_poll_tx(struct napi_struct *napi, int budget)
+-{
+-	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
+-	struct be_adapter *adapter =
+-		container_of(tx_eq, struct be_adapter, tx_eq);
+-	struct be_tx_obj *tx_obj = &adapter->tx_obj;
+-	struct be_queue_info *tx_cq = &tx_obj->cq;
+-	struct be_queue_info *txq = &tx_obj->q;
+-	struct be_eth_tx_compl *txcp;
+-	u32 num_cmpl = 0;
+-	u16 end_idx;
+-
+-	while ((txcp = be_tx_compl_get(adapter))) {
+-		end_idx = AMAP_GET_BITS(struct amap_eth_tx_compl,
+-					wrb_index, txcp);
+-		be_tx_compl_process(adapter, end_idx);
+-		num_cmpl++;
+-	}
+-
+-	/* As Tx wrbs have been freed up, wake up netdev queue if
+-	 * it was stopped due to lack of tx wrbs.
+-	 */
+-	if (netif_queue_stopped(adapter->netdev) &&
+-			atomic_read(&txq->used) < txq->len / 2) {
+-		netif_wake_queue(adapter->netdev);
+-	}
+-
+-	napi_complete(napi);
+-
+-	be_cq_notify(&adapter->ctrl, tx_cq->id, true, num_cmpl);
+-
+-	drvr_stats(adapter)->be_tx_events++;
+-	drvr_stats(adapter)->be_tx_compl += num_cmpl;
+-
+-	return 1;
+-}
+-
+ static void be_worker(struct work_struct *work)
+ {
+ 	struct be_adapter *adapter =
+@@ -1491,8 +1508,7 @@ static int be_open(struct net_device *netdev)
+ 	/* First time posting */
+ 	be_post_rx_frags(adapter);
+ 
+-	napi_enable(&rx_eq->napi);
+-	napi_enable(&tx_eq->napi);
++	napi_enable(&adapter->rx_obj.napi);
+ 
+ 	be_irq_register(adapter);
+ 
+@@ -1545,8 +1561,7 @@ static int be_close(struct net_device *netdev)
+ 	}
+ 	be_irq_unregister(adapter);
+ 
+-	napi_disable(&rx_eq->napi);
+-	napi_disable(&tx_eq->napi);
++	napi_disable(&adapter->rx_obj.napi);
+ 
+ 	be_rx_queues_destroy(adapter);
+ 	be_tx_queues_destroy(adapter);
+@@ -1634,11 +1649,10 @@ static void be_netdev_init(struct net_device *netdev)
+ 
+ 	SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
+ 
+-	be_lro_init(adapter, netdev);
++	if (lro)
++		be_lro_init(adapter, netdev);
+ 
+-	netif_napi_add(netdev, &adapter->rx_eq.napi, be_poll_rx,
+-		BE_NAPI_WEIGHT);
+-	netif_napi_add(netdev, &adapter->tx_eq.napi, be_poll_tx,
++	netif_napi_add(netdev, &adapter->rx_obj.napi, be_poll_rx,
+ 		BE_NAPI_WEIGHT);
+ 
+ 	netif_carrier_off(netdev);
+-- 
+1.5.4.3
 
