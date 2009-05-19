@@ -1,58 +1,54 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: gen_estimator: use 64 bits intermediate
-	counters for bps
-Date: Tue, 19 May 2009 07:57:15 +0000
-Message-ID: <20090519075715.GC4210@ff.dom.local>
-References: <20090516141430.GB3013@ami.dom.local> <4A118F98.60101@cosmosbay.com> <20090518172349.GA2755@ami.dom.local> <20090518.145233.212710505.davem@davemloft.net> <4A11F67B.3050805@cosmosbay.com> <20090519070252.GA4210@ff.dom.local> <4A126058.7030605@cosmosbay.com> <20090519074247.GB4210@ff.dom.local>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/7] IPv4/IPv6 unregistration deadlock fixes
+Date: Tue, 19 May 2009 01:07:09 -0700
+Message-ID: <m1octpplci.fsf@fess.ebiederm.org>
+References: <m13ab8s8cr.fsf@fess.ebiederm.org>
+	<20090518.221637.98842683.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, vexwek@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, devik@cdi.cz
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	shemminger@vyatta.com, greearb@candelatech.com, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.29]:8227 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320AbZESH5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 03:57:22 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so2307343ywb.1
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 00:57:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090519074247.GB4210@ff.dom.local>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49746 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbZESIHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 04:07:14 -0400
+In-Reply-To: <20090518.221637.98842683.davem@davemloft.net> (David Miller's message of "Mon\, 18 May 2009 22\:16\:37 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 07:42:47AM +0000, Jarek Poplawski wrote:
-> On Tue, May 19, 2009 at 09:31:36AM +0200, Eric Dumazet wrote:
-> > Jarek Poplawski a =E9crit :
-> > > On Tue, May 19, 2009 at 01:59:55AM +0200, Eric Dumazet wrote:
-> > > ...
-> > >> diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-> > > ...
-> > >> -		e->avbps +=3D ((long)rate - (long)e->avbps) >> e->ewma_log;
-> > >> +		e->avbps +=3D ((s64)(brate - e->avbps)) >> e->ewma_log;
-> > >=20
-> > > Btw., I'm a bit concerned about the syntax here: isn't such shift=
-ing
-> > > of signed ints implementation dependant?
-> > >=20
-> >=20
-> > You are right Jarek, I very often forget to never ever use signed q=
-uantities
-> > at all ! (But also note original code has same undefined behavior)
->=20
-> Sure, I've meant the original code including 5 lines below.
->=20
-> > Apparently gcc does the *right* thing on x86_32, but we probably wa=
-nt something
-> > stronger here. I could not find gcc documentation statement on righ=
-t shifts of=20
-> > negative values.
->=20
-> I guess gcc and most of others do this "right"; but it looks
-> "unkosher" anyway.
+David Miller <davem@davemloft.net> writes:
 
-I might have missed your point here, but would it be so costly to do
-these shifts separately here?
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Wed, 13 May 2009 19:53:40 -0700
+>
+>> A while ago it was noticed that unregistering network devices could cause
+>> deadlocks if virtual files that take the rtnl_lock were accessed at the
+>> wrong time.
+>> 
+>> After looking at the different possibilities the only way to solve it
+>> cleanly without some kind of busy loop appears to be reducing the scope
+>> of the rtnl lock.
+>> 
+>> I have not tackled the hard fix yet but I have tested our current work
+>> around and it does not succeed in restarting the system call and
+>> instead leaks -ERESTARNOSYS to userspace, because we do not have a
+>> signal pending.
+>> 
+>> Further the current work around misses several interesting places
+>> in the network stack where the deadlock can occur.
+>> 
+>> I have addressed the problems by making a common helper function
+>> and patching all of the places I could find that had this problem.
+>
+> I've added these changes to net-next-2.6, thanks.
+>
+> I really can't justify sticking this into net-2.6, especially
+> this late in the series, sorry.
 
-Jarek P.
+No problem.  The problem is ancient.  I just figured it was time to
+start solving it.
+
+Eric
+
