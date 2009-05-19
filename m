@@ -1,55 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 19:05:51 -0400
-Message-ID: <20090519230551.GA20555@hmsreliant.think-freely.org>
-References: <20090519162048.GB28034@hmsreliant.think-freely.org> <4A12FEDA.7040806@cosmosbay.com> <20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] sfc: Remove lro module parameter
+Date: Wed, 20 May 2009 00:17:57 +0100
+Message-ID: <1242775077.3198.4.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, jarkao2@gmail.com, lav@yar.ru,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36939 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754886AbZESXGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 19:06:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20090519.150517.62361946.davem@davemloft.net>
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:32978 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754513AbZESXSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 19:18:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 03:05:17PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Tue, 19 May 2009 15:24:50 -0400
-> 
-> >> Moving whole group in front would defeat the purpose of move, actually,
-> >> since rank in chain is used to decay the timeout in garbage collector.
-> >> (search for tmo >>= 1; )
-> >> 
-> > Argh, so the list is implicitly ordered by expiration time.  That
-> > really defeats the entire purpose of doing grouping in the ilst at
-> > all.  If thats the case, then I agree, its probably better to to
-> > take the additional visitation hit in in check_expire above than to
-> > try and preserve ordering.
-> 
-> Yes, this seems best.
-> 
-> I was worried that somehow the ordering also influences lookups,
-> because the TOS bits don't go into the hash so I worried that it would
-> be important that explicit TOS values appear before wildcard ones.
-> But it doesn't appear that this is an issue, we don't have wildcard
-> TOSs in the rtable entries, they are always explicit.
-> 
-> So I would like to see an explicit final patch from Eric so we can get
-> this fixed now.
-> 
-> Thanks!
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+GRO/LRO can be controlled through ethtool so this is unnecessary.
 
-Agreed, thanks once again for educating me Eric!
-Neil
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/efx.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index d3e240b..5f4aae5 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -50,16 +50,6 @@ static struct workqueue_struct *reset_workqueue;
+  *************************************************************************/
+ 
+ /*
+- * Enable large receive offload (LRO) aka soft segment reassembly (SSR)
+- *
+- * This sets the default for new devices.  It can be controlled later
+- * using ethtool.
+- */
+-static int lro = true;
+-module_param(lro, int, 0644);
+-MODULE_PARM_DESC(lro, "Large receive offload acceleration");
+-
+-/*
+  * Use separate channels for TX and RX events
+  *
+  * Set this to 1 to use separate channels for TX and RX. It allows us
+@@ -2167,9 +2157,8 @@ static int __devinit efx_pci_probe(struct pci_dev *pci_dev,
+ 	if (!net_dev)
+ 		return -ENOMEM;
+ 	net_dev->features |= (NETIF_F_IP_CSUM | NETIF_F_SG |
+-			      NETIF_F_HIGHDMA | NETIF_F_TSO);
+-	if (lro)
+-		net_dev->features |= NETIF_F_GRO;
++			      NETIF_F_HIGHDMA | NETIF_F_TSO |
++			      NETIF_F_GRO);
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_ALL_CSUM | NETIF_F_SG |
+ 				   NETIF_F_HIGHDMA | NETIF_F_TSO);
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
