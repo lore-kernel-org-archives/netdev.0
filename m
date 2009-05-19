@@ -1,133 +1,198 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 12:23:30 -0400
-Message-ID: <20090519162330.GC28034@hmsreliant.think-freely.org>
-References: <20090519123417.GA7376@ff.dom.local> <4A12D10D.3000504@cosmosbay.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH] net: use NLMSG_DEFAULT_SIZE in nlmsg_new() allocations
+Date: Tue, 19 May 2009 17:58:20 +0200
+Message-ID: <20090519155820.27716.47419.stgit@Decadence>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>, lav@yar.ru,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, samuel@sortiz.org, johannes@sipsolutions.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60057 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544AbZESQXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 12:23:42 -0400
-Content-Disposition: inline
-In-Reply-To: <4A12D10D.3000504@cosmosbay.com>
+Received: from mail.us.es ([193.147.175.20]:47625 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753726AbZESQjm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2009 12:39:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 05:32:29PM +0200, Eric Dumazet wrote:
-> Jarek Poplawski a =E9crit :
-> > On 19-05-2009 04:35, Stephen Hemminger wrote:
-> >> Begin forwarded message:
-> >>
-> >> Date: Mon, 18 May 2009 14:10:20 GMT
-> >> From: bugzilla-daemon@bugzilla.kernel.org
-> >> To: shemminger@linux-foundation.org
-> >> Subject: [Bug 13339] New: rtable leak in ipv4/route.c
-> >>
-> >>
-> >> http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> > ...
-> >> 2.6.29 patch has introduced flexible route cache rebuilding. Unfor=
-tunately the
-> >> patch has at least one critical flaw, and another problem.
-> >>
-> >> rt_intern_hash calculates rthi pointer, which is later used for ne=
-w entry
-> >> insertion. The same loop calculates cand pointer which is used to =
-clean the
-> >> list. If the pointers are the same, rtable leak occurs, as first t=
-he cand is
-> >> removed then the new entry is appended to it.
-> >>
-> >> This leak leads to unregister_netdevice problem (usage count > 0).
-> >>
-> >> Another problem of the patch is that it tries to insert the entrie=
-s in certain
-> >> order, to facilitate counting of entries distinct by all but QoS p=
-arameters.
-> >> Unfortunately, referencing an existing rtable entry moves it to li=
-st beginning,
-> >> to speed up further lookups, so the carefully built order is destr=
-oyed.
->=20
-> We could change rt_check_expire() to be smarter and handle any order =
-in chains.
->=20
-> This would let rt_intern_hash() be simpler.
->=20
-> As its a more performance critical path, all would be good :)
->=20
-> >>
-> >> For the first problem the simplest patch it to set rthi=3D0 when r=
-thi=3D=3Dcand, but
-> >> it will also destroy the ordering.
-> >=20
-> > I think fixing this bug fast is more important than this
-> > ordering or counting. Could you send your patch proposal?
-> >=20
->=20
+nlmsg_new() adds the size of the netlink header to the value
+that has been passed as parameter. If NLMSG_GOODSIZE is selected,
+we request an allocation of one memory page plus the size of the
+header. Instead, NLMSG_DEFAULT_SIZE should be used since it
+already substracts the size of the Netlink header.
 
-Of course, it helps if I attach the patch :)
+I have the impression that the similar naming in both constant
+is error prone when using it with nlmsg_new(). This is already
+documented in include/net/netlink.h
 
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 6be3b08..a39db6d 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -47,6 +47,7 @@ struct dst_entry
- #define DST_NOXFRM		2
- #define DST_NOPOLICY		4
- #define DST_NOHASH		8
-+#define DST_GRPLDR		16
- 	unsigned long		expires;
-=20
- 	unsigned short		header_len;	/* more space at head required */
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c4c60e9..0120f0e 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -610,6 +610,8 @@ static inline int ip_rt_proc_init(void)
-=20
- static inline void rt_free(struct rtable *rt)
+ net/irda/irnetlink.c   |    2 +-
+ net/wireless/nl80211.c |   32 ++++++++++++++++----------------
+ 2 files changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/net/irda/irnetlink.c b/net/irda/irnetlink.c
+index 2f05ec1..82c6118 100644
+--- a/net/irda/irnetlink.c
++++ b/net/irda/irnetlink.c
+@@ -87,7 +87,7 @@ static int irda_nl_get_mode(struct sk_buff *skb, struct genl_info *info)
+ 	if (!dev)
+ 		return -ENODEV;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg) {
+ 		dev_put(dev);
+ 		return -ENOMEM;
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index f0fec2f..ade40d5 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -388,7 +388,7 @@ static int nl80211_get_wiphy(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(dev))
+ 		return PTR_ERR(dev);
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		goto out_err;
+ 
+@@ -716,7 +716,7 @@ static int nl80211_get_interface(struct sk_buff *skb, struct genl_info *info)
+ 	if (err)
+ 		return err;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		goto out_err;
+ 
+@@ -989,7 +989,7 @@ static int nl80211_get_key(struct sk_buff *skb, struct genl_info *info)
+ 		goto out;
+ 	}
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -1600,7 +1600,7 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
+ 	if (err)
+ 		goto out;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		goto out;
+ 
+@@ -1994,7 +1994,7 @@ static int nl80211_get_mpath(struct sk_buff *skb, struct genl_info *info)
+ 	if (err)
+ 		goto out;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		goto out;
+ 
+@@ -2310,7 +2310,7 @@ static int nl80211_get_mesh_params(struct sk_buff *skb,
+ 		goto out;
+ 
+ 	/* Draw up a netlink message to send back */
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg) {
+ 		err = -ENOBUFS;
+ 		goto out;
+@@ -2488,7 +2488,7 @@ static int nl80211_get_reg(struct sk_buff *skb, struct genl_info *info)
+ 	if (!cfg80211_regdomain)
+ 		goto out;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg) {
+ 		err = -ENOBUFS;
+ 		goto out;
+@@ -3541,7 +3541,7 @@ void nl80211_notify_dev_rename(struct cfg80211_registered_device *rdev)
  {
-+	if (rt->u.dst.flags & DST_GRPLDR)
-+		rt->u.dst.rt_next->u.dst.flag |=3D DST_GRPLDR;
- 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
- }
-=20
-@@ -1143,8 +1145,11 @@ restart:
- 		 * relvant to the hash function together, which we use to adjust
- 		 * our chain length
- 		 */
--		if (*rthp && compare_hash_inputs(&(*rthp)->fl, &rt->fl))
-+		if (!*rthi && *rthp &&=20
-+		    compare_hash_inputs(&(*rthp)->fl, &rt->fl) &&
-+		    (cand !=3D rth))
- 			rthi =3D rth;
-+		}
- 	}
-=20
- 	if (cand) {
-@@ -1205,11 +1210,14 @@ restart:
- 		}
- 	}
-=20
--	if (rthi)
-+	if (rthi) {
- 		rt->u.dst.rt_next =3D rthi->u.dst.rt_next;
--	else
-+		rthi->u.dst.flags &=3D ~(DST_GRPLDR);
-+	} else
- 		rt->u.dst.rt_next =3D rt_hash_table[hash].chain;
-=20
-+	rt->u.dst.flags |=3D DST_GRPLDR;
-+
- #if RT_CACHE_DEBUG >=3D 2
- 	if (rt->u.dst.rt_next) {
- 		struct rtable *trt;
+ 	struct sk_buff *msg;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3582,7 +3582,7 @@ void nl80211_send_scan_done(struct cfg80211_registered_device *rdev,
+ {
+ 	struct sk_buff *msg;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3600,7 +3600,7 @@ void nl80211_send_scan_aborted(struct cfg80211_registered_device *rdev,
+ {
+ 	struct sk_buff *msg;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3622,7 +3622,7 @@ void nl80211_send_reg_change_event(struct regulatory_request *request)
+ 	struct sk_buff *msg;
+ 	void *hdr;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3676,7 +3676,7 @@ static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
+ 	struct sk_buff *msg;
+ 	void *hdr;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3739,7 +3739,7 @@ static void nl80211_send_mlme_timeout(struct cfg80211_registered_device *rdev,
+ 	struct sk_buff *msg;
+ 	void *hdr;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3787,7 +3787,7 @@ void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
+ 	struct sk_buff *msg;
+ 	void *hdr;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, gfp);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, gfp);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3822,7 +3822,7 @@ void nl80211_michael_mic_failure(struct cfg80211_registered_device *rdev,
+ 	struct sk_buff *msg;
+ 	void *hdr;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ 	if (!msg)
+ 		return;
+ 
+@@ -3862,7 +3862,7 @@ void nl80211_send_beacon_hint_event(struct wiphy *wiphy,
+ 	void *hdr;
+ 	struct nlattr *nl_freq;
+ 
+-	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+ 	if (!msg)
+ 		return;
+ 
+
