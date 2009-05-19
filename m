@@ -1,156 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Tue, 19 May 2009 16:20:36 -0700 (PDT)
-Message-ID: <20090519.162036.76263878.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/2] chelsio: Use generic XENPAK LASI register definitions
+Date: Wed, 20 May 2009 00:21:07 +0100
+Message-ID: <1242775267.3198.8.camel@achroite>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57715
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751361AbZESXUi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 19:20:38 -0400
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:43829 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755238AbZESXVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 19:21:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This follows on from:
 
-Back from the cruise, and somehow no better at shuffleboard than
-before, here are the networking bug fixes that have accumulated.
+commit 1c5022eb408e5d9ce48ffbd93d6e34d6f397a1e9
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Fri May 15 00:47:59 2009 +0100
 
-Note that I did a merge because I pushed out the pulling in of
-the bluetooth and wireless trees and only afterwards did I notice
-that you had already pulled them in.  So it comes out as a wash.
+    mdio: Add XENPAK LASI register definitions
+    
+    These registers were originally defined for XENPAK modules, but are
+    also implemented by many other 10G PHYs.
 
-As for the rest:
+Ben.
 
-1) mlx4_en driver forgets to delete NAPI contexts, resulting in
-   crashes.  Fix from Yevgeny Patrilin.
+ drivers/net/chelsio/mv88x201x.c |   17 +++++++++--------
+ 1 files changed, 9 insertions(+), 8 deletions(-)
 
-2) wimax/i2400m crash fixes from Inaky Perez-Gonzalez
+diff --git a/drivers/net/chelsio/mv88x201x.c b/drivers/net/chelsio/mv88x201x.c
+index 29e0cba..d50907b 100644
+--- a/drivers/net/chelsio/mv88x201x.c
++++ b/drivers/net/chelsio/mv88x201x.c
+@@ -86,7 +86,8 @@ static int mv88x201x_reset(struct cphy *cphy, int wait)
+ static int mv88x201x_interrupt_enable(struct cphy *cphy)
+ {
+ 	/* Enable PHY LASI interrupts. */
+-	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, 0x9002, 0x1);
++	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL,
++			MDIO_PMA_LASI_LSALARM);
+ 
+ 	/* Enable Marvell interrupts through Elmer0. */
+ 	if (t1_is_asic(cphy->adapter)) {
+@@ -102,7 +103,7 @@ static int mv88x201x_interrupt_enable(struct cphy *cphy)
+ static int mv88x201x_interrupt_disable(struct cphy *cphy)
+ {
+ 	/* Disable PHY LASI interrupts. */
+-	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, 0x9002, 0x0);
++	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL, 0x0);
+ 
+ 	/* Disable Marvell interrupts through Elmer0. */
+ 	if (t1_is_asic(cphy->adapter)) {
+@@ -122,9 +123,9 @@ static int mv88x201x_interrupt_clear(struct cphy *cphy)
+ 
+ #ifdef MV88x2010_LINK_STATUS_BUGS
+ 	/* Required to read twice before clear takes affect. */
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9003, &val);
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9004, &val);
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9005, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_RXSTAT, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_TXSTAT, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT, &val);
+ 
+ 	/* Read this register after the others above it else
+ 	 * the register doesn't clear correctly.
+@@ -135,12 +136,12 @@ static int mv88x201x_interrupt_clear(struct cphy *cphy)
+ 	/* Clear link status. */
+ 	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_STAT1, &val);
+ 	/* Clear PHY LASI interrupts. */
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9005, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT, &val);
+ 
+ #ifdef MV88x2010_LINK_STATUS_BUGS
+ 	/* Do it again. */
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9003, &val);
+-	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9004, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_RXSTAT, &val);
++	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_TXSTAT, &val);
+ #endif
+ 
+ 	/* Clear Marvell interrupts through Elmer0. */
 
-3) Meth driver does not use IRQ disabling locks consistently, causing
-   potential deadlocks.  Fix from Ralf Baechle.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-4) Two non-STP bridge regression fixes from Stephen Hemminger.
-
-5) Potential netpoll NULL deref got added by netdev_ops infrastructure
-   changes, fix from Pavel Emelyanov.
-
-6) Neterion driver programs FIFO registers improperly, fix from Roel Kl=
-uin.
-
-7) Two new device IDs fro be2net driver.
-
-8) skb_seq_read doesn't handle all offset/length situations properly
-   wrt. page frags, and this is most noticably seen as causing iSCSI
-   login data corruption with certain devices.  Fix from Thomas Chenaul=
-t.
-
-9) TCP regression got added when we removed a MSG_PEEK test from tcp_re=
-cvmsg()
-   in order to adhere to rcvlowat like BSD does.  An assertion warning =
-log
-   message triggers when it shouldn't.  Fixed by Ilpo J=E4rvinen.
-
-10) Fix mv643xx_eth on 32-bit PPC.  That platform no longer handles
-    transparently NULL device args to the DMA interfaces.  Fix from
-    Gabriel Paubert.
-
-11) If a DHCP response is delayed, we process it using the wrong
-    state if we send a request again meanwhile.  Fix from Chris Friesen=
-=2E
-
-12) Make INET_LRO behavior match it's help text.  From Frans Pop.
-
-Please pull, thanks a lot!
-
-The following changes since commit 279e677faa775ad16e75c32e1bf4a37f8158=
-bc61:
-  Linus Torvalds (1):
-        Merge branch 'fixes-for-linus' of git://git.monstr.eu/linux-2.6=
--microblaze
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ajit Khaparde (1):
-      be2net: add two new pci device ids to pci device table
-
-Chris Friesen (1):
-      ipconfig: handle case of delayed DHCP server
-
-David S. Miller (3):
-      Merge branch 'master' of git://git.kernel.org/.../holtmann/blueto=
-oth-2.6
-      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-      Merge branch 'linux-2.6.30.y' of git://git.kernel.org/.../inaky/w=
-imax
-
-Eric Dumazet (2):
-      sch_teql: should not dereference skb after ndo_start_xmit()
-      pkt_sched: gen_estimator: use 64 bit intermediate counters for bp=
-s
-
-=46rans Pop (1):
-      ipv4: make default for INET_LRO consistent with help text
-
-Gabriel Paubert (1):
-      mv643xx_eth: fix PPC DMA breakage
-
-Ilpo J=E4rvinen (1):
-      tcp: fix MSG_PEEK race check
-
-Inaky Perez-Gonzalez (1):
-      wimax/i2400m: fix device crash: fix optimization in _roq_queue_up=
-date_ws
-
-Pavel Emelyanov (1):
-      netpoll: don't dereference NULL dev from np
-
-Ralf Baechle (1):
-      NET: Meth: Fix unsafe mix of irq and non-irq spinlocks.
-
-Stephen Hemminger (3):
-      bridge: relay bridge multicast pkgs if !STP
-      bridge: fix initial packet flood if !STP
-      bonding: fix link down handling in 802.3ad mode
-
-Thomas Chenault (1):
-      net: fix skb_seq_read returning wrong offset/length for page frag=
- data
-
-Wang Tinggong (1):
-      Doc: fixed descriptions on /proc/sys/net/core/* and /proc/sys/net=
-/unix/*
-
-Yevgeny Petrilin (1):
-      mlx4_en: Fix not deleted napi structures
-
-roel kluin (1):
-      Neterion: *FIFO1_DMA_ERR set twice, should 2nd be *FIFO2_DMA_ERR?
-
- Documentation/networking/ip-sysctl.txt |   15 +++++++++--
- drivers/net/benet/be.h                 |   14 +++++++++++
- drivers/net/benet/be_main.c            |   10 ++++----
- drivers/net/bonding/bond_3ad.c         |   11 ++++++--
- drivers/net/meth.c                     |   27 +++++++++++----------
- drivers/net/mlx4/en_cq.c               |    4 ++-
- drivers/net/mv643xx_eth.c              |   41 +++++++++++++++++-------=
--------
- drivers/net/vxge/vxge-traffic.c        |    2 +-
- drivers/net/wimax/i2400m/rx.c          |    5 +--
- net/bridge/br_input.c                  |    5 ++++
- net/bridge/br_stp.c                    |    3 ++
- net/core/gen_estimator.c               |   13 +++++----
- net/core/netpoll.c                     |    8 ++++-
- net/core/skbuff.c                      |    2 +-
- net/ipv4/Kconfig                       |    2 +-
- net/ipv4/ipconfig.c                    |   12 +++++++++
- net/ipv4/tcp.c                         |    5 +++-
- net/sched/sch_teql.c                   |    5 ++-
- 18 files changed, 123 insertions(+), 61 deletions(-)
