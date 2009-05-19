@@ -1,224 +1,83 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 17:32:29 +0200
-Message-ID: <4A12D10D.3000504@cosmosbay.com>
-References: <20090519123417.GA7376@ff.dom.local>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ixgbe issues in 2.6.29.3
+Date: Tue, 19 May 2009 08:51:37 -0700
+Message-ID: <4A12D589.7040002@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lav@yar.ru, Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:44683 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752949AbZESPcm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 11:32:42 -0400
-In-Reply-To: <20090519123417.GA7376@ff.dom.local>
+Received: from mail.candelatech.com ([208.74.158.172]:54037 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108AbZESPvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 11:51:35 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n4JFpaPm014870
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 19 May 2009 08:51:37 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski a =E9crit :
-> On 19-05-2009 04:35, Stephen Hemminger wrote:
->> Begin forwarded message:
->>
->> Date: Mon, 18 May 2009 14:10:20 GMT
->> From: bugzilla-daemon@bugzilla.kernel.org
->> To: shemminger@linux-foundation.org
->> Subject: [Bug 13339] New: rtable leak in ipv4/route.c
->>
->>
->> http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> ...
->> 2.6.29 patch has introduced flexible route cache rebuilding. Unfortu=
-nately the
->> patch has at least one critical flaw, and another problem.
->>
->> rt_intern_hash calculates rthi pointer, which is later used for new =
-entry
->> insertion. The same loop calculates cand pointer which is used to cl=
-ean the
->> list. If the pointers are the same, rtable leak occurs, as first the=
- cand is
->> removed then the new entry is appended to it.
->>
->> This leak leads to unregister_netdevice problem (usage count > 0).
->>
->> Another problem of the patch is that it tries to insert the entries =
-in certain
->> order, to facilitate counting of entries distinct by all but QoS par=
-ameters.
->> Unfortunately, referencing an existing rtable entry moves it to list=
- beginning,
->> to speed up further lookups, so the carefully built order is destroy=
-ed.
+I'm using 2.6.29.3 (plus my hacks, but no changes to ixgbe for what that's worth).
 
-We could change rt_check_expire() to be smarter and handle any order in=
- chains.
+I just got some new hardware:  Dual Intel E5530 processors, 12GB RAM, etc
+and put in a dual-port 10G NIC with Intel chipset (though made by Silicom).
 
-This would let rt_intern_hash() be simpler.
+I tried changing MTU from 1500 to 9000 and started pktgen, and I noticed that a process
+that does ethtool ioctls was using 99% of a CPU and strace showed
+nothing (and would not ctrl-C to exit).  I have modified pktgen, btw.
 
-As its a more performance critical path, all would be good :)
+Some other applications hung as well, and I found this in the logs.
 
->>
->> For the first problem the simplest patch it to set rthi=3D0 when rth=
-i=3D=3Dcand, but
->> it will also destroy the ordering.
->=20
-> I think fixing this bug fast is more important than this
-> ordering or counting. Could you send your patch proposal?
->=20
+There is a lot of new stuff in my setup, and this could be symptom instead
+of cause, but thought I'd post the trace in case it helps.
 
-Here is mine, only compiled, not tested yet.
+ixgbe: eth1: ixgbe_change_mtu: changing MTU from 1500 to 9000
+------------[ cut here ]------------
+WARNING: at /home/greearb/git/linux-2.6.dev.28/net/sched/sch_generic.c:226 dev_watchdog+0xe7/0x148()
+Hardware name: X8DTU
+NETDEV WATCHDOG: eth1 (ixgbe): transmit timed out
+Modules linked in: nf_defrag_ipv4 nfs lockd nfs_acl auth_rpcgss 8021q garp redirdev arc4 michael_mic macvlan wanlink(P) pktgen stp bnep sco l2cap bluetooth 
+sunrpc ipv6 cpufreq_ondemand acpi_cpufreq freq_table loop dm_multipath scsi_dh uinput pcspkr sg i2c_i801 i2c_core iTCO_wdt iTCO_vendor_support e1000e ixgbe igb 
+dca inet_lro button sr_mod cdrom joydev dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod ata_piix ata_generic pata_acpi libata sd_mod scsi_mod ext3 
+jbd mbcache uhci_hcd ohci_hcd ssb ehci_hcd [last unloaded: x_tables]
+Pid: 0, comm: swapper Tainted: P        W  2.6.29.3 #4
+Call Trace:
+  <IRQ>  [<ffffffff8103e67a>] warn_slowpath+0xd3/0xf2
+  [<ffffffff810306bb>] ? __enqueue_entity+0x74/0x76
+  [<ffffffff81032369>] ? enqueue_entity+0x1a0/0x1a9
+  [<ffffffff8103240a>] ? enqueue_task_fair+0x3e/0x43
+  [<ffffffff812c49ce>] ? _spin_unlock_irqrestore+0x40/0x44
+  [<ffffffff8102fd3a>] ? task_rq_unlock+0xc/0xe
+  [<ffffffff8103a39b>] ? try_to_wake_up+0x2a7/0x2b9
+  [<ffffffff810519e0>] ? autoremove_wake_function+0x11/0x38
+  [<ffffffff81011a1c>] ? __cycles_2_ns+0x23/0x42
+  [<ffffffff812c46d0>] ? _spin_lock+0x1e/0x22
+  [<ffffffff812c4925>] ? _spin_unlock+0x2d/0x38
+  [<ffffffff812526a0>] ? __netif_tx_unlock+0x14/0x16
+  [<ffffffff812526ef>] ? netif_tx_lock+0x4d/0x66
+  [<ffffffff81252772>] ? dev_watchdog+0x0/0x148
+  [<ffffffff81252859>] dev_watchdog+0xe7/0x148
+  [<ffffffff81053d28>] ? hrtimer_hres_active+0x1a/0x30
+  [<ffffffff8104728b>] run_timer_softirq+0x126/0x19c
+  [<ffffffff81043332>] __do_softirq+0x66/0xe8
+  [<ffffffff8100d36c>] call_softirq+0x1c/0x34
+  [<ffffffff8100e5b4>] do_softirq+0x34/0x78
+  [<ffffffff8104321f>] irq_exit+0x36/0x8a
+  [<ffffffff8101bea4>] smp_apic_timer_interrupt+0x76/0x83
+  [<ffffffff8100cda3>] apic_timer_interrupt+0x13/0x20
+  <EOI>  [<ffffffff811a1009>] ? acpi_idle_enter_bm+0x236/0x26d
+  [<ffffffff811a0fff>] ? acpi_idle_enter_bm+0x22c/0x26d
+  [<ffffffff8121d5cc>] ? cpuidle_idle_call+0x80/0xb8
+  [<ffffffff8100ab77>] ? cpu_idle+0x4f/0x92
+  [<ffffffff812be8b3>] ? start_secondary+0x181/0x186
+---[ end trace 8256d1ae7f76313d ]---
 
-All credits for Stephen for doing the analysis of course :)
+Thanks,
+Ben
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c4c60e9..fbe77ad 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -780,12 +780,37 @@ static void rt_do_flush(int process_context)
- #define FRACT_BITS 3
- #define ONE (1UL << FRACT_BITS)
-=20
-+static unsigned long compute_length(struct rtable *head)
-+{
-+	struct rtable *rth, *aux;
-+	unsigned long length =3D 0;
-+
-+	for (rth =3D head; rth !=3D NULL; rth =3D rth->u.dst.rt_next) {
-+		/*
-+		 * We ignore items having same hash inputs
-+		 * so that entries for different QOS
-+		 * levels, and other non-hash input
-+		 * attributes don't unfairly skew
-+		 * the length computation
-+		 */
-+		for (aux =3D head; ;aux =3D aux->u.dst.rt_next) {
-+			if (aux =3D=3D rth) {
-+				length +=3D ONE;
-+				break;
-+			}
-+			if (compare_hash_inputs(&aux->fl, &rth->fl))
-+				break;
-+		}
-+	}
-+	return length;
-+}
-+
- static void rt_check_expire(void)
- {
- 	static unsigned int rover;
- 	unsigned int i =3D rover, goal;
- 	struct rtable *rth, **rthp;
--	unsigned long length =3D 0, samples =3D 0;
-+	unsigned long length, samples =3D 0;
- 	unsigned long sum =3D 0, sum2 =3D 0;
- 	u64 mult;
-=20
-@@ -795,7 +820,6 @@ static void rt_check_expire(void)
- 	goal =3D (unsigned int)mult;
- 	if (goal > rt_hash_mask)
- 		goal =3D rt_hash_mask + 1;
--	length =3D 0;
- 	for (; goal > 0; goal--) {
- 		unsigned long tmo =3D ip_rt_gc_timeout;
-=20
-@@ -821,29 +845,11 @@ static void rt_check_expire(void)
- 				if (time_before_eq(jiffies, rth->u.dst.expires)) {
- 					tmo >>=3D 1;
- 					rthp =3D &rth->u.dst.rt_next;
--					/*
--					 * Only bump our length if the hash
--					 * inputs on entries n and n+1 are not
--					 * the same, we only count entries on
--					 * a chain with equal hash inputs once
--					 * so that entries for different QOS
--					 * levels, and other non-hash input
--					 * attributes don't unfairly skew
--					 * the length computation
--					 */
--					if ((*rthp =3D=3D NULL) ||
--					    !compare_hash_inputs(&(*rthp)->fl,
--								 &rth->fl))
--						length +=3D ONE;
- 					continue;
- 				}
- 			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
- 				tmo >>=3D 1;
- 				rthp =3D &rth->u.dst.rt_next;
--				if ((*rthp =3D=3D NULL) ||
--				    !compare_hash_inputs(&(*rthp)->fl,
--							 &rth->fl))
--					length +=3D ONE;
- 				continue;
- 			}
-=20
-@@ -851,6 +857,7 @@ static void rt_check_expire(void)
- 			*rthp =3D rth->u.dst.rt_next;
- 			rt_free(rth);
- 		}
-+		length =3D compute_length(rt_hash_table[i].chain);
- 		spin_unlock_bh(rt_hash_lock_addr(i));
- 		sum +=3D length;
- 		sum2 +=3D length*length;
-@@ -1068,7 +1075,6 @@ out:	return 0;
- static int rt_intern_hash(unsigned hash, struct rtable *rt, struct rta=
-ble **rp)
- {
- 	struct rtable	*rth, **rthp;
--	struct rtable	*rthi;
- 	unsigned long	now;
- 	struct rtable *cand, **candp;
- 	u32 		min_score;
-@@ -1088,7 +1094,6 @@ restart:
- 	}
-=20
- 	rthp =3D &rt_hash_table[hash].chain;
--	rthi =3D NULL;
-=20
- 	spin_lock_bh(rt_hash_lock_addr(hash));
- 	while ((rth =3D *rthp) !=3D NULL) {
-@@ -1134,17 +1139,6 @@ restart:
- 		chain_length++;
-=20
- 		rthp =3D &rth->u.dst.rt_next;
--
--		/*
--		 * check to see if the next entry in the chain
--		 * contains the same hash input values as rt.  If it does
--		 * This is where we will insert into the list, instead of
--		 * at the head.  This groups entries that differ by aspects not
--		 * relvant to the hash function together, which we use to adjust
--		 * our chain length
--		 */
--		if (*rthp && compare_hash_inputs(&(*rthp)->fl, &rt->fl))
--			rthi =3D rth;
- 	}
-=20
- 	if (cand) {
-@@ -1205,10 +1199,7 @@ restart:
- 		}
- 	}
-=20
--	if (rthi)
--		rt->u.dst.rt_next =3D rthi->u.dst.rt_next;
--	else
--		rt->u.dst.rt_next =3D rt_hash_table[hash].chain;
-+	rt->u.dst.rt_next =3D rt_hash_table[hash].chain;
-=20
- #if RT_CACHE_DEBUG >=3D 2
- 	if (rt->u.dst.rt_next) {
-@@ -1224,10 +1215,7 @@ restart:
- 	 * previous writes to rt are comitted to memory
- 	 * before making rt visible to other CPUS.
- 	 */
--	if (rthi)
--		rcu_assign_pointer(rthi->u.dst.rt_next, rt);
--	else
--		rcu_assign_pointer(rt_hash_table[hash].chain, rt);
-+	rcu_assign_pointer(rt_hash_table[hash].chain, rt);
-=20
- 	spin_unlock_bh(rt_hash_lock_addr(hash));
- 	*rp =3D rt;
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
