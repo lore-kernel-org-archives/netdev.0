@@ -1,38 +1,31 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/3] virtio: indirect ring entries (VIRTIO_RING_F_INDIRECT_DESC)
-Date: Tue, 19 May 2009 17:45:00 +0930
-Message-ID: <200905191745.00563.rusty@rustcorp.com.au>
-References: <1229620222-22216-1-git-send-email-markmc@redhat.com> <200905172346.14498.rusty@rustcorp.com.au> <4A1027C3.3080109@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: gen_estimator: use 64 bits intermediate
+ counters for bps
+Date: Tue, 19 May 2009 01:18:38 -0700 (PDT)
+Message-ID: <20090519.011838.08723886.davem@davemloft.net>
+References: <4A11F67B.3050805@cosmosbay.com>
+	<20090519070252.GA4210@ff.dom.local>
+	<4A126058.7030605@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>, dlaor@redhat.com,
-	netdev@vger.kernel.org, Dor Laor <dor@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Avi Kivity <avi@redhat.com>
+Cc: jarkao2@gmail.com, vexwek@gmail.com, netdev@vger.kernel.org,
+	kaber@trash.net, devik@cdi.cz
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:35314 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750778AbZESIPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 04:15:10 -0400
-In-Reply-To: <4A1027C3.3080109@redhat.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55790
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750898AbZESISk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 04:18:40 -0400
+In-Reply-To: <4A126058.7030605@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 May 2009 12:35:39 am Avi Kivity wrote:
-> Rusty Russell wrote:
-> > No, it's true for block.  It has output parts, so we should reduce
-> > threshold when it's full.  Network recvq is an example which should
-> > reduce threshold when it's empty.
->
-> You mean the header that contains the sector number?  It's a little
-> incidental, but I guess it works.
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 19 May 2009 09:31:36 +0200
 
-Yes, the one which breaks is randomness.  You really do just throw buffers with 
-no metadata in them and the request is implied. If/when we care, we can add a 
-hint flag.
+> Apparently gcc does the *right* thing on x86_32, but we probably
+> want something stronger here. I could not find gcc documentation
+> statement on right shifts of negative values.
 
-Cheers,
-Rusty.
+It emits an "arithmetic shift right" for every CPU I've ever checked.
