@@ -1,34 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Allow selecting mv643xx_eth on Pegasos again
-Date: Mon, 18 May 2009 19:35:49 -0700 (PDT)
-Message-ID: <20090518.193549.98339424.davem@davemloft.net>
-References: <20090518221847.GA17348@iram.es>
-	<598D5675D34BE349929AF5EDE9B03E2702C2D459@az33exm24.fsl.freescale.net>
-	<20090518232113.GA18469@iram.es>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
+Date: Mon, 18 May 2009 19:35:59 -0700
+Message-ID: <20090518193559.05295fe4@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Emilian.Medve@freescale.com, buytenh@wantstofly.org,
-	tbm@cyrius.com, linuxppc-dev@ozlabs.org, pacman@kosh.dhis.org,
-	netdev@vger.kernel.org
-To: paubert@iram.es
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40730
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753218AbZESCfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:35:51 -0400
-In-Reply-To: <20090518232113.GA18469@iram.es>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54442 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753249AbZESCgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:36:07 -0400
+Received: from nehalam (pool-71-117-243-208.ptldor.fios.verizon.net [71.117.243.208])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id n4J2a5BB015328
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 18 May 2009 19:36:07 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gabriel Paubert <paubert@iram.es>
-Date: Tue, 19 May 2009 01:21:13 +0200
 
-> Since PPC_MUTIPLATFORM was removed, it was impossible to select the
-> driver for mv643xx_eth on the Pegasos. Fix it and take the opportunity
-> to remove the stale MV64360 config option.
-> 
-> Signed-off-by: Gabriel Paubert <paubert@iram.es>
 
-This patch doesn't even apply to net-next-2.6, please send me
-changes relative to that.
+Begin forwarded message:
+
+Date: Mon, 18 May 2009 14:10:20 GMT
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 13339] New: rtable leak in ipv4/route.c
+
+
+http://bugzilla.kernel.org/show_bug.cgi?id=13339
+
+           Summary: rtable leak in ipv4/route.c
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.29
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: lav@yar.ru
+        Regression: Yes
+
+
+2.6.29 patch has introduced flexible route cache rebuilding. Unfortunately the
+patch has at least one critical flaw, and another problem.
+
+rt_intern_hash calculates rthi pointer, which is later used for new entry
+insertion. The same loop calculates cand pointer which is used to clean the
+list. If the pointers are the same, rtable leak occurs, as first the cand is
+removed then the new entry is appended to it.
+
+This leak leads to unregister_netdevice problem (usage count > 0).
+
+Another problem of the patch is that it tries to insert the entries in certain
+order, to facilitate counting of entries distinct by all but QoS parameters.
+Unfortunately, referencing an existing rtable entry moves it to list beginning,
+to speed up further lookups, so the carefully built order is destroyed.
+
+For the first problem the simplest patch it to set rthi=0 when rthi==cand, but
+it will also destroy the ordering.
+
+-- 
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
+
+
+-- 
