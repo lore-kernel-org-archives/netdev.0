@@ -1,38 +1,38 @@
 From: Michael Buesch <mb@bu3sch.de>
 Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
-Date: Tue, 19 May 2009 15:22:40 +0200
-Message-ID: <200905191522.40519.mb@bu3sch.de>
-References: <4A11DCBF.9000700@free.fr>
+Date: Tue, 19 May 2009 15:24:20 +0200
+Message-ID: <200905191524.20421.mb@bu3sch.de>
+References: <4A11DCBF.9000700@free.fr> <20090518224128.GA11912@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: matthieu castet <castet.matthieu@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bu3sch.de ([62.75.166.246]:51661 "EHLO vs166246.vserver.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751873AbZESNX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 09:23:57 -0400
-In-Reply-To: <4A11DCBF.9000700@free.fr>
+Cc: matthieu castet <castet.matthieu@free.fr>,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20090518224128.GA11912@tuxdriver.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 19 May 2009 00:10:07 matthieu castet wrote:
-> Hi,
+On Tuesday 19 May 2009 00:41:28 John W. Linville wrote:
+> On Tue, May 19, 2009 at 12:10:07AM +0200, matthieu castet wrote:
+> > Hi,
+> >
+> > this patch export ssb_watchdog_timer_set to allow to use it in a Linux  
+> > watchdog driver.
+> >
+> >
+> > Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
 > 
-> this patch export ssb_watchdog_timer_set to allow to use it in a Linux 
-> watchdog driver.
-> 
-> 
-> Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+> What is the merge path for ssb nowadays?  I used to take these patches
+> (and I'm still happy to do so), but maybe Ralf is (or should be)
+> taking them now?
 
-Well, you need to be careful. The watchdog is also used for system reboot.
-Make sure to disable the watchdog driver when the bcm47xx system code wants
-to use it.
-
-Otherwise, ack. You can submit this to linville@tuxdriver.com.
+That depends on his speed. Last time I submitted a patch through his path,
+it bitrotted for several months before it finally hit mainline.
 
 -- 
 Greetings, Michael.
