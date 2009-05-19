@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] ixgbe: Change Direct Attach Twinax
- cable detection for SFP+ NICs
-Date: Tue, 19 May 2009 14:41:05 -0700 (PDT)
-Message-ID: <20090519.144105.260898332.davem@davemloft.net>
-References: <20090519191819.5063.28388.stgit@localhost.localdomain>
-	<20090519191851.5063.42840.stgit@localhost.localdomain>
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Tue, 19 May 2009 17:52:15 -0400
+Message-ID: <4A132A0F.8070800@windriver.com>
+References: <1242068453-5124-1-git-send-email-hong.pham@windriver.com> <20090518.220911.102225532.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37758
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665AbZESVlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 17:41:07 -0400
-In-Reply-To: <20090519191851.5063.42840.stgit@localhost.localdomain>
+Received: from mail.windriver.com ([147.11.1.11]:59657 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750860AbZESVwR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2009 17:52:17 -0400
+In-Reply-To: <20090518.220911.102225532.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 19 May 2009 12:18:51 -0700
-
-> The SFF specification for Direct Attach cable detection has now been
-> ratified.  Previously, DA cable detect was looking at the Twinaxial bit in
-> byte 9 of the SFP+ EEPROM.  The spec now defines active and passive DA
-> cables in byte 8 of the SFP+ EEPROM.  This patch changes the cable
-> detection for both 82598 and 82599 SFP+ adapters to conform to the new
-> spec.
+David Miller wrote:
+> Thanks for tracking down this problem, but I want to understand
+> why this even happens.  As far as I can tell it shouldn't.
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> When we are done polling, the order of events is:
+> 
+> 1) unmask LDG interrupt(s)
+> 2) napi_complete()
+> 3) rearm LDG interrupt(s)
+> 
+> The interrupts should not be sent again until that rearm operation,
+> which is after NAPI is completed.  So the condition you are hitting
+> does not seem possible.
 
-Applied.
+My thoughts exactly... this should not happen.
+
+> Matheos, can the chip violate this?  If an RX event is reported
+> in an LDG, it is masked, and then unmaked the interrupt should
+> not appear until the LDG is also rearmed right?
+
+Unfortunately I don't have a PCIe NIU card to test in an x86 box.  If
+the hang does not happen on x86 (which is my suspicion), that would rule
+out a problem with the NIU chip.  That would mean there's some
+interaction between the NIU and sun4v hypervisor that's causing the
+spurious interrupts.
+
+Hong
