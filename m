@@ -1,33 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_teql: Use net_device internal stats
-Date: Tue, 19 May 2009 15:16:46 -0700 (PDT)
-Message-ID: <20090519.151646.176403748.davem@davemloft.net>
-References: <4A120C8B.80108@cosmosbay.com>
-	<20090518.193438.158960584.davem@davemloft.net>
-	<4A1246ED.3080203@cosmosbay.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC 1/5] net: bridge - use is_multicast_ether_addr helper
+Date: Tue, 19 May 2009 15:18:02 -0700
+Message-ID: <20090519151802.22debf54@nehalam>
+References: <20090511114639.440944109@openvz.org>
+	<20090511125350.555985895@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, xemul@openvz.org,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Cyrill Gorcunov <gorcunov@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53318
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754197AbZESWQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:16:48 -0400
-In-Reply-To: <4A1246ED.3080203@cosmosbay.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41238 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754019AbZESWSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:18:17 -0400
+In-Reply-To: <20090511125350.555985895@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 19 May 2009 07:43:09 +0200
+On Mon, 11 May 2009 15:46:40 +0400
+Cyrill Gorcunov <gorcunov@openvz.org> wrote:
 
-> [PATCH] sch_teql: Use net_device internal stats
+> Instead of handwritten constrcution it's better 
+> to use is_multicast_ether_addr.
 > 
-> We can slightly reduce size of teqlN structure, not duplicating stats structure
-> in teql_master but using stats field from net_device.stats for tx_errors and from 
-> netdev_queue for tx_bytes/tx_packets/tx_dropped values.
+> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+> ---
+>  net/bridge/br_device.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Index: linux-2.6.git/net/bridge/br_device.c
+> =====================================================================
+> --- linux-2.6.git.orig/net/bridge/br_device.c
+> +++ linux-2.6.git/net/bridge/br_device.c
+> @@ -32,7 +32,7 @@ int br_dev_xmit(struct sk_buff *skb, str
+>  	skb_reset_mac_header(skb);
+>  	skb_pull(skb, ETH_HLEN);
+>  
+> -	if (dest[0] & 1)
+> +	if (is_multicast_ether_addr(dest))
+>  		br_flood_deliver(br, skb);
+>  	else if ((dst = __br_fdb_get(br, dest)) != NULL)
+>  		br_deliver(dst->dst, skb);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Applied, thanks!
+
+This is trivial and fine.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
