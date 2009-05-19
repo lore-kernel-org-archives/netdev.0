@@ -1,7 +1,7 @@
 From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 12:20:48 -0400
-Message-ID: <20090519162048.GB28034@hmsreliant.think-freely.org>
+Date: Tue, 19 May 2009 12:23:30 -0400
+Message-ID: <20090519162330.GC28034@hmsreliant.think-freely.org>
 References: <20090519123417.GA7376@ff.dom.local> <4A12D10D.3000504@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -11,10 +11,10 @@ Cc: Jarek Poplawski <jarkao2@gmail.com>, lav@yar.ru,
 	netdev@vger.kernel.org
 To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60049 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60057 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850AbZESQVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 12:21:06 -0400
+	with ESMTP id S1753544AbZESQXm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 12:23:42 -0400
 Content-Disposition: inline
 In-Reply-To: <4A12D10D.3000504@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
@@ -73,40 +73,61 @@ thi=3D=3Dcand, but
 > >=20
 >=20
 
-I was thinking something along these lines (also completely untested). =
- The
-extra check in rt_intern hash prevents us from identifying a 'group lea=
-der' that
-is about to be deleted, and sets rthi to point at the group leader rath=
-er than
-the last entry in the group as it previously did, which we then mark wi=
-th the
-new flag in the dst_entry (updating it on rt_free of course).  This let=
-s us
-identify the boundaries of a group, so when we do a move to front herui=
-stic, we
-can move the entire group rather than just the single entry.    I prefe=
-r this to
-Erics approach since, even though rt_check_expire isn't in a performanc=
-e
-critical path, the addition of the extra list search when the list is u=
-nordered
-makes rt_check_expire run in O(n^2) rather than O(n), which I think wil=
-l have a
-significant impact on high traffic systems.  Since the ordered list cre=
-ation was
-done at almost zero performance cost in rt_intern_hash, I'd like to kee=
-p it if
-at all possible.
+Of course, it helps if I attach the patch :)
 
-There is of course a shortcomming in my patch in that it doesn't actual=
-ly do
-anything currently with DST_GRPLDR other than set/clear it appropriatel=
-y, I've
-yet to identify where the route cache move to front heruistic is implem=
-ented.
-If someone could show me where that is, I'd be happy to finish this pat=
-ch.
 
-Neil
-
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 6be3b08..a39db6d 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -47,6 +47,7 @@ struct dst_entry
+ #define DST_NOXFRM		2
+ #define DST_NOPOLICY		4
+ #define DST_NOHASH		8
++#define DST_GRPLDR		16
+ 	unsigned long		expires;
+=20
+ 	unsigned short		header_len;	/* more space at head required */
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index c4c60e9..0120f0e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -610,6 +610,8 @@ static inline int ip_rt_proc_init(void)
+=20
+ static inline void rt_free(struct rtable *rt)
+ {
++	if (rt->u.dst.flags & DST_GRPLDR)
++		rt->u.dst.rt_next->u.dst.flag |=3D DST_GRPLDR;
+ 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
+ }
+=20
+@@ -1143,8 +1145,11 @@ restart:
+ 		 * relvant to the hash function together, which we use to adjust
+ 		 * our chain length
+ 		 */
+-		if (*rthp && compare_hash_inputs(&(*rthp)->fl, &rt->fl))
++		if (!*rthi && *rthp &&=20
++		    compare_hash_inputs(&(*rthp)->fl, &rt->fl) &&
++		    (cand !=3D rth))
+ 			rthi =3D rth;
++		}
+ 	}
+=20
+ 	if (cand) {
+@@ -1205,11 +1210,14 @@ restart:
+ 		}
+ 	}
+=20
+-	if (rthi)
++	if (rthi) {
+ 		rt->u.dst.rt_next =3D rthi->u.dst.rt_next;
+-	else
++		rthi->u.dst.flags &=3D ~(DST_GRPLDR);
++	} else
+ 		rt->u.dst.rt_next =3D rt_hash_table[hash].chain;
+=20
++	rt->u.dst.flags |=3D DST_GRPLDR;
++
+ #if RT_CACHE_DEBUG >=3D 2
+ 	if (rt->u.dst.rt_next) {
+ 		struct rtable *trt;
