@@ -1,130 +1,183 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/3] ixgbe: Change Direct Attach Twinax cable
-	detection for SFP+ NICs
-Date: Tue, 19 May 2009 12:18:51 -0700
-Message-ID: <20090519191851.5063.42840.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/3] ixgbe: Cleanup feature setup code to make
+	the code more readable
+Date: Tue, 19 May 2009 12:19:11 -0700
+Message-ID: <20090519191911.5063.75627.stgit@localhost.localdomain>
 References: <20090519191819.5063.28388.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:43667 "EHLO
-	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753127AbZESTTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 15:19:08 -0400
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:47537 "EHLO
+	QMTA07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751051AbZESTT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 15:19:26 -0400
 In-Reply-To: <20090519191819.5063.28388.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The SFF specification for Direct Attach cable detection has now been
-ratified.  Previously, DA cable detect was looking at the Twinaxial bit in
-byte 9 of the SFP+ EEPROM.  The spec now defines active and passive DA
-cables in byte 8 of the SFP+ EEPROM.  This patch changes the cable
-detection for both 82598 and 82599 SFP+ adapters to conform to the new
-spec.
+This is purely a cleanup patch.  This collapses some of the code required
+when we configure our Tx and Rx feature sets, and makes the code more
+readable and maintainable.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_phy.c |   20 +++++++++-----------
- drivers/net/ixgbe/ixgbe_phy.h |    4 ++--
- 2 files changed, 11 insertions(+), 13 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   85 ++++++++++++++++++++++++----------------
+ 1 files changed, 50 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 6d385ea..8210b49 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -527,7 +527,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 	u8 comp_codes_1g = 0;
- 	u8 comp_codes_10g = 0;
- 	u8 oui_bytes[3] = {0, 0, 0};
--	u8 transmission_media = 0;
-+	u8 cable_tech = 0;
- 	u16 enforce_sfp = 0;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index d342619..3d5f7f5 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1747,10 +1747,11 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
+ 	u32 srrctl;
+ 	int queue0 = 0;
+ 	unsigned long mask;
++	struct ixgbe_ring_feature *feature = adapter->ring_feature;
  
- 	status = hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_IDENTIFIER,
-@@ -543,8 +543,8 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 		                            &comp_codes_1g);
- 		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_10GBE_COMP_CODES,
- 		                            &comp_codes_10g);
--		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_TRANSMISSION_MEDIA,
--		                            &transmission_media);
-+		hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_CABLE_TECHNOLOGY,
-+		                            &cable_tech);
- 
- 		/* ID Module
- 		 * =========
-@@ -557,7 +557,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 		 * 6    SFP_SR/LR_CORE1 - 82599-specific
- 		 */
- 		if (hw->mac.type == ixgbe_mac_82598EB) {
--			if (transmission_media & IXGBE_SFF_TWIN_AX_CAPABLE)
-+			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
- 				hw->phy.sfp_type = ixgbe_sfp_type_da_cu;
- 			else if (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)
- 				hw->phy.sfp_type = ixgbe_sfp_type_sr;
-@@ -566,7 +566,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 			else
- 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
- 		} else if (hw->mac.type == ixgbe_mac_82599EB) {
--			if (transmission_media & IXGBE_SFF_TWIN_AX_CAPABLE)
-+			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
- 				if (hw->bus.lan_id == 0)
- 					hw->phy.sfp_type =
- 					             ixgbe_sfp_type_da_cu_core0;
-@@ -621,8 +621,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 
- 			switch (vendor_oui) {
- 			case IXGBE_SFF_VENDOR_OUI_TYCO:
--				if (transmission_media &
--				    IXGBE_SFF_TWIN_AX_CAPABLE)
-+				if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
- 					hw->phy.type = ixgbe_phy_tw_tyco;
- 				break;
- 			case IXGBE_SFF_VENDOR_OUI_FTL:
-@@ -635,8 +634,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 				hw->phy.type = ixgbe_phy_sfp_intel;
- 				break;
- 			default:
--				if (transmission_media &
--				    IXGBE_SFF_TWIN_AX_CAPABLE)
-+				if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
- 					hw->phy.type = ixgbe_phy_tw_unknown;
- 				else
- 					hw->phy.type = ixgbe_phy_sfp_unknown;
-@@ -644,8 +642,8 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 			}
+ 	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
+ 		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			int dcb_i = adapter->ring_feature[RING_F_DCB].indices;
++			int dcb_i = feature[RING_F_DCB].indices;
+ 			if (dcb_i == 8)
+ 				queue0 = index >> 4;
+ 			else if (dcb_i == 4)
+@@ -1773,7 +1774,7 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
+ 			queue0 = index;
  		}
+ 	} else {
+-		mask = (unsigned long) adapter->ring_feature[RING_F_RSS].mask;
++		mask = (unsigned long) feature[RING_F_RSS].mask;
+ 		queue0 = index & mask;
+ 		index = index & mask;
+ 	}
+@@ -1804,6 +1805,36 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
+ 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_SRRCTL(index), srrctl);
+ }
  
--		/* All DA cables are supported */
--		if (transmission_media & IXGBE_SFF_TWIN_AX_CAPABLE) {
-+		/* All passive DA cables are supported */
-+		if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE) {
- 			status = 0;
- 			goto out;
- 		}
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index c9964b7..9b700f5 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -39,10 +39,10 @@
- #define IXGBE_SFF_VENDOR_OUI_BYTE2   0x27
- #define IXGBE_SFF_1GBE_COMP_CODES    0x6
- #define IXGBE_SFF_10GBE_COMP_CODES   0x3
--#define IXGBE_SFF_TRANSMISSION_MEDIA 0x9
-+#define IXGBE_SFF_CABLE_TECHNOLOGY   0x8
++static u32 ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
++{
++	u32 mrqc = 0;
++	int mask;
++
++	if (!(adapter->hw.mac.type == ixgbe_mac_82599EB))
++		return mrqc;
++
++	mask = adapter->flags & (IXGBE_FLAG_RSS_ENABLED
++#ifdef CONFIG_IXGBE_DCB
++				 | IXGBE_FLAG_DCB_ENABLED
++#endif
++				);
++
++	switch (mask) {
++	case (IXGBE_FLAG_RSS_ENABLED):
++		mrqc = IXGBE_MRQC_RSSEN;
++		break;
++#ifdef CONFIG_IXGBE_DCB
++	case (IXGBE_FLAG_DCB_ENABLED):
++		mrqc = IXGBE_MRQC_RT8TCEN;
++		break;
++#endif /* CONFIG_IXGBE_DCB */
++	default:
++		break;
++	}
++
++	return mrqc;
++}
++
+ /**
+  * ixgbe_configure_rx - Configure 8259x Receive Unit after Reset
+  * @adapter: board private structure
+@@ -1877,8 +1908,10 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl & ~IXGBE_RXCTRL_RXEN);
  
- /* Bitmasks */
--#define IXGBE_SFF_TWIN_AX_CAPABLE            0x80
-+#define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
- #define IXGBE_SFF_1GBASESX_CAPABLE           0x1
- #define IXGBE_SFF_1GBASELX_CAPABLE           0x2
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
+-	/* Setup the HW Rx Head and Tail Descriptor Pointers and
+-	 * the Base and Length of the Rx Descriptor Ring */
++	/*
++	 * Setup the HW Rx Head and Tail Descriptor Pointers and
++	 * the Base and Length of the Rx Descriptor Ring
++	 */
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		rdba = adapter->rx_ring[i].dma;
+ 		j = adapter->rx_ring[i].reg_idx;
+@@ -1922,23 +1955,8 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	}
+ 
+ 	/* Program MRQC for the distribution of queues */
+-	if (hw->mac.type == ixgbe_mac_82599EB) {
+-		int mask = adapter->flags & (
+-				IXGBE_FLAG_RSS_ENABLED
+-				| IXGBE_FLAG_DCB_ENABLED
+-				);
++	mrqc = ixgbe_setup_mrqc(adapter);
+ 
+-		switch (mask) {
+-		case (IXGBE_FLAG_RSS_ENABLED):
+-			mrqc = IXGBE_MRQC_RSSEN;
+-			break;
+-		case (IXGBE_FLAG_DCB_ENABLED):
+-			mrqc = IXGBE_MRQC_RT8TCEN;
+-			break;
+-		default:
+-			break;
+-		}
+-	}
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 		/* Fill out redirection table */
+ 		for (i = 0, j = 0; i < 128; i++, j++) {
+@@ -2842,17 +2860,15 @@ static void ixgbe_reset_task(struct work_struct *work)
+ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ {
+ 	bool ret = false;
++	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_DCB];
+ 
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-		adapter->ring_feature[RING_F_DCB].mask = 0x7 << 3;
+-		adapter->num_rx_queues =
+-		                      adapter->ring_feature[RING_F_DCB].indices;
+-		adapter->num_tx_queues =
+-		                      adapter->ring_feature[RING_F_DCB].indices;
+-		ret = true;
+-	} else {
+-		ret = false;
+-	}
++	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
++		return ret;
++
++	f->mask = 0x7 << 3;
++	adapter->num_rx_queues = f->indices;
++	adapter->num_tx_queues = f->indices;
++	ret = true;
+ 
+ 	return ret;
+ }
+@@ -2869,13 +2885,12 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+ {
+ 	bool ret = false;
++	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
+ 
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-		adapter->ring_feature[RING_F_RSS].mask = 0xF;
+-		adapter->num_rx_queues =
+-		                      adapter->ring_feature[RING_F_RSS].indices;
+-		adapter->num_tx_queues =
+-		                      adapter->ring_feature[RING_F_RSS].indices;
++		f->mask = 0xF;
++		adapter->num_rx_queues = f->indices;
++		adapter->num_tx_queues = f->indices;
+ 		ret = true;
+ 	} else {
+ 		ret = false;
 
