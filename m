@@ -1,41 +1,55 @@
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: Re: [PATCH 5/5] sit: stateless autoconf for isatap
-Date: Wed, 20 May 2009 00:57:10 +0200
-Message-ID: <200905200057.11287.contact@saschahlusiak.de>
-References: <1242767023-9501-3-git-send-email-contact@saschahlusiak.de> <1242767023-9501-5-git-send-email-contact@saschahlusiak.de> <20090519.143523.74697967.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bug 13339] New: rtable leak in ipv4/route.c
+Date: Tue, 19 May 2009 19:05:51 -0400
+Message-ID: <20090519230551.GA20555@hmsreliant.think-freely.org>
+References: <20090519162048.GB28034@hmsreliant.think-freely.org> <4A12FEDA.7040806@cosmosbay.com> <20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, jarkao2@gmail.com, lav@yar.ru,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:50935 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754266AbZESWz6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:55:58 -0400
-In-Reply-To: <20090519.143523.74697967.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36939 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754886AbZESXGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 19:06:09 -0400
 Content-Disposition: inline
+In-Reply-To: <20090519.150517.62361946.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +	spin_lock(&ifp->lock);
-> > +	for (addr =3D ifp->addr_list; addr; addr =3D addr->if_next) {
->
-> You posted the same broken patch again!
->
-> net/ipv6/sit.c: In function =E2=80=98ipip6_tunnel_rs_timer=E2=80=99:
-> net/ipv6/sit.c:235: warning: passing argument 1 of =E2=80=98_spin_loc=
-k=E2=80=99 from
-> incompatible pointer type net/ipv6/sit.c:256: warning: passing argume=
-nt 1
-> of =E2=80=98__raw_spin_unlock=E2=80=99 from incompatible pointer type
->
-> This isn't rocket science. :-/
-Sorry, I overlooked I had CONFIT_DEBUG_SPINLOCK unset so the above line=
-s=20
-weren't even compiled.
+On Tue, May 19, 2009 at 03:05:17PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 19 May 2009 15:24:50 -0400
+> 
+> >> Moving whole group in front would defeat the purpose of move, actually,
+> >> since rank in chain is used to decay the timeout in garbage collector.
+> >> (search for tmo >>= 1; )
+> >> 
+> > Argh, so the list is implicitly ordered by expiration time.  That
+> > really defeats the entire purpose of doing grouping in the ilst at
+> > all.  If thats the case, then I agree, its probably better to to
+> > take the additional visitation hit in in check_expire above than to
+> > try and preserve ordering.
+> 
+> Yes, this seems best.
+> 
+> I was worried that somehow the ordering also influences lookups,
+> because the TOS bits don't go into the hash so I worried that it would
+> be important that explicit TOS values appear before wildcard ones.
+> But it doesn't appear that this is an issue, we don't have wildcard
+> TOSs in the rtable entries, they are always explicit.
+> 
+> So I would like to see an explicit final patch from Eric so we can get
+> this fixed now.
+> 
+> Thanks!
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I'm really sorry for all the noise and hope the latest resent patchset =
-is=20
-finally correct. Thanks for your work.
+Agreed, thanks once again for educating me Eric!
+Neil
 
