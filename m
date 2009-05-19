@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_teql: should not dereference skb after
- ndo_start_xmit
-Date: Mon, 18 May 2009 19:34:38 -0700 (PDT)
-Message-ID: <20090518.193438.158960584.davem@davemloft.net>
-References: <4A11391D.8060503@cosmosbay.com>
-	<20090518.151256.217066131.davem@davemloft.net>
-	<4A120C8B.80108@cosmosbay.com>
+Subject: Re: [PATCH v2] Allow selecting mv643xx_eth on Pegasos again
+Date: Mon, 18 May 2009 19:35:49 -0700 (PDT)
+Message-ID: <20090518.193549.98339424.davem@davemloft.net>
+References: <20090518221847.GA17348@iram.es>
+	<598D5675D34BE349929AF5EDE9B03E2702C2D459@az33exm24.fsl.freescale.net>
+	<20090518232113.GA18469@iram.es>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi
-To: dada1@cosmosbay.com
+Cc: Emilian.Medve@freescale.com, buytenh@wantstofly.org,
+	tbm@cyrius.com, linuxppc-dev@ozlabs.org, pacman@kosh.dhis.org,
+	netdev@vger.kernel.org
+To: paubert@iram.es
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40725
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40730
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753112AbZESCek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:34:40 -0400
-In-Reply-To: <4A120C8B.80108@cosmosbay.com>
+	by vger.kernel.org with ESMTP id S1753218AbZESCfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2009 22:35:51 -0400
+In-Reply-To: <20090518232113.GA18469@iram.es>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 19 May 2009 03:34:03 +0200
+From: Gabriel Paubert <paubert@iram.es>
+Date: Tue, 19 May 2009 01:21:13 +0200
 
-> Looking again at teql_master_xmit(), I wonder if there is another
-> problem in it.
+> Since PPC_MUTIPLATFORM was removed, it was impossible to select the
+> driver for mv643xx_eth on the Pegasos. Fix it and take the opportunity
+> to remove the stale MV64360 config option.
 > 
->     int subq = skb_get_queue_mapping(skb);
-> 
-> But as a matter of fact, following code assumes subq is 0
-> 
-> struct netdev_queue *slave_txq = netdev_get_tx_queue(slave, 0);
-> ...
-> if (__netif_subqueue_stopped(slave, subq) ||
-> ...
-> 
-> Either we should set subq to 0, or call dev_pick_tx() to better
-> take into account multi queue slaves ?
-> 
-> (As teqlN has one queue, I assume original dev_queue_xmit() will
-> set skb queue_mapping to 0 before entering teql_master_xmit(), but
-> maybe other paths could call teql_master_xmit() not through dev_queue_xmit() ?
-> 
-> Oh well, time for sleeping a bit...
+> Signed-off-by: Gabriel Paubert <paubert@iram.es>
 
-I was admittedly very hasty with the multiqueue conversion here.
-I'll take a closer look at this.
+This patch doesn't even apply to net-next-2.6, please send me
+changes relative to that.
