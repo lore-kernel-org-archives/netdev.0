@@ -1,44 +1,87 @@
-From: Or Gerlitz <ogerlitz@Voltaire.com>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Tue, 19 May 2009 15:19:02 +0300
-Message-ID: <4A12A3B6.9020505@Voltaire.com>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>	<200905142128.58111.rusty@rustcorp.com.au> <4A0C2500.7090709@Voltaire.com> <200905151448.49851.rusty@rustcorp.com.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
+Date: Tue, 19 May 2009 05:33:16 -0700
+Message-ID: <20090519123316.GA7159@linux.vnet.ibm.com>
+References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu> <20090518160254.GD6768@linux.vnet.ibm.com> <20090519085825.GA9388@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:29620 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751234AbZESMTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 08:19:09 -0400
-In-Reply-To: <200905151448.49851.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755274AbZESMd2@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090519085825.GA9388@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rusty Russell wrote:
-> This patch may help diagnostics tho.
-> virtio: expose features in sysfs
+On Tue, May 19, 2009 at 10:58:25AM +0200, Ingo Molnar wrote:
 > 
-> Each device negotiates feature bits; expose these in sysfs to help
-> diagnostics and debugging.
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
+> > > 
+> > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > > 
+> > > > > i might be missing something fundamental here, but why not just 
+> > > > > have per CPU helper threads, all on the same waitqueue, and wake 
+> > > > > them up via a single wake_up() call? That would remove the SMP 
+> > > > > cross call (wakeups do immediate cross-calls already).
+> > > > 
+> > > > My concern with this is that the cache misses accessing all the 
+> > > > processes on this single waitqueue would be serialized, slowing 
+> > > > things down. In contrast, the bitmask that smp_call_function() 
+> > > > traverses delivers on the order of a thousand CPUs' worth of bits 
+> > > > per cache miss.  I will give it a try, though.
+> > > 
+> > > At least if you go via the migration threads, you can queue up 
+> > > requests to them locally. But there's going to be cachemisses 
+> > > _anyway_, since you have to access them all from a single CPU, 
+> > > and then they have to fetch details about what to do, and then 
+> > > have to notify the originator about completion.
+> > 
+> > Ah, so you are suggesting that I use smp_call_function() to run 
+> > code on each CPU that wakes up that CPU's migration thread?  I 
+> > will take a look at this.
+> 
+> My suggestion was to queue up a dummy 'struct migration_req' up with 
+> it (change migration_req::task == NULL to mean 'nothing') and simply 
+> wake it up using wake_up_process().
 
-okay, this is the info from my guest after applying the patch on its kernel.
+OK.  I was thinking of just using wake_up_process() without the
+migration_req structure, and unconditionally setting a per-CPU
+variable from within migration_thread() just before the list_empty()
+check.  In your approach we would need a NULL-pointer check just
+before the call to __migrate_task().
 
-Or.
+> That will force a quiescent state, without the need for any extra 
+> information, right?
 
+Yep!
 
-[root@vm1 ~]# lspci | grep Ethernet
-00:03.0 Ethernet controller: Qumranet, Inc. Virtio network device
+> This is what the scheduler code does, roughly:
+> 
+>                 wake_up_process(rq->migration_thread);
+>                 wait_for_completion(&req.done);
+> 
+> and this will always have to perform well. The 'req' could be put 
+> into PER_CPU, and a loop could be done like this:
+> 
+> 	for_each_online_cpu(cpu)
+>                 wake_up_process(cpu_rq(cpu)->migration_thread);
+> 
+> 	for_each_online_cpu(cpu)
+>                 wait_for_completion(&per_cpu(req, cpu).done);
+> 
+> hm?
 
-[root@vm1 ~]# cat /sys/class/net/eth0/features
-0x20
+My concern is the linear slowdown for large systems, but this should be
+OK for modest systems (a few 10s of CPUs).  However, I will try it out --
+it does not need to be a long-term solution, after all.
 
-[root@vm1 ~]# cat /sys/class/net/eth0/device/features
-0000010000000000000000001000000000000000000000000000000000000000
-
-
-
+							Thanx, Paul
