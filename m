@@ -1,48 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: fix MSG_PEEK race check
-Date: Mon, 18 May 2009 21:40:39 -0700 (PDT)
-Message-ID: <20090518.214039.143926575.davem@davemloft.net>
-References: <Pine.LNX.4.64.0905180958150.3381@wrl-59.cs.helsinki.fi>
-	<20090518.150433.92463181.davem@davemloft.net>
-	<Pine.LNX.4.64.0905190654400.4379@wrl-59.cs.helsinki.fi>
+Subject: Re: [PATCH] net: fix skb_seq_read returning wrong offset/length
+ for page frag data
+Date: Mon, 18 May 2009 21:44:23 -0700 (PDT)
+Message-ID: <20090518.214423.64792089.davem@davemloft.net>
+References: <65FDECA153DE9A40B78CA281949AC88902A9FBF1@ausx3mps309.aus.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: elendil@planet.nl, matthias.andree@gmx.de, netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Shyam_Iyer@Dell.com, michaelc@cs.wisc.edu
+To: Thomas_Chenault@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33651
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50267
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750840AbZESEkl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 00:40:41 -0400
-In-Reply-To: <Pine.LNX.4.64.0905190654400.4379@wrl-59.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1754604AbZESEoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 00:44:25 -0400
+In-Reply-To: <65FDECA153DE9A40B78CA281949AC88902A9FBF1@ausx3mps309.aus.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 19 May 2009 07:33:02 +0300 (EEST)
+From: <Thomas_Chenault@Dell.com>
+Date: Wed, 13 May 2009 20:33:11 -0500
 
-> Sure, the copied_seq is moving, but what I'm after is that does it re=
-ally=20
-> make any difference from tcp_recvmsg point of view? It certainly trig=
-gers=20
-> the message but that won't work as a proof of the evilness for me.
->=20
-> ...The above paragraph is assuming recvmsg is able to deal with that =
-and=20
-> doesn't choke because of the changing copied_seq. I'd have to audit i=
-t=20
-> once again to verify that it's really ok but I don't see any particul=
-ar=20
-> reason why it couldn't be possible to make recvmsg to not care on the=
-=20
-> tcp_check_urg side copied_seq changes but I'd like to hear a clear=20
-> confirmation on that from you too.
+> When called with a consumed value that is less than skb_headlen(skb)
+> bytes into a page frag, skb_seq_read() incorrectly returns an
+> offset/length relative to skb->data. Ensure that data which should come
+> from a page frag does.
+> 
+> Signed-off-by: Thomas Chenault <thomas_chenault@dell.com>
 
-recvmsg can deal with it fine, because we reset the peek_seq when we
-print out that message.
+Applied and queued up for -stable, thanks.
 
-There is no way that an application writer has any clue about this
-interaction, where peeked bytes disappear and then reappear in
-the out-of-band URG byte.  That's why the message is there.
+> @@ -2288,7 +2288,7 @@ unsigned int skb_seq_read(unsigned int consumed,
+> const u8 **data,
+
+Lots of lines in this patch were chopped up by your email client.
+Please fix this up before you submit any future patches, thanks.
