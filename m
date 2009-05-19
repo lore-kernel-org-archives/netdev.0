@@ -1,69 +1,101 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH, v2] net: release dst entry in dev_hard_start_xmit()
-Date: Tue, 19 May 2009 23:09:37 +0200
-Message-ID: <20090519210937.GA4850@ami.dom.local>
-References: <4A092F59.7020900@cosmosbay.com> <4A093178.9020105@cosmosbay.com> <4A09CD6B.5070604@cosmosbay.com> <20090518.221956.153457626.davem@davemloft.net> <4A130C0E.6000507@cosmosbay.com>
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: [net-next PATCH 1/1] e1000e: Expose MDI-X state via sysfs
+Date: Tue, 19 May 2009 14:05:53 -0700
+Message-ID: <20090519210553.GA2491@clala-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:32936 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753788AbZESVLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 17:11:50 -0400
-Received: by bwz22 with SMTP id 22so55219bwz.37
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 14:11:50 -0700 (PDT)
+Received: from smtp2.riverbed.com ([206.169.144.7]:49665 "EHLO
+	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755089AbZESVPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 17:15:03 -0400
 Content-Disposition: inline
-In-Reply-To: <4A130C0E.6000507@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 09:44:14PM +0200, Eric Dumazet wrote:
-> David Miller a =E9crit :
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Tue, 12 May 2009 21:26:35 +0200
-> >=20
-> >> [PATCH] net: release dst entry in dev_hard_start_xmit()
-> >  ...
-> >> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> >=20
-> > Applied, thanks Eric.
-> >=20
-> > Eric, please followup and double-check the pppoe paths
-> > that Jarek mentioned.  I never saw that fully resolved.
-> >=20
->=20
-> [PATCH] ppp: unset IFF_XMIT_DST_RELEASE in ppp_setup()
->=20
-> Jarek pointed pppoe can call back dev_queue_xmit(), and might need
-> skb->dst, so its safer to unset IFF_XMIT_DST_RELEASE on ppp devices.
+While debugging network connectivity problems, it is often helpful
+to report the MDI-X state. The is_mdix variable holds the current
+state which we expose on a per-interface basis as a sysfs attribute.
+We use sysfs over methods such as netlink due to the convenience of
+reading a file (using the cat command) as opposed to connecting to a
+netlink socket. If we use a fiber PHY then is_mdix will always be zero
+as the mdi-x feature only applies to copper PHYs.
 
-Hmm... Of course, this patch looks OK to me, but actually my main
-concern was more general. We avoid adding such flags for each "real"
-dev, but if so IMHO it would be safer to generally add them to all
-"virtual" devs - needed or not. You prefer to do this only where
-necessary, but it's not always clear if it's omitted on purpose or
-by chance. So, now I'm wondering about xen-netfront - needlessly I
-hope ;-)
+Signed-off-by: Chaitanya Lala <clala@riverbed.com>
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ drivers/net/e1000e/netdev.c |   35 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 35 insertions(+), 0 deletions(-)
 
-Jarek P.
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index ccaaee0..1c131b6 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4765,6 +4765,32 @@ static const struct net_device_ops e1000e_netdev_ops = {
+ #endif
+ };
+ 
++static ssize_t e1000e_show_is_mdix(struct device *dev,
++    struct device_attribute *attr, char *buf)
++{
++	struct net_device *netdev = container_of(dev, struct net_device, dev);
++	struct e1000_adapter *adapter;
++	struct e1000_hw *hw;
++	ssize_t ret = -EINVAL;
++
++	if (!buf)
++		goto err;
++
++	read_lock(&dev_base_lock);
++	if (NETREG_REGISTERED == netdev->reg_state) {
++		adapter = netdev_priv(netdev);
++		hw = &adapter->hw;
++		ret = sprintf(buf, "%d\n", (hw->phy.is_mdix ? 1 : 0));
++	}
++	read_unlock(&dev_base_lock);
++err:
++	return ret;
++}
++
++/* Export attributes for the device */
++static struct device_attribute device_attr_is_mdix =
++    __ATTR(is_mdix, S_IRUGO, e1000e_show_is_mdix, NULL);
++
+ /**
+  * e1000_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -5046,6 +5072,10 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_register;
+ 
++	err = device_create_file(&netdev->dev, &device_attr_is_mdix);
++	if (err)
++		goto err_sys_attr;
++
+ 	/* carrier off reporting is important to ethtool even BEFORE open */
+ 	netif_carrier_off(netdev);
+ 
+@@ -5053,6 +5083,9 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 
+ 	return 0;
+ 
++err_sys_attr:
++	unregister_netdev(netdev);
++
+ err_register:
+ 	if (!(adapter->flags & FLAG_HAS_AMT))
+ 		e1000_release_hw_control(adapter);
+@@ -5105,6 +5138,8 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+ 
+ 	flush_scheduled_work();
+ 
++	device_remove_file(&netdev->dev, &device_attr_is_mdix);
++
+ 	/*
+ 	 * Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant.
+-- 
+1.6.0.4
 
->=20
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> ---
-> diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-> index 8ee9142..639d11b 100644
-> --- a/drivers/net/ppp_generic.c
-> +++ b/drivers/net/ppp_generic.c
-> @@ -1054,6 +1054,7 @@ static void ppp_setup(struct net_device *dev)
->  	dev->type =3D ARPHRD_PPP;
->  	dev->flags =3D IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
->  	dev->features |=3D NETIF_F_NETNS_LOCAL;
-> +	dev->priv_flags &=3D ~IFF_XMIT_DST_RELEASE;
->  }
-> =20
->  /*
->=20
