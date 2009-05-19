@@ -1,54 +1,97 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/7] IPv4/IPv6 unregistration deadlock fixes
-Date: Tue, 19 May 2009 01:07:09 -0700
-Message-ID: <m1octpplci.fsf@fess.ebiederm.org>
-References: <m13ab8s8cr.fsf@fess.ebiederm.org>
-	<20090518.221637.98842683.davem@davemloft.net>
+From: <Tero.Kristo@nokia.com>
+Subject: Network stack timer hacks for power saving
+Date: Tue, 19 May 2009 10:13:02 +0200
+Message-ID: <1F18D6510CF0474A8C9500565A7E41A20544D923FF@NOK-EUMSG-02.mgdnok.nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	shemminger@vyatta.com, greearb@candelatech.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="_002_1F18D6510CF0474A8C9500565A7E41A20544D923FFNOKEUMSG02mgd_"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:49746 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339AbZESIHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 04:07:14 -0400
-In-Reply-To: <20090518.221637.98842683.davem@davemloft.net> (David Miller's message of "Mon\, 18 May 2009 22\:16\:37 -0700 \(PDT\)")
+Received: from smtp.nokia.com ([192.100.122.233]:30919 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720AbZESINx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 04:13:53 -0400
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n4J8DXTn017516
+	for <netdev@vger.kernel.org>; Tue, 19 May 2009 11:13:48 +0300
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+--_002_1F18D6510CF0474A8C9500565A7E41A20544D923FFNOKEUMSG02mgd_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Wed, 13 May 2009 19:53:40 -0700
->
->> A while ago it was noticed that unregistering network devices could cause
->> deadlocks if virtual files that take the rtnl_lock were accessed at the
->> wrong time.
->> 
->> After looking at the different possibilities the only way to solve it
->> cleanly without some kind of busy loop appears to be reducing the scope
->> of the rtnl lock.
->> 
->> I have not tackled the hard fix yet but I have tested our current work
->> around and it does not succeed in restarting the system call and
->> instead leaks -ERESTARNOSYS to userspace, because we do not have a
->> signal pending.
->> 
->> Further the current work around misses several interesting places
->> in the network stack where the deadlock can occur.
->> 
->> I have addressed the problems by making a common helper function
->> and patching all of the places I could find that had this problem.
->
-> I've added these changes to net-next-2.6, thanks.
->
-> I really can't justify sticking this into net-2.6, especially
-> this late in the series, sorry.
+Hi,
 
-No problem.  The problem is ancient.  I just figured it was time to
-start solving it.
+I have been looking at network stack timer optimization for=20
+power saving in embedded ARM environment, basically trying to=20
+avoid as many wakeups as possible. I have changed several=20
+timers in the network stack into deferred ones, i.e. they do=20
+not wake up the device from low power modes but instead they=20
+are deferred until next wakeup from some other source, like=20
+another (non-deferred) timer or some I/O. Attached a patch=20
+about the changes I've done, is something like this safe to do?
 
-Eric
+-Tero=
 
+--_002_1F18D6510CF0474A8C9500565A7E41A20544D923FFNOKEUMSG02mgd_
+Content-Type: application/octet-stream;
+	name="0001-Network-stack-timer-optimizations-for-power-saving.patch"
+Content-Description: 0001-Network-stack-timer-optimizations-for-power-saving.patch
+Content-Disposition: attachment;
+	filename="0001-Network-stack-timer-optimizations-for-power-saving.patch";
+	size=2685; creation-date="Mon, 18 May 2009 16:52:24 GMT";
+	modification-date="Mon, 18 May 2009 16:52:24 GMT"
+Content-Transfer-Encoding: base64
+
+RnJvbSA5Mjg1NjM1NjM1OWZkM2RkNGU4NTkxMTk2NzZhNWZhN2FlZTNiYTc5IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBUZXJvIEtyaXN0byA8dGVyby5rcmlzdG9Abm9raWEuY29tPgpE
+YXRlOiBXZWQsIDEzIE1heSAyMDA5IDE1OjM5OjAwICswMzAwClN1YmplY3Q6IFtQQVRDSF0gTmV0
+d29yayBzdGFjayB0aW1lciBvcHRpbWl6YXRpb25zIGZvciBwb3dlciBzYXZpbmcKClNpZ25lZC1v
+ZmYtYnk6IFRlcm8gS3Jpc3RvIDx0ZXJvLmtyaXN0b0Bub2tpYS5jb20+Ci0tLQogbmV0L2NvcmUv
+Zmxvdy5jICAgICAgICAgIHwgICAgMSArCiBuZXQvY29yZS9uZWlnaGJvdXIuYyAgICAgfCAgICAx
+ICsKIG5ldC9pcHY0L2luZXRfZnJhZ21lbnQuYyB8ICAgIDEgKwogbmV0L2lwdjQvaW5ldHBlZXIu
+YyAgICAgIHwgICAgMSArCiBuZXQvaXB2NC9yb3V0ZS5jICAgICAgICAgfCAgICAxICsKIDUgZmls
+ZXMgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBh
+L25ldC9jb3JlL2Zsb3cuYyBiL25ldC9jb3JlL2Zsb3cuYwppbmRleCA1Y2Y4MTA1Li40NGQ5NjNj
+IDEwMDY0NAotLS0gYS9uZXQvY29yZS9mbG93LmMKKysrIGIvbmV0L2NvcmUvZmxvdy5jCkBAIC0z
+NTIsNiArMzUyLDcgQEAgc3RhdGljIGludCBfX2luaXQgZmxvd19jYWNoZV9pbml0KHZvaWQpCiAJ
+Zmxvd19od20gPSA0ICogZmxvd19oYXNoX3NpemU7CiAKIAlzZXR1cF90aW1lcigmZmxvd19oYXNo
+X3JuZF90aW1lciwgZmxvd19jYWNoZV9uZXdfaGFzaHJuZCwgMCk7CisJaW5pdF90aW1lcl9kZWZl
+cnJhYmxlKCZmbG93X2hhc2hfcm5kX3RpbWVyKTsKIAlmbG93X2hhc2hfcm5kX3RpbWVyLmV4cGly
+ZXMgPSBqaWZmaWVzICsgRkxPV19IQVNIX1JORF9QRVJJT0Q7CiAJYWRkX3RpbWVyKCZmbG93X2hh
+c2hfcm5kX3RpbWVyKTsKIApkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvbmVpZ2hib3VyLmMgYi9uZXQv
+Y29yZS9uZWlnaGJvdXIuYwppbmRleCAxZGM3MjhiLi5jOTIxN2Q3IDEwMDY0NAotLS0gYS9uZXQv
+Y29yZS9uZWlnaGJvdXIuYworKysgYi9uZXQvY29yZS9uZWlnaGJvdXIuYwpAQCAtMTQ0NSw2ICsx
+NDQ1LDcgQEAgdm9pZCBuZWlnaF90YWJsZV9pbml0X25vX25ldGxpbmsoc3RydWN0IG5laWdoX3Rh
+YmxlICp0YmwpCiAKIAlyd2xvY2tfaW5pdCgmdGJsLT5sb2NrKTsKIAlzZXR1cF90aW1lcigmdGJs
+LT5nY190aW1lciwgbmVpZ2hfcGVyaW9kaWNfdGltZXIsICh1bnNpZ25lZCBsb25nKXRibCk7CisJ
+aW5pdF90aW1lcl9kZWZlcnJhYmxlKCZ0YmwtPmdjX3RpbWVyKTsKIAl0YmwtPmdjX3RpbWVyLmV4
+cGlyZXMgID0gbm93ICsgMTsKIAlhZGRfdGltZXIoJnRibC0+Z2NfdGltZXIpOwogCmRpZmYgLS1n
+aXQgYS9uZXQvaXB2NC9pbmV0X2ZyYWdtZW50LmMgYi9uZXQvaXB2NC9pbmV0X2ZyYWdtZW50LmMK
+aW5kZXggNmM1MmUwOC4uOTFhMDk5ZiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaW5ldF9mcmFnbWVu
+dC5jCisrKyBiL25ldC9pcHY0L2luZXRfZnJhZ21lbnQuYwpAQCAtNjQsNiArNjQsNyBAQCB2b2lk
+IGluZXRfZnJhZ3NfaW5pdChzdHJ1Y3QgaW5ldF9mcmFncyAqZikKIAogCXNldHVwX3RpbWVyKCZm
+LT5zZWNyZXRfdGltZXIsIGluZXRfZnJhZ19zZWNyZXRfcmVidWlsZCwKIAkJCSh1bnNpZ25lZCBs
+b25nKWYpOworCWluaXRfdGltZXJfZGVmZXJyYWJsZSgmZi0+c2VjcmV0X3RpbWVyKTsKIAlmLT5z
+ZWNyZXRfdGltZXIuZXhwaXJlcyA9IGppZmZpZXMgKyBmLT5zZWNyZXRfaW50ZXJ2YWw7CiAJYWRk
+X3RpbWVyKCZmLT5zZWNyZXRfdGltZXIpOwogfQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaW5ldHBl
+ZXIuYyBiL25ldC9pcHY0L2luZXRwZWVyLmMKaW5kZXggYTQ1NmNlZS4uMTllZWE3YyAxMDA2NDQK
+LS0tIGEvbmV0L2lwdjQvaW5ldHBlZXIuYworKysgYi9uZXQvaXB2NC9pbmV0cGVlci5jCkBAIC0x
+MjUsNiArMTI1LDcgQEAgdm9pZCBfX2luaXQgaW5ldF9pbml0cGVlcnModm9pZCkKIAkvKiBBbGwg
+dGhlIHRpbWVycywgc3RhcnRlZCBhdCBzeXN0ZW0gc3RhcnR1cCB0ZW5kCiAJICAgdG8gc3luY2hy
+b25pemUuIFBlcnR1cmIgaXQgYSBiaXQuCiAJICovCisJaW5pdF90aW1lcl9kZWZlcnJhYmxlKCZw
+ZWVyX3BlcmlvZGljX3RpbWVyKTsKIAlwZWVyX3BlcmlvZGljX3RpbWVyLmV4cGlyZXMgPSBqaWZm
+aWVzCiAJCSsgbmV0X3JhbmRvbSgpICUgaW5ldF9wZWVyX2djX21heHRpbWUKIAkJKyBpbmV0X3Bl
+ZXJfZ2NfbWF4dGltZTsKZGlmZiAtLWdpdCBhL25ldC9pcHY0L3JvdXRlLmMgYi9uZXQvaXB2NC9y
+b3V0ZS5jCmluZGV4IDJlYTZkY2MuLjc5MmJkN2UgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L3JvdXRl
+LmMKKysrIGIvbmV0L2lwdjQvcm91dGUuYwpAQCAtMzI4OCw2ICszMjg4LDcgQEAgaW50IF9faW5p
+dCBpcF9ydF9pbml0KHZvaWQpCiAJLyogQWxsIHRoZSB0aW1lcnMsIHN0YXJ0ZWQgYXQgc3lzdGVt
+IHN0YXJ0dXAgdGVuZAogCSAgIHRvIHN5bmNocm9uaXplLiBQZXJ0dXJiIGl0IGEgYml0LgogCSAq
+LworCUlOSVRfREVMQVlFRF9XT1JLX0RFRkVSUkFCTEUoJmV4cGlyZXNfd29yaywgcnRfd29ya2Vy
+X2Z1bmMpOwogCXNjaGVkdWxlX2RlbGF5ZWRfd29yaygmZXhwaXJlc193b3JrLAogCQluZXRfcmFu
+ZG9tKCkgJSBpcF9ydF9nY19pbnRlcnZhbCArIGlwX3J0X2djX2ludGVydmFsKTsKIAotLSAKMS41
+LjQuMwoK
+
+--_002_1F18D6510CF0474A8C9500565A7E41A20544D923FFNOKEUMSG02mgd_--
