@@ -1,37 +1,28 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 14:16:07 -0400
-Message-ID: <20090519181607.GE28034@hmsreliant.think-freely.org>
-References: <20090519123417.GA7376@ff.dom.local> <4A12D10D.3000504@cosmosbay.com> <20090519162330.GC28034@hmsreliant.think-freely.org> <20090519171703.GA2749@ami.dom.local> <20090519174504.GD28034@hmsreliant.think-freely.org> <20090519180505.GB2981@ami.dom.local>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: Re: [patch next 1/2] netxen: fix msi irq setup
+Date: Tue, 19 May 2009 11:29:34 -0700
+Message-ID: <4A12FA8E.4080607@netxen.com>
+References: <1242285368-1142-1-git-send-email-dhananjay@netxen.com> <20090518.214709.159456069.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, lav@yar.ru,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43882 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752289AbZESSQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 14:16:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20090519180505.GB2981@ami.dom.local>
+Received: from nxgate.netxen.com ([38.99.60.130]:54474 "EHLO nxexch.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751320AbZESS3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2009 14:29:36 -0400
+In-Reply-To: <20090518.214709.159456069.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 08:05:05PM +0200, Jarek Poplawski wrote:
-> On Tue, May 19, 2009 at 01:45:04PM -0400, Neil Horman wrote:
-> ...
-> > I'm unable to find the move to front heuristic that you mentioned creates furthe
-> > list disordering. [...]
-> 
-> I'd only like to make it clear the analysis you refer to is by
-> Alexander V. Lukyanov <lav@yar.ru>
-> 
-Ok, thank you for giving credit where its due :).  Alexander, can you point out
-the location of the move-to-front heruistic that you mention in your analysis?
 
-Neil
 
-> Jarek P.
-> 
+David Miller wrote:
+> Applied, but please reference commits also by header line
+> text.  See below for the actual commit message I used so
+> you can see how it should be done, thanks!
+
+Thanks for fixing up this time, will get it right next time.
+
