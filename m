@@ -1,109 +1,86 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Tue, 19 May 2009 14:44:36 +0200
-Message-ID: <20090519124436.GA6238@elte.hu>
-References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu> <20090518160254.GD6768@linux.vnet.ibm.com> <20090519085825.GA9388@elte.hu> <20090519123316.GA7159@linux.vnet.ibm.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
+	method in fib_rules_ops.
+Date: Tue, 19 May 2009 15:54:26 +0300
+Message-ID: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754653AbZESMpt@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090519123316.GA7159@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=0015174beb3a2f9630046a436951
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f224.google.com ([209.85.219.224]:40743 "EHLO
+	mail-ew0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223AbZESMy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 08:54:26 -0400
+Received: by ewy24 with SMTP id 24so4826523ewy.37
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 05:54:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--0015174beb3a2f9630046a436951
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+Hi,
+
+The netlink message header (struct nlmsghdr) is an unused parameter in
+fill method of fib_rules_ops struct.
+This patch removes this parameter from this method and fixes the places
+where this method is called.
+
+(include/net/fib_rules.h)
 
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
-> On Tue, May 19, 2009 at 10:58:25AM +0200, Ingo Molnar wrote:
-> > 
-> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > > On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
-> > > > 
-> > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > 
-> > > > > > i might be missing something fundamental here, but why not just 
-> > > > > > have per CPU helper threads, all on the same waitqueue, and wake 
-> > > > > > them up via a single wake_up() call? That would remove the SMP 
-> > > > > > cross call (wakeups do immediate cross-calls already).
-> > > > > 
-> > > > > My concern with this is that the cache misses accessing all the 
-> > > > > processes on this single waitqueue would be serialized, slowing 
-> > > > > things down. In contrast, the bitmask that smp_call_function() 
-> > > > > traverses delivers on the order of a thousand CPUs' worth of bits 
-> > > > > per cache miss.  I will give it a try, though.
-> > > > 
-> > > > At least if you go via the migration threads, you can queue up 
-> > > > requests to them locally. But there's going to be cachemisses 
-> > > > _anyway_, since you have to access them all from a single CPU, 
-> > > > and then they have to fetch details about what to do, and then 
-> > > > have to notify the originator about completion.
-> > > 
-> > > Ah, so you are suggesting that I use smp_call_function() to run 
-> > > code on each CPU that wakes up that CPU's migration thread?  I 
-> > > will take a look at this.
-> > 
-> > My suggestion was to queue up a dummy 'struct migration_req' up with 
-> > it (change migration_req::task == NULL to mean 'nothing') and simply 
-> > wake it up using wake_up_process().
-> 
-> OK.  I was thinking of just using wake_up_process() without the
-> migration_req structure, and unconditionally setting a per-CPU
-> variable from within migration_thread() just before the list_empty()
-> check.  In your approach we would need a NULL-pointer check just
-> before the call to __migrate_task().
-> 
-> > That will force a quiescent state, without the need for any extra 
-> > information, right?
-> 
-> Yep!
-> 
-> > This is what the scheduler code does, roughly:
-> > 
-> >                 wake_up_process(rq->migration_thread);
-> >                 wait_for_completion(&req.done);
-> > 
-> > and this will always have to perform well. The 'req' could be put 
-> > into PER_CPU, and a loop could be done like this:
-> > 
-> > 	for_each_online_cpu(cpu)
-> >                 wake_up_process(cpu_rq(cpu)->migration_thread);
-> > 
-> > 	for_each_online_cpu(cpu)
-> >                 wait_for_completion(&per_cpu(req, cpu).done);
-> > 
-> > hm?
-> 
-> My concern is the linear slowdown for large systems, but this 
-> should be OK for modest systems (a few 10s of CPUs).  However, I 
-> will try it out -- it does not need to be a long-term solution, 
-> after all.
+Regards,
+Rami Rosen
 
-I think there is going to be a linear slowdown no matter what - 
-because sending that many IPIs is going to be linear. (there are no 
-'broadcast to all' IPIs anymore - on x86 we only have them if all 
-physical APIC IDs are 7 or smaller.)
 
-Also, no matter what scheme we use, the target CPU does have to be 
-processed somehow and it does have to signal completion back somehow 
-- which generates cachemisses.
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-I think what probaby matters most is to go simple, and to use 
-established kernel primitives - and the above is really typical 
-pattern for things like TLB flushes to a process having a presence 
-on every physical CPU. Those aspects will be kept reasonably fast 
-and balanced on all hardware that matters. (and if not, people will 
-notice any TLB flush/shootdown linear slowdowns and will address it)
+--0015174beb3a2f9630046a436951
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fuwlqlhf0
 
-I could be wrong though ... maybe someone can get some numbers from 
-a really large system?
-
-	Ingo
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
+bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
+X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
+c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
+CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
+LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
+IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
+c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
+Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
+IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
+ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
+LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
+IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
+ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
+L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
+LmJkYTc5ZTQgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
+bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
+ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
+aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
+ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgIAkJCQkJCQkJICBzdHJ1
+Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJc3RydWN0IGRuX2ZpYl9ydWxlICpyID0gKHN0cnVj
+dCBkbl9maWJfcnVsZSAqKXJ1bGU7CiAKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2ZpYl9ydWxlcy5j
+IGIvbmV0L2lwdjQvZmliX3J1bGVzLmMKaW5kZXggMzg5MDRiZS4uYjg5YmFmMyAxMDA2NDQKLS0t
+IGEvbmV0L2lwdjQvZmliX3J1bGVzLmMKKysrIGIvbmV0L2lwdjQvZmliX3J1bGVzLmMKQEAgLTIw
+OSw3ICsyMDksNyBAQCBzdGF0aWMgaW50IGZpYjRfcnVsZV9jb21wYXJlKHN0cnVjdCBmaWJfcnVs
+ZSAqcnVsZSwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoLAogfQogCiBzdGF0aWMgaW50IGZpYjRf
+cnVsZV9maWxsKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJ
+CSAgc3RydWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKKwkJCSAg
+CQkJCQkJCQkJc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQogewogCXN0cnVjdCBmaWI0X3J1bGUg
+KnJ1bGU0ID0gKHN0cnVjdCBmaWI0X3J1bGUgKikgcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lw
+djYvZmliNl9ydWxlcy5jIGIvbmV0L2lwdjYvZmliNl9ydWxlcy5jCmluZGV4IGUxYTM2ZGIuLmU0
+MTlmZmQgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L2ZpYjZfcnVsZXMuYworKysgYi9uZXQvaXB2Ni9m
+aWI2X3J1bGVzLmMKQEAgLTIxMSw3ICsyMTEsNyBAQCBzdGF0aWMgaW50IGZpYjZfcnVsZV9jb21w
+YXJlKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoLAogfQog
+CiBzdGF0aWMgaW50IGZpYjZfcnVsZV9maWxsKHN0cnVjdCBmaWJfcnVsZSAqcnVsZSwgc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKLQkJCSAgc3RydWN0IG5sbXNnaGRyICpubGgsIHN0cnVjdCBmaWJfcnVs
+ZV9oZHIgKmZyaCkKKwkJCSAgCQkJCQkJCQkJc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQogewog
+CXN0cnVjdCBmaWI2X3J1bGUgKnJ1bGU2ID0gKHN0cnVjdCBmaWI2X3J1bGUgKikgcnVsZTsKIAo=
+--0015174beb3a2f9630046a436951--
