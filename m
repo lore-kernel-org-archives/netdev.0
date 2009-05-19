@@ -1,55 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC 1/5] net: bridge - use is_multicast_ether_addr helper
-Date: Tue, 19 May 2009 15:18:02 -0700
-Message-ID: <20090519151802.22debf54@nehalam>
-References: <20090511114639.440944109@openvz.org>
-	<20090511125350.555985895@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] cleanup: remove unused parameter from
+ fill method in fib_rules_ops.
+Date: Tue, 19 May 2009 15:18:57 -0700 (PDT)
+Message-ID: <20090519.151857.56095864.davem@davemloft.net>
+References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, xemul@openvz.org,
-	Cyrill Gorcunov <gorcunov@openvz.org>
-To: Cyrill Gorcunov <gorcunov@openvz.org>
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41238 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754019AbZESWSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:18:17 -0400
-In-Reply-To: <20090511125350.555985895@openvz.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42709
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752811AbZESWS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 18:18:59 -0400
+In-Reply-To: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 May 2009 15:46:40 +0400
-Cyrill Gorcunov <gorcunov@openvz.org> wrote:
+From: Rami Rosen <ramirose@gmail.com>
+Date: Tue, 19 May 2009 15:54:26 +0300
 
-> Instead of handwritten constrcution it's better 
-> to use is_multicast_ether_addr.
-> 
-> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-> ---
->  net/bridge/br_device.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: linux-2.6.git/net/bridge/br_device.c
-> =====================================================================
-> --- linux-2.6.git.orig/net/bridge/br_device.c
-> +++ linux-2.6.git/net/bridge/br_device.c
-> @@ -32,7 +32,7 @@ int br_dev_xmit(struct sk_buff *skb, str
->  	skb_reset_mac_header(skb);
->  	skb_pull(skb, ETH_HLEN);
+> @@ -192,7 +192,7 @@ unsigned dnet_addr_type(__le16 addr)
+>  }
 >  
-> -	if (dest[0] & 1)
-> +	if (is_multicast_ether_addr(dest))
->  		br_flood_deliver(br, skb);
->  	else if ((dst = __br_fdb_get(br, dest)) != NULL)
->  		br_deliver(dst->dst, skb);
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  static int dn_fib_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+> -			    struct nlmsghdr *nlh, struct fib_rule_hdr *frh)
+> +			    								  struct fib_rule_hdr *frh)
+>  {
+
+Please fix up this crazy multi-line tabbing that happened in
+these function arg list transformations.
+
+There's also space-tab sequences in here which should be fixed
+up too in fact that's how I noticed the multi-line problem:
+
++ git apply --check --whitespace=error-all diff
+diff:35: space before tab in indent.
+			    								  struct fib_rule_hdr *frh)
+diff:48: space before tab in indent.
+			  									struct fib_rule_hdr *frh)
+diff:61: space before tab in indent.
+			  									struct fib_rule_hdr *frh)
+fatal: 3 lines add whitespace errors.
 
 
-This is trivial and fine.
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Thanks.
