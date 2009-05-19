@@ -1,16 +1,18 @@
 From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH 1/2] 3c50x: convert printk() to pr_foo()
-Date: Tue, 19 May 2009 22:08:58 +0400
-Message-ID: <1242756539-19049-1-git-send-email-a.beregalov@gmail.com>
+Subject: [PATCH 2/2] 3c5xx: convert printk() to pr_foo()
+Date: Tue, 19 May 2009 22:08:59 +0400
+Message-ID: <1242756539-19049-2-git-send-email-a.beregalov@gmail.com>
+References: <1242756539-19049-1-git-send-email-a.beregalov@gmail.com>
 Cc: Alexander Beregalov <a.beregalov@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mu-out-0910.google.com ([209.85.134.189]:17056 "EHLO
-	mu-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754071AbZESSJN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 14:09:13 -0400
-Received: by mu-out-0910.google.com with SMTP id i2so1678892mue.1
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 11:09:12 -0700 (PDT)
+Received: from mail-fx0-f158.google.com ([209.85.220.158]:44617 "EHLO
+	mail-fx0-f158.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754385AbZESSJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 14:09:16 -0400
+Received: by fxm2 with SMTP id 2so4041645fxm.37
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 11:09:15 -0700 (PDT)
+In-Reply-To: <1242756539-19049-1-git-send-email-a.beregalov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,1535 +22,1680 @@ Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
 Compile tested.
 
 
- drivers/net/3c501.c |   55 +++++++--------
- drivers/net/3c503.c |   36 +++++-----
- drivers/net/3c505.c |  191 +++++++++++++++++++++++++--------------------------
- drivers/net/3c507.c |   47 ++++++-------
- drivers/net/3c509.c |   60 ++++++++--------
- 5 files changed, 193 insertions(+), 196 deletions(-)
+ drivers/net/3c515.c |  115 +++++++++++++++----------------
+ drivers/net/3c523.c |   86 +++++++++++-----------
+ drivers/net/3c527.c |   46 ++++++-------
+ drivers/net/3c59x.c |  194 +++++++++++++++++++++++++-------------------------
+ 4 files changed, 217 insertions(+), 224 deletions(-)
 
-diff --git a/drivers/net/3c501.c b/drivers/net/3c501.c
-index 1c5344a..baee086 100644
---- a/drivers/net/3c501.c
-+++ b/drivers/net/3c501.c
-@@ -281,7 +281,7 @@ static int __init el1_probe1(struct net_device *dev, int ioaddr)
- 		autoirq = probe_irq_off(irq_mask);
- 
- 		if (autoirq == 0) {
--			printk(KERN_WARNING "%s probe at %#x failed to detect IRQ line.\n",
-+			pr_warning("%s probe at %#x failed to detect IRQ line.\n",
- 				mname, ioaddr);
- 			release_region(ioaddr, EL1_IO_EXTENT);
- 			return -EAGAIN;
-@@ -297,16 +297,16 @@ static int __init el1_probe1(struct net_device *dev, int ioaddr)
- 	if (autoirq)
- 		dev->irq = autoirq;
- 
--	printk(KERN_INFO "%s: %s EtherLink at %#lx, using %sIRQ %d.\n",
-+	pr_info("%s: %s EtherLink at %#lx, using %sIRQ %d.\n",
- 			dev->name, mname, dev->base_addr,
- 			autoirq ? "auto":"assigned ", dev->irq);
- 
- #ifdef CONFIG_IP_MULTICAST
--	printk(KERN_WARNING "WARNING: Use of the 3c501 in a multicast kernel is NOT recommended.\n");
-+	pr_warning("WARNING: Use of the 3c501 in a multicast kernel is NOT recommended.\n");
- #endif
- 
- 	if (el_debug)
--		printk(KERN_DEBUG "%s", version);
+diff --git a/drivers/net/3c515.c b/drivers/net/3c515.c
+index 167bf23..3bc0889 100644
+--- a/drivers/net/3c515.c
++++ b/drivers/net/3c515.c
+@@ -420,7 +420,7 @@ int init_module(void)
+ 	if (debug >= 0)
+ 		corkscrew_debug = debug;
+ 	if (corkscrew_debug)
+-		printk(version);
 +		pr_debug("%s", version);
+ 	while (corkscrew_scan(-1))
+ 		found++;
+ 	return found ? 0 : -ENODEV;
+@@ -437,7 +437,7 @@ struct net_device *tc515_probe(int unit)
  
- 	lp = netdev_priv(dev);
- 	memset(lp, 0, sizeof(struct net_local));
-@@ -343,7 +343,7 @@ static int el_open(struct net_device *dev)
- 	unsigned long flags;
- 
- 	if (el_debug > 2)
--		printk(KERN_DEBUG "%s: Doing el_open()...", dev->name);
-+		pr_debug("%s: Doing el_open()...", dev->name);
- 
- 	retval = request_irq(dev->irq, &el_interrupt, 0, dev->name, dev);
- 	if (retval)
-@@ -374,7 +374,7 @@ static void el_timeout(struct net_device *dev)
- 	int ioaddr = dev->base_addr;
- 
- 	if (el_debug)
--		printk(KERN_DEBUG "%s: transmit timed out, txsr %#2x axsr=%02x rxsr=%02x.\n",
-+		pr_debug("%s: transmit timed out, txsr %#2x axsr=%02x rxsr=%02x.\n",
- 			dev->name, inb(TX_STATUS),
- 			inb(AX_STATUS), inb(RX_STATUS));
- 	dev->stats.tx_errors++;
-@@ -483,14 +483,13 @@ static int el_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			lp->loading = 0;
- 			dev->trans_start = jiffies;
- 			if (el_debug > 2)
--				printk(KERN_DEBUG " queued xmit.\n");
-+				pr_debug(" queued xmit.\n");
- 			dev_kfree_skb(skb);
- 			return 0;
- 		}
- 		/* A receive upset our load, despite our best efforts */
- 		if (el_debug > 2)
--			printk(KERN_DEBUG "%s: burped during tx load.\n",
--				dev->name);
-+			pr_debug("%s: burped during tx load.\n", dev->name);
- 		spin_lock_irqsave(&lp->lock, flags);
- 	} while (1);
- }
-@@ -540,11 +539,10 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 	 */
- 
- 	if (el_debug > 3)
--		printk(KERN_DEBUG "%s: el_interrupt() aux=%#02x",
--							dev->name, axsr);
-+		pr_debug("%s: el_interrupt() aux=%#02x", dev->name, axsr);
- 
- 	if (lp->loading == 1 && !lp->txing)
--		printk(KERN_WARNING "%s: Inconsistent state loading while not in tx\n",
-+		pr_warning("%s: Inconsistent state loading while not in tx\n",
- 			dev->name);
- 
- 	if (lp->txing) {
-@@ -556,9 +554,9 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 
- 		if (lp->loading == 1) {
- 			if (el_debug > 2) {
--				printk(KERN_DEBUG "%s: Interrupt while loading [",
-+				pr_debug("%s: Interrupt while loading [",
- 					dev->name);
--				printk(" txsr=%02x gp=%04x rp=%04x]\n",
-+				pr_debug(" txsr=%02x gp=%04x rp=%04x]\n",
- 					txsr, inw(GP_LOW), inw(RX_LOW));
- 			}
- 			/* Force a reload */
-@@ -567,7 +565,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			goto out;
- 		}
- 		if (el_debug > 6)
--			printk(KERN_DEBUG " txsr=%02x gp=%04x rp=%04x",
-+			pr_debug(" txsr=%02x gp=%04x rp=%04x",
- 					txsr, inw(GP_LOW), inw(RX_LOW));
- 
- 		if ((axsr & 0x80) && (txsr & TX_READY) == 0) {
-@@ -576,7 +574,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			 *	on trying or reset immediately ?
- 			 */
- 			if (el_debug > 1)
--				printk(KERN_DEBUG "%s: Unusual interrupt during Tx, txsr=%02x axsr=%02x gp=%03x rp=%03x.\n",
-+				pr_debug("%s: Unusual interrupt during Tx, txsr=%02x axsr=%02x gp=%03x rp=%03x.\n",
- 					dev->name, txsr, axsr,
- 					inw(ioaddr + EL1_DATAPTR),
- 					inw(ioaddr + EL1_RXPTR));
-@@ -587,7 +585,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			 *	Timed out
- 			 */
- 			if (el_debug)
--				printk(KERN_DEBUG "%s: Transmit failed 16 times, Ethernet jammed?\n", dev->name);
-+				pr_debug("%s: Transmit failed 16 times, Ethernet jammed?\n", dev->name);
- 			outb(AX_SYS, AX_CMD);
- 			lp->txing = 0;
- 			dev->stats.tx_aborted_errors++;
-@@ -598,7 +596,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			 */
- 
- 			if (el_debug > 6)
--				printk(KERN_DEBUG " retransmitting after a collision.\n");
-+				pr_debug(" retransmitting after a collision.\n");
- 			/*
- 			 *	Poor little chip can't reset its own start
- 			 *	pointer
-@@ -616,7 +614,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			 */
- 			dev->stats.tx_packets++;
- 			if (el_debug > 6)
--				printk(KERN_DEBUG " Tx succeeded %s\n",
-+				pr_debug(" Tx succeeded %s\n",
- 					(txsr & TX_RDY) ? "." :
- 							"but tx is busy!");
- 			/*
-@@ -633,7 +631,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 
- 		int rxsr = inb(RX_STATUS);
- 		if (el_debug > 5)
--			printk(KERN_DEBUG " rxsr=%02x txsr=%02x rp=%04x", rxsr, inb(TX_STATUS), inw(RX_LOW));
-+			pr_debug(" rxsr=%02x txsr=%02x rp=%04x", rxsr, inb(TX_STATUS), inw(RX_LOW));
- 		/*
- 		 *	Just reading rx_status fixes most errors.
- 		 */
-@@ -643,7 +641,7 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			/* Handled to avoid board lock-up. */
- 			dev->stats.rx_length_errors++;
- 			if (el_debug > 5)
--				printk(KERN_DEBUG " runt.\n");
-+				pr_debug(" runt.\n");
- 		} else if (rxsr & RX_GOOD) {
- 			/*
- 			 *	Receive worked.
-@@ -654,12 +652,12 @@ static irqreturn_t el_interrupt(int irq, void *dev_id)
- 			 *	Nothing?  Something is broken!
- 			 */
- 			if (el_debug > 2)
--				printk(KERN_DEBUG "%s: No packet seen, rxsr=%02x **resetting 3c501***\n",
-+				pr_debug("%s: No packet seen, rxsr=%02x **resetting 3c501***\n",
- 					dev->name, rxsr);
- 			el_reset(dev);
- 		}
- 		if (el_debug > 3)
--			printk(KERN_DEBUG ".\n");
-+			pr_debug(".\n");
+ 	if (corkscrew_debug > 0 && !printed) {
+ 		printed = 1;
+-		printk(version);
++		pr_debug("%s", version);
  	}
  
- 	/*
-@@ -695,11 +693,11 @@ static void el_receive(struct net_device *dev)
- 	pkt_len = inw(RX_LOW);
- 
- 	if (el_debug > 4)
--		printk(KERN_DEBUG " el_receive %d.\n", pkt_len);
-+		pr_debug(" el_receive %d.\n", pkt_len);
- 
- 	if (pkt_len < 60 || pkt_len > 1536) {
- 		if (el_debug)
--			printk(KERN_DEBUG "%s: bogus packet, length=%d\n",
-+			pr_debug("%s: bogus packet, length=%d\n",
- 						dev->name, pkt_len);
- 		dev->stats.rx_over_errors++;
- 		return;
-@@ -718,8 +716,7 @@ static void el_receive(struct net_device *dev)
- 
- 	outw(0x00, GP_LOW);
- 	if (skb == NULL) {
--		printk(KERN_INFO "%s: Memory squeeze, dropping packet.\n",
--								dev->name);
-+		pr_info("%s: Memory squeeze, dropping packet.\n", dev->name);
- 		dev->stats.rx_dropped++;
- 		return;
- 	} else {
-@@ -753,7 +750,7 @@ static void  el_reset(struct net_device *dev)
- 	int ioaddr = dev->base_addr;
- 
- 	if (el_debug > 2)
--		printk(KERN_INFO "3c501 reset...");
-+		pr_info("3c501 reset...");
- 	outb(AX_RESET, AX_CMD);		/* Reset the chip */
- 	/* Aux control, irq and loopback enabled */
- 	outb(AX_LOOP, AX_CMD);
-@@ -787,7 +784,7 @@ static int el1_close(struct net_device *dev)
- 	int ioaddr = dev->base_addr;
- 
- 	if (el_debug > 2)
--		printk(KERN_INFO "%s: Shutting down Ethernet card at %#x.\n",
-+		pr_info("%s: Shutting down Ethernet card at %#x.\n",
- 						dev->name, ioaddr);
- 
- 	netif_stop_queue(dev);
-diff --git a/drivers/net/3c503.c b/drivers/net/3c503.c
-index 4f08bd9..d92c0cd 100644
---- a/drivers/net/3c503.c
-+++ b/drivers/net/3c503.c
-@@ -234,16 +234,16 @@ el2_probe1(struct net_device *dev, int ioaddr)
-     }
- 
-     if (ei_debug  &&  version_printed++ == 0)
--	printk(version);
-+	pr_debug("%s", version);
- 
-     dev->base_addr = ioaddr;
- 
--    printk("%s: 3c503 at i/o base %#3x, node ", dev->name, ioaddr);
-+    pr_info("%s: 3c503 at i/o base %#3x, node ", dev->name, ioaddr);
- 
-     /* Retrieve and print the ethernet address. */
-     for (i = 0; i < 6; i++)
- 	dev->dev_addr[i] = inb(ioaddr + i);
--    printk("%pM", dev->dev_addr);
-+    pr_info("%pM", dev->dev_addr);
- 
-     /* Map the 8390 back into the window. */
-     outb(ECNTRL_THIN, ioaddr + 0x406);
-@@ -256,7 +256,8 @@ el2_probe1(struct net_device *dev, int ioaddr)
-     outb_p(E8390_PAGE0, ioaddr + E8390_CMD);
- 
-     /* Probe for, turn on and clear the board's shared memory. */
--    if (ei_debug > 2) printk(" memory jumpers %2.2x ", membase_reg);
-+    if (ei_debug > 2)
-+	pr_debug(" memory jumpers %2.2x ", membase_reg);
-     outb(EGACFR_NORM, ioaddr + 0x405);	/* Enable RAM */
- 
-     /* This should be probed for (or set via an ioctl()) at run-time.
-@@ -268,7 +269,7 @@ el2_probe1(struct net_device *dev, int ioaddr)
- #else
-     ei_status.interface_num = dev->mem_end & 0xf;
- #endif
--    printk(", using %sternal xcvr.\n", ei_status.interface_num == 0 ? "in" : "ex");
-+    pr_info(", using %sternal xcvr.\n", ei_status.interface_num == 0 ? "in" : "ex");
- 
-     if ((membase_reg & 0xf0) == 0) {
- 	dev->mem_start = 0;
-@@ -292,7 +293,7 @@ el2_probe1(struct net_device *dev, int ioaddr)
- 		writel(test_val, mem_base + i);
- 		if (readl(mem_base) != 0xba5eba5e
- 		    || readl(mem_base + i) != test_val) {
--		    printk("3c503: memory failure or memory address conflict.\n");
-+		    pr_warning("3c503: memory failure or memory address conflict.\n");
- 		    dev->mem_start = 0;
- 		    ei_status.name = "3c503-PIO";
- 		    iounmap(mem_base);
-@@ -344,7 +345,7 @@ el2_probe1(struct net_device *dev, int ioaddr)
-     if (dev->irq == 2)
- 	dev->irq = 9;
-     else if (dev->irq > 5 && dev->irq != 9) {
--	printk("3c503: configured interrupt %d invalid, will use autoIRQ.\n",
-+	pr_warning("3c503: configured interrupt %d invalid, will use autoIRQ.\n",
- 	       dev->irq);
- 	dev->irq = 0;
-     }
-@@ -359,7 +360,7 @@ el2_probe1(struct net_device *dev, int ioaddr)
- 	goto out1;
- 
-     if (dev->mem_start)
--	printk("%s: %s - %dkB RAM, 8kB shared mem window at %#6lx-%#6lx.\n",
-+	pr_info("%s: %s - %dkB RAM, 8kB shared mem window at %#6lx-%#6lx.\n",
- 		dev->name, ei_status.name, (wordlength+1)<<3,
- 		dev->mem_start, dev->mem_end-1);
- 
-@@ -367,7 +368,7 @@ el2_probe1(struct net_device *dev, int ioaddr)
-     {
- 	ei_status.tx_start_page = EL2_MB1_START_PG;
- 	ei_status.rx_start_page = EL2_MB1_START_PG + TX_PAGES;
--	printk("\n%s: %s, %dkB RAM, using programmed I/O (REJUMPER for SHARED MEMORY).\n",
-+	pr_info("\n%s: %s, %dkB RAM, using programmed I/O (REJUMPER for SHARED MEMORY).\n",
- 	       dev->name, ei_status.name, (wordlength+1)<<3);
-     }
-     release_region(ioaddr + 0x400, 8);
-@@ -435,15 +436,16 @@ static void
- el2_reset_8390(struct net_device *dev)
- {
-     if (ei_debug > 1) {
--	printk("%s: Resetting the 3c503 board...", dev->name);
--	printk("%#lx=%#02x %#lx=%#02x %#lx=%#02x...", E33G_IDCFR, inb(E33G_IDCFR),
-+	pr_debug("%s: Resetting the 3c503 board...", dev->name);
-+	pr_debug("%#lx=%#02x %#lx=%#02x %#lx=%#02x...", E33G_IDCFR, inb(E33G_IDCFR),
- 	       E33G_CNTRL, inb(E33G_CNTRL), E33G_GACFR, inb(E33G_GACFR));
-     }
-     outb_p(ECNTRL_RESET|ECNTRL_THIN, E33G_CNTRL);
-     ei_status.txing = 0;
-     outb_p(ei_status.interface_num==0 ? ECNTRL_THIN : ECNTRL_AUI, E33G_CNTRL);
-     el2_init_card(dev);
--    if (ei_debug > 1) printk("done\n");
-+    if (ei_debug > 1)
-+	pr_debug("done\n");
- }
- 
- /* Initialize the 3c503 GA registers after a reset. */
-@@ -529,7 +531,7 @@ el2_block_output(struct net_device *dev, int count,
-         {
-             if(!boguscount--)
-             {
--                printk("%s: FIFO blocked in el2_block_output.\n", dev->name);
-+                pr_notice("%s: FIFO blocked in el2_block_output.\n", dev->name);
-                 el2_reset_8390(dev);
-                 goto blocked;
-             }
-@@ -581,7 +583,7 @@ el2_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_pag
-     {
-         if(!boguscount--)
-         {
--            printk("%s: FIFO blocked in el2_get_8390_hdr.\n", dev->name);
-+            pr_notice("%s: FIFO blocked in el2_get_8390_hdr.\n", dev->name);
-             memset(hdr, 0x00, sizeof(struct e8390_pkt_hdr));
-             el2_reset_8390(dev);
-             goto blocked;
-@@ -645,7 +647,7 @@ el2_block_input(struct net_device *dev, int count, struct sk_buff *skb, int ring
-         {
-             if(!boguscount--)
-             {
--                printk("%s: FIFO blocked in el2_block_input.\n", dev->name);
-+                pr_notice("%s: FIFO blocked in el2_block_input.\n", dev->name);
-                 el2_reset_8390(dev);
-                 goto blocked;
-             }
-@@ -707,7 +709,7 @@ init_module(void)
- 	for (this_dev = 0; this_dev < MAX_EL2_CARDS; this_dev++) {
- 		if (io[this_dev] == 0)  {
- 			if (this_dev != 0) break; /* only autoprobe 1st one */
--			printk(KERN_NOTICE "3c503.c: Presently autoprobing (not recommended) for a single card.\n");
-+			pr_notice("3c503.c: Presently autoprobing (not recommended) for a single card.\n");
- 		}
- 		dev = alloc_eip_netdev();
- 		if (!dev)
-@@ -720,7 +722,7 @@ init_module(void)
+ 	return dev;
+@@ -516,7 +516,7 @@ static struct net_device *corkscrew_scan(int unit)
+ 			if (pnp_device_attach(idev) < 0)
+ 				continue;
+ 			if (pnp_activate_dev(idev) < 0) {
+-				printk("pnp activate failed (out of resources?)\n");
++				pr_warning("pnp activate failed (out of resources?)\n");
+ 				pnp_device_detach(idev);
+ 				continue;
+ 			}
+@@ -531,9 +531,9 @@ static struct net_device *corkscrew_scan(int unit)
+ 				continue;
+ 			}
+ 			if(corkscrew_debug)
+-				printk ("ISAPNP reports %s at i/o 0x%x, irq %d\n",
++				pr_debug("ISAPNP reports %s at i/o 0x%x, irq %d\n",
+ 					(char*) corkscrew_isapnp_adapters[i].driver_data, ioaddr, irq);
+-			printk(KERN_INFO "3c515 Resource configuration register %#4.4x, DCR %4.4x.\n",
++			pr_info("3c515 Resource configuration register %#4.4x, DCR %4.4x.\n",
+ 		     		inl(ioaddr + 0x2002), inw(ioaddr + 0x2000));
+ 			/* irq = inw(ioaddr + 0x2002) & 15; */ /* Use the irq from isapnp */
+ 			SET_NETDEV_DEV(dev, &idev->dev);
+@@ -552,7 +552,7 @@ no_pnp:
+ 		if (!check_device(ioaddr))
  			continue;
- 		}
- 		free_netdev(dev);
--		printk(KERN_WARNING "3c503.c: No 3c503 card found (i/o = 0x%x).\n", io[this_dev]);
-+		pr_warning("3c503.c: No 3c503 card found (i/o = 0x%x).\n", io[this_dev]);
- 		break;
- 	}
- 	if (found)
-diff --git a/drivers/net/3c505.c b/drivers/net/3c505.c
-index 2de1c9c..23ae7d1 100644
---- a/drivers/net/3c505.c
-+++ b/drivers/net/3c505.c
-@@ -126,26 +126,25 @@
-  *
-  *********************************************************/
  
--static const char filename[] = __FILE__;
-+#define filename __FILE__
- 
--static const char timeout_msg[] = "*** timeout at %s:%s (line %d) ***\n";
-+#define timeout_msg "*** timeout at %s:%s (line %d) ***\n"
- #define TIMEOUT_MSG(lineno) \
--	printk(timeout_msg, filename,__func__,(lineno))
-+	pr_notice(timeout_msg, filename,__func__,(lineno))
- 
--static const char invalid_pcb_msg[] =
--"*** invalid pcb length %d at %s:%s (line %d) ***\n";
-+#define invalid_pcb_msg "*** invalid pcb length %d at %s:%s (line %d) ***\n"
- #define INVALID_PCB_MSG(len) \
--	printk(invalid_pcb_msg, (len),filename,__func__,__LINE__)
-+	pr_notice(invalid_pcb_msg, (len),filename,__func__,__LINE__)
- 
--static char search_msg[] __initdata = KERN_INFO "%s: Looking for 3c505 adapter at address %#x...";
-+#define search_msg "%s: Looking for 3c505 adapter at address %#x..."
- 
--static char stilllooking_msg[] __initdata = "still looking...";
-+#define stilllooking_msg "still looking..."
- 
--static char found_msg[] __initdata = "found.\n";
-+#define found_msg "found.\n"
- 
--static char notfound_msg[] __initdata = "not found (reason = %d)\n";
-+#define notfound_msg "not found (reason = %d)\n"
- 
--static char couldnot_msg[] __initdata = KERN_INFO "%s: 3c505 not found\n";
-+#define couldnot_msg "%s: 3c505 not found\n"
- 
- /*********************************************************
-  *
-@@ -284,7 +283,7 @@ static inline void adapter_reset(struct net_device *dev)
- 
- 	outb_control(orig_hcr, dev);
- 	if (!start_receive(dev, &adapter->tx_pcb))
--		printk(KERN_ERR "%s: start receive command failed \n", dev->name);
-+		pr_err("%s: start receive command failed \n", dev->name);
- }
- 
- /* Check to make sure that a DMA transfer hasn't timed out.  This should
-@@ -296,7 +295,7 @@ static inline void check_3c505_dma(struct net_device *dev)
- 	elp_device *adapter = netdev_priv(dev);
- 	if (adapter->dmaing && time_after(jiffies, adapter->current_dma.start_time + 10)) {
- 		unsigned long flags, f;
--		printk(KERN_ERR "%s: DMA %s timed out, %d bytes left\n", dev->name, adapter->current_dma.direction ? "download" : "upload", get_dma_residue(dev->dma));
-+		pr_err("%s: DMA %s timed out, %d bytes left\n", dev->name, adapter->current_dma.direction ? "download" : "upload", get_dma_residue(dev->dma));
- 		spin_lock_irqsave(&adapter->lock, flags);
- 		adapter->dmaing = 0;
- 		adapter->busy = 0;
-@@ -321,7 +320,7 @@ static inline bool send_pcb_slow(unsigned int base_addr, unsigned char byte)
- 		if (inb_status(base_addr) & HCRE)
- 			return false;
- 	}
--	printk(KERN_WARNING "3c505: send_pcb_slow timed out\n");
-+	pr_warning("3c505: send_pcb_slow timed out\n");
- 	return true;
- }
- 
-@@ -333,7 +332,7 @@ static inline bool send_pcb_fast(unsigned int base_addr, unsigned char byte)
- 		if (inb_status(base_addr) & HCRE)
- 			return false;
- 	}
--	printk(KERN_WARNING "3c505: send_pcb_fast timed out\n");
-+	pr_warning("3c505: send_pcb_fast timed out\n");
- 	return true;
- }
- 
-@@ -386,7 +385,7 @@ static bool send_pcb(struct net_device *dev, pcb_struct * pcb)
- 	/* Avoid contention */
- 	if (test_and_set_bit(1, &adapter->send_pcb_semaphore)) {
- 		if (elp_debug >= 3) {
--			printk(KERN_DEBUG "%s: send_pcb entered while threaded\n", dev->name);
-+			pr_debug("%s: send_pcb entered while threaded\n", dev->name);
- 		}
- 		return false;
- 	}
-@@ -424,14 +423,14 @@ static bool send_pcb(struct net_device *dev, pcb_struct * pcb)
- 
- 		case ASF_PCB_NAK:
- #ifdef ELP_DEBUG
--			printk(KERN_DEBUG "%s: send_pcb got NAK\n", dev->name);
-+			pr_debug("%s: send_pcb got NAK\n", dev->name);
+-		printk(KERN_INFO "3c515 Resource configuration register %#4.4x, DCR %4.4x.\n",
++		pr_info("3c515 Resource configuration register %#4.4x, DCR %4.4x.\n",
+ 		     inl(ioaddr + 0x2002), inw(ioaddr + 0x2000));
+ 		err = corkscrew_setup(dev, ioaddr, NULL, cards_found++);
+ 		if (!err)
+@@ -625,7 +625,7 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
+ 	list_add(&vp->list, &root_corkscrew_dev);
  #endif
- 			goto abort;
- 		}
+ 
+-	printk(KERN_INFO "%s: 3Com %s at %#3x,", dev->name, vp->product_name, ioaddr);
++	pr_info("%s: 3Com %s at %#3x,", dev->name, vp->product_name, ioaddr);
+ 
+ 	spin_lock_init(&vp->lock);
+ 
+@@ -648,19 +648,19 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
  	}
- 
- 	if (elp_debug >= 1)
--		printk(KERN_DEBUG "%s: timeout waiting for PCB acknowledge (status %02x)\n", dev->name, inb_status(dev->base_addr));
-+		pr_debug("%s: timeout waiting for PCB acknowledge (status %02x)\n", dev->name, inb_status(dev->base_addr));
- 	goto abort;
- 
-       sti_abort:
-@@ -481,7 +480,7 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
- 	while (((stat = get_status(dev->base_addr)) & ACRF) == 0 && time_before(jiffies, timeout));
- 	if (time_after_eq(jiffies, timeout)) {
- 		TIMEOUT_MSG(__LINE__);
--		printk(KERN_INFO "%s: status %02x\n", dev->name, stat);
-+		pr_info("%s: status %02x\n", dev->name, stat);
- 		return false;
- 	}
- 	pcb->length = inb_command(dev->base_addr);
-@@ -518,7 +517,7 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
- 	/* safety check total length vs data length */
- 	if (total_length != (pcb->length + 2)) {
- 		if (elp_debug >= 2)
--			printk(KERN_WARNING "%s: mangled PCB received\n", dev->name);
-+			pr_warning("%s: mangled PCB received\n", dev->name);
- 		set_hsf(dev, HSF_PCB_NAK);
- 		return false;
- 	}
-@@ -527,7 +526,7 @@ static bool receive_pcb(struct net_device *dev, pcb_struct * pcb)
- 		if (test_and_set_bit(0, (void *) &adapter->busy)) {
- 			if (backlog_next(adapter->rx_backlog.in) == adapter->rx_backlog.out) {
- 				set_hsf(dev, HSF_PCB_NAK);
--				printk(KERN_WARNING "%s: PCB rejected, transfer in progress and backlog full\n", dev->name);
-+				pr_warning("%s: PCB rejected, transfer in progress and backlog full\n", dev->name);
- 				pcb->command = 0;
- 				return true;
- 			} else {
-@@ -552,7 +551,7 @@ static bool start_receive(struct net_device *dev, pcb_struct * tx_pcb)
- 	elp_device *adapter = netdev_priv(dev);
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: restarting receiver\n", dev->name);
-+		pr_debug("%s: restarting receiver\n", dev->name);
- 	tx_pcb->command = CMD_RECEIVE_PACKET;
- 	tx_pcb->length = sizeof(struct Rcv_pkt);
- 	tx_pcb->data.rcv_pkt.buf_seg
-@@ -586,7 +585,7 @@ static void receive_packet(struct net_device *dev, int len)
- 	skb = dev_alloc_skb(rlen + 2);
- 
- 	if (!skb) {
--		printk(KERN_WARNING "%s: memory squeeze, dropping packet\n", dev->name);
-+		pr_warning("%s: memory squeeze, dropping packet\n", dev->name);
- 		target = adapter->dma_buffer;
- 		adapter->current_dma.target = NULL;
- 		/* FIXME: stats */
-@@ -604,7 +603,7 @@ static void receive_packet(struct net_device *dev, int len)
- 
- 	/* if this happens, we die */
- 	if (test_and_set_bit(0, (void *) &adapter->dmaing))
--		printk(KERN_ERR "%s: rx blocked, DMA in progress, dir %d\n", dev->name, adapter->current_dma.direction);
-+		pr_err("%s: rx blocked, DMA in progress, dir %d\n", dev->name, adapter->current_dma.direction);
- 
- 	adapter->current_dma.direction = 0;
- 	adapter->current_dma.length = rlen;
-@@ -623,14 +622,14 @@ static void receive_packet(struct net_device *dev, int len)
- 	release_dma_lock(flags);
- 
- 	if (elp_debug >= 3) {
--		printk(KERN_DEBUG "%s: rx DMA transfer started\n", dev->name);
-+		pr_debug("%s: rx DMA transfer started\n", dev->name);
- 	}
- 
- 	if (adapter->rx_active)
- 		adapter->rx_active--;
- 
- 	if (!adapter->busy)
--		printk(KERN_WARNING "%s: receive_packet called, busy not set.\n", dev->name);
-+		pr_warning("%s: receive_packet called, busy not set.\n", dev->name);
- }
- 
- /******************************************************
-@@ -656,10 +655,10 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 		 */
- 		if (inb_status(dev->base_addr) & DONE) {
- 			if (!adapter->dmaing) {
--				printk(KERN_WARNING "%s: phantom DMA completed\n", dev->name);
-+				pr_warning("%s: phantom DMA completed\n", dev->name);
- 			}
- 			if (elp_debug >= 3) {
--				printk(KERN_DEBUG "%s: %s DMA complete, status %02x\n", dev->name, adapter->current_dma.direction ? "tx" : "rx", inb_status(dev->base_addr));
-+				pr_debug("%s: %s DMA complete, status %02x\n", dev->name, adapter->current_dma.direction ? "tx" : "rx", inb_status(dev->base_addr));
- 			}
- 
- 			outb_control(adapter->hcr_val & ~(DMAE | TCEN | DIR), dev);
-@@ -682,7 +681,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 				int t = adapter->rx_backlog.length[adapter->rx_backlog.out];
- 				adapter->rx_backlog.out = backlog_next(adapter->rx_backlog.out);
- 				if (elp_debug >= 2)
--					printk(KERN_DEBUG "%s: receiving backlogged packet (%d)\n", dev->name, t);
-+					pr_debug("%s: receiving backlogged packet (%d)\n", dev->name, t);
- 				receive_packet(dev, t);
- 			} else {
- 				adapter->busy = 0;
-@@ -713,21 +712,21 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 					len = adapter->irx_pcb.data.rcv_resp.pkt_len;
- 					dlen = adapter->irx_pcb.data.rcv_resp.buf_len;
- 					if (adapter->irx_pcb.data.rcv_resp.timeout != 0) {
--						printk(KERN_ERR "%s: interrupt - packet not received correctly\n", dev->name);
-+						pr_err("%s: interrupt - packet not received correctly\n", dev->name);
- 					} else {
- 						if (elp_debug >= 3) {
--							printk(KERN_DEBUG "%s: interrupt - packet received of length %i (%i)\n", dev->name, len, dlen);
-+							pr_debug("%s: interrupt - packet received of length %i (%i)\n", dev->name, len, dlen);
- 						}
- 						if (adapter->irx_pcb.command == 0xff) {
- 							if (elp_debug >= 2)
--								printk(KERN_DEBUG "%s: adding packet to backlog (len = %d)\n", dev->name, dlen);
-+								pr_debug("%s: adding packet to backlog (len = %d)\n", dev->name, dlen);
- 							adapter->rx_backlog.length[adapter->rx_backlog.in] = dlen;
- 							adapter->rx_backlog.in = backlog_next(adapter->rx_backlog.in);
- 						} else {
- 							receive_packet(dev, dlen);
- 						}
- 						if (elp_debug >= 3)
--							printk(KERN_DEBUG "%s: packet received\n", dev->name);
-+							pr_debug("%s: packet received\n", dev->name);
- 					}
- 					break;
- 
-@@ -737,7 +736,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 				case CMD_CONFIGURE_82586_RESPONSE:
- 					adapter->got[CMD_CONFIGURE_82586] = 1;
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: interrupt - configure response received\n", dev->name);
-+						pr_debug("%s: interrupt - configure response received\n", dev->name);
- 					break;
- 
- 					/*
-@@ -746,7 +745,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 				case CMD_CONFIGURE_ADAPTER_RESPONSE:
- 					adapter->got[CMD_CONFIGURE_ADAPTER_MEMORY] = 1;
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: Adapter memory configuration %s.\n", dev->name,
-+						pr_debug("%s: Adapter memory configuration %s.\n", dev->name,
- 						       adapter->irx_pcb.data.failed ? "failed" : "succeeded");
- 					break;
- 
-@@ -756,7 +755,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 				case CMD_LOAD_MULTICAST_RESPONSE:
- 					adapter->got[CMD_LOAD_MULTICAST_LIST] = 1;
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: Multicast address list loading %s.\n", dev->name,
-+						pr_debug("%s: Multicast address list loading %s.\n", dev->name,
- 						       adapter->irx_pcb.data.failed ? "failed" : "succeeded");
- 					break;
- 
-@@ -766,7 +765,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 				case CMD_SET_ADDRESS_RESPONSE:
- 					adapter->got[CMD_SET_STATION_ADDRESS] = 1;
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: Ethernet address setting %s.\n", dev->name,
-+						pr_debug("%s: Ethernet address setting %s.\n", dev->name,
- 						       adapter->irx_pcb.data.failed ? "failed" : "succeeded");
- 					break;
- 
-@@ -783,7 +782,7 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 					dev->stats.rx_over_errors += adapter->irx_pcb.data.netstat.err_res;
- 					adapter->got[CMD_NETWORK_STATISTICS] = 1;
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: interrupt - statistics response received\n", dev->name);
-+						pr_debug("%s: interrupt - statistics response received\n", dev->name);
- 					break;
- 
- 					/*
-@@ -791,17 +790,17 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 					 */
- 				case CMD_TRANSMIT_PACKET_COMPLETE:
- 					if (elp_debug >= 3)
--						printk(KERN_DEBUG "%s: interrupt - packet sent\n", dev->name);
-+						pr_debug("%s: interrupt - packet sent\n", dev->name);
- 					if (!netif_running(dev))
- 						break;
- 					switch (adapter->irx_pcb.data.xmit_resp.c_stat) {
- 					case 0xffff:
- 						dev->stats.tx_aborted_errors++;
--						printk(KERN_INFO "%s: transmit timed out, network cable problem?\n", dev->name);
-+						pr_info("%s: transmit timed out, network cable problem?\n", dev->name);
- 						break;
- 					case 0xfffe:
- 						dev->stats.tx_fifo_errors++;
--						printk(KERN_INFO "%s: transmit timed out, FIFO underrun\n", dev->name);
-+						pr_info("%s: transmit timed out, FIFO underrun\n", dev->name);
- 						break;
- 					}
- 					netif_wake_queue(dev);
-@@ -811,11 +810,11 @@ static irqreturn_t elp_interrupt(int irq, void *dev_id)
- 					 * some unknown PCB
- 					 */
- 				default:
--					printk(KERN_DEBUG "%s: unknown PCB received - %2.2x\n", dev->name, adapter->irx_pcb.command);
-+					pr_debug("%s: unknown PCB received - %2.2x\n", dev->name, adapter->irx_pcb.command);
- 					break;
- 				}
- 			} else {
--				printk(KERN_WARNING "%s: failed to read PCB on interrupt\n", dev->name);
-+				pr_warning("%s: failed to read PCB on interrupt\n", dev->name);
- 				adapter_reset(dev);
- 			}
- 		}
-@@ -844,13 +843,13 @@ static int elp_open(struct net_device *dev)
- 	int retval;
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: request to open device\n", dev->name);
-+		pr_debug("%s: request to open device\n", dev->name);
- 
- 	/*
- 	 * make sure we actually found the device
- 	 */
- 	if (adapter == NULL) {
--		printk(KERN_ERR "%s: Opening a non-existent physical device\n", dev->name);
-+		pr_err("%s: Opening a non-existent physical device\n", dev->name);
- 		return -EAGAIN;
- 	}
- 	/*
-@@ -880,17 +879,17 @@ static int elp_open(struct net_device *dev)
- 	 * install our interrupt service routine
- 	 */
- 	if ((retval = request_irq(dev->irq, &elp_interrupt, 0, dev->name, dev))) {
--		printk(KERN_ERR "%s: could not allocate IRQ%d\n", dev->name, dev->irq);
-+		pr_err("%s: could not allocate IRQ%d\n", dev->name, dev->irq);
- 		return retval;
- 	}
- 	if ((retval = request_dma(dev->dma, dev->name))) {
- 		free_irq(dev->irq, dev);
--		printk(KERN_ERR "%s: could not allocate DMA%d channel\n", dev->name, dev->dma);
-+		pr_err("%s: could not allocate DMA%d channel\n", dev->name, dev->dma);
- 		return retval;
- 	}
- 	adapter->dma_buffer = (void *) dma_mem_alloc(DMA_BUFFER_SIZE);
- 	if (!adapter->dma_buffer) {
--		printk(KERN_ERR "%s: could not allocate DMA buffer\n", dev->name);
-+		pr_err("%s: could not allocate DMA buffer\n", dev->name);
- 		free_dma(dev->dma);
- 		free_irq(dev->irq, dev);
- 		return -ENOMEM;
-@@ -906,7 +905,7 @@ static int elp_open(struct net_device *dev)
- 	 * configure adapter memory: we need 10 multicast addresses, default==0
- 	 */
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: sending 3c505 memory configuration command\n", dev->name);
-+		pr_debug("%s: sending 3c505 memory configuration command\n", dev->name);
- 	adapter->tx_pcb.command = CMD_CONFIGURE_ADAPTER_MEMORY;
- 	adapter->tx_pcb.data.memconf.cmd_q = 10;
- 	adapter->tx_pcb.data.memconf.rcv_q = 20;
-@@ -917,7 +916,7 @@ static int elp_open(struct net_device *dev)
- 	adapter->tx_pcb.length = sizeof(struct Memconf);
- 	adapter->got[CMD_CONFIGURE_ADAPTER_MEMORY] = 0;
- 	if (!send_pcb(dev, &adapter->tx_pcb))
--		printk(KERN_ERR "%s: couldn't send memory configuration command\n", dev->name);
-+		pr_err("%s: couldn't send memory configuration command\n", dev->name);
- 	else {
- 		unsigned long timeout = jiffies + TIMEOUT;
- 		while (adapter->got[CMD_CONFIGURE_ADAPTER_MEMORY] == 0 && time_before(jiffies, timeout));
-@@ -930,13 +929,13 @@ static int elp_open(struct net_device *dev)
- 	 * configure adapter to receive broadcast messages and wait for response
- 	 */
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: sending 82586 configure command\n", dev->name);
-+		pr_debug("%s: sending 82586 configure command\n", dev->name);
- 	adapter->tx_pcb.command = CMD_CONFIGURE_82586;
- 	adapter->tx_pcb.data.configure = NO_LOOPBACK | RECV_BROAD;
- 	adapter->tx_pcb.length = 2;
- 	adapter->got[CMD_CONFIGURE_82586] = 0;
- 	if (!send_pcb(dev, &adapter->tx_pcb))
--		printk(KERN_ERR "%s: couldn't send 82586 configure command\n", dev->name);
-+		pr_err("%s: couldn't send 82586 configure command\n", dev->name);
- 	else {
- 		unsigned long timeout = jiffies + TIMEOUT;
- 		while (adapter->got[CMD_CONFIGURE_82586] == 0 && time_before(jiffies, timeout));
-@@ -952,7 +951,7 @@ static int elp_open(struct net_device *dev)
- 	 */
- 	prime_rx(dev);
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: %d receive PCBs active\n", dev->name, adapter->rx_active);
-+		pr_debug("%s: %d receive PCBs active\n", dev->name, adapter->rx_active);
- 
- 	/*
- 	 * device is now officially open!
-@@ -982,7 +981,7 @@ static bool send_packet(struct net_device *dev, struct sk_buff *skb)
- 
- 	if (test_and_set_bit(0, (void *) &adapter->busy)) {
- 		if (elp_debug >= 2)
--			printk(KERN_DEBUG "%s: transmit blocked\n", dev->name);
-+			pr_debug("%s: transmit blocked\n", dev->name);
- 		return false;
- 	}
- 
-@@ -1004,7 +1003,7 @@ static bool send_packet(struct net_device *dev, struct sk_buff *skb)
- 	}
- 	/* if this happens, we die */
- 	if (test_and_set_bit(0, (void *) &adapter->dmaing))
--		printk(KERN_DEBUG "%s: tx: DMA %d in progress\n", dev->name, adapter->current_dma.direction);
-+		pr_debug("%s: tx: DMA %d in progress\n", dev->name, adapter->current_dma.direction);
- 
- 	adapter->current_dma.direction = 1;
- 	adapter->current_dma.start_time = jiffies;
-@@ -1030,7 +1029,7 @@ static bool send_packet(struct net_device *dev, struct sk_buff *skb)
- 	release_dma_lock(flags);
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: DMA transfer started\n", dev->name);
-+		pr_debug("%s: DMA transfer started\n", dev->name);
- 
- 	return true;
- }
-@@ -1044,9 +1043,9 @@ static void elp_timeout(struct net_device *dev)
- 	int stat;
- 
- 	stat = inb_status(dev->base_addr);
--	printk(KERN_WARNING "%s: transmit timed out, lost %s?\n", dev->name, (stat & ACRF) ? "interrupt" : "command");
-+	pr_warning("%s: transmit timed out, lost %s?\n", dev->name, (stat & ACRF) ? "interrupt" : "command");
- 	if (elp_debug >= 1)
--		printk(KERN_DEBUG "%s: status %#02x\n", dev->name, stat);
-+		pr_debug("%s: status %#02x\n", dev->name, stat);
- 	dev->trans_start = jiffies;
- 	dev->stats.tx_dropped++;
- 	netif_wake_queue(dev);
-@@ -1068,7 +1067,7 @@ static int elp_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	check_3c505_dma(dev);
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: request to send packet of length %d\n", dev->name, (int) skb->len);
-+		pr_debug("%s: request to send packet of length %d\n", dev->name, (int) skb->len);
- 
- 	netif_stop_queue(dev);
- 
-@@ -1077,13 +1076,13 @@ static int elp_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (!send_packet(dev, skb)) {
- 		if (elp_debug >= 2) {
--			printk(KERN_DEBUG "%s: failed to transmit packet\n", dev->name);
-+			pr_debug("%s: failed to transmit packet\n", dev->name);
- 		}
- 		spin_unlock_irqrestore(&adapter->lock, flags);
- 		return 1;
- 	}
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: packet of length %d sent\n", dev->name, (int) skb->len);
-+		pr_debug("%s: packet of length %d sent\n", dev->name, (int) skb->len);
- 
- 	/*
- 	 * start the transmit timeout
-@@ -1107,7 +1106,7 @@ static struct net_device_stats *elp_get_stats(struct net_device *dev)
- 	elp_device *adapter = netdev_priv(dev);
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: request for stats\n", dev->name);
-+		pr_debug("%s: request for stats\n", dev->name);
- 
- 	/* If the device is closed, just return the latest stats we have,
- 	   - we cannot ask from the adapter without interrupts */
-@@ -1119,7 +1118,7 @@ static struct net_device_stats *elp_get_stats(struct net_device *dev)
- 	adapter->tx_pcb.length = 0;
- 	adapter->got[CMD_NETWORK_STATISTICS] = 0;
- 	if (!send_pcb(dev, &adapter->tx_pcb))
--		printk(KERN_ERR "%s: couldn't send get statistics command\n", dev->name);
-+		pr_err("%s: couldn't send get statistics command\n", dev->name);
- 	else {
- 		unsigned long timeout = jiffies + TIMEOUT;
- 		while (adapter->got[CMD_NETWORK_STATISTICS] == 0 && time_before(jiffies, timeout));
-@@ -1169,7 +1168,7 @@ static int elp_close(struct net_device *dev)
- 	elp_device *adapter = netdev_priv(dev);
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: request to close device\n", dev->name);
-+		pr_debug("%s: request to close device\n", dev->name);
- 
- 	netif_stop_queue(dev);
- 
-@@ -1213,7 +1212,7 @@ static void elp_set_mc_list(struct net_device *dev)
- 	unsigned long flags;
- 
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: request to set multicast list\n", dev->name);
-+		pr_debug("%s: request to set multicast list\n", dev->name);
- 
- 	spin_lock_irqsave(&adapter->lock, flags);
- 
-@@ -1228,7 +1227,7 @@ static void elp_set_mc_list(struct net_device *dev)
- 		}
- 		adapter->got[CMD_LOAD_MULTICAST_LIST] = 0;
- 		if (!send_pcb(dev, &adapter->tx_pcb))
--			printk(KERN_ERR "%s: couldn't send set_multicast command\n", dev->name);
-+			pr_err("%s: couldn't send set_multicast command\n", dev->name);
- 		else {
- 			unsigned long timeout = jiffies + TIMEOUT;
- 			while (adapter->got[CMD_LOAD_MULTICAST_LIST] == 0 && time_before(jiffies, timeout));
-@@ -1247,14 +1246,14 @@ static void elp_set_mc_list(struct net_device *dev)
- 	 * and wait for response
- 	 */
- 	if (elp_debug >= 3)
--		printk(KERN_DEBUG "%s: sending 82586 configure command\n", dev->name);
-+		pr_debug("%s: sending 82586 configure command\n", dev->name);
- 	adapter->tx_pcb.command = CMD_CONFIGURE_82586;
- 	adapter->tx_pcb.length = 2;
- 	adapter->got[CMD_CONFIGURE_82586] = 0;
- 	if (!send_pcb(dev, &adapter->tx_pcb))
- 	{
- 		spin_unlock_irqrestore(&adapter->lock, flags);
--		printk(KERN_ERR "%s: couldn't send 82586 configure command\n", dev->name);
-+		pr_err("%s: couldn't send 82586 configure command\n", dev->name);
- 	}
- 	else {
- 		unsigned long timeout = jiffies + TIMEOUT;
-@@ -1283,17 +1282,17 @@ static int __init elp_sense(struct net_device *dev)
- 	orig_HSR = inb_status(addr);
- 
- 	if (elp_debug > 0)
--		printk(search_msg, name, addr);
-+		pr_info(search_msg, name, addr);
- 
- 	if (orig_HSR == 0xff) {
- 		if (elp_debug > 0)
--			printk(notfound_msg, 1);
-+			pr_debug(notfound_msg, 1);
- 		goto out;
- 	}
- 
- 	/* Wait for a while; the adapter may still be booting up */
- 	if (elp_debug > 0)
--		printk(stilllooking_msg);
-+		pr_debug(stilllooking_msg);
- 
- 	if (orig_HSR & DIR) {
- 		/* If HCR.DIR is up, we pull it down. HSR.DIR should follow. */
-@@ -1301,7 +1300,7 @@ static int __init elp_sense(struct net_device *dev)
- 		msleep(300);
- 		if (inb_status(addr) & DIR) {
- 			if (elp_debug > 0)
--				printk(notfound_msg, 2);
-+				pr_debug(notfound_msg, 2);
- 			goto out;
- 		}
- 	} else {
-@@ -1310,7 +1309,7 @@ static int __init elp_sense(struct net_device *dev)
- 		msleep(300);
- 		if (!(inb_status(addr) & DIR)) {
- 			if (elp_debug > 0)
--				printk(notfound_msg, 3);
-+				pr_debug(notfound_msg, 3);
- 			goto out;
- 		}
- 	}
-@@ -1318,7 +1317,7 @@ static int __init elp_sense(struct net_device *dev)
- 	 * It certainly looks like a 3c505.
- 	 */
- 	if (elp_debug > 0)
--		printk(found_msg);
-+		pr_debug(found_msg);
- 
- 	return 0;
- out:
-@@ -1349,7 +1348,7 @@ static int __init elp_autodetect(struct net_device *dev)
- 
- 	/* could not find an adapter */
- 	if (elp_debug > 0)
--		printk(couldnot_msg, dev->name);
-+		pr_info(couldnot_msg, dev->name);
- 
- 	return 0;		/* Because of this, the layer above will return -ENODEV */
- }
-@@ -1424,16 +1423,16 @@ static int __init elplus_setup(struct net_device *dev)
- 			/* Nope, it's ignoring the command register.  This means that
- 			 * either it's still booting up, or it's died.
- 			 */
--			printk(KERN_ERR "%s: command register wouldn't drain, ", dev->name);
-+			pr_err("%s: command register wouldn't drain, ", dev->name);
- 			if ((inb_status(dev->base_addr) & 7) == 3) {
- 				/* If the adapter status is 3, it *could* still be booting.
- 				 * Give it the benefit of the doubt for 10 seconds.
- 				 */
--				printk("assuming 3c505 still starting\n");
-+				pr_err("assuming 3c505 still starting\n");
- 				timeout = jiffies + 10*HZ;
- 				while (time_before(jiffies, timeout) && (inb_status(dev->base_addr) & 7));
- 				if (inb_status(dev->base_addr) & 7) {
--					printk(KERN_ERR "%s: 3c505 failed to start\n", dev->name);
-+					pr_err("%s: 3c505 failed to start\n", dev->name);
- 				} else {
- 					okay = 1;  /* It started */
- 				}
-@@ -1441,7 +1440,7 @@ static int __init elplus_setup(struct net_device *dev)
- 				/* Otherwise, it must just be in a strange
- 				 * state.  We probably need to kick it.
- 				 */
--				printk("3c505 is sulking\n");
-+				pr_err("3c505 is sulking\n");
- 			}
- 		}
- 		for (tries = 0; tries < 5 && okay; tries++) {
-@@ -1454,18 +1453,18 @@ static int __init elplus_setup(struct net_device *dev)
- 			adapter->tx_pcb.length = 0;
- 			cookie = probe_irq_on();
- 			if (!send_pcb(dev, &adapter->tx_pcb)) {
--				printk(KERN_ERR "%s: could not send first PCB\n", dev->name);
-+				pr_err("%s: could not send first PCB\n", dev->name);
- 				probe_irq_off(cookie);
- 				continue;
- 			}
- 			if (!receive_pcb(dev, &adapter->rx_pcb)) {
--				printk(KERN_ERR "%s: could not read first PCB\n", dev->name);
-+				pr_err("%s: could not read first PCB\n", dev->name);
- 				probe_irq_off(cookie);
- 				continue;
- 			}
- 			if ((adapter->rx_pcb.command != CMD_ADDRESS_RESPONSE) ||
- 			    (adapter->rx_pcb.length != 6)) {
--				printk(KERN_ERR "%s: first PCB wrong (%d, %d)\n", dev->name, adapter->rx_pcb.command, adapter->rx_pcb.length);
-+				pr_err("%s: first PCB wrong (%d, %d)\n", dev->name, adapter->rx_pcb.command, adapter->rx_pcb.length);
- 				probe_irq_off(cookie);
- 				continue;
- 			}
-@@ -1474,32 +1473,32 @@ static int __init elplus_setup(struct net_device *dev)
- 		/* It's broken.  Do a hard reset to re-initialise the board,
- 		 * and try again.
- 		 */
--		printk(KERN_INFO "%s: resetting adapter\n", dev->name);
-+		pr_info("%s: resetting adapter\n", dev->name);
- 		outb_control(adapter->hcr_val | FLSH | ATTN, dev);
- 		outb_control(adapter->hcr_val & ~(FLSH | ATTN), dev);
- 	}
--	printk(KERN_ERR "%s: failed to initialise 3c505\n", dev->name);
-+	pr_err("%s: failed to initialise 3c505\n", dev->name);
- 	goto out;
- 
-       okay:
- 	if (dev->irq) {		/* Is there a preset IRQ? */
- 		int rpt = probe_irq_off(cookie);
- 		if (dev->irq != rpt) {
--			printk(KERN_WARNING "%s: warning, irq %d configured but %d detected\n", dev->name, dev->irq, rpt);
-+			pr_warning("%s: warning, irq %d configured but %d detected\n", dev->name, dev->irq, rpt);
- 		}
- 		/* if dev->irq == probe_irq_off(cookie), all is well */
- 	} else		       /* No preset IRQ; just use what we can detect */
- 		dev->irq = probe_irq_off(cookie);
- 	switch (dev->irq) {    /* Legal, sane? */
- 	case 0:
--		printk(KERN_ERR "%s: IRQ probe failed: check 3c505 jumpers.\n",
-+		pr_err("%s: IRQ probe failed: check 3c505 jumpers.\n",
- 		       dev->name);
- 		goto out;
- 	case 1:
- 	case 6:
- 	case 8:
- 	case 13:
--		printk(KERN_ERR "%s: Impossible IRQ %d reported by probe_irq_off().\n",
-+		pr_err("%s: Impossible IRQ %d reported by probe_irq_off().\n",
- 		       dev->name, dev->irq);
- 		       goto out;
- 	}
-@@ -1521,7 +1520,7 @@ static int __init elplus_setup(struct net_device *dev)
- 			dev->dma = dev->mem_start & 7;
- 		}
- 		else {
--			printk(KERN_WARNING "%s: warning, DMA channel not specified, using default\n", dev->name);
-+			pr_warning("%s: warning, DMA channel not specified, using default\n", dev->name);
- 			dev->dma = ELP_DMA;
- 		}
- 	}
-@@ -1529,7 +1528,7 @@ static int __init elplus_setup(struct net_device *dev)
- 	/*
- 	 * print remainder of startup message
- 	 */
--	printk(KERN_INFO "%s: 3c505 at %#lx, irq %d, dma %d, "
-+	pr_info("%s: 3c505 at %#lx, irq %d, dma %d, "
- 	       "addr %pM, ",
- 	       dev->name, dev->base_addr, dev->irq, dev->dma,
- 	       dev->dev_addr);
-@@ -1544,9 +1543,9 @@ static int __init elplus_setup(struct net_device *dev)
- 	    !receive_pcb(dev, &adapter->rx_pcb) ||
- 	    (adapter->rx_pcb.command != CMD_ADAPTER_INFO_RESPONSE) ||
- 	    (adapter->rx_pcb.length != 10)) {
--		printk("not responding to second PCB\n");
-+		pr_info("not responding to second PCB\n");
- 	}
--	printk("rev %d.%d, %dk\n", adapter->rx_pcb.data.info.major_vers, adapter->rx_pcb.data.info.minor_vers, adapter->rx_pcb.data.info.RAM_sz);
-+	pr_info("rev %d.%d, %dk\n", adapter->rx_pcb.data.info.major_vers, adapter->rx_pcb.data.info.minor_vers, adapter->rx_pcb.data.info.RAM_sz);
- 
- 	/*
- 	 * reconfigure the adapter memory to better suit our purposes
-@@ -1563,10 +1562,10 @@ static int __init elplus_setup(struct net_device *dev)
- 	    !receive_pcb(dev, &adapter->rx_pcb) ||
- 	    (adapter->rx_pcb.command != CMD_CONFIGURE_ADAPTER_RESPONSE) ||
- 	    (adapter->rx_pcb.length != 2)) {
--		printk(KERN_ERR "%s: could not configure adapter memory\n", dev->name);
-+		pr_err("%s: could not configure adapter memory\n", dev->name);
- 	}
- 	if (adapter->rx_pcb.data.configure) {
--		printk(KERN_ERR "%s: adapter configuration failed\n", dev->name);
-+		pr_err("%s: adapter configuration failed\n", dev->name);
- 	}
- 
- 	dev->netdev_ops = &elp_netdev_ops;
-@@ -1631,17 +1630,17 @@ int __init init_module(void)
- 			dev->dma = dma[this_dev];
- 		} else {
- 			dev->dma = ELP_DMA;
--			printk(KERN_WARNING "3c505.c: warning, using default DMA channel,\n");
-+			pr_warning("3c505.c: warning, using default DMA channel,\n");
- 		}
- 		if (io[this_dev] == 0) {
- 			if (this_dev) {
- 				free_netdev(dev);
- 				break;
- 			}
--			printk(KERN_NOTICE "3c505.c: module autoprobe not recommended, give io=xx.\n");
-+			pr_notice("3c505.c: module autoprobe not recommended, give io=xx.\n");
- 		}
- 		if (elplus_setup(dev) != 0) {
--			printk(KERN_WARNING "3c505.c: Failed to register card at 0x%x.\n", io[this_dev]);
-+			pr_warning("3c505.c: Failed to register card at 0x%x.\n", io[this_dev]);
- 			free_netdev(dev);
- 			break;
- 		}
-diff --git a/drivers/net/3c507.c b/drivers/net/3c507.c
-index fbbaf82..e66fa7f 100644
---- a/drivers/net/3c507.c
-+++ b/drivers/net/3c507.c
-@@ -392,9 +392,9 @@ static int __init el16_probe1(struct net_device *dev, int ioaddr)
- 	}
- 
- 	if (net_debug  &&  version_printed++ == 0)
--		printk(version);
-+		pr_debug("%s", version);
- 
--	printk("%s: 3c507 at %#x,", dev->name, ioaddr);
-+	pr_info("%s: 3c507 at %#x,", dev->name, ioaddr);
- 
- 	/* We should make a few more checks here, like the first three octets of
- 	   the S.A. for the manufacturer's code. */
-@@ -403,7 +403,7 @@ static int __init el16_probe1(struct net_device *dev, int ioaddr)
- 
- 	irqval = request_irq(irq, &el16_interrupt, 0, DRV_NAME, dev);
- 	if (irqval) {
--		printk(KERN_ERR "3c507: unable to get IRQ %d (irqval=%d).\n", irq, irqval);
-+		pr_err("3c507: unable to get IRQ %d (irqval=%d).\n", irq, irqval);
- 		retval = -EAGAIN;
- 		goto out;
- 	}
-@@ -414,7 +414,7 @@ static int __init el16_probe1(struct net_device *dev, int ioaddr)
- 	outb(0x01, ioaddr + MISC_CTRL);
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = inb(ioaddr + i);
+ 	checksum = (checksum ^ (checksum >> 8)) & 0xff;
+ 	if (checksum != 0x00)
+-		printk(" ***INVALID CHECKSUM %4.4x*** ", checksum);
 -	printk(" %pM", dev->dev_addr);
++		pr_err(" ***INVALID CHECKSUM %4.4x*** ", checksum);
 +	pr_info(" %pM", dev->dev_addr);
- 
- 	if (mem_start)
- 		net_debug = mem_start & 7;
-@@ -443,18 +443,18 @@ static int __init el16_probe1(struct net_device *dev, int ioaddr)
- 	dev->if_port = (inb(ioaddr + ROM_CONFIG) & 0x80) ? 1 : 0;
- 	dev->irq = inb(ioaddr + IRQ_CONFIG) & 0x0f;
- 
--	printk(", IRQ %d, %sternal xcvr, memory %#lx-%#lx.\n", dev->irq,
-+	pr_info(", IRQ %d, %sternal xcvr, memory %#lx-%#lx.\n", dev->irq,
- 		   dev->if_port ? "ex" : "in", dev->mem_start, dev->mem_end-1);
- 
- 	if (net_debug)
--		printk(version);
-+		pr_debug("%s", version);
- 
- 	lp = netdev_priv(dev);
-  	memset(lp, 0, sizeof(*lp));
- 	spin_lock_init(&lp->lock);
- 	lp->base = ioremap(dev->mem_start, RX_BUF_END);
- 	if (!lp->base) {
--		printk(KERN_ERR "3c507: unable to remap memory\n");
-+		pr_err("3c507: unable to remap memory\n");
- 		retval = -EAGAIN;
- 		goto out1;
+ 	if (eeprom[16] == 0x11c7) {	/* Corkscrew */
+ 		if (request_dma(dev->dma, "3c515")) {
+-			printk(", DMA %d allocation failed", dev->dma);
++			pr_warning(", DMA %d allocation failed", dev->dma);
+ 			dev->dma = 0;
+ 		} else
+-			printk(", DMA %d", dev->dma);
++			pr_info(", DMA %d", dev->dma);
  	}
-@@ -488,20 +488,20 @@ static void el16_tx_timeout (struct net_device *dev)
- 	void __iomem *shmem = lp->base;
+-	printk(", IRQ %d\n", dev->irq);
++	pr_info(", IRQ %d\n", dev->irq);
+ 	/* Tell them about an invalid IRQ. */
+ 	if (corkscrew_debug && (dev->irq <= 0 || dev->irq > 15))
+-		printk(KERN_WARNING " *** Warning: this IRQ is unlikely to work! ***\n");
++		pr_warning(" *** Warning: this IRQ is unlikely to work! ***\n");
  
- 	if (net_debug > 1)
--		printk ("%s: transmit timed out, %s?  ", dev->name,
-+		pr_debug("%s: transmit timed out, %s?  ", dev->name,
- 			readw(shmem + iSCB_STATUS) & 0x8000 ? "IRQ conflict" :
- 			"network cable problem");
- 	/* Try to restart the adaptor. */
- 	if (lp->last_restart == dev->stats.tx_packets) {
- 		if (net_debug > 1)
--			printk ("Resetting board.\n");
-+			pr_debug("Resetting board.\n");
- 		/* Completely reset the adaptor. */
- 		init_82586_mem (dev);
- 		lp->tx_pkts_in_ring = 0;
- 	} else {
- 		/* Issue the channel attention signal and hope it "gets better". */
- 		if (net_debug > 1)
--			printk ("Kicking board.\n");
-+			pr_debug("Kicking board.\n");
- 		writew(0xf000 | CUC_START | RX_START, shmem + iSCB_CMD);
- 		outb (0, ioaddr + SIGNAL_CA);	/* Issue channel-attn. */
- 		lp->last_restart = dev->stats.tx_packets;
-@@ -553,7 +553,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 	void __iomem *shmem;
- 
- 	if (dev == NULL) {
--		printk ("net_interrupt(): irq %d for unknown device.\n", irq);
-+		pr_err("net_interrupt(): irq %d for unknown device.\n", irq);
- 		return IRQ_NONE;
+ 	{
+ 		char *ram_split[] = { "5:3", "3:1", "1:1", "3:5" };
+@@ -669,9 +669,9 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
+ 		vp->available_media = inw(ioaddr + Wn3_Options);
+ 		config = inl(ioaddr + Wn3_Config);
+ 		if (corkscrew_debug > 1)
+-			printk(KERN_INFO "  Internal config register is %4.4x, transceivers %#x.\n",
++			pr_info("  Internal config register is %4.4x, transceivers %#x.\n",
+ 				config, inw(ioaddr + Wn3_Options));
+-		printk(KERN_INFO "  %dK %s-wide RAM %s Rx:Tx split, %s%s interface.\n",
++		pr_info("  %dK %s-wide RAM %s Rx:Tx split, %s%s interface.\n",
+ 			8 << config & Ram_size,
+ 			config & Ram_width ? "word" : "byte",
+ 			ram_split[(config & Ram_split) >> Ram_split_shift],
+@@ -682,7 +682,7 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
+ 		dev->if_port = vp->default_media;
  	}
+ 	if (vp->media_override != 7) {
+-		printk(KERN_INFO "  Media override to transceiver type %d (%s).\n",
++		pr_info("  Media override to transceiver type %d (%s).\n",
+ 		       vp->media_override,
+ 		       media_tbl[vp->media_override].name);
+ 		dev->if_port = vp->media_override;
+@@ -718,7 +718,7 @@ static int corkscrew_open(struct net_device *dev)
  
-@@ -566,7 +566,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 	status = readw(shmem+iSCB_STATUS);
+ 	if (vp->media_override != 7) {
+ 		if (corkscrew_debug > 1)
+-			printk(KERN_INFO "%s: Media override to transceiver %d (%s).\n",
++			pr_info("%s: Media override to transceiver %d (%s).\n",
+ 				dev->name, vp->media_override,
+ 				media_tbl[vp->media_override].name);
+ 		dev->if_port = vp->media_override;
+@@ -729,7 +729,7 @@ static int corkscrew_open(struct net_device *dev)
+ 			dev->if_port = media_tbl[dev->if_port].next;
  
- 	if (net_debug > 4) {
--		printk("%s: 3c507 interrupt, status %4.4x.\n", dev->name, status);
-+		pr_debug("%s: 3c507 interrupt, status %4.4x.\n", dev->name, status);
- 	}
+ 		if (corkscrew_debug > 1)
+-			printk("%s: Initial media type %s.\n",
++			pr_debug("%s: Initial media type %s.\n",
+ 			       dev->name, media_tbl[dev->if_port].name);
  
- 	/* Disable the 82586's input to the interrupt line. */
-@@ -577,7 +577,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 	  unsigned short tx_status = readw(shmem+lp->tx_reap);
- 	  if (!(tx_status & 0x8000)) {
- 		if (net_debug > 5)
--			printk("Tx command incomplete (%#x).\n", lp->tx_reap);
-+			pr_debug("Tx command incomplete (%#x).\n", lp->tx_reap);
- 		break;
- 	  }
- 	  /* Tx unsuccessful or some interesting status bit set. */
-@@ -591,7 +591,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 	  }
- 	  dev->stats.tx_packets++;
- 	  if (net_debug > 5)
--		  printk("Reaped %x, Tx status %04x.\n" , lp->tx_reap, tx_status);
-+		  pr_debug("Reaped %x, Tx status %04x.\n" , lp->tx_reap, tx_status);
- 	  lp->tx_reap += TX_BUF_SIZE;
- 	  if (lp->tx_reap > RX_BUF_START - TX_BUF_SIZE)
- 		lp->tx_reap = TX_BUF_START;
-@@ -606,7 +606,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
+ 		init_timer(&vp->timer);
+@@ -744,7 +744,7 @@ static int corkscrew_open(struct net_device *dev)
+ 	outl(config, ioaddr + Wn3_Config);
  
- 	if (status & 0x4000) { /* Packet received. */
- 		if (net_debug > 5)
--			printk("Received packet, rx_head %04x.\n", lp->rx_head);
-+			pr_debug("Received packet, rx_head %04x.\n", lp->rx_head);
- 		el16_rx(dev);
+ 	if (corkscrew_debug > 1) {
+-		printk("%s: corkscrew_open() InternalConfig %8.8x.\n",
++		pr_debug("%s: corkscrew_open() InternalConfig %8.8x.\n",
+ 		       dev->name, config);
  	}
  
-@@ -615,7 +615,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
+@@ -777,7 +777,7 @@ static int corkscrew_open(struct net_device *dev)
  
- 	if ((status & 0x0700) != 0x0200 && netif_running(dev)) {
- 		if (net_debug)
--			printk("%s: Command unit stopped, status %04x, restarting.\n",
-+			pr_debug("%s: Command unit stopped, status %04x, restarting.\n",
- 				   dev->name, status);
- 		/* If this ever occurs we should really re-write the idle loop, reset
- 		   the Tx list, and do a complete restart of the command unit.
-@@ -627,7 +627,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 		/* The Rx unit is not ready, it must be hung.  Restart the receiver by
- 		   initializing the rx buffers, and issuing an Rx start command. */
- 		if (net_debug)
--			printk("%s: Rx unit stopped, status %04x, restarting.\n",
-+			pr_debug("%s: Rx unit stopped, status %04x, restarting.\n",
- 				   dev->name, status);
- 		init_rx_bufs(dev);
- 		writew(RX_BUF_START,shmem+iSCB_RFA);
-@@ -753,7 +753,7 @@ static void init_82586_mem(struct net_device *dev)
- 		int boguscnt = 50;
- 		while (readw(shmem+iSCB_STATUS) == 0)
- 			if (--boguscnt == 0) {
--				printk("%s: i82586 initialization timed out with status %04x, "
-+				pr_warning("%s: i82586 initialization timed out with status %04x, "
- 					   "cmd %04x.\n", dev->name,
- 					   readw(shmem+iSCB_STATUS), readw(shmem+iSCB_CMD));
- 				break;
-@@ -765,7 +765,7 @@ static void init_82586_mem(struct net_device *dev)
- 	/* Disable loopback and enable interrupts. */
- 	outb(0x84, ioaddr + MISC_CTRL);
- 	if (net_debug > 4)
--		printk("%s: Initialized 82586, status %04x.\n", dev->name,
-+		pr_debug("%s: Initialized 82586, status %04x.\n", dev->name,
- 			   readw(shmem+iSCB_STATUS));
- 	return;
- }
-@@ -810,7 +810,7 @@ static void hardware_send_packet(struct net_device *dev, void *buf, short length
- 		lp->tx_head = TX_BUF_START;
- 
- 	if (net_debug > 4) {
--		printk("%s: 3c507 @%x send length = %d, tx_block %3x, next %3x.\n",
-+		pr_debug("%s: 3c507 @%x send length = %d, tx_block %3x, next %3x.\n",
- 			   dev->name, ioaddr, length, tx_block, lp->tx_head);
+ 	if (corkscrew_debug > 1) {
+ 		EL3WINDOW(4);
+-		printk("%s: corkscrew_open() irq %d media status %4.4x.\n",
++		pr_debug("%s: corkscrew_open() irq %d media status %4.4x.\n",
+ 		       dev->name, dev->irq, inw(ioaddr + Wn4_Media));
  	}
  
-@@ -838,7 +838,7 @@ static void el16_rx(struct net_device *dev)
+@@ -814,8 +814,7 @@ static int corkscrew_open(struct net_device *dev)
+ 	if (vp->full_bus_master_rx) {	/* Boomerang bus master. */
+ 		vp->cur_rx = vp->dirty_rx = 0;
+ 		if (corkscrew_debug > 2)
+-			printk("%s:  Filling in the Rx ring.\n",
+-			       dev->name);
++			pr_debug("%s:  Filling in the Rx ring.\n", dev->name);
+ 		for (i = 0; i < RX_RING_SIZE; i++) {
+ 			struct sk_buff *skb;
+ 			if (i < (RX_RING_SIZE - 1))
+@@ -877,7 +876,7 @@ static void corkscrew_timer(unsigned long data)
+ 	int ok = 0;
  
- 		if (rfd_cmd != 0 || data_buffer_addr != rx_head + 22
- 			|| (pkt_len & 0xC000) != 0xC000) {
--			printk(KERN_ERR "%s: Rx frame at %#x corrupted, "
-+			pr_err("%s: Rx frame at %#x corrupted, "
- 			       "status %04x cmd %04x next %04x "
- 			       "data-buf @%04x %04x.\n",
- 			       dev->name, rx_head, frame_status, rfd_cmd,
-@@ -858,8 +858,7 @@ static void el16_rx(struct net_device *dev)
- 			pkt_len &= 0x3fff;
- 			skb = dev_alloc_skb(pkt_len+2);
- 			if (skb == NULL) {
--				printk(KERN_ERR "%s: Memory squeeze, "
--				       "dropping packet.\n",
-+				pr_err("%s: Memory squeeze, dropping packet.\n",
- 				       dev->name);
- 				dev->stats.rx_dropped++;
- 				break;
-@@ -926,7 +925,7 @@ MODULE_PARM_DESC(irq, "(ignored)");
- int __init init_module(void)
- {
- 	if (io == 0)
--		printk("3c507: You should not use auto-probing with insmod!\n");
-+		pr_notice("3c507: You should not use auto-probing with insmod!\n");
- 	dev_3c507 = el16_probe(-1);
- 	return IS_ERR(dev_3c507) ? PTR_ERR(dev_3c507) : 0;
- }
-diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
-index 393e4e7..b8579a6 100644
---- a/drivers/net/3c509.c
-+++ b/drivers/net/3c509.c
-@@ -257,7 +257,7 @@ static int el3_isa_id_sequence(__be16 *phys_addr)
- 			    && !memcmp(phys_addr, el3_devs[i]->dev_addr,
- 				       ETH_ALEN)) {
- 				if (el3_debug > 3)
--					printk(KERN_DEBUG "3c509 with address %02x %02x %02x %02x %02x %02x was found by ISAPnP\n",
-+					pr_debug("3c509 with address %02x %02x %02x %02x %02x %02x was found by ISAPnP\n",
- 						phys_addr[0] & 0xff, phys_addr[0] >> 8,
- 						phys_addr[1] & 0xff, phys_addr[1] >> 8,
- 						phys_addr[2] & 0xff, phys_addr[2] >> 8);
-@@ -574,19 +574,19 @@ static int __devinit el3_common_init(struct net_device *dev)
+ 	if (corkscrew_debug > 1)
+-		printk("%s: Media selection timer tick happened, %s.\n",
++		pr_debug("%s: Media selection timer tick happened, %s.\n",
+ 		       dev->name, media_tbl[dev->if_port].name);
  
- 	err = register_netdev(dev);
- 	if (err) {
--		printk(KERN_ERR "Failed to register 3c5x9 at %#3.3lx, IRQ %d.\n",
-+		pr_err("Failed to register 3c5x9 at %#3.3lx, IRQ %d.\n",
- 			dev->base_addr, dev->irq);
- 		release_region(dev->base_addr, EL3_IO_EXTENT);
- 		return err;
- 	}
+ 	spin_lock_irqsave(&vp->lock, flags);
+@@ -894,12 +893,12 @@ static void corkscrew_timer(unsigned long data)
+ 			if (media_status & Media_LnkBeat) {
+ 				ok = 1;
+ 				if (corkscrew_debug > 1)
+-					printk("%s: Media %s has link beat, %x.\n",
++					pr_debug("%s: Media %s has link beat, %x.\n",
+ 						dev->name,
+ 						media_tbl[dev->if_port].name,
+ 						media_status);
+ 			} else if (corkscrew_debug > 1)
+-				printk("%s: Media %s is has no link beat, %x.\n",
++				pr_debug("%s: Media %s is has no link beat, %x.\n",
+ 					dev->name,
+ 					media_tbl[dev->if_port].name,
+ 					media_status);
+@@ -907,7 +906,7 @@ static void corkscrew_timer(unsigned long data)
+ 			break;
+ 		default:	/* Other media types handled by Tx timeouts. */
+ 			if (corkscrew_debug > 1)
+-				printk("%s: Media %s is has no indication, %x.\n",
++				pr_debug("%s: Media %s is has no indication, %x.\n",
+ 					dev->name,
+ 					media_tbl[dev->if_port].name,
+ 					media_status);
+@@ -925,12 +924,12 @@ static void corkscrew_timer(unsigned long data)
+ 			if (dev->if_port == 8) {	/* Go back to default. */
+ 				dev->if_port = vp->default_media;
+ 				if (corkscrew_debug > 1)
+-					printk("%s: Media selection failing, using default %s port.\n",
++					pr_debug("%s: Media selection failing, using default %s port.\n",
+ 						dev->name,
+ 						media_tbl[dev->if_port].name);
+ 			} else {
+ 				if (corkscrew_debug > 1)
+-					printk("%s: Media selection failed, now trying %s port.\n",
++					pr_debug("%s: Media selection failed, now trying %s port.\n",
+ 						dev->name,
+ 						media_tbl[dev->if_port].name);
+ 				vp->timer.expires = jiffies + media_tbl[dev->if_port].wait;
+@@ -953,7 +952,7 @@ static void corkscrew_timer(unsigned long data)
  
--	printk(KERN_INFO "%s: 3c5x9 found at %#3.3lx, %s port, "
-+	pr_info("%s: 3c5x9 found at %#3.3lx, %s port, "
- 	       "address %pM, IRQ %d.\n",
- 	       dev->name, dev->base_addr, if_names[(dev->if_port & 0x03)],
- 	       dev->dev_addr, dev->irq);
+ 	spin_unlock_irqrestore(&vp->lock, flags);
+ 	if (corkscrew_debug > 1)
+-		printk("%s: Media selection timer finished, %s.\n",
++		pr_debug("%s: Media selection timer finished, %s.\n",
+ 		       dev->name, media_tbl[dev->if_port].name);
  
- 	if (el3_debug > 0)
--		printk(KERN_INFO "%s", version);
-+		pr_info("%s", version);
- 	return 0;
- 
- }
-@@ -625,7 +625,7 @@ static int __init el3_mca_probe(struct device *device)
- 	irq = pos5 & 0x0f;
- 
- 
--	printk(KERN_INFO "3c529: found %s at slot %d\n",
-+	pr_info("3c529: found %s at slot %d\n",
- 		   el3_mca_adapter_names[mdev->index], slot + 1);
- 
- 	/* claim the slot */
-@@ -638,7 +638,7 @@ static int __init el3_mca_probe(struct device *device)
- 	irq = mca_device_transform_irq(mdev, irq);
- 	ioaddr = mca_device_transform_ioport(mdev, ioaddr);
- 	if (el3_debug > 2) {
--			printk(KERN_DEBUG "3c529: irq %d  ioaddr 0x%x  ifport %d\n", irq, ioaddr, if_port);
-+			pr_debug("3c529: irq %d  ioaddr 0x%x  ifport %d\n", irq, ioaddr, if_port);
- 	}
- 	EL3WINDOW(0);
- 	for (i = 0; i < 3; i++)
-@@ -761,7 +761,7 @@ static ushort id_read_eeprom(int index)
- 		word = (word << 1) + (inb(id_port) & 0x01);
- 
- 	if (el3_debug > 3)
--		printk(KERN_DEBUG "  3c509 EEPROM word %d %#4.4x.\n", index, word);
-+		pr_debug("  3c509 EEPROM word %d %#4.4x.\n", index, word);
- 
- 	return word;
- }
-@@ -783,13 +783,13 @@ el3_open(struct net_device *dev)
- 
- 	EL3WINDOW(0);
- 	if (el3_debug > 3)
--		printk(KERN_DEBUG "%s: Opening, IRQ %d	 status@%x %4.4x.\n", dev->name,
-+		pr_debug("%s: Opening, IRQ %d	 status@%x %4.4x.\n", dev->name,
- 			   dev->irq, ioaddr + EL3_STATUS, inw(ioaddr + EL3_STATUS));
- 
- 	el3_up(dev);
- 
- 	if (el3_debug > 3)
--		printk(KERN_DEBUG "%s: Opened 3c509  IRQ %d  status %4.4x.\n",
-+		pr_debug("%s: Opened 3c509  IRQ %d  status %4.4x.\n",
- 			   dev->name, dev->irq, inw(ioaddr + EL3_STATUS));
- 
- 	return 0;
-@@ -801,7 +801,7 @@ el3_tx_timeout (struct net_device *dev)
+ #endif				/* AUTOMEDIA */
+@@ -966,23 +965,21 @@ static void corkscrew_timeout(struct net_device *dev)
+ 	struct corkscrew_private *vp = netdev_priv(dev);
  	int ioaddr = dev->base_addr;
  
- 	/* Transmitter timeout, serious problems. */
--	printk(KERN_WARNING "%s: transmit timed out, Tx_status %2.2x status %4.4x "
-+	pr_warning("%s: transmit timed out, Tx_status %2.2x status %4.4x "
- 		   "Tx FIFO room %d.\n",
- 		   dev->name, inb(ioaddr + TX_STATUS), inw(ioaddr + EL3_STATUS),
- 		   inw(ioaddr + TX_FREE));
-@@ -826,7 +826,7 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dev->stats.tx_bytes += skb->len;
- 
- 	if (el3_debug > 4) {
--		printk(KERN_DEBUG "%s: el3_start_xmit(length = %u) called, status %4.4x.\n",
-+		pr_debug("%s: el3_start_xmit(length = %u) called, status %4.4x.\n",
- 			   dev->name, skb->len, inw(ioaddr + EL3_STATUS));
+-	printk(KERN_WARNING
+-	       "%s: transmit timed out, tx_status %2.2x status %4.4x.\n",
++	pr_warning("%s: transmit timed out, tx_status %2.2x status %4.4x.\n",
+ 	       dev->name, inb(ioaddr + TxStatus),
+ 	       inw(ioaddr + EL3_STATUS));
+ 	/* Slight code bloat to be user friendly. */
+ 	if ((inb(ioaddr + TxStatus) & 0x88) == 0x88)
+-		printk(KERN_WARNING
+-		       "%s: Transmitter encountered 16 collisions -- network"
++		pr_warning("%s: Transmitter encountered 16 collisions --"
+ 		       " network cable problem?\n", dev->name);
+ #ifndef final_version
+-	printk("  Flags; bus-master %d, full %d; dirty %d current %d.\n",
++	pr_debug("  Flags; bus-master %d, full %d; dirty %d current %d.\n",
+ 	       vp->full_bus_master_tx, vp->tx_full, vp->dirty_tx,
+ 	       vp->cur_tx);
+-	printk("  Down list %8.8x vs. %p.\n", inl(ioaddr + DownListPtr),
++	pr_debug("  Down list %8.8x vs. %p.\n", inl(ioaddr + DownListPtr),
+ 	       &vp->tx_ring[0]);
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+-		printk("  %d: %p  length %8.8x status %8.8x\n", i,
++		pr_debug("  %d: %p  length %8.8x status %8.8x\n", i,
+ 		       &vp->tx_ring[i],
+ 		       vp->tx_ring[i].length, vp->tx_ring[i].status);
  	}
- #if 0
-@@ -835,7 +835,7 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		ushort status = inw(ioaddr + EL3_STATUS);
- 		if (status & 0x0001 		/* IRQ line active, missed one. */
- 			&& inw(ioaddr + EL3_STATUS) & 1) { 			/* Make sure. */
--			printk(KERN_DEBUG "%s: Missed interrupt, status then %04x now %04x"
-+			pr_debug("%s: Missed interrupt, status then %04x now %04x"
- 				   "  Tx %2.2x Rx %4.4x.\n", dev->name, status,
- 				   inw(ioaddr + EL3_STATUS), inb(ioaddr + TX_STATUS),
- 				   inw(ioaddr + RX_STATUS));
-@@ -909,7 +909,7 @@ el3_interrupt(int irq, void *dev_id)
+@@ -1023,7 +1020,7 @@ static int corkscrew_start_xmit(struct sk_buff *skb,
+ 		else
+ 			prev_entry = NULL;
+ 		if (corkscrew_debug > 3)
+-			printk("%s: Trying to send a packet, Tx index %d.\n",
++			pr_debug("%s: Trying to send a packet, Tx index %d.\n",
+ 				dev->name, vp->cur_tx);
+ 		/* vp->tx_full = 1; */
+ 		vp->tx_skbuff[entry] = skb;
+@@ -1102,7 +1099,7 @@ static int corkscrew_start_xmit(struct sk_buff *skb,
+ 		while (--i > 0 && (tx_status = inb(ioaddr + TxStatus)) > 0) {
+ 			if (tx_status & 0x3C) {	/* A Tx-disabling error occurred.  */
+ 				if (corkscrew_debug > 2)
+-					printk("%s: Tx error, status %2.2x.\n",
++					pr_debug("%s: Tx error, status %2.2x.\n",
+ 						dev->name, tx_status);
+ 				if (tx_status & 0x04)
+ 					dev->stats.tx_fifo_errors++;
+@@ -1143,7 +1140,7 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
+ 	status = inw(ioaddr + EL3_STATUS);
  
- 	if (el3_debug > 4) {
- 		status = inw(ioaddr + EL3_STATUS);
--		printk(KERN_DEBUG "%s: interrupt, status %4.4x.\n", dev->name, status);
-+		pr_debug("%s: interrupt, status %4.4x.\n", dev->name, status);
- 	}
+ 	if (corkscrew_debug > 4)
+-		printk("%s: interrupt, status %4.4x, timer %d.\n",
++		pr_debug("%s: interrupt, status %4.4x, timer %d.\n",
+ 			dev->name, status, latency);
+ 	if ((status & 0xE000) != 0xE000) {
+ 		static int donedidthis;
+@@ -1151,7 +1148,7 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
+ 		   Ignore a single early interrupt, but don't hang the machine for
+ 		   other interrupt problems. */
+ 		if (donedidthis++ > 100) {
+-			printk(KERN_ERR "%s: Bogus interrupt, bailing. Status %4.4x, start=%d.\n",
++			pr_err("%s: Bogus interrupt, bailing. Status %4.4x, start=%d.\n",
+ 				   dev->name, status, netif_running(dev));
+ 			free_irq(dev->irq, dev);
+ 			dev->irq = -1;
+@@ -1160,14 +1157,14 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
  
- 	while ((status = inw(ioaddr + EL3_STATUS)) &
-@@ -920,7 +920,7 @@ el3_interrupt(int irq, void *dev_id)
+ 	do {
+ 		if (corkscrew_debug > 5)
+-			printk("%s: In interrupt loop, status %4.4x.\n",
++			pr_debug("%s: In interrupt loop, status %4.4x.\n",
+ 			       dev->name, status);
+ 		if (status & RxComplete)
+ 			corkscrew_rx(dev);
  
  		if (status & TxAvailable) {
- 			if (el3_debug > 5)
--				printk(KERN_DEBUG "	TX room bit was handled.\n");
+ 			if (corkscrew_debug > 5)
+-				printk("	TX room bit was handled.\n");
 +				pr_debug("	TX room bit was handled.\n");
  			/* There's room in the FIFO for a full-sized packet. */
  			outw(AckIntr | TxAvailable, ioaddr + EL3_CMD);
- 			netif_wake_queue (dev);
-@@ -958,7 +958,7 @@ el3_interrupt(int irq, void *dev_id)
+ 			netif_wake_queue(dev);
+@@ -1212,19 +1209,19 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
+ 			if (status & StatsFull) {	/* Empty statistics. */
+ 				static int DoneDidThat;
+ 				if (corkscrew_debug > 4)
+-					printk("%s: Updating stats.\n", dev->name);
++					pr_debug("%s: Updating stats.\n", dev->name);
+ 				update_stats(ioaddr, dev);
+ 				/* DEBUG HACK: Disable statistics as an interrupt source. */
+ 				/* This occurs when we have the wrong media type! */
+ 				if (DoneDidThat == 0 && inw(ioaddr + EL3_STATUS) & StatsFull) {
+ 					int win, reg;
+-					printk("%s: Updating stats failed, disabling stats as an"
++					pr_notice("%s: Updating stats failed, disabling stats as an"
+ 					     " interrupt source.\n", dev->name);
+ 					for (win = 0; win < 8; win++) {
+ 						EL3WINDOW(win);
+-						printk("\n Vortex window %d:", win);
++						pr_notice("\n Vortex window %d:", win);
+ 						for (reg = 0; reg < 16; reg++)
+-							printk(" %2.2x", inb(ioaddr + reg));
++							pr_notice(" %2.2x", inb(ioaddr + reg));
+ 					}
+ 					EL3WINDOW(7);
+ 					outw(SetIntrEnb | TxAvailable |
+@@ -1246,7 +1243,7 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
  		}
  
  		if (--i < 0) {
--			printk(KERN_ERR "%s: Infinite loop in interrupt, status %4.4x.\n",
-+			pr_err("%s: Infinite loop in interrupt, status %4.4x.\n",
- 				   dev->name, status);
- 			/* Clear all interrupts. */
- 			outw(AckIntr | 0xFF, ioaddr + EL3_CMD);
-@@ -969,7 +969,7 @@ el3_interrupt(int irq, void *dev_id)
- 	}
- 
- 	if (el3_debug > 4) {
--		printk(KERN_DEBUG "%s: exiting interrupt, status %4.4x.\n", dev->name,
-+		pr_debug("%s: exiting interrupt, status %4.4x.\n", dev->name,
- 			   inw(ioaddr + EL3_STATUS));
- 	}
+-			printk(KERN_ERR "%s: Too much work in interrupt, status %4.4x.  "
++			pr_err("%s: Too much work in interrupt, status %4.4x.  "
+ 			     "Disabling functions (%4.4x).\n", dev->name,
+ 			     status, SetStatusEnb | ((~status) & 0x7FE));
+ 			/* Disable all pending interrupts. */
+@@ -1262,7 +1259,7 @@ static irqreturn_t corkscrew_interrupt(int irq, void *dev_id)
  	spin_unlock(&lp->lock);
-@@ -1017,7 +1017,7 @@ static void update_stats(struct net_device *dev)
- 	int ioaddr = dev->base_addr;
  
- 	if (el3_debug > 5)
--		printk("   Updating the statistics.\n");
-+		pr_debug("   Updating the statistics.\n");
- 	/* Turn off statistics updates while reading. */
- 	outw(StatsDisable, ioaddr + EL3_CMD);
- 	/* Switch to the stats window, and read everything. */
-@@ -1047,7 +1047,7 @@ el3_rx(struct net_device *dev)
+ 	if (corkscrew_debug > 4)
+-		printk("%s: exiting interrupt, status %4.4x.\n", dev->name, status);
++		pr_debug("%s: exiting interrupt, status %4.4x.\n", dev->name, status);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -1273,13 +1270,13 @@ static int corkscrew_rx(struct net_device *dev)
  	short rx_status;
  
- 	if (el3_debug > 5)
+ 	if (corkscrew_debug > 5)
 -		printk("   In rx_packet(), status %4.4x, rx_status %4.4x.\n",
 +		pr_debug("   In rx_packet(), status %4.4x, rx_status %4.4x.\n",
- 			   inw(ioaddr+EL3_STATUS), inw(ioaddr+RX_STATUS));
- 	while ((rx_status = inw(ioaddr + RX_STATUS)) > 0) {
- 		if (rx_status & 0x4000) { /* Error, update stats. */
-@@ -1069,7 +1069,7 @@ el3_rx(struct net_device *dev)
+ 		     inw(ioaddr + EL3_STATUS), inw(ioaddr + RxStatus));
+ 	while ((rx_status = inw(ioaddr + RxStatus)) > 0) {
+ 		if (rx_status & 0x4000) {	/* Error, update stats. */
+ 			unsigned char rx_error = inb(ioaddr + RxErrors);
+ 			if (corkscrew_debug > 2)
+-				printk(" Rx error: status %2.2x.\n",
++				pr_debug(" Rx error: status %2.2x.\n",
+ 				       rx_error);
+ 			dev->stats.rx_errors++;
+ 			if (rx_error & 0x01)
+@@ -1299,7 +1296,7 @@ static int corkscrew_rx(struct net_device *dev)
  
- 			skb = dev_alloc_skb(pkt_len+5);
- 			if (el3_debug > 4)
+ 			skb = dev_alloc_skb(pkt_len + 5 + 2);
+ 			if (corkscrew_debug > 4)
 -				printk("Receiving packet size %d status %4.4x.\n",
++				pr_debug("Receiving packet size %d status %4.4x.\n",
+ 				     pkt_len, rx_status);
+ 			if (skb != NULL) {
+ 				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+@@ -1318,7 +1315,7 @@ static int corkscrew_rx(struct net_device *dev)
+ 						break;
+ 				continue;
+ 			} else if (corkscrew_debug)
+-				printk("%s: Couldn't allocate a sk_buff of size %d.\n", dev->name, pkt_len);
++				pr_debug("%s: Couldn't allocate a sk_buff of size %d.\n", dev->name, pkt_len);
+ 		}
+ 		outw(RxDiscard, ioaddr + EL3_CMD);
+ 		dev->stats.rx_dropped++;
+@@ -1338,13 +1335,13 @@ static int boomerang_rx(struct net_device *dev)
+ 	int rx_status;
+ 
+ 	if (corkscrew_debug > 5)
+-		printk("   In boomerang_rx(), status %4.4x, rx_status %4.4x.\n",
++		pr_debug("   In boomerang_rx(), status %4.4x, rx_status %4.4x.\n",
+ 			inw(ioaddr + EL3_STATUS), inw(ioaddr + RxStatus));
+ 	while ((rx_status = vp->rx_ring[entry].status) & RxDComplete) {
+ 		if (rx_status & RxDError) {	/* Error, update stats. */
+ 			unsigned char rx_error = rx_status >> 16;
+ 			if (corkscrew_debug > 2)
+-				printk(" Rx error: status %2.2x.\n",
++				pr_debug(" Rx error: status %2.2x.\n",
+ 				       rx_error);
+ 			dev->stats.rx_errors++;
+ 			if (rx_error & 0x01)
+@@ -1364,7 +1361,7 @@ static int boomerang_rx(struct net_device *dev)
+ 
+ 			dev->stats.rx_bytes += pkt_len;
+ 			if (corkscrew_debug > 4)
+-				printk("Receiving packet size %d status %4.4x.\n",
++				pr_debug("Receiving packet size %d status %4.4x.\n",
+ 				     pkt_len, rx_status);
+ 
+ 			/* Check if the packet is long enough to just accept without
+@@ -1385,7 +1382,7 @@ static int boomerang_rx(struct net_device *dev)
+ 				temp = skb_put(skb, pkt_len);
+ 				/* Remove this checking code for final release. */
+ 				if (isa_bus_to_virt(vp->rx_ring[entry].addr) != temp)
+-					    printk("%s: Warning -- the skbuff addresses do not match"
++					pr_warning("%s: Warning -- the skbuff addresses do not match"
+ 					     " in boomerang_rx: %p vs. %p / %p.\n",
+ 					     dev->name,
+ 					     isa_bus_to_virt(vp->
+@@ -1427,10 +1424,10 @@ static int corkscrew_close(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	if (corkscrew_debug > 1) {
+-		printk("%s: corkscrew_close() status %4.4x, Tx status %2.2x.\n",
++		pr_debug("%s: corkscrew_close() status %4.4x, Tx status %2.2x.\n",
+ 		     dev->name, inw(ioaddr + EL3_STATUS),
+ 		     inb(ioaddr + TxStatus));
+-		printk("%s: corkscrew close stats: rx_nocopy %d rx_copy %d"
++		pr_debug("%s: corkscrew close stats: rx_nocopy %d rx_copy %d"
+ 		       " tx_queued %d.\n", dev->name, rx_nocopy, rx_copy,
+ 		       queued_packet);
+ 	}
+@@ -1534,7 +1531,7 @@ static void set_rx_mode(struct net_device *dev)
+ 
+ 	if (dev->flags & IFF_PROMISC) {
+ 		if (corkscrew_debug > 3)
+-			printk("%s: Setting promiscuous mode.\n",
++			pr_debug("%s: Setting promiscuous mode.\n",
+ 			       dev->name);
+ 		new_mode = SetRxFilter | RxStation | RxMulticast | RxBroadcast | RxProm;
+ 	} else if ((dev->mc_list) || (dev->flags & IFF_ALLMULTI)) {
+diff --git a/drivers/net/3c523.c b/drivers/net/3c523.c
+index 8f734d7..b3cfb2f 100644
+--- a/drivers/net/3c523.c
++++ b/drivers/net/3c523.c
+@@ -176,7 +176,7 @@ sizeof(nop_cmd) = 8;
+     if(!p->scb->cmd) break; \
+     DELAY_16(); \
+     if(i == 1023) { \
+-      printk(KERN_WARNING "%s:%d: scb_cmd timed out .. resetting i82586\n",\
++      pr_warning("%s:%d: scb_cmd timed out .. resetting i82586\n",\
+       	dev->name,__LINE__); \
+       elmc_id_reset586(); } } }
+ 
+@@ -291,7 +291,7 @@ static int elmc_open(struct net_device *dev)
+ 	ret = request_irq(dev->irq, &elmc_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM,
+ 			  dev->name, dev);
+ 	if (ret) {
+-		printk(KERN_ERR "%s: couldn't get irq %d\n", dev->name, dev->irq);
++		pr_err("%s: couldn't get irq %d\n", dev->name, dev->irq);
+ 		elmc_id_reset586();
+ 		return ret;
+ 	}
+@@ -371,9 +371,9 @@ static void alloc586(struct net_device *dev)
+ 
+ 	DELAY(2);
+ 
+-	if (p->iscp->busy) {
+-		printk(KERN_ERR "%s: Init-Problems (alloc).\n", dev->name);
+-	}
++	if (p->iscp->busy)
++		pr_err("%s: Init-Problems (alloc).\n", dev->name);
++
+ 	memset((char *) p->scb, 0, sizeof(struct scb_struct));
+ }
+ 
+@@ -470,7 +470,7 @@ static int __init do_elmc_probe(struct net_device *dev)
+ 	mca_set_adapter_procfn(slot, (MCA_ProcFn) elmc_getinfo, dev);
+ 
+ 	/* if we get this far, adapter has been found - carry on */
+-	printk(KERN_INFO "%s: 3c523 adapter found in slot %d\n", dev->name, slot + 1);
++	pr_info("%s: 3c523 adapter found in slot %d\n", dev->name, slot + 1);
+ 
+ 	/* Now we extract configuration info from the card.
+ 	   The 3c523 provides information in two of the POS registers, but
+@@ -507,7 +507,7 @@ static int __init do_elmc_probe(struct net_device *dev)
+ 	memset(pr, 0, sizeof(struct priv));
+ 	pr->slot = slot;
+ 
+-	printk(KERN_INFO "%s: 3Com 3c523 Rev 0x%x at %#lx\n", dev->name, (int) revision,
++	pr_info("%s: 3Com 3c523 Rev 0x%x at %#lx\n", dev->name, (int) revision,
+ 	       dev->base_addr);
+ 
+ 	/* Determine if we're using the on-board transceiver (i.e. coax) or
+@@ -529,7 +529,7 @@ static int __init do_elmc_probe(struct net_device *dev)
+ 
+ 	size = 0x4000;		/* check for 16K mem */
+ 	if (!check586(dev, dev->mem_start, size)) {
+-		printk(KERN_ERR "%s: memprobe, Can't find memory at 0x%lx!\n", dev->name,
++		pr_err("%s: memprobe, Can't find memory at 0x%lx!\n", dev->name,
+ 		       dev->mem_start);
+ 		retval = -ENODEV;
+ 		goto err_out;
+@@ -546,7 +546,7 @@ static int __init do_elmc_probe(struct net_device *dev)
+ 	pr->num_recv_buffs = NUM_RECV_BUFFS_16;
+ 
+ 	/* dump all the assorted information */
+-	printk(KERN_INFO "%s: IRQ %d, %sternal xcvr, memory %#lx-%#lx.\n", dev->name,
++	pr_info("%s: IRQ %d, %sternal xcvr, memory %#lx-%#lx.\n", dev->name,
+ 	       dev->irq, dev->if_port ? "ex" : "in",
+ 	       dev->mem_start, dev->mem_end - 1);
+ 
+@@ -555,7 +555,7 @@ static int __init do_elmc_probe(struct net_device *dev)
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = inb(dev->base_addr + i);
+ 
+-	printk(KERN_INFO "%s: hardware address %pM\n",
++	pr_info("%s: hardware address %pM\n",
+ 	       dev->name, dev->dev_addr);
+ 
+ 	dev->netdev_ops = &netdev_ops;
+@@ -660,7 +660,7 @@ static int init586(struct net_device *dev)
+ 	}
+ 
+ 	if ((cfg_cmd->cmd_status & (STAT_OK | STAT_COMPL)) != (STAT_COMPL | STAT_OK)) {
+-		printk(KERN_WARNING "%s (elmc): configure command failed: %x\n", dev->name, cfg_cmd->cmd_status);
++		pr_warning("%s (elmc): configure command failed: %x\n", dev->name, cfg_cmd->cmd_status);
+ 		return 1;
+ 	}
+ 	/*
+@@ -686,7 +686,7 @@ static int init586(struct net_device *dev)
+ 	}
+ 
+ 	if ((ias_cmd->cmd_status & (STAT_OK | STAT_COMPL)) != (STAT_OK | STAT_COMPL)) {
+-		printk(KERN_WARNING "%s (elmc): individual address setup command failed: %04x\n", dev->name, ias_cmd->cmd_status);
++		pr_warning("%s (elmc): individual address setup command failed: %04x\n", dev->name, ias_cmd->cmd_status);
+ 		return 1;
+ 	}
+ 	/*
+@@ -707,7 +707,7 @@ static int init586(struct net_device *dev)
+ 	s = jiffies;
+ 	while (!(tdr_cmd->cmd_status & STAT_COMPL)) {
+ 		if (time_after(jiffies, s + 30*HZ/100)) {
+-			printk(KERN_WARNING "%s: %d Problems while running the TDR.\n", dev->name, __LINE__);
++			pr_warning("%s: %d Problems while running the TDR.\n", dev->name, __LINE__);
+ 			result = 1;
+ 			break;
+ 		}
+@@ -723,14 +723,14 @@ static int init586(struct net_device *dev)
+ 		if (result & TDR_LNK_OK) {
+ 			/* empty */
+ 		} else if (result & TDR_XCVR_PRB) {
+-			printk(KERN_WARNING "%s: TDR: Transceiver problem!\n", dev->name);
++			pr_warning("%s: TDR: Transceiver problem!\n", dev->name);
+ 		} else if (result & TDR_ET_OPN) {
+-			printk(KERN_WARNING "%s: TDR: No correct termination %d clocks away.\n", dev->name, result & TDR_TIMEMASK);
++			pr_warning("%s: TDR: No correct termination %d clocks away.\n", dev->name, result & TDR_TIMEMASK);
+ 		} else if (result & TDR_ET_SRT) {
+ 			if (result & TDR_TIMEMASK)	/* time == 0 -> strange :-) */
+-				printk(KERN_WARNING "%s: TDR: Detected a short circuit %d clocks away.\n", dev->name, result & TDR_TIMEMASK);
++				pr_warning("%s: TDR: Detected a short circuit %d clocks away.\n", dev->name, result & TDR_TIMEMASK);
+ 		} else {
+-			printk(KERN_WARNING "%s: TDR: Unknown status %04x\n", dev->name, result);
++			pr_warning("%s: TDR: Unknown status %04x\n", dev->name, result);
+ 		}
+ 	}
+ 	/*
+@@ -774,11 +774,11 @@ static int init586(struct net_device *dev)
+ 		/* I don't understand this: do we really need memory after the init? */
+ 		int len = ((char *) p->iscp - (char *) ptr - 8) / 6;
+ 		if (len <= 0) {
+-			printk(KERN_ERR "%s: Ooooops, no memory for MC-Setup!\n", dev->name);
++			pr_err("%s: Ooooops, no memory for MC-Setup!\n", dev->name);
+ 		} else {
+ 			if (len < num_addrs) {
+ 				num_addrs = len;
+-				printk(KERN_WARNING "%s: Sorry, can only apply %d MC-Address(es).\n",
++				pr_warning("%s: Sorry, can only apply %d MC-Address(es).\n",
+ 				       dev->name, num_addrs);
+ 			}
+ 			mc_cmd = (struct mcsetup_cmd_struct *) ptr;
+@@ -799,7 +799,7 @@ static int init586(struct net_device *dev)
+ 					break;
+ 			}
+ 			if (!(mc_cmd->cmd_status & STAT_COMPL)) {
+-				printk(KERN_WARNING "%s: Can't apply multicast-address-list.\n", dev->name);
++				pr_warning("%s: Can't apply multicast-address-list.\n", dev->name);
+ 			}
+ 		}
+ 	}
+@@ -812,7 +812,7 @@ static int init586(struct net_device *dev)
+ 		p->xmit_buffs[i] = (struct tbd_struct *) ptr;	/* TBD */
+ 		ptr = (char *) ptr + sizeof(struct tbd_struct);
+ 		if ((void *) ptr > (void *) p->iscp) {
+-			printk(KERN_ERR "%s: not enough shared-mem for your configuration!\n", dev->name);
++			pr_err("%s: not enough shared-mem for your configuration!\n", dev->name);
+ 			return 1;
+ 		}
+ 		memset((char *) (p->xmit_cmds[i]), 0, sizeof(struct transmit_cmd_struct));
+@@ -936,7 +936,7 @@ elmc_interrupt(int irq, void *dev_id)
+ 		if (stat & STAT_CNA) {
+ 			/* CU went 'not ready' */
+ 			if (netif_running(dev)) {
+-				printk(KERN_WARNING "%s: oops! CU has left active state. stat: %04x/%04x.\n", dev->name, (int) stat, (int) p->scb->status);
++				pr_warning("%s: oops! CU has left active state. stat: %04x/%04x.\n", dev->name, (int) stat, (int) p->scb->status);
+ 			}
+ 		}
+ #endif
+@@ -951,7 +951,7 @@ elmc_interrupt(int irq, void *dev_id)
+ 				p->scb->cmd = RUC_RESUME;
+ 				elmc_attn586();
+ 			} else {
+-				printk(KERN_WARNING "%s: Receiver-Unit went 'NOT READY': %04x/%04x.\n", dev->name, (int) stat, (int) p->scb->status);
++				pr_warning("%s: Receiver-Unit went 'NOT READY': %04x/%04x.\n", dev->name, (int) stat, (int) p->scb->status);
+ 				elmc_rnr_int(dev);
+ 			}
+ 		}
+@@ -995,11 +995,11 @@ static void elmc_rcv_int(struct net_device *dev)
+ 					dev->stats.rx_dropped++;
+ 				}
+ 			} else {
+-				printk(KERN_WARNING "%s: received oversized frame.\n", dev->name);
++				pr_warning("%s: received oversized frame.\n", dev->name);
+ 				dev->stats.rx_dropped++;
+ 			}
+ 		} else {	/* frame !(ok), only with 'save-bad-frames' */
+-			printk(KERN_WARNING "%s: oops! rfd-error-status: %04x\n", dev->name, status);
++			pr_warning("%s: oops! rfd-error-status: %04x\n", dev->name, status);
+ 			dev->stats.rx_errors++;
+ 		}
+ 		p->rfd_top->status = 0;
+@@ -1028,7 +1028,7 @@ static void elmc_rnr_int(struct net_device *dev)
+ 	alloc_rfa(dev, (char *) p->rfd_first);
+ 	startrecv586(dev);	/* restart RU */
+ 
+-	printk(KERN_WARNING "%s: Receive-Unit restarted. Status: %04x\n", dev->name, p->scb->status);
++	pr_warning("%s: Receive-Unit restarted. Status: %04x\n", dev->name, p->scb->status);
+ 
+ }
+ 
+@@ -1043,7 +1043,7 @@ static void elmc_xmt_int(struct net_device *dev)
+ 
+ 	status = p->xmit_cmds[p->xmit_last]->cmd_status;
+ 	if (!(status & STAT_COMPL)) {
+-		printk(KERN_WARNING "%s: strange .. xmit-int without a 'COMPLETE'\n", dev->name);
++		pr_warning("%s: strange .. xmit-int without a 'COMPLETE'\n", dev->name);
+ 	}
+ 	if (status & STAT_OK) {
+ 		dev->stats.tx_packets++;
+@@ -1051,18 +1051,18 @@ static void elmc_xmt_int(struct net_device *dev)
+ 	} else {
+ 		dev->stats.tx_errors++;
+ 		if (status & TCMD_LATECOLL) {
+-			printk(KERN_WARNING "%s: late collision detected.\n", dev->name);
++			pr_warning("%s: late collision detected.\n", dev->name);
+ 			dev->stats.collisions++;
+ 		} else if (status & TCMD_NOCARRIER) {
+ 			dev->stats.tx_carrier_errors++;
+-			printk(KERN_WARNING "%s: no carrier detected.\n", dev->name);
++			pr_warning("%s: no carrier detected.\n", dev->name);
+ 		} else if (status & TCMD_LOSTCTS) {
+-			printk(KERN_WARNING "%s: loss of CTS detected.\n", dev->name);
++			pr_warning("%s: loss of CTS detected.\n", dev->name);
+ 		} else if (status & TCMD_UNDERRUN) {
+ 			dev->stats.tx_fifo_errors++;
+-			printk(KERN_WARNING "%s: DMA underrun detected.\n", dev->name);
++			pr_warning("%s: DMA underrun detected.\n", dev->name);
+ 		} else if (status & TCMD_MAXCOLL) {
+-			printk(KERN_WARNING "%s: Max. collisions exceeded.\n", dev->name);
++			pr_warning("%s: Max. collisions exceeded.\n", dev->name);
+ 			dev->stats.collisions += 16;
+ 		}
+ 	}
+@@ -1099,10 +1099,11 @@ static void elmc_timeout(struct net_device *dev)
+ 	struct priv *p = netdev_priv(dev);
+ 	/* COMMAND-UNIT active? */
+ 	if (p->scb->status & CU_ACTIVE) {
+-#ifdef DEBUG
+-		printk("%s: strange ... timeout with CU active?!?\n", dev->name);
+-		printk("%s: X0: %04x N0: %04x N1: %04x %d\n", dev->name, (int) p->xmit_cmds[0]->cmd_status, (int) p->nop_cmds[0]->cmd_status, (int) p->nop_cmds[1]->cmd_status, (int) p->nop_point);
+-#endif
++		pr_debug("%s: strange ... timeout with CU active?!?\n", dev->name);
++		pr_debug("%s: X0: %04x N0: %04x N1: %04x %d\n", dev->name,
++			(int)p->xmit_cmds[0]->cmd_status,
++			(int)p->nop_cmds[0]->cmd_status,
++			(int)p->nop_cmds[1]->cmd_status, (int)p->nop_point);
+ 		p->scb->cmd = CUC_ABORT;
+ 		elmc_attn586();
+ 		WAIT_4_SCB_CMD();
+@@ -1112,10 +1113,8 @@ static void elmc_timeout(struct net_device *dev)
+ 		WAIT_4_SCB_CMD();
+ 		netif_wake_queue(dev);
+ 	} else {
+-#ifdef DEBUG
+-		printk("%s: xmitter timed out, try to restart! stat: %04x\n", dev->name, p->scb->status);
+-		printk("%s: command-stats: %04x %04x\n", dev->name, p->xmit_cmds[0]->cmd_status, p->xmit_cmds[1]->cmd_status);
+-#endif
++		pr_debug("%s: xmitter timed out, try to restart! stat: %04x\n", dev->name, p->scb->status);
++		pr_debug("%s: command-stats: %04x %04x\n", dev->name, p->xmit_cmds[0]->cmd_status, p->xmit_cmds[1]->cmd_status);
+ 		elmc_close(dev);
+ 		elmc_open(dev);
+ 	}
+@@ -1162,7 +1161,7 @@ static int elmc_send_packet(struct sk_buff *skb, struct net_device *dev)
+ 			break;
+ 		}
+ 		if (i == 15) {
+-			printk(KERN_WARNING "%s: Can't start transmit-command.\n", dev->name);
++			pr_warning("%s: Can't start transmit-command.\n", dev->name);
+ 		}
+ 	}
+ #else
+@@ -1287,11 +1286,12 @@ int __init init_module(void)
+ 		free_netdev(dev);
+ 		if (io[this_dev]==0)
+ 			break;
+-		printk(KERN_WARNING "3c523.c: No 3c523 card found at io=%#x\n",io[this_dev]);
++		pr_warning("3c523.c: No 3c523 card found at io=%#x\n",io[this_dev]);
+ 	}
+ 
+ 	if(found==0) {
+-		if(io[0]==0) printk(KERN_NOTICE "3c523.c: No 3c523 cards found\n");
++		if (io[0]==0)
++			pr_notice("3c523.c: No 3c523 cards found\n");
+ 		return -ENXIO;
+ 	} else return 0;
+ }
+diff --git a/drivers/net/3c527.c b/drivers/net/3c527.c
+index b61073c..d93eb70 100644
+--- a/drivers/net/3c527.c
++++ b/drivers/net/3c527.c
+@@ -125,8 +125,6 @@ static const char* cardname = DRV_NAME;
+ #define NET_DEBUG 2
+ #endif
+ 
+-#undef DEBUG_IRQ
+-
+ static unsigned int mc32_debug = NET_DEBUG;
+ 
+ /* The number of low I/O ports used by the ethercard. */
+@@ -351,15 +349,15 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	/* Time to play MCA games */
+ 
+ 	if (mc32_debug  &&  version_printed++ == 0)
+-		printk(KERN_DEBUG "%s", version);
++		pr_debug("%s", version);
+ 
+-	printk(KERN_INFO "%s: %s found in slot %d:", dev->name, cardname, slot);
++	pr_info("%s: %s found in slot %d:", dev->name, cardname, slot);
+ 
+ 	POS = mca_read_stored_pos(slot, 2);
+ 
+ 	if(!(POS&1))
+ 	{
+-		printk(" disabled.\n");
++		pr_info(" disabled.\n");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -370,7 +368,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	POS = mca_read_stored_pos(slot, 4);
+ 	if(!(POS&1))
+ 	{
+-		printk("memory window disabled.\n");
++		pr_info("memory window disabled.\n");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -379,7 +377,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	i=(POS>>4)&3;
+ 	if(i==3)
+ 	{
+-		printk("invalid memory window.\n");
++		pr_info("invalid memory window.\n");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -392,11 +390,11 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 
+ 	if(!request_region(dev->base_addr, MC32_IO_EXTENT, cardname))
+ 	{
+-		printk("io 0x%3lX, which is busy.\n", dev->base_addr);
++		pr_info("io 0x%3lX, which is busy.\n", dev->base_addr);
+ 		return -EBUSY;
+ 	}
+ 
+-	printk("io 0x%3lX irq %d mem 0x%lX (%dK)\n",
++	pr_info("io 0x%3lX irq %d mem 0x%lX (%dK)\n",
+ 		dev->base_addr, dev->irq, dev->mem_start, i/1024);
+ 
+ 
+@@ -416,7 +414,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 		dev->dev_addr[i] = mca_read_pos(slot,3);
+ 	}
+ 
+-	printk("%s: Address %pM", dev->name, dev->dev_addr);
++	pr_info("%s: Address %pM", dev->name, dev->dev_addr);
+ 
+ 	mca_write_pos(slot, 6, 0);
+ 	mca_write_pos(slot, 7, 0);
+@@ -424,9 +422,9 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	POS = mca_read_stored_pos(slot, 4);
+ 
+ 	if(POS&2)
+-		printk(" : BNC port selected.\n");
++		pr_info(" : BNC port selected.\n");
+ 	else
+-		printk(" : AUI port selected.\n");
++		pr_info(" : AUI port selected.\n");
+ 
+ 	POS=inb(dev->base_addr+HOST_CTRL);
+ 	POS|=HOST_CTRL_ATTN|HOST_CTRL_RESET;
+@@ -447,7 +445,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	err = request_irq(dev->irq, &mc32_interrupt, IRQF_SHARED | IRQF_SAMPLE_RANDOM, DRV_NAME, dev);
+ 	if (err) {
+ 		release_region(dev->base_addr, MC32_IO_EXTENT);
+-		printk(KERN_ERR "%s: unable to get IRQ %d.\n", DRV_NAME, dev->irq);
++		pr_err("%s: unable to get IRQ %d.\n", DRV_NAME, dev->irq);
+ 		goto err_exit_ports;
+ 	}
+ 
+@@ -463,7 +461,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 		i++;
+ 		if(i == 1000)
+ 		{
+-			printk(KERN_ERR "%s: failed to boot adapter.\n", dev->name);
++			pr_err("%s: failed to boot adapter.\n", dev->name);
+ 			err = -ENODEV;
+ 			goto err_exit_irq;
+ 		}
+@@ -475,10 +473,10 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	if(base>0)
+ 	{
+ 		if(base < 0x0C)
+-			printk(KERN_ERR "%s: %s%s.\n", dev->name, failures[base-1],
++			pr_err("%s: %s%s.\n", dev->name, failures[base-1],
+ 				base<0x0A?" test failure":"");
+ 		else
+-			printk(KERN_ERR "%s: unknown failure %d.\n", dev->name, base);
++			pr_err("%s: unknown failure %d.\n", dev->name, base);
+ 		err = -ENODEV;
+ 		goto err_exit_irq;
+ 	}
+@@ -494,7 +492,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 			udelay(50);
+ 			if(n>100)
+ 			{
+-				printk(KERN_ERR "%s: mailbox read fail (%d).\n", dev->name, i);
++				pr_err("%s: mailbox read fail (%d).\n", dev->name, i);
+ 				err = -ENODEV;
+ 				goto err_exit_irq;
+ 			}
+@@ -527,7 +525,7 @@ static int __init mc32_probe1(struct net_device *dev, int slot)
+ 	init_completion(&lp->execution_cmd);
+ 	init_completion(&lp->xceiver_cmd);
+ 
+-	printk("%s: Firmware Rev %d. %d RX buffers, %d TX buffers. Base of 0x%08X.\n",
++	pr_info("%s: Firmware Rev %d. %d RX buffers, %d TX buffers. Base of 0x%08X.\n",
+ 		dev->name, lp->exec_box->data[12], lp->rx_len, lp->tx_len, lp->base);
+ 
+ 	dev->netdev_ops		= &netdev_ops;
+@@ -939,7 +937,7 @@ static int mc32_open(struct net_device *dev)
+ 	 */
+ 
+ 	if(mc32_command(dev, 8, descnumbuffs, 4)) {
+-		printk("%s: %s rejected our buffer configuration!\n",
++		pr_info("%s: %s rejected our buffer configuration!\n",
+ 	 	       dev->name, cardname);
+ 		mc32_close(dev);
+ 		return -ENOBUFS;
+@@ -995,7 +993,7 @@ static int mc32_open(struct net_device *dev)
+ 
+ static void mc32_timeout(struct net_device *dev)
+ {
+-	printk(KERN_WARNING "%s: transmit timed out?\n", dev->name);
++	pr_warning("%s: transmit timed out?\n", dev->name);
+ 	/* Try to restart the adaptor. */
+ 	netif_wake_queue(dev);
+ }
+@@ -1335,11 +1333,9 @@ static irqreturn_t mc32_interrupt(int irq, void *dev_id)
+ 	{
+ 		status=inb(ioaddr+HOST_CMD);
+ 
+-#ifdef DEBUG_IRQ
+-		printk("Status TX%d RX%d EX%d OV%d BC%d\n",
++		pr_debug("Status TX%d RX%d EX%d OV%d BC%d\n",
+ 			(status&7), (status>>3)&7, (status>>6)&1,
+ 			(status>>7)&1, boguscount);
+-#endif
+ 
+ 		switch(status&7)
+ 		{
+@@ -1354,7 +1350,7 @@ static irqreturn_t mc32_interrupt(int irq, void *dev_id)
+ 				complete(&lp->xceiver_cmd);
+ 				break;
+ 			default:
+-				printk("%s: strange tx ack %d\n", dev->name, status&7);
++				pr_notice("%s: strange tx ack %d\n", dev->name, status&7);
+ 		}
+ 		status>>=3;
+ 		switch(status&7)
+@@ -1376,7 +1372,7 @@ static irqreturn_t mc32_interrupt(int irq, void *dev_id)
+ 				mc32_start_transceiver(dev);
+ 				break;
+ 			default:
+-				printk("%s: strange rx ack %d\n",
++				pr_notice("%s: strange rx ack %d\n",
+ 					dev->name, status&7);
+ 		}
+ 		status>>=3;
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index c566984..89a8c92 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -828,14 +828,14 @@ static int vortex_resume(struct pci_dev *pdev)
+ 		pci_restore_state(pdev);
+ 		err = pci_enable_device(pdev);
+ 		if (err) {
+-			printk(KERN_WARNING "%s: Could not enable device \n",
++			pr_warning("%s: Could not enable device \n",
+ 				dev->name);
+ 			return err;
+ 		}
+ 		pci_set_master(pdev);
+ 		if (request_irq(dev->irq, vp->full_bus_master_rx ?
+ 				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev)) {
+-			printk(KERN_WARNING "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
++			pr_warning("%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
+ 			pci_disable_device(pdev);
+ 			return -EBUSY;
+ 		}
+@@ -894,7 +894,7 @@ static int __devexit vortex_eisa_remove(struct device *device)
+ 	dev = eisa_get_drvdata(edev);
+ 
+ 	if (!dev) {
+-		printk("vortex_eisa_remove called for Compaq device!\n");
++		pr_err("vortex_eisa_remove called for Compaq device!\n");
+ 		BUG();
+ 	}
+ 
+@@ -1051,7 +1051,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	struct eisa_device *edev = NULL;
+ 
+ 	if (!printed_version) {
+-		printk (version);
++		pr_info("%s", version);
+ 		printed_version = 1;
+ 	}
+ 
+@@ -1068,7 +1068,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	dev = alloc_etherdev(sizeof(*vp));
+ 	retval = -ENOMEM;
+ 	if (!dev) {
+-		printk (KERN_ERR PFX "unable to allocate etherdev, aborting\n");
++		pr_err(PFX "unable to allocate etherdev, aborting\n");
+ 		goto out;
+ 	}
+ 	SET_NETDEV_DEV(dev, gendev);
+@@ -1100,9 +1100,9 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 
+ 	print_info = (vortex_debug > 1);
+ 	if (print_info)
+-		printk (KERN_INFO "See Documentation/networking/vortex.txt\n");
++		pr_info("See Documentation/networking/vortex.txt\n");
+ 
+-	printk(KERN_INFO "%s: 3Com %s %s at %p.\n",
++	pr_info("%s: 3Com %s %s at %p.\n",
+ 	       print_name,
+ 	       pdev ? "PCI" : "EISA",
+ 	       vci->name,
+@@ -1144,7 +1144,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 			   chip only. */
+ 			pci_read_config_byte(pdev, PCI_LATENCY_TIMER, &pci_latency);
+ 			if (pci_latency < new_latency) {
+-				printk(KERN_INFO "%s: Overriding PCI latency"
++				pr_info("%s: Overriding PCI latency"
+ 					" timer (CFLT) setting of %d, new value is %d.\n",
+ 					print_name, pci_latency, new_latency);
+ 					pci_write_config_byte(pdev, PCI_LATENCY_TIMER, new_latency);
+@@ -1236,17 +1236,17 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		checksum = (checksum ^ (checksum >> 8)) & 0xff;
+ 	}
+ 	if ((checksum != 0x00) && !(vci->drv_flags & IS_TORNADO))
+-		printk(" ***INVALID CHECKSUM %4.4x*** ", checksum);
++		pr_err(" ***INVALID CHECKSUM %4.4x*** ", checksum);
+ 	for (i = 0; i < 3; i++)
+ 		((__be16 *)dev->dev_addr)[i] = htons(eeprom[i + 10]);
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	if (print_info)
+-		printk(" %pM", dev->dev_addr);
++		pr_info(" %pM", dev->dev_addr);
+ 	/* Unfortunately an all zero eeprom passes the checksum and this
+ 	   gets found in the wild in failure cases. Crypto is hard 8) */
+ 	if (!is_valid_ether_addr(dev->dev_addr)) {
+ 		retval = -EINVAL;
+-		printk(KERN_ERR "*** EEPROM MAC address is invalid.\n");
++		pr_err("*** EEPROM MAC address is invalid.\n");
+ 		goto free_ring;	/* With every pack */
+ 	}
+ 	EL3WINDOW(2);
+@@ -1254,16 +1254,16 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		iowrite8(dev->dev_addr[i], ioaddr + i);
+ 
+ 	if (print_info)
+-		printk(", IRQ %d\n", dev->irq);
++		pr_info(", IRQ %d\n", dev->irq);
+ 	/* Tell them about an invalid IRQ. */
+ 	if (dev->irq <= 0 || dev->irq >= nr_irqs)
+-		printk(KERN_WARNING " *** Warning: IRQ %d is unlikely to work! ***\n",
++		pr_warning(" *** Warning: IRQ %d is unlikely to work! ***\n",
+ 			   dev->irq);
+ 
+ 	EL3WINDOW(4);
+ 	step = (ioread8(ioaddr + Wn4_NetDiag) & 0x1e) >> 1;
+ 	if (print_info) {
+-		printk(KERN_INFO "  product code %02x%02x rev %02x.%d date %02d-"
++		pr_info("  product code %02x%02x rev %02x.%d date %02d-"
+ 			"%02d-%02d\n", eeprom[6]&0xff, eeprom[6]>>8, eeprom[0x14],
+ 			step, (eeprom[4]>>5) & 15, eeprom[4] & 31, eeprom[4]>>9);
+ 	}
+@@ -1279,7 +1279,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		}
+ 
+ 		if (print_info) {
+-			printk(KERN_INFO "%s: CardBus functions mapped "
++			pr_info("%s: CardBus functions mapped "
+ 				"%16.16llx->%p\n",
+ 				print_name,
+ 				(unsigned long long)pci_resource_start(pdev, 2),
+@@ -1307,7 +1307,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	if (vp->info1 & 0x8000) {
+ 		vp->full_duplex = 1;
+ 		if (print_info)
+-			printk(KERN_INFO "Full duplex capable\n");
++			pr_info("Full duplex capable\n");
+ 	}
+ 
+ 	{
+@@ -1319,9 +1319,9 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 			vp->available_media = 0x40;
+ 		config = ioread32(ioaddr + Wn3_Config);
+ 		if (print_info) {
+-			printk(KERN_DEBUG "  Internal config register is %4.4x, "
++			pr_debug("  Internal config register is %4.4x, "
+ 				   "transceivers %#x.\n", config, ioread16(ioaddr + Wn3_Options));
+-			printk(KERN_INFO "  %dK %s-wide RAM %s Rx:Tx split, %s%s interface.\n",
++			pr_info("  %dK %s-wide RAM %s Rx:Tx split, %s%s interface.\n",
+ 				   8 << RAM_SIZE(config),
+ 				   RAM_WIDTH(config) ? "word" : "byte",
+ 				   ram_split[RAM_SPLIT(config)],
+@@ -1336,7 +1336,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	}
+ 
+ 	if (vp->media_override != 7) {
+-		printk(KERN_INFO "%s:  Media override to transceiver type %d (%s).\n",
++		pr_info("%s:  Media override to transceiver type %d (%s).\n",
+ 				print_name, vp->media_override,
+ 				media_tbl[vp->media_override].name);
+ 		dev->if_port = vp->media_override;
+@@ -1369,7 +1369,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 			if (mii_status  &&  mii_status != 0xffff) {
+ 				vp->phys[phy_idx++] = phyx;
+ 				if (print_info) {
+-					printk(KERN_INFO "  MII transceiver found at address %d,"
++					pr_info("  MII transceiver found at address %d,"
+ 						" status %4x.\n", phyx, mii_status);
+ 				}
+ 				if ((mii_status & 0x0040) == 0)
+@@ -1378,7 +1378,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		}
+ 		mii_preamble_required--;
+ 		if (phy_idx == 0) {
+-			printk(KERN_WARNING"  ***WARNING*** No MII transceivers found!\n");
++			pr_warning("  ***WARNING*** No MII transceivers found!\n");
+ 			vp->phys[0] = 24;
+ 		} else {
+ 			vp->advertising = mdio_read(dev, vp->phys[0], MII_ADVERTISE);
+@@ -1394,7 +1394,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	if (vp->capabilities & CapBusMaster) {
+ 		vp->full_bus_master_tx = 1;
+ 		if (print_info) {
+-			printk(KERN_INFO "  Enabling bus-master transmits and %s receives.\n",
++			pr_info("  Enabling bus-master transmits and %s receives.\n",
+ 			(vp->info2 & 1) ? "early" : "whole-frame" );
+ 		}
+ 		vp->full_bus_master_rx = (vp->info2 & 1) ? 1 : 2;
+@@ -1414,7 +1414,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		dev->netdev_ops =  &vortex_netdev_ops;
+ 
+ 	if (print_info) {
+-		printk(KERN_INFO "%s: scatter/gather %sabled. h/w checksums %sabled\n",
++		pr_info("%s: scatter/gather %sabled. h/w checksums %sabled\n",
+ 				print_name,
+ 				(dev->features & NETIF_F_SG) ? "en":"dis",
+ 				(dev->features & NETIF_F_IP_CSUM) ? "en":"dis");
+@@ -1442,7 +1442,7 @@ free_region:
+ 	if (vp->must_free_region)
+ 		release_region(dev->base_addr, vci->io_size);
+ 	free_netdev(dev);
+-	printk(KERN_ERR PFX "vortex_probe1 fails.  Returns %d\n", retval);
++	pr_err(PFX "vortex_probe1 fails.  Returns %d\n", retval);
+ out:
+ 	return retval;
+ }
+@@ -1464,13 +1464,13 @@ issue_and_wait(struct net_device *dev, int cmd)
+ 	for (i = 0; i < 100000; i++) {
+ 		if (!(ioread16(ioaddr + EL3_STATUS) & CmdInProgress)) {
+ 			if (vortex_debug > 1)
+-				printk(KERN_INFO "%s: command 0x%04x took %d usecs\n",
++				pr_info("%s: command 0x%04x took %d usecs\n",
+ 					   dev->name, cmd, i * 10);
+ 			return;
+ 		}
+ 		udelay(10);
+ 	}
+-	printk(KERN_ERR "%s: command 0x%04x did not complete! Status=0x%x\n",
++	pr_err("%s: command 0x%04x did not complete! Status=0x%x\n",
+ 			   dev->name, cmd, ioread16(ioaddr + EL3_STATUS));
+ }
+ 
+@@ -1480,7 +1480,7 @@ vortex_set_duplex(struct net_device *dev)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 
+-	printk(KERN_INFO "%s:  setting %s-duplex.\n",
++	pr_info("%s:  setting %s-duplex.\n",
+ 		dev->name, (vp->full_duplex) ? "full" : "half");
+ 
+ 	EL3WINDOW(3);
+@@ -1522,7 +1522,7 @@ vortex_up(struct net_device *dev)
+ 			pci_restore_state(VORTEX_PCI(vp));
+ 		err = pci_enable_device(VORTEX_PCI(vp));
+ 		if (err) {
+-			printk(KERN_WARNING "%s: Could not enable device \n",
++			pr_warning("%s: Could not enable device \n",
+ 				dev->name);
+ 			goto err_out;
+ 		}
+@@ -1533,14 +1533,14 @@ vortex_up(struct net_device *dev)
+ 	config = ioread32(ioaddr + Wn3_Config);
+ 
+ 	if (vp->media_override != 7) {
+-		printk(KERN_INFO "%s: Media override to transceiver %d (%s).\n",
++		pr_info("%s: Media override to transceiver %d (%s).\n",
+ 			   dev->name, vp->media_override,
+ 			   media_tbl[vp->media_override].name);
+ 		dev->if_port = vp->media_override;
+ 	} else if (vp->autoselect) {
+ 		if (vp->has_nway) {
+ 			if (vortex_debug > 1)
+-				printk(KERN_INFO "%s: using NWAY device table, not %d\n",
++				pr_info("%s: using NWAY device table, not %d\n",
+ 								dev->name, dev->if_port);
+ 			dev->if_port = XCVR_NWAY;
+ 		} else {
+@@ -1549,13 +1549,13 @@ vortex_up(struct net_device *dev)
+ 			while (! (vp->available_media & media_tbl[dev->if_port].mask))
+ 				dev->if_port = media_tbl[dev->if_port].next;
+ 			if (vortex_debug > 1)
+-				printk(KERN_INFO "%s: first available media type: %s\n",
++				pr_info("%s: first available media type: %s\n",
+ 					dev->name, media_tbl[dev->if_port].name);
+ 		}
+ 	} else {
+ 		dev->if_port = vp->default_media;
+ 		if (vortex_debug > 1)
+-			printk(KERN_INFO "%s: using default media %s\n",
++			pr_info("%s: using default media %s\n",
+ 				dev->name, media_tbl[dev->if_port].name);
+ 	}
+ 
+@@ -1570,13 +1570,13 @@ vortex_up(struct net_device *dev)
+ 	vp->rx_oom_timer.function = rx_oom_timer;
+ 
+ 	if (vortex_debug > 1)
+-		printk(KERN_DEBUG "%s: Initial media type %s.\n",
++		pr_debug("%s: Initial media type %s.\n",
+ 			   dev->name, media_tbl[dev->if_port].name);
+ 
+ 	vp->full_duplex = vp->mii.force_media;
+ 	config = BFINS(config, dev->if_port, 20, 4);
+ 	if (vortex_debug > 6)
+-		printk(KERN_DEBUG "vortex_up(): writing 0x%x to InternalConfig\n", config);
++		pr_debug("vortex_up(): writing 0x%x to InternalConfig\n", config);
+ 	iowrite32(config, ioaddr + Wn3_Config);
+ 
+ 	if (dev->if_port == XCVR_MII || dev->if_port == XCVR_NWAY) {
+@@ -1602,7 +1602,7 @@ vortex_up(struct net_device *dev)
+ 
+ 	if (vortex_debug > 1) {
+ 		EL3WINDOW(4);
+-		printk(KERN_DEBUG "%s: vortex_up() irq %d media status %4.4x.\n",
++		pr_debug("%s: vortex_up() irq %d media status %4.4x.\n",
+ 			   dev->name, dev->irq, ioread16(ioaddr + Wn4_Media));
+ 	}
+ 
+@@ -1704,13 +1704,13 @@ vortex_open(struct net_device *dev)
+ 	/* Use the now-standard shared IRQ implementation. */
+ 	if ((retval = request_irq(dev->irq, vp->full_bus_master_rx ?
+ 				&boomerang_interrupt : &vortex_interrupt, IRQF_SHARED, dev->name, dev))) {
+-		printk(KERN_ERR "%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
++		pr_err("%s: Could not reserve IRQ %d\n", dev->name, dev->irq);
+ 		goto err;
+ 	}
+ 
+ 	if (vp->full_bus_master_rx) { /* Boomerang bus master. */
+ 		if (vortex_debug > 2)
+-			printk(KERN_DEBUG "%s:  Filling in the Rx ring.\n", dev->name);
++			pr_debug("%s:  Filling in the Rx ring.\n", dev->name);
+ 		for (i = 0; i < RX_RING_SIZE; i++) {
+ 			struct sk_buff *skb;
+ 			vp->rx_ring[i].next = cpu_to_le32(vp->rx_ring_dma + sizeof(struct boom_rx_desc) * (i+1));
+@@ -1728,7 +1728,7 @@ vortex_open(struct net_device *dev)
+ 		}
+ 		if (i != RX_RING_SIZE) {
+ 			int j;
+-			printk(KERN_EMERG "%s: no memory for rx ring\n", dev->name);
++			pr_emerg("%s: no memory for rx ring\n", dev->name);
+ 			for (j = 0; j < i; j++) {
+ 				if (vp->rx_skbuff[j]) {
+ 					dev_kfree_skb(vp->rx_skbuff[j]);
+@@ -1750,7 +1750,7 @@ err_free_irq:
+ 	free_irq(dev->irq, dev);
+ err:
+ 	if (vortex_debug > 1)
+-		printk(KERN_ERR "%s: vortex_open() fails: returning %d\n", dev->name, retval);
++		pr_err("%s: vortex_open() fails: returning %d\n", dev->name, retval);
+ out:
+ 	return retval;
+ }
+@@ -1766,9 +1766,9 @@ vortex_timer(unsigned long data)
+ 	int media_status, old_window;
+ 
+ 	if (vortex_debug > 2) {
+-		printk(KERN_DEBUG "%s: Media selection timer tick happened, %s.\n",
++		pr_debug("%s: Media selection timer tick happened, %s.\n",
+ 			   dev->name, media_tbl[dev->if_port].name);
+-		printk(KERN_DEBUG "dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
++		pr_debug("dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
+ 	}
+ 
+ 	disable_irq_lockdep(dev->irq);
+@@ -1781,12 +1781,12 @@ vortex_timer(unsigned long data)
+ 			netif_carrier_on(dev);
+ 			ok = 1;
+ 			if (vortex_debug > 1)
+-				printk(KERN_DEBUG "%s: Media %s has link beat, %x.\n",
++				pr_debug("%s: Media %s has link beat, %x.\n",
+ 					   dev->name, media_tbl[dev->if_port].name, media_status);
+ 		} else {
+ 			netif_carrier_off(dev);
+ 			if (vortex_debug > 1) {
+-				printk(KERN_DEBUG "%s: Media %s has no link beat, %x.\n",
++				pr_debug("%s: Media %s has no link beat, %x.\n",
+ 					   dev->name, media_tbl[dev->if_port].name, media_status);
+ 			}
+ 		}
+@@ -1802,7 +1802,7 @@ vortex_timer(unsigned long data)
+ 		break;
+ 	  default:					/* Other media types handled by Tx timeouts. */
+ 		if (vortex_debug > 1)
+-		  printk(KERN_DEBUG "%s: Media %s has no indication, %x.\n",
++		  pr_debug("%s: Media %s has no indication, %x.\n",
+ 				 dev->name, media_tbl[dev->if_port].name, media_status);
+ 		ok = 1;
+ 	}
+@@ -1822,12 +1822,12 @@ vortex_timer(unsigned long data)
+ 		if (dev->if_port == XCVR_Default) { /* Go back to default. */
+ 		  dev->if_port = vp->default_media;
+ 		  if (vortex_debug > 1)
+-			printk(KERN_DEBUG "%s: Media selection failing, using default "
++			pr_debug("%s: Media selection failing, using default "
+ 				   "%s port.\n",
+ 				   dev->name, media_tbl[dev->if_port].name);
+ 		} else {
+ 			if (vortex_debug > 1)
+-				printk(KERN_DEBUG "%s: Media selection failed, now trying "
++				pr_debug("%s: Media selection failed, now trying "
+ 					   "%s port.\n",
+ 					   dev->name, media_tbl[dev->if_port].name);
+ 			next_tick = media_tbl[dev->if_port].wait;
+@@ -1843,13 +1843,13 @@ vortex_timer(unsigned long data)
+ 		iowrite16(dev->if_port == XCVR_10base2 ? StartCoax : StopCoax,
+ 			 ioaddr + EL3_CMD);
+ 		if (vortex_debug > 1)
+-			printk(KERN_DEBUG "wrote 0x%08x to Wn3_Config\n", config);
++			pr_debug("wrote 0x%08x to Wn3_Config\n", config);
+ 		/* AKPM: FIXME: Should reset Rx & Tx here.  P60 of 3c90xc.pdf */
+ 	}
+ 
+ leave_media_alone:
+ 	if (vortex_debug > 2)
+-	  printk(KERN_DEBUG "%s: Media selection timer finished, %s.\n",
++	  pr_debug("%s: Media selection timer finished, %s.\n",
+ 			 dev->name, media_tbl[dev->if_port].name);
+ 
+ 	EL3WINDOW(old_window);
+@@ -1865,21 +1865,21 @@ static void vortex_tx_timeout(struct net_device *dev)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 
+-	printk(KERN_ERR "%s: transmit timed out, tx_status %2.2x status %4.4x.\n",
++	pr_err("%s: transmit timed out, tx_status %2.2x status %4.4x.\n",
+ 		   dev->name, ioread8(ioaddr + TxStatus),
+ 		   ioread16(ioaddr + EL3_STATUS));
+ 	EL3WINDOW(4);
+-	printk(KERN_ERR "  diagnostics: net %04x media %04x dma %08x fifo %04x\n",
++	pr_err("  diagnostics: net %04x media %04x dma %08x fifo %04x\n",
+ 			ioread16(ioaddr + Wn4_NetDiag),
+ 			ioread16(ioaddr + Wn4_Media),
+ 			ioread32(ioaddr + PktStatus),
+ 			ioread16(ioaddr + Wn4_FIFODiag));
+ 	/* Slight code bloat to be user friendly. */
+ 	if ((ioread8(ioaddr + TxStatus) & 0x88) == 0x88)
+-		printk(KERN_ERR "%s: Transmitter encountered 16 collisions --"
++		pr_err("%s: Transmitter encountered 16 collisions --"
+ 			   " network cable problem?\n", dev->name);
+ 	if (ioread16(ioaddr + EL3_STATUS) & IntLatch) {
+-		printk(KERN_ERR "%s: Interrupt posted but not delivered --"
++		pr_err("%s: Interrupt posted but not delivered --"
+ 			   " IRQ blocked by another device?\n", dev->name);
+ 		/* Bad idea here.. but we might as well handle a few events. */
+ 		{
+@@ -1903,7 +1903,7 @@ static void vortex_tx_timeout(struct net_device *dev)
+ 
+ 	dev->stats.tx_errors++;
+ 	if (vp->full_bus_master_tx) {
+-		printk(KERN_DEBUG "%s: Resetting the Tx ring pointer.\n", dev->name);
++		pr_debug("%s: Resetting the Tx ring pointer.\n", dev->name);
+ 		if (vp->cur_tx - vp->dirty_tx > 0  &&  ioread32(ioaddr + DownListPtr) == 0)
+ 			iowrite32(vp->tx_ring_dma + (vp->dirty_tx % TX_RING_SIZE) * sizeof(struct boom_tx_desc),
+ 				 ioaddr + DownListPtr);
+@@ -1938,7 +1938,7 @@ vortex_error(struct net_device *dev, int status)
+ 	unsigned char tx_status = 0;
+ 
+ 	if (vortex_debug > 2) {
+-		printk(KERN_ERR "%s: vortex_error(), status=0x%x\n", dev->name, status);
++		pr_err("%s: vortex_error(), status=0x%x\n", dev->name, status);
+ 	}
+ 
+ 	if (status & TxComplete) {			/* Really "TxError" for us. */
+@@ -1946,10 +1946,10 @@ vortex_error(struct net_device *dev, int status)
+ 		/* Presumably a tx-timeout. We must merely re-enable. */
+ 		if (vortex_debug > 2
+ 			|| (tx_status != 0x88 && vortex_debug > 0)) {
+-			printk(KERN_ERR "%s: Transmit error, Tx status register %2.2x.\n",
++			pr_err("%s: Transmit error, Tx status register %2.2x.\n",
+ 				   dev->name, tx_status);
+ 			if (tx_status == 0x82) {
+-				printk(KERN_ERR "Probably a duplex mismatch.  See "
++				pr_err("Probably a duplex mismatch.  See "
+ 						"Documentation/networking/vortex.txt\n");
+ 			}
+ 			dump_tx_ring(dev);
+@@ -1975,13 +1975,13 @@ vortex_error(struct net_device *dev, int status)
+ 	if (status & StatsFull) {			/* Empty statistics. */
+ 		static int DoneDidThat;
+ 		if (vortex_debug > 4)
+-			printk(KERN_DEBUG "%s: Updating stats.\n", dev->name);
++			pr_debug("%s: Updating stats.\n", dev->name);
+ 		update_stats(ioaddr, dev);
+ 		/* HACK: Disable statistics as an interrupt source. */
+ 		/* This occurs when we have the wrong media type! */
+ 		if (DoneDidThat == 0  &&
+ 			ioread16(ioaddr + EL3_STATUS) & StatsFull) {
+-			printk(KERN_WARNING "%s: Updating statistics failed, disabling "
++			pr_warning("%s: Updating statistics failed, disabling "
+ 				   "stats as an interrupt source.\n", dev->name);
+ 			EL3WINDOW(5);
+ 			iowrite16(SetIntrEnb | (ioread16(ioaddr + 10) & ~StatsFull), ioaddr + EL3_CMD);
+@@ -1998,7 +1998,7 @@ vortex_error(struct net_device *dev, int status)
+ 		u16 fifo_diag;
+ 		EL3WINDOW(4);
+ 		fifo_diag = ioread16(ioaddr + Wn4_FIFODiag);
+-		printk(KERN_ERR "%s: Host error, FIFO diagnostic register %4.4x.\n",
++		pr_err("%s: Host error, FIFO diagnostic register %4.4x.\n",
+ 			   dev->name, fifo_diag);
+ 		/* Adapter failure requires Tx/Rx reset and reinit. */
+ 		if (vp->full_bus_master_tx) {
+@@ -2006,7 +2006,7 @@ vortex_error(struct net_device *dev, int status)
+ 			/* 0x80000000 PCI master abort. */
+ 			/* 0x40000000 PCI target abort. */
+ 			if (vortex_debug)
+-				printk(KERN_ERR "%s: PCI bus error, bus status %8.8x\n", dev->name, bus_status);
++				pr_err("%s: PCI bus error, bus status %8.8x\n", dev->name, bus_status);
+ 
+ 			/* In this case, blow the card away */
+ 			/* Must not enter D3 or we can't legally issue the reset! */
+@@ -2075,7 +2075,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		while (--i > 0	&&	(tx_status = ioread8(ioaddr + TxStatus)) > 0) {
+ 			if (tx_status & 0x3C) {		/* A Tx-disabling error occurred.  */
+ 				if (vortex_debug > 2)
+-				  printk(KERN_DEBUG "%s: Tx error, status %2.2x.\n",
++				  pr_debug("%s: Tx error, status %2.2x.\n",
+ 						 dev->name, tx_status);
+ 				if (tx_status & 0x04) dev->stats.tx_fifo_errors++;
+ 				if (tx_status & 0x38) dev->stats.tx_aborted_errors++;
+@@ -2101,14 +2101,14 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned long flags;
+ 
+ 	if (vortex_debug > 6) {
+-		printk(KERN_DEBUG "boomerang_start_xmit()\n");
+-		printk(KERN_DEBUG "%s: Trying to send a packet, Tx index %d.\n",
++		pr_debug("boomerang_start_xmit()\n");
++		pr_debug("%s: Trying to send a packet, Tx index %d.\n",
+ 			   dev->name, vp->cur_tx);
+ 	}
+ 
+ 	if (vp->cur_tx - vp->dirty_tx >= TX_RING_SIZE) {
+ 		if (vortex_debug > 0)
+-			printk(KERN_WARNING "%s: BUG! Tx Ring full, refusing to send buffer.\n",
++			pr_warning("%s: BUG! Tx Ring full, refusing to send buffer.\n",
+ 				   dev->name);
+ 		netif_stop_queue(dev);
+ 		return 1;
+@@ -2204,7 +2204,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 	status = ioread16(ioaddr + EL3_STATUS);
+ 
+ 	if (vortex_debug > 6)
+-		printk("vortex_interrupt(). status=0x%4x\n", status);
++		pr_debug("vortex_interrupt(). status=0x%4x\n", status);
+ 
+ 	if ((status & IntLatch) == 0)
+ 		goto handler_exit;		/* No interrupt: shared IRQs cause this */
+@@ -2219,19 +2219,19 @@ vortex_interrupt(int irq, void *dev_id)
+ 		goto handler_exit;
+ 
+ 	if (vortex_debug > 4)
+-		printk(KERN_DEBUG "%s: interrupt, status %4.4x, latency %d ticks.\n",
++		pr_debug("%s: interrupt, status %4.4x, latency %d ticks.\n",
+ 			   dev->name, status, ioread8(ioaddr + Timer));
+ 
+ 	do {
+ 		if (vortex_debug > 5)
+-				printk(KERN_DEBUG "%s: In interrupt loop, status %4.4x.\n",
++				pr_debug("%s: In interrupt loop, status %4.4x.\n",
+ 					   dev->name, status);
+ 		if (status & RxComplete)
+ 			vortex_rx(dev);
+ 
+ 		if (status & TxAvailable) {
+ 			if (vortex_debug > 5)
+-				printk(KERN_DEBUG "	TX room bit was handled.\n");
++				pr_debug("	TX room bit was handled.\n");
+ 			/* There's room in the FIFO for a full-sized packet. */
+ 			iowrite16(AckIntr | TxAvailable, ioaddr + EL3_CMD);
+ 			netif_wake_queue (dev);
+@@ -2263,7 +2263,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 		}
+ 
+ 		if (--work_done < 0) {
+-			printk(KERN_WARNING "%s: Too much work in interrupt, status "
++			pr_warning("%s: Too much work in interrupt, status "
+ 				   "%4.4x.\n", dev->name, status);
+ 			/* Disable all pending interrupts. */
+ 			do {
+@@ -2281,7 +2281,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & (IntLatch | RxComplete));
+ 
+ 	if (vortex_debug > 4)
+-		printk(KERN_DEBUG "%s: exiting interrupt, status %4.4x.\n",
++		pr_debug("%s: exiting interrupt, status %4.4x.\n",
+ 			   dev->name, status);
+ handler_exit:
+ 	spin_unlock(&vp->lock);
+@@ -2313,14 +2313,14 @@ boomerang_interrupt(int irq, void *dev_id)
+ 	status = ioread16(ioaddr + EL3_STATUS);
+ 
+ 	if (vortex_debug > 6)
+-		printk(KERN_DEBUG "boomerang_interrupt. status=0x%4x\n", status);
++		pr_debug("boomerang_interrupt. status=0x%4x\n", status);
+ 
+ 	if ((status & IntLatch) == 0)
+ 		goto handler_exit;		/* No interrupt: shared IRQs can cause this */
+ 
+ 	if (status == 0xffff) {		/* h/w no longer present (hotplug)? */
+ 		if (vortex_debug > 1)
+-			printk(KERN_DEBUG "boomerang_interrupt(1): status = 0xffff\n");
++			pr_debug("boomerang_interrupt(1): status = 0xffff\n");
+ 		goto handler_exit;
+ 	}
+ 
+@@ -2330,16 +2330,16 @@ boomerang_interrupt(int irq, void *dev_id)
+ 	}
+ 
+ 	if (vortex_debug > 4)
+-		printk(KERN_DEBUG "%s: interrupt, status %4.4x, latency %d ticks.\n",
++		pr_debug("%s: interrupt, status %4.4x, latency %d ticks.\n",
+ 			   dev->name, status, ioread8(ioaddr + Timer));
+ 	do {
+ 		if (vortex_debug > 5)
+-				printk(KERN_DEBUG "%s: In interrupt loop, status %4.4x.\n",
++				pr_debug("%s: In interrupt loop, status %4.4x.\n",
+ 					   dev->name, status);
+ 		if (status & UpComplete) {
+ 			iowrite16(AckIntr | UpComplete, ioaddr + EL3_CMD);
+ 			if (vortex_debug > 5)
+-				printk(KERN_DEBUG "boomerang_interrupt->boomerang_rx\n");
++				pr_debug("boomerang_interrupt->boomerang_rx\n");
+ 			boomerang_rx(dev);
+ 		}
+ 
+@@ -2374,7 +2374,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 					dev_kfree_skb_irq(skb);
+ 					vp->tx_skbuff[entry] = NULL;
+ 				} else {
+-					printk(KERN_DEBUG "boomerang_interrupt: no skb!\n");
++					pr_debug("boomerang_interrupt: no skb!\n");
+ 				}
+ 				/* dev->stats.tx_packets++;  Counted below. */
+ 				dirty_tx++;
+@@ -2382,7 +2382,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 			vp->dirty_tx = dirty_tx;
+ 			if (vp->cur_tx - dirty_tx <= TX_RING_SIZE - 1) {
+ 				if (vortex_debug > 6)
+-					printk(KERN_DEBUG "boomerang_interrupt: wake queue\n");
++					pr_debug("boomerang_interrupt: wake queue\n");
+ 				netif_wake_queue (dev);
+ 			}
+ 		}
+@@ -2392,7 +2392,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 			vortex_error(dev, status);
+ 
+ 		if (--work_done < 0) {
+-			printk(KERN_WARNING "%s: Too much work in interrupt, status "
++			pr_warning("%s: Too much work in interrupt, status "
+ 				   "%4.4x.\n", dev->name, status);
+ 			/* Disable all pending interrupts. */
+ 			do {
+@@ -2413,7 +2413,7 @@ boomerang_interrupt(int irq, void *dev_id)
+ 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & IntLatch);
+ 
+ 	if (vortex_debug > 4)
+-		printk(KERN_DEBUG "%s: exiting interrupt, status %4.4x.\n",
++		pr_debug("%s: exiting interrupt, status %4.4x.\n",
+ 			   dev->name, status);
+ handler_exit:
+ 	spin_unlock(&vp->lock);
+@@ -2428,13 +2428,13 @@ static int vortex_rx(struct net_device *dev)
+ 	short rx_status;
+ 
+ 	if (vortex_debug > 5)
+-		printk(KERN_DEBUG "vortex_rx(): status %4.4x, rx_status %4.4x.\n",
++		pr_debug("vortex_rx(): status %4.4x, rx_status %4.4x.\n",
+ 			   ioread16(ioaddr+EL3_STATUS), ioread16(ioaddr+RxStatus));
+ 	while ((rx_status = ioread16(ioaddr + RxStatus)) > 0) {
+ 		if (rx_status & 0x4000) { /* Error, update stats. */
+ 			unsigned char rx_error = ioread8(ioaddr + RxErrors);
+ 			if (vortex_debug > 2)
+-				printk(KERN_DEBUG " Rx error: status %2.2x.\n", rx_error);
++				pr_debug(" Rx error: status %2.2x.\n", rx_error);
+ 			dev->stats.rx_errors++;
+ 			if (rx_error & 0x01)  dev->stats.rx_over_errors++;
+ 			if (rx_error & 0x02)  dev->stats.rx_length_errors++;
+@@ -2448,7 +2448,7 @@ static int vortex_rx(struct net_device *dev)
+ 
+ 			skb = dev_alloc_skb(pkt_len + 5);
+ 			if (vortex_debug > 4)
+-				printk(KERN_DEBUG "Receiving packet size %d status %4.4x.\n",
 +				pr_debug("Receiving packet size %d status %4.4x.\n",
  					   pkt_len, rx_status);
  			if (skb != NULL) {
- 				skb_reserve(skb, 2);     /* Align IP on 16 byte */
-@@ -1088,12 +1088,12 @@ el3_rx(struct net_device *dev)
- 			outw(RxDiscard, ioaddr + EL3_CMD);
+ 				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+@@ -2478,7 +2478,7 @@ static int vortex_rx(struct net_device *dev)
+ 						break;
+ 				continue;
+ 			} else if (vortex_debug > 0)
+-				printk(KERN_NOTICE "%s: No memory to allocate a sk_buff of "
++				pr_notice("%s: No memory to allocate a sk_buff of "
+ 					   "size %d.\n", dev->name, pkt_len);
  			dev->stats.rx_dropped++;
- 			if (el3_debug)
--				printk("%s: Couldn't allocate a sk_buff of size %d.\n",
-+				pr_debug("%s: Couldn't allocate a sk_buff of size %d.\n",
- 					   dev->name, pkt_len);
  		}
- 		inw(ioaddr + EL3_STATUS); 				/* Delay. */
- 		while (inw(ioaddr + EL3_STATUS) & 0x1000)
--			printk(KERN_DEBUG "	Waiting for 3c509 to discard packet, status %x.\n",
-+			pr_debug("	Waiting for 3c509 to discard packet, status %x.\n",
- 				   inw(ioaddr + EL3_STATUS) );
- 	}
+@@ -2498,7 +2498,7 @@ boomerang_rx(struct net_device *dev)
+ 	int rx_work_limit = vp->dirty_rx + RX_RING_SIZE - vp->cur_rx;
  
-@@ -1114,7 +1114,7 @@ set_multicast_list(struct net_device *dev)
- 		static int old;
- 		if (old != dev->mc_count) {
- 			old = dev->mc_count;
--			printk("%s: Setting Rx mode to %d addresses.\n", dev->name, dev->mc_count);
-+			pr_debug("%s: Setting Rx mode to %d addresses.\n", dev->name, dev->mc_count);
- 		}
- 	}
- 	spin_lock_irqsave(&lp->lock, flags);
-@@ -1137,7 +1137,7 @@ el3_close(struct net_device *dev)
- 	struct el3_private *lp = netdev_priv(dev);
+ 	if (vortex_debug > 5)
+-		printk(KERN_DEBUG "boomerang_rx(): status %4.4x\n", ioread16(ioaddr+EL3_STATUS));
++		pr_debug("boomerang_rx(): status %4.4x\n", ioread16(ioaddr+EL3_STATUS));
  
- 	if (el3_debug > 2)
--		printk("%s: Shutting down ethercard.\n", dev->name);
-+		pr_debug("%s: Shutting down ethercard.\n", dev->name);
+ 	while ((rx_status = le32_to_cpu(vp->rx_ring[entry].status)) & RxDComplete){
+ 		if (--rx_work_limit < 0)
+@@ -2506,7 +2506,7 @@ boomerang_rx(struct net_device *dev)
+ 		if (rx_status & RxDError) { /* Error, update stats. */
+ 			unsigned char rx_error = rx_status >> 16;
+ 			if (vortex_debug > 2)
+-				printk(KERN_DEBUG " Rx error: status %2.2x.\n", rx_error);
++				pr_debug(" Rx error: status %2.2x.\n", rx_error);
+ 			dev->stats.rx_errors++;
+ 			if (rx_error & 0x01)  dev->stats.rx_over_errors++;
+ 			if (rx_error & 0x02)  dev->stats.rx_length_errors++;
+@@ -2520,7 +2520,7 @@ boomerang_rx(struct net_device *dev)
+ 			dma_addr_t dma = le32_to_cpu(vp->rx_ring[entry].addr);
  
- 	el3_down(dev);
+ 			if (vortex_debug > 4)
+-				printk(KERN_DEBUG "Receiving packet size %d status %4.4x.\n",
++				pr_debug("Receiving packet size %d status %4.4x.\n",
+ 					   pkt_len, rx_status);
  
-@@ -1384,30 +1384,30 @@ el3_up(struct net_device *dev)
- 		EL3WINDOW(4);
- 		net_diag = inw(ioaddr + WN4_NETDIAG);
- 		net_diag = (net_diag | FD_ENABLE); /* temporarily assume full-duplex will be set */
--		printk("%s: ", dev->name);
-+		pr_info("%s: ", dev->name);
- 		switch (dev->if_port & 0x0c) {
- 			case 12:
- 				/* force full-duplex mode if 3c5x9b */
- 				if (sw_info & 0x000f) {
--					printk("Forcing 3c5x9b full-duplex mode");
-+					pr_info("Forcing 3c5x9b full-duplex mode");
- 					break;
+ 			/* Check if the packet is long enough to just accept without
+@@ -2566,7 +2566,7 @@ boomerang_rx(struct net_device *dev)
+ 			if (skb == NULL) {
+ 				static unsigned long last_jif;
+ 				if (time_after(jiffies, last_jif + 10 * HZ)) {
+-					printk(KERN_WARNING "%s: memory shortage\n", dev->name);
++					pr_warning("%s: memory shortage\n", dev->name);
+ 					last_jif = jiffies;
  				}
- 			case 8:
- 				/* set full-duplex mode based on eeprom config setting */
- 				if ((sw_info & 0x000f) && (sw_info & 0x8000)) {
--					printk("Setting 3c5x9b full-duplex mode (from EEPROM configuration bit)");
-+					pr_info("Setting 3c5x9b full-duplex mode (from EEPROM configuration bit)");
- 					break;
- 				}
- 			default:
- 				/* xcvr=(0 || 4) OR user has an old 3c5x9 non "B" model */
--				printk("Setting 3c5x9/3c5x9B half-duplex mode");
-+				pr_info("Setting 3c5x9/3c5x9B half-duplex mode");
- 				net_diag = (net_diag & ~FD_ENABLE); /* disable full duplex */
- 		}
+ 				if ((vp->cur_rx - vp->dirty_rx) == RX_RING_SIZE)
+@@ -2598,7 +2598,7 @@ rx_oom_timer(unsigned long arg)
+ 	if ((vp->cur_rx - vp->dirty_rx) == RX_RING_SIZE)	/* This test is redundant, but makes me feel good */
+ 		boomerang_rx(dev);
+ 	if (vortex_debug > 1) {
+-		printk(KERN_DEBUG "%s: rx_oom_timer %s\n", dev->name,
++		pr_debug("%s: rx_oom_timer %s\n", dev->name,
+ 			((vp->cur_rx - vp->dirty_rx) != RX_RING_SIZE) ? "succeeded" : "retrying");
+ 	}
+ 	spin_unlock_irq(&vp->lock);
+@@ -2655,9 +2655,9 @@ vortex_close(struct net_device *dev)
+ 		vortex_down(dev, 1);
  
- 		outw(net_diag, ioaddr + WN4_NETDIAG);
--		printk(" if_port: %d, sw_info: %4.4x\n", dev->if_port, sw_info);
-+		pr_info(" if_port: %d, sw_info: %4.4x\n", dev->if_port, sw_info);
- 		if (el3_debug > 3)
--			printk("%s: 3c5x9 net diag word is now: %4.4x.\n", dev->name, net_diag);
-+			pr_debug("%s: 3c5x9 net diag word is now: %4.4x.\n", dev->name, net_diag);
- 		/* Enable link beat and jabber check. */
- 		outw(inw(ioaddr + WN4_MEDIA) | MEDIA_TP, ioaddr + WN4_MEDIA);
+ 	if (vortex_debug > 1) {
+-		printk(KERN_DEBUG"%s: vortex_close() status %4.4x, Tx status %2.2x.\n",
++		pr_debug("%s: vortex_close() status %4.4x, Tx status %2.2x.\n",
+ 			   dev->name, ioread16(ioaddr + EL3_STATUS), ioread8(ioaddr + TxStatus));
+-		printk(KERN_DEBUG "%s: vortex close stats: rx_nocopy %d rx_copy %d"
++		pr_debug("%s: vortex close stats: rx_nocopy %d rx_copy %d"
+ 			   " tx_queued %d Rx pre-checksummed %d.\n",
+ 			   dev->name, vp->rx_nocopy, vp->rx_copy, vp->queued_packet, vp->rx_csumhits);
  	}
-@@ -1535,7 +1535,7 @@ static int __init el3_init_module(void)
+@@ -2666,7 +2666,7 @@ vortex_close(struct net_device *dev)
+ 	if (vp->rx_csumhits &&
+ 	    (vp->drv_flags & HAS_HWCKSM) == 0 &&
+ 	    (vp->card_idx >= MAX_UNITS || hw_checksums[vp->card_idx] == -1)) {
+-			printk(KERN_WARNING "%s supports hardware checksums, and we're "
++			pr_warning("%s supports hardware checksums, and we're "
+ 						"not using them!\n", dev->name);
  	}
- 	if (id_port >= 0x200) {
- 		id_port = 0;
--		printk(KERN_ERR "No I/O port available for 3c509 activation.\n");
-+		pr_err("No I/O port available for 3c509 activation.\n");
- 	} else {
- 		ret = isa_register_driver(&el3_isa_driver, EL3_MAX_CARDS);
- 		if (!ret)
+ #endif
+@@ -2717,16 +2717,16 @@ dump_tx_ring(struct net_device *dev)
+ 			int i;
+ 			int stalled = ioread32(ioaddr + PktStatus) & 0x04;	/* Possible racy. But it's only debug stuff */
+ 
+-			printk(KERN_ERR "  Flags; bus-master %d, dirty %d(%d) current %d(%d)\n",
++			pr_err("  Flags; bus-master %d, dirty %d(%d) current %d(%d)\n",
+ 					vp->full_bus_master_tx,
+ 					vp->dirty_tx, vp->dirty_tx % TX_RING_SIZE,
+ 					vp->cur_tx, vp->cur_tx % TX_RING_SIZE);
+-			printk(KERN_ERR "  Transmit list %8.8x vs. %p.\n",
++			pr_err("  Transmit list %8.8x vs. %p.\n",
+ 				   ioread32(ioaddr + DownListPtr),
+ 				   &vp->tx_ring[vp->dirty_tx % TX_RING_SIZE]);
+ 			issue_and_wait(dev, DownStall);
+ 			for (i = 0; i < TX_RING_SIZE; i++) {
+-				printk(KERN_ERR "  %d: @%p  length %8.8x status %8.8x\n", i,
++				pr_err("  %d: @%p  length %8.8x status %8.8x\n", i,
+ 					   &vp->tx_ring[i],
+ #if DO_ZEROCOPY
+ 					   le32_to_cpu(vp->tx_ring[i].frag[0].length),
+@@ -2970,7 +2970,7 @@ static void set_rx_mode(struct net_device *dev)
+ 
+ 	if (dev->flags & IFF_PROMISC) {
+ 		if (vortex_debug > 3)
+-			printk(KERN_NOTICE "%s: Setting promiscuous mode.\n", dev->name);
++			pr_notice("%s: Setting promiscuous mode.\n", dev->name);
+ 		new_mode = SetRxFilter|RxStation|RxMulticast|RxBroadcast|RxProm;
+ 	} else	if ((dev->mc_list)  ||  (dev->flags & IFF_ALLMULTI)) {
+ 		new_mode = SetRxFilter|RxStation|RxMulticast|RxBroadcast;
+@@ -3145,7 +3145,7 @@ static void acpi_set_WOL(struct net_device *dev)
+ 		iowrite16(RxEnable, ioaddr + EL3_CMD);
+ 
+ 		if (pci_enable_wake(VORTEX_PCI(vp), PCI_D3hot, 1)) {
+-			printk(KERN_INFO "%s: WOL not supported.\n",
++			pr_info("%s: WOL not supported.\n",
+ 					pci_name(VORTEX_PCI(vp)));
+ 
+ 			vp->enable_wol = 0;
+@@ -3164,7 +3164,7 @@ static void __devexit vortex_remove_one(struct pci_dev *pdev)
+ 	struct vortex_private *vp;
+ 
+ 	if (!dev) {
+-		printk("vortex_remove_one called for Compaq device!\n");
++		pr_err("vortex_remove_one called for Compaq device!\n");
+ 		BUG();
+ 	}
+ 
 -- 
 1.6.3.1
 
