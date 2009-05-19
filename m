@@ -1,58 +1,109 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
-Date: Tue, 19 May 2009 12:34:17 +0000
-Message-ID: <20090519123417.GA7376@ff.dom.local>
-References: <20090518193559.05295fe4@nehalam>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
+Date: Tue, 19 May 2009 14:44:36 +0200
+Message-ID: <20090519124436.GA6238@elte.hu>
+References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu> <20090518160254.GD6768@linux.vnet.ibm.com> <20090519085825.GA9388@elte.hu> <20090519123316.GA7159@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: lav@yar.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.232]:2112 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbZESMe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 08:34:26 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so1832757rvb.1
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 05:34:27 -0700 (PDT)
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754653AbZESMpt@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090518193559.05295fe4@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090519123316.GA7159@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19-05-2009 04:35, Stephen Hemminger wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 18 May 2009 14:10:20 GMT
-> From: bugzilla-daemon@bugzilla.kernel.org
-> To: shemminger@linux-foundation.org
-> Subject: [Bug 13339] New: rtable leak in ipv4/route.c
-> 
-> 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13339
-...
-> 2.6.29 patch has introduced flexible route cache rebuilding. Unfortunately the
-> patch has at least one critical flaw, and another problem.
-> 
-> rt_intern_hash calculates rthi pointer, which is later used for new entry
-> insertion. The same loop calculates cand pointer which is used to clean the
-> list. If the pointers are the same, rtable leak occurs, as first the cand is
-> removed then the new entry is appended to it.
-> 
-> This leak leads to unregister_netdevice problem (usage count > 0).
-> 
-> Another problem of the patch is that it tries to insert the entries in certain
-> order, to facilitate counting of entries distinct by all but QoS parameters.
-> Unfortunately, referencing an existing rtable entry moves it to list beginning,
-> to speed up further lookups, so the carefully built order is destroyed.
-> 
-> For the first problem the simplest patch it to set rthi=0 when rthi==cand, but
-> it will also destroy the ordering.
 
-I think fixing this bug fast is more important than this
-ordering or counting. Could you send your patch proposal?
+* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
 
-Thanks,
-Jarek P.
+> On Tue, May 19, 2009 at 10:58:25AM +0200, Ingo Molnar wrote:
+> > 
+> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > 
+> > > On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
+> > > > 
+> > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > > > 
+> > > > > > i might be missing something fundamental here, but why not just 
+> > > > > > have per CPU helper threads, all on the same waitqueue, and wake 
+> > > > > > them up via a single wake_up() call? That would remove the SMP 
+> > > > > > cross call (wakeups do immediate cross-calls already).
+> > > > > 
+> > > > > My concern with this is that the cache misses accessing all the 
+> > > > > processes on this single waitqueue would be serialized, slowing 
+> > > > > things down. In contrast, the bitmask that smp_call_function() 
+> > > > > traverses delivers on the order of a thousand CPUs' worth of bits 
+> > > > > per cache miss.  I will give it a try, though.
+> > > > 
+> > > > At least if you go via the migration threads, you can queue up 
+> > > > requests to them locally. But there's going to be cachemisses 
+> > > > _anyway_, since you have to access them all from a single CPU, 
+> > > > and then they have to fetch details about what to do, and then 
+> > > > have to notify the originator about completion.
+> > > 
+> > > Ah, so you are suggesting that I use smp_call_function() to run 
+> > > code on each CPU that wakes up that CPU's migration thread?  I 
+> > > will take a look at this.
+> > 
+> > My suggestion was to queue up a dummy 'struct migration_req' up with 
+> > it (change migration_req::task == NULL to mean 'nothing') and simply 
+> > wake it up using wake_up_process().
+> 
+> OK.  I was thinking of just using wake_up_process() without the
+> migration_req structure, and unconditionally setting a per-CPU
+> variable from within migration_thread() just before the list_empty()
+> check.  In your approach we would need a NULL-pointer check just
+> before the call to __migrate_task().
+> 
+> > That will force a quiescent state, without the need for any extra 
+> > information, right?
+> 
+> Yep!
+> 
+> > This is what the scheduler code does, roughly:
+> > 
+> >                 wake_up_process(rq->migration_thread);
+> >                 wait_for_completion(&req.done);
+> > 
+> > and this will always have to perform well. The 'req' could be put 
+> > into PER_CPU, and a loop could be done like this:
+> > 
+> > 	for_each_online_cpu(cpu)
+> >                 wake_up_process(cpu_rq(cpu)->migration_thread);
+> > 
+> > 	for_each_online_cpu(cpu)
+> >                 wait_for_completion(&per_cpu(req, cpu).done);
+> > 
+> > hm?
+> 
+> My concern is the linear slowdown for large systems, but this 
+> should be OK for modest systems (a few 10s of CPUs).  However, I 
+> will try it out -- it does not need to be a long-term solution, 
+> after all.
 
+I think there is going to be a linear slowdown no matter what - 
+because sending that many IPIs is going to be linear. (there are no 
+'broadcast to all' IPIs anymore - on x86 we only have them if all 
+physical APIC IDs are 7 or smaller.)
+
+Also, no matter what scheme we use, the target CPU does have to be 
+processed somehow and it does have to signal completion back somehow 
+- which generates cachemisses.
+
+I think what probaby matters most is to go simple, and to use 
+established kernel primitives - and the above is really typical 
+pattern for things like TLB flushes to a process having a presence 
+on every physical CPU. Those aspects will be kept reasonably fast 
+and balanced on all hardware that matters. (and if not, people will 
+notice any TLB flush/shootdown linear slowdowns and will address it)
+
+I could be wrong though ... maybe someone can get some numbers from 
+a really large system?
+
+	Ingo
