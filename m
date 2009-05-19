@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp vegas ssthresh bugfix
-Date: Tue, 19 May 2009 02:48:34 -0700 (PDT)
-Message-ID: <20090519.024834.03088899.davem@davemloft.net>
-References: <20090519092207.GA31493@scriptng>
+From: Or Gerlitz <ogerlitz@Voltaire.com>
+Subject: Re: user space virtio-net exits with "truncating packet" error
+Date: Tue, 19 May 2009 13:00:27 +0300
+Message-ID: <4A12833B.4090804@Voltaire.com>
+References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>	<200905142128.58111.rusty@rustcorp.com.au> <4A0C2500.7090709@Voltaire.com> <4A0D14BF.5010409@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: doug.leith@nuim.ie
+Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	Gregory Haskins <ghaskins@novell.com>,
+	Anthony Liguori <anthony@codemonkey.ws>
+To: Michael Tokarev <mjt@tls.msk.ru>, Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36297
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753006AbZESJsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 05:48:36 -0400
-In-Reply-To: <20090519092207.GA31493@scriptng>
+Received: from fwil.voltaire.com ([193.47.165.2]:28760 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750849AbZESKAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2009 06:00:37 -0400
+In-Reply-To: <4A0D14BF.5010409@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Douglas Leith <doug.leith@nuim.ie>
-Date: Tue, 19 May 2009 10:22:07 +0100
+Michael Tokarev wrote:
+> A trap which I've seen before. When compiling kvm userspace, ensure your kernel headers installed in
+> /usr/include has the latest if_tun.h bits, in particular the TUNSETOFFLOAD
+> and IFF_VNET_HDR definitions.
 
-> This patch fixes a minor bug in tcp_vegas.c which affects ssthresh accounting
-> when vegas congestion control decreases snd_cwnd.
-> 
-> Signed-off-by: Doug Leith <doug.leith@nuim.ie>
+OKay, this seems to be part of my problems... the kvm-85 userspace build uses the header from /usr/include
+where <linux/if_tun.h> is dated back to 2001 such that its way different from the 2.6.29.1 one, such that 
+TUNSETOFFLOAD and IFF_VNET_HDR are not defined. This means that the qemu code doesn't attempt to issue TUNSETOFFLOAD, and doesn't include <linux/virtio_net.h> which has plus probably more implications. 
 
-This patch has several problems:
+> One solution to this is just to copy that file from kernel-2.6.29.  Or
+> maybe it's easier to add some -I flags to kvm compile commandline.
 
-> --- net/ipv4/tcp_vegas.c.orig	2009-04-27 12:55:18.000000000 +0100
-> +++ net/ipv4/tcp_vegas.c	2009-05-19 09:25:17.000000000 +0100
+This would not be enough since it needs also the virtio_net header and I'm not clear what version, the kernel one  on the one that comes with qemu... Now, all this comes into play only with the qemu provided by kvm releases since the savannah one doesn't have the code that uses TUNSETOFFLOAD, IFF_VNET_HDR etc.
 
-The patch should be "-p1" based, one directory higher up.  You have
-it "-p0" based.
+Avi - do you guys have some writeup / guidelines how to make all this work?
+ 
+Or.
 
-> +					/* Update ssthresh to reflect
-> +					 * decreased cwnd */
 
-This is not the correct way to format a comment in the Linux
-kernel, the correct layout is:
-
-/* Update ssthresh to reflect
- * decreased cwnd.
- */
-
-Please fix these problems up and resubmit.
