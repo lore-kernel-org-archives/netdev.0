@@ -1,44 +1,53 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Tue, 19 May 2009 21:35:31 +0200
-Message-ID: <20090519193531.GD2981@ami.dom.local>
-References: <20090517201528.GA8552@ami.dom.local> <20090518065629.GA6006@ff.dom.local> <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com> <20090518175352.GB2755@ami.dom.local> <298f5c050905181123o55c35e74n24cd4ee2c07d8fca@mail.gmail.com> <20090518183221.GC2755@ami.dom.local> <298f5c050905181156w2254fcb4p889d67e26fad6e6@mail.gmail.com> <20090518190541.GA3047@ami.dom.local> <Pine.LNX.4.64.0905191517350.4730@tyr.diku.dk>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH, v2] net: release dst entry in dev_hard_start_xmit()
+Date: Tue, 19 May 2009 21:44:14 +0200
+Message-ID: <4A130C0E.6000507@cosmosbay.com>
+References: <4A092F59.7020900@cosmosbay.com>	<4A093178.9020105@cosmosbay.com>	<4A09CD6B.5070604@cosmosbay.com> <20090518.221956.153457626.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antonio Almeida <vexwek@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	devik@cdi.cz, Eric Dumazet <dada1@cosmosbay.com>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jarkao2@gmail.com, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:46996 "EHLO
-	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753484AbZESTgR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 15:36:17 -0400
-Received: by bwz22 with SMTP id 22so4671bwz.37
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 12:36:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0905191517350.4730@tyr.diku.dk>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50711 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484AbZESToW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2009 15:44:22 -0400
+In-Reply-To: <20090518.221956.153457626.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 03:18:47PM +0200, Jesper Dangaard Brouer wrote:
->
-> On Mon, 18 May 2009, Jarek Poplawski wrote:
->
->> Since you're so kind... :-) There is a line in net/sched/sch_htb.c:
->>
->> #define HTB_HYSTERESIS 1        /* whether to use mode hysteresis for speedup */
->>
->> Could you change 1 to 0, and repeat these tests above after recompiling?
->
-> Notice its runtime adjustable via:
->  /sys/module/sch_htb/parameters/htb_hysteresis
->
-> Since kernel version v2.6.26.
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Tue, 12 May 2009 21:26:35 +0200
+>=20
+>> [PATCH] net: release dst entry in dev_hard_start_xmit()
+>  ...
+>> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+>=20
+> Applied, thanks Eric.
+>=20
+> Eric, please followup and double-check the pppoe paths
+> that Jarek mentioned.  I never saw that fully resolved.
+>=20
 
-Yes, this should convince Antonio to try something newer.
-(Alas it didn't seem to make much difference to his case ;-)
+[PATCH] ppp: unset IFF_XMIT_DST_RELEASE in ppp_setup()
 
-Cheers,
-Jarek P.
+Jarek pointed pppoe can call back dev_queue_xmit(), and might need
+skb->dst, so its safer to unset IFF_XMIT_DST_RELEASE on ppp devices.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 8ee9142..639d11b 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1054,6 +1054,7 @@ static void ppp_setup(struct net_device *dev)
+ 	dev->type =3D ARPHRD_PPP;
+ 	dev->flags =3D IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+ 	dev->features |=3D NETIF_F_NETNS_LOCAL;
++	dev->priv_flags &=3D ~IFF_XMIT_DST_RELEASE;
+ }
+=20
+ /*
+
