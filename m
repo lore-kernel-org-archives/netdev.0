@@ -1,42 +1,51 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 5/5] [PATCH] qeth: Clear SBALF15 in any case for output buffers.
-Date: Wed, 20 May 2009 09:38:41 +0200
-Message-ID: <20090520073928.212451000@de.ibm.com>
-References: <20090520073836.897878000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Klaus-Dieter Wacker <kdwacker@de.ibm.com>
-To: davem@davemloft.net
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 0/2] iproute2: Support for CAN network devices
+Date: Wed, 20 May 2009 09:54:19 +0200
+Message-ID: <4A13B72B.5070206@grandegger.com>
+References: <20090512094248.439786706@denx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:57840 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbZETHkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 03:40:23 -0400
-Content-Disposition: inline; filename=616-qeth-clear-SBALF15.diff
+Received: from mail-out.m-online.net ([212.18.0.9]:59045 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754218AbZETHyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 03:54:22 -0400
+In-Reply-To: <20090512094248.439786706@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Klaus-Dieter Wacket <kdwacker@de.ibm.com>
+Wolfgang Grandegger wrote:
+> Hello,
+> 
+> here are the patches for the "ip" program of the iproute2 utility
+> suite adding support for CAN netlinks.
+> 
+>   1/2) iproute2: Fixes an issue with cross-compilation
+>   2/2) iproute2: Support for the CAN netlink
+> 
+> The first patch is required to get it cross-compiled.
+> 
+> The patches are based on v2 of the patch series for the Linux kernel
+> with the subject:
+> 
+>   [PATCH v2 0/7] can: CAN network device driver interface and drivers
+> 
+> posted a few minutes ago:
+> 
+>   http://marc.info/?l=linux-netdev&m=124212048701347&w=2
+> 
+> Please consider these patches for inclusion when the Linux kernel
+> patches have been accepted.
 
-Function qeth_clear_output_buffer for HiperSockets may not clear
-all 16 SBALEs, but only the used ones. The error flag in SBALF15
-has to be cleared in any case.
+The mentioned Socket-CAN kernel patches including netlink support have
+been accepted in the meantime, see:
+http://marc.info/?l=linux-netdev&m=124268656617653&w=2
 
-Signed-off-by: Klaus-Dieter Wacker <kdwacker@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
+Thanks,
 
- drivers/s390/net/qeth_core_main.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff -urpN linux-2.6/drivers/s390/net/qeth_core_main.c linux-2.6-patched/drivers/s390/net/qeth_core_main.c
---- linux-2.6/drivers/s390/net/qeth_core_main.c	2009-05-20 08:56:43.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2009-05-20 08:56:43.000000000 +0200
-@@ -952,6 +952,7 @@ static void qeth_clear_output_buffer(str
- 		buf->buffer->element[i].addr = NULL;
- 		buf->buffer->element[i].flags = 0;
- 	}
-+	buf->buffer->element[15].flags = 0;
- 	buf->next_element_to_fill = 0;
- 	atomic_set(&buf->state, QETH_QDIO_BUF_EMPTY);
- }
+Wolfgang.
 
