@@ -1,46 +1,92 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: How fast can your 10G go?
-Date: Wed, 20 May 2009 02:41:00 -0400
-Message-ID: <20090520024100.ceba4aca.billfink@mindspring.com>
-References: <4A12D8D4.2070303@candelatech.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: Re: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
+	method in fib_rules_ops.
+Date: Wed, 20 May 2009 09:50:59 +0300
+Message-ID: <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
+References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
+	 <20090519.151857.56095864.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: multipart/mixed; boundary=0015174c3f0c32ae5c046a5273d0
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-dupuy.atl.sa.earthlink.net ([209.86.89.62]:35746 "EHLO
-	elasmtp-dupuy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751269AbZETGlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 02:41:02 -0400
-In-Reply-To: <4A12D8D4.2070303@candelatech.com>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:61995 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544AbZETGu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 02:50:59 -0400
+Received: by ewy24 with SMTP id 24so291460ewy.37
+        for <netdev@vger.kernel.org>; Tue, 19 May 2009 23:50:59 -0700 (PDT)
+In-Reply-To: <20090519.151857.56095864.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 May 2009, Ben Greear wrote:
+--0015174c3f0c32ae5c046a5273d0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> I've been running some tests on a new Nehalem based system
-> with a 2 port pci-e x8 10G NIC (ixgbe driver).
-> 
-> When using pktgen, max I can get is about 5.6Gbps tx + rx on both ports.  This is
-> about 22Gbps across the backplane, so I don't mean to complain :)
-> 
-> However, I'm curious if anyone has gotten any better performance on
-> some other system?  In particular, it seems that my system is bound by
-> the bus and/or the NIC.  Would I need to find something like a x16 slot
-> to have a chance at 10Gbps bi-directional on 2 ports?
+Hi,
+This fixes the  for the space-tab sequences  and
+multi-line tabbing. Sorry.
 
-We have achieved bidirectional 20-Gbps line rate traffic between a pair
-of Nehalem i7 quad-core servers, each with a dual-port 10-GigE Myricom
-PCI-E 2.0 x8 SFP+ NIC.  Here's a unidirectional 10-second nuttcp TCP
-test (using 9000 byte jumbo frames):
+The netlink message header (struct nlmsghdr) is an unused parameter in
+fill method of fib_rules_ops struct.
+This patch removes this parameter from this method and fixes the places
+where this method is called.
 
-[root@i7raid-1 ~]# ./nuttcp-6.2.6 -N2 -w10m /192.168.101.2/192.168.102.2
-23627.0625 MB /  10.01 sec = 19792.4891 Mbps 53 %TX 57 %RX 0.11 msRTT
+(include/net/fib_rules.h)
 
-Your results sound about right for a PCI-E 1.0 x8 slot, which has
-16 Gbps full-duplex usable bandwidth, and then subtracting about 25%
-PCI-E overhead leaves about 12 Gbps full-duplex or 24 Gbps total
-available bandwidth for TCP|UDP data transfers.
 
-						-Bill
+
+Regards,
+Rami Rosen
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--0015174c3f0c32ae5c046a5273d0
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fuxoczri0
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
+bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
+X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
+c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
+CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
+LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
+IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
+c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
+Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
+IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
+ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
+LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
+IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
+ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
+L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
+LmQ3MGRjYjUgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
+bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
+ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
+aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
+ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAg
+ICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKIHsKIAlzdHJ1Y3QgZG5fZmliX3J1bGUgKnIg
+PSAoc3RydWN0IGRuX2ZpYl9ydWxlICopcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvZmli
+X3J1bGVzLmMgYi9uZXQvaXB2NC9maWJfcnVsZXMuYwppbmRleCAzODkwNGJlLi40MmU3YWQ1IDEw
+MDY0NAotLS0gYS9uZXQvaXB2NC9maWJfcnVsZXMuYworKysgYi9uZXQvaXB2NC9maWJfcnVsZXMu
+YwpAQCAtMjA5LDcgKzIwOSw3IEBAIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbXBhcmUoc3RydWN0
+IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBp
+bnQgZmliNF9ydWxlX2ZpbGwoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
+KQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJ
+c3RydWN0IGZpYjRfcnVsZSAqcnVsZTQgPSAoc3RydWN0IGZpYjRfcnVsZSAqKSBydWxlOwogCmRp
+ZmYgLS1naXQgYS9uZXQvaXB2Ni9maWI2X3J1bGVzLmMgYi9uZXQvaXB2Ni9maWI2X3J1bGVzLmMK
+aW5kZXggZTFhMzZkYi4uZDE4MmMwNSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZmliNl9ydWxlcy5j
+CisrKyBiL25ldC9pcHY2L2ZpYjZfcnVsZXMuYwpAQCAtMjExLDcgKzIxMSw3IEBAIHN0YXRpYyBp
+bnQgZmliNl9ydWxlX2NvbXBhcmUoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1
+bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBpbnQgZmliNl9ydWxlX2ZpbGwoc3RydWN0IGZpYl9y
+dWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5s
+aCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1
+Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJc3RydWN0IGZpYjZfcnVsZSAqcnVsZTYgPSAoc3Ry
+dWN0IGZpYjZfcnVsZSAqKSBydWxlOwogCg==
+--0015174c3f0c32ae5c046a5273d0--
