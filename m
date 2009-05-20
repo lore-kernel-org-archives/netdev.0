@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: route templates missing protocol value
-Date: Wed, 20 May 2009 12:42:06 -0700 (PDT)
-Message-ID: <20090520.124206.104359882.davem@davemloft.net>
-References: <4A0EA766.9090008@6wind.com>
-	<4A11B52D.8030105@6wind.com>
-	<20090520123038.5bb2a2da@nehalam>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Question about /proc/net/netlink mystery
+Date: Wed, 20 May 2009 15:44:08 -0400
+Message-ID: <20090520194408.GA8062@hmsreliant.think-freely.org>
+References: <eb3ff54b0905201222t6ecc241bq2168538742b48deb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, jean-mickael.guerin@6wind.com,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39327
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752759AbZETTmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 15:42:07 -0400
-In-Reply-To: <20090520123038.5bb2a2da@nehalam>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48074 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756508AbZETToQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 15:44:16 -0400
+Content-Disposition: inline
+In-Reply-To: <eb3ff54b0905201222t6ecc241bq2168538742b48deb@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 20 May 2009 12:30:38 -0700
-
-> The IPV6 routing templates are missing the protocol value so
-> when they are used, the routes have the protocol RTPROT_UNSPEC (0).
-> This confuses Zebra routing protocol daemon that makes kernel routes
-> a special case. This was first noticed by Jean-Mickael Guerin
-> who wrote this patch.
+On Wed, May 20, 2009 at 10:22:46PM +0300, Rami Rosen wrote:
+> Hi,
+> I tried to figure this out, but something is mysterious here to me.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>  cat /proc/net/netlink
+> shows:
+> sk       Eth Pid    Groups   Rmem     Wmem     Dump     Locks
+> 
+> Why is the Eth here in the second column title?
+> It does not seem that this column has anything to do with network
+> interfaces.
+> 
+> A short look to the code, in netlink_seq_show() , net/netlink/af_netlink.c,
+> will show that the values in this column are s->sk_protocol.
+> 
+> So it seems that the title should be here different; it should represent
+> the protocol (since s->sk_protocol is assigned
+> the number of the protocol of the netlink socket ;
+> for example, NETLINK_ROUTE is 0, NETLINK_AUDIT is 9, and so on ; (see
+> include/linux/netfilter.h)
+> 
+> So shouldn't it be something like "Proto"?
+> 
+Someone might have been mistakenly thinking [Eth]ertype for that field, but
+regardless, it seems wrong.  Honestly, The colum should likely be proto, but who
+knows what apps parsing you break if you make that change now.
 
-What's wrong with Jean-Mickael Guerin's patch?  He provided
-a signoff and everything.
+Neil
 
-Are you Napoleon? :-)
-
-
+> Regards,
+> Rami Rosen
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
