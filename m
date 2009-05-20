@@ -1,425 +1,291 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 4/4] bnx2i: Add bnx2i iSCSI driver.
-Date: Wed, 20 May 2009 09:58:55 -0700
-Message-ID: <1242838735.10180.228.camel@HP1>
-References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
- <1241208039-6813-5-git-send-email-mchan@broadcom.com>
- <4A01BF6A.90707@cs.wisc.edu> <1241715824.9177.8.camel@HP1>
- <4A034C2A.50107@cs.wisc.edu> <1242697859.10180.147.camel@HP1>
- <4A12C08A.1080600@cs.wisc.edu> <1242766039.10180.178.camel@HP1>
- <4A132B6B.5030008@cs.wisc.edu>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [net-next-2.6 PATCH] can: SJA1000: generic OF platform bus driver
+Date: Wed, 20 May 2009 19:06:30 +0200
+Message-ID: <4A143896.7050200@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"Karen Xie" <kxie@chelsio.com>,
-	"Anil Veerabhadrappa" <anilgv@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>
-To: "Mike Christie" <michaelc@cs.wisc.edu>
+Cc: devicetree-discuss <devicetree-discuss@ozlabs.org>,
+	linuxppc-dev <Linuxppc-dev@ozlabs.org>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4611 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753579AbZETRFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 13:05:19 -0400
-In-Reply-To: <4A132B6B.5030008@cs.wisc.edu>
+Received: from mail-out.m-online.net ([212.18.0.9]:43986 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754316AbZETRGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 13:06:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds a generic driver for SJA1000 chips on the OpenFirmware
+platform bus found on embedded PowerPC systems. You need a SJA1000 node
+definition in your flattened device tree source (DTS) file similar to:
 
-On Tue, 2009-05-19 at 14:58 -0700, Mike Christie wrote:
-> If you have process context just use GFP_NOIO. We can change it later 
-> when/if a driver needs it. I think we like to avoid GFP_ATOMIC if we 
-> can. Or just add a gfp_t argument to the function so the caller can
-> do 
-> what is right for them if you want to make it general.
-> 
-> 
+   can@3,100 {
+           compatible = "philips,sja1000";
+           reg = <3 0x100 0x80>;
+           clock-frequency = <8000000>;
+           cdr-reg = <0x48>;
+           ocr-reg = <0x0a>;
+           interrupts = <2 0>;
+           interrupt-parent = <&mpic>;
+   };
 
-Here's the new patch.  The multicast change is from Mike Christie.
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/Kconfig                       |    9 +
+ drivers/net/can/sja1000/Makefile              |    1 
+ drivers/net/can/sja1000/sja1000_of_platform.c |  215 ++++++++++++++++++++++++++
+ 3 files changed, 225 insertions(+)
 
-diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
-index d69a53a..9bd337a 100644
---- a/drivers/scsi/scsi_transport_iscsi.c
-+++ b/drivers/scsi/scsi_transport_iscsi.c
-@@ -37,7 +37,6 @@
- #define ISCSI_TRANSPORT_VERSION "2.0-870"
+Index: net-next-2.6/drivers/net/can/Kconfig
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/Kconfig
++++ net-next-2.6/drivers/net/can/Kconfig
+@@ -51,6 +51,15 @@ config CAN_SJA1000_PLATFORM
+ 	  boards from Phytec (http://www.phytec.de) like the PCM027,
+ 	  PCM038.
  
- struct iscsi_internal {
--	int daemon_pid;
- 	struct scsi_transport_template t;
- 	struct iscsi_transport *iscsi_transport;
- 	struct list_head list;
-@@ -938,23 +937,9 @@ iscsi_if_transport_lookup(struct iscsi_transport *tt)
- }
++config CAN_SJA1000_OF_PLATFORM
++	depends on CAN_SJA1000 && PPC_OF
++	tristate "Generic OF Platform Bus based SJA1000 driver"
++	---help---
++	  This driver adds support for the SJA1000 chips connected to
++	  the OpenFirmware "platform bus" found on embedded systems with
++	  OpenFirmware bindings, e.g. if you have a PowerPC based system
++	  you may want to enable this option.
++
+ config CAN_EMS_PCI
+ 	tristate "EMS CPC-PCI and CPC-PCIe Card"
+ 	depends on PCI && CAN_SJA1000
+Index: net-next-2.6/drivers/net/can/sja1000/Makefile
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/sja1000/Makefile
++++ net-next-2.6/drivers/net/can/sja1000/Makefile
+@@ -4,6 +4,7 @@
  
- static int
--iscsi_broadcast_skb(struct sk_buff *skb, gfp_t gfp)
-+iscsi_multicast_skb(struct sk_buff *skb, u32 group, gfp_t gfp)
- {
--	return netlink_broadcast(nls, skb, 0, 1, gfp);
--}
--
--static int
--iscsi_unicast_skb(struct sk_buff *skb, int pid)
--{
--	int rc;
--
--	rc = netlink_unicast(nls, skb, pid, MSG_DONTWAIT);
--	if (rc < 0) {
--		printk(KERN_ERR "iscsi: can not unicast skb (%d)\n", rc);
--		return rc;
--	}
--
--	return 0;
-+	return nlmsg_multicast(nls, skb, 0, group, gfp);
- }
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
++obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
  
- int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
-@@ -980,7 +965,7 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
- 		return -ENOMEM;
- 	}
- 
--	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
-+	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
- 	ev = NLMSG_DATA(nlh);
- 	memset(ev, 0, sizeof(*ev));
- 	ev->transport_handle = iscsi_handle(conn->transport);
-@@ -991,10 +976,45 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
- 	memcpy(pdu, hdr, sizeof(struct iscsi_hdr));
- 	memcpy(pdu + sizeof(struct iscsi_hdr), data, data_size);
- 
--	return iscsi_unicast_skb(skb, priv->daemon_pid);
-+	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
- }
- EXPORT_SYMBOL_GPL(iscsi_recv_pdu);
- 
-+int iscsi_offload_mesg(struct Scsi_Host *shost,
-+		       struct iscsi_transport *transport, uint32_t type,
-+		       char *data, uint16_t data_size)
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000_of_platform.c
+===================================================================
+--- /dev/null
++++ net-next-2.6/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -0,0 +1,215 @@
++/*
++ * Driver for SJA1000 CAN controllers on the OpenFirmware platform bus
++ *
++ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++/* This is a generic driver for SJA1000 chips on the OpenFirmware platform
++ * bus found on embedded PowerPC systems. You need a SJA1000 CAN node
++ * definition in your flattened device tree source (DTS) file similar to:
++ *
++ *   can@3,100 {
++ *           compatible = "philips,sja1000";
++ *           reg = <3 0x100 0x80>;
++ *           clock-frequency = <8000000>;
++ *           cdr-reg = <0x48>;
++ *           ocr-reg = <0x0a>;
++ *           interrupts = <2 0>;
++ *           interrupt-parent = <&mpic>;
++ *   };
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/delay.h>
++#include <linux/can.h>
++#include <linux/can/dev.h>
++
++#include <linux/of_platform.h>
++#include <asm/prom.h>
++
++#include "sja1000.h"
++
++#define DRV_NAME "sja1000_of_platform"
++
++MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
++MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the OF platform bus");
++MODULE_LICENSE("GPL v2");
++
++#define SJA1000_OFP_CAN_CLOCK  (16000000 / 2)
++
++#define SJA1000_OFP_OCR        OCR_TX0_PULLDOWN
++#define SJA1000_OFP_CDR        (CDR_CBP | CDR_CLK_OFF)
++
++static u8 sja1000_ofp_read_reg(const struct net_device *dev, int reg)
 +{
-+	struct nlmsghdr	*nlh;
-+	struct sk_buff *skb;
-+	struct iscsi_uevent *ev;
-+	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
-+
-+	skb = alloc_skb(len, GFP_NOIO);
-+	if (!skb) {
-+		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
-+		return -ENOMEM;
-+	}
-+
-+	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
-+	ev = NLMSG_DATA(nlh);
-+	memset(ev, 0, sizeof(*ev));
-+	ev->type = type;
-+	ev->transport_handle = iscsi_handle(transport);
-+	switch (type) {
-+	case ISCSI_KEVENT_PATH_REQ:
-+		ev->r.req_path.host_no = shost->host_no;
-+		break;
-+	case ISCSI_KEVENT_IF_DOWN:
-+		ev->r.notify_if_down.host_no = shost->host_no;
-+		break;
-+	}
-+
-+	memcpy((char*)ev + sizeof(*ev), data, data_size);
-+
-+	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
++	return in_8((void __iomem *)(dev->base_addr + reg));
 +}
-+EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
 +
- void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
- {
- 	struct nlmsghdr	*nlh;
-@@ -1014,7 +1034,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
- 		return;
- 	}
- 
--	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
-+	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
- 	ev = NLMSG_DATA(nlh);
- 	ev->transport_handle = iscsi_handle(conn->transport);
- 	ev->type = ISCSI_KEVENT_CONN_ERROR;
-@@ -1022,7 +1042,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
- 	ev->r.connerror.cid = conn->cid;
- 	ev->r.connerror.sid = iscsi_conn_get_sid(conn);
- 
--	iscsi_broadcast_skb(skb, GFP_ATOMIC);
-+	iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
- 
- 	iscsi_cls_conn_printk(KERN_INFO, conn, "detected conn error (%d)\n",
- 			      error);
-@@ -1030,8 +1050,8 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
- EXPORT_SYMBOL_GPL(iscsi_conn_error_event);
- 
- static int
--iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
--		      void *payload, int size)
-+iscsi_if_send_reply(u32 group, int seq, int type, int done, int multi,
-+		    void *payload, int size)
- {
- 	struct sk_buff	*skb;
- 	struct nlmsghdr	*nlh;
-@@ -1045,10 +1065,10 @@ iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
- 		return -ENOMEM;
- 	}
- 
--	nlh = __nlmsg_put(skb, pid, seq, t, (len - sizeof(*nlh)), 0);
-+	nlh = __nlmsg_put(skb, 0, 0, t, (len - sizeof(*nlh)), 0);
- 	nlh->nlmsg_flags = flags;
- 	memcpy(NLMSG_DATA(nlh), payload, size);
--	return iscsi_unicast_skb(skb, pid);
-+	return iscsi_multicast_skb(skb, group, GFP_ATOMIC);
- }
- 
- static int
-@@ -1085,7 +1105,7 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
- 			return -ENOMEM;
- 		}
- 
--		nlhstat = __nlmsg_put(skbstat, priv->daemon_pid, 0, 0,
-+		nlhstat = __nlmsg_put(skbstat, 0, 0, 0,
- 				      (len - sizeof(*nlhstat)), 0);
- 		evstat = NLMSG_DATA(nlhstat);
- 		memset(evstat, 0, sizeof(*evstat));
-@@ -1109,7 +1129,8 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
- 		skb_trim(skbstat, NLMSG_ALIGN(actual_size));
- 		nlhstat->nlmsg_len = actual_size;
- 
--		err = iscsi_unicast_skb(skbstat, priv->daemon_pid);
-+		err = iscsi_multicast_skb(skbstat, ISCSI_NL_GRP_ISCSID,
-+					  GFP_ATOMIC);
- 	} while (err < 0 && err != -ECONNREFUSED);
- 
- 	return err;
-@@ -1143,7 +1164,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
- 		return -ENOMEM;
- 	}
- 
--	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
-+	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
- 	ev = NLMSG_DATA(nlh);
- 	ev->transport_handle = iscsi_handle(session->transport);
- 
-@@ -1172,7 +1193,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
- 	 * this will occur if the daemon is not up, so we just warn
- 	 * the user and when the daemon is restarted it will handle it
- 	 */
--	rc = iscsi_broadcast_skb(skb, GFP_KERNEL);
-+	rc = iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_KERNEL);
- 	if (rc == -ESRCH)
- 		iscsi_cls_session_printk(KERN_ERR, session,
- 					 "Cannot notify userspace of session "
-@@ -1393,7 +1414,31 @@ iscsi_set_host_param(struct iscsi_transport *transport,
- }
- 
- static int
--iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-+iscsi_set_path(struct iscsi_transport *transport, struct iscsi_uevent *ev)
++static void sja1000_ofp_write_reg(const struct net_device *dev, int reg, u8 val)
 +{
-+	struct Scsi_Host *shost;
-+	struct iscsi_path *params;
-+	int err;
++	out_8((void __iomem *)(dev->base_addr + reg), val);
++}
 +
-+	if (!transport->set_path)
-+		return -ENOSYS;
++static int __devexit sja1000_ofp_remove(struct of_device *ofdev)
++{
++	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
++	struct device_node *np = ofdev->node;
++	struct resource res;
 +
-+	shost = scsi_host_lookup(ev->u.set_path.host_no);
-+	if (!shost) {
-+		printk(KERN_ERR "set path could not find host no %u\n",
-+		       ev->u.set_path.host_no);
-+		return -ENODEV;
++	dev_set_drvdata(&ofdev->dev, NULL);
++
++	unregister_sja1000dev(dev);
++	free_sja1000dev(dev);
++	iounmap((void __iomem *)dev->base_addr);
++	irq_dispose_mapping(dev->irq);
++
++	of_address_to_resource(np, 0, &res);
++	release_mem_region(res.start, resource_size(res));
++
++	return 0;
++}
++
++static int __devinit sja1000_ofp_probe(struct of_device *ofdev,
++				       const struct of_device_id *id)
++{
++	struct device_node *np = ofdev->node;
++	struct net_device *dev;
++	struct sja1000_priv *priv;
++	struct resource res;
++	const u32 *prop;
++	int err, irq, res_size, prop_size;
++	void __iomem *base;
++
++	err = of_address_to_resource(np, 0, &res);
++	if (err) {
++		dev_err(&ofdev->dev, "invalid address\n");
++		return err;
 +	}
 +
-+	params = (struct iscsi_path *)((char*)ev + sizeof(*ev));
-+	err = transport->set_path(shost, params);
-+				      
-+	scsi_host_put(shost);
++	res_size = resource_size(res);
++
++	if (!request_mem_region(res.start, res_size, DRV_NAME)) {
++		dev_err(&ofdev->dev, "couldn't request %#x..%#x\n",
++			res.start, res.end);
++		return -EBUSY;
++	}
++
++	base = ioremap_nocache(res.start, res_size);
++	if (!base) {
++		dev_err(&ofdev->dev, "couldn't ioremap %#x..%#x\n",
++			res.start, res.end);
++		err = -ENOMEM;
++		goto exit_release_mem;
++	}
++
++	irq = irq_of_parse_and_map(np, 0);
++	if (irq == NO_IRQ) {
++		dev_err(&ofdev->dev, "no irq found\n");
++		err = -ENODEV;
++		goto exit_unmap_mem;
++	}
++
++	dev = alloc_sja1000dev(0);
++	if (!dev) {
++		err = -ENOMEM;
++		goto exit_dispose_irq;
++	}
++
++	priv = netdev_priv(dev);
++
++	priv->read_reg = sja1000_ofp_read_reg;
++	priv->write_reg = sja1000_ofp_write_reg;
++
++	prop = of_get_property(np, "clock-frequency", &prop_size);
++	if (prop && (prop_size ==  sizeof(u32)))
++		priv->can.clock.freq = *prop;
++	else
++		priv->can.clock.freq = SJA1000_OFP_CAN_CLOCK;
++
++	prop = of_get_property(np, "ocr-reg", &prop_size);
++	if (prop && (prop_size == sizeof(u32)))
++		priv->ocr = (u8)*prop;
++	else
++		priv->ocr = SJA1000_OFP_OCR;
++
++	prop = of_get_property(np, "cdr-reg", &prop_size);
++	if (prop && (prop_size == sizeof(u32)))
++		priv->cdr = (u8)*prop;
++	else
++		priv->cdr = SJA1000_OFP_CDR;
++
++	priv->irq_flags = IRQF_SHARED;
++
++	dev->irq = irq;
++	dev->base_addr = (unsigned long)base;
++
++	dev_info(&ofdev->dev,
++		 "base=0x%lx irq=%d clock=%d ocr=0x%02x cdr=0x%02x\n",
++		 dev->base_addr, dev->irq, priv->can.clock.freq,
++		 priv->ocr, priv->cdr);
++
++	dev_set_drvdata(&ofdev->dev, dev);
++	SET_NETDEV_DEV(dev, &ofdev->dev);
++
++	err = register_sja1000dev(dev);
++	if (err) {
++		dev_err(&ofdev->dev, "registering %s failed (err=%d)\n",
++			DRV_NAME, err);
++		goto exit_free_sja1000;
++	}
++
++	return 0;
++
++exit_free_sja1000:
++	free_sja1000dev(dev);
++exit_dispose_irq:
++	irq_dispose_mapping(irq);
++exit_unmap_mem:
++	iounmap(base);
++exit_release_mem:
++	release_mem_region(res.start, res_size);
++
 +	return err;
 +}
 +
-+static int
-+iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, u32 *group)
- {
- 	int err = 0;
- 	struct iscsi_uevent *ev = NLMSG_DATA(nlh);
-@@ -1403,6 +1448,11 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct iscsi_cls_conn *conn;
- 	struct iscsi_endpoint *ep = NULL;
- 
-+	if (nlh->nlmsg_type == ISCSI_UEVENT_PATH_UPDATE)
-+		*group = ISCSI_NL_GRP_UIP;
-+	else
-+		*group = ISCSI_NL_GRP_ISCSID;
-+
- 	priv = iscsi_if_transport_lookup(iscsi_ptr(ev->transport_handle));
- 	if (!priv)
- 		return -EINVAL;
-@@ -1411,8 +1461,6 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (!try_module_get(transport->owner))
- 		return -EINVAL;
- 
--	priv->daemon_pid = NETLINK_CREDS(skb)->pid;
--
- 	switch (nlh->nlmsg_type) {
- 	case ISCSI_UEVENT_CREATE_SESSION:
- 		err = iscsi_if_create_session(priv, ep, ev,
-@@ -1506,6 +1554,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	case ISCSI_UEVENT_SET_HOST_PARAM:
- 		err = iscsi_set_host_param(transport, ev);
- 		break;
-+	case ISCSI_UEVENT_PATH_UPDATE:
-+		err = iscsi_set_path(transport, ev);
-+		break;
- 	default:
- 		err = -ENOSYS;
- 		break;
-@@ -1528,6 +1579,7 @@ iscsi_if_rx(struct sk_buff *skb)
- 		uint32_t rlen;
- 		struct nlmsghdr	*nlh;
- 		struct iscsi_uevent *ev;
-+		u32 group;
- 
- 		nlh = nlmsg_hdr(skb);
- 		if (nlh->nlmsg_len < sizeof(*nlh) ||
-@@ -1540,7 +1592,7 @@ iscsi_if_rx(struct sk_buff *skb)
- 		if (rlen > skb->len)
- 			rlen = skb->len;
- 
--		err = iscsi_if_recv_msg(skb, nlh);
-+		err = iscsi_if_recv_msg(skb, nlh, &group);
- 		if (err) {
- 			ev->type = ISCSI_KEVENT_IF_ERROR;
- 			ev->iferror = err;
-@@ -1554,8 +1606,7 @@ iscsi_if_rx(struct sk_buff *skb)
- 			 */
- 			if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
- 				break;
--			err = iscsi_if_send_reply(
--				NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
-+			err = iscsi_if_send_reply(group, nlh->nlmsg_seq,
- 				nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
- 		} while (err < 0 && err != -ECONNREFUSED);
- 		skb_pull(skb, rlen);
-@@ -1803,7 +1854,6 @@ iscsi_register_transport(struct iscsi_transport *tt)
- 	if (!priv)
- 		return NULL;
- 	INIT_LIST_HEAD(&priv->list);
--	priv->daemon_pid = -1;
- 	priv->iscsi_transport = tt;
- 	priv->t.user_scan = iscsi_user_scan;
- 	priv->t.create_work_queue = 1;
-diff --git a/include/scsi/iscsi_if.h b/include/scsi/iscsi_if.h
-index 2c1a4af..0990dbb 100644
---- a/include/scsi/iscsi_if.h
-+++ b/include/scsi/iscsi_if.h
-@@ -23,6 +23,9 @@
- 
- #include <scsi/iscsi_proto.h>
- 
-+#define ISCSI_NL_GRP_ISCSID	1
-+#define ISCSI_NL_GRP_UIP	2
-+
- #define UEVENT_BASE			10
- #define KEVENT_BASE			100
- #define ISCSI_ERR_BASE			1000
-@@ -53,6 +56,8 @@ enum iscsi_uevent_e {
- 	ISCSI_UEVENT_CREATE_BOUND_SESSION		= UEVENT_BASE + 18,
- 	ISCSI_UEVENT_TRANSPORT_EP_CONNECT_THROUGH_HOST	= UEVENT_BASE + 19,
- 
-+	ISCSI_UEVENT_PATH_UPDATE	= UEVENT_BASE + 20,
-+
- 	/* up events */
- 	ISCSI_KEVENT_RECV_PDU		= KEVENT_BASE + 1,
- 	ISCSI_KEVENT_CONN_ERROR		= KEVENT_BASE + 2,
-@@ -60,6 +65,9 @@ enum iscsi_uevent_e {
- 	ISCSI_KEVENT_DESTROY_SESSION	= KEVENT_BASE + 4,
- 	ISCSI_KEVENT_UNBIND_SESSION	= KEVENT_BASE + 5,
- 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
-+
-+	ISCSI_KEVENT_PATH_REQ		= KEVENT_BASE + 7,
-+	ISCSI_KEVENT_IF_DOWN		= KEVENT_BASE + 8,
- };
- 
- enum iscsi_tgt_dscvr {
-@@ -159,6 +167,9 @@ struct iscsi_uevent {
- 			uint32_t	param; /* enum iscsi_host_param */
- 			uint32_t	len;
- 		} set_host_param;
-+		struct msg_set_path {
-+			uint32_t	host_no;
-+		} set_path;
- 	} u;
- 	union {
- 		/* messages k -> u */
-@@ -192,10 +203,39 @@ struct iscsi_uevent {
- 		struct msg_transport_connect_ret {
- 			uint64_t	handle;
- 		} ep_connect_ret;
-+		struct msg_req_path {
-+			uint32_t	host_no;
-+		} req_path;
-+		struct msg_notify_if_down {
-+			uint32_t	host_no;
-+		} notify_if_down;
- 	} r;
- } __attribute__ ((aligned (sizeof(uint64_t))));
- 
- /*
-+ * To keep the struct iscsi_uevent size the same for userspace code
-+ * compatibility, the main structure for ISCSI_UEVENT_PATH_UPDATE and
-+ * ISCSI_KEVENT_PATH_REQ is defined separately and comes after the
-+ * struct iscsi_uevent in the NETLINK_ISCSI message.
-+ */
-+struct iscsi_path {
-+	uint64_t	handle;
-+	uint8_t		mac_addr[6];
-+	uint8_t		mac_addr_old[6];
-+	uint32_t	ip_addr_len;	/* 4 or 16 */
-+	union {
-+		struct in_addr	v4_addr;
-+		struct in6_addr	v6_addr;
-+	} src;
-+	union {
-+		struct in_addr	v4_addr;
-+		struct in6_addr	v6_addr;
-+	} dst;
-+	uint16_t	vlan_id;
-+	uint16_t	pmtu;
++static struct of_device_id __devinitdata sja1000_ofp_table[] = {
++	{.compatible = "philips,sja1000"},
++	{.compatible = "nxp,sja1000"},
++	{},
 +};
 +
-+/*
-  * Common error codes
-  */
- enum iscsi_err {
-diff --git a/include/scsi/scsi_transport_iscsi.h b/include/scsi/scsi_transport_iscsi.h
-index 8cb7a31..349c7f3 100644
---- a/include/scsi/scsi_transport_iscsi.h
-+++ b/include/scsi/scsi_transport_iscsi.h
-@@ -133,6 +133,7 @@ struct iscsi_transport {
- 	void (*ep_disconnect) (struct iscsi_endpoint *ep);
- 	int (*tgt_dscvr) (struct Scsi_Host *shost, enum iscsi_tgt_dscvr type,
- 			  uint32_t enable, struct sockaddr *dst_addr);
-+	int (*set_path) (struct Scsi_Host *shost, struct iscsi_path *params);
- };
- 
- /*
-@@ -149,6 +150,10 @@ extern void iscsi_conn_error_event(struct iscsi_cls_conn *conn,
- extern int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
- 			  char *data, uint32_t data_size);
- 
-+extern int iscsi_offload_mesg(struct Scsi_Host *shost,
-+			      struct iscsi_transport *transport, uint32_t type,
-+			      char *data, uint16_t data_size);
++static struct of_platform_driver sja1000_ofp_driver = {
++	.owner = THIS_MODULE,
++	.name = DRV_NAME,
++	.probe = sja1000_ofp_probe,
++	.remove = __devexit_p(sja1000_ofp_remove),
++	.match_table = sja1000_ofp_table,
++};
 +
- struct iscsi_cls_conn {
- 	struct list_head conn_list;	/* item in connlist */
- 	void *dd_data;			/* LLD private data */
-
-
-
++static int __init sja1000_ofp_init(void)
++{
++	return of_register_platform_driver(&sja1000_ofp_driver);
++}
++module_init(sja1000_ofp_init);
++
++static void __exit sja1000_ofp_exit(void)
++{
++	return of_unregister_platform_driver(&sja1000_ofp_driver);
++};
++module_exit(sja1000_ofp_exit);
