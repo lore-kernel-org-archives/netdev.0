@@ -1,117 +1,425 @@
-From: Trond Myklebust <trond.myklebust@fys.uio.no>
-Subject: Re: Possible NFS failure with late kernel versions
-Date: Wed, 20 May 2009 13:02:15 -0400
-Message-ID: <1242838935.24471.20.camel@heimdal.trondhjem.org>
-References: <0122F800A3B64C449565A9E8C297701005E6DE4B@hoexmb9.conoco.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 4/4] bnx2i: Add bnx2i iSCSI driver.
+Date: Wed, 20 May 2009 09:58:55 -0700
+Message-ID: <1242838735.10180.228.camel@HP1>
+References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
+ <1241208039-6813-5-git-send-email-mchan@broadcom.com>
+ <4A01BF6A.90707@cs.wisc.edu> <1241715824.9177.8.camel@HP1>
+ <4A034C2A.50107@cs.wisc.edu> <1242697859.10180.147.camel@HP1>
+ <4A12C08A.1080600@cs.wisc.edu> <1242766039.10180.178.camel@HP1>
+ <4A132B6B.5030008@cs.wisc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org
-To: "Weathers, Norman R." <Norman.R.Weathers@conocophillips.com>
+Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"James.Bottomley@HansenPartnership.com"
+	<James.Bottomley@HansenPartnership.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"Karen Xie" <kxie@chelsio.com>,
+	"Anil Veerabhadrappa" <anilgv@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>
+To: "Mike Christie" <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out2.uio.no ([129.240.10.58]:32812 "EHLO mail-out2.uio.no"
+Received: from mms1.broadcom.com ([216.31.210.17]:4611 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754723AbZETRCS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 13:02:18 -0400
-In-Reply-To: <0122F800A3B64C449565A9E8C297701005E6DE4B@hoexmb9.conoco.net>
+	id S1753579AbZETRFT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 13:05:19 -0400
+In-Reply-To: <4A132B6B.5030008@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-05-20 at 11:50 -0500, Weathers, Norman R. wrote:
-> Hello, list.
-> 
-> I have run across some weird failures as of late.  The following is a
-> kernel bug output from one kernel (2.6.27.24):
-> 
-> ------------[ cut here ]------------
-> WARNING: at kernel/softirq.c:136 local_bh_enable_ip+0xb5/0xf0()
-> Modules linked in: nfsd lockd nfs_acl exportfs autofs4 sunrpc
-> scsi_dh_emc ip6t_REJECT nf_conntrack_ipv6 ip6table_filter ip6_tables
-> ipv6 xfs uinput iTCO_wdt iTCO_vendor_support ipmi_si iw_nes qla2xxx
-> ipmi_msghandler bnx2 serio_raw pcspkr joydev ib_core i5000_edac hpwdt
-> scsi_transport_fc hpilo edac_core scsi_tgt libcrc32c dm_round_robin
-> dm_multipath shpchp cciss [last unloaded: freq_table]
-> Pid: 3094, comm: nfsd Not tainted 2.6.27.24 #1
-> 
-> Call Trace:
->  [<ffffffff81043b9f>] warn_on_slowpath+0x5f/0x90
->  [<ffffffff81049ebc>] ? local_bh_enable_ip+0x8c/0xf0
->  [<ffffffff813b9760>] ? _read_unlock_bh+0x10/0x20
->  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
->  [<ffffffff81337036>] ? nf_conntrack_in+0x236/0x5d0
->  [<ffffffff8133747a>] ? destroy_conntrack+0xaa/0x110
->  [<ffffffff81049ee5>] local_bh_enable_ip+0xb5/0xf0
->  [<ffffffff813b977f>] _spin_unlock_bh+0xf/0x20
->  [<ffffffff8133747a>] destroy_conntrack+0xaa/0x110
->  [<ffffffff813344e2>] nf_conntrack_destroy+0x12/0x20
->  [<ffffffff8130bc65>] skb_release_all+0xc5/0x100
->  [<ffffffff8130b541>] __kfree_skb+0x11/0xa0
->  [<ffffffff8130b5e7>] kfree_skb+0x17/0x40
->  [<ffffffffa010eed8>] nes_nic_send+0x408/0x4b0 [iw_nes]
->  [<ffffffff81319fac>] ? neigh_resolve_output+0x10c/0x2d0
->  [<ffffffffa010f089>] nes_netdev_start_xmit+0x109/0xa60 [iw_nes]
->  [<ffffffff81337579>] ? __nf_ct_refresh_acct+0x99/0x190
->  [<ffffffff8133add2>] ? tcp_packet+0xa42/0xeb0
->  [<ffffffff81348ff4>] ? ip_queue_xmit+0x1e4/0x3b0
->  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
->  [<ffffffff81049ebc>] ? local_bh_enable_ip+0x8c/0xf0
->  [<ffffffff813b9760>] ? _read_unlock_bh+0x10/0x20
->  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
->  [<ffffffff81337036>] ? nf_conntrack_in+0x236/0x5d0
->  [<ffffffff81313f5d>] dev_hard_start_xmit+0x21d/0x2a0
->  [<ffffffff81328b4e>] __qdisc_run+0x1ee/0x230
->  [<ffffffff813160a8>] dev_queue_xmit+0x2f8/0x580
->  [<ffffffff81319fac>] neigh_resolve_output+0x10c/0x2d0
->  [<ffffffff8134983c>] ip_finish_output+0x1cc/0x2f0
->  [<ffffffff813499c5>] ip_output+0x65/0xb0
->  [<ffffffff81348780>] ip_local_out+0x20/0x30
->  [<ffffffff81348ff4>] ip_queue_xmit+0x1e4/0x3b0
->  [<ffffffff8135cbcb>] tcp_transmit_skb+0x4eb/0x760
->  [<ffffffff8135cfe7>] tcp_send_ack+0xd7/0x110
->  [<ffffffff81355e3c>] __tcp_ack_snd_check+0x5c/0xc0
->  [<ffffffff8135add9>] tcp_rcv_established+0x6e9/0x9e0
->  [<ffffffff81363330>] tcp_v4_do_rcv+0x2c0/0x410
->  [<ffffffff81307aec>] ? lock_sock_nested+0xbc/0xd0
->  [<ffffffff813079c5>] release_sock+0x65/0xd0
->  [<ffffffff81350bd1>] tcp_ioctl+0xc1/0x190
->  [<ffffffff81371547>] inet_ioctl+0x27/0xc0
->  [<ffffffff81303cba>] kernel_sock_ioctl+0x3a/0x60
->  [<ffffffffa025882d>] svc_tcp_recvfrom+0x11d/0x450 [sunrpc]
->  [<ffffffffa02627b0>] svc_recv+0x560/0x850 [sunrpc]
->  [<ffffffff8103bcf0>] ? default_wake_function+0x0/0x10
->  [<ffffffffa02a69ad>] nfsd+0xdd/0x2d0 [nfsd]
->  [<ffffffffa02a68d0>] ? nfsd+0x0/0x2d0 [nfsd]
->  [<ffffffffa02a68d0>] ? nfsd+0x0/0x2d0 [nfsd]
->  [<ffffffff8105aa69>] kthread+0x49/0x90
->  [<ffffffff8100d5b9>] child_rip+0xa/0x11
->  [<ffffffff8100cbfc>] ? restore_args+0x0/0x30
->  [<ffffffff8105aa20>] ? kthread+0x0/0x90
->  [<ffffffff8100d5af>] ? child_rip+0x0/0x11
-> 
-> ---[ end trace 7decf549249f3f2a ]---
-> 
-> I have used 2.6.28.10 and 2.6.29 and they all have this same bug.  The
-> end result is that under heavy load, these servers crash within a few
-> minutes of emitting this trace.
-> 
-> Hardware:  HP Proliant Server, Dual 3.0 GHz Intel CPUs, 16 GB memory.
-> Storage:    Qlogic QLA2xxx 4 Gb fibre card to EMC CX3-80 (Multipath)
-> Network:    Intel / NetEffect 10 Gb iWarp NE20 (fibre)
-> OS:           Fedora 10
-> Clients:      CentOS 5.2 10 Gb nodes / 10 Gb switches, so a very fast
-> network.
-> 
-> Any assistance would be greatly appreciated.
-> 
-> If need be, I can restart the server under the different kernels and see
-> if I can get the error from those as well.
 
-Your trace shows that this is happening down in the murky depths of the
-netfilter code, so to me it looks more like a networking issue rather
-than a NFS bug.
+On Tue, 2009-05-19 at 14:58 -0700, Mike Christie wrote:
+> If you have process context just use GFP_NOIO. We can change it later 
+> when/if a driver needs it. I think we like to avoid GFP_ATOMIC if we 
+> can. Or just add a gfp_t argument to the function so the caller can
+> do 
+> what is right for them if you want to make it general.
+> 
+> 
 
-Ccing the linux networking list...
+Here's the new patch.  The multicast change is from Mike Christie.
 
-Cheers
-  Trond
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+index d69a53a..9bd337a 100644
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -37,7 +37,6 @@
+ #define ISCSI_TRANSPORT_VERSION "2.0-870"
+ 
+ struct iscsi_internal {
+-	int daemon_pid;
+ 	struct scsi_transport_template t;
+ 	struct iscsi_transport *iscsi_transport;
+ 	struct list_head list;
+@@ -938,23 +937,9 @@ iscsi_if_transport_lookup(struct iscsi_transport *tt)
+ }
+ 
+ static int
+-iscsi_broadcast_skb(struct sk_buff *skb, gfp_t gfp)
++iscsi_multicast_skb(struct sk_buff *skb, u32 group, gfp_t gfp)
+ {
+-	return netlink_broadcast(nls, skb, 0, 1, gfp);
+-}
+-
+-static int
+-iscsi_unicast_skb(struct sk_buff *skb, int pid)
+-{
+-	int rc;
+-
+-	rc = netlink_unicast(nls, skb, pid, MSG_DONTWAIT);
+-	if (rc < 0) {
+-		printk(KERN_ERR "iscsi: can not unicast skb (%d)\n", rc);
+-		return rc;
+-	}
+-
+-	return 0;
++	return nlmsg_multicast(nls, skb, 0, group, gfp);
+ }
+ 
+ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+@@ -980,7 +965,7 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	memset(ev, 0, sizeof(*ev));
+ 	ev->transport_handle = iscsi_handle(conn->transport);
+@@ -991,10 +976,45 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 	memcpy(pdu, hdr, sizeof(struct iscsi_hdr));
+ 	memcpy(pdu + sizeof(struct iscsi_hdr), data, data_size);
+ 
+-	return iscsi_unicast_skb(skb, priv->daemon_pid);
++	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
+ }
+ EXPORT_SYMBOL_GPL(iscsi_recv_pdu);
+ 
++int iscsi_offload_mesg(struct Scsi_Host *shost,
++		       struct iscsi_transport *transport, uint32_t type,
++		       char *data, uint16_t data_size)
++{
++	struct nlmsghdr	*nlh;
++	struct sk_buff *skb;
++	struct iscsi_uevent *ev;
++	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
++
++	skb = alloc_skb(len, GFP_NOIO);
++	if (!skb) {
++		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
++		return -ENOMEM;
++	}
++
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
++	ev = NLMSG_DATA(nlh);
++	memset(ev, 0, sizeof(*ev));
++	ev->type = type;
++	ev->transport_handle = iscsi_handle(transport);
++	switch (type) {
++	case ISCSI_KEVENT_PATH_REQ:
++		ev->r.req_path.host_no = shost->host_no;
++		break;
++	case ISCSI_KEVENT_IF_DOWN:
++		ev->r.notify_if_down.host_no = shost->host_no;
++		break;
++	}
++
++	memcpy((char*)ev + sizeof(*ev), data, data_size);
++
++	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
++}
++EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
++
+ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ {
+ 	struct nlmsghdr	*nlh;
+@@ -1014,7 +1034,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ 		return;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	ev->transport_handle = iscsi_handle(conn->transport);
+ 	ev->type = ISCSI_KEVENT_CONN_ERROR;
+@@ -1022,7 +1042,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ 	ev->r.connerror.cid = conn->cid;
+ 	ev->r.connerror.sid = iscsi_conn_get_sid(conn);
+ 
+-	iscsi_broadcast_skb(skb, GFP_ATOMIC);
++	iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
+ 
+ 	iscsi_cls_conn_printk(KERN_INFO, conn, "detected conn error (%d)\n",
+ 			      error);
+@@ -1030,8 +1050,8 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ EXPORT_SYMBOL_GPL(iscsi_conn_error_event);
+ 
+ static int
+-iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
+-		      void *payload, int size)
++iscsi_if_send_reply(u32 group, int seq, int type, int done, int multi,
++		    void *payload, int size)
+ {
+ 	struct sk_buff	*skb;
+ 	struct nlmsghdr	*nlh;
+@@ -1045,10 +1065,10 @@ iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, pid, seq, t, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, t, (len - sizeof(*nlh)), 0);
+ 	nlh->nlmsg_flags = flags;
+ 	memcpy(NLMSG_DATA(nlh), payload, size);
+-	return iscsi_unicast_skb(skb, pid);
++	return iscsi_multicast_skb(skb, group, GFP_ATOMIC);
+ }
+ 
+ static int
+@@ -1085,7 +1105,7 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
+ 			return -ENOMEM;
+ 		}
+ 
+-		nlhstat = __nlmsg_put(skbstat, priv->daemon_pid, 0, 0,
++		nlhstat = __nlmsg_put(skbstat, 0, 0, 0,
+ 				      (len - sizeof(*nlhstat)), 0);
+ 		evstat = NLMSG_DATA(nlhstat);
+ 		memset(evstat, 0, sizeof(*evstat));
+@@ -1109,7 +1129,8 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
+ 		skb_trim(skbstat, NLMSG_ALIGN(actual_size));
+ 		nlhstat->nlmsg_len = actual_size;
+ 
+-		err = iscsi_unicast_skb(skbstat, priv->daemon_pid);
++		err = iscsi_multicast_skb(skbstat, ISCSI_NL_GRP_ISCSID,
++					  GFP_ATOMIC);
+ 	} while (err < 0 && err != -ECONNREFUSED);
+ 
+ 	return err;
+@@ -1143,7 +1164,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	ev->transport_handle = iscsi_handle(session->transport);
+ 
+@@ -1172,7 +1193,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
+ 	 * this will occur if the daemon is not up, so we just warn
+ 	 * the user and when the daemon is restarted it will handle it
+ 	 */
+-	rc = iscsi_broadcast_skb(skb, GFP_KERNEL);
++	rc = iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_KERNEL);
+ 	if (rc == -ESRCH)
+ 		iscsi_cls_session_printk(KERN_ERR, session,
+ 					 "Cannot notify userspace of session "
+@@ -1393,7 +1414,31 @@ iscsi_set_host_param(struct iscsi_transport *transport,
+ }
+ 
+ static int
+-iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
++iscsi_set_path(struct iscsi_transport *transport, struct iscsi_uevent *ev)
++{
++	struct Scsi_Host *shost;
++	struct iscsi_path *params;
++	int err;
++
++	if (!transport->set_path)
++		return -ENOSYS;
++
++	shost = scsi_host_lookup(ev->u.set_path.host_no);
++	if (!shost) {
++		printk(KERN_ERR "set path could not find host no %u\n",
++		       ev->u.set_path.host_no);
++		return -ENODEV;
++	}
++
++	params = (struct iscsi_path *)((char*)ev + sizeof(*ev));
++	err = transport->set_path(shost, params);
++				      
++	scsi_host_put(shost);
++	return err;
++}
++
++static int
++iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, u32 *group)
+ {
+ 	int err = 0;
+ 	struct iscsi_uevent *ev = NLMSG_DATA(nlh);
+@@ -1403,6 +1448,11 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct iscsi_cls_conn *conn;
+ 	struct iscsi_endpoint *ep = NULL;
+ 
++	if (nlh->nlmsg_type == ISCSI_UEVENT_PATH_UPDATE)
++		*group = ISCSI_NL_GRP_UIP;
++	else
++		*group = ISCSI_NL_GRP_ISCSID;
++
+ 	priv = iscsi_if_transport_lookup(iscsi_ptr(ev->transport_handle));
+ 	if (!priv)
+ 		return -EINVAL;
+@@ -1411,8 +1461,6 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (!try_module_get(transport->owner))
+ 		return -EINVAL;
+ 
+-	priv->daemon_pid = NETLINK_CREDS(skb)->pid;
+-
+ 	switch (nlh->nlmsg_type) {
+ 	case ISCSI_UEVENT_CREATE_SESSION:
+ 		err = iscsi_if_create_session(priv, ep, ev,
+@@ -1506,6 +1554,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	case ISCSI_UEVENT_SET_HOST_PARAM:
+ 		err = iscsi_set_host_param(transport, ev);
+ 		break;
++	case ISCSI_UEVENT_PATH_UPDATE:
++		err = iscsi_set_path(transport, ev);
++		break;
+ 	default:
+ 		err = -ENOSYS;
+ 		break;
+@@ -1528,6 +1579,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 		uint32_t rlen;
+ 		struct nlmsghdr	*nlh;
+ 		struct iscsi_uevent *ev;
++		u32 group;
+ 
+ 		nlh = nlmsg_hdr(skb);
+ 		if (nlh->nlmsg_len < sizeof(*nlh) ||
+@@ -1540,7 +1592,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 		if (rlen > skb->len)
+ 			rlen = skb->len;
+ 
+-		err = iscsi_if_recv_msg(skb, nlh);
++		err = iscsi_if_recv_msg(skb, nlh, &group);
+ 		if (err) {
+ 			ev->type = ISCSI_KEVENT_IF_ERROR;
+ 			ev->iferror = err;
+@@ -1554,8 +1606,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 			 */
+ 			if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
+ 				break;
+-			err = iscsi_if_send_reply(
+-				NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
++			err = iscsi_if_send_reply(group, nlh->nlmsg_seq,
+ 				nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
+ 		} while (err < 0 && err != -ECONNREFUSED);
+ 		skb_pull(skb, rlen);
+@@ -1803,7 +1854,6 @@ iscsi_register_transport(struct iscsi_transport *tt)
+ 	if (!priv)
+ 		return NULL;
+ 	INIT_LIST_HEAD(&priv->list);
+-	priv->daemon_pid = -1;
+ 	priv->iscsi_transport = tt;
+ 	priv->t.user_scan = iscsi_user_scan;
+ 	priv->t.create_work_queue = 1;
+diff --git a/include/scsi/iscsi_if.h b/include/scsi/iscsi_if.h
+index 2c1a4af..0990dbb 100644
+--- a/include/scsi/iscsi_if.h
++++ b/include/scsi/iscsi_if.h
+@@ -23,6 +23,9 @@
+ 
+ #include <scsi/iscsi_proto.h>
+ 
++#define ISCSI_NL_GRP_ISCSID	1
++#define ISCSI_NL_GRP_UIP	2
++
+ #define UEVENT_BASE			10
+ #define KEVENT_BASE			100
+ #define ISCSI_ERR_BASE			1000
+@@ -53,6 +56,8 @@ enum iscsi_uevent_e {
+ 	ISCSI_UEVENT_CREATE_BOUND_SESSION		= UEVENT_BASE + 18,
+ 	ISCSI_UEVENT_TRANSPORT_EP_CONNECT_THROUGH_HOST	= UEVENT_BASE + 19,
+ 
++	ISCSI_UEVENT_PATH_UPDATE	= UEVENT_BASE + 20,
++
+ 	/* up events */
+ 	ISCSI_KEVENT_RECV_PDU		= KEVENT_BASE + 1,
+ 	ISCSI_KEVENT_CONN_ERROR		= KEVENT_BASE + 2,
+@@ -60,6 +65,9 @@ enum iscsi_uevent_e {
+ 	ISCSI_KEVENT_DESTROY_SESSION	= KEVENT_BASE + 4,
+ 	ISCSI_KEVENT_UNBIND_SESSION	= KEVENT_BASE + 5,
+ 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
++
++	ISCSI_KEVENT_PATH_REQ		= KEVENT_BASE + 7,
++	ISCSI_KEVENT_IF_DOWN		= KEVENT_BASE + 8,
+ };
+ 
+ enum iscsi_tgt_dscvr {
+@@ -159,6 +167,9 @@ struct iscsi_uevent {
+ 			uint32_t	param; /* enum iscsi_host_param */
+ 			uint32_t	len;
+ 		} set_host_param;
++		struct msg_set_path {
++			uint32_t	host_no;
++		} set_path;
+ 	} u;
+ 	union {
+ 		/* messages k -> u */
+@@ -192,10 +203,39 @@ struct iscsi_uevent {
+ 		struct msg_transport_connect_ret {
+ 			uint64_t	handle;
+ 		} ep_connect_ret;
++		struct msg_req_path {
++			uint32_t	host_no;
++		} req_path;
++		struct msg_notify_if_down {
++			uint32_t	host_no;
++		} notify_if_down;
+ 	} r;
+ } __attribute__ ((aligned (sizeof(uint64_t))));
+ 
+ /*
++ * To keep the struct iscsi_uevent size the same for userspace code
++ * compatibility, the main structure for ISCSI_UEVENT_PATH_UPDATE and
++ * ISCSI_KEVENT_PATH_REQ is defined separately and comes after the
++ * struct iscsi_uevent in the NETLINK_ISCSI message.
++ */
++struct iscsi_path {
++	uint64_t	handle;
++	uint8_t		mac_addr[6];
++	uint8_t		mac_addr_old[6];
++	uint32_t	ip_addr_len;	/* 4 or 16 */
++	union {
++		struct in_addr	v4_addr;
++		struct in6_addr	v6_addr;
++	} src;
++	union {
++		struct in_addr	v4_addr;
++		struct in6_addr	v6_addr;
++	} dst;
++	uint16_t	vlan_id;
++	uint16_t	pmtu;
++};
++
++/*
+  * Common error codes
+  */
+ enum iscsi_err {
+diff --git a/include/scsi/scsi_transport_iscsi.h b/include/scsi/scsi_transport_iscsi.h
+index 8cb7a31..349c7f3 100644
+--- a/include/scsi/scsi_transport_iscsi.h
++++ b/include/scsi/scsi_transport_iscsi.h
+@@ -133,6 +133,7 @@ struct iscsi_transport {
+ 	void (*ep_disconnect) (struct iscsi_endpoint *ep);
+ 	int (*tgt_dscvr) (struct Scsi_Host *shost, enum iscsi_tgt_dscvr type,
+ 			  uint32_t enable, struct sockaddr *dst_addr);
++	int (*set_path) (struct Scsi_Host *shost, struct iscsi_path *params);
+ };
+ 
+ /*
+@@ -149,6 +150,10 @@ extern void iscsi_conn_error_event(struct iscsi_cls_conn *conn,
+ extern int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 			  char *data, uint32_t data_size);
+ 
++extern int iscsi_offload_mesg(struct Scsi_Host *shost,
++			      struct iscsi_transport *transport, uint32_t type,
++			      char *data, uint16_t data_size);
++
+ struct iscsi_cls_conn {
+ 	struct list_head conn_list;	/* item in connlist */
+ 	void *dd_data;			/* LLD private data */
+
+
 
