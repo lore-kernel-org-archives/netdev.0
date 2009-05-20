@@ -1,38 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] powerpc/ep8248e: phylib needs NET_SCHED to build
-Date: Wed, 20 May 2009 12:26:22 -0700 (PDT)
-Message-ID: <20090520.122622.112939264.davem@davemloft.net>
-References: <1242821902-16836-1-git-send-email-a.beregalov@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ipv6: route templates missing protocol value
+Date: Wed, 20 May 2009 12:30:38 -0700
+Message-ID: <20090520123038.5bb2a2da@nehalam>
+References: <4A0EA766.9090008@6wind.com>
+	<4A11B52D.8030105@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
+Cc: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>,
 	netdev@vger.kernel.org
-To: a.beregalov@gmail.com
+To: David Miller <davem@davemloft.net>,
+	=?UTF-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57712
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755606AbZETT0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 15:26:24 -0400
-In-Reply-To: <1242821902-16836-1-git-send-email-a.beregalov@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:55441 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755660AbZETTan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 15:30:43 -0400
+In-Reply-To: <4A11B52D.8030105@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Date: Wed, 20 May 2009 16:18:22 +0400
+The IPV6 routing templates are missing the protocol value so
+when they are used, the routes have the protocol RTPROT_UNSPEC (0).
+This confuses Zebra routing protocol daemon that makes kernel routes
+a special case. This was first noticed by Jean-Mickael Guerin
+who wrote this patch.
 
-> Fix this build error:
-> drivers/built-in.o: In function `phy_state_machine':
-> drivers/net/phy/phy.c:893: undefined reference to 'netif_carrier_off'
-> drivers/net/phy/phy.c:854: undefined reference to 'netif_carrier_on'
-> 
-> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-This isn't right.  Otherwise no networking driver would build
-with NET_SCHED disabled.
+---
+ net/ipv6/route.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-net/sched/sch_generic.c is always built when NET is enabled
-and that's where netif_carrier_off() is defined.
-
-As you can see in net/sched/Makefile, sch_generic.o is
-"obj-y", did you even check? :-)
+--- a/net/ipv6/route.c	2009-05-15 13:32:34.138684428 -0700
++++ b/net/ipv6/route.c	2009-05-20 12:26:19.435815459 -0700
+@@ -137,6 +137,7 @@ static struct rt6_info ip6_null_entry_te
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol	= RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
+@@ -159,6 +160,7 @@ static struct rt6_info ip6_prohibit_entr
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol	= RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
+@@ -176,6 +178,7 @@ static struct rt6_info ip6_blk_hole_entr
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol	= RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
