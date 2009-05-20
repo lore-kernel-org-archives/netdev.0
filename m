@@ -1,57 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: fix rtable leak in net/ipv4/route.c
-Date: Wed, 20 May 2009 11:37:40 +0000
-Message-ID: <20090520113740.GA6546@ff.dom.local>
-References: <20090519162048.GB28034@hmsreliant.think-freely.org> <4A12FEDA.7040806@cosmosbay.com> <20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net> <4A138CFE.5070901@cosmosbay.com> <4A139FC4.7030309@cosmosbay.com> <20090520100318.GA5789@ff.dom.local> <4A13E5E5.4060007@cosmosbay.com>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] powerpc/ep8248e: phylib needs NET_SCHED to build
+Date: Wed, 20 May 2009 16:18:22 +0400
+Message-ID: <1242821902-16836-1-git-send-email-a.beregalov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	lav@yar.ru, shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.182]:52918 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055AbZETLhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 07:37:50 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so85941wah.21
-        for <netdev@vger.kernel.org>; Wed, 20 May 2009 04:37:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A13E5E5.4060007@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexander Beregalov <a.beregalov@gmail.com>
+To: galak@kernel.crashing.org,
+	linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2009 at 01:13:41PM +0200, Eric Dumazet wrote:
-> Jarek Poplawski a =E9crit :
-> > On Wed, May 20, 2009 at 08:14:28AM +0200, Eric Dumazet wrote:
-> >> +					for (aux =3D rt_hash_table[i].chain;;) {
-> >> +						if (aux =3D=3D rth) {
-> >> +							length +=3D ONE;
-> >> +							break;
-> >> +						}
-> >> +						if (compare_hash_inputs(&aux->fl, &rth->fl))
-> >> +							break;
-> >> +						aux =3D aux->u.dst.rt_next;
-> >> +					}
-> >=20
-> > Very "interesting" for() usage, but isn't it more readable like thi=
-s?:
-> >=20
-> > 					aux =3D rt_hash_table[i].chain;
-> > 					while (aux !=3D rth) {
-> > 						if (compare_hash_inputs(&aux->fl, &rth->fl))
-> > 							break;
-> > 						aux =3D aux->u.dst.rt_next;
-> > 					}
->=20
-> well, this test is done two times, this is the difference...
+Fix this build error:
+drivers/built-in.o: In function `phy_state_machine':
+drivers/net/phy/phy.c:893: undefined reference to 'netif_carrier_off'
+drivers/net/phy/phy.c:854: undefined reference to 'netif_carrier_on'
 
-I know, but I guess this is used quite often. And probably it's not
-very hard optimization for a compiler (while - else). As a matter of
-fact even this would confuse me less here:
-					aux =3D rt_hash_table[i].chain;
-					for (;;) {
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+ arch/powerpc/platforms/82xx/Kconfig |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-But of course, it's a matter of taste, so no big deal.
-
-Jarek P.
+diff --git a/arch/powerpc/platforms/82xx/Kconfig b/arch/powerpc/platforms/82xx/Kconfig
+index 7c7df40..36a3e58 100644
+--- a/arch/powerpc/platforms/82xx/Kconfig
++++ b/arch/powerpc/platforms/82xx/Kconfig
+@@ -31,6 +31,9 @@ config EP8248E
+ 	select 8260
+ 	select FSL_SOC
+ 	select PHYLIB
++	select NET
++	select NETDEVICE
++	select NET_SCHED
+ 	select MDIO_BITBANG
+ 	help
+ 	  This enables support for the Embedded Planet EP8248E board.
+-- 
+1.6.2.4
