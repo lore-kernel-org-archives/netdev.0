@@ -1,99 +1,69 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: Re: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
-	method in fib_rules_ops.
-Date: Wed, 20 May 2009 14:07:21 +0300
-Message-ID: <eb3ff54b0905200407x614f5562ubdca848e2bf3a10c@mail.gmail.com>
-References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
-	 <20090519.151857.56095864.davem@davemloft.net>
-	 <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
-	 <4A13A9F6.7080800@cosmosbay.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] net: fix rtable leak in net/ipv4/route.c
+Date: Wed, 20 May 2009 13:13:41 +0200
+Message-ID: <4A13E5E5.4060007@cosmosbay.com>
+References: <20090519162048.GB28034@hmsreliant.think-freely.org> <4A12FEDA.7040806@cosmosbay.com> <20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net> <4A138CFE.5070901@cosmosbay.com> <4A139FC4.7030309@cosmosbay.com> <20090520100318.GA5789@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001485f0406008ca41046a5608e5
-Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	lav@yar.ru, shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:61741 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753715AbZETLHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 07:07:21 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so115763eyd.37
-        for <netdev@vger.kernel.org>; Wed, 20 May 2009 04:07:21 -0700 (PDT)
-In-Reply-To: <4A13A9F6.7080800@cosmosbay.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:45844 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753738AbZETLN5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 07:13:57 -0400
+In-Reply-To: <20090520100318.GA5789@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001485f0406008ca41046a5608e5
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Jarek Poplawski a =E9crit :
+> On Wed, May 20, 2009 at 08:14:28AM +0200, Eric Dumazet wrote:
+>> +					for (aux =3D rt_hash_table[i].chain;;) {
+>> +						if (aux =3D=3D rth) {
+>> +							length +=3D ONE;
+>> +							break;
+>> +						}
+>> +						if (compare_hash_inputs(&aux->fl, &rth->fl))
+>> +							break;
+>> +						aux =3D aux->u.dst.rt_next;
+>> +					}
+>=20
+> Very "interesting" for() usage, but isn't it more readable like this?=
+:
+>=20
+> 					aux =3D rt_hash_table[i].chain;
+> 					while (aux !=3D rth) {
+> 						if (compare_hash_inputs(&aux->fl, &rth->fl))
+> 							break;
+> 						aux =3D aux->u.dst.rt_next;
+> 					}
 
-Hi,
-  Yes, you are right; sorry again!
+well, this test is done two times, this is the difference...
 
-(running "git apply --check --whitespace=error-all diff"
-did not reveal what you mention, but you are right).
+>=20
+> 					if (aux =3D=3D rth)
+> 						length +=3D ONE;
+>=20
+> Jarek P.
 
-I hope that the attached patch is fully correct now.
+I first wrote :
 
-The netlink message header (struct nlmsghdr) is an unused parameter in
-fill method of fib_rules_ops struct.
-This patch removes this parameter from this method and fixes the places
-where this method is called.
+					for (aux =3D rt_hash_table[i].chain ; ; aux =3D aux->u.dst.rt_next=
+) {
+						if (aux =3D=3D rth) {
+							length +=3D ONE;
+							break;
+						}
+						if (compare_hash_inputs(&aux->fl, &rth->fl))
+							break;
+					}
 
-(include/net/fib_rules.h)
+but had to split the too long line, so ended in the form in the patch :=
+)
 
 
-
-Regards,
-Rami Rosen
+Thank you
 
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---001485f0406008ca41046a5608e5
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuxxgzyg0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
-bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
-X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
-c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
-CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
-LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
-IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
-c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
-Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
-IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
-ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
-LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
-IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
-ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
-L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
-LmQ3MGRjYjUgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
-bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
-ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
-aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
-ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAg
-ICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKIHsKIAlzdHJ1Y3QgZG5fZmliX3J1bGUgKnIg
-PSAoc3RydWN0IGRuX2ZpYl9ydWxlICopcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvZmli
-X3J1bGVzLmMgYi9uZXQvaXB2NC9maWJfcnVsZXMuYwppbmRleCAzODkwNGJlLi40MmU3YWQ1IDEw
-MDY0NAotLS0gYS9uZXQvaXB2NC9maWJfcnVsZXMuYworKysgYi9uZXQvaXB2NC9maWJfcnVsZXMu
-YwpAQCAtMjA5LDcgKzIwOSw3IEBAIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbXBhcmUoc3RydWN0
-IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBp
-bnQgZmliNF9ydWxlX2ZpbGwoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
-KQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJ
-c3RydWN0IGZpYjRfcnVsZSAqcnVsZTQgPSAoc3RydWN0IGZpYjRfcnVsZSAqKSBydWxlOwogCmRp
-ZmYgLS1naXQgYS9uZXQvaXB2Ni9maWI2X3J1bGVzLmMgYi9uZXQvaXB2Ni9maWI2X3J1bGVzLmMK
-aW5kZXggZTFhMzZkYi4uMDBhN2E1ZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZmliNl9ydWxlcy5j
-CisrKyBiL25ldC9pcHY2L2ZpYjZfcnVsZXMuYwpAQCAtMjExLDcgKzIxMSw3IEBAIHN0YXRpYyBp
-bnQgZmliNl9ydWxlX2NvbXBhcmUoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1
-bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBpbnQgZmliNl9ydWxlX2ZpbGwoc3RydWN0IGZpYl9y
-dWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5s
-aCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpm
-cmgpCiB7CiAJc3RydWN0IGZpYjZfcnVsZSAqcnVsZTYgPSAoc3RydWN0IGZpYjZfcnVsZSAqKSBy
-dWxlOwogCg==
---001485f0406008ca41046a5608e5--
