@@ -1,35 +1,30 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Wed, 20 May 2009 09:20:23 +0300
-Message-ID: <4A13A127.30305@voltaire.com>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>	<200905151448.49851.rusty@rustcorp.com.au> <4A12A3B6.9020505@Voltaire.com> <200905201217.30939.rusty@rustcorp.com.au>
+From: "Alexander V. Lukyanov" <lav@netis.ru>
+Subject: Re: Fw: [Bug 13339] New: rtable leak in ipv4/route.c
+Date: Wed, 20 May 2009 10:36:59 +0400
+Message-ID: <20090520063659.GA10062@night.netis.ru>
+References: <20090519123417.GA7376@ff.dom.local> <4A12D10D.3000504@cosmosbay.com> <20090519162330.GC28034@hmsreliant.think-freely.org> <20090519171703.GA2749@ami.dom.local> <20090519174504.GD28034@hmsreliant.think-freely.org> <20090519180505.GB2981@ami.dom.local> <20090519181607.GE28034@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:20932 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752319AbZETGUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 02:20:32 -0400
-In-Reply-To: <200905201217.30939.rusty@rustcorp.com.au>
+Received: from night.yars.free.net ([193.233.48.54]:62518 "EHLO
+	night.yars.free.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751680AbZETGiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 02:38:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20090519181607.GE28034@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell wrote:
-> Bit 5 = VIRTIO_NET_F_MAC (the host set the mac address)
-> Bit 24 = VIRTIO_F_NOTIFY_ON_EMPTY
-> You don't have any GSO or checksum offload here
-Just to make sure I'm in the correct direction - I need to cause these 
-offloads to be advertised by the "lower" part of virtio (e.g the qemu 
-virtio code) to  the "upper" part (the quest kernel), correct? I 
-understand that one of them is called front-end and the other back-end, 
-but my intuitions don't go up to saying who's what...
+On Tue, May 19, 2009 at 02:16:07PM -0400, Neil Horman wrote:
+> Alexander, can you point out
+> the location of the move-to-front heruistic that you mention in your analysis?
 
-Or.
+It's near /* Put it first */ comment (if I read the code correctly).
 
-
+-- 
+   Alexander..
