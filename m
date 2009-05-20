@@ -1,160 +1,239 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v5 expedited "big hammer" RCU grace periods
-Date: Wed, 20 May 2009 08:30:23 -0700
-Message-ID: <20090520153023.GB6729@linux.vnet.ibm.com>
-References: <20090517191141.GA25915@linux.vnet.ibm.com> <20090518075630.GA10687@elte.hu> <20090518151421.GB6768@linux.vnet.ibm.com> <20090518154241.GA27047@elte.hu> <20090518160254.GD6768@linux.vnet.ibm.com> <20090519085825.GA9388@elte.hu> <20090519123316.GA7159@linux.vnet.ibm.com> <20090519124436.GA6238@elte.hu> <20090519161839.GA6750@linux.vnet.ibm.com> <20090520080924.GA6736@elte.hu>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Wed, 20 May 2009 11:57:16 -0400
+Message-ID: <4A14285C.1040705@windriver.com>
+References: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>	<20090518.220911.102225532.davem@davemloft.net>	<4A132A0F.8070800@windriver.com> <20090519.150156.115978100.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090520080924.GA6736@elte.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080807060304070400090707"
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:59344 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753063AbZETP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 11:57:59 -0400
+In-Reply-To: <20090519.150156.115978100.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2009 at 10:09:24AM +0200, Ingo Molnar wrote:
+This is a multi-part message in MIME format.
+--------------080807060304070400090707
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+I've added the suggested instrumentations to dump out the LD interrupt registers
+when spurious interrupts occur.  Attached below is a kernel log.
+
+In all cases, interrupts are being generated even though the LDG has been disarmed!
+
+Regards,
+Hong
+
+[502327.615387] niu: eth4: Link is up at 10Gb/sec, full duplex
+[502337.835372] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
+[502337.835392]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
+[502337.835404]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
+[502337.835426] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
+[502337.835440]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
+[502337.835451]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
+[502337.835472] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
+[502337.835486]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
+[502337.835498]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
+[502337.835519] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
+[502337.835533]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
+[502337.835544]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
+[502338.215733] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
+[502338.215753]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
+[502338.215765]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
+[502338.215789] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
+[502338.215803]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
+[502338.215814]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
+[502338.215835] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
+[502338.215849]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
+[502338.215860]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
+[502338.215881] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
+[502338.215895]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
+[502338.215906]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
+[502385.547793] BUG: soft lockup - CPU#5 stuck for 61s! [iperf:3070]
+[502385.547809] Modules linked in:
+[502385.547829] TSTATE: 0000000080001602 TPC: 00000000004a8bb8 TNPC: 00000000004a8bbc Y: 00000000    Not tainted
+[502385.547867] TPC: <handle_IRQ_event+0x18/0x120>
+[502385.547881] g0: fffff803fb741ec0 g1: 0000000000000000 g2: 0000000000000000 g3: 0000000000010103
+[502385.547898] g4: fffff803f3ad3840 g5: fffff803fed9a000 g6: fffff803f3b28000 g7: 000000000000000f
+[502385.547914] o0: 0000000000000001 o1: 0000000000000001 o2: fffff803fa8909e4 o3: 0000000000000000
+[502385.547931] o4: 000000000000004f o5: 00000000000000a4 sp: fffff803ff6535c1 ret_pc: 00000000007794e8
+[502385.547951] RPC: <_spin_unlock+0x28/0x40>
+[502385.547963] l0: 0000000000000001 l1: 0000000000000018 l2: 0000000000000018 l3: 0000000000835848
+[502385.547980] l4: 0000000000007ba2 l5: 0000000000008001 l6: 0000000000924090 l7: 0000000000936000
+[502385.547997] i0: 0000000000000018 i1: fffff803f5a60c00 i2: 0000000000000001 i3: 0000000000000000
+[502385.548013] i4: 0000000000000000 i5: fffff803fed72000 i6: fffff803ff653681 i7: 00000000004aab74
+[502385.548036] I7: <handle_fasteoi_irq+0x74/0x100>
+[502385.548946] BUG: soft lockup - CPU#42 stuck for 61s! [iperf:3056]
+[502385.548958] Modules linked in:
+[502385.548976] TSTATE: 0000004480001606 TPC: 00000000007793f8 TNPC: 00000000007793fc Y: 00000000    Not tainted
+[502385.549012] TPC: <_spin_unlock_irqrestore+0x38/0x60>
+[502385.549026] g0: 0000000000001000 g1: 0000000000000000 g2: 0000000000000000 g3: 000000000abffc30
+[502385.549045] g4: fffff803f3a40000 g5: fffff803feec2000 g6: fffff803f3a0c000 g7: 000000000000000c
+[502385.549062] o0: 00000000000001a8 o1: 0000000038ac8a43 o2: 000000008716e61f o3: 00000000c6db4f40
+[502385.549080] o4: 000000000098f658 o5: 000000004cd739c3 sp: fffff803ff52b421 ret_pc: 00000000005d7630
+[502385.549105] RPC: <mix_pool_bytes_extract+0x170/0x180>
+[502385.549119] l0: 000000000000006a l1: 000000000000007f l2: 0000000095961289 l3: 0000000000000019
+[502385.549135] l4: 0000000000000033 l5: 000000000000004c l6: 0000000000000067 l7: 0000000000000001
+[502385.549152] i0: 00000000008b7d98 i1: 0000000000000000 i2: fffff803ff52bdb0 i3: 0000000000000000
+[502385.549168] i4: 00000000007923b8 i5: 0000000000000020 i6: fffff803ff52b4e1 i7: 00000000005d87d8
+[502385.549188] I7: <add_timer_randomness+0xb8/0x200>
+
+
+David Miller wrote:
+> From: "Hong H. Pham" <hong.pham@windriver.com>
+> Date: Tue, 19 May 2009 17:52:15 -0400
 > 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+>> Unfortunately I don't have a PCIe NIU card to test in an x86 box.
+>> If the hang does not happen on x86 (which is my suspicion), that
+>> would rule out a problem with the NIU chip.  That would mean there's
+>> some interaction between the NIU and sun4v hypervisor that's causing
+>> the spurious interrupts.
 > 
-> > On Tue, May 19, 2009 at 02:44:36PM +0200, Ingo Molnar wrote:
-> > > 
-> > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > 
-> > > > On Tue, May 19, 2009 at 10:58:25AM +0200, Ingo Molnar wrote:
-> > > > > 
-> > > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > > 
-> > > > > > On Mon, May 18, 2009 at 05:42:41PM +0200, Ingo Molnar wrote:
-> > > > > > > 
-> > > > > > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > > > > > 
-> > > > > > > > > i might be missing something fundamental here, but why not just 
-> > > > > > > > > have per CPU helper threads, all on the same waitqueue, and wake 
-> > > > > > > > > them up via a single wake_up() call? That would remove the SMP 
-> > > > > > > > > cross call (wakeups do immediate cross-calls already).
-> > > > > > > > 
-> > > > > > > > My concern with this is that the cache misses accessing all the 
-> > > > > > > > processes on this single waitqueue would be serialized, slowing 
-> > > > > > > > things down. In contrast, the bitmask that smp_call_function() 
-> > > > > > > > traverses delivers on the order of a thousand CPUs' worth of bits 
-> > > > > > > > per cache miss.  I will give it a try, though.
-> > > > > > > 
-> > > > > > > At least if you go via the migration threads, you can queue up 
-> > > > > > > requests to them locally. But there's going to be cachemisses 
-> > > > > > > _anyway_, since you have to access them all from a single CPU, 
-> > > > > > > and then they have to fetch details about what to do, and then 
-> > > > > > > have to notify the originator about completion.
-> > > > > > 
-> > > > > > Ah, so you are suggesting that I use smp_call_function() to run 
-> > > > > > code on each CPU that wakes up that CPU's migration thread?  I 
-> > > > > > will take a look at this.
-> > > > > 
-> > > > > My suggestion was to queue up a dummy 'struct migration_req' up with 
-> > > > > it (change migration_req::task == NULL to mean 'nothing') and simply 
-> > > > > wake it up using wake_up_process().
-> > > > 
-> > > > OK.  I was thinking of just using wake_up_process() without the
-> > > > migration_req structure, and unconditionally setting a per-CPU
-> > > > variable from within migration_thread() just before the list_empty()
-> > > > check.  In your approach we would need a NULL-pointer check just
-> > > > before the call to __migrate_task().
-> > > > 
-> > > > > That will force a quiescent state, without the need for any extra 
-> > > > > information, right?
-> > > > 
-> > > > Yep!
-> > > > 
-> > > > > This is what the scheduler code does, roughly:
-> > > > > 
-> > > > >                 wake_up_process(rq->migration_thread);
-> > > > >                 wait_for_completion(&req.done);
-> > > > > 
-> > > > > and this will always have to perform well. The 'req' could be put 
-> > > > > into PER_CPU, and a loop could be done like this:
-> > > > > 
-> > > > > 	for_each_online_cpu(cpu)
-> > > > >                 wake_up_process(cpu_rq(cpu)->migration_thread);
-> > > > > 
-> > > > > 	for_each_online_cpu(cpu)
-> > > > >                 wait_for_completion(&per_cpu(req, cpu).done);
-> > > > > 
-> > > > > hm?
-> > > > 
-> > > > My concern is the linear slowdown for large systems, but this 
-> > > > should be OK for modest systems (a few 10s of CPUs).  However, I 
-> > > > will try it out -- it does not need to be a long-term solution, 
-> > > > after all.
-> > > 
-> > > I think there is going to be a linear slowdown no matter what - 
-> > > because sending that many IPIs is going to be linear. (there are 
-> > > no 'broadcast to all' IPIs anymore - on x86 we only have them if 
-> > > all physical APIC IDs are 7 or smaller.)
-> > 
-> > With the current code, agreed.  One could imagine making an IPI 
-> > tree, so that a given CPU IPIs (say) eight subordinates.  Making 
-> > this work nice with CPU hotplug would be entertaining, to say the 
-> > least.
+> I am still leaning towards the NIU chip, or our programming of
+> it, as causing this behavior.
 > 
-> Certainly! :-)
+> Although it's possible that the interrupt logic inside of
+> Niagara-T2, or how it's hooked up to the internal NIU ASIC
+> inside of the CPU, might be to blame I don't consider it likely
+> given the basic gist of the behavior you see.
 > 
-> As a general note, unrelated to your patches: i think our 
-> CPU-hotplug related complexity seems to be a bit too much. This is 
-> really just a gut feeling - from having seen many patches that also 
-> have hotplug notifiers.
+> To quote section 17.3.2 of the UltraSPARC-T2 manual:
 > 
-> I'm wondering whether this is because it's structured in a 
-> suboptimal way, or because i'm (intuitively) under-estimating the 
-> complexity of what it takes to express what happens when a CPU is 
-> offlined and then onlined?
+> 	An interrupt will only be issued if the timer is zero,
+> 	the arm bit is set, and one of more LD's in the LDG, have
+> 	their flags set and not masked.
+> 
+> which confirms our understanding of how this should work.
+> 
+> Can you test something Hong?  Simply trigger the hung case
+> and when it happens read the LDG registers to see if the ARM
+> bit is set, and what the LDG mask bits say.
+> 
+> There might be a bug somewhere that causes us to call
+> niu_ldg_rearm() improperly.  In particular I'm looking
+> at that test done in niu_interrupt():
+> 
+> 	if (likely(v0 & ~((u64)1 << LDN_MIF)))
+> 		niu_schedule_napi(np, lp, v0, v1, v2);
+> 	else
+> 		niu_ldg_rearm(np, lp, 1);
+> 
+> If we call niu_ldg_rearm() on an LDG being serviced by NAPI
+> before that poll sequence calls napi_complete() we could
+> definitely see this weird behavior.  And whatever causes
+> that would be the bug to fix.
+> 
+> Thanks!
+> 
+>  
 
-I suppose that I could take this as a cue to reminisce about the old days
-in a past life with a different implementation of CPU online/offline,
-but life is just too short for that sort of thing.  Not that guys my
-age let that stop them.  ;-)
+--------------080807060304070400090707
+Content-Type: text/plain;
+ name="niu-instrument-ldg-interrupt.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="niu-instrument-ldg-interrupt.patch"
 
-And in that past life, exercising CPU online/offline usually exposed
-painful bugs in new code, so I cannot claim that the old-life approach
-to CPU hotplug was perfect.  Interestingly enough, running uniprocessor
-also exposed painful bugs more often than not.  Of course, the only way
-to run uniprocessor was to offline all but one of the CPUs, so you would
-hit the online/offline bugs before hitting the uniprocessor-only bugs.
+---
+ drivers/net/niu.c |   61 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 60 insertions(+), 1 deletions(-)
 
-The thing that worries me most about CPU hotplug in Linux is that
-there is no clear hierarchy of CPU function in the offline process,
-given that the offlining process invokes notifiers in the same order
-as does the onlining process.  Whether this is a real defect in the CPU
-hotplug design or is instead simply a symptom of my not yet being fully
-comfortable with the two-phase CPU-removal process is an interesting
-question to which I do not have an answer.
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 2b17453..a40653e 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -4210,26 +4210,85 @@ static void __niu_fastpath_interrupt(struct niu *np, int ldg, u64 v0)
+ 			continue;
+ 
+ 		nw64(LD_IM0(ldn), LD_IM0_MASK);
+ 		if (tx_vec & (1 << rp->tx_channel))
+ 			niu_txchan_intr(np, rp, ldn);
+ 	}
+ }
+ 
++// HHP
++static void niu_dump_ldg_irq(struct niu *np, int ldg, u64 v0)
++{
++	static DEFINE_PER_CPU(unsigned long, spurious_count) = { 4 };
++
++	struct niu_parent *parent = np->parent;
++	u64 ld_im0_reg, ldg_imgmt_reg;
++	u32 rx_vec, tx_vec;
++	int ldn, i;
++
++	if (!__get_cpu_var(spurious_count))
++		return;
++
++	__get_cpu_var(spurious_count)--;
++	printk(KERN_DEBUG "NIU: %s CPU=%i LDG=%i: interrupt received while NAPI is in progress\n",
++	       np->dev->name, smp_processor_id(), ldg);
++
++	tx_vec = (v0 >> 32);
++	rx_vec = (v0 & 0xffffffff);
++
++	for (i = 0; i < np->num_rx_rings; i++) {
++		struct rx_ring_info *rp = &np->rx_rings[i];
++
++		ldn = LDN_RXDMA(rp->rx_channel);
++		if (parent->ldg_map[ldn] != ldg)
++			continue;
++
++		ld_im0_reg    = LD_IM0(ldn);
++		ldg_imgmt_reg = LDG_IMGMT(ldn);
++		printk(KERN_DEBUG "  rx_vec=0x%04x LD_IM0[ldf_mask]=0x%02lx\n",
++		       rx_vec,
++		       (unsigned long)(ld_im0_reg & LD_IM0_MASK)),
++		printk(KERN_DEBUG "  LDG_IMGMT=0x%016lx [arm=0x%02lx timer=0x%02lx]\n",
++		       (unsigned long)ldg_imgmt_reg,
++		       (unsigned long)((ldg_imgmt_reg & LDG_IMGMT_ARM) >> 31),
++		       (unsigned long)(ldg_imgmt_reg & LDG_IMGMT_TIMER));
++	}
++
++	/* Spurious TX interrupts should not happen */
++	for (i = 0; i < np->num_tx_rings; i++) {
++		struct tx_ring_info *rp = &np->tx_rings[i];
++		ldn = LDN_TXDMA(rp->tx_channel);
++
++		if (parent->ldg_map[ldn] != ldg)
++			continue;
++
++		ld_im0_reg    = LD_IM0(ldn);
++		ldg_imgmt_reg = LDG_IMGMT(ldn);
++		printk(KERN_DEBUG "  tx_vec=0x%04x LD_IM0[ldf_mask]=0x%02lx\n",
++		       tx_vec,
++		       (unsigned long)(ld_im0_reg & LD_IM0_MASK)),
++		printk(KERN_DEBUG "  LDG_IMGMT=0x%016lx [arm=0x%02lx timer=0x%02lx]\n",
++		       (unsigned long)ldg_imgmt_reg,
++		       (unsigned long)((ldg_imgmt_reg & LDG_IMGMT_ARM) >> 31),
++		       (unsigned long)(ldg_imgmt_reg & LDG_IMGMT_TIMER));
++	}
++}
++
+ static void niu_schedule_napi(struct niu *np, struct niu_ldg *lp,
+ 			      u64 v0, u64 v1, u64 v2)
+ {
+ 	if (likely(napi_schedule_prep(&lp->napi))) {
+ 		lp->v0 = v0;
+ 		lp->v1 = v1;
+ 		lp->v2 = v2;
+ 		__niu_fastpath_interrupt(np, lp->ldg_num, v0);
+ 		__napi_schedule(&lp->napi);
+-	}
++	} else
++		niu_dump_ldg_irq(np, lp->ldg_num, v0);
+ }
+ 
+ static irqreturn_t niu_interrupt(int irq, void *dev_id)
+ {
+ 	struct niu_ldg *lp = dev_id;
+ 	struct niu *np = lp->np;
+ 	int ldg = lp->ldg_num;
+ 	unsigned long flags;
 
-Either way, the thought process is different.  In my old life, CPUs shed
-roles in the opposite order that they acquired them.  This meant that a
-given CPU was naturally guaranteed to be correctly taking interrupts for
-the entire time that it was capable of running user-level processes.
-Later in the offlining process, it would still take interrupts, but
-would be unable to run user processes.  Still later, it would no longer
-be taking interrupts, and would stop participating in RCU and in the
-global TLB-flush algorithm.  There was no need to stop the whole machine
-to make a given CPU go offline, in fact, most of the work was done by
-the CPU in question.
-
-In the case of RCU, this meant that there was no need for double-checking
-for offlined CPUs, because CPUs could reliably indicate a quiescent
-state on their way out.
-
-On the other hand, there was no equivalent of dynticks in the old days.
-And it is dynticks that is responsible for most of the complexity present
-in force_quiescent_state(), not CPU hotplug.
-
-So I cannot hold up RCU as something that would be greatly simplified
-by changing the CPU hotplug design, much as I might like to.  ;-)
-
-							Thanx, Paul
+--------------080807060304070400090707--
