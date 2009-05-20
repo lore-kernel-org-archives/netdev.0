@@ -1,239 +1,117 @@
-From: "Hong H. Pham" <hong.pham@windriver.com>
-Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
-Date: Wed, 20 May 2009 11:57:16 -0400
-Message-ID: <4A14285C.1040705@windriver.com>
-References: <1242068453-5124-1-git-send-email-hong.pham@windriver.com>	<20090518.220911.102225532.davem@davemloft.net>	<4A132A0F.8070800@windriver.com> <20090519.150156.115978100.davem@davemloft.net>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: Possible NFS failure with late kernel versions
+Date: Wed, 20 May 2009 13:02:15 -0400
+Message-ID: <1242838935.24471.20.camel@heimdal.trondhjem.org>
+References: <0122F800A3B64C449565A9E8C297701005E6DE4B@hoexmb9.conoco.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080807060304070400090707"
-Cc: netdev@vger.kernel.org, matheos.worku@sun.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+To: "Weathers, Norman R." <Norman.R.Weathers@conocophillips.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59344 "EHLO mail.wrs.com"
+Received: from mail-out2.uio.no ([129.240.10.58]:32812 "EHLO mail-out2.uio.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753063AbZETP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 11:57:59 -0400
-In-Reply-To: <20090519.150156.115978100.davem@davemloft.net>
+	id S1754723AbZETRCS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 13:02:18 -0400
+In-Reply-To: <0122F800A3B64C449565A9E8C297701005E6DE4B@hoexmb9.conoco.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080807060304070400090707
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 2009-05-20 at 11:50 -0500, Weathers, Norman R. wrote:
+> Hello, list.
+> 
+> I have run across some weird failures as of late.  The following is a
+> kernel bug output from one kernel (2.6.27.24):
+> 
+> ------------[ cut here ]------------
+> WARNING: at kernel/softirq.c:136 local_bh_enable_ip+0xb5/0xf0()
+> Modules linked in: nfsd lockd nfs_acl exportfs autofs4 sunrpc
+> scsi_dh_emc ip6t_REJECT nf_conntrack_ipv6 ip6table_filter ip6_tables
+> ipv6 xfs uinput iTCO_wdt iTCO_vendor_support ipmi_si iw_nes qla2xxx
+> ipmi_msghandler bnx2 serio_raw pcspkr joydev ib_core i5000_edac hpwdt
+> scsi_transport_fc hpilo edac_core scsi_tgt libcrc32c dm_round_robin
+> dm_multipath shpchp cciss [last unloaded: freq_table]
+> Pid: 3094, comm: nfsd Not tainted 2.6.27.24 #1
+> 
+> Call Trace:
+>  [<ffffffff81043b9f>] warn_on_slowpath+0x5f/0x90
+>  [<ffffffff81049ebc>] ? local_bh_enable_ip+0x8c/0xf0
+>  [<ffffffff813b9760>] ? _read_unlock_bh+0x10/0x20
+>  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
+>  [<ffffffff81337036>] ? nf_conntrack_in+0x236/0x5d0
+>  [<ffffffff8133747a>] ? destroy_conntrack+0xaa/0x110
+>  [<ffffffff81049ee5>] local_bh_enable_ip+0xb5/0xf0
+>  [<ffffffff813b977f>] _spin_unlock_bh+0xf/0x20
+>  [<ffffffff8133747a>] destroy_conntrack+0xaa/0x110
+>  [<ffffffff813344e2>] nf_conntrack_destroy+0x12/0x20
+>  [<ffffffff8130bc65>] skb_release_all+0xc5/0x100
+>  [<ffffffff8130b541>] __kfree_skb+0x11/0xa0
+>  [<ffffffff8130b5e7>] kfree_skb+0x17/0x40
+>  [<ffffffffa010eed8>] nes_nic_send+0x408/0x4b0 [iw_nes]
+>  [<ffffffff81319fac>] ? neigh_resolve_output+0x10c/0x2d0
+>  [<ffffffffa010f089>] nes_netdev_start_xmit+0x109/0xa60 [iw_nes]
+>  [<ffffffff81337579>] ? __nf_ct_refresh_acct+0x99/0x190
+>  [<ffffffff8133add2>] ? tcp_packet+0xa42/0xeb0
+>  [<ffffffff81348ff4>] ? ip_queue_xmit+0x1e4/0x3b0
+>  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
+>  [<ffffffff81049ebc>] ? local_bh_enable_ip+0x8c/0xf0
+>  [<ffffffff813b9760>] ? _read_unlock_bh+0x10/0x20
+>  [<ffffffff81384914>] ? ipt_do_table+0x1d4/0x550
+>  [<ffffffff81337036>] ? nf_conntrack_in+0x236/0x5d0
+>  [<ffffffff81313f5d>] dev_hard_start_xmit+0x21d/0x2a0
+>  [<ffffffff81328b4e>] __qdisc_run+0x1ee/0x230
+>  [<ffffffff813160a8>] dev_queue_xmit+0x2f8/0x580
+>  [<ffffffff81319fac>] neigh_resolve_output+0x10c/0x2d0
+>  [<ffffffff8134983c>] ip_finish_output+0x1cc/0x2f0
+>  [<ffffffff813499c5>] ip_output+0x65/0xb0
+>  [<ffffffff81348780>] ip_local_out+0x20/0x30
+>  [<ffffffff81348ff4>] ip_queue_xmit+0x1e4/0x3b0
+>  [<ffffffff8135cbcb>] tcp_transmit_skb+0x4eb/0x760
+>  [<ffffffff8135cfe7>] tcp_send_ack+0xd7/0x110
+>  [<ffffffff81355e3c>] __tcp_ack_snd_check+0x5c/0xc0
+>  [<ffffffff8135add9>] tcp_rcv_established+0x6e9/0x9e0
+>  [<ffffffff81363330>] tcp_v4_do_rcv+0x2c0/0x410
+>  [<ffffffff81307aec>] ? lock_sock_nested+0xbc/0xd0
+>  [<ffffffff813079c5>] release_sock+0x65/0xd0
+>  [<ffffffff81350bd1>] tcp_ioctl+0xc1/0x190
+>  [<ffffffff81371547>] inet_ioctl+0x27/0xc0
+>  [<ffffffff81303cba>] kernel_sock_ioctl+0x3a/0x60
+>  [<ffffffffa025882d>] svc_tcp_recvfrom+0x11d/0x450 [sunrpc]
+>  [<ffffffffa02627b0>] svc_recv+0x560/0x850 [sunrpc]
+>  [<ffffffff8103bcf0>] ? default_wake_function+0x0/0x10
+>  [<ffffffffa02a69ad>] nfsd+0xdd/0x2d0 [nfsd]
+>  [<ffffffffa02a68d0>] ? nfsd+0x0/0x2d0 [nfsd]
+>  [<ffffffffa02a68d0>] ? nfsd+0x0/0x2d0 [nfsd]
+>  [<ffffffff8105aa69>] kthread+0x49/0x90
+>  [<ffffffff8100d5b9>] child_rip+0xa/0x11
+>  [<ffffffff8100cbfc>] ? restore_args+0x0/0x30
+>  [<ffffffff8105aa20>] ? kthread+0x0/0x90
+>  [<ffffffff8100d5af>] ? child_rip+0x0/0x11
+> 
+> ---[ end trace 7decf549249f3f2a ]---
+> 
+> I have used 2.6.28.10 and 2.6.29 and they all have this same bug.  The
+> end result is that under heavy load, these servers crash within a few
+> minutes of emitting this trace.
+> 
+> Hardware:  HP Proliant Server, Dual 3.0 GHz Intel CPUs, 16 GB memory.
+> Storage:    Qlogic QLA2xxx 4 Gb fibre card to EMC CX3-80 (Multipath)
+> Network:    Intel / NetEffect 10 Gb iWarp NE20 (fibre)
+> OS:           Fedora 10
+> Clients:      CentOS 5.2 10 Gb nodes / 10 Gb switches, so a very fast
+> network.
+> 
+> Any assistance would be greatly appreciated.
+> 
+> If need be, I can restart the server under the different kernels and see
+> if I can get the error from those as well.
 
-I've added the suggested instrumentations to dump out the LD interrupt registers
-when spurious interrupts occur.  Attached below is a kernel log.
+Your trace shows that this is happening down in the murky depths of the
+netfilter code, so to me it looks more like a networking issue rather
+than a NFS bug.
 
-In all cases, interrupts are being generated even though the LDG has been disarmed!
+Ccing the linux networking list...
 
-Regards,
-Hong
+Cheers
+  Trond
 
-[502327.615387] niu: eth4: Link is up at 10Gb/sec, full duplex
-[502337.835372] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
-[502337.835392]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
-[502337.835404]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
-[502337.835426] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
-[502337.835440]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
-[502337.835451]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
-[502337.835472] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
-[502337.835486]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
-[502337.835498]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
-[502337.835519] NIU: eth4 CPU=42 LDG=38: interrupt received while NAPI is in progress
-[502337.835533]   rx_vec=0x0400 LD_IM0[ldf_mask]=0x00
-[502337.835544]   LDG_IMGMT=0x0000000000814018 [arm=0x00 timer=0x18]
-[502338.215733] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
-[502338.215753]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
-[502338.215765]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
-[502338.215789] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
-[502338.215803]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
-[502338.215814]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
-[502338.215835] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
-[502338.215849]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
-[502338.215860]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
-[502338.215881] NIU: eth4 CPU=5 LDG=41: interrupt received while NAPI is in progress
-[502338.215895]   rx_vec=0x2000 LD_IM0[ldf_mask]=0x00
-[502338.215906]   LDG_IMGMT=0x000000000081a018 [arm=0x00 timer=0x18]
-[502385.547793] BUG: soft lockup - CPU#5 stuck for 61s! [iperf:3070]
-[502385.547809] Modules linked in:
-[502385.547829] TSTATE: 0000000080001602 TPC: 00000000004a8bb8 TNPC: 00000000004a8bbc Y: 00000000    Not tainted
-[502385.547867] TPC: <handle_IRQ_event+0x18/0x120>
-[502385.547881] g0: fffff803fb741ec0 g1: 0000000000000000 g2: 0000000000000000 g3: 0000000000010103
-[502385.547898] g4: fffff803f3ad3840 g5: fffff803fed9a000 g6: fffff803f3b28000 g7: 000000000000000f
-[502385.547914] o0: 0000000000000001 o1: 0000000000000001 o2: fffff803fa8909e4 o3: 0000000000000000
-[502385.547931] o4: 000000000000004f o5: 00000000000000a4 sp: fffff803ff6535c1 ret_pc: 00000000007794e8
-[502385.547951] RPC: <_spin_unlock+0x28/0x40>
-[502385.547963] l0: 0000000000000001 l1: 0000000000000018 l2: 0000000000000018 l3: 0000000000835848
-[502385.547980] l4: 0000000000007ba2 l5: 0000000000008001 l6: 0000000000924090 l7: 0000000000936000
-[502385.547997] i0: 0000000000000018 i1: fffff803f5a60c00 i2: 0000000000000001 i3: 0000000000000000
-[502385.548013] i4: 0000000000000000 i5: fffff803fed72000 i6: fffff803ff653681 i7: 00000000004aab74
-[502385.548036] I7: <handle_fasteoi_irq+0x74/0x100>
-[502385.548946] BUG: soft lockup - CPU#42 stuck for 61s! [iperf:3056]
-[502385.548958] Modules linked in:
-[502385.548976] TSTATE: 0000004480001606 TPC: 00000000007793f8 TNPC: 00000000007793fc Y: 00000000    Not tainted
-[502385.549012] TPC: <_spin_unlock_irqrestore+0x38/0x60>
-[502385.549026] g0: 0000000000001000 g1: 0000000000000000 g2: 0000000000000000 g3: 000000000abffc30
-[502385.549045] g4: fffff803f3a40000 g5: fffff803feec2000 g6: fffff803f3a0c000 g7: 000000000000000c
-[502385.549062] o0: 00000000000001a8 o1: 0000000038ac8a43 o2: 000000008716e61f o3: 00000000c6db4f40
-[502385.549080] o4: 000000000098f658 o5: 000000004cd739c3 sp: fffff803ff52b421 ret_pc: 00000000005d7630
-[502385.549105] RPC: <mix_pool_bytes_extract+0x170/0x180>
-[502385.549119] l0: 000000000000006a l1: 000000000000007f l2: 0000000095961289 l3: 0000000000000019
-[502385.549135] l4: 0000000000000033 l5: 000000000000004c l6: 0000000000000067 l7: 0000000000000001
-[502385.549152] i0: 00000000008b7d98 i1: 0000000000000000 i2: fffff803ff52bdb0 i3: 0000000000000000
-[502385.549168] i4: 00000000007923b8 i5: 0000000000000020 i6: fffff803ff52b4e1 i7: 00000000005d87d8
-[502385.549188] I7: <add_timer_randomness+0xb8/0x200>
-
-
-David Miller wrote:
-> From: "Hong H. Pham" <hong.pham@windriver.com>
-> Date: Tue, 19 May 2009 17:52:15 -0400
-> 
->> Unfortunately I don't have a PCIe NIU card to test in an x86 box.
->> If the hang does not happen on x86 (which is my suspicion), that
->> would rule out a problem with the NIU chip.  That would mean there's
->> some interaction between the NIU and sun4v hypervisor that's causing
->> the spurious interrupts.
-> 
-> I am still leaning towards the NIU chip, or our programming of
-> it, as causing this behavior.
-> 
-> Although it's possible that the interrupt logic inside of
-> Niagara-T2, or how it's hooked up to the internal NIU ASIC
-> inside of the CPU, might be to blame I don't consider it likely
-> given the basic gist of the behavior you see.
-> 
-> To quote section 17.3.2 of the UltraSPARC-T2 manual:
-> 
-> 	An interrupt will only be issued if the timer is zero,
-> 	the arm bit is set, and one of more LD's in the LDG, have
-> 	their flags set and not masked.
-> 
-> which confirms our understanding of how this should work.
-> 
-> Can you test something Hong?  Simply trigger the hung case
-> and when it happens read the LDG registers to see if the ARM
-> bit is set, and what the LDG mask bits say.
-> 
-> There might be a bug somewhere that causes us to call
-> niu_ldg_rearm() improperly.  In particular I'm looking
-> at that test done in niu_interrupt():
-> 
-> 	if (likely(v0 & ~((u64)1 << LDN_MIF)))
-> 		niu_schedule_napi(np, lp, v0, v1, v2);
-> 	else
-> 		niu_ldg_rearm(np, lp, 1);
-> 
-> If we call niu_ldg_rearm() on an LDG being serviced by NAPI
-> before that poll sequence calls napi_complete() we could
-> definitely see this weird behavior.  And whatever causes
-> that would be the bug to fix.
-> 
-> Thanks!
-> 
->  
-
---------------080807060304070400090707
-Content-Type: text/plain;
- name="niu-instrument-ldg-interrupt.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="niu-instrument-ldg-interrupt.patch"
-
----
- drivers/net/niu.c |   61 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 60 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 2b17453..a40653e 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -4210,26 +4210,85 @@ static void __niu_fastpath_interrupt(struct niu *np, int ldg, u64 v0)
- 			continue;
- 
- 		nw64(LD_IM0(ldn), LD_IM0_MASK);
- 		if (tx_vec & (1 << rp->tx_channel))
- 			niu_txchan_intr(np, rp, ldn);
- 	}
- }
- 
-+// HHP
-+static void niu_dump_ldg_irq(struct niu *np, int ldg, u64 v0)
-+{
-+	static DEFINE_PER_CPU(unsigned long, spurious_count) = { 4 };
-+
-+	struct niu_parent *parent = np->parent;
-+	u64 ld_im0_reg, ldg_imgmt_reg;
-+	u32 rx_vec, tx_vec;
-+	int ldn, i;
-+
-+	if (!__get_cpu_var(spurious_count))
-+		return;
-+
-+	__get_cpu_var(spurious_count)--;
-+	printk(KERN_DEBUG "NIU: %s CPU=%i LDG=%i: interrupt received while NAPI is in progress\n",
-+	       np->dev->name, smp_processor_id(), ldg);
-+
-+	tx_vec = (v0 >> 32);
-+	rx_vec = (v0 & 0xffffffff);
-+
-+	for (i = 0; i < np->num_rx_rings; i++) {
-+		struct rx_ring_info *rp = &np->rx_rings[i];
-+
-+		ldn = LDN_RXDMA(rp->rx_channel);
-+		if (parent->ldg_map[ldn] != ldg)
-+			continue;
-+
-+		ld_im0_reg    = LD_IM0(ldn);
-+		ldg_imgmt_reg = LDG_IMGMT(ldn);
-+		printk(KERN_DEBUG "  rx_vec=0x%04x LD_IM0[ldf_mask]=0x%02lx\n",
-+		       rx_vec,
-+		       (unsigned long)(ld_im0_reg & LD_IM0_MASK)),
-+		printk(KERN_DEBUG "  LDG_IMGMT=0x%016lx [arm=0x%02lx timer=0x%02lx]\n",
-+		       (unsigned long)ldg_imgmt_reg,
-+		       (unsigned long)((ldg_imgmt_reg & LDG_IMGMT_ARM) >> 31),
-+		       (unsigned long)(ldg_imgmt_reg & LDG_IMGMT_TIMER));
-+	}
-+
-+	/* Spurious TX interrupts should not happen */
-+	for (i = 0; i < np->num_tx_rings; i++) {
-+		struct tx_ring_info *rp = &np->tx_rings[i];
-+		ldn = LDN_TXDMA(rp->tx_channel);
-+
-+		if (parent->ldg_map[ldn] != ldg)
-+			continue;
-+
-+		ld_im0_reg    = LD_IM0(ldn);
-+		ldg_imgmt_reg = LDG_IMGMT(ldn);
-+		printk(KERN_DEBUG "  tx_vec=0x%04x LD_IM0[ldf_mask]=0x%02lx\n",
-+		       tx_vec,
-+		       (unsigned long)(ld_im0_reg & LD_IM0_MASK)),
-+		printk(KERN_DEBUG "  LDG_IMGMT=0x%016lx [arm=0x%02lx timer=0x%02lx]\n",
-+		       (unsigned long)ldg_imgmt_reg,
-+		       (unsigned long)((ldg_imgmt_reg & LDG_IMGMT_ARM) >> 31),
-+		       (unsigned long)(ldg_imgmt_reg & LDG_IMGMT_TIMER));
-+	}
-+}
-+
- static void niu_schedule_napi(struct niu *np, struct niu_ldg *lp,
- 			      u64 v0, u64 v1, u64 v2)
- {
- 	if (likely(napi_schedule_prep(&lp->napi))) {
- 		lp->v0 = v0;
- 		lp->v1 = v1;
- 		lp->v2 = v2;
- 		__niu_fastpath_interrupt(np, lp->ldg_num, v0);
- 		__napi_schedule(&lp->napi);
--	}
-+	} else
-+		niu_dump_ldg_irq(np, lp->ldg_num, v0);
- }
- 
- static irqreturn_t niu_interrupt(int irq, void *dev_id)
- {
- 	struct niu_ldg *lp = dev_id;
- 	struct niu *np = lp->np;
- 	int ldg = lp->ldg_num;
- 	unsigned long flags;
-
---------------080807060304070400090707--
