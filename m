@@ -1,123 +1,99 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: fix rtable leak in net/ipv4/route.c
-Date: Wed, 20 May 2009 06:48:38 -0400
-Message-ID: <20090520104838.GB25492@hmsreliant.think-freely.org>
-References: <20090519162048.GB28034@hmsreliant.think-freely.org> <4A12FEDA.7040806@cosmosbay.com> <20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net> <4A138CFE.5070901@cosmosbay.com> <4A139FC4.7030309@cosmosbay.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: Re: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
+	method in fib_rules_ops.
+Date: Wed, 20 May 2009 14:07:21 +0300
+Message-ID: <eb3ff54b0905200407x614f5562ubdca848e2bf3a10c@mail.gmail.com>
+References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
+	 <20090519.151857.56095864.davem@davemloft.net>
+	 <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
+	 <4A13A9F6.7080800@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com, lav@yar.ru,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: multipart/mixed; boundary=001485f0406008ca41046a5608e5
+Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42403 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755556AbZETKsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 06:48:53 -0400
-Content-Disposition: inline
-In-Reply-To: <4A139FC4.7030309@cosmosbay.com>
+Received: from ey-out-2122.google.com ([74.125.78.26]:61741 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753715AbZETLHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 07:07:21 -0400
+Received: by ey-out-2122.google.com with SMTP id 9so115763eyd.37
+        for <netdev@vger.kernel.org>; Wed, 20 May 2009 04:07:21 -0700 (PDT)
+In-Reply-To: <4A13A9F6.7080800@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2009 at 08:14:28AM +0200, Eric Dumazet wrote:
-> Eric Dumazet a =E9crit :
-> > David Miller a =E9crit :
-> >> From: Neil Horman <nhorman@tuxdriver.com>
-> >> Date: Tue, 19 May 2009 15:24:50 -0400
-> >>
-> >>>> Moving whole group in front would defeat the purpose of move, ac=
-tually,
-> >>>> since rank in chain is used to decay the timeout in garbage coll=
-ector.
-> >>>> (search for tmo >>=3D 1; )
-> >>>>
-> >>> Argh, so the list is implicitly ordered by expiration time.  That
-> >>> really defeats the entire purpose of doing grouping in the ilst a=
-t
-> >>> all.  If thats the case, then I agree, its probably better to to
-> >>> take the additional visitation hit in in check_expire above than =
-to
-> >>> try and preserve ordering.
-> >> Yes, this seems best.
-> >>
-> >> I was worried that somehow the ordering also influences lookups,
-> >> because the TOS bits don't go into the hash so I worried that it w=
-ould
-> >> be important that explicit TOS values appear before wildcard ones.
-> >> But it doesn't appear that this is an issue, we don't have wildcar=
-d
-> >> TOSs in the rtable entries, they are always explicit.
-> >>
-> >> So I would like to see an explicit final patch from Eric so we can=
- get
-> >> this fixed now.
-> >>
-> >=20
-> > I would like to split patches because we have two bugs indeed, and
-> > I prefer to get attention for both problems, I dont remember Neil a=
-cknowledged
-> > the length computation problem.
-> >=20
-> > First and small patch, candidate for net-2.6 and stable (for 2.6.29=
-) :
-> >=20
->=20
-> Then here is the patch on top on previous one.
->=20
-> Thanks to all
->=20
-> [PATCH] net: fix rtable leak in net/ipv4/route.c
->=20
-> Alexander V. Lukyanov found a regression in 2.6.29 and made a complet=
-e
-> analysis found in http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> Quoted here because its a perfect one :
->=20
-> begin_of_quotation=20
->  2.6.29 patch has introduced flexible route cache rebuilding. Unfortu=
-nately the
->  patch has at least one critical flaw, and another problem.
->=20
->  rt_intern_hash calculates rthi pointer, which is later used for new =
-entry
->  insertion. The same loop calculates cand pointer which is used to cl=
-ean the
->  list. If the pointers are the same, rtable leak occurs, as first the=
- cand is
->  removed then the new entry is appended to it.
->=20
->  This leak leads to unregister_netdevice problem (usage count > 0).
->=20
->  Another problem of the patch is that it tries to insert the entries =
-in certain
->  order, to facilitate counting of entries distinct by all but QoS par=
-ameters.
->  Unfortunately, referencing an existing rtable entry moves it to list=
- beginning,
->  to speed up further lookups, so the carefully built order is destroy=
-ed.
->=20
->  For the first problem the simplest patch it to set rthi=3D0 when rth=
-i=3D=3Dcand, but
->  it will also destroy the ordering.
-> end_of_quotation
->=20
->=20
-> Problematic commit is 1080d709fb9d8cd4392f93476ee46a9d6ea05a5b
-> (net: implement emergency route cache rebulds when gc_elasticity is e=
-xceeded)
->=20
-> Trying to keep dst_entries ordered is too complex and breaks the fact=
- that
-> order should depend on the frequency of use for garbage collection.
->=20
-> A possible fix is to make rt_intern_hash() simpler, and only makes
-> rt_check_expire() a litle bit smarter, being able to cope with an arb=
-itrary
-> entries order. The added loop is running on cache hot data, while cpu
-> is prefetching next object, so should be unnoticied.
->=20
-> Reported-and-analyzed-by: Alexander V. Lukyanov <lav@yar.ru>
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+--001485f0406008ca41046a5608e5
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
+Hi,
+  Yes, you are right; sorry again!
+
+(running "git apply --check --whitespace=error-all diff"
+did not reveal what you mention, but you are right).
+
+I hope that the attached patch is fully correct now.
+
+The netlink message header (struct nlmsghdr) is an unused parameter in
+fill method of fib_rules_ops struct.
+This patch removes this parameter from this method and fixes the places
+where this method is called.
+
+(include/net/fib_rules.h)
+
+
+
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--001485f0406008ca41046a5608e5
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fuxxgzyg0
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
+bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
+X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
+c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
+CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
+LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
+IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
+c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
+Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
+cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
+IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
+ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
+LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
+IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
+ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
+L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
+LmQ3MGRjYjUgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
+bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
+ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
+aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
+ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAg
+ICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKIHsKIAlzdHJ1Y3QgZG5fZmliX3J1bGUgKnIg
+PSAoc3RydWN0IGRuX2ZpYl9ydWxlICopcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvZmli
+X3J1bGVzLmMgYi9uZXQvaXB2NC9maWJfcnVsZXMuYwppbmRleCAzODkwNGJlLi40MmU3YWQ1IDEw
+MDY0NAotLS0gYS9uZXQvaXB2NC9maWJfcnVsZXMuYworKysgYi9uZXQvaXB2NC9maWJfcnVsZXMu
+YwpAQCAtMjA5LDcgKzIwOSw3IEBAIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbXBhcmUoc3RydWN0
+IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBp
+bnQgZmliNF9ydWxlX2ZpbGwoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
+KQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJ
+c3RydWN0IGZpYjRfcnVsZSAqcnVsZTQgPSAoc3RydWN0IGZpYjRfcnVsZSAqKSBydWxlOwogCmRp
+ZmYgLS1naXQgYS9uZXQvaXB2Ni9maWI2X3J1bGVzLmMgYi9uZXQvaXB2Ni9maWI2X3J1bGVzLmMK
+aW5kZXggZTFhMzZkYi4uMDBhN2E1ZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZmliNl9ydWxlcy5j
+CisrKyBiL25ldC9pcHY2L2ZpYjZfcnVsZXMuYwpAQCAtMjExLDcgKzIxMSw3IEBAIHN0YXRpYyBp
+bnQgZmliNl9ydWxlX2NvbXBhcmUoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1
+bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBpbnQgZmliNl9ydWxlX2ZpbGwoc3RydWN0IGZpYl9y
+dWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5s
+aCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpm
+cmgpCiB7CiAJc3RydWN0IGZpYjZfcnVsZSAqcnVsZTYgPSAoc3RydWN0IGZpYjZfcnVsZSAqKSBy
+dWxlOwogCg==
+--001485f0406008ca41046a5608e5--
