@@ -1,45 +1,79 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Wed, 20 May 2009 09:59:58 +0300
-Message-ID: <4A13AA6E.8030701@redhat.com>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com>	<200905151448.49851.rusty@rustcorp.com.au> <4A12A3B6.9020505@Voltaire.com> <200905201217.30939.rusty@rustcorp.com.au> <4A13A127.30305@voltaire.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [BUG 2.6.30-rc1] panic when loading oprofile
+Date: Wed, 20 May 2009 00:13:24 -0700
+Message-ID: <F169D4F5E1F1974DBFAFABF47F60C10A335277B5@orsmsx507.amr.corp.intel.com>
+References: <alpine.WNT.2.00.0905131327430.7052__41366.1100705669$1242253861$gmane$org@jbrandeb-desk1.amr.corp.intel.com>
+	<87fxf6pmh5.fsf@basil.nowhere.org>
+ <20090516162017.2525511c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"oprofile-list@lists.sourceforge.net"
+	<oprofile-list@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49411 "EHLO mx2.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:40589 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752575AbZETHA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 03:00:27 -0400
-In-Reply-To: <4A13A127.30305@voltaire.com>
+	id S1751269AbZETHNZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 03:13:25 -0400
+In-Reply-To: <20090516162017.2525511c.akpm@linux-foundation.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz wrote:
-> Rusty Russell wrote:
->> Bit 5 = VIRTIO_NET_F_MAC (the host set the mac address)
->> Bit 24 = VIRTIO_F_NOTIFY_ON_EMPTY
->> You don't have any GSO or checksum offload here
-> Just to make sure I'm in the correct direction - I need to cause these 
-> offloads to be advertised by the "lower" part of virtio (e.g the qemu 
-> virtio code) to  the "upper" part (the quest kernel), correct? 
-
-Yes.  You can do that by running a recent kernel on the host, and 
-compiling qemu with the headers from that kernel (you can generate them 
-with make headers-install).
-
-> I understand that one of them is called front-end and the other 
-> back-end, but my intuitions don't go up to saying who's what...
+Andrew Morton wrote:
+> On Fri, 15 May 2009 14:41:26 +0200 Andi Kleen <andi@firstfloor.org>
+> wrote:
 >
+> > "Brandeburg, Jesse" <jesse.brandeburg@intel.com> writes:
+> >
+> > Hi Jesse,
+> >
+> > > when starting a profile run on the latest net-next kernel, I'm
+> currently
+> > > trying to reproduce on 2.6.30-rc5 stock.
+> >
+> > Were you able to reproduce it?
 
-My preferred terms are driver (in the guest) and device (in the host), 
-to mimic real hardware.
+For some reason I can no longer reproduce, I'll add a note to the bug too.
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+My suspicion is my normal process of
+git pull
+make O=../foo
+make modules_install install
 
+somehow picked up the L1_CACHE_BYTES=128 and stuck with it.  I can no longer reproduce that at all, .config always has the same result.
+
+It also may have been that the problem self repaired when I had to blow away my .oprofile/daemonrc because shortly after these panics my oprofile stopped working on older kernels too.
+
+Sorry for the inconvenience, it was reproducible when I started :-(
+
+> >
+> > >
+> > > config available upon request, arch=x86_64, recent (F10 or newer)
+> oprofile
+> > > userspace.
+> >
+> > it looks like two bugs: oprofile didn't catch a NMI that belongs to
+> > it (most likely) and the NMI watchdog referenced a NULL pointer
+> > while processing an NMI.
+> >
+> > Did you have the nmi watchdog enabled on the command line?
+> >
+> > >
+> > > BUG: unable to handle kernel NULL pointer dereference at (null)
+> > > IP: [<ffffffff8066080a>] nmi_watchdog_tick+0xa1/0x1d6
+
+
+<snip>
+
+> Ping?
+>
+> This is in Rafael's regression list but I suspect that it's a
+> linux-next-only thing?
+
+We can close, unreproducable.  Its bugzilla 13324
