@@ -1,68 +1,34 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
-Date: Wed, 20 May 2009 08:15:13 +0100
-Message-ID: <20090520071513.GB24231@linux-mips.org>
-References: <4A11DCBF.9000700@free.fr> <200905191524.20421.mb@bu3sch.de> <20090519170957.GA23711@linux-mips.org> <200905191929.21082.mb@bu3sch.de> <20090519173503.GD2691@tuxdriver.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v3 0/7] can: CAN network device driver interface and drivers
+Date: Wed, 20 May 2009 09:29:14 +0200
+Message-ID: <4A13B14A.5040207@grandegger.com>
+References: <20090516093926.429574900@denx.de> <20090518.154219.39697283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>,
-	matthieu castet <castet.matthieu@free.fr>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:41739 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753037AbZETHPx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 03:15:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20090519173503.GD2691@tuxdriver.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:57319 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753763AbZETH3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 03:29:15 -0400
+In-Reply-To: <20090518.154219.39697283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2009 at 01:35:03PM -0400, John W. Linville wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Tue, 19 May 2009 13:35:03 -0400
-> To: Michael Buesch <mb@bu3sch.de>
-> Cc: Ralf Baechle <ralf@linux-mips.org>,
-> 	matthieu castet <castet.matthieu@free.fr>,
-> 	linux-mips@linux-mips.org, netdev@vger.kernel.org
-> Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
-> Content-Type: text/plain; charset=us-ascii
+David Miller wrote:
+> From: Wolfgang Grandegger <wg@grandegger.com>
+> Date: Sat, 16 May 2009 11:39:26 +0200
 > 
-> On Tue, May 19, 2009 at 07:29:20PM +0200, Michael Buesch wrote:
-> > On Tuesday 19 May 2009 19:09:57 Ralf Baechle wrote:
-> > > Maybe because I felt drivers/ssb/ was outside my jurisdiction - and unlike
-> > > what alot of people may seem to think I'm not a full time MIPS kernel
-> > > hacker.
-> > 
-> > Ok nice.
-> > 
-> > > I can deal with SSB patch if you so desire - but I have no experience with
-> > > SSB, so I'd have somebody to rubberstamp non-trivial SSB patches before I
-> > > queue them up.
-> > 
-> >  **Fwoo..
-> > [stamp here]
-> >       ..mppp**
-> > 
-> > 
-> > Done. :)
-> > 
-> > > I can keep them either in the usual MIPS trees on 
-> > > linux-mips.org or I could create a separate linux-ssb tree, depending on
-> > > what seems to be sensible.  Also, reading the entry in the maintainers
-> > > file I wonder if netdev is really the list of a choice?
-> > 
-> > Yes it is, because the bus is only used on networking devices.
-> > (Ethernet cards, wireless cards, and network routers)
-> > I don't think you need to create a separate tree. ssb is pretty mature. There
-> > won't be that many patches.
+>> here comes v3 of this patch series.
 > 
-> OK, now I'm confused again -- should I take SSB patches, or is Ralf
-> going to do it? :-)
+> I've applied these to net-next-2.6, thanks.
 
-My decoder ring says, I'll do it from now on :)
+Great, we have more patches for various CAN controllers in the pipeline
+and I actually intend to ask for an account on kernel.org and a GIT
+repository "can-2.6" to simplify maintenance.
 
-Cheers,
+Thanks,
 
-  Ralf
+Wolfgang.
