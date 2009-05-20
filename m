@@ -1,38 +1,77 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Wed, 20 May 2009 12:17:30 +0930
-Message-ID: <200905201217.30939.rusty@rustcorp.com.au>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <200905151448.49851.rusty@rustcorp.com.au> <4A12A3B6.9020505@Voltaire.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] af_packet: Teach to listen for multiple unicast addresses.
+Date: Tue, 19 May 2009 21:27:17 -0700
+Message-ID: <m163fwflga.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:60628 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754023AbZETCrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2009 22:47:32 -0400
-In-Reply-To: <4A12A3B6.9020505@Voltaire.com>
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:42733 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725AbZETE1T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 00:27:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 May 2009 09:49:02 pm Or Gerlitz wrote:
-> okay, this is the info from my guest after applying the patch on its
-> kernel.
-...
-> [root@vm1 ~]# cat /sys/class/net/eth0/device/features
-> 0000010000000000000000001000000000000000000000000000000000000000
 
-Bit 5 = VIRTIO_NET_F_MAC (the host set the mac address)
-Bit 24 = VIRTIO_F_NOTIFY_ON_EMPTY
+The the PACKET_ADD_MEMBERSHIP and the PACKET_DROP_MEMBERSHIP setsockopt
+calls for af_packet already has all of the infrastructure needed to subscribe
+to multiple mac addresses.  All that is missing is a flag to say that
+the address we want to listen on is a unicast address.
 
-You don't have any GSO or checksum offload here.
+So introduce PACKET_MR_UNICAST and wire it up to dev_unicast_add and
+dev_unicast_delete.
 
-Rusty.
+Additionally I noticed that errors from dev_mc_add were not propagated
+from packet_dev_mc so fix that.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+---
+ include/linux/if_packet.h |    1 +
+ net/packet/af_packet.c    |   10 ++++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index 18db066..ed26d4f 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -135,5 +135,6 @@ struct packet_mreq
+ #define PACKET_MR_MULTICAST	0
+ #define PACKET_MR_PROMISC	1
+ #define PACKET_MR_ALLMULTI	2
++#define PACKET_MR_UNICAST	3
+ 
+ #endif
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 1fc4a78..2abaf83 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1254,9 +1254,9 @@ static int packet_dev_mc(struct net_device *dev, struct packet_mclist *i,
+ 	switch (i->type) {
+ 	case PACKET_MR_MULTICAST:
+ 		if (what > 0)
+-			dev_mc_add(dev, i->addr, i->alen, 0);
++			return dev_mc_add(dev, i->addr, i->alen, 0);
+ 		else
+-			dev_mc_delete(dev, i->addr, i->alen, 0);
++			return dev_mc_delete(dev, i->addr, i->alen, 0);
+ 		break;
+ 	case PACKET_MR_PROMISC:
+ 		return dev_set_promiscuity(dev, what);
+@@ -1264,6 +1264,12 @@ static int packet_dev_mc(struct net_device *dev, struct packet_mclist *i,
+ 	case PACKET_MR_ALLMULTI:
+ 		return dev_set_allmulti(dev, what);
+ 		break;
++	case PACKET_MR_UNICAST:
++		if (what > 0)
++			return dev_unicast_add(dev, i->addr, i->alen);
++		else
++			return dev_unicast_delete(dev, i->addr, i->alen);
++		break;
+ 	default:;
+ 	}
+ 	return 0;
+-- 
+1.6.0.6
 
