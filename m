@@ -1,77 +1,107 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] af_packet: Teach to listen for multiple unicast addresses.
-Date: Tue, 19 May 2009 21:27:17 -0700
-Message-ID: <m163fwflga.fsf@fess.ebiederm.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] net: fix length computation in rt_check_expire()
+Date: Wed, 20 May 2009 06:54:22 +0200
+Message-ID: <4A138CFE.5070901@cosmosbay.com>
+References: <20090519162048.GB28034@hmsreliant.think-freely.org>	<4A12FEDA.7040806@cosmosbay.com>	<20090519192450.GF28034@hmsreliant.think-freely.org> <20090519.150517.62361946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nhorman@tuxdriver.com, jarkao2@gmail.com, lav@yar.ru,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42733 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbZETE1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 00:27:19 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33246 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751038AbZETEyj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 00:54:39 -0400
+In-Reply-To: <20090519.150517.62361946.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller a =E9crit :
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 19 May 2009 15:24:50 -0400
+>=20
+>>> Moving whole group in front would defeat the purpose of move, actua=
+lly,
+>>> since rank in chain is used to decay the timeout in garbage collect=
+or.
+>>> (search for tmo >>=3D 1; )
+>>>
+>> Argh, so the list is implicitly ordered by expiration time.  That
+>> really defeats the entire purpose of doing grouping in the ilst at
+>> all.  If thats the case, then I agree, its probably better to to
+>> take the additional visitation hit in in check_expire above than to
+>> try and preserve ordering.
+>=20
+> Yes, this seems best.
+>=20
+> I was worried that somehow the ordering also influences lookups,
+> because the TOS bits don't go into the hash so I worried that it woul=
+d
+> be important that explicit TOS values appear before wildcard ones.
+> But it doesn't appear that this is an issue, we don't have wildcard
+> TOSs in the rtable entries, they are always explicit.
+>=20
+> So I would like to see an explicit final patch from Eric so we can ge=
+t
+> this fixed now.
+>=20
 
-The the PACKET_ADD_MEMBERSHIP and the PACKET_DROP_MEMBERSHIP setsockopt
-calls for af_packet already has all of the infrastructure needed to subscribe
-to multiple mac addresses.  All that is missing is a flag to say that
-the address we want to listen on is a unicast address.
+I would like to split patches because we have two bugs indeed, and
+I prefer to get attention for both problems, I dont remember Neil ackno=
+wledged
+the length computation problem.
 
-So introduce PACKET_MR_UNICAST and wire it up to dev_unicast_add and
-dev_unicast_delete.
+=46irst and small patch, candidate for net-2.6 and stable (for 2.6.29) =
+:
 
-Additionally I noticed that errors from dev_mc_add were not propagated
-from packet_dev_mc so fix that.
+Thank you
 
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+[PATCH] net: fix length computation in rt_check_expire()
+
+rt_check_expire() computes average and standard deviation of chain leng=
+ths,
+but not correclty reset length to 0 at beginning of each chain.
+This probably gives overflows for sum2 (and sum) on loaded machines ins=
+tead=20
+of meaningful results.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 ---
- include/linux/if_packet.h |    1 +
- net/packet/af_packet.c    |   10 ++++++++--
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ net/ipv4/route.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index 18db066..ed26d4f 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -135,5 +135,6 @@ struct packet_mreq
- #define PACKET_MR_MULTICAST	0
- #define PACKET_MR_PROMISC	1
- #define PACKET_MR_ALLMULTI	2
-+#define PACKET_MR_UNICAST	3
- 
- #endif
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1fc4a78..2abaf83 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1254,9 +1254,9 @@ static int packet_dev_mc(struct net_device *dev, struct packet_mclist *i,
- 	switch (i->type) {
- 	case PACKET_MR_MULTICAST:
- 		if (what > 0)
--			dev_mc_add(dev, i->addr, i->alen, 0);
-+			return dev_mc_add(dev, i->addr, i->alen, 0);
- 		else
--			dev_mc_delete(dev, i->addr, i->alen, 0);
-+			return dev_mc_delete(dev, i->addr, i->alen, 0);
- 		break;
- 	case PACKET_MR_PROMISC:
- 		return dev_set_promiscuity(dev, what);
-@@ -1264,6 +1264,12 @@ static int packet_dev_mc(struct net_device *dev, struct packet_mclist *i,
- 	case PACKET_MR_ALLMULTI:
- 		return dev_set_allmulti(dev, what);
- 		break;
-+	case PACKET_MR_UNICAST:
-+		if (what > 0)
-+			return dev_unicast_add(dev, i->addr, i->alen);
-+		else
-+			return dev_unicast_delete(dev, i->addr, i->alen);
-+		break;
- 	default:;
- 	}
- 	return 0;
--- 
-1.6.0.6
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index c4c60e9..869cf1c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -785,7 +785,7 @@ static void rt_check_expire(void)
+ 	static unsigned int rover;
+ 	unsigned int i =3D rover, goal;
+ 	struct rtable *rth, **rthp;
+-	unsigned long length =3D 0, samples =3D 0;
++	unsigned long samples =3D 0;
+ 	unsigned long sum =3D 0, sum2 =3D 0;
+ 	u64 mult;
+=20
+@@ -795,9 +795,9 @@ static void rt_check_expire(void)
+ 	goal =3D (unsigned int)mult;
+ 	if (goal > rt_hash_mask)
+ 		goal =3D rt_hash_mask + 1;
+-	length =3D 0;
+ 	for (; goal > 0; goal--) {
+ 		unsigned long tmo =3D ip_rt_gc_timeout;
++		unsigned long length;
+=20
+ 		i =3D (i + 1) & rt_hash_mask;
+ 		rthp =3D &rt_hash_table[i].chain;
+@@ -809,6 +809,7 @@ static void rt_check_expire(void)
+=20
+ 		if (*rthp =3D=3D NULL)
+ 			continue;
++		length =3D 0;
+ 		spin_lock_bh(rt_hash_lock_addr(i));
+ 		while ((rth =3D *rthp) !=3D NULL) {
+ 			if (rt_is_expired(rth)) {
 
