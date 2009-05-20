@@ -1,88 +1,74 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] powerpc/ep8248e: phylib needs NET_SCHED to build
-Date: Wed, 20 May 2009 08:27:24 -0500
-Message-ID: <59B1F61A-BFB7-47CF-A1D8-323669CB08F8@kernel.crashing.org>
-References: <1242821902-16836-1-git-send-email-a.beregalov@gmail.com> <alpine.LRH.2.00.0905201425540.5871@vixen.sonytel.be>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
+Date: Wed, 20 May 2009 15:49:15 +0200
+Message-ID: <200905201549.16154.mb@bu3sch.de>
+References: <4A11DCBF.9000700@free.fr> <20090519173503.GD2691@tuxdriver.com> <20090520071513.GB24231@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Beregalov <a.beregalov@gmail.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	matthieu castet <castet.matthieu@free.fr>,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51411 "EHLO gate.crashing.org"
+Received: from bu3sch.de ([62.75.166.246]:57780 "EHLO vs166246.vserver.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753518AbZETN1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2009 09:27:38 -0400
-In-Reply-To: <alpine.LRH.2.00.0905201425540.5871@vixen.sonytel.be>
+	id S1753217AbZETNt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 09:49:57 -0400
+In-Reply-To: <20090520071513.GB24231@linux-mips.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wednesday 20 May 2009 09:15:13 Ralf Baechle wrote:
+> On Tue, May 19, 2009 at 01:35:03PM -0400, John W. Linville wrote:
+> > From: "John W. Linville" <linville@tuxdriver.com>
+> > Date: Tue, 19 May 2009 13:35:03 -0400
+> > To: Michael Buesch <mb@bu3sch.de>
+> > Cc: Ralf Baechle <ralf@linux-mips.org>,
+> > 	matthieu castet <castet.matthieu@free.fr>,
+> > 	linux-mips@linux-mips.org, netdev@vger.kernel.org
+> > Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
+> > Content-Type: text/plain; charset=us-ascii
+> > 
+> > On Tue, May 19, 2009 at 07:29:20PM +0200, Michael Buesch wrote:
+> > > On Tuesday 19 May 2009 19:09:57 Ralf Baechle wrote:
+> > > > Maybe because I felt drivers/ssb/ was outside my jurisdiction - and unlike
+> > > > what alot of people may seem to think I'm not a full time MIPS kernel
+> > > > hacker.
+> > > 
+> > > Ok nice.
+> > > 
+> > > > I can deal with SSB patch if you so desire - but I have no experience with
+> > > > SSB, so I'd have somebody to rubberstamp non-trivial SSB patches before I
+> > > > queue them up.
+> > > 
+> > >  **Fwoo..
+> > > [stamp here]
+> > >       ..mppp**
+> > > 
+> > > 
+> > > Done. :)
+> > > 
+> > > > I can keep them either in the usual MIPS trees on 
+> > > > linux-mips.org or I could create a separate linux-ssb tree, depending on
+> > > > what seems to be sensible.  Also, reading the entry in the maintainers
+> > > > file I wonder if netdev is really the list of a choice?
+> > > 
+> > > Yes it is, because the bus is only used on networking devices.
+> > > (Ethernet cards, wireless cards, and network routers)
+> > > I don't think you need to create a separate tree. ssb is pretty mature. There
+> > > won't be that many patches.
+> > 
+> > OK, now I'm confused again -- should I take SSB patches, or is Ralf
+> > going to do it? :-)
+> 
+> My decoder ring says, I'll do it from now on :)
 
-On May 20, 2009, at 7:27 AM, Geert Uytterhoeven wrote:
 
-> On Wed, 20 May 2009, Alexander Beregalov wrote:
->> Fix this build error:
->> drivers/built-in.o: In function `phy_state_machine':
->> drivers/net/phy/phy.c:893: undefined reference to 'netif_carrier_off'
->> drivers/net/phy/phy.c:854: undefined reference to 'netif_carrier_on'
->>
->> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
->> ---
->> arch/powerpc/platforms/82xx/Kconfig |    3 +++
->> 1 files changed, 3 insertions(+), 0 deletions(-)
->>
->> diff --git a/arch/powerpc/platforms/82xx/Kconfig b/arch/powerpc/ 
->> platforms/82xx/Kconfig
->> index 7c7df40..36a3e58 100644
->> --- a/arch/powerpc/platforms/82xx/Kconfig
->> +++ b/arch/powerpc/platforms/82xx/Kconfig
->> @@ -31,6 +31,9 @@ config EP8248E
->> 	select 8260
->> 	select FSL_SOC
->> 	select PHYLIB
->> +	select NET
->> +	select NETDEVICE
->> +	select NET_SCHED
->> 	select MDIO_BITBANG
->> 	help
->> 	  This enables support for the Embedded Planet EP8248E board.
->
-> Why is there a `select PHYLIB' at the platform level? Shouldn't it  
-> be in
-> drivers/net/Kconfig, near the appropriate network driver? That way  
-> people can
-> build kernels without networking support, if they want.
+Ok, nice. :)
+Matthieu, can you resend them to Ralf? He doesn't have them, yet.
 
-I agree w/you however the initial reason it was:
-
-commit ff21f23648d33649fcf3e1e99d03e245f0e1acf8
-Author: Kumar Gala <galak@kernel.crashing.org>
-Date:   Wed Jul 16 17:47:54 2008 -0500
-
-     powerpc/ep8248e: Unconditionally select PHYLIB for mdio_bitbang
-
-     Its possible to build the phylib as a module, however this breaks  
-the
-     board code because alloc_mdio_bitbang and mdiobus_register are not
-     available if we build as a module.  These are needed by the board  
-code
-     since it implements the low level mdio bitbang ops.
-
-     So we unconditionally select PHYLIB to ensure its built into the  
-kernel
-     if we are building in EP8248E support.
-
-     Long term we should look at moving the mdio_ops into its own file  
-so it
-     can be built as a module.
-
-     Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
-
-so maybe it should:
-
-	select PHYLIB if NET
-
-- k
-
+-- 
+Greetings, Michael.
