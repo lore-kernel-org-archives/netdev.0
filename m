@@ -1,92 +1,56 @@
-From: Rami Rosen <ramirose@gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH net-next-2.6] cleanup: remove unused parameter from fill
-	method in fib_rules_ops.
-Date: Wed, 20 May 2009 09:50:59 +0300
-Message-ID: <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
-References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>
-	 <20090519.151857.56095864.davem@davemloft.net>
+ 	method in fib_rules_ops.
+Date: Wed, 20 May 2009 08:57:58 +0200
+Message-ID: <4A13A9F6.7080800@cosmosbay.com>
+References: <eb3ff54b0905190554i6293ebdfw6b06d54f1cd82f5b@mail.gmail.com>	 <20090519.151857.56095864.davem@davemloft.net> <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174c3f0c32ae5c046a5273d0
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:61995 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbZETGu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 02:50:59 -0400
-Received: by ewy24 with SMTP id 24so291460ewy.37
-        for <netdev@vger.kernel.org>; Tue, 19 May 2009 23:50:59 -0700 (PDT)
-In-Reply-To: <20090519.151857.56095864.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38569 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbZETG6G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 02:58:06 -0400
+In-Reply-To: <eb3ff54b0905192350w4aa0f411q26ac8e460f51b29f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0015174c3f0c32ae5c046a5273d0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Rami Rosen a =E9crit :
+> Hi,
+> This fixes the  for the space-tab sequences  and
+> multi-line tabbing. Sorry.
+>=20
+> The netlink message header (struct nlmsghdr) is an unused parameter i=
+n
+> fill method of fib_rules_ops struct.
+> This patch removes this parameter from this method and fixes the plac=
+es
+> where this method is called.
+>=20
+> (include/net/fib_rules.h)
+>=20
+>=20
+>=20
+> Regards,
+> Rami Rosen
+>=20
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+>=20
 
-Hi,
-This fixes the  for the space-tab sequences  and
-multi-line tabbing. Sorry.
-
-The netlink message header (struct nlmsghdr) is an unused parameter in
-fill method of fib_rules_ops struct.
-This patch removes this parameter from this method and fixes the places
-where this method is called.
-
-(include/net/fib_rules.h)
+ static int fib6_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+-			  struct nlmsghdr *nlh, struct fib_rule_hdr *frh)
++			                    struct fib_rule_hdr *frh)
 
 
+extra spaces after tabs.... it should be :
 
-Regards,
-Rami Rosen
+ static int fib6_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+-			  struct nlmsghdr *nlh, struct fib_rule_hdr *frh)
++			  struct fib_rule_hdr *frh)
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
---0015174c3f0c32ae5c046a5273d0
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fuxoczri0
 
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2ZpYl9ydWxlcy5oIGIvaW5jbHVkZS9uZXQvZmliX3J1
-bGVzLmgKaW5kZXggYjliNjMzOS4uY2E0YjJlOCAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvZmli
-X3J1bGVzLmgKKysrIGIvaW5jbHVkZS9uZXQvZmliX3J1bGVzLmgKQEAgLTU0LDcgKzU0LDYgQEAg
-c3RydWN0IGZpYl9ydWxlc19vcHMKIAkJCQkJICAgc3RydWN0IGZpYl9ydWxlX2hkciAqLAogCQkJ
-CQkgICBzdHJ1Y3QgbmxhdHRyICoqKTsKIAlpbnQJCQkoKmZpbGwpKHN0cnVjdCBmaWJfcnVsZSAq
-LCBzdHJ1Y3Qgc2tfYnVmZiAqLAotCQkJCQlzdHJ1Y3Qgbmxtc2doZHIgKiwKIAkJCQkJc3RydWN0
-IGZpYl9ydWxlX2hkciAqKTsKIAl1MzIJCQkoKmRlZmF1bHRfcHJlZikoc3RydWN0IGZpYl9ydWxl
-c19vcHMgKm9wcyk7CiAJc2l6ZV90CQkJKCpubG1zZ19wYXlsb2FkKShzdHJ1Y3QgZmliX3J1bGUg
-Kik7CmRpZmYgLS1naXQgYS9uZXQvY29yZS9maWJfcnVsZXMuYyBiL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCmluZGV4IDE3ZDlmNDkuLmJkMzA5MzggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2ZpYl9ydWxl
-cy5jCisrKyBiL25ldC9jb3JlL2ZpYl9ydWxlcy5jCkBAIC01MDAsNyArNTAwLDcgQEAgc3RhdGlj
-IGludCBmaWJfbmxfZmlsbF9ydWxlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBmaWJfcnVs
-ZSAqcnVsZSwKIAlpZiAocnVsZS0+dGFyZ2V0KQogCQlOTEFfUFVUX1UzMihza2IsIEZSQV9HT1RP
-LCBydWxlLT50YXJnZXQpOwogCi0JaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIG5saCwgZnJoKSA8
-IDApCisJaWYgKG9wcy0+ZmlsbChydWxlLCBza2IsIGZyaCkgPCAwKQogCQlnb3RvIG5sYV9wdXRf
-ZmFpbHVyZTsKIAogCXJldHVybiBubG1zZ19lbmQoc2tiLCBubGgpOwpkaWZmIC0tZ2l0IGEvbmV0
-L2RlY25ldC9kbl9ydWxlcy5jIGIvbmV0L2RlY25ldC9kbl9ydWxlcy5jCmluZGV4IGEyNjkwYjEu
-LmQ3MGRjYjUgMTAwNjQ0Ci0tLSBhL25ldC9kZWNuZXQvZG5fcnVsZXMuYworKysgYi9uZXQvZGVj
-bmV0L2RuX3J1bGVzLmMKQEAgLTE5Miw3ICsxOTIsNyBAQCB1bnNpZ25lZCBkbmV0X2FkZHJfdHlw
-ZShfX2xlMTYgYWRkcikKIH0KIAogc3RhdGljIGludCBkbl9maWJfcnVsZV9maWxsKHN0cnVjdCBm
-aWJfcnVsZSAqcnVsZSwgc3RydWN0IHNrX2J1ZmYgKnNrYiwKLQkJCSAgICBzdHJ1Y3Qgbmxtc2do
-ZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAg
-ICAgIHN0cnVjdCBmaWJfcnVsZV9oZHIgKmZyaCkKIHsKIAlzdHJ1Y3QgZG5fZmliX3J1bGUgKnIg
-PSAoc3RydWN0IGRuX2ZpYl9ydWxlICopcnVsZTsKIApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvZmli
-X3J1bGVzLmMgYi9uZXQvaXB2NC9maWJfcnVsZXMuYwppbmRleCAzODkwNGJlLi40MmU3YWQ1IDEw
-MDY0NAotLS0gYS9uZXQvaXB2NC9maWJfcnVsZXMuYworKysgYi9uZXQvaXB2NC9maWJfcnVsZXMu
-YwpAQCAtMjA5LDcgKzIwOSw3IEBAIHN0YXRpYyBpbnQgZmliNF9ydWxlX2NvbXBhcmUoc3RydWN0
-IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBp
-bnQgZmliNF9ydWxlX2ZpbGwoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5saCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJo
-KQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJ
-c3RydWN0IGZpYjRfcnVsZSAqcnVsZTQgPSAoc3RydWN0IGZpYjRfcnVsZSAqKSBydWxlOwogCmRp
-ZmYgLS1naXQgYS9uZXQvaXB2Ni9maWI2X3J1bGVzLmMgYi9uZXQvaXB2Ni9maWI2X3J1bGVzLmMK
-aW5kZXggZTFhMzZkYi4uZDE4MmMwNSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvZmliNl9ydWxlcy5j
-CisrKyBiL25ldC9pcHY2L2ZpYjZfcnVsZXMuYwpAQCAtMjExLDcgKzIxMSw3IEBAIHN0YXRpYyBp
-bnQgZmliNl9ydWxlX2NvbXBhcmUoc3RydWN0IGZpYl9ydWxlICpydWxlLCBzdHJ1Y3QgZmliX3J1
-bGVfaGRyICpmcmgsCiB9CiAKIHN0YXRpYyBpbnQgZmliNl9ydWxlX2ZpbGwoc3RydWN0IGZpYl9y
-dWxlICpydWxlLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAotCQkJICBzdHJ1Y3Qgbmxtc2doZHIgKm5s
-aCwgc3RydWN0IGZpYl9ydWxlX2hkciAqZnJoKQorCQkJICAgICAgICAgICAgICAgICAgICBzdHJ1
-Y3QgZmliX3J1bGVfaGRyICpmcmgpCiB7CiAJc3RydWN0IGZpYjZfcnVsZSAqcnVsZTYgPSAoc3Ry
-dWN0IGZpYjZfcnVsZSAqKSBydWxlOwogCg==
---0015174c3f0c32ae5c046a5273d0--
+
