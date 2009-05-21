@@ -1,55 +1,120 @@
-From: mopsosforum <mopsosforum@gmail.com>
-Subject: using the igmph structure with skb : error in value
-Date: Fri, 22 May 2009 13:19:05 +0100
-Message-ID: <74FCA40A-033B-48A0-B9B5-4700AAC1D4E2@gmail.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 5/6 2.6.30-rc6] tipc: Use
+	genl_register_family_with_ops()
+Date: Thu, 21 May 2009 19:41:56 +0200 (CEST)
+Message-ID: <20090521174156.6570613932@rere.qmqm.pl>
+Content-Type: multipart/mixed; boundary="===============7944374672526115693=="
+Cc: tipc-discussion@lists.sourceforge.net
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:42551 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754643AbZEVMTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 08:19:10 -0400
-Received: by an-out-0708.google.com with SMTP id d40so3531362and.1
-        for <netdev@vger.kernel.org>; Fri, 22 May 2009 05:19:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi,
+--===============7944374672526115693==
 
-I work on a kernel 2.6.21 with ebtables.
+Use genl_register_family_with_ops() instead of a copy. This also changes
+netlink related variable names to be kernel-wide unique for consistency
+with other users.
 
-I develop a module for ebtables, and I need to analyse the igmp header.
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 
-I have this function (just to see the value)
+diff -urN linux-orig-mqbr/net/tipc/netlink.c linux-mqbr/net/tipc/netlink.c
+--- linux-orig-mqbr/net/tipc/netlink.c	2009-03-24 00:12:14.000000000 +0100
++++ linux-mqbr/net/tipc/netlink.c	2009-05-21 18:04:46.000000000 +0200
+@@ -68,7 +68,7 @@
+ 	return 0;
+ }
+ 
+-static struct genl_family family = {
++static struct genl_family tipc_genl_family = {
+ 	.id		= GENL_ID_GENERATE,
+ 	.name		= TIPC_GENL_NAME,
+ 	.version	= TIPC_GENL_VERSION,
+@@ -76,39 +76,33 @@
+ 	.maxattr	= 0,
+ };
+ 
+-static struct genl_ops ops = {
++static struct genl_ops tipc_genl_ops = {
+ 	.cmd		= TIPC_GENL_CMD,
+ 	.doit		= handle_cmd,
+ };
+ 
+-static int family_registered = 0;
++static int tipc_genl_family_registered;
+ 
+ int tipc_netlink_start(void)
+ {
++	int res;
+ 
++	res = genl_register_family_with_ops(&tipc_genl_family,
++		&tipc_genl_ops, 1);
++	if (res) {
++		err("Failed to register netlink interface\n");
++		return res;
++	}
+ 
+-	if (genl_register_family(&family))
+-		goto err;
+-
+-	family_registered = 1;
+-
+-	if (genl_register_ops(&family, &ops))
+-		goto err_unregister;
+-
++	tipc_genl_family_registered = 1;
+ 	return 0;
+-
+- err_unregister:
+-	genl_unregister_family(&family);
+-	family_registered = 0;
+- err:
+-	err("Failed to register netlink interface\n");
+-	return -EFAULT;
+ }
+ 
+ void tipc_netlink_stop(void)
+ {
+-	if (family_registered) {
+-		genl_unregister_family(&family);
+-		family_registered = 0;
+-	}
++	if (!tipc_genl_family_registered)
++		return;
++
++	genl_unregister_family(&tipc_genl_family);
++	tipc_genl_family_registered = 0;
+ }
 
-static int ebt_target (struct sk_buff           **pskb,
-                        unsigned int             hooknr,
-                        const struct net_device  *in,
-                        const struct net_device  *out,
-                        const void               *data,
-                        unsigned int             datalen)
 
-{
-struct sk_buff          *skb = *pskb;
-printk ("igmp type :%u\n", skb->h.igmph->type);
+--===============7944374672526115693==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-}
+------------------------------------------------------------------------------
+Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
+is a gathering of tech-side developers & brand creativity professionals. Meet
+the minds behind Google Creative Lab, Visual Complexity, Processing, & 
+iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
+Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
+--===============7944374672526115693==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I send a igmp packet to join a group
-and I recieve this
+_______________________________________________
+tipc-discussion mailing list
+tipc-discussion@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/tipc-discussion
 
-       igmp type : 70
-
-Normaly the good value in my case is  22 (I worked with igmp v3).
-
-I don't undestand the response?
-
-Then I try to see the ip of the multicast group (I send for the group
-239.255.1.4) , I recieve 0.0.24.0 .
-
-It's really strange because if I try to see the ip address of the
-packet, it's works  (skb->h.ipiph->daddr) : 224.0.0.22
-
-
+--===============7944374672526115693==--
