@@ -1,62 +1,104 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] RxRPC: Error handling for rxrpc_alloc_connection()
-Date: Thu, 21 May 2009 14:20:27 +0100
-Message-ID: <20090521132027.12364.63780.stgit@warthog.procyon.org.uk>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d" as
+	interface name
+Date: Thu, 21 May 2009 15:29:10 +0200 (CEST)
+Message-ID: <tkrat.21c425cc195510c9@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <error27@gmail.com>,
-	David Howells <dhowells@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58302 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbZEUNUb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 09:20:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jay Fenlason <fenlason@redhat.com>,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux1394-devel@lists.sourceforge.net
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+Content-Disposition: INLINE
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
+Change the initial name of IP-over-1394 networking interfaces from
+"eth[0-9]+" to "firewire[0-9]+".
 
-rxrpc_alloc_connection() doesn't return an error code on failure, it just
-returns NULL.  IS_ERR(NULL) is false.
+This should have been done years ago for the reason mentioned in the
+inline comment.  The naming issue basically prevented acceptance of
+IP networking over 1394 on Linux.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
+The future IP-over1394 driver in the newer alternative firewire driver
+stack will use the "firewire%d" format from the start while "eth%d" will
+no longer be used in the new driver.
+
+Necessary changes in userland:
+
+People who use the eth1394 driver either have to update their network
+configuration (or instead perhaps respecpective udev interface renaming
+rules) to the new names, or add
+
+    options eth1394 firewire_interface_name=N
+
+to /etc/modprobe.conf or /etc/modprobe.d/whatever if they really prefer
+the old names.
+
+Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 ---
+ drivers/ieee1394/eth1394.c |   23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
- net/rxrpc/ar-connection.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-
-diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
-index 0f1218b..67e38a0 100644
---- a/net/rxrpc/ar-connection.c
-+++ b/net/rxrpc/ar-connection.c
-@@ -343,9 +343,9 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 		/* not yet present - create a candidate for a new connection
- 		 * and then redo the check */
- 		conn = rxrpc_alloc_connection(gfp);
--		if (IS_ERR(conn)) {
--			_leave(" = %ld", PTR_ERR(conn));
--			return PTR_ERR(conn);
-+		if (!conn) {
-+			_leave(" = -ENOMEM");
-+			return -ENOMEM;
- 		}
+Index: linux/drivers/ieee1394/eth1394.c
+===================================================================
+--- linux.orig/drivers/ieee1394/eth1394.c
++++ linux/drivers/ieee1394/eth1394.c
+@@ -146,6 +146,25 @@ MODULE_DESCRIPTION("IEEE 1394 IPv4 Drive
+ MODULE_LICENSE("GPL");
  
- 		conn->trans = trans;
-@@ -508,9 +508,9 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
- 		/* not yet present - create a candidate for a new connection and then
- 		 * redo the check */
- 		candidate = rxrpc_alloc_connection(gfp);
--		if (IS_ERR(candidate)) {
--			_leave(" = %ld", PTR_ERR(candidate));
--			return PTR_ERR(candidate);
-+		if (!candidate) {
-+			_leave(" = -ENOMEM");
-+			return -ENOMEM;
- 		}
+ /*
++ * Legacy option:  Choose between "eth%d" (old) and "firewire%d" (new, default)
++ * as name template of eth1304's networking interfaces.
++ *
++ * eth1394 used to set "eth[0-9]+" as the initial name of an IP-over-1394
++ * networking interface.  This caused trouble for users and admins since
++ * it is indistinguishable from Ethernet drivers' interfaces.
++ *
++ * From Linux 2.6.31 on, "eth[0-9]+" remains only an option which can be
++ * activated by setting the following module parameter to N.  The default
++ * name format is "firewire[0-9]+" now.  This way, people will immediately
++ * recognize what kind of networking interface this is, and no mix-ups
++ * with Ethernet interface configurations will happen anymore.
++ */
++static int firewire_interface_name = 1;
++module_param(firewire_interface_name, bool, S_IRUGO | S_IWUSR);
++MODULE_PARM_DESC(firewire_interface_name, "use 'firewire' (= Y, default) or "
++		 "'eth' (= N, legacy option) as name prefix of interfaces");
++
++/*
+  * The max_partial_datagrams parameter is the maximum number of fragmented
+  * datagrams per node that eth1394 will keep in memory.  Providing an upper
+  * bound allows us to limit the amount of memory that partial datagrams
+@@ -595,7 +614,9 @@ static void ether1394_add_host(struct hp
+ 		return;
+ 	}
  
- 		candidate->trans = trans;
+-	dev = alloc_netdev(sizeof(*priv), "eth%d", ether1394_init_dev);
++	dev = alloc_netdev(sizeof(*priv),
++			   firewire_interface_name ? "firewire%d" : "eth%d",
++			   ether1394_init_dev);
+ 	if (dev == NULL) {
+ 		ETH1394_PRINT_G(KERN_ERR, "Out of memory\n");
+ 		goto out;
 
+-- 
+Stefan Richter
+-=====-==--= -=-= =-=-=
+http://arcgraph.de/sr/
+
+
+------------------------------------------------------------------------------
+Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
+is a gathering of tech-side developers & brand creativity professionals. Meet
+the minds behind Google Creative Lab, Visual Complexity, Processing, & 
+iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
+Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
