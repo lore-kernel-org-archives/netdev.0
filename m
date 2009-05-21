@@ -1,56 +1,37 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [2.6.30] e1000e: pci_enable_pcie_error_reporting
-	failed 0xfffffffb
-Date: Thu, 21 May 2009 22:00:13 +0200
-Message-ID: <200905212200.14375.elendil@planet.nl>
-References: <200905141312.35945.elendil@planet.nl>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] X:beyond ARRAY_SIZE of iwb->data
+Date: Thu, 21 May 2009 22:05:38 +0200
+Message-ID: <4A15B412.8020205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, linux-pm@lists.linux-foundation.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200905141312.35945.elendil@planet.nl>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org
+To: hjlipp@web.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:57814 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753743AbZEUUFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 16:05:38 -0400
+Received: by ewy24 with SMTP id 24so1454091ewy.37
+        for <netdev@vger.kernel.org>; Thu, 21 May 2009 13:05:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 14 May 2009, Frans Pop wrote:
-> With 2.6.30-rc[45] I'm always seeing this error while resuming from STR
-> on my HP 2510p notebook:
->
->   e1000e 0000:00:19.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
-> ! e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
->   e1000e 0000:00:19.0: setting latency timer to 64 
->   e1000e 0000:00:19.0: wake-up capability disabled by ACPI
->   e1000e 0000:00:19.0: PME# disabled
->   e1000e 0000:00:19.0: wake-up capability disabled by ACPI
->   e1000e 0000:00:19.0: PME# disabled
->   e1000e 0000:00:19.0: irq 26 for MSI/MSI-X
->
-> The error only shows up during resume, not during normal boot.
->
-> With 2.6.29 the error is not present. Is this something that should be
-> looked into? Networking still comes up normally.
+Do not go beyond ARRAY_SIZE of iwb->data
 
-I'm still seeing this with 2.6.30-rc6. Should I just ignore it or is it an
-indication of a problem/regression?
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index fbce522..5569a6e 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -177,7 +177,7 @@ int gigaset_isowbuf_getbytes(struct isowbuf_t *iwb, int size)
+ 		return -EINVAL;
+ 	}
+ 	src = iwb->read;
+-	if (unlikely(limit > BAS_OUTBUFSIZE + BAS_OUTBUFPAD ||
++	if (unlikely(limit >= BAS_OUTBUFSIZE + BAS_OUTBUFPAD ||
+ 		     (read < src && limit >= src))) {
+ 		err("isoc write buffer frame reservation violated");
+ 		return -EFAULT;
 
-Cheers,
-FJP
-
-------------------------------------------------------------------------------
-Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
-is a gathering of tech-side developers & brand creativity professionals. Meet
-the minds behind Google Creative Lab, Visual Complexity, Processing, & 
-iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
-Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
