@@ -1,19 +1,19 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 1/2] chelsio: Use generic XENPAK LASI register definitions
-Date: Wed, 20 May 2009 18:51:36 -0700
-Message-ID: <4A14B3A8.8040203@chelsio.com>
-References: <1242775267.3198.8.camel@achroite>
+Subject: Re: [PATCH 2/2] cxgb3: Use generic XENPAK LASI register definitions
+Date: Wed, 20 May 2009 18:52:19 -0700
+Message-ID: <4A14B3D3.2020701@chelsio.com>
+References: <1242775350.3198.10.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:32652 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:24612 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805AbZEUBvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 21:51:37 -0400
-In-Reply-To: <1242775267.3198.8.camel@achroite>
+	with ESMTP id S1752341AbZEUBwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 21:52:19 -0400
+In-Reply-To: <1242775350.3198.10.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,74 +24,87 @@ Ben Hutchings wrote:
 Acked-by: Divy Le Ray <divy@chelsio.com>
 
 > ---
-> This follows on from:
+>  drivers/net/cxgb3/ael1002.c |    3 ++-
+>  drivers/net/cxgb3/common.h  |   10 ----------
+>  drivers/net/cxgb3/t3_hw.c   |   12 +++++++-----
+>  3 files changed, 9 insertions(+), 16 deletions(-)
 >
-> commit 1c5022eb408e5d9ce48ffbd93d6e34d6f397a1e9
-> Author: Ben Hutchings <bhutchings@solarflare.com>
-> Date:   Fri May 15 00:47:59 2009 +0100
->
->     mdio: Add XENPAK LASI register definitions
->     
->     These registers were originally defined for XENPAK modules, but are
->     also implemented by many other 10G PHYs.
->
-> Ben.
->
->  drivers/net/chelsio/mv88x201x.c |   17 +++++++++--------
->  1 files changed, 9 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/chelsio/mv88x201x.c b/drivers/net/chelsio/mv88x201x.c
-> index 29e0cba..d50907b 100644
-> --- a/drivers/net/chelsio/mv88x201x.c
-> +++ b/drivers/net/chelsio/mv88x201x.c
-> @@ -86,7 +86,8 @@ static int mv88x201x_reset(struct cphy *cphy, int wait)
->  static int mv88x201x_interrupt_enable(struct cphy *cphy)
+> diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+> index bebc00d..df1f585 100644
+> --- a/drivers/net/cxgb3/ael1002.c
+> +++ b/drivers/net/cxgb3/ael1002.c
+> @@ -1007,7 +1007,8 @@ static int ael2005_reset(struct cphy *phy, int wait)
+>  	int err;
+>  	unsigned int lasi_ctrl;
+>  
+> -	err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_CTRL, &lasi_ctrl);
+> +	err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL,
+> +			   &lasi_ctrl);
+>  	if (err)
+>  		return err;
+>  
+> diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
+> index 3147789..79a113b 100644
+> --- a/drivers/net/cxgb3/common.h
+> +++ b/drivers/net/cxgb3/common.h
+> @@ -521,16 +521,6 @@ enum {
+>  	MAC_RXFIFO_SIZE = 32768
+>  };
+>  
+> -/* LASI control and status registers */
+> -enum {
+> -	RX_ALARM_CTRL = 0x9000,
+> -	TX_ALARM_CTRL = 0x9001,
+> -	LASI_CTRL = 0x9002,
+> -	RX_ALARM_STAT = 0x9003,
+> -	TX_ALARM_STAT = 0x9004,
+> -	LASI_STAT = 0x9005
+> -};
+> -
+>  /* PHY loopback direction */
+>  enum {
+>  	PHY_LOOPBACK_TX = 1,
+> diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+> index c8a865a..505a187 100644
+> --- a/drivers/net/cxgb3/t3_hw.c
+> +++ b/drivers/net/cxgb3/t3_hw.c
+> @@ -472,29 +472,31 @@ int t3_set_phy_speed_duplex(struct cphy *phy, int speed, int duplex)
+>  
+>  int t3_phy_lasi_intr_enable(struct cphy *phy)
 >  {
->  	/* Enable PHY LASI interrupts. */
-> -	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, 0x9002, 0x1);
-> +	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL,
-> +			MDIO_PMA_LASI_LSALARM);
+> -	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, LASI_CTRL, 1);
+> +	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL,
+> +			     MDIO_PMA_LASI_LSALARM);
+>  }
 >  
->  	/* Enable Marvell interrupts through Elmer0. */
->  	if (t1_is_asic(cphy->adapter)) {
-> @@ -102,7 +103,7 @@ static int mv88x201x_interrupt_enable(struct cphy *cphy)
->  static int mv88x201x_interrupt_disable(struct cphy *cphy)
+>  int t3_phy_lasi_intr_disable(struct cphy *phy)
 >  {
->  	/* Disable PHY LASI interrupts. */
-> -	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, 0x9002, 0x0);
-> +	cphy_mdio_write(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL, 0x0);
+> -	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, LASI_CTRL, 0);
+> +	return t3_mdio_write(phy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_CTRL, 0);
+>  }
 >  
->  	/* Disable Marvell interrupts through Elmer0. */
->  	if (t1_is_asic(cphy->adapter)) {
-> @@ -122,9 +123,9 @@ static int mv88x201x_interrupt_clear(struct cphy *cphy)
+>  int t3_phy_lasi_intr_clear(struct cphy *phy)
+>  {
+>  	u32 val;
 >  
->  #ifdef MV88x2010_LINK_STATUS_BUGS
->  	/* Required to read twice before clear takes affect. */
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9003, &val);
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9004, &val);
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9005, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_RXSTAT, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_TXSTAT, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT, &val);
+> -	return t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_STAT, &val);
+> +	return t3_mdio_read(phy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT, &val);
+>  }
 >  
->  	/* Read this register after the others above it else
->  	 * the register doesn't clear correctly.
-> @@ -135,12 +136,12 @@ static int mv88x201x_interrupt_clear(struct cphy *cphy)
->  	/* Clear link status. */
->  	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_STAT1, &val);
->  	/* Clear PHY LASI interrupts. */
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9005, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT, &val);
+>  int t3_phy_lasi_intr_handler(struct cphy *phy)
+>  {
+>  	unsigned int status;
+> -	int err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, LASI_STAT, &status);
+> +	int err = t3_mdio_read(phy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_STAT,
+> +			       &status);
 >  
->  #ifdef MV88x2010_LINK_STATUS_BUGS
->  	/* Do it again. */
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9003, &val);
-> -	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, 0x9004, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_RXSTAT, &val);
-> +	cphy_mdio_read(cphy, MDIO_MMD_PMAPMD, MDIO_PMA_LASI_TXSTAT, &val);
->  #endif
+>  	if (err)
+>  		return err;
+> -	return (status & 1) ?  cphy_cause_link_change : 0;
+> +	return (status & MDIO_PMA_LASI_LSALARM) ? cphy_cause_link_change : 0;
+>  }
 >  
->  	/* Clear Marvell interrupts through Elmer0. */
+>  static const struct adapter_info t3_adap_info[] = {
 >
 >   
 
