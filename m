@@ -1,48 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB accuracy for high speed
-Date: Thu, 21 May 2009 10:28:05 +0200
-Message-ID: <20090521082805.GB2892@ami.dom.local>
-References: <298f5c050905180736m303f0c79ha30d3f791222fa1b@mail.gmail.com> <1242688479.9558.60.camel@hazard2.francoudi.com> <1242689267.11814.1.camel@hazard2.francoudi.com> <20090519110311.GA5521@ff.dom.local> <20090519140416.GA21270@francoudi.com> <20090519201027.GA4751@ami.dom.local> <1242857245.13519.17.camel@hazard2.francoudi.com> <4A148838.8010809@cosmosbay.com> <20090521072050.GA2892@ami.dom.local> <20090521074400.GA19113@francoudi.com>
+From: Piotr =?iso-8859-2?q?Zi=EAcik?= <kosmo@semihalf.com>
+Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
+Date: Thu, 21 May 2009 10:34:39 +0200
+Message-ID: <200905211034.39762.kosmo@semihalf.com>
+References: <1241640919-4650-1-git-send-email-wd@denx.de> <200905141438.23348.kosmo@semihalf.com> <fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
-	Antonio Almeida <vexwek@gmail.com>,
-	Corey Hickey <bugfood-ml@fatooh.org>
-To: Vladimir Ivashchenko <hazard@francoudi.com>
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Denk <wd@denx.de>, Scott Wood <scottwood@freescale.com>,
+	John Rigby <jrigby@gmail.com>, linuxppc-dev@ozlabs.org,
+	Detlev Zundel <dzu@denx.de>, netdev@vger.kernel.org,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Becky Bruce <Becky.Bruce@freescale.com>
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:43531 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbZEUI2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 04:28:30 -0400
-Received: by bwz22 with SMTP id 22so863998bwz.37
-        for <netdev@vger.kernel.org>; Thu, 21 May 2009 01:28:31 -0700 (PDT)
+Received: from semihalf.com ([206.130.101.55]:58165 "EHLO semihalf.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750757AbZEUIgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 04:36:03 -0400
+In-Reply-To: <fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20090521074400.GA19113@francoudi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2009 at 10:44:00AM +0300, Vladimir Ivashchenko wrote:
-> > I don't know why more of esfq wasn't merged, anyway similar
-> > functionality could be achieved in current kernels with sch_drr +
-> > cls_flow, alas not enough documented. Here is some hint:
-> > http://markmail.org/message/h24627xkrxyqxn4k
-> 
-> Can I balance only by destination IP using this approach? 
-> Normal IP flow-based balancing is not good for me, I need 
-> to ensure equality between destination hosts.
+Thursday 14 May 2009 16:00:33 Grant Likely wrote:
+> > MPC5121 support was added to drivers/net/fs_enet. MPC52xx uses
+> > drivers/net/fec_mpc52xx.c. Do you think that creating one universal
+> > driver from these two is now possible? You said that it should be easy,
+> > however you also said that cache coherency issues makes this imposible.
+>
+> Not impossible.  Hard.
 
-Yes, you need to use flow "dst" key, I guess. (tc filter add flow help)
+I thought a bit more about merging FEC drivers and I see one problem more.
+Driver fs_enet works with FEC's with own DMA engine and fec_mpc52xx.c uses 
+BestComm. Integration of these two drivers will need a DMA abstraction layer 
+to keep everything clean. Unfortuanetly BestComm driver does not provide any 
+abstraction - it only exports set of functions to deal with specific 
+hardware: FEC and PATA.
 
-Jarek P.
+More #ifdef's will be needed to remove linking with BestComm driver if kernel 
+will be compiled without 52xx support and resulting code will not be much 
+better than existing one. Especially that new DMA abstraction layer probably 
+will be quite complex.
 
-> > PS: I guess, you wasn't very consistent if your main problem was
-> > exceeding or not reaching htb rate, and there is quite a difference.
-> 
-> Yes indeed :(
-
-Generally, the most common reasons are:
-- too short (or zero) tx queue length or/plus some disturbances in
-  maintaining the flow - for not reaching the rate
-- gso/tso or other non standard packets sizes - for exceeding the
-  rate.
+-- 
+Best Regards.
+Piotr Ziecik
