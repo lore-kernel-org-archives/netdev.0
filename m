@@ -1,44 +1,60 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: user space virtio-net exits with "truncating packet" error
-Date: Thu, 21 May 2009 15:23:05 +0930
-Message-ID: <200905211523.07278.rusty@rustcorp.com.au>
-References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <200905201217.30939.rusty@rustcorp.com.au> <4A13A127.30305@voltaire.com>
+Subject: Re: [RFC] virtio: orphan skbs if we're relying on timer to free them
+Date: Thu, 21 May 2009 16:27:05 +0930
+Message-ID: <200905211627.05814.rusty@rustcorp.com.au>
+References: <200905182218.47975.rusty@rustcorp.com.au> <20090518.194013.109631461.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
-	Gregory Haskins <ghaskins@novell.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Mark McLoughlin <markmc@redhat.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:36536 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:47686 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751166AbZEUFxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 01:53:10 -0400
-In-Reply-To: <4A13A127.30305@voltaire.com>
+	id S1750757AbZEUG5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 02:57:07 -0400
+In-Reply-To: <20090518.194013.109631461.davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 May 2009 03:50:23 pm Or Gerlitz wrote:
-> Rusty Russell wrote:
-> > Bit 5 = VIRTIO_NET_F_MAC (the host set the mac address)
-> > Bit 24 = VIRTIO_F_NOTIFY_ON_EMPTY
-> > You don't have any GSO or checksum offload here
+On Tue, 19 May 2009 12:10:13 pm David Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Mon, 18 May 2009 22:18:47 +0930
+> > We check for finished xmit skbs on every xmit, or on a timer (unless
+> > the host promises to force an interrupt when the xmit ring is empty).
+> > This can penalize userspace tasks which fill their sockbuf.  Not much
+> > difference with TSO, but measurable with large numbers of packets.
+> >
+> > There are a finite number of packets which can be in the transmission
+> > queue.  We could fire the timer more than every 100ms, but that would
+> > just hurt performance for a corner case.  This seems neatest.
+...
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 >
-> Just to make sure I'm in the correct direction - I need to cause these
-> offloads to be advertised by the "lower" part of virtio (e.g the qemu
-> virtio code) to  the "upper" part (the quest kernel), correct? I
-> understand that one of them is called front-end and the other back-end,
-> but my intuitions don't go up to saying who's what...
+> If this is so great for virtio it would also be a great idea
+> universally, but we don't do it.
+>
+> What you're doing by orphan'ing is creating a situation where a single
+> UDP socket can loop doing sends and monopolize the TX queue of a
+> device.  The only control we have over a sender for fairness in
+> datagram protocols is that send buffer allocation.
 
-Yes, that nomenclature is a bit weird.  I prefer "driver" (aka. guest, aka 
-front-end) and "device" (aka. host, aka back-end).
+Urgh, that hadn't even occurred to me.  Good point.
 
-All virtio_net drivers offer some features (at least CSUM offload), and 2.6.26 
-and above will offer some serious GSO features.
+> I'm guilty of doing this too in the NIU driver, also because there I
+> lack a "TX queue empty" interrupt and this can keep TCP sockets from
+> getting stuck.
+>
+> I think we need a generic solution to this issue because it is getting
+> quite common to see cases where the packets in the TX queue of a
+> device can sit there indefinitely.
 
-Cheers,
+I haven't thought this through properly, but how about a hack where we don't 
+orphan packets if the ring is over half full?
+
+Then I guess we could overload the watchdog as a more general timer-after-no-
+xmit?
+
 Rusty.
