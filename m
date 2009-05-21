@@ -1,86 +1,78 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [RFC] virtio: orphan skbs if we're relying on timer to free them
-Date: Thu, 21 May 2009 10:24:31 -0700
-Message-ID: <4A158E4F.9070005@chelsio.com>
-References: <200905182218.47975.rusty@rustcorp.com.au>	<20090518.194013.109631461.davem@davemloft.net>	<200905211627.05814.rusty@rustcorp.com.au> <20090521.001503.90069315.davem@davemloft.net>
+From: Paul Menage <menage@google.com>
+Subject: [PATCH] cls_cgroup: read classid atomically in classifier
+Date: Thu, 21 May 2009 11:31:26 -0700
+Message-ID: <20090521183100.12678.28835.stgit@menage.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: lizf@cn.fujitsu.com, akpm@linux-foundation.org,
+	davem@davemloft.net, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:16667 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743AbZEUSEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 14:04:36 -0400
-In-Reply-To: <20090521.001503.90069315.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.33.17]:14965 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752720AbZEUSeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 14:34:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Thu, 21 May 2009 16:27:05 +0930
-> 
->> On Tue, 19 May 2009 12:10:13 pm David Miller wrote:
->>> What you're doing by orphan'ing is creating a situation where a single
->>> UDP socket can loop doing sends and monopolize the TX queue of a
->>> device.  The only control we have over a sender for fairness in
->>> datagram protocols is that send buffer allocation.
->> Urgh, that hadn't even occurred to me.  Good point.
-> 
-> Now this all is predicated on this actually mattering. :-)
-> 
-> You could argue that the scheduler as well as the size of the
-> TX queue should be limiting and enforcing fairness.
-> 
-> Someone really needs to test this.  Just skb_orphan() every packet
-> at the beginning of dev_hard_start_xmit(), then run some test
-> program with two clients looping out UDP packets to see if one
-> can monopolize the device and get a significantly larger amount
-> of TX resources than the other.  Repeat for 3, 4, 5, etc. clients.
+cls_cgroup: read classid atomically in classifier
 
-The cxgb3 driver has had skb_orphan in its transmit routine forever (also 
-due to lack of Tx interrupts) and I am not aware of adverse effects caused 
-by doing so.  It does skip skb_orphan when skb_shared but probably nobody 
-sends sharead skbs with destructors.
+Avoid reading the unsynchronized value cs->classid multiple times,
+since it could change concurrently from non-zero to zero; this would
+result in the classifier returning a positive result with a bogus
+(zero) classid.
 
-The only application I know of that has trouble with lazy skb freeing is 
-pktgen because it treats freeing as an indication that the packet has been 
-transmitted so it's thrown off if packets sit there for a while.  (Also 
-freeing just indicates that the DMA is done, not that the packet has been 
-sent, and modern devices have quite a bit of buffering.)
+Signed-off-by: Paul Menage <menage@google.com>
+Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
 
-> 
->> I haven't thought this through properly, but how about a hack where
->> we don't orphan packets if the ring is over half full?
-> 
-> That would also work.  And for the NIU case this would be great
-> because I DO have a marker bit for triggering interrupts in the TX
-> descriptors.  There's just no "all empty" interrupt on TX (who
-> designs these things? :( ).
-> 
->> Then I guess we could overload the watchdog as a more general
->> timer-after-no- xmit?
-> 
-> Yes, but it means that teardown of a socket can be delayed up to
-> the amount of that timer.  Factor in all of this crazy
-> round_jiffies() stuff people do these days and it could cause
-> pauses for real use cases and drive users batty.
-> 
-> Probably the most profitable avenue is to see if this is a real issue
-> afterall (see above).  If we can get away with having the socket
-> buffer represent socket --> device space only, that's the most ideal
-> solution.  It will probably also improve performance a lot across the
-> board, especially on NUMA/SMP boxes as our TX complete events tend to
-> be in difference places than the SKB producer.
+---
 
-There's a comment in the cxgb3 driver where it calls skb_orphan that 
-explains the rationale and includes some of what you're saying.
+Resending to cc netdev@vger.kernel.org as requested by DaveM
 
+ net/sched/cls_cgroup.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 1ab4542..4ece6e0 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -98,8 +98,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 			       struct tcf_result *res)
+ {
+ 	struct cls_cgroup_head *head = tp->root;
+-	struct cgroup_cls_state *cs;
+-	int ret = 0;
++        u32 classid;
+ 
+ 	/*
+ 	 * Due to the nature of the classifier it is required to ignore all
+@@ -115,17 +114,18 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 		return -1;
+ 
+ 	rcu_read_lock();
+-	cs = task_cls_state(current);
+-	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
+-		res->classid = cs->classid;
+-		res->class = 0;
+-		ret = tcf_exts_exec(skb, &head->exts, res);
+-	} else
+-		ret = -1;
+-
++	classid = task_cls_state(current)->classid;
+ 	rcu_read_unlock();
+ 
+-	return ret;
++	if (!classid)
++		return -1;
++
++	if (!tcf_em_tree_match(skb, &head->ematches, NULL))
++		return -1;
++
++	res->classid = classid;
++	res->class = 0;
++	return tcf_exts_exec(skb, &head->exts, res);
+ }
+ 
+ static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
 
