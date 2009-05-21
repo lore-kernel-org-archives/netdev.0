@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_packet: Teach to listen for multiple unicast
- addresses.
-Date: Thu, 21 May 2009 15:15:17 -0700 (PDT)
-Message-ID: <20090521.151517.119887326.davem@davemloft.net>
-References: <m163fwflga.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Thu, 21 May 2009 15:18:41 -0700 (PDT)
+Message-ID: <20090521.151841.160383267.davem@davemloft.net>
+References: <4A132A0F.8070800@windriver.com>
+	<20090519.150156.115978100.davem@davemloft.net>
+	<4A14285C.1040705@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: hong.pham@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59858
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42375
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755701AbZEUWPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:15:19 -0400
-In-Reply-To: <m163fwflga.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1753743AbZEUWSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:18:43 -0400
+In-Reply-To: <4A14285C.1040705@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 19 May 2009 21:27:17 -0700
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Date: Wed, 20 May 2009 11:57:16 -0400
 
+> I've added the suggested instrumentations to dump out the LD interrupt
+> registers
+> when spurious interrupts occur.  Attached below is a kernel log.
 > 
-> The the PACKET_ADD_MEMBERSHIP and the PACKET_DROP_MEMBERSHIP setsockopt
-> calls for af_packet already has all of the infrastructure needed to subscribe
-> to multiple mac addresses.  All that is missing is a flag to say that
-> the address we want to listen on is a unicast address.
-> 
-> So introduce PACKET_MR_UNICAST and wire it up to dev_unicast_add and
-> dev_unicast_delete.
-> 
-> Additionally I noticed that errors from dev_mc_add were not propagated
-> from packet_dev_mc so fix that.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+> In all cases, interrupts are being generated even though the LDG has
+> been disarmed!
 
-Looks good, applied to net-next-2.6
+There's a bug in your debugging patch:
+
++		ld_im0_reg    = LD_IM0(ldn);
++		ldg_imgmt_reg = LDG_IMGMT(ldn);
+
+You're reading the register "address", not the register's "value".
+So all of the debugging output is bogus.
+
+You need to do nr64(ld_im0_reg) and use that as the value, for
+example.
+
+Can you rerun the test with this fixed?  Thanks!
