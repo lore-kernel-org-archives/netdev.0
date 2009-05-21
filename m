@@ -1,56 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_cgroup: read classid atomically in classifier
-Date: Thu, 21 May 2009 15:22:36 -0700 (PDT)
-Message-ID: <20090521.152236.101174595.davem@davemloft.net>
-References: <20090521183100.12678.28835.stgit@menage.mtv.corp.google.com>
-	<20090521194447.GA3388@psychotron.englab.brq.redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] igb: do not re-register DCA requester on
+	device reset
+Date: Thu, 21 May 2009 16:06:56 -0700
+Message-ID: <20090521230639.21776.59261.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: menage@google.com, lizf@cn.fujitsu.com, akpm@linux-foundation.org,
-	tgraf@suug.ch, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jpirko@redhat.com
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42391
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755264AbZEUWWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:22:38 -0400
-In-Reply-To: <20090521194447.GA3388@psychotron.englab.brq.redhat.com>
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:36720 "EHLO
+	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754090AbZEUXHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 19:07:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Thu, 21 May 2009 21:44:48 +0200
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Thu, May 21, 2009 at 08:31:26PM CEST, menage@google.com wrote:
->>cls_cgroup: read classid atomically in classifier
->>
->>Avoid reading the unsynchronized value cs->classid multiple times,
->>since it could change concurrently from non-zero to zero; this would
->>result in the classifier returning a positive result with a bogus
->>(zero) classid.
->>
->>Signed-off-by: Paul Menage <menage@google.com>
->>Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
->>
->>---
->>
->>Resending to cc netdev@vger.kernel.org as requested by DaveM
->>
->> net/sched/cls_cgroup.c |   22 +++++++++++-----------
->> 1 files changed, 11 insertions(+), 11 deletions(-)
->>
->>diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
->>index 1ab4542..4ece6e0 100644
->>--- a/net/sched/cls_cgroup.c
->>+++ b/net/sched/cls_cgroup.c
->>@@ -98,8 +98,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
->> 			       struct tcf_result *res)
->> {
->> 	struct cls_cgroup_head *head = tp->root;
->>-	struct cgroup_cls_state *cs;
->>-	int ret = 0;
->>+        u32 classid;
->   ^^^^^^^^ How about using TAB instead?
+The current driver is re-registering the DCA requester after every reset.
+Instead of doing this we should only be updating the on board DCA registers
+and not unregistering/re-registering our requester.
 
-Agreed, please use proper formatting.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/igb/igb_main.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index ffd7315..2ec9809 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -996,6 +996,11 @@ void igb_down(struct igb_adapter *adapter)
+ 		igb_reset(adapter);
+ 	igb_clean_all_tx_rings(adapter);
+ 	igb_clean_all_rx_rings(adapter);
++#ifdef CONFIG_IGB_DCA
++
++	/* since we reset the hardware DCA settings were cleared */
++	igb_setup_dca(adapter);
++#endif
+ }
+ 
+ void igb_reinit_locked(struct igb_adapter *adapter)
+@@ -1457,9 +1462,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	if (dca_add_requester(&pdev->dev) == 0) {
+ 		adapter->flags |= IGB_FLAG_DCA_ENABLED;
+ 		dev_info(&pdev->dev, "DCA enabled\n");
+-		/* Always use CB2 mode, difference is masked
+-		 * in the CB driver. */
+-		wr32(E1000_DCA_CTRL, E1000_DCA_CTRL_DCA_MODE_CB2);
+ 		igb_setup_dca(adapter);
+ 	}
+ #endif
+@@ -3771,11 +3773,15 @@ static void igb_update_tx_dca(struct igb_ring *tx_ring)
+ 
+ static void igb_setup_dca(struct igb_adapter *adapter)
+ {
++	struct e1000_hw *hw = &adapter->hw;
+ 	int i;
+ 
+ 	if (!(adapter->flags & IGB_FLAG_DCA_ENABLED))
+ 		return;
+ 
++	/* Always use CB2 mode, difference is masked in the CB driver. */
++	wr32(E1000_DCA_CTRL, E1000_DCA_CTRL_DCA_MODE_CB2);
++
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+ 		adapter->tx_ring[i].cpu = -1;
+ 		igb_update_tx_dca(&adapter->tx_ring[i]);
+
