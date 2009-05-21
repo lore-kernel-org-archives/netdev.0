@@ -1,40 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: ipt_MASQUERADE weirdness (consuming CPU cycles while not used)
-Date: Thu, 21 May 2009 20:00:52 +0200
-Message-ID: <4A1596D4.6000708@netfilter.org>
-References: <200905182219.30216.denys@visp.net.lb>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d"
+ as interface name
+Date: Thu, 21 May 2009 12:34:03 -0700 (PDT)
+Message-ID: <20090521.123403.13286908.davem@davemloft.net>
+References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60840 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751587AbZEUSfB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 14:35:01 -0400
-In-Reply-To: <200905182219.30216.denys@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux1394-devel@lists.sourceforge.net,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fenlason@redhat.com
+To: stefanr@s5r6.in-berlin.de
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <tkrat.21c425cc195510c9@s5r6.in-berlin.de>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Denys Fedoryschenko wrote:
-> I have loaded pppoe (1700 users). I test one rule for short time with -j 
-> MASQUERADE, then removed it and reset conntrack (conntrack -F). But still i 
-> can see it is consuming CPU even when it is not used in any rule. Even i 
-> reboot server and just load rules that dont have MASQUERADE, and just load 
-> module - it will start consuming CPU immediately.
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date: Thu, 21 May 2009 15:29:10 +0200 (CEST)
 
-Are you using 2.6.29 with any conntrack helper loaded? In that case this
-fix is not in -stable yet.
+> Change the initial name of IP-over-1394 networking interfaces from
+> "eth[0-9]+" to "firewire[0-9]+".
+> 
+> This should have been done years ago for the reason mentioned in the
+> inline comment.  The naming issue basically prevented acceptance of
+> IP networking over 1394 on Linux.
+> 
+> The future IP-over1394 driver in the newer alternative firewire driver
+> stack will use the "firewire%d" format from the start while "eth%d" will
+> no longer be used in the new driver.
+> 
+> Necessary changes in userland:
+> 
+> People who use the eth1394 driver either have to update their network
+> configuration (or instead perhaps respecpective udev interface renaming
+> rules) to the new names, or add
+> 
+>     options eth1394 firewire_interface_name=N
+> 
+> to /etc/modprobe.conf or /etc/modprobe.d/whatever if they really prefer
+> the old names.
+> 
+> Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
 
-http://kerneltrap.org/mailarchive/linux-netdev/2009/4/8/5440564
+I think the basis for this patch is completely bogus.
 
-> 64811     3.7735  ipt_MASQUERADE           ipt_MASQUERADE           device_cmp
+Device names are just that, names.  If you want to know "what it is"
+or "where it is" you use tools to determine that information.
 
-device_cmp() by nf_ct_iterate_cleanup() when NETDEV_DOWN event is
-received. Weird, is your device going down quite often? Another
-possibility is that there's some entry stuck in the conntrack table that
-we cannot delete, perhaps we're leaking refcounts somewhere.
+If you make ethtool's get info command return something useful,
+then the user can see that it's a firewire interface and act
+accordingly, as can sophisticated confiruation applications.
 
--- 
-"Los honestos son inadaptados sociales" -- Les Luthiers
+I am completely against this patch.
