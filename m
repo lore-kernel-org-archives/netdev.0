@@ -1,82 +1,62 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
-Date: Thu, 21 May 2009 11:24:35 -0400
-Message-ID: <200905211124.36034.paul.moore@hp.com>
-References: <20090520230652.GB5956@ghostprotocols.net> <200905211103.26496.paul.moore@hp.com> <20090521151109.GG5956@ghostprotocols.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
+Date: Thu, 21 May 2009 09:36:11 -0600
+Message-ID: <fa686aa40905210836x73e41651g9995ba813adec139@mail.gmail.com>
+References: <1241640919-4650-1-git-send-email-wd@denx.de>
+	<200905141438.23348.kosmo@semihalf.com>
+	<fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
+	<200905211034.39762.kosmo@semihalf.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	linux-security-module@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090521151109.GG5956@ghostprotocols.net>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: Becky Bruce <Becky.Bruce@freescale.com>, Wolfgang Denk <wd@denx.de>,
+	Detlev Zundel <dzu@denx.de>, John Rigby <jrigby@gmail.com>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Scott Wood <scottwood@freescale.com>
+To: =?ISO-8859-2?Q?Piotr_Zi=EAcik?= <kosmo@semihalf.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <200905211034.39762.kosmo@semihalf.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 21 May 2009 11:11:09 am Arnaldo Carvalho de Melo wrote:
-> Em Thu, May 21, 2009 at 11:03:26AM -0400, Paul Moore escreveu:
-> > On Thursday 21 May 2009 10:47:39 am Arnaldo Carvalho de Melo wrote:
-> > > Em Thu, May 21, 2009 at 10:16:17AM -0400, Paul Moore escreveu:
-> > > > On Wednesday 20 May 2009 07:06:52 pm Arnaldo Carvalho de Melo wrote:
-> > > > > Meaning receive multiple messages, reducing the number of syscalls
-> > > > > and net stack entry/exit operations.
-> > > >
-> > > > NOTE: adding the LSM list to the CC line
-> > >
-> > > thanks!
-> > >
-> > > > If this approach is accepted I wonder if it would also make sense to
-> > > > move the security_socket_recvmsg() hook out of __sock_recvmsg and
-> > > > into the callers.  I personally can't see a reason why we would need
-> > > > to call into the LSM for each message in the case of the new
-> > > > recvmmsg() syscall.  The downside is that there is now some code
-> > > > duplication (although we are only talking duplicating ~three lines of
-> > > > code) but the upside is that we wont end up calling into the LSM for
-> > > > each of the messages when recvmmsg() is called which seems to fit
-> > > > well with the performance oriented nature of the new syscall.
-> > >
-> > > Agreed that we must do this earlier to avoind vlen calls to
-> > > security_socket_recvmsg, but there are many callers of sock_recvmsg...
-> >
-> > Yeah, like I said there is a downside to this approach, the question is
-> > how much do we care about performance and what are we willing to give up
-> > for it? I don't know the answer but I thought the question needed to be
-> > asked.
+2009/5/21 Piotr Zi=EAcik <kosmo@semihalf.com>:
+> Thursday 14 May 2009 16:00:33 Grant Likely wrote:
+>> > MPC5121 support was added to drivers/net/fs_enet. MPC52xx uses
+>> > drivers/net/fec_mpc52xx.c. Do you think that creating one universal
+>> > driver from these two is now possible? You said that it should be easy,
+>> > however you also said that cache coherency issues makes this imposible.
+>>
+>> Not impossible. =A0Hard.
 >
-> Well, if we only check if the process can read from the socket, I also
-> see no reasons for a new security_socket_recvmmsg nor for checking it
-> multiple times in recvmmsg, since what changes (the msg) is of no
-> interest to LSM.
-
-Exactly.
-
-> > If I'm wrong I'm sure the LSM brain trust will quickly step in ...
-> >
-> > > If security_socket_recvmsg receives the msg and inspects it, I think
-> > > fully inspecting the mmsg and vlen can be something LSM policies can be
-> > > interested in inspecting too, no?
-> >
-> > Maybe, but not with what we currently have in-tree.  Perhaps this is a
-> > sign/opportunity that we can trim the arguments to
-> > security_socket_recvmsg() too?
+> I thought a bit more about merging FEC drivers and I see one problem more.
+> Driver fs_enet works with FEC's with own DMA engine and fec_mpc52xx.c uses
+> BestComm. Integration of these two drivers will need a DMA abstraction la=
+yer
+> to keep everything clean. Unfortuanetly BestComm driver does not provide =
+any
+> abstraction - it only exports set of functions to deal with specific
+> hardware: FEC and PATA.
 >
-> Perhaps, but up to LSM folks to tell if this was really a case where
-> passing the msg was something that ended up being overkill.
+> More #ifdef's will be needed to remove linking with BestComm driver if ke=
+rnel
+> will be compiled without 52xx support and resulting code will not be much
+> better than existing one. Especially that new DMA abstraction layer proba=
+bly
+> will be quite complex.
 
-Yep, and since they are a rather ornery bunch I'm sure they will speak up.  
-However, I would say to go ahead and trim the unused args and if we need them 
-in the future we can always add them back in; none of this is really visible 
-outside the kernel so changes are relatively easy.
+If it looks too ugly, then just fork the driver.
 
-I'd hate to see us miss an opportunity to make things better over concerns 
-about what might happen at some unknown point in the future.
+g.
 
--- 
-paul moore
-linux @ hp
+-- =
 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
