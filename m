@@ -1,149 +1,110 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH net-next] cxgb: set phy's mdio dev before the phy init sequence
-Date: Wed, 20 May 2009 18:56:12 -0700
-Message-ID: <20090521015612.1940.83961.stgit@speedy5>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
+Date: Wed, 20 May 2009 23:05:41 -0300
+Message-ID: <20090521020541.GD5956@ghostprotocols.net>
+References: <20090520230652.GB5956@ghostprotocols.net> <20090521004634.GB29869@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756014AbZEUB4Y@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:52771 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751879AbZEUCFv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2009 22:05:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20090521004634.GB29869@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
+Em Wed, May 20, 2009 at 08:46:34PM -0400, Neil Horman escreveu:
+> On Wed, May 20, 2009 at 08:06:52PM -0300, Arnaldo Carvalho de Melo wrote:
+> > Meaning receive multiple messages, reducing the number of syscalls and
+> > net stack entry/exit operations.
+> > 
+> > Next patches will introduce mechanisms where protocols that want to
+> > optimize this operation will provide an unlocked_recvmsg operation.
+> > 
+> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Its a neat idea, I like the possibility on saving lots of syscalls for
+> busy sockets, but I imagine the addition of a new syscall gives people pause.  I
+> wonder if simply augmenting the existing recvmsg syscall with a message flag to
+> indicate that multiple messages can be received on that call.
+> 
+> What I would propose looks something like:
+> 
+> 1) define a new flag in the msghdr pointer for msg_flags, MSG_COMPOUND.  Setting
+> this on the call lets the protocol we can store multiple messages
+> 
+> 2) if this flag is set the msg_control pointer should contain a cmsghdr with a
+> new type MSG_COMPOUND_NEXT, in which the size is sizeof(void *) and the data
+> contains a pointer to the next msghdr pointer.
+> 
+> 3) The kernel can iteratively fill out buffers passed in through the chain,
+> setting the MSG_COMPOUND flag on each msghdr that contains valid data.  The
+> first msghdr to not have the MSG_COMPOUND flag set denotes the last buffer that
+> the kernel put valid data in.  This way the buffer chain pointer is kept
+> unchanged, and userspace can follow it to free the data if need be.
+> 
+> Thoughts?
 
-mdio's dev field needs to be set before mdio ops occur.
+I didn't went into such detail when discussing this with Dave on IRC,
+but I thought about something like using a setsockopt to tell the kernel
+that the socket was in multiple message mode, lemme look at the
+discussion to be faithful to it...
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+[18:22] <acme> I see, but the bastardization I was thinking was about just
+putting a datagram per iovec instead of taking a datagram and go on
+spilling it over the iovec entries, if some sockopt was set, as a first
+try ;-)
+[18:23] <davem> Oh I see
+[18:23] <davem> that would work too
 
- drivers/net/chelsio/cphy.h      |    6 ++++--
- drivers/net/chelsio/mv88e1xxx.c |    5 +++--
- drivers/net/chelsio/mv88x201x.c |    4 ++--
- drivers/net/chelsio/my3126.c    |    4 ++--
- drivers/net/chelsio/subr.c      |    5 ++---
- 5 files changed, 13 insertions(+), 11 deletions(-)
+But I think that the interface I proposed, that was Dave's general idea,
+should be ok as well for sendmmsg, to send multiple messages to
+different destinations using markings like one msg_iovlen to signal that
+the previous msg_iov/msg_iovlen should be used for a different
+destination.
 
+The reasoning behing the proposed interface was to mostly keep the
+existing way of passing iovecs to the kernel, but this time around
+passing multiple iovecs instead of just one.
 
-diff --git a/drivers/net/chelsio/cphy.h b/drivers/net/chelsio/cphy.h
-index 8b5165a..1f095a9 100644
---- a/drivers/net/chelsio/cphy.h
-+++ b/drivers/net/chelsio/cphy.h
-@@ -137,10 +137,11 @@ static inline int simple_mdio_write(struct cphy *cphy, int reg,
- }
- 
- /* Convenience initializer */
--static inline void cphy_init(struct cphy *phy, adapter_t *adapter,
-+static inline void cphy_init(struct cphy *phy, struct net_device *dev,
- 			     int phy_addr, struct cphy_ops *phy_ops,
- 			     const struct mdio_ops *mdio_ops)
- {
-+	struct adapter *adapter = netdev_priv(dev);
- 	phy->adapter = adapter;
- 	phy->ops     = phy_ops;
- 	if (mdio_ops) {
-@@ -150,12 +151,13 @@ static inline void cphy_init(struct cphy *phy, adapter_t *adapter,
- 		phy->mdio.mdio_read = mdio_ops->read;
- 		phy->mdio.mdio_write = mdio_ops->write;
- 	}
-+	phy->mdio.dev = dev;
- }
- 
- /* Operations of the PHY-instance factory */
- struct gphy {
- 	/* Construct a PHY instance with the given PHY address */
--	struct cphy *(*create)(adapter_t *adapter, int phy_addr,
-+	struct cphy *(*create)(struct net_device *dev, int phy_addr,
- 			       const struct mdio_ops *mdio_ops);
- 
- 	/*
-diff --git a/drivers/net/chelsio/mv88e1xxx.c b/drivers/net/chelsio/mv88e1xxx.c
-index 0632be0..809047a 100644
---- a/drivers/net/chelsio/mv88e1xxx.c
-+++ b/drivers/net/chelsio/mv88e1xxx.c
-@@ -353,15 +353,16 @@ static struct cphy_ops mv88e1xxx_ops = {
- 	.get_link_status      = mv88e1xxx_get_link_status,
- };
- 
--static struct cphy *mv88e1xxx_phy_create(adapter_t *adapter, int phy_addr,
-+static struct cphy *mv88e1xxx_phy_create(struct net_device *dev, int phy_addr,
- 					 const struct mdio_ops *mdio_ops)
- {
-+	struct adapter *adapter = netdev_priv(dev);
- 	struct cphy *cphy = kzalloc(sizeof(*cphy), GFP_KERNEL);
- 
- 	if (!cphy)
- 		return NULL;
- 
--	cphy_init(cphy, adapter, phy_addr, &mv88e1xxx_ops, mdio_ops);
-+	cphy_init(cphy, dev, phy_addr, &mv88e1xxx_ops, mdio_ops);
- 
- 	/* Configure particular PHY's to run in a different mode. */
- 	if ((board_info(adapter)->caps & SUPPORTED_TP) &&
-diff --git a/drivers/net/chelsio/mv88x201x.c b/drivers/net/chelsio/mv88x201x.c
-index 29e0cba..df880bb 100644
---- a/drivers/net/chelsio/mv88x201x.c
-+++ b/drivers/net/chelsio/mv88x201x.c
-@@ -208,7 +208,7 @@ static struct cphy_ops mv88x201x_ops = {
- 			      MDIO_DEVS_PHYXS | MDIO_DEVS_WIS),
- };
- 
--static struct cphy *mv88x201x_phy_create(adapter_t *adapter, int phy_addr,
-+static struct cphy *mv88x201x_phy_create(struct net_device *dev, int phy_addr,
- 					 const struct mdio_ops *mdio_ops)
- {
- 	u32 val;
-@@ -217,7 +217,7 @@ static struct cphy *mv88x201x_phy_create(adapter_t *adapter, int phy_addr,
- 	if (!cphy)
- 		return NULL;
- 
--	cphy_init(cphy, adapter, phy_addr, &mv88x201x_ops, mdio_ops);
-+	cphy_init(cphy, dev, phy_addr, &mv88x201x_ops, mdio_ops);
- 
- 	/* Commands the PHY to enable XFP's clock. */
- 	cphy_mdio_read(cphy, MDIO_MMD_PCS, 0x8300, &val);
-diff --git a/drivers/net/chelsio/my3126.c b/drivers/net/chelsio/my3126.c
-index 977c7e0..4c60285 100644
---- a/drivers/net/chelsio/my3126.c
-+++ b/drivers/net/chelsio/my3126.c
-@@ -167,7 +167,7 @@ static struct cphy_ops my3126_ops = {
- 				   MDIO_DEVS_PHYXS),
- };
- 
--static struct cphy *my3126_phy_create(adapter_t *adapter,
-+static struct cphy *my3126_phy_create(struct net_device *dev,
- 			int phy_addr, const struct mdio_ops *mdio_ops)
- {
- 	struct cphy *cphy = kzalloc(sizeof (*cphy), GFP_KERNEL);
-@@ -175,7 +175,7 @@ static struct cphy *my3126_phy_create(adapter_t *adapter,
- 	if (!cphy)
- 		return NULL;
- 
--	cphy_init(cphy, adapter, phy_addr, &my3126_ops, mdio_ops);
-+	cphy_init(cphy, dev, phy_addr, &my3126_ops, mdio_ops);
- 	INIT_DELAYED_WORK(&cphy->phy_update, my3216_poll);
- 	cphy->bmsr = 0;
- 
-diff --git a/drivers/net/chelsio/subr.c b/drivers/net/chelsio/subr.c
-index 2564312..17720c6 100644
---- a/drivers/net/chelsio/subr.c
-+++ b/drivers/net/chelsio/subr.c
-@@ -1135,14 +1135,13 @@ int __devinit t1_init_sw_modules(adapter_t *adapter,
- 		struct cmac *mac;
- 		int phy_addr = bi->mdio_phybaseaddr + i;
- 
--		adapter->port[i].phy = bi->gphy->create(adapter, phy_addr,
--							bi->mdio_ops);
-+		adapter->port[i].phy = bi->gphy->create(adapter->port[i].dev,
-+							phy_addr, bi->mdio_ops);
- 		if (!adapter->port[i].phy) {
- 			CH_ERR("%s: PHY %d initialization failed\n",
- 			       adapter->name, i);
- 			goto error;
- 		}
--		adapter->port[i].phy->mdio.dev = adapter->port[i].dev;
- 
- 		adapter->port[i].mac = mac = bi->gmac->create(adapter, i);
- 		if (!mac) {
+Existing code would just have to make the iovecs, msg_name, etc be
+arrays instead of rethinking how to talk to the kernel completely.
+
+So... lets hear more opinions :-)
+
+Ah, I went to a local pub to relax and left three machines non-stop
+pounding a "chrt -f 1 ./rcvmmsg 5001 64" patched server and it hold up
+for hours:
+
+nr_datagrams received: 24
+    4352 bytes received from mica.ghostprotocols.net in 17 datagrams
+    1536 bytes received from doppio.ghostprotocols.net in 6 datagrams
+    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+nr_datagrams received: 18
+    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+    3072 bytes received from doppio.ghostprotocols.net in 12 datagrams
+    256 bytes received from mica.ghostprotocols.net in 1 datagrams
+    256 bytes received from doppio.ghostprotocols.net in 1 datagrams
+    256 bytes received from mica.ghostprotocols.net in 1 datagrams
+    256 bytes received from doppio.ghostprotocols.net in 1 datagrams
+    256 bytes received from mica.ghostprotocols.net in 1 datagrams
+nr_datagrams received: 26
+    5120 bytes received from mica.ghostprotocols.net in 20 datagrams
+    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+    1280 bytes received from doppio.ghostprotocols.net in 5 datagrams
+nr_datagrams received: 18
+    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+    1792 bytes received from doppio.ghostprotocols.net in 7 datagrams
+    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+    1792 bytes received from doppio.ghostprotocols.net in 7 datagrams
+    256 bytes received from mica.ghostprotocols.net in 1 datagrams
+    256 bytes received from do^C    256 bytes received from filo.ghostprotocols.net in 1 datagrams
+
+:-)
+
+- Arnaldo
