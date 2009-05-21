@@ -1,42 +1,37 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: ipt_MASQUERADE weirdness (consuming CPU cycles while not used)
-Date: Thu, 21 May 2009 23:10:29 +0300
-Message-ID: <200905212310.29661.denys@visp.net.lb>
-References: <200905182219.30216.denys@visp.net.lb> <4A1596D4.6000708@netfilter.org>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] X:beyond ARRAY_SIZE of ib->btx_ring
+Date: Thu, 21 May 2009 22:28:13 +0200
+Message-ID: <4A15B95D.4050200@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4A1596D4.6000708@netfilter.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:64469 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222AbZEUU2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 16:28:23 -0400
+Received: by ewy24 with SMTP id 24so1467596ewy.37
+        for <netdev@vger.kernel.org>; Thu, 21 May 2009 13:28:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 21 May 2009 21:00:52 Pablo Neira Ayuso wrote:
-> Denys Fedoryschenko wrote:
-> > I have loaded pppoe (1700 users). I test one rule for short time with -j
-> > MASQUERADE, then removed it and reset conntrack (conntrack -F). But still
-> > i can see it is consuming CPU even when it is not used in any rule. Even
-> > i reboot server and just load rules that dont have MASQUERADE, and just
-> > load module - it will start consuming CPU immediately.
->
-> Are you using 2.6.29 with any conntrack helper loaded? In that case this
-> fix is not in -stable yet.
->
-> http://kerneltrap.org/mailarchive/linux-netdev/2009/4/8/5440564
->
-> > 64811     3.7735  ipt_MASQUERADE           ipt_MASQUERADE          
-> > device_cmp
->
-> device_cmp() by nf_ct_iterate_cleanup() when NETDEV_DOWN event is
-> received. Weird, is your device going down quite often? Another
-> possibility is that there's some entry stuck in the conntrack table that
-> we cannot delete, perhaps we're leaking refcounts somewhere.
-It is loaded pppoe server (2k interfaces), sure they are 
-appearing-disappearing non-stop. Thats maybe case, but weird that it is 
-consuming CPU time while module not used at all anywhere (no rules with 
-MASQUERADE).
+Do not go beyond ARRAY_SIZE of ib->btx_ring
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/sunlance.c b/drivers/net/sunlance.c
+index 704301a..aa2a4ef 100644
+--- a/drivers/net/sunlance.c
++++ b/drivers/net/sunlance.c
+@@ -343,7 +343,7 @@ static void lance_init_ring_dvma(struct net_device *dev)
+ 	ib->phys_addr [5] = dev->dev_addr [4];
+ 
+ 	/* Setup the Tx ring entries */
+-	for (i = 0; i <= TX_RING_SIZE; i++) {
++	for (i = 0; i < TX_RING_SIZE; i++) {
+ 		leptr = LANCE_ADDR(aib + libbuff_offset(tx_buf, i));
+ 		ib->btx_ring [i].tmd0      = leptr;
+ 		ib->btx_ring [i].tmd1_hadr = leptr >> 16;
 
