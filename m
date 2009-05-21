@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/6 2.6.30-rc6] genetlink: Introduce
- genl_register_family_with_ops()
-Date: Thu, 21 May 2009 15:14:24 -0700 (PDT)
-Message-ID: <20090521.151424.114674927.davem@davemloft.net>
-References: <1-1000-10527-1242938044-3360@rere.qmqm.pl>
+Subject: Re: [PATCH 1/1] isdn: Use kernel_{send,recv}msg instead of open
+ coding
+Date: Thu, 21 May 2009 15:14:43 -0700 (PDT)
+Message-ID: <20090521.151443.79607416.davem@davemloft.net>
+References: <20090521154126.GH5956@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59843
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755010AbZEUWO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:14:26 -0400
-In-Reply-To: <1-1000-10527-1242938044-3360@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: isdn@linux-pingi.de, paul.moore@hp.com, netdev@vger.kernel.org,
+	vanhoof@redhat.com, williams@redhat.com,
+	linux-security-module@vger.kernel.org
+To: acme@redhat.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090521154126.GH5956@ghostprotocols.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgIDxtaXJxLWxpbnV4QHJlcmUucW1xbS5wbD4NCkRhdGU6
-IFRodSwgMjEgTWF5IDIwMDkgMjI6MzQ6MDQgKzAyMDAgKENFU1QpDQoNCj4gVGhpcyBpbnRyb2R1
-Y2VzIGdlbmxfcmVnaXN0ZXJfZmFtaWx5X3dpdGhfb3BzKCkgdGhhdCByZWdpc3RlcnMgYSBnZW5l
-dGxpbmsNCj4gZmFtaWx5IGFsb25nIHdpdGggb3BlcmF0aW9ucyBmcm9tIGEgdGFibGUuIFRoaXMg
-aXMgdXNlZCB0byBraWxsIGNvcHknbidwYXN0ZQ0KPiBvY2N1cnJlbmNlcyBpbiBmb2xsb3dpbmcg
-cGF0Y2hlcy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxp
-bnV4QHJlcmUucW1xbS5wbD4NCg0KTmljZSBjbGVhbnVwLCBhbGwgcGF0Y2hlcyBhcHBsaWVkIHRv
-IG5ldC1uZXh0LTIuNiwgZHppZW4gZG9icnkhDQo=
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Thu, 21 May 2009 12:41:26 -0300
+
+> Reducing the number of direct users of sock_{recv,send}msg.
+> 
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+Nice work, applied, thanks!
