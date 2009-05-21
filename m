@@ -1,48 +1,71 @@
-From: Piotr =?iso-8859-2?q?Zi=EAcik?= <kosmo@semihalf.com>
-Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
-Date: Thu, 21 May 2009 10:34:39 +0200
-Message-ID: <200905211034.39762.kosmo@semihalf.com>
-References: <1241640919-4650-1-git-send-email-wd@denx.de> <200905141438.23348.kosmo@semihalf.com> <fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: How fast can your 10G go?
+Date: Thu, 21 May 2009 10:35:55 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0905211018480.20475@ask.diku.dk>
+References: <4A12D8D4.2070303@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Denk <wd@denx.de>, Scott Wood <scottwood@freescale.com>,
-	John Rigby <jrigby@gmail.com>, linuxppc-dev@ozlabs.org,
-	Detlev Zundel <dzu@denx.de>, netdev@vger.kernel.org,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Becky Bruce <Becky.Bruce@freescale.com>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-860067882-1242894955=:20475"
+Cc: NetDev <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from semihalf.com ([206.130.101.55]:58165 "EHLO semihalf.com"
+Received: from mgw2.diku.dk ([130.225.96.92]:42392 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750757AbZEUIgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 04:36:03 -0400
-In-Reply-To: <fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
-Content-Disposition: inline
+	id S1751200AbZEUIhP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 04:37:15 -0400
+In-Reply-To: <4A12D8D4.2070303@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thursday 14 May 2009 16:00:33 Grant Likely wrote:
-> > MPC5121 support was added to drivers/net/fs_enet. MPC52xx uses
-> > drivers/net/fec_mpc52xx.c. Do you think that creating one universal
-> > driver from these two is now possible? You said that it should be easy,
-> > however you also said that cache coherency issues makes this imposible.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---511516320-860067882-1242894955=:20475
+Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 19 May 2009, Ben Greear wrote:
+
+> I've been running some tests on a new Nehalem based system
+> with a 2 port pci-e x8 10G NIC (ixgbe driver).
 >
-> Not impossible.  Hard.
+> When using pktgen, max I can get is about 5.6Gbps tx + rx on both ports. 
+> This is about 22Gbps across the backplane, so I don't mean to complain :)
+>
+> However, I'm curious if anyone has gotten any better performance on
+> some other system?
 
-I thought a bit more about merging FEC drivers and I see one problem more.
-Driver fs_enet works with FEC's with own DMA engine and fec_mpc52xx.c uses 
-BestComm. Integration of these two drivers will need a DMA abstraction layer 
-to keep everything clean. Unfortuanetly BestComm driver does not provide any 
-abstraction - it only exports set of functions to deal with specific 
-hardware: FEC and PATA.
+Robert Olsson (and Olof Hagsand and Bengt Gördén) got some better results 
+using that exact hardware Intel 82598 chips (and Sun neptune NICs).  They 
+made an article called: "Open-source routing at 10Gb/s"
 
-More #ifdef's will be needed to remove linking with BestComm driver if kernel 
-will be compiled without 52xx support and resulting code will not be much 
-better than existing one. Especially that new DMA abstraction layer probably 
-will be quite complex.
+  https://www.iis.se/docs/10G-OS-router_2_.pdf
 
--- 
-Best Regards.
-Piotr Ziecik
+
+> In particular, it seems that my system is bound by
+> the bus and/or the NIC.  Would I need to find something like a x16 slot
+> to have a chance at 10Gbps bi-directional on 2 ports?
+
+Are you doing a single flow bandwidth test?
+
+These NICs designed for multiflow performance. They have hardware RX and 
+TX queues to facilitate this, often call multiqueue NICs.  This is also 
+what helps us do real parallel processing across CPUs in the network stack 
+(since DaveMs multiqueue changes, although not all drivers uses this 
+correctly yet...).
+
+Try doing a multi-flow network test, I bet you will see better results. 
+(Normally you also need to adjust smp-affinity, but with large frames on 
+my Core i7 system its fast enough for 9.5 Gbit/s without tuning, small 
+frames is another case)
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
+---511516320-860067882-1242894955=:20475--
