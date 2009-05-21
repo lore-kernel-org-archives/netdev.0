@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Question about /proc/net/netlink mystery
-Date: Wed, 20 May 2009 20:54:40 -0700 (PDT)
-Message-ID: <20090520.205440.45091399.davem@davemloft.net>
-References: <eb3ff54b0905201222t6ecc241bq2168538742b48deb@mail.gmail.com>
-	<1242849063.6618.64.camel@achroite>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: user space virtio-net exits with "truncating packet" error
+Date: Thu, 21 May 2009 15:23:05 +0930
+Message-ID: <200905211523.07278.rusty@rustcorp.com.au>
+References: <Pine.LNX.4.64.0905141258570.31748@zuben.voltaire.com> <200905201217.30939.rusty@rustcorp.com.au> <4A13A127.30305@voltaire.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ramirose@gmail.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: Avi Kivity <avi@redhat.com>, netdev@vger.kernel.org,
+	Gregory Haskins <ghaskins@novell.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Mark McLoughlin <markmc@redhat.com>
+To: Or Gerlitz <ogerlitz@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50593
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751212AbZEUDyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2009 23:54:41 -0400
-In-Reply-To: <1242849063.6618.64.camel@achroite>
+Received: from ozlabs.org ([203.10.76.45]:36536 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751166AbZEUFxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 01:53:10 -0400
+In-Reply-To: <4A13A127.30305@voltaire.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 20 May 2009 20:51:03 +0100
+On Wed, 20 May 2009 03:50:23 pm Or Gerlitz wrote:
+> Rusty Russell wrote:
+> > Bit 5 = VIRTIO_NET_F_MAC (the host set the mac address)
+> > Bit 24 = VIRTIO_F_NOTIFY_ON_EMPTY
+> > You don't have any GSO or checksum offload here
+>
+> Just to make sure I'm in the correct direction - I need to cause these
+> offloads to be advertised by the "lower" part of virtio (e.g the qemu
+> virtio code) to  the "upper" part (the quest kernel), correct? I
+> understand that one of them is called front-end and the other back-end,
+> but my intuitions don't go up to saying who's what...
 
-> On Wed, 2009-05-20 at 22:22 +0300, Rami Rosen wrote:
->> So it seems that the title should be here different; it should represent
->> the protocol (since s->sk_protocol is assigned
->> the number of the protocol of the netlink socket ;
->> for example, NETLINK_ROUTE is 0, NETLINK_AUDIT is 9, and so on ; (see
->> include/linux/netfilter.h)
->> 
->> So shouldn't it be something like "Proto"?
-> 
-> Yes, but changing column names in /proc risks breaking the programs that
-> read them.
+Yes, that nomenclature is a bit weird.  I prefer "driver" (aka. guest, aka 
+front-end) and "device" (aka. host, aka back-end).
 
-Indeed, it's odd, but like others I don't think we can change it
-at this point.
+All virtio_net drivers offer some features (at least CSUM offload), and 2.6.26 
+and above will offer some serious GSO features.
+
+Cheers,
+Rusty.
