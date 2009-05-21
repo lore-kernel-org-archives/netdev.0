@@ -1,48 +1,86 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: rfkill vs. interface up
-Date: Thu, 21 May 2009 12:32:07 -0400
-Message-ID: <1242923527.14369.29.camel@localhost.localdomain>
-References: <1242736331.4797.22.camel@johannes.local>
-	 <1242920389.14369.16.camel@localhost.localdomain>
-	 <1242921924.4212.11.camel@johannes.local>
+From: Caitlin Bestler <caitlin.bestler@gmail.com>
+Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
+Date: Thu, 21 May 2009 09:38:47 -0700
+Message-ID: <469958e00905210938s371b5dect28c7b1f8bb751ad1@mail.gmail.com>
+References: <20090520230652.GB5956@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1242921924.4212.11.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.30]:61770 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754330AbZEUQir convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 12:38:47 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so727110ywb.1
+        for <netdev@vger.kernel.org>; Thu, 21 May 2009 09:38:48 -0700 (PDT)
+In-Reply-To: <20090520230652.GB5956@ghostprotocols.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-05-21 at 18:05 +0200, Johannes Berg wrote:
-> On Thu, 2009-05-21 at 11:39 -0400, Dan Williams wrote:
-> 
-> > That proposal sounds fine to me from a userspace perspective.  Sane
-> > implementations don't assume the interface is IFF_UP when they configure
-> > the device anyway (since it's not necessarily up at boot time or after
-> > hibernate for example), and since you need a reconfigure after rfkill,
-> > this seems reasonable.
-> > 
-> > You wouldn't have to give up on txpower either, you could simply map
-> > 'txpower off' to SW-rfkill, and 'txpower on' to un-SW-rfkill, where of
-> > course the interface would be !IFF_UP after 'txpower on' just like
-> > flipping the killswitch would.
-> 
-> Yeah, good point, that sounds better than having to give up on it -- the
-> key though is that we can't recover IFF_UP state when that happens; if
-> that's ok this should be fairly simple.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 while (datagrams < vlen) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D __sys_recv=
+msg(sock, (struct msghdr __user *)entry, flags);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (err < 0)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 goto out_put;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D __put_user=
+(err, &entry->msg_len);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (err)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 goto out_put;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ++entry;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ++datagrams;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> =C2=A0out_put:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0fput_light(sock->file, fput_needed);
+> =C2=A0out:
+> + =C2=A0 =C2=A0 =C2=A0 /*
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* We may return less entries than reques=
+ted (vlen) if the
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* sock is non block and there aren't eno=
+ugh datagrams.
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+> + =C2=A0 =C2=A0 =C2=A0 if (err =3D=3D 0 || (err =3D=3D -EAGAIN && (fl=
+ags & MSG_DONTWAIT)))
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return datagrams;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
+> =C2=A0}
+>
 
-I don't think recovering IFF_UP needs to be done by the kernel.  rfkill
-already hoses the card state anyway, requiring a full setup by
-userspace, which usually includes ensuring the device is up (which, for
-example, both NM and wpa_supplicant have done since the beginning of
-time).
+There is an assumption here that unless MSG_DONTWAIT is set, or there
+is an error,
+that the caller will be willing to wait indefinitely for N messages to
+show up -- and that
+it is never worth waking up the caller earlier with less than N message=
+s.
 
-Dan
+I think an application would more typically want to wait at most m
+msecs after the first
+message is received to see if any other messages can be delivered at
+the same time.
+A busy server could simply use DONTWAIT in a polling loop every cycle,
+but it would be
+nice to be able to wait indefinitely for *any* of your clients to send
+you a message.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46urther, with some sockets there are some messages that are more equa=
+l
+than others.
+Although valid messages, with no errors, they should be delivered to
+user-mode immediately.
+The example that leaps to my mind immediately are SCTP Events,
+particularly with one-to-many
+sockets. You could be waiting for N messages, knowing that a specific
+peer has been asked to
+send N messages. The 2nd message could be an SCTP event announcing
+that the specific
+association has been torn down (and hence the remaining messages will
+not be arriving).
+Waiting for a different association to send enough messages to
+complete the request will
+not provide very prompt service.
