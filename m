@@ -1,37 +1,76 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] X:beyond ARRAY_SIZE of iwb->data
-Date: Thu, 21 May 2009 22:05:38 +0200
-Message-ID: <4A15B412.8020205@gmail.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d"
+	as interface name
+Date: Thu, 21 May 2009 22:13:50 +0200
+Message-ID: <4A15B5FE.3070207@s5r6.in-berlin.de>
+References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de>
+	<20090521.123403.13286908.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org
-To: hjlipp@web.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:57814 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743AbZEUUFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 16:05:38 -0400
-Received: by ewy24 with SMTP id 24so1454091ewy.37
-        for <netdev@vger.kernel.org>; Thu, 21 May 2009 13:05:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, fenlason@redhat.com,
+	linux1394-devel@lists.sourceforge.net,
+	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20090521.123403.13286908.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Do not go beyond ARRAY_SIZE of iwb->data
+David Miller wrote:
+> From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+> Date: Thu, 21 May 2009 15:29:10 +0200 (CEST)
+>> Change the initial name of IP-over-1394 networking interfaces from
+>> "eth[0-9]+" to "firewire[0-9]+".
+...
+> I think the basis for this patch is completely bogus.
+> 
+> Device names are just that, names.  If you want to know "what it is"
+> or "where it is" you use tools to determine that information.
+> 
+> If you make ethtool's get info command return something useful,
+> then the user can see that it's a firewire interface and act
+> accordingly, as can sophisticated confiruation applications.
+> 
+> I am completely against this patch.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
-index fbce522..5569a6e 100644
---- a/drivers/isdn/gigaset/isocdata.c
-+++ b/drivers/isdn/gigaset/isocdata.c
-@@ -177,7 +177,7 @@ int gigaset_isowbuf_getbytes(struct isowbuf_t *iwb, int size)
- 		return -EINVAL;
- 	}
- 	src = iwb->read;
--	if (unlikely(limit > BAS_OUTBUFSIZE + BAS_OUTBUFPAD ||
-+	if (unlikely(limit >= BAS_OUTBUFSIZE + BAS_OUTBUFPAD ||
- 		     (read < src && limit >= src))) {
- 		err("isoc write buffer frame reservation violated");
- 		return -EFAULT;
+Ethtool shows:
+	driver: eth1394
+	version:
+	firmware-version:
+	bus-info: ieee1394
+And the sysfs representations of the netdevices have an fw-host* device 
+in the parent device chain.
 
+I agree that userland should read less into names as they are handed out 
+by the kernel.  I am also aware that it depends on the use case what 
+naming scheme can be considered useful, hence userspace needs to give 
+his own names anyway, regardless of how the kernel named it.
+
+But I mildly disagree with the notion that the kernel can't start off 
+with more qualification of the names than merely ensuring their 
+uniqueness.  Or the other way around:  Even an entirely meaningless 
+prefix would be better than "eth..", or no prefix if that's possible, 
+because eth suspiciously sounds like Ethernet with which the misnamed 
+RFC 2734 driver eth1394 has very little to do.
+
+However, how mild my disagreement is should be apparent from the fact 
+that I didn't bother to suggest changing it before now, in 2009. :-)
+-- 
+Stefan Richter
+-=====-=-=== -=-= -==-=
+http://arcgraph.de/sr/
+
+------------------------------------------------------------------------------
+Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
+is a gathering of tech-side developers & brand creativity professionals. Meet
+the minds behind Google Creative Lab, Visual Complexity, Processing, & 
+iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
+Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
