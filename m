@@ -1,86 +1,53 @@
-From: Caitlin Bestler <caitlin.bestler@gmail.com>
-Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
-Date: Thu, 21 May 2009 09:38:47 -0700
-Message-ID: <469958e00905210938s371b5dect28c7b1f8bb751ad1@mail.gmail.com>
-References: <20090520230652.GB5956@ghostprotocols.net>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d" as
+	interface name
+Date: Thu, 21 May 2009 18:43:01 +0200
+Message-ID: <ac3eb2510905210943h109e6cc6o76e9978fe47a6eac@mail.gmail.com>
+References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de> <20090521134856.GA3457@psychotron.englab.brq.redhat.com>
+	<4A1565B6.10907@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.30]:61770 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754330AbZEUQir convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 12:38:47 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so727110ywb.1
-        for <netdev@vger.kernel.org>; Thu, 21 May 2009 09:38:48 -0700 (PDT)
-In-Reply-To: <20090520230652.GB5956@ghostprotocols.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	linux1394-devel@lists.sourceforge.net,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jay Fenlason <fenlason@redhat.com>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <4A1565B6.10907@s5r6.in-berlin.de>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +
-> + =C2=A0 =C2=A0 =C2=A0 while (datagrams < vlen) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D __sys_recv=
-msg(sock, (struct msghdr __user *)entry, flags);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (err < 0)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 goto out_put;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D __put_user=
-(err, &entry->msg_len);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (err)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 goto out_put;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ++entry;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ++datagrams;
-> + =C2=A0 =C2=A0 =C2=A0 }
-> =C2=A0out_put:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0fput_light(sock->file, fput_needed);
-> =C2=A0out:
-> + =C2=A0 =C2=A0 =C2=A0 /*
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* We may return less entries than reques=
-ted (vlen) if the
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0* sock is non block and there aren't eno=
-ugh datagrams.
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
-> + =C2=A0 =C2=A0 =C2=A0 if (err =3D=3D 0 || (err =3D=3D -EAGAIN && (fl=
-ags & MSG_DONTWAIT)))
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return datagrams;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
-> =C2=A0}
+On Thu, May 21, 2009 at 16:31, Stefan Richter <stefanr@s5r6.in-berlin.d=
+e> wrote:
+> Usually I prefer brevity too. =C2=A0Alas, it may not be clear to many=
+ people what
+> "fw" is supposed to mean. =C2=A0People might associate it with, let's=
+ say,
+> "firewall" before "firewire" when they deal with networking. However,=
+ more
+>  opinions on this are welcome.
+
+Yeah, common one is also "firmware". I think "firewire" is fine.
+
+> As for practical length restrictions: =C2=A0The kernel's networking c=
+ore requires
+> that these names fit into 15 characters plus trailing \0. =C2=A0I don=
+'t have an
+> idea whether there are userland components which have even tighter
+> restrictions.
 >
+> Does anybody know of potential trouble in networking tools if interfa=
+ce
+> names are 9 or 10 characters long?
 
-There is an assumption here that unless MSG_DONTWAIT is set, or there
-is an error,
-that the caller will be willing to wait indefinitely for N messages to
-show up -- and that
-it is never worth waking up the caller earlier with less than N message=
-s.
+I don't think so, stuff at the tools level usually works flawlessly
+with "eth0_rename_ren" devices, when things went wrong with renaming
+the devices. :)
 
-I think an application would more typically want to wait at most m
-msecs after the first
-message is received to see if any other messages can be delivered at
-the same time.
-A busy server could simply use DONTWAIT in a polling loop every cycle,
-but it would be
-nice to be able to wait indefinitely for *any* of your clients to send
-you a message.
-
-=46urther, with some sockets there are some messages that are more equa=
-l
-than others.
-Although valid messages, with no errors, they should be delivered to
-user-mode immediately.
-The example that leaps to my mind immediately are SCTP Events,
-particularly with one-to-many
-sockets. You could be waiting for N messages, knowing that a specific
-peer has been asked to
-send N messages. The 2nd message could be an SCTP event announcing
-that the specific
-association has been torn down (and hence the remaining messages will
-not be arriving).
-Waiting for a different association to send enough messages to
-complete the request will
-not provide very prompt service.
+Kay
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hotplug=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
