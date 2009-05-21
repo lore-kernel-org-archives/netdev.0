@@ -1,37 +1,70 @@
-From: matthieu castet <castet.matthieu@free.fr>
-Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
-Date: Thu, 21 May 2009 12:39:20 +0200
-Message-ID: <4A152F58.5040905@free.fr>
-References: <4A11DCBF.9000700@free.fr> <200905191522.40519.mb@bu3sch.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
+Date: Thu, 21 May 2009 06:40:52 -0400
+Message-ID: <20090521104052.GB25369@hmsreliant.think-freely.org>
+References: <20090521004634.GB29869@localhost.localdomain> <20090521020541.GD5956@ghostprotocols.net> <20090521022621.GA2173@localhost.localdomain> <20090520.205044.185308597.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@redhat.com, netdev@vger.kernel.org, vanhoof@redhat.com,
+	williams@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:37570 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752321AbZEUKj3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 06:39:29 -0400
-In-Reply-To: <200905191522.40519.mb@bu3sch.de>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44366 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752987AbZEUKlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 06:41:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20090520.205044.185308597.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Buesch wrote:
-> On Tuesday 19 May 2009 00:10:07 matthieu castet wrote:
->> Hi,
->>
->> this patch export ssb_watchdog_timer_set to allow to use it in a Linux 
->> watchdog driver.
->>
->>
->> Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
+On Wed, May 20, 2009 at 08:50:44PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Wed, 20 May 2009 22:26:21 -0400
 > 
-> Well, you need to be careful. The watchdog is also used for system reboot.
-> Make sure to disable the watchdog driver when the bcm47xx system code wants
-> to use it.
+> > I agree, your way of doing this definately lets you layer on top of
+> > the existing vetted implementation, which is nice, I just thought
+> > that avoiding the creation of another syscall might be worth a
+> > little extra work in the kernel.  Instead of arrays of msghdrs, We'd
+> > be looking at chains like this: msghdr->(struct msghdr
+> > *)msg_control[i].data->msghdr->etc
+> > 
+> > Not too hard to parse, I dont think.  But I'll defer to brighter
+> > minds than mine.  If the creation of another syscall isn't too
+> > difficult a barrier to overcome (assuming this is going to occur for
+> > sendmsg, and various other i/o ops as well), then your way here is
+> > probably the way to go.
 > 
-It shouldn't be a problem : the system code always disable irq before 
-using watchdog to reboot/halt (unless I miss other watchdog usage).
+> Unfortunately you can't use msg flags for this.
+> 
+> We accept any message flag we don't understand without signalling
+> any errors.
+> 
 
-Matthieu
+I assume that silently ignoring flags we don't understand is a specified part
+of the sockets api?  I was looking at the posix definition of recvmsg and I
+don't see where its required that we ignore unknown flags (although I can see
+why it would be usefull to do so)
+
+> So there is no way to determine if the kernel supports the flag
+> or not.  Whereas with a socket option, we'll always get an error
+> on older kernels for unsupported options.
+> 
+> I think the system call is the cleanest, because it's not only a
+> semantic change but also a data type change.  I also think the
+> socket option scheme is too cumbersome.  I think it would be
+> common for an application to want to use both modes of sending,
+> especially if that application uses lots of existing library
+> mode to compose some messages.  And extra setsockopt() around
+> every call down into that library?  Yikes, good luck getting
+> that right all the time.  It's way too error prone.
+
+The new system call is definately cleaner, as it lets you specify the array
+semantics in a way that is much more efficient and less cumbersome for both user
+and kernel space.  I just thought I'd propose an alternate method that avoids
+the need for a new syscall.  It sounds like you and Acme have already hashed
+through this though, so I'll sit down :)
+
+Thanks guys!
+Neil
+
