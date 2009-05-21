@@ -1,62 +1,84 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 02/12] fs_enet: Add MPC5121 FEC support.
-Date: Thu, 21 May 2009 09:36:11 -0600
-Message-ID: <fa686aa40905210836x73e41651g9995ba813adec139@mail.gmail.com>
-References: <1241640919-4650-1-git-send-email-wd@denx.de>
-	<200905141438.23348.kosmo@semihalf.com>
-	<fa686aa40905140700k3ca28ac0m74c9c161ad538abc@mail.gmail.com>
-	<200905211034.39762.kosmo@semihalf.com>
+From: Alejandro Riveira =?UTF-8?B?RmVybsOhbmRleg==?=
+	<ariveira@gmail.com>
+Subject: [mac80211 ] Wifi Network slownes bisected
+Date: Thu, 21 May 2009 17:38:39 +0200
+Message-ID: <20090521173839.1f20b95d@varda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: Becky Bruce <Becky.Bruce@freescale.com>, Wolfgang Denk <wd@denx.de>,
-	Detlev Zundel <dzu@denx.de>, John Rigby <jrigby@gmail.com>,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Scott Wood <scottwood@freescale.com>
-To: =?ISO-8859-2?Q?Piotr_Zi=EAcik?= <kosmo@semihalf.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <200905211034.39762.kosmo@semihalf.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, ariveira@gmail.com
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:65134 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008AbZEUPiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 11:38:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/5/21 Piotr Zi=EAcik <kosmo@semihalf.com>:
-> Thursday 14 May 2009 16:00:33 Grant Likely wrote:
->> > MPC5121 support was added to drivers/net/fs_enet. MPC52xx uses
->> > drivers/net/fec_mpc52xx.c. Do you think that creating one universal
->> > driver from these two is now possible? You said that it should be easy,
->> > however you also said that cache coherency issues makes this imposible.
->>
->> Not impossible. =A0Hard.
->
-> I thought a bit more about merging FEC drivers and I see one problem more.
-> Driver fs_enet works with FEC's with own DMA engine and fec_mpc52xx.c uses
-> BestComm. Integration of these two drivers will need a DMA abstraction la=
-yer
-> to keep everything clean. Unfortuanetly BestComm driver does not provide =
-any
-> abstraction - it only exports set of functions to deal with specific
-> hardware: FEC and PATA.
->
-> More #ifdef's will be needed to remove linking with BestComm driver if ke=
-rnel
-> will be compiled without 52xx support and resulting code will not be much
-> better than existing one. Especially that new DMA abstraction layer proba=
-bly
-> will be quite complex.
-
-If it looks too ugly, then just fork the driver.
-
-g.
-
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMjU2DQoNCg0KIEkg
+aGF2ZSBhIHJ0MjUwMHBjaSBjYXJkDQoNCiBJIG5vdGljZWQgdGhhdCBteSB3aWZpIGNvbm5lY3Rp
+b24gaGFzIHNsb3dlZCB3aGVuIHN0aXRjaGluZw0KZnJvbSAyLjYuMjkuMSB0byAyLjYuMjkuNCAo
+aXQgaXMgYWxzbyBzbG93IG9uIDMwLXJjNikNCkFsc28gMi42LjI3ICh1YnVudHUpIGRvZXMgbm90
+IHN1ZmZlciBpdC4NCg0KIEkgYmlzZWN0ZWQgYW5kIGNhbWUgdG8gdGhlIGZvbGxvd2luZyBjb21t
+aXQgYXMgdGhlIGN1bHByaXQNCg0KIEkgY2FuIHRlc3QgcGF0Y2hlcyBhbmQgaWYgeW91IG5lZWQg
+bW9yZSBpbmZvIGp1c3QgYXNrLg0KDQokIGdpdCBiaXNlY3QgZ29vZA0KNjRlMWIwMGM5NzRkZGVh
+ZTZhNjBlYmIwMmUxYzQ4NzM3MTkwNWNlYSBpcyBmaXJzdCBiYWQgY29tbWl0DQpjb21taXQgNjRl
+MWIwMGM5NzRkZGVhZTZhNjBlYmIwMmUxYzQ4NzM3MTkwNWNlYQ0KQXV0aG9yOiBKb2hhbm5lcyBC
+ZXJnIDxqb2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0Pg0KRGF0ZTogICBGcmkgQXByIDI0IDE2OjA1
+OjE2IDIwMDkgKzAwMDANCg0KICAgIG1hYzgwMjExOiBmaXggYmFzaWMgcmF0ZSBiaXRtYXAgY2Fs
+Y3VsYXRpb24NCiAgICANCiAgICB1cHN0cmVhbSBjb21taXQ6IDdlMDk4NmMxN2Y2OTU5NTJjZTVk
+NjFlZDc5M2NlMDQ4YmE5MGE2NjENCiAgICANCiAgICAibWFjODAyMTE6IGZpeCBiYXNpYyByYXRl
+cyBzZXR0aW5nIGZyb20gYXNzb2NpYXRpb24gcmVzcG9uc2UiDQogICAgaW50cm9kdWNlZCBhIGNv
+cHkvcGFzdGUgZXJyb3IuDQogICAgDQogICAgVW5mb3J0dW5hdGVseSwgdGhpcyBub3QganVzdCBs
+ZWFkcyB0byB3cm9uZyBkYXRhIGJlaW5nIHBhc3NlZA0KICAgIHRvIHRoZSBkcml2ZXIgYnV0IGlz
+IHJlbW90ZWx5IGV4cGxvaXRhYmxlIGZvciBzb21lIGhhcmR3YXJlIG9yDQogICAgZHJpdmVyIGNv
+bWJpbmF0aW9ucy4NCiAgICANCiAgICBTaWduZWQtb2ZmLWJ5OiBKb2hhbm5lcyBCZXJnIDxqb2hh
+bm5lc0BzaXBzb2x1dGlvbnMubmV0Pg0KICAgIFNpZ25lZC1vZmYtYnk6IEpvaG4gVy4gTGludmls
+bGUgPGxpbnZpbGxlQHR1eGRyaXZlci5jb20+DQogICAgU2lnbmVkLW9mZi1ieTogQ2hyaXMgV3Jp
+Z2h0IDxjaHJpc3dAc291cy1zb2wub3JnPg0KDQo6MDQwMDAwIDA0MDAwMCBlOWU0NzkyMTBiNDZh
+ZTQ1ZjljODRiYWRkNTcwMzlkZjQ0ZDQwNzdjDQplYTBiNzE5ZTU0OTg0OTQ0NmU2MmUwNjViMjU3
+MGZhYjVhODAxODk1IE0gICAgICBuZXQNCg0KIEJpc2VjdCBMb2cNCiQgZ2l0IGJpc2VjdCBsb2cN
+CmdpdCBiaXNlY3Qgc3RhcnQNCiMgYmFkOiBbMTg2ZjliMThiOTRhZmQwYjc1YThlYzFiMzk0YjBm
+MTE5ZDQ3OWViNl0gTGludXggMi42LjI5LjQNCmdpdCBiaXNlY3QgYmFkIDE4NmY5YjE4Yjk0YWZk
+MGI3NWE4ZWMxYjM5NGIwZjExOWQ0NzllYjYNCiMgZ29vZDogWzhlMGVlNDNiYzJjM2UxOWRiNTZh
+NGFkYWE5YTliMDRjZTg4NWNkODRdIExpbnV4IDIuNi4yOQ0KZ2l0IGJpc2VjdCBnb29kIDhlMGVl
+NDNiYzJjM2UxOWRiNTZhNGFkYWE5YTliMDRjZTg4NWNkODQNCiMgZ29vZDogW2ZkYTI4ODUzYmM0
+YmMwNTNlZjJmYWZiNWM3ZDJhMjZlNmNlNGI0YmZdIEtWTTogRml4IG1pc3Npbmcgc21wIHRsYiBm
+bHVzaCBpbiBpbnZscGcNCmdpdCBiaXNlY3QgZ29vZCBmZGEyODg1M2JjNGJjMDUzZWYyZmFmYjVj
+N2QyYTI2ZTZjZTRiNGJmDQojIGJhZDogWzc4NDNkY2ZlMTExNWU5NDEyZTZlODM0OTJlMTdmOWM3
+NWI1YTA2MmRdIG12NjQzeHhfZXRoOiBPT00gaGFuZGxpbmcgZml4ZXMNCmdpdCBiaXNlY3QgYmFk
+IDc4NDNkY2ZlMTExNWU5NDEyZTZlODM0OTJlMTdmOWM3NWI1YTA2MmQNCiMgYmFkOiBbODdiNTll
+YWMwOTE0YWI0MDdkZjU3ZmUyM2Q4ODBkY2NkOWE5NDM2ZF0gdmlydGlvLXJuZzogUmVtb3ZlIGZh
+bHNlIEJVRyBmb3Igc3B1cmlvdXMgY2FsbGJhY2tzDQpnaXQgYmlzZWN0IGJhZCA4N2I1OWVhYzA5
+MTRhYjQwN2RmNTdmZTIzZDg4MGRjY2Q5YTk0MzZkDQojIGdvb2Q6IFsyNDAxNmM3MzVlNjUxZjE3
+OTY5MjQzMmYxODE3NjM0OGNhZWI4MmIwXSBzY3NpOiBtcHQ6IHN1cHByZXNzIGRlYnVnb2JqZWN0
+cyB3YXJuaW5nDQpnaXQgYmlzZWN0IGdvb2QgMjQwMTZjNzM1ZTY1MWYxNzk2OTI0MzJmMTgxNzYz
+NDhjYWViODJiMA0KIyBnb29kOiBbNWM0NzUyNGI1MTRiNWJiMzczMmMzYjg5MzMzOGEyMTBkNjdk
+YTNjZF0gdGhpbmtwYWQtYWNwaTogZml4IExFRCBibGlua2luZyB0aHJvdWdoIHRpbWVyIHRyaWdn
+ZXINCmdpdCBiaXNlY3QgZ29vZCA1YzQ3NTI0YjUxNGI1YmIzNzMyYzNiODkzMzM4YTIxMGQ2N2Rh
+M2NkDQojIGJhZDogW2Q1OTU5OTAwNDhhZDE3YmE3YjBhZDUwNDM4ZWQ2NGY4OGI3YzI1Y2FdIEtW
+TTogTU1VOiBkaXNhYmxlIGdsb2JhbCBwYWdlIG9wdGltaXphdGlvbg0KZ2l0IGJpc2VjdCBiYWQg
+ZDU5NTk5MDA0OGFkMTdiYTdiMGFkNTA0MzhlZDY0Zjg4YjdjMjVjYQ0KIyBiYWQ6IFs2NGUxYjAw
+Yzk3NGRkZWFlNmE2MGViYjAyZTFjNDg3MzcxOTA1Y2VhXSBtYWM4MDIxMTogZml4IGJhc2ljIHJh
+dGUgYml0bWFwIGNhbGN1bGF0aW9uDQpnaXQgYmlzZWN0IGJhZCA2NGUxYjAwYzk3NGRkZWFlNmE2
+MGViYjAyZTFjNDg3MzcxOTA1Y2VhDQojIGdvb2Q6IFtkMmQ4M2UxZjUyN2I2YjBmYWYxNWQ1NGIy
+MmMwMzJlZDU4MTJkMDU0XSBBTFNBOiB1czEyMmw6IGFkZCBzbmRfdXMxMjJsX2ZyZWUoKQ0KZ2l0
+IGJpc2VjdCBnb29kIGQyZDgzZTFmNTI3YjZiMGZhZjE1ZDU0YjIyYzAzMmVkNTgxMmQwNTQNCg0K
+IA0KDQoNCg0KLS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdudVBHIHYx
+LjQuOSAoR05VL0xpbnV4KQ0KDQppUUljQkFFQkNBQUdCUUpLRlhWL0FBb0pFRE80aUVSZVNUQjI2
+K1VQL2l4c2ZyNTcxeVZwQ2ttZW1TaE5HSmpGDQpxVGhtdGwrelpMeE8rTzFvazNNL0s1N0R3cHR5
+Qk1kZ3gyek9ROVBxUWF0TjJnMmd5WGFGZDNSME1Kbk5yNFNuDQp4UVBFQnRSQUxYSHZDNWIyS3ho
+ZmdFQ04xK04zU3NCNENLNWRVeldlcFAvRGMxNnp0MHBFWFUvWlY3UDd2MEV5DQpyOHR2WTR0UFRo
+bkhjeS9RZVFMSnVRYWVjaGpCRW14MS9iTitackM1czZ3bGVySEM5U2ovaGQ1WUFwVGx1OWs2DQpv
+clJRUkl2MWpRNFVwVTNNcjE2QXg1RXRyc3BMeEJjbmYxQXhZVGxuK0dLc0lnMlExMDhtVE96d1U5
+Wkd1NEk4DQpmRWhZYmJwVGhTWXg2RlI2QVB0a3pPZXo0QmtBOTdlVDRmanBGVUtkSWF1Vlkrb21p
+VGJlYkxRaXdxd0xER2hXDQpCTEwzeDRqTVdFelNpMXNZR2szcStaNFQ4QkVLcUxzSlZyRVJaWklT
+LzFVQ3luTkJDQ3hFbStoVU9LRTN6K0lsDQpRc2RWQlRwNDNjYldoSDJ6bGJnOXNBYitkUTB6eExR
+NUpFTjlKaE5Wb1hHa3ozSlVKK3ZZZUkrUjRoSE9OQnpBDQo3bkNIVmd1SE5pdGI5NE0vcmhSZjNQ
+VmxmSTQrVVdMS2plZ3c2K015bC9BUW56RGMyK2l1SEsyQTJ2VkRlTU4xDQo3c2FnZEtHaXpvamVT
+N01iL2k1V0FYMkUyR3UySFl1Q1doVnpoaUF2M3Yya0NlbTFJRlZseUZrcUZPRjYvcXhODQpmY1ZP
+Q0JtZ1JWeVpvZ2ZEZ1FKQThxNGR5cE15b3VXRmFUZDQ4M3Rhd2dsSHpwM3RzY2Q2QWx5dU84VzFq
+ZmFuDQp4dXo3RWpmWEU4WUpXYzROS2lKcQ0KPVh5ME8NCi0tLS0tRU5EIFBHUCBTSUdOQVRVUkUt
+LS0tLQ0K
