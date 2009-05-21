@@ -1,67 +1,66 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: rfkill vs. interface up
-Date: Thu, 21 May 2009 11:39:49 -0400
-Message-ID: <1242920389.14369.16.camel@localhost.localdomain>
-References: <1242736331.4797.22.camel@johannes.local>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: [PATCH 1/1] isdn: Use kernel_{send,recv}msg instead of open coding
+Date: Thu, 21 May 2009 12:41:26 -0300
+Message-ID: <20090521154126.GH5956@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1242736331.4797.22.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore@hp.com>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>, Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>,
+	linux-security-module@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-05-19 at 14:32 +0200, Johannes Berg wrote:
-> Hi,
-> 
-> More thoughts on rfkill ...
-> 
-> So we were thinking it would be sensible to just force interfaces down
-> on rfkill, which is of course possible, and then reject attempts to set
-> the interface UP while killed.
-> 
-> There's just one problem with that -- when you un-rfkill, does the
-> kernel set interfaces UP again?
-> 
-> If not -- how would we possibly handle 'iwconfig .. txpower off'? We're
-> mostly handling it like rfkill now afaict, but 'iwconfig .. txpower on'
-> wouldn't be able to do anything properly.
-> 
-> If yes -- how do we know which interfaces to set UP? However we turn it,
-> userspace can then not disable an interface regardless of rfkill state,
-> which gets really confusing.
-> 
-> Therefore, I don't think we can simply set interfaces down on rfkill
-> with the current scheme.
-> 
-> On the other hand, the interfaces really are dysfunctional in rfkill and
-> we really need more integration.
-> 
-> 
-> I'm happy to give up on 'iwconfig wlan0 txpower on/off' entirely, simply
-> refuse supporting it (return -EINVAL if txpower.disabled) and then use
-> the first scheme where rfkill forces the interface down but userspace is
-> responsible for enabling it again. This is asymmetric, but I don't see
-> what else to do.
+Reducing the number of direct users of sock_{recv,send}msg.
 
-That proposal sounds fine to me from a userspace perspective.  Sane
-implementations don't assume the interface is IFF_UP when they configure
-the device anyway (since it's not necessarily up at boot time or after
-hibernate for example), and since you need a reconfigure after rfkill,
-this seems reasonable.
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-You wouldn't have to give up on txpower either, you could simply map
-'txpower off' to SW-rfkill, and 'txpower on' to un-SW-rfkill, where of
-course the interface would be !IFF_UP after 'txpower on' just like
-flipping the killswitch would.
-
-Dan
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
+index abe5749..8caf40e 100644
+--- a/drivers/isdn/mISDN/l1oip_core.c
++++ b/drivers/isdn/mISDN/l1oip_core.c
+@@ -279,7 +279,6 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
+ 	int multi = 0;
+ 	u8 frame[len+32];
+ 	struct socket *socket = NULL;
+-	mm_segment_t oldfs;
+ 
+ 	if (debug & DEBUG_L1OIP_MSG)
+ 		printk(KERN_DEBUG "%s: sending data to socket (len = %d)\n",
+@@ -352,10 +351,7 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
+ 			"= %d)\n", __func__, len);
+ 	hc->sendiov.iov_base = frame;
+ 	hc->sendiov.iov_len  = len;
+-	oldfs = get_fs();
+-	set_fs(KERNEL_DS);
+-	len = sock_sendmsg(socket, &hc->sendmsg, len);
+-	set_fs(oldfs);
++	len = kernel_sendmsg(socket, &hc->sendmsg, len);
+ 	/* give socket back */
+ 	hc->socket = socket; /* no locking required */
+ 
+@@ -661,7 +657,6 @@ l1oip_socket_thread(void *data)
+ 	int ret = 0;
+ 	struct msghdr msg;
+ 	struct iovec iov;
+-	mm_segment_t oldfs;
+ 	struct sockaddr_in sin_rx;
+ 	unsigned char recvbuf[1500];
+ 	int recvlen;
+@@ -731,10 +726,7 @@ l1oip_socket_thread(void *data)
+ 	while (!signal_pending(current)) {
+ 		iov.iov_base = recvbuf;
+ 		iov.iov_len = sizeof(recvbuf);
+-		oldfs = get_fs();
+-		set_fs(KERNEL_DS);
+-		recvlen = sock_recvmsg(socket, &msg, sizeof(recvbuf), 0);
+-		set_fs(oldfs);
++		recvlen = kernel_recvmsg(socket, &msg, sizeof(recvbuf), 0);
+ 		if (recvlen > 0) {
+ 			l1oip_socket_parse(hc, &sin_rx, recvbuf, recvlen);
+ 		} else {
