@@ -1,78 +1,40 @@
-From: Paul Menage <menage@google.com>
-Subject: [PATCH] cls_cgroup: read classid atomically in classifier
-Date: Thu, 21 May 2009 11:31:26 -0700
-Message-ID: <20090521183100.12678.28835.stgit@menage.mtv.corp.google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: ipt_MASQUERADE weirdness (consuming CPU cycles while not used)
+Date: Thu, 21 May 2009 20:00:52 +0200
+Message-ID: <4A1596D4.6000708@netfilter.org>
+References: <200905182219.30216.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: lizf@cn.fujitsu.com, akpm@linux-foundation.org,
-	davem@davemloft.net, tgraf@suug.ch
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:14965 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbZEUSeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 14:34:22 -0400
+Received: from mail.us.es ([193.147.175.20]:60840 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751587AbZEUSfB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 14:35:01 -0400
+In-Reply-To: <200905182219.30216.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cls_cgroup: read classid atomically in classifier
+Denys Fedoryschenko wrote:
+> I have loaded pppoe (1700 users). I test one rule for short time with -j 
+> MASQUERADE, then removed it and reset conntrack (conntrack -F). But still i 
+> can see it is consuming CPU even when it is not used in any rule. Even i 
+> reboot server and just load rules that dont have MASQUERADE, and just load 
+> module - it will start consuming CPU immediately.
 
-Avoid reading the unsynchronized value cs->classid multiple times,
-since it could change concurrently from non-zero to zero; this would
-result in the classifier returning a positive result with a bogus
-(zero) classid.
+Are you using 2.6.29 with any conntrack helper loaded? In that case this
+fix is not in -stable yet.
 
-Signed-off-by: Paul Menage <menage@google.com>
-Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
+http://kerneltrap.org/mailarchive/linux-netdev/2009/4/8/5440564
 
----
+> 64811     3.7735  ipt_MASQUERADE           ipt_MASQUERADE           device_cmp
 
-Resending to cc netdev@vger.kernel.org as requested by DaveM
+device_cmp() by nf_ct_iterate_cleanup() when NETDEV_DOWN event is
+received. Weird, is your device going down quite often? Another
+possibility is that there's some entry stuck in the conntrack table that
+we cannot delete, perhaps we're leaking refcounts somewhere.
 
- net/sched/cls_cgroup.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 1ab4542..4ece6e0 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -98,8 +98,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
- 			       struct tcf_result *res)
- {
- 	struct cls_cgroup_head *head = tp->root;
--	struct cgroup_cls_state *cs;
--	int ret = 0;
-+        u32 classid;
- 
- 	/*
- 	 * Due to the nature of the classifier it is required to ignore all
-@@ -115,17 +114,18 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
- 		return -1;
- 
- 	rcu_read_lock();
--	cs = task_cls_state(current);
--	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
--		res->classid = cs->classid;
--		res->class = 0;
--		ret = tcf_exts_exec(skb, &head->exts, res);
--	} else
--		ret = -1;
--
-+	classid = task_cls_state(current)->classid;
- 	rcu_read_unlock();
- 
--	return ret;
-+	if (!classid)
-+		return -1;
-+
-+	if (!tcf_em_tree_match(skb, &head->ematches, NULL))
-+		return -1;
-+
-+	res->classid = classid;
-+	res->class = 0;
-+	return tcf_exts_exec(skb, &head->exts, res);
- }
- 
- static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
-
+-- 
+"Los honestos son inadaptados sociales" -- Les Luthiers
