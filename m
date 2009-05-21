@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.29.1 pktgen crash
-Date: Thu, 21 May 2009 15:07:34 -0700 (PDT)
-Message-ID: <20090521.150734.87902921.davem@davemloft.net>
-References: <20090520202450.GA12896@francoudi.com>
-	<20090521215915.GA32737@Chamillionaire.breakpoint.cc>
+Subject: Re: [PATCH 2/2] netns: simplify net_ns_init
+Date: Thu, 21 May 2009 15:10:40 -0700 (PDT)
+Message-ID: <20090521.151040.07804750.davem@davemloft.net>
+References: <20090521135846.1fadbe41@nehalam>
+	<20090521140042.201351d7@nehalam>
+	<m1bppmqgns.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hazard@francoudi.com, netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56318
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34955
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754887AbZEUWHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:07:36 -0400
-In-Reply-To: <20090521215915.GA32737@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1755270AbZEUWKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 18:10:41 -0400
+In-Reply-To: <m1bppmqgns.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 21 May 2009 23:59:15 +0200
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 21 May 2009 14:39:51 -0700
 
-> pktgen: do not access flows[] beyond its length
+> Stephen Hemminger <shemminger@vyatta.com> writes:
 > 
-> typo -- pkt_dev->nflows is for stats only, the number of concurrent
-> flows is stored in cflows.
+>> The net_ns_init code can be simplified. No need to save error code
+>> if it is only going to panic if it is set 4 lines later.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Reported-By: Vladimir Ivashchenko <hazard@francoudi.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
