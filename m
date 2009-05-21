@@ -1,84 +1,67 @@
-From: Alejandro Riveira =?UTF-8?B?RmVybsOhbmRleg==?=
-	<ariveira@gmail.com>
-Subject: [mac80211 ] Wifi Network slownes bisected
-Date: Thu, 21 May 2009 17:38:39 +0200
-Message-ID: <20090521173839.1f20b95d@varda>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: rfkill vs. interface up
+Date: Thu, 21 May 2009 11:39:49 -0400
+Message-ID: <1242920389.14369.16.camel@localhost.localdomain>
+References: <1242736331.4797.22.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, ariveira@gmail.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:65134 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754008AbZEUPiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 11:38:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1242736331.4797.22.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMjU2DQoNCg0KIEkg
-aGF2ZSBhIHJ0MjUwMHBjaSBjYXJkDQoNCiBJIG5vdGljZWQgdGhhdCBteSB3aWZpIGNvbm5lY3Rp
-b24gaGFzIHNsb3dlZCB3aGVuIHN0aXRjaGluZw0KZnJvbSAyLjYuMjkuMSB0byAyLjYuMjkuNCAo
-aXQgaXMgYWxzbyBzbG93IG9uIDMwLXJjNikNCkFsc28gMi42LjI3ICh1YnVudHUpIGRvZXMgbm90
-IHN1ZmZlciBpdC4NCg0KIEkgYmlzZWN0ZWQgYW5kIGNhbWUgdG8gdGhlIGZvbGxvd2luZyBjb21t
-aXQgYXMgdGhlIGN1bHByaXQNCg0KIEkgY2FuIHRlc3QgcGF0Y2hlcyBhbmQgaWYgeW91IG5lZWQg
-bW9yZSBpbmZvIGp1c3QgYXNrLg0KDQokIGdpdCBiaXNlY3QgZ29vZA0KNjRlMWIwMGM5NzRkZGVh
-ZTZhNjBlYmIwMmUxYzQ4NzM3MTkwNWNlYSBpcyBmaXJzdCBiYWQgY29tbWl0DQpjb21taXQgNjRl
-MWIwMGM5NzRkZGVhZTZhNjBlYmIwMmUxYzQ4NzM3MTkwNWNlYQ0KQXV0aG9yOiBKb2hhbm5lcyBC
-ZXJnIDxqb2hhbm5lc0BzaXBzb2x1dGlvbnMubmV0Pg0KRGF0ZTogICBGcmkgQXByIDI0IDE2OjA1
-OjE2IDIwMDkgKzAwMDANCg0KICAgIG1hYzgwMjExOiBmaXggYmFzaWMgcmF0ZSBiaXRtYXAgY2Fs
-Y3VsYXRpb24NCiAgICANCiAgICB1cHN0cmVhbSBjb21taXQ6IDdlMDk4NmMxN2Y2OTU5NTJjZTVk
-NjFlZDc5M2NlMDQ4YmE5MGE2NjENCiAgICANCiAgICAibWFjODAyMTE6IGZpeCBiYXNpYyByYXRl
-cyBzZXR0aW5nIGZyb20gYXNzb2NpYXRpb24gcmVzcG9uc2UiDQogICAgaW50cm9kdWNlZCBhIGNv
-cHkvcGFzdGUgZXJyb3IuDQogICAgDQogICAgVW5mb3J0dW5hdGVseSwgdGhpcyBub3QganVzdCBs
-ZWFkcyB0byB3cm9uZyBkYXRhIGJlaW5nIHBhc3NlZA0KICAgIHRvIHRoZSBkcml2ZXIgYnV0IGlz
-IHJlbW90ZWx5IGV4cGxvaXRhYmxlIGZvciBzb21lIGhhcmR3YXJlIG9yDQogICAgZHJpdmVyIGNv
-bWJpbmF0aW9ucy4NCiAgICANCiAgICBTaWduZWQtb2ZmLWJ5OiBKb2hhbm5lcyBCZXJnIDxqb2hh
-bm5lc0BzaXBzb2x1dGlvbnMubmV0Pg0KICAgIFNpZ25lZC1vZmYtYnk6IEpvaG4gVy4gTGludmls
-bGUgPGxpbnZpbGxlQHR1eGRyaXZlci5jb20+DQogICAgU2lnbmVkLW9mZi1ieTogQ2hyaXMgV3Jp
-Z2h0IDxjaHJpc3dAc291cy1zb2wub3JnPg0KDQo6MDQwMDAwIDA0MDAwMCBlOWU0NzkyMTBiNDZh
-ZTQ1ZjljODRiYWRkNTcwMzlkZjQ0ZDQwNzdjDQplYTBiNzE5ZTU0OTg0OTQ0NmU2MmUwNjViMjU3
-MGZhYjVhODAxODk1IE0gICAgICBuZXQNCg0KIEJpc2VjdCBMb2cNCiQgZ2l0IGJpc2VjdCBsb2cN
-CmdpdCBiaXNlY3Qgc3RhcnQNCiMgYmFkOiBbMTg2ZjliMThiOTRhZmQwYjc1YThlYzFiMzk0YjBm
-MTE5ZDQ3OWViNl0gTGludXggMi42LjI5LjQNCmdpdCBiaXNlY3QgYmFkIDE4NmY5YjE4Yjk0YWZk
-MGI3NWE4ZWMxYjM5NGIwZjExOWQ0NzllYjYNCiMgZ29vZDogWzhlMGVlNDNiYzJjM2UxOWRiNTZh
-NGFkYWE5YTliMDRjZTg4NWNkODRdIExpbnV4IDIuNi4yOQ0KZ2l0IGJpc2VjdCBnb29kIDhlMGVl
-NDNiYzJjM2UxOWRiNTZhNGFkYWE5YTliMDRjZTg4NWNkODQNCiMgZ29vZDogW2ZkYTI4ODUzYmM0
-YmMwNTNlZjJmYWZiNWM3ZDJhMjZlNmNlNGI0YmZdIEtWTTogRml4IG1pc3Npbmcgc21wIHRsYiBm
-bHVzaCBpbiBpbnZscGcNCmdpdCBiaXNlY3QgZ29vZCBmZGEyODg1M2JjNGJjMDUzZWYyZmFmYjVj
-N2QyYTI2ZTZjZTRiNGJmDQojIGJhZDogWzc4NDNkY2ZlMTExNWU5NDEyZTZlODM0OTJlMTdmOWM3
-NWI1YTA2MmRdIG12NjQzeHhfZXRoOiBPT00gaGFuZGxpbmcgZml4ZXMNCmdpdCBiaXNlY3QgYmFk
-IDc4NDNkY2ZlMTExNWU5NDEyZTZlODM0OTJlMTdmOWM3NWI1YTA2MmQNCiMgYmFkOiBbODdiNTll
-YWMwOTE0YWI0MDdkZjU3ZmUyM2Q4ODBkY2NkOWE5NDM2ZF0gdmlydGlvLXJuZzogUmVtb3ZlIGZh
-bHNlIEJVRyBmb3Igc3B1cmlvdXMgY2FsbGJhY2tzDQpnaXQgYmlzZWN0IGJhZCA4N2I1OWVhYzA5
-MTRhYjQwN2RmNTdmZTIzZDg4MGRjY2Q5YTk0MzZkDQojIGdvb2Q6IFsyNDAxNmM3MzVlNjUxZjE3
-OTY5MjQzMmYxODE3NjM0OGNhZWI4MmIwXSBzY3NpOiBtcHQ6IHN1cHByZXNzIGRlYnVnb2JqZWN0
-cyB3YXJuaW5nDQpnaXQgYmlzZWN0IGdvb2QgMjQwMTZjNzM1ZTY1MWYxNzk2OTI0MzJmMTgxNzYz
-NDhjYWViODJiMA0KIyBnb29kOiBbNWM0NzUyNGI1MTRiNWJiMzczMmMzYjg5MzMzOGEyMTBkNjdk
-YTNjZF0gdGhpbmtwYWQtYWNwaTogZml4IExFRCBibGlua2luZyB0aHJvdWdoIHRpbWVyIHRyaWdn
-ZXINCmdpdCBiaXNlY3QgZ29vZCA1YzQ3NTI0YjUxNGI1YmIzNzMyYzNiODkzMzM4YTIxMGQ2N2Rh
-M2NkDQojIGJhZDogW2Q1OTU5OTAwNDhhZDE3YmE3YjBhZDUwNDM4ZWQ2NGY4OGI3YzI1Y2FdIEtW
-TTogTU1VOiBkaXNhYmxlIGdsb2JhbCBwYWdlIG9wdGltaXphdGlvbg0KZ2l0IGJpc2VjdCBiYWQg
-ZDU5NTk5MDA0OGFkMTdiYTdiMGFkNTA0MzhlZDY0Zjg4YjdjMjVjYQ0KIyBiYWQ6IFs2NGUxYjAw
-Yzk3NGRkZWFlNmE2MGViYjAyZTFjNDg3MzcxOTA1Y2VhXSBtYWM4MDIxMTogZml4IGJhc2ljIHJh
-dGUgYml0bWFwIGNhbGN1bGF0aW9uDQpnaXQgYmlzZWN0IGJhZCA2NGUxYjAwYzk3NGRkZWFlNmE2
-MGViYjAyZTFjNDg3MzcxOTA1Y2VhDQojIGdvb2Q6IFtkMmQ4M2UxZjUyN2I2YjBmYWYxNWQ1NGIy
-MmMwMzJlZDU4MTJkMDU0XSBBTFNBOiB1czEyMmw6IGFkZCBzbmRfdXMxMjJsX2ZyZWUoKQ0KZ2l0
-IGJpc2VjdCBnb29kIGQyZDgzZTFmNTI3YjZiMGZhZjE1ZDU0YjIyYzAzMmVkNTgxMmQwNTQNCg0K
-IA0KDQoNCg0KLS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0NClZlcnNpb246IEdudVBHIHYx
-LjQuOSAoR05VL0xpbnV4KQ0KDQppUUljQkFFQkNBQUdCUUpLRlhWL0FBb0pFRE80aUVSZVNUQjI2
-K1VQL2l4c2ZyNTcxeVZwQ2ttZW1TaE5HSmpGDQpxVGhtdGwrelpMeE8rTzFvazNNL0s1N0R3cHR5
-Qk1kZ3gyek9ROVBxUWF0TjJnMmd5WGFGZDNSME1Kbk5yNFNuDQp4UVBFQnRSQUxYSHZDNWIyS3ho
-ZmdFQ04xK04zU3NCNENLNWRVeldlcFAvRGMxNnp0MHBFWFUvWlY3UDd2MEV5DQpyOHR2WTR0UFRo
-bkhjeS9RZVFMSnVRYWVjaGpCRW14MS9iTitackM1czZ3bGVySEM5U2ovaGQ1WUFwVGx1OWs2DQpv
-clJRUkl2MWpRNFVwVTNNcjE2QXg1RXRyc3BMeEJjbmYxQXhZVGxuK0dLc0lnMlExMDhtVE96d1U5
-Wkd1NEk4DQpmRWhZYmJwVGhTWXg2RlI2QVB0a3pPZXo0QmtBOTdlVDRmanBGVUtkSWF1Vlkrb21p
-VGJlYkxRaXdxd0xER2hXDQpCTEwzeDRqTVdFelNpMXNZR2szcStaNFQ4QkVLcUxzSlZyRVJaWklT
-LzFVQ3luTkJDQ3hFbStoVU9LRTN6K0lsDQpRc2RWQlRwNDNjYldoSDJ6bGJnOXNBYitkUTB6eExR
-NUpFTjlKaE5Wb1hHa3ozSlVKK3ZZZUkrUjRoSE9OQnpBDQo3bkNIVmd1SE5pdGI5NE0vcmhSZjNQ
-VmxmSTQrVVdMS2plZ3c2K015bC9BUW56RGMyK2l1SEsyQTJ2VkRlTU4xDQo3c2FnZEtHaXpvamVT
-N01iL2k1V0FYMkUyR3UySFl1Q1doVnpoaUF2M3Yya0NlbTFJRlZseUZrcUZPRjYvcXhODQpmY1ZP
-Q0JtZ1JWeVpvZ2ZEZ1FKQThxNGR5cE15b3VXRmFUZDQ4M3Rhd2dsSHpwM3RzY2Q2QWx5dU84VzFq
-ZmFuDQp4dXo3RWpmWEU4WUpXYzROS2lKcQ0KPVh5ME8NCi0tLS0tRU5EIFBHUCBTSUdOQVRVUkUt
-LS0tLQ0K
+On Tue, 2009-05-19 at 14:32 +0200, Johannes Berg wrote:
+> Hi,
+> 
+> More thoughts on rfkill ...
+> 
+> So we were thinking it would be sensible to just force interfaces down
+> on rfkill, which is of course possible, and then reject attempts to set
+> the interface UP while killed.
+> 
+> There's just one problem with that -- when you un-rfkill, does the
+> kernel set interfaces UP again?
+> 
+> If not -- how would we possibly handle 'iwconfig .. txpower off'? We're
+> mostly handling it like rfkill now afaict, but 'iwconfig .. txpower on'
+> wouldn't be able to do anything properly.
+> 
+> If yes -- how do we know which interfaces to set UP? However we turn it,
+> userspace can then not disable an interface regardless of rfkill state,
+> which gets really confusing.
+> 
+> Therefore, I don't think we can simply set interfaces down on rfkill
+> with the current scheme.
+> 
+> On the other hand, the interfaces really are dysfunctional in rfkill and
+> we really need more integration.
+> 
+> 
+> I'm happy to give up on 'iwconfig wlan0 txpower on/off' entirely, simply
+> refuse supporting it (return -EINVAL if txpower.disabled) and then use
+> the first scheme where rfkill forces the interface down but userspace is
+> responsible for enabling it again. This is asymmetric, but I don't see
+> what else to do.
+
+That proposal sounds fine to me from a userspace perspective.  Sane
+implementations don't assume the interface is IFF_UP when they configure
+the device anyway (since it's not necessarily up at boot time or after
+hibernate for example), and since you need a reconfigure after rfkill,
+this seems reasonable.
+
+You wouldn't have to give up on txpower either, you could simply map
+'txpower off' to SW-rfkill, and 'txpower on' to un-SW-rfkill, where of
+course the interface would be !IFF_UP after 'txpower on' just like
+flipping the killswitch would.
+
+Dan
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
