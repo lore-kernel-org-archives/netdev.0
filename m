@@ -1,61 +1,48 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
-Date: Thu, 21 May 2009 13:27:53 -0300
-Message-ID: <20090521162753.GI5956@ghostprotocols.net>
-References: <20090520230652.GB5956@ghostprotocols.net> <20090521161000.GA6638@ioremap.net>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: rfkill vs. interface up
+Date: Thu, 21 May 2009 12:32:07 -0400
+Message-ID: <1242923527.14369.29.camel@localhost.localdomain>
+References: <1242736331.4797.22.camel@johannes.local>
+	 <1242920389.14369.16.camel@localhost.localdomain>
+	 <1242921924.4212.11.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:56901 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753999AbZEUQ2C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 12:28:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20090521161000.GA6638@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1242921924.4212.11.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Em Thu, May 21, 2009 at 08:10:00PM +0400, Evgeniy Polyakov escreveu:
-> Hi Arnaldo.
+On Thu, 2009-05-21 at 18:05 +0200, Johannes Berg wrote:
+> On Thu, 2009-05-21 at 11:39 -0400, Dan Williams wrote:
 > 
-> On Wed, May 20, 2009 at 08:06:52PM -0300, Arnaldo Carvalho de Melo (acme@redhat.com) wrote:
-> > Meaning receive multiple messages, reducing the number of syscalls and
-> > net stack entry/exit operations.
+> > That proposal sounds fine to me from a userspace perspective.  Sane
+> > implementations don't assume the interface is IFF_UP when they configure
+> > the device anyway (since it's not necessarily up at boot time or after
+> > hibernate for example), and since you need a reconfigure after rfkill,
+> > this seems reasonable.
 > > 
-> > Next patches will introduce mechanisms where protocols that want to
-> > optimize this operation will provide an unlocked_recvmsg operation.
->  
-> What's the difference from the single msg with multiple iovecs?
+> > You wouldn't have to give up on txpower either, you could simply map
+> > 'txpower off' to SW-rfkill, and 'txpower on' to un-SW-rfkill, where of
+> > course the interface would be !IFF_UP after 'txpower on' just like
+> > flipping the killswitch would.
+> 
+> Yeah, good point, that sounds better than having to give up on it -- the
+> key though is that we can't recover IFF_UP state when that happens; if
+> that's ok this should be fairly simple.
 
-recvmsg consumes just one skb, a datagram, truncating if it has more
-bytes than asked and giving less bytes than asked for if the skb being
-consumer is smaller than requested.
+I don't think recovering IFF_UP needs to be done by the kernel.  rfkill
+already hoses the card state anyway, requiring a full setup by
+userspace, which usually includes ensuring the device is up (which, for
+example, both NM and wpa_supplicant have done since the beginning of
+time).
 
-WRT iovec, it gets this skb/datagram and goes on filling iovec entry by
-entry, till it exhausts the skb.
+Dan
 
-The usecase here is: UDP socket has multiple skbs in its receive queue,
-so application will make several syscalls to get those skbs while we
-could return multiple datagrams in just one syscall + fd lookup + LSM
-validation + lock_sock + release_sock.
-
-We could use some sort of setsockopt to instead put a datagram per iovec
-entry, but that would be cumbersome, using recvmsg + recvmmsg on the
-same code should be possible without require setsockopts to switch
-modes.
-
-The proposed API just adds an "array mode" for recvmsg, keeping the
-existing semantics as much as possible, to ease converting applications
-to it, libraries would just do some internal caching and its users
-wouldn't notice the change.
- 
-> Can we implement receiving from multiple sockets using this or similar interface?
-
-Not really, we don't pass something like a poll_fd array, the operation
-as proposed is per socket.
-
-- Arnaldo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
