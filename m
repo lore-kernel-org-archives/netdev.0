@@ -1,72 +1,86 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
-Date: Thu, 21 May 2009 14:51:22 -0300
-Message-ID: <20090521175122.GL5956@ghostprotocols.net>
-References: <20090520230652.GB5956@ghostprotocols.net> <469958e00905210938s371b5dect28c7b1f8bb751ad1@mail.gmail.com> <20090521165515.GK5956@ghostprotocols.net> <469958e00905211026q468de6fbh2b5932d177b7c7a9@mail.gmail.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [RFC] virtio: orphan skbs if we're relying on timer to free them
+Date: Thu, 21 May 2009 10:24:31 -0700
+Message-ID: <4A158E4F.9070005@chelsio.com>
+References: <200905182218.47975.rusty@rustcorp.com.au>	<20090518.194013.109631461.davem@davemloft.net>	<200905211627.05814.rusty@rustcorp.com.au> <20090521.001503.90069315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>
-To: Caitlin Bestler <caitlin.bestler@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:55797 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751587AbZEURv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 13:51:27 -0400
-Content-Disposition: inline
-In-Reply-To: <469958e00905211026q468de6fbh2b5932d177b7c7a9@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:16667 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753743AbZEUSEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 14:04:36 -0400
+In-Reply-To: <20090521.001503.90069315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, May 21, 2009 at 10:26:58AM -0700, Caitlin Bestler escreveu:
-> On Thu, May 21, 2009 at 9:55 AM, Arnaldo Carvalho de Melo
-> <acme@ghostprotocols.net> wrote:
+David Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Thu, 21 May 2009 16:27:05 +0930
 > 
-> >
-> > I.e. recvmmsg would save the value of sk->sk_rcvtimeo at entry and
-> > restore at exit, and would somehow go on subtracting the time
-> > sock_recvmsg() took from it so that the following call finds a reduced
-> > sk->sk_rcvtimeo iif it was configured in the first place and the socket
-> > is in blocking mode.
-> >
-> > How does that sound?
-> >
+>> On Tue, 19 May 2009 12:10:13 pm David Miller wrote:
+>>> What you're doing by orphan'ing is creating a situation where a single
+>>> UDP socket can loop doing sends and monopolize the TX queue of a
+>>> device.  The only control we have over a sender for fairness in
+>>> datagram protocols is that send buffer allocation.
+>> Urgh, that hadn't even occurred to me.  Good point.
 > 
-> I suspect that an additional timeout value will be needed ultimately.
-
-So you mean we need a timeout to wait for a datagram, that remains being
-sk->sk_rcvtimeo (SO_RCVTIMEO), and one that is passed as a parameter to
-recvmmsg?
- 
-> Essentially there is the existing timeout (how long will I wait before I
-> want to be told that there have been no messages) and an additional
-> "delivery pending" timeout (how long can the delivery of a message
-> be delayed to attempt to coalesce it with other messages).
-
-I gather this is an yes for the question I asked above :)
- 
-> There is also one sticky compliance issue with SCTP, delivery of an
-> UNORDERED message MUST NOT be delayed waiting for other traffic.
-> There is no guarantee that the local client will be scheduled immediately,
-> just a prohibition on delaying delivery for the purpose of bundling.
+> Now this all is predicated on this actually mattering. :-)
 > 
-> That might mean a specific transport would have to support multiple
-> conditional timeouts: maximum delay after an SCTP Event, after an
-> UNORDERED message, after a message with PPID X, etc. Or for
-> TCP after a PUSH FLAG, or after certain flags have been set, etc.
+> You could argue that the scheduler as well as the size of the
+> TX queue should be limiting and enforcing fairness.
 > 
-> Those could probably be reduced to delivering immediately after
-> any message that the transport flags as "urgent", and *all* error
-> completions are urgent (which is what the code first shown does).
+> Someone really needs to test this.  Just skb_orphan() every packet
+> at the beginning of dev_hard_start_xmit(), then run some test
+> program with two clients looping out UDP packets to see if one
+> can monopolize the device and get a significantly larger amount
+> of TX resources than the other.  Repeat for 3, 4, 5, etc. clients.
 
-checking if MSG_OOB is set in the last datagram returned by the
-unlocked_recvmsg call, that would make recvmmsg return imediately even
-if in blocking mode and not having filled the array, ok.
- 
-> The specific transport could then use setsockopt to control what
-> messages qualified as "urgent" in a transport specific manner.
+The cxgb3 driver has had skb_orphan in its transmit routine forever (also 
+due to lack of Tx interrupts) and I am not aware of adverse effects caused 
+by doing so.  It does skip skb_orphan when skb_shared but probably nobody 
+sends sharead skbs with destructors.
 
-OK
+The only application I know of that has trouble with lazy skb freeing is 
+pktgen because it treats freeing as an indication that the packet has been 
+transmitted so it's thrown off if packets sit there for a while.  (Also 
+freeing just indicates that the DMA is done, not that the packet has been 
+sent, and modern devices have quite a bit of buffering.)
 
-- Arnaldo
+> 
+>> I haven't thought this through properly, but how about a hack where
+>> we don't orphan packets if the ring is over half full?
+> 
+> That would also work.  And for the NIU case this would be great
+> because I DO have a marker bit for triggering interrupts in the TX
+> descriptors.  There's just no "all empty" interrupt on TX (who
+> designs these things? :( ).
+> 
+>> Then I guess we could overload the watchdog as a more general
+>> timer-after-no- xmit?
+> 
+> Yes, but it means that teardown of a socket can be delayed up to
+> the amount of that timer.  Factor in all of this crazy
+> round_jiffies() stuff people do these days and it could cause
+> pauses for real use cases and drive users batty.
+> 
+> Probably the most profitable avenue is to see if this is a real issue
+> afterall (see above).  If we can get away with having the socket
+> buffer represent socket --> device space only, that's the most ideal
+> solution.  It will probably also improve performance a lot across the
+> board, especially on NUMA/SMP boxes as our TX complete events tend to
+> be in difference places than the SKB producer.
+
+There's a comment in the cxgb3 driver where it calls skb_orphan that 
+explains the rationale and includes some of what you're saying.
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
