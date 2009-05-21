@@ -1,87 +1,56 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] cls_cgroup: read classid atomically in classifier
-Date: Thu, 21 May 2009 21:44:48 +0200
-Message-ID: <20090521194447.GA3388@psychotron.englab.brq.redhat.com>
-References: <20090521183100.12678.28835.stgit@menage.mtv.corp.google.com>
+From: Frans Pop <elendil@planet.nl>
+Subject: Re: [2.6.30] e1000e: pci_enable_pcie_error_reporting
+	failed 0xfffffffb
+Date: Thu, 21 May 2009 22:00:13 +0200
+Message-ID: <200905212200.14375.elendil@planet.nl>
+References: <200905141312.35945.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lizf@cn.fujitsu.com, akpm@linux-foundation.org,
-	davem@davemloft.net, tgraf@suug.ch, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Menage <menage@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:56224 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753362AbZEUTri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2009 15:47:38 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, linux-pm@lists.linux-foundation.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>, linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200905141312.35945.elendil@planet.nl>
 Content-Disposition: inline
-In-Reply-To: <20090521183100.12678.28835.stgit@menage.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Thu, May 21, 2009 at 08:31:26PM CEST, menage@google.com wrote:
->cls_cgroup: read classid atomically in classifier
+On Thursday 14 May 2009, Frans Pop wrote:
+> With 2.6.30-rc[45] I'm always seeing this error while resuming from STR
+> on my HP 2510p notebook:
 >
->Avoid reading the unsynchronized value cs->classid multiple times,
->since it could change concurrently from non-zero to zero; this would
->result in the classifier returning a positive result with a bogus
->(zero) classid.
+>   e1000e 0000:00:19.0: PCI INT A -> GSI 22 (level, low) -> IRQ 22
+> ! e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
+>   e1000e 0000:00:19.0: setting latency timer to 64 
+>   e1000e 0000:00:19.0: wake-up capability disabled by ACPI
+>   e1000e 0000:00:19.0: PME# disabled
+>   e1000e 0000:00:19.0: wake-up capability disabled by ACPI
+>   e1000e 0000:00:19.0: PME# disabled
+>   e1000e 0000:00:19.0: irq 26 for MSI/MSI-X
 >
->Signed-off-by: Paul Menage <menage@google.com>
->Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
+> The error only shows up during resume, not during normal boot.
 >
->---
->
->Resending to cc netdev@vger.kernel.org as requested by DaveM
->
-> net/sched/cls_cgroup.c |   22 +++++++++++-----------
-> 1 files changed, 11 insertions(+), 11 deletions(-)
->
->diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
->index 1ab4542..4ece6e0 100644
->--- a/net/sched/cls_cgroup.c
->+++ b/net/sched/cls_cgroup.c
->@@ -98,8 +98,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
-> 			       struct tcf_result *res)
-> {
-> 	struct cls_cgroup_head *head = tp->root;
->-	struct cgroup_cls_state *cs;
->-	int ret = 0;
->+        u32 classid;
-  ^^^^^^^^ How about using TAB instead?
-> 
-> 	/*
-> 	 * Due to the nature of the classifier it is required to ignore all
->@@ -115,17 +114,18 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
-> 		return -1;
-> 
-> 	rcu_read_lock();
->-	cs = task_cls_state(current);
->-	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
->-		res->classid = cs->classid;
->-		res->class = 0;
->-		ret = tcf_exts_exec(skb, &head->exts, res);
->-	} else
->-		ret = -1;
->-
->+	classid = task_cls_state(current)->classid;
-> 	rcu_read_unlock();
-> 
->-	return ret;
->+	if (!classid)
->+		return -1;
->+
->+	if (!tcf_em_tree_match(skb, &head->ematches, NULL))
->+		return -1;
->+
->+	res->classid = classid;
->+	res->class = 0;
->+	return tcf_exts_exec(skb, &head->exts, res);
-> }
-> 
-> static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> With 2.6.29 the error is not present. Is this something that should be
+> looked into? Networking still comes up normally.
+
+I'm still seeing this with 2.6.30-rc6. Should I just ignore it or is it an
+indication of a problem/regression?
+
+Cheers,
+FJP
+
+------------------------------------------------------------------------------
+Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
+is a gathering of tech-side developers & brand creativity professionals. Meet
+the minds behind Google Creative Lab, Visual Complexity, Processing, & 
+iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
+Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
