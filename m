@@ -1,49 +1,41 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH 3/6] powerpc: add memory map support to Freescale RapidIO
-	block
-Date: Thu, 21 May 2009 18:43:23 +0800
-Message-ID: <2a27d3730905210343k1e44225eh5555de768abdbb03@mail.gmail.com>
-References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
-	 <1242117363-14949-2-git-send-email-leoli@freescale.com>
-	 <1242117363-14949-3-git-send-email-leoli@freescale.com>
-	 <20090512150552.a98dca64.akpm@linux-foundation.org>
+From: matthieu castet <castet.matthieu@free.fr>
+Subject: Re: [PATCH] bc47xx : export ssb_watchdog_timer_set
+Date: Thu, 21 May 2009 12:45:16 +0200
+Message-ID: <4A1530BC.6010009@free.fr>
+References: <4A11DCBF.9000700@free.fr> <20090519173503.GD2691@tuxdriver.com> <20090520071513.GB24231@linux-mips.org> <200905201549.16154.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: galak@kernel.crashing.org, davem@davemloft.net,
-	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, zw@zh-kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:26221 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751723AbZEUKnX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 06:43:23 -0400
-In-Reply-To: <20090512150552.a98dca64.akpm@linux-foundation.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:40032 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752064AbZEUKp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2009 06:45:26 -0400
+In-Reply-To: <200905201549.16154.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2009 at 6:05 AM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> On Tue, 12 May 2009 16:36:00 +0800
-> Li Yang <leoli@freescale.com> wrote:
->
->> + =C2=A0 =C2=A0 align =3D (size < 0x1000) ? 0x1000 : 1 << (__ilog2(s=
-ize - 1) + 1);
->> +
->> + =C2=A0 =C2=A0 /* Align the size */
->> + =C2=A0 =C2=A0 if ((lstart + size) > (_ALIGN_DOWN(lstart, align) + =
-align)) {
->
-> __ilog2() and _ALIGN_DOWN() are powerpc-specific functions. =C2=A0It =
-would
-> be preferable to use more general helpers if possible. =C2=A0ALIGN() =
-and ilog2()
-> might suit here.
+Hi,
 
-Will change to use ilog2().
+Michael Buesch wrote:
+> On Wednesday 20 May 2009 09:15:13 Ralf Baechle wrote:
+> 
+> 
+> Ok, nice. :)
+> Matthieu, can you resend them to Ralf? He doesn't have them, yet.
+> 
+Off course.
 
-_ALIGN_DOWN() gets a lower aligned address while ALIGN() gets a higher
-address.  It seems that we don't have a general helper to do the same.
+BTW what's the procedure for submitting patch on mips ?
+I already CC linux-mips, on the first patch submission.
+Now that it is acked by maintainer, I should resend it to linux-mips + 
+Ralf ?
 
-- Leo
+
+Thanks
+
+Matthieu
