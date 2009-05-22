@@ -1,78 +1,336 @@
-From: Michael Guntsche <mike@it-loops.com>
-Subject: Re: [BUG] 2.6.30-rc4: Kernel BUG under network load with gianfar
-Date: Fri, 22 May 2009 16:27:20 +0200
-Message-ID: <9E304569-5828-403D-B4B0-845D8F0D6B95@it-loops.com>
-References: <50F164E7-D247-4FD6-B41B-BDAA8681166B@it-loops.com> <20090520214734.GA11277@mail.wantstofly.org> <20090521.152439.79009648.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus driver
+Date: Fri, 22 May 2009 16:46:06 +0200
+Message-ID: <4A16BAAE.3070401@grandegger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, linux-kernel@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, afleming@freescale.com
+Cc: linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	devicetree-discuss <devicetree-discuss@ozlabs.org>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:34510
-	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756223AbZEVO1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:27:23 -0400
-In-Reply-To: <20090521.152439.79009648.davem@davemloft.net>
+Received: from mail-out.m-online.net ([212.18.0.9]:42766 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755815AbZEVOqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:46:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds a generic driver for SJA1000 chips on the OpenFirmware
+platform bus found on embedded PowerPC systems. You need a SJA1000 node
+definition in your flattened device tree source (DTS) file similar to:
 
-On May 22, 2009, at 0:24, David Miller wrote:
+   can@3,100 {
+           compatible = "nxp,sja1000";
+           reg = <3 0x100 0x80>;
+           clock-frequency = <8000000>;
+           cdr-reg = <0x48>;
+           ocr-reg = <0x0a>;
+           interrupts = <2 0>;
+           interrupt-parent = <&mpic>;
+   };
 
-> From: Lennert Buytenhek <buytenh@wantstofly.org>
-> Date: Wed, 20 May 2009 23:47:34 +0200
->
->> gianfar puts skbuffs that are in the rx ring back onto the recycle
->> list if there was a receive error, but this breaks the following
->> invariant: that all skbuffs on the recycle list have skb->data =
->> skb->head + NET_SKB_PAD (NET_SKB_PAD being 32 for you).
->>
->> In this case, the skb's ->data will be skb->head + RXBUF_ALIGNMENT
->> (where RXBUF_ALIGNMENT is 64) when it is put onto the recycle list.
->> And when gfar_new_skb() picks this skb off the recycle list again,
->> it'll do:
->>
->>        alignamount = RXBUF_ALIGNMENT -
->>                (((unsigned long) skb->data) & (RXBUF_ALIGNMENT - 1));
->>
->>        /* We need the data buffer to be aligned properly.  We will  
->> reserve
->>         * as many bytes as needed to align the data properly
->>         */
->>        skb_reserve(skb, alignamount);
->>
->> So now skb->data will be skb->head + 128, and there won't be enough
->> space between skb->head and skb->end to hold a full-sized packet.
->>
->> Something like the patch below would fix it.
->
-> Let me know when a final, tested, version of this patch is available
-> and please make sure it makes it to netdev@vger.kernel.org
+See also Documentation/powerpc/dts-bindings/can/sja1000.txt.
 
-I can confirm that Lennert's patch fixes my panic problems here. After  
-applying it, my connection has been rock solid and I no longer get any  
-kernel panics.
-That said, I think the final descision if this patch should go in like  
-it is now has to be made by Andy Fleming since he wrote the initial  
-code.
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ Documentation/powerpc/dts-bindings/can/sja1000.txt |   37 +++
+ drivers/net/can/Kconfig                            |    9 
+ drivers/net/can/sja1000/Makefile                   |    1 
+ drivers/net/can/sja1000/sja1000_of_platform.c      |  215 +++++++++++++++++++++
+ 4 files changed, 262 insertions(+)
 
-Kind regards,
-Michael
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index b2c4967..85883c7 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1886,7 +1886,7 @@ int gfar_clean_rx_ring(struct net_device *dev,  
-int rx_work_limit)
-			if (unlikely(!newskb))
-				newskb = skb;
-			else if (skb)
--				__skb_queue_head(&priv->rx_recycle, skb);
-+				dev_kfree_skb_any(skb);
-		} else {
-			/* Increment the number of packets */
-			dev->stats.rx_packets++;
-
+Index: net-next-2.6/drivers/net/can/Kconfig
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/Kconfig
++++ net-next-2.6/drivers/net/can/Kconfig
+@@ -51,6 +51,15 @@ config CAN_SJA1000_PLATFORM
+ 	  boards from Phytec (http://www.phytec.de) like the PCM027,
+ 	  PCM038.
+ 
++config CAN_SJA1000_OF_PLATFORM
++	depends on CAN_SJA1000 && PPC_OF
++	tristate "Generic OF Platform Bus based SJA1000 driver"
++	---help---
++	  This driver adds support for the SJA1000 chips connected to
++	  the OpenFirmware "platform bus" found on embedded systems with
++	  OpenFirmware bindings, e.g. if you have a PowerPC based system
++	  you may want to enable this option.
++
+ config CAN_EMS_PCI
+ 	tristate "EMS CPC-PCI and CPC-PCIe Card"
+ 	depends on PCI && CAN_SJA1000
+Index: net-next-2.6/drivers/net/can/sja1000/Makefile
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/sja1000/Makefile
++++ net-next-2.6/drivers/net/can/sja1000/Makefile
+@@ -4,6 +4,7 @@
+ 
+ obj-$(CONFIG_CAN_SJA1000) += sja1000.o
+ obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
++obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
+ obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
+ obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
+ 
+Index: net-next-2.6/drivers/net/can/sja1000/sja1000_of_platform.c
+===================================================================
+--- /dev/null
++++ net-next-2.6/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -0,0 +1,215 @@
++/*
++ * Driver for SJA1000 CAN controllers on the OpenFirmware platform bus
++ *
++ * Copyright (C) 2008-2009 Wolfgang Grandegger <wg@grandegger.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the version 2 of the GNU General Public License
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++/* This is a generic driver for SJA1000 chips on the OpenFirmware platform
++ * bus found on embedded PowerPC systems. You need a SJA1000 CAN node
++ * definition in your flattened device tree source (DTS) file similar to:
++ *
++ *   can@3,100 {
++ *           compatible = "philips,sja1000";
++ *           reg = <3 0x100 0x80>;
++ *           clock-frequency = <8000000>;
++ *           cdr-reg = <0x48>;
++ *           ocr-reg = <0x0a>;
++ *           interrupts = <2 0>;
++ *           interrupt-parent = <&mpic>;
++ *   };
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/delay.h>
++#include <linux/can.h>
++#include <linux/can/dev.h>
++
++#include <linux/of_platform.h>
++#include <asm/prom.h>
++
++#include "sja1000.h"
++
++#define DRV_NAME "sja1000_of_platform"
++
++MODULE_AUTHOR("Wolfgang Grandegger <wg@grandegger.com>");
++MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the OF platform bus");
++MODULE_LICENSE("GPL v2");
++
++#define SJA1000_OFP_CAN_CLOCK  (16000000 / 2)
++
++#define SJA1000_OFP_OCR        OCR_TX0_PULLDOWN
++#define SJA1000_OFP_CDR        (CDR_CBP | CDR_CLK_OFF)
++
++static u8 sja1000_ofp_read_reg(const struct net_device *dev, int reg)
++{
++	return in_8((void __iomem *)(dev->base_addr + reg));
++}
++
++static void sja1000_ofp_write_reg(const struct net_device *dev, int reg, u8 val)
++{
++	out_8((void __iomem *)(dev->base_addr + reg), val);
++}
++
++static int __devexit sja1000_ofp_remove(struct of_device *ofdev)
++{
++	struct net_device *dev = dev_get_drvdata(&ofdev->dev);
++	struct device_node *np = ofdev->node;
++	struct resource res;
++
++	dev_set_drvdata(&ofdev->dev, NULL);
++
++	unregister_sja1000dev(dev);
++	free_sja1000dev(dev);
++	iounmap((void __iomem *)dev->base_addr);
++	irq_dispose_mapping(dev->irq);
++
++	of_address_to_resource(np, 0, &res);
++	release_mem_region(res.start, resource_size(&res));
++
++	return 0;
++}
++
++static int __devinit sja1000_ofp_probe(struct of_device *ofdev,
++				       const struct of_device_id *id)
++{
++	struct device_node *np = ofdev->node;
++	struct net_device *dev;
++	struct sja1000_priv *priv;
++	struct resource res;
++	const u32 *prop;
++	int err, irq, res_size, prop_size;
++	void __iomem *base;
++
++	err = of_address_to_resource(np, 0, &res);
++	if (err) {
++		dev_err(&ofdev->dev, "invalid address\n");
++		return err;
++	}
++
++	res_size = resource_size(&res);
++
++	if (!request_mem_region(res.start, res_size, DRV_NAME)) {
++		dev_err(&ofdev->dev, "couldn't request %#x..%#x\n",
++			res.start, res.end);
++		return -EBUSY;
++	}
++
++	base = ioremap_nocache(res.start, res_size);
++	if (!base) {
++		dev_err(&ofdev->dev, "couldn't ioremap %#x..%#x\n",
++			res.start, res.end);
++		err = -ENOMEM;
++		goto exit_release_mem;
++	}
++
++	irq = irq_of_parse_and_map(np, 0);
++	if (irq == NO_IRQ) {
++		dev_err(&ofdev->dev, "no irq found\n");
++		err = -ENODEV;
++		goto exit_unmap_mem;
++	}
++
++	dev = alloc_sja1000dev(0);
++	if (!dev) {
++		err = -ENOMEM;
++		goto exit_dispose_irq;
++	}
++
++	priv = netdev_priv(dev);
++
++	priv->read_reg = sja1000_ofp_read_reg;
++	priv->write_reg = sja1000_ofp_write_reg;
++
++	prop = of_get_property(np, "clock-frequency", &prop_size);
++	if (prop && (prop_size ==  sizeof(u32)))
++		priv->can.clock.freq = *prop;
++	else
++		priv->can.clock.freq = SJA1000_OFP_CAN_CLOCK;
++
++	prop = of_get_property(np, "ocr-reg", &prop_size);
++	if (prop && (prop_size == sizeof(u32)))
++		priv->ocr = (u8)*prop;
++	else
++		priv->ocr = SJA1000_OFP_OCR;
++
++	prop = of_get_property(np, "cdr-reg", &prop_size);
++	if (prop && (prop_size == sizeof(u32)))
++		priv->cdr = (u8)*prop;
++	else
++		priv->cdr = SJA1000_OFP_CDR;
++
++	priv->irq_flags = IRQF_SHARED;
++
++	dev->irq = irq;
++	dev->base_addr = (unsigned long)base;
++
++	dev_info(&ofdev->dev,
++		 "base=0x%lx irq=%d clock=%d ocr=0x%02x cdr=0x%02x\n",
++		 dev->base_addr, dev->irq, priv->can.clock.freq,
++		 priv->ocr, priv->cdr);
++
++	dev_set_drvdata(&ofdev->dev, dev);
++	SET_NETDEV_DEV(dev, &ofdev->dev);
++
++	err = register_sja1000dev(dev);
++	if (err) {
++		dev_err(&ofdev->dev, "registering %s failed (err=%d)\n",
++			DRV_NAME, err);
++		goto exit_free_sja1000;
++	}
++
++	return 0;
++
++exit_free_sja1000:
++	free_sja1000dev(dev);
++exit_dispose_irq:
++	irq_dispose_mapping(irq);
++exit_unmap_mem:
++	iounmap(base);
++exit_release_mem:
++	release_mem_region(res.start, res_size);
++
++	return err;
++}
++
++static struct of_device_id __devinitdata sja1000_ofp_table[] = {
++	{.compatible = "philips,sja1000"},
++	{.compatible = "nxp,sja1000"},
++	{},
++};
++
++static struct of_platform_driver sja1000_ofp_driver = {
++	.owner = THIS_MODULE,
++	.name = DRV_NAME,
++	.probe = sja1000_ofp_probe,
++	.remove = __devexit_p(sja1000_ofp_remove),
++	.match_table = sja1000_ofp_table,
++};
++
++static int __init sja1000_ofp_init(void)
++{
++	return of_register_platform_driver(&sja1000_ofp_driver);
++}
++module_init(sja1000_ofp_init);
++
++static void __exit sja1000_ofp_exit(void)
++{
++	return of_unregister_platform_driver(&sja1000_ofp_driver);
++};
++module_exit(sja1000_ofp_exit);
+Index: net-next-2.6/Documentation/powerpc/dts-bindings/can/sja1000.txt
+===================================================================
+--- /dev/null
++++ net-next-2.6/Documentation/powerpc/dts-bindings/can/sja1000.txt
+@@ -0,0 +1,37 @@
++Memory mapped SJA1000 CAN controller from NXP (formerly Philips)
++
++Required properties:
++
++- compatible : should be "nxp,sja1000".
++- reg : should specify the chip select, address offset and size used
++	for the chip depending on the bus it is connected to.
++- interrupts: property with a value describing the interrupt source
++	(number and sensitivity) for that device. The encoding depends
++	on the type of interrupt controller used.
++
++Optional properties:
++
++- interrupt-parent : the phandle for the interrupt controller that
++	services interrupts for that device.
++- clock-frequency : CAN system clock frequency in Hz, which is normally
++	half of the oscillator clock frequency. If not specified, a
++	default value of 8000000 (8 MHz) is used.
++- cdr-reg : value of the SJA1000 clock divider register according to
++	the SJA1000 data sheet. If not specified, a default value of
++	0x48 is used.
++- ocr-reg : value of the SJA1000 output control register according to
++	the SJA1000 data sheet. If not specified, a default value of
++	0x0a is used.
++
++Examples:
++
++can@3,100 {
++	compatible = "nxp,sja1000";
++	reg = <3 0x100 0x80>;
++	clock-frequency = <8000000>;
++	cdr-reg = <0x48>;
++	ocr-reg = <0x0a>;
++	interrupts = <2 0>;
++	interrupt-parent = <&mpic>;
++};
++
