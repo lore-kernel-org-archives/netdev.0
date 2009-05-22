@@ -1,8 +1,7 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [mISDN PATCH v2 11/19] Add allocation of recvbuf[1500] at run time to
-	reduce stack size
-Date: Fri, 22 May 2009 23:04:51 +0200
-Message-ID: <1e53a92a9ef856e74b4ce63c7dbf0be1c3161ec5.1243024967.git.kkeil@pingi.linux-pingi.de>
+Subject: [mISDN PATCH v2 15/19] Add PCI ID for Junghanns 8S card
+Date: Fri, 22 May 2009 23:04:55 +0200
+Message-ID: <e27193109e9bb5f33e0a408b5b9674375d073bda.1243024967.git.kkeil@pingi.linux-pingi.de>
 References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,75 +22,49 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Frank Seidel <frank-aMRDT+nbkrEb1SvskN2V4Q@public.gmane.org>
+From: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 
-Before: 1656 bytes on i386, now 164.
-Modified by Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
+new id for HFC-8S
 
-Signed-off-by: Frank Seidel <frank-aMRDT+nbkrEb1SvskN2V4Q@public.gmane.org>
 Signed-off-by: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/mISDN/l1oip_core.c |   21 +++++++++++++++++----
- 1 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/isdn/hardware/mISDN/hfcmulti.c |    3 +++
+ include/linux/pci_ids.h                |    1 +
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
-index abe5749..ea3c3aa 100644
---- a/drivers/isdn/mISDN/l1oip_core.c
-+++ b/drivers/isdn/mISDN/l1oip_core.c
-@@ -663,18 +663,28 @@ l1oip_socket_thread(void *data)
- 	struct iovec iov;
- 	mm_segment_t oldfs;
- 	struct sockaddr_in sin_rx;
--	unsigned char recvbuf[1500];
-+	unsigned char *recvbuf;
-+	size_t recvbuf_size = 1500;
- 	int recvlen;
- 	struct socket *socket = NULL;
- 	DECLARE_COMPLETION(wait);
+diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
+index 5be4edf..50e9f4d 100644
+--- a/drivers/isdn/hardware/mISDN/hfcmulti.c
++++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
+@@ -5275,6 +5275,7 @@ static const struct hm_map hfcm_map[] = {
+ /*30*/	{VENDOR_CCD, "HFC-8S OpenVox", 8, 8, 1, 0, 0, 0, 0, 0},
+ /*31*/	{VENDOR_CCD, "XHFC-4S Speech Design", 5, 4, 0, 0, 0, 0,
+ 		HFC_IO_MODE_EMBSD, XHFC_IRQ},
++/*32*/	{VENDOR_JH, "HFC-8S (junghanns)", 8, 8, 1, 0, 0, 0, 0, 0},
+ };
  
-+	/* allocate buffer memory */
-+	recvbuf = kmalloc(recvbuf_size, GFP_KERNEL);
-+	if (!recvbuf) {
-+		printk(KERN_ERR "%s: Failed to alloc recvbuf.\n", __func__);
-+		ret = -ENOMEM;
-+		goto fail;
-+	}
-+
- 	/* make daemon */
- 	allow_signal(SIGTERM);
+ #undef H
+@@ -5328,6 +5329,8 @@ static struct pci_device_id hfmultipci_ids[] __devinitdata = {
+ 		PCI_SUBDEVICE_ID_CCD_HFC8S, 0, 0, H(18)}, /* 8S */
+ 	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC8S, PCI_VENDOR_ID_CCD,
+ 		PCI_SUBDEVICE_ID_CCD_OV8S, 0, 0, H(30)}, /* OpenVox 8 */
++	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC8S, PCI_VENDOR_ID_CCD,
++		PCI_SUBDEVICE_ID_CCD_JH8S, 0, 0, H(32)}, /* Junganns 8S  */
  
- 	/* create socket */
- 	if (sock_create(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &socket)) {
- 		printk(KERN_ERR "%s: Failed to create socket.\n", __func__);
--		return -EIO;
-+		ret = -EIO;
-+		goto fail;
- 	}
  
- 	/* set incoming address */
-@@ -730,10 +740,10 @@ l1oip_socket_thread(void *data)
- 			__func__);
- 	while (!signal_pending(current)) {
- 		iov.iov_base = recvbuf;
--		iov.iov_len = sizeof(recvbuf);
-+		iov.iov_len = recvbuf_size;
- 		oldfs = get_fs();
- 		set_fs(KERNEL_DS);
--		recvlen = sock_recvmsg(socket, &msg, sizeof(recvbuf), 0);
-+		recvlen = sock_recvmsg(socket, &msg, recvbuf_size, 0);
- 		set_fs(oldfs);
- 		if (recvlen > 0) {
- 			l1oip_socket_parse(hc, &sin_rx, recvbuf, recvlen);
-@@ -760,6 +770,9 @@ l1oip_socket_thread(void *data)
- 			__func__);
- 
- fail:
-+	/* free recvbuf */
-+	kfree(recvbuf);
-+
- 	/* close socket */
- 	if (socket)
- 		sock_release(socket);
+ 	/* Cards with HFC-E1 Chip */
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 3038ac2..4bdff98 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1914,6 +1914,7 @@
+ #define PCI_SUBDEVICE_ID_CCD_SWYX4S	0xB540
+ #define PCI_SUBDEVICE_ID_CCD_JH4S20	0xB550
+ #define PCI_SUBDEVICE_ID_CCD_IOB8ST_1	0xB552
++#define PCI_SUBDEVICE_ID_CCD_JH8S	0xB55B
+ #define PCI_SUBDEVICE_ID_CCD_BN4S	0xB560
+ #define PCI_SUBDEVICE_ID_CCD_BN8S	0xB562
+ #define PCI_SUBDEVICE_ID_CCD_BNE1	0xB563
 -- 
 1.6.0.2
