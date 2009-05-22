@@ -1,60 +1,81 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC 2/2] net: Allow protocols to provide an unlocked_recvmsg
-	sk_prot method
-Date: Fri, 22 May 2009 11:52:15 -0300
-Message-ID: <20090522145215.GR5956@ghostprotocols.net>
-References: <20090520230659.GC5956@ghostprotocols.net> <200905221026.51789.remi.denis-courmont@nokia.com> <20090522.004738.139438566.davem@davemloft.net>
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: [PATCH 1/1] ethtool: Expose MDI-X status
+Date: Fri, 22 May 2009 07:54:26 -0700
+Message-ID: <20090522145426.GA8470@clala-laptop>
+References: <F169D4F5E1F1974DBFAFABF47F60C10A33527C9D@orsmsx507.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
-	vanhoof@redhat.com, williams@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:47265 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753513AbZEVOwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2009 10:52:25 -0400
+Received: from smtp2.riverbed.com ([206.169.144.7]:1176 "EHLO
+	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754590AbZEVOxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:53:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20090522.004738.139438566.davem@davemloft.net>
+In-Reply-To: <F169D4F5E1F1974DBFAFABF47F60C10A33527C9D@orsmsx507.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, May 22, 2009 at 12:47:38AM -0700, David Miller escreveu:
-> From: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-> Date: Fri, 22 May 2009 10:26:51 +0300
->=20
-> > On Thursday 21 May 2009 02:06:59 ext Arnaldo Carvalho de Melo wrote=
-:
-> >> @@ -265,6 +265,9 @@ struct ucred {
-> >>  #define MSG_ERRQUEUE	0x2000	/* Fetch message from error queue */
-> >>  #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
-> >>  #define MSG_MORE	0x8000	/* Sender will send more */
-> >> +#ifdef __KERNEL__
-> >> +#define MSG_UNLOCKED	0x10000	/* Don't lock the sock */
-> >> +#endif
-> >=20
-> > I might be missing something but... What prevents an evil userland =
-from=20
-> > setting the flag anyway and hitting the BUG case?
->=20
-> Yes, we'll need to clear this on all paths where we get msg
-> flags from the user.
->=20
-> There's a lot of such places.
->=20
-> So maybe we need to pass this state around in a different,
-> internal, way.
+The MDI-X status is a useful tool for diagnosing network
+connectivity issues. We expose MDI-X status as a tri-state value
+status which drivers can optionally implement.
 
-Yeah, I'll think about it, that was the easiest way to implement it for
-the proof of concept we have now. Filtering it out at syscall entry and
-at sock_common_recvmsg would fix it, but I'm not sure if its the best
-option.
+Signed-off-by: Chaitanya Lala <clala@riverbed.com>
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ ethtool-copy.h |    6 ++++++
+ ethtool.c      |   13 +++++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-The comments about the interface provided to userspace (struct mmsghdr)=
-,
-how to return errors after some datagrams were put in the array
-(sk->sk_err being stored then returned in the next call), timeouts, etc
-are great, thanks, after some more comments I'll respin these patches.
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3ca4e2c..37bbeaf 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -23,6 +23,7 @@ struct ethtool_cmd {
+ 	__u8	phy_address;
+ 	__u8	transceiver;	/* Which transceiver to use */
+ 	__u8	autoneg;	/* Enable or disable autonegotiation */
++	__u8	is_mdix;
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;
+@@ -416,6 +417,11 @@ struct ethtool_rxnfc {
+ #define AUTONEG_DISABLE		0x00
+ #define AUTONEG_ENABLE		0x01
+ 
++/* Mode MDI or MDI-X */
++#define MDI_INVALID 0x00
++#define MDI         0x01
++#define MDI_X       0x02
++
+ /* Wake-On-Lan options. */
+ #define WAKE_PHY		(1 << 0)
+ #define WAKE_UCAST		(1 << 1)
+diff --git a/ethtool.c b/ethtool.c
+index 0110682..bf12168 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -964,6 +964,19 @@ static int dump_ecmd(struct ethtool_cmd *ep)
+ 	fprintf(stdout, "	Auto-negotiation: %s\n",
+ 		(ep->autoneg == AUTONEG_DISABLE) ?
+ 		"off" : "on");
++
++	switch (ep->is_mdix) {
++	case MDI:
++		fprintf(stdout, "	MDI-X: off\n");
++		break;
++	case MDI_X:
++		fprintf(stdout, "	MDI-X: on\n");
++		break;
++	default:
++		fprintf(stdout, "	MDI-X: Unknown\n");
++		break;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+1.6.0.4
 
-- Arnaldo
