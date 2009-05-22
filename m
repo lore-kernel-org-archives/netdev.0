@@ -1,120 +1,67 @@
-From: Michał Mirosław <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 5/6 2.6.30-rc6] tipc: Use
-	genl_register_family_with_ops()
-Date: Thu, 21 May 2009 19:41:56 +0200 (CEST)
-Message-ID: <20090521174156.6570613932@rere.qmqm.pl>
-Content-Type: multipart/mixed; boundary="===============7944374672526115693=="
-Cc: tipc-discussion@lists.sourceforge.net
+From: Mark Ryden <markryde@gmail.com>
+Subject: Priority of added rules after deleting main and default rules in IPV4
+Date: Fri, 22 May 2009 16:17:23 +0300
+Message-ID: <dac45060905220617v7e3a9c36q292e1fc21087733a@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:36253 "EHLO
+	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848AbZEVNRZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 09:17:25 -0400
+Received: by bwz22 with SMTP id 22so1617541bwz.37
+        for <netdev@vger.kernel.org>; Fri, 22 May 2009 06:17:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============7944374672526115693==
+Hi,
 
-Use genl_register_family_with_ops() instead of a copy. This also changes
-netlink related variable names to be kernel-wide unique for consistency
-with other users.
+As we all know, when policy routing is enabled (CONFIG_IP_MULTIPLE_TABLES is
+set, which is the default in many distros kernels) the local rule table
+cannot be deleted since it is added with a permanent flag (FIB_RULE_PERMANENT).
+Trying to delete the local rule will yield EPERM error 	(see
+fib_nl_delrule() in
+net/core/fib_rules.c). However, a sysadmin can delete the two other default
+rules, (main and default) , for example thus:
+ip rule del from all lookup main
+ip rule del from all lookup default
 
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+(Another question is why he should do it)
 
-diff -urN linux-orig-mqbr/net/tipc/netlink.c linux-mqbr/net/tipc/netlink.c
---- linux-orig-mqbr/net/tipc/netlink.c	2009-03-24 00:12:14.000000000 +0100
-+++ linux-mqbr/net/tipc/netlink.c	2009-05-21 18:04:46.000000000 +0200
-@@ -68,7 +68,7 @@
- 	return 0;
- }
- 
--static struct genl_family family = {
-+static struct genl_family tipc_genl_family = {
- 	.id		= GENL_ID_GENERATE,
- 	.name		= TIPC_GENL_NAME,
- 	.version	= TIPC_GENL_VERSION,
-@@ -76,39 +76,33 @@
- 	.maxattr	= 0,
- };
- 
--static struct genl_ops ops = {
-+static struct genl_ops tipc_genl_ops = {
- 	.cmd		= TIPC_GENL_CMD,
- 	.doit		= handle_cmd,
- };
- 
--static int family_registered = 0;
-+static int tipc_genl_family_registered;
- 
- int tipc_netlink_start(void)
- {
-+	int res;
- 
-+	res = genl_register_family_with_ops(&tipc_genl_family,
-+		&tipc_genl_ops, 1);
-+	if (res) {
-+		err("Failed to register netlink interface\n");
-+		return res;
-+	}
- 
--	if (genl_register_family(&family))
--		goto err;
--
--	family_registered = 1;
--
--	if (genl_register_ops(&family, &ops))
--		goto err_unregister;
--
-+	tipc_genl_family_registered = 1;
- 	return 0;
--
-- err_unregister:
--	genl_unregister_family(&family);
--	family_registered = 0;
-- err:
--	err("Failed to register netlink interface\n");
--	return -EFAULT;
- }
- 
- void tipc_netlink_stop(void)
- {
--	if (family_registered) {
--		genl_unregister_family(&family);
--		family_registered = 0;
--	}
-+	if (!tipc_genl_family_registered)
-+		return;
-+
-+	genl_unregister_family(&tipc_genl_family);
-+	tipc_genl_family_registered = 0;
- }
+Then each rule that we will add will get a priority of 0; (unless we
+explicitly specify the priority when we add the rule). If we look at
+the code, in
+fib4_rule_default_pref(), we will see why is it so. (This method will
+return 0, since
+if (rule->pref) is evaluated as 0 when we have a single local rule,
+which is with priority 0).
+
+This means that after deleting the main and default rules and adding rules,
+the priority convention (which says that each new rule as a priority
+which is 1 less then the last added) does not hold.  All rules that
+will be added will have priority of 0.
+The question is: should this be avoided ?
+(As I said, I know that the priority of a rule can be specified when
+it is added)
+
+I tried for example this series of actions:
+ip rule del from all lookup main
+ip rule del from all lookup default
+ip rule add tos 0x08 table 252
+ip rule add tos 0x04 table 252
+
+and then:
+ip rule show
+0:      from all lookup local
+0:      from all tos throughput lookup my_rt_table
+0:      from all tos reliability lookup my_rt_table
 
 
---===============7944374672526115693==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Also of course trying to add the default (or main) rules will add them
+with priority 0.
+(trying for example "ip rule add from all lookup default" )
 
-------------------------------------------------------------------------------
-Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT
-is a gathering of tech-side developers & brand creativity professionals. Meet
-the minds behind Google Creative Lab, Visual Complexity, Processing, & 
-iPhoneDevCamp asthey present alongside digital heavyweights like Barbarian
-Group, R/GA, & Big Spaceship. http://www.creativitycat.com 
---===============7944374672526115693==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-tipc-discussion mailing list
-tipc-discussion@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/tipc-discussion
-
---===============7944374672526115693==--
+Regards,
+Mark
