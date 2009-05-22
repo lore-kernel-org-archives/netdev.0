@@ -1,373 +1,665 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-next-2.6 2009-05-22
-Date: Fri, 22 May 2009 14:32:39 -0400
-Message-ID: <20090522183238.GE3559@tuxdriver.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
+Date: Fri, 22 May 2009 12:05:25 -0700
+Message-ID: <20090522190525.GA13286@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mingo@elte.hu, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:47336 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754899AbZEVTF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2009 15:05:29 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Seventh cut of "big hammer" expedited RCU grace periods.  This leverages
+the existing per-CPU migration kthreads, as suggested by Ingo.  These
+are awakened in a loop, and waited for in a second loop.  Not fully
+scalable, but removing the extra hop through smp_call_function
+reduces latency on systems with moderate numbers of CPUs.  The
+synchronize_rcu_expedited() and and synchronize_bh_expedited() primitives
+invoke synchronize_sched_expedited(), except for CONFIG_PREEMPT_RCU,
+where they instead invoke synchronize_rcu() and synchronize_rcu_bh(),
+respectively.  This will be fixed in the future, after preemptable RCU
+is folded into the rcutree implementation.
 
-Another huge dump of stuff intended for 2.6.31...it seems like it never
-stops!  I guess that is mostly good... :-)
+As before, this does nothing to expedite callbacks already registered
+with call_rcu() or call_rcu_bh(), but there is no need to.
 
-There are a bunch of driver updates, some mac80211 bits that are fixes
-for things already in -next, some similar regulatory fixes/changes for
-cfg80211, etc.  Also of note is a new "full MAC" driver for a new
-not-quite-available device coming soon from Intel.
+Passes 10 hours of rcutorture testing in parallel with a script that
+randomly offlines and onlines CPUs.  Grace periods take about 28
+microseconds on an 8-CPU Power machine, which I believe is good enough
+from a performance viewpoint for the near future.
 
-Please let me know if there are problems!
+This is not yet for inclusion.  This does seem to me to be a good-enough
+implementation, but more testing and review is required.
 
-Thanks,
+Shortcomings:
 
-John
+o	Does not address preemptable RCU.
 
-P.S.  There is a merge-test branch in the wireless-next-2.6 tree.  It
-might come-in useful when merging net-2.6 and net-next-2.6...
+o	Probably not helpful on systems with thousands of CPUs, but likely
+	quite helpful even on systems with a few hundreds of CPUs.
 
-P.P.S.  I'll be in Barcelona this week, but I'll endeavour to be
-reasonably responsive if needed! :-)
+Changes since v6:
 
+o	Moved to using the migration threads, as suggested by Ingo.
+
+Changes since v5:
+
+o	Fixed several embarrassing locking bugs, including those
+	noted by Ingo and Lai.
+
+o	Added a missing set of braces.
+
+o	Cut out the extra kthread, so that synchronize_sched_expedited()
+	directly calls smp_call_function() and waits for the quiescent
+	states.
+
+o	Removed some debug code, but promoted one to production.
+
+o	Fix a compiler warning.
+
+Changes since v4:
+
+o	Use per-CPU kthreads to force the quiescent states in parallel.
+
+Changes since v3:
+
+o	Use a kthread that schedules itself on each CPU in turn to
+	force a grace period.  The synchronize_rcu() primitive
+	wakes up the kthread in order to avoid messing with affinity
+	masks on user tasks.
+
+o	Tried a number of additional variations on the v3 approach, none
+	of which helped much.
+
+Changes since v2:
+
+o	Use reschedule IPIs rather than a softirq.
+
+Changes since v1:
+
+o	Added rcutorture support, and added exports required by
+	rcutorture.
+
+o	Added comment stating that smp_call_function() implies a
+	memory barrier, suggested by Mathieu.
+
+o	Added #include for delay.h.
+
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
 
-Individual patches are available here:
+ include/linux/rcuclassic.h |   15 +++
+ include/linux/rcupdate.h   |   24 ++---
+ include/linux/rcupreempt.h |   10 ++
+ include/linux/rcutree.h    |   12 ++
+ kernel/rcupdate.c          |   27 ++++++
+ kernel/rcutorture.c        |  200 ++++++++++++++++++++++++---------------------
+ kernel/sched.c             |   52 +++++++++++
+ 7 files changed, 233 insertions(+), 107 deletions(-)
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2=
-=2E6/
-
----
-
-The following changes since commit 97bc54152e3a91dd2dc297e8a084c05e9352=
-7e60:
-  Ben Hutchings (1):
-        sfc: Remove lro module parameter
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-=
-2.6.git master
-
-Abhijeet Kolekar (1):
-      iwl3945: improve 3945 leds
-
-Alexander Beregalov (1):
-      Staging: agnx: switch config_interface to bss_info_changed
-
-Alexandre Becholey (1):
-      rt73usb: fix for master mode
-
-Bing Zhao (4):
-      libertas: define macros for SDIO model numbers
-      libertas: get SD8688 rx length with one CMD52
-      libertas: implement function init/shutdown commands for SD8688
-      libertas: read SD8688 firmware status from new register
-
-Bob Copeland (2):
-      ath5k: update beacons in AP mode
-      ath5k: avoid and warn on potential infinite loop
-
-Daniel Wagner (1):
-      mac80211_hwsim: Group radios
-
-David Kilroy (2):
-      cfg80211: mark ops as pointer to const
-      cfg80211: mark wiphy->privid as pointer to const
-
-G=E1bor Stefanik (1):
-      zd1211rw: Replace ZD_CS_MULTICAST with ZD_CS_NO_ACK
-
-Ivo van Doorn (3):
-      rt2x00: Add USB ID for rt2800usb
-      rt2x00: Add new rt2800usb USB ID's for Sweex
-      rt2x00: Remove usage of IEEE80211_CONF_CHANGE_BEACON_INTERVAL
-
-Johannes Berg (11):
-      mac80211: move channel switch code
-      mac80211: cancel/restart all timers across suspend/resume
-      b43/legacy: fix beacon change processing
-      cfg80211: allow wext to remove keys that don't exist
-      mac80211: fix kernel-doc
-      mac80211: don't try to do anything on unchanged genIE
-      mac80211: fix parameter confusion when finding IBSS
-      mac80211: fix managed mode BSSID handling
-      wext: remove atomic requirement for wireless stats
-      mac80211: fix probe response wait timing
-      mac80211: correct probe wait time
-
-Jouni Malinen (14):
-      mac80211: Cancel pending probereq poll on beacon RX
-      ath9k: Fix a check for multicast address for virtual wiphy
-      ath9k: Clean up RX processing a bit
-      ath9k: Fix PS mode operation to receive buffered broadcast/multic=
-ast frames
-      nl80211: Validate NL80211_ATTR_KEY_SEQ length
-      ath9k: Wake up for TX in mac80211 timeout=3D0 sleep mode
-      ath9k: Do not try to calibrate radio when in sleep mode
-      ath9k: Use TSFOOR interrupt to trigger TSF sync with next Beacon
-      ath9k: Wake up for RX filter changes
-      ath9k: Set PM field in frame control when in PS mode
-      mac80211: PS processing for every Beacon with our AID in TIM
-      mac80211: Do not override AID in the duration field
-      ath9k: Optimize TBTT/DTIM calculation for timers
-      ath9k: Update Beacon timers based on timestamp from the AP
-
-Julia Lawall (1):
-      drivers/net: use dev_get_drvdata
-
-Jussi Kivilinna (5):
-      rndis_wlan: fix support for bcm4320a
-      rndis_wlan: remove CAP_SUPPORT_TXPOWER/OID_802_11_TX_POWER_LEVEL =
-code
-      rndis_wlan: explain bits used in key setup code.
-      rndis_wlan: split add_wpa_key from rndis_iw_set_encode_ext
-      rndis_wlan: do not try to restore wpa keys using add_wep_key()
-
-Luis R. Rodriguez (12):
-      cfg80211: Process regulatory max bandwidth checks for HT40
-      wireless: rename IEEE80211_CHAN_NO_FAT_* to HT40-/+
-      mac80211: check if HT40+/- is allowed before sending assoc
-      cfg80211: check allowed channel type upon userspace requests
-      mac80211/cfg80211: move wiphy specific debugfs entries to cfg8021=
-1
-      cfg80211: add debugfs HT40 allow map
-      cfg80211: return immediately if num reg rules > NL80211_MAX_SUPP_=
-REG_RULES
-      cfg80211: cleanup return calls on nl80211_set_reg()
-      cfg80211: fix in nl80211_set_reg()
-      ath9k: fix custom regulatory call position
-      ath9k: set max default eirp to 20 dBm
-      cfg80211: warn when wiphy_apply_custom_regulatory() does nothing
-
-Max Filippov (6):
-      p54spi: fix incorrect access sequence to DMA_WRITE_CTRL in p54spi=
-_spi_write_dma
-      p54spi: cosmetic fixes: use even byte count in SPI write; drop un=
-used interrupt status read
-      p54spi: return status of p54spi_wakeup
-      p54spi: always call p54spi_sleep in p54spi_tx_frame if p54spi_wak=
-eup succeeded
-      p54spi: use firmware/DMA bug workaround that work under hight loa=
-d in p54spi_rx
-      p54spi: drop test for FW_STATE_RESET in p54spi_work
-
-Mohamed Abbas (6):
-      iwlcore: register locks
-      iwlcore: support ICT interrupt
-      iwlcore: Allow skb allocation from tasklet.
-      iwlcore: Add support for periodic RX interrupt
-      iwlcore: Set rb_timeout to 0x10 for devices with ICT
-      iwlagn: co-exist with AMT
-
-Pavel Roskin (1):
-      cfg80211: fix compile error with CONFIG_CFG80211_DEBUGFS
-
-Senthil Balasubramanian (1):
-      mac80211: Initialize RX's last received sequence number
-
-Stefano Brivio (1):
-      b43legacy: Remove unnecessary MMIO in interrupt hotpath
-
-Tomas Winkler (2):
-      iwlwifi: drop struct iwl3945_hw_key
-      iwlwifi: drop iwl3945_tid_data
-
-Vasanthakumar Thiagarajan (4):
-      ath9k: Print hw reset failure status as signed int
-      ath9k: Remove unused parameters which are passed to ath_beacon_co=
-nfig_X()
-      ath9k: cleanup beacon parameters configuration
-      ath9k: Move PS wakeup/restore calls from isr to tasklet
-
-Wei Yongjun (1):
-      wireless: fix to set dev->broadcast correctly
-
-Wey-Yi Guy (6):
-      iwlwifi: add Greenfield support for 11n
-      iwlwifi: Temperature sensor voltage reading for 5150
-      iwlwifi: support NVM access (EEPROM/OTP)
-      iwlwifi: report the rate index as an MCS rate number
-      iwlwifi: support "pure 40MHz" in RXON command
-      iwlwifi: check for valid band for channel info
-
-Zhu Yi (2):
-      wireless: move some utility functions from mac80211 to cfg80211
-      iwmc3200wifi: Add new Intel Wireless Multicomm 802.11 driver
-
-andrey-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org (1):
-      libertas: fix GSPI card event handling
-
- Documentation/DocBook/mac80211.tmpl          |    1 -
- drivers/net/wireless/Kconfig                 |    1 +
- drivers/net/wireless/Makefile                |    2 +
- drivers/net/wireless/ath/ar9170/main.c       |    2 +-
- drivers/net/wireless/ath/ath5k/base.c        |   54 +-
- drivers/net/wireless/ath/ath5k/pcu.c         |    4 +-
- drivers/net/wireless/ath/ath5k/phy.c         |    3 +
- drivers/net/wireless/ath/ath9k/ath9k.h       |    9 +-
- drivers/net/wireless/ath/ath9k/beacon.c      |   98 +-
- drivers/net/wireless/ath/ath9k/debug.h       |    1 +
- drivers/net/wireless/ath/ath9k/hw.c          |    8 +-
- drivers/net/wireless/ath/ath9k/main.c        |  119 ++-
- drivers/net/wireless/ath/ath9k/recv.c        |  194 +++-
- drivers/net/wireless/ath/ath9k/xmit.c        |   12 +-
- drivers/net/wireless/ath/regd.c              |   10 +-
- drivers/net/wireless/b43/main.c              |   26 +-
- drivers/net/wireless/b43legacy/b43legacy.h   |    4 +-
- drivers/net/wireless/b43legacy/main.c        |   99 +--
- drivers/net/wireless/b43legacy/pio.c         |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945-led.c  |   70 +-
- drivers/net/wireless/iwlwifi/iwl-3945.c      |  151 +---
- drivers/net/wireless/iwlwifi/iwl-4965.c      |   88 +--
- drivers/net/wireless/iwlwifi/iwl-5000-hw.h   |   12 +
- drivers/net/wireless/iwlwifi/iwl-5000.c      |  164 ++--
- drivers/net/wireless/iwlwifi/iwl-agn-rs.c    |   65 +-
- drivers/net/wireless/iwlwifi/iwl-agn.c       |  355 ++++++-
- drivers/net/wireless/iwlwifi/iwl-commands.h  |   14 +-
- drivers/net/wireless/iwlwifi/iwl-core.c      |  392 ++++++--
- drivers/net/wireless/iwlwifi/iwl-core.h      |   41 +-
- drivers/net/wireless/iwlwifi/iwl-csr.h       |   22 +-
- drivers/net/wireless/iwlwifi/iwl-debug.h     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-debugfs.c   |   97 +-
- drivers/net/wireless/iwlwifi/iwl-dev.h       |   32 +-
- drivers/net/wireless/iwlwifi/iwl-eeprom.c    |  153 +++-
- drivers/net/wireless/iwlwifi/iwl-eeprom.h    |    4 +
- drivers/net/wireless/iwlwifi/iwl-io.h        |  253 +++--
- drivers/net/wireless/iwlwifi/iwl-rx.c        |   63 +-
- drivers/net/wireless/iwlwifi/iwl-scan.c      |    5 +-
- drivers/net/wireless/iwlwifi/iwl-tx.c        |   17 -
- drivers/net/wireless/iwlwifi/iwl3945-base.c  |   87 +--
- drivers/net/wireless/iwmc3200wifi/Kconfig    |   23 +
- drivers/net/wireless/iwmc3200wifi/Makefile   |    5 +
- drivers/net/wireless/iwmc3200wifi/bus.h      |   57 +
- drivers/net/wireless/iwmc3200wifi/cfg80211.c |  409 ++++++++
- drivers/net/wireless/iwmc3200wifi/cfg80211.h |   31 +
- drivers/net/wireless/iwmc3200wifi/commands.c |  920 +++++++++++++++++
- drivers/net/wireless/iwmc3200wifi/commands.h |  419 ++++++++
- drivers/net/wireless/iwmc3200wifi/debug.h    |  124 +++
- drivers/net/wireless/iwmc3200wifi/debugfs.c  |  453 ++++++++
- drivers/net/wireless/iwmc3200wifi/eeprom.c   |  187 ++++
- drivers/net/wireless/iwmc3200wifi/eeprom.h   |  114 ++
- drivers/net/wireless/iwmc3200wifi/fw.c       |  388 +++++++
- drivers/net/wireless/iwmc3200wifi/fw.h       |  100 ++
- drivers/net/wireless/iwmc3200wifi/hal.c      |  464 +++++++++
- drivers/net/wireless/iwmc3200wifi/hal.h      |  236 +++++
- drivers/net/wireless/iwmc3200wifi/iwm.h      |  350 +++++++
- drivers/net/wireless/iwmc3200wifi/lmac.h     |  457 ++++++++
- drivers/net/wireless/iwmc3200wifi/main.c     |  680 ++++++++++++
- drivers/net/wireless/iwmc3200wifi/netdev.c   |  172 +++
- drivers/net/wireless/iwmc3200wifi/rfkill.c   |   88 ++
- drivers/net/wireless/iwmc3200wifi/rx.c       | 1431 ++++++++++++++++++=
-++++++++
- drivers/net/wireless/iwmc3200wifi/rx.h       |   60 ++
- drivers/net/wireless/iwmc3200wifi/sdio.c     |  516 ++++++++++
- drivers/net/wireless/iwmc3200wifi/sdio.h     |   67 ++
- drivers/net/wireless/iwmc3200wifi/tx.c       |  492 +++++++++
- drivers/net/wireless/iwmc3200wifi/umac.h     |  744 +++++++++++++
- drivers/net/wireless/iwmc3200wifi/wext.c     |  723 +++++++++++++
- drivers/net/wireless/libertas/dev.h          |    2 +
- drivers/net/wireless/libertas/host.h         |    2 +
- drivers/net/wireless/libertas/if_sdio.c      |  149 +++-
- drivers/net/wireless/libertas/if_sdio.h      |    8 +
- drivers/net/wireless/libertas/if_spi.c       |    7 +
- drivers/net/wireless/libertas/main.c         |   20 +
- drivers/net/wireless/mac80211_hwsim.c        |   35 +-
- drivers/net/wireless/p54/p54spi.c            |   64 +-
- drivers/net/wireless/rndis_wlan.c            |  216 +++--
- drivers/net/wireless/rt2x00/rt2400pci.c      |   30 +-
- drivers/net/wireless/rt2x00/rt2500pci.c      |   30 +-
- drivers/net/wireless/rt2x00/rt2500usb.c      |   17 +-
- drivers/net/wireless/rt2x00/rt2800usb.c      |   25 +-
- drivers/net/wireless/rt2x00/rt2x00.h         |    2 +
- drivers/net/wireless/rt2x00/rt2x00config.c   |    1 +
- drivers/net/wireless/rt2x00/rt2x00crypto.c   |    2 +-
- drivers/net/wireless/rt2x00/rt2x00dev.c      |    9 +-
- drivers/net/wireless/rt2x00/rt61pci.c        |   28 +-
- drivers/net/wireless/rt2x00/rt73usb.c        |   28 +-
- drivers/net/wireless/strip.c                 |    2 +-
- drivers/net/wireless/zd1211rw/zd_mac.c       |    6 +-
- drivers/net/wireless/zd1211rw/zd_mac.h       |    2 +-
- drivers/staging/agnx/pci.c                   |   15 +-
- include/linux/ieee80211.h                    |    9 +
- include/net/cfg80211.h                       |   78 ++-
- include/net/mac80211.h                       |   29 -
- net/mac80211/debugfs.c                       |   16 -
- net/mac80211/ibss.c                          |   33 +-
- net/mac80211/ieee80211_i.h                   |   43 +-
- net/mac80211/key.c                           |    6 +-
- net/mac80211/main.c                          |   16 +-
- net/mac80211/mesh.c                          |   40 +
- net/mac80211/mesh.h                          |   16 +-
- net/mac80211/mesh_hwmp.c                     |    8 +-
- net/mac80211/mesh_plink.c                    |   21 +
- net/mac80211/mlme.c                          |  227 ++++-
- net/mac80211/pm.c                            |   80 ++-
- net/mac80211/rx.c                            |   94 +--
- net/mac80211/scan.c                          |   18 +
- net/mac80211/spectmgmt.c                     |  101 --
- net/mac80211/sta_info.c                      |    6 +
- net/mac80211/sta_info.h                      |    2 +
- net/mac80211/tx.c                            |    2 +
- net/mac80211/util.c                          |  116 +--
- net/mac80211/wext.c                          |    5 +-
- net/mac80211/wme.c                           |   30 +-
- net/wireless/Kconfig                         |    8 +
- net/wireless/Makefile                        |    1 +
- net/wireless/core.c                          |    7 +-
- net/wireless/core.h                          |   14 +-
- net/wireless/debugfs.c                       |  131 +++
- net/wireless/debugfs.h                       |   14 +
- net/wireless/nl80211.c                       |   66 +-
- net/wireless/reg.c                           |  216 +++-
- net/wireless/util.c                          |  320 ++++++
- net/wireless/wext-compat.c                   |    7 +
- net/wireless/wext.c                          |   32 +-
- 124 files changed, 13213 insertions(+), 1745 deletions(-)
- create mode 100644 drivers/net/wireless/iwmc3200wifi/Kconfig
- create mode 100644 drivers/net/wireless/iwmc3200wifi/Makefile
- create mode 100644 drivers/net/wireless/iwmc3200wifi/bus.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/cfg80211.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/cfg80211.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/commands.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/commands.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/debug.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/debugfs.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/eeprom.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/eeprom.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/fw.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/fw.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/hal.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/hal.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/iwm.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/lmac.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/main.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/netdev.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/rfkill.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/rx.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/rx.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/sdio.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/sdio.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/tx.c
- create mode 100644 drivers/net/wireless/iwmc3200wifi/umac.h
- create mode 100644 drivers/net/wireless/iwmc3200wifi/wext.c
- create mode 100644 net/wireless/debugfs.c
- create mode 100644 net/wireless/debugfs.h
-
-Omnibus patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2=
-=2E6-2009-05-22.patch.bz2
-
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/rcuclassic.h b/include/linux/rcuclassic.h
+index bfd92e1..b4b4fe1 100644
+--- a/include/linux/rcuclassic.h
++++ b/include/linux/rcuclassic.h
+@@ -158,14 +158,27 @@ extern struct lockdep_map rcu_lock_map;
+ 
+ #define call_rcu_sched(head, func) call_rcu(head, func)
+ 
++static inline void synchronize_rcu_expedited(void)
++{
++	synchronize_sched_expedited();
++}
++
++static inline void synchronize_rcu_bh_expedited(void)
++{
++	synchronize_sched_expedited();
++}
++
+ extern void __rcu_init(void);
+-#define rcu_init_sched()	do { } while (0)
+ extern void rcu_check_callbacks(int cpu, int user);
+ extern void rcu_restart_cpu(int cpu);
+ 
+ extern long rcu_batches_completed(void);
+ extern long rcu_batches_completed_bh(void);
+ 
++static inline void rcu_init_sched(void)
++{
++}
++
+ #define rcu_enter_nohz()	do { } while (0)
+ #define rcu_exit_nohz()		do { } while (0)
+ 
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index 15fbb3c..d67dfce 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -51,7 +51,18 @@ struct rcu_head {
+ 	void (*func)(struct rcu_head *head);
+ };
+ 
+-/* Internal to kernel, but needed by rcupreempt.h. */
++/* Exported common interfaces */
++extern void synchronize_rcu(void);
++extern void rcu_barrier(void);
++extern void rcu_barrier_bh(void);
++extern void rcu_barrier_sched(void);
++extern void synchronize_sched_expedited(void);
++extern int sched_expedited_torture_stats(char *page);
++
++/* Internal to kernel */
++extern void rcu_init(void);
++extern void rcu_scheduler_starting(void);
++extern int rcu_needs_cpu(int cpu);
+ extern int rcu_scheduler_active;
+ 
+ #if defined(CONFIG_CLASSIC_RCU)
+@@ -259,15 +270,4 @@ extern void call_rcu(struct rcu_head *head,
+ extern void call_rcu_bh(struct rcu_head *head,
+ 			void (*func)(struct rcu_head *head));
+ 
+-/* Exported common interfaces */
+-extern void synchronize_rcu(void);
+-extern void rcu_barrier(void);
+-extern void rcu_barrier_bh(void);
+-extern void rcu_barrier_sched(void);
+-
+-/* Internal to kernel */
+-extern void rcu_init(void);
+-extern void rcu_scheduler_starting(void);
+-extern int rcu_needs_cpu(int cpu);
+-
+ #endif /* __LINUX_RCUPDATE_H */
+diff --git a/include/linux/rcupreempt.h b/include/linux/rcupreempt.h
+index fce5227..78117ed 100644
+--- a/include/linux/rcupreempt.h
++++ b/include/linux/rcupreempt.h
+@@ -74,6 +74,16 @@ extern int rcu_needs_cpu(int cpu);
+ 
+ extern void __synchronize_sched(void);
+ 
++static inline void synchronize_rcu_expedited(void)
++{
++	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
++}
++
++static inline void synchronize_rcu_bh_expedited(void)
++{
++	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
++}
++
+ extern void __rcu_init(void);
+ extern void rcu_init_sched(void);
+ extern void rcu_check_callbacks(int cpu, int user);
+diff --git a/include/linux/rcutree.h b/include/linux/rcutree.h
+index 58b2aa5..41c23cb 100644
+--- a/include/linux/rcutree.h
++++ b/include/linux/rcutree.h
+@@ -279,8 +279,14 @@ static inline void __rcu_read_unlock_bh(void)
+ 
+ #define call_rcu_sched(head, func) call_rcu(head, func)
+ 
+-static inline void rcu_init_sched(void)
++static inline void synchronize_rcu_expedited(void)
++{
++	synchronize_sched_expedited();
++}
++
++static inline void synchronize_rcu_bh_expedited(void)
+ {
++	synchronize_sched_expedited();
+ }
+ 
+ extern void __rcu_init(void);
+@@ -290,6 +296,10 @@ extern void rcu_restart_cpu(int cpu);
+ extern long rcu_batches_completed(void);
+ extern long rcu_batches_completed_bh(void);
+ 
++static inline void rcu_init_sched(void)
++{
++}
++
+ #ifdef CONFIG_NO_HZ
+ void rcu_enter_nohz(void);
+ void rcu_exit_nohz(void);
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+index a967c9f..454995f 100644
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -45,6 +45,8 @@
+ #include <linux/mutex.h>
+ #include <linux/module.h>
+ #include <linux/kernel_stat.h>
++#include <linux/delay.h>
++#include <linux/kthread.h>
+ 
+ enum rcu_barrier {
+ 	RCU_BARRIER_STD,
+@@ -98,6 +100,30 @@ void synchronize_rcu(void)
+ }
+ EXPORT_SYMBOL_GPL(synchronize_rcu);
+ 
++/**
++ * synchronize_rcu_bh - wait until an rcu_bh grace period has elapsed.
++ *
++ * Control will return to the caller some time after a full rcu_bh grace
++ * period has elapsed, in other words after all currently executing rcu_bh
++ * read-side critical sections have completed.  RCU read-side critical
++ * sections are delimited by rcu_read_lock_bh() and rcu_read_unlock_bh(),
++ * and may be nested.
++ */
++void synchronize_rcu_bh(void)
++{
++	struct rcu_synchronize rcu;
++
++	if (rcu_blocking_is_gp())
++		return;
++
++	init_completion(&rcu.completion);
++	/* Will wake me after RCU finished. */
++	call_rcu_bh(&rcu.head, wakeme_after_rcu);
++	/* Wait for it. */
++	wait_for_completion(&rcu.completion);
++}
++EXPORT_SYMBOL_GPL(synchronize_rcu_bh);
++
+ static void rcu_barrier_callback(struct rcu_head *notused)
+ {
+ 	if (atomic_dec_and_test(&rcu_barrier_cpu_count))
+@@ -129,6 +155,7 @@ static void rcu_barrier_func(void *type)
+ static inline void wait_migrated_callbacks(void)
+ {
+ 	wait_event(rcu_migrate_wq, !atomic_read(&rcu_migrate_type_count));
++	smp_mb(); /* In case we didn't sleep. */
+ }
+ 
+ /*
+diff --git a/kernel/rcutorture.c b/kernel/rcutorture.c
+index 9b4a975..d3a1e56 100644
+--- a/kernel/rcutorture.c
++++ b/kernel/rcutorture.c
+@@ -257,14 +257,14 @@ struct rcu_torture_ops {
+ 	void (*init)(void);
+ 	void (*cleanup)(void);
+ 	int (*readlock)(void);
+-	void (*readdelay)(struct rcu_random_state *rrsp);
++	void (*read_delay)(struct rcu_random_state *rrsp);
+ 	void (*readunlock)(int idx);
+ 	int (*completed)(void);
+-	void (*deferredfree)(struct rcu_torture *p);
++	void (*deferred_free)(struct rcu_torture *p);
+ 	void (*sync)(void);
+ 	void (*cb_barrier)(void);
+ 	int (*stats)(char *page);
+-	int irqcapable;
++	int irq_capable;
+ 	char *name;
+ };
+ static struct rcu_torture_ops *cur_ops = NULL;
+@@ -320,7 +320,7 @@ rcu_torture_cb(struct rcu_head *p)
+ 		rp->rtort_mbtest = 0;
+ 		rcu_torture_free(rp);
+ 	} else
+-		cur_ops->deferredfree(rp);
++		cur_ops->deferred_free(rp);
+ }
+ 
+ static void rcu_torture_deferred_free(struct rcu_torture *p)
+@@ -329,18 +329,18 @@ static void rcu_torture_deferred_free(struct rcu_torture *p)
+ }
+ 
+ static struct rcu_torture_ops rcu_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = rcu_barrier,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= rcu_barrier,
++	.stats		= NULL,
++	.irq_capable 	= 1,
++	.name 		= "rcu"
+ };
+ 
+ static void rcu_sync_torture_deferred_free(struct rcu_torture *p)
+@@ -370,18 +370,18 @@ static void rcu_sync_torture_init(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_sync"
+ };
+ 
+ /*
+@@ -432,33 +432,33 @@ static void rcu_bh_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_bh_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_bh_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = rcu_barrier_bh,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_bh_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= rcu_barrier_bh,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh"
+ };
+ 
+ static struct rcu_torture_ops rcu_bh_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh_sync"
+ };
+ 
+ /*
+@@ -530,17 +530,17 @@ static int srcu_torture_stats(char *page)
+ }
+ 
+ static struct rcu_torture_ops srcu_ops = {
+-	.init = srcu_torture_init,
+-	.cleanup = srcu_torture_cleanup,
+-	.readlock = srcu_torture_read_lock,
+-	.readdelay = srcu_read_delay,
+-	.readunlock = srcu_torture_read_unlock,
+-	.completed = srcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = srcu_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = srcu_torture_stats,
+-	.name = "srcu"
++	.init		= srcu_torture_init,
++	.cleanup	= srcu_torture_cleanup,
++	.readlock	= srcu_torture_read_lock,
++	.read_delay	= srcu_read_delay,
++	.readunlock	= srcu_torture_read_unlock,
++	.completed	= srcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= srcu_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= srcu_torture_stats,
++	.name		= "srcu"
+ };
+ 
+ /*
+@@ -574,32 +574,47 @@ static void sched_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops sched_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sched_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = rcu_barrier_sched,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "sched"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sched_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= rcu_barrier_sched,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "sched"
+ };
+ 
+ static struct rcu_torture_ops sched_ops_sync = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.name = "sched_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.name		= "sched_sync"
++};
++
++static struct rcu_torture_ops sched_expedited_ops = {
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_sched_expedited,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "sched_expedited"
+ };
+ 
+ /*
+@@ -635,7 +650,7 @@ rcu_torture_writer(void *arg)
+ 				i = RCU_TORTURE_PIPE_LEN;
+ 			atomic_inc(&rcu_torture_wcount[i]);
+ 			old_rp->rtort_pipe_count++;
+-			cur_ops->deferredfree(old_rp);
++			cur_ops->deferred_free(old_rp);
+ 		}
+ 		rcu_torture_current_version++;
+ 		oldbatch = cur_ops->completed();
+@@ -700,7 +715,7 @@ static void rcu_torture_timer(unsigned long unused)
+ 	if (p->rtort_mbtest == 0)
+ 		atomic_inc(&n_rcu_torture_mberror);
+ 	spin_lock(&rand_lock);
+-	cur_ops->readdelay(&rand);
++	cur_ops->read_delay(&rand);
+ 	n_rcu_torture_timers++;
+ 	spin_unlock(&rand_lock);
+ 	preempt_disable();
+@@ -738,11 +753,11 @@ rcu_torture_reader(void *arg)
+ 
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task started");
+ 	set_user_nice(current, 19);
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		setup_timer_on_stack(&t, rcu_torture_timer, 0);
+ 
+ 	do {
+-		if (irqreader && cur_ops->irqcapable) {
++		if (irqreader && cur_ops->irq_capable) {
+ 			if (!timer_pending(&t))
+ 				mod_timer(&t, 1);
+ 		}
+@@ -757,7 +772,7 @@ rcu_torture_reader(void *arg)
+ 		}
+ 		if (p->rtort_mbtest == 0)
+ 			atomic_inc(&n_rcu_torture_mberror);
+-		cur_ops->readdelay(&rand);
++		cur_ops->read_delay(&rand);
+ 		preempt_disable();
+ 		pipe_count = p->rtort_pipe_count;
+ 		if (pipe_count > RCU_TORTURE_PIPE_LEN) {
+@@ -778,7 +793,7 @@ rcu_torture_reader(void *arg)
+ 	} while (!kthread_should_stop() && fullstop == FULLSTOP_DONTSTOP);
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task stopping");
+ 	rcutorture_shutdown_absorb("rcu_torture_reader");
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		del_timer_sync(&t);
+ 	while (!kthread_should_stop())
+ 		schedule_timeout_uninterruptible(1);
+@@ -1078,6 +1093,7 @@ rcu_torture_init(void)
+ 	int firsterr = 0;
+ 	static struct rcu_torture_ops *torture_ops[] =
+ 		{ &rcu_ops, &rcu_sync_ops, &rcu_bh_ops, &rcu_bh_sync_ops,
++		  &sched_expedited_ops,
+ 		  &srcu_ops, &sched_ops, &sched_ops_sync, };
+ 
+ 	mutex_lock(&fullstop_mutex);
+diff --git a/kernel/sched.c b/kernel/sched.c
+index 26efa47..d6d4fc3 100644
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -6772,7 +6772,8 @@ static int migration_thread(void *data)
+ 		list_del_init(head->next);
+ 
+ 		spin_unlock(&rq->lock);
+-		__migrate_task(req->task, cpu, req->dest_cpu);
++		if (req->task != NULL)
++			__migrate_task(req->task, cpu, req->dest_cpu);
+ 		local_irq_enable();
+ 
+ 		complete(&req->done);
+@@ -10239,3 +10240,52 @@ struct cgroup_subsys cpuacct_subsys = {
+ 	.subsys_id = cpuacct_subsys_id,
+ };
+ #endif	/* CONFIG_CGROUP_CPUACCT */
++
++#ifndef CONFIG_SMP
++
++void synchronize_sched_expedited(void)
++{
++}
++EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
++
++#else /* #ifndef CONFIG_SMP */
++
++static DEFINE_PER_CPU(struct migration_req, rcu_migration_req);
++static DEFINE_MUTEX(rcu_sched_expedited_mutex);
++
++/*
++ * Wait for an rcu-sched grace period to elapse, but use "big hammer"
++ * approach to force grace period to end quickly.  This consumes
++ * significant time on all CPUs, and is thus not recommended for
++ * any sort of common-case code.
++ */
++void synchronize_sched_expedited(void)
++{
++	int cpu;
++	unsigned long flags;
++	struct rq *rq;
++	struct migration_req *req;
++
++	mutex_lock(&rcu_sched_expedited_mutex);
++	get_online_cpus();
++	for_each_online_cpu(cpu) {
++		rq = cpu_rq(cpu);
++		req = &per_cpu(rcu_migration_req, cpu);
++		init_completion(&req->done);
++		req->task = NULL;
++		req->dest_cpu = -1;
++		spin_lock_irqsave(&rq->lock, flags);
++		list_add(&req->list, &rq->migration_queue);
++		spin_unlock_irqrestore(&rq->lock, flags);
++		wake_up_process(rq->migration_thread);
++	}
++	for_each_online_cpu(cpu) {
++		req = &per_cpu(rcu_migration_req, cpu);
++		wait_for_completion(&req->done);
++	}
++	put_online_cpus();
++	mutex_unlock(&rcu_sched_expedited_mutex);
++}
++EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
++
++#endif /* #else #ifndef CONFIG_SMP */
