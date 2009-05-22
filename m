@@ -1,7 +1,8 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [mISDN PATCH v2 12/19] Fix skb leak in error cases
-Date: Fri, 22 May 2009 23:04:52 +0200
-Message-ID: <234a21433b574ede7ef52c07369c2adbfe111877.1243024967.git.kkeil@pingi.linux-pingi.de>
+Subject: [mISDN PATCH v2 16/19] Added PCI ID for new Junghanns.net Single E1
+	cards.
+Date: Fri, 22 May 2009 23:04:55 +0200
+Message-ID: <439e83d3a432e8896ec699bc28b3ef4f72fdc730.1243024967.git.kkeil@pingi.linux-pingi.de>
 References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,56 +23,44 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If the channel receive function returns an error the skb must be freed.
+From: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 
+The new ID is validated by Cologne Chip.
+LEDs control is also supported.
+
+Signed-off-by: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/mISDN/socket.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+ drivers/isdn/hardware/mISDN/hfcmulti.c |    4 ++++
+ include/linux/pci_ids.h                |    1 +
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
-index 530f689..2a2c30a 100644
---- a/drivers/isdn/mISDN/socket.c
-+++ b/drivers/isdn/mISDN/socket.c
-@@ -209,7 +209,7 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
- 		err = -EFAULT;
--		goto drop;
-+		goto done;
- 	}
- 
- 	memcpy(mISDN_HEAD_P(skb), skb->data, MISDN_HEADER_LEN);
-@@ -230,19 +230,21 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		     __func__, mISDN_HEAD_ID(skb));
- 
- 	err = -ENODEV;
--	if (!_pms(sk)->ch.peer ||
--	    (err = _pms(sk)->ch.recv(_pms(sk)->ch.peer, skb)))
--		goto drop;
--
--	err = len;
-+	if (!_pms(sk)->ch.peer)
-+		goto done;
-+	err = _pms(sk)->ch.recv(_pms(sk)->ch.peer, skb);
-+	if (err)
-+		goto done;
-+	else {
-+		skb = NULL;
-+		err = len;
-+	}
- 
- done:
-+	if (skb)
-+		kfree_skb(skb);
- 	release_sock(sk);
- 	return err;
--
--drop:
--	kfree_skb(skb);
--	goto done;
- }
- 
- static int
+diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
+index 50e9f4d..a4d790b 100644
+--- a/drivers/isdn/hardware/mISDN/hfcmulti.c
++++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
+@@ -5354,6 +5354,10 @@ static struct pci_device_id hfmultipci_ids[] __devinitdata = {
+ 		PCI_SUBDEVICE_ID_CCD_SPD4S, 0, 0, H(26)}, /* PLX PCI Bridge */
+ 	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030, PCI_VENDOR_ID_CCD,
+ 		PCI_SUBDEVICE_ID_CCD_SPDE1, 0, 0, H(27)}, /* PLX PCI Bridge */
++
++	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFCE1, PCI_VENDOR_ID_CCD,
++		PCI_SUBDEVICE_ID_CCD_JHSE1, 0, 0, H(25)}, /* Junghanns E1 */
++
+ 	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC4S, PCI_ANY_ID, PCI_ANY_ID,
+ 		0, 0, 0},
+ 	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC8S, PCI_ANY_ID, PCI_ANY_ID,
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 4bdff98..12db06c 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1914,6 +1914,7 @@
+ #define PCI_SUBDEVICE_ID_CCD_SWYX4S	0xB540
+ #define PCI_SUBDEVICE_ID_CCD_JH4S20	0xB550
+ #define PCI_SUBDEVICE_ID_CCD_IOB8ST_1	0xB552
++#define PCI_SUBDEVICE_ID_CCD_JHSE1	0xB553
+ #define PCI_SUBDEVICE_ID_CCD_JH8S	0xB55B
+ #define PCI_SUBDEVICE_ID_CCD_BN4S	0xB560
+ #define PCI_SUBDEVICE_ID_CCD_BN8S	0xB562
 -- 
 1.6.0.2
