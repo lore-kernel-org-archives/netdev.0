@@ -1,52 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: net tree build warning
-Date: Fri, 22 May 2009 18:20:24 +1000
-Message-ID: <20090522182024.cfe48be4.sfr@canb.auug.org.au>
-References: <20090522151642.e79e22ee.sfr@canb.auug.org.au>
-	<20090521.233038.195647453.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__22_May_2009_18_20_24_+1000_qmXu/iGOrEb1uMgG"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090521.233038.195647453.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [patch 2.6.30] WiMAX pull request
+Date: Fri, 22 May 2009 01:29:40 -0700
+Message-ID: <cover.1242980768.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 076-076-148-181.pdx.net ([76.76.148.181]:39132 "EHLO
+	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753147AbZEVIaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 04:30:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__22_May_2009_18_20_24_+1000_qmXu/iGOrEb1uMgG
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This pull contains a single patch (bigger than I'd like) that fixes a
+device reset, breaking the connection.
 
-Hi Dave,
+This caused by asking the device to auto-suspend (go into USB power
+saving) in a bad moment. System suspend/hibernate are not affected.
 
-On Thu, 21 May 2009 23:30:38 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> I just pushed the following to fix this:
->=20
-> net: Fix arg to trace_napi_poll() in netpoll.
+-- 
 
-Thanks. I remerged the net tree at the end of linux-next today in case
-anyone was doing any testing over the weekend.=20
+The following changes since commit 4f72427998b105392e60bae7a6798a0c96fe4f0a:
+  Jean-Mickael Guerin (1):
+        IPv6: set RTPROT_KERNEL to initial route
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+are available in the git repository at:
 
---Signature=_Fri__22_May_2009_18_20_24_+1000_qmXu/iGOrEb1uMgG
-Content-Type: application/pgp-signature
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.30.y
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Patches follow for reviewing convenience.
 
-iEYEARECAAYFAkoWYEgACgkQjjKRsyhoI8yzzwCggJcCGwwm6y/uN97ocrSSazmC
-fvEAnR7Bnl/DO72V5yTvZhS3bWOT9kNg
-=XhrU
------END PGP SIGNATURE-----
+Inaky Perez-Gonzalez (1):
+      wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
 
---Signature=_Fri__22_May_2009_18_20_24_+1000_qmXu/iGOrEb1uMgG--
+ drivers/net/wimax/i2400m/usb.c |   35 ++++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 5 deletions(-)
