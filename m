@@ -1,77 +1,99 @@
-From: Chaitanya Lala <clala@riverbed.com>
-Subject: [net-next-2.6 PATCH 1/1] e1000e: Expose MDI-X status via ethtool
-	change
-Date: Fri, 22 May 2009 10:20:33 -0700
-Message-ID: <20090522172033.GA16787@clala-laptop>
-References: <1243004704.3192.21.camel@achroite>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Fri, 22 May 2009 18:42:16 +0100
+Message-ID: <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <20090518065629.GA6006@ff.dom.local>
+	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
+	 <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com>
+	 <20090521085116.GC2892@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.riverbed.com ([206.169.144.7]:29332 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755700AbZEVRT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 13:19:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1243004704.3192.21.camel@achroite>
+Received: from yx-out-2324.google.com ([74.125.44.28]:10181 "EHLO
+	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753488AbZEVRmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 13:42:16 -0400
+Received: by yx-out-2324.google.com with SMTP id 3so1104548yxj.1
+        for <netdev@vger.kernel.org>; Fri, 22 May 2009 10:42:17 -0700 (PDT)
+In-Reply-To: <20090521085116.GC2892@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ethtool is a standard way of getting information about ethernet
-interfaces. We enhance ethtool kernel interface & e1000e to make
-the MDI-X status readable via ethtool in userspace.
+On Thu, May 21, 2009 at 9:51 AM, Jarek Poplawski wrote:
+> I still have no clue about the reason, but it would be really nice to
+> do some short test with more current kernel (>= 2.6.27) and iproute2
+> (to exclude the possibility of some incomaptibility in configs e.g.
+> rate tables passed to htb).
 
-Signed-off-by: Chaitanya Lala <clala@riverbed.com>
-Signed-off-by: Arthur Jones <ajones@riverbed.com>
----
- drivers/net/e1000e/ethtool.c |    8 ++++++++
- include/linux/ethtool.h      |    6 ++++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
+I installed kernel 2.6.29 (finaly! wasn't easy... I couldn't set
+memory split 2G/2G),
+but the results are the same. I've already applied gen_estimator.c
+patches (works fine).
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 4d25ede..8bbade1 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -167,6 +167,14 @@ static int e1000_get_settings(struct net_device *netdev,
- 
- 	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
- 			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-+
-+	/* MDI-X => 2; MDI =>1; Invalid =>0 */
-+	if ((hw->phy.media_type == e1000_media_type_copper) &&
-+			!hw->mac.get_link_status)
-+		ecmd->is_mdix = hw->phy.is_mdix ? MDI_X : MDI;
-+	else
-+		ecmd->is_mdix = MDI_INVALID;
-+
- 	return 0;
- }
- 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 380b042..5211f59 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -33,6 +33,7 @@ struct ethtool_cmd {
- 	__u16	reserved2;
- 	__u32	lp_advertising;	/* Features the link partner advertises */
- 	__u32	reserved[2];
-+	__u8	is_mdix;	/* MDI-X status tri-state value */
- };
- 
- static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
-@@ -632,6 +633,11 @@ struct ethtool_ops {
- #define AUTONEG_DISABLE		0x00
- #define AUTONEG_ENABLE		0x01
- 
-+/* Mode MDI or MDI-X */
-+#define MDI_INVALID	0x00
-+#define MDI		0x01
-+#define MDI_X		0x02
-+
- /* Wake-On-Lan options. */
- #define WAKE_PHY		(1 << 0)
- #define WAKE_UCAST		(1 << 1)
--- 
-1.6.0.4
+# tc -s -d class ls dev eth1 | head -24
+class htb 1:1 root rate 900000Kbit ceil 900000Kbit burst 113962b/8 mpu
+0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level 7
+ Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 621844Kbit 97651pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
 
+class htb 1:10 parent 1:2 rate 900000Kbit ceil 900000Kbit burst
+113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
+5
+ Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 621844Kbit 97651pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
+
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
+70901b/8 mpu 0b overhead 0b level 0
+ Sent 119955366812 bytes 150697697 pkt (dropped 76696483, overlimits 0
+requeues 0)
+ rate 621847Kbit 97652pps backlog 0b 79p requeues 0
+ lended: 150697618 borrowed: 0 giants: 0
+ tokens: -5 ctokens: -5
+
+class htb 1:2 parent 1:1 rate 900000Kbit ceil 900000Kbit burst
+113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
+6
+ Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 621844Kbit 97651pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: 402 ctokens: 402
+
+
+# cat /sys/module/sch_htb/parameters/htb_hysteresis
+0
+
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+# ethtool -k eth1
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+
+I'm working on a newer iproute2.
+
+
+  Antonio Almeida
