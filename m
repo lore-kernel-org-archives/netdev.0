@@ -1,7 +1,7 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [mISDN PATCH v2 13/19] isdn: get_free_devid() failure ignored
-Date: Fri, 22 May 2009 23:04:53 +0200
-Message-ID: <ca07ceb5f4c3cede952943686120b27e20008074.1243024967.git.kkeil@pingi.linux-pingi.de>
+Subject: [mISDN PATCH v2 12/19] Fix skb leak in error cases
+Date: Fri, 22 May 2009 23:04:52 +0200
+Message-ID: <234a21433b574ede7ef52c07369c2adbfe111877.1243024967.git.kkeil@pingi.linux-pingi.de>
 References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,43 +22,56 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roel Kluin <roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+If the channel receive function returns an error the skb must be freed.
 
-dev->id is unsigned so a get_free_devid() error is ignored.
-
-Signed-off-by: Roel Kluin <roel.kluin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/mISDN/core.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/isdn/mISDN/socket.c |   22 ++++++++++++----------
+ 1 files changed, 12 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/core.c b/drivers/isdn/mISDN/core.c
-index 9426c98..21d34be 100644
---- a/drivers/isdn/mISDN/core.c
-+++ b/drivers/isdn/mISDN/core.c
-@@ -214,7 +214,7 @@ get_free_devid(void)
- 		if (!test_and_set_bit(i, (u_long *)&device_ids))
- 			break;
- 	if (i > MAX_DEVICE_ID)
--		return -1;
-+		return -EBUSY;
- 	return i;
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index 530f689..2a2c30a 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -209,7 +209,7 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
+ 		err = -EFAULT;
+-		goto drop;
++		goto done;
+ 	}
+ 
+ 	memcpy(mISDN_HEAD_P(skb), skb->data, MISDN_HEADER_LEN);
+@@ -230,19 +230,21 @@ mISDN_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		     __func__, mISDN_HEAD_ID(skb));
+ 
+ 	err = -ENODEV;
+-	if (!_pms(sk)->ch.peer ||
+-	    (err = _pms(sk)->ch.recv(_pms(sk)->ch.peer, skb)))
+-		goto drop;
+-
+-	err = len;
++	if (!_pms(sk)->ch.peer)
++		goto done;
++	err = _pms(sk)->ch.recv(_pms(sk)->ch.peer, skb);
++	if (err)
++		goto done;
++	else {
++		skb = NULL;
++		err = len;
++	}
+ 
+ done:
++	if (skb)
++		kfree_skb(skb);
+ 	release_sock(sk);
+ 	return err;
+-
+-drop:
+-	kfree_skb(skb);
+-	goto done;
  }
  
-@@ -224,10 +224,10 @@ mISDN_register_device(struct mISDNdevice *dev,
- {
- 	int	err;
- 
--	dev->id = get_free_devid();
--	err = -EBUSY;
--	if (dev->id < 0)
-+	err = get_free_devid();
-+	if (err < 0)
- 		goto error1;
-+	dev->id = err;
- 
- 	device_initialize(&dev->dev);
- 	if (name && name[0])
+ static int
 -- 
 1.6.0.2
