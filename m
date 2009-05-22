@@ -1,153 +1,78 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [mISDN PATCH v2 09/19] Fix TEI and SAPI handling
-Date: Fri, 22 May 2009 23:53:14 +0200
-Message-ID: <20090522215314.GA4592@uranus.ravnborg.org>
-References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de> <cbbb2723784ecf04bcec253c547a9464a2e722c7.1243024967.git.kkeil@pingi.linux-pingi.de>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone
+	over NFS
+Date: Fri, 22 May 2009 19:45:08 -0400
+Message-ID: <20090522234508.GC9076@fieldses.org>
+References: <20090512204433.7eb69075.akpm@linux-foundation.org> <x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com> <x49k54ku7i2.fsf@segfault.boston.devel.redhat.com> <1242258338.5407.244.camel@heimdal.trondhjem.org> <x49octv7qr8.fsf@segfault.boston.devel.redhat.com> <1242311620.6560.14.camel@heimdal.trondhjem.org> <x49ws8j686r.fsf@segfault.boston.devel.redhat.com> <1242587454.17796.2.camel@heimdal.trondhjem.org> <1242587524.17796.3.camel@heimdal.trondhjem.org> <x49tz3ia45h.fsf@segfault.boston.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	i4ldeveloper@listserv.isdn4linux.de
-To: Karsten Keil <keil@b1-systems.de>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Jens Axboe <jens.axboe@oracle.com>,
+	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Olga Kornievskaia <aglo@citi.umich.edu>,
+	Jim Rees <rees@umich.edu>, linux-nfs@vger.kernel.org
+To: Jeff Moyer <jmoyer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfepb.post.tele.dk ([195.41.46.236]:57424 "EHLO
-	pfepb.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757270AbZEVVvB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 17:51:01 -0400
+Received: from mail.fieldses.org ([141.211.133.115]:41014 "EHLO
+	pickle.fieldses.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757800AbZEVXpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 19:45:47 -0400
 Content-Disposition: inline
-In-Reply-To: <cbbb2723784ecf04bcec253c547a9464a2e722c7.1243024967.git.kkeil@pingi.linux-pingi.de>
+In-Reply-To: <x49tz3ia45h.fsf@segfault.boston.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Karsten.
+On Mon, May 18, 2009 at 10:15:22AM -0400, Jeff Moyer wrote:
+> Trond Myklebust <trond.myklebust@fys.uio.no> writes:
+> 
+> > On Sun, 2009-05-17 at 15:11 -0400, Trond Myklebust wrote:
+> >> On Thu, 2009-05-14 at 11:00 -0400, Jeff Moyer wrote:
+> >> > Sorry for the previous, stupid question.  I applied the patch in
+> >> > addition the last one and here are the results:
+> >> > 
+> >> > 70327
+> >> > 71561
+> >> > 68760
+> >> > 69199
+> >> > 65324
+> >> > 
+> >> > A packet capture for this run is available here:
+> >> >   http://people.redhat.com/jmoyer/trond2.pcap.bz2
+> >> > 
+> >> > Any more ideas?  ;)
+> >> 
+> >> Yep. I've got 2 more patches for you. With both of them applied, I'm
+> >> seeing decent performance on my own test rig. The first patch is
+> >> appended. I'll send the second in another email (to avoid attachments).
+> >
+> > Here is number 2. It is incremental to all the others...
+> 
+> With all 4 patches applied, these are the numbers for 5 runs:
+> 
+> 103168
+> 101212
+> 103346
+> 100842
+> 103172
+> 
+> It's looking much better, but we're still off by a few percent.  Thanks
+> for the quick turnaround on this, Trond!  If you submit these patches,
+> feel free to add:
 
-Flash from the past looking at some ISDN layer2.
-Some comments below.
+I'd like to take a look and run some tests of my own when I get back
+from vacation next week.
 
-	Sam
+Then assuming no problems I'm inclined to queue them up for 2.6.31, and,
+in the meantime, revert the autotuning patch temporarily for
+2.6.30--under the assumption that autotuning is still the right thing to
+do, but that this is too significant a regression to ignore, and Trond's
+work is too involved to submit for 2.6.30 this late in the process.
 
->  struct layer2 *
-> -create_l2(struct mISDNchannel *ch, u_int protocol, u_long options, u_long arg)
-> +create_l2(struct mISDNchannel *ch, u_int protocol, u_long options, u_int tei,
-> +		u_int sapi)
+--b.
 
-Unrealted to this specific patch...
-Are there any specific reason why mISDN prefer bsd style (u_int)
-rather then linux style (u32)?
-
->  
->  static struct layer2 *
-> -create_new_tei(struct manager *mgr, int tei)
-> +create_new_tei(struct manager *mgr, int tei, int sapi)
->  {
-
-Here tei and sapi are passed as signed.
-But valid sapi range is [0..63] and tei [0..127].
-And create_l2 above uses unsigned.
-
-This looks confusing.
-
->  	u_long		opt = 0;
->  	u_long		flags;
-> @@ -791,7 +791,7 @@ create_new_tei(struct manager *mgr, int tei)
->  	if (mgr->ch.st->dev->Dprotocols
->  	  & ((1 << ISDN_P_TE_E1) | (1 << ISDN_P_NT_E1)))
->  		test_and_set_bit(OPTION_L2_PMX, &opt);
-> -	l2 = create_l2(mgr->up, ISDN_P_LAPD_NT, (u_int)opt, (u_long)tei);
-> +	l2 = create_l2(mgr->up, ISDN_P_LAPD_NT, (u_int)opt, tei, sapi);
->  	if (!l2) {
->  		printk(KERN_WARNING "%s:no memory for layer2\n", __func__);
->  		return NULL;
-> @@ -839,12 +839,15 @@ new_tei_req(struct manager *mgr, u_char *dp)
->  	ri += dp[1];
->  	if (!mgr->up)
->  		goto denied;
-> -	tei = get_free_tei(mgr);
-> +	if (dp[3] != 0xff)
-> +		tei = dp[3] >> 1; /* 3GPP TS 08.56 6.1.11.2 */
-> +	else
-> +		tei = get_free_tei(mgr);
-
-You should check EA0 here before assuming that any values except
-EA=1, tei=127 equals ptmp.
-
-
->  	if (tei < 0) {
->  		printk(KERN_WARNING "%s:No free tei\n", __func__);
->  		goto denied;
->  	}
-
-So get_free_tei() may return a negative value indicating no free tei.
-So that make my comment above void - but is this really the best way
-to return an error. Possibly it is..
-
-
-> -	l2 = create_new_tei(mgr, tei);
-> +	l2 = create_new_tei(mgr, tei, 0);
-
-In general I would prefer to read: SAPI_CALLCONTROL rahter than a hardcoded 0.
-
->  	if (!l2)
->  		goto denied;
->  	else
-> @@ -976,8 +979,6 @@ create_teimgr(struct manager *mgr, struct channel_req *crq)
->  			__func__, dev_name(&mgr->ch.st->dev->dev),
->  			crq->protocol, crq->adr.dev, crq->adr.channel,
->  			crq->adr.sapi, crq->adr.tei);
-> -	if (crq->adr.sapi != 0) /* not supported yet */
-> -		return -EINVAL;
->  	if (crq->adr.tei > GROUP_TEI)
->  		return -EINVAL;
->  	if (crq->adr.tei < 64)
-> @@ -1025,7 +1026,7 @@ create_teimgr(struct manager *mgr, struct channel_req *crq)
->  		return 0;
->  	}
->  	l2 = create_l2(crq->ch, crq->protocol, (u_int)opt,
-> -		(u_long)crq->adr.tei);
-> +		crq->adr.tei, crq->adr.sapi);
->  	if (!l2)
->  		return -ENOMEM;
->  	l2->tm = kzalloc(sizeof(struct teimgr), GFP_KERNEL);
-> @@ -1166,7 +1167,7 @@ static int
->  check_data(struct manager *mgr, struct sk_buff *skb)
->  {
->  	struct mISDNhead	*hh =  mISDN_HEAD_P(skb);
-> -	int			ret, tei;
-> +	int			ret, tei, sapi;
->  	struct layer2		*l2;
->  
->  	if (*debug & DEBUG_L2_CTRL)
-> @@ -1178,18 +1179,16 @@ check_data(struct manager *mgr, struct sk_buff *skb)
->  		return -ENOTCONN;
->  	if (skb->len != 3)
->  		return -ENOTCONN;
-> -	if (skb->data[0] != 0)
-> -		/* only SAPI 0 command */
-> -		return -ENOTCONN;
-> +	sapi = skb->data[0] >> 2;
-
-PReviously there was an implicit check of EA0.
-This is missed not that you read sapi and discard the two lower bits.
-
-I also wonder if you remeber to check the command/response bit.
-That was implicitly tested to be 0 before and also ignored now.
-
-
->  	if (!(skb->data[1] & 1)) /* invalid EA1 */
->  		return -EINVAL;
-> -	tei = skb->data[1] >> 0;
-> +	tei = skb->data[1] >> 1;
-
-This looks like a bug-fix...
-
->  	if (tei > 63) /* not a fixed tei */
->  		return -ENOTCONN;
->  	if ((skb->data[2] & ~0x10) != SABME)
->  		return -ENOTCONN;
->  	/* We got a SABME for a fixed TEI */
-> -	l2 = create_new_tei(mgr, tei);
-> +	l2 = create_new_tei(mgr, tei, sapi);
->  	if (!l2)
->  		return -ENOMEM;
->  	ret = l2->ch.send(&l2->ch, skb);
-
+> 
+> Tested-by: Jeff Moyer <jmoyer@redhat.com>
+> 
+> Cheers,
+> Jeff
