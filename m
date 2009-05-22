@@ -1,49 +1,43 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] ethtool: Expose MDI-X status
-Date: Fri, 22 May 2009 16:03:30 +0100
-Message-ID: <1243004610.3192.18.camel@achroite>
+Subject: Re: [net-next-2.6 PATCH 1/1] e1000e: Expose MDI-X status via
+	ethtool change
+Date: Fri, 22 May 2009 16:05:04 +0100
+Message-ID: <1243004704.3192.21.camel@achroite>
 References: <F169D4F5E1F1974DBFAFABF47F60C10A33527C9D@orsmsx507.amr.corp.intel.com>
-	 <20090522145426.GA8470@clala-laptop>
+	 <20090522145544.GA8508@clala-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org
 To: Chaitanya Lala <clala@riverbed.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:49551 "EHLO
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:33927 "EHLO
 	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757209AbZEVPDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 11:03:35 -0400
-In-Reply-To: <20090522145426.GA8470@clala-laptop>
+	by vger.kernel.org with ESMTP id S1750709AbZEVPFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 11:05:04 -0400
+In-Reply-To: <20090522145544.GA8508@clala-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-05-22 at 07:54 -0700, Chaitanya Lala wrote:
-> The MDI-X status is a useful tool for diagnosing network
-> connectivity issues. We expose MDI-X status as a tri-state value
-> status which drivers can optionally implement.
-> 
-> Signed-off-by: Chaitanya Lala <clala@riverbed.com>
-> Signed-off-by: Arthur Jones <ajones@riverbed.com>
-> ---
->  ethtool-copy.h |    6 ++++++
->  ethtool.c      |   13 +++++++++++++
->  2 files changed, 19 insertions(+), 0 deletions(-)
-> 
-> diff --git a/ethtool-copy.h b/ethtool-copy.h
-> index 3ca4e2c..37bbeaf 100644
-> --- a/ethtool-copy.h
-> +++ b/ethtool-copy.h
-> @@ -23,6 +23,7 @@ struct ethtool_cmd {
+On Fri, 2009-05-22 at 07:55 -0700, Chaitanya Lala wrote:
+> Ethtool is a standard way of getting information about ethernet
+> interfaces. We enhance ethtool kernel interface & e1000e to make
+> the MDI-X status readable via ethtool in userspace.
+[...] 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 380b042..0533d70 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -26,6 +26,7 @@ struct ethtool_cmd {
 >  	__u8	phy_address;
 >  	__u8	transceiver;	/* Which transceiver to use */
 >  	__u8	autoneg;	/* Enable or disable autonegotiation */
-> +	__u8	is_mdix;
+> +	__u8	is_mdix;	/* MDI-X status tri-state value */
+>  	__u8	mdio_support;
 [...]
 
-I have already filled this hole in the structure.  See Dave's
-net-next-2.6 repository and my previously submitted changes to ethtool
-<http://thread.gmane.org/gmane.linux.network/127025>.
+There's no gap here, so this would move all the following fields and
+break all older ethtool clients.
 
 Ben.
 
