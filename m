@@ -1,49 +1,66 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH] can: SJA1000: generic OF platform bus driver
-Date: Thu, 21 May 2009 23:31:23 -0700 (PDT)
-Message-ID: <20090521.233123.135354184.davem@davemloft.net>
-References: <4A143896.7050200@grandegger.com>
-	<fa686aa40905212142n4a8c3caamb2f28eef036e3922@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: tcp: Unexport TCPv6 GRO functions
+Date: Fri, 22 May 2009 17:19:44 +1000
+Message-ID: <20090522071944.GA23355@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
-	Linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-To: grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-In-Reply-To: <fa686aa40905212142n4a8c3caamb2f28eef036e3922-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:57825 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751250AbZEVHTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 03:19:46 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Date: Thu, 21 May 2009 22:42:07 -0600
+Hi:
 
-> On Wed, May 20, 2009 at 11:06 AM, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>=
- wrote:
->> This patch adds a generic driver for SJA1000 chips on the OpenFirmware
->> platform bus found on embedded PowerPC systems. You need a SJA1000 node
->> definition in your flattened device tree source (DTS) file similar to:
->>
->> =A0 can@3,100 {
->> =A0 =A0 =A0 =A0 =A0 compatible =3D "philips,sja1000";
->> =A0 =A0 =A0 =A0 =A0 reg =3D <3 0x100 0x80>;
->> =A0 =A0 =A0 =A0 =A0 clock-frequency =3D <8000000>;
->> =A0 =A0 =A0 =A0 =A0 cdr-reg =3D <0x48>;
->> =A0 =A0 =A0 =A0 =A0 ocr-reg =3D <0x0a>;
->> =A0 =A0 =A0 =A0 =A0 interrupts =3D <2 0>;
->> =A0 =A0 =A0 =A0 =A0 interrupt-parent =3D <&mpic>;
->> =A0 };
-> =
+tcp: Unexport TCPv6 GRO functions
 
-> This new binding must be documented in Documentation/powerpc/dts-bindings
+Sinec the TCPv6 GRO functions are used in the same file where
+they are defined, we do not need to export them.  This was a
+cut-n-paste from the IPv4 code which does need to export them.
 
-Wolfgang, please add this documentation and resubmit your patch.
-Thanks!
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 4b5aa18..6c59d1f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -941,7 +941,8 @@ static int tcp_v6_gso_send_check(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-struct sk_buff **tcp6_gro_receive(struct sk_buff **head, struct sk_buff *skb)
++static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
++					 struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 
+@@ -961,9 +962,8 @@ struct sk_buff **tcp6_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 
+ 	return tcp_gro_receive(head, skb);
+ }
+-EXPORT_SYMBOL(tcp6_gro_receive);
+ 
+-int tcp6_gro_complete(struct sk_buff *skb)
++static int tcp6_gro_complete(struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct tcphdr *th = tcp_hdr(skb);
+@@ -974,7 +974,6 @@ int tcp6_gro_complete(struct sk_buff *skb)
+ 
+ 	return tcp_gro_complete(skb);
+ }
+-EXPORT_SYMBOL(tcp6_gro_complete);
+ 
+ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 				 u32 ts, struct tcp_md5sig_key *key, int rst)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
