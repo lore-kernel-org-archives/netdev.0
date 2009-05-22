@@ -1,46 +1,78 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 2/2] net: Allow protocols to provide an unlocked_recvmsg
- sk_prot method
-Date: Fri, 22 May 2009 00:47:38 -0700 (PDT)
-Message-ID: <20090522.004738.139438566.davem@davemloft.net>
-References: <20090520230659.GC5956@ghostprotocols.net>
-	<200905221026.51789.remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Fri, 22 May 2009 01:08:49 -0700 (PDT)
+Message-ID: <20090522.010849.89655675.davem@davemloft.net>
+References: <4A14285C.1040705@windriver.com>
+	<20090521.151841.160383267.davem@davemloft.net>
+	<4A15F466.70708@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@redhat.com, netdev@vger.kernel.org, vanhoof@redhat.com,
-	williams@redhat.com
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: hong.pham@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37470
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40199
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751368AbZEVHrj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2009 03:47:39 -0400
-In-Reply-To: <200905221026.51789.remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1752792AbZEVIIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 04:08:51 -0400
+In-Reply-To: <4A15F466.70708@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Fri, 22 May 2009 10:26:51 +0300
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Date: Thu, 21 May 2009 20:40:06 -0400
 
-> On Thursday 21 May 2009 02:06:59 ext Arnaldo Carvalho de Melo wrote:
->> @@ -265,6 +265,9 @@ struct ucred {
->>  #define MSG_ERRQUEUE	0x2000	/* Fetch message from error queue */
->>  #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
->>  #define MSG_MORE	0x8000	/* Sender will send more */
->> +#ifdef __KERNEL__
->> +#define MSG_UNLOCKED	0x10000	/* Don't lock the sock */
->> +#endif
->=20
-> I might be missing something but... What prevents an evil userland fr=
-om=20
-> setting the flag anyway and hitting the BUG case?
+> Posted below is a log with the fix.
 
-Yes, we'll need to clear this on all paths where we get msg
-flags from the user.
+Thank you.
 
-There's a lot of such places.
+> What's interesting (baffling?) is that interrupts are being received
+> with the LD interrupt mask set or cleared.  The mask also changes
+> in between interrupts.  The mask always changes from 3 to 0, and never
+> from 0 to 3.
 
-So maybe we need to pass this state around in a different,
-internal, way.
+The "3 --> 0" transition is made by niu_poll_core() as we are
+about to napi_complete() and rearm the LDG.
+
+But yes this log doesn't make any sense.  Neither the masks
+nor the ARM bit appear to be working.
+
+I wonder if the spurious interrupts trigger exactly at the
+
+		nw64(LD_IM0(LDN_RXDMA(rp->rx_channel)), 0);
+
+in niu_poll_core().
+
+Can you run one more test?  Supplement the debugging output
+with:
+
+	"%pS", get_irq_regs()->tpc
+
+so we can see where the program counter is at the time of
+the spurious interrupt?
+
+Meanwhile, even if we go with your patch to fix this, we can't
+use it as-is.  Let me explain.
+
+Suppose that we get this spurious interrupt right after we unmask the
+interrupt and right before napi_complete().  Your change will make us
+re-mask the interrupts, but without scheduling NAPI.
+
+So once the napi_complete() happens, if no further interrupts trigger
+in that LDG, we'll never process those interrupt events cleared by
+your new code.  See what I mean?
+
+I don't know how to fix this, it's full of races.  I suppose we could
+recheck if events are pending in the LDG after we do the
+napi_complete() and reschedule NAPI again if so.  But that might be
+expensive (several register reads, just to check something that's not
+going to happen most of the time).
+
+I'm also wondering why we see this on Niagara-2 and not on PCI-E
+cards.  If the interrupts that go into the NCU unit of Niagara-2 are
+levelled interrupts, and somehow the ARM bit is not implemented
+correctly in the NIU logic when hooked up to NCU instead of PCI-E
+logic, that could explain things.
+
+I bet that our Linux driver is the only one that bangs on the LDG
+mask registers like this.
