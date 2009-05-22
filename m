@@ -1,102 +1,49 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.30] wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
-Date: Fri, 22 May 2009 01:29:41 -0700
-Message-ID: <e069c0cf7c169ae5a8bfdc8d083a5d66fbef73d8.1242980768.git.inaky@linux.intel.com>
-References: <cover.1242980768.git.inaky@linux.intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
+From: steve@chygwyn.com
+Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
+Date: Fri, 22 May 2009 09:31:14 +0100
+Message-ID: <20090522083114.GA15578@fogou.chygwyn.com>
+References: <20090520230652.GB5956@ghostprotocols.net> <200905221022.48790.remi.denis-courmont@nokia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ext Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:39133 "EHLO
-	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754097AbZEVIaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 04:30:05 -0400
-In-Reply-To: <cover.1242980768.git.inaky@linux.intel.com>
-In-Reply-To: <cover.1242980768.git.inaky@linux.intel.com>
-References: <cover.1242980768.git.inaky@linux.intel.com>
+Received: from fogou.chygwyn.com ([195.171.2.24]:59171 "EHLO fogou.chygwyn.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751779AbZEVIiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2009 04:38:07 -0400
+Content-Disposition: inline
+In-Reply-To: <200905221022.48790.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the i2400m is connected to a network, the host interface (USB)
-cannot be suspended. For that to happen, the device has to have
-negotiated with the basestation to put the link on IDLE state.
+Hi,
 
-If the host tries to put the device in standby while it is connected
-but not idle, the device resets, as the driver should not do that.
+On Fri, May 22, 2009 at 10:22:48AM +0300, R=E9mi Denis-Courmont wrote:
+> On Thursday 21 May 2009 02:06:52 ext Arnaldo Carvalho de Melo wrote:
+> > +       /*
+> > +        * We may return less entries than requested (vlen) if the
+> > +        * sock is non block and there aren't enough datagrams.
+> > +        */
+> > +       if (err =3D=3D 0 || (err =3D=3D -EAGAIN && (flags & MSG_DON=
+TWAIT)))
+> > +               return datagrams;
+> >         return err;
+> >  }
+>=20
+> Could there be a situation whereby we receive one or more datagrams, =
+then get=20
+> an error? How does userland get the datagrams then?
+>
+Normally you'd expect the call to return what it has read without an
+error, and then the socket error would be picked up on the next call.
+Need to check if sk->sk_error is being reset in the common code I
+guess,
 
-To avoid triggering that, when the USB susbsytem requires the driver
-to autosuspend the device, the driver checks if the device is not yet
-idle. If it is not, the request is rejected (will be retried again
-later on after the autosuspend timeout). At some point the device will
-enter idle and the request will succeed (unless of course, there is
-network traffic, but at that point, there is no idle neither in the
-link or the host interface).
-
-Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
----
- drivers/net/wimax/i2400m/usb.c |   35 ++++++++++++++++++++++++++++++-----
- 1 files changed, 30 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
-index ca4151a..1785132 100644
---- a/drivers/net/wimax/i2400m/usb.c
-+++ b/drivers/net/wimax/i2400m/usb.c
-@@ -505,27 +505,52 @@ int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
- #ifdef CONFIG_PM
- 	struct usb_device *usb_dev = i2400mu->usb_dev;
- #endif
-+	unsigned is_autosuspend = 0;
- 	struct i2400m *i2400m = &i2400mu->i2400m;
- 
-+#ifdef CONFIG_PM
-+	if (usb_dev->auto_pm > 0)
-+		is_autosuspend = 1;
-+#endif
-+
- 	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
- 	if (i2400m->updown == 0)
- 		goto no_firmware;
--	d_printf(1, dev, "fw up, requesting standby\n");
-+	if (i2400m->state == I2400M_SS_DATA_PATH_CONNECTED && is_autosuspend) {
-+		/* ugh -- the device is connected and this suspend
-+		 * request is an autosuspend one (not a system standby
-+		 * / hibernate).
-+		 *
-+		 * The only way the device can go to standby is if the
-+		 * link with the base station is in IDLE mode; that
-+		 * were the case, we'd be in status
-+		 * I2400M_SS_CONNECTED_IDLE. But we are not.
-+		 *
-+		 * If we *tell* him to go power save now, it'll reset
-+		 * as a precautionary measure, so if this is an
-+		 * autosuspend thing, say no and it'll come back
-+		 * later, when the link is IDLE
-+		 */
-+		result = -EBADF;
-+		d_printf(1, dev, "fw up, link up, not-idle, autosuspend: "
-+			 "not entering powersave\n");
-+		goto error_not_now;
-+	}
-+	d_printf(1, dev, "fw up: entering powersave\n");
- 	atomic_dec(&i2400mu->do_autopm);
- 	result = i2400m_cmd_enter_powersave(i2400m);
- 	atomic_inc(&i2400mu->do_autopm);
--#ifdef CONFIG_PM
--	if (result < 0 && usb_dev->auto_pm == 0) {
-+	if (result < 0 && !is_autosuspend) {
- 		/* System suspend, can't fail */
- 		dev_err(dev, "failed to suspend, will reset on resume\n");
- 		result = 0;
- 	}
--#endif
- 	if (result < 0)
- 		goto error_enter_powersave;
- 	i2400mu_notification_release(i2400mu);
--	d_printf(1, dev, "fw up, got standby\n");
-+	d_printf(1, dev, "powersave requested\n");
- error_enter_powersave:
-+error_not_now:
- no_firmware:
- 	d_fnend(3, dev, "(iface %p pm_msg %u) = %d\n",
- 		iface, pm_msg.event, result);
--- 
-1.6.2.3
-
+Steve.
