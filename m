@@ -1,7 +1,7 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [mISDN PATCH v2 15/19] Add PCI ID for Junghanns 8S card
-Date: Fri, 22 May 2009 23:04:55 +0200
-Message-ID: <e27193109e9bb5f33e0a408b5b9674375d073bda.1243024967.git.kkeil@pingi.linux-pingi.de>
+Subject: [mISDN PATCH v2 10/19] Add "sapi" information to debug messages
+Date: Fri, 22 May 2009 23:04:51 +0200
+Message-ID: <ac87c09a8ffdde66c1effd8c4d52893a20d7ab7b.1243024967.git.kkeil@pingi.linux-pingi.de>
 References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,47 +24,99 @@ List-Id: netdev.vger.kernel.org
 
 From: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 
-new id for HFC-8S
+Using sapi values other than 0 work now.
+The "OpenBSC" project does not require special kernel patch anymore.
 
 Signed-off-by: Andreas Eversberg <andreas-BhNU7qSqiUAcB3Tz54LwoQ@public.gmane.org>
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/hardware/mISDN/hfcmulti.c |    3 +++
- include/linux/pci_ids.h                |    1 +
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/isdn/mISDN/layer2.c |   24 +++++++++++-------------
+ drivers/isdn/mISDN/tei.c    |   11 +++++++++--
+ 2 files changed, 20 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 5be4edf..50e9f4d 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -5275,6 +5275,7 @@ static const struct hm_map hfcm_map[] = {
- /*30*/	{VENDOR_CCD, "HFC-8S OpenVox", 8, 8, 1, 0, 0, 0, 0, 0},
- /*31*/	{VENDOR_CCD, "XHFC-4S Speech Design", 5, 4, 0, 0, 0, 0,
- 		HFC_IO_MODE_EMBSD, XHFC_IRQ},
-+/*32*/	{VENDOR_JH, "HFC-8S (junghanns)", 8, 8, 1, 0, 0, 0, 0, 0},
- };
+diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
+index 0628ef6..9efee8e 100644
+--- a/drivers/isdn/mISDN/layer2.c
++++ b/drivers/isdn/mISDN/layer2.c
+@@ -99,7 +99,7 @@ l2m_debug(struct FsmInst *fi, char *fmt, ...)
+ 	if (!(*debug & DEBUG_L2_FSM))
+ 		return;
+ 	va_start(va, fmt);
+-	printk(KERN_DEBUG "l2 (tei %d): ", l2->tei);
++	printk(KERN_DEBUG "l2 (sapi %d tei %d): ", l2->sapi, l2->tei);
+ 	vprintk(fmt, va);
+ 	printk("\n");
+ 	va_end(va);
+@@ -1859,20 +1859,18 @@ ph_data_indication(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb)
+ 		psapi >>= 2;
+ 		ptei >>= 1;
+ 		if (psapi != l2->sapi) {
+-			/* not our bussiness
+-			 * printk(KERN_DEBUG "%s: sapi %d/%d sapi mismatch\n",
+-			 *  __func__,
+-			 *	psapi, l2->sapi);
+-			 */
++			/* not our bussiness */
++			if (*debug & DEBUG_L2)
++				printk(KERN_DEBUG "%s: sapi %d/%d mismatch\n",
++					__func__, psapi, l2->sapi);
+ 			dev_kfree_skb(skb);
+ 			return 0;
+ 		}
+ 		if ((ptei != l2->tei) && (ptei != GROUP_TEI)) {
+-			/* not our bussiness
+-			 * printk(KERN_DEBUG "%s: tei %d/%d sapi %d mismatch\n",
+-			 *  __func__,
+-			 *	ptei, l2->tei, psapi);
+-			 */
++			/* not our bussiness */
++			if (*debug & DEBUG_L2)
++				printk(KERN_DEBUG "%s: tei %d/%d mismatch\n",
++					__func__, ptei, l2->tei);
+ 			dev_kfree_skb(skb);
+ 			return 0;
+ 		}
+@@ -1927,8 +1925,8 @@ l2_send(struct mISDNchannel *ch, struct sk_buff *skb)
+ 	int 			ret = -EINVAL;
  
- #undef H
-@@ -5328,6 +5329,8 @@ static struct pci_device_id hfmultipci_ids[] __devinitdata = {
- 		PCI_SUBDEVICE_ID_CCD_HFC8S, 0, 0, H(18)}, /* 8S */
- 	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC8S, PCI_VENDOR_ID_CCD,
- 		PCI_SUBDEVICE_ID_CCD_OV8S, 0, 0, H(30)}, /* OpenVox 8 */
-+	{ PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_HFC8S, PCI_VENDOR_ID_CCD,
-+		PCI_SUBDEVICE_ID_CCD_JH8S, 0, 0, H(32)}, /* Junganns 8S  */
- 
- 
- 	/* Cards with HFC-E1 Chip */
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index 3038ac2..4bdff98 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -1914,6 +1914,7 @@
- #define PCI_SUBDEVICE_ID_CCD_SWYX4S	0xB540
- #define PCI_SUBDEVICE_ID_CCD_JH4S20	0xB550
- #define PCI_SUBDEVICE_ID_CCD_IOB8ST_1	0xB552
-+#define PCI_SUBDEVICE_ID_CCD_JH8S	0xB55B
- #define PCI_SUBDEVICE_ID_CCD_BN4S	0xB560
- #define PCI_SUBDEVICE_ID_CCD_BN8S	0xB562
- #define PCI_SUBDEVICE_ID_CCD_BNE1	0xB563
+ 	if (*debug & DEBUG_L2_RECV)
+-		printk(KERN_DEBUG "%s: prim(%x) id(%x) tei(%d)\n",
+-		    __func__, hh->prim, hh->id, l2->tei);
++		printk(KERN_DEBUG "%s: prim(%x) id(%x) sapi(%d) tei(%d)\n",
++		    __func__, hh->prim, hh->id, l2->sapi, l2->tei);
+ 	switch (hh->prim) {
+ 	case PH_DATA_IND:
+ 		ret = ph_data_indication(l2, hh, skb);
+diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
+index 9e88135..4ebba5c 100644
+--- a/drivers/isdn/mISDN/tei.c
++++ b/drivers/isdn/mISDN/tei.c
+@@ -227,7 +227,7 @@ tei_debug(struct FsmInst *fi, char *fmt, ...)
+ 	if (!(*debug & DEBUG_L2_TEIFSM))
+ 		return;
+ 	va_start(va, fmt);
+-	printk(KERN_DEBUG "tei(%d): ", tm->l2->tei);
++	printk(KERN_DEBUG "sapi(%d) tei(%d): ", tm->l2->sapi, tm->l2->tei);
+ 	vprintk(fmt, va);
+ 	printk("\n");
+ 	va_end(va);
+@@ -1188,9 +1188,16 @@ check_data(struct manager *mgr, struct sk_buff *skb)
+ 	if ((skb->data[2] & ~0x10) != SABME)
+ 		return -ENOTCONN;
+ 	/* We got a SABME for a fixed TEI */
++	if (*debug & DEBUG_L2_CTRL)
++		printk(KERN_DEBUG "%s: SABME sapi(%d) tei(%d)\n",
++		    __func__, sapi, tei);
+ 	l2 = create_new_tei(mgr, tei, sapi);
+-	if (!l2)
++	if (!l2) {
++		if (*debug & DEBUG_L2_CTRL)
++			printk(KERN_DEBUG "%s: failed to create new tei\n",
++			    __func__);
+ 		return -ENOMEM;
++	}
+ 	ret = l2->ch.send(&l2->ch, skb);
+ 	return ret;
+ }
 -- 
 1.6.0.2
