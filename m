@@ -1,98 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Code changes to handle dev private ioctl
-Date: Fri, 22 May 2009 15:21:19 +0100
-Message-ID: <1243002079.3192.11.camel@achroite>
-References: <20090522133315.GA13610@serverengines.com>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: [BUG] 2.6.30-rc4: Kernel BUG under network load with gianfar
+Date: Fri, 22 May 2009 16:27:20 +0200
+Message-ID: <9E304569-5828-403D-B4B0-845D8F0D6B95@it-loops.com>
+References: <50F164E7-D247-4FD6-B41B-BDAA8681166B@it-loops.com> <20090520214734.GA11277@mail.wantstofly.org> <20090521.152439.79009648.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Cc: buytenh@wantstofly.org, linux-kernel@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:52427 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753960AbZEVOVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:21:24 -0400
-In-Reply-To: <20090522133315.GA13610@serverengines.com>
+Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:34510
+	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756223AbZEVO1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:27:23 -0400
+In-Reply-To: <20090521.152439.79009648.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-05-22 at 19:03 +0530, Sarveshwar Bandi wrote:
-[...]
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-> index ae2f6b5..8329e07 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -562,6 +562,53 @@ static void be_vlan_rem_vid(struct net_d
->  	be_vid_config(netdev);
->  }
->  
-> +static int be_do_ioctl(struct net_device *netdev,
-> +			struct ifreq *ifr, int cmd)
-> +{
-> +	struct be_adapter *adapter = netdev_priv(netdev);
-> +	struct be_cmd_req_hdr req;
-> +	struct be_cmd_resp_hdr *resp;
-> +	void *data = ifr->ifr_data;
-> +	void *va;
-> +	dma_addr_t dma;
-> +	u32 req_size, resp_size;
-> +	int status;
-> +
-> +	switch (cmd) {
-> +	case SIOCDEVPRIVATE:
 
-This probably needs a capability check, depending on what it's actually
-doing.  Most configuration ioctl implementation use:
+On May 22, 2009, at 0:24, David Miller wrote:
 
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
+> From: Lennert Buytenhek <buytenh@wantstofly.org>
+> Date: Wed, 20 May 2009 23:47:34 +0200
+>
+>> gianfar puts skbuffs that are in the rx ring back onto the recycle
+>> list if there was a receive error, but this breaks the following
+>> invariant: that all skbuffs on the recycle list have skb->data =
+>> skb->head + NET_SKB_PAD (NET_SKB_PAD being 32 for you).
+>>
+>> In this case, the skb's ->data will be skb->head + RXBUF_ALIGNMENT
+>> (where RXBUF_ALIGNMENT is 64) when it is put onto the recycle list.
+>> And when gfar_new_skb() picks this skb off the recycle list again,
+>> it'll do:
+>>
+>>        alignamount = RXBUF_ALIGNMENT -
+>>                (((unsigned long) skb->data) & (RXBUF_ALIGNMENT - 1));
+>>
+>>        /* We need the data buffer to be aligned properly.  We will  
+>> reserve
+>>         * as many bytes as needed to align the data properly
+>>         */
+>>        skb_reserve(skb, alignamount);
+>>
+>> So now skb->data will be skb->head + 128, and there won't be enough
+>> space between skb->head and skb->end to hold a full-sized packet.
+>>
+>> Something like the patch below would fix it.
+>
+> Let me know when a final, tested, version of this patch is available
+> and please make sure it makes it to netdev@vger.kernel.org
 
-> +		if (copy_from_user(&req, (struct be_cmd_req_hdr *)data,
-> +			sizeof(struct be_cmd_req_hdr)))
-> +			return -EFAULT;
-> +
-> +		req_size = req.request_length + sizeof(struct be_cmd_req_hdr);
-> +
-> +		va = pci_alloc_consistent(adapter->pdev, req_size, &dma);
+I can confirm that Lennert's patch fixes my panic problems here. After  
+applying it, my connection has been rock solid and I no longer get any  
+kernel panics.
+That said, I think the final descision if this patch should go in like  
+it is now has to be made by Andy Fleming since he wrote the initial  
+code.
 
-Needs an error check.
+Kind regards,
+Michael
 
-> +		if (copy_from_user(va, (void *)data, req_size)) {
-> +			pci_free_consistent(adapter->pdev, req_size, va, dma);
-> +			return -EFAULT;
-> +		}
-> +
-> +		status = be_cmd_pass_ext_ioctl(&adapter->ctrl, dma, req_size);
-> +		if (!status) {
-> +			resp = (struct be_cmd_resp_hdr *) va;
-> +			resp_size = resp->response_length + sizeof(*resp);
-> +			if (copy_to_user((void *)data, va, resp_size)) {
-> +				pci_free_consistent(adapter->pdev,
-> +							req_size, va, dma);
-> +				return -EFAULT;
-> +			}
-> +		} else {
-> +			pci_free_consistent(adapter->pdev, req_size, va, dma);
-> +			return -EFAULT;
-
-Why repeat this cleanup and return so many times?  Kernel style is to
-put cleanup code at the end of the function and use "goto" to get there
-in case of error.
-
-> +		}
-> +		pci_free_consistent(adapter->pdev, req_size, va, dma);
-> +		break;
-> +	default:
-> +		return -EFAULT;
-[...]
-
-Should be -EOPNOTSUPP.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index b2c4967..85883c7 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1886,7 +1886,7 @@ int gfar_clean_rx_ring(struct net_device *dev,  
+int rx_work_limit)
+			if (unlikely(!newskb))
+				newskb = skb;
+			else if (skb)
+-				__skb_queue_head(&priv->rx_recycle, skb);
++				dev_kfree_skb_any(skb);
+		} else {
+			/* Increment the number of packets */
+			dev->stats.rx_packets++;
 
