@@ -1,99 +1,34 @@
-From: Antonio Almeida <vexwek@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Fri, 22 May 2009 18:42:16 +0100
-Message-ID: <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com>
-References: <20090517201528.GA8552@ami.dom.local>
-	 <20090518065629.GA6006@ff.dom.local>
-	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
-	 <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com>
-	 <20090521085116.GC2892@ami.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: [BUG] 2.6.30-rc4: Kernel BUG under network load with gianfar
+Date: Fri, 22 May 2009 19:59:01 +0200
+Message-ID: <D8767624-24E6-49B7-BC0A-084435C8DDAC@it-loops.com>
+References: <50F164E7-D247-4FD6-B41B-BDAA8681166B@it-loops.com> <20090520214734.GA11277@mail.wantstofly.org> <20090521.152439.79009648.davem@davemloft.net> <9E304569-5828-403D-B4B0-845D8F0D6B95@it-loops.com> <C6E445A9-0CE7-4270-848E-6FB34B3271D5@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: David Miller <davem@davemloft.net>, buytenh@wantstofly.org,
+	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	netdev@vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:10181 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488AbZEVRmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 13:42:16 -0400
-Received: by yx-out-2324.google.com with SMTP id 3so1104548yxj.1
-        for <netdev@vger.kernel.org>; Fri, 22 May 2009 10:42:17 -0700 (PDT)
-In-Reply-To: <20090521085116.GC2892@ami.dom.local>
+Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:47360
+	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751824AbZEVR7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 13:59:06 -0400
+In-Reply-To: <C6E445A9-0CE7-4270-848E-6FB34B3271D5@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2009 at 9:51 AM, Jarek Poplawski wrote:
-> I still have no clue about the reason, but it would be really nice to
-> do some short test with more current kernel (>= 2.6.27) and iproute2
-> (to exclude the possibility of some incomaptibility in configs e.g.
-> rate tables passed to htb).
 
-I installed kernel 2.6.29 (finaly! wasn't easy... I couldn't set
-memory split 2G/2G),
-but the results are the same. I've already applied gen_estimator.c
-patches (works fine).
+On May 22, 2009, at 19:18, Andy Fleming wrote:
 
-# tc -s -d class ls dev eth1 | head -24
-class htb 1:1 root rate 900000Kbit ceil 900000Kbit burst 113962b/8 mpu
-0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level 7
- Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
- rate 621844Kbit 97651pps backlog 0b 0p requeues 0
- lended: 0 borrowed: 0 giants: 0
- tokens: 402 ctokens: 402
+> I'm working (admittedly fairly slowly) on a patch that resets the  
+> pointers so they don't get moved twice.  That way we can continue to  
+> benefit from recycling the error skbs.
 
-class htb 1:10 parent 1:2 rate 900000Kbit ceil 900000Kbit burst
-113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
-5
- Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
- rate 621844Kbit 97651pps backlog 0b 0p requeues 0
- lended: 0 borrowed: 0 giants: 0
- tokens: 402 ctokens: 402
+Ok, thanks for the information. Just tell me when you have a patch  
+ready for testing, since it's fairly easy for me to reproduce this  
+here with my setup. I'll keep Lennard's patch in the meantime.
 
-class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
-555000Kbit ceil 555000Kbit burst 70901b/8 mpu 0b overhead 0b cburst
-70901b/8 mpu 0b overhead 0b level 0
- Sent 119955366812 bytes 150697697 pkt (dropped 76696483, overlimits 0
-requeues 0)
- rate 621847Kbit 97652pps backlog 0b 79p requeues 0
- lended: 150697618 borrowed: 0 giants: 0
- tokens: -5 ctokens: -5
-
-class htb 1:2 parent 1:1 rate 900000Kbit ceil 900000Kbit burst
-113962b/8 mpu 0b overhead 0b cburst 113962b/8 mpu 0b overhead 0b level
-6
- Sent 119955303928 bytes 150697618 pkt (dropped 0, overlimits 0 requeues 0)
- rate 621844Kbit 97651pps backlog 0b 0p requeues 0
- lended: 0 borrowed: 0 giants: 0
- tokens: 402 ctokens: 402
-
-
-# cat /sys/module/sch_htb/parameters/htb_hysteresis
-0
-
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-
-# ethtool -k eth1
-Offload parameters for eth1:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-
-
-I'm working on a newer iproute2.
-
-
-  Antonio Almeida
+Kind regards,
+Michael
