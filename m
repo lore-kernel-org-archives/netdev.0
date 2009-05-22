@@ -1,48 +1,60 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [net-next-2.6 PATCH] can: SJA1000: generic OF platform bus driver
-Date: Fri, 22 May 2009 16:47:26 +0200
-Message-ID: <4A16BAFE.7090401@grandegger.com>
-References: <4A143896.7050200@grandegger.com>	<fa686aa40905212142n4a8c3caamb2f28eef036e3922@mail.gmail.com> <20090521.233123.135354184.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [RFC 2/2] net: Allow protocols to provide an unlocked_recvmsg
+	sk_prot method
+Date: Fri, 22 May 2009 11:52:15 -0300
+Message-ID: <20090522145215.GR5956@ghostprotocols.net>
+References: <20090520230659.GC5956@ghostprotocols.net> <200905221026.51789.remi.denis-courmont@nokia.com> <20090522.004738.139438566.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	Linuxppc-dev@ozlabs.org, devicetree-discuss@ozlabs.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
+	vanhoof@redhat.com, williams@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:55405 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756173AbZEVOr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 10:47:28 -0400
-In-Reply-To: <20090521.233123.135354184.davem@davemloft.net>
+Received: from mx2.redhat.com ([66.187.237.31]:47265 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753513AbZEVOwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2009 10:52:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20090522.004738.139438566.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Thu, 21 May 2009 22:42:07 -0600
-> 
->> On Wed, May 20, 2009 at 11:06 AM, Wolfgang Grandegger <wg@grandegger.com> wrote:
->>> This patch adds a generic driver for SJA1000 chips on the OpenFirmware
->>> platform bus found on embedded PowerPC systems. You need a SJA1000 node
->>> definition in your flattened device tree source (DTS) file similar to:
->>>
->>>   can@3,100 {
->>>           compatible = "philips,sja1000";
->>>           reg = <3 0x100 0x80>;
->>>           clock-frequency = <8000000>;
->>>           cdr-reg = <0x48>;
->>>           ocr-reg = <0x0a>;
->>>           interrupts = <2 0>;
->>>           interrupt-parent = <&mpic>;
->>>   };
->> This new binding must be documented in Documentation/powerpc/dts-bindings
-> 
-> Wolfgang, please add this documentation and resubmit your patch.
-> Thanks!
+Em Fri, May 22, 2009 at 12:47:38AM -0700, David Miller escreveu:
+> From: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+> Date: Fri, 22 May 2009 10:26:51 +0300
+>=20
+> > On Thursday 21 May 2009 02:06:59 ext Arnaldo Carvalho de Melo wrote=
+:
+> >> @@ -265,6 +265,9 @@ struct ucred {
+> >>  #define MSG_ERRQUEUE	0x2000	/* Fetch message from error queue */
+> >>  #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
+> >>  #define MSG_MORE	0x8000	/* Sender will send more */
+> >> +#ifdef __KERNEL__
+> >> +#define MSG_UNLOCKED	0x10000	/* Don't lock the sock */
+> >> +#endif
+> >=20
+> > I might be missing something but... What prevents an evil userland =
+from=20
+> > setting the flag anyway and hitting the BUG case?
+>=20
+> Yes, we'll need to clear this on all paths where we get msg
+> flags from the user.
+>=20
+> There's a lot of such places.
+>=20
+> So maybe we need to pass this state around in a different,
+> internal, way.
 
-I just sent out v2 incuding the missing documentation.
+Yeah, I'll think about it, that was the easiest way to implement it for
+the proof of concept we have now. Filtering it out at syscall entry and
+at sock_common_recvmsg would fix it, but I'm not sure if its the best
+option.
 
-Thanks,
+The comments about the interface provided to userspace (struct mmsghdr)=
+,
+how to return errors after some datagrams were put in the array
+(sk->sk_err being stored then returned in the next call), timeouts, etc
+are great, thanks, after some more comments I'll respin these patches.
 
-Wolfgang.
+- Arnaldo
