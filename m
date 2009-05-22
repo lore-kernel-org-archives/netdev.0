@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] isdn: Use kernel_{send,recv}msg instead of open
- coding
-Date: Thu, 21 May 2009 16:49:29 -0700 (PDT)
-Message-ID: <20090521.164929.241809587.davem@davemloft.net>
-References: <20090521154126.GH5956@ghostprotocols.net>
-	<20090521.151443.79607416.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] dropmon: add ability to detect when hardware
+	dropsrxpackets
+Date: Thu, 21 May 2009 20:09:00 -0400
+Message-ID: <20090522000900.GA2715@localhost.localdomain>
+References: <20090518144622.GB25719@hmsreliant.think-freely.org> <20090521.001736.16882461.davem@davemloft.net> <20090521173608.GA28350@hmsreliant.think-freely.org> <20090521.151503.231694262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, paul.moore@hp.com, netdev@vger.kernel.org,
-	vanhoof@redhat.com, williams@redhat.com,
-	linux-security-module@vger.kernel.org
-To: acme@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090521.151443.79607416.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, jpirko@redhat.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35098 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751834AbZEVAJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2009 20:09:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20090521.151503.231694262.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 21 May 2009 15:14:43 -0700 (PDT)
-
-> From: Arnaldo Carvalho de Melo <acme@redhat.com>
-> Date: Thu, 21 May 2009 12:41:26 -0300
+On Thu, May 21, 2009 at 03:15:03PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Thu, 21 May 2009 13:36:08 -0400
 > 
->> Reducing the number of direct users of sock_{recv,send}msg.
->> 
->> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> > Thank you Dave, copy n' paste bit me.
+> > 
+> > Patch v6
 > 
-> Nice work, applied, thanks!
+> Applied to net-next-2.6, thanks!
+> 
 
-Nevermind, I'm reverting, this doesn't even build:
 
-drivers/isdn/mISDN/l1oip_core.c: In function 'l1oip_socket_send':
-drivers/isdn/mISDN/l1oip_core.c:354: warning: passing argument 3 of 'kernel_sendmsg' makes pointer from integer without a cast
-drivers/isdn/mISDN/l1oip_core.c:354: error: too few arguments to function 'kernel_sendmsg'
-drivers/isdn/mISDN/l1oip_core.c: In function 'l1oip_socket_thread':
-drivers/isdn/mISDN/l1oip_core.c:729: warning: passing argument 3 of 'kernel_recvmsg' makes pointer from integer without a cast
-drivers/isdn/mISDN/l1oip_core.c:729: error: too few arguments to function 'kernel_recvmsg'
+Thanks Dave.  I'll try get it right the first try next time around.
+
+
+Ok, maybe the third try :)
+Neil
 
