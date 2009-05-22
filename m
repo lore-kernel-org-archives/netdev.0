@@ -1,50 +1,49 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [net-next-2.6 PATCH] can: SJA1000: generic OF platform bus driver
-Date: Thu, 21 May 2009 22:42:07 -0600
-Message-ID: <fa686aa40905212142n4a8c3caamb2f28eef036e3922@mail.gmail.com>
-References: <4A143896.7050200@grandegger.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: net tree build warning
+Date: Fri, 22 May 2009 15:16:42 +1000
+Message-ID: <20090522151642.e79e22ee.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	devicetree-discuss <devicetree-discuss@ozlabs.org>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.29]:64275 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbZEVEm0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 00:42:26 -0400
-Received: by yx-out-2324.google.com with SMTP id 3so924820yxj.1
-        for <netdev@vger.kernel.org>; Thu, 21 May 2009 21:42:27 -0700 (PDT)
-In-Reply-To: <4A143896.7050200@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__22_May_2009_15_16_42_+1000_TjI_tiSbL0ylo9_I"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2009 at 11:06 AM, Wolfgang Grandegger <wg@grandegger.co=
-m> wrote:
-> This patch adds a generic driver for SJA1000 chips on the OpenFirmwar=
-e
-> platform bus found on embedded PowerPC systems. You need a SJA1000 no=
-de
-> definition in your flattened device tree source (DTS) file similar to=
-:
->
-> =A0 can@3,100 {
-> =A0 =A0 =A0 =A0 =A0 compatible =3D "philips,sja1000";
-> =A0 =A0 =A0 =A0 =A0 reg =3D <3 0x100 0x80>;
-> =A0 =A0 =A0 =A0 =A0 clock-frequency =3D <8000000>;
-> =A0 =A0 =A0 =A0 =A0 cdr-reg =3D <0x48>;
-> =A0 =A0 =A0 =A0 =A0 ocr-reg =3D <0x0a>;
-> =A0 =A0 =A0 =A0 =A0 interrupts =3D <2 0>;
-> =A0 =A0 =A0 =A0 =A0 interrupt-parent =3D <&mpic>;
-> =A0 };
+--Signature=_Fri__22_May_2009_15_16_42_+1000_TjI_tiSbL0ylo9_I
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This new binding must be documented in Documentation/powerpc/dts-bindin=
-gs
+Hi Dave,
 
-g.
+Today's linux-next build (powerpc ppc64_defconfig) produced this warning:
 
+net/core/netpoll.c: In function 'poll_one_napi':
+net/core/netpoll.c:141: warning: passing argument 1 of 'trace_napi_poll' fr=
+om incompatible pointer type
+include/trace/napi.h:7: note: expected 'struct napi_struct *' but argument =
+is of type 'struct net_device *'
+
+Introduced by commit 4ea7e38696c7e798c47ebbecadfd392f23f814f9 ("dropmon:
+add ability to detect when hardware dropsrxpackets").
 --=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__22_May_2009_15_16_42_+1000_TjI_tiSbL0ylo9_I
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkoWNToACgkQjjKRsyhoI8yrbwCeNfjaxPytRnyC94uRiaXqXj1+
+wyoAoJ8nQirfAhVzvpAsLUeb+sjnr5wB
+=dtnZ
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__22_May_2009_15_16_42_+1000_TjI_tiSbL0ylo9_I--
