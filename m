@@ -1,21 +1,21 @@
 From: Joan <zandhlpa@rrcol.com>
 Subject: Lucky Winner!!!
 Date: Sat, 23 May 2009 0:49:48 -0500
-Message-ID: <7h9gbp$d90vdp@rrcs-agw-01b.hrndva.rr.com>
+Message-ID: <7h9gbp$d90vds@rrcs-agw-01b.hrndva.rr.com>
 Reply-To: brownwilliams09@btinternet.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: <info@winners.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-commlb.mail.rr.com ([71.74.57.9]:40930 "EHLO
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.8]:51389 "EHLO
 	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115AbZEWFtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 01:49:49 -0400
+	with ESMTP id S1751239AbZEWFtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 01:49:50 -0400
 Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
-          by hrndva-comm-mta02.mail.rr.com with ESMTP
-          id <20090523054949.WDNZ19886.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
-          for <netdev@vger.kernel.org>; Sat, 23 May 2009 05:49:49 +0000
+          by hrndva-comm-mta03.mail.rr.com with ESMTP
+          id <20090523054951.WEEA617.hrndva-comm-mta03.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Sat, 23 May 2009 05:49:51 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
