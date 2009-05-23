@@ -1,29 +1,30 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: David Dillow <dave@thedillows.org>
 Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Sat, 23 May 2009 16:44:12 +0200
-Message-ID: <200905231644.13326.mb@bu3sch.de>
-References: <200903041828.49972.m.bueker@berlin.de> <200905231124.28925.mb@bu3sch.de> <4A1809B0.3030109@googlemail.com>
+Date: Sat, 23 May 2009 10:51:48 -0400
+Message-ID: <1243090308.4217.6.camel@obelisk.thedillows.org>
+References: <200903041828.49972.m.bueker@berlin.de>
+	 <4A0C7443.1010000@googlemail.com>
+	 <1243042174.3580.23.camel@obelisk.thedillows.org>
+	 <200905231124.28925.mb@bu3sch.de>  <4A1809B0.3030109@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Dillow <dave@thedillows.org>,
+Cc: Michael Buesch <mb@bu3sch.de>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Rui Santos <rsantos@grupopie.com>,
-	Michael =?iso-8859-1?q?B=FCker?= <m.bueker@berlin.de>,
+	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Michael Riepe <michael.riepe@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bu3sch.de ([62.75.166.246]:44451 "EHLO vs166246.vserver.de"
+Received: from smtp.knology.net ([24.214.63.101]:36612 "EHLO smtp.knology.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752934AbZEWOqP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 May 2009 10:46:15 -0400
+	id S1752226AbZEWOvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 May 2009 10:51:48 -0400
 In-Reply-To: <4A1809B0.3030109@googlemail.com>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 23 May 2009 16:35:28 Michael Riepe wrote:
+On Sat, 2009-05-23 at 16:35 +0200, Michael Riepe wrote:
 > Hi!
 > 
 > Michael Buesch wrote:
@@ -42,33 +43,25 @@ On Saturday 23 May 2009 16:35:28 Michael Riepe wrote:
 > [  3] 40.0-50.0 sec    669 MBytes    561 Mbits/sec
 > [  3] 50.0-60.0 sec    791 MBytes    663 Mbits/sec
 > [  3]  0.0-60.0 sec  4.34 GBytes    622 Mbits/sec
+> 
+[snip]
+> I suppose it's a side effect of the MSI acknowledgement loop. But who am
+> I to complain about higher average throughput? ;-)
 
-Are you running the iperf server or client on the r8169?
-I'm running the iperf server on the r8169 and get the following results:
+I wonder if that is the TCP sawtooth pattern -- run up until we drop
+packets, drop off, repeat. I thought newer congestion algorithms would
+help with that, but I've not kept up, this may be another red-herring --
+like the bisection into genirq.
 
-mb@homer:~$ iperf -c 192.168.2.50 -t120 -i10
-------------------------------------------------------------
-Client connecting to 192.168.2.50, TCP port 5001
-TCP window size: 16.0 KByte (default)
-------------------------------------------------------------
-[  3] local 192.168.2.205 port 34739 connected with 192.168.2.50 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec    789 MBytes    662 Mbits/sec
-[  3] 10.0-20.0 sec    791 MBytes    664 Mbits/sec
-[  3] 20.0-30.0 sec    799 MBytes    670 Mbits/sec
-[  3] 30.0-40.0 sec    794 MBytes    666 Mbits/sec
-[  3] 40.0-50.0 sec    795 MBytes    667 Mbits/sec
-[  3] 50.0-60.0 sec    793 MBytes    665 Mbits/sec
-[  3] 60.0-70.0 sec    800 MBytes    671 Mbits/sec
-[  3] 70.0-80.0 sec    795 MBytes    667 Mbits/sec
-[  3] 80.0-90.0 sec    800 MBytes    672 Mbits/sec
-[  3] 90.0-100.0 sec    797 MBytes    669 Mbits/sec
-[  3] 100.0-110.0 sec    789 MBytes    662 Mbits/sec
-[  3] 110.0-120.0 sec    791 MBytes    663 Mbits/sec
-[  3]  0.0-120.0 sec  9.31 GBytes    666 Mbits/sec
+A tcpdump may answer the question -- wireshark can do an analysis and
+see if it is running up until it starts dropping or something.
 
-Looks acceptable to me.
-The iperf client device is a BCM5780.
+Or it may be the loop, but I wouldn't expect it to make such a big
+difference, or be as variable if it does.
 
--- 
-Greetings, Michael.
+Also, what does it look like with multiple streams?
+
+Thanks for testing guys -- I'm glad it works for a sample size > 1!
+
+Dave
+
