@@ -1,64 +1,46 @@
-From: Michael Riepe <michael.riepe@googlemail.com>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Sat, 23 May 2009 17:01:36 +0200
-Message-ID: <4A180FD0.5050101@googlemail.com>
-References: <200903041828.49972.m.bueker@berlin.de> <200905231124.28925.mb@bu3sch.de> <4A1809B0.3030109@googlemail.com> <200905231644.13326.mb@bu3sch.de>
+From: Vladimir Ivashchenko <hazard@francoudi.com>
+Subject: Re: HTB accuracy for high speed (and bonding)
+Date: Sat, 23 May 2009 18:06:30 +0300
+Message-ID: <20090523150630.GA4228@francoudi.com>
+References: <20090519110311.GA5521@ff.dom.local> <20090519140416.GA21270@francoudi.com> <20090519201027.GA4751@ami.dom.local> <1242857245.13519.17.camel@hazard2.francoudi.com> <4A148838.8010809@cosmosbay.com> <20090521072050.GA2892@ami.dom.local> <20090521074400.GA19113@francoudi.com> <20090521082805.GB2892@ami.dom.local> <1243075052.27210.22.camel@hazard2.francoudi.com> <20090523143432.GA2766@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Dillow <dave@thedillows.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f168.google.com ([209.85.220.168]:41692 "EHLO
-	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbZEWPBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 11:01:38 -0400
-In-Reply-To: <200905231644.13326.mb@bu3sch.de>
+Received: from cerber.thunderworx.net ([217.27.32.18]:3447 "EHLO
+	cerber.thunderworx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021AbZEWPGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 11:06:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20090523143432.GA2766@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-
-Michael Buesch wrote:
-> On Saturday 23 May 2009 16:35:28 Michael Riepe wrote:
+> > So, I got rid of bonding completely and instead configured PBR on Cisco
+> > + Linux routing in such a way so that packet gets received and
+> > transmitted using NICs connected to the same pair of cores with common
+> > cache. 65-70% idle on all cores now, compared to 0-30% idle in worst
+> > case scenarios before.
 > 
->>Hi!
->>
->>Michael Buesch wrote:
->>
->>
->>>Thanks a lot, Dave! This fixes the issue on my chip.
->>
->>Yep, it's stable here as well. And even a little faster than pci=nomsi.
->>The only strangeness I observed is that the throughput (measured with
->>iperf and a single TCP connection) varies:
->>
->>[ ID] Interval       Transfer     Bandwidth
->>[  3]  0.0-10.0 sec    667 MBytes    559 Mbits/sec
->>[  3] 10.0-20.0 sec    803 MBytes    673 Mbits/sec
->>[  3] 20.0-30.0 sec    802 MBytes    673 Mbits/sec
->>[  3] 30.0-40.0 sec    714 MBytes    599 Mbits/sec
->>[  3] 40.0-50.0 sec    669 MBytes    561 Mbits/sec
->>[  3] 50.0-60.0 sec    791 MBytes    663 Mbits/sec
->>[  3]  0.0-60.0 sec  4.34 GBytes    622 Mbits/sec
-> 
-> 
-> Are you running the iperf server or client on the r8169?
+> As a matter of fact I don't understand this bonding idea vs. smp: I
+> guess Eric Dumazet wrote why it's wrong wrt. locking. I'm not an smp
+> expert but I think the most efficient use is with separate NICs per
+> cpu (so with separate HTB qdiscs if possible), or multiqueue NICs -
 
-The client, since I wanted to measure write throughput. The server is a
-Lenovo Thinkpad T60 (e1000e driver).
+I tried the following scenario: 2 NICs used for receive + another 2 NICs 
+used for transmit having HTB. Each NIC on a separate core. No bonding, 
+just manual load balancing using IP routing.
 
-> I'm running the iperf server on the r8169 and get the following results:
-> 
-> mb@homer:~$ iperf -c 192.168.2.50 -t120 -i10
+The result was that RX cores would be 20% and 40% idle respectively, even 
+though the amount of traffic they were receiving was roughly the same. 
+The TX cores were idling at around 90%. 
 
-In that case, the r8169 is receiving data (which never was a problem, at
-least for me - it only lost interrupts in TX mode).
+I found this strange personally, but I'm completely ignorant in internals of
+kernel operation.
 
 -- 
-Michael "Tired" Riepe <michael.riepe@googlemail.com>
-X-Tired: Each morning I get up I die a little
+Best Regards
+Vladimir Ivashchenko
+Chief Technology Officer
+PrimeTel, Cyprus - www.prime-tel.com
