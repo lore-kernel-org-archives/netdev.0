@@ -1,67 +1,64 @@
-From: David Dillow <dave@thedillows.org>
+From: Michael Riepe <michael.riepe@googlemail.com>
 Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Sat, 23 May 2009 10:51:48 -0400
-Message-ID: <1243090308.4217.6.camel@obelisk.thedillows.org>
-References: <200903041828.49972.m.bueker@berlin.de>
-	 <4A0C7443.1010000@googlemail.com>
-	 <1243042174.3580.23.camel@obelisk.thedillows.org>
-	 <200905231124.28925.mb@bu3sch.de>  <4A1809B0.3030109@googlemail.com>
+Date: Sat, 23 May 2009 17:01:36 +0200
+Message-ID: <4A180FD0.5050101@googlemail.com>
+References: <200903041828.49972.m.bueker@berlin.de> <200905231124.28925.mb@bu3sch.de> <4A1809B0.3030109@googlemail.com> <200905231644.13326.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
+Cc: David Dillow <dave@thedillows.org>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Rui Santos <rsantos@grupopie.com>,
-	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
+	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michael Riepe <michael.riepe@googlemail.com>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:36612 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752226AbZEWOvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 May 2009 10:51:48 -0400
-In-Reply-To: <4A1809B0.3030109@googlemail.com>
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:41692 "EHLO
+	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753122AbZEWPBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 11:01:38 -0400
+In-Reply-To: <200905231644.13326.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-05-23 at 16:35 +0200, Michael Riepe wrote:
-> Hi!
+Hi!
+
+Michael Buesch wrote:
+> On Saturday 23 May 2009 16:35:28 Michael Riepe wrote:
 > 
-> Michael Buesch wrote:
+>>Hi!
+>>
+>>Michael Buesch wrote:
+>>
+>>
+>>>Thanks a lot, Dave! This fixes the issue on my chip.
+>>
+>>Yep, it's stable here as well. And even a little faster than pci=nomsi.
+>>The only strangeness I observed is that the throughput (measured with
+>>iperf and a single TCP connection) varies:
+>>
+>>[ ID] Interval       Transfer     Bandwidth
+>>[  3]  0.0-10.0 sec    667 MBytes    559 Mbits/sec
+>>[  3] 10.0-20.0 sec    803 MBytes    673 Mbits/sec
+>>[  3] 20.0-30.0 sec    802 MBytes    673 Mbits/sec
+>>[  3] 30.0-40.0 sec    714 MBytes    599 Mbits/sec
+>>[  3] 40.0-50.0 sec    669 MBytes    561 Mbits/sec
+>>[  3] 50.0-60.0 sec    791 MBytes    663 Mbits/sec
+>>[  3]  0.0-60.0 sec  4.34 GBytes    622 Mbits/sec
 > 
-> > Thanks a lot, Dave! This fixes the issue on my chip.
 > 
-> Yep, it's stable here as well. And even a little faster than pci=nomsi.
-> The only strangeness I observed is that the throughput (measured with
-> iperf and a single TCP connection) varies:
+> Are you running the iperf server or client on the r8169?
+
+The client, since I wanted to measure write throughput. The server is a
+Lenovo Thinkpad T60 (e1000e driver).
+
+> I'm running the iperf server on the r8169 and get the following results:
 > 
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-10.0 sec    667 MBytes    559 Mbits/sec
-> [  3] 10.0-20.0 sec    803 MBytes    673 Mbits/sec
-> [  3] 20.0-30.0 sec    802 MBytes    673 Mbits/sec
-> [  3] 30.0-40.0 sec    714 MBytes    599 Mbits/sec
-> [  3] 40.0-50.0 sec    669 MBytes    561 Mbits/sec
-> [  3] 50.0-60.0 sec    791 MBytes    663 Mbits/sec
-> [  3]  0.0-60.0 sec  4.34 GBytes    622 Mbits/sec
-> 
-[snip]
-> I suppose it's a side effect of the MSI acknowledgement loop. But who am
-> I to complain about higher average throughput? ;-)
+> mb@homer:~$ iperf -c 192.168.2.50 -t120 -i10
 
-I wonder if that is the TCP sawtooth pattern -- run up until we drop
-packets, drop off, repeat. I thought newer congestion algorithms would
-help with that, but I've not kept up, this may be another red-herring --
-like the bisection into genirq.
+In that case, the r8169 is receiving data (which never was a problem, at
+least for me - it only lost interrupts in TX mode).
 
-A tcpdump may answer the question -- wireshark can do an analysis and
-see if it is running up until it starts dropping or something.
-
-Or it may be the loop, but I wouldn't expect it to make such a big
-difference, or be as variable if it does.
-
-Also, what does it look like with multiple streams?
-
-Thanks for testing guys -- I'm glad it works for a sample size > 1!
-
-Dave
-
+-- 
+Michael "Tired" Riepe <michael.riepe@googlemail.com>
+X-Tired: Each morning I get up I die a little
