@@ -1,24 +1,256 @@
-From: Official Notice <airexpert@bellnet.ca>
-Subject: ***Lucky Winner***
-Date: Sat, 23 May 2009 10:06:26 -0400
-Message-ID: <20090523140629.IVLP1685.tomts37-srv.bellnexxia.net@toip38-bus.srvr.bell.ca>
-Reply-To: siemens18@btinternet.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@co.uk>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] net: remove COMPAT_NET_DEV_OPS
+Date: Sat, 23 May 2009 18:17:39 +0400
+Message-ID: <1243088259-16482-1-git-send-email-a.beregalov@gmail.com>
+Cc: Alexander Beregalov <a.beregalov@gmail.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts37.bellnexxia.net ([209.226.175.94]:38016 "EHLO
-	tomts37-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752226AbZEWOG3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 May 2009 10:06:29 -0400
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:41155 "EHLO
+	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226AbZEWOSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 10:18:05 -0400
+Received: by bwz22 with SMTP id 22so2160985bwz.37
+        for <netdev@vger.kernel.org>; Sat, 23 May 2009 07:18:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have just been awarded,=A3750,000,00 GBP
-Names:........
-Address:......
-Country:......
-Sex/Tel.......
+All drivers are already converted to new net_device_ops API
+and nobody uses old API anymore.
+
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+ drivers/net/Kconfig       |    9 --------
+ include/linux/netdevice.h |   38 ----------------------------------
+ net/802/fddi.c            |    4 ---
+ net/802/hippi.c           |    5 ----
+ net/8021q/vlan_dev.c      |    1 -
+ net/appletalk/dev.c       |   11 ---------
+ net/core/dev.c            |   50 ---------------------------------------------
+ net/ethernet/eth.c        |    5 ----
+ 8 files changed, 0 insertions(+), 123 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0fb446e..efa659f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -25,15 +25,6 @@ menuconfig NETDEVICES
+ # that for each of the symbols.
+ if NETDEVICES
+ 
+-config COMPAT_NET_DEV_OPS
+-       default y
+-       bool "Enable older network device API compatibility"
+-       ---help---
+-          This option enables kernel compatibility with older network devices
+-          that do not use net_device_ops interface.
+-
+-	  If unsure, say Y.
+-
+ config IFB
+ 	tristate "Intermediate Functional Block support"
+ 	depends on NET_CLS_ACT
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f8574e7..ae3c209 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -901,44 +901,6 @@ struct net_device
+ 	/* max exchange id for FCoE LRO by ddp */
+ 	unsigned int		fcoe_ddp_xid;
+ #endif
+-
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	struct {
+-		int			(*init)(struct net_device *dev);
+-		void			(*uninit)(struct net_device *dev);
+-		int			(*open)(struct net_device *dev);
+-		int			(*stop)(struct net_device *dev);
+-		int			(*hard_start_xmit) (struct sk_buff *skb,
+-							    struct net_device *dev);
+-		u16			(*select_queue)(struct net_device *dev,
+-							struct sk_buff *skb);
+-		void			(*change_rx_flags)(struct net_device *dev,
+-							   int flags);
+-		void			(*set_rx_mode)(struct net_device *dev);
+-		void			(*set_multicast_list)(struct net_device *dev);
+-		int			(*set_mac_address)(struct net_device *dev,
+-							   void *addr);
+-		int			(*validate_addr)(struct net_device *dev);
+-		int			(*do_ioctl)(struct net_device *dev,
+-						    struct ifreq *ifr, int cmd);
+-		int			(*set_config)(struct net_device *dev,
+-						      struct ifmap *map);
+-		int			(*change_mtu)(struct net_device *dev, int new_mtu);
+-		int			(*neigh_setup)(struct net_device *dev,
+-						       struct neigh_parms *);
+-		void			(*tx_timeout) (struct net_device *dev);
+-		struct net_device_stats* (*get_stats)(struct net_device *dev);
+-		void			(*vlan_rx_register)(struct net_device *dev,
+-							    struct vlan_group *grp);
+-		void			(*vlan_rx_add_vid)(struct net_device *dev,
+-							   unsigned short vid);
+-		void			(*vlan_rx_kill_vid)(struct net_device *dev,
+-							    unsigned short vid);
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-		void                    (*poll_controller)(struct net_device *dev);
+-#endif
+-	};
+-#endif
+ };
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+diff --git a/net/802/fddi.c b/net/802/fddi.c
+index 539e606..3ef0ab0 100644
+--- a/net/802/fddi.c
++++ b/net/802/fddi.c
+@@ -185,10 +185,6 @@ static const struct header_ops fddi_header_ops = {
+ static void fddi_setup(struct net_device *dev)
+ {
+ 	dev->header_ops		= &fddi_header_ops;
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	dev->change_mtu		= fddi_change_mtu,
+-#endif
+-
+ 	dev->type		= ARPHRD_FDDI;
+ 	dev->hard_header_len	= FDDI_K_SNAP_HLEN+3;	/* Assume 802.2 SNAP hdr len + 3 pad bytes */
+ 	dev->mtu		= FDDI_K_SNAP_DLEN;	/* Assume max payload of 802.2 SNAP frame */
+diff --git a/net/802/hippi.c b/net/802/hippi.c
+index 313b9eb..cd3e8e9 100644
+--- a/net/802/hippi.c
++++ b/net/802/hippi.c
+@@ -193,11 +193,6 @@ static const struct header_ops hippi_header_ops = {
+ 
+ static void hippi_setup(struct net_device *dev)
+ {
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	dev->change_mtu			= hippi_change_mtu;
+-	dev->set_mac_address 		= hippi_mac_addr;
+-	dev->neigh_setup 		= hippi_neigh_setup_dev;
+-#endif
+ 	dev->header_ops			= &hippi_header_ops;
+ 
+ 	/*
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index ff7572a..1e2ad4c 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -644,7 +644,6 @@ static int vlan_dev_init(struct net_device *dev)
+ 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
+ 		dev->netdev_ops         = &vlan_netdev_ops;
+ 	}
+-	netdev_resync_ops(dev);
+ 
+ 	if (is_vlan_dev(real_dev))
+ 		subclass = 1;
+diff --git a/net/appletalk/dev.c b/net/appletalk/dev.c
+index 72277d7..6c8016f 100644
+--- a/net/appletalk/dev.c
++++ b/net/appletalk/dev.c
+@@ -9,21 +9,10 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_ltalk.h>
+ 
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-static int ltalk_change_mtu(struct net_device *dev, int mtu)
+-{
+-	return -EINVAL;
+-}
+-#endif
+-
+ static void ltalk_setup(struct net_device *dev)
+ {
+ 	/* Fill in the fields of the device structure with localtalk-generic values. */
+ 
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	dev->change_mtu		= ltalk_change_mtu;
+-#endif
+-
+ 	dev->type		= ARPHRD_LOCALTLK;
+ 	dev->hard_header_len 	= LTALK_HLEN;
+ 	dev->mtu		= LTALK_MTU;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3942266..241613f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4580,39 +4580,6 @@ unsigned long netdev_fix_features(unsigned long features, const char *name)
+ }
+ EXPORT_SYMBOL(netdev_fix_features);
+ 
+-/* Some devices need to (re-)set their netdev_ops inside
+- * ->init() or similar.  If that happens, we have to setup
+- * the compat pointers again.
+- */
+-void netdev_resync_ops(struct net_device *dev)
+-{
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	const struct net_device_ops *ops = dev->netdev_ops;
+-
+-	dev->init = ops->ndo_init;
+-	dev->uninit = ops->ndo_uninit;
+-	dev->open = ops->ndo_open;
+-	dev->change_rx_flags = ops->ndo_change_rx_flags;
+-	dev->set_rx_mode = ops->ndo_set_rx_mode;
+-	dev->set_multicast_list = ops->ndo_set_multicast_list;
+-	dev->set_mac_address = ops->ndo_set_mac_address;
+-	dev->validate_addr = ops->ndo_validate_addr;
+-	dev->do_ioctl = ops->ndo_do_ioctl;
+-	dev->set_config = ops->ndo_set_config;
+-	dev->change_mtu = ops->ndo_change_mtu;
+-	dev->neigh_setup = ops->ndo_neigh_setup;
+-	dev->tx_timeout = ops->ndo_tx_timeout;
+-	dev->get_stats = ops->ndo_get_stats;
+-	dev->vlan_rx_register = ops->ndo_vlan_rx_register;
+-	dev->vlan_rx_add_vid = ops->ndo_vlan_rx_add_vid;
+-	dev->vlan_rx_kill_vid = ops->ndo_vlan_rx_kill_vid;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	dev->poll_controller = ops->ndo_poll_controller;
+-#endif
+-#endif
+-}
+-EXPORT_SYMBOL(netdev_resync_ops);
+-
+ /**
+  *	register_netdevice	- register a network device
+  *	@dev: device to register
+@@ -4652,23 +4619,6 @@ int register_netdevice(struct net_device *dev)
+ 
+ 	dev->iflink = -1;
+ 
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	/* Netdevice_ops API compatibility support.
+-	 * This is temporary until all network devices are converted.
+-	 */
+-	if (dev->netdev_ops) {
+-		netdev_resync_ops(dev);
+-	} else {
+-		char drivername[64];
+-		pr_info("%s (%s): not using net_device_ops yet\n",
+-			dev->name, netdev_drivername(dev, drivername, 64));
+-
+-		/* This works only because net_device_ops and the
+-		   compatibility structure are the same. */
+-		dev->netdev_ops = (void *) &(dev->init);
+-	}
+-#endif
+-
+ 	/* Init, if this function is available */
+ 	if (dev->netdev_ops->ndo_init) {
+ 		ret = dev->netdev_ops->ndo_init(dev);
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 280352a..5a883af 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -337,11 +337,6 @@ const struct header_ops eth_header_ops ____cacheline_aligned = {
+ void ether_setup(struct net_device *dev)
+ {
+ 	dev->header_ops		= &eth_header_ops;
+-#ifdef CONFIG_COMPAT_NET_DEV_OPS
+-	dev->change_mtu		= eth_change_mtu;
+-	dev->set_mac_address 	= eth_mac_addr;
+-	dev->validate_addr	= eth_validate_addr;
+-#endif
+ 	dev->type		= ARPHRD_ETHER;
+ 	dev->hard_header_len 	= ETH_HLEN;
+ 	dev->mtu		= ETH_DATA_LEN;
+-- 
+1.6.3.1
 
