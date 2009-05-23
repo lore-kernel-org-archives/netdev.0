@@ -1,59 +1,83 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Sat, 23 May 2009 13:03:31 -0400
-Message-ID: <1243098211.4217.9.camel@obelisk.thedillows.org>
-References: <200903041828.49972.m.bueker@berlin.de>
-	 <4A0C7443.1010000@googlemail.com>
-	 <1243042174.3580.23.camel@obelisk.thedillows.org>
-	 <200905231124.28925.mb@bu3sch.de>  <4A1809B0.3030109@googlemail.com>
-	 <1243090308.4217.6.camel@obelisk.thedillows.org>
-	 <4A182066.9030201@googlemail.com>
-	 <1243097173.4217.7.camel@obelisk.thedillows.org>
-	 <4A182A08.9050305@googlemail.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [mISDN PATCH v2 09/19] Fix TEI and SAPI handling
+Date: Sun, 24 May 2009 01:10:22 +0200
+Message-ID: <20090523231022.GA13203@uranus.ravnborg.org>
+References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de> <cbbb2723784ecf04bcec253c547a9464a2e722c7.1243024967.git.kkeil@pingi.linux-pingi.de> <20090522215314.GA4592@uranus.ravnborg.org> <200905231500.38092.keil@b1-systems.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michael Riepe <michael.riepe@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	i4ldeveloper@listserv.isdn4linux.de
+To: Karsten Keil <keil@b1-systems.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:59256 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751472AbZEWRDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 May 2009 13:03:32 -0400
-In-Reply-To: <4A182A08.9050305@googlemail.com>
+Received: from pfepa.post.tele.dk ([195.41.46.235]:42463 "EHLO
+	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732AbZEWXIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 19:08:09 -0400
+Content-Disposition: inline
+In-Reply-To: <200905231500.38092.keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-05-23 at 18:53 +0200, Michael Riepe wrote:
+> >
+> > Unrealted to this specific patch...
+> > Are there any specific reason why mISDN prefer bsd style (u_int)
+> > rather then linux style (u32)?
 > 
-> David Dillow wrote:
-> > On Sat, 2009-05-23 at 18:12 +0200, Michael Riepe wrote:
-> > 
-> >>If I use two connections (iperf -P2) and nail iperf to both threads of a
-> >>single core with taskset (the program is multi-threaded, just in case
-> >>you wonder), I get this:
-> >>
-> >>CPU 0+2:  0.0-60.0 sec  4.65 GBytes    665 Mbits/sec
-> >>CPU 1+3:  0.0-60.0 sec  6.43 GBytes    920 Mbits/sec
-> >>
-> >>That's quite a difference, isn't it?
-> >>
-> >>Now I wonder what CPU 0 is doing...
-> > 
-> > 
-> > Where does /proc/interrupts say the irqs are going?
+> No, this was some historic process with the ISDN code.
+> I think, if we want change this we should make a separate  patch to change 
+> this in all mISDN code later, I usually prefer shorter type names as well :-).
+> So as rule of dumb:
+> - Use   uN/sN for all values with constant width N ?
+yes
+
+> What should be used on functions which are usually defined as int and
+> only return 0 or some negative ERROR code, I think int should be OK here ?
+yes - use int here.
+
+> > >  static struct layer2 *
+> > > -create_new_tei(struct manager *mgr, int tei)
+> > > +create_new_tei(struct manager *mgr, int tei, int sapi)
+> > >  {
+> >
+> > Here tei and sapi are passed as signed.
+> > But valid sapi range is [0..63] and tei [0..127].
+> > And create_l2 above uses unsigned.
+> >
+> > This looks confusing.
 > 
-> Oh well...
+> I think the signed was selected for error handling, but you are correct then 
+> it should be the same in all functions.
+The correct values are the range [0..127] so as you also imply
+reserving all negative values for error codes seems like the best choice.
 
->  27:   48463995          0          0          0   PCI-MSI-edge      eth0
+So as a matter of consistency you should use int for tei/sapi all over.
+> >
+> > So get_free_tei() may return a negative value indicating no free tei.
+> > So that make my comment above void - but is this really the best way
+> > to return an error. Possibly it is..
+> >
+> We could define 255 as the error value, I will think about this, but in 
+> general I prefer negative values for error cases.
 
-What does it look like if you move the iperf around the CPUs while using
-pci=nomsi? 
+Addressed above - agree.
 
-I'm looking to make sure I didn't cause a terrible regression in the
-cost of IRQ handling...
+> > >  	if (!(skb->data[1] & 1)) /* invalid EA1 */
+> > >  		return -EINVAL;
+> > > -	tei = skb->data[1] >> 0;
+> > > +	tei = skb->data[1] >> 1;
+> >
+> > This looks like a bug-fix...
+> >
+> 
+> Yes,  I think fixed TEI was never tested with P2MP,  I know
+> no device which really use it with SAPI 0, only in P2P we use a
+> fixed TEI  of 0.  Also the test suite used by certifications did
+> not check for correct fixed TEI handling, it only checks that a
+> fixed TEI is rejected in a dynamic TEI assignment.
+> With SAPI != 0 fixed TEIs are more common, so the bug was
+> detected now.
+Yep - I know we used fixed tei in ptmp configuration
+for sapi=16 (packet handling aka X.25 over ISDN).
 
+	Sam
