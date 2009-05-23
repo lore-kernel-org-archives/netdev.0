@@ -1,78 +1,98 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: 2.6.30-rc deadline scheduler performance regression for iozone
-	over NFS
-Date: Fri, 22 May 2009 19:45:08 -0400
-Message-ID: <20090522234508.GC9076@fieldses.org>
-References: <20090512204433.7eb69075.akpm@linux-foundation.org> <x49y6t1rqw0.fsf@segfault.boston.devel.redhat.com> <x49k54ku7i2.fsf@segfault.boston.devel.redhat.com> <1242258338.5407.244.camel@heimdal.trondhjem.org> <x49octv7qr8.fsf@segfault.boston.devel.redhat.com> <1242311620.6560.14.camel@heimdal.trondhjem.org> <x49ws8j686r.fsf@segfault.boston.devel.redhat.com> <1242587454.17796.2.camel@heimdal.trondhjem.org> <1242587524.17796.3.camel@heimdal.trondhjem.org> <x49tz3ia45h.fsf@segfault.boston.devel.redhat.com>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 2.6.30-rc6: Reported regressions from 2.6.29
+Date: Sat, 23 May 2009 02:10:33 +0200
+Message-ID: <200905230210.34531.rjw@sisk.pl>
+References: <_AjETDMbIoL.A.DcH.RYzDKB@chimera> <alpine.LFD.2.01.0905220926150.3555@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Olga Kornievskaia <aglo@citi.umich.edu>,
-	Jim Rees <rees@umich.edu>, linux-nfs@vger.kernel.org
-To: Jeff Moyer <jmoyer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([141.211.133.115]:41014 "EHLO
-	pickle.fieldses.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757800AbZEVXpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2009 19:45:47 -0400
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.01.0905220926150.3555-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <x49tz3ia45h.fsf@segfault.boston.devel.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 18, 2009 at 10:15:22AM -0400, Jeff Moyer wrote:
-> Trond Myklebust <trond.myklebust@fys.uio.no> writes:
+On Friday 22 May 2009, Linus Torvalds wrote:
 > 
-> > On Sun, 2009-05-17 at 15:11 -0400, Trond Myklebust wrote:
-> >> On Thu, 2009-05-14 at 11:00 -0400, Jeff Moyer wrote:
-> >> > Sorry for the previous, stupid question.  I applied the patch in
-> >> > addition the last one and here are the results:
-> >> > 
-> >> > 70327
-> >> > 71561
-> >> > 68760
-> >> > 69199
-> >> > 65324
-> >> > 
-> >> > A packet capture for this run is available here:
-> >> >   http://people.redhat.com/jmoyer/trond2.pcap.bz2
-> >> > 
-> >> > Any more ideas?  ;)
-> >> 
-> >> Yep. I've got 2 more patches for you. With both of them applied, I'm
-> >> seeing decent performance on my own test rig. The first patch is
-> >> appended. I'll send the second in another email (to avoid attachments).
-> >
-> > Here is number 2. It is incremental to all the others...
+> On Sat, 16 May 2009, Rafael J. Wysocki wrote:
+> > 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13329
+> > Subject		: cifs_close: NULL pointer dereference
+> > Submitter	: Luca Tettamanti <kronos.it-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Date		: 2009-05-16 16:28 (1 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=124249133701702&w=4
 > 
-> With all 4 patches applied, these are the numbers for 5 runs:
+> Fixed by 703a3b8e5c01cf6fb33c6d8dc99905f889a4e992.
 > 
-> 103168
-> 101212
-> 103346
-> 100842
-> 103172
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13298
+> > Subject		: modprobe ipmi_si hangs under 2.6.30-rc5
+> > Submitter	: Ferenc Wagner <wferi-eEbw3PyuezQ@public.gmane.org>
+> > Date		: 2009-05-12 21:28 (5 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=124216379407177&w=4
 > 
-> It's looking much better, but we're still off by a few percent.  Thanks
-> for the quick turnaround on this, Trond!  If you submit these patches,
-> feel free to add:
+> Fixed by 9a2845c453d170e4e9b1437fa671dbf39b0e7bd8.
+> 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13297
+> > Subject		: kernel panic -  not syncing : fatel exception in interupt
+> > Submitter	: rob <rob1-z2Ut7v/pTR/vt0rt8C/ehw@public.gmane.org>
+> > Date		: 2009-05-12 19:34 (5 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=124216126903309&w=4
+> 
+> This should be fixed by e3b29f05124b07303088795396ff858811d2acb8.
+> 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13177
+> > Subject		: 2.6.30-rc2-git7 build problem
+> > Submitter	: Martin Knoblauch <spamtrap-Ys4E+72pFW0hFhg+JK9F0w@public.gmane.org>
+> > Date		: 2009-04-21 13:39 (26 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=124032163602132&w=4
+> > 		  http://lkml.org/lkml/2009/4/27/56
+> 
+> This one really looks like a compiler bug (the undefined symbol is an 
+> internal gcc one: ".L192"). And the driver that gets it (kl5kusb105) has 
+> not actually had any changes since 2.6.29 - although header files that it 
+> includes obviously do have some, so it's entirely possible that some 
+> infrastructure change causes it to trigger.
+> 
+> Martin hit another bug with his compiler (an ICE in gcc, fixed by commit 
+> 26a9a418237c0b06528941bca693c49c8d97edbe), which is why I'm so willing to 
+> blame that.
+> 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13107
+> > Subject		: LTP 20080131 causes defunct processes w/2.6.30-rc1
+> > Submitter	: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> > Date		: 2009-04-09 15:43 (38 days old)
+> > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b3bfa0cba867f23365b81658b47efd906830879b
+> > References	: http://marc.info/?l=linux-kernel&m=123929187208953&w=4
+> > 		  http://lkml.org/lkml/2009/4/10/193
+> > Handled-By	: Sukadev Bhattiprolu <sukadev-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> 
+> This one seems to have become "not-a-bug". Yes, LTP used to check that you 
+> cannot send SIGSTP to init, but people do want to send signals to init 
+> (especially when they are inside pid-namespace containers), and as long as 
+> it's only a LTP test that already got modified (and not some actual 
+> real-life usage), I'm considering this a "test failed because it was 
+> testing for behavior that we want to change" at least for now.
 
-I'd like to take a look and run some tests of my own when I get back
-from vacation next week.
+Thanks a lot, this really helps! :-)
 
-Then assuming no problems I'm inclined to queue them up for 2.6.31, and,
-in the meantime, revert the autotuning patch temporarily for
-2.6.30--under the assumption that autotuning is still the right thing to
-do, but that this is too significant a regression to ignore, and Trond's
-work is too involved to submit for 2.6.30 this late in the process.
+I've closed all of the bugs above.
 
---b.
-
-> 
-> Tested-by: Jeff Moyer <jmoyer@redhat.com>
-> 
-> Cheers,
-> Jeff
+Best,
+Rafael
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
