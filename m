@@ -1,37 +1,93 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB accuracy for high speed (and bonding)
-Date: Sat, 23 May 2009 18:02:07 +0200
-Message-ID: <20090523160207.GB2896@ami.dom.local>
-References: <1242857245.13519.17.camel@hazard2.francoudi.com> <4A148838.8010809@cosmosbay.com> <20090521072050.GA2892@ami.dom.local> <20090521074400.GA19113@francoudi.com> <20090521082805.GB2892@ami.dom.local> <1243075052.27210.22.camel@hazard2.francoudi.com> <20090523143432.GA2766@ami.dom.local> <20090523150630.GA4228@francoudi.com> <20090523153525.GA2896@ami.dom.local> <20090523155321.GA4752@francoudi.com>
+From: Michael Riepe <michael.riepe@googlemail.com>
+Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
+Date: Sat, 23 May 2009 18:12:22 +0200
+Message-ID: <4A182066.9030201@googlemail.com>
+References: <200903041828.49972.m.bueker@berlin.de>	 <4A0C7443.1010000@googlemail.com>	 <1243042174.3580.23.camel@obelisk.thedillows.org>	 <200905231124.28925.mb@bu3sch.de>  <4A1809B0.3030109@googlemail.com> <1243090308.4217.6.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
-To: Vladimir Ivashchenko <hazard@francoudi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f168.google.com ([209.85.220.168]:63033 "EHLO
-	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752209AbZEWQDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 12:03:46 -0400
-Received: by fxm12 with SMTP id 12so431375fxm.37
-        for <netdev@vger.kernel.org>; Sat, 23 May 2009 09:03:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090523155321.GA4752@francoudi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Rui Santos <rsantos@grupopie.com>,
+	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Dillow <dave@thedillows.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755805AbZEWQMg@vger.kernel.org>
+In-Reply-To: <1243090308.4217.6.camel@obelisk.thedillows.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 23, 2009 at 06:53:21PM +0300, Vladimir Ivashchenko wrote:
-> > > > > So, I got rid of bonding completely and instead configured PBR on Cisco
-> > > > > + Linux routing in such a way so that packet gets received and
-> > > > > transmitted using NICs connected to the same pair of cores with common
-> > > > > cache. 65-70% idle on all cores now, compared to 0-30% idle in worst
-> > > > > case scenarios before.
-...
-> > There is not enough data to analyse this, but generally you should aim
-> > at maintaining one flow (RX + TX) on the same cpu cache.
-> 
-> Yep, that's what I did in the end (as per the top paragraph).
+Hi!
 
-So, stop writing: "I'm completely ignorant in internals of kernel
-operation" because you're smp expert now! ;-)
+David Dillow wrote:
 
-Jarek P.
+> I wonder if that is the TCP sawtooth pattern -- run up until we drop
+> packets, drop off, repeat. I thought newer congestion algorithms would
+> help with that, but I've not kept up, this may be another red-herring --
+> like the bisection into genirq.
+
+Actually, I just found out that things are much stranger. A freshly
+booted system (I'm using 2.6.29.2 + the r8169 patch sent by Michael
+Buesch, by the way) behaves like this:
+
+[  3] local 192.168.178.206 port 44090 connected with 192.168.178.204
+port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec    483 MBytes    405 Mbits/sec
+[  3] 10.0-20.0 sec    472 MBytes    396 Mbits/sec
+[  3] 20.0-30.0 sec    482 MBytes    404 Mbits/sec
+[  3] 30.0-40.0 sec    483 MBytes    405 Mbits/sec
+[  3] 40.0-50.0 sec    480 MBytes    402 Mbits/sec
+[  3] 50.0-60.0 sec    479 MBytes    402 Mbits/sec
+[  3]  0.0-60.0 sec  2.81 GBytes    402 Mbits/sec
+
+Then I've been running another test, something along the lines of
+
+	for dest in host1 host1 host2 host2
+	do ssh $dest dd of=/dev/null bs=8k count=10240000 </dev/zero &
+	done
+
+After a while, I killed the ssh processes and ran iperf again. And this
+time, I got:
+
+[  3] local 192.168.178.206 port 58029 connected with 192.168.178.204
+port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec    634 MBytes    531 Mbits/sec
+[  3] 10.0-20.0 sec    740 MBytes    621 Mbits/sec
+[  3] 20.0-30.0 sec    641 MBytes    538 Mbits/sec
+[  3] 30.0-40.0 sec    738 MBytes    619 Mbits/sec
+[  3] 40.0-50.0 sec    742 MBytes    622 Mbits/sec
+[  3] 50.0-60.0 sec    743 MBytes    623 Mbits/sec
+[  3]  0.0-60.0 sec  4.14 GBytes    592 Mbits/sec
+
+Obviously, the high-load ssh test (which would kill the device within a
+few seconds without the patch) triggers something here.
+
+A few observations later, however, I was convinced that it's not a TCP
+congestion or driver issue. Actually, the throughput depends on the CPU
+the benchmark is running on. You can see that in gkrellm - whenever the
+process jumps to another CPU, the throughput changes. On the four
+(virtual) CPUs of the Atom 330, I get these results:
+
+CPU 0:  0.0-60.0 sec  2.65 GBytes    380 Mbits/sec
+CPU 1:  0.0-60.0 sec  4.12 GBytes    590 Mbits/sec
+CPU 2:  0.0-60.0 sec  3.79 GBytes    543 Mbits/sec
+CPU 3:  0.0-60.0 sec  4.13 GBytes    592 Mbits/sec
+
+CPU 0+2 are on the first core, 1+3 on the second.
+
+If I use two connections (iperf -P2) and nail iperf to both threads of a
+single core with taskset (the program is multi-threaded, just in case
+you wonder), I get this:
+
+CPU 0+2:  0.0-60.0 sec  4.65 GBytes    665 Mbits/sec
+CPU 1+3:  0.0-60.0 sec  6.43 GBytes    920 Mbits/sec
+
+That's quite a difference, isn't it?
+
+Now I wonder what CPU 0 is doing...
+
+-- 
+Michael "Tired" Riepe <michael.riepe@googlemail.com>
+X-Tired: Each morning I get up I die a little
