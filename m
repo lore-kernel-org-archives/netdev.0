@@ -1,20 +1,24 @@
-From: "Rebecca Mason" <rongdah@remax-vis.com>
-Subject: Looking for sales?
-Date: Sat, 23 May 2009 13:36:32 +0000 (UTC)
-Message-ID: <20090530090946.3050706@remax-vis.com>
+From: Official Notice <airexpert@bellnet.ca>
+Subject: ***Lucky Winner***
+Date: Sat, 23 May 2009 10:06:26 -0400
+Message-ID: <20090523140629.IVLP1685.tomts37-srv.bellnexxia.net@toip38-bus.srvr.bell.ca>
+Reply-To: siemens18@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe-24-193-133-224.nyc.res.rr.com ([24.193.133.224]:3369 "HELO
-	cpe-24-193-133-224.nyc.res.rr.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751930AbZEWNgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 09:36:15 -0400
-Date: Sat, 30 May 2009 09:09:46 -0500
+Received: from tomts37.bellnexxia.net ([209.226.175.94]:38016 "EHLO
+	tomts37-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752226AbZEWOG3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 May 2009 10:06:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Incredible changes in firmness and quality of sensations each night. 
-http://ymr.cnanlipjea.net/
+You have just been awarded,=A3750,000,00 GBP
+Names:........
+Address:......
+Country:......
+Sex/Tel.......
 
