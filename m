@@ -1,256 +1,78 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] net: remove COMPAT_NET_DEV_OPS
-Date: Sat, 23 May 2009 18:17:39 +0400
-Message-ID: <1243088259-16482-1-git-send-email-a.beregalov@gmail.com>
-Cc: Alexander Beregalov <a.beregalov@gmail.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB accuracy for high speed (and bonding)
+Date: Sat, 23 May 2009 16:34:32 +0200
+Message-ID: <20090523143432.GA2766@ami.dom.local>
+References: <1242689267.11814.1.camel@hazard2.francoudi.com> <20090519110311.GA5521@ff.dom.local> <20090519140416.GA21270@francoudi.com> <20090519201027.GA4751@ami.dom.local> <1242857245.13519.17.camel@hazard2.francoudi.com> <4A148838.8010809@cosmosbay.com> <20090521072050.GA2892@ami.dom.local> <20090521074400.GA19113@francoudi.com> <20090521082805.GB2892@ami.dom.local> <1243075052.27210.22.camel@hazard2.francoudi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
+To: Vladimir Ivashchenko <hazard@francoudi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f174.google.com ([209.85.218.174]:41155 "EHLO
+Received: from mail-bw0-f174.google.com ([209.85.218.174]:40167 "EHLO
 	mail-bw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752226AbZEWOSF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 10:18:05 -0400
-Received: by bwz22 with SMTP id 22so2160985bwz.37
-        for <netdev@vger.kernel.org>; Sat, 23 May 2009 07:18:05 -0700 (PDT)
+	with ESMTP id S1752682AbZEWOfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 10:35:13 -0400
+Received: by bwz22 with SMTP id 22so2167106bwz.37
+        for <netdev@vger.kernel.org>; Sat, 23 May 2009 07:35:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1243075052.27210.22.camel@hazard2.francoudi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All drivers are already converted to new net_device_ops API
-and nobody uses old API anymore.
+On Sat, May 23, 2009 at 01:37:32PM +0300, Vladimir Ivashchenko wrote:
+> 
+> > > > cls_flow, alas not enough documented. Here is some hint:
+> > > > http://markmail.org/message/h24627xkrxyqxn4k
+> > > 
+> > > Can I balance only by destination IP using this approach? 
+> > > Normal IP flow-based balancing is not good for me, I need 
+> > > to ensure equality between destination hosts.
+> > 
+> > Yes, you need to use flow "dst" key, I guess. (tc filter add flow
+> > help)
+> 
+> What is the number of DRR classes I need to create, a separate class for
+> each host? I have around 20000 hosts.
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
- drivers/net/Kconfig       |    9 --------
- include/linux/netdevice.h |   38 ----------------------------------
- net/802/fddi.c            |    4 ---
- net/802/hippi.c           |    5 ----
- net/8021q/vlan_dev.c      |    1 -
- net/appletalk/dev.c       |   11 ---------
- net/core/dev.c            |   50 ---------------------------------------------
- net/ethernet/eth.c        |    5 ----
- 8 files changed, 0 insertions(+), 123 deletions(-)
+One class per divisor.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0fb446e..efa659f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -25,15 +25,6 @@ menuconfig NETDEVICES
- # that for each of the symbols.
- if NETDEVICES
- 
--config COMPAT_NET_DEV_OPS
--       default y
--       bool "Enable older network device API compatibility"
--       ---help---
--          This option enables kernel compatibility with older network devices
--          that do not use net_device_ops interface.
--
--	  If unsure, say Y.
--
- config IFB
- 	tristate "Intermediate Functional Block support"
- 	depends on NET_CLS_ACT
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8574e7..ae3c209 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -901,44 +901,6 @@ struct net_device
- 	/* max exchange id for FCoE LRO by ddp */
- 	unsigned int		fcoe_ddp_xid;
- #endif
--
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	struct {
--		int			(*init)(struct net_device *dev);
--		void			(*uninit)(struct net_device *dev);
--		int			(*open)(struct net_device *dev);
--		int			(*stop)(struct net_device *dev);
--		int			(*hard_start_xmit) (struct sk_buff *skb,
--							    struct net_device *dev);
--		u16			(*select_queue)(struct net_device *dev,
--							struct sk_buff *skb);
--		void			(*change_rx_flags)(struct net_device *dev,
--							   int flags);
--		void			(*set_rx_mode)(struct net_device *dev);
--		void			(*set_multicast_list)(struct net_device *dev);
--		int			(*set_mac_address)(struct net_device *dev,
--							   void *addr);
--		int			(*validate_addr)(struct net_device *dev);
--		int			(*do_ioctl)(struct net_device *dev,
--						    struct ifreq *ifr, int cmd);
--		int			(*set_config)(struct net_device *dev,
--						      struct ifmap *map);
--		int			(*change_mtu)(struct net_device *dev, int new_mtu);
--		int			(*neigh_setup)(struct net_device *dev,
--						       struct neigh_parms *);
--		void			(*tx_timeout) (struct net_device *dev);
--		struct net_device_stats* (*get_stats)(struct net_device *dev);
--		void			(*vlan_rx_register)(struct net_device *dev,
--							    struct vlan_group *grp);
--		void			(*vlan_rx_add_vid)(struct net_device *dev,
--							   unsigned short vid);
--		void			(*vlan_rx_kill_vid)(struct net_device *dev,
--							    unsigned short vid);
--#ifdef CONFIG_NET_POLL_CONTROLLER
--		void                    (*poll_controller)(struct net_device *dev);
--#endif
--	};
--#endif
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-diff --git a/net/802/fddi.c b/net/802/fddi.c
-index 539e606..3ef0ab0 100644
---- a/net/802/fddi.c
-+++ b/net/802/fddi.c
-@@ -185,10 +185,6 @@ static const struct header_ops fddi_header_ops = {
- static void fddi_setup(struct net_device *dev)
- {
- 	dev->header_ops		= &fddi_header_ops;
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	dev->change_mtu		= fddi_change_mtu,
--#endif
--
- 	dev->type		= ARPHRD_FDDI;
- 	dev->hard_header_len	= FDDI_K_SNAP_HLEN+3;	/* Assume 802.2 SNAP hdr len + 3 pad bytes */
- 	dev->mtu		= FDDI_K_SNAP_DLEN;	/* Assume max payload of 802.2 SNAP frame */
-diff --git a/net/802/hippi.c b/net/802/hippi.c
-index 313b9eb..cd3e8e9 100644
---- a/net/802/hippi.c
-+++ b/net/802/hippi.c
-@@ -193,11 +193,6 @@ static const struct header_ops hippi_header_ops = {
- 
- static void hippi_setup(struct net_device *dev)
- {
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	dev->change_mtu			= hippi_change_mtu;
--	dev->set_mac_address 		= hippi_mac_addr;
--	dev->neigh_setup 		= hippi_neigh_setup_dev;
--#endif
- 	dev->header_ops			= &hippi_header_ops;
- 
- 	/*
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index ff7572a..1e2ad4c 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -644,7 +644,6 @@ static int vlan_dev_init(struct net_device *dev)
- 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
- 		dev->netdev_ops         = &vlan_netdev_ops;
- 	}
--	netdev_resync_ops(dev);
- 
- 	if (is_vlan_dev(real_dev))
- 		subclass = 1;
-diff --git a/net/appletalk/dev.c b/net/appletalk/dev.c
-index 72277d7..6c8016f 100644
---- a/net/appletalk/dev.c
-+++ b/net/appletalk/dev.c
-@@ -9,21 +9,10 @@
- #include <linux/if_arp.h>
- #include <linux/if_ltalk.h>
- 
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--static int ltalk_change_mtu(struct net_device *dev, int mtu)
--{
--	return -EINVAL;
--}
--#endif
--
- static void ltalk_setup(struct net_device *dev)
- {
- 	/* Fill in the fields of the device structure with localtalk-generic values. */
- 
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	dev->change_mtu		= ltalk_change_mtu;
--#endif
--
- 	dev->type		= ARPHRD_LOCALTLK;
- 	dev->hard_header_len 	= LTALK_HLEN;
- 	dev->mtu		= LTALK_MTU;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3942266..241613f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4580,39 +4580,6 @@ unsigned long netdev_fix_features(unsigned long features, const char *name)
- }
- EXPORT_SYMBOL(netdev_fix_features);
- 
--/* Some devices need to (re-)set their netdev_ops inside
-- * ->init() or similar.  If that happens, we have to setup
-- * the compat pointers again.
-- */
--void netdev_resync_ops(struct net_device *dev)
--{
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	const struct net_device_ops *ops = dev->netdev_ops;
--
--	dev->init = ops->ndo_init;
--	dev->uninit = ops->ndo_uninit;
--	dev->open = ops->ndo_open;
--	dev->change_rx_flags = ops->ndo_change_rx_flags;
--	dev->set_rx_mode = ops->ndo_set_rx_mode;
--	dev->set_multicast_list = ops->ndo_set_multicast_list;
--	dev->set_mac_address = ops->ndo_set_mac_address;
--	dev->validate_addr = ops->ndo_validate_addr;
--	dev->do_ioctl = ops->ndo_do_ioctl;
--	dev->set_config = ops->ndo_set_config;
--	dev->change_mtu = ops->ndo_change_mtu;
--	dev->neigh_setup = ops->ndo_neigh_setup;
--	dev->tx_timeout = ops->ndo_tx_timeout;
--	dev->get_stats = ops->ndo_get_stats;
--	dev->vlan_rx_register = ops->ndo_vlan_rx_register;
--	dev->vlan_rx_add_vid = ops->ndo_vlan_rx_add_vid;
--	dev->vlan_rx_kill_vid = ops->ndo_vlan_rx_kill_vid;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = ops->ndo_poll_controller;
--#endif
--#endif
--}
--EXPORT_SYMBOL(netdev_resync_ops);
--
- /**
-  *	register_netdevice	- register a network device
-  *	@dev: device to register
-@@ -4652,23 +4619,6 @@ int register_netdevice(struct net_device *dev)
- 
- 	dev->iflink = -1;
- 
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	/* Netdevice_ops API compatibility support.
--	 * This is temporary until all network devices are converted.
--	 */
--	if (dev->netdev_ops) {
--		netdev_resync_ops(dev);
--	} else {
--		char drivername[64];
--		pr_info("%s (%s): not using net_device_ops yet\n",
--			dev->name, netdev_drivername(dev, drivername, 64));
--
--		/* This works only because net_device_ops and the
--		   compatibility structure are the same. */
--		dev->netdev_ops = (void *) &(dev->init);
--	}
--#endif
--
- 	/* Init, if this function is available */
- 	if (dev->netdev_ops->ndo_init) {
- 		ret = dev->netdev_ops->ndo_init(dev);
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 280352a..5a883af 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -337,11 +337,6 @@ const struct header_ops eth_header_ops ____cacheline_aligned = {
- void ether_setup(struct net_device *dev)
- {
- 	dev->header_ops		= &eth_header_ops;
--#ifdef CONFIG_COMPAT_NET_DEV_OPS
--	dev->change_mtu		= eth_change_mtu;
--	dev->set_mac_address 	= eth_mac_addr;
--	dev->validate_addr	= eth_validate_addr;
--#endif
- 	dev->type		= ARPHRD_ETHER;
- 	dev->hard_header_len 	= ETH_HLEN;
- 	dev->mtu		= ETH_DATA_LEN;
--- 
-1.6.3.1
+> I figured out that WRR does what I want and its documented, so I'm using
+> a 2.6.27 kernel with WRR now.
 
+OK if it works for you.
+ 
+> I was still hitting a wall with bonding. I played with a lot of
+> combinations and could not find a way to make it scale to multiple
+> cores. Cores which handle incoming traffic would get hit to 0-20% idle.
+> 
+> So, I got rid of bonding completely and instead configured PBR on Cisco
+> + Linux routing in such a way so that packet gets received and
+> transmitted using NICs connected to the same pair of cores with common
+> cache. 65-70% idle on all cores now, compared to 0-30% idle in worst
+> case scenarios before.
+
+As a matter of fact I don't understand this bonding idea vs. smp: I
+guess Eric Dumazet wrote why it's wrong wrt. locking. I'm not an smp
+expert but I think the most efficient use is with separate NICs per
+cpu (so with separate HTB qdiscs if possible), or multiqueue NICs -
+but they would currently need a common HTB etc., so again a common
+locking/cache problem.
+
+> > - gso/tso or other non standard packets sizes - for exceeding the
+> >   rate.
+> 
+> Just FYI, kernel 2.6.29.1, sub-classes with sfq divisor 1024, tso & gso
+> off, netdevice.h and tc_core.c patches applied:
+> 
+> class htb 1:2 root rate 775000Kbit ceil 775000Kbit burst 98328b cburst
+> 98328b
+> Sent 64883444467 bytes 72261124 pkt (dropped 0, overlimits 0 requeues 0)
+> rate 821332Kbit 112572pps backlog 0b 0p requeues 0
+> lended: 21736738 borrowed: 0 giants: 0
+> 
+> In any case, exceeding the rate is not big of a problem for me.
+
+Anyway, I'd be interested with the full tc -s class & qdisc report.
+
+Thanks,
+Jarek P.
