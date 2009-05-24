@@ -1,83 +1,138 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [mISDN PATCH v2 09/19] Fix TEI and SAPI handling
-Date: Sun, 24 May 2009 01:10:22 +0200
-Message-ID: <20090523231022.GA13203@uranus.ravnborg.org>
-References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de> <cbbb2723784ecf04bcec253c547a9464a2e722c7.1243024967.git.kkeil@pingi.linux-pingi.de> <20090522215314.GA4592@uranus.ravnborg.org> <200905231500.38092.keil@b1-systems.de>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [net-next-2.6 PATCH][be2net] Code changes to handle dev pvt ioctl
+Date: Sun, 24 May 2009 11:01:58 +0530
+Message-ID: <20090524053149.GA17527@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	i4ldeveloper@listserv.isdn4linux.de
-To: Karsten Keil <keil@b1-systems.de>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfepa.post.tele.dk ([195.41.46.235]:42463 "EHLO
-	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732AbZEWXIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 May 2009 19:08:09 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:36432 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751006AbZEXFbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 01:31:07 -0400
 Content-Disposition: inline
-In-Reply-To: <200905231500.38092.keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >
-> > Unrealted to this specific patch...
-> > Are there any specific reason why mISDN prefer bsd style (u_int)
-> > rather then linux style (u32)?
-> 
-> No, this was some historic process with the ISDN code.
-> I think, if we want change this we should make a separate  patch to change 
-> this in all mISDN code later, I usually prefer shorter type names as well :-).
-> So as rule of dumb:
-> - Use   uN/sN for all values with constant width N ?
-yes
+Resubmitting patch for net-next tree to handle SIOCDEVPRIVATE ioctl. Also
+have incorporated comments given by Ben Hutchings.
 
-> What should be used on functions which are usually defined as int and
-> only return 0 or some negative ERROR code, I think int should be OK here ?
-yes - use int here.
+- Sarvesh
 
-> > >  static struct layer2 *
-> > > -create_new_tei(struct manager *mgr, int tei)
-> > > +create_new_tei(struct manager *mgr, int tei, int sapi)
-> > >  {
-> >
-> > Here tei and sapi are passed as signed.
-> > But valid sapi range is [0..63] and tei [0..127].
-> > And create_l2 above uses unsigned.
-> >
-> > This looks confusing.
-> 
-> I think the signed was selected for error handling, but you are correct then 
-> it should be the same in all functions.
-The correct values are the range [0..127] so as you also imply
-reserving all negative values for error codes seems like the best choice.
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+---
+ drivers/net/benet/be_cmds.c |   20 ++++++++++++++++++
+ drivers/net/benet/be_cmds.h |    2 ++
+ drivers/net/benet/be_main.c |   49 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 71 insertions(+), 0 deletions(-)
 
-So as a matter of consistency you should use int for tei/sapi all over.
-> >
-> > So get_free_tei() may return a negative value indicating no free tei.
-> > So that make my comment above void - but is this really the best way
-> > to return an error. Possibly it is..
-> >
-> We could define 255 as the error value, I will think about this, but in 
-> general I prefer negative values for error cases.
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index d444aed..21263e2 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -859,3 +859,23 @@ int be_cmd_query_fw_cfg(struct be_ctrl_i
+ 	spin_unlock(&ctrl->cmd_lock);
+ 	return status;
+ }
++
++int be_cmd_pass_ext_ioctl(struct be_ctrl_info *ctrl, dma_addr_t dma,
++			  int req_size)
++{
++	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
++	struct be_sge *sge = nonembedded_sgl(wrb);
++	int status;
++
++	spin_lock(&ctrl->cmd_lock);
++	memset(wrb, 0, sizeof(*wrb));
++	be_wrb_hdr_prepare(wrb, req_size, false, 1);
++	sge->pa_hi = cpu_to_le32(upper_32_bits(dma));
++	sge->pa_lo = cpu_to_le32(dma & 0xFFFFFFFF);
++	sge->len = cpu_to_le32(req_size);
++
++	status = be_mbox_db_ring(ctrl);
++
++	spin_unlock(&ctrl->cmd_lock);
++	return status;
++}
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index e499e2d..b147286 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -686,3 +686,5 @@ extern int be_cmd_set_flow_control(struc
+ extern int be_cmd_get_flow_control(struct be_ctrl_info *ctrl,
+ 			u32 *tx_fc, u32 *rx_fc);
+ extern int be_cmd_query_fw_cfg(struct be_ctrl_info *ctrl, u32 *port_num);
++extern int be_cmd_pass_ext_ioctl(struct be_ctrl_info *ctrl, dma_addr_t dma,
++			  int req_size);
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index ae2f6b5..103bfa2 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -562,6 +562,54 @@ static void be_vlan_rem_vid(struct net_d
+ 	be_vid_config(netdev);
+ }
+ 
++static int be_do_ioctl(struct net_device *netdev,
++			struct ifreq *ifr, int cmd)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	struct be_cmd_req_hdr req;
++	struct be_cmd_resp_hdr *resp;
++	void *data = ifr->ifr_data;
++	void *va = NULL;
++	dma_addr_t dma;
++	u32 req_size, resp_size;
++	int status, ret = 0;
++
++	switch (cmd) {
++	case SIOCDEVPRIVATE:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
++
++		if (copy_from_user(&req, (struct be_cmd_req_hdr *)data,
++			sizeof(struct be_cmd_req_hdr)))
++			return -EFAULT;
++
++		req_size = req.request_length + sizeof(struct be_cmd_req_hdr);
++
++		va = pci_alloc_consistent(adapter->pdev, req_size, &dma);
++		if (!va)
++			return -ENOMEM;
++		if (copy_from_user(va, (void *)data, req_size)) {
++			ret = -EFAULT;
++			break;
++		}
++
++		status = be_cmd_pass_ext_ioctl(&adapter->ctrl, dma, req_size);
++		if (!status) {
++			resp = (struct be_cmd_resp_hdr *) va;
++			resp_size = resp->response_length + sizeof(*resp);
++			if (copy_to_user((void *)data, va, resp_size))
++				ret = -EFAULT;
++		} else
++			ret = -EFAULT;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++	if (va)
++		pci_free_consistent(adapter->pdev, req_size, va, dma);
++	return ret;
++}
++
+ static void be_set_multicast_filter(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+@@ -1632,6 +1680,7 @@ static struct net_device_ops be_netdev_o
+ 	.ndo_vlan_rx_register	= be_vlan_register,
+ 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
++	.ndo_do_ioctl		= be_do_ioctl,
+ };
+ 
+ static void be_netdev_init(struct net_device *netdev)
+-- 
+1.4.0
 
-Addressed above - agree.
-
-> > >  	if (!(skb->data[1] & 1)) /* invalid EA1 */
-> > >  		return -EINVAL;
-> > > -	tei = skb->data[1] >> 0;
-> > > +	tei = skb->data[1] >> 1;
-> >
-> > This looks like a bug-fix...
-> >
-> 
-> Yes,  I think fixed TEI was never tested with P2MP,  I know
-> no device which really use it with SAPI 0, only in P2P we use a
-> fixed TEI  of 0.  Also the test suite used by certifications did
-> not check for correct fixed TEI handling, it only checks that a
-> fixed TEI is rejected in a dynamic TEI assignment.
-> With SAPI != 0 fixed TEIs are more common, so the bug was
-> detected now.
-Yep - I know we used fixed tei in ptmp configuration
-for sapi=16 (packet handling aka X.25 over ISDN).
-
-	Sam
