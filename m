@@ -1,138 +1,40 @@
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: [net-next-2.6 PATCH][be2net] Code changes to handle dev pvt ioctl
-Date: Sun, 24 May 2009 11:01:58 +0530
-Message-ID: <20090524053149.GA17527@serverengines.com>
-Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d" as
+ interface name
+Date: Sun, 24 May 2009 11:47:04 +0200 (CEST)
+Message-ID: <tkrat.6c3758bf0544a790@s5r6.in-berlin.de>
+References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de>
+ <20090521134856.GA3457@psychotron.englab.brq.redhat.com>
+ <4A1565B6.10907@s5r6.in-berlin.de>
+ <alpine.DEB.2.01.0905232309400.7424@bogon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:36432 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751006AbZEXFbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 01:31:07 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; CHARSET=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net,
+	linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
+To: Christian Kujau <lists@nerdbynature.de>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.01.0905232309400.7424@bogon>
+Content-Disposition: INLINE
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resubmitting patch for net-next tree to handle SIOCDEVPRIVATE ioctl. Also
-have incorporated comments given by Ben Hutchings.
+Christian Kujau wrote at LKML:
+> If the patch will be accepted at all and it's not too late to ask: I'd 
+> vote for fw%d as well, "firefire" just looks too long, for me at least. 
 
-- Sarvesh
+I think I'll leave the driver as it is.
+As I just noticed, we would lose interface renaming by udev.
+>From udev/extras/rule_generator/75-persistent-net-generator.rules:
 
-Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
----
- drivers/net/benet/be_cmds.c |   20 ++++++++++++++++++
- drivers/net/benet/be_cmds.h |    2 ++
- drivers/net/benet/be_main.c |   49 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 71 insertions(+), 0 deletions(-)
+  # device name whitelist
+  KERNEL!="eth*|ath*|wlan*[0-9]|msh*|ra*|sta*|ctc*|lcs*|hsi*", GOTO="persistent_net_generator_end"
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index d444aed..21263e2 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -859,3 +859,23 @@ int be_cmd_query_fw_cfg(struct be_ctrl_i
- 	spin_unlock(&ctrl->cmd_lock);
- 	return status;
- }
-+
-+int be_cmd_pass_ext_ioctl(struct be_ctrl_info *ctrl, dma_addr_t dma,
-+			  int req_size)
-+{
-+	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
-+	struct be_sge *sge = nonembedded_sgl(wrb);
-+	int status;
-+
-+	spin_lock(&ctrl->cmd_lock);
-+	memset(wrb, 0, sizeof(*wrb));
-+	be_wrb_hdr_prepare(wrb, req_size, false, 1);
-+	sge->pa_hi = cpu_to_le32(upper_32_bits(dma));
-+	sge->pa_lo = cpu_to_le32(dma & 0xFFFFFFFF);
-+	sge->len = cpu_to_le32(req_size);
-+
-+	status = be_mbox_db_ring(ctrl);
-+
-+	spin_unlock(&ctrl->cmd_lock);
-+	return status;
-+}
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index e499e2d..b147286 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -686,3 +686,5 @@ extern int be_cmd_set_flow_control(struc
- extern int be_cmd_get_flow_control(struct be_ctrl_info *ctrl,
- 			u32 *tx_fc, u32 *rx_fc);
- extern int be_cmd_query_fw_cfg(struct be_ctrl_info *ctrl, u32 *port_num);
-+extern int be_cmd_pass_ext_ioctl(struct be_ctrl_info *ctrl, dma_addr_t dma,
-+			  int req_size);
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index ae2f6b5..103bfa2 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -562,6 +562,54 @@ static void be_vlan_rem_vid(struct net_d
- 	be_vid_config(netdev);
- }
- 
-+static int be_do_ioctl(struct net_device *netdev,
-+			struct ifreq *ifr, int cmd)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	struct be_cmd_req_hdr req;
-+	struct be_cmd_resp_hdr *resp;
-+	void *data = ifr->ifr_data;
-+	void *va = NULL;
-+	dma_addr_t dma;
-+	u32 req_size, resp_size;
-+	int status, ret = 0;
-+
-+	switch (cmd) {
-+	case SIOCDEVPRIVATE:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+
-+		if (copy_from_user(&req, (struct be_cmd_req_hdr *)data,
-+			sizeof(struct be_cmd_req_hdr)))
-+			return -EFAULT;
-+
-+		req_size = req.request_length + sizeof(struct be_cmd_req_hdr);
-+
-+		va = pci_alloc_consistent(adapter->pdev, req_size, &dma);
-+		if (!va)
-+			return -ENOMEM;
-+		if (copy_from_user(va, (void *)data, req_size)) {
-+			ret = -EFAULT;
-+			break;
-+		}
-+
-+		status = be_cmd_pass_ext_ioctl(&adapter->ctrl, dma, req_size);
-+		if (!status) {
-+			resp = (struct be_cmd_resp_hdr *) va;
-+			resp_size = resp->response_length + sizeof(*resp);
-+			if (copy_to_user((void *)data, va, resp_size))
-+				ret = -EFAULT;
-+		} else
-+			ret = -EFAULT;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+	if (va)
-+		pci_free_consistent(adapter->pdev, req_size, va, dma);
-+	return ret;
-+}
-+
- static void be_set_multicast_filter(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-@@ -1632,6 +1680,7 @@ static struct net_device_ops be_netdev_o
- 	.ndo_vlan_rx_register	= be_vlan_register,
- 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
- 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
-+	.ndo_do_ioctl		= be_do_ioctl,
- };
- 
- static void be_netdev_init(struct net_device *netdev)
+Besides, if we can we should avoid fw%d because this will clash with
+udev rules which match KERNEL=="fw*", as in
+udev/rules/redhat/40-redhat.rules.
 -- 
-1.4.0
+Stefan Richter
+-=====-==--= -=-= ==---
+http://arcgraph.de/sr/
 
