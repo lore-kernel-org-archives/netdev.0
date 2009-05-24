@@ -1,37 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Mark COMPAT_NET_DEV_OPS option for removal
-Date: Sun, 24 May 2009 14:34:08 -0700 (PDT)
-Message-ID: <20090524.143408.192977030.davem@davemloft.net>
-References: <1243088259-16482-1-git-send-email-a.beregalov@gmail.com>
-	<20090523074143.445ef830@nehalam>
-	<20090523081221.61709ec5@nehalam>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: regression: unregister_netdev() unusably slow
+Date: Sun, 24 May 2009 17:37:44 -0400
+Message-ID: <20090524213744.GG24757@kvack.org>
+References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: a.beregalov@gmail.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56199
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752534AbZEXVeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 17:34:09 -0400
-In-Reply-To: <20090523081221.61709ec5@nehalam>
+Received: from kanga.kvack.org ([205.233.56.17]:37075 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752343AbZEXViS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 May 2009 17:38:18 -0400
+Content-Disposition: inline
+In-Reply-To: <200905250023.31056.denys@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 23 May 2009 08:12:21 -0700
+On Mon, May 25, 2009 at 12:23:30AM +0300, Denys Fedoryschenko wrote:
+> Once oprofile gave me hint about similar issue
 
-> Mark the flag as deprecated and default off so users won't use it
-> by default. Make the message that was a informational into a full
-> warning with backtrace, so any usage gets noticed.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+I forgot to mention: there is no more than ~1% CPU usage while the interfaces 
+are being deleted.  I'm about half way through the bisect now and should have 
+the culprit soon. 
 
-NAK, we're just going to toss this now in 2.6.31, there
-is nothing to gain by keeping this stuff around.  It's
-an internal API change rather than something visible to
-users.
-
-And it results in a clear compilation error for stale
-external code not yet converted.
+		-ben
