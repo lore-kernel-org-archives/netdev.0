@@ -1,65 +1,246 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [TSO]-Refer to "State of TCP segmentation offload to NIC in
- linux"
-Date: Sun, 24 May 2009 14:15:57 +0100
-Message-ID: <1243170957.16597.62.camel@deadeye>
-References: <AB6488BF71876F4498928F5DDA526168830FB0@ITCGCL02BE.fsoft.fpt.vn>
-Reply-To: netdev@vger.kernel.org
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 2/2] mlx4_en: Fix partial rings feature
+Date: Sun, 24 May 2009 16:17:11 +0300
+Message-ID: <4A1948D7.8010504@mellanox.co.il>
+References: <49EC859C.700@mellanox.co.il> <4A0AB34A.10100@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-Di/6yeIdA9I8IS7t39yq"
-Cc: netdev@vger.kernel.org
-To: "Nguyen Tuan Huy (G11)" <huynt1@fsoft.com.vn>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44602 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752006AbZEXNQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 09:16:00 -0400
-In-Reply-To: <AB6488BF71876F4498928F5DDA526168830FB0@ITCGCL02BE.fsoft.fpt.vn>
+Received: from mail.mellanox.co.il ([194.90.237.43]:56871 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752764AbZEXNQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 May 2009 09:16:08 -0400
+In-Reply-To: <4A0AB34A.10100@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In case of allocation failure, the actual ring size is rounded down to
+nearest power of 2. The remaining descriptors are freed.
+The CQ and SRQ are allocated with the actual size and the mask is updated.
 
---=-Di/6yeIdA9I8IS7t39yq
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_cq.c     |    3 ++
+ drivers/net/mlx4/en_netdev.c |   23 ++++++--------
+ drivers/net/mlx4/en_rx.c     |   71 ++++++++++++++++++++++++++---------------
+ 3 files changed, 58 insertions(+), 39 deletions(-)
 
-On Sun, 2009-05-24 at 18:38 +0700, Nguyen Tuan Huy (G11) wrote:
-> Dear Mr Ben Hutchings,=20
->=20
-> =20
->=20
-> I have read your answer about question "State of TCP segmentation
-> offload to NIC in linux".=20
->=20
-> The link is
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/5/7/1757954/thread
+diff --git a/drivers/net/mlx4/en_cq.c b/drivers/net/mlx4/en_cq.c
+index a276125..21786ad 100644
+--- a/drivers/net/mlx4/en_cq.c
++++ b/drivers/net/mlx4/en_cq.c
+@@ -89,6 +89,9 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
+ 	*cq->mcq.arm_db    = 0;
+ 	memset(cq->buf, 0, cq->buf_size);
 
-Please direct your queries to the netdev list, not to me personally.
++	if (!cq->is_tx)
++		cq->size = priv->rx_ring[cq->ring].actual_size;
++
+ 	err = mlx4_cq_alloc(mdev->dev, cq->size, &cq->wqres.mtt, &mdev->priv_uar,
+ 			    cq->wqres.db.dma, &cq->mcq, cq->vector, cq->is_tx);
+ 	if (err)
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index be487fa..0cd185a 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -556,7 +556,6 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_cq *cq;
+ 	struct mlx4_en_tx_ring *tx_ring;
+-	struct mlx4_en_rx_ring *rx_ring;
+ 	int rx_index = 0;
+ 	int tx_index = 0;
+ 	int err = 0;
+@@ -572,10 +571,15 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	dev->mtu = min(dev->mtu, priv->max_mtu);
+ 	mlx4_en_calc_rx_buf(dev);
+ 	mlx4_dbg(DRV, priv, "Rx buf size:%d\n", priv->rx_skb_size);
++
+ 	/* Configure rx cq's and rings */
++	err = mlx4_en_activate_rx_rings(priv);
++	if (err) {
++		mlx4_err(mdev, "Failed to activate RX rings\n");
++		return err;
++	}
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		cq = &priv->rx_cq[i];
+-		rx_ring = &priv->rx_ring[i];
 
-> I am now writing network device driver that support TSO function. But
-> when I send one packet with 64K, then TCP has divided 64K, not passed
-> the whole 64K to NIC driver.
-[...]
+ 		err = mlx4_en_activate_cq(priv, cq);
+ 		if (err) {
+@@ -591,20 +595,14 @@ int mlx4_en_start_port(struct net_device *dev)
+ 			goto cq_err;
+ 		}
+ 		mlx4_en_arm_cq(priv, cq);
+-
++		priv->rx_ring[i].cqn = cq->mcq.cqn;
+ 		++rx_index;
+ 	}
 
-I think you won't see 64K packets for a TCP connection that was just
-opened, due to the slow start algorithm.
+-	err = mlx4_en_activate_rx_rings(priv);
+-	if (err) {
+-		mlx4_err(mdev, "Failed to activate RX rings\n");
+-		goto cq_err;
+-	}
+-
+ 	err = mlx4_en_config_rss_steer(priv);
+ 	if (err) {
+ 		mlx4_err(mdev, "Failed configuring rss steering\n");
+-		goto rx_err;
++		goto cq_err;
+ 	}
 
-Ben.
+ 	/* Configure tx cq's and rings */
+@@ -691,12 +689,11 @@ tx_err:
+ 	}
 
---=20
-Ben Hutchings
-Teamwork is essential - it allows you to blame someone else.
+ 	mlx4_en_release_rss_steer(priv);
+-rx_err:
+-	for (i = 0; i < priv->rx_ring_num; i++)
+-		mlx4_en_deactivate_rx_ring(priv, &priv->rx_ring[i]);
+ cq_err:
+ 	while (rx_index--)
+ 		mlx4_en_deactivate_cq(priv, &priv->rx_cq[rx_index]);
++	for (i = 0; i < priv->rx_ring_num; i++)
++		mlx4_en_deactivate_rx_ring(priv, &priv->rx_ring[i]);
 
---=-Di/6yeIdA9I8IS7t39yq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+ 	return err; /* need to close devices */
+ }
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+index 9ee873e..6bfab6e 100644
+--- a/drivers/net/mlx4/en_rx.c
++++ b/drivers/net/mlx4/en_rx.c
+@@ -202,12 +202,35 @@ static inline void mlx4_en_update_rx_prod_db(struct mlx4_en_rx_ring *ring)
+ 	*ring->wqres.db.db = cpu_to_be32(ring->prod & 0xffff);
+ }
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
++static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
++				 struct mlx4_en_rx_ring *ring,
++				 int index)
++{
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct skb_frag_struct *skb_frags;
++	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index << ring->log_stride);
++	dma_addr_t dma;
++	int nr;
++
++	skb_frags = ring->rx_info + (index << priv->log_rx_info);
++	for (nr = 0; nr < priv->num_frags; nr++) {
++		mlx4_dbg(DRV, priv, "Freeing fragment:%d\n", nr);
++		dma = be64_to_cpu(rx_desc->data[nr].addr);
++
++		mlx4_dbg(DRV, priv, "Unmaping buffer at dma:0x%llx\n", (u64) dma);
++		pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
++				 PCI_DMA_FROMDEVICE);
++		put_page(skb_frags[nr].page);
++	}
++}
++
+ static int mlx4_en_fill_rx_buffers(struct mlx4_en_priv *priv)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_rx_ring *ring;
+ 	int ring_ind;
+ 	int buf_ind;
++	int new_size;
 
-iD8DBQBKGUh679ZNCRIGYgcRAscUAJoDuWvI7vCntmHfocJeroVlgD9/bQCggHRE
-inGnChhejiTCca9Ok3YLvvI=
-=edzS
------END PGP SIGNATURE-----
+ 	for (buf_ind = 0; buf_ind < priv->prof->rx_ring_size; buf_ind++) {
+ 		for (ring_ind = 0; ring_ind < priv->rx_ring_num; ring_ind++) {
+@@ -220,18 +243,30 @@ static int mlx4_en_fill_rx_buffers(struct mlx4_en_priv *priv)
+ 						       "enough rx buffers\n");
+ 					return -ENOMEM;
+ 				} else {
+-					if (netif_msg_rx_err(priv))
+-						mlx4_warn(mdev,
+-							  "Only %d buffers allocated\n",
+-							  ring->actual_size);
+-					goto out;
++					new_size = rounddown_pow_of_two(ring->actual_size);
++					mlx4_warn(mdev, "Only %d buffers allocated "
++							"reducing ring size to %d",
++						  ring->actual_size, new_size);
++					goto reduce_rings;
+ 				}
+ 			}
+ 			ring->actual_size++;
+ 			ring->prod++;
+ 		}
+ 	}
+-out:
++	return 0;
++
++reduce_rings:
++	for (ring_ind = 0; ring_ind < priv->rx_ring_num; ring_ind++) {
++		ring = &priv->rx_ring[ring_ind];
++		while (ring->actual_size > new_size) {
++			ring->actual_size--;
++			ring->prod--;
++			mlx4_en_free_rx_desc(priv, ring, ring->actual_size);
++		}
++		ring->size_mask = ring->actual_size - 1;
++	}
++
+ 	return 0;
+ }
 
---=-Di/6yeIdA9I8IS7t39yq--
+@@ -255,7 +290,7 @@ static int mlx4_en_fill_rx_buf(struct net_device *dev,
+ 		++num;
+ 		++ring->prod;
+ 	}
+-	if ((u32) (ring->prod - ring->cons) == ring->size)
++	if ((u32) (ring->prod - ring->cons) == ring->actual_size)
+ 		ring->full = 1;
+
+ 	return num;
+@@ -264,33 +299,17 @@ static int mlx4_en_fill_rx_buf(struct net_device *dev,
+ static void mlx4_en_free_rx_buf(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_rx_ring *ring)
+ {
+-	struct mlx4_en_dev *mdev = priv->mdev;
+-	struct skb_frag_struct *skb_frags;
+-	struct mlx4_en_rx_desc *rx_desc;
+-	dma_addr_t dma;
+ 	int index;
+-	int nr;
+
+ 	mlx4_dbg(DRV, priv, "Freeing Rx buf - cons:%d prod:%d\n",
+ 			ring->cons, ring->prod);
+
+ 	/* Unmap and free Rx buffers */
+-	BUG_ON((u32) (ring->prod - ring->cons) > ring->size);
++	BUG_ON((u32) (ring->prod - ring->cons) > ring->actual_size);
+ 	while (ring->cons != ring->prod) {
+ 		index = ring->cons & ring->size_mask;
+-		rx_desc = ring->buf + (index << ring->log_stride);
+-		skb_frags = ring->rx_info + (index << priv->log_rx_info);
+ 		mlx4_dbg(DRV, priv, "Processing descriptor:%d\n", index);
+-
+-		for (nr = 0; nr < priv->num_frags; nr++) {
+-			mlx4_dbg(DRV, priv, "Freeing fragment:%d\n", nr);
+-			dma = be64_to_cpu(rx_desc->data[nr].addr);
+-
+-			mlx4_dbg(DRV, priv, "Unmaping buffer at dma:0x%llx\n", (u64) dma);
+-			pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
+-					 PCI_DMA_FROMDEVICE);
+-			put_page(skb_frags[nr].page);
+-		}
++		mlx4_en_free_rx_desc(priv, ring, index);
+ 		++ring->cons;
+ 	}
+ }
+@@ -454,7 +473,7 @@ int mlx4_en_activate_rx_rings(struct mlx4_en_priv *priv)
+ 		mlx4_en_update_rx_prod_db(ring);
+
+ 		/* Configure SRQ representing the ring */
+-		ring->srq.max    = ring->size;
++		ring->srq.max    = ring->actual_size;
+ 		ring->srq.max_gs = max_gs;
+ 		ring->srq.wqe_shift = ilog2(ring->stride);
+
+-- 
+1.6.0
+
+
