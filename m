@@ -1,50 +1,31 @@
-From: =?UTF-8?B?T3phbiDDh2HEn2xheWFu?= <ozan-caicS1wCkhO6A22drWdTBw@public.gmane.org>
-Subject: Re: 2.6.30-rc7: Reported regressions from 2.6.29
-Date: Mon, 25 May 2009 01:07:25 +0300
-Message-ID: <4A19C51D.7020609@pardus.org.tr>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
+Date: Sun, 24 May 2009 21:11:55 +0200 (CEST)
+Message-ID: <uSztiUhmDDC.A.EM.l9bGKB@chimera>
 References: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Rafael J. Wysocki wrote:
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13326
-> Subject		: [PATCH]Null pointer dereference in rtc-cmos driver
-> Submitter	: Ozan =C3=87a=C4=9Flayan <ozan-caicS1wCkhO6A22drWdTBw@public.gmane.org>
-> Date		: 2009-05-14 16:16 (11 days old)
-> References	: http://marc.info/?l=3Dlinux-kernel&m=3D124231783704696&w=
-=3D4
->  =20
+This message has been generated automatically as a part of a report
+of recent regressions.
 
-Just to notice that the patch for this is at:
+The following bug entry is on the current list of known regressions
+from 2.6.29.  Please verify if it still should be listed and let me know
+(either way).
 
-http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches=
-/driver-core.current/driver-core-do-not-oops-when-driver_unregister-is-=
-called-for-unregistered-drivers.patch
 
-Can at least be marked as "has a patch".
-
-Thanks,
-Ozan Caglayan
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
+Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
+Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2009-05-03 16:22 (22 days old)
+References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
