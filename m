@@ -1,31 +1,35 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Sun, 24 May 2009 21:11:55 +0200 (CEST)
-Message-ID: <uSztiUhmDDC.A.EM.l9bGKB@chimera>
-References: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: regression: unregister_netdev() unusably slow
+Date: Sun, 24 May 2009 18:12:40 -0400
+Message-ID: <20090524221240.GI24757@kvack.org>
+References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org> <4A19C50B.9040304@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:37996 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759903AbZEXWMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 May 2009 18:12:50 -0400
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A19C50B.9040304@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of recent regressions.
+On Mon, May 25, 2009 at 12:07:07AM +0200, Eric Dumazet wrote:
+> Maybe your HZ is too low ? Changing to 1000 HZ helps a lot
 
-The following bug entry is on the current list of known regressions
-from 2.6.29.  Please verify if it still should be listed and let me know
-(either way).
+HZ is set to 1000.  I turned off CONFIG_NO_HZ
 
+> Also your hotplug config might do strange things at device removal ?
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-05-03 16:22 (22 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
+If it were CPU bound, maybe, but this behaviour is tied to the kernel 
+version in use.
+
+> What distro do you use ?
+
+It's an older Fedora 7 install inside kvm on a Fedora 10 host running 
+2.6.30-rc7.
+
+		-ben
