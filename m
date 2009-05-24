@@ -1,47 +1,43 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: regression: unregister_netdev() unusably slow
-Date: Mon, 25 May 2009 00:23:30 +0300
-Message-ID: <200905250023.31056.denys@visp.net.lb>
-References: <20090524192150.GE24757@kvack.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: remove COMPAT_NET_DEV_OPS
+Date: Sun, 24 May 2009 14:32:07 -0700 (PDT)
+Message-ID: <20090524.143207.59391234.davem@davemloft.net>
+References: <1243088259-16482-1-git-send-email-a.beregalov@gmail.com>
+	<20090523074143.445ef830@nehalam>
+	<20090523165531.GA14081@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
+Cc: shemminger@vyatta.com, a.beregalov@gmail.com,
+	netdev@vger.kernel.org
+To: hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:59694 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbZEXVb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 17:31:58 -0400
-In-Reply-To: <20090524192150.GE24757@kvack.org>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53252
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752052AbZEXVcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 17:32:08 -0400
+In-Reply-To: <20090523165531.GA14081@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Once oprofile gave me hint about similar issue
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sat, 23 May 2009 12:55:31 -0400
 
-On Sunday 24 May 2009 22:21:50 Benjamin LaHaise wrote:
-> Hi folks,
->
-> I just ran a few L2TP tests against 2.6.30-rc7, and it looks like network
-> device deletion has become unusably slow.  At least in 2.6.27.10, deleting
-> 1000 network interfaces takes less than 2 seconds of real time.  The same
-> test run under 2.6.30-rc7 is taking hundreds of seconds to delete 1000
-> interfaces at a rate of about 5 per second.  The interfaces all share the
-> same local ip address, but each have a single route to a unique client
-> ip address.
->
-> This is a fairly reasonable use-case, as a single L2TP daemon can be
-> terminating thousands of client connections on a single tunnel, and a
-> tunnel flap will require tearing down all these interfaces.  I'll work on
-> bisecting it, but if someone has any ideas of the source, I'd appreciate
-> hearing about it.
->
-> 		-ben
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Sat, May 23, 2009 at 07:41:43AM -0700, Stephen Hemminger wrote:
+>> On Sat, 23 May 2009 18:17:39 +0400
+>> Alexander Beregalov <a.beregalov@gmail.com> wrote:
+>> 
+>> > All drivers are already converted to new net_device_ops API
+>> > and nobody uses old API anymore.
+>> > 
+>> > Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+>> 
+>> This go through the feature-removal-schedule process, to
+>> allow other drivers that live outside the tree some notice for change.
+> 
+> I don't think so.  We do tons of API changes and don't do such a process
+> around it.  Removal of the old pointers gives a clear compilation
+> breakage so it's not even dangerous.
 
-
+I completely agree and plan to get rid of this compat ops stuff
+for 2.6.31
