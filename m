@@ -1,29 +1,51 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Kernel panic in inet_twdr_do_twkill_work
-Date: Sun, 24 May 2009 06:54:53 -0700
-Message-ID: <m1bppifvwy.fsf@fess.ebiederm.org>
-References: <m17i0ktr4p.fsf@fess.ebiederm.org> <4A0BCE0E.3000206@free.fr>
-	<m1y6t0nlle.fsf@fess.ebiederm.org> <4A0BD750.4030605@free.fr>
-	<m18wl0nj2b.fsf@fess.ebiederm.org> <4A194B09.7070900@free.fr>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 1/3] myri10ge: fix the invokation of lro_flush_all
+Date: Sun, 24 May 2009 17:27:41 +0200
+Message-ID: <4A19676D.5020606@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:41421 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbZEXNy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 09:54:56 -0400
-In-Reply-To: <4A194B09.7070900@free.fr> (Daniel Lezcano's message of "Sun\, 24 May 2009 15\:26\:33 +0200")
+Received: from mailbox2.myri.com ([64.172.73.26]:1964 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752721AbZEXP1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 May 2009 11:27:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+Fix the way we check whether lro_flush_all should be called
+in the myri10ge driver.
 
-> did you succeeded to reproduce the bug with the test program I sent you ?
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Grr.  My apologies.  I haven't had a chance to play with that yet.
-Thank you for the reminder. 
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index c9a9aca..d317011 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -1422,6 +1422,7 @@ myri10ge_clean_rx_done(struct myri10ge_slice_state *ss, int budget)
+ {
+ 	struct myri10ge_rx_done *rx_done = &ss->rx_done;
+ 	struct myri10ge_priv *mgp = ss->mgp;
++	struct net_device *netdev = mgp->dev;
+ 	unsigned long rx_bytes = 0;
+ 	unsigned long rx_packets = 0;
+ 	unsigned long rx_ok;
+@@ -1455,7 +1456,7 @@ myri10ge_clean_rx_done(struct myri10ge_slice_state *ss, int budget)
+ 	ss->stats.rx_packets += rx_packets;
+ 	ss->stats.rx_bytes += rx_bytes;
+ 
+-	if (myri10ge_lro)
++	if (netdev->features & NETIF_F_LRO)
+ 		lro_flush_all(&rx_done->lro_mgr);
+ 
+ 	/* restock receive rings if needed */
+-- 
+1.6.2.4
 
-Eric
+
 
