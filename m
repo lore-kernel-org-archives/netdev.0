@@ -1,40 +1,50 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: regression: unregister_netdev() unusably slow
-Date: Mon, 25 May 2009 00:07:07 +0200
-Message-ID: <4A19C50B.9040304@cosmosbay.com>
-References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org>
+From: =?UTF-8?B?T3phbiDDh2HEn2xheWFu?= <ozan-caicS1wCkhO6A22drWdTBw@public.gmane.org>
+Subject: Re: 2.6.30-rc7: Reported regressions from 2.6.29
+Date: Mon, 25 May 2009 01:07:25 +0300
+Message-ID: <4A19C51D.7020609@pardus.org.tr>
+References: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@lhnet.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34109 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751381AbZEXWHQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 18:07:16 -0400
-In-Reply-To: <20090524214433.GH24757@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Benjamin LaHaise a =E9crit :
-> On Sun, May 24, 2009 at 11:42:17PM +0200, Eric Dumazet wrote:
->> (But vlan case might be litle bit more expensive than your case, sin=
-ce we call
->> synchronize_net() three times (once in unregister_vlan_dev(), and tw=
-ice in rollback_registered()
->=20
-> I did try commenting out the synchronize_net() calls in rollback_regi=
-stered(),=20
-> but that had almost no effect on the rate of interface deletion.  50m=
-s is=20
-> still way too expensive.
->=20
-> 		-ben
+Rafael J. Wysocki wrote:
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13326
+> Subject		: [PATCH]Null pointer dereference in rtc-cmos driver
+> Submitter	: Ozan =C3=87a=C4=9Flayan <ozan-caicS1wCkhO6A22drWdTBw@public.gmane.org>
+> Date		: 2009-05-14 16:16 (11 days old)
+> References	: http://marc.info/?l=3Dlinux-kernel&m=3D124231783704696&w=
+=3D4
+>  =20
 
-Maybe your HZ is too low ? Changing to 1000 HZ helps a lot
+Just to notice that the patch for this is at:
 
-Also your hotplug config might do strange things at device removal ?
+http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches=
+/driver-core.current/driver-core-do-not-oops-when-driver_unregister-is-=
+called-for-unregistered-drivers.patch
 
-What distro do you use ?
+Can at least be marked as "has a patch".
 
+Thanks,
+Ozan Caglayan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
