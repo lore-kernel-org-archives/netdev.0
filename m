@@ -1,95 +1,64 @@
-From: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Subject: Re: [Bug #13339] rtable leak in ipv4/route.c
-Date: Mon, 25 May 2009 00:34:37 +0200
-Message-ID: <4A19CB7D.8000004@cosmosbay.com>
-References: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera> <uSztiUhmDDC.A.U8H.a9bGKB@chimera>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: regression: unregister_netdev() unusably slow
+Date: Mon, 25 May 2009 00:47:39 +0200
+Message-ID: <4A19CE8B.3070302@cosmosbay.com>
+References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org> <4A19C50B.9040304@cosmosbay.com> <20090524221240.GI24757@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Alexander V. Lukyanov" <lav-L+1EwoRT+D8@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <uSztiUhmDDC.A.U8H.a9bGKB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Denys Fedoryschenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@lhnet.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38014 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752524AbZEXWrx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 May 2009 18:47:53 -0400
+In-Reply-To: <20090524221240.GI24757@kvack.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafael J. Wysocki a =C3=A9crit :
-> This message has been generated automatically as a part of a report
-> of recent regressions.
+Benjamin LaHaise a =E9crit :
+> On Mon, May 25, 2009 at 12:07:07AM +0200, Eric Dumazet wrote:
+>> Maybe your HZ is too low ? Changing to 1000 HZ helps a lot
 >=20
-> The following bug entry is on the current list of known regressions
-> from 2.6.29.  Please verify if it still should be listed and let me k=
-now
-> (either way).
+> HZ is set to 1000.  I turned off CONFIG_NO_HZ
 >=20
+>> Also your hotplug config might do strange things at device removal ?
 >=20
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> Subject		: rtable leak in ipv4/route.c
-> Submitter	: Alexander V. Lukyanov <lav-L+1EwoRT+D8@public.gmane.org>
-> Date		: 2009-05-18 14:10 (7 days old)
+> If it were CPU bound, maybe, but this behaviour is tied to the kernel=
+=20
+> version in use.
+>=20
+>> What distro do you use ?
+>=20
+> It's an older Fedora 7 install inside kvm on a Fedora 10 host running=
+=20
+> 2.6.30-rc7.
 >=20
 
-Bug was present in 2.6.29, so its a regression from 2.6.28
+OK thanks
 
-It is solved and available in David tree (net-2.6), and scheduled for s=
-table submission
+I switched HZ from 250 to 1000 and got :
 
-commit 1ddbcb005c395518c2cd0df504cff3d4b5c85853
-net: fix rtable leak in net/ipv4/route.c
+time ip link del vlan.899
 
-Alexander V. Lukyanov found a regression in 2.6.29 and made a complete
-analysis found in http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-Quoted here because its a perfect one :
+real    0m0.011s
+user    0m0.000s
+sys     0m0.002s
 
-begin_of_quotation
- 2.6.29 patch has introduced flexible route cache rebuilding. Unfortuna=
-tely the
- patch has at least one critical flaw, and another problem.
+There is a strong dependancy against HZ
+BTW, I am using TREE_RCU
 
- rt_intern_hash calculates rthi pointer, which is later used for new en=
-try
- insertion. The same loop calculates cand pointer which is used to clea=
-n the
- list. If the pointers are the same, rtable leak occurs, as first the c=
-and is
- removed then the new entry is appended to it.
+# RCU Subsystem
+# CONFIG_CLASSIC_RCU is not set
+CONFIG_TREE_RCU=3Dy
+# CONFIG_PREEMPT_RCU is not set
+CONFIG_RCU_TRACE=3Dy
+CONFIG_RCU_FANOUT=3D32
+# CONFIG_RCU_FANOUT_EXACT is not set
+CONFIG_TREE_RCU_TRACE=3Dy
+# CONFIG_PREEMPT_RCU_TRACE is not set
+# CONFIG_RCU_TORTURE_TEST is not set
+# CONFIG_RCU_CPU_STALL_DETECTOR is not set
 
- This leak leads to unregister_netdevice problem (usage count > 0).
 
- Another problem of the patch is that it tries to insert the entries in=
- certain
- order, to facilitate counting of entries distinct by all but QoS param=
-eters.
- Unfortunately, referencing an existing rtable entry moves it to list b=
-eginning,
- to speed up further lookups, so the carefully built order is destroyed=
-=2E
-
- For the first problem the simplest patch it to set rthi=3D0 when rthi=3D=
-=3Dcand, but
- it will also destroy the ordering.
-end_of_quotation
-
-Problematic commit is 1080d709fb9d8cd4392f93476ee46a9d6ea05a5b
-(net: implement emergency route cache rebulds when gc_elasticity is exc=
-eeded)
-
-Trying to keep dst_entries ordered is too complex and breaks the fact t=
-hat
-order should depend on the frequency of use for garbage collection.
-
-A possible fix is to make rt_intern_hash() simpler, and only makes
-rt_check_expire() a litle bit smarter, being able to cope with an arbit=
-rary
-entries order. The added loop is running on cache hot data, while cpu
-is prefetching next object, so should be unnoticied.
-
-Reported-and-analyzed-by: Alexander V. Lukyanov <lav-L+1EwoRT+D8@public.gmane.org>
-Signed-off-by: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-
-Thanks
