@@ -1,47 +1,34 @@
-From: Matthias Schwarzott <zzam@gentoo.org>
-Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d" as interface name
-Date: Mon, 25 May 2009 10:33:08 +0200
-Message-ID: <200905251033.09272.zzam@gentoo.org>
-References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de> <alpine.DEB.2.01.0905232309400.7424@bogon> <tkrat.6c3758bf0544a790@s5r6.in-berlin.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH] mlx4_en: Fix a kernel panic when waking tx
+ queue
+Date: Mon, 25 May 2009 01:44:35 -0700 (PDT)
+Message-ID: <20090525.014435.203274473.davem@davemloft.net>
+References: <4A0AB34A.10100@mellanox.co.il>
+	<4A1948D7.8010504@mellanox.co.il>
+	<4A1A57AA.1080209@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christian Kujau <lists@nerdbynature.de>,
-	linux-kernel@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: linux-hotplug@vger.kernel.org
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <tkrat.6c3758bf0544a790@s5r6.in-berlin.de>
-Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39695
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754797AbZEYIog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 04:44:36 -0400
+In-Reply-To: <4A1A57AA.1080209@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sonntag, 24. Mai 2009, Stefan Richter wrote:
-> Christian Kujau wrote at LKML:
-> > If the patch will be accepted at all and it's not too late to ask: I'd
-> > vote for fw%d as well, "firefire" just looks too long, for me at least.
->
-> I think I'll leave the driver as it is.
-> As I just noticed, we would lose interface renaming by udev.
-> From udev/extras/rule_generator/75-persistent-net-generator.rules:
->
->   # device name whitelist
->   KERNEL!="eth*|ath*|wlan*[0-9]|msh*|ra*|sta*|ctc*|lcs*|hsi*",
-> GOTO="persistent_net_generator_end"
->
-> Besides, if we can we should avoid fw%d because this will clash with
-> udev rules which match KERNEL=="fw*", as in
-> udev/rules/redhat/40-redhat.rules.
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 25 May 2009 11:32:42 +0300
 
-I suggest a subsystem match here, or generally some
-SUBSYSTEM!="net", GOTO="end_of_file"
-around almost all rule files that should not match on network interfaces, as 
-users can rename them to almost all crazy names.
+> This patch fixes a kernel panic when waking the TX queue
+> from irq context.
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-@Kay: Perhaps it could simplify some rulesets to have a special jump target or 
-option to skip entiere rules files.
+Why does it fix a panic?  What does the panic look like?
+What causes it?
 
-Regards
-Matthias
+Commit message is way too terse, please fix this and resubmit.
