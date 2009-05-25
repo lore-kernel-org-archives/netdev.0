@@ -1,35 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-05-22
-Date: Mon, 25 May 2009 00:38:57 -0700 (PDT)
-Message-ID: <20090525.003857.226765449.davem@davemloft.net>
-References: <20090522183238.GE3559@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] myri10ge: Add support for vlan_features
+Date: Mon, 25 May 2009 00:36:45 -0700 (PDT)
+Message-ID: <20090525.003645.25446774.davem@davemloft.net>
+References: <4A19677F.9070704@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090522183238.GE3559-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: brice@myri.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42784
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758960AbZEYHgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:36:47 -0400
+In-Reply-To: <4A19677F.9070704@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 22 May 2009 14:32:39 -0400
+From: Brice Goglin <brice@myri.com>
+Date: Sun, 24 May 2009 17:27:59 +0200
 
-> Dave,
+> Add support for netdev->vlan_features in the myri10ge driver.
 > 
-> Another huge dump of stuff intended for 2.6.31...it seems like it never
-> stops!  I guess that is mostly good... :-)
-> 
-> There are a bunch of driver updates, some mac80211 bits that are fixes
-> for things already in -next, some similar regulatory fixes/changes for
-> cfg80211, etc.  Also of note is a new "full MAC" driver for a new
-> not-quite-available device coming soon from Intel.
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Pulled, thanks John.
-
-Enjoy Barcelona :-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next-2.6
