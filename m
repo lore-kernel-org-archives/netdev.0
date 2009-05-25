@@ -1,46 +1,143 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [mISDN PATCH v2 00/19] mISDN patchset for next
-Date: Mon, 25 May 2009 00:53:11 -0700 (PDT)
-Message-ID: <20090525.005311.249649223.davem@davemloft.net>
-References: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus
+	driver
+Date: Mon, 25 May 2009 10:15:45 +0200
+Message-ID: <4A1A53B1.7040708@grandegger.com>
+References: <4A16BAAE.3070401@grandegger.com>
+	<fa686aa40905220808kecd06cdqb570b78ca97f0ca6@mail.gmail.com>
+	<4A1797C5.1040907@grandegger.com> <4A182800.2090204@grandegger.com>
+	<fa686aa40905242353v21c08209x2e443f42ef4096fa@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i4ldeveloper@listserv.isdn4linux.de
-To: keil@b1-systems.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60487
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752383AbZEYHxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:53:12 -0400
-In-Reply-To: <cover.1243024967.git.kkeil@pingi.linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	devicetree-discuss <devicetree-discuss@ozlabs.org>,
+	linuxppc-dev <Linuxppc-dev@ozlabs.org>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <fa686aa40905242353v21c08209x2e443f42ef4096fa@mail.gmail.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <keil@b1-systems.de>
-Date: Fri, 22 May 2009 22:42:47 +0200
-
-> This is a update of the mISDN driver for net-next.
-> It syncs the mISDN driver with the development on git.misdn.org.
-> More updates (new hardware support) will follow.
+Grant Likely wrote:
+> On Sat, May 23, 2009 at 10:44 AM, Wolfgang Grandegger <wg@grandegger.com> wrote:
+>> Wolfgang Grandegger wrote:
+>>> Grant Likely wrote:
+>>>>> +- clock-frequency : CAN system clock frequency in Hz, which is normally
+>>>>> +       half of the oscillator clock frequency. If not specified, a
+>>>>> +       default value of 8000000 (8 MHz) is used.
+>>>> A clock-frequency property typically refers to the bus clock
+>>>> frequency.  Something like can-frequency would be better.
+>>> Ah, right, but I'm also not happy with "can-frequency". The manual
+>>> speaks about the "internal clock", which is half of the external
+>>> oscillator frequency. Maybe "internal-clock-frequency" might be better.
 > 
-> You can pull it from 
-> git://master.kernel.org/pub/scm/linux/kernel/git/kkeil/ISDN-2.6-net-next.git for_dave
+> Would it be better to specify the external clock frequency, and the
+> driver know that internal freq is half that?  I ask because external
+> clock freq is a value the HW designer actually has control over.
+
+I'm sharing your arguments: "external-clock-frequency". There is always
+some confusion about external and internal clock frequency but the name
+should make it clear.
+
+>>>>> +- cdr-reg : value of the SJA1000 clock divider register according to
+>>>>> +       the SJA1000 data sheet. If not specified, a default value of
+>>>>> +       0x48 is used.
+>>>> Ewh.  The driver should be clueful enough to derive the clock divider
+>>>> value given both the bus and can frequencies.  I don't like this
+>>>> property.
+>>> The clock divider register controls the CLKOUT frequency for the
+>>> microcontroller another CAN controller and allows to deactivate the
+>>> CLKOUT pin. It's not used to configure the CAN bus frequency.
+>>>
+>>>>> +- ocr-reg : value of the SJA1000 output control register according to
+>>>>> +       the SJA1000 data sheet. If not specified, a default value of
+>>>>> +       0x0a is used.
+>>>> Ditto here; the binding should describe the usage mode; not the
+>>>> register settings to get the usage mode.  What sort of settings will
+>>>> the .dts author be writing here?
+>>> Unfortunately, there are many:
+>>>
+>>> clkout-frequency
+>>> bypass-comperator
+>>> tx1-output-on-rx-irq
+>>>
+>>> #define OCR_MODE_BIPHASE  0x00
+>>> #define OCR_MODE_TEST     0x01
+>>> #define OCR_MODE_NORMAL   0x02
+>>> #define OCR_MODE_CLOCK    0x03
+>>>
+>>> #define OCR_TX0_INVERT    0x04
+>>> #define OCR_TX0_PULLDOWN  0x08
+>>> #define OCR_TX0_PULLUP    0x10
+>>> #define OCR_TX0_PUSHPULL  0x18
+>>> #define OCR_TX1_INVERT    0x20
+>>> #define OCR_TX1_PULLDOWN  0x40
+>>> #define OCR_TX1_PULLUP    0x80
+>>> #define OCR_TX1_PUSHPULL  0xc0
+>>>
+>>> I think implementing properties for each option is overkill.
 > 
-> Andreas Eversberg (12):
->   Add watchdog functionality to hfcmulti driver
->   DSP now uses ring buffer for echo canceler
+> Ugh, I see what you mean.
+> 
+>> Would the following more descriptive properties be OK?
+>>
+>>  clock-out-frequency = <0>, // CLKOUT pin clock off
+>>                      = <4000000>; // frequency on CLKOUT pin
+> 
+> Or how about CLKOUT pin off if the property isn't present?  Otherwise,
 
-There is no way I'm pulling from that tree, even with the fixed
-up patch #9.
+Yep, that will be the default anyhow.
 
-How in the world is anyone supposed to know these are mISDN changes
-by looking at those changlog header lines?  They say nothing about
-the subsystem they are in.
+> this looks okay.  BTW, I'd consider prefixing this with 'nxp,' or
+> 'sja1000,' to protect the namespace.  clock-out-frequency sounds like
+> one of those names which could be commonly used in the future.  I'd so
+> the same for the other chip-specific properties too.
 
-I've modified every commit log message so that it says:
+> Segher, what's your opinion on this?
 
-mISDN: foo bar baz
+I personally don't have a real preference.
 
-instead of the anonymous stuff above.
+>>  bypass-input-comparator; // allows to bypass the CAN input comparator.
+>>
+>>  tx1-output-on-rx-irq;    // allows the TX1 output to be used as a
+>>                           // dedicated RX interrupt output.
+>>
+>>  output-control-mode = <0x0> // bi-phase output mode
+>>                        <0x1> // test output mode
+>>                        <0x2> // normal output mode (default)
+>>                        <0x3> // clock output mode
+>>
+>>  output-pin-config = <0x01> // TX0 invert
+>>                      <0x02> // TX0 pull-down
+>>                      <0x04> // TX0 pull-up
+>>                      <0x06> // TX0 push-pull
+>>                      <0x08> // TX1 invert
+>>                      <0x10> // TX1 pull-down
+>>                      <0x20> // TX1 pull-up
+>>                      <0x30> // TX1 push-pull
+> 
+> hmmm; It is very chip specific and it is a lot of mucking around.  If
+> you prefix the property with the manufacturer name, then perhaps the
+> explicit register setting is okay.
+
+OK.
+
+> Are TX0 & TX1 protocol pins or GPIOs?  If gpio, then maybe it is worth
+> the mucking about to then use the gpios binding to specify the pin
+> mode.
+
+These are the output from the CAN output driver 0 or 1 to the physical
+bus line. E.g., in normal output mode the CAN bit sequence is sent via
+TX0 or TX1. From a non-hardware expert point of view, they must be
+programmed properly to get the hardware to work.
+
+Wolfgang.
