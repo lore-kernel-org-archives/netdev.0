@@ -1,42 +1,37 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d"
- as interface name
-Date: Mon, 25 May 2009 12:43:37 +0200
-Message-ID: <4A1A7659.6060201@s5r6.in-berlin.de>
-References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de> <alpine.DEB.2.01.0905232309400.7424@bogon> <tkrat.6c3758bf0544a790@s5r6.in-berlin.de> <200905251033.09272.zzam@gentoo.org>
+From: David Shwatrz <dshwatrz@gmail.com>
+Subject: lookup in fib tables with NETLINK_FIB_LOOKUP
+Date: Mon, 25 May 2009 13:44:19 +0300
+Message-ID: <31436f4a0905250344md9c75fbud4540d48ce7f2a0d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-hotplug@vger.kernel.org,
-	Christian Kujau <lists@nerdbynature.de>,
-	linux-kernel@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Matthias Schwarzott <zzam@gentoo.org>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <200905251033.09272.zzam@gentoo.org>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: robert@robur.slu.se
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.152]:12966 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755788AbZEYKoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 06:44:20 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so627346fga.17
+        for <netdev@vger.kernel.org>; Mon, 25 May 2009 03:44:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Matthias Schwarzott wrote:
-> On Sonntag, 24. Mai 2009, Stefan Richter wrote:
->> Besides, if we can we should avoid fw%d because this will clash with
->> udev rules which match KERNEL=="fw*", as in
->> udev/rules/redhat/40-redhat.rules.
-> 
-> I suggest a subsystem match here, or generally some
-> SUBSYSTEM!="net", GOTO="end_of_file"
-> around almost all rule files that should not match on network interfaces, as 
-> users can rename them to almost all crazy names.
-> 
-> @Kay: Perhaps it could simplify some rulesets to have a special jump target or 
-> option to skip entiere rules files.
+Hello,
+I would appreciate if someone can write a short and brief explanation about
+the usage of  NETLINK_FIB_LOOKUP. It enables to perform a fib_lookup()
+via netlink.
+What's is its usage ? Are there any user space tools which use it ?
+I grepped for "NETLINK_FIB_LOOKUP" under iproute2 source code and no hit.
+Is there any difference between performing a lookup in the routing
+tables (as "ip route ...")
+and performing a lookup with NETLINK_FIB_LOOKUP?
 
-Right...  Luckily, 75-persistent-net-generator.rules already has a big
-SUBSYSTEM!="net", GOTO="persistent_net_generator_end" around everything.
+The NETLINK_FIB_LOOKUP was added a time ago, by Robert Olsson in  2005.
 
-Also, "fw*" devices related rules which I'll submit RSN will have
-SUBSYSTEM=="firewire" prefixes.
--- 
-Stefan Richter
--=====-==--= -=-= ==--=
-http://arcgraph.de/sr/
+see for example:http://www.mail-archive.com/netdev@vger.kernel.org/msg36395.html
+
+(git commit 246955fe4c38bd706ae30e37c64892c94213775d)
+
+Regards,
+DS
