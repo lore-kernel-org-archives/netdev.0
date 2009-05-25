@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] mlx4_en: Fix a kernel panic when waking tx
- queue
-Date: Mon, 25 May 2009 01:44:35 -0700 (PDT)
-Message-ID: <20090525.014435.203274473.davem@davemloft.net>
-References: <4A0AB34A.10100@mellanox.co.il>
-	<4A1948D7.8010504@mellanox.co.il>
-	<4A1A57AA.1080209@mellanox.co.il>
+From: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+Subject: [PATCH 1/5] net: sh_eth: fix cache coherency issue
+Date: Mon, 25 May 2009 18:52:35 +0900
+Message-ID: <4A1A6A63.8040608@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39695
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754797AbZEYIog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 04:44:36 -0400
-In-Reply-To: <4A1A57AA.1080209@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SH-Linux <linux-sh@vger.kernel.org>,
+	Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 25 May 2009 11:32:42 +0300
+Fix the problem that may not work receive process by cache coherency issue.
 
-> This patch fixes a kernel panic when waking the TX queue
-> from irq context.
-> 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+Signed-off-by: Nobuhiro Iwamatsu <iwamatsu.nobuhiro@renesas.com>
+---
+ drivers/net/sh_eth.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Why does it fix a panic?  What does the panic look like?
-What causes it?
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index 3ab28bb..a742297 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -250,6 +250,8 @@ static void sh_eth_ring_format(struct net_device *ndev)
+ 		mdp->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
++		dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
++				DMA_FROM_DEVICE);
+ 		skb->dev = ndev; /* Mark as being used by this device. */
+ #if defined(CONFIG_CPU_SUBTYPE_SH7763)
+ 		reserve = SH7763_SKB_ALIGN
+@@ -559,6 +561,8 @@ static int sh_eth_rx(struct net_device *ndev)
+ 			mdp->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break;	/* Better luck next round. */
++			dma_map_single(&ndev->dev, skb->tail, mdp->rx_buf_sz,
++					DMA_FROM_DEVICE);
+ 			skb->dev = ndev;
+ #if defined(CONFIG_CPU_SUBTYPE_SH7763)
+ 			reserve = SH7763_SKB_ALIGN
+-- 
+1.5.5
 
-Commit message is way too terse, please fix this and resubmit.
