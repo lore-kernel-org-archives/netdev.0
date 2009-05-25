@@ -1,37 +1,63 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: lookup in fib tables with NETLINK_FIB_LOOKUP
-Date: Mon, 25 May 2009 13:44:19 +0300
-Message-ID: <31436f4a0905250344md9c75fbud4540d48ce7f2a0d@mail.gmail.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] ieee1394: eth1394: use "firewire%d" instead of "eth%d" as
+	interface name
+Date: Mon, 25 May 2009 12:57:54 +0200
+Message-ID: <ac3eb2510905250357qd72b0eel7cec2bd56f12f71@mail.gmail.com>
+References: <tkrat.21c425cc195510c9@s5r6.in-berlin.de> <alpine.DEB.2.01.0905232309400.7424@bogon>
+	<tkrat.6c3758bf0544a790@s5r6.in-berlin.de> <200905251033.09272.zzam@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: robert@robur.slu.se
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:12966 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755788AbZEYKoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 06:44:20 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so627346fga.17
-        for <netdev@vger.kernel.org>; Mon, 25 May 2009 03:44:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-hotplug@vger.kernel.org,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christian Kujau <lists@nerdbynature.de>,
+	linux-kernel@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Matthias Schwarzott <zzam@gentoo.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <200905251033.09272.zzam@gentoo.org>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-I would appreciate if someone can write a short and brief explanation about
-the usage of  NETLINK_FIB_LOOKUP. It enables to perform a fib_lookup()
-via netlink.
-What's is its usage ? Are there any user space tools which use it ?
-I grepped for "NETLINK_FIB_LOOKUP" under iproute2 source code and no hit.
-Is there any difference between performing a lookup in the routing
-tables (as "ip route ...")
-and performing a lookup with NETLINK_FIB_LOOKUP?
+On Mon, May 25, 2009 at 10:33, Matthias Schwarzott <zzam@gentoo.org> wr=
+ote:
+> On Sonntag, 24. Mai 2009, Stefan Richter wrote:
+>> Christian Kujau wrote at LKML:
+>> > If the patch will be accepted at all and it's not too late to ask:=
+ I'd
+>> > vote for fw%d as well, "firefire" just looks too long, for me at l=
+east.
+>>
+>> I think I'll leave the driver as it is.
+>> As I just noticed, we would lose interface renaming by udev.
+>> From udev/extras/rule_generator/75-persistent-net-generator.rules:
+>>
+>> =C2=A0 # device name whitelist
+>> =C2=A0 KERNEL!=3D"eth*|ath*|wlan*[0-9]|msh*|ra*|sta*|ctc*|lcs*|hsi*"=
+,
+>> GOTO=3D"persistent_net_generator_end"
+>>
+>> Besides, if we can we should avoid fw%d because this will clash with
+>> udev rules which match KERNEL=3D=3D"fw*", as in
+>> udev/rules/redhat/40-redhat.rules.
+>
+> I suggest a subsystem match here, or generally some
+> SUBSYSTEM!=3D"net", GOTO=3D"end_of_file"
+> around almost all rule files that should not match on network interfa=
+ces, as
+> users can rename them to almost all crazy names.
+>
+> @Kay: Perhaps it could simplify some rulesets to have a special jump =
+target or
+> option to skip entiere rules files.
 
-The NETLINK_FIB_LOOKUP was added a time ago, by Robert Olsson in  2005.
+Not sure, if Fedora is using this rule file, there seems a lot of old
+stuff in it. But the rule should be ignored for device without a
+device node, when SYMLINK is given in the rule.
 
-see for example:http://www.mail-archive.com/netdev@vger.kernel.org/msg36395.html
-
-(git commit 246955fe4c38bd706ae30e37c64892c94213775d)
-
-Regards,
-DS
+Kay
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hotplug=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
