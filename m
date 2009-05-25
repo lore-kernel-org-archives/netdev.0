@@ -1,143 +1,71 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus
-	driver
-Date: Mon, 25 May 2009 10:15:45 +0200
-Message-ID: <4A1A53B1.7040708@grandegger.com>
-References: <4A16BAAE.3070401@grandegger.com>
-	<fa686aa40905220808kecd06cdqb570b78ca97f0ca6@mail.gmail.com>
-	<4A1797C5.1040907@grandegger.com> <4A182800.2090204@grandegger.com>
-	<fa686aa40905242353v21c08209x2e443f42ef4096fa@mail.gmail.com>
+From: Damien Wyart <damien.wyart@free.fr>
+Subject: Re: regression: unregister_netdev() unusably slow
+Date: Mon, 25 May 2009 10:04:20 +0200
+Message-ID: <20090525080420.GA10127@localhost.localdomain>
+References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org> <4A19C50B.9040304@cosmosbay.com> <20090524221240.GI24757@kvack.org> <4A19CE8B.3070302@cosmosbay.com> <20090525000050.GJ24757@kvack.org> <4A1A2AFA.8020605@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	devicetree-discuss <devicetree-discuss@ozlabs.org>,
-	linuxppc-dev <Linuxppc-dev@ozlabs.org>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <fa686aa40905242353v21c08209x2e443f42ef4096fa@mail.gmail.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin LaHaise <bcrl@lhnet.ca>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, linux kernel <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhost-c5-p0.nerim.net ([195.5.209.11]:65499 "EHLO
+	smtp-delay1.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751405AbZEYIUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 04:20:02 -0400
+Content-Disposition: inline
+In-Reply-To: <4A1A2AFA.8020605@cosmosbay.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Grant Likely wrote:
-> On Sat, May 23, 2009 at 10:44 AM, Wolfgang Grandegger <wg@grandegger.com> wrote:
->> Wolfgang Grandegger wrote:
->>> Grant Likely wrote:
->>>>> +- clock-frequency : CAN system clock frequency in Hz, which is normally
->>>>> +       half of the oscillator clock frequency. If not specified, a
->>>>> +       default value of 8000000 (8 MHz) is used.
->>>> A clock-frequency property typically refers to the bus clock
->>>> frequency.  Something like can-frequency would be better.
->>> Ah, right, but I'm also not happy with "can-frequency". The manual
->>> speaks about the "internal clock", which is half of the external
->>> oscillator frequency. Maybe "internal-clock-frequency" might be better.
-> 
-> Would it be better to specify the external clock frequency, and the
-> driver know that internal freq is half that?  I ask because external
-> clock freq is a value the HW designer actually has control over.
+Hello,
 
-I'm sharing your arguments: "external-clock-frequency". There is always
-some confusion about external and internal clock frequency but the name
-should make it clear.
+* Eric Dumazet <dada1@cosmosbay.com> [2009-05-25 07:22]:
+> Time to include Paul and lkml in the discussion, and find a better
+> solution than one provided in February.
 
->>>>> +- cdr-reg : value of the SJA1000 clock divider register according to
->>>>> +       the SJA1000 data sheet. If not specified, a default value of
->>>>> +       0x48 is used.
->>>> Ewh.  The driver should be clueful enough to derive the clock divider
->>>> value given both the bus and can frequencies.  I don't like this
->>>> property.
->>> The clock divider register controls the CLKOUT frequency for the
->>> microcontroller another CAN controller and allows to deactivate the
->>> CLKOUT pin. It's not used to configure the CAN bus frequency.
->>>
->>>>> +- ocr-reg : value of the SJA1000 output control register according to
->>>>> +       the SJA1000 data sheet. If not specified, a default value of
->>>>> +       0x0a is used.
->>>> Ditto here; the binding should describe the usage mode; not the
->>>> register settings to get the usage mode.  What sort of settings will
->>>> the .dts author be writing here?
->>> Unfortunately, there are many:
->>>
->>> clkout-frequency
->>> bypass-comperator
->>> tx1-output-on-rx-irq
->>>
->>> #define OCR_MODE_BIPHASE  0x00
->>> #define OCR_MODE_TEST     0x01
->>> #define OCR_MODE_NORMAL   0x02
->>> #define OCR_MODE_CLOCK    0x03
->>>
->>> #define OCR_TX0_INVERT    0x04
->>> #define OCR_TX0_PULLDOWN  0x08
->>> #define OCR_TX0_PULLUP    0x10
->>> #define OCR_TX0_PUSHPULL  0x18
->>> #define OCR_TX1_INVERT    0x20
->>> #define OCR_TX1_PULLDOWN  0x40
->>> #define OCR_TX1_PULLUP    0x80
->>> #define OCR_TX1_PUSHPULL  0xc0
->>>
->>> I think implementing properties for each option is overkill.
-> 
-> Ugh, I see what you mean.
-> 
->> Would the following more descriptive properties be OK?
->>
->>  clock-out-frequency = <0>, // CLKOUT pin clock off
->>                      = <4000000>; // frequency on CLKOUT pin
-> 
-> Or how about CLKOUT pin off if the property isn't present?  Otherwise,
+> > bf51935f3e988e0ed6f34b55593e5912f990750a is first bad commit
+> > commit bf51935f3e988e0ed6f34b55593e5912f990750a
+> > Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Date:   Tue Feb 17 06:01:30 2009 -0800
 
-Yep, that will be the default anyhow.
+> >     x86, rcu: fix strange load average and ksoftirqd behavior
 
-> this looks okay.  BTW, I'd consider prefixing this with 'nxp,' or
-> 'sja1000,' to protect the namespace.  clock-out-frequency sounds like
-> one of those names which could be commonly used in the future.  I'd so
-> the same for the other chip-specific properties too.
+> >     Damien Wyart reported high ksoftirqd CPU usage (20%) on an
+> >     otherwise idle system.
 
-> Segher, what's your opinion on this?
+> >     The function-graph trace Damien provided:
+> > ...
+> > diff --git a/arch/x86/kernel/process_32.c b/arch/x86/kernel/process_32.c
 
-I personally don't have a real preference.
+> > index a546f55..bd4da2a 100644
+> > --- a/arch/x86/kernel/process_32.c
+> > +++ b/arch/x86/kernel/process_32.c
+> > @@ -104,9 +104,6 @@ void cpu_idle(void)
+> >  			check_pgt_cache();
+> >  			rmb();
 
->>  bypass-input-comparator; // allows to bypass the CAN input comparator.
->>
->>  tx1-output-on-rx-irq;    // allows the TX1 output to be used as a
->>                           // dedicated RX interrupt output.
->>
->>  output-control-mode = <0x0> // bi-phase output mode
->>                        <0x1> // test output mode
->>                        <0x2> // normal output mode (default)
->>                        <0x3> // clock output mode
->>
->>  output-pin-config = <0x01> // TX0 invert
->>                      <0x02> // TX0 pull-down
->>                      <0x04> // TX0 pull-up
->>                      <0x06> // TX0 push-pull
->>                      <0x08> // TX1 invert
->>                      <0x10> // TX1 pull-down
->>                      <0x20> // TX1 pull-up
->>                      <0x30> // TX1 push-pull
-> 
-> hmmm; It is very chip specific and it is a lot of mucking around.  If
-> you prefix the property with the manufacturer name, then perhaps the
-> explicit register setting is okay.
+> > -			if (rcu_pending(cpu))
+> > -				rcu_check_callbacks(cpu, 0);
+> > -
+> >  			if (cpu_is_offline(cpu))
+> >  				play_dead();
 
-OK.
+> I wonder if the real root of the problem was not discovered in the meantime,
+> by commit 64ca5ab913f1594ef316556e65f5eae63ff50cee
+> rcu: increment quiescent state counter in ksoftirqd()
 
-> Are TX0 & TX1 protocol pins or GPIOs?  If gpio, then maybe it is worth
-> the mucking about to then use the gpios binding to specify the pin
-> mode.
+> Maybe this commit solved Damien Wyart problem as well, and we can revert
+> commit bf51935f3e988e0ed6f34b55593e5912f990750a ?
 
-These are the output from the CAN output driver 0 or 1 to the physical
-bus line. E.g., in normal output mode the CAN bit sequence is sent via
-TX0 or TX1. From a non-hardware expert point of view, they must be
-programmed properly to get the hardware to work.
+Ran some tests on 2.6.30-rc7 with bf51935f reverted, and I am still
+seeing the problems I originally reported back in February, so I guess
+64ca5ab9 is not enough to fully solve all the issues... Note that I am
+using CONFIG_TREE_RCU=y (was already true in my February reports).
 
-Wolfgang.
+Feel free to ask if more testing is needed.
+
+-- 
+Damien Wyart
