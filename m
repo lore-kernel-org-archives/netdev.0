@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: skbuff: Move new code into __copy_skb_header
-Date: Mon, 25 May 2009 00:40:58 -0700 (PDT)
-Message-ID: <20090525.004058.101840379.davem@davemloft.net>
-References: <20090523081137.GA12567@gondor.apana.org.au>
+Subject: Re: skbuff: Copy csum instead of csum_start/csum_offset
+Date: Mon, 25 May 2009 00:41:05 -0700 (PDT)
+Message-ID: <20090525.004105.187030775.davem@davemloft.net>
+References: <20090523082002.GA14135@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.moore@hp.com,
-	Sujith.Manoharan@atheros.com, johannes@sipsolutions.net,
-	linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49532
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49538
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759758AbZEYHk7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:40:59 -0400
-In-Reply-To: <20090523081137.GA12567@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1759714AbZEYHlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:41:06 -0400
+In-Reply-To: <20090523082002.GA14135@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 23 May 2009 18:11:37 +1000
+Date: Sat, 23 May 2009 18:20:02 +1000
 
-> skbuff: Move new __skb_clone code into __copy_skb_header
+> skbuff: Copy csum instead of csum_start/csum_offset
 > 
-> It seems that people just keep on adding stuff to __skb_clone
-> instead __copy_skb_header.  This is wrong as it means your brand-new
-> attributes won't always get copied as you intended.
-> 
-> This patch moves them to the right place, and adds a comment to
-> prevent this from happening again.
+> It's easier to copy the u32 csum instead of its two u16
+> constituents.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
