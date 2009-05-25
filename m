@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] mlx4_en: Fix partial rings feature
-Date: Mon, 25 May 2009 00:36:24 -0700 (PDT)
-Message-ID: <20090525.003624.199194278.davem@davemloft.net>
-References: <49EC859C.700@mellanox.co.il>
-	<4A0AB34A.10100@mellanox.co.il>
-	<4A1948D7.8010504@mellanox.co.il>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-05-22
+Date: Mon, 25 May 2009 00:38:57 -0700 (PDT)
+Message-ID: <20090525.003857.226765449.davem@davemloft.net>
+References: <20090522183238.GE3559@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42774
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758895AbZEYHgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:36:25 -0400
-In-Reply-To: <4A1948D7.8010504@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090522183238.GE3559-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Sun, 24 May 2009 16:17:11 +0300
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 22 May 2009 14:32:39 -0400
 
-> In case of allocation failure, the actual ring size is rounded down to
-> nearest power of 2. The remaining descriptors are freed.
-> The CQ and SRQ are allocated with the actual size and the mask is updated.
+> Dave,
 > 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> Another huge dump of stuff intended for 2.6.31...it seems like it never
+> stops!  I guess that is mostly good... :-)
+> 
+> There are a bunch of driver updates, some mac80211 bits that are fixes
+> for things already in -next, some similar regulatory fixes/changes for
+> cfg80211, etc.  Also of note is a new "full MAC" driver for a new
+> not-quite-available device coming soon from Intel.
 
-Applied to net-next-2.6
+Pulled, thanks John.
+
+Enjoy Barcelona :-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
