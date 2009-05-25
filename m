@@ -1,46 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH][be2net] Code changes to handle dev pvt
- ioctl
-Date: Mon, 25 May 2009 00:34:22 -0700 (PDT)
-Message-ID: <20090525.003422.117077559.davem@davemloft.net>
-References: <20090524053149.GA17527@serverengines.com>
+Subject: Re: [PATCH 2/2] mlx4_en: Fix partial rings feature
+Date: Mon, 25 May 2009 00:36:24 -0700 (PDT)
+Message-ID: <20090525.003624.199194278.davem@davemloft.net>
+References: <49EC859C.700@mellanox.co.il>
+	<4A0AB34A.10100@mellanox.co.il>
+	<4A1948D7.8010504@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sarveshwarb@serverengines.com
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42767
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42774
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758264AbZEYHeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:34:23 -0400
-In-Reply-To: <20090524053149.GA17527@serverengines.com>
+	by vger.kernel.org with ESMTP id S1758895AbZEYHgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 03:36:25 -0400
+In-Reply-To: <4A1948D7.8010504@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Date: Sun, 24 May 2009 11:01:58 +0530
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Sun, 24 May 2009 16:17:11 +0300
 
-> Resubmitting patch for net-next tree to handle SIOCDEVPRIVATE ioctl. Also
-> have incorporated comments given by Ben Hutchings.
+> In case of allocation failure, the actual ring size is rounded down to
+> nearest power of 2. The remaining descriptors are freed.
+> The CQ and SRQ are allocated with the actual size and the mask is updated.
 > 
-> Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-So what kind of diagnostic commands do userlevel tools need
-this for?
-
-If they fall into useful generic categories, I'd rather you add new
-ethtool commands for doing them, one for each diagnostic command.
-For all I know, we might even have such things already if this is
-for self-test, firmware upload/download, or similar.
-
-Device private ioctls are heavily undesirable, because every driver
-implements different ones, and thus the experience for users and tool
-writers is completely inconsistent.
-
-Until I know more about what this is going to be used for I am
-rejecting this patch.
-
-I really don't like any of the changes I've seen submitted recently
-for the be2net driver, to be honest with you. :-/
-
+Applied to net-next-2.6
