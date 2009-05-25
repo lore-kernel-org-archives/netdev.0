@@ -1,71 +1,82 @@
-From: Damien Wyart <damien.wyart@free.fr>
-Subject: Re: regression: unregister_netdev() unusably slow
-Date: Mon, 25 May 2009 10:04:20 +0200
-Message-ID: <20090525080420.GA10127@localhost.localdomain>
-References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org> <4A19C50B.9040304@cosmosbay.com> <20090524221240.GI24757@kvack.org> <4A19CE8B.3070302@cosmosbay.com> <20090525000050.GJ24757@kvack.org> <4A1A2AFA.8020605@cosmosbay.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [net-2.6 PATCH] mlx4_en: Fix a kernel panic when waking tx queue
+Date: Mon, 25 May 2009 11:32:42 +0300
+Message-ID: <4A1A57AA.1080209@mellanox.co.il>
+References: <49EC859C.700@mellanox.co.il> <4A0AB34A.10100@mellanox.co.il> <4A1948D7.8010504@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin LaHaise <bcrl@lhnet.ca>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, linux kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhost-c5-p0.nerim.net ([195.5.209.11]:65499 "EHLO
-	smtp-delay1.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751405AbZEYIUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 04:20:02 -0400
-Content-Disposition: inline
-In-Reply-To: <4A1A2AFA.8020605@cosmosbay.com>
+Received: from mail.mellanox.co.il ([194.90.237.43]:35814 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751117AbZEYIbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 May 2009 04:31:49 -0400
+In-Reply-To: <4A1948D7.8010504@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This patch fixes a kernel panic when waking the TX queue
+from irq context.
 
-* Eric Dumazet <dada1@cosmosbay.com> [2009-05-25 07:22]:
-> Time to include Paul and lkml in the discussion, and find a better
-> solution than one provided in February.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_tx.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-> > bf51935f3e988e0ed6f34b55593e5912f990750a is first bad commit
-> > commit bf51935f3e988e0ed6f34b55593e5912f990750a
-> > Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Date:   Tue Feb 17 06:01:30 2009 -0800
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+index ac6fc49..bbb082b 100644
+--- a/drivers/net/mlx4/en_tx.c
++++ b/drivers/net/mlx4/en_tx.c
+@@ -326,7 +326,8 @@ void mlx4_en_set_prio_map(struct mlx4_en_priv *priv, u16 *prio_map, u32 ring_num
+ 	}
+ }
 
-> >     x86, rcu: fix strange load average and ksoftirqd behavior
+-static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
++static void mlx4_en_process_tx_cq(struct net_device *dev,
++				  struct mlx4_en_cq *cq, int poll)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_cq *mcq = &cq->mcq;
+@@ -383,7 +384,7 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
+ 	ring->cons += txbbs_skipped;
 
-> >     Damien Wyart reported high ksoftirqd CPU usage (20%) on an
-> >     otherwise idle system.
+ 	/* Wakeup Tx queue if this ring stopped it */
+-	if (unlikely(ring->blocked)) {
++	if (unlikely(ring->blocked) && poll) {
+ 		if ((u32) (ring->prod - ring->cons) <=
+ 		     ring->size - HEADROOM - MAX_DESC_TXBBS) {
 
-> >     The function-graph trace Damien provided:
-> > ...
-> > diff --git a/arch/x86/kernel/process_32.c b/arch/x86/kernel/process_32.c
+@@ -411,7 +412,7 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
 
-> > index a546f55..bd4da2a 100644
-> > --- a/arch/x86/kernel/process_32.c
-> > +++ b/arch/x86/kernel/process_32.c
-> > @@ -104,9 +104,6 @@ void cpu_idle(void)
-> >  			check_pgt_cache();
-> >  			rmb();
+ 	if (!spin_trylock(&ring->comp_lock))
+ 		return;
+-	mlx4_en_process_tx_cq(cq->dev, cq);
++	mlx4_en_process_tx_cq(cq->dev, cq, 0);
+ 	mod_timer(&cq->timer, jiffies + 1);
+ 	spin_unlock(&ring->comp_lock);
+ }
+@@ -430,7 +431,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
+ 		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+ 		return;
+ 	}
+-	mlx4_en_process_tx_cq(cq->dev, cq);
++	mlx4_en_process_tx_cq(cq->dev, cq, 1);
+ 	inflight = (u32) (ring->prod - ring->cons - ring->last_nr_txbb);
 
-> > -			if (rcu_pending(cpu))
-> > -				rcu_check_callbacks(cpu, 0);
-> > -
-> >  			if (cpu_is_offline(cpu))
-> >  				play_dead();
-
-> I wonder if the real root of the problem was not discovered in the meantime,
-> by commit 64ca5ab913f1594ef316556e65f5eae63ff50cee
-> rcu: increment quiescent state counter in ksoftirqd()
-
-> Maybe this commit solved Damien Wyart problem as well, and we can revert
-> commit bf51935f3e988e0ed6f34b55593e5912f990750a ?
-
-Ran some tests on 2.6.30-rc7 with bf51935f reverted, and I am still
-seeing the problems I originally reported back in February, so I guess
-64ca5ab9 is not enough to fully solve all the issues... Note that I am
-using CONFIG_TREE_RCU=y (was already true in my February reports).
-
-Feel free to ask if more testing is needed.
-
+ 	/* If there are still packets in flight and the timer has not already
+@@ -483,7 +484,7 @@ static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
+ 	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
+ 	if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) == 0)
+ 		if (spin_trylock(&ring->comp_lock)) {
+-			mlx4_en_process_tx_cq(priv->dev, cq);
++			mlx4_en_process_tx_cq(priv->dev, cq, 1);
+ 			spin_unlock(&ring->comp_lock);
+ 		}
+ }
 -- 
-Damien Wyart
+1.6.0
+
+
+
