@@ -1,38 +1,37 @@
-From: matthieu castet <castet.matthieu@free.fr>
-Subject: Re: [PATCH] bc47xx : fix ssb irq setup
-Date: Mon, 25 May 2009 19:55:58 +0200
-Message-ID: <4A1ADBAE.6070101@free.fr>
-References: <4A11DBD4.7070706@free.fr> <200905191519.59193.mb@bu3sch.de>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: Network data corruption on atl1e
+Date: Mon, 25 May 2009 15:50:43 -0500
+Message-ID: <20090525155043.5b8b1a90@osprey.hogchain.net>
+References: <88a913b70905211029j38e22083g407dfba5c17754a1@mail.gmail.com>
+	<20090524182042.GA8159@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
-	Daniel Mueller <daniel@danm.de>
-To: Michael Buesch <mb@bu3sch.de>
+Cc: linux-kernel@vger.kernel.org, Vlad Cerny <vlad.cerny@gmail.com>,
+	netdev@vger.kernel.org, jie.yang@atheros.com
+To: Eric Cooper <ecc@cmu.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:36537 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753056AbZEYR4I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 May 2009 13:56:08 -0400
-In-Reply-To: <200905191519.59193.mb@bu3sch.de>
+Received: from yw-out-2324.google.com ([74.125.46.29]:22762 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbZEYUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 May 2009 16:50:48 -0400
+In-Reply-To: <20090524182042.GA8159@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Buesch wrote:
-> On Tuesday 19 May 2009 00:06:12 matthieu castet wrote:
->> Hi,
->>
->>
->> [1] http://www.danm.de/files/src/bcm5365p/REPORTED_DEVICES
->>
->> Signed-off-by: Matthieu CASTET <castet.matthieu@free.fr>
->>
-> 
-> If this works on all devices, I'm OK with this. Please submit to linville@tuxdriver.com
-> You can add my ack.
-> 
-Well I have only a wl500gd.
-I have submit it on openwrt project in order to test in more devices.
+On Sun, 24 May 2009 14:20:42 -0400
+Eric Cooper <ecc@cmu.edu> wrote:
 
+> Reading large files over NFS using the at1le Ethernet driver results
+> in data corruption in 2.6.29.
+> 
+> Further details are in this thread:
+>   http://lists.alioth.debian.org/pipermail/debian-eeepc-devel/2009-May/002199.html 
+> 
+> I'll be happy to help with further tests, etc.  Please CC Vlad and me
+> on any followups, thanks.
+> 
 
-Matthieu
+Adding netdev and maintainers to cc.
+
+Jay
