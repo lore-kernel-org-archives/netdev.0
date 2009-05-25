@@ -1,141 +1,182 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: regression: unregister_netdev() unusably slow
-Date: Mon, 25 May 2009 09:21:42 -0700
-Message-ID: <20090525162142.GC7168@linux.vnet.ibm.com>
-References: <20090524192150.GE24757@kvack.org> <200905250023.31056.denys@visp.net.lb> <20090524213744.GG24757@kvack.org> <4A19BF39.4000305@cosmosbay.com> <20090524214433.GH24757@kvack.org> <4A19C50B.9040304@cosmosbay.com> <20090524221240.GI24757@kvack.org> <4A19CE8B.3070302@cosmosbay.com> <20090525000050.GJ24757@kvack.org> <4A1A2AFA.8020605@cosmosbay.com>
+Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
+Date: Mon, 25 May 2009 09:44:46 -0700
+Message-ID: <20090525164446.GD7168@linux.vnet.ibm.com>
+References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin LaHaise <bcrl@lhnet.ca>,
-	Denys Fedoryschenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	damien.wyart@free.fr
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754110AbZEYQVo@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, mingo@elte.hu,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
+	jeff.chua.linux@gmail.com, paulus@samba.org, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:48859 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752039AbZEYQok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 May 2009 12:44:40 -0400
 Content-Disposition: inline
-In-Reply-To: <4A1A2AFA.8020605@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A1A3C23.8090004@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 25, 2009 at 07:22:02AM +0200, Eric Dumazet wrote:
-> Benjamin LaHaise a =E9crit :
-> > On Mon, May 25, 2009 at 12:47:39AM +0200, Eric Dumazet wrote:
-> >> There is a strong dependancy against HZ
-> >> BTW, I am using TREE_RCU
-> >=20
-> > I'm using CLASSIC_RCU.  The bisect just completed, and it points to=
- RCU. =20
-> > It makes some degree of sense since I'm testing on an otherwise idl=
-e=20
-> > machine.  That said, where is fixing it going to make sense?  I'm n=
-ot=20
-> > opposed to having device unregister take a few timer ticks, but the=
-re=20
-> > has to be some way of exposing parallelism to the system, and since=
- the=20
-> > synchronize_net() calls are done under rntl_lock(), none is possibl=
-e at=20
-> > present.  Hrm.
->=20
-> Thanks Ben, this bisection indeed confirms how nasty synchronize_rcu(=
-) is :)
+On Mon, May 25, 2009 at 02:35:15PM +0800, Lai Jiangshan wrote:
+> Paul E. McKenney wrote:
+> > Seventh cut of "big hammer" expedited RCU grace periods.  This leverages
+> > the existing per-CPU migration kthreads, as suggested by Ingo.  These
+> > are awakened in a loop, and waited for in a second loop.  Not fully
+> > scalable, but removing the extra hop through smp_call_function
+> > reduces latency on systems with moderate numbers of CPUs.  The
+> > synchronize_rcu_expedited() and and synchronize_bh_expedited() primitives
+> > invoke synchronize_sched_expedited(), except for CONFIG_PREEMPT_RCU,
+> > where they instead invoke synchronize_rcu() and synchronize_rcu_bh(),
+> > respectively.  This will be fixed in the future, after preemptable RCU
+> > is folded into the rcutree implementation.
+> > 
+> 
+> I'm strongly need this guarantee:
+> 
+> preempt_disable() guarantees/implies rcu_read_lock().
+> 
+> And
+> local_irq_diable() guarantees/implies rcu_read_lock().
+> rcu_read_lock_bh() guarantees/implies rcu_read_lock().
+> 
+> 
+> It will simplifies codes.
 
-Yet another step in my learning what is required of RCU, it seems!  ;-)
+Hmmm...  I did produce a patch that modified preemptable RCU
+in this way quite some time back, but at that time the problem
+was solved in a different way.  The approach was either to add
+rcu_read_lock()/rcu_read_unlock() pairs as needed, or to switch to
+call_rcu_sched() or synchronize_sched() for the update side.
 
-> Time to include Paul and lkml in the discussion, and find a better so=
-lution than=20
-> one provided in February.
+But please note that this approach would not permit the current
+implementation of synchronize_sched_expedited() to be used in the
+preemptable-RCU case, because synchronize_sched_expedited() would
+not wait for RCU read-side critical sections that had been preempted.
+And the ability to preempt RCU read-side critical sections is absolutely
+required for CONFIG_PREEMPT_RT versions of the Linux kernel.
 
-One approach would be to convert the offending synchronize_rcu() to
-call_rcu(), but if this were straightforward, I would guess that you wo=
-uld
-have already done this.  But if the code following the synchronize_rcu(=
-)
-does nothing but free up old data structures, this is an easy fix.
-If there are statistics or other state involved, then call_rcu() might
-not be the right tool for the job.
+> And
+> A lot's of current kernel code does not use rcu_read_lock()
+> when it has preempt_disable()-ed/local_irq_diable()-ed or
+> when it is in irq/softirq.
+> 
+> Without these guarantees, these code is broken.
 
-Another approach is to apply the patch at:
+One way or another, such code does need to be fixed.  Either by
+reintroducing the old patch, or by fixing the code itself.
 
-	http://lkml.org/lkml/2009/5/22/332
+> > +
+> > +static DEFINE_PER_CPU(struct migration_req, rcu_migration_req);
+> > +static DEFINE_MUTEX(rcu_sched_expedited_mutex);
+> > +
+> > +/*
+> > + * Wait for an rcu-sched grace period to elapse, but use "big hammer"
+> > + * approach to force grace period to end quickly.  This consumes
+> > + * significant time on all CPUs, and is thus not recommended for
+> > + * any sort of common-case code.
+> > + */
+> > +void synchronize_sched_expedited(void)
+> > +{
+> > +	int cpu;
+> > +	unsigned long flags;
+> > +	struct rq *rq;
+> > +	struct migration_req *req;
+> > +
+> > +	mutex_lock(&rcu_sched_expedited_mutex);
+> > +	get_online_cpus();
+> > +	for_each_online_cpu(cpu) {
+> > +		rq = cpu_rq(cpu);
+> > +		req = &per_cpu(rcu_migration_req, cpu);
+> > +		init_completion(&req->done);
+> > +		req->task = NULL;
+> > +		req->dest_cpu = -1;
+> > +		spin_lock_irqsave(&rq->lock, flags);
+> > +		list_add(&req->list, &rq->migration_queue);
+> > +		spin_unlock_irqrestore(&rq->lock, flags);
+> > +		wake_up_process(rq->migration_thread);
+> > +	}
+> > +	for_each_online_cpu(cpu) {
+> > +		req = &per_cpu(rcu_migration_req, cpu);
+> > +		wait_for_completion(&req->done);
+> > +	}
+> > +	put_online_cpus();
+> > +	mutex_unlock(&rcu_sched_expedited_mutex);
+> > +}
+> > +EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
+> > +
+> > +#endif /* #else #ifndef CONFIG_SMP */
+> > 
+> > 
+> 
+> Very nice implement!
 
-Then replace the offending synchronize_rcu() with synchronize_rcu_exped=
-ited().
-This code is still a bit on the experimental side, but tests have been
-going quite well, so, unlike a week or two ago, it is definitely worth
-trying out.
+Glad you like it!!!  The idea is Ingo's.
 
-Do either of these approaches work for you?
+Gah!!!  I need to have included a Suggested-by on v7 of the patch!!!
+
+> Only one opinion:
+> get_online_cpus() is a large lock, a lot's of lock in kernel is required
+> after cpu_hotplug.lock.
+> 
+> _cpu_down()
+> 	cpu_hotplug_begin()
+> 		mutex_lock(&cpu_hotplug.lock)
+> 	__raw_notifier_call_chain(CPU_DOWN_PREPARE)
+> 		Lock a-kernel-lock.
+> 
+> It means when we have held a-kernel-lock, we can not call
+> synchronize_sched_expedited(). get_online_cpus() narrows
+> synchronize_sched_expedited()'s usages.
+> 
+> I think we can reuse req->dest_cpu and remove get_online_cpus().
+> (and use preempt_disable() and for_each_possible_cpu())
+> 
+> req->dest_cpu = -2 means @req is not queued
+> req->dest_cpu = -1 means @req is queued
+> 
+> a little like this code:
+> 
+> 	mutex_lock(&rcu_sched_expedited_mutex);
+> 	for_each_possible_cpu(cpu) {
+> 		preempt_disable()
+> 		if (cpu is not online)
+> 			just set req->dest_cpu to -2;
+> 		else
+> 			init and queue req, and wake_up_process().
+> 		preempt_enable()
+> 	}
+> 	for_each_possible_cpu(cpu) {
+> 		if (req is queued)
+> 			wait_for_completion().
+> 	}
+> 	mutex_unlock(&rcu_sched_expedited_mutex);
+
+Good point -- I should at the very least add a comment to
+synchronize_sched_expedited() stating that it cannot be called holding
+any lock that is acquired in a CPU hotplug notifier.  If this restriction
+causes any problems, then your approach seems like a promising fix.
+
+> The coupling of synchronize_sched_expedited() and migration_req
+> is largely increased:
+> 
+> 1) The offline cpu's per_cpu(rcu_migration_req, cpu) is handled.
+>    See migration_call::CPU_DEAD
+
+Good.  ;-)
+
+> 2) migration_call() is the highest priority of cpu notifiers,
+>    So even any other cpu notifier calls synchronize_sched_expedited(),
+>    It'll not cause DEADLOCK.
+
+You mean if using your preempt_disable() approach, right?  Unless I am
+missing something, the current get_online_cpus() approach would deadlock
+in this case.
 
 							Thanx, Paul
-
-> > 		-ben
-> >=20
-> > bf51935f3e988e0ed6f34b55593e5912f990750a is first bad commit
-> > commit bf51935f3e988e0ed6f34b55593e5912f990750a
-> > Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Date:   Tue Feb 17 06:01:30 2009 -0800
-> >=20
-> >     x86, rcu: fix strange load average and ksoftirqd behavior
-> >    =20
-> >     Damien Wyart reported high ksoftirqd CPU usage (20%) on an
-> >     otherwise idle system.
-> >    =20
-> >     The function-graph trace Damien provided:
-> > ...
-> > diff --git a/arch/x86/kernel/process_32.c b/arch/x86/kernel/process=
-_32.c
-> >=20
-> > index a546f55..bd4da2a 100644
-> > --- a/arch/x86/kernel/process_32.c
-> > +++ b/arch/x86/kernel/process_32.c
-> > @@ -104,9 +104,6 @@ void cpu_idle(void)
-> >  			check_pgt_cache();
-> >  			rmb();
-> > =20
-> > -			if (rcu_pending(cpu))
-> > -				rcu_check_callbacks(cpu, 0);
-> > -
-> >  			if (cpu_is_offline(cpu))
-> >  				play_dead();
-> > =20
-> >=20
-> > --
->=20
-> Paul, this commit makes net device unregister very slow (more than 10=
-0 ms
->  if CONFIG_NO_HZ is set), while it used to be pretty fast in previous=
- kernels.
->=20
-> Quoting Ben :=20
-> " I just ran a few L2TP tests against 2.6.30-rc7, and it looks like n=
-etwork=20
->   device deletion has become unusably slow.  At least in 2.6.27.10, d=
-eleting=20
->   1000 network interfaces takes less than 2 seconds of real time.  Th=
-e same=20
->   test run under 2.6.30-rc7 is taking hundreds of seconds to delete 1=
-000=20
->   interfaces at a rate of about 5 per second.  The interfaces all sha=
-re the=20
->   same local ip address, but each have a single route to a unique cli=
-ent=20
->   ip address."
->=20
-> Device unregister is a synchronize_rcu() abuser (three calls to disma=
-ntle
-> a vlan...) so delaying rcu callbacks can be pretty expensive for it.
->=20
-> I wonder if the real root of the problem was not discovered in the me=
-antime,
-> by commit 64ca5ab913f1594ef316556e65f5eae63ff50cee
-> rcu: increment quiescent state counter in ksoftirqd()
->=20
-> Maybe this commit solved Damien Wyart problem as well, and we can rev=
-ert
-> commit bf51935f3e988e0ed6f34b55593e5912f990750a ?
->=20
-> Thank you
->=20
