@@ -1,95 +1,74 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/5] ieee802154: add virtual loopback driver
-Date: Tue, 26 May 2009 15:23:07 +0400
-Message-ID: <1243336988-20109-4-git-send-email-dbaryshkov@gmail.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PATCH 5/5] ieee802154: add serial dongle driver
+Date: Tue, 26 May 2009 15:23:08 +0400
+Message-ID: <1243336988-20109-5-git-send-email-dbaryshkov@gmail.com>
 References: <20090526112157.GA19976@doriath.ww600.siemens.net>
  <1243336988-20109-1-git-send-email-dbaryshkov@gmail.com>
  <1243336988-20109-2-git-send-email-dbaryshkov@gmail.com>
  <1243336988-20109-3-git-send-email-dbaryshkov@gmail.com>
-Cc: slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1243336988-20109-3-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+ <1243336988-20109-4-git-send-email-dbaryshkov@gmail.com>
+Cc: slapin@ossfans.org, maxim.osipov@siemens.com,
+	dmitry.baryshkov@siemens.com, oliver.fendt@siemens.com,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:37399 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753933AbZEZLXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 07:23:39 -0400
+In-Reply-To: <1243336988-20109-4-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fakelb is a virtual loopback driver implementing one or several
-interconnected radios. Packets from the radio are either sent
-back to the node (if no other fake radio are registered) or to
-all other fake radio.
+Add a tty ldisc supporting IEEE 802.15.4 over serial line. Currently
+the only protocol implemented/device supported is our firmware for
+Freescale 13192 evaluation boards.
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Signed-off-by: Sergey Lapin <slapin@ossfans.org>
 ---
- drivers/Makefile            |    1 +
- drivers/ieee802154/Kconfig  |   23 +++
- drivers/ieee802154/Makefile |    3 +
- drivers/ieee802154/fakelb.c |  335 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/Kconfig         |    2 +
- 5 files changed, 364 insertions(+), 0 deletions(-)
- create mode 100644 drivers/ieee802154/Kconfig
- create mode 100644 drivers/ieee802154/Makefile
- create mode 100644 drivers/ieee802154/fakelb.c
+ drivers/ieee802154/Kconfig  |    3 +
+ drivers/ieee802154/Makefile |    1 +
+ drivers/ieee802154/serial.c | 1001 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/tty.h         |    3 +-
+ 4 files changed, 1007 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/ieee802154/serial.c
 
-diff --git a/drivers/Makefile b/drivers/Makefile
-index 1266ead..9e7d4e5 100644
---- a/drivers/Makefile
-+++ b/drivers/Makefile
-@@ -107,3 +107,4 @@ obj-$(CONFIG_SSB)		+= ssb/
- obj-$(CONFIG_VIRTIO)		+= virtio/
- obj-$(CONFIG_STAGING)		+= staging/
- obj-y				+= platform/
-+obj-y				+= ieee802154/
 diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
-new file mode 100644
-index 0000000..6f03394
---- /dev/null
+index 6f03394..fdc9792 100644
+--- a/drivers/ieee802154/Kconfig
 +++ b/drivers/ieee802154/Kconfig
-@@ -0,0 +1,23 @@
-+menuconfig IEEE802154_DRIVERS
-+	bool "IEEE 802.15.4 drivers"
-+	depends on NETDEVICES && IEEE802154
-+	default y
-+	---help---
-+	  Say Y here to get to see options for IEEE 802.15.4 Low-Rate
-+	  Wireless Personal Area Network device drivers. This option alone
-+	  does not add any kernel code.
+@@ -19,5 +19,8 @@ config IEEE802154_FAKELB
+           This driver can also be built as a module. To do so say M here.
+ 	  The module will be called 'fakelb'.
+ 
++config IEEE802154_SERIAL
++	tristate "Simple LR-WPAN UART driver"
 +
-+	  If you say N, all options in this submenu will be skipped and disabled.
-+
-+if IEEE802154_DRIVERS && NETDEVICES && IEEE802154
-+config IEEE802154_FAKELB
-+	tristate "Fake LR-WPAN driver with several interconnected devices"
-+	---help---
-+	  Say Y here to enable the fake driver that can emulate a net
-+          of several interconnected radio devices.
-+
-+          This driver can also be built as a module. To do so say M here.
-+	  The module will be called 'fakelb'.
-+
-+endif
-+
+ endif
+ 
 diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
-new file mode 100644
-index 0000000..c3d1db4
---- /dev/null
+index c3d1db4..a8ce95f 100644
+--- a/drivers/ieee802154/Makefile
 +++ b/drivers/ieee802154/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
-+
-+EXTRA_CFLAGS += -DDEBUG -DCONFIG_FFD
-diff --git a/drivers/ieee802154/fakelb.c b/drivers/ieee802154/fakelb.c
+@@ -1,3 +1,4 @@
+ obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
++obj-$(CONFIG_IEEE802154_SERIAL) += serial.o
+ 
+ EXTRA_CFLAGS += -DDEBUG -DCONFIG_FFD
+diff --git a/drivers/ieee802154/serial.c b/drivers/ieee802154/serial.c
 new file mode 100644
-index 0000000..fa2c1d6
+index 0000000..4a222ec
 --- /dev/null
-+++ b/drivers/ieee802154/fakelb.c
-@@ -0,0 +1,335 @@
++++ b/drivers/ieee802154/serial.c
+@@ -0,0 +1,1001 @@
 +/*
-+ * Loopback IEEE 802.15.4 interface
++ * ZigBee TTY line discipline.
 + *
-+ * Copyright 2007, 2008 Siemens AG
++ * Provides interface between ZigBee stack and IEEE 802.15.4 compatible
++ * firmware over serial line. Communication protocol is described below.
++ *
++ * Copyright (C) 2007, 2008 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -105,339 +84,1006 @@ index 0000000..fa2c1d6
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
++ * Maxim Osipov <maxim.osipov@siemens.com>
++ * Sergey Lapin <sergey.lapin@siemens.com>
 + */
 +
 +#include <linux/module.h>
-+#include <linux/timer.h>
-+#include <linux/platform_device.h>
++#include <linux/kernel.h>
++#include <linux/completion.h>
++#include <linux/tty.h>
 +#include <linux/netdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/spinlock.h>
++#include <linux/skbuff.h>
 +#include <net/ieee802154/dev.h>
 +
-+struct fake_dev_priv {
-+	struct ieee802154_dev *dev;
-+	phy_status_t cur_state, pend_state;
 +
-+	struct list_head list;
-+	struct fake_priv *fake;
++/* NOTE: be sure to use here the same values as in the firmware */
++#define START_BYTE1	'z'
++#define START_BYTE2	'b'
++#define MAX_DATA_SIZE	127
++
++#define IDLE_MODE	0x00
++#define RX_MODE		0x02
++#define TX_MODE		0x03
++#define FORCE_TRX_OFF	0xF0
++
++#define STATUS_SUCCESS	0
++#define STATUS_RX_ON	1
++#define STATUS_TX_ON	2
++#define STATUS_TRX_OFF	3
++#define STATUS_IDLE	4
++#define STATUS_BUSY	5
++#define STATUS_BUSY_RX	6
++#define STATUS_BUSY_TX	7
++#define STATUS_ERR	8
++
++/* We re-use PPP ioctl for our purposes */
++#define	PPPIOCGUNIT	_IOR('t', 86, int)	/* get ppp unit number */
++
++/*
++ * The following messages are used to control ZigBee firmware.
++ * All communication has request/response format,
++ * except of asynchronous incoming data stream (DATA_RECV_* messages).
++ */
++enum {
++	NO_ID			= 0, /* means no pending id */
++
++	/* Driver to Firmware */
++	CMD_OPEN		= 0x01, /* u8 id */
++	CMD_CLOSE		= 0x02, /* u8 id */
++	CMD_SET_CHANNEL		= 0x04, /* u8 id, u8 channel */
++	CMD_ED			= 0x05, /* u8 id */
++	CMD_CCA			= 0x06, /* u8 id */
++	CMD_SET_STATE		= 0x07, /* u8 id, u8 flag */
++	DATA_XMIT_BLOCK		= 0x09, /* u8 id, u8 len, u8 data[len] */
++	DATA_XMIT_STREAM	= 0x0a, /* u8 id, u8 c */
++	RESP_RECV_BLOCK		= 0x0b, /* u8 id, u8 status */
++	RESP_RECV_STREAM	= 0x0c, /* u8 id, u8 status */
++
++	/* Firmware to Driver */
++	RESP_OPEN		= 0x81, /* u8 id, u8 status */
++	RESP_CLOSE		= 0x82, /* u8 id, u8 status */
++	RESP_SET_CHANNEL 	= 0x84, /* u8 id, u8 status */
++	RESP_ED			= 0x85, /* u8 id, u8 status, u8 level */
++	RESP_CCA		= 0x86, /* u8 id, u8 status */
++	RESP_SET_STATE		= 0x87, /* u8 id, u8 status */
++	RESP_XMIT_BLOCK		= 0x89, /* u8 id, u8 status */
++	RESP_XMIT_STREAM	= 0x8a, /* u8 id, u8 status */
++	DATA_RECV_BLOCK		= 0x8b, /* u8 id, u8 lq, u8 len, u8 data[len] */
++	DATA_RECV_STREAM	= 0x8c  /* u8 id, u8 c */
 +};
 +
-+struct fake_priv {
-+	struct list_head list;
-+	rwlock_t lock;
++enum {
++	STATE_WAIT_START1,
++	STATE_WAIT_START2,
++	STATE_WAIT_COMMAND,
++	STATE_WAIT_PARAM1,
++	STATE_WAIT_PARAM2,
++	STATE_WAIT_DATA
 +};
 +
-+static int is_transmitting(struct ieee802154_dev *dev)
-+{
-+	return 0;
-+}
++struct zb_device {
++	/* Relative devices */
++	struct tty_struct	*tty;
++	struct ieee802154_dev	*dev;
 +
-+static int is_receiving(struct ieee802154_dev *dev)
-+{
-+	return 0;
-+}
++	/* locks the ldisc for the command */
++	struct mutex		mutex;
 +
-+static phy_status_t
-+hw_ed(struct ieee802154_dev *dev, u8 *level)
-+{
-+	pr_debug("%s\n", __func__);
-+	might_sleep();
-+	BUG_ON(!level);
-+	*level = 0xbe;
-+	return PHY_SUCCESS;
-+}
++	/* command completition */
++	wait_queue_head_t	wq;
++	phy_status_t		status;
++	u8			ed;
 +
-+static phy_status_t
-+hw_cca(struct ieee802154_dev *dev)
-+{
-+	pr_debug("%s\n", __func__);
-+	might_sleep();
-+	return PHY_IDLE;
-+}
++	/* Internal state */
++	struct completion	open_done;
++	unsigned char		opened;
++	u8			pending_id;
++	unsigned int		pending_size;
++	u8			*pending_data;
++	/* FIXME: WE NEED LOCKING!!! */
 +
-+static phy_status_t
-+hw_state(struct ieee802154_dev *dev, phy_status_t state)
++	/* Command (rx) processing */
++	int			state;
++	unsigned char		id;
++	unsigned char		param1;
++	unsigned char		param2;
++	unsigned char		index;
++	unsigned char		data[MAX_DATA_SIZE];
++};
++
++/*****************************************************************************
++ * ZigBee serial device protocol handling
++ *****************************************************************************/
++static int _open_dev(struct zb_device *zbdev);
++
++static int
++_send_pending_data(struct zb_device *zbdev)
 +{
-+	struct fake_dev_priv *priv = dev->priv;
-+	pr_debug("%s %d %d\n", __func__, priv->cur_state, state);
-+	might_sleep();
-+	if (state != PHY_TRX_OFF && state != PHY_RX_ON && state != PHY_TX_ON && state != PHY_FORCE_TRX_OFF)
-+		return PHY_INVAL;
-+	else if (state == PHY_FORCE_TRX_OFF) {
-+		priv->cur_state = PHY_TRX_OFF;
-+		return PHY_SUCCESS;
-+	} else if (priv->cur_state == state)
-+		return state;
-+	else if ((state == PHY_TRX_OFF || state == PHY_RX_ON) && is_transmitting(dev)) {
-+		priv->pend_state = state;
-+		return PHY_BUSY_TX;
-+	} else if ((state == PHY_TRX_OFF || state == PHY_TX_ON) && is_receiving(dev)) {
-+		priv->pend_state = state;
-+		return PHY_BUSY_RX;
-+	} else {
-+		priv->cur_state = state;
-+		return PHY_SUCCESS;
++	unsigned int j;
++	struct tty_struct *tty;
++
++	BUG_ON(!zbdev);
++	tty = zbdev->tty;
++	if (!tty)
++		return -ENODEV;
++
++	zbdev->status = PHY_INVAL;
++
++	/* Debug info */
++	printk(KERN_INFO "%lu %s, %d bytes:", jiffies, __func__, zbdev->pending_size);
++	for (j = 0; j < zbdev->pending_size; ++j)
++		printk(KERN_CONT " 0x%02X", zbdev->pending_data[j]);
++	printk(KERN_CONT "\n");
++
++	if (tty->driver->ops->write(tty, zbdev->pending_data, zbdev->pending_size) != zbdev->pending_size) {
++		printk(KERN_ERR "%s: device write failed\n", __func__);
++		return -1;
 +	}
-+}
 +
-+static phy_status_t
-+hw_channel(struct ieee802154_dev *dev, int channel)
-+{
-+	pr_debug("%s %d\n", __func__, channel);
-+	might_sleep();
-+	dev->current_channel = channel;
-+	return PHY_SUCCESS;
-+}
-+
-+static void
-+hw_deliver(struct fake_dev_priv *priv, struct sk_buff *skb)
-+{
-+	struct sk_buff *newskb;
-+
-+	newskb = pskb_copy(skb, GFP_ATOMIC);
-+
-+	ieee802154_rx_irqsafe(priv->dev, newskb, 0xcc);
++	return 0;
 +}
 +
 +static int
-+hw_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
++send_cmd(struct zb_device *zbdev, u8 id)
 +{
-+	struct fake_dev_priv *priv = dev->priv;
-+	struct fake_priv *fake = priv->fake;
++	u8 len = 0, buf[4];	/* 4 because of 2 start bytes, id and optional extra */
 +
-+	might_sleep();
++	/* Check arguments */
++	BUG_ON(!zbdev);
 +
-+	read_lock_bh(&fake->lock);
-+	if (priv->list.next == priv->list.prev) {
-+		/* we are the only one device */
-+		hw_deliver(priv, skb);
-+	} else {
-+		struct fake_dev_priv *dp;
-+		list_for_each_entry(dp, &priv->fake->list, list)
-+			if (dp != priv && dp->dev->current_channel == priv->dev->current_channel)
-+				hw_deliver(dp, skb);
++	if (!zbdev->opened) {
++		if (!_open_dev(zbdev))
++			return -EAGAIN;
 +	}
-+	read_unlock_bh(&fake->lock);
 +
-+	return PHY_SUCCESS;
++	pr_debug("%s(): id = %u\n", __func__, id);
++	if (zbdev->pending_size) {
++		printk(KERN_ERR "%s(): cmd is already pending, id = %u\n",
++			__func__, zbdev->pending_id);
++		BUG();
++	}
++
++	/* Prepare a message */
++	buf[len++] = START_BYTE1;
++	buf[len++] = START_BYTE2;
++	buf[len++] = id;
++
++	zbdev->pending_id = id;
++	zbdev->pending_size = len;
++	zbdev->pending_data = kzalloc(zbdev->pending_size, GFP_KERNEL);
++	if (!zbdev->pending_data) {
++		printk(KERN_ERR "%s(): unable to allocate memory\n", __func__);
++		zbdev->pending_id = 0;
++		zbdev->pending_size = 0;
++		return -ENOMEM;
++	}
++	memcpy(zbdev->pending_data, buf, len);
++
++	return _send_pending_data(zbdev);
 +}
 +
-+static struct ieee802154_ops fake_ops = {
-+	.owner = THIS_MODULE,
-+	.tx = hw_tx,
-+	.ed = hw_ed,
-+	.cca = hw_cca,
-+	.set_trx_state = hw_state,
-+	.set_channel = hw_channel,
-+};
-+
-+static int ieee802154fake_add_priv(struct device *dev, struct fake_priv *fake, const u8 *macaddr)
++static int
++send_cmd2(struct zb_device *zbdev, u8 id, u8 extra)
 +{
-+	struct fake_dev_priv *priv;
-+	int err = -ENOMEM;
++	u8 len = 0, buf[4];	/* 4 because of 2 start bytes, id and optional extra */
 +
-+	priv = kzalloc(sizeof(struct fake_dev_priv), GFP_KERNEL);
-+	if (!priv)
-+		goto err_alloc;
++	/* Check arguments */
++	BUG_ON(!zbdev);
 +
-+	INIT_LIST_HEAD(&priv->list);
++	if (!zbdev->opened) {
++		if (!_open_dev(zbdev))
++			return -EAGAIN;
++	}
 +
-+	priv->dev = ieee802154_alloc_device();
-+	if (!priv->dev)
-+		goto err_alloc_dev;
-+	priv->dev->name = "IEEE 802.15.4 fake";
-+	priv->dev->priv = priv;
-+	priv->dev->parent = dev;
-+	priv->fake = fake;
++	pr_debug("%s(): id = %u\n", __func__, id);
++	if (zbdev->pending_size) {
++		printk(KERN_ERR "%s(): cmd is already pending, id = %u\n",
++			__func__, zbdev->pending_id);
++		BUG();
++	}
 +
-+	err = ieee802154_register_device(priv->dev, &fake_ops);
-+	if (err)
-+		goto err_reg;
-+	rtnl_lock();
-+	err = ieee802154_add_slave(priv->dev, macaddr);
-+	rtnl_unlock();
-+	if (err < 0)
-+		goto err_slave;
++	/* Prepare a message */
++	buf[len++] = START_BYTE1;
++	buf[len++] = START_BYTE2;
++	buf[len++] = id;
++	buf[len++] = extra;
 +
-+	write_lock_bh(&fake->lock);
-+	list_add_tail(&priv->list, &fake->list);
-+	write_unlock_bh(&fake->lock);
++	zbdev->pending_id = id;
++	zbdev->pending_size = len;
++	zbdev->pending_data = kzalloc(zbdev->pending_size, GFP_KERNEL);
++	if (!zbdev->pending_data) {
++		printk(KERN_ERR "%s(): unable to allocate memory\n", __func__);
++		zbdev->pending_id = 0;
++		zbdev->pending_size = 0;
++		return -ENOMEM;
++	}
++	memcpy(zbdev->pending_data, buf, len);
 +
++	return _send_pending_data(zbdev);
++}
++
++static int
++send_block(struct zb_device *zbdev, u8 len, u8 *data)
++{
++	u8 i = 0, buf[4];	/* 4 because of 2 start bytes, id and len */
++
++	/* Check arguments */
++	BUG_ON(!zbdev);
++
++	if (!zbdev->opened) {
++		if (!_open_dev(zbdev))
++			return -EAGAIN;
++	}
++
++	pr_debug("%s(): id = %u\n", __func__, DATA_XMIT_BLOCK);
++	if (zbdev->pending_size) {
++		printk(KERN_ERR "%s(): cmd is already pending, id = %u\n",
++			__func__, zbdev->pending_id);
++		BUG();
++	}
++
++	/* Prepare a message */
++	buf[i++] = START_BYTE1;
++	buf[i++] = START_BYTE2;
++	buf[i++] = DATA_XMIT_BLOCK;
++	buf[i++] = len;
++
++	zbdev->pending_id = DATA_XMIT_BLOCK;
++	zbdev->pending_size = i + len;
++	zbdev->pending_data = kzalloc(zbdev->pending_size, GFP_KERNEL);
++	if (!zbdev->pending_data) {
++		printk(KERN_ERR "%s(): unable to allocate memory\n", __func__);
++		zbdev->pending_id = 0;
++		zbdev->pending_size = 0;
++		return -ENOMEM;
++	}
++	memcpy(zbdev->pending_data, buf, i);
++	memcpy(zbdev->pending_data + i, data, len);
++
++	return _send_pending_data(zbdev);
++}
++
++static void
++cleanup(struct zb_device *zbdev)
++{
++	zbdev->state = STATE_WAIT_START1;
++	zbdev->id = 0;
++	zbdev->param1 = 0;
++	zbdev->param2 = 0;
++	zbdev->index = 0;
++}
++
++static int
++is_command(unsigned char c)
++{
++	switch (c) {
++	/* ids we can get here: */
++	case RESP_OPEN:
++	case RESP_CLOSE:
++	case RESP_SET_CHANNEL:
++	case RESP_ED:
++	case RESP_CCA:
++	case RESP_SET_STATE:
++	case RESP_XMIT_BLOCK:
++	case RESP_XMIT_STREAM:
++	case DATA_RECV_BLOCK:
++	case DATA_RECV_STREAM:
++		return 1;
++	}
 +	return 0;
-+
-+err_slave:
-+	ieee802154_unregister_device(priv->dev);
-+err_reg:
-+	ieee802154_free_device(priv->dev);
-+err_alloc_dev:
-+	kfree(priv);
-+err_alloc:
-+	return err;
 +}
 +
-+static void ieee802154fake_del_priv(struct fake_dev_priv *priv)
++static int
++_match_pending_id(struct zb_device *zbdev)
 +{
-+	write_lock_bh(&priv->fake->lock);
-+	list_del(&priv->list);
-+	write_unlock_bh(&priv->fake->lock);
-+
-+	ieee802154_unregister_device(priv->dev);
-+	ieee802154_free_device(priv->dev);
-+	kfree(priv);
++	return ((CMD_OPEN == zbdev->pending_id && RESP_OPEN == zbdev->id)
++		|| (CMD_CLOSE == zbdev->pending_id && RESP_CLOSE == zbdev->id)
++		|| (CMD_SET_CHANNEL == zbdev->pending_id && RESP_SET_CHANNEL == zbdev->id)
++		|| (CMD_ED == zbdev->pending_id && RESP_ED == zbdev->id)
++		|| (CMD_CCA == zbdev->pending_id && RESP_CCA == zbdev->id)
++		|| (CMD_SET_STATE == zbdev->pending_id && RESP_SET_STATE == zbdev->id)
++		|| (DATA_XMIT_BLOCK == zbdev->pending_id && RESP_XMIT_BLOCK == zbdev->id)
++		|| (DATA_XMIT_STREAM == zbdev->pending_id && RESP_XMIT_STREAM == zbdev->id)
++		|| DATA_RECV_BLOCK == zbdev->id
++		|| DATA_RECV_STREAM == zbdev->id);
 +}
 +
-+static ssize_t
-+adddev_store(struct device *dev, struct device_attribute *attr,
-+	const char *buf, size_t n)
++static void serial_net_rx(struct zb_device *zbdev)
 +{
-+	struct platform_device *pdev = to_platform_device(dev);
-+	struct fake_priv *priv = platform_get_drvdata(pdev);
-+	char hw[8] = {};
-+	int i, j, ch, err;
++	/* zbdev->param1 is LQI
++	 * zbdev->param2 is length of data
++	 * zbdev->data is data itself
++	 */
++	struct sk_buff *skb;
++	skb = alloc_skb(zbdev->param2, GFP_ATOMIC);
++	skb_put(skb, zbdev->param2);
++	skb_copy_to_linear_data(skb, zbdev->data, zbdev->param2);
++	ieee802154_rx_irqsafe(zbdev->dev, skb, zbdev->param1);
++}
 +
-+	for (i = 0, j = 0; i < 16 && j < n; j++) {
-+		ch = buf[j];
-+		switch (buf[j]) {
++static void
++process_command(struct zb_device *zbdev)
++{
++	/* Command processing */
++	if (!_match_pending_id(zbdev))
++		return;
++
++	if (RESP_OPEN == zbdev->id && STATUS_SUCCESS == zbdev->param1) {
++		zbdev->opened = 1;
++		pr_debug("Opened device\n");
++		complete(&zbdev->open_done);
++		/* Input is not processed during output, so
++		 * using completion is not possible during output.
++		 * so we need to handle open as any other command
++		 * and hope for best
++		 */
++		return;
++	}
++
++	if (!zbdev->opened)
++		return;
++
++	zbdev->pending_id = 0;
++	kfree(zbdev->pending_data);
++	zbdev->pending_data = NULL;
++	zbdev->pending_size = 0;
++	if (zbdev->id != DATA_RECV_BLOCK)
++		switch (zbdev->param1) {
++		case STATUS_SUCCESS:
++			zbdev->status = PHY_SUCCESS;
++			break;
++		case STATUS_RX_ON:
++			zbdev->status = PHY_RX_ON;
++			break;
++		case STATUS_TX_ON:
++			zbdev->status = PHY_TX_ON;
++			break;
++		case STATUS_TRX_OFF:
++			zbdev->status = PHY_TRX_OFF;
++			break;
++		case STATUS_BUSY:
++			zbdev->status = PHY_BUSY;
++			break;
++		case STATUS_IDLE:
++			zbdev->status = PHY_IDLE;
++			break;
++		case STATUS_BUSY_RX:
++			zbdev->status = PHY_BUSY_RX;
++			break;
++		case STATUS_BUSY_TX:
++			zbdev->status = PHY_BUSY_TX;
++			break;
 +		default:
-+			return -EINVAL;
-+		case '0'...'9':
-+			ch -= '0';
++			printk(KERN_ERR "%s: bad status received from firmware: %u\n",
++				__func__, zbdev->param1);
++			zbdev->status = PHY_ERROR;
 +			break;
-+		case 'A'...'F':
-+			ch -= 'A' - 10;
-+			break;
-+		case 'a'...'f':
-+			ch -= 'a' - 10;
-+			break;
-+		case ':':
-+		case '.':
-+			continue;
 +		}
-+		if (i % 2)
-+			hw[i/2] = (hw[i/2] & 0xf0) | ch;
-+		else
-+			hw[i/2] = ch << 4;
-+		i++;
++
++	switch (zbdev->id) {
++	case RESP_ED:
++		zbdev->ed = zbdev->param2;
++		break;
++	case DATA_RECV_BLOCK:
++		pr_debug("Received block, lqi %02x, len %02x\n", zbdev->param1, zbdev->param2);
++		/* zbdev->param1 is LQ, zbdev->param2 is length */
++		serial_net_rx(zbdev);
++		break;
++	case DATA_RECV_STREAM:
++		/* TODO: update firmware to use this */
++		break;
 +	}
-+	if (i != 16)
-+		return -EINVAL;
-+	err = ieee802154fake_add_priv(dev, priv, hw);
-+	if (err)
-+		return err;
-+	return n;
++
++	wake_up(&zbdev->wq);
 +}
 +
-+static DEVICE_ATTR(adddev, 0200, NULL, adddev_store);
-+
-+static struct attribute *fake_attrs[] = {
-+	&dev_attr_adddev.attr,
-+	NULL,
-+};
-+
-+static struct attribute_group fake_group = {
-+	.name	= NULL /* fake */,
-+	.attrs	= fake_attrs,
-+};
-+
-+
-+static int __devinit ieee802154fake_probe(struct platform_device *pdev)
++static void
++process_char(struct zb_device *zbdev, unsigned char c)
 +{
-+	struct fake_priv *priv;
-+	struct fake_dev_priv *dp;
++	/* Data processing */
++	pr_debug("Char: %d (0x%02x)\n", c, c);
++	switch (zbdev->state) {
++	case STATE_WAIT_START1:
++		if (START_BYTE1 == c)
++			zbdev->state = STATE_WAIT_START2;
++		break;
 +
-+	int err = -ENOMEM;
-+	priv = kzalloc(sizeof(struct fake_priv), GFP_KERNEL);
-+	if (!priv)
-+		goto err_alloc;
++	case STATE_WAIT_START2:
++		if (START_BYTE2 == c)
++			zbdev->state = STATE_WAIT_COMMAND;
++		else
++			cleanup(zbdev);
++		break;
 +
-+	INIT_LIST_HEAD(&priv->list);
-+	rwlock_init(&priv->lock);
++	case STATE_WAIT_COMMAND:
++		if (is_command(c)) {
++			zbdev->id = c;
++			zbdev->state = STATE_WAIT_PARAM1;
++		} else {
++			cleanup(zbdev);
++			printk(KERN_ERR "%s, unexpected command id: %x\n", __func__, c);
++		}
++		break;
 +
-+	err = sysfs_create_group(&pdev->dev.kobj, &fake_group);
-+	if (err)
-+		goto err_grp;
++	case STATE_WAIT_PARAM1:
++		zbdev->param1 = c;
++		if ((RESP_ED == zbdev->id) || (DATA_RECV_BLOCK == zbdev->id))
++			zbdev->state = STATE_WAIT_PARAM2;
++		else {
++			process_command(zbdev);
++			cleanup(zbdev);
++		}
++		break;
 +
-+	err = ieee802154fake_add_priv(&pdev->dev, priv, "\xde\xad\xbe\xaf\xca\xfe\xba\xbe");
-+	if (err < 0)
-+		goto err_slave;
++	case STATE_WAIT_PARAM2:
++		zbdev->param2 = c;
++		if (RESP_ED == zbdev->id) {
++			process_command(zbdev);
++			cleanup(zbdev);
++		} else if (DATA_RECV_BLOCK == zbdev->id)
++			zbdev->state = STATE_WAIT_DATA;
++		else
++			cleanup(zbdev);
++		break;
 +
-+/*	err = ieee802154fake_add_priv(priv, "\x67\x45\x23\x01\x67\x45\x23\x01");
-+	if (err < 0)
-+		goto err_slave;*/
++	case STATE_WAIT_DATA:
++		if (zbdev->index < sizeof(zbdev->data)) {
++			zbdev->data[zbdev->index] = c;
++			zbdev->index++;
++			/* Pending data is received, param2 is length for DATA_RECV_BLOCK */
++			if (zbdev->index == zbdev->param2) {
++				process_command(zbdev);
++				cleanup(zbdev);
++			}
++		} else {
++			printk(KERN_ERR "%s(): data size is greater "
++				"than buffer available\n", __func__);
++			cleanup(zbdev);
++		}
++		break;
 +
-+	platform_set_drvdata(pdev, priv);
-+	dev_info(&pdev->dev, "Added ieee802154 hardware\n");
++	default:
++		cleanup(zbdev);
++	}
++}
++
++/*****************************************************************************
++ * Device operations for IEEE 802.15.4 PHY side interface ZigBee stack
++ *****************************************************************************/
++
++static int _open_dev(struct zb_device *zbdev)
++{
++	int retries;
++	u8 len = 0, buf[4];	/* 4 because of 2 start bytes, id and optional extra */
++
++	/* Check arguments */
++	BUG_ON(!zbdev);
++	if (zbdev->opened)
++		return 1;
++
++	pr_debug("%s()\n", __func__);
++	if (zbdev->pending_size) {
++		printk(KERN_ERR "%s(): cmd is already pending, id = %u\n",
++			__func__, zbdev->pending_id);
++		BUG();
++	}
++
++	/* Prepare a message */
++	buf[len++] = START_BYTE1;
++	buf[len++] = START_BYTE2;
++	buf[len++] = CMD_OPEN;
++
++	zbdev->pending_id = CMD_OPEN;
++	zbdev->pending_size = len;
++	zbdev->pending_data = kzalloc(zbdev->pending_size, GFP_KERNEL);
++	if (!zbdev->pending_data) {
++		printk(KERN_ERR "%s(): unable to allocate memory\n", __func__);
++		zbdev->pending_id = 0;
++		zbdev->pending_size = 0;
++		return -ENOMEM;
++	}
++	memcpy(zbdev->pending_data, buf, len);
++
++	retries = 5;
++	while (!zbdev->opened && retries) {
++		if (_send_pending_data(zbdev) != 0)
++			return 0;
++
++		/* 3 second before retransmission */
++		wait_for_completion_interruptible_timeout(&zbdev->open_done, msecs_to_jiffies(1000));
++		--retries;
++	}
++
++	zbdev->pending_id = 0;
++	kfree(zbdev->pending_data);
++	zbdev->pending_data = NULL;
++	zbdev->pending_size = 0;
++
++	if (zbdev->opened) {
++		printk(KERN_INFO "Opened connection to device\n");
++		return 1;
++	}
++
++	return 0;
++}
++
++/* Valid channels: 1-16 */
++static phy_status_t
++ieee802154_serial_set_channel(struct ieee802154_dev *dev, int channel)
++{
++	struct zb_device *zbdev;
++	phy_status_t ret;
++
++	pr_debug("%s\n", __func__);
++
++	zbdev = dev->priv;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: wrong phy\n", __func__);
++		return PHY_INVAL;
++	}
++
++	if (mutex_lock_interruptible(&zbdev->mutex))
++		return PHY_ERROR;
++	/* Our channels are actually from 11 to 26
++	 * We have IEEE802.15.4 channel no from 0 to 26.
++	 * channels 0-10 are not valid for us */
++	BUG_ON(channel < 11 || channel > 26);
++	/* ...  but our crappy firmware numbers channels from 1 to 16
++	 * which is a mystery. We suould enforce that using PIB API
++	 * but additional checking here won't kill, and gcc will
++	 * optimize this stuff anyway. */
++	BUG_ON((channel - 10) < 1 && (channel - 10) > 16);
++
++	if (send_cmd2(zbdev, CMD_SET_CHANNEL, channel - 10) != 0) {
++		ret = PHY_ERROR;
++		goto out;
++	}
++
++	if (wait_event_interruptible_timeout(zbdev->wq, zbdev->status != PHY_INVAL, msecs_to_jiffies(1000)) > 0)
++		ret = zbdev->status;
++	else
++		ret = PHY_ERROR;
++
++	if (ret == PHY_SUCCESS)
++		zbdev->dev->current_channel = channel;
++out:
++	mutex_unlock(&zbdev->mutex);
++	pr_debug("%s end\n", __func__);
++	return ret;
++}
++
++static phy_status_t
++ieee802154_serial_ed(struct ieee802154_dev *dev, u8 *level)
++{
++	struct zb_device *zbdev;
++	phy_status_t ret;
++
++	pr_debug("%s\n", __func__);
++
++	zbdev = dev->priv;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: wrong phy\n", __func__);
++		return PHY_INVAL;
++	}
++
++	if (mutex_lock_interruptible(&zbdev->mutex))
++		return PHY_ERROR;
++
++#if 0
++	if (send_cmd(zbdev, CMD_ED) != 0) {
++		ret = PHY_ERROR;
++		goto out;
++	}
++
++	if (wait_event_interruptible_timeout(zbdev->wq, zbdev->status != PHY_INVAL, msecs_to_jiffies(1000)) > 0) {
++		*level = zbdev->ed;
++		ret = zbdev->status;
++	} else
++		ret = PHY_ERROR;
++out:
++#else
++	/* Lets suppose we have energy on all channels
++	 * till we fix something regarding hardware or driver */
++	*level = 0xbe;
++	ret = PHY_SUCCESS;
++#endif
++	mutex_unlock(&zbdev->mutex);
++	pr_debug("%s end\n", __func__);
++	return ret;
++}
++
++static phy_status_t
++ieee802154_serial_cca(struct ieee802154_dev *dev)
++{
++	struct zb_device *zbdev;
++	phy_status_t ret;
++
++	pr_debug("%s\n", __func__);
++
++	zbdev = dev->priv;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: wrong phy\n", __func__);
++		return PHY_INVAL;
++	}
++
++	if (mutex_lock_interruptible(&zbdev->mutex))
++		return PHY_ERROR;
++
++	if (send_cmd(zbdev, CMD_CCA) != 0) {
++		ret = PHY_ERROR;
++		goto out;
++	}
++
++	if (wait_event_interruptible_timeout(zbdev->wq, zbdev->status != PHY_INVAL, msecs_to_jiffies(1000)) > 0)
++		ret = zbdev->status;
++	else
++		ret = PHY_ERROR;
++out:
++	mutex_unlock(&zbdev->mutex);
++	pr_debug("%s end\n", __func__);
++	return ret;
++}
++
++static phy_status_t
++ieee802154_serial_set_state(struct ieee802154_dev *dev, phy_status_t state)
++{
++	struct zb_device *zbdev;
++	unsigned char flag;
++	phy_status_t ret;
++
++	pr_debug("%s %d\n", __func__, state);
++
++	zbdev = dev->priv;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: wrong phy\n", __func__);
++		return PHY_INVAL;
++	}
++
++	if (mutex_lock_interruptible(&zbdev->mutex))
++		return PHY_ERROR;
++
++	switch (state) {
++	case PHY_RX_ON:
++		flag = RX_MODE;
++		break;
++	case PHY_TX_ON:
++		flag = TX_MODE;
++		break;
++	case PHY_TRX_OFF:
++		flag = IDLE_MODE;
++		break;
++	case PHY_FORCE_TRX_OFF:
++		flag = FORCE_TRX_OFF;
++		break;
++	default:
++		ret = PHY_INVAL;
++		goto out;
++	}
++
++	if (send_cmd2(zbdev, CMD_SET_STATE, flag) != 0) {
++		ret = PHY_ERROR;
++		goto out;
++	}
++
++	if (wait_event_interruptible_timeout(zbdev->wq, zbdev->status != PHY_INVAL, msecs_to_jiffies(1000)) > 0)
++		ret = zbdev->status;
++	else
++		ret = PHY_ERROR;
++out:
++	mutex_unlock(&zbdev->mutex);
++	pr_debug("%s end\n", __func__);
++	return ret;
++}
++
++static phy_status_t
++ieee802154_serial_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
++{
++	struct zb_device *zbdev;
++	phy_status_t ret;
++
++	pr_debug("%s\n", __func__);
++
++	zbdev = dev->priv;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: wrong phy\n", __func__);
++		return PHY_INVAL;
++	}
++
++	if (mutex_lock_interruptible(&zbdev->mutex))
++		return PHY_ERROR;
++
++	if (send_block(zbdev, skb->len, skb->data) != 0) {
++		ret = PHY_ERROR;
++		goto out;
++	}
++
++	if (wait_event_interruptible_timeout(zbdev->wq, zbdev->status != PHY_INVAL, msecs_to_jiffies(1000)) > 0)
++		ret = zbdev->status;
++	else
++		ret = PHY_ERROR;
++out:
++
++	mutex_unlock(&zbdev->mutex);
++	pr_debug("%s end\n", __func__);
++	return ret;
++}
++
++/*****************************************************************************
++ * Line discipline interface for IEEE 802.15.4 serial device
++ *****************************************************************************/
++
++static struct ieee802154_ops serial_ops = {
++	.owner = THIS_MODULE,
++	.tx = ieee802154_serial_xmit,
++	.ed = ieee802154_serial_ed,
++	.cca = ieee802154_serial_cca,
++	.set_trx_state = ieee802154_serial_set_state,
++	.set_channel	= ieee802154_serial_set_channel,
++};
++
++static int dev_minor_match(struct device *dev, void *data)
++{
++	int *minor = data;
++	return MINOR(dev->devt) == *minor;
++}
++
++/*
++ * Called when a tty is put into ZB line discipline. Called in process context.
++ * Returns 0 on success.
++ */
++static int
++ieee802154_tty_open(struct tty_struct *tty)
++{
++	struct zb_device *zbdev = tty->disc_data;
++	int err;
++	int minor;
++
++	pr_debug("Openning ldisc\n");
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (zbdev)
++		return -EBUSY;
++
++	/* Allocate device structure */
++	zbdev = kzalloc(sizeof(struct zb_device), GFP_KERNEL);
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s: can't allocate zb_device structure.\n", __func__);
++		return -ENOMEM;
++	}
++	mutex_init(&zbdev->mutex);
++	init_completion(&zbdev->open_done);
++	init_waitqueue_head(&zbdev->wq);
++
++	zbdev->dev = ieee802154_alloc_device();
++	if (!zbdev->dev) {
++		err = -ENOMEM;
++		goto out_free_zb;
++	}
++
++	zbdev->dev->name		= "serialdev";
++	zbdev->dev->priv		= zbdev;
++	zbdev->dev->extra_tx_headroom	= 0;
++	zbdev->dev->channel_mask	= 0x7ff;
++	zbdev->dev->current_channel	= 11; /* it's 1st channel of 2.4 Ghz space */
++	zbdev->dev->flags		= IEEE802154_OPS_OMIT_CKSUM;
++
++	minor = tty->index + tty->driver->minor_start;
++	zbdev->dev->parent = class_find_device(tty_class, NULL, &minor, dev_minor_match);
++
++	zbdev->tty = tty;
++	cleanup(zbdev);
++
++	tty->disc_data = zbdev;
++	tty->receive_room = MAX_DATA_SIZE;
++	tty->low_latency = 1;
++
++	/* FIXME: why is this needed. Note don't use ldisc_ref here as the
++	   open path is before the ldisc is referencable */
++
++	if (tty->ldisc.ops->flush_buffer)
++		tty->ldisc.ops->flush_buffer(tty);
++	tty_driver_flush_buffer(tty);
++
++	err = ieee802154_register_device(zbdev->dev, &serial_ops);
++	/* we put it only after it has a chance to be get by network core */
++	if (zbdev->dev->parent)
++		put_device(zbdev->dev->parent);
++	if (err) {
++		printk(KERN_ERR "%s: device register failed\n", __func__);
++		goto out_free;
++	}
++
 +	return 0;
 +
-+err_slave:
-+	list_for_each_entry(dp, &priv->list, list)
-+		ieee802154fake_del_priv(dp);
-+	sysfs_remove_group(&pdev->dev.kobj, &fake_group);
-+err_grp:
-+	kfree(priv);
-+err_alloc:
++	ieee802154_unregister_device(zbdev->dev);
++
++out_free:
++	tty->disc_data = NULL;
++
++	ieee802154_free_device(zbdev->dev);
++out_free_zb:
++	kfree(zbdev);
++
 +	return err;
 +}
 +
-+static int __devexit ieee802154fake_remove(struct platform_device *pdev)
++/*
++ * Called when the tty is put into another line discipline or it hangs up. We
++ * have to wait for any cpu currently executing in any of the other zb_tty_*
++ * routines to finish before we can call zb_tty_close and free the
++ * zb_serial_dev struct. This routine must be called from process context, not
++ * interrupt or softirq context.
++ */
++static void
++ieee802154_tty_close(struct tty_struct *tty)
 +{
-+	struct fake_priv *priv = platform_get_drvdata(pdev);
-+	struct fake_dev_priv *dp, *temp;
++	struct zb_device *zbdev;
 +
-+	list_for_each_entry_safe(dp, temp, &priv->list, list)
-+		ieee802154fake_del_priv(dp);
-+	sysfs_remove_group(&pdev->dev.kobj, &fake_group);
-+	kfree(priv);
++	zbdev = tty->disc_data;
++	if (NULL == zbdev) {
++		printk(KERN_WARNING "%s: match is not found\n", __func__);
++		return;
++	}
++
++	tty->disc_data = NULL;
++	zbdev->tty = NULL;
++
++	ieee802154_unregister_device(zbdev->dev);
++
++	tty_ldisc_flush(tty);
++	tty_driver_flush_buffer(tty);
++
++	ieee802154_free_device(zbdev->dev);
++	kfree(zbdev);
++}
++
++/*
++ * Called on tty hangup in process context.
++ */
++static int
++ieee802154_tty_hangup(struct tty_struct *tty)
++{
++	ieee802154_tty_close(tty);
 +	return 0;
 +}
 +
-+static struct platform_device *ieee802154fake_dev;
++/*
++ * Called in process context only. May be re-entered by multiple ioctl calling threads.
++ */
++static int
++ieee802154_tty_ioctl(struct tty_struct *tty, struct file *file, unsigned int cmd, unsigned long arg)
++{
++	struct zb_device *zbdev;
++	struct ifreq ifr;
++	struct ieee802154_priv *priv;
++	int err;
++	void __user *argp = (void __user *) arg;
 +
-+static struct platform_driver ieee802154fake_driver = {
-+	.probe = ieee802154fake_probe,
-+	.remove = __devexit_p(ieee802154fake_remove),
-+	.driver = {
-+			.name = "ieee802154fakelb",
-+			.owner = THIS_MODULE,
-+	},
++	pr_debug("cmd = 0x%x\n", cmd);
++	memset(&ifr, 0, sizeof(ifr));
++
++	zbdev = tty->disc_data;
++	if (NULL == zbdev) {
++		pr_debug("match is not found\n");
++		return -EINVAL;
++	}
++
++
++	switch (cmd) {
++	case PPPIOCGUNIT:
++		/* TODO: some error checking */
++		priv = ieee802154_to_priv(zbdev->dev);
++		BUG_ON(!priv->master);
++		err = -EFAULT;
++		if (copy_to_user(argp, priv->master->name, strlen(priv->master->name)))
++			break;
++		err = 0;
++		break;
++	default:
++		pr_debug("Unknown ioctl cmd: %u\n", cmd);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++
++/*
++ * This can now be called from hard interrupt level as well
++ * as soft interrupt level or mainline.
++ */
++static void
++ieee802154_tty_receive(struct tty_struct *tty, const unsigned char *buf, char *cflags, int count)
++{
++	struct zb_device *zbdev;
++	int i;
++
++	/* Debug info */
++	printk(KERN_INFO "%lu %s, received %d bytes:", jiffies, __func__, count);
++	for (i = 0; i < count; ++i)
++		printk(KERN_CONT " 0x%02X", buf[i]);
++	printk(KERN_CONT "\n");
++
++	/* Actual processing */
++	zbdev = tty->disc_data;
++	if (NULL == zbdev) {
++		printk(KERN_ERR "%s(): record for tty is not found\n", __func__);
++		return;
++	}
++	for (i = 0; i < count; ++i)
++		process_char(zbdev, buf[i]);
++#if 0
++	if (tty->driver->flush_chars)
++		tty->driver->flush_chars(tty);
++#endif
++	tty_unthrottle(tty);
++}
++
++/*
++ * Line discipline device structure
++ */
++static struct tty_ldisc_ops ieee802154_ldisc = {
++	.owner  = THIS_MODULE,
++	.magic	= TTY_LDISC_MAGIC,
++	.name	= "ieee802154-ldisc",
++	.open	= ieee802154_tty_open,
++	.close	= ieee802154_tty_close,
++	.hangup	= ieee802154_tty_hangup,
++	.receive_buf = ieee802154_tty_receive,
++	.ioctl	= ieee802154_tty_ioctl,
 +};
 +
-+static __init int fake_init(void)
++/*****************************************************************************
++ * Module service routinues
++ *****************************************************************************/
++
++static int __init ieee802154_serial_init(void)
 +{
-+	ieee802154fake_dev = platform_device_register_simple("ieee802154fakelb", -1, NULL, 0);
-+	return platform_driver_register(&ieee802154fake_driver);
++	printk(KERN_INFO "Initializing ZigBee TTY interface\n");
++
++	if (tty_register_ldisc(N_IEEE802154, &ieee802154_ldisc) != 0) {
++		printk(KERN_ERR "%s: line discipline register failed\n", __func__);
++		return -EINVAL;
++	}
++
++	return 0;
 +}
 +
-+static __exit void fake_exit(void)
++static void __exit ieee802154_serial_cleanup(void)
 +{
-+	platform_driver_unregister(&ieee802154fake_driver);
-+	platform_device_unregister(ieee802154fake_dev);
++	if (tty_unregister_ldisc(N_IEEE802154) != 0)
++		printk(KERN_CRIT "failed to unregister ZigBee line discipline.\n");
 +}
 +
-+module_init(fake_init);
-+module_exit(fake_exit);
++module_init(ieee802154_serial_init);
++module_exit(ieee802154_serial_cleanup);
++
 +MODULE_LICENSE("GPL");
++MODULE_ALIAS_LDISC(N_IEEE802154);
 +
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 214a92d..ec8cf21 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2704,6 +2704,8 @@ source "drivers/net/wan/Kconfig"
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index fc39db9..f533beb 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -23,7 +23,7 @@
+  */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		19
++#define NR_LDISCS		20
  
- source "drivers/atm/Kconfig"
+ /* line disciplines */
+ #define N_TTY		0
+@@ -46,6 +46,7 @@
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
+ #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ #define N_PPS		18	/* Pulse per Second */
++#define N_IEEE802154	19	/* Serial / USB serial IEEE802154.4 devices */
  
-+source "drivers/ieee802154/Kconfig"
-+
- source "drivers/s390/net/Kconfig"
- 
- config XEN_NETDEV_FRONTEND
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
 -- 
 1.6.2.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
