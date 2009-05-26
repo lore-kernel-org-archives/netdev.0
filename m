@@ -1,258 +1,191 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH net-next] bonding: allow bond in mode balance-alb to work
- properly in bridge -try4.1
-Date: Tue, 26 May 2009 18:59:53 +0200
-Message-ID: <4A1C2009.4010507@cosmosbay.com>
-References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090326155205.GA28868@psychotron.englab.brq.redhat.com> <20090526151717.GB11147@psychotron.englab.brq.redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
+Date: Tue, 26 May 2009 11:13:52 -0700
+Message-ID: <20090526181352.GA7006@linux.vnet.ibm.com>
+References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com> <20090525164446.GD7168@linux.vnet.ibm.com> <4A1B3FFB.7090306@cn.fujitsu.com> <20090526012843.GF7168@linux.vnet.ibm.com> <20090526154625.GA8662@linux.vnet.ibm.com> <20090526164129.GA19443@Krystal>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
-	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-	kaber@trash.net, mschmidt@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47151 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753203AbZEZRCZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 13:02:25 -0400
-In-Reply-To: <20090526151717.GB11147@psychotron.englab.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lai Jiangshan <laijs@cn.fujitsu.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	mingo@elte.hu, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, jengelh@medozas.de, r000n@r000n.net,
+	benh@kernel.crashing.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090526164129.GA19443@Krystal>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko a =E9crit :
-> [PATCH net-next] bonding: allow bond in mode balance-alb to work prop=
-erly in bridge -try4.1
->=20
-> Hi all.
->=20
-> The problem is described in following bugzilla:
-> https://bugzilla.redhat.com/show_bug.cgi?id=3D487763
->=20
-> Basically here's what's going on. In every mode, bonding interface us=
-es the same
-> mac address for all enslaved devices (except fail_over_mac). Only bal=
-ance-alb
-> will simultaneously use multiple MAC addresses across different slave=
-s. When you
-> put this kind of bond device into a bridge it will only add one of ma=
-c adresses
-> into a hash list of mac addresses, say X. This mac address is marked =
-as local.
-> But this bonding interface also has mac address Y. Now then packet ar=
-rives with
-> destination address Y, this address is not marked as local and the pa=
-cked looks
-> like it needs to be forwarded. This packet is then lost which is wron=
-g.
->=20
-> Notice that interfaces can be added and removed from bond while it is=
- in bridge.
->=20
-> ***
-> When the multiple addresses for bridge port approach failed to solve =
-this issue
-> due to STP I started to think other way to solve this. I returned to =
-previous
-> solution but tweaked one.
->=20
-> This patch solves the situation in the bonding without touching bridg=
-e code.
-> For every incoming frame to bonding the destination address is compar=
-ed to
-> current address of the slave device from which tha packet came. If th=
-ese two
-> match destination address is replaced by mac address of the master. T=
-his address
-> is known by bridge so it is delivered properly.
->=20
-> I experimentally tried that this works as good as searching through t=
-he slave
-> list (v4 of this patch).
->=20
-> I was forced to create a new header because I need to use
-> compare_ether_addr_64bits() (defined in linux/etherdevice.h) in
-> linux/netdevice.h. I've hit some cross include issues. I think that i=
-t's good
-> to have skb_bond_should_drop() in a separate file anyway.
->=20
-> Jirka
->=20
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->=20
-> diff --git a/include/linux/bonding.h b/include/linux/bonding.h
-> new file mode 100644
-> index 0000000..3081ddb
-> --- /dev/null
-> +++ b/include/linux/bonding.h
-> @@ -0,0 +1,78 @@
-> +/*
-> + * include/linux/bonding.h
-> + *
-> + * Copyright (C) 2009 Jiri Pirko <jpirko@redhat.com>
-> + *
-> + * This program is free software; you can redistribute it and/or mod=
-ify
-> + * it under the terms of the GNU General Public License version 2
-> + * as published by the Free Software Foundation.
-> + *
-> + * Bonding device helpers.
-> + */
-> +
-> +#ifndef _LINUX_BONDING_H
-> +#define _LINUX_BONDING_H
-> +
-> +#ifdef __KERNEL__
-> +
-> +#include <linux/skbuff.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/if.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/if_ether.h>
-> +
-> +static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
-> +					      struct net_device *dev,
-> +					      struct net_device *master)
-> +{
-> +	unsigned char *dest =3D eth_hdr(skb)->h_dest;
-> +
-> +	if (compare_ether_addr_64bits(dest, master->dev_addr) &&
-> +	    !compare_ether_addr_64bits(dest, dev->dev_addr))
-> +		memcpy(dest, master->dev_addr, ETH_ALEN);
+On Tue, May 26, 2009 at 12:41:29PM -0400, Mathieu Desnoyers wrote:
+> * Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
+> > On Mon, May 25, 2009 at 06:28:43PM -0700, Paul E. McKenney wrote:
+> > > On Tue, May 26, 2009 at 09:03:55AM +0800, Lai Jiangshan wrote:
+> > > > Paul E. McKenney wrote:
+> > > > > 
+> > > > > Good point -- I should at the very least add a comment to
+> > > > > synchronize_sched_expedited() stating that it cannot be called holding
+> > > > > any lock that is acquired in a CPU hotplug notifier.  If this restriction
+> > > > > causes any problems, then your approach seems like a promising fix.
+> > > > 
+> > > > Reviewed-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+> > > 
+> > > Thank you very much for your review and comments!!!
+> > > 
+> > > > >> The coupling of synchronize_sched_expedited() and migration_req
+> > > > >> is largely increased:
+> > > > >>
+> > > > >> 1) The offline cpu's per_cpu(rcu_migration_req, cpu) is handled.
+> > > > >>    See migration_call::CPU_DEAD
+> > > > > 
+> > > > > Good.  ;-)
+> > > > > 
+> > > > >> 2) migration_call() is the highest priority of cpu notifiers,
+> > > > >>    So even any other cpu notifier calls synchronize_sched_expedited(),
+> > > > >>    It'll not cause DEADLOCK.
+> > > > > 
+> > > > > You mean if using your preempt_disable() approach, right?  Unless I am
+> > > > > missing something, the current get_online_cpus() approach would deadlock
+> > > > > in this case.
+> > > > 
+> > > > Yes, I mean if using my preempt_disable() approach. The current
+> > > > get_online_cpus() approach would NOT deadlock in this case also,
+> > > > we can require get_online_cpus() in cpu notifiers.
+> > > 
+> > > I have added the comment for the time being, but should people need to
+> > > use this in CPU-hotplug notifiers, then again your preempt_disable()
+> > > approach looks to be a promising fix.
+> > 
+> > I looked more closely at your preempt_disable() suggestion, which you
+> > presented earlier as follows:
+> > 
+> > > I think we can reuse req->dest_cpu and remove get_online_cpus().
+> > > (and use preempt_disable() and for_each_possible_cpu())
+> > > 
+> > > req->dest_cpu = -2 means @req is not queued
+> > > req->dest_cpu = -1 means @req is queued
+> > > 
+> > > a little like this code:
+> > > 
+> > > 	mutex_lock(&rcu_sched_expedited_mutex);
+> > > 	for_each_possible_cpu(cpu) {
+> > > 		preempt_disable()
+> > > 		if (cpu is not online)
+> > > 			just set req->dest_cpu to -2;
+> > > 		else
+> > > 			init and queue req, and wake_up_process().
+> > > 		preempt_enable()
+> > > 	}
+> > > 	for_each_possible_cpu(cpu) {
+> > > 		if (req is queued)
+> > > 			wait_for_completion().
+> > > 	}
+> > > 	mutex_unlock(&rcu_sched_expedited_mutex);
+> > 
+> > I am concerned about the following sequence of events:
+> > 
+> > o	synchronize_sched_expedited() disables preemption, thus blocking
+> > 	offlining operations.
+> > 
+> > o	CPU 1 starts offlining CPU 0.  It acquires the CPU-hotplug lock,
+> > 	and proceeds, and is now waiting for preemption to be enabled.
+> > 
+> > o	synchronize_sched_expedited() disables preemption, sees
+> > 	that CPU 0 is online, so initializes and queues a request,
+> > 	does a wake-up-process(), and finally does a preempt_enable().
+> > 
+> > o	CPU 0 is currently running a high-priority real-time process,
+> > 	so the wakeup does not immediately happen.
+> > 
+> > o	The offlining process completes, including the kthread_stop()
+> > 	to the migration task.
+> > 
+> > o	The migration task wakes up, sees kthread_should_stop(),
+> > 	and so exits without checking its queue.
+> > 
+> > o	synchronize_sched_expedited() waits forever for CPU 0 to respond.
+> > 
+> > I suppose that one way to handle this would be to check for the CPU
+> > going offline before doing the wait_for_completion(), but I am concerned
+> > about races affecting this check as well.
+> > 
+> > Or is there something in the CPU-offline process that makes the above
+> > sequence of events impossible?
+> > 
+> 
+> I think you are right, there is a problem there. The simple fact that
+> this needs to disable preemption to protect against cpu hotplug seems a
+> bit strange. If I may propose an alternate solution, which assumes that
+> threads pinned to a CPU are migrated to a different CPU when a CPU goes
+> offline (and will therefore execute anyway), and that a CPU brought
+> online after the first iteration on online cpus was already quiescent
+> (hopefully my assumptions are right). Preemption is left enabled during
+> all the critical section.
+> 
+> It looks a lot like Lai's approach, except that I use a cpumask (I
+> thought it looked cleaner and typically involves less operations than
+> looping on each possible cpu). I also don't disable preemption and
+> assume that cpu hotplug can happen at any point during this critical
+> section.
+> 
+> Something along the lines of :
+> 
+> static DECLARE_BITMAP(cpu_wait_expedited_bits, CONFIG_NR_CPUS);
+> const struct cpumask *const cpu_wait_expedited_mask =
+> 			to_cpumask(cpu_wait_expedited_bits);
+> 
+> 	mutex_lock(&rcu_sched_expedited_mutex);
+> 	cpumask_clear(cpu_wait_expedited_mask);
+> 	for_each_online_cpu(cpu) {
+> 		init and queue cpu req, and wake_up_process().
+> 		cpumask_set_cpu(cpu, cpu_wait_expedited_mask);
+> 	}
+> 	for_each_cpu_mask(cpu, cpu_wait_expedited_mask) {
+> 		wait_for_completion(cpu req);
+> 	}
+> 	mutex_unlock(&rcu_sched_expedited_mutex);
+> 
+> There is one concern with this approach : if a CPU is hotunplugged and
+> hotplugged during the critical section, I think the scheduler would
+> migrate the thread to a different CPU (upon hotunplug) and let the
+> thread run on this other CPU. If the target CPU is hotplugged again,
+> this would mean the thread would have run on a different CPU than the
+> target. I think we can argue that a CPU going offline and online again
+> will meet quiescent state requirements, so this should not be a problem.
 
-But couldnt we test skb->pkt_type =3D=3D PACKET_HOST instead,
-Or eth_type_trans() not yet called at this point ?
+Having the task runnable on some other CPU is very scary to me.  If the
+CPU comes back online, and synchronize_sched_expedited() manages to
+run before the task gets migrated back onto that CPU, then the grace
+period could be ended too soon.
 
-I would suggest :
+All of this is intended to make synchronize_sched_expedited() be able to
+run in a CPU hotplug notifier.  Do we have an example where someone
+really wants to do this?  If not, I am really starting to like v7 of
+the patch.  ;-)
 
-if (skb->pkt_type =3D=3D PACKET_HOST)
-	memcpy(dest, master->dev_addr, ETH_ALEN);
+If someone really does need to run synchronize_sched_expedited() from a
+CPU hotplug notifier, perhaps a simpler approach is to have something
+like a try_get_online_cpus(), and just invoke synchronize_sched() upon
+failure:
 
-> +}
-> +
-> +/* On bonding slaves other than the currently active slave, suppress
-> + * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, an=
-d
-> + * ARP on active-backup slaves with arp_validate enabled.
-> + */
-> +static inline int skb_bond_should_drop(struct sk_buff *skb)
-> +{
-> +	struct net_device *dev =3D skb->dev;
-> +	struct net_device *master =3D dev->master;
-> +
-> +	if (master) {
-> +		if (master->priv_flags & IFF_MASTER_ARPMON)
-> +			dev->last_rx =3D jiffies;
-> +
-> +		if ((master->priv_flags & IFF_MASTER_ALB) && master->br_port) {
-> +			/* Do address unmangle. The local destination address
-> +			 * will be always the one master has. Provides the right
-> +			 * functionality in a bridge.
-> +			 */
-> +			skb_bond_set_mac_by_master(skb, dev, master);
-> +		}
-> +
-> +		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
-> +			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
-> +			    skb->protocol =3D=3D __cpu_to_be16(ETH_P_ARP))
-> +				return 0;
-> +
-> +			if (master->priv_flags & IFF_MASTER_ALB) {
-> +				if (skb->pkt_type !=3D PACKET_BROADCAST &&
-> +				    skb->pkt_type !=3D PACKET_MULTICAST)
-> +					return 0;
-> +			}
-> +			if (master->priv_flags & IFF_MASTER_8023AD &&
-> +			    skb->protocol =3D=3D __cpu_to_be16(ETH_P_SLOW))
-> +				return 0;
-> +
-> +			return 1;
-> +		}
-> +	}
-> +	return 0;
-> +}
-> +
-> +#endif /* __KERNEL__ */
-> +
-> +#endif	/* _LINUX_BONDING_H */
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index ae3c209..06e24ae 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1897,39 +1897,6 @@ static inline void netif_set_gso_max_size(stru=
-ct net_device *dev,
->  	dev->gso_max_size =3D size;
->  }
-> =20
-> -/* On bonding slaves other than the currently active slave, suppress
-> - * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, an=
-d
-> - * ARP on active-backup slaves with arp_validate enabled.
-> - */
-> -static inline int skb_bond_should_drop(struct sk_buff *skb)
-> -{
-> -	struct net_device *dev =3D skb->dev;
-> -	struct net_device *master =3D dev->master;
-> -
-> -	if (master) {
-> -		if (master->priv_flags & IFF_MASTER_ARPMON)
-> -			dev->last_rx =3D jiffies;
-> -
-> -		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
-> -			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
-> -			    skb->protocol =3D=3D __cpu_to_be16(ETH_P_ARP))
-> -				return 0;
-> -
-> -			if (master->priv_flags & IFF_MASTER_ALB) {
-> -				if (skb->pkt_type !=3D PACKET_BROADCAST &&
-> -				    skb->pkt_type !=3D PACKET_MULTICAST)
-> -					return 0;
-> -			}
-> -			if (master->priv_flags & IFF_MASTER_8023AD &&
-> -			    skb->protocol =3D=3D __cpu_to_be16(ETH_P_SLOW))
-> -				return 0;
-> -
-> -			return 1;
-> -		}
-> -	}
-> -	return 0;
-> -}
-> -
->  extern struct pernet_operations __net_initdata loopback_net_ops;
-> =20
->  static inline int dev_ethtool_get_settings(struct net_device *dev,
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index 7f7de1a..c6eae40 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -2,6 +2,7 @@
->  #include <linux/netdevice.h>
->  #include <linux/if_vlan.h>
->  #include <linux/netpoll.h>
-> +#include <linux/bonding.h>
->  #include "vlan.h"
-> =20
->  /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive=
-_skb}(). */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 241613f..221b43f 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -127,6 +127,7 @@
->  #include <linux/jhash.h>
->  #include <linux/random.h>
->  #include <trace/napi.h>
-> +#include <linux/bonding.h>
-> =20
->  #include "net-sysfs.h"
-> =20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
+	void synchronize_sched_expedited(void)
+	{
+		int cpu;
+		unsigned long flags;
+		struct rq *rq;
+		struct migration_req *req;
 
+		mutex_lock(&rcu_sched_expedited_mutex);
+		if (!try_get_online_cpus()) {
+			synchronize_sched();
+			return;
+		}
 
+		/* rest of synchronize_sched_expedited()... */
+
+But I would want to see a real need for this beforehand.
+
+							Thanx, Paul
