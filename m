@@ -1,82 +1,42 @@
-From: Tadashi Abe <tabe@mvista.com>
-Subject: [PATCH] irda-usb: suspend/resume support
-Date: Tue, 26 May 2009 15:53:27 +0900
-Message-ID: <4A1B91E7.8010606@mvista.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus driver
+Date: Tue, 26 May 2009 10:10:30 +0100
+Message-ID: <200905261010.31364.arnd@arndb.de>
+References: <4A16BAAE.3070401@grandegger.com> <200905242327.15139.arnd@arndb.de> <4A1A418D.3040207@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-To: davem@davemloft.net
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	devicetree-discuss@ozlabs.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sonicwall.montavista.co.jp ([202.232.97.131]:19791 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754087AbZEZH0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 03:26:09 -0400
+Received: from moutng.kundenserver.de ([212.227.126.187]:49287 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753409AbZEZJL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 05:11:57 -0400
+In-Reply-To: <4A1A418D.3040207@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds power management suspend/resume hooks for irda-usb.
+On Monday 25 May 2009, Wolfgang Grandegger wrote:
+> > Right, that makes sense. However, most drivers use the field to store the
+> > physical address, not the iomap token. Maybe there should be a new field
+> > in struct sja1000_priv for the virtual address, but that would be a change
+> > to the base driver, not just to the OF portion.
+> 
+> Is that common practice? If yes, I will add a member to store the
+> virtual address to struct sja1000_priv.
 
-Signed-off-by: Tadashi Abe <tabe@mvista.com>
----
- drivers/net/irda/irda-usb.c |   40 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 40 insertions(+), 0 deletions(-)
+I grepped through the network driver for usage of ->base_addr, and
+it's somewhat inconsistent. The majority of the users use it for
+a physical address, but there are also a few that use it for the
+__iomem token.
 
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 006ba23..394b2b1 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -1859,6 +1859,42 @@ static void irda_usb_disconnect(struct usb_interface *intf)
- 	IRDA_DEBUG(0, "%s(), USB IrDA Disconnected\n", __func__);
- }
- 
-+#ifdef CONFIG_PM
-+/* USB suspend, so power off the transmitter/receiver */
-+static int irda_usb_suspend(struct usb_interface *intf, pm_message_t message)
-+{
-+	struct irda_usb_cb *self = usb_get_intfdata(intf);
-+	int i;
-+
-+	netif_device_detach(self->netdev);
-+
-+	if (self->tx_urb != NULL)
-+		usb_kill_urb(self->tx_urb);
-+	if (self->speed_urb != NULL)
-+		usb_kill_urb(self->speed_urb);
-+	for (i = 0; i < self->max_rx_urb; i++) {
-+		if (self->rx_urb[i] != NULL)
-+			usb_kill_urb(self->rx_urb[i]);
-+	}
-+	return 0;
-+}
-+
-+/* Coming out of suspend, so reset hardware */
-+static int irda_usb_resume(struct usb_interface *intf)
-+{
-+	struct irda_usb_cb *self = usb_get_intfdata(intf);
-+	int i;
-+
-+	for (i = 0; i < self->max_rx_urb; i++) {
-+		if (self->rx_urb[i] != NULL)
-+			usb_submit_urb(self->rx_urb[i], GFP_KERNEL);
-+	}
-+
-+	netif_device_attach(self->netdev);
-+	return 0;
-+}
-+#endif
-+
- /*------------------------------------------------------------------*/
- /*
-  * USB device callbacks
-@@ -1868,6 +1904,10 @@ static struct usb_driver irda_driver = {
- 	.probe		= irda_usb_probe,
- 	.disconnect	= irda_usb_disconnect,
- 	.id_table	= dongles,
-+#ifdef CONFIG_PM
-+	.suspend	= irda_usb_suspend,
-+	.resume		= irda_usb_resume,
-+#endif
- };
- 
- /************************* MODULE CALLBACKS *************************/
+Casts between unsigned long and qualified (__iomem, __user, const, ...)
+pointers do not cause a warning, but can easily lead to bugs when
+another user casts to an unqualified pointer.
+
+	Arnd <><
+
