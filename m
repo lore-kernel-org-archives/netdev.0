@@ -1,24 +1,45 @@
-From: Amanda <microprinting@bellnet.ca>
-Subject: lucky...winner
-Date: Tue, 26 May 2009 5:56:37 -0400
-Message-ID: <20090526095637.IIZD1756.tomts31-srv.bellnexxia.net@toip35-bus.srvr.bell.ca>
-Reply-To: jerry.smith12@btinternet.com
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [PATCH 2/2] Bugfix: xt_hashlimit does a wrong SEQ_SKIP.
+Date: Tue, 26 May 2009 15:18:57 +0200
+Message-ID: <20090526131857.7377.6946.stgit@localhost>
+References: <20090526131852.7377.68330.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@lotto.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from toq1-srv.bellnexxia.net ([209.226.175.120]:37524 "EHLO
-	toq1-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbZEZMsg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 08:48:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Jonathan Corbet" <corbet@lwn.net>,
+	Jesper Dangaard Brouer <hawk@comx.dk>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090526131852.7377.68330.stgit@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You have just been awarded,the sum of  =A3950.000.00 in the LG Award 20=
-09, Anniversary Bonanza.. held in May.
+(Inside net/netfilter/xt_hashlimit.c)
+The function dl_seq_show() returns 1 (equal to SEQ_SKIP) in case
+a seq_printf() call return -1.  It should return -1.
 
-Names:............. Address:..............
-Country:................ Age:..........
+This SEQ_SKIP behavior brakes processing the proc file e.g. via a
+pipe or just through less.
 
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+---
+
+ net/netfilter/xt_hashlimit.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index a5b5369..219dcdb 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -926,7 +926,7 @@ static int dl_seq_show(struct seq_file *s, void *v)
+ 	if (!hlist_empty(&htable->hash[*bucket])) {
+ 		hlist_for_each_entry(ent, pos, &htable->hash[*bucket], node)
+ 			if (dl_seq_real_show(ent, htable->family, s))
+-				return 1;
++				return -1;
+ 	}
+ 	return 0;
+ }
 
