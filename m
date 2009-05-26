@@ -1,100 +1,86 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [Bug #13339] rtable leak in ipv4/route.c
-Date: Tue, 26 May 2009 01:28:34 +0200
-Message-ID: <200905260128.35541.rjw@sisk.pl>
-References: <ZPPBiNHr1LC.A.9ZH.K9bGKB@chimera> <uSztiUhmDDC.A.U8H.a9bGKB@chimera> <4A19CB7D.8000004@cosmosbay.com>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
+Date: Tue, 26 May 2009 09:03:55 +0800
+Message-ID: <4A1B3FFB.7090306@cn.fujitsu.com>
+References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com> <20090525164446.GD7168@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Alexander V. Lukyanov" <lav-L+1EwoRT+D8@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4A19CB7D.8000004-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, mingo@elte.hu,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
+	jeff.chua.linux@gmail.com, paulus@samba.org, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:63456 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752524AbZEZBHo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 May 2009 21:07:44 -0400
+In-Reply-To: <20090525164446.GD7168@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 25 May 2009, Eric Dumazet wrote:
-> Rafael J. Wysocki a =C3=A9crit :
-> > This message has been generated automatically as a part of a report
-> > of recent regressions.
-> >=20
-> > The following bug entry is on the current list of known regressions
-> > from 2.6.29.  Please verify if it still should be listed and let me=
- know
-> > (either way).
-> >=20
-> >=20
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> > Subject		: rtable leak in ipv4/route.c
-> > Submitter	: Alexander V. Lukyanov <lav-L+1EwoRT+D8@public.gmane.org>
-> > Date		: 2009-05-18 14:10 (7 days old)
-> >=20
->=20
-> Bug was present in 2.6.29, so its a regression from 2.6.28
->=20
-> It is solved and available in David tree (net-2.6), and scheduled for=
- stable submission
->=20
-> commit 1ddbcb005c395518c2cd0df504cff3d4b5c85853
-> net: fix rtable leak in net/ipv4/route.c
->=20
-> Alexander V. Lukyanov found a regression in 2.6.29 and made a complet=
-e
-> analysis found in http://bugzilla.kernel.org/show_bug.cgi?id=3D13339
-> Quoted here because its a perfect one :
->=20
-> begin_of_quotation
->  2.6.29 patch has introduced flexible route cache rebuilding. Unfortu=
-nately the
->  patch has at least one critical flaw, and another problem.
->=20
->  rt_intern_hash calculates rthi pointer, which is later used for new =
-entry
->  insertion. The same loop calculates cand pointer which is used to cl=
-ean the
->  list. If the pointers are the same, rtable leak occurs, as first the=
- cand is
->  removed then the new entry is appended to it.
->=20
->  This leak leads to unregister_netdevice problem (usage count > 0).
->=20
->  Another problem of the patch is that it tries to insert the entries =
-in certain
->  order, to facilitate counting of entries distinct by all but QoS par=
-ameters.
->  Unfortunately, referencing an existing rtable entry moves it to list=
- beginning,
->  to speed up further lookups, so the carefully built order is destroy=
-ed.
->=20
->  For the first problem the simplest patch it to set rthi=3D0 when rth=
-i=3D=3Dcand, but
->  it will also destroy the ordering.
-> end_of_quotation
->=20
-> Problematic commit is 1080d709fb9d8cd4392f93476ee46a9d6ea05a5b
-> (net: implement emergency route cache rebulds when gc_elasticity is e=
-xceeded)
->=20
-> Trying to keep dst_entries ordered is too complex and breaks the fact=
- that
-> order should depend on the frequency of use for garbage collection.
->=20
-> A possible fix is to make rt_intern_hash() simpler, and only makes
-> rt_check_expire() a litle bit smarter, being able to cope with an arb=
-itrary
-> entries order. The added loop is running on cache hot data, while cpu
-> is prefetching next object, so should be unnoticied.
->=20
-> Reported-and-analyzed-by: Alexander V. Lukyanov <lav-L+1EwoRT+D8@public.gmane.org>
-> Signed-off-by: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-> Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Paul E. McKenney wrote:
+> 
+> Good point -- I should at the very least add a comment to
+> synchronize_sched_expedited() stating that it cannot be called holding
+> any lock that is acquired in a CPU hotplug notifier.  If this restriction
+> causes any problems, then your approach seems like a promising fix.
 
-Thanks, updated.
 
-Rafael
+Reviewed-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+
+> 
+>> The coupling of synchronize_sched_expedited() and migration_req
+>> is largely increased:
+>>
+>> 1) The offline cpu's per_cpu(rcu_migration_req, cpu) is handled.
+>>    See migration_call::CPU_DEAD
+> 
+> Good.  ;-)
+> 
+>> 2) migration_call() is the highest priority of cpu notifiers,
+>>    So even any other cpu notifier calls synchronize_sched_expedited(),
+>>    It'll not cause DEADLOCK.
+> 
+> You mean if using your preempt_disable() approach, right?  Unless I am
+> missing something, the current get_online_cpus() approach would deadlock
+> in this case.
+> 
+
+Yes, I mean if using my preempt_disable() approach. The current
+get_online_cpus() approach would NOT deadlock in this case also,
+we can require get_online_cpus() in cpu notifiers.
+
+> diff --git a/include/linux/rcupreempt.h b/include/linux/rcupreempt.h
+> index fce5227..78117ed 100644
+> --- a/include/linux/rcupreempt.h
+> +++ b/include/linux/rcupreempt.h
+> @@ -74,6 +74,16 @@ extern int rcu_needs_cpu(int cpu);
+>  
+>  extern void __synchronize_sched(void);
+>  
+> +static inline void synchronize_rcu_expedited(void)
+> +{
+> +	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
+> +}
+> +
+> +static inline void synchronize_rcu_bh_expedited(void)
+> +{
+> +	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
+> +}
+> +
+
+Why not synchronize_rcu_bh() ?
+
+In mainline, rcu_read_lock_bh() is not preemptable,
+So I think synchronize_sched_expedited() is better.
+
+Anyway, synchronize_rcu() is OK for me, because it is
+"Placeholder for new rcupreempt implementation".
+
+Lai
+
