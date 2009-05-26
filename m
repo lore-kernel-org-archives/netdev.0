@@ -1,51 +1,78 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH] netdev: enc28j60: use IRQF_TRIGGER_FALLING for IRQ by default
-Date: Tue, 26 May 2009 12:40:16 -0700
-Message-ID: <200905261240.17182.david-b@pacbell.net>
-References: <1243333007-25645-1-git-send-email-vapier@gentoo.org> <200905260424.17654.david-b@pacbell.net> <8A42379416420646B9BFAC9682273B6D0B2B671E@limkexm3.ad.analog.com>
+From: Paul Menage <menage@google.com>
+Subject: [PATCH] cls_cgroup: read classid atomically in classifier
+Date: Tue, 26 May 2009 12:59:11 -0700
+Message-ID: <20090526195840.8464.36548.stgit@menage.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Baruch Siach" <baruch@tkos.co.il>,
-	"Mike Frysinger" <vapier@gentoo.org>, netdev@vger.kernel.org,
-	"Bryan Wu" <cooloney@kernel.org>
-To: "Hennerich, Michael" <Michael.Hennerich@analog.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: lizf@cn.fujitsu.com, akpm@linux-foundation.org,
+	davem@davemloft.net, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n25.bullet.mail.mud.yahoo.com ([68.142.206.220]:36262 "HELO
-	n25.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755891AbZEZTkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 15:40:17 -0400
-In-Reply-To: <8A42379416420646B9BFAC9682273B6D0B2B671E@limkexm3.ad.analog.com>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.33.17]:55552 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756686AbZEZUAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 16:00:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 26 May 2009, Hennerich, Michael wrote:
-> The comment block above request_irq states:
->=20
-> >> > =A0=A0=A0 * level triggers won't currently work.
->=20
-> And I guess it's because IRQ handling is deferred to a work queue.
+cls_cgroup: read classid atomically in classifier
 
-The IRQ needs to no longer be pending when the (hard) handler returns.
-=46or level triggers, that means disabling the IRQ ... then re-enabling
-it only when the (soft/threaded) handler returns.
+Avoid reading the unsynchronized value cs->classid multiple times,
+since it could change concurrently from non-zero to zero; this would
+result in the classifier returning a positive result with a bogus
+(zero) classid.
 
+Signed-off-by: Paul Menage <menage@google.com>
+Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
 
-> I wonder how IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING will work in
-> such a case.
+---
 
-It works just fine, since when the (hard) handler returns there is
-no longer "IRQ pending" status in the IRQ controller.
+Fixes a whitespace issue from the previous version of the patch
 
+ net/sched/cls_cgroup.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-> Since the ENC28J60 /INT will de-assert during the work handler execut=
-es,
-> thus causing a second spurious interrupt.
-
-No problem.  The Ethernet adapter has no pending (unless another IRQ
-triggered meanwhile); its workqueue/threaded handler returns immediatel=
-y.
-
-
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 1ab4542..0f815cc 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -98,8 +98,7 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 			       struct tcf_result *res)
+ {
+ 	struct cls_cgroup_head *head = tp->root;
+-	struct cgroup_cls_state *cs;
+-	int ret = 0;
++	u32 classid;
+ 
+ 	/*
+ 	 * Due to the nature of the classifier it is required to ignore all
+@@ -115,17 +114,18 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 		return -1;
+ 
+ 	rcu_read_lock();
+-	cs = task_cls_state(current);
+-	if (cs->classid && tcf_em_tree_match(skb, &head->ematches, NULL)) {
+-		res->classid = cs->classid;
+-		res->class = 0;
+-		ret = tcf_exts_exec(skb, &head->exts, res);
+-	} else
+-		ret = -1;
+-
++	classid = task_cls_state(current)->classid;
+ 	rcu_read_unlock();
+ 
+-	return ret;
++	if (!classid)
++		return -1;
++
++	if (!tcf_em_tree_match(skb, &head->ematches, NULL))
++		return -1;
++
++	res->classid = classid;
++	res->class = 0;
++	return tcf_exts_exec(skb, &head->exts, res);
+ }
+ 
+ static unsigned long cls_cgroup_get(struct tcf_proto *tp, u32 handle)
 
