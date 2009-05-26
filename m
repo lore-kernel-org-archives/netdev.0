@@ -1,57 +1,43 @@
-From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus
 	driver
-Date: Tue, 26 May 2009 19:40:43 +1000
-Message-ID: <1243330843.2858.71.camel@pasglop>
-References: <4A16BAAE.3070401@grandegger.com>
-	<200905242327.15139.arnd@arndb.de> <4A1A418D.3040207@grandegger.com>
+Date: Tue, 26 May 2009 10:42:05 +0100
+Message-ID: <200905261042.05967.arnd@arndb.de>
+References: <200905242327.15139.arnd@arndb.de>
 	<200905261010.31364.arnd@arndb.de>
+	<20090526.022508.238274281.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org, devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-In-Reply-To: <200905261010.31364.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-mnsaURCQ41sdnm+yROfE0A@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
+Cc: devicetree-discuss@ozlabs.org, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Greg Ungerer <gerg@uclinux.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090526.022508.238274281.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-05-26 at 10:10 +0100, Arnd Bergmann wrote:
-> On Monday 25 May 2009, Wolfgang Grandegger wrote:
-> > > Right, that makes sense. However, most drivers use the field to store the
-> > > physical address, not the iomap token. Maybe there should be a new field
-> > > in struct sja1000_priv for the virtual address, but that would be a change
-> > > to the base driver, not just to the OF portion.
-> > 
-> > Is that common practice? If yes, I will add a member to store the
-> > virtual address to struct sja1000_priv.
-> 
-> I grepped through the network driver for usage of ->base_addr, and
-> it's somewhat inconsistent. The majority of the users use it for
-> a physical address, but there are also a few that use it for the
-> __iomem token.
+On Tuesday 26 May 2009, David Miller wrote:
+> It's such a baroque thing, there is no reason to set it at all if you
+> ask me.  It's only use is to allow ISA and similar primitive bus
+> devices to have their I/O ports changed via ifconfig.
 
-In addition, iirc, it's not big enough to hold >32 bit physical
-addresses on 32-bit platforms no ?
+My original comment was about the fact that sja1000 was doing
+dev->base_addr = (unsigned long)ioremap(phys_addr, size), I didn't
+even think about SIOCGIFMAP and command line overrides, but that
+surely makes it worse and the driver should be changed to
+store the virtual register address in its private data structure.
 
-Ben.
+drivers/net/fec.c seems to have the same problem, which manifests
+in a number of ugly casts and direct pointer dereferences in places
+where it should do writel() or out_be32().
 
-> Casts between unsigned long and qualified (__iomem, __user, const, ...)
-> pointers do not cause a warning, but can easily lead to bugs when
-> another user casts to an unqualified pointer.
-> 
-> 	Arnd <><
-> 
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev-mnsaURCQ41sdnm+yROfE0A@public.gmane.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+	Arnd <><
