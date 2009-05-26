@@ -1,42 +1,54 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 1/2] Doc: seq_file.txt fix wrong dd command example.
-Date: Tue, 26 May 2009 15:18:52 +0200
-Message-ID: <20090526131852.7377.68330.stgit@localhost>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus
+	driver
+Date: Tue, 26 May 2009 16:23:47 +0200
+Message-ID: <4A1BFB73.4020305@grandegger.com>
+References: <200905242327.15139.arnd@arndb.de>	<4A1A418D.3040207@grandegger.com>	<200905261010.31364.arnd@arndb.de>
+	<20090526.022508.238274281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	"Patrick McHardy" <kaber@trash.net>,
-	"Jonathan Corbet" <corbet@lwn.net>,
-	Jesper Dangaard Brouer <hawk@comx.dk>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:45240 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752967AbZEZNxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 09:53:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, devicetree-discuss@ozlabs.org, arnd@arndb.de,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090526.022508.238274281.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Small error in the "dd" command example, "out=" should be "of=".
+David Miller wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Tue, 26 May 2009 10:10:30 +0100
+> 
+>> On Monday 25 May 2009, Wolfgang Grandegger wrote:
+>>>> Right, that makes sense. However, most drivers use the field to store the
+>>>> physical address, not the iomap token. Maybe there should be a new field
+>>>> in struct sja1000_priv for the virtual address, but that would be a change
+>>>> to the base driver, not just to the OF portion.
+>>> Is that common practice? If yes, I will add a member to store the
+>>> virtual address to struct sja1000_priv.
+>> I grepped through the network driver for usage of ->base_addr, and
+>> it's somewhat inconsistent. The majority of the users use it for
+>> a physical address, but there are also a few that use it for the
+>> __iomem token.
+>>
+>> Casts between unsigned long and qualified (__iomem, __user, const, ...)
+>> pointers do not cause a warning, but can easily lead to bugs when
+>> another user casts to an unqualified pointer.
+> 
+> It's such a baroque thing, there is no reason to set it at all if you
+> ask me.  It's only use is to allow ISA and similar primitive bus
+> devices to have their I/O ports changed via ifconfig.
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
+OK, I see, there are good reasons not to (mis-)use dev->base_addr. I
+will prepare a patch for the SJA1000 CAN drivers.
 
- Documentation/filesystems/seq_file.txt |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/Documentation/filesystems/seq_file.txt b/Documentation/filesystems/seq_file.txt
-index b843743..0d15ebc 100644
---- a/Documentation/filesystems/seq_file.txt
-+++ b/Documentation/filesystems/seq_file.txt
-@@ -46,7 +46,7 @@ better to do. The file is seekable, in that one can do something like the
- following:
- 
-     dd if=/proc/sequence of=out1 count=1
--    dd if=/proc/sequence skip=1 out=out2 count=1
-+    dd if=/proc/sequence skip=1 of=out2 count=1
- 
- Then concatenate the output files out1 and out2 and get the right
- result. Yes, it is a thoroughly useless module, but the point is to show
-
+Wolfgang.
