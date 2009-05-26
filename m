@@ -1,116 +1,66 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
-Date: Tue, 26 May 2009 08:46:25 -0700
-Message-ID: <20090526154625.GA8662@linux.vnet.ibm.com>
-References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com> <20090525164446.GD7168@linux.vnet.ibm.com> <4A1B3FFB.7090306@cn.fujitsu.com> <20090526012843.GF7168@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1] ethtool: Expose MDI-X status
+Date: Tue, 26 May 2009 17:02:48 +0100
+Message-ID: <1243353768.3188.2.camel@achroite>
+References: <1243004704.3192.21.camel@achroite>
+	 <20090522171850.GA16751@clala-laptop> <1243040677.16597.52.camel@deadeye>
+	 <4A1C0C1C.8040401@riverbed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090526012843.GF7168@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chaitanya Lala <clala@riverbed.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:39695 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751044AbZEZQCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 12:02:52 -0400
+In-Reply-To: <4A1C0C1C.8040401@riverbed.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 25, 2009 at 06:28:43PM -0700, Paul E. McKenney wrote:
-> On Tue, May 26, 2009 at 09:03:55AM +0800, Lai Jiangshan wrote:
-> > Paul E. McKenney wrote:
-> > > 
-> > > Good point -- I should at the very least add a comment to
-> > > synchronize_sched_expedited() stating that it cannot be called holding
-> > > any lock that is acquired in a CPU hotplug notifier.  If this restriction
-> > > causes any problems, then your approach seems like a promising fix.
-> > 
-> > Reviewed-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+On Tue, 2009-05-26 at 08:34 -0700, Chaitanya Lala wrote:
+> Ben Hutchings wrote:
+> > On Fri, 2009-05-22 at 10:18 -0700, Chaitanya Lala wrote:
+> >   
+> >> The MDI-X status is a useful tool for diagnosing network
+> >> connectivity issues. We expose MDI-X status as a tri-state value
+> >> status which drivers can optionally implement.
+> >>
+> >> Signed-off-by: Chaitanya Lala <clala@riverbed.com>
+> >> Signed-off-by: Arthur Jones <ajones@riverbed.com>
+> >> ---
+> >>  ethtool-copy.h |    6 ++++++
+> >>  ethtool.c      |   13 +++++++++++++
+> >>  2 files changed, 19 insertions(+), 0 deletions(-)
+> >>
+> >> diff --git a/ethtool-copy.h b/ethtool-copy.h
+> >> index 3ca4e2c..d3e1524 100644
+> >> --- a/ethtool-copy.h
+> >> +++ b/ethtool-copy.h
+> >> @@ -28,6 +28,7 @@ struct ethtool_cmd {
+> >>  	__u16	speed_hi;
+> >>  	__u16	reserved2;
+> >>  	__u32	reserved[3];
+> >> +	__u8	is_mdix;	/* Tri-state value to expose MDI-X */
+> >>  };
+> >>     
+> > [...]
+> >
+> > No, you cannot change the size of this structure either.
+> >   
+> Hi,
 > 
-> Thank you very much for your review and comments!!!
-> 
-> > >> The coupling of synchronize_sched_expedited() and migration_req
-> > >> is largely increased:
-> > >>
-> > >> 1) The offline cpu's per_cpu(rcu_migration_req, cpu) is handled.
-> > >>    See migration_call::CPU_DEAD
-> > > 
-> > > Good.  ;-)
-> > > 
-> > >> 2) migration_call() is the highest priority of cpu notifiers,
-> > >>    So even any other cpu notifier calls synchronize_sched_expedited(),
-> > >>    It'll not cause DEADLOCK.
-> > > 
-> > > You mean if using your preempt_disable() approach, right?  Unless I am
-> > > missing something, the current get_online_cpus() approach would deadlock
-> > > in this case.
-> > 
-> > Yes, I mean if using my preempt_disable() approach. The current
-> > get_online_cpus() approach would NOT deadlock in this case also,
-> > we can require get_online_cpus() in cpu notifiers.
-> 
-> I have added the comment for the time being, but should people need to
-> use this in CPU-hotplug notifiers, then again your preempt_disable()
-> approach looks to be a promising fix.
+> In that case please suggest a way to do this.
 
-I looked more closely at your preempt_disable() suggestion, which you
-presented earlier as follows:
+There are 14 bytes at the end of the structure reserved for future
+expansion.  You could take one of them.
 
-> I think we can reuse req->dest_cpu and remove get_online_cpus().
-> (and use preempt_disable() and for_each_possible_cpu())
-> 
-> req->dest_cpu = -2 means @req is not queued
-> req->dest_cpu = -1 means @req is queued
-> 
-> a little like this code:
-> 
-> 	mutex_lock(&rcu_sched_expedited_mutex);
-> 	for_each_possible_cpu(cpu) {
-> 		preempt_disable()
-> 		if (cpu is not online)
-> 			just set req->dest_cpu to -2;
-> 		else
-> 			init and queue req, and wake_up_process().
-> 		preempt_enable()
-> 	}
-> 	for_each_possible_cpu(cpu) {
-> 		if (req is queued)
-> 			wait_for_completion().
-> 	}
-> 	mutex_unlock(&rcu_sched_expedited_mutex);
+Ben.
 
-I am concerned about the following sequence of events:
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-o	synchronize_sched_expedited() disables preemption, thus blocking
-	offlining operations.
-
-o	CPU 1 starts offlining CPU 0.  It acquires the CPU-hotplug lock,
-	and proceeds, and is now waiting for preemption to be enabled.
-
-o	synchronize_sched_expedited() disables preemption, sees
-	that CPU 0 is online, so initializes and queues a request,
-	does a wake-up-process(), and finally does a preempt_enable().
-
-o	CPU 0 is currently running a high-priority real-time process,
-	so the wakeup does not immediately happen.
-
-o	The offlining process completes, including the kthread_stop()
-	to the migration task.
-
-o	The migration task wakes up, sees kthread_should_stop(),
-	and so exits without checking its queue.
-
-o	synchronize_sched_expedited() waits forever for CPU 0 to respond.
-
-I suppose that one way to handle this would be to check for the CPU
-going offline before doing the wait_for_completion(), but I am concerned
-about races affecting this check as well.
-
-Or is there something in the CPU-offline process that makes the above
-sequence of events impossible?
-
-							Thanx, Paul
