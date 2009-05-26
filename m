@@ -1,69 +1,110 @@
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: Re: [net-next-2.6 PATCH][be2net] Code changes to handle dev pvt
-	ioctl
-Date: Tue, 26 May 2009 16:18:53 +0530
-Message-ID: <20090526104852.GA27698@serverengines.com>
-References: <20090524053149.GA17527@serverengines.com> <20090525.003422.117077559.davem@davemloft.net>
-Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [net-2.6 PATCH V2] mlx4_en: Fix a kernel panic when waking tx
+ queue
+Date: Tue, 26 May 2009 12:48:04 +0200
+Message-ID: <4A1BC8E4.1050009@cosmosbay.com>
+References: <49EC859C.700@mellanox.co.il> <4A0AB34A.10100@mellanox.co.il> <4A1948D7.8010504@mellanox.co.il> <4A1A57AA.1080209@mellanox.co.il> <4A1B92D1.8070907@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	tziporet@mellanox.co.il
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:54753 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750897AbZEZKrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 06:47:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20090525.003422.117077559.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59907 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbZEZKsN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 06:48:13 -0400
+In-Reply-To: <4A1B92D1.8070907@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Yevgeny Petrilin a =E9crit :
+> When the transmit queue gets full we enable interrupts for TX complet=
+ions
+> There was a race that we handled the TX queue both from the interrupt=
+ context
+> and from the transmit function. Using "spin_trylock_irq()" ensures th=
+is
+> doesn't happen.
+>=20
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> ---
+>  drivers/net/mlx4/en_tx.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+> index ac6fc49..e5c98a9 100644
+> --- a/drivers/net/mlx4/en_tx.c
+> +++ b/drivers/net/mlx4/en_tx.c
+> @@ -426,7 +426,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
+>=20
+>  	INC_PERF_COUNTER(priv->pstats.tx_poll);
+>=20
+> -	if (!spin_trylock(&ring->comp_lock)) {
+> +	if (!spin_trylock_irq(&ring->comp_lock)) {
+>  		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+>  		return;
+>  	}
+> @@ -439,7 +439,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
+>  	if (inflight && priv->port_up)
+>  		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+>=20
+> -	spin_unlock(&ring->comp_lock);
+> +	spin_unlock_irq(&ring->comp_lock);
+>  }
+>=20
+>  static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en=
+_priv *priv,
+> @@ -482,9 +482,9 @@ static inline void mlx4_en_xmit_poll(struct mlx4_=
+en_priv *priv, int tx_ind)
+>=20
+>  	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
+>  	if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) =3D=3D 0)
+> -		if (spin_trylock(&ring->comp_lock)) {
+> +		if (spin_trylock_irq(&ring->comp_lock)) {
+>  			mlx4_en_process_tx_cq(priv->dev, cq);
+> -			spin_unlock(&ring->comp_lock);
+> +			spin_unlock_irq(&ring->comp_lock);
+>  		}
+>  }
+>=20
 
-The private ioctl is being implemented primarily to meet the following OEM
-requirements.
+Just curious.
 
-1.  A mechanism to retrieve the last post mortem dump of the firmware and h/w
-state.
-2.  Fine tune port equalization parameters of the physical ports.
-3.  A mechanism to flash the firmware at any point (not just at driver load
-time).
+Blocking hard IRQ while doing TX completion is quite nasty,
+as freeing one hundred of skb take long.
 
-A private ioctl seemed to be the only available mechanism to accomplish all
-these.  Also we noticed that couple of other NIC drivers had implemented
-private ioctls. If you feel there are better ways to do this, please let me
-know.
+Could you try something in process context instead ?
 
-- Sarvesh
+Is this timer driven tx completion thing really good for performance ?
 
-On 25/05/09 00:34 -0700, David Miller wrote:
-> From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-> Date: Sun, 24 May 2009 11:01:58 +0530
-> 
-> > Resubmitting patch for net-next tree to handle SIOCDEVPRIVATE ioctl. Also
-> > have incorporated comments given by Ben Hutchings.
-> > 
-> > Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-> 
-> So what kind of diagnostic commands do userlevel tools need
-> this for?
-> 
-> If they fall into useful generic categories, I'd rather you add new
-> ethtool commands for doing them, one for each diagnostic command.
-> For all I know, we might even have such things already if this is
-> for self-test, firmware upload/download, or similar.
-> 
-> Device private ioctls are heavily undesirable, because every driver
-> implements different ones, and thus the experience for users and tool
-> writers is completely inconsistent.
-> 
-> Until I know more about what this is going to be used for I am
-> rejecting this patch.
-> 
-> I really don't like any of the changes I've seen submitted recently
-> for the be2net driver, to be honest with you. :-/
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_=
+ind)
+{
+        struct mlx4_en_cq *cq =3D &priv->tx_cq[tx_ind];
+        struct mlx4_en_tx_ring *ring =3D &priv->tx_ring[tx_ind];
+
+        /* If we don't have a pending timer, set one up to catch our re=
+cent
+           post in case the interface becomes idle */
+        if (!timer_pending(&cq->timer))
+                mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT=
+);
+
+
+        /* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
+        if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) =3D=3D 0)
+                if (spin_trylock(&ring->comp_lock)) {
+                        mlx4_en_process_tx_cq(priv->dev, cq);
+                        spin_unlock(&ring->comp_lock);
+                }
+}
+
+
+One interesting thing is calling mlx4_en_process_tx_cq() once every 16 =
+packets,
+this means the producer cpu is also the cpu doing the TX completion, I =
+like this.
+
