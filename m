@@ -1,69 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
-Date: Mon, 25 May 2009 23:16:22 -0700 (PDT)
-Message-ID: <20090525.231622.222754412.davem@davemloft.net>
-References: <4A15F466.70708@windriver.com>
-	<20090522.010849.89655675.davem@davemloft.net>
-	<4A16D5F6.8040000@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] atl1: use netdev->stats
+Date: Tue, 26 May 2009 08:42:34 +0200
+Message-ID: <4A1B8F5A.9040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matheos.worku@sun.com
-To: hong.pham@windriver.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60593
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753330AbZEZGQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 02:16:23 -0400
-In-Reply-To: <4A16D5F6.8040000@windriver.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59076 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751585AbZEZGmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 02:42:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Hong H. Pham" <hong.pham@windriver.com>
-Date: Fri, 22 May 2009 12:42:30 -0400
+Get rid of private struct net_device_stats in "struct atl1e_adapter",
+and use one provided in struct net_device instead.
 
-> The tpc at the time of the spurious interrupt is niu_poll+0x99c.
-> Looking this address up, it's at this line in niu_ldg_rearm():
-> 
->   nw64(LDG_IMGMT(lp->ldg_num), val);
-> 
-> Since the timer is also reprogrammed when the LDG is rearmed,
-> interrupts should not have been generated immediately after
-> writing to LDG_IMGMT.
-> 
-> The tpc also showed interrupts happening in net_rx_action.  In
-> this case the LDG has been rearmed, but the timer prevented
-> interrupt delivery until after niu_poll is done.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/atl1e/atl1e.h      |    1 -
+ drivers/net/atl1e/atl1e_main.c |    6 +++---
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-The mystery is even deeper now!
-
-First of all, we've been tricking ourselves.  OF COURSE we will see
-the ARM bit cleared in these logs.  Any time the interrupt is sent,
-the chip will clear the ARM bit.  So let's stop considering that as
-unexpected :-)
-
-If we are at the LDG rarm, we should have called napi_complete()
-first.  Which happens in niu_poll().  napi_complete() therefore
-always runs first, and therefore via this code path the LDG
-rearm triggered interrupt should not see the NAPI scheduled.
-
-There are only two other (both unlikely) paths that calls this,
-niu_enable_interrupts() and the niu_interrupt() path that handles MIF,
-RX error, and TX error interrupts.
-
-I wonder if it's the niu_interrupt path, and all the v0 bits are
-clear.  Yeah, I bet that's it.  We're taking some slowpath interrupt
-for RX or TX counter overflows or errors, and then we try to rearm the
-LDG even though we're already handling normal RX/TX via NAPI.
-
-But that shouldn't happen, the thing that went into RX/TX NAPI work
-should have turned those interrupt off.  We handle RX normal work and
-error interrupts in the same LDG, and similar for TX, and thus using
-the same interrupt.
-
-Can you check to see who calls niu_ldg_rearm() when we see it trigger
-the interrupt with NAPI already scheduled?  That will help narrow this
-down even further.  Probably the best thing to do is to get a full
-stack trace using show_stack() or dump_stack().
-
-This is looking more and more like a driver bug at this point.
+diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
+index 2bf63b4..ba48220 100644
+--- a/drivers/net/atl1e/atl1e.h
++++ b/drivers/net/atl1e/atl1e.h
+@@ -429,7 +429,6 @@ struct atl1e_adapter {
+ 	struct mii_if_info  mii;    /* MII interface info */
+ 	struct atl1e_hw        hw;
+ 	struct atl1e_hw_stats  hw_stats;
+-	struct net_device_stats net_stats;
+ 
+ 	bool have_msi;
+ 	u32 wol;
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index adac061..c271b75 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -1153,7 +1153,7 @@ static struct net_device_stats *atl1e_get_stats(struct net_device *netdev)
+ {
+ 	struct atl1e_adapter *adapter = netdev_priv(netdev);
+ 	struct atl1e_hw_stats  *hw_stats = &adapter->hw_stats;
+-	struct net_device_stats *net_stats = &adapter->net_stats;
++	struct net_device_stats *net_stats = &netdev->stats;
+ 
+ 	net_stats->rx_packets = hw_stats->rx_ok;
+ 	net_stats->tx_packets = hw_stats->tx_ok;
+@@ -1181,7 +1181,7 @@ static struct net_device_stats *atl1e_get_stats(struct net_device *netdev)
+ 	net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
+ 	net_stats->tx_window_errors  = hw_stats->tx_late_col;
+ 
+-	return &adapter->net_stats;
++	return net_stats;
+ }
+ 
+ static void atl1e_update_hw_stats(struct atl1e_adapter *adapter)
+@@ -1309,7 +1309,7 @@ static irqreturn_t atl1e_intr(int irq, void *data)
+ 
+ 		/* link event */
+ 		if (status & (ISR_GPHY | ISR_MANUAL)) {
+-			adapter->net_stats.tx_carrier_errors++;
++			netdev->stats.tx_carrier_errors++;
+ 			atl1e_link_chg_event(adapter);
+ 			break;
+ 		}
