@@ -1,110 +1,49 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [net-2.6 PATCH V2] mlx4_en: Fix a kernel panic when waking tx
- queue
-Date: Tue, 26 May 2009 12:48:04 +0200
-Message-ID: <4A1BC8E4.1050009@cosmosbay.com>
-References: <49EC859C.700@mellanox.co.il> <4A0AB34A.10100@mellanox.co.il> <4A1948D7.8010504@mellanox.co.il> <4A1A57AA.1080209@mellanox.co.il> <4A1B92D1.8070907@mellanox.co.il>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [net-next-2.6 PATCH v2] can: SJA1000: generic OF platform bus
+	driver
+Date: Tue, 26 May 2009 13:20:06 +0200
+Message-ID: <20090526112006.GH22742@pengutronix.de>
+References: <200905242327.15139.arnd@arndb.de> <200905261010.31364.arnd@arndb.de> <20090526.022508.238274281.davem@davemloft.net> <200905261042.05967.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tziporet@mellanox.co.il
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
+	wg@grandegger.com, devicetree-discuss@ozlabs.org,
+	netdev@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59907 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbZEZKsN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 06:48:13 -0400
-In-Reply-To: <4A1B92D1.8070907@mellanox.co.il>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48946 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364AbZEZLUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 07:20:21 -0400
+Content-Disposition: inline
+In-Reply-To: <200905261042.05967.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yevgeny Petrilin a =E9crit :
-> When the transmit queue gets full we enable interrupts for TX complet=
-ions
-> There was a race that we handled the TX queue both from the interrupt=
- context
-> and from the transmit function. Using "spin_trylock_irq()" ensures th=
-is
-> doesn't happen.
->=20
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> ---
->  drivers/net/mlx4/en_tx.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-> index ac6fc49..e5c98a9 100644
-> --- a/drivers/net/mlx4/en_tx.c
-> +++ b/drivers/net/mlx4/en_tx.c
-> @@ -426,7 +426,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
->=20
->  	INC_PERF_COUNTER(priv->pstats.tx_poll);
->=20
-> -	if (!spin_trylock(&ring->comp_lock)) {
-> +	if (!spin_trylock_irq(&ring->comp_lock)) {
->  		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
->  		return;
->  	}
-> @@ -439,7 +439,7 @@ void mlx4_en_poll_tx_cq(unsigned long data)
->  	if (inflight && priv->port_up)
->  		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
->=20
-> -	spin_unlock(&ring->comp_lock);
-> +	spin_unlock_irq(&ring->comp_lock);
->  }
->=20
->  static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en=
-_priv *priv,
-> @@ -482,9 +482,9 @@ static inline void mlx4_en_xmit_poll(struct mlx4_=
-en_priv *priv, int tx_ind)
->=20
->  	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
->  	if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) =3D=3D 0)
-> -		if (spin_trylock(&ring->comp_lock)) {
-> +		if (spin_trylock_irq(&ring->comp_lock)) {
->  			mlx4_en_process_tx_cq(priv->dev, cq);
-> -			spin_unlock(&ring->comp_lock);
-> +			spin_unlock_irq(&ring->comp_lock);
->  		}
->  }
->=20
+On Tue, May 26, 2009 at 10:42:05AM +0100, Arnd Bergmann wrote:
+> On Tuesday 26 May 2009, David Miller wrote:
+> > It's such a baroque thing, there is no reason to set it at all if you
+> > ask me.  It's only use is to allow ISA and similar primitive bus
+> > devices to have their I/O ports changed via ifconfig.
+> 
+> My original comment was about the fact that sja1000 was doing
+> dev->base_addr = (unsigned long)ioremap(phys_addr, size), I didn't
+> even think about SIOCGIFMAP and command line overrides, but that
+> surely makes it worse and the driver should be changed to
+> store the virtual register address in its private data structure.
+> 
+> drivers/net/fec.c seems to have the same problem, which manifests
+> in a number of ugly casts and direct pointer dereferences in places
+> where it should do writel() or out_be32().
 
-Just curious.
+Ack. I'll prepare a patch for fec.c. Internally the driver already uses
+a void __iomem * and writel/readl in -next. There is only one usage
+left.
 
-Blocking hard IRQ while doing TX completion is quite nasty,
-as freeing one hundred of skb take long.
+Sascha
 
-Could you try something in process context instead ?
-
-Is this timer driven tx completion thing really good for performance ?
-
-
-static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_=
-ind)
-{
-        struct mlx4_en_cq *cq =3D &priv->tx_cq[tx_ind];
-        struct mlx4_en_tx_ring *ring =3D &priv->tx_ring[tx_ind];
-
-        /* If we don't have a pending timer, set one up to catch our re=
-cent
-           post in case the interface becomes idle */
-        if (!timer_pending(&cq->timer))
-                mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT=
-);
-
-
-        /* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
-        if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) =3D=3D 0)
-                if (spin_trylock(&ring->comp_lock)) {
-                        mlx4_en_process_tx_cq(priv->dev, cq);
-                        spin_unlock(&ring->comp_lock);
-                }
-}
-
-
-One interesting thing is calling mlx4_en_process_tx_cq() once every 16 =
-packets,
-this means the producer cpu is also the cpu doing the TX completion, I =
-like this.
-
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
