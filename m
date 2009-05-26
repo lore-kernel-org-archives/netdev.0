@@ -1,92 +1,68 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
-Date: Mon, 25 May 2009 18:28:43 -0700
-Message-ID: <20090526012843.GF7168@linux.vnet.ibm.com>
-References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com> <20090525164446.GD7168@linux.vnet.ibm.com> <4A1B3FFB.7090306@cn.fujitsu.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: [PATCH] mac8390: fix regression caused during net_device_ops conversion
+Date: Tue, 26 May 2009 12:50:12 +1000 (EST)
+Message-ID: <Pine.LNX.4.64.0905261243230.22373@loopy.telegraphics.com.au>
+References: <Pine.LNX.4.64.0905260116120.18180@loopy.telegraphics.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, mingo@elte.hu,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
-	jeff.chua.linux@gmail.com, paulus@samba.org, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A1B3FFB.7090306@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0905260116120.18180@loopy.telegraphics.com.au>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 26, 2009 at 09:03:55AM +0800, Lai Jiangshan wrote:
-> Paul E. McKenney wrote:
-> > 
-> > Good point -- I should at the very least add a comment to
-> > synchronize_sched_expedited() stating that it cannot be called holding
-> > any lock that is acquired in a CPU hotplug notifier.  If this restriction
-> > causes any problems, then your approach seems like a promising fix.
-> 
-> Reviewed-by: Lai Jiangshan <laijs@cn.fujitsu.com>
 
-Thank you very much for your review and comments!!!
+Changeset ca17584bf2ad1b1e37a5c0e4386728cc5fc9dabc broke mac8390 by adding 
+8390.o to the link. That meant that lib8390.c was included twice, once in 
+mac8390.c and once in 8390.c, subject to different macros. This patch 
+reverts that by avoiding the wrappers in 8390.c. They seem to be of no 
+value since COMPAT_NET_DEV_OPS is going away soon.
 
-> >> The coupling of synchronize_sched_expedited() and migration_req
-> >> is largely increased:
-> >>
-> >> 1) The offline cpu's per_cpu(rcu_migration_req, cpu) is handled.
-> >>    See migration_call::CPU_DEAD
-> > 
-> > Good.  ;-)
-> > 
-> >> 2) migration_call() is the highest priority of cpu notifiers,
-> >>    So even any other cpu notifier calls synchronize_sched_expedited(),
-> >>    It'll not cause DEADLOCK.
-> > 
-> > You mean if using your preempt_disable() approach, right?  Unless I am
-> > missing something, the current get_online_cpus() approach would deadlock
-> > in this case.
-> 
-> Yes, I mean if using my preempt_disable() approach. The current
-> get_online_cpus() approach would NOT deadlock in this case also,
-> we can require get_online_cpus() in cpu notifiers.
+Tested with a Kinetics EtherPort card.
 
-I have added the comment for the time being, but should people need to
-use this in CPU-hotplug notifiers, then again your preempt_disable()
-approach looks to be a promising fix.
+Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
-> > diff --git a/include/linux/rcupreempt.h b/include/linux/rcupreempt.h
-> > index fce5227..78117ed 100644
-> > --- a/include/linux/rcupreempt.h
-> > +++ b/include/linux/rcupreempt.h
-> > @@ -74,6 +74,16 @@ extern int rcu_needs_cpu(int cpu);
-> >  
-> >  extern void __synchronize_sched(void);
-> >  
-> > +static inline void synchronize_rcu_expedited(void)
-> > +{
-> > +	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
-> > +}
-> > +
-> > +static inline void synchronize_rcu_bh_expedited(void)
-> > +{
-> > +	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
-> > +}
-> > +
-> 
-> Why not synchronize_rcu_bh() ?
+---
 
-Ummm...  Because I did a typo.  Fixed.
+Resent with netdev list CC'd as requested.
 
-> In mainline, rcu_read_lock_bh() is not preemptable,
-> So I think synchronize_sched_expedited() is better.
-> 
-> Anyway, synchronize_rcu() is OK for me, because it is
-> "Placeholder for new rcupreempt implementation".
 
-And I am worried that preemptable RCU's rcu_bh read sides might someday
-become preemptable.  Seems a bit unlikely at this point, but why tempt
-fate?
-
-							Thanx, Paul
+--- linux-2.6.29.orig/drivers/net/Makefile	2009-05-25 23:52:32.000000000 +1000
++++ linux-2.6.29/drivers/net/Makefile	2009-05-25 23:41:36.000000000 +1000
+@@ -100,7 +100,7 @@
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_SEEQ8005) += seeq8005.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-obj-$(CONFIG_MAC8390) += mac8390.o 8390.o
++obj-$(CONFIG_MAC8390) += mac8390.o
+ obj-$(CONFIG_APNE) += apne.o 8390.o
+ obj-$(CONFIG_PCMCIA_PCNET) += 8390.o
+ obj-$(CONFIG_HP100) += hp100.o
+--- linux-2.6.29.orig/drivers/net/mac8390.c	2009-03-24 10:12:14.000000000 +1100
++++ linux-2.6.29/drivers/net/mac8390.c	2009-05-25 23:44:28.000000000 +1000
+@@ -304,7 +304,7 @@
+ 	if (!MACH_IS_MAC)
+ 		return ERR_PTR(-ENODEV);
+ 
+-	dev = alloc_ei_netdev();
++	dev = ____alloc_ei_netdev(0);
+ 	if (!dev)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -481,10 +481,10 @@
+ static const struct net_device_ops mac8390_netdev_ops = {
+ 	.ndo_open 		= mac8390_open,
+ 	.ndo_stop		= mac8390_close,
+-	.ndo_start_xmit		= ei_start_xmit,
+-	.ndo_tx_timeout		= ei_tx_timeout,
+-	.ndo_get_stats		= ei_get_stats,
+-	.ndo_set_multicast_list = ei_set_multicast_list,
++	.ndo_start_xmit		= __ei_start_xmit,
++	.ndo_tx_timeout		= __ei_tx_timeout,
++	.ndo_get_stats		= __ei_get_stats,
++	.ndo_set_multicast_list = __ei_set_multicast_list,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address 	= eth_mac_addr,
+ 	.ndo_change_mtu		= eth_change_mtu,
