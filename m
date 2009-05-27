@@ -1,63 +1,50 @@
-From: "Hennerich, Michael" <Michael.Hennerich@analog.com>
-Subject: RE: [PATCH] netdev: enc28j60: use IRQF_TRIGGER_FALLING for IRQ by default
-Date: Wed, 27 May 2009 16:18:14 +0100
-Message-ID: <8A42379416420646B9BFAC9682273B6D0B37619F@limkexm3.ad.analog.com>
-References: <1243333007-25645-1-git-send-email-vapier@gentoo.org> <20090526110614.GA1987@jasper.tkos.co.il> <200905260424.17654.david-b@pacbell.net> <200905261253.07364.vapier@gentoo.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] bonding: use bond_is_lb() when it's appropriate
+Date: Wed, 27 May 2009 17:42:36 +0200
+Message-ID: <20090527154235.GA17121@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Baruch Siach" <baruch@tkos.co.il>, <netdev@vger.kernel.org>,
-	"Bryan Wu" <cooloney@kernel.org>
-To: "Mike Frysinger" <vapier@gentoo.org>,
-	"David Brownell" <david-b@pacbell.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail11.analog.com ([137.71.25.57]:22174 "EHLO
-	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322AbZE0PWK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 11:22:10 -0400
-Content-Class: urn:content-classes:message
-In-Reply-To: <200905261253.07364.vapier@gentoo.org>
+Received: from mx2.redhat.com ([66.187.237.31]:54934 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756978AbZE0Pmk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2009 11:42:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Mike Frysinger [mailto:vapier@gentoo.org]
->On Tuesday 26 May 2009 07:24:17 David Brownell wrote:
->> On Tuesday 26 May 2009, Baruch Siach wrote:
->> > On Tue, May 26, 2009 at 06:16:47AM -0400, Mike Frysinger wrote:
->> > > From: Michael Hennerich <michael.hennerich@analog.com>
->> > >
->> > > Rather than have the default IRQ flags not be usable, use the
-logical
->> > > settings which match the hardware.  Since the part is /INT, it
-makes
->> > > sense to have it default to a falling trigger.  If a board truly
-needs
->> > > something different, it still can tweak the defaults in its own
-board
->> > > file.
->> >
->> > You revert David Brownell's commit here
->> > (c7b7b042068cd12b8b155722d24686f70b88ced1). Added to CC.
->>
->> Right ... the appended patch will *undo* the setting
->> established in the board init code via set_irq_type().
->>
->> Moreover, it completely prevents working on systems which
->> only support "both edges" triggering.
->
->how can it provide breakage when people are forced to use
-set_irq_type() ?
+[PATCH] bonding: use bond_is_lb() when it's appropriate
 
-set_irq_type() is typically called before request_irq().
-In case be give the IRQF_TRIGGER flag with request_irq() it will
-overwrite the settings done by set_irq_type().
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
--Michael
->
->> So I'd NAK this, on the grounds that it causes severe
->> breakage.
->
->i see no consumers of this driver at all in mainline, so i dont think
-it
->causes any in tree breakage at all
->-mike
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7482402..3ec7d52 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2399,8 +2399,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_3ad_handle_link_change(slave,
+ 							    BOND_LINK_DOWN);
+ 
+-			if (bond->params.mode == BOND_MODE_TLB ||
+-			    bond->params.mode == BOND_MODE_ALB)
++			if (bond_is_lb(bond))
+ 				bond_alb_handle_link_change(bond, slave,
+ 							    BOND_LINK_DOWN);
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ca849d2..41ceca1 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -286,8 +286,7 @@ static inline unsigned long slave_last_rx(struct bonding *bond,
+ static inline void bond_set_slave_inactive_flags(struct slave *slave)
+ {
+ 	struct bonding *bond = netdev_priv(slave->dev->master);
+-	if (bond->params.mode != BOND_MODE_TLB &&
+-	    bond->params.mode != BOND_MODE_ALB)
++	if (!bond_is_lb(bond))
+ 		slave->state = BOND_STATE_BACKUP;
+ 	slave->dev->priv_flags |= IFF_SLAVE_INACTIVE;
+ 	if (slave_do_arp_validate(bond, slave))
