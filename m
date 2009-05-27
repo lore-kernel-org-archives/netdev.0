@@ -1,62 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/4] ixgbe: Remove device ID 0x10d8
-Date: Tue, 26 May 2009 17:55:02 -0700
-Message-ID: <20090527005502.28535.93314.stgit@localhost.localdomain>
-References: <20090527005403.28535.8727.stgit@localhost.localdomain>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] netdev: enc28j60: use IRQF_TRIGGER_FALLING for IRQ by default
+Date: Tue, 26 May 2009 18:17:06 -0700
+Message-ID: <200905261817.07161.david-b@pacbell.net>
+References: <1243333007-25645-1-git-send-email-vapier@gentoo.org> <200905261121.54075.david-b@pacbell.net> <200905261743.16036.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: Baruch Siach <baruch@tkos.co.il>,
+	Michael Hennerich <michael.hennerich@analog.com>,
+	netdev@vger.kernel.org, Bryan Wu <cooloney@kernel.org>
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:57102
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752491AbZE0AzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 20:55:16 -0400
-In-Reply-To: <20090527005403.28535.8727.stgit@localhost.localdomain>
+Received: from smtp108.sbc.mail.gq1.yahoo.com ([67.195.14.111]:37436 "HELO
+	smtp108.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754840AbZE0BXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 21:23:46 -0400
+In-Reply-To: <200905261743.16036.vapier@gentoo.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-Device ID 0x10d8 is the default silicon device ID for 82599.  However, the
-device will not be functional without an EEPROM, so we want to prevent the
-driver from loading on the device.  Otherwise, the driver will load, but no
-PHY setup or PCIe setup will occur, causing the device to be unusable.  To
-prevent users from encountering this, just remove the device ID.
+> > > > Right ... the appended patch will *undo* the setting
+> > > > established in the board init code via set_irq_type().
+> > > >
+> > > > Moreover, it completely prevents working on systems which
+> > > > only support "both edges" triggering.
+> > >
+> > > how can it provide breakage when people are forced to use set_irq_type()
+> > > ?
+> >
+> > It reverses the IRQ setup done by the board code ...
+> 
+> how so ?  this code does the irq requesting which means the set_irq_type() 
+> needs to come after it
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+No; set_irq_type() can happen at any time.  It just does setup.
+One policy sets IRQ types beforehand.
 
- drivers/net/ixgbe/ixgbe_82599.c |    1 -
- drivers/net/ixgbe/ixgbe_type.h  |    1 -
- 2 files changed, 0 insertions(+), 2 deletions(-)
+Equivalently, the driver may run on hardware which only supports
+one policy ... *NOT* the policy you propose the driver be changed
+to require.
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index fef7397..5d27830 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -357,7 +357,6 @@ enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 	}
- 
- 	switch (hw->device_id) {
--	case IXGBE_DEV_ID_82599:
- 	case IXGBE_DEV_ID_82599_KX4:
- 	case IXGBE_DEV_ID_82599_XAUI_LOM:
- 		/* Default device ID is mezzanine card KX/KX4 */
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 00c23be..0c8dee9 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -46,7 +46,6 @@
- #define IXGBE_DEV_ID_82598_DA_DUAL_PORT  0x10F1
- #define IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM      0x10E1
- #define IXGBE_DEV_ID_82598EB_XF_LR       0x10F4
--#define IXGBE_DEV_ID_82599               0x10D8
- #define IXGBE_DEV_ID_82599_KX4           0x10F7
- #define IXGBE_DEV_ID_82599_SFP           0x10FB
- #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
+
+> anyways since the request_irq() will set any flags  
+> passed to it, right ?
+
+Wrong.  A set_irq_type() call ensures the IRQ will trigger as
+specified by its parameters (unless it fails).  The current
+request_irq() leaves that "default" setup alone.
+
+Your patch changes that configuration, making it request
+a trigger mode that (a) the hardware may not support, so
+the request_irq() will fail; else if it succeeds, then
+(b) will clobber whatever mode that was already set up.
+The first certainly breaks things; the second probably
+does so.
+
+
+> > the code which you said they'd have to use to work
+> > around the breakage your patch adds.
+> 
+> umm, i'm referring to code the driver and you says should be put in place -- a 
+> call to set_irq_type() somewhere in the board init code.
+
+Which is well before the driver request_irq().  As noted
+above, you're trying to make the driver request a specific
+IRQ type, which is *NOT* one that can necessarily be
+supported.
+
+On the other hand, the current IRQ_NONE (type == 0) is by
+definition be supported *everywhere* ...
 
