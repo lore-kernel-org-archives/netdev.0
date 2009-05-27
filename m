@@ -1,95 +1,178 @@
-From: Jay Cliburn <jcliburn@gmail.com>
-Subject: Re: [PATCH] atlx: move modinfo data from atlx.h to atl1.c
-Date: Tue, 26 May 2009 19:48:52 -0500
-Message-ID: <20090526194852.05902e41@osprey.hogchain.net>
-References: <20090526223350.GJ19049@ldl.fc.hp.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/4] ixgbe: fix 82598 SFP initialization after
+	driver load.
+Date: Tue, 26 May 2009 17:54:04 -0700
+Message-ID: <20090527005403.28535.8727.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, scott.scriven@hp.com, netdev@vger.kernel.org
-To: Alex Chiang <achiang@hp.com>
+Cc: netdev@vger.kernel.org, Don Skidmore <donald.c.skidmore@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:34101 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753697AbZE0Asz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 20:48:55 -0400
-Received: by an-out-0708.google.com with SMTP id d40so9153095and.1
-        for <netdev@vger.kernel.org>; Tue, 26 May 2009 17:48:56 -0700 (PDT)
-In-Reply-To: <20090526223350.GJ19049@ldl.fc.hp.com>
+Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:47613
+	"EHLO QMTA10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751153AbZE0AyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 20:54:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 May 2009 16:33:50 -0600
-Alex Chiang <achiang@hp.com> wrote:
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-> Both atl1.c and atl2.c include atlx.h, which defines some modinfo
-> stuff. But atl2.c seems like it doesn't want the modinfo data
-> from atlx.h, as it defines its own.
-> 
-> Running modinfo on atl2.ko, we get conflicting information:
-> 
-> $ /sbin/modinfo drivers/net/atlx/atl2.ko | egrep "version|description|author"
-> version:        2.2.3
-> description:    Atheros Fast Ethernet Network Driver
-> author:         Atheros Corporation <xiong.huang@atheros.com>, Chris Snook <csnook@redhat.com>
-> version:        2.1.3
-> author:         Xiong Huang <xiong.huang@atheros.com>, 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>
-> 
-> Move the modinfo data out of atlx.h and into atl1.c to eliminate
-> the confusion:
-> 
-> $ /sbin/modinfo drivers/net/atlx/atl1.ko | egrep "version|description|author"
-> version:        2.1.3
-> author:         Xiong Huang <xiong.huang@atheros.com>, 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>
-> description:    Atheros L1 Gigabit Ethernet Driver
-> 
-> $ /sbin/modinfo drivers/net/atlx/atl2.ko | egrep "version|description|author"
-> version:        2.2.3
-> description:    Atheros Fast Ethernet Network Driver
-> author:         Atheros Corporation <xiong.huang@atheros.com>, Chris Snook <csnook@redhat.com>
-> 
-> Cc: Jay Cliburn <jcliburn@gmail.com>
-> Reported-by: Scott Scriven <scott.scriven@hp.com>
-> Signed-off-by: Alex Chiang <achiang@hp.com>
+If we loaded the driver with out a SFP module plugged in it would
+leave it in a state that make it later unable to link when a module
+was plugged in.  This patch corrects that by:
 
-Acked-by: Jay Cliburn <jcliburn@gmail.com>
+ixgbe_probe() - moving the check for IXGBE_ERR_SFP_NOT_PRESENT from
+after get_invariants() to after reset_hw() as now reset_hw() is
+where this condition will be indentified.
 
-> ---
->  atl1.c |    6 ++++++
->  atlx.h |    6 ------
->  2 files changed, 6 insertions(+), 6 deletions(-)
-> ---
-> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-> index 13f0bdc..152852f 100644
-> --- a/drivers/net/atlx/atl1.c
-> +++ b/drivers/net/atlx/atl1.c
-> @@ -82,6 +82,12 @@
->  
->  #include "atl1.h"
->  
-> +#define ATLX_DRIVER_VERSION "2.1.3"
-> +MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
-> +	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
-> +MODULE_LICENSE("GPL");
-> +MODULE_VERSION(ATLX_DRIVER_VERSION);
-> +
->  /* Temporary hack for merging atl1 and atl2 */
->  #include "atlx.c"
->  
-> diff --git a/drivers/net/atlx/atlx.h b/drivers/net/atlx/atlx.h
-> index 297a03d..14054b7 100644
-> --- a/drivers/net/atlx/atlx.h
-> +++ b/drivers/net/atlx/atlx.h
-> @@ -29,12 +29,6 @@
->  #include <linux/module.h>
->  #include <linux/types.h>
->  
-> -#define ATLX_DRIVER_VERSION "2.1.3"
-> -MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
-> -	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
-> -MODULE_LICENSE("GPL");
-> -MODULE_VERSION(ATLX_DRIVER_VERSION);
-> -
->  #define ATLX_ERR_PHY			2
->  #define ATLX_ERR_PHY_SPEED		7
->  #define ATLX_ERR_PHY_RES		8
+ixgbe_reset_hw_82598() - Enable this function to now return
+IXGBE_ERR_SFP_NOT_PRESENT.
+
+ixgbe_identify_sfp_module_generic() - This where the lack of SFP
+module is detected.  Modifications are added to allow a different
+return value for modules that just haven't been plugged in yet.
+
+Other functions were updated to allow correct logging.
+
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_82598.c |   12 ++++++++++--
+ drivers/net/ixgbe/ixgbe_main.c  |   33 +++++++++++++++++----------------
+ drivers/net/ixgbe/ixgbe_phy.c   |   13 ++++++++++++-
+ 3 files changed, 39 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
+index afc9fe3..88e8350 100644
+--- a/drivers/net/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ixgbe/ixgbe_82598.c
+@@ -698,6 +698,7 @@ static s32 ixgbe_setup_copper_link_speed_82598(struct ixgbe_hw *hw,
+ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
+ {
+ 	s32 status = 0;
++	s32 phy_status = 0;
+ 	u32 ctrl;
+ 	u32 gheccr;
+ 	u32 i;
+@@ -745,13 +746,17 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
+ 		/* PHY ops must be identified and initialized prior to reset */
+ 
+ 		/* Init PHY and function pointers, perform SFP setup */
+-		status = hw->phy.ops.init(hw);
+-		if (status == IXGBE_ERR_SFP_NOT_SUPPORTED)
++		phy_status = hw->phy.ops.init(hw);
++		if (phy_status == IXGBE_ERR_SFP_NOT_SUPPORTED)
+ 			goto reset_hw_out;
++		else if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
++			goto no_phy_reset;
++
+ 
+ 		hw->phy.ops.reset(hw);
+ 	}
+ 
++no_phy_reset:
+ 	/*
+ 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
+ 	 * access and verify no pending requests before reset
+@@ -811,6 +816,9 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
+ 	hw->mac.ops.get_mac_addr(hw, hw->mac.perm_addr);
+ 
+ reset_hw_out:
++	if (phy_status)
++		status = phy_status;
++
+ 	return status;
+ }
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index e52798c..f9223ac 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2599,7 +2599,10 @@ int ixgbe_up(struct ixgbe_adapter *adapter)
+ void ixgbe_reset(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	if (hw->mac.ops.init_hw(hw))
++	int err;
++
++	err = hw->mac.ops.init_hw(hw);
++	if (err && (err != IXGBE_ERR_SFP_NOT_PRESENT))
+ 		dev_err(&adapter->pdev->dev, "Hardware Error\n");
+ 
+ 	/* reprogram the RAR[0] in case user changed it. */
+@@ -5167,20 +5170,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	INIT_WORK(&adapter->sfp_config_module_task,
+ 	          ixgbe_sfp_config_module_task);
+ 
+-	err = ii->get_invariants(hw);
+-	if (err == IXGBE_ERR_SFP_NOT_PRESENT) {
+-		/* start a kernel thread to watch for a module to arrive */
+-		set_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
+-		mod_timer(&adapter->sfp_timer,
+-		          round_jiffies(jiffies + (2 * HZ)));
+-		err = 0;
+-	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+-		DPRINTK(PROBE, ERR, "failed to load because an "
+-		        "unsupported SFP+ module type was detected.\n");
+-		goto err_hw_init;
+-	} else if (err) {
+-		goto err_hw_init;
+-	}
++	ii->get_invariants(hw);
+ 
+ 	/* setup the private structure */
+ 	err = ixgbe_sw_init(adapter);
+@@ -5200,7 +5190,18 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	/* reset_hw fills in the perm_addr as well */
+ 	err = hw->mac.ops.reset_hw(hw);
+-	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
++	if (err == IXGBE_ERR_SFP_NOT_PRESENT &&
++	    hw->mac.type == ixgbe_mac_82598EB) {
++		/*
++		 * Start a kernel thread to watch for a module to arrive.
++		 * Only do this for 82598, since 82599 will generate
++		 * interrupts on module arrival.
++		 */
++		set_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
++		mod_timer(&adapter->sfp_timer,
++			  round_jiffies(jiffies + (2 * HZ)));
++		err = 0;
++	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+ 		dev_err(&adapter->pdev->dev, "failed to load because an "
+ 		        "unsupported SFP+ module type was detected.\n");
+ 		goto err_sw_init;
+diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
+index 8210b49..e43d624 100644
+--- a/drivers/net/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ixgbe/ixgbe_phy.c
+@@ -530,11 +530,22 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 	u8 cable_tech = 0;
+ 	u16 enforce_sfp = 0;
+ 
++	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_fiber) {
++		hw->phy.sfp_type = ixgbe_sfp_type_not_present;
++		status = IXGBE_ERR_SFP_NOT_PRESENT;
++		goto out;
++	}
++
+ 	status = hw->phy.ops.read_i2c_eeprom(hw, IXGBE_SFF_IDENTIFIER,
+ 	                                     &identifier);
+ 
+-	if (status == IXGBE_ERR_SFP_NOT_PRESENT) {
++	if (status == IXGBE_ERR_SFP_NOT_PRESENT || status == IXGBE_ERR_I2C) {
++		status = IXGBE_ERR_SFP_NOT_PRESENT;
+ 		hw->phy.sfp_type = ixgbe_sfp_type_not_present;
++		if (hw->phy.type != ixgbe_phy_nl) {
++			hw->phy.id = 0;
++			hw->phy.type = ixgbe_phy_unknown;
++		}
+ 		goto out;
+ 	}
+ 
+
