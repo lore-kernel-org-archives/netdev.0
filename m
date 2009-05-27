@@ -1,109 +1,50 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [RFC][WIP] IEEE 802.15.4 implementation for Linux
-Date: Wed, 27 May 2009 11:58:55 +0200
-Message-ID: <200905271158.57067.florian@openwrt.org>
-References: <20090526112157.GA19976@doriath.ww600.siemens.net>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: Net: ucc_geth ethernet driver optimization space
+Date: Wed, 27 May 2009 18:36:14 +0800
+Message-ID: <2a27d3730905270336n120f7652yad269858ff456c64@mail.gmail.com>
+References: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	slapin@ossfans.org, maxim.osipov@siemens.com,
-	dmitry.baryshkov@siemens.com, oliver.fendt@siemens.com
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:62504 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760795AbZE0J7A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 05:59:00 -0400
-In-Reply-To: <20090526112157.GA19976@doriath.ww600.siemens.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Liu Dave-R63238 <DaveLiu@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dmitry,
-
-Le Tuesday 26 May 2009 13:21:57 Dmitry Eremin-Solenikov, vous avez =E9c=
-rit=A0:
-> Hi,
->
-> As a part of research activities in the Embedded Systems - Open Platf=
-orm
-> Group from Siemens Corporate Technology we are working on adding supp=
-ort
-> for the IEEE 802.15.4 Wireless Personal Area Networks to the Linux. O=
-ur
-> current implementation is neither certified nor even feature complete=
-=2E
-> However we'd like to present current state of our patchset to the Lin=
-ux
-> developers community to gain comments, fixes, ideas, etc. This is not=
- yet a
-> pull request, but more like an RFC.
-
-Let met just thank you for doing this, I am glad some people worked on =
-this.=20
-Got a couple of questions below.
-
->
-> The project page is available at
-> http://apps.sourceforge.net/trac/linux-zigbee with source code of ker=
-nel
-> part available from git at
-> http://zigbee-linux.git.sourceforge.net, mirrored for convenience at
-> git://git.kernel.org/pub/scm/linux/kernel/git/lumag/lowpan.git
->
-> The source code for userspace utils is available from git at
-> http://linux-zigbee.git.sourceforge.net/
-
-=46rom the project page I understand that you plan on providing a ZigBe=
-e stack,=20
-based on this 802.15.4 stack ? Do you plan on submitting the ZigBee sta=
-ck=20
-later on ?
-
-Maybe you should mention that this implementation is royalty-free, but =
-that=20
-commercial products using it should both respect the GPL license and pa=
-y a=20
-ZigBee royalty as per the ZigBee Alliance . That is just for clarificat=
-ion=20
-since right now it simply does 802.15.4 which is not subject to this ro=
-yalty=20
-thing.
-
->
-> Several comments about our implementation:
-> * As with 802.11 there are two types of devices: the smart ones that
-> implement most parts of the protocol by themselves and more or less d=
-umb
-> ones which simply send and receive what they are told. Currently we d=
-o only
-> support the second type of devices (SoftMAC)
-> * The implementation is split between code driving radio, (master, mw=
-panX
->   interface: mdev.c), code processing frames according the IEEE 802.1=
-5.4
->   rules (slave wpanX devices) and finally sockets (af_ieee802154.c,
-> dgram.c, raw.c).
-
-This sounds good. Do you also plan on integrating some meshing algorith=
-m on=20
-top of 802.15.4 ? If so,=20
-
-> * We do present two example drivers using our stack. One is purely vi=
-rtual
->   one either looping the packets back or connecting several virtual
-> interfaces (the one at fakelb.c), and the driver for the Freescale MC=
-13192
-> evaluation boards (13192-SARD, 13192-EVK) using our custom firmware
-> (currently only available at request, we are working on publishing it=
-). The
-> driver for the Atmel at86rf230/at86rf231 chips will follow in several
-> weeks.
-
-Is the virtual interface just like mac80211_hwsim for 802.11 ?h
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+T24gV2VkLCBNYXkgMjcsIDIwMDkgYXQgMTowOCBQTSwgTGl1IERhdmUtUjYzMjM4IDxEYXZlTGl1
+QGZyZWVzY2FsZS5jb20+IHdyb3RlOgo+IEd1eXMsCj4KPiBUaGUgdWNjX2dldGggZXRoZXJuZXQg
+ZHJpdmVyIGhhdmUgZG96ZW5zIG9mIHN0cm9uZyBzeW5jIHJlYWQvd3JpdGUKPiBvcGVyYXRpb24s
+IHN1Y2ggYXMgaW5fYmUzMi8xNi84LCBvdXRfYmUzMi8xNi84Lgo+Cj4gYWxsIG9mIHRoZW0gaXMg
+c3luYyByZWFkL3dyaXRlLCBpdCBpcyB2ZXJ5IGV4cGVuc2l2ZSBmb3IgcGVyZm9ybWFuY2UuCj4K
+ClRvdGFsbHkgYWdyZWUuICBUaGF0J3Mgb25lIG9mIG15IGNvbmNlcm5zIHJpZ2h0IGZyb20gdGhl
+IGJlZ2lubmluZy4KCj4gRm9yIHRoZSBjcml0aWNhbCBwYXRjaCwgd2UgY2FuIHJlbW92ZSBzb21l
+IHVubmVjZXNzYXJ5IGluX2JlKHgpLAo+IG91dF9iZSh4KSB3aXRoIG5vcm1hbCBtZW1vcnkgb3Bl
+cmF0aW9uLCBhbmQga2VlcCBzb21lIG5lY2Vzc2FyeQo+IG1lbW9yeSBiYXJyaWVyLgo+Cj4gZWc6
+IEJEIGFjY2VzcyBpbiB0aGUgaW50ZXJydXB0IGhhbmRsZXIgYW5kIHN0YXJ0X3htaXQuCj4KPiBU
+aGUgQkQgb3BlcmF0aW9uIG9ubHkgbmVlZCB0aGUgbWVtb3J5IGJhcnJpZXIgYmV0d2VlbiBsZW5n
+dGgvYnVmZmVyCj4gYW5kIHN0YXR1cy4KPgo+IHN0cnVjdCBidWZmZXIgZGVzY3JpcHRvciB7Cj4g
+wqAgwqAgwqAgwqB1MTYgc3RhdHVzOwo+IMKgIMKgIMKgIMKgdTE2IGxlbmd0aDsKPiDCoCDCoCDC
+oCDCoHUzMiBidWZmZXI7Cj4gfSBfX2F0dHJpYnV0ZV9fICgocGFja2VkKSk7Cj4KPiBzdHJ1Y3Qg
+YnVmZmVyIGRlc2NyaXB0b3IgKkJEOwo+Cj4gQkQtPmxlbmd0aCA9IHh4eHg7Cj4gQkQtPmJ1ZmZl
+ciA9IHl5eXk7Cj4gd21iKCk7Cj4gQkQtPnN0YXR1cyA9IHp6eno7CgpUaGUgQkQgY2FuIHJlc2lk
+ZSBlaXRoZXIgaW4gbWVtb3J5IG9yIG1lbW9yeSBtYXBwZWQgcmVnaW9uLCB3aGljaAptYWtlcyB0
+aGUgY2FzZSBtb3JlIGNvbXBsZXguCgpNTUlPIGFjY2Vzc2VzIG5lZWQgdG8gdXNlIElPIGFjY2Vz
+c29ycyBmb3IgdGhlIHNwYXJzZSBjaGVja2luZy4gIFdlCm1pZ2h0IG1ha2UgdXNlIG9mIHRoZSBf
+X3Jhd18qKCkgYWNjZXNzb3JzLCBidXQgSSdtIG5vdCBzdXJlIGlmIGl0J3MKc3VpdGFibGUgZm9y
+IG5vbi1QQ0kgYnVzZXMgb24gcG93ZXJwYy4gIEFuZCBhbHNvIHdlIG5lZWQgdG8gcGF5CnNwZWNp
+YWwgYXR0ZW50aW9uIHRvIHRoZSBwcm9ibGVtIGRlc2NyaWJlZCBoZXJlOgpodHRwOi8vbHduLm5l
+dC9BcnRpY2xlcy8xOTg5ODgvCgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBv
+emxhYnMub3JnCmh0dHBzOi8vb3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRl
+dg==
