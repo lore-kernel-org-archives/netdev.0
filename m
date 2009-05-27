@@ -1,50 +1,30 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: Net: ucc_geth ethernet driver optimization space
-Date: Wed, 27 May 2009 18:36:14 +0800
-Message-ID: <2a27d3730905270336n120f7652yad269858ff456c64@mail.gmail.com>
-References: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/14] GRO: Lots of microoptimisations
+Date: Wed, 27 May 2009 03:42:03 -0700 (PDT)
+Message-ID: <20090527.034203.230063441.davem@davemloft.net>
+References: <20090527044539.GA32372@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Liu Dave-R63238 <DaveLiu@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38365
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759611AbZE0KmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 06:42:04 -0400
+In-Reply-To: <20090527044539.GA32372@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBNYXkgMjcsIDIwMDkgYXQgMTowOCBQTSwgTGl1IERhdmUtUjYzMjM4IDxEYXZlTGl1
-QGZyZWVzY2FsZS5jb20+IHdyb3RlOgo+IEd1eXMsCj4KPiBUaGUgdWNjX2dldGggZXRoZXJuZXQg
-ZHJpdmVyIGhhdmUgZG96ZW5zIG9mIHN0cm9uZyBzeW5jIHJlYWQvd3JpdGUKPiBvcGVyYXRpb24s
-IHN1Y2ggYXMgaW5fYmUzMi8xNi84LCBvdXRfYmUzMi8xNi84Lgo+Cj4gYWxsIG9mIHRoZW0gaXMg
-c3luYyByZWFkL3dyaXRlLCBpdCBpcyB2ZXJ5IGV4cGVuc2l2ZSBmb3IgcGVyZm9ybWFuY2UuCj4K
-ClRvdGFsbHkgYWdyZWUuICBUaGF0J3Mgb25lIG9mIG15IGNvbmNlcm5zIHJpZ2h0IGZyb20gdGhl
-IGJlZ2lubmluZy4KCj4gRm9yIHRoZSBjcml0aWNhbCBwYXRjaCwgd2UgY2FuIHJlbW92ZSBzb21l
-IHVubmVjZXNzYXJ5IGluX2JlKHgpLAo+IG91dF9iZSh4KSB3aXRoIG5vcm1hbCBtZW1vcnkgb3Bl
-cmF0aW9uLCBhbmQga2VlcCBzb21lIG5lY2Vzc2FyeQo+IG1lbW9yeSBiYXJyaWVyLgo+Cj4gZWc6
-IEJEIGFjY2VzcyBpbiB0aGUgaW50ZXJydXB0IGhhbmRsZXIgYW5kIHN0YXJ0X3htaXQuCj4KPiBU
-aGUgQkQgb3BlcmF0aW9uIG9ubHkgbmVlZCB0aGUgbWVtb3J5IGJhcnJpZXIgYmV0d2VlbiBsZW5n
-dGgvYnVmZmVyCj4gYW5kIHN0YXR1cy4KPgo+IHN0cnVjdCBidWZmZXIgZGVzY3JpcHRvciB7Cj4g
-wqAgwqAgwqAgwqB1MTYgc3RhdHVzOwo+IMKgIMKgIMKgIMKgdTE2IGxlbmd0aDsKPiDCoCDCoCDC
-oCDCoHUzMiBidWZmZXI7Cj4gfSBfX2F0dHJpYnV0ZV9fICgocGFja2VkKSk7Cj4KPiBzdHJ1Y3Qg
-YnVmZmVyIGRlc2NyaXB0b3IgKkJEOwo+Cj4gQkQtPmxlbmd0aCA9IHh4eHg7Cj4gQkQtPmJ1ZmZl
-ciA9IHl5eXk7Cj4gd21iKCk7Cj4gQkQtPnN0YXR1cyA9IHp6eno7CgpUaGUgQkQgY2FuIHJlc2lk
-ZSBlaXRoZXIgaW4gbWVtb3J5IG9yIG1lbW9yeSBtYXBwZWQgcmVnaW9uLCB3aGljaAptYWtlcyB0
-aGUgY2FzZSBtb3JlIGNvbXBsZXguCgpNTUlPIGFjY2Vzc2VzIG5lZWQgdG8gdXNlIElPIGFjY2Vz
-c29ycyBmb3IgdGhlIHNwYXJzZSBjaGVja2luZy4gIFdlCm1pZ2h0IG1ha2UgdXNlIG9mIHRoZSBf
-X3Jhd18qKCkgYWNjZXNzb3JzLCBidXQgSSdtIG5vdCBzdXJlIGlmIGl0J3MKc3VpdGFibGUgZm9y
-IG5vbi1QQ0kgYnVzZXMgb24gcG93ZXJwYy4gIEFuZCBhbHNvIHdlIG5lZWQgdG8gcGF5CnNwZWNp
-YWwgYXR0ZW50aW9uIHRvIHRoZSBwcm9ibGVtIGRlc2NyaWJlZCBoZXJlOgpodHRwOi8vbHduLm5l
-dC9BcnRpY2xlcy8xOTg5ODgvCgotIExlbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBv
-emxhYnMub3JnCmh0dHBzOi8vb3psYWJzLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4cHBjLWRl
-dg==
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 27 May 2009 14:45:39 +1000
+
+> This series of patches brings GRO performance to within 1% of LRO
+> on the slow machine that I was testing.  I can overtake LRO by
+> deleting the IP checksum test and the Ethernet header test from
+> GRO, which LRO doesn't do anyway, but that's not very nice :)
+> 
+> I'm still looking at other optimisations as time allows.
+
+All applied to net-next-2.6, thanks Herbert!
