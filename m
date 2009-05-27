@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 3/4] ixgbe: remove rx_hdr_split debug
- counter for non-debug configurations
-Date: Wed, 27 May 2009 13:52:11 -0700 (PDT)
-Message-ID: <20090527.135211.44614815.davem@davemloft.net>
-References: <20090527005445.28535.9069.stgit@localhost.localdomain>
-	<20090526.203810.50281143.davem@davemloft.net>
-	<1243423017.16597.143.camel@deadeye>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 10/14] ipv4: Use 32-bit loads for ID and length in GRO
+Date: Thu, 28 May 2009 07:26:49 +1000
+Message-ID: <20090527212649.GB22052@gondor.apana.org.au>
+References: <20090527044539.GA32372@gondor.apana.org.au> <E1M9B5x-0001Sw-RR@gondolin.me.apana.org.au> <87zlcymnnf.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40146
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752564AbZE0UwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 16:52:12 -0400
-In-Reply-To: <1243423017.16597.143.camel@deadeye>
+Received: from rhun.apana.org.au ([64.62.148.172]:53848 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750964AbZE0V0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 17:26:53 -0400
+Content-Disposition: inline
+In-Reply-To: <87zlcymnnf.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 27 May 2009 12:16:57 +0100
+On Wed, May 27, 2009 at 08:00:36PM +0200, Andi Kleen wrote:
+>
+> On what architecture is that faster?
+> 
+> At least on x86 they should be the same performance, except that
+> the 16bit one is one byte larger, but that shouldn't make a difference.
 
-> If rx_hdr_split means the same thing at Intel as it does here, it's a
-> hardware feature Microsoft wants for use in Hyper-V and it won't be
-> enabled under Linux.
+It shrunk the code by more than a byte, at least with some versions
+of gcc on x86-64.
 
-Nobody explains anything, so it could or it could not be, who knows.
-:-)
+Yes some of these patches might seem a tad trivial, but it does add
+up.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
