@@ -1,31 +1,45 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH] net: correct a comment for the final #endif
-Date: Wed, 27 May 2009 16:01:53 +0200
-Message-ID: <20090527140153.GE1652@psychotron.englab.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 03/04: xt_hashlimit does a wrong SEQ_SKIP
+Date: Wed, 27 May 2009 16:35:28 +0200 (MEST)
+Message-ID: <20090527143526.4649.77396.sendpatchset@x2.localnet>
+References: <20090527143521.4649.73610.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42040 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758598AbZE0OBx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2009 10:01:53 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:51327 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759814AbZE0Of2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 10:35:28 -0400
+In-Reply-To: <20090527143521.4649.73610.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH] net: correct a comment for the final #endif
+commit 683a04cebc63819a36b1db19843bd17771f05b55
+Author: Jesper Dangaard Brouer <hawk@comx.dk>
+Date:   Wed May 27 15:45:34 2009 +0200
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+    netfilter: xt_hashlimit does a wrong SEQ_SKIP
+    
+    The function dl_seq_show() returns 1 (equal to SEQ_SKIP) in case
+    a seq_printf() call return -1.  It should return -1.
+    
+    This SEQ_SKIP behavior brakes processing the proc file e.g. via a
+    pipe or just through less.
+    
+    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5a96a1a..aab9a4e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1910,4 +1910,4 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
- extern struct pernet_operations __net_initdata loopback_net_ops;
- #endif /* __KERNEL__ */
- 
--#endif	/* _LINUX_DEV_H */
-+#endif	/* _LINUX_NETDEVICE_H */
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index a5b5369..219dcdb 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -926,7 +926,7 @@ static int dl_seq_show(struct seq_file *s, void *v)
+ 	if (!hlist_empty(&htable->hash[*bucket])) {
+ 		hlist_for_each_entry(ent, pos, &htable->hash[*bucket], node)
+ 			if (dl_seq_real_show(ent, htable->family, s))
+-				return 1;
++				return -1;
+ 	}
+ 	return 0;
+ }
