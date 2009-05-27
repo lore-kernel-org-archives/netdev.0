@@ -1,68 +1,45 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: Net: ucc_geth ethernet driver optimization space
-Date: Wed, 27 May 2009 08:49:09 +0200
-Message-ID: <OFED0E4273.051DFDD2-ONC12575C3.00246ED3-C12575C3.0025759F@transmode.se>
-References: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Pull request: bluetooth-2.6 2009-05-27
+Date: Wed, 27 May 2009 09:33:44 +0200
+Message-ID: <1243409624.20399.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	linuxppc-dev-bounces+joakim.tjernlund=transmode.se@ozlabs.org,
-	netdev@vger.kernel.org
-To: "Liu Dave-R63238" <DaveLiu@freescale.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:40460 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759081AbZE0GtK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2009 02:49:10 -0400
-In-Reply-To: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
+Received: from senator.holtmann.net ([87.106.208.187]:40485 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762327AbZE0HeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 03:34:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
+
+the current 2.6.30-rc6 kernel has a lockdep issue with the work queue
+handling for adding/removing connections. We are calling flush_work()
+where it is not needed at all, because of the nature of the single
+thread work queue. So this patch just removes these calls.
+
+Regards
+
+Marcel
 
 
-linuxppc-dev-bounces+joakim.tjernlund=transmode.se@ozlabs.org wrote on 27/05/2009 07:08:07:
->
-> Guys,
->
-> The ucc_geth ethernet driver have dozens of strong sync read/write
-> operation, such as in_be32/16/8, out_be32/16/8.
->
-> all of them is sync read/write, it is very expensive for performance.
->
-> For the critical patch, we can remove some unnecessary in_be(x),
-> out_be(x) with normal memory operation, and keep some necessary
-> memory barrier.
->
-> eg: BD access in the interrupt handler and start_xmit.
->
-> The BD operation only need the memory barrier between length/buffer
-> and status.
->
-> struct buffer descriptor {
->    u16 status;
->    u16 length;
->    u32 buffer;
-> } __attribute__ ((packed));
->
-> struct buffer descriptor *BD;
->
-> BD->length = xxxx;
-> BD->buffer = yyyy;
-> wmb();
-> BD->status = zzzz;
->
-> For powerpc, eieio is enough for 60x, mbar 1 is enough for e500.
-> Of couse, also need the memory clobber to avoid the compiler
-> reorder between them.
->
-> Thanks, Dave
+Please pull from
 
-Yes, pretty please :)
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
 
-You might want to combine status and length into one U32 though:
-BD->buffer = yyyy;
-wmb();
-BD->stat_len = zzzz << 16 | xxxx;
+This will update the following files:
 
-  Jocke
+ net/bluetooth/hci_sysfs.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
+
+through these ChangeSets:
+
+Dave Young (1):
+    Bluetooth: Remove useless flush_work() causing lockdep warnings
+
+
 
