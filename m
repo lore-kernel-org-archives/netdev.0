@@ -1,178 +1,611 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Wed, 27 May 2009 18:19:00 +0200
-Message-ID: <200905271819.01479.mb@bu3sch.de>
-References: <20090525.225503.173348268.davem@davemloft.net> <20090526.145211.37114439.davem@davemloft.net> <20090526.151410.109935435.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [resend] Passive OS fingerprint xtables match.
+Date: Wed, 27 May 2009 18:28:16 +0200
+Message-ID: <4A1D6A20.8050404@trash.net>
+References: <20090511095343.GA30778@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dave@thedillows.org, michael.riepe@googlemail.com,
-	romieu@fr.zoreil.com, rsantos@grupopie.com, m.bueker@berlin.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bu3sch.de ([62.75.166.246]:54116 "EHLO vs166246.vserver.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755948AbZE0QTz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2009 12:19:55 -0400
-In-Reply-To: <20090526.151410.109935435.davem@davemloft.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:53854 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759222AbZE0Q22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 12:28:28 -0400
+In-Reply-To: <20090511095343.GA30778@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 27 May 2009 00:14:10 David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 26 May 2009 14:52:11 -0700 (PDT)
+Evgeniy Polyakov wrote:
+> Example usage:
+> # modrpobe xt_osf
+> # ./nfnl_osf -f ./pf.os
+> -d switch removes fingerprints
+> # iptables -I INPUT -j ACCEPT -p tcp -m osf --genre Linux --log 0 --ttl 2
 > 
-> > From: Michael Buesch <mb@bu3sch.de>
-> > Date: Tue, 26 May 2009 20:22:23 +0200
-> > 
-> >> I didn't notice a CC:stable.
-> >> I think this should also go to stable.
-> >> Does somebody take care?
-> > 
-> > I'll queue it up.
-> 
-> Actually, this patch doesn't even remotely come close to applying
-> to 2.6.29.4
+> You will find something like this in the syslog:
+> Windows [2000:SP3:Windows XP Pro SP1, 2000 SP3]: 11.22.33.55:4024 -> 11.22.33.44:139 hops=4
+> Linux [2.5:]: 1.2.3.4:44448 -> 11.22.33.44:22 hops=4
 
-Wiggle is able to apply it cleanly.
-I already posted a wiggle'd patch.
-It's also attached to this mail.
+Please convert this to use nf_log_packet().
 
+> diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
+> index c600083..bb9c9ae 100644
+> --- a/include/linux/netfilter/nfnetlink.h
+> +++ b/include/linux/netfilter/nfnetlink.h
+> @@ -46,7 +46,8 @@ struct nfgenmsg {
+>  #define NFNL_SUBSYS_CTNETLINK_EXP	2
+>  #define NFNL_SUBSYS_QUEUE		3
+>  #define NFNL_SUBSYS_ULOG		4
+> -#define NFNL_SUBSYS_COUNT		5
+> +#define NFNL_SUBSYS_OSF			5
+> +#define NFNL_SUBSYS_COUNT		6
+>  
+>  #ifdef __KERNEL__
+>  
+> diff --git a/include/linux/netfilter/xt_osf.h b/include/linux/netfilter/xt_osf.h
+> new file mode 100644
+> index 0000000..11903a9
+> --- /dev/null
+> +++ b/include/linux/netfilter/xt_osf.h
+> +#ifndef _XT_OSF_H
+> +#define _XT_OSF_H
+> +
+> +#define MAXGENRELEN		32
+> +#define MAXDETLEN		64
 
-Index: linux-2.6.29/drivers/net/r8169.c
-===================================================================
---- linux-2.6.29.orig/drivers/net/r8169.c	2009-05-23 11:06:22.000000000 +0200
-+++ linux-2.6.29/drivers/net/r8169.c	2009-05-23 11:08:17.000000000 +0200
-@@ -3554,54 +3554,64 @@
- 	int handled = 0;
- 	int status;
- 
-+	/* loop handling interrupts until we have no new ones or
-+	 * we hit a invalid/hotplug case.
-+	 */
- 	status = RTL_R16(IntrStatus);
-+	while (status && status != 0xffff) {
-+		handled = 1;
- 
--	/* hotplug/major error/no more work/shared irq */
--	if ((status == 0xffff) || !status)
--		goto out;
--
--	handled = 1;
-+		/* Handle all of the error cases first. These will reset
-+		 * the chip, so just exit the loop.
-+		 */
-+		if (unlikely(!netif_running(dev))) {
-+			rtl8169_asic_down(ioaddr);
-+			break;
-+		}
- 
--	if (unlikely(!netif_running(dev))) {
--		rtl8169_asic_down(ioaddr);
--		goto out;
--	}
-+		/* Work around for rx fifo overflow */
-+		if (unlikely(status & RxFIFOOver) &&
-+	    	(tp->mac_version == RTL_GIGA_MAC_VER_11)) {
-+			netif_stop_queue(dev);
-+			rtl8169_tx_timeout(dev);
-+			break;
-+		}
- 
--	status &= tp->intr_mask;
--	RTL_W16(IntrStatus,
--		(status & RxFIFOOver) ? (status | RxOverflow) : status);
-+		if (unlikely(status & SYSErr)) {
-+			rtl8169_pcierr_interrupt(dev);
-+			break;
-+		}
- 
--	if (!(status & tp->intr_event))
--		goto out;
-+		if (status & LinkChg)
-+			rtl8169_check_link_status(dev, tp, ioaddr);
- 
--	/* Work around for rx fifo overflow */
--	if (unlikely(status & RxFIFOOver) &&
--	    (tp->mac_version == RTL_GIGA_MAC_VER_11)) {
--		netif_stop_queue(dev);
--		rtl8169_tx_timeout(dev);
--		goto out;
--	}
-+		/* We need to see the lastest version of tp->intr_mask to
-+		 * avoid ignoring an MSI interrupt and having to wait for
-+		 * another event which may never come.
-+		 */
-+		smp_rmb();
-+		if (status & tp->intr_mask & tp->napi_event) {
-+			RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
-+			tp->intr_mask = ~tp->napi_event;
-+
-+			if (likely(netif_rx_schedule_prep(&tp->napi)))
-+				__netif_rx_schedule(&tp->napi);
-+			else if (netif_msg_intr(tp)) {
-+				printk(KERN_INFO "%s: interrupt %04x in poll\n",
-+			       	dev->name, status);
-+			}
-+		}
- 
--	if (unlikely(status & SYSErr)) {
--		rtl8169_pcierr_interrupt(dev);
--		goto out;
-+		/* We only get a new MSI interrupt when all active irq
-+		 * sources on the chip have been acknowledged. So, ack
-+		 * everything we've seen and check if new sources have become
-+		 * active to avoid blocking all interrupts from the chip.
-+		 */
-+		RTL_W16(IntrStatus,
-+			(status & RxFIFOOver) ? (status | RxOverflow) : status);
-+		status = RTL_R16(IntrStatus);
- 	}
- 
--	if (status & LinkChg)
--		rtl8169_check_link_status(dev, tp, ioaddr);
--
--	if (status & tp->napi_event) {
--		RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
--		tp->intr_mask = ~tp->napi_event;
--
--		if (likely(netif_rx_schedule_prep(&tp->napi)))
--			__netif_rx_schedule(&tp->napi);
--		else if (netif_msg_intr(tp)) {
--			printk(KERN_INFO "%s: interrupt %04x in poll\n",
--			       dev->name, status);
--		}
--	}
--out:
- 	return IRQ_RETVAL(handled);
- }
- 
-@@ -3617,13 +3627,15 @@
- 
- 	if (work_done < budget) {
- 		netif_rx_complete(napi);
--		tp->intr_mask = 0xffff;
--		/*
--		 * 20040426: the barrier is not strictly required but the
--		 * behavior of the irq handler could be less predictable
--		 * without it. Btw, the lack of flush for the posted pci
--		 * write is safe - FR
-+
-+		/* We need for force the visibility of tp->intr_mask
-+		 * for other CPUs, as we can loose an MSI interrupt
-+		 * and potentially wait for a retransmit timeout if we don't.
-+		 * The posted write to IntrMask is safe, as it will
-+		 * eventually make it to the chip and we won't loose anything
-+		 * until it does.
- 		 */
-+		tp->intr_mask = 0xffff;
- 		smp_wmb();
- 		RTL_W16(IntrMask, tp->intr_event);
- 	}
+^ Unused
 
+> +
+> +#define XT_OSF_GENRE		(1<<0)
+> +#define	XT_OSF_TTL		(1<<1)
+> +#define XT_OSF_LOG		(1<<2)
+> +#define XT_OSF_UNUSED		(1<<3)
 
--- 
-Greetings, Michael.
+^ Unused? :)
+
+> +#define XT_OSF_CONNECTOR	(1<<4)
+> +#define XT_OSF_INVERT		(1<<5)
+> +
+> +#define XT_OSF_LOGLEVEL_ALL	0
+> +#define XT_OSF_LOGLEVEL_FIRST	1
+> +#define XT_OSF_LOGLEVEL_ALL_KNOWN	2
+
+What does this do?
+
+> +#define XT_OSF_TTL_TRUE		0	/* True ip and fingerprint TTL comparison */
+> +#define XT_OSF_TTL_LESS		1	/* Check if ip TTL is less than fingerprint one */
+> +#define XT_OSF_TTL_NOCHECK	2	/* Do not compare ip and fingerprint TTL at all */
+
+These seem redundant - having neither of TRUE or LESS seems
+equivalent to NOCHECK. Perhaps thats the reason why its not
+used at all :) Looking at the code, "TRUE" would be better
+named as "EQUAL".
+
+> +struct xt_osf_info {
+> +	char			genre[MAXGENRELEN];
+> +	__u32			len;
+> +	__u32			flags;
+> +	__u32			loglevel;
+> +	__u32			ttl;
+> +};
+
+Unless you're really really sure that this is not going to
+change, please use netlink attributes. Similar for the other
+ABI structures.
+
+> +
+> +/*
+> + * Wildcard MSS (kind of).
+> + * It is used to implement a state machine for the different wildcard values
+> + * of the MSS and window sizes.
+> + */
+> +struct xt_osf_wc {
+> +	__u32			wc;
+> +	__u32			val;
+> +};
+> +
+> +/*
+> + * This struct represents IANA options
+> + * http://www.iana.org/assignments/tcp-parameters
+> + */
+> +struct xt_osf_opt {
+> +	__u16			kind, length;
+> +	struct xt_osf_wc	wc;
+> +};
+> +
+> +struct xt_osf_user_finger {
+> +	struct xt_osf_wc	wss;
+> +
+> +	__u8			ttl, df;
+> +	__u16			ss, mss;
+> +	__u16			opt_num;
+> +
+> +	char			genre[MAXGENRELEN];
+> +	char			version[MAXGENRELEN];
+> +	char			subtype[MAXGENRELEN];
+> +
+> +	/* MAX_IPOPTLEN is maximum if all options are NOPs or EOLs */
+> +	struct xt_osf_opt	opt[MAX_IPOPTLEN];
+
+This really looks like you should use nested attributes.
+
+> +};
+> +
+> +struct xt_osf_nlmsg {
+> +	struct xt_osf_user_finger	f;
+> +	struct iphdr		ip;
+> +	struct tcphdr		tcp;
+> +};
+> +
+> +/* Defines for IANA option kinds */
+> +
+> +enum iana_options {
+> +	OSFOPT_EOL = 0,		/* End of options */
+> +	OSFOPT_NOP, 		/* NOP */
+> +	OSFOPT_MSS, 		/* Maximum segment size */
+> +	OSFOPT_WSO, 		/* Window scale option */
+> +	OSFOPT_SACKP,		/* SACK permitted */
+> +	OSFOPT_SACK,		/* SACK */
+> +	OSFOPT_ECHO,
+> +	OSFOPT_ECHOREPLY,
+> +	OSFOPT_TS,		/* Timestamp option */
+> +	OSFOPT_POCP,		/* Partial Order Connection Permitted */
+> +	OSFOPT_POSP,		/* Partial Order Service Profile */
+> +
+> +	/* Others are not used in the current OSF */
+> +	OSFOPT_EMPTY = 255,
+> +};
+
+Why do we need to duplicate these?
+
+> +
+> +enum xt_osf_msg_types {
+> +	OSF_MSG_SETUP,
+> +	OSF_MSG_MAX,
+> +};
+> +
+> +enum xt_osf_attr_type {
+> +	OSF_ATTR_UNSPEC,
+> +	OSF_ATTR_FINGER,
+> +	OSF_ATTR_MAX,
+> +};
+> +
+> +#endif				/* _XT_OSF_H */
+> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> index 2329c5f..b0273f9 100644
+> --- a/net/netfilter/Kconfig
+> +++ b/net/netfilter/Kconfig
+> @@ -916,6 +916,19 @@ config NETFILTER_XT_MATCH_U32
+>  
+>  	  Details and examples are in the kernel module source.
+>  
+> +config NETFILTER_XT_MATCH_OSF
+> +	tristate '"osf" Passive OS fingerprint match'
+> +	depends on NETFILTER_ADVANCED
+
+&& NFNETLINK
+
+> --- /dev/null
+> +++ b/net/netfilter/xt_osf.c
+> @@ -0,0 +1,469 @@
+> +/*
+> + * Copyright (c) 2003+ Evgeniy Polyakov <zbr@ioremap.net>
+> + *
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +
+> +#include <linux/connector.h>
+
+Not needed. The remaining ones look like some (percpu?) could be
+removed as well.
+
+> +#include <linux/if.h>
+> +#include <linux/inetdevice.h>
+> +#include <linux/ip.h>
+> +#include <linux/list.h>
+> +#include <linux/percpu.h>
+> +#include <linux/rculist.h>
+> +#include <linux/smp.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/slab.h>
+> +#include <linux/spinlock.h>
+> +#include <linux/tcp.h>
+> +#include <linux/types.h>
+> +
+> +#include <net/ip.h>
+> +#include <net/tcp.h>
+> +
+> +#include <linux/netfilter/nfnetlink.h>
+> +#include <linux/netfilter/x_tables.h>
+> +#include <linux/netfilter/xt_osf.h>
+> +
+> +struct xt_osf_finger {
+> +	struct rcu_head			rcu_head;
+> +	struct list_head		finger_entry;
+> +	struct xt_osf_user_finger	finger;
+> +};
+> +
+> +enum osf_fmatch_states {
+> +	/* Packet does not match the fingerprint */
+> +	FMATCH_WRONG = 0,
+> +	/* Packet matches the fingerprint */
+> +	FMATCH_OK,
+> +	/* Options do not match the fingerprint, but header does */
+> +	FMATCH_OPT_WRONG,
+> +};
+> +
+> +struct xt_osf_finger_storage
+> +{
+
+Please place the opening bracket consistently with the other
+structure definitions.
+
+> +	struct list_head		finger_list;
+> +	spinlock_t			finger_lock;
+> +};
+> +
+> +/*
+> + * Indexed by dont-fragment bit.
+> + * It is the only constant value in the fingerprint.
+> + */
+> +struct xt_osf_finger_storage xt_osf_fingers[2];
+
+static
+
+> +
+> +struct xt_osf_message {
+> +	struct cn_msg		cmsg;
+> +	struct xt_osf_nlmsg	nlmsg;
+> +};
+
+Unused.
+
+> +static int xt_osf_setup_callback(struct sock *ctnl, struct sk_buff *skb,
+> +			struct nlmsghdr *nlh, struct nlattr *osf_attrs[])
+> +{
+> +	struct xt_osf_user_finger *f;
+> +	struct nfgenmsg *nfmsg = NLMSG_DATA(nlh);
+> +	u16 delete = ntohs(nfmsg->res_id);
+
+This looks like abuse, we use message types to distinguish between
+additions and deletions, alternative NLM_F_REPLACE.
+
+> +	struct xt_osf_finger *kf = NULL, *sf;
+> +	struct xt_osf_finger_storage *st;
+> +	int err;
+> +
+> +	if (!osf_attrs[OSF_ATTR_FINGER])
+> +		return -EINVAL;
+> +
+> +	f = nla_data(osf_attrs[OSF_ATTR_FINGER]);
+> +	st = &xt_osf_fingers[!!f->df];
+> +
+> +	/*
+> +	 * If 'delete' is set to 0 then we add attached fingerprint,
+> +	 * otherwise remove, and in this case we do not need to allocate data.
+> +	 */
+> +	if (!delete) {
+> +		kf = kmalloc(sizeof(struct xt_osf_finger), GFP_KERNEL);
+> +		if (!kf)
+> +			return -ENOMEM;
+> +
+> +		memcpy(&kf->finger, f, sizeof(struct xt_osf_user_finger));
+> +	}
+> +
+> +	err = -ENOENT;
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(sf, &st->finger_list, finger_entry) {
+> +		if (memcmp(&sf->finger, f, sizeof(struct xt_osf_user_finger)))
+> +			continue;
+> +
+> +		if (delete) {
+> +			spin_lock_bh(&st->finger_lock);
+
+This lock looks useless, all changes are done in netlink context under
+the nfnl mutex.
+
+> +			list_del_rcu(&sf->finger_entry);
+> +			spin_unlock_bh(&st->finger_lock);
+> +			call_rcu(&sf->rcu_head, xt_osf_finger_free_rcu);
+> +		} else {
+> +			kfree(kf);
+> +			kf = NULL;
+> +		}
+> +
+> +		err = 0;
+> +		break;
+> +	}
+> +
+> +	if (kf) {
+> +		spin_lock_bh(&st->finger_lock);
+> +		list_add_tail_rcu(&kf->finger_entry, &st->finger_list);
+> +		spin_unlock_bh(&st->finger_lock);
+> +#if 0
+> +		printk(KERN_INFO "Added rule for %s:%s:%s.\n",
+> +			kf->finger.genre, kf->finger.version, kf->finger.subtype);
+> +#endif
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	return 0;
+> +}
+> +
+> +static const struct nfnl_callback xt_osf_nfnetlink_callbacks[OSF_MSG_MAX] = {
+> +	[OSF_MSG_SETUP]	= {
+> +		.call		= xt_osf_setup_callback,
+> +		.attr_count	= OSF_ATTR_MAX,
+> +		.policy		= xt_osf_policy,
+> +	},
+> +};
+> +
+> +static const struct nfnetlink_subsystem xt_osf_nfnetlink = {
+> +	.name			= "osf",
+> +	.subsys_id		= NFNL_SUBSYS_OSF,
+> +	.cb_count		= OSF_MSG_MAX,
+> +	.cb			= xt_osf_nfnetlink_callbacks,
+> +};
+> +
+> +static inline int xt_osf_ttl(const struct sk_buff *skb, const struct xt_osf_info *info,
+> +			    unsigned char f_ttl)
+> +{
+> +	const struct iphdr *ip = ip_hdr(skb);
+> +
+> +	if (info->flags & XT_OSF_TTL) {
+> +		if (info->ttl == XT_OSF_TTL_TRUE)
+> +			return ip->ttl == f_ttl;
+> +		if (info->ttl == XT_OSF_TTL_NOCHECK)
+> +			return 1;
+> +		else if (ip->ttl <= f_ttl)
+> +			return 1;
+> +		else {
+> +			struct in_device *in_dev = in_dev_get(skb->dev);
+> +			int ret = 0;
+> +
+> +			for_ifa(in_dev) {
+> +				if (inet_ifa_match(ip->saddr, ifa)) {
+> +					ret = (ip->ttl == f_ttl);
+> +					break;
+> +				}
+> +			}
+> +			endfor_ifa(in_dev);
+> +
+> +			in_dev_put(in_dev);
+> +			return ret;
+> +		}
+> +	}
+> +
+> +	return ip->ttl == f_ttl;
+> +}
+> +
+> +static bool xt_osf_match_packet(const struct sk_buff *skb,
+> +		const struct xt_match_param *p)
+> +{
+> +	const struct xt_osf_info *info = p->matchinfo;
+> +	const struct iphdr *ip = ip_hdr(skb);
+> +	const struct tcphdr *tcp;
+> +	struct tcphdr _tcph;
+> +	int fmatch = FMATCH_WRONG, fcount = 0;
+> +	unsigned int optsize = 0, check_WSS = 0;
+> +	u16 window, totlen, mss = 0;
+> +	bool df;
+> +	const unsigned char *optp = NULL, *_optp = NULL;
+> +	unsigned char opts[MAX_IPOPTLEN];
+> +	const struct xt_osf_finger *kf;
+> +	const struct xt_osf_user_finger *f;
+> +	const struct xt_osf_finger_storage *st;
+> +
+> +	if (!info)
+> +		return false;
+> +
+> +	tcp = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(struct tcphdr), &_tcph);
+> +	if (!tcp)
+> +		return false;
+> +
+> +	if (!tcp->syn)
+> +		return false;
+> +
+> +	totlen = ntohs(ip->tot_len);
+> +	df = ntohs(ip->frag_off) & IP_DF;
+> +	window = ntohs(tcp->window);
+> +
+> +	if (tcp->doff * 4 > sizeof(struct tcphdr)) {
+> +		optsize = tcp->doff * 4 - sizeof(struct tcphdr);
+> +
+> +		if (optsize > sizeof(opts))
+> +			optsize = sizeof(opts);
+> +
+> +		_optp = optp = skb_header_pointer(skb, ip_hdrlen(skb) + sizeof(struct tcphdr),
+
+Please break the line at 80 characters
+
+> +				optsize, opts);
+> +	}
+> +
+> +	st = &xt_osf_fingers[df];
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(kf, &st->finger_list, finger_entry) {
+> +		f = &kf->finger;
+> +
+> +		if (!(info->flags & XT_OSF_LOG) && strcmp(info->genre, f->genre))
+> +			continue;
+> +
+> +		optp = _optp;
+> +		fmatch = FMATCH_WRONG;
+> +
+> +		if (totlen == f->ss && xt_osf_ttl(skb, info, f->ttl)) {
+> +			int foptsize, optnum;
+> +
+> +			check_WSS = 0;
+> +
+> +			switch (f->wss.wc) {
+> +			case 0:
+> +				check_WSS = 0;
+> +				break;
+> +			case 'S':
+> +				check_WSS = 1;
+> +				break;
+> +			case 'T':
+> +				check_WSS = 2;
+> +				break;
+> +			case '%':
+> +				check_WSS = 3;
+> +				break;
+> +			default:
+> +				check_WSS = 4;
+> +				break;
+> +			}
+
+This is really pushing my taste-buds. Whatever this does, please at
+use symbolic constants so the reader at least has a chance to understand
+it.
+
+> +			if (check_WSS == 4)
+> +				continue;
+> +
+> +			/* Check options */
+> +
+> +			foptsize = 0;
+> +			for (optnum = 0; optnum < f->opt_num; ++optnum)
+> +				foptsize += f->opt[optnum].length;
+> +
+> +			if (foptsize > MAX_IPOPTLEN || optsize > MAX_IPOPTLEN || optsize != foptsize)
+> +				continue;
+> +
+> +			for (optnum = 0; optnum < f->opt_num; ++optnum) {
+> +				if (f->opt[optnum].kind == (*optp)) {
+> +					__u32 len = f->opt[optnum].length;
+> +					const __u8 *optend = optp + len;
+> +					int loop_cont = 0;
+> +
+> +					fmatch = FMATCH_OK;
+> +
+> +					switch (*optp) {
+> +					case OSFOPT_MSS:
+> +						mss = optp[3];
+> +						mss <<= 8;
+> +						mss |= optp[2];
+> +
+> +						mss = ntohs(mss);
+> +						break;
+> +					case OSFOPT_TS:
+> +						loop_cont = 1;
+> +						break;
+> +					}
+> +
+> +					optp = optend;
+> +				} else
+> +					fmatch = FMATCH_OPT_WRONG;
+> +
+> +				if (fmatch != FMATCH_OK)
+> +					break;
+> +			}
+> +
+> +			if (fmatch != FMATCH_OPT_WRONG) {
+> +				fmatch = FMATCH_WRONG;
+> +
+> +				switch (check_WSS) {
+> +				case 0:
+> +					if (f->wss.val == 0 || window == f->wss.val)
+> +						fmatch = FMATCH_OK;
+> +					break;
+> +				case 1:	/* MSS */
+> +#define SMART_MSS_1	1460
+> +#define SMART_MSS_2	1448
+
+Sigh. This entire function is completely unreadable and full of
+unexplained magic. I'll stop here, please clean this before
+resubmitting.
+
+> +					if (window == f->wss.val * mss ||
+> +					    window == f->wss.val * SMART_MSS_1 ||
+> +					    window == f->wss.val * SMART_MSS_2)
+> +						fmatch = FMATCH_OK;
+> +					break;
+> +				case 2:	/* MTU */
+> +					if (window == f->wss.val * (mss + 40) ||
+> +					    window == f->wss.val * (SMART_MSS_1 + 40) ||
+> +					    window == f->wss.val * (SMART_MSS_2 + 40))
+> +						fmatch = FMATCH_OK;
+> +					break;
+> +				case 3:	/* MOD */
+> +					if ((window % f->wss.val) == 0)
+> +						fmatch = FMATCH_OK;
+> +					break;
+> +				}
+> +			}
+> +
+> +			if (fmatch != FMATCH_OK)
+> +				continue;
+> +
+> +			fcount++;
+> +			if (info->flags & XT_OSF_LOG)
+> +				printk(KERN_INFO "%s [%s:%s] : "
+> +					"%pi4:%d -> %pi4:%d hops=%d\n",
+> +					f->genre, f->version, f->subtype,
+> +					&ip->saddr, ntohs(tcp->source),
+> +					&ip->daddr, ntohs(tcp->dest),
+> +					f->ttl - ip->ttl);
+> +
+> +			if ((info->flags & XT_OSF_LOG) &&
+> +			    info->loglevel == XT_OSF_LOGLEVEL_FIRST)
+> +				break;
+> +		}
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	if (!fcount && (info->flags & (XT_OSF_LOG | XT_OSF_CONNECTOR))) {
+> +		unsigned int i;
+> +		struct xt_osf_user_finger fg;
+> +
+> +		memset(&fg, 0, sizeof(fg));
+> +#if 1
+> +		if (info->flags & XT_OSF_LOG) {
+> +			if (info->loglevel != XT_OSF_LOGLEVEL_ALL_KNOWN)
+> +				printk(KERN_INFO "Unknown: win: %u, mss: %u, "
+> +					"totlen: %u, df: %d, ttl: %u : ",
+> +					window, mss, totlen, df, ip->ttl);
+> +			else
+> +				printk(KERN_INFO "");
+> +			if (_optp) {
+> +				optp = _optp;
+> +				for (i = 0; i < optsize; i++)
+> +					printk("%02X ", optp[i]);
+> +			}
+> +
+> +			printk("%pi4:%u -> %pi4:%u\n",
+> +			     &ip->saddr, ntohs(tcp->source),
+> +			     &ip->daddr, ntohs(tcp->dest));
+> +		}
+> +#endif
+> +	}
+> +
+> +	if (fcount)
+> +		fmatch = FMATCH_OK;
+> +
+> +	return fmatch == FMATCH_OK;
+> +}
+>
