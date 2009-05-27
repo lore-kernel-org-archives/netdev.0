@@ -1,65 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/4] igb/e1000e: update PSSR_MDIX value to
-	reflect correct bit
-Date: Tue, 26 May 2009 16:51:05 -0700
-Message-ID: <20090526235105.28231.39406.stgit@localhost.localdomain>
-References: <20090526234958.28231.16894.stgit@localhost.localdomain>
+From: Jay Cliburn <jcliburn@gmail.com>
+Subject: Re: [PATCH] atlx: move modinfo data from atlx.h to atl1.c
+Date: Tue, 26 May 2009 19:48:52 -0500
+Message-ID: <20090526194852.05902e41@osprey.hogchain.net>
+References: <20090526223350.GJ19049@ldl.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: davem@davemloft.net, scott.scriven@hp.com, netdev@vger.kernel.org
+To: Alex Chiang <achiang@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:60111
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760821AbZEZXvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 19:51:22 -0400
-In-Reply-To: <20090526234958.28231.16894.stgit@localhost.localdomain>
+Received: from an-out-0708.google.com ([209.85.132.240]:34101 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753697AbZE0Asz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 20:48:55 -0400
+Received: by an-out-0708.google.com with SMTP id d40so9153095and.1
+        for <netdev@vger.kernel.org>; Tue, 26 May 2009 17:48:56 -0700 (PDT)
+In-Reply-To: <20090526223350.GJ19049@ldl.fc.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Tue, 26 May 2009 16:33:50 -0600
+Alex Chiang <achiang@hp.com> wrote:
 
-The phy port status register has the MDI-X status bit on bit 11, not bit 3
-as is currently setup in the define.  This patch corrects that so the
-correct bit is checked on igp PHY types.
+> Both atl1.c and atl2.c include atlx.h, which defines some modinfo
+> stuff. But atl2.c seems like it doesn't want the modinfo data
+> from atlx.h, as it defines its own.
+> 
+> Running modinfo on atl2.ko, we get conflicting information:
+> 
+> $ /sbin/modinfo drivers/net/atlx/atl2.ko | egrep "version|description|author"
+> version:        2.2.3
+> description:    Atheros Fast Ethernet Network Driver
+> author:         Atheros Corporation <xiong.huang@atheros.com>, Chris Snook <csnook@redhat.com>
+> version:        2.1.3
+> author:         Xiong Huang <xiong.huang@atheros.com>, 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>
+> 
+> Move the modinfo data out of atlx.h and into atl1.c to eliminate
+> the confusion:
+> 
+> $ /sbin/modinfo drivers/net/atlx/atl1.ko | egrep "version|description|author"
+> version:        2.1.3
+> author:         Xiong Huang <xiong.huang@atheros.com>, 	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>
+> description:    Atheros L1 Gigabit Ethernet Driver
+> 
+> $ /sbin/modinfo drivers/net/atlx/atl2.ko | egrep "version|description|author"
+> version:        2.2.3
+> description:    Atheros Fast Ethernet Network Driver
+> author:         Atheros Corporation <xiong.huang@atheros.com>, Chris Snook <csnook@redhat.com>
+> 
+> Cc: Jay Cliburn <jcliburn@gmail.com>
+> Reported-by: Scott Scriven <scott.scriven@hp.com>
+> Signed-off-by: Alex Chiang <achiang@hp.com>
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Acked-by: Jay Cliburn <jcliburn@gmail.com>
 
- drivers/net/e1000e/hw.h     |    2 +-
- drivers/net/igb/e1000_phy.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index d8b8229..6cdb703 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -253,7 +253,7 @@ enum e1e_registers {
- #define IGP01E1000_PLHR_SS_DOWNGRADE	0x8000
- 
- #define IGP01E1000_PSSR_POLARITY_REVERSED	0x0002
--#define IGP01E1000_PSSR_MDIX			0x0008
-+#define IGP01E1000_PSSR_MDIX			0x0800
- #define IGP01E1000_PSSR_SPEED_MASK		0xC000
- #define IGP01E1000_PSSR_SPEED_1000MBPS		0xC000
- 
-diff --git a/drivers/net/igb/e1000_phy.h b/drivers/net/igb/e1000_phy.h
-index 3228a86..ebe4b61 100644
---- a/drivers/net/igb/e1000_phy.h
-+++ b/drivers/net/igb/e1000_phy.h
-@@ -80,7 +80,7 @@ s32  igb_phy_init_script_igp3(struct e1000_hw *hw);
- #define IGP02E1000_PM_D3_LPLU             0x0004 /* For all other states */
- #define IGP01E1000_PLHR_SS_DOWNGRADE      0x8000
- #define IGP01E1000_PSSR_POLARITY_REVERSED 0x0002
--#define IGP01E1000_PSSR_MDIX              0x0008
-+#define IGP01E1000_PSSR_MDIX              0x0800
- #define IGP01E1000_PSSR_SPEED_MASK        0xC000
- #define IGP01E1000_PSSR_SPEED_1000MBPS    0xC000
- #define IGP02E1000_PHY_CHANNEL_NUM        4
-
+> ---
+>  atl1.c |    6 ++++++
+>  atlx.h |    6 ------
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+> ---
+> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+> index 13f0bdc..152852f 100644
+> --- a/drivers/net/atlx/atl1.c
+> +++ b/drivers/net/atlx/atl1.c
+> @@ -82,6 +82,12 @@
+>  
+>  #include "atl1.h"
+>  
+> +#define ATLX_DRIVER_VERSION "2.1.3"
+> +MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
+> +	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
+> +MODULE_LICENSE("GPL");
+> +MODULE_VERSION(ATLX_DRIVER_VERSION);
+> +
+>  /* Temporary hack for merging atl1 and atl2 */
+>  #include "atlx.c"
+>  
+> diff --git a/drivers/net/atlx/atlx.h b/drivers/net/atlx/atlx.h
+> index 297a03d..14054b7 100644
+> --- a/drivers/net/atlx/atlx.h
+> +++ b/drivers/net/atlx/atlx.h
+> @@ -29,12 +29,6 @@
+>  #include <linux/module.h>
+>  #include <linux/types.h>
+>  
+> -#define ATLX_DRIVER_VERSION "2.1.3"
+> -MODULE_AUTHOR("Xiong Huang <xiong.huang@atheros.com>, \
+> -	Chris Snook <csnook@redhat.com>, Jay Cliburn <jcliburn@gmail.com>");
+> -MODULE_LICENSE("GPL");
+> -MODULE_VERSION(ATLX_DRIVER_VERSION);
+> -
+>  #define ATLX_ERR_PHY			2
+>  #define ATLX_ERR_PHY_SPEED		7
+>  #define ATLX_ERR_PHY_RES		8
