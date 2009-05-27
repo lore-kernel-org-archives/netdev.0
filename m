@@ -1,34 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ucc_geth: allow to set mac address on running
- device
-Date: Tue, 26 May 2009 21:42:03 -0700 (PDT)
-Message-ID: <20090526.214203.157382530.davem@davemloft.net>
-References: <1243388936.13410.4.camel@kevin>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	leoli@freescale.com, netdev@vger.kernel.org
-To: kexin.hao@windriver.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 7/14] tcp: Optimise len/mss comparison
+Date: Wed, 27 May 2009 14:50:26 +1000
+Message-ID: <E1M9B5u-0001SI-Jj@gondolin.me.apana.org.au>
+References: <20090527044539.GA32372@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48689
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750926AbZE0EmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 00:42:04 -0400
-In-Reply-To: <1243388936.13410.4.camel@kevin>
+Received: from rhun.apana.org.au ([64.62.148.172]:37536 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751182AbZE0Eu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 00:50:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Hao <kexin.hao@windriver.com>
-Date: Wed, 27 May 2009 09:48:56 +0800
+tcp: Optimise len/mss comparison
 
-> Inspired by the patch for 8139too (bda6a15a).
-> 
-> Currently we can't set mac address on a running ucc_geth device.
-> But this is needed when you use this device as a bonding slave in
-> bonding device in balance-alb mode. So add this feature for ucc_geth
-> device.
-> 
-> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
+Instead of checking len > mss || len == 0, we can accomplish
+both by checking (len - 1) > mss using the unsigned wraparound.
+At nearly a million times a second, this might just help.
 
-I applied this patch already, there is no need to post it again.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+
+ net/ipv4/tcp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 313960e..68342d4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2566,7 +2566,7 @@ found:
+ 
+ 	mss = skb_shinfo(p)->gso_size;
+ 
+-	flush |= (len > mss) | !len;
++	flush |= (len - 1) >= mss;
+ 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
+ 
+ 	if (flush || skb_gro_receive(head, skb)) {
