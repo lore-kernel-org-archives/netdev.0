@@ -1,79 +1,81 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/14] gro: Only use skb_gro_header for completely non-linear packets
-Date: Wed, 27 May 2009 14:50:23 +1000
-Message-ID: <E1M9B5r-0001RY-B3@gondolin.me.apana.org.au>
+Subject: [PATCH 3/14] gro: Localise offset/headlen in skb_gro_offset
+Date: Wed, 27 May 2009 14:50:22 +1000
+Message-ID: <E1M9B5q-0001RA-8S@gondolin.me.apana.org.au>
 References: <20090527044539.GA32372@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49806 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:49811 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752274AbZE0FHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:07:48 -0400
+	with ESMTP id S1755723AbZE0FH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:07:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gro: Only use skb_gro_header for completely non-linear packets
+gro: Localise offset/headlen in skb_gro_offset
 
-Currently skb_gro_header is used for packets which put the hardware
-header in skb->data with the rest in frags.  Since the drivers that
-need this optimisation all provide completely non-linear packets,
-we can gain extra optimisations by only performing the frag0
-optimisation for completely non-linear packets.
-
-In particular, we can simply test frag0 (instead of skb_headlen)
-to see whether the optimisation is in force.
+This patch stores the offset/headlen in local variables as they're
+used repeatedly in skb_gro_offset.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/netdevice.h |   11 ++++++-----
- net/core/dev.c            |    3 ++-
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ net/core/skbuff.c |   23 ++++++++++-------------
+ 1 file changed, 10 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fcb1cc9..38678bc 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1135,22 +1135,23 @@ static inline void *skb_gro_header(struct sk_buff *skb, unsigned int hlen)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c88426b..168e949 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2666,13 +2666,15 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	struct sk_buff *nskb;
+ 	unsigned int headroom;
+ 	unsigned int len = skb_gro_len(skb);
++	unsigned int offset = skb_gro_offset(skb);
++	unsigned int headlen = skb_headlen(skb);
  
- 	hlen += offset;
- 	if (!NAPI_GRO_CB(skb)->frag0 ||
--	    unlikely(skb_shinfo(skb)->frags[0].size + skb_headlen(skb) < hlen))
-+	    unlikely(skb_shinfo(skb)->frags[0].size < hlen)) {
-+		NAPI_GRO_CB(skb)->frag0 = NULL;
- 		return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
-+	}
+ 	if (p->len + len >= 65536)
+ 		return -E2BIG;
  
- 	return NAPI_GRO_CB(skb)->frag0 + offset;
- }
+ 	if (skb_shinfo(p)->frag_list)
+ 		goto merge;
+-	else if (skb_headlen(skb) <= skb_gro_offset(skb)) {
++	else if (headlen <= offset) {
+ 		skb_frag_t *frag;
+ 		int i;
  
- static inline void *skb_gro_mac_header(struct sk_buff *skb)
- {
--	return skb_headlen(skb) ? skb_mac_header(skb) :
--	       NAPI_GRO_CB(skb)->frag0;
-+	return NAPI_GRO_CB(skb)->frag0 ?: skb_mac_header(skb);
- }
+@@ -2680,10 +2682,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		    MAX_SKB_FRAGS)
+ 			return -E2BIG;
  
- static inline void *skb_gro_network_header(struct sk_buff *skb)
- {
--	return skb_headlen(skb) ? skb_network_header(skb) :
--	       NAPI_GRO_CB(skb)->frag0 + skb_network_offset(skb);
-+	return (NAPI_GRO_CB(skb)->frag0 ?: skb->data) +
-+	       skb_network_offset(skb);
- }
+-		skb_shinfo(skb)->frags[0].page_offset +=
+-			skb_gro_offset(skb) - skb_headlen(skb);
+-		skb_shinfo(skb)->frags[0].size -=
+-			skb_gro_offset(skb) - skb_headlen(skb);
++		skb_shinfo(skb)->frags[0].page_offset += offset - headlen;
++		skb_shinfo(skb)->frags[0].size -= offset - headlen;
  
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9b4c8da..07ad237 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2507,7 +2507,8 @@ void skb_gro_reset_offset(struct sk_buff *skb)
- 	NAPI_GRO_CB(skb)->data_offset = 0;
- 	NAPI_GRO_CB(skb)->frag0 = NULL;
+ 		frag = skb_shinfo(p)->frags + skb_shinfo(p)->nr_frags;
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+@@ -2736,16 +2736,13 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	p = nskb;
  
--	if (!skb_headlen(skb) && !PageHighMem(skb_shinfo(skb)->frags[0].page))
-+	if (skb->mac_header == skb->tail &&
-+	    !PageHighMem(skb_shinfo(skb)->frags[0].page))
- 		NAPI_GRO_CB(skb)->frag0 =
- 			page_address(skb_shinfo(skb)->frags[0].page) +
- 			skb_shinfo(skb)->frags[0].page_offset;
+ merge:
+-	if (skb_gro_offset(skb) > skb_headlen(skb)) {
+-		skb_shinfo(skb)->frags[0].page_offset +=
+-			skb_gro_offset(skb) - skb_headlen(skb);
+-		skb_shinfo(skb)->frags[0].size -=
+-			skb_gro_offset(skb) - skb_headlen(skb);
+-		skb_gro_reset_offset(skb);
+-		skb_gro_pull(skb, skb_headlen(skb));
++	if (offset > headlen) {
++		skb_shinfo(skb)->frags[0].page_offset += offset - headlen;
++		skb_shinfo(skb)->frags[0].size -= offset - headlen;
++		offset = headlen;
+ 	}
+ 
+-	__skb_pull(skb, skb_gro_offset(skb));
++	__skb_pull(skb, offset);
+ 
+ 	p->prev->next = skb;
+ 	p->prev = skb;
