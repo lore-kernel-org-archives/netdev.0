@@ -1,68 +1,54 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 12/14] gro: Nasty optimisations for page frags in skb_gro_receive
-Date: Wed, 27 May 2009 14:50:32 +1000
-Message-ID: <E1M9B60-0001TO-4D@gondolin.me.apana.org.au>
+Subject: [PATCH 10/14] ipv4: Use 32-bit loads for ID and length in GRO
+Date: Wed, 27 May 2009 14:50:29 +1000
+Message-ID: <E1M9B5x-0001Sw-RR@gondolin.me.apana.org.au>
 References: <20090527044539.GA32372@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51781 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:45734 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757749AbZE0FTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:19:31 -0400
+	with ESMTP id S1759879AbZE0FTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:19:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gro: Nasty optimisations for page frags in skb_gro_receive
+ipv4: Use 32-bit loads for ID and length in GRO
 
-This patch reverses the direction of the frags array copy in
-skb_gro_receive in order simplify the loop conditional.  It
-also avoids touching the first element of the original frags
-array.
+This patch optimises the IPv4 GRO code by using 32-bit loads
+(instead of 16-bit ones) on the ID and length checks in the receive
+function.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/core/skbuff.c |   25 +++++++++++++++----------
- 1 file changed, 15 insertions(+), 10 deletions(-)
+ net/ipv4/af_inet.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 168e949..19afb18 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2676,21 +2676,26 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		goto merge;
- 	else if (headlen <= offset) {
- 		skb_frag_t *frag;
--		int i;
-+		skb_frag_t *frag2;
-+		int i = skb_shinfo(skb)->nr_frags;
-+		int nr_frags = skb_shinfo(p)->nr_frags + i;
-+
-+		offset -= headlen;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 644cc55..5abee4c 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1248,9 +1248,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	struct iphdr *iph;
+ 	unsigned int hlen;
+ 	unsigned int off;
++	unsigned int id;
+ 	int flush = 1;
+ 	int proto;
+-	int id;
  
--		if (skb_shinfo(p)->nr_frags + skb_shinfo(skb)->nr_frags >
--		    MAX_SKB_FRAGS)
-+		if (nr_frags > MAX_SKB_FRAGS)
- 			return -E2BIG;
+ 	off = skb_gro_offset(skb);
+ 	hlen = off + sizeof(*iph);
+@@ -1274,9 +1274,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+ 		goto out_unlock;
  
--		skb_shinfo(skb)->frags[0].page_offset += offset - headlen;
--		skb_shinfo(skb)->frags[0].size -= offset - headlen;
-+		skb_shinfo(p)->nr_frags = nr_frags;
-+		skb_shinfo(skb)->nr_frags = 0;
+-	flush = ntohs(iph->tot_len) != skb_gro_len(skb) ||
+-		iph->frag_off != htons(IP_DF);
+-	id = ntohs(iph->id);
++	id = ntohl(*(u32 *)&iph->id);
++	flush = (u16)((ntohl(*(u32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
++	id >>= 16;
  
--		frag = skb_shinfo(p)->frags + skb_shinfo(p)->nr_frags;
--		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--			*frag++ = skb_shinfo(skb)->frags[i];
-+		frag = skb_shinfo(p)->frags + nr_frags;
-+		frag2 = skb_shinfo(skb)->frags + i;
-+		do {
-+			*--frag = *--frag2;
-+		} while (--i);
- 
--		skb_shinfo(p)->nr_frags += skb_shinfo(skb)->nr_frags;
--		skb_shinfo(skb)->nr_frags = 0;
-+		frag->page_offset += offset;
-+		frag->size -= offset;
- 
- 		skb->truesize -= skb->data_len;
- 		skb->len -= skb->data_len;
+ 	for (p = *head; p; p = p->next) {
+ 		struct iphdr *iph2;
