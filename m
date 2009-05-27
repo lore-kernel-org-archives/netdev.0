@@ -1,54 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 10/14] ipv4: Use 32-bit loads for ID and length in GRO
-Date: Wed, 27 May 2009 14:50:29 +1000
-Message-ID: <E1M9B5x-0001Sw-RR@gondolin.me.apana.org.au>
+Subject: [PATCH 14/14] tcp: Do not check flush when comparing options for GRO
+Date: Wed, 27 May 2009 14:50:34 +1000
+Message-ID: <E1M9B62-0001Tq-8q@gondolin.me.apana.org.au>
 References: <20090527044539.GA32372@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45734 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:45737 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759879AbZE0FTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:19:35 -0400
+	with ESMTP id S1759765AbZE0FTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:19:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv4: Use 32-bit loads for ID and length in GRO
+tcp: Do not check flush when comparing options for GRO
 
-This patch optimises the IPv4 GRO code by using 32-bit loads
-(instead of 16-bit ones) on the ID and length checks in the receive
-function.
+There is no need to repeatedly check flush when comparing TCP
+options for GRO as it will be false 99% of the time where it
+matters.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/af_inet.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/tcp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 644cc55..5abee4c 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1248,9 +1248,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	struct iphdr *iph;
- 	unsigned int hlen;
- 	unsigned int off;
-+	unsigned int id;
- 	int flush = 1;
- 	int proto;
--	int id;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c3dcec5..0fb8b44 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2570,7 +2570,7 @@ found:
+ 	flush |= (flags ^ tcp_flag_word(th2)) &
+ 		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH);
+ 	flush |= th->ack_seq ^ th2->ack_seq;
+-	for (i = sizeof(*th); !flush && i < thlen; i += 4)
++	for (i = sizeof(*th); i < thlen; i += 4)
+ 		flush |= *(u32 *)((u8 *)th + i) ^
+ 			 *(u32 *)((u8 *)th2 + i);
  
- 	off = skb_gro_offset(skb);
- 	hlen = off + sizeof(*iph);
-@@ -1274,9 +1274,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
- 		goto out_unlock;
- 
--	flush = ntohs(iph->tot_len) != skb_gro_len(skb) ||
--		iph->frag_off != htons(IP_DF);
--	id = ntohs(iph->id);
-+	id = ntohl(*(u32 *)&iph->id);
-+	flush = (u16)((ntohl(*(u32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
-+	id >>= 16;
- 
- 	for (p = *head; p; p = p->next) {
- 		struct iphdr *iph2;
