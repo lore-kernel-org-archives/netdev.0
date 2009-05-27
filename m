@@ -1,611 +1,195 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [resend] Passive OS fingerprint xtables match.
-Date: Wed, 27 May 2009 18:28:16 +0200
-Message-ID: <4A1D6A20.8050404@trash.net>
-References: <20090511095343.GA30778@ioremap.net>
+From: "Hong H. Pham" <hong.pham@windriver.com>
+Subject: Re: [PATCH 0/1] NIU: fix spurious interrupts
+Date: Wed, 27 May 2009 12:29:38 -0400
+Message-ID: <4A1D6A72.5070801@windriver.com>
+References: <4A15F466.70708@windriver.com>	<20090522.010849.89655675.davem@davemloft.net>	<4A16D5F6.8040000@windriver.com> <20090525.231622.222754412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: multipart/mixed;
+ boundary="------------040606030405080409050107"
+Cc: netdev@vger.kernel.org, matheos.worku@sun.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53854 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759222AbZE0Q22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 12:28:28 -0400
-In-Reply-To: <20090511095343.GA30778@ioremap.net>
+Received: from mail.windriver.com ([147.11.1.11]:64850 "EHLO mail.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752901AbZE0QaQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2009 12:30:16 -0400
+In-Reply-To: <20090525.231622.222754412.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Evgeniy Polyakov wrote:
-> Example usage:
-> # modrpobe xt_osf
-> # ./nfnl_osf -f ./pf.os
-> -d switch removes fingerprints
-> # iptables -I INPUT -j ACCEPT -p tcp -m osf --genre Linux --log 0 --ttl 2
+This is a multi-part message in MIME format.
+--------------040606030405080409050107
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+David Miller wrote:
+> I wonder if it's the niu_interrupt path, and all the v0 bits are
+> clear.  Yeah, I bet that's it.  We're taking some slowpath interrupt
+> for RX or TX counter overflows or errors, and then we try to rearm the
+> LDG even though we're already handling normal RX/TX via NAPI.
 > 
-> You will find something like this in the syslog:
-> Windows [2000:SP3:Windows XP Pro SP1, 2000 SP3]: 11.22.33.55:4024 -> 11.22.33.44:139 hops=4
-> Linux [2.5:]: 1.2.3.4:44448 -> 11.22.33.44:22 hops=4
+> But that shouldn't happen, the thing that went into RX/TX NAPI work
+> should have turned those interrupt off.  We handle RX normal work and
+> error interrupts in the same LDG, and similar for TX, and thus using
+> the same interrupt.
+> 
+> Can you check to see who calls niu_ldg_rearm() when we see it trigger
+> the interrupt with NAPI already scheduled?  That will help narrow this
+> down even further.  Probably the best thing to do is to get a full
+> stack trace using show_stack() or dump_stack().
+> 
+> This is looking more and more like a driver bug at this point.
 
-Please convert this to use nf_log_packet().
+I've added a check for v0 being zero in niu_interrupt().  I have not seen
+this check succeed, so niu_ldg_rearm() is never invoked prior to or
+during a spurious interrupt in niu_interrupt().  So it seems the only
+other place where the LDG is rearmed during network activity is in
+niu_poll(), which is expected.
 
-> diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-> index c600083..bb9c9ae 100644
-> --- a/include/linux/netfilter/nfnetlink.h
-> +++ b/include/linux/netfilter/nfnetlink.h
-> @@ -46,7 +46,8 @@ struct nfgenmsg {
->  #define NFNL_SUBSYS_CTNETLINK_EXP	2
->  #define NFNL_SUBSYS_QUEUE		3
->  #define NFNL_SUBSYS_ULOG		4
-> -#define NFNL_SUBSYS_COUNT		5
-> +#define NFNL_SUBSYS_OSF			5
-> +#define NFNL_SUBSYS_COUNT		6
->  
->  #ifdef __KERNEL__
->  
-> diff --git a/include/linux/netfilter/xt_osf.h b/include/linux/netfilter/xt_osf.h
-> new file mode 100644
-> index 0000000..11903a9
-> --- /dev/null
-> +++ b/include/linux/netfilter/xt_osf.h
-> +#ifndef _XT_OSF_H
-> +#define _XT_OSF_H
-> +
-> +#define MAXGENRELEN		32
-> +#define MAXDETLEN		64
+Here's something else that doesn't make sense.  I've added a check
+in __niu_fastpath_interrupt() and niu_rx_work() to see if the RCR qlen
+is zero, i.e. we're scheduling NAPI with no work.  This could happen if
+there's a spurious interrupt, but the interrupt is not a run away that
+would hang the CPU.  This check happens quite frequently, much more than
+the spurious interrupt check.  Also, it happens with both the PCI-E and
+XAUI cards (I could not reproduce run away spurious interrupts with a
+PCI-E card).
 
-^ Unused
+This is a log from a test with 1 TCP stream.  If there's no work to do,
+one would expect to see for each __niu_fastpath_interrupt(), there is only
+one corresponding niu_rx_work().  i.e. work_done in niu_poll is 0, so NAPI
+is done and should not have been rescheduled.  The check for spurious
+interrupts in niu_schedule_napi() is not reached.
 
-> +
-> +#define XT_OSF_GENRE		(1<<0)
-> +#define	XT_OSF_TTL		(1<<1)
-> +#define XT_OSF_LOG		(1<<2)
-> +#define XT_OSF_UNUSED		(1<<3)
+[  474.387984] niu: __niu_fastpath_interrupt() CPU=58 rx_channel=12 qlen is 0!
+[  474.388009] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  474.663008] niu: __niu_fastpath_interrupt() CPU=58 rx_channel=12 qlen is 0!
+[  474.663034] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  474.805663] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  475.657501] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  476.139072] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  476.264352] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  476.474596] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
+[  476.698176] niu: __niu_fastpath_interrupt() CPU=58 rx_channel=12 qlen is 0!
+[  476.698201] niu: niu_rx_work() CPU=58 rx_channel=12 qlen is zero!
 
-^ Unused? :)
+Here's another log excerpt with 1 TCP stream.  In this case NAPI is being
+rescheduled multiple times with no work to do.  Again, run away spurious
+interrupts did not happen.
 
-> +#define XT_OSF_CONNECTOR	(1<<4)
-> +#define XT_OSF_INVERT		(1<<5)
-> +
-> +#define XT_OSF_LOGLEVEL_ALL	0
-> +#define XT_OSF_LOGLEVEL_FIRST	1
-> +#define XT_OSF_LOGLEVEL_ALL_KNOWN	2
+[ 1098.870170] niu: niu_rx_work() CPU=50 rx_channel=11 qlen is zero!
+[ 1098.879759] niu: __niu_fastpath_interrupt() CPU=50 rx_channel=11 qlen is 0!
+[ 1098.904478] niu: __niu_fastpath_interrupt() CPU=50 rx_channel=11 qlen is 0!
+[ 1098.908674] niu: __niu_fastpath_interrupt() CPU=50 rx_channel=11 qlen is 0!
+[ 1098.908703] niu: niu_rx_work() CPU=50 rx_channel=11 qlen is zero!
 
-What does this do?
+In any case, interrupts with qlen being 0 always happen before we see the
+run away spurious interrupts (but that could be due to the latter happening
+a lot less frequently).
 
-> +#define XT_OSF_TTL_TRUE		0	/* True ip and fingerprint TTL comparison */
-> +#define XT_OSF_TTL_LESS		1	/* Check if ip TTL is less than fingerprint one */
-> +#define XT_OSF_TTL_NOCHECK	2	/* Do not compare ip and fingerprint TTL at all */
+Regards,
+Hong
 
-These seem redundant - having neither of TRUE or LESS seems
-equivalent to NOCHECK. Perhaps thats the reason why its not
-used at all :) Looking at the code, "TRUE" would be better
-named as "EQUAL".
 
-> +struct xt_osf_info {
-> +	char			genre[MAXGENRELEN];
-> +	__u32			len;
-> +	__u32			flags;
-> +	__u32			loglevel;
-> +	__u32			ttl;
-> +};
 
-Unless you're really really sure that this is not going to
-change, please use netlink attributes. Similar for the other
-ABI structures.
 
-> +
-> +/*
-> + * Wildcard MSS (kind of).
-> + * It is used to implement a state machine for the different wildcard values
-> + * of the MSS and window sizes.
-> + */
-> +struct xt_osf_wc {
-> +	__u32			wc;
-> +	__u32			val;
-> +};
-> +
-> +/*
-> + * This struct represents IANA options
-> + * http://www.iana.org/assignments/tcp-parameters
-> + */
-> +struct xt_osf_opt {
-> +	__u16			kind, length;
-> +	struct xt_osf_wc	wc;
-> +};
-> +
-> +struct xt_osf_user_finger {
-> +	struct xt_osf_wc	wss;
-> +
-> +	__u8			ttl, df;
-> +	__u16			ss, mss;
-> +	__u16			opt_num;
-> +
-> +	char			genre[MAXGENRELEN];
-> +	char			version[MAXGENRELEN];
-> +	char			subtype[MAXGENRELEN];
-> +
-> +	/* MAX_IPOPTLEN is maximum if all options are NOPs or EOLs */
-> +	struct xt_osf_opt	opt[MAX_IPOPTLEN];
 
-This really looks like you should use nested attributes.
+--------------040606030405080409050107
+Content-Type: text/plain;
+ name="niu-debug-spurious-interrupts.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="niu-debug-spurious-interrupts.patch"
 
-> +};
-> +
-> +struct xt_osf_nlmsg {
-> +	struct xt_osf_user_finger	f;
-> +	struct iphdr		ip;
-> +	struct tcphdr		tcp;
-> +};
-> +
-> +/* Defines for IANA option kinds */
-> +
-> +enum iana_options {
-> +	OSFOPT_EOL = 0,		/* End of options */
-> +	OSFOPT_NOP, 		/* NOP */
-> +	OSFOPT_MSS, 		/* Maximum segment size */
-> +	OSFOPT_WSO, 		/* Window scale option */
-> +	OSFOPT_SACKP,		/* SACK permitted */
-> +	OSFOPT_SACK,		/* SACK */
-> +	OSFOPT_ECHO,
-> +	OSFOPT_ECHOREPLY,
-> +	OSFOPT_TS,		/* Timestamp option */
-> +	OSFOPT_POCP,		/* Partial Order Connection Permitted */
-> +	OSFOPT_POSP,		/* Partial Order Service Profile */
-> +
-> +	/* Others are not used in the current OSF */
-> +	OSFOPT_EMPTY = 255,
-> +};
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 2b17453..125450a 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -3724,6 +3724,10 @@ static int niu_rx_work(struct napi_struct *napi, struct niu *np,
+ 	mbox->rx_dma_ctl_stat = 0;
+ 	mbox->rcrstat_a = 0;
+ 
++	if (!qlen)
++		printk(KERN_DEBUG PFX "%s() CPU=%i rx_channel=%i qlen is zero!\n",
++		       __FUNCTION__, raw_smp_processor_id(), rp->rx_channel);
++
+ 	niudbg(RX_STATUS, "%s: niu_rx_work(chan[%d]), stat[%llx] qlen=%d\n",
+ 	       np->dev->name, rp->rx_channel, (unsigned long long) stat, qlen);
+ 
+@@ -4193,10 +4197,17 @@ static void __niu_fastpath_interrupt(struct niu *np, int ldg, u64 v0)
+ 	for (i = 0; i < np->num_rx_rings; i++) {
+ 		struct rx_ring_info *rp = &np->rx_rings[i];
+ 		int ldn = LDN_RXDMA(rp->rx_channel);
++		u64 qlen;
+ 
+ 		if (parent->ldg_map[ldn] != ldg)
+ 			continue;
+ 
++		qlen = nr64(RCRSTAT_A(rp->rx_channel)) & RCRSTAT_A_QLEN;
++		if (!qlen) {
++			printk(KERN_DEBUG PFX "%s() CPU=%i rx_channel=%i qlen is 0!\n",
++			       __FUNCTION__, smp_processor_id(), rp->rx_channel);
++		}
++
+ 		nw64(LD_IM0(ldn), LD_IM0_MASK);
+ 		if (rx_vec & (1 << rp->rx_channel))
+ 			niu_rxchan_intr(np, rp, ldn);
+@@ -4215,6 +4226,22 @@ static void __niu_fastpath_interrupt(struct niu *np, int ldg, u64 v0)
+ 	}
+ }
+ 
++static void niu_dump_ldg_irq(struct niu *np, int ldg, u64 v0)
++{
++	static DEFINE_PER_CPU(unsigned long, spurious_count) = { 4 };
++
++	struct niu_parent *parent = np->parent;
++	int qlen, ldn, i;
++
++	if (!__get_cpu_var(spurious_count))
++		return;
++
++	__get_cpu_var(spurious_count)--;
++
++	printk(KERN_DEBUG PFX "%s CPU=%i LDG=%i v0=%p: spurious interrupt\n",
++	       np->dev->name, smp_processor_id(), ldg, (void *)v0);
++}
++
+ static void niu_schedule_napi(struct niu *np, struct niu_ldg *lp,
+ 			      u64 v0, u64 v1, u64 v2)
+ {
+@@ -4224,7 +4251,8 @@ static void niu_schedule_napi(struct niu *np, struct niu_ldg *lp,
+ 		lp->v2 = v2;
+ 		__niu_fastpath_interrupt(np, lp->ldg_num, v0);
+ 		__napi_schedule(&lp->napi);
+-	}
++	} else
++		niu_dump_ldg_irq(np, lp->ldg_num, v0);
+ }
+ 
+ static irqreturn_t niu_interrupt(int irq, void *dev_id)
+@@ -4251,6 +4279,10 @@ static irqreturn_t niu_interrupt(int irq, void *dev_id)
+ 		       (unsigned long long) v1,
+ 		       (unsigned long long) v2);
+ 
++	if (!v0)
++		printk(KERN_DEBUG PFX "%s() CPU=%i LDG=%i v0 is zero!\n",
++		       __FUNCTION__, smp_processor_id(), ldg);
++
+ 	if (unlikely(!v0 && !v1 && !v2)) {
+ 		spin_unlock_irqrestore(&np->lock, flags);
+ 		return IRQ_NONE;
+@@ -4263,8 +4295,11 @@ static irqreturn_t niu_interrupt(int irq, void *dev_id)
+ 	}
+ 	if (likely(v0 & ~((u64)1 << LDN_MIF)))
+ 		niu_schedule_napi(np, lp, v0, v1, v2);
+-	else
++	else {
++		printk(KERN_DEBUG PFX "%s() CPU=%i no DMA work, rearming LDG\n",
++		       __FUNCTION__, smp_processor_id());
+ 		niu_ldg_rearm(np, lp, 1);
++	}
+ out:
+ 	spin_unlock_irqrestore(&np->lock, flags);
+ 
 
-Why do we need to duplicate these?
-
-> +
-> +enum xt_osf_msg_types {
-> +	OSF_MSG_SETUP,
-> +	OSF_MSG_MAX,
-> +};
-> +
-> +enum xt_osf_attr_type {
-> +	OSF_ATTR_UNSPEC,
-> +	OSF_ATTR_FINGER,
-> +	OSF_ATTR_MAX,
-> +};
-> +
-> +#endif				/* _XT_OSF_H */
-> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-> index 2329c5f..b0273f9 100644
-> --- a/net/netfilter/Kconfig
-> +++ b/net/netfilter/Kconfig
-> @@ -916,6 +916,19 @@ config NETFILTER_XT_MATCH_U32
->  
->  	  Details and examples are in the kernel module source.
->  
-> +config NETFILTER_XT_MATCH_OSF
-> +	tristate '"osf" Passive OS fingerprint match'
-> +	depends on NETFILTER_ADVANCED
-
-&& NFNETLINK
-
-> --- /dev/null
-> +++ b/net/netfilter/xt_osf.c
-> @@ -0,0 +1,469 @@
-> +/*
-> + * Copyright (c) 2003+ Evgeniy Polyakov <zbr@ioremap.net>
-> + *
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/kernel.h>
-> +
-> +#include <linux/connector.h>
-
-Not needed. The remaining ones look like some (percpu?) could be
-removed as well.
-
-> +#include <linux/if.h>
-> +#include <linux/inetdevice.h>
-> +#include <linux/ip.h>
-> +#include <linux/list.h>
-> +#include <linux/percpu.h>
-> +#include <linux/rculist.h>
-> +#include <linux/smp.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/slab.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/tcp.h>
-> +#include <linux/types.h>
-> +
-> +#include <net/ip.h>
-> +#include <net/tcp.h>
-> +
-> +#include <linux/netfilter/nfnetlink.h>
-> +#include <linux/netfilter/x_tables.h>
-> +#include <linux/netfilter/xt_osf.h>
-> +
-> +struct xt_osf_finger {
-> +	struct rcu_head			rcu_head;
-> +	struct list_head		finger_entry;
-> +	struct xt_osf_user_finger	finger;
-> +};
-> +
-> +enum osf_fmatch_states {
-> +	/* Packet does not match the fingerprint */
-> +	FMATCH_WRONG = 0,
-> +	/* Packet matches the fingerprint */
-> +	FMATCH_OK,
-> +	/* Options do not match the fingerprint, but header does */
-> +	FMATCH_OPT_WRONG,
-> +};
-> +
-> +struct xt_osf_finger_storage
-> +{
-
-Please place the opening bracket consistently with the other
-structure definitions.
-
-> +	struct list_head		finger_list;
-> +	spinlock_t			finger_lock;
-> +};
-> +
-> +/*
-> + * Indexed by dont-fragment bit.
-> + * It is the only constant value in the fingerprint.
-> + */
-> +struct xt_osf_finger_storage xt_osf_fingers[2];
-
-static
-
-> +
-> +struct xt_osf_message {
-> +	struct cn_msg		cmsg;
-> +	struct xt_osf_nlmsg	nlmsg;
-> +};
-
-Unused.
-
-> +static int xt_osf_setup_callback(struct sock *ctnl, struct sk_buff *skb,
-> +			struct nlmsghdr *nlh, struct nlattr *osf_attrs[])
-> +{
-> +	struct xt_osf_user_finger *f;
-> +	struct nfgenmsg *nfmsg = NLMSG_DATA(nlh);
-> +	u16 delete = ntohs(nfmsg->res_id);
-
-This looks like abuse, we use message types to distinguish between
-additions and deletions, alternative NLM_F_REPLACE.
-
-> +	struct xt_osf_finger *kf = NULL, *sf;
-> +	struct xt_osf_finger_storage *st;
-> +	int err;
-> +
-> +	if (!osf_attrs[OSF_ATTR_FINGER])
-> +		return -EINVAL;
-> +
-> +	f = nla_data(osf_attrs[OSF_ATTR_FINGER]);
-> +	st = &xt_osf_fingers[!!f->df];
-> +
-> +	/*
-> +	 * If 'delete' is set to 0 then we add attached fingerprint,
-> +	 * otherwise remove, and in this case we do not need to allocate data.
-> +	 */
-> +	if (!delete) {
-> +		kf = kmalloc(sizeof(struct xt_osf_finger), GFP_KERNEL);
-> +		if (!kf)
-> +			return -ENOMEM;
-> +
-> +		memcpy(&kf->finger, f, sizeof(struct xt_osf_user_finger));
-> +	}
-> +
-> +	err = -ENOENT;
-> +
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(sf, &st->finger_list, finger_entry) {
-> +		if (memcmp(&sf->finger, f, sizeof(struct xt_osf_user_finger)))
-> +			continue;
-> +
-> +		if (delete) {
-> +			spin_lock_bh(&st->finger_lock);
-
-This lock looks useless, all changes are done in netlink context under
-the nfnl mutex.
-
-> +			list_del_rcu(&sf->finger_entry);
-> +			spin_unlock_bh(&st->finger_lock);
-> +			call_rcu(&sf->rcu_head, xt_osf_finger_free_rcu);
-> +		} else {
-> +			kfree(kf);
-> +			kf = NULL;
-> +		}
-> +
-> +		err = 0;
-> +		break;
-> +	}
-> +
-> +	if (kf) {
-> +		spin_lock_bh(&st->finger_lock);
-> +		list_add_tail_rcu(&kf->finger_entry, &st->finger_list);
-> +		spin_unlock_bh(&st->finger_lock);
-> +#if 0
-> +		printk(KERN_INFO "Added rule for %s:%s:%s.\n",
-> +			kf->finger.genre, kf->finger.version, kf->finger.subtype);
-> +#endif
-> +	}
-> +	rcu_read_unlock();
-> +
-> +	return 0;
-> +}
-> +
-> +static const struct nfnl_callback xt_osf_nfnetlink_callbacks[OSF_MSG_MAX] = {
-> +	[OSF_MSG_SETUP]	= {
-> +		.call		= xt_osf_setup_callback,
-> +		.attr_count	= OSF_ATTR_MAX,
-> +		.policy		= xt_osf_policy,
-> +	},
-> +};
-> +
-> +static const struct nfnetlink_subsystem xt_osf_nfnetlink = {
-> +	.name			= "osf",
-> +	.subsys_id		= NFNL_SUBSYS_OSF,
-> +	.cb_count		= OSF_MSG_MAX,
-> +	.cb			= xt_osf_nfnetlink_callbacks,
-> +};
-> +
-> +static inline int xt_osf_ttl(const struct sk_buff *skb, const struct xt_osf_info *info,
-> +			    unsigned char f_ttl)
-> +{
-> +	const struct iphdr *ip = ip_hdr(skb);
-> +
-> +	if (info->flags & XT_OSF_TTL) {
-> +		if (info->ttl == XT_OSF_TTL_TRUE)
-> +			return ip->ttl == f_ttl;
-> +		if (info->ttl == XT_OSF_TTL_NOCHECK)
-> +			return 1;
-> +		else if (ip->ttl <= f_ttl)
-> +			return 1;
-> +		else {
-> +			struct in_device *in_dev = in_dev_get(skb->dev);
-> +			int ret = 0;
-> +
-> +			for_ifa(in_dev) {
-> +				if (inet_ifa_match(ip->saddr, ifa)) {
-> +					ret = (ip->ttl == f_ttl);
-> +					break;
-> +				}
-> +			}
-> +			endfor_ifa(in_dev);
-> +
-> +			in_dev_put(in_dev);
-> +			return ret;
-> +		}
-> +	}
-> +
-> +	return ip->ttl == f_ttl;
-> +}
-> +
-> +static bool xt_osf_match_packet(const struct sk_buff *skb,
-> +		const struct xt_match_param *p)
-> +{
-> +	const struct xt_osf_info *info = p->matchinfo;
-> +	const struct iphdr *ip = ip_hdr(skb);
-> +	const struct tcphdr *tcp;
-> +	struct tcphdr _tcph;
-> +	int fmatch = FMATCH_WRONG, fcount = 0;
-> +	unsigned int optsize = 0, check_WSS = 0;
-> +	u16 window, totlen, mss = 0;
-> +	bool df;
-> +	const unsigned char *optp = NULL, *_optp = NULL;
-> +	unsigned char opts[MAX_IPOPTLEN];
-> +	const struct xt_osf_finger *kf;
-> +	const struct xt_osf_user_finger *f;
-> +	const struct xt_osf_finger_storage *st;
-> +
-> +	if (!info)
-> +		return false;
-> +
-> +	tcp = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(struct tcphdr), &_tcph);
-> +	if (!tcp)
-> +		return false;
-> +
-> +	if (!tcp->syn)
-> +		return false;
-> +
-> +	totlen = ntohs(ip->tot_len);
-> +	df = ntohs(ip->frag_off) & IP_DF;
-> +	window = ntohs(tcp->window);
-> +
-> +	if (tcp->doff * 4 > sizeof(struct tcphdr)) {
-> +		optsize = tcp->doff * 4 - sizeof(struct tcphdr);
-> +
-> +		if (optsize > sizeof(opts))
-> +			optsize = sizeof(opts);
-> +
-> +		_optp = optp = skb_header_pointer(skb, ip_hdrlen(skb) + sizeof(struct tcphdr),
-
-Please break the line at 80 characters
-
-> +				optsize, opts);
-> +	}
-> +
-> +	st = &xt_osf_fingers[df];
-> +
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(kf, &st->finger_list, finger_entry) {
-> +		f = &kf->finger;
-> +
-> +		if (!(info->flags & XT_OSF_LOG) && strcmp(info->genre, f->genre))
-> +			continue;
-> +
-> +		optp = _optp;
-> +		fmatch = FMATCH_WRONG;
-> +
-> +		if (totlen == f->ss && xt_osf_ttl(skb, info, f->ttl)) {
-> +			int foptsize, optnum;
-> +
-> +			check_WSS = 0;
-> +
-> +			switch (f->wss.wc) {
-> +			case 0:
-> +				check_WSS = 0;
-> +				break;
-> +			case 'S':
-> +				check_WSS = 1;
-> +				break;
-> +			case 'T':
-> +				check_WSS = 2;
-> +				break;
-> +			case '%':
-> +				check_WSS = 3;
-> +				break;
-> +			default:
-> +				check_WSS = 4;
-> +				break;
-> +			}
-
-This is really pushing my taste-buds. Whatever this does, please at
-use symbolic constants so the reader at least has a chance to understand
-it.
-
-> +			if (check_WSS == 4)
-> +				continue;
-> +
-> +			/* Check options */
-> +
-> +			foptsize = 0;
-> +			for (optnum = 0; optnum < f->opt_num; ++optnum)
-> +				foptsize += f->opt[optnum].length;
-> +
-> +			if (foptsize > MAX_IPOPTLEN || optsize > MAX_IPOPTLEN || optsize != foptsize)
-> +				continue;
-> +
-> +			for (optnum = 0; optnum < f->opt_num; ++optnum) {
-> +				if (f->opt[optnum].kind == (*optp)) {
-> +					__u32 len = f->opt[optnum].length;
-> +					const __u8 *optend = optp + len;
-> +					int loop_cont = 0;
-> +
-> +					fmatch = FMATCH_OK;
-> +
-> +					switch (*optp) {
-> +					case OSFOPT_MSS:
-> +						mss = optp[3];
-> +						mss <<= 8;
-> +						mss |= optp[2];
-> +
-> +						mss = ntohs(mss);
-> +						break;
-> +					case OSFOPT_TS:
-> +						loop_cont = 1;
-> +						break;
-> +					}
-> +
-> +					optp = optend;
-> +				} else
-> +					fmatch = FMATCH_OPT_WRONG;
-> +
-> +				if (fmatch != FMATCH_OK)
-> +					break;
-> +			}
-> +
-> +			if (fmatch != FMATCH_OPT_WRONG) {
-> +				fmatch = FMATCH_WRONG;
-> +
-> +				switch (check_WSS) {
-> +				case 0:
-> +					if (f->wss.val == 0 || window == f->wss.val)
-> +						fmatch = FMATCH_OK;
-> +					break;
-> +				case 1:	/* MSS */
-> +#define SMART_MSS_1	1460
-> +#define SMART_MSS_2	1448
-
-Sigh. This entire function is completely unreadable and full of
-unexplained magic. I'll stop here, please clean this before
-resubmitting.
-
-> +					if (window == f->wss.val * mss ||
-> +					    window == f->wss.val * SMART_MSS_1 ||
-> +					    window == f->wss.val * SMART_MSS_2)
-> +						fmatch = FMATCH_OK;
-> +					break;
-> +				case 2:	/* MTU */
-> +					if (window == f->wss.val * (mss + 40) ||
-> +					    window == f->wss.val * (SMART_MSS_1 + 40) ||
-> +					    window == f->wss.val * (SMART_MSS_2 + 40))
-> +						fmatch = FMATCH_OK;
-> +					break;
-> +				case 3:	/* MOD */
-> +					if ((window % f->wss.val) == 0)
-> +						fmatch = FMATCH_OK;
-> +					break;
-> +				}
-> +			}
-> +
-> +			if (fmatch != FMATCH_OK)
-> +				continue;
-> +
-> +			fcount++;
-> +			if (info->flags & XT_OSF_LOG)
-> +				printk(KERN_INFO "%s [%s:%s] : "
-> +					"%pi4:%d -> %pi4:%d hops=%d\n",
-> +					f->genre, f->version, f->subtype,
-> +					&ip->saddr, ntohs(tcp->source),
-> +					&ip->daddr, ntohs(tcp->dest),
-> +					f->ttl - ip->ttl);
-> +
-> +			if ((info->flags & XT_OSF_LOG) &&
-> +			    info->loglevel == XT_OSF_LOGLEVEL_FIRST)
-> +				break;
-> +		}
-> +	}
-> +	rcu_read_unlock();
-> +
-> +	if (!fcount && (info->flags & (XT_OSF_LOG | XT_OSF_CONNECTOR))) {
-> +		unsigned int i;
-> +		struct xt_osf_user_finger fg;
-> +
-> +		memset(&fg, 0, sizeof(fg));
-> +#if 1
-> +		if (info->flags & XT_OSF_LOG) {
-> +			if (info->loglevel != XT_OSF_LOGLEVEL_ALL_KNOWN)
-> +				printk(KERN_INFO "Unknown: win: %u, mss: %u, "
-> +					"totlen: %u, df: %d, ttl: %u : ",
-> +					window, mss, totlen, df, ip->ttl);
-> +			else
-> +				printk(KERN_INFO "");
-> +			if (_optp) {
-> +				optp = _optp;
-> +				for (i = 0; i < optsize; i++)
-> +					printk("%02X ", optp[i]);
-> +			}
-> +
-> +			printk("%pi4:%u -> %pi4:%u\n",
-> +			     &ip->saddr, ntohs(tcp->source),
-> +			     &ip->daddr, ntohs(tcp->dest));
-> +		}
-> +#endif
-> +	}
-> +
-> +	if (fcount)
-> +		fmatch = FMATCH_OK;
-> +
-> +	return fmatch == FMATCH_OK;
-> +}
->
+--------------040606030405080409050107--
