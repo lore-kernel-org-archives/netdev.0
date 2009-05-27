@@ -1,67 +1,60 @@
-From: =?ISO-8859-1?Q?Andr=E9_Goddard_Rosa?= <andre.goddard@gmail.com>
-Subject: [PATCH] usbnet: ratelimit warning messages invoked from callback
-	handler
-Date: Wed, 27 May 2009 13:40:44 -0300
-Message-ID: <b8bf37780905270940k7523d0of337111dcb80861@mail.gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [iproute2 patch]: Add 'ip tuntap' facility for managing
+ tun/tap devices
+Date: Wed, 27 May 2009 17:49:32 +0100
+Message-ID: <1243442972.18507.32.camel@macbook.infradead.org>
+References: <1241433136.6126.70.camel@macbook.infradead.org>
+	 <1241433778.6126.90.camel@macbook.infradead.org>
+	 <20090504073813.19d0d624@nehalam>
+	 <1241448559.6126.110.camel@macbook.infradead.org>
+	 <1243441938.18507.30.camel@macbook.infradead.org>
+	 <20090527093815.4ddf99de@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016e64605fa3070f4046ae781c4
-Cc: shemminger@vyatta.com, dbrownell@users.sourceforge.net,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: petkan@users.sourceforge.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.27]:15670 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754547AbZE0Qkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 12:40:43 -0400
-Received: by qw-out-2122.google.com with SMTP id 5so3002427qwd.37
-        for <netdev@vger.kernel.org>; Wed, 27 May 2009 09:40:44 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:44261 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984AbZE0Qtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 12:49:32 -0400
+In-Reply-To: <20090527093815.4ddf99de@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0016e64605fa3070f4046ae781c4
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Wed, 2009-05-27 at 09:38 -0700, Stephen Hemminger wrote:
+> On Wed, 27 May 2009 17:32:17 +0100
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> 
+> > On Mon, 2009-05-04 at 15:49 +0100, David Woodhouse wrote:
+> > > On Mon, 2009-05-04 at 07:38 -0700, Stephen Hemminger wrote:
+> > > > I would rather provide a netlink for managing TUNTAP interfaces
+> > > 
+> > > I'm not sure that makes a lot of sense. We'd be adding a new, duplicate
+> > > user API solely for the benefit of iproute2; it's not as if we'd ever be
+> > > able to get rid of the existing interface that everyone uses.
+> > >
+> > > Unless you want to ditch the /dev/net/tun chardev completely and do
+> > > _everything_ over netlink, maybe... but that doesn't seem particularly
+> > > worthwhile either.
+> > > 
+> > > >  and reorganize under ip link??
+> > > 
+> > > It seemed more intuitive to model it after 'ip tunnel'. How would you
+> > > want it to look?
+> > 
+> > Ping?
+> > 
+> 
+> Almost all of iproute2 is based on netlink, I don't want to add non netlink
+> interfaces. 
 
-Hi,
+So you want to add a new interface to the kernel which duplicates the
+one we've had for years, then make userspace which will only work with
+newer kernels?
 
-    please cc: me as I'm not subscribed.
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
-Thank you,
-Andre
-
---0016e64605fa3070f4046ae781c4
-Content-Type: text/x-diff; charset=UTF-8; name="rtl8150_ratelimit_messages.patch"
-Content-Disposition: attachment; filename="rtl8150_ratelimit_messages.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fv82i3ht0
-
-Y29tbWl0IDlkYjk5MmFlMTE1YzU4ZGM0NTdiYzJiMWU2ZmFkMDMyNTI1NTI3NDcKQXV0aG9yOiBB
-bmRyw6kgR29kZGFyZCBSb3NhIDxhbmRyZS5nb2RkYXJkQGdtYWlsLmNvbT4KRGF0ZTogICBXZWQg
-TWF5IDI3IDEwOjIyOjU1IDIwMDkgLTAzMDAKCiAgICB1c2JuZXQ6IHJhdGVsaW1pdCB3YXJuaW5n
-IG1lc3NhZ2VzIGludm9rZWQgZnJvbSBjYWxsYmFjayBoYW5kbGVyCiAgICAKICAgIFdhcm5pbmcg
-bWVzc2FnZXMgY29taW5nIGZyb20gcnRsODE1MCBkcml2ZXIgY2FuIGZsb29kIHRoZSBjb25zb2xl
-CiAgICBhbmQgbWFrZSBhIERUVi9zZXQtdG9wLWJveCB1bmFibGUgdG8gZGVjb2RlIHZpZGVvL2F1
-ZGlvIGZyYW1lcy4KICAgIAogICAgJ1BlZ2FzdXMnIGRyaXZlciBoYW5kbGVzIHRoaXMgc2l0dWF0
-aW9uIHNpbWlsYXJseSwgcHJldmVudGluZyB0aGlzCiAgICBmcm9tIGhhcHBlbmluZyB0aGVyZS4K
-ICAgIAogICAgSXQgaGFwcGVucyB3aXRoIGEgbG93IGNvc3QgQkNNIE1JUFMgZW1iZWRkZWQgcGxh
-dGZvcm0sIHdoZW5ldmVyCiAgICB0aW1lb3V0IGVycm9ycyB3ZXJlIGNvbWluZyBmcm9tIHVzYm5l
-dCBkZXZpY2UsIG1ha2luZyBwbGF0Zm9ybQogICAgdW51c2FibGUgZm9yIHZpZXdlciB3YXRjaGlu
-Zy4KICAgIAogICAgU2lnbmVkLW9mZi1ieTogQW5kcsOpIEdvZGRhcmQgUm9zYSA8YW5kcmUuZ29k
-ZGFyZEBnbWFpbC5jb20+CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL3J0bDgxNTAuYyBi
-L2RyaXZlcnMvbmV0L3VzYi9ydGw4MTUwLmMKaW5kZXggZjlmYjQ1NC4uZmNjNmZhMCAxMDA2NDQK
-LS0tIGEvZHJpdmVycy9uZXQvdXNiL3J0bDgxNTAuYworKysgYi9kcml2ZXJzL25ldC91c2IvcnRs
-ODE1MC5jCkBAIC0yMjEsNyArMjIxLDggQEAgc3RhdGljIHZvaWQgY3RybF9jYWxsYmFjayhzdHJ1
-Y3QgdXJiICp1cmIpCiAJY2FzZSAtRU5PRU5UOgogCQlicmVhazsKIAlkZWZhdWx0OgotCQlkZXZf
-d2FybigmdXJiLT5kZXYtPmRldiwgImN0cmwgdXJiIHN0YXR1cyAlZFxuIiwgc3RhdHVzKTsKKwkJ
-aWYgKHByaW50a19yYXRlbGltaXQoKSkKKwkJCWRldl93YXJuKCZ1cmItPmRldi0+ZGV2LCAiY3Ry
-bCB1cmIgc3RhdHVzICVkXG4iLCBzdGF0dXMpOwogCX0KIAlkZXYgPSB1cmItPmNvbnRleHQ7CiAJ
-Y2xlYXJfYml0KFJYX1JFR19TRVQsICZkZXYtPmZsYWdzKTsKQEAgLTQ0MiwxMCArNDQzLDEyIEBA
-IHN0YXRpYyB2b2lkIHJlYWRfYnVsa19jYWxsYmFjayhzdHJ1Y3QgdXJiICp1cmIpCiAJY2FzZSAt
-RU5PRU5UOgogCQlyZXR1cm47CS8qIHRoZSB1cmIgaXMgaW4gdW5saW5rIHN0YXRlICovCiAJY2Fz
-ZSAtRVRJTUU6Ci0JCWRldl93YXJuKCZ1cmItPmRldi0+ZGV2LCAibWF5IGJlIHJlc2V0IGlzIG5l
-ZWRlZD8uLlxuIik7CisJCWlmIChwcmludGtfcmF0ZWxpbWl0KCkpCisJCQlkZXZfd2FybigmdXJi
-LT5kZXYtPmRldiwgIm1heSBiZSByZXNldCBpcyBuZWVkZWQ/Li5cbiIpOwogCQlnb3RvIGdvb247
-CiAJZGVmYXVsdDoKLQkJZGV2X3dhcm4oJnVyYi0+ZGV2LT5kZXYsICJSeCBzdGF0dXMgJWRcbiIs
-IHN0YXR1cyk7CisJCWlmIChwcmludGtfcmF0ZWxpbWl0KCkpCisJCQlkZXZfd2FybigmdXJiLT5k
-ZXYtPmRldiwgIlJ4IHN0YXR1cyAlZFxuIiwgc3RhdHVzKTsKIAkJZ290byBnb29uOwogCX0KIAo=
---0016e64605fa3070f4046ae781c4--
