@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Use a different default for each family
-Date: Tue, 26 May 2009 20:54:58 -0700 (PDT)
-Message-ID: <20090526.205458.222482251.davem@davemloft.net>
-References: <200905261437.47495.jdelvare@suse.de>
+Subject: Re: [PATCH 1/7] bfin_mac: fix build error due to net_device_ops
+ convert
+Date: Tue, 26 May 2009 20:55:41 -0700 (PDT)
+Message-ID: <20090526.205541.188680784.davem@davemloft.net>
+References: <1243330149-15300-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: jdelvare@suse.de
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	a.beregalov@gmail.com
+To: vapier@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47512
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47516
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755792AbZE0Dy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:54:58 -0400
-In-Reply-To: <200905261437.47495.jdelvare@suse.de>
+	by vger.kernel.org with ESMTP id S1759454AbZE0Dzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:55:41 -0400
+In-Reply-To: <1243330149-15300-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Tue, 26 May 2009 14:37:47 +0200
-
-> The r8169 driver supports 3 different families of network chips
-> (RTL8169, RTL8168 and RTL8101). When an unknown version is found, the
-> driver currently always defaults to the RTL8169 variant. This has very
-> little chance to ever work for chips of the other families. So better
-> define a per-family default.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-
-Applied to net-next-2.6, thanks.
+RnJvbTogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPg0KRGF0ZTogVHVlLCAyNiBN
+YXkgMjAwOSAwNToyOTowOSAtMDQwMA0KDQo+IFRoZSBwcmV2aW91cyBjb21taXQgImNvbnZlcnQg
+dG8gbmV0X2RldmljZV9vcHMiIGJyb2tlIHRoZSBCbGFja2ZpbiBNQUMNCj4gZHJpdmVyIGFzIGl0
+IGRlY2xhcmVkIHRoZSBuZXcgc3RydWN0dXJlIGJlZm9yZSB0aGUgZnVuY3Rpb24gaXQgdXNlZDoN
+Cj4gICBDQyAgICAgIGRyaXZlcnMvbmV0L2JmaW5fbWFjLm8NCj4gZHJpdmVycy9uZXQvYmZpbl9t
+YWMuYzo5ODQ6IGVycm9yOiDigJhiZmluX21hY19jbG9zZeKAmSB1bmRlY2xhcmVkIGhlcmUgKG5v
+dCBpbiBhIGZ1bmN0aW9uKQ0KPiBtYWtlWzFdOiAqKiogW2RyaXZlcnMvbmV0L2JmaW5fbWFjLm9d
+IEVycm9yIDENCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1pa2UgRnJ5c2luZ2VyIDx2YXBpZXJAZ2Vu
+dG9vLm9yZz4NCg0KQXBwbGllZCwgdGhhbmtzIE1pa2UuDQo=
