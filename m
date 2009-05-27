@@ -1,44 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Thu, 28 May 2009 09:08:58 +1000
-Message-ID: <20090527230858.GA24278@gondor.apana.org.au>
-References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com>
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: [PATCH 1/1] ethtool: Expose MDI-X status
+Date: Wed, 27 May 2009 16:13:41 -0700
+Message-ID: <20090527231341.GA19632@clala-laptop>
+References: <1243353768.3188.2.camel@achroite>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55811 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750850AbZE0XJB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 19:09:01 -0400
+Received: from smtp1.riverbed.com ([206.169.144.12]:28425 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752469AbZE0XM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 19:12:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20090527175223.GB7804@neterion.com>
+In-Reply-To: <1243353768.3188.2.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 27, 2009 at 01:52:23PM -0400, Benjamin LaHaise wrote:
-> 
-> A few questions for you: I've been looking a bit into potential GRO 
-> optimisations that are possible with the vxge driver.  At least from my 
-> existing testing on a P4 Xeon, it seems that doing packet rx via 
-> napi_gro_receive() was a bit slower.  I'll retest with these changes 
+The MDI-X status is a useful tool for diagnosing network
+connectivity issues. We expose MDI-X status as a tri-state value
+status which drivers can optionally implement.
 
-Slower compared to LRO or GRO off?
+Signed-off-by: Chaitanya Lala <clala@riverbed.com>
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ ethtool-copy.h |    8 +++++++-
+ ethtool.c      |   13 +++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletions(-)
 
-> of yours.  What platform have your tests been run on?  Also, do you have 
-> any notes/ideas on how best to make use of the GRO functionality within 
-> the kernel?  I'm hoping it's possible to make use of a few of the hardware 
-> hints to improve fast path performance.
-
-What sort of hints do you have?
-
-There aren't any current support for that but I'm happy to add
-things as appropriate.
-
-Thanks,
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3ca4e2c..48fb1d3 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -26,7 +26,8 @@ struct ethtool_cmd {
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+ 	__u16	speed_hi;
+-	__u16	reserved2;
++	__u8	is_mdix;
++	__u8	reserved2;
+ 	__u32	reserved[3];
+ };
+ 
+@@ -416,6 +417,11 @@ struct ethtool_rxnfc {
+ #define AUTONEG_DISABLE		0x00
+ #define AUTONEG_ENABLE		0x01
+ 
++/* Mode MDI or MDI-X */
++#define MDI_INVALID 0x00
++#define MDI         0x01
++#define MDI_X       0x02
++
+ /* Wake-On-Lan options. */
+ #define WAKE_PHY		(1 << 0)
+ #define WAKE_UCAST		(1 << 1)
+diff --git a/ethtool.c b/ethtool.c
+index 0110682..bf12168 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -964,6 +964,19 @@ static int dump_ecmd(struct ethtool_cmd *ep)
+ 	fprintf(stdout, "	Auto-negotiation: %s\n",
+ 		(ep->autoneg == AUTONEG_DISABLE) ?
+ 		"off" : "on");
++
++	switch (ep->is_mdix) {
++	case MDI:
++		fprintf(stdout, "	MDI-X: off\n");
++		break;
++	case MDI_X:
++		fprintf(stdout, "	MDI-X: on\n");
++		break;
++	default:
++		fprintf(stdout, "	MDI-X: Unknown\n");
++		break;
++	}
++
+ 	return 0;
+ }
+ 
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.0.4
+
