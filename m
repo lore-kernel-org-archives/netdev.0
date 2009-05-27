@@ -1,47 +1,55 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 04/04: nfnetlink_log: fix wrong skbuff size calculation
-Date: Wed, 27 May 2009 16:35:30 +0200 (MEST)
-Message-ID: <20090527143528.4649.15091.sendpatchset@x2.localnet>
+Subject: netfilter 02/04: nf_ct_dccp: add missing DCCP protocol changes in event cache
+Date: Wed, 27 May 2009 16:35:27 +0200 (MEST)
+Message-ID: <20090527143525.4649.25643.sendpatchset@x2.localnet>
 References: <20090527143521.4649.73610.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51330 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760363AbZE0Of3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 10:35:29 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090527143521.4649.73610.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit eeff9beec3d2563c42cca41e66d4169592bb5475
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Wed May 27 15:49:11 2009 +0200
+commit b38b1f616867c832301f24eaf259889494d495b3
+Author: Pablo Neira Ayuso <Pablo Neira Ayuso>
+Date:   Mon May 25 17:29:43 2009 +0200
 
-    netfilter: nfnetlink_log: fix wrong skbuff size	calculation
+    netfilter: nf_ct_dccp: add missing DCCP protocol changes in event cache
     
-    This problem was introduced in 72961ecf84d67d6359a1b30f9b2a8427f13e1e71
-    since no space was reserved for the new attributes NFULA_HWTYPE,
-    NFULA_HWLEN and NFULA_HWHEADER.
+    This patch adds the missing protocol state-change event reporting
+    for DCCP.
+    
+    $ sudo conntrack -E
+        [NEW] dccp     33 240 src=192.168.0.2 dst=192.168.1.2 sport=57040 dport=5001 [UNREPLIED] src=192.168.1.2 dst=192.168.1.100 sport=5001 dport=57040
+    
+    With this patch:
+    
+    $ sudo conntrack -E
+        [NEW] dccp     33 240 REQUEST src=192.168.0.2 dst=192.168.1.2 sport=57040 dport=5001 [UNREPLIED] src=192.168.1.2 dst=192.168.1.100 sport=5001 dport=57040
     
     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index fd326ac..66a6dd5 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -581,6 +581,12 @@ nfulnl_log_packet(u_int8_t pf,
- 		+ nla_total_size(sizeof(struct nfulnl_msg_packet_hw))
- 		+ nla_total_size(sizeof(struct nfulnl_msg_packet_timestamp));
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 8e757dd..aee0d6b 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -22,6 +22,7 @@
+ #include <linux/netfilter/nfnetlink_conntrack.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
++#include <net/netfilter/nf_conntrack_ecache.h>
+ #include <net/netfilter/nf_log.h>
  
-+	if (in && skb_mac_header_was_set(skb)) {
-+		size +=   nla_total_size(skb->dev->hard_header_len)
-+			+ nla_total_size(sizeof(u_int16_t))	/* hwtype */
-+			+ nla_total_size(sizeof(u_int16_t));	/* hwlen */
-+	}
+ static DEFINE_RWLOCK(dccp_lock);
+@@ -553,6 +554,9 @@ static int dccp_packet(struct nf_conn *ct, const struct sk_buff *skb,
+ 	ct->proto.dccp.state = new_state;
+ 	write_unlock_bh(&dccp_lock);
+ 
++	if (new_state != old_state)
++		nf_conntrack_event_cache(IPCT_PROTOINFO, ct);
 +
- 	spin_lock_bh(&inst->lock);
+ 	dn = dccp_pernet(net);
+ 	nf_ct_refresh_acct(ct, ctinfo, skb, dn->dccp_timeout[new_state]);
  
- 	if (inst->flags & NFULNL_CFG_F_SEQ)
