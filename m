@@ -1,90 +1,199 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 13/14] gro: Store shinfo in local variable in skb_gro_receive
-Date: Wed, 27 May 2009 14:50:33 +1000
-Message-ID: <E1M9B61-0001Tg-6X@gondolin.me.apana.org.au>
+Subject: [PATCH 9/14] gro: Avoid unnecessary comparison after skb_gro_header
+Date: Wed, 27 May 2009 14:50:28 +1000
+Message-ID: <E1M9B5w-0001Sn-Oi@gondolin.me.apana.org.au>
 References: <20090527044539.GA32372@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49798 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:49801 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751144AbZE0FHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:07:37 -0400
+	with ESMTP id S1751228AbZE0FHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:07:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gro: Store shinfo in local variable in skb_gro_receive
+gro: Avoid unnecessary comparison after skb_gro_header
 
-This patch stores the two shinfo pointers in local variables
-because they're used over and over again in skb_gro_receive.
+For the overwhelming majority of cases, skb_gro_header's return
+value cannot be NULL.  Yet we must check it because of its current
+form.  This patch splits it up into multiple functions in order
+to avoid this.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/core/skbuff.c |   22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ include/linux/netdevice.h |   23 ++++++++++++++---------
+ net/core/dev.c            |   17 ++++++++++++-----
+ net/ipv4/af_inet.c        |   13 ++++++++++---
+ net/ipv4/tcp.c            |   22 ++++++++++++++++------
+ net/ipv6/af_inet6.c       |   13 ++++++++++---
+ 5 files changed, 62 insertions(+), 26 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 19afb18..8e815e6 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2664,6 +2664,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 966c413..d2b1561 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1132,18 +1132,23 @@ static inline void skb_gro_pull(struct sk_buff *skb, unsigned int len)
+ 	NAPI_GRO_CB(skb)->data_offset += len;
+ }
+ 
+-static inline void *skb_gro_header(struct sk_buff *skb, unsigned int hlen)
++static inline void *skb_gro_header_fast(struct sk_buff *skb,
++					unsigned int offset)
  {
- 	struct sk_buff *p = *head;
- 	struct sk_buff *nskb;
-+	struct skb_shared_info *skbinfo = skb_shinfo(skb);
-+	struct skb_shared_info *pinfo = skb_shinfo(p);
- 	unsigned int headroom;
- 	unsigned int len = skb_gro_len(skb);
- 	unsigned int offset = skb_gro_offset(skb);
-@@ -2672,24 +2674,24 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	if (p->len + len >= 65536)
- 		return -E2BIG;
+-	unsigned int offset = skb_gro_offset(skb);
++	return NAPI_GRO_CB(skb)->frag0 + offset;
++}
  
--	if (skb_shinfo(p)->frag_list)
-+	if (pinfo->frag_list)
- 		goto merge;
- 	else if (headlen <= offset) {
- 		skb_frag_t *frag;
- 		skb_frag_t *frag2;
--		int i = skb_shinfo(skb)->nr_frags;
--		int nr_frags = skb_shinfo(p)->nr_frags + i;
-+		int i = skbinfo->nr_frags;
-+		int nr_frags = pinfo->nr_frags + i;
+-	hlen += offset;
+-	if (NAPI_GRO_CB(skb)->frag0_len < hlen) {
+-		NAPI_GRO_CB(skb)->frag0 = NULL;
+-		NAPI_GRO_CB(skb)->frag0_len = 0;
+-		return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
+-	}
++static inline int skb_gro_header_hard(struct sk_buff *skb, unsigned int hlen)
++{
++	return NAPI_GRO_CB(skb)->frag0_len < hlen;
++}
  
- 		offset -= headlen;
+-	return NAPI_GRO_CB(skb)->frag0 + offset;
++static inline void *skb_gro_header_slow(struct sk_buff *skb, unsigned int hlen,
++					unsigned int offset)
++{
++	NAPI_GRO_CB(skb)->frag0 = NULL;
++	NAPI_GRO_CB(skb)->frag0_len = 0;
++	return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
+ }
  
- 		if (nr_frags > MAX_SKB_FRAGS)
- 			return -E2BIG;
+ static inline void *skb_gro_mac_header(struct sk_buff *skb)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e634c8a..5a81302 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2587,17 +2587,24 @@ struct sk_buff *napi_frags_skb(struct napi_struct *napi)
+ {
+ 	struct sk_buff *skb = napi->skb;
+ 	struct ethhdr *eth;
++	unsigned int hlen;
++	unsigned int off;
  
--		skb_shinfo(p)->nr_frags = nr_frags;
--		skb_shinfo(skb)->nr_frags = 0;
-+		pinfo->nr_frags = nr_frags;
-+		skbinfo->nr_frags = 0;
+ 	napi->skb = NULL;
  
--		frag = skb_shinfo(p)->frags + nr_frags;
--		frag2 = skb_shinfo(skb)->frags + i;
-+		frag = pinfo->frags + nr_frags;
-+		frag2 = skbinfo->frags + i;
- 		do {
- 			*--frag = *--frag2;
- 		} while (--i);
-@@ -2726,7 +2728,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	skb_reset_mac_header(skb);
+ 	skb_gro_reset_offset(skb);
  
- 	*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
- 	skb_shinfo(nskb)->frag_list = p;
--	skb_shinfo(nskb)->gso_size = skb_shinfo(p)->gso_size;
-+	skb_shinfo(nskb)->gso_size = pinfo->gso_size;
- 	skb_header_release(p);
- 	nskb->prev = p;
- 
-@@ -2742,8 +2744,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- merge:
- 	if (offset > headlen) {
--		skb_shinfo(skb)->frags[0].page_offset += offset - headlen;
--		skb_shinfo(skb)->frags[0].size -= offset - headlen;
-+		skbinfo->frags[0].page_offset += offset - headlen;
-+		skbinfo->frags[0].size -= offset - headlen;
- 		offset = headlen;
+-	eth = skb_gro_header(skb, sizeof(*eth));
+-	if (!eth) {
+-		napi_reuse_skb(napi, skb);
+-		skb = NULL;
+-		goto out;
++	off = skb_gro_offset(skb);
++	hlen = off + sizeof(*eth);
++	eth = skb_gro_header_fast(skb, off);
++	if (skb_gro_header_hard(skb, hlen)) {
++		eth = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!eth)) {
++			napi_reuse_skb(napi, skb);
++			skb = NULL;
++			goto out;
++		}
  	}
  
+ 	skb_gro_pull(skb, sizeof(*eth));
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 1706896..644cc55 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1246,13 +1246,20 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	struct sk_buff **pp = NULL;
+ 	struct sk_buff *p;
+ 	struct iphdr *iph;
++	unsigned int hlen;
++	unsigned int off;
+ 	int flush = 1;
+ 	int proto;
+ 	int id;
+ 
+-	iph = skb_gro_header(skb, sizeof(*iph));
+-	if (unlikely(!iph))
+-		goto out;
++	off = skb_gro_offset(skb);
++	hlen = off + sizeof(*iph);
++	iph = skb_gro_header_fast(skb, off);
++	if (skb_gro_header_hard(skb, hlen)) {
++		iph = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!iph))
++			goto out;
++	}
+ 
+ 	proto = iph->protocol & (MAX_INET_PROTOS - 1);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 68342d4..c3dcec5 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2518,20 +2518,30 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	unsigned int thlen;
+ 	unsigned int flags;
+ 	unsigned int mss = 1;
++	unsigned int hlen;
++	unsigned int off;
+ 	int flush = 1;
+ 	int i;
+ 
+-	th = skb_gro_header(skb, sizeof(*th));
+-	if (unlikely(!th))
+-		goto out;
++	off = skb_gro_offset(skb);
++	hlen = off + sizeof(*th);
++	th = skb_gro_header_fast(skb, off);
++	if (skb_gro_header_hard(skb, hlen)) {
++		th = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!th))
++			goto out;
++	}
+ 
+ 	thlen = th->doff * 4;
+ 	if (thlen < sizeof(*th))
+ 		goto out;
+ 
+-	th = skb_gro_header(skb, thlen);
+-	if (unlikely(!th))
+-		goto out;
++	hlen = off + thlen;
++	if (skb_gro_header_hard(skb, hlen)) {
++		th = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!th))
++			goto out;
++	}
+ 
+ 	skb_gro_pull(skb, thlen);
+ 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 61f5538..b6215be 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -817,13 +817,20 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 	struct sk_buff *p;
+ 	struct ipv6hdr *iph;
+ 	unsigned int nlen;
++	unsigned int hlen;
++	unsigned int off;
+ 	int flush = 1;
+ 	int proto;
+ 	__wsum csum;
+ 
+-	iph = skb_gro_header(skb, sizeof(*iph));
+-	if (unlikely(!iph))
+-		goto out;
++	off = skb_gro_offset(skb);
++	hlen = off + sizeof(*iph);
++	iph = skb_gro_header_fast(skb, off);
++	if (skb_gro_header_hard(skb, hlen)) {
++		iph = skb_gro_header_slow(skb, hlen, off);
++		if (unlikely(!iph))
++			goto out;
++	}
+ 
+ 	skb_gro_pull(skb, sizeof(*iph));
+ 	skb_set_transport_header(skb, skb_gro_offset(skb));
