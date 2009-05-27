@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/6]: nl80211: Eliminate reference to BUS_ID_SIZE.
-Date: Tue, 26 May 2009 21:39:59 -0700 (PDT)
-Message-ID: <20090526.213959.50107146.davem@davemloft.net>
+Subject: Re: [PATCH] ixgbe: Fix build warning
+Date: Tue, 26 May 2009 21:41:32 -0700 (PDT)
+Message-ID: <20090526.214132.106543130.davem@davemloft.net>
+References: <20090527042315.9841.236.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kay.sievers@vrfy.org, greg@kroah.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48679
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48686
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753406AbZE0EkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 00:40:00 -0400
+	by vger.kernel.org with ESMTP id S1750926AbZE0Eld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 00:41:33 -0400
+In-Reply-To: <20090527042315.9841.236.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Date: Tue, 26 May 2009 21:23:15 -0700
 
-It's going away.  Just leave the constant "20" here so that
-behavior doesn't change.
+> This patch fixes a build warning due to an unused label.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/wireless/nl80211.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 56d729c..4b4d3c8 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -57,7 +57,7 @@ static int get_drv_dev_by_info_ifindex(struct nlattr **attrs,
- static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
- 	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
- 	[NL80211_ATTR_WIPHY_NAME] = { .type = NLA_NUL_STRING,
--				      .len = BUS_ID_SIZE-1 },
-+				      .len = 20-1 },
- 	[NL80211_ATTR_WIPHY_TXQ_PARAMS] = { .type = NLA_NESTED },
- 	[NL80211_ATTR_WIPHY_FREQ] = { .type = NLA_U32 },
- 	[NL80211_ATTR_WIPHY_CHANNEL_TYPE] = { .type = NLA_U32 },
--- 
-1.6.3
-
+Applied, thanks.
