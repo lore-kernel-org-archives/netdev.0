@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/4] igb: Implement reading of reg RQDPC
- (Receive Queue Drop Packet Count)
-Date: Tue, 26 May 2009 20:36:15 -0700 (PDT)
-Message-ID: <20090526.203615.66405421.davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 3/4] igb: Record host memory receive
+ overflow in net_stats
+Date: Tue, 26 May 2009 20:36:24 -0700 (PDT)
+Message-ID: <20090526.203624.32809185.davem@davemloft.net>
 References: <20090526234958.28231.16894.stgit@localhost.localdomain>
-	<20090526235030.28231.35089.stgit@localhost.localdomain>
+	<20090526235048.28231.66889.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, hawk@comx.dk
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48858
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48862
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752895AbZE0DgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:36:16 -0400
-In-Reply-To: <20090526235030.28231.35089.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753452AbZE0DgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:36:25 -0400
+In-Reply-To: <20090526235048.28231.66889.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 26 May 2009 16:50:31 -0700
+Date: Tue, 26 May 2009 16:50:48 -0700
 
-> Based on the previous patches from Jesper Dangaard Brouer <hawk@comx.dk>
+> Based on previous patch from Jesper Dangaard Brouer.
 > 
-> Implement reading the per queue drop stats register
-> RQDPC (Receive Queue Drop Packet Count).  It counts the number of
-> packets dropped by a queue due to lack of descriptors available.
+> The RNBC (Receive No Buffers Count) register for the 82576, indicate
+> that frames were received when there were no available buffers in host
+> memory to store those frames (receive descriptor head and tail
+> pointers were equal).  The packet is still received by the NIC if
+> there is space in the FIFO on the NIC.
 > 
-> Notice RQDPC (Receive Queue Drop Packet Count) stats only gets
-> incremented, if the DROP_EN bit it set (in the SRRCTL register
-> for that queue).  If DROP_EN bit is NOT set, then the some what
-> equivalent count is stored in RNBC (not per queue basis).
+> As the RNBC value is not a packet drop, the driver stores this value
+> in net_stats.rx_fifo_errors to indicate that there were no system
+> buffers available for the incoming packet.  Actual dropped packets
+> are counted in the MPC value.
 > 
-> The RQDPC register is only 12 bit, thus the precision might
-> suffer due to overrun in-netween the watchdog polling interval.
+> Saving the stats in dev->net_stats makes it visible via
+> /proc/net/dev as "fifo", and thus viewable to ifconfig
+> as "overruns" and 'netstat -i' as "RX-OVR".
+> 
+> The Receive No Buffers Count (RNBC) can already be queried by
+> ethtool -S as "rx_no_buffer_count".
 > 
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
