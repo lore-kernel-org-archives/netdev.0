@@ -1,40 +1,43 @@
-From: Greg KH <greg@kroah.com>
-Subject: [PATCH] ath1e: add new device id for asus hardware
-Date: Tue, 26 May 2009 23:02:49 -0700
-Message-ID: <20090527060249.GA19080@kroah.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [net-2.6 PATCH V2] mlx4_en: Fix a kernel panic when waking tx
+ queue
+Date: Wed, 27 May 2009 09:08:05 +0300
+Message-ID: <4A1CD8C5.2040507@mellanox.co.il>
+References: <49EC859C.700@mellanox.co.il> <4A0AB34A.10100@mellanox.co.il> <4A1948D7.8010504@mellanox.co.il> <4A1A57AA.1080209@mellanox.co.il> <4A1B92D1.8070907@mellanox.co.il> <4A1BC8E4.1050009@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Neil Horman <nhorman@tuxdriver.com>, Gary Lin <glin@novell.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tziporet Koren <tziporet@mellanox.co.il>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:49736 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755763AbZE0GHB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 May 2009 02:07:01 -0400
-Content-Disposition: inline
+Received: from mail.mellanox.co.il ([194.90.237.43]:56497 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759134AbZE0GHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 May 2009 02:07:09 -0400
+In-Reply-To: <4A1BC8E4.1050009@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Kroah-Hartman <gregkh@suse.de>
+Hi Eric,
 
-Gary Lin reports that a new device id needs to be added to the atl1e in
-order to get some new Asus hardware to work properly.
+Eric Dumazet wrote:
+>
+> Just curious.
+>
+> Blocking hard IRQ while doing TX completion is quite nasty,
+> as freeing one hundred of skb take long.
+>
+> Could you try something in process context instead ?
 
-Cc: Gary Lin <glin@novell.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+I am planning some changes for handling TX completions, but I think it is too
+late to
+add them to 2.6.30.
+In the code that will be submitted to 2.6.31 we will not block irqs.
 
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index fb57b75..1342418 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -37,6 +37,7 @@ char atl1e_driver_version[] = DRV_VERSION;
-  */
- static struct pci_device_id atl1e_pci_tbl[] = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, PCI_DEVICE_ID_ATTANSIC_L1E)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, 0x1066)},
- 	/* required last entry */
- 	{ 0 }
- };
+>
+> Is this timer driven tx completion thing really good for performance ?
+>
+When we are CPU bounded on the transmit side, the driver shown better
+performance with
+the timer driven completions rather then with interrupts.
