@@ -1,55 +1,31 @@
-From: "Liu Dave-R63238" <DaveLiu@freescale.com>
-Subject: Net: ucc_geth ethernet driver optimization space
-Date: Wed, 27 May 2009 13:08:07 +0800
-Message-ID: <D7CCA83BB0796C49BC0BB53B6AB1208934920A@zch01exm21.fsl.freescale.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/14] GRO: Lots of microoptimisations
+Date: Wed, 27 May 2009 14:45:39 +1000
+Message-ID: <20090527044539.GA32372@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:34769 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756476AbZE0FIL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:08:11 -0400
-Content-class: urn:content-classes:message
+Received: from rhun.apana.org.au ([64.62.148.172]:50330 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759328AbZE0FNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 01:13:14 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Guys,
+Hi Dave:
 
-The ucc_geth ethernet driver have dozens of strong sync read/write
-operation, such as in_be32/16/8, out_be32/16/8.
+This series of patches brings GRO performance to within 1% of LRO
+on the slow machine that I was testing.  I can overtake LRO by
+deleting the IP checksum test and the Ethernet header test from
+GRO, which LRO doesn't do anyway, but that's not very nice :)
 
-all of them is sync read/write, it is very expensive for performance.
+I'm still looking at other optimisations as time allows.
 
-For the critical patch, we can remove some unnecessary in_be(x),
-out_be(x) with normal memory operation, and keep some necessary
-memory barrier.
-
-eg: BD access in the interrupt handler and start_xmit.
-
-The BD operation only need the memory barrier between length/buffer
-and status.
-
-struct buffer descriptor {
-	u16 status;
-	u16 length;
-	u32 buffer;
-} __attribute__ ((packed));
-
-struct buffer descriptor *BD;
-
-BD->length = xxxx;
-BD->buffer = yyyy;
-wmb();
-BD->status = zzzz;
-
-For powerpc, eieio is enough for 60x, mbar 1 is enough for e500.
-Of couse, also need the memory clobber to avoid the compiler
-reorder between them.
-
-Thanks, Dave
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
