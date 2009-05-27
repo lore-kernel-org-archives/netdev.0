@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NIU: Add support for C10NEM
-Date: Tue, 26 May 2009 20:46:00 -0700 (PDT)
-Message-ID: <20090526.204600.154799606.davem@davemloft.net>
-References: <4A1C3552.2040602@Sun.COM>
+Subject: Re: [PATCH] cls_cgroup: read classid atomically in classifier
+Date: Tue, 26 May 2009 20:47:10 -0700 (PDT)
+Message-ID: <20090526.204710.124271694.davem@davemloft.net>
+References: <20090526195840.8464.36548.stgit@menage.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Santwona.Behera@Sun.COM,
-	Matheos.Worku@Sun.COM
-To: Tanli.Chang@Sun.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48615
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752895AbZE0DqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:46:01 -0400
-In-Reply-To: <4A1C3552.2040602@Sun.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lizf@cn.fujitsu.com, akpm@linux-foundation.org, tgraf@suug.ch,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: menage@google.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759212AbZE0DrX@vger.kernel.org>
+In-Reply-To: <20090526195840.8464.36548.stgit@menage.mtv.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tanli Chang <Tanli.Chang@Sun.COM>
-Date: Tue, 26 May 2009 11:30:42 -0700
+From: Paul Menage <menage@google.com>
+Date: Tue, 26 May 2009 12:59:11 -0700
 
-> This patch is for supporting C10NEM. C10NEM is a switch module, which
-> has back-to-back XAUI link connected to blades.
+> cls_cgroup: read classid atomically in classifier
+> 
+> Avoid reading the unsynchronized value cs->classid multiple times,
+> since it could change concurrently from non-zero to zero; this would
+> result in the classifier returning a positive result with a bogus
+> (zero) classid.
+> 
+> Signed-off-by: Paul Menage <menage@google.com>
+> Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
 
-Patch applied, thank you.
+Patch applied, thanks!
