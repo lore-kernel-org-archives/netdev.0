@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gianfar: fix babbling rx error event bug
-Date: Tue, 26 May 2009 20:48:15 -0700 (PDT)
-Message-ID: <20090526.204815.185454308.davem@davemloft.net>
-References: <1243389156-1668-1-git-send-email-Xiaotian.Feng@windriver.com>
+Subject: Re: [PATCH] net/ucc_geth: allow to set mac address on running
+ device
+Date: Tue, 26 May 2009 20:49:11 -0700 (PDT)
+Message-ID: <20090526.204911.75347876.davem@davemloft.net>
+References: <1243388936.13410.4.camel@kevin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Xiaotian.Feng@windriver.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1243389156-1668-1-git-send-email-Xiaotian.Feng@windriver.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, leoli@freescale.com
+To: kexin.hao@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41001
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755691AbZE0DtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 May 2009 23:49:12 -0400
+In-Reply-To: <1243388936.13410.4.camel@kevin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xiaotian Feng <Xiaotian.Feng@windriver.com>
-Date: Wed, 27 May 2009 09:52:36 +0800
+From: Kevin Hao <kexin.hao@windriver.com>
+Date: Wed, 27 May 2009 09:48:56 +0800
 
-> Gianfar interrupt handler uses IEVENT_ERR_MASK to check and handle errors.
-> Babbling RX error (IEVENT_BABR) should be included in IEVENT_ERROR_MASK.
-> Otherwise if BABR is raised, it never gets handled nor cleared, and an
-> interrupt storm results. This has been observed to happen on sending a
-> burst of ethernet frames to a gianfar based board.
+> Inspired by the patch for 8139too (bda6a15a).
 > 
-> Signed-off-by: Xiaotian Feng <xiaotian.feng@windriver.com>
+> Currently we can't set mac address on a running ucc_geth device.
+> But this is needed when you use this device as a bonding slave in
+> bonding device in balance-alb mode. So add this feature for ucc_geth
+> device.
+> 
+> Signed-off-by: Kevin Hao <kexin.hao@windriver.com>
 
-Patch applied, thanks.
+Applied to net-next-2.6, thanks.
