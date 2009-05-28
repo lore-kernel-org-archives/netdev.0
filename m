@@ -1,34 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: unset IFF_XMIT_DST_RELEASE in ipip_tunnel_setup()
-Date: Thu, 28 May 2009 22:44:30 +0200
-Message-ID: <4A1EF7AE.2040404@gmail.com>
+From: Piotrek D <regis44@gmail.com>
+Subject: HTB class parameter change
+Date: Thu, 28 May 2009 22:47:39 +0200
+Message-ID: <620d582f0905281347w5aa96a85na5339aed87db5464@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:56048 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755852AbZE1Uoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 16:44:37 -0400
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:35546 "EHLO
+	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757717AbZE1Uri convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 16:47:38 -0400
+Received: by fxm12 with SMTP id 12so3979551fxm.37
+        for <netdev@vger.kernel.org>; Thu, 28 May 2009 13:47:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipip_tunnel_xmit() might need skb->dst, so tell dev_hard_start_xmit()
-to no release it.
+HI,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 9054139..bb2f1b1 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -713,6 +713,7 @@ static void ipip_tunnel_setup(struct net_device *dev)
- 	dev->iflink		= 0;
- 	dev->addr_len		= 4;
- 	dev->features		|= NETIF_F_NETNS_LOCAL;
-+	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
- }
- 
- static void ipip_tunnel_init(struct net_device *dev)
+I am trying to change the rate parameter of HTB class by using this
+code from within one of my functions :
+
+=A0struct htb_class *cl;
+=A0cl=3Dhtb_find(number,q);
+
+=A0cl->rate->rate.rate =3D NEW_RATE_VALUE;
+
+=A0TC shows the correct values, but the traffic rate doesn't change a b=
+it.
+=A0Does anyboyd have any idea what am I doing wrong ? Maybe there would
+be a faster way by sending a netlink =A0message ?
+
+Piotrek
