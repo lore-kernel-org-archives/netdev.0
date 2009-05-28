@@ -1,82 +1,110 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH net-next] korina: periodically poll the media
-Date: Thu, 28 May 2009 12:58:41 +0200
-Message-ID: <200905281258.41956.florian@openwrt.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next] bonding: allow bond in mode balance-alb to work
+	properly in bridge -try4.3
+Date: Thu, 28 May 2009 13:05:00 +0200
+Message-ID: <20090528110459.GE22391@psychotron.englab.brq.redhat.com>
+References: <20090313183303.GF3436@psychotron.englab.brq.redhat.com> <20090326155205.GA28868@psychotron.englab.brq.redhat.com> <20090526151717.GB11147@psychotron.englab.brq.redhat.com> <20090527135351.GD1652@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Felix Fietkau <nbd@openwrt.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, davem@davemloft.net,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	kaber@trash.net, mschmidt@redhat.com, dada1@cosmosbay.com,
+	andy@greyhouse.net, oleg@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:63269 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497AbZE1K6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 06:58:45 -0400
-Received: by ewy24 with SMTP id 24so5272539ewy.37
-        for <netdev@vger.kernel.org>; Thu, 28 May 2009 03:58:46 -0700 (PDT)
+Received: from mx2.redhat.com ([66.187.237.31]:45628 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751521AbZE1LGE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2009 07:06:04 -0400
 Content-Disposition: inline
+In-Reply-To: <20090527135351.GD1652@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the korina driver poll the media
-for link change. This is actually required on
-Mikrotik RB532 (not RB532A) for korina to
-operate properly.
+[PATCH net-next] bonding: allow bond in mode balance-alb to work properly in bridge -try4.3
 
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index dc23856..b4cf602 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -133,6 +133,7 @@ struct korina_private {
- 	int dma_halt_cnt;
- 	int dma_run_cnt;
- 	struct napi_struct napi;
-+	struct timer_list media_check_timer;
- 	struct mii_if_info mii_if;
- 	struct net_device *dev;
- 	int phy_addr;
-@@ -664,6 +665,15 @@ static void korina_check_media(struct net_device *dev, unsigned int init_media)
- 						&lp->eth_regs->ethmac2);
+(updated)
+changes v4.2 -> v4.3
+- memcpy the address always, not just in case it differs from master->dev_addr
+- compare_ether_addr_64bits() is not used so there is no direct need to make new
+  header file (I think it would be good to have bond stuff in separate file
+  anyway).
+
+changes v4.1 -> v4.2
+- use skb->pkt_type == PACKET_HOST compare rather then comparing skb dest addr
+  against skb->dev->dev_addr
+
+Hi all.
+
+The problem is described in following bugzilla:
+https://bugzilla.redhat.com/show_bug.cgi?id=487763
+
+Basically here's what's going on. In every mode, bonding interface uses the same
+mac address for all enslaved devices (except fail_over_mac). Only balance-alb
+will simultaneously use multiple MAC addresses across different slaves. When you
+put this kind of bond device into a bridge it will only add one of mac adresses
+into a hash list of mac addresses, say X. This mac address is marked as local.
+But this bonding interface also has mac address Y. Now then packet arrives with
+destination address Y, this address is not marked as local and the packed looks
+like it needs to be forwarded. This packet is then lost which is wrong.
+
+Notice that interfaces can be added and removed from bond while it is in bridge.
+
+***
+When the multiple addresses for bridge port approach failed to solve this issue
+due to STP I started to think other way to solve this. I returned to previous
+solution but tweaked one.
+
+This patch solves the situation in the bonding without touching bridge code.
+For every incoming frame to bonding the destination address is compared to
+current address of the slave device from which tha packet came. If these two
+match destination address is replaced by mac address of the master. This address
+is known by bridge so it is delivered properly. Note that the comparsion is not
+made directly, it's used skb->pkt_type == PACKET_HOST instead. This is "set"
+previously in eth_type_trans().
+
+I experimentally tried that this works as good as searching through the slave
+list (v4 of this patch).
+
+Jirka
+
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 371ece5..9b4db94 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1920,6 +1920,16 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
+ 	dev->gso_max_size = size;
  }
  
-+static void korina_poll_media(unsigned long data)
++static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
++					      struct net_device *master)
 +{
-+	struct net_device *dev = (struct net_device *) data;
-+	struct korina_private *lp = netdev_priv(dev);
++	if (skb->pkt_type == PACKET_HOST) {
++		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
 +
-+	korina_check_media(dev, 0);
-+	mod_timer(&lp->media_check_timer, jiffies + HZ);
++		memcpy(dest, master->dev_addr, ETH_ALEN);
++	}
 +}
 +
- static void korina_set_carrier(struct mii_if_info *mii)
- {
- 	if (mii->force_media) {
-@@ -1034,6 +1044,7 @@ static int korina_open(struct net_device *dev)
- 		    dev->name, lp->und_irq);
- 		goto err_free_ovr_irq;
- 	}
-+	mod_timer(&lp->media_check_timer, jiffies + 1);
- out:
- 	return ret;
+ /* On bonding slaves other than the currently active slave, suppress
+  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
+  * ARP on active-backup slaves with arp_validate enabled.
+@@ -1933,6 +1943,14 @@ static inline int skb_bond_should_drop(struct sk_buff *skb)
+ 		if (master->priv_flags & IFF_MASTER_ARPMON)
+ 			dev->last_rx = jiffies;
  
-@@ -1053,6 +1064,8 @@ static int korina_close(struct net_device *dev)
- 	struct korina_private *lp = netdev_priv(dev);
- 	u32 tmp;
- 
-+	del_timer(&lp->media_check_timer);
++		if ((master->priv_flags & IFF_MASTER_ALB) && master->br_port) {
++			/* Do address unmangle. The local destination address
++			 * will be always the one master has. Provides the right
++			 * functionality in a bridge.
++			 */
++			skb_bond_set_mac_by_master(skb, master);
++		}
 +
- 	/* Disable interrupts */
- 	disable_irq(lp->rx_irq);
- 	disable_irq(lp->tx_irq);
-@@ -1183,6 +1196,7 @@ static int korina_probe(struct platform_device *pdev)
- 			": cannot register net device %d\n", rc);
- 		goto probe_err_register;
- 	}
-+	setup_timer(&lp->media_check_timer, korina_poll_media, (unsigned long) dev);
- out:
- 	return rc;
- 
+ 		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+ 			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+ 			    skb->protocol == __cpu_to_be16(ETH_P_ARP))
