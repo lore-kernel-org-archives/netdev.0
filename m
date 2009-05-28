@@ -1,173 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: Fix IP DDP appletalk locking.
-Date: Wed, 27 May 2009 16:58:04 -0700 (PDT)
-Message-ID: <20090527.165804.73643121.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [patch 2.6.31 00/10] WiMAX pull request
+Date: Wed, 27 May 2009 18:05:05 -0700
+Message-ID: <cover.1243472509.git.inaky@linux.intel.com>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35729
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755042AbZE0X6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 19:58:04 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 5A50CC8C0F5
-	for <netdev@vger.kernel.org>; Wed, 27 May 2009 16:58:04 -0700 (PDT)
+Received: from mga06.intel.com ([134.134.136.21]:59892 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752550AbZE1BFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 21:05:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This pull request for 2.6.31 adds a new WiMAX API call for getting the
+device state (from Paulius Zaleckas), fixes random stuff in the
+i2400m, adds a debug facility to trace commands sent to the device and
+cleans up state-report handling code.
 
-Here is a patch I had sitting around for a year or so.
+The following changes since commit 7d18f114897ff4358419b14d551e704a4299a440:
+  David S. Miller (1):
+        net: Fix arg to trace_napi_poll() in netpoll.
 
-When I was doing the TX multiqueue stuff I noticed that the
-IPDDP driver did absolutely no locking around it's routing
-table even though it's accessed concurrently by the ioctls
-and the transmit path.
+are available in the git repository at:
 
-Added to net-next-2.6
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.31.y
 
-appletalk: Add proper locking around IPDDP routing table.
+Patches follow for reviewing convenience.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/appletalk/ipddp.c |   40 ++++++++++++++++++++++++++++++++--------
- 1 files changed, 32 insertions(+), 8 deletions(-)
+Inaky Perez-Gonzalez (9):
+      wimax/i2400m: generate fake source MAC address with random_ether_addr()
+      wimax/i2400m: trace commands sent from user space on the "echo" pipe
+      wimax/i2400m: allow kernel commands to device to be logged too
+      wimax/i2400m: factor out 'state report's TLV handling to a function
+      wimax/i2400m: remove redundant readiness checks from i2400m_report_tlv_*()
+      wimax: document why wimax_msg_*() operations can be used in any state
+      wimax/i2400m: sdio: set the block size before enabling the function
+      wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
+      wimax: a new API call was added, increment minor protocol version number
 
-diff --git a/drivers/net/appletalk/ipddp.c b/drivers/net/appletalk/ipddp.c
-index f939e92..9832b75 100644
---- a/drivers/net/appletalk/ipddp.c
-+++ b/drivers/net/appletalk/ipddp.c
-@@ -39,6 +39,7 @@
- static const char version[] = KERN_INFO "ipddp.c:v0.01 8/28/97 Bradford W. Johnson <johns393@maroon.tc.umn.edu>\n";
- 
- static struct ipddp_route *ipddp_route_list;
-+static DEFINE_SPINLOCK(ipddp_route_lock);
- 
- #ifdef CONFIG_IPDDP_ENCAP
- static int ipddp_mode = IPDDP_ENCAP;
-@@ -50,7 +51,7 @@ static int ipddp_mode = IPDDP_DECAP;
- static int ipddp_xmit(struct sk_buff *skb, struct net_device *dev);
- static int ipddp_create(struct ipddp_route *new_rt);
- static int ipddp_delete(struct ipddp_route *rt);
--static struct ipddp_route* ipddp_find_route(struct ipddp_route *rt);
-+static struct ipddp_route* __ipddp_find_route(struct ipddp_route *rt);
- static int ipddp_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
- 
- static const struct net_device_ops ipddp_netdev_ops = {
-@@ -119,6 +120,8 @@ static int ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
-         struct ipddp_route *rt;
-         struct atalk_addr *our_addr;
- 
-+	spin_lock(&ipddp_route_lock);
-+
- 	/*
-          * Find appropriate route to use, based only on IP number.
-          */
-@@ -127,8 +130,10 @@ static int ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
-                 if(rt->ip == paddr)
-                         break;
-         }
--        if(rt == NULL)
-+        if(rt == NULL) {
-+		spin_unlock(&ipddp_route_lock);
-                 return 0;
-+	}
- 
-         our_addr = atalk_find_dev_addr(rt->dev);
- 
-@@ -174,6 +179,8 @@ static int ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
-         if(aarp_send_ddp(rt->dev, skb, &rt->at, NULL) < 0)
-                 dev_kfree_skb(skb);
- 
-+	spin_unlock(&ipddp_route_lock);
-+
-         return 0;
- }
- 
-@@ -196,7 +203,9 @@ static int ipddp_create(struct ipddp_route *new_rt)
-                 return -ENETUNREACH;
-         }
- 
--	if (ipddp_find_route(rt)) {
-+	spin_lock_bh(&ipddp_route_lock);
-+	if (__ipddp_find_route(rt)) {
-+		spin_unlock_bh(&ipddp_route_lock);
- 		kfree(rt);
- 		return -EEXIST;
- 	}
-@@ -204,6 +213,8 @@ static int ipddp_create(struct ipddp_route *new_rt)
-         rt->next = ipddp_route_list;
-         ipddp_route_list = rt;
- 
-+	spin_unlock_bh(&ipddp_route_lock);
-+
-         return 0;
- }
- 
-@@ -216,6 +227,7 @@ static int ipddp_delete(struct ipddp_route *rt)
-         struct ipddp_route **r = &ipddp_route_list;
-         struct ipddp_route *tmp;
- 
-+	spin_lock_bh(&ipddp_route_lock);
-         while((tmp = *r) != NULL)
-         {
-                 if(tmp->ip == rt->ip
-@@ -223,19 +235,21 @@ static int ipddp_delete(struct ipddp_route *rt)
-                         && tmp->at.s_node == rt->at.s_node)
-                 {
-                         *r = tmp->next;
-+			spin_unlock_bh(&ipddp_route_lock);
-                         kfree(tmp);
-                         return 0;
-                 }
-                 r = &tmp->next;
-         }
- 
-+	spin_unlock_bh(&ipddp_route_lock);
-         return (-ENOENT);
- }
- 
- /*
-  * Find a routing entry, we only return a FULL match
-  */
--static struct ipddp_route* ipddp_find_route(struct ipddp_route *rt)
-+static struct ipddp_route* __ipddp_find_route(struct ipddp_route *rt)
- {
-         struct ipddp_route *f;
- 
-@@ -253,7 +267,7 @@ static struct ipddp_route* ipddp_find_route(struct ipddp_route *rt)
- static int ipddp_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
-         struct ipddp_route __user *rt = ifr->ifr_data;
--        struct ipddp_route rcp;
-+        struct ipddp_route rcp, rcp2, *rp;
- 
-         if(!capable(CAP_NET_ADMIN))
-                 return -EPERM;
-@@ -267,9 +281,19 @@ static int ipddp_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-                         return (ipddp_create(&rcp));
- 
-                 case SIOCFINDIPDDPRT:
--                        if(copy_to_user(rt, ipddp_find_route(&rcp), sizeof(struct ipddp_route)))
--                                return -EFAULT;
--                        return 0;
-+			spin_lock_bh(&ipddp_route_lock);
-+			rp = __ipddp_find_route(&rcp);
-+			if (rp)
-+				memcpy(&rcp2, rp, sizeof(rcp2));
-+			spin_unlock_bh(&ipddp_route_lock);
-+
-+			if (rp) {
-+				if (copy_to_user(rt, &rcp2,
-+						 sizeof(struct ipddp_route)))
-+					return -EFAULT;
-+				return 0;
-+			} else
-+				return -ENOENT;
- 
-                 case SIOCDELIPDDPRT:
-                         return (ipddp_delete(&rcp));
--- 
-1.6.3
+Paulius Zaleckas (1):
+      wimax: Add netlink interface to get device state
 
+ drivers/net/wimax/i2400m/control.c |  100 ++++++++++++++++++++----------------
+ drivers/net/wimax/i2400m/driver.c  |    5 +-
+ drivers/net/wimax/i2400m/i2400m.h  |    5 ++
+ drivers/net/wimax/i2400m/netdev.c  |    3 +-
+ drivers/net/wimax/i2400m/rx.c      |    6 ++-
+ drivers/net/wimax/i2400m/sdio.c    |   18 +++---
+ drivers/net/wimax/i2400m/usb.c     |   35 +++++++++++--
+ include/linux/wimax.h              |    7 ++-
+ net/wimax/Makefile                 |    1 +
+ net/wimax/debug-levels.h           |    1 +
+ net/wimax/debugfs.c                |    1 +
+ net/wimax/op-msg.c                 |   17 +++++-
+ net/wimax/op-state-get.c           |   86 +++++++++++++++++++++++++++++++
+ net/wimax/stack.c                  |    5 ++-
+ 14 files changed, 221 insertions(+), 69 deletions(-)
+ create mode 100644 net/wimax/op-state-get.c
