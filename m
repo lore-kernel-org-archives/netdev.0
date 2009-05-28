@@ -1,30 +1,21 @@
-From: Matt Kraai <kraai@ftbfs.org>
-Subject: [PATCH] Ignore .cis files
-Date: Thu, 28 May 2009 06:33:25 -0700
-Message-ID: <1243517605-7034-1-git-send-email-kraai@ftbfs.org>
-Cc: Matt Kraai <kraai@ftbfs.org>
-To: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>, netdev@vger.kernel.org
+From: Online Tobacco <bwmfg@bellnet.ca>
+Subject: ***Lucky Winner***
+Date: Thu, 28 May 2009 11:17:17 -0400
+Message-ID: <20090528151733.OYAF1576.tomts44-srv.bellnexxia.net@toip37-bus.srvr.bell.ca>
+Reply-To: contactluis01@btinternet.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omail.authdirect.com ([204.13.82.145]:49990 "HELO
-	omail.authdirect.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with SMTP id S1763100AbZE1Nmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 09:42:42 -0400
+Received: from tomts44-srv.bellnexxia.net ([209.226.175.111]:39544 "EHLO
+	tomts44-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751245AbZE1PRc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2009 11:17:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Matt Kraai <kraai@ftbfs.org>
----
- firmware/cis/.gitignore |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
- create mode 100644 firmware/cis/.gitignore
-
-diff --git a/firmware/cis/.gitignore b/firmware/cis/.gitignore
-new file mode 100644
-index 0000000..1de3984
---- /dev/null
-+++ b/firmware/cis/.gitignore
-@@ -0,0 +1 @@
-+*.cis
--- 
-1.6.3.1
+You have just been awarded,=A31,000.000.00 GBP in the British Online,se=
+nd us your Names........Address......Country......Sex/Tel.......
 
