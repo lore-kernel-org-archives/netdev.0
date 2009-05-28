@@ -1,99 +1,93 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.31 01/10] wimax/i2400m: generate fake source MAC address with random_ether_addr()
-Date: Wed, 27 May 2009 18:05:06 -0700
-Message-ID: <e9de4b9426eeeddf56110425cfd88e43828e7146.1243472510.git.inaky@linux.intel.com>
+Subject: [patch 2.6.31 05/10] wimax/i2400m: remove redundant readiness checks from i2400m_report_tlv_*()
+Date: Wed, 27 May 2009 18:05:10 -0700
+Message-ID: <74bd64a25b220d21e50c7c9a85f26ff6617b3728.1243472510.git.inaky@linux.intel.com>
 References: <cover.1243472509.git.inaky@linux.intel.com>
+ <e9de4b9426eeeddf56110425cfd88e43828e7146.1243472510.git.inaky@linux.intel.com>
+ <22d4458f609ba31f1382e25844125e421dcd4163.1243472510.git.inaky@linux.intel.com>
+ <05962df1398ad316feb1e20160b7502731bebc97.1243472510.git.inaky@linux.intel.com>
+ <ba98dde3cde9f5910789b32852c692fc8cd0a4aa.1243472510.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:59892 "EHLO
+Received: from mga06.intel.com ([134.134.136.21]:3119 "EHLO
 	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755119AbZE1BFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 21:05:47 -0400
-In-Reply-To: <cover.1243472509.git.inaky@linux.intel.com>
+	with ESMTP id S1756419AbZE1BFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 21:05:48 -0400
+In-Reply-To: <ba98dde3cde9f5910789b32852c692fc8cd0a4aa.1243472510.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1243472509.git.inaky@linux.intel.com>
 References: <cover.1243472509.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The WiMAX i2400m driver needs to generate a fake source MAC address to
-fake an ethernet header (for destination, the card's MAC is
-used). This is the source of the packet, which is the basestation it
-came from. The basestation's mac address is not usable for this, as it
-uses its own namespace and it is not always available.
+Functions i2400m_report_tlv*() are only called from
+i2400m_report_hook(), called in a workqueue by
+i2400m_report_hook_work(). The scheduler checks for device readiness
+before scheduling.
 
-Currently the fake source MAC address was being set to all zeros,
-which was causing trouble with bridging.
+Added an extra check for readiness in i2400m_report_hook_work(), which
+makes all the checks down the line redundant.
 
-Use random_ether_addr() to generate a proper one that creates no
-trouble.
+Obviously the device state could change in the middle, but error
+handling would take care of that.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/driver.c |    2 ++
- drivers/net/wimax/i2400m/i2400m.h |    5 +++++
- drivers/net/wimax/i2400m/netdev.c |    3 ++-
- 3 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/wimax/i2400m/control.c |    6 ------
+ drivers/net/wimax/i2400m/rx.c      |    3 ++-
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 07a54ba..a21318b 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -62,6 +62,7 @@
-  *   unregister_netdev()
-  */
- #include "i2400m.h"
-+#include <linux/etherdevice.h>
- #include <linux/wimax/i2400m.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-@@ -650,6 +651,7 @@ int i2400m_setup(struct i2400m *i2400m, enum i2400m_bri bm_flags)
- 	result = i2400m_read_mac_addr(i2400m);
- 	if (result < 0)
- 		goto error_read_mac_addr;
-+	random_ether_addr(i2400m->src_mac_addr);
+diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
+index b42e347..bd193ae 100644
+--- a/drivers/net/wimax/i2400m/control.c
++++ b/drivers/net/wimax/i2400m/control.c
+@@ -292,8 +292,6 @@ void i2400m_report_tlv_system_state(struct i2400m *i2400m,
  
- 	result = register_netdev(net_dev);	/* Okey dokey, bring it up */
- 	if (result < 0) {
-diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
-index 3ae2df3..434ba31 100644
---- a/drivers/net/wimax/i2400m/i2400m.h
-+++ b/drivers/net/wimax/i2400m/i2400m.h
-@@ -323,6 +323,10 @@ struct i2400m_roq;
-  *     delivered. Then the driver can release them to the host. See
-  *     drivers/net/i2400m/rx.c for details.
-  *
-+ * @src_mac_addr: MAC address used to make ethernet packets be coming
-+ *     from. This is generated at i2400m_setup() time and used during
-+ *     the life cycle of the instance. See i2400m_fake_eth_header().
-+ *
-  * @init_mutex: Mutex used for serializing the device bringup
-  *     sequence; this way if the device reboots in the middle, we
-  *     don't try to do a bringup again while we are tearing down the
-@@ -421,6 +425,7 @@ struct i2400m {
- 	unsigned rx_pl_num, rx_pl_max, rx_pl_min,
- 		rx_num, rx_size_acc, rx_size_min, rx_size_max;
- 	struct i2400m_roq *rx_roq;	/* not under rx_lock! */
-+	u8 src_mac_addr[ETH_HLEN];
+ 	d_fnstart(3, dev, "(i2400m %p ss %p [%u])\n", i2400m, ss, i2400m_state);
  
- 	struct mutex msg_mutex;		/* serialize command execution */
- 	struct completion msg_completion;
-diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
-index 6b1fe7a..af81d27 100644
---- a/drivers/net/wimax/i2400m/netdev.c
-+++ b/drivers/net/wimax/i2400m/netdev.c
-@@ -404,10 +404,11 @@ static
- void i2400m_rx_fake_eth_header(struct net_device *net_dev,
- 			       void *_eth_hdr, __be16 protocol)
- {
-+	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
- 	struct ethhdr *eth_hdr = _eth_hdr;
- 
- 	memcpy(eth_hdr->h_dest, net_dev->dev_addr, sizeof(eth_hdr->h_dest));
--	memset(eth_hdr->h_source, 0, sizeof(eth_hdr->h_dest));
-+	memcpy(eth_hdr->h_source, i2400m->src_mac_addr, sizeof(eth_hdr->h_source));
- 	eth_hdr->h_proto = protocol;
+-	if (unlikely(i2400m->ready == 0))	/* act if up */
+-		goto out;
+ 	if (i2400m->state != i2400m_state) {
+ 		i2400m->state = i2400m_state;
+ 		wake_up_all(&i2400m->state_wq);
+@@ -341,7 +339,6 @@ void i2400m_report_tlv_system_state(struct i2400m *i2400m,
+ 		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
+ 		break;
+ 	};
+-out:
+ 	d_fnend(3, dev, "(i2400m %p ss %p [%u]) = void\n",
+ 		i2400m, ss, i2400m_state);
  }
+@@ -372,8 +369,6 @@ void i2400m_report_tlv_media_status(struct i2400m *i2400m,
  
+ 	d_fnstart(3, dev, "(i2400m %p ms %p [%u])\n", i2400m, ms, status);
+ 
+-	if (unlikely(i2400m->ready == 0))	/* act if up */
+-		goto out;
+ 	switch (status) {
+ 	case I2400M_MEDIA_STATUS_LINK_UP:
+ 		netif_carrier_on(net_dev);
+@@ -393,7 +388,6 @@ void i2400m_report_tlv_media_status(struct i2400m *i2400m,
+ 		dev_err(dev, "HW BUG? unknown media status %u\n",
+ 			status);
+ 	};
+-out:
+ 	d_fnend(3, dev, "(i2400m %p ms %p [%u]) = void\n",
+ 		i2400m, ms, status);
+ }
+diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
+index a4adc78..7643850 100644
+--- a/drivers/net/wimax/i2400m/rx.c
++++ b/drivers/net/wimax/i2400m/rx.c
+@@ -177,7 +177,8 @@ void i2400m_report_hook_work(struct work_struct *ws)
+ 	struct i2400m_work *iw =
+ 		container_of(ws, struct i2400m_work, ws);
+ 	struct i2400m_report_hook_args *args = (void *) iw->pl;
+-	i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
++	if (iw->i2400m->ready)
++		i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
+ 	kfree_skb(args->skb_rx);
+ 	i2400m_put(iw->i2400m);
+ 	kfree(iw);
 -- 
 1.6.2.3
 
