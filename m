@@ -1,129 +1,49 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: [PATCH] Multicast socket option
-Date: Thu, 28 May 2009 10:00:46 -0700
-Message-ID: <4A1EC33E.1080201@us.ibm.com>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Thu, 28 May 2009 19:13:40 +0100
+Message-ID: <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <20090518065629.GA6006@ff.dom.local>
+	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
+	 <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com>
+	 <20090521085116.GC2892@ami.dom.local>
+	 <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com>
+	 <20090523073201.GA2766@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Christoph Lameter <cl@linux.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:45507 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752845AbZE1RAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 13:00:49 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.13.1/8.13.1) with ESMTP id n4SGvIii003167
-	for <netdev@vger.kernel.org>; Thu, 28 May 2009 10:57:18 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4SH0mOh121746
-	for <netdev@vger.kernel.org>; Thu, 28 May 2009 11:00:49 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4SH0l3T002464
-	for <netdev@vger.kernel.org>; Thu, 28 May 2009 11:00:48 -0600
+Received: from an-out-0708.google.com ([209.85.132.240]:22274 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752910AbZE1SNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 14:13:40 -0400
+Received: by an-out-0708.google.com with SMTP id d40so11408790and.1
+        for <netdev@vger.kernel.org>; Thu, 28 May 2009 11:13:40 -0700 (PDT)
+In-Reply-To: <20090523073201.GA2766@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After some discussion offline with Christoph Lameter and David Stevens 
-regarding multicast behaviour in Linux, I'm submitting a slightly
-modified patch from the one Christoph submitted earlier.
+On Sat, May 23, 2009 at 8:32 AM, Jarek Poplawski wrote:
+> Actually, from these two I was more interested in iproute2 more
+> fitting the kernel version. :-((It should be enough to have at least
+> tc compiled properly, I guess.)
+I installed iproute2-ss090115 with the new patch but the results are
+the same for my test scenery. HTB keeps sending 620Mbit/s when I
+configure it's ceil to 555Mbit/s, with 800 bytes packets long.
 
-This patch provides a new socket option IP_MULTICAST_ALL.
+> Btw.: if at any point you think this testing is too disturbing to you
+> etc., feel free to stop this or delay in time as you like.
+I'm working on this, don't worry. Since I have a traffic
+generator/analyser, any modification you would make I can test it.
+You're free to ask.
 
-In this case, default behaviour is _unchanged_ from the current
-Linux standard. The socket option is set by default to provide 
-original behaviour. Sockets wishing to receive data only from 
-multicast groups they join explicitly will need to clear this 
-socket option. 
-
-
-Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
-Signed-off-by: Christoph Lameter<cl@linux.com>
-Acked-by: David Stevens <dlstevens@us.ibm.com>
+I've been looking inside htb source code. The granularity problem
+could be in the use qdisc_rate_table or near that.
 
 
-diff -urN linux-2.6.29.2/include/linux/in.h linux-2.6.29.2.new/include/linux/in.h
---- linux-2.6.29.2/include/linux/in.h	2009-04-27 13:37:11.000000000 -0400
-+++ linux-2.6.29.2.new/include/linux/in.h	2009-05-18 16:22:06.000000000 -0400
-@@ -107,6 +107,7 @@
- #define MCAST_JOIN_SOURCE_GROUP		46
- #define MCAST_LEAVE_SOURCE_GROUP	47
- #define MCAST_MSFILTER			48
-+#define IP_MULTICAST_ALL		49
- 
- #define MCAST_EXCLUDE	0
- #define MCAST_INCLUDE	1
-diff -urN linux-2.6.29.2/include/net/inet_sock.h linux-2.6.29.2.new/include/net/inet_sock.h
---- linux-2.6.29.2/include/net/inet_sock.h	2009-04-27 13:37:11.000000000 -0400
-+++ linux-2.6.29.2.new/include/net/inet_sock.h	2009-05-18 16:22:06.000000000 -0400
-@@ -130,7 +130,8 @@
- 				freebind:1,
- 				hdrincl:1,
- 				mc_loop:1,
--				transparent:1;
-+				transparent:1,
-+				mc_all:1;
- 	int			mc_index;
- 	__be32			mc_addr;
- 	struct ip_mc_socklist	*mc_list;
-diff -urN linux-2.6.29.2/net/ipv4/af_inet.c linux-2.6.29.2.new/net/ipv4/af_inet.c
---- linux-2.6.29.2/net/ipv4/af_inet.c	2009-04-27 13:37:11.000000000 -0400
-+++ linux-2.6.29.2.new/net/ipv4/af_inet.c	2009-05-18 16:22:06.000000000 -0400
-@@ -376,6 +376,7 @@
- 	inet->uc_ttl	= -1;
- 	inet->mc_loop	= 1;
- 	inet->mc_ttl	= 1;
-+	inet->mc_all	= 1;
- 	inet->mc_index	= 0;
- 	inet->mc_list	= NULL;
- 
-diff -urN linux-2.6.29.2/net/ipv4/igmp.c linux-2.6.29.2.new/net/ipv4/igmp.c
---- linux-2.6.29.2/net/ipv4/igmp.c	2009-04-27 13:37:11.000000000 -0400
-+++ linux-2.6.29.2.new/net/ipv4/igmp.c	2009-05-18 16:22:33.000000000 -0400
-@@ -2196,7 +2196,7 @@
- 			break;
- 	}
- 	if (!pmc)
--		return 1;
-+		return inet->mc_all;
- 	psl = pmc->sflist;
- 	if (!psl)
- 		return pmc->sfmode == MCAST_EXCLUDE;
-diff -urN linux-2.6.29.2/net/ipv4/ip_sockglue.c linux-2.6.29.2.new/net/ipv4/ip_sockglue.c
---- linux-2.6.29.2/net/ipv4/ip_sockglue.c	2009-04-27 13:37:11.000000000 -0400
-+++ linux-2.6.29.2.new/net/ipv4/ip_sockglue.c	2009-05-18 16:22:06.000000000 -0400
-@@ -449,6 +449,7 @@
- 			     (1<<IP_ROUTER_ALERT) | (1<<IP_FREEBIND) |
- 			     (1<<IP_PASSSEC) | (1<<IP_TRANSPARENT))) ||
- 	    optname == IP_MULTICAST_TTL ||
-+	    optname == IP_MULTICAST_ALL ||
- 	    optname == IP_MULTICAST_LOOP ||
- 	    optname == IP_RECVORIGDSTADDR) {
- 		if (optlen >= sizeof(int)) {
-@@ -895,6 +896,13 @@
- 		kfree(gsf);
- 		break;
- 	}
-+	case IP_MULTICAST_ALL:
-+		if (optlen<1)
-+			goto e_inval;
-+		if (val != 0 && val != 1)
-+			goto e_inval;
-+		inet->mc_all = val;
-+		break;
- 	case IP_ROUTER_ALERT:
- 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
- 		break;
-@@ -1147,6 +1155,9 @@
- 		release_sock(sk);
- 		return err;
- 	}
-+	case IP_MULTICAST_ALL:
-+		val = inet->mc_all;
-+		break;
- 	case IP_PKTOPTIONS:
- 	{
- 		struct msghdr msg;
-
+  Antonio Almeida
