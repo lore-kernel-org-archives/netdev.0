@@ -1,540 +1,173 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [iproute2 patch]: Add 'ip tuntap' facility for managing
- tun/tap devices
-Date: Thu, 28 May 2009 09:12:49 +0100
-Message-ID: <1243498369.18507.83.camel@macbook.infradead.org>
-References: <1241433136.6126.70.camel@macbook.infradead.org>
-	 <1241433778.6126.90.camel@macbook.infradead.org>
-	 <20090527215823.343abbbe@nehalam>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/5] net: add IEEE 802.15.4 partial implementation
+Date: Thu, 28 May 2009 12:48:36 +0400
+Message-ID: <20090528084836.GA6793@doriath.ww600.siemens.net>
+References: <20090526112157.GA19976@doriath.ww600.siemens.net> <1243336988-20109-1-git-send-email-dbaryshkov@gmail.com> <1243336988-20109-2-git-send-email-dbaryshkov@gmail.com> <1243480131.16597.174.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33231 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983AbZE1IMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 04:12:50 -0400
-In-Reply-To: <20090527215823.343abbbe@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
+	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
+To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1243480131.16597.174.camel@deadeye>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2009-05-27 at 21:58 -0700, Stephen Hemminger wrote:
-> > +#define TUNDEV "/dev/net/tun"
+On Thu, May 28, 2009 at 04:08:51AM +0100, Ben Hutchings wrote:
+> On Tue, 2009-05-26 at 15:23 +0400, Dmitry Eremin-Solenikov wrote:
+> [...]
+> > diff --git a/include/net/ieee802154/af_ieee802154.h b/include/net/ieee802154/af_ieee802154.h
+> > new file mode 100644
+> > index 0000000..6eb7f51
+> > --- /dev/null
+> > +++ b/include/net/ieee802154/af_ieee802154.h
+> [...]
+> > +#ifdef __KERNEL__
+> > +#include <linux/skbuff.h>
+> > +#include <linux/netdevice.h>
 > 
-> I know this is historical legacy, but how does this play with network namespaces?
+> The struct declarations would be sufficient.
 
-For /dev/net/tun itself, it doesn't need to. The namespaces come into
-play when you issue the TUNSETIFF ioctl to create/attach a particular
-named device, which uses the network namespace of the process which
-opened /dev/net/tun.
- 
-> > +static int tap_add_ioctl(struct ifreq *ifr, uid_t uid, gid_t gid)
-> > +{
-> > +	int fd = open(TUNDEV, O_RDWR);
-> > +	int ret = -1;
+Do you mean just:
+struct sk_buff;
+struct net_device;
+
+> 
+> > +extern struct proto ieee802154_raw_prot;
+> > +extern struct proto ieee802154_dgram_prot;
+> > +void ieee802154_raw_deliver(struct net_device *dev, struct sk_buff *skb);
+> > +int ieee802154_dgram_deliver(struct net_device *dev, struct sk_buff *skb);
+> > +#endif
 > > +
-> > +#ifndef IFF_TUN_EXCL
-> > +#define IFF_TUN_EXCL	0x8000
+> > +#endif
+
+> > --- /dev/null
+> > +++ b/include/net/ieee802154/const.h
+> [...]
+> > +/* Time related constants, in microseconds.
+> > + *
+> > + * The 1SYM_TIME values are shown how much time is needed to transmit one
+> > + * symbol across media.
+> > + * The callculation is following:
+> > + * For a 2450 MHZ radio freq rate is 62,5 ksym/sec. A byte (8 bit) transfered
+> > + * by low 4 bits in first symbol, high 4 bits in next symbol. So, to transmit
+> > + * 1 byte in 2450Mhz freq 2 symbols are needed. Therefore we have 31,25 kbyte/sec
+> > + * rate. 1 symbol transfered in 16*10^(-6) sec, or 16 microseconds.
+> > + * For a 868Mhz and 915Mhz, 1 symbol is equal to 1 byte. So, we have 20kbyte/sec
+> > + * and 40 kbyte/sec respectively. And 5*10^(-5) sec and 2,5*10(-5) sec,
+> > + * or 50 and 25 microseconds respectively for 868Mhz and 915Mhz freq.
+> > + */
+> 
+> This is so verbose as to be unhelpful.  Since the following constants
+> only refer to symbol time, it should be sufficient to refer to the
+> specified symbol rates.
+
+const.h was inherited from the previous implementation of our stack.
+I somehow missed that it needs a bit of polishing. A great bit.
+
+> > +#endif /* IEEE802154_CONST_H */
+> > diff --git a/include/net/ieee802154/crc.h b/include/net/ieee802154/crc.h
+> > new file mode 100644
+> > index 0000000..5b37218
+> > --- /dev/null
+> > +++ b/include/net/ieee802154/crc.h
+> > @@ -0,0 +1,38 @@
+> > +/*
+> > + * based on crc-itu-t.c.
+> > + * Basically it's CRC-ITU-T but with inverted bit numbering
+> 
+> This can probably be handled by crc_itu_t_bitreversed():
+> 
+> http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/features/all/lib-crcitut-bit-reversed.patch
+> 
+> (That patch hasn't gone anywhere yet as Greg K-H is dragging his heels
+> over actually fixing his crap, but feel free to resubmit it as part of
+> your own patch series.)
+
+Fine, I'll use this patch.
+
+> [...]
+> > --- /dev/null
+> > +++ b/include/net/ieee802154/nl.h
+> [...]
+> > +/* commands */
+> > +/* REQ should be responded with CONF
+> > + * and INDIC with RESP
+> > + */
+> > +enum {
+> > +	__IEEE802154_COMMAND_INVALID,
+> > +
+> > +	IEEE802154_ASSOCIATE_REQ,
+> > +	IEEE802154_ASSOCIATE_CONF,
+> > +	IEEE802154_DISASSOCIATE_REQ,
+> > +	IEEE802154_DISASSOCIATE_CONF,
+> > +	IEEE802154_GET_REQ,
+> > +	IEEE802154_GET_CONF,
+> > +/* 	IEEE802154_GTS_REQ, */
+> > +/* 	IEEE802154_GTS_CONF, */
+> 
+> Why are some of these commented out?  Since they're apparently exposed
+> to user-space you can't insert them later.
+
+Those are not implemented yet. We planned on appending them later to the
+end of this enum. Most probably I'll just uncomment them and add simple
+stubs returning an error instead.
+
+> 
+> [...]
+> > --- /dev/null
+> > +++ b/net/ieee802154/beacon.c
+> [...]
+> > +	/* TODO GTS */
+> > +	gts = 0;
+> > +
+> > +	if (flags & IEEE802154_BEACON_FLAG_GTSPERMIT)
+> > +		gts |= IEEE802154_BEACON_GTS_PERMIT;
+> > +	memcpy(skb_put(skb, sizeof(gts)), &gts, sizeof(gts));
+> > +
+> > +	/* FIXME pending address */
+> > +	addr16_cnt = 0;
+> > +	addr64_cnt = 0;
+> > +#if 0
+> > +	/* need more thinking about this */
+> > +	list_for_each_entry(l, al->list, list) {
+> > +		struct ieee802154_addr *s = container_of(l, struct list_head, list);
+> > +		if (s->addr_type == IEEE802154_ADDR_LONG)
+> > +			addr16_cnt++;
+> > +
+> > +		if (s->addr_type == IEEE802154_ADDR_SHORT)
+> > +			addr64_cnt++;
+> > +	}
 > > +#endif
 > 
-> This shouldn't be here.
-> It should be defined in include/linux/if_tun.h in kernel source
-> and then a kernel sanitized version of if_tun.h should be put
-> in iproute2 source for backwards compatibility.
+> This all looks very unfinished - as do several other sections with
+> FIXME, #if 0, commented-out code...
 
-I'm happy to do that; I was just taking my lead from the handling of
-RTAX_RTTVAR, IP_DF, IPPROTO_SCTP, IPPPROTO_DCCP and IPPROTO_MH in ip/*.c
+As I said, the code is in early stage of development. 
 
->  But why bother it doesn't seem to be defined or used by current kernel??
-
-It's in net-next and is harmless in older kernels. It just means you
-can't accidentally 'create' a device which already existed.
-
-> Would prefer open() next to the test.
-
-OK, moved.
-
-> > +     while (argc > 0) {
-> > +             if (strcmp(*argv, "mode") == 0) {
 > 
-> The argument parsing in ip commands uses matches() rather than strcmp
-> to allow for partial completion.  
+> [...]
+> > +#define IEEE802154_FETCH_U64(skb, var)			\
+> > +	do {						\
+> > +		if (skb->len < IEEE802154_ADDR_LEN)	\
+> 
+> I see what you did there...
 
-OK. I had copied that part from 'ip tunnel', which uses strcmp().
+???
 
-New patch...
+> > +			goto exit_error;		\
+> > +		fetch_skb_u64(skb, &var);		\
+> > +	} while (0)
+> [...]
 
-diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-new file mode 100644
-index 0000000..915ba57
---- /dev/null
-+++ b/include/linux/if_tun.h
-@@ -0,0 +1,88 @@
-+/*
-+ *  Universal TUN/TAP device driver.
-+ *  Copyright (C) 1999-2000 Maxim Krasnyansky <max_mk@yahoo.com>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ *  GNU General Public License for more details.
-+ */
-+
-+#ifndef __IF_TUN_H
-+#define __IF_TUN_H
-+
-+#include <linux/types.h>
-+#include <linux/if_ether.h>
-+
-+/* Read queue size */
-+#define TUN_READQ_SIZE	500
-+
-+/* TUN device flags */
-+#define TUN_TUN_DEV 	0x0001	
-+#define TUN_TAP_DEV	0x0002
-+#define TUN_TYPE_MASK   0x000f
-+
-+#define TUN_FASYNC	0x0010
-+#define TUN_NOCHECKSUM	0x0020
-+#define TUN_NO_PI	0x0040
-+#define TUN_ONE_QUEUE	0x0080
-+#define TUN_PERSIST 	0x0100	
-+#define TUN_VNET_HDR 	0x0200
-+
-+/* Ioctl defines */
-+#define TUNSETNOCSUM  _IOW('T', 200, int) 
-+#define TUNSETDEBUG   _IOW('T', 201, int) 
-+#define TUNSETIFF     _IOW('T', 202, int) 
-+#define TUNSETPERSIST _IOW('T', 203, int) 
-+#define TUNSETOWNER   _IOW('T', 204, int)
-+#define TUNSETLINK    _IOW('T', 205, int)
-+#define TUNSETGROUP   _IOW('T', 206, int)
-+#define TUNGETFEATURES _IOR('T', 207, unsigned int)
-+#define TUNSETOFFLOAD  _IOW('T', 208, unsigned int)
-+#define TUNSETTXFILTER _IOW('T', 209, unsigned int)
-+#define TUNGETIFF      _IOR('T', 210, unsigned int)
-+#define TUNGETSNDBUF   _IOR('T', 211, int)
-+#define TUNSETSNDBUF   _IOW('T', 212, int)
-+
-+/* TUNSETIFF ifr flags */
-+#define IFF_TUN		0x0001
-+#define IFF_TAP		0x0002
-+#define IFF_NO_PI	0x1000
-+#define IFF_ONE_QUEUE	0x2000
-+#define IFF_VNET_HDR	0x4000
-+#define IFF_TUN_EXCL	0x8000
-+
-+/* Features for GSO (TUNSETOFFLOAD). */
-+#define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
-+#define TUN_F_TSO4	0x02	/* I can handle TSO for IPv4 packets */
-+#define TUN_F_TSO6	0x04	/* I can handle TSO for IPv6 packets */
-+#define TUN_F_TSO_ECN	0x08	/* I can handle TSO with ECN bits. */
-+
-+/* Protocol info prepended to the packets (when IFF_NO_PI is not set) */
-+#define TUN_PKT_STRIP	0x0001
-+struct tun_pi {
-+	__u16  flags;
-+	__be16 proto;
-+};
-+
-+/*
-+ * Filter spec (used for SETXXFILTER ioctls)
-+ * This stuff is applicable only to the TAP (Ethernet) devices.
-+ * If the count is zero the filter is disabled and the driver accepts
-+ * all packets (promisc mode).
-+ * If the filter is enabled in order to accept broadcast packets
-+ * broadcast addr must be explicitly included in the addr list.
-+ */
-+#define TUN_FLT_ALLMULTI 0x0001 /* Accept all multicast packets */
-+struct tun_filter {
-+	__u16  flags; /* TUN_FLT_ flags see above */
-+	__u16  count; /* Number of addresses */
-+	__u8   addr[0][ETH_ALEN];
-+};
-+
-+#endif /* __IF_TUN_H */
-diff --git a/ip/Makefile b/ip/Makefile
-index 3c185cf..fd16fe9 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -1,6 +1,6 @@
- IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o \
-     rtm_map.o iptunnel.o ip6tunnel.o tunnel.o ipneigh.o ipntable.o iplink.o \
--    ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o \
-+    ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o iptuntap.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
-     iplink_vlan.o link_veth.o link_gre.o iplink_can.o
- 
-diff --git a/ip/ip.c b/ip/ip.c
-index 2bd54b2..d846a76 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -47,7 +47,7 @@ static void usage(void)
- "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
- "       ip [ -force ] -batch filename\n"
- "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
--"                   tunnel | maddr | mroute | monitor | xfrm }\n"
-+"                   tunnel | tuntap | maddr | mroute | monitor | xfrm }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | link } |\n"
- "                    -o[neline] | -t[imestamp] | -b[atch] [filename] }\n");
-@@ -75,6 +75,8 @@ static const struct cmd {
- 	{ "link",	do_iplink },
- 	{ "tunnel",	do_iptunnel },
- 	{ "tunl",	do_iptunnel },
-+	{ "tuntap",	do_iptuntap },
-+	{ "tap",	do_iptuntap },
- 	{ "monitor",	do_ipmonitor },
- 	{ "xfrm",	do_xfrm },
- 	{ "mroute",	do_multiroute },
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 273065f..c857667 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -32,6 +32,7 @@ extern int do_ipneigh(int argc, char **argv);
- extern int do_ipntable(int argc, char **argv);
- extern int do_iptunnel(int argc, char **argv);
- extern int do_ip6tunnel(int argc, char **argv);
-+extern int do_iptuntap(int argc, char **argv);
- extern int do_iplink(int argc, char **argv);
- extern int do_ipmonitor(int argc, char **argv);
- extern int do_multiaddr(int argc, char **argv);
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-new file mode 100644
-index 0000000..f7f64bc
---- /dev/null
-+++ b/ip/iptuntap.c
-@@ -0,0 +1,321 @@
-+/*
-+ * iptunnel.c	       "ip tuntap"
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	David Woodhouse <David.Woodhouse@intel.com>
-+ *
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <arpa/inet.h>
-+#include <sys/ioctl.h>
-+#include <linux/if.h>
-+#include <linux/if_tun.h>
-+#include <pwd.h>
-+#include <grp.h>
-+#include <fcntl.h>
-+#include <dirent.h>
-+#include <errno.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+#define TUNDEV "/dev/net/tun"
-+
-+static void usage(void) __attribute__((noreturn));
-+
-+static void usage(void)
-+{
-+	fprintf(stderr, "Usage: ip tuntap { add | del } [ dev PHYS_DEV ] \n");
-+	fprintf(stderr, "          [ mode { tun | tap } ] [ user USER ] [ group GROUP ]\n");
-+	fprintf(stderr, "          [ one_queue ] [ pi ] [ vnet_hdr ]\n");
-+	fprintf(stderr, "\n");
-+	fprintf(stderr, "Where: USER  := { STRING | NUMBER }\n");
-+	fprintf(stderr, "       GROUP := { STRING | NUMBER }\n");
-+	exit(-1);
-+}
-+
-+static int tap_add_ioctl(struct ifreq *ifr, uid_t uid, gid_t gid)
-+{
-+	int fd = open(TUNDEV, O_RDWR);
-+	int ret = -1;
-+
-+	ifr->ifr_flags |= IFF_TUN_EXCL;
-+
-+	fd = open(TUNDEV, O_RDWR);
-+	if (fd < 0) {
-+		perror("open");
-+		return -1;
-+	}
-+	if (ioctl(fd, TUNSETIFF, ifr)) {
-+		perror("ioctl(TUNSETIFF)");
-+		goto out;
-+	}
-+	if (uid != -1 && ioctl(fd, TUNSETOWNER, uid)) {
-+		perror("ioctl(TUNSETOWNER)");
-+		goto out;
-+	}
-+	if (gid != -1 && ioctl(fd, TUNSETGROUP, gid)) {
-+		perror("ioctl(TUNSETGROUP)");
-+		goto out;
-+	}
-+	if (ioctl(fd, TUNSETPERSIST, 1)) {
-+		perror("ioctl(TUNSETPERSIST)");
-+		goto out;
-+	}
-+	ret = 0;
-+ out:
-+	close(fd);
-+	return ret;
-+}
-+
-+static int tap_del_ioctl(struct ifreq *ifr)
-+{
-+	int fd = open(TUNDEV, O_RDWR);
-+	int ret = -1;
-+
-+	if (fd < 0) {
-+		perror("open");
-+		return -1;
-+	}
-+	if (ioctl(fd, TUNSETIFF, ifr)) {
-+		perror("ioctl(TUNSETIFF)");
-+		goto out;
-+	}
-+	if (ioctl(fd, TUNSETPERSIST, 0)) {
-+		perror("ioctl(TUNSETPERSIST)");
-+		goto out;
-+	}
-+	ret = 0;
-+ out:
-+	close(fd);
-+	return ret;
-+	
-+}
-+static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_t *gid)
-+{
-+	int count = 0;
-+
-+	memset(ifr, 0, sizeof(*ifr));
-+
-+	ifr->ifr_flags |= IFF_NO_PI;
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "mode") == 0) {
-+			NEXT_ARG();
-+			if (matches(*argv, "tun") == 0) {
-+				if (ifr->ifr_flags & IFF_TAP) {
-+					fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
-+					exit(-1);
-+				}
-+				ifr->ifr_flags |= IFF_TUN;
-+			} else if (matches(*argv, "tap") == 0) {
-+				if (ifr->ifr_flags & IFF_TUN) {
-+					fprintf(stderr,"You managed to ask for more than one tunnel mode.\n");
-+					exit(-1);
-+				}
-+				ifr->ifr_flags |= IFF_TAP;
-+			} else {
-+				fprintf(stderr,"Cannot guess tunnel mode.\n");
-+				exit(-1);
-+			}
-+		} else if (uid && matches(*argv, "user") == 0) {
-+			char *end;
-+			unsigned long user;
-+
-+			NEXT_ARG();
-+			if (**argv && ((user = strtol(*argv, &end, 10)), !*end))
-+				*uid = user;
-+			else {
-+				struct passwd *pw = getpwnam(*argv);
-+				if (!pw) {
-+					fprintf(stderr, "invalid user \"%s\"\n", *argv);
-+					exit(-1);
-+				}
-+				*uid = pw->pw_uid;
-+			}
-+		} else if (gid && matches(*argv, "group") == 0) {
-+			char *end;
-+			unsigned long group;
-+
-+			NEXT_ARG();
-+			
-+			if (**argv && ((group = strtol(*argv, &end, 10)), !*end))
-+				*gid = group;
-+			else {
-+				struct group *gr = getgrnam(*argv);
-+				if (!gr) {
-+					fprintf(stderr, "invalid group \"%s\"\n", *argv);
-+					exit(-1);
-+				}
-+				*gid = gr->gr_gid;
-+			}
-+		} else if (matches(*argv, "pi") == 0) {
-+			ifr->ifr_flags &= ~IFF_NO_PI;
-+		} else if (matches(*argv, "one_queue") == 0) {
-+			ifr->ifr_flags |= IFF_ONE_QUEUE;
-+		} else if (matches(*argv, "vnet_hdr") == 0) {
-+			ifr->ifr_flags |= IFF_VNET_HDR;
-+		} else if (matches(*argv, "dev") == 0) {
-+			NEXT_ARG();
-+			strncpy(ifr->ifr_name, *argv, IFNAMSIZ-1);
-+		} else {
-+			if (matches(*argv, "name") == 0) {
-+				NEXT_ARG();
-+			} else if (matches(*argv, "help") == 0)
-+				usage();
-+			if (ifr->ifr_name[0])
-+				duparg2("name", *argv);
-+			strncpy(ifr->ifr_name, *argv, IFNAMSIZ);
-+		}
-+		count++;
-+		argc--; argv++;
-+	}
-+
-+	return 0;
-+}
-+
-+
-+static int do_add(int argc, char **argv)
-+{
-+	struct ifreq ifr;
-+	uid_t uid = -1;
-+	gid_t gid = -1;
-+
-+	if (parse_args(argc, argv, &ifr, &uid, &gid) < 0)
-+		return -1;
-+
-+	if (!(ifr.ifr_flags & TUN_TYPE_MASK)) {
-+		fprintf(stderr, "You failed to specify a tunnel mode\n");
-+		return -1;
-+	}
-+	return tap_add_ioctl(&ifr, uid, gid);
-+}
-+
-+static int do_del(int argc, char **argv)
-+{
-+	struct ifreq ifr;
-+
-+	if (parse_args(argc, argv, &ifr, NULL, NULL) < 0)
-+		return -1;
-+
-+	return tap_del_ioctl(&ifr);
-+}
-+
-+static int read_prop(char *dev, char *prop, long *value)
-+{
-+	char fname[IFNAMSIZ+25], buf[80], *endp;
-+	ssize_t len;
-+	int fd;
-+	long result;
-+
-+	sprintf(fname, "/sys/class/net/%s/%s", dev, prop);
-+	fd = open(fname, O_RDONLY);
-+	if (fd < 0) {
-+		if (strcmp(prop, "tun_flags"))
-+			fprintf(stderr, "open %s: %s\n", fname,
-+				strerror(errno));
-+		return -1;
-+	}
-+	len = read(fd, buf, sizeof(buf)-1);
-+	close(fd);
-+	if (len < 0) {
-+		fprintf(stderr, "read %s: %s", fname, strerror(errno));
-+		return -1;
-+	}
-+
-+	buf[len] = 0;
-+	result = strtol(buf, &endp, 0);
-+	if (*endp != '\n') {
-+		fprintf(stderr, "Failed to parse %s\n", fname);
-+		return -1;
-+	}
-+	*value = result;
-+	return 0;
-+}
-+
-+static void print_flags(long flags)
-+{
-+	if (flags & IFF_TUN)
-+		printf(" tun");
-+
-+	if (flags & IFF_TAP)
-+		printf(" tap");
-+
-+	if (!(flags & IFF_NO_PI))
-+		printf(" pi");
-+
-+	if (flags & IFF_ONE_QUEUE)
-+		printf(" one_queue");
-+
-+	if (flags & IFF_VNET_HDR)
-+		printf(" vnet_hdr");
-+
-+	flags &= ~(IFF_TUN|IFF_TAP|IFF_NO_PI|IFF_ONE_QUEUE|IFF_VNET_HDR);
-+	if (flags)
-+		printf(" UNKNOWN_FLAGS:%lx", flags);
-+}
-+
-+static int do_show(int argc, char **argv)
-+{
-+	DIR *dir;
-+	struct dirent *d;
-+	long flags, owner = -1, group = -1;
-+
-+	dir = opendir("/sys/class/net");
-+	if (!dir) {
-+		perror("opendir");
-+		return -1;
-+	}
-+	while ((d = readdir(dir))) {
-+		if (d->d_name[0] == '.' &&
-+		    (d->d_name[1] == 0 || d->d_name[1] == '.'))
-+			continue;
-+
-+		if (read_prop(d->d_name, "tun_flags", &flags))
-+			continue;
-+
-+		read_prop(d->d_name, "owner", &owner);
-+		read_prop(d->d_name, "group", &group);
-+		
-+		printf("%s:", d->d_name);
-+		print_flags(flags);
-+		if (owner != -1)
-+			printf(" user %ld", owner);
-+		if (group != -1)
-+			printf(" group %ld", group);
-+		printf("\n");
-+	}
-+	return 0;
-+}
-+
-+int do_iptuntap(int argc, char **argv)
-+{
-+	if (argc > 0) {
-+		if (matches(*argv, "add") == 0)
-+			return do_add(argc-1, argv+1);
-+		if (matches(*argv, "del") == 0)
-+			return do_del(argc-1, argv+1);
-+		if (matches(*argv, "show") == 0 ||
-+                    matches(*argv, "lst") == 0 ||
-+                    matches(*argv, "list") == 0)
-+                        return do_show(argc-1, argv+1);
-+		if (matches(*argv, "help") == 0)
-+			usage();
-+	} else
-+		return do_show(0, NULL);
-+
-+	fprintf(stderr, "Command \"%s\" is unknown, try \"ip tuntap help\".\n",
-+		*argv);
-+	exit(-1);
-+}
 
 -- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+With best wishes
+Dmitry
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
