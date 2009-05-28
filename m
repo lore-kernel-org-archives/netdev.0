@@ -1,57 +1,46 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: Re: [patch 2.6.31 08/10] wimax: Add netlink interface to get device state
-Date: Thu, 28 May 2009 09:16:21 -0700
-Message-ID: <200905280916.23022.inaky@linux.intel.com>
-References: <cover.1243472509.git.inaky@linux.intel.com> <4d58364611c66a20ea1e28223b8f638fd2e35981.1243472510.git.inaky@linux.intel.com> <20090527182157.48a3f4b0@nehalam>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter 00/04: netfilter fixes
+Date: Thu, 28 May 2009 18:34:21 +0200
+Message-ID: <4A1EBD0D.7090303@trash.net>
+References: <20090527143521.4649.73610.sendpatchset@x2.localnet> <20090527.155235.79198381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-To: wimax@linuxwimax.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32708 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751374AbZE1QRW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 May 2009 12:17:22 -0400
-In-Reply-To: <20090527182157.48a3f4b0@nehalam>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:47551 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763423AbZE1QeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 12:34:24 -0400
+In-Reply-To: <20090527.155235.79198381.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 27 May 2009, Stephen Hemminger wrote:
-> On Wed, 27 May 2009 18:05:13 -0700
->
-> Inaky Perez-Gonzalez <inaky@linux.intel.com> wrote:
-> > From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-> >
-> > wimax connection manager / daemon has to know what is current
-> > state of the device. Previously it was only possible to get
-> > notification whet state has changed.
-> >
-> > ...
-> > ...
-> > > > diff --git a/include/linux/wimax.h b/include/linux/wimax.h 
-> > index c89de7f..c750f42 100644
-> > --- a/include/linux/wimax.h
-> > +++ b/include/linux/wimax.h
-> > @@ -77,6 +77,7 @@ enum {
-> >  	WIMAX_GNL_OP_MSG_TO_USER,	/* Kernel to user message */
-> >  	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
-> >  	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
-> > +	WIMAX_GNL_OP_STATE_GET,		/* Request for current state */
-> >  	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
-> >  };
->
-> Won't adding new element in middle of list break existing ABI?
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 27 May 2009 16:35:24 +0200 (MEST)
+> 
+>> following are four netfilter fixes for 2.6.30, containing:
+>>
+>> - a patch from Jozsef to fix accepting invalid RST packets in TCP conntrack
+>> - a patch from Pablo to properly propagate DCCP conntrack state changes
+>> - a patch from Jesper to fix an invalid return value in a xt_hashlimit
+>>   seq_file function
+>> - another patch from Pablo to fix undersized skb allocation in nfnetlink_log
+>>
+>> Please apply or pull from:
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+> 
+> Pulled, thanks Patrick.
+> 
+> In the future, can you please explicitly specify the branch name, even
+> if it is just 'master', in your GIT URLs for me to pull from?
+> 
+> GIT requires that it always be specified, therefore if you put it
+> there at the end of the URL I can just cut and paste it into my
+> command line.
 
-Actually that's an extremely good point that I missed completely. 
-Thanks for catching it.
+Sure, will do :)
 
-David, I'll submit an extra commit for correcting that point.
-
-
--- 
-Inaky
