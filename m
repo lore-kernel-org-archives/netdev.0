@@ -1,37 +1,57 @@
 From: Haiying Wang <Haiying.Wang@freescale.com>
-Subject: [PATCH 1/4] net/phy/marvell: update m88e1111 support for SGMII mode
-Date: Thu, 28 May 2009 09:20:27 -0400
-Message-ID: <12435168302841-git-send-email-Haiying.Wang@freescale.com>
+Subject: [PATCH 2/4] fsl_pq_mido: Set the first UCC as the mii management interface master
+Date: Thu, 28 May 2009 09:20:28 -0400
+Message-ID: <1243516833328-git-send-email-Haiying.Wang@freescale.com>
+References: <12435168302841-git-send-email-Haiying.Wang@freescale.com>
 Cc: Haiying Wang <Haiying.Wang@freescale.com>
 To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
 	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:48109 "EHLO
+Received: from az33egw02.freescale.net ([192.88.158.103]:48107 "EHLO
 	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755175AbZE1NUH (ORCPT
+	with ESMTP id S1754675AbZE1NUH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 09:20:07 -0400
+In-Reply-To: <12435168302841-git-send-email-Haiying.Wang@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Disable fiber/copper auto selection for Marvell m88e1111 SGMII support.
+Current code makes the UCC whose register range includes the current mdio
+register to be the MII managemnt interface master of the QE. If there is more
+than one mdio bus for QE, the UCC of the last mdio bus will be the MII
+management interface master which will make the primary mdio bus working
+unproperly, e.g. can notget the right clock. Normally the primary mdio bus is
+the first UEC's mdio bus.
+This patch allows the first UCC to be the MII management interface master of the
+multiple UCC mdio buses.
 
 Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
 ---
- drivers/net/phy/marvell.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/fsl_pq_mdio.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 7a3ec9d..dd6f54d 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -243,6 +243,7 @@ static int m88e1111_config_init(struct phy_device *phydev)
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
+index aa1eb88..fd317a0 100644
+--- a/drivers/net/fsl_pq_mdio.c
++++ b/drivers/net/fsl_pq_mdio.c
+@@ -338,13 +338,17 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
+ 			of_device_is_compatible(np, "ucc_geth_phy")) {
+ #ifdef CONFIG_UCC_GETH
+ 		u32 id;
++		static u32 mii_mng_master;
  
- 		temp &= ~(MII_M1111_HWCFG_MODE_MASK);
- 		temp |= MII_M1111_HWCFG_MODE_SGMII_NO_CLK;
-+		temp |= MII_M1111_HWCFG_FIBER_COPPER_AUTO;
+ 		tbipa = &regs->utbipar;
  
- 		err = phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
- 		if (err < 0)
+ 		if ((err = get_ucc_id_for_range(addr, addr + size, &id)))
+ 			goto err_free_irqs;
+ 
+-		ucc_set_qe_mux_mii_mng(id - 1);
++		if (!mii_mng_master) {
++			mii_mng_master = id;
++			ucc_set_qe_mux_mii_mng(id - 1);
++		}
+ #else
+ 		err = -ENODEV;
+ 		goto err_free_irqs;
 -- 
 1.6.0.2
 
