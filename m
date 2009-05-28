@@ -1,110 +1,152 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.31 09/10] wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
-Date: Wed, 27 May 2009 18:05:14 -0700
-Message-ID: <5b274b76ee31802e4376f44bc96a4b3bc9f8b918.1243472510.git.inaky@linux.intel.com>
+Subject: [patch 2.6.31 04/10] wimax/i2400m: factor out 'state report's TLV handling to a function
+Date: Wed, 27 May 2009 18:05:09 -0700
+Message-ID: <ba98dde3cde9f5910789b32852c692fc8cd0a4aa.1243472510.git.inaky@linux.intel.com>
 References: <cover.1243472509.git.inaky@linux.intel.com>
  <e9de4b9426eeeddf56110425cfd88e43828e7146.1243472510.git.inaky@linux.intel.com>
  <22d4458f609ba31f1382e25844125e421dcd4163.1243472510.git.inaky@linux.intel.com>
  <05962df1398ad316feb1e20160b7502731bebc97.1243472510.git.inaky@linux.intel.com>
- <ba98dde3cde9f5910789b32852c692fc8cd0a4aa.1243472510.git.inaky@linux.intel.com>
- <74bd64a25b220d21e50c7c9a85f26ff6617b3728.1243472510.git.inaky@linux.intel.com>
- <f3aea79091a4fc501235f2e743cc073ebd962934.1243472510.git.inaky@linux.intel.com>
- <d791bac79c5e9840a3e5317a4bb79acafde911f9.1243472510.git.inaky@linux.intel.com>
- <4d58364611c66a20ea1e28223b8f638fd2e35981.1243472510.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.21]:59892 "EHLO
 	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757603AbZE1BFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 21:05:49 -0400
-In-Reply-To: <4d58364611c66a20ea1e28223b8f638fd2e35981.1243472510.git.inaky@linux.intel.com>
+	with ESMTP id S1755396AbZE1BFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 May 2009 21:05:48 -0400
+In-Reply-To: <05962df1398ad316feb1e20160b7502731bebc97.1243472510.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1243472509.git.inaky@linux.intel.com>
 References: <cover.1243472509.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the i2400m is connected to a network, the host interface (USB)
-cannot be suspended. For that to happen, the device has to have
-negotiated with the basestation to put the link on IDLE state.
-
-If the host tries to put the device in standby while it is connected
-but not idle, the device resets, as the driver should not do that.
-
-To avoid triggering that, when the USB susbsytem requires the driver
-to autosuspend the device, the driver checks if the device is not yet
-idle. If it is not, the request is requested (will be retried again
-later on after the autosuspend timeout). At some point the device will
-enter idle and the request will succeed (unless of course, there is
-network traffic, but at that point, there is no idle neither in the
-link or the host interface).
+i2400m_report_state_hook() is going to get messier as we add handling
+code.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/usb.c |   35 ++++++++++++++++++++++++++++++-----
- 1 files changed, 30 insertions(+), 5 deletions(-)
+ drivers/net/wimax/i2400m/control.c |   89 ++++++++++++++++++++----------------
+ 1 files changed, 50 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
-index ca4151a..1785132 100644
---- a/drivers/net/wimax/i2400m/usb.c
-+++ b/drivers/net/wimax/i2400m/usb.c
-@@ -505,27 +505,52 @@ int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
- #ifdef CONFIG_PM
- 	struct usb_device *usb_dev = i2400mu->usb_dev;
- #endif
-+	unsigned is_autosuspend = 0;
- 	struct i2400m *i2400m = &i2400mu->i2400m;
+diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
+index 0f58418..b42e347 100644
+--- a/drivers/net/wimax/i2400m/control.c
++++ b/drivers/net/wimax/i2400m/control.c
+@@ -400,7 +400,53 @@ out:
  
-+#ifdef CONFIG_PM
-+	if (usb_dev->auto_pm > 0)
-+		is_autosuspend = 1;
-+#endif
+ 
+ /*
+- * Parse a 'state report' and extract carrier on/off information
++ * Process a TLV from a 'state report'
++ *
++ * @i2400m: device descriptor
++ * @tlv: pointer to the TLV header; it has been already validated for
++ *     consistent size.
++ * @tag: for error messages
++ *
++ * Act on the TLVs from a 'state report'.
++ */
++static
++void i2400m_report_state_parse_tlv(struct i2400m *i2400m,
++				   const struct i2400m_tlv_hdr *tlv,
++				   const char *tag)
++{
++	struct device *dev = i2400m_dev(i2400m);
++	const struct i2400m_tlv_media_status *ms;
++	const struct i2400m_tlv_system_state *ss;
++	const struct i2400m_tlv_rf_switches_status *rfss;
 +
- 	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
- 	if (i2400m->updown == 0)
- 		goto no_firmware;
--	d_printf(1, dev, "fw up, requesting standby\n");
-+	if (i2400m->state == I2400M_SS_DATA_PATH_CONNECTED && is_autosuspend) {
-+		/* ugh -- the device is connected and this suspend
-+		 * request is an autosuspend one (not a system standby
-+		 * / hibernate).
-+		 *
-+		 * The only way the device can go to standby is if the
-+		 * link with the base station is in IDLE mode; that
-+		 * were the case, we'd be in status
-+		 * I2400M_SS_CONNECTED_IDLE. But we are not.
-+		 *
-+		 * If we *tell* him to go power save now, it'll reset
-+		 * as a precautionary measure, so if this is an
-+		 * autosuspend thing, say no and it'll come back
-+		 * later, when the link is IDLE
-+		 */
-+		result = -EBADF;
-+		d_printf(1, dev, "fw up, link up, not-idle, autosuspend: "
-+			 "not entering powersave\n");
-+		goto error_not_now;
++	if (0 == i2400m_tlv_match(tlv, I2400M_TLV_SYSTEM_STATE, sizeof(*ss))) {
++		ss = container_of(tlv, typeof(*ss), hdr);
++		d_printf(2, dev, "%s: system state TLV "
++			 "found (0x%04x), state 0x%08x\n",
++			 tag, I2400M_TLV_SYSTEM_STATE,
++			 le32_to_cpu(ss->state));
++		i2400m_report_tlv_system_state(i2400m, ss);
 +	}
-+	d_printf(1, dev, "fw up: entering powersave\n");
- 	atomic_dec(&i2400mu->do_autopm);
- 	result = i2400m_cmd_enter_powersave(i2400m);
- 	atomic_inc(&i2400mu->do_autopm);
--#ifdef CONFIG_PM
--	if (result < 0 && usb_dev->auto_pm == 0) {
-+	if (result < 0 && !is_autosuspend) {
- 		/* System suspend, can't fail */
- 		dev_err(dev, "failed to suspend, will reset on resume\n");
- 		result = 0;
- 	}
--#endif
- 	if (result < 0)
- 		goto error_enter_powersave;
- 	i2400mu_notification_release(i2400mu);
--	d_printf(1, dev, "fw up, got standby\n");
-+	d_printf(1, dev, "powersave requested\n");
- error_enter_powersave:
-+error_not_now:
- no_firmware:
- 	d_fnend(3, dev, "(iface %p pm_msg %u) = %d\n",
- 		iface, pm_msg.event, result);
++	if (0 == i2400m_tlv_match(tlv, I2400M_TLV_RF_STATUS, sizeof(*rfss))) {
++		rfss = container_of(tlv, typeof(*rfss), hdr);
++		d_printf(2, dev, "%s: RF status TLV "
++			 "found (0x%04x), sw 0x%02x hw 0x%02x\n",
++			 tag, I2400M_TLV_RF_STATUS,
++			 le32_to_cpu(rfss->sw_rf_switch),
++			 le32_to_cpu(rfss->hw_rf_switch));
++		i2400m_report_tlv_rf_switches_status(i2400m, rfss);
++	}
++	if (0 == i2400m_tlv_match(tlv, I2400M_TLV_MEDIA_STATUS, sizeof(*ms))) {
++		ms = container_of(tlv, typeof(*ms), hdr);
++		d_printf(2, dev, "%s: Media Status TLV: %u\n",
++			 tag, le32_to_cpu(ms->media_status));
++		i2400m_report_tlv_media_status(i2400m, ms);
++	}
++}
++
++
++/*
++ * Parse a 'state report' and extract information
+  *
+  * @i2400m: device descriptor
+  * @l3l4_hdr: pointer to message; it has been already validated for
+@@ -409,13 +455,7 @@ out:
+  *        declaration is assumed to be congruent with @size (as in
+  *        sizeof(*l3l4_hdr) + l3l4_hdr->length == size)
+  *
+- * Extract from the report state the system state TLV and infer from
+- * there if we have a carrier or not. Update our local state and tell
+- * netdev.
+- *
+- * When setting the carrier, it's fine to set OFF twice (for example),
+- * as netif_carrier_off() will not generate two OFF events (just on
+- * the transitions).
++ * Walk over the TLVs in a report state and act on them.
+  */
+ static
+ void i2400m_report_state_hook(struct i2400m *i2400m,
+@@ -424,9 +464,6 @@ void i2400m_report_state_hook(struct i2400m *i2400m,
+ {
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	const struct i2400m_tlv_hdr *tlv;
+-	const struct i2400m_tlv_system_state *ss;
+-	const struct i2400m_tlv_rf_switches_status *rfss;
+-	const struct i2400m_tlv_media_status *ms;
+ 	size_t tlv_size = le16_to_cpu(l3l4_hdr->length);
+ 
+ 	d_fnstart(4, dev, "(i2400m %p, l3l4_hdr %p, size %zu, %s)\n",
+@@ -434,34 +471,8 @@ void i2400m_report_state_hook(struct i2400m *i2400m,
+ 	tlv = NULL;
+ 
+ 	while ((tlv = i2400m_tlv_buffer_walk(i2400m, &l3l4_hdr->pl,
+-					     tlv_size, tlv))) {
+-		if (0 == i2400m_tlv_match(tlv, I2400M_TLV_SYSTEM_STATE,
+-					  sizeof(*ss))) {
+-			ss = container_of(tlv, typeof(*ss), hdr);
+-			d_printf(2, dev, "%s: system state TLV "
+-				 "found (0x%04x), state 0x%08x\n",
+-				 tag, I2400M_TLV_SYSTEM_STATE,
+-				 le32_to_cpu(ss->state));
+-			i2400m_report_tlv_system_state(i2400m, ss);
+-		}
+-		if (0 == i2400m_tlv_match(tlv, I2400M_TLV_RF_STATUS,
+-					  sizeof(*rfss))) {
+-			rfss = container_of(tlv, typeof(*rfss), hdr);
+-			d_printf(2, dev, "%s: RF status TLV "
+-				 "found (0x%04x), sw 0x%02x hw 0x%02x\n",
+-				 tag, I2400M_TLV_RF_STATUS,
+-				 le32_to_cpu(rfss->sw_rf_switch),
+-				 le32_to_cpu(rfss->hw_rf_switch));
+-			i2400m_report_tlv_rf_switches_status(i2400m, rfss);
+-		}
+-		if (0 == i2400m_tlv_match(tlv, I2400M_TLV_MEDIA_STATUS,
+-					  sizeof(*ms))) {
+-			ms = container_of(tlv, typeof(*ms), hdr);
+-			d_printf(2, dev, "%s: Media Status TLV: %u\n",
+-				 tag, le32_to_cpu(ms->media_status));
+-			i2400m_report_tlv_media_status(i2400m, ms);
+-		}
+-	}
++					     tlv_size, tlv)))
++		i2400m_report_state_parse_tlv(i2400m, tlv, tag);
+ 	d_fnend(4, dev, "(i2400m %p, l3l4_hdr %p, size %zu, %s) = void\n",
+ 		i2400m, l3l4_hdr, size, tag);
+ }
 -- 
 1.6.2.3
 
