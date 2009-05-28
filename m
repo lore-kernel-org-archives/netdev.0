@@ -1,49 +1,57 @@
-From: Benjamin LaHaise <ben.lahaise@neterion.com>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Thu, 28 May 2009 11:21:43 -0400
-Message-ID: <20090528152143.GA4501@neterion.com>
-References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: Re: [patch 2.6.31 08/10] wimax: Add netlink interface to get device state
+Date: Thu, 28 May 2009 09:16:21 -0700
+Message-ID: <200905280916.23022.inaky@linux.intel.com>
+References: <cover.1243472509.git.inaky@linux.intel.com> <4d58364611c66a20ea1e28223b8f638fd2e35981.1243472510.git.inaky@linux.intel.com> <20090527182157.48a3f4b0@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+To: wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:45970 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756839AbZE1PeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 11:34:08 -0400
+Received: from mga09.intel.com ([134.134.136.24]:32708 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751374AbZE1QRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2009 12:17:22 -0400
+In-Reply-To: <20090527182157.48a3f4b0@nehalam>
 Content-Disposition: inline
-In-Reply-To: <20090527230858.GA24278@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2009 at 09:08:58AM +1000, Herbert Xu wrote:
-> On Wed, May 27, 2009 at 01:52:23PM -0400, Benjamin LaHaise wrote:
-> > 
-> > A few questions for you: I've been looking a bit into potential GRO 
-> > optimisations that are possible with the vxge driver.  At least from my 
-> > existing testing on a P4 Xeon, it seems that doing packet rx via 
-> > napi_gro_receive() was a bit slower.  I'll retest with these changes 
-> 
-> Slower compared to LRO or GRO off?
+On Wednesday 27 May 2009, Stephen Hemminger wrote:
+> On Wed, 27 May 2009 18:05:13 -0700
+>
+> Inaky Perez-Gonzalez <inaky@linux.intel.com> wrote:
+> > From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> >
+> > wimax connection manager / daemon has to know what is current
+> > state of the device. Previously it was only possible to get
+> > notification whet state has changed.
+> >
+> > ...
+> > ...
+> > > > diff --git a/include/linux/wimax.h b/include/linux/wimax.h 
+> > index c89de7f..c750f42 100644
+> > --- a/include/linux/wimax.h
+> > +++ b/include/linux/wimax.h
+> > @@ -77,6 +77,7 @@ enum {
+> >  	WIMAX_GNL_OP_MSG_TO_USER,	/* Kernel to user message */
+> >  	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
+> >  	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
+> > +	WIMAX_GNL_OP_STATE_GET,		/* Request for current state */
+> >  	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
+> >  };
+>
+> Won't adding new element in middle of list break existing ABI?
 
-With GRO off I'm getting ~4.7-5Gbps to the receiver which is CPU bound with 
-netperf.  With GRO on, that drops to ~3.9-4.3Gbps.  The only real difference 
-is the entry point into the net code being napi_gro_receive() vs 
-netif_receive_skb().
+Actually that's an extremely good point that I missed completely. 
+Thanks for catching it.
 
-> > of yours.  What platform have your tests been run on?  Also, do you have 
-> > any notes/ideas on how best to make use of the GRO functionality within 
-> > the kernel?  I'm hoping it's possible to make use of a few of the hardware 
-> > hints to improve fast path performance.
-> 
-> What sort of hints do you have?
+David, I'll submit an extra commit for correcting that point.
 
-We have a few bits in the hardware descriptor which indicate if the packet 
-is TCP or UDP, IPv4 or IPv6, as well as whether TCP packets are fast path 
-eligible.  The hardware can also split up the headers to place the ethernet 
-MAC, IP and payload in separate buffers.  I plan to run a few tests to see 
-if dispatching directly from the driver into the TCP fast path makes much 
-difference.
 
-		-ben
+-- 
+Inaky
