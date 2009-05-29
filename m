@@ -1,36 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: unset IFF_XMIT_DST_RELEASE in ipgre_tunnel_setup()
-Date: Fri, 29 May 2009 10:35:10 +0200
-Message-ID: <4A1F9E3E.5020409@gmail.com>
-References: <4A1EF7AE.2040404@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 2/10]: wavelan: Remove bogus debugging on skb->next being
+ non-NULL.
+Date: Fri, 29 May 2009 01:40:02 -0700 (PDT)
+Message-ID: <20090529.014002.66716606.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:33238 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755731AbZE2IfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:35:18 -0400
-In-Reply-To: <4A1EF7AE.2040404@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56916
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757282AbZE2IkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:40:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipgre_tunnel_xmit() might need skb->dst, so tell dev_hard_start_xmit()
-to no release it.
+From: David Miller <davem@davemloft.net>
+Fcc: +backup
+X-Mailer: Mew version 6.2.51 on Emacs 22.1 / Mule 5.0 (SAKAKI)
+----
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+This eliminates explicit references to the SKB list handling
+implementation.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index e62510d..77436e2 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1238,6 +1238,7 @@ static void ipgre_tunnel_setup(struct net_device *dev)
- 	dev->iflink		= 0;
- 	dev->addr_len		= 4;
- 	dev->features		|= NETIF_F_NETNS_LOCAL;
-+	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
- }
+ drivers/net/wireless/wavelan.c    |    4 ----
+ drivers/net/wireless/wavelan_cs.c |    5 -----
+ 2 files changed, 0 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
+index 3ab3eb9..25d27b6 100644
+--- a/drivers/net/wireless/wavelan.c
++++ b/drivers/net/wireless/wavelan.c
+@@ -2869,10 +2869,6 @@ static int wavelan_packet_xmit(struct sk_buff *skb, struct net_device * dev)
+ 		if (lp->tx_n_in_use == (NTXBLOCKS - 1))
+ 			return 1;
+ 	}
+-#ifdef DEBUG_TX_ERROR
+-	if (skb->next)
+-		printk(KERN_INFO "skb has next\n");
+-#endif
  
- static int ipgre_tunnel_init(struct net_device *dev)
+ 	/* Do we need some padding? */
+ 	/* Note : on wireless the propagation time is in the order of 1us,
+diff --git a/drivers/net/wireless/wavelan_cs.c b/drivers/net/wireless/wavelan_cs.c
+index e55b339..1a90d69 100644
+--- a/drivers/net/wireless/wavelan_cs.c
++++ b/drivers/net/wireless/wavelan_cs.c
+@@ -3107,11 +3107,6 @@ wavelan_packet_xmit(struct sk_buff *	skb,
+        * so the Tx buffer is now free */
+     }
+ 
+-#ifdef DEBUG_TX_ERROR
+-	if (skb->next)
+-		printk(KERN_INFO "skb has next\n");
+-#endif
+-
+ 	/* Check if we need some padding */
+ 	/* Note : on wireless the propagation time is in the order of 1us,
+ 	 * and we don't have the Ethernet specific requirement of beeing
+-- 
+1.6.3
+
