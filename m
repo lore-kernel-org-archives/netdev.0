@@ -1,80 +1,41 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: Re: [PATCH] mac8390: fix build with NET_POLL_CONTROLLER
-Date: Sat, 30 May 2009 01:25:37 +1000 (EST)
-Message-ID: <Pine.LNX.4.64.0905300053001.22890@loopy.telegraphics.com.au>
-References: <Pine.LNX.4.64.0905281454450.9036@loopy.telegraphics.com.au>
- <20090527.223355.118242797.davem@davemloft.net>
- <Pine.LNX.4.64.0905282200460.12066@loopy.telegraphics.com.au>
- <20090529.015608.21828664.davem@davemloft.net>
- <20090529120357.GC3492@psychotron.englab.brq.redhat.com>
+From: Hin-Tak Leung <hintak.leung-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/10]: rtl8187: Remove pointless check in rtl8187_rx_cb().
+Date: Fri, 29 May 2009 16:41:20 +0100
+Message-ID: <3ace41890905290841h427f8a27v8772cb34503247c2@mail.gmail.com>
+References: <20090529.014011.244789664.davem@davemloft.net>
+	 <20090529101834.GC3506@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-m68k@vger.kernel.org, geert.uytterhoeven@gmail.com,
-	shemminger@vyatta.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20090529120357.GC3492@psychotron.englab.brq.redhat.com>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090529101834.GC3506-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, May 29, 2009 at 11:18 AM, John W. Linville
+<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
+> On Fri, May 29, 2009 at 01:40:11AM -0700, David Miller wrote:
+>>
+>> First of all, it exposes the SKB list implementation.
+>>
+>> Second of all it's not needed.  If we get called here, we
+>> successfully enqueued the URB with the linked SKB and
+>> such a completion only gets called one time on such an
+>> SKB.
+>>
+>> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>
+> ACK
 
+ACK.
 
-On Fri, 29 May 2009, Jiri Pirko wrote:
+I'll give this a try when I rebuild the rtl8187 module on my box.
 
-> Fri, May 29, 2009 at 10:56:08AM CEST, davem@davemloft.net wrote:
-> >From: Finn Thain <fthain@telegraphics.com.au>
-> >Date: Thu, 28 May 2009 22:05:53 +1000 (EST)
-> >
-> >> --- linux-2.6.29.orig/drivers/net/Makefile	2009-05-28 15:15:13.000000000 +1000
-> >> +++ linux-2.6.29/drivers/net/Makefile	2009-05-28 15:15:54.000000000 +1000
-> >> @@ -489,7 +489,7 @@
-> >>  	.ndo_set_mac_address 	= eth_mac_addr,
-> >>  	.ndo_change_mtu		= eth_change_mtu,
-> >>  #ifdef CONFIG_NET_POLL_CONTROLLER
-> >> -	.ndo_poll_controller	= ei_poll,
-> >> +	.ndo_poll_controller	= __ei_poll,
-> >>  #endif
-> >>  };
-> >
-> >I don't think this is a patch to drivers/net/Makefile :-)
-> :)) Good one.. I wonder how this can happen ;)
-
-
-*blush*
-
-It happens like this... imagine you are using someone else's computer, you 
-have a simple one line patch to fix, and can't be bothered downloading 69 
-MB of source... (let alone git clone)
-
-$ vi p
-$ curl 'http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob_plain;f=drivers/net/lib8390.c;h=789b6cb744b284ee08d4c749ab9fa210dc34170e' >m
-$ patch <p
-can't find file to patch at input line 8
-Perhaps you should have used the -p or --strip option?
-The text leading up to this was:
---------------------------
-|
-|Fix the build for CONFIG_NET_POLL_CONTROLLER.
-|
-|Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
-|
-|--- linux-2.6.29.orig/drivers/net/Makefile	2009-05-28 15:15:13.000000000 +1000
-|+++ linux-2.6.29/drivers/net/Makefile	2009-05-28 15:15:54.000000000 +1000
---------------------------
-File to patch: m
-patching file m
-$
-
-> >
-> >I've seen some patch screwups in my time, but this one
-> >takes the cake as one of the most impressive ones :-)
-> >
-> >I'll fix it up by hand, but realize that this makes more
-> >work for me.
-
-Thanks. I'd hate to screw it up a 4th time!
-
-I'll avoid shortcuts next time.
-
-Finn
+Hin-Tak
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
