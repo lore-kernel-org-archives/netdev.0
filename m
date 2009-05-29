@@ -1,91 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Multicast socket option
-Date: Fri, 29 May 2009 06:35:56 -0400
-Message-ID: <20090529103556.GA4160@hmsreliant.think-freely.org>
-References: <4A1EC33E.1080201@us.ibm.com>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [PATCH 2/5] netdev: bfin_mac: fix malformed UDP packet
+	transmission when polling with KGDB
+Date: Fri, 29 May 2009 06:46:46 -0400
+Message-ID: <8bd0f97a0905290346v542e83cdg321241f0b4d95d9e@mail.gmail.com>
+References: <1243404615-25879-1-git-send-email-vapier@gentoo.org>
+	 <1243404615-25879-3-git-send-email-vapier@gentoo.org>
+	 <20090529.020405.170805407.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Christoph Lameter <cl@linux.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Nivedita Singhvi <niv@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	sonic.zhang@analog.com, cooloney@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53014 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756274AbZE2KgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 06:36:08 -0400
-Content-Disposition: inline
-In-Reply-To: <4A1EC33E.1080201@us.ibm.com>
+Received: from mail-gx0-f166.google.com ([209.85.217.166]:33097 "EHLO
+	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752664AbZE2Kqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 06:46:45 -0400
+Received: by gxk10 with SMTP id 10so10235145gxk.13
+        for <netdev@vger.kernel.org>; Fri, 29 May 2009 03:46:47 -0700 (PDT)
+In-Reply-To: <20090529.020405.170805407.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 28, 2009 at 10:00:46AM -0700, Nivedita Singhvi wrote:
-> After some discussion offline with Christoph Lameter and David Stevens  
-> regarding multicast behaviour in Linux, I'm submitting a slightly
-> modified patch from the one Christoph submitted earlier.
+On Fri, May 29, 2009 at 05:04, David Miller wrote:
+> From: Mike Frysinger <vapier@gentoo.org>
+>> From: Sonic Zhang <sonic.zhang@analog.com>
+>>
+>> Make sure data is really written into the registers before enabling DMA.
+>> Otherwise, the EMAC DMA controller may transfer out a malformed packet.
+>> This patch may also fix netperf bugs or scp bugs.
+>>
+>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+>> Signed-off-by: Mike Frysinger <vapier.adi@gmail.com>
+>> Signed-off-by: Bryan Wu <cooloney@kernel.org>
 >
-> This patch provides a new socket option IP_MULTICAST_ALL.
->
-> In this case, default behaviour is _unchanged_ from the current
-> Linux standard. The socket option is set by default to provide original 
-> behaviour. Sockets wishing to receive data only from multicast groups 
-> they join explicitly will need to clear this socket option. 
->
->
-> Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
-> Signed-off-by: Christoph Lameter<cl@linux.com>
-> Acked-by: David Stevens <dlstevens@us.ibm.com>
->
->
-> diff -urN linux-2.6.29.2/include/linux/in.h linux-2.6.29.2.new/include/linux/in.h
-> --- linux-2.6.29.2/include/linux/in.h	2009-04-27 13:37:11.000000000 -0400
-> +++ linux-2.6.29.2.new/include/linux/in.h	2009-05-18 16:22:06.000000000 -0400
-> @@ -107,6 +107,7 @@
-> #define MCAST_JOIN_SOURCE_GROUP		46
-> #define MCAST_LEAVE_SOURCE_GROUP	47
-> #define MCAST_MSFILTER			48
-> +#define IP_MULTICAST_ALL		49
->
-> #define MCAST_EXCLUDE	0
-> #define MCAST_INCLUDE	1
-> diff -urN linux-2.6.29.2/include/net/inet_sock.h linux-2.6.29.2.new/include/net/inet_sock.h
-> --- linux-2.6.29.2/include/net/inet_sock.h	2009-04-27 13:37:11.000000000 -0400
-> +++ linux-2.6.29.2.new/include/net/inet_sock.h	2009-05-18 16:22:06.000000000 -0400
-> @@ -130,7 +130,8 @@
-> 				freebind:1,
-> 				hdrincl:1,
-> 				mc_loop:1,
-> -				transparent:1;
-> +				transparent:1,
-> +				mc_all:1;
-> 	int			mc_index;
-> 	__be32			mc_addr;
-> 	struct ip_mc_socklist	*mc_list;
-> diff -urN linux-2.6.29.2/net/ipv4/af_inet.c linux-2.6.29.2.new/net/ipv4/af_inet.c
-> --- linux-2.6.29.2/net/ipv4/af_inet.c	2009-04-27 13:37:11.000000000 -0400
-> +++ linux-2.6.29.2.new/net/ipv4/af_inet.c	2009-05-18 16:22:06.000000000 -0400
-> @@ -376,6 +376,7 @@
-> 	inet->uc_ttl	= -1;
-> 	inet->mc_loop	= 1;
-> 	inet->mc_ttl	= 1;
-> +	inet->mc_all	= 1;
-> 	inet->mc_index	= 0;
-> 	inet->mc_list	= NULL;
->
-> diff -urN linux-2.6.29.2/net/ipv4/igmp.c linux-2.6.29.2.new/net/ipv4/igmp.c
-> --- linux-2.6.29.2/net/ipv4/igmp.c	2009-04-27 13:37:11.000000000 -0400
-> +++ linux-2.6.29.2.new/net/ipv4/igmp.c	2009-05-18 16:22:33.000000000 -0400
-> @@ -2196,7 +2196,7 @@
-> 			break;
-> 	}
-> 	if (!pmc)
-> -		return 1;
-> +		return inet->mc_all;
+> Instead of using this incredibly non-portable blackfin specific SSYNC
+> thing
 
-This change also filters out broadcasts sent to sockets listening on a given
-port.  Is that what you want?
+that doesnt make sense -- this is a completely non-portable Blackfin
+specific driver.  everything in it uses Blackfin macros to access
+Blackfin MMRs because this is a device that only exists on Blackfin
+chips.
 
-Neil
+> why not read back a register from the device to ensure the
+> register writes hit the chip just like other drivers do?
 
->
+because that isnt how the Blackfin hardware works in general, and
+certainly not how the DMA hardware works.
+
+> If that doesn't work, enhance your commit message to describe (in
+> detail) why SSYNC is the only way to make this work properly.
+
+this is how it always is for all Blackfin on-chip registers, and the
+hardware manual specifically dictates using SSYNC.
+-mike
