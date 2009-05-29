@@ -1,37 +1,49 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [resend] Passive OS fingerprint xtables match.
-Date: Fri, 29 May 2009 14:20:23 +0400
-Message-ID: <20090529102023.GA17591@ioremap.net>
-References: <20090511095343.GA30778@ioremap.net> <4A1D6A20.8050404@trash.net> <20090529085918.GA11887@ioremap.net> <alpine.LSU.2.00.0905291144460.9095@fbirervta.pbzchgretzou.qr>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Fri, 29 May 2009 10:22:32 +0000
+Message-ID: <20090529102232.GA6279@ff.dom.local>
+References: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp> <20090529074812.GA5483@ff.dom.local> <20090529080330.GB5483@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>
+To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0506.google.com ([209.85.198.239]:15761 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752893AbZE2KWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 06:22:40 -0400
+Received: by rv-out-0506.google.com with SMTP id f9so1842843rvb.1
+        for <netdev@vger.kernel.org>; Fri, 29 May 2009 03:22:42 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.00.0905291144460.9095@fbirervta.pbzchgretzou.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090529080330.GB5483@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jan.
-
-On Fri, May 29, 2009 at 11:49:51AM +0200, Jan Engelhardt (jengelh@medozas.de) wrote:
-> >> >+config NETFILTER_XT_MATCH_OSF
-> >> >+	tristate '"osf" Passive OS fingerprint match'
-> >> >+	depends on NETFILTER_ADVANCED
-> >> 
-> >> && NFNETLINK
-> >
-> >Will add.
+On Fri, May 29, 2009 at 08:03:30AM +0000, Jarek Poplawski wrote:
+> On Fri, May 29, 2009 at 07:48:12AM +0000, Jarek Poplawski wrote:
+> > On 29-05-2009 07:18, Minoru Usui wrote:
+> ...
+> > > I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
+> > > 
+> > > When 'tc filter add' command is executed and proto-tcf does not exist, 
+> > > tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
+> > > cops->tcf_chain()'s chain before calling tp->ops->change().
+> > > 
+> > > If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
+> > > too, but proto-tcf(tp) is not unchained yet. 
+> > > 
+> > > I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
+> > > an error.
+> > 
+> > I didn't verify this too much, so I might be wrong, but it looks like
+> > cls_cgroup_classify() does things a bit different than others (doesn't
+> > check the 'head' etc. for NULL), so maybe you should consider fixing
+> > it instead? (Btw., the tc classifier maintainer added to Cc).
 > 
-> Does it really need to depend on nfnetlink? Even if I just want to
-> have it dumped to syslog?
+> OOPS! Others mostly don't check this either, so my suggestion was wrong.
 
-OSF is configured by nfnetlink now.
+Hmm... Or maybe I wasn't so wrong; it seems classifiers which
+don't assign the head during init do this check for NULL later.
 
--- 
-	Evgeniy Polyakov
+Jarek P.
