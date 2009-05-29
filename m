@@ -1,77 +1,89 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.31 02/10] wimax/i2400m: trace commands sent from user space on the "echo" pipe
-Date: Thu, 28 May 2009 18:12:06 -0700
-Message-ID: <44b849d11bf6801a642dd1aa9a70e470d046d273.1243559425.git.inaky@linux.intel.com>
+Subject: [patch 2.6.31 05/10] wimax/i2400m: remove redundant readiness checks from i2400m_report_tlv_*()
+Date: Thu, 28 May 2009 18:12:09 -0700
+Message-ID: <052991d7ac7f7b2c0319e6ccd2e8a48a71f2bd58.1243559425.git.inaky@linux.intel.com>
 References: <cover.1243559425.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:41659 "EHLO
+Received: from 076-076-148-181.pdx.net ([76.76.148.181]:45064 "EHLO
 	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753764AbZE2EL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:11:59 -0400
+	with ESMTP id S1753664AbZE2EL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:11:56 -0400
 In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
 References: <cover.1243559425.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When commands are sent from user space, trace both the command sent
-and the answer received over the "echo" pipe instead of over the
-"trace" pipe when command tracing is enabled. As well, when the device
-sends a reports/indications, send it over the "echo" pipe.
+Functions i2400m_report_tlv*() are only called from
+i2400m_report_hook(), called in a workqueue by
+i2400m_report_hook_work(). The scheduler checks for device readiness
+before scheduling.
 
-The "trace" pipe is used by the device to send firmware traces;
-gets confusing. Another named pipe makes it easier to split debug
-information.
+Added an extra check for readiness in i2400m_report_hook_work(), which
+makes all the checks down the line redundant.
+
+Obviously the device state could change in the middle, but error
+handling would take care of that.
 
 Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- drivers/net/wimax/i2400m/driver.c |   13 ++++++++++---
- drivers/net/wimax/i2400m/rx.c     |    3 +++
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/wimax/i2400m/control.c |    6 ------
+ drivers/net/wimax/i2400m/rx.c      |    3 ++-
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index a21318b..d33389f 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -231,13 +231,20 @@ int i2400m_op_msg_from_user(struct wimax_dev *wimax_dev,
- 	d_fnstart(4, dev, "(wimax_dev %p [i2400m %p] msg_buf %p "
- 		  "msg_len %zu genl_info %p)\n", wimax_dev, i2400m,
- 		  msg_buf, msg_len, genl_info);
-+	if (unlikely(i2400m->trace_msg_from_user))
-+		wimax_msg(&i2400m->wimax_dev, "echo",
-+			  msg_buf, msg_len, GFP_KERNEL);
- 	ack_skb = i2400m_msg_to_dev(i2400m, msg_buf, msg_len);
- 	result = PTR_ERR(ack_skb);
- 	if (IS_ERR(ack_skb))
- 		goto error_msg_to_dev;
--	if (unlikely(i2400m->trace_msg_from_user))
--		wimax_msg(&i2400m->wimax_dev, "trace",
--			  msg_buf, msg_len, GFP_KERNEL);
-+	if (unlikely(i2400m->trace_msg_from_user)) {
-+		const void *ack_data;
-+		size_t ack_len;
-+		ack_data = wimax_msg_data_len(ack_skb, &ack_len);
-+		wimax_msg(&i2400m->wimax_dev, "echo",
-+			  ack_data, ack_len, GFP_KERNEL);
-+	}
- 	result = wimax_msg_send(&i2400m->wimax_dev, ack_skb);
- error_msg_to_dev:
- 	d_fnend(4, dev, "(wimax_dev %p [i2400m %p] msg_buf %p msg_len %zu "
+diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
+index b42e347..bd193ae 100644
+--- a/drivers/net/wimax/i2400m/control.c
++++ b/drivers/net/wimax/i2400m/control.c
+@@ -292,8 +292,6 @@ void i2400m_report_tlv_system_state(struct i2400m *i2400m,
+ 
+ 	d_fnstart(3, dev, "(i2400m %p ss %p [%u])\n", i2400m, ss, i2400m_state);
+ 
+-	if (unlikely(i2400m->ready == 0))	/* act if up */
+-		goto out;
+ 	if (i2400m->state != i2400m_state) {
+ 		i2400m->state = i2400m_state;
+ 		wake_up_all(&i2400m->state_wq);
+@@ -341,7 +339,6 @@ void i2400m_report_tlv_system_state(struct i2400m *i2400m,
+ 		i2400m->bus_reset(i2400m, I2400M_RT_WARM);
+ 		break;
+ 	};
+-out:
+ 	d_fnend(3, dev, "(i2400m %p ss %p [%u]) = void\n",
+ 		i2400m, ss, i2400m_state);
+ }
+@@ -372,8 +369,6 @@ void i2400m_report_tlv_media_status(struct i2400m *i2400m,
+ 
+ 	d_fnstart(3, dev, "(i2400m %p ms %p [%u])\n", i2400m, ms, status);
+ 
+-	if (unlikely(i2400m->ready == 0))	/* act if up */
+-		goto out;
+ 	switch (status) {
+ 	case I2400M_MEDIA_STATUS_LINK_UP:
+ 		netif_carrier_on(net_dev);
+@@ -393,7 +388,6 @@ void i2400m_report_tlv_media_status(struct i2400m *i2400m,
+ 		dev_err(dev, "HW BUG? unknown media status %u\n",
+ 			status);
+ 	};
+-out:
+ 	d_fnend(3, dev, "(i2400m %p ms %p [%u]) = void\n",
+ 		i2400m, ms, status);
+ }
 diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
-index f9fc389..a4adc78 100644
+index a4adc78..7643850 100644
 --- a/drivers/net/wimax/i2400m/rx.c
 +++ b/drivers/net/wimax/i2400m/rx.c
-@@ -309,6 +309,9 @@ void i2400m_rx_ctl(struct i2400m *i2400m, struct sk_buff *skb_rx,
- 		skb_get(skb_rx);
- 		i2400m_queue_work(i2400m, i2400m_report_hook_work,
- 				  GFP_KERNEL, &args, sizeof(args));
-+		if (unlikely(i2400m->trace_msg_from_user))
-+			wimax_msg(&i2400m->wimax_dev, "echo",
-+				  l3l4_hdr, size, GFP_KERNEL);
- 		result = wimax_msg(&i2400m->wimax_dev, NULL, l3l4_hdr, size,
- 				   GFP_KERNEL);
- 		if (result < 0)
+@@ -177,7 +177,8 @@ void i2400m_report_hook_work(struct work_struct *ws)
+ 	struct i2400m_work *iw =
+ 		container_of(ws, struct i2400m_work, ws);
+ 	struct i2400m_report_hook_args *args = (void *) iw->pl;
+-	i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
++	if (iw->i2400m->ready)
++		i2400m_report_hook(iw->i2400m, args->l3l4_hdr, args->size);
+ 	kfree_skb(args->skb_rx);
+ 	i2400m_put(iw->i2400m);
+ 	kfree(iw);
 -- 
 1.6.2.3
 
