@@ -1,63 +1,81 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.31 00/10] WiMAX pull request (v2)
-Date: Thu, 28 May 2009 18:12:04 -0700
-Message-ID: <cover.1243559425.git.inaky@linux.intel.com>
+Subject: [patch 2.6.31 06/10] wimax: document why wimax_msg_*() operations can be used in any state
+Date: Thu, 28 May 2009 18:12:10 -0700
+Message-ID: <52a8d9630890f2289354d03e8751bf0eba2b3376.1243559425.git.inaky@linux.intel.com>
+References: <cover.1243559425.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 076-076-148-181.pdx.net ([76.76.148.181]:41659 "EHLO
+Received: from 076-076-148-181.pdx.net ([76.76.148.181]:45064 "EHLO
 	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753784AbZE2EMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:12:00 -0400
+	with ESMTP id S1753593AbZE2ELt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:11:49 -0400
+In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
+References: <cover.1243559425.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This pull request for 2.6.31 adds a new WiMAX API call for getting the
-device state (from Paulius Zaleckas), fixes random stuff in the
-i2400m, adds a debug facility to trace commands sent to the device and
-cleans up state-report handling code.
+Funcion documentation for wimax_msg_alloc() and wimax_msg_send() needs
+to clarify that they can be used in the very early stages of a
+wimax_dev lifecycle.
 
-Changes in v2:
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ net/wimax/op-msg.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
 
- - Fix breakage of API noticed by Stephen Hemminger in "wimax: Add
-   netlink interface to get device state". 
+diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
+index 9ad4d89..d631a17 100644
+--- a/net/wimax/op-msg.c
++++ b/net/wimax/op-msg.c
+@@ -108,6 +108,12 @@
+  * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
+  * wimax_msg_send() depends on skb->data being placed at the
+  * beginning of the user message.
++ *
++ * Unlike other WiMAX stack calls, this call can be used way early,
++ * even before wimax_dev_add() is called, as long as the
++ * wimax_dev->net_dev pointer is set to point to a proper
++ * net_dev. This is so that drivers can use it early in case they need
++ * to send stuff around or communicate with user space.
+  */
+ struct sk_buff *wimax_msg_alloc(struct wimax_dev *wimax_dev,
+ 				const char *pipe_name,
+@@ -115,7 +121,7 @@ struct sk_buff *wimax_msg_alloc(struct wimax_dev *wimax_dev,
+ 				gfp_t gfp_flags)
+ {
+ 	int result;
+-	struct device *dev = wimax_dev->net_dev->dev.parent;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
+ 	size_t msg_size;
+ 	void *genl_msg;
+ 	struct sk_buff *skb;
+@@ -161,7 +167,6 @@ error_genlmsg_put:
+ error_new:
+ 	nlmsg_free(skb);
+ 	return ERR_PTR(result);
+-
+ }
+ EXPORT_SYMBOL_GPL(wimax_msg_alloc);
+ 
+@@ -256,10 +261,16 @@ EXPORT_SYMBOL_GPL(wimax_msg_len);
+  * Don't use skb_push()/skb_pull()/skb_reserve() on the skb, as
+  * wimax_msg_send() depends on skb->data being placed at the
+  * beginning of the user message.
++ *
++ * Unlike other WiMAX stack calls, this call can be used way early,
++ * even before wimax_dev_add() is called, as long as the
++ * wimax_dev->net_dev pointer is set to point to a proper
++ * net_dev. This is so that drivers can use it early in case they need
++ * to send stuff around or communicate with user space.
+  */
+ int wimax_msg_send(struct wimax_dev *wimax_dev, struct sk_buff *skb)
+ {
+-	struct device *dev = wimax_dev->net_dev->dev.parent;
++	struct device *dev = wimax_dev_to_dev(wimax_dev);
+ 	void *msg = skb->data;
+ 	size_t size = skb->len;
+ 	might_sleep();
+-- 
+1.6.2.3
 
-The following changes since commit 7d18f114897ff4358419b14d551e704a4299a440:
-  David S. Miller (1):
-        net: Fix arg to trace_napi_poll() in netpoll.
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.31.y
-
-Patches follow for reviewing convenience.
-
-Inaky Perez-Gonzalez (9):
-      wimax/i2400m: generate fake source MAC address with random_ether_addr()
-      wimax/i2400m: trace commands sent from user space on the "echo" pipe
-      wimax/i2400m: allow kernel commands to device to be logged too
-      wimax/i2400m: factor out 'state report's TLV handling to a function
-      wimax/i2400m: remove redundant readiness checks from i2400m_report_tlv_*()
-      wimax: document why wimax_msg_*() operations can be used in any state
-      wimax/i2400m: sdio: set the block size before enabling the function
-      wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
-      wimax: a new API call was added, increment minor protocol version number
-
-Paulius Zaleckas (1):
-      wimax: Add netlink interface to get device state
-
- drivers/net/wimax/i2400m/control.c |  100 ++++++++++++++++++++----------------
- drivers/net/wimax/i2400m/driver.c  |    5 +-
- drivers/net/wimax/i2400m/i2400m.h  |    5 ++
- drivers/net/wimax/i2400m/netdev.c  |    4 +-
- drivers/net/wimax/i2400m/rx.c      |    6 ++-
- drivers/net/wimax/i2400m/sdio.c    |   18 +++---
- drivers/net/wimax/i2400m/usb.c     |   35 +++++++++++--
- include/linux/wimax.h              |    7 ++-
- net/wimax/Makefile                 |    1 +
- net/wimax/debug-levels.h           |    1 +
- net/wimax/debugfs.c                |    1 +
- net/wimax/op-msg.c                 |   17 +++++-
- net/wimax/op-state-get.c           |   86 +++++++++++++++++++++++++++++++
- net/wimax/stack.c                  |    5 ++-
- 14 files changed, 222 insertions(+), 69 deletions(-)
- create mode 100644 net/wimax/op-state-get.c
