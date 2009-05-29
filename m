@@ -1,33 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: SiS 191 failure with MTU > 1496
-Date: Sat, 30 May 2009 00:30:47 +0200
-Message-ID: <20090529223047.GA29073@electric-eye.fr.zoreil.com>
-References: <1243615486.12871.44.camel@plop> <1243615800.12871.45.camel@plop> <1243616449.12871.49.camel@plop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Pascal Terjan <pterjan@mandriva.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] tc/q_atm.so: respect LDFLAGS
+Date: Fri, 29 May 2009 18:37:40 -0400
+Message-ID: <1243636660-13172-1-git-send-email-vapier@gentoo.org>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:35443 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752075AbZE2W3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 18:29:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1243616449.12871.49.camel@plop>
+Received: from smtp.gentoo.org ([140.211.166.183]:60554 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752075AbZE2Whj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 18:37:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pascal Terjan <pterjan@mandriva.com> :
-[...]
-> Oh and even
-> http://bugzilla.kernel.org/show_bug.cgi?id=10694
+The q_atm.so target defines its own link target, but it doesn't respect the
+$(LDFLAGS) variable.
 
-Yes, it sucks.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ tc/Makefile |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> Should I add some info there ?
-
-Not yet but could you retry with RX_BUF_SIZE set to 1544,
-1528 and 1520 ?
-
+diff --git a/tc/Makefile b/tc/Makefile
+index bd9b833..2a28363 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -86,7 +86,7 @@ clean:
+ 	rm -f emp_ematch.yacc.output
+ 
+ q_atm.so: q_atm.c
+-	$(CC) $(CFLAGS) -shared -fpic -o q_atm.so q_atm.c -latm
++	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic -o q_atm.so q_atm.c -latm
+ 
+ %.yacc.c: %.y
+ 	$(YACC) $(YACCFLAGS) -o $@ $<
 -- 
-Ueimor
+1.6.1
+
