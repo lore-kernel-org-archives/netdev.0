@@ -1,49 +1,29 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Fri, 29 May 2009 10:22:32 +0000
-Message-ID: <20090529102232.GA6279@ff.dom.local>
-References: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp> <20090529074812.GA5483@ff.dom.local> <20090529080330.GB5483@ff.dom.local>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 3/10]: p54: Use SKB list handling helpers instead of
+	by-hand code.
+Date: Fri, 29 May 2009 12:18:20 +0200
+Message-ID: <20090529101819.GB3506@tuxdriver.com>
+References: <20090529.014009.107644427.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.239]:15761 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893AbZE2KWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 06:22:40 -0400
-Received: by rv-out-0506.google.com with SMTP id f9so1842843rvb.1
-        for <netdev@vger.kernel.org>; Fri, 29 May 2009 03:22:42 -0700 (PDT)
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090529080330.GB5483@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090529.014009.107644427.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 29, 2009 at 08:03:30AM +0000, Jarek Poplawski wrote:
-> On Fri, May 29, 2009 at 07:48:12AM +0000, Jarek Poplawski wrote:
-> > On 29-05-2009 07:18, Minoru Usui wrote:
-> ...
-> > > I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
-> > > 
-> > > When 'tc filter add' command is executed and proto-tcf does not exist, 
-> > > tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
-> > > cops->tcf_chain()'s chain before calling tp->ops->change().
-> > > 
-> > > If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
-> > > too, but proto-tcf(tp) is not unchained yet. 
-> > > 
-> > > I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
-> > > an error.
-> > 
-> > I didn't verify this too much, so I might be wrong, but it looks like
-> > cls_cgroup_classify() does things a bit different than others (doesn't
-> > check the 'head' etc. for NULL), so maybe you should consider fixing
-> > it instead? (Btw., the tc classifier maintainer added to Cc).
+On Fri, May 29, 2009 at 01:40:09AM -0700, David Miller wrote:
 > 
-> OOPS! Others mostly don't check this either, so my suggestion was wrong.
+> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-Hmm... Or maybe I wasn't so wrong; it seems classifiers which
-don't assign the head during init do this check for NULL later.
+ACK
 
-Jarek P.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
