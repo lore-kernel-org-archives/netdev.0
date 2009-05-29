@@ -1,46 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Fri, 29 May 2009 08:03:30 +0000
-Message-ID: <20090529080330.GB5483@ff.dom.local>
-References: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp> <20090529074812.GA5483@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: unset IFF_XMIT_DST_RELEASE in ipgre_tunnel_setup()
+Date: Fri, 29 May 2009 10:35:10 +0200
+Message-ID: <4A1F9E3E.5020409@gmail.com>
+References: <4A1EF7AE.2040404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.30]:26982 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbZE2IDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:03:37 -0400
-Received: by yx-out-2324.google.com with SMTP id 3so3255477yxj.1
-        for <netdev@vger.kernel.org>; Fri, 29 May 2009 01:03:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090529074812.GA5483@ff.dom.local>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:33238 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755731AbZE2IfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:35:18 -0400
+In-Reply-To: <4A1EF7AE.2040404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 07:48:12AM +0000, Jarek Poplawski wrote:
-> On 29-05-2009 07:18, Minoru Usui wrote:
-...
-> > I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
-> > 
-> > When 'tc filter add' command is executed and proto-tcf does not exist, 
-> > tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
-> > cops->tcf_chain()'s chain before calling tp->ops->change().
-> > 
-> > If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
-> > too, but proto-tcf(tp) is not unchained yet. 
-> > 
-> > I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
-> > an error.
-> 
-> I didn't verify this too much, so I might be wrong, but it looks like
-> cls_cgroup_classify() does things a bit different than others (doesn't
-> check the 'head' etc. for NULL), so maybe you should consider fixing
-> it instead? (Btw., the tc classifier maintainer added to Cc).
+ipgre_tunnel_xmit() might need skb->dst, so tell dev_hard_start_xmit()
+to no release it.
 
-OOPS! Others mostly don't check this either, so my suggestion was wrong.
-
-Sorry,
-Jarek P.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index e62510d..77436e2 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1238,6 +1238,7 @@ static void ipgre_tunnel_setup(struct net_device *dev)
+ 	dev->iflink		= 0;
+ 	dev->addr_len		= 4;
+ 	dev->features		|= NETIF_F_NETNS_LOCAL;
++	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
+ }
+ 
+ static int ipgre_tunnel_init(struct net_device *dev)
