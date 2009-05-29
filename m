@@ -1,56 +1,100 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/5] netdev: bfin_mac: Blackfin EMAC
-	interrupt may not be shared
-Date: Fri, 29 May 2009 18:51:36 -0400
-Message-ID: <8bd0f97a0905291551q10f7f15erd802c571db485949@mail.gmail.com>
-References: <8bd0f97a0905291513m780898e9j6bd4c0b3b9ae8528@mail.gmail.com>
-	 <20090529.151816.232829085.davem@davemloft.net>
-	 <8bd0f97a0905291521m35731e0bra828cb09d0929974@mail.gmail.com>
-	 <20090529.154534.37038134.davem@davemloft.net>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next 1/3] cxgb3: move away from LLTX
+Date: Fri, 29 May 2009 15:52:38 -0700
+Message-ID: <20090529225236.27382.32365.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael.Hennerich@analog.com, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yx-out-2324.google.com ([74.125.44.28]:48277 "EHLO
-	yx-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756AbZE2Wve convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 18:51:34 -0400
-Received: by yx-out-2324.google.com with SMTP id 3so3516342yxj.1
-        for <netdev@vger.kernel.org>; Fri, 29 May 2009 15:51:36 -0700 (PDT)
-In-Reply-To: <20090529.154534.37038134.davem@davemloft.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:1126 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752075AbZE2Wwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 18:52:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 18:45, David Miller wrote:
-> From: Mike Frysinger <vapier.adi@gmail.com>
->> On Fri, May 29, 2009 at 18:18, David Miller wrote:
->>> From: Mike Frysinger <vapier.adi@gmail.com>
->>>> the difference is that one of these is required in order for anyth=
-ing
->>>> to get done and the other is always useless noise. =C2=A0also, the=
- Blackfin
->>>> core does do speculative data fetching on external memory, but not
->>>> MMRs, so the stalling due to the data cache line fills will be
->>>> mitigated unlike the useless MMR reads.
->>>
->>> You only need to read the register if the descriptor status is not
->>> ready yet, and you're just spinning in that case anyways.
->>>
->>> I doubt it makes any real difference if implemented properly.
->>>
->>> But I guess it's more fun to speculate than to actually try it out.
->>> :-/
->>
->> and i guess it's more fun to waste time attempting to support an
->> operating mode that the hardware has never and most likely will neve=
-r
->> support
->
-> I guess I'll apply your patch :-)
+From: Divy Le Ray <divy@chelsio.com>
 
-thanks ... i thought you might force me to implement it anyways even
-though i really really dont want it ;)
--mike
+cxgb3 no longer advertizes LLTX.
+
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
+
+ drivers/net/cxgb3/cxgb3_main.c |    1 -
+ drivers/net/cxgb3/sge.c        |   17 +++++++----------
+ 2 files changed, 7 insertions(+), 11 deletions(-)
+
+
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 0b87fee..1fe4b07 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -3059,7 +3059,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		netdev->mem_start = mmio_start;
+ 		netdev->mem_end = mmio_start + mmio_len - 1;
+ 		netdev->features |= NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+-		netdev->features |= NETIF_F_LLTX;
+ 		netdev->features |= NETIF_F_GRO;
+ 		if (pci_using_dac)
+ 			netdev->features |= NETIF_F_HIGHDMA;
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 49e64af..0b97882 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1241,7 +1241,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	q = &qs->txq[TXQ_ETH];
+ 	txq = netdev_get_tx_queue(dev, qidx);
+ 
+-	spin_lock(&q->lock);
+ 	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 
+ 	credits = q->size - q->in_use;
+@@ -1252,7 +1251,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		dev_err(&adap->pdev->dev,
+ 			"%s: Tx ring %u full while queue awake!\n",
+ 			dev->name, q->cntxt_id & 7);
+-		spin_unlock(&q->lock);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -1286,8 +1284,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (vlan_tx_tag_present(skb) && pi->vlan_grp)
+ 		qs->port_stats[SGE_PSTAT_VLANINS]++;
+ 
+-	spin_unlock(&q->lock);
+-
+ 	/*
+ 	 * We do not use Tx completion interrupts to free DMAd Tx packets.
+ 	 * This is good for performamce but means that we rely on new Tx
+@@ -2857,11 +2853,12 @@ static void sge_timer_tx(unsigned long data)
+ 	unsigned int tbd[SGE_TXQ_PER_SET] = {0, 0};
+ 	unsigned long next_period;
+ 
+-	if (spin_trylock(&qs->txq[TXQ_ETH].lock)) {
+-		tbd[TXQ_ETH] = reclaim_completed_tx(adap, &qs->txq[TXQ_ETH],
+-						    TX_RECLAIM_TIMER_CHUNK);
+-		spin_unlock(&qs->txq[TXQ_ETH].lock);
++	if (__netif_tx_trylock(qs->tx_q)) {
++                tbd[TXQ_ETH] = reclaim_completed_tx(adap, &qs->txq[TXQ_ETH],
++                                                     TX_RECLAIM_TIMER_CHUNK);
++		__netif_tx_unlock(qs->tx_q);
+ 	}
++
+ 	if (spin_trylock(&qs->txq[TXQ_OFLD].lock)) {
+ 		tbd[TXQ_OFLD] = reclaim_completed_tx(adap, &qs->txq[TXQ_OFLD],
+ 						     TX_RECLAIM_TIMER_CHUNK);
+@@ -2869,8 +2866,8 @@ static void sge_timer_tx(unsigned long data)
+ 	}
+ 
+ 	next_period = TX_RECLAIM_PERIOD >>
+-		      (max(tbd[TXQ_ETH], tbd[TXQ_OFLD]) /
+-		       TX_RECLAIM_TIMER_CHUNK);
++                      (max(tbd[TXQ_ETH], tbd[TXQ_OFLD]) /
++                      TX_RECLAIM_TIMER_CHUNK);
+ 	mod_timer(&qs->tx_reclaim_timer, jiffies + next_period);
+ }
+ 
+
