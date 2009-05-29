@@ -1,36 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 3/4] ixgbe: remove rx_hdr_split debug
- counter for non-debug configurations
-Date: Thu, 28 May 2009 17:04:54 -0700 (PDT)
-Message-ID: <20090528.170454.04735753.davem@davemloft.net>
-References: <1243423017.16597.143.camel@deadeye>
-	<20090527.135211.44614815.davem@davemloft.net>
-	<80769D7B14936844A23C0C43D9FBCF0F44CF8060@orsmsx501.amr.corp.intel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH RFC] v7 expedited "big hammer" RCU grace periods
+Date: Thu, 28 May 2009 17:08:48 -0700
+Message-ID: <20090529000848.GE6757@linux.vnet.ibm.com>
+References: <20090522190525.GA13286@linux.vnet.ibm.com> <4A1A3C23.8090004@cn.fujitsu.com> <20090525164446.GD7168@linux.vnet.ibm.com> <4A1B3FFB.7090306@cn.fujitsu.com> <20090526012843.GF7168@linux.vnet.ibm.com> <20090526154625.GA8662@linux.vnet.ibm.com> <4A1C9DFF.70708@cn.fujitsu.com> <20090527043001.GD6882@linux.vnet.ibm.com> <4A1CD17F.1000208@cn.fujitsu.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: alexander.h.duyck@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, mingo@elte.hu,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	davem@davemloft.net, dada1@cosmosbay.com, zbr@ioremap.net,
+	jeff.chua.linux@gmail.com, paulus@samba.org, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50881
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752798AbZE2AEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 May 2009 20:04:54 -0400
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F44CF8060@orsmsx501.amr.corp.intel.com>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:53586 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751772AbZE2AIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 May 2009 20:08:48 -0400
+Content-Disposition: inline
+In-Reply-To: <4A1CD17F.1000208@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Date: Thu, 28 May 2009 17:01:17 -0700
+On Wed, May 27, 2009 at 01:37:03PM +0800, Lai Jiangshan wrote:
+> Paul E. McKenney wrote:
+> > OK, good point!  I do need to think about this.
+> > 
+> > In the meantime, where do you see a need to run
+> > synchronize_sched_expedited() from within a hotplug CPU notifier?
+> > 
+> > 						Thanx, Paul
+> > 
+> 
+> I don't worry about synchronize_sched_expedited() called
+> from within a hotplug CPU notifier:
+> 
+> 1st synchronize_sched_expedited() is newly, nobody calls it before current.
+> 2nd get_online_cpus() will not cause DEADLOCK in CPU notifier:
+> 	get_online_cpus() finds itself owns the cpu_hotplug.lock, it will
+> 	not take it again.
+> 
+> I worry DEADLOCK like this:(ABBA DEADLOCK)
 
-> The counter didn't really have much use other than in our early
-> validation work to make certain the silicon was working as
-> documented.  If it stays it isn't too big a concern I just figured
-> it might be nice to remove it since igb is a multiqueue driver and
-> having a global counter can cause some cache thrash on multicore
-> systems.
+Good point -- you had in fact mentioned this earlier.
 
-If it really is just a silicon validation thing, then given the
-multiqueue concerns it's probably best to just remove it
-unconditionaly.
+> > get_online_cpus() is a large lock, a lot's of lock in kernel is required
+> > after cpu_hotplug.lock.
+> > 
+> > _cpu_down()
+> > 	cpu_hotplug_begin()
+> > 		mutex_lock(&cpu_hotplug.lock)
+> > 	__raw_notifier_call_chain(CPU_DOWN_PREPARE)
+> > 		Lock a-kernel-lock.
+> > 
+> > It means when we have held a-kernel-lock, we can not call
+> > synchronize_sched_expedited(). get_online_cpus() narrows
+> > synchronize_sched_expedited()'s usages.
+> 
+> One thread calls _cpu_down() which do "mutex_lock(&cpu_hotplug.lock)"
+> and then do "Lock a-kernel-lock", other thread calls
+> synchronize_sched_expedited() with a-kernel-lock held,
+> ABBA DEADLOCK would happen:
+> 
+> thread 1                            |        thread 2
+> _cpu_down()                         |    Lock a-kernel-lock. 
+>   mutex_lock(&cpu_hotplug.lock)     |    synchronize_sched_expedited()
+> ------------------------------------------------------------------------
+>   Lock a-kernel-lock.(wait thread2) |       mutex_lock(&cpu_hotplug.lock)
+>                                             (wait thread 1)
+> 
+> 
+> cpuset_lock() is an example of a-kernel-lock as described before.
+> cpuset_lock() is required in CPU notifier.
+> 
+> But some work in cpuset need get_online_cpus().
+> (cpuset_lock() and then get_online_cpus(), we can
+> not release cpuset_lock() temporarily)
+> 
+> The fix is putting this work done in workqueue.
+> (get_online_cpus() and then cpuset_lock());
+
+But there is another way.
+
+Continue to use the migration kthreads, given that they already exist,
+already are created and destroyed by CPU hotplug operations, and given
+that they run as maximal priority.
+
+My main concern with moving from get_online_cpus() to preempt_disable()
+has been the thought that somehow, sometime, in some future release
+of Linux, it will be possible for the migration threads to execute
+on the wrong CPU, perhaps only occasionally and perhaps only for
+very short time periods.  If this were to happen, there would be the
+possibility that the grace period would end too soon, which would be
+silently fatal.  My fingers simply refused to code something with this
+potential vulnerability.
+
+But it is easy to insert a check into migration_thread() to see if it
+is running on the wrong CPU.  If it is, I can do a WARN_ONCE() and also
+set a state variable to tell synchronize_sched_expedited() to invoke
+sychronize_sched(), thus avoiding messing up RCU.  On the next call
+to synchronize_sched_expedited(), it would again try relying on the
+migration threads.
+
+I am putting together yet another patch, but constructed along these
+lines, and will let you know how it turns out.
+
+							Thanx, Paul
