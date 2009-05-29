@@ -1,50 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/5] netdev: bfin_mac: Blackfin
- EMAC interrupt may not be shared
-Date: Fri, 29 May 2009 15:45:34 -0700 (PDT)
-Message-ID: <20090529.154534.37038134.davem@davemloft.net>
-References: <8bd0f97a0905291513m780898e9j6bd4c0b3b9ae8528@mail.gmail.com>
-	<20090529.151816.232829085.davem@davemloft.net>
-	<8bd0f97a0905291521m35731e0bra828cb09d0929974@mail.gmail.com>
+Subject: Re: [PATCH 1/4 v2] netdev: bfin_mac: drop useless IRQF_SHARED from
+ Blackfin EMAC interrupt
+Date: Fri, 29 May 2009 15:49:38 -0700 (PDT)
+Message-ID: <20090529.154938.254028525.davem@davemloft.net>
+References: <1243404615-25879-2-git-send-email-vapier@gentoo.org>
+	<1243604385-27159-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael.Hennerich@analog.com, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: vapier.adi@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	michael.hennerich@analog.com, cooloney@kernel.org
+To: vapier@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33011
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33947
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752239AbZE2Wpf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2009 18:45:35 -0400
-In-Reply-To: <8bd0f97a0905291521m35731e0bra828cb09d0929974@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751254AbZE2Wti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 18:49:38 -0400
+In-Reply-To: <1243604385-27159-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Mike Frysinger <vapier.adi@gmail.com>
-Date: Fri, 29 May 2009 18:21:41 -0400
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Fri, 29 May 2009 09:39:45 -0400
 
-> On Fri, May 29, 2009 at 18:18, David Miller wrote:
->> From: Mike Frysinger <vapier.adi@gmail.com>
->>> the difference is that one of these is required in order for anythi=
-ng
->>> to get done and the other is always useless noise. =A0also, the Bla=
-ckfin
->>> core does do speculative data fetching on external memory, but not
->>> MMRs, so the stalling due to the data cache line fills will be
->>> mitigated unlike the useless MMR reads.
->>
->> You only need to read the register if the descriptor status is not
->> ready yet, and you're just spinning in that case anyways.
->>
->> I doubt it makes any real difference if implemented properly.
->>
->> But I guess it's more fun to speculate than to actually try it out.
->> :-/
->=20
-> and i guess it's more fun to waste time attempting to support an
-> operating mode that the hardware has never and most likely will never
-> support
+> From: Michael Hennerich <michael.hennerich@analog.com>
+> 
+> The IRQ used by the Blackfin EMAC is internal to the peripheral and cannot
+> be used to generate any other interrupt, so there is no point in marking it
+> as IRQF_SHARED.
+> 
+> Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> Signed-off-by: Bryan Wu <cooloney@kernel.org>
 
-I guess I'll apply your patch :-)
+Applied to net-next-2.6
