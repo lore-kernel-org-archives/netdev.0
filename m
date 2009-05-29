@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mac8390: fix build with NET_POLL_CONTROLLER
-Date: Fri, 29 May 2009 01:56:08 -0700 (PDT)
-Message-ID: <20090529.015608.21828664.davem@davemloft.net>
-References: <Pine.LNX.4.64.0905281454450.9036@loopy.telegraphics.com.au>
-	<20090527.223355.118242797.davem@davemloft.net>
-	<Pine.LNX.4.64.0905282200460.12066@loopy.telegraphics.com.au>
+Subject: Re: [PATCH 2.6.30 1/2] cxgb3: fix dma mapping regression
+Date: Fri, 29 May 2009 01:56:47 -0700 (PDT)
+Message-ID: <20090529.015647.51443277.davem@davemloft.net>
+References: <20090528212302.28149.46684.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org,
-	geert.uytterhoeven@gmail.com, shemminger@vyatta.com
-To: fthain@telegraphics.com.au
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0905282200460.12066@loopy.telegraphics.com.au>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36752
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753485AbZE2I4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:56:47 -0400
+In-Reply-To: <20090528212302.28149.46684.stgit@speedy5>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Thu, 28 May 2009 22:05:53 +1000 (EST)
+From: Divy Le Ray <divy@chelsio.com>
+Date: Thu, 28 May 2009 14:23:02 -0700
 
-> --- linux-2.6.29.orig/drivers/net/Makefile	2009-05-28 15:15:13.000000000 +1000
-> +++ linux-2.6.29/drivers/net/Makefile	2009-05-28 15:15:54.000000000 +1000
-> @@ -489,7 +489,7 @@
->  	.ndo_set_mac_address 	= eth_mac_addr,
->  	.ndo_change_mtu		= eth_change_mtu,
->  #ifdef CONFIG_NET_POLL_CONTROLLER
-> -	.ndo_poll_controller	= ei_poll,
-> +	.ndo_poll_controller	= __ei_poll,
->  #endif
->  };
+> From: Divy Le Ray <divy@chelsio.com>
+> 
+> Commit 5e68b772e6efd189d6aca76f6872fb75d51ace60
+>   cxgb3: map entire Rx page, feed map+offset to Rx ring.
+> 
+> introduced a regression on platforms defining DECLARE_PCI_UNMAP_ADDR()
+> and related macros as no-ops.
+> 
+> Rx descriptors are fed with the a page buffer bus address + page chunk offset.
+> The page buffer bus address is set and retrieved through
+> pci_unamp_addr_set(), pci_unmap_addr().
+> These functions being meaningless on x86 (if CONFIG_DMA_API_DEBUG is not set).
+> The HW ends up with a bogus bus address.
+> 
+> This patch saves the page buffer bus address for all plaftorms.
+> 
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-I don't think this is a patch to drivers/net/Makefile :-)
-
-I've seen some patch screwups in my time, but this one
-takes the cake as one of the most impressive ones :-)
-
-I'll fix it up by hand, but realize that this makes more
-work for me.
+Applied.
