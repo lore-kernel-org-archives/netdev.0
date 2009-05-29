@@ -1,50 +1,57 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 1/4 v2] netdev: bfin_mac: drop useless IRQF_SHARED from Blackfin EMAC interrupt
-Date: Fri, 29 May 2009 09:39:45 -0400
-Message-ID: <1243604385-27159-1-git-send-email-vapier@gentoo.org>
-References: <1243404615-25879-2-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 2/4 v2] netdev: bfin_mac: fix malformed UDP packet transmission when polling with KGDB
+Date: Fri, 29 May 2009 09:40:43 -0400
+Message-ID: <1243604443-27204-1-git-send-email-vapier@gentoo.org>
+References: <1243404615-25879-3-git-send-email-vapier@gentoo.org>
 Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Michael Hennerich <michael.hennerich@analog.com>,
+	Sonic Zhang <sonic.zhang@analog.com>,
 	Bryan Wu <cooloney@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:60905 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:32996 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759191AbZE2Nju (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2009 09:39:50 -0400
-In-Reply-To: <1243404615-25879-2-git-send-email-vapier@gentoo.org>
+	id S1758816AbZE2Nks (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 09:40:48 -0400
+In-Reply-To: <1243404615-25879-3-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Hennerich <michael.hennerich@analog.com>
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-The IRQ used by the Blackfin EMAC is internal to the peripheral and cannot
-be used to generate any other interrupt, so there is no point in marking it
-as IRQF_SHARED.
+Writes to the DMA descriptors may sit in the internal Blackfin data buffers
+and not actually be available when the DMA engine goes to fetch them.  This
+does not typically happen, but when dealing with short/fast packets such as
+UDP and polling KGDB, this occurs much more frequently.  Same goes for
+heavy loads as seen by netperf tests or large scp transfers.  So force the
+buffers to drain with SSYNC otherwise we get random malformed packets.
 
-Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 Signed-off-by: Bryan Wu <cooloney@kernel.org>
 ---
 v2
-	- improve changelog
+	- make comment/changelog reflect what is actually going on
 
- drivers/net/bfin_mac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/bfin_mac.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 9f971ed..1905532 100644
+index 1905532..38d34ce 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -1108,7 +1108,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
- 	/* now, enable interrupts */
- 	/* register irq handler */
- 	rc = request_irq(IRQ_MAC_RX, bfin_mac_interrupt,
--			IRQF_DISABLED | IRQF_SHARED, "EMAC_RX", ndev);
-+			IRQF_DISABLED, "EMAC_RX", ndev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "Cannot request Blackfin MAC RX IRQ!\n");
- 		rc = -EBUSY;
+@@ -688,6 +688,12 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 		}
+ 	}
+ 
++	/* make sure the internal data buffers in the core are drained
++	 * so that the DMA descriptors are completely written when the
++	 * DMA engine goes to fetch them below
++	 */
++	SSYNC();
++
+ 	/* enable this packet's dma */
+ 	current_tx_ptr->desc_a.config |= DMAEN;
+ 
 -- 
 1.6.3.1
 
