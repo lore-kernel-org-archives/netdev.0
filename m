@@ -1,56 +1,88 @@
-From: Piotrek D <regis44@gmail.com>
-Subject: Re: HTB class parameter change
-Date: Fri, 29 May 2009 07:41:34 +0200
-Message-ID: <620d582f0905282241n1b1dd47anb27c6a377161e751@mail.gmail.com>
-References: <620d582f0905281347w5aa96a85na5339aed87db5464@mail.gmail.com>
-	 <4A1EFA1B.2020002@gmail.com>
+From: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Fri, 29 May 2009 14:18:30 +0900
+Message-ID: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
+References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: containers@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:47120 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637AbZE2Fle convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 01:41:34 -0400
-Received: by bwz22 with SMTP id 22so5899122bwz.37
-        for <netdev@vger.kernel.org>; Thu, 28 May 2009 22:41:35 -0700 (PDT)
-In-Reply-To: <4A1EFA1B.2020002@gmail.com>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:60111 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751554AbZE2Fq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 01:46:57 -0400
+In-Reply-To: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for double posting. I haven't noticed the previous reply.
+Hi, 
 
-Piotrek
+On Thu, 21 May 2009 09:22:56 +0900
+Minoru Usui <usui@mxm.nes.nec.co.jp> wrote:
 
-2009/5/28 Eric Dumazet <eric.dumazet@gmail.com>:
-> Piotrek D a =E9crit :
->> HI,
->>
->> I am trying to change the rate parameter of HTB class by using this
->> code from within one of my functions :
->>
->> =A0struct htb_class *cl;
->> =A0cl=3Dhtb_find(number,q);
->>
->> =A0cl->rate->rate.rate =3D NEW_RATE_VALUE;
->>
->> =A0TC shows the correct values, but the traffic rate doesn't change =
-a bit.
->> =A0Does anyboyd have any idea what am I doing wrong ? Maybe there wo=
-uld
->> be a faster way by sending a netlink =A0message ?
->>
->> Piotrek
->
->
-> You already asked this 15 hours ago and Stephen replied :
->
-> "HTB uses a rate table, so if you want the rate to change, you will n=
-eed to change the
-> table as well."
->
-> Did you miss this answer ?
->
->
+> Hi
+> 
+> Unfortunately this is only panic report.
+> 
+> I used cgroup net_cls subsystem, then kernel panic occured.
+> I attach panic message and kernel config in this mail's last paragraph.
+> If my operation is wrong, could you tell me how to use net_cls and
+> where the documentation is. 
+> 
+> # But I think panic is very bad even if my operation is wrong.
+
+I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
+
+When 'tc filter add' command is executed and proto-tcf does not exist, 
+tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
+cops->tcf_chain()'s chain before calling tp->ops->change().
+
+If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
+too, but proto-tcf(tp) is not unchained yet. 
+
+I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
+an error.
+
+Signed-off-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
+
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 0759f32..756148b 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -266,11 +266,6 @@ replay:
+ 			goto errout;
+ 		}
+ 
+-		spin_lock_bh(root_lock);
+-		tp->next = *back;
+-		*back = tp;
+-		spin_unlock_bh(root_lock);
+-
+ 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
+ 		goto errout;
+ 
+@@ -314,8 +309,17 @@ replay:
+ 	}
+ 
+ 	err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
+-	if (err == 0)
+-		tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
++	if (err) {
++		tcf_destroy(tp);
++		goto errout;
++	}
++
++	spin_lock_bh(root_lock);
++	tp->next = *back;
++	*back = tp;
++	spin_unlock_bh(root_lock);
++
++	tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
+ 
+ errout:
+ 	if (cl)
+
+-- 
+Minoru Usui <usui@mxm.nes.nec.co.jp>
