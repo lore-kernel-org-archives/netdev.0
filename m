@@ -1,36 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] netdev: bfin_mac: fix crash when unloading module
-Date: Fri, 29 May 2009 02:10:42 -0700 (PDT)
-Message-ID: <20090529.021042.184273147.davem@davemloft.net>
-References: <1243404615-25879-1-git-send-email-vapier@gentoo.org>
-	<1243404615-25879-6-git-send-email-vapier@gentoo.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/14] GRO: Lots of microoptimisations
+Date: Fri, 29 May 2009 19:28:21 +1000
+Message-ID: <20090529092821.GA11725@gondor.apana.org.au>
+References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au> <20090528152143.GA4501@neterion.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
-	graf.yang@analog.com
-To: vapier@gentoo.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin LaHaise <ben.lahaise@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57368
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752893AbZE2JKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 05:10:42 -0400
-In-Reply-To: <1243404615-25879-6-git-send-email-vapier@gentoo.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:58923 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751827AbZE2J2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 05:28:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20090528152143.GA4501@neterion.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Wed, 27 May 2009 02:10:15 -0400
+On Thu, May 28, 2009 at 11:21:43AM -0400, Benjamin LaHaise wrote:
+> 
+> With GRO off I'm getting ~4.7-5Gbps to the receiver which is CPU bound with 
+> netperf.  With GRO on, that drops to ~3.9-4.3Gbps.  The only real difference 
+> is the entry point into the net code being napi_gro_receive() vs 
+> netif_receive_skb().
 
-> If we build the Blackfin EMAC driver as a module and then unload it at
-> runtime, it would cause a crash:
-> root:/> rmmod bfin_mac
+That doesn't sound right at all.  Can you run tcpdump on it to see
+if it's actually aggregating?
 
-Actually, I reverted patch #4.
-
-This bug is caused by patch #4, integrate this bug fix into
-patch #4 and resubmit as one whole change.
-
-Otherwise the tree is not properly bisectable.
-
-Thank you.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
