@@ -1,33 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Fri, 29 May 2009 19:29:30 +1000
-Message-ID: <20090529092930.GA11785@gondor.apana.org.au>
-References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au> <20090528152143.GA4501@neterion.com> <20090529092821.GA11725@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] veth: dont release skb->dst in veth_xmit()
+Date: Fri, 29 May 2009 11:30:36 +0200
+Message-ID: <4A1FAB3C.9090406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58928 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753593AbZE2J3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 05:29:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20090529092821.GA11725@gondor.apana.org.au>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:38791 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbZE2Jam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 05:30:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 07:28:21PM +1000, Herbert Xu wrote:
->
-> That doesn't sound right at all.  Can you run tcpdump on it to see
-> if it's actually aggregating?
+No need to release skb->dst, its now done by core network.
 
-Oh and when you say GRO off, is that with it turned off using
-ethtool or with the GRO patch to your driver reverted?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 8e56fcf..87197dd 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -176,8 +176,6 @@ static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (dev->features & NETIF_F_NO_CSUM)
+ 		skb->ip_summed = rcv_priv->ip_summed;
+ 
+-	dst_release(skb->dst);
+-	skb->dst = NULL;
+ 	skb->mark = 0;
+ 	secpath_reset(skb);
+ 	nf_reset(skb);
