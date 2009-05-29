@@ -1,20 +1,27 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 3/10]: p54: Use SKB list handling helpers instead of
-	by-hand code.
-Date: Fri, 29 May 2009 12:18:20 +0200
-Message-ID: <20090529101819.GB3506@tuxdriver.com>
-References: <20090529.014009.107644427.davem@davemloft.net>
+Subject: Re: [PATCH 4/10]: rtl8187: Remove pointless check in
+	rtl8187_rx_cb().
+Date: Fri, 29 May 2009 12:18:35 +0200
+Message-ID: <20090529101834.GC3506@tuxdriver.com>
+References: <20090529.014011.244789664.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090529.014009.107644427.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <20090529.014011.244789664.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 29, 2009 at 01:40:09AM -0700, David Miller wrote:
+On Fri, May 29, 2009 at 01:40:11AM -0700, David Miller wrote:
+> 
+> First of all, it exposes the SKB list implementation.
+> 
+> Second of all it's not needed.  If we get called here, we
+> successfully enqueued the URB with the linked SKB and
+> such a completion only gets called one time on such an
+> SKB.
 > 
 > Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
