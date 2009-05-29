@@ -1,88 +1,48 @@
-From: Minoru Usui <usui@mxm.nes.nec.co.jp>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Fri, 29 May 2009 14:18:30 +0900
-Message-ID: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
-References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] Multicast socket option
+Date: Fri, 29 May 2009 09:25:18 +0300
+Message-ID: <200905290925.19155.remi.denis-courmont@nokia.com>
+References: <4A1EC33E.1080201@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.linux-foundation.org
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Christoph Lameter <cl@linux.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: ext Nivedita Singhvi <niv@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:60111 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbZE2Fq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 01:46:57 -0400
-In-Reply-To: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
+Received: from smtp.nokia.com ([192.100.122.233]:25873 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753878AbZE2GY4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 02:24:56 -0400
+In-Reply-To: <4A1EC33E.1080201@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, 
+On Thursday 28 May 2009 20:00:46 ext Nivedita Singhvi wrote:
+> After some discussion offline with Christoph Lameter and David Steven=
+s
+> regarding multicast behaviour in Linux, I'm submitting a slightly
+> modified patch from the one Christoph submitted earlier.
+>
+> This patch provides a new socket option IP_MULTICAST_ALL.
+>
+> In this case, default behaviour is _unchanged_ from the current
+> Linux standard. The socket option is set by default to provide
+> original behaviour. Sockets wishing to receive data only from
+> multicast groups they join explicitly will need to clear this
+> socket option.
 
-On Thu, 21 May 2009 09:22:56 +0900
-Minoru Usui <usui@mxm.nes.nec.co.jp> wrote:
+You can already achieve this by checking the destination address in the=
+=20
+SOL_PKTINFO ancilliary data. Sure, it will cause extra context switches=
+ to=20
+process unwanted packets but it will work with any kernel version.
 
-> Hi
-> 
-> Unfortunately this is only panic report.
-> 
-> I used cgroup net_cls subsystem, then kernel panic occured.
-> I attach panic message and kernel config in this mail's last paragraph.
-> If my operation is wrong, could you tell me how to use net_cls and
-> where the documentation is. 
-> 
-> # But I think panic is very bad even if my operation is wrong.
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
-I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
-
-When 'tc filter add' command is executed and proto-tcf does not exist, 
-tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
-cops->tcf_chain()'s chain before calling tp->ops->change().
-
-If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
-too, but proto-tcf(tp) is not unchained yet. 
-
-I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
-an error.
-
-Signed-off-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 0759f32..756148b 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -266,11 +266,6 @@ replay:
- 			goto errout;
- 		}
- 
--		spin_lock_bh(root_lock);
--		tp->next = *back;
--		*back = tp;
--		spin_unlock_bh(root_lock);
--
- 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
- 		goto errout;
- 
-@@ -314,8 +309,17 @@ replay:
- 	}
- 
- 	err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
--	if (err == 0)
--		tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
-+	if (err) {
-+		tcf_destroy(tp);
-+		goto errout;
-+	}
-+
-+	spin_lock_bh(root_lock);
-+	tp->next = *back;
-+	*back = tp;
-+	spin_unlock_bh(root_lock);
-+
-+	tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
- 
- errout:
- 	if (cl)
-
--- 
-Minoru Usui <usui@mxm.nes.nec.co.jp>
