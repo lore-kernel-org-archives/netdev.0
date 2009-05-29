@@ -1,54 +1,50 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: NIU driver unmap_page call
-Date: Fri, 29 May 2009 17:38:50 -0500
-Message-ID: <71C5D403-0A82-45E6-8FEF-2911B7BB9C24@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v930.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/5] netdev: bfin_mac: Blackfin
+ EMAC interrupt may not be shared
+Date: Fri, 29 May 2009 15:45:34 -0700 (PDT)
+Message-ID: <20090529.154534.37038134.davem@davemloft.net>
+References: <8bd0f97a0905291513m780898e9j6bd4c0b3b9ae8528@mail.gmail.com>
+	<20090529.151816.232829085.davem@davemloft.net>
+	<8bd0f97a0905291521m35731e0bra828cb09d0929974@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael.Hennerich@analog.com, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: vapier.adi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:51250 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752346AbZE2Wiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 18:38:54 -0400
-Received: from az33smr01.freescale.net (az33smr01.freescale.net [10.64.34.199])
-	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n4TMcp7b009390
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 15:38:53 -0700 (MST)
-Received: from [192.168.2.3] (mvp-10-214-72-40.am.freescale.net [10.214.72.40])
-	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n4TMcoPe029155
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:38:51 -0500 (CDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33011
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752239AbZE2Wpf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 18:45:35 -0400
+In-Reply-To: <8bd0f97a0905291521m35731e0bra828cb09d0929974@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm working on a driver for a nic which has a hardware buffer  
-management feature, and I'm patterning some of the management of that  
-feature off the niu driver. I'm trying to figure out what this code  
-does:
+=46rom: Mike Frysinger <vapier.adi@gmail.com>
+Date: Fri, 29 May 2009 18:21:41 -0400
 
-                if ((page->index + rp->rbr_block_size) - rcr_size ==  
-addr) {
-                        *link = (struct page *) page->mapping;
-                        np->ops->unmap_page(np->device, page->index,
-                                            PAGE_SIZE, DMA_FROM_DEVICE);
-                        page->index = 0;
-                        page->mapping = NULL;
-                        rp->rbr_refill_pending++;
-                } else
-                        get_page(page);
+> On Fri, May 29, 2009 at 18:18, David Miller wrote:
+>> From: Mike Frysinger <vapier.adi@gmail.com>
+>>> the difference is that one of these is required in order for anythi=
+ng
+>>> to get done and the other is always useless noise. =A0also, the Bla=
+ckfin
+>>> core does do speculative data fetching on external memory, but not
+>>> MMRs, so the stalling due to the data cache line fills will be
+>>> mitigated unlike the useless MMR reads.
+>>
+>> You only need to read the register if the descriptor status is not
+>> ready yet, and you're just spinning in that case anyways.
+>>
+>> I doubt it makes any real difference if implemented properly.
+>>
+>> But I guess it's more fun to speculate than to actually try it out.
+>> :-/
+>=20
+> and i guess it's more fun to waste time attempting to support an
+> operating mode that the hardware has never and most likely will never
+> support
 
-It's clear it's taking the opportunity to remove the page from the  
-hash table, and to unmap the page, but I'm not familiar enough with  
-this nic to understand what the if statement is looking for.  My first  
-thought was that it was looking to see if this was the first buffer in  
-the page?  But that can't be right...   And why the get_page? I  
-thought the add_page code took care of incrementing the reference  
-count.  Lastly, the unmap_page call concerns me.  I'm on a 32-bit  
-platform with support for 36-bit physical addresses, which means I  
-need to unmap the memory before I give it to the stack.
-
-I suppose the easier solution would be to kmalloc the buffers I put in  
-the pool, but that would take longer, so I'm hoping I can use the same  
-method as the NIU driver.
-
-Thanks,
-Andy
+I guess I'll apply your patch :-)
