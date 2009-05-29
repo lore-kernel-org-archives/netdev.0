@@ -1,34 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: replace dma_sync_single with
- dma_sync_single_for_cpu
-Date: Fri, 29 May 2009 01:51:49 -0700 (PDT)
-Message-ID: <20090529.015149.92225019.davem@davemloft.net>
-References: <20090528100925H.fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next] bonding: allow bond in mode balance-alb to
+ work properly in bridge -try4.3
+Date: Fri, 29 May 2009 01:52:32 -0700 (PDT)
+Message-ID: <20090529.015232.113333227.davem@davemloft.net>
+References: <20090527135351.GD1652@psychotron.englab.brq.redhat.com>
+	<20090528110459.GE22391@psychotron.englab.brq.redhat.com>
+	<4A1E7887.4000102@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: fujita.tomonori@lab.ntt.co.jp
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, jgarzik@pobox.com,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
+	kaber@trash.net, mschmidt@redhat.com, andy@greyhouse.net,
+	oleg@redhat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49217
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49226
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751047AbZE2Ivt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:51:49 -0400
-In-Reply-To: <20090528100925H.fujita.tomonori@lab.ntt.co.jp>
+	by vger.kernel.org with ESMTP id S1754094AbZE2Iwc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 04:52:32 -0400
+In-Reply-To: <4A1E7887.4000102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Thu, 28 May 2009 10:10:42 +0900
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 28 May 2009 13:41:59 +0200
 
-> This replaces dma_sync_single() with dma_sync_single_for_cpu() because
-> dma_sync_single() is an obsolete API; include/linux/dma-mapping.h says:
-> 
-> /* Backwards compat, remove in 2.7.x */
-> #define dma_sync_single		dma_sync_single_for_cpu
-> #define dma_sync_sg		dma_sync_sg_for_cpu
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Jiri Pirko a =E9crit :
+>> [PATCH net-next] bonding: allow bond in mode balance-alb to work pro=
+perly in bridge -try4.3
+>>=20
+>> (updated)
+>> changes v4.2 -> v4.3
+>> - memcpy the address always, not just in case it differs from master=
+->dev_addr
+>> - compare_ether_addr_64bits() is not used so there is no direct need=
+ to make new
+>>   header file (I think it would be good to have bond stuff in separa=
+te file
+>>   anyway).
+>=20
+> Yes, this could be done in a future cleanup patch.
+> I find this (short) version easier to review for a new feature.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied to net-next-2.6, thank you.
+Applied, thanks everyone.
