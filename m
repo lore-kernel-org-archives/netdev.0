@@ -1,36 +1,78 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2/10]: wavelan: Remove bogus debugging on skb->next
-	being non-NULL.
-Date: Fri, 29 May 2009 12:17:56 +0200
-Message-ID: <20090529101754.GA3506@tuxdriver.com>
-References: <20090529.014002.66716606.davem@davemloft.net>
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 9/10]: irda: Use SKB queue and list helpers instead of
+	doing it by-hand.
+Date: Fri, 29 May 2009 12:36:20 +0200
+Message-ID: <1243593380.8750.0.camel@sortiz-mobl>
+References: <20090529.014025.223389403.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55711 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756204AbZE2Kad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 06:30:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20090529.014002.66716606.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090529.014025.223389403.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 29, 2009 at 01:40:02AM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Fcc: +backup
-> X-Mailer: Mew version 6.2.51 on Emacs 22.1 / Mule 5.0 (SAKAKI)
-> ----
+On Fri, 2009-05-29 at 01:40 -0700, David Miller wrote:
+> Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Acked-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+
+Cheers,
+Samuel.
+
+> ---
+>  net/irda/irlap_frame.c |   18 ++----------------
+>  1 files changed, 2 insertions(+), 16 deletions(-)
 > 
-> This eliminates explicit references to the SKB list handling
-> implementation.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
+> index 2562ebc..7af2e74 100644
+> --- a/net/irda/irlap_frame.c
+> +++ b/net/irda/irlap_frame.c
+> @@ -982,17 +982,12 @@ void irlap_resend_rejected_frames(struct irlap_cb *self, int command)
+>  {
+>  	struct sk_buff *tx_skb;
+>  	struct sk_buff *skb;
+> -	int count;
+>  
+>  	IRDA_ASSERT(self != NULL, return;);
+>  	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
+>  
+> -	/* Initialize variables */
+> -	count = skb_queue_len(&self->wx_list);
+> -
+>  	/*  Resend unacknowledged frame(s) */
+> -	skb = skb_peek(&self->wx_list);
+> -	while (skb != NULL) {
+> +	skb_queue_walk(&self->wx_list, skb) {
+>  		irlap_wait_min_turn_around(self, &self->qos_tx);
+>  
+>  		/* We copy the skb to be retransmitted since we will have to
+> @@ -1011,21 +1006,12 @@ void irlap_resend_rejected_frames(struct irlap_cb *self, int command)
+>  		/*
+>  		 *  Set poll bit on the last frame retransmitted
+>  		 */
+> -		if (count-- == 1)
+> +		if (skb_queue_is_last(&self->wx_list, skb))
+>  			tx_skb->data[1] |= PF_BIT; /* Set p/f bit */
+>  		else
+>  			tx_skb->data[1] &= ~PF_BIT; /* Clear p/f bit */
+>  
+>  		irlap_send_i_frame(self, tx_skb, command);
+> -
+> -		/*
+> -		 *  If our skb is the last buffer in the list, then
+> -		 *  we are finished, if not, move to the next sk-buffer
+> -		 */
+> -		if (skb == skb_peek_tail(&self->wx_list))
+> -			skb = NULL;
+> -		else
+> -			skb = skb->next;
+>  	}
+>  #if 0 /* Not yet */
+>  	/*
 
-ACK
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
