@@ -1,51 +1,61 @@
-From: Mike Mason <mmlnx@us.ibm.com>
-Subject: [PATCH] e1000e: io_error_detected callback should return PCI_ERS_RESULT_DISCONNECT
- on permanent failure
-Date: Fri, 29 May 2009 14:16:40 -0700
-Message-ID: <4A2050B8.7050302@us.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 13397] New: forcedeth driver doesn't work
+ during network boot
+Date: Fri, 29 May 2009 14:31:46 -0700
+Message-ID: <20090529143146.ba79428a.akpm@linux-foundation.org>
+References: <bug-13397-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, rolf.fokkens@orange.nl,
+	netdev@vger.kernel.org
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:35780 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752534AbZE2VQl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 May 2009 17:16:41 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e7.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n4TL53SD008328
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:05:03 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4TLGg4U256262
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4TLGgpO029641
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
-Received: from [127.0.0.1] ([9.57.84.243])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n4TLGepc029580
-	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60858 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752486AbZE2Vbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 17:31:52 -0400
+In-Reply-To: <bug-13397-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PCI drivers that implement the io_error_detected callback
-should return PCI_ERS_RESULT_DISCONNECT if the state
-passed in is pci_channel_io_perm_failure.  This state is 
-not checked in many of the network drivers.
 
-This patch fixes the omission in the e1000e driver.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Signed-off-by: Mike Mason <mmlnx@us.ibm.com> 
+On Thu, 28 May 2009 10:14:30 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
---- a/drivers/net/e1000e/netdev.c	2009-05-23 14:47:00.000000000 -0700
-+++ b/drivers/net/e1000e/netdev.c	2009-05-29 13:43:24.000000000 -0700
-@@ -4616,6 +4616,9 @@ static pci_ers_result_t e1000_io_error_d
- 
- 	netif_device_detach(netdev);
- 
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
- 	if (netif_running(netdev))
- 		e1000e_down(adapter);
- 	pci_disable_device(pdev);
+> http://bugzilla.kernel.org/show_bug.cgi?id=13397
+> 
+>            Summary: forcedeth driver doesn't work during network boot
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.29.3
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: rolf.fokkens@orange.nl
+>         Regression: No
+> 
+> 
+> After installing Fedora 11-preview my diskless PC no longer boots. The initrd
+> hangs when trying to bring te interface up. Remarkable is tha fact that de DHCP
+> server (another Linux PC) registers a full DHCPDISCOVER, -OFFER, -REQUEST and
+> -ACK sequence.
+> 
+> Before initrd tries te bring up the interface the BIOS does a PXE boot, which
+> starts a gPXE image which starts the Fedora installation via grub over iscsi.
+> 
+> Both the BIOS PXE boot and the gPXE boot run without any trouble. Inird however
+> hangs.
+> 
+> The used hardwars is a Asus M3N-VM MoBo with onboard ethernet device.
+> 
 
