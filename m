@@ -1,26 +1,33 @@
-From: Benjamin LaHaise <ben.lahaise@neterion.com>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Fri, 29 May 2009 12:23:13 -0400
-Message-ID: <20090529162312.GA5191@neterion.com>
-References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au> <20090528152143.GA4501@neterion.com> <20090529092821.GA11725@gondor.apana.org.au> <20090529092930.GA11785@gondor.apana.org.au>
+From: Pascal Terjan <pterjan@mandriva.com>
+Subject: Re: SiS 191 failure with MTU > 1496
+Date: Fri, 29 May 2009 18:50:00 +0200
+Message-ID: <1243615800.12871.45.camel@plop>
+References: <1243615486.12871.44.camel@plop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:43264 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753483AbZE2QXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 12:23:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20090529092930.GA11785@gondor.apana.org.au>
+Received: from ryu.zarb.org ([212.85.158.22]:54717 "EHLO ryu.zarb.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753409AbZE2QuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 12:50:00 -0400
+In-Reply-To: <1243615486.12871.44.camel@plop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 07:29:30PM +1000, Herbert Xu wrote:
-> Oh and when you say GRO off, is that with it turned off using
-> ethtool or with the GRO patch to your driver reverted?
+Le vendredi 29 mai 2009 =E0 18:44 +0200, Pascal Terjan a =E9crit :
+> On a laptop with such hardware, with default 1500 MTU I can't connect=
+ to
+> local machines, error bit LIMIT is set when receiving packets.
+>=20
+> By decreasing the MTU to 1496 everything works fine.
+>=20
 
-It's just being turned off by setting a loadable module option.
+This looks like a known issue
 
-		-ben
+http://bugzilla.kernel.org/show_bug.cgi?id=3D10895
+https://bugs.launchpad.net/ubuntu/+bug/369513
+
+
