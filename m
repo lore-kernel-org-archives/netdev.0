@@ -1,163 +1,143 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/10]: p54: Use SKB list handling helpers instead of
- by-hand code.
-Date: Fri, 29 May 2009 01:40:09 -0700 (PDT)
-Message-ID: <20090529.014009.107644427.davem@davemloft.net>
+Subject: [PATCH 5/10]: atm: Use SKB queue and list helpers instead of doing
+ it by-hand.
+Date: Fri, 29 May 2009 01:40:16 -0700 (PDT)
+Message-ID: <20090529.014016.22993674.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56918
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56922
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757277AbZE2IkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:40:10 -0400
+	by vger.kernel.org with ESMTP id S1756767AbZE2IkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 04:40:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/wireless/p54/p54common.c |   46 ++++++++++++++--------------------
- 1 files changed, 19 insertions(+), 27 deletions(-)
+ net/atm/br2684.c |   26 +++++++++-----------------
+ net/atm/clip.c   |   27 ++++++++-------------------
+ 2 files changed, 17 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/wireless/p54/p54common.c b/drivers/net/wireless/p54/p54common.c
-index 48d81d9..b618bd1 100644
---- a/drivers/net/wireless/p54/p54common.c
-+++ b/drivers/net/wireless/p54/p54common.c
-@@ -823,30 +823,30 @@ void p54_free_skb(struct ieee80211_hw *dev, struct sk_buff *skb)
- 	struct p54_tx_info *range;
- 	unsigned long flags;
- 
--	if (unlikely(!skb || !dev || !skb_queue_len(&priv->tx_queue)))
-+	if (unlikely(!skb || !dev || skb_queue_empty(&priv->tx_queue)))
- 		return;
- 
--	/*
--	 * don't try to free an already unlinked skb
-+	/* There used to be a check here to see if the SKB was on the
-+	 * TX queue or not.  This can never happen because all SKBs we
-+	 * see here successfully went through p54_assign_address()
-+	 * which means the SKB is on the ->tx_queue.
- 	 */
--	if (unlikely((!skb->next) || (!skb->prev)))
--		return;
- 
- 	spin_lock_irqsave(&priv->tx_queue.lock, flags);
- 	info = IEEE80211_SKB_CB(skb);
- 	range = (void *)info->rate_driver_data;
--	if (skb->prev != (struct sk_buff *)&priv->tx_queue) {
-+	if (!skb_queue_is_first(&priv->tx_queue, skb)) {
- 		struct ieee80211_tx_info *ni;
- 		struct p54_tx_info *mr;
- 
--		ni = IEEE80211_SKB_CB(skb->prev);
-+		ni = IEEE80211_SKB_CB(skb_queue_prev(&priv->tx_queue, skb));
- 		mr = (struct p54_tx_info *)ni->rate_driver_data;
- 	}
--	if (skb->next != (struct sk_buff *)&priv->tx_queue) {
-+	if (!skb_queue_is_last(&priv->tx_queue, skb)) {
- 		struct ieee80211_tx_info *ni;
- 		struct p54_tx_info *mr;
- 
--		ni = IEEE80211_SKB_CB(skb->next);
-+		ni = IEEE80211_SKB_CB(skb_queue_next(&priv->tx_queue, skb));
- 		mr = (struct p54_tx_info *)ni->rate_driver_data;
- 	}
- 	__skb_unlink(skb, &priv->tx_queue);
-@@ -864,15 +864,13 @@ static struct sk_buff *p54_find_tx_entry(struct ieee80211_hw *dev,
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&priv->tx_queue.lock, flags);
--	entry = priv->tx_queue.next;
--	while (entry != (struct sk_buff *)&priv->tx_queue) {
-+	skb_queue_walk(&priv->tx_queue, entry) {
- 		struct p54_hdr *hdr = (struct p54_hdr *) entry->data;
- 
- 		if (hdr->req_id == req_id) {
- 			spin_unlock_irqrestore(&priv->tx_queue.lock, flags);
- 			return entry;
- 		}
--		entry = entry->next;
- 	}
- 	spin_unlock_irqrestore(&priv->tx_queue.lock, flags);
- 	return NULL;
-@@ -890,24 +888,22 @@ static void p54_rx_frame_sent(struct ieee80211_hw *dev, struct sk_buff *skb)
- 	int count, idx;
- 
- 	spin_lock_irqsave(&priv->tx_queue.lock, flags);
--	entry = (struct sk_buff *) priv->tx_queue.next;
--	while (entry != (struct sk_buff *)&priv->tx_queue) {
-+	skb_queue_walk(&priv->tx_queue, entry) {
- 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(entry);
- 		struct p54_hdr *entry_hdr;
- 		struct p54_tx_data *entry_data;
- 		unsigned int pad = 0, frame_len;
- 
- 		range = (void *)info->rate_driver_data;
--		if (range->start_addr != addr) {
--			entry = entry->next;
-+		if (range->start_addr != addr)
- 			continue;
--		}
- 
--		if (entry->next != (struct sk_buff *)&priv->tx_queue) {
-+		if (!skb_queue_is_last(&priv->tx_queue, entry)) {
- 			struct ieee80211_tx_info *ni;
- 			struct p54_tx_info *mr;
- 
--			ni = IEEE80211_SKB_CB(entry->next);
-+			ni = IEEE80211_SKB_CB(skb_queue_next(&priv->tx_queue,
-+							     entry));
- 			mr = (struct p54_tx_info *)ni->rate_driver_data;
- 		}
- 
-@@ -1168,23 +1164,21 @@ static int p54_assign_address(struct ieee80211_hw *dev, struct sk_buff *skb,
- 		}
- 	}
- 
--	entry = priv->tx_queue.next;
--	while (left--) {
-+	skb_queue_walk(&priv->tx_queue, entry) {
- 		u32 hole_size;
- 		info = IEEE80211_SKB_CB(entry);
- 		range = (void *)info->rate_driver_data;
- 		hole_size = range->start_addr - last_addr;
- 		if (!target_skb && hole_size >= len) {
--			target_skb = entry->prev;
-+			target_skb = skb_queue_prev(&priv->tx_queue, entry);
- 			hole_size -= len;
- 			target_addr = last_addr;
- 		}
- 		largest_hole = max(largest_hole, hole_size);
- 		last_addr = range->end_addr;
--		entry = entry->next;
- 	}
- 	if (!target_skb && priv->rx_end - last_addr >= len) {
--		target_skb = priv->tx_queue.prev;
-+		target_skb = skb_peek_tail(&priv->tx_queue);
- 		largest_hole = max(largest_hole, priv->rx_end - last_addr - len);
- 		if (!skb_queue_empty(&priv->tx_queue)) {
- 			info = IEEE80211_SKB_CB(target_skb);
-@@ -2090,7 +2084,6 @@ out:
- static void p54_stop(struct ieee80211_hw *dev)
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 3100a89..bfa8fa9 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -445,9 +445,10 @@ free_skb:
+  */
+ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
  {
- 	struct p54_common *priv = dev->priv;
++	struct sk_buff_head queue;
+ 	int err;
+ 	struct br2684_vcc *brvcc;
 -	struct sk_buff *skb;
++	struct sk_buff *skb, *tmp;
+ 	struct sk_buff_head *rq;
+ 	struct br2684_dev *brdev;
+ 	struct net_device *net_dev;
+@@ -505,29 +506,20 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
+ 	barrier();
+ 	atmvcc->push = br2684_push;
  
- 	mutex_lock(&priv->conf_mutex);
- 	priv->mode = NL80211_IFTYPE_UNSPECIFIED;
-@@ -2105,8 +2098,7 @@ static void p54_stop(struct ieee80211_hw *dev)
- 		p54_tx_cancel(dev, priv->cached_beacon);
++	__skb_queue_head_init(&queue);
+ 	rq = &sk_atm(atmvcc)->sk_receive_queue;
  
- 	priv->stop(dev);
--	while ((skb = skb_dequeue(&priv->tx_queue)))
--		kfree_skb(skb);
-+	skb_queue_purge(&priv->tx_queue);
- 	priv->cached_beacon = NULL;
- 	priv->tsf_high32 = priv->tsf_low32 = 0;
- 	mutex_unlock(&priv->conf_mutex);
+ 	spin_lock_irqsave(&rq->lock, flags);
+-	if (skb_queue_empty(rq)) {
+-		skb = NULL;
+-	} else {
+-		/* NULL terminate the list.  */
+-		rq->prev->next = NULL;
+-		skb = rq->next;
+-	}
+-	rq->prev = rq->next = (struct sk_buff *)rq;
+-	rq->qlen = 0;
++	skb_queue_splice_init(rq, &queue);
+ 	spin_unlock_irqrestore(&rq->lock, flags);
+ 
+-	while (skb) {
+-		struct sk_buff *next = skb->next;
++	skb_queue_walk_safe(&queue, skb, tmp) {
++		struct net_device *dev = skb->dev;
+ 
+-		skb->next = skb->prev = NULL;
+-		br2684_push(atmvcc, skb);
+-		skb->dev->stats.rx_bytes -= skb->len;
+-		skb->dev->stats.rx_packets--;
++		dev->stats.rx_bytes -= skb->len;
++		dev->stats.rx_packets--;
+ 
+-		skb = next;
++		br2684_push(atmvcc, skb);
+ 	}
+ 	__module_get(THIS_MODULE);
+ 	return 0;
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 3dc0a3a..5597b87 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -445,9 +445,9 @@ static int clip_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int clip_mkip(struct atm_vcc *vcc, int timeout)
+ {
++	struct sk_buff_head *rq, queue;
+ 	struct clip_vcc *clip_vcc;
+-	struct sk_buff *skb;
+-	struct sk_buff_head *rq;
++	struct sk_buff *skb, *tmp;
+ 	unsigned long flags;
+ 
+ 	if (!vcc->push)
+@@ -469,39 +469,28 @@ static int clip_mkip(struct atm_vcc *vcc, int timeout)
+ 	vcc->push = clip_push;
+ 	vcc->pop = clip_pop;
+ 
++	__skb_queue_head_init(&queue);
+ 	rq = &sk_atm(vcc)->sk_receive_queue;
+ 
+ 	spin_lock_irqsave(&rq->lock, flags);
+-	if (skb_queue_empty(rq)) {
+-		skb = NULL;
+-	} else {
+-		/* NULL terminate the list.  */
+-		rq->prev->next = NULL;
+-		skb = rq->next;
+-	}
+-	rq->prev = rq->next = (struct sk_buff *)rq;
+-	rq->qlen = 0;
++	skb_queue_splice_init(rq, &queue);
+ 	spin_unlock_irqrestore(&rq->lock, flags);
+ 
+ 	/* re-process everything received between connection setup and MKIP */
+-	while (skb) {
+-		struct sk_buff *next = skb->next;
+-
+-		skb->next = skb->prev = NULL;
++	skb_queue_walk_safe(&queue, skb, tmp) {
+ 		if (!clip_devs) {
+ 			atm_return(vcc, skb->truesize);
+ 			kfree_skb(skb);
+ 		} else {
++			struct net_device *dev = skb->dev;
+ 			unsigned int len = skb->len;
+ 
+ 			skb_get(skb);
+ 			clip_push(vcc, skb);
+-			skb->dev->stats.rx_packets--;
+-			skb->dev->stats.rx_bytes -= len;
++			dev->stats.rx_packets--;
++			dev->stats.rx_bytes -= len;
+ 			kfree_skb(skb);
+ 		}
+-
+-		skb = next;
+ 	}
+ 	return 0;
+ }
 -- 
 1.6.3
 
