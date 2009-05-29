@@ -1,62 +1,51 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13398] New: sky2 occasionally fails to
- recognize device on cold boot
-Date: Fri, 29 May 2009 14:09:20 -0700
-Message-ID: <20090529140920.c5d964b4.akpm@linux-foundation.org>
-References: <bug-13398-10286@http.bugzilla.kernel.org/>
+From: Mike Mason <mmlnx@us.ibm.com>
+Subject: [PATCH] e1000e: io_error_detected callback should return PCI_ERS_RESULT_DISCONNECT
+ on permanent failure
+Date: Fri, 29 May 2009 14:16:40 -0700
+Message-ID: <4A2050B8.7050302@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	thomas.burdick@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34607 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752430AbZE2VJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 17:09:51 -0400
-In-Reply-To: <bug-13398-10286@http.bugzilla.kernel.org/>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:35780 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752534AbZE2VQl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 May 2009 17:16:41 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e7.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n4TL53SD008328
+	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:05:03 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n4TLGg4U256262
+	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n4TLGgpO029641
+	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
+Received: from [127.0.0.1] ([9.57.84.243])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n4TLGepc029580
+	for <netdev@vger.kernel.org>; Fri, 29 May 2009 17:16:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+PCI drivers that implement the io_error_detected callback
+should return PCI_ERS_RESULT_DISCONNECT if the state
+passed in is pci_channel_io_perm_failure.  This state is 
+not checked in many of the network drivers.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+This patch fixes the omission in the e1000e driver.
 
-On Thu, 28 May 2009 16:26:36 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Signed-off-by: Mike Mason <mmlnx@us.ibm.com> 
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13398
-> 
->            Summary: sky2 occasionally fails to recognize device on cold
->                     boot
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.29
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: thomas.burdick@gmail.com
->         Regression: No
-> 
-> 
-> occasionally the sky2 module will report in dmesg
-> 
-> sky2 0000:02:00.0: unsupported chip type 0xff
-> 
-> on a cold boot, unloading and reloading the module gives the same error.
-> 
-> the network adapter is unusable. A warm reboot and the network adapter is
-> usable and the sky2 module reports success.
-> 
-> This is in a hp 1035nr netbook with, according to lspci, 
-> Marvell 88E8040 PCE-E Fast Ethernet Controller
-> 
+--- a/drivers/net/e1000e/netdev.c	2009-05-23 14:47:00.000000000 -0700
++++ b/drivers/net/e1000e/netdev.c	2009-05-29 13:43:24.000000000 -0700
+@@ -4616,6 +4616,9 @@ static pci_ers_result_t e1000_io_error_d
+ 
+ 	netif_device_detach(netdev);
+ 
++	if (state == pci_channel_io_perm_failure)
++		return PCI_ERS_RESULT_DISCONNECT;
++
+ 	if (netif_running(netdev))
+ 		e1000e_down(adapter);
+ 	pci_disable_device(pdev);
 
