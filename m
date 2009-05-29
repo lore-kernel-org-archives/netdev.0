@@ -1,229 +1,102 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.31 08/10] wimax: Add netlink interface to get device state
-Date: Thu, 28 May 2009 18:12:12 -0700
-Message-ID: <7f0333eb2f98bbfece4fbfe21076d0a3e49f0bb0.1243559425.git.inaky@linux.intel.com>
+Subject: [patch 2.6.31 09/10] wimax/i2400m: usb: fix device reset on autosuspend while not yet idle
+Date: Thu, 28 May 2009 18:12:13 -0700
+Message-ID: <2618ab774ea015089c6eb84787f7ede6f2a2cbd0.1243559425.git.inaky@linux.intel.com>
 References: <cover.1243559425.git.inaky@linux.intel.com>
-Cc: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 076-076-148-181.pdx.net ([76.76.148.181]:45064 "EHLO
 	localhost.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752104AbZE2ELm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:11:42 -0400
+	with ESMTP id S1753473AbZE2ELp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 00:11:45 -0400
 In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
 In-Reply-To: <cover.1243559425.git.inaky@linux.intel.com>
 References: <cover.1243559425.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+When the i2400m is connected to a network, the host interface (USB)
+cannot be suspended. For that to happen, the device has to have
+negotiated with the basestation to put the link on IDLE state.
 
-wimax connection manager / daemon has to know what is current
-state of the device. Previously it was only possible to get
-notification whet state has changed.
+If the host tries to put the device in standby while it is connected
+but not idle, the device resets, as the driver should not do that.
 
-Note:
+To avoid triggering that, when the USB susbsytem requires the driver
+to autosuspend the device, the driver checks if the device is not yet
+idle. If it is not, the request is requested (will be retried again
+later on after the autosuspend timeout). At some point the device will
+enter idle and the request will succeed (unless of course, there is
+network traffic, but at that point, there is no idle neither in the
+link or the host interface).
 
- By mistake, the new generic netlink's number for
- WIMAX_GNL_OP_STATE_GET was declared inserting into the existing list
- of API calls, not appending; thus, it'd break existing API.
-
- Fixed by Inaky Perez-Gonzalez <inaky@linux.intel.com> by moving to
- the tail, where we add to the interface, not modify the interface.
-
- Thanks to Stephen Hemminger <shemminger@vyatta.com> for catching this.
-
-Signed-off-by: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 ---
- include/linux/wimax.h    |    5 +++
- net/wimax/Makefile       |    1 +
- net/wimax/debug-levels.h |    1 +
- net/wimax/debugfs.c      |    1 +
- net/wimax/op-state-get.c |   86 ++++++++++++++++++++++++++++++++++++++++++++++
- net/wimax/stack.c        |    5 ++-
- 6 files changed, 98 insertions(+), 1 deletions(-)
- create mode 100644 net/wimax/op-state-get.c
+ drivers/net/wimax/i2400m/usb.c |   35 ++++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/wimax.h b/include/linux/wimax.h
-index c89de7f..2f7a6b7 100644
---- a/include/linux/wimax.h
-+++ b/include/linux/wimax.h
-@@ -78,6 +78,7 @@ enum {
- 	WIMAX_GNL_OP_RFKILL,	/* Run wimax_rfkill() */
- 	WIMAX_GNL_OP_RESET,	/* Run wimax_rfkill() */
- 	WIMAX_GNL_RE_STATE_CHANGE,	/* Report: status change */
-+	WIMAX_GNL_OP_STATE_GET,		/* Request for current state */
- };
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index ca4151a..1785132 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -505,27 +505,52 @@ int i2400mu_suspend(struct usb_interface *iface, pm_message_t pm_msg)
+ #ifdef CONFIG_PM
+ 	struct usb_device *usb_dev = i2400mu->usb_dev;
+ #endif
++	unsigned is_autosuspend = 0;
+ 	struct i2400m *i2400m = &i2400mu->i2400m;
  
- 
-@@ -113,6 +114,10 @@ enum {
- 	WIMAX_GNL_RESET_IFIDX = 1,
- };
- 
-+/* Atributes for wimax_state_get() */
-+enum {
-+	WIMAX_GNL_STGET_IFIDX = 1,
-+};
- 
- /*
-  * Attributes for the Report State Change
-diff --git a/net/wimax/Makefile b/net/wimax/Makefile
-index 5b80b94..8f1510d 100644
---- a/net/wimax/Makefile
-+++ b/net/wimax/Makefile
-@@ -6,6 +6,7 @@ wimax-y :=		\
- 	op-msg.o	\
- 	op-reset.o	\
- 	op-rfkill.o	\
-+	op-state-get.o	\
- 	stack.o
- 
- wimax-$(CONFIG_DEBUG_FS) += debugfs.o
-diff --git a/net/wimax/debug-levels.h b/net/wimax/debug-levels.h
-index 1c29123..0975adb 100644
---- a/net/wimax/debug-levels.h
-+++ b/net/wimax/debug-levels.h
-@@ -36,6 +36,7 @@ enum d_module {
- 	D_SUBMODULE_DECLARE(op_msg),
- 	D_SUBMODULE_DECLARE(op_reset),
- 	D_SUBMODULE_DECLARE(op_rfkill),
-+	D_SUBMODULE_DECLARE(op_state_get),
- 	D_SUBMODULE_DECLARE(stack),
- };
- 
-diff --git a/net/wimax/debugfs.c b/net/wimax/debugfs.c
-index 94d216a..6c9bedb 100644
---- a/net/wimax/debugfs.c
-+++ b/net/wimax/debugfs.c
-@@ -61,6 +61,7 @@ int wimax_debugfs_add(struct wimax_dev *wimax_dev)
- 	__debugfs_register("wimax_dl_", op_msg, dentry);
- 	__debugfs_register("wimax_dl_", op_reset, dentry);
- 	__debugfs_register("wimax_dl_", op_rfkill, dentry);
-+	__debugfs_register("wimax_dl_", op_state_get, dentry);
- 	__debugfs_register("wimax_dl_", stack, dentry);
- 	result = 0;
- out:
-diff --git a/net/wimax/op-state-get.c b/net/wimax/op-state-get.c
-new file mode 100644
-index 0000000..a76b8fc
---- /dev/null
-+++ b/net/wimax/op-state-get.c
-@@ -0,0 +1,86 @@
-+/*
-+ * Linux WiMAX
-+ * Implement and export a method for getting a WiMAX device current state
-+ *
-+ * Copyright (C) 2009 Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-+ *
-+ * Based on previous WiMAX core work by:
-+ *  Copyright (C) 2008 Intel Corporation <linux-wimax@intel.com>
-+ *  Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version
-+ * 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA.
-+ */
++#ifdef CONFIG_PM
++	if (usb_dev->auto_pm > 0)
++		is_autosuspend = 1;
++#endif
 +
-+#include <net/wimax.h>
-+#include <net/genetlink.h>
-+#include <linux/wimax.h>
-+#include <linux/security.h>
-+#include "wimax-internal.h"
-+
-+#define D_SUBMODULE op_state_get
-+#include "debug-levels.h"
-+
-+
-+static const
-+struct nla_policy wimax_gnl_state_get_policy[WIMAX_GNL_ATTR_MAX + 1] = {
-+	[WIMAX_GNL_STGET_IFIDX] = {
-+		.type = NLA_U32,
-+	},
-+};
-+
-+
-+/*
-+ * Exporting to user space over generic netlink
-+ *
-+ * Parse the state get command from user space, return a combination
-+ * value that describe the current state.
-+ *
-+ * No attributes.
-+ */
-+static
-+int wimax_gnl_doit_state_get(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int result, ifindex;
-+	struct wimax_dev *wimax_dev;
-+	struct device *dev;
-+
-+	d_fnstart(3, NULL, "(skb %p info %p)\n", skb, info);
-+	result = -ENODEV;
-+	if (info->attrs[WIMAX_GNL_STGET_IFIDX] == NULL) {
-+		printk(KERN_ERR "WIMAX_GNL_OP_STATE_GET: can't find IFIDX "
-+			"attribute\n");
-+		goto error_no_wimax_dev;
+ 	d_fnstart(3, dev, "(iface %p pm_msg %u)\n", iface, pm_msg.event);
+ 	if (i2400m->updown == 0)
+ 		goto no_firmware;
+-	d_printf(1, dev, "fw up, requesting standby\n");
++	if (i2400m->state == I2400M_SS_DATA_PATH_CONNECTED && is_autosuspend) {
++		/* ugh -- the device is connected and this suspend
++		 * request is an autosuspend one (not a system standby
++		 * / hibernate).
++		 *
++		 * The only way the device can go to standby is if the
++		 * link with the base station is in IDLE mode; that
++		 * were the case, we'd be in status
++		 * I2400M_SS_CONNECTED_IDLE. But we are not.
++		 *
++		 * If we *tell* him to go power save now, it'll reset
++		 * as a precautionary measure, so if this is an
++		 * autosuspend thing, say no and it'll come back
++		 * later, when the link is IDLE
++		 */
++		result = -EBADF;
++		d_printf(1, dev, "fw up, link up, not-idle, autosuspend: "
++			 "not entering powersave\n");
++		goto error_not_now;
 +	}
-+	ifindex = nla_get_u32(info->attrs[WIMAX_GNL_STGET_IFIDX]);
-+	wimax_dev = wimax_dev_get_by_genl_info(info, ifindex);
-+	if (wimax_dev == NULL)
-+		goto error_no_wimax_dev;
-+	dev = wimax_dev_to_dev(wimax_dev);
-+	/* Execute the operation and send the result back to user space */
-+	result = wimax_state_get(wimax_dev);
-+	dev_put(wimax_dev->net_dev);
-+error_no_wimax_dev:
-+	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
-+	return result;
-+}
-+
-+
-+struct genl_ops wimax_gnl_state_get = {
-+	.cmd = WIMAX_GNL_OP_STATE_GET,
-+	.flags = GENL_ADMIN_PERM,
-+	.policy = wimax_gnl_state_get_policy,
-+	.doit = wimax_gnl_doit_state_get,
-+	.dumpit = NULL,
-+};
-diff --git a/net/wimax/stack.c b/net/wimax/stack.c
-index 933e142..79fb7d7 100644
---- a/net/wimax/stack.c
-+++ b/net/wimax/stack.c
-@@ -402,13 +402,15 @@ EXPORT_SYMBOL_GPL(wimax_dev_init);
- extern struct genl_ops
- 	wimax_gnl_msg_from_user,
- 	wimax_gnl_reset,
--	wimax_gnl_rfkill;
-+	wimax_gnl_rfkill,
-+	wimax_gnl_state_get;
- 
- static
- struct genl_ops *wimax_gnl_ops[] = {
- 	&wimax_gnl_msg_from_user,
- 	&wimax_gnl_reset,
- 	&wimax_gnl_rfkill,
-+	&wimax_gnl_state_get,
- };
- 
- 
-@@ -533,6 +535,7 @@ struct d_level D_LEVEL[] = {
- 	D_SUBMODULE_DEFINE(op_msg),
- 	D_SUBMODULE_DEFINE(op_reset),
- 	D_SUBMODULE_DEFINE(op_rfkill),
-+	D_SUBMODULE_DEFINE(op_state_get),
- 	D_SUBMODULE_DEFINE(stack),
- };
- size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
++	d_printf(1, dev, "fw up: entering powersave\n");
+ 	atomic_dec(&i2400mu->do_autopm);
+ 	result = i2400m_cmd_enter_powersave(i2400m);
+ 	atomic_inc(&i2400mu->do_autopm);
+-#ifdef CONFIG_PM
+-	if (result < 0 && usb_dev->auto_pm == 0) {
++	if (result < 0 && !is_autosuspend) {
+ 		/* System suspend, can't fail */
+ 		dev_err(dev, "failed to suspend, will reset on resume\n");
+ 		result = 0;
+ 	}
+-#endif
+ 	if (result < 0)
+ 		goto error_enter_powersave;
+ 	i2400mu_notification_release(i2400mu);
+-	d_printf(1, dev, "fw up, got standby\n");
++	d_printf(1, dev, "powersave requested\n");
+ error_enter_powersave:
++error_not_now:
+ no_firmware:
+ 	d_fnend(3, dev, "(iface %p pm_msg %u) = %d\n",
+ 		iface, pm_msg.event, result);
 -- 
 1.6.2.3
 
