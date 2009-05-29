@@ -1,104 +1,101 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Fri, 29 May 2009 07:48:12 +0000
-Message-ID: <20090529074812.GA5483@ff.dom.local>
-References: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next 1/2] cxgb3: move away from LLTX
+Date: Fri, 29 May 2009 00:58:24 -0700
+Message-ID: <20090529075823.30669.28885.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f166.google.com ([209.85.217.166]:43219 "EHLO
-	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbZE2HsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 03:48:22 -0400
-Received: by gxk10 with SMTP id 10so10127484gxk.13
-        for <netdev@vger.kernel.org>; Fri, 29 May 2009 00:48:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
+Received: from stargate.chelsio.com ([67.207.112.58]:18219 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753862AbZE2H6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 03:58:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29-05-2009 07:18, Minoru Usui wrote:
-> Hi, 
-> 
-> On Thu, 21 May 2009 09:22:56 +0900
-> Minoru Usui <usui@mxm.nes.nec.co.jp> wrote:
-> 
->> Hi
+From: Divy Le Ray <divy@chelsio.com>
 
-Hi,
->>
->> Unfortunately this is only panic report.
->>
->> I used cgroup net_cls subsystem, then kernel panic occured.
->> I attach panic message and kernel config in this mail's last paragraph.
->> If my operation is wrong, could you tell me how to use net_cls and
->> where the documentation is. 
->>
->> # But I think panic is very bad even if my operation is wrong.
-> 
-> I investigated this problem, and I found a bug in tc_ctl_tfilter() in net/sched/cls_api.c.
-> 
-> When 'tc filter add' command is executed and proto-tcf does not exist, 
-> tcf_ctl_tfilter() allocates, initializes and chanins proto-tcf(tp) to
-> cops->tcf_chain()'s chain before calling tp->ops->change().
-> 
-> If tp->ops->change() returns an error, tcf_ctl_tfilter() returns an error
-> too, but proto-tcf(tp) is not unchained yet. 
-> 
-> I think tcf_ctl_tfilter() shouldn't chain proto-tcf to the chain before it returns
-> an error.
+cxgb3 no longer advertizes LLTX.
 
-I didn't verify this too much, so I might be wrong, but it looks like
-cls_cgroup_classify() does things a bit different than others (doesn't
-check the 'head' etc. for NULL), so maybe you should consider fixing
-it instead? (Btw., the tc classifier maintainer added to Cc).
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-Cheers, 
-Jarek P.
-
-> 
-> Signed-off-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
-> 
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 0759f32..756148b 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -266,11 +266,6 @@ replay:
->  			goto errout;
->  		}
->  
-> -		spin_lock_bh(root_lock);
-> -		tp->next = *back;
-> -		*back = tp;
-> -		spin_unlock_bh(root_lock);
-> -
->  	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
->  		goto errout;
->  
-> @@ -314,8 +309,17 @@ replay:
->  	}
->  
->  	err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
-> -	if (err == 0)
-> -		tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
-> +	if (err) {
-> +		tcf_destroy(tp);
-> +		goto errout;
-> +	}
-> +
-> +	spin_lock_bh(root_lock);
-> +	tp->next = *back;
-> +	*back = tp;
-> +	spin_unlock_bh(root_lock);
-> +
-> +	tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
->  
->  errout:
->  	if (cl)
-> 
+ drivers/net/cxgb3/cxgb3_main.c |    1 -
+ drivers/net/cxgb3/sge.c        |   18 +++++++-----------
+ 2 files changed, 7 insertions(+), 12 deletions(-)
 
 
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 0b87fee..1fe4b07 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -3059,7 +3059,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		netdev->mem_start = mmio_start;
+ 		netdev->mem_end = mmio_start + mmio_len - 1;
+ 		netdev->features |= NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+-		netdev->features |= NETIF_F_LLTX;
+ 		netdev->features |= NETIF_F_GRO;
+ 		if (pci_using_dac)
+ 			netdev->features |= NETIF_F_HIGHDMA;
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 73d569e..0b97882 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -1241,7 +1241,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	q = &qs->txq[TXQ_ETH];
+ 	txq = netdev_get_tx_queue(dev, qidx);
+ 
+-	spin_lock(&q->lock);
+ 	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 
+ 	credits = q->size - q->in_use;
+@@ -1252,7 +1251,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		dev_err(&adap->pdev->dev,
+ 			"%s: Tx ring %u full while queue awake!\n",
+ 			dev->name, q->cntxt_id & 7);
+-		spin_unlock(&q->lock);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -1286,9 +1284,6 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (vlan_tx_tag_present(skb) && pi->vlan_grp)
+ 		qs->port_stats[SGE_PSTAT_VLANINS]++;
+ 
+-	dev->trans_start = jiffies;
+-	spin_unlock(&q->lock);
+-
+ 	/*
+ 	 * We do not use Tx completion interrupts to free DMAd Tx packets.
+ 	 * This is good for performamce but means that we rely on new Tx
+@@ -2858,11 +2853,12 @@ static void sge_timer_tx(unsigned long data)
+ 	unsigned int tbd[SGE_TXQ_PER_SET] = {0, 0};
+ 	unsigned long next_period;
+ 
+-	if (spin_trylock(&qs->txq[TXQ_ETH].lock)) {
+-		tbd[TXQ_ETH] = reclaim_completed_tx(adap, &qs->txq[TXQ_ETH],
+-						    TX_RECLAIM_TIMER_CHUNK);
+-		spin_unlock(&qs->txq[TXQ_ETH].lock);
++	if (__netif_tx_trylock(qs->tx_q)) {
++                tbd[TXQ_ETH] = reclaim_completed_tx(adap, &qs->txq[TXQ_ETH],
++                                                     TX_RECLAIM_TIMER_CHUNK);
++		__netif_tx_unlock(qs->tx_q);
+ 	}
++
+ 	if (spin_trylock(&qs->txq[TXQ_OFLD].lock)) {
+ 		tbd[TXQ_OFLD] = reclaim_completed_tx(adap, &qs->txq[TXQ_OFLD],
+ 						     TX_RECLAIM_TIMER_CHUNK);
+@@ -2870,8 +2866,8 @@ static void sge_timer_tx(unsigned long data)
+ 	}
+ 
+ 	next_period = TX_RECLAIM_PERIOD >>
+-		      (max(tbd[TXQ_ETH], tbd[TXQ_OFLD]) /
+-		       TX_RECLAIM_TIMER_CHUNK);
++                      (max(tbd[TXQ_ETH], tbd[TXQ_OFLD]) /
++                      TX_RECLAIM_TIMER_CHUNK);
+ 	mod_timer(&qs->tx_reclaim_timer, jiffies + next_period);
+ }
+ 
 
