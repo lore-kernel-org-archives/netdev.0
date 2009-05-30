@@ -1,58 +1,48 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/2] cxgb3: Add Aeluros 2020 phy support
-Date: Sat, 30 May 2009 04:21:40 +0100
-Message-ID: <1243653700.3818.0.camel@deadeye>
-References: <20090529075823.30669.28885.stgit@speedy5>
-	 <20090529075829.30669.41488.stgit@speedy5>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [SCSI] cxgb3i: Include net/dst.h for struct dst_cache
+Date: Sat, 30 May 2009 13:40:04 +1000
+Message-ID: <20090530034004.GA20516@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-+Qj654UzQ52g+d6Z5lnf"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+To: Mike Christie <michaelc@cs.wisc.edu>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53581 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753151AbZE3DVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 23:21:47 -0400
-In-Reply-To: <20090529075829.30669.41488.stgit@speedy5>
+Received: from rhun.apana.org.au ([64.62.148.172]:53505 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754160AbZE3DkJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 23:40:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi:
 
---=-+Qj654UzQ52g+d6Z5lnf
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+[SCSI] cxgb3i: Include net/dst.h for struct dst_cache
 
-On Fri, 2009-05-29 at 00:58 -0700, Divy Le Ray wrote:
-[...]
-> +	/* TWINAX EDC firmware */
-> +	static u16 twinax_edc[] =3D {
-> +		0xd800, 0x4009,
-> +		0xd801, 0x2fff,
-> +		0xd802, 0x300f,
-> +		0xd803, 0x40aa,
-> +		0xd804, 0x401c,
-[...]
+This driver needs dst_cache->dev so it should include net/dst.h
+to ensure that it builds.  While net/tcp.h probably includes it
+already, we shouldn't rely on that since there is no guarantee
+that this won't change in future.
 
-Use request_firmware() please.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Ben.
+diff --git a/drivers/scsi/cxgb3i/cxgb3i_iscsi.c b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
+index 9212400..8b49731 100644
+--- a/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
++++ b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/inet.h>
+ #include <linux/crypto.h>
++#include <net/dst.h>
+ #include <net/tcp.h>
+ #include <scsi/scsi_cmnd.h>
+ #include <scsi/scsi_device.h>
 
---=20
-Ben Hutchings
-The most exhausting thing in life is being insincere. - Anne Morrow Lindber=
-g
-
---=-+Qj654UzQ52g+d6Z5lnf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iD8DBQBKIKZA79ZNCRIGYgcRAtJ9AJ9bKMQLwEA66DrI6GysxEKJDAlwIQCfVNI9
-Y4oZTGxbQy1OsvYhka/rpps=
-=Puty
------END PGP SIGNATURE-----
-
---=-+Qj654UzQ52g+d6Z5lnf--
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
