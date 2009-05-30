@@ -1,89 +1,59 @@
-From: Ed Swierk <eswierk@aristanetworks.com>
-Subject: [PATCH] forcedeth: add phy_power_down parameter, leave phy powered
- up by default
-Date: Sat, 30 May 2009 15:59:46 -0700
-Message-ID: <1243724386.13996.17.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Sat, 30 May 2009 19:08:53 -0400
+Message-ID: <1243724933.3966.158.camel@dogo.mojatatu.com>
+References: <20090529225929.GD2753@ami.dom.local>
+	 <b10243b50905300417v3e208ad8s78936f106175e51@mail.gmail.com>
+	 <20090530114506.GA3166@ami.dom.local>
+	 <1243684594.3966.89.camel@dogo.mojatatu.com>
+	 <20090530120750.GB3166@ami.dom.local>
+	 <1243686683.3966.117.camel@dogo.mojatatu.com>
+	 <20090530124554.GC3166@ami.dom.local>
+	 <1243688628.3966.126.camel@dogo.mojatatu.com>
+	 <20090530132047.GD3166@ami.dom.local>
+	 <1243690297.3966.135.camel@dogo.mojatatu.com>
+	 <20090530140006.GE3166@ami.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: aabdulla@nvidia.com
-To: netdev@vger.kernel.org
+Cc: Minoru Usui <mi.usui@gmail.com>,
+	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f177.google.com ([209.85.222.177]:50256 "EHLO
-	mail-pz0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763232AbZE3W7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 18:59:51 -0400
-Received: by pzk7 with SMTP id 7so5355360pzk.33
-        for <netdev@vger.kernel.org>; Sat, 30 May 2009 15:59:51 -0700 (PDT)
+Received: from qw-out-2122.google.com ([74.125.92.24]:46866 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519AbZE3XJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 19:09:50 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so4523769qwd.37
+        for <netdev@vger.kernel.org>; Sat, 30 May 2009 16:09:52 -0700 (PDT)
+In-Reply-To: <20090530140006.GE3166@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a phy_power_down parameter to forcedeth: set to 1 to power down the
-phy and disable the link when an interface goes down; set to 0 to always
-leave the phy powered up.
+On Sat, 2009-05-30 at 16:00 +0200, Jarek Poplawski wrote:
+> On Sat, May 30, 2009 at 09:31:37AM -0400, jamal wrote:
+> > What were you suggesting to change in cls_group to avoid this oops?
+> 
+> I think checking the head (tp->root) for NULL like in cls_fw or
+> cls_route should work.
 
-The phy power state persists across reboots; Windows, some BIOSes, and
-older versions of Linux don't bother to power up the phy again, forcing
-users to remove all power to get the interface working (see
-http://bugzilla.kernel.org/show_bug.cgi?id=13072).  Leaving the phy
-powered on is the safest default behavior.  Users accustomed to seeing
-the link state reflect the interface state and/or wanting to minimize
-power consumption can set phy_power_down=1 if compatibility with other
-OSes is not an issue.
+IMHO that is a workaround for the tp linking bug
+[IOW, there is no need to check for tp->root == NULL (in the fast path)
+if such an illegal tp was never linked to begin with (on the slow
+path)].
 
-Signed-off-by: Ed Swierk <eswierk@aristanetworks.com>
+So those classifiers you point to need to be fixed afterwards (but 
+not -stable material).
+My thinking of fixing them to do proper init/get as well later.
 
----
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index f9a846b..ace1160 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -897,6 +897,16 @@ enum {
- };
- static int phy_cross = NV_CROSSOVER_DETECTION_DISABLED;
- 
-+/*
-+ * Power down phy when interface is down (persists through reboot;
-+ * older Linux and other OSes may not bother to power it up again)
-+ */
-+enum {
-+	NV_PHY_POWER_DOWN_NEVER,
-+	NV_PHY_POWER_DOWN_ON_INTF_DOWN
-+};
-+static int phy_power_down = NV_PHY_POWER_DOWN_NEVER;
-+
- static inline struct fe_priv *get_nvpriv(struct net_device *dev)
- {
- 	return netdev_priv(dev);
-@@ -1485,7 +1495,10 @@ static int phy_init(struct net_device *dev)
- 
- 	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	if (phy_power_down == NV_PHY_POWER_DOWN_ON_INTF_DOWN) {
-+		mii_control |= BMCR_PDOWN;
-+	}
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -5513,7 +5526,7 @@ static int nv_close(struct net_device *dev)
- 
- 	nv_drain_rxtx(dev);
- 
--	if (np->wolenabled) {
-+	if (np->wolenabled || phy_power_down == NV_PHY_POWER_DOWN_NEVER) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
- 	} else {
-@@ -6367,6 +6380,8 @@ module_param(dma_64bit, int, 0);
- MODULE_PARM_DESC(dma_64bit, "High DMA is enabled by setting to 1 and disabled by setting to 0.");
- module_param(phy_cross, int, 0);
- MODULE_PARM_DESC(phy_cross, "Phy crossover detection for Realtek 8201 phy is enabled by setting to 1 and disabled by setting to 0.");
-+module_param(phy_power_down, int, 0);
-+MODULE_PARM_DESC(phy_power_down, "Power down phy and disable link when interface is down (1), or always leave phy powered up (0).");
- 
- MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
- MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
+> Anyway, it's worked for other classifiers like this for some time...
 
+Would you agree that it is/was a bandaid?
+Or maybe you have some other fear that this may break something else and
+prefer the workaround instead?
+
+cheers,
+jamal
 
