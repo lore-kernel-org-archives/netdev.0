@@ -1,47 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Sat, 30 May 2009 19:34:52 -0400
-Message-ID: <1243726492.3966.178.camel@dogo.mojatatu.com>
-References: <20090529225929.GD2753@ami.dom.local>
-	 <20090530114506.GA3166@ami.dom.local>
-	 <1243684594.3966.89.camel@dogo.mojatatu.com>
-	 <20090530120750.GB3166@ami.dom.local>
-	 <1243686683.3966.117.camel@dogo.mojatatu.com>
-	 <20090530124554.GC3166@ami.dom.local>
-	 <1243688628.3966.126.camel@dogo.mojatatu.com>
-	 <20090530132047.GD3166@ami.dom.local>
-	 <1243690297.3966.135.camel@dogo.mojatatu.com>
-	 <20090530140006.GE3166@ami.dom.local>
-	 <b10243b50905301538o2716855ag21fbc95b37c8da22@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH] 3c509: Add missing EISA IDs
+Date: Sun, 31 May 2009 00:40:31 +0100 (BST)
+Message-ID: <alpine.LFD.1.10.0905310021070.15490@ftp.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Minoru Usui <mi.usui@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:36953 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753859AbZE3Xfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 19:35:50 -0400
-Received: by qw-out-2122.google.com with SMTP id 5so4529827qwd.37
-        for <netdev@vger.kernel.org>; Sat, 30 May 2009 16:35:51 -0700 (PDT)
-In-Reply-To: <b10243b50905301538o2716855ag21fbc95b37c8da22@mail.gmail.com>
+Received: from [213.58.128.207] ([213.58.128.207]:43225 "EHLO
+	ftp.linux-mips.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753892AbZE3Xkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 19:40:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-05-31 at 07:38 +0900, Minoru Usui wrote:
+ Several EISA device IDs for 3c509 family network cards are missing from 
+the driver, making the cards unusable in their EISA mode.  Here's a fix to 
+add them based on the EISA configuration files distributed by 3Com and our 
+eisa.ids database.
 
-> I agree.
-> I think cls_cgroup should check head(tp->root) whether NULL or not
-> like other classifiers, too.
-> 
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+ Successfully tested with a 3c509-Combo network card:
 
-I dont think this is necessary if the adding/linking unconfigured tp
-doesnt happen on failed config.
+EISA: Probing bus 0 at eisa.0
+EISA: Mainboard AEI0401 detected.
+EISA: slot 6 : NPI0303 detected.
+EISA: slot 8 : TCM5094 detected.
+eth0: 3c5x9 found at 0x8000, 10baseT port, address 00:a0:24:b6:8b:db, IRQ 11.
+3c509.c:1.20 04Feb2008 becker@scyld.com
+EISA: Detected 2 cards.
 
-cheers,
-jamal
+ Please apply.
 
+  Maciej
+
+patch-mips-2.6.27-rc8-20081004-3c509-eisa-0
+Index: linux-mips-2.6.27-rc8-20081004-dolch/drivers/net/3c509.c
+===================================================================
+--- linux-mips-2.6.27-rc8-20081004-dolch.orig/drivers/net/3c509.c
++++ linux-mips-2.6.27-rc8-20081004-dolch/drivers/net/3c509.c
+@@ -480,9 +480,13 @@ static int pnp_registered;
+ 
+ #ifdef CONFIG_EISA
+ static struct eisa_device_id el3_eisa_ids[] = {
++		{ "TCM5090" },
++		{ "TCM5091" },
+ 		{ "TCM5092" },
+ 		{ "TCM5093" },
++		{ "TCM5094" },
+ 		{ "TCM5095" },
++		{ "TCM5098" },
+ 		{ "" }
+ };
+ MODULE_DEVICE_TABLE(eisa, el3_eisa_ids);
