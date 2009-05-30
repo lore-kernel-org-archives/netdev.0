@@ -1,59 +1,60 @@
-From: Vegard Nossum <vegard.nossum@gmail.com>
-Subject: net: uninitialized loopback addr leaks to userspace
-Date: Sat, 30 May 2009 22:23:24 +0200
-Message-ID: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
+From: Minoru Usui <mi.usui@gmail.com>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Sun, 31 May 2009 07:22:37 +0900
+Message-ID: <b10243b50905301522t42aafaffxbf5934388af3df93@mail.gmail.com>
+References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
+	 <1243605269.3966.28.camel@dogo.mojatatu.com>
+	 <20090529225929.GD2753@ami.dom.local>
+	 <b10243b50905300417v3e208ad8s78936f106175e51@mail.gmail.com>
+	 <20090530114506.GA3166@ami.dom.local>
+	 <1243684594.3966.89.camel@dogo.mojatatu.com>
+	 <20090530120750.GB3166@ami.dom.local>
+	 <1243686683.3966.117.camel@dogo.mojatatu.com>
+	 <20090530124554.GC3166@ami.dom.local>
+	 <1243688628.3966.126.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Pekka Enberg <penberg@cs.helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f168.google.com ([209.85.220.168]:50800 "EHLO
-	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753531AbZE3UXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 16:23:23 -0400
+Received: from mail-qy0-f130.google.com ([209.85.221.130]:43684 "EHLO
+	mail-qy0-f130.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751535AbZE3WWg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 18:22:36 -0400
+Received: by qyk36 with SMTP id 36so701485qyk.33
+        for <netdev@vger.kernel.org>; Sat, 30 May 2009 15:22:37 -0700 (PDT)
+In-Reply-To: <1243688628.3966.126.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi, jamal
 
-It seems that loopback's hardware address is never initialized by the
-kernel. So if userspace attempts to read this address before it has
-been set, the kernel will return some uninitialized data (only 6
-bytes, though). This can be demonstrated by creating a new network
-namespace (CLONE_NEWNET), which creates a new loopback device, then
-call ioctl() with SIOCGIFHWADDR on "lo". If this is done in a loop,
-with some background load, or by running multiple instances, random
-data will start to show up in the returned address.
+2009/5/30 jamal <hadi@cyberus.ca>
+>
+> On Sat, 2009-05-30 at 14:45 +0200, Jarek Poplawski wrote:
+> > On Sat, May 30, 2009 at 08:31:23AM -0400, jamal wrote:
+>
+> > > Remeber, you could have NLM_F_EXCL|NLM_F_CREATE to indicate "crea=
+te this
+> > > thing if it doesnt exist; if it exists =A0it is an error"
+> > > If it doesnt exist we will enter that (tp =3D=3D NULL) path
+> > > also fh will be 0 =3D=3D> So you will never enter the code
+> > > path you are refering to.
+> > > If it exists (i.e you found it) and you enter the code path you r=
+efer
+> > > to, then you surely dont want to destroy it if NLM_F_EXCL is set.
+> >
+> > I mean we don't want to link it again or destroy after ->change() e=
+rr
+> > if we run replace (n->nlmsg_type =3D=3D RTM_NEWTFILTER &&
+> > (n->nlmsg_flags&NLM_F_CREATE)).
+>
+> excellent point: an additional flag is needed then
+> n->nlmsg_flags& (NLM_F_CREATE|NLM_F_EXCL).
+> Minoru, please add this change in the patch before testing...
 
-[  406.750329] WARNING: kmemcheck: Caught 16-bit read from
-uninitialized memory (ffff880007220974)
-[  406.753555] 18a2d7060088ffff18a2d7060088ffff00000000010000000100000003000000
-[  406.758862]  i i i i i i i i i i i i i i i i i u u u u u u u u u u u u u u u
-[  406.766224]                                          ^
-[  406.768792] Modules linked in:
-[  406.770416] Pid: 757, comm: ifconfig Not tainted
-2.6.30-rc7-next-20090529 #404
-[  406.772876] RIP: 0010:[<ffffffff80664789>]  [<ffffffff80664789>]
-dev_ioctl+0x5d9/0x600
-[  406.804677]  [<ffffffff8064ff75>] sock_ioctl+0x95/0x2a0
-[  406.807242]  [<ffffffff802c35eb>] vfs_ioctl+0x1b/0x70
-[  406.809348]  [<ffffffff802c36fa>] do_vfs_ioctl+0x8a/0x570
-[  406.811419]  [<ffffffff802c3c79>] sys_ioctl+0x99/0xa0
-[  406.813400]  [<ffffffff802f3941>] dev_ifsioc+0x81/0x2f0
-[  406.815424]  [<ffffffff802f454d>] compat_sys_ioctl+0xed/0x3c0
-[  406.817596]  [<ffffffff8022d476>] cstar_dispatch+0x7/0x26
-[  406.819978]  [<ffffffffffffffff>] 0xffffffffffffffff
-
-This is the code that triggers the warning, in net/core/dev.c, around line 4150:
-
-    memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
-        min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
-
-So it's dev->dev_addr that is the pointer to the uninitialized data.
-
-I didn't know how to fix it.
-
-
-Vegard
+OK.
+I'll do it after understanding above code.
