@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/3] isdn: rename capi_ctr_reseted() to capi_ctr_down()
-Date: Sun, 31 May 2009 01:32:12 +0200 (CEST)
-Message-ID: <20090531-patch-01.tilman@imap.cc>
+Subject: [PATCH 2/3] isdn: prevent NULL ptr oops in capi_cmsg2str()
+Date: Sun, 31 May 2009 01:32:17 +0200 (CEST)
+Message-ID: <20090531-patch-02.tilman@imap.cc>
 References: <20090531-patch-00.tilman@imap.cc>
 To: davem@davemloft.net, Karsten Keil <karsten-keil@t-online.de>,
 	isdn4linux@listserv.isdn4linux.de,
@@ -9,201 +9,150 @@ To: davem@davemloft.net, Karsten Keil <karsten-keil@t-online.de>,
 	Netdev <netdev@vger.kernel.org>,
 	LKML <linux-ker
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([195.227.45.7]:41630 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([195.227.45.7]:41634 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755945AbZE3XcV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 May 2009 19:32:21 -0400
+	id S1756561AbZE3Xc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 May 2009 19:32:26 -0400
 In-Reply-To: <20090531-patch-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the name of the Kernel CAPI exported function capi_ctr_reseted()
-to something representing its purpose better.
+The capi_cmsg2str() function has the undocumented requirement that one
+of the functions capi_cmsg2message() or capi_message2cmsg() must have
+been called before it, otherwise a NULL pointer dereference occurs.
+This patch adds a NULL pointer check to avoid the Oops, and also adds
+kerneldoc comments to the exported functions in capiutil.c.
 
-Impact: function renamed, no functional change
+Impact: documentation and error handling improvement, no functional change
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- Documentation/isdn/INTERFACE.CAPI |    4 ++--
- drivers/isdn/capi/kcapi.c         |    8 ++++----
- drivers/isdn/hardware/avm/b1.c    |    2 +-
- drivers/isdn/hardware/avm/b1dma.c |    2 +-
- drivers/isdn/hardware/avm/c4.c    |    4 ++--
- drivers/isdn/hardware/avm/t1isa.c |    2 +-
- drivers/isdn/hysdn/hycapi.c       |    4 ++--
- include/linux/isdn/capilli.h      |    2 +-
- net/bluetooth/cmtp/capi.c         |    2 +-
- 9 files changed, 15 insertions(+), 15 deletions(-)
+ drivers/isdn/capi/capiutil.c |   67 ++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 64 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
-index 786d619..4631538 100644
---- a/Documentation/isdn/INTERFACE.CAPI
-+++ b/Documentation/isdn/INTERFACE.CAPI
-@@ -45,7 +45,7 @@ From then on, Kernel CAPI may call the registered callback functions for the
- device.
- 
- If the device becomes unusable for any reason (shutdown, disconnect ...), the
--driver has to call capi_ctr_reseted(). This will prevent further calls to the
-+driver has to call capi_ctr_down(). This will prevent further calls to the
- callback functions by Kernel CAPI.
- 
- 
-@@ -166,7 +166,7 @@ int detach_capi_ctr(struct capi_ctr *ctrlr)
- 	register/unregister a device (controller) with Kernel CAPI
- 
- void capi_ctr_ready(struct capi_ctr *ctrlr)
--void capi_ctr_reseted(struct capi_ctr *ctrlr)
-+void capi_ctr_down(struct capi_ctr *ctrlr)
- 	signal controller ready/not ready
- 
- void capi_ctr_suspend_output(struct capi_ctr *ctrlr)
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index f331703..57d2636 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -377,14 +377,14 @@ void capi_ctr_ready(struct capi_ctr * card)
- EXPORT_SYMBOL(capi_ctr_ready);
- 
- /**
-- * capi_ctr_reseted() - signal CAPI controller reset
-+ * capi_ctr_down() - signal CAPI controller not ready
-  * @card:	controller descriptor structure.
-  *
-  * Called by hardware driver to signal that the controller is down and
-  * unavailable for use.
-  */
- 
--void capi_ctr_reseted(struct capi_ctr * card)
-+void capi_ctr_down(struct capi_ctr * card)
- {
- 	u16 appl;
- 
-@@ -413,7 +413,7 @@ void capi_ctr_reseted(struct capi_ctr * card)
- 	notify_push(KCI_CONTRDOWN, card->cnr, 0, 0);
- }
- 
--EXPORT_SYMBOL(capi_ctr_reseted);
-+EXPORT_SYMBOL(capi_ctr_down);
- 
- /**
-  * capi_ctr_suspend_output() - suspend controller
-@@ -517,7 +517,7 @@ EXPORT_SYMBOL(attach_capi_ctr);
- int detach_capi_ctr(struct capi_ctr *card)
- {
-         if (card->cardstate != CARD_DETECTED)
--		capi_ctr_reseted(card);
-+		capi_ctr_down(card);
- 
- 	ncards--;
- 
-diff --git a/drivers/isdn/hardware/avm/b1.c b/drivers/isdn/hardware/avm/b1.c
-index abf05ec..a7c0083 100644
---- a/drivers/isdn/hardware/avm/b1.c
-+++ b/drivers/isdn/hardware/avm/b1.c
-@@ -330,7 +330,7 @@ void b1_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- void b1_register_appl(struct capi_ctr *ctrl,
-diff --git a/drivers/isdn/hardware/avm/b1dma.c b/drivers/isdn/hardware/avm/b1dma.c
-index da34b98..0e84aaa 100644
---- a/drivers/isdn/hardware/avm/b1dma.c
-+++ b/drivers/isdn/hardware/avm/b1dma.c
-@@ -759,7 +759,7 @@ void b1dma_reset_ctr(struct capi_ctr *ctrl)
- 	memset(cinfo->version, 0, sizeof(cinfo->version));
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /* ------------------------------------------------------------- */
-diff --git a/drivers/isdn/hardware/avm/c4.c b/drivers/isdn/hardware/avm/c4.c
-index 9df1d3f..6833301 100644
---- a/drivers/isdn/hardware/avm/c4.c
-+++ b/drivers/isdn/hardware/avm/c4.c
-@@ -681,7 +681,7 @@ static irqreturn_t c4_handle_interrupt(avmcard *card)
- 			spin_lock_irqsave(&card->lock, flags);
- 			capilib_release(&cinfo->ncci_head);
- 			spin_unlock_irqrestore(&card->lock, flags);
--			capi_ctr_reseted(&cinfo->capi_ctrl);
-+			capi_ctr_down(&cinfo->capi_ctrl);
- 		}
- 		card->nlogcontr = 0;
- 		return IRQ_HANDLED;
-@@ -909,7 +909,7 @@ static void c4_reset_ctr(struct capi_ctr *ctrl)
-         for (i=0; i < card->nr_controllers; i++) {
- 		cinfo = &card->ctrlinfo[i];
- 		memset(cinfo->version, 0, sizeof(cinfo->version));
--		capi_ctr_reseted(&cinfo->capi_ctrl);
-+		capi_ctr_down(&cinfo->capi_ctrl);
+diff --git a/drivers/isdn/capi/capiutil.c b/drivers/isdn/capi/capiutil.c
+index 29419a8..35ba711 100644
+--- a/drivers/isdn/capi/capiutil.c
++++ b/drivers/isdn/capi/capiutil.c
+@@ -490,7 +490,14 @@ static void pars_2_message(_cmsg * cmsg)
  	}
- 	card->nlogcontr = 0;
- }
-diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
-index e772449..1c53fd4 100644
---- a/drivers/isdn/hardware/avm/t1isa.c
-+++ b/drivers/isdn/hardware/avm/t1isa.c
-@@ -339,7 +339,7 @@ static void t1isa_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
  }
  
- static void t1isa_remove(struct pci_dev *pdev)
-diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
-index 53f6ad1..4ffaa14 100644
---- a/drivers/isdn/hysdn/hycapi.c
-+++ b/drivers/isdn/hysdn/hycapi.c
-@@ -67,7 +67,7 @@ hycapi_reset_ctr(struct capi_ctr *ctrl)
- 	printk(KERN_NOTICE "HYCAPI hycapi_reset_ctr\n");
- #endif
- 	capilib_release(&cinfo->ncci_head);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /******************************
-@@ -347,7 +347,7 @@ int hycapi_capi_stop(hysdn_card *card)
- 	if(cinfo) {
- 		ctrl = &cinfo->capi_ctrl;
- /*		ctrl->suspend_output(ctrl); */
--		capi_ctr_reseted(ctrl);
-+		capi_ctr_down(ctrl);
+-/*-------------------------------------------------------*/
++/**
++ * capi_cmsg2message() - assemble CAPI 2.0 message from _cmsg structure
++ * @cmsg:	_cmsg structure
++ * @msg:	buffer for assembled message
++ *
++ * Return value: 0 for success
++ */
++
+ unsigned capi_cmsg2message(_cmsg * cmsg, u8 * msg)
+ {
+ 	cmsg->m = msg;
+@@ -553,7 +560,14 @@ static void message_2_pars(_cmsg * cmsg)
  	}
+ }
+ 
+-/*-------------------------------------------------------*/
++/**
++ * capi_message2cmsg() - disassemble CAPI 2.0 message into _cmsg structure
++ * @cmsg:	_cmsg structure
++ * @msg:	buffer for assembled message
++ *
++ * Return value: 0 for success
++ */
++
+ unsigned capi_message2cmsg(_cmsg * cmsg, u8 * msg)
+ {
+ 	memset(cmsg, 0, sizeof(_cmsg));
+@@ -573,7 +587,18 @@ unsigned capi_message2cmsg(_cmsg * cmsg, u8 * msg)
  	return 0;
  }
-diff --git a/include/linux/isdn/capilli.h b/include/linux/isdn/capilli.h
-index 35e9b0f..7acb87a 100644
---- a/include/linux/isdn/capilli.h
-+++ b/include/linux/isdn/capilli.h
-@@ -79,7 +79,7 @@ int attach_capi_ctr(struct capi_ctr *);
- int detach_capi_ctr(struct capi_ctr *);
  
- void capi_ctr_ready(struct capi_ctr * card);
--void capi_ctr_reseted(struct capi_ctr * card);
-+void capi_ctr_down(struct capi_ctr * card);
- void capi_ctr_suspend_output(struct capi_ctr * card);
- void capi_ctr_resume_output(struct capi_ctr * card);
- void capi_ctr_handle_message(struct capi_ctr * card, u16 appl, struct sk_buff *skb);
-diff --git a/net/bluetooth/cmtp/capi.c b/net/bluetooth/cmtp/capi.c
-index 78958c0..97f8d68 100644
---- a/net/bluetooth/cmtp/capi.c
-+++ b/net/bluetooth/cmtp/capi.c
-@@ -382,7 +382,7 @@ static void cmtp_reset_ctr(struct capi_ctr *ctrl)
+-/*-------------------------------------------------------*/
++/**
++ * capi_cmsg_header() - initialize header part of _cmsg structure
++ * @cmsg:	_cmsg structure
++ * @_ApplId:	ApplID field value
++ * @_Command:	Command field value
++ * @_Subcommand:	Subcommand field value
++ * @_Messagenumber:	Message Number field value
++ * @_Controller:	Controller/PLCI/NCCI field value
++ *
++ * Return value: 0 for success
++ */
++
+ unsigned capi_cmsg_header(_cmsg * cmsg, u16 _ApplId,
+ 			  u8 _Command, u8 _Subcommand,
+ 			  u16 _Messagenumber, u32 _Controller)
+@@ -641,6 +666,14 @@ static char *mnames[] =
+ 	[0x4e] = "MANUFACTURER_RESP"
+ };
  
- 	BT_DBG("ctrl %p", ctrl);
++/**
++ * capi_cmd2str() - convert CAPI 2.0 command/subcommand number to name
++ * @cmd:	command number
++ * @subcmd:	subcommand number
++ *
++ * Return value: static string
++ */
++
+ char *capi_cmd2str(u8 cmd, u8 subcmd)
+ {
+ 	return mnames[command_2_index(cmd, subcmd)];
+@@ -879,6 +912,11 @@ init:
+ 	return cdb;
+ }
  
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
++/**
++ * cdebbuf_free() - free CAPI debug buffer
++ * @cdb:	buffer to free
++ */
++
+ void cdebbuf_free(_cdebbuf *cdb)
+ {
+ 	if (likely(cdb == g_debbuf)) {
+@@ -891,6 +929,16 @@ void cdebbuf_free(_cdebbuf *cdb)
+ }
  
- 	atomic_inc(&session->terminate);
- 	cmtp_schedule(session);
+ 
++/**
++ * capi_message2str() - format CAPI 2.0 message for printing
++ * @msg:	CAPI 2.0 message
++ *
++ * Allocates a CAPI debug buffer and fills it with a printable representation
++ * of the CAPI 2.0 message in @msg.
++ * Return value: allocated debug buffer, NULL on error
++ * The returned buffer should be freed by a call to cdebbuf_free() after use.
++ */
++
+ _cdebbuf *capi_message2str(u8 * msg)
+ {
+ 	_cdebbuf *cdb;
+@@ -926,10 +974,23 @@ _cdebbuf *capi_message2str(u8 * msg)
+ 	return cdb;
+ }
+ 
++/**
++ * capi_cmsg2str() - format _cmsg structure for printing
++ * @cmsg:	_cmsg structure
++ *
++ * Allocates a CAPI debug buffer and fills it with a printable representation
++ * of the CAPI 2.0 message stored in @cmsg by a previous call to
++ * capi_cmsg2message() or capi_message2cmsg().
++ * Return value: allocated debug buffer, NULL on error
++ * The returned buffer should be freed by a call to cdebbuf_free() after use.
++ */
++
+ _cdebbuf *capi_cmsg2str(_cmsg * cmsg)
+ {
+ 	_cdebbuf *cdb;
+ 
++	if (!cmsg->m)
++		return NULL;	/* no message */
+ 	cdb = cdebbuf_alloc();
+ 	if (!cdb)
+ 		return NULL;
 -- 
 1.6.2.1.214.ge986c
 
