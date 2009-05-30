@@ -1,96 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Sat, 30 May 2009 22:07:56 +0200
-Message-ID: <20090530200756.GF3166@ami.dom.local>
-References: <20090517201528.GA8552@ami.dom.local> <20090518065629.GA6006@ff.dom.local> <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com> <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com> <20090521085116.GC2892@ami.dom.local> <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com> <20090523073201.GA2766@ami.dom.local> <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com> <20090528211258.GA3658@ami.dom.local> <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: net: uninitialized loopback addr leaks to userspace
+Date: Sat, 30 May 2009 22:23:24 +0200
+Message-ID: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>
-To: Antonio Almeida <vexwek@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, Pekka Enberg <penberg@cs.helsinki.fi>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:62389 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753899AbZE3UIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 16:08:21 -0400
-Received: by bwz22 with SMTP id 22so6751290bwz.37
-        for <netdev@vger.kernel.org>; Sat, 30 May 2009 13:08:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com>
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:50800 "EHLO
+	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531AbZE3UXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 16:23:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 06:02:39PM +0100, Antonio Almeida wrote:
-> On Thu, May 28, 2009 at 10:12 PM, Jarek Poplawski wrote:
-...
-> > -#define PSCHED_US2NS(x)                        ((s64)(x) << 10)
-> > -#define PSCHED_NS2US(x)                        ((x) >> 10)
-> > +#define PSCHED_US2NS(x)                        ((s64)(x) << 6)
-> > +#define PSCHED_NS2US(x)                        ((x) >> 6)
-> >
-> >  #define PSCHED_TICKS_PER_SEC           PSCHED_NS2US(NSEC_PER_SEC)
-> >  #define PSCHED_PASTPERFECT             0
-> 
-> It's better! This patch gives more accuracy to HTB. Here some values:
-> Note that these are boundary values, so, e.g., any HTB configuration
-> between 377000Kbit and 400000Kbit would fall in the same step - close
-> to 397977Kbit.
-> This test was made over the same conditions: generating 950Mbit/s of
-> unidirectional tcp traffic of 800 bytes packets long.
+Hi,
 
-Here is a tc patch, which should minimize these boundaries, so please,
-repeat this test with previous patches/conditions plus this one.
+It seems that loopback's hardware address is never initialized by the
+kernel. So if userspace attempts to read this address before it has
+been set, the kernel will return some uninitialized data (only 6
+bytes, though). This can be demonstrated by creating a new network
+namespace (CLONE_NEWNET), which creates a new loopback device, then
+call ioctl() with SIOCGIFHWADDR on "lo". If this is done in a loop,
+with some background load, or by running multiple instances, random
+data will start to show up in the returned address.
 
-Thanks,
-Jarek P.
----
+[  406.750329] WARNING: kmemcheck: Caught 16-bit read from
+uninitialized memory (ffff880007220974)
+[  406.753555] 18a2d7060088ffff18a2d7060088ffff00000000010000000100000003000000
+[  406.758862]  i i i i i i i i i i i i i i i i i u u u u u u u u u u u u u u u
+[  406.766224]                                          ^
+[  406.768792] Modules linked in:
+[  406.770416] Pid: 757, comm: ifconfig Not tainted
+2.6.30-rc7-next-20090529 #404
+[  406.772876] RIP: 0010:[<ffffffff80664789>]  [<ffffffff80664789>]
+dev_ioctl+0x5d9/0x600
+[  406.804677]  [<ffffffff8064ff75>] sock_ioctl+0x95/0x2a0
+[  406.807242]  [<ffffffff802c35eb>] vfs_ioctl+0x1b/0x70
+[  406.809348]  [<ffffffff802c36fa>] do_vfs_ioctl+0x8a/0x570
+[  406.811419]  [<ffffffff802c3c79>] sys_ioctl+0x99/0xa0
+[  406.813400]  [<ffffffff802f3941>] dev_ifsioc+0x81/0x2f0
+[  406.815424]  [<ffffffff802f454d>] compat_sys_ioctl+0xed/0x3c0
+[  406.817596]  [<ffffffff8022d476>] cstar_dispatch+0x7/0x26
+[  406.819978]  [<ffffffffffffffff>] 0xffffffffffffffff
 
- tc/tc_core.c |   10 +++++-----
- tc/tc_core.h |    4 ++--
- 2 files changed, 7 insertions(+), 7 deletions(-)
+This is the code that triggers the warning, in net/core/dev.c, around line 4150:
 
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 9a0ff39..6d74287 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -27,18 +27,18 @@
- static double tick_in_usec = 1;
- static double clock_factor = 1;
- 
--int tc_core_time2big(unsigned time)
-+int tc_core_time2big(double time)
- {
--	__u64 t = time;
-+	__u64 t;
- 
--	t *= tick_in_usec;
-+	t = time * tick_in_usec + 0.5;
- 	return (t >> 32) != 0;
- }
- 
- 
--unsigned tc_core_time2tick(unsigned time)
-+unsigned tc_core_time2tick(double time)
- {
--	return time*tick_in_usec;
-+	return time * tick_in_usec + 0.5;
- }
- 
- unsigned tc_core_tick2time(unsigned tick)
-diff --git a/tc/tc_core.h b/tc/tc_core.h
-index 5a693ba..0ac65aa 100644
---- a/tc/tc_core.h
-+++ b/tc/tc_core.h
-@@ -13,8 +13,8 @@ enum link_layer {
- };
- 
- 
--int  tc_core_time2big(unsigned time);
--unsigned tc_core_time2tick(unsigned time);
-+int  tc_core_time2big(double time);
-+unsigned tc_core_time2tick(double time);
- unsigned tc_core_tick2time(unsigned tick);
- unsigned tc_core_time2ktime(unsigned time);
- unsigned tc_core_ktime2time(unsigned ktime);
+    memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
+        min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+
+So it's dev->dev_addr that is the pointer to the uninitialized data.
+
+I didn't know how to fix it.
+
+
+Vegard
