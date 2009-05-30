@@ -1,39 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: IFF_LOWER_UP does not fit in ifr_flags
-Date: Fri, 29 May 2009 20:50:28 -0700
-Message-ID: <20090529205028.3e01786b.akpm@linux-foundation.org>
-References: <89A39FC0957640879F8975880836CF91@edgeware.tv>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-2.6 2009-05-29
+Date: Sat, 30 May 2009 06:48:53 +0200
+Message-ID: <20090530044852.GB3371@tuxdriver.com>
+References: <20090529132858.GA3520@tuxdriver.com> <20090529.151651.59612837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37830 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755816AbZE3Due (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 May 2009 23:50:34 -0400
-In-Reply-To: <89A39FC0957640879F8975880836CF91@edgeware.tv>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758765AbZE3Ewy@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090529.151651.59612837.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 May 2009 14:59:05 +0200 "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv> wrote:
+On Fri, May 29, 2009 at 03:16:51PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Fri, 29 May 2009 15:28:59 +0200
+> 
+> > Here are a couple of fixes that would be nice to have for 2.6.30 --
+> > nothing very controversial.  Each has a bugzilla.kernel.org entry listed
+> > in the changelog.
+> > 
+> > Please let me know if there are problems!
+> 
+> I know you're away and not at %100 but please do always CC:
+> netdev for your pull requests so that the attached patch gets
+> reviewed by networking folks and more importantly logged at:
+> 
+> 	http://patchwork.ozlabs.org/project/netdev/list/
+> 
+> so that I can track it properly.
 
-> Documentation/networking/operstates.txt (and netdevice(7)) claims that
-> the flags IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO can be read from user space
-> using ioctl() with SIOCGIFFLAGS. Looking in include/linux/if.h however,
-> the flags are returned in a struct ifreq in the field ifr_flags which
-> is declared as a short, while the flags are defined as:
-> 
-> #define IFF_LOWER_UP    0x10000         /* driver signals L1 up         */
-> #define IFF_DORMANT     0x20000         /* driver signals dormant       */
-> #define IFF_ECHO        0x40000         /* echo sent packets            */
-> 
-> Those aren't shorts, are they? In net/core/dev.c dev_get_flags() returns
-> an unsigned which is assigned to ifr_flags directly.
-> 
-> Looked at linux/kernel/git/stable/linux-2.6.29.y.git.
-> CC me please.
-> 
+Ooops!  Sorry...yes, not at 100%... :-)
 
-(cc netdev)
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
