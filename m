@@ -1,25 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mac8390: use printk MAC address format
-Date: Fri, 29 May 2009 22:14:32 -0700 (PDT)
-Message-ID: <20090529.221432.248037117.davem@davemloft.net>
-References: <Pine.LNX.4.64.0905260136450.18180@loopy.telegraphics.com.au>
-	<Pine.LNX.4.64.0905261250300.22373@loopy.telegraphics.com.au>
+Subject: Re: [PATCH] irda-usb: suspend/resume support
+Date: Fri, 29 May 2009 22:14:45 -0700 (PDT)
+Message-ID: <20090529.221445.143162577.davem@davemloft.net>
+References: <4A1B91E7.8010606@mvista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: fthain@telegraphics.com.au
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0905261250300.22373@loopy.telegraphics.com.au>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
+To: tabe@mvista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57945
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755053AbZE3FOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 01:14:46 -0400
+In-Reply-To: <4A1B91E7.8010606@mvista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Tue, 26 May 2009 12:52:47 +1000 (EST)
+From: Tadashi Abe <tabe@mvista.com>
+Date: Tue, 26 May 2009 15:53:27 +0900
 
+> This patch adds power management suspend/resume hooks for irda-usb.
 > 
-> mac8390: use printk MAC address format
-> 
-> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+> Signed-off-by: Tadashi Abe <tabe@mvista.com>
 
 Applied to net-next-2.6, thanks.
