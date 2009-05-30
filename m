@@ -1,50 +1,29 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Sat, 30 May 2009 19:13:14 -0400
-Message-ID: <1243725194.3966.162.camel@dogo.mojatatu.com>
-References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
-	 <1243605269.3966.28.camel@dogo.mojatatu.com>
-	 <20090529225929.GD2753@ami.dom.local>
-	 <b10243b50905300417v3e208ad8s78936f106175e51@mail.gmail.com>
-	 <20090530114506.GA3166@ami.dom.local>
-	 <1243684594.3966.89.camel@dogo.mojatatu.com>
-	 <20090530120750.GB3166@ami.dom.local>
-	 <1243686683.3966.117.camel@dogo.mojatatu.com>
-	 <20090530124554.GC3166@ami.dom.local>
-	 <1243688628.3966.126.camel@dogo.mojatatu.com>
-	 <b10243b50905301522t42aafaffxbf5934388af3df93@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Minoru Usui <mi.usui@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 0/3] isdn: patches for 2.6.31
+Date: Sun, 31 May 2009 01:32:04 +0200 (CEST)
+Message-ID: <20090531-patch-00.tilman@imap.cc>
+To: davem@davemloft.net, Karsten Keil <karsten-keil@t-online.de>,
+	isdn4linux@listserv.isdn4linux.de,
+	i4ldeveloper@listserv.isdn4linux.de,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-ker
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:3852 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753466AbZE3XOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 19:14:12 -0400
-Received: by qw-out-2122.google.com with SMTP id 5so4524720qwd.37
-        for <netdev@vger.kernel.org>; Sat, 30 May 2009 16:14:13 -0700 (PDT)
-In-Reply-To: <b10243b50905301522t42aafaffxbf5934388af3df93@mail.gmail.com>
+Received: from mail.pxnet.com ([195.227.45.7]:41625 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752295AbZE3XcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 May 2009 19:32:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-05-31 at 07:22 +0900, Minoru Usui wrote:
+Dave, Karsten,
 
-> I'll do it after understanding above code.
+I would like to propose the following three patches to the Kernel CAPI
+subsystem for inclusion in kernel release 2.6.31.
+The first one was proposed four weeks ago and so far hasn't met any
+protests.
+The second one is a rather trivial bugfix and documentation improvement.
+The third one just adds a few new insights about the workings of the
+CAPI subsystem to the Documentation file, INTERFACE.CAPI.
 
-Current patch has two places with:
-
-+               if (n->nlmsg_type == RTM_NEWTFILTER &&
-+                   (n->nlmsg_flags&NLM_F_CREATE)) {
-
-The change (in the two spots) is:
-+               if (n->nlmsg_type == RTM_NEWTFILTER &&
-+                   (n->nlmsg_flags&(NLM_F_CREATE|NLM_F_EXCL))) {
-
-cheers,
-jamal
-
+Thanks,
+Tilman
