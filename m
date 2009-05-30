@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ath1e: add new device id for asus hardware
-Date: Fri, 29 May 2009 22:05:34 -0700 (PDT)
-Message-ID: <20090529.220534.37177669.davem@davemloft.net>
-References: <20090527060249.GA19080@kroah.com>
+Subject: Re: [PATCH] Ignore .cis files
+Date: Fri, 29 May 2009 22:06:40 -0700 (PDT)
+Message-ID: <20090529.220640.03941677.davem@davemloft.net>
+References: <1243517605-7034-1-git-send-email-kraai@ftbfs.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@redhat.com, shemminger@vyatta.com,
-	nhorman@tuxdriver.com, glin@novell.com
-To: greg@kroah.com
+Cc: ken_kawasaki@spring.nifty.jp, netdev@vger.kernel.org
+To: kraai@ftbfs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46507
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46514
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751566AbZE3FFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 01:05:34 -0400
-In-Reply-To: <20090527060249.GA19080@kroah.com>
+	by vger.kernel.org with ESMTP id S1751531AbZE3FGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 01:06:40 -0400
+In-Reply-To: <1243517605-7034-1-git-send-email-kraai@ftbfs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Tue, 26 May 2009 23:02:49 -0700
+From: Matt Kraai <kraai@ftbfs.org>
+Date: Thu, 28 May 2009 06:33:25 -0700
 
-> From: Greg Kroah-Hartman <gregkh@suse.de>
-> 
-> Gary Lin reports that a new device id needs to be added to the atl1e in
-> order to get some new Asus hardware to work properly.
-> 
-> Cc: Gary Lin <glin@novell.com>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> Signed-off-by: Matt Kraai <kraai@ftbfs.org>
 
-Applied, thanks.
+Applied, thanks!
