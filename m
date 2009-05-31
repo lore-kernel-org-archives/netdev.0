@@ -1,176 +1,51 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: tulip_rxtx_stop() on Cobalt Qube2
-Date: Sun, 31 May 2009 23:02:22 +0200
-Message-ID: <200905312302.22608.florian@openwrt.org>
-References: <200905011238.59345.florian@openwrt.org> <20090531014036.GA23050@lackof.org>
+From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Sun, 31 May 2009 23:12:52 +0200
+Message-ID: <20090531211252.GC2777@ami.dom.local>
+References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
+	<20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
+	<1243604796.3966.21.camel@dogo.mojatatu.com>
+	<1243605269.3966.28.camel@dogo.mojatatu.com>
+	<20090529225929.GD2753@ami.dom.local>
+	<1243684218.3966.83.camel@dogo.mojatatu.com>
+	<20090531081213.GC2756@ami.dom.local>
+	<1243776293.3966.241.camel@dogo.mojatatu.com>
+	<1243777427.3966.243.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kyle@mcmartin.ca
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:62971 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399AbZEaVC0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 17:02:26 -0400
-Received: by ewy24 with SMTP id 24so7432648ewy.37
-        for <netdev@vger.kernel.org>; Sun, 31 May 2009 14:02:26 -0700 (PDT)
-In-Reply-To: <20090531014036.GA23050@lackof.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        Minoru Usui <usui-vEbCzmPPqHe45+QrQBaojngSJqDPrsil@public.gmane.org>
+To: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1243777427.3966.243.camel-A00voryUPPswpNmlq7E/ZAC/G2K4zDHf@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Grant,
+On Sun, May 31, 2009 at 09:43:47AM -0400, jamal wrote:
+> On Sun, 2009-05-31 at 09:24 -0400, jamal wrote:
+> 
+> > This would imply the classifier is buggy. I will stare at the different
+> > classifier - and if any exhibits such traits it needs to be fixed
+> 
+> I couldnt find any case where this is possible in the current code. If
+> you have a specific example, we need to fix it.
 
-Le Sunday 31 May 2009 03:40:36 Grant Grundler, vous avez =E9crit=A0:
-> Florian,
-> Summary: proposed patch below for you to test (I've not tested it yet=
-)
-> and some explanation on what I think is happening.
->
->
-> On Fri, May 01, 2009 at 12:38:57PM +0200, Florian Fainelli wrote:
-> ...
->
-> > Linux Tulip driver version 1.1.15-NAPI (Feb 27, 2007)
->
-> ...
->
-> > PCI: Enabling device 0000:00:0c.0 (0005 -> 0007)
-> > tulip1: Old format EEPROM on 'Cobalt Microserver' board.  Using
-> > substitute media control info.
-> > tulip1:  EEPROM default media type Autosense.
-> > tulip1:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3=
-)
-> > block. tulip1:  MII transceiver #1 config 1000 status 7809 advertis=
-ing
-> > 01e1. eth1: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082400,
-> > 00:10:e0:00:88:b9, IRQ 20.
-> > [snip]
-> > 0000:00:07.0: tulip_stop_rxtx() failed (CSR5 0xf0660000 CSR6 0xb20e=
-2202)
->
-> Looking up these bits in the publicly available manual:
->     ftp://download.intel.com/design/network/manuals/27807401.pdf
->
-> "Rev 65" =3D=3D 0x41 =3D=3D 21143-PD or 21143-TD (page 3-7)
->
-> Operation Mode Register (CSR6=C2=ADOffset 30H)
-> ----
-> bit : Val
-> 31  : 1 Special Capture Effect Enable
-> 30  : 1 Receive All
-> 13  : 1 ST - Start Transmission
-> 9   : 1 Full Duplex
-> 1   : 1 SR - Start Receive
->
-> Status Register (CSR5=C2=ADOffset 28H)
-> ----
-> 28-31 : reserved
-> 23-25 : 0x6 TX State =3D Suspended--Transmit FIFO underflow, or an
-> unavailable transmit descriptor 20-22 : 0x3 RX State =3D Running--Wai=
-ting for
-> receive packet
-> 1     : 0x0 TX isn't stopped
-> 0     : 0x0 No TX Interrupt pending
->
-> The RX/TX engines are in a wedged state to begin with. :(
+I'm almost sure these commands (right or wrong) can trigger such a leak:
 
-I suppose this is due to the Bootloader, either CoLo or the original Co=
-balt=20
-microservers bootloader.
+$ sudo tc qdisc add dev lo root handle 1: htb
+$ sudo tc filter add dev lo proto ip pref 1 handle 800::1 u32 match u32 0 0 classid 1:1
+$ sudo tc filter add dev lo proto ip pref 2 handle 800::1 u32 match u32 0 0 classid 1:1
+RTNETLINK answers: File exists
 
->
-> The normal calling path here is tulip_init() to register the driver
-> callbacks and tulip_init_one() gets called immediately by pci subsyst=
-em.
-> tulip_up() gets called after netdev registration when someone ifconfi=
-g's
-> the device (ifconfig up). I don't know when else tulip_up() is called=
-=2E
->
-> I have two ideas on how to fix this:
-> 1) reset the RX/TX engines in tulip_init_one() before tulip_stop_rxtx=
-().
-> 2) reset the RX/TX engines in tulip_stop_rxtx() if they are "wedged".
-> 3) remove tulip_stop_rxtx() call in tulip_init_one()
->
->
-> (1) seems like a reasonable thing to do at init time anyway.
-> (2) feels like a pretty big hammer and I don't know all the side effe=
-cts.
-> (3) tulip_up() will reset the RX/TX engine and call tulip_stop_rxtx()
->    when the NIC is opene/ifconfig'd. Calling pci_set_master()
->    will allow the device to scribble into Host Memory...probably
->    should move that call to tulip_up() as well. But I don't see anyth=
-ing
->    in tulip_init_one() that requires DMA (and thus pci_set_master()).
->
-> Is there any reason for NOT implementing (1) and (3)?
->
-> I still need to work out where to call pci_set_master() in
-> tulip_up(). If that's feasible,
->
-> hrm. WTF. tulip_stop_rxtx() is called again from tulip_up() right bef=
-ore
-> CSR6 is written. Earlier in tulip_up() we reset the chip.  Removed.
->
-> Can you test the patch below?
->
-> I have not tested or even compiled this patch...will do so on parisc/=
-ia64
-> machines once I get some feedback on this patch.
->
-> And I just noticed pci_clear_master() is not called *anywhere*. :(
-> Need to add such a call after tulip_stop_rxtx() some place (many plac=
-es?).
-> This patch is just RFC and not suitable for merging upstream.
-
-The patch below does not help on my Qube2, I am still having the same m=
-essage=20
-appearing.
-
->
-> many thanks,
-> grant
->
->
-> diff --git a/drivers/net/tulip/tulip_core.c
-> b/drivers/net/tulip/tulip_core.c index 2abb5d3..1aa058e 100644
-> --- a/drivers/net/tulip/tulip_core.c
-> +++ b/drivers/net/tulip/tulip_core.c
-> @@ -470,11 +470,12 @@ media_picked:
->  		tulip_select_media(dev, 1);
->
->  	/* Start the chip's Tx to process setup frame. */
-> -	tulip_stop_rxtx(tp);
->  	barrier();
->  	udelay(5);
->  	iowrite32(tp->csr6 | TxOn, ioaddr + CSR6);
->
-> +	pci_set_master(pdev);	/* enabled DMA */
-> +
->  	/* Enable interrupts by setting the interrupt mask. */
->  	iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR5);
->  	iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
-> @@ -1422,11 +1423,6 @@ static int __devinit tulip_init_one (struct pc=
-i_dev
-> *pdev, tulip_mwi_config (pdev, dev);
->  #endif
->
-> -	/* Stop the chip's Tx and Rx processes. */
-> -	tulip_stop_rxtx(tp);
-> -
-> -	pci_set_master(pdev);
-> -
->  #ifdef CONFIG_GSC
->  	if (pdev->subsystem_vendor =3D=3D PCI_VENDOR_ID_HP) {
->  		switch (pdev->subsystem_device) {
-
-
-
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
+Cheers,
+Jarek P.
