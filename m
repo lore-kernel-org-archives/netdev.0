@@ -1,60 +1,55 @@
-From: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Sun, 31 May 2009 19:40:16 -0400
-Message-ID: <1243813216.3966.254.camel@dogo.mojatatu.com>
-References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
-	<20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp>
-	<1243604796.3966.21.camel@dogo.mojatatu.com>
-	<1243605269.3966.28.camel@dogo.mojatatu.com>
-	<20090529225929.GD2753@ami.dom.local>
-	<1243684218.3966.83.camel@dogo.mojatatu.com>
-	<20090531081213.GC2756@ami.dom.local>
-	<1243776293.3966.241.camel@dogo.mojatatu.com>
-	<20090531195557.GA2777@ami.dom.local>
-Reply-To: hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: tulip_rxtx_stop() on Cobalt Qube2
+Date: Sun, 31 May 2009 17:43:42 -0600
+Message-ID: <20090531234342.GD3291@lackof.org>
+References: <200905011238.59345.florian@openwrt.org> <20090531014036.GA23050@lackof.org> <200905312302.22608.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        Minoru Usui <usui-vEbCzmPPqHe45+QrQBaojngSJqDPrsil@public.gmane.org>
-To: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20090531195557.GA2777-dUp/P3zyUuaNj9Bq2fkWzw@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>, netdev@vger.kernel.org,
+	kyle@mcmartin.ca
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from complete.lackof.org ([198.49.126.79]:40885 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbZEaXnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 19:43:40 -0400
+Content-Disposition: inline
+In-Reply-To: <200905312302.22608.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-05-31 at 21:55 +0200, Jarek Poplawski wrote:
-
-> But then, there could be "tc filter replace" with only this
-> (n->nlmsg_type == RTM_NEWTFILTER && (n->nlmsg_flags&(NLM_F_CREATE)))
-> which can't get here with a newly created tp, I guess.
-
-Right - because in that case tp would already exist and would
-be found in the lookup.
-
-> I'm almost sure these commands (right or wrong) can trigger such a 
-> leak:
+On Sun, May 31, 2009 at 11:02:22PM +0200, Florian Fainelli wrote:
+> Hi Grant,
+...
+> > The RX/TX engines are in a wedged state to begin with. :(
 > 
-> $ sudo tc qdisc add dev lo root handle 1: htb
-> $ sudo tc filter add dev lo proto ip pref 1 handle 800::1 u32 match
-u32 0 0 classid 1:1
-> $ sudo tc filter add dev lo proto ip pref 2 handle 800::1 u32 match
-u32 0 0 classid 1:1
-> RTNETLINK answers: File exists
+> I suppose this is due to the Bootloader, either CoLo or the original Cobalt 
+> microservers bootloader.
 
-You are good - A tip of my hat and a wag of my finger at you;->
-Ok, now i looked a lot closer at all 8 classifiers
-and u32 is the only one that can fault. It just needs to be fixed.
-I will wait until Minoru's patch and then i will submit a fix for it.
-Of course the commands from user space are a little rude ;->
+Yeah - either bootloader or BIOS - whatever talked to the NIC most recently.
 
-cheers,
-jamal
+...
+> > I have not tested or even compiled this patch...will do so on parisc/ia64
+> > machines once I get some feedback on this patch.
+> >
+> > And I just noticed pci_clear_master() is not called *anywhere*. :(
+> > Need to add such a call after tulip_stop_rxtx() some place (many places?).
+> > This patch is just RFC and not suitable for merging upstream.
+> 
+> The patch below does not help on my Qube2, I am still having the same message 
+> appearing.
+
+Are you sure?
+
+I thought I removed all calls to tulip_stop_rxtx() in the initialization
+code path and didn't think it would get called. Did I overlook one?
+Can you add "dump_stack()" to tulip_stop_rxtx() failure case?
+
+Can you also modify the driver version to make sure you are using
+the correct/most recenly built module?
+
+And the please post the dmesg output from the driver again (plus 10
+lines of output  before and after).
+
+thanks,
+grant
