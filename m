@@ -1,45 +1,33 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Sun, 31 May 2009 10:12:13 +0200
-Message-ID: <20090531081213.GC2756@ami.dom.local>
-References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp> <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp> <1243604796.3966.21.camel@dogo.mojatatu.com> <1243605269.3966.28.camel@dogo.mojatatu.com> <20090529225929.GD2753@ami.dom.local> <1243684218.3966.83.camel@dogo.mojatatu.com>
+Date: Sun, 31 May 2009 10:15:50 +0200
+Message-ID: <20090531081550.GD2756@ami.dom.local>
+References: <20090530114506.GA3166@ami.dom.local> <1243684594.3966.89.camel@dogo.mojatatu.com> <20090530120750.GB3166@ami.dom.local> <1243686683.3966.117.camel@dogo.mojatatu.com> <20090530124554.GC3166@ami.dom.local> <1243688628.3966.126.camel@dogo.mojatatu.com> <20090530132047.GD3166@ami.dom.local> <1243690297.3966.135.camel@dogo.mojatatu.com> <20090530140006.GE3166@ami.dom.local> <b10243b50905301538o2716855ag21fbc95b37c8da22@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: jamal <hadi@cyberus.ca>
+Cc: jamal <hadi@cyberus.ca>, Minoru Usui <usui@mxm.nes.nec.co.jp>,
+	netdev@vger.kernel.org, containers@lists.linux-foundation.org
+To: Minoru Usui <mi.usui@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f168.google.com ([209.85.220.168]:51007 "EHLO
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:58508 "EHLO
 	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756794AbZEaIMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 04:12:47 -0400
-Received: by fxm12 with SMTP id 12so5181079fxm.37
-        for <netdev@vger.kernel.org>; Sun, 31 May 2009 01:12:47 -0700 (PDT)
+	with ESMTP id S1756789AbZEaIP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 04:15:56 -0400
+Received: by fxm12 with SMTP id 12so5181929fxm.37
+        for <netdev@vger.kernel.org>; Sun, 31 May 2009 01:15:57 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1243684218.3966.83.camel@dogo.mojatatu.com>
+In-Reply-To: <b10243b50905301538o2716855ag21fbc95b37c8da22@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 30, 2009 at 07:50:18AM -0400, jamal wrote:
-> On Sat, 2009-05-30 at 00:59 +0200, Jarek Poplawski wrote:
->   
-> > ...
-> >         } else {
-> >                 switch (n->nlmsg_type) {
-> >                 case RTM_NEWTFILTER:
-> >                         err = -EEXIST;
-> >                         if (n->nlmsg_flags & NLM_F_EXCL)
-> >                                 goto errout;
-> >                         break;
-> > 
-> > Probably this case needs tcf_destroy() too.
-> 
-> No - that if stmnt will fail if this is a new filter being
-> created.
+On Sun, May 31, 2009 at 07:38:51AM +0900, Minoru Usui wrote:
+> Hi, jarek
+Hi, Minoru
+...
+> I'm sorry, I don't investigate well, so I don't understand where
+> unconfigured tp is destroyed, yet.
+> If you don't mind, could you tell me where it's destoryed?
 
-If somebody runs tc add filter with a new priority but existing handle
-a newly created (and not linked now) tc would be handled with goto
-errout and would leak, I guess.
+Just like configured ones, by deleting it or the whole tree.
 
-Cheers,
 Jarek P.
