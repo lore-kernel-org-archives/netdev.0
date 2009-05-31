@@ -1,7 +1,7 @@
 From: "Zhang, Sonic" <Sonic.Zhang@analog.com>
 Subject: RE: [PATCH 2/5] netdev: bfin_mac: fix malformed UDP packet transmission when polling with KGDB
-Date: Sun, 31 May 2009 10:42:32 +0800
-Message-ID: <0F1B54C89D5F954D8535DB252AF412FA041F17AF@chinexm1.ad.analog.com>
+Date: Sun, 31 May 2009 10:45:44 +0800
+Message-ID: <0F1B54C89D5F954D8535DB252AF412FA041F17C1@chinexm1.ad.analog.com>
 References: <8bd0f97a0905290346v542e83cdg321241f0b4d95d9e@mail.gmail.com><20090529.035224.124353374.davem@davemloft.net><8bd0f97a0905290420g454c3affr21b6f05e5971d93@mail.gmail.com> <20090529.042726.135473158.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,19 +10,18 @@ Cc: <netdev@vger.kernel.org>,
 	<uclinux-dist-devel@blackfin.uclinux.org>, <cooloney@kernel.org>
 To: "David Miller" <davem@davemloft.net>, <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:58033 "EHLO
+Received: from nwd2mail10.analog.com ([137.71.25.55]:54907 "EHLO
 	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754038AbZEaClg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 22:41:36 -0400
+	with ESMTP id S1754038AbZEaCow convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 22:44:52 -0400
 Content-Class: urn:content-classes:message
 In-Reply-To: <20090529.042726.135473158.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSYNC here is used to make sure the writing to DMA MMR start_addr is
-flushed into the registers before start the DMA controller.
+It seems the position of the SSYNC should be put to several lines below.
 
-Sonic
+Sonic 
 
 -----Original Message-----
 From: David Miller [mailto:davem@davemloft.net] 
