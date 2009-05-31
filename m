@@ -1,51 +1,176 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH net-next 2/2] cpmac: prevent fatal exception in cpmac_end_xmit
-Date: Sun, 31 May 2009 22:59:15 +0200
-Message-ID: <200905312259.16127.florian@openwrt.org>
+Subject: Re: tulip_rxtx_stop() on Cobalt Qube2
+Date: Sun, 31 May 2009 23:02:22 +0200
+Message-ID: <200905312302.22608.florian@openwrt.org>
+References: <200905011238.59345.florian@openwrt.org> <20090531014036.GA23050@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kyle@mcmartin.ca
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:35237 "EHLO
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:62971 "EHLO
 	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318AbZEaU7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 16:59:18 -0400
-Received: by ewy24 with SMTP id 24so7431428ewy.37
-        for <netdev@vger.kernel.org>; Sun, 31 May 2009 13:59:19 -0700 (PDT)
+	with ESMTP id S1751399AbZEaVC0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 May 2009 17:02:26 -0400
+Received: by ewy24 with SMTP id 24so7432648ewy.37
+        for <netdev@vger.kernel.org>; Sun, 31 May 2009 14:02:26 -0700 (PDT)
+In-Reply-To: <20090531014036.GA23050@lackof.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Weil <weil@mail.berlios.de>
+Hi Grant,
 
-We should not be stopping the subqueues in cpmac_end_xmit
-but rather test the status of them. Replace the calls to
-netif_subqueue_stop by __netif_subqueue_stopped. This
-fixes an unrecoverable exception from happening when
-running the driver.
+Le Sunday 31 May 2009 03:40:36 Grant Grundler, vous avez =E9crit=A0:
+> Florian,
+> Summary: proposed patch below for you to test (I've not tested it yet=
+)
+> and some explanation on what I think is happening.
+>
+>
+> On Fri, May 01, 2009 at 12:38:57PM +0200, Florian Fainelli wrote:
+> ...
+>
+> > Linux Tulip driver version 1.1.15-NAPI (Feb 27, 2007)
+>
+> ...
+>
+> > PCI: Enabling device 0000:00:0c.0 (0005 -> 0007)
+> > tulip1: Old format EEPROM on 'Cobalt Microserver' board.  Using
+> > substitute media control info.
+> > tulip1:  EEPROM default media type Autosense.
+> > tulip1:  Index #0 - Media MII (#11) described by a 21142 MII PHY (3=
+)
+> > block. tulip1:  MII transceiver #1 config 1000 status 7809 advertis=
+ing
+> > 01e1. eth1: Digital DS21142/43 Tulip rev 65 at MMIO 0x12082400,
+> > 00:10:e0:00:88:b9, IRQ 20.
+> > [snip]
+> > 0000:00:07.0: tulip_stop_rxtx() failed (CSR5 0xf0660000 CSR6 0xb20e=
+2202)
+>
+> Looking up these bits in the publicly available manual:
+>     ftp://download.intel.com/design/network/manuals/27807401.pdf
+>
+> "Rev 65" =3D=3D 0x41 =3D=3D 21143-PD or 21143-TD (page 3-7)
+>
+> Operation Mode Register (CSR6=C2=ADOffset 30H)
+> ----
+> bit : Val
+> 31  : 1 Special Capture Effect Enable
+> 30  : 1 Receive All
+> 13  : 1 ST - Start Transmission
+> 9   : 1 Full Duplex
+> 1   : 1 SR - Start Receive
+>
+> Status Register (CSR5=C2=ADOffset 28H)
+> ----
+> 28-31 : reserved
+> 23-25 : 0x6 TX State =3D Suspended--Transmit FIFO underflow, or an
+> unavailable transmit descriptor 20-22 : 0x3 RX State =3D Running--Wai=
+ting for
+> receive packet
+> 1     : 0x0 TX isn't stopped
+> 0     : 0x0 No TX Interrupt pending
+>
+> The RX/TX engines are in a wedged state to begin with. :(
 
-Signed-off-by: Stefan Weil <weil@mail.berlios.de>
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index 08e2f67..58afafb 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -615,13 +615,13 @@ static void cpmac_end_xmit(struct net_device *dev, int queue)
- 
- 		dev_kfree_skb_irq(desc->skb);
- 		desc->skb = NULL;
--		if (netif_subqueue_stopped(dev, queue))
-+		if (__netif_subqueue_stopped(dev, queue))
- 			netif_wake_subqueue(dev, queue);
- 	} else {
- 		if (netif_msg_tx_err(priv) && net_ratelimit())
- 			printk(KERN_WARNING
- 			       "%s: end_xmit: spurious interrupt\n", dev->name);
--		if (netif_subqueue_stopped(dev, queue))
-+		if (__netif_subqueue_stopped(dev, queue))
- 			netif_wake_subqueue(dev, queue);
- 	}
- }
+I suppose this is due to the Bootloader, either CoLo or the original Co=
+balt=20
+microservers bootloader.
+
+>
+> The normal calling path here is tulip_init() to register the driver
+> callbacks and tulip_init_one() gets called immediately by pci subsyst=
+em.
+> tulip_up() gets called after netdev registration when someone ifconfi=
+g's
+> the device (ifconfig up). I don't know when else tulip_up() is called=
+=2E
+>
+> I have two ideas on how to fix this:
+> 1) reset the RX/TX engines in tulip_init_one() before tulip_stop_rxtx=
+().
+> 2) reset the RX/TX engines in tulip_stop_rxtx() if they are "wedged".
+> 3) remove tulip_stop_rxtx() call in tulip_init_one()
+>
+>
+> (1) seems like a reasonable thing to do at init time anyway.
+> (2) feels like a pretty big hammer and I don't know all the side effe=
+cts.
+> (3) tulip_up() will reset the RX/TX engine and call tulip_stop_rxtx()
+>    when the NIC is opene/ifconfig'd. Calling pci_set_master()
+>    will allow the device to scribble into Host Memory...probably
+>    should move that call to tulip_up() as well. But I don't see anyth=
+ing
+>    in tulip_init_one() that requires DMA (and thus pci_set_master()).
+>
+> Is there any reason for NOT implementing (1) and (3)?
+>
+> I still need to work out where to call pci_set_master() in
+> tulip_up(). If that's feasible,
+>
+> hrm. WTF. tulip_stop_rxtx() is called again from tulip_up() right bef=
+ore
+> CSR6 is written. Earlier in tulip_up() we reset the chip.  Removed.
+>
+> Can you test the patch below?
+>
+> I have not tested or even compiled this patch...will do so on parisc/=
+ia64
+> machines once I get some feedback on this patch.
+>
+> And I just noticed pci_clear_master() is not called *anywhere*. :(
+> Need to add such a call after tulip_stop_rxtx() some place (many plac=
+es?).
+> This patch is just RFC and not suitable for merging upstream.
+
+The patch below does not help on my Qube2, I am still having the same m=
+essage=20
+appearing.
+
+>
+> many thanks,
+> grant
+>
+>
+> diff --git a/drivers/net/tulip/tulip_core.c
+> b/drivers/net/tulip/tulip_core.c index 2abb5d3..1aa058e 100644
+> --- a/drivers/net/tulip/tulip_core.c
+> +++ b/drivers/net/tulip/tulip_core.c
+> @@ -470,11 +470,12 @@ media_picked:
+>  		tulip_select_media(dev, 1);
+>
+>  	/* Start the chip's Tx to process setup frame. */
+> -	tulip_stop_rxtx(tp);
+>  	barrier();
+>  	udelay(5);
+>  	iowrite32(tp->csr6 | TxOn, ioaddr + CSR6);
+>
+> +	pci_set_master(pdev);	/* enabled DMA */
+> +
+>  	/* Enable interrupts by setting the interrupt mask. */
+>  	iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR5);
+>  	iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
+> @@ -1422,11 +1423,6 @@ static int __devinit tulip_init_one (struct pc=
+i_dev
+> *pdev, tulip_mwi_config (pdev, dev);
+>  #endif
+>
+> -	/* Stop the chip's Tx and Rx processes. */
+> -	tulip_stop_rxtx(tp);
+> -
+> -	pci_set_master(pdev);
+> -
+>  #ifdef CONFIG_GSC
+>  	if (pdev->subsystem_vendor =3D=3D PCI_VENDOR_ID_HP) {
+>  		switch (pdev->subsystem_device) {
+
+
+
+--=20
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
