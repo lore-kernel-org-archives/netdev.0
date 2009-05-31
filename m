@@ -1,47 +1,49 @@
-From: Minoru Usui <mi.usui@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Sun, 31 May 2009 10:45:45 +0900
-Message-ID: <b10243b50905301845k16d72939u6b636a0a3f0fceea@mail.gmail.com>
-References: <20090529225929.GD2753@ami.dom.local>
-	 <20090530120750.GB3166@ami.dom.local>
-	 <1243686683.3966.117.camel@dogo.mojatatu.com>
-	 <20090530124554.GC3166@ami.dom.local>
-	 <1243688628.3966.126.camel@dogo.mojatatu.com>
-	 <20090530132047.GD3166@ami.dom.local>
-	 <1243690297.3966.135.camel@dogo.mojatatu.com>
-	 <20090530140006.GE3166@ami.dom.local>
-	 <b10243b50905301538o2716855ag21fbc95b37c8da22@mail.gmail.com>
-	 <1243726492.3966.178.camel@dogo.mojatatu.com>
+From: "Zhang, Sonic" <Sonic.Zhang@analog.com>
+Subject: RE: [PATCH 2/5] netdev: bfin_mac: fix malformed UDP packet transmission when polling with KGDB
+Date: Sun, 31 May 2009 10:42:32 +0800
+Message-ID: <0F1B54C89D5F954D8535DB252AF412FA041F17AF@chinexm1.ad.analog.com>
+References: <8bd0f97a0905290346v542e83cdg321241f0b4d95d9e@mail.gmail.com><20090529.035224.124353374.davem@davemloft.net><8bd0f97a0905290420g454c3affr21b6f05e5971d93@mail.gmail.com> <20090529.042726.135473158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	<uclinux-dist-devel@blackfin.uclinux.org>, <cooloney@kernel.org>
+To: "David Miller" <davem@davemloft.net>, <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f130.google.com ([209.85.221.130]:33647 "EHLO
-	mail-qy0-f130.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753850AbZEaBpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 21:45:44 -0400
-Received: by qyk36 with SMTP id 36so767998qyk.33
-        for <netdev@vger.kernel.org>; Sat, 30 May 2009 18:45:45 -0700 (PDT)
-In-Reply-To: <1243726492.3966.178.camel@dogo.mojatatu.com>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:58033 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754038AbZEaClg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 May 2009 22:41:36 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <20090529.042726.135473158.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/5/31 jamal <hadi@cyberus.ca>:
-> On Sun, 2009-05-31 at 07:38 +0900, Minoru Usui wrote:
->
->> I agree.
->> I think cls_cgroup should check head(tp->root) whether NULL or not
->> like other classifiers, too.
->>
->
-> I dont think this is necessary if the adding/linking unconfigured tp
-> doesnt happen on failed config.
+SSYNC here is used to make sure the writing to DMA MMR start_addr is
+flushed into the registers before start the DMA controller.
 
-Ah, you are right.
-Sorry, I don't explain enough.
+Sonic
 
-I mean it needs just for safety.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Friday, May 29, 2009 7:27 PM
+To: vapier.adi@gmail.com
+Cc: netdev@vger.kernel.org; uclinux-dist-devel@blackfin.uclinux.org;
+Zhang, Sonic; cooloney@kernel.org
+Subject: Re: [PATCH 2/5] netdev: bfin_mac: fix malformed UDP packet
+transmission when polling with KGDB
+
+From: Mike Frysinger <vapier.adi@gmail.com>
+Date: Fri, 29 May 2009 07:20:18 -0400
+
+> that isnt how the DMA is being used here.  there is no register to 
+> read back because the DMA controller is doing the reading indirectly.
+> but along those lines, it's not entirely clear which DMA registers 
+> this SSYNC is supposed to be protecting because all of the updates are
+
+> happening on the descriptors in external memory, not the DMA registers
+
+> themselves.  i'll have Sonic clarify.
+
+Yes, that's really confusing because the commit message says
+"registers".
