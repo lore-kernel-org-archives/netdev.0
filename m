@@ -1,66 +1,68 @@
-From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 3/3] usb: gadget: f_phonet: fix memory allocation sizes
-Date: Mon,  1 Jun 2009 14:18:57 +0300
-Message-ID: <1243855137-20149-3-git-send-email-remi.denis-courmont@nokia.com>
-References: <1243855137-20149-1-git-send-email-remi.denis-courmont@nokia.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
+Date: Mon, 1 Jun 2009 21:57:28 +0930
+Message-ID: <200906012157.29465.rusty@rustcorp.com.au>
+References: <200905292344.56814.rusty@rustcorp.com.au>
+	<4A1FFB04.30305@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:52404 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755667AbZFALRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 07:17:47 -0400
-Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
-	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n51BHFR7017582
-	for <netdev@vger.kernel.org>; Mon, 1 Jun 2009 14:17:42 +0300
-Received: from localhost.localdomain (esdhcp037217.research.nokia.com [172.21.37.217])
-	by mgw-sa02.ext.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n51BHbXv003855
-	for <netdev@vger.kernel.org>; Mon, 1 Jun 2009 14:17:38 +0300
-In-Reply-To: <1243855137-20149-1-git-send-email-remi.denis-courmont@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: libertas-dev@lists.infradead.org, Dan Williams <dcbw@redhat.com>,
+        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        Roland Dreier <rolandd@cisco.com>, Divy Le Ray <divy@chelsio.com>,
+        Pavel Emelianov <xemul@openvz.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4A1FFB04.30305@gmail.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+On Sat, 30 May 2009 12:41:00 am Eric Dumazet wrote:
+> Rusty Russell a =E9crit :
+> > DaveM points out that there are advantages to doing it generally (it's
+> > more likely to be on same CPU than after xmit), and I couldn't find
+> > any new starvation issues in simple benchmarking here.
+>
+> If really no starvations are possible at all, I really wonder why some
+> guys added memory accounting to UDP flows. Maybe they dont run "simple
+> benchmarks" but real apps ? :)
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Signed-off-by: Felipe Balbi <felipe.balbi@nokia.com>
----
- drivers/usb/gadget/f_phonet.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+Well, without any accounting at all you could use quite a lot of memory as =
 
-diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phone=
-t.c
-index d6b4871..96fb118 100644
---- a/drivers/usb/gadget/f_phonet.c
-+++ b/drivers/usb/gadget/f_phonet.c
-@@ -569,9 +569,10 @@ static struct net_device *dev;
- int __init phonet_bind_config(struct usb_configuration *c)
- {
- 	struct f_phonet *fp;
--	int err;
-+	int err, size;
-=20
--	fp =3D kzalloc(sizeof(*fp), GFP_KERNEL);
-+	size =3D sizeof(*fp) + (phonet_rxq_size * sizeof(struct usb_request *=
-));
-+	fp =3D kzalloc(size, GFP_KERNEL);
- 	if (!fp)
- 		return -ENOMEM;
-=20
-@@ -596,9 +597,7 @@ int __init gphonet_setup(struct usb_gadget *gadget)
-=20
- 	/* Create net device */
- 	BUG_ON(dev);
--	dev =3D alloc_netdev(sizeof(*port)
--		+ (phonet_rxq_size * sizeof(struct usb_request *)),
--				"upnlink%d", pn_net_setup);
-+	dev =3D alloc_netdev(sizeof(*port), "upnlink%d", pn_net_setup);
- 	if (!dev)
- 		return -ENOMEM;
-=20
---=20
-1.6.0.4
+there are many places packets can be queued.
 
+> For TCP, I agree your patch is a huge benefit, since its paced by remote
+> ACKS and window control
+
+I doubt that.  There'll be some cache friendliness, but I'm not sure it'll =
+be =
+
+measurable, let alone "huge".  It's the win to drivers which don't have a =
+
+timely and batching tx free mechanism which I aim for.
+
+> , but an UDP sender will likely be able to saturate
+> a link.
+
+I couldn't see any difference in saturation here (with default scheduler an=
+d an =
+
+100MBit e1000e).  Two reasons come to mind: firstly, only the hardware queu=
+e is =
+
+unregulated: the tx queue is still accounted.  And when you add scheduling =
+to =
+
+the mix, I can't in practice cause starvation of other senders.
+
+Hope that clarifies,
+Rusty.
