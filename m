@@ -1,32 +1,35 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH v2] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
-Date: Mon, 01 Jun 2009 10:05:08 -0400
-Message-ID: <4A23E014.4040909@hp.com>
-References: <4A204A31.4010105@hp.com> <20090601.030835.261332360.davem@davemloft.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [GIT]: Networking
+Date: Mon, 01 Jun 2009 16:52:21 +0200
+Message-ID: <1243867942.3015.18.camel@localhost.localdomain>
+References: <20090601.032500.54712490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, linux@kolla.no,
-	vladislav.yasevich@hp.com
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:4162 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776AbZFAOFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 10:05:08 -0400
-In-Reply-To: <20090601.030835.261332360.davem@davemloft.net>
+Received: from senator.holtmann.net ([87.106.208.187]:41528 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbZFAOwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 10:52:43 -0400
+In-Reply-To: <20090601.032500.54712490.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Applied, but really it is tiring fixing up all of the corruptions
-> your email client made to this patch.
-> 
-> I've had this problem so many times with you that I've totally
-> lost any hope that you'll be able to submit patches cleanly and
-> thus I'm resigned to just fix them up every time from now on. :-/
+Hi Dave,
 
-Sorry, I'll start sending them to myself first in the future.  Just reject it
-next time and force me to do the work to fix it up as it was my fault.
+> Things are really winding down, and the bug fix rate is down
+> to at best a trickle.  It might be time to do that final
+> release soon :-)
 
--Brian
+can you give me quick update on this pull request:
+
+	http://marc.info/?l=linux-netdev&m=124341070008320&w=2
+
+Regards
+
+Marcel
+
+
