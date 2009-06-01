@@ -1,130 +1,73 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 09/10] ieee802154: add serial dongle driver
-Date: Mon, 1 Jun 2009 22:52:05 +0100
-Message-ID: <20090601225205.1e7e8944@lxorguk.ukuu.org.uk>
-References: <1243868091-5315-2-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-3-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-4-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-5-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-6-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-7-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-8-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-9-git-send-email-dbaryshkov@gmail.com>
-	<1243868091-5315-10-git-send-email-dbaryshkov@gmail.com>
-	<20090601162732.4a070c43@lxorguk.ukuu.org.uk>
-	<20090601202946.GB7143@doriath.ww600.siemens.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Mon, 1 Jun 2009 23:55:42 +0200
+Message-ID: <20090601215542.GB2760@ami.dom.local>
+References: <1243605269.3966.28.camel@dogo.mojatatu.com> <20090529225929.GD2753@ami.dom.local> <1243684218.3966.83.camel@dogo.mojatatu.com> <20090531081213.GC2756@ami.dom.local> <1243776293.3966.241.camel@dogo.mojatatu.com> <20090531195557.GA2777@ami.dom.local> <1243813216.3966.254.camel@dogo.mojatatu.com> <20090601060638.GA4256@ff.dom.local> <1243861410.3966.268.camel@dogo.mojatatu.com> <20090601204957.GA2760@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
-	maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090601202946.GB7143-nIupHZaCssqR2kOLt6zJ8ErlnG4Plg33XqFh9Ls21Oc@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:46393 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759038AbZFAV4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 17:56:12 -0400
+Received: by bwz22 with SMTP id 22so7761553bwz.37
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 14:56:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090601204957.GA2760@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > +	return _send_pending_data(zbdev);
-> > 
-> > Where do you check that the tty has enough space ?
-> 
-> Basically that means checking for ->write result, doesn't it?
+On Mon, Jun 01, 2009 at 10:49:57PM +0200, Jarek Poplawski wrote:
+...
+> Alas, I still think we don't need to change so much in -stable to
+> fix the cls_cgroup oops, so I attach a patch which I think is
+> enough for -stable and probably -net too. It could be "reverted"
+> in -net-next just after applying cls_api patch. Of course, treat
+> it only as my humble proposal, and feel free to recommend to David
+> your version, no problem (really).
 
-You should check write_room before writing if you want some control - you
-can also then respect internal flow control via the wakeup mechanism.
+Since there are possible other oopses in cls_cgroup, here is an update
+of patch #2.
 
-Something like:
-                /* Wait for space */
-                while ((space = tty_write_room(tty)) < len) {
-                        if (file->f_flags & O_NONBLOCK) {
-                                err = -EAGAIN;
-                                break;
-                        }
-                        interruptible_sleep_on(&tty->write_wait);
-                        if (signal_pending(current)) {
-                                err = -EINTR;
-                                break;
-                        }
-                }
-                /* Shove the entire frame down */
-                tty->ops->write(tty, data, len);
+Jarek P.
+--------------------------> patch #2 (take 2)
+
+ net/sched/cls_cgroup.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 1ab4542..edb71e1 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -101,6 +101,8 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 	struct cgroup_cls_state *cs;
+ 	int ret = 0;
  
-> > In all these ERR cases what stops a remote device from having fun spewing
-> > garbage at you and filling the log ?
-> 
-> And what stops your precious IDE controller from spewing garbage and
-> filling the log? Nothing I think. I'll lower the priority of the
-> messages though.
-
-The fact the drive is entirely under my control and not potentially being
-spewed at from a hostile network. Also the fact that it takes about 30
-seconds to spank a misbehaving drive and reset it. The network laye
-generally uses time checks (search for ratelimit()).
-
-> any RS-232 device which implements IEEE 802.15.4 PHY layer and doesn't
-> follow this protocol, we can extend the ldisc to be more like hci-uart:
-> a multiplexor of protocols.
-
-Ok
-
-> > > +	zbdev->tty = tty;
-> > 
-> > Refcounting ?
-> 
-> Sample code? SLIP, hci-uart, ppp don't do it.
-
-No I'm still running around clobbering them all - and slip needed a
-partial rewrite first.
-
-	zbdev->tty = tty_kref_get(tty);
-
-	tty_kref_put(foo);
-
-> > You can't go around mashing driver internal values - many drivers don't
-> > support low_latency mode and this will make them crash.
-> 
-> C&P from drivers/bluetooth/hci-ldisc.c, around line 466. We had problems
-> working with low-latency unset.
-
-The bluetooth one needs killing too. I will do that tomorrow ...
-
-How many releases ago - the entire tty buffering layer has been rewritten
-over time. tty->low_latency requires driver specific support that most
-don't have. Also as of 2.6.30rc you'll get debug spew if you misuse it.
-
-If you still need it we need to know why.
-
-
-> That's not a 'no, I won't do it', but rather 'wait, all those are also
-> buggy ?!'
-
-The tty layer has a lot of "yes, those are also buggy" - which is why I'm
-currently half way through systematically brutalising it.
-
-
-> > > +	default:
-> > > +		pr_debug("Unknown ioctl cmd: %u\n", cmd);
-> > > +		return -EINVAL;
-> > 
-> > This will break default ioctl processing. You probably want to call into
-> > some of the generic handlers at this point depending upon your hardware.
-> > Either way -EINVAL is wrong.
-> 
-> 
-> n_tty_ioctl_helper ?
-
-That depends what you need. tty_mode_ioctl() gives you all the mode
-stuff, n_tty_ioctl_helper adds things like software flow management which
-don't actually look relevant to your ldisc ?
-
-Any other queries let me know, and if the tty->low_latency is still
-needed let me know and we'll figure out why between us, as it should not
-be.
-
-Alan
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	if (!head)
++		return -1;
+ 	/*
+ 	 * Due to the nature of the classifier it is required to ignore all
+ 	 * packets originating from softirq context as accessing `current'
+@@ -218,6 +220,9 @@ static void cls_cgroup_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+ {
+ 	struct cls_cgroup_head *head = tp->root;
+ 
++	if (!head)
++		return;
++
+ 	if (arg->count < arg->skip)
+ 		goto skip;
+ 
+@@ -236,6 +241,9 @@ static int cls_cgroup_dump(struct tcf_proto *tp, unsigned long fh,
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct nlattr *nest;
+ 
++	if (!head)
++		return -1;
++
+ 	t->tcm_handle = head->handle;
+ 
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
