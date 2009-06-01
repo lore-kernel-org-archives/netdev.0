@@ -1,65 +1,85 @@
-From: Minoru Usui <mi.usui@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Mon, 1 Jun 2009 22:34:13 +0900
-Message-ID: <b10243b50906010634r1df4ed71y904eb629c89a6f70@mail.gmail.com>
-References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp>
-	 <1243605269.3966.28.camel@dogo.mojatatu.com>
-	 <20090529225929.GD2753@ami.dom.local>
-	 <1243684218.3966.83.camel@dogo.mojatatu.com>
-	 <20090531081213.GC2756@ami.dom.local>
-	 <1243776293.3966.241.camel@dogo.mojatatu.com>
-	 <20090531195557.GA2777@ami.dom.local>
-	 <1243813216.3966.254.camel@dogo.mojatatu.com>
-	 <20090601060638.GA4256@ff.dom.local>
-	 <1243861410.3966.268.camel@dogo.mojatatu.com>
+From: Ed Swierk <eswierk@aristanetworks.com>
+Subject: [PATCH] forcedeth: add phy_power_down parameter, leave phy powered
+ up by default (v2)
+Date: Mon, 01 Jun 2009 06:54:37 -0700
+Message-ID: <1243864477.13996.23.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: hadi@cyberus.ca
+Cc: aabdulla@nvidia.com, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f130.google.com ([209.85.221.130]:50104 "EHLO
-	mail-qy0-f130.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754979AbZFANeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 09:34:12 -0400
-Received: by qyk36 with SMTP id 36so1602431qyk.33
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 06:34:14 -0700 (PDT)
-In-Reply-To: <1243861410.3966.268.camel@dogo.mojatatu.com>
+Received: from mail-px0-f123.google.com ([209.85.216.123]:49856 "EHLO
+	mail-px0-f123.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988AbZFANyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 09:54:38 -0400
+Received: by pxi29 with SMTP id 29so2760698pxi.33
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 06:54:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/6/1 jamal <hadi@cyberus.ca>:
-> On Mon, 2009-06-01 at 06:06 +0000, Jarek Poplawski wrote:
->
->>
->> But how about that (of course extremely rude) case "tc filter replace"
->> is run with a new prio?
->
->
-> Jarek, sir, handyman extraordinaire, handsome devil, and lover of
-> kittens I humbly opine that we need to handle that case.
-> How about going back to your original idea of defining tp_created? With
-> apologies to Minoru (he must be thinking we are lunatics by now), how
-> does the attached changed patch look to you?
+Add a phy_power_down parameter to forcedeth: set to 1 to power down the
+phy and disable the link when an interface goes down; set to 0 to always
+leave the phy powered up.
 
-It looks good to me, because it's simple and really understandable.
-I think below issue should separate from above patch, because it's
-easy to come to understand a patch.
+The phy power state persists across reboots; Windows, some BIOSes, and
+older versions of Linux don't bother to power up the phy again, forcing
+users to remove all power to get the interface working (see
+http://bugzilla.kernel.org/show_bug.cgi?id=13072).  Leaving the phy
+powered on is the safest default behavior.  Users accustomed to seeing
+the link state reflect the interface state and/or wanting to minimize
+power consumption can set phy_power_down=1 if compatibility with other
+OSes is not an issue.
 
-How about that?
-If it's ok, I'll test it tomorrow.
+Signed-off-by: Ed Swierk <eswierk@aristanetworks.com>
 
-> Before you throw another rock, there is another issue which will be
-> caused by this rude misconfig:
-> "replace" really means "get rid of the old and add this new one".
-> But for the last 50 years we do not "get rid of the old". I cant think
-> of a clean way to do it sans shaving one of the kittens. One simple
-> thing to do is to printk a warning when detecting this error. I think
-> one needs to draw a line where bad config affects your life - in this
-> case i dont think it is worth big changes..
->
-> cheers,
-> jamal
->
+---
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index f9a846b..a66c4d4 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -897,6 +897,12 @@ enum {
+ };
+ static int phy_cross = NV_CROSSOVER_DETECTION_DISABLED;
+ 
++/*
++ * Power down phy when interface is down (persists through reboot;
++ * older Linux and other OSes may not power it up again)
++ */
++static int phy_power_down = 0;
++
+ static inline struct fe_priv *get_nvpriv(struct net_device *dev)
+ {
+ 	return netdev_priv(dev);
+@@ -1485,7 +1491,10 @@ static int phy_init(struct net_device *dev)
+ 
+ 	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	if (phy_power_down) {
++		mii_control |= BMCR_PDOWN;
++	}
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -5513,7 +5522,7 @@ static int nv_close(struct net_device *dev)
+ 
+ 	nv_drain_rxtx(dev);
+ 
+-	if (np->wolenabled) {
++	if (np->wolenabled || !phy_power_down) {
+ 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
+ 		nv_start_rx(dev);
+ 	} else {
+@@ -6367,6 +6376,8 @@ module_param(dma_64bit, int, 0);
+ MODULE_PARM_DESC(dma_64bit, "High DMA is enabled by setting to 1 and disabled by setting to 0.");
+ module_param(phy_cross, int, 0);
+ MODULE_PARM_DESC(phy_cross, "Phy crossover detection for Realtek 8201 phy is enabled by setting to 1 and disabled by setting to 0.");
++module_param(phy_power_down, int, 0);
++MODULE_PARM_DESC(phy_power_down, "Power down phy and disable link when interface is down (1), or leave phy powered up (0).");
+ 
+ MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+ MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
+
+
