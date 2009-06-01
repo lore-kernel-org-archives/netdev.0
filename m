@@ -1,38 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/2] cxgb3: Add Aeluros 2020 phy support
-Date: Mon, 1 Jun 2009 11:53:50 +0100
-Message-ID: <20090601105349.GF3051@decadent.org.uk>
-References: <20090529075823.30669.28885.stgit@speedy5> <20090529075829.30669.41488.stgit@speedy5>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH 1/3] f_phonet: dev_kfree_skb instead of dev_kfree_skb_any in TX callback
+Date: Mon,  1 Jun 2009 14:18:55 +0300
+Message-ID: <1243855137-20149-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38520 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757246AbZFAKxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 06:53:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20090529075829.30669.41488.stgit@speedy5>
+Received: from smtp.nokia.com ([192.100.122.233]:52400 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754635AbZFALRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 07:17:45 -0400
+Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
+	by mgw-mx06.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n51BHFR3017582
+	for <netdev@vger.kernel.org>; Mon, 1 Jun 2009 14:17:39 +0300
+Received: from localhost.localdomain (esdhcp037217.research.nokia.com [172.21.37.217])
+	by mgw-sa02.ext.nokia.com (Switch-3.2.6/Switch-3.2.6) with ESMTP id n51BHbXt003855
+	for <netdev@vger.kernel.org>; Mon, 1 Jun 2009 14:17:37 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-05-29 at 00:58 -0700, Divy Le Ray wrote:
-[...]
-> +	/* TWINAX EDC firmware */
-> +	static u16 twinax_edc[] = {
-> +		0xd800, 0x4009,
-> +		0xd801, 0x2fff,
-> +		0xd802, 0x300f,
-> +		0xd803, 0x40aa,
-> +		0xd804, 0x401c,
-[...]
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Use request_firmware() please.
+Network device TX is never run in IRQ context, and skb is freed outside
+of the IRQ-disabling spin lock. So checking for IRQ was a waste of time
+here.
 
-Ben.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Signed-off-by: Felipe Balbi <felipe.balbi@nokia.com>
+---
+ drivers/usb/gadget/f_phonet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
--- 
-Ben Hutchings
-The most exhausting thing in life is being insincere. - Anne Morrow Lindberg
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phone=
+t.c
+index c1abeb8..54451ee 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -255,7 +255,7 @@ out_unlock:
+ 	spin_unlock_irqrestore(&port->lock, flags);
+ out:
+ 	if (unlikely(skb)) {
+-		dev_kfree_skb_any(skb);
++		dev_kfree_skb(skb);
+ 		dev->stats.tx_dropped++;
+ 	}
+ 	return 0;
+--=20
+1.6.0.4
+
