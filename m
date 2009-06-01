@@ -1,80 +1,56 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH net-next 2/2] cpmac: prevent fatal exception in cpmac_end_xmit
-Date: Mon, 1 Jun 2009 18:36:55 +0200
-Message-ID: <200906011836.59413.florian@openwrt.org>
-References: <200905312259.16127.florian@openwrt.org> <20090601.025818.156394734.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
+Date: Mon, 01 Jun 2009 20:43:45 +0200
+Message-ID: <4A242161.3010609@cosmosbay.com>
+References: <4A23F027.3060907@dev.6wind.com> <20090601161917.GA29745@Chamillionaire.breakpoint.cc> <4A240681.2010300@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3145097.RrZoEa3hmh";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f176.google.com ([209.85.219.176]:61960 "EHLO
-	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbZFARb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 13:31:59 -0400
-Received: by mail-ew0-f176.google.com with SMTP id 24so8008721ewy.37
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 10:32:00 -0700 (PDT)
-In-Reply-To: <20090601.025818.156394734.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:53602 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755730AbZFASn5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 14:43:57 -0400
+In-Reply-To: <4A240681.2010300@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart3145097.RrZoEa3hmh
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Nicolas Dichtel a =E9crit :
+> Le 01.06.2009 18:19, Florian Westphal a =E9crit :
+>> Nicolas Dichtel <nicolas.dichtel@dev.6wind.com> wrote:
+>>> when network stack receives a packet, it didn't check value of
+>>> ttl/hop limit
+>>> field. RFC indicates that a router must drop the packet if this fie=
+ld
+>>> is 0.
+>>
+>> Whats wrong with the checks in ip(6)_forward?
+> It's on forward, not on input. Router must not process it.
+> For example, if you try to ping (with ttl set to 0) the router, you w=
+ill
+> receive a reply.
+>=20
 
-Hi David,
+You seem to mix requirements for routers and hosts. ttl processing
+is relevant for a gateway only, not for a host.
 
-Le Monday 01 June 2009 11:58:18 David Miller, vous avez =E9crit=A0:
-> From: Florian Fainelli <florian@openwrt.org>
-> Date: Sun, 31 May 2009 22:59:15 +0200
->
-> > From: Stefan Weil <weil@mail.berlios.de>
-> >
-> > We should not be stopping the subqueues in cpmac_end_xmit
-> > but rather test the status of them. Replace the calls to
-> > netif_subqueue_stop by __netif_subqueue_stopped. This
-> > fixes an unrecoverable exception from happening when
-> > running the driver.
-> >
-> > Signed-off-by: Stefan Weil <weil@mail.berlios.de>
-> > Signed-off-by: Florian Fainelli <florian@openwrt.org>
->
-> Applied, but this commit message was completely wrong and
-> therefore misleading to anyone trying to track down why this
-> change was made.
->
-> The problem is that netif_subqueue_stopped() takes a SKB
-> pointer, whereas we're passing in an integer queue index
-> here.
->
-> Therefore, merely providing the obvious compile warning that
-> was produced by this incorrect argument type would have
-> explained everything, and accurately.
+(terminology : gateway / host in rfc 792)
 
-You are right I should have given you the right description. Thanks for=20
-applying it anyway.
-=2D-=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
-=2D------------------------------
+I would say : who sent this ttl=3D0 packet at first ?
 
---nextPart3145097.RrZoEa3hmh
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+ping -t 0 host
+ping: can't set unicast time-to-live: Invalid argument
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+So Linux is not able to do that, unless using tricks of course, or patc=
+hing IP_TTL
 
-iEYEABECAAYFAkokA6cACgkQlyvkmBGtjyaTbACeLVCOsNpxrNCgACewwLsYRSmI
-XgAAoIwWG5cff7XOAFXRrMhTdLzbnSFB
-=NCVE
------END PGP SIGNATURE-----
+BTW, sending ttl=3D0 packets to my cisco host (also a router but not re=
+levant)
+is ok, it replies to this packets...
 
---nextPart3145097.RrZoEa3hmh--
+I wonder why Linux forbids sending ttl=3D0 packets, time to read again =
+all these RFCs :)
+
+
