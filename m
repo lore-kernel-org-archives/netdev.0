@@ -1,49 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NIU driver unmap_page call
-Date: Mon, 01 Jun 2009 03:11:04 -0700 (PDT)
-Message-ID: <20090601.031104.187911913.davem@davemloft.net>
-References: <71C5D403-0A82-45E6-8FEF-2911B7BB9C24@freescale.com>
+Subject: Re: [PATCH] 3c509: Add missing EISA IDs
+Date: Mon, 01 Jun 2009 03:12:15 -0700 (PDT)
+Message-ID: <20090601.031215.109417436.davem@davemloft.net>
+References: <alpine.LFD.1.10.0905310021070.15490@ftp.linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: afleming@freescale.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49663
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755828AbZFAKLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 06:11:04 -0400
-In-Reply-To: <71C5D403-0A82-45E6-8FEF-2911B7BB9C24@freescale.com>
+	by vger.kernel.org with ESMTP id S1756217AbZFAKMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 06:12:14 -0400
+In-Reply-To: <alpine.LFD.1.10.0905310021070.15490@ftp.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Fri, 29 May 2009 17:38:50 -0500
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Sun, 31 May 2009 00:40:31 +0100 (BST)
 
-> I'm trying to figure out what this code does:
+>  Several EISA device IDs for 3c509 family network cards are missing from 
+> the driver, making the cards unusable in their EISA mode.  Here's a fix to 
+> add them based on the EISA configuration files distributed by 3Com and our 
+> eisa.ids database.
 > 
->                if ((page->index + rp->rbr_block_size) - rcr_size == addr) {
->                        *link = (struct page *) page->mapping;
->                        np->ops->unmap_page(np->device, page->index,
->                                            PAGE_SIZE, DMA_FROM_DEVICE);
->                        page->index = 0;
->                        page->mapping = NULL;
->                        rp->rbr_refill_pending++;
->                } else
->                        get_page(page);
-> 
-> It's clear it's taking the opportunity to remove the page from the
-> hash table, and to unmap the page, but I'm not familiar enough with
-> this nic to understand what the if statement is looking for.  My first
-> thought was that it was looking to see if this was the first buffer in
-> the page?
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 
-It's looking to see if this is the LAST chunk in the page, not the
-first.
-
-rcr_size is the size of the sub-buffers within the page that the
-chip is carving out of the page.
-
-Since when we allocated the page initially this obtained on reference
-to the page, we increment for every chunk given out to an SKB except
-the last one.
+Applied, thanks.
