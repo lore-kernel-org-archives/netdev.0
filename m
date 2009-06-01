@@ -1,44 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.30rc7: ksoftirqd CPU saturation (x86-64 only,
- not x86-32) (e1000e-related?)
-Date: Sun, 31 May 2009 21:58:55 -0700 (PDT)
-Message-ID: <20090531.215855.142666346.davem@davemloft.net>
-References: <87prdozxns.fsf@hades.wkstn.nix>
-	<20090531170350.1355b3f1.akpm@linux-foundation.org>
-	<87ljoczu3p.fsf@hades.wkstn.nix>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Mon, 1 Jun 2009 06:06:38 +0000
+Message-ID: <20090601060638.GA4256@ff.dom.local>
+References: <20090521092256.d33717b9.usui@mxm.nes.nec.co.jp> <20090529141830.8ba30a24.usui@mxm.nes.nec.co.jp> <1243604796.3966.21.camel@dogo.mojatatu.com> <1243605269.3966.28.camel@dogo.mojatatu.com> <20090529225929.GD2753@ami.dom.local> <1243684218.3966.83.camel@dogo.mojatatu.com> <20090531081213.GC2756@ami.dom.local> <1243776293.3966.241.camel@dogo.mojatatu.com> <20090531195557.GA2777@ami.dom.local> <1243813216.3966.254.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: nix@esperi.org.uk
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <87ljoczu3p.fsf@hades.wkstn.nix>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f176.google.com ([209.85.219.176]:47751 "EHLO
+	mail-ew0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610AbZFAGGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 02:06:43 -0400
+Received: by ewy24 with SMTP id 24so7600442ewy.37
+        for <netdev@vger.kernel.org>; Sun, 31 May 2009 23:06:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1243813216.3966.254.camel@dogo.mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nix <nix@esperi.org.uk>
-Date: Mon, 01 Jun 2009 01:16:26 +0100
+On Sun, May 31, 2009 at 07:40:16PM -0400, jamal wrote:
+> On Sun, 2009-05-31 at 21:55 +0200, Jarek Poplawski wrote:
+> 
+> > But then, there could be "tc filter replace" with only this
+> > (n->nlmsg_type == RTM_NEWTFILTER && (n->nlmsg_flags&(NLM_F_CREATE)))
+> > which can't get here with a newly created tp, I guess.
+> 
+> Right - because in that case tp would already exist and would
+> be found in the lookup.
 
-> I plan to try out 2.6.29 (and back to 2.6.25 or thereabouts) tomorrow
-> and see if it ever worked: if it did I'll bisect for it (rendered tricky
-> by the out-of-tree e1000e driver, but doable: it would be easier if I
-> had a clue where the e1000-devel git tree is, if anywhere, but I still
-> have no idea despite considerable searching).
+But how about that (of course extremely rude) case "tc filter replace"
+is run with a new prio?
 
-Why are you using the out-of-tree e1000e driver?  What's wrong
-with the one in the tree? :-)
-
-------------------------------------------------------------------------------
-Register Now for Creativity and Technology (CaT), June 3rd, NYC. CaT 
-is a gathering of tech-side developers & brand creativity professionals. Meet
-the minds behind Google Creative Lab, Visual Complexity, Processing, & 
-iPhoneDevCamp as they present alongside digital heavyweights like Barbarian 
-Group, R/GA, & Big Spaceship. http://p.sf.net/sfu/creativitycat-com 
+Thanks,
+Jarek P.
