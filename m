@@ -1,52 +1,45 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [SCSI] cxgb3i: Include net/dst.h for struct dst_cache
-Date: Sun, 31 May 2009 21:25:06 -0500
-Message-ID: <4A233C02.7010505@cs.wisc.edu>
-References: <20090530034004.GA20516@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next]atl1c: fix spelling error
+Date: Sun, 31 May 2009 21:51:40 -0700 (PDT)
+Message-ID: <20090531.215140.214511212.davem@davemloft.net>
+References: <12438220782521-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	Karen Xie <kxie@chelsio.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: pyunyh@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:38083 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754670AbZFAC0V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 May 2009 22:26:21 -0400
-In-Reply-To: <20090530034004.GA20516@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45531
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751058AbZFAEvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 00:51:40 -0400
+In-Reply-To: <12438220782521-git-send-email-jie.yang@atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ccing cxgb3i driver maitainer.
+From: <jie.yang@atheros.com>
+Date: Mon, 1 Jun 2009 10:07:58 +0800
 
-Herbert Xu wrote:
-> Hi:
+> Fix spelling error
 > 
-> [SCSI] cxgb3i: Include net/dst.h for struct dst_cache
-> 
-> This driver needs dst_cache->dev so it should include net/dst.h
-> to ensure that it builds.  While net/tcp.h probably includes it
-> already, we shouldn't rely on that since there is no guarantee
-> that this won't change in future.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/drivers/scsi/cxgb3i/cxgb3i_iscsi.c b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
-> index 9212400..8b49731 100644
-> --- a/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
-> +++ b/drivers/scsi/cxgb3i/cxgb3i_iscsi.c
-> @@ -13,6 +13,7 @@
+> Signed-off-by: Jie Yang <jie.yang@atheros.com>
+ ...
+> @@ -1115,7 +1115,7 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
 >  
->  #include <linux/inet.h>
->  #include <linux/crypto.h>
-> +#include <net/dst.h>
->  #include <net/tcp.h>
->  #include <scsi/scsi_cmnd.h>
->  #include <scsi/scsi_device.h>
-> 
+>  	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
+>  	data &= ~TXQ_CTRL_EN;
+> -	AT_WRITE_REG(hw, REG_TWSI_CTRL, data);
+> +	AT_WRITE_REG(hw, REG_TXQ_CTRL, data);
+>  
+>  	for (timeout = 0; timeout < AT_HW_MAX_IDLE_DELAY; timeout++) {
+>  		AT_READ_REG(hw, REG_IDLE_STATUS, &data);
 
-Looks ok.
+A spelling error would occur on human language text.
 
-Acked-by: Mike Christie <michaelc@cs.wisc.edu>
+That's not what this is.
+
+The code is referring to the wrong register, so it's a bug not a
+spelling error.
+
+Please fix your commit message and resubmit.
