@@ -1,7 +1,7 @@
 From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH 1/3] sis190: add new phy found on asus F5 series laptops
-Date: Tue, 2 Jun 2009 09:52:10 +0000 (UTC)
-Message-ID: <20090603095236.GA15414@localhost>
+Subject: [PATCH 2/3] sis190: fix gigabit negotiation
+Date: Tue, 2 Jun 2009 09:52:27 +0000 (UTC)
+Message-ID: <20090603095252.GA15419@localhost>
 References: <cover.1244012631.git.birrachiara@tin.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -10,31 +10,93 @@ To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from vsmtp12.tin.it ([212.216.176.206]:50151 "EHLO vsmtp12.tin.it"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752111AbZFBJv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 05:51:59 -0400
-Date: Wed, 3 Jun 2009 11:52:36 +0200
+	id S1752941AbZFBJwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 05:52:14 -0400
+Date: Wed, 3 Jun 2009 11:52:52 +0200
 Content-Disposition: inline
 In-Reply-To: <cover.1244012631.git.birrachiara@tin.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fixes an initialization error; the chip negotiates gigabit, but
+the driver mistakenly handled it as 100Mb.
+Hopefully should fix bugs 9735 and 11149
+
 Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
 ---
- drivers/net/sis190.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/sis190.c |   37 +++++++++++++++++++++++++------------
+ 1 files changed, 25 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 55ccd51..3d4542e 100644
+index 3d4542e..8322e28 100644
 --- a/drivers/net/sis190.c
 +++ b/drivers/net/sis190.c
-@@ -317,6 +317,7 @@ static struct mii_chip_info {
-         unsigned int type;
- 	u32 feature;
- } mii_chip_table[] = {
-+	{ "Atheros PHY ?",        { 0x004d, 0xd010 }, LAN, 0 },
- 	{ "Atheros PHY AR8012",   { 0x004d, 0xd020 }, LAN, 0 },
- 	{ "Broadcom PHY BCM5461", { 0x0020, 0x60c0 }, LAN, F_PHY_BCM5461 },
- 	{ "Broadcom PHY AC131",   { 0x0143, 0xbc70 }, LAN, 0 },
+@@ -47,7 +47,7 @@
+ #define PHY_ID_ANY		0x1f
+ #define MII_REG_ANY		0x1f
+ 
+-#define DRV_VERSION		"1.2"
++#define DRV_VERSION		"1.3"
+ #define DRV_NAME		"sis190"
+ #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
+ #define PFX DRV_NAME ": "
+@@ -943,9 +943,9 @@ static void sis190_phy_task(struct work_struct *work)
+ 			u32 ctl;
+ 			const char *msg;
+ 		} reg31[] = {
+-			{ LPA_1000XFULL | LPA_SLCT, 0x07000c00 | 0x00001000,
++			{ LPA_1000FULL, 0x07000c00 | 0x00001000,
+ 				"1000 Mbps Full Duplex" },
+-			{ LPA_1000XHALF | LPA_SLCT, 0x07000c00,
++			{ LPA_1000HALF, 0x07000c00,
+ 				"1000 Mbps Half Duplex" },
+ 			{ LPA_100FULL, 0x04000800 | 0x00001000,
+ 				"100 Mbps Full Duplex" },
+@@ -956,22 +956,35 @@ static void sis190_phy_task(struct work_struct *work)
+ 			{ LPA_10HALF, 0x04000400,
+ 				"10 Mbps Half Duplex" },
+ 			{ 0, 0x04000400, "unknown" }
+- 		}, *p;
+-		u16 adv;
++		}, *p = NULL;
++		u16 adv, autoexp, gigadv, gigrec;
+ 
+ 		val = mdio_read(ioaddr, phy_id, 0x1f);
+ 		net_link(tp, KERN_INFO "%s: mii ext = %04x.\n", dev->name, val);
+ 
+ 		val = mdio_read(ioaddr, phy_id, MII_LPA);
+ 		adv = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
+-		net_link(tp, KERN_INFO "%s: mii lpa = %04x adv = %04x.\n",
+-			 dev->name, val, adv);
+-
+-		val &= adv;
++		autoexp = mdio_read(ioaddr, phy_id, MII_EXPANSION);
++		net_link(tp, KERN_INFO "%s: mii lpa=%04x adv=%04x exp=%04x.\n",
++			 dev->name, val, adv, autoexp);
++
++		if (val & ADVERTISE_NPAGE && autoexp & EXPANSION_NWAY) {
++			/* check for gigabit speed */
++			gigadv = mdio_read(ioaddr, phy_id, MII_CTRL1000);
++			gigrec = mdio_read(ioaddr, phy_id, MII_STAT1000);
++			val = (gigadv & (gigrec >> 2));
++			if (val & ADVERTISE_1000FULL)
++				p = reg31;
++			else if (val & ADVERTISE_1000HALF)
++				p = reg31+1;
++		}
++		if (!p) {
++			val &= adv;
+ 
+-		for (p = reg31; p->val; p++) {
+-			if ((val & p->val) == p->val)
+-				break;
++			for (p = reg31; p->val; p++) {
++				if ((val & p->val) == p->val)
++					break;
++			}
+ 		}
+ 
+ 		p->ctl |= SIS_R32(StationControl) & ~0x0f001c00;
 -- 
 1.6.2.4
 
