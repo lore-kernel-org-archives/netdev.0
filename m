@@ -1,116 +1,49 @@
 From: Karsten Keil <keil@b1-systems.de>
-Subject: [PATCH 1/6] ISDN:Fix DMA alloc for hfcpci
-Date: Tue, 2 Jun 2009 14:57:35 +0200
-Message-ID: <8a745b9d91962991ce87a649a4dc3af3206c2c8b.1244739994.git.keil@b1-systems.de>
+Subject: [PATCH 3/6] mISDN: Free hfcpci IRQ if init was not successful
+Date: Tue, 2 Jun 2009 18:15:12 +0200
+Message-ID: <cdae28e1a28f26c765c5882a48b9fd4a5b9ce91c.1244739994.git.keil@b1-systems.de>
 References: <cover.1244739994.git.keil@b1-systems.de>
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	i4ldeveloper@listserv.isdn4linux.de
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from d112a2.x-mailer.de ([212.162.53.4]:60861 "EHLO
+Received: from d112a2.x-mailer.de ([212.162.53.4]:57928 "EHLO
 	d112a2.x-mailer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753429AbZFKR2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 13:28:25 -0400
+	with ESMTP id S1755312AbZFKR2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 13:28:42 -0400
 In-Reply-To: <cover.1244739994.git.keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace wrong code with correct DMA API functions.
+From: Andreas Mohr <andi@lisas.de>
 
+If we get no interrupts for after 3 resets we need to unregister
+the interrupt function, which is already done outside the loop.
+
+Signed-off-by: Andreas Mohr <andi@lisas.de>
 Signed-off-by: Karsten Keil <keil@b1-systems.de>
 ---
- drivers/isdn/hisax/hfc_pci.c |   41 ++++++++++++++++++++++++++++++-----------
- drivers/isdn/hisax/hisax.h   |    2 +-
- 2 files changed, 31 insertions(+), 12 deletions(-)
+ drivers/isdn/hardware/mISDN/hfcpci.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
-index f126566..3d337d9 100644
---- a/drivers/isdn/hisax/hfc_pci.c
-+++ b/drivers/isdn/hisax/hfc_pci.c
-@@ -82,8 +82,9 @@ release_io_hfcpci(struct IsdnCardState *cs)
- 	Write_hfc(cs, HFCPCI_INT_M2, cs->hw.hfcpci.int_m2);
- 	pci_write_config_word(cs->hw.hfcpci.dev, PCI_COMMAND, 0);	/* disable memory mapped ports + busmaster */
- 	del_timer(&cs->hw.hfcpci.timer);
--	kfree(cs->hw.hfcpci.share_start);
--	cs->hw.hfcpci.share_start = NULL;
-+	pci_free_consistent(cs->hw.hfcpci.dev, 0x8000,
-+		cs->hw.hfcpci.fifos, cs->hw.hfcpci.dma);
-+	cs->hw.hfcpci.fifos = NULL;
- 	iounmap((void *)cs->hw.hfcpci.pci_io);
- }
- 
-@@ -1663,8 +1664,19 @@ setup_hfcpci(struct IsdnCard *card)
- 					     dev_hfcpci);
- 		i++;
- 		if (tmp_hfcpci) {
-+			dma_addr_t	dma_mask = DMA_BIT_MASK(32) & ~0x7fffUL;
- 			if (pci_enable_device(tmp_hfcpci))
- 				continue;
-+			if (pci_set_dma_mask(tmp_hfcpci, dma_mask)) {
-+				printk(KERN_WARNING
-+					"HiSax hfc_pci: No suitable DMA available.\n");
-+				continue;
-+			}
-+			if (pci_set_consistent_dma_mask(tmp_hfcpci, dma_mask)) {
-+				printk(KERN_WARNING
-+					"HiSax hfc_pci: No suitable consistent DMA available.\n");
-+				continue;
-+			}
- 			pci_set_master(tmp_hfcpci);
- 			if ((card->para[0]) && (card->para[0] != (tmp_hfcpci->resource[ 0].start & PCI_BASE_ADDRESS_IO_MASK)))
- 				continue;
-@@ -1693,22 +1705,29 @@ setup_hfcpci(struct IsdnCard *card)
- 		printk(KERN_WARNING "HFC-PCI: No IO-Mem for PCI card found\n");
- 		return (0);
- 	}
-+
- 	/* Allocate memory for FIFOS */
--	/* Because the HFC-PCI needs a 32K physical alignment, we */
--	/* need to allocate the double mem and align the address */
--	if (!(cs->hw.hfcpci.share_start = kmalloc(65536, GFP_KERNEL))) {
--		printk(KERN_WARNING "HFC-PCI: Error allocating memory for FIFO!\n");
-+	cs->hw.hfcpci.fifos = pci_alloc_consistent(cs->hw.hfcpci.dev,
-+					0x8000, &cs->hw.hfcpci.dma);
-+	if (!cs->hw.hfcpci.fifos) {
-+		printk(KERN_WARNING "HFC-PCI: Error allocating FIFO memory!\n");
-+		return 0;
-+	}
-+	if (cs->hw.hfcpci.dma & 0x7fff) {
-+		printk(KERN_WARNING
-+		    "HFC-PCI: Error DMA memory not on 32K boundary (%lx)\n",
-+		    (u_long)cs->hw.hfcpci.dma);
-+		pci_free_consistent(cs->hw.hfcpci.dev, 0x8000,
-+			cs->hw.hfcpci.fifos, cs->hw.hfcpci.dma);
- 		return 0;
- 	}
--	cs->hw.hfcpci.fifos = (void *)
--	    (((ulong) cs->hw.hfcpci.share_start) & ~0x7FFF) + 0x8000;
--	pci_write_config_dword(cs->hw.hfcpci.dev, 0x80, (u_int) virt_to_bus(cs->hw.hfcpci.fifos));
-+	pci_write_config_dword(cs->hw.hfcpci.dev, 0x80, (u32)cs->hw.hfcpci.dma);
- 	cs->hw.hfcpci.pci_io = ioremap((ulong) cs->hw.hfcpci.pci_io, 256);
- 	printk(KERN_INFO
--	       "HFC-PCI: defined at mem %p fifo %p(%#x) IRQ %d HZ %d\n",
-+	       "HFC-PCI: defined at mem %p fifo %p(%lx) IRQ %d HZ %d\n",
- 	       cs->hw.hfcpci.pci_io,
- 	       cs->hw.hfcpci.fifos,
--	       (u_int) virt_to_bus(cs->hw.hfcpci.fifos),
-+	       (u_long)cs->hw.hfcpci.dma,
- 	       cs->irq, HZ);
- 
- 	spin_lock_irqsave(&cs->lock, flags);
-diff --git a/drivers/isdn/hisax/hisax.h b/drivers/isdn/hisax/hisax.h
-index f852704..0685c19 100644
---- a/drivers/isdn/hisax/hisax.h
-+++ b/drivers/isdn/hisax/hisax.h
-@@ -703,7 +703,7 @@ struct hfcPCI_hw {
-         int nt_timer;
-         struct pci_dev *dev;
-         unsigned char *pci_io; /* start of PCI IO memory */
--        void *share_start; /* shared memory for Fifos start */
-+	dma_addr_t dma; /* dma handle for Fifos */
-         void *fifos; /* FIFO memory */ 
-         int last_bfifo_cnt[2]; /* marker saving last b-fifo frame count */
- 	struct timer_list timer;
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index 776afc8..228ffbe 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -1806,10 +1806,9 @@ init_card(struct hfc_pci *hc)
+ 			printk(KERN_WARNING
+ 			    "HFC PCI: IRQ(%d) getting no interrupts "
+ 			    "during init %d\n", hc->irq, 4 - cnt);
+-			if (cnt == 1) {
+-				spin_unlock_irqrestore(&hc->lock, flags);
+-				return -EIO;
+-			} else {
++			if (cnt == 1)
++				break;
++			else {
+ 				reset_hfcpci(hc);
+ 				cnt--;
+ 			}
 -- 
 1.6.0.2
 
