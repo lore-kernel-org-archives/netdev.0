@@ -1,42 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [GIT]: Networking
-Date: Tue, 2 Jun 2009 09:51:59 -0400
-Message-ID: <20090602135159.GB30509@tuxdriver.com>
-References: <20090601.032500.54712490.davem@davemloft.net> <1243867942.3015.18.camel@localhost.localdomain> <20090601.143248.258478440.davem@davemloft.net> <1243929229.3192.40.camel@localhost.localdomain>
+From: Haiying Wang <Haiying.Wang@freescale.com>
+Subject: Re: [PATCH 1/4] net/phy/marvell: update m88e1111 support for SGMII
+	mode
+Date: Tue, 02 Jun 2009 10:03:59 -0400
+Message-ID: <1243951440.2927.7.camel@r54964-12.am.freescale.net>
+References: <12435168302841-git-send-email-Haiying.Wang@freescale.com>
+	<20090601.025151.146454973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47923 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754881AbZFBOAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 10:00:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1243929229.3192.40.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090601.025151.146454973.davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 02, 2009 at 09:53:48AM +0200, Marcel Holtmann wrote:
-> Hi Dave,
+On Mon, 2009-06-01 at 02:51 -0700, David Miller wrote:
+> Patch 3 of this series doesn't apply cleanly to net-next-2.6
+> so I'm dropping the entire patch set.
+
+> Also, in patch 3 you put your signoff in the Subject line.
 > 
-> > >> Things are really winding down, and the bug fix rate is down
-> > >> to at best a trickle.  It might be time to do that final
-> > >> release soon :-)
-> > > 
-> > > can you give me quick update on this pull request:
-> > > 
-> > > 	http://marc.info/?l=linux-netdev&m=124341070008320&w=2
-> > 
-> > Sorry that I overlooked this.
-> 
-> no problem, but I was just wondering since you normally never miss
-> anything on netdev ;)
+> Please fix all of this up and resubmit your patch series.
 
-Maybe Dave had to return some of his gnomes to Alan Cox? :-)
+I only verified the first three patches could be applied to your
+net-2.6, did not verify whether they could be applied for net-next-2.6.
+Sorry.
+I've fixed the patch3 against net-next-2.6 now, and will resubmit the
+patches.
+But the patch4 can not be applied to your net-next-2.6 since there is
+not 8569mds support in that tree. Hope Kumar can pick up the patch 4.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks.
+
+Haiying
