@@ -1,59 +1,42 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of queueing an extra skb.
-Date: Tue, 2 Jun 2009 23:25:57 +0930
-Message-ID: <200906022325.57961.rusty@rustcorp.com.au>
-References: <200905292346.04815.rusty@rustcorp.com.au> <20090602090552.GA26611@gondor.apana.org.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [GIT]: Networking
+Date: Tue, 2 Jun 2009 09:51:59 -0400
+Message-ID: <20090602135159.GB30509@tuxdriver.com>
+References: <20090601.032500.54712490.davem@davemloft.net> <1243867942.3015.18.camel@localhost.localdomain> <20090601.143248.258478440.davem@davemloft.net> <1243929229.3192.40.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43316 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbZFBN4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 09:56:01 -0400
-In-Reply-To: <20090602090552.GA26611@gondor.apana.org.au>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47923 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754881AbZFBOAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 10:00:31 -0400
 Content-Disposition: inline
+In-Reply-To: <1243929229.3192.40.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Jun 2009 06:35:52 pm Herbert Xu wrote:
-> On Fri, May 29, 2009 at 11:46:04PM +0930, Rusty Russell wrote:
-> > This effectively reverts 99ffc696d10b28580fe93441d627cf290ac4484c
-> > "virtio: wean net driver off NETDEV_TX_BUSY".
-> >
-> > The complexity of queuing an skb (setting a tasklet to re-xmit) is
-> > questionable, especially once we get rid of the other reason for the
-> > tasklet in the next patch.
-> >
-> > If the skb won't fit in the tx queue, just return NETDEV_TX_BUSY.  It
-> > might be frowned upon, but it's common and not going away any time
-> > soon.
->
-> This looks like a step backwards to me.  If we have to do this
-> to fix a bug, sure.  But just doing it for the sake of it smells
-> wrong.
+On Tue, Jun 02, 2009 at 09:53:48AM +0200, Marcel Holtmann wrote:
+> Hi Dave,
+> 
+> > >> Things are really winding down, and the bug fix rate is down
+> > >> to at best a trickle.  It might be time to do that final
+> > >> release soon :-)
+> > > 
+> > > can you give me quick update on this pull request:
+> > > 
+> > > 	http://marc.info/?l=linux-netdev&m=124341070008320&w=2
+> > 
+> > Sorry that I overlooked this.
+> 
+> no problem, but I was just wondering since you normally never miss
+> anything on netdev ;)
 
-I disagree.  We've introduced a third queue, inside the driver, one element 
-long.  That feels terribly, terribly hacky and wrong.
+Maybe Dave had to return some of his gnomes to Alan Cox? :-)
 
-What do we do if it overflows?  Discard the packet, even if we have room in the 
-tx queue.   And when do we flush this queue?  Well, that's a bit messy.  
-Obviously we need to enable the tx interrupt when the tx queue is full, but we 
-can't just netif_wake_queue, we have to also flush the queue.  We can't do that 
-in an irq handler, since we need to block the normal tx path (or introduce 
-another lock and disable interrupts in our xmit routine).  So we add a tasklet 
-to do this re-transmission.
-
-Or, we could just "return NETDEV_TX_BUSY;".  I like that :)
-
-Hope that clarifies,
-Rusty.
-
-
-
->
-> Cheers,
-
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
