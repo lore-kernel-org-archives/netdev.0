@@ -1,70 +1,106 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
-Date: Tue, 02 Jun 2009 11:30:56 +0200
-Message-ID: <4A24F150.4090800@dev.6wind.com>
-References: <4A23F027.3060907@dev.6wind.com> <20090601161917.GA29745@Chamillionaire.breakpoint.cc> <4A240681.2010300@6wind.com> <4A242161.3010609@cosmosbay.com> <4A242418.1090804@hp.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 2 Jun 2009 11:12:45 +0100
+Message-ID: <298f5c050906020312r514c4638sfa2b504f55d71bc1@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <298f5c050905180954m791c14eaxe1f4b2c92f952a2f@mail.gmail.com>
+	 <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com>
+	 <20090521085116.GC2892@ami.dom.local>
+	 <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com>
+	 <20090523073201.GA2766@ami.dom.local>
+	 <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com>
+	 <20090528211258.GA3658@ami.dom.local>
+	 <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com>
+	 <20090530200756.GF3166@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:4814 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755129AbZFBKDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 06:03:30 -0400
-In-Reply-To: <4A242418.1090804@hp.com>
+Received: from an-out-0708.google.com ([209.85.132.250]:8150 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751AbZFBKMo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 06:12:44 -0400
+Received: by an-out-0708.google.com with SMTP id d40so16742072and.1
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2009 03:12:46 -0700 (PDT)
+In-Reply-To: <20090530200756.GF3166@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley wrote:
-> Eric Dumazet wrote:
->> Nicolas Dichtel a =E9crit :
->>> Le 01.06.2009 18:19, Florian Westphal a =E9crit :
->>>> Nicolas Dichtel <nicolas.dichtel@dev.6wind.com> wrote:
->>>>> when network stack receives a packet, it didn't check value of
->>>>> ttl/hop limit
->>>>> field. RFC indicates that a router must drop the packet if this f=
-ield
->>>>> is 0.
->>>> Whats wrong with the checks in ip(6)_forward?
->>> It's on forward, not on input. Router must not process it.
->>> For example, if you try to ping (with ttl set to 0) the router, you=
- will
->>> receive a reply.
->>>
->> You seem to mix requirements for routers and hosts. ttl processing
->> is relevant for a gateway only, not for a host.
->>
->> (terminology : gateway / host in rfc 792)
->>
->> I would say : who sent this ttl=3D0 packet at first ?
->>
->> ping -t 0 host
->> ping: can't set unicast time-to-live: Invalid argument
->>
->> So Linux is not able to do that, unless using tricks of course, or p=
-atching IP_TTL
->=20
-> 'ping6 -t 0 host' does work however.  The problem I see is that if yo=
-u ping a system,
-> if it's a host it will respond, if it's a router it won't - the RFCs =
-don't
-> explicitly state the host should drop the packet.  I don't know if th=
-at difference
-> in behavior is desired.  Do we know how any other OSes behave?
-I've ask the IETF mailing list about host case. Response was:
-"process as normal."
+On Sat, May 30, 2009 at 9:07 PM, Jarek Poplawski wrote:
+> Here is a tc patch, which should minimize these boundaries, so please=
+,
+> repeat this test with previous patches/conditions plus this one.
+>
+> Thanks,
+> Jarek P.
+> ---
+>
+> =A0tc/tc_core.c | =A0 10 +++++-----
+> =A0tc/tc_core.h | =A0 =A04 ++--
+> =A02 files changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/tc/tc_core.c b/tc/tc_core.c
+> index 9a0ff39..6d74287 100644
+> --- a/tc/tc_core.c
+> +++ b/tc/tc_core.c
+> @@ -27,18 +27,18 @@
+> =A0static double tick_in_usec =3D 1;
+> =A0static double clock_factor =3D 1;
+>
+> -int tc_core_time2big(unsigned time)
+> +int tc_core_time2big(double time)
+> =A0{
+> - =A0 =A0 =A0 __u64 t =3D time;
+> + =A0 =A0 =A0 __u64 t;
+>
+> - =A0 =A0 =A0 t *=3D tick_in_usec;
+> + =A0 =A0 =A0 t =3D time * tick_in_usec + 0.5;
+> =A0 =A0 =A0 =A0return (t >> 32) !=3D 0;
+> =A0}
+>
+>
+> -unsigned tc_core_time2tick(unsigned time)
+> +unsigned tc_core_time2tick(double time)
+> =A0{
+> - =A0 =A0 =A0 return time*tick_in_usec;
+> + =A0 =A0 =A0 return time * tick_in_usec + 0.5;
+> =A0}
+>
+> =A0unsigned tc_core_tick2time(unsigned tick)
+> diff --git a/tc/tc_core.h b/tc/tc_core.h
+> index 5a693ba..0ac65aa 100644
+> --- a/tc/tc_core.h
+> +++ b/tc/tc_core.h
+> @@ -13,8 +13,8 @@ enum link_layer {
+> =A0};
+>
+>
+> -int =A0tc_core_time2big(unsigned time);
+> -unsigned tc_core_time2tick(unsigned time);
+> +int =A0tc_core_time2big(double time);
+> +unsigned tc_core_time2tick(double time);
+> =A0unsigned tc_core_tick2time(unsigned tick);
+> =A0unsigned tc_core_time2ktime(unsigned time);
+> =A0unsigned tc_core_ktime2time(unsigned ktime);
+>
 
-Nicolas
+I'm getting great values with this patch!
 
->=20
-> -Brian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+class htb 1:108 parent 1:10 leaf 108: prio 7 quantum 1514 rate
+555000Kbit ceil 555000Kbit burst 70970b/8 mpu 0b overhead 0b cburst
+70970b/8 mpu 0b overhead 0b level 0
+ Sent 14270693572 bytes 17928007 pkt (dropped 12579262, overlimits 0 re=
+queues 0)
+ rate 552755Kbit 86802pps backlog 0b 127p requeues 0
+ lended: 17927880 borrowed: 0 giants: 0
+ tokens: -16095 ctokens: -16095
+
+(for packets of 800 bytes)
+I'll get back to you with more values.
+
+  Antonio Almeida
