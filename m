@@ -1,45 +1,64 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: ?????: [PATCH 10/10] ieee802154: add at86rf230/rf231 spi driver
-Date: Tue, 2 Jun 2009 15:42:55 +0400
-Message-ID: <bc64b4640906020442o6f61a39fw2208302e91c56d69@mail.gmail.com>
-References: <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com>
-	 <69e28c910906010921r56cf7017gc858cb7ba819c385@mail.gmail.com>
-	 <20090601203348.GC7143@doriath.ww600.siemens.net>
-	 <200906021010.49613.hs4233@mail.mn-solutions.de>
-	 <1243930893.3192.62.camel@localhost.localdomain>
-	 <bc64b4640906020129x4fe15e5en9d8e2cad1d86b236@mail.gmail.com>
-	 <1243931809.3192.68.camel@localhost.localdomain>
-	 <6097c490906020149j5d614064ied2a4bfebd13ddb0@mail.gmail.com>
-	 <4A24F106.5040704@cam.ac.uk>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 2 Jun 2009 12:45:28 +0100
+Message-ID: <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com>
+References: <20090517201528.GA8552@ami.dom.local>
+	 <298f5c050905181016w552b283q2bb2ec508433525a@mail.gmail.com>
+	 <20090521085116.GC2892@ami.dom.local>
+	 <298f5c050905221042t45017c5q8bc967d13c9b81cb@mail.gmail.com>
+	 <20090523073201.GA2766@ami.dom.local>
+	 <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com>
+	 <20090528211258.GA3658@ami.dom.local>
+	 <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com>
+	 <20090530200756.GF3166@ami.dom.local>
+	 <298f5c050906020312r514c4638sfa2b504f55d71bc1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: maxim-OiolBBqRjXA@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?ISO-8859-1?Q?G=E1bor_Stefanik?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: Jonathan Cameron <jic23-KWPb1pKIrIJaa/9Udqfwiw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4A24F106.5040704-KWPb1pKIrIJaa/9Udqfwiw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	kaber@trash.net, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yw-out-2324.google.com ([74.125.46.30]:51958 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760877AbZFBLp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 07:45:27 -0400
+Received: by yw-out-2324.google.com with SMTP id 5so4641896ywb.1
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2009 04:45:28 -0700 (PDT)
+In-Reply-To: <298f5c050906020312r514c4638sfa2b504f55d71bc1@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/6/2 Jonathan Cameron <jic23-KWPb1pKIrIJaa/9Udqfwiw@public.gmane.org>:
-> Thank you to Dmitry and co for your work on this project, I'll be following
-> your progress with interest (and when I have a sec adding support for the cc2420
-> if no one else does it first ;)
+On Tue, Jun 2, 2009 at 11:12 AM, Antonio Almeida wrote:
+> I'm getting great values with this patch!
+>...
+> I'll get back to you with more values.
 
-We will be waiting with interest for these patches. We don't have the cc2420 hw
-at hand, so we won't work on support for it in the foreseeble (1-3
-moths :)) time.
+The steps are much smaller and the error keeps lower than 1%.
+Injecting over 950Mpbs of tcp packets of 800bytes I get these values:
 
--- 
-With best wishes
-Dmitry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Configuration	Sent rate		error (%)
+498000Kbit	495023Kbit	0,60
+499000Kbit	497456Kbit	0,31
+500000Kbit	497498Kbit	0,50
+501000Kbit	497496Kbit	0,70
+502000Kbit	499986Kbit	0,40
+503000Kbit	499978Kbit	0,60
+504000Kbit	502520Kbit	0,29
+		
+696000Kbit	690964Kbit	0,72
+697000Kbit	695782Kbit	0,17
+698000Kbit	695783Kbit	0,32
+699000Kbit	695783Kbit	0,46
+700000Kbit	695795Kbit	0,60
+701000Kbit	695786Kbit	0,74
+702000Kbit	700703Kbit	0,18
+		
+896000Kbit	888383Kbit	0,85
+897000Kbit	896289Kbit	0,08
+904000Kbit	896389Kbit	0,84
+905000Kbit	904542Kbit	0,05
+
+  Antonio Almeida
