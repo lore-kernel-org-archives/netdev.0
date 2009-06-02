@@ -1,36 +1,55 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: [PATCH] Fix a race between sky2_down and sky2_poll.
-Date: Tue, 02 Jun 2009 15:29:50 +0900
-Message-ID: <4A24C6DE.1040301@ring3k.org>
-References: <392fb48f0906011840n4914ef32x8aa316358b2ceacc@mail.gmail.com> <20090601210728.2be1a903@nehalam>
+From: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Tue, 2 Jun 2009 15:59:19 +0900
+Message-ID: <20090602155919.da89c08e.usui@mxm.nes.nec.co.jp>
+References: <1243604796.3966.21.camel@dogo.mojatatu.com>
+	<1243605269.3966.28.camel@dogo.mojatatu.com>
+	<20090529225929.GD2753@ami.dom.local>
+	<1243684218.3966.83.camel@dogo.mojatatu.com>
+	<20090531081213.GC2756@ami.dom.local>
+	<1243776293.3966.241.camel@dogo.mojatatu.com>
+	<20090531195557.GA2777@ami.dom.local>
+	<1243813216.3966.254.camel@dogo.mojatatu.com>
+	<20090601060638.GA4256@ff.dom.local>
+	<1243861410.3966.268.camel@dogo.mojatatu.com>
+	<20090601204957.GA2760@ami.dom.local>
+	<1243893963.3966.325.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:53719 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757695AbZFBGaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 02:30:18 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so1657788wah.21
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 23:30:19 -0700 (PDT)
-In-Reply-To: <20090601210728.2be1a903@nehalam>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:38153 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752630AbZFBHEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:04:10 -0400
+In-Reply-To: <1243893963.3966.325.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
+On Mon, 01 Jun 2009 18:06:03 -0400
+jamal <hadi@cyberus.ca> wrote:
 
->> -	/* Make sure no packets are pending */
->> -	napi_synchronize(&hw->napi);
+> On Mon, 2009-06-01 at 22:49 +0200, Jarek Poplawski wrote:
+> 
+> > 
+> > Actually, I'd insist with the old rock and handling that other rude
+> > u32 case, at least until it's fixed in place. So I attach my version
+> > of your patch (additionally I removed a pair of braces because of
+> > checkpatch warning).
+> 
+> Sure, it doesnt complicate anything - Minoru, this is the version to go
+> for.
 
-> Down is also used during suspend/resume and changing MTU so this needs
-> more inspection.
+I've tested Jarek's patch #1(for cls_api.c).
+It works fine to me. Thanks Jarek.
 
-Could it be that the real problem is with the non-SMP case for 
-napi_synchronize()?  The comment in include/linux/netdevice.h claims 
-that napi_synchronize() "Waits till any outstanding processing 
-completes..." but the implementation for non-SMP is just a barrier()...
+	Tested-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
 
-Mike
+If we have to test Jarek's patch #2, I'll test it tomorrow.
+What do you think Jamal?
 
+-- 
+Minoru Usui <usui@mxm.nes.nec.co.jp>
