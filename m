@@ -1,35 +1,97 @@
-From: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
-Subject: Re: =?utf-8?q?=D0=9E=D1=82=D0=B2=D0=B5=D1=82=3A_=5BPATCH_10/10=5D_ieee802154=3A?=
- =?utf-8?q?_add_at86rf230/rf231_spi?= driver
-Date: Tue, 2 Jun 2009 11:15:45 +0200
-Message-ID: <200906021115.45661.hs4233@mail.mn-solutions.de>
-References: <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com> <1243931809.3192.68.camel@localhost.localdomain> <6097c490906020149j5d614064ied2a4bfebd13ddb0@mail.gmail.com>
+From: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Subject: [PATCH 1/1] net_cls: fix unconfigured struct tcf_proto keeps
+ chaining and avoid kernel panic when we use cls_cgroup
+Date: Tue, 2 Jun 2009 18:11:48 +0900
+Message-ID: <20090602181148.e01f0417.usui@mxm.nes.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?iso-8859-1?q?G=E1bor_Stefanik?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: maxim-OiolBBqRjXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6097c490906020149j5d614064ied2a4bfebd13ddb0-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@gmail.com>, hadi@cyberus.ca
+To: netdev@vger.kernel.org, containers@lists.linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:41055 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751644AbZFBJQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 05:16:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> - ZigBee
-> - 6LoWPAN
-> - ISA100.11a
-> - WirelessHART
->  - and probably something I don't know about
+net_cls: fix unconfigured struct tcf_proto keeps chaining and avoid kernel panic when we use cls_cgroup
 
-You now convinced at least me :-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch fixes a bug which unconfigured struct tcf_proto keeps chaining in tc_ctl_tfilter(),
+and avoids kernel panic in cls_cgroup_classify() when we use cls_cgroup.
+
+When we execute 'tc filter add', tcf_proto is allocated, initialized by classifier's init(), 
+and chained.
+After it's chained, tc_ctl_tfilter() calls classifier's change(). 
+When classifier's change() fails, tc_ctl_tfilter() does not free and keeps tcf_proto. 
+
+In addition, cls_cgroup is initialized in change() not in init().
+It accesses unconfigured struct tcf_proto which is chained before change(), then hits Oops.
+
+Signed-off-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Tested-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
+
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 0759f32..09cdcdf 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -135,6 +135,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	unsigned long cl;
+ 	unsigned long fh;
+ 	int err;
++	int tp_created = 0;
+ 
+ 	if (net != &init_net)
+ 		return -EINVAL;
+@@ -266,10 +267,7 @@ replay:
+ 			goto errout;
+ 		}
+ 
+-		spin_lock_bh(root_lock);
+-		tp->next = *back;
+-		*back = tp;
+-		spin_unlock_bh(root_lock);
++		tp_created = 1;
+ 
+ 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
+ 		goto errout;
+@@ -296,8 +294,11 @@ replay:
+ 		switch (n->nlmsg_type) {
+ 		case RTM_NEWTFILTER:
+ 			err = -EEXIST;
+-			if (n->nlmsg_flags & NLM_F_EXCL)
++			if (n->nlmsg_flags & NLM_F_EXCL) {
++				if (tp_created)
++					tcf_destroy(tp);
+ 				goto errout;
++			}
+ 			break;
+ 		case RTM_DELTFILTER:
+ 			err = tp->ops->delete(tp, fh);
+@@ -314,8 +315,18 @@ replay:
+ 	}
+ 
+ 	err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
+-	if (err == 0)
++	if (err == 0) {
++		if (tp_created) {
++			spin_lock_bh(root_lock);
++			tp->next = *back;
++			*back = tp;
++			spin_unlock_bh(root_lock);
++		}
+ 		tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
++	} else {
++		if (tp_created)
++			tcf_destroy(tp);
++	}
+ 
+ errout:
+ 	if (cl)
+
+
+-- 
+Minoru Usui <usui@mxm.nes.nec.co.jp>
