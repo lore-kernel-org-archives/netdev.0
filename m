@@ -1,67 +1,179 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: =?KOI8-R?B?79TXxdQ6IFtQQVRDSCAxMC8xMF0gaWVlZTgwMjE1NDogYWRkIGF0ODZyZjIzMC8=?=
-	=?KOI8-R?B?cmYyMzEgc3BpIGRyaXZlcg==?=
-Date: Tue, 2 Jun 2009 12:29:55 +0400
-Message-ID: <bc64b4640906020129x4fe15e5en9d8e2cad1d86b236@mail.gmail.com>
-References: <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com>
-	 <69e28c910906010921r56cf7017gc858cb7ba819c385@mail.gmail.com>
-	 <20090601203348.GC7143@doriath.ww600.siemens.net>
-	 <200906021010.49613.hs4233@mail.mn-solutions.de>
-	 <1243930893.3192.62.camel@localhost.localdomain>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 2/8] mlx4_en: Moved all module parameters handling to en_main.c
+Date: Tue, 02 Jun 2009 12:20:18 +0300
+Message-ID: <4A24EED2.9080005@mellanox.co.il>
+References: <4A0AB34A.10100@mellanox.co.il><4A1948D7.8010504@mellanox.co.il><4A1A57AA.1080209@mellanox.co.il> <20090525.014435.203274473.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?ISO-8859-1?Q?G=E1bor_Stefanik?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1243930893.3192.62.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Tziporet Koren <tziporet@mellanox.co.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:44494 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759393AbZFBI3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 04:29:37 -0400
+In-Reply-To: <20090525.014435.203274473.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2009/6/2, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>:
-> Hi Holger,
->
->> > I thought about drivers/net as about ip (well, more or less)
->> > network drivers. We have drivers/atm or drivers/bluetooth (and
->> > bluetooth is 802.15.1...).
->>
->> I actually like that this is drivers/bluetooth and not
->> drivers/ieee802151. Would you consider drivers/zigbee instead of
->> drivers/ieee802154 ???
->
-> I fully agree here.
->
-> Please use "zigbee" instead of "ieee*" names since that can become messy
-> and confusing. I know that in theory the IEEE part of ZigBee is more
-> low-level radio and could be used by non-ZigBee devices, but that is not
-> gonna happen anyway. Especially with Bluetooth Low Energy pushing into
-> the turf of ZigBee. So please use proper names and not confuse people
-> with IEEE numbers ;)
+en_params.c file now only handles Ethtool functionality
 
-This gonna happen, as we are most probably going to implement 6lowpan
-on top of our stack. 6lowpan is a way to encapsulate IPv6 frames into
-IEEE 802.15.4 and has nothing in common with ZigBee. Moreover
-ZigBee is a trademark with strict rules upon it's usage. Our lawyers are
-currently investigating if it's possible to use this name in projects like
-Linux kernel which are open-source, non-related to any project but
-OTOH can be encapsulated in any commercial project.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_main.c   |   54 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/mlx4/en_params.c |   58 ------------------------------------------
+ drivers/net/mlx4/mlx4_en.h   |    2 -
+ 3 files changed, 54 insertions(+), 60 deletions(-)
 
-IEEE 802.15.4 is a term like IEEE 802.11. We do have mac80211,
-we have had (until recently) ieee80211 dir, so why bother?
-
-For Bluetooth naming directories 'bluetooth' is logical, as 802.15.1
-standard is a less known name, doesn't incorporate latest changes
-from Bluetooth, etc.
-
+diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c
+index 510633f..23955d8 100644
+--- a/drivers/net/mlx4/en_main.c
++++ b/drivers/net/mlx4/en_main.c
+@@ -51,6 +51,60 @@ static const char mlx4_en_version[] =
+ 	DRV_NAME ": Mellanox ConnectX HCA Ethernet driver v"
+ 	DRV_VERSION " (" DRV_RELDATE ")\n";
+ 
++#define MLX4_EN_PARM_INT(X, def_val, desc) \
++	static unsigned int X = def_val;\
++	module_param(X , uint, 0444); \
++	MODULE_PARM_DESC(X, desc);
++
++
++/*
++ * Device scope module parameters
++ */
++
++
++/* Use a XOR rathern than Toeplitz hash function for RSS */
++MLX4_EN_PARM_INT(rss_xor, 0, "Use XOR hash function for RSS");
++
++/* RSS hash type mask - default to <saddr, daddr, sport, dport> */
++MLX4_EN_PARM_INT(rss_mask, 0xf, "RSS hash type bitmask");
++
++/* Number of LRO sessions per Rx ring (rounded up to a power of two) */
++MLX4_EN_PARM_INT(num_lro, MLX4_EN_MAX_LRO_DESCRIPTORS,
++		 "Number of LRO sessions per ring or disabled (0)");
++
++/* Priority pausing */
++MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
++			   " Per priority bit mask");
++MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
++			   " Per priority bit mask");
++
++static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
++{
++	struct mlx4_en_profile *params = &mdev->profile;
++	int i;
++
++	params->rss_xor = (rss_xor != 0);
++	params->rss_mask = rss_mask & 0x1f;
++	params->num_lro = min_t(int, num_lro , MLX4_EN_MAX_LRO_DESCRIPTORS);
++	for (i = 1; i <= MLX4_MAX_PORTS; i++) {
++		params->prof[i].rx_pause = 1;
++		params->prof[i].rx_ppp = pfcrx;
++		params->prof[i].tx_pause = 1;
++		params->prof[i].tx_ppp = pfctx;
++		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
++		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
++	}
++	if (pfcrx || pfctx) {
++		params->prof[1].tx_ring_num = MLX4_EN_TX_RING_NUM;
++		params->prof[2].tx_ring_num = MLX4_EN_TX_RING_NUM;
++	} else {
++		params->prof[1].tx_ring_num = 1;
++		params->prof[2].tx_ring_num = 1;
++	}
++
++	return 0;
++}
++
+ static void mlx4_en_event(struct mlx4_dev *dev, void *endev_ptr,
+ 			  enum mlx4_dev_event event, int port)
+ {
+diff --git a/drivers/net/mlx4/en_params.c b/drivers/net/mlx4/en_params.c
+index 3290fec..91d8116 100644
+--- a/drivers/net/mlx4/en_params.c
++++ b/drivers/net/mlx4/en_params.c
+@@ -38,64 +38,6 @@
+ #include "mlx4_en.h"
+ #include "en_port.h"
+ 
+-#define MLX4_EN_PARM_INT(X, def_val, desc) \
+-	static unsigned int X = def_val;\
+-	module_param(X , uint, 0444); \
+-	MODULE_PARM_DESC(X, desc);
+-
+-
+-/*
+- * Device scope module parameters
+- */
+-
+-
+-/* Use a XOR rathern than Toeplitz hash function for RSS */
+-MLX4_EN_PARM_INT(rss_xor, 0, "Use XOR hash function for RSS");
+-
+-/* RSS hash type mask - default to <saddr, daddr, sport, dport> */
+-MLX4_EN_PARM_INT(rss_mask, 0xf, "RSS hash type bitmask");
+-
+-/* Number of LRO sessions per Rx ring (rounded up to a power of two) */
+-MLX4_EN_PARM_INT(num_lro, MLX4_EN_MAX_LRO_DESCRIPTORS,
+-		 "Number of LRO sessions per ring or disabled (0)");
+-
+-/* Priority pausing */
+-MLX4_EN_PARM_INT(pfctx, 0, "Priority based Flow Control policy on TX[7:0]."
+-			   " Per priority bit mask");
+-MLX4_EN_PARM_INT(pfcrx, 0, "Priority based Flow Control policy on RX[7:0]."
+-			   " Per priority bit mask");
+-
+-int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+-{
+-	struct mlx4_en_profile *params = &mdev->profile;
+-	int i;
+-
+-	params->rss_xor = (rss_xor != 0);
+-	params->rss_mask = rss_mask & 0x1f;
+-	params->num_lro = min_t(int, num_lro , MLX4_EN_MAX_LRO_DESCRIPTORS);
+-	for (i = 1; i <= MLX4_MAX_PORTS; i++) {
+-		params->prof[i].rx_pause = 1;
+-		params->prof[i].rx_ppp = pfcrx;
+-		params->prof[i].tx_pause = 1;
+-		params->prof[i].tx_ppp = pfctx;
+-		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
+-		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
+-	}
+-	if (pfcrx || pfctx) {
+-		params->prof[1].tx_ring_num = MLX4_EN_TX_RING_NUM;
+-		params->prof[2].tx_ring_num = MLX4_EN_TX_RING_NUM;
+-	} else {
+-		params->prof[1].tx_ring_num = 1;
+-		params->prof[2].tx_ring_num = 1;
+-	}
+-
+-	return 0;
+-}
+-
+-
+-/*
+- * Ethtool support
+- */
+ 
+ static void mlx4_en_update_lro_stats(struct mlx4_en_priv *priv)
+ {
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
+index c92b382..174ae86 100644
+--- a/drivers/net/mlx4/mlx4_en.h
++++ b/drivers/net/mlx4/mlx4_en.h
+@@ -516,8 +516,6 @@ void mlx4_en_stop_port(struct net_device *dev);
+ void mlx4_en_free_resources(struct mlx4_en_priv *priv);
+ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
+ 
+-int mlx4_en_get_profile(struct mlx4_en_dev *mdev);
+-
+ int mlx4_en_create_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 		      int entries, int ring, enum cq_type mode);
+ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
 -- 
-With best wishes
-Dmitry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.6.0
+
+
