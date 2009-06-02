@@ -1,50 +1,51 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 3/4] virtio_net: don't free buffers in xmit ring
-Date: Tue, 02 Jun 2009 09:13:42 +0100
-Message-ID: <1243930422.9146.60.camel@blaa>
-References: <200905292346.24141.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 10/10] ieee802154: add at86rf230/rf231 spi driver
+Date: Tue, 02 Jun 2009 10:21:33 +0200
+Message-ID: <1243930893.3192.62.camel@localhost.localdomain>
+References: <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com>
+	 <69e28c910906010921r56cf7017gc858cb7ba819c385@mail.gmail.com>
+	 <20090601203348.GC7143@doriath.ww600.siemens.net>
+	 <200906021010.49613.hs4233@mail.mn-solutions.de>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:54271 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754401AbZFBINq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 04:13:46 -0400
-In-Reply-To: <200905292346.24141.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?ISO-8859-1?Q?G=E1bor?= Stefanik <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
+	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
+To: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200906021010.49613.hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-05-29 at 23:46 +0930, Rusty Russell wrote:
-> The virtio_net driver is complicated by the two methods of freeing old
-> xmit buffers (in addition to freeing old ones at the start of the xmit
-> path).
+Hi Holger,
+
+> > I thought about drivers/net as about ip (well, more or less)
+> > network drivers. We have drivers/atm or drivers/bluetooth (and
+> > bluetooth is 802.15.1...).
 > 
-> The original code used a 1/10 second timer attached to xmit_free(),
-> reset on every xmit.  Before we orphaned skbs on xmit, the
-> transmitting userspace could block with a full socket until the timer
-> fired, the skb destructor was called, and they were re-woken.
+> I actually like that this is drivers/bluetooth and not 
+> drivers/ieee802151. Would you consider drivers/zigbee instead of 
+> drivers/ieee802154 ???
 
-The timer was actually added to solve a hang when trying to unload
-nf_conntrack AFAIR - nf_conntrack was blocking on the skb being freed
-and we never actually freed it.
+I fully agree here.
 
-I think skb_orphan() is enough to prevent this, is it?
+Please use "zigbee" instead of "ieee*" names since that can become messy
+and confusing. I know that in theory the IEEE part of ZigBee is more
+low-level radio and could be used by non-ZigBee devices, but that is not
+gonna happen anyway. Especially with Bluetooth Low Energy pushing into
+the turf of ZigBee. So please use proper names and not confuse people
+with IEEE numbers ;)
 
-> So we added the VIRTIO_F_NOTIFY_ON_EMPTY feature: supporting devices
-> send an interrupt (even if normally suppressed) on an empty xmit ring
-> which makes us schedule xmit_tasklet().  This was a benchmark win.
-> 
-> Unfortunately, VIRTIO_F_NOTIFY_ON_EMPTY makes quite a lot of work: a
-> host which is faster than the guest will fire the interrupt every xmit
-> packet (slowing the guest down further).
+Regards
 
-Ouch. So, does simply disabling host support for
-VIRTIO_F_NOTIFY_ON_EMPTY speed up current guests?
+Marcel
 
-Cheers,
-Mark.
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
