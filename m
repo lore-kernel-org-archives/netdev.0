@@ -1,49 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Kernel panic in inet_twdr_do_twkill_work
-Date: Tue, 02 Jun 2009 17:40:28 -0700
-Message-ID: <m1r5y2jgjn.fsf@fess.ebiederm.org>
-References: <m17i0ktr4p.fsf@fess.ebiederm.org> <4A0BCE0E.3000206@free.fr>
-	<m1y6t0nlle.fsf@fess.ebiederm.org> <4A0BD750.4030605@free.fr>
-	<m18wl0nj2b.fsf@fess.ebiederm.org> <4A194B09.7070900@free.fr>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 1/2] new pci device id
+Date: Tue, 02 Jun 2009 15:18:34 -0400
+Message-ID: <4A257B0A.8060805@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: multipart/mixed;
+ boundary="------------050007000102040504000303"
+To: Manfred Spraul <manfred@colorfullife.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:44406 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505AbZFCAka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 20:40:30 -0400
-In-Reply-To: <4A194B09.7070900@free.fr> (Daniel Lezcano's message of "Sun\, 24 May 2009 15\:26\:33 +0200")
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:15529 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185AbZFCAvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 20:51:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Lezcano <daniel.lezcano@free.fr> writes:
+This is a multi-part message in MIME format.
+--------------050007000102040504000303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Eric W. Biederman wrote:
->> Daniel Lezcano <daniel.lezcano@free.fr> writes:
->>
->>   
->>> May be you can activate the NETNS_REFCNT_DEBUG in order to check if the timewait
->>> socket
->>> were destroyed at the namespace destruction ? Unfortunately it looks like the
->>> option is not in the Kconfig :(
->>>     
->>
->> Looks like a good starting place.
->>
->> I will enable that when I respin my internal kernel.
->>
->> I don't have a good reproducer at the moment....  So I was hoping we could
->> figure this out with code inspection.
->>   
-> Hi Eric,
->
-> did you succeeded to reproduce the bug with the test program I sent you ?
+This patch adds a new NVIDIA ethernet device id for the MCP89 chipset.
 
-Weird.  I finally got around to running your little test app, and I don't trigger
-it here.
+Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
 
-At the same time I am starting to see what I think is this error more often.
 
-Eric
+--------------050007000102040504000303
+Content-Type: text/plain;
+ name="patch-pci-ids-mcp89"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-pci-ids-mcp89"
+
+--- old/include/linux/pci_ids.h	2009-06-02 14:36:50.000000000 -0400
++++ new/include/linux/pci_ids.h	2009-06-02 14:54:08.000000000 -0400
+@@ -1287,6 +1287,7 @@
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_37              0x0AB1
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_38              0x0AB2
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_39              0x0AB3
++#define PCI_DEVICE_ID_NVIDIA_NVENET_40              0x0D7D
+ 
+ #define PCI_VENDOR_ID_IMS		0x10e0
+ #define PCI_DEVICE_ID_IMS_TT128		0x9128
+
+--------------050007000102040504000303--
