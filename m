@@ -1,58 +1,45 @@
-From: John Dykstra <john.dykstra1@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
-Date: Mon, 01 Jun 2009 20:54:06 -0500
-Message-ID: <1243907646.15854.16.camel@merlyn>
-References: <4A23F027.3060907@dev.6wind.com>
-	 <20090601161917.GA29745@Chamillionaire.breakpoint.cc>
-	 <4A240681.2010300@6wind.com> <4A242161.3010609@cosmosbay.com>
-	 <4A242418.1090804@hp.com>
+Date: Mon, 01 Jun 2009 19:02:28 -0700 (PDT)
+Message-ID: <20090601.190228.75178984.davem@davemloft.net>
+References: <4A242161.3010609@cosmosbay.com>
+	<4A242418.1090804@hp.com>
+	<1243907646.15854.16.camel@merlyn>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, nicolas.dichtel@6wind.com,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Cc: brian.haley@hp.com, dada1@cosmosbay.com, nicolas.dichtel@6wind.com,
+	fw@strlen.de, netdev@vger.kernel.org
+To: john.dykstra1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f166.google.com ([209.85.217.166]:50972 "EHLO
-	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754708AbZFBByI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 21:54:08 -0400
-Received: by gxk10 with SMTP id 10so13701483gxk.13
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 18:54:09 -0700 (PDT)
-In-Reply-To: <4A242418.1090804@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34528
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754531AbZFBCC2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 22:02:28 -0400
+In-Reply-To: <1243907646.15854.16.camel@merlyn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-06-01 at 14:55 -0400, Brian Haley wrote: 
-> 'ping6 -t 0 host' does work however.  The problem I see is that if you ping a system,
-> if it's a host it will respond, if it's a router it won't - the RFCs don't
-> explicitly state the host should drop the packet.  
+From: John Dykstra <john.dykstra1@gmail.com>
+Date: Mon, 01 Jun 2009 20:54:06 -0500
 
-There are two cases--an echo request to an address assigned to a
-router's interface, and to an address _beyond_ the router on another
-link.
+> On Mon, 2009-06-01 at 14:55 -0400, Brian Haley wrote: 
+>> I don't know if that difference
+>> in behavior is desired.  Do we know how any other OSes behave?
+> 
+> FWIW, the random BSD flavors I have on hand all check hop limit when
+> forwarding, but not when processing local ingress traffic.
+> 
+> Also FWIW, as I remember, the TAHI tests only check hop limit behavior
+> on forwarded traffic.
 
-Any given interface on a router can have forwarding dynamically enabled
-or disabled.  I don't remember prescribed echo request or hop limit
-behavior changing depending on the forwarding enable, so it seems that
-if you ping an address assigned to a router's interface, the router is
-expected to follow the (apparently unwritten) host rules.  
+And this is the behavior that makes the most sense to me.
 
-Echo requests forwarded by a router should obviously have the hop limit
-decremented and checked.
+The local system is "accounted for" in the hop limit by the previous
+hop system.  No other behavior makes any sense.
 
-> I don't know if that difference
-> in behavior is desired.  Do we know how any other OSes behave?
-
-FWIW, the random BSD flavors I have on hand all check hop limit when
-forwarding, but not when processing local ingress traffic.
-
-Also FWIW, as I remember, the TAHI tests only check hop limit behavior
-on forwarded traffic.
-
-Nicolas, what's driving your patch?  Are you trying to align slow path
-behavior with one of the 6WIND fast path implementations?
-
-  --  John
+And I even remember there are applications that use multicast and
+a hop limit of zero explicitly to keep application traffic only on
+the local subnet.  So any change like that proposed could break
+things.
 
