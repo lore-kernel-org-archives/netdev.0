@@ -1,102 +1,61 @@
 From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH 2/3] sis190: fix gigabit negotiation
-Date: Tue, 2 Jun 2009 09:52:27 +0000 (UTC)
-Message-ID: <20090603095252.GA15419@localhost>
+Subject: [PATCH 3/3] sis190: better message on unknown PHY
+Date: Tue, 2 Jun 2009 09:53:37 +0000 (UTC)
+Message-ID: <20090603095354.GA15649@localhost>
 References: <cover.1244012631.git.birrachiara@tin.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp12.tin.it ([212.216.176.206]:50151 "EHLO vsmtp12.tin.it"
+Received: from vsmtp14.tin.it ([212.216.176.118]:59892 "EHLO vsmtp14.tin.it"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752941AbZFBJwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 05:52:14 -0400
-Date: Wed, 3 Jun 2009 11:52:52 +0200
+	id S1752207AbZFBJxU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 05:53:20 -0400
+Date: Wed, 3 Jun 2009 11:53:54 +0200
 Content-Disposition: inline
 In-Reply-To: <cover.1244012631.git.birrachiara@tin.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes an initialization error; the chip negotiates gigabit, but
-the driver mistakenly handled it as 100Mb.
-Hopefully should fix bugs 9735 and 11149
-
 Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
 ---
- drivers/net/sis190.c |   37 +++++++++++++++++++++++++------------
- 1 files changed, 25 insertions(+), 12 deletions(-)
+ drivers/net/sis190.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 3d4542e..8322e28 100644
+index 8322e28..a69f3d2 100644
 --- a/drivers/net/sis190.c
 +++ b/drivers/net/sis190.c
-@@ -47,7 +47,7 @@
- #define PHY_ID_ANY		0x1f
- #define MII_REG_ANY		0x1f
+@@ -348,7 +348,7 @@ static struct {
+ 	u32 msg_enable;
+ } debug = { -1 };
  
--#define DRV_VERSION		"1.2"
-+#define DRV_VERSION		"1.3"
- #define DRV_NAME		"sis190"
- #define SIS190_DRIVER_NAME	DRV_NAME " Gigabit Ethernet driver " DRV_VERSION
- #define PFX DRV_NAME ": "
-@@ -943,9 +943,9 @@ static void sis190_phy_task(struct work_struct *work)
- 			u32 ctl;
- 			const char *msg;
- 		} reg31[] = {
--			{ LPA_1000XFULL | LPA_SLCT, 0x07000c00 | 0x00001000,
-+			{ LPA_1000FULL, 0x07000c00 | 0x00001000,
- 				"1000 Mbps Full Duplex" },
--			{ LPA_1000XHALF | LPA_SLCT, 0x07000c00,
-+			{ LPA_1000HALF, 0x07000c00,
- 				"1000 Mbps Half Duplex" },
- 			{ LPA_100FULL, 0x04000800 | 0x00001000,
- 				"100 Mbps Full Duplex" },
-@@ -956,22 +956,35 @@ static void sis190_phy_task(struct work_struct *work)
- 			{ LPA_10HALF, 0x04000400,
- 				"10 Mbps Half Duplex" },
- 			{ 0, 0x04000400, "unknown" }
-- 		}, *p;
--		u16 adv;
-+		}, *p = NULL;
-+		u16 adv, autoexp, gigadv, gigrec;
- 
- 		val = mdio_read(ioaddr, phy_id, 0x1f);
- 		net_link(tp, KERN_INFO "%s: mii ext = %04x.\n", dev->name, val);
- 
- 		val = mdio_read(ioaddr, phy_id, MII_LPA);
- 		adv = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
--		net_link(tp, KERN_INFO "%s: mii lpa = %04x adv = %04x.\n",
--			 dev->name, val, adv);
+-MODULE_DESCRIPTION("SiS sis190 Gigabit Ethernet driver");
++MODULE_DESCRIPTION("SiS sis190/191 Gigabit Ethernet driver");
+ module_param(rx_copybreak, int, 0);
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+ module_param_named(debug, debug.msg_enable, int, 0);
+@@ -1329,12 +1329,15 @@ static void sis190_init_phy(struct net_device *dev, struct sis190_private *tp,
+ 			((mii_status & (BMSR_100FULL | BMSR_100HALF)) ?
+ 				LAN : HOME) : p->type;
+ 		tp->features |= p->feature;
+-	} else
++		net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
++			pci_name(tp->pci_dev), p->name, phy_id);
++	} else {
+ 		phy->type = UNKNOWN;
 -
--		val &= adv;
-+		autoexp = mdio_read(ioaddr, phy_id, MII_EXPANSION);
-+		net_link(tp, KERN_INFO "%s: mii lpa=%04x adv=%04x exp=%04x.\n",
-+			 dev->name, val, adv, autoexp);
-+
-+		if (val & ADVERTISE_NPAGE && autoexp & EXPANSION_NWAY) {
-+			/* check for gigabit speed */
-+			gigadv = mdio_read(ioaddr, phy_id, MII_CTRL1000);
-+			gigrec = mdio_read(ioaddr, phy_id, MII_STAT1000);
-+			val = (gigadv & (gigrec >> 2));
-+			if (val & ADVERTISE_1000FULL)
-+				p = reg31;
-+			else if (val & ADVERTISE_1000HALF)
-+				p = reg31+1;
-+		}
-+		if (!p) {
-+			val &= adv;
+-	net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
+-		  pci_name(tp->pci_dev),
+-		  (phy->type == UNKNOWN) ? "Unknown PHY" : p->name, phy_id);
++		net_probe(tp, KERN_INFO
++			"%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
++			pci_name(tp->pci_dev),
++			phy->id[0], (phy->id[1] & 0xfff0), phy_id);
++	}
+ }
  
--		for (p = reg31; p->val; p++) {
--			if ((val & p->val) == p->val)
--				break;
-+			for (p = reg31; p->val; p++) {
-+				if ((val & p->val) == p->val)
-+					break;
-+			}
- 		}
- 
- 		p->ctl |= SIS_R32(StationControl) & ~0x0f001c00;
+ static void sis190_mii_probe_88e1111_fixup(struct sis190_private *tp)
 -- 
 1.6.2.4
 
