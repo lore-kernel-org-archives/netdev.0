@@ -1,70 +1,32 @@
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
- queueing an extra skb.
-Date: Tue, 02 Jun 2009 09:07:30 +0100
-Message-ID: <1243930050.9146.53.camel@blaa>
-References: <200905292346.04815.rusty@rustcorp.com.au>
-Reply-To: Mark McLoughlin <markmc@redhat.com>
+From: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
+Subject: Re: [PATCH 10/10] ieee802154: add at86rf230/rf231 spi driver
+Date: Tue, 2 Jun 2009 10:10:49 +0200
+Message-ID: <200906021010.49613.hs4233@mail.mn-solutions.de>
+References: <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com> <69e28c910906010921r56cf7017gc858cb7ba819c385@mail.gmail.com> <20090601203348.GC7143@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33205 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754563AbZFBIIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 04:08:11 -0400
-In-Reply-To: <200905292346.04815.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?iso-8859-1?q?G=E1bor_Stefanik?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
+	dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090601203348.GC7143-nIupHZaCssqR2kOLt6zJ8ErlnG4Plg33XqFh9Ls21Oc@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-05-29 at 23:46 +0930, Rusty Russell wrote:
+> I thought about drivers/net as about ip (well, more or less)
+> network drivers. We have drivers/atm or drivers/bluetooth (and
+> bluetooth is 802.15.1...).
 
-> This effectively reverts 99ffc696d10b28580fe93441d627cf290ac4484c
-> "virtio: wean net driver off NETDEV_TX_BUSY".
-> 
-> The complexity of queuing an skb (setting a tasklet to re-xmit) is
-> questionable,
-
-It certainly adds some subtle complexities to start_xmit() 
-
->  especially once we get rid of the other reason for the
-> tasklet in the next patch.
-> 
-> If the skb won't fit in the tx queue, just return NETDEV_TX_BUSY.  It
-> might be frowned upon, but it's common and not going away any time
-> soon.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> ---
->  drivers/net/virtio_net.c |   49 ++++++++++-------------------------------------
->  1 file changed, 11 insertions(+), 38 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
->  
-> @@ -526,27 +517,14 @@ again:
->  	/* Free up any pending old buffers before queueing new ones. */
->  	free_old_xmit_skbs(vi);
->  
-> -	/* If we has a buffer left over from last time, send it now. */
-> -	if (unlikely(vi->last_xmit_skb) &&
-> -	    xmit_skb(vi, vi->last_xmit_skb) != 0)
-> -		goto stop_queue;
-> +	/* Put new one in send queue and do transmit */
-> +	__skb_queue_head(&vi->send, skb);
-> +	if (likely(xmit_skb(vi, skb) == 0)) {
-> +		vi->svq->vq_ops->kick(vi->svq);
-> +		return NETDEV_TX_OK;
-> +	}
-
-Hmm, is it okay to leave the skb on the send queue if we return
-NETDEV_TX_BUSY?
-
-Cheers,
-Mark.
-
+I actually like that this is drivers/bluetooth and not 
+drivers/ieee802151. Would you consider drivers/zigbee instead of 
+drivers/ieee802154 ???
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
