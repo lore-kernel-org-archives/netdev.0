@@ -1,36 +1,40 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: potential null dereference in proto_register()
-Date: Tue, 2 Jun 2009 11:50:52 +0300 (EAT)
-Message-ID: <alpine.DEB.2.00.0905271607370.11440@bicker>
+From: Riccardo Ghetta <birrachiara@tin.it>
+Subject: [PATCH 1/3] sis190: add new phy found on asus F5 series laptops
+Date: Tue, 2 Jun 2009 09:52:10 +0000 (UTC)
+Message-ID: <20090603095236.GA15414@localhost>
+References: <cover.1244012631.git.birrachiara@tin.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f224.google.com ([209.85.219.224]:36057 "EHLO
-	mail-ew0-f224.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436AbZFBJuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 05:50:15 -0400
-Received: by ewy24 with SMTP id 24so8503612ewy.37
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2009 02:50:15 -0700 (PDT)
+Received: from vsmtp12.tin.it ([212.216.176.206]:50151 "EHLO vsmtp12.tin.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752111AbZFBJv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 05:51:59 -0400
+Date: Wed, 3 Jun 2009 11:52:36 +0200
+Content-Disposition: inline
+In-Reply-To: <cover.1244012631.git.birrachiara@tin.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a potential null dereference in proto_register() 
-from net/core/sock.c
+Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
+---
+ drivers/net/sis190.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-prot->rsk_prot can be null on line 2161 but we dereference it on line 
-2167.
-
-  2161  out_free_request_sock_slab:
-  2162          if (prot->rsk_prot && prot->rsk_prot->slab) {
-  2163                  kmem_cache_destroy(prot->rsk_prot->slab);
-  2164                  prot->rsk_prot->slab = NULL;
-  2165          }
-  2166  out_free_request_sock_slab_name:
-  2167          kfree(prot->rsk_prot->slab_name);
-
-Found by smatch.
-
-regards,
-dan carpenter
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 55ccd51..3d4542e 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -317,6 +317,7 @@ static struct mii_chip_info {
+         unsigned int type;
+ 	u32 feature;
+ } mii_chip_table[] = {
++	{ "Atheros PHY ?",        { 0x004d, 0xd010 }, LAN, 0 },
+ 	{ "Atheros PHY AR8012",   { 0x004d, 0xd020 }, LAN, 0 },
+ 	{ "Broadcom PHY BCM5461", { 0x0020, 0x60c0 }, LAN, F_PHY_BCM5461 },
+ 	{ "Broadcom PHY AC131",   { 0x0143, 0xbc70 }, LAN, 0 },
+-- 
+1.6.2.4
 
