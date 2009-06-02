@@ -1,30 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
-Date: Mon, 01 Jun 2009 19:04:30 -0700 (PDT)
-Message-ID: <20090601.190430.80366622.davem@davemloft.net>
-References: <4A23F027.3060907@dev.6wind.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Fix a race between sky2_down and sky2_poll.
+Date: Mon, 1 Jun 2009 21:07:28 -0700
+Message-ID: <20090601210728.2be1a903@nehalam>
+References: <392fb48f0906011840n4914ef32x8aa316358b2ceacc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@dev.6wind.com
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58957
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754706AbZFBCE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 22:04:29 -0400
-In-Reply-To: <4A23F027.3060907@dev.6wind.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47777 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750968AbZFBEHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 00:07:45 -0400
+In-Reply-To: <392fb48f0906011840n4914ef32x8aa316358b2ceacc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
-Date: Mon, 01 Jun 2009 17:13:43 +0200
+On Tue, 2 Jun 2009 10:40:12 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-> RFC indicates that a router must drop the packet if this field is 0.
+> If sky2_down was called between an interrupt and the corresponding sky2_poll,
+> rx_ring will have been free'd and we'll crash.
+> 
+> Deal with rx_ring being NULL in sky2_status_intr rather than trying to force
+> napi polls to complete before freeing rx_ring.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |   17 +++++++++++++++--
+>  1 files changed, 15 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index a2ff9cb..1f2a5ab 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -1822,8 +1822,8 @@ static int sky2_down(struct net_device *dev)
+>  	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
+>  	gma_write16(hw, port, GM_GP_CTRL, ctrl);
+> 
+> -	/* Make sure no packets are pending */
+> -	napi_synchronize(&hw->napi);
+> +	/* disable soft interrupts */
+> +	napi_disable(&hw->napi);
+> 
+>  	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
+> 
+> @@ -1878,6 +1878,9 @@ static int sky2_down(struct net_device *dev)
+>  	sky2->rx_ring = NULL;
+>  	sky2->tx_ring = NULL;
+> 
+> +	/* re-enable soft interrupts */
+> +	napi_enable(&hw->napi);
+> +
+>  	return 0;
+>  }
+> 
+> @@ -2372,6 +2375,16 @@ static int sky2_status_intr(struct sky2_hw *hw,
+> int to_do, u16 idx)
+>  		length = le16_to_cpu(le->length);
+>  		status = le32_to_cpu(le->status);
+> 
+> +		/*
+> +		 * rx_ring may have been free'd in sky2_down
+> +		 * if we are responding to an interrupt queued to
+> +		 * napi before interrupts were disabled
+> +		 */
+> +		if (!sky2->rx_ring) {
+> +			work_done = to_do;
+> +			break;
+> +		}
+> +
+>  		le->opcode = 0;
+>  		switch (opcode & ~HW_OWNER) {
+>  		case OP_RXSTAT:
 
-It only must do this when executing the forwarding function.  It's an
-egress check, not an ingress one.
+Down is also used during suspend/resume and changing MTU so this needs
+more inspection.
 
-I'm not applying this patch, it can even break some applications
-out there that use a TTL of zero intentionally to keep traffic
-only on a local subnet.
+-- 
