@@ -1,45 +1,30 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
-Date: Mon, 01 Jun 2009 19:02:28 -0700 (PDT)
-Message-ID: <20090601.190228.75178984.davem@davemloft.net>
-References: <4A242161.3010609@cosmosbay.com>
-	<4A242418.1090804@hp.com>
-	<1243907646.15854.16.camel@merlyn>
+Date: Mon, 01 Jun 2009 19:04:30 -0700 (PDT)
+Message-ID: <20090601.190430.80366622.davem@davemloft.net>
+References: <4A23F027.3060907@dev.6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, dada1@cosmosbay.com, nicolas.dichtel@6wind.com,
-	fw@strlen.de, netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@dev.6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34528
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58957
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754531AbZFBCC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 22:02:28 -0400
-In-Reply-To: <1243907646.15854.16.camel@merlyn>
+	by vger.kernel.org with ESMTP id S1754706AbZFBCE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 22:04:29 -0400
+In-Reply-To: <4A23F027.3060907@dev.6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Mon, 01 Jun 2009 20:54:06 -0500
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Date: Mon, 01 Jun 2009 17:13:43 +0200
 
-> On Mon, 2009-06-01 at 14:55 -0400, Brian Haley wrote: 
->> I don't know if that difference
->> in behavior is desired.  Do we know how any other OSes behave?
-> 
-> FWIW, the random BSD flavors I have on hand all check hop limit when
-> forwarding, but not when processing local ingress traffic.
-> 
-> Also FWIW, as I remember, the TAHI tests only check hop limit behavior
-> on forwarded traffic.
+> RFC indicates that a router must drop the packet if this field is 0.
 
-And this is the behavior that makes the most sense to me.
+It only must do this when executing the forwarding function.  It's an
+egress check, not an ingress one.
 
-The local system is "accounted for" in the hop limit by the previous
-hop system.  No other behavior makes any sense.
-
-And I even remember there are applications that use multicast and
-a hop limit of zero explicitly to keep application traffic only on
-the local subnet.  So any change like that proposed could break
-things.
-
+I'm not applying this patch, it can even break some applications
+out there that use a TTL of zero intentionally to keep traffic
+only on a local subnet.
