@@ -1,61 +1,40 @@
-From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH 3/3] sis190: better message on unknown PHY
-Date: Tue, 2 Jun 2009 09:53:37 +0000 (UTC)
-Message-ID: <20090603095354.GA15649@localhost>
-References: <cover.1244012631.git.birrachiara@tin.it>
+From: David Miller <davem@davemloft.net>
+Subject: Re: potential null dereference in proto_register()
+Date: Tue, 02 Jun 2009 02:54:54 -0700 (PDT)
+Message-ID: <20090602.025454.127590436.davem@davemloft.net>
+References: <alpine.DEB.2.00.0905271607370.11440@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp14.tin.it ([212.216.176.118]:59892 "EHLO vsmtp14.tin.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752207AbZFBJxU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 05:53:20 -0400
-Date: Wed, 3 Jun 2009 11:53:54 +0200
-Content-Disposition: inline
-In-Reply-To: <cover.1244012631.git.birrachiara@tin.it>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36861
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759893AbZFBJyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 05:54:54 -0400
+In-Reply-To: <alpine.DEB.2.00.0905271607370.11440@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
----
- drivers/net/sis190.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+From: Dan Carpenter <error27@gmail.com>
+Date: Tue, 2 Jun 2009 11:50:52 +0300 (EAT)
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 8322e28..a69f3d2 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -348,7 +348,7 @@ static struct {
- 	u32 msg_enable;
- } debug = { -1 };
- 
--MODULE_DESCRIPTION("SiS sis190 Gigabit Ethernet driver");
-+MODULE_DESCRIPTION("SiS sis190/191 Gigabit Ethernet driver");
- module_param(rx_copybreak, int, 0);
- MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
- module_param_named(debug, debug.msg_enable, int, 0);
-@@ -1329,12 +1329,15 @@ static void sis190_init_phy(struct net_device *dev, struct sis190_private *tp,
- 			((mii_status & (BMSR_100FULL | BMSR_100HALF)) ?
- 				LAN : HOME) : p->type;
- 		tp->features |= p->feature;
--	} else
-+		net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
-+			pci_name(tp->pci_dev), p->name, phy_id);
-+	} else {
- 		phy->type = UNKNOWN;
--
--	net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
--		  pci_name(tp->pci_dev),
--		  (phy->type == UNKNOWN) ? "Unknown PHY" : p->name, phy_id);
-+		net_probe(tp, KERN_INFO
-+			"%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
-+			pci_name(tp->pci_dev),
-+			phy->id[0], (phy->id[1] & 0xfff0), phy_id);
-+	}
- }
- 
- static void sis190_mii_probe_88e1111_fixup(struct sis190_private *tp)
--- 
-1.6.2.4
+> There is a potential null dereference in proto_register() 
+> from net/core/sock.c
+> 
+> prot->rsk_prot can be null on line 2161 but we dereference it on line 
+> 2167.
+> 
+>   2161  out_free_request_sock_slab:
+>   2162          if (prot->rsk_prot && prot->rsk_prot->slab) {
+>   2163                  kmem_cache_destroy(prot->rsk_prot->slab);
+>   2164                  prot->rsk_prot->slab = NULL;
+>   2165          }
+>   2166  out_free_request_sock_slab_name:
+>   2167          kfree(prot->rsk_prot->slab_name);
+> 
+> Found by smatch.
 
+This won't ever happen because a protocol that provides a twsk_prot
+has to provide a rsk_prot too.
