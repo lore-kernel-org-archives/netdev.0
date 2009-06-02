@@ -1,53 +1,49 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
-Date: Tue, 2 Jun 2009 23:38:29 +0930
-Message-ID: <200906022338.30618.rusty@rustcorp.com.au>
-References: <200905292344.56814.rusty@rustcorp.com.au> <1243885642.22917.35.camel@pohly-MOBL> <20090602.002553.143476036.davem@davemloft.net>
+From: Pascal Terjan <pterjan@mandriva.com>
+Subject: Re: SiS 191 failure with MTU > 1496
+Date: Tue, 02 Jun 2009 16:14:44 +0200
+Message-ID: <1243952084.19053.111.camel@plop>
+References: <1243615486.12871.44.camel@plop>
+	 <1243615800.12871.45.camel@plop> <1243616449.12871.49.camel@plop>
+	 <20090529223047.GA29073@electric-eye.fr.zoreil.com>
+	 <1243943449.19053.96.camel@plop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: patrick.ohly@intel.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, divy@chelsio.com,
-	rolandd@cisco.com, xemul@openvz.org, dcbw@redhat.com,
-	libertas-dev@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:49890 "EHLO ozlabs.org"
+Received: from ryu.zarb.org ([212.85.158.22]:53176 "EHLO ryu.zarb.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753370AbZFBOLh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 10:11:37 -0400
-In-Reply-To: <20090602.002553.143476036.davem@davemloft.net>
-Content-Disposition: inline
+	id S1751960AbZFBOOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 10:14:44 -0400
+In-Reply-To: <1243943449.19053.96.camel@plop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Jun 2009 04:55:53 pm David Miller wrote:
-> From: Patrick Ohly <patrick.ohly@intel.com>
-> Date: Mon, 01 Jun 2009 21:47:22 +0200
->
-> > On Fri, 2009-05-29 at 23:44 +0930, Rusty Russell wrote:
-> >> This patch adds skb_orphan to the start of dev_hard_start_xmit(): it
-> >> can be premature in the NETDEV_TX_BUSY case, but that's uncommon.
-> >
-> > Would it be possible to make the new skb_orphan() at the start of
-> > dev_hard_start_xmit() conditionally so that it is not executed for
-> > packets that are to be time stamped?
-> >
-> > As discussed before
-> > (http://article.gmane.org/gmane.linux.network/121378/), the skb->sk
-> > socket pointer is required for sending back the send time stamp from
-> > inside the device driver. Calling skb_orphan() unconditionally as in
-> > this patch would break the hardware time stamping of outgoing packets.
->
-> Indeed, we need to check that case, at a minimum.
->
-> And there are other potentially other problems.  For example, I
-> wonder how this interacts with the new TX MMAP af_packet support
-> in net-next-2.6 :-/
+Le mardi 02 juin 2009 =E0 13:50 +0200, Pascal Terjan a =E9crit :
+> Le samedi 30 mai 2009 =E0 00:30 +0200, Francois Romieu a =E9crit :
+> > Pascal Terjan <pterjan@mandriva.com> :
+> > [...]
+> > > Oh and even
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=3D10694
+> >=20
+> > Yes, it sucks.
+> >=20
+> > > Should I add some info there ?
+> >=20
+> > Not yet but could you retry with RX_BUF_SIZE set to 1544,
+> > 1528 and 1520 ?
+> >=20
+>=20
+> 1544, 1528 and 1520 fail the same way
 
-I think I'll do this in the driver for now, and let's revisit doing it 
-generically later?
+By the way there is some strange code:
 
-Thanks,
-Rusty.
+tp->rx_buf_sz =3D (mtu > RX_BUF_SIZE) ? mtu + ETH_HLEN + 8 : RX_BUF_SIZ=
+E;
+
+Isn't there a (different from the one I'm interested in :) ) bug when
+1500 < mtu <=3D RX_BUF_SIZE
+
+Shouldn't the test be (mtu > ETH_DATA_LEN) ?
+
