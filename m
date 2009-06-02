@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
-Date: Tue, 02 Jun 2009 02:32:39 -0700 (PDT)
-Message-ID: <20090602.023239.182993491.davem@davemloft.net>
-References: <1243907646.15854.16.camel@merlyn>
-	<20090601.190228.75178984.davem@davemloft.net>
-	<1243934530.8439.4.camel@Maple>
+Subject: Re: [PATCH 8/8] mlx4_en: Updated driver version
+Date: Tue, 02 Jun 2009 02:36:11 -0700 (PDT)
+Message-ID: <20090602.023611.243300436.davem@davemloft.net>
+References: <4A1A57AA.1080209@mellanox.co.il>
+	<20090525.014435.203274473.davem@davemloft.net>
+	<4A24F106.3030308@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, dada1@cosmosbay.com, nicolas.dichtel@6wind.com,
-	fw@strlen.de, netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41593
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52677
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754552AbZFBJci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 05:32:38 -0400
-In-Reply-To: <1243934530.8439.4.camel@Maple>
+	by vger.kernel.org with ESMTP id S1752941AbZFBJgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 05:36:11 -0400
+In-Reply-To: <4A24F106.3030308@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Tue, 02 Jun 2009 09:22:10 +0000
-
-> On Mon, 2009-06-01 at 19:02 -0700, David Miller wrote:
->> And I even remember there are applications that use multicast and
->> a hop limit of zero explicitly to keep application traffic only on
->> the local subnet.  So any change like that proposed could break
->> things.
-> 
-> Are you thinking of multicast apps that explicitly set a hop limit, or Multicast
-> Listener Discovery?  The hop limit specified for MLDv2 messages is one,
-> not zero.
-
-I am very much thinking of multicast apps that explicitly set a hop
-limit.
-
-The proof is in the pudding.  As mentioned in other parts of this
-thread, we explicitly DO NOT allow a zero normal socket TTL option
-but we DO allow a zero multicast TTL socket option to be set.
+RnJvbTogWWV2Z2VueSBQZXRyaWxpbiA8eWV2Z2VueXBAbWVsbGFub3guY28uaWw+DQpEYXRlOiBU
+dWUsIDAyIEp1biAyMDA5IDEyOjI5OjQyICswMzAwDQoNCj4gKyNkZWZpbmUgRFJWX1ZFUlNJT04J
+IjEuNC4xLjENCg0KWW91IGNoZWNrZWQgaW4gdGhpcyBjb21taXQgdG8geW91ciB0cmVlIFdJVEhP
+VVQgRVZFTiBCVUlMRCBURVNUSU5HIElUIQ0KDQpkcml2ZXJzL25ldC9tbHg0L2VuX21haW4uYzo0
+ODogZXJyb3I6IG1pc3NpbmcgdGVybWluYXRpbmcgIiBjaGFyYWN0ZXINCmRyaXZlcnMvbmV0L21s
+eDQvZW5fbWFpbi5jOjQ4OiBlcnJvcjogZXhwZWN0ZWQg4oCYLOKAmSBvciDigJg74oCZIGJlZm9y
+ZSBzdHJpbmcgY29uc3RhbnQNCmRyaXZlcnMvbmV0L21seDQvZW5fbWFpbi5jOjUyOiBlcnJvcjog
+bWlzc2luZyB0ZXJtaW5hdGluZyAiIGNoYXJhY3Rlcg0KZHJpdmVycy9uZXQvbWx4NC9lbl9tYWlu
+LmM6NTI6IGVycm9yOiBleHBlY3RlZCDigJgs4oCZIG9yIOKAmDvigJkgYmVmb3JlIHN0cmluZyBj
+b25zdGFudA0KDQpJIGZpeGVkIHRoaXMgdXAgaW4gbXkgdHJlZSBidXQgSSdtIHJlYWxseSBwaXNz
+ZWQgdGhhdCB5b3Ugc3VibWl0dGVkDQpwYXRjaGVzIHRvIG1lIHRoYXQgWU9VIERJRCBOT1QgRVZF
+TiBCVUlMRCBURVNULg0K
