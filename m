@@ -1,75 +1,58 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] Fix a race between sky2_down and sky2_poll.
-Date: Tue, 2 Jun 2009 10:40:12 +0900
-Message-ID: <392fb48f0906011840n4914ef32x8aa316358b2ceacc@mail.gmail.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: [PATCH] ipv4/ipv6: check hop limit field on input
+Date: Mon, 01 Jun 2009 20:54:06 -0500
+Message-ID: <1243907646.15854.16.camel@merlyn>
+References: <4A23F027.3060907@dev.6wind.com>
+	 <20090601161917.GA29745@Chamillionaire.breakpoint.cc>
+	 <4A240681.2010300@6wind.com> <4A242161.3010609@cosmosbay.com>
+	 <4A242418.1090804@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: Eric Dumazet <dada1@cosmosbay.com>, nicolas.dichtel@6wind.com,
+	Florian Westphal <fw@strlen.de>,
+	netdev <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:45929 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758846AbZFBBrz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 21:47:55 -0400
-Received: by bwz22 with SMTP id 22so7837102bwz.37
-        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 18:47:56 -0700 (PDT)
+Received: from mail-gx0-f166.google.com ([209.85.217.166]:50972 "EHLO
+	mail-gx0-f166.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754708AbZFBByI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 21:54:08 -0400
+Received: by gxk10 with SMTP id 10so13701483gxk.13
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 18:54:09 -0700 (PDT)
+In-Reply-To: <4A242418.1090804@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If sky2_down was called between an interrupt and the corresponding sky2_poll,
-rx_ring will have been free'd and we'll crash.
+On Mon, 2009-06-01 at 14:55 -0400, Brian Haley wrote: 
+> 'ping6 -t 0 host' does work however.  The problem I see is that if you ping a system,
+> if it's a host it will respond, if it's a router it won't - the RFCs don't
+> explicitly state the host should drop the packet.  
 
-Deal with rx_ring being NULL in sky2_status_intr rather than trying to force
-napi polls to complete before freeing rx_ring.
+There are two cases--an echo request to an address assigned to a
+router's interface, and to an address _beyond_ the router on another
+link.
 
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |   17 +++++++++++++++--
- 1 files changed, 15 insertions(+), 2 deletions(-)
+Any given interface on a router can have forwarding dynamically enabled
+or disabled.  I don't remember prescribed echo request or hop limit
+behavior changing depending on the forwarding enable, so it seems that
+if you ping an address assigned to a router's interface, the router is
+expected to follow the (apparently unwritten) host rules.  
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index a2ff9cb..1f2a5ab 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1822,8 +1822,8 @@ static int sky2_down(struct net_device *dev)
- 	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
- 	gma_write16(hw, port, GM_GP_CTRL, ctrl);
+Echo requests forwarded by a router should obviously have the hop limit
+decremented and checked.
 
--	/* Make sure no packets are pending */
--	napi_synchronize(&hw->napi);
-+	/* disable soft interrupts */
-+	napi_disable(&hw->napi);
+> I don't know if that difference
+> in behavior is desired.  Do we know how any other OSes behave?
 
- 	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
+FWIW, the random BSD flavors I have on hand all check hop limit when
+forwarding, but not when processing local ingress traffic.
 
-@@ -1878,6 +1878,9 @@ static int sky2_down(struct net_device *dev)
- 	sky2->rx_ring = NULL;
- 	sky2->tx_ring = NULL;
+Also FWIW, as I remember, the TAHI tests only check hop limit behavior
+on forwarded traffic.
 
-+	/* re-enable soft interrupts */
-+	napi_enable(&hw->napi);
-+
- 	return 0;
- }
+Nicolas, what's driving your patch?  Are you trying to align slow path
+behavior with one of the 6WIND fast path implementations?
 
-@@ -2372,6 +2375,16 @@ static int sky2_status_intr(struct sky2_hw *hw,
-int to_do, u16 idx)
- 		length = le16_to_cpu(le->length);
- 		status = le32_to_cpu(le->status);
+  --  John
 
-+		/*
-+		 * rx_ring may have been free'd in sky2_down
-+		 * if we are responding to an interrupt queued to
-+		 * napi before interrupts were disabled
-+		 */
-+		if (!sky2->rx_ring) {
-+			work_done = to_do;
-+			break;
-+		}
-+
- 		le->opcode = 0;
- 		switch (opcode & ~HW_OWNER) {
- 		case OP_RXSTAT:
--- 
-1.5.6.5
