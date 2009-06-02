@@ -1,84 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] sis190: fix gigabit negotiation
-Date: Tue, 2 Jun 2009 23:38:57 +0200
-Message-ID: <20090602213857.GB26871@electric-eye.fr.zoreil.com>
-References: <cover.1244012631.git.birrachiara@tin.it> <20090603095252.GA15419@localhost>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 2 Jun 2009 23:37:23 +0200
+Message-ID: <20090602213723.GB2850@ami.dom.local>
+References: <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com> <20090528211258.GA3658@ami.dom.local> <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com> <20090530200756.GF3166@ami.dom.local> <298f5c050906020312r514c4638sfa2b504f55d71bc1@mail.gmail.com> <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com> <20090602123635.GC4239@ff.dom.local> <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Riccardo Ghetta <birrachiara@tin.it>
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57607 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750871AbZFBVhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 17:37:12 -0400
+Received: from fg-out-1718.google.com ([72.14.220.157]:1692 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813AbZFBVhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 17:37:46 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so966315fga.17
+        for <netdev@vger.kernel.org>; Tue, 02 Jun 2009 14:37:47 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090603095252.GA15419@localhost>
+In-Reply-To: <4A252714.2020008@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Riccardo Ghetta <birrachiara@tin.it> :
-> Fixes an initialization error; the chip negotiates gigabit, but
-> the driver mistakenly handled it as 100Mb.
+On Tue, Jun 02, 2009 at 03:20:20PM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Tue, Jun 02, 2009 at 02:45:34PM +0200, Patrick McHardy wrote:
+>>> I didn't follow the full discussion, so I'm not sure which kind of
+>>> arithmetic error you're attempting to cure. For the HFSC scaling
+>>> factors, please just keep in mind that its also supposed to be
+>>> very accurate at low bandwidths.
+>>
+>> It's all here:
+>>
+>> http://permalink.gmane.org/gmane.linux.network/129301
+>
+> I've read through the mails where you suggested to change the scaling
+> factors. I wasn't able to find the reasoning (IOW: where does it
+> overflow or loose precision in which case) though.
 
-Did you draw some inspiration from SiS own driver ? If so it would
-deserve to be quoted.
+I described the reasoning here:
+http://permalink.gmane.org/gmane.linux.network/128189
 
-> Hopefully should fix bugs 9735 and 11149
+Of course, we could try some other solution than changing the scaling.
+I considered a possibility to do it internally in htb, even with
+skipping rate tables, but the change of the scaling seems to be the
+most generic way (alas there are some odd compatibility issues in
+iproute/tc like TIME_UNITS_PER_SEC or "if (nom == 1000000)" to make
+it really consistent/readable).
 
-http://bugzilla.kernel.org/show_bug.cgi?id=9735
-http://bugzilla.kernel.org/show_bug.cgi?id=11149
-
-> 
-> Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
-> ---
->  drivers/net/sis190.c |   37 +++++++++++++++++++++++++------------
->  1 files changed, 25 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-> index 3d4542e..8322e28 100644
-> --- a/drivers/net/sis190.c
-> +++ b/drivers/net/sis190.c
-[...]
-> @@ -956,22 +956,35 @@ static void sis190_phy_task(struct work_struct *work)
->  			{ LPA_10HALF, 0x04000400,
->  				"10 Mbps Half Duplex" },
->  			{ 0, 0x04000400, "unknown" }
-> - 		}, *p;
-> -		u16 adv;
-> +		}, *p = NULL;
-> +		u16 adv, autoexp, gigadv, gigrec;
->  
->  		val = mdio_read(ioaddr, phy_id, 0x1f);
->  		net_link(tp, KERN_INFO "%s: mii ext = %04x.\n", dev->name, val);
->  
->  		val = mdio_read(ioaddr, phy_id, MII_LPA);
->  		adv = mdio_read(ioaddr, phy_id, MII_ADVERTISE);
-> -		net_link(tp, KERN_INFO "%s: mii lpa = %04x adv = %04x.\n",
-> -			 dev->name, val, adv);
-> -
-> -		val &= adv;
-> +		autoexp = mdio_read(ioaddr, phy_id, MII_EXPANSION);
-> +		net_link(tp, KERN_INFO "%s: mii lpa=%04x adv=%04x exp=%04x.\n",
-> +			 dev->name, val, adv, autoexp);
-> +
-> +		if (val & ADVERTISE_NPAGE && autoexp & EXPANSION_NWAY) {
-
-val has been read from the LPA register.
-
-s/ADVERTISE_NPAGE/LPA_NPAGE/ ?
-
-> +			/* check for gigabit speed */
-> +			gigadv = mdio_read(ioaddr, phy_id, MII_CTRL1000);
-> +			gigrec = mdio_read(ioaddr, phy_id, MII_STAT1000);
-> +			val = (gigadv & (gigrec >> 2));
-> +			if (val & ADVERTISE_1000FULL)
-> +				p = reg31;
-> +			else if (val & ADVERTISE_1000HALF)
-> +				p = reg31+1;
-                                    ^^^^^^^ reg31 + 1
-
-Otherwise ok.
-
--- 
-Ueimor
+Jarek P.
