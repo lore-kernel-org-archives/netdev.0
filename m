@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Multicast socket option
-Date: Tue, 02 Jun 2009 00:45:34 -0700 (PDT)
-Message-ID: <20090602.004534.165425108.davem@davemloft.net>
-References: <4A1EC33E.1080201@us.ibm.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 02 Jun 2009 09:53:48 +0200
+Message-ID: <1243929229.3192.40.camel@localhost.localdomain>
+References: <20090601.032500.54712490.davem@davemloft.net>
+	 <1243867942.3015.18.camel@localhost.localdomain>
+	 <20090601.143248.258478440.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com, cl@linux.com
-To: niv@us.ibm.com
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41107
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757071AbZFBHpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:45:34 -0400
-In-Reply-To: <4A1EC33E.1080201@us.ibm.com>
+Received: from senator.holtmann.net ([87.106.208.187]:39334 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327AbZFBHyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:54:11 -0400
+In-Reply-To: <20090601.143248.258478440.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nivedita Singhvi <niv@us.ibm.com>
-Date: Thu, 28 May 2009 10:00:46 -0700
+Hi Dave,
 
-> After some discussion offline with Christoph Lameter and David Stevens
-> regarding multicast behaviour in Linux, I'm submitting a slightly
-> modified patch from the one Christoph submitted earlier.
+> >> Things are really winding down, and the bug fix rate is down
+> >> to at best a trickle.  It might be time to do that final
+> >> release soon :-)
+> > 
+> > can you give me quick update on this pull request:
+> > 
+> > 	http://marc.info/?l=linux-netdev&m=124341070008320&w=2
 > 
-> This patch provides a new socket option IP_MULTICAST_ALL.
-> 
-> In this case, default behaviour is _unchanged_ from the current
-> Linux standard. The socket option is set by default to provide
-> original behaviour. Sockets wishing to receive data only from
-> multicast groups they join explicitly will need to clear this socket
-> option.
-> 
-> 
-> Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
-> Signed-off-by: Christoph Lameter<cl@linux.com>
-> Acked-by: David Stevens <dlstevens@us.ibm.com>
+> Sorry that I overlooked this.
 
-Applied, thanks.
+no problem, but I was just wondering since you normally never miss
+anything on netdev ;)
+
+> Unfortunately, I almost entirely use patchwork to manage my
+> work queue.  So if you're pull request doesn't attach a patch
+> it's possible that it'll get lost in my inbox.  So I suggest
+> attaching a patch to your pull requests, at least for bug
+> fix work, just like John Linville does for wireless.
+> 
+> That also let's me quickly review your work in-place in my
+> mailbox before I even type the git pull command, which helps
+> me a lot.
+> 
+> Anyways, I've pulled in your tree, thanks.
+
+Will have to rewrite my git-sum script, but that should not be a problem
+at all. Thanks for pulling.
+
+Regards
+
+Marcel
+
+
