@@ -1,60 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: io_error_detected callback should return
- PCI_ERS_RESULT_DISCONNECT on permanent failure
-Date: Mon, 01 Jun 2009 18:26:51 -0700 (PDT)
-Message-ID: <20090601.182651.227000394.davem@davemloft.net>
-References: <4A2050B8.7050302@us.ibm.com>
-	<9929d2390906011643q3967535cue22345e6a40a4b14@mail.gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] Fix a race between sky2_down and sky2_poll.
+Date: Tue, 2 Jun 2009 10:40:12 +0900
+Message-ID: <392fb48f0906011840n4914ef32x8aa316358b2ceacc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mmlnx@us.ibm.com, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38307
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754708AbZFBB0v convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Jun 2009 21:26:51 -0400
-In-Reply-To: <9929d2390906011643q3967535cue22345e6a40a4b14@mail.gmail.com>
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:45929 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758846AbZFBBrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Jun 2009 21:47:55 -0400
+Received: by bwz22 with SMTP id 22so7837102bwz.37
+        for <netdev@vger.kernel.org>; Mon, 01 Jun 2009 18:47:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 1 Jun 2009 16:43:39 -0700
+If sky2_down was called between an interrupt and the corresponding sky2_poll,
+rx_ring will have been free'd and we'll crash.
 
-> On Fri, May 29, 2009 at 2:16 PM, Mike Mason <mmlnx@us.ibm.com> wrote:
->> PCI drivers that implement the io_error_detected callback
->> should return PCI_ERS_RESULT_DISCONNECT if the state
->> passed in is pci_channel_io_perm_failure. =A0This state is not check=
-ed in many
->> of the network drivers.
->>
->> This patch fixes the omission in the e1000e driver.
->>
->> Signed-off-by: Mike Mason <mmlnx@us.ibm.com>
->> --- a/drivers/net/e1000e/netdev.c =A0 =A0 =A0 2009-05-23 14:47:00.00=
-0000000 -0700
->> +++ b/drivers/net/e1000e/netdev.c =A0 =A0 =A0 2009-05-29 13:43:24.00=
-0000000 -0700
->> @@ -4616,6 +4616,9 @@ static pci_ers_result_t e1000_io_error_d
->>
->> =A0 =A0 =A0 =A0netif_device_detach(netdev);
->>
->> + =A0 =A0 =A0 if (state =3D=3D pci_channel_io_perm_failure)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return PCI_ERS_RESULT_DISCONNECT;
->> +
->> =A0 =A0 =A0 =A0if (netif_running(netdev))
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0e1000e_down(adapter);
->> =A0 =A0 =A0 =A0pci_disable_device(pdev);
->>
->> --
->=20
-> Looks good.
->=20
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Deal with rx_ring being NULL in sky2_status_intr rather than trying to force
+napi polls to complete before freeing rx_ring.
 
-Jeff, can you simply queue this up into the next batch of Intel
-driver bits you send to me?
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-Thanks!
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index a2ff9cb..1f2a5ab 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1822,8 +1822,8 @@ static int sky2_down(struct net_device *dev)
+ 	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
+ 	gma_write16(hw, port, GM_GP_CTRL, ctrl);
+
+-	/* Make sure no packets are pending */
+-	napi_synchronize(&hw->napi);
++	/* disable soft interrupts */
++	napi_disable(&hw->napi);
+
+ 	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
+
+@@ -1878,6 +1878,9 @@ static int sky2_down(struct net_device *dev)
+ 	sky2->rx_ring = NULL;
+ 	sky2->tx_ring = NULL;
+
++	/* re-enable soft interrupts */
++	napi_enable(&hw->napi);
++
+ 	return 0;
+ }
+
+@@ -2372,6 +2375,16 @@ static int sky2_status_intr(struct sky2_hw *hw,
+int to_do, u16 idx)
+ 		length = le16_to_cpu(le->length);
+ 		status = le32_to_cpu(le->status);
+
++		/*
++		 * rx_ring may have been free'd in sky2_down
++		 * if we are responding to an interrupt queued to
++		 * napi before interrupts were disabled
++		 */
++		if (!sky2->rx_ring) {
++			work_done = to_do;
++			break;
++		}
++
+ 		le->opcode = 0;
+ 		switch (opcode & ~HW_OWNER) {
+ 		case OP_RXSTAT:
+-- 
+1.5.6.5
