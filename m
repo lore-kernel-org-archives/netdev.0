@@ -1,32 +1,31 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: relationship between ingress policer and netfilter hooks?
-Date: Tue, 02 Jun 2009 09:30:07 -0600
-Message-ID: <4A25457F.2070000@nortel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: relationship between ingress policer and netfilter hooks?
+Date: Tue, 02 Jun 2009 19:04:44 +0200
+Message-ID: <4A255BAC.8070406@trash.net>
+References: <4A25457F.2070000@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Chris Friesen <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kp.nortel.com ([47.140.192.56]:59153 "EHLO
-	zrtps0kp.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757221AbZFBPaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 11:30:15 -0400
-Received: from zcarhxs1.corp.nortel.com (casmtp.ca.nortel.com [47.129.230.89])
-	by zrtps0kp.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id n52FUFM10507
-	for <netdev@vger.kernel.org>; Tue, 2 Jun 2009 15:30:15 GMT
+Received: from stinky.trash.net ([213.144.137.162]:44047 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752815AbZFBREn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 13:04:43 -0400
+In-Reply-To: <4A25457F.2070000@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Chris Friesen wrote:
+> Hi all,
+> 
+> Can someone tell me where the hook is for incoming packets to be sent
+> through the ingress policer?
+> 
+> In particular, I'm trying to find out how the ingress traffic shaping
+> hook relates to the various netfilter hooks so that I can set them up to
+> behave nicely together.
 
-Hi all,
-
-Can someone tell me where the hook is for incoming packets to be sent
-through the ingress policer?
-
-In particular, I'm trying to find out how the ingress traffic shaping
-hook relates to the various netfilter hooks so that I can set them up to
-behave nicely together.
-
-Thanks,
-
-Chris
+They're not related at all. The ingress qdisc is hooked at
+net/dev/core.c:handle_ing().
