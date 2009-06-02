@@ -1,51 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
-Date: Tue, 2 Jun 2009 07:24:36 +0000
-Message-ID: <20090602072436.GB4239@ff.dom.local>
-References: <1243684218.3966.83.camel@dogo.mojatatu.com> <20090531081213.GC2756@ami.dom.local> <1243776293.3966.241.camel@dogo.mojatatu.com> <20090531195557.GA2777@ami.dom.local> <1243813216.3966.254.camel@dogo.mojatatu.com> <20090601060638.GA4256@ff.dom.local> <1243861410.3966.268.camel@dogo.mojatatu.com> <20090601204957.GA2760@ami.dom.local> <1243893963.3966.325.camel@dogo.mojatatu.com> <20090602155919.da89c08e.usui@mxm.nes.nec.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
+Date: Tue, 02 Jun 2009 00:25:53 -0700 (PDT)
+Message-ID: <20090602.002553.143476036.davem@davemloft.net>
+References: <200905292344.56814.rusty@rustcorp.com.au>
+	<1243885642.22917.35.camel@pohly-MOBL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, divy@chelsio.com,
+	rolandd@cisco.com, xemul@openvz.org, dcbw@redhat.com,
+	libertas-dev@lists.infradead.org
+To: patrick.ohly@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f216.google.com ([209.85.220.216]:37727 "EHLO
-	mail-fx0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754570AbZFBHYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:24:40 -0400
-Received: by fxm12 with SMTP id 12so6278260fxm.37
-        for <netdev@vger.kernel.org>; Tue, 02 Jun 2009 00:24:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090602155919.da89c08e.usui@mxm.nes.nec.co.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49691
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754706AbZFBHZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:25:52 -0400
+In-Reply-To: <1243885642.22917.35.camel@pohly-MOBL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 02, 2009 at 03:59:19PM +0900, Minoru Usui wrote:
-> On Mon, 01 Jun 2009 18:06:03 -0400
-> jamal <hadi@cyberus.ca> wrote:
-> 
-> > On Mon, 2009-06-01 at 22:49 +0200, Jarek Poplawski wrote:
-> > 
-> > > 
-> > > Actually, I'd insist with the old rock and handling that other rude
-> > > u32 case, at least until it's fixed in place. So I attach my version
-> > > of your patch (additionally I removed a pair of braces because of
-> > > checkpatch warning).
-> > 
-> > Sure, it doesnt complicate anything - Minoru, this is the version to go
-> > for.
-> 
-> I've tested Jarek's patch #1(for cls_api.c).
-> It works fine to me. Thanks Jarek.
-> 
-> 	Tested-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Date: Mon, 01 Jun 2009 21:47:22 +0200
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> On Fri, 2009-05-29 at 23:44 +0930, Rusty Russell wrote:
+>> This patch adds skb_orphan to the start of dev_hard_start_xmit(): it
+>> can be premature in the NETDEV_TX_BUSY case, but that's uncommon.
+> 
+> Would it be possible to make the new skb_orphan() at the start of
+> dev_hard_start_xmit() conditionally so that it is not executed for
+> packets that are to be time stamped?
+> 
+> As discussed before
+> (http://article.gmane.org/gmane.linux.network/121378/), the skb->sk
+> socket pointer is required for sending back the send time stamp from
+> inside the device driver. Calling skb_orphan() unconditionally as in
+> this patch would break the hardware time stamping of outgoing packets.
 
-Actually, as far as I can remember, it's your patch with slight
-modifications by Jamal and me. So please Minoru, resend this patch
-as Jamal previously suggested: with your changelog and Jamal's,
-plus maybe mine (if you don't mind) signed-off-by's.
+Indeed, we need to check that case, at a minimum.
 
-Thanks,
-Jarek P.
+And there are other potentially other problems.  For example, I
+wonder how this interacts with the new TX MMAP af_packet support
+in net-next-2.6 :-/
+
