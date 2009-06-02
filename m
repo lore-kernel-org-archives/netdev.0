@@ -1,46 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
-Date: Tue, 02 Jun 2009 00:25:53 -0700 (PDT)
-Message-ID: <20090602.002553.143476036.davem@davemloft.net>
-References: <200905292344.56814.rusty@rustcorp.com.au>
-	<1243885642.22917.35.camel@pohly-MOBL>
+Subject: Re: [PATCH 1/8] mlx4_en: Giving interface name in debug messages
+Date: Tue, 02 Jun 2009 00:36:29 -0700 (PDT)
+Message-ID: <20090602.003629.79232396.davem@davemloft.net>
+References: <4A1A57AA.1080209@mellanox.co.il>
+	<4A1B92D1.8070907@mellanox.co.il>
+	<4A24C641.6060506@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, divy@chelsio.com,
-	rolandd@cisco.com, xemul@openvz.org, dcbw@redhat.com,
-	libertas-dev@lists.infradead.org
-To: patrick.ohly@intel.com
+Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49691
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48320
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754706AbZFBHZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:25:52 -0400
-In-Reply-To: <1243885642.22917.35.camel@pohly-MOBL>
+	by vger.kernel.org with ESMTP id S1751742AbZFBHg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 03:36:28 -0400
+In-Reply-To: <4A24C641.6060506@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick Ohly <patrick.ohly@intel.com>
-Date: Mon, 01 Jun 2009 21:47:22 +0200
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Tue, 02 Jun 2009 09:27:13 +0300
 
-> On Fri, 2009-05-29 at 23:44 +0930, Rusty Russell wrote:
->> This patch adds skb_orphan to the start of dev_hard_start_xmit(): it
->> can be premature in the NETDEV_TX_BUSY case, but that's uncommon.
+> For each debug message, the message will show interface name in case
+> that the net device was registered, and PCI bus ID with port number
+> if we were not registered yet. Messages that are not port/netdev specific
+> stayed in the old format
 > 
-> Would it be possible to make the new skb_orphan() at the start of
-> dev_hard_start_xmit() conditionally so that it is not executed for
-> packets that are to be time stamped?
-> 
-> As discussed before
-> (http://article.gmane.org/gmane.linux.network/121378/), the skb->sk
-> socket pointer is required for sending back the send time stamp from
-> inside the device driver. Calling skb_orphan() unconditionally as in
-> this patch would break the hardware time stamping of outgoing packets.
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Indeed, we need to check that case, at a minimum.
-
-And there are other potentially other problems.  For example, I
-wonder how this interacts with the new TX MMAP af_packet support
-in net-next-2.6 :-/
-
+So where are the 7 other patches of this 8 patch set?
