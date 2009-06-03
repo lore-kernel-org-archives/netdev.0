@@ -1,180 +1,115 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4/6] net: add NL802154 interface for configuration of
- 802.15.4 devices
-Date: Wed, 03 Jun 2009 13:05:10 +0200
-Message-ID: <1244027110.1693.9.camel@johannes.local>
-References: <1244021629-18409-4-git-send-email-dbaryshkov@gmail.com>
-	 <1244021629-18409-5-git-send-email-dbaryshkov@gmail.com>
-	 <1244021964.10665.5.camel@johannes.local>
-	 <20090603.030911.162861804.davem@davemloft.net>
-	 <20090603105256.GB20508@doriath.ww600.siemens.net>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: null pointer dereference in br_nf_pre_routing_finish (2.6.29.2)
+Date: Wed, 3 Jun 2009 13:43:56 +0300
+Message-ID: <20090603104355.GA16189@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-p0ANSyIOHko/XcZDkfvJ"
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	sfr@canb.auug.org.au, slapin@ossfans.org
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:39602 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751586AbZFCLFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 07:05:16 -0400
-In-Reply-To: <20090603105256.GB20508@doriath.ww600.siemens.net>
+Received: from ee.oulu.fi ([130.231.61.23]:50739 "EHLO ee.oulu.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753432AbZFCLI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2009 07:08:28 -0400
+Received: from tk-cn0002.oulu.fi (tk-cn0002 [130.231.63.2])
+	by ee.oulu.fi (8.14.3/8.14.3) with ESMTP id n53Ahu6x019408
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 3 Jun 2009 13:43:56 +0300 (EEST)
+Received: (from pp@localhost)
+	by tk-cn0002.oulu.fi (8.14.3/8.14.3/Submit) id n53Ahubl016521
+	for netdev@vger.kernel.org; Wed, 3 Jun 2009 13:43:56 +0300
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hitting this one every few days on one machine, e1000 bridged to kvm tap
+devices.
 
---=-p0ANSyIOHko/XcZDkfvJ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2009-06-03 at 14:52 +0400, Dmitry Eremin-Solenikov wrote:
-
-> +	IEEE802154_ATTR_CAPABILITY, /* FIXME: this is association */
-
-Fix what?
-
-> +#define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
-> +#define NLA_HW_ADDR	NLA_U64
-> +#define NLA_GET_HW_ADDR(attr, addr) do { u64 _temp =3D nla_get_u64(attr)=
-; memcpy(addr, &_temp, 8); } while (0)
-> +#define NLA_PUT_HW_ADDR(msg, attr, addr) do { u64 _temp; memcpy(&_temp, =
-addr, 8); NLA_PUT_U64(msg, attr, _temp); } while (0)
-
-I really don't like this namespace pollution.
-
-> +#ifdef IEEE802154_NL_WANT_POLICY
-> +static struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] =3D =
-{
-
-Ho humm. This shouldn't be in a header file. Not even with an #ifdef
-that exactly one C file then sets.
-
-> +	[IEEE802154_ATTR_DURATION] =3D { .type =3D NLA_U8, },
-> +#ifdef __KERNEL__
-> +	[IEEE802154_ATTR_ED_LIST] =3D { .len =3D 27 },
-> +#else
-
-Ick.
-
-> +/* commands */
-> +/* REQ should be responded with CONF
-> + * and INDIC with RESP
-> + */
-> +enum {
-
-kernel-doc explaining the commands would be immensely helpful.
-
-
-> +	IEEE802154_GTS_REQ, /* Not supported yet */
-> +	IEEE802154_GTS_INDIC, /* Not supported yet */
-> +	IEEE802154_GTS_CONF, /* Not supported yet */
-> +	IEEE802154_RX_ENABLE_REQ, /* Not supported yet */
-> +	IEEE802154_RX_ENABLE_CONF, /* Not supported yet */
-
-Just leave it out then. You're fixing ABI here.
-
-> +#ifdef __KERNEL__
-> +struct net_device;
-> +
-> +int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_=
-addr *addr, u8 cap);
-> +int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr, =
-u8 status);
-> +int ieee802154_nl_disassoc_indic(struct net_device *dev, struct ieee8021=
-54_addr *addr, u8 reason);
-> +int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status);
-> +int ieee802154_nl_scan_confirm(struct net_device *dev, u8 status, u8 sca=
-n_type, u32 unscanned,
-> +		u8 *edl/*, struct list_head *pan_desc_list */);
-> +int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid, u16 co=
-ord_addr); /* TODO */
-> +#endif
-
-Why not just use two header files, one in net/ and one in linux/?
-
-> -obj-$(CONFIG_IEEE802154) +=3D	af_802154.o
-> +obj-$(CONFIG_IEEE802154) +=3D	nl802154.o af_802154.o
-> +nl802154-objs		:=3D netlink.o
-
-That doesn't make any sense. Why the indirection?
-
-> +#include <net/ieee802154/af_ieee802154.h>
-> +#define IEEE802154_NL_WANT_POLICY
-> +#include <net/ieee802154/nl802154.h>
-
-Like I thought. That's ugly.
-
-> +static int ieee802154_nl_put_failure(struct sk_buff *msg)
-> +{
-> +	void *hdr =3D genlmsg_data(NLMSG_DATA(msg->data)); /* XXX: nlh is right=
- at the start of msg */
-> +	genlmsg_cancel(msg, hdr);
-> +	nlmsg_free(msg);
-> +	return -ENOBUFS;
-> +}
-
-This seems weird.
-
-> +int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_=
-addr *addr, u8 cap)
-> +{
-> +	struct sk_buff *msg;
-> +
-> +	pr_debug("%s\n", __func__);
-> +
-> +	msg =3D ieee802154_nl_create(/* flags*/ 0, IEEE802154_ASSOCIATE_INDIC);
-> +	if (!msg)
-> +		return -ENOBUFS;
-> +
-> +	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-> +	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-> +	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-> +
-> +	/* FIXME: check that we really received hw address */
-> +	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_SRC_HW_ADDR, addr->hwaddr);
-
-?
-
-
-> +static int ieee802154_associate_req(struct sk_buff *skb, struct genl_inf=
-o *info)
-> +{
-> +	struct net_device *dev;
-> +	struct ieee802154_addr addr;
-> +	int ret =3D -EINVAL;
-> +
-> +	if (!info->attrs[IEEE802154_ATTR_CHANNEL]
-> +	 || !info->attrs[IEEE802154_ATTR_COORD_PAN_ID]
-> +	 || (!info->attrs[IEEE802154_ATTR_COORD_HW_ADDR] && !info->attrs[IEEE80=
-2154_ATTR_COORD_SHORT_ADDR])
-> +	 || !info->attrs[IEEE802154_ATTR_CAPABILITY])
-> +		return -EINVAL;
-
-That's some odd coding style.
-
-johannes
-
---=-p0ANSyIOHko/XcZDkfvJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKJljiAAoJEODzc/N7+QmaVmkP/3FA0KEHQ04UEG/hfpiwyqJ0
-Te/zU/qQohLIvUCEFAY3MsyUnWHjO9jw7OTph107a3GovwNY4BnhQYct3OrJJg9j
-MsTbzsLbgmvN1EN0EHQObRzMQcyuRtFDU6aSeqKt83Ky+rByFYsTiG/mPzTepv5e
-uLNHTUrSCBFfj1YvN9zEXYsu+g20vrulDv4MgaFPAZItyx/0G2Q7GWZwzQiIk0l0
-xbCQhYvvfA7eH/WnJY0Xq8Sg71w3tb0yVX+7vQPiMh1nLl3CXctvAzZhny0nvi5J
-myUOdVrPmjsGduiSx6jQcQdjW490fx8rLArw4TonmRdVPzvC1fUb50SlIWncIHHH
-ZyYSgmzpoI6y/NJgjd2Wjhc2qLPAv3WzNiMg+TQuRZKqJ2+ni8PxFO5Szuyc672x
-SxhbcnQMQgv3Htcg11omBXBUmiEpaOytlfMGp3AJfM0smdWStXhYgoRKHOw6Ljt/
-Zz8ig0vEgnJHK7pKTwpwaI8VOr+UBHdPW+QEj+2L/T4RlobhZ3mfUmo1xrK9fVvg
-7q1Q89HFTIUq5DGnFUjPKamXP6f3fY0cqEDIgsYIw3eScjTZelnP91qiQkSPkeSF
-e6p5LthGh3T3XeMoK9gHkivFKvqVTQPo4k68jhfIrNY9FD6E0QyUASKj6k5pl1jV
-6jpMB8sFcLHOU6TWWii8
-=niFm
------END PGP SIGNATURE-----
-
---=-p0ANSyIOHko/XcZDkfvJ--
-
+BUG: unable to handle kernel NULL pointer dereference at 000000008
+IP: [<ffffffffa0262a3a>] br_nf_pre_routing_finish+0x2a/0x285 [bridge]
+PGD 41b8a9067 PUD 41b8ec067 PMD 0
+Oops: 0000 [#1] SMP
+last sysfs file: /sys/devices/pci0000:00/0000:00:04.0/0000:0c:00.1/irq
+CPU 2
+Modules linked in: tun ipt_MASQUERADE iptable_nat nf_nat nfs lockd nfs_acl
+auth]
+Pid: 0, comm: swapper Not tainted 2.6.29.2-52.fc10.x86_64 #1 PowerEdge 1950
+RIP: 0010:[<ffffffffa0262a3a>]  [<ffffffffa0262a3a>]
+br_nf_pre_routing_finish+0]
+RSP: 0018:ffff88042e53fb50  EFLAGS: 00010286
+RAX: 0000000000000000 RBX: ffff88042cc6ff00 RCX: ffff88042cc6ff01
+RDX: 0000000000000002 RSI: 0000000000000020 RDI: ffff880422a32000
+RBP: ffff88042e53fbd0 R08: ffffffffa0262a10 R09: ffffffff8159a6c0
+R10: ffffffff8159b400 R11: 000000022e53f9f0 R12: 0000000000000000
+R13: 0000000000000000 R14: ffff88042291e000 R15: ffff88042cc6ff00
+FS:  0000000000000000(0000) GS:ffff88042e4c5a00(0000) knlGS:0000000000000000
+CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+CR2: 0000000000000018 CR3: 000000041b8de000 CR4: 00000000000026e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process swapper (pid: 0, threadinfo ffff88042e53a000, task ffff88042e532e00)
+Stack:
+ ffffffffa0262a10 0000000000000000 ffff88042e53fbd0 ffffffff812f5b8f
+ ffffffffa0262a10 ffffffff80000000 ffffffff80000000 00000002a0033a00
+ ffff88042291e000 0000000000000246 ffffffff8159a6c0 ffff88042cc6ff00
+Call Trace:
+ <IRQ> <0> [<ffffffffa0262a10>] ? br_nf_pre_routing_finish+0x0/0x285
+[bridge]
+ [<ffffffff812f5b8f>] ? nf_hook_slow+0x63/0xc3
+ [<ffffffffa0262a10>] ? br_nf_pre_routing_finish+0x0/0x285 [bridge]
+ [<ffffffffa0263238>] br_nf_pre_routing+0x5a3/0x5c2 [bridge]
+[<ffffffff812f5aef>] nf_iterate+0x43/0x80
+ [<ffffffffa025e828>] ? br_handle_frame_finish+0x0/0x14f [bridge]
+ [<ffffffff812f5b8f>] nf_hook_slow+0x63/0xc3
+ [<ffffffffa025e828>] ? br_handle_frame_finish+0x0/0x14f [bridge]
+ [<ffffffff81181e71>] ? cpumask_next_and+0x2b/0x3c
+ [<ffffffffa025eb23>] br_handle_frame+0x1ac/0x1d5 [bridge]
+ [<ffffffff812d95a7>] netif_receive_skb+0x311/0x42f
+ [<ffffffff812d9c34>] napi_gro_receive+0x69/0x7e
+ [<ffffffffa011a70b>] e1000_receive_skb+0x57/0x60 [e1000e]
+ [<ffffffffa011a8f0>] e1000_clean_rx_irq+0x1dc/0x28a [e1000e]
+ [<ffffffff81016e98>] ? read_tsc+0xe/0x24
+ [<ffffffffa011bdf3>] e1000_clean+0x94/0x245 [e1000e]
+ [<ffffffff81029cef>] ? default_spin_lock_flags+0x9/0xe
+ [<ffffffff812d7d9e>] net_rx_action+0xb3/0x1af
+ [<ffffffff8104db44>] __do_softirq+0x94/0x150
+ [<ffffffff8101274c>] call_softirq+0x1c/0x30
+ [<ffffffff81013869>] do_softirq+0x4d/0xb4
+ [<ffffffff8104d792>] irq_exit+0x4e/0x88
+ [<ffffffff81013b77>] do_IRQ+0x130/0x155
+ [<ffffffff81011e93>] ret_from_intr+0x0/0x2e
+ <EOI> <0> [<ffffffff81017af1>] ? mwait_idle+0x99/0xc2
+ [<ffffffff81017ae8>] ? mwait_idle+0x90/0xc2
+ [<ffffffff81376f01>] ? atomic_notifier_call_chain+0x13/0x15
+ [<ffffffff81010272>] ? enter_idle+0x22/0x24
+ [<ffffffff810102d7>] ? cpu_idle+0x63/0xac
+ [<ffffffff8136e17f>] ? start_secondary+0x19a/0x19f
+Code: c3 55 48 89 e5 41 56 41 55 41 54 53 48 89 fb 48 83 ec 60 4c 8b ab 98
+00 0
+RIP  [<ffffffffa0262a3a>] br_nf_pre_routing_finish+0x2a/0x285 [bridge]
+ RSP <ffff88042e53fb50>
+CR2: 0000000000000018
+BUG: scheduling while atomic: swapper/0/0x10000100
+Modules linked in: tun ipt_MASQUERADE iptable_nat nf_nat nfs lockd nfs_acl
+auth]
+CPU 2:
+Modules linked in: tun ipt_MASQUERADE iptable_nat nf_nat nfs lockd nfs_acl
+auth]
+Pid: 0, comm: swapper Not tainted 2.6.29.2-52.fc10.x86_64 #1 PowerEdge 1950
+RIP: 0010:[<ffffffff81017af1>]  [<ffffffff81017af1>] mwait_idle+0x99/0xc2
+RSP: 0018:ffff88042e53bee8  EFLAGS: 00000246
+RAX: 0000000000000000 RBX: ffff88042e53bf08 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffff88042e53bee8
+RBP: ffffffff81011e8e R08: 0000000000000000 R09: ffffffffffffff10
+R10: ffff88042e4df188 R11: ffff88042e52d118 R12: 0000000000000040
+R13: ffff8800a694d000 R14: ffff88042e53a000 R15: ffffffff8170c910
+FS:  0000000000000000(0000) GS:ffff88042e4c5a00(0000) knlGS:0000000000000000
+CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+CR2: 0000000000000018 CR3: 000000041b8de000 CR4: 00000000000026e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Call Trace:
+ [<ffffffff81017ae8>] ? mwait_idle+0x90/0xc2
+ [<ffffffff81376f01>] ? atomic_notifier_call_chain+0x13/0x15
+ [<ffffffff81010272>] ? enter_idle+0x22/0x24
+ [<ffffffff810102d7>] ? cpu_idle+0x63/0xac
+ [<ffffffff8136e17f>] ? start_secondary+0x19a/0x19f
