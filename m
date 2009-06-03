@@ -1,36 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: 2.6.30-rc8 and net state...
-Date: Tue, 02 Jun 2009 21:53:09 -0700 (PDT)
-Message-ID: <20090602.215309.260215486.davem@davemloft.net>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: [PATCH] tun: virtio net is not compatible with LRO
+Date: Tue, 2 Jun 2009 22:23:35 -0700
+Message-ID: <20090603052335.GA20823@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56000
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753332AbZFCExI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 00:53:08 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 86A90C8C1B4
-	for <netdev@vger.kernel.org>; Tue,  2 Jun 2009 21:53:09 -0700 (PDT)
+Received: from sous-sol.org ([216.99.217.87]:52472 "EHLO sequoia.sous-sol.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752107AbZFCFYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2009 01:24:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The current failure mode for an LRO device bridged to a virtio device
+(common for KVM) is BUG().  Rather than crashing the host, we can at
+least limp along and give a warning.  lro_flush() will set gso_size,
+but no corresponding gso_type, unlike gro which will eventually call
+->gro_complete and set up proper gso_type.
 
-With 2.6.30-rc8 just going out, and probably being the very
-last RC with a final 2.6.30 release anticipated this weekend
-I really do not expect to add anything to net-2.6 at this
-point.
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+---
+ drivers/net/tun.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-Don't even think about suggesting a change goes into net-2.6,
-really, we're that frozen :-)
-
-There are ~35 patches in the patchwork queue for networking,
-most of which were posted today, so I should be able to merge
-the vast majority of those quickly.
-
-My personal play is to make some more attempts at moving sk_buff
-over to using struct list_head, but if that isn't completed in
-time for the 2.6.31 merge window it won't be the end of the world
-I suppose.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 735bf41..17c4516 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -717,8 +717,15 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+-			else
+-				BUG();
++			else {
++				WARN_ONCE(1, "%s: hdr_len %d gso_size %d "
++					   "gso_type %x.  virtio is not "
++					   "compatible with LRO, verify NIC "
++					    "isn't using LRO", __func__,
++					    gso.hdr_len, gso.gso_size,
++					    sinfo->gso_type);
++				return -EINVAL;
++			}
+ 			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+ 				gso.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+ 		} else
