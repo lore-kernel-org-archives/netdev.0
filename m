@@ -1,48 +1,62 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6 ] ipv4: remove ip_mc_drop_socket() declaration
-	from af_inet.c.
-Date: Wed, 3 Jun 2009 23:47:04 +0300
-Message-ID: <eb3ff54b0906031347l13de166du58abb40d74e931b6@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: Question regarding protocol specific mtu for FCoE
+Date: Wed, 03 Jun 2009 21:57:17 +0100
+Message-ID: <1244062637.3191.23.camel@achroite>
+References: <7C88852EF6F99F4EB538472FCFEBE2223A7E6F45@orsmsx509.amr.corp.intel.com>
+	 <4A26BAF7.3070301@hp.com>
+	 <7C88852EF6F99F4EB538472FCFEBE2223A7E6FBD@orsmsx509.amr.corp.intel.com>
+	 <1244057245.3191.17.camel@achroite>
+	 <7C88852EF6F99F4EB538472FCFEBE2223A7E7050@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=00151748de6c0d298c046b77c3a2
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f212.google.com ([209.85.219.212]:57253 "EHLO
-	mail-ew0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754820AbZFCUyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 16:54:15 -0400
-Received: by ewy8 with SMTP id 8so484559ewy.40
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 13:54:15 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---00151748de6c0d298c046b77c3a2
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	"Dev, Vasu" <vasu.dev@intel.com>,
+	"Love, Robert W" <robert.w.love@intel.com>,
+	"Ma, Steve" <steve.ma@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: "Zou, Yi" <yi.zou@intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <7C88852EF6F99F4EB538472FCFEBE2223A7E7050@orsmsx509.amr.corp.intel.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 2009-06-03 at 13:43 -0700, Zou, Yi wrote:
+> >On Wed, 2009-06-03 at 12:16 -0700, Zou, Yi wrote:
+> >[...]
+> >> FCoE is on L2 layer, no path specific MTU, everything goes out as
+> >> whatever mtu known to the nic. Since the nic is expected to be used
+> >for
+> >> converged traffic involving multiple traffic types, e.g. LAN, FCoE, I
+> >> was wondering if it makes sense to have the additional MTU.
+> >Essentially,
+> >> the nic driver will be able to setup via netdev for different MTUs
+> >for
+> >> converged traffic.
+> >
+> >Wouldn't you use separate VLANs for FCoE and other traffic?  So maybe
+> >we
+> >should allow for per-VLAN rather than per-protocol MTU.
+> >
+> >Ben.
+> >
+> From what I can tell, you will not be able to set vlan device's MTU
+> that is larger than the real_dev->mtu, as in vlan_dev_change_mtu().
 
-ip_mc_drop_socket() method is declared in linux/igmp.h, which
-is included anyhow in af_inet.c. So there is no need for this declaration.
-This patch removes it from af_inet.c.
+Yes, I know this restriction exists at the moment.  But the device MTU
+(the limit for dependent virtual devices) could perhaps be decoupled
+from the interface MTU (the limit for protocols) and automatically
+raised when necessary.  I think something like that is necessary for
+your proposal too.
 
-Regards,
-Rami Rosen
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---00151748de6c0d298c046b77c3a2
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fvii9yiu0
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2FmX2luZXQuYyBiL25ldC9pcHY0L2FmX2luZXQuYwppbmRl
-eCBkODczNjIxLi41NjZlYTZjIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9hZl9pbmV0LmMKKysrIGIv
-bmV0L2lwdjQvYWZfaW5ldC5jCkBAIC0xMTYsNyArMTE2LDYgQEAKICNpbmNsdWRlIDxsaW51eC9t
-cm91dGUuaD4KICNlbmRpZgogCi1leHRlcm4gdm9pZCBpcF9tY19kcm9wX3NvY2tldChzdHJ1Y3Qg
-c29jayAqc2spOwogCiAvKiBUaGUgaW5ldHN3IHRhYmxlIGNvbnRhaW5zIGV2ZXJ5dGhpbmcgdGhh
-dCBpbmV0X2NyZWF0ZSBuZWVkcyB0bwogICogYnVpbGQgYSBuZXcgc29ja2V0Lgo=
---00151748de6c0d298c046b77c3a2--
