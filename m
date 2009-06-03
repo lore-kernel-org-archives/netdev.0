@@ -1,103 +1,65 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: e100 kills S2R on my box, plus network drops dead
-Date: Wed, 3 Jun 2009 08:30:25 +0200
-Message-ID: <20090603063025.GA32600@rhlx01.hs-esslingen.de>
-References: <20081228.000118.121541932.davem@davemloft.net>
-	<20081229102515.GA17171@rhlx01.hs-esslingen.de>
-	<20081229091728.d869f1c1.akpm@linux-foundation.org>
-	<9929d2390812291515y623d6a51yed1bef021ab6847e@mail.gmail.com>
-	<20081230120756.GA5393@rhlx01.hs-esslingen.de>
-	<20090228203757.GA18850@rhlx01.hs-esslingen.de>
-	<9929d2390903010257p7c6fb367ga974767605033bc9@mail.gmail.com>
-	<20090301212412.GA13210@rhlx01.hs-esslingen.de>
-	<20090602214852.GA3095@rhlx01.hs-esslingen.de>
-	<20090603060123.GA17558@rhlx01.hs-esslingen.de>
-Reply-To: andi@lisas.de
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 03 Jun 2009 09:06:37 +0200
+Message-ID: <4A2620FD.8030708@trash.net>
+References: <298f5c050905281113o10393c61ye3c0539d2b6efa20@mail.gmail.com> <20090528211258.GA3658@ami.dom.local> <298f5c050905291002j468aa6e6j9a28252507717660@mail.gmail.com> <20090530200756.GF3166@ami.dom.local> <298f5c050906020312r514c4638sfa2b504f55d71bc1@mail.gmail.com> <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com> <20090602123635.GC4239@ff.dom.local> <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rjw@sisk.pl, e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: andi@lisas.de
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20090603060123.GA17558@rhlx01.hs-esslingen.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:58896 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256AbZFCHGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 03:06:39 -0400
+In-Reply-To: <4A259EB2.5010500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Wed, Jun 03, 2009 at 08:01:23AM +0200, Andreas Mohr wrote:
-> IOW, we have _two_ issues:
+Jarek Poplawski wrote:
+> Jarek Poplawski wrote, On 06/02/2009 11:37 PM:
+> ...
 > 
-> - that PM suspend part here doesn't support non-PM PCI cards
-> - PM suspend breaks networking stuff (or is that caused by incomplete reinitialization of my card,
->   thus it's not network-suitable after resume and hangs on some network APIs?)
+>> I described the reasoning here:
+>> http://permalink.gmane.org/gmane.linux.network/128189
 > 
-> What to do?
+> The link is stuck now, so here is a quote:
+
+Thanks.
+
+> Jarek Poplawski wrote, On 05/17/2009 10:15 PM:
 > 
-> (I should have provided some SysRq-T(?) lock traces I guess, will record that now)
+>> Here is some additional explanation. It looks like these rates above
+>> 500Mbit hit the design limits of packet scheduling. Currently used
+>> internal resolution PSCHED_TICKS_PER_SEC is 1,000,000. 550Mbit rate
+>> with 800byte packets means 550M/8/800 = 85938 packets/s, so on average
+>> 1000000/85938 = 11.6 ticks per packet. Accounting only 11 ticks means
+>> we leave 0.6*85938 = 51563 ticks per second, letting for additional
+>> sending of 51563/11 = 4687 packets/s or 4687*800*8 = 30Mbit. Of course
+>> it could be worse (0.9 tick/packet lost) depending on packet sizes vs.
+>> rates, and the effect rises for higher rates.
 
-Those were not too useful methinks, but I can provide them if need be.
+I see. Unfortunately changing the scaling factors is pushing the lower
+end towards overflowing. For example Denys Fedoryshchenko reported some
+breakage a few years ago when I changed the iproute-internal factors
+triggered by this command:
 
-> Oh, and I will test whether eepro100 S2R works on that machine, and if
-> so what that driver does to avoid trouble.
+.. tbf buffer 1024kb latency 500ms rate 128kbit peakrate 256kbit 
+minburst 16384
 
-Well, yes, eepro100 (2.6.28.10) does achieve successful S2R,
-and I _do_ have working network even after resume (which is not too astonishing
-since it almost takes active measures to NOT make this card work,
-given that it's fully auto-configuring on the transceiver side)
+The burst size calculated by TBF with the current parameters is
+64000000. Increasing it by a factor of 16 as in your patch results
+in 1024000000. Which means we're getting dangerously close to
+overflowing, a buffer size increase or a rate decrease of slightly
+bigger than factor 4 will already overflow.
 
-
-
-static int eepro100_suspend(struct pci_dev *pdev, pm_message_t state)
-{
-        struct net_device *dev = pci_get_drvdata (pdev);
-        struct speedo_private *sp = netdev_priv(dev);
-        void __iomem *ioaddr = sp->regs;
-
-        pci_save_state(pdev);
-
-        if (!netif_running(dev))
-                return 0;
-
-        del_timer_sync(&sp->timer);
-
-        netif_device_detach(dev);
-        iowrite32(PortPartialReset, ioaddr + SCBPort);
-
-        /* XXX call pci_set_power_state ()? */
-        pci_disable_device(pdev);
-        pci_set_power_state (pdev, PCI_D3hot);
-        return 0;
-}
-
-
-That's pretty boring code, linearily executing stuff without checking
-results, thus it's unsurprising that it does not prevent suspend
-on a non-PM PCI card.
-
-
-So, what to do to fix those suspend issues on the e100 side of things?
-And do we perhaps have similar non-PM PCI card support issues
-with other drivers?
-
-
-Thanks,
-
-Andreas Mohr
-
-------------------------------------------------------------------------------
-OpenSolaris 2009.06 is a cutting edge operating system for enterprises 
-looking to deploy the next generation of Solaris that includes the latest 
-innovations from Sun and the OpenSource community. Download a copy and 
-enjoy capabilities such as Networking, Storage and Virtualization. 
-Go to: http://p.sf.net/sfu/opensolaris-get
+Mid-term we really need to move to 64 bit values and ns resolution,
+otherwise this problem is just going to reappear as soon as someone
+tries 10gbit. Not sure what the best short term fix is, I feel a bit
+uneasy about changing the current factors given how close this brings
+us towards overflowing.
