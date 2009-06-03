@@ -1,45 +1,86 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: Question regarding protocol specific mtu for FCoE
-Date: Wed, 3 Jun 2009 14:17:21 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0906031407190.5072@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <7C88852EF6F99F4EB538472FCFEBE2223A7E6F45@orsmsx509.amr.corp.intel.com>
- <4A26BAF7.3070301@hp.com> <7C88852EF6F99F4EB538472FCFEBE2223A7E6FBD@orsmsx509.amr.corp.intel.com>
- <4A26E4AE.4020607@hp.com>
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: Re: [PATCH net-next-2.6 1/1] e1000e: Expose MDI-X status via ethtool
+ 	change
+Date: Wed, 03 Jun 2009 14:19:11 -0700
+Message-ID: <4A26E8CF.50700@riverbed.com>
+References: <1243353768.3188.2.camel@achroite>	 <20090527231542.GA19664@clala-laptop>	 <1244050462.3191.14.camel@achroite> <4A26B6BC.40605@riverbed.com> <9929d2390906031404j51d9d158i319ba84121212a6e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Zou, Yi" <yi.zou@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"Leech, Christopher" <christopher.leech@intel.com>,
-	"Dev, Vasu" <vasu.dev@intel.com>,
-	"Love, Robert W" <robert.w.love@intel.com>,
-	"Ma, Steve" <steve.ma@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <4A26E4AE.4020607@hp.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.riverbed.com ([206.169.144.12]:46185 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752512AbZFCVSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:18:16 -0400
+In-Reply-To: <9929d2390906031404j51d9d158i319ba84121212a6e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 1) the "HW MTU" used by the NIC and the guts of the driver
-> 2) the legacy networking (eg IP etc) MTU passed up through the legacy path
-> 3) the fcoe MTU passed up through the fcoe path
-> 
-> where 1 is the max of 2,3
+Jeff Kirsher wrote:
+> On Wed, Jun 3, 2009 at 10:45 AM, Chaitanya Lala <clala@riverbed.com> =
+wrote:
+>  =20
+>> Ben Hutchings wrote:
+>>    =20
+>>> On Wed, 2009-05-27 at 16:15 -0700, Chaitanya Lala wrote:
+>>> [...]
+>>>
+>>>      =20
+>>>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>>>> index 380b042..b553bdb 100644
+>>>> --- a/include/linux/ethtool.h
+>>>> +++ b/include/linux/ethtool.h
+>>>> @@ -30,7 +30,8 @@ struct ethtool_cmd {
+>>>>        __u32   maxtxpkt;       /* Tx pkts before generating tx int=
+ */
+>>>>        __u32   maxrxpkt;       /* Rx pkts before generating rx int=
+ */
+>>>>        __u16   speed_hi;
+>>>> -       __u16   reserved2;
+>>>> +       __u8    is_mdix;
+>>>>
+>>>>        =20
+>>> Since this is specific to Ethernet over=EF=BB=BF twisted-pair cable=
+, could you
+>>> please rename this to "eth_tp_mdix".
+>>>
+>>>      =20
+>> Will do for sure.
+>>    =20
+>>>      =20
+>>>> +       __u8    reserved2;
+>>>>        __u32   lp_advertising; /* Features the link partner advert=
+ises */
+>>>>        __u32   reserved[2];
+>>>>  };
+>>>> @@ -632,6 +633,11 @@ struct ethtool_ops {
+>>>>  #define AUTONEG_DISABLE                0x00
+>>>>  #define AUTONEG_ENABLE         0x01
+>>>>  +/* Mode MDI or MDI-X */
+>>>> +#define MDI_INVALID 0x00
+>>>> +#define MDI         0x01
+>>>> +#define MDI_X       0x02
+>>>>
+>>>>        =20
+>>> [...]
+>>>
+>>> Similarly, please add the prefix "ETH_TP_" to these.
+>>>
+>>>      =20
+>> Sure.
+>>    =20
+>
+> Chaitanya, I have made the requested changes to the patch in my tree.
+>
+>  =20
+Thanks. I am very new to procedure of submitting kernel patches. Just=20
+want to make sure if this means that I not need to send another patch t=
+o=20
+netdev ?
 
-Whatever is decided to do is going to be targeted at ixgbe first.  The 
-scenario you outlined here is exactly how ixgbe hardware works:
-
-- Set HLREG0 to enable jumbo frames.  This allows larger frames to be 
-accepted, but doesn't limit them to any minimum size.
-
-- Set MHADD (for 82598) or MAXFRS (for 82599 - same register, new name) to 
-indicate what the absolute maximum frame size you will receive.  Again, 
-doesn't limit the minimum size.
-
-- The networking software can send any size up to MAXFRS (maximum frame 
-size) and the hardware will happily receive it and pass it up the stack.
-
-Cheers,
--PJ Waskiewicz
+Thanks,
+Chaitanya
