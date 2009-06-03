@@ -1,754 +1,180 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH 4/6] net: add NL802154 interface for configuration of
-	802.15.4 devices
-Date: Wed, 3 Jun 2009 14:52:56 +0400
-Message-ID: <20090603105256.GB20508@doriath.ww600.siemens.net>
-References: <1244021629-18409-4-git-send-email-dbaryshkov@gmail.com> <1244021629-18409-5-git-send-email-dbaryshkov@gmail.com> <1244021964.10665.5.camel@johannes.local> <20090603.030911.162861804.davem@davemloft.net>
+ 802.15.4 devices
+Date: Wed, 03 Jun 2009 13:05:10 +0200
+Message-ID: <1244027110.1693.9.camel@johannes.local>
+References: <1244021629-18409-4-git-send-email-dbaryshkov@gmail.com>
+	 <1244021629-18409-5-git-send-email-dbaryshkov@gmail.com>
+	 <1244021964.10665.5.camel@johannes.local>
+	 <20090603.030911.162861804.davem@davemloft.net>
+	 <20090603105256.GB20508@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, linux-kernel@vger.kernel.org,
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-p0ANSyIOHko/XcZDkfvJ"
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
 	sfr@canb.auug.org.au, slapin@ossfans.org
-To: David Miller <davem@davemloft.net>
+To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:13979 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755448AbZFCKxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 06:53:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20090603.030911.162861804.davem@davemloft.net>
+Received: from xc.sipsolutions.net ([83.246.72.84]:39602 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586AbZFCLFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 07:05:16 -0400
+In-Reply-To: <20090603105256.GB20508@doriath.ww600.siemens.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2009 at 03:09:11AM -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Wed, 03 Jun 2009 11:39:24 +0200
-> 
-> > On Wed, 2009-06-03 at 13:33 +0400, Dmitry Eremin-Solenikov wrote:
-> > 
-> >> +enum {
-> >> +	__IEEE802154_COMMAND_INVALID,
-> >> +
-> >> +	IEEE802154_ASSOCIATE_REQ,
-> >> +	IEEE802154_ASSOCIATE_CONF,
-> >> +	IEEE802154_DISASSOCIATE_REQ,
-> >> +	IEEE802154_DISASSOCIATE_CONF,
-> >> +	IEEE802154_GET_REQ,
-> >> +	IEEE802154_GET_CONF,
-> >> +/* 	IEEE802154_GTS_REQ, */
-> >> +/* 	IEEE802154_GTS_CONF, */
-> >> +	IEEE802154_RESET_REQ,
-> >> +	IEEE802154_RESET_CONF,
-> >> +/* 	IEEE802154_RX_ENABLE_REQ, */
-> >> +/* 	IEEE802154_RX_ENABLE_CONF, */
-> > 
-> > This is a recipe for disaster. Somebody will come along and uncomment
-> > things. Why this is bad, I leave as an exercise for the reader.
-> 
-> Right, it changes the other request numbers and breaks userspace.
-> 
-> Dmitry you have to pick these numbers as fixed numbers now and do
-> so in such a way that they will remain unchanged forever because
-> they are part of the user visible interface.
+
+--=-p0ANSyIOHko/XcZDkfvJ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2009-06-03 at 14:52 +0400, Dmitry Eremin-Solenikov wrote:
+
+> +	IEEE802154_ATTR_CAPABILITY, /* FIXME: this is association */
+
+Fix what?
+
+> +#define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
+> +#define NLA_HW_ADDR	NLA_U64
+> +#define NLA_GET_HW_ADDR(attr, addr) do { u64 _temp =3D nla_get_u64(attr)=
+; memcpy(addr, &_temp, 8); } while (0)
+> +#define NLA_PUT_HW_ADDR(msg, attr, addr) do { u64 _temp; memcpy(&_temp, =
+addr, 8); NLA_PUT_U64(msg, attr, _temp); } while (0)
+
+I really don't like this namespace pollution.
+
+> +#ifdef IEEE802154_NL_WANT_POLICY
+> +static struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] =3D =
+{
+
+Ho humm. This shouldn't be in a header file. Not even with an #ifdef
+that exactly one C file then sets.
+
+> +	[IEEE802154_ATTR_DURATION] =3D { .type =3D NLA_U8, },
+> +#ifdef __KERNEL__
+> +	[IEEE802154_ATTR_ED_LIST] =3D { .len =3D 27 },
+> +#else
+
+Ick.
+
+> +/* commands */
+> +/* REQ should be responded with CONF
+> + * and INDIC with RESP
+> + */
+> +enum {
+
+kernel-doc explaining the commands would be immensely helpful.
 
 
->From 733dcc791aef46e029e696c9c986e74916ff596b Mon Sep 17 00:00:00 2001
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Wed, 3 Jun 2009 14:43:41 +0400
-Subject: [PATCH 4/6] net: add NL802154 interface for configuration of 802.15.4 devices
+> +	IEEE802154_GTS_REQ, /* Not supported yet */
+> +	IEEE802154_GTS_INDIC, /* Not supported yet */
+> +	IEEE802154_GTS_CONF, /* Not supported yet */
+> +	IEEE802154_RX_ENABLE_REQ, /* Not supported yet */
+> +	IEEE802154_RX_ENABLE_CONF, /* Not supported yet */
 
-Add a netlink interface for configuration of IEEE 802.15.4 device. Also this
-interface specifies events notification sent by devices towards higher layers.
+Just leave it out then. You're fixing ABI here.
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Signed-off-by: Sergey Lapin <slapin@ossfans.org>
----
- include/net/ieee802154/nl802154.h |  166 +++++++++++++
- net/ieee802154/Makefile           |    3 +-
- net/ieee802154/netlink.c          |  485 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 653 insertions(+), 1 deletions(-)
- create mode 100644 include/net/ieee802154/nl802154.h
- create mode 100644 net/ieee802154/netlink.c
+> +#ifdef __KERNEL__
+> +struct net_device;
+> +
+> +int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_=
+addr *addr, u8 cap);
+> +int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr, =
+u8 status);
+> +int ieee802154_nl_disassoc_indic(struct net_device *dev, struct ieee8021=
+54_addr *addr, u8 reason);
+> +int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status);
+> +int ieee802154_nl_scan_confirm(struct net_device *dev, u8 status, u8 sca=
+n_type, u32 unscanned,
+> +		u8 *edl/*, struct list_head *pan_desc_list */);
+> +int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid, u16 co=
+ord_addr); /* TODO */
+> +#endif
 
-diff --git a/include/net/ieee802154/nl802154.h b/include/net/ieee802154/nl802154.h
-new file mode 100644
-index 0000000..6ff5a83
---- /dev/null
-+++ b/include/net/ieee802154/nl802154.h
-@@ -0,0 +1,166 @@
-+/*
-+ * ieee802154_nl.h
-+ *
-+ * Copyright (C) 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ */
-+
-+#ifndef IEEE802154_NL_H
-+#define IEEE802154_NL_H
-+
-+#define IEEE802154_NL_NAME "802.15.4 MAC"
-+#define IEEE802154_MCAST_COORD_NAME "coordinator"
-+#define IEEE802154_MCAST_BEACON_NAME "beacon"
-+
-+enum {
-+	__IEEE802154_ATTR_INVALID,
-+
-+	IEEE802154_ATTR_DEV_NAME,
-+	IEEE802154_ATTR_DEV_INDEX,
-+
-+	IEEE802154_ATTR_STATUS,
-+
-+	IEEE802154_ATTR_SHORT_ADDR,
-+	IEEE802154_ATTR_HW_ADDR,
-+	IEEE802154_ATTR_PAN_ID,
-+
-+	IEEE802154_ATTR_CHANNEL,
-+
-+	IEEE802154_ATTR_COORD_SHORT_ADDR,
-+	IEEE802154_ATTR_COORD_HW_ADDR,
-+	IEEE802154_ATTR_COORD_PAN_ID,
-+
-+	IEEE802154_ATTR_SRC_SHORT_ADDR,
-+	IEEE802154_ATTR_SRC_HW_ADDR,
-+	IEEE802154_ATTR_SRC_PAN_ID,
-+
-+	IEEE802154_ATTR_DEST_SHORT_ADDR,
-+	IEEE802154_ATTR_DEST_HW_ADDR,
-+	IEEE802154_ATTR_DEST_PAN_ID,
-+
-+	IEEE802154_ATTR_CAPABILITY, /* FIXME: this is association */
-+	IEEE802154_ATTR_REASON,
-+	IEEE802154_ATTR_SCAN_TYPE,
-+	IEEE802154_ATTR_CHANNELS,
-+	IEEE802154_ATTR_DURATION,
-+	IEEE802154_ATTR_ED_LIST,
-+	IEEE802154_ATTR_BCN_ORD,
-+	IEEE802154_ATTR_SF_ORD,
-+	IEEE802154_ATTR_PAN_COORD,
-+	IEEE802154_ATTR_BAT_EXT,
-+	IEEE802154_ATTR_COORD_REALIGN,
-+	IEEE802154_ATTR_SEC,
-+
-+	__IEEE802154_ATTR_MAX,
-+};
-+
-+#define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
-+#define NLA_HW_ADDR	NLA_U64
-+#define NLA_GET_HW_ADDR(attr, addr) do { u64 _temp = nla_get_u64(attr); memcpy(addr, &_temp, 8); } while (0)
-+#define NLA_PUT_HW_ADDR(msg, attr, addr) do { u64 _temp; memcpy(&_temp, addr, 8); NLA_PUT_U64(msg, attr, _temp); } while (0)
-+
-+#ifdef IEEE802154_NL_WANT_POLICY
-+static struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
-+	[IEEE802154_ATTR_DEV_NAME] = { .type = NLA_STRING, },
-+	[IEEE802154_ATTR_DEV_INDEX] = { .type = NLA_U32, },
-+
-+	[IEEE802154_ATTR_STATUS] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_CHANNEL] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_COORD_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_COORD_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_COORD_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_SRC_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_SRC_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_SRC_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_DEST_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_DEST_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_DEST_PAN_ID] = { .type = NLA_U16, },
-+
-+	[IEEE802154_ATTR_CAPABILITY] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_REASON] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_SCAN_TYPE] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_CHANNELS] = { .type = NLA_U32, },
-+	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
-+#ifdef __KERNEL__
-+	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
-+#else
-+	[IEEE802154_ATTR_ED_LIST] = { .minlen = 27, .maxlen = 27 },
-+#endif
-+};
-+#endif
-+
-+/* commands */
-+/* REQ should be responded with CONF
-+ * and INDIC with RESP
-+ */
-+enum {
-+	__IEEE802154_COMMAND_INVALID,
-+
-+	IEEE802154_ASSOCIATE_REQ,
-+	IEEE802154_ASSOCIATE_CONF,
-+	IEEE802154_DISASSOCIATE_REQ,
-+	IEEE802154_DISASSOCIATE_CONF,
-+	IEEE802154_GET_REQ,
-+	IEEE802154_GET_CONF,
-+	IEEE802154_RESET_REQ,
-+	IEEE802154_RESET_CONF,
-+	IEEE802154_SCAN_REQ,
-+	IEEE802154_SCAN_CONF,
-+	IEEE802154_SET_REQ,
-+	IEEE802154_SET_CONF,
-+	IEEE802154_START_REQ,
-+	IEEE802154_START_CONF,
-+	IEEE802154_SYNC_REQ,
-+	IEEE802154_POLL_REQ,
-+	IEEE802154_POLL_CONF,
-+
-+	IEEE802154_ASSOCIATE_INDIC,
-+	IEEE802154_ASSOCIATE_RESP,
-+	IEEE802154_DISASSOCIATE_INDIC,
-+	IEEE802154_BEACON_NOTIFY_INDIC,
-+	IEEE802154_ORPHAN_INDIC,
-+	IEEE802154_ORPHAN_RESP,
-+	IEEE802154_COMM_STATUS_INDIC,
-+	IEEE802154_SYNC_LOSS_INDIC,
-+
-+	IEEE802154_GTS_REQ, /* Not supported yet */
-+	IEEE802154_GTS_INDIC, /* Not supported yet */
-+	IEEE802154_GTS_CONF, /* Not supported yet */
-+	IEEE802154_RX_ENABLE_REQ, /* Not supported yet */
-+	IEEE802154_RX_ENABLE_CONF, /* Not supported yet */
-+
-+	__IEEE802154_CMD_MAX,
-+};
-+
-+#define IEEE802154_CMD_MAX (__IEEE802154_CMD_MAX - 1)
-+
-+
-+#ifdef __KERNEL__
-+struct net_device;
-+
-+int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_addr *addr, u8 cap);
-+int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr, u8 status);
-+int ieee802154_nl_disassoc_indic(struct net_device *dev, struct ieee802154_addr *addr, u8 reason);
-+int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status);
-+int ieee802154_nl_scan_confirm(struct net_device *dev, u8 status, u8 scan_type, u32 unscanned,
-+		u8 *edl/*, struct list_head *pan_desc_list */);
-+int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid, u16 coord_addr); /* TODO */
-+#endif
-+
-+#endif
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-index cb88054..7c0b025 100644
---- a/net/ieee802154/Makefile
-+++ b/net/ieee802154/Makefile
-@@ -1,4 +1,5 @@
--obj-$(CONFIG_IEEE802154) +=	af_802154.o
-+obj-$(CONFIG_IEEE802154) +=	nl802154.o af_802154.o
-+nl802154-objs		:= netlink.o
- af_802154-objs		:= af_ieee802154.o raw.o dgram.o
- 
- EXTRA_CFLAGS += -Wall -DDEBUG
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-new file mode 100644
-index 0000000..eafdc4d
---- /dev/null
-+++ b/net/ieee802154/netlink.c
-@@ -0,0 +1,485 @@
-+/*
-+ * Netlink inteface for IEEE 802.15.4 stack
-+ *
-+ * Copyright 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Sergey Lapin <sergey.lapin@siemens.com>
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <net/netlink.h>
-+#include <net/genetlink.h>
-+#include <linux/netdevice.h>
-+#include <net/ieee802154/af_ieee802154.h>
-+#define IEEE802154_NL_WANT_POLICY
-+#include <net/ieee802154/nl802154.h>
-+#include <net/ieee802154/netdevice.h>
-+
-+static unsigned int ieee802154_seq_num;
-+
-+static struct genl_family ieee802154_coordinator_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.hdrsize	= 0,
-+	.name		= IEEE802154_NL_NAME,
-+	.version	= 1,
-+	.maxattr	= IEEE802154_ATTR_MAX,
-+};
-+
-+static struct genl_multicast_group ieee802154_coord_mcgrp = {
-+	.name		= IEEE802154_MCAST_COORD_NAME,
-+};
-+
-+static struct genl_multicast_group ieee802154_beacon_mcgrp = {
-+	.name		= IEEE802154_MCAST_BEACON_NAME,
-+};
-+
-+/* Requests to userspace */
-+static struct sk_buff *ieee802154_nl_create(int flags, u8 req)
-+{
-+	void *hdr;
-+	struct sk_buff *msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
-+
-+	if (!msg)
-+		return NULL;
-+
-+	hdr = genlmsg_put(msg, 0, ieee802154_seq_num++, &ieee802154_coordinator_family, flags, req);
-+	if (!hdr) {
-+		nlmsg_free(msg);
-+		return NULL;
-+	}
-+
-+	return msg;
-+}
-+
-+static int ieee802154_nl_finish(struct sk_buff *msg)
-+{
-+	void *hdr = genlmsg_data(NLMSG_DATA(msg->data)); /* XXX: nlh is right at the start of msg */
-+
-+	if (!genlmsg_end(msg, hdr))
-+		goto out;
-+
-+	return genlmsg_multicast(msg, 0, ieee802154_coord_mcgrp.id, GFP_ATOMIC);
-+out:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
-+}
-+
-+static int ieee802154_nl_put_failure(struct sk_buff *msg)
-+{
-+	void *hdr = genlmsg_data(NLMSG_DATA(msg->data)); /* XXX: nlh is right at the start of msg */
-+	genlmsg_cancel(msg, hdr);
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
-+}
-+
-+int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_addr *addr, u8 cap)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_ASSOCIATE_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+
-+	/* FIXME: check that we really received hw address */
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_SRC_HW_ADDR, addr->hwaddr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_CAPABILITY, cap);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_assoc_indic);
-+
-+int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr, u8 status)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_ASSOCIATE_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_SHORT_ADDR, short_addr);
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_assoc_confirm);
-+
-+int ieee802154_nl_disassoc_indic(struct net_device *dev, struct ieee802154_addr *addr, u8 reason)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_DISASSOCIATE_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+
-+	if (addr->addr_type == IEEE802154_ADDR_LONG)
-+		NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_SRC_HW_ADDR, addr->hwaddr);
-+	else
-+		NLA_PUT_U16(msg, IEEE802154_ATTR_SRC_SHORT_ADDR, addr->short_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_REASON, reason);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_disassoc_indic);
-+
-+int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_DISASSOCIATE_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_disassoc_confirm);
-+
-+int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid, u16 coord_addr) /* TODO */
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_BEACON_NOTIFY_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_SHORT_ADDR, coord_addr);
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_PAN_ID, panid);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_beacon_indic);
-+
-+int ieee802154_nl_scan_confirm(struct net_device *dev, u8 status, u8 scan_type, u32 unscanned,
-+		u8 *edl/* , struct list_head *pan_desc_list */)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(/* flags*/ 0, IEEE802154_SCAN_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_SCAN_TYPE, scan_type);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_CHANNELS, unscanned);
-+
-+	if (edl)
-+		NLA_PUT(msg, IEEE802154_ATTR_ED_LIST, 27, edl);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	return ieee802154_nl_put_failure(msg);
-+}
-+EXPORT_SYMBOL(ieee802154_nl_scan_confirm);
-+
-+/* Requests from userspace */
-+static struct net_device *ieee802154_nl_get_dev(struct genl_info *info)
-+{
-+	struct net_device *dev;
-+
-+	if (info->attrs[IEEE802154_ATTR_DEV_NAME]) {
-+		char name[IFNAMSIZ + 1];
-+		nla_strlcpy(name, info->attrs[IEEE802154_ATTR_DEV_NAME], sizeof(name));
-+		dev = dev_get_by_name(&init_net, name);
-+	} else if (info->attrs[IEEE802154_ATTR_DEV_INDEX])
-+		dev = dev_get_by_index(&init_net, nla_get_u32(info->attrs[IEEE802154_ATTR_DEV_INDEX]));
-+	else
-+		return NULL;
-+
-+	if (dev->type != ARPHRD_IEEE802154) {
-+		dev_put(dev);
-+		return NULL;
-+	}
-+
-+	return dev;
-+}
-+
-+static int ieee802154_associate_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
-+
-+	if (!info->attrs[IEEE802154_ATTR_CHANNEL]
-+	 || !info->attrs[IEEE802154_ATTR_COORD_PAN_ID]
-+	 || (!info->attrs[IEEE802154_ATTR_COORD_HW_ADDR] && !info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR])
-+	 || !info->attrs[IEEE802154_ATTR_CAPABILITY])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	if (info->attrs[IEEE802154_ATTR_COORD_HW_ADDR]) {
-+		addr.addr_type = IEEE802154_ADDR_LONG;
-+		NLA_GET_HW_ADDR(info->attrs[IEEE802154_ATTR_COORD_HW_ADDR], addr.hwaddr);
-+	} else {
-+		addr.addr_type = IEEE802154_ADDR_SHORT;
-+		addr.short_addr = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
-+	}
-+	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
-+
-+	ret = IEEE802154_MLME_OPS(dev)->assoc_req(dev, &addr,
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]),
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_CAPABILITY]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_associate_resp(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
-+
-+	if (!info->attrs[IEEE802154_ATTR_STATUS]
-+	 || !info->attrs[IEEE802154_ATTR_DEST_HW_ADDR]
-+	 || !info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	addr.addr_type = IEEE802154_ADDR_LONG;
-+	NLA_GET_HW_ADDR(info->attrs[IEEE802154_ATTR_DEST_HW_ADDR], addr.hwaddr);
-+	addr.pan_id = IEEE802154_MLME_OPS(dev)->get_pan_id(dev);
-+
-+
-+	ret = IEEE802154_MLME_OPS(dev)->assoc_resp(dev, &addr,
-+			nla_get_u16(info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]),
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_STATUS]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_disassociate_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
-+
-+	if ((!info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] && !info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR])
-+	 || !info->attrs[IEEE802154_ATTR_REASON])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	if (info->attrs[IEEE802154_ATTR_DEST_HW_ADDR]) {
-+		addr.addr_type = IEEE802154_ADDR_LONG;
-+		NLA_GET_HW_ADDR(info->attrs[IEEE802154_ATTR_DEST_HW_ADDR], addr.hwaddr);
-+	} else {
-+		addr.addr_type = IEEE802154_ADDR_SHORT;
-+		addr.short_addr = nla_get_u16(info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]);
-+	}
-+	addr.pan_id = IEEE802154_MLME_OPS(dev)->get_pan_id(dev);
-+
-+	ret = IEEE802154_MLME_OPS(dev)->disassoc_req(dev, &addr,
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_REASON]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+/*
-+ * PANid, channel, beacon_order = 15, superframe_order = 15,
-+ * PAN_coordinator, battery_life_extension = 0,
-+ * coord_realignment = 0, security_enable = 0
-+*/
-+static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+
-+	u8 channel, bcn_ord, sf_ord;
-+	int pan_coord, blx, coord_realign;
-+	int ret;
-+
-+	if (!info->attrs[IEEE802154_ATTR_COORD_PAN_ID]
-+	 || !info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]
-+	 || !info->attrs[IEEE802154_ATTR_CHANNEL]
-+	 || !info->attrs[IEEE802154_ATTR_BCN_ORD]
-+	 || !info->attrs[IEEE802154_ATTR_SF_ORD]
-+	 || !info->attrs[IEEE802154_ATTR_PAN_COORD]
-+	 || !info->attrs[IEEE802154_ATTR_BAT_EXT]
-+	 || !info->attrs[IEEE802154_ATTR_COORD_REALIGN]
-+	 )
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	addr.addr_type = IEEE802154_ADDR_SHORT;
-+	addr.short_addr = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
-+	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
-+
-+	channel = nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]);
-+	bcn_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_BCN_ORD]);
-+	sf_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_SF_ORD]);
-+	pan_coord = nla_get_u8(info->attrs[IEEE802154_ATTR_PAN_COORD]);
-+	blx = nla_get_u8(info->attrs[IEEE802154_ATTR_BAT_EXT]);
-+	coord_realign = nla_get_u8(info->attrs[IEEE802154_ATTR_COORD_REALIGN]);
-+
-+	ret = IEEE802154_MLME_OPS(dev)->start_req(dev, &addr, channel, bcn_ord, sf_ord,
-+		pan_coord, blx, coord_realign);
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	int ret;
-+	u8 type;
-+	u32 channels;
-+	u8 duration;
-+
-+	if (!info->attrs[IEEE802154_ATTR_SCAN_TYPE]
-+	 || !info->attrs[IEEE802154_ATTR_CHANNELS]
-+	 || !info->attrs[IEEE802154_ATTR_DURATION])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	type = nla_get_u8(info->attrs[IEEE802154_ATTR_SCAN_TYPE]);
-+	channels = nla_get_u32(info->attrs[IEEE802154_ATTR_CHANNELS]);
-+	duration = nla_get_u8(info->attrs[IEEE802154_ATTR_DURATION]);
-+
-+	ret = IEEE802154_MLME_OPS(dev)->scan_req(dev, type, channels, duration);
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+#define IEEE802154_OP(_cmd, _func)			\
-+	{						\
-+		.cmd	= _cmd,				\
-+		.policy	= ieee802154_policy,		\
-+		.doit	= _func,			\
-+		.dumpit	= NULL,				\
-+		.flags	= GENL_ADMIN_PERM,		\
-+	}
-+
-+static struct genl_ops ieee802154_coordinator_ops[] = {
-+	IEEE802154_OP(IEEE802154_ASSOCIATE_REQ, ieee802154_associate_req),
-+	IEEE802154_OP(IEEE802154_ASSOCIATE_RESP, ieee802154_associate_resp),
-+	IEEE802154_OP(IEEE802154_DISASSOCIATE_REQ, ieee802154_disassociate_req),
-+	IEEE802154_OP(IEEE802154_SCAN_REQ, ieee802154_scan_req),
-+	IEEE802154_OP(IEEE802154_START_REQ, ieee802154_start_req),
-+};
-+
-+static int __init ieee802154_nl_init(void)
-+{
-+	int rc;
-+	int i;
-+
-+	rc = genl_register_family(&ieee802154_coordinator_family);
-+	if (rc)
-+		goto fail;
-+
-+	rc = genl_register_mc_group(&ieee802154_coordinator_family, &ieee802154_coord_mcgrp);
-+	if (rc)
-+		goto fail;
-+
-+	rc = genl_register_mc_group(&ieee802154_coordinator_family, &ieee802154_beacon_mcgrp);
-+	if (rc)
-+		goto fail;
-+
-+
-+	for (i = 0; i < ARRAY_SIZE(ieee802154_coordinator_ops); i++) {
-+		rc = genl_register_ops(&ieee802154_coordinator_family, &ieee802154_coordinator_ops[i]);
-+		if (rc)
-+			goto fail;
-+	}
-+
-+	return 0;
-+
-+fail:
-+	genl_unregister_family(&ieee802154_coordinator_family);
-+	return rc;
-+}
-+module_init(ieee802154_nl_init);
-+
-+static void __exit ieee802154_nl_exit(void)
-+{
-+	genl_unregister_family(&ieee802154_coordinator_family);
-+}
-+module_exit(ieee802154_nl_exit);
-+
--- 
-1.6.3.1
+Why not just use two header files, one in net/ and one in linux/?
+
+> -obj-$(CONFIG_IEEE802154) +=3D	af_802154.o
+> +obj-$(CONFIG_IEEE802154) +=3D	nl802154.o af_802154.o
+> +nl802154-objs		:=3D netlink.o
+
+That doesn't make any sense. Why the indirection?
+
+> +#include <net/ieee802154/af_ieee802154.h>
+> +#define IEEE802154_NL_WANT_POLICY
+> +#include <net/ieee802154/nl802154.h>
+
+Like I thought. That's ugly.
+
+> +static int ieee802154_nl_put_failure(struct sk_buff *msg)
+> +{
+> +	void *hdr =3D genlmsg_data(NLMSG_DATA(msg->data)); /* XXX: nlh is right=
+ at the start of msg */
+> +	genlmsg_cancel(msg, hdr);
+> +	nlmsg_free(msg);
+> +	return -ENOBUFS;
+> +}
+
+This seems weird.
+
+> +int ieee802154_nl_assoc_indic(struct net_device *dev, struct ieee802154_=
+addr *addr, u8 cap)
+> +{
+> +	struct sk_buff *msg;
+> +
+> +	pr_debug("%s\n", __func__);
+> +
+> +	msg =3D ieee802154_nl_create(/* flags*/ 0, IEEE802154_ASSOCIATE_INDIC);
+> +	if (!msg)
+> +		return -ENOBUFS;
+> +
+> +	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
+> +	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
+> +	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_HW_ADDR, dev->dev_addr);
+> +
+> +	/* FIXME: check that we really received hw address */
+> +	NLA_PUT_HW_ADDR(msg, IEEE802154_ATTR_SRC_HW_ADDR, addr->hwaddr);
+
+?
 
 
--- 
-With best wishes
-Dmitry
+> +static int ieee802154_associate_req(struct sk_buff *skb, struct genl_inf=
+o *info)
+> +{
+> +	struct net_device *dev;
+> +	struct ieee802154_addr addr;
+> +	int ret =3D -EINVAL;
+> +
+> +	if (!info->attrs[IEEE802154_ATTR_CHANNEL]
+> +	 || !info->attrs[IEEE802154_ATTR_COORD_PAN_ID]
+> +	 || (!info->attrs[IEEE802154_ATTR_COORD_HW_ADDR] && !info->attrs[IEEE80=
+2154_ATTR_COORD_SHORT_ADDR])
+> +	 || !info->attrs[IEEE802154_ATTR_CAPABILITY])
+> +		return -EINVAL;
+
+That's some odd coding style.
+
+johannes
+
+--=-p0ANSyIOHko/XcZDkfvJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKJljiAAoJEODzc/N7+QmaVmkP/3FA0KEHQ04UEG/hfpiwyqJ0
+Te/zU/qQohLIvUCEFAY3MsyUnWHjO9jw7OTph107a3GovwNY4BnhQYct3OrJJg9j
+MsTbzsLbgmvN1EN0EHQObRzMQcyuRtFDU6aSeqKt83Ky+rByFYsTiG/mPzTepv5e
+uLNHTUrSCBFfj1YvN9zEXYsu+g20vrulDv4MgaFPAZItyx/0G2Q7GWZwzQiIk0l0
+xbCQhYvvfA7eH/WnJY0Xq8Sg71w3tb0yVX+7vQPiMh1nLl3CXctvAzZhny0nvi5J
+myUOdVrPmjsGduiSx6jQcQdjW490fx8rLArw4TonmRdVPzvC1fUb50SlIWncIHHH
+ZyYSgmzpoI6y/NJgjd2Wjhc2qLPAv3WzNiMg+TQuRZKqJ2+ni8PxFO5Szuyc672x
+SxhbcnQMQgv3Htcg11omBXBUmiEpaOytlfMGp3AJfM0smdWStXhYgoRKHOw6Ljt/
+Zz8ig0vEgnJHK7pKTwpwaI8VOr+UBHdPW+QEj+2L/T4RlobhZ3mfUmo1xrK9fVvg
+7q1Q89HFTIUq5DGnFUjPKamXP6f3fY0cqEDIgsYIw3eScjTZelnP91qiQkSPkeSF
+e6p5LthGh3T3XeMoK9gHkivFKvqVTQPo4k68jhfIrNY9FD6E0QyUASKj6k5pl1jV
+6jpMB8sFcLHOU6TWWii8
+=niFm
+-----END PGP SIGNATURE-----
+
+--=-p0ANSyIOHko/XcZDkfvJ--
 
