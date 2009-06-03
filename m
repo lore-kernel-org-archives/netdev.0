@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] net: define accessors to get/set skb->dst and
- skb->rtable
-Date: Wed, 03 Jun 2009 03:35:21 -0700 (PDT)
-Message-ID: <20090603.033521.215812392.davem@davemloft.net>
-References: <4A25414D.6040605@gmail.com>
+Subject: Re: [PATCH 1/4] net/phy/marvell: update m88e1111 support for SGMII
+ mode
+Date: Wed, 03 Jun 2009 03:50:55 -0700 (PDT)
+Message-ID: <20090603.035055.158192264.davem@davemloft.net>
+References: <1243951456-4685-1-git-send-email-Haiying.Wang@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: Haiying.Wang@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44017
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52897
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752881AbZFCKfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 06:35:21 -0400
-In-Reply-To: <4A25414D.6040605@gmail.com>
+	by vger.kernel.org with ESMTP id S1751586AbZFCKuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 06:50:54 -0400
+In-Reply-To: <1243951456-4685-1-git-send-email-Haiying.Wang@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 02 Jun 2009 17:12:13 +0200
+From: Haiying Wang <Haiying.Wang@freescale.com>
+Date: Tue,  2 Jun 2009 10:04:13 -0400
 
-> Here are patches I originally cooked to review all places that could need skb->dst
+> Disable fiber/copper auto selection for Marvell m88e1111 SGMII support.
 > 
-> I believe they could be applied in net-next-2.6 because we could then
-> implement what we discussed in last december, about avoiding
-> refcounting on dst_entries in input path (thread about IP_PKTINFO stuff,
-> and a patch we had to revert)
-> 
-> You suggested to use the low order bit of skb->dst to tell if we got a
-> refcount or not.
-> 
-> These four patches implement grounding for this idea (no functional changes yet)
-> 
-> Next step is adding the low order bit handling (or another bit if it happens
-> to be too expensive to check this bit each time we want skb->dst, we
-> still have to benchmark this)
+> Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
 
-It all looks great, applied, thanks Eric!
+Applied to net-next-2.6
