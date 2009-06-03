@@ -1,53 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4/6] net: add NL802154 interface for configuration of
- 802.15.4 devices
-Date: Wed, 03 Jun 2009 03:09:11 -0700 (PDT)
-Message-ID: <20090603.030911.162861804.davem@davemloft.net>
-References: <1244021629-18409-4-git-send-email-dbaryshkov@gmail.com>
-	<1244021629-18409-5-git-send-email-dbaryshkov@gmail.com>
-	<1244021964.10665.5.camel@johannes.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 3 Jun 2009 10:27:47 +0000
+Message-ID: <20090603102747.GD5644@ff.dom.local>
+References: <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603095412.GC5644@ff.dom.local> <4A264A13.3030005@trash.net> <4A264AE8.2050105@trash.net> <4A264B12.5030303@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1244021964.10665.5.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.153]:39318 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751713AbZFCK1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 06:27:52 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1106175fga.17
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 03:27:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A264B12.5030303@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Wed, 03 Jun 2009 11:39:24 +0200
+On Wed, Jun 03, 2009 at 12:06:10PM +0200, Patrick McHardy wrote:
+> Patrick McHardy wrote:
+>>> PSCHED_SHIFT should be 4, right?
+>>
+>>> -#define    SM_SHIFT    20
+>>> -#define    ISM_SHIFT    18
+>>> +#define    PSCHED_SHIFT    6    /* TODO: move to pkt_sched.h */
+>>> +#define    SM_SHIFT    (30 - PSCHED_SHIFT)
+>>> +#define    ISM_SHIFT    (8 + PSCHED_SHIFT)
+>>
+>> Actually I'm confused, why the additional change of 10?
+>
+> OK, 10 - 6 = 4, got it :)
+>
 
-> On Wed, 2009-06-03 at 13:33 +0400, Dmitry Eremin-Solenikov wrote:
-> 
->> +enum {
->> +	__IEEE802154_COMMAND_INVALID,
->> +
->> +	IEEE802154_ASSOCIATE_REQ,
->> +	IEEE802154_ASSOCIATE_CONF,
->> +	IEEE802154_DISASSOCIATE_REQ,
->> +	IEEE802154_DISASSOCIATE_CONF,
->> +	IEEE802154_GET_REQ,
->> +	IEEE802154_GET_CONF,
->> +/* 	IEEE802154_GTS_REQ, */
->> +/* 	IEEE802154_GTS_CONF, */
->> +	IEEE802154_RESET_REQ,
->> +	IEEE802154_RESET_CONF,
->> +/* 	IEEE802154_RX_ENABLE_REQ, */
->> +/* 	IEEE802154_RX_ENABLE_CONF, */
-> 
-> This is a recipe for disaster. Somebody will come along and uncomment
-> things. Why this is bad, I leave as an exercise for the reader.
+If you wanted to console me after my hfsc confusions, you did it!
 
-Right, it changes the other request numbers and breaks userspace.
-
-Dmitry you have to pick these numbers as fixed numbers now and do
-so in such a way that they will remain unchanged forever because
-they are part of the user visible interface.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks again,
+Jarek P.
