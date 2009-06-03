@@ -1,37 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Wed, 03 Jun 2009 10:29:58 +0200
-Message-ID: <4A263486.1030403@trash.net>
-References: <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com> <20090602123635.GC4239@ff.dom.local> <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603080123.GA5644@ff.dom.local>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] netdev: Added KS8842 driver
+Date: Wed, 3 Jun 2009 10:38:46 +0200
+Message-ID: <200906031038.47050.florian@openwrt.org>
+References: <4A25745E.3050402@mocean-labs.com> <20090602191122.GA5800@psychotron.englab.brq.redhat.com> <4A25831A.7010003@mocean-labs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Antonio Almeida <vexwek@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+To: Richard =?iso-8859-1?q?R=3F=F6jfors?=
+	<richard.rojfors.ext@mocean-labs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61008 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753916AbZFCI36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:29:58 -0400
-In-Reply-To: <20090603080123.GA5644@ff.dom.local>
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:61365 "EHLO
+	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553AbZFCIiu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:38:50 -0400
+Received: by fxm12 with SMTP id 12so7207194fxm.37
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 01:38:51 -0700 (PDT)
+In-Reply-To: <4A25831A.7010003@mocean-labs.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> On Wed, Jun 03, 2009 at 09:53:11AM +0200, Patrick McHardy wrote:
-> ...
->> Yes, it would work perfectly fine with usecs, which is actually (and
->> unfortunately) the unit it uses in its ABI. But I think its better
->> to convert the values once during initialization, instead of again
->> and again when scheduling the watchdog. The necessary changes are
->> really trivial, all you need to do when changing the scaling factors
->> is to increase SM_MASK and decrease ISM_MASK accordingly.
-> 
-> Right! (On the other hand we could consider a separate watchdog too...)
+Le Tuesday 02 June 2009 21:52:58 Richard R?=F6jfors, vous avez =E9crit=A0=
+:
+> Jiri Pirko wrote:
+> >> +config KS8842
+> >> +	tristate "Micrel KSZ8842"
+> >> +	depends on PCI
+> >
+> > Why does this driver depend on PCI ?
+>
+> Good question.
+> The KS8842 switch is actually behind an FPGA connected via PCIe,
+> the next version of the FPGA firmware will have DMA support and the d=
+river
+> will depend on PCI. Is it worth removing the dependency for now?
 
-We could :) But I don't see any benefit doing that, especially given
-that eventually everything should be using ns resolution anyways.
+You are not using any pci_* functions so I guess you can remove that=20
+dependency for now.
+--=20
+Best regards, Florian Fainelli
+Email : florian@openwrt.org
+http://openwrt.org
+-------------------------------
