@@ -1,59 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
-Date: Tue, 02 Jun 2009 17:14:18 -0700 (PDT)
-Message-ID: <20090602.171418.186096253.davem@davemloft.net>
-References: <1243885642.22917.35.camel@pohly-MOBL>
-	<20090602.002553.143476036.davem@davemloft.net>
-	<200906022338.30618.rusty@rustcorp.com.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Kernel panic in inet_twdr_do_twkill_work
+Date: Tue, 02 Jun 2009 17:40:28 -0700
+Message-ID: <m1r5y2jgjn.fsf@fess.ebiederm.org>
+References: <m17i0ktr4p.fsf@fess.ebiederm.org> <4A0BCE0E.3000206@free.fr>
+	<m1y6t0nlle.fsf@fess.ebiederm.org> <4A0BD750.4030605@free.fr>
+	<m18wl0nj2b.fsf@fess.ebiederm.org> <4A194B09.7070900@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: rolandd@cisco.com, libertas-dev@lists.infradead.org, dcbw@redhat.com,
-        netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        patrick.ohly@intel.com, divy@chelsio.com, xemul@openvz.org
-To: rusty@rustcorp.com.au
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <200906022338.30618.rusty@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Denis V. Lunev" <den@openvz.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:44406 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbZFCAka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 20:40:30 -0400
+In-Reply-To: <4A194B09.7070900@free.fr> (Daniel Lezcano's message of "Sun\, 24 May 2009 15\:26\:33 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Tue, 2 Jun 2009 23:38:29 +0930
+Daniel Lezcano <daniel.lezcano@free.fr> writes:
 
-> On Tue, 2 Jun 2009 04:55:53 pm David Miller wrote:
->> From: Patrick Ohly <patrick.ohly@intel.com>
->> Date: Mon, 01 Jun 2009 21:47:22 +0200
+> Eric W. Biederman wrote:
+>> Daniel Lezcano <daniel.lezcano@free.fr> writes:
 >>
->> > On Fri, 2009-05-29 at 23:44 +0930, Rusty Russell wrote:
->> >> This patch adds skb_orphan to the start of dev_hard_start_xmit(): it
->> >> can be premature in the NETDEV_TX_BUSY case, but that's uncommon.
->> >
->> > Would it be possible to make the new skb_orphan() at the start of
->> > dev_hard_start_xmit() conditionally so that it is not executed for
->> > packets that are to be time stamped?
->> >
->> > As discussed before
->> > (http://article.gmane.org/gmane.linux.network/121378/), the skb->sk
->> > socket pointer is required for sending back the send time stamp from
->> > inside the device driver. Calling skb_orphan() unconditionally as in
->> > this patch would break the hardware time stamping of outgoing packets.
+>>   
+>>> May be you can activate the NETNS_REFCNT_DEBUG in order to check if the timewait
+>>> socket
+>>> were destroyed at the namespace destruction ? Unfortunately it looks like the
+>>> option is not in the Kconfig :(
+>>>     
 >>
->> Indeed, we need to check that case, at a minimum.
+>> Looks like a good starting place.
 >>
->> And there are other potentially other problems.  For example, I
->> wonder how this interacts with the new TX MMAP af_packet support
->> in net-next-2.6 :-/
-> 
-> I think I'll do this in the driver for now, and let's revisit doing it 
-> generically later?
+>> I will enable that when I respin my internal kernel.
+>>
+>> I don't have a good reproducer at the moment....  So I was hoping we could
+>> figure this out with code inspection.
+>>   
+> Hi Eric,
+>
+> did you succeeded to reproduce the bug with the test program I sent you ?
 
-That might be the best course of action for the time being.
-This whole area is a rat's nest.
+Weird.  I finally got around to running your little test app, and I don't trigger
+it here.
+
+At the same time I am starting to see what I think is this error more often.
+
+Eric
