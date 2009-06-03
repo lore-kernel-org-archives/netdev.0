@@ -1,43 +1,31 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 8/8] mlx4_en: Updated driver version
-Date: Tue, 02 Jun 2009 12:29:42 +0300
-Message-ID: <4A24F106.3030308@mellanox.co.il>
-References: <4A0AB34A.10100@mellanox.co.il><4A1948D7.8010504@mellanox.co.il><4A1A57AA.1080209@mellanox.co.il> <20090525.014435.203274473.davem@davemloft.net>
+From: Riccardo Ghetta <birrachiara@tin.it>
+Subject: [PATCH 0/3] sis190 gigabit fixes(bug 9735,11149) and new phy
+Date: Wed, 3 Jun 2009 10:49:01 +0200
+Message-ID: <cover.1244012631.git.birrachiara@tin.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tziporet Koren <tziporet@mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:50366 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750751AbZFBIi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Jun 2009 04:38:59 -0400
-In-Reply-To: <20090525.014435.203274473.davem@davemloft.net>
+Received: from vsmtp21.tin.it ([212.216.176.109]:56103 "EHLO vsmtp21.tin.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752184AbZFBIxq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Jun 2009 04:53:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/mlx4_en.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+The first patch add a new phy found on my Asus F5Sr laptop. I suppose 
+it's an Atheros chip, but really don't know.
+The second patch should enable sis191 adapters to connect at Gb speeds
+(at least, it does on my laptop). Also bumps the version number.
+The third is just cosmetic, to make easier to identify newer phys.
 
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 4de8db0..f5909c7 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -49,8 +49,8 @@
- #include "en_port.h"
- 
- #define DRV_NAME	"mlx4_en"
--#define DRV_VERSION	"1.4.0"
--#define DRV_RELDATE	"Sep 2008"
-+#define DRV_VERSION	"1.4.1.1
-+#define DRV_RELDATE	"June 2009"
- 
- 
- #define MLX4_EN_MSG_LEVEL	(NETIF_MSG_LINK | NETIF_MSG_IFDOWN)
--- 
-1.6.0
+Riccardo Ghetta (3):
+  sis190: add new phy found on asus F5 series laptops
+  sis190: fix gigabit negotiation
+  sis190: better message on unknown PHY
 
+ drivers/net/sis190.c |   53 +++++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 35 insertions(+), 18 deletions(-)
 
