@@ -1,36 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tun: virtio net is not compatible with LRO
-Date: Wed, 3 Jun 2009 17:59:07 +1000
-Message-ID: <20090603075906.GA9857@gondor.apana.org.au>
-References: <20090603052335.GA20823@sequoia.sous-sol.org> <200906031652.56084.rusty@rustcorp.com.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 3 Jun 2009 08:01:24 +0000
+Message-ID: <20090603080123.GA5644@ff.dom.local>
+References: <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com> <20090602123635.GC4239@ff.dom.local> <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39127 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753263AbZFCH7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 03:59:19 -0400
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:34636 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755214AbZFCIB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:01:29 -0400
+Received: by bwz22 with SMTP id 22so8496723bwz.37
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 01:01:30 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <200906031652.56084.rusty@rustcorp.com.au>
+In-Reply-To: <4A262BE7.4090807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2009 at 04:52:55PM +0930, Rusty Russell wrote:
->
-> So, skb_is_gso() is true, but it's not actually a gso frame?
-> 
-> I know nothing about LRO, but that seems wrong.  If you bridge any other GSO 
-> device with an LRO device, does that do random things as well?
+On Wed, Jun 03, 2009 at 09:53:11AM +0200, Patrick McHardy wrote:
+...
+> Yes, it would work perfectly fine with usecs, which is actually (and
+> unfortunately) the unit it uses in its ABI. But I think its better
+> to convert the values once during initialization, instead of again
+> and again when scheduling the watchdog. The necessary changes are
+> really trivial, all you need to do when changing the scaling factors
+> is to increase SM_MASK and decrease ISM_MASK accordingly.
 
-Yeah you don't want to know about LRO.  The good news is that
-LRO is going away so this is temporary.
+Right! (On the other hand we could consider a separate watchdog too...)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jarek P.
