@@ -1,49 +1,87 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Wed, 3 Jun 2009 08:45:41 +0000
-Message-ID: <20090603084541.GB5644@ff.dom.local>
-References: <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603080123.GA5644@ff.dom.local> <4A263486.1030403@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antonio Almeida <vexwek@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>
-To: Patrick McHardy <kaber@trash.net>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [MERGE REQUEST] IEEE 802.15.4 stack: generic parts
+Date: Wed,  3 Jun 2009 13:33:43 +0400
+Message-ID: <1244021629-18409-1-git-send-email-dbaryshkov@gmail.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	davem@davemloft.net, Stephen Rothwell <sfr@canb.auug.org.au>,
+	Sergey Lapin <slapin@ossfans.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f168.google.com ([209.85.220.168]:48448 "EHLO
-	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751388AbZFCIpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:45:46 -0400
-Received: by fxm12 with SMTP id 12so7211646fxm.37
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 01:45:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A263486.1030403@trash.net>
+Received: from fg-out-1718.google.com ([72.14.220.157]:21206 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752411AbZFCJeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 05:34:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2009 at 10:29:58AM +0200, Patrick McHardy wrote:
-> Jarek Poplawski wrote:
->> On Wed, Jun 03, 2009 at 09:53:11AM +0200, Patrick McHardy wrote:
->> ...
->>> Yes, it would work perfectly fine with usecs, which is actually (and
->>> unfortunately) the unit it uses in its ABI. But I think its better
->>> to convert the values once during initialization, instead of again
->>> and again when scheduling the watchdog. The necessary changes are
->>> really trivial, all you need to do when changing the scaling factors
->>> is to increase SM_MASK and decrease ISM_MASK accordingly.
->>
->> Right! (On the other hand we could consider a separate watchdog too...)
->
-> We could :) But I don't see any benefit doing that, especially given
-> that eventually everything should be using ns resolution anyways.
+Hello,
 
-The main benefit would be readability... I guess it's no problem for
-you, but I'm currently trying to make sure things like this are/will
-be OK :-)
+As generic parts of our IEEE 802.15.4 stack are now more or less stable,
+we'd like to merge them into mainline Linux kernel. I've prepared a branch
+on the git.kernel.org that contains changes we'd like to get in at first
+step. What should we do? Should this be included into linux-next? Should
+this be submitted directly to Dave Miller?
 
-        dx = ((u64)d * PSCHED_TICKS_PER_SEC);
-        dx += USEC_PER_SEC - 1;
- 
-Jarek P.
+The following changes since commit 59a3759d0fe8d969888c741bb33f4946e4d3750d:
+  Linus Torvalds (1):
+        Linux 2.6.30-rc7
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/lumag/lowpan.git for-next
+
+Darren Salt (1):
+      crc-itu-t: add bit-reversed calculation
+
+Dmitry Eremin-Solenikov (5):
+      Add constants for the ieee 802.15.4/ZigBee stack
+      net: add IEEE 802.15.4 socket family implementation
+      net: add NL802154 interface for configuration of 802.15.4 devices
+      ieee802154: add documentation about our stack
+      ieee802154: add simple HardMAC driver sample
+
+ Documentation/networking/ieee802154.txt |   76 +++++
+ MAINTAINERS                             |   12 +
+ drivers/Makefile                        |    1 +
+ drivers/ieee802154/Kconfig              |   21 ++
+ drivers/ieee802154/Makefile             |    3 +
+ drivers/ieee802154/fakehard.c           |  258 ++++++++++++++++
+ drivers/net/Kconfig                     |    2 +
+ include/linux/crc-itu-t.h               |   10 +
+ include/linux/if.h                      |    2 +
+ include/linux/if_arp.h                  |    2 +
+ include/linux/if_ether.h                |    2 +
+ include/linux/socket.h                  |    6 +-
+ include/net/ieee802154/af_ieee802154.h  |   60 ++++
+ include/net/ieee802154/mac_def.h        |  158 ++++++++++
+ include/net/ieee802154/netdevice.h      |   84 ++++++
+ include/net/ieee802154/nl802154.h       |  165 +++++++++++
+ lib/crc-itu-t.c                         |   18 ++
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/core/dev.c                          |    6 +-
+ net/core/sock.c                         |    3 +
+ net/ieee802154/Kconfig                  |   12 +
+ net/ieee802154/Makefile                 |    5 +
+ net/ieee802154/af802154.h               |   35 +++
+ net/ieee802154/af_ieee802154.c          |  356 +++++++++++++++++++++++
+ net/ieee802154/dgram.c                  |  373 ++++++++++++++++++++++++
+ net/ieee802154/netlink.c                |  485 +++++++++++++++++++++++++++++++
+ net/ieee802154/raw.c                    |  250 ++++++++++++++++
+ 28 files changed, 2404 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/networking/ieee802154.txt
+ create mode 100644 drivers/ieee802154/Kconfig
+ create mode 100644 drivers/ieee802154/Makefile
+ create mode 100644 drivers/ieee802154/fakehard.c
+ create mode 100644 include/net/ieee802154/af_ieee802154.h
+ create mode 100644 include/net/ieee802154/mac_def.h
+ create mode 100644 include/net/ieee802154/netdevice.h
+ create mode 100644 include/net/ieee802154/nl802154.h
+ create mode 100644 net/ieee802154/Kconfig
+ create mode 100644 net/ieee802154/Makefile
+ create mode 100644 net/ieee802154/af802154.h
+ create mode 100644 net/ieee802154/af_ieee802154.c
+ create mode 100644 net/ieee802154/dgram.c
+ create mode 100644 net/ieee802154/netlink.c
+ create mode 100644 net/ieee802154/raw.c
+
