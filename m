@@ -1,86 +1,41 @@
-From: Chaitanya Lala <clala@riverbed.com>
-Subject: Re: [PATCH net-next-2.6 1/1] e1000e: Expose MDI-X status via ethtool
- 	change
-Date: Wed, 03 Jun 2009 14:19:11 -0700
-Message-ID: <4A26E8CF.50700@riverbed.com>
-References: <1243353768.3188.2.camel@achroite>	 <20090527231542.GA19664@clala-laptop>	 <1244050462.3191.14.camel@achroite> <4A26B6BC.40605@riverbed.com> <9929d2390906031404j51d9d158i319ba84121212a6e@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6] Add constants for the ieee 802.15.4/ZigBee stack
+Date: Wed, 03 Jun 2009 14:19:19 -0700 (PDT)
+Message-ID: <20090603.141919.261921857.davem@davemloft.net>
+References: <1244021629-18409-3-git-send-email-dbaryshkov@gmail.com>
+	<20090603.030826.03512651.davem@davemloft.net>
+	<20090603105151.GA20508@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, sfr@canb.auug.org.au,
+	slapin@ossfans.org
+To: dbaryshkov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([206.169.144.12]:46185 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512AbZFCVSQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:18:16 -0400
-In-Reply-To: <9929d2390906031404j51d9d158i319ba84121212a6e@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54080
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752614AbZFCVTT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:19:19 -0400
+In-Reply-To: <20090603105151.GA20508@doriath.ww600.siemens.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher wrote:
-> On Wed, Jun 3, 2009 at 10:45 AM, Chaitanya Lala <clala@riverbed.com> =
-wrote:
->  =20
->> Ben Hutchings wrote:
->>    =20
->>> On Wed, 2009-05-27 at 16:15 -0700, Chaitanya Lala wrote:
->>> [...]
->>>
->>>      =20
->>>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
->>>> index 380b042..b553bdb 100644
->>>> --- a/include/linux/ethtool.h
->>>> +++ b/include/linux/ethtool.h
->>>> @@ -30,7 +30,8 @@ struct ethtool_cmd {
->>>>        __u32   maxtxpkt;       /* Tx pkts before generating tx int=
- */
->>>>        __u32   maxrxpkt;       /* Rx pkts before generating rx int=
- */
->>>>        __u16   speed_hi;
->>>> -       __u16   reserved2;
->>>> +       __u8    is_mdix;
->>>>
->>>>        =20
->>> Since this is specific to Ethernet over=EF=BB=BF twisted-pair cable=
-, could you
->>> please rename this to "eth_tp_mdix".
->>>
->>>      =20
->> Will do for sure.
->>    =20
->>>      =20
->>>> +       __u8    reserved2;
->>>>        __u32   lp_advertising; /* Features the link partner advert=
-ises */
->>>>        __u32   reserved[2];
->>>>  };
->>>> @@ -632,6 +633,11 @@ struct ethtool_ops {
->>>>  #define AUTONEG_DISABLE                0x00
->>>>  #define AUTONEG_ENABLE         0x01
->>>>  +/* Mode MDI or MDI-X */
->>>> +#define MDI_INVALID 0x00
->>>> +#define MDI         0x01
->>>> +#define MDI_X       0x02
->>>>
->>>>        =20
->>> [...]
->>>
->>> Similarly, please add the prefix "ETH_TP_" to these.
->>>
->>>      =20
->> Sure.
->>    =20
->
-> Chaitanya, I have made the requested changes to the patch in my tree.
->
->  =20
-Thanks. I am very new to procedure of submitting kernel patches. Just=20
-want to make sure if this means that I not need to send another patch t=
-o=20
-netdev ?
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Wed, 3 Jun 2009 14:51:51 +0400
 
-Thanks,
-Chaitanya
+> Please check the updated patch. We do request several unused in this
+> serie value (like AF_ZIGBEE), but we'd like for them to be merged ASAP
+> as their are a part of ABI.
+
+I don't allow anyone else to do this, and neither will I
+allow it for you either.
+
+Merge it when the patches that use them are submitted.
+
+And if it happens, you just might to change AF_ZIGBEE if
+that number is taken by another series of patches, that's
+just how it is.  We don't reserve AF_* for people while
+they're getting their stuff ready.
+
+This decision is final.
