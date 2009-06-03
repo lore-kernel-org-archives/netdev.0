@@ -1,51 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: tun: Only wake up writers
-Date: Wed, 3 Jun 2009 13:33:03 +1000
-Message-ID: <20090603033303.GA7889@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: 2.6.30-rc8 and net state...
+Date: Tue, 02 Jun 2009 21:53:09 -0700 (PDT)
+Message-ID: <20090602.215309.260215486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33971 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751985AbZFCDdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Jun 2009 23:33:04 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56000
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753332AbZFCExI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 00:53:08 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 86A90C8C1B4
+	for <netdev@vger.kernel.org>; Tue,  2 Jun 2009 21:53:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
 
-tun: Only wake up writers
+With 2.6.30-rc8 just going out, and probably being the very
+last RC with a final 2.6.30 release anticipated this weekend
+I really do not expect to add anything to net-2.6 at this
+point.
 
-Recently net/core/sock.c was updated so that when we free an skb
-that has been transmitted we only wake up writers instead of waking
-up both readers and writers.
+Don't even think about suggesting a change goes into net-2.6,
+really, we're that frozen :-)
 
-This patch does the same thing for tun as this code is identical
-to that in net/core/sock.c
+There are ~35 patches in the patchwork queue for networking,
+most of which were posted today, so I should be able to merge
+the vast majority of those quickly.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 735bf41..7ca43b8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -841,7 +841,9 @@ static void tun_sock_write_space(struct sock *sk)
- 		return;
- 
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
--		wake_up_interruptible_sync(sk->sk_sleep);
-+		wake_up_interruptible_sync_poll(sk->sk_sleep,
-+						POLLOUT | POLLWRNORM |
-+						POLLWRBAND);
- 
- 	if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
- 		return;
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+My personal play is to make some more attempts at moving sk_buff
+over to using struct list_head, but if that isn't completed in
+time for the 2.6.31 merge window it won't be the end of the world
+I suppose.
