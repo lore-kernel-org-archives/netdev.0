@@ -1,83 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next-2.6 1/1] e1000e: Expose MDI-X status via ethtool
-	change
-Date: Wed, 3 Jun 2009 14:04:27 -0700
-Message-ID: <9929d2390906031404j51d9d158i319ba84121212a6e@mail.gmail.com>
-References: <1243353768.3188.2.camel@achroite>
-	 <20090527231542.GA19664@clala-laptop>
-	 <1244050462.3191.14.camel@achroite> <4A26B6BC.40605@riverbed.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: Question regarding protocol specific mtu for FCoE
+Date: Wed, 3 Jun 2009 14:17:21 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0906031407190.5072@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <7C88852EF6F99F4EB538472FCFEBE2223A7E6F45@orsmsx509.amr.corp.intel.com>
+ <4A26BAF7.3070301@hp.com> <7C88852EF6F99F4EB538472FCFEBE2223A7E6FBD@orsmsx509.amr.corp.intel.com>
+ <4A26E4AE.4020607@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chaitanya Lala <clala@riverbed.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.31]:61651 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752614AbZFCVE0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:04:26 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so144821ywb.1
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 14:04:28 -0700 (PDT)
-In-Reply-To: <4A26B6BC.40605@riverbed.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Zou, Yi" <yi.zou@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+	"Leech, Christopher" <christopher.leech@intel.com>,
+	"Dev, Vasu" <vasu.dev@intel.com>,
+	"Love, Robert W" <robert.w.love@intel.com>,
+	"Ma, Steve" <steve.ma@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <4A26E4AE.4020607@hp.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 3, 2009 at 10:45 AM, Chaitanya Lala <clala@riverbed.com> wr=
-ote:
-> Ben Hutchings wrote:
->>
->> On Wed, 2009-05-27 at 16:15 -0700, Chaitanya Lala wrote:
->> [...]
->>
->>>
->>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
->>> index 380b042..b553bdb 100644
->>> --- a/include/linux/ethtool.h
->>> +++ b/include/linux/ethtool.h
->>> @@ -30,7 +30,8 @@ struct ethtool_cmd {
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0__u32 =C2=A0 maxtxpkt; =C2=A0 =C2=A0 =C2=
-=A0 /* Tx pkts before generating tx int */
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0__u32 =C2=A0 maxrxpkt; =C2=A0 =C2=A0 =C2=
-=A0 /* Rx pkts before generating rx int */
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0__u16 =C2=A0 speed_hi;
->>> - =C2=A0 =C2=A0 =C2=A0 __u16 =C2=A0 reserved2;
->>> + =C2=A0 =C2=A0 =C2=A0 __u8 =C2=A0 =C2=A0is_mdix;
->>>
->>
->> Since this is specific to Ethernet over=EF=BB=BF twisted-pair cable,=
- could you
->> please rename this to "eth_tp_mdix".
->>
->
-> Will do for sure.
->>
->>
->>>
->>> + =C2=A0 =C2=A0 =C2=A0 __u8 =C2=A0 =C2=A0reserved2;
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0__u32 =C2=A0 lp_advertising; /* Features=
- the link partner advertises */
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0__u32 =C2=A0 reserved[2];
->>> =C2=A0};
->>> @@ -632,6 +633,11 @@ struct ethtool_ops {
->>> =C2=A0#define AUTONEG_DISABLE =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A00x00
->>> =C2=A0#define AUTONEG_ENABLE =C2=A0 =C2=A0 =C2=A0 =C2=A0 0x01
->>> =C2=A0+/* Mode MDI or MDI-X */
->>> +#define MDI_INVALID 0x00
->>> +#define MDI =C2=A0 =C2=A0 =C2=A0 =C2=A0 0x01
->>> +#define MDI_X =C2=A0 =C2=A0 =C2=A0 0x02
->>>
->>
->> [...]
->>
->> Similarly, please add the prefix "ETH_TP_" to these.
->>
->
-> Sure.
+> 1) the "HW MTU" used by the NIC and the guts of the driver
+> 2) the legacy networking (eg IP etc) MTU passed up through the legacy path
+> 3) the fcoe MTU passed up through the fcoe path
+> 
+> where 1 is the max of 2,3
 
-Chaitanya, I have made the requested changes to the patch in my tree.
+Whatever is decided to do is going to be targeted at ixgbe first.  The 
+scenario you outlined here is exactly how ixgbe hardware works:
 
---=20
+- Set HLREG0 to enable jumbo frames.  This allows larger frames to be 
+accepted, but doesn't limit them to any minimum size.
+
+- Set MHADD (for 82598) or MAXFRS (for 82599 - same register, new name) to 
+indicate what the absolute maximum frame size you will receive.  Again, 
+doesn't limit the minimum size.
+
+- The networking software can send any size up to MAXFRS (maximum frame 
+size) and the hardware will happily receive it and pass it up the stack.
+
 Cheers,
-Jeff
+-PJ Waskiewicz
