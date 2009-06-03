@@ -1,77 +1,61 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 4/6] net: add NL802154 interface for configuration of
- 802.15.4 devices
-Date: Wed, 03 Jun 2009 11:39:24 +0200
-Message-ID: <1244021964.10665.5.camel@johannes.local>
-References: <1244021629-18409-1-git-send-email-dbaryshkov@gmail.com>
-	 <1244021629-18409-2-git-send-email-dbaryshkov@gmail.com>
-	 <1244021629-18409-3-git-send-email-dbaryshkov@gmail.com>
-	 <1244021629-18409-4-git-send-email-dbaryshkov@gmail.com>
-	 <1244021629-18409-5-git-send-email-dbaryshkov@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 3 Jun 2009 09:54:12 +0000
+Message-ID: <20090603095412.GC5644@ff.dom.local>
+References: <298f5c050906020445n3941b4ceic1167a4a028005bf@mail.gmail.com> <20090602123635.GC4239@ff.dom.local> <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-f1uVj3P7zhwS81FSTB85"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, davem@davemloft.net,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Sergey Lapin <slapin@ossfans.org>
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Antonio Almeida <vexwek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:49576 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751841AbZFCJj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 05:39:29 -0400
-In-Reply-To: <1244021629-18409-5-git-send-email-dbaryshkov@gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.157]:12964 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbZFCJyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 05:54:16 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1098708fga.17
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 02:54:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A262BE7.4090807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 03, 2009 at 09:53:11AM +0200, Patrick McHardy wrote:
+...
+> The necessary changes are
+> really trivial, all you need to do when changing the scaling factors
+> is to increase SM_MASK and decrease ISM_MASK accordingly.
 
---=-f1uVj3P7zhwS81FSTB85
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+OK, looks like it's really enough and I was confused with some
+rounding, thanks Patrick.
 
-On Wed, 2009-06-03 at 13:33 +0400, Dmitry Eremin-Solenikov wrote:
+Antonio, could you give this patch a try (with all the previous) and
+repeat those HFSC tests you did before (plus maybe a few tries with
+lower rates)?
 
-> +enum {
-> +	__IEEE802154_COMMAND_INVALID,
-> +
-> +	IEEE802154_ASSOCIATE_REQ,
-> +	IEEE802154_ASSOCIATE_CONF,
-> +	IEEE802154_DISASSOCIATE_REQ,
-> +	IEEE802154_DISASSOCIATE_CONF,
-> +	IEEE802154_GET_REQ,
-> +	IEEE802154_GET_CONF,
-> +/* 	IEEE802154_GTS_REQ, */
-> +/* 	IEEE802154_GTS_CONF, */
-> +	IEEE802154_RESET_REQ,
-> +	IEEE802154_RESET_CONF,
-> +/* 	IEEE802154_RX_ENABLE_REQ, */
-> +/* 	IEEE802154_RX_ENABLE_CONF, */
+Thanks,
+Jarek P.
+---
 
-This is a recipe for disaster. Somebody will come along and uncomment
-things. Why this is bad, I leave as an exercise for the reader.
+ net/sched/sch_hfsc.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-johannes
-
---=-f1uVj3P7zhwS81FSTB85
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKJkTJAAoJEODzc/N7+QmacIAP/j4pABnzbTeH28988f091okj
-X/woSZkYWYMpopmE/TAHXuQrsPDgt3MGzutTnXb2ctVZzLQb+iN5JpRtT2VE45ba
-Bz7sHuWLPw1GJZsS5bbETgGoho7NCZj/3fWHrdppgKoOI8qbIdIH3iEnjeiPTR8S
-/OIoDzASLfJ/5JunYZCpbfFrBn9lc0tKaus/LISO8r+rPUoL9dBuTzjqGCOuwMek
-T3yTEs5eTyIxyUMmDLkYV6BfrGjubGiEPLM/6CAh99PkC/MNLo9WQANi8Kl4mmlo
-dXb1Cq/mydhhSGHTdzIZ2UWTCY/BQCCh0lFBrTqvEfYb4NdkhHhTAEW91g0VeY8X
-+579VKNr+kCGpej0mSGKsJ127YJIM5ueSixAWLUiuinIcX+QrIFKi2nqdv7eYI2K
-7Fmi4/y3jzZiPe2cDGvCzBdwZZ98G1CzzrCQUgOqQ8HZHNQHYrWtL1eY2E9639aG
-H/cBAED9qTGyKew+aUbXFcT1+zVd0sGZmTbZoQMz0MiaGa0E4NHHz+ofvDfXJoY+
-broEJ3LH/3OcF4Z2WTx+YuNXMJKDZyrpadnrHh/7se8th/8DaHZWb8Y7EyujYI2i
-dHTX/DphX201FijyiNFXqfWxVqMAaSFovmpJ3rrE4NlihAGsSmE8GrqVMl3nDMvm
-pwdl74AZxvhugdrhM3Nh
-=uRcT
------END PGP SIGNATURE-----
-
---=-f1uVj3P7zhwS81FSTB85--
-
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 5022f9c..7c53a36 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -384,8 +384,9 @@ cftree_update(struct hfsc_class *cl)
+  *
+  *  1.024us/byte  78.125     7.8125     0.78125    0.078125   0.0078125
+  */
+-#define	SM_SHIFT	20
+-#define	ISM_SHIFT	18
++#define	PSCHED_SHIFT	6	/* TODO: move to pkt_sched.h */
++#define	SM_SHIFT	(30 - PSCHED_SHIFT)
++#define	ISM_SHIFT	(8 + PSCHED_SHIFT)
+ 
+ #define	SM_MASK		((1ULL << SM_SHIFT) - 1)
+ #define	ISM_MASK	((1ULL << ISM_SHIFT) - 1)
