@@ -1,72 +1,54 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH] forcedeth: Addition of new device id (resend without pci_ids.h)
-Date: Wed, 03 Jun 2009 12:06:04 -0400
-Message-ID: <4A269F6C.7030300@nvidia.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 13443] New: Scope 1 in multicast addresses in
+ IPV6 should be node local
+Date: Wed, 3 Jun 2009 14:40:31 -0700
+Message-ID: <20090603144031.2945f24d.akpm@linux-foundation.org>
+References: <bug-13443-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050509060803080407010505"
-To: Manfred Spraul <manfred@colorfullife.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, nedev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, aviad.yehezkel5@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:3760 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbZFCVi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:38:29 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58748 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753097AbZFCVkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:40:31 -0400
+In-Reply-To: <bug-13443-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050509060803080407010505
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Add support for new ethernet device in the MCP89 chipset.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+On Wed, 3 Jun 2009 16:06:29 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
+> http://bugzilla.kernel.org/show_bug.cgi?id=13443
+> 
+>            Summary: Scope 1 in multicast addresses in IPV6 should be node
+>                     local
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.27
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: aviad.yehezkel5@gmail.com
+>         Regression: No
+> 
+> 
+> I think scope 1 in multicast addresses in IPV6 should be node local (according
+> to all the documentation + rfc I found on the web) and therefore pkt's with
+> such destination address should not go on the wire.
+> When I try to send a udp pkt with sock_dgram to such ipv6 address with scope 1
+> I see the pkt is going on the wire and I can catch it on the other side by
+> joining this multicast address.
 
---------------050509060803080407010505
-Content-Type: text/plain;
- name="patch-forcedeth-mcp89-device"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-mcp89-device"
-
---- old/drivers/net/forcedeth.c	2009-06-02 14:53:45.000000000 -0400
-+++ new/drivers/net/forcedeth.c	2009-06-03 11:59:53.000000000 -0400
-@@ -70,6 +70,11 @@
- #define dprintk(x...)		do { } while (0)
- #endif
- 
-+/*
-+ * Hardware device ids (no longer updating pci_ids.h)
-+ */
-+#define PCI_DEVICE_ID_NVIDIA_NVENET_40  0x0D7D
-+
- #define TX_WORK_PER_LOOP  64
- #define RX_WORK_PER_LOOP  64
- 
-@@ -6149,7 +6154,8 @@
- 	for (i = 0;i <= np->register_size/sizeof(u32); i++)
- 		writel(np->saved_config_space[i], base+i*sizeof(u32));
- 
--	pci_write_config_dword(pdev, NV_MSI_PRIV_OFFSET, NV_MSI_PRIV_VALUE);
-+	if (np->device_id != PCI_DEVICE_ID_NVIDIA_NVENET_40)
-+		pci_write_config_dword(pdev, NV_MSI_PRIV_OFFSET, NV_MSI_PRIV_VALUE);
- 
- 	/* restore phy state, including autoneg */
- 	phy_init(dev);
-@@ -6353,6 +6359,10 @@
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_39),
- 		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
- 	},
-+	{	/* MCP89 Ethernet Controller */
-+		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_40),
-+		.driver_data = DEV_NEED_LINKTIMER|DEV_HAS_LARGEDESC|DEV_HAS_CHECKSUM|DEV_HAS_HIGH_DMA|DEV_HAS_MSI|DEV_HAS_POWER_CNTRL|DEV_HAS_PAUSEFRAME_TX_V3|DEV_HAS_STATISTICS_V3|DEV_HAS_TEST_EXTENDED|DEV_HAS_CORRECT_MACADDR|DEV_HAS_COLLISION_FIX|DEV_NEED_TX_LIMIT|DEV_HAS_GEAR_MODE,
-+	},
- 	{0,},
- };
- 
-
---------------050509060803080407010505--
