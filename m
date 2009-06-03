@@ -1,60 +1,89 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: pull request: sctp updates for net-next
-Date: Wed, 03 Jun 2009 10:33:27 -0400
-Message-ID: <4A2689B7.3030101@hp.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next 2/2] cxgb3: minor aq100x phy fixes
+Date: Wed, 03 Jun 2009 09:19:15 -0700
+Message-ID: <20090603161915.17960.58081.stgit@speedy5>
+References: <20090603161910.17960.28171.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux SCTP Dev Mailing list <linux-sctp@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:31650 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753406AbZFCOd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 10:33:26 -0400
+Received: from stargate.chelsio.com ([67.207.112.58]:27924 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755456AbZFCQTP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 12:19:15 -0400
+In-Reply-To: <20090603161910.17960.28171.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+From: Divy Le Ray <divy@chelsio.com>
 
-The following changes since commit 047584ce94108012288554a5f84585d792cc7f8f:
-  Haiying Wang (1):
-        net/ucc_geth: Add SGMII support for UEC GETH driver
+Use generic MDIO generic values.
+Based on Ben Hutchings'review comments.
 
-are available in the git repository at:
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/vxy/lksctp-dev.git net-next
-
-Jean-Mickael Guerin (1):
-      sctp: fix sack_timeout sysctl min and max types
-
-Vlad Yasevich (1):
-      sctp: support non-blocking version of the new sctp_connectx() API
-
-Wei Yongjun (8):
-      sctp: fix error cause codes of ADD-IP extension
-      sctp: fix report unrecognized parameter in ACSONF-ACK
-      sctp: fix the error code when ASCONF is received with invalid address
-      sctp: fix a typo in net/sctp/sm_statetable.c
-      sctp: fix to only enable IPv6 address support on PF_INET6 socket
-      sctp: fix panic when T2-shutdown timer expire on removed transport
-      sctp: fix panic when T4-rto timer expire on removed transport
-      sctp: fix to choose alternate destination when retransmit ASCONF chunk
-
- include/linux/sctp.h       |   20 +++++++-------
- include/net/sctp/structs.h |    6 +---
- include/net/sctp/user.h    |    2 +
- net/sctp/associola.c       |   64 +++++++++++++++++++------------------------
- net/sctp/sm_make_chunk.c   |   16 +++++-----
- net/sctp/sm_sideeffect.c   |    8 +++--
- net/sctp/sm_statefuns.c    |   14 +++++++---
- net/sctp/sm_statetable.c   |    2 +-
- net/sctp/socket.c          |   42 ++++++++++++++++++++++++++++-
- net/sctp/sysctl.c          |    6 ++--
- 10 files changed, 110 insertions(+), 70 deletions(-)
+ drivers/net/cxgb3/aq100x.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
 
 
-Please pull into net-next-2.6.
+diff --git a/drivers/net/cxgb3/aq100x.c b/drivers/net/cxgb3/aq100x.c
+index c51e50d..b1fd5bf 100644
+--- a/drivers/net/cxgb3/aq100x.c
++++ b/drivers/net/cxgb3/aq100x.c
+@@ -43,8 +43,6 @@ enum {
+ 	AQ_XAUI_TX_CFG	= 0xe400,
+ 
+ 	/* MDIO_DEV_ANEG registers */
+-	AQ_100M_CTRL	= 0x0010,
+-	AQ_10G_CTRL	= 0x0020,
+ 	AQ_1G_CTRL	= 0xc400,
+ 	AQ_ANEG_STAT	= 0xc800,
+ 
+@@ -54,14 +52,15 @@ enum {
+ 	AQ_IMASK_GLOBAL	= 0xff00,
+ };
+ 
+-#define AQBIT(x)	(1 << (x))
+-#define IMASK_PMA	AQBIT(0x2)
+-#define IMASK_GLOBAL	AQBIT(0xf)
+-#define ADV_1G_FULL	AQBIT(0xf)
+-#define ADV_1G_HALF	AQBIT(0xe)
+-#define ADV_10G_FULL	AQBIT(0xc)
+-#define AQ_RESET	(AQBIT(0xe) | AQBIT(0xf))
+-#define AQ_LOWPOWER	AQBIT(0xb)
++enum {
++	IMASK_PMA	= 1 << 2,
++	IMASK_GLOBAL	= 1 << 15,
++	ADV_1G_FULL	= 1 << 15,
++	ADV_1G_HALF	= 1 << 14,
++	ADV_10G_FULL	= 1 << 12,
++	AQ_RESET	= (1 << 14) | (1 << 15),
++	AQ_LOWPOWER	= 1 << 12,
++};
+ 
+ static int aq100x_reset(struct cphy *phy, int wait)
+ {
+@@ -160,7 +159,7 @@ static int aq100x_advertise(struct cphy *phy, unsigned int advertise_map)
+ 	adv = 0;
+ 	if (advertise_map & ADVERTISED_10000baseT_Full)
+ 		adv |= ADV_10G_FULL;
+-	err = t3_mdio_change_bits(phy, MDIO_MMD_AN, AQ_10G_CTRL,
++	err = t3_mdio_change_bits(phy, MDIO_MMD_AN, MDIO_AN_10GBT_CTRL,
+ 				  ADV_10G_FULL, adv);
+ 	if (err)
+ 		return err;
+@@ -186,7 +185,8 @@ static int aq100x_advertise(struct cphy *phy, unsigned int advertise_map)
+ 		adv |= ADVERTISE_PAUSE_CAP;
+ 	if (advertise_map & ADVERTISED_Asym_Pause)
+ 		adv |= ADVERTISE_PAUSE_ASYM;
+-	err = t3_mdio_change_bits(phy, MDIO_MMD_AN, AQ_100M_CTRL, 0xfe0, adv);
++	err = t3_mdio_change_bits(phy, MDIO_MMD_AN, MDIO_AN_ADVERTISE,
++				  0xfe0, adv);
+ 
+ 	return err;
+ }
 
-Thanks
--vlad
