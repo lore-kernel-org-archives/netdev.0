@@ -1,75 +1,49 @@
-From: Nishit Shah <nsshah.82@gmail.com>
-Subject: [PATCH] r8168: r8168 fixes
-Date: Wed, 3 Jun 2009 14:14:11 +0530
-Message-ID: <b2d58cb80906030144m6cb7c848se1fe5f471b4688ed@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 3 Jun 2009 08:45:41 +0000
+Message-ID: <20090603084541.GB5644@ff.dom.local>
+References: <4A251EEE.4060903@trash.net> <20090602130857.GA7690@ff.dom.local> <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603080123.GA5644@ff.dom.local> <4A263486.1030403@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Antonio Almeida <vexwek@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, devik@cdi.cz,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f112.google.com ([209.85.221.112]:33881 "EHLO
-	mail-qy0-f112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbZFCIoL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:44:11 -0400
-Received: by qyk10 with SMTP id 10so59256qyk.33
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 01:44:12 -0700 (PDT)
+Received: from mail-fx0-f168.google.com ([209.85.220.168]:48448 "EHLO
+	mail-fx0-f168.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388AbZFCIpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 04:45:46 -0400
+Received: by fxm12 with SMTP id 12so7211646fxm.37
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 01:45:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A263486.1030403@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jun 03, 2009 at 10:29:58AM +0200, Patrick McHardy wrote:
+> Jarek Poplawski wrote:
+>> On Wed, Jun 03, 2009 at 09:53:11AM +0200, Patrick McHardy wrote:
+>> ...
+>>> Yes, it would work perfectly fine with usecs, which is actually (and
+>>> unfortunately) the unit it uses in its ABI. But I think its better
+>>> to convert the values once during initialization, instead of again
+>>> and again when scheduling the watchdog. The necessary changes are
+>>> really trivial, all you need to do when changing the scaling factors
+>>> is to increase SM_MASK and decrease ISM_MASK accordingly.
+>>
+>> Right! (On the other hand we could consider a separate watchdog too...)
+>
+> We could :) But I don't see any benefit doing that, especially given
+> that eventually everything should be using ns resolution anyways.
 
-The following patch fixes three r8168 bugs:
+The main benefit would be readability... I guess it's no problem for
+you, but I'm currently trying to make sure things like this are/will
+be OK :-)
 
-1) vlan tag missing in transmit path. Due to incorrect assignment of
-transmit vlan tag option, driver is not able to transmit data on vlan
-interface.
-
-2) compilation warning with rtl8168_powerup_pll if CONFIG_PM isn=92t de=
-fined.
-
-3) compilation warning with unused variable dev in rtl8168_tx_clear.
-
-Signed-off-by: Rajesh Modhwadiya <rajesh.modhwadiya@elitecore.com>
-Signed-off-by: Nishit Shah <nishit.shah@elitecore.com>
-
----
-r8168_n.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
---- r8168-8.011.00/src/r8168_n.c        2009-02-18 09:23:21.000000000 +=
-0530
-+++ r8168-8.011.00-tmp/src/r8168_n.c    2009-05-15 01:40:57.000000000 +=
-0530
-@@ -808,6 +808,8 @@
-        }
- }
-
-+#ifdef CONFIG_PM
-+
- static void
- rtl8168_powerup_pll(struct net_device *dev)  { @@ -825,6 +827,8 @@
-        rtl8168_set_speed(dev, tp->autoneg, tp->speed, tp->duplex);  }
-
-+#endif /* CONFIG_PM */
-+
- static void
- rtl8168_get_wol(struct net_device *dev,
-                struct ethtool_wolinfo *wol) @@ -4151,7 +4155,6 @@
-rtl8168_tx_clear(struct rtl8168_private *tp)  {
-        unsigned int i;
--       struct net_device *dev =3D tp->dev;
-
-        for (i =3D tp->dirty_tx; i < tp->dirty_tx + NUM_TX_DESC; i++) {
-                unsigned int entry =3D i % NUM_TX_DESC; @@ -4436,7 +443=
-9,7 @@
-
-        tp->tx_skb[entry].len =3D len;
-        txd->addr =3D cpu_to_le64(mapping);
--       txd->opts2 =3D cpu_to_le32(rtl8168_tx_vlan_tag(tp, skb));
-+       opts2 |=3D cpu_to_le32(rtl8168_tx_vlan_tag(tp, skb));
-
-        wmb();
-
-
-Rgds,
-Nishit Shah.
+        dx = ((u64)d * PSCHED_TICKS_PER_SEC);
+        dx += USEC_PER_SEC - 1;
+ 
+Jarek P.
