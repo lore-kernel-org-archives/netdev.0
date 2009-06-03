@@ -1,41 +1,38 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: Question regarding protocol specific mtu for FCoE
-Date: Wed, 03 Jun 2009 14:21:11 -0700
-Message-ID: <adazlcp814o.fsf@cisco.com>
-References: <7C88852EF6F99F4EB538472FCFEBE2223A7E6F45@orsmsx509.amr.corp.intel.com>
-	<4A26BAF7.3070301@hp.com>
-	<7C88852EF6F99F4EB538472FCFEBE2223A7E6FBD@orsmsx509.amr.corp.intel.com>
-	<4A26E4AE.4020607@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] forcedeth: Addition of new device id
+Date: Wed, 03 Jun 2009 14:26:47 -0700 (PDT)
+Message-ID: <20090603.142647.149845259.davem@davemloft.net>
+References: <4A257B1A.8080205@nvidia.com>
+	<20090603132509.d3121eff.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Zou\, Yi" <yi.zou@intel.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi\@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"Leech\, Christopher" <christopher.leech@intel.com>,
-	"Dev\, Vasu" <vasu.dev@intel.com>,
-	"Love\, Robert W" <robert.w.love@intel.com>,
-	"Ma\, Steve" <steve.ma@intel.com>,
-	"Waskiewicz Jr\, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aabdulla@nvidia.com, manfred@colorfullife.com,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:58267 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753669AbZFCVVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:21:09 -0400
-In-Reply-To: <4A26E4AE.4020607@hp.com> (Rick Jones's message of "Wed, 03 Jun
-	2009 14:01:34 -0700")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38536
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753607AbZFCV0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:26:46 -0400
+In-Reply-To: <20090603132509.d3121eff.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > So FCoE cannot say "fcoe_mtu = min(OPTIMAL_FCOEMTU,netdev->mtu)" and
- > send-down frames based on that?
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 3 Jun 2009 13:25:09 -0700
 
-I think the point is that FCoE wants to use OPTIMAL_FCOEMTU (2KB + a bit
-for headers) even when netdev->mtu is 1500.  (eg datacenter network
-supports baby jumbo frames so FCoE traffic that stays within the network
-should use OPTIMAL_FCOEMTU, while lots of IP traffic is going out onto a
-1500-byte MTU campus and having TCP doing lots of PMTU discovery is a
-pain)
+> On Tue, 02 Jun 2009 15:18:50 -0400
+> Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+> 
+>> This patch adds support for new ethernet device in the MCP89 chipset.
+>> 
+>> Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+>> 
+> 
+> It's best to combine these two patches into one, IMO.
 
- - R.
+Andrew, we do not add new entries to pci_ids.h any more.
+
+Just use the constant directly when using it in the driver
+ID table.
