@@ -1,54 +1,46 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH] forcedeth: Addition of new device id (resend without
- pci_ids.h)
-Date: Wed, 03 Jun 2009 12:24:37 -0400
-Message-ID: <4A26A3C5.5030607@nvidia.com>
-References: <4A269F6C.7030300@nvidia.com> <20090603.144456.01215273.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] forcedeth: Addition of new device id
+Date: Wed, 03 Jun 2009 14:57:21 -0700 (PDT)
+Message-ID: <20090603.145721.65051603.davem@davemloft.net>
+References: <20090603132509.d3121eff.akpm@linux-foundation.org>
+	<20090603.142647.149845259.davem@davemloft.net>
+	<20090603145238.fd4ece19.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "manfred@colorfullife.com" <manfred@colorfullife.com>,
-	"akpm@osdl.org" <akpm@osdl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: aabdulla@nvidia.com, manfred@colorfullife.com,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:7412 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbZFCV5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:57:02 -0400
-In-Reply-To: <20090603.144456.01215273.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41184
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753626AbZFCV5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 17:57:20 -0400
+In-Reply-To: <20090603145238.fd4ece19.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 3 Jun 2009 14:52:38 -0700
 
-
-David Miller wrote:
-> From: Ayaz Abdulla <aabdulla@nvidia.com>
-> Date: Wed, 03 Jun 2009 12:06:04 -0400
+> On Wed, 03 Jun 2009 14:26:47 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
+>> Andrew, we do not add new entries to pci_ids.h any more.
 > 
->>Add support for new ethernet device in the MCP89 chipset.
->>
->>Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
-> 
-> Just use the constant directly, please :-)
+> Lots of people are still changing it.
 
-But there is place in the patch that refers to device id so it makes 
-more sense to have a macro. i.e
+Not enough policing, that's all.  Even I let one slip in recently, but
+that was an oversight rather than something I did on purpose. :-)
 
-+       if (np->device_id != PCI_DEVICE_ID_NVIDIA_NVENET_40)
+> I believe that the approach we've been taking is: if the driver
+> presently uses pci_ids.h and you're adding a new ID then go for it.
+> But new drivers should use a private site for the IDs.  And patches
+> which switch old drivers from pci_ids over to a private site are
+> approved of.
 
-other places in the code also refer to device ids for certain 
-workarounds. i.e.
-
-		if ((id->device == PCI_DEVICE_ID_NVIDIA_NVENET_12 ||
-		     id->device == PCI_DEVICE_ID_NVIDIA_NVENET_13) &&
-
-
-
-> 
-> The new macro is completely superfluous.
-> 
-> Trust me, other drivers just use the PCI ID constant directly in their
-> tables too, and no animals were harmed by the experiment :-)
+I think it's silly to let use continue even in those situations.  If
+it's in a header file, it's so that it can (at least potentially) be
+used in multiple places.  That is not the situation we are handling
+here, such defines are always used in exactly one place, the driver ID
+table.
