@@ -1,49 +1,53 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Thu, 4 Jun 2009 11:52:48 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0906041150590.3204@gentwo.org>
-References: <alpine.DEB.1.10.0906021044430.15692@gentwo.org> <20090603.224104.222901210.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/8] add lib/gcd.c
+Date: Thu, 04 Jun 2009 08:57:24 -0700
+Message-ID: <1244131044.3631.14.camel@Joe-Laptop.home>
+References: <200906041615.10467.florian@openwrt.org>
+	 <4A27DAAD.5000303@ru.mvista.com>  <200906041639.04868.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:40249 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754177AbZFDPxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 11:53:04 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 7AA4D82CD6E
-	for <netdev@vger.kernel.org>; Thu,  4 Jun 2009 12:07:59 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id E-4lBzZBshhm for <netdev@vger.kernel.org>;
-	Thu,  4 Jun 2009 12:07:50 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id E646F82CD93
-	for <netdev@vger.kernel.org>; Thu,  4 Jun 2009 12:07:49 -0400 (EDT)
-In-Reply-To: <20090603.224104.222901210.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux-MIPS <linux-mips@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, Takashi Iwai <tiwai@suse.de>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <200906041639.04868.florian@openwrt.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Jun 2009, David Miller wrote:
+On Thu, 2009-06-04 at 16:39 +0200, Florian Fainelli wrote:
+> diff --git a/lib/gcd.c b/lib/gcd.c
+> new file mode 100644
+> index 0000000..6634741
+> --- /dev/null
+> +++ b/lib/gcd.c
+> @@ -0,0 +1,20 @@
+> +#include <linux/gcd.h>
+> +#include <linux/module.h>
+> +
+> +/* Greatest common divisor */
+> +unsigned long gcd(unsigned long a, unsigned long b)
+> +{
+> +	unsigned long r;
+> +
+> +	if (a < b) {
+> +		r = a;
+> +		a = b;
+> +		b = r;
+	swap(a, b)
+> +	}
+> +	while ((r = a % b) != 0) {
+> +		a = b;
+> +		b = r;
+> +	}
+> +	return b;
+> +}
+> +EXPORT_SYMBOL_GPL(gcd);
 
-> I don't think using an infinite backlog for this is wise.
-
-The number of packets is limited by the size of the sendbuffer. Its not
-unlimited but under user control.
-
-> We don't do this for ARP, for example.  We have a 3 packet limit just
-> like IPoIB implements for multicast here.
-
-ARP is a management protocol with specific semantics. Socket protocols are
-dealing with streams of datagrams.
-
-> I'm all for increasing those limits, but eliminating them I cannot
-> agree with.
-
-If these limits are lower than the socket sendbuffer size then the packets
-will be dropped without the app being stopped. If they are set higher then
-the application will block after the sendbuffer size has been reached.
-
-
+Shouldn't a generic gcd protect against a div0
+if gcd(0,0)?
