@@ -1,45 +1,51 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
-Date: Wed, 3 Jun 2009 18:44:22 -0700
-Message-ID: <c0a09e5c0906031844v7e88572ewdab7b9c4e1295c0c@mail.gmail.com>
-References: <20090520230652.GB5956@ghostprotocols.net>
-	 <20090522200611.GB967@hmsreliant.think-freely.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: Re: [PATCH net-next 2/2] cxgb3: Add Aeluros 2020 phy support
+Date: Wed, 03 Jun 2009 19:27:41 -0700
+Message-ID: <4A27311D.7070400@chelsio.com>
+References: <20090529075823.30669.28885.stgit@speedy5> <20090529075829.30669.41488.stgit@speedy5> <20090601105349.GF3051@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f189.google.com ([209.85.221.189]:62964 "EHLO
-	mail-qy0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbZFDBt2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 21:49:28 -0400
-Received: by qyk27 with SMTP id 27so723530qyk.33
-        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 18:49:30 -0700 (PDT)
-In-Reply-To: <20090522200611.GB967@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756600AbZFDCcU@vger.kernel.org>
+In-Reply-To: <20090601105349.GF3051@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 22, 2009 at 1:06 PM, Neil Horman <nhorman@tuxdriver.com> wr=
-ote:
-> Not to throw more questions into the mix again, but didn't Ingo write=
- a
-> batching syscall a while back, which let you issue several syscalls i=
-n one trap
-> to kernel space? =A0I understand that your approach has some efficien=
-cy gains over
-> that, but did that ever get accepted upstream? =A0Is the overlap ther=
-e sufficient
-> to make this approach redundant? =A0Or are the gains in performance h=
-ere
-> sufficient to warrant this new call?
+Ben Hutchings wrote:
+> On Fri, 2009-05-29 at 00:58 -0700, Divy Le Ray wrote:
+> [...]
+>   
+>> +	/* TWINAX EDC firmware */
+>> +	static u16 twinax_edc[] = {
+>> +		0xd800, 0x4009,
+>> +		0xd801, 0x2fff,
+>> +		0xd802, 0x300f,
+>> +		0xd803, 0x40aa,
+>> +		0xd804, 0x401c,
+>>     
+> [...]
+>
+> Use request_firmware() please.
+>
+> Ben.
+>
+>   
 
-I couldn't find this via Google or any posts to LKML by Ingo on this?
+Hi Ben,
 
-I'm very interested in multiple send/recvmsg support. So, it's
-definitely going to happen? :-)
+Sorry for the late reply.
 
-Regards -- Andy
+The registers controlling the electronic dispersion compensation
+need to be programmed based on the module inserted when the phy gets out 
+of reset.
+
+In a boot over the network environment, request_firmware() will not be 
+granted
+access to the file system. The EDC registers setup would be problematic.
+
+Cheers,
+Divy
+ 
