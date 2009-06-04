@@ -1,144 +1,106 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/8] add lib/gcd.c
-Date: Thu, 4 Jun 2009 16:39:03 +0200
-Message-ID: <200906041639.04868.florian@openwrt.org>
-References: <200906041615.10467.florian@openwrt.org> <4A27DAAD.5000303@ru.mvista.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [resend] Passive OS fingerprint xtables match.
+Date: Thu, 4 Jun 2009 18:50:09 +0400
+Message-ID: <20090604145009.GB18251@ioremap.net>
+References: <20090511095343.GA30778@ioremap.net> <4A1D6A20.8050404@trash.net> <20090604113723.GA13018@ioremap.net> <4A27B5A1.9050300@trash.net> <20090604120719.GA14981@ioremap.net> <4A27B9EC.2010301@trash.net> <20090604131153.GA18251@ioremap.net> <4A27C921.6020301@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux-MIPS <linux-mips@linux-mips.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Takashi Iwai <tiwai@suse.de>,
-	Ralf Baechle <ralf@linux-mips.org>
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f213.google.com ([209.85.220.213]:51168 "EHLO
-	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754199AbZFDOjG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 10:39:06 -0400
-In-Reply-To: <4A27DAAD.5000303@ru.mvista.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4A27C921.6020301@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On Thu, Jun 04, 2009 at 03:16:17PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+> Exactly. But please verify that by reordering, you're not moving
+> the more commonly used members out of the first cacheline.
 
-Le Thursday 04 June 2009 16:31:09 Sergei Shtylyov, vous avez =E9crit=A0=
-:
-> Hello.
->
-> Florian Fainelli wrote:
-> > This patch adds lib/gcd.c which contains a greatest
-> > common divider implementation taken from
-> > sound/core/pcm_timer.c
-> >
-> > Signed-off-by: Florian Fainelli <florian@openwrt.org>
->
-> [...]
->
-> > diff --git a/lib/gcd.c b/lib/gcd.c
-> > new file mode 100644
-> > index 0000000..fbf81a8
-> > --- /dev/null
-> > +++ b/lib/gcd.c
-> > @@ -0,0 +1,20 @@
-> > +#include <linux/gcd.h>
-> > +#include <linux/module.h>
-> > +
-> > +/* Greatest common divisor */
-> > +unsigned long gcd(unsigned long a, unsigned long b)
-> > +{
-> > +	unsigned long r;
-> > +
-> > +	if (a < b) {
-> > +		r =3D a;
-> > +		a =3D b;
-> > +	b =3D r;
->
->     Fix indentation please.
+That's what I ended up with. arptable does not use match entries. Did I
+miss others?
 
-=46ixed in the following version. Also putting David in copy since it
-he was not in copy of the first patch and could not know why there
-is a following patch on net/netfilter/ipvs/ip_vs_wrr.c to use lib/gcd.c
+As of cache line alignment - I moved the only writable member at the end
+of the structure, so it should even improve things a bit, although I
+really do not think this will ever be noticeble.
+
 --
-=46rom: Florian Fainelli <florian@openwrt.org>
 
-This patch adds lib/gcd.c which contains a greatest
-common divider implementation taken from
-sound/core/pcm_timer.c
+Added hook number into match extension parameter structure.
 
-Changes from v1:
-- fixed indentation
-- use EXPORT_SYMBOL_GPL instead of EXPORT_SYMBOL as
-suggested by Ralf Baechle
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
---
-diff --git a/include/linux/gcd.h b/include/linux/gcd.h
-new file mode 100644
-index 0000000..69f5e8a
---- /dev/null
-+++ b/include/linux/gcd.h
-@@ -0,0 +1,8 @@
-+#ifndef _GCD_H
-+#define _GCD_H
-+
-+#include <linux/compiler.h>
-+
-+unsigned long gcd(unsigned long a, unsigned long b) __attribute_const_=
-_;
-+
-+#endif /* _GCD_H */
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 8ade0a7..70a9906 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -10,6 +10,9 @@ menu "Library routines"
- config BITREVERSE
- 	tristate
-=20
-+config GCD
-+	bool
-+
- config GENERIC_FIND_FIRST_BIT
- 	bool
-=20
-diff --git a/lib/Makefile b/lib/Makefile
-index 33a40e4..389bdd2 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -57,6 +57,7 @@ obj-$(CONFIG_CRC_ITU_T)	+=3D crc-itu-t.o
- obj-$(CONFIG_CRC32)	+=3D crc32.o
- obj-$(CONFIG_CRC7)	+=3D crc7.o
- obj-$(CONFIG_LIBCRC32C)	+=3D libcrc32c.o
-+obj-$(CONFIG_GCD)	+=3D gcd.o
- obj-$(CONFIG_GENERIC_ALLOCATOR) +=3D genalloc.o
-=20
- obj-$(CONFIG_ZLIB_INFLATE) +=3D zlib_inflate/
-diff --git a/lib/gcd.c b/lib/gcd.c
-new file mode 100644
-index 0000000..6634741
---- /dev/null
-+++ b/lib/gcd.c
-@@ -0,0 +1,20 @@
-+#include <linux/gcd.h>
-+#include <linux/module.h>
-+
-+/* Greatest common divisor */
-+unsigned long gcd(unsigned long a, unsigned long b)
-+{
-+	unsigned long r;
-+
-+	if (a < b) {
-+		r =3D a;
-+		a =3D b;
-+		b =3D r;
-+	}
-+	while ((r =3D a % b) !=3D 0) {
-+		a =3D b;
-+		b =3D r;
-+	}
-+	return b;
-+}
-+EXPORT_SYMBOL_GPL(gcd);
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 7b1a652..65a08ae 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -184,9 +184,10 @@ struct xt_counters_info
+  * @matchinfo:	per-match data
+  * @fragoff:	packet is a fragment, this is the data offset
+  * @thoff:	position of transport header relative to skb->data
+- * @hotdrop:	drop packet if we had inspection problems
++ * @hook:	hook number given packet came from
+  * @family:	Actual NFPROTO_* through which the function is invoked
+  * 		(helpful when match->family == NFPROTO_UNSPEC)
++ * @hotdrop:	drop packet if we had inspection problems
+  */
+ struct xt_match_param {
+ 	const struct net_device *in, *out;
+@@ -194,8 +195,9 @@ struct xt_match_param {
+ 	const void *matchinfo;
+ 	int fragoff;
+ 	unsigned int thoff;
+-	bool *hotdrop;
++	unsigned int hooknum;
+ 	u_int8_t family;
++	bool *hotdrop;
+ };
+ 
+ /**
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 820252a..db2540e 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -164,7 +164,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.hotdrop = &hotdrop;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
+ 
+ 	read_lock_bh(&table->lock);
+ 	private = table->private;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 810c0b6..385e4a0 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -335,7 +335,7 @@ ipt_do_table(struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.family  = tgpar.family = NFPROTO_IPV4;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+ 
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 800ae85..d603ae4 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -361,7 +361,7 @@ ip6t_do_table(struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.family  = tgpar.family = NFPROTO_IPV6;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+ 
+
+
+-- 
+	Evgeniy Polyakov
