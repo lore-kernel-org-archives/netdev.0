@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] cxgb3: minor aq100x phy fixes
-Date: Wed, 03 Jun 2009 21:02:13 -0700 (PDT)
-Message-ID: <20090603.210213.20681912.davem@davemloft.net>
-References: <20090603161910.17960.28171.stgit@speedy5>
-	<20090603161915.17960.58081.stgit@speedy5>
+Subject: Re: gso: Stop fraglists from escaping
+Date: Wed, 03 Jun 2009 21:21:05 -0700 (PDT)
+Message-ID: <20090603.212105.160757852.davem@davemloft.net>
+References: <20090604010121.GA22871@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39124
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48457
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751730AbZFDECM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 00:02:12 -0400
-In-Reply-To: <20090603161915.17960.58081.stgit@speedy5>
+	by vger.kernel.org with ESMTP id S1750724AbZFDEVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 00:21:04 -0400
+In-Reply-To: <20090604010121.GA22871@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Wed, 03 Jun 2009 09:19:15 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 4 Jun 2009 11:01:21 +1000
 
-> From: Divy Le Ray <divy@chelsio.com>
+> gso: Stop fraglists from escaping
 > 
-> Use generic MDIO generic values.
-> Based on Ben Hutchings'review comments.
+> As it stands skb fraglists can get past the check in dev_queue_xmit
+> if the skb is marked as GSO.  In particular, if the packet doesn't
+> have the proper checksums for GSO, but can otherwise be handled by
+> the underlying device, we will not perform the fraglist check on it
+> at all.
 > 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> If the underlying device cannot handle fraglists, then this will
+> break.
+> 
+> The fix is as simple as moving the fraglist check from the device
+> check into skb_gso_ok.
+> 
+> This has caused crashes with Xen when used together with GRO which
+> can generate GSO packets with fraglists.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied.
+Applied to net-next-2.6, thanks Herbert.
