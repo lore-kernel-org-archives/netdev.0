@@ -1,61 +1,63 @@
-From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH 1/3] sis190: better message on unknown PHY
-Date: Thu, 4 Jun 2009 21:04:55 +0200
-Message-ID: <20090604190455.GA31545@localhost>
-References: <cover.1244141444.git.birrachiara@tin.it>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 1/8] add lib/gcd.c
+Date: Thu, 4 Jun 2009 12:03:40 -0700
+Message-ID: <20090604120340.079f6cdf.akpm@linux-foundation.org>
+References: <200906041615.10467.florian@openwrt.org>
+	<4A27DAAD.5000303@ru.mvista.com>
+	<200906041639.04868.florian@openwrt.org>
+	<1244131044.3631.14.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp1.tin.it ([212.216.176.141]:35633 "EHLO vsmtp1.tin.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751257AbZFDTEy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Jun 2009 15:04:54 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1244141444.git.birrachiara@tin.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <florian@openwrt.org>,
+	Sergei Shtylyov <sshtylyov@ru.mvista.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux-MIPS <linux-mips@linux-mips.org>,
+	linux-kernel@vger.kernel.org, Takashi Iwai <tiwai@suse.de>,
+	Ralf Baechle <ralf@linux-mips.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1244131044.3631.14.camel@Joe-Laptop.home>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
----
- drivers/net/sis190.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+On Thu, 04 Jun 2009 08:57:24 -0700 Joe Perches <joe@perches.com> wrote:
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 55ccd51..46de808 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -347,7 +347,7 @@ static struct {
- 	u32 msg_enable;
- } debug = { -1 };
- 
--MODULE_DESCRIPTION("SiS sis190 Gigabit Ethernet driver");
-+MODULE_DESCRIPTION("SiS sis190/191 Gigabit Ethernet driver");
- module_param(rx_copybreak, int, 0);
- MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
- module_param_named(debug, debug.msg_enable, int, 0);
-@@ -1315,12 +1315,15 @@ static void sis190_init_phy(struct net_device *dev, struct sis190_private *tp,
- 			((mii_status & (BMSR_100FULL | BMSR_100HALF)) ?
- 				LAN : HOME) : p->type;
- 		tp->features |= p->feature;
--	} else
-+		net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
-+			pci_name(tp->pci_dev), p->name, phy_id);
-+	} else {
- 		phy->type = UNKNOWN;
--
--	net_probe(tp, KERN_INFO "%s: %s transceiver at address %d.\n",
--		  pci_name(tp->pci_dev),
--		  (phy->type == UNKNOWN) ? "Unknown PHY" : p->name, phy_id);
-+		net_probe(tp, KERN_INFO
-+			"%s: unknown PHY 0x%x:0x%x transceiver at address %d\n",
-+			pci_name(tp->pci_dev),
-+			phy->id[0], (phy->id[1] & 0xfff0), phy_id);
-+	}
- }
- 
- static void sis190_mii_probe_88e1111_fixup(struct sis190_private *tp)
--- 
-1.6.2.4
+> On Thu, 2009-06-04 at 16:39 +0200, Florian Fainelli wrote:
+> > diff --git a/lib/gcd.c b/lib/gcd.c
+> > new file mode 100644
+> > index 0000000..6634741
+> > --- /dev/null
+> > +++ b/lib/gcd.c
+> > @@ -0,0 +1,20 @@
+> > +#include <linux/gcd.h>
+> > +#include <linux/module.h>
+> > +
+> > +/* Greatest common divisor */
+> > +unsigned long gcd(unsigned long a, unsigned long b)
+> > +{
+> > +	unsigned long r;
+> > +
+> > +	if (a < b) {
+> > +		r = a;
+> > +		a = b;
+> > +		b = r;
+> 	swap(a, b)
 
+yup
+
+> > +	}
+> > +	while ((r = a % b) != 0) {
+> > +		a = b;
+> > +		b = r;
+> > +	}
+> > +	return b;
+> > +}
+> > +EXPORT_SYMBOL_GPL(gcd);
+> 
+> Shouldn't a generic gcd protect against a div0
+> if gcd(0,0)?
+
+nope.  It's a caller bug, there's nothing the callee can do to fix it,
+so an oops is a fine response.
