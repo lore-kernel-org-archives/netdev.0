@@ -1,42 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/6] Add constants for the ieee 802.15.4/ZigBee stack
-Date: Wed, 03 Jun 2009 17:49:21 -0700 (PDT)
-Message-ID: <20090603.174921.184497846.davem@davemloft.net>
-References: <20090603105151.GA20508@doriath.ww600.siemens.net>
-	<20090603.141919.261921857.davem@davemloft.net>
-	<20090603231537.GB32561@doriath.ww600.siemens.net>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH 1/6] crc-itu-t: add bit-reversed calculation
+Date: Thu, 4 Jun 2009 04:49:21 +0400
+Message-ID: <20090604004921.GC32561@doriath.ww600.siemens.net>
+References: <1244021629-18409-1-git-send-email-dbaryshkov@gmail.com> <1244021629-18409-2-git-send-email-dbaryshkov@gmail.com> <1244033004.21215.4.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, sfr@canb.auug.org.au,
-	slapin@ossfans.org
-To: dbaryshkov@gmail.com
+	linux-wireless@vger.kernel.org, davem@davemloft.net,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Sergey Lapin <slapin@ossfans.org>,
+	Darren Salt <linux@youmustbejoking.demon.co.uk>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54038
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753578AbZFDAtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 20:49:20 -0400
-In-Reply-To: <20090603231537.GB32561@doriath.ww600.siemens.net>
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:55208 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756504AbZFDAtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 20:49:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1244033004.21215.4.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Thu, 4 Jun 2009 03:15:37 +0400
-
-> From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Date: Thu, 4 Jun 2009 03:09:40 +0400
-> Subject: [PATCH 2/6] Add constants for the ieee 802.15.4/ZigBee stack
+On Wed, Jun 03, 2009 at 01:43:24PM +0100, Ben Hutchings wrote:
+> On Wed, 2009-06-03 at 13:33 +0400, Dmitry Eremin-Solenikov wrote:
+> [...] 
+> > +/**
+> > + * crc_itu_t_bitreversed - Compute the CRC-ITU-T for the data buffer;
+> > + * the buffer content is assumed to be bit-reversed
+> [...]
 > 
-> IEEE 802.15.4/ZigBee stack requires several constants to be defined/adjusted.
+> This short description spills onto two lines which is invalid and breaks
+> the generation of docs.  Sorry to point this out after recommending the
+> patch to you.
 > 
-> Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Signed-off-by: Sergey Lapin <slapin@ossfans.org>
+> I've changed the description to "crc_itu_t_bitreversed - Compute the
+> CRC-ITU-T for a bit-reversed data buffer" all on one line.
 
-Looks a lot better, except that there is no reason to mention
-ZigBee anymore in the commit message I guess :-)
+Anyway, this patch isn't necessary for the first round of patches, we
+are submitting now (got in by a mistake).
 
-Once all the feedback is sorted out, please make a formal
-resubmission of the entire series.
 
-Thank you.
+-- 
+With best wishes
+Dmitry
+
