@@ -1,56 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Wed, 03 Jun 2009 22:41:04 -0700 (PDT)
-Message-ID: <20090603.224104.222901210.davem@davemloft.net>
-References: <alpine.DEB.1.10.0906021044430.15692@gentwo.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Thu, 4 Jun 2009 06:34:45 +0000
+Message-ID: <20090604063445.GA2683@ff.dom.local>
+References: <1243776293.3966.241.camel@dogo.mojatatu.com> <20090531195557.GA2777@ami.dom.local> <1243813216.3966.254.camel@dogo.mojatatu.com> <20090601060638.GA4256@ff.dom.local> <1243861410.3966.268.camel@dogo.mojatatu.com> <20090601204957.GA2760@ami.dom.local> <1243893963.3966.325.camel@dogo.mojatatu.com> <20090602155919.da89c08e.usui@mxm.nes.nec.co.jp> <1243948765.3966.397.camel@dogo.mojatatu.com> <20090604134133.dde9ddc6.usui@mxm.nes.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
-To: cl@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Minoru Usui <usui@mxm.nes.nec.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40436
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751493AbZFDFlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 01:41:04 -0400
-In-Reply-To: <alpine.DEB.1.10.0906021044430.15692@gentwo.org>
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:59615 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbZFDGet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 02:34:49 -0400
+Received: by fxm9 with SMTP id 9so493423fxm.37
+        for <netdev@vger.kernel.org>; Wed, 03 Jun 2009 23:34:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090604134133.dde9ddc6.usui@mxm.nes.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Lameter <cl@linux-foundation.org>
-Date: Tue, 2 Jun 2009 10:49:21 -0400 (EDT)
+On Thu, Jun 04, 2009 at 01:41:33PM +0900, Minoru Usui wrote:
+> On Tue, 02 Jun 2009 09:19:25 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > On Tue, 2009-06-02 at 15:59 +0900, Minoru Usui wrote:
+> > 
+> > > If we have to test Jarek's patch #2, I'll test it tomorrow.
+> > > What do you think Jamal?
+> > 
+> > Yes please - even if it is for reasons of givein Jarek some peace of
+> > mind;->
+> > If something goes seriously wrong with other classifiers because of the
+> > patch, and Jareks patch works, we can back out the current patch and fix
+> > it with that approach.
+> 
+> I've tested Jarek's patch #2 without patch #1.
+> It works fine, too. Thanks Jarek.
+> 
+> 	Tested-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
 
-> IPoIB: Fix multicast packet drops before join is complete
-> 
-> The IPoIB layer drops multicast packets after queueing 3 as long as a
-> multicast group is not ready. The multicast group not being ready may
-> occur on first use or after a period of silence on a MC group.
-> 
-> What should happen is that packet are queued up until the maximum queue
-> size is reached (set by sk_sndbuf). Then the socket layer would put
-> the sending process to sleep until space in the queue becomes available
-> (after the multicast group becomes ready and after the initial messages
-> have been sent).
-> 
-> With the IPoIB layer dropping packets this does not occur. The process
-> can continue sending multicast packets and they are all dropped until
-> the multicast group becomes ready. The receiver will see the initial 3
-> multicast packets that have been significantly delayed, then a large
-> gap of missing packet before getting packets that have not been delayed.
-> 
-> After this patch the socket queue will build up and the sender will be
-> throttled until the MC group becomes ready.
-> 
-> If old behavior is desired then the application can configure
-> the send queue size to only allow 3 packet and specify MSG_DONTWAIT
-> for send operations.
-> 
-> Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+Thank you very much. So, as Jamal wrote, let's wait - hoping it won't
+be needed...
 
-I don't think using an infinite backlog for this is wise.
+Jarek P.
 
-We don't do this for ARP, for example.  We have a 3 packet limit just
-like IPoIB implements for multicast here.
+Btw., it seems your box needs time update:
 
-I'm all for increasing those limits, but eliminating them I cannot
-agree with.
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Thu, 4 Jun 2009 13:41:33 +0900
+...
+Original-Received: from mail03.kamome.nec.co.jp (mail03.kamome.nec.co.jp [10.25.43.7])
+	by mailsv.nec.co.jp (8.13.8/8.13.4) with ESMTP id n5455gP4006057;
+	Thu, 4 Jun 2009 14:06:27 +0900 (JST)
