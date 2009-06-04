@@ -1,70 +1,33 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 3/8] net/netfilter/ipvs/ip_vs_wrr.c: use lib/gcd.c
-Date: Thu, 4 Jun 2009 16:16:21 +0200
-Message-ID: <200906041616.22786.florian@openwrt.org>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Thu, 4 Jun 2009 17:28:53 +0300
+Message-ID: <15ddcffd0906040728k31a48ca2nc65e922ec23da5dd@mail.gmail.com>
+References: <alpine.DEB.1.10.0906021044430.15692@gentwo.org>
+	 <20090603.224104.222901210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "Linux-MIPS" <linux-mips@linux-mips.org>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	l
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: cl@linux-foundation.org, rdreier@cisco.com, netdev@vger.kernel.org,
+	yosefe@voltaire.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.158]:21125 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755785AbZFDO2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 10:28:52 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so286469fgg.17
+        for <netdev@vger.kernel.org>; Thu, 04 Jun 2009 07:28:53 -0700 (PDT)
+In-Reply-To: <20090603.224104.222901210.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch removes the open-coded version of the
-greatest common divider to use lib/gcd.c, the latter
-also implementing the a < b case.
+On Thu, Jun 4, 2009 at 8:41 AM, David Miller <davem@davemloft.net> wrote:
+> From: Christoph Lameter <cl@linux-foundation.org>
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 79a6980..5b37675 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -113,6 +113,7 @@ config	IP_VS_RR
-  
- config	IP_VS_WRR
-         tristate "weighted round-robin scheduling" 
-+	select GCD
- 	---help---
- 	  The weighted robin-robin scheduling algorithm directs network
- 	  connections to different real servers based on server weights
-diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
-index f7d74ef..8701212 100644
---- a/net/netfilter/ipvs/ip_vs_wrr.c
-+++ b/net/netfilter/ipvs/ip_vs_wrr.c
-@@ -21,6 +21,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/net.h>
-+#include <linux/gcd.h>
- 
- #include <net/ip_vs.h>
- 
-@@ -35,20 +36,6 @@ struct ip_vs_wrr_mark {
- };
- 
- 
--/*
-- *    Get the gcd of server weights
-- */
--static int gcd(int a, int b)
--{
--	int c;
--
--	while ((c = a % b)) {
--		a = b;
--		b = c;
--	}
--	return b;
--}
--
- static int ip_vs_wrr_gcd_weight(struct ip_vs_service *svc)
- {
- 	struct ip_vs_dest *dest;
+>> After this patch the socket queue will build up and the sender will be throttled
+
+> I'm all for increasing those limits, but eliminating them I cannot agree with.
+
+So the socket buffer reasoning isn't robust enough?
+
+Or.
