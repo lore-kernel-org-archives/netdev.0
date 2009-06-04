@@ -1,65 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: gso: Stop fraglists from escaping
-Date: Thu, 4 Jun 2009 11:01:21 +1000
-Message-ID: <20090604010121.GA22871@gondor.apana.org.au>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [RFC 1/2] net: Introduce recvmmsg socket syscall
+Date: Wed, 3 Jun 2009 22:46:23 -0300
+Message-ID: <20090604014622.GI7805@ghostprotocols.net>
+References: <20090520230652.GB5956@ghostprotocols.net> <20090522200611.GB967@hmsreliant.think-freely.org> <c0a09e5c0906031844v7e88572ewdab7b9c4e1295c0c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>
+To: Andrew Grover <andy.grover@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44488 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752239AbZFDBBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Jun 2009 21:01:22 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:47956 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751186AbZFDBqb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Jun 2009 21:46:31 -0400
 Content-Disposition: inline
+In-Reply-To: <c0a09e5c0906031844v7e88572ewdab7b9c4e1295c0c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+Em Wed, Jun 03, 2009 at 06:44:22PM -0700, Andrew Grover escreveu:
+> On Fri, May 22, 2009 at 1:06 PM, Neil Horman <nhorman@tuxdriver.com> =
+wrote:
+> > Not to throw more questions into the mix again, but didn't Ingo wri=
+te a
+> > batching syscall a while back, which let you issue several syscalls=
+ in one trap
+> > to kernel space? =A0I understand that your approach has some effici=
+ency gains over
+> > that, but did that ever get accepted upstream? =A0Is the overlap th=
+ere sufficient
+> > to make this approach redundant? =A0Or are the gains in performance=
+ here
+> > sufficient to warrant this new call?
+>=20
+> I couldn't find this via Google or any posts to LKML by Ingo on this?
+>=20
+> I'm very interested in multiple send/recvmsg support. So, it's
+> definitely going to happen? :-)
 
-gso: Stop fraglists from escaping
+I got sidetracked with some other activities, and was waiting for more
+comments and reports from some testers, but will be back to implement a
+v2 patch soon.
 
-As it stands skb fraglists can get past the check in dev_queue_xmit
-if the skb is marked as GSO.  In particular, if the packet doesn't
-have the proper checksums for GSO, but can otherwise be handled by
-the underlying device, we will not perform the fraglist check on it
-at all.
-
-If the underlying device cannot handle fraglists, then this will
-break.
-
-The fix is as simple as moving the fraglist check from the device
-check into skb_gso_ok.
-
-This has caused crashes with Xen when used together with GRO which
-can generate GSO packets with fraglists.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5a96a1a..a28daad 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1856,15 +1856,14 @@ static inline int net_gso_ok(int features, int gso_type)
- 
- static inline int skb_gso_ok(struct sk_buff *skb, int features)
- {
--	return net_gso_ok(features, skb_shinfo(skb)->gso_type);
-+	return net_gso_ok(features, skb_shinfo(skb)->gso_type) &&
-+	       (!skb_shinfo(skb)->frag_list || (features & NETIF_F_FRAGLIST));
- }
- 
- static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
- {
- 	return skb_is_gso(skb) &&
- 	       (!skb_gso_ok(skb, dev->features) ||
--	        (skb_shinfo(skb)->frag_list &&
--	         !(dev->features & NETIF_F_FRAGLIST)) ||
- 		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
- }
- 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- Arnaldo
