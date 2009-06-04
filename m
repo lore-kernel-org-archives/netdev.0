@@ -1,30 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-next-2.6 : TI DaVinci EMAC: Remove print_mac,
- DECLARE_MAC_BUF
-Date: Wed, 03 Jun 2009 21:54:37 -0700 (PDT)
-Message-ID: <20090603.215437.169677662.davem@davemloft.net>
-References: <1243941281-23046-1-git-send-email-chaithrika@ti.com>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Wed, 03 Jun 2009 21:53:14 -0700 (PDT)
+Message-ID: <20090603.215314.96383042.davem@davemloft.net>
+References: <4A2620FD.8030708@trash.net>
+	<20090603074049.GA5254@ff.dom.local>
+	<4A262BE7.4090807@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: chaithrika@ti.com
+Cc: jarkao2@gmail.com, vexwek@gmail.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, devik@cdi.cz, dada1@cosmosbay.com,
+	hazard@francoudi.com
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37622
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37613
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751650AbZFDEyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 00:54:36 -0400
-In-Reply-To: <1243941281-23046-1-git-send-email-chaithrika@ti.com>
+	by vger.kernel.org with ESMTP id S1751153AbZFDExN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 00:53:13 -0400
+In-Reply-To: <4A262BE7.4090807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chaithrika U S <chaithrika@ti.com>
-Date: Tue,  2 Jun 2009 07:14:41 -0400
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 03 Jun 2009 09:53:11 +0200
 
-> Use printk format specifier for MAC address.
-> Remove DECALRE_MAC_BUF and print_mac() usage in the driver.
+> Jarek Poplawski wrote:
+>> On Wed, Jun 03, 2009 at 09:06:37AM +0200, Patrick McHardy wrote:
+>>> Mid-term we really need to move to 64 bit values and ns resolution,
+>>> otherwise this problem is just going to reappear as soon as someone
+>>> tries 10gbit. Not sure what the best short term fix is, I feel a bit
+>>> uneasy about changing the current factors given how close this brings
+>>> us towards overflowing.
+>> I completely agree it's on the verge of overflow, and actually would
+>> overflow for some insanely low (for today's standards) rates. So I
+>> treat it's as a temporary solution, until people start asking about
+>> more than 1 or 2Gbit. And of course we will have to move to 64 bit
+>> anyway. Or we can do it now...
 > 
-> Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+> That (now) would certainly be the best solution, but its a non-trivial
+> task since all the ABIs use 32 bit values.
 
-Patch applied, thank you.
+We could pass in a new attribute which provides the upper-32bits
+of the value.  I'm not sure if that works in this case but it's
+an idea.
+
