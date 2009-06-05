@@ -1,52 +1,90 @@
-From: Radha Mohan <radhamohan_ch@yahoo.com>
-Subject: behavior of TSO in kernel
-Date: Fri, 5 Jun 2009 20:09:10 +0530 (IST)
-Message-ID: <340578.72366.qm@web94815.mail.in2.yahoo.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH v2 00/19] virtual-bus
+Date: Sat, 6 Jun 2009 00:25:57 +0930
+Message-ID: <200906060025.57961.rusty@rustcorp.com.au>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net> <200906051425.02924.rusty@rustcorp.com.au> <20090605053010.GD7125@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: radhamohan_ch@yahoo.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n5-vm1.bullet.mail.in.yahoo.com ([202.86.4.130]:47944 "HELO
-	n5-vm1.bullet.mail.in.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755696AbZFEOpZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2009 10:45:25 -0400
+Received: from ozlabs.org ([203.10.76.45]:55226 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752672AbZFEPIV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2009 11:08:21 -0400
+In-Reply-To: <20090605053010.GD7125@linux.vnet.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 5 Jun 2009 03:00:10 pm Paul E. McKenney wrote:
+> On Fri, Jun 05, 2009 at 02:25:01PM +0930, Rusty Russell wrote:
+> > +	/* lg->eventfds is RCU-protected */
+> > +	preempt_disable();
+>
+> Suggest changing to rcu_read_lock() to match the synchronize_rcu().
 
-Hi all,
+Ah yes, much better.  As I was implementing it I warred with myself since
+lguest aims for simplicity above all else.  But since we only ever add things
+to the array, RCU probably is simpler.
 
-I have an ethernet driver with TSO, SG, IP_CSUM=A0features enabled. I a=
-m using linux-2.6.15 kernel. The MTU is set to 9014. It seems the drive=
-r is getting skbs of only 9014 bytes length even though the application=
- is able to write some 64KB at a time.=20
+> > +	for (i = 0; i < cpu->lg->num_eventfds; i++) {
+> > +		if (cpu->lg->eventfds[i].addr == cpu->pending_notify) {
+> > +			eventfd_signal(cpu->lg->eventfds[i].event, 1);
+>
+> Shouldn't this be something like the following?
+>
+> 		p = rcu_dereference(cpu->lg->eventfds);
+> 		if (p[i].addr == cpu->pending_notify) {
+> 			eventfd_signal(p[i].event, 1);
 
-Why is TCP layer doing the segmentation when we said TSO is enabled by =
-giving NETIF_F_TSO?
+Hmm, need to read num_eventfds first, too.  It doesn't matter if we get the old
+->num_eventfds and the new ->eventfds, but the other way around would be bad.
 
-I saw tcp_sendmsg() function, and found that never an skb->len can be m=
-ore than 12K since there is a check=A0that if it exceeds "mss_now" then=
-=A0either tcp_push_one() or tcp_push()=A0is called. If=A0I further=A0se=
-e the tcp_push_one() function, there we calculate the "limit" and furth=
-er=A0trim the skb->len in tso_fragment().
+Here's the inter-diff:
 
-In another function, tcp_write_xmit() also similar behaviour is present=
-=2E
-
-What I do not understand is why should TCP layer=A0do all these in soft=
-ware=A0when there is TSO in hardware? Why can't a driver get a bigger p=
-acket of say 64K or something larger than current=A0MSS=A0assuming ther=
-e is enough window for sending it?
-
-I have briefly checked 2.6.24 kernel but here also it is the same.=20
-
-
--- Mohan
-
-
-      Explore and discover exciting holidays and getaways with Yahoo! I=
-ndia Travel http://in.travel.yahoo.com/
-
+diff --git a/drivers/lguest/lguest_user.c b/drivers/lguest/lguest_user.c
+--- a/drivers/lguest/lguest_user.c
++++ b/drivers/lguest/lguest_user.c
+@@ -39,18 +39,24 @@ static int break_guest_out(struct lg_cpu
+ 
+ bool send_notify_to_eventfd(struct lg_cpu *cpu)
+ {
+-	unsigned int i;
++	unsigned int i, num;
++	struct lg_eventfds *eventfds;
++
++	/* Make sure we grab the total number before accessing the array. */
++	cpu->lg->num_eventfds = num;
++	rmb();
+ 
+ 	/* lg->eventfds is RCU-protected */
+ 	rcu_read_lock();
+-	for (i = 0; i < cpu->lg->num_eventfds; i++) {
+-		if (cpu->lg->eventfds[i].addr == cpu->pending_notify) {
+-			eventfd_signal(cpu->lg->eventfds[i].event, 1);
++	eventfds = rcu_dereference(cpu->lg->eventfds);
++	for (i = 0; i < num; i++) {
++		if (eventfds[i].addr == cpu->pending_notify) {
++			eventfd_signal(eventfds[i].event, 1);
+ 			cpu->pending_notify = 0;
+ 			break;
+ 		}
+ 	}
+-	preempt_enable();
++	rcu_read_unlock();
+ 	return cpu->pending_notify == 0;
+ }
+ 
+Thanks!
+Rusty.
