@@ -1,88 +1,104 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: [PATCH]  Re: IFF_LOWER_UP does not fit in ifr_flags
-Date: Fri, 05 Jun 2009 16:24:07 +0000
-Message-ID: <1244219047.7969.7.camel@Maple>
-References: <89A39FC0957640879F8975880836CF91@edgeware.tv>
-	 <20090529205028.3e01786b.akpm@linux-foundation.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH v2 00/19] virtual-bus
+Date: Fri, 5 Jun 2009 09:25:53 -0700
+Message-ID: <20090605162553.GC6778@linux.vnet.ibm.com>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net> <200906051425.02924.rusty@rustcorp.com.au> <20090605053010.GD7125@linux.vnet.ibm.com> <200906060025.57961.rusty@rustcorp.com.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Fredrik Arnerup <fredrik.arnerup@edgeware.tv>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.251]:14083 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736AbZFEQYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 12:24:09 -0400
-In-Reply-To: <20090529205028.3e01786b.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Avi Kivity <avi@redhat.com>,
+	Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200906060025.57961.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-05-29 at 20:50 -0700, Andrew Morton wrote:
-> On Thu, 28 May 2009 14:59:05 +0200 "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv> wrote:
+On Sat, Jun 06, 2009 at 12:25:57AM +0930, Rusty Russell wrote:
+> On Fri, 5 Jun 2009 03:00:10 pm Paul E. McKenney wrote:
+> > On Fri, Jun 05, 2009 at 02:25:01PM +0930, Rusty Russell wrote:
+> > > +	/* lg->eventfds is RCU-protected */
+> > > +	preempt_disable();
+> >
+> > Suggest changing to rcu_read_lock() to match the synchronize_rcu().
 > 
-> > Documentation/networking/operstates.txt (and netdevice(7)) claims that
-> > the flags IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO can be read from user space
-> > using ioctl() with SIOCGIFFLAGS. Looking in include/linux/if.h however,
-> > the flags are returned in a struct ifreq in the field ifr_flags which
-> > is declared as a short, while the flags are defined as:
-> > 
-> > #define IFF_LOWER_UP    0x10000         /* driver signals L1 up         */
-> > #define IFF_DORMANT     0x20000         /* driver signals dormant       */
-> > #define IFF_ECHO        0x40000         /* echo sent packets            */
+> Ah yes, much better.  As I was implementing it I warred with myself since
+> lguest aims for simplicity above all else.  But since we only ever add things
+> to the array, RCU probably is simpler.
 
-[PATCH] net core: Some interface flags not returned by SIOCGIFFLAGS
+;-)
 
-Commit b00055aacdb172c05067612278ba27265fcd05ce " [NET] core: add RFC2863 operstate"
-defined new interface flag values.  Its documentation specified that these flags
-could be accessed from user space via SIOCGIFFLAGS.  However, this does not work
-because the new flags do not fit in that ioctl's argument width.
+> > > +	for (i = 0; i < cpu->lg->num_eventfds; i++) {
+> > > +		if (cpu->lg->eventfds[i].addr == cpu->pending_notify) {
+> > > +			eventfd_signal(cpu->lg->eventfds[i].event, 1);
+> >
+> > Shouldn't this be something like the following?
+> >
+> > 		p = rcu_dereference(cpu->lg->eventfds);
+> > 		if (p[i].addr == cpu->pending_notify) {
+> > 			eventfd_signal(p[i].event, 1);
+> 
+> Hmm, need to read num_eventfds first, too.  It doesn't matter if we get the old
+> ->num_eventfds and the new ->eventfds, but the other way around would be bad.
 
-Change the documentation to match the code's behavior.  Also change the source to
-explicitly show the truncation.  This _should_ have no effect on executable code, and did
-not with gcc 4.2.4 generating x86 code.
+Yep!!!  ;-)
 
-A new ioctl could be defined to return all interface flags to user space.  However,
-since this has been broken for three years with no one complaining, there doesn't seem much
-need.  They are still accessible via netlink.
+> Here's the inter-diff:
+> 
+> diff --git a/drivers/lguest/lguest_user.c b/drivers/lguest/lguest_user.c
+> --- a/drivers/lguest/lguest_user.c
+> +++ b/drivers/lguest/lguest_user.c
+> @@ -39,18 +39,24 @@ static int break_guest_out(struct lg_cpu
+> 
+>  bool send_notify_to_eventfd(struct lg_cpu *cpu)
+>  {
+> -	unsigned int i;
+> +	unsigned int i, num;
+> +	struct lg_eventfds *eventfds;
+> +
+> +	/* Make sure we grab the total number before accessing the array. */
+> +	cpu->lg->num_eventfds = num;
+> +	rmb();
+> 
+>  	/* lg->eventfds is RCU-protected */
+>  	rcu_read_lock();
+> -	for (i = 0; i < cpu->lg->num_eventfds; i++) {
+> -		if (cpu->lg->eventfds[i].addr == cpu->pending_notify) {
+> -			eventfd_signal(cpu->lg->eventfds[i].event, 1);
+> +	eventfds = rcu_dereference(cpu->lg->eventfds);
+> +	for (i = 0; i < num; i++) {
+> +		if (eventfds[i].addr == cpu->pending_notify) {
+> +			eventfd_signal(eventfds[i].event, 1);
+>  			cpu->pending_notify = 0;
+>  			break;
+>  		}
+>  	}
+> -	preempt_enable();
+> +	rcu_read_unlock();
+>  	return cpu->pending_notify == 0;
+>  }
 
-Reported-by:  "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
-Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
----
- Documentation/networking/operstates.txt |    3 ---
- net/core/dev.c                          |    2 +-
- 2 files changed, 1 insertions(+), 4 deletions(-)
+It is possible to get rid of the rmb() and wmb() as well, doing
+something like the following:
 
-diff --git a/Documentation/networking/operstates.txt b/Documentation/networking/operstates.txt
-index c9074f9..1a77a3c 100644
---- a/Documentation/networking/operstates.txt
-+++ b/Documentation/networking/operstates.txt
-@@ -38,9 +38,6 @@ ifinfomsg::if_flags & IFF_LOWER_UP:
- ifinfomsg::if_flags & IFF_DORMANT:
-  Driver has signaled netif_dormant_on()
- 
--These interface flags can also be queried without netlink using the
--SIOCGIFFLAGS ioctl.
--
- TLV IFLA_OPERSTATE
- 
- contains RFC2863 state of the interface in numeric representation:
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e2e9e4a..5c7602b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3853,7 +3853,7 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
- 
- 	switch (cmd) {
- 		case SIOCGIFFLAGS:	/* Get interface flags */
--			ifr->ifr_flags = dev_get_flags(dev);
-+			ifr->ifr_flags = (short) dev_get_flags(dev);
- 			return 0;
- 
- 		case SIOCGIFMETRIC:	/* Get the metric on the interface
--- 
-1.5.4.3
+	struct lg_eventfds_num {
+		unsigned int n;
+		struct lg_eventfds a[0];
+	}
 
+Then the rcu_dereference() gets you a pointer to a struct lg_eventfds_num,
+which has the array and its length in guaranteed synchronization without
+the need for barriers.
 
+Does this work for you, or is there some complication that I am missing?
+
+							Thanx, Paul
 
