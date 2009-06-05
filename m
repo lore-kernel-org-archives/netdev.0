@@ -1,37 +1,60 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
-	synchronization, v5
-Date: Fri, 5 Jun 2009 11:00:38 -0700
-Message-ID: <20090605180038.GC18688@cuplxvomd02.corp.sa.net>
-References: <20090504074522.13f1ed77@infradead.org> <Pine.LNX.4.44L0.0905041100500.3092-100000@iolanthe.rowland.org> <20090505234725.5ab247db@linux-lm> <d82e647a0905050853q4a1d5066ib71411cbef186c45@mail.gmail.com>
+From: Andre Detsch <adetsch@br.ibm.com>
+Subject: [PATCH] e1000: return PCI_ERS_RESULT_DISCONNECT on permanent error
+Date: Fri, 5 Jun 2009 15:40:56 -0300
+Message-ID: <200906051540.56392.adetsch@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mmlnx@us.ibm.com
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:55017 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbZFESl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 14:41:27 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp02.br.ibm.com (8.13.1/8.13.1) with ESMTP id n55J89rT005932
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 16:08:09 -0300
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.18.232.47])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n55Jecub3948672
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 16:40:40 -0300
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n55IfOW8027705
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:41:24 -0300
 Content-Disposition: inline
-In-Reply-To: <d82e647a0905050853q4a1d5066ib71411cbef186c45-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 05, 2009 at 11:53:38AM -0400, Ming Lei wrote:
-> 2009/5/5 Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+PCI drivers that implement the io_error_detected callback
+should return PCI_ERS_RESULT_DISCONNECT if the state
+passed in is pci_channel_io_perm_failure.  This state is
+not checked in many of the network drivers.
 
-> Also need all block device drivers use initdev_*, much work to do,:-)
+This patch fixes the omission in the e1000 driver.
 
-Not directly. All interesting block devices funnel through just a few functions
-to make the block device usable. I think I have the right place for the
-initdev_registered() call, but I definitely need feedback on this.
+Based on Mike Mason's similar patch for e1000e.
 
-> Lei Ming
+Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+Cc: Mike Mason <mmlnx@us.ibm.com>
+---
+ drivers/net/e1000/e1000_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-David VomLehn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 05e87a5..df1d5ca 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4816,6 +4816,9 @@ static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+ 	netif_device_detach(netdev);
++	
++	if (state == pci_channel_io_perm_failure)
++		return PCI_ERS_RESULT_DISCONNECT;
+ 
+ 	if (netif_running(netdev))
+ 		e1000_down(adapter);
+-- 
+1.6.0.2
+
