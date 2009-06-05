@@ -1,41 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: virtio_net: Set correct gso->hdr_len
-Date: Fri, 5 Jun 2009 16:53:12 +1000
-Message-ID: <20090605065312.GA7590@gondor.apana.org.au>
-References: <20090604105917.GA28273@gondor.apana.org.au> <200906051351.06385.rusty@rustcorp.com.au> <20090605042709.GA6702@gondor.apana.org.au> <200906051620.02868.rusty@rustcorp.com.au>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH 3/5] net: add NL802154 interface for configuration of
+	802.15.4 devices
+Date: Fri, 5 Jun 2009 11:15:29 +0400
+Message-ID: <20090605071529.GA7064@doriath.ww600.siemens.net>
+References: <1244168990-28355-1-git-send-email-dbaryshkov@gmail.com> <1244168990-28355-2-git-send-email-dbaryshkov@gmail.com> <1244168990-28355-3-git-send-email-dbaryshkov@gmail.com> <1244168990-28355-4-git-send-email-dbaryshkov@gmail.com> <1244184737.22576.94.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, slapin@ossfans.org,
+	davem@davemloft.net, Stephen Rothwell <sfr@canb.auug.org.au>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43580 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754784AbZFEGxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 02:53:15 -0400
+Received: from fg-out-1718.google.com ([72.14.220.158]:27296 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbZFEHPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 03:15:44 -0400
 Content-Disposition: inline
-In-Reply-To: <200906051620.02868.rusty@rustcorp.com.au>
+In-Reply-To: <1244184737.22576.94.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2009 at 04:20:02PM +0930, Rusty Russell wrote:
->
-> Right, understood now.  It really is just a hint as to how much to copy.  It 
-> wasn't supposed to be that, as virtio_net.h:
+On Fri, Jun 05, 2009 at 08:52:17AM +0200, Johannes Berg wrote:
+> On Fri, 2009-06-05 at 06:29 +0400, Dmitry Eremin-Solenikov wrote:
 > 
-> 	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
-> 	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+> > +/* This source file is shared between kernel and userspace sources, thus
+> > + * a bit of __KERNEL__ checks
+> > + */
+> > +#ifdef __KERNEL__
 > 
-> The host was supposed to be able to de-gso packets together relying on 
-> hdr_len.  But that's silly: it can't do TSO without knowing about sequence 
-> numbers at least, and UFO without ip fragmentation offsets.  ie. it might as 
-> well calc hdr_len itself.
+> It's a C file. It can't be shared expect by copying, hence IMO these
+> things are pointless.
 
-Well I always thought hdr_len was meant to represent what should
-be in the linear header :)
+It is shared by copying. And I'd strongly prefer to have it shared
+directly by 'cp', not by 'cp' and 'patch'. E.g. currently I can ensure
+that policy definitions and commands are current just by comparing
+files. I'd like to still have that ability. Thus, I'd ask to permit this
+stuff in.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+With best wishes
+Dmitry
+
