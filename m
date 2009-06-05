@@ -1,51 +1,68 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH net-next 2/3] net: Fix memcpy_toiovecend() to use the right
- offset
-Date: Fri, 05 Jun 2009 12:35:44 -0700
-Message-ID: <1244230544.1526.77.camel@w-sridhar.beaverton.ibm.com>
+From: Andre Detsch <adetsch@br.ibm.com>
+Subject: [PATCH] e100: Fix napi_enable BUG_ON when recovering from EEH error
+Date: Fri, 5 Jun 2009 17:04:25 -0300
+Message-ID: <200906051704.25753.adetsch@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, mst@redhat.com
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:41362 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752478AbZFETfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2009 15:35:44 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n55JTvtm020564
-	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:29:57 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n55JZkYd233230
-	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:35:46 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n55JZjJa028914
-	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:35:46 -0400
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:41098 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755329AbZFEUEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 16:04:53 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp05.br.ibm.com (8.13.1/8.13.1) with ESMTP id n55K31cP030403
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 17:03:01 -0300
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.18.232.46])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n55L47UH3969076
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 18:04:07 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n55K4rJr026832
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 17:04:53 -0300
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Increment the iovec base by the offset passed in for the initial
-copy_to_user() in memcpy_to_iovecend().
+BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state)) was being hit
+during e100 EEH recovery. The problem source was a napi_enable
+call being made during e100_io_error_detected. Napi should remain
+disabled after e100_down, and only be reenabled when the interface
+is recovered.
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+This patch also updates e100_io_error_detected in order to make
+it similar to the current versions of the error_detected callback
+in drivers such as e1000e and ixgbe.
 
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index 40a76ce..16ad45d 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -112,9 +112,9 @@ int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
- 			continue;
- 		}
- 		copy = min_t(unsigned int, iov->iov_len - offset, len);
--		offset = 0;
--		if (copy_to_user(iov->iov_base, kdata, copy))
-+		if (copy_to_user(iov->iov_base + offset, kdata, copy))
- 			return -EFAULT;
-+		offset = 0;
- 		kdata += copy;
- 		len -= copy;
- 	}
+Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+---
+ drivers/net/e100.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-
-
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 0f9ee13..0c37dd9 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -2822,12 +2822,13 @@ static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
+ 
+-	/* Similar to calling e100_down(), but avoids adapter I/O. */
+-	e100_close(netdev);
+-
+-	/* Detach; put netif into a state similar to hotplug unplug. */
+-	napi_enable(&nic->napi);
+ 	netif_device_detach(netdev);
++
++	if (state == pci_channel_io_perm_failure)
++		return PCI_ERS_RESULT_DISCONNECT;
++
++	if (netif_running(netdev))
++		e100_down(nic);
+ 	pci_disable_device(pdev);
+ 
+ 	/* Request a slot reset. */
+-- 
+1.6.0.2
 
