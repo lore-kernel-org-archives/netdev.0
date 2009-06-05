@@ -1,39 +1,67 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [PATCH 06/10] mac802154: add a software MAC 802.15.4
-	implementation
-Date: Fri, 5 Jun 2009 14:24:56 +0200
-Message-ID: <20090605122456.GA1717@ucw.cz>
-References: <1243868091-5315-1-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-2-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-3-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-4-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-5-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-6-git-send-email-dbaryshkov@gmail.com> <1243868091-5315-7-git-send-email-dbaryshkov@gmail.com>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [RFC PATCH v2 00/19] virtual-bus
+Date: Fri, 05 Jun 2009 08:54:24 -0400
+Message-ID: <4A291580.90305@novell.com>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net> <49E0C93E.5030205@redhat.com> <4A28172D.6010906@gmail.com> <200906051425.02924.rusty@rustcorp.com.au> <4A290800.1030803@novell.com> <4A29154B.2000600@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
-	maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1243868091-5315-7-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig8D93EF3B98F81FFA65C28AEC"
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, anthony@codemonkey.ws,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from victor.provo.novell.com ([137.65.250.26]:35214 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbZFEMyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 08:54:33 -0400
+In-Reply-To: <4A29154B.2000600@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon 2009-06-01 18:54:47, Dmitry Eremin-Solenikov wrote:
-> Some of available devices are just dump radios implementing IEEE 802.15.4
-> PHY layer. This commit adds a common library that acts like an intermediate
-> layer between our socket family and drivers for those dumb devices.
-> 
-> Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-> ---
->  include/net/ieee802154/mac802154.h |   79 ++++
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig8D93EF3B98F81FFA65C28AEC
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Could we get some name that is not alphabet soup? Is 'zigbee'
-trademarked so heavily that it can't be used? Maybe 'wpan'?
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Avi Kivity wrote:
+> Gregory Haskins wrote:
+>>> @@ -1,6 +1,6 @@
+>>>  config LGUEST
+>>>      tristate "Linux hypervisor example code"
+>>> -    depends on X86_32 && EXPERIMENTAL && !X86_PAE && FUTEX
+>>> +    depends on X86_32 && EXPERIMENTAL && !X86_PAE && EVENTFD
+>>>      =20
+>>
+>> Note to self:  we probably need a similar line in KVM now.
+>>
+>>  =20
+>
+> 'select EVENTFD' is more appropriate.
+>
+>
+
+Yeah, I was thinking the same...
+
+
+--------------enig8D93EF3B98F81FFA65C28AEC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkopFYUACgkQlOSOBdgZUxm4MACfWX4f1R457GUaKLhvV5PpDBla
+d8QAnAqUiNQvt+u87l9/yfhTnFyVe469
+=4kST
+-----END PGP SIGNATURE-----
+
+--------------enig8D93EF3B98F81FFA65C28AEC--
