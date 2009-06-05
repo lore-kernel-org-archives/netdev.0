@@ -1,61 +1,79 @@
 From: David VomLehn <dvomlehn@cisco.com>
-Subject: Re: [PATCH 5/5] initdev:kernel: USB and SCSI block init device
-	notification, v3
-Date: Fri, 5 Jun 2009 10:55:30 -0700
-Message-ID: <20090605175529.GA18688@cuplxvomd02.corp.sa.net>
-References: <20090502023000.GA16076@cuplxvomd02.corp.sa.net> <20090502115539.396206bc@linux-lm> <20090505001950.GC29124@cuplxvomd02.corp.sa.net> <d82e647a0905042105g7639fc84g736668c371c40053@mail.gmail.com>
+Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
+	synchronization, v5
+Date: Fri, 5 Jun 2009 10:58:16 -0700
+Message-ID: <20090605175816.GB18688@cuplxvomd02.corp.sa.net>
+References: <Pine.LNX.4.44L0.0905041100500.3092-100000@iolanthe.rowland.org> <20090505234725.5ab247db@linux-lm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Arjan van de Ven <arjan@infradead.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
 	linux-usb@vger.kernel.org, greg@kroah.com,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@infradead.org
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
 To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <d82e647a0905042105g7639fc84g736668c371c40053@mail.gmail.com>
+In-Reply-To: <20090505234725.5ab247db@linux-lm>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 05, 2009 at 12:05:19AM -0400, Ming Lei wrote:
-> 2009/5/5 David VomLehn <dvomlehn@cisco.com>:
-> > On Fri, May 01, 2009 at 11:55:39PM -0400, Ming Lei wrote:
-> >> On Fri, 1 May 2009 19:30:00 -0700
-> >> David VomLehn <dvomlehn@cisco.com> wrote:
-> >>
-> >> > From: Alan Stern <stern@rowland.harvard.edu
-> >> > diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
-> >> > index 6f51ca4..735b061 100644
-> >> > --- a/drivers/scsi/scsi_scan.c
-> >> > +++ b/drivers/scsi/scsi_scan.c
-> > ...
-> >> > @@ -1834,6 +1834,7 @@ static int do_scan_async(void *_data)
-> >> > =A0 =A0 struct async_scan_data *data =3D _data;
-> >> > =A0 =A0 do_scsi_scan_host(data->shost);
-> >> > =A0 =A0 scsi_finish_async_scan(data);
-> >> > + =A0 initdev_probe_done(BOOTDEV_BLOCK_MASK);
-> >>
-> >> Which code are waiting for the block device's probe done?
-> >
-> > None yet. That remains to be done.
-> >
->=20
-> Would you mind submitting  the code path of waitting for probe done t=
-o allow a
-> intact review?  Without the waitting code, it is a a little difficult
-> to undersand or verify
-> your patch, IMHO.
+On Tue, May 05, 2009 at 11:47:25AM -0400, Ming Lei wrote:
+> On Mon, 4 May 2009 11:07:52 -0400 (EDT)
+> Alan Stern <stern@rowland.harvard.edu> wrote:
+> 
+> > On Mon, 4 May 2009, Arjan van de Ven wrote:
+...
+> > Isn't there still something missing?  The wait_for_device_probe()  
+> > routine would wait until all attached devices had been probed.  But
+> > why should prepare_namespace() have to wait that long?  Wouldn't it be
+> > better to wait only until the root device has been registered?
+> 
+> Yes, maybe David should merge the following patch into the patch
+> No.5(initdev:kernel: USB and SCSI block init device notification, v3).
+> 
+> Right?
+> 
+> diff --git a/init/do_mounts.c b/init/do_mounts.c
+> index dd7ee5f..22fd773 100644
+> --- a/init/do_mounts.c
+> +++ b/init/do_mounts.c
+> @@ -358,6 +358,12 @@ void __init mount_root(void)
+>  #endif
+>  }
+>  
+> +static int root_dev_done()
+> +{
+> +	return !!(ROOT_DEV = name_to_dev_t(saved_root_name));
+> +}
+> +
+> +
+>  /*
+>   * Prepare the namespace - decide what/where to mount, load ramdisks,
+> etc. */
+> @@ -398,12 +404,12 @@ void __init prepare_namespace(void)
+>  		goto out;
+>  
+>  	/* wait for any asynchronous scanning to complete */
+> -	if ((ROOT_DEV == 0) && root_wait) {
+> +	if (ROOT_DEV == 0 && root_wait) {
+>  		printk(KERN_INFO "Waiting for root device %s...\n",
+>  			saved_root_name);
+> -		while (driver_probe_done() != 0 ||
+> -			(ROOT_DEV = name_to_dev_t(saved_root_name)) ==
+> 0)
+> -			msleep(100);
+> +		do {
+> +			initdev_wait(BOOTDEV_BLOCK, root_dev_done);
+> +		} while (!ROOT_DEV);
+>  		async_synchronize_full();
+>  	}
 
-This will be in the next spin of the patch, coming soon (possibly today=
-).
+I have something very similar. I'm not completely comfortable with discarding
+the rootwait flag, though it should be very rarely used once the initdev
+infrastructure is in place.
 
-> Thanks
 > Lei Ming
 
 David VomLehn
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
