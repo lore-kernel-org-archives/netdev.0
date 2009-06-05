@@ -1,298 +1,49 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/5] net: add IEEE 802.15.4 socket family implementation
-Date: Fri,  5 Jun 2009 06:29:47 +0400
-Message-ID: <1244168990-28355-3-git-send-email-dbaryshkov@gmail.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PATCH 3/5] net: add NL802154 interface for configuration of 802.15.4 devices
+Date: Fri,  5 Jun 2009 06:29:48 +0400
+Message-ID: <1244168990-28355-4-git-send-email-dbaryshkov@gmail.com>
 References: <1244168990-28355-1-git-send-email-dbaryshkov@gmail.com>
  <1244168990-28355-2-git-send-email-dbaryshkov@gmail.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1244168990-28355-2-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+ <1244168990-28355-3-git-send-email-dbaryshkov@gmail.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	slapin@ossfans.org, davem@davemloft.net,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.156]:53985 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603AbZFECbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Jun 2009 22:31:11 -0400
+In-Reply-To: <1244168990-28355-3-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for communication over IEEE 802.15.4 networks. This implementation
-is neither certified nor complete, but aims to that goal. This commit contains
-only the socket interface for communication over IEEE 802.15.4 networks.
-One can either send RAW datagrams or use SOCK_DGRAM to encapsulate data
-inside normal IEEE 802.15.4 packets.
+Add a netlink interface for configuration of IEEE 802.15.4 device. Also this
+interface specifies events notification sent by devices towards higher layers.
 
-Configuration interface, drivers and software MAC 802.15.4 implementation will
-follow.
-
-Initial implementation was done by Maxim Gorbachyov, Maxim Osipov and Pavel
-Smolensky as a research project at Siemens AG. Later the stack was heavily
-reworked to better suit the linux networking model, and is now maitained
-as an open project partially sponsored by Siemens.
-
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Signed-off-by: Sergey Lapin <slapin@ossfans.org>
 ---
- include/net/ieee802154/af_ieee802154.h |   60 +++++
- include/net/ieee802154/mac_def.h       |  160 +++++++++++++
- include/net/ieee802154/netdevice.h     |  115 +++++++++
- net/Kconfig                            |    1 +
- net/Makefile                           |    1 +
- net/ieee802154/Kconfig                 |   12 +
- net/ieee802154/Makefile                |    4 +
- net/ieee802154/af802154.h              |   36 +++
- net/ieee802154/af_ieee802154.c         |  372 ++++++++++++++++++++++++++++++
- net/ieee802154/dgram.c                 |  394 ++++++++++++++++++++++++++++++++
- net/ieee802154/raw.c                   |  254 ++++++++++++++++++++
- 11 files changed, 1409 insertions(+), 0 deletions(-)
- create mode 100644 include/net/ieee802154/af_ieee802154.h
- create mode 100644 include/net/ieee802154/mac_def.h
- create mode 100644 include/net/ieee802154/netdevice.h
- create mode 100644 net/ieee802154/Kconfig
- create mode 100644 net/ieee802154/Makefile
- create mode 100644 net/ieee802154/af802154.h
- create mode 100644 net/ieee802154/af_ieee802154.c
- create mode 100644 net/ieee802154/dgram.c
- create mode 100644 net/ieee802154/raw.c
+ include/linux/nl802154.h          |  119 +++++++++
+ include/net/ieee802154/nl802154.h |   41 +++
+ net/ieee802154/Makefile           |    3 +-
+ net/ieee802154/netlink.c          |  523 +++++++++++++++++++++++++++++++++++++
+ net/ieee802154/nl_policy.c        |   65 +++++
+ 5 files changed, 750 insertions(+), 1 deletions(-)
+ create mode 100644 include/linux/nl802154.h
+ create mode 100644 include/net/ieee802154/nl802154.h
+ create mode 100644 net/ieee802154/netlink.c
+ create mode 100644 net/ieee802154/nl_policy.c
 
-diff --git a/include/net/ieee802154/af_ieee802154.h b/include/net/ieee802154/af_ieee802154.h
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
 new file mode 100644
-index 0000000..874f1e7
+index 0000000..2cda00c
 --- /dev/null
-+++ b/include/net/ieee802154/af_ieee802154.h
-@@ -0,0 +1,60 @@
++++ b/include/linux/nl802154.h
+@@ -0,0 +1,119 @@
 +/*
-+ * IEEE 802.15.4 inteface for userspace
-+ *
-+ * Copyright 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ */
-+
-+#ifndef _AF_IEEE802154_H
-+#define _AF_IEEE802154_H
-+
-+#include <linux/socket.h> /* for sa_family_t */
-+
-+enum {
-+	IEEE802154_ADDR_NONE = 0x0,
-+	/* RESERVED = 0x01, */
-+	IEEE802154_ADDR_SHORT = 0x2, /* 16-bit address + PANid */
-+	IEEE802154_ADDR_LONG = 0x3, /* 64-bit address + PANid */
-+};
-+
-+/* address length, octets */
-+#define IEEE802154_ADDR_LEN	8
-+
-+struct ieee802154_addr {
-+	int addr_type;
-+	u16 pan_id;
-+	union {
-+		u8 hwaddr[IEEE802154_ADDR_LEN];
-+		u16 short_addr;
-+	};
-+};
-+
-+#define IEEE802154_PANID_BROADCAST	0xffff
-+#define IEEE802154_ADDR_BROADCAST	0xffff
-+#define IEEE802154_ADDR_UNDEF		0xfffe
-+
-+struct sockaddr_ieee802154 {
-+	sa_family_t family; /* AF_IEEE802154 */
-+	struct ieee802154_addr addr;
-+};
-+
-+/* master device */
-+#define IEEE802154_SIOC_ADD_SLAVE		(SIOCDEVPRIVATE + 0)
-+
-+#endif
-diff --git a/include/net/ieee802154/mac_def.h b/include/net/ieee802154/mac_def.h
-new file mode 100644
-index 0000000..8cb6846
---- /dev/null
-+++ b/include/net/ieee802154/mac_def.h
-@@ -0,0 +1,160 @@
-+/*
-+ * IEEE802.15.4-2003 specification
-+ *
-+ * Copyright (C) 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Pavel Smolenskiy <pavel.smolenskiy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ * Maxim Gorbachyov <maxim.gorbachev-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Maxim Osipov <maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ */
-+
-+#ifndef IEEE802154_MAC_DEF_H
-+#define IEEE802154_MAC_DEF_H
-+
-+#define IEEE802154_FC_TYPE_BEACON	0x0	/* Frame is beacon */
-+#define	IEEE802154_FC_TYPE_DATA		0x1	/* Frame is data */
-+#define IEEE802154_FC_TYPE_ACK		0x2	/* Frame is acknowledgment */
-+#define IEEE802154_FC_TYPE_MAC_CMD	0x3	/* Frame is MAC command */
-+
-+#define IEEE802154_FC_TYPE_SHIFT		0
-+#define IEEE802154_FC_TYPE_MASK		((1 << 3) - 1)
-+#define IEEE802154_FC_TYPE(x)		((x & IEEE802154_FC_TYPE_MASK) >> IEEE802154_FC_TYPE_SHIFT)
-+#define IEEE802154_FC_SET_TYPE(v, x)	do {	\
-+	v = (((v) & ~IEEE802154_FC_TYPE_MASK) | \
-+	    (((x) << IEEE802154_FC_TYPE_SHIFT) & IEEE802154_FC_TYPE_MASK)); \
-+	} while (0)
-+
-+#define IEEE802154_FC_SECEN		(1 << 3)
-+#define IEEE802154_FC_FRPEND		(1 << 4)
-+#define IEEE802154_FC_ACK_REQ		(1 << 5)
-+#define IEEE802154_FC_INTRA_PAN		(1 << 6)
-+
-+#define IEEE802154_FC_SAMODE_SHIFT	14
-+#define IEEE802154_FC_SAMODE_MASK	(3 << IEEE802154_FC_SAMODE_SHIFT)
-+#define IEEE802154_FC_DAMODE_SHIFT	10
-+#define IEEE802154_FC_DAMODE_MASK	(3 << IEEE802154_FC_DAMODE_SHIFT)
-+
-+#define IEEE802154_FC_SAMODE(x)		\
-+	(((x) & IEEE802154_FC_SAMODE_MASK) >> IEEE802154_FC_SAMODE_SHIFT)
-+
-+#define IEEE802154_FC_DAMODE(x)		\
-+	(((x) & IEEE802154_FC_DAMODE_MASK) >> IEEE802154_FC_DAMODE_SHIFT)
-+
-+
-+/* MAC's Command Frames Identifiers */
-+#define IEEE802154_CMD_ASSOCIATION_REQ		0x01
-+#define IEEE802154_CMD_ASSOCIATION_RESP		0x02
-+#define IEEE802154_CMD_DISASSOCIATION_NOTIFY	0x03
-+#define IEEE802154_CMD_DATA_REQ			0x04
-+#define IEEE802154_CMD_PANID_CONFLICT_NOTIFY	0x05
-+#define IEEE802154_CMD_ORPHAN_NOTIFY		0x06
-+#define IEEE802154_CMD_BEACON_REQ		0x07
-+#define IEEE802154_CMD_COORD_REALIGN_NOTIFY	0x08
-+#define IEEE802154_CMD_GTS_REQ			0x09
-+
-+/*
-+ * The return values of MAC operations
-+ */
-+enum {
-+	/*
-+	 * The requested operation was completed successfully.
-+	 * For a transmission request, this value indicates
-+	 * a successful transmission.
-+	 */
-+	IEEE802154_SUCCESS = 0x0,
-+
-+	/* The beacon was lost following a synchronization request. */
-+	IEEE802154_BEACON_LOSS = 0xe0,
-+	/*
-+	 * A transmission could not take place due to activity on the
-+	 * channel, i.e., the CSMA-CA mechanism has failed.
-+	 */
-+	IEEE802154_CHNL_ACCESS_FAIL = 0xe1,
-+	/* The GTS request has been denied by the PAN coordinator. */
-+	IEEE802154_DENINED = 0xe2,
-+	/* The attempt to disable the transceiver has failed. */
-+	IEEE802154_DISABLE_TRX_FAIL = 0xe3,
-+	/*
-+	 * The received frame induces a failed security check according to
-+	 * the security suite.
-+	 */
-+	IEEE802154_FAILED_SECURITY_CHECK = 0xe4,
-+	/*
-+	 * The frame resulting from secure processing has a length that is
-+	 * greater than aMACMaxFrameSize.
-+	 */
-+	IEEE802154_FRAME_TOO_LONG = 0xe5,
-+	/*
-+	 * The requested GTS transmission failed because the specified GTS
-+	 * either did not have a transmit GTS direction or was not defined.
-+	 */
-+	IEEE802154_INVALID_GTS = 0xe6,
-+	/*
-+	 * A request to purge an MSDU from the transaction queue was made using
-+	 * an MSDU handle that was not found in the transaction table.
-+	 */
-+	IEEE802154_INVALID_HANDLE = 0xe7,
-+	/* A parameter in the primitive is out of the valid range.*/
-+	IEEE802154_INVALID_PARAMETER = 0xe8,
-+	/* No acknowledgment was received after aMaxFrameRetries. */
-+	IEEE802154_NO_ACK = 0xe9,
-+	/* A scan operation failed to find any network beacons.*/
-+	IEEE802154_NO_BEACON = 0xea,
-+	/* No response data were available following a request. */
-+	IEEE802154_NO_DATA = 0xeb,
-+	/* The operation failed because a short address was not allocated. */
-+	IEEE802154_NO_SHORT_ADDRESS = 0xec,
-+	/*
-+	 * A receiver enable request was unsuccessful because it could not be
-+	 * completed within the CAP.
-+	 */
-+	IEEE802154_OUT_OF_CAP = 0xed,
-+	/*
-+	 * A PAN identifier conflict has been detected and communicated to the
-+	 * PAN coordinator.
-+	 */
-+	IEEE802154_PANID_CONFLICT = 0xee,
-+	/* A coordinator realignment command has been received. */
-+	IEEE802154_REALIGMENT = 0xef,
-+	/* The transaction has expired and its information discarded. */
-+	IEEE802154_TRANSACTION_EXPIRED = 0xf0,
-+	/* There is no capacity to store the transaction. */
-+	IEEE802154_TRANSACTION_OVERFLOW = 0xf1,
-+	/*
-+	 * The transceiver was in the transmitter enabled state when the
-+	 * receiver was requested to be enabled.
-+	 */
-+	IEEE802154_TX_ACTIVE = 0xf2,
-+	/* The appropriate key is not available in the ACL. */
-+	IEEE802154_UNAVAILABLE_KEY = 0xf3,
-+	/*
-+	 * A SET/GET request was issued with the identifier of a PIB attribute
-+	 * that is not supported.
-+	 */
-+	IEEE802154_UNSUPPORTED_ATTR = 0xf4,
-+	/*
-+	 * A request to perform a scan operation failed because the MLME was
-+	 * in the process of performing a previously initiated scan operation.
-+	 */
-+	IEEE802154_SCAN_IN_PROGRESS = 0xfc,
-+};
-+
-+
-+#endif
-+
-+
-diff --git a/include/net/ieee802154/netdevice.h b/include/net/ieee802154/netdevice.h
-new file mode 100644
-index 0000000..e2506af
---- /dev/null
-+++ b/include/net/ieee802154/netdevice.h
-@@ -0,0 +1,115 @@
-+/*
-+ * An interface between IEEE802.15.4 device and rest of the kernel.
++ * nl802154.h
 + *
 + * Copyright (C) 2007, 2008, 2009 Siemens AG
 + *
@@ -309,165 +60,117 @@ index 0000000..e2506af
 + * with this program; if not, write to the Free Software Foundation, Inc.,
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
-+ * Written by:
-+ * Pavel Smolenskiy <pavel.smolenskiy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ * Maxim Gorbachyov <maxim.gorbachev-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Maxim Osipov <maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 + */
 +
-+#ifndef IEEE802154_NETDEVICE_H
-+#define IEEE802154_NETDEVICE_H
++#ifndef NL802154_H
++#define NL802154_H
 +
-+/*
-+ * A control block of skb passed between the ARPHRD_IEEE802154 device
-+ * and other stack parts.
-+ */
-+struct ieee802154_mac_cb {
-+	u8 lqi;
-+	struct ieee802154_addr sa;
-+	struct ieee802154_addr da;
-+	u8 flags;
-+	u8 seq;
++#define IEEE802154_NL_NAME "802.15.4 MAC"
++#define IEEE802154_MCAST_COORD_NAME "coordinator"
++#define IEEE802154_MCAST_BEACON_NAME "beacon"
++
++enum {
++	__IEEE802154_ATTR_INVALID,
++
++	IEEE802154_ATTR_DEV_NAME,
++	IEEE802154_ATTR_DEV_INDEX,
++
++	IEEE802154_ATTR_STATUS,
++
++	IEEE802154_ATTR_SHORT_ADDR,
++	IEEE802154_ATTR_HW_ADDR,
++	IEEE802154_ATTR_PAN_ID,
++
++	IEEE802154_ATTR_CHANNEL,
++
++	IEEE802154_ATTR_COORD_SHORT_ADDR,
++	IEEE802154_ATTR_COORD_HW_ADDR,
++	IEEE802154_ATTR_COORD_PAN_ID,
++
++	IEEE802154_ATTR_SRC_SHORT_ADDR,
++	IEEE802154_ATTR_SRC_HW_ADDR,
++	IEEE802154_ATTR_SRC_PAN_ID,
++
++	IEEE802154_ATTR_DEST_SHORT_ADDR,
++	IEEE802154_ATTR_DEST_HW_ADDR,
++	IEEE802154_ATTR_DEST_PAN_ID,
++
++	IEEE802154_ATTR_CAPABILITY,
++	IEEE802154_ATTR_REASON,
++	IEEE802154_ATTR_SCAN_TYPE,
++	IEEE802154_ATTR_CHANNELS,
++	IEEE802154_ATTR_DURATION,
++	IEEE802154_ATTR_ED_LIST,
++	IEEE802154_ATTR_BCN_ORD,
++	IEEE802154_ATTR_SF_ORD,
++	IEEE802154_ATTR_PAN_COORD,
++	IEEE802154_ATTR_BAT_EXT,
++	IEEE802154_ATTR_COORD_REALIGN,
++	IEEE802154_ATTR_SEC,
++
++	__IEEE802154_ATTR_MAX,
 +};
 +
-+static inline struct ieee802154_mac_cb *mac_cb(struct sk_buff *skb)
-+{
-+	return (struct ieee802154_mac_cb *)skb->cb;
-+}
++#define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
 +
-+#define MAC_CB_FLAG_TYPEMASK		((1 << 3) - 1)
++extern struct nla_policy ieee802154_policy[];
 +
-+#define MAC_CB_FLAG_ACKREQ		(1 << 3)
-+#define MAC_CB_FLAG_SECEN		(1 << 4)
-+#define MAC_CB_FLAG_INTRAPAN		(1 << 5)
-+
-+static inline int mac_cb_is_ackreq(struct sk_buff *skb)
-+{
-+	return mac_cb(skb)->flags & MAC_CB_FLAG_ACKREQ;
-+}
-+
-+static inline int mac_cb_is_secen(struct sk_buff *skb)
-+{
-+	return mac_cb(skb)->flags & MAC_CB_FLAG_SECEN;
-+}
-+
-+static inline int mac_cb_is_intrapan(struct sk_buff *skb)
-+{
-+	return mac_cb(skb)->flags & MAC_CB_FLAG_INTRAPAN;
-+}
-+
-+static inline int mac_cb_type(struct sk_buff *skb)
-+{
-+	return mac_cb(skb)->flags & MAC_CB_FLAG_TYPEMASK;
-+}
-+
-+#define IEEE802154_MAC_SCAN_ED		0
-+#define IEEE802154_MAC_SCAN_ACTIVE	1
-+#define IEEE802154_MAC_SCAN_PASSIVE	2
-+#define IEEE802154_MAC_SCAN_ORPHAN	3
-+
-+/*
-+ * This should be located at net_device->ml_priv
++/* commands */
++/* REQ should be responded with CONF
++ * and INDIC with RESP
 + */
-+struct ieee802154_mlme_ops {
-+	int (*assoc_req)(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u8 channel, u8 cap);
-+	int (*assoc_resp)(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u16 short_addr, u8 status);
-+	int (*disassoc_req)(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u8 reason);
-+	int (*start_req)(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u8 channel, u8 bcn_ord, u8 sf_ord,
-+			u8 pan_coord, u8 blx, u8 coord_realign);
-+	int (*scan_req)(struct net_device *dev,
-+			u8 type, u32 channels, u8 duration);
++enum {
++	__IEEE802154_COMMAND_INVALID,
 +
-+	/*
-+	 * FIXME: these should become the part of PIB/MIB interface.
-+	 * However we still don't have IB interface of any kind
-+	 */
-+	u16 (*get_pan_id)(struct net_device *dev);
-+	u16 (*get_short_addr)(struct net_device *dev);
-+	u8 (*get_dsn)(struct net_device *dev);
-+	u8 (*get_bsn)(struct net_device *dev);
++	IEEE802154_ASSOCIATE_REQ,
++	IEEE802154_ASSOCIATE_CONF,
++	IEEE802154_DISASSOCIATE_REQ,
++	IEEE802154_DISASSOCIATE_CONF,
++	IEEE802154_GET_REQ,
++	IEEE802154_GET_CONF,
++	IEEE802154_RESET_REQ,
++	IEEE802154_RESET_CONF,
++	IEEE802154_SCAN_REQ,
++	IEEE802154_SCAN_CONF,
++	IEEE802154_SET_REQ,
++	IEEE802154_SET_CONF,
++	IEEE802154_START_REQ,
++	IEEE802154_START_CONF,
++	IEEE802154_SYNC_REQ,
++	IEEE802154_POLL_REQ,
++	IEEE802154_POLL_CONF,
++
++	IEEE802154_ASSOCIATE_INDIC,
++	IEEE802154_ASSOCIATE_RESP,
++	IEEE802154_DISASSOCIATE_INDIC,
++	IEEE802154_BEACON_NOTIFY_INDIC,
++	IEEE802154_ORPHAN_INDIC,
++	IEEE802154_ORPHAN_RESP,
++	IEEE802154_COMM_STATUS_INDIC,
++	IEEE802154_SYNC_LOSS_INDIC,
++
++	IEEE802154_GTS_REQ, /* Not supported yet */
++	IEEE802154_GTS_INDIC, /* Not supported yet */
++	IEEE802154_GTS_CONF, /* Not supported yet */
++	IEEE802154_RX_ENABLE_REQ, /* Not supported yet */
++	IEEE802154_RX_ENABLE_CONF, /* Not supported yet */
++
++	__IEEE802154_CMD_MAX,
 +};
 +
-+static inline struct ieee802154_mlme_ops *ieee802154_mlme_ops(
-+		struct net_device *dev)
-+{
-+	return dev->ml_priv;
-+}
++#define IEEE802154_CMD_MAX (__IEEE802154_CMD_MAX - 1)
 +
 +#endif
-+
-+
-diff --git a/net/Kconfig b/net/Kconfig
-index c19f549..7051b97 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -179,6 +179,7 @@ source "net/lapb/Kconfig"
- source "net/econet/Kconfig"
- source "net/wanrouter/Kconfig"
- source "net/phonet/Kconfig"
-+source "net/ieee802154/Kconfig"
- source "net/sched/Kconfig"
- source "net/dcb/Kconfig"
- 
-diff --git a/net/Makefile b/net/Makefile
-index 9e00a55..ba324ae 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -60,6 +60,7 @@ obj-$(CONFIG_NET_9P)		+= 9p/
- ifneq ($(CONFIG_DCB),)
- obj-y				+= dcb/
- endif
-+obj-y				+= ieee802154/
- 
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
-diff --git a/net/ieee802154/Kconfig b/net/ieee802154/Kconfig
+diff --git a/include/net/ieee802154/nl802154.h b/include/net/ieee802154/nl802154.h
 new file mode 100644
-index 0000000..1c1de97
+index 0000000..78efcdf
 --- /dev/null
-+++ b/net/ieee802154/Kconfig
-@@ -0,0 +1,12 @@
-+config IEEE802154
-+	tristate "IEEE Std 802.15.4 Low-Rate Wireless Personal Area Networks support (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL
-+	---help---
-+	  IEEE Std 802.15.4 defines a low data rate, low power and low
-+	  complexity short range wireless personal area networks. It was
-+	  designed to organise networks of sensors, switches, etc automation
-+	  devices. Maximum allowed data rate is 250 kb/s and typical personal
-+	  operating space around 10m.
-+
-+	  Say Y here to compile LR-WPAN support into the kernel or say M to
-+	  compile it as modules.
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-new file mode 100644
-index 0000000..cb88054
---- /dev/null
-+++ b/net/ieee802154/Makefile
-@@ -0,0 +1,4 @@
-+obj-$(CONFIG_IEEE802154) +=	af_802154.o
-+af_802154-objs		:= af_ieee802154.o raw.o dgram.o
-+
-+EXTRA_CFLAGS += -Wall -DDEBUG
-diff --git a/net/ieee802154/af802154.h b/net/ieee802154/af802154.h
-new file mode 100644
-index 0000000..0ee663d
---- /dev/null
-+++ b/net/ieee802154/af802154.h
-@@ -0,0 +1,36 @@
++++ b/include/net/ieee802154/nl802154.h
+@@ -0,0 +1,41 @@
 +/*
-+ * Internal interfaces for ieee 802.15.4 address family.
++ * nl802154.h
 + *
-+ * Copyright 2007, 2008, 2009 Siemens AG
++ * Copyright (C) 2007, 2008, 2009 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -482,32 +185,48 @@ index 0000000..0ee663d
 + * with this program; if not, write to the Free Software Foundation, Inc.,
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
-+ * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 + */
 +
-+#ifndef AF802154_H
-+#define AF802154_H
++#ifndef IEEE802154_NL_H
++#define IEEE802154_NL_H
 +
-+struct sk_buff;
-+struct net_devce;
-+extern struct proto ieee802154_raw_prot;
-+extern struct proto ieee802154_dgram_prot;
-+void ieee802154_raw_deliver(struct net_device *dev, struct sk_buff *skb);
-+int ieee802154_dgram_deliver(struct net_device *dev, struct sk_buff *skb);
-+struct net_device *ieee802154_get_dev(struct net *net,
-+		struct ieee802154_addr *addr);
++struct net_device;
++struct ieee802154_addr;
++
++int ieee802154_nl_assoc_indic(struct net_device *dev,
++		struct ieee802154_addr *addr, u8 cap);
++int ieee802154_nl_assoc_confirm(struct net_device *dev,
++		u16 short_addr, u8 status);
++int ieee802154_nl_disassoc_indic(struct net_device *dev,
++		struct ieee802154_addr *addr, u8 reason);
++int ieee802154_nl_disassoc_confirm(struct net_device *dev,
++		u8 status);
++int ieee802154_nl_scan_confirm(struct net_device *dev,
++		u8 status, u8 scan_type, u32 unscanned,
++		u8 *edl/*, struct list_head *pan_desc_list */);
++int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid,
++		u16 coord_addr);
 +
 +#endif
-diff --git a/net/ieee802154/af_ieee802154.c b/net/ieee802154/af_ieee802154.c
+diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
+index cb88054..0b11995 100644
+--- a/net/ieee802154/Makefile
++++ b/net/ieee802154/Makefile
+@@ -1,4 +1,5 @@
+-obj-$(CONFIG_IEEE802154) +=	af_802154.o
++obj-$(CONFIG_IEEE802154) +=	nl802154.o af_802154.o
++nl802154-objs		:= netlink.o nl_policy.o
+ af_802154-objs		:= af_ieee802154.o raw.o dgram.o
+ 
+ EXTRA_CFLAGS += -Wall -DDEBUG
+diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
 new file mode 100644
-index 0000000..e8ec83c
+index 0000000..5c69ae9
 --- /dev/null
-+++ b/net/ieee802154/af_ieee802154.c
-@@ -0,0 +1,372 @@
++++ b/net/ieee802154/netlink.c
+@@ -0,0 +1,523 @@
 +/*
-+ * IEEE802154.4 socket interface
++ * Netlink inteface for IEEE 802.15.4 stack
 + *
 + * Copyright 2007, 2008 Siemens AG
 + *
@@ -525,769 +244,520 @@ index 0000000..e8ec83c
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Maxim Gorbachyov <maxim.gorbachev-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
++ * Sergey Lapin <sergey.lapin@siemens.com>
++ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 + */
 +
-+#include <linux/net.h>
-+#include <linux/capability.h>
-+#include <linux/module.h>
++#include <linux/kernel.h>
 +#include <linux/if_arp.h>
-+#include <linux/if.h>
-+#include <linux/termios.h>	/* For TIOCOUTQ/INQ */
-+#include <linux/list.h>
-+#include <net/datalink.h>
-+#include <net/psnap.h>
-+#include <net/sock.h>
-+#include <net/tcp_states.h>
-+#include <net/route.h>
-+
++#include <linux/netdevice.h>
++#include <net/netlink.h>
++#include <net/genetlink.h>
++#include <linux/nl802154.h>
 +#include <net/ieee802154/af_ieee802154.h>
++#include <net/ieee802154/nl802154.h>
 +#include <net/ieee802154/netdevice.h>
 +
-+#include "af802154.h"
++static unsigned int ieee802154_seq_num;
 +
-+#define DBG_DUMP(data, len) { \
-+	int i; \
-+	pr_debug("function: %s: data: len %d:\n", __func__, len); \
-+	for (i = 0; i < len; i++) {\
-+		pr_debug("%02x: %02x\n", i, (data)[i]); \
-+	} \
++static struct genl_family ieee802154_coordinator_family = {
++	.id		= GENL_ID_GENERATE,
++	.hdrsize	= 0,
++	.name		= IEEE802154_NL_NAME,
++	.version	= 1,
++	.maxattr	= IEEE802154_ATTR_MAX,
++};
++
++static struct genl_multicast_group ieee802154_coord_mcgrp = {
++	.name		= IEEE802154_MCAST_COORD_NAME,
++};
++
++static struct genl_multicast_group ieee802154_beacon_mcgrp = {
++	.name		= IEEE802154_MCAST_BEACON_NAME,
++};
++
++/* Requests to userspace */
++static struct sk_buff *ieee802154_nl_create(int flags, u8 req)
++{
++	void *hdr;
++	struct sk_buff *msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++
++	if (!msg)
++		return NULL;
++
++	hdr = genlmsg_put(msg, 0, ieee802154_seq_num++,
++			&ieee802154_coordinator_family, flags, req);
++	if (!hdr) {
++		nlmsg_free(msg);
++		return NULL;
++	}
++
++	return msg;
 +}
 +
-+/*
-+ * Utility function for families
-+ */
-+struct net_device *ieee802154_get_dev(struct net *net,
-+		struct ieee802154_addr *addr)
++static int ieee802154_nl_finish(struct sk_buff *msg)
 +{
-+	struct net_device *dev = NULL;
-+	struct net_device *tmp;
-+	u16 pan_id, short_addr;
++	/* XXX: nlh is right at the start of msg */
++	void *hdr = genlmsg_data(NLMSG_DATA(msg->data));
 +
-+	switch (addr->addr_type) {
-+	case IEEE802154_ADDR_LONG:
-+		rtnl_lock();
-+		dev = dev_getbyhwaddr(net, ARPHRD_IEEE802154, addr->hwaddr);
-+		if (dev)
-+			dev_hold(dev);
-+		rtnl_unlock();
-+		break;
-+	case IEEE802154_ADDR_SHORT:
-+		if (addr->pan_id == 0xffff ||
-+		    addr->short_addr == IEEE802154_ADDR_UNDEF ||
-+		    addr->short_addr == 0xffff)
-+			break;
++	if (!genlmsg_end(msg, hdr))
++		goto out;
 +
-+		rtnl_lock();
++	return genlmsg_multicast(msg, 0, ieee802154_coord_mcgrp.id,
++			GFP_ATOMIC);
++out:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
 +
-+		for_each_netdev(net, tmp) {
-+			if (tmp->type != ARPHRD_IEEE802154)
-+				continue;
++int ieee802154_nl_assoc_indic(struct net_device *dev,
++		struct ieee802154_addr *addr, u8 cap)
++{
++	struct sk_buff *msg;
 +
-+			pan_id = ieee802154_mlme_ops(tmp)->get_pan_id(tmp);
-+			short_addr =
-+				ieee802154_mlme_ops(tmp)->get_short_addr(tmp);
++	pr_debug("%s\n", __func__);
 +
-+			if (pan_id == addr->pan_id &&
-+			    short_addr == addr->short_addr) {
-+				dev = tmp;
-+				dev_hold(dev);
-+				break;
-+			}
-+		}
++	if (addr->addr_type != IEEE802154_ADDR_LONG) {
++		pr_err("%s: received non-long source address!\n", __func__);
++		return -EINVAL;
++	}
 +
-+		rtnl_unlock();
-+		break;
-+	default:
-+		pr_warning("Unsupported ieee802154 address type: %d\n",
-+				addr->addr_type);
-+		break;
++	msg = ieee802154_nl_create(0, IEEE802154_ASSOCIATE_INDIC);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++
++	NLA_PUT(msg, IEEE802154_ATTR_SRC_HW_ADDR, IEEE802154_ADDR_LEN,
++			addr->hwaddr);
++
++	NLA_PUT_U8(msg, IEEE802154_ATTR_CAPABILITY, cap);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_assoc_indic);
++
++int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr,
++		u8 status)
++{
++	struct sk_buff *msg;
++
++	pr_debug("%s\n", __func__);
++
++	msg = ieee802154_nl_create(0, IEEE802154_ASSOCIATE_CONF);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++
++	NLA_PUT_U16(msg, IEEE802154_ATTR_SHORT_ADDR, short_addr);
++	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_assoc_confirm);
++
++int ieee802154_nl_disassoc_indic(struct net_device *dev,
++		struct ieee802154_addr *addr, u8 reason)
++{
++	struct sk_buff *msg;
++
++	pr_debug("%s\n", __func__);
++
++	msg = ieee802154_nl_create(0, IEEE802154_DISASSOCIATE_INDIC);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++
++	if (addr->addr_type == IEEE802154_ADDR_LONG)
++		NLA_PUT(msg, IEEE802154_ATTR_SRC_HW_ADDR, IEEE802154_ADDR_LEN,
++				addr->hwaddr);
++	else
++		NLA_PUT_U16(msg, IEEE802154_ATTR_SRC_SHORT_ADDR,
++				addr->short_addr);
++
++	NLA_PUT_U8(msg, IEEE802154_ATTR_REASON, reason);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_disassoc_indic);
++
++int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status)
++{
++	struct sk_buff *msg;
++
++	pr_debug("%s\n", __func__);
++
++	msg = ieee802154_nl_create(0, IEEE802154_DISASSOCIATE_CONF);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++
++	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_disassoc_confirm);
++
++int ieee802154_nl_beacon_indic(struct net_device *dev,
++		u16 panid, u16 coord_addr)
++{
++	struct sk_buff *msg;
++
++	pr_debug("%s\n", __func__);
++
++	msg = ieee802154_nl_create(0, IEEE802154_BEACON_NOTIFY_INDIC);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_SHORT_ADDR, coord_addr);
++	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_PAN_ID, panid);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_beacon_indic);
++
++int ieee802154_nl_scan_confirm(struct net_device *dev,
++		u8 status, u8 scan_type, u32 unscanned,
++		u8 *edl/* , struct list_head *pan_desc_list */)
++{
++	struct sk_buff *msg;
++
++	pr_debug("%s\n", __func__);
++
++	msg = ieee802154_nl_create(0, IEEE802154_SCAN_CONF);
++	if (!msg)
++		return -ENOBUFS;
++
++	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
++	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
++			dev->dev_addr);
++
++	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
++	NLA_PUT_U8(msg, IEEE802154_ATTR_SCAN_TYPE, scan_type);
++	NLA_PUT_U32(msg, IEEE802154_ATTR_CHANNELS, unscanned);
++
++	if (edl)
++		NLA_PUT(msg, IEEE802154_ATTR_ED_LIST, 27, edl);
++
++	return ieee802154_nl_finish(msg);
++
++nla_put_failure:
++	nlmsg_free(msg);
++	return -ENOBUFS;
++}
++EXPORT_SYMBOL(ieee802154_nl_scan_confirm);
++
++/* Requests from userspace */
++static struct net_device *ieee802154_nl_get_dev(struct genl_info *info)
++{
++	struct net_device *dev;
++
++	if (info->attrs[IEEE802154_ATTR_DEV_NAME]) {
++		char name[IFNAMSIZ + 1];
++		nla_strlcpy(name, info->attrs[IEEE802154_ATTR_DEV_NAME],
++				sizeof(name));
++		dev = dev_get_by_name(&init_net, name);
++	} else if (info->attrs[IEEE802154_ATTR_DEV_INDEX])
++		dev = dev_get_by_index(&init_net,
++				nla_get_u32(info->attrs[IEEE802154_ATTR_DEV_INDEX]));
++	else
++		return NULL;
++
++	if (dev->type != ARPHRD_IEEE802154) {
++		dev_put(dev);
++		return NULL;
 +	}
 +
 +	return dev;
 +}
 +
-+static int ieee802154_sock_release(struct socket *sock)
++static int ieee802154_associate_req(struct sk_buff *skb,
++		struct genl_info *info)
 +{
-+	struct sock *sk = sock->sk;
-+
-+	if (sk) {
-+		sock->sk = NULL;
-+		sk->sk_prot->close(sk, 0);
-+	}
-+	return 0;
-+}
-+static int ieee802154_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *msg, size_t len)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	return sk->sk_prot->sendmsg(iocb, sk, msg, len);
-+}
-+
-+static int ieee802154_sock_bind(struct socket *sock, struct sockaddr *uaddr,
-+		int addr_len)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	if (sk->sk_prot->bind)
-+		return sk->sk_prot->bind(sk, uaddr, addr_len);
-+
-+	return sock_no_bind(sock, uaddr, addr_len);
-+}
-+
-+static int ieee802154_sock_connect(struct socket *sock, struct sockaddr *uaddr,
-+			int addr_len, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	if (uaddr->sa_family == AF_UNSPEC)
-+		return sk->sk_prot->disconnect(sk, flags);
-+
-+	return sk->sk_prot->connect(sk, uaddr, addr_len);
-+}
-+
-+static int ieee802154_dev_ioctl(struct sock *sk, struct ifreq __user *arg,
-+		unsigned int cmd)
-+{
-+	struct ifreq ifr;
++	struct net_device *dev;
++	struct ieee802154_addr addr;
 +	int ret = -EINVAL;
-+	struct net_device *dev;
 +
-+	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
-+		return -EFAULT;
++	if (!info->attrs[IEEE802154_ATTR_CHANNEL] ||
++	    !info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
++	    (!info->attrs[IEEE802154_ATTR_COORD_HW_ADDR] &&
++		!info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]) ||
++	    !info->attrs[IEEE802154_ATTR_CAPABILITY])
++		return -EINVAL;
 +
-+	ifr.ifr_name[IFNAMSIZ-1] = 0;
-+
-+	dev_load(sock_net(sk), ifr.ifr_name);
-+	dev = dev_get_by_name(sock_net(sk), ifr.ifr_name);
-+	if (dev->type == ARPHRD_IEEE802154 ||
-+	    dev->type == ARPHRD_IEEE802154_PHY)
-+		ret = dev->netdev_ops->ndo_do_ioctl(dev, &ifr, cmd);
-+
-+	if (!ret && copy_to_user(arg, &ifr, sizeof(struct ifreq)))
-+		ret = -EFAULT;
-+	dev_put(dev);
-+
-+	return ret;
-+}
-+
-+static int ieee802154_sock_ioctl(struct socket *sock, unsigned int cmd,
-+		unsigned long arg)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	switch (cmd) {
-+	case SIOCGSTAMP:
-+		return sock_get_timestamp(sk, (struct timeval __user *)arg);
-+	case SIOCGSTAMPNS:
-+		return sock_get_timestampns(sk, (struct timespec __user *)arg);
-+	case SIOCGIFADDR:
-+	case SIOCSIFADDR:
-+		return ieee802154_dev_ioctl(sk, (struct ifreq __user *)arg,
-+				cmd);
-+	default:
-+		if (!sk->sk_prot->ioctl)
-+			return -ENOIOCTLCMD;
-+		return sk->sk_prot->ioctl(sk, cmd, arg);
-+	}
-+}
-+
-+static const struct proto_ops ieee802154_raw_ops = {
-+	.family		   = PF_IEEE802154,
-+	.owner		   = THIS_MODULE,
-+	.release	   = ieee802154_sock_release,
-+	.bind		   = ieee802154_sock_bind,
-+	.connect	   = ieee802154_sock_connect,
-+	.socketpair	   = sock_no_socketpair,
-+	.accept		   = sock_no_accept,
-+	.getname	   = sock_no_getname,
-+	.poll		   = datagram_poll,
-+	.ioctl		   = ieee802154_sock_ioctl,
-+	.listen		   = sock_no_listen,
-+	.shutdown	   = sock_no_shutdown,
-+	.setsockopt	   = sock_common_setsockopt,
-+	.getsockopt	   = sock_common_getsockopt,
-+	.sendmsg	   = ieee802154_sock_sendmsg,
-+	.recvmsg	   = sock_common_recvmsg,
-+	.mmap		   = sock_no_mmap,
-+	.sendpage	   = sock_no_sendpage,
-+#ifdef CONFIG_COMPAT
-+	.compat_setsockopt = compat_sock_common_setsockopt,
-+	.compat_getsockopt = compat_sock_common_getsockopt,
-+#endif
-+};
-+
-+static const struct proto_ops ieee802154_dgram_ops = {
-+	.family		   = PF_IEEE802154,
-+	.owner		   = THIS_MODULE,
-+	.release	   = ieee802154_sock_release,
-+	.bind		   = ieee802154_sock_bind,
-+	.connect	   = ieee802154_sock_connect,
-+	.socketpair	   = sock_no_socketpair,
-+	.accept		   = sock_no_accept,
-+	.getname	   = sock_no_getname,
-+	.poll		   = datagram_poll,
-+	.ioctl		   = ieee802154_sock_ioctl,
-+	.listen		   = sock_no_listen,
-+	.shutdown	   = sock_no_shutdown,
-+	.setsockopt	   = sock_common_setsockopt,
-+	.getsockopt	   = sock_common_getsockopt,
-+	.sendmsg	   = ieee802154_sock_sendmsg,
-+	.recvmsg	   = sock_common_recvmsg,
-+	.mmap		   = sock_no_mmap,
-+	.sendpage	   = sock_no_sendpage,
-+#ifdef CONFIG_COMPAT
-+	.compat_setsockopt = compat_sock_common_setsockopt,
-+	.compat_getsockopt = compat_sock_common_getsockopt,
-+#endif
-+};
-+
-+
-+/*
-+ * Create a socket. Initialise the socket, blank the addresses
-+ * set the state.
-+ */
-+static int ieee802154_create(struct net *net, struct socket *sock,
-+		int protocol)
-+{
-+	struct sock *sk;
-+	int rc;
-+	struct proto *proto;
-+	const struct proto_ops *ops;
-+
-+	if (net != &init_net)
-+		return -EAFNOSUPPORT;
-+
-+	switch (sock->type) {
-+	case SOCK_RAW:
-+		proto = &ieee802154_raw_prot;
-+		ops = &ieee802154_raw_ops;
-+		break;
-+	case SOCK_DGRAM:
-+		proto = &ieee802154_dgram_prot;
-+		ops = &ieee802154_dgram_ops;
-+		break;
-+	default:
-+		rc = -ESOCKTNOSUPPORT;
-+		goto out;
-+	}
-+
-+	rc = -ENOMEM;
-+	sk = sk_alloc(net, PF_IEEE802154, GFP_KERNEL, proto);
-+	if (!sk)
-+		goto out;
-+	rc = 0;
-+
-+	sock->ops = ops;
-+
-+	sock_init_data(sock, sk);
-+	/* FIXME: sk->sk_destruct */
-+	sk->sk_family = PF_IEEE802154;
-+
-+	/* Checksums on by default */
-+	sock_set_flag(sk, SOCK_ZAPPED);
-+
-+	if (sk->sk_prot->hash)
-+		sk->sk_prot->hash(sk);
-+
-+	if (sk->sk_prot->init) {
-+		rc = sk->sk_prot->init(sk);
-+		if (rc)
-+			sk_common_release(sk);
-+	}
-+out:
-+	return rc;
-+}
-+
-+static struct net_proto_family ieee802154_family_ops = {
-+	.family		= PF_IEEE802154,
-+	.create		= ieee802154_create,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int ieee802154_rcv(struct sk_buff *skb, struct net_device *dev,
-+	struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	DBG_DUMP(skb->data, skb->len);
-+	if (!netif_running(dev))
++	dev = ieee802154_nl_get_dev(info);
++	if (!dev)
 +		return -ENODEV;
-+	pr_debug("got frame, type %d, dev %p\n", dev->type, dev);
 +
-+	if (!net_eq(dev_net(dev), &init_net))
-+		goto drop;
-+
-+	ieee802154_raw_deliver(dev, skb);
-+
-+	if (dev->type != ARPHRD_IEEE802154)
-+		goto drop;
-+
-+	if (skb->pkt_type != PACKET_OTHERHOST)
-+		return ieee802154_dgram_deliver(dev, skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
-+}
-+
-+
-+static struct packet_type ieee802154_packet_type = {
-+	.type = __constant_htons(ETH_P_IEEE802154),
-+	.func = ieee802154_rcv,
-+};
-+
-+static int __init af_ieee802154_init(void)
-+{
-+	int rc = -EINVAL;
-+
-+	rc = proto_register(&ieee802154_raw_prot, 1);
-+	if (rc)
-+		goto out;
-+
-+	rc = proto_register(&ieee802154_dgram_prot, 1);
-+	if (rc)
-+		goto err_dgram;
-+
-+	/* Tell SOCKET that we are alive */
-+	rc = sock_register(&ieee802154_family_ops);
-+	if (rc)
-+		goto err_sock;
-+	dev_add_pack(&ieee802154_packet_type);
-+
-+	rc = 0;
-+	goto out;
-+
-+err_sock:
-+	proto_unregister(&ieee802154_dgram_prot);
-+err_dgram:
-+	proto_unregister(&ieee802154_raw_prot);
-+out:
-+	return rc;
-+}
-+static void __exit af_ieee802154_remove(void)
-+{
-+	dev_remove_pack(&ieee802154_packet_type);
-+	sock_unregister(PF_IEEE802154);
-+	proto_unregister(&ieee802154_dgram_prot);
-+	proto_unregister(&ieee802154_raw_prot);
-+}
-+
-+module_init(af_ieee802154_init);
-+module_exit(af_ieee802154_remove);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NETPROTO(PF_IEEE802154);
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-new file mode 100644
-index 0000000..0d1e7b2
---- /dev/null
-+++ b/net/ieee802154/dgram.c
-@@ -0,0 +1,394 @@
-+/*
-+ * ZigBee socket interface
-+ *
-+ * Copyright 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ */
-+
-+#include <linux/net.h>
-+#include <linux/module.h>
-+#include <linux/if_arp.h>
-+#include <linux/list.h>
-+#include <net/sock.h>
-+#include <net/ieee802154/af_ieee802154.h>
-+#include <net/ieee802154/mac_def.h>
-+#include <net/ieee802154/netdevice.h>
-+
-+#include <asm/ioctls.h>
-+
-+#include "af802154.h"
-+
-+static HLIST_HEAD(dgram_head);
-+static DEFINE_RWLOCK(dgram_lock);
-+
-+struct dgram_sock {
-+	struct sock sk;
-+
-+	int bound;
-+	struct ieee802154_addr src_addr;
-+	struct ieee802154_addr dst_addr;
-+};
-+
-+static inline struct dgram_sock *dgram_sk(const struct sock *sk)
-+{
-+	return container_of(sk, struct dgram_sock, sk);
-+}
-+
-+
-+static void dgram_hash(struct sock *sk)
-+{
-+	write_lock_bh(&dgram_lock);
-+	sk_add_node(sk, &dgram_head);
-+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+	write_unlock_bh(&dgram_lock);
-+}
-+
-+static void dgram_unhash(struct sock *sk)
-+{
-+	write_lock_bh(&dgram_lock);
-+	if (sk_del_node_init(sk))
-+		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-+	write_unlock_bh(&dgram_lock);
-+}
-+
-+static int dgram_init(struct sock *sk)
-+{
-+	struct dgram_sock *ro = dgram_sk(sk);
-+
-+	ro->dst_addr.addr_type = IEEE802154_ADDR_LONG;
-+	ro->dst_addr.pan_id = 0xffff;
-+	memset(&ro->dst_addr.hwaddr, 0xff, sizeof(ro->dst_addr.hwaddr));
-+	return 0;
-+}
-+
-+static void dgram_close(struct sock *sk, long timeout)
-+{
-+	sk_common_release(sk);
-+}
-+
-+static int dgram_bind(struct sock *sk, struct sockaddr *uaddr, int len)
-+{
-+	struct sockaddr_ieee802154 *addr = (struct sockaddr_ieee802154 *)uaddr;
-+	struct dgram_sock *ro = dgram_sk(sk);
-+	int err = 0;
-+	struct net_device *dev;
-+
-+	ro->bound = 0;
-+
-+	if (len < sizeof(*addr))
-+		return -EINVAL;
-+
-+	if (addr->family != AF_IEEE802154)
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	dev = ieee802154_get_dev(sock_net(sk), &addr->addr);
-+	if (!dev) {
-+		err = -ENODEV;
-+		goto out;
++	if (info->attrs[IEEE802154_ATTR_COORD_HW_ADDR]) {
++		addr.addr_type = IEEE802154_ADDR_LONG;
++		nla_memcpy(addr.hwaddr,
++				info->attrs[IEEE802154_ATTR_COORD_HW_ADDR],
++				IEEE802154_ADDR_LEN);
++	} else {
++		addr.addr_type = IEEE802154_ADDR_SHORT;
++		addr.short_addr = nla_get_u16(
++				info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
 +	}
++	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
 +
-+	if (dev->type != ARPHRD_IEEE802154) {
-+		err = -ENODEV;
-+		goto out_put;
-+	}
-+
-+	memcpy(&ro->src_addr, &addr->addr, sizeof(struct ieee802154_addr));
-+
-+	ro->bound = 1;
-+out_put:
-+	dev_put(dev);
-+out:
-+	release_sock(sk);
-+
-+	return err;
-+}
-+
-+static int dgram_ioctl(struct sock *sk, int cmd, unsigned long arg)
-+{
-+	switch (cmd) {
-+	case SIOCOUTQ:
-+	{
-+		int amount = atomic_read(&sk->sk_wmem_alloc);
-+		return put_user(amount, (int __user *)arg);
-+	}
-+
-+	case SIOCINQ:
-+	{
-+		struct sk_buff *skb;
-+		unsigned long amount;
-+
-+		amount = 0;
-+		spin_lock_bh(&sk->sk_receive_queue.lock);
-+		skb = skb_peek(&sk->sk_receive_queue);
-+		if (skb != NULL) {
-+			/*
-+			 * We will only return the amount
-+			 * of this packet since that is all
-+			 * that will be read.
-+			 */
-+			/* FIXME: parse the header for more correct value */
-+			amount = skb->len - (3+8+8);
-+		}
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+		return put_user(amount, (int __user *)arg);
-+	}
-+
-+	}
-+	return -ENOIOCTLCMD;
-+}
-+
-+/* FIXME: autobind */
-+static int dgram_connect(struct sock *sk, struct sockaddr *uaddr,
-+			int len)
-+{
-+	struct sockaddr_ieee802154 *addr = (struct sockaddr_ieee802154 *)uaddr;
-+	struct dgram_sock *ro = dgram_sk(sk);
-+	int err = 0;
-+
-+	if (len < sizeof(*addr))
-+		return -EINVAL;
-+
-+	if (addr->family != AF_IEEE802154)
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	if (!ro->bound) {
-+		err = -ENETUNREACH;
-+		goto out;
-+	}
-+
-+	memcpy(&ro->dst_addr, &addr->addr, sizeof(struct ieee802154_addr));
-+
-+out:
-+	release_sock(sk);
-+	return err;
-+}
-+
-+static int dgram_disconnect(struct sock *sk, int flags)
-+{
-+	struct dgram_sock *ro = dgram_sk(sk);
-+
-+	lock_sock(sk);
-+
-+	ro->dst_addr.addr_type = IEEE802154_ADDR_LONG;
-+	memset(&ro->dst_addr.hwaddr, 0xff, sizeof(ro->dst_addr.hwaddr));
-+
-+	release_sock(sk);
-+
-+	return 0;
-+}
-+
-+static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
-+		struct msghdr *msg, size_t size)
-+{
-+	struct net_device *dev;
-+	unsigned mtu;
-+	struct sk_buff *skb;
-+	struct dgram_sock *ro = dgram_sk(sk);
-+	int err;
-+
-+	if (msg->msg_flags & MSG_OOB) {
-+		pr_debug("msg->msg_flags = 0x%x\n", msg->msg_flags);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (!ro->bound)
-+		dev = dev_getfirstbyhwtype(sock_net(sk), ARPHRD_IEEE802154);
-+	else
-+		dev = ieee802154_get_dev(sock_net(sk), &ro->src_addr);
-+
-+	if (!dev) {
-+		pr_debug("no dev\n");
-+		err = -ENXIO;
-+		goto out;
-+	}
-+	mtu = dev->mtu;
-+	pr_debug("name = %s, mtu = %u\n", dev->name, mtu);
-+
-+	skb = sock_alloc_send_skb(sk, LL_ALLOCATED_SPACE(dev) + size,
-+			msg->msg_flags & MSG_DONTWAIT,
-+			&err);
-+	if (!skb)
-+		goto out_dev;
-+
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
-+
-+	skb_reset_network_header(skb);
-+
-+	mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA | MAC_CB_FLAG_ACKREQ;
-+	mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
-+	err = dev_hard_header(skb, dev, ETH_P_IEEE802154, &ro->dst_addr,
-+			ro->bound ? &ro->src_addr : NULL, size);
-+	if (err < 0)
-+		goto out_skb;
-+
-+	skb_reset_mac_header(skb);
-+
-+	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	if (err < 0)
-+		goto out_skb;
-+
-+	if (size > mtu) {
-+		pr_debug("size = %u, mtu = %u\n", size, mtu);
-+		err = -EINVAL;
-+		goto out_skb;
-+	}
-+
-+	skb->dev = dev;
-+	skb->sk  = sk;
-+	skb->protocol = htons(ETH_P_IEEE802154);
++	ret = ieee802154_mlme_ops(dev)->assoc_req(dev, &addr,
++			nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]),
++			nla_get_u8(info->attrs[IEEE802154_ATTR_CAPABILITY]));
 +
 +	dev_put(dev);
-+
-+	err = dev_queue_xmit(skb);
-+	if (err > 0)
-+		err = net_xmit_errno(err);
-+
-+	return err ?: size;
-+
-+out_skb:
-+	kfree_skb(skb);
-+out_dev:
-+	dev_put(dev);
-+out:
-+	return err;
-+}
-+
-+static int dgram_recvmsg(struct kiocb *iocb, struct sock *sk,
-+		struct msghdr *msg, size_t len, int noblock, int flags,
-+		int *addr_len)
-+{
-+	size_t copied = 0;
-+	int err = -EOPNOTSUPP;
-+	struct sk_buff *skb;
-+
-+	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	if (!skb)
-+		goto out;
-+
-+	copied = skb->len;
-+	if (len < copied) {
-+		msg->msg_flags |= MSG_TRUNC;
-+		copied = len;
-+	}
-+
-+	/* FIXME: skip headers if necessary ?! */
-+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
-+	if (err)
-+		goto done;
-+
-+	sock_recv_timestamp(msg, sk, skb);
-+
-+	if (flags & MSG_TRUNC)
-+		copied = skb->len;
-+done:
-+	skb_free_datagram(sk, skb);
-+out:
-+	if (err)
-+		return err;
-+	return copied;
-+}
-+
-+static int dgram_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (sock_queue_rcv_skb(sk, skb) < 0) {
-+		atomic_inc(&sk->sk_drops);
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
-+	}
-+
-+	return NET_RX_SUCCESS;
-+}
-+
-+static inline int ieee802154_match_sock(u8 *hw_addr, u16 pan_id,
-+		u16 short_addr, struct dgram_sock *ro)
-+{
-+	if (!ro->bound)
-+		return 1;
-+
-+	if (ro->src_addr.addr_type == IEEE802154_ADDR_LONG &&
-+	    !memcmp(ro->src_addr.hwaddr, hw_addr, IEEE802154_ADDR_LEN))
-+		return 1;
-+
-+	if (ro->src_addr.addr_type == IEEE802154_ADDR_SHORT &&
-+		     pan_id == ro->src_addr.pan_id &&
-+		     short_addr == ro->src_addr.short_addr)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+int ieee802154_dgram_deliver(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct sock *sk, *prev = NULL;
-+	struct hlist_node *node;
-+	int ret = NET_RX_SUCCESS;
-+	u16 pan_id, short_addr;
-+
-+	/* Data frame processing */
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
-+	short_addr = ieee802154_mlme_ops(dev)->get_short_addr(dev);
-+
-+	read_lock(&dgram_lock);
-+	sk_for_each(sk, node, &dgram_head) {
-+		if (ieee802154_match_sock(dev->dev_addr, pan_id, short_addr,
-+					dgram_sk(sk))) {
-+			if (prev) {
-+				struct sk_buff *clone;
-+				clone = skb_clone(skb, GFP_ATOMIC);
-+				if (clone)
-+					dgram_rcv_skb(prev, clone);
-+			}
-+
-+			prev = sk;
-+		}
-+	}
-+
-+	if (prev)
-+		dgram_rcv_skb(prev, skb);
-+	else {
-+		kfree_skb(skb);
-+		ret = NET_RX_DROP;
-+	}
-+	read_unlock(&dgram_lock);
-+
 +	return ret;
 +}
 +
-+struct proto ieee802154_dgram_prot = {
-+	.name		= "IEEE-802.15.4-MAC",
-+	.owner		= THIS_MODULE,
-+	.obj_size	= sizeof(struct dgram_sock),
-+	.init		= dgram_init,
-+	.close		= dgram_close,
-+	.bind		= dgram_bind,
-+	.sendmsg	= dgram_sendmsg,
-+	.recvmsg	= dgram_recvmsg,
-+	.hash		= dgram_hash,
-+	.unhash		= dgram_unhash,
-+	.connect	= dgram_connect,
-+	.disconnect	= dgram_disconnect,
-+	.ioctl		= dgram_ioctl,
++static int ieee802154_associate_resp(struct sk_buff *skb,
++		struct genl_info *info)
++{
++	struct net_device *dev;
++	struct ieee802154_addr addr;
++	int ret = -EINVAL;
++
++	if (!info->attrs[IEEE802154_ATTR_STATUS] ||
++	    !info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] ||
++	    !info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR])
++		return -EINVAL;
++
++	dev = ieee802154_nl_get_dev(info);
++	if (!dev)
++		return -ENODEV;
++
++	addr.addr_type = IEEE802154_ADDR_LONG;
++	nla_memcpy(addr.hwaddr, info->attrs[IEEE802154_ATTR_DEST_HW_ADDR],
++			IEEE802154_ADDR_LEN);
++	addr.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
++
++
++	ret = ieee802154_mlme_ops(dev)->assoc_resp(dev, &addr,
++		nla_get_u16(info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]),
++		nla_get_u8(info->attrs[IEEE802154_ATTR_STATUS]));
++
++	dev_put(dev);
++	return ret;
++}
++
++static int ieee802154_disassociate_req(struct sk_buff *skb,
++		struct genl_info *info)
++{
++	struct net_device *dev;
++	struct ieee802154_addr addr;
++	int ret = -EINVAL;
++
++	if ((!info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] &&
++		!info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]) ||
++	    !info->attrs[IEEE802154_ATTR_REASON])
++		return -EINVAL;
++
++	dev = ieee802154_nl_get_dev(info);
++	if (!dev)
++		return -ENODEV;
++
++	if (info->attrs[IEEE802154_ATTR_DEST_HW_ADDR]) {
++		addr.addr_type = IEEE802154_ADDR_LONG;
++		nla_memcpy(addr.hwaddr,
++				info->attrs[IEEE802154_ATTR_DEST_HW_ADDR],
++				IEEE802154_ADDR_LEN);
++	} else {
++		addr.addr_type = IEEE802154_ADDR_SHORT;
++		addr.short_addr = nla_get_u16(
++				info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]);
++	}
++	addr.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
++
++	ret = ieee802154_mlme_ops(dev)->disassoc_req(dev, &addr,
++			nla_get_u8(info->attrs[IEEE802154_ATTR_REASON]));
++
++	dev_put(dev);
++	return ret;
++}
++
++/*
++ * PANid, channel, beacon_order = 15, superframe_order = 15,
++ * PAN_coordinator, battery_life_extension = 0,
++ * coord_realignment = 0, security_enable = 0
++*/
++static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net_device *dev;
++	struct ieee802154_addr addr;
++
++	u8 channel, bcn_ord, sf_ord;
++	int pan_coord, blx, coord_realign;
++	int ret;
++
++	if (!info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
++	    !info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR] ||
++	    !info->attrs[IEEE802154_ATTR_CHANNEL] ||
++	    !info->attrs[IEEE802154_ATTR_BCN_ORD] ||
++	    !info->attrs[IEEE802154_ATTR_SF_ORD] ||
++	    !info->attrs[IEEE802154_ATTR_PAN_COORD] ||
++	    !info->attrs[IEEE802154_ATTR_BAT_EXT] ||
++	    !info->attrs[IEEE802154_ATTR_COORD_REALIGN]
++	 )
++		return -EINVAL;
++
++	dev = ieee802154_nl_get_dev(info);
++	if (!dev)
++		return -ENODEV;
++
++	addr.addr_type = IEEE802154_ADDR_SHORT;
++	addr.short_addr = nla_get_u16(
++			info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
++	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
++
++	channel = nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]);
++	bcn_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_BCN_ORD]);
++	sf_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_SF_ORD]);
++	pan_coord = nla_get_u8(info->attrs[IEEE802154_ATTR_PAN_COORD]);
++	blx = nla_get_u8(info->attrs[IEEE802154_ATTR_BAT_EXT]);
++	coord_realign = nla_get_u8(info->attrs[IEEE802154_ATTR_COORD_REALIGN]);
++
++	ret = ieee802154_mlme_ops(dev)->start_req(dev, &addr, channel,
++		bcn_ord, sf_ord, pan_coord, blx, coord_realign);
++
++	dev_put(dev);
++	return ret;
++}
++
++static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net_device *dev;
++	int ret;
++	u8 type;
++	u32 channels;
++	u8 duration;
++
++	if (!info->attrs[IEEE802154_ATTR_SCAN_TYPE] ||
++	    !info->attrs[IEEE802154_ATTR_CHANNELS] ||
++	    !info->attrs[IEEE802154_ATTR_DURATION])
++		return -EINVAL;
++
++	dev = ieee802154_nl_get_dev(info);
++	if (!dev)
++		return -ENODEV;
++
++	type = nla_get_u8(info->attrs[IEEE802154_ATTR_SCAN_TYPE]);
++	channels = nla_get_u32(info->attrs[IEEE802154_ATTR_CHANNELS]);
++	duration = nla_get_u8(info->attrs[IEEE802154_ATTR_DURATION]);
++
++	ret = ieee802154_mlme_ops(dev)->scan_req(dev, type, channels,
++			duration);
++
++	dev_put(dev);
++	return ret;
++}
++
++#define IEEE802154_OP(_cmd, _func)			\
++	{						\
++		.cmd	= _cmd,				\
++		.policy	= ieee802154_policy,		\
++		.doit	= _func,			\
++		.dumpit	= NULL,				\
++		.flags	= GENL_ADMIN_PERM,		\
++	}
++
++static struct genl_ops ieee802154_coordinator_ops[] = {
++	IEEE802154_OP(IEEE802154_ASSOCIATE_REQ, ieee802154_associate_req),
++	IEEE802154_OP(IEEE802154_ASSOCIATE_RESP, ieee802154_associate_resp),
++	IEEE802154_OP(IEEE802154_DISASSOCIATE_REQ, ieee802154_disassociate_req),
++	IEEE802154_OP(IEEE802154_SCAN_REQ, ieee802154_scan_req),
++	IEEE802154_OP(IEEE802154_START_REQ, ieee802154_start_req),
 +};
 +
-diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
++static int __init ieee802154_nl_init(void)
++{
++	int rc;
++	int i;
++
++	rc = genl_register_family(&ieee802154_coordinator_family);
++	if (rc)
++		goto fail;
++
++	rc = genl_register_mc_group(&ieee802154_coordinator_family,
++			&ieee802154_coord_mcgrp);
++	if (rc)
++		goto fail;
++
++	rc = genl_register_mc_group(&ieee802154_coordinator_family,
++			&ieee802154_beacon_mcgrp);
++	if (rc)
++		goto fail;
++
++
++	for (i = 0; i < ARRAY_SIZE(ieee802154_coordinator_ops); i++) {
++		rc = genl_register_ops(&ieee802154_coordinator_family,
++				&ieee802154_coordinator_ops[i]);
++		if (rc)
++			goto fail;
++	}
++
++	return 0;
++
++fail:
++	genl_unregister_family(&ieee802154_coordinator_family);
++	return rc;
++}
++module_init(ieee802154_nl_init);
++
++static void __exit ieee802154_nl_exit(void)
++{
++	genl_unregister_family(&ieee802154_coordinator_family);
++}
++module_exit(ieee802154_nl_exit);
++
+diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
 new file mode 100644
-index 0000000..df16f2e
+index 0000000..4e0614f
 --- /dev/null
-+++ b/net/ieee802154/raw.c
-@@ -0,0 +1,254 @@
++++ b/net/ieee802154/nl_policy.c
+@@ -0,0 +1,65 @@
 +/*
-+ * Raw IEEE 802.15.4 sockets
++ * nl802154.h
 + *
-+ * Copyright 2007, 2008 Siemens AG
++ * Copyright (C) 2007, 2008 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -1302,246 +772,53 @@ index 0000000..df16f2e
 + * with this program; if not, write to the Free Software Foundation, Inc.,
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
-+ * Written by:
-+ * Sergey Lapin <sergey.lapin-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 + */
 +
-+#include <linux/net.h>
-+#include <linux/module.h>
-+#include <linux/if_arp.h>
-+#include <linux/list.h>
-+#include <net/sock.h>
-+#include <net/ieee802154/af_ieee802154.h>
++/* This source file is shared between kernel and userspace sources, thus
++ * a bit of __KERNEL__ checks
++ */
++#ifdef __KERNEL__
++#include <linux/kernel.h>
++#include <net/netlink.h>
++#include <linux/nl802154.h>
++#else
++#include <netlink/netlink.h>
++#include <netlink/attr.h>
++#include <nl802154.h>
++#endif
 +
-+#include "af802154.h"
++#define NLA_HW_ADDR NLA_U64
 +
-+static HLIST_HEAD(raw_head);
-+static DEFINE_RWLOCK(raw_lock);
++struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
++	[IEEE802154_ATTR_DEV_NAME] = { .type = NLA_STRING, },
++	[IEEE802154_ATTR_DEV_INDEX] = { .type = NLA_U32, },
 +
-+static void raw_hash(struct sock *sk)
-+{
-+	write_lock_bh(&raw_lock);
-+	sk_add_node(sk, &raw_head);
-+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+	write_unlock_bh(&raw_lock);
-+}
++	[IEEE802154_ATTR_STATUS] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_SHORT_ADDR] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_HW_ADDR] = { .type = NLA_HW_ADDR, },
++	[IEEE802154_ATTR_PAN_ID] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_CHANNEL] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_COORD_SHORT_ADDR] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_COORD_HW_ADDR] = { .type = NLA_HW_ADDR, },
++	[IEEE802154_ATTR_COORD_PAN_ID] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_SRC_SHORT_ADDR] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_SRC_HW_ADDR] = { .type = NLA_HW_ADDR, },
++	[IEEE802154_ATTR_SRC_PAN_ID] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_DEST_SHORT_ADDR] = { .type = NLA_U16, },
++	[IEEE802154_ATTR_DEST_HW_ADDR] = { .type = NLA_HW_ADDR, },
++	[IEEE802154_ATTR_DEST_PAN_ID] = { .type = NLA_U16, },
 +
-+static void raw_unhash(struct sock *sk)
-+{
-+	write_lock_bh(&raw_lock);
-+	if (sk_del_node_init(sk))
-+		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-+	write_unlock_bh(&raw_lock);
-+}
-+
-+static void raw_close(struct sock *sk, long timeout)
-+{
-+	sk_common_release(sk);
-+}
-+
-+static int raw_bind(struct sock *sk, struct sockaddr *uaddr, int len)
-+{
-+	struct sockaddr_ieee802154 *addr = (struct sockaddr_ieee802154 *)uaddr;
-+	int err = 0;
-+	struct net_device *dev = NULL;
-+
-+	if (len < sizeof(*addr))
-+		return -EINVAL;
-+
-+	if (addr->family != AF_IEEE802154)
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	dev = ieee802154_get_dev(sock_net(sk), &addr->addr);
-+	if (!dev) {
-+		err = -ENODEV;
-+		goto out;
-+	}
-+
-+	if (dev->type != ARPHRD_IEEE802154_PHY &&
-+	    dev->type != ARPHRD_IEEE802154) {
-+		err = -ENODEV;
-+		goto out_put;
-+	}
-+
-+	sk->sk_bound_dev_if = dev->ifindex;
-+	sk_dst_reset(sk);
-+
-+out_put:
-+	dev_put(dev);
-+out:
-+	release_sock(sk);
-+
-+	return err;
-+}
-+
-+static int raw_connect(struct sock *sk, struct sockaddr *uaddr,
-+			int addr_len)
-+{
-+	return -ENOTSUPP;
-+}
-+
-+static int raw_disconnect(struct sock *sk, int flags)
-+{
-+	return 0;
-+}
-+
-+static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		       size_t size)
-+{
-+	struct net_device *dev;
-+	unsigned mtu;
-+	struct sk_buff *skb;
-+	int err;
-+
-+	if (msg->msg_flags & MSG_OOB) {
-+		pr_debug("msg->msg_flags = 0x%x\n", msg->msg_flags);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	lock_sock(sk);
-+	if (!sk->sk_bound_dev_if)
-+		dev = dev_getfirstbyhwtype(sock_net(sk), ARPHRD_IEEE802154);
-+	else
-+		dev = dev_get_by_index(sock_net(sk), sk->sk_bound_dev_if);
-+	release_sock(sk);
-+
-+	if (!dev) {
-+		pr_debug("no dev\n");
-+		err = -ENXIO;
-+		goto out;
-+	}
-+
-+	mtu = dev->mtu;
-+	pr_debug("name = %s, mtu = %u\n", dev->name, mtu);
-+
-+	if (size > mtu) {
-+		pr_debug("size = %u, mtu = %u\n", size, mtu);
-+		err = -EINVAL;
-+		goto out_dev;
-+	}
-+
-+	skb = sock_alloc_send_skb(sk, LL_ALLOCATED_SPACE(dev) + size,
-+			msg->msg_flags & MSG_DONTWAIT, &err);
-+	if (!skb)
-+		goto out_dev;
-+
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
-+
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+
-+	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+	if (err < 0)
-+		goto out_skb;
-+
-+	skb->dev = dev;
-+	skb->sk  = sk;
-+	skb->protocol = htons(ETH_P_IEEE802154);
-+
-+	dev_put(dev);
-+
-+	err = dev_queue_xmit(skb);
-+	if (err > 0)
-+		err = net_xmit_errno(err);
-+
-+	return err ?: size;
-+
-+out_skb:
-+	kfree_skb(skb);
-+out_dev:
-+	dev_put(dev);
-+out:
-+	return err;
-+}
-+
-+static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		       size_t len, int noblock, int flags, int *addr_len)
-+{
-+	size_t copied = 0;
-+	int err = -EOPNOTSUPP;
-+	struct sk_buff *skb;
-+
-+	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	if (!skb)
-+		goto out;
-+
-+	copied = skb->len;
-+	if (len < copied) {
-+		msg->msg_flags |= MSG_TRUNC;
-+		copied = len;
-+	}
-+
-+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
-+	if (err)
-+		goto done;
-+
-+	sock_recv_timestamp(msg, sk, skb);
-+
-+	if (flags & MSG_TRUNC)
-+		copied = skb->len;
-+done:
-+	skb_free_datagram(sk, skb);
-+out:
-+	if (err)
-+		return err;
-+	return copied;
-+}
-+
-+static int raw_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (sock_queue_rcv_skb(sk, skb) < 0) {
-+		atomic_inc(&sk->sk_drops);
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
-+	}
-+
-+	return NET_RX_SUCCESS;
-+}
-+
-+
-+void ieee802154_raw_deliver(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct sock *sk;
-+	struct hlist_node *node;
-+
-+	read_lock(&raw_lock);
-+	sk_for_each(sk, node, &raw_head) {
-+		bh_lock_sock(sk);
-+		if (!sk->sk_bound_dev_if ||
-+		    sk->sk_bound_dev_if == dev->ifindex) {
-+
-+			struct sk_buff *clone;
-+
-+			clone = skb_clone(skb, GFP_ATOMIC);
-+			if (clone)
-+				raw_rcv_skb(sk, clone);
-+		}
-+		bh_unlock_sock(sk);
-+	}
-+	read_unlock(&raw_lock);
-+}
-+
-+struct proto ieee802154_raw_prot = {
-+	.name		= "IEEE-802.15.4-RAW",
-+	.owner		= THIS_MODULE,
-+	.obj_size	= sizeof(struct sock),
-+	.close		= raw_close,
-+	.bind		= raw_bind,
-+	.sendmsg	= raw_sendmsg,
-+	.recvmsg	= raw_recvmsg,
-+	.hash		= raw_hash,
-+	.unhash		= raw_unhash,
-+	.connect	= raw_connect,
-+	.disconnect	= raw_disconnect,
++	[IEEE802154_ATTR_CAPABILITY] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_REASON] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_SCAN_TYPE] = { .type = NLA_U8, },
++	[IEEE802154_ATTR_CHANNELS] = { .type = NLA_U32, },
++	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
++#ifdef __KERNEL__
++	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
++#else
++	[IEEE802154_ATTR_ED_LIST] = { .minlen = 27, .maxlen = 27 },
++#endif
 +};
-+
 -- 
 1.6.3.1
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
