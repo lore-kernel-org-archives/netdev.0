@@ -1,79 +1,37 @@
-From: David VomLehn <dvomlehn@cisco.com>
+From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH 1/5] initdev:kernel: Asynchronously-discovered device
 	synchronization, v5
-Date: Fri, 5 Jun 2009 10:58:16 -0700
-Message-ID: <20090605175816.GB18688@cuplxvomd02.corp.sa.net>
-References: <Pine.LNX.4.44L0.0905041100500.3092-100000@iolanthe.rowland.org> <20090505234725.5ab247db@linux-lm>
+Date: Fri, 5 Jun 2009 11:00:38 -0700
+Message-ID: <20090605180038.GC18688@cuplxvomd02.corp.sa.net>
+References: <20090504074522.13f1ed77@infradead.org> <Pine.LNX.4.44L0.0905041100500.3092-100000@iolanthe.rowland.org> <20090505234725.5ab247db@linux-lm> <d82e647a0905050853q4a1d5066ib71411cbef186c45@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	Arjan van de Ven <arjan@infradead.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	linux-usb@vger.kernel.org, greg@kroah.com,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090505234725.5ab247db@linux-lm>
-Sender: linux-scsi-owner@vger.kernel.org
+In-Reply-To: <d82e647a0905050853q4a1d5066ib71411cbef186c45-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 05, 2009 at 11:47:25AM -0400, Ming Lei wrote:
-> On Mon, 4 May 2009 11:07:52 -0400 (EDT)
-> Alan Stern <stern@rowland.harvard.edu> wrote:
-> 
-> > On Mon, 4 May 2009, Arjan van de Ven wrote:
-...
-> > Isn't there still something missing?  The wait_for_device_probe()  
-> > routine would wait until all attached devices had been probed.  But
-> > why should prepare_namespace() have to wait that long?  Wouldn't it be
-> > better to wait only until the root device has been registered?
-> 
-> Yes, maybe David should merge the following patch into the patch
-> No.5(initdev:kernel: USB and SCSI block init device notification, v3).
-> 
-> Right?
-> 
-> diff --git a/init/do_mounts.c b/init/do_mounts.c
-> index dd7ee5f..22fd773 100644
-> --- a/init/do_mounts.c
-> +++ b/init/do_mounts.c
-> @@ -358,6 +358,12 @@ void __init mount_root(void)
->  #endif
->  }
->  
-> +static int root_dev_done()
-> +{
-> +	return !!(ROOT_DEV = name_to_dev_t(saved_root_name));
-> +}
-> +
-> +
->  /*
->   * Prepare the namespace - decide what/where to mount, load ramdisks,
-> etc. */
-> @@ -398,12 +404,12 @@ void __init prepare_namespace(void)
->  		goto out;
->  
->  	/* wait for any asynchronous scanning to complete */
-> -	if ((ROOT_DEV == 0) && root_wait) {
-> +	if (ROOT_DEV == 0 && root_wait) {
->  		printk(KERN_INFO "Waiting for root device %s...\n",
->  			saved_root_name);
-> -		while (driver_probe_done() != 0 ||
-> -			(ROOT_DEV = name_to_dev_t(saved_root_name)) ==
-> 0)
-> -			msleep(100);
-> +		do {
-> +			initdev_wait(BOOTDEV_BLOCK, root_dev_done);
-> +		} while (!ROOT_DEV);
->  		async_synchronize_full();
->  	}
+On Tue, May 05, 2009 at 11:53:38AM -0400, Ming Lei wrote:
+> 2009/5/5 Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
 
-I have something very similar. I'm not completely comfortable with discarding
-the rootwait flag, though it should be very rarely used once the initdev
-infrastructure is in place.
+> Also need all block device drivers use initdev_*, much work to do,:-)
+
+Not directly. All interesting block devices funnel through just a few functions
+to make the block device usable. I think I have the right place for the
+initdev_registered() call, but I definitely need feedback on this.
 
 > Lei Ming
 
 David VomLehn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
