@@ -1,64 +1,41 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 3/5] net: add NL802154 interface for configuration of
- 802.15.4 devices
-Date: Fri, 05 Jun 2009 08:52:17 +0200
-Message-ID: <1244184737.22576.94.camel@johannes.local>
-References: <1244168990-28355-1-git-send-email-dbaryshkov@gmail.com>
-	 <1244168990-28355-2-git-send-email-dbaryshkov@gmail.com>
-	 <1244168990-28355-3-git-send-email-dbaryshkov@gmail.com>
-	 <1244168990-28355-4-git-send-email-dbaryshkov@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: virtio_net: Set correct gso->hdr_len
+Date: Fri, 5 Jun 2009 16:53:12 +1000
+Message-ID: <20090605065312.GA7590@gondor.apana.org.au>
+References: <20090604105917.GA28273@gondor.apana.org.au> <200906051351.06385.rusty@rustcorp.com.au> <20090605042709.GA6702@gondor.apana.org.au> <200906051620.02868.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-zhkfR7yzDtOADSFsCaNU"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1244168990-28355-4-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:43580 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754784AbZFEGxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 02:53:15 -0400
+Content-Disposition: inline
+In-Reply-To: <200906051620.02868.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jun 05, 2009 at 04:20:02PM +0930, Rusty Russell wrote:
+>
+> Right, understood now.  It really is just a hint as to how much to copy.  It 
+> wasn't supposed to be that, as virtio_net.h:
+> 
+> 	__u16 hdr_len;		/* Ethernet + IP + tcp/udp hdrs */
+> 	__u16 gso_size;		/* Bytes to append to hdr_len per frame */
+> 
+> The host was supposed to be able to de-gso packets together relying on 
+> hdr_len.  But that's silly: it can't do TSO without knowing about sequence 
+> numbers at least, and UFO without ip fragmentation offsets.  ie. it might as 
+> well calc hdr_len itself.
 
---=-zhkfR7yzDtOADSFsCaNU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Well I always thought hdr_len was meant to represent what should
+be in the linear header :)
 
-On Fri, 2009-06-05 at 06:29 +0400, Dmitry Eremin-Solenikov wrote:
-
-> +/* This source file is shared between kernel and userspace sources, thus
-> + * a bit of __KERNEL__ checks
-> + */
-> +#ifdef __KERNEL__
-
-It's a C file. It can't be shared expect by copying, hence IMO these
-things are pointless.
-
-johannes
-
---=-zhkfR7yzDtOADSFsCaNU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKKMCeAAoJEODzc/N7+QmaOkYP/2WkkWFvXl+8pgzsvjTkyRj/
-J9jTDFnigkCNmFd07/fOageIoQJzUNasgXbzEPyXGrF7r6iVVj4sInSKmuBBCrMp
-wXwF0qzkRTGVfhL2jDdb80DUjZlavEajFXqTOMV66VE82QHUkPAuklscOKjy+LQU
-c49IkqI7IPglQYMoA8Rae0EPSzcLig/rHiMMwjGK/3eVS4/Yp0jKLjdRITVOZNiy
-O6oh7sABcWEiZ6T73c9WfTlnwL9qJrQZp5GvLrGx0JwkElw+JMX/2/PKpcYIkBUl
-rkwm/57RMIrNp3aBoofceLSxK+FQca++CgqzcOnObXVaU3s+Zfw4/8NXRq38riY7
-/bVsaXgk4Af6M7qoz/d3GwkbxUn1TcTwluBqeTo6hDKk1rt5KDEWOYeTuNj5rDxW
-1PrIVSW7dnrwpaM27LHKzxHByC3uHg/xoqmuLj67L+OpPkbN9OXWx6LMoMId8ihY
-CDWhEtTHTgwATXhGOBoQ/tz9iqS2E26Wbp6Fd5Od89VQ/sx0EEWFnh/j+Tz8b84E
-hyiezLkOsT9hn0Z2K3KuNKpdZ5UFfXDvRO4UVaSo7DtN3p9aXpM+4K858TMb0gaZ
-jR2MDMpy/OtcuiugKXvftP7C8xLd4g9UZct5nIBUXKDTJo+lseZ8FB5pnmpB5quz
-D0YJorA+lakschrhBCZ6
-=5I1f
------END PGP SIGNATURE-----
-
---=-zhkfR7yzDtOADSFsCaNU--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
