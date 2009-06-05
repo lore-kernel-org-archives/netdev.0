@@ -1,38 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: virtio_net: Set correct gso->hdr_len
-Date: Fri, 5 Jun 2009 14:27:09 +1000
-Message-ID: <20090605042709.GA6702@gondor.apana.org.au>
-References: <20090604105917.GA28273@gondor.apana.org.au> <200906051351.06385.rusty@rustcorp.com.au>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC][WIP] IEEE 802.15.4 implementation for Linux v1
+Date: Fri, 5 Jun 2009 08:49:57 +0400
+Message-ID: <bc64b4640906042149pb83911bk4e0397da11f9fde6@mail.gmail.com>
+References: <1243868091-5315-1-git-send-email-dbaryshkov@gmail.com>
+	 <9e4733910906042103q6c21886cia02d33cb278cef1e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43464 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750701AbZFEE1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 00:27:13 -0400
-Content-Disposition: inline
-In-Reply-To: <200906051351.06385.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
+	maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
+	oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
+To: Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9e4733910906042103q6c21886cia02d33cb278cef1e-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 05, 2009 at 01:51:05PM +0930, Rusty Russell wrote:
+2009/6/5 Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> On Mon, Jun 1, 2009 at 10:54 AM, Dmitry
+> Eremin-Solenikov<dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> Hi,
+>>
+>> As a part of research activities the Embedded Systems - Open Platform Group
+>> from Siemens Corporate Technology we are working on adding support for
+>> the IEEE 802.15.4 Wireless Personal Area Networks to the Linux. Our current
+>> implementation is neither certified nor even feature complete. However
+>> we'd like to present current state of our patchset to the Linux developers
+>> community to gain comments, fixes, ideas, etc. This is not yet a pull request,
+>> but more like an RFC.
 >
-> But are we allowed to make the assumption that skb_headlen() == 
-> skb_transport_header(skb) + sizeof(transport header) ?  Or should we be 
-> checking that here?
+> Does this stack work with the Atmel USB version of at86rf230?
+> ATAVRRZUSBSTICK, http://www.atmel.com/dyn/products/tools_card.asp?tool_id=4396
 
-We don't care.  We just want to preserve whatever the OS gave us.
-If it's bogus, the backend will reject it or fix it up.
+No, we do not support Atmel USB sticks, nor we do not have plans for
+adding support
+for it in the foreseable feature. However if the onboard ATmega can be
+programmed to
+provide usb-serial interface, one can use/adapt our serial discipline
+driver to control it.
+One will still have to write firmware for the on-stick ATmega chip.
 
-> Also how did this ever work?  Why are we getting packets through at all?
+Or you can add support for any existing interface that is provided by
+RazorUSB card by yourself.
+We tried to make mac802154 drivers easy to implement.
 
-Because the backend fixed it up.
+> It's not so simple to plug in the at86rf230 using SPI. Supporting USB
+> sticks lets you develop on a desktop PC.
 
-Cheers,
+Hmm. One can solder (e.g.) the FTDI 2232 together with AT86RF230/231
+and use that combo
+instead of RazorUSB sticks.
+
+> freaklabs.org is using ATAVRRZUSBSTICK
+
+I'll look for the interface they are using to control sticks and check
+how easy will it be to
+write a driver for it.
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+With best wishes
+Dmitry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
