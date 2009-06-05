@@ -1,72 +1,57 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Fri, 5 Jun 2009 15:17:26 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0906051444360.29918@gentwo.org>
-References: <alpine.DEB.1.10.0906021044430.15692@gentwo.org> <20090603.224104.222901210.davem@davemloft.net> <alpine.DEB.1.10.0906041150590.3204@gentwo.org> <20090604.153057.178458221.davem@davemloft.net> <alpine.DEB.1.10.0906050959380.23895@gentwo.org>
- <adaeitywrfj.fsf@cisco.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH net-next 1/3] net: Fix skb_copy_datagram_from_iovec() to
+ pass the right offset
+Date: Fri, 05 Jun 2009 12:35:40 -0700
+Message-ID: <1244230540.1526.76.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	yosefe@Voltaire.COM
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:37400 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752815AbZFETRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 15:17:37 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id B458182C8BE
-	for <netdev@vger.kernel.org>; Fri,  5 Jun 2009 15:32:39 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id x7FKXMZq4dYd for <netdev@vger.kernel.org>;
-	Fri,  5 Jun 2009 15:32:39 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 4D40082C7CB
-	for <netdev@vger.kernel.org>; Fri,  5 Jun 2009 15:32:30 -0400 (EDT)
-In-Reply-To: <adaeitywrfj.fsf@cisco.com>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:47366 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751699AbZFETfl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2009 15:35:41 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e8.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n55JP7YK029478
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:25:07 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n55JZhA3177828
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:35:43 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n55JZg7n028681
+	for <netdev@vger.kernel.org>; Fri, 5 Jun 2009 15:35:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 5 Jun 2009, Roland Dreier wrote:
+I am working on enabling UFO between KVM guests using virtio-net and i have 
+some patches that i got working with 2.6.30-rc8. When i wanted to try them
+with net-next-2.6, i noticed that virtio-net is not working with that tree.
 
->  > ARP is tied to managing small chunks of information about the network
->  > infrastructure. Buffering the first few and throwing the rest away is
->  > appropriate there for what the ARP protocol intends to do.
->
-> Yes, but what the IP stack is doing is queueing a few packets while ARP
-> is pending and dropping all other packets until the destination ethernet
-> address is resolved.
+After some debugging, it turned out to be several bugs in the recent patches
+to fix aio with tun driver, specifically the following 2 commits.
 
-Usually the ARP resolution is already established so its not that big an
-issue. In order for ARP resolution to matter we have to send to a
-IP address that is not in the current ARP cache.
-We ran a test here sending UDP unicast and indeed we get udp packet loss.
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=0a1ec07a67bd8b0033dace237249654d015efa21
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=6f26c9a7555e5bcca3560919db9b852015077dae
 
-However, *no* initial packets made it at all to the destination. We
-had an effective outage for 3 milliseconds of packets being
-discarded before anything is received. However, once it starts packets
-flow continually without a problem.
 
-This is actually better than IPoIB there is nothing before
-the initial traffic that arrives. In the IPoIB case 3 packets arrive
-suggesting to the other side that the link is okay.
+Fix the call to memcpy_from_iovecend() in skb_copy_datagram_from_iovec
+to pass the right iovec offset.
 
-In the MC case a IGMP join must also be performed which likely takes much
-longer and the switches will hold off traffic for awhile. We have a
-mininum here of 8 milliseconds of those outages. Then the first 3 packet
-arrive.
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
->  > UDP multicasting can be used for streaming information. And right now the
->  > IPoIB layer is dropping thousands of packets whenever there was a pause of
->  > a few minutes or when a new multicast group is used and there is some
->  > delay that the network need to reestablish the multicast route.
->
-> Yes -- and the required IB multicast resolution seems like it is an L2
-> thing precisely analogous to ARP.  So I think the original IPoIB code
-> actually was doing the right thing.
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -466,7 +466,8 @@ int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
+ 	if (copy > 0) {
+ 		if (copy > len)
+ 			copy = len;
+-		if (memcpy_fromiovecend(skb->data + offset, from, 0, copy))
++		if (memcpy_fromiovecend(skb->data + offset, from, from_offset,
++					copy))
+ 			goto fault;
+ 		if ((len -= copy) == 0)
+ 			return 0;
 
-Then why dont the 1G NICs do the same?
 
-Why are apps no longer working right when we move them from 1G to
-IPoIB?
