@@ -1,8 +1,8 @@
 From: David VomLehn <dvomlehn@cisco.com>
-Subject: [PATCH 6/7] initdev:kernel:SCSI asynchronous block init device
-	notification
-Date: Fri, 5 Jun 2009 19:34:13 -0700
-Message-ID: <20090606023413.GA5772@cuplxvomd02.corp.sa.net>
+Subject: [PATCH 5/7] initdev:kernel:USB and SCSI block init device
+	notification, v4
+Date: Fri, 5 Jun 2009 19:34:11 -0700
+Message-ID: <20090606023411.GA5746@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
@@ -10,57 +10,73 @@ Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
 	arjan@infradead.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:62847 "EHLO
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:62814 "EHLO
 	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753903AbZFFDAs (ORCPT
+	with ESMTP id S1753885AbZFFDAs (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 23:00:48 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In addition to the bus initdev synchronization, SCSI also starts asynchronous
-threads with which we must synchronize.
+From: Alan Stern <stern@rowland.harvard.edu>
 
+Add notification of device discovery for USB and SCSI block devices.
+
+History
+v4	Change BOOTDEV_* to INITDEV_*.
+v3	Change bootdev_* to initdev_*
+v2	Correct location of call to bootdev_found
+v1	Initial version
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu
 Signed-off-by: David VomLehn <dvomlehn@cisco.com>
 ---
- drivers/scsi/sd.c     |    3 +++
- fs/partitions/check.c |    1 +
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/scsi/scsi_scan.c  |    2 ++
+ drivers/usb/storage/usb.c |    3 +++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
-index 8404423..1104892 100644
---- a/drivers/scsi/sd.c
-+++ b/drivers/scsi/sd.c
-@@ -1955,10 +1955,12 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
- 	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",
- 		  sdp->removable ? "removable " : "");
- 
+diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
+index 6f51ca4..cb7b450 100644
+--- a/drivers/scsi/scsi_scan.c
++++ b/drivers/scsi/scsi_scan.c
+@@ -1834,6 +1834,7 @@ static int do_scan_async(void *_data)
+ 	struct async_scan_data *data = _data;
+ 	do_scsi_scan_host(data->shost);
+ 	scsi_finish_async_scan(data);
 +	initdev_probe_done(INITDEV_BLOCK_MASK);
- 	return;
- 
-  out_free_index:
- 	ida_remove(&sd_index_ida, index);
-+	initdev_probe_done(INITDEV_BLOCK_MASK);
+ 	return 0;
  }
  
- /**
-@@ -2026,6 +2028,7 @@ static int sd_probe(struct device *dev)
- 	sdkp->openers = 0;
- 	sdkp->previous_state = 1;
+@@ -1855,6 +1856,7 @@ void scsi_scan_host(struct Scsi_Host *shost)
+ 		return;
+ 	}
  
 +	initdev_found(INITDEV_BLOCK_MASK);
- 	async_schedule(sd_probe_async, sdkp);
+ 	p = kthread_run(do_scan_async, data, "scsi_scan_%d", shost->host_no);
+ 	if (IS_ERR(p))
+ 		do_scan_async(data);
+diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
+index 8060b85..6a78278 100644
+--- a/drivers/usb/storage/usb.c
++++ b/drivers/usb/storage/usb.c
+@@ -837,6 +837,7 @@ static int usb_stor_scan_thread(void * __us)
+ 		/* Should we unbind if no devices were detected? */
+ 	}
  
- 	return 0;
-diff --git a/fs/partitions/check.c b/fs/partitions/check.c
-index 99e33ef..fbc6cd5 100644
---- a/fs/partitions/check.c
-+++ b/fs/partitions/check.c
-@@ -502,6 +502,7 @@ exit:
- 	while ((part = disk_part_iter_next(&piter)))
- 		kobject_uevent(&part_to_dev(part)->kobj, KOBJ_ADD);
- 	disk_part_iter_exit(&piter);
-+	initdev_registered(INITDEV_BLOCK_TYPE);
++	initdev_probe_done(INITDEV_BLOCK_MASK);
+ 	complete_and_exit(&us->scanning_done, 0);
  }
  
- int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
+@@ -937,10 +938,12 @@ int usb_stor_probe2(struct us_data *us)
+ 	}
+ 
+ 	/* Start up the thread for delayed SCSI-device scanning */
++	initdev_found(INITDEV_BLOCK_MASK);
+ 	th = kthread_create(usb_stor_scan_thread, us, "usb-stor-scan");
+ 	if (IS_ERR(th)) {
+ 		printk(KERN_WARNING USB_STORAGE 
+ 		       "Unable to start the device-scanning thread\n");
++		initdev_probe_done(INITDEV_BLOCK_MASK);
+ 		complete(&us->scanning_done);
+ 		quiesce_and_remove_host(us);
+ 		result = PTR_ERR(th);
