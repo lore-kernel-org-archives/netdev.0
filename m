@@ -1,102 +1,148 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/7] initdev:kernel:USB init device discovery notification,
-	v3
-Date: Fri, 5 Jun 2009 19:34:05 -0700
-Message-ID: <20090606023405.GA5670@cuplxvomd02.corp.sa.net>
+From: David VomLehn <dvomlehn@cisco.com>
+Subject: [PATCH 4/7] initdev:kernel:Await network init device discovery, v3
+Date: Fri, 5 Jun 2009 19:34:09 -0700
+Message-ID: <20090606023409.GA5721@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
+	greg@kroah.com, linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:62814 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753355AbZFFDAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 23:00:44 -0400
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-
-Use init device discovery infrastructure to provide notification of
-availability of USB devices.
+Delay IP autoconfiguration until network boot devices have been initialized.
+This depends on the boot device discovery code and on the asynchronous
+function call infrastructure.
 
 History
-v3	Changes names from BOOTDEV_* to INITDEV_*.
-v2	Change names from bootdev_* to initdev_*.
-v1.1	Changed check for blockdevice in #if to use || instead of |	
-v1	Initial versions
+v3	Ignore return value from async_schedule call to ip_auto_config_async.
+	Change BOOTDEV_* to INITDEV_*.
+v2	Change bootdev_* to initdev_*
+v1	Initial release
 
-Signed-off-by: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: David VomLehn <dvomlehn@cisco.com>
 ---
- drivers/usb/core/hub.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+ net/core/dev.c      |    2 +
+ net/ipv4/ipconfig.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 56 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index be86ae3..08baee0 100644
---- a/drivers/usb/core/hub.c
-+++ b/drivers/usb/core/hub.c
-@@ -37,6 +37,20 @@
- #endif
- #endif
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 308a7d0..2796764 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -93,6 +93,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/notifier.h>
+ #include <linux/skbuff.h>
++#include <linux/device.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <linux/rtnetlink.h>
+@@ -4497,6 +4498,7 @@ int register_netdevice(struct net_device *dev)
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 	}
  
-+/* The mask of possible USB boot devices depends on what drivers and
-+ * options have been configured into the kernel.  There are too many
-+ * USB network config options to list here, so just assume it is always
-+ * possible to have a USB network device.
++	initdev_registered(INITDEV_NETDEV_TYPE);
+ out:
+ 	return ret;
+ 
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 90d22ae..3b1a381 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -53,6 +53,7 @@
+ #include <linux/root_dev.h>
+ #include <linux/delay.h>
+ #include <linux/nfs_fs.h>
++#include <linux/async.h>
+ #include <net/net_namespace.h>
+ #include <net/arp.h>
+ #include <net/ip.h>
+@@ -182,12 +183,48 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
++/*
++ * Wait for required network devices to come up
++ * If the networking device name was specified on the kernel command line
++ * and that device is now registered, we have the device we want to configure
++ * and we return true. Otherwise, we return false. So, if no device was
++ * specified on the command line, we wait for all possible network devices to
++ * be initialized.
 + */
-+static int usb_initdev_mask = 0
-+#ifdef CONFIG_USB_SERIAL_CONSOLE
-+				| INITDEV_CONSOLE_MASK
-+#endif
-+#if defined(CONFIG_USB_STORAGE) || defined(CONFIG_BLK_DEV_UB)
-+				| INITDEV_BLOCK_MASK
-+#endif
-+				| INITDEV_NETDEV_MASK;
++static bool have_all_netdevs(void)
++{
++	struct net_device *dev;
++	bool	result = false;
 +
- struct usb_hub {
- 	struct device		*intfdev;	/* the "interface" device */
- 	struct usb_device	*hdev;
-@@ -73,6 +87,7 @@ struct usb_hub {
- 	unsigned		limited_power:1;
- 	unsigned		quiescing:1;
- 	unsigned		disconnected:1;
-+	unsigned		probing:1;
- 
- 	unsigned		has_indicators:1;
- 	u8			indicator[USB_MAXCHILDREN];
-@@ -1079,6 +1094,9 @@ static int hub_configure(struct usb_hub *hub,
- 	if (hub->has_indicators && blinkenlights)
- 		hub->indicator [0] = INDICATOR_CYCLE;
- 
-+	hub->probing = 1;
-+	initdev_found(usb_initdev_mask);
++	rtnl_lock();
 +
- 	hub_activate(hub, HUB_INIT);
++	for_each_netdev(&init_net, dev) {
++		if (dev->flags & IFF_LOOPBACK)
++			continue;
++
++		/* If a specific device name was specified and that name is
++		 * registered, we have the device we need. */
++		if (user_dev_name[0] && !strcmp(dev->name, user_dev_name)) {
++			result = true;
++			break;
++		}
++	}
++
++	rtnl_unlock();
++
++	return result;
++
++}
++
+ static int __init ic_open_devs(void)
+ {
+ 	struct ic_device *d, **last;
+ 	struct net_device *dev;
+ 	unsigned short oflags;
+ 
++	/* Wait for networking devices */
++	initdev_wait(INITDEV_NETDEV_TYPE, have_all_netdevs);
++
+ 	last = &ic_first_dev;
+ 	rtnl_lock();
+ 
+@@ -1263,6 +1300,7 @@ __be32 __init root_nfs_parse_addr(char *name)
+ 
+ /*
+  *	IP Autoconfig dispatcher.
++ *	Return zero on success, negative one on failure
+  */
+ 
+ static int __init ip_auto_config(void)
+@@ -1397,7 +1435,22 @@ static int __init ip_auto_config(void)
  	return 0;
- 
-@@ -1124,6 +1142,9 @@ static void hub_disconnect(struct usb_interface *intf)
- 	usb_buffer_free(hub->hdev, sizeof(*hub->buffer), hub->buffer,
- 			hub->buffer_dma);
- 
-+	if (hub->probing)
-+		initdev_probe_done(usb_initdev_mask);
-+
- 	kref_put(&hub->kref, hub_release);
  }
  
-@@ -3135,6 +3156,11 @@ static void hub_events(void)
- 						portstatus, portchange);
- 		} /* end for i */
- 
-+		if (hub->probing) {
-+			hub->probing = 0;
-+			initdev_probe_done(usb_initdev_mask);
-+		}
+-late_initcall(ip_auto_config);
++static void __init ip_auto_config_async(void *data, async_cookie_t cookie)
++{
++	ip_auto_config();
++}
 +
- 		/* deal with hub status changes */
- 		if (test_and_clear_bit(0, hub->event_bits) == 0)
- 			;	/* do nothing */
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++/*
++ * Start a thread to do IP autoconfiguration
++ */
++static int __init ip_auto_configurator(void)
++{
++	async_schedule(ip_auto_config_async, NULL);
++
++	return 0;
++}
++
++late_initcall(ip_auto_configurator);
+ 
+ 
+ /*
