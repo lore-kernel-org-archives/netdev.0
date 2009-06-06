@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: behavior of TSO in kernel
-Date: Fri, 05 Jun 2009 18:20:38 -0700 (PDT)
-Message-ID: <20090605.182038.133831345.davem@davemloft.net>
-References: <340578.72366.qm@web94815.mail.in2.yahoo.com>
+From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/7] initdev:kernel:Introduction to initdev patchset
+Date: Fri, 5 Jun 2009 19:34:00 -0700
+Message-ID: <20090606023400.GA5562@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: radhamohan_ch@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49743
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752161AbZFFBUh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2009 21:20:37 -0400
-In-Reply-To: <340578.72366.qm@web94815.mail.in2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Radha Mohan <radhamohan_ch@yahoo.com>
-Date: Fri, 5 Jun 2009 20:09:10 +0530 (IST)
+In days of yore, great fields of USB devices were discovered and initialized
+long before they were harvested for use. Race conditions were unknown, and
+all was well. As time passed in the land of Linux, the tilling of the bit
+fields yielded great reductions in boot time, and there was much rejoicing.
+Yet, some dispaired, for things were not as they had once been. The now-
+hasty arrival at /bin/init startup meant some USB devices were not yet fully
+ripened, leaving /dev/console unopened and network devices unconfigured.
 
-> I have an ethernet driver with TSO, SG, IP_CSUM=A0features enabled. I
-> am using linux-2.6.15 kernel. The MTU is set to 9014. It seems the
-> driver is getting skbs of only 9014 bytes length even though the
-> application is able to write some 64KB at a time.
+This patch allows boot-time users of devices specified in kernel command line
+parameters to wait until discovery and initialization of those devices.
+The kernel command line that specify devices are "ip", "root", and "console".
+This code supports device discovery on USB and SCSI buses. It mostly
+eliminates the need for the rootwait kernel parameter.
 
-The TSO engine of the networking has been rewritten at least
-3 times since 2.6.15
+This introduction is followed by 7 patches:
+1	Basic initdev infrastructure
+2	USB device discovery notification
+3	Wait for console
+4	Wait for network devices
+5	USB and SCSI block device notification
+6	Additional SCSI block device notification for asynchronous function
+7	Wait for block device used for root
 
-You're asking us how code worked three major rewrites ago and
-nobody is going to help you without some kind of paid support
-contract from a Linux support vendor, sorry.
+(Many thanks to Alan Stern, who said we could solve this without offensive
+timeouts and then set about doing the integration into USB and SCSI)
+
+Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+---
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
