@@ -1,30 +1,44 @@
-From: Radha Mohan <radhamohan_ch@yahoo.com>
-Subject: Re: behavior of TSO in kernel
-Date: Sat, 6 Jun 2009 19:41:21 +0530 (IST)
-Message-ID: <171835.76446.qm@web94811.mail.in2.yahoo.com>
-References: <340578.72366.qm@web94815.mail.in2.yahoo.com> <20090605.182038.133831345.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 3/3] tun: Fix copy/paste error in tun_get_user
+Date: Sun, 7 Jun 2009 00:08:33 +0300
+Message-ID: <20090606210833.GB28614@redhat.com>
+References: <1244230546.1526.78.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n8-vm0.bullet.mail.in.yahoo.com ([202.86.4.189]:34093 "HELO
-	n8-vm0.bullet.mail.in.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752622AbZFFOLV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Jun 2009 10:11:21 -0400
-In-Reply-To: <20090605.182038.133831345.davem@davemloft.net>
+Received: from mx2.redhat.com ([66.187.237.31]:52282 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751881AbZFFVJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Jun 2009 17:09:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1244230546.1526.78.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jun 05, 2009 at 12:35:46PM -0700, Sridhar Samudrala wrote:
+> Use the right structure while incrementing the offset in tun_get_user.
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
->The TSO engine of the networking has been rewritten at least
->3 times since 2.6.15
-Thank you for the info.
-Actually we are working on an SoC and we just started moving from kernel 2.6.15, so can you tell me from which kernel version the latest TSO engine is being used. That'll make our life easier and avoid moving kernels frequently. Currently we are thinking of moving to 2.6.24. Will that do??
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 4cda69b..15cfcb2 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -567,7 +567,7 @@ static __inline__ ssize_t tun_get_user(struct
+> tun_struct *tun,
+> 
+>  		if (gso.hdr_len > len)
+>  			return -EINVAL;
+> -		offset += sizeof(pi);
+> +		offset += sizeof(gso);
+>  	}
+> 
+>  	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+> 
 
-
-      Explore and discover exciting holidays and getaways with Yahoo! India Travel http://in.travel.yahoo.com/
-
+-- 
+MST
