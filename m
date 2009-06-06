@@ -1,60 +1,77 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net: Fix skb_copy_datagram_from_iovec()
-	to pass the right offset
-Date: Sun, 7 Jun 2009 00:25:33 +0300
-Message-ID: <20090606212533.GD28614@redhat.com>
-References: <1244230540.1526.76.camel@w-sridhar.beaverton.ibm.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 0/3] isdn: patches for 2.6.31
+Date: Sun, 07 Jun 2009 00:38:26 +0200
+Message-ID: <4A2AEFE2.2090300@imap.cc>
+References: <20090531-patch-00.tilman@imap.cc> <20090601.030434.141357758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2F10CE731FB1CDF502B55318"
+Cc: karsten-keil@t-online.de, isdn4linux@listserv.isdn4linux.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59782 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751058AbZFFV02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Jun 2009 17:26:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1244230540.1526.76.camel@w-sridhar.beaverton.ibm.com>
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:54607 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751671AbZFFWij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Jun 2009 18:38:39 -0400
+In-Reply-To: <20090601.030434.141357758.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2009 at 12:35:40PM -0700, Sridhar Samudrala wrote:
-> I am working on enabling UFO between KVM guests using virtio-net and i have 
-> some patches that i got working with 2.6.30-rc8. When i wanted to try them
-> with net-next-2.6, i noticed that virtio-net is not working with that tree.
-> 
-> After some debugging, it turned out to be several bugs in the recent patches
-> to fix aio with tun driver, specifically the following 2 commits.
-> 
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=0a1ec07a67bd8b0033dace237249654d015efa21
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=6f26c9a7555e5bcca3560919db9b852015077dae
-> 
-> 
-> Fix the call to memcpy_from_iovecend() in skb_copy_datagram_from_iovec
-> to pass the right iovec offset.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2F10CE731FB1CDF502B55318
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yes, looks like the bugs were around GSO handling, I was probably
-testing without GSO at the time. I'll go try with GSO now. Thanks for
-fixing these!
+On 01.06.2009 12:04, David Miller wrote:
+> First problem in the second patch.  You're doing two things
+> at once.  You're adding function documentation and also adding
+> a NULL pointer check.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+No problem. I can split the patch in two if you prefer it that way.
 
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -466,7 +466,8 @@ int skb_copy_datagram_from_iovec(struct sk_buff *skb, int offset,
->  	if (copy > 0) {
->  		if (copy > len)
->  			copy = len;
-> -		if (memcpy_fromiovecend(skb->data + offset, from, 0, copy))
-> +		if (memcpy_fromiovecend(skb->data + offset, from, from_offset,
-> +					copy))
->  			goto fault;
->  		if ((len -= copy) == 0)
->  			return 0;
-> 
+> Second problem, the NULL pointer check is gratuitous.  Document
+> that the 'm' member has to be non-NULL and leave the check out.
 
--- 
-MST
+That would be a bad solution for two reasons:
+First, the 'm' member is private to capiutil.{c,h}. Callers are
+not supposed to access it. Therefore it shouldn't be referred to
+in the interface documentation. At best, such a mention would
+leave users of the function confused how to assure that condition.
+At worst, it might mislead them into meddling directly with the
+member, thereby producing incorrect code.
+And second, the main use of capi_cmsg2str() is for error reporting
+and debugging output. Oopsing in an error handler is particularly
+troublesome. At the same time, the risk of the 'm' member being
+unexpectedly NULL is particularly high when something has gone
+wrong already. So a safety check is advisable in this case.
+
+Thanks,
+Tilman
+
+PS: Any objections against the other two patches?
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig2F10CE731FB1CDF502B55318
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org
+
+iD8DBQFKKu/tQ3+did9BuFsRAmMaAJ90QRvFAukBuce29sULsLNxlppA5gCeJYBi
+SlB+PmXl3gcCGo0JXSBItyk=
+=5cc2
+-----END PGP SIGNATURE-----
+
+--------------enig2F10CE731FB1CDF502B55318--
