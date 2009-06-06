@@ -1,41 +1,37 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 2/2] netdev: smsc911x: add missing __devexit_p() usage
-Date: Fri,  5 Jun 2009 20:37:20 -0400
-Message-ID: <1244248640-22699-2-git-send-email-vapier@gentoo.org>
-References: <1244248640-22699-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/5] net: add NL802154 interface for configuration of
+ 802.15.4 devices
+Date: Fri, 05 Jun 2009 17:58:25 -0700 (PDT)
+Message-ID: <20090605.175825.168276404.davem@davemloft.net>
+References: <20090605091229.GA25280@doriath.ww600.siemens.net>
+	<20090605094619.GB23085@build.ossfans.org>
+	<bc64b4640906050345t5ed23d7bxc8a777a4a0ada147@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: slapin@ossfans.org, johannes@sipsolutions.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, sfr@canb.auug.org.au
+To: dbaryshkov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:58584 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752735AbZFFAhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Jun 2009 20:37:25 -0400
-In-Reply-To: <1244248640-22699-1-git-send-email-vapier@gentoo.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42861
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752399AbZFFA6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 20:58:23 -0400
+In-Reply-To: <bc64b4640906050345t5ed23d7bxc8a777a4a0ada147@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The smsc911x_drv_remove() function is declared with __devexit, so the
-assignment to the driver structure needs __devexit_p() wrappings to prevent
-build failure when hotplug is disabled.
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Fri, 5 Jun 2009 14:45:06 +0400
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/smsc911x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Could you please send an incremental patch on top of this serie? I
+> hope that my last
+> push can be pulled/merged and I don't want to redo all commits.
 
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index eb7db03..d3bf943 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -2098,7 +2098,7 @@ out_0:
- 
- static struct platform_driver smsc911x_driver = {
- 	.probe = smsc911x_drv_probe,
--	.remove = smsc911x_drv_remove,
-+	.remove = __devexit_p(smsc911x_drv_remove),
- 	.driver = {
- 		.name = SMSC_CHIPNAME,
- 	},
--- 
-1.6.3.1
+Dmitry, no shortcuts ok?
 
+Just respin the series and resend it just like anyone else has to.
+
+The changes just aren't ready, and until they are you'll need to
+respin them like this a few more times.
