@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Fri, 05 Jun 2009 18:17:30 -0700 (PDT)
-Message-ID: <20090605.181730.51590434.davem@davemloft.net>
-References: <adaeitywrfj.fsf@cisco.com>
-	<alpine.DEB.1.10.0906051444360.29918@gentwo.org>
-	<adafxeev0zg.fsf@cisco.com>
+Subject: Re: behavior of TSO in kernel
+Date: Fri, 05 Jun 2009 18:20:38 -0700 (PDT)
+Message-ID: <20090605.182038.133831345.davem@davemloft.net>
+References: <340578.72366.qm@web94815.mail.in2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
-	yosefe@Voltaire.COM
-To: rdreier@cisco.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: radhamohan_ch@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45814
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49743
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753455AbZFFBR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Jun 2009 21:17:29 -0400
-In-Reply-To: <adafxeev0zg.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1752161AbZFFBUh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Jun 2009 21:20:37 -0400
+In-Reply-To: <340578.72366.qm@web94815.mail.in2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Fri, 05 Jun 2009 14:12:35 -0700
+=46rom: Radha Mohan <radhamohan_ch@yahoo.com>
+Date: Fri, 5 Jun 2009 20:09:10 +0530 (IST)
 
-> ethernet is a different L2 -- you don't have to resolve an IP multicast
-> address to an L2 address the way you do for IPoIB.
-> 
-> My point is just that multicast group join is the same sort of L2
-> resolution as ARP is for ethernet, and so having the same sort of
-> behavior makes sense.
+> I have an ethernet driver with TSO, SG, IP_CSUM=A0features enabled. I
+> am using linux-2.6.15 kernel. The MTU is set to 9014. It seems the
+> driver is getting skbs of only 9014 bytes length even though the
+> application is able to write some 64KB at a time.
 
-Then the IPoIB layer should block on group join, not have this
-limitless packet backlog which as I have explained is ill designed
-and definitely not futureproof.
+The TSO engine of the networking has been rewritten at least
+3 times since 2.6.15
+
+You're asking us how code worked three major rewrites ago and
+nobody is going to help you without some kind of paid support
+contract from a Linux support vendor, sorry.
