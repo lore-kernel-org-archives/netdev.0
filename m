@@ -1,39 +1,31 @@
-From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 2/5] net: add IEEE 802.15.4 socket family implementation
-Date: Sun, 7 Jun 2009 08:25:43 +0200
-Message-ID: <20090607062543.GA10730@uranus.ravnborg.org>
-References: <cover.1244337432.git.slapin@ossfans.org> <47c250c4bb2069d4faa2d6c5217d1aae15a5bc34.1244337432.git.slapin@ossfans.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 3/8] net/netfilter/ipvs/ip_vs_wrr.c: use lib/gcd.c
+Date: Sun, 7 Jun 2009 18:41:38 +1000
+Message-ID: <20090607084137.GB8007@verge.net.au>
+References: <200906041616.22786.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Linux-MIPS <linux-mips@linux-mips.org>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45482 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752830AbZFGIlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2009 04:41:40 -0400
 Content-Disposition: inline
-In-Reply-To: <47c250c4bb2069d4faa2d6c5217d1aae15a5bc34.1244337432.git.slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200906041616.22786.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> --- /dev/null
-> +++ b/net/ieee802154/Makefile
-> @@ -0,0 +1,4 @@
-> +obj-$(CONFIG_IEEE802154) +=	af_802154.o
-> +af_802154-objs		:= af_ieee802154.o raw.o dgram.o
-> +
-> +EXTRA_CFLAGS += -Wall -DDEBUG
+On Thu, Jun 04, 2009 at 04:16:21PM +0200, Florian Fainelli wrote:
+> This patch removes the open-coded version of the
+> greatest common divider to use lib/gcd.c, the latter
+> also implementing the a < b case.
+> 
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-Please change this to following style:
-> +obj-$(CONFIG_IEEE802154) +=  af_802154.o
-> +af_802154-y               := af_ieee802154.o raw.o dgram.o
-> +
-> +ccflags-y += -Wall -DDEBUG
-
-
-	Sam
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Simon Horman <horms@verge.net.au>
