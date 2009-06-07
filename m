@@ -1,69 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: net: uninitialized loopback addr leaks to userspace
-Date: Sun, 7 Jun 2009 16:11:05 -0700
-Message-ID: <20090607161105.385d6e92@nehalam>
-References: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Vegard Nossum <vegard.nossum@gmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 1/5] qlge: Fix firmware event handler loop.
+Date: Sun,  7 Jun 2009 16:58:25 -0700
+Message-ID: <1244419109-355-2-git-send-email-ron.mercer@qlogic.com>
+References: <1244419109-355-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56239 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbZFGXLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Jun 2009 19:11:09 -0400
-In-Reply-To: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:19996 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752734AbZFHAGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2009 20:06:21 -0400
+In-Reply-To: <1244419109-355-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 30 May 2009 22:23:24 +0200
-Vegard Nossum <vegard.nossum@gmail.com> wrote:
+Check status on every iteration of event handler loop and exit
+if an error occurred.  If an error occurred then recover process
+will be queued so this loop should no continue.
 
-> Hi,
-> 
-> It seems that loopback's hardware address is never initialized by the
-> kernel. So if userspace attempts to read this address before it has
-> been set, the kernel will return some uninitialized data (only 6
-> bytes, though). This can be demonstrated by creating a new network
-> namespace (CLONE_NEWNET), which creates a new loopback device, then
-> call ioctl() with SIOCGIFHWADDR on "lo". If this is done in a loop,
-> with some background load, or by running multiple instances, random
-> data will start to show up in the returned address.
-> 
-> [  406.750329] WARNING: kmemcheck: Caught 16-bit read from
-> uninitialized memory (ffff880007220974)
-> [  406.753555] 18a2d7060088ffff18a2d7060088ffff00000000010000000100000003000000
-> [  406.758862]  i i i i i i i i i i i i i i i i i u u u u u u u u u u u u u u u
-> [  406.766224]                                          ^
-> [  406.768792] Modules linked in:
-> [  406.770416] Pid: 757, comm: ifconfig Not tainted
-> 2.6.30-rc7-next-20090529 #404
-> [  406.772876] RIP: 0010:[<ffffffff80664789>]  [<ffffffff80664789>]
-> dev_ioctl+0x5d9/0x600
-> [  406.804677]  [<ffffffff8064ff75>] sock_ioctl+0x95/0x2a0
-> [  406.807242]  [<ffffffff802c35eb>] vfs_ioctl+0x1b/0x70
-> [  406.809348]  [<ffffffff802c36fa>] do_vfs_ioctl+0x8a/0x570
-> [  406.811419]  [<ffffffff802c3c79>] sys_ioctl+0x99/0xa0
-> [  406.813400]  [<ffffffff802f3941>] dev_ifsioc+0x81/0x2f0
-> [  406.815424]  [<ffffffff802f454d>] compat_sys_ioctl+0xed/0x3c0
-> [  406.817596]  [<ffffffff8022d476>] cstar_dispatch+0x7/0x26
-> [  406.819978]  [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> This is the code that triggers the warning, in net/core/dev.c, around line 4150:
-> 
->     memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
->         min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
-> 
-> So it's dev->dev_addr that is the pointer to the uninitialized data.
-> 
-> I didn't know how to fix it.
-> 
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_mpi.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-
-The whole dev structure is zeroed in alloc_netdev(), kmemcheck
-is giving bogus warning.
+diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
+index 9f81b79..7cb30fd 100644
+--- a/drivers/net/qlge/qlge_mpi.c
++++ b/drivers/net/qlge/qlge_mpi.c
+@@ -831,13 +831,19 @@ void ql_mpi_work(struct work_struct *work)
+ 	    container_of(work, struct ql_adapter, mpi_work.work);
+ 	struct mbox_params mbc;
+ 	struct mbox_params *mbcp = &mbc;
++	int err = 0;
+ 
+ 	mutex_lock(&qdev->mpi_mutex);
+ 
+ 	while (ql_read32(qdev, STS) & STS_PI) {
+ 		memset(mbcp, 0, sizeof(struct mbox_params));
+ 		mbcp->out_count = 1;
+-		ql_mpi_handler(qdev, mbcp);
++		/* Don't continue if an async event
++		 * did not complete properly.
++		 */
++		err = ql_mpi_handler(qdev, mbcp);
++		if (err)
++			break;
+ 	}
+ 
+ 	mutex_unlock(&qdev->mpi_mutex);
 -- 
+1.6.0.2
+
