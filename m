@@ -1,209 +1,106 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 1/4] isdn: rename capi_ctr_reseted() to capi_ctr_down()
-Date: Sun,  7 Jun 2009 21:09:23 +0200 (CEST)
-Message-ID: <20090607-patch-01.tilman@imap.cc>
-References: <20090607-patch-00.tilman@imap.cc>
-To: davem@davemloft.net, Karsten Keil <karsten-keil@t-online.de>,
-	isdn4linux@listserv.isdn4linux.de,
-	i4ldeveloper@listserv.isdn4linux.de,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-ker
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: net: uninitialized loopback addr leaks to userspace
+Date: Sun, 07 Jun 2009 16:03:27 -0500
+Message-ID: <1244408607.9064.8.camel@Maple>
+References: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([195.227.45.7]:43719 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753390AbZFGTJf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Jun 2009 15:09:35 -0400
-In-Reply-To: <20090607-patch-00.tilman@imap.cc>
+Received: from yw-out-2324.google.com ([74.125.46.31]:12685 "EHLO
+	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754212AbZFGVD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2009 17:03:28 -0400
+In-Reply-To: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the name of the Kernel CAPI exported function capi_ctr_reseted()
-to something representing its purpose better.
+On Sat, 2009-05-30 at 22:23 +0200, Vegard Nossum wrote:
+> It seems that loopback's hardware address is never initialized by the
+> kernel. So if userspace attempts to read this address before it has
+> been set, the kernel will return some uninitialized data (only 6
+> bytes, though).
 
-Impact: renaming, no functional change
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- Documentation/isdn/INTERFACE.CAPI |    4 ++--
- drivers/isdn/capi/kcapi.c         |    8 ++++----
- drivers/isdn/hardware/avm/b1.c    |    2 +-
- drivers/isdn/hardware/avm/b1dma.c |    2 +-
- drivers/isdn/hardware/avm/c4.c    |    4 ++--
- drivers/isdn/hardware/avm/t1isa.c |    2 +-
- drivers/isdn/hysdn/hycapi.c       |    4 ++--
- include/linux/isdn/capilli.h      |    2 +-
- net/bluetooth/cmtp/capi.c         |    2 +-
- 9 files changed, 15 insertions(+), 15 deletions(-)
+Thank you for the report, Vegard.
 
-diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
-index 786d619..4631538 100644
---- a/Documentation/isdn/INTERFACE.CAPI
-+++ b/Documentation/isdn/INTERFACE.CAPI
-@@ -45,7 +45,7 @@ From then on, Kernel CAPI may call the registered callback functions for the
- device.
- 
- If the device becomes unusable for any reason (shutdown, disconnect ...), the
--driver has to call capi_ctr_reseted(). This will prevent further calls to the
-+driver has to call capi_ctr_down(). This will prevent further calls to the
- callback functions by Kernel CAPI.
- 
- 
-@@ -166,7 +166,7 @@ int detach_capi_ctr(struct capi_ctr *ctrlr)
- 	register/unregister a device (controller) with Kernel CAPI
- 
- void capi_ctr_ready(struct capi_ctr *ctrlr)
--void capi_ctr_reseted(struct capi_ctr *ctrlr)
-+void capi_ctr_down(struct capi_ctr *ctrlr)
- 	signal controller ready/not ready
- 
- void capi_ctr_suspend_output(struct capi_ctr *ctrlr)
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index f331703..57d2636 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -377,14 +377,14 @@ void capi_ctr_ready(struct capi_ctr * card)
- EXPORT_SYMBOL(capi_ctr_ready);
- 
- /**
-- * capi_ctr_reseted() - signal CAPI controller reset
-+ * capi_ctr_down() - signal CAPI controller not ready
-  * @card:	controller descriptor structure.
-  *
-  * Called by hardware driver to signal that the controller is down and
-  * unavailable for use.
-  */
- 
--void capi_ctr_reseted(struct capi_ctr * card)
-+void capi_ctr_down(struct capi_ctr * card)
- {
- 	u16 appl;
- 
-@@ -413,7 +413,7 @@ void capi_ctr_reseted(struct capi_ctr * card)
- 	notify_push(KCI_CONTRDOWN, card->cnr, 0, 0);
- }
- 
--EXPORT_SYMBOL(capi_ctr_reseted);
-+EXPORT_SYMBOL(capi_ctr_down);
- 
- /**
-  * capi_ctr_suspend_output() - suspend controller
-@@ -517,7 +517,7 @@ EXPORT_SYMBOL(attach_capi_ctr);
- int detach_capi_ctr(struct capi_ctr *card)
- {
-         if (card->cardstate != CARD_DETECTED)
--		capi_ctr_reseted(card);
-+		capi_ctr_down(card);
- 
- 	ncards--;
- 
-diff --git a/drivers/isdn/hardware/avm/b1.c b/drivers/isdn/hardware/avm/b1.c
-index abf05ec..a7c0083 100644
---- a/drivers/isdn/hardware/avm/b1.c
-+++ b/drivers/isdn/hardware/avm/b1.c
-@@ -330,7 +330,7 @@ void b1_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- void b1_register_appl(struct capi_ctr *ctrl,
-diff --git a/drivers/isdn/hardware/avm/b1dma.c b/drivers/isdn/hardware/avm/b1dma.c
-index da34b98..0e84aaa 100644
---- a/drivers/isdn/hardware/avm/b1dma.c
-+++ b/drivers/isdn/hardware/avm/b1dma.c
-@@ -759,7 +759,7 @@ void b1dma_reset_ctr(struct capi_ctr *ctrl)
- 	memset(cinfo->version, 0, sizeof(cinfo->version));
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /* ------------------------------------------------------------- */
-diff --git a/drivers/isdn/hardware/avm/c4.c b/drivers/isdn/hardware/avm/c4.c
-index 9df1d3f..6833301 100644
---- a/drivers/isdn/hardware/avm/c4.c
-+++ b/drivers/isdn/hardware/avm/c4.c
-@@ -681,7 +681,7 @@ static irqreturn_t c4_handle_interrupt(avmcard *card)
- 			spin_lock_irqsave(&card->lock, flags);
- 			capilib_release(&cinfo->ncci_head);
- 			spin_unlock_irqrestore(&card->lock, flags);
--			capi_ctr_reseted(&cinfo->capi_ctrl);
-+			capi_ctr_down(&cinfo->capi_ctrl);
- 		}
- 		card->nlogcontr = 0;
- 		return IRQ_HANDLED;
-@@ -909,7 +909,7 @@ static void c4_reset_ctr(struct capi_ctr *ctrl)
-         for (i=0; i < card->nr_controllers; i++) {
- 		cinfo = &card->ctrlinfo[i];
- 		memset(cinfo->version, 0, sizeof(cinfo->version));
--		capi_ctr_reseted(&cinfo->capi_ctrl);
-+		capi_ctr_down(&cinfo->capi_ctrl);
- 	}
- 	card->nlogcontr = 0;
- }
-diff --git a/drivers/isdn/hardware/avm/t1isa.c b/drivers/isdn/hardware/avm/t1isa.c
-index e772449..1c53fd4 100644
---- a/drivers/isdn/hardware/avm/t1isa.c
-+++ b/drivers/isdn/hardware/avm/t1isa.c
-@@ -339,7 +339,7 @@ static void t1isa_reset_ctr(struct capi_ctr *ctrl)
- 	spin_lock_irqsave(&card->lock, flags);
- 	capilib_release(&cinfo->ncci_head);
- 	spin_unlock_irqrestore(&card->lock, flags);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- static void t1isa_remove(struct pci_dev *pdev)
-diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
-index 53f6ad1..4ffaa14 100644
---- a/drivers/isdn/hysdn/hycapi.c
-+++ b/drivers/isdn/hysdn/hycapi.c
-@@ -67,7 +67,7 @@ hycapi_reset_ctr(struct capi_ctr *ctrl)
- 	printk(KERN_NOTICE "HYCAPI hycapi_reset_ctr\n");
- #endif
- 	capilib_release(&cinfo->ncci_head);
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- }
- 
- /******************************
-@@ -347,7 +347,7 @@ int hycapi_capi_stop(hysdn_card *card)
- 	if(cinfo) {
- 		ctrl = &cinfo->capi_ctrl;
- /*		ctrl->suspend_output(ctrl); */
--		capi_ctr_reseted(ctrl);
-+		capi_ctr_down(ctrl);
- 	}
- 	return 0;
- }
-diff --git a/include/linux/isdn/capilli.h b/include/linux/isdn/capilli.h
-index 35e9b0f..7acb87a 100644
---- a/include/linux/isdn/capilli.h
-+++ b/include/linux/isdn/capilli.h
-@@ -79,7 +79,7 @@ int attach_capi_ctr(struct capi_ctr *);
- int detach_capi_ctr(struct capi_ctr *);
- 
- void capi_ctr_ready(struct capi_ctr * card);
--void capi_ctr_reseted(struct capi_ctr * card);
-+void capi_ctr_down(struct capi_ctr * card);
- void capi_ctr_suspend_output(struct capi_ctr * card);
- void capi_ctr_resume_output(struct capi_ctr * card);
- void capi_ctr_handle_message(struct capi_ctr * card, u16 appl, struct sk_buff *skb);
-diff --git a/net/bluetooth/cmtp/capi.c b/net/bluetooth/cmtp/capi.c
-index 78958c0..97f8d68 100644
---- a/net/bluetooth/cmtp/capi.c
-+++ b/net/bluetooth/cmtp/capi.c
-@@ -382,7 +382,7 @@ static void cmtp_reset_ctr(struct capi_ctr *ctrl)
- 
- 	BT_DBG("ctrl %p", ctrl);
- 
--	capi_ctr_reseted(ctrl);
-+	capi_ctr_down(ctrl);
- 
- 	atomic_inc(&session->terminate);
- 	cmtp_schedule(session);
--- 
-1.6.2.1.214.ge986c
+I've been unable to reproduce the problem you describe, using
+2.6-30-rc8, this test program and a couple of kernel builds for system
+load:
+
+------------------------------------------------------------------
+#define REPEAT_COUNT 10000
+
+int childTask() {
+	struct ifreq ifreq;
+	int fd;
+	unsigned char allBits;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0){
+		printf("Error %s from socket()\n", strerror(errno));
+		_exit(-1);
+	}
+
+	strncpy(ifreq.ifr_name, "lo", sizeof("lo"));
+	if (ioctl (fd, SIOCGIFHWADDR, &ifreq) < 0){
+		printf("Error %s from ioctl(SIOCGIFHWADDR) for %s.\n", strerror(errno), ifreq.ifr_name);
+		_exit(-1);
+	}
+	
+	allBits = ifreq.ifr_hwaddr.sa_data[0] |
+			ifreq.ifr_hwaddr.sa_data[1] |
+			ifreq.ifr_hwaddr.sa_data[2] |
+			ifreq.ifr_hwaddr.sa_data[3] |
+			ifreq.ifr_hwaddr.sa_data[4] |
+			ifreq.ifr_hwaddr.sa_data[5];
+
+	if (allBits != 0)
+		printf("Device %s -> Ethernet %02x:%02x:%02x:%02x:%02x:%02x\n", ifreq.ifr_name,
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[0],
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[1],
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[2],
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[3],
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[4],
+			(int) ((unsigned char *) &ifreq.ifr_hwaddr.sa_data)[5]);
+}
+
+
+int main(int argc, char *argv[]) {
+   	void **child_stack;
+	int pid, i, status;
+
+	child_stack = (void **) malloc(16384);
+
+	for (i = 0; i < REPEAT_COUNT; i++){
+
+		pid = clone(childTask, child_stack, CLONE_NEWNET, NULL);
+		if (pid < 0){
+			printf("Error %s from clone()\n", strerror(errno));
+			_exit(-1);
+		}
+		
+		pid = waitpid(pid, &status, __WCLONE);
+		if (pid < 0){
+			printf("Error %s from waitpid()\n", strerror(errno));
+			_exit(-1);
+		}
+	}   
+      
+	return 0;
+}
+------------------------------------------------------------------
+
+Looking at the kernel code, it appears that all bytes of struct
+net_device, including the L2 address, are initialized to zeros at
+interface creation time.
+
+Can you spot a difference between your test procedures and mine that
+would enable me to reproduce the problem?
+
+  --  John
 
