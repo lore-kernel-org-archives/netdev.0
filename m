@@ -1,58 +1,39 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH qemu-kvm] Enable UFO on virtio-net/tap devices
-Date: Sun, 07 Jun 2009 09:21:39 +0300
-Message-ID: <4A2B5C73.5050907@redhat.com>
-References: <1244247408.1526.174.camel@w-sridhar.beaverton.ibm.com>
+From: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/5] net: add IEEE 802.15.4 socket family implementation
+Date: Sun, 7 Jun 2009 08:25:43 +0200
+Message-ID: <20090607062543.GA10730@uranus.ravnborg.org>
+References: <cover.1244337432.git.slapin@ossfans.org> <47c250c4bb2069d4faa2d6c5217d1aae15a5bc34.1244337432.git.slapin@ossfans.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, herbert.xu@redhat.com, rusty@rustcorp.com.au,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42248 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466AbZFGGVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Jun 2009 02:21:48 -0400
-In-Reply-To: <1244247408.1526.174.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+To: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <47c250c4bb2069d4faa2d6c5217d1aae15a5bc34.1244337432.git.slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala wrote:
-> Enable UFO on the host tap device if supported and allow setting UFO
-> on virtio-net in the guest.
->
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
->
->
-> diff --git a/hw/virtio-net.c b/hw/virtio-net.c
-> index 3c77b99..8a53e27 100644
-> --- a/hw/virtio-net.c
-> +++ b/hw/virtio-net.c
-> @@ -134,7 +134,8 @@ static uint32_t virtio_net_get_features(VirtIODevice *vdev)
->          features |= (1 << VIRTIO_NET_F_HOST_TSO6);
->          features |= (1 << VIRTIO_NET_F_HOST_ECN);
->          features |= (1 << VIRTIO_NET_F_MRG_RXBUF);
-> -        /* Kernel can't actually handle UFO in software currently. */
-> +       // features |= (1 << VIRTIO_NET_F_HOST_UFO);
-> +        features |= (1 << VIRTIO_NET_F_GUEST_UFO);
->   
-
-Where are these defined?
-
-> @@ -990,8 +990,13 @@ static int tap_probe_vnet_hdr(int fd)
->  }
->  
->  #ifdef TUNSETOFFLOAD
+> --- /dev/null
+> +++ b/net/ieee802154/Makefile
+> @@ -0,0 +1,4 @@
+> +obj-$(CONFIG_IEEE802154) +=	af_802154.o
+> +af_802154-objs		:= af_ieee802154.o raw.o dgram.o
 > +
-> +#ifndef TUN_F_UFO
-> +#define TUN_F_UFO	0x10
-> +#endif
+> +EXTRA_CFLAGS += -Wall -DDEBUG
+
+Please change this to following style:
+> +obj-$(CONFIG_IEEE802154) +=  af_802154.o
+> +af_802154-y               := af_ieee802154.o raw.o dgram.o
 > +
->   
+> +ccflags-y += -Wall -DDEBUG
 
-Should just use the definition in the kernel header.
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
-
+	Sam
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
