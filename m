@@ -1,42 +1,69 @@
-From: Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH 2/5] net: add IEEE 802.15.4 socket family implementation
-Date: Mon, 8 Jun 2009 02:36:20 +0400
-Message-ID: <20090607223620.GA9606@build.ossfans.org>
-References: <cover.1244337432.git.slapin@ossfans.org> <47c250c4bb2069d4faa2d6c5217d1aae15a5bc34.1244337432.git.slapin@ossfans.org> <20090607062543.GA10730@uranus.ravnborg.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: net: uninitialized loopback addr leaks to userspace
+Date: Sun, 7 Jun 2009 16:11:05 -0700
+Message-ID: <20090607161105.385d6e92@nehalam>
+References: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-To: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090607062543.GA10730-QabhHTsIXMSnlFQ6Q1D1Y0B+6BGkLq7r@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56239 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753AbZFGXLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Jun 2009 19:11:09 -0400
+In-Reply-To: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 07, 2009 at 08:25:43AM +0200, Sam Ravnborg wrote:
-> > --- /dev/null
-> > +++ b/net/ieee802154/Makefile
-> > @@ -0,0 +1,4 @@
-> > +obj-$(CONFIG_IEEE802154) +=	af_802154.o
-> > +af_802154-objs		:= af_ieee802154.o raw.o dgram.o
-> > +
-> > +EXTRA_CFLAGS += -Wall -DDEBUG
+On Sat, 30 May 2009 22:23:24 +0200
+Vegard Nossum <vegard.nossum@gmail.com> wrote:
+
+> Hi,
 > 
-> Please change this to following style:
-> > +obj-$(CONFIG_IEEE802154) +=  af_802154.o
-> > +af_802154-y               := af_ieee802154.o raw.o dgram.o
-> > +
-> > +ccflags-y += -Wall -DDEBUG
-Ok, I'll re-submit whole request monday night hoping to get some more
-review. Thanks!
+> It seems that loopback's hardware address is never initialized by the
+> kernel. So if userspace attempts to read this address before it has
+> been set, the kernel will return some uninitialized data (only 6
+> bytes, though). This can be demonstrated by creating a new network
+> namespace (CLONE_NEWNET), which creates a new loopback device, then
+> call ioctl() with SIOCGIFHWADDR on "lo". If this is done in a loop,
+> with some background load, or by running multiple instances, random
+> data will start to show up in the returned address.
+> 
+> [  406.750329] WARNING: kmemcheck: Caught 16-bit read from
+> uninitialized memory (ffff880007220974)
+> [  406.753555] 18a2d7060088ffff18a2d7060088ffff00000000010000000100000003000000
+> [  406.758862]  i i i i i i i i i i i i i i i i i u u u u u u u u u u u u u u u
+> [  406.766224]                                          ^
+> [  406.768792] Modules linked in:
+> [  406.770416] Pid: 757, comm: ifconfig Not tainted
+> 2.6.30-rc7-next-20090529 #404
+> [  406.772876] RIP: 0010:[<ffffffff80664789>]  [<ffffffff80664789>]
+> dev_ioctl+0x5d9/0x600
+> [  406.804677]  [<ffffffff8064ff75>] sock_ioctl+0x95/0x2a0
+> [  406.807242]  [<ffffffff802c35eb>] vfs_ioctl+0x1b/0x70
+> [  406.809348]  [<ffffffff802c36fa>] do_vfs_ioctl+0x8a/0x570
+> [  406.811419]  [<ffffffff802c3c79>] sys_ioctl+0x99/0xa0
+> [  406.813400]  [<ffffffff802f3941>] dev_ifsioc+0x81/0x2f0
+> [  406.815424]  [<ffffffff802f454d>] compat_sys_ioctl+0xed/0x3c0
+> [  406.817596]  [<ffffffff8022d476>] cstar_dispatch+0x7/0x26
+> [  406.819978]  [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> This is the code that triggers the warning, in net/core/dev.c, around line 4150:
+> 
+>     memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
+>         min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+> 
+> So it's dev->dev_addr that is the pointer to the uninitialized data.
+> 
+> I didn't know how to fix it.
+> 
 
-S.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The whole dev structure is zeroed in alloc_netdev(), kmemcheck
+is giving bogus warning.
+-- 
