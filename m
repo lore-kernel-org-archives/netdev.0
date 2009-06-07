@@ -1,66 +1,50 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: pull request: wireless-next-2.6 2009-06-04
-Date: Sun, 07 Jun 2009 16:18:41 +0200
-Message-ID: <4A2BCC41.1060508@hartkopp.net>
-References: <20090604152011.GC2839@tuxdriver.com> <20090607.033751.191866033.davem@davemloft.net>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [ofa-general][PATCH] mlx4: FIX error flow when initializing EQ table
+Date: Sun, 07 Jun 2009 18:16:09 +0300
+Message-ID: <4A2BD9B9.6000802@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:31439 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753012AbZFGOSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Jun 2009 10:18:43 -0400
-In-Reply-To: <20090607.033751.191866033.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Christoph Lameter <cl@linux-foundation.org>,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Thu, 4 Jun 2009 11:20:11 -0400
-> 
->> Hopefully this is (almost?) the last wireless pull request for
->> non-bugfix patches intended for 2.6.31...
->>
+If mlx4_create_eq() would fail for one of EQ's assigned for
+completion handling, the code would try to free the same EQ
+we failed to create.
+The crash was found by Christoph Lameter
 
-(..)
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/eq.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
->>
->> Please let me know if there are problems!
-> 
-> Pulled into net-next-2.6 and I'll push it back out to kernel.org
-> after some build testing.
-
-Hi John,
-
-after pulling the latest net-next-2.6 i got this warning which is probably
-caused by CONFIG_RFKILL=m in my config:
-
-hartko@vwagwolkf320:~/net-next-2.6$ make oldconfig
-scripts/kconfig/conf -o arch/x86/Kconfig
-.config:614:warning: symbol value 'm' invalid for RFKILL_INPUT
-*
-* Restart config...
-*
-*
-* RF switch subsystem support
-*
-RF switch subsystem support (RFKILL) [M/n/y/?] m
-  RF switch input support (RFKILL_INPUT) [Y/n] (NEW)
-#
-# configuration written to .config
-#
-hartko@vwagwolkf320:~/net-next-2.6$ make -j2
-scripts/kconfig/conf -s arch/x86/Kconfig
-include/config/auto.conf:578:warning: symbol value 'm' invalid for RFKILL_INPUT
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  UPD     include/linux/utsrelease.h
-...
-
-Regards,
-Oliver
-
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
+index 8830dcb..dee1887 100644
+--- a/drivers/net/mlx4/eq.c
++++ b/drivers/net/mlx4/eq.c
+@@ -623,8 +623,10 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+ 		err = mlx4_create_eq(dev, dev->caps.num_cqs + MLX4_NUM_SPARE_EQE,
+ 				     (dev->flags & MLX4_FLAG_MSI_X) ? i : 0,
+ 				     &priv->eq_table.eq[i]);
+-		if (err)
++		if (err) {
++			--i;
+ 			goto err_out_unmap;
++		}
+ 	}
+ 
+ 	err = mlx4_create_eq(dev, MLX4_NUM_ASYNC_EQE + MLX4_NUM_SPARE_EQE,
+-- 
+1.6.1.3
