@@ -1,55 +1,68 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-06-04
-Date: Sun, 07 Jun 2009 17:11:33 +0200
-Message-ID: <4A2BD8A5.4040302@hartkopp.net>
-References: <20090604152011.GC2839@tuxdriver.com> <20090607.033751.191866033.davem@davemloft.net> <4A2BCC41.1060508@hartkopp.net> <20090607145830.GA2736@tuxdriver.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: Passive OS fingerprint xtables match.
+Date: Sun, 7 Jun 2009 19:12:18 +0400
+Message-ID: <20090607151218.GA31757@ioremap.net>
+References: <20090604162212.GA24661@ioremap.net> <4A290767.6080202@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090607145830.GA2736-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from broadrack.ru ([195.178.208.66]:34559 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754316AbZFGPMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Jun 2009 11:12:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4A290767.6080202@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> On Sun, Jun 07, 2009 at 04:18:41PM +0200, Oliver Hartkopp wrote:
->> David Miller wrote:
->>> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
->>> Date: Thu, 4 Jun 2009 11:20:11 -0400
->>>
->>>> Hopefully this is (almost?) the last wireless pull request for
->>>> non-bugfix patches intended for 2.6.31...
->>>>
->> (..)
->>
->>>> Please let me know if there are problems!
->>> Pulled into net-next-2.6 and I'll push it back out to kernel.org
->>> after some build testing.
->> Hi John,
->>
->> after pulling the latest net-next-2.6 i got this warning which is probably
->> caused by CONFIG_RFKILL=m in my config:
->>
->> hartko@vwagwolkf320:~/net-next-2.6$ make oldconfig
->> scripts/kconfig/conf -o arch/x86/Kconfig
->> .config:614:warning: symbol value 'm' invalid for RFKILL_INPUT
+Hi Patrick.
+
+I've added mentioned cleanups except the one described below.
+
+On Fri, Jun 05, 2009 at 01:54:15PM +0200, Patrick McHardy (kaber@trash.net) wrote:
+
+> >+	tcp = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(struct tcphdr), 
+> >&_tcph);
+> >+	if (!tcp)
+> >+		return false;
+> >+
+> >+	if (!tcp->syn)
+> >+		return false;
+> >+
+> >+	totlen = ntohs(ip->tot_len);
+> >+	df = ntohs(ip->frag_off) & IP_DF;
+> >+	window = ntohs(tcp->window);
+> >+
+> >+	if (tcp->doff * 4 > sizeof(struct tcphdr)) {
+> >+		optsize = tcp->doff * 4 - sizeof(struct tcphdr);
 > 
-> That functionality is no longer available as a module.  If you need
-> it, then select Y.
+> tcp_optlen()?
 
-Just some additional nitpicking:
+TCP header is potentially copied above and transport header may be not
+set, so I work with that part of skb without assuming it was previously
+set by lower layers.
 
-You should update net/rfkill/Kconfig as it still allows a tristate selection
-for RFKILL and the comment "To compile this driver as a module ..." should be
-removed also.
+> >+		if (info->flags & XT_OSF_LOG) {
+> >+			if (info->loglevel != XT_OSF_LOGLEVEL_ALL_KNOWN)
+> >+				nf_log_packet(p->hooknum, 0, skb, p->in, 
+> >p->out, NULL,
+> >+					"window: %u, mss: %u, totlen: %u, 
+> >df: %d, ttl: %u : ",
+> >+					window, mss, totlen, df, ip->ttl);
+> 
+> nf_log_packet() can pass the entire packet to userspace. Header-field
+> extraction should be done by whatever is logging in userspace. This
+> looks very much like debugging anyways, where is the actual message?
 
-Regards,
-Oliver
+Message itself is 'printed' couple of lines below, but apparently it is
+not needed for nf_log_packet, only for the printk()-based debug, so I
+dropped that part.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+	Evgeniy Polyakov
