@@ -1,46 +1,83 @@
-From: Riccardo Ghetta <birrachiara@tin.it>
-Subject: [PATCH] sis190: fix for x86_64 (bug 11509)
-Date: Mon, 8 Jun 2009 07:47:58 +0200
-Message-ID: <20090608054758.GA21975@localhost>
+From: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
+	usage
+Date: Mon, 8 Jun 2009 13:53:26 +0800
+Message-ID: <20090608055326.GA10843@localhost>
+References: <20090608134428.4373.A69D9226@jp.fujitsu.com> <20090608050049.GA10652@localhost> <20090608140529.4376.A69D9226@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp1.tin.it ([212.216.176.141]:52993 "EHLO vsmtp1.tin.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751467AbZFHFrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 01:47:51 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090608140529.4376.A69D9226-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Corrected dma sync handling on small packets. Should fix 
-http://bugzilla.kernel.org/show_bug.cgi?id=11509
-Note:
-While this bug was reported only on x86_64, it could have affected
-any architecture.
+On Mon, Jun 08, 2009 at 01:07:26PM +0800, KOSAKI Motohiro wrote:
+> > On Mon, Jun 08, 2009 at 12:55:18PM +0800, KOSAKI Motohiro wrote:
+> > > Hi
+> > > 
+> > > > Hi,
+> > > > 
+> > > > This lockdep warning appears when doing stress memory tests over NFS.
+> > > > 
+> > > > page reclaim => nfs_writepage => tcp_sendmsg => lock sk_lock
+> > > > 
+> > > > tcp_close => lock sk_lock => tcp_send_fin => alloc_skb_fclone => page reclaim
+> > > > 
+> > > > Any ideas?
+> > > 
+> > > AFAIK, btrfs has re-dirty hack. 
+> > > 
+> > > ------------------------------------------------------------------
+> > > static int btrfs_writepage(struct page *page, struct writeback_control *wbc)
+> > > {
+> > >         struct extent_io_tree *tree;
+> > > 
+> > > 
+> > >         if (current->flags & PF_MEMALLOC) {
+> > >                 redirty_page_for_writepage(wbc, page);
+> > >                 unlock_page(page);
+> > >                 return 0;
+> > >         }
+> > >         tree = &BTRFS_I(page->mapping->host)->io_tree;
+> > >         return extent_write_full_page(tree, page, btrfs_get_extent, wbc);
+> > > }
+> > > ---------------------------------------------------------------
+> > > 
+> > > PF_MEMALLOC mean caller is try_to_free_pages(). (not normal write nor kswapd)
+> > > Can't nfs does similar hack? 
+> > 
+> > But the trace shows that current is kswapd:
+> > 
+> > [ 1638.403414]  [<ffffffff811c9b69>] nfs_flush_one+0xb9/0x100
+> > [ 1638.419417]  [<ffffffff811c3f82>] nfs_pageio_doio+0x32/0x70
+> > [ 1638.419417]  [<ffffffff811c3fc9>] nfs_pageio_complete+0x9/0x10
+> > [ 1638.427413]  [<ffffffff811c7ee5>] nfs_writepage_locked+0x85/0xc0
+> > [ 1638.435414]  [<ffffffff811c8509>] nfs_writepage+0x19/0x40
+> > [ 1638.435414]  [<ffffffff810ce005>] shrink_page_list+0x675/0x810
+> > [ 1638.435414]  [<ffffffff810ce761>] shrink_list+0x301/0x650
+> > [ 1638.435414]  [<ffffffff810ced23>] shrink_zone+0x273/0x370
+> > [ 1638.435414]  [<ffffffff810cf9f9>] kswapd+0x729/0x7a0
+> > [ 1638.435414]  [<ffffffff810666de>] kthread+0x9e/0xb0
+> > [ 1638.435414]  [<ffffffff8100d0ca>] child_rip+0xa/0x20
+> 
+> kswapd can't hold sk-lock before calling reclaim. Thus, we don't need
+> care its bogus warning, I think.
 
-Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
----
- drivers/net/sis190.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Right. Although this path is possible:
+        tcp_sendmsg() => page reclaim => tcp_send_fin()
+But it won't happen for the same socket, so one sk_lock won't be
+grabbed twice and go deadlock.
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index f0d73ab..8a98524 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -540,8 +540,8 @@ static bool sis190_try_rx_copy(struct sis190_private *tp,
- 	if (!skb)
- 		goto out;
- 
--	pci_dma_sync_single_for_device(tp->pci_dev, addr, pkt_size,
--				       PCI_DMA_FROMDEVICE);
-+	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, tp->rx_buf_sz,
-+				PCI_DMA_FROMDEVICE);
- 	skb_reserve(skb, 2);
- 	skb_copy_to_linear_data(skb, sk_buff[0]->data, pkt_size);
- 	*sk_buff = skb;
--- 
-1.6.2.4
+So it's a harmful warning for both direct/background page reclaims?
 
+Thanks,
+Fengguang
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
