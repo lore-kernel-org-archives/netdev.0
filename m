@@ -1,49 +1,34 @@
-From: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Subject: Re: [PATCH 7/7] initdev:kernel:Await block device discovery
-Date: Tue, 09 Jun 2009 00:55:01 +0200
-Message-ID: <4A2D96C5.2080604@s5r6.in-berlin.de>
-References: <20090606023416.GA5798@cuplxvomd02.corp.sa.net> <4A2A3F36.4070408@s5r6.in-berlin.de> <20090608223019.GC22222@cuplxvomd02.corp.sa.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: SMC91x: forcing speed
+Date: Mon, 08 Jun 2009 16:06:58 -0700 (PDT)
+Message-ID: <20090608.160658.58946145.davem@davemloft.net>
+References: <4A2D85D7.6050509@gmail.com>
+	<20090608.144445.72867560.davem@davemloft.net>
+	<alpine.LFD.2.00.0906081807410.31536@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090608223019.GC22222-CFZJ1or75eBPWxJt6d6B6bQa8qPdvLwY@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mfuzzey@gmail.com, richard.rojfors@endian.se,
+	netdev@vger.kernel.org
+To: nico@cam.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40489
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756279AbZFHXG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 19:06:56 -0400
+In-Reply-To: <alpine.LFD.2.00.0906081807410.31536@xanadu.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David VomLehn wrote:
-> On Sat, Jun 06, 2009 at 06:04:38AM -0400, Stefan Richter wrote:
->> 1.)  It depends on the rootdelay so big that it is guaranteed that one 
->> or more initdev_found() have been called before prepare_namespace()'s 
->> ssleep(root_delay) is over.
-...
-> I think you misunderstood.  Buses are enumerated before this code is
-> reached and thus initdev_found() has already been called for all attached
-> block devices.
-...
-> I would appreciate it if you could take a closer look at the locations where
-> initdev_found() and initdev_probe_done() are called and see if you still
-> think there is a problem.
+From: Nicolas Pitre <nico@cam.org>
+Date: Mon, 08 Jun 2009 18:17:21 -0400 (EDT)
 
-I obviously need to do that.
+> Wouldn't it be possible to accommodate those people with a generic 
+> ethtool module that simply interpret some kernel cmdline parameters in a 
+> uniform and maintainable way to apply some settings during kernel boot?
 
-However, one issue remains:  If somebody wants to use your API for 
-another bus, he needs to know at which point he can successfully use it, 
-and after what point (or context) it cannot, even must not, be used 
-anymore.  This isn't documented --- or is it?
+And you could even write it and maintain it somewhere if you
+like for other embedded people to use. :-)
 
-(By 'buses are enumerated before...' you surely mean only the buses for 
-which you implemented this API usage already.)
--- 
-Stefan Richter
--=====-==--= -==- -=--=
-http://arcgraph.de/sr/
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Once full featured, I'd be happy to include it.
+
