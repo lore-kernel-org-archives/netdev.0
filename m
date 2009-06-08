@@ -1,97 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: loopback device dev->addr_len fix
-Date: Mon, 08 Jun 2009 12:44:46 +0200
-Message-ID: <4A2CEB9E.7080109@gmail.com>
-References: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>	 <1244408607.9064.8.camel@Maple> <19f34abd0906080300w796c6b65o6b537064cac917b0@mail.gmail.com>
+From: Martin Fuzzey <mfuzzey@gmail.com>
+Subject: Re: SMC91x: forcing speed
+Date: Mon, 8 Jun 2009 14:02:05 +0200
+Message-ID: <ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
+References: <ba4215e10906040608m36538458u60a7971834f26d2@mail.gmail.com>
+	 <4A27E20C.4020603@endian.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Dykstra <john.dykstra1@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Vegard Nossum <vegard.nossum@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: nico@cam.org, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Richard_R=F6jfors?= <richard.rojfors@endian.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35926 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752825AbZFHKpP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 06:45:15 -0400
-In-Reply-To: <19f34abd0906080300w796c6b65o6b537064cac917b0@mail.gmail.com>
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:65158 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754822AbZFHMCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 08:02:04 -0400
+Received: by ewy6 with SMTP id 6so4087155ewy.37
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2009 05:02:05 -0700 (PDT)
+In-Reply-To: <4A27E20C.4020603@endian.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vegard Nossum a =C3=A9crit :
-> 2009/6/7 John Dykstra <john.dykstra1@gmail.com>:
->> On Sat, 2009-05-30 at 22:23 +0200, Vegard Nossum wrote:
->>> It seems that loopback's hardware address is never initialized by t=
-he
->>> kernel. So if userspace attempts to read this address before it has
->>> been set, the kernel will return some uninitialized data (only 6
->>> bytes, though).
->> Thank you for the report, Vegard.
+> Martin Fuzzey wrote:
+>> Hi,
 >>
->> I've been unable to reproduce the problem you describe, using
->> 2.6-30-rc8, this test program and a couple of kernel builds for syst=
-em
->> load:
-> [...]
->> ------------------------------------------------------------------
->>
->> Looking at the kernel code, it appears that all bytes of struct
->> net_device, including the L2 address, are initialized to zeros at
->> interface creation time.
->>
->> Can you spot a difference between your test procedures and mine that
->> would enable me to reproduce the problem?
->=20
-> Hi,
->=20
-> I just tried your test program on a linux-next kernel, it works beaut=
-ifully :-)
->=20
-> (I made one change: The stack grows downwards on x86, so I think you
-> should put child_stack + 16386 as the stack to clone()?)
->=20
-> As I wrote in reply to Stephen Hemminger, this problem seems to be
-> caused by a particular patch in linux-next:
->=20
-> commit f001fde5eadd915f4858d22ed70d7040f48767cf
-> Author: Jiri Pirko <jpirko@redhat.com>
-> Date:   Tue May 5 02:48:28 2009 +0000
->=20
->    net: introduce a list of device addresses dev_addr_list (v6)
->=20
+>> Is there a better way of doing this that would be acceptable for mainline?
+>
+> Look at include/linux/ethtool.h.
+>
 
-I believe following patch should fix this problem.
+Thank you for your reply.
 
-Thank you
+The smc91x driver already has ethtool support.
+However, as I stated in my original post, I don't want to use ethtool
+from userspace since I need to be able to use a NFS rootfs.
 
-[PATCH net-next-2.6] net: loopback device dev->addr_len fix
+So is there already a programmatic way of using the ethool interface
+from the board specific setup code?
+Or are you proposing adding a struct ethtool_cmd to smc91x_platdata ?
 
-commit f001fde5eadd915f4858d22ed70d7040f48767cf=20
-(net: introduce a list of device addresses dev_addr_list (v6))
-added one regression Vegard Nossum found in its testings.
+Another way I can think of is just to add a generic init() callback to
+the platform data so that my board specific code can get at the
+struct net_device * and then use the ethtool interface via dev->ethtool_ops.
 
-loopback device doesnt have a hw address, we should set its
-dev->addr_len to 0, not ETH_ALEN.
+Regards,
 
-Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index da472c6..40ded4e 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -166,7 +166,7 @@ static void loopback_setup(struct net_device *dev)
- {
- 	dev->mtu		=3D (16 * 1024) + 20 + 20 + 12;
- 	dev->hard_header_len	=3D ETH_HLEN;	/* 14	*/
--	dev->addr_len		=3D ETH_ALEN;	/* 6	*/
-+	dev->addr_len		=3D 0;
- 	dev->tx_queue_len	=3D 0;
- 	dev->type		=3D ARPHRD_LOOPBACK;	/* 0x0001*/
- 	dev->flags		=3D IFF_LOOPBACK;
-
+Martin
