@@ -1,44 +1,55 @@
-From: Hans de Goede <hdegoede@redhat.com>
-Subject: Re: [PATCH 3/4] iscsi class, libiscsi: Add net config.
-Date: Mon, 08 Jun 2009 22:27:07 +0200
-Message-ID: <4A2D741B.1010502@redhat.com>
-References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>	 <1241208039-6813-4-git-send-email-mchan@broadcom.com> <1244483774.4079.368.camel@mulgrave.site> <4A2D5374.3030503@cs.wisc.edu> <4A2D6F64.7020502@redhat.com> <4A2D7375.1000307@cs.wisc.edu>
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH 1/1] bnx2: no need to check before vfreeing
+Date: Mon, 08 Jun 2009 17:30:19 -0300
+Message-ID: <4A2D74DB.7030001@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: open-iscsi@googlegroups.com,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Michael Chan <mchan@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-To: Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:40944 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753632AbZFHUZt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 16:25:49 -0400
-In-Reply-To: <4A2D7375.1000307@cs.wisc.edu>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:46513 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751893AbZFHUaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 16:30:21 -0400
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp04.br.ibm.com (8.13.1/8.13.1) with ESMTP id n58KSpWV029676
+	for <netdev@vger.kernel.org>; Mon, 8 Jun 2009 17:28:51 -0300
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.18.232.46])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n58KUkOH1122778
+	for <netdev@vger.kernel.org>; Mon, 8 Jun 2009 17:30:46 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n58KUK6E018243
+	for <netdev@vger.kernel.org>; Mon, 8 Jun 2009 17:30:20 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+There is no need to check if a pointer is NULL before calling
+vfree(), since vfree() function already check for it.
 
-
-On 06/08/2009 10:24 PM, Mike Christie wrote:
-> Hans de Goede wrote:
->> <snip>
->>
->> Sorry for jumping in the middle of a thread, I missed the
->> libiscsi in the subject. Can someone please resent me the
->> libiscsi part of this patchset so that I can review it ?
->>
->> (I'm the libiscsi author)
->>
->
-> There is actually a kernel module called libiscsi. That is what this
-> patch/thread/mail is for. It is not the userpsace libiscsi lib that you
-> did.
-
-Ah, my bad.
-
-Regards,
-
-Hans
+Signed-off-by: Breno Leit=C3=A3o <leitao@linux.vnet.ibm.com>
+---
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index b0cb29d..7d014dc 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -545,8 +545,7 @@ bnx2_free_rx_mem(struct bnx2 *bp)
+ 						    rxr->rx_desc_mapping[j]);
+ 			rxr->rx_desc_ring[j] =3D NULL;
+ 		}
+-		if (rxr->rx_buf_ring)
+-			vfree(rxr->rx_buf_ring);
++		vfree(rxr->rx_buf_ring);
+ 		rxr->rx_buf_ring =3D NULL;
+=20
+ 		for (j =3D 0; j < bp->rx_max_pg_ring; j++) {
+@@ -556,8 +555,7 @@ bnx2_free_rx_mem(struct bnx2 *bp)
+ 						    rxr->rx_pg_desc_mapping[j]);
+ 			rxr->rx_pg_desc_ring[j] =3D NULL;
+ 		}
+-		if (rxr->rx_pg_ring)
+-			vfree(rxr->rx_pg_ring);
++		vfree(rxr->rx_pg_ring);
+ 		rxr->rx_pg_ring =3D NULL;
+ 	}
+ }
