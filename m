@@ -1,64 +1,97 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ftrace: change the export format of trace_kfree_skb()
-Date: Mon, 8 Jun 2009 06:25:08 -0400
-Message-ID: <20090608102508.GA4304@hmsreliant.think-freely.org>
-References: <4A2CD77F.7080609@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: loopback device dev->addr_len fix
+Date: Mon, 08 Jun 2009 12:44:46 +0200
+Message-ID: <4A2CEB9E.7080109@gmail.com>
+References: <19f34abd0905301323k1498ca3fv31b271de65d60afc@mail.gmail.com>	 <1244408607.9064.8.camel@Maple> <19f34abd0906080300w796c6b65o6b537064cac917b0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, mingo@elte.hu
-To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Dykstra <john.dykstra1@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Vegard Nossum <vegard.nossum@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42878 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468AbZFHKZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 06:25:18 -0400
-Content-Disposition: inline
-In-Reply-To: <4A2CD77F.7080609@cn.fujitsu.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:35926 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825AbZFHKpP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 06:45:15 -0400
+In-Reply-To: <19f34abd0906080300w796c6b65o6b537064cac917b0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 08, 2009 at 05:18:55PM +0800, Xiao Guangrong wrote:
-> Use %pf instead of %p to output the function's address, use 0x%04X instead
-> of %u to output the skb's protocol
-> 
-> Before patch:
-> 
->           <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
->           <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
->           <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
->           <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
->           
-> After patch:
-> 
->             bash-2587  [001] 97685.781173: kfree_skb: skbaddr=deb9cc00 protocol=0x0000 location=netlink_unicast
->             bash-2587  [000] 97686.501121: kfree_skb: skbaddr=df9bb840 protocol=0x0000 location=netlink_unicast
->           <idle>-0     [000] 97696.200184: kfree_skb: skbaddr=df741240 protocol=0x0800 location=ip_rcv
->           <idle>-0     [000] 97696.200198: kfree_skb: skbaddr=dfb3de40 protocol=0x0800 location=ip_rcv
-> 
-> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-> ---
->  include/trace/events/skb.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->  mode change 100644 => 100755 include/trace/events/skb.h
-> 
-> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> old mode 100644
-> new mode 100755
-> index 1e8fabb..a58bef8
-> --- a/include/trace/events/skb.h
-> +++ b/include/trace/events/skb.h
-> @@ -30,7 +30,7 @@ TRACE_EVENT(kfree_skb,
->  		__entry->location = location;
->  	),
->  
-> -	TP_printk("skbaddr=%p protocol=%u location=%p",
-> +	TP_printk("skbaddr=%p protocol=0x%04X location=%pf",
->  		__entry->skbaddr, __entry->protocol, __entry->location)
->  );
+Vegard Nossum a =C3=A9crit :
+> 2009/6/7 John Dykstra <john.dykstra1@gmail.com>:
+>> On Sat, 2009-05-30 at 22:23 +0200, Vegard Nossum wrote:
+>>> It seems that loopback's hardware address is never initialized by t=
+he
+>>> kernel. So if userspace attempts to read this address before it has
+>>> been set, the kernel will return some uninitialized data (only 6
+>>> bytes, though).
+>> Thank you for the report, Vegard.
+>>
+>> I've been unable to reproduce the problem you describe, using
+>> 2.6-30-rc8, this test program and a couple of kernel builds for syst=
+em
+>> load:
+> [...]
+>> ------------------------------------------------------------------
+>>
+>> Looking at the kernel code, it appears that all bytes of struct
+>> net_device, including the L2 address, are initialized to zeros at
+>> interface creation time.
+>>
+>> Can you spot a difference between your test procedures and mine that
+>> would enable me to reproduce the problem?
+>=20
+> Hi,
+>=20
+> I just tried your test program on a linux-next kernel, it works beaut=
+ifully :-)
+>=20
+> (I made one change: The stack grows downwards on x86, so I think you
+> should put child_stack + 16386 as the stack to clone()?)
+>=20
+> As I wrote in reply to Stephen Hemminger, this problem seems to be
+> caused by a particular patch in linux-next:
+>=20
+> commit f001fde5eadd915f4858d22ed70d7040f48767cf
+> Author: Jiri Pirko <jpirko@redhat.com>
+> Date:   Tue May 5 02:48:28 2009 +0000
+>=20
+>    net: introduce a list of device addresses dev_addr_list (v6)
+>=20
 
-No objection to the code change, but whats with the new mode?  Why are you
-making the file executable?
+I believe following patch should fix this problem.
 
-Neil
+Thank you
+
+[PATCH net-next-2.6] net: loopback device dev->addr_len fix
+
+commit f001fde5eadd915f4858d22ed70d7040f48767cf=20
+(net: introduce a list of device addresses dev_addr_list (v6))
+added one regression Vegard Nossum found in its testings.
+
+loopback device doesnt have a hw address, we should set its
+dev->addr_len to 0, not ETH_ALEN.
+
+Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index da472c6..40ded4e 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -166,7 +166,7 @@ static void loopback_setup(struct net_device *dev)
+ {
+ 	dev->mtu		=3D (16 * 1024) + 20 + 20 + 12;
+ 	dev->hard_header_len	=3D ETH_HLEN;	/* 14	*/
+-	dev->addr_len		=3D ETH_ALEN;	/* 6	*/
++	dev->addr_len		=3D 0;
+ 	dev->tx_queue_len	=3D 0;
+ 	dev->type		=3D ARPHRD_LOOPBACK;	/* 0x0001*/
+ 	dev->flags		=3D IFF_LOOPBACK;
 
