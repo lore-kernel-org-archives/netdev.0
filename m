@@ -1,87 +1,64 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: bonds/vlan combinations and device features
-Date: Mon, 8 Jun 2009 13:05:11 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0906081244140.7633@zuben.voltaire.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ftrace: change the export format of trace_kfree_skb()
+Date: Mon, 8 Jun 2009 06:25:08 -0400
+Message-ID: <20090608102508.GA4304@hmsreliant.think-freely.org>
+References: <4A2CD77F.7080609@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>, Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, mingo@elte.hu
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:39940 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752825AbZFHKFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 06:05:19 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42878 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468AbZFHKZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 06:25:18 -0400
+Content-Disposition: inline
+In-Reply-To: <4A2CD77F.7080609@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was looking on configurations which involve vlans and bonds, where so
-far at least two problems were identified and handled through "zero features
-for a vlan over bond" @ http://marc.info/?l=linux-netdev&m=124445367820790 and
-"findings/questions on vlans/bonds" @ http://marc.info/?l=linux-netdev&m=124052070128649
+On Mon, Jun 08, 2009 at 05:18:55PM +0800, Xiao Guangrong wrote:
+> Use %pf instead of %p to output the function's address, use 0x%04X instead
+> of %u to output the skb's protocol
+> 
+> Before patch:
+> 
+>           <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
+>           <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
+>           <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
+>           <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
+>           
+> After patch:
+> 
+>             bash-2587  [001] 97685.781173: kfree_skb: skbaddr=deb9cc00 protocol=0x0000 location=netlink_unicast
+>             bash-2587  [000] 97686.501121: kfree_skb: skbaddr=df9bb840 protocol=0x0000 location=netlink_unicast
+>           <idle>-0     [000] 97696.200184: kfree_skb: skbaddr=df741240 protocol=0x0800 location=ip_rcv
+>           <idle>-0     [000] 97696.200198: kfree_skb: skbaddr=dfb3de40 protocol=0x0800 location=ip_rcv
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> ---
+>  include/trace/events/skb.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>  mode change 100644 => 100755 include/trace/events/skb.h
+> 
+> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+> old mode 100644
+> new mode 100755
+> index 1e8fabb..a58bef8
+> --- a/include/trace/events/skb.h
+> +++ b/include/trace/events/skb.h
+> @@ -30,7 +30,7 @@ TRACE_EVENT(kfree_skb,
+>  		__entry->location = location;
+>  	),
+>  
+> -	TP_printk("skbaddr=%p protocol=%u location=%p",
+> +	TP_printk("skbaddr=%p protocol=0x%04X location=%pf",
+>  		__entry->skbaddr, __entry->protocol, __entry->location)
+>  );
 
-Basically, there are at least two possible configs in that respect, where I believe
-we want both of them to be supported (bond over vlans, or vlans over bond). Using Jay's
-patches I have come into being able to bringup both configs and collect the features
-exposed to the TCP stack by the "higher" interface, see details below (2.6.30-rc8 +
-patch from Jay for vlan over bond).
+No objection to the code change, but whats with the new mode?  Why are you
+making the file executable?
 
-Basically, things seem to make sense (to me...) and maybe one question to raise here
-if its correct for bonding over vlan to advertize vlan accacceleration capabilites (HW_VLAN_XXX)?
+Neil
 
-Another questions which is more related to the vlan (8021q) driver, is the lack of
-vlan passthrough (e.g setting dev->vlan_features) by most of the drivers (all expect
-for the Intel ones...) as pointed by Jay earlier on these threads. Is there a real
-issue for other HW vendors to support this or its something that got fogotten through
-the introduction of the vlan_features? I traced 289c79a4... "vlan: Use bitmask of
-feature flags instead of seperate feature bits" be to the 8021q patch and ad31c402...
-"ixbge: allow vlan devices to use TSO and TCP CSUM offload" et al to be Intel drivers
-patches, but I didn't see other drivers support.
-
-Patrick, assuming that vlans are common and people expect NIC to support TCP offloads
-such as checksum and large-send, what is the actual gap here per your view?
-
-Or.
-
-
-device		features	legend
-======================================
-bond0		0x111383	& ~GSO |  (HW_VLAN_TX/RX/FILTER | LLTX)
-eth0.4001	0x110803	& ~(IPV6_CSUM | HIGHDMA | HW_VLAN_TX/RX/FILTER |GRO)
-eth0		0x114bb3	(SG | IP/V6_CSUM | HIGHDMA | HW_VLAN_TX/RX/FILTER |GSO|GRO|TSO|TSO6)
-
-bond0.4001	0x110803	& ~(IPV6_CSUM | HIGHDMA | HW_VLAN_TX/RX/FILTER| LLTX)
-bond0		0x1113b3	& ~(GSO | GRO) | LLTX
-eth0		0x114bb3	(SG | IP/V6_CSUM | HIGHDMA | HW_VLAN_TX/RX/FILTER |GSO|GRO|TSO|TSO6)
-
-00	#define NETIF_F_SG		1	/* Scatter/gather IO. */
-01	#define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
-02	#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack. */
-03	#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
-----------------------------------------------------------------------------------
-04	#define NETIF_F_IPV6_CSUM	16	/* Can checksum TCP/UDP over IPV6 */
-05	#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
-06	#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
-07	#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
-----------------------------------------------------------------------------------
-08	#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
-09	#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
-10	#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
-11	#define NETIF_F_GSO		2048	/* Enable software GSO. */
-----------------------------------------------------------------------------------
-12	#define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
-13	#define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
-14	#define NETIF_F_GRO		16384	/* Generic receive offload */
-15	#define NETIF_F_LRO		32768	/* large receive offload */
-----------------------------------------------------------------------------------
-16	#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
-17	#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
-18	#define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
-19	#define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
-----------------------------------------------------------------------------------
-20	#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
-21
-22
-23
-----------------------------------------------------------------------------------
-24	#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
-----------------------------------------------------------------------------------
