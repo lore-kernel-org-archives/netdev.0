@@ -1,101 +1,82 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 5/5] sunrpc/auth_gss: Call rcu_barrier() on module
-	unload.
-Date: Mon, 8 Jun 2009 14:13:48 -0700
-Message-ID: <20090608211348.GI6961@linux.vnet.ibm.com>
-References: <20090608130959.10052.54590.stgit@localhost> <20090608131148.10052.39869.stgit@localhost> <20090608162656.GF6961@linux.vnet.ibm.com> <1244480449.5040.4.camel@heimdal.trondhjem.org> <Pine.LNX.4.64.0906082128240.1180@ask.diku.dk>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Mon, 08 Jun 2009 23:17:50 +0200
+Message-ID: <4A2D7FFE.9070701@cosmosbay.com>
+References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com> <4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com> <4A2D3BC6.3040904@msgid.tls.msk.ru> <4A2D4AA7.6020204@gmail.com> <4A2D6D0C.6060206@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Jesper Dangaard Brouer <hawk@comx.dk>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:38399 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754644AbZFHVNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 17:13:46 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0906082128240.1180@ask.diku.dk>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43920 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbZFHVR5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:17:57 -0400
+In-Reply-To: <4A2D6D0C.6060206@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 08, 2009 at 09:48:54PM +0200, Jesper Dangaard Brouer wrote:
->
-> (trimmed Cc)
->
-> On Mon, 8 Jun 2009, Trond Myklebust wrote:
->
->> Hmm... If this is about ensuring that all the call_rcu() callbacks
->> complete before we remove the module, then don't we also need similar
->> barriers in
->
-> Well, Trond that was a hard question, as I don't know this code... but if 
-> it uses call_rcu() callbacks its most likely.
->
-> I have not done a complete sweep of the tree, I have only looked at the 
-> netdev parts, as this is where I usually snoop around.  So there is 
-> probably plenty of work for some kernel-janitors (Cc'ing the list ;-))
->
->> net/sunrpc/sunrpc_syms.c:cleanup_sunrpc()
->
-> Looking at the code that end up in sunrpc.ko, I see that both 
-> net/sunrpc/auth_unix.c and net/sunrpc/auth_generic.c uses call_rcu() 
-> callbacks.
->
->> and in fs/nfs/inode.c:exit_nfs_fs()?
->
-> Looking at the code which end up into nfs.ko (which includes 
-> fs/nfs/inode.c) I see that the fs/nfs/delegation.c uses call_rcu() 
-> callbacks.
->
-> But its hard for me to figure out how this code interacts.  Don't know if 
-> we need to document a code path that can occur fast enough, before we add 
-> this safe guard?  It should be Paul's saying...
+Michael Tokarev a =E9crit :
+> Eric Dumazet wrote:
+> []
+>> OK I suspect driver is buggy since 2.6.10 days :)
+>>
+>> Could you try this patch ?
+>=20
+> Tried it, and it appears to work.  Tried various MTU combinations
+> and packet sizes.  Checked iperf too, with and without the patch
+> and with different MTU too, to be sure the patch does not introduce
+> any slowdowns - everything looks sane.  In case the incoming packet
+> is larger than the RX buffer size, `errors' and `frames' RX stats
+> gets incremented.
+>=20
+> The only somewhat odd thing is that rx path accepts packets larger
+> than MTU by 3 bytes.  For example, if I set mtu to 2000, the
+> largest packet I can send is 2003 bytes; with mtu=3D2002, largest
+> actual packet size is 2005 bytes.  This is complete frame - in
+> terms of ping size (ping -s) it's 1975 and 1977 bytes.  That to
+> say, maybe we still have some corner case somewhere, for packets
+> larger than mtu by 1, 2 or 3 bytes.
+>=20
+> Also I didn't try MTU < 1500.
+>=20
+> Other than that,
+>=20
+> Tested-By: Michael Tokarev <mjt@tls.msk.ru>
 
-Unless there is some other mechanism to ensure that all the RCU
-callbacks have been invoked before the module exit, there needs to be
-code in the module-exit function that does the following:
+Could you confirm this last patch was ok without former two patches ?
 
-o	Prevent any new RCU callbacks from being posted.  In other
-	words, make sure that no future call_rcu() invocations happen
-	from this module -unless- those call_rcu() invocations touch
-	only functions and data that outlive this module.
+>=20
+> And by the way, your email client uses quoted-printable encoding.
+> I had to use trivial perl one-liner to convert your patches to
+> plaintext.  JFYI.
 
-o	Invoke rcu_barrier().
+Ah yes, this is when I reply to one of your mail, thank you for the hin=
+t.
 
-o	Of course, if the module uses call_rcu_sched() instead of
-	call_rcu(), then it should invoke rcu_barrier_sched() instead
-	of rcu_barrier().  Similarly, if it uses call_rcu_bh() instead
-	of call_rcu(), then it should invoke rcu_barrier_bh() instead of
-	rcu_barrier().	If the module uses more than one of call_rcu(),
-	call_rcu_sched(), and call_rcu_bh(), then it must invoke more than
-	one of rcu_barrier(), rcu_barrier_sched(), and rcu_barrier_bh().
+When submitting a new mail, my thunderbird agent uses a regular "Conten=
+t-Transfer-Encoding: 7bit"
 
-What other mechanism could be used?  I cannot think of one that it safe.
-For example, a module that tried to count the number of RCU callbacks in
-flight would be vulnerable to races as follows:
 
-1.	CPU 0: RCU callback decrements the counter.
+BTW, this driver uses NAPI, but still calls dev_kfree_skb_irq() in rtl8=
+169_tx_interrupt()
 
-2.	CPU 1: module-exit function notices that the counter is zero,
-	so removes the module.
+You probably can get better performance calling dev_kfree_skb(tx_skb->s=
+kb); instead
 
-3.	CPU 0: attempts to execute the code returning from the RCU
-	callback, and dies horribly due to that code no longer being
-	in memory.
+@@ -3372,7 +3372,7 @@ static void rtl8169_tx_interrupt(struct net_devic=
+e *dev,
+                rtl8169_unmap_tx_skb(tp->pci_dev, tx_skb, tp->TxDescArr=
+ay + entry);
 
-If there was an easy solution (or even a hard solution) to this problem,
-then I do not believe that Nikita Danilov would have asked Dipankar Sarma
-for rcu_barrier().  Therefore, I do not expect anyone to be able to come
-up with an alternative to rcu_barrier() and friends.  Always happy to
-learn something by being proven wrong, of course!!!
+                if (status & LastFrag) {
+-                       dev_kfree_skb_irq(tx_skb->skb);
++                       dev_kfree_skb(tx_skb->skb);
+                        tx_skb->skb =3D NULL;
+                }
+                dirty_tx++;
 
-So unless someone can show me some other safe mechanism, every unloadable
-module that uses call_rcu(), call_rcu_sched(), or call_rcu_bh() must use
-rcu_barrier(), rcu_barrier_sched(), and/or rcu_barrier_bh() in its
-module-exit function.
 
-							Thanx, Paul
+
