@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] netdev: Added KS8842 driver
-Date: Mon, 08 Jun 2009 00:23:20 -0700 (PDT)
-Message-ID: <20090608.002320.153259914.davem@davemloft.net>
-References: <4A27CDBB.6010108@mocean-labs.com>
+Subject: Re: [PATCH net-next 3/3] tun: Fix copy/paste error in tun_get_user
+Date: Mon, 08 Jun 2009 00:29:08 -0700 (PDT)
+Message-ID: <20090608.002908.251137049.davem@davemloft.net>
+References: <1244230546.1526.78.camel@w-sridhar.beaverton.ibm.com>
+	<20090606210833.GB28614@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: richard.rojfors.ext@mocean-labs.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, netdev@vger.kernel.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51755
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38349
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752466AbZFHHXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:23:18 -0400
-In-Reply-To: <4A27CDBB.6010108@mocean-labs.com>
+	by vger.kernel.org with ESMTP id S1752809AbZFHH3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:29:06 -0400
+In-Reply-To: <20090606210833.GB28614@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUmljaGFyZCBSwprDtmpmb3JzIDxyaWNoYXJkLnJvamZvcnMuZXh0QG1vY2Vhbi1sYWJz
-LmNvbT4NCkRhdGU6IFRodSwgMDQgSnVuIDIwMDkgMTU6MzU6NTUgKzAyMDANCg0KPiBUaGlzIGlz
-IGEgZHJpdmVyIGZvciB0aGUgTWljcmVsIEtTODg0MiBldGhlcm5ldCBzd2l0Y2guDQo+IA0KPiBU
-aGUgc3VwcGxpZWQgY29kZSBpcyBmb3IgZHJpdmluZyB0aGUgS1M4ODQyIHRocm91Z2ggdGhlIFRp
-bWJlcmRhbGUgRlBHQQ0KPiBvbiB0aGUgUnVzc2VsbHZpbGxlIGJvYXJkLCBhIGRldmVsb3BtZW50
-IGJvYXJkIGZvciBJbnRlbCBBdG9tIENQVQ0KPiBpbiB0aGUgYXV0b21vdGl2ZSBhcmVhLg0KPiAN
-Cj4gU2lnbmVkLW9mZi1ieTogUmljaGFyZCBSw7ZqZm9ycyA8cmljaGFyZC5yb2pmb3JzLmV4dEBt
-b2NlYW4tbGFicy5jb20+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 7 Jun 2009 00:08:33 +0300
+
+> On Fri, Jun 05, 2009 at 12:35:46PM -0700, Sridhar Samudrala wrote:
+>> Use the right structure while incrementing the offset in tun_get_user.
+>> 
+>> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+Applied.
