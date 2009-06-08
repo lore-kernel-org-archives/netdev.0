@@ -1,37 +1,192 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: Passive OS fingerprint xtables match.
-Date: Mon, 8 Jun 2009 21:25:54 +0400
-Message-ID: <20090608172554.GA9158@ioremap.net>
-References: <20090607151758.GB31757@ioremap.net> <4A2D28E0.80508@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Mon, 08 Jun 2009 19:30:15 +0200
+Message-ID: <4A2D4AA7.6020204@gmail.com>
+References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com> <4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com> <4A2D3BC6.3040904@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A2D28E0.80508@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58038 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbZFHRaQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 13:30:16 -0400
+In-Reply-To: <4A2D3BC6.3040904@msgid.tls.msk.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 08, 2009 at 05:06:08PM +0200, Patrick McHardy (kaber@trash.net) wrote:
-> Applied, thanks. I've made one minor change:
-> 
-> --- a/include/linux/netfilter/Kbuild
-> +++ b/include/linux/netfilter/Kbuild
-> @@ -33,6 +33,7 @@ header-y += xt_limit.h
->  header-y += xt_mac.h
->  header-y += xt_mark.h
->  header-y += xt_multiport.h
-> +header-y += xt_osf.h
->  header-y += xt_owner.h
->  header-y += xt_pkttype.h
->  header-y += xt_quota.h
+Michael Tokarev a =E9crit :
+> Eric Dumazet wrote:
+>> Michael Tokarev a =E9crit :
+>>> Eric Dumazet wrote:
+>>>> Michael Tokarev a =E9crit :
+>>> []
+>>>>>>> The situation is very simple: with an RTL8169 (probably
+>>>>>>> onboard) GigE card which, by default, is configured to
+>>>>>>> have MTU (maximal transmission unit) to be 1500 bytes,
+>>>>>>> it's *trivial* to instantly crash the machine by sending
+>>>>>>> it a *single* packet of size >1500 bytes (provided the
+>>>>>>> network switch can handle jumbo frames).
+>>> []
+>>>> OK, 2nd try then :)
+>>>> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+>>>> index e94316b..9080b08 100644
+>>>> --- a/drivers/net/r8169.c
+>>>> +++ b/drivers/net/r8169.c
+>>>> @@ -3495,7 +3495,8 @@ static int rtl8169_rx_interrupt(struct
+>>>> net_device *dev,
+>>>>               * frames. They are seen as a symptom of over-mtu
+>>>>               * sized frames.
+>>>>               */
+>>>> -            if (unlikely(rtl8169_fragmented_frame(status))) {
+>>>> +            if (unlikely(rtl8169_fragmented_frame(status) ||
+>>>> +                     (unsigned int)pkt_size > tp->rx_buf_sz)) {
+>>>>                  dev->stats.rx_dropped++;
+>>>>                  dev->stats.rx_length_errors++;
+>>>>                  rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+>>> This one behaves much better.  There's no instant crash anymore, an=
+d the
+>>> 'dropped' and 'frame' stats in ifconfig gets incremented with each =
+ping.
+>>>
+>>> It fails down the line however.  I wasn't able to reply to this ema=
+il
+>>> after
+>>> doing the ping test with the above change (no more large packets we=
+re
+>>> sent).
+>>> With OOPSes like this one:
+>>>
+>>>  general protection fault: 0000 [#1] SMP
+> []
+>>>   [<ffffffff803dbc7f>] ? skb_release_data+0xaf/0xe0
+>>>   [<ffffffff803db911>] ? __kfree_skb+0x11/0xa0
+>>>   [<ffffffff80418a88>] ? tcp_recvmsg+0x6d8/0x950
+> []
+>>> Looks like some memory corruption.  And most probably it is in
+>>> that error path in r8169 driver - it is the only new codepath
+>>> which were executed here.  The problem is quite repeatable -
+>>> after sending a single large ping system starts behaving like
+>>> the above at random.
+> []
+>> Hmm... this code path is not new, I believe your adapter is buggy,
+>> because it
+>> is overwriting part of memory it should not touch at all.
+>>
+>> When this driver queues a skb in rx queue, it tells NIC the max size
+>> of the skb,
+>> and apparently NIC happily delivers packets with larger sizes, so
+>> probably DMA
+>> wrote data past end of skb data.
+>=20
+> That's a very likely situation.
+>=20
+>> Try to change
+>> static void rtl_set_rx_max_size(void __iomem *ioaddr)
+>>     RTL_W16(RxMaxSize, 16383);
+>> to ->
+>>
+>>     RTL_W16(RxMaxSize, RX_BUF_SIZE);
+>>
+>> (But it will probably break jumbo frames rx as well)
+>=20
+> (RX_BUF_SIZE is defined as 1536).
+> Aha, so it should set some flags instead (as were tested in your
+> first try), for packets larger than that.  Makes sense.
+>=20
+> But if we told the NIC that we can receive 16K buffers, and it
+> delivered 3K packet to us, we've got some memory corruption...
+> I.e., the problem is that we told the driver that we can handle
+> 16k buffers but actually we had only 1500, no?
+>=20
+> Lemme check this all...
+>=20
+> Setting RxMaxSize to RX_BUF_SIZE indeed solved the problem, --
+> I don't see random corruptions like the last one above.
+>=20
+> But after setting RxMaxSize to 2500, I can trigger your 2nd
+> check/patch condition (for pkt_size > tp->rx_buf_sz) for
+> packets <2500 in size, and your *first* check/patch condition
+> (RxRES | RxRWT | RxRUNT | RxCRC | RxFOVF) for packets >2500
+> in size.
+>=20
+> So to me (who has no knowledge about hardware at all), it looks
+> like the card behaves quite correctly.
+>=20
+> Also note that I've seen this behavior on several different
+> machines.  Here @home where I'm doing this all testing I've
+> Asus M3A78-EM motherboard (AMD780), and the second one is
+> Gigabyte GA-MA74GM-S2H (AMD740) - both behaves very similarly.
+> Both are AMD7xx, but I've seen the same problem on Intel-based
+> machines too.
+>=20
+> I'll try out some more tests later today.  (And there's another
+> issue with these NICs -- the famous, quite frequent under load
+> "NETDEV WATCHDOG: eth0 (r8169): transmit timed out" errors, which
+> are quite annoying... Also shown by both the above-mentioned mobos
+> and by other machines).
+>=20
+> Thanks!
+>=20
 
-No problem, thank you!
+OK I suspect driver is buggy since 2.6.10 days :)
 
--- 
-	Evgeniy Polyakov
+Could you try this patch ?
+
+Thanks
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 8247a94..c5ab5a8 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2357,10 +2357,10 @@ static u16 rtl_rw_cpluscmd(void __iomem *ioaddr=
+)
+ 	return cmd;
+ }
+=20
+-static void rtl_set_rx_max_size(void __iomem *ioaddr)
++static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_=
+buf_sz)
+ {
+ 	/* Low hurts. Let's disable the filtering. */
+-	RTL_W16(RxMaxSize, 16383);
++	RTL_W16(RxMaxSize, rx_buf_sz);
+ }
+=20
+ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_v=
+ersion)
+@@ -2407,7 +2407,7 @@ static void rtl_hw_start_8169(struct net_device *=
+dev)
+=20
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+=20
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+=20
+ 	if ((tp->mac_version =3D=3D RTL_GIGA_MAC_VER_01) ||
+ 	    (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_02) ||
+@@ -2668,7 +2668,7 @@ static void rtl_hw_start_8168(struct net_device *=
+dev)
+=20
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+=20
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+=20
+ 	tp->cp_cmd |=3D RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+=20
+@@ -2846,7 +2846,7 @@ static void rtl_hw_start_8101(struct net_device *=
+dev)
+=20
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+=20
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+=20
+ 	tp->cp_cmd |=3D rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+=20
+
+
