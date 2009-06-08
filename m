@@ -1,31 +1,39 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: [PATCH 3/4] iscsi class, libiscsi: Add net config.
-Date: Mon, 08 Jun 2009 22:07:00 +0200
-Message-ID: <4A2D6F64.7020502@redhat.com>
-References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>	 <1241208039-6813-4-git-send-email-mchan@broadcom.com> <1244483774.4079.368.camel@mulgrave.site> <4A2D5374.3030503@cs.wisc.edu>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Date: Mon, 8 Jun 2009 13:06:24 -0700
+Message-ID: <1244491584.9184.416.camel@HP1>
+References: <1241208039-6813-1-git-send-email-mchan@broadcom.com>
+ <1241208039-6813-4-git-send-email-mchan@broadcom.com>
+ <1244483774.4079.368.camel@mulgrave.site>
+ <4A2D5374.3030503@cs.wisc.edu> <4A2D6F64.7020502@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <4A2D5374.3030503-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+	"James Bottomley" <James.Bottomley@HansenPartnership.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>
+To: "Hans de Goede" <hdegoede@redhat.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <4A2D6F64.7020502@redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-<snip>
+On Mon, 2009-06-08 at 13:07 -0700, Hans de Goede wrote:
+> <snip>
+> 
+> Sorry for jumping in the middle of a thread, I missed the
+> libiscsi in the subject. Can someone please resent me the
+> libiscsi part of this patchset so that I can review it ?
+> 
+> (I'm the libiscsi author)
+> 
 
-Sorry for jumping in the middle of a thread, I missed the
-libiscsi in the subject. Can someone please resent me the
-libiscsi part of this patchset so that I can review it ?
+I'll be sending a new patchset later today and I'll CC you.  In the
+final version, we are not modifying libiscsi, only scsi_transport_iscsi.
 
-(I'm the libiscsi author)
+Thanks.
 
-Thanks & Regards,
 
-Hans
