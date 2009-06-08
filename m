@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: SMC91x: forcing speed
-Date: Mon, 08 Jun 2009 14:22:57 -0700 (PDT)
-Message-ID: <20090608.142257.141336772.davem@davemloft.net>
-References: <ba4215e10906040608m36538458u60a7971834f26d2@mail.gmail.com>
-	<4A27E20C.4020603@endian.se>
-	<ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
+Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
+Date: Mon, 08 Jun 2009 14:24:40 -0700 (PDT)
+Message-ID: <20090608.142440.129404475.davem@davemloft.net>
+References: <1244466304.24950.4.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richard.rojfors@endian.se, nico@cam.org, netdev@vger.kernel.org
-To: mfuzzey@gmail.com
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59525
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59530
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750794AbZFHVWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:22:55 -0400
-In-Reply-To: <ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754082AbZFHVYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:24:38 -0400
+In-Reply-To: <1244466304.24950.4.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Fuzzey <mfuzzey@gmail.com>
-Date: Mon, 8 Jun 2009 14:02:05 +0200
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Mon, 08 Jun 2009 15:05:04 +0200
 
-> The smc91x driver already has ethtool support.
-> However, as I stated in my original post, I don't want to use ethtool
-> from userspace since I need to be able to use a NFS rootfs.
+> these are the Bluetooth patches for the 2.6.31 kernel release. They are
+> mostly cleanups and removal of dead/unused code. However we do integrate
+> with the re-written RFKILL subsystem now. This gives us proper soft-kill
+> support for internal and external devices.
 
-You can set the ethtool setting from an initramfs before the
-NFS mount of the root filesystem occurs.
+Where is the attached patch we talked about the other week
+so that your pull requests get tracked in patchwork?
