@@ -1,47 +1,35 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 5/5] sunrpc/auth_gss: Call rcu_barrier() on module unload.
-Date: Mon, 08 Jun 2009 15:11:48 +0200
-Message-ID: <20090608131148.10052.39869.stgit@localhost>
-References: <20090608130959.10052.54590.stgit@localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: bonds/vlan combinations and device features
+Date: Mon, 08 Jun 2009 15:43:34 +0200
+Message-ID: <4A2D1586.2020906@trash.net>
+References: <Pine.LNX.4.64.0906081244140.7633@zuben.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Or Gerlitz <ogerlitz@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:55545 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754496AbZFHNdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 09:33:06 -0400
-In-Reply-To: <20090608130959.10052.54590.stgit@localhost>
+Received: from stinky.trash.net ([213.144.137.162]:35953 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752029AbZFHNnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 09:43:37 -0400
+In-Reply-To: <Pine.LNX.4.64.0906081244140.7633@zuben.voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the module uses rcu_call() we should make sure that all
-rcu callback has been completed before removing the code.
+Or Gerlitz wrote:
+> Another questions which is more related to the vlan (8021q) driver, is the lack of
+> vlan passthrough (e.g setting dev->vlan_features) by most of the drivers (all expect
+> for the Intel ones...) as pointed by Jay earlier on these threads. Is there a real
+> issue for other HW vendors to support this or its something that got fogotten through
+> the introduction of the vlan_features? I traced 289c79a4... "vlan: Use bitmask of
+> feature flags instead of seperate feature bits" be to the 8021q patch and ad31c402...
+> "ixbge: allow vlan devices to use TSO and TCP CSUM offload" et al to be Intel drivers
+> patches, but I didn't see other drivers support.
+> 
+> Patrick, assuming that vlans are common and people expect NIC to support TCP offloads
+> such as checksum and large-send, what is the actual gap here per your view?
 
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
-
- net/sunrpc/auth_gss/auth_gss.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index e630b38..66d458f 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -1548,6 +1548,7 @@ static void __exit exit_rpcsec_gss(void)
- {
- 	gss_svc_shutdown();
- 	rpcauth_unregister(&authgss_ops);
-+	rcu_barrier(); /* Wait for completion of call_rcu()'s */
- }
- 
- MODULE_LICENSE("GPL");
+Its up to the maintainers or people owning a device which doesn't yet
+set those flags. I do not know which other devices support this.
 
