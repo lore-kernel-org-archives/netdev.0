@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] sit: handle ICMPv4 for tunnels with no remote
-Date: Mon, 08 Jun 2009 02:40:24 -0700 (PDT)
-Message-ID: <20090608.024024.236334849.davem@davemloft.net>
-References: <1244296972-20748-1-git-send-email-contact@saschahlusiak.de>
-	<1244296972-20748-2-git-send-email-contact@saschahlusiak.de>
+Subject: Re: [PATCH] declance: Restore tx descriptor ring locking
+Date: Mon, 08 Jun 2009 02:42:53 -0700 (PDT)
+Message-ID: <20090608.024253.54091368.davem@davemloft.net>
+References: <alpine.LFD.1.10.0906080219360.6360@ftp.linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: contact@saschahlusiak.de
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34055
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34058
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751003AbZFHJkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 05:40:23 -0400
-In-Reply-To: <1244296972-20748-2-git-send-email-contact@saschahlusiak.de>
+	by vger.kernel.org with ESMTP id S1751652AbZFHJmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 05:42:51 -0400
+In-Reply-To: <alpine.LFD.1.10.0906080219360.6360@ftp.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Date: Sat,  6 Jun 2009 16:02:51 +0200
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Mon, 8 Jun 2009 02:47:05 +0100 (WEST)
 
-> Don't drop ICMPv4 packages, if tunnel has no remote endpoint, like
-> 6to4 or isatap tunnels.
+> A driver overhaul on 29 Feb 2000 (!) broke locking around fiddling with 
+> the tx descriptor ring in start_xmit(); a follow-on "fix" removed the 
+> broken remnants altogether.  Here's a patch to restore proper locking in 
+> the function -- the complement in the interrupt handler has been correct 
+> all the time.
 > 
-> Also don't drop it if tunnel inherits ttl and icmp_time_exceeded.
-> Don't really see the usecase here.
+>  This *may* have been the reason for the occasional confusion of the chip 
+> -- triggering a tx timeout followed by a chip reset sequence -- seen on 
+> R4k-based DECstations with the onboard Ethernet interface.  Another theory 
+> is the confusion is due to an unindentified problem -- perhaps a silicon 
+> erratum -- associated with the variation of the MT ASIC used to interface 
+> the R4k CPU to the rest of the system on these computers; with its 
+> aggressive write-back buffering the design is particularly weakly ordered 
+> when it comes to MMIO (in the absence of ordering barriers uncached reads 
+> are allowed to bypass earlier uncached writes, even if to the same 
+> location), which may trigger all kinds of corner cases in peripheral 
+> hardware as well as software.
 > 
-> Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
+> Either way this piece of code is buggy.
+> 
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 
-You're going to have to describe this change a bit more.
-
-What in the world is wrong with dropping an ICMP time exceeded if the
-TTL in the template header is zero?  Someone wrote that code and had
-some reason to put it there.   Until you know the reason or can prove
-without a shadow of doubt that it's pointless, you can't just remove
-it.
-
-You other two changes need more verbose commit messages as well.
-I can't tell what the point or benefit are of your changes.
-
-So I'm dropping your patches until all of this is resolved, and
-the commit messages are more verbose and explain why you're doing
-all of these things.
-
+Looks good to me, applied.
