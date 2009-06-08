@@ -1,56 +1,171 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/5] 8021q: Vlan driver should use rcu_barrier() on
-	unload instead of syncronize_net()
-Date: Mon, 8 Jun 2009 08:54:46 -0700
-Message-ID: <20090608155446.GB6961@linux.vnet.ibm.com>
-References: <20090608130959.10052.54590.stgit@localhost> <20090608131128.10052.30759.stgit@localhost>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>
+Subject: SRIOV fails with "not enough MMIO resources"
+Date: Mon, 8 Jun 2009 11:59:04 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77055985C4@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, urs.thuermann@volkswagen.de,
-	oliver.hartkopp@volkswagen.de, wg@grandegger.com,
-	vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:34492 "EHLO e8.ny.us.ibm.com"
+Received: from mx.neterion.com ([72.1.205.142]:33070 "EHLO owa.neterion.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753376AbZFHPys (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 11:54:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20090608131128.10052.30759.stgit@localhost>
+	id S1754964AbZFHP7D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 11:59:03 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 08, 2009 at 03:11:28PM +0200, Jesper Dangaard Brouer wrote:
-> The VLAN 8021q driver needs to call rcu_barrier() when unloading the module,
-> instead of syncronize_net().  This is needed to make sure that outstanding
-> call_rcu() callbacks have completed, before the callback function code is
-> removed on module unload.
+Hi,
 
-Looks good!  And thank you for checking up on this!!!
+I added pci_enable_sriov / pci_disable_sriov in probe and remove
+function for Neterion X3100 card to test SRIOV feature. While testing I
+got following error.
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Jun 8 00:02:59 bethweidel kernel: vxge: Copyright(c) 2002-2009 Neterion
+Inc Jun 8 00:02:59 bethweidel kernel: vxge: Driver version:
+2.0.1.17129-k Jun 8 00:02:59 bethweidel kernel: vxge 0000:03:00.0: PCI
+INT A -> GSI 16 (level, low) -> IRQ 16 Jun 8 00:02:59 bethweidel kernel:
+res->parent is ffff88013f129d28 for 2 Jun 8 00:02:59 bethweidel kernel:
+res->parent is ffff88013f129d28 for 4 Jun 8 00:02:59 bethweidel kernel:
+nres = 2 - iov->nres = 3 Jun 8 00:02:59 bethweidel kernel: vxge
+0000:03:00.0: not enough MMIO resources for SR-IOV ----> ERROR Jun 8
+00:02:59 bethweidel kernel: pci_enable_sriov returned -12 Jun 8 00:02:59
+bethweidel kernel: eth2: SERIAL NUMBER: SXC0919196 Jun 8 00:02:59
+bethweidel kernel: eth2: PART NUMBER: X3110SR0003
 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> ---
-> 
->  net/8021q/vlan.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 714e1c3..fe64908 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -758,7 +758,7 @@ static void __exit vlan_cleanup_module(void)
->  		BUG_ON(!hlist_empty(&vlan_group_hash[i]));
-> 
->  	unregister_pernet_gen_device(vlan_net_id, &vlan_net_ops);
-> -	synchronize_net();
-> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
-> 
->  	vlan_gvrp_uninit();
->  }
-> 
+ 
+
+When I dumped the config space of SRIOV Capability, I found BAR0 of VFs
+was not configured by BIOS and it was zero. So I added following
+"quirk_vxge_sriov" quirk function to configure the BAR2 of PF as BAR0 of
+VFs.
+
+Now lspci shows proper value. But I am still get same error. The code
+that dumps this error is as follow. Here I trying to find out the reason
+why res->parent is not updated for BAR0 of VF. From the above log, I can
+see that Bar2 and BAR4's res->parent are update.
+
+Any possible reason why res->parent of VF's BAR0 is not updated?
+
+sriov_enable :
+
+--------------
+
+nres = 0;
+
+for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
+
+res = dev->resource + PCI_IOV_RESOURCES + i;
+
+if (res->parent) {
+
+printk("res->parent is %llx for %d \n", res->parent,i );
+
+nres++;
+
+}
+
+}
+
+printk("nres = %d - iov->nres = %d \n", nres, iov->nres);
+
+if (nres != iov->nres) {
+
+dev_err(&dev->dev, "not enough MMIO resources for SR-IOV\n");
+
+return -ENOMEM;
+
+}
+
+ 
+
+quirk_vxge_sriov:
+
+-----------------
+
+static void __devinit quirk_vxge_sriov(struct pci_dev *dev) {
+
+int pos, flags;
+
+u32 bar, start, size;
+
+printk("Entering quirk_vxge_sriov ...\n");
+
+if (PAGE_SIZE > 0x10000) {
+
+printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+
+return;
+
+}
+
+pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_SRIOV);
+
+printk("the pos is %d \n", pos);
+
+if (!pos) {
+
+printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+
+return;
+
+}
+
+pci_read_config_dword(dev, pos + PCI_SRIOV_BAR, &bar);
+
+if (bar & PCI_BASE_ADDRESS_MEM_MASK)
+
+{
+
+printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+
+return;
+
+}
+
+start = pci_resource_start(dev, 4);
+
+size = pci_resource_len(dev, 4);
+
+printk("Bar4 start %llx - size %llx \n", start, size);
+
+if (!start || size != 0x2000000 || start & (size - 1)) {
+
+printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+
+return;
+
+}
+
+pci_resource_flags(dev, 4) = 0;
+
+pci_write_config_dword(dev, PCI_BASE_ADDRESS_4, 0);
+
+pci_write_config_dword(dev, pos + PCI_SRIOV_BAR, start);
+
+pci_read_config_dword(dev, pos+PCI_SRIOV_BAR,&bar);
+
+printk("VF's Bar0 is %llx \n", bar);
+
+dev_info(&dev->dev, "use Flash Memory Space for SR-IOV BARs\n");
+
+printk("Exiting quirk_vxge_sriov ...\n"); }
+
+ 
+
+Thanks,
+
+~Siva
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
