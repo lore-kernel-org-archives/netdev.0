@@ -1,34 +1,93 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
-Date: Tue, 9 Jun 2009 00:02:11 +0200
-Message-ID: <20090608220211.GA28994@electric-eye.fr.zoreil.com>
-References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com> <4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com> <4A2D3BC6.3040904@msgid.tls.msk.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [patch] r8169: fix crash when large packets are received
+Date: Tue, 09 Jun 2009 00:07:07 +0200
+Message-ID: <4A2D8B8B.80905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Tokarev <mjt@tls.msk.ru>,
+	linux kernel <linux-kernel@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59969 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751731AbZFHWAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:00:17 -0400
-Content-Disposition: inline
-In-Reply-To: <4A2D3BC6.3040904@msgid.tls.msk.ru>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:46627 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751838AbZFHWHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:07:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Tokarev <mjt@tls.msk.ru> :
-[...]
-> I'll try out some more tests later today.  (And there's another
-> issue with these NICs -- the famous, quite frequent under load
-> "NETDEV WATCHDOG: eth0 (r8169): transmit timed out" errors, which
-> are quite annoying... Also shown by both the above-mentioned mobos
-> and by other machines).
+Michael Tokarev reported receiving a large packet could crash
+a machine with RTL8169 NIC.
+( original thread at http://lkml.org/lkml/2009/6/8/192 )
 
-This one should be fixed by commit f11a377b3f4e897d11f0e8d1fc688667e2f19708
-in mainline.
+Problem is this driver tells that NIC frames up to 16383 bytes
+can be received but provides skb to rx ring allocated with
+smaller sizes (1536 bytes in case standard 1500 bytes MTU is used)
 
--- 
-Ueimor
+When a frame larger than what was allocated by driver is received,
+dma transfert can occurs past the end of buffer and corrupt
+kernel memory.
+
+Fix is to tell to NIC what is the maximum size a frame can be.
+
+This bug is very old, (before git introduction, linux-2.6.10), and 
+should be backported to stable versions.
+
+Reported-by: Michael Tokarev <mjt@tls.msk.ru>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Tested-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 8247a94..3b19e0c 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -66,7 +66,6 @@ static const int multicast_filter_limit = 32;
+ #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define EarlyTxThld	0x3F	/* 0x3F means NO early transmit */
+-#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC... */
+ #define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+ 
+@@ -2357,10 +2356,10 @@ static u16 rtl_rw_cpluscmd(void __iomem *ioaddr)
+ 	return cmd;
+ }
+ 
+-static void rtl_set_rx_max_size(void __iomem *ioaddr)
++static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_buf_sz)
+ {
+ 	/* Low hurts. Let's disable the filtering. */
+-	RTL_W16(RxMaxSize, 16383);
++	RTL_W16(RxMaxSize, rx_buf_sz);
+ }
+ 
+ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+@@ -2407,7 +2406,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+@@ -2668,7 +2667,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+ 
+@@ -2846,7 +2845,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	rtl_set_rx_max_size(ioaddr);
++	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+ 
+ 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+ 
