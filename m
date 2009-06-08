@@ -1,35 +1,52 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: tg3 stops working when NFS is involved
-Date: Sun, 7 Jun 2009 22:18:52 -0700 (PDT)
-Message-ID: <alpine.DEB.2.01.0906072215000.6439@bogon>
-References: <alpine.DEB.2.01.0906072115420.6439@bogon>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
+	queueing an extra skb.
+Date: Mon, 8 Jun 2009 15:22:47 +1000
+Message-ID: <20090608052247.GA19826@gondor.apana.org.au>
+References: <200905292346.04815.rusty@rustcorp.com.au> <200906022325.57961.rusty@rustcorp.com.au> <20090602234532.GA5417@gondor.apana.org.au> <200906031247.05591.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:61197 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbZFHFSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 01:18:50 -0400
-In-Reply-To: <alpine.DEB.2.01.0906072115420.6439@bogon>
+Received: from rhun.apana.org.au ([64.62.148.172]:51620 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751146AbZFHFWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 01:22:48 -0400
+Content-Disposition: inline
+In-Reply-To: <200906031247.05591.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 7 Jun 2009, Christian Kujau wrote:
-> anything else - so, I figure it's not a client problem. And I'm not sure 
-> if it's NFS problem either, because restarting the NFS server doesn't do 
-> anything, I really have to rmmod/modprobe the tg3 module. OTOH, I cannot 
-> reproduce this without NFS: running e.g. iperf (TCP, UDP) did not trigger 
-> it.
+On Wed, Jun 03, 2009 at 12:47:04PM +0930, Rusty Russell wrote:
+> 
+> We could figure out if we can take the worst-case packet, and underutilize
+> our queue.  And fix the other *67* drivers.
 
-Just tested with Samba - after a few megabytes of transmitted data, tg3 stops 
-working, with no messages printed in the kernel log :-\
+Most of those are for debugging purposes, i.e., they'll never
+happen unless the driver is buggy.
 
-I don't know why iperf does not trigger it though....
+> Of course that doesn't even work, because we return NETDEV_TX_BUSY from dev.c!
 
-Christian.
+If and when your driver becomes part of the core and it has to
+feed into other drivers, then you can use this argument :)
+
+> "Hi, core netdevs here.  Don't use NETDEV_TX_BUSY.   Yeah, we can't figure out
+> how to avoid it either.  But y'know, just hack something together".
+
+No you've misunderstood my complaint.  I'm not trying to get you
+to replace NETDEV_TX_BUSY by the equally abhorrent queue in the
+driver, I'm saying that you should stop the queue before you get
+a packet that overflows by looking at the amount of free queue
+space after transmitting each packet.
+
+For most drivers this is easy to do.  What's so different about
+virtio-net that makes this impossible?
+
+Cheers,
 -- 
-BOFH excuse #271:
-
-The kernel license has expired
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
