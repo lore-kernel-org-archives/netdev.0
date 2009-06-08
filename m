@@ -1,93 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [patch] r8169: fix crash when large packets are received
-Date: Tue, 09 Jun 2009 00:07:07 +0200
-Message-ID: <4A2D8B8B.80905@gmail.com>
+From: David VomLehn <dvomlehn@cisco.com>
+Subject: Re: [PATCH 1/7] initdev:kernel:Asynchronously-discovered device
+	synchronization, v6
+Date: Mon, 8 Jun 2009 15:11:02 -0700
+Message-ID: <20090608221102.GA22222@cuplxvomd02.corp.sa.net>
+References: <20090606023403.GA5645@cuplxvomd02.corp.sa.net> <4A2A2C26.1070106@s5r6.in-berlin.de> <4A2A320F.5020008@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Michael Tokarev <mjt@tls.msk.ru>,
-	linux kernel <linux-kernel@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	linux-usb@vger.kernel.org, greg@kroah.com,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:46627 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838AbZFHWHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:07:15 -0400
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:64014 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487AbZFHWLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:11:01 -0400
+Content-Disposition: inline
+In-Reply-To: <4A2A320F.5020008@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Tokarev reported receiving a large packet could crash
-a machine with RTL8169 NIC.
-( original thread at http://lkml.org/lkml/2009/6/8/192 )
+On Sat, Jun 06, 2009 at 05:08:31AM -0400, Stefan Richter wrote:
+> I wrote:
+> > What happens if the calls or the call arguments aren't balanced, e.g. 
+> > due to a mistake in an error path?  The kernel will hang?
+> 
+> Yes, unless the waiting subsystems implement timeouts.
 
-Problem is this driver tells that NIC frames up to 16383 bytes
-can be received but provides skb to rx ring allocated with
-smaller sizes (1536 bytes in case standard 1500 bytes MTU is used)
+This is absolutely correct. It would, of course, be possible to add a
+timeout, but it would really be papering over a bug. If this every happened,
+the proper thing would be to fix the problem.
 
-When a frame larger than what was allocated by driver is received,
-dma transfert can occurs past the end of buffer and corrupt
-kernel memory.
-
-Fix is to tell to NIC what is the maximum size a frame can be.
-
-This bug is very old, (before git introduction, linux-2.6.10), and 
-should be backported to stable versions.
-
-Reported-by: Michael Tokarev <mjt@tls.msk.ru>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Tested-by: Michael Tokarev <mjt@tls.msk.ru>
----
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 8247a94..3b19e0c 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -66,7 +66,6 @@ static const int multicast_filter_limit = 32;
- #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
- #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
- #define EarlyTxThld	0x3F	/* 0x3F means NO early transmit */
--#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC... */
- #define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
- 
-@@ -2357,10 +2356,10 @@ static u16 rtl_rw_cpluscmd(void __iomem *ioaddr)
- 	return cmd;
- }
- 
--static void rtl_set_rx_max_size(void __iomem *ioaddr)
-+static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_buf_sz)
- {
- 	/* Low hurts. Let's disable the filtering. */
--	RTL_W16(RxMaxSize, 16383);
-+	RTL_W16(RxMaxSize, rx_buf_sz);
- }
- 
- static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
-@@ -2407,7 +2406,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
- 
--	rtl_set_rx_max_size(ioaddr);
-+	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
- 
- 	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-@@ -2668,7 +2667,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
- 
--	rtl_set_rx_max_size(ioaddr);
-+	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
- 
- 	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
- 
-@@ -2846,7 +2845,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
- 
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
- 
--	rtl_set_rx_max_size(ioaddr);
-+	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
- 
- 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
- 
+> Stefan Richter
