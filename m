@@ -1,37 +1,36 @@
-From: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of
-	register 42c to clear.
-Date: Mon, 8 Jun 2009 09:29:57 +0200
-Message-ID: <38b2ab8a0906080029n5d0e167oc2fc217f19882816@mail.gmail.com>
-References: <bCxQpon4SCJ.A.RrF.yY7KKB@chimera>
-	 <D9VoutSOyXP.A.LpH.8Z7KKB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general][PATCH] mlx4: FIX error flow when initializing EQ
+	table
+Date: Mon, 08 Jun 2009 00:40:07 -0700 (PDT)
+Message-ID: <20090608.004007.186996388.davem@davemloft.net>
+References: <4A2BD9B9.6000802@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D9VoutSOyXP.A.LpH.8Z7KKB@chimera>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, cl@linux-foundation.org,
+	general@lists.openfabrics.org
+To: yevgenyp@mellanox.co.il
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <4A2BD9B9.6000802@mellanox.co.il>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hello
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Sun, 07 Jun 2009 18:16:09 +0300
 
-On Sun, Jun 7, 2009 at 11:52 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> This message has been generated automatically as a part of a report
-> of recent regressions.
->
-> The following bug entry is on the current list of known regressions
-> from 2.6.29. =A0Please verify if it still should be listed and let me=
- know
-> (either way).
+> If mlx4_create_eq() would fail for one of EQ's assigned for
+> completion handling, the code would try to free the same EQ
+> we failed to create.
+> The crash was found by Christoph Lameter
+> 
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-I just pulled the 2.6.30-rc8 kernel.
-
-I'm giving it a test during this week and let you know if the bug
-comes up again.
-
---=20
-=46rancis
+Applied, thanks.
