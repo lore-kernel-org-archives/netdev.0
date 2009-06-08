@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net: Fix skb_copy_datagram_from_iovec()
- to pass the right offset
-Date: Mon, 08 Jun 2009 00:28:51 -0700 (PDT)
-Message-ID: <20090608.002851.249913253.davem@davemloft.net>
-References: <1244230540.1526.76.camel@w-sridhar.beaverton.ibm.com>
-	<20090606212533.GD28614@redhat.com>
+From: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of
+	register 42c to clear.
+Date: Mon, 8 Jun 2009 09:29:57 +0200
+Message-ID: <38b2ab8a0906080029n5d0e167oc2fc217f19882816@mail.gmail.com>
+References: <bCxQpon4SCJ.A.RrF.yY7KKB@chimera>
+	 <D9VoutSOyXP.A.LpH.8Z7KKB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38341
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752372AbZFHH2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:28:49 -0400
-In-Reply-To: <20090606212533.GD28614@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <D9VoutSOyXP.A.LpH.8Z7KKB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 7 Jun 2009 00:25:33 +0300
+Hello
 
-> On Fri, Jun 05, 2009 at 12:35:40PM -0700, Sridhar Samudrala wrote:
->> I am working on enabling UFO between KVM guests using virtio-net and i have 
->> some patches that i got working with 2.6.30-rc8. When i wanted to try them
->> with net-next-2.6, i noticed that virtio-net is not working with that tree.
->> 
->> After some debugging, it turned out to be several bugs in the recent patches
->> to fix aio with tun driver, specifically the following 2 commits.
->> 
->> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=0a1ec07a67bd8b0033dace237249654d015efa21
->> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=6f26c9a7555e5bcca3560919db9b852015077dae
->> 
->> 
->> Fix the call to memcpy_from_iovecend() in skb_copy_datagram_from_iovec
->> to pass the right iovec offset.
->> 
->> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> Yes, looks like the bugs were around GSO handling, I was probably
-> testing without GSO at the time. I'll go try with GSO now. Thanks for
-> fixing these!
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+On Sun, Jun 7, 2009 at 11:52 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+> This message has been generated automatically as a part of a report
+> of recent regressions.
+>
+> The following bug entry is on the current list of known regressions
+> from 2.6.29. =A0Please verify if it still should be listed and let me=
+ know
+> (either way).
 
-Applied.
+I just pulled the 2.6.30-rc8 kernel.
+
+I'm giving it a test during this week and let you know if the bug
+comes up again.
+
+--=20
+=46rancis
