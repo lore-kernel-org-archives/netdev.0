@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sis190: fix for x86_64 (bug 11509)
-Date: Mon, 08 Jun 2009 00:10:07 -0700 (PDT)
-Message-ID: <20090608.001007.189583451.davem@davemloft.net>
-References: <20090608054758.GA21975@localhost>
+Subject: Re: [net-2.6 PATCH 0/5] qlge: Bug fixes for firmware handling.
+Date: Mon, 08 Jun 2009 00:10:19 -0700 (PDT)
+Message-ID: <20090608.001019.99986503.davem@davemloft.net>
+References: <1244419109-355-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: birrachiara@tin.it
+Cc: netdev@vger.kernel.org
+To: ron.mercer@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59637
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59640
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750875AbZFHHKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:10:07 -0400
-In-Reply-To: <20090608054758.GA21975@localhost>
+	by vger.kernel.org with ESMTP id S1751051AbZFHHKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:10:18 -0400
+In-Reply-To: <1244419109-355-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Riccardo Ghetta <birrachiara@tin.it>
-Date: Mon, 8 Jun 2009 07:47:58 +0200
+From: Ron Mercer <ron.mercer@qlogic.com>
+Date: Sun,  7 Jun 2009 16:58:24 -0700
 
-> Corrected dma sync handling on small packets. Should fix 
-> http://bugzilla.kernel.org/show_bug.cgi?id=11509
-> Note:
-> While this bug was reported only on x86_64, it could have affected
-> any architecture.
-> 
-> Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
+> This patch series fixes some issues in the firmware event
+> handling area.
 
-Applied to net-next-2.6
+Applied to net-next-2.6, thanks!
