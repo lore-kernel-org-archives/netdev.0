@@ -1,81 +1,43 @@
-From: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W} usage
-Date: Mon,  8 Jun 2009 15:12:05 +0900 (JST)
-Message-ID: <20090608150417.437C.A69D9226@jp.fujitsu.com>
-References: <20090608055326.GA10843@localhost> <20090608055659.GA11538@localhost>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH net-next 1/4] IPv6: HW csum support for outgoing large UFO packets
+Date: Mon, 8 Jun 2009 09:36:55 +0300
+Message-ID: <200906080936.55820.remi.denis-courmont@nokia.com>
+References: <1244247387.1526.170.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090608055659.GA11538@localhost>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"herbert.xu@redhat.com" <herbert.xu@redhat.com>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>
+To: ext Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nokia.com ([192.100.122.230]:37596 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbZFHGgY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 02:36:24 -0400
+In-Reply-To: <1244247387.1526.170.camel@w-sridhar.beaverton.ibm.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> btw, can anyone explain these NFS warnings? It happens in a very
-> memory tight and busy nfsroot system.
-> 
-> [  113.267340] NFS: Server wrote zero bytes, expected 3671.
-> [  423.202607] NFS: Server wrote zero bytes, expected 108.
-> [  723.588411] NFS: Server wrote zero bytes, expected 560.
-> [ 1060.246747] NFS: Server wrote zero bytes, expected 54.
-> [ 1397.841183] NFS: Server wrote zero bytes, expected 402.
-> [ 1779.545035] NFS: Server wrote zero bytes, expected 319.
+On Saturday 06 June 2009 03:16:27 ext Sridhar Samudrala wrote:
+> @@ -668,7 +709,14 @@ static int udp_v6_push_pending_frames(struct soc=
+k *sk)
+>
+>  	if (is_udplite)
+>  		csum =3D udplite_csum_outgoing(sk, skb);
+> -	 else
+> +	 else if (sk->sk_no_check =3D=3D UDP_CSUM_NOXMIT) {	/* UDP csum dis=
+abled */
+> +		skb->ip_summed =3D CHECKSUM_NONE;
+> +		goto send;
 
-server side write function is below
+There is no such thing as disabled UDP in IPv6 (in *current* specs).
 
------------------------------------------------------------
-static __be32
-nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
-                                loff_t offset, struct kvec *vec, int vlen,
-                                unsigned long *cnt, int *stablep)
-{
-(snip)
-        host_err = vfs_writev(file, (struct iovec __user *)vec, vlen, &offset);	//(1)
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
-(snip)
-                /*
-                 * Gathered writes: If another process is currently
-                 * writing to the file, there's a high chance
-                 * this is another nfsd (triggered by a bulk write
-                 * from a client's biod). Rather than syncing the
-                 * file with each write request, we sleep for 10 msec.
-                 *
-                 * I don't know if this roughly approximates
-                 * C. Juszak's idea of gathered writes, but it's a
-                 * nice and simple solution (IMHO), and it seems to
-                 * work:-)
-                 */
-                if (EX_WGATHER(exp)) {
-(snip)
-                        if (inode->i_state & I_DIRTY) {
-                                dprintk("nfsd: write sync %d\n", task_pid_nr(current));
-                                host_err=nfsd_sync(file);		// (2)
-                        }
-                }
-(snip)
-        dprintk("nfsd: write complete host_err=%d\n", host_err);
-        if (host_err >= 0) {
-                err = 0;
-                *cnt = host_err;
-        } else
-                err = nfserrno(host_err);
-out:
-        return err;
-}
----------------------------------------------------------------------------
-
-if (1) or (2) makes host_err == 0, it makes your warning messages.
-
-Thanks.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
