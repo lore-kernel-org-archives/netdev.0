@@ -1,54 +1,89 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: SMC91x: forcing speed
-Date: Mon, 08 Jun 2009 18:17:21 -0400 (EDT)
-Message-ID: <alpine.LFD.2.00.0906081807410.31536@xanadu.home>
-References: <ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
- <20090608.142257.141336772.davem@davemloft.net> <4A2D85D7.6050509@gmail.com>
- <20090608.144445.72867560.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: mfuzzey@gmail.com, richard.rojfors@endian.se,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Sergey Lapin <slapin@ossfans.org>
+Subject: [PULL REQUEST] IEEE 802.15.4 stack: generic parts v4
+Date: Tue,  9 Jun 2009 02:18:46 +0400
+Message-ID: <cover.1244498867.git.slapin@ossfans.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Sergey Lapin <slapin@ossfans.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:26407 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752833AbZFHWRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:17:24 -0400
-Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR002.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0KKX00GCAXWX6CD0@VL-MO-MR002.ip.videotron.ca> for
- netdev@vger.kernel.org; Mon, 08 Jun 2009 18:17:21 -0400 (EDT)
-In-reply-to: <20090608.144445.72867560.davem@davemloft.net>
+Received: from build.ossfans.org ([67.223.233.67]:43061 "EHLO
+	build.ossfans.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754564AbZFHWS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:18:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Jun 2009, David Miller wrote:
+Hello,
 
-> From: Martin Fuzzey <mfuzzey@gmail.com>
-> Date: Mon, 08 Jun 2009 23:42:47 +0200
-> 
-> > IMHO the place for board specific hacks is in the board specifc startup
-> > code - am I wrong?
-> 
-> We never add bootup time hacks for things that already have
-> a suitable generic and clean configuration interface.
+This is a fourth version of pull/merge request for IEEE 802.15.4 stack.
 
-Maybe suitable in a workstation setup.
+As per Dmitry request I'm taking over passing this patchset through
+review. This is my first pull request through mail lists, so I might
+do some mistakes, but I hope I did not miss any.
 
-> People ask for module options and all kinds of crap like that
-> to set link parameters, and we always say no.
+Major changes from previous post:
+ * Changed net/ieee802154/Makefile according to Sam Ravnborg suggestion
 
-And this is probably why there is still a disconnect between mainline 
-and embedded people.
+The following changes since commit 81ee1bad86bd6752c626018d43a74e3f81f1ae72:
+  Linus Torvalds (1):
+        Merge branch 'for-linus' of git://git.kernel.org/.../viro/vfs-2.6
 
-For some systems, the simple notion of a special ramdisk just makes the 
-whole thing 4 times more complex.
+are available in the git repository at:
 
-Wouldn't it be possible to accommodate those people with a generic 
-ethtool module that simply interpret some kernel cmdline parameters in a 
-uniform and maintainable way to apply some settings during kernel boot?
+  git://git.kernel.org/pub/scm/linux/kernel/git/slapin/lowpan.git for-next
 
+Sergey Lapin (5):
+      Add constants for the ieee 802.15.4 stack
+      net: add IEEE 802.15.4 socket family implementation
+      net: add NL802154 interface for configuration of 802.15.4 devices
+      ieee802154: add documentation about our stack
+      ieee802154: add simple HardMAC driver sample
 
-Nicolas
+ Documentation/networking/ieee802154.txt |   76 +++++
+ MAINTAINERS                             |   12 +
+ drivers/Makefile                        |    1 +
+ drivers/ieee802154/Kconfig              |   22 ++
+ drivers/ieee802154/Makefile             |    3 +
+ drivers/ieee802154/fakehard.c           |  270 ++++++++++++++++
+ drivers/net/Kconfig                     |    2 +
+ include/linux/if_arp.h                  |    2 +
+ include/linux/if_ether.h                |    1 +
+ include/linux/nl802154.h                |  119 +++++++
+ include/linux/socket.h                  |    4 +-
+ include/net/ieee802154/af_ieee802154.h  |   60 ++++
+ include/net/ieee802154/mac_def.h        |  160 ++++++++++
+ include/net/ieee802154/netdevice.h      |  115 +++++++
+ include/net/ieee802154/nl802154.h       |   41 +++
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/core/dev.c                          |    6 +-
+ net/core/sock.c                         |    3 +
+ net/ieee802154/Kconfig                  |   12 +
+ net/ieee802154/Makefile                 |    5 +
+ net/ieee802154/af802154.h               |   36 +++
+ net/ieee802154/af_ieee802154.c          |  372 ++++++++++++++++++++++
+ net/ieee802154/dgram.c                  |  394 +++++++++++++++++++++++
+ net/ieee802154/netlink.c                |  523 +++++++++++++++++++++++++++++++
+ net/ieee802154/nl_policy.c              |   52 +++
+ net/ieee802154/raw.c                    |  254 +++++++++++++++
+ 27 files changed, 2544 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/networking/ieee802154.txt
+ create mode 100644 drivers/ieee802154/Kconfig
+ create mode 100644 drivers/ieee802154/Makefile
+ create mode 100644 drivers/ieee802154/fakehard.c
+ create mode 100644 include/linux/nl802154.h
+ create mode 100644 include/net/ieee802154/af_ieee802154.h
+ create mode 100644 include/net/ieee802154/mac_def.h
+ create mode 100644 include/net/ieee802154/netdevice.h
+ create mode 100644 include/net/ieee802154/nl802154.h
+ create mode 100644 net/ieee802154/Kconfig
+ create mode 100644 net/ieee802154/Makefile
+ create mode 100644 net/ieee802154/af802154.h
+ create mode 100644 net/ieee802154/af_ieee802154.c
+ create mode 100644 net/ieee802154/dgram.c
+ create mode 100644 net/ieee802154/netlink.c
+ create mode 100644 net/ieee802154/nl_policy.c
+ create mode 100644 net/ieee802154/raw.c
