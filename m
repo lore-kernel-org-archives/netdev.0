@@ -1,63 +1,107 @@
-From: Jesper Dangaard Brouer <hawk-dAYI7NvHqcQ@public.gmane.org>
-Subject: Re: [PATCH 5/5] sunrpc/auth_gss: Call rcu_barrier() on module unload.
-Date: Mon, 8 Jun 2009 21:48:54 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0906082128240.1180@ask.diku.dk>
-References: <20090608130959.10052.54590.stgit@localhost>
- <20090608131148.10052.39869.stgit@localhost>  <20090608162656.GF6961@linux.vnet.ibm.com>
- <1244480449.5040.4.camel@heimdal.trondhjem.org>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Mon, 08 Jun 2009 23:57:00 +0400
+Message-ID: <4A2D6D0C.6060206@msgid.tls.msk.ru>
+References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com> <4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com> <4A2D3BC6.3040904@msgid.tls.msk.ru> <4A2D4AA7.6020204@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1244480449.5040.4.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isrv.corpit.ru ([81.13.33.159]:57165 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751377AbZFHT47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2009 15:56:59 -0400
+In-Reply-To: <4A2D4AA7.6020204@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet wrote:
+[]
+> OK I suspect driver is buggy since 2.6.10 days :)
+> 
+> Could you try this patch ?
 
-(trimmed Cc)
+Tried it, and it appears to work.  Tried various MTU combinations
+and packet sizes.  Checked iperf too, with and without the patch
+and with different MTU too, to be sure the patch does not introduce
+any slowdowns - everything looks sane.  In case the incoming packet
+is larger than the RX buffer size, `errors' and `frames' RX stats
+gets incremented.
 
-On Mon, 8 Jun 2009, Trond Myklebust wrote:
+The only somewhat odd thing is that rx path accepts packets larger
+than MTU by 3 bytes.  For example, if I set mtu to 2000, the
+largest packet I can send is 2003 bytes; with mtu=2002, largest
+actual packet size is 2005 bytes.  This is complete frame - in
+terms of ping size (ping -s) it's 1975 and 1977 bytes.  That to
+say, maybe we still have some corner case somewhere, for packets
+larger than mtu by 1, 2 or 3 bytes.
 
-> Hmm... If this is about ensuring that all the call_rcu() callbacks
-> complete before we remove the module, then don't we also need similar
-> barriers in
+Also I didn't try MTU < 1500.
 
-Well, Trond that was a hard question, as I don't know this code... but if 
-it uses call_rcu() callbacks its most likely.
+Other than that,
 
-I have not done a complete sweep of the tree, I have only looked at the 
-netdev parts, as this is where I usually snoop around.  So there is 
-probably plenty of work for some kernel-janitors (Cc'ing the list ;-))
+Tested-By: Michael Tokarev <mjt@tls.msk.ru>
 
-> net/sunrpc/sunrpc_syms.c:cleanup_sunrpc()
+And by the way, your email client uses quoted-printable encoding.
+I had to use trivial perl one-liner to convert your patches to
+plaintext.  JFYI.
 
-Looking at the code that end up in sunrpc.ko, I see that both 
-net/sunrpc/auth_unix.c and net/sunrpc/auth_generic.c uses call_rcu() 
-callbacks.
+Thanks!
 
-> and in fs/nfs/inode.c:exit_nfs_fs()?
+/mjt
 
-Looking at the code which end up into nfs.ko (which includes 
-fs/nfs/inode.c) I see that the fs/nfs/delegation.c uses call_rcu() 
-callbacks.
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 8247a94..c5ab5a8 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -2357,10 +2357,10 @@ static u16 rtl_rw_cpluscmd(void __iomem *ioaddr)
+>  	return cmd;
+>  }
+>  
+> -static void rtl_set_rx_max_size(void __iomem *ioaddr)
+> +static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_buf_sz)
+>  {
+>  	/* Low hurts. Let's disable the filtering. */
+> -	RTL_W16(RxMaxSize, 16383);
+> +	RTL_W16(RxMaxSize, rx_buf_sz);
+>  }
+>  
+>  static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+> @@ -2407,7 +2407,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+>  
+>  	RTL_W8(EarlyTxThres, EarlyTxThld);
+>  
+> -	rtl_set_rx_max_size(ioaddr);
+> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+>  
+>  	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
+>  	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+> @@ -2668,7 +2668,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+>  
+>  	RTL_W8(EarlyTxThres, EarlyTxThld);
+>  
+> -	rtl_set_rx_max_size(ioaddr);
+> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+>  
+>  	tp->cp_cmd |= RTL_R16(CPlusCmd) | PktCntrDisable | INTT_1;
+>  
+> @@ -2846,7 +2846,7 @@ static void rtl_hw_start_8101(struct net_device *dev)
+>  
+>  	RTL_W8(EarlyTxThres, EarlyTxThld);
+>  
+> -	rtl_set_rx_max_size(ioaddr);
+> +	rtl_set_rx_max_size(ioaddr, tp->rx_buf_sz);
+>  
+>  	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+>  
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-But its hard for me to figure out how this code interacts.  Don't know if 
-we need to document a code path that can occur fast enough, before we add 
-this safe guard?  It should be Paul's saying...
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
