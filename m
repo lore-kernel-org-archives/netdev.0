@@ -1,112 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
-Date: Mon, 08 Jun 2009 17:06:46 +0200
-Message-ID: <4A2D2906.6090002@gmail.com>
-References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Mon, 8 Jun 2009 11:16:28 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0906081114530.21954@gentwo.org>
+References: <alpine.DEB.1.10.0906021044430.15692@gentwo.org> <20090603.224104.222901210.davem@davemloft.net> <alpine.DEB.1.10.0906041150590.3204@gentwo.org> <20090604.153057.178458221.davem@davemloft.net> <alpine.DEB.1.10.0906050959380.23895@gentwo.org>
+ <adaeitywrfj.fsf@cisco.com> <alpine.DEB.1.10.0906051444360.29918@gentwo.org> <adabpp2v0y2.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	yosefe@Voltaire.COM
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:55184 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753905AbZFHPGt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 11:06:49 -0400
-In-Reply-To: <4A2D25F6.9080300@msgid.tls.msk.ru>
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:44448 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752038AbZFHPQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 11:16:34 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id D9C4982C48B
+	for <netdev@vger.kernel.org>; Mon,  8 Jun 2009 11:31:55 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id LyF7eWUKRdbS for <netdev@vger.kernel.org>;
+	Mon,  8 Jun 2009 11:31:55 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id B346782C494
+	for <netdev@vger.kernel.org>; Mon,  8 Jun 2009 11:31:49 -0400 (EDT)
+In-Reply-To: <adabpp2v0y2.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Tokarev a =E9crit :
-> Thank you Eric for the reply.
->=20
-> Eric Dumazet wrote:
->> Michael Tokarev a =E9crit :
-> []
->>> The situation is very simple: with an RTL8169 (probably
->>> onboard) GigE card which, by default, is configured to
->>> have MTU (maximal transmission unit) to be 1500 bytes,
->>> it's *trivial* to instantly crash the machine by sending
->>> it a *single* packet of size >1500 bytes (provided the
->>> network switch can handle jumbo frames).
-> []
->>>  http://www.corpit.ru/mjt/r8169-mtu-oops.jpg
->=20
->> I suppose you use a recent kernel ?
->=20
-> http://marc.info/?t=3D123462473200002 -- here's my first attempt,
-> at Feb this year.  It was 2.6.27 or so.  Right now I'm running
-> 2.6.29[.4].  So I think yes, I use a recent kernel.
->=20
->> Could you please try following patch ?
-> []
->> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
->> index e94316b..c08b97a 100644
->> --- a/drivers/net/r8169.c
->> +++ b/drivers/net/r8169.c
->> @@ -3468,7 +3468,7 @@ static int rtl8169_rx_interrupt(struct
->> net_device *dev,
->> =20
->>          if (status & DescOwn)
->>              break;
->> -        if (unlikely(status & RxRES)) {
->> +        if (unlikely(status & (RxRES | RxRWT | RxRUNT | RxCRC |
->> RxFOVF))) {
->>              if (netif_msg_rx_err(tp)) {
->>                  printk(KERN_INFO
->>                         "%s: Rx ERROR. status =3D %08x\n",
->=20
-> Tried that one, got no printk (at least not a visible one) and exactl=
-y
-> the same OOPS as before.  Trivial test with
->=20
->   ping -c1 -s3000 $my_ip_addr
->=20
-> (learned to add -c1 because the previous time my machine crashed seve=
-ral
-> times
-> in a row till I figured out what's going on and unplugged the etherne=
-t
-> cord --
-> even if ping were running from an xterm executed from the machine to
-> which I
-> were pinging to! :)
->=20
-> Also got ext4fs corruption when rebooted (it's a staging area so noth=
-ing
-> important
-> is there but still.. "interesting").
->=20
-> Also tried 32bit kernel (were using 64bits -- exactly the same result=
-).
->=20
-> I wish I had a serial cable or even a serial port on this machine....
-> But I guess
-> it'd not help anyway, because the machine locks hard.
->=20
-> Thanks!
->=20
-> /mjt
+On Fri, 5 Jun 2009, Roland Dreier wrote:
 
-OK, 2nd try then :)
+>
+>  > This is actually better than IPoIB there is nothing before
+>  > the initial traffic that arrives. In the IPoIB case 3 packets arrive
+>  > suggesting to the other side that the link is okay.
+>
+> So maybe we should drop the *oldest* packet on queue overflow?  Would
+> that make things better?
 
-Thanks
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index e94316b..9080b08 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3495,7 +3495,8 @@ static int rtl8169_rx_interrupt(struct net_device=
- *dev,
- 			 * frames. They are seen as a symptom of over-mtu
- 			 * sized frames.
- 			 */
--			if (unlikely(rtl8169_fragmented_frame(status))) {
-+			if (unlikely(rtl8169_fragmented_frame(status) ||
-+				     (unsigned int)pkt_size > tp->rx_buf_sz)) {
- 				dev->stats.rx_dropped++;
- 				dev->stats.rx_length_errors++;
- 				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+Definitely. That would avoid the apps thinking that there was a huge
+outage. Also the join times on some fabrics can be quite long if there is
+heavy reconfiguration of the switch fabric going on. In the
+order of seconds it seems. The packet is definitely stale by that time.
 
 
