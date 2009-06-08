@@ -1,33 +1,38 @@
-From: Steve.Glendinning-sdUf+H5yV5I@public.gmane.org
-Subject: Re: [PATCH 2/2] netdev: smsc911x: add missing
-	__devexit_p() usage
-Date: Mon, 8 Jun 2009 20:37:06 +0100
-Message-ID: <OFBFB982BD.7B47AFE7-ON802575CF.006BB5B7-802575CF.006BC469@smsc.com>
-References: <1244248640-22699-2-git-send-email-vapier@gentoo.org>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH 1/2] netdev: smsc911x: allow building on Blackfin systems
+Date: Mon, 8 Jun 2009 20:36:24 +0100
+Message-ID: <OF063E0F2B.DD999013-ON802575CF.006B45BD-802575CF.006BB3F8@smsc.com>
+References: <1244248640-22699-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ian.Saturley-sdUf+H5yV5I@public.gmane.org,
-        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-To: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <1244248640-22699-2-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	Ian.Saturley@smsc.com
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.smsc.com ([170.129.50.11]:64972 "EHLO smsc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753698AbZFHThI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2009 15:37:08 -0400
+In-Reply-To: <1244248640-22699-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The smsc911x_drv_remove() function is declared with __devexit, so the
-> assignment to the driver structure needs __devexit_p() wrappings to 
-prevent
-> build failure when hotplug is disabled.
+> The smsc911x driver works fine on Blackfin systems, so add it to the 
+arch
+> list in the Kconfig.
 > 
-> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 
-Acked-by: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+Acked-by: Steve Glendinning <steve.glendinning@smsc.com>
+
+> side note ... does it even make sense to have this arch list in the 
+first
+> place ?  the driver works with any platform who declares proper platform
+> resources ...
+
+You're right, there's nothing "special" about ARM | SUPERH other than they 
+cover all the in-tree platforms using smsc911x.  The aim was to hide this 
+option from menuconfig on x86 etc, where this device is extremely unlikely 
+to be found.  Maybe there's a better way of doing this?
+
+Steve
