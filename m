@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SMC91x: forcing speed
-Date: Mon, 08 Jun 2009 14:44:45 -0700 (PDT)
-Message-ID: <20090608.144445.72867560.davem@davemloft.net>
-References: <ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
-	<20090608.142257.141336772.davem@davemloft.net>
-	<4A2D85D7.6050509@gmail.com>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/2] netdev: smsc911x: allow building
+	on Blackfin systems
+Date: Mon, 8 Jun 2009 17:50:32 -0400
+Message-ID: <8bd0f97a0906081450s6b471d30p56d86e31ba708730@mail.gmail.com>
+References: <1244248640-22699-1-git-send-email-vapier@gentoo.org>
+	 <OF063E0F2B.DD999013-ON802575CF.006B45BD-802575CF.006BB3F8@smsc.com>
+	 <20090608.143710.83724675.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: richard.rojfors@endian.se, nico@cam.org, netdev@vger.kernel.org
-To: mfuzzey@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steve.Glendinning@smsc.com, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com, uclinux-dist-devel@blackfin.uclinux.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57767
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752394AbZFHVoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:44:44 -0400
-In-Reply-To: <4A2D85D7.6050509@gmail.com>
+Received: from qw-out-2122.google.com ([74.125.92.26]:21237 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755210AbZFHVub convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:50:31 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so2213461qwd.37
+        for <netdev@vger.kernel.org>; Mon, 08 Jun 2009 14:50:33 -0700 (PDT)
+In-Reply-To: <20090608.143710.83724675.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Fuzzey <mfuzzey@gmail.com>
-Date: Mon, 08 Jun 2009 23:42:47 +0200
+On Mon, Jun 8, 2009 at 17:37, David Miller wrote:
+> From: Steve.Glendinning@smsc.com
+>> You're right, there's nothing "special" about ARM | SUPERH other tha=
+n they
+>> cover all the in-tree platforms using smsc911x. =C2=A0The aim was to=
+ hide this
+>> option from menuconfig on x86 etc, where this device is extremely un=
+likely
+>> to be found. =C2=A0Maybe there's a better way of doing this?
+>
+> I sincerely doubt keeping this out of x86's menuconfig so important,
+> really.
 
-> IMHO the place for board specific hacks is in the board specifc startup
-> code - am I wrong?
+and desktop systems' menuconfig is so big that i dont think one more
+driver will make a difference
 
-We never add bootup time hacks for things that already have
-a suitable generic and clean configuration interface.
+> So many devices are available for powerpc and sparc64 that will never
+> appear there, however those drivers now get build validated on those
+> platforms and it's therefore a net-win.
 
-People ask for module options and all kinds of crap like that
-to set link parameters, and we always say no.
+i run randconfigs nightly ... it's neat the kind of unlikely build bugs=
+ you find
+-mike
