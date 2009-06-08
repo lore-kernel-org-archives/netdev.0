@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e100: Fix napi_enable BUG_ON when
- recovering from EEH error
-Date: Mon, 08 Jun 2009 00:42:38 -0700 (PDT)
-Message-ID: <20090608.004238.232927107.davem@davemloft.net>
-References: <200906051704.25753.adetsch@br.ibm.com>
+Subject: Re: tun netns BUG()
+Date: Mon, 08 Jun 2009 00:44:50 -0700 (PDT)
+Message-ID: <20090608.004450.05570240.davem@davemloft.net>
+References: <1244193463.3751.129.camel@macbook.infradead.org>
+	<m1ljo61cya.fsf@fess.ebiederm.org>
+	<1244271971.3751.968.camel@macbook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: adetsch@br.ibm.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <200906051704.25753.adetsch@br.ibm.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	johannes@sipsolutions.net
+To: dwmw2@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52755
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751067AbZFHHos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 03:44:48 -0400
+In-Reply-To: <1244271971.3751.968.camel@macbook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andre Detsch <adetsch@br.ibm.com>
-Date: Fri, 5 Jun 2009 17:04:25 -0300
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sat, 06 Jun 2009 08:06:11 +0100
 
-> BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state)) was being hit
-> during e100 EEH recovery. The problem source was a napi_enable
-> call being made during e100_io_error_detected. Napi should remain
-> disabled after e100_down, and only be reenabled when the interface
-> is recovered.
+> On Fri, 2009-06-05 at 16:24 -0700, Eric W. Biederman wrote:
+>> The patch below fixes the one bug I know of in with just my changes
+>> applied.  I don't think it fixes everything with Herberts changes.
+>> 
+>> I expect some of this will need to be moved to release to fix the
+>> select problem on 2.6.30-rc8.
 > 
-> This patch also updates e100_io_error_detected in order to make
-> it similar to the current versions of the error_detected callback
-> in drivers such as e1000e and ixgbe.
+> It certainly seems to fix the BUG in unregister_netdevice() which was
+> the failure mode I was seeing most often in 2.6.30-rc8. Thanks.
 > 
-> Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+> Tested-by: David Woodhouse <David.Woodhouse@intel.com>
 
-Applied, thank you.
-
-------------------------------------------------------------------------------
-OpenSolaris 2009.06 is a cutting edge operating system for enterprises 
-looking to deploy the next generation of Solaris that includes the latest 
-innovations from Sun and the OpenSource community. Download a copy and 
-enjoy capabilities such as Networking, Storage and Virtualization. 
-Go to: http://p.sf.net/sfu/opensolaris-get
+Applied, thanks!
