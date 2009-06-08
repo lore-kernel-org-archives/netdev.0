@@ -1,66 +1,100 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: [BUG] ixgbe triggering iommu/vt-d BUG()
-Date: Mon, 8 Jun 2009 14:25:26 -0700
-Message-ID: <20090608212526.GJ20823@sequoia.sous-sol.org>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Tue, 09 Jun 2009 01:27:55 +0400
+Message-ID: <4A2D825B.6090409@msgid.tls.msk.ru>
+References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com> <4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com> <4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com> <4A2D3BC6.3040904@msgid.tls.msk.ru> <4A2D4AA7.6020204@gmail.com> <4A2D6D0C.6060206@msgid.tls.msk.ru> <4A2D7FFE.9070701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: iommu@lists.linux-foundation.org, e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:51330 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750909AbZFHV0R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 17:26:17 -0400
-Content-Disposition: inline
+Received: from isrv.corpit.ru ([81.13.33.159]:57965 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753069AbZFHV1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2009 17:27:55 -0400
+In-Reply-To: <4A2D7FFE.9070701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-simple ping works...netperf TCP_STREAM test quickly triggers this:
-(this is current -linus tree, v2.6.30-rc8-73-g3af968e)
+Eric Dumazet wrote:
+> Michael Tokarev a =C3=A9crit :
+>> Eric Dumazet wrote:
+>> []
+>>> OK I suspect driver is buggy since 2.6.10 days :)
+>>>
+>>> Could you try this patch ?
+>> Tried it, and it appears to work.  Tried various MTU combinations
+>> and packet sizes.  Checked iperf too, with and without the patch
+>> and with different MTU too, to be sure the patch does not introduce
+>> any slowdowns - everything looks sane.  In case the incoming packet
+>> is larger than the RX buffer size, `errors' and `frames' RX stats
+>> gets incremented.
+>>
+>> The only somewhat odd thing is that rx path accepts packets larger
+>> than MTU by 3 bytes.  For example, if I set mtu to 2000, the
+>> largest packet I can send is 2003 bytes; with mtu=3D2002, largest
+>> actual packet size is 2005 bytes.  This is complete frame - in
+>> terms of ping size (ping -s) it's 1975 and 1977 bytes.  That to
+>> say, maybe we still have some corner case somewhere, for packets
+>> larger than mtu by 1, 2 or 3 bytes.
+>>
+>> Also I didn't try MTU < 1500.
+>>
+>> Other than that,
+>>
+>> Tested-By: Michael Tokarev <mjt@tls.msk.ru>
+>=20
+> Could you confirm this last patch was ok without former two patches ?
 
-[  116.554402] kernel BUG at drivers/pci/intel-iommu.c:1524!
-[  116.560052] invalid opcode: 0000 [#1] SMP 
-[  116.564522] last sysfs file: /sys/devices/system/cpu/cpu15/cache/index2/shared_cpu_map
-[  116.572845] CPU 11 
-[  116.575162] Modules linked in: kvm_intel kvm igb ixgbe
-[  116.580873] Pid: 0, comm: swapper Not tainted 2.6.30-rc8 #2 X8DTN
-[  116.587254] RIP: 0010:[<ffffffff811ccc4a>]  [<ffffffff811ccc4a>] domain_page_mapping+0xa1/0x103
-[  116.596418] RSP: 0018:ffffc200000dfca0  EFLAGS: 00010206
-[  116.601901] RAX: 00000001b0ceb002 RBX: 00000000001b4366 RCX: 000000000000000c
-[  116.609176] RDX: 00000001b0cea000 RSI: ffff8801b0ceaff0 RDI: ffff8801bcd42748
-[  116.616518] RBP: ffffc200000dfce0 R08: 0000000000000002 R09: 0000000000000102
-[  116.623801] R10: 0000000000000000 R11: ffffffff81732bb0 R12: 00000001b4366000
-[  116.631154] R13: 00000000001b4367 R14: 0000000000000002 R15: ffff8801bcd42700
-[  116.638439] FS:  0000000000000000(0000) GS:ffffc200000dc000(0000) knlGS:0000000000000000
-[  116.646708] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-[  116.652598] CR2: 0000000001061000 CR3: 000000033d565000 CR4: 00000000000026e0
-[  116.659888] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  116.667242] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[  116.674536] Process swapper (pid: 0, threadinfo ffff88033f076000, task ffff8801bf0f0ea0)
-[  116.682793] Stack:
-[  116.684904]  ffffc200000dfce0 00000000001b4366 00000000efffe000 0000000000001000
-[  116.692517]  00000001b4366422 00000000efffe000 ffff8801bcd42700 ffff8801ba5feac0
-[  116.700406]  ffffc200000dfd40 ffffffff811cd702 ffffc200000dfd30 00000002813b448b
-[  116.708553] Call Trace:
-[  116.711090]  <IRQ> <0> [<ffffffff811cd702>] __intel_map_single+0xeb/0x169
-[  116.718285]  [<ffffffff811cd821>] ? intel_map_page+0x0/0x3e
-[  116.724272]  [<ffffffff811cd85d>] intel_map_page+0x3c/0x3e
-[  116.730162]  [<ffffffffa00013ca>] ixgbe_alloc_rx_buffers+0x18d/0x23a [ixgbe]
-[  116.737610]  [<ffffffffa0002749>] ixgbe_clean_rx_irq+0x3e9/0x41b [ixgbe]
-[  116.744685]  [<ffffffffa0004c58>] ixgbe_clean_rxonly+0x51/0xa0 [ixgbe]
-[  116.751588]  [<ffffffff813bd267>] net_rx_action+0xa8/0x15d
-[  116.757391]  [<ffffffff810411b7>] __do_softirq+0x9d/0x15f
-[  116.763096]  [<ffffffff8100cbfc>] call_softirq+0x1c/0x28
-[  116.768619]  [<ffffffff8100e01d>] do_softirq+0x34/0x73
-[  116.773949]  [<ffffffff81041078>] irq_exit+0x3f/0x7e
-[  116.779129]  [<ffffffff8100dd9a>] do_IRQ+0x9d/0xb4
-[  116.784088]  [<ffffffff8100c4d3>] ret_from_intr+0x0/0xa
-[  116.789466]  <EOI> <0> [<ffffffff812097cc>] ? acpi_idle_enter_bm+0x1f9/0x225
-[  116.796948]  [<ffffffff812097c2>] ? acpi_idle_enter_bm+0x1ef/0x225
-[  116.803575]  [<ffffffff8134f3b4>] ? cpuidle_idle_call+0x73/0xab
-[  116.809819]  [<ffffffff8100ac27>] ? cpu_idle+0x52/0x81
-[  116.815287]  [<ffffffff814c113a>] ? start_secondary+0x17f/0x184
-[  116.821542] Code: 89 55 c8 eb 6d 48 63 f0 4c 89 ff 48 c1 e6 0c 48 03 75 d0 e8 2d fe ff ff 48 85 c0 48 89 c6 74 99 48 8b 00 48 a9 00 f0 ff ff 74 04 <0f> 0b eb fe 4c 89 e2 48 81 e2 00 f0 ff ff 48 09 c2 4c 89 f0 48 
-[  116.842465] RIP  [<ffffffff811ccc4a>] domain_page_mapping+0xa1/0x103
-[  116.849126]  RSP <ffffc200000dfca0>
+Yes, it's the last patch without former two which were for
+debugging as I understand them.  Got fresh 2.6.29.4 source
+and applied your last patch to it, recompiled.  All the testing
+above were done this way.
 
+>> And by the way, your email client uses quoted-printable encoding.
+>> I had to use trivial perl one-liner to convert your patches to
+>> plaintext.  JFYI.
+>=20
+> Ah yes, this is when I reply to one of your mail, thank you for the h=
+int.
+>=20
+> When submitting a new mail, my thunderbird agent uses a regular "Cont=
+ent-Transfer-Encoding: 7bit"
+
+Heh.  I know why it's this way.  Due to your
+"Michael Tokarev a =C3=A9crit" in first line.  Which
+gets added by Thunderbird, and which causes it
+to force quoted-printable instead of 7bit, because
+of this "=C3=A9".  Mine offers "=D0=BF=D0=B8=D1=88=D0=B5=D1=82" instead=
+ of "=C3=A9crit"
+("wrote" in English) and the result is similar.
+
+> BTW, this driver uses NAPI, but still calls dev_kfree_skb_irq() in rt=
+l8169_tx_interrupt()
+>=20
+> You probably can get better performance calling dev_kfree_skb(tx_skb-=
+>skb); instead
+>=20
+> @@ -3372,7 +3372,7 @@ static void rtl8169_tx_interrupt(struct net_dev=
+ice *dev,
+>                 rtl8169_unmap_tx_skb(tp->pci_dev, tx_skb, tp->TxDescA=
+rray + entry);
+>=20
+>                 if (status & LastFrag) {
+> -                       dev_kfree_skb_irq(tx_skb->skb);
+> +                       dev_kfree_skb(tx_skb->skb);
+>                         tx_skb->skb =3D NULL;
+>                 }
+>                 dirty_tx++;
+
+Well, the performance is quite good -- 935Mb/sec according to iperf
+for TCP.  With UDP I got 1.05Gb/sec, but CPU usage is 100% during
+all test time (for TCP test the CPU is in use for less than 5%).
+I'll try the change tomorrow (it's 01:27 here now already).
+
+Thank you for the good work!
+
+/mjt
