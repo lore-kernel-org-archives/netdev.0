@@ -1,59 +1,54 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/7] initdev:kernel:Await console discovery, v6
-Date: Mon, 8 Jun 2009 15:13:44 -0700
-Message-ID: <20090608221344.GB22222@cuplxvomd02.corp.sa.net>
-References: <20090606023407.GA5695@cuplxvomd02.corp.sa.net> <4A2A2EED.3060506@s5r6.in-berlin.de>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: SMC91x: forcing speed
+Date: Mon, 08 Jun 2009 18:17:21 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906081807410.31536@xanadu.home>
+References: <ba4215e10906080502u3966a301vb2d7162f48694a4b@mail.gmail.com>
+ <20090608.142257.141336772.davem@davemloft.net> <4A2D85D7.6050509@gmail.com>
+ <20090608.144445.72867560.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: Stefan Richter <stefanr-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4A2A2EED.3060506-MtYdepGKPcBMYopoZt5u/LNAH6kLmebB@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: mfuzzey@gmail.com, richard.rojfors@endian.se,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relais.videotron.ca ([24.201.245.36]:26407 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752833AbZFHWRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:17:24 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR002.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KKX00GCAXWX6CD0@VL-MO-MR002.ip.videotron.ca> for
+ netdev@vger.kernel.org; Mon, 08 Jun 2009 18:17:21 -0400 (EDT)
+In-reply-to: <20090608.144445.72867560.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 06, 2009 at 04:55:09AM -0400, Stefan Richter wrote:
-> David VomLehn wrote:
-> > Wait for the console device to become available.
-> > 
-> > History
-> > v6	Changed BOOTDEV_* to INITDEV_*.
-> > v5.1	Corrected call to initdev_register() to be initdev_registered().
-> > v5	Change bootdev_* to initdev_*.
-> > v4	Use new hotplug synchronization infrastructure. Include Braille
-> > 	console support.
-> > v3.2	Use only a single new command line parameter by adding the possible
-> > 	value "forever".  Add message specifying the parameter to modify to
-> > 	increase the delay for console initialization
-> > v3.1	Correct the abbreviation for milliseconds in
-> > 	Documentation/kernel-parameters.txt to be "ms", not "mS". Thanks to
-> > 	Peter Anvin for this.
-> > v3	Increase the default delay to 1 second and add kernel command line
-> > 	parameters to override the default delay. Thanks to David Brownell for
-> > 	his helpful suggestions.
-> > v2	Wait for the preferred console rather than any console. Make the
-> > 	delay interval a tunable.
-> > v1	Initial version
-> > 
-> > Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-> > ---
-> >  drivers/accessibility/braille/braille_console.c |    2 +
-> >  kernel/printk.c                                 |   29 ++++++++++++++++++++++-
-> >  2 files changed, 30 insertions(+), 1 deletions(-)
+On Mon, 8 Jun 2009, David Miller wrote:
+
+> From: Martin Fuzzey <mfuzzey@gmail.com>
+> Date: Mon, 08 Jun 2009 23:42:47 +0200
 > 
-> Is this diff complete?
+> > IMHO the place for board specific hacks is in the board specifc startup
+> > code - am I wrong?
+> 
+> We never add bootup time hacks for things that already have
+> a suitable generic and clean configuration interface.
 
-To the best of my knowledge, yes, it is complete. What makes it look as though
-it might not be?
+Maybe suitable in a workstation setup.
 
-> Stefan Richter
+> People ask for module options and all kinds of crap like that
+> to set link parameters, and we always say no.
 
-David VomLehn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And this is probably why there is still a disconnect between mainline 
+and embedded people.
+
+For some systems, the simple notion of a special ramdisk just makes the 
+whole thing 4 times more complex.
+
+Wouldn't it be possible to accommodate those people with a generic 
+ethtool module that simply interpret some kernel cmdline parameters in a 
+uniform and maintainable way to apply some settings during kernel boot?
+
+
+Nicolas
