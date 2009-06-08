@@ -1,52 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
-	queueing an extra skb.
-Date: Mon, 8 Jun 2009 15:22:47 +1000
-Message-ID: <20090608052247.GA19826@gondor.apana.org.au>
-References: <200905292346.04815.rusty@rustcorp.com.au> <200906022325.57961.rusty@rustcorp.com.au> <20090602234532.GA5417@gondor.apana.org.au> <200906031247.05591.rusty@rustcorp.com.au>
+From: Riccardo Ghetta <birrachiara@tin.it>
+Subject: [PATCH] sis190: fix for x86_64 (bug 11509)
+Date: Mon, 8 Jun 2009 07:47:58 +0200
+Message-ID: <20090608054758.GA21975@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51620 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751146AbZFHFWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 01:22:48 -0400
+Received: from vsmtp1.tin.it ([212.216.176.141]:52993 "EHLO vsmtp1.tin.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751467AbZFHFrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2009 01:47:51 -0400
 Content-Disposition: inline
-In-Reply-To: <200906031247.05591.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 03, 2009 at 12:47:04PM +0930, Rusty Russell wrote:
-> 
-> We could figure out if we can take the worst-case packet, and underutilize
-> our queue.  And fix the other *67* drivers.
+Corrected dma sync handling on small packets. Should fix 
+http://bugzilla.kernel.org/show_bug.cgi?id=11509
+Note:
+While this bug was reported only on x86_64, it could have affected
+any architecture.
 
-Most of those are for debugging purposes, i.e., they'll never
-happen unless the driver is buggy.
+Signed-off-by: Riccardo Ghetta <birrachiara@tin.it>
+---
+ drivers/net/sis190.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> Of course that doesn't even work, because we return NETDEV_TX_BUSY from dev.c!
-
-If and when your driver becomes part of the core and it has to
-feed into other drivers, then you can use this argument :)
-
-> "Hi, core netdevs here.  Don't use NETDEV_TX_BUSY.   Yeah, we can't figure out
-> how to avoid it either.  But y'know, just hack something together".
-
-No you've misunderstood my complaint.  I'm not trying to get you
-to replace NETDEV_TX_BUSY by the equally abhorrent queue in the
-driver, I'm saying that you should stop the queue before you get
-a packet that overflows by looking at the amount of free queue
-space after transmitting each packet.
-
-For most drivers this is easy to do.  What's so different about
-virtio-net that makes this impossible?
-
-Cheers,
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index f0d73ab..8a98524 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -540,8 +540,8 @@ static bool sis190_try_rx_copy(struct sis190_private *tp,
+ 	if (!skb)
+ 		goto out;
+ 
+-	pci_dma_sync_single_for_device(tp->pci_dev, addr, pkt_size,
+-				       PCI_DMA_FROMDEVICE);
++	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, tp->rx_buf_sz,
++				PCI_DMA_FROMDEVICE);
+ 	skb_reserve(skb, 2);
+ 	skb_copy_to_linear_data(skb, sk_buff[0]->data, pkt_size);
+ 	*sk_buff = skb;
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.2.4
+
