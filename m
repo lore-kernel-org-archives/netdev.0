@@ -1,36 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Mon, 08 Jun 2009 14:29:27 -0700 (PDT)
-Message-ID: <20090608.142927.122160930.davem@davemloft.net>
-References: <alpine.DEB.1.10.0906050959380.23895@gentwo.org>
-	<20090605.181613.147549237.davem@davemloft.net>
-	<alpine.DEB.1.10.0906081117580.21954@gentwo.org>
+Subject: Re: SOCK_RAW does not receive broadcast (with VLAN unless PROMISC)
+Date: Mon, 08 Jun 2009 14:34:54 -0700 (PDT)
+Message-ID: <20090608.143454.161329513.davem@davemloft.net>
+References: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
-To: cl@linux-foundation.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: gil.beniamini@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44126
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53564
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753288AbZFHV3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:29:25 -0400
-In-Reply-To: <alpine.DEB.1.10.0906081117580.21954@gentwo.org>
+	by vger.kernel.org with ESMTP id S1756610AbZFHVex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 17:34:53 -0400
+In-Reply-To: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Lameter <cl@linux-foundation.org>
-Date: Mon, 8 Jun 2009 11:20:31 -0400 (EDT)
-
-> On Fri, 5 Jun 2009, David Miller wrote:
-> 
->> It's fundamentally wrong.  You need some limit there.
-> 
-> Maybe we need a different approach but (since we are at the point of
-> talking about categorical fundamentally wrong statements) its
-> fundamentally wrong if the IPoIB layer works differently from a regular
-> Ethernet NIC. They should work in the same way.
-
-This I agree on.  When a multicast group is joined, the IPoIB layer
-should block in some way until the subscription is fully available
-for use.
+RnJvbTogR2lsIEJlbmlhbWluaSA8Z2lsLmJlbmlhbWluaUBnbWFpbC5jb20+DQpEYXRlOiBNb24s
+IDggSnVuIDIwMDkgMjE6MDU6MjUgKzAzMDANCg0KPiBEZWFyIExpbnV4IEV4cGVydHMsDQo+IA0K
+PiBNeSBhcHBsaWNhdGlvbiBpcyB1c2luZyBQRl9QQUNLRVQgYW5kIFNPQ0tfUkFXIGluIG9yZGVy
+IHRvIHJlY2VpdmUgYWxsDQo+IEV0aGVybmV0IHBhY2tldHMgZm9yIHRoZSBtYWNoaW5lLXVuaWNh
+c3QgTUFDIHBsdXMgYWxsIGJyb2FkY2FzdA0KPiBwYWNrZXRzIChsaWtlIEFSUCBicm9hZGNhc3Qp
+Lg0KDQpQbGVhc2UgcG9zdCBuZXR3b3JraW5nIHF1ZXN0aW9ucyBhbmQgcmVwb3J0cyB0byBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnDQp3aGljaCBpcyB3aGVyZSB0aGUgbmV0d29ya2luZyBleHBlcnRz
+IGFyZSBzdWJzY3JpYmVkLg0KDQpJIGFtIGFsc28gZnVsbHkgYXdhcmUgb2YgeW91ciBwcm9ibGVt
+IGFzIExpbnVzIFRvcnZhbGRzIGZvcndhcmRlZA0KeW91ciByZXBvcnQgdG8gbWUgbGFzdCB3ZWVr
+LCB5b3UganVzdCBuZWVkIHRvIGJlIHBhdGllbnQgYXMgSSBzaW1wbHkNCmhhdmVuJ3QgaGFkIGEg
+Y2hhbmNlIHRvIGxvb2sgaW50byBpdCB5ZXQuDQoNCj4gVGhhdCB3b3JrZWQgT0sgd2l0aCBrZXJu
+ZWwgMi42LjIwIChVYnVudHUgNy4wNCB3aXRoIG9yIHdpdGhvdXQgVkxBTikuDQo+IA0KPiBOb3cg
+d2l0aCBrZXJuZWwgMi42LjI4IChVYnVudHUgOS4wNCkgaXQgd29ya3MgT0sgb25seSB3aXRob3V0
+LVZMQU4sDQo+IGJ1dCB3aXRoIFZMQU4gdGhlIGFwcGxpY2F0aW9uIHJlY2VpdmUgb25seSBwYWNr
+ZXRzIGZvciB0aGUNCj4gbWFjaGluZS11bmljYXN0IE1BQywgYnV0IG5vIGJyb2FkY2FzdCAobGlr
+ZSBBUlAgYnJvYWRjYXN0KSBwYWNrZXRzLA0KPiBvbmx5IGlmIEkgc2V0IHRoZSBzb2NrZXQgdG8g
+UFJPTUlTQyBtb2RlLCBJIHN0YXJ0IHJlY2VpdmUgYWxzbw0KPiBicm9hZGNhc3QgcGFja2V0cy4N
+Cj4gDQo+IFRvIG1lIGl0IHNlZW1zIGEgYnVnLCBhcyBTT0NLX1JBVyBzaG91bGQgcGFzcyBhbGwg
+4oCYcmVjZWl2ZWTigJkgcGFja2V0DQo+IChpbmNsdWRpbmcgYnJvYWRjYXN0KSB0byB0aGUgYXBw
+bGljYXRpb24sIHdpdGhvdXQgdGhlIG5lZWQgZm9yIFBST01JU0MNCj4gKHdoaWNoIGNhdXNlIG15
+IG1hY2hpbmUgdG8gcmVjZWl2ZSBvdGhlciBtYWNoaW5lIHVuaWNhc3QgIHBhY2tldHMsIGFuZA0K
+PiBmaWx0ZXIgdGhvc2UgYnkgc29mdHdhcmUpIQ0KPiANCj4gVGhlIG9yaWdpbmFsIGFwcGxpY2F0
+aW9uOg0KPiANCj4gc29jaz1zb2NrZXQoUEZfUEFDS0VULCBTT0NLX1JBVywgaHRvbnMoRVRIX1Bf
+QUxMKSk7DQo+IG1lbXNldCgoY2hhciAqKSAmc29ja2FkLCAwLCBzaXplb2Yoc29ja2FkKSk7DQo+
+IHNvY2thZC5zbGxfZmFtaWx5ID0gUEZfUEFDS0VUOw0KPiBzb2NrYWQuc2xsX3Byb3RvY29sID0g
+aHRvbnMoRVRIX1BfQUxMKTsNCj4gc29ja2FkLnNsbF9pZmluZGV4ID0gZXRocmVxLmlmcl9pZmlu
+ZGV4Oy8vdGhlIHJlbGV2YW50IHVuaXQgbnVtYmVyDQo+IA0KPiANCj4gDQo+IE5vdyB0aGUgd29y
+a2Fyb3VuZCBpcyB0byBzZXQgKHVud2FudGVkKSBQUk9NSVNDIG1vZGU6DQo+IA0KPiBpb2N0bChz
+b2NrLFNJT0NHSUZGTEFHUywmZXRocmVxKTsNCj4gZXRocmVxLmlmcl9mbGFnc3w9SUZGX1BST01J
+U0M7IC8vIHdoeSBkb2VzIDkuMDQgbmVlZCB0aGlzICgrMHgxMDApIGF0DQo+IGxlYXN0IG9uY2U/
+IQ0KPiBpb2N0bChzb2NrLFNJT0NTSUZGTEFHUywmZXRocmVxKTsNCj4gDQo+IA0KPiBNYW55IHRo
+YW5rcyBpbiBhZHZhbmNlLA0KPiBHaWwgQmVuaWFtaW5pDQo+IGdpbC5iZW5pYW1pbmlAZ21haWwu
+Y29tDQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5l
+ICJ1bnN1YnNjcmliZSBsaW51eC1rZXJuZWwiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
+byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0
+dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPiBQbGVhc2UgcmVhZCB0
+aGUgRkFRIGF0ICBodHRwOi8vd3d3LnR1eC5vcmcvbGttbC8NCg0K
