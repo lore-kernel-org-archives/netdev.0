@@ -1,62 +1,57 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Mon, 08 Jun 2009 15:24:58 +0200
-Message-ID: <4A2D112A.4000308@hartkopp.net>
-References: <20090608130959.10052.54590.stgit@localhost> <20090608131138.10052.5408.stgit@localhost>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Mon, 08 Jun 2009 17:25:27 +0400
+Message-ID: <4A2D1147.8020101@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090608131138.10052.5408.stgit@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isrv.corpit.ru ([81.13.33.159]:47143 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754167AbZFHNZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Jun 2009 09:25:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer wrote:
-> This module uses rcu_call() thus it should use rcu_barrier()
-> on module unload.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+[Please excuse me for the resend, --
+  picked the wrong address for netdev again]
 
-Thanks Jesper for pointing at this issue!
+Hello.
 
-Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
+This is a resend (sort of) of several months old email.
+Previous email about this issue has been mostly ignored.
 
-Btw. i do agree with theses patches to be a bug fix that should go into
-2.6.30-rc8 as well as into the stable series.
+The situation is very simple: with an RTL8169 (probably
+onboard) GigE card which, by default, is configured to
+have MTU (maximal transmission unit) to be 1500 bytes,
+it's *trivial* to instantly crash the machine by sending
+it a *single* packet of size >1500 bytes (provided the
+network switch can handle jumbo frames).
 
-Best regards,
-Oliver
+I verified with on several different machines - all I were
+able to find with this card - and all behaves exactly the
+same.
 
+When sending a packet of size, say, 3000 bytes (ping -s 3000)
+from another machine to a machine running rtl8169 with no
+MTU configured, kernel OOPSes.
 
-> ---
-> 
->  net/can/af_can.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/can/af_can.c b/net/can/af_can.c
-> index 10f0528..e733725 100644
-> --- a/net/can/af_can.c
-> +++ b/net/can/af_can.c
-> @@ -903,6 +903,8 @@ static __exit void can_exit(void)
->  	}
->  	spin_unlock(&can_rcvlists_lock);
->  
-> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
-> +
->  	kmem_cache_destroy(rcv_cache);
->  }
->  
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I captured one such OOPS (unfortunately without the first
+line few lines) here:
 
+  http://www.corpit.ru/mjt/r8169-mtu-oops.jpg
+
+(since the network goes boom at that time, no network console
+is working).
+
+But for anyone familiar with the driver's internals it
+should be easy to figure the issue out.
+
+This is, in my opinion, quite a serious issue.  And I've no
+idea why it is being ignored for several months.
+
+Thanks.
+
+/mjt
