@@ -1,35 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 2/4] udp: Handle large UFO packets from
-	untrusted sources
-Date: Mon, 8 Jun 2009 15:16:08 +1000
-Message-ID: <20090608051608.GA19748@gondor.apana.org.au>
-References: <1244247391.1526.171.camel@w-sridhar.beaverton.ibm.com>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: tg3 stops working when NFS is involved
+Date: Sun, 7 Jun 2009 22:18:52 -0700 (PDT)
+Message-ID: <alpine.DEB.2.01.0906072215000.6439@bogon>
+References: <alpine.DEB.2.01.0906072115420.6439@bogon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1244247391.1526.171.camel@w-sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.188]:61197 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbZFHFSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 01:18:50 -0400
+In-Reply-To: <alpine.DEB.2.01.0906072115420.6439@bogon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 05, 2009 at 05:16:31PM -0700, Sridhar Samudrala wrote:
->
-> +	/* Software UFO is not yet supported */
-> +	segs = ERR_PTR(-EPROTONOSUPPORT);
+On Sun, 7 Jun 2009, Christian Kujau wrote:
+> anything else - so, I figure it's not a client problem. And I'm not sure 
+> if it's NFS problem either, because restarting the NFS server doesn't do 
+> anything, I really have to rmmod/modprobe the tg3 module. OTOH, I cannot 
+> reproduce this without NFS: running e.g. iperf (TCP, UDP) did not trigger 
+> it.
 
-Hmm, we need to fill this in before you start using it for virt.
-After all, it's very difficult for the guest to know whether the
-output device on the host is going to be able to do UFO or not.
+Just tested with Samba - after a few megabytes of transmitted data, tg3 stops 
+working, with no messages printed in the kernel log :-\
 
-The whole reason I did GSO in the first place is to allow the guest
-not to worry about whether the host supported TSO in hardware.
+I don't know why iperf does not trigger it though....
 
-Cheers,
+Christian.
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+BOFH excuse #271:
+
+The kernel license has expired
