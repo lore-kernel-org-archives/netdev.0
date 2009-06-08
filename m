@@ -1,10 +1,12 @@
 From: Sergey Lapin <slapin@ossfans.org>
-Subject: [PATCH 3/5] net: add NL802154 interface for configuration of 802.15.4 devices
-Date: Tue,  9 Jun 2009 02:18:49 +0400
-Message-ID: <8fbaa9563787380929a369db47592935df13f90e.1244498868.git.slapin@ossfans.org>
+Subject: [PATCH 5/5] ieee802154: add simple HardMAC driver sample
+Date: Tue,  9 Jun 2009 02:18:51 +0400
+Message-ID: <158f6980ec7b725b7a0d57c3b8d5b72ec97e0731.1244498868.git.slapin@ossfans.org>
 References: <cover.1244498867.git.slapin@ossfans.org>
  <a6f8fdbe615e37cf74816a1b92490c778bcc9035.1244498868.git.slapin@ossfans.org>
  <192f492e65e4023d0cf75ff40052c41e8a3e79d5.1244498868.git.slapin@ossfans.org>
+ <8fbaa9563787380929a369db47592935df13f90e.1244498868.git.slapin@ossfans.org>
+ <30584943dc5972320f48c617b3aa940916516ff8.1244498868.git.slapin@ossfans.org>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
 	David Miller <davem@davemloft.net>,
@@ -12,226 +14,89 @@ Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	Sergey Lapin <slapin@ossfans.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from build.ossfans.org ([67.223.233.67]:43064 "EHLO
+Received: from build.ossfans.org ([67.223.233.67]:43063 "EHLO
 	build.ossfans.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754628AbZFHWS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:18:59 -0400
-In-Reply-To: <192f492e65e4023d0cf75ff40052c41e8a3e79d5.1244498868.git.slapin@ossfans.org>
+	with ESMTP id S1754570AbZFHWS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 18:18:58 -0400
+In-Reply-To: <30584943dc5972320f48c617b3aa940916516ff8.1244498868.git.slapin@ossfans.org>
 In-Reply-To: <cover.1244498867.git.slapin@ossfans.org>
 References: <cover.1244498867.git.slapin@ossfans.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a netlink interface for configuration of IEEE 802.15.4 device. Also this
-interface specifies events notification sent by devices towards higher layers.
+fakehard is a really simple driver implementing only necessary
+callbacks and serves the role of an example of driver for HardMAC
+IEEE 802.15.4 device.
 
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Signed-off-by: Sergey Lapin <slapin@ossfans.org>
 ---
- include/linux/nl802154.h          |  119 +++++++++
- include/net/ieee802154/nl802154.h |   41 +++
- net/ieee802154/Makefile           |    3 +-
- net/ieee802154/netlink.c          |  523 +++++++++++++++++++++++++++++++++++++
- net/ieee802154/nl_policy.c        |   52 ++++
- 5 files changed, 737 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/nl802154.h
- create mode 100644 include/net/ieee802154/nl802154.h
- create mode 100644 net/ieee802154/netlink.c
- create mode 100644 net/ieee802154/nl_policy.c
+ drivers/Makefile              |    1 +
+ drivers/ieee802154/Kconfig    |   22 ++++
+ drivers/ieee802154/Makefile   |    3 +
+ drivers/ieee802154/fakehard.c |  270 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/Kconfig           |    2 +
+ 5 files changed, 298 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ieee802154/Kconfig
+ create mode 100644 drivers/ieee802154/Makefile
+ create mode 100644 drivers/ieee802154/fakehard.c
 
-diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+diff --git a/drivers/Makefile b/drivers/Makefile
+index 1266ead..9e7d4e5 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -107,3 +107,4 @@ obj-$(CONFIG_SSB)		+= ssb/
+ obj-$(CONFIG_VIRTIO)		+= virtio/
+ obj-$(CONFIG_STAGING)		+= staging/
+ obj-y				+= platform/
++obj-y				+= ieee802154/
+diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
 new file mode 100644
-index 0000000..2cda00c
+index 0000000..25740bd
 --- /dev/null
-+++ b/include/linux/nl802154.h
-@@ -0,0 +1,119 @@
-+/*
-+ * nl802154.h
-+ *
-+ * Copyright (C) 2007, 2008, 2009 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ */
++++ b/drivers/ieee802154/Kconfig
+@@ -0,0 +1,22 @@
++menuconfig IEEE802154_DRIVERS
++	bool "IEEE 802.15.4 drivers"
++	depends on NETDEVICES && IEEE802154
++	default y
++	---help---
++	  Say Y here to get to see options for IEEE 802.15.4 Low-Rate
++	  Wireless Personal Area Network device drivers. This option alone
++	  does not add any kernel code.
 +
-+#ifndef NL802154_H
-+#define NL802154_H
++	  If you say N, all options in this submenu will be skipped and
++	  disabled.
 +
-+#define IEEE802154_NL_NAME "802.15.4 MAC"
-+#define IEEE802154_MCAST_COORD_NAME "coordinator"
-+#define IEEE802154_MCAST_BEACON_NAME "beacon"
++config IEEE802154_FAKEHARD
++	tristate "Fake LR-WPAN driver with several interconnected devices"
++	depends on  IEEE802154_DRIVERS
++	---help---
++	  Say Y here to enable the fake driver that serves as an example
++          of HardMAC device driver.
 +
-+enum {
-+	__IEEE802154_ATTR_INVALID,
++          This driver can also be built as a module. To do so say M here.
++	  The module will be called 'fakehard'.
 +
-+	IEEE802154_ATTR_DEV_NAME,
-+	IEEE802154_ATTR_DEV_INDEX,
-+
-+	IEEE802154_ATTR_STATUS,
-+
-+	IEEE802154_ATTR_SHORT_ADDR,
-+	IEEE802154_ATTR_HW_ADDR,
-+	IEEE802154_ATTR_PAN_ID,
-+
-+	IEEE802154_ATTR_CHANNEL,
-+
-+	IEEE802154_ATTR_COORD_SHORT_ADDR,
-+	IEEE802154_ATTR_COORD_HW_ADDR,
-+	IEEE802154_ATTR_COORD_PAN_ID,
-+
-+	IEEE802154_ATTR_SRC_SHORT_ADDR,
-+	IEEE802154_ATTR_SRC_HW_ADDR,
-+	IEEE802154_ATTR_SRC_PAN_ID,
-+
-+	IEEE802154_ATTR_DEST_SHORT_ADDR,
-+	IEEE802154_ATTR_DEST_HW_ADDR,
-+	IEEE802154_ATTR_DEST_PAN_ID,
-+
-+	IEEE802154_ATTR_CAPABILITY,
-+	IEEE802154_ATTR_REASON,
-+	IEEE802154_ATTR_SCAN_TYPE,
-+	IEEE802154_ATTR_CHANNELS,
-+	IEEE802154_ATTR_DURATION,
-+	IEEE802154_ATTR_ED_LIST,
-+	IEEE802154_ATTR_BCN_ORD,
-+	IEEE802154_ATTR_SF_ORD,
-+	IEEE802154_ATTR_PAN_COORD,
-+	IEEE802154_ATTR_BAT_EXT,
-+	IEEE802154_ATTR_COORD_REALIGN,
-+	IEEE802154_ATTR_SEC,
-+
-+	__IEEE802154_ATTR_MAX,
-+};
-+
-+#define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
-+
-+extern struct nla_policy ieee802154_policy[];
-+
-+/* commands */
-+/* REQ should be responded with CONF
-+ * and INDIC with RESP
-+ */
-+enum {
-+	__IEEE802154_COMMAND_INVALID,
-+
-+	IEEE802154_ASSOCIATE_REQ,
-+	IEEE802154_ASSOCIATE_CONF,
-+	IEEE802154_DISASSOCIATE_REQ,
-+	IEEE802154_DISASSOCIATE_CONF,
-+	IEEE802154_GET_REQ,
-+	IEEE802154_GET_CONF,
-+	IEEE802154_RESET_REQ,
-+	IEEE802154_RESET_CONF,
-+	IEEE802154_SCAN_REQ,
-+	IEEE802154_SCAN_CONF,
-+	IEEE802154_SET_REQ,
-+	IEEE802154_SET_CONF,
-+	IEEE802154_START_REQ,
-+	IEEE802154_START_CONF,
-+	IEEE802154_SYNC_REQ,
-+	IEEE802154_POLL_REQ,
-+	IEEE802154_POLL_CONF,
-+
-+	IEEE802154_ASSOCIATE_INDIC,
-+	IEEE802154_ASSOCIATE_RESP,
-+	IEEE802154_DISASSOCIATE_INDIC,
-+	IEEE802154_BEACON_NOTIFY_INDIC,
-+	IEEE802154_ORPHAN_INDIC,
-+	IEEE802154_ORPHAN_RESP,
-+	IEEE802154_COMM_STATUS_INDIC,
-+	IEEE802154_SYNC_LOSS_INDIC,
-+
-+	IEEE802154_GTS_REQ, /* Not supported yet */
-+	IEEE802154_GTS_INDIC, /* Not supported yet */
-+	IEEE802154_GTS_CONF, /* Not supported yet */
-+	IEEE802154_RX_ENABLE_REQ, /* Not supported yet */
-+	IEEE802154_RX_ENABLE_CONF, /* Not supported yet */
-+
-+	__IEEE802154_CMD_MAX,
-+};
-+
-+#define IEEE802154_CMD_MAX (__IEEE802154_CMD_MAX - 1)
-+
-+#endif
-diff --git a/include/net/ieee802154/nl802154.h b/include/net/ieee802154/nl802154.h
+diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
 new file mode 100644
-index 0000000..78efcdf
+index 0000000..e0e8e1a
 --- /dev/null
-+++ b/include/net/ieee802154/nl802154.h
-@@ -0,0 +1,41 @@
-+/*
-+ * nl802154.h
-+ *
-+ * Copyright (C) 2007, 2008, 2009 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ */
++++ b/drivers/ieee802154/Makefile
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_IEEE802154_FAKEHARD) += fakehard.o
 +
-+#ifndef IEEE802154_NL_H
-+#define IEEE802154_NL_H
-+
-+struct net_device;
-+struct ieee802154_addr;
-+
-+int ieee802154_nl_assoc_indic(struct net_device *dev,
-+		struct ieee802154_addr *addr, u8 cap);
-+int ieee802154_nl_assoc_confirm(struct net_device *dev,
-+		u16 short_addr, u8 status);
-+int ieee802154_nl_disassoc_indic(struct net_device *dev,
-+		struct ieee802154_addr *addr, u8 reason);
-+int ieee802154_nl_disassoc_confirm(struct net_device *dev,
-+		u8 status);
-+int ieee802154_nl_scan_confirm(struct net_device *dev,
-+		u8 status, u8 scan_type, u32 unscanned,
-+		u8 *edl/*, struct list_head *pan_desc_list */);
-+int ieee802154_nl_beacon_indic(struct net_device *dev, u16 panid,
-+		u16 coord_addr);
-+
-+#endif
-diff --git a/net/ieee802154/Makefile b/net/ieee802154/Makefile
-index 7451c7c..f99338a 100644
---- a/net/ieee802154/Makefile
-+++ b/net/ieee802154/Makefile
-@@ -1,4 +1,5 @@
--obj-$(CONFIG_IEEE802154) +=	af_802154.o
-+obj-$(CONFIG_IEEE802154) +=	nl802154.o af_802154.o
-+nl802154-y		:= netlink.o nl_policy.o
- af_802154-y		:= af_ieee802154.o raw.o dgram.o
- 
- ccflags-y += -Wall -DDEBUG
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
++EXTRA_CFLAGS += -DDEBUG -DCONFIG_FFD
+diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
 new file mode 100644
-index 0000000..105ad10
+index 0000000..0384144
 --- /dev/null
-+++ b/net/ieee802154/netlink.c
-@@ -0,0 +1,523 @@
++++ b/drivers/ieee802154/fakehard.c
+@@ -0,0 +1,270 @@
 +/*
-+ * Netlink inteface for IEEE 802.15.4 stack
++ * Sample driver for HardMAC IEEE 802.15.4 devices
 + *
-+ * Copyright 2007, 2008 Siemens AG
++ * Copyright (C) 2009 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -247,568 +112,270 @@ index 0000000..105ad10
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + *
 + * Written by:
-+ * Sergey Lapin <slapin@ossfans.org>
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
++ * Dmitry Eremin-Solenikov <dmitry.baryshkov@siemens.com>
 + */
-+
 +#include <linux/kernel.h>
-+#include <linux/if_arp.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
 +#include <linux/netdevice.h>
-+#include <net/netlink.h>
-+#include <net/genetlink.h>
-+#include <linux/nl802154.h>
++#include <linux/skbuff.h>
++#include <linux/if_arp.h>
++
 +#include <net/ieee802154/af_ieee802154.h>
-+#include <net/ieee802154/nl802154.h>
 +#include <net/ieee802154/netdevice.h>
++#include <net/ieee802154/mac_def.h>
++#include <net/ieee802154/nl802154.h>
 +
-+static unsigned int ieee802154_seq_num;
-+
-+static struct genl_family ieee802154_coordinator_family = {
-+	.id		= GENL_ID_GENERATE,
-+	.hdrsize	= 0,
-+	.name		= IEEE802154_NL_NAME,
-+	.version	= 1,
-+	.maxattr	= IEEE802154_ATTR_MAX,
-+};
-+
-+static struct genl_multicast_group ieee802154_coord_mcgrp = {
-+	.name		= IEEE802154_MCAST_COORD_NAME,
-+};
-+
-+static struct genl_multicast_group ieee802154_beacon_mcgrp = {
-+	.name		= IEEE802154_MCAST_BEACON_NAME,
-+};
-+
-+/* Requests to userspace */
-+static struct sk_buff *ieee802154_nl_create(int flags, u8 req)
++static u16 fake_get_pan_id(struct net_device *dev)
 +{
-+	void *hdr;
-+	struct sk_buff *msg = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
 +
-+	if (!msg)
-+		return NULL;
-+
-+	hdr = genlmsg_put(msg, 0, ieee802154_seq_num++,
-+			&ieee802154_coordinator_family, flags, req);
-+	if (!hdr) {
-+		nlmsg_free(msg);
-+		return NULL;
-+	}
-+
-+	return msg;
++	return 0xeba1;
 +}
 +
-+static int ieee802154_nl_finish(struct sk_buff *msg)
++static u16 fake_get_short_addr(struct net_device *dev)
 +{
-+	/* XXX: nlh is right at the start of msg */
-+	void *hdr = genlmsg_data(NLMSG_DATA(msg->data));
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
 +
-+	if (!genlmsg_end(msg, hdr))
-+		goto out;
-+
-+	return genlmsg_multicast(msg, 0, ieee802154_coord_mcgrp.id,
-+			GFP_ATOMIC);
-+out:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
++	return 0x1;
 +}
 +
-+int ieee802154_nl_assoc_indic(struct net_device *dev,
-+		struct ieee802154_addr *addr, u8 cap)
++static u8 fake_get_dsn(struct net_device *dev)
 +{
-+	struct sk_buff *msg;
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
 +
-+	pr_debug("%s\n", __func__);
-+
-+	if (addr->addr_type != IEEE802154_ADDR_LONG) {
-+		pr_err("%s: received non-long source address!\n", __func__);
-+		return -EINVAL;
-+	}
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_ASSOCIATE_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+
-+	NLA_PUT(msg, IEEE802154_ATTR_SRC_HW_ADDR, IEEE802154_ADDR_LEN,
-+			addr->hwaddr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_CAPABILITY, cap);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
++	return 0x00; /* DSN are implemented in HW, so return just 0 */
 +}
-+EXPORT_SYMBOL(ieee802154_nl_assoc_indic);
 +
-+int ieee802154_nl_assoc_confirm(struct net_device *dev, u16 short_addr,
-+		u8 status)
++static u8 fake_get_bsn(struct net_device *dev)
 +{
-+	struct sk_buff *msg;
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
 +
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_ASSOCIATE_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_SHORT_ADDR, short_addr);
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
++	return 0x00; /* BSN are implemented in HW, so return just 0 */
 +}
-+EXPORT_SYMBOL(ieee802154_nl_assoc_confirm);
 +
-+int ieee802154_nl_disassoc_indic(struct net_device *dev,
++static int fake_assoc_req(struct net_device *dev,
++		struct ieee802154_addr *addr, u8 channel, u8 cap)
++{
++	/* We simply emulate it here */
++	return ieee802154_nl_assoc_confirm(dev, fake_get_short_addr(dev),
++			IEEE802154_SUCCESS);
++}
++
++static int fake_assoc_resp(struct net_device *dev,
++		struct ieee802154_addr *addr, u16 short_addr, u8 status)
++{
++	return 0;
++}
++
++static int fake_disassoc_req(struct net_device *dev,
 +		struct ieee802154_addr *addr, u8 reason)
 +{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_DISASSOCIATE_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+
-+	if (addr->addr_type == IEEE802154_ADDR_LONG)
-+		NLA_PUT(msg, IEEE802154_ATTR_SRC_HW_ADDR, IEEE802154_ADDR_LEN,
-+				addr->hwaddr);
-+	else
-+		NLA_PUT_U16(msg, IEEE802154_ATTR_SRC_SHORT_ADDR,
-+				addr->short_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_REASON, reason);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
++	return ieee802154_nl_disassoc_confirm(dev, IEEE802154_SUCCESS);
 +}
-+EXPORT_SYMBOL(ieee802154_nl_disassoc_indic);
 +
-+int ieee802154_nl_disassoc_confirm(struct net_device *dev, u8 status)
++static int fake_start_req(struct net_device *dev, struct ieee802154_addr *addr,
++				u8 channel,
++				u8 bcn_ord, u8 sf_ord, u8 pan_coord, u8 blx,
++				u8 coord_realign)
 +{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_DISASSOCIATE_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
++	return 0;
 +}
-+EXPORT_SYMBOL(ieee802154_nl_disassoc_confirm);
 +
-+int ieee802154_nl_beacon_indic(struct net_device *dev,
-+		u16 panid, u16 coord_addr)
++static int fake_scan_req(struct net_device *dev, u8 type, u32 channels,
++		u8 duration)
 +{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_BEACON_NOTIFY_INDIC);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_SHORT_ADDR, coord_addr);
-+	NLA_PUT_U16(msg, IEEE802154_ATTR_COORD_PAN_ID, panid);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
-+}
-+EXPORT_SYMBOL(ieee802154_nl_beacon_indic);
-+
-+int ieee802154_nl_scan_confirm(struct net_device *dev,
-+		u8 status, u8 scan_type, u32 unscanned,
-+		u8 *edl/* , struct list_head *pan_desc_list */)
-+{
-+	struct sk_buff *msg;
-+
-+	pr_debug("%s\n", __func__);
-+
-+	msg = ieee802154_nl_create(0, IEEE802154_SCAN_CONF);
-+	if (!msg)
-+		return -ENOBUFS;
-+
-+	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_DEV_INDEX, dev->ifindex);
-+	NLA_PUT(msg, IEEE802154_ATTR_HW_ADDR, IEEE802154_ADDR_LEN,
-+			dev->dev_addr);
-+
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_STATUS, status);
-+	NLA_PUT_U8(msg, IEEE802154_ATTR_SCAN_TYPE, scan_type);
-+	NLA_PUT_U32(msg, IEEE802154_ATTR_CHANNELS, unscanned);
-+
-+	if (edl)
-+		NLA_PUT(msg, IEEE802154_ATTR_ED_LIST, 27, edl);
-+
-+	return ieee802154_nl_finish(msg);
-+
-+nla_put_failure:
-+	nlmsg_free(msg);
-+	return -ENOBUFS;
-+}
-+EXPORT_SYMBOL(ieee802154_nl_scan_confirm);
-+
-+/* Requests from userspace */
-+static struct net_device *ieee802154_nl_get_dev(struct genl_info *info)
-+{
-+	struct net_device *dev;
-+
-+	if (info->attrs[IEEE802154_ATTR_DEV_NAME]) {
-+		char name[IFNAMSIZ + 1];
-+		nla_strlcpy(name, info->attrs[IEEE802154_ATTR_DEV_NAME],
-+				sizeof(name));
-+		dev = dev_get_by_name(&init_net, name);
-+	} else if (info->attrs[IEEE802154_ATTR_DEV_INDEX])
-+		dev = dev_get_by_index(&init_net,
-+				nla_get_u32(info->attrs[IEEE802154_ATTR_DEV_INDEX]));
-+	else
-+		return NULL;
-+
-+	if (dev->type != ARPHRD_IEEE802154) {
-+		dev_put(dev);
-+		return NULL;
-+	}
-+
-+	return dev;
++	u8 edl[27] = {};
++	return ieee802154_nl_scan_confirm(dev, IEEE802154_SUCCESS, type,
++			channels,
++			type == IEEE802154_MAC_SCAN_ED ? edl : NULL);
 +}
 +
-+static int ieee802154_associate_req(struct sk_buff *skb,
-+		struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
++static struct ieee802154_mlme_ops fake_mlme = {
++	.assoc_req = fake_assoc_req,
++	.assoc_resp = fake_assoc_resp,
++	.disassoc_req = fake_disassoc_req,
++	.start_req = fake_start_req,
++	.scan_req = fake_scan_req,
 +
-+	if (!info->attrs[IEEE802154_ATTR_CHANNEL] ||
-+	    !info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
-+	    (!info->attrs[IEEE802154_ATTR_COORD_HW_ADDR] &&
-+		!info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]) ||
-+	    !info->attrs[IEEE802154_ATTR_CAPABILITY])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	if (info->attrs[IEEE802154_ATTR_COORD_HW_ADDR]) {
-+		addr.addr_type = IEEE802154_ADDR_LONG;
-+		nla_memcpy(addr.hwaddr,
-+				info->attrs[IEEE802154_ATTR_COORD_HW_ADDR],
-+				IEEE802154_ADDR_LEN);
-+	} else {
-+		addr.addr_type = IEEE802154_ADDR_SHORT;
-+		addr.short_addr = nla_get_u16(
-+				info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
-+	}
-+	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
-+
-+	ret = ieee802154_mlme_ops(dev)->assoc_req(dev, &addr,
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]),
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_CAPABILITY]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_associate_resp(struct sk_buff *skb,
-+		struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
-+
-+	if (!info->attrs[IEEE802154_ATTR_STATUS] ||
-+	    !info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] ||
-+	    !info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	addr.addr_type = IEEE802154_ADDR_LONG;
-+	nla_memcpy(addr.hwaddr, info->attrs[IEEE802154_ATTR_DEST_HW_ADDR],
-+			IEEE802154_ADDR_LEN);
-+	addr.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
-+
-+
-+	ret = ieee802154_mlme_ops(dev)->assoc_resp(dev, &addr,
-+		nla_get_u16(info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]),
-+		nla_get_u8(info->attrs[IEEE802154_ATTR_STATUS]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_disassociate_req(struct sk_buff *skb,
-+		struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+	int ret = -EINVAL;
-+
-+	if ((!info->attrs[IEEE802154_ATTR_DEST_HW_ADDR] &&
-+		!info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]) ||
-+	    !info->attrs[IEEE802154_ATTR_REASON])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	if (info->attrs[IEEE802154_ATTR_DEST_HW_ADDR]) {
-+		addr.addr_type = IEEE802154_ADDR_LONG;
-+		nla_memcpy(addr.hwaddr,
-+				info->attrs[IEEE802154_ATTR_DEST_HW_ADDR],
-+				IEEE802154_ADDR_LEN);
-+	} else {
-+		addr.addr_type = IEEE802154_ADDR_SHORT;
-+		addr.short_addr = nla_get_u16(
-+				info->attrs[IEEE802154_ATTR_DEST_SHORT_ADDR]);
-+	}
-+	addr.pan_id = ieee802154_mlme_ops(dev)->get_pan_id(dev);
-+
-+	ret = ieee802154_mlme_ops(dev)->disassoc_req(dev, &addr,
-+			nla_get_u8(info->attrs[IEEE802154_ATTR_REASON]));
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+/*
-+ * PANid, channel, beacon_order = 15, superframe_order = 15,
-+ * PAN_coordinator, battery_life_extension = 0,
-+ * coord_realignment = 0, security_enable = 0
-+*/
-+static int ieee802154_start_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	struct ieee802154_addr addr;
-+
-+	u8 channel, bcn_ord, sf_ord;
-+	int pan_coord, blx, coord_realign;
-+	int ret;
-+
-+	if (!info->attrs[IEEE802154_ATTR_COORD_PAN_ID] ||
-+	    !info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR] ||
-+	    !info->attrs[IEEE802154_ATTR_CHANNEL] ||
-+	    !info->attrs[IEEE802154_ATTR_BCN_ORD] ||
-+	    !info->attrs[IEEE802154_ATTR_SF_ORD] ||
-+	    !info->attrs[IEEE802154_ATTR_PAN_COORD] ||
-+	    !info->attrs[IEEE802154_ATTR_BAT_EXT] ||
-+	    !info->attrs[IEEE802154_ATTR_COORD_REALIGN]
-+	 )
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	addr.addr_type = IEEE802154_ADDR_SHORT;
-+	addr.short_addr = nla_get_u16(
-+			info->attrs[IEEE802154_ATTR_COORD_SHORT_ADDR]);
-+	addr.pan_id = nla_get_u16(info->attrs[IEEE802154_ATTR_COORD_PAN_ID]);
-+
-+	channel = nla_get_u8(info->attrs[IEEE802154_ATTR_CHANNEL]);
-+	bcn_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_BCN_ORD]);
-+	sf_ord = nla_get_u8(info->attrs[IEEE802154_ATTR_SF_ORD]);
-+	pan_coord = nla_get_u8(info->attrs[IEEE802154_ATTR_PAN_COORD]);
-+	blx = nla_get_u8(info->attrs[IEEE802154_ATTR_BAT_EXT]);
-+	coord_realign = nla_get_u8(info->attrs[IEEE802154_ATTR_COORD_REALIGN]);
-+
-+	ret = ieee802154_mlme_ops(dev)->start_req(dev, &addr, channel,
-+		bcn_ord, sf_ord, pan_coord, blx, coord_realign);
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+static int ieee802154_scan_req(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net_device *dev;
-+	int ret;
-+	u8 type;
-+	u32 channels;
-+	u8 duration;
-+
-+	if (!info->attrs[IEEE802154_ATTR_SCAN_TYPE] ||
-+	    !info->attrs[IEEE802154_ATTR_CHANNELS] ||
-+	    !info->attrs[IEEE802154_ATTR_DURATION])
-+		return -EINVAL;
-+
-+	dev = ieee802154_nl_get_dev(info);
-+	if (!dev)
-+		return -ENODEV;
-+
-+	type = nla_get_u8(info->attrs[IEEE802154_ATTR_SCAN_TYPE]);
-+	channels = nla_get_u32(info->attrs[IEEE802154_ATTR_CHANNELS]);
-+	duration = nla_get_u8(info->attrs[IEEE802154_ATTR_DURATION]);
-+
-+	ret = ieee802154_mlme_ops(dev)->scan_req(dev, type, channels,
-+			duration);
-+
-+	dev_put(dev);
-+	return ret;
-+}
-+
-+#define IEEE802154_OP(_cmd, _func)			\
-+	{						\
-+		.cmd	= _cmd,				\
-+		.policy	= ieee802154_policy,		\
-+		.doit	= _func,			\
-+		.dumpit	= NULL,				\
-+		.flags	= GENL_ADMIN_PERM,		\
-+	}
-+
-+static struct genl_ops ieee802154_coordinator_ops[] = {
-+	IEEE802154_OP(IEEE802154_ASSOCIATE_REQ, ieee802154_associate_req),
-+	IEEE802154_OP(IEEE802154_ASSOCIATE_RESP, ieee802154_associate_resp),
-+	IEEE802154_OP(IEEE802154_DISASSOCIATE_REQ, ieee802154_disassociate_req),
-+	IEEE802154_OP(IEEE802154_SCAN_REQ, ieee802154_scan_req),
-+	IEEE802154_OP(IEEE802154_START_REQ, ieee802154_start_req),
++	.get_pan_id = fake_get_pan_id,
++	.get_short_addr = fake_get_short_addr,
++	.get_dsn = fake_get_dsn,
++	.get_bsn = fake_get_bsn,
 +};
 +
-+static int __init ieee802154_nl_init(void)
++static int ieee802154_fake_open(struct net_device *dev)
 +{
-+	int rc;
-+	int i;
++	netif_start_queue(dev);
++	return 0;
++}
 +
-+	rc = genl_register_family(&ieee802154_coordinator_family);
-+	if (rc)
-+		goto fail;
++static int ieee802154_fake_close(struct net_device *dev)
++{
++	netif_stop_queue(dev);
++	return 0;
++}
 +
-+	rc = genl_register_mc_group(&ieee802154_coordinator_family,
-+			&ieee802154_coord_mcgrp);
-+	if (rc)
-+		goto fail;
++static int ieee802154_fake_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	skb->iif = dev->ifindex;
++	skb->dev = dev;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
 +
-+	rc = genl_register_mc_group(&ieee802154_coordinator_family,
-+			&ieee802154_beacon_mcgrp);
-+	if (rc)
-+		goto fail;
++	dev->trans_start = jiffies;
 +
-+
-+	for (i = 0; i < ARRAY_SIZE(ieee802154_coordinator_ops); i++) {
-+		rc = genl_register_ops(&ieee802154_coordinator_family,
-+				&ieee802154_coordinator_ops[i]);
-+		if (rc)
-+			goto fail;
-+	}
++	/* FIXME: do hardware work here ... */
 +
 +	return 0;
-+
-+fail:
-+	genl_unregister_family(&ieee802154_coordinator_family);
-+	return rc;
 +}
-+module_init(ieee802154_nl_init);
 +
-+static void __exit ieee802154_nl_exit(void)
++
++static int ieee802154_fake_ioctl(struct net_device *dev, struct ifreq *ifr,
++		int cmd)
 +{
-+	genl_unregister_family(&ieee802154_coordinator_family);
++	struct sockaddr_ieee802154 *sa =
++		(struct sockaddr_ieee802154 *)&ifr->ifr_addr;
++	u16 pan_id, short_addr;
++
++	switch (cmd) {
++	case SIOCGIFADDR:
++		/* FIXME: fixed here, get from device IRL */
++		pan_id = fake_get_pan_id(dev);
++		short_addr = fake_get_short_addr(dev);
++		if (pan_id == IEEE802154_PANID_BROADCAST ||
++		    short_addr == IEEE802154_ADDR_BROADCAST)
++			return -EADDRNOTAVAIL;
++
++		sa->family = AF_IEEE802154;
++		sa->addr.addr_type = IEEE802154_ADDR_SHORT;
++		sa->addr.pan_id = pan_id;
++		sa->addr.short_addr = short_addr;
++		return 0;
++	}
++	return -ENOIOCTLCMD;
 +}
-+module_exit(ieee802154_nl_exit);
 +
-diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
-new file mode 100644
-index 0000000..c7d71d1
---- /dev/null
-+++ b/net/ieee802154/nl_policy.c
-@@ -0,0 +1,52 @@
-+/*
-+ * nl802154.h
-+ *
-+ * Copyright (C) 2007, 2008 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ */
++static int ieee802154_fake_mac_addr(struct net_device *dev, void *p)
++{
++	return -EBUSY; /* HW address is built into the device */
++}
 +
-+#include <linux/kernel.h>
-+#include <net/netlink.h>
-+#include <linux/nl802154.h>
-+
-+#define NLA_HW_ADDR NLA_U64
-+
-+struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
-+	[IEEE802154_ATTR_DEV_NAME] = { .type = NLA_STRING, },
-+	[IEEE802154_ATTR_DEV_INDEX] = { .type = NLA_U32, },
-+
-+	[IEEE802154_ATTR_STATUS] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_CHANNEL] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_COORD_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_COORD_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_COORD_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_SRC_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_SRC_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_SRC_PAN_ID] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_DEST_SHORT_ADDR] = { .type = NLA_U16, },
-+	[IEEE802154_ATTR_DEST_HW_ADDR] = { .type = NLA_HW_ADDR, },
-+	[IEEE802154_ATTR_DEST_PAN_ID] = { .type = NLA_U16, },
-+
-+	[IEEE802154_ATTR_CAPABILITY] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_REASON] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_SCAN_TYPE] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_CHANNELS] = { .type = NLA_U32, },
-+	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
-+	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
++static const struct net_device_ops fake_ops = {
++	.ndo_open		= ieee802154_fake_open,
++	.ndo_stop		= ieee802154_fake_close,
++	.ndo_start_xmit		= ieee802154_fake_xmit,
++	.ndo_do_ioctl		= ieee802154_fake_ioctl,
++	.ndo_set_mac_address	= ieee802154_fake_mac_addr,
 +};
++
++
++static void ieee802154_fake_setup(struct net_device *dev)
++{
++	dev->addr_len		= IEEE802154_ADDR_LEN;
++	memset(dev->broadcast, 0xff, IEEE802154_ADDR_LEN);
++	dev->features		= NETIF_F_NO_CSUM;
++	dev->needed_tailroom	= 2; /* FCS */
++	dev->mtu		= 127;
++	dev->tx_queue_len	= 10;
++	dev->type		= ARPHRD_IEEE802154;
++	dev->flags		= IFF_NOARP | IFF_BROADCAST;
++	dev->watchdog_timeo	= 0;
++}
++
++
++static int __devinit ieee802154fake_probe(struct platform_device *pdev)
++{
++	struct net_device *dev =
++		alloc_netdev(0, "hardwpan%d", ieee802154_fake_setup);
++	int err;
++
++	if (!dev)
++		return -ENOMEM;
++
++	memcpy(dev->dev_addr, "\xba\xbe\xca\xfe\xde\xad\xbe\xef",
++			dev->addr_len);
++	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
++
++	dev->netdev_ops = &fake_ops;
++	dev->ml_priv = &fake_mlme;
++
++	/*
++	 * If the name is a format string the caller wants us to do a
++	 * name allocation.
++	 */
++	if (strchr(dev->name, '%')) {
++		err = dev_alloc_name(dev, dev->name);
++		if (err < 0)
++			goto out;
++	}
++
++	SET_NETDEV_DEV(dev, &pdev->dev);
++
++	platform_set_drvdata(pdev, dev);
++
++	err = register_netdev(dev);
++	if (err < 0)
++		goto out;
++
++
++	dev_info(&pdev->dev, "Added ieee802154 HardMAC hardware\n");
++	return 0;
++
++out:
++	unregister_netdev(dev);
++	return err;
++}
++
++static int __devexit ieee802154fake_remove(struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++	unregister_netdev(dev);
++	free_netdev(dev);
++	return 0;
++}
++
++static struct platform_device *ieee802154fake_dev;
++
++static struct platform_driver ieee802154fake_driver = {
++	.probe = ieee802154fake_probe,
++	.remove = __devexit_p(ieee802154fake_remove),
++	.driver = {
++			.name = "ieee802154hardmac",
++			.owner = THIS_MODULE,
++	},
++};
++
++static __init int fake_init(void)
++{
++	ieee802154fake_dev = platform_device_register_simple(
++			"ieee802154hardmac", -1, NULL, 0);
++	return platform_driver_register(&ieee802154fake_driver);
++}
++
++static __exit void fake_exit(void)
++{
++	platform_driver_unregister(&ieee802154fake_driver);
++	platform_device_unregister(ieee802154fake_dev);
++}
++
++module_init(fake_init);
++module_exit(fake_exit);
++MODULE_LICENSE("GPL");
++
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 214a92d..ec8cf21 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2704,6 +2704,8 @@ source "drivers/net/wan/Kconfig"
+ 
+ source "drivers/atm/Kconfig"
+ 
++source "drivers/ieee802154/Kconfig"
++
+ source "drivers/s390/net/Kconfig"
+ 
+ config XEN_NETDEV_FRONTEND
 -- 
 1.6.3.1
 
