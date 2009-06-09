@@ -1,108 +1,119 @@
-From: Ion Badulescu <ionut@badula.org>
-Subject: weird bug with 2.6.28.9/10 tg3 and bcm5722 nic's
-Date: Tue, 9 Jun 2009 10:29:21 -0400 (EDT)
-Message-ID: <alpine.LRH.2.00.0906090954060.6437@ionlinux.tower-research.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: error handling for dev_mc_sync (__dev_addr_add)
+Date: Tue, 09 Jun 2009 16:43:26 +0200
+Message-ID: <1244558606.4672.25.camel@johannes.local>
+References: <1244556667.4672.18.camel@johannes.local>
+	 <4A2E7376.4080407@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-DS7B8XMvZJ+cOIceFxZ7"
+Cc: netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.limegroup.com ([64.48.93.2]:51236 "EHLO ns1.limegroup.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758868AbZFIOic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 10:38:32 -0400
-Received: from lithium-b.limegroup.com (lithium-b.limegroup.com [10.1.1.13])
-	by ns1.limegroup.com (8.13.1/8.13.1) with ESMTP id n59ETSiG029676
-	for <netdev@vger.kernel.org>; Tue, 9 Jun 2009 10:29:28 -0400
-Received: from ionlinux.tower-research.com (ionlinux.tower-research.com [10.0.20.21])
-	by lithium-b.limegroup.com (8.13.1/8.13.1) with ESMTP id n59ETNn5022051
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 9 Jun 2009 10:29:26 -0400
-Received: from ionlinux.tower-research.com (localhost.localdomain [127.0.0.1])
-	by ionlinux.tower-research.com (8.13.1/8.13.1) with ESMTP id n59ETNKV020602
-	for <netdev@vger.kernel.org>; Tue, 9 Jun 2009 10:29:23 -0400
-Received: from localhost (ion@localhost)
-	by ionlinux.tower-research.com (8.13.1/8.13.1/Submit) with ESMTP id n59ETLIJ020597
-	for <netdev@vger.kernel.org>; Tue, 9 Jun 2009 10:29:23 -0400
-Content-Disposition: inline
+Received: from xc.sipsolutions.net ([83.246.72.84]:42411 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbZFIOn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 10:43:59 -0400
+In-Reply-To: <4A2E7376.4080407@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I'm hitting the weirdest bug with 2.6.28.9/10 and bcm5722 interfaces on 
-a bunch of servers we use here. The interfaces are normally stable and 
-working well. However, if hald gets restarted, the interfaces stop 
-receiving packets in a matter of seconds, and require a down/up to get 
-them back to working.
+--=-DS7B8XMvZJ+cOIceFxZ7
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-When this happens, the rx_discard interface stat gets incremented, and I'm 
-pretty sure interrupts stop occurring for the interface, at least for rx.
+On Tue, 2009-06-09 at 16:36 +0200, Patrick McHardy wrote:
+> Johannes Berg wrote:
+> > I can't seem to figure out how to handle errors from dev_mc_sync(). I
+> > can see why it fails, looking at __dev_addr_add(), because memory
+> > allocations can fail. However, it seems that __dev_addr_sync() will the=
+n
+> > leave the netdev in a state where some addresses were added, but others
+> > were not. And ndo_set_multicast_list() cannot even return an error code=
+.
+> >=20
+> > So how am I supposed to handle the error? Isn't it possible that
+> > dev_mc_unsync() will then cause trouble because it removes something
+> > that wasn't actually added? OTOH, there always is da->synced, but then
+> > __dev_addr_sync() confuses me -- why does it not increment da->da_users=
+?
+>=20
+> It does:
+>=20
+> 	if (!da->da_synced) {
+> 		err =3D __dev_addr_add(to, to_count,
+> 				     da->da_addr, da->da_addrlen, 0);
+> 		if (err < 0)
+> 			break;
+> 		da->da_synced =3D 1;
+> 		da->da_users++;
+>=20
+> The problem on errors is that it can't determine which addresses
+> were added in this run, and which were previously. So it can't undo
+> just the actions of the last run. A generation count for da_synced
+> could be used to fix that, but it would need to be bigger than the
+> currently used u8.
 
-A little background:
+Hmm, ok, but in the da_synced case why is da_users not incremented? I
+don't claim to understand any of this code though :)
 
--- we're running a RHEL4 distribution with the minimal changes required to 
-use newer kernels
--- hal version is 0.4.7 (from FC3 with a a couple of fixes to prevent it 
-from segfaulting on newer kernels)
--- the problem does not occur when running kernel 2.6.23.16
--- the problem occurs very predictably when running kernel 2.6.28.10 on 
-the affected hardware
--- the affected hardware are the on-board interfaces on Dell R300 servers 
-and HP ProLiant DL160 G5p servers:
+> But that wouldn't fix the fundamental problem that almost no callers
+> of dev_mc_add checks for errors, so even if you abort and clean up
+> properly, the higher layers will take it as success and not retry.
 
-Dell R300# ethtool -i eth1
-driver: tg3
-version: 3.94
-firmware-version: 5722-v3.08, ASFIPMI v6.02
-bus-info: 0000:02:00.0
+True. Well, dev_mc_add() isn't exactly called a lot.
 
-Dell R300# cat /proc/interrupts | grep eth1
-758:     953465      39500      41436      41224   PCI-MSI-edge      eth1
+> > Basically what I need is the patch below to maintain a multicast list,
+> > but I'm wondering if it's all correct that way and what error handling =
+I
+> > need and am currently lacking if I ignore the return value of
+> > dev_mc_sync().
+>=20
+> Adding proper error handling looks like a bigger task. First we
+> need all the callers of multicast address manipulation functions
+> to actually check the return value and perform some kind of
+> recovery on failure - which might not be possible in all cases,
+> I'm not sure (IPv6).=20
 
+Right.
 
-HP DL160# ethtool -i eth1
-driver: tg3
-version: 3.94
-firmware-version: 5722-v3.07, ASFIPMI v6.02
-bus-info: 0000:04:00.0
+> Then we need to be able to propagate errors
+> from ->set_multicast_list() and abort address list changes when
+> synchronization fails - which is not particulary complicated, but
+> requires touching a lot of drivers.
 
-Dell R300# cat /proc/interrupts | grep eth1
-760:       2133         19         16  430865463         15         15         14         14   PCI-MSI-edge      eth1
+I think you're overstating? Regular drivers should need to be changed,
+would they, except for adding changing 'return' to 'return 0;' and
+adding a 'return 0;' at the end which is a quite simple spatch I'd
+think.
 
+Not that I want to do that now, I'm just confused by the semantics here,
+and the lack of error handling. Additionally, I'm worried if that might
+be causing the occasional 'multicast leaked' messages I was seeing, but
+I doubt it.
 
--- other hardware using the tg3 driver that's not affected includes 5721 
-and 5751 interfaces, some of them on-board Dell R200 and PE-860 servers, 
-others on add-on NIC's:
+johannes
 
-Dell PE-860# ethtool -i eth1
-driver: tg3
-version: 3.94
-firmware-version: 5721-v3.61, ASFIPMI v6.21
+--=-DS7B8XMvZJ+cOIceFxZ7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Dell PE-860# cat /proc/interrupts | grep eth1
-  17:    1416666          0   IO-APIC-fasteoi   eth1
+-----BEGIN PGP SIGNATURE-----
 
+iQIcBAABAgAGBQJKLnULAAoJEODzc/N7+Qma4SQP/0Xy9sun9RPEOlG394LFLJTj
+hPkxv+HusmCm450K726Orz0I4nW5YQPtgCkqg0ViiVoRcObbRKG7yyhAfQQcJTjr
+hM5+omY/yBSb0J9Qlu4MLgYu8b2gbUySrKOVub56f2AXBx9yDKzVx4v6ZeyQFElN
+7aX+LMTBnWSI+d4qNzrjx4K4p+UWlK3s2QFXYrPoR/LerhabufjNVEQ8exsJhS01
+j+CN13LxZAf1BZqOP2qhRxepdMVsTWJRyBsHMxSmVQbAH/kv+ZoW2FeRSJr7GXGR
+9/avjkrtEkmY/HBXra3ZUBtIYKbQaa3o03uwTsp0+XEgxA4qnKer5waF9XCxCRcY
+g9QKpHJ5SBLuNvCKxmJgGIs4vVr+pIkKUgncOArxN72QJUk3xxZQF2Sx2S4mMKgc
+qqiNrHddFz98id5e07GHp1s4vHSRkDHjEBqSpHnrMyCAZ2lLSFQlCss2o2wVhUpN
+f8T9DpaDw2p1d0ZTXtNhYHZ6l8TwkiVVS+eOLEuu9y6XGdNMErKrgch8kHPL+H/k
+mGPvGkEY9mLy+dof2aVu8lVb4XMVxsmkiLEtA4AwkR43AT7+Fjp8UHfTcpj92Oko
+EISK1w+w4+AoLsG34VZcMyTGlp0jrSJCJJaXMIVx70yzWowyyAnHXK5nVPaBj3ty
+sQCPYgr/GTeYHUn2yd8N
+=pylk
+-----END PGP SIGNATURE-----
 
-Add-on NIC# ethtool -i eth2
-driver: tg3
-version: 3.94
-firmware-version: 5751-v3.29a
+--=-DS7B8XMvZJ+cOIceFxZ7--
 
-Add-on NIC# cat /proc/interrupts | grep eth2
-  16:       1592         20         21 2050734806   IO-APIC-fasteoi   eth2
-
-
-Perhaps the other common ground here is that all affected interfaces use 
-MSI interrupts, whereas all the not-affected interfaces use APIC 
-interrupts, as seen above? But 2.6.23.16 uses the same kind of interrupts 
-and doesn't have this problem...
-
-As far as I can tell from a strace of 'service haldaemon restart', all 
-hald is doing is reading from a bunch of files from /sys. However, I tried 
-replicating those actions externally and the problem did not occur, so 
-maybe something else is going on there.
-
-Anyway, I'm stumped. Any help or insight would be appreciated...
-
-Thanks,
--Ion
