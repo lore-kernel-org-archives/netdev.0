@@ -1,36 +1,43 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: [patch] r8169: fix crash when large packets are received
-Date: Tue, 09 Jun 2009 12:59:02 +0400
-Message-ID: <4A2E2456.4020703@msgid.tls.msk.ru>
-References: <4A2D8B8B.80905@gmail.com>	<1244511638.30733.41.camel@localhost.localdomain> <20090608.195709.158667574.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jonathan@jonmasters.org, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	romieu@fr.zoreil.com, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 1/2 v3] netdev: smsc911x: allow building on any system
+Date: Tue,  9 Jun 2009 05:13:39 -0400
+Message-ID: <1244538819-11305-1-git-send-email-vapier@gentoo.org>
+References: <20090609.013718.135786197.davem@davemloft.net>
+Cc: uclinux-dist-devel@blackfin.uclinux.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([81.13.33.159]:33805 "EHLO isrv.corpit.ru"
+Received: from smtp.gentoo.org ([140.211.166.183]:37939 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751506AbZFII7B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 04:59:01 -0400
-In-Reply-To: <20090608.195709.158667574.davem@davemloft.net>
+	id S1754943AbZFIJNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2009 05:13:47 -0400
+In-Reply-To: <20090609.013718.135786197.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jon Masters <jonathan@jonmasters.org>
-> Date: Mon, 08 Jun 2009 21:40:38 -0400
-> 
->> CC -stable team - remote DoS with this hardware present.
-> 
-> "remote", if on the same physical subnet, otherwise easily protectable
-> if not impossible to trigger
+The smsc911x driver should build fine on any system as it contains no arch
+specific code (all platform resources), and any platform that has
+appropriate resources should run fine.
 
-"remote" as "from outside of the host in question".
-But still, this is definitely worth fixing.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+v3
+	- based on net-next
 
-Thanks.
+ drivers/net/Kconfig |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-/mjt
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 962b261..8c92abd 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1000,7 +1000,6 @@ config SMC911X
+ 
+ config SMSC911X
+ 	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
+-	depends on ARM || SUPERH || BLACKFIN
+ 	select CRC32
+ 	select MII
+ 	select PHYLIB
+-- 
+1.6.3.1
+
