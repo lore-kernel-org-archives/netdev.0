@@ -1,58 +1,80 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH] mlx4_en: added pci_device_id table
-Date: Tue, 09 Jun 2009 15:53:47 +0300
-Message-ID: <4A2E5B5B.7060701@mellanox.co.il>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: BUG: bonding module can only be loaded once
+Date: Tue, 9 Jun 2009 14:06:44 +0200
+Message-ID: <200906091406.45463.arnd@arndb.de>
+References: <20090608151127.70146505@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tziporet Koren <tziporet@mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	bonding-devel@lists.sf.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:54461 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754730AbZFIMEp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 08:04:45 -0400
+Received: from moutng.kundenserver.de ([212.227.126.186]:57812 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757651AbZFIMG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 08:06:56 -0400
+In-Reply-To: <20090608151127.70146505@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is required to ensure that mlx4_en module loads on boot when
-there are ConnectX devices installed.
-The driver is compound from two modules: mlx4_core, the low level module
-and mlx4_en. Currently mlx4_core is the only module that is loaded on boot,
-this is not enough to enable the ConnectX Ethernet interfaces.
+On Tuesday 09 June 2009, Stephen Hemminger wrote:
+> In order to create multiple bonding dynamically, it is common practice to
+> load the bonding module multiple times.  This got broken in recent kernels
+> 2.6.29 and later.
+> 
+> Doing the following will OOPS:
+>   modprobe -o bond0 bonding
+>   modprobe -o bond1 bonding
+> 
+> 2.6.29 actually OOPS on error handling, but that is fixed in 2.6.30.
+> But 2.6.30 still has the regression (caused by sysfs).
+> 
+> This regression was introduced by changes to sysfs and proc that
+> made duplicate insertion a problem.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/en_main.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+Well, I guess it's more like the changes just made it obvious that
+it's wrong to do this. Registering the same entries in procfs or sysfs 
+means that the user will only be able to talk to one of the two
+bonding drivers through these interfaces. 
 
-diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c
-index 9ed4a15..862696f 100644
---- a/drivers/net/mlx4/en_main.c
-+++ b/drivers/net/mlx4/en_main.c
-@@ -266,6 +266,22 @@ static struct mlx4_interface mlx4_en_interface = {
- 	.event	= mlx4_en_event,
- };
+The log messages you quoted are not actually Oops but rather WARNING,
+which is (in this case) not fatal at all, just an indication that the
+root user did something he should not have:
+
+> [  134.012578] WARNING: at fs/proc/generic.c:590 proc_register+0x154/0x191()
+> [  134.012583] proc_dir_entry 'net/bonding' already registered
+
+> [  134.014516] WARNING: at fs/sysfs/dir.c:487 sysfs_add_one+0xcc/0xe4()
+> [  134.014521] sysfs: cannot create duplicate filename '/class/net/bonding_masters'
+
+The bonding driver could work around this by checking if the directories
+already exist before registering them. One can also add rtnl_link_ops to
+the driver for dynamically adding more interfaces.
+
+If you combine the two, you can even print a helpful message like 'please
+use "ip link add type bonding" instead of "modprobe -o bond0 bonding"'.
+
+In the mean time, you could probably work around this by ignoring the error
+condition (see below), but I would suspect that there may be more problems
+with the concept of just loading the module again. The best advice to
+users is probably to configure the maximum number of bonding devices they
+might need with the max_bonds= module parameter (if I understand that
+parameter correctly.
+
+	Arnd <><
+
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -5203,7 +5203,7 @@ static int __init bonding_init(void)
  
-+static struct pci_device_id mlx4_en_pci_table[] = {
-+	{ PCI_VDEVICE(MELLANOX, 0x6340) }, /* MT25408 "Hermon" SDR */
-+	{ PCI_VDEVICE(MELLANOX, 0x634a) }, /* MT25408 "Hermon" DDR */
-+	{ PCI_VDEVICE(MELLANOX, 0x6354) }, /* MT25408 "Hermon" QDR */
-+	{ PCI_VDEVICE(MELLANOX, 0x6732) }, /* MT25408 "Hermon" DDR PCIe gen2 */
-+	{ PCI_VDEVICE(MELLANOX, 0x673c) }, /* MT25408 "Hermon" QDR PCIe gen2 */
-+	{ PCI_VDEVICE(MELLANOX, 0x6368) }, /* MT25408 "Hermon"EN 10GigE */
-+	{ PCI_VDEVICE(MELLANOX, 0x6750) }, /* MT25408 "Hermon"EN 10GigE + Gen2 */
-+	{ PCI_VDEVICE(MELLANOX, 0x6372) }, /* MT25408 "YATIR" EN 10GigE */
-+	{ PCI_VDEVICE(MELLANOX, 0x675a) }, /* MT25408 "YATIR" EN 10GigE + Gen2 */
-+	{ 0, }
-+};
-+
-+MODULE_DEVICE_TABLE(pci, mlx4_en_pci_table);
-+
-+
- static int __init mlx4_en_init(void)
- {
- 	return mlx4_register_interface(&mlx4_en_interface);
--- 
-1.6.0
-
+ 	res = bond_create_sysfs();
+ 	if (res)
+-		goto err;
++		pr_info("Loading bonding module without sysfs interface\n");
+ 
+ 	register_netdevice_notifier(&bond_netdev_notifier);
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
