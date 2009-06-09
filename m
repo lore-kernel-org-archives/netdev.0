@@ -1,78 +1,80 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] [PATCH] bonding: fix multiple module load problem
-Date: Tue, 09 Jun 2009 10:37:58 -0700
-Message-ID: <15545.1244569078@death.nxdomain.ibm.com>
-References: <20090608151127.70146505@nehalam> <200906091406.45463.arnd@arndb.de> <20090609080232.45f81833@nehalam> <4A2E80B3.6010600@trash.net> <4752.1244564082@death.nxdomain.ibm.com> <4A2E8D62.6090004@trash.net> <20090609102329.565e9019@nehalam>
-Cc: Patrick McHardy <kaber@trash.net>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bonding-devel@lists.sf.net, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH RESEND] ftrace: change the export format of
+	trace_kfree_skb()
+Date: Tue, 9 Jun 2009 20:27:32 +0200
+Message-ID: <20090609182730.GA6057@nowhere>
+References: <4A2DF91F.7030906@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo <mingo@elte.hu>, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:48462 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbZFIRh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 13:37:58 -0400
-In-reply-to: <20090609102329.565e9019@nehalam>
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:40381 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbZFIS1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 14:27:35 -0400
+Content-Disposition: inline
+In-Reply-To: <4A2DF91F.7030906@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jun 09, 2009 at 01:54:39PM +0800, Xiao Guangrong wrote:
+> Use %pf instead of %p to output the function's address, use 0x%04X instead
+> of %u to output the skb's protocol
+> 
+> Before patch:
+> 
+>           <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
+>           <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
+>           <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
+>           <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
+>           
+> After patch:
+> 
+>             bash-2587  [001] 97685.781173: kfree_skb: skbaddr=deb9cc00 protocol=0x0000 location=netlink_unicast
+>             bash-2587  [000] 97686.501121: kfree_skb: skbaddr=df9bb840 protocol=0x0000 location=netlink_unicast
+>           <idle>-0     [000] 97696.200184: kfree_skb: skbaddr=df741240 protocol=0x0800 location=ip_rcv
+>           <idle>-0     [000] 97696.200198: kfree_skb: skbaddr=dfb3de40 protocol=0x0800 location=ip_rcv
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 
 
->Some users still load bond module multiple times to create bonding
->devices.  This accidentally was broken when sysfs interface was added.
+Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
 
-	After looking at it, I think the multiple load stuff was broken
-by the following:
+Would you also be interested in adding the conversion from raw numeric protocol
+to its name defined in include/linux/if_ether.h
 
-commit b8a9787eddb0e4665f31dd1d64584732b2b5d051
-Author: Jay Vosburgh <fubar@us.ibm.com>
-Date:   Fri Jun 13 18:12:04 2008 -0700
+I guess __print_flags() can be used for that.
 
-    bonding: Allow setting max_bonds to zero
-    
-        Permit bonding to function rationally if max_bonds is set to
-    zero.  This will load the module, but create no master devices (which can
-    be created via sysfs).
-    
-        Requires some change to bond_create_sysfs; currently, the
-    netdev sysfs directory is determined from the first bonding device created,
-    but this is no longer possible.  Instead, an interface from net/core is
-    created to create and destroy files in net_class.
-    
-        Based on a patch submitted by Phil Oester <kernel@linuxaces.com>.
-    Modified by Jay Vosburgh to fix the sysfs issue mentioned above and to
-    update the documentation.
-    
-    Signed-off-by: Phil Oester <kernel@linuxace.com>
-    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-
-	So, the patch below should probably go to -stable, too.
-
->Note: sysfs and procfs still produce WARN() messages when this is done
->so the sysfs method is the recommended API.
->
->Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Thanks,
+Frederic.
 
 
->---
->Patch against 2.6.30-rc8
->
->--- a/drivers/net/bonding/bond_sysfs.c	2009-06-09 10:07:29.618979856 -0700
->+++ b/drivers/net/bonding/bond_sysfs.c	2009-06-09 10:18:04.039973238 -0700
->@@ -1538,6 +1538,7 @@ int bond_create_sysfs(void)
-> 			printk(KERN_ERR
-> 			       "network device named %s already exists in sysfs",
-> 			       class_attr_bonding_masters.attr.name);
->+		ret = 0;
-> 	}
->
-> 	return ret;
->
+> ---
+> 
+> Recover the file mode of include/trace/events/skb.h
+> 
+> ---
+>  include/trace/events/skb.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+> index 1e8fabb..a58bef8 100644
+> --- a/include/trace/events/skb.h
+> +++ b/include/trace/events/skb.h
+> @@ -30,7 +30,7 @@ TRACE_EVENT(kfree_skb,
+>  		__entry->location = location;
+>  	),
+>  
+> -	TP_printk("skbaddr=%p protocol=%u location=%p",
+> +	TP_printk("skbaddr=%p protocol=0x%04X location=%pf",
+>  		__entry->skbaddr, __entry->protocol, __entry->location)
+>  );
+>  
+> -- 
+> 1.6.1.2
+> 
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
