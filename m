@@ -1,48 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bonding-devel] BUG: bonding module can only be loaded once
-Date: Wed, 10 Jun 2009 00:14:08 +0200
-Message-ID: <4A2EDEB0.2080006@trash.net>
-References: <20090608151127.70146505@nehalam> <200906091406.45463.arnd@arndb.de> <20090609080232.45f81833@nehalam> <4A2E80B3.6010600@trash.net> <4752.1244564082@death.nxdomain.ibm.com> <4A2E8D62.6090004@trash.net> <13521.1244568251@death.nxdomain.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH iproute2 1/2] tc_core: Use double in tc_core_time2tick()
+Date: Wed, 10 Jun 2009 00:20:41 +0200
+Message-ID: <20090609222041.GB2893@ami.dom.local>
+References: <20090609080536.GD5237@ff.dom.local> <4A2E6BA4.30002@trash.net> <20090609215425.GA2893@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bonding-devel@lists.sf.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Antonio Almeida <vexwek@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Martin Devera <devik@cdi.cz>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Vladimir Ivashchenko <hazard@francoudi.com>,
+	Badalian Vyacheslav <slavon@bigtelecom.ru>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40635 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbZFIWOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 18:14:08 -0400
-In-Reply-To: <13521.1244568251@death.nxdomain.ibm.com>
+Received: from fg-out-1718.google.com ([72.14.220.159]:18757 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbZFIWUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 18:20:53 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1144403fga.17
+        for <netdev@vger.kernel.org>; Tue, 09 Jun 2009 15:20:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090609215425.GA2893@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh wrote:
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->> I'd expect its not the distros, but rather the applicances which might
->> still be using this. I know a vendor I used to work for a couple of
->> years ago just recently made the switch from 2.6.16 to a current kernel,
->> and I'd expect that they are still using this (I can find out tommorrow
->> if you want to know for sure). Vyatta likewise, I guess.
-> 
-> 	Yes, I'd like to know for sure; thanks.
+On Tue, Jun 09, 2009 at 11:54:25PM +0200, Jarek Poplawski wrote:
+> On Tue, Jun 09, 2009 at 04:03:16PM +0200, Patrick McHardy wrote:
+...
+> > It seems inconsistent to have the time2tick() function take a
+> > double, but return an unsigned from tick2time(). If we're going
+> > to change this, please keep them symetrical (you could even use
+> > floor() in tick2time() to make it more explicit).
+...
+> tc_core_tick2time() is used differently; it usually gets integers, to
+> show them as time. But even if not so, we have division here. So, I'm
+> not sure it's really needed, but if you confirm I'll do it in a
+> separate patch.
 
-I'll let you know.
+OOPS! I argued for double as argument, but you're right tick2time()
+should return double for consistency. I'll send a separate patch.
 
->>> 	If nobody has any heartburn at dropping support for multiple
->>> bonding instances on old distros, I'm as happy as anybody to remove all
->>> of the multiple load logic from bonding.  There's been plenty of time
->>> for transitioning from "multiple load" to sysfs.
->> In my opinion it would need a feature-removal-schedule announcement.
-> 
-> 	Yah, probably.  The multiple load stuff was working fine as of,
-> oh, a year or two ago, so I wasn't worried so much about getting rid of
-> it.  If it's causing problems, though, it's time for it to go (or be
-> scheduled to go in the not too distant future).  Can't keep driving that
-> Ford Pinto forever.
-
-Well, if it has been broken for long enough, maybe we don't need
-a feature-removal-schedule warning.
+Sorry,
+Jarek P.
