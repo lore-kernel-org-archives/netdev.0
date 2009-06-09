@@ -1,451 +1,74 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 7/15]: net/core/skbuff.c: Use frag list abstraction
- interfaces.
-Date: Tue, 09 Jun 2009 05:02:12 -0700 (PDT)
-Message-ID: <20090609.050212.50477093.davem@davemloft.net>
+Subject: [PATCH 11/15]: netfilter: Use frag list abstraction interfaces.
+Date: Tue, 09 Jun 2009 05:02:24 -0700 (PDT)
+Message-ID: <20090609.050224.246127309.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58249
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58257
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758217AbZFIMCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 08:02:11 -0400
+	by vger.kernel.org with ESMTP id S1760041AbZFIMCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 08:02:21 -0400
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6E612C8C0F4
-	for <netdev@vger.kernel.org>; Tue,  9 Jun 2009 05:02:12 -0700 (PDT)
+	by sunset.davemloft.net (Postfix) with ESMTP id 20B47C8C0F4
+	for <netdev@vger.kernel.org>; Tue,  9 Jun 2009 05:02:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/skbuff.c |  230 ++++++++++++++++++++++++----------------------------
- 1 files changed, 106 insertions(+), 124 deletions(-)
+ net/ipv4/netfilter/nf_nat_proto_sctp.c  |    5 +++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index a2473b1..49961ba 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -210,7 +210,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	shinfo->gso_type = 0;
- 	shinfo->ip6_frag_id = 0;
- 	shinfo->tx_flags.flags = 0;
--	shinfo->frag_list = NULL;
-+	skb_frag_list_init(skb);
- 	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
- 
- 	if (fclone) {
-@@ -323,7 +323,7 @@ static void skb_clone_fraglist(struct sk_buff *skb)
+diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+index 65e470b..6983e41 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+@@ -33,6 +33,7 @@ sctp_manip_pkt(struct sk_buff *skb,
+ 	       enum nf_nat_manip_type maniptype)
  {
- 	struct sk_buff *list;
- 
--	for (list = skb_shinfo(skb)->frag_list; list; list = list->next)
-+	skb_walk_frags(skb, list)
- 		skb_get(list);
- }
- 
-@@ -338,7 +338,7 @@ static void skb_release_data(struct sk_buff *skb)
- 				put_page(skb_shinfo(skb)->frags[i].page);
- 		}
- 
--		if (skb_shinfo(skb)->frag_list)
-+		if (skb_has_frags(skb))
- 			skb_drop_fraglist(skb);
- 
- 		kfree(skb->head);
-@@ -503,7 +503,7 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	shinfo->gso_type = 0;
- 	shinfo->ip6_frag_id = 0;
- 	shinfo->tx_flags.flags = 0;
--	shinfo->frag_list = NULL;
-+	skb_frag_list_init(skb);
- 	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
- 
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
-@@ -758,7 +758,7 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
- 		skb_shinfo(n)->nr_frags = i;
+ 	const struct iphdr *iph = (struct iphdr *)(skb->data + iphdroff);
++	struct sk_buff *frag;
+ 	sctp_sctphdr_t *hdr;
+ 	unsigned int hdroff = iphdroff + iph->ihl*4;
+ 	__be32 oldip, newip;
+@@ -57,8 +58,8 @@ sctp_manip_pkt(struct sk_buff *skb,
  	}
  
--	if (skb_shinfo(skb)->frag_list) {
-+	if (skb_has_frags(skb)) {
- 		skb_shinfo(n)->frag_list = skb_shinfo(skb)->frag_list;
- 		skb_clone_fraglist(n);
- 	}
-@@ -821,7 +821,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
- 		get_page(skb_shinfo(skb)->frags[i].page);
+ 	crc32 = sctp_start_cksum((u8 *)hdr, skb_headlen(skb) - hdroff);
+-	for (skb = skb_shinfo(skb)->frag_list; skb; skb = skb->next)
+-		crc32 = sctp_update_cksum((u8 *)skb->data, skb_headlen(skb),
++	skb_walk_frags(skb, frag);
++		crc32 = sctp_update_cksum((u8 *)frag->data, skb_headlen(frag),
+ 					  crc32);
+ 	crc32 = sctp_end_cksum(crc32);
+ 	hdr->checksum = crc32;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 058a5e4..f3aba25 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -409,7 +409,7 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
+ 	/* If the first fragment is fragmented itself, we split
+ 	 * it to two chunks: the first with data and paged part
+ 	 * and the second, holding only fragments. */
+-	if (skb_shinfo(head)->frag_list) {
++	if (skb_has_frags(head)) {
+ 		struct sk_buff *clone;
+ 		int i, plen = 0;
  
--	if (skb_shinfo(skb)->frag_list)
-+	if (skb_has_frags(skb))
- 		skb_clone_fraglist(skb);
- 
- 	skb_release_data(skb);
-@@ -1093,7 +1093,7 @@ drop_pages:
- 		for (; i < nfrags; i++)
- 			put_page(skb_shinfo(skb)->frags[i].page);
- 
--		if (skb_shinfo(skb)->frag_list)
-+		if (skb_has_frags(skb))
- 			skb_drop_fraglist(skb);
- 		goto done;
- 	}
-@@ -1188,7 +1188,7 @@ unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta)
- 	/* Optimization: no fragments, no reasons to preestimate
- 	 * size of pulled pages. Superb.
- 	 */
--	if (!skb_shinfo(skb)->frag_list)
-+	if (!skb_has_frags(skb))
- 		goto pull_pages;
- 
- 	/* Estimate size of pulled pages. */
-@@ -1285,8 +1285,9 @@ EXPORT_SYMBOL(__pskb_pull_tail);
- 
- int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len)
- {
--	int i, copy;
- 	int start = skb_headlen(skb);
-+	struct sk_buff *frag_iter;
-+	int i, copy;
- 
- 	if (offset > (int)skb->len - len)
- 		goto fault;
-@@ -1328,28 +1329,23 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len)
- 		start = end;
- 	}
- 
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
- 
--		for (; list; list = list->next) {
--			int end;
--
--			WARN_ON(start > offset + len);
--
--			end = start + list->len;
--			if ((copy = end - offset) > 0) {
--				if (copy > len)
--					copy = len;
--				if (skb_copy_bits(list, offset - start,
--						  to, copy))
--					goto fault;
--				if ((len -= copy) == 0)
--					return 0;
--				offset += copy;
--				to     += copy;
--			}
--			start = end;
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			if (copy > len)
-+				copy = len;
-+			if (skb_copy_bits(frag_iter, offset - start, to, copy))
-+				goto fault;
-+			if ((len -= copy) == 0)
-+				return 0;
-+			offset += copy;
-+			to     += copy;
- 		}
-+		start = end;
- 	}
- 	if (!len)
- 		return 0;
-@@ -1534,6 +1530,7 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		.ops = &sock_pipe_buf_ops,
- 		.spd_release = sock_spd_release,
- 	};
-+	struct sk_buff *frag_iter;
- 	struct sock *sk = skb->sk;
- 
- 	/*
-@@ -1548,13 +1545,11 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 	/*
- 	 * now see if we have a frag_list to map
- 	 */
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
--
--		for (; list && tlen; list = list->next) {
--			if (__skb_splice_bits(list, &offset, &tlen, &spd, sk))
--				break;
--		}
-+	skb_walk_frags(skb, frag_iter) {
-+		if (!tlen)
-+			break;
-+		if (__skb_splice_bits(frag_iter, &offset, &tlen, &spd, sk))
-+			break;
- 	}
- 
- done:
-@@ -1593,8 +1588,9 @@ done:
- 
- int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len)
- {
--	int i, copy;
- 	int start = skb_headlen(skb);
-+	struct sk_buff *frag_iter;
-+	int i, copy;
- 
- 	if (offset > (int)skb->len - len)
- 		goto fault;
-@@ -1635,28 +1631,24 @@ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len)
- 		start = end;
- 	}
- 
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
- 
--		for (; list; list = list->next) {
--			int end;
--
--			WARN_ON(start > offset + len);
--
--			end = start + list->len;
--			if ((copy = end - offset) > 0) {
--				if (copy > len)
--					copy = len;
--				if (skb_store_bits(list, offset - start,
--						   from, copy))
--					goto fault;
--				if ((len -= copy) == 0)
--					return 0;
--				offset += copy;
--				from += copy;
--			}
--			start = end;
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			if (copy > len)
-+				copy = len;
-+			if (skb_store_bits(frag_iter, offset - start,
-+					   from, copy))
-+				goto fault;
-+			if ((len -= copy) == 0)
-+				return 0;
-+			offset += copy;
-+			from += copy;
- 		}
-+		start = end;
- 	}
- 	if (!len)
- 		return 0;
-@@ -1673,6 +1665,7 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
-+	struct sk_buff *frag_iter;
- 	int pos = 0;
- 
- 	/* Checksum header. */
-@@ -1712,29 +1705,25 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- 		start = end;
- 	}
- 
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
- 
--		for (; list; list = list->next) {
--			int end;
--
--			WARN_ON(start > offset + len);
--
--			end = start + list->len;
--			if ((copy = end - offset) > 0) {
--				__wsum csum2;
--				if (copy > len)
--					copy = len;
--				csum2 = skb_checksum(list, offset - start,
--						     copy, 0);
--				csum = csum_block_add(csum, csum2, pos);
--				if ((len -= copy) == 0)
--					return csum;
--				offset += copy;
--				pos    += copy;
--			}
--			start = end;
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			__wsum csum2;
-+			if (copy > len)
-+				copy = len;
-+			csum2 = skb_checksum(frag_iter, offset - start,
-+					     copy, 0);
-+			csum = csum_block_add(csum, csum2, pos);
-+			if ((len -= copy) == 0)
-+				return csum;
-+			offset += copy;
-+			pos    += copy;
- 		}
-+		start = end;
- 	}
- 	BUG_ON(len);
- 
-@@ -1749,6 +1738,7 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
-+	struct sk_buff *frag_iter;
- 	int pos = 0;
- 
- 	/* Copy header. */
-@@ -1793,31 +1783,27 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- 		start = end;
- 	}
- 
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+	skb_walk_frags(skb, frag_iter) {
-+		__wsum csum2;
-+		int end;
- 
--		for (; list; list = list->next) {
--			__wsum csum2;
--			int end;
--
--			WARN_ON(start > offset + len);
--
--			end = start + list->len;
--			if ((copy = end - offset) > 0) {
--				if (copy > len)
--					copy = len;
--				csum2 = skb_copy_and_csum_bits(list,
--							       offset - start,
--							       to, copy, 0);
--				csum = csum_block_add(csum, csum2, pos);
--				if ((len -= copy) == 0)
--					return csum;
--				offset += copy;
--				to     += copy;
--				pos    += copy;
--			}
--			start = end;
-+		WARN_ON(start > offset + len);
-+
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			if (copy > len)
-+				copy = len;
-+			csum2 = skb_copy_and_csum_bits(frag_iter,
-+						       offset - start,
-+						       to, copy, 0);
-+			csum = csum_block_add(csum, csum2, pos);
-+			if ((len -= copy) == 0)
-+				return csum;
-+			offset += copy;
-+			to     += copy;
-+			pos    += copy;
- 		}
-+		start = end;
- 	}
- 	BUG_ON(len);
- 	return csum;
-@@ -2327,8 +2313,7 @@ next_skb:
- 		st->frag_data = NULL;
- 	}
- 
--	if (st->root_skb == st->cur_skb &&
--	    skb_shinfo(st->root_skb)->frag_list) {
-+	if (st->root_skb == st->cur_skb && skb_has_frags(st->root_skb)) {
- 		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
- 		st->frag_idx = 0;
- 		goto next_skb;
-@@ -2639,7 +2624,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
- 			} else
- 				skb_get(fskb2);
- 
--			BUG_ON(skb_shinfo(nskb)->frag_list);
-+			SKB_FRAG_ASSERT(nskb);
- 			skb_shinfo(nskb)->frag_list = fskb2;
- 		}
- 
-@@ -2796,6 +2781,7 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
-+	struct sk_buff *frag_iter;
- 	int elt = 0;
- 
- 	if (copy > 0) {
-@@ -2829,26 +2815,22 @@ __skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
- 		start = end;
- 	}
- 
--	if (skb_shinfo(skb)->frag_list) {
--		struct sk_buff *list = skb_shinfo(skb)->frag_list;
--
--		for (; list; list = list->next) {
--			int end;
-+	skb_walk_frags(skb, frag_iter) {
-+		int end;
- 
--			WARN_ON(start > offset + len);
-+		WARN_ON(start > offset + len);
- 
--			end = start + list->len;
--			if ((copy = end - offset) > 0) {
--				if (copy > len)
--					copy = len;
--				elt += __skb_to_sgvec(list, sg+elt, offset - start,
--						      copy);
--				if ((len -= copy) == 0)
--					return elt;
--				offset += copy;
--			}
--			start = end;
-+		end = start + frag_iter->len;
-+		if ((copy = end - offset) > 0) {
-+			if (copy > len)
-+				copy = len;
-+			elt += __skb_to_sgvec(frag_iter, sg+elt, offset - start,
-+					      copy);
-+			if ((len -= copy) == 0)
-+				return elt;
-+			offset += copy;
- 		}
-+		start = end;
- 	}
- 	BUG_ON(len);
- 	return elt;
-@@ -2896,7 +2878,7 @@ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
- 		return -ENOMEM;
- 
- 	/* Easy case. Most of packets will go this way. */
--	if (!skb_shinfo(skb)->frag_list) {
-+	if (!skb_has_frags(skb)) {
- 		/* A little of trouble, not enough of space for trailer.
- 		 * This should not happen, when stack is tuned to generate
- 		 * good frames. OK, on miss we reallocate and reserve even more
-@@ -2931,7 +2913,7 @@ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
- 
- 		if (skb1->next == NULL && tailbits) {
- 			if (skb_shinfo(skb1)->nr_frags ||
--			    skb_shinfo(skb1)->frag_list ||
-+			    skb_has_frags(skb1) ||
- 			    skb_tailroom(skb1) < tailbits)
- 				ntail = tailbits + 128;
- 		}
-@@ -2940,7 +2922,7 @@ int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
- 		    skb_cloned(skb1) ||
- 		    ntail ||
- 		    skb_shinfo(skb1)->nr_frags ||
--		    skb_shinfo(skb1)->frag_list) {
-+		    skb_has_frags(skb1)) {
- 			struct sk_buff *skb2;
- 
- 			/* Fuck, we are miserable poor guys... */
+@@ -420,7 +420,7 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
+ 		clone->next = head->next;
+ 		head->next = clone;
+ 		skb_shinfo(clone)->frag_list = skb_shinfo(head)->frag_list;
+-		skb_shinfo(head)->frag_list = NULL;
++		skb_frag_list_init(head);
+ 		for (i=0; i<skb_shinfo(head)->nr_frags; i++)
+ 			plen += skb_shinfo(head)->frags[i].size;
+ 		clone->len = clone->data_len = head->data_len - plen;
 -- 
 1.6.3.2
 
