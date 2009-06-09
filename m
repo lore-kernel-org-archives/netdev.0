@@ -1,51 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tigon3 firmware problem with 2.6.30-rc8
-Date: Tue, 09 Jun 2009 17:46:17 +0200
-Message-ID: <4A2E83C9.6020600@gmail.com>
-References: <BAY103-DAV11DE7A52D38E0062B2275DB2440@phx.gbl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 1/8] qlge: Drop inbound error frames.
+Date: Tue,  9 Jun 2009 08:39:27 -0700
+Message-ID: <1244561974-25662-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47671 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbZFIPqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 11:46:22 -0400
-In-Reply-To: <BAY103-DAV11DE7A52D38E0062B2275DB2440@phx.gbl>
+Received: from avexch1.qlogic.com ([198.70.193.115]:58941 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945AbZFIPrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 11:47:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco Berizzi a =E9crit :
-> Hi folks,
->=20
-> I have a problem with a 3 years old notebook NIC,
-> tg3 with linux 2.6.29.4 and 2.6.30-rc8.
-> When I modprobe tg3 all is fine. When I issue
-> 'ifconfig eth0 1.1.1.1' I get this message:
->=20
-> tg3 0000:02:0e.0: firmware: requesting tigon/tg3_tso5.bin
-> eth0: Failed to load firmware "tigon/tg3_tso5.bin"
-> eth0: TSO capability disabled.
-> tg3 0000:02:0e.0: PME# disabled
-> tg3: eth0: Link is up at 100 Mbps, full duplex.
-> tg3: eth0: Flow control is off for TX and off for RX
->=20
-> This is the output from ls -l /lib/firmware/tigon:
->=20
-> root@Ghawar:~# ls -l /lib/firmware/tigon
-> total 16
-> -rw-r--r-- 1 root root 2668 2009-06-09 17:18 tg3.bin
-> -rw-r--r-- 1 root root 7004 2009-06-09 17:18 tg3_tso.bin
-> -rw-r--r-- 1 root root 3884 2009-06-09 17:18 tg3_tso5.bin
-> root@Ghawar:~#
->=20
-> However the nic is working.
->=20
-> Any feed-back are welcome,
-> TIA
->=20
 
-You could try to set CONFIG_FIRMWARE_IN_KERNEL=3Dy in your .config
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 0b0778d..45da405 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -1518,6 +1518,13 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
+ 		return;
+ 	}
+ 
++	/* Frame error, so drop the packet. */
++	if (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_ERR_MASK) {
++		QPRINTK(qdev, DRV, ERR, "Receive error, flags2 = 0x%x\n",
++					ib_mac_rsp->flags2);
++		dev_kfree_skb_any(skb);
++		return;
++	}
+ 	prefetch(skb->data);
+ 	skb->dev = ndev;
+ 	if (ib_mac_rsp->flags1 & IB_MAC_IOCB_RSP_M_MASK) {
+@@ -1540,7 +1547,6 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
+ 	 * csum or frame errors.
+ 	 */
+ 	if (qdev->rx_csum &&
+-		!(ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_ERR_MASK) &&
+ 		!(ib_mac_rsp->flags1 & IB_MAC_CSUM_ERR_MASK)) {
+ 		/* TCP frame. */
+ 		if (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_T) {
+-- 
+1.6.0.2
 
