@@ -1,89 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: error handling for dev_mc_sync (__dev_addr_add)
-Date: Tue, 09 Jun 2009 19:19:50 +0200
-Message-ID: <1244567990.18481.21.camel@johannes.local>
-References: <1244556667.4672.18.camel@johannes.local>
-	 <4A2E7376.4080407@trash.net> <1244558606.4672.25.camel@johannes.local>
-	 <4A2E7929.9070705@trash.net> <1244567063.18481.13.camel@johannes.local>
-	 <4A2E979F.9090407@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bonding: fix multiple module load problem
+Date: Tue, 9 Jun 2009 10:23:29 -0700
+Message-ID: <20090609102329.565e9019@nehalam>
+References: <20090608151127.70146505@nehalam>
+	<200906091406.45463.arnd@arndb.de>
+	<20090609080232.45f81833@nehalam>
+	<4A2E80B3.6010600@trash.net>
+	<4752.1244564082@death.nxdomain.ibm.com>
+	<4A2E8D62.6090004@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-FBFlXZvxI1P8NZ7SHwm/"
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	bonding-devel@lists.sf.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:60478 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbZFIRUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 13:20:21 -0400
-In-Reply-To: <4A2E979F.9090407@trash.net>
+Received: from mail.vyatta.com ([76.74.103.46]:50309 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752945AbZFIRXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2009 13:23:34 -0400
+In-Reply-To: <4A2E8D62.6090004@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Some users still load bond module multiple times to create bonding
+devices.  This accidentally was broken when sysfs interface was added.
 
---=-FBFlXZvxI1P8NZ7SHwm/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Note: sysfs and procfs still produce WARN() messages when this is done
+so the sysfs method is the recommended API.
 
-On Tue, 2009-06-09 at 19:10 +0200, Patrick McHardy wrote:
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> > ----- >% -----
-> > @ ndomatch @
-> > identifier ndo, sml;
-> > @@
-> > struct net_device_ops ndo =3D {
-> > .ndo_set_multicast_list =3D sml,
-> > };
-> > @forall@
-> > identifier dev;
-> > identifier ndomatch.sml;
-> > @@
-> > void sml(struct net_device *dev)
->=20
-> - void
-> + int
+---
+Patch against 2.6.30-rc8
 
-Indeed.
-
-> > {
-> > ...
-> > -return;
-> > +return 0;
-> > ...
-> > }
-> > ----- %< -----
-> >=20
-> > Haven't really tested it though but it seems to do the correct thing fo=
-r
-> > all drivers I looked at.
->=20
-> In case this also adds a return statement at the end if none is
-> there already, it looks fine.
-
-Yes, it does. "All" that remains to be done then is to actually fix the
-few users of dev_mc_sync(), and the callers, but that's the real work :)
-
-johannes
-
---=-FBFlXZvxI1P8NZ7SHwm/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKLpmzAAoJEODzc/N7+QmaCLcQAIB5xt+UGlGLjbZ2MswchFgj
-HPnSO9Y8yhqU0/ynhNydL20tIh8qv3pAtcbWJJzTQTMBzmu2W9C98lwYyrdhCuFc
-fG6DOtbEEPTG8EPCtf8RwWyXRdQ1TyglsosI1X/EkQ6Iymmn69ZC/wUXxFwS8TpQ
-pWW77pHtgeq+RZ5hLBzKCxwYOEA9eIXByV4JnPC0mw8oTFcwMF8lFjAhbu/b0PE4
-FJeawi6JOnKE0MLeuBz0miSwqs4W/eEKurlmxAlQSRZBQLIWn4esQpSnuoM+dxBp
-ICnyWFXOBqRNNscPSgxNgetkXgM1R+ht2EOM+yuXK0D6eKK/H/N0rFiNXcmynY9r
-3nsE9yb+VgssnLzqpYrnCKt2SqfEI8c+whrft119fnCHnA7xj3PUzD+DSWj1Wz91
-/6lxYzwo/TZjFl20Te7oAZ9bvXxVTVLCkgVSlQMK0Z3SJDov5Llamt4Sw/dD5UDd
-cldrowlsr0gzOYH/+b0hJKabnnqO1I/oVph95MpV+73zFTW7nofzr9M1CnqWwIqb
-JZghx7qG20/fEiQB/Ogs1c2MYAEI06Q1xeqnKAKRz00EfDnbAg2C83s++hK2Lemq
-n7Xcwit3LCijy3C5XoP1BhtNk+YO9qn+2qkzaDHCfGOJOwF8uu77pfk+nIE7LUef
-BQPxNuK+UG9MhITYxA4u
-=uZ5c
------END PGP SIGNATURE-----
-
---=-FBFlXZvxI1P8NZ7SHwm/--
-
+--- a/drivers/net/bonding/bond_sysfs.c	2009-06-09 10:07:29.618979856 -0700
++++ b/drivers/net/bonding/bond_sysfs.c	2009-06-09 10:18:04.039973238 -0700
+@@ -1538,6 +1538,7 @@ int bond_create_sysfs(void)
+ 			printk(KERN_ERR
+ 			       "network device named %s already exists in sysfs",
+ 			       class_attr_bonding_masters.attr.name);
++		ret = 0;
+ 	}
+ 
+ 	return ret;
