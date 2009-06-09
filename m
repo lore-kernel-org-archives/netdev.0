@@ -1,352 +1,417 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/4] bnx2: Add support for CNIC driver.
-Date: Mon, 8 Jun 2009 18:14:42 -0700
-Message-ID: <1244510084-4457-3-git-send-email-mchan@broadcom.com>
+From: "Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 1/4] iscsi class: Add new NETLINK_ISCSI messages for cnic/bnx2i driver.
+Date: Mon, 8 Jun 2009 18:14:41 -0700
+Message-ID: <1244510084-4457-2-git-send-email-mchan@broadcom.com>
 References: <1244510084-4457-1-git-send-email-mchan@broadcom.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, open-iscsi@googlegroups.com,
-	netdev@vger.kernel.org, anilgv@broadcom.com, benli@broadcom.com
-To: James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2815 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751829AbZFICFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Jun 2009 22:05:19 -0400
-In-Reply-To: <1244510084-4457-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, anilgv-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, benli-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org, michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1244510084-4457-1-git-send-email-mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Add interface and functions to support a new CNIC driver to drive
-the Broadcom bnx2 hardware for iSCSI offload.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Acked-by: David S. Miller <davem@davemloft.net>
+Add ISCSI_NETLINK messages for iSCSI NICs to get information such as
+path from userspace.  Original iscsid messages are now always sent as
+multicast to group 1.  The new messages are sent to group 2.
+
+The multicast changes were made by Mike Christie.
+
+Signed-off-by: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Benjamin Li <benli-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
 ---
- drivers/net/bnx2.c |  193 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/bnx2.h |   18 +++++
- 2 files changed, 208 insertions(+), 3 deletions(-)
+ drivers/scsi/scsi_transport_iscsi.c |  122 ++++++++++++++++++++++++----------
+ include/scsi/iscsi_if.h             |   42 ++++++++++++
+ include/scsi/scsi_transport_iscsi.h |    5 ++
+ 3 files changed, 133 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index b0cb29d..3f5fcb0 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -49,6 +49,10 @@
- #include <linux/firmware.h>
- #include <linux/log2.h>
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+index d69a53a..f3e6646 100644
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -37,7 +37,6 @@
+ #define ISCSI_TRANSPORT_VERSION "2.0-870"
  
-+#if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
-+#define BCM_CNIC 1
-+#include "cnic_if.h"
-+#endif
- #include "bnx2.h"
- #include "bnx2_fw.h"
- 
-@@ -315,6 +319,158 @@ bnx2_ctx_wr(struct bnx2 *bp, u32 cid_addr, u32 offset, u32 val)
- 	spin_unlock_bh(&bp->indirect_lock);
+ struct iscsi_internal {
+-	int daemon_pid;
+ 	struct scsi_transport_template t;
+ 	struct iscsi_transport *iscsi_transport;
+ 	struct list_head list;
+@@ -938,23 +937,9 @@ iscsi_if_transport_lookup(struct iscsi_transport *tt)
  }
  
-+#ifdef BCM_CNIC
-+static int
-+bnx2_drv_ctl(struct net_device *dev, struct drv_ctl_info *info)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct drv_ctl_io *io = &info->data.io;
-+
-+	switch (info->cmd) {
-+	case DRV_CTL_IO_WR_CMD:
-+		bnx2_reg_wr_ind(bp, io->offset, io->data);
-+		break;
-+	case DRV_CTL_IO_RD_CMD:
-+		io->data = bnx2_reg_rd_ind(bp, io->offset);
-+		break;
-+	case DRV_CTL_CTX_WR_CMD:
-+		bnx2_ctx_wr(bp, io->cid_addr, io->offset, io->data);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static void bnx2_setup_cnic_irq_info(struct bnx2 *bp)
-+{
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+	int sb_id;
-+
-+	if (bp->flags & BNX2_FLAG_USING_MSIX) {
-+		cp->drv_state |= CNIC_DRV_STATE_USING_MSIX;
-+		bnapi->cnic_present = 0;
-+		sb_id = bp->irq_nvecs;
-+		cp->irq_arr[0].irq_flags |= CNIC_IRQ_FL_MSIX;
-+	} else {
-+		cp->drv_state &= ~CNIC_DRV_STATE_USING_MSIX;
-+		bnapi->cnic_tag = bnapi->last_status_idx;
-+		bnapi->cnic_present = 1;
-+		sb_id = 0;
-+		cp->irq_arr[0].irq_flags &= ~CNIC_IRQ_FL_MSIX;
-+	}
-+
-+	cp->irq_arr[0].vector = bp->irq_tbl[sb_id].vector;
-+	cp->irq_arr[0].status_blk = (void *)
-+		((unsigned long) bnapi->status_blk.msi +
-+		(BNX2_SBLK_MSIX_ALIGN_SIZE * sb_id));
-+	cp->irq_arr[0].status_blk_num = sb_id;
-+	cp->num_irq = 1;
-+}
-+
-+static int bnx2_register_cnic(struct net_device *dev, struct cnic_ops *ops,
-+			      void *data)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	if (ops == NULL)
-+		return -EINVAL;
-+
-+	if (cp->drv_state & CNIC_DRV_STATE_REGD)
-+		return -EBUSY;
-+
-+	bp->cnic_data = data;
-+	rcu_assign_pointer(bp->cnic_ops, ops);
-+
-+	cp->num_irq = 0;
-+	cp->drv_state = CNIC_DRV_STATE_REGD;
-+
-+	bnx2_setup_cnic_irq_info(bp);
-+
-+	return 0;
-+}
-+
-+static int bnx2_unregister_cnic(struct net_device *dev)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	cp->drv_state = 0;
-+	bnapi->cnic_present = 0;
-+	rcu_assign_pointer(bp->cnic_ops, NULL);
-+	synchronize_rcu();
-+	return 0;
-+}
-+
-+struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
-+{
-+	struct bnx2 *bp = netdev_priv(dev);
-+	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
-+
-+	cp->drv_owner = THIS_MODULE;
-+	cp->chip_id = bp->chip_id;
-+	cp->pdev = bp->pdev;
-+	cp->io_base = bp->regview;
-+	cp->drv_ctl = bnx2_drv_ctl;
-+	cp->drv_register_cnic = bnx2_register_cnic;
-+	cp->drv_unregister_cnic = bnx2_unregister_cnic;
-+
-+	return cp;
-+}
-+EXPORT_SYMBOL(bnx2_cnic_probe);
-+
-+static void
-+bnx2_cnic_stop(struct bnx2 *bp)
-+{
-+	struct cnic_ops *c_ops;
-+	struct cnic_ctl_info info;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops) {
-+		info.cmd = CNIC_CTL_STOP_CMD;
-+		c_ops->cnic_ctl(bp->cnic_data, &info);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+static void
-+bnx2_cnic_start(struct bnx2 *bp)
-+{
-+	struct cnic_ops *c_ops;
-+	struct cnic_ctl_info info;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops) {
-+		if (!(bp->flags & BNX2_FLAG_USING_MSIX)) {
-+			struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-+
-+			bnapi->cnic_tag = bnapi->last_status_idx;
-+		}
-+		info.cmd = CNIC_CTL_START_CMD;
-+		c_ops->cnic_ctl(bp->cnic_data, &info);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+#else
-+
-+static void
-+bnx2_cnic_stop(struct bnx2 *bp)
-+{
-+}
-+
-+static void
-+bnx2_cnic_start(struct bnx2 *bp)
-+{
-+}
-+
-+#endif
-+
  static int
- bnx2_read_phy(struct bnx2 *bp, u32 reg, u32 *val)
+-iscsi_broadcast_skb(struct sk_buff *skb, gfp_t gfp)
++iscsi_multicast_skb(struct sk_buff *skb, uint32_t group, gfp_t gfp)
  {
-@@ -488,6 +644,7 @@ bnx2_napi_enable(struct bnx2 *bp)
- static void
- bnx2_netif_stop(struct bnx2 *bp)
- {
-+	bnx2_cnic_stop(bp);
- 	bnx2_disable_int_sync(bp);
- 	if (netif_running(bp->dev)) {
- 		bnx2_napi_disable(bp);
-@@ -504,6 +661,7 @@ bnx2_netif_start(struct bnx2 *bp)
- 			netif_tx_wake_all_queues(bp->dev);
- 			bnx2_napi_enable(bp);
- 			bnx2_enable_int(bp);
-+			bnx2_cnic_start(bp);
- 		}
+-	return netlink_broadcast(nls, skb, 0, 1, gfp);
+-}
+-
+-static int
+-iscsi_unicast_skb(struct sk_buff *skb, int pid)
+-{
+-	int rc;
+-
+-	rc = netlink_unicast(nls, skb, pid, MSG_DONTWAIT);
+-	if (rc < 0) {
+-		printk(KERN_ERR "iscsi: can not unicast skb (%d)\n", rc);
+-		return rc;
+-	}
+-
+-	return 0;
++	return nlmsg_multicast(nls, skb, 0, group, gfp);
+ }
+ 
+ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+@@ -980,7 +965,7 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 		return -ENOMEM;
  	}
- }
-@@ -3164,6 +3322,11 @@ bnx2_has_work(struct bnx2_napi *bnapi)
- 	if (bnx2_has_fast_work(bnapi))
- 		return 1;
  
-+#ifdef BCM_CNIC
-+	if (bnapi->cnic_present && (bnapi->cnic_tag != sblk->status_idx))
-+		return 1;
-+#endif
-+
- 	if ((sblk->status_attn_bits & STATUS_ATTN_EVENTS) !=
- 	    (sblk->status_attn_bits_ack & STATUS_ATTN_EVENTS))
- 		return 1;
-@@ -3193,6 +3356,23 @@ bnx2_chk_missed_msi(struct bnx2 *bp)
- 	bp->idle_chk_status_idx = bnapi->last_status_idx;
- }
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	memset(ev, 0, sizeof(*ev));
+ 	ev->transport_handle = iscsi_handle(conn->transport);
+@@ -991,10 +976,45 @@ int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 	memcpy(pdu, hdr, sizeof(struct iscsi_hdr));
+ 	memcpy(pdu + sizeof(struct iscsi_hdr), data, data_size);
  
-+#ifdef BCM_CNIC
-+static void bnx2_poll_cnic(struct bnx2 *bp, struct bnx2_napi *bnapi)
+-	return iscsi_unicast_skb(skb, priv->daemon_pid);
++	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
+ }
+ EXPORT_SYMBOL_GPL(iscsi_recv_pdu);
+ 
++int iscsi_offload_mesg(struct Scsi_Host *shost,
++		       struct iscsi_transport *transport, uint32_t type,
++		       char *data, uint16_t data_size)
 +{
-+	struct cnic_ops *c_ops;
++	struct nlmsghdr	*nlh;
++	struct sk_buff *skb;
++	struct iscsi_uevent *ev;
++	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
 +
-+	if (!bnapi->cnic_present)
-+		return;
-+
-+	rcu_read_lock();
-+	c_ops = rcu_dereference(bp->cnic_ops);
-+	if (c_ops)
-+		bnapi->cnic_tag = c_ops->cnic_handler(bp->cnic_data,
-+						      bnapi->status_blk.msi);
-+	rcu_read_unlock();
-+}
-+#endif
-+
- static void bnx2_poll_link(struct bnx2 *bp, struct bnx2_napi *bnapi)
- {
- 	struct status_block *sblk = bnapi->status_blk.msi;
-@@ -3267,6 +3447,10 @@ static int bnx2_poll(struct napi_struct *napi, int budget)
- 
- 		work_done = bnx2_poll_work(bp, bnapi, work_done, budget);
- 
-+#ifdef BCM_CNIC
-+		bnx2_poll_cnic(bp, bnapi);
-+#endif
-+
- 		/* bnapi->last_status_idx is used below to tell the hw how
- 		 * much work has been processed, so we must read it before
- 		 * checking for more work.
-@@ -4632,8 +4816,11 @@ bnx2_init_chip(struct bnx2 *bp)
- 	val = REG_RD(bp, BNX2_MQ_CONFIG);
- 	val &= ~BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE;
- 	val |= BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE_256;
--	if (CHIP_ID(bp) == CHIP_ID_5709_A0 || CHIP_ID(bp) == CHIP_ID_5709_A1)
--		val |= BNX2_MQ_CONFIG_HALT_DIS;
-+	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
-+		val |= BNX2_MQ_CONFIG_BIN_MQ_MODE;
-+		if (CHIP_REV(bp) == CHIP_REV_Ax)
-+			val |= BNX2_MQ_CONFIG_HALT_DIS;
++	skb = alloc_skb(len, GFP_NOIO);
++	if (!skb) {
++		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
++		return -ENOMEM;
 +	}
- 
- 	REG_WR(bp, BNX2_MQ_CONFIG, val);
- 
-@@ -7471,7 +7658,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	INIT_WORK(&bp->reset_task, bnx2_reset_task);
- 
- 	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
--	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS);
-+	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS + 1);
- 	dev->mem_end = dev->mem_start + mem_len;
- 	dev->irq = pdev->irq;
- 
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 5b570e1..a1ff739 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -361,6 +361,9 @@ struct l2_fhdr {
- #define BNX2_L2CTX_CTX_TYPE_CTX_BD_CHN_TYPE_VALUE	 (1<<28)
- 
- #define BNX2_L2CTX_HOST_BDIDX				0x00000004
-+#define BNX2_L2CTX_STATUSB_NUM_SHIFT			 16
-+#define BNX2_L2CTX_STATUSB_NUM(sb_id)			 \
-+	(((sb_id) > 0) ? (((sb_id) + 7) << BNX2_L2CTX_STATUSB_NUM_SHIFT) : 0)
- #define BNX2_L2CTX_HOST_BSEQ				0x00000008
- #define BNX2_L2CTX_NX_BSEQ				0x0000000c
- #define BNX2_L2CTX_NX_BDHADDR_HI			0x00000010
-@@ -5900,6 +5903,7 @@ struct l2_fhdr {
- #define BNX2_RXP_FTQ_CTL_CUR_DEPTH			 (0x3ffL<<22)
- 
- #define BNX2_RXP_SCRATCH				0x000e0000
-+#define BNX2_RXP_SCRATCH_RXP_FLOOD			 0x000e0024
- #define BNX2_RXP_SCRATCH_RSS_TBL_SZ			 0x000e0038
- #define BNX2_RXP_SCRATCH_RSS_TBL			 0x000e003c
- #define BNX2_RXP_SCRATCH_RSS_TBL_MAX_ENTRIES		 128
-@@ -6678,6 +6682,11 @@ struct bnx2_napi {
- 	u32 			last_status_idx;
- 	u32			int_num;
- 
-+#ifdef BCM_CNIC
-+	u32			cnic_tag;
-+	int			cnic_present;
-+#endif
 +
- 	struct bnx2_rx_ring_info	rx_ring;
- 	struct bnx2_tx_ring_info	tx_ring;
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
++	ev = NLMSG_DATA(nlh);
++	memset(ev, 0, sizeof(*ev));
++	ev->type = type;
++	ev->transport_handle = iscsi_handle(transport);
++	switch (type) {
++	case ISCSI_KEVENT_PATH_REQ:
++		ev->r.req_path.host_no = shost->host_no;
++		break;
++	case ISCSI_KEVENT_IF_DOWN:
++		ev->r.notify_if_down.host_no = shost->host_no;
++		break;
++	}
++
++	memcpy((char *)ev + sizeof(*ev), data, data_size);
++
++	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
++}
++EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
++
+ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ {
+ 	struct nlmsghdr	*nlh;
+@@ -1014,7 +1034,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ 		return;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	ev->transport_handle = iscsi_handle(conn->transport);
+ 	ev->type = ISCSI_KEVENT_CONN_ERROR;
+@@ -1022,7 +1042,7 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ 	ev->r.connerror.cid = conn->cid;
+ 	ev->r.connerror.sid = iscsi_conn_get_sid(conn);
+ 
+-	iscsi_broadcast_skb(skb, GFP_ATOMIC);
++	iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_ATOMIC);
+ 
+ 	iscsi_cls_conn_printk(KERN_INFO, conn, "detected conn error (%d)\n",
+ 			      error);
+@@ -1030,8 +1050,8 @@ void iscsi_conn_error_event(struct iscsi_cls_conn *conn, enum iscsi_err error)
+ EXPORT_SYMBOL_GPL(iscsi_conn_error_event);
+ 
+ static int
+-iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
+-		      void *payload, int size)
++iscsi_if_send_reply(uint32_t group, int seq, int type, int done, int multi,
++		    void *payload, int size)
+ {
+ 	struct sk_buff	*skb;
+ 	struct nlmsghdr	*nlh;
+@@ -1045,10 +1065,10 @@ iscsi_if_send_reply(int pid, int seq, int type, int done, int multi,
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, pid, seq, t, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, t, (len - sizeof(*nlh)), 0);
+ 	nlh->nlmsg_flags = flags;
+ 	memcpy(NLMSG_DATA(nlh), payload, size);
+-	return iscsi_unicast_skb(skb, pid);
++	return iscsi_multicast_skb(skb, group, GFP_ATOMIC);
+ }
+ 
+ static int
+@@ -1085,7 +1105,7 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
+ 			return -ENOMEM;
+ 		}
+ 
+-		nlhstat = __nlmsg_put(skbstat, priv->daemon_pid, 0, 0,
++		nlhstat = __nlmsg_put(skbstat, 0, 0, 0,
+ 				      (len - sizeof(*nlhstat)), 0);
+ 		evstat = NLMSG_DATA(nlhstat);
+ 		memset(evstat, 0, sizeof(*evstat));
+@@ -1109,7 +1129,8 @@ iscsi_if_get_stats(struct iscsi_transport *transport, struct nlmsghdr *nlh)
+ 		skb_trim(skbstat, NLMSG_ALIGN(actual_size));
+ 		nlhstat->nlmsg_len = actual_size;
+ 
+-		err = iscsi_unicast_skb(skbstat, priv->daemon_pid);
++		err = iscsi_multicast_skb(skbstat, ISCSI_NL_GRP_ISCSID,
++					  GFP_ATOMIC);
+ 	} while (err < 0 && err != -ECONNREFUSED);
+ 
+ 	return err;
+@@ -1143,7 +1164,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = __nlmsg_put(skb, priv->daemon_pid, 0, 0, (len - sizeof(*nlh)), 0);
++	nlh = __nlmsg_put(skb, 0, 0, 0, (len - sizeof(*nlh)), 0);
+ 	ev = NLMSG_DATA(nlh);
+ 	ev->transport_handle = iscsi_handle(session->transport);
+ 
+@@ -1172,7 +1193,7 @@ int iscsi_session_event(struct iscsi_cls_session *session,
+ 	 * this will occur if the daemon is not up, so we just warn
+ 	 * the user and when the daemon is restarted it will handle it
+ 	 */
+-	rc = iscsi_broadcast_skb(skb, GFP_KERNEL);
++	rc = iscsi_multicast_skb(skb, ISCSI_NL_GRP_ISCSID, GFP_KERNEL);
+ 	if (rc == -ESRCH)
+ 		iscsi_cls_session_printk(KERN_ERR, session,
+ 					 "Cannot notify userspace of session "
+@@ -1393,7 +1414,31 @@ iscsi_set_host_param(struct iscsi_transport *transport,
+ }
+ 
+ static int
+-iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
++iscsi_set_path(struct iscsi_transport *transport, struct iscsi_uevent *ev)
++{
++	struct Scsi_Host *shost;
++	struct iscsi_path *params;
++	int err;
++
++	if (!transport->set_path)
++		return -ENOSYS;
++
++	shost = scsi_host_lookup(ev->u.set_path.host_no);
++	if (!shost) {
++		printk(KERN_ERR "set path could not find host no %u\n",
++		       ev->u.set_path.host_no);
++		return -ENODEV;
++	}
++
++	params = (struct iscsi_path *)((char *)ev + sizeof(*ev));
++	err = transport->set_path(shost, params);
++
++	scsi_host_put(shost);
++	return err;
++}
++
++static int
++iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, uint32_t *group)
+ {
+ 	int err = 0;
+ 	struct iscsi_uevent *ev = NLMSG_DATA(nlh);
+@@ -1403,6 +1448,11 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct iscsi_cls_conn *conn;
+ 	struct iscsi_endpoint *ep = NULL;
+ 
++	if (nlh->nlmsg_type == ISCSI_UEVENT_PATH_UPDATE)
++		*group = ISCSI_NL_GRP_UIP;
++	else
++		*group = ISCSI_NL_GRP_ISCSID;
++
+ 	priv = iscsi_if_transport_lookup(iscsi_ptr(ev->transport_handle));
+ 	if (!priv)
+ 		return -EINVAL;
+@@ -1411,8 +1461,6 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (!try_module_get(transport->owner))
+ 		return -EINVAL;
+ 
+-	priv->daemon_pid = NETLINK_CREDS(skb)->pid;
+-
+ 	switch (nlh->nlmsg_type) {
+ 	case ISCSI_UEVENT_CREATE_SESSION:
+ 		err = iscsi_if_create_session(priv, ep, ev,
+@@ -1506,6 +1554,9 @@ iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	case ISCSI_UEVENT_SET_HOST_PARAM:
+ 		err = iscsi_set_host_param(transport, ev);
+ 		break;
++	case ISCSI_UEVENT_PATH_UPDATE:
++		err = iscsi_set_path(transport, ev);
++		break;
+ 	default:
+ 		err = -ENOSYS;
+ 		break;
+@@ -1528,6 +1579,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 		uint32_t rlen;
+ 		struct nlmsghdr	*nlh;
+ 		struct iscsi_uevent *ev;
++		uint32_t group;
+ 
+ 		nlh = nlmsg_hdr(skb);
+ 		if (nlh->nlmsg_len < sizeof(*nlh) ||
+@@ -1540,7 +1592,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 		if (rlen > skb->len)
+ 			rlen = skb->len;
+ 
+-		err = iscsi_if_recv_msg(skb, nlh);
++		err = iscsi_if_recv_msg(skb, nlh, &group);
+ 		if (err) {
+ 			ev->type = ISCSI_KEVENT_IF_ERROR;
+ 			ev->iferror = err;
+@@ -1554,8 +1606,7 @@ iscsi_if_rx(struct sk_buff *skb)
+ 			 */
+ 			if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
+ 				break;
+-			err = iscsi_if_send_reply(
+-				NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
++			err = iscsi_if_send_reply(group, nlh->nlmsg_seq,
+ 				nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
+ 		} while (err < 0 && err != -ECONNREFUSED);
+ 		skb_pull(skb, rlen);
+@@ -1803,7 +1854,6 @@ iscsi_register_transport(struct iscsi_transport *tt)
+ 	if (!priv)
+ 		return NULL;
+ 	INIT_LIST_HEAD(&priv->list);
+-	priv->daemon_pid = -1;
+ 	priv->iscsi_transport = tt;
+ 	priv->t.user_scan = iscsi_user_scan;
+ 	priv->t.create_work_queue = 1;
+diff --git a/include/scsi/iscsi_if.h b/include/scsi/iscsi_if.h
+index 2c1a4af..4426f00 100644
+--- a/include/scsi/iscsi_if.h
++++ b/include/scsi/iscsi_if.h
+@@ -22,6 +22,11 @@
+ #define ISCSI_IF_H
+ 
+ #include <scsi/iscsi_proto.h>
++#include <linux/in.h>
++#include <linux/in6.h>
++
++#define ISCSI_NL_GRP_ISCSID	1
++#define ISCSI_NL_GRP_UIP	2
+ 
+ #define UEVENT_BASE			10
+ #define KEVENT_BASE			100
+@@ -53,6 +58,8 @@ enum iscsi_uevent_e {
+ 	ISCSI_UEVENT_CREATE_BOUND_SESSION		= UEVENT_BASE + 18,
+ 	ISCSI_UEVENT_TRANSPORT_EP_CONNECT_THROUGH_HOST	= UEVENT_BASE + 19,
+ 
++	ISCSI_UEVENT_PATH_UPDATE	= UEVENT_BASE + 20,
++
+ 	/* up events */
+ 	ISCSI_KEVENT_RECV_PDU		= KEVENT_BASE + 1,
+ 	ISCSI_KEVENT_CONN_ERROR		= KEVENT_BASE + 2,
+@@ -60,6 +67,9 @@ enum iscsi_uevent_e {
+ 	ISCSI_KEVENT_DESTROY_SESSION	= KEVENT_BASE + 4,
+ 	ISCSI_KEVENT_UNBIND_SESSION	= KEVENT_BASE + 5,
+ 	ISCSI_KEVENT_CREATE_SESSION	= KEVENT_BASE + 6,
++
++	ISCSI_KEVENT_PATH_REQ		= KEVENT_BASE + 7,
++	ISCSI_KEVENT_IF_DOWN		= KEVENT_BASE + 8,
  };
-@@ -6727,6 +6736,11 @@ struct bnx2 {
- 	int		tx_ring_size;
- 	u32		tx_wake_thresh;
  
-+#ifdef BCM_CNIC
-+	struct cnic_ops		*cnic_ops;
-+	void			*cnic_data;
-+#endif
+ enum iscsi_tgt_dscvr {
+@@ -159,6 +169,9 @@ struct iscsi_uevent {
+ 			uint32_t	param; /* enum iscsi_host_param */
+ 			uint32_t	len;
+ 		} set_host_param;
++		struct msg_set_path {
++			uint32_t	host_no;
++		} set_path;
+ 	} u;
+ 	union {
+ 		/* messages k -> u */
+@@ -192,10 +205,39 @@ struct iscsi_uevent {
+ 		struct msg_transport_connect_ret {
+ 			uint64_t	handle;
+ 		} ep_connect_ret;
++		struct msg_req_path {
++			uint32_t	host_no;
++		} req_path;
++		struct msg_notify_if_down {
++			uint32_t	host_no;
++		} notify_if_down;
+ 	} r;
+ } __attribute__ ((aligned (sizeof(uint64_t))));
+ 
+ /*
++ * To keep the struct iscsi_uevent size the same for userspace code
++ * compatibility, the main structure for ISCSI_UEVENT_PATH_UPDATE and
++ * ISCSI_KEVENT_PATH_REQ is defined separately and comes after the
++ * struct iscsi_uevent in the NETLINK_ISCSI message.
++ */
++struct iscsi_path {
++	uint64_t	handle;
++	uint8_t		mac_addr[6];
++	uint8_t		mac_addr_old[6];
++	uint32_t	ip_addr_len;	/* 4 or 16 */
++	union {
++		struct in_addr	v4_addr;
++		struct in6_addr	v6_addr;
++	} src;
++	union {
++		struct in_addr	v4_addr;
++		struct in6_addr	v6_addr;
++	} dst;
++	uint16_t	vlan_id;
++	uint16_t	pmtu;
++} __attribute__ ((aligned (sizeof(uint64_t))));
 +
- 	/* End of fields used in the performance code paths. */
- 
- 	unsigned int		current_interval;
-@@ -6885,6 +6899,10 @@ struct bnx2 {
- 
- 	u32			idle_chk_status_idx;
- 
-+#ifdef BCM_CNIC
-+	struct cnic_eth_dev	cnic_eth_dev;
-+#endif
-+
- 	const struct firmware	*mips_firmware;
- 	const struct firmware	*rv2p_firmware;
++/*
+  * Common error codes
+  */
+ enum iscsi_err {
+diff --git a/include/scsi/scsi_transport_iscsi.h b/include/scsi/scsi_transport_iscsi.h
+index 8cb7a31..349c7f3 100644
+--- a/include/scsi/scsi_transport_iscsi.h
++++ b/include/scsi/scsi_transport_iscsi.h
+@@ -133,6 +133,7 @@ struct iscsi_transport {
+ 	void (*ep_disconnect) (struct iscsi_endpoint *ep);
+ 	int (*tgt_dscvr) (struct Scsi_Host *shost, enum iscsi_tgt_dscvr type,
+ 			  uint32_t enable, struct sockaddr *dst_addr);
++	int (*set_path) (struct Scsi_Host *shost, struct iscsi_path *params);
  };
+ 
+ /*
+@@ -149,6 +150,10 @@ extern void iscsi_conn_error_event(struct iscsi_cls_conn *conn,
+ extern int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
+ 			  char *data, uint32_t data_size);
+ 
++extern int iscsi_offload_mesg(struct Scsi_Host *shost,
++			      struct iscsi_transport *transport, uint32_t type,
++			      char *data, uint16_t data_size);
++
+ struct iscsi_cls_conn {
+ 	struct list_head conn_list;	/* item in connlist */
+ 	void *dd_data;			/* LLD private data */
 -- 
 1.5.6.GIT
-
-
