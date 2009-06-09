@@ -1,36 +1,56 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
-Date: Tue, 09 Jun 2009 13:20:14 +0200
-Message-ID: <m3my8hlklt.fsf@intrepid.localdomain>
-References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com>
-	<4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com>
-	<4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com>
-	<4A2D3BC6.3040904@msgid.tls.msk.ru> <4A2D4AA7.6020204@gmail.com>
-	<4A2D6D0C.6060206@msgid.tls.msk.ru> <4A2D7FFE.9070701@cosmosbay.com>
-	<4A2D825B.6090409@msgid.tls.msk.ru>
+From: Gil Beniamini <gil.beniamini@gmail.com>
+Subject: Re: SOCK_RAW does not receive broadcast (with VLAN unless PROMISC)
+Date: Tue, 9 Jun 2009 14:27:00 +0300
+Message-ID: <91ac27070906090427k6f57745xc72f9fcb6801957a@mail.gmail.com>
+References: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>
+	 <20090608.143454.161329513.davem@davemloft.net>
+	 <4A2E4077.8080407@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57000 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754222AbZFILUP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 07:20:15 -0400
-In-Reply-To: <4A2D825B.6090409@msgid.tls.msk.ru> (Michael Tokarev's message of "Tue\, 09 Jun 2009 01\:27\:55 +0400")
+Received: from fg-out-1718.google.com ([72.14.220.155]:42832 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755413AbZFIL1B convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 07:27:01 -0400
+In-Reply-To: <4A2E4077.8080407@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Tokarev <mjt@tls.msk.ru> writes:
+9Jun09, The problem was seen with eth1 using driver e1000e, but also
+was reproduced on 3c59x, to me it seems that the problem is not
+related to a specific nic driver.
+VLAN is running for other NICs, but on the application specific nic
+(eth1) I use PF_PACKET (SOCK_RAW) , in order to get =A0the raw-packet
+from the underlying device, and this start working again (like in
+older kernel) as soon as the application set the socket to PROMISC
+mode.
+Thanks Gil
 
-> Well, the performance is quite good -- 935Mb/sec according to iperf
-> for TCP.  With UDP I got 1.05Gb/sec, but CPU usage is 100% during
-> all test time (for TCP test the CPU is in use for less than 5%).
-
-BTW you may want to try pktgen for TX bandwidth tests (a kernel module).
-In "clone" mode a slow IXP425 (ARM XScale) 533 MHz + Intel's 82541xx
-E1000 chip are able to transmit 1500-byte packets at full gigabit speed.
--- 
-Krzysztof Halasa
+On Tue, Jun 9, 2009 at 1:59 PM, Patrick McHardy<kaber@trash.net> wrote:
+> David Miller wrote:
+>>
+>> From: Gil Beniamini <gil.beniamini@gmail.com>
+>> Date: Mon, 8 Jun 2009 21:05:25 +0300
+>>
+>>> My application is using PF_PACKET and SOCK_RAW in order to receive =
+all
+>>> Ethernet packets for the machine-unicast MAC plus all broadcast
+>>> packets (like ARP broadcast).
+>>
+>>> That worked OK with kernel 2.6.20 (Ubuntu 7.04 with or without VLAN=
+).
+>>>
+>>> Now with kernel 2.6.28 (Ubuntu 9.04) it works OK only without-VLAN,
+>>> but with VLAN the application receive only packets for the
+>>> machine-unicast MAC, but no broadcast (like ARP broadcast) packets,
+>>> only if I set the socket to PROMISC mode, I start receive also
+>>> broadcast packets.
+>
+> Which driver are you using? Are you sniffing on the VLAN device
+> or on the underlying device?
+>
+>
