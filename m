@@ -1,71 +1,54 @@
-From: Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>
-Subject: Re: [PATCH 4/5] sctp: protocol.c call rcu_barrier() on unload.
-Date: Tue, 09 Jun 2009 12:26:25 -0400
-Message-ID: <4A2E8D31.1030307@hp.com>
-References: <20090608130959.10052.54590.stgit@localhost> <20090608131143.10052.96470.stgit@localhost> <20090608162227.GE6961@linux.vnet.ibm.com> <4A2E8357.80509@hp.com> <20090609155011.GD6789@linux.vnet.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: BUG: bonding module can only be loaded once
+Date: Tue, 09 Jun 2009 18:27:14 +0200
+Message-ID: <4A2E8D62.6090004@trash.net>
+References: <20090608151127.70146505@nehalam> <200906091406.45463.arnd@arndb.de> <20090609080232.45f81833@nehalam> <4A2E80B3.6010600@trash.net> <4752.1244564082@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
-	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, sri-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090609155011.GD6789-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	bonding-devel@lists.sf.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757046AbZFIQ11@vger.kernel.org>
+In-Reply-To: <4752.1244564082@death.nxdomain.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul E. McKenney wrote:
-> On Tue, Jun 09, 2009 at 11:44:23AM -0400, Vlad Yasevich wrote:
->> Paul E. McKenney wrote:
->>> On Mon, Jun 08, 2009 at 03:11:43PM +0200, Jesper Dangaard Brouer wrote:
->>>> On module unload call rcu_barrier(), this is needed as synchronize_rcu()
->>>> is not strong enough.  The kmem_cache_destroy() does invoke
->>>> synchronize_rcu() but it does not provide same protection.
->>> Good, looks like sctp_v4_del_protocol() invokes call_rcu(), which the
->>> rcu_barrier() would then wait for.  And it looks like sctp_v6_del_protocol()
->>> does the same for IPv6.
->>>
->>> Reviewed_by: Paul E. McKenney <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
->>>
->>>> Signed-off-by: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
->>>> ---
->>>>
->>>>  net/sctp/protocol.c |    2 ++
->>>>  1 files changed, 2 insertions(+), 0 deletions(-)
->>>>
->>>> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
->>>> index cb2c50d..79cbd47 100644
->>>> --- a/net/sctp/protocol.c
->>>> +++ b/net/sctp/protocol.c
->>>> @@ -1370,6 +1370,8 @@ SCTP_STATIC __exit void sctp_exit(void)
->>>>  	sctp_proc_exit();
->>>>  	cleanup_sctp_mibs();
->>>>
->>>> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
->>>> +
->>>>  	kmem_cache_destroy(sctp_chunk_cachep);
->>>>  	kmem_cache_destroy(sctp_bucket_cachep);
->>>>  }
->> Shouldn't the rcu_barrier call be before sctp_free_local_addr_list()?
+Jay Vosburgh wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Hmmm...  What sequence of events would lead to a failure if
-> rcu_barrier() is after sctp_free_local_addr_list()?
+>> In any case, this is not the first time this has been broken and the
+>> fundamental reason is in my opinion that the bonding interface is
+>> broken to begin with. The module aliasing thing is complete crap
+>> and should have been phased out long ago. At this point its probably
+>> not worth anymore to migrate people to the sysfs interface though,
+>> the best thing would be to add an rtnl_link interface and phase out
+>> both.
 > 
-> 							Thanx, Paul
+> 	The "load bonding multiple times" stuff is only there now for
+> backwards compatibility with old distro initscripts / sysconfig packages
+> that don't configure bonding through sysfs (a sysfs API was added to
+> bonding three or four years ago).
 > 
+> 	All of the current distro releases I'm aware of use sysfs to
+> configure bonding, and have done so for at least a year or two.  I
+> haven't done an exhaustive survey, but it seems unlikely that users are
+> running a current up to date kernel with a two or three year old
+> initscripts / sysconfig package.  Anybody have information to the
+> contrary?
 
-I thought that the notifier could could potentially execute at the
-same time as the unregister(), but I see that's protected.  So, I guess
-it doesn't really matter then where the barrier is.
+I'd expect its not the distros, but rather the applicances which might
+still be using this. I know a vendor I used to work for a couple of
+years ago just recently made the switch from 2.6.16 to a current kernel,
+and I'd expect that they are still using this (I can find out tommorrow
+if you want to know for sure). Vyatta likewise, I guess.
 
-Acked-by: Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>
+> 	If nobody has any heartburn at dropping support for multiple
+> bonding instances on old distros, I'm as happy as anybody to remove all
+> of the multiple load logic from bonding.  There's been plenty of time
+> for transitioning from "multiple load" to sysfs.
 
--vlad
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In my opinion it would need a feature-removal-schedule announcement.
