@@ -1,44 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: dev_addr_init() fix
-Date: Tue, 09 Jun 2009 05:21:50 -0700 (PDT)
-Message-ID: <20090609.052150.253563947.davem@davemloft.net>
-References: <4A2D006C.70302@cosmosbay.com>
-	<20090608130653.GB3272@elte.hu>
-	<4A2D16E4.3030702@gmail.com>
+Subject: Re: [PATCH 1/2 v3] netdev: smsc911x: allow building on any system
+Date: Tue, 09 Jun 2009 05:23:23 -0700 (PDT)
+Message-ID: <20090609.052323.146791305.davem@davemloft.net>
+References: <20090609.013718.135786197.davem@davemloft.net>
+	<1244538819-11305-1-git-send-email-vapier@gentoo.org>
+	<20090609.052136.172262128.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, vegard.nossum@gmail.com, john.dykstra1@gmail.com,
-	netdev@vger.kernel.org, penberg@cs.helsinki.fi,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+To: vapier@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41150
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43724
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758895AbZFIMVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 08:21:48 -0400
-In-Reply-To: <4A2D16E4.3030702@gmail.com>
+	by vger.kernel.org with ESMTP id S1752173AbZFIMXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 08:23:21 -0400
+In-Reply-To: <20090609.052136.172262128.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 08 Jun 2009 15:49:24 +0200
+From: David Miller <davem@davemloft.net>
+Date: Tue, 09 Jun 2009 05:21:36 -0700 (PDT)
 
-> [PATCH net-next-2.6] net: dev_addr_init() fix
+> From: Mike Frysinger <vapier@gentoo.org>
+> Date: Tue,  9 Jun 2009 05:13:39 -0400
 > 
-> commit f001fde5eadd915f4858d22ed70d7040f48767cf 
-> (net: introduce a list of device addresses dev_addr_list (v6))
-> added one regression Vegard Nossum found in its testings.
+>> The smsc911x driver should build fine on any system as it contains no arch
+>> specific code (all platform resources), and any platform that has
+>> appropriate resources should run fine.
+>> 
+>> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 > 
-> With kmemcheck help, Vegard found some uninitialized memory
-> was read and reported to user, potentialy leaking kernel data.
-> ( thread can be found on http://lkml.org/lkml/2009/5/30/177 )
-> 
-> dev_addr_init() incorrectly uses sizeof() operator. We were
-> initializing one byte instead of MAX_ADDR_LEN bytes.
-> 
-> Reported-by: Vegard Nossum <vegard.nossum@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Jiri Pirko <jpirko@redhat.com>
+> Applied.
 
-Applied, thanks.
+Actually, I have to revert.
+
+Not all platforms implement writesl(), readsl(), etc.
+The build failed on sparc64, for example.
