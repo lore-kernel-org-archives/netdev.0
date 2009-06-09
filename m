@@ -1,49 +1,52 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [PATCH 11/15]: netfilter: Use frag list abstraction interfaces.
-Date: Tue, 9 Jun 2009 22:23:52 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0906092220430.30827@ask.diku.dk>
-References: <20090609.050224.246127309.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general][PATCH] mlx4: FIX error flow when initializing EQ table
+Date: Tue, 09 Jun 2009 13:46:23 -0700
+Message-ID: <adavdn53zkw.fsf@cisco.com>
+References: <4A2BD9B9.6000802@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
+	Christoph Lameter <cl@linux-foundation.org>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:48011 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885AbZFIUYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 16:24:53 -0400
-In-Reply-To: <20090609.050224.246127309.davem@davemloft.net>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:41529 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785AbZFIUqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 16:46:21 -0400
+In-Reply-To: <4A2BD9B9.6000802@mellanox.co.il> (Yevgeny Petrilin's message of
+	"Sun, 07 Jun 2009 18:16:09 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Tue, 9 Jun 2009, David Miller wrote:
+ > If mlx4_create_eq() would fail for one of EQ's assigned for
+ > completion handling, the code would try to free the same EQ
+ > we failed to create.
+ > The crash was found by Christoph Lameter
 
-> --- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
-> +++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
->
-> @@ -57,8 +58,8 @@ sctp_manip_pkt(struct sk_buff *skb,
-> 	}
->
-> 	crc32 = sctp_start_cksum((u8 *)hdr, skb_headlen(skb) - hdroff);
-> -	for (skb = skb_shinfo(skb)->frag_list; skb; skb = skb->next)
-> -		crc32 = sctp_update_cksum((u8 *)skb->data, skb_headlen(skb),
-> +	skb_walk_frags(skb, frag);
+Thanks, good catch.  However looking at the code it seems that a simpler
+way to fix this would be as below.  Can you confirm that this works too?
+---
+ drivers/net/mlx4/eq.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Think there is a semi-colon too much here, as skb_walk_frags expand to a 
-for-loop statement, Right?
-
-> +		crc32 = sctp_update_cksum((u8 *)frag->data, skb_headlen(frag),
-> 					  crc32);
-> 	crc32 = sctp_end_cksum(crc32);
-> 	hdr->checksum = crc32;
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/mlx4/eq.c
+index 8830dcb..033817e 100644
+--- a/drivers/net/mlx4/eq.c
++++ b/drivers/net/mlx4/eq.c
+@@ -677,12 +677,12 @@ err_out_async:
+ 	mlx4_free_eq(dev, &priv->eq_table.eq[dev->caps.num_comp_vectors]);
+ 
+ err_out_comp:
+-	i = dev->caps.num_comp_vectors - 1;
++	i = dev->caps.num_comp_vectors;
+ 
+ err_out_unmap:
+-	while (i >= 0) {
+-		mlx4_free_eq(dev, &priv->eq_table.eq[i]);
++	while (i > 0) {
+ 		--i;
++		mlx4_free_eq(dev, &priv->eq_table.eq[i]);
+ 	}
+ 	mlx4_unmap_clr_int(dev);
+ 	mlx4_free_irqs(dev);
