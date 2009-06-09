@@ -1,56 +1,41 @@
-From: Gil Beniamini <gil.beniamini@gmail.com>
-Subject: Re: SOCK_RAW does not receive broadcast (with VLAN unless PROMISC)
-Date: Tue, 9 Jun 2009 14:27:00 +0300
-Message-ID: <91ac27070906090427k6f57745xc72f9fcb6801957a@mail.gmail.com>
-References: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>
-	 <20090608.143454.161329513.davem@davemloft.net>
-	 <4A2E4077.8080407@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Tue, 09 Jun 2009 04:31:38 -0700 (PDT)
+Message-ID: <20090609.043138.236579164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:42832 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755413AbZFIL1B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 07:27:01 -0400
-In-Reply-To: <4A2E4077.8080407@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47328
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750885AbZFILbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 07:31:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-9Jun09, The problem was seen with eth1 using driver e1000e, but also
-was reproduced on 3c59x, to me it seems that the problem is not
-related to a specific nic driver.
-VLAN is running for other NICs, but on the application specific nic
-(eth1) I use PF_PACKET (SOCK_RAW) , in order to get =A0the raw-packet
-from the underlying device, and this start working again (like in
-older kernel) as soon as the application set the socket to PROMISC
-mode.
-Thanks Gil
 
-On Tue, Jun 9, 2009 at 1:59 PM, Patrick McHardy<kaber@trash.net> wrote:
-> David Miller wrote:
->>
->> From: Gil Beniamini <gil.beniamini@gmail.com>
->> Date: Mon, 8 Jun 2009 21:05:25 +0300
->>
->>> My application is using PF_PACKET and SOCK_RAW in order to receive =
-all
->>> Ethernet packets for the machine-unicast MAC plus all broadcast
->>> packets (like ARP broadcast).
->>
->>> That worked OK with kernel 2.6.20 (Ubuntu 7.04 with or without VLAN=
-).
->>>
->>> Now with kernel 2.6.28 (Ubuntu 9.04) it works OK only without-VLAN,
->>> but with VLAN the application receive only packets for the
->>> machine-unicast MAC, but no broadcast (like ARP broadcast) packets,
->>> only if I set the socket to PROMISC mode, I start receive also
->>> broadcast packets.
->
-> Which driver are you using? Are you sniffing on the VLAN device
-> or on the underlying device?
->
->
+These two are crashers and well isolated, so I'm sending these
+now.
+
+Please pull, thanks a lot!
+
+The following changes since commit 3af968e066d593bc4dacc021715f3e95ddf0996f:
+  Linus Torvalds (1):
+        async: Fix lack of boot-time console due to insufficient synchronization
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Eric Dumazet (1):
+      r8169: fix crash when large packets are received
+
+Minoru Usui (1):
+      cls_cgroup: Fix oops when user send improperly 'tc filter add' request
+
+ drivers/net/r8169.c    |   11 +++++------
+ net/sched/cls_cgroup.c |    3 +++
+ 2 files changed, 8 insertions(+), 6 deletions(-)
