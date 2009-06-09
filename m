@@ -1,30 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 v3] netdev: smsc911x: allow building on any system
-Date: Tue, 09 Jun 2009 03:59:56 -0700 (PDT)
-Message-ID: <20090609.035956.164474046.davem@davemloft.net>
-References: <20090609.013718.135786197.davem@davemloft.net>
-	<1244538819-11305-1-git-send-email-vapier@gentoo.org>
+Subject: Re: [patch] r8169: fix crash when large packets are received
+Date: Tue, 09 Jun 2009 04:01:14 -0700 (PDT)
+Message-ID: <20090609.040114.256650768.davem@davemloft.net>
+References: <4A2D8B8B.80905@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
-To: vapier@gentoo.org
+Cc: netdev@vger.kernel.org, mjt@tls.msk.ru,
+	linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46547
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46551
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759779AbZFIK7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 06:59:54 -0400
-In-Reply-To: <1244538819-11305-1-git-send-email-vapier@gentoo.org>
+	by vger.kernel.org with ESMTP id S1757710AbZFILBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 07:01:13 -0400
+In-Reply-To: <4A2D8B8B.80905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Tue,  9 Jun 2009 05:13:39 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 09 Jun 2009 00:07:07 +0200
 
-> The smsc911x driver should build fine on any system as it contains no arch
-> specific code (all platform resources), and any platform that has
-> appropriate resources should run fine.
+> Michael Tokarev reported receiving a large packet could crash
+> a machine with RTL8169 NIC.
+> ( original thread at http://lkml.org/lkml/2009/6/8/192 )
 > 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> Problem is this driver tells that NIC frames up to 16383 bytes
+> can be received but provides skb to rx ring allocated with
+> smaller sizes (1536 bytes in case standard 1500 bytes MTU is used)
+> 
+> When a frame larger than what was allocated by driver is received,
+> dma transfert can occurs past the end of buffer and corrupt
+> kernel memory.
+> 
+> Fix is to tell to NIC what is the maximum size a frame can be.
+> 
+> This bug is very old, (before git introduction, linux-2.6.10), and 
+> should be backported to stable versions.
+> 
+> Reported-by: Michael Tokarev <mjt@tls.msk.ru>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Tested-by: Michael Tokarev <mjt@tls.msk.ru>
 
-Where is patch 2/2 :-)
+Applied to net-2.6, thanks Eric.
