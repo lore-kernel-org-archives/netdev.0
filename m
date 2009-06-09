@@ -1,65 +1,58 @@
-From: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W} usage
-Date: Tue,  9 Jun 2009 12:15:03 +0900 (JST)
-Message-ID: <20090609121436.DD56.A69D9226@jp.fujitsu.com>
-References: <20090608134428.4373.A69D9226@jp.fujitsu.com> <20090609030726.GA8026@localhost>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
+Date: Tue, 09 Jun 2009 09:25:48 +0400
+Message-ID: <4A2DF25C.7030109@bigtelecom.ru>
+References: <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603095412.GC5644@ff.dom.local> <298f5c050906040650y31de6fdcv865e775d52bc977c@mail.gmail.com> <20090604193013.GA2755@ami.dom.local> <4A282216.20203@trash.net> <20090604194203.GB2755@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-btrfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-btrfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"chris.mason-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <chris.mason-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090609030726.GA8026@localhost>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Antonio Almeida <vexwek@gmail.com>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:43516 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753150AbZFIFbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 01:31:53 -0400
+In-Reply-To: <20090604194203.GB2755@ami.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon, Jun 08, 2009 at 12:55:18PM +0800, KOSAKI Motohiro wrote:
-> > Hi
-> > 
-> > > Hi,
-> > > 
-> > > This lockdep warning appears when doing stress memory tests over NFS.
-> > > 
-> > > page reclaim => nfs_writepage => tcp_sendmsg => lock sk_lock
-> > > 
-> > > tcp_close => lock sk_lock => tcp_send_fin => alloc_skb_fclone => page reclaim
-> > > 
-> > > Any ideas?
-> > 
-> > AFAIK, btrfs has re-dirty hack. 
-> > 
-> > ------------------------------------------------------------------
-> > static int btrfs_writepage(struct page *page, struct writeback_control *wbc)
-> > {
-> >         struct extent_io_tree *tree;
-> > 
-> > 
-> >         if (current->flags & PF_MEMALLOC) {
-> >                 redirty_page_for_writepage(wbc, page);
-> >                 unlock_page(page);
-> >                 return 0;
-> >         }
-> >         tree = &BTRFS_I(page->mapping->host)->io_tree;
-> >         return extent_write_full_page(tree, page, btrfs_get_extent, wbc);
-> > }
-> > ---------------------------------------------------------------
-> > 
-> > PF_MEMALLOC mean caller is try_to_free_pages(). (not normal write nor kswapd)
-> 
-> No, kswapd also sets the PF_MEMALLOC flag. It looks like btrfs_writepage()
-> is trying to avoid inefficient page outs at the cost of pinning dirty
-> pages in memory (even when we really want free pages).
+Hello!
+Do you have any progress to apply this patch set?
+I'm very interested to view that patches in mainline kernel tree. We
+would like to use HTB for speeds more than 1G (converts 10 servers x 1G
+to few with 10G intel multi queue network devices).
 
-Sorry, I was confused ;)
+Thanks for you doing!
+Best regals, Slavon
 
+> On Thu, Jun 04, 2009 at 09:35:50PM +0200, Patrick McHardy wrote:
+>   
+>> Jarek Poplawski wrote:
+>>     
+> ...
+>   
+>>> OK, I'll browse other schedulers, and if there is nothing suspicious
+>>> I'll submit these patches.
+>>>       
+>> Please give me a day to have another look at this, I didn't find
+>> any time today.
+>>
+>> In most areas the overflows are only occuring when crossing
+>> IMO unreasonable boundaries (but I've been wrong about that
+>> before), but tc_cbq_calc_maxidle() is still making me nervous.
+>>     
+>
+> Sure, I planned similar time for browsing it yet, as well.
+>
+> Thanks,
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>   
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
