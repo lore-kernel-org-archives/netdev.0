@@ -1,52 +1,210 @@
-From: Minoru Usui <usui@mxm.nes.nec.co.jp>
-Subject: [PATCH 1/1] cls_cgroup: Fix oops when user send improperly 'tc
- filter add' request
-Date: Tue, 9 Jun 2009 08:54:08 +0900
-Message-ID: <20090609085408.9b38ffe1.usui@mxm.nes.nec.co.jp>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/3] e1000e: Fixes possible phy corrupton on 82571
+	designs.
+Date: Mon, 08 Jun 2009 17:28:17 -0700
+Message-ID: <20090609002817.4909.44004.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, hadi@cyberus.ca, jarkao2@gmail.com
-To: containers@lists.linux-foundation.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	dave graham <david.graham@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:61330 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbZFIAKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 20:10:24 -0400
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:52381
+	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751467AbZFIA2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Jun 2009 20:28:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cls_cgroup: Fix oops when user send improperly 'tc filter add' request
+From: Dave Graham <david.graham@intel.com>
 
-I found a bug in cls_cgroup_change() in cls_cgroup.c.
-cls_cgroup_change() expected tca[TCA_OPTIONS] was set from user space properly,
-but tc in iproute2-2.6.29-1 (which I used) didn't set it.
+Phy corruption has been observed on 2-port 82571 adapters, and is root-caused
+to lack of synchronization between the 2 driver instances, which conflict
+when attempting to access the phy via the single MDIC register.
+A semaphore exists for this purpose, and is now used on these designs. Because
+PXE &/or EFI boot code (which we cannot expect to be built with this fix) may
+leave the inter-instance semaphore in an invalid initial state when the driver
+first loads, this fix also includes a one-time (per driver load) fix-up of the
+semaphore initial state.
 
-In the current source code of tc in git, it set tca[TCA_OPTIONS].
+Signed-off-by: dave graham <david.graham@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+ drivers/net/e1000e/82571.c   |   86 +++++++++++++++++++++++++++++++++++++++---
+ drivers/net/e1000e/defines.h |    2 +
+ drivers/net/e1000e/hw.h      |    2 +
+ 3 files changed, 83 insertions(+), 7 deletions(-)
 
-If we always use a newest iproute2 in git when we use cls_cgroup, 
-we don't face this oops probably.
-But I think, kernel shouldn't panic regardless of use program's behaviour. 
-
-
-Signed-off-by: Minoru Usui <usui@mxm.nes.nec.co.jp>
-
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index cc29b44..2ec0adc 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -167,6 +167,9 @@ static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
- 	struct tcf_exts e;
- 	int err;
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index c4b3f4f..b53b40b 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -71,6 +71,7 @@ static s32 e1000_setup_link_82571(struct e1000_hw *hw);
+ static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_82574(struct e1000_hw *hw);
+ static s32 e1000_led_on_82574(struct e1000_hw *hw);
++static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw);
  
-+	if (!tca[TCA_OPTIONS])
-+		return -EINVAL;
+ /**
+  *  e1000_init_phy_params_82571 - Init PHY func ptrs.
+@@ -212,6 +213,9 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	struct e1000_mac_operations *func = &mac->ops;
++	u32 swsm = 0;
++	u32 swsm2 = 0;
++	bool force_clear_smbi = false;
+ 
+ 	/* Set media type */
+ 	switch (adapter->pdev->device) {
+@@ -276,6 +280,50 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 		break;
+ 	}
+ 
++	/*
++	 * Ensure that the inter-port SWSM.SMBI lock bit is clear before
++	 * first NVM or PHY acess. This should be done for single-port
++	 * devices, and for one port only on dual-port devices so that
++	 * for those devices we can still use the SMBI lock to synchronize
++	 * inter-port accesses to the PHY & NVM.
++	 */
++	switch (hw->mac.type) {
++	case e1000_82571:
++	case e1000_82572:
++		swsm2 = er32(SWSM2);
 +
- 	if (head == NULL) {
- 		if (!handle)
- 			return -EINVAL;
++		if (!(swsm2 & E1000_SWSM2_LOCK)) {
++			/* Only do this for the first interface on this card */
++			ew32(SWSM2,
++			    swsm2 | E1000_SWSM2_LOCK);
++			force_clear_smbi = true;
++		} else
++			force_clear_smbi = false;
++		break;
++	default:
++		force_clear_smbi = true;
++		break;
++	}
++
++	if (force_clear_smbi) {
++		/* Make sure SWSM.SMBI is clear */
++		swsm = er32(SWSM);
++		if (swsm & E1000_SWSM_SMBI) {
++			/* This bit should not be set on a first interface, and
++			 * indicates that the bootagent or EFI code has
++			 * improperly left this bit enabled
++			 */
++			hw_dbg(hw, "Please update your 82571 Bootagent\n");
++		}
++		ew32(SWSM, swsm & ~E1000_SWSM_SMBI);
++	}
++
++	/*
++	 * Initialze device specific counter of SMBI acquisition
++	 * timeouts.
++	 */
++	 hw->dev_spec.e82571.smb_counter = 0;
++
+ 	return 0;
+ }
+ 
+@@ -413,11 +461,37 @@ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw)
+ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
+ {
+ 	u32 swsm;
+-	s32 timeout = hw->nvm.word_size + 1;
++	s32 sw_timeout = hw->nvm.word_size + 1;
++	s32 fw_timeout = hw->nvm.word_size + 1;
+ 	s32 i = 0;
+ 
++	/*
++	 * If we have timedout 3 times on trying to acquire
++	 * the inter-port SMBI semaphore, there is old code
++	 * operating on the other port, and it is not
++	 * releasing SMBI. Modify the number of times that
++	 * we try for the semaphore to interwork with this
++	 * older code.
++	 */
++	if (hw->dev_spec.e82571.smb_counter > 2)
++		sw_timeout = 1;
++
++	/* Get the SW semaphore */
++	while (i < sw_timeout) {
++		swsm = er32(SWSM);
++		if (!(swsm & E1000_SWSM_SMBI))
++			break;
++
++		udelay(50);
++		i++;
++	}
++
++	if (i == sw_timeout) {
++		hw_dbg(hw, "Driver can't access device - SMBI bit is set.\n");
++		hw->dev_spec.e82571.smb_counter++;
++	}
+ 	/* Get the FW semaphore. */
+-	for (i = 0; i < timeout; i++) {
++	for (i = 0; i < fw_timeout; i++) {
+ 		swsm = er32(SWSM);
+ 		ew32(SWSM, swsm | E1000_SWSM_SWESMBI);
+ 
+@@ -428,9 +502,9 @@ static s32 e1000_get_hw_semaphore_82571(struct e1000_hw *hw)
+ 		udelay(50);
+ 	}
+ 
+-	if (i == timeout) {
++	if (i == fw_timeout) {
+ 		/* Release semaphores */
+-		e1000e_put_hw_semaphore(hw);
++		e1000_put_hw_semaphore_82571(hw);
+ 		hw_dbg(hw, "Driver can't access the NVM\n");
+ 		return -E1000_ERR_NVM;
+ 	}
+@@ -449,9 +523,7 @@ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw)
+ 	u32 swsm;
+ 
+ 	swsm = er32(SWSM);
+-
+-	swsm &= ~E1000_SWSM_SWESMBI;
+-
++	swsm &= ~(E1000_SWSM_SMBI | E1000_SWSM_SWESMBI);
+ 	ew32(SWSM, swsm);
+ }
+ 
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 674a47e..8890c97 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -376,6 +376,8 @@
+ #define E1000_SWSM_SWESMBI      0x00000002 /* FW Semaphore bit */
+ #define E1000_SWSM_DRV_LOAD     0x00000008 /* Driver Loaded Bit */
+ 
++#define E1000_SWSM2_LOCK        0x00000002 /* Secondary driver semaphore bit */
++
+ /* Interrupt Cause Read */
+ #define E1000_ICR_TXDW          0x00000001 /* Transmit desc written back */
+ #define E1000_ICR_LSC           0x00000004 /* Link Status Change */
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index fce3f05..163c1c0 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -214,6 +214,7 @@ enum e1e_registers {
+ 	E1000_FACTPS    = 0x05B30, /* Function Active and Power State to MNG */
+ 	E1000_SWSM      = 0x05B50, /* SW Semaphore */
+ 	E1000_FWSM      = 0x05B54, /* FW Semaphore */
++	E1000_SWSM2     = 0x05B58, /* Driver-only SW semaphore */
+ 	E1000_HICR      = 0x08F00, /* Host Interface Control */
+ };
+ 
+@@ -883,6 +884,7 @@ struct e1000_fc_info {
+ struct e1000_dev_spec_82571 {
+ 	bool laa_is_present;
+ 	bool alt_mac_addr_is_present;
++	u32 smb_counter;
+ };
+ 
+ struct e1000_shadow_ram {
 
--- 
-Minoru Usui <usui@mxm.nes.nec.co.jp>
