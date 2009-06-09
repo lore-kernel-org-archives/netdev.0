@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
-Date: Mon, 08 Jun 2009 23:47:01 -0700 (PDT)
-Message-ID: <20090608.234701.51739911.davem@davemloft.net>
-References: <1244466304.24950.4.camel@localhost.localdomain>
-	<20090608.142440.129404475.davem@davemloft.net>
-	<1244526163.3068.1.camel@localhost.localdomain>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: behavior of TSO in kernel
+Date: Tue, 9 Jun 2009 11:01:55 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0906091052080.31791@melkinkari.cs.Helsinki.FI>
+References: <340578.72366.qm@web94815.mail.in2.yahoo.com>
+ <20090605.182038.133831345.davem@davemloft.net> <171835.76446.qm@web94811.mail.in2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Radha Mohan <radhamohan_ch@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35407
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756197AbZFIGq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 02:46:59 -0400
-In-Reply-To: <1244526163.3068.1.camel@localhost.localdomain>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:46463 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755442AbZFIIBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 04:01:53 -0400
+In-Reply-To: <171835.76446.qm@web94811.mail.in2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue, 09 Jun 2009 07:42:43 +0200
+On Sat, 6 Jun 2009, Radha Mohan wrote:
 
-> Hi Dave,
-> 
->> > these are the Bluetooth patches for the 2.6.31 kernel release. They are
->> > mostly cleanups and removal of dead/unused code. However we do integrate
->> > with the re-written RFKILL subsystem now. This gives us proper soft-kill
->> > support for internal and external devices.
->> 
->> Where is the attached patch we talked about the other week
->> so that your pull requests get tracked in patchwork?
-> 
-> I thought you wanted it only for the net-2.6 pull requests and not for
-> the net-next-2.6 ones. Do you want them for both?
+> >The TSO engine of the networking has been rewritten at least
+> >3 times since 2.6.15
+> Thank you for the info.
+> Actually we are working on an SoC and we just started moving from kernel 
+> 2.6.15, so can you tell me from which kernel version the latest TSO 
+> engine is being used. That'll make our life easier and avoid moving 
+> kernels frequently. Currently we are thinking of moving to 2.6.24. Will 
+> that do??   
 
-If the diff is small enough to fit on the list, do them for both.
+There are at least some fixes since that time too... Besides, I'd 
+recommend you staying away from 2.6.24 anyway because it is rather
+broken on TCP side too (and was already obsolete when the problem was 
+discovered so it was never fixed)...
 
-If it's a lot of new stuff and huge, you can pass on it.
+What is the problem in starting with a very recent kernel such as the 
+almost released 2.6.30 or the current stable 2.6.29? Another alternative 
+you might want to consider the long supported version 2.6.27 (IIRC, check 
+the archives whether it was .27 or .28). However, if there's even 
+a slightest consideration of submitting your changes into mainline, the
+latest is the best choice, and keeping up with the upstream during the 
+development is certainly my recommendation too (with git it should be 
+rather straightforward to handle that).
+
+
+-- 
+ i.
