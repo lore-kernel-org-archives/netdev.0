@@ -1,36 +1,36 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/2 v3] netdev: smsc911x: allow
-	building on any system
-Date: Tue, 9 Jun 2009 07:08:20 -0400
-Message-ID: <8bd0f97a0906090408gfd07941x435a65b3758d6b25@mail.gmail.com>
-References: <20090609.013718.135786197.davem@davemloft.net>
-	<1244538819-11305-1-git-send-email-vapier@gentoo.org> <20090609.035956.164474046.davem@davemloft.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [Security, resend] Instant crash with rtl8169 and large packets
+Date: Tue, 09 Jun 2009 13:20:14 +0200
+Message-ID: <m3my8hlklt.fsf@intrepid.localdomain>
+References: <4A2D1147.8020101@msgid.tls.msk.ru> <4A2D1FE4.5030100@gmail.com>
+	<4A2D25F6.9080300@msgid.tls.msk.ru> <4A2D2906.6090002@gmail.com>
+	<4A2D301D.9040301@msgid.tls.msk.ru> <4A2D3568.6010901@gmail.com>
+	<4A2D3BC6.3040904@msgid.tls.msk.ru> <4A2D4AA7.6020204@gmail.com>
+	<4A2D6D0C.6060206@msgid.tls.msk.ru> <4A2D7FFE.9070701@cosmosbay.com>
+	<4A2D825B.6090409@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f214.google.com ([209.85.217.214]:48086 "EHLO
-	mail-gx0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755094AbZFILIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 07:08:39 -0400
-Received: by gxk10 with SMTP id 10so3053267gxk.13
-        for <netdev@vger.kernel.org>; Tue, 09 Jun 2009 04:08:40 -0700 (PDT)
-In-Reply-To: <20090609.035956.164474046.davem@davemloft.net>
+Received: from khc.piap.pl ([195.187.100.11]:57000 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754222AbZFILUP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2009 07:20:15 -0400
+In-Reply-To: <4A2D825B.6090409@msgid.tls.msk.ru> (Michael Tokarev's message of "Tue\, 09 Jun 2009 01\:27\:55 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 9, 2009 at 06:59, David Miller wrote:
-> From: Mike Frysinger <vapier@gentoo.org>
->> The smsc911x driver should build fine on any system as it contains no arch
->> specific code (all platform resources), and any platform that has
->> appropriate resources should run fine.
->>
->> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
->
-> Where is patch 2/2 :-)
+Michael Tokarev <mjt@tls.msk.ru> writes:
 
-meh, call this patch 1.5 since it doesnt replace the previous 1/2 like
-v2 did.  there is no 2/2.
--mike
+> Well, the performance is quite good -- 935Mb/sec according to iperf
+> for TCP.  With UDP I got 1.05Gb/sec, but CPU usage is 100% during
+> all test time (for TCP test the CPU is in use for less than 5%).
+
+BTW you may want to try pktgen for TX bandwidth tests (a kernel module).
+In "clone" mode a slow IXP425 (ARM XScale) 533 MHz + Intel's 82541xx
+E1000 chip are able to transmit 1500-byte packets at full gigabit speed.
+-- 
+Krzysztof Halasa
