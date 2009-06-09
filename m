@@ -1,58 +1,38 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: [PATCH iproute2] Re: HTB accuracy for high speed
-Date: Tue, 09 Jun 2009 09:25:48 +0400
-Message-ID: <4A2DF25C.7030109@bigtelecom.ru>
-References: <4A252714.2020008@trash.net> <20090602213723.GB2850@ami.dom.local> <4A259EB2.5010500@gmail.com> <4A2620FD.8030708@trash.net> <20090603074049.GA5254@ff.dom.local> <4A262BE7.4090807@trash.net> <20090603095412.GC5644@ff.dom.local> <298f5c050906040650y31de6fdcv865e775d52bc977c@mail.gmail.com> <20090604193013.GA2755@ami.dom.local> <4A282216.20203@trash.net> <20090604194203.GB2755@ami.dom.local>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
+Date: Tue, 09 Jun 2009 07:42:43 +0200
+Message-ID: <1244526163.3068.1.camel@localhost.localdomain>
+References: <1244466304.24950.4.camel@localhost.localdomain>
+	 <20090608.142440.129404475.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Antonio Almeida <vexwek@gmail.com>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:43516 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbZFIFbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 01:31:53 -0400
-In-Reply-To: <20090604194203.GB2755@ami.dom.local>
+Received: from senator.holtmann.net ([87.106.208.187]:33166 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbZFIFmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 01:42:45 -0400
+In-Reply-To: <20090608.142440.129404475.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-Do you have any progress to apply this patch set?
-I'm very interested to view that patches in mainline kernel tree. We
-would like to use HTB for speeds more than 1G (converts 10 servers x 1G
-to few with 10G intel multi queue network devices).
+Hi Dave,
 
-Thanks for you doing!
-Best regals, Slavon
+> > these are the Bluetooth patches for the 2.6.31 kernel release. They are
+> > mostly cleanups and removal of dead/unused code. However we do integrate
+> > with the re-written RFKILL subsystem now. This gives us proper soft-kill
+> > support for internal and external devices.
+> 
+> Where is the attached patch we talked about the other week
+> so that your pull requests get tracked in patchwork?
 
-> On Thu, Jun 04, 2009 at 09:35:50PM +0200, Patrick McHardy wrote:
->   
->> Jarek Poplawski wrote:
->>     
-> ...
->   
->>> OK, I'll browse other schedulers, and if there is nothing suspicious
->>> I'll submit these patches.
->>>       
->> Please give me a day to have another look at this, I didn't find
->> any time today.
->>
->> In most areas the overflows are only occuring when crossing
->> IMO unreasonable boundaries (but I've been wrong about that
->> before), but tc_cbq_calc_maxidle() is still making me nervous.
->>     
->
-> Sure, I planned similar time for browsing it yet, as well.
->
-> Thanks,
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->   
+I thought you wanted it only for the net-2.6 pull requests and not for
+the net-next-2.6 ones. Do you want them for both?
+
+Regards
+
+Marcel
+
 
