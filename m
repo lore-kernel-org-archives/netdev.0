@@ -1,98 +1,194 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 17/31: ctnetlink: rename tuple() by nf_ct_tuple() macro definition
-Date: Wed, 10 Jun 2009 21:46:43 +0200 (MEST)
-Message-ID: <20090610194641.11112.48537.sendpatchset@x2.localnet>
+Subject: netfilter 09/31: xtables: remove another level of indent
+Date: Wed, 10 Jun 2009 21:46:34 +0200 (MEST)
+Message-ID: <20090610194632.11112.50548.sendpatchset@x2.localnet>
 References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33181 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761125AbZFJTql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:46:41 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit f2f3e38c63c58a3d39bd710039af8bbd15ecaff6
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Tue Jun 2 20:03:35 2009 +0200
+commit 7a6b1c46e28ab0511be26c238d552c00b51b88c5
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Wed Apr 15 21:35:33 2009 +0200
 
-    netfilter: ctnetlink: rename tuple() by nf_ct_tuple() macro definition
+    netfilter: xtables: remove another level of indent
     
-    This patch move the internal tuple() macro definition to the
-    header file as nf_ct_tuple().
-    
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 6c3f964..b909241 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -144,6 +144,8 @@ static inline u_int8_t nf_ct_protonum(const struct nf_conn *ct)
- 	return ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum;
- }
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index ecba246..7505dff 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -313,23 +313,24 @@ unsigned int arpt_do_table(struct sk_buff *skb,
+ 			}
  
-+#define nf_ct_tuple(ct, dir) (&(ct)->tuplehash[dir].tuple)
-+
- /* get master conntrack via master expectation */
- #define master_ct(conntr) (conntr->master)
- 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 2d7d69f..3553f39 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -346,8 +346,6 @@ nla_put_failure:
- 	return -1;
- }
- 
--#define tuple(ct, dir) (&(ct)->tuplehash[dir].tuple)
+ 			e = get_entry(table_base, v);
+-		} else {
+-			/* Targets which reenter must return
+-			 * abs. verdicts
+-			 */
+-			tgpar.target   = t->u.kernel.target;
+-			tgpar.targinfo = t->data;
+-			verdict = t->u.kernel.target->target(skb, &tgpar);
 -
- static int
- ctnetlink_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
- 		    int event, const struct nf_conn *ct)
-@@ -369,14 +367,14 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
- 	nest_parms = nla_nest_start(skb, CTA_TUPLE_ORIG | NLA_F_NESTED);
- 	if (!nest_parms)
- 		goto nla_put_failure;
--	if (ctnetlink_dump_tuples(skb, tuple(ct, IP_CT_DIR_ORIGINAL)) < 0)
-+	if (ctnetlink_dump_tuples(skb, nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL)) < 0)
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest_parms);
+-			/* Target might have changed stuff. */
+-			arp = arp_hdr(skb);
+-
+-			if (verdict == ARPT_CONTINUE)
+-				e = arpt_next_entry(e);
+-			else
+-				/* Verdict */
+-				break;
++			continue;
+ 		}
++
++		/* Targets which reenter must return
++		 * abs. verdicts
++		 */
++		tgpar.target   = t->u.kernel.target;
++		tgpar.targinfo = t->data;
++		verdict = t->u.kernel.target->target(skb, &tgpar);
++
++		/* Target might have changed stuff. */
++		arp = arp_hdr(skb);
++
++		if (verdict == ARPT_CONTINUE)
++			e = arpt_next_entry(e);
++		else
++			/* Verdict */
++			break;
+ 	} while (!hotdrop);
+ 	xt_info_rdunlock_bh();
  
- 	nest_parms = nla_nest_start(skb, CTA_TUPLE_REPLY | NLA_F_NESTED);
- 	if (!nest_parms)
- 		goto nla_put_failure;
--	if (ctnetlink_dump_tuples(skb, tuple(ct, IP_CT_DIR_REPLY)) < 0)
-+	if (ctnetlink_dump_tuples(skb, nf_ct_tuple(ct, IP_CT_DIR_REPLY)) < 0)
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest_parms);
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index cfcb7af..d91ecd4 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -402,37 +402,35 @@ ipt_do_table(struct sk_buff *skb,
+ 			}
  
-@@ -509,7 +507,8 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
- 	if (!item->report && !nfnetlink_has_listeners(group))
- 		return NOTIFY_DONE;
+ 			e = get_entry(table_base, v);
+-		} else {
+-			/* Targets which reenter must return
+-			   abs. verdicts */
+-			tgpar.target   = t->u.kernel.target;
+-			tgpar.targinfo = t->data;
++			continue;
++		}
++
++		/* Targets which reenter must return
++		   abs. verdicts */
++		tgpar.target   = t->u.kernel.target;
++		tgpar.targinfo = t->data;
+ #ifdef CONFIG_NETFILTER_DEBUG
+-			((struct ipt_entry *)table_base)->comefrom
+-				= 0xeeeeeeec;
++		((struct ipt_entry *)table_base)->comefrom = 0xeeeeeeec;
+ #endif
+-			verdict = t->u.kernel.target->target(skb, &tgpar);
++		verdict = t->u.kernel.target->target(skb, &tgpar);
+ #ifdef CONFIG_NETFILTER_DEBUG
+-			if (((struct ipt_entry *)table_base)->comefrom
+-			    != 0xeeeeeeec
+-			    && verdict == IPT_CONTINUE) {
+-				printk("Target %s reentered!\n",
+-				       t->u.kernel.target->name);
+-				verdict = NF_DROP;
+-			}
+-			((struct ipt_entry *)table_base)->comefrom
+-				= 0x57acc001;
+-#endif
+-			/* Target might have changed stuff. */
+-			ip = ip_hdr(skb);
+-			datalen = skb->len - ip->ihl * 4;
+-
+-			if (verdict == IPT_CONTINUE)
+-				e = ipt_next_entry(e);
+-			else
+-				/* Verdict */
+-				break;
++		if (((struct ipt_entry *)table_base)->comefrom != 0xeeeeeeec &&
++		    verdict == IPT_CONTINUE) {
++			printk("Target %s reentered!\n",
++			       t->u.kernel.target->name);
++			verdict = NF_DROP;
+ 		}
++		((struct ipt_entry *)table_base)->comefrom = 0x57acc001;
++#endif
++		/* Target might have changed stuff. */
++		ip = ip_hdr(skb);
++		datalen = skb->len - ip->ihl * 4;
++
++		if (verdict == IPT_CONTINUE)
++			e = ipt_next_entry(e);
++		else
++			/* Verdict */
++			break;
+ 	} while (!hotdrop);
+ 	xt_info_rdunlock_bh();
  
--	skb = ctnetlink_alloc_skb(tuple(ct, IP_CT_DIR_ORIGINAL), GFP_ATOMIC);
-+	skb = ctnetlink_alloc_skb(nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL),
-+				  GFP_ATOMIC);
- 	if (!skb)
- 		goto errout;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index d01b8a3..5a178be 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -431,35 +431,33 @@ ip6t_do_table(struct sk_buff *skb,
+ 			}
  
-@@ -528,14 +527,14 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
- 	nest_parms = nla_nest_start(skb, CTA_TUPLE_ORIG | NLA_F_NESTED);
- 	if (!nest_parms)
- 		goto nla_put_failure;
--	if (ctnetlink_dump_tuples(skb, tuple(ct, IP_CT_DIR_ORIGINAL)) < 0)
-+	if (ctnetlink_dump_tuples(skb, nf_ct_tuple(ct, IP_CT_DIR_ORIGINAL)) < 0)
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest_parms);
+ 			e = get_entry(table_base, v);
+-		} else {
+-			/* Targets which reenter must return
+-			   abs. verdicts */
+-			tgpar.target   = t->u.kernel.target;
+-			tgpar.targinfo = t->data;
++			continue;
++		}
++
++		/* Targets which reenter must return
++		   abs. verdicts */
++		tgpar.target   = t->u.kernel.target;
++		tgpar.targinfo = t->data;
  
- 	nest_parms = nla_nest_start(skb, CTA_TUPLE_REPLY | NLA_F_NESTED);
- 	if (!nest_parms)
- 		goto nla_put_failure;
--	if (ctnetlink_dump_tuples(skb, tuple(ct, IP_CT_DIR_REPLY)) < 0)
-+	if (ctnetlink_dump_tuples(skb, nf_ct_tuple(ct, IP_CT_DIR_REPLY)) < 0)
- 		goto nla_put_failure;
- 	nla_nest_end(skb, nest_parms);
+ #ifdef CONFIG_NETFILTER_DEBUG
+-			((struct ip6t_entry *)table_base)->comefrom
+-				= 0xeeeeeeec;
++		((struct ip6t_entry *)table_base)->comefrom = 0xeeeeeeec;
+ #endif
+-			verdict = t->u.kernel.target->target(skb, &tgpar);
++		verdict = t->u.kernel.target->target(skb, &tgpar);
  
+ #ifdef CONFIG_NETFILTER_DEBUG
+-			if (((struct ip6t_entry *)table_base)->comefrom
+-			    != 0xeeeeeeec
+-			    && verdict == IP6T_CONTINUE) {
+-				printk("Target %s reentered!\n",
+-				       t->u.kernel.target->name);
+-				verdict = NF_DROP;
+-			}
+-			((struct ip6t_entry *)table_base)->comefrom
+-				= 0x57acc001;
+-#endif
+-			if (verdict == IP6T_CONTINUE)
+-				e = ip6t_next_entry(e);
+-			else
+-				/* Verdict */
+-				break;
++		if (((struct ip6t_entry *)table_base)->comefrom != 0xeeeeeeec &&
++		    verdict == IP6T_CONTINUE) {
++			printk("Target %s reentered!\n",
++			       t->u.kernel.target->name);
++			verdict = NF_DROP;
+ 		}
++		((struct ip6t_entry *)table_base)->comefrom = 0x57acc001;
++#endif
++		if (verdict == IP6T_CONTINUE)
++			e = ip6t_next_entry(e);
++		else
++			/* Verdict */
++			break;
+ 	} while (!hotdrop);
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
