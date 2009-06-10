@@ -1,185 +1,92 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 21/31: conntrack: remove events flags from userspace exposed file
-Date: Wed, 10 Jun 2009 21:46:48 +0200 (MEST)
-Message-ID: <20090610194646.11112.66937.sendpatchset@x2.localnet>
+Subject: netfilter 24/31: x_tables: added hook number into match extension parameter structure.
+Date: Wed, 10 Jun 2009 21:46:52 +0200 (MEST)
+Message-ID: <20090610194650.11112.86094.sendpatchset@x2.localnet>
 References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33201 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761107AbZFJTqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:46:50 -0400
 In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 6bfea1984aea86089907caf8974513c2402a3b3d
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Tue Jun 2 20:08:44 2009 +0200
+commit a5e78820966e17c2316866e00047e4e7e5480f04
+Author: Evgeniy Polyakov <zbr@ioremap.net>
+Date:   Thu Jun 4 16:54:42 2009 +0200
 
-    netfilter: conntrack: remove events flags from userspace exposed file
+    netfilter: x_tables: added hook number into match extension parameter structure.
     
-    This patch moves the event flags from linux/netfilter/nf_conntrack_common.h
-    to net/netfilter/nf_conntrack_ecache.h. This flags are not of any use
-    from userspace.
-    
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
-index 885cbe2..a8248ee 100644
---- a/include/linux/netfilter/nf_conntrack_common.h
-+++ b/include/linux/netfilter/nf_conntrack_common.h
-@@ -75,75 +75,6 @@ enum ip_conntrack_status {
- 	IPS_FIXED_TIMEOUT = (1 << IPS_FIXED_TIMEOUT_BIT),
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index c9efe03..1030b75 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -184,9 +184,10 @@ struct xt_counters_info
+  * @matchinfo:	per-match data
+  * @fragoff:	packet is a fragment, this is the data offset
+  * @thoff:	position of transport header relative to skb->data
+- * @hotdrop:	drop packet if we had inspection problems
++ * @hook:	hook number given packet came from
+  * @family:	Actual NFPROTO_* through which the function is invoked
+  * 		(helpful when match->family == NFPROTO_UNSPEC)
++ * @hotdrop:	drop packet if we had inspection problems
+  */
+ struct xt_match_param {
+ 	const struct net_device *in, *out;
+@@ -194,8 +195,9 @@ struct xt_match_param {
+ 	const void *matchinfo;
+ 	int fragoff;
+ 	unsigned int thoff;
+-	bool *hotdrop;
++	unsigned int hooknum;
+ 	u_int8_t family;
++	bool *hotdrop;
  };
  
--/* Connection tracking event bits */
--enum ip_conntrack_events
--{
--	/* New conntrack */
--	IPCT_NEW_BIT = 0,
--	IPCT_NEW = (1 << IPCT_NEW_BIT),
--
--	/* Expected connection */
--	IPCT_RELATED_BIT = 1,
--	IPCT_RELATED = (1 << IPCT_RELATED_BIT),
--
--	/* Destroyed conntrack */
--	IPCT_DESTROY_BIT = 2,
--	IPCT_DESTROY = (1 << IPCT_DESTROY_BIT),
--
--	/* Timer has been refreshed */
--	IPCT_REFRESH_BIT = 3,
--	IPCT_REFRESH = (1 << IPCT_REFRESH_BIT),
--
--	/* Status has changed */
--	IPCT_STATUS_BIT = 4,
--	IPCT_STATUS = (1 << IPCT_STATUS_BIT),
--
--	/* Update of protocol info */
--	IPCT_PROTOINFO_BIT = 5,
--	IPCT_PROTOINFO = (1 << IPCT_PROTOINFO_BIT),
--
--	/* Volatile protocol info */
--	IPCT_PROTOINFO_VOLATILE_BIT = 6,
--	IPCT_PROTOINFO_VOLATILE = (1 << IPCT_PROTOINFO_VOLATILE_BIT),
--
--	/* New helper for conntrack */
--	IPCT_HELPER_BIT = 7,
--	IPCT_HELPER = (1 << IPCT_HELPER_BIT),
--
--	/* Update of helper info */
--	IPCT_HELPINFO_BIT = 8,
--	IPCT_HELPINFO = (1 << IPCT_HELPINFO_BIT),
--
--	/* Volatile helper info */
--	IPCT_HELPINFO_VOLATILE_BIT = 9,
--	IPCT_HELPINFO_VOLATILE = (1 << IPCT_HELPINFO_VOLATILE_BIT),
--
--	/* NAT info */
--	IPCT_NATINFO_BIT = 10,
--	IPCT_NATINFO = (1 << IPCT_NATINFO_BIT),
--
--	/* Counter highest bit has been set, unused */
--	IPCT_COUNTER_FILLING_BIT = 11,
--	IPCT_COUNTER_FILLING = (1 << IPCT_COUNTER_FILLING_BIT),
--
--	/* Mark is set */
--	IPCT_MARK_BIT = 12,
--	IPCT_MARK = (1 << IPCT_MARK_BIT),
--
--	/* NAT sequence adjustment */
--	IPCT_NATSEQADJ_BIT = 13,
--	IPCT_NATSEQADJ = (1 << IPCT_NATSEQADJ_BIT),
--
--	/* Secmark is set */
--	IPCT_SECMARK_BIT = 14,
--	IPCT_SECMARK = (1 << IPCT_SECMARK_BIT),
--};
--
--enum ip_conntrack_expect_events {
--	IPEXP_NEW_BIT = 0,
--	IPEXP_NEW = (1 << IPEXP_NEW_BIT),
--};
--
- #ifdef __KERNEL__
- struct ip_conntrack_stat
- {
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index 0ff0dc6..892b8cd 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -11,6 +11,75 @@
- #include <net/net_namespace.h>
- #include <net/netfilter/nf_conntrack_expect.h>
+ /**
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 2455583..37928d5 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -170,7 +170,7 @@ unsigned int ebt_do_table (unsigned int hook, struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.hotdrop = &hotdrop;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
  
-+/* Connection tracking event bits */
-+enum ip_conntrack_events
-+{
-+	/* New conntrack */
-+	IPCT_NEW_BIT = 0,
-+	IPCT_NEW = (1 << IPCT_NEW_BIT),
-+
-+	/* Expected connection */
-+	IPCT_RELATED_BIT = 1,
-+	IPCT_RELATED = (1 << IPCT_RELATED_BIT),
-+
-+	/* Destroyed conntrack */
-+	IPCT_DESTROY_BIT = 2,
-+	IPCT_DESTROY = (1 << IPCT_DESTROY_BIT),
-+
-+	/* Timer has been refreshed */
-+	IPCT_REFRESH_BIT = 3,
-+	IPCT_REFRESH = (1 << IPCT_REFRESH_BIT),
-+
-+	/* Status has changed */
-+	IPCT_STATUS_BIT = 4,
-+	IPCT_STATUS = (1 << IPCT_STATUS_BIT),
-+
-+	/* Update of protocol info */
-+	IPCT_PROTOINFO_BIT = 5,
-+	IPCT_PROTOINFO = (1 << IPCT_PROTOINFO_BIT),
-+
-+	/* Volatile protocol info */
-+	IPCT_PROTOINFO_VOLATILE_BIT = 6,
-+	IPCT_PROTOINFO_VOLATILE = (1 << IPCT_PROTOINFO_VOLATILE_BIT),
-+
-+	/* New helper for conntrack */
-+	IPCT_HELPER_BIT = 7,
-+	IPCT_HELPER = (1 << IPCT_HELPER_BIT),
-+
-+	/* Update of helper info */
-+	IPCT_HELPINFO_BIT = 8,
-+	IPCT_HELPINFO = (1 << IPCT_HELPINFO_BIT),
-+
-+	/* Volatile helper info */
-+	IPCT_HELPINFO_VOLATILE_BIT = 9,
-+	IPCT_HELPINFO_VOLATILE = (1 << IPCT_HELPINFO_VOLATILE_BIT),
-+
-+	/* NAT info */
-+	IPCT_NATINFO_BIT = 10,
-+	IPCT_NATINFO = (1 << IPCT_NATINFO_BIT),
-+
-+	/* Counter highest bit has been set, unused */
-+	IPCT_COUNTER_FILLING_BIT = 11,
-+	IPCT_COUNTER_FILLING = (1 << IPCT_COUNTER_FILLING_BIT),
-+
-+	/* Mark is set */
-+	IPCT_MARK_BIT = 12,
-+	IPCT_MARK = (1 << IPCT_MARK_BIT),
-+
-+	/* NAT sequence adjustment */
-+	IPCT_NATSEQADJ_BIT = 13,
-+	IPCT_NATSEQADJ = (1 << IPCT_NATSEQADJ_BIT),
-+
-+	/* Secmark is set */
-+	IPCT_SECMARK_BIT = 14,
-+	IPCT_SECMARK = (1 << IPCT_SECMARK_BIT),
-+};
-+
-+enum ip_conntrack_expect_events {
-+	IPEXP_NEW_BIT = 0,
-+	IPEXP_NEW = (1 << IPEXP_NEW_BIT),
-+};
-+
- #ifdef CONFIG_NF_CONNTRACK_EVENTS
- struct nf_conntrack_ecache {
- 	struct nf_conn *ct;
+ 	read_lock_bh(&table->lock);
+ 	private = table->private;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 7b35c0b..5bf7c3f 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -343,7 +343,7 @@ ipt_do_table(struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.family  = tgpar.family = NFPROTO_IPV4;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+ 	xt_info_rdlock_bh();
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 5164e0b..ced1f2c 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -369,7 +369,7 @@ ip6t_do_table(struct sk_buff *skb,
+ 	mtpar.in      = tgpar.in  = in;
+ 	mtpar.out     = tgpar.out = out;
+ 	mtpar.family  = tgpar.family = NFPROTO_IPV6;
+-	tgpar.hooknum = hook;
++	mtpar.hooknum = tgpar.hooknum = hook;
+ 
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+ 
