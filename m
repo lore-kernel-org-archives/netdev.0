@@ -1,120 +1,71 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 10/31: xtables: consolidate comefrom debug cast access
-Date: Wed, 10 Jun 2009 21:46:35 +0200 (MEST)
-Message-ID: <20090610194633.11112.81944.sendpatchset@x2.localnet>
+Subject: netfilter 08/31: xtables: remove some goto
+Date: Wed, 10 Jun 2009 21:46:33 +0200 (MEST)
+Message-ID: <20090610194631.11112.42021.sendpatchset@x2.localnet>
 References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33157 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761068AbZFJTqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:46:31 -0400
 In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit bb70dfa5f8ab4a0f1c699ddb3ef0276d91219b7c
+commit 9452258d8173806f67b1be5b3b00c39b052060c8
 Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Wed Apr 15 21:40:13 2009 +0200
+Date:   Wed Apr 15 21:31:32 2009 +0200
 
-    netfilter: xtables: consolidate comefrom debug cast access
+    netfilter: xtables: remove some goto
+    
+    Combining two ifs, and goto is easily gone.
     
     Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index d91ecd4..7b35c0b 100644
+index 82888bc..cfcb7af 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -311,6 +311,8 @@ ipt_do_table(struct sk_buff *skb,
- 	     const struct net_device *out,
- 	     struct xt_table *table)
- {
-+#define tb_comefrom ((struct ipt_entry *)table_base)->comefrom
-+
- 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	const struct iphdr *ip;
- 	u_int16_t datalen;
-@@ -409,18 +411,19 @@ ipt_do_table(struct sk_buff *skb,
- 		   abs. verdicts */
- 		tgpar.target   = t->u.kernel.target;
- 		tgpar.targinfo = t->data;
-+
-+
- #ifdef CONFIG_NETFILTER_DEBUG
--		((struct ipt_entry *)table_base)->comefrom = 0xeeeeeeec;
-+		tb_comefrom = 0xeeeeeeec;
- #endif
- 		verdict = t->u.kernel.target->target(skb, &tgpar);
- #ifdef CONFIG_NETFILTER_DEBUG
--		if (((struct ipt_entry *)table_base)->comefrom != 0xeeeeeeec &&
--		    verdict == IPT_CONTINUE) {
-+		if (comefrom != 0xeeeeeeec && verdict == IPT_CONTINUE) {
- 			printk("Target %s reentered!\n",
- 			       t->u.kernel.target->name);
- 			verdict = NF_DROP;
+@@ -359,15 +359,12 @@ ipt_do_table(struct sk_buff *skb,
+ 		IP_NF_ASSERT(e);
+ 		IP_NF_ASSERT(back);
+ 		if (!ip_packet_match(ip, indev, outdev,
+-		    &e->ip, mtpar.fragoff)) {
+- no_match:
++		    &e->ip, mtpar.fragoff) ||
++		    IPT_MATCH_ITERATE(e, do_match, skb, &mtpar) != 0) {
+ 			e = ipt_next_entry(e);
+ 			continue;
  		}
--		((struct ipt_entry *)table_base)->comefrom = 0x57acc001;
-+		tb_comefrom = 0x57acc001;
- #endif
- 		/* Target might have changed stuff. */
- 		ip = ip_hdr(skb);
-@@ -441,6 +444,8 @@ ipt_do_table(struct sk_buff *skb,
- 		return NF_DROP;
- 	else return verdict;
- #endif
-+
-+#undef tb_comefrom
- }
  
- /* Figures out from what hook each rule can be called: returns 0 if
+-		if (IPT_MATCH_ITERATE(e, do_match, skb, &mtpar) != 0)
+-			goto no_match;
+-
+ 		ADD_COUNTER(e->counters, ntohs(ip->tot_len), 1);
+ 
+ 		t = ipt_get_target(e);
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 5a178be..5164e0b 100644
+index a6c2213..d01b8a3 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -343,6 +343,8 @@ ip6t_do_table(struct sk_buff *skb,
- 	      const struct net_device *out,
- 	      struct xt_table *table)
- {
-+#define tb_comefrom ((struct ip6t_entry *)table_base)->comefrom
-+
- 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
- 	bool hotdrop = false;
- 	/* Initializing verdict to NF_DROP keeps gcc happy. */
-@@ -440,18 +442,17 @@ ip6t_do_table(struct sk_buff *skb,
- 		tgpar.targinfo = t->data;
- 
- #ifdef CONFIG_NETFILTER_DEBUG
--		((struct ip6t_entry *)table_base)->comefrom = 0xeeeeeeec;
-+		tb_comefrom = 0xeeeeeeec;
- #endif
- 		verdict = t->u.kernel.target->target(skb, &tgpar);
- 
- #ifdef CONFIG_NETFILTER_DEBUG
--		if (((struct ip6t_entry *)table_base)->comefrom != 0xeeeeeeec &&
--		    verdict == IP6T_CONTINUE) {
-+		if (tb_comefrom != 0xeeeeeeec && verdict == IP6T_CONTINUE) {
- 			printk("Target %s reentered!\n",
- 			       t->u.kernel.target->name);
- 			verdict = NF_DROP;
- 		}
--		((struct ip6t_entry *)table_base)->comefrom = 0x57acc001;
-+		tb_comefrom = 0x57acc001;
- #endif
- 		if (verdict == IP6T_CONTINUE)
+@@ -386,15 +386,12 @@ ip6t_do_table(struct sk_buff *skb,
+ 		IP_NF_ASSERT(e);
+ 		IP_NF_ASSERT(back);
+ 		if (!ip6_packet_match(skb, indev, outdev, &e->ipv6,
+-		    &mtpar.thoff, &mtpar.fragoff, &hotdrop)) {
+- no_match:
++		    &mtpar.thoff, &mtpar.fragoff, &hotdrop) ||
++		    IP6T_MATCH_ITERATE(e, do_match, skb, &mtpar) != 0) {
  			e = ip6t_next_entry(e);
-@@ -461,7 +462,7 @@ ip6t_do_table(struct sk_buff *skb,
- 	} while (!hotdrop);
+ 			continue;
+ 		}
  
- #ifdef CONFIG_NETFILTER_DEBUG
--	((struct ip6t_entry *)table_base)->comefrom = NETFILTER_LINK_POISON;
-+	tb_comefrom = NETFILTER_LINK_POISON;
- #endif
- 	xt_info_rdunlock_bh();
- 
-@@ -472,6 +473,8 @@ ip6t_do_table(struct sk_buff *skb,
- 		return NF_DROP;
- 	else return verdict;
- #endif
-+
-+#undef tb_comefrom
- }
- 
- /* Figures out from what hook each rule can be called: returns 0 if
+-		if (IP6T_MATCH_ITERATE(e, do_match, skb, &mtpar) != 0)
+-			goto no_match;
+-
+ 		ADD_COUNTER(e->counters,
+ 			    ntohs(ipv6_hdr(skb)->payload_len) +
+ 			    sizeof(struct ipv6hdr), 1);
