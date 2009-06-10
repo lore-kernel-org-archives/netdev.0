@@ -1,32 +1,45 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 13:33:15 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0906101327400.30984@fbirervta.pbzchgretzou.qr>
-References: <20090608130959.10052.54590.stgit@localhost> <20090608131138.10052.5408.stgit@localhost> <4A2D112A.4000308@hartkopp.net> <20090610.011027.43904351.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [BUG] net_cls: Panic occured when net_cls subsystem use
+Date: Wed, 10 Jun 2009 07:58:13 -0400
+Message-ID: <1244635093.4186.12.camel@dogo.mojatatu.com>
+References: <20090603112746.GA7000@ff.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: oliver@hartkopp.net, hawk@comx.dk, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090610.011027.43904351.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Minoru Usui <usui@mxm.nes.nec.co.jp>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.24]:43675 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753275AbZFJL7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 07:59:25 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so460625qwd.37
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 04:59:27 -0700 (PDT)
+In-Reply-To: <20090603112746.GA7000@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Apologies for the latency.
 
-On Wednesday 2009-06-10 10:10, David Miller wrote:
->> Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
->
->Please don't capitalize the "By" in "Acked-By".  Otherwise
->patchwork doesn't pick them up automatically.
+On Wed, 2009-06-03 at 11:27 +0000, Jarek Poplawski wrote:
 
-Is not that a patchwork bug then that should be reported? Or a
-missing feature to checkpatch? Do we need a CodingStyle for
-SOBs now too, just for that?
+> After the second look I have some questions:
+> - if it's really aimed to skip checking by ->get() tp's before they're
+> configured in ->change(), maybe instead of using tp_c to check this it
+> would be simpler to generally skip calling ->get() for newly created
+> tp's?
+> - otherwise the current method probably needs adding a tp_c check for
+> NULL in u32_destroy()?
+> - it seems this method would also need adding a 'handle' lookup to
+> the u32_change(); otherwise its 'handle' parameter isn't controlled
+> for for uniqueness, unless I miss something?
 
-(Personally I prefer lowercase after the dash too, but I wanted to
-illuminate all sides of the box.)
+Lets just ignore the need for these changes since the patch fixes them
+for now. I would still like to make the changes i suggested but later
+with more thought put into them.
+
+cheers,
+jamal
+
