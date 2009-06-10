@@ -1,53 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Wed, 10 Jun 2009 01:23:42 -0700 (PDT)
-Message-ID: <20090610.012342.121254416.davem@davemloft.net>
-References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: No more expensive sock_hold()/sock_put() on each
+ tx
+Date: Wed, 10 Jun 2009 10:30:49 +0200
+Message-ID: <4A2F6F39.8060107@gmail.com>
+References: <4A275380.1050601@gmail.com>	<20090603.215621.136203134.davem@davemloft.net>	<4A27916B.7030607@gmail.com> <20090610.011743.230851451.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44578
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754559AbZFJIXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:23:40 -0400
-In-Reply-To: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48015 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbZFJIa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:30:59 -0400
+In-Reply-To: <20090610.011743.230851451.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 3 May 2009 21:03:01 -0700
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 04 Jun 2009 11:18:35 +0200
+>=20
+>> @@ -1172,12 +1186,18 @@ void __init sk_init(void)
+>>  void sock_wfree(struct sk_buff *skb)
+>>  {
+>>  	struct sock *sk =3D skb->sk;
+>> +	int res;
+>> =20
+>>  	/* In case it might be waiting for more memory. */
+>> -	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
+>> +	res =3D atomic_sub_return(skb->truesize, &sk->sk_wmem_alloc);
+>>  	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
+>>  		sk->sk_write_space(sk);
+>> -	sock_put(sk);
+>> +	/*
+>> +	 * if sk_wmem_alloc reached 0, we are last user and should
+>> +	 * free this sock, as sk_free() call could not do it.
+>> +	 */
+>> +	if (res =3D=3D 0)
+>> +		__sk_free(sk);
+>>  }
+>>  EXPORT_SYMBOL(sock_wfree);
+>> =20
+>=20
+> Eric, I don't understand this part, please enlighten me :-)
+>=20
+> Just because we've liberated all of the write buffer space, that does
+> not mean that it's time to kill off the socket completely.
+>=20
+> Right?
 
-> This is an update of the receive packet steering patch (RPS) based on received
-> comments (thanks for all the comments).  Improvements are:
-> 
-> 1) Removed config option for the feature.
-> 2) Made scheduling of backlog NAPI devices between CPUs lockless and much
-> simpler.
-> 3) Added new softirq to do defer sending IPIs for coalescing.
-> 4) Imported hash from simple_rx_hash.  Eliminates modulo operation to convert
-> hash to index.
-> 5) If no cpu is found for packet steering, then netif_receive_skb processes
-> packet inline as before without queueing.  In paritcular if RPS is not
-> configured on a device the receive path is unchanged from current for
-> NAPI devices (one additional conditional).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+Remember we initialize this field to one.
 
-Just to keep this topic alive, I want to mention two things:
+If we freed all write buffer space, final value is one, not zero.
 
-1) Just the other day support for the IXGBE "Flow Director" was
-   added to net-next-2.6, it basically does flow steering in
-   hardware.  It remembers where the last TX for a flow was
-   made, and steers RX traffic there.
+res =3D=3D 0 only if we both freed all write buffer space, *and* socket=
+ was
+also refcounted to 0 (sk_free() then realized it could not yet call __s=
+k_free())
 
-   It's essentially a HW implementation of what we're proposing
-   here to do in software.
+So we cheat a litle bit, because of this offset of one, we might block =
+a sender a litle bit earlier :)
 
-2) I'm steadily still trying to get struct sk_buff to the point
-   where we can replace the list handling implementation with a
-   standard "struct list_head" and thus union that with a
-   "struct call_single_data" so we can use remote cpu soft-irqs
-   for software packet flow steering.
+Thank you
