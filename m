@@ -1,53 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: No more expensive sock_hold()/sock_put() on each
- tx
-Date: Wed, 10 Jun 2009 01:17:43 -0700 (PDT)
-Message-ID: <20090610.011743.230851451.davem@davemloft.net>
-References: <4A275380.1050601@gmail.com>
-	<20090603.215621.136203134.davem@davemloft.net>
-	<4A27916B.7030607@gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
+Date: Wed, 10 Jun 2009 10:22:10 +0200
+Message-ID: <4A2F6D32.8030400@hartkopp.net>
+References: <20090608130959.10052.54590.stgit@localhost>	<20090608131138.10052.5408.stgit@localhost>	<4A2D112A.4000308@hartkopp.net> <20090610.011027.43904351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: patchwork@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34395
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754279AbZFJIRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:17:41 -0400
-In-Reply-To: <4A27916B.7030607@gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:10882 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753213AbZFJIWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:22:11 -0400
+In-Reply-To: <20090610.011027.43904351.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 04 Jun 2009 11:18:35 +0200
+David Miller wrote:
+> From: Oliver Hartkopp <oliver@hartkopp.net>
+> Date: Mon, 08 Jun 2009 15:24:58 +0200
+> 
+>> Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
+> 
+> Please don't capitalize the "By" in "Acked-By".
 
-> @@ -1172,12 +1186,18 @@ void __init sk_init(void)
->  void sock_wfree(struct sk_buff *skb)
->  {
->  	struct sock *sk = skb->sk;
-> +	int res;
->  
->  	/* In case it might be waiting for more memory. */
-> -	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
-> +	res = atomic_sub_return(skb->truesize, &sk->sk_wmem_alloc);
->  	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
->  		sk->sk_write_space(sk);
-> -	sock_put(sk);
-> +	/*
-> +	 * if sk_wmem_alloc reached 0, we are last user and should
-> +	 * free this sock, as sk_free() call could not do it.
-> +	 */
-> +	if (res == 0)
-> +		__sk_free(sk);
->  }
->  EXPORT_SYMBOL(sock_wfree);
->  
+Sorry.
 
-Eric, I don't understand this part, please enlighten me :-)
+> Otherwise
+> patchwork doesn't pick them up automatically.
 
-Just because we've liberated all of the write buffer space, that does
-not mean that it's time to kill off the socket completely.
+IMHO patchwork should be robust against these type of typos and convert them
+for the users (== your) convenience into 'Acked-by:' ...
 
-Right?
+Regards,
+Oliver
+
