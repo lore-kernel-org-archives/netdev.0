@@ -1,31 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Wed, 10 Jun 2009 15:44:49 +1000
-Message-ID: <20090610054449.GB16984@gondor.apana.org.au>
-References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au> <20090528152143.GA4501@neterion.com> <20090529092821.GA11725@gondor.apana.org.au> <20090529092930.GA11785@gondor.apana.org.au> <20090529162312.GA5191@neterion.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [PATCH] mlx4_en: added pci_device_id table
+Date: Wed, 10 Jun 2009 09:37:53 +0300
+Message-ID: <4A2F54C1.2040507@mellanox.co.il>
+References: <4A2E5B5B.7060701@mellanox.co.il> <adaws7k3dri.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tziporet Koren <tziporet@mellanox.co.il>
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54367 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758498AbZFJFoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 01:44:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20090529162312.GA5191@neterion.com>
+Received: from mail.mellanox.co.il ([194.90.237.43]:45489 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752638AbZFJFrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2009 01:47:10 -0400
+In-Reply-To: <adaws7k3dri.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 29, 2009 at 12:23:13PM -0400, Benjamin LaHaise wrote:
->
-> It's just being turned off by setting a loadable module option.
+Roland Dreier wrote:
+> Interesting approach...
+> 
+>  > +	{ PCI_VDEVICE(MELLANOX, 0x6340) }, /* MT25408 "Hermon" SDR */
+>  > +	{ PCI_VDEVICE(MELLANOX, 0x634a) }, /* MT25408 "Hermon" DDR */
+>  > +	{ PCI_VDEVICE(MELLANOX, 0x6354) }, /* MT25408 "Hermon" QDR */
+>  > +	{ PCI_VDEVICE(MELLANOX, 0x6732) }, /* MT25408 "Hermon" DDR PCIe gen2 */
+>  > +	{ PCI_VDEVICE(MELLANOX, 0x673c) }, /* MT25408 "Hermon" QDR PCIe gen2 */
+> 
+> does it make sense to load mlx4_en for these IB devices?
+> 
+>  - R.
+> 
+These are not "IB only" devices.
+They are all "Multi protocol" devices and can function both as IB or Ethernet
 
-Let me see if I can get my hands on a machine with your NIC.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yevgeny
