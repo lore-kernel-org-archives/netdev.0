@@ -1,69 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 2/5] nfnetlink_queue: Use rcu_barrier() on module
- unload.
-Date: Tue, 9 Jun 2009 22:38:16 -0700
-Message-ID: <20090609223816.af9b1bf9.akpm@linux-foundation.org>
-References: <20090608130959.10052.54590.stgit@localhost>
-	<20090608131133.10052.40836.stgit@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/14] GRO: Lots of microoptimisations
+Date: Wed, 10 Jun 2009 15:44:49 +1000
+Message-ID: <20090610054449.GB16984@gondor.apana.org.au>
+References: <20090527044539.GA32372@gondor.apana.org.au> <20090527175223.GB7804@neterion.com> <20090527230858.GA24278@gondor.apana.org.au> <20090528152143.GA4501@neterion.com> <20090529092821.GA11725@gondor.apana.org.au> <20090529092930.GA11785@gondor.apana.org.au> <20090529162312.GA5191@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090608131133.10052.40836.stgit@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:54367 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758498AbZFJFoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 01:44:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20090529162312.GA5191@neterion.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 08 Jun 2009 15:11:33 +0200 Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+On Fri, May 29, 2009 at 12:23:13PM -0400, Benjamin LaHaise wrote:
+>
+> It's just being turned off by setting a loadable module option.
 
-> This module uses rcu_call() thus it should use rcu_barrier() on module unload.
-> 
-> Also fixed a trivial typo 'nfetlink' -> 'nfnetlink' in comment.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> ---
-> 
->  net/netfilter/nfnetlink_queue.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-> index 8c86011..71daa09 100644
-> --- a/net/netfilter/nfnetlink_queue.c
-> +++ b/net/netfilter/nfnetlink_queue.c
-> @@ -1,6 +1,6 @@
->  /*
->   * This is a module which is used for queueing packets and communicating with
-> - * userspace via nfetlink.
-> + * userspace via nfnetlink.
->   *
->   * (C) 2005 by Harald Welte <laforge@netfilter.org>
->   * (C) 2007 by Patrick McHardy <kaber@trash.net>
-> @@ -932,6 +932,8 @@ static void __exit nfnetlink_queue_fini(void)
->  #endif
->  	nfnetlink_subsys_unregister(&nfqnl_subsys);
->  	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
-> +
-> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
->  }
->  
->  MODULE_DESCRIPTION("netfilter packet queue handler");
+Let me see if I can get my hands on a machine with your NIC.
 
-Possibly you've fixed the bug which the module_put(THIS_MODULE) in
-instance_destroy_rcu() is addressing.
-
-Do we still need to take a ref against the module for each instance
-once the above fix is in place?
-
-<goes git mining>
-
-Nope, the THIS_MODULE games have been there since day one, and I can't
-work out why they're there.  net/netfilter/nfnetlink_log.c has them
-too.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
