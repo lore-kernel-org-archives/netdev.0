@@ -1,61 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 2/2] sfc: Expose 100/1000BASE-T MDI-X status via ethtool
-Date: Wed, 10 Jun 2009 16:30:05 +0100
-Message-ID: <1244647805.2848.10.camel@achroite>
-References: <1244647684.2848.8.camel@achroite>
+From: Pascal Terjan <pterjan@mandriva.com>
+Subject: 8139cp vs 8139too, request_module ?
+Date: Wed, 10 Jun 2009 18:02:09 +0200
+Message-ID: <1244649729.14601.1.camel@plop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:48123 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756950AbZFJPaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 11:30:05 -0400
-In-Reply-To: <1244647684.2848.8.camel@achroite>
+Received: from ryu.zarb.org ([212.85.158.22]:36452 "EHLO ryu.zarb.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751329AbZFJQCK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2009 12:02:10 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by ryu.zarb.org (Postfix) with ESMTP id 9B9893F62E
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 18:02:12 +0200 (CEST)
+Received: from ryu.zarb.org ([127.0.0.1])
+	by localhost (ryu.zarb.org [127.0.0.1]) (amavisd-new, port 10025)
+	with ESMTP id IcqlJHsZpzlM for <netdev@vger.kernel.org>;
+	Wed, 10 Jun 2009 18:02:11 +0200 (CEST)
+Received: from [192.168.100.212] (office-abk.mandriva.com [84.55.162.90])
+	by ryu.zarb.org (Postfix) with ESMTPSA id 2887D3F62D
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 18:02:11 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/tenxpress.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+Hello,
+8139cp and 8139too both handle the same id and then test revision.
 
-diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/sfc/tenxpress.c
-index db723c5..f4d5090 100644
---- a/drivers/net/sfc/tenxpress.c
-+++ b/drivers/net/sfc/tenxpress.c
-@@ -63,6 +63,7 @@
- 
- /* extended status register */
- #define PMA_PMD_XSTATUS_REG	49153
-+#define PMA_PMD_XSTAT_MDIX_LBN	14
- #define PMA_PMD_XSTAT_FLP_LBN   (12)
- 
- /* LED control register */
-@@ -741,9 +742,17 @@ tenxpress_get_settings(struct efx_nic *efx, struct ethtool_cmd *ecmd)
- 
- 	mdio45_ethtool_gset_npage(&efx->mdio, ecmd, adv, lpa);
- 
--	if (efx->phy_type != PHY_TYPE_SFX7101)
-+	if (efx->phy_type != PHY_TYPE_SFX7101) {
- 		ecmd->supported |= (SUPPORTED_100baseT_Full |
- 				    SUPPORTED_1000baseT_Full);
-+		if (ecmd->speed != SPEED_10000) {
-+			ecmd->eth_tp_mdix =
-+				(efx_mdio_read(efx, MDIO_MMD_PMAPMD,
-+					       PMA_PMD_XSTATUS_REG) &
-+				 (1 << PMA_PMD_XSTAT_MDIX_LBN))
-+				? ETH_TP_MDI_X : ETH_TP_MDI;
-+		}
-+	}
- 
- 	/* In loopback, the PHY automatically brings up the correct interface,
- 	 * but doesn't advertise the correct speed. So override it */
+If revision is wrong they tell to load the other module and return
+ENODEV.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Why not doing a request_module instead of printing a message ? 
 
