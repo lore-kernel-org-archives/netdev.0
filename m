@@ -1,62 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: virtio-net header alignment
-Date: Wed, 10 Jun 2009 15:12:27 +1000
-Message-ID: <20090610051227.GB16563@gondor.apana.org.au>
-References: <OF1B881599.F1B4A2EF-ON802575BB.0036EA40-802575BC.0041BFB5@au1.ibm.com> <200905251601.29327.rusty@rustcorp.com.au> <1243268223.32745.25.camel@blaa>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 2/5] nfnetlink_queue: Use rcu_barrier() on module
+ unload.
+Date: Tue, 9 Jun 2009 22:38:16 -0700
+Message-ID: <20090609223816.af9b1bf9.akpm@linux-foundation.org>
+References: <20090608130959.10052.54590.stgit@localhost>
+	<20090608131133.10052.40836.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Danielius Kudinskas <kudinskas@uk.ibm.com>,
-	aliguori@linux.vnet.ibm.com, Paul T Knowles <pablo@uk.ibm.com>,
-	netdev@vger.kernel.org
-To: Mark McLoughlin <markmc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37040 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753658AbZFJFMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 01:12:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1243268223.32745.25.camel@blaa>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
+	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090608131133.10052.40836.stgit@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 25, 2009 at 05:17:03PM +0100, Mark McLoughlin wrote:
+On Mon, 08 Jun 2009 15:11:33 +0200 Jesper Dangaard Brouer <hawk@comx.dk> wrote:
+
+> This module uses rcu_call() thus it should use rcu_barrier() on module unload.
 > 
-> Perhaps; would padding struct virtio_net_hdr_mrg_rxbuf have avoided it?
+> Also fixed a trivial typo 'nfetlink' -> 'nfnetlink' in comment.
 > 
-> Cc-ing Herbert, he initially wrote the guest side of this.
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> ---
+> 
+>  net/netfilter/nfnetlink_queue.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+> index 8c86011..71daa09 100644
+> --- a/net/netfilter/nfnetlink_queue.c
+> +++ b/net/netfilter/nfnetlink_queue.c
+> @@ -1,6 +1,6 @@
+>  /*
+>   * This is a module which is used for queueing packets and communicating with
+> - * userspace via nfetlink.
+> + * userspace via nfnetlink.
+>   *
+>   * (C) 2005 by Harald Welte <laforge@netfilter.org>
+>   * (C) 2007 by Patrick McHardy <kaber@trash.net>
+> @@ -932,6 +932,8 @@ static void __exit nfnetlink_queue_fini(void)
+>  #endif
+>  	nfnetlink_subsys_unregister(&nfqnl_subsys);
+>  	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
+> +
+> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+>  }
+>  
+>  MODULE_DESCRIPTION("netfilter packet queue handler");
 
-Does this fix it?
+Possibly you've fixed the bug which the module_put(THIS_MODULE) in
+instance_destroy_rcu() is addressing.
 
-virtio_net: Fix IP alignment on mergeable RX path
+Do we still need to take a ref against the module for each instance
+once the above fix is in place?
 
-We need to enforce the IP alignment on the mergeable RX path just
-like the other RX path.  Not doing so results in misaligned IP
-headers.
+<goes git mining>
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Nope, the THIS_MODULE games have been there since day one, and I can't
+work out why they're there.  net/netfilter/nfnetlink_log.c has them
+too.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4d1d479..52fba8e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -283,10 +283,11 @@ static void try_fill_recv_maxbufs(struct virtnet_info *vi)
- 	for (;;) {
- 		struct virtio_net_hdr *hdr;
- 
--		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN);
-+		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN + NET_IP_ALIGN);
- 		if (unlikely(!skb))
- 			break;
- 
-+		skb_reserve(skb, NET_IP_ALIGN);
- 		skb_put(skb, MAX_PACKET_LEN);
- 
- 		hdr = skb_vnet_hdr(skb);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
