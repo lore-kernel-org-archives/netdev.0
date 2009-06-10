@@ -1,37 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bonding-devel] BUG: bonding module can only be loaded once
-Date: Wed, 10 Jun 2009 15:19:38 +0200
-Message-ID: <4A2FB2EA.9040705@trash.net>
-References: <20090608151127.70146505@nehalam> <200906091406.45463.arnd@arndb.de> <20090609080232.45f81833@nehalam> <4A2E80B3.6010600@trash.net> <4752.1244564082@death.nxdomain.ibm.com> <4A2E8D62.6090004@trash.net> <13521.1244568251@death.nxdomain.ibm.com> <4A2EDEB0.2080006@trash.net>
+From: Kevin Wilson <wkevils@gmail.com>
+Subject: ntohs() and htons() usgae in the network stack
+Date: Wed, 10 Jun 2009 17:08:12 +0300
+Message-ID: <55c333c0906100708q1b0be2ffkc80c2f3258f0e681@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bonding-devel@lists.sf.net,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58419 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbZFJNTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 09:19:38 -0400
-In-Reply-To: <4A2EDEB0.2080006@trash.net>
+Received: from mail-pz0-f171.google.com ([209.85.222.171]:45422 "EHLO
+	mail-pz0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755639AbZFJOIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 10:08:10 -0400
+Received: by pzk1 with SMTP id 1so796644pzk.33
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 07:08:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Jay Vosburgh wrote:
->> Patrick McHardy <kaber@trash.net> wrote:
->>
->>> I'd expect its not the distros, but rather the applicances which might
->>> still be using this. I know a vendor I used to work for a couple of
->>> years ago just recently made the switch from 2.6.16 to a current kernel,
->>> and I'd expect that they are still using this (I can find out tommorrow
->>> if you want to know for sure). Vyatta likewise, I guess.
->>
->>     Yes, I'd like to know for sure; thanks.
-> 
-> I'll let you know.
+Hello,
+I will appreciate if someone can explain this mystery to me:
 
-They are still using the module alias method, but on a kernel slightly
-older than the patch which broke this (2.6.25).
+While debugging some kernel module, I added printing of ports.
+I had printer both ntohs() and htons() of a port number. I got the same
+values. Since I used low port number, I decided to find out from which
+port there begins to be a difference. So I tried to write in a simple
+kernel module this loop, which tests all ports up till 65536 (since
+port number is 16 bit wide):
+	...
+	int i;
+	for (i=0;i<65536;i++)
+	 if (ntohs(i) != htons(i))
+		printk("found inequality: ntohs(i) != htons(i)\n");
+
+And when running it it did **not** find such a port where ntohs(i) !=
+htons ( "found inequality:.. was **not** printed).
+
+So I wondered : when is ntohs(i) != htons(i) ?
+Are they always equal (I doubt it); or am I missing something silly here?
+
+I am testing it on x86_64 Intel machine (little endian).
+Rgs,
+Kevin
