@@ -1,35 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: WoL and r8169
-Date: Thu, 11 Jun 2009 01:01:16 +0200
-Message-ID: <20090610230116.GA23440@electric-eye.fr.zoreil.com>
-References: <20090607214220.5101B33C013@tippex.mynet.homeunix.org> <20090608215301.GA28044@electric-eye.fr.zoreil.com> <20090610102940.87FE633C023@tippex.mynet.homeunix.org>
+From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+Subject: atl1c not doing any network traffic on eeepc 1008HA.
+Date: Wed, 10 Jun 2009 19:31:10 -0400
+Message-ID: <20090610233110.GA17112@taurine.csclub.uwaterloo.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Anders Eriksson <aeriksson@fastmail.fm>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50083 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756880AbZFJW7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 18:59:19 -0400
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:59676 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752876AbZFJXbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 19:31:08 -0400
+Received: from caffeine.csclub.uwaterloo.ca (localhost [127.0.0.1])
+	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id 2750373E1B
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 19:31:11 -0400 (EDT)
+Received: from taurine (taurine.csclub.uwaterloo.ca [129.97.134.34])
+	by caffeine.csclub.uwaterloo.ca (Postfix) with SMTP id 1135373DD6
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 19:31:10 -0400 (EDT)
 Content-Disposition: inline
-In-Reply-To: <20090610102940.87FE633C023@tippex.mynet.homeunix.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anders Eriksson <aeriksson@fastmail.fm> :
-[...]
-> Yes! That diff made the trick for WoL on magic package on my 2.6.30-rc6
-> kernel. Is it sent to Linus for -final?
+My wife just got an eeepc 10008HA a week ago, and so far Debian
+unstable is runnig quite well on it.  Wifi works fine for example.
+Wired networking however does not.  The atl1c driver loads and detects
+the network port, but no traffic ever manages to make it through.
+dmesg seems to indicate that the PHY has link, but there doesn't seem
+to be any indication of that in ip link or ifconfig on the other hand.
 
-No but it does not preclude it being properly submitted thereafter then
-for -stable.
+Any suggestions on where to go about gatharing debug info for this?
 
-[...]
-> I tried to wake up the machine using regular tcp traffic, on the theory that 
-> it's unicast and phy activity. No luck though.
+Right now it is running the 2.6.29-2-686 kernel from Debian which I
+believe is 2.6.29.3 based at the moment.
 
-Did the regular tcp traffic include a so-called magic (tcp) packet ?
+I will try to get a hold of the dmesg output from the machine.
 
 -- 
-Ueimor
+Len Sorensen
