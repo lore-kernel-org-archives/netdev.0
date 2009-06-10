@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 22/31: conntrack: simplify event caching system
-Date: Wed, 10 Jun 2009 21:46:49 +0200 (MEST)
-Message-ID: <20090610194647.11112.40805.sendpatchset@x2.localnet>
+Subject: netfilter 28/31: nf_ct_icmp: keep the ICMP ct entries longer
+Date: Wed, 10 Jun 2009 21:46:57 +0200 (MEST)
+Message-ID: <20090610194656.11112.19567.sendpatchset@x2.localnet>
 References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
@@ -11,217 +11,150 @@ In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 17e6e4eac070607a35464ea7e2c5eceac32e5eca
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Tue Jun 2 20:08:46 2009 +0200
+commit f87fb666bb00a7afcbd7992d236e42ac544996f9
+Author: Jan Kasprzak <kas@fi.muni.cz>
+Date:   Mon Jun 8 15:53:43 2009 +0200
 
-    netfilter: conntrack: simplify event caching system
+    netfilter: nf_ct_icmp: keep the ICMP ct entries longer
     
-    This patch simplifies the conntrack event caching system by removing
-    several events:
+    Current conntrack code kills the ICMP conntrack entry as soon as
+    the first reply is received. This is incorrect, as we then see only
+    the first ICMP echo reply out of several possible duplicates as
+    ESTABLISHED, while the rest will be INVALID. Also this unnecessarily
+    increases the conntrackd traffic on H-A firewalls.
     
-     * IPCT_[*]_VOLATILE, IPCT_HELPINFO and IPCT_NATINFO has been deleted
-       since the have no clients.
-     * IPCT_COUNTER_FILLING which is a leftover of the 32-bits counter
-       days.
-     * IPCT_REFRESH which is not of any use since we always include the
-       timeout in the messages.
+    Make all the ICMP conntrack entries (including the replied ones)
+    last for the default of nf_conntrack_icmp{,v6}_timeout seconds.
     
-    After this patch, the existing events are:
-    
-     * IPCT_NEW, IPCT_RELATED and IPCT_DESTROY, that are used to identify
-     addition and deletion of entries.
-     * IPCT_STATUS, that notes that the status bits have changes,
-     eg. IPS_SEEN_REPLY and IPS_ASSURED.
-     * IPCT_PROTOINFO, that reports that internal protocol information has
-     changed, eg. the TCP, DCCP and SCTP protocol state.
-     * IPCT_HELPER, that a helper has been assigned or unassigned to this
-     entry.
-     * IPCT_MARK and IPCT_SECMARK, that reports that the mark has changed, this
-     covers the case when a mark is set to zero.
-     * IPCT_NATSEQADJ, to report that there's updates in the NAT sequence
-     adjustment.
-    
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+    Signed-off-by: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index 892b8cd..2e17a2d 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -26,52 +26,28 @@ enum ip_conntrack_events
- 	IPCT_DESTROY_BIT = 2,
- 	IPCT_DESTROY = (1 << IPCT_DESTROY_BIT),
- 
--	/* Timer has been refreshed */
--	IPCT_REFRESH_BIT = 3,
--	IPCT_REFRESH = (1 << IPCT_REFRESH_BIT),
+diff --git a/include/net/netfilter/ipv4/nf_conntrack_icmp.h b/include/net/netfilter/ipv4/nf_conntrack_icmp.h
+deleted file mode 100644
+index 3dd22cf..0000000
+--- a/include/net/netfilter/ipv4/nf_conntrack_icmp.h
++++ /dev/null
+@@ -1,11 +0,0 @@
+-#ifndef _NF_CONNTRACK_ICMP_H
+-#define _NF_CONNTRACK_ICMP_H
+-/* ICMP tracking. */
+-#include <asm/atomic.h>
 -
- 	/* Status has changed */
--	IPCT_STATUS_BIT = 4,
-+	IPCT_STATUS_BIT = 3,
- 	IPCT_STATUS = (1 << IPCT_STATUS_BIT),
+-struct ip_ct_icmp
+-{
+-	/* Optimization: when number in == number out, forget immediately. */
+-	atomic_t count;
+-};
+-#endif /* _NF_CONNTRACK_ICMP_H */
+diff --git a/include/net/netfilter/ipv6/nf_conntrack_icmpv6.h b/include/net/netfilter/ipv6/nf_conntrack_icmpv6.h
+index 86591af..67edd50 100644
+--- a/include/net/netfilter/ipv6/nf_conntrack_icmpv6.h
++++ b/include/net/netfilter/ipv6/nf_conntrack_icmpv6.h
+@@ -9,7 +9,6 @@
  
- 	/* Update of protocol info */
--	IPCT_PROTOINFO_BIT = 5,
-+	IPCT_PROTOINFO_BIT = 4,
- 	IPCT_PROTOINFO = (1 << IPCT_PROTOINFO_BIT),
+ #ifndef _NF_CONNTRACK_ICMPV6_H
+ #define _NF_CONNTRACK_ICMPV6_H
+-#include <asm/atomic.h>
  
--	/* Volatile protocol info */
--	IPCT_PROTOINFO_VOLATILE_BIT = 6,
--	IPCT_PROTOINFO_VOLATILE = (1 << IPCT_PROTOINFO_VOLATILE_BIT),
--
- 	/* New helper for conntrack */
--	IPCT_HELPER_BIT = 7,
-+	IPCT_HELPER_BIT = 5,
- 	IPCT_HELPER = (1 << IPCT_HELPER_BIT),
+ #ifndef ICMPV6_NI_QUERY
+ #define ICMPV6_NI_QUERY 139
+@@ -18,10 +17,4 @@
+ #define ICMPV6_NI_REPLY 140
+ #endif
  
--	/* Update of helper info */
--	IPCT_HELPINFO_BIT = 8,
--	IPCT_HELPINFO = (1 << IPCT_HELPINFO_BIT),
+-struct nf_ct_icmpv6
+-{
+-	/* Optimization: when number in == number out, forget immediately. */
+-	atomic_t count;
+-};
 -
--	/* Volatile helper info */
--	IPCT_HELPINFO_VOLATILE_BIT = 9,
--	IPCT_HELPINFO_VOLATILE = (1 << IPCT_HELPINFO_VOLATILE_BIT),
--
--	/* NAT info */
--	IPCT_NATINFO_BIT = 10,
--	IPCT_NATINFO = (1 << IPCT_NATINFO_BIT),
--
--	/* Counter highest bit has been set, unused */
--	IPCT_COUNTER_FILLING_BIT = 11,
--	IPCT_COUNTER_FILLING = (1 << IPCT_COUNTER_FILLING_BIT),
--
- 	/* Mark is set */
--	IPCT_MARK_BIT = 12,
-+	IPCT_MARK_BIT = 6,
- 	IPCT_MARK = (1 << IPCT_MARK_BIT),
+ #endif /* _NF_CONNTRACK_ICMPV6_H */
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 2ba36dd..2b87737 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -23,7 +23,6 @@
+ #include <linux/netfilter/nf_conntrack_dccp.h>
+ #include <linux/netfilter/nf_conntrack_sctp.h>
+ #include <linux/netfilter/nf_conntrack_proto_gre.h>
+-#include <net/netfilter/ipv4/nf_conntrack_icmp.h>
+ #include <net/netfilter/ipv6/nf_conntrack_icmpv6.h>
  
- 	/* NAT sequence adjustment */
--	IPCT_NATSEQADJ_BIT = 13,
-+	IPCT_NATSEQADJ_BIT = 7,
- 	IPCT_NATSEQADJ = (1 << IPCT_NATSEQADJ_BIT),
- 
- 	/* Secmark is set */
--	IPCT_SECMARK_BIT = 14,
-+	IPCT_SECMARK_BIT = 8,
- 	IPCT_SECMARK = (1 << IPCT_SECMARK_BIT),
+ #include <net/netfilter/nf_conntrack_tuple.h>
+@@ -34,8 +33,6 @@ union nf_conntrack_proto {
+ 	struct nf_ct_dccp dccp;
+ 	struct ip_ct_sctp sctp;
+ 	struct ip_ct_tcp tcp;
+-	struct ip_ct_icmp icmp;
+-	struct nf_ct_icmpv6 icmpv6;
+ 	struct nf_ct_gre gre;
  };
  
 diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index 23b2c2e..c6ab3d9 100644
+index c6ab3d9..d71ba76 100644
 --- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
 +++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -91,7 +91,6 @@ static int icmp_packet(struct nf_conn *ct,
- 			nf_ct_kill_acct(ct, ctinfo, skb);
- 	} else {
- 		atomic_inc(&ct->proto.icmp.count);
--		nf_conntrack_event_cache(IPCT_PROTOINFO_VOLATILE, ct);
- 		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmp_timeout);
+@@ -82,17 +82,10 @@ static int icmp_packet(struct nf_conn *ct,
+ 		       u_int8_t pf,
+ 		       unsigned int hooknum)
+ {
+-	/* Try to delete connection immediately after all replies:
+-	   won't actually vanish as we still have skb, and del_timer
+-	   means this will only run once even if count hits zero twice
+-	   (theoretically possible with SMP) */
+-	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
+-		if (atomic_dec_and_test(&ct->proto.icmp.count))
+-			nf_ct_kill_acct(ct, ctinfo, skb);
+-	} else {
+-		atomic_inc(&ct->proto.icmp.count);
+-		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmp_timeout);
+-	}
++	/* Do not immediately delete the connection after the first
++	   successful reply to avoid excessive conntrackd traffic
++	   and also to handle correctly ICMP echo reply duplicates. */
++	nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmp_timeout);
+ 
+ 	return NF_ACCEPT;
+ }
+@@ -116,7 +109,6 @@ static bool icmp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 		nf_ct_dump_tuple_ip(&ct->tuplehash[0].tuple);
+ 		return false;
  	}
+-	atomic_set(&ct->proto.icmp.count, 0);
+ 	return true;
+ }
  
 diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 9903227..a0acd96 100644
+index a0acd96..642dcb1 100644
 --- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -104,7 +104,6 @@ static int icmpv6_packet(struct nf_conn *ct,
- 			nf_ct_kill_acct(ct, ctinfo, skb);
- 	} else {
- 		atomic_inc(&ct->proto.icmp.count);
--		nf_conntrack_event_cache(IPCT_PROTOINFO_VOLATILE, ct);
- 		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmpv6_timeout);
- 	}
- 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index f59c4ed..b54c234 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -398,11 +398,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	help = nfct_help(ct);
- 	if (help && help->helper)
- 		nf_conntrack_event_cache(IPCT_HELPER, ct);
--#ifdef CONFIG_NF_NAT_NEEDED
--	if (test_bit(IPS_SRC_NAT_DONE_BIT, &ct->status) ||
--	    test_bit(IPS_DST_NAT_DONE_BIT, &ct->status))
--		nf_conntrack_event_cache(IPCT_NATINFO, ct);
--#endif
-+
- 	nf_conntrack_event_cache(master_ct(ct) ?
- 				 IPCT_RELATED : IPCT_NEW, ct);
- 	return NF_ACCEPT;
-@@ -807,8 +803,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 			  unsigned long extra_jiffies,
- 			  int do_acct)
+@@ -95,17 +95,10 @@ static int icmpv6_packet(struct nf_conn *ct,
+ 		       u_int8_t pf,
+ 		       unsigned int hooknum)
  {
--	int event = 0;
--
- 	NF_CT_ASSERT(ct->timeout.data == (unsigned long)ct);
- 	NF_CT_ASSERT(skb);
+-	/* Try to delete connection immediately after all replies:
+-	   won't actually vanish as we still have skb, and del_timer
+-	   means this will only run once even if count hits zero twice
+-	   (theoretically possible with SMP) */
+-	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
+-		if (atomic_dec_and_test(&ct->proto.icmp.count))
+-			nf_ct_kill_acct(ct, ctinfo, skb);
+-	} else {
+-		atomic_inc(&ct->proto.icmp.count);
+-		nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmpv6_timeout);
+-	}
++	/* Do not immediately delete the connection after the first
++	   successful reply to avoid excessive conntrackd traffic
++	   and also to handle correctly ICMP echo reply duplicates. */
++	nf_ct_refresh_acct(ct, ctinfo, skb, nf_ct_icmpv6_timeout);
  
-@@ -821,7 +815,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 	/* If not in hash table, timer will not be active yet */
- 	if (!nf_ct_is_confirmed(ct)) {
- 		ct->timeout.expires = extra_jiffies;
--		event = IPCT_REFRESH;
- 	} else {
- 		unsigned long newtime = jiffies + extra_jiffies;
- 
-@@ -832,7 +825,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 		    && del_timer(&ct->timeout)) {
- 			ct->timeout.expires = newtime;
- 			add_timer(&ct->timeout);
--			event = IPCT_REFRESH;
- 		}
- 	}
- 
-@@ -849,10 +841,6 @@ acct:
- 	}
- 
- 	spin_unlock_bh(&nf_conntrack_lock);
--
--	/* must be unlocked when calling event cache */
--	if (event)
--		nf_conntrack_event_cache(event, ct);
+ 	return NF_ACCEPT;
  }
- EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
- 
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 00fecc3..5509dd1 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -338,11 +338,9 @@ static void update_nl_seq(struct nf_conn *ct, u32 nl_seq,
- 
- 	if (info->seq_aft_nl_num[dir] < NUM_SEQ_TO_REMEMBER) {
- 		info->seq_aft_nl[dir][info->seq_aft_nl_num[dir]++] = nl_seq;
--		nf_conntrack_event_cache(IPCT_HELPINFO_VOLATILE, ct);
- 	} else if (oldest != NUM_SEQ_TO_REMEMBER &&
- 		   after(nl_seq, info->seq_aft_nl[dir][oldest])) {
- 		info->seq_aft_nl[dir][oldest] = nl_seq;
--		nf_conntrack_event_cache(IPCT_HELPINFO_VOLATILE, ct);
+@@ -131,7 +124,6 @@ static bool icmpv6_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 				      type + 128);
+ 		return false;
  	}
+-	atomic_set(&ct->proto.icmp.count, 0);
+ 	return true;
  }
- 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 3a20de1..b1b9e4f 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -477,7 +477,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
- 		type = IPCTNL_MSG_CT_NEW;
- 		flags = NLM_F_CREATE|NLM_F_EXCL;
- 		group = NFNLGRP_CONNTRACK_NEW;
--	} else  if (events & (IPCT_STATUS | IPCT_PROTOINFO)) {
-+	} else  if (events) {
- 		type = IPCTNL_MSG_CT_NEW;
- 		group = NFNLGRP_CONNTRACK_UPDATE;
- 	} else
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 4c7f6f0..b7e8a82 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -991,7 +991,6 @@ static int tcp_packet(struct nf_conn *ct,
- 		timeout = tcp_timeouts[new_state];
- 	write_unlock_bh(&tcp_lock);
- 
--	nf_conntrack_event_cache(IPCT_PROTOINFO_VOLATILE, ct);
- 	if (new_state != old_state)
- 		nf_conntrack_event_cache(IPCT_PROTOINFO, ct);
  
