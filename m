@@ -1,113 +1,100 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 20/31: conntrack: don't report events on module removal
-Date: Wed, 10 Jun 2009 21:46:47 +0200 (MEST)
-Message-ID: <20090610194645.11112.90196.sendpatchset@x2.localnet>
-References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
+From: akpm@linux-foundation.org
+Subject: [patch 1/4] de2104x: support for systems lacking cache coherence
+Date: Wed, 10 Jun 2009 12:55:00 -0700
+Message-ID: <200906101955.n5AJt0Zr008180@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	risto.suominen@gmail.com, Risto.Suominen@gmail.com,
+	grundler@parisc-linux.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33189 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761119AbZFJTqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:46:45 -0400
-In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50299 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757934AbZFJTzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:55:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 274d383b9c1906847a64bbb267b0183599ce86a0
-Author: Pablo Neira Ayuso <pablo@netfilter.org>
-Date:   Tue Jun 2 20:08:38 2009 +0200
+From: Risto Suominen <risto.suominen@gmail.com>
 
-    netfilter: conntrack: don't report events on module removal
-    
-    During the module removal there are no possible event listeners
-    since ctnetlink must be removed before to allow removing
-    nf_conntrack. This patch removes the event reporting for the
-    module removal case which is not of any use in the existing code.
-    
-    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Add a configurable Descriptor Skip Length for systems that lack cache
+coherence.
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index b909241..2ba36dd 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -203,7 +203,7 @@ __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple);
+(akpm: I think this should be done as a module parameter, not a
+compile-tinme option)
+
+Signed-off-by: Risto Suominen <Risto.Suominen@gmail.com>
+Cc: Grant Grundler <grundler@parisc-linux.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/tulip/Kconfig   |   12 ++++++++++++
+ drivers/net/tulip/de2104x.c |   13 ++++++++++++-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff -puN drivers/net/tulip/Kconfig~de2104x-support-for-systems-lacking-cache-coherence drivers/net/tulip/Kconfig
+--- a/drivers/net/tulip/Kconfig~de2104x-support-for-systems-lacking-cache-coherence
++++ a/drivers/net/tulip/Kconfig
+@@ -27,6 +27,18 @@ config DE2104X
+ 	  To compile this driver as a module, choose M here. The module will
+ 	  be called de2104x.
  
- extern void nf_conntrack_hash_insert(struct nf_conn *ct);
++config DE2104X_DSL
++	int "Descriptor Skip Length in 32 bit longwords"
++	depends on DE2104X
++	range 0 31
++	default 0
++	help
++	  Setting this value allows to align ring buffer descriptors into their
++	  own cache lines. Value of 4 corresponds to the typical 32 byte line
++	  (the descriptor is 16 bytes). This is necessary on systems that lack
++	  cache coherence, an example is PowerMac 5500. Otherwise 0 is safe.
++	  Default is 0, and range is 0 to 31.
++
+ config TULIP
+ 	tristate "DECchip Tulip (dc2114x) PCI support"
+ 	depends on PCI
+diff -puN drivers/net/tulip/de2104x.c~de2104x-support-for-systems-lacking-cache-coherence drivers/net/tulip/de2104x.c
+--- a/drivers/net/tulip/de2104x.c~de2104x-support-for-systems-lacking-cache-coherence
++++ a/drivers/net/tulip/de2104x.c
+@@ -82,6 +82,13 @@ MODULE_PARM_DESC (rx_copybreak, "de2104x
+ 				 NETIF_MSG_RX_ERR	| \
+ 				 NETIF_MSG_TX_ERR)
  
--extern void nf_conntrack_flush(struct net *net, u32 pid, int report);
-+extern void nf_conntrack_flush_report(struct net *net, u32 pid, int report);
++/* Descriptor skip length in 32 bit longwords. */
++#ifndef CONFIG_DE2104X_DSL
++#define DSL			0
++#else
++#define DSL			CONFIG_DE2104X_DSL
++#endif
++
+ #define DE_RX_RING_SIZE		64
+ #define DE_TX_RING_SIZE		64
+ #define DE_RING_BYTES		\
+@@ -153,6 +160,7 @@ enum {
+ 	CmdReset		= (1 << 0),
+ 	CacheAlign16		= 0x00008000,
+ 	BurstLen4		= 0x00000400,
++	DescSkipLen		= (DSL << 2),
  
- extern bool nf_ct_get_tuplepr(const struct sk_buff *skb,
- 			      unsigned int nhoff, u_int16_t l3num,
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 8020db6..f59c4ed 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1001,7 +1001,7 @@ struct __nf_ct_flush_report {
- 	int report;
+ 	/* Rx/TxPoll bits */
+ 	NormalTxPoll		= (1 << 0),
+@@ -246,7 +254,7 @@ static const u32 de_intr_mask =
+  * Set the programmable burst length to 4 longwords for all:
+  * DMA errors result without these values. Cache align 16 long.
+  */
+-static const u32 de_bus_mode = CacheAlign16 | BurstLen4;
++static const u32 de_bus_mode = CacheAlign16 | BurstLen4 | DescSkipLen;
+ 
+ struct de_srom_media_block {
+ 	u8			opts;
+@@ -266,6 +274,9 @@ struct de_desc {
+ 	__le32			opts2;
+ 	__le32			addr1;
+ 	__le32			addr2;
++#if DSL
++	__le32			skip[DSL];
++#endif
  };
  
--static int kill_all(struct nf_conn *i, void *data)
-+static int kill_report(struct nf_conn *i, void *data)
- {
- 	struct __nf_ct_flush_report *fr = (struct __nf_ct_flush_report *)data;
- 
-@@ -1013,6 +1013,11 @@ static int kill_all(struct nf_conn *i, void *data)
- 	return 1;
- }
- 
-+static int kill_all(struct nf_conn *i, void *data)
-+{
-+	return 1;
-+}
-+
- void nf_ct_free_hashtable(void *hash, int vmalloced, unsigned int size)
- {
- 	if (vmalloced)
-@@ -1023,15 +1028,15 @@ void nf_ct_free_hashtable(void *hash, int vmalloced, unsigned int size)
- }
- EXPORT_SYMBOL_GPL(nf_ct_free_hashtable);
- 
--void nf_conntrack_flush(struct net *net, u32 pid, int report)
-+void nf_conntrack_flush_report(struct net *net, u32 pid, int report)
- {
- 	struct __nf_ct_flush_report fr = {
- 		.pid 	= pid,
- 		.report = report,
- 	};
--	nf_ct_iterate_cleanup(net, kill_all, &fr);
-+	nf_ct_iterate_cleanup(net, kill_report, &fr);
- }
--EXPORT_SYMBOL_GPL(nf_conntrack_flush);
-+EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
- 
- static void nf_conntrack_cleanup_init_net(void)
- {
-@@ -1045,7 +1050,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
- 	nf_ct_event_cache_flush(net);
- 	nf_conntrack_ecache_fini(net);
-  i_see_dead_people:
--	nf_conntrack_flush(net, 0, 0);
-+	nf_ct_iterate_cleanup(net, kill_all, NULL);
- 	if (atomic_read(&net->ct.count) != 0) {
- 		schedule();
- 		goto i_see_dead_people;
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 58fde0e..3a20de1 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -777,9 +777,9 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_TUPLE_REPLY, u3);
- 	else {
- 		/* Flush the whole table */
--		nf_conntrack_flush(&init_net, 
--				   NETLINK_CB(skb).pid, 
--				   nlmsg_report(nlh));
-+		nf_conntrack_flush_report(&init_net,
-+					 NETLINK_CB(skb).pid,
-+					 nlmsg_report(nlh));
- 		return 0;
- 	}
- 
+ struct media_info {
+_
