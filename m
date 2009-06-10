@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 09:45:12 -0700 (PDT)
-Message-ID: <20090610.094512.90091251.davem@davemloft.net>
-References: <4A2F6D32.8030400@hartkopp.net>
-	<20090610.015245.141342130.davem@davemloft.net>
-	<200906102241.47823.jk@ozlabs.org>
+Subject: Re: SUN Neptune byte order bug in TCAM filter/ethtool
+Date: Wed, 10 Jun 2009 01:26:53 -0700 (PDT)
+Message-ID: <20090610.012653.184952517.davem@davemloft.net>
+References: <18945.47047.877878.307515@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: patchwork@ozlabs.org, netdev@vger.kernel.org, oliver@hartkopp.net,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: jk@ozlabs.org
-Return-path: <patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org>
-In-Reply-To: <200906102241.47823.jk@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/patchwork>
-List-Post: <mailto:patchwork@ozlabs.org>
-List-Help: <mailto:patchwork-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=subscribe>
-Sender: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-Errors-To: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, Matheos.Worku@Sun.COM,
+	Jens.Laas@its.uu.se
+To: robert@robur.slu.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40876
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754430AbZFJQ6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 12:58:04 -0400
+In-Reply-To: <18945.47047.877878.307515@robur.slu.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeremy Kerr <jk@ozlabs.org>
-Date: Wed, 10 Jun 2009 22:41:47 +1000
+From: Robert Olsson <robert@robur.slu.se>
+Date: Wed, 6 May 2009 18:16:07 +0200
 
-> David,
+> # This rule makes the TCAM drop pkts with IP-src 10.10.10.1 
+> # Note the reversed byte-order. Machine is Opteron little Endian.
 > 
->> We really can't expect patchwork to look for every conceivable
->> malignment of the various reviewer tags.
+> ethtool -N  eth0  rx-class-rule-add ip4 udp sip 1.10.10.10 drop  
 > 
-> No, but we could probably be more tolerant about capitalisation. Any 
-> objections about ignoring case completely? I have a patch ready to 
-> push...
+> # The rule listed
+> 
+> ethtool  -n eth0  rx-class-rule-all 
+> Total 1 rules
+> 
+>       IPv4 Rule:   ID[84] Target[Discard]
+>       IP src addr[1.10.10.10] mask[255.255.255.255]
+>       IP dst addr[0.0.0.0] mask[0.0.0.0]
+>       L4 proto[UDP]
+>       L4 src port[0] mask[0x0]
+>       L4 dst port[0] mask[0x0]
+>       IP TOS[0x0] mask[0x0]
 
-Sure, sounds fine to me.
+I suspect that ethtool is probably to blame, the kernel seems
+sane and treats the IP addresses, ports, etc. as big-endian.
