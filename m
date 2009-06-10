@@ -1,31 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH iproute2 3/2] tc_core: Return double from	tc_core_tick2time()
-Date: Wed, 10 Jun 2009 01:04:36 +0200
-Message-ID: <4A2EEA84.3080803@trash.net>
-References: <20090609080536.GD5237@ff.dom.local> <4A2E6BA4.30002@trash.net> <20090609225317.GA3262@ami.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Tue, 09 Jun 2009 17:45:04 -0700 (PDT)
+Message-ID: <20090609.174504.114047526.davem@davemloft.net>
+References: <alpine.DEB.1.10.0906081117580.21954@gentwo.org>
+	<20090608.142927.122160930.davem@davemloft.net>
+	<adaocsx3zaa.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Antonio Almeida <vexwek@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Martin Devera <devik@cdi.cz>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
+	yosefe@Voltaire.COM
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41547 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbZFIXEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 19:04:36 -0400
-In-Reply-To: <20090609225317.GA3262@ami.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53922
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751105AbZFJApC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 20:45:02 -0400
+In-Reply-To: <adaocsx3zaa.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Hmm... I'm not sure this floor() is needed here, but maybe I'll get it
-> tomorrow... 
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 09 Jun 2009 13:52:45 -0700
 
-Its not. It was mainly a suggestion to make the symetry more explicit.
-I hope gcc understands :)
+> 
+>  > > Maybe we need a different approach but (since we are at the point of
+>  > > talking about categorical fundamentally wrong statements) its
+>  > > fundamentally wrong if the IPoIB layer works differently from a regular
+>  > > Ethernet NIC. They should work in the same way.
+>  > 
+>  > This I agree on.  When a multicast group is joined, the IPoIB layer
+>  > should block in some way until the subscription is fully available
+>  > for use.
+> 
+> Not sure I understand.  What do you mean by block?  It is quite possible
+> that a single multicast group is waiting to be joined, while other
+> multicast groups and unicast traffic can be sent with no problem.  So
+> stopping the whole device queue and blocking everything doesn't seem
+> appropriate.
+
+Block the process joining the multicast group, not the entire
+interface.
