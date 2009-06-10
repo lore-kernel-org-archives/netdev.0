@@ -1,95 +1,125 @@
-From: Gil Beniamini <gil.beniamini@gmail.com>
-Subject: Re: SOCK_RAW does not receive broadcast (with VLAN unless PROMISC)
-Date: Wed, 10 Jun 2009 17:48:40 +0300
-Message-ID: <91ac27070906100748p1b2cb6bax56ecc230e556ae96@mail.gmail.com>
-References: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>
-	 <4A2E4A32.1060705@trash.net>
-	 <91ac27070906090608me50af3bv23b150d8d0cd0080@mail.gmail.com>
-	 <200906091430.32294.bcook@bpointsys.com>
-	 <91ac27070906100724v25c2328x6b343315358c8e12@mail.gmail.com>
-	 <4A2FC40E.4040106@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: Fix a race between sky2_down and sky2_poll
+Date: Wed, 10 Jun 2009 07:50:30 -0700
+Message-ID: <20090610075030.69eae503@nehalam>
+References: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brent Cook <bcook@bpointsys.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:24564 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754807AbZFJOsk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 10:48:40 -0400
-In-Reply-To: <4A2FC40E.4040106@trash.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39594 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754760AbZFJOuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 10:50:54 -0400
+In-Reply-To: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Patrick,
-Below is my try to add vlan-id 24 on eth1, followed by "ip -d link list=
-":
-root@StudentsHPA:/home/hpa# vconfig add eth1 24
-ERROR: trying to add VLAN #24 to IF -:eth1:-  error: File exists
+On Tue, 9 Jun 2009 23:03:52 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-root@StudentsHPA:/home/hpa# ip -d link list
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP qlen 100
-    link/ether 00:15:17:1e:27:fa brd ff:ff:ff:ff:ff:ff
-3: eth1: <BROADCAST,MULTICAST,NOARP,PROMISC,UP,LOWER_UP> mtu 1500
-qdisc pfifo_fast state UP qlen 100
-    link/ether 00:15:17:1e:e8:46 brd ff:ff:ff:ff:ff:ff
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP qlen 100
-    link/ether 00:15:17:1e:e8:47 brd ff:ff:ff:ff:ff:ff
-5: vlan24@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
-noqueue state UP
-    link/ether 00:15:17:1e:27:fa brd ff:ff:ff:ff:ff:ff
-    vlan id 24 <REORDER_HDR>
-6: vlan31@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
-noqueue state UP
-    link/ether 00:15:17:1e:27:fa brd ff:ff:ff:ff:ff:ff
-    vlan id 31 <REORDER_HDR>
-7: vlan32@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
-noqueue state UP
-    link/ether 00:15:17:1e:27:fa brd ff:ff:ff:ff:ff:ff
-    vlan id 32 <REORDER_HDR>
-8: pan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-    link/ether 42:fe:3a:c7:dd:96 brd ff:ff:ff:ff:ff:ff
-Thanks Gil
+> Hi Stephen,
+> 
+> This patch fixes a crash in the sky2 driver when doing "ifconfig eth1
+> down" and receiving a constant stream of ethernet packets on my
+> mac-mini with Linux 2.6.29.4.  This is what I can see of the crash on
+> the console:
+> 
+> do_IRQ+0x64/0x77
+> common_interrupt+0x27/0x2c
+> kfree+0x78/0x95
+> __kfree_skb+0xf/0x6e
+> sky2_rx_clean+0x35/0x48
+> sky2_down+0x367/0x486
+> dev_close+0x63/0x85
+> dev_change_flags+0xa2/0x153
+> devinet_ioctl+0x22a/0x532
+> sock_ioctl+0x1ad/0x1d1
+> sock_ioctl+0x0/0x1d1
+> vfs_ioctl+0x1c/0x5f
+> do_vfs_ioctl+0x456/0x491
+> net_tx_action+0xc6/0x123
+> __do_soft_irq+0x8c/0x115
+> sys_ioctl+0x4/0x58
+> sysenter_do_call+0x12/0x2f
+> Code: 68 cd f0 93 de e9 0 02 00 00 8b 4c 24 24 0f b7 ...
+> EIP: sky2_poll+0x856/0xb49 [sky2]
+> kernel panic - no syncing: fatal exception in interrupt
+> 
+> This was tested by adding a USB ethernet dongle to the same machine,
+> and creating a program that spews raw packets back to the sky2 port.
+> 
+> I have update my analysis and tweaked the patch slightly.
+> 
+> I had a look at the callers of sky2_down, and can't see any immediate
+> trouble that could be caused by this patch.  If you have any
+> suggestions for further improvements, please let me know what they are
+> and I will do my best to address them.
+> 
+> thanks,
+> 
+> Mike
+> 
+> 
+> ---
+> 
+> If sky2_down was called between an interrupt and the corresponding sky2_poll,
+> rx_ring will have been free'd and we'll crash.
+> 
+> This may happen because not all sources of interrupts are masked in sky2_down,
+> but a single interrupt from any source will cause all sources to be
+> checked, regardless of whether they are masked or not.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ---
+>  drivers/net/sky2.c |   14 ++++++++++++--
+>  1 files changed, 12 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index a2ff9cb..d0d4840 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -1822,8 +1822,8 @@ static int sky2_down(struct net_device *dev)
+>  	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
+>  	gma_write16(hw, port, GM_GP_CTRL, ctrl);
+> 
+> -	/* Make sure no packets are pending */
+> -	napi_synchronize(&hw->napi);
+> +	/* disable soft interrupts */
+> +	napi_disable(&hw->napi);
+> 
+>  	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
+> 
+> @@ -1878,6 +1878,9 @@ static int sky2_down(struct net_device *dev)
+>  	sky2->rx_ring = NULL;
+>  	sky2->tx_ring = NULL;
+> 
+> +	/* re-enable soft interrupts */
+> +	napi_enable(&hw->napi);
+> +
+>  	return 0;
+>  }
+> 
+> @@ -2372,6 +2375,13 @@ static int sky2_status_intr(struct sky2_hw *hw,
+> int to_do, u16 idx)
+>  		length = le16_to_cpu(le->length);
+>  		status = le32_to_cpu(le->status);
+> 
+> +		/* rx_ring may have been free'd in sky2_down */
+> +		if (unlikely(!sky2->rx_ring)) {
+> +			printk(KERN_INFO "sky2_status_intr: rx_ring NULL opcode %02x\n", opcode);
+> +			work_done++;
+> +			break;
+> +		}
+> +
 
+The first part is okay, but the second part is not. It wallpapers
+over a real race. It is important that it should not be possible
+to get to the sky2_status_intr (called from sky2_poll)
+after down has both disabled IRQ in hardware and disabled NAPI.
+If it can make to there then there is some bug in NAPI logic,
+or hardware that needs attention. Remember sky2_down might be
+running on a different CPU than the receiver.
 
-On Wed, Jun 10, 2009 at 5:32 PM, Patrick McHardy<kaber@trash.net> wrote=
-:
-> Again, please don't top post.
->
-> Gil Beniamini wrote:
->>
->> My application is a "proxy" and need to support few VLANs (for examp=
-le
->> vlan 24).
->> I define all vlans on interface 'eth0' which is my "out i/f", while
->> the other interface 'eth1' (used as "in i/f") I use with PF_PACKET /
->> SOCK_RAW in order to handle VLANs by my application (starting with
->> "arp broadcast").
->> When I try to define the same (relevant VLAN) on eth1 (inorder to
->> check your suggestion), I get "Error: trying to add VLAN #24 to IF
->> -:eth1:- error: file exist".
->> It seems that linux does not allow to define the same VLAN # on more
->> than a single i/f?!
->
-> No, that has got to be a mistake. You can use the same ID once
-> per underlying device:
->
-> # ip -d link list
->
-> 4: vlan0@dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN
-> =A0 =A0link/ether d6:1f:c0:bd:b2:ec brd ff:ff:ff:ff:ff:ff
-> =A0 =A0vlan id 1000 <REORDER_HDR>
-> 6: vlan1@dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN
-> =A0 =A0link/ether 8a:17:13:5d:87:1a brd ff:ff:ff:ff:ff:ff
-> =A0 =A0vlan id 1000 <REORDER_HDR>
->
-> If it doesn't work for you, please post the full commands
-> and ip -d link list output you used.
->
