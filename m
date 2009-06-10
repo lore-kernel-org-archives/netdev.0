@@ -1,53 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH iproute2 3/2 v2] tc_core: Return double from	tc_core_tick2time()
-Date: Wed, 10 Jun 2009 14:25:53 +0200
-Message-ID: <4A2FA651.1030207@trash.net>
-References: <20090609080536.GD5237@ff.dom.local> <4A2E6BA4.30002@trash.net> <20090609225317.GA3262@ami.dom.local> <4A2EEA84.3080803@trash.net> <20090610074634.GB2673@ff.dom.local>
+From: Jeremy Kerr <jk@ozlabs.org>
+Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
+Date: Wed, 10 Jun 2009 22:41:47 +1000
+Message-ID: <200906102241.47823.jk@ozlabs.org>
+References: <4A2D112A.4000308@hartkopp.net> <4A2F6D32.8030400@hartkopp.net>
+	<20090610.015245.141342130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Antonio Almeida <vexwek@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Martin Devera <devik@cdi.cz>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Vladimir Ivashchenko <hazard@francoudi.com>,
-	Badalian Vyacheslav <slavon@bigtelecom.ru>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57179 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753662AbZFJMZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 08:25:53 -0400
-In-Reply-To: <20090610074634.GB2673@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, oliver@hartkopp.net,
+	David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: patchwork@ozlabs.org
+Return-path: <patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org>
+In-Reply-To: <20090610.015245.141342130.davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/options/patchwork>,
+	<mailto:patchwork-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/patchwork>
+List-Post: <mailto:patchwork@ozlabs.org>
+List-Help: <mailto:patchwork-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/patchwork>,
+	<mailto:patchwork-request@ozlabs.org?subject=subscribe>
+Sender: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
+Errors-To: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On Wed, Jun 10, 2009 at 01:04:36AM +0200, Patrick McHardy wrote:
->> Jarek Poplawski wrote:
->>> Hmm... I'm not sure this floor() is needed here, but maybe I'll get it
->>> tomorrow... 
->> Its not. It was mainly a suggestion to make the symetry more explicit.
->> I hope gcc understands :)
-> 
-> If so, then maybe let's reconsider previous example:
-> 
->> Let's see how it's used (mainly) in tc_calc_xmittime() e.g. for
->> Antonio's mostly 800byte and 555Mbit rate:
->>
->> tc_core_time2tick(TIME_UNITS_PER_SEC * (double)size/rate)
->> tc_core_time2tick(1000000 * (double) 800/69375000)
->> tc_core_time2tick(11.53153)
-> 
-> Let's say it returns 116 (after x10 with ceil()). Then, going backwards:
-> 
-> tc_calc_xmitsize()
-> {
-> 	return ((double) 69375000 * tc_core_tick2time(116)) / TIME_UNITS_PER_SEC;
-> }
-> 
-> would give us: 763 after /10 with floor(), and 804 without floor().
-> The latter looks nicer to me but I leave the choice to you or Stephen.
+David,
 
-Agreed, I made a thinko somewhere.
+> We really can't expect patchwork to look for every conceivable
+> malignment of the various reviewer tags.
+
+No, but we could probably be more tolerant about capitalisation. Any 
+objections about ignoring case completely? I have a patch ready to 
+push...
+
+Cheers,
+
+
+Jeremy
