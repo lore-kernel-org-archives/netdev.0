@@ -1,38 +1,47 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 11:02:50 +0100
-Message-ID: <20090610110250.17644ae4@lxorguk.ukuu.org.uk>
-References: <20090608130959.10052.54590.stgit@localhost>
-	<20090608131138.10052.5408.stgit@localhost>
-	<4A2D112A.4000308@hartkopp.net>
-	<20090610.011027.43904351.davem@davemloft.net>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Wed, 10 Jun 2009 13:18:29 +0300
+Message-ID: <15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
+References: <ada1vps4u9e.fsf@cisco.com>
+	 <20090609.215719.214969588.davem@davemloft.net>
+	 <adaski83ciy.fsf@cisco.com>
+	 <20090609.221209.07018418.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: oliver@hartkopp.net, hawk@comx.dk, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
-	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
-	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
-	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
+Cc: rdreier@cisco.com, cl@linux-foundation.org, netdev@vger.kernel.org,
+	yosefe@voltaire.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090610.011027.43904351.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:62298 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbZFJKS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 06:18:28 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1224353fga.17
+        for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 03:18:29 -0700 (PDT)
+In-Reply-To: <20090609.221209.07018418.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Jun 2009 01:10:27 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Wed, Jun 10, 2009 at 8:12 AM, David Miller <davem@davemloft.net> wrote:
+> From: Roland Dreier <rdreier@cisco.com>
 
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Mon, 08 Jun 2009 15:24:58 +0200
-> 
-> > Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
-> 
-> Please don't capitalize the "By" in "Acked-By".  Otherwise
-> patchwork doesn't pick them up automatically.
+>> There isn't any corresponding code to block an app during ARP resolution, is there?
 
-Dave. We have computers to do all the silly tedious pointless jobs in
-life, please just fix the scripts.
+> Here the app can send a voluminous amount of application data at the destination and it'll
+> mostly drop on the floor currently. ARP doesn't typically toss real application data, this does.
 
-Alan
+
+Dave,
+
+If there's no app level flow control around, UDP senders will just send...  so
+for --unicast--  the same problem of injecting tons of packets which can get
+dropped will come into play under both Ethernet and IB, so the user is limited
+by the socket buffer len and the neigh unres_qlen systcl.
+
+Why not apply a similar systcl mechanism for the IB/mcast case so the ipoib
+driver level (under the user directive) will have control on how many
+packets would
+be queued before starting to drop.
+
+Or.
