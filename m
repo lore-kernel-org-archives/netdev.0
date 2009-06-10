@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Wed, 10 Jun 2009 05:01:22 -0700 (PDT)
-Message-ID: <20090610.050122.261415364.davem@davemloft.net>
-References: <adaski83ciy.fsf@cisco.com>
-	<20090609.221209.07018418.davem@davemloft.net>
-	<15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: [net-next PATCH 1/5] be2net: Use cancel_delayed_work_sync instead
+	of cancel_delayed_work()
+Date: Wed, 10 Jun 2009 17:48:35 +0530
+Message-ID: <20090610121835.GA16411@serverengines.com>
+Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, cl@linux-foundation.org, netdev@vger.kernel.org,
-	yosefe@voltaire.com
-To: or.gerlitz@gmail.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56663
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751505AbZFJMBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 08:01:20 -0400
-In-Reply-To: <15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
+Received: from segment-124-30.sify.net ([124.30.166.146]:52376 "EHLO
+	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755373AbZFJMS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 08:18:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Wed, 10 Jun 2009 13:18:29 +0300
+Use cancel_delayed_work_sycn instead of cancel_delayed_work() to reliably kill be_worker() as it rearms itself.
 
-> If there's no app level flow control around, UDP senders will just
-> send...  so for --unicast-- the same problem of injecting tons of
-> packets which can get dropped will come into play under both
-> Ethernet and IB, so the user is limited by the socket buffer len and
-> the neigh unres_qlen systcl.
+Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+---
+ drivers/net/benet/be_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-But this generally does not cause problems via ARP, why might that
-be?  Because resolution is 1) rare 2) quick.  Both of which do not
-apply to this IPoIB case.
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 347d002..69046a1 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1533,7 +1533,7 @@ static int be_close(struct net_device *netdev)
+ 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
+ 	int vec;
+ 
+-	cancel_delayed_work(&adapter->work);
++	cancel_delayed_work_sync(&adapter->work);
+ 
+ 	netif_stop_queue(netdev);
+ 	netif_carrier_off(netdev);
+-- 
+1.6.0.4
 
-> Why not apply a similar systcl mechanism for the IB/mcast case so
-> the ipoib driver level (under the user directive) will have control
-> on how many packets would be queued before starting to drop.
-
-Sure, but that's just pushing the problem around instead of
-solving it.
