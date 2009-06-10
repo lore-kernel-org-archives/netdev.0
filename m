@@ -1,194 +1,97 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 09/31: xtables: remove another level of indent
-Date: Wed, 10 Jun 2009 21:46:34 +0200 (MEST)
-Message-ID: <20090610194632.11112.50548.sendpatchset@x2.localnet>
+Subject: netfilter 11/31: xtables: print hook name instead of mask
+Date: Wed, 10 Jun 2009 21:46:36 +0200 (MEST)
+Message-ID: <20090610194635.11112.2127.sendpatchset@x2.localnet>
 References: <20090610194621.11112.72922.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33167 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761104AbZFJTqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 15:46:35 -0400
 In-Reply-To: <20090610194621.11112.72922.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 7a6b1c46e28ab0511be26c238d552c00b51b88c5
+commit 451853645f3cb804b523227eca054701e4cbc589
 Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Wed Apr 15 21:35:33 2009 +0200
+Date:   Sun Apr 5 10:43:09 2009 +0200
 
-    netfilter: xtables: remove another level of indent
+    netfilter: xtables: print hook name instead of mask
+    
+    Users cannot make anything of these numbers. Let's just tell them
+    directly.
     
     Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index ecba246..7505dff 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -313,23 +313,24 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- 			}
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 150e5cf..46dba5f 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -329,6 +329,32 @@ int xt_find_revision(u8 af, const char *name, u8 revision, int target,
+ }
+ EXPORT_SYMBOL_GPL(xt_find_revision);
  
- 			e = get_entry(table_base, v);
--		} else {
--			/* Targets which reenter must return
--			 * abs. verdicts
--			 */
--			tgpar.target   = t->u.kernel.target;
--			tgpar.targinfo = t->data;
--			verdict = t->u.kernel.target->target(skb, &tgpar);
--
--			/* Target might have changed stuff. */
--			arp = arp_hdr(skb);
--
--			if (verdict == ARPT_CONTINUE)
--				e = arpt_next_entry(e);
--			else
--				/* Verdict */
--				break;
++static char *textify_hooks(char *buf, size_t size, unsigned int mask)
++{
++	static const char *const names[] = {
++		"PREROUTING", "INPUT", "FORWARD",
++		"OUTPUT", "POSTROUTING", "BROUTING",
++	};
++	unsigned int i;
++	char *p = buf;
++	bool np = false;
++	int res;
++
++	*p = '\0';
++	for (i = 0; i < ARRAY_SIZE(names); ++i) {
++		if (!(mask & (1 << i)))
 +			continue;
- 		}
-+
-+		/* Targets which reenter must return
-+		 * abs. verdicts
-+		 */
-+		tgpar.target   = t->u.kernel.target;
-+		tgpar.targinfo = t->data;
-+		verdict = t->u.kernel.target->target(skb, &tgpar);
-+
-+		/* Target might have changed stuff. */
-+		arp = arp_hdr(skb);
-+
-+		if (verdict == ARPT_CONTINUE)
-+			e = arpt_next_entry(e);
-+		else
-+			/* Verdict */
-+			break;
- 	} while (!hotdrop);
- 	xt_info_rdunlock_bh();
- 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index cfcb7af..d91ecd4 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -402,37 +402,35 @@ ipt_do_table(struct sk_buff *skb,
- 			}
- 
- 			e = get_entry(table_base, v);
--		} else {
--			/* Targets which reenter must return
--			   abs. verdicts */
--			tgpar.target   = t->u.kernel.target;
--			tgpar.targinfo = t->data;
-+			continue;
++		res = snprintf(p, size, "%s%s", np ? "/" : "", names[i]);
++		if (res > 0) {
++			size -= res;
++			p += res;
 +		}
++		np = true;
++	}
 +
-+		/* Targets which reenter must return
-+		   abs. verdicts */
-+		tgpar.target   = t->u.kernel.target;
-+		tgpar.targinfo = t->data;
- #ifdef CONFIG_NETFILTER_DEBUG
--			((struct ipt_entry *)table_base)->comefrom
--				= 0xeeeeeeec;
-+		((struct ipt_entry *)table_base)->comefrom = 0xeeeeeeec;
- #endif
--			verdict = t->u.kernel.target->target(skb, &tgpar);
-+		verdict = t->u.kernel.target->target(skb, &tgpar);
- #ifdef CONFIG_NETFILTER_DEBUG
--			if (((struct ipt_entry *)table_base)->comefrom
--			    != 0xeeeeeeec
--			    && verdict == IPT_CONTINUE) {
--				printk("Target %s reentered!\n",
--				       t->u.kernel.target->name);
--				verdict = NF_DROP;
--			}
--			((struct ipt_entry *)table_base)->comefrom
--				= 0x57acc001;
--#endif
--			/* Target might have changed stuff. */
--			ip = ip_hdr(skb);
--			datalen = skb->len - ip->ihl * 4;
--
--			if (verdict == IPT_CONTINUE)
--				e = ipt_next_entry(e);
--			else
--				/* Verdict */
--				break;
-+		if (((struct ipt_entry *)table_base)->comefrom != 0xeeeeeeec &&
-+		    verdict == IPT_CONTINUE) {
-+			printk("Target %s reentered!\n",
-+			       t->u.kernel.target->name);
-+			verdict = NF_DROP;
- 		}
-+		((struct ipt_entry *)table_base)->comefrom = 0x57acc001;
-+#endif
-+		/* Target might have changed stuff. */
-+		ip = ip_hdr(skb);
-+		datalen = skb->len - ip->ihl * 4;
++	return buf;
++}
 +
-+		if (verdict == IPT_CONTINUE)
-+			e = ipt_next_entry(e);
-+		else
-+			/* Verdict */
-+			break;
- 	} while (!hotdrop);
- 	xt_info_rdunlock_bh();
- 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index d01b8a3..5a178be 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -431,35 +431,33 @@ ip6t_do_table(struct sk_buff *skb,
- 			}
- 
- 			e = get_entry(table_base, v);
--		} else {
--			/* Targets which reenter must return
--			   abs. verdicts */
--			tgpar.target   = t->u.kernel.target;
--			tgpar.targinfo = t->data;
-+			continue;
-+		}
+ int xt_check_match(struct xt_mtchk_param *par,
+ 		   unsigned int size, u_int8_t proto, bool inv_proto)
+ {
+@@ -351,9 +377,13 @@ int xt_check_match(struct xt_mtchk_param *par,
+ 		return -EINVAL;
+ 	}
+ 	if (par->match->hooks && (par->hook_mask & ~par->match->hooks) != 0) {
+-		printk("%s_tables: %s match: bad hook_mask %#x/%#x\n",
++		char used[64], allow[64];
 +
-+		/* Targets which reenter must return
-+		   abs. verdicts */
-+		tgpar.target   = t->u.kernel.target;
-+		tgpar.targinfo = t->data;
- 
- #ifdef CONFIG_NETFILTER_DEBUG
--			((struct ip6t_entry *)table_base)->comefrom
--				= 0xeeeeeeec;
-+		((struct ip6t_entry *)table_base)->comefrom = 0xeeeeeeec;
- #endif
--			verdict = t->u.kernel.target->target(skb, &tgpar);
-+		verdict = t->u.kernel.target->target(skb, &tgpar);
- 
- #ifdef CONFIG_NETFILTER_DEBUG
--			if (((struct ip6t_entry *)table_base)->comefrom
--			    != 0xeeeeeeec
--			    && verdict == IP6T_CONTINUE) {
--				printk("Target %s reentered!\n",
--				       t->u.kernel.target->name);
--				verdict = NF_DROP;
--			}
--			((struct ip6t_entry *)table_base)->comefrom
--				= 0x57acc001;
--#endif
--			if (verdict == IP6T_CONTINUE)
--				e = ip6t_next_entry(e);
--			else
--				/* Verdict */
--				break;
-+		if (((struct ip6t_entry *)table_base)->comefrom != 0xeeeeeeec &&
-+		    verdict == IP6T_CONTINUE) {
-+			printk("Target %s reentered!\n",
-+			       t->u.kernel.target->name);
-+			verdict = NF_DROP;
- 		}
-+		((struct ip6t_entry *)table_base)->comefrom = 0x57acc001;
-+#endif
-+		if (verdict == IP6T_CONTINUE)
-+			e = ip6t_next_entry(e);
-+		else
-+			/* Verdict */
-+			break;
- 	} while (!hotdrop);
- 
- #ifdef CONFIG_NETFILTER_DEBUG
++		printk("%s_tables: %s match: used from hooks %s, but only "
++		       "valid from %s\n",
+ 		       xt_prefix[par->family], par->match->name,
+-		       par->hook_mask, par->match->hooks);
++		       textify_hooks(used, sizeof(used), par->hook_mask),
++		       textify_hooks(allow, sizeof(allow), par->match->hooks));
+ 		return -EINVAL;
+ 	}
+ 	if (par->match->proto && (par->match->proto != proto || inv_proto)) {
+@@ -497,9 +527,13 @@ int xt_check_target(struct xt_tgchk_param *par,
+ 		return -EINVAL;
+ 	}
+ 	if (par->target->hooks && (par->hook_mask & ~par->target->hooks) != 0) {
+-		printk("%s_tables: %s target: bad hook_mask %#x/%#x\n",
++		char used[64], allow[64];
++
++		printk("%s_tables: %s target: used from hooks %s, but only "
++		       "usable from %s\n",
+ 		       xt_prefix[par->family], par->target->name,
+-		       par->hook_mask, par->target->hooks);
++		       textify_hooks(used, sizeof(used), par->hook_mask),
++		       textify_hooks(allow, sizeof(allow), par->target->hooks));
+ 		return -EINVAL;
+ 	}
+ 	if (par->target->proto && (par->target->proto != proto || inv_proto)) {
