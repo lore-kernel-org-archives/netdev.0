@@ -1,52 +1,35 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH RESEND] ftrace: change the export format of
- trace_kfree_skb()
-Date: Tue, 9 Jun 2009 21:56:32 -0400 (EDT)
-Message-ID: <alpine.DEB.2.00.0906092156140.30552@gandalf.stny.rr.com>
-References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next 2/4] udp: Handle large UFO packets from untrusted sources
+Date: Wed, 10 Jun 2009 13:10:40 +0930
+Message-ID: <200906101310.41094.rusty@rustcorp.com.au>
+References: <1244247391.1526.171.camel@w-sridhar.beaverton.ibm.com> <20090608051608.GA19748@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, Ingo <mingo@elte.hu>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.124]:41728 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754459AbZFJB4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 21:56:31 -0400
-In-Reply-To: <4A2F0F1D.7010101@cn.fujitsu.com>
+Received: from ozlabs.org ([203.10.76.45]:56604 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753911AbZFJDkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Jun 2009 23:40:40 -0400
+In-Reply-To: <20090608051608.GA19748@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 8 Jun 2009 02:46:08 pm Herbert Xu wrote:
+> On Fri, Jun 05, 2009 at 05:16:31PM -0700, Sridhar Samudrala wrote:
+> > +	/* Software UFO is not yet supported */
+> > +	segs = ERR_PTR(-EPROTONOSUPPORT);
+>
+> Hmm, we need to fill this in before you start using it for virt.
+> After all, it's very difficult for the guest to know whether the
+> output device on the host is going to be able to do UFO or not.
 
+Yep, no point telling the guest we support UFO if we don't!
 
-On Wed, 10 Jun 2009, Xiao Guangrong wrote:
-
-> 
-> 
-> Frederic Weisbecker wrote:
-> 
-> > 
-> > Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
-> > 
-> > Would you also be interested in adding the conversion from raw numeric protocol
-> > to its name defined in include/linux/if_ether.h
-> > 
-> Hi Frederic:
-> 
-> OK, I'll do it.
-> 
-> > I guess __print_flags() can be used for that.
-> > 
-> 
-> Thanks for you suggestion.
-> IMHO, __print_symbolic() is more suitable for this. :-)
-
-BTW, you might want to take a look at what is coming:
-
-  http://marc.info/?l=linux-kernel&m=124458472931447&w=2
-
--- Steve
-
+Cheers,
+Rusty.
