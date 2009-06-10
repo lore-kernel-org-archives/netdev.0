@@ -1,42 +1,178 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: 8139cp vs 8139too, request_module ?
-Date: Wed, 10 Jun 2009 18:00:06 +0100
-Message-ID: <1244653206.2848.15.camel@achroite>
-References: <1244649729.14601.1.camel@plop>
+From: Burak Gorkemli <burakgmail-dccp@yahoo.com>
+Subject: Re: yet another panic on 2.6.30-rc6
+Date: Wed, 10 Jun 2009 10:19:01 -0700 (PDT)
+Message-ID: <403836.92879.qm@web30008.mail.mud.yahoo.com>
+References: <295033.28246.qm@web30002.mail.mud.yahoo.com> <230029.26412.qm@web30005.mail.mud.yahoo.com> <20090606180153.GA10697@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pascal Terjan <pterjan@mandriva.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:51651 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754843AbZFJRAJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 13:00:09 -0400
-In-Reply-To: <1244649729.14601.1.camel@plop>
+Received: from web30008.mail.mud.yahoo.com ([209.191.69.25]:29513 "HELO
+	web30008.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757628AbZFJRZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 13:25:39 -0400
+In-Reply-To: <20090606180153.GA10697@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-06-10 at 18:02 +0200, Pascal Terjan wrote:
-> Hello,
-> 8139cp and 8139too both handle the same id and then test revision.
+
+Hi Gerrit,
+
+Sorry for the late reply, I have just found the time today to pull the latest
+tree from your site and test it. It still crashes unfortunately, giving similar
+console output, as given below. As for the transient problems, I had the
+same issue with an older kernel, 2.6.26-rc5, again pulled from your site.
+
+BTW, how to print EIP after the panic?
+
+The console output of the latest panic is as follows:
+
+[<>] ? ccid3_hc_tx_no_feedback_timer
+[<>] ? default_spin_lock_flags
+[<>] ? elv_queue_empty
+[<>] ? blk_run_queue
+[<>] ? kobject_put
+[<>] ? trace_hardirqs_off_thunk
+[<>] error_code
+[<>] ? __mode_timer
+[<>] ? do_invalid_op
+[<>] ? ccid3_hc_tx_no_feedback_timer
+[<>] run_timer_softirq
+[<>] ? ccid3_hc_tx_no_feedback_timer
+[<>] ? ccid3_hc_tx_no_feedback_timer
+[<>] __do_softirq
+[<>] ? __do_softirq
+<IRQ> [<>] ? irq_exit
+[<>] ? smp_apic_timer_interrupt
+[<>] ? apic_timer_interrupt
+[<>] ? native_safe_halt
+[<>] ? default_idle
+[<>] ? cpu_idle
+[<>] ? rest_init
+[<>] ? start_kernel
+[<>] ? i386_start_kernel
+
+Thanks
+
+ --
+Burak
+
+
+
+----- Original Message ----
+> From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> To: Burak Gorkemli <burakgmail-dccp@yahoo.com>
+> Cc: dccp@vger.kernel.org
+> Sent: Saturday, June 6, 2009 9:01:53 PM
+> Subject: Re: yet another panic on 2.6.30-rc6
 > 
-> If revision is wrong they tell to load the other module and return
-> ENODEV.
+> Hi Burak,
 > 
-> Why not doing a request_module instead of printing a message ? 
-
-The kernel requests a module to handle each PCI device it doesn't
-already have a driver for.  modprobe will then load all modules that
-match that PCI device and vendor id.  So 8139cp and 8139too are both
-loaded for PCI devices that might be handled by either.  There is no
-need for them to try to load each other, and  I suspect there would be a
-risk of deadlock if they did.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> thank you for raising this. We need to isolate the cause of the problem.
+> 
+> The dccp test tree is based on the netdev-2.6 tree maintained by Dave
+> Miller, which itself contains other trees (I think the total number of
+> kernel trees is ~130).
+> 
+> I am testing this tree myself, though mostly with audio streaming over
+> WiFi links, using the paraslash streamer.
+> 
+> From looking through the trace it looks as though this is a timer
+> problem. Any chance of getting the EIP value to see where it 
+> 
+> Regarding reproducability -- unfortunately I had just put in a new
+> revision onto eden-feed. Can you please consider pulling again from
+> 
+>     git://eden-feed.erg.abdn.ac.uk/dccp_exp [subtrees dccp/ccid4]
+> 
+> If this problem persists, it would be good to CC: netdev@vger as well.
+> 
+> It is quite possible that the problem may have cleared itself as a
+> result of using more recent sources. The dccp test tree gets a fresh
+> base at least every week, to avoid transient problems.
+> 
+> Thanks in advance
+> Gerrit
+> 
+> 
+> Quoting Burak Gorkemli:
+> |
+> | The console output for this one is as follows:
+> |
+> | [<>] do_trap
+> | [<>] ? do_invalid_op
+> | [<>] do_invalid_op
+> | [<>] ? ccid3_hc_tx_no_feedback_timer
+> | [<>] ? e1000_clean_rx_irq
+> | [<>] ? trace_hardirqs_off_thunk
+> | [<>] error_code
+> | [<>] ? __mod_timer
+> | [<>] ? do_invalid_op
+> | [<>] ? ccid3_hc_tx_no_feedback_timer
+> | [<>] run_timer_softirq
+> | [<>] ? ccid3_hc_tx_no_feedback_timer
+> | [<>] ? ccid3_hc_tx_no_feedback_timer
+> | [<>] __do_softirq
+> | [<>] ? __do_softirq
+> | [<>] ? irq_exit
+> | [<>] ? smp_apic_timer_interrupt
+> | [<>] ? apic_timer_interrupt
+> | [<>] ? native_safe_halt
+> | [<>] ? default_idle
+> | [<>] ? cpu_idle
+> | [<>] ? rest_init
+> | [<>] ? start_kernel
+> | [<>] ? i386_start_kernel
+> |
+> |  --
+> | Burak
+> |
+> |
+> |
+> | ----- Original Message ----
+> | > From: Burak Gorkemli 
+> | > To: dccp@vger.kernel.org
+> | > Sent: Saturday, June 6, 2009 1:58:59 AM
+> | > Subject: panic on 2.6.30-rc6
+> | >
+> | >
+> | > Hi,
+> | >
+> | > I am having kernel panic while doing video streaming tests with ccid3, using
+> | > kernel version 2.6.30-rc6, pulled from Gerrit's
+> | > tree. The crash happens on the receiver node (there is a sender node and a
+> | > receiver node, both Linux boxes running 2.6.30-rc6) and it is quite
+> | > reproducible. The console output is as follows:
+> | >
+> | > [<>] ? do_invalid_op
+> | > [<>] do_invalid_op
+> | > [<>] ? ccid3_hc_tx_no_feedback_timer
+> | > [<>] ? __wake_up
+> | > [<>] ? __kfree_skb
+> | > [<>] ? trace_hardirqs_off_thunk
+> | > [<>] error_code
+> | > [<>] ? __mod_timer
+> | > [<>] ? do_invalid_op
+> | > [<>] ? ccid3_hc_tx_no_feedback_timer
+> | > [<>] run_timer_softirq
+> | > [<>] ? ccid3_hc_tx_no_feedback_timer
+> | > [<>] ? ccid3_hc_tx_no_feedback_timer
+> | > [<>] __do_softirq
+> | > [<>] ? __do_softirq
+> | > [<>] ? irq_exit
+> | > [<>] ? smp_apic_timer_interrupt
+> | > [<>] ? apic_timer_interrupt
+> | > [<>] ? native_safe_halt
+> | > [<>] ? default_idle
+> | > [<>] ? cpu_idle
+> | > [<>] ? rest_init
+> | > [<>] ? start_kernel
+> | > [<>] ? i386_start_kernel
+> | >
+> | > Any comments?
+> --
+> To unsubscribe from this list: send the line "unsubscribe dccp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
