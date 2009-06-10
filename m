@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
- implementation & Netlink protocol
-Date: Wed, 10 Jun 2009 01:08:28 -0700 (PDT)
-Message-ID: <20090610.010828.81117955.davem@davemloft.net>
-References: <20090402153042.GB1670@gondor.apana.org.au>
-	<20090405.025920.75648090.davem@davemloft.net>
-	<49DA01E9.6010602@trash.net>
+Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
+Date: Wed, 10 Jun 2009 01:10:27 -0700 (PDT)
+Message-ID: <20090610.011027.43904351.davem@davemloft.net>
+References: <20090608130959.10052.54590.stgit@localhost>
+	<20090608131138.10052.5408.stgit@localhost>
+	<4A2D112A.4000308@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, nhorman@tuxdriver.com,
-	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752898AbZFJII0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:08:26 -0400
-In-Reply-To: <49DA01E9.6010602@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hawk@comx.dk, paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, urs.thuermann@volkswagen.de,
+	oliver.hartkopp@volkswagen.de, wg@grandegger.com,
+	vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
+	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: oliver@hartkopp.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A2D112A.4000308@hartkopp.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 06 Apr 2009 15:21:45 +0200
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Date: Mon, 08 Jun 2009 15:24:58 +0200
 
-> David Miller wrote:
->> We can start treating it like a real protocol, firmly define
->> the endianness of everything to kill all the over-the-wire
->> issues, etc. and deal with this 4-byte-align stuff as well.
-> 
-> We could add a setsockopt option for userspace to specify "version 2"
-> operation. The netlink attributes helpers would need to be aware of
-> the currently used protocol version and could transparently choose
-> a different encoding (also taking care of endianess etc). For the
-> case of one value per attribute this should be a straight-forward
-> conversion. In case of structures that contain values with different
-> endianness, we'll probably need to define a new encoding (ideally
-> also one attribute per value) for version 2.
+> Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
 
-Ok.
+Please don't capitalize the "By" in "Acked-By".  Otherwise
+patchwork doesn't pick them up automatically.
 
-> I'd also suggest to get rid of the 64k attribute and message size
-> limit at the same time, this is making it quite hard to support
-> transactional semantics for large updates (f.i. for nf_tables sets).
+It's just like "Signed-off-by", only the first word is capitalized.
 
-Another option is to support continuations of some sort.
+Thank you.
