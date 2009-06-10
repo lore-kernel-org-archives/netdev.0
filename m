@@ -1,47 +1,40 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Wed, 10 Jun 2009 13:18:29 +0300
-Message-ID: <15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
-References: <ada1vps4u9e.fsf@cisco.com>
-	 <20090609.215719.214969588.davem@davemloft.net>
-	 <adaski83ciy.fsf@cisco.com>
-	 <20090609.221209.07018418.davem@davemloft.net>
+From: Anders Eriksson <aeriksson@fastmail.fm>
+Subject: Re: WoL and r8169
+Date: Wed, 10 Jun 2009 12:29:40 +0200
+Message-ID: <20090610102940.87FE633C023@tippex.mynet.homeunix.org>
+References: <20090607214220.5101B33C013@tippex.mynet.homeunix.org> <20090608215301.GA28044@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, cl@linux-foundation.org, netdev@vger.kernel.org,
-	yosefe@voltaire.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Anders Eriksson <aeriksson@fastmail.fm>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:62298 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751764AbZFJKS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 06:18:28 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so1224353fga.17
-        for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 03:18:29 -0700 (PDT)
-In-Reply-To: <20090609.221209.07018418.davem@davemloft.net>
+Received: from ch-smtp02.sth.basefarm.net ([80.76.149.213]:38869 "EHLO
+	ch-smtp02.sth.basefarm.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751589AbZFJK34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 06:29:56 -0400
+In-reply-to: <20090608215301.GA28044@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 10, 2009 at 8:12 AM, David Miller <davem@davemloft.net> wrote:
-> From: Roland Dreier <rdreier@cisco.com>
 
->> There isn't any corresponding code to block an app during ARP resolution, is there?
+romieu@fr.zoreil.com said:
+> Anders Eriksson <aeriksson@fastmail.fm> : 
+> [...]
+>> Any insight in the appreciated.
+> This one may be:
+[...]
+> --  Ueimor
 
-> Here the app can send a voluminous amount of application data at the destination and it'll
-> mostly drop on the floor currently. ARP doesn't typically toss real application data, this does.
+Yes! That diff made the trick for WoL on magic package on my 2.6.30-rc6 kernel.
+Is it sent to Linus for -final?
 
+One additional thing. The card claims to support WoL on other traffic as well:
+> Supports Wake-on: pumbg
 
-Dave,
+I tried to wake up the machine using regular tcp traffic, on the theory that 
+it's unicast and phy activity. No luck though.
 
-If there's no app level flow control around, UDP senders will just send...  so
-for --unicast--  the same problem of injecting tons of packets which can get
-dropped will come into play under both Ethernet and IB, so the user is limited
-by the socket buffer len and the neigh unres_qlen systcl.
+What's the trick to wake up on tcp traffic? Or did I misread the man page?
 
-Why not apply a similar systcl mechanism for the IB/mcast case so the ipoib
-driver level (under the user directive) will have control on how many
-packets would
-be queued before starting to drop.
+/Anders
 
-Or.
