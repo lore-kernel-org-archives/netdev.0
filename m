@@ -1,125 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: Fix a race between sky2_down and sky2_poll
-Date: Wed, 10 Jun 2009 07:50:30 -0700
-Message-ID: <20090610075030.69eae503@nehalam>
-References: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: SOCK_RAW does not receive broadcast (with VLAN unless PROMISC)
+Date: Wed, 10 Jun 2009 17:00:10 +0200
+Message-ID: <4A2FCA7A.60707@trash.net>
+References: <91ac27070906081105x30171bedra10d244d382a6934@mail.gmail.com>	 <4A2E4A32.1060705@trash.net>	 <91ac27070906090608me50af3bv23b150d8d0cd0080@mail.gmail.com>	 <200906091430.32294.bcook@bpointsys.com>	 <91ac27070906100724v25c2328x6b343315358c8e12@mail.gmail.com>	 <4A2FC40E.4040106@trash.net> <91ac27070906100748p1b2cb6bax56ecc230e556ae96@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Cc: Brent Cook <bcook@bpointsys.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gil Beniamini <gil.beniamini@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39594 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754760AbZFJOuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 10:50:54 -0400
-In-Reply-To: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:60470 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753813AbZFJPAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 11:00:10 -0400
+In-Reply-To: <91ac27070906100748p1b2cb6bax56ecc230e556ae96@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 9 Jun 2009 23:03:52 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+Gil Beniamini wrote:
+> Dear Patrick,
+> Below is my try to add vlan-id 24 on eth1, followed by "ip -d link list":
+> root@StudentsHPA:/home/hpa# vconfig add eth1 24
+> ERROR: trying to add VLAN #24 to IF -:eth1:-  error: File exists
+> 
+> 5: vlan24@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+> noqueue state UP
 
-> Hi Stephen,
-> 
-> This patch fixes a crash in the sky2 driver when doing "ifconfig eth1
-> down" and receiving a constant stream of ethernet packets on my
-> mac-mini with Linux 2.6.29.4.  This is what I can see of the crash on
-> the console:
-> 
-> do_IRQ+0x64/0x77
-> common_interrupt+0x27/0x2c
-> kfree+0x78/0x95
-> __kfree_skb+0xf/0x6e
-> sky2_rx_clean+0x35/0x48
-> sky2_down+0x367/0x486
-> dev_close+0x63/0x85
-> dev_change_flags+0xa2/0x153
-> devinet_ioctl+0x22a/0x532
-> sock_ioctl+0x1ad/0x1d1
-> sock_ioctl+0x0/0x1d1
-> vfs_ioctl+0x1c/0x5f
-> do_vfs_ioctl+0x456/0x491
-> net_tx_action+0xc6/0x123
-> __do_soft_irq+0x8c/0x115
-> sys_ioctl+0x4/0x58
-> sysenter_do_call+0x12/0x2f
-> Code: 68 cd f0 93 de e9 0 02 00 00 8b 4c 24 24 0f b7 ...
-> EIP: sky2_poll+0x856/0xb49 [sky2]
-> kernel panic - no syncing: fatal exception in interrupt
-> 
-> This was tested by adding a USB ethernet dongle to the same machine,
-> and creating a program that spews raw packets back to the sky2 port.
-> 
-> I have update my analysis and tweaked the patch slightly.
-> 
-> I had a look at the callers of sky2_down, and can't see any immediate
-> trouble that could be caused by this patch.  If you have any
-> suggestions for further improvements, please let me know what they are
-> and I will do my best to address them.
-> 
-> thanks,
-> 
-> Mike
-> 
-> 
-> ---
-> 
-> If sky2_down was called between an interrupt and the corresponding sky2_poll,
-> rx_ring will have been free'd and we'll crash.
-> 
-> This may happen because not all sources of interrupts are masked in sky2_down,
-> but a single interrupt from any source will cause all sources to be
-> checked, regardless of whether they are masked or not.
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
-> ---
->  drivers/net/sky2.c |   14 ++++++++++++--
->  1 files changed, 12 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index a2ff9cb..d0d4840 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -1822,8 +1822,8 @@ static int sky2_down(struct net_device *dev)
->  	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
->  	gma_write16(hw, port, GM_GP_CTRL, ctrl);
-> 
-> -	/* Make sure no packets are pending */
-> -	napi_synchronize(&hw->napi);
-> +	/* disable soft interrupts */
-> +	napi_disable(&hw->napi);
-> 
->  	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
-> 
-> @@ -1878,6 +1878,9 @@ static int sky2_down(struct net_device *dev)
->  	sky2->rx_ring = NULL;
->  	sky2->tx_ring = NULL;
-> 
-> +	/* re-enable soft interrupts */
-> +	napi_enable(&hw->napi);
-> +
->  	return 0;
->  }
-> 
-> @@ -2372,6 +2375,13 @@ static int sky2_status_intr(struct sky2_hw *hw,
-> int to_do, u16 idx)
->  		length = le16_to_cpu(le->length);
->  		status = le32_to_cpu(le->status);
-> 
-> +		/* rx_ring may have been free'd in sky2_down */
-> +		if (unlikely(!sky2->rx_ring)) {
-> +			printk(KERN_INFO "sky2_status_intr: rx_ring NULL opcode %02x\n", opcode);
-> +			work_done++;
-> +			break;
-> +		}
-> +
+You're apparently using the "VLAN_NAME_TYPE_PLUS_VID_NO_PAD" naming
+policy, which causes name clashes when you create two VLANs with the
+same ID.
 
-The first part is okay, but the second part is not. It wallpapers
-over a real race. It is important that it should not be possible
-to get to the sky2_status_intr (called from sky2_poll)
-after down has both disabled IRQ in hardware and disabled NAPI.
-If it can make to there then there is some bug in NAPI logic,
-or hardware that needs attention. Remember sky2_down might be
-running on a different CPU than the receiver.
-
+I'd suggest to use iproute to create the devices, which allows you to
+specify the desired name manually. Alternatively you can use vconfig
+and a different naming policy.
