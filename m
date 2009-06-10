@@ -1,28 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 8/8] qlge: bugfix: Get rid of errant
- spin_unlock().
-Date: Wed, 10 Jun 2009 01:06:04 -0700 (PDT)
-Message-ID: <20090610.010604.260664795.davem@davemloft.net>
-References: <1244561974-25662-8-git-send-email-ron.mercer@qlogic.com>
-	<1244565312-4412-1-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [Patch 4/5] Network Drop Monitor: Adding drop monitor
+ implementation & Netlink protocol
+Date: Wed, 10 Jun 2009 01:08:28 -0700 (PDT)
+Message-ID: <20090610.010828.81117955.davem@davemloft.net>
+References: <20090402153042.GB1670@gondor.apana.org.au>
+	<20090405.025920.75648090.davem@davemloft.net>
+	<49DA01E9.6010602@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: herbert@gondor.apana.org.au, nhorman@tuxdriver.com,
+	zbr@ioremap.net, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51039
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51041
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755890AbZFJIGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:06:02 -0400
-In-Reply-To: <1244565312-4412-1-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1752898AbZFJII0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:08:26 -0400
+In-Reply-To: <49DA01E9.6010602@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Tue,  9 Jun 2009 09:35:12 -0700
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 06 Apr 2009 15:21:45 +0200
 
+> David Miller wrote:
+>> We can start treating it like a real protocol, firmly define
+>> the endianness of everything to kill all the over-the-wire
+>> issues, etc. and deal with this 4-byte-align stuff as well.
 > 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> We could add a setsockopt option for userspace to specify "version 2"
+> operation. The netlink attributes helpers would need to be aware of
+> the currently used protocol version and could transparently choose
+> a different encoding (also taking care of endianess etc). For the
+> case of one value per attribute this should be a straight-forward
+> conversion. In case of structures that contain values with different
+> endianness, we'll probably need to define a new encoding (ideally
+> also one attribute per value) for version 2.
 
-Applied.
+Ok.
+
+> I'd also suggest to get rid of the 64k attribute and message size
+> limit at the same time, this is making it quite hard to support
+> transactional semantics for large updates (f.i. for nf_tables sets).
+
+Another option is to support continuations of some sort.
