@@ -1,467 +1,187 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: [RFC usbnet.c] - Add packet aggregation capability
-Date: Wed, 10 Jun 2009 13:57:39 -0400
-Message-ID: <1244656659.2845.11.camel@localhost.localdomain>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-next-2.6 2009-06-10
+Date: Wed, 10 Jun 2009 14:56:39 -0400
+Message-ID: <20090610185639.GC3892@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-azFxmGl2ad9Gzq0uxukm"
-Cc: netdev <netdev@vger.kernel.org>, mark@asix.com.tw,
-	donald@asix.com.tw, Louis <louis@asix.com.tw>
-To: David Brownell <david-b@pacbell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-173-65-162-118.tampfl.fios.verizon.net ([173.65.162.118]:38114
-	"EHLO smtp.davehollis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330AbZFJSF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 14:05:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Dave,
 
---=-azFxmGl2ad9Gzq0uxukm
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Despite my previous optimistic prediction, I need to ask for one more
+2.6.31 pull before/during the merge window... :-)
 
-The ASIX AX88772 and AX88178 devices have the ability to transmit up 16K
-worth of packets in a single bulk transfer.  The asix.c driver currently
-doesn't support aggregating multiple packets into this buffer so that
-packets can be transmitted in a single transfer.  On some systems -
-notably ARM - high cpu utilization is experienced when transmitting
-large numbers of packets.
+This one actually does have a number of bug fixes embedded within, as
+well as some further fleshing-out and usage of the new rfkill
+infrastructure changes that are already queued for 2.6.31.  The other
+bits are more minor, but they have already spent at least a few days in
+-next and I believe they are safe for 2.6.31.
 
-The attached set of patches provided by ASIX add this capability to the
-usbnet.c driver and add the implementation for the asix.c driver.  
+Please let me know if there are problems!
 
-These patches are not yet ready for merging but we are very interested
-in any review and comments that can be provided at this time.
+Thanks,
 
-One item that I have is how to handle the portion in usbnet_probe() that
-sets the hard_start_xmit handler with the change to netdevice_ops:
+John
 
--	net->hard_start_xmit = usbnet_start_xmit;
-+	if (info->tx_gather)
-+		net->hard_start_xmit = usbnet_bundle_xmit;
-+	else
-+		net->hard_start_xmit = usbnet_start_xmit;
+P.S.  For some reason (probably the 2.6.30 release) the public push on
+kernel.org seems to be taking a lot longer than usual.  So you probably
+want to ensure that the wireless-next-2.6 head matches 2f0accc13520 or
+just pull using ssh (or direct file access).
 
+---
 
-Would it be the most appropriate to merge the
-usbnet_aggregate_skb_xmit() pieces into the existing usbnet_start_xmit
-with appropriate conditionals?
+Individual patches are available here:
 
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6/
+	
+---
 
---=-azFxmGl2ad9Gzq0uxukm
-Content-Disposition: inline; filename="usbnet.h.patch"
-Content-Type: text/x-patch; name="usbnet.h.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+The following changes since commit 1506e30b5f25f6c3357167a18f0e4ae6f5662a28:
+  Johannes Berg (1):
+        rfkill: include err.h
 
---- ../../linux-2.6.29.4/include/linux/usb/usbnet.h	2009-05-19 07:52:34.000000000 +0800
-+++ usbnet.h	2009-06-08 13:27:16.000000000 +0800
-@@ -48,11 +48,15 @@
- 	u32			xid;
- 	u32			hard_mtu;	/* count any extra framing */
- 	size_t			rx_urb_size;	/* size for rx urbs */
-+	size_t			tx_threshold;
- 	struct mii_if_info	mii;
- 
- 	/* various kinds of pending driver work */
- 	struct sk_buff_head	rxq;
- 	struct sk_buff_head	txq;
-+	struct sk_buff_head	tx_waitq;
-+	u32			tx_wait_bytes;
-+	u32			tx_busy_pkt;
- 	struct sk_buff_head	done;
- 	struct urb		*interrupt;
- 	struct tasklet_struct	bh;
-@@ -114,6 +118,10 @@
- 	struct sk_buff	*(*tx_fixup)(struct usbnet *dev,
- 				struct sk_buff *skb, gfp_t flags);
- 
-+	/* aggregate tx packets */
-+	struct sk_buff	*(*tx_gather)(struct usbnet *dev,
-+				struct sk_buff_head *q, size_t *actual_len);
-+
- 	/* early initialization code, can sleep. This is for minidrivers
- 	 * having 'subminidrivers' that need to do extra initialization
- 	 * right after minidriver have initialized hardware. */
-@@ -174,6 +182,7 @@
- 	struct usbnet		*dev;
- 	enum skb_state		state;
- 	size_t			length;
-+	size_t			pkt_cnt;
- };
- 
- 
+are available in the git repository at:
 
---=-azFxmGl2ad9Gzq0uxukm
-Content-Disposition: inline; filename="usbnet.c.patch"
-Content-Type: text/x-patch; name="usbnet.c.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git
 
---- ../../linux-2.6.29.4/drivers/net/usb/usbnet.c	2009-05-19 07:52:34.000000000 +0800
-+++ usbnet.c	2009-06-10 10:18:18.000000000 +0800
-@@ -45,6 +45,8 @@
- 
- #define DRIVER_VERSION		"22-Aug-2005"
- 
-+static int usbnet_aggreate_skb_ximt (struct usbnet *dev,
-+			struct sk_buff_head *q);
- 
- /*-------------------------------------------------------------------------*/
- 
-@@ -551,6 +553,7 @@
- static int usbnet_stop (struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
-+	struct sk_buff		*skb;
- 	int			temp;
- 	DECLARE_WAIT_QUEUE_HEAD_ONSTACK (unlink_wakeup);
- 	DECLARE_WAITQUEUE (wait, current);
-@@ -579,6 +582,11 @@
- 	dev->wait = NULL;
- 	remove_wait_queue (&unlink_wakeup, &wait);
- 
-+	while (!skb_queue_empty (&dev->tx_waitq)) {
-+		skb = skb_dequeue(&dev->tx_waitq);
-+		dev_kfree_skb (skb);
-+	}
-+
- 	usb_kill_urb(dev->interrupt);
- 
- 	/* deferred work (task, timer, softirq) must also stop.
-@@ -863,13 +871,20 @@
- 	struct sk_buff		*skb = (struct sk_buff *) urb->context;
- 	struct skb_data		*entry = (struct skb_data *) skb->cb;
- 	struct usbnet		*dev = entry->dev;
-+	struct driver_info	*info = dev->driver_info;
-+	unsigned long		flags;
-+
-+	if (info->tx_gather) {
-+		spin_lock_irqsave (&dev->tx_waitq.lock, flags);
-+		dev->tx_busy_pkt -= entry->pkt_cnt;
-+		spin_unlock (&dev->tx_waitq.lock);
-+	}
- 
- 	if (urb->status == 0) {
--		dev->stats.tx_packets++;
- 		dev->stats.tx_bytes += entry->length;
-+		dev->stats.tx_packets += entry->pkt_cnt;
- 	} else {
--		dev->stats.tx_errors++;
--
-+		dev->stats.tx_errors += entry->pkt_cnt;
- 		switch (urb->status) {
- 		case -EPIPE:
- 			usbnet_defer_kevent (dev, EVENT_TX_HALT);
-@@ -920,6 +935,113 @@
- 
- /*-------------------------------------------------------------------------*/
- 
-+static int usbnet_aggreate_skb_xmit (struct usbnet *dev, struct sk_buff_head *q)
-+{
-+
-+	struct sk_buff		*skb = NULL;//, *skbnext = NULL;
-+	int			pkt_cnt = 0;
-+	struct skb_data		*entry;
-+	int			retval = NET_XMIT_SUCCESS;
-+	struct urb		*urb = NULL;
-+	struct driver_info	*info = dev->driver_info;
-+	size_t			actual_len = 0;
-+
-+	if (skb_queue_empty (q)) {
-+		return retval;
-+	}
-+
-+	spin_lock (&q->lock);
-+
-+	pkt_cnt = skb_queue_len (q);
-+	skb = info->tx_gather (dev, q, &actual_len);
-+
-+	dev->tx_wait_bytes -= actual_len;
-+	dev->tx_busy_pkt += pkt_cnt;
-+
-+	spin_unlock (&q->lock);	
-+
-+	if (!skb){
-+		goto drop;
-+	}
-+
-+	if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
-+		if (netif_msg_tx_err (dev))
-+			devdbg (dev, "no urb");	
-+		goto drop;
-+	}else{
-+		entry = (struct skb_data *) skb->cb;
-+		entry->length = actual_len;
-+		entry->pkt_cnt = pkt_cnt;
-+		entry->urb = urb;
-+		entry->dev = dev;
-+		entry->state = tx_start;
-+
-+		usb_fill_bulk_urb (urb, dev->udev, dev->out,
-+				skb->data, skb->len, tx_complete, skb);
-+	}
-+
-+	switch ((retval = usb_submit_urb (urb, GFP_ATOMIC))) {		
-+	case -EPIPE:
-+		netif_stop_queue (dev->net);
-+		usbnet_defer_kevent (dev, EVENT_TX_HALT);
-+		break;
-+	default:
-+		if (netif_msg_tx_err (dev))
-+			devdbg (dev, "tx: submit urb err %d", retval);
-+		break;
-+	case 0:
-+		dev->net->trans_start = jiffies;
-+		__skb_queue_tail (&dev->txq, skb);
-+	}
-+
-+	if (retval) {
-+		if (netif_msg_tx_err (dev))
-+			devdbg (dev, "drop, code %d", retval);
-+drop:
-+		spin_lock (&q->lock);
-+		dev->tx_busy_pkt -= pkt_cnt;
-+		spin_unlock (&q->lock);
-+
-+		retval = NET_XMIT_SUCCESS;
-+		dev->stats.tx_dropped += pkt_cnt;
-+		if (skb)
-+			dev_kfree_skb_any (skb);
-+		usb_free_urb (urb);
-+	} else if (netif_msg_tx_queued (dev)) {
-+		devdbg (dev, "> tx, len %d, type 0x%x",
-+			skb->len, skb->protocol);
-+	}
-+
-+	return retval;
-+}
-+
-+static int usbnet_bundle_xmit (struct sk_buff *skb, struct net_device *net)
-+{
-+	struct usbnet		*dev = netdev_priv(net);
-+	int			retval = NET_XMIT_SUCCESS;
-+	unsigned long		flags;
-+
-+	spin_lock_irqsave (&dev->tx_waitq.lock, flags);
-+	__skb_queue_tail (&dev->tx_waitq, skb);
-+	dev->tx_wait_bytes += skb->len;
-+	spin_unlock (&dev->tx_waitq.lock);
-+
-+	spin_lock (&dev->txq.lock);
-+
-+	if (skb_queue_empty (&dev->txq) ||
-+	    (dev->tx_wait_bytes >= dev->tx_threshold) ||
-+	    (dev->tx_waitq.qlen > 16)) {
-+		retval = usbnet_aggreate_skb_xmit (dev, &dev->tx_waitq);
-+	}
-+
-+	if ((dev->tx_busy_pkt + dev->tx_waitq.qlen) >= TX_QLEN (dev))
-+		netif_stop_queue (net);
-+
-+	spin_unlock_irqrestore (&dev->txq.lock, flags);
-+
-+	return 	retval;
-+}
-+
- static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
-@@ -953,6 +1075,7 @@
- 	entry->dev = dev;
- 	entry->state = tx_start;
- 	entry->length = length;
-+	entry->pkt_cnt = 1;
- 
- 	usb_fill_bulk_urb (urb, dev->udev, dev->out,
- 			skb->data, skb->len, tx_complete, skb);
-@@ -1014,6 +1137,8 @@
- 	struct usbnet		*dev = (struct usbnet *) param;
- 	struct sk_buff		*skb;
- 	struct skb_data		*entry;
-+	struct driver_info	*info = dev->driver_info;
-+	unsigned long		flags;
- 
- 	while ((skb = skb_dequeue (&dev->done))) {
- 		entry = (struct skb_data *) skb->cb;
-@@ -1062,8 +1187,22 @@
- 			if (dev->rxq.qlen < qlen)
- 				tasklet_schedule (&dev->bh);
- 		}
--		if (dev->txq.qlen < TX_QLEN (dev))
--			netif_wake_queue (dev->net);
-+
-+		if (info->tx_gather) {
-+			spin_lock_irqsave (&dev->txq.lock, flags);
-+			if (dev->txq.qlen == 0) {
-+				usbnet_aggreate_skb_ximt(dev, &dev->tx_waitq);
-+			}
-+
-+			if ((dev->tx_busy_pkt + dev->tx_waitq.qlen) <
-+					 TX_QLEN (dev))
-+				netif_wake_queue (dev->net);
-+
-+			spin_unlock_irqrestore(&dev->txq.lock, flags);
-+		} else {
-+			if (dev->txq.qlen < TX_QLEN (dev))
-+				netif_wake_queue (dev->net);
-+		}
- 	}
- }
- 
-@@ -1156,6 +1295,7 @@
- 	skb_queue_head_init (&dev->rxq);
- 	skb_queue_head_init (&dev->txq);
- 	skb_queue_head_init (&dev->done);
-+	skb_queue_head_init (&dev->tx_waitq);
- 	dev->bh.func = usbnet_bh;
- 	dev->bh.data = (unsigned long) dev;
- 	INIT_WORK (&dev->kevent, kevent);
-@@ -1181,7 +1321,10 @@
- 
- 	net->change_mtu = usbnet_change_mtu;
- 	net->get_stats = usbnet_get_stats;
--	net->hard_start_xmit = usbnet_start_xmit;
-+	if (info->tx_gather)
-+		net->hard_start_xmit = usbnet_bundle_xmit;
-+	else
-+		net->hard_start_xmit = usbnet_start_xmit;
- 	net->open = usbnet_open;
- 	net->stop = usbnet_stop;
- 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
-@@ -1228,6 +1371,8 @@
- 
- 	if (!dev->rx_urb_size)
- 		dev->rx_urb_size = dev->hard_mtu;
-+	if (!dev->tx_threshold)
-+		dev->tx_threshold = dev->rx_urb_size;
- 	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
- 
- 	SET_NETDEV_DEV(net, &udev->dev);
+Alan Jenkins (3):
+      rfkill: remove set_global_sw_state
+      sony-laptop: no need to unblock rfkill on load
+      rfkill: don't impose global states on resume (just restore the previous states)
 
---=-azFxmGl2ad9Gzq0uxukm
-Content-Disposition: inline; filename="asix.c.patch"
-Content-Type: text/x-patch; name="asix.c.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Bob Copeland (2):
+      mac80211: fix minstrel single-rate memory corruption
+      ath5k: minor rfkill cleanup
 
---- ../../../linux-2.6.29.4/drivers/net/usb/asix.c	2009-05-19 07:52:34.000000000 +0800
-+++ asix.c	2009-06-10 10:15:17.000000000 +0800
-@@ -354,6 +354,85 @@
- 	return 1;
- }
- 
-+static struct sk_buff *
-+ax88772_tx_gather (struct usbnet *dev, struct sk_buff_head *q,
-+			size_t *actual_len)
-+{
-+	struct sk_buff		*skb = NULL, *skb_next = NULL;
-+	int			pkt_cnt;
-+	u16			pkt_size;
-+	u32			skb_len = 0;
-+
-+	u32			packet_hdr;
-+	u32			padbytes = 0xffff0000;
-+	u8			padneeded = 0;
-+	struct driver_info	*info = dev->driver_info;
-+
-+	pkt_cnt = skb_queue_len (q);
-+
-+	*actual_len = 0;
-+	for (skb_next = q->next; skb_next != (struct sk_buff *) q;
-+	     skb_next = skb_next->next){
-+		*actual_len += skb_next->len;
-+		pkt_size = (skb_next->len + 4 + 1) & 0xFFFE;
-+		skb_len += pkt_size;
-+	}
-+
-+	if ((skb_len % 512) == 0) {
-+		skb_len += sizeof (padbytes);
-+		padneeded = 1;
-+	}
-+
-+	if (pkt_cnt > 1){
-+
-+		skb = dev_alloc_skb (skb_len); 
-+
-+		if (!skb){
-+
-+			while (pkt_cnt--) {
-+				skb_next = __skb_dequeue(q);
-+				dev_kfree_skb_any (skb_next);
-+			}
-+
-+			devdbg (dev, "skb is NULL, len %d", skb_len);
-+			return skb;
-+		}
-+
-+		while (pkt_cnt--) {
-+
-+			skb_next = __skb_dequeue(q);
-+
-+			packet_hdr = ((skb_next->len ^ 0x0000ffff) << 16) +
-+						skb_next->len;
-+
-+			le32_to_cpus(&packet_hdr);
-+			memcpy (skb_put(skb, 4),  &packet_hdr, 4);
-+			memcpy (skb_put(skb, skb_next->len),  skb_next->data,
-+						skb_next->len);
-+			if (skb->len & 1)
-+				skb_put (skb, 1);
-+			dev_kfree_skb_any (skb_next);
-+		}
-+
-+		if (padneeded) {
-+			memcpy (skb_put(skb, sizeof (padbytes)),
-+					&padbytes, sizeof (padbytes));
-+		}
-+		
-+	}else{ //only one packet to send
-+		skb = __skb_dequeue(q);
-+
-+		skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
-+		if (!skb) {
-+			if (netif_msg_tx_err (dev))
-+				devdbg (dev, "can't tx_fixup skb");
-+			return skb;
-+		}
-+	}
-+
-+	return skb;
-+}
-+
- static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 					gfp_t flags)
- {
-@@ -1011,6 +1090,7 @@
- 		/* hard_mtu  is still the default - the device does not support
- 		   jumbo eth frames */
- 		dev->rx_urb_size = 2048;
-+		dev->tx_threshold = 16384;
- 	}
- 	return 0;
- 
-@@ -1281,6 +1361,7 @@
- 		/* hard_mtu  is still the default - the device does not support
- 		   jumbo eth frames */
- 		dev->rx_urb_size = 2048;
-+		dev->tx_threshold = 16384;
- 	}
- 	return 0;
- 
-@@ -1337,6 +1418,7 @@
- 	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
- 	.rx_fixup = asix_rx_fixup,
- 	.tx_fixup = asix_tx_fixup,
-+	.tx_gather = ax88772_tx_gather,
- };
- 
- static const struct driver_info ax88178_info = {
-@@ -1348,6 +1430,7 @@
- 	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
- 	.rx_fixup = asix_rx_fixup,
- 	.tx_fixup = asix_tx_fixup,
-+	.tx_gather = ax88772_tx_gather,
- };
- 
- static const struct usb_device_id	products [] = {
+Christian Lamparter (1):
+      ar9170: xmit code revamp
 
---=-azFxmGl2ad9Gzq0uxukm--
+Johannes Berg (11):
+      iwlwifi: port to cfg80211 rfkill
+      ar9170: interpret firmware debug commands
+      rfkill: print events when input handler is disabled/enabled
+      b43/legacy: port to cfg80211 rfkill
+      rfkill: remove input Kconfig
+      sony: fix rfkill code
+      mac80211: do not pass PS frames out of mac80211 again
+      mac80211: don't use master netdev name
+      mac80211: clean up return value of __ieee80211_parse_tx_radiotap
+      mac80211: disable PS while probing AP
+      cfg80211: fix rfkill locking problem
 
+Jussi Kivilinna (2):
+      rndis_wlan: cleanup: capitalize enum labels
+      rndis_wlan: cleanup: rename all rndis_wext* objects to rndis_wlan*
+
+Luis R. Rodriguez (2):
+      cfg80211: fix for duplicate response for driver reg request
+      mac80211: disable moving between PS modes during scan
+
+Matthieu CASTET (2):
+      b43: Fix possible unaligned u32 access
+      mac80211 : fix unaligned rx skb
+
+Michael Buesch (1):
+      b43: Add fw capabilities
+
+Sebastian Andrzej Siewior (1):
+      net/libertas: remove GPIO-CS handling in SPI interface code
+
+Tobias Doerffel (1):
+      ath5k: added cfg80211 based rfkill support
+
+Vasanthakumar Thiagarajan (2):
+      mac80211: Fix the way ADDBA request count being modified
+      ath9k: Fix tx stuck when connected to aggr disabled HT AP
+
+ drivers/net/wireless/Kconfig                |    2 +-
+ drivers/net/wireless/ath/ar9170/ar9170.h    |   34 +-
+ drivers/net/wireless/ath/ar9170/hw.h        |    3 +
+ drivers/net/wireless/ath/ar9170/main.c      |  676 ++++++++++++++++++---------
+ drivers/net/wireless/ath/ar9170/usb.c       |  122 ++++-
+ drivers/net/wireless/ath/ar9170/usb.h       |    7 +-
+ drivers/net/wireless/ath/ath5k/Makefile     |    1 +
+ drivers/net/wireless/ath/ath5k/ath5k.h      |    4 +
+ drivers/net/wireless/ath/ath5k/base.c       |    7 +
+ drivers/net/wireless/ath/ath5k/base.h       |   12 +
+ drivers/net/wireless/ath/ath5k/reset.c      |   17 -
+ drivers/net/wireless/ath/ath5k/rfkill.c     |  121 +++++
+ drivers/net/wireless/ath/ath9k/xmit.c       |    1 +
+ drivers/net/wireless/b43/Kconfig            |    7 -
+ drivers/net/wireless/b43/Makefile           |    2 +-
+ drivers/net/wireless/b43/b43.h              |   17 +-
+ drivers/net/wireless/b43/dma.c              |    2 +-
+ drivers/net/wireless/b43/leds.c             |    7 +-
+ drivers/net/wireless/b43/main.c             |   83 +++--
+ drivers/net/wireless/b43/main.h             |    1 -
+ drivers/net/wireless/b43/phy_common.h       |    2 +-
+ drivers/net/wireless/b43/pio.c              |    2 +-
+ drivers/net/wireless/b43/rfkill.c           |  113 +----
+ drivers/net/wireless/b43/rfkill.h           |   44 +--
+ drivers/net/wireless/b43/xmit.c             |    5 +-
+ drivers/net/wireless/b43legacy/Kconfig      |    8 -
+ drivers/net/wireless/b43legacy/Makefile     |    2 +-
+ drivers/net/wireless/b43legacy/b43legacy.h  |    3 -
+ drivers/net/wireless/b43legacy/leds.c       |    7 +-
+ drivers/net/wireless/b43legacy/main.c       |   17 +-
+ drivers/net/wireless/b43legacy/rfkill.c     |  115 +----
+ drivers/net/wireless/b43legacy/rfkill.h     |   50 +--
+ drivers/net/wireless/iwlwifi/Kconfig        |    4 -
+ drivers/net/wireless/iwlwifi/Makefile       |    1 -
+ drivers/net/wireless/iwlwifi/iwl-3945.h     |    5 -
+ drivers/net/wireless/iwlwifi/iwl-agn.c      |   42 +--
+ drivers/net/wireless/iwlwifi/iwl-core.c     |  138 ------
+ drivers/net/wireless/iwlwifi/iwl-core.h     |   16 +-
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c  |    2 -
+ drivers/net/wireless/iwlwifi/iwl-dev.h      |    5 -
+ drivers/net/wireless/iwlwifi/iwl-rfkill.c   |  131 ------
+ drivers/net/wireless/iwlwifi/iwl-rfkill.h   |   48 --
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |   41 +--
+ drivers/net/wireless/libertas/if_spi.c      |   92 ++--
+ drivers/net/wireless/rndis_wlan.c           |  292 ++++++------
+ drivers/platform/x86/acer-wmi.c             |    3 -
+ drivers/platform/x86/eeepc-laptop.c         |    8 +-
+ drivers/platform/x86/hp-wmi.c               |    4 -
+ drivers/platform/x86/sony-laptop.c          |    4 +-
+ drivers/platform/x86/thinkpad_acpi.c        |   31 +-
+ include/linux/rfkill.h                      |   35 +-
+ include/linux/skbuff.h                      |    4 -
+ include/linux/spi/libertas_spi.h            |    3 -
+ include/net/mac80211.h                      |    3 +
+ net/core/skbuff.c                           |    1 -
+ net/mac80211/agg-tx.c                       |    6 +-
+ net/mac80211/cfg.c                          |    4 +-
+ net/mac80211/ieee80211_i.h                  |    5 +
+ net/mac80211/main.c                         |   61 +---
+ net/mac80211/mlme.c                         |   57 ++-
+ net/mac80211/rc80211_minstrel.c             |    2 +-
+ net/mac80211/rx.c                           |   27 +-
+ net/mac80211/tx.c                           |   19 +-
+ net/mac80211/util.c                         |   46 ++
+ net/mac80211/wme.c                          |    2 +-
+ net/rfkill/Kconfig                          |    2 +-
+ net/rfkill/core.c                           |   93 ++---
+ net/wireless/core.c                         |   19 +-
+ net/wireless/reg.c                          |    7 +-
+ 69 files changed, 1275 insertions(+), 1482 deletions(-)
+ create mode 100644 drivers/net/wireless/ath/ath5k/rfkill.c
+ delete mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.c
+ delete mode 100644 drivers/net/wireless/iwlwifi/iwl-rfkill.h
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2009-06-10.patch.bz2
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
