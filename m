@@ -1,39 +1,53 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 10:22:10 +0200
-Message-ID: <4A2F6D32.8030400@hartkopp.net>
-References: <20090608130959.10052.54590.stgit@localhost>	<20090608131138.10052.5408.stgit@localhost>	<4A2D112A.4000308@hartkopp.net> <20090610.011027.43904351.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] Receive Packet Steering
+Date: Wed, 10 Jun 2009 01:23:42 -0700 (PDT)
+Message-ID: <20090610.012342.121254416.davem@davemloft.net>
+References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: patchwork@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:10882 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213AbZFJIWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:22:11 -0400
-In-Reply-To: <20090610.011027.43904351.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44578
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754559AbZFJIXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:23:40 -0400
+In-Reply-To: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Oliver Hartkopp <oliver@hartkopp.net>
-> Date: Mon, 08 Jun 2009 15:24:58 +0200
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 3 May 2009 21:03:01 -0700
+
+> This is an update of the receive packet steering patch (RPS) based on received
+> comments (thanks for all the comments).  Improvements are:
 > 
->> Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
+> 1) Removed config option for the feature.
+> 2) Made scheduling of backlog NAPI devices between CPUs lockless and much
+> simpler.
+> 3) Added new softirq to do defer sending IPIs for coalescing.
+> 4) Imported hash from simple_rx_hash.  Eliminates modulo operation to convert
+> hash to index.
+> 5) If no cpu is found for packet steering, then netif_receive_skb processes
+> packet inline as before without queueing.  In paritcular if RPS is not
+> configured on a device the receive path is unchanged from current for
+> NAPI devices (one additional conditional).
 > 
-> Please don't capitalize the "By" in "Acked-By".
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Sorry.
+Just to keep this topic alive, I want to mention two things:
 
-> Otherwise
-> patchwork doesn't pick them up automatically.
+1) Just the other day support for the IXGBE "Flow Director" was
+   added to net-next-2.6, it basically does flow steering in
+   hardware.  It remembers where the last TX for a flow was
+   made, and steers RX traffic there.
 
-IMHO patchwork should be robust against these type of typos and convert them
-for the users (== your) convenience into 'Acked-by:' ...
+   It's essentially a HW implementation of what we're proposing
+   here to do in software.
 
-Regards,
-Oliver
-
+2) I'm steadily still trying to get struct sk_buff to the point
+   where we can replace the list handling implementation with a
+   standard "struct list_head" and thus union that with a
+   "struct call_single_data" so we can use remote cpu soft-irqs
+   for software packet flow steering.
