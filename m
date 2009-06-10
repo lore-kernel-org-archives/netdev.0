@@ -1,35 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next 2/4] udp: Handle large UFO packets from untrusted sources
-Date: Wed, 10 Jun 2009 13:10:40 +0930
-Message-ID: <200906101310.41094.rusty@rustcorp.com.au>
-References: <1244247391.1526.171.camel@w-sridhar.beaverton.ibm.com> <20090608051608.GA19748@gondor.apana.org.au>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Tue, 09 Jun 2009 20:55:57 -0700
+Message-ID: <ada1vps4u9e.fsf@cisco.com>
+References: <alpine.DEB.1.10.0906081117580.21954@gentwo.org>
+	<20090608.142927.122160930.davem@davemloft.net>
+	<adaocsx3zaa.fsf@cisco.com>
+	<20090609.174504.114047526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
+	yosefe@Voltaire.COM
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:56604 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753911AbZFJDkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Jun 2009 23:40:40 -0400
-In-Reply-To: <20090608051608.GA19748@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:29798 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbZFJDzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 23:55:55 -0400
+In-Reply-To: <20090609.174504.114047526.davem@davemloft.net> (David Miller's
+	message of "Tue, 09 Jun 2009 17:45:04 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Jun 2009 02:46:08 pm Herbert Xu wrote:
-> On Fri, Jun 05, 2009 at 05:16:31PM -0700, Sridhar Samudrala wrote:
-> > +	/* Software UFO is not yet supported */
-> > +	segs = ERR_PTR(-EPROTONOSUPPORT);
->
-> Hmm, we need to fill this in before you start using it for virt.
-> After all, it's very difficult for the guest to know whether the
-> output device on the host is going to be able to do UFO or not.
 
-Yep, no point telling the guest we support UFO if we don't!
+ > Block the process joining the multicast group, not the entire
+ > interface.
 
-Cheers,
-Rusty.
+Hmm... how do I do that?  The interface gets an skb that it sees should
+be sent to a multicast group that it is not a member of yet, and so it
+fires off a request to join that group (as a send-only member).  How
+does a netdev block the process that queued up a given skb to send?
+Couldn't the packet have come through a local software bridge or
+something like that, so the original process is long since lost to the
+network stack?
+
+ - R.
