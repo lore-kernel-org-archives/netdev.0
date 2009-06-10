@@ -1,37 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 01:52:45 -0700 (PDT)
-Message-ID: <20090610.015245.141342130.davem@davemloft.net>
-References: <4A2D112A.4000308@hartkopp.net>
-	<20090610.011027.43904351.davem@davemloft.net>
-	<4A2F6D32.8030400@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] r8169: use dev_kfree_skb() instead of dev_kfree_skb_irq()
+Date: Wed, 10 Jun 2009 10:55:53 +0200
+Message-ID: <4A2F7519.8010403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: patchwork@ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: oliver@hartkopp.net
-Return-path: <patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org>
-In-Reply-To: <4A2F6D32.8030400@hartkopp.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/options/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/patchwork>
-List-Post: <mailto:patchwork@ozlabs.org>
-List-Help: <mailto:patchwork-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=subscribe>
-Sender: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-Errors-To: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Michael Tokarev <mjt@tls.msk.ru>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:41775 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755626AbZFJI4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 04:56:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Wed, 10 Jun 2009 10:22:10 +0200
+rtl8169_tx_interrupt() is used from NAPI context, it can
+directly free skbs. dev_kfree_skb_irq() is a leftover from
+pre-NAPI times of this driver.
 
-> David Miller wrote:
->> Otherwise
->> patchwork doesn't pick them up automatically.
-> 
-> IMHO patchwork should be robust against these type of typos and convert them
-> for the users (== your) convenience into 'Acked-by:' ...
-
-We really can't expect patchwork to look for every conceivable
-malignment of the various reviewer tags.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index e94316b..007c881 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3379,7 +3379,7 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 		rtl8169_unmap_tx_skb(tp->pci_dev, tx_skb, tp->TxDescArray + entry);
+ 
+ 		if (status & LastFrag) {
+-			dev_kfree_skb_irq(tx_skb->skb);
++			dev_kfree_skb(tx_skb->skb);
+ 			tx_skb->skb = NULL;
+ 		}
+ 		dirty_tx++;
