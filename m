@@ -1,52 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Tue, 09 Jun 2009 22:12:09 -0700 (PDT)
-Message-ID: <20090609.221209.07018418.davem@davemloft.net>
-References: <ada1vps4u9e.fsf@cisco.com>
-	<20090609.215719.214969588.davem@davemloft.net>
-	<adaski83ciy.fsf@cisco.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: virtio-net header alignment
+Date: Wed, 10 Jun 2009 15:12:27 +1000
+Message-ID: <20090610051227.GB16563@gondor.apana.org.au>
+References: <OF1B881599.F1B4A2EF-ON802575BB.0036EA40-802575BC.0041BFB5@au1.ibm.com> <200905251601.29327.rusty@rustcorp.com.au> <1243268223.32745.25.camel@blaa>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
-	yosefe@Voltaire.COM
-To: rdreier@cisco.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Danielius Kudinskas <kudinskas@uk.ibm.com>,
+	aliguori@linux.vnet.ibm.com, Paul T Knowles <pablo@uk.ibm.com>,
+	netdev@vger.kernel.org
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35850
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752310AbZFJFMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 01:12:07 -0400
-In-Reply-To: <adaski83ciy.fsf@cisco.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:37040 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753658AbZFJFMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 01:12:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1243268223.32745.25.camel@blaa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 09 Jun 2009 22:04:21 -0700
-
->  > If a facility doesn't exist yet, we're going to have to create
->  > one.  It would need to do a downcall to the device when the
->  > user joins a multicast group on a socket, and then the device
->  > can do whatever magic is necessary to speak multicast immediately
->  > and sleep until it really is available for immediate use.
+On Mon, May 25, 2009 at 05:17:03PM +0100, Mark McLoughlin wrote:
 > 
-> But a send-only membership is created when a multicast packet is sent,
-> which an application can do just with sendto() -- do we want to plumb
-> all the way from sendto() down to the device the packet is ultimately
-> going to be sent on?
+> Perhaps; would padding struct virtio_net_hdr_mrg_rxbuf have avoided it?
 > 
-> There isn't any corresponding code to block an app during ARP
-> resolution, is there?
+> Cc-ing Herbert, he initially wrote the guest side of this.
 
-Nope.
+Does this fix it?
 
-But the problem is that it's incredibly invasive to applications
-how IPoIB behaves for multicast traffic.  It's much more biting
-than ARP because usually ARP hits you when you do your connection
-attempt or initial DNS request, then it's resolved and smooth
-sailing.
+virtio_net: Fix IP alignment on mergeable RX path
 
-Here the app can send a voluminous amount of application data
-at the destination and it'll mostly drop on the floor currently.
-This is bad.
+We need to enforce the IP alignment on the mergeable RX path just
+like the other RX path.  Not doing so results in misaligned IP
+headers.
 
-ARP doesn't typically toss real application data, this does.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 4d1d479..52fba8e 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -283,10 +283,11 @@ static void try_fill_recv_maxbufs(struct virtnet_info *vi)
+ 	for (;;) {
+ 		struct virtio_net_hdr *hdr;
+ 
+-		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN);
++		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN + NET_IP_ALIGN);
+ 		if (unlikely(!skb))
+ 			break;
+ 
++		skb_reserve(skb, NET_IP_ALIGN);
+ 		skb_put(skb, MAX_PACKET_LEN);
+ 
+ 		hdr = skb_vnet_hdr(skb);
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
