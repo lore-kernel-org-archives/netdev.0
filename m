@@ -1,39 +1,75 @@
-From: Jeremy Kerr <jk@ozlabs.org>
-Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
-Date: Wed, 10 Jun 2009 22:41:47 +1000
-Message-ID: <200906102241.47823.jk@ozlabs.org>
-References: <4A2D112A.4000308@hartkopp.net> <4A2F6D32.8030400@hartkopp.net>
-	<20090610.015245.141342130.davem@davemloft.net>
+From: Sven Anders <anders@anduras.de>
+Subject: EP80579 (Tolapai) Ethernet adapter
+Date: Wed, 10 Jun 2009 14:22:32 +0200
+Message-ID: <4A2FA588.4020900@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org, oliver@hartkopp.net,
-	David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: patchwork@ozlabs.org
-Return-path: <patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org>
-In-Reply-To: <20090610.015245.141342130.davem@davemloft.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/options/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/patchwork>
-List-Post: <mailto:patchwork@ozlabs.org>
-List-Help: <mailto:patchwork-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/patchwork>,
-	<mailto:patchwork-request@ozlabs.org?subject=subscribe>
-Sender: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-Errors-To: patchwork-bounces+gcvp-patchwork=m.gmane.org@ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metropolitan.anduras.de ([80.237.200.159]:37671 "EHLO
+	metropolitan.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754967AbZFJMuq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 08:50:46 -0400
+Received: from popper.anduras.local (p549185D2.dip0.t-ipconnect.de [84.145.133.210])
+	(Authenticated sender: anduras@anduras.priv)
+	by metropolitan.anduras.de (Postfix) with ESMTP id 2B0BE1E544C
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 14:22:33 +0200 (CEST)
+Received: from localhost (localhost [127.0.0.1])
+	by popper.anduras.local (Postfix) with ESMTP id 4D49A79B6
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 14:21:56 +0200 (CEST)
+Received: from popper.anduras.local ([127.0.0.1])
+	by localhost (popper.anduras.local [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 00324-02 for <netdev@vger.kernel.org>;
+	Wed, 10 Jun 2009 14:21:56 +0200 (CEST)
+Received: from [10.10.20.100] (applecar.anduras.local [10.10.20.100])
+	by popper.anduras.local (Postfix) with ESMTP id 2F62379B3
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 14:21:56 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+Hello!
 
-> We really can't expect patchwork to look for every conceivable
-> malignment of the various reviewer tags.
+I want to use the ethernet adapter on my Intel Tolapai based
+board. The machine has the EP80579 Integrated Processor
+(aka Tolapai) on it.
 
-No, but we could probably be more tolerant about capitalisation. Any 
-objections about ignoring case completely? I have a patch ready to 
-push...
+I check the latest Linux kernel for support, but it is not
+supported.
 
-Cheers,
+Then I checked the Intel website and found a development kit,
+which has a driver, but the development kit requires the old
+kernel 2.6.18 whereas I want to use the latest kernel.
 
+Unfortunatly I have not found any email address in the sources
+to make direct contact. That's why I'll ask my questions here.
 
-Jeremy
+1) Do anybody know about the development of an (newer) driver?
+2) What's the best way to contact the Intel development crew?
+3) Can I use any other existing driver (by adding simply the
+   PCI IDs)?
+4) Should I adapt the existing driver (from Intel) to the
+   newer kernel and try to get it merged? The code is GPL, so
+   this is no problem. Any experiences? As I stated before,
+   I do lack any direct contact, so I'm not sure what's the
+   best way to proceed?!
+
+Maybe anybody can help me in this issue...
+
+Regards
+ Sven
+--=20
+ Sven Anders <anders@anduras.de>                 () Ascii Ribbon Campai=
+gn
+                                                 /\ Support plain text =
+e-mail
+ ANDURAS service solutions AG
+ Innstra=DFe 71 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90=
+ 50-55
+
+Rechtsform: Aktiengesellschaft - Sitz: Passau - Amtsgericht Passau HRB =
+6032
+Mitglieder des Vorstands: Sven Anders, Marcus Junker
+Vorsitzender des Aufsichtsrats: Mark Peters
+
