@@ -1,289 +1,38 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH net-next] cxgb3: remove __GFP_NOFAIL usage
-Date: Wed, 10 Jun 2009 02:25:21 -0700
-Message-ID: <20090610092521.8871.39255.stgit@speedy5>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 3/5] can: af_can.c use rcu_barrier() on module unload.
+Date: Wed, 10 Jun 2009 11:02:50 +0100
+Message-ID: <20090610110250.17644ae4@lxorguk.ukuu.org.uk>
+References: <20090608130959.10052.54590.stgit@localhost>
+	<20090608131138.10052.5408.stgit@localhost>
+	<4A2D112A.4000308@hartkopp.net>
+	<20090610.011027.43904351.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com, akpm@odsl.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:24293 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751979AbZFJJZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 05:25:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: oliver@hartkopp.net, hawk@comx.dk, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de,
+	wg@grandegger.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, Trond.Myklebust@netapp.com,
+	linux-nfs@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090610.011027.43904351.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+On Wed, 10 Jun 2009 01:10:27 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Pre-allocate a skb at init time to be used for control messages to the HW
-if skb allocation fails.
+> From: Oliver Hartkopp <oliver@hartkopp.net>
+> Date: Mon, 08 Jun 2009 15:24:58 +0200
+> 
+> > Acked-By: Oliver Hartkopp <oliver@hartkopp.net>
+> 
+> Please don't capitalize the "By" in "Acked-By".  Otherwise
+> patchwork doesn't pick them up automatically.
 
-Tolerate failures to send messages initializing some memories at the cost of
-parity error detection for these memories.
-Retry sending connection id release messages if both alloc_skb(GFP_ATOMIC)
-and alloc_skb(GFP_KERNEL) fail.
-Do not bring the interface up if messages binding queue set to port fail to
-be sent.
+Dave. We have computers to do all the silly tedious pointless jobs in
+life, please just fix the scripts.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
-
- drivers/net/cxgb3/adapter.h       |    2 +
- drivers/net/cxgb3/cxgb3_main.c    |   78 +++++++++++++++++++++++++++++++++++--
- drivers/net/cxgb3/cxgb3_offload.c |   27 ++++++++++++-
- drivers/net/cxgb3/cxgb3_offload.h |    3 +
- 4 files changed, 103 insertions(+), 7 deletions(-)
-
-
-diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
-index e48e508..1694fad 100644
---- a/drivers/net/cxgb3/adapter.h
-+++ b/drivers/net/cxgb3/adapter.h
-@@ -253,6 +253,8 @@ struct adapter {
- 	struct mutex mdio_lock;
- 	spinlock_t stats_lock;
- 	spinlock_t work_lock;
-+
-+	struct sk_buff *nofail_skb;
- };
- 
- static inline u32 t3_read_reg(struct adapter *adapter, u32 reg_addr)
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index aef3ab2..538dda4 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -433,40 +433,78 @@ static int init_tp_parity(struct adapter *adap)
- 	for (i = 0; i < 16; i++) {
- 		struct cpl_smt_write_req *req;
- 
--		skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
-+		skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+		if (!skb)
-+			skb = adap->nofail_skb;
-+		if (!skb)
-+			goto alloc_skb_fail;
-+
- 		req = (struct cpl_smt_write_req *)__skb_put(skb, sizeof(*req));
- 		memset(req, 0, sizeof(*req));
- 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
- 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SMT_WRITE_REQ, i));
- 		req->iff = i;
- 		t3_mgmt_tx(adap, skb);
-+		if (skb == adap->nofail_skb) {
-+			await_mgmt_replies(adap, cnt, i + 1);
-+			adap->nofail_skb = alloc_skb(sizeof(*greq), GFP_KERNEL);
-+			if (!adap->nofail_skb)
-+				goto alloc_skb_fail;
-+		}
- 	}
- 
- 	for (i = 0; i < 2048; i++) {
- 		struct cpl_l2t_write_req *req;
- 
--		skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
-+		skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+		if (!skb)
-+			skb = adap->nofail_skb;
-+		if (!skb)
-+			goto alloc_skb_fail;
-+
- 		req = (struct cpl_l2t_write_req *)__skb_put(skb, sizeof(*req));
- 		memset(req, 0, sizeof(*req));
- 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
- 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_L2T_WRITE_REQ, i));
- 		req->params = htonl(V_L2T_W_IDX(i));
- 		t3_mgmt_tx(adap, skb);
-+		if (skb == adap->nofail_skb) {
-+			await_mgmt_replies(adap, cnt, 16 + i + 1);
-+			adap->nofail_skb = alloc_skb(sizeof(*greq), GFP_KERNEL);
-+			if (!adap->nofail_skb)
-+				goto alloc_skb_fail;
-+		}
- 	}
- 
- 	for (i = 0; i < 2048; i++) {
- 		struct cpl_rte_write_req *req;
- 
--		skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
-+		skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+		if (!skb)
-+			skb = adap->nofail_skb;
-+		if (!skb)
-+			goto alloc_skb_fail;
-+
- 		req = (struct cpl_rte_write_req *)__skb_put(skb, sizeof(*req));
- 		memset(req, 0, sizeof(*req));
- 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
- 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_RTE_WRITE_REQ, i));
- 		req->l2t_idx = htonl(V_L2T_W_IDX(i));
- 		t3_mgmt_tx(adap, skb);
-+		if (skb == adap->nofail_skb) {
-+			await_mgmt_replies(adap, cnt, 16 + 2048 + i + 1);
-+			adap->nofail_skb = alloc_skb(sizeof(*greq), GFP_KERNEL);
-+			if (!adap->nofail_skb)
-+				goto alloc_skb_fail;
-+		}
- 	}
- 
--	skb = alloc_skb(sizeof(*greq), GFP_KERNEL | __GFP_NOFAIL);
-+	skb = alloc_skb(sizeof(*greq), GFP_KERNEL);
-+	if (!skb)
-+		skb = adap->nofail_skb;
-+	if (!skb)
-+		goto alloc_skb_fail;
-+
- 	greq = (struct cpl_set_tcb_field *)__skb_put(skb, sizeof(*greq));
- 	memset(greq, 0, sizeof(*greq));
- 	greq->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-@@ -475,8 +513,17 @@ static int init_tp_parity(struct adapter *adap)
- 	t3_mgmt_tx(adap, skb);
- 
- 	i = await_mgmt_replies(adap, cnt, 16 + 2048 + 2048 + 1);
-+	if (skb == adap->nofail_skb) {
-+		i = await_mgmt_replies(adap, cnt, 16 + 2048 + 2048 + 1);
-+		adap->nofail_skb = alloc_skb(sizeof(*greq), GFP_KERNEL);
-+	}
-+
- 	t3_tp_set_offload_mode(adap, 0);
- 	return i;
-+
-+alloc_skb_fail:
-+	t3_tp_set_offload_mode(adap, 0);
-+	return -ENOMEM;
- }
- 
- /**
-@@ -871,7 +918,12 @@ static int send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
- 	struct mngt_pktsched_wr *req;
- 	int ret;
- 
--	skb = alloc_skb(sizeof(*req), GFP_KERNEL | __GFP_NOFAIL);
-+	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+	if (!skb)
-+		skb = adap->nofail_skb;
-+	if (!skb)
-+		return -ENOMEM;
-+
- 	req = (struct mngt_pktsched_wr *)skb_put(skb, sizeof(*req));
- 	req->wr_hi = htonl(V_WR_OP(FW_WROPCODE_MNGT));
- 	req->mngt_opcode = FW_MNGTOPCODE_PKTSCHED_SET;
-@@ -881,6 +933,12 @@ static int send_pktsched_cmd(struct adapter *adap, int sched, int qidx, int lo,
- 	req->max = hi;
- 	req->binding = port;
- 	ret = t3_mgmt_tx(adap, skb);
-+	if (skb == adap->nofail_skb) {
-+		adap->nofail_skb = alloc_skb(sizeof(struct cpl_set_tcb_field),
-+					     GFP_KERNEL);
-+		if (!adap->nofail_skb)
-+			ret = -ENOMEM;
-+	}
- 
- 	return ret;
- }
-@@ -3020,6 +3078,14 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		goto out_disable_device;
- 	}
- 
-+	adapter->nofail_skb =
-+		alloc_skb(sizeof(struct cpl_set_tcb_field), GFP_KERNEL);
-+	if (!adapter->nofail_skb) {
-+		dev_err(&pdev->dev, "cannot allocate nofail buffer\n");
-+		err = -ENOMEM;
-+		goto out_free_adapter;
-+	}
-+
- 	adapter->regs = ioremap_nocache(mmio_start, mmio_len);
- 	if (!adapter->regs) {
- 		dev_err(&pdev->dev, "cannot map device registers\n");
-@@ -3176,6 +3242,8 @@ static void __devexit remove_one(struct pci_dev *pdev)
- 				free_netdev(adapter->port[i]);
- 
- 		iounmap(adapter->regs);
-+		if (adapter->nofail_skb)
-+			kfree_skb(adapter->nofail_skb);
- 		kfree(adapter);
- 		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index 620d80b..f9f54b5 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -566,13 +566,31 @@ static void t3_process_tid_release_list(struct work_struct *work)
- 		spin_unlock_bh(&td->tid_release_lock);
- 
- 		skb = alloc_skb(sizeof(struct cpl_tid_release),
--				GFP_KERNEL | __GFP_NOFAIL);
-+				GFP_KERNEL);
-+		if (!skb)
-+			skb = td->nofail_skb;
-+		if (!skb) {
-+			spin_lock_bh(&td->tid_release_lock);
-+			p->ctx = (void *)td->tid_release_list;
-+			td->tid_release_list = (struct t3c_tid_entry *)p;
-+			break;
-+		}
- 		mk_tid_release(skb, p - td->tid_maps.tid_tab);
- 		cxgb3_ofld_send(tdev, skb);
- 		p->ctx = NULL;
-+		if (skb == td->nofail_skb)
-+			td->nofail_skb =
-+				alloc_skb(sizeof(struct cpl_tid_release),
-+					GFP_KERNEL);
- 		spin_lock_bh(&td->tid_release_lock);
- 	}
-+	td->release_list_incomplete = (td->tid_release_list == NULL) ? 0 : 1;
- 	spin_unlock_bh(&td->tid_release_lock);
-+
-+	if (!td->nofail_skb)
-+		td->nofail_skb =
-+			alloc_skb(sizeof(struct cpl_tid_release),
-+				GFP_KERNEL);
- }
- 
- /* use ctx as a next pointer in the tid release list */
-@@ -585,7 +603,7 @@ void cxgb3_queue_tid_release(struct t3cdev *tdev, unsigned int tid)
- 	p->ctx = (void *)td->tid_release_list;
- 	p->client = NULL;
- 	td->tid_release_list = p;
--	if (!p->ctx)
-+	if (!p->ctx || td->release_list_incomplete)
- 		schedule_work(&td->tid_release_task);
- 	spin_unlock_bh(&td->tid_release_lock);
- }
-@@ -1274,6 +1292,9 @@ int cxgb3_offload_activate(struct adapter *adapter)
- 	if (list_empty(&adapter_list))
- 		register_netevent_notifier(&nb);
- 
-+	t->nofail_skb = alloc_skb(sizeof(struct cpl_tid_release), GFP_KERNEL);
-+	t->release_list_incomplete = 0;
-+
- 	add_adapter(adapter);
- 	return 0;
- 
-@@ -1298,6 +1319,8 @@ void cxgb3_offload_deactivate(struct adapter *adapter)
- 	T3C_DATA(tdev) = NULL;
- 	t3_free_l2t(L2DATA(tdev));
- 	L2DATA(tdev) = NULL;
-+	if (t->nofail_skb)
-+		kfree_skb(t->nofail_skb);
- 	kfree(t);
- }
- 
-diff --git a/drivers/net/cxgb3/cxgb3_offload.h b/drivers/net/cxgb3/cxgb3_offload.h
-index a8e8e5f..55945f4 100644
---- a/drivers/net/cxgb3/cxgb3_offload.h
-+++ b/drivers/net/cxgb3/cxgb3_offload.h
-@@ -191,6 +191,9 @@ struct t3c_data {
- 	struct t3c_tid_entry *tid_release_list;
- 	spinlock_t tid_release_lock;
- 	struct work_struct tid_release_task;
-+
-+	struct sk_buff *nofail_skb;
-+	unsigned int release_list_incomplete;
- };
- 
- /*
-
+Alan
