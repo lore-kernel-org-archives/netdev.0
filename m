@@ -1,43 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Tue, 09 Jun 2009 17:45:04 -0700 (PDT)
-Message-ID: <20090609.174504.114047526.davem@davemloft.net>
-References: <alpine.DEB.1.10.0906081117580.21954@gentwo.org>
-	<20090608.142927.122160930.davem@davemloft.net>
-	<adaocsx3zaa.fsf@cisco.com>
+Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
+Date: Tue, 09 Jun 2009 17:55:09 -0700 (PDT)
+Message-ID: <20090609.175509.209525909.davem@davemloft.net>
+References: <1244526163.3068.1.camel@localhost.localdomain>
+	<20090608.234701.51739911.davem@davemloft.net>
+	<1244561120.3068.17.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cl@linux-foundation.org, netdev@vger.kernel.org,
-	yosefe@Voltaire.COM
-To: rdreier@cisco.com
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53922
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45095
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751105AbZFJApC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 20:45:02 -0400
-In-Reply-To: <adaocsx3zaa.fsf@cisco.com>
+	by vger.kernel.org with ESMTP id S1750924AbZFJAzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Jun 2009 20:55:07 -0400
+In-Reply-To: <1244561120.3068.17.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 09 Jun 2009 13:52:45 -0700
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Tue, 09 Jun 2009 17:25:20 +0200
 
-> 
->  > > Maybe we need a different approach but (since we are at the point of
->  > > talking about categorical fundamentally wrong statements) its
->  > > fundamentally wrong if the IPoIB layer works differently from a regular
->  > > Ethernet NIC. They should work in the same way.
->  > 
->  > This I agree on.  When a multicast group is joined, the IPoIB layer
->  > should block in some way until the subscription is fully available
->  > for use.
-> 
-> Not sure I understand.  What do you mean by block?  It is quite possible
-> that a single multicast group is waiting to be joined, while other
-> multicast groups and unicast traffic can be sent with no problem.  So
-> stopping the whole device queue and blocking everything doesn't seem
-> appropriate.
+> no problem. Do you want me to re-send this one or are you planning to
+> pull it like it is.
 
-Block the process joining the multicast group, not the entire
-interface.
+No need to resend this one.
