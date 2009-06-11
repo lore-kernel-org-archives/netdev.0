@@ -1,52 +1,37 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH] virtio_net: Fix IP alignment on non-mergeable RX path
-Date: Fri, 12 Jun 2009 08:29:22 +0930
-Message-ID: <200906120829.23999.rusty@rustcorp.com.au>
-References: <OF1B881599.F1B4A2EF-ON802575BB.0036EA40-802575BC.0041BFB5@au1.ibm.com> <1244743266.9669.64.camel@w-sridhar.beaverton.ibm.com> <20090611205003.GA8677@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	Danielius Kudinskas <kudinskas@uk.ibm.com>,
-	aliguori@linux.vnet.ibm.com, Paul T Knowles <pablo@uk.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] netdev: dm9000: require compat net dev ops
+Date: Thu, 11 Jun 2009 19:02:30 -0400
+Message-ID: <1244761350-2823-1-git-send-email-vapier@gentoo.org>
+Cc: vapier.adi@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37895 "EHLO ozlabs.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:32947 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760644AbZFKW72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 18:59:28 -0400
-In-Reply-To: <20090611205003.GA8677@gondor.apana.org.au>
-Content-Disposition: inline
+	id S1761735AbZFKXCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 19:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
+The dm9000 driver hasn't been upgraded yet, so select the compat net dev
+ops option for now.
 
-We need to enforce the IP alignment on the non-mergeable RX path just
-like the other RX path.  Not doing so results in misaligned IP
-headers.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4d1d479..52fba8e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -283,10 +283,11 @@ static void try_fill_recv_maxbufs(struct virtnet_info *vi)
- 	for (;;) {
- 		struct virtio_net_hdr *hdr;
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 682186b..bee902e 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -932,6 +932,7 @@ config DM9000
+ 	depends on ARM || BLACKFIN || MIPS
+ 	select CRC32
+ 	select MII
++	select COMPAT_NET_DEV_OPS
+ 	---help---
+ 	  Support for DM9000 chipset.
  
--		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN);
-+		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN + NET_IP_ALIGN);
- 		if (unlikely(!skb))
- 			break;
- 
-+		skb_reserve(skb, NET_IP_ALIGN);
- 		skb_put(skb, MAX_PACKET_LEN);
- 
- 		hdr = skb_vnet_hdr(skb);
+-- 
+1.6.3.1
 
