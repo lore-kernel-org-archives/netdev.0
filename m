@@ -1,50 +1,46 @@
-From: Sergey Lapin <slapin@ossfans.org>
-Subject: Re: [PULL REQUEST] IEEE 802.15.4 stack: generic parts v4
-Date: Thu, 11 Jun 2009 07:52:35 +0400
-Message-ID: <20090611035234.GC17271@build.ossfans.org>
-References: <cover.1244498867.git.slapin@ossfans.org> <20090609.050706.241520518.davem@davemloft.net>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
+Date: Wed, 10 Jun 2009 23:55:31 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906102350420.31536@xanadu.home>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+ <1244685768.4616.22.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, dbaryshkov@gmail.com, sfr@canb.auug.org.au
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Martin Fuzzey <mfuzzey@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from build.ossfans.org ([67.223.233.67]:59852 "EHLO
-	build.ossfans.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756033AbZFKDwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 23:52:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20090609.050706.241520518.davem@davemloft.net>
+Received: from relais.videotron.ca ([24.201.245.36]:65132 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755738AbZFKDzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 23:55:50 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR001.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KL200FQ62WJTZC0@VL-MH-MR001.ip.videotron.ca> for
+ netdev@vger.kernel.org; Wed, 10 Jun 2009 23:55:31 -0400 (EDT)
+In-reply-to: <1244685768.4616.22.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 09, 2009 at 05:07:06AM -0700, David Miller wrote:
-> From: Sergey Lapin <slapin@ossfans.org>
-> Date: Tue,  9 Jun 2009 02:18:46 +0400
-> 
-> > Major changes from previous post:
-> >  * Changed net/ieee802154/Makefile according to Sam Ravnborg suggestion
-> > 
-> > The following changes since commit 81ee1bad86bd6752c626018d43a74e3f81f1ae72:
-> >   Linus Torvalds (1):
-> >         Merge branch 'for-linus' of git://git.kernel.org/.../viro/vfs-2.6
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/slapin/lowpan.git for-next
-> 
-> I can't pull from a tree that is prepared like this.
-> 
-> You have to make a clean clone of the net-next-2.6 GIT tree and
-> add your changes on top of that.  When you use a clone of
-> Linus's tree, I'm going to end up getting all kinds of changes
-> from upstream that I haven't merged into net-next-2.6 yet which
-> creates a complete mess.
-Sorry, we did not know about that. But we'll do that next time.
+On Thu, 11 Jun 2009, Ben Hutchings wrote:
 
-> 
-> I'm going to apply these changes by hand.
-Thanks a lot!
+> On Wed, 2009-06-10 at 19:34 +0200, Martin Fuzzey wrote:
+> > Allow network drivers to be configured by the kernel
+> > in the same way as the userspace "ethtool" program as suggested
+> > by Nicolas Pitre in a recent mailing list discussion.
+[...]
+> Who needs this feature?  Why not use ethtool in an initramfs?
+[...]
+> Forcing speed and duplex is occasionally needed to work around a link
+> partner that doesn't implement autonegotiation correctly.  I don't see
+> that it should ever be needed in platform configuration.  If the driver
+> doesn't detect the MAC/PHY capabilities correctly then the driver should
+> be fixed.  Overriding the settings once will not prevent an unsupported
+> mode being selected later.
 
-S.
+I'd suggest you have a look at the conversation that occurred in the 
+thread which subject was "SMC91x: forcing speed", no later than 3 days 
+ago.
 
+
+Nicolas
