@@ -1,51 +1,54 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 14:51:26 +0300
-Message-ID: <4A30EFBE.6080106@iki.fi>
-References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net> <4A30D9AA.1020004@iki.fi> <20090611105638.GA2085@gondor.apana.org.au> <4A30EAAA.4070907@iki.fi> <20090611113709.GA2545@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Thu, 11 Jun 2009 04:57:21 -0700 (PDT)
+Message-ID: <20090611.045721.05821546.davem@davemloft.net>
+References: <15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
+	<20090610.050122.261415364.davem@davemloft.net>
+	<15ddcffd0906110445x25e2b2c5qa8445e0e1b344ef4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: rdreier@cisco.com, cl@linux-foundation.org, netdev@vger.kernel.org,
+	yosefe@voltaire.com
+To: or.gerlitz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:57410 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373AbZFKLvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:51:23 -0400
-Received: by ewy6 with SMTP id 6so1938383ewy.37
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 04:51:24 -0700 (PDT)
-In-Reply-To: <20090611113709.GA2545@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48058
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751893AbZFKL5T convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 07:57:19 -0400
+In-Reply-To: <15ddcffd0906110445x25e2b2c5qa8445e0e1b344ef4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Jun 11, 2009 at 02:29:46PM +0300, Timo Ter=E4s wrote:
->> I guess this is easy for point-to-point tunnels. But how about the
->> multipoint gre tunnels? The needed_headroom can vary on destination
->> basis depending on if they are NATted or not, and on the cipher/hash
->> used.
+=46rom: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Thu, 11 Jun 2009 14:45:28 +0300
+
+> On Wed, Jun 10, 2009 at 3:01 PM, David Miller<davem@davemloft.net> wr=
+ote:
+>> From: Or Gerlitz <or.gerlitz@gmail.com>
 >=20
-> I don't think we need to worry about NAT, well at least we don't
-> worry about it on the normal path :)
-
-It affects if ESP or UDP-over-ESP encapsulation is used. This can
-vary on destination IP basis. This different needed_headroom size.
-This the case only for multi-point tunnels. But yes, we don't need
-to worry about it, it just one factor that can affect what the
-actual needed_headroom can end up being.
-
->> Can we change the needed_headroom on-the-fly? Increase it when ever
->> we encounter a larger path? But this also means some packages would
->> get extra headroom allocated.
+>>> for --unicast-- the same problem [...] will come into play under bo=
+th Ethernet and IB,
+>>> so the user is limited by the socket buffer len and the neigh unres=
+_qlen systcl.
 >=20
-> Just make it the maximum.  It's OK to have extra head space.
-> If the head space is huge then you've got bigger problems than
-> wasted memory :)
+>> But this generally does not cause problems via ARP, why might that
+>> be?  Because resolution is 1) rare 2) quick. =A0Both of which do not
+>> apply to this IPoIB case.
+>=20
+> To be precise, I don't see why ARP resolution is more rare then
+> joining to a multicast group on behalf of a sender in IPoIB, they
+> both happen on the first and if/when the kernel deletes the
+> neighbour.
 
-I guess so. The difference is not too many bytes. Is it ok to just
-change the dev->needed_headroom from xmit routine?
+There are two issues:
 
-- Timo
+1) Ethernet does not have to "resolve" anything for multicast sends.
+   Therefore this issue is IPoIB specific.
+
+2) ARP's tend to resolve on the DNS request for the site, or the
+   initial connection attempt.  Both of which are single packets,
+   easily retransmitted, and the dropping of which does not result in
+   losing significant application data.  The multicast case over IPoIB
+   does drop tons of actual application data.
