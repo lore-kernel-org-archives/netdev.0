@@ -1,40 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/3] qlge: Increase default TX/RX ring size to
- 1024.
-Date: Thu, 11 Jun 2009 02:27:13 -0700 (PDT)
-Message-ID: <20090611.022713.35602614.davem@davemloft.net>
-References: <1244684975-10211-1-git-send-email-ron.mercer@qlogic.com>
-	<1244684975-10211-3-git-send-email-ron.mercer@qlogic.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
+Date: Thu, 11 Jun 2009 05:31:49 -0400
+Message-ID: <20090611093149.GA12543@bombadil.infradead.org>
+References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.linux-foundation.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, hadi@cyberus.ca, jarkao2@gmail.com
+To: Minoru Usui <usui@mxm.nes.nec.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51668
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755532AbZFKJ1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 05:27:11 -0400
-In-Reply-To: <1244684975-10211-3-git-send-email-ron.mercer@qlogic.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:35310 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753708AbZFKJbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 05:31:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 10 Jun 2009 18:49:35 -0700
+Very nice, this is a big improvement.
 
-> 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+On Thu, Jun 11, 2009 at 06:05:55PM +0900, Minoru Usui wrote:
+> +static int get_tc_classid(u32 *classid, const char *str)
 
-This is huge.  Even other aggressive NICs such as BNX2X only use 256
-ring entries per TX queue.
+Maybe make this return u32?
 
-There is a point where increasing definitely hurts, because you're
-increasing the resident set size of the cpu, as more and more SKBs are
-effectively "in flight" at a given time and only due to the amount
-you're allowing to get queued up into the chip.
+>  {
+> -	return cgrp_cls_state(cgrp)->classid;
+> +	u32 maj, min;
+> +	char *p;
+> +
+> +	/* check "0" for reset request */
+> +	if (!strcmp(str, "0")) {
+> +		*classid = 0;
+> +		return 0;
+> +	}
+> +
+> +	/* parse major number */
+> +	maj = simple_strtoul(str, &p, 16);
+> +	if (p == str) {
+> +		maj = 0;
+> +		if (*p != ':')
+> +			return -EINVAL;
+> +	}
+> +
+> +	/* parse minor number */
+> +	if (*p == ':') {
+> +		if (maj >= (1<<16))
+> +			return -EINVAL;
+> +
+> +		str = p + 1;
+> +		min = simple_strtoul(str, &p, 16);
+> +		if (*p != 0)
+> +			return -EINVAL;
+> +		if (min >= (1<<16))
+> +			return -EINVAL;
+> +	} else if (*p != 0)
+> +		return -EINVAL;
 
-And with multiqueue, per-queue TX queue sizes should matter less at
-least to some extent.
+What do you think about keeping things backwards compatible by
+accepting both the X:Y and XY format?
 
-Are you sure that jacking the value up this high has no negative side
-effects for various workloads?
+} else if (*p != 0)
+	return strtoul(str, NULL, 0);
