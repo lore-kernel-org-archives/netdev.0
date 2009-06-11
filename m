@@ -1,45 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/3] qlge: Increase default TX/RX ring size to
- 1024.
-Date: Thu, 11 Jun 2009 16:50:14 -0700 (PDT)
-Message-ID: <20090611.165014.235867783.davem@davemloft.net>
-References: <1244684975-10211-3-git-send-email-ron.mercer@qlogic.com>
-	<20090611.022713.35602614.davem@davemloft.net>
-	<20090611232159.GA13392@linux-ox1b.qlogic.org>
+Subject: Re: netfilter 00/31: netfilter update
+Date: Thu, 11 Jun 2009 16:50:41 -0700 (PDT)
+Message-ID: <20090611.165041.201036582.davem@davemloft.net>
+References: <20090611.161910.109357779.davem@davemloft.net>
+	<20090611.164047.74924409.davem@davemloft.net>
+	<4A31978A.3040300@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44503
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754825AbZFKXuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:50:12 -0400
-In-Reply-To: <20090611232159.GA13392@linux-ox1b.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A31978A.3040300@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Thu, 11 Jun 2009 16:21:59 -0700
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 12 Jun 2009 01:47:22 +0200
 
->> This is huge.  Even other aggressive NICs such as BNX2X only use 256
->> ring entries per TX queue.
->> 
->> There is a point where increasing definitely hurts, because you're
->> increasing the resident set size of the cpu, as more and more SKBs are
->> effectively "in flight" at a given time and only due to the amount
->> you're allowing to get queued up into the chip.
->> 
->> And with multiqueue, per-queue TX queue sizes should matter less at
->> least to some extent.
->> 
->> Are you sure that jacking the value up this high has no negative side
->> effects for various workloads?
+> David Miller wrote:
+>> From: David Miller <davem@davemloft.net>
+>> Date: Thu, 11 Jun 2009 16:19:10 -0700 (PDT)
+>> Nevermind, still broken:
+>>
+>> net/ipv4/netfilter/ip_tables.c: In function 'ipt_do_table':
+>> net/ipv4/netfilter/ip_tables.c:421: error: 'comefrom' undeclared (first use in this function)
+>> net/ipv4/netfilter/ip_tables.c:421: error: (Each undeclared identifier is reported only once
+>> net/ipv4/netfilter/ip_tables.c:421: error: for each function it appears in.)
+>>
+>> You're not testing what you're sending to me.
+>>   
 > 
-> Just drop this patch for now.  I looked at our spreadsheet and ran the
-> tests again and we see a (marginal) throughput increase that leveled off
-> at TXQ length of 1024.  In light of yours and Stephens comments I prefer
-> to revisit this issue.
+> Appologies again, I didn't test CONFIG_NETFILTER_DEBUG=y.
+> I'll fix it up and do a few more compile tests myself.
 
-Ok, thanks.
+Thank you.
