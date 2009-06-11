@@ -1,45 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: virtio-net header alignment
-Date: Thu, 11 Jun 2009 05:39:30 -0700 (PDT)
-Message-ID: <20090611.053930.255217615.davem@davemloft.net>
-References: <200905251601.29327.rusty@rustcorp.com.au>
-	<1243268223.32745.25.camel@blaa>
-	<20090610051227.GB16563@gondor.apana.org.au>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
+Date: Thu, 11 Jun 2009 15:05:56 +0200
+Message-ID: <1244725556.27363.19.camel@violet>
+References: <1244526163.3068.1.camel@localhost.localdomain>
+	 <20090608.234701.51739911.davem@davemloft.net>
+	 <1244561120.3068.17.camel@localhost.localdomain>
+	 <20090609.175509.209525909.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: markmc@redhat.com, rusty@rustcorp.com.au, kudinskas@uk.ibm.com,
-	aliguori@linux.vnet.ibm.com, pablo@uk.ibm.com,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58058
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753695AbZFKMj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 08:39:27 -0400
-In-Reply-To: <20090610051227.GB16563@gondor.apana.org.au>
+Received: from senator.holtmann.net ([87.106.208.187]:53574 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbZFKNF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 09:05:56 -0400
+In-Reply-To: <20090609.175509.209525909.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 10 Jun 2009 15:12:27 +1000
+Hi Dave,
 
-> On Mon, May 25, 2009 at 05:17:03PM +0100, Mark McLoughlin wrote:
->> 
->> Perhaps; would padding struct virtio_net_hdr_mrg_rxbuf have avoided it?
->> 
->> Cc-ing Herbert, he initially wrote the guest side of this.
+> > no problem. Do you want me to re-send this one or are you planning to
+> > pull it like it is.
 > 
-> Does this fix it?
-> 
-> virtio_net: Fix IP alignment on mergeable RX path
-> 
-> We need to enforce the IP alignment on the mergeable RX path just
-> like the other RX path.  Not doing so results in misaligned IP
-> headers.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> No need to resend this one.
 
-I'll apply this as soon as I see some test reports.
+are you currently re-basing the trees? I don't see it showing anyway or
+is git.kernel.org slow again with the mirroring.
 
-Has anyone had a chance to try this out yet?
+Regards
+
+Marcel
+
+
