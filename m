@@ -1,31 +1,28 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter 00/31: netfilter update
-Date: Fri, 12 Jun 2009 01:47:22 +0200
-Message-ID: <4A31978A.3040300@trash.net>
-References: <4A310C9E.3050904@trash.net>	<4A311AB9.3060205@trash.net>	<20090611.161910.109357779.davem@davemloft.net> <20090611.164047.74924409.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: dm9000: require compat net dev ops
+Date: Thu, 11 Jun 2009 16:49:08 -0700 (PDT)
+Message-ID: <20090611.164908.11590745.davem@davemloft.net>
+References: <1244761350-2823-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090611.164047.74924409.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vapier.adi@gmail.com
+To: vapier@gentoo.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40646
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756073AbZFKXtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:49:05 -0400
+In-Reply-To: <1244761350-2823-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 11 Jun 2009 16:19:10 -0700 (PDT)
-> Nevermind, still broken:
->
-> net/ipv4/netfilter/ip_tables.c: In function 'ipt_do_table':
-> net/ipv4/netfilter/ip_tables.c:421: error: 'comefrom' undeclared (first use in this function)
-> net/ipv4/netfilter/ip_tables.c:421: error: (Each undeclared identifier is reported only once
-> net/ipv4/netfilter/ip_tables.c:421: error: for each function it appears in.)
->
-> You're not testing what you're sending to me.
->   
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Thu, 11 Jun 2009 19:02:30 -0400
 
-Appologies again, I didn't test CONFIG_NETFILTER_DEBUG=y.
-I'll fix it up and do a few more compile tests myself.
+> The dm9000 driver hasn't been upgraded yet, so select the compat net dev
+> ops option for now.
+> 
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 
+This config option no longer exists in the networking tree.
