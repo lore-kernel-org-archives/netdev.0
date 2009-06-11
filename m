@@ -1,77 +1,92 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] net: ntohs() misuse
-Date: Thu, 11 Jun 2009 21:23:15 +0200
-Message-ID: <4A3159A3.1070504@cosmosbay.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
+	configuration.
+Date: Thu, 11 Jun 2009 20:31:59 +0100
+Message-ID: <1244748719.2785.72.camel@achroite>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+	 <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
+	 <1244732090.2785.12.camel@achroite>
+	 <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+	 <1244739166.2785.52.camel@achroite>
+	 <alpine.LFD.2.00.0906111333100.31536@xanadu.home>
+	 <1244744967.2785.61.camel@achroite>
+	 <alpine.LFD.2.00.0906111452340.31536@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
+To: Nicolas Pitre <nico@cam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:41738 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760709AbZFKTXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 15:23:15 -0400
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:46493 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755074AbZFKTcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 15:32:04 -0400
+In-Reply-To: <alpine.LFD.2.00.0906111452340.31536@xanadu.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some drivers incorrectly use ntohs() instead of htons()
+On Thu, 2009-06-11 at 15:08 -0400, Nicolas Pitre wrote:
+[...]
+> > Please note, I'm talking about an init script -
+> > which you surely must have - not an initramfs, which I recognise is
+> > optional and unnecessary for most embedded systems.
+>=20
+> An init script is already a luxury for some systems.
 
-A cleanup as htons() returns same result than ntohs(),
-but better to use the proper one.
+And so is an Ethernet port.  Instead of talking about hypotheticals, wh=
+y
+not talk about the system you need this workaround for?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/atl1e/atl1e_main.c |    4 ++--
- drivers/net/atlx/atl1.c        |    2 +-
- drivers/net/ioc3-eth.c         |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+> It means a=20
+> script, which implies a shell, and of course the tool binaries (ethto=
+ol=20
+> in this case) to be called by your shell.  Not only those do bloat yo=
+ur=20
+> system (the shell + tool + script occupies way more space than the=20
+> proposed module)
 
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
-index e1ae10c..9fc6d6d 100644
---- a/drivers/net/atl1e/atl1e_main.c
-+++ b/drivers/net/atl1e/atl1e_main.c
-@@ -1602,7 +1602,7 @@ static u16 atl1e_cal_tdp_req(const struct sk_buff *skb)
- 	}
- 
- 	if (skb_is_gso(skb)) {
--		if (skb->protocol == ntohs(ETH_P_IP) ||
-+		if (skb->protocol == htons(ETH_P_IP) ||
- 		   (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV6)) {
- 			proto_hdr_len = skb_transport_offset(skb) +
- 					tcp_hdrlen(skb);
-@@ -1878,7 +1878,7 @@ static int atl1e_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 				TPD_VLAN_SHIFT;
- 	}
- 
--	if (skb->protocol == ntohs(ETH_P_8021Q))
-+	if (skb->protocol == htons(ETH_P_8021Q))
- 		tpd->word3 |= 1 << TPD_VL_TAGGED_SHIFT;
- 
- 	if (skb_network_offset(skb) != ETH_HLEN)
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 560f387..94d7325 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -2382,7 +2382,7 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (mss) {
--		if (skb->protocol == ntohs(ETH_P_IP)) {
-+		if (skb->protocol == htons(ETH_P_IP)) {
- 			proto_hdr_len = (skb_transport_offset(skb) +
- 					 tcp_hdrlen(skb));
- 			if (unlikely(proto_hdr_len > len)) {
-diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
-index c5593f4..e3cfefa 100644
---- a/drivers/net/ioc3-eth.c
-+++ b/drivers/net/ioc3-eth.c
-@@ -530,7 +530,7 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
- 	 *   case where the checksum is right the higher layers will still
- 	 *   drop the packet as appropriate.
- 	 */
--	if (eh->h_proto != ntohs(ETH_P_IP))
-+	if (eh->h_proto != htons(ETH_P_IP))
- 		return;
- 
- 	ih = (struct iphdr *) ((char *)eh + ETH_HLEN);
+Well, if you're replacing init - which is generally a really bad idea,
+by the way - you can build the ethtool API calls in there along with al=
+l
+your other application-specific stuff.  The ethtool API isn't terribly
+complex.
+
+> and then you do have to maintain those components as=20
+> well, but it also has impact on boot time.  Remember that we're not=20
+> talking about systems bragging about their boot time being under 20=20
+> seconds here, but systems that need to be operational in only a coupl=
+e=20
+> miliseconds.
+
+If you want to boot that quickly you definitely don't want to have to
+wait for PHY operations.
+
+> > =EF=BB=BFI was thinking that you could add it to the platform data =
+for such
+> > devices, not that you would put board-specific quirks in the driver=
+s.
+>=20
+> And what if the majority of users for a driver simply don't need such=
+ a=20
+> thing?  And how do you do that if the driver you need is for a PCI=20
+> device?
+
+Any device can have platform data; it's part of struct device.
+
+> And why would driver specific kirks be better than a generic=20
+> module that can handle those params in a uniform way across all drive=
+rs? =20
+> Especially if you can ignore said module if you don't need/want to us=
+e=20
+> it?
+
+Because its raison d'etre is apparently to disable the broken link
+modes, and it doesn't do that properly.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
