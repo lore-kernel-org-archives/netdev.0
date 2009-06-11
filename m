@@ -1,41 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter 00/31: netfilter update
-Date: Thu, 11 Jun 2009 15:54:38 +0200
-Message-ID: <4A310C9E.3050904@trash.net>
-References: <20090610194621.11112.72922.sendpatchset@x2.localnet>	<20090610.234618.116984779.davem@davemloft.net> <20090611.010827.193702616.davem@davemloft.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Pull request: bluetooth-next-2.6 2009-06-08
+Date: Thu, 11 Jun 2009 16:07:31 +0200
+Message-ID: <1244729251.27363.21.camel@violet>
+References: <1244561120.3068.17.camel@localhost.localdomain>
+	 <20090609.175509.209525909.davem@davemloft.net>
+	 <1244725556.27363.19.camel@violet>
+	 <20090611.060822.251056908.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090611.010827.193702616.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:37020 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997AbZFKOHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 10:07:32 -0400
+In-Reply-To: <20090611.060822.251056908.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 10 Jun 2009 23:46:18 -0700 (PDT)
-> 
->> From: Patrick McHardy <kaber@trash.net>
->> Date: Wed, 10 Jun 2009 21:46:22 +0200 (MEST)
->>
->>> Please apply or pull from:
->>>
->>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
->> Pulled, thanks a lot Patrick.
->>
->> I'll push it back out to kernel.org after some build testing.
-> 
-> This stuff isn't ready, sorry I had to undo my pull:
-> 
-> net/netfilter/nf_conntrack_proto_tcp.c: In function 'tcp_packet':
-> net/netfilter/nf_conntrack_proto_tcp.c:947: error: 'tcp_lock' undeclared (first use in this function)
-> net/netfilter/nf_conntrack_proto_tcp.c:947: error: (Each undeclared identifier is reported only once
-> net/netfilter/nf_conntrack_proto_tcp.c:947: error: for each function it appears in.)
-> make[2]: *** [net/netfilter/nf_conntrack_proto_tcp.o] Error 1
-> make[2]: *** Waiting for unfinished jobs....
+Hi Dave,
 
-That odd, my tree doesn't have a single reference to tcp_lock left.
-I'll check what went wrong, sorry.
+> >> > no problem. Do you want me to re-send this one or are you planning to
+> >> > pull it like it is.
+> >> 
+> >> No need to resend this one.
+> > 
+> > are you currently re-basing the trees? I don't see it showing anyway or
+> > is git.kernel.org slow again with the mirroring.
+> 
+> I just pulled it in 5 minutes ago and started build testing.
+> 
+> Be patient :-)
+
+sorry, was just curious. Trying to get all my trees sorted out until the
+weekend. Took vacation at the wrong time and I am behind now.
+
+Regards
+
+Marcel
+
 
