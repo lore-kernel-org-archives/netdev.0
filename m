@@ -1,32 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/31: netfilter update
-Date: Thu, 11 Jun 2009 16:19:10 -0700 (PDT)
-Message-ID: <20090611.161910.109357779.davem@davemloft.net>
-References: <20090611.010827.193702616.davem@davemloft.net>
-	<4A310C9E.3050904@trash.net>
-	<4A311AB9.3060205@trash.net>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [net-next PATCH 3/3] qlge: Increase default TX/RX ring size to
+	1024.
+Date: Thu, 11 Jun 2009 16:21:59 -0700
+Message-ID: <20090611232159.GA13392@linux-ox1b.qlogic.org>
+References: <1244684975-10211-1-git-send-email-ron.mercer@qlogic.com> <1244684975-10211-3-git-send-email-ron.mercer@qlogic.com> <20090611.022713.35602614.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4A311AB9.3060205@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:51429 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754733AbZFKX3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:29:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20090611.022713.35602614.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 11 Jun 2009 16:54:49 +0200
-
-> I've now merged your latest tree and added the attached patch on top
-> to fix the compile error. This will unfortunately leave a small window
-> of commits that don't compile cleanly. If you prefer to have this
-> fixed
-> differently, please let me know, otherwise
+> This is huge.  Even other aggressive NICs such as BNX2X only use 256
+> ring entries per TX queue.
 > 
-> Please pull from:
+> There is a point where increasing definitely hurts, because you're
+> increasing the resident set size of the cpu, as more and more SKBs are
+> effectively "in flight" at a given time and only due to the amount
+> you're allowing to get queued up into the chip.
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
-> master
+> And with multiqueue, per-queue TX queue sizes should matter less at
+> least to some extent.
+> 
+> Are you sure that jacking the value up this high has no negative side
+> effects for various workloads?
 
-Works for me, pulled, thanks!
+Just drop this patch for now.  I looked at our spreadsheet and ran the
+tests again and we see a (marginal) throughput increase that leveled off
+at TXQ length of 1024.  In light of yours and Stephens comments I prefer
+to revisit this issue.
+
