@@ -1,164 +1,70 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
-Date: Thu, 11 Jun 2009 18:53:42 -0300
-Message-ID: <20090611215341.GF22424@ghostprotocols.net>
-References: <20090611034022.GC22424@ghostprotocols.net> <200906111409.23246.paul.moore@hp.com>
+From: Web Visum <webvisum@googlemail.com>
+Subject: TG3 kernel hard lockup with 2.6.30
+Date: Thu, 11 Jun 2009 18:07:30 -0400
+Message-ID: <455ea5df0906111507t70e9a3fawbcd0da93ef3bb6e6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:42156 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751157AbZFKVyM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 17:54:12 -0400
-Content-Disposition: inline
-In-Reply-To: <200906111409.23246.paul.moore@hp.com>
+Received: from fg-out-1718.google.com ([72.14.220.156]:64774 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761765AbZFKWH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 18:07:29 -0400
+Received: by fg-out-1718.google.com with SMTP id 16so554648fgg.17
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 15:07:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Jun 11, 2009 at 02:09:22PM -0400, Paul Moore escreveu:
-> On Wednesday 10 June 2009 11:40:22 pm Arnaldo Carvalho de Melo wrote:
-> > diff --git a/net/socket.c b/net/socket.c
-> > index 791d71a..f9f1e20 100644
-> > --- a/net/socket.c
-> > +++ b/net/socket.c
-> > @@ -702,6 +702,28 @@ int sock_recvmsg(struct socket *sock, struct msghdr
-> > *msg, return ret;
-> >  }
-> >
-> > +static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
-> > +			      size_t size, int flags)
-> > +{
-> > +	struct kiocb iocb;
-> > +	struct sock_iocb siocb;
-> > +	int ret;
-> > +
-> > +	init_sync_kiocb(&iocb, NULL);
-> > +	iocb.private = &siocb;
-> > +
-> > +	siocb.sock = sock;
-> > +	siocb.scm = NULL;
-> > +	siocb.msg = msg;
-> > +	siocb.size = size;
-> > +	siocb.flags = flags;
-> > +
-> > +	ret = sock->ops->recvmsg(&iocb, sock, msg, size, flags);
-> > +	if (-EIOCBQUEUED == ret)
-> > +		ret = wait_on_sync_kiocb(&iocb);
-> > +	return ret;
-> > +}
-> 
-> Hmmm, in an effort to reduce duplicated code how about updating 
-> __sock_recvmsg() to something like the following:
-> 
-> static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
->                                  struct msghdr *msg, size_t size, int flags)
-> {
->         int err;
-> 
->         err = security_socket_recvmsg(...);
->         if (err)
->                 return err;
-> 
->         return sock_recvmsg_nosec(...);
-> }
-> 
-> The only real difference is that now the *_kiocb() functions get called and I 
-> have no clue if that is good or bad but it is different :)
+Guys,
 
-Yeah, gets clearer, like this:
+Apologies for emailing the world, but the situation is an emergency for me.
 
-static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
-				       struct msghdr *msg, size_t size, int flags)
-{
-	struct sock_iocb *si = kiocb_to_siocb(iocb);
+The box has been running 2.6.22.1 for over a year without a glitch.
+Today I tried 2.6.30 and while things looked fine at the beginning,
+after a few minutes of traffic though the tg3 interface I've gotten a
+hard lockup, no kernel message, nothing to netconsole, just a total
+and complete lockup.   Not even sysrq was able to boot the box and it
+had to be power cycled.
 
-	si->sock = sock;
-	si->scm = NULL;
-	si->msg = msg;
-	si->size = size;
-	si->flags = flags;
+Worse, it's reproducible.  And catastrophic, now kernel 2.6.22.1 also
+locks up in exactly the same manner.
 
-	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
-}
+I've tried turning off TSO via ethtool and that *appears* to delay the
+onset of the lockup, but it does not prevent it entirely.
 
-static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
-				 struct msghdr *msg, size_t size, int flags)
-{
-	int err = security_socket_recvmsg(sock, msg, size, flags);
+The motherboard is a Tyan S2882, lspci -v -v output follows:
 
-	return err ?: __sock_recvmsg_nosec(iocb, sock, msg, size, flags);
-}
+02:09.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
+Gigabit Ethernet (rev 03)
+        Subsystem: Broadcom Corporation Device 1644
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64 (16000ns min), Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 24
+        Region 0: Memory at fc9c0000 (64-bit, non-prefetchable) [size=64K]
+        Region 2: Memory at fc9b0000 (64-bit, non-prefetchable) [size=64K]
+        Expansion ROM at fc9a0000 [disabled] [size=64K]
+        Capabilities: [40] PCI-X non-bridge device
+                Command: DPERE- ERO- RBC=2048 OST=1
+                Status: Dev=02:09.0 64bit+ 133MHz+ SCD- USC- DC=simple
+DMMRBC=2048 DMOST=1 DMCRS=16 RSCEM- 266MHz- 533MHz-
+        Capabilities: [48] Power Management version 2
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+PME(D0-,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 PME-Enable+ DSel=0 DScale=1 PME-
+        Capabilities: [50] Vital Product Data
+                Not readable
+        Capabilities: [58] MSI: Mask- 64bit+ Count=1/8 Enable-
+                Address: 866a048401200080  Data: 1c08
+        Kernel driver in use: tg3
 
-static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
-			      size_t size, int flags)
-{
-	struct kiocb iocb;
-	struct sock_iocb siocb;
-	int ret;
+tg3 driver version on the  2.6.22.1 kernel is: v3.77 (May 31, 2007)
+while on 2.6.30 it is v3.98 (February 25, 2009)
 
-	init_sync_kiocb(&iocb, NULL);
-	iocb.private = &siocb;
-	ret = __sock_recvmsg_nosec(&iocb, sock, msg, size, flags);
-	if (-EIOCBQUEUED == ret)
-		ret = wait_on_sync_kiocb(&iocb);
-	return ret;
-}
+I would very much appreciate any ideas you may have on how we can fix this.
 
-Better now? :-)
-
-> >  	/*
-> > @@ -2018,46 +2029,47 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr
-> > __user *, msg, *      kernel msghdr to use the kernel address space)
-> >  	 */
-> >
-> > -	uaddr = (__force void __user *)msg_sys.msg_name;
-> > +	uaddr = (__force void __user *)msg_sys->msg_name;
-> >  	uaddr_len = COMPAT_NAMELEN(msg);
-> >  	if (MSG_CMSG_COMPAT & flags) {
-> > -		err = verify_compat_iovec(&msg_sys, iov,
-> > +		err = verify_compat_iovec(msg_sys, iov,
-> >  					  (struct sockaddr *)&addr,
-> >  					  VERIFY_WRITE);
-> >  	} else
-> > -		err = verify_iovec(&msg_sys, iov,
-> > +		err = verify_iovec(msg_sys, iov,
-> >  				   (struct sockaddr *)&addr,
-> >  				   VERIFY_WRITE);
-> >  	if (err < 0)
-> >  		goto out_freeiov;
-> >  	total_len = err;
-> >
-> > -	cmsg_ptr = (unsigned long)msg_sys.msg_control;
-> > -	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
-> > +	cmsg_ptr = (unsigned long)msg_sys->msg_control;
-> > +	msg_sys->msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
-> >
-> >  	if (sock->file->f_flags & O_NONBLOCK)
-> >  		flags |= MSG_DONTWAIT;
-> > -	err = sock_recvmsg(sock, &msg_sys, total_len, flags);
-> > +	err = (nosec ? sock_recvmsg_nosec : sock_recvmsg)(sock, msg_sys,
-> > +							  total_len, flags);
-> 
-> Perhaps I'm just being nit-picky here but why not this (it is much easier on 
-> my eyes at least <g>):
-> 
-> 	if (nosec)
-> 		err = sock_recvmsg_nosec(...);
-> 	else
-> 		err = sock_recvmsg(...);
-
-Well, its like "if (foo)" versus "if (foo != NULL)", I prefer to reduce
-the number of source code lines and stress that the parameter list is
-the same, anybody else feels confused by this?
-
-- Arnaldo
+Best,
+Richard
