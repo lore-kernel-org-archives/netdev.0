@@ -1,54 +1,41 @@
-From: Chaitanya Lala <clala@riverbed.com>
-Subject: How to configure MDI status per port
-Date: Wed, 10 Jun 2009 21:19:22 -0700
-Message-ID: <4A3085CA.2000300@riverbed.com>
-Reply-To: clala@riverbed.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 5/6] rio: warn_unused_result warnings fix
+Date: Wed, 10 Jun 2009 23:34:03 -0500
+Message-ID: <49B70D0E-63FD-45B1-AA86-6EF330D11D06@kernel.crashing.org>
+References: <1242117363-14949-1-git-send-email-leoli@freescale.com> <1242117363-14949-2-git-send-email-leoli@freescale.com> <1242117363-14949-3-git-send-email-leoli@freescale.com> <1242117363-14949-4-git-send-email-leoli@freescale.com> <1242117363-14949-5-git-send-email-leoli@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	Arthur Jones <ajones@riverbed.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from autosupport.riverbed.com ([208.70.196.44]:58186 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755448AbZFKESR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 00:18:17 -0400
+Received: from gate.crashing.org ([63.228.1.57]:55547 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752989AbZFKFCC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 01:02:02 -0400
+In-Reply-To: <1242117363-14949-5-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I have a requirement to be able to configure/change the default MDI-X 
-status of each ethernet port. This should be possible on a per port 
-basis i.e. it should be possible to configure, say, port 0 to auto mdi-x 
-mode & port 1 to manual MDI-X mode. A couple of possible implementation 
-strategies could achieve this but both have some problems. Following is 
-an overview of the two.
+On May 12, 2009, at 3:36 AM, Li Yang wrote:
 
-1.) Use a module parameter. Pass an array of values, each value 
-corresponding to ethernet port supported by the driver. For example, 
-modprobe e1000e mdix_values=1,0,2,0 (where the numbers 0,1 & 2 represent 
-auto MDI-X, manual MDI  & manual MDI-X modes respectively) assigns value 
-1 for port 0, 0 for port 1, 2 for port 2 and so on. This value can be 
-assigned to the mdix parameter (member of the e1000_phy_info structure 
-in the case of e1000e driver) in the probe routine. The problem here is 
-how to map the ordered list of numbers to the ethernet ports so that 
-each number in the list always corresponds to the same ethernet 
-interface. I assume that the order of enumeration of ethernet ports can 
-change based on changes to the system topology, i.e. plugging/pulling of 
-additional NIC cards.
+> Adding failure path for the following two cases.
+>
+> warning: ignoring return value of 'device_add', declared with  
+> attribute warn_unused_result
+> warning: ignoring return value of 'sysfs_create_bin_file', declared  
+> with attribute warn_unused_result
+>
+> Signed-off-by: Li Yang <leoli@freescale.com>
+> ---
+> drivers/rapidio/rio-scan.c  |   44 +++++++++++++++++++++++++ 
+> +----------------
+> drivers/rapidio/rio-sysfs.c |    6 +++-
+> 2 files changed, 31 insertions(+), 19 deletions(-)
 
-2.) Using ethtool and each driver sets the value in its set_settings 
-function (part of the ethtool operations structure). The value received 
-for each port can be assigned to the mdix parameter (member of the 
-e1000_phy_info structure in the case of e1000e driver) but the problem 
-is that the value is useful iff it is assigned before the probe routine 
-is invoked, because the settings in the chip registers are done only at 
-probe time. Is there a way to change this value and have it take effect 
-when changed by ethtool?
+applied w/fixup based on Andrew's comments.
 
-Any other ideas are most welcome.
-
-Thanks,
-Chaitanya
+- k
