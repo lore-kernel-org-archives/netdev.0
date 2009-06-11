@@ -1,38 +1,24 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 11:22:34 +0300
-Message-ID: <4A30BECA.8030205@iki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND] [PATCH] neigh: error out pending skbs if netlink
+ invalidates incomplete neigh
+Date: Thu, 11 Jun 2009 01:25:51 -0700 (PDT)
+Message-ID: <20090611.012551.60077753.davem@davemloft.net>
+References: <1244707985-486-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:44926 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760964AbZFKIWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 04:22:34 -0400
-Received: by ewy6 with SMTP id 6so1776533ewy.37
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 01:22:36 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55033
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760872AbZFKIZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 04:25:49 -0400
+In-Reply-To: <1244707985-486-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm not entirely sure about this, but shouldn't we do something like
-the below to make ip_gre allocation enough headroom for paths where
-e.g. xfrm transformations take place (as a speed optimization)?
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index e62510d..eb78dd9 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -812,7 +812,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-                        tunnel->err_count = 0;
-        }
- 
--       max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
-+       max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->u.dst.header_len;
- 
-        if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
-            (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+You don't need to resend, you're in the queue already:
+
+http://patchwork.ozlabs.org/patch/28091/
