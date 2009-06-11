@@ -1,63 +1,62 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
-Date: Thu, 11 Jun 2009 16:24:05 -0400 (EDT)
-Message-ID: <alpine.LFD.2.00.0906111605060.31536@xanadu.home>
-References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
- <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
- <1244732090.2785.12.camel@achroite>
- <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
- <1244739166.2785.52.camel@achroite>
- <alpine.LFD.2.00.0906111333100.31536@xanadu.home>
- <1244744967.2785.61.camel@achroite>
- <alpine.LFD.2.00.0906111452340.31536@xanadu.home>
- <1244748719.2785.72.camel@achroite>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169: do not bring device down when suspending
+Date: Thu, 11 Jun 2009 22:48:51 +0200
+Message-ID: <20090611204850.GA26691@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: aeriksson@fastmail.fm, netdev@vger.kernel.org,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:26825 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753926AbZFKUYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 16:24:24 -0400
-Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR001.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0KL300LE6CO64SP0@VL-MH-MR001.ip.videotron.ca> for
- netdev@vger.kernel.org; Thu, 11 Jun 2009 16:24:06 -0400 (EDT)
-In-reply-to: <1244748719.2785.72.camel@achroite>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:55346 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752032AbZFKUrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 16:47:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Jun 2009, Ben Hutchings wrote:
+Stopping all activity through ChipCmd and blindly acking the irqs
+is neither nice nor completely needed: the transition to low-power
+mode does enough work and it apparently keeps the device in a sane
+state.
 
-> On Thu, 2009-06-11 at 15:08 -0400, Nicolas Pitre wrote:
-> [...]
-> > > Please note, I'm talking about an init script -
-> > > which you surely must have - not an initramfs, which I recognise is
-> > > optional and unnecessary for most embedded systems.
-> > 
-> > An init script is already a luxury for some systems.
-> 
-> And so is an Ethernet port.  Instead of talking about hypotheticals, why
-> not talk about the system you need this workaround for?
+Patch suggested by a fix for http://bugzilla.kernel.org/show_bug.cgi?id=9512
 
-Look, I personally do not need this.  And I'm rather tired arguing with 
-you.  Your shortsightedness and refusal for accommodation about needs 
-that aren't yours is representative of the main reason why there is 
-still a disconnect between mainline people and embedded people.  If you 
-can't admit it then I've failed my attempt at bridging the gap.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Tested-by: Anders Eriksson <aeriksson@fastmail.fm>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
-The issue was discussed, people objected to driver kirks already, then I 
-proposed this solution to which Davem agreed if it was done cleanly and 
-maintained. And here it is under the form of an actual patch. So far 
-you're the only one who just can't accept that compromise.  If your 
-opposition -- which so far has nothing to do with the actual 
-implementation but rather on the principle -- is not overruled by others 
-then the embedded disconnect, of which this is only a tiny part of, has 
-no hope of ever vanishing.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 3b19e0c..d354a3a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3808,7 +3808,6 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	void __iomem *ioaddr = tp->mmio_addr;
+ 
+ 	if (!netif_running(dev))
+ 		goto out_pci_suspend;
+@@ -3816,14 +3815,6 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	netif_device_detach(dev);
+ 	netif_stop_queue(dev);
+ 
+-	spin_lock_irq(&tp->lock);
+-
+-	rtl8169_asic_down(ioaddr);
+-
+-	rtl8169_rx_missed(dev, ioaddr);
+-
+-	spin_unlock_irq(&tp->lock);
+-
+ out_pci_suspend:
+ 	pci_save_state(pdev);
+ 	pci_enable_wake(pdev, pci_choose_state(pdev, state),
+-- 
+1.6.0.6
 
-Have a good day.
-
-
-Nicolas
