@@ -1,83 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC] Restricting MDIO reads
-Date: Thu, 11 Jun 2009 17:04:07 +0100
-Message-ID: <1244736247.2785.35.camel@achroite>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
+Date: Thu, 11 Jun 2009 12:22:59 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+ <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
+ <1244732090.2785.12.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:41627 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754990AbZFKQEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 12:04:09 -0400
-Received: from [82.69.137.158] (helo=opal.uk.level5networks.com)
-	by smarthost03.mail.zen.net.uk with esmtp (Exim 4.63)
-	(envelope-from <bhutchings@solarflare.com>)
-	id 1MEml8-0003Ye-HT
-	for netdev@vger.kernel.org; Thu, 11 Jun 2009 16:04:10 +0000
-Received: from [10.17.20.50] (achroite.uk.level5networks.com [10.17.20.50])
-	by opal.uk.level5networks.com (8.12.8/8.12.8) with ESMTP id n5BG47Xx019871
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 17:04:09 +0100
+Received: from relais.videotron.ca ([24.201.245.36]:39007 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbZFKQXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 12:23:17 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR002.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KL3008C41IBBTP0@VL-MH-MR002.ip.videotron.ca> for
+ netdev@vger.kernel.org; Thu, 11 Jun 2009 12:22:59 -0400 (EDT)
+In-reply-to: <1244732090.2785.12.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently most drivers[1] that support the "MII" ioctls allow all users
-to read MDIO registers, while MDIO writes require CAP_NET_ADMIN.
+On Thu, 11 Jun 2009, Ben Hutchings wrote:
 
-However, some MDIO registers and register bits have read-to-clear (latc=
-h
-high, latch low or non-rollover) or multi-word latching semantics[2].
-So reading from them may interfere with the driver or other users and
-should also require CAP_NET_ADMIN.
+> On Thu, 2009-06-11 at 08:47 +0200, Martin Fuzzey wrote:
+> > Ben Hutchings wrote:
+> > > Who needs this feature?  Why not use ethtool in an initramfs?
+> > >
+> > >   
+> > > Forcing speed and duplex is occasionally needed to work around a link
+> > > partner that doesn't implement autonegotiation correctly.  I don't see
+> > > that it should ever be needed in platform configuration.  If the driver
+> > > doesn't detect the MAC/PHY capabilities correctly then the driver should
+> > > be fixed.  Overriding the settings once will not prevent an unsupported
+> > > mode being selected later.
+> > >
+> > >   
+> > To summarize the recent points I made in the smc91x: forcing speed thread :
+> > 
+> > 1) Setting up and maintaining an initramfs can increase the complexity
+> > for embedded systems - it's another image file to build, distribute,
+> > update to bootloader etc.
+> 
+> This doesn't seem like a huge burden if you're net-booting.  And if
+> you're not net-booting, it's not critical that you override the link
+> mode immediately; you can do it in the regular init scripts.
 
-It's not clear to me just which registers should be safe to read, and
-this can vary between PHYs.   I think the correct thing to do is either
-to restrict all MDIO reads or to whitelist standard-defined safe
-registers.
+Sure... But for some embedded setup this is actually more trouble and 
+hassle than having a non-intrusive kernel based facility that can set 
+defaults for you.
 
-Which applications, if any, depend on performing MDIO reads as an
-unprivileged user?  Which registers do they expect to read?
+The same way that the kernel currently has BOOTP and DHCP in the kernel.  
+This is not necessarily the preferred way on a server or workstation, 
+but damn useful on some embedded targets.  If DHCP and NFS root were 
+removed from the kernel then of course using ethtool from some initramfs 
+(along with dhclient and 'mount -t nfs') or the like would actually be 
+the "right" way.  But CONFIG_IP_PNP_DHCP and CONFIG_ROOT_NFS are still 
+in the kernel and unlikely to be removed soon.
 
-Ben.
+> > I currently have this situation on one of my boards - 100Mbps doesn't
+> > work due to electrical issues (bad routing).
+> > This board is already in the wild - if it is fixed one day it will be a
+> > new hardware revision and the code will have to cope with both.
+> > Sure the "right" way is to fix the hardware but that's not always
+> > economically or logistically possible.
+> > I suspect such situations are not uncommon in the embedded world.
+> 
+> So, as I thought, you actually want to disable some modes completely.
+> That is not what ethtool does.
 
-[1]
-These generic implementations allow reads by all users:
-    =EF=BB=BFmdio, mii, pci-skeleton, phylib
+No.  What is needed is to enforce a different _default_.  If someone 
+manages to run ethtool after the system is booted and select the broken 
+mode then that's just too bad.
 
-These full drivers allow reads by all users:
-    3c574_cs, axnet_cs, bnx2, bnx2x, cassini, emac, natsemi, pcnet_cs,
-    r8169, sis900, skge, sky2, sungem, tg3, tlan, tulip, xirc2ps_cs,
-    yellowfin
-(This excludes drivers that simulate MDIO reads.)
+Now the mainline people are (rightly) complaining that the 
+embedded people don't participate enough and communicate their needs 
+with the upstream kernel.  I think this is a good example from the 
+embedded world providing a clean solution to a recurring issue which 
+would return again to quick hacks if the mainline reception is 
+"use a cramfs" again.
 
-These require CAP_NET_ADMIN for reads:
-    =EF=BB=BFamd8111e, atl1, atl1e, atl2, =EF=BB=BFigb, =EF=BB=BFvia-ve=
-locity
 
-[2]
-At least the following register bits are defined as having read-to-clea=
-r
-or multi-word latching semantics:
-
-c22: 1.2:1, 1.4
-c28: 6.1, 6.4
-c33: 12.12:7
-c37: 6.1
-c40: 10.15
-c45: 1.1.2, 1.8.11:10, 1.33.12, 1.33.14, 1.36.15:0, 1.99.15:12, 2.1.2,
-2.1.7, 2.33.7:0, 2.33.11:9, 3.1.2, 3.8.11:10, 3.33.15:0, 3.66.15:0,
-3.67.15:0, 3.69.15:0, 3.70.15:0, 3.71.15:0, 3.72.15:0, 3.73.15:0, 4.1.2=
-,
-4.8.11:10, 5.1.0, 5.1.2, 5.8.11:10, 6.17.1:0, 6.24.15:0, 6.25.15:0,
-6.25.16:0, 7.1.2, 7.1.4, 7.1.6, 7.33.15, 29.9.15:0, 29.10.15:0,
-29.11.15:0
-
-Any reserved bits and vendor-defined registers may also have such
-semantics.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Nicolas
