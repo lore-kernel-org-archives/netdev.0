@@ -1,53 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: No more expensive sock_hold()/sock_put() on each
- tx
-Date: Thu, 11 Jun 2009 02:56:30 -0700 (PDT)
-Message-ID: <20090611.025630.31891354.davem@davemloft.net>
-References: <4A27916B.7030607@gmail.com>
-	<20090610.011743.230851451.davem@davemloft.net>
-	<4A2F6F39.8060107@gmail.com>
+Subject: Re: [PATCH] neigh: error out pending skbs if netlink invalidates
+ incomplete neigh
+Date: Thu, 11 Jun 2009 03:02:07 -0700 (PDT)
+Message-ID: <20090611.030207.238260652.davem@davemloft.net>
+References: <1244104855-2129-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42421
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33251
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752994AbZFKJ42 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 05:56:28 -0400
-In-Reply-To: <4A2F6F39.8060107@gmail.com>
+	by vger.kernel.org with ESMTP id S1754432AbZFKKCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 06:02:05 -0400
+In-Reply-To: <1244104855-2129-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 10 Jun 2009 10:30:49 +0200
+From: Timo Teras <timo.teras@iki.fi>
+Date: Thu,  4 Jun 2009 11:40:55 +0300
 
-> David Miller a =E9crit :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 04 Jun 2009 11:18:35 +0200
->>=20
->> Eric, I don't understand this part, please enlighten me :-)
->>=20
->> Just because we've liberated all of the write buffer space, that doe=
-s
->> not mean that it's time to kill off the socket completely.
->>=20
->> Right?
->=20
-> Remember we initialize this field to one.
->=20
-> If we freed all write buffer space, final value is one, not zero.
->=20
-> res =3D=3D 0 only if we both freed all write buffer space, *and* sock=
-et was
-> also refcounted to 0 (sk_free() then realized it could not yet call _=
-_sk_free())
->=20
-> So we cheat a litle bit, because of this offset of one, we might bloc=
-k a sender a litle bit earlier :)
+> The state transition code from incomplete to invalid via neigh_update()
+> is missing the proper clean up of skb queue. Separate the clean up
+> code from neigh_timer_handler() to a new function and make neigh_update()
+> is it also.
+> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-Now I understand, thanks!
+We don't error out pending SKBs on the state transition alone, we do
+it when we have the state transition _AND_ the number of probes
+exceeds the limit.
 
-Patch applied.
+And it seems that behavior is very much intentional.
+
+I'm not going to apply this.
