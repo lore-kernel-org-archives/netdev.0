@@ -1,35 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: added pci_device_id table
-Date: Thu, 11 Jun 2009 03:05:27 -0700 (PDT)
-Message-ID: <20090611.030527.14497101.davem@davemloft.net>
-References: <4A2E5B5B.7060701@mellanox.co.il>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: [PATCH] neigh: error out pending skbs if netlink invalidates
+ incomplete neigh
+Date: Thu, 11 Jun 2009 13:08:01 +0300
+Message-ID: <4A30D781.2020403@iki.fi>
+References: <1244104855-2129-1-git-send-email-timo.teras@iki.fi> <20090611.030207.238260652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tziporet@mellanox.co.il
-To: yevgenyp@mellanox.co.il
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42948
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753736AbZFKKFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 06:05:24 -0400
-In-Reply-To: <4A2E5B5B.7060701@mellanox.co.il>
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:59856 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757302AbZFKKH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 06:07:58 -0400
+Received: by ewy6 with SMTP id 6so1857582ewy.37
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 03:08:00 -0700 (PDT)
+In-Reply-To: <20090611.030207.238260652.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Tue, 09 Jun 2009 15:53:47 +0300
-
-> This is required to ensure that mlx4_en module loads on boot when
-> there are ConnectX devices installed.
-> The driver is compound from two modules: mlx4_core, the low level module
-> and mlx4_en. Currently mlx4_core is the only module that is loaded on boot,
-> this is not enough to enable the ConnectX Ethernet interfaces.
+David Miller wrote:
+> From: Timo Teras <timo.teras@iki.fi>
+> Date: Thu,  4 Jun 2009 11:40:55 +0300
 > 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+>> The state transition code from incomplete to invalid via neigh_update()
+>> is missing the proper clean up of skb queue. Separate the clean up
+>> code from neigh_timer_handler() to a new function and make neigh_update()
+>> is it also.
+>>
+>> Signed-off-by: Timo Teras <timo.teras@iki.fi>
+> 
+> We don't error out pending SKBs on the state transition alone, we do
+> it when we have the state transition _AND_ the number of probes
+> exceeds the limit.
+> 
+> And it seems that behavior is very much intentional.
+> 
+> I'm not going to apply this.
 
-This is pretty ugly.
+When the state is changed to FAILED by netlink, the timer is stopped
+and further probes are not tried anymore. This results in that the
+skb's are not errored. The neigh entry is left stale.
 
-Two modules with the same exact module ID table smells like bad
-design.  I see no harm in you combining all of this code into one
-final module object.
+The behaviour is flawed currently. Either we need to prevent state
+change from INCOMPLETE -> FAILED via netlink and keep on sending probes,
+or flush the queue when userland replies with FAILED. Otherwise the
+neigh entry state is left bad.
+
+- Timo
+
