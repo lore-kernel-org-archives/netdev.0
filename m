@@ -1,56 +1,52 @@
-From: Subrata Modak <subrata@linux.vnet.ibm.com>
-Subject: Re: [PATCH] Re:[BUILD FAILURE 04/04] Next June 04:PPC64 randconfig
-	[drivers/net/ucc_geth.o]
-Date: Thu, 11 Jun 2009 07:26:04 +0530
-Message-ID: <1244685364.6494.14.camel@subratamodak.linux.ibm.com>
-References: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
-	 <20090611110523.1fd56a41.sfr@canb.auug.org.au>
-Reply-To: subrata@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090611110523.1fd56a41.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-next PATCH 1/3] qlge: Relax alignment on TX harware queue.
+Date: Wed, 10 Jun 2009 18:49:33 -0700
+Message-ID: <1244684975-10211-1-git-send-email-ron.mercer@qlogic.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:39442 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756391AbZFKB5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 21:57:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
-> Hi Subrata,
->=20
-> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.=
-ibm.com> wrote:
-> >
-> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII *=
-/
-> > -	ph =3D of_get_property(np, "tbi-handle", NULL);
-> > +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
->=20
-> You don't need this cast because of_get_property() returns "void *".
+The alignment was on size of queue boundary, but the hardware
+only requires 4-byte alignment.
 
-Stephen,
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge.h      |    2 ++
+ drivers/net/qlge/qlge_main.c |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-True. But without this gcc complains:
+diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
+index 5eb52ca..b1ddfd1 100644
+--- a/drivers/net/qlge/qlge.h
++++ b/drivers/net/qlge/qlge.h
+@@ -27,6 +27,8 @@
+ 			   "%s: " fmt, __func__, ##args);  \
+        } while (0)
+ 
++#define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
++
+ #define QLGE_VENDOR_ID    0x1077
+ #define QLGE_DEVICE_ID_8012	0x8012
+ #define QLGE_DEVICE_ID_8000	0x8000
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 024c734..17d512c 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -2237,7 +2237,7 @@ static int ql_alloc_tx_resources(struct ql_adapter *qdev,
+ 				 &tx_ring->wq_base_dma);
+ 
+ 	if ((tx_ring->wq_base == NULL)
+-	    || tx_ring->wq_base_dma & (tx_ring->wq_size - 1)) {
++		|| tx_ring->wq_base_dma & WQ_ADDR_ALIGN) {
+ 		QPRINTK(qdev, IFUP, ERR, "tx_ring alloc failed.\n");
+ 		return -ENOMEM;
+ 	}
+-- 
+1.6.0.2
 
-CC [M]  drivers/net/ucc_geth.o
-drivers/net/ucc_geth.c: In function =E2=80=98ucc_geth_probe=E2=80=99:
-drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
-from pointer target type
-
-Else gcc just builds fine:
-
-CC [M]  drivers/net/ucc_geth.o
-
-This is an just an extra caution to fix both the build and warning
-regression(s).
-
-Regards--
-Subrata
-
->=20
