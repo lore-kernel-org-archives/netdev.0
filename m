@@ -1,78 +1,93 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
-Date: Thu, 11 Jun 2009 08:22:54 -0600
-Message-ID: <fa686aa40906110722y1b4b8c22l7ccdd32d6684324d@mail.gmail.com>
-References: <20090224000002.GA578@ovro.caltech.edu>
-	<fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
-	<20090414215342.GB9877@ovro.caltech.edu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [BUG] fib_tries related Oops in 2.6.30
+Date: Thu, 11 Jun 2009 16:39:57 +0200
+Message-ID: <4A31173D.6010504@gmail.com>
+References: <3d0408630906100905l5750a20aq781780fe38fccf6e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Ira Snyder <iws@ovro.caltech.edu>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20090414215342.GB9877@ovro.caltech.edu>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Robert Olsson <robert.olsson@its.uu.se>
+To: Yan Zheng <zheng.yan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:40940 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753547AbZFKOkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 10:40:23 -0400
+In-Reply-To: <3d0408630906100905l5750a20aq781780fe38fccf6e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2009 at 3:53 PM, Ira Snyder<iws@ovro.caltech.edu> wrote:
-> On Tue, Apr 14, 2009 at 02:28:26PM -0600, Grant Likely wrote:
->> On Mon, Feb 23, 2009 at 6:00 PM, Ira Snyder <iws@ovro.caltech.edu> wrote:
->> > This adds support to Linux for using virtio between two computers link=
-ed by
->> > a PCI interface. This allows the use of virtio_net to create a familia=
-r,
->> > fast interface for communication. It should be possible to use other v=
-irtio
->> > devices in the future, but this has not been tested.
->>
->> Hey Ira,
->>
->> I like this a lot. =A0I need to do much the same thing on one of my
->> platforms, so I'm going to use your patch as my starting point. =A0Have
->> you made many changes since you posted this version of your patch?
->> I'd like to collaborate on the development and help to get it
->> mainlined.
->>
->
-> This would be great. I'd really appreciate the help. I haven't had time
-> to make any changes since I last posted the patch. I started work on
-> converting all of the usage of struct vop_loc_* to just use the on-wire
-> structures, but I didn't get very far before other work got in the way.
->
->> In my case I've got an MPC5200 as the 'host' and a Xilinx Virtex
->> (ppc440) as the 'client'. =A0I intend set aside a region of the Xilinx
->> Virtex's memory space for the shared queues. =A0I'm starting work on it
->> now, and I'll provide you with feedback and/or patches as I make
->> progress.
->>
->
-> I'm looking forward to seeing your implementation. If you have any
-> questions, I'd be happy to attempt to answer them :)
+Cc Robert Olsson.
 
-Hey Ira,
+Jarek P.
 
-I've been slowly hacking on your virtio-over-pci stuff.  I've got an
-initial series of cleanup patches which address some of the comments
-from this thread.  Before I send them to you, have you made any
-changes on your end?  They likely won't apply without changes to the
-core code, so I'd like to sync up with you first.
+Yan Zheng wrote, On 06/10/2009 06:05 PM:
 
-Cheers,
-g.
+> Hello,
+> 
+> I pull linux-2.6.30 from linus-2.6 git tree. I got following oops
+> immediately after boot.
+> 
+> # uname -a
+> Linux zhyan-cn 2.6.30 #1 SMP PREEMPT Wed Jun 10 23:37:22 CST 2009 i686
+> i686 i386 GNU/Linux
+> 
+> ---
+> BUG: sleeping function called from invalid context at
+> /mnt/sda7/linux-2.6/mm/slub.c:1598
+> in_atomic(): 1, irqs_disabled(): 0, pid: 2286, name: NetworkManager
+> Pid: 2286, comm: NetworkManager Not tainted 2.6.30 #1
+> Call Trace:
+>  [<c042568c>] __might_sleep+0xfc/0x103
+>  [<c049bb79>] __kmalloc+0x7c/0x132
+>  [<c0697be5>] ? tnode_new+0x27/0x69
+>  [<c0697be5>] tnode_new+0x27/0x69
+>  [<c0697d36>] resize+0x94/0x666
+>  [<c049ac13>] ? __slab_alloc+0xc2/0x4b3
+>  [<c0697be5>] ? tnode_new+0x27/0x69
+>  [<c049bc23>] ? __kmalloc+0x126/0x132
+>  [<c0698384>] trie_rebalance+0x7c/0xde
+>  [<c0698d77>] fn_trie_insert+0x644/0x6d6
+>  [<c0427da7>] ? try_to_wake_up+0x2c4/0x2ce
+>  [<c0427dbc>] ? default_wake_function+0xb/0xd
+>  [<c069402e>] fib_magic+0x99/0xa8
+>  [<c069412c>] fib_add_ifaddr+0xef/0x111
+>  [<c0694178>] fib_inetaddr_event+0x2a/0x1a9
+>  [<c06cd5a9>] notifier_call_chain+0x2b/0x4a
+>  [<c0444189>] __blocking_notifier_call_chain+0x37/0x4c
+>  [<c04441aa>] blocking_notifier_call_chain+0xc/0xe
+>  [<c068d8f4>] __inet_insert_ifa+0xf9/0x104
+>  [<c068eb28>] inet_rtm_newaddr+0x16f/0x177
+>  [<c068e9b9>] ? inet_rtm_newaddr+0x0/0x177
+>  [<c065218c>] rtnetlink_rcv_msg+0x196/0x1b0
+>  [<c0651ff6>] ? rtnetlink_rcv_msg+0x0/0x1b0
+>  [<c065fbac>] netlink_rcv_skb+0x30/0x78
+>  [<c0651fee>] rtnetlink_rcv+0x1c/0x24
+>  [<c065f78e>] netlink_unicast+0xee/0x144
+>  [<c065fa27>] netlink_sendmsg+0x243/0x250
+>  [<c063d1f4>] __sock_sendmsg+0x45/0x4e
+>  [<c063d978>] sock_sendmsg+0xb8/0xce
+>  [<c044072b>] ? autoremove_wake_function+0x0/0x33
+>  [<c044072b>] ? autoremove_wake_function+0x0/0x33
+>  [<c044072b>] ? autoremove_wake_function+0x0/0x33
+>  [<c0523aa7>] ? copy_from_user+0x34/0x11b
+>  [<c0644ba4>] ? verify_iovec+0x40/0x70
+>  [<c063dacd>] sys_sendmsg+0x13f/0x192
+>  [<c063e67a>] ? sys_recvmsg+0x16d/0x17a
+>  [<c041f6b4>] ? kunmap_atomic+0x8b/0xa3
+>  [<c0489a88>] ? do_wp_page+0x515/0x5ac
+>  [<c044072b>] ? autoremove_wake_function+0x0/0x33
+>  [<c041af58>] ? paravirt_get_lazy_mode+0xe/0x1b
+>  [<c041b128>] ? arch_flush_lazy_mmu_mode+0x47/0x5b
+>  [<c041f799>] ? kmap_atomic_prot+0xcd/0xeb
+>  [<c048af8c>] ? handle_mm_fault+0x58d/0x5e8
+>  [<c063eb09>] sys_socketcall+0x153/0x183
+>  [<c0403298>] sysenter_do_call+0x12/0x2d
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
 
--- =
-
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
