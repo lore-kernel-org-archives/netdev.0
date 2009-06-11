@@ -1,91 +1,122 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
-	configuration.
-Date: Thu, 11 Jun 2009 17:52:46 +0100
-Message-ID: <1244739166.2785.52.camel@achroite>
-References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
-	 <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
-	 <1244732090.2785.12.camel@achroite>
-	 <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: "sky2: set VPD size" triggers card recognition failure
+Date: Thu, 11 Jun 2009 10:03:47 -0700
+Message-ID: <20090611100347.7c4160a4@nehalam>
+References: <20090611122942.GA7554@shadowen.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
-To: Nicolas Pitre <nico@cam.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andy Whitcroft <apw@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:43509 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753397AbZFKQwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 12:52:49 -0400
-In-Reply-To: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+Received: from mail.vyatta.com ([76.74.103.46]:41905 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751278AbZFKRDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 13:03:51 -0400
+In-Reply-To: <20090611122942.GA7554@shadowen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-06-11 at 12:22 -0400, Nicolas Pitre wrote:
-> On Thu, 11 Jun 2009, Ben Hutchings wrote:
+On Thu, 11 Jun 2009 13:29:42 +0100
+Andy Whitcroft <apw@canonical.com> wrote:
+
+> We have reports[1] of sky2 cards failing to be recognised with the latest
+> 2.6.30-rc8 kernels.  We are seeing what appears to be failures to
+> obtains the chip id correctly:
 > 
-> > On Thu, 2009-06-11 at 08:47 +0200, Martin Fuzzey wrote:
-> > > Ben Hutchings wrote:
-> > > > Who needs this feature?  Why not use ethtool in an initramfs?
-> > > >
-> > > >   
-> > > > Forcing speed and duplex is occasionally needed to work around a link
-> > > > partner that doesn't implement autonegotiation correctly.  I don't see
-> > > > that it should ever be needed in platform configuration.  If the driver
-> > > > doesn't detect the MAC/PHY capabilities correctly then the driver should
-> > > > be fixed.  Overriding the settings once will not prevent an unsupported
-> > > > mode being selected later.
-> > > >
-> > > >   
-> > > To summarize the recent points I made in the smc91x: forcing speed thread :
-> > > 
-> > > 1) Setting up and maintaining an initramfs can increase the complexity
-> > > for embedded systems - it's another image file to build, distribute,
-> > > update to bootloader etc.
-> > 
-> > This doesn't seem like a huge burden if you're net-booting.  And if
-> > you're not net-booting, it's not critical that you override the link
-> > mode immediately; you can do it in the regular init scripts.
+>     sky2 driver version 1.22
+>     sky2 0000:02:00.0: enabling device (0000 -> 0003)
+>     sky2 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+>     sky2 0000:02:00.0: setting latency timer to 64
+>     sky2 0000:02:00.0: Can't set VPD size
+>     sky2 0000:02:00.0: unsupported chip type 0xff
+>     sky2 0000:02:00.0: PCI INT A disabled
+>     sky2: probe of 0000:02:00.0 failed with error -95
 > 
-> Sure... But for some embedded setup this is actually more trouble and 
-> hassle than having a non-intrusive kernel based facility that can set 
-> defaults for you.
-
-Doing it in an init script is even less intrusive!  But it seems that
-the ethtool API doesn't do what you need in this case, anyway.
-
-[...]
-> > > I currently have this situation on one of my boards - 100Mbps doesn't
-> > > work due to electrical issues (bad routing).
-> > > This board is already in the wild - if it is fixed one day it will be a
-> > > new hardware revision and the code will have to cope with both.
-> > > Sure the "right" way is to fix the hardware but that's not always
-> > > economically or logistically possible.
-> > > I suspect such situations are not uncommon in the embedded world.
-> > 
-> > So, as I thought, you actually want to disable some modes completely.
-> > That is not what ethtool does.
+> Based on the VPD size failure message we reverted just the commit below,
+> which restored the card:
 > 
-> No.  What is needed is to enforce a different _default_.  If someone 
-> manages to run ethtool after the system is booted and select the broken 
-> mode then that's just too bad.
->
-> Now the mainline people are (rightly) complaining that the 
-> embedded people don't participate enough and communicate their needs 
-> with the upstream kernel  I think this is a good example from the 
-> embedded world providing a clean solution to a recurring issue which 
-> would return again to quick hacks if the mainline reception is 
-> "use a cramfs" again.
+>     commit 3834507d0c5480a0f05486c2fb57ed18fd179a83
+>     Author: Stephen Hemminger <shemminger@vyatta.com>
+>     Date:   Tue Feb 3 11:27:30 2009 +0000
+> 
+> 	sky2: set VPD size
+> 	
+> 	Read configuration register during probe and use it to size the
+> 	available VPD. Move existing code using same register slightly
+> 	earlier in probe handling.
+> 	
+> 	Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 	Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Steven, any thoughts?
 
-It's an example of providing a generic solution, which is definitely
-more than a quick hack, but I don't see it as a "clean solution" for the
-problem that certain link modes don't work on a particular board.  A
-clean solution would disable those modes altogether in the driver.
+Some of the chip version have different registers, and some hardware vendors build
+boards without VPD.  Does this help:
 
-Ben.
+---------
+Subject: sky2: don't look for VPD size
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The code to compute VPD size didn't handle some systems that use
+chip without VPD. Also some of the newer chips use some additional
+registers to store the actual size, and wasn't worth putting the
+additional complexity in, so just remove the code.
 
+No big loss since the code to set the VPD size was only a 
+convenience so that utilities would not read the extra space past
+the end of the available VPD.
+
+Move the first PCI config read earlier to detect bad hardware
+where it returns all ones and refuse loading driver before furthur
+damage.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/drivers/net/sky2.c	2009-06-11 09:26:05.420060719 -0700
++++ b/drivers/net/sky2.c	2009-06-11 09:28:27.004211122 -0700
+@@ -4431,6 +4431,22 @@ static int __devinit sky2_probe(struct p
+ 		goto err_out;
+ 	}
+ 
++	/* Get configuration information
++	 * Note: only regular PCI config access once to test for HW issues
++	 *       other PCI access through shared memory for speed and to
++	 *	 avoid MMCONFIG problems.
++	 */
++	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
++	if (err) {
++		dev_err(&pdev->dev, "PCI read config failed\n");
++		goto err_out;
++	}
++
++	if (~reg == 0) {
++		dev_err(&pdev->dev, "PCI configuration read error\n");
++		goto err_out;
++	}
++
+ 	err = pci_request_regions(pdev, DRV_NAME);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "cannot obtain PCI resources\n");
+@@ -4456,21 +4472,6 @@ static int __devinit sky2_probe(struct p
+ 		}
+ 	}
+ 
+-	/* Get configuration information
+-	 * Note: only regular PCI config access once to test for HW issues
+-	 *       other PCI access through shared memory for speed and to
+-	 *	 avoid MMCONFIG problems.
+-	 */
+-	err = pci_read_config_dword(pdev, PCI_DEV_REG2, &reg);
+-	if (err) {
+-		dev_err(&pdev->dev, "PCI read config failed\n");
+-		goto err_out_free_regions;
+-	}
+-
+-	/* size of available VPD, only impact sysfs */
+-	err = pci_vpd_truncate(pdev, 1ul << (((reg & PCI_VPD_ROM_SZ) >> 14) + 8));
+-	if (err)
+-		dev_warn(&pdev->dev, "Can't set VPD size\n");
+ 
+ #ifdef __BIG_ENDIAN
+ 	/* The sk98lin vendor driver uses hardware byte swapping but
