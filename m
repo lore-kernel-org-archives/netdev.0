@@ -1,61 +1,78 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: Re: [RFC usbnet.c] - Add packet aggregation capability
-Date: Thu, 11 Jun 2009 09:30:46 -0400
-Message-ID: <1244727046.10611.1.camel@localhost.localdomain>
-References: <1244656659.2845.11.camel@localhost.localdomain>
-	<20090611.053830.39176651.davem@davemloft.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
+Date: Thu, 11 Jun 2009 08:22:54 -0600
+Message-ID: <fa686aa40906110722y1b4b8c22l7ccdd32d6684324d@mail.gmail.com>
+References: <20090224000002.GA578@ovro.caltech.edu>
+	<fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
+	<20090414215342.GB9877@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: david-b@pacbell.net, netdev@vger.kernel.org, mark@asix.com.tw,
-	donald@asix.com.tw, louis@asix.com.tw
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173007pub.verizon.net ([206.46.173.7]:60523 "EHLO
-	vms173007pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948AbZFKOHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 10:07:21 -0400
-Received: from smtp.davehollis.com ([173.65.162.118])
- by vms173007.mailsrvcs.net
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008; 32bit))
- with ESMTPA id <0KL200H0HTJGW6N7@vms173007.mailsrvcs.net> for
- netdev@vger.kernel.org; Thu, 11 Jun 2009 08:30:53 -0500 (CDT)
-In-reply-to: <20090611.053830.39176651.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Arnd Bergmann <arnd@arndb.de>, Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Ira Snyder <iws@ovro.caltech.edu>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090414215342.GB9877@ovro.caltech.edu>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2009-06-11 at 05:38 -0700, David Miller wrote:
-> From: David Hollis <dhollis@davehollis.com>
-> Date: Wed, 10 Jun 2009 13:57:39 -0400
-> 
-> > One item that I have is how to handle the portion in usbnet_probe() that
-> > sets the hard_start_xmit handler with the change to netdevice_ops:
-> > 
-> > -	net->hard_start_xmit = usbnet_start_xmit;
-> > +	if (info->tx_gather)
-> > +		net->hard_start_xmit = usbnet_bundle_xmit;
-> > +	else
-> > +		net->hard_start_xmit = usbnet_start_xmit;
-> > 
-> > 
-> > Would it be the most appropriate to merge the
-> > usbnet_aggregate_skb_xmit() pieces into the existing usbnet_start_xmit
-> > with appropriate conditionals?
-> 
-> In the current tree you cannot even make this assignment.
-> 
-> Everything must go through a net_device_ops set of methods,
-> the pointer of which is const.
+On Tue, Apr 14, 2009 at 3:53 PM, Ira Snyder<iws@ovro.caltech.edu> wrote:
+> On Tue, Apr 14, 2009 at 02:28:26PM -0600, Grant Likely wrote:
+>> On Mon, Feb 23, 2009 at 6:00 PM, Ira Snyder <iws@ovro.caltech.edu> wrote:
+>> > This adds support to Linux for using virtio between two computers link=
+ed by
+>> > a PCI interface. This allows the use of virtio_net to create a familia=
+r,
+>> > fast interface for communication. It should be possible to use other v=
+irtio
+>> > devices in the future, but this has not been tested.
+>>
+>> Hey Ira,
+>>
+>> I like this a lot. =A0I need to do much the same thing on one of my
+>> platforms, so I'm going to use your patch as my starting point. =A0Have
+>> you made many changes since you posted this version of your patch?
+>> I'd like to collaborate on the development and help to get it
+>> mainlined.
+>>
+>
+> This would be great. I'd really appreciate the help. I haven't had time
+> to make any changes since I last posted the patch. I started work on
+> converting all of the usage of struct vop_loc_* to just use the on-wire
+> structures, but I didn't get very far before other work got in the way.
+>
+>> In my case I've got an MPC5200 as the 'host' and a Xilinx Virtex
+>> (ppc440) as the 'client'. =A0I intend set aside a region of the Xilinx
+>> Virtex's memory space for the shared queues. =A0I'm starting work on it
+>> now, and I'll provide you with feedback and/or patches as I make
+>> progress.
+>>
+>
+> I'm looking forward to seeing your implementation. If you have any
+> questions, I'd be happy to attempt to answer them :)
 
-So I'd need to have to separate net_device_ops and set
-net->hard_start_xmit to the appropriate one based on info->tx_gather
-being defined.
+Hey Ira,
 
-Not a problem.
+I've been slowly hacking on your virtio-over-pci stuff.  I've got an
+initial series of cleanup patches which address some of the comments
+from this thread.  Before I send them to you, have you made any
+changes on your end?  They likely won't apply without changes to the
+core code, so I'd like to sync up with you first.
+
+Cheers,
+g.
 
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- =
 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
