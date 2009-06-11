@@ -1,51 +1,91 @@
-From: Nathan Lynch <ntl@pobox.com>
-Subject: Re: [PATCH] Re:[BUILD FAILURE 04/04] Next June 04:PPC64 randconfig
- [drivers/net/ucc_geth.o]
-Date: Wed, 10 Jun 2009 21:28:30 -0500
-Message-ID: <m3d49btsfl.fsf@pobox.com>
-References: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
- <20090611110523.1fd56a41.sfr@canb.auug.org.au>
- <1244685364.6494.14.camel@subratamodak.linux.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: kernel dies if loopback device not intialized
+Date: Wed, 10 Jun 2009 20:35:36 -0700
+Message-ID: <20090610203536.4357d309@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>
-To: subrata@linux.vnet.ibm.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1244685364.6494.14.camel@subratamodak.linux.ibm.com> (Subrata
- Modak's message of "Thu\, 11 Jun 2009 07\:26\:04 +0530")
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35291 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754361AbZFKDfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2009 23:35:40 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 6D90E4F403F
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 20:35:42 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id QlW7kv+m59YT for <netdev@vger.kernel.org>;
+	Wed, 10 Jun 2009 20:35:37 -0700 (PDT)
+Received: from nehalam (pool-71-117-243-208.ptldor.fios.verizon.net [71.117.243.208])
+	by mail.vyatta.com (Postfix) with ESMTP id 9A4CA4F4032
+	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 20:35:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Subrata Modak <subrata@linux.vnet.ibm.com> writes:
+This OOPS happens if system is booted up and loopback device
+is not initialized. This means the loopback device is not yet in the
+route table so when arp goes to send the error report, the route
+lookup thinks it is a martian and then dies.
 
-> On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
->> Hi Subrata,
->>=20
->> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet=
-=2Eibm.com> wrote:
->> >
->> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII =
-*/
->> > -	ph =3D of_get_property(np, "tbi-handle", NULL);
->> > +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
->>=20
->> You don't need this cast because of_get_property() returns "void *".
->
-> Stephen,
->
-> True. But without this gcc complains:
->
-> CC [M]  drivers/net/ucc_geth.o
-> drivers/net/ucc_geth.c: In function =E2=80=98ucc_geth_probe=E2=80=99:
-> drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
-> from pointer target type
+Granted this is a startup script problem, but kernel shouldn't die.
 
-ph should be declared const phandle *.  Look at other uses of
-of_get_property.
+[   55.601158] IP: [<c028968c>] ip_handle_martian_source+0x75/0xb8
+[   55.604044] Oops: 0000 [#1] SMP
+[   55.604044] last sysfs file: /sys/kernel/uevent_seqnum
+[   55.604044] Modules linked in: iptable_nat ip6table_filter
+iptable_filter ip6table_raw ip6_tables xt_NOTRACK iptable_raw ip_tables
+x_tables nf_nat_pptp nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_h323
+nf_conntrack_h323 nf_nat_sip nf_conntrack_sip nf_nat_proto_gre nf_nat_tftp
+nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_tftp
+nf_conntrack_ftp nf_conntrack ipv6 md_mod parport_pc parport psmouse
+pcspkr serio_raw vmxnet container ac button i2c_piix4 i2c_core shpchp
+pci_hotplug intel_agp agpgart evdev vfat fat ext2 battery squashfs loop
+unionfs nls_utf8 isofs nls_base zlib_inflate ext3 jbd mbcache sd_mod sg
+crc_t10dif sr_mod cdrom ata_piix pata_acpi floppy ata_generic mptspi
+mptscsih mptbase scsi_transport_spi libata scsi_mod thermal processor fan
+thermal_sys
+[   55.604044]
+[   55.604044] Pid: 0, comm: swapper Not tainted (2.6.29-1-586-vyatta #1)
+VMware Virtual Platform
+[   55.604044] EIP: 0060:[<c028968c>] EFLAGS: 00010293 CPU: 0
+[   55.604044] EIP is at ip_handle_martian_source+0x75/0xb8
+[   55.604044] EAX: 0000000e EBX: 00000000 ECX: c03e3d28 EDX: c03611e7
+[   55.604044] ESI: ddc40000 EDI: fffffc00 EBP: 00000000 ESP: c03e3d28
+[   55.604044]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+[   55.604044] Process swapper (pid: 0, ti=c03e2000 task=c038533c
+task.ti=c03e2000)
+[   55.604044] Stack:
+[   55.604044]  00000003 0100007f ffffffea c028c45b 1000000f 0100007f
+00000000 00000003
+[   55.604044]  00000246 0100007f de5e9180 00000004 dfa6c600 df24ea80
+c03e3dcc c03e3d90
+[   55.604044]  00000000 00000003 00000000 1000000f 0100007f 00000000
+00000000 00000000
+[   55.604044] Call Trace:
+[   55.604044]  [<c028c45b>] ip_route_input+0xbf8/0xc20
+[   55.604044]  [<c02ac0a9>] icmp_send+0x361/0x4c4
+[   55.604044]  [<c0135a7e>] sched_clock_cpu+0x13f/0x14b
+[   55.604044]  [<c011cf34>] update_rq_clock+0xe/0x1c
+[   55.604044]  [<c0289174>] ipv4_link_failure+0x14/0x37
+[   55.604044]  [<c02aa056>] arp_error_report+0x1c/0x24
+[   55.604044]  [<c027a3ae>] neigh_timer_handler+0x1c4/0x282
+[   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
+[   55.604044]  [<c01298eb>] run_timer_softirq+0x139/0x191
+[   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
+[   55.604044]  [<c012680a>] __do_softirq+0x83/0x103
+[   55.604044]  [<c01268bc>] do_softirq+0x32/0x36
+[   55.604044]  [<c01269d7>] irq_exit+0x35/0x62
+[   55.604044]  [<c010fbc4>] smp_apic_timer_interrupt+0x71/0x7b
+[   55.604044]  [<c0103a48>] apic_timer_interrupt+0x28/0x30
+[   55.604044]  [<c01085f0>] default_idle+0x2a/0x3d
+[   55.604044]  [<c0102489>] cpu_idle+0x57/0x72
+[   55.604044] Code: e8 a1 f1 04 00 83 c4 10 66 83 be d2 00 00 00 00 74 58
+8b bf 98 00 00 00 85 ff 74 4e 68 e7 11 36 c0 31 db e8 7e f1 04 00 58 eb 29
+<0f> b6 04 1f 50 68 c8 20 35 c0 e8 6c f1 04 00 0f b7 86 d2 00 00
+[   55.604044] EIP: [<c028968c>] ip_handle_martian_source+0x75/0xb8 SS:ESP
+0068:c03e3d28
+[   55.604044] ---[ end trace bfa8f60b4b45cd60 ]---
+[   55.604044] Kernel panic - not syncing: Fatal exception in interrupt
+-- 
