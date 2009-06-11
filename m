@@ -1,55 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] Re:[BUILD FAILURE 04/04] Next June 04:PPC64 randconfig
- [drivers/net/ucc_geth.o]
-Date: Thu, 11 Jun 2009 11:05:23 +1000
-Message-ID: <20090611110523.1fd56a41.sfr@canb.auug.org.au>
-References: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__11_Jun_2009_11_05_23_+1000_CLhLW3vWD/LT16B1"
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
-To: Subrata Modak <subrata@linux.vnet.ibm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 4/4] MPC85xx: Add UCC6 and UCC8 nodes in SGMII mode for MPC8569MDS
+Date: Wed, 10 Jun 2009 20:35:59 -0500
+Message-ID: <8BE7FB34-A682-4E6D-B3AC-45D5594812C8@kernel.crashing.org>
+References: <1243951456-4685-2-git-send-email-Haiying.Wang@freescale.com> <1243951456-4685-3-git-send-email-Haiying.Wang@freescale.com> <1243951456-4685-4-git-send-email-Haiying.Wang@freescale.com> <20090603.035132.157926180.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Haiying.Wang@freescale.com, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:58595 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752753AbZFKBiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2009 21:38:09 -0400
+In-Reply-To: <20090603.035132.157926180.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__11_Jun_2009_11_05_23_+1000_CLhLW3vWD/LT16B1
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Subrata,
+On Jun 3, 2009, at 5:51 AM, David Miller wrote:
 
-On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ibm.co=
-m> wrote:
+> From: Haiying Wang <Haiying.Wang@freescale.com>
+> Date: Tue,  2 Jun 2009 10:04:16 -0400
 >
->  	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
-> -	ph =3D of_get_property(np, "tbi-handle", NULL);
-> +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
+>> Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
+>
+> I couldn't apply this to net-next-2.6 because this DTS
+> file being patched doesn't exist there.
+>
+> Perhaps the powerpc-next tree can suck it in...
 
-You don't need this cast because of_get_property() returns "void *".
+I'll pick this one up and send it via the powerpc tree.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__11_Jun_2009_11_05_23_+1000_CLhLW3vWD/LT16B1
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkowWFMACgkQjjKRsyhoI8w4TQCdFUiVJxuhoNJri0/mjfdAhFy/
-Dn4AniZX+xHe8/kuLRQt7+OruyVHTcOv
-=y6+w
------END PGP SIGNATURE-----
-
---Signature=_Thu__11_Jun_2009_11_05_23_+1000_CLhLW3vWD/LT16B1--
+- k
