@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/31: netfilter update
-Date: Thu, 11 Jun 2009 16:50:41 -0700 (PDT)
-Message-ID: <20090611.165041.201036582.davem@davemloft.net>
-References: <20090611.161910.109357779.davem@davemloft.net>
-	<20090611.164047.74924409.davem@davemloft.net>
-	<4A31978A.3040300@trash.net>
+Subject: Re: [PATCH 0/6] ISDN fixes
+Date: Thu, 11 Jun 2009 16:53:02 -0700 (PDT)
+Message-ID: <20090611.165302.118156273.davem@davemloft.net>
+References: <cover.1244739994.git.keil@b1-systems.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4A31978A.3040300@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	i4ldeveloper@listserv.isdn4linux.de
+To: keil@b1-systems.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44511
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753090AbZFKXw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:52:59 -0400
+In-Reply-To: <cover.1244739994.git.keil@b1-systems.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 12 Jun 2009 01:47:22 +0200
+From: Karsten Keil <keil@b1-systems.de>
+Date: Thu, 11 Jun 2009 19:06:34 +0200
 
-> David Miller wrote:
->> From: David Miller <davem@davemloft.net>
->> Date: Thu, 11 Jun 2009 16:19:10 -0700 (PDT)
->> Nevermind, still broken:
->>
->> net/ipv4/netfilter/ip_tables.c: In function 'ipt_do_table':
->> net/ipv4/netfilter/ip_tables.c:421: error: 'comefrom' undeclared (first use in this function)
->> net/ipv4/netfilter/ip_tables.c:421: error: (Each undeclared identifier is reported only once
->> net/ipv4/netfilter/ip_tables.c:421: error: for each function it appears in.)
->>
->> You're not testing what you're sending to me.
->>   
+> Some more fixes for ISDN.
 > 
-> Appologies again, I didn't test CONFIG_NETFILTER_DEBUG=y.
-> I'll fix it up and do a few more compile tests myself.
+> You can pull it from
+> git://master.kernel.org/pub/scm/linux/kernel/git/kkeil/ISDN-2.6-net-next.git for_david
 
-Thank you.
+That URL won't work for anyone.
+
+The GIT service only runs on git.kernel.org, master.kernel.org only
+provides SSH based connections.
+
+I've pulled and will do some sanity checks on this before pushing
+back out, thanks!
