@@ -1,52 +1,91 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC net 00/03]: dev_queue_xmit error propagation
-Date: Thu, 11 Jun 2009 18:33:26 +0200
-Message-ID: <4A3131D6.40807@trash.net>
-References: <20090609161658.6730.59754.sendpatchset@x2.localnet> <20090611.031852.90563118.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
+	configuration.
+Date: Thu, 11 Jun 2009 17:52:46 +0100
+Message-ID: <1244739166.2785.52.camel@achroite>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+	 <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
+	 <1244732090.2785.12.camel@achroite>
+	 <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
+To: Nicolas Pitre <nico@cam.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56148 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753963AbZFKQd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 12:33:26 -0400
-In-Reply-To: <20090611.031852.90563118.davem@davemloft.net>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:43509 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753397AbZFKQwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 12:52:49 -0400
+In-Reply-To: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Tue,  9 Jun 2009 18:16:59 +0200 (MEST)
+On Thu, 2009-06-11 at 12:22 -0400, Nicolas Pitre wrote:
+> On Thu, 11 Jun 2009, Ben Hutchings wrote:
 > 
->> Currently the ->ndo_hard_start_xmit() callbacks are only permitted to return
->> one of the NETDEV_TX codes. This prevents any kind of error propagation for
->> virtual devices, like queue congestion of the underlying device in case of
->> layered devices, or unreachability in case of tunnels.
->>
->> These patches change the return conventions so hard_start_xmit() can return
->> a NETDEV_TX code, an errno code or a NET_XMIT code. This means it can
->> additionally to the NETDEV_TX codes simply return the value of dev_queue_xmit().
->>
-
-> These changes look fine to me.
+> > On Thu, 2009-06-11 at 08:47 +0200, Martin Fuzzey wrote:
+> > > Ben Hutchings wrote:
+> > > > Who needs this feature?  Why not use ethtool in an initramfs?
+> > > >
+> > > >   
+> > > > Forcing speed and duplex is occasionally needed to work around a link
+> > > > partner that doesn't implement autonegotiation correctly.  I don't see
+> > > > that it should ever be needed in platform configuration.  If the driver
+> > > > doesn't detect the MAC/PHY capabilities correctly then the driver should
+> > > > be fixed.  Overriding the settings once will not prevent an unsupported
+> > > > mode being selected later.
+> > > >
+> > > >   
+> > > To summarize the recent points I made in the smc91x: forcing speed thread :
+> > > 
+> > > 1) Setting up and maintaining an initramfs can increase the complexity
+> > > for embedded systems - it's another image file to build, distribute,
+> > > update to bootloader etc.
+> > 
+> > This doesn't seem like a huge burden if you're net-booting.  And if
+> > you're not net-booting, it's not critical that you override the link
+> > mode immediately; you can do it in the regular init scripts.
 > 
-> That one if() conditional checking 'ret' for three different
-> properties is stretching the brain a bit.  Maybe you can
-> encapsulate that sucker into an inline function with suitable
-> comments.  That way when someone reads the test, it just says
-> what it is looking for, rather than being some complicated
-> set of tests.
+> Sure... But for some embedded setup this is actually more trouble and 
+> hassle than having a non-intrusive kernel based facility that can set 
+> defaults for you.
 
-Yeah, I mainly failed to come up with a suitable name, but I've now
-moved it to an inline function called "dev_xmit_skb_consumed".
-Better suggestions are still welcome though :)
+Doing it in an init script is even less intrusive!  But it seems that
+the ethtool API doesn't do what you need in this case, anyway.
 
-> Once you fix that up and the problem Eric spotted in patch #3
-> feel free to formally submit this.
+[...]
+> > > I currently have this situation on one of my boards - 100Mbps doesn't
+> > > work due to electrical issues (bad routing).
+> > > This board is already in the wild - if it is fixed one day it will be a
+> > > new hardware revision and the code will have to cope with both.
+> > > Sure the "right" way is to fix the hardware but that's not always
+> > > economically or logistically possible.
+> > > I suspect such situations are not uncommon in the embedded world.
+> > 
+> > So, as I thought, you actually want to disable some modes completely.
+> > That is not what ethtool does.
+> 
+> No.  What is needed is to enforce a different _default_.  If someone 
+> manages to run ethtool after the system is booted and select the broken 
+> mode then that's just too bad.
+>
+> Now the mainline people are (rightly) complaining that the 
+> embedded people don't participate enough and communicate their needs 
+> with the upstream kernel  I think this is a good example from the 
+> embedded world providing a clean solution to a recurring issue which 
+> would return again to quick hacks if the mainline reception is 
+> "use a cramfs" again.
 
-I still need to verify that no drivers are using the raw values for
-the NETDEV_TX codes since NETDEV_TX_LOCKED is using a different
-value with my patch. I'll probably submit them later today.
+It's an example of providing a generic solution, which is definitely
+more than a quick hack, but I don't see it as a "clean solution" for the
+problem that certain link modes don't work on a particular board.  A
+clean solution would disable those modes altogether in the driver.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
