@@ -1,35 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 22:12:36 +1000
-Message-ID: <20090611121236.GA2866@gondor.apana.org.au>
-References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net> <4A30D9AA.1020004@iki.fi> <20090611105638.GA2085@gondor.apana.org.au> <4A30EAAA.4070907@iki.fi> <20090611113709.GA2545@gondor.apana.org.au> <4A30EFBE.6080106@iki.fi>
+From: Andy Whitcroft <apw@canonical.com>
+Subject: "sky2: set VPD size" triggers card recognition failure
+Date: Thu, 11 Jun 2009 13:29:42 +0100
+Message-ID: <20090611122942.GA7554@shadowen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41928 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752075AbZFKMMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 08:12:39 -0400
+Received: from adelie.canonical.com ([91.189.90.139]:34017 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757740AbZFKM3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 08:29:43 -0400
 Content-Disposition: inline
-In-Reply-To: <4A30EFBE.6080106@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2009 at 02:51:26PM +0300, Timo Ter=E4s wrote:
->
-> I guess so. The difference is not too many bytes. Is it ok to just
-> change the dev->needed_headroom from xmit routine?
+We have reports[1] of sky2 cards failing to be recognised with the latest
+2.6.30-rc8 kernels.  We are seeing what appears to be failures to
+obtains the chip id correctly:
 
-I don't see why not.  Also we only need to change it in xmit if
-we hit an skb that needs to be reallocated.
+    sky2 driver version 1.22
+    sky2 0000:02:00.0: enabling device (0000 -> 0003)
+    sky2 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+    sky2 0000:02:00.0: setting latency timer to 64
+    sky2 0000:02:00.0: Can't set VPD size
+    sky2 0000:02:00.0: unsupported chip type 0xff
+    sky2 0000:02:00.0: PCI INT A disabled
+    sky2: probe of 0000:02:00.0 failed with error -95
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Based on the VPD size failure message we reverted just the commit below,
+which restored the card:
+
+    commit 3834507d0c5480a0f05486c2fb57ed18fd179a83
+    Author: Stephen Hemminger <shemminger@vyatta.com>
+    Date:   Tue Feb 3 11:27:30 2009 +0000
+
+	sky2: set VPD size
+	
+	Read configuration register during probe and use it to size the
+	available VPD. Move existing code using same register slightly
+	earlier in probe handling.
+	
+	Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+	Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Steven, any thoughts?
+
+-apw
+
+[1] https://www.launchpad.net/bugs/384403
