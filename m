@@ -1,33 +1,56 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 4/4] MPC85xx: Add UCC6 and UCC8 nodes in SGMII mode for MPC8569MDS
-Date: Wed, 10 Jun 2009 20:51:04 -0500
-Message-ID: <F69422EE-2679-43C1-B237-2250B12CFDC4@kernel.crashing.org>
-References: <1243951456-4685-1-git-send-email-Haiying.Wang@freescale.com> <1243951456-4685-2-git-send-email-Haiying.Wang@freescale.com> <1243951456-4685-3-git-send-email-Haiying.Wang@freescale.com> <1243951456-4685-4-git-send-email-Haiying.Wang@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Haiying Wang <Haiying.Wang@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:55982 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752725AbZFKBxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Jun 2009 21:53:14 -0400
-In-Reply-To: <1243951456-4685-4-git-send-email-Haiying.Wang@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Subrata Modak <subrata@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Re:[BUILD FAILURE 04/04] Next June 04:PPC64 randconfig
+	[drivers/net/ucc_geth.o]
+Date: Thu, 11 Jun 2009 07:26:04 +0530
+Message-ID: <1244685364.6494.14.camel@subratamodak.linux.ibm.com>
+References: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
+	 <20090611110523.1fd56a41.sfr@canb.auug.org.au>
+Reply-To: subrata@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
+	Li Yang <leoli@freescale.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090611110523.1fd56a41.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
+> Hi Subrata,
+>=20
+> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.=
+ibm.com> wrote:
+> >
+> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII *=
+/
+> > -	ph =3D of_get_property(np, "tbi-handle", NULL);
+> > +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
+>=20
+> You don't need this cast because of_get_property() returns "void *".
 
-On Jun 2, 2009, at 9:04 AM, Haiying Wang wrote:
+Stephen,
 
-> Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
-> ---
-> arch/powerpc/boot/dts/mpc8569mds.dts |   63 +++++++++++++++++++++++++ 
-> +++++++++
-> 1 files changed, 63 insertions(+), 0 deletions(-)
+True. But without this gcc complains:
 
+CC [M]  drivers/net/ucc_geth.o
+drivers/net/ucc_geth.c: In function =E2=80=98ucc_geth_probe=E2=80=99:
+drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
+from pointer target type
 
-applied to next.
+Else gcc just builds fine:
 
-- k
+CC [M]  drivers/net/ucc_geth.o
+
+This is an just an extra caution to fix both the build and warning
+regression(s).
+
+Regards--
+Subrata
+
+>=20
