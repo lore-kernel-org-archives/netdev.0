@@ -1,46 +1,52 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
-Date: Wed, 10 Jun 2009 23:55:31 -0400 (EDT)
-Message-ID: <alpine.LFD.2.00.0906102350420.31536@xanadu.home>
-References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
- <1244685768.4616.22.camel@deadeye>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Martin Fuzzey <mfuzzey@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:65132 "EHLO
-	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755738AbZFKDzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 23:55:50 -0400
-Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR001.ip.videotron.ca
- (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
- with ESMTP id <0KL200FQ62WJTZC0@VL-MH-MR001.ip.videotron.ca> for
- netdev@vger.kernel.org; Wed, 10 Jun 2009 23:55:31 -0400 (EDT)
-In-reply-to: <1244685768.4616.22.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Thu, 11 Jun 2009, Ben Hutchings wrote:
-
-> On Wed, 2009-06-10 at 19:34 +0200, Martin Fuzzey wrote:
-> > Allow network drivers to be configured by the kernel
-> > in the same way as the userspace "ethtool" program as suggested
-> > by Nicolas Pitre in a recent mailing list discussion.
-[...]
-> Who needs this feature?  Why not use ethtool in an initramfs?
-[...]
-> Forcing speed and duplex is occasionally needed to work around a link
-> partner that doesn't implement autonegotiation correctly.  I don't see
-> that it should ever be needed in platform configuration.  If the driver
-> doesn't detect the MAC/PHY capabilities correctly then the driver should
-> be fixed.  Overriding the settings once will not prevent an unsupported
-> mode being selected later.
-
-I'd suggest you have a look at the conversation that occurred in the 
-thread which subject was "SMC91x: forcing speed", no later than 3 days 
-ago.
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
+	access
+Date: Wed, 10 Jun 2009 23:13:00 -0500
+Message-ID: <90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
+References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+Content-Transfer-Encoding: 7bit
+Cc: Zhang Wei <zw@zh-kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
+To: Li Yang <leoli@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
 
-Nicolas
+On May 12, 2009, at 3:35 AM, Li Yang wrote:
+
+> Add the mapping functions used to support direct IO memory access of
+> rapidIO.
+>
+> Signed-off-by: Zhang Wei <zw@zh-kernel.org>
+> Signed-off-by: Li Yang <leoli@freescale.com>
+
+Use inbnd/outbnd instead of inb/outb which make one think of byte  
+level io accessors.
+
+As I look at this I don't think this is the correct API.  I think we  
+should be using the DMA mapping API to hide these details.  The  
+concept of mapping like this seems to be more a function of FSL's  
+Address translation/mapping unit (ATMU) than anything specific to the  
+RIO bus standard.
+
+> ---
+> drivers/rapidio/rio.c   |   95 ++++++++++++++++++++++++++++++++++++++ 
+> +++++++++
+> include/linux/rio.h     |   25 ++++++++++++
+> include/linux/rio_drv.h |   24 +++++++++---
+> 3 files changed, 138 insertions(+), 6 deletions(-)
+
+- k
