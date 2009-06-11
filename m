@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 03:09:22 -0700 (PDT)
-Message-ID: <20090611.030922.91415233.davem@davemloft.net>
-References: <4A30BECA.8030205@iki.fi>
+Subject: Re: [PATCH] neigh: error out pending skbs if netlink invalidates
+ incomplete neigh
+Date: Thu, 11 Jun 2009 03:12:15 -0700 (PDT)
+Message-ID: <20090611.031215.17106793.davem@davemloft.net>
+References: <1244104855-2129-1-git-send-email-timo.teras@iki.fi>
+	<20090611.030207.238260652.davem@davemloft.net>
+	<4A30D781.2020403@iki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kuznet@ms2.inr.ac.ru
+Cc: netdev@vger.kernel.org
 To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40130
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40135
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756983AbZFKKJT convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1755166AbZFKKMN convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 06:09:19 -0400
-In-Reply-To: <4A30BECA.8030205@iki.fi>
+	Thu, 11 Jun 2009 06:12:13 -0400
+In-Reply-To: <4A30D781.2020403@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 11 Jun 2009 11:22:34 +0300
+Date: Thu, 11 Jun 2009 13:08:01 +0300
 
-> I'm not entirely sure about this, but shouldn't we do something like
-> the below to make ip_gre allocation enough headroom for paths where
-> e.g. xfrm transformations take place (as a speed optimization)?
+> When the state is changed to FAILED by netlink, the timer is stopped
+> and further probes are not tried anymore. This results in that the
+> skb's are not errored. The neigh entry is left stale.
+>=20
+> The behaviour is flawed currently. Either we need to prevent state
+> change from INCOMPLETE -> FAILED via netlink and keep on sending
+> probes,
+> or flush the queue when userland replies with FAILED. Otherwise the
+> neigh entry state is left bad.
 
-This should be handled by the code one level up that allocates
-the SKB.
+Thanks for the explanation, yes this is a problem.
 
-And as routes get stacked, the MTUs and headroom values get adjusted
-up to the root.
+Can you add a little bit more verbosity to your commit message
+so that this issue is clearly explained and resubmit your patch?
 
-At least that's how it's supposed to work :-)
-
-Otherwise we'd need a similar hack in ipip.c too.
+Thank you!
