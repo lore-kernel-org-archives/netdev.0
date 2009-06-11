@@ -1,41 +1,42 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 5/6] rio: warn_unused_result warnings fix
-Date: Wed, 10 Jun 2009 23:34:03 -0500
-Message-ID: <49B70D0E-63FD-45B1-AA86-6EF330D11D06@kernel.crashing.org>
-References: <1242117363-14949-1-git-send-email-leoli@freescale.com> <1242117363-14949-2-git-send-email-leoli@freescale.com> <1242117363-14949-3-git-send-email-leoli@freescale.com> <1242117363-14949-4-git-send-email-leoli@freescale.com> <1242117363-14949-5-git-send-email-leoli@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2009-06-10
+Date: Wed, 10 Jun 2009 23:44:24 -0700 (PDT)
+Message-ID: <20090610.234424.69074010.davem@davemloft.net>
+References: <20090610185639.GC3892@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Li Yang <leoli@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:55547 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752989AbZFKFCC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 01:02:02 -0400
-In-Reply-To: <1242117363-14949-5-git-send-email-leoli@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090610185639.GC3892-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 10 Jun 2009 14:56:39 -0400
 
-On May 12, 2009, at 3:36 AM, Li Yang wrote:
+> Despite my previous optimistic prediction, I need to ask for one more
+> 2.6.31 pull before/during the merge window... :-)
+> 
+> This one actually does have a number of bug fixes embedded within, as
+> well as some further fleshing-out and usage of the new rfkill
+> infrastructure changes that are already queued for 2.6.31.  The other
+> bits are more minor, but they have already spent at least a few days in
+> -next and I believe they are safe for 2.6.31.
 
-> Adding failure path for the following two cases.
->
-> warning: ignoring return value of 'device_add', declared with  
-> attribute warn_unused_result
-> warning: ignoring return value of 'sysfs_create_bin_file', declared  
-> with attribute warn_unused_result
->
-> Signed-off-by: Li Yang <leoli@freescale.com>
-> ---
-> drivers/rapidio/rio-scan.c  |   44 +++++++++++++++++++++++++ 
-> +----------------
-> drivers/rapidio/rio-sysfs.c |    6 +++-
-> 2 files changed, 31 insertions(+), 19 deletions(-)
+Pulled, I'll push out after some build verifications.
 
-applied w/fixup based on Andrew's comments.
+> P.S.  For some reason (probably the 2.6.30 release) the public push on
+> kernel.org seems to be taking a lot longer than usual.  So you probably
+> want to ensure that the wireless-next-2.6 head matches 2f0accc13520 or
+> just pull using ssh (or direct file access).
 
-- k
+I verified this, but you can sidestep this entire problem by simply
+giving me master.kernel.org SSH based URLs to pull from. :-)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
