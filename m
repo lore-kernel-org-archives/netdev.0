@@ -1,43 +1,41 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for June 11 (cnic)
-Date: Thu, 11 Jun 2009 15:21:12 -0700
-Message-ID: <4A318358.20804@oracle.com>
-References: <20090611191420.1f4d5e4f.sfr@canb.auug.org.au>
+From: =?ISO-8859-1?Q?D=E2niel?= Fraga <fragabr@gmail.com>
+Subject: Re: TG3 kernel hard lockup with 2.6.30
+Date: Thu, 11 Jun 2009 19:56:33 -0300
+Message-ID: <1me8g6-fcd.ln1@tux.abusar.org.br>
+References: <455ea5df0906111507t70e9a3fawbcd0da93ef3bb6e6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:22205 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbZFKWYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 18:24:54 -0400
-In-Reply-To: <20090611191420.1f4d5e4f.sfr@canb.auug.org.au>
+Received: from main.gmane.org ([80.91.229.2]:46008 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755068AbZFKW44 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 18:56:56 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1MEtCa-0007Xp-R4
+	for netdev@vger.kernel.org; Thu, 11 Jun 2009 22:56:56 +0000
+Received: from c9345450.virtua.com.br ([201.52.84.80])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:56:56 +0000
+Received: from fragabr by c9345450.virtua.com.br with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:56:56 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell wrote:
-> Hi all,
-> 
-> Changes since 20090610:
+On Thu, 11 Jun 2009 18:07:30 -0400
+Web Visum <webvisum@googlemail.com> wrote:
 
+> I've tried turning off TSO via ethtool and that *appears* to delay the
+> onset of the lockup, but it does not prevent it entirely.
 
-In 2 separate builds:
+ethtool --offload eth0 gso off
 
-ERROR: "ip_route_output_key" [drivers/net/cnic.ko] undefined!
-
-when CONFIG_INET=n
-
-and
-
-drivers/net/cnic.c:2520: error: implicit declaration of function '__symbol_get'
-
-when CONFIG_MODULES=n
-
+	Does it help? Or "sg off" or both?
 
 -- 
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+Linux 2.6.30: Man-Eating Seals of Antiquity
+
+
