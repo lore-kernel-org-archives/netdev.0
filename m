@@ -1,67 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
-	configuration.
-Date: Thu, 11 Jun 2009 15:54:50 +0100
-Message-ID: <1244732090.2785.12.camel@achroite>
-References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
-	 <1244685768.4616.22.camel@deadeye>  <4A30A884.9000508@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter 00/31: netfilter update
+Date: Thu, 11 Jun 2009 16:54:49 +0200
+Message-ID: <4A311AB9.3060205@trash.net>
+References: <20090610194621.11112.72922.sendpatchset@x2.localnet>	<20090610.234618.116984779.davem@davemloft.net> <20090611.010827.193702616.davem@davemloft.net> <4A310C9E.3050904@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nico@cam.org
-To: mfuzzey@gmail.com
+Content-Type: multipart/mixed;
+ boundary="------------000201060308070708080601"
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:53165 "EHLO
-	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763198AbZFKOyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 10:54:54 -0400
-In-Reply-To: <4A30A884.9000508@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:54333 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763307AbZFKOys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 10:54:48 -0400
+In-Reply-To: <4A310C9E.3050904@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-06-11 at 08:47 +0200, Martin Fuzzey wrote:
-> Ben Hutchings wrote:
-> > Who needs this feature?  Why not use ethtool in an initramfs?
-> >
-> >   
-> > Forcing speed and duplex is occasionally needed to work around a link
-> > partner that doesn't implement autonegotiation correctly.  I don't see
-> > that it should ever be needed in platform configuration.  If the driver
-> > doesn't detect the MAC/PHY capabilities correctly then the driver should
-> > be fixed.  Overriding the settings once will not prevent an unsupported
-> > mode being selected later.
-> >
-> >   
-> To summarize the recent points I made in the smc91x: forcing speed thread :
+This is a multi-part message in MIME format.
+--------------000201060308070708080601
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Patrick McHardy wrote:
+> David Miller wrote:
+>> This stuff isn't ready, sorry I had to undo my pull:
+>>
+>> net/netfilter/nf_conntrack_proto_tcp.c: In function 'tcp_packet':
+>> net/netfilter/nf_conntrack_proto_tcp.c:947: error: 'tcp_lock' 
+>> undeclared (first use in this function)
+>> net/netfilter/nf_conntrack_proto_tcp.c:947: error: (Each undeclared 
+>> identifier is reported only once
+>> net/netfilter/nf_conntrack_proto_tcp.c:947: error: for each function 
+>> it appears in.)
+>> make[2]: *** [net/netfilter/nf_conntrack_proto_tcp.o] Error 1
+>> make[2]: *** Waiting for unfinished jobs....
 > 
-> 1) Setting up and maintaining an initramfs can increase the complexity
-> for embedded systems - it's another image file to build, distribute,
-> update to bootloader etc.
+> That odd, my tree doesn't have a single reference to tcp_lock left.
+> I'll check what went wrong, sorry.
 
-This doesn't seem like a huge burden if you're net-booting.  And if
-you're not net-booting, it's not critical that you override the link
-mode immediately; you can do it in the regular init scripts.
+This came in through a net-2.6.git merge after I cloned my tree. I
+usually do a test merge of a fresh clone of your tree with mine before
+sending the pull request, but forgot this time. I guess I'll add this
+step to my pull-request-script to make sure it doesn't happen again.
 
-> 2) While I of course agree that broken drivers should be fixed, what
-> about broken hardware?
+I've now merged your latest tree and added the attached patch on top
+to fix the compile error. This will unfortunately leave a small window
+of commits that don't compile cleanly. If you prefer to have this fixed
+differently, please let me know, otherwise
 
-Broken hardware?  Why, I never have to deal with that. ;-)
+Please pull from:
 
-> I currently have this situation on one of my boards - 100Mbps doesn't
-> work due to electrical issues (bad routing).
-> This board is already in the wild - if it is fixed one day it will be a
-> new hardware revision and the code will have to cope with both.
-> Sure the "right" way is to fix the hardware but that's not always
-> economically or logistically possible.
-> I suspect such situations are not uncommon in the embedded world.
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-So, as I thought, you actually want to disable some modes completely.
-That is not what ethtool does.
+Thanks!
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--------------000201060308070708080601
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
+commit 334a47f6345560af047f164c356d71c3226965d5
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Thu Jun 11 16:16:09 2009 +0200
+
+    netfilter: nf_ct_tcp: fix up build after merge
+    
+    Replace the last occurence of tcp_lock by the per-conntrack lock.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 5142e60..33fc0a4 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -944,7 +944,7 @@ static int tcp_packet(struct nf_conn *ct,
+ 		    && (ct->proto.tcp.seen[!dir].flags & IP_CT_TCP_FLAG_MAXACK_SET)
+ 		    && before(ntohl(th->seq), ct->proto.tcp.seen[!dir].td_maxack)) {
+ 			/* Invalid RST  */
+-			write_unlock_bh(&tcp_lock);
++			spin_unlock_bh(&ct->lock);
+ 			if (LOG_INVALID(net, IPPROTO_TCP))
+ 				nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
+ 					  "nf_ct_tcp: invalid RST ");
+
+--------------000201060308070708080601--
