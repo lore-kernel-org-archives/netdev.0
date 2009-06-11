@@ -1,96 +1,102 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH] Re:[BUILD FAILURE 04/04] Next June 04:PPC64 randconfig
-	[drivers/net/ucc_geth.o]
-Date: Thu, 11 Jun 2009 12:03:11 +1000
-Message-ID: <1244685791.4674.12.camel@concordia>
-References: <20090610174323.28045.70169.sendpatchset@subratamodak.linux.ibm.com>
-	<20090611110523.1fd56a41.sfr@canb.auug.org.au>
-	<1244685364.6494.14.camel@subratamodak.linux.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: Subrata Modak <subrata@linux.vnet.ibm.com>
+Subject: [PATCH][Resend][BUILD FAILURE 04/04] Next June 04:PPC64 randconfig [drivers/net/ucc_geth.o]
+Date: Thu, 11 Jun 2009 07:43:19 +0530
+Message-ID: <20090611021319.12649.84902.sendpatchset@subratamodak.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1479531879387249024=="
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
+	Linux-Next <linux-next@vger.kernel.org>,
 	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Linux-Next <linux-next@vger.kernel.org>, Li Yang <leoli@freescale.com>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>
-To: subrata@linux.vnet.ibm.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1244685364.6494.14.camel@subratamodak.linux.ibm.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+	Subrata Modak <subrata@linux.vnet.ibm.com>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
+To: michael@ellerman.id.au, netdev@vger.kernel.org,
+	Li Yang <leoli@freescale.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:58544 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754873AbZFKCNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Jun 2009 22:13:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Michael,
 
---===============1479531879387249024==
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-Gs/KyC+TrNDFjdC2ZtWn"
-
-
---=-Gs/KyC+TrNDFjdC2ZtWn
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2009-06-11 at 07:26 +0530, Subrata Modak wrote:
-> On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
-> > Hi Subrata,
+>On Thu, 2009-06-11 at 12:03 +1000, Michael Ellerman wrote:
+>On Thu, 2009-06-11 at 07:26 +0530, Subrata Modak wrote:
+> > On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
+> > > Hi Subrata,
+> > >=20
+> > > On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.v=
+net.ibm.com> wrote:
+> > > >
+> > > >  	/* Find the TBI PHY.  If it's not there, we don't support SGM=
+II */
+> > > > -	ph =3D of_get_property(np, "tbi-handle", NULL);
+> > > > +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
+> > >=20
+> > > You don't need this cast because of_get_property() returns "void =
+*".
 > >=20
-> > On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ib=
-m.com> wrote:
-> > >
-> > >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
-> > > -	ph =3D of_get_property(np, "tbi-handle", NULL);
-> > > +	ph =3D (phandle *)of_get_property(np, "tbi-handle", NULL);
+> > Stephen,
 > >=20
-> > You don't need this cast because of_get_property() returns "void *".
+> > True. But without this gcc complains:
+> >=20
+> > CC [M]  drivers/net/ucc_geth.o
+> > drivers/net/ucc_geth.c: In function =E2=80=98ucc_geth_probe=E2=80=99=
+:
+> > drivers/net/ucc_geth.c:3824: warning: assignment discards qualifier=
+s from pointer target type
+>                                                            ^^^^^^^^^^=
+^
 >=20
-> Stephen,
+> And what does that warning actually mean?
 >=20
-> True. But without this gcc complains:
->=20
-> CC [M]  drivers/net/ucc_geth.o
-> drivers/net/ucc_geth.c: In function =E2=80=98ucc_geth_probe=E2=80=99:
-> drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers from=
- pointer target type
-                                                           ^^^^^^^^^^^
+> Your cast actually introduces a bug.
+>
 
-And what does that warning actually mean?
+Ok fine. Here is a revised patch.
 
-Your cast actually introduces a bug.
+Subject: [PATCH][Resend][BUILD FAILURE 04/04] Next June 04:PPC64 randco=
+nfig [drivers/net/ucc_geth.o]
+Reference(s):
+http://lkml.org/lkml/2009/6/4/241,
+http://lkml.org/lkml/2009/6/10/338,
 
-cheers
+=46ix the following build error:
 
---=-Gs/KyC+TrNDFjdC2ZtWn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+drivers/net/ucc_geth.c: In function bucc_geth_probeb:
+drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in this =
+function)
+drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is repo=
+rted only once
+drivers/net/ucc_geth.c:3822: error: for each function it appears in.)
+drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in thi=
+s function)
+make[2]: *** [drivers/net/ucc_geth.o] Error 1
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
+---
 
-iEYEABECAAYFAkowZd8ACgkQdSjSd0sB4dLk5gCcC/h3ugX0KI34JeU9onHHPv7t
-iL8AnA6s3XJ6wOJGrHrwg+LQavqZWNw/
-=5Ygr
------END PGP SIGNATURE-----
+--- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig	2009-06-10 11:58:39.00=
+0000000 -0500
++++ linux-2.6.30-rc8/drivers/net/ucc_geth.c	2009-06-10 20:53:25.0000000=
+00 -0500
+@@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
+=20
+ static int ucc_geth_probe(struct of_device* ofdev, const struct of_dev=
+ice_id *match)
+ {
++	struct device_node *mdio;
++	phandle *ph;
+ 	struct device *device =3D &ofdev->dev;
+ 	struct device_node *np =3D ofdev->node;
+ 	struct net_device *dev =3D NULL;
 
---=-Gs/KyC+TrNDFjdC2ZtWn--
+---
+Regards--
+Subrata
 
-
---===============1479531879387249024==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@lists.ozlabs.org
-https://lists.ozlabs.org/listinfo/linuxppc-dev
---===============1479531879387249024==--
+> cheers
