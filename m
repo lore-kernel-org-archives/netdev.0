@@ -1,55 +1,88 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: [PATCH 5/6] mISDN: Do not disable IRQ in ph_data_ind()
-Date: Tue, 9 Jun 2009 14:38:39 +0200
-Message-ID: <8164491dd628ffcac5d61267f747997689ee256c.1244739994.git.keil@b1-systems.de>
-References: <cover.1244739994.git.keil@b1-systems.de>
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	i4ldeveloper@listserv.isdn4linux.de
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755871AbZFKR3p@vger.kernel.org>
-In-Reply-To: <cover.1244739994.git.keil@b1-systems.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
+Date: Thu, 11 Jun 2009 13:44:36 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906111333100.31536@xanadu.home>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+ <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
+ <1244732090.2785.12.camel@achroite>
+ <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+ <1244739166.2785.52.camel@achroite>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relais.videotron.ca ([24.201.245.36]:12355 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbZFKRoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 13:44:54 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR005.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KL3005ED4S0SD11@VL-MO-MR005.ip.videotron.ca> for
+ netdev@vger.kernel.org; Thu, 11 Jun 2009 13:33:37 -0400 (EDT)
+In-reply-to: <1244739166.2785.52.camel@achroite>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fix triggering the WARN_ON_ONCE(in_irq() || irqs_disabled()); in
-local_bh_enable().
+On Thu, 11 Jun 2009, Ben Hutchings wrote:
 
-Here is no need to grab this lock, this was wrong at all and may
-cause a deadlock and access to freed memory, since on a TEI remove
-the current listelement can be deleted under us. So this is clearly
-a case for list_for_each_entry_safe.
+> On Thu, 2009-06-11 at 12:22 -0400, Nicolas Pitre wrote:
+> > On Thu, 11 Jun 2009, Ben Hutchings wrote:
+> > 
+> > > On Thu, 2009-06-11 at 08:47 +0200, Martin Fuzzey wrote:
+> > > > Ben Hutchings wrote:
+> > > > > Who needs this feature?  Why not use ethtool in an initramfs?
+> > > > >
+> > > > >   
+> > > > > Forcing speed and duplex is occasionally needed to work around a link
+> > > > > partner that doesn't implement autonegotiation correctly.  I don't see
+> > > > > that it should ever be needed in platform configuration.  If the driver
+> > > > > doesn't detect the MAC/PHY capabilities correctly then the driver should
+> > > > > be fixed.  Overriding the settings once will not prevent an unsupported
+> > > > > mode being selected later.
+> > > > >
+> > > > >   
+> > > > To summarize the recent points I made in the smc91x: forcing speed thread :
+> > > > 
+> > > > 1) Setting up and maintaining an initramfs can increase the complexity
+> > > > for embedded systems - it's another image file to build, distribute,
+> > > > update to bootloader etc.
+> > > 
+> > > This doesn't seem like a huge burden if you're net-booting.  And if
+> > > you're not net-booting, it's not critical that you override the link
+> > > mode immediately; you can do it in the regular init scripts.
+> > 
+> > Sure... But for some embedded setup this is actually more trouble and 
+> > hassle than having a non-intrusive kernel based facility that can set 
+> > defaults for you.
+> 
+> Doing it in an init script is even less intrusive!  But it seems that
+> the ethtool API doesn't do what you need in this case, anyway.
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/mISDN/tei.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+Stop thinking in terms of workstation setups please.
 
-diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-index bfcdd97..e04bad6 100644
---- a/drivers/isdn/mISDN/tei.c
-+++ b/drivers/isdn/mISDN/tei.c
-@@ -862,8 +862,7 @@ static int
- ph_data_ind(struct manager *mgr, struct sk_buff *skb)
- {
- 	int		ret = -EINVAL;
--	struct layer2	*l2;
--	u_long		flags;
-+	struct layer2	*l2, *nl2;
- 	u_char		mt;
- 
- 	if (skb->len < 8) {
-@@ -908,11 +907,9 @@ ph_data_ind(struct manager *mgr, struct sk_buff *skb)
- 		new_tei_req(mgr, &skb->data[4]);
- 		goto done;
- 	}
--	read_lock_irqsave(&mgr->lock, flags);
--	list_for_each_entry(l2, &mgr->layer2, list) {
-+	list_for_each_entry_safe(l2, nl2, &mgr->layer2, list) {
- 		tei_ph_data_ind(l2->tm, mt, &skb->data[4], skb->len - 4);
- 	}
--	read_unlock_irqrestore(&mgr->lock, flags);
- done:
- 	return ret;
- }
--- 
-1.6.0.2
+[...]
+> It's an example of providing a generic solution, which is definitely
+> more than a quick hack, but I don't see it as a "clean solution" for the
+> problem that certain link modes don't work on a particular board.  A
+> clean solution would disable those modes altogether in the driver.
+
+And now you are considering the addition of special restrictions for 
+some special hardware directly into the driver as less intrusive than 
+what is being proposed?  And now imagine what this would look like after 
+56 different embedded designs have added their own kirks into the 
+driver.. because, yes, in the embedded world you do have much more than 
+56 different designs sharing the same driver but each with their own 
+flaws.
+
+What people are hacking now is some #if 0 ... #endif in their own tree 
+to disable the initialization of driver features that their hardware is 
+not able to cope with.  There are two cleaner alternatives: changing the 
+default with ethtool from user space, or using a kernel based 
+ethtool-like facility to do the same as conveniently as 
+CONFIG_IP_PNP_DHCP is doing already for IP autoconfig.  The later is 
+what this proposal is about.
+
+
+Nicolas
