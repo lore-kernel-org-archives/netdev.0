@@ -1,50 +1,45 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 14:29:46 +0300
-Message-ID: <4A30EAAA.4070907@iki.fi>
-References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net> <4A30D9AA.1020004@iki.fi> <20090611105638.GA2085@gondor.apana.org.au>
+Date: Thu, 11 Jun 2009 21:37:09 +1000
+Message-ID: <20090611113709.GA2545@gondor.apana.org.au>
+References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net> <4A30D9AA.1020004@iki.fi> <20090611105638.GA2085@gondor.apana.org.au> <4A30EAAA.4070907@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	kuznet@ms2.inr.ac.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:44667 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbZFKL3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:29:43 -0400
-Received: by ewy6 with SMTP id 6so1921091ewy.37
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 04:29:44 -0700 (PDT)
-In-Reply-To: <20090611105638.GA2085@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:57580 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1763035AbZFKLhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:37:12 -0400
+Content-Disposition: inline
+In-Reply-To: <4A30EAAA.4070907@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Thu, Jun 11, 2009 at 01:17:14PM +0300, Timo Ter=E4s wrote:
->>> Otherwise we'd need a similar hack in ipip.c too.
->> I was under the impression that as we need to do the route lookup an=
-yway
->> we could take advantage of the information available from there full=
-y.
->>
->> But yes, your explanation makes perfect sense.
->=20
-> I think you're both right :)
->=20
-> We should include the IPsec head room here, but also in the
-> dev->needed_headroom calculation so that most packets don't
-> get reallocated in the first place.
+On Thu, Jun 11, 2009 at 02:29:46PM +0300, Timo Ter=E4s wrote:
+>
+> I guess this is easy for point-to-point tunnels. But how about the
+> multipoint gre tunnels? The needed_headroom can vary on destination
+> basis depending on if they are NATted or not, and on the cipher/hash
+> used.
 
-I guess this is easy for point-to-point tunnels. But how about the
-multipoint gre tunnels? The needed_headroom can vary on destination
-basis depending on if they are NATted or not, and on the cipher/hash
-used.
+I don't think we need to worry about NAT, well at least we don't
+worry about it on the normal path :)
 
-Can we change the needed_headroom on-the-fly? Increase it when ever
-we encounter a larger path? But this also means some packages would
-get extra headroom allocated.
+> Can we change the needed_headroom on-the-fly? Increase it when ever
+> we encounter a larger path? But this also means some packages would
+> get extra headroom allocated.
 
-- Timo
+Just make it the maximum.  It's OK to have extra head space.
+If the head space is huge then you've got bigger problems than
+wasted memory :)
 
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
