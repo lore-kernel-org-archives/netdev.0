@@ -1,87 +1,48 @@
-From: Ira Snyder <iws@ovro.caltech.edu>
-Subject: Re: [RFC v2] virtio: add virtio-over-PCI driver
-Date: Thu, 11 Jun 2009 08:10:13 -0700
-Message-ID: <20090611151013.GA9323@ovro.caltech.edu>
-References: <20090224000002.GA578@ovro.caltech.edu>
-	<fa686aa40904141328oa57fb1bsffd0549a52eca90@mail.gmail.com>
-	<20090414215342.GB9877@ovro.caltech.edu>
-	<fa686aa40906110722y1b4b8c22l7ccdd32d6684324d@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next PATCH 3/3] qlge: Increase default TX/RX ring size to
+ 1024.
+Date: Thu, 11 Jun 2009 08:34:19 -0700
+Message-ID: <20090611083419.4c173558@nehalam>
+References: <1244684975-10211-1-git-send-email-ron.mercer@qlogic.com>
+	<1244684975-10211-3-git-send-email-ron.mercer@qlogic.com>
+	<20090611.022713.35602614.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnd Bergmann <arnd@arndb.de>, Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <fa686aa40906110722y1b4b8c22l7ccdd32d6684324d@mail.gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ron.mercer@qlogic.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37484 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752490AbZFKPeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 11:34:22 -0400
+In-Reply-To: <20090611.022713.35602614.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2009 at 08:22:54AM -0600, Grant Likely wrote:
-> On Tue, Apr 14, 2009 at 3:53 PM, Ira Snyder<iws@ovro.caltech.edu> wrote:
-> > On Tue, Apr 14, 2009 at 02:28:26PM -0600, Grant Likely wrote:
-> >> On Mon, Feb 23, 2009 at 6:00 PM, Ira Snyder <iws@ovro.caltech.edu> wro=
-te:
-> >> > This adds support to Linux for using virtio between two computers li=
-nked by
-> >> > a PCI interface. This allows the use of virtio_net to create a famil=
-iar,
-> >> > fast interface for communication. It should be possible to use other=
- virtio
-> >> > devices in the future, but this has not been tested.
-> >>
-> >> Hey Ira,
-> >>
-> >> I like this a lot. =A0I need to do much the same thing on one of my
-> >> platforms, so I'm going to use your patch as my starting point. =A0Have
-> >> you made many changes since you posted this version of your patch?
-> >> I'd like to collaborate on the development and help to get it
-> >> mainlined.
-> >>
-> >
-> > This would be great. I'd really appreciate the help. I haven't had time
-> > to make any changes since I last posted the patch. I started work on
-> > converting all of the usage of struct vop_loc_* to just use the on-wire
-> > structures, but I didn't get very far before other work got in the way.
-> >
-> >> In my case I've got an MPC5200 as the 'host' and a Xilinx Virtex
-> >> (ppc440) as the 'client'. =A0I intend set aside a region of the Xilinx
-> >> Virtex's memory space for the shared queues. =A0I'm starting work on it
-> >> now, and I'll provide you with feedback and/or patches as I make
-> >> progress.
-> >>
-> >
-> > I'm looking forward to seeing your implementation. If you have any
-> > questions, I'd be happy to attempt to answer them :)
-> =
+On Thu, 11 Jun 2009 02:27:13 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Hey Ira,
-> =
+> From: Ron Mercer <ron.mercer@qlogic.com>
+> Date: Wed, 10 Jun 2009 18:49:35 -0700
+> 
+> > 
+> > Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> 
+> This is huge.  Even other aggressive NICs such as BNX2X only use 256
+> ring entries per TX queue.
+> 
+> There is a point where increasing definitely hurts, because you're
+> increasing the resident set size of the cpu, as more and more SKBs are
+> effectively "in flight" at a given time and only due to the amount
+> you're allowing to get queued up into the chip.
+> 
+> And with multiqueue, per-queue TX queue sizes should matter less at
+> least to some extent.
+> 
+> Are you sure that jacking the value up this high has no negative side
+> effects for various workloads?
 
-> I've been slowly hacking on your virtio-over-pci stuff.  I've got an
-> initial series of cleanup patches which address some of the comments
-> from this thread.  Before I send them to you, have you made any
-> changes on your end?  They likely won't apply without changes to the
-> core code, so I'd like to sync up with you first.
-> =
-
-
-I haven't made any changes to the code since you've last seen it. I've
-been busy with other stuff for quite a while now. I can't wait to see
-what you've done :)
-
-At least for the use of the 83xx DMA controller, the DMA_SLAVE mode
-patch I posted up about a week ago (to the ppcdev list) could make the
-DMA setup much simpler. It hasn't been accepted to mainline yet.
-
-Ira
+I am investigating reducing the sky2 default tx ring size down to
+128 after user complaints about the latency. At 10G 1024 ring
+entries is 7ms for jumbo frames.
