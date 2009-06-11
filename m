@@ -1,74 +1,63 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: yet another panic on 2.6.30-rc6
-Date: Thu, 11 Jun 2009 21:52:46 +0200
-Message-ID: <20090611195246.GA29936@gerrit.erg.abdn.ac.uk>
-References: <295033.28246.qm@web30002.mail.mud.yahoo.com> <230029.26412.qm@web30005.mail.mud.yahoo.com> <20090606180153.GA10697@gerrit.erg.abdn.ac.uk> <403836.92879.qm@web30008.mail.mud.yahoo.com>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
+Date: Thu, 11 Jun 2009 16:24:05 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906111605060.31536@xanadu.home>
+References: <20090610173243.17262.91308.stgit@srv002.fuzzey.net>
+ <1244685768.4616.22.camel@deadeye> <4A30A884.9000508@gmail.com>
+ <1244732090.2785.12.camel@achroite>
+ <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+ <1244739166.2785.52.camel@achroite>
+ <alpine.LFD.2.00.0906111333100.31536@xanadu.home>
+ <1244744967.2785.61.camel@achroite>
+ <alpine.LFD.2.00.0906111452340.31536@xanadu.home>
+ <1244748719.2785.72.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Burak Gorkemli <burakgmail-dccp@yahoo.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: mfuzzey@gmail.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40701 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751401AbZFKUEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 16:04:33 -0400
-Content-Disposition: inline
-In-Reply-To: <403836.92879.qm@web30008.mail.mud.yahoo.com>
+Received: from relais.videotron.ca ([24.201.245.36]:26825 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926AbZFKUYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 16:24:24 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MH-MR001.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KL300LE6CO64SP0@VL-MH-MR001.ip.videotron.ca> for
+ netdev@vger.kernel.org; Thu, 11 Jun 2009 16:24:06 -0400 (EDT)
+In-reply-to: <1244748719.2785.72.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Burak,
+On Thu, 11 Jun 2009, Ben Hutchings wrote:
 
-it would be good to have more information, how this bug can be triggered:
+> On Thu, 2009-06-11 at 15:08 -0400, Nicolas Pitre wrote:
+> [...]
+> > > Please note, I'm talking about an init script -
+> > > which you surely must have - not an initramfs, which I recognise is
+> > > optional and unnecessary for most embedded systems.
+> > 
+> > An init script is already a luxury for some systems.
+> 
+> And so is an Ethernet port.  Instead of talking about hypotheticals, why
+> not talk about the system you need this workaround for?
 
- * what is the hardware,
- * can it be reproduced in the same manner on other hardware,
- * with which configuration (.config file),
- * does it only happen with CCID 3? Here it is good to know whether
-   - Tickless System (CONFIG_NO_HZ) or
-   - High-resolution timers (CONFIG_HIGH_RES_TIMERS)
-   are enabled,
- * enabling kernel debugging features (below).
+Look, I personally do not need this.  And I'm rather tired arguing with 
+you.  Your shortsightedness and refusal for accommodation about needs 
+that aren't yours is representative of the main reason why there is 
+still a disconnect between mainline people and embedded people.  If you 
+can't admit it then I've failed my attempt at bridging the gap.
 
-Further - are you running DCCP in a virtualised environment?
+The issue was discussed, people objected to driver kirks already, then I 
+proposed this solution to which Davem agreed if it was done cleanly and 
+maintained. And here it is under the form of an actual patch. So far 
+you're the only one who just can't accept that compromise.  If your 
+opposition -- which so far has nothing to do with the actual 
+implementation but rather on the principle -- is not overruled by others 
+then the embedded disconnect, of which this is only a tiny part of, has 
+no hope of ever vanishing.
 
-I checked some of the functions below: "default_spin_lock_flags" is defined
-in arch/x86/kernel/paravirt-spinlocks.c. When running a network protocol
-that is designed for longer distance networks, some underlying assumptions
-may no longer hold in the same way as designed.
+Have a good day.
 
-| BTW, how to print EIP after the panic?
-It needs to be enabled in the kernel configuration. Please enable
 
- 1/ "General setup"  -> "BUG() support"    (CONFIG_BUG=y)
- 2/ "Kernel hacking" -> "Kernel debugging" (CONFIG_DEBUG_KERNEL=y)
- 3/ "Kernel hacking" (depends on (2) ->
-    "Verbose BUG() reporting (adds 70k)"   (CONFIG_DEBUG_BUGVERBOSE=y)
- 4/ When enabling (2), it also can not harm to enable the
-
-| The console output of the latest panic is as follows:
-|
-| [<>] ? ccid3_hc_tx_no_feedback_timer
-| [<>] ? default_spin_lock_flags
-| [<>] ? elv_queue_empty
-| [<>] ? blk_run_queue
-| [<>] ? kobject_put
-| [<>] ? trace_hardirqs_off_thunk
-| [<>] error_code
-| [<>] ? __mode_timer
-| [<>] ? do_invalid_op
-| [<>] ? ccid3_hc_tx_no_feedback_timer
-| [<>] run_timer_softirq
-| [<>] ? ccid3_hc_tx_no_feedback_timer
-| [<>] ? ccid3_hc_tx_no_feedback_timer
-| [<>] __do_softirq
-| [<>] ? __do_softirq
-| <IRQ> [<>] ? irq_exit
-| [<>] ? smp_apic_timer_interrupt
-| [<>] ? apic_timer_interrupt
-| [<>] ? native_safe_halt
-| [<>] ? default_idle
-| [<>] ? cpu_idle
-| [<>] ? rest_init
-| [<>] ? start_kernel
-| [<>] ? i386_start_kernel
+Nicolas
