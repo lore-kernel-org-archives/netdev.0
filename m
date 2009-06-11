@@ -1,57 +1,39 @@
-From: Anders Eriksson <aeriksson@fastmail.fm>
-Subject: Re: WoL and r8169
-Date: Thu, 11 Jun 2009 13:14:12 +0200
-Message-ID: <20090611111412.C908733C023@tippex.mynet.homeunix.org>
-References: <20090607214220.5101B33C013@tippex.mynet.homeunix.org> <20090608215301.GA28044@electric-eye.fr.zoreil.com> <20090610102940.87FE633C023@tippex.mynet.homeunix.org> <20090610230116.GA23440@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] neigh: fix state transition INCOMPLETE->FAILED via
+ Netlink request
+Date: Thu, 11 Jun 2009 04:16:45 -0700 (PDT)
+Message-ID: <20090611.041645.160293472.davem@davemloft.net>
+References: <20090611.031215.17106793.davem@davemloft.net>
+	<1244716345-9407-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anders Eriksson <aeriksson@fastmail.fm>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch-smtp01.sth.basefarm.net ([80.76.149.212]:33411 "EHLO
-	ch-smtp01.sth.basefarm.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758234AbZFKLOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:14:39 -0400
-In-reply-to: <20090610230116.GA23440@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52716
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755863AbZFKLQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:16:43 -0400
+In-Reply-To: <1244716345-9407-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Timo Teras <timo.teras@iki.fi>
+Date: Thu, 11 Jun 2009 13:32:25 +0300
 
-romieu@fr.zoreil.com said:
-> Anders Eriksson <aeriksson@fastmail.fm> : [...]
->> Yes! That diff made the trick for WoL on magic package on my 2.6.30-rc6
->> kernel. Is it sent to Linus for -final?
+> The current code errors out the INCOMPLETE neigh entry skb queue only from
+> the timer if maximum probes have been attempted and there has been no reply.
+> This also causes the transtion to FAILED state.
+> 
+> However, the neigh entry can be also updated via Netlink to inform that the
+> address is unavailable.  Currently, neigh_update() just stops the timers and
+> leaves the pending skb's unreleased. This results that the clean up code in
+> the timer callback is never called, preventing also proper garbage collection.
+> 
+> This fixes neigh_update() to process the pending skb queue immediately if
+> INCOMPLETE -> FAILED state transtion occurs due to a Netlink request.
+> 
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-> No but it does not preclude it being properly submitted thereafter then for
-> -stable.
-
-Great.
-
-> [...]
->> I tried to wake up the machine using regular tcp traffic, on the theory that 
->> it's unicast and phy activity. No luck though.
-
-> Did the regular tcp traffic include a so-called magic (tcp) packet ? 
-
-Hmm,no. What is that? I'm looking at having what's best described as "wake on 
-directed packet" (ref 8 here, http://en.wikipedia.org/wiki/Wake-on-LAN). 
-Afaict, the box is expected to wake up on any traffic directed towards it (its 
-MAC and/or IP). 
-
-My reading of ethtool(8) says that 'u' should do the trick, and if I add 'b' I
-should be able to wake on arp (as arp is eth broadcast). In my test, however, 
-I've made sure to have the arp cache filled, and tcpdump confirms that an ssh 
-session to a pm-suspend'd box results in a series of unicsat in-session tcp 
-packets, and no arp traffic. Eventullay the arp cache times out (or is pruned 
-because of the faild transmissions?) and arp requests happens, but no wakeup.
-
-
-What's a magic tcp packet?
-
-/Anders 
-
-
-
-
-
-
+Looks great, applied, thanks!
