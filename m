@@ -1,123 +1,42 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
-Date: Thu, 11 Jun 2009 14:09:22 -0400
-Message-ID: <200906111409.23246.paul.moore@hp.com>
-References: <20090611034022.GC22424@ghostprotocols.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: CONFIG_ARPD help text
+Date: Thu, 11 Jun 2009 21:28:21 +0300
+Message-ID: <4A314CC5.9090505@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	" =?iso-8859-15?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:4545 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753457AbZFKSJX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 14:09:23 -0400
-In-Reply-To: <20090611034022.GC22424@ghostprotocols.net>
-Content-Disposition: inline
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:46677 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbZFKS2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 14:28:18 -0400
+Received: by ewy6 with SMTP id 6so2262472ewy.37
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 11:28:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 10 June 2009 11:40:22 pm Arnaldo Carvalho de Melo wrote:
-> diff --git a/net/socket.c b/net/socket.c
-> index 791d71a..f9f1e20 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -702,6 +702,28 @@ int sock_recvmsg(struct socket *sock, struct msghdr
-> *msg, return ret;
->  }
->
-> +static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
-> +			      size_t size, int flags)
-> +{
-> +	struct kiocb iocb;
-> +	struct sock_iocb siocb;
-> +	int ret;
-> +
-> +	init_sync_kiocb(&iocb, NULL);
-> +	iocb.private = &siocb;
-> +
-> +	siocb.sock = sock;
-> +	siocb.scm = NULL;
-> +	siocb.msg = msg;
-> +	siocb.size = size;
-> +	siocb.flags = flags;
-> +
-> +	ret = sock->ops->recvmsg(&iocb, sock, msg, size, flags);
-> +	if (-EIOCBQUEUED == ret)
-> +		ret = wait_on_sync_kiocb(&iocb);
-> +	return ret;
-> +}
+Hi,
 
-Hmmm, in an effort to reduce duplicated code how about updating 
-__sock_recvmsg() to something like the following:
+I just re-read again the CONFIG_ARPD help text. It says it's
+"experimental and also obsolete".
 
-static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
-                                 struct msghdr *msg, size_t size, int flags)
-{
-        int err;
+But as opennhrp relies on this, and has shown the usefulness for
+this interface - it can be used to implement other protocols that
+resolve neighbor address than ARP in userland. In this case the
+NHRP protocol.
 
-        err = security_socket_recvmsg(...);
-        if (err)
-                return err;
+Would it be acceptable to remove the designation as "obsolete"?
 
-        return sock_recvmsg_nosec(...);
-}
+Also, I'm running the opennhrp on production with reasonable
+size network (100+ nodes in gre subnet). And with the fix I sent
+previously it seems to work very stable. Is there something more
+to be done, or could the "experimental" marking be removed also?
 
-The only real difference is that now the *_kiocb() functions get called and I 
-have no clue if that is good or bad but it is different :)
+I could also update the help to explain where the option is useful.
+Or should the option be renamed to something like NEIGH_NETLINK?
+It also seems that IPv6 supports CONFIG_ARPD so it should probably
+be moved from net/ipv4/Kconfig to likely net/core/Kconfig?
 
->  	/*
-> @@ -2018,46 +2029,47 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr
-> __user *, msg, *      kernel msghdr to use the kernel address space)
->  	 */
->
-> -	uaddr = (__force void __user *)msg_sys.msg_name;
-> +	uaddr = (__force void __user *)msg_sys->msg_name;
->  	uaddr_len = COMPAT_NAMELEN(msg);
->  	if (MSG_CMSG_COMPAT & flags) {
-> -		err = verify_compat_iovec(&msg_sys, iov,
-> +		err = verify_compat_iovec(msg_sys, iov,
->  					  (struct sockaddr *)&addr,
->  					  VERIFY_WRITE);
->  	} else
-> -		err = verify_iovec(&msg_sys, iov,
-> +		err = verify_iovec(msg_sys, iov,
->  				   (struct sockaddr *)&addr,
->  				   VERIFY_WRITE);
->  	if (err < 0)
->  		goto out_freeiov;
->  	total_len = err;
->
-> -	cmsg_ptr = (unsigned long)msg_sys.msg_control;
-> -	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
-> +	cmsg_ptr = (unsigned long)msg_sys->msg_control;
-> +	msg_sys->msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
->
->  	if (sock->file->f_flags & O_NONBLOCK)
->  		flags |= MSG_DONTWAIT;
-> -	err = sock_recvmsg(sock, &msg_sys, total_len, flags);
-> +	err = (nosec ? sock_recvmsg_nosec : sock_recvmsg)(sock, msg_sys,
-> +							  total_len, flags);
-
-Perhaps I'm just being nit-picky here but why not this (it is much easier on 
-my eyes at least <g>):
-
-	if (nosec)
-		err = sock_recvmsg_nosec(...);
-	else
-		err = sock_recvmsg(...);
-
--- 
-paul moore
-linux @ hp
-
+Thanks,
+  Timo
