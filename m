@@ -1,52 +1,54 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
-	access
-Date: Wed, 10 Jun 2009 23:13:00 -0500
-Message-ID: <90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
-References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: How to configure MDI status per port
+Date: Wed, 10 Jun 2009 21:19:22 -0700
+Message-ID: <4A3085CA.2000300@riverbed.com>
+Reply-To: clala@riverbed.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zhang Wei <zw@zh-kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
-To: Li Yang <leoli@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1242117363-14949-1-git-send-email-leoli@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	Arthur Jones <ajones@riverbed.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from autosupport.riverbed.com ([208.70.196.44]:58186 "EHLO
+	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755448AbZFKESR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 00:18:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-On May 12, 2009, at 3:35 AM, Li Yang wrote:
+I have a requirement to be able to configure/change the default MDI-X 
+status of each ethernet port. This should be possible on a per port 
+basis i.e. it should be possible to configure, say, port 0 to auto mdi-x 
+mode & port 1 to manual MDI-X mode. A couple of possible implementation 
+strategies could achieve this but both have some problems. Following is 
+an overview of the two.
 
-> Add the mapping functions used to support direct IO memory access of
-> rapidIO.
->
-> Signed-off-by: Zhang Wei <zw@zh-kernel.org>
-> Signed-off-by: Li Yang <leoli@freescale.com>
+1.) Use a module parameter. Pass an array of values, each value 
+corresponding to ethernet port supported by the driver. For example, 
+modprobe e1000e mdix_values=1,0,2,0 (where the numbers 0,1 & 2 represent 
+auto MDI-X, manual MDI  & manual MDI-X modes respectively) assigns value 
+1 for port 0, 0 for port 1, 2 for port 2 and so on. This value can be 
+assigned to the mdix parameter (member of the e1000_phy_info structure 
+in the case of e1000e driver) in the probe routine. The problem here is 
+how to map the ordered list of numbers to the ethernet ports so that 
+each number in the list always corresponds to the same ethernet 
+interface. I assume that the order of enumeration of ethernet ports can 
+change based on changes to the system topology, i.e. plugging/pulling of 
+additional NIC cards.
 
-Use inbnd/outbnd instead of inb/outb which make one think of byte  
-level io accessors.
+2.) Using ethtool and each driver sets the value in its set_settings 
+function (part of the ethtool operations structure). The value received 
+for each port can be assigned to the mdix parameter (member of the 
+e1000_phy_info structure in the case of e1000e driver) but the problem 
+is that the value is useful iff it is assigned before the probe routine 
+is invoked, because the settings in the chip registers are done only at 
+probe time. Is there a way to change this value and have it take effect 
+when changed by ethtool?
 
-As I look at this I don't think this is the correct API.  I think we  
-should be using the DMA mapping API to hide these details.  The  
-concept of mapping like this seems to be more a function of FSL's  
-Address translation/mapping unit (ATMU) than anything specific to the  
-RIO bus standard.
+Any other ideas are most welcome.
 
-> ---
-> drivers/rapidio/rio.c   |   95 ++++++++++++++++++++++++++++++++++++++ 
-> +++++++++
-> include/linux/rio.h     |   25 ++++++++++++
-> include/linux/rio_drv.h |   24 +++++++++---
-> 3 files changed, 138 insertions(+), 6 deletions(-)
-
-- k
+Thanks,
+Chaitanya
