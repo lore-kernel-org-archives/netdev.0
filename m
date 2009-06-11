@@ -1,82 +1,123 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: virtio-net header alignment
-Date: Thu, 11 Jun 2009 11:01:06 -0700
-Message-ID: <1244743266.9669.64.camel@w-sridhar.beaverton.ibm.com>
-References: <OF1B881599.F1B4A2EF-ON802575BB.0036EA40-802575BC.0041BFB5@au1.ibm.com>
-	 <200905251601.29327.rusty@rustcorp.com.au> <1243268223.32745.25.camel@blaa>
-	 <20090610051227.GB16563@gondor.apana.org.au>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
+Date: Thu, 11 Jun 2009 14:09:22 -0400
+Message-ID: <200906111409.23246.paul.moore@hp.com>
+References: <20090611034022.GC22424@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Danielius Kudinskas <kudinskas@uk.ibm.com>,
-	aliguori@linux.vnet.ibm.com, Paul T Knowles <pablo@uk.ibm.com>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	" =?iso-8859-15?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Nivedita Singhvi <niv@us.ibm.com>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:48433 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755857AbZFKSBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 14:01:08 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n5BHuL6E000701
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 13:56:21 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n5BI19jw245722
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 14:01:10 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n5BI18CU011530
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 14:01:09 -0400
-In-Reply-To: <20090610051227.GB16563@gondor.apana.org.au>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:4545 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753457AbZFKSJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 14:09:23 -0400
+In-Reply-To: <20090611034022.GC22424@ghostprotocols.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-06-10 at 15:12 +1000, Herbert Xu wrote:
-> On Mon, May 25, 2009 at 05:17:03PM +0100, Mark McLoughlin wrote:
-> > 
-> > Perhaps; would padding struct virtio_net_hdr_mrg_rxbuf have avoided it?
-> > 
-> > Cc-ing Herbert, he initially wrote the guest side of this.
-> 
-> Does this fix it?
-> 
-> virtio_net: Fix IP alignment on mergeable RX path
-> 
-> We need to enforce the IP alignment on the mergeable RX path just
-> like the other RX path.  Not doing so results in misaligned IP
-> headers.
+On Wednesday 10 June 2009 11:40:22 pm Arnaldo Carvalho de Melo wrote:
+> diff --git a/net/socket.c b/net/socket.c
+> index 791d71a..f9f1e20 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -702,6 +702,28 @@ int sock_recvmsg(struct socket *sock, struct msghdr
+> *msg, return ret;
+>  }
+>
+> +static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
+> +			      size_t size, int flags)
+> +{
+> +	struct kiocb iocb;
+> +	struct sock_iocb siocb;
+> +	int ret;
+> +
+> +	init_sync_kiocb(&iocb, NULL);
+> +	iocb.private = &siocb;
+> +
+> +	siocb.sock = sock;
+> +	siocb.scm = NULL;
+> +	siocb.msg = msg;
+> +	siocb.size = size;
+> +	siocb.flags = flags;
+> +
+> +	ret = sock->ops->recvmsg(&iocb, sock, msg, size, flags);
+> +	if (-EIOCBQUEUED == ret)
+> +		ret = wait_on_sync_kiocb(&iocb);
+> +	return ret;
+> +}
 
-I think this fixes the old RX path rather than the mergeable RX path.
-try_fill_recv_maxbufs() is called from try_fill_recv()
+Hmmm, in an effort to reduce duplicated code how about updating 
+__sock_recvmsg() to something like the following:
 
-        if (!vi->mergeable_rx_bufs) {
-                try_fill_recv_maxbufs(vi);
-                return;
-        }
+static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+                                 struct msghdr *msg, size_t size, int flags)
+{
+        int err;
 
--Sridhar
+        err = security_socket_recvmsg(...);
+        if (err)
+                return err;
 
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 4d1d479..52fba8e 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -283,10 +283,11 @@ static void try_fill_recv_maxbufs(struct virtnet_info *vi)
->  	for (;;) {
->  		struct virtio_net_hdr *hdr;
-> 
-> -		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN);
-> +		skb = netdev_alloc_skb(vi->dev, MAX_PACKET_LEN + NET_IP_ALIGN);
->  		if (unlikely(!skb))
->  			break;
-> 
-> +		skb_reserve(skb, NET_IP_ALIGN);
->  		skb_put(skb, MAX_PACKET_LEN);
-> 
->  		hdr = skb_vnet_hdr(skb);
-> 
-> Cheers,
+        return sock_recvmsg_nosec(...);
+}
+
+The only real difference is that now the *_kiocb() functions get called and I 
+have no clue if that is good or bad but it is different :)
+
+>  	/*
+> @@ -2018,46 +2029,47 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr
+> __user *, msg, *      kernel msghdr to use the kernel address space)
+>  	 */
+>
+> -	uaddr = (__force void __user *)msg_sys.msg_name;
+> +	uaddr = (__force void __user *)msg_sys->msg_name;
+>  	uaddr_len = COMPAT_NAMELEN(msg);
+>  	if (MSG_CMSG_COMPAT & flags) {
+> -		err = verify_compat_iovec(&msg_sys, iov,
+> +		err = verify_compat_iovec(msg_sys, iov,
+>  					  (struct sockaddr *)&addr,
+>  					  VERIFY_WRITE);
+>  	} else
+> -		err = verify_iovec(&msg_sys, iov,
+> +		err = verify_iovec(msg_sys, iov,
+>  				   (struct sockaddr *)&addr,
+>  				   VERIFY_WRITE);
+>  	if (err < 0)
+>  		goto out_freeiov;
+>  	total_len = err;
+>
+> -	cmsg_ptr = (unsigned long)msg_sys.msg_control;
+> -	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
+> +	cmsg_ptr = (unsigned long)msg_sys->msg_control;
+> +	msg_sys->msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
+>
+>  	if (sock->file->f_flags & O_NONBLOCK)
+>  		flags |= MSG_DONTWAIT;
+> -	err = sock_recvmsg(sock, &msg_sys, total_len, flags);
+> +	err = (nosec ? sock_recvmsg_nosec : sock_recvmsg)(sock, msg_sys,
+> +							  total_len, flags);
+
+Perhaps I'm just being nit-picky here but why not this (it is much easier on 
+my eyes at least <g>):
+
+	if (nosec)
+		err = sock_recvmsg_nosec(...);
+	else
+		err = sock_recvmsg(...);
+
+-- 
+paul moore
+linux @ hp
 
