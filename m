@@ -1,53 +1,60 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 13:17:14 +0300
-Message-ID: <4A30D9AA.1020004@iki.fi>
-References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC net 00/03]: dev_queue_xmit error propagation
+Date: Thu, 11 Jun 2009 03:18:52 -0700 (PDT)
+Message-ID: <20090611.031852.90563118.davem@davemloft.net>
+References: <20090609161658.6730.59754.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kuznet@ms2.inr.ac.ru
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:47308 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754215AbZFKKRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 06:17:12 -0400
-Received: by ewy6 with SMTP id 6so1864539ewy.37
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 03:17:13 -0700 (PDT)
-In-Reply-To: <20090611.030922.91415233.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50074
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754639AbZFKKSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 06:18:50 -0400
+In-Reply-To: <20090609161658.6730.59754.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Timo Ter=E4s <timo.teras@iki.fi>
-> Date: Thu, 11 Jun 2009 11:22:34 +0300
->=20
->> I'm not entirely sure about this, but shouldn't we do something like
->> the below to make ip_gre allocation enough headroom for paths where
->> e.g. xfrm transformations take place (as a speed optimization)?
->=20
-> This should be handled by the code one level up that allocates
-> the SKB.
->=20
-> And as routes get stacked, the MTUs and headroom values get adjusted
-> up to the root.
->=20
-> At least that's how it's supposed to work :-)
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue,  9 Jun 2009 18:16:59 +0200 (MEST)
 
-Ok, that makes sense. I was just wondering if there's any corner cases
-were this would have helped.
+> Currently the ->ndo_hard_start_xmit() callbacks are only permitted to return
+> one of the NETDEV_TX codes. This prevents any kind of error propagation for
+> virtual devices, like queue congestion of the underlying device in case of
+> layered devices, or unreachability in case of tunnels.
+> 
+> These patches change the return conventions so hard_start_xmit() can return
+> a NETDEV_TX code, an errno code or a NET_XMIT code. This means it can
+> additionally to the NETDEV_TX codes simply return the value of dev_queue_xmit().
+> 
+> When queueing is used, errors can't be propagated back since transmission is
+> asynchronously and all non-NETDEV codes are mapped to NETDEV_TX_OK, reflecting
+> the fact that the skb is consumed unconditionally.
+> 
+> In case of virtual devices not using queueing, the NETDEV_TX codes are consumed
+> by dev_queue_xmit(), everything else is returned to the higher layers.
+> 
+> The end result is that virtual network devices can propagate queue congestion
+> state of the underlying device, or other errors, back to the socket layer.
+> One immediately useful effect is that TCP can make use of this information
+> as is currently done with non-virtual devices. But it also seems useful in case
+> of tunnels, which can return more meaningful errors, or for statistics.
+> 
+> Comments welcome. A review of my changes in dev_hard_start_xmit() would be
+> especially appreciated :)
 
-> Otherwise we'd need a similar hack in ipip.c too.
+These changes look fine to me.
 
-I was under the impression that as we need to do the route lookup anywa=
-y
-we could take advantage of the information available from there fully.
+That one if() conditional checking 'ret' for three different
+properties is stretching the brain a bit.  Maybe you can
+encapsulate that sucker into an inline function with suitable
+comments.  That way when someone reads the test, it just says
+what it is looking for, rather than being some complicated
+set of tests.
 
-But yes, your explanation makes perfect sense.
+Once you fix that up and the problem Eric spotted in patch #3
+feel free to formally submit this.
 
-Thanks,
-  Timo
-
+Thanks!
