@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: added pci_device_id table
-Date: Thu, 11 Jun 2009 16:17:54 -0700 (PDT)
-Message-ID: <20090611.161754.161811314.davem@davemloft.net>
-References: <4A2E5B5B.7060701@mellanox.co.il>
-	<20090611.030527.14497101.davem@davemloft.net>
-	<4A311745.50505@mellanox.co.il>
+Subject: Re: netfilter 00/31: netfilter update
+Date: Thu, 11 Jun 2009 16:19:10 -0700 (PDT)
+Message-ID: <20090611.161910.109357779.davem@davemloft.net>
+References: <20090611.010827.193702616.davem@davemloft.net>
+	<4A310C9E.3050904@trash.net>
+	<4A311AB9.3060205@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, tziporet@mellanox.co.il
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55473
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755030AbZFKXRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:17:51 -0400
-In-Reply-To: <4A311745.50505@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A311AB9.3060205@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Thu, 11 Jun 2009 17:40:05 +0300
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 11 Jun 2009 16:54:49 +0200
 
-> As for combining the modules, it is not something we would like to
-> do.  mlx4_en module is not the only "customer" of mlx4_core, there
-> is also mlx4_ib and mlx4_fc (in the near future).  According to our
-> design, the mlx4_core module is protocol independent and gives
-> services (like command interface and HW resources management) to the
-> modules mentioned above.
+> I've now merged your latest tree and added the attached patch on top
+> to fix the compile error. This will unfortunately leave a small window
+> of commits that don't compile cleanly. If you prefer to have this
+> fixed
+> differently, please let me know, otherwise
+> 
+> Please pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git
+> master
 
-Other drivers handle this IB usage of a networking device core more
-elegantly, I'm pretty sure.
-
-There is nothing that prevents you from making the mlx4_en networking
-device driver be one module and export symbols that the IB driver can
-make use of.
+Works for me, pulled, thanks!
