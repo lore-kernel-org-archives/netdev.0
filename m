@@ -1,86 +1,98 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [2.6.31 00/21] WiMAX pull request
-Date: Thu, 11 Jun 2009 14:35:37 -0700
-Message-ID: <cover.1244755662.git.inaky@linux.intel.com>
+Subject: [2.6.31 03/21] wimax/i2400m: i2400m's work queue should be initialized before RX support
+Date: Thu, 11 Jun 2009 14:35:40 -0700
+Message-ID: <e9a6b45be580d648ed2f21646214733504bd4d6f.1244755662.git.inaky@linux.intel.com>
+References: <cover.1244755662.git.inaky@linux.intel.com>
 To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:27879 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752365AbZFKVgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 17:36:37 -0400
+	id S1755578AbZFKVgk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 17:36:40 -0400
+In-Reply-To: <cover.1244755662.git.inaky@linux.intel.com>
+In-Reply-To: <cover.1244755662.git.inaky@linux.intel.com>
+References: <cover.1244755662.git.inaky@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This pull requests contains a long set of fixes to bugs and issues
-found while debugging the SDIO version of the i2400m WiMAX
-device. Most of them are in the generic part of the i2400m, and thus,
-apply to both the USB and SDIO versions:
+RX support is the only user of the work-queue, to process
+reports/notifications from the device. Thus, it needs the work queue
+to be initialized first.
 
- - tweaks and fixes to the firmware loader to ensure it can recover
-   the device from corner cases we can get it into and that it can
-   support more different varities of hardware
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+---
+ drivers/net/wimax/i2400m/driver.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
 
- - SDIO driver improvements: support bus-level reset, make RX fully
-   IRQ driven (even in firmware load mode)
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 86dd18a..006eb12 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -385,6 +385,11 @@ error:
+  * Uploads firmware and brings up all the resources needed to be able
+  * to communicate with the device.
+  *
++ * The workqueue has to be setup early, at least before RX handling
++ * (it's only real user for now) so it can process reports as they
++ * arrive. We also want to destroy it if we retry, to make sure it is
++ * flushed...easier like this.
++ *
+  * TX needs to be setup before the bus-specific code (otherwise on
+  * shutdown, the bus-tx code could try to access it).
+  */
+@@ -410,15 +415,15 @@ retry:
+ 	result = i2400m_rx_setup(i2400m);
+ 	if (result < 0)
+ 		goto error_rx_setup;
+-	result = i2400m->bus_dev_start(i2400m);
+-	if (result < 0)
+-		goto error_bus_dev_start;
+ 	i2400m->work_queue = create_singlethread_workqueue(wimax_dev->name);
+ 	if (i2400m->work_queue == NULL) {
+ 		result = -ENOMEM;
+ 		dev_err(dev, "cannot create workqueue\n");
+ 		goto error_create_workqueue;
+ 	}
++	result = i2400m->bus_dev_start(i2400m);
++	if (result < 0)
++		goto error_bus_dev_start;
+ 	result = i2400m_firmware_check(i2400m);	/* fw versions ok? */
+ 	if (result < 0)
+ 		goto error_fw_check;
+@@ -440,10 +445,10 @@ retry:
+ error_dev_initialize:
+ error_check_mac_addr:
+ error_fw_check:
+-	destroy_workqueue(i2400m->work_queue);
+-error_create_workqueue:
+ 	i2400m->bus_dev_stop(i2400m);
+ error_bus_dev_start:
++	destroy_workqueue(i2400m->work_queue);
++error_create_workqueue:
+ 	i2400m_rx_release(i2400m);
+ error_rx_setup:
+ 	i2400m_tx_release(i2400m);
+@@ -479,7 +484,9 @@ int i2400m_dev_start(struct i2400m *i2400m, enum i2400m_bri bm_flags)
+  *
+  * Returns: 0 if ok, < 0 errno code on error.
+  *
+- * Releases all the resources allocated to communicate with the device.
++ * Releases all the resources allocated to communicate with the
++ * device. Note we cannot destroy the workqueue earlier as until RX is
++ * fully destroyed, it could still try to schedule jobs.
+  */
+ static
+ void __i2400m_dev_stop(struct i2400m *i2400m)
+@@ -491,8 +498,8 @@ void __i2400m_dev_stop(struct i2400m *i2400m)
+ 	wimax_state_change(wimax_dev, __WIMAX_ST_QUIESCING);
+ 	i2400m_dev_shutdown(i2400m);
+ 	i2400m->ready = 0;
+-	destroy_workqueue(i2400m->work_queue);
+ 	i2400m->bus_dev_stop(i2400m);
++	destroy_workqueue(i2400m->work_queue);
+ 	i2400m_rx_release(i2400m);
+ 	i2400m_tx_release(i2400m);
+ 	wimax_state_change(wimax_dev, WIMAX_ST_DOWN);
+-- 
+1.6.2.3
 
- - misc validation/debug assists
-
- - fix panics caused by some corner cases in the TX code
-
- - miscellaneous small cleanups in code and documentation
-
- - compiler warnings in the sh4 architecture
-
-
-The following changes since commit 0ed586d075ef65c0268982e5b7f36d0ffaa95547:
-  Roel Kluin (1):
-        atl1c: WAKE_MCAST tested twice, not WAKE_UCAST
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.31.y
-
-Patches follow for reviewing convenience.
-
-Cindy H Kao (2):
-      wimax/i2400m: when bootstrap fails, reinitialize the bootrom
-      wimax/i2400m: use -EL3RST to indicate device reset instead of -ERESTARTSYS
-
-Dirk Brandewie (4):
-      wimax/i2400m: Change d_printf() level for secure boot messages
-      wimax/i2400m/sdio: Implement I2400M_RT_BUS reset type
-      wimax/i2400m: move boot time poke table out of common driver
-      wimax/i2400m/sdio: Add device specific poke table.
-
-Inaky Perez-Gonzalez (15):
-      wimax/i2400m: introduce module parameter to disable entering power save
-      wimax/i2400m: don't call netif_start_queue() in _tx_msg_sent()
-      wimax/i2400m: i2400m's work queue should be initialized before RX support
-      wimax/i2400m: i2400m_schedule_work() doesn't need i2400m->work_queue
-      wimax/i2400m: rename misleading I2400M_PL_PAD to I2400M_PL_ALIGN
-      wimax/i2400m: fix panic/warnings caused by missed check on empty TX message
-      wimax/i2400m: fix panic due to missed corner cases on tail_room calculation
-      wimax/i2400m: don't reset device on i2400m_dev_shutdown()
-      wimax/i2400m: fix oops when the TX FIFO fills up due to a missing check
-      wimax/i2400m: if a device reboot happens during probe, handle it
-      wimax/i2400m: Allow bus-specific driver to specify retry count
-      wimax/i2400m: don't reset device when bootrom init retries are exceeded
-      wimax/i2400m/sdio: Move all the RX code to a unified, IRQ based receive routine
-      wimax: fix warning caused by not checking retval of rfkill_set_hw_state()
-      wimax: fix gcc warnings in sh4 when calling BUG()
-
- drivers/net/wimax/i2400m/control.c     |   24 +++++---
- drivers/net/wimax/i2400m/driver.c      |   40 ++++++++----
- drivers/net/wimax/i2400m/fw.c          |   58 ++++++-----------
- drivers/net/wimax/i2400m/i2400m-sdio.h |    9 +++
- drivers/net/wimax/i2400m/i2400m.h      |   43 +++++++++++++
- drivers/net/wimax/i2400m/op-rfkill.c   |    4 +-
- drivers/net/wimax/i2400m/rx.c          |    4 +-
- drivers/net/wimax/i2400m/sdio-fw.c     |  109 ++++++++++++++------------------
- drivers/net/wimax/i2400m/sdio-rx.c     |   47 +++++++++++---
- drivers/net/wimax/i2400m/sdio.c        |   50 ++++++++++++---
- drivers/net/wimax/i2400m/tx.c          |   75 ++++++++++++++++++++--
- drivers/net/wimax/i2400m/usb.c         |    5 +-
- include/linux/wimax/i2400m.h           |    2 +-
- net/wimax/op-rfkill.c                  |    3 +-
- 14 files changed, 320 insertions(+), 153 deletions(-)
