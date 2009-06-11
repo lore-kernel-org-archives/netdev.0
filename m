@@ -1,38 +1,52 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: atl1c not doing any network traffic on eeepc 1008HA.
-Date: Wed, 10 Jun 2009 19:31:10 -0400
-Message-ID: <20090610233110.GA17112@taurine.csclub.uwaterloo.ca>
+From: Chaitanya Lala <clala@riverbed.com>
+Subject: [net-next PATCH 1/1] igb: Expose MDI-X status accessible via
+	ethtool
+Date: Wed, 10 Jun 2009 17:42:00 -0700
+Message-ID: <20090611004200.GA18663@clala-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:59676 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752876AbZFJXbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 19:31:08 -0400
-Received: from caffeine.csclub.uwaterloo.ca (localhost [127.0.0.1])
-	by caffeine.csclub.uwaterloo.ca (Postfix) with ESMTP id 2750373E1B
-	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 19:31:11 -0400 (EDT)
-Received: from taurine (taurine.csclub.uwaterloo.ca [129.97.134.34])
-	by caffeine.csclub.uwaterloo.ca (Postfix) with SMTP id 1135373DD6
-	for <netdev@vger.kernel.org>; Wed, 10 Jun 2009 19:31:10 -0400 (EDT)
+Received: from smtp1.riverbed.com ([208.70.196.45]:58177 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668AbZFKAub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Jun 2009 20:50:31 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My wife just got an eeepc 10008HA a week ago, and so far Debian
-unstable is runnig quite well on it.  Wifi works fine for example.
-Wired networking however does not.  The atl1c driver loads and detects
-the network port, but no traffic ever manages to make it through.
-dmesg seems to indicate that the PHY has link, but there doesn't seem
-to be any indication of that in ip link or ifconfig on the other hand.
+In a recent patch, ethtool kernel interface changed to
+incorporate MDI-X status. We expose MDI-X status with this patch.
+This patch depends a previous patch called
+"e1000e: Expose MDI-X status via ethtool change".
 
-Any suggestions on where to go about gatharing debug info for this?
+Signed-off-by: Chaitanya Lala <clala@riverbed.com>
+Signed-off-by: Arthur Jones <ajones@riverbed.com>
+---
+ drivers/net/igb/igb_ethtool.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-Right now it is running the 2.6.29-2-686 kernel from Debian which I
-believe is 2.6.29.3 based at the moment.
-
-I will try to get a hold of the dmesg output from the machine.
-
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
+index 27eae49..17486ff 100644
+--- a/drivers/net/igb/igb_ethtool.c
++++ b/drivers/net/igb/igb_ethtool.c
+@@ -168,6 +168,15 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 
+ 	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
+ 			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++
++	/* MDI-X => 2; MDI =>1; Invalid =>0 */
++	if ((hw->phy.media_type == e1000_media_type_copper) &&
++	    !hw->mac.get_link_status)
++		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
++							ETH_TP_MDI;
++	else
++		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++
+ 	return 0;
+ }
+ 
 -- 
-Len Sorensen
+1.6.0.4
+
