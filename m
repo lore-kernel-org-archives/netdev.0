@@ -1,45 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ip_gre headroom allocation
-Date: Thu, 11 Jun 2009 21:37:09 +1000
-Message-ID: <20090611113709.GA2545@gondor.apana.org.au>
-References: <4A30BECA.8030205@iki.fi> <20090611.030922.91415233.davem@davemloft.net> <4A30D9AA.1020004@iki.fi> <20090611105638.GA2085@gondor.apana.org.au> <4A30EAAA.4070907@iki.fi>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Thu, 11 Jun 2009 14:45:28 +0300
+Message-ID: <15ddcffd0906110445x25e2b2c5qa8445e0e1b344ef4@mail.gmail.com>
+References: <adaski83ciy.fsf@cisco.com>
+	 <20090609.221209.07018418.davem@davemloft.net>
+	 <15ddcffd0906100318u2a61b7d8g991fe52439e07928@mail.gmail.com>
+	 <20090610.050122.261415364.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Cc: rdreier@cisco.com, cl@linux-foundation.org, netdev@vger.kernel.org,
+	yosefe@voltaire.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57580 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1763035AbZFKLhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:37:12 -0400
-Content-Disposition: inline
-In-Reply-To: <4A30EAAA.4070907@iki.fi>
+Received: from fg-out-1718.google.com ([72.14.220.159]:57021 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750924AbZFKLp3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 07:45:29 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1472002fga.17
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 04:45:29 -0700 (PDT)
+In-Reply-To: <20090610.050122.261415364.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2009 at 02:29:46PM +0300, Timo Ter=E4s wrote:
->
-> I guess this is easy for point-to-point tunnels. But how about the
-> multipoint gre tunnels? The needed_headroom can vary on destination
-> basis depending on if they are NATted or not, and on the cipher/hash
-> used.
+On Wed, Jun 10, 2009 at 3:01 PM, David Miller<davem@davemloft.net> wrot=
+e:
+> From: Or Gerlitz <or.gerlitz@gmail.com>
 
-I don't think we need to worry about NAT, well at least we don't
-worry about it on the normal path :)
+>> for --unicast-- the same problem [...] will come into play under bot=
+h Ethernet and IB,
+>> so the user is limited by the socket buffer len and the neigh unres_=
+qlen systcl.
 
-> Can we change the needed_headroom on-the-fly? Increase it when ever
-> we encounter a larger path? But this also means some packages would
-> get extra headroom allocated.
+> But this generally does not cause problems via ARP, why might that be=
+?
+> Because resolution is 1) rare 2) quick. =A0Both of which do not apply=
+ to this IPoIB case.
 
-Just make it the maximum.  It's OK to have extra head space.
-If the head space is huge then you've got bigger problems than
-wasted memory :)
+To be precise, I don't see why ARP resolution is more rare then
+joining to a multicast
+group on behalf of a sender in IPoIB, they both happen on the first
+and if/when the kernel
+deletes the neighbour.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Sure, but that's just pushing the problem around instead of solving i=
+t.
+
+Let me think about it more.
+
+Or.
