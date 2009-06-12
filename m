@@ -1,58 +1,31 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] ieee802154: fix kconfig bool/tristate muckup
-Date: Fri, 12 Jun 2009 15:59:20 -0700
-Message-ID: <4A32DDC8.7060605@oracle.com>
-References: <20090611191420.1f4d5e4f.sfr@canb.auug.org.au> <4A31869B.3050901@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/14] GRO: Lots of microoptimisations
+Date: Fri, 12 Jun 2009 16:48:33 -0700 (PDT)
+Message-ID: <20090612.164833.35888001.davem@davemloft.net>
+References: <20090529162312.GA5191@neterion.com>
+	<20090610054449.GB16984@gondor.apana.org.au>
+	<20090612160926.GA4290@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4A31869B.3050901@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: ben.lahaise@neterion.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55376
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750709AbZFLXsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 19:48:31 -0400
+In-Reply-To: <20090612160926.GA4290@neterion.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: Benjamin LaHaise <ben.lahaise@neterion.com>
+Date: Fri, 12 Jun 2009 12:09:26 -0400
 
-menuconfig IEEE802154_DRIVERS is a bool that depends on tristate IEEE802154.
-If the IEEE802154 symbol is 'm', the bool becomes 'y'.
-This allows tristate symbols under IEEE802154_DRIVERS to be configured as
-'y' and cause build problems.
-Changing the menuconfig bool to a tristate fixes this.
+> I found at least one reason why: the first skb_shinfo()->frag_list touch 
+> in dev_gro_receive() was causing a cache miss.  Adding a prefetch in the 
+> driver helps that a little bit, but there's still > 500Mbps difference.  
 
-drivers/built-in.o: In function `fake_scan_req':
-fakehard.c:(.text+0x46d625): undefined reference to `ieee802154_nl_scan_confirm'
-drivers/built-in.o: In function `fake_disassoc_req':
-fakehard.c:(.text+0x46d66f): undefined reference to `ieee802154_nl_disassoc_confirm'
-drivers/built-in.o: In function `fake_assoc_req':
-fakehard.c:(.text+0x46d6be): undefined reference to `ieee802154_nl_assoc_confirm'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: Sergey Lapin <slapin@ossfans.org>
----
- drivers/ieee802154/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-next-20090612.orig/drivers/ieee802154/Kconfig
-+++ linux-next-20090612/drivers/ieee802154/Kconfig
-@@ -1,5 +1,5 @@
- menuconfig IEEE802154_DRIVERS
--	bool "IEEE 802.15.4 drivers"
-+	tristate "IEEE 802.15.4 drivers"
- 	depends on NETDEVICES && IEEE802154
- 	default y
- 	---help---
-
-
--- 
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+I find a 500Mbps difference, due to just one single cache miss on
+every packet, simply astounding and unbelievable.  But hey, it is
+what you are seeing, so something has to account for it. :)
