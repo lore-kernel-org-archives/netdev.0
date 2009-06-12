@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
-Date: Thu, 11 Jun 2009 17:00:19 -0700 (PDT)
-Message-ID: <20090611.170019.103063661.davem@davemloft.net>
-References: <20090611034022.GC22424@ghostprotocols.net>
-	<20090611.024100.233245804.davem@davemloft.net>
-	<20090611153444.GE22424@ghostprotocols.net>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
+ configuration.
+Date: Thu, 11 Jun 2009 17:03:52 -0700 (PDT)
+Message-ID: <20090611.170352.156688524.davem@davemloft.net>
+References: <4A30A884.9000508@gmail.com>
+	<1244732090.2785.12.camel@achroite>
+	<alpine.LFD.2.00.0906111159080.31536@xanadu.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vanhoof@redhat.com, williams@redhat.com,
-	caitlin.bestler@gmail.com, paul.moore@hp.com, steve@chygwyn.com,
-	remi.denis-courmont@nokia.com, nhorman@tuxdriver.com,
-	niv@us.ibm.com
-To: acme@redhat.com
+Cc: bhutchings@solarflare.com, mfuzzey@gmail.com,
+	netdev@vger.kernel.org
+To: nico@cam.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40054
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40059
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760695AbZFLAAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:00:17 -0400
-In-Reply-To: <20090611153444.GE22424@ghostprotocols.net>
+	by vger.kernel.org with ESMTP id S1752310AbZFLADu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:03:50 -0400
+In-Reply-To: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Thu, 11 Jun 2009 12:34:46 -0300
+From: Nicolas Pitre <nico@cam.org>
+Date: Thu, 11 Jun 2009 12:22:59 -0400 (EDT)
 
-> Thanks for quickly pointing out this brainfart!
+> I think this is a good example from the embedded world providing a
+> clean solution to a recurring issue which would return again to
+> quick hacks if the mainline reception is "use a cramfs" again.
 
-Couldn't everyone else smell it too?
+Well initrd is the cleanest solution.
 
-Maybe I'm just super-sensitive.
+People don't want to do it because it requires some work, and there
+always recurring passive-aggressive mentions of "space issues" which
+frankly is totally bogus.  You can make this thing as tiny as you want
+it to be.
+
+If someone implemented it one time, then it could be shared by other
+folks needing the same solution.
+
+But I guess us upstream kernel folk just "don't understand."
