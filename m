@@ -1,72 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: Fix a race between sky2_down and sky2_poll
-Date: Fri, 12 Jun 2009 07:16:14 -0700
-Message-ID: <20090612071614.312e715d@nehalam>
-References: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
-	<20090611100448.09a9b730@nehalam>
-	<392fb48f0906120616n123d8b57h9ef7c8e1735d26bf@mail.gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: IPoIB: Fix multicast packet drops before join is complete
+Date: Fri, 12 Jun 2009 10:17:27 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0906121014010.13365@gentwo.org>
+References: <ada1vps4u9e.fsf@cisco.com> <20090609.215719.214969588.davem@davemloft.net> <alpine.DEB.1.10.0906111107390.29827@gentwo.org> <20090611.165856.108387598.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33986 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754318AbZFLOQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 10:16:58 -0400
-In-Reply-To: <392fb48f0906120616n123d8b57h9ef7c8e1735d26bf@mail.gmail.com>
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:57935 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751779AbZFLORb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 10:17:31 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id E1E0482C4E5
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 10:33:17 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id quEjmTQTo3cS for <netdev@vger.kernel.org>;
+	Fri, 12 Jun 2009 10:33:17 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id BCCFB82C653
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 10:33:11 -0400 (EDT)
+In-Reply-To: <20090611.165856.108387598.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Jun 2009 22:16:42 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+On Thu, 11 Jun 2009, David Miller wrote:
 
-> 2009/6/12 Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> > Does the following fix the problem?
-> 
-> I tried your patch out, but it still got a crash.
-> 
-> The patch below does fix the problem. Does this look better?
-> 
-> thanks,
-> 
-> Mike
-> 
-> -----------------------------
-> 
-> Subject: [PATCH] sky2: Shutdown receive path cleanly in sky2_down
-> 
-> If sky2_down was called while receiving a packet, receive interrupts
-> would still occur after the receive buffer was free'd causing a crash in
-> sky2_status_intr.
-> 
-> To avoid further receive interrupts after sky2_down:
-> 
-> * make sure NAPI and interrupts are fully disabled during shutdown
-> * call sky2_rx_stop after shutting down the receiver
-> * clear received packets after shutdown
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
-> ---
->  drivers/net/sky2.c |   21 +++++++++++++++------
->  1 files changed, 15 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index a2ff9cb..136b362 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -1805,10 +1805,13 @@ static int sky2_down(struct net_device *dev)
->  	/* Disable port IRQ */
->  	imask = sky2_read32(hw, B0_IMSK);
->  	imask &= ~portirq_msk[port];
-> -	sky2_write32(hw, B0_IMSK, imask);
-> +	sky2_write32(hw, B0_IMSK, 0);
-> 
+> > Umm?? My patch does that....
+>
+> No it does not.  It eliminates a limit on the generic intermediate
+> queue.  It did no blocking, no sleeping, or the process when it
+> joined the group.
 
-This breaks on 2 port boards. On dual port boards, both ports share
-the same IRQ. 
+What intermediate queue? The check in the IPoIB layuer was simply for
+packets queued on a socket. Are you talking about the TX ring?
 
+> I was suggesting to block the process, at socket context time, when it
+> joins a multicast group.  That way it wouldn't be able to do any sends
+> until IPoIB could resolve the multicast join.
 
--- 
+My patch blocks the process when the queue has filled up. It blocks when
+the queue has reached sk_sndbuf
+
+The join occurs and then the app continues sending packets that are
+queued until the queue limits have been reached. Then the process blocks.
+
+It would be better to block earlier but this also does the trick.
