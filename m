@@ -1,83 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: net: fix network drivers ndo_start_xmit() return values (part 8)
-Date: Fri, 12 Jun 2009 18:14:36 +0200
-Message-ID: <4A327EEC.5020300@trash.net>
+From: Benjamin LaHaise <ben.lahaise@neterion.com>
+Subject: lots of cpu time spent in skb_copy_bits() in net-next with small
+	mtu
+Date: Fri, 12 Jun 2009 12:13:20 -0400
+Message-ID: <20090612161320.GB4290@neterion.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090103000307090505090901"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, j.dumon@option.com,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48369 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753439AbZFLQOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 12:14:37 -0400
+Received: from barracuda.s2io.com ([72.1.205.138]:42668 "EHLO
+	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751996AbZFLQQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 12:16:24 -0400
+Received: from guinness.s2io.com (localhost [127.0.0.1])
+	by barracuda.s2io.com (Spam Firewall) with ESMTP id 67196201E870
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 12:13:23 -0400 (EDT)
+Received: from guinness.s2io.com (142-46-210.147.tel-ott.com [142.46.210.147]) by barracuda.s2io.com with ESMTP id 32t3RcVIoCsRW143 for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 12:13:23 -0400 (EDT)
+Received: from neterion.com ([10.16.18.39])
+	by guinness.s2io.com (8.12.6/8.12.6) with ESMTP id n5CGDLmd014584
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 12:13:22 -0400 (EDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090103000307090505090901
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi folks,
 
+Just a heads up: something in net-next is resulting in lots of cpu time 
+being spent in skb_copy_bits() (called from tcp_collapse()) when an ethernet 
+interface mtu is lowered to 576 on the source and dest machines running 
+netperf.  This behaviour does not appear in 2.6.29.  I'll try to bisect 
+it this weekend.
 
---------------090103000307090505090901
-Content-Type: text/x-patch;
- name="08.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="08.diff"
-
-commit 6c6e6eb6ee2b7ab91c73e51a5d7a438d2daa5b94
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Jun 12 18:14:16 2009 +0200
-
-    net: fix network drivers ndo_start_xmit() return values (part 8)
-    
-    Fix up USB drivers that return an errno value (result of usb_submit_urb())
-    to qdisc_restart(), causing qdisc_restart() to print a warning and requeue/
-    retransmit the skb.
-    
-    - hso: skb is freed: use after free
-    - at76_usb: skb is freed: use after free
-    
-    Compile tested only.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index e3580f4..f8c6d7e 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -816,7 +816,7 @@ static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	}
- 	dev_kfree_skb(skb);
- 	/* we're done */
--	return result;
-+	return NETDEV_TX_OK;
- }
- 
- static void hso_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
-diff --git a/drivers/staging/at76_usb/at76_usb.c b/drivers/staging/at76_usb/at76_usb.c
-index c8af9a8..3f303ae 100644
---- a/drivers/staging/at76_usb/at76_usb.c
-+++ b/drivers/staging/at76_usb/at76_usb.c
-@@ -3242,12 +3242,11 @@ static int at76_tx(struct sk_buff *skb, struct net_device *netdev)
- 			       "%s: -EINVAL: tx urb %p hcpriv %p complete %p\n",
- 			       priv->netdev->name, priv->tx_urb,
- 			       priv->tx_urb->hcpriv, priv->tx_urb->complete);
--	} else {
-+	} else
- 		stats->tx_bytes += skb->len;
--		dev_kfree_skb(skb);
--	}
- 
--	return ret;
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static void at76_tx_timeout(struct net_device *netdev)
-
---------------090103000307090505090901--
+		-ben
