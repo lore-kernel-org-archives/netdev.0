@@ -1,62 +1,44 @@
-From: Li Yang <leoli@freescale.com>
-Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
-	access
-Date: Fri, 12 Jun 2009 21:27:58 +0800
-Message-ID: <2a27d3730906120627l112030b3wa11ea5aa3fcb1087@mail.gmail.com>
-References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
-	<90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
-	<3A45394FD742FA419B760BB8D398F9ED483CCD@zch01exm26.fsl.freescale.net>
-	<5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
+From: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of
+	register 42c to clear.
+Date: Fri, 12 Jun 2009 15:27:51 +0200
+Message-ID: <38b2ab8a0906120627l51f8fcbby934e3459ce148d26@mail.gmail.com>
+References: <bCxQpon4SCJ.A.RrF.yY7KKB@chimera>
+	 <D9VoutSOyXP.A.LpH.8Z7KKB@chimera>
+	 <38b2ab8a0906080029n5d0e167oc2fc217f19882816@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Zhang Wei <zw@zh-kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <38b2ab8a0906080029n5d0e167oc2fc217f19882816-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBKdW4gMTEsIDIwMDkgYXQgOTozMiBQTSwgS3VtYXIgR2FsYTxnYWxha0BrZXJuZWwu
-Y3Jhc2hpbmcub3JnPiB3cm90ZToKPgo+IE9uIEp1biAxMSwgMjAwOSwgYXQgNDo0NyBBTSwgTGkg
-WWFuZy1SNTg0NzIgd3JvdGU6Cj4KPj4+IE9uIE1heSAxMiwgMjAwOSwgYXQgMzozNSBBTSwgTGkg
-WWFuZyB3cm90ZToKPj4+Cj4+Pj4gQWRkIHRoZSBtYXBwaW5nIGZ1bmN0aW9ucyB1c2VkIHRvIHN1
-cHBvcnQgZGlyZWN0IElPIG1lbW9yeSBhY2Nlc3Mgb2YKPj4+PiByYXBpZElPLgo+Pj4+Cj4+Pj4g
-U2lnbmVkLW9mZi1ieTogWmhhbmcgV2VpIDx6d0B6aC1rZXJuZWwub3JnPgo+Pj4+IFNpZ25lZC1v
-ZmYtYnk6IExpIFlhbmcgPGxlb2xpQGZyZWVzY2FsZS5jb20+Cj4+Pgo+Pj4gVXNlIGluYm5kL291
-dGJuZCBpbnN0ZWFkIG9mIGluYi9vdXRiIHdoaWNoIG1ha2Ugb25lIHRoaW5rIG9mCj4+PiBieXRl
-IGxldmVsIGlvIGFjY2Vzc29ycy4KPj4+Cj4+PiBBcyBJIGxvb2sgYXQgdGhpcyBJIGRvbid0IHRo
-aW5rIHRoaXMgaXMgdGhlIGNvcnJlY3QgQVBJLiDCoEkKPj4+IHRoaW5rIHdlIHNob3VsZCBiZSB1
-c2luZyB0aGUgRE1BIG1hcHBpbmcgQVBJIHRvIGhpZGUgdGhlc2UKPj4+IGRldGFpbHMuIMKgVGhl
-IGNvbmNlcHQgb2YgbWFwcGluZyBsaWtlIHRoaXMgc2VlbXMgdG8gYmUgbW9yZSBhCj4+PiBmdW5j
-dGlvbiBvZiBGU0wncyBBZGRyZXNzIHRyYW5zbGF0aW9uL21hcHBpbmcgdW5pdCAoQVRNVSkgdGhh
-bgo+Pj4gYW55dGhpbmcgc3BlY2lmaWMgdG8gdGhlIFJJTyBidXMgc3RhbmRhcmQuCj4+Cj4+IFRo
-aXMgaXMgYSBzZXBhcmF0ZSBSSU8gYmxvY2sgbGV2ZWwgQVRNVS4gwqBBbHRob3VnaCBpdCBsb29r
-cyBsaWtlIHRoZQo+PiBzeXN0ZW0gbGV2ZWwgQVRNVSwgc3lzdGVtIEFUTVUgZG9lc24ndCBoYXZl
-IHRoZSBrbm93bGVkZ2Ugb2YgcmFwaWRJTwo+PiB0YXJnZXQgZGV2aWNlIElELiDCoFRoZSBtYXBw
-aW5nIG5lZWQgdG8gYmUgZHluYW1pYywgYXMgaXQncyBlYXN5IHRvIGhhdmUKPj4gbW9yZSBSSU8g
-ZGV2aWNlcyB0aGFuIHRoZSBvdXRib3VuZCB3aW5kb3dzLgo+Cj4gSSB1bmRlcnN0YW5kIHRoYXQu
-IMKgV2hhdCBJJ20gc2F5aW5nIGlzIHRoZSBSSU8gYmxvY2sgbGV2ZWwgQVRNVSBpcyBhCj4gRnJl
-ZXNjYWxlIHNwZWNpZmljIGRldGFpbCBhbmQgbm90IHBhcnQgb2YgYW55IHN0YW5kYXJkIFJJTyBi
-dXMgcHJvZ3JhbW1pbmcKPiBtb2RlbC4gwqBXZSBoYXZlIG1hcHBpbmcgQVBJcyB0aGF0IHdlIGNh
-biBjb25uZWN0IHRvIGZvciB0aGlzIHZpYSB0aGUgRE1BIEFQSQo+IGxheWVyLgoKT2ssIEkgc2Vl
-IHlvdXIgcG9pbnQgbm93LiBEbyB5b3UgbWVhbiBkbWFfbWFwXyooKSBmb3IgRE1BIEFQSSBsYXll
-cj8KQnV0IGluIG15IHVuZGVyc3RhbmRpbmcgdGhlIGN1cnJlbnQgZG1hX21hcF8qKCkgQVBJcyBh
-cmUgcHJlcGFyaW5nCmxvY2FsIG1lbW9yeSBmb3IgZGV2aWNlIHRvIGFjY2VzcyB3aGljaCBpcyBz
-aW1pbGFyIHRvIHRoZSBpbmJvdW5kCmNhc2UuICBJcyBpdCBzdWl0YWJsZSB0byBhbHNvIHVzZSB0
-aGVtIGZvciBtYXBwaW5nIGRldmljZSdzIHNwYWNlIGZvcgpDUFUgYWNjZXNzPyAgQ2FuIHlvdSBn
-aXZlIGFuIGV4YW1wbGUgb2YgdXNpbmcgdGhpcyBBUEkgZm9yIEFkZHJlc3MKVHJhbnNsYXRpb24g
-YW5kIE1hcHBpbmcgcHVycG9zZT8KCi0gTGVvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2
-QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4
-cHBjLWRldg==
+On Mon, Jun 8, 2009 at 9:29 AM, Francis Moreau<francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
+wrote:
+> Hello
+>
+> On Sun, Jun 7, 2009 at 11:52 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrot=
+e:
+>> This message has been generated automatically as a part of a report
+>> of recent regressions.
+>>
+>> The following bug entry is on the current list of known regressions
+>> from 2.6.29. =A0Please verify if it still should be listed and let m=
+e know
+>> (either way).
+>
+> I just pulled the 2.6.30-rc8 kernel.
+>
+> I'm giving it a test during this week and let you know if the bug
+> comes up again.
+>
+
+It's still there on 2.6.30-rc8
+
+--=20
+=46rancis
