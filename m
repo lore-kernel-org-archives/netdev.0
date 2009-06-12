@@ -1,50 +1,139 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Fri, 12 Jun 2009 10:17:27 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0906121014010.13365@gentwo.org>
-References: <ada1vps4u9e.fsf@cisco.com> <20090609.215719.214969588.davem@davemloft.net> <alpine.DEB.1.10.0906111107390.29827@gentwo.org> <20090611.165856.108387598.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
+Date: Fri, 12 Jun 2009 11:19:24 -0300
+Message-ID: <20090612141924.GA2568@ghostprotocols.net>
+References: <20090611034022.GC22424@ghostprotocols.net> <200906121026.27010.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Paul Moore <paul.moore@hp.com>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Nivedita Singhvi <niv@us.ibm.com>
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:57935 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751779AbZFLORb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 10:17:31 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id E1E0482C4E5
-	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 10:33:17 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id quEjmTQTo3cS for <netdev@vger.kernel.org>;
-	Fri, 12 Jun 2009 10:33:17 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id BCCFB82C653
-	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 10:33:11 -0400 (EDT)
-In-Reply-To: <20090611.165856.108387598.davem@davemloft.net>
+Received: from mx2.redhat.com ([66.187.237.31]:33198 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752964AbZFLOTv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jun 2009 10:19:51 -0400
+Content-Disposition: inline
+In-Reply-To: <200906121026.27010.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Jun 2009, David Miller wrote:
+Em Fri, Jun 12, 2009 at 10:26:25AM +0300, R=E9mi Denis-Courmont escreve=
+u:
+> On Thursday 11 June 2009 06:40:22 ext Arnaldo Carvalho de Melo wrote:
+> > diff --git a/arch/x86/include/asm/unistd_64.h
+> > b/arch/x86/include/asm/unistd_64.h index 900e161..713a32a 100644
+> > --- a/arch/x86/include/asm/unistd_64.h
+> > +++ b/arch/x86/include/asm/unistd_64.h
+> > @@ -661,6 +661,8 @@ __SYSCALL(__NR_pwritev, sys_pwritev)
+> >  __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
+> >  #define __NR_perf_counter_open                 298
+> >  __SYSCALL(__NR_perf_counter_open, sys_perf_counter_open)
+> > +#define __NR_recvmmsg                          299
+> > +__SYSCALL(__NR_recvmmsg, sys_recvmmsg)
+>=20
+> I guess socketcall is deprecated in favor of full syscalls, then?
+> (sorry if this is a stupid question)
 
-> > Umm?? My patch does that....
->
-> No it does not.  It eliminates a limit on the generic intermediate
-> queue.  It did no blocking, no sleeping, or the process when it
-> joined the group.
+In some architectures, like x86_64, yes, but some still need it, the
+ones that set __ARCH_WANT_SYS_SOCKETCALL:
 
-What intermediate queue? The check in the IPoIB layuer was simply for
-packets queued on a socket. Are you talking about the TX ring?
+[acme@doppio linux-2.6-tip]$ echo $(find . -type f | xargs egrep
+"define.+__ARCH_WANT_SYS_SOCKETCALL" | sed -r 's#./arch/(\w+)/.*#\1#g' =
+|
+sort)
+arm cris frv h8300 m32r m68k microblaze mips mn10300 parisc powerpc s39=
+0
+sh sh sparc x86 x86
 
-> I was suggesting to block the process, at socket context time, when it
-> joins a multicast group.  That way it wouldn't be able to do any sends
-> until IPoIB could resolve the multicast join.
+So the alpha and ia64, for instance, doesn't want sys_socketcall:
 
-My patch blocks the process when the queue has filled up. It blocks when
-the queue has reached sk_sndbuf
+[acme@doppio linux-2.6-tip]$ egrep 'sys_((recv|send)msg|[gs]etsockopt)'
+arch/alpha/kernel/systbls.S
+	.quad sys_setsockopt			/* 105 */
+	.quad sys_recvmsg
+	.quad sys_sendmsg
+	.quad sys_getsockopt
+[acme@doppio linux-2.6-tip]$ egrep sys_socketcall arch/alpha/kernel/sys=
+tbls.S
+[acme@doppio linux-2.6-tip]$
 
-The join occurs and then the app continues sending packets that are
-queued until the queue limits have been reached. Then the process blocks.
+[acme@doppio linux-2.6-tip]$ egrep 'sys_((recv|send)msg|[gs]etsockopt)'=
+ arch/ia64/kernel/entry.S
+	data8 sys_setsockopt
+	data8 sys_getsockopt
+	data8 sys_sendmsg			// 1205
+	data8 sys_recvmsg
+[acme@doppio linux-2.6-tip]$ egrep sys_socketcall
+arch/ia64/kernel/entry.S
+[acme@doppio linux-2.6-tip]$=20
 
-It would be better to block earlier but this also does the trick.
+But some define __ARCH_WANT_SYS_SOCKETCALL conditionally, like x86_64
+and um:
+
+[acme@doppio linux-2.6-tip]$ find arch -type f | xargs egrep 'define.+_=
+_NO_STUBS'
+arch/x86/kernel/syscall_64.c:#define __NO_STUBS
+arch/x86/kernel/asm-offsets_64.c:#define __NO_STUBS 1
+arch/um/sys-x86_64/syscall_table.c:#define __NO_STUBS
+[acme@doppio linux-2.6-tip]$=20
+
+And others want socketcall if preserving old ABIs, like ARM:
+
+arch/arm/include/asm/unistd.h
+
+#if !defined(CONFIG_AEABI) || defined(CONFIG_OABI_COMPAT)
+#define __ARCH_WANT_SYS_TIME
+#define __ARCH_WANT_SYS_OLDUMOUNT
+#define __ARCH_WANT_SYS_ALARM
+#define __ARCH_WANT_SYS_UTIME
+#define __ARCH_WANT_SYS_OLD_GETRLIMIT
+#define __ARCH_WANT_OLD_READDIR
+#define __ARCH_WANT_SYS_SOCKETCALL
+#endif
+
+So for the final revision indeed I need to provide a sys_socketcall
+interface to sys_recvmmsg.
+=20
+> > +       if (timeout) {
+> > +               /* Doesn't make much sense */
+> > +               if (flags & MSG_DONTWAIT)
+> > +                       return -EINVAL;
+>=20
+> An application could possibly hit this degenerated case at the end of=
+ a loop=20
+> or whatever, and EINVAL makes it look like this is a bug. Why not EAG=
+AIN?
+
+EAGAIN for me looks like something that when repeated would possibly
+produce a valid result, but in this case it will never be that way.
+
+But lemme look around, perhaps this assumption of mine is invalidated b=
+y
+some strange standard...  EAGAIN =3D EWOULDBLOCK, and in the current
+implementation it wouldn't block at all, because recvmsg would return
+right away...
+
+The only semantic we could associate to this would be to make recvmmsg
+call, in a non blocking way recvmsg (as specified in the flags) and if
+it returns EAGAIN go to sleep waiting for more packets, i.e. a mixed
+blocking recvmmsg with a noblocking recvmsg, sounds of creeping
+featuritis...
+
+Or perhaps just remove this check and let recvmmsg return imediately,
+the app could then use this degenerated case to measure how long it too=
+k
+for the packets to be received, looks like the most liberal and removes
+3 lines of source code and a branch :-\
+
+Keep it simple?
+
+- Arnaldo
