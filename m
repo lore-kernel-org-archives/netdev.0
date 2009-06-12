@@ -1,139 +1,85 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
-Date: Fri, 12 Jun 2009 11:19:24 -0300
-Message-ID: <20090612141924.GA2568@ghostprotocols.net>
-References: <20090611034022.GC22424@ghostprotocols.net> <200906121026.27010.remi.denis-courmont@nokia.com>
+From: Jean-Louis Dupond <info@dupondje.be>
+Subject: tg3 driver not advertising 1000mbit
+Date: Fri, 12 Jun 2009 16:05:46 +0200
+Message-ID: <7e14b58794647ea1b1b0a644e14a11f6@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Paul Moore <paul.moore@hp.com>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33198 "EHLO mx2.redhat.com"
+Received: from apollo.dupie.be ([85.17.239.130]:39406 "EHLO apollo.dupie.be"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752964AbZFLOTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jun 2009 10:19:51 -0400
-Content-Disposition: inline
-In-Reply-To: <200906121026.27010.remi.denis-courmont@nokia.com>
+	id S1756816AbZFLOew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Jun 2009 10:34:52 -0400
+Received: from roundcube.dupie.be (apollo.dupie.be [127.0.0.1])
+	by apollo.dupie.be (Postfix) with ESMTP id 657CE1E50752
+	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 16:05:46 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Jun 12, 2009 at 10:26:25AM +0300, R=E9mi Denis-Courmont escreve=
-u:
-> On Thursday 11 June 2009 06:40:22 ext Arnaldo Carvalho de Melo wrote:
-> > diff --git a/arch/x86/include/asm/unistd_64.h
-> > b/arch/x86/include/asm/unistd_64.h index 900e161..713a32a 100644
-> > --- a/arch/x86/include/asm/unistd_64.h
-> > +++ b/arch/x86/include/asm/unistd_64.h
-> > @@ -661,6 +661,8 @@ __SYSCALL(__NR_pwritev, sys_pwritev)
-> >  __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
-> >  #define __NR_perf_counter_open                 298
-> >  __SYSCALL(__NR_perf_counter_open, sys_perf_counter_open)
-> > +#define __NR_recvmmsg                          299
-> > +__SYSCALL(__NR_recvmmsg, sys_recvmmsg)
->=20
-> I guess socketcall is deprecated in favor of full syscalls, then?
-> (sorry if this is a stupid question)
+Hello,
 
-In some architectures, like x86_64, yes, but some still need it, the
-ones that set __ARCH_WANT_SYS_SOCKETCALL:
+I'm experiencing a problem with my "Broadcom Corporation NetXtreme
+BCM5722 Gigabit Ethernet PCI Express" network card in my Dell R300
+servers. When booting the server, the network card sometimes doesn't
+advertise gigabit speeds, and so it auto-negotiates @ 10mbit. The speed
+can then be set to gigabit with mii-tool, but its not a good solution!
+On the other hand, sometimes when it boots, it just works perfectly, and
+advertises gigabit speeds & auto-negotiates on gigabit!
 
-[acme@doppio linux-2.6-tip]$ echo $(find . -type f | xargs egrep
-"define.+__ARCH_WANT_SYS_SOCKETCALL" | sed -r 's#./arch/(\w+)/.*#\1#g' =
-|
-sort)
-arm cris frv h8300 m32r m68k microblaze mips mn10300 parisc powerpc s39=
-0
-sh sh sparc x86 x86
+I tried to debug the driver a bit, and found some strange behavior
+:) Only 2 values were different in the writephy function when it booted
+@ 10mbit & gigabit.
 
-So the alpha and ia64, for instance, doesn't want sys_socketcall:
+I found something obvious in the tg3_readphy & tg3_writephy methods.
 
-[acme@doppio linux-2.6-tip]$ egrep 'sys_((recv|send)msg|[gs]etsockopt)'
-arch/alpha/kernel/systbls.S
-	.quad sys_setsockopt			/* 105 */
-	.quad sys_recvmsg
-	.quad sys_sendmsg
-	.quad sys_getsockopt
-[acme@doppio linux-2.6-tip]$ egrep sys_socketcall arch/alpha/kernel/sys=
-tbls.S
-[acme@doppio linux-2.6-tip]$
+> 807         while (loops != 0) {
+> 808                 udelay(10);
+> 809                 frame_val = tr32(MAC_MI_COM);
+> 810                 if ((frame_val & MI_COM_BUSY) == 0) {
+> 811                         udelay(5);
+> 812                         frame_val = tr32(MAC_MI_COM);
+> 813                         break;
+> 814                 }
+> 815                 loops -= 1;
+> 816         }
 
-[acme@doppio linux-2.6-tip]$ egrep 'sys_((recv|send)msg|[gs]etsockopt)'=
- arch/ia64/kernel/entry.S
-	data8 sys_setsockopt
-	data8 sys_getsockopt
-	data8 sys_sendmsg			// 1205
-	data8 sys_recvmsg
-[acme@doppio linux-2.6-tip]$ egrep sys_socketcall
-arch/ia64/kernel/entry.S
-[acme@doppio linux-2.6-tip]$=20
+On line 809 frame_val is filled with a read (tr32) from the device.
+On line 810 we check if its not 'MI_COM_BUSY'
+If not then we have a delay of 5, and then we read it again ?!
+I don't know why the value is read twice! I checked with some other
+drivers (also broadcom) and there the read command was given some other
+argument when reading the BUSY state, and then in the if, it was really
+fetching the data. But in this case, we only have 2 times the same
+argument!
 
-But some define __ARCH_WANT_SYS_SOCKETCALL conditionally, like x86_64
-and um:
+With the original code the server booted into 10mbit the half of the
+boots! When I removed line 811 & 812, then it booted into 10mbit only
+1/20 times ! Which is way better ! But its still not fully fixed!
 
-[acme@doppio linux-2.6-tip]$ find arch -type f | xargs egrep 'define.+_=
-_NO_STUBS'
-arch/x86/kernel/syscall_64.c:#define __NO_STUBS
-arch/x86/kernel/asm-offsets_64.c:#define __NO_STUBS 1
-arch/um/sys-x86_64/syscall_table.c:#define __NO_STUBS
-[acme@doppio linux-2.6-tip]$=20
+---------------------------------------------------------------------------
 
-And others want socketcall if preserving old ABIs, like ARM:
+Today I found the programmers documentation on the Broadcom website and it
+mentions the following:
 
-arch/arm/include/asm/unistd.h
+> // Write value to MI communication register
+> Mi_Communication_Register = Value32
+> // Now read back MI Communication register until the start bit
+> // has been cleared or we have timed out (>5000 reads)
+> Loopcount = 5000
+> While (LoopCount > 0)
+> Begin
+> Value32 = Mi_Communication_Register
+> If (!(Value32 | 0x20000000)) then BREAK loop
+> Else Loopcount--
+> End
 
-#if !defined(CONFIG_AEABI) || defined(CONFIG_OABI_COMPAT)
-#define __ARCH_WANT_SYS_TIME
-#define __ARCH_WANT_SYS_OLDUMOUNT
-#define __ARCH_WANT_SYS_ALARM
-#define __ARCH_WANT_SYS_UTIME
-#define __ARCH_WANT_SYS_OLD_GETRLIMIT
-#define __ARCH_WANT_OLD_READDIR
-#define __ARCH_WANT_SYS_SOCKETCALL
-#endif
+Here u can see its NOT needed to read the value twice.
+Also there is no delay mentioned, so I removed it, and rebooted 20 times
+without 1 time on 10mbit !
 
-So for the final revision indeed I need to provide a sys_socketcall
-interface to sys_recvmmsg.
-=20
-> > +       if (timeout) {
-> > +               /* Doesn't make much sense */
-> > +               if (flags & MSG_DONTWAIT)
-> > +                       return -EINVAL;
->=20
-> An application could possibly hit this degenerated case at the end of=
- a loop=20
-> or whatever, and EINVAL makes it look like this is a bug. Why not EAG=
-AIN?
 
-EAGAIN for me looks like something that when repeated would possibly
-produce a valid result, but in this case it will never be that way.
+Feel free to give any other solutions / comments !
 
-But lemme look around, perhaps this assumption of mine is invalidated b=
-y
-some strange standard...  EAGAIN =3D EWOULDBLOCK, and in the current
-implementation it wouldn't block at all, because recvmsg would return
-right away...
-
-The only semantic we could associate to this would be to make recvmmsg
-call, in a non blocking way recvmsg (as specified in the flags) and if
-it returns EAGAIN go to sleep waiting for more packets, i.e. a mixed
-blocking recvmmsg with a noblocking recvmsg, sounds of creeping
-featuritis...
-
-Or perhaps just remove this check and let recvmmsg return imediately,
-the app could then use this degenerated case to measure how long it too=
-k
-for the packets to be received, looks like the most liberal and removes
-3 lines of source code and a branch :-\
-
-Keep it simple?
-
-- Arnaldo
+Sincerely,
+Jean-Louis Dupond
