@@ -1,137 +1,114 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: net: fix network driver ndo_start_xmit() return values (part 1)
-Date: Fri, 12 Jun 2009 15:00:35 +0200
-Message-ID: <4A325173.3070608@trash.net>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH] sky2: Fix a race between sky2_down and sky2_poll
+Date: Fri, 12 Jun 2009 22:16:42 +0900
+Message-ID: <392fb48f0906120616n123d8b57h9ef7c8e1735d26bf@mail.gmail.com>
+References: <392fb48f0906090703q66fbaf56wbf1157f90b97df0f@mail.gmail.com>
+	 <20090611100448.09a9b730@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050509070802030900080301"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, holt@sgi.com,
-	thierry.reding@avionic-design.de, jes@trained-monkey.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44561 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763297AbZFLNAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 09:00:37 -0400
+Received: from mail-fx0-f216.google.com ([209.85.220.216]:49539 "EHLO
+	mail-fx0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764672AbZFLNQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 09:16:41 -0400
+Received: by fxm12 with SMTP id 12so613247fxm.37
+        for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 06:16:42 -0700 (PDT)
+In-Reply-To: <20090611100448.09a9b730@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------050509070802030900080301
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+2009/6/12 Stephen Hemminger <shemminger@linux-foundation.org>
 
-These patches begin fixing up the ndo_start_xmit() return values
-of drivers returning errno codes. I'll send them one at a time as
-I finish them since its quite a lot.
+> Does the following fix the problem?
 
-All four drivers touched in this patch compile tested.
+I tried your patch out, but it still got a crash.
 
+The patch below does fix the problem. Does this look better?
 
---------------050509070802030900080301
-Content-Type: text/x-patch;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+thanks,
 
-commit 1a2b8190d63e4e3d69c074f0e913a814edd481fe
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Jun 12 14:52:19 2009 +0200
+Mike
 
-    net: fix network driver ndo_start_xmit() return values (part 1)
-    
-    Fix up drivers that return an errno value to qdisc_restart(), causing
-    qdisc_restart() to print a warning and requeue/retransmit the skb.
-    
-    - xpnet: memory allocation error, intention is to drop
-    - ethoc: oversized packet, packet must be dropped
-    - ibmlana: skb freed: use after free
-    - rrunner: skb freed: use after free
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+-----------------------------
 
-diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
-index 6faefcf..8d1c60a 100644
---- a/drivers/misc/sgi-xp/xpnet.c
-+++ b/drivers/misc/sgi-xp/xpnet.c
-@@ -450,7 +450,8 @@ xpnet_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			 "packet\n", sizeof(struct xpnet_pending_msg));
- 
- 		dev->stats.tx_errors++;
--		return -ENOMEM;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
- 
- 	/* get the beginning of the first cacheline and end of last */
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 91a9b1a..ceb6a9c 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -811,7 +811,7 @@ static int ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
- 		priv->stats.tx_errors++;
--		return -EMSGSIZE;
-+		goto out;
- 	}
- 
- 	entry = priv->cur_tx % priv->num_tx;
-@@ -840,9 +840,9 @@ static int ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	dev->trans_start = jiffies;
--	dev_kfree_skb(skb);
+Subject: [PATCH] sky2: Shutdown receive path cleanly in sky2_down
+
+If sky2_down was called while receiving a packet, receive interrupts
+would still occur after the receive buffer was free'd causing a crash in
+sky2_status_intr.
+
+To avoid further receive interrupts after sky2_down:
+
+* make sure NAPI and interrupts are fully disabled during shutdown
+* call sky2_rx_stop after shutting down the receiver
+* clear received packets after shutdown
+
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |   21 +++++++++++++++------
+ 1 files changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index a2ff9cb..136b362 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1805,10 +1805,13 @@ static int sky2_down(struct net_device *dev)
+ 	/* Disable port IRQ */
+ 	imask = sky2_read32(hw, B0_IMSK);
+ 	imask &= ~portirq_msk[port];
+-	sky2_write32(hw, B0_IMSK, imask);
++	sky2_write32(hw, B0_IMSK, 0);
+
+ 	synchronize_irq(hw->pdev->irq);
+
++	/* disable soft interrupts */
++	napi_disable(&hw->napi);
++
+ 	sky2_gmac_reset(hw, port);
+
+ 	/* Stop transmitter */
+@@ -1822,9 +1825,6 @@ static int sky2_down(struct net_device *dev)
+ 	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
+ 	gma_write16(hw, port, GM_GP_CTRL, ctrl);
+
+-	/* Make sure no packets are pending */
+-	napi_synchronize(&hw->napi);
 -
- 	spin_unlock_irq(&priv->lock);
-+out:
-+	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
- 
-diff --git a/drivers/net/ibmlana.c b/drivers/net/ibmlana.c
-index c25bc0b..448098d 100644
---- a/drivers/net/ibmlana.c
-+++ b/drivers/net/ibmlana.c
-@@ -815,7 +815,7 @@ static int ibmlana_close(struct net_device *dev)
- static int ibmlana_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	ibmlana_priv *priv = netdev_priv(dev);
--	int retval = 0, tmplen, addr;
-+	int tmplen, addr;
- 	unsigned long flags;
- 	tda_t tda;
- 	int baddr;
-@@ -824,7 +824,6 @@ static int ibmlana_tx(struct sk_buff *skb, struct net_device *dev)
- 	   the upper layer is in deep desperation and we simply ignore the frame. */
- 
- 	if (priv->txusedcnt >= TXBUFCNT) {
--		retval = -EIO;
- 		dev->stats.tx_dropped++;
- 		goto tx_done;
- 	}
-@@ -874,7 +873,7 @@ static int ibmlana_tx(struct sk_buff *skb, struct net_device *dev)
- 	spin_unlock_irqrestore(&priv->lock, flags);
- tx_done:
- 	dev_kfree_skb(skb);
--	return retval;
-+	return NETDEV_TX_OK;
- }
- 
- /* switch receiver mode. */
-diff --git a/drivers/net/rrunner.c b/drivers/net/rrunner.c
-index d890829..81dbcbb 100644
---- a/drivers/net/rrunner.c
-+++ b/drivers/net/rrunner.c
-@@ -1425,7 +1425,7 @@ static int rr_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		if (!(new_skb = dev_alloc_skb(len + 8))) {
- 			dev_kfree_skb(skb);
- 			netif_wake_queue(dev);
--			return -EBUSY;
-+			return NETDEV_TX_OK;
- 		}
- 		skb_reserve(new_skb, 8);
- 		skb_put(new_skb, len);
+ 	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
 
---------------050509070802030900080301--
+ 	/* Workaround shared GMAC reset */
+@@ -1850,11 +1850,11 @@ static int sky2_down(struct net_device *dev)
+
+ 	sky2_write32(hw, RB_ADDR(txqaddr[port], RB_CTRL), RB_RST_SET);
+
+-	sky2_rx_stop(sky2);
+-
+ 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
+ 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
+
++	sky2_rx_stop(sky2);
++
+ 	sky2_phy_power_down(hw, port);
+
+ 	/* turn off LED's */
+@@ -1878,6 +1878,15 @@ static int sky2_down(struct net_device *dev)
+ 	sky2->rx_ring = NULL;
+ 	sky2->tx_ring = NULL;
+
++	/* clear receive interrupt condition and IRQ */
++	hw->st_idx = sky2_read16(hw, STAT_PUT_IDX);
++
++	/* re-enable interrupts */
++	sky2_write32(hw, B0_IMSK, imask);
++
++	/* re-enable soft interrupts */
++	napi_enable(&hw->napi);
++
+ 	return 0;
+ }
+
+-- 
+1.5.6.5
