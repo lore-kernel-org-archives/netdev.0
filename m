@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
- configuration.
-Date: Thu, 11 Jun 2009 17:03:52 -0700 (PDT)
-Message-ID: <20090611.170352.156688524.davem@davemloft.net>
-References: <4A30A884.9000508@gmail.com>
-	<1244732090.2785.12.camel@achroite>
-	<alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+Subject: Re: [RFC net 00/03]: dev_queue_xmit error propagation
+Date: Thu, 11 Jun 2009 17:05:12 -0700 (PDT)
+Message-ID: <20090611.170512.97427064.davem@davemloft.net>
+References: <20090609161658.6730.59754.sendpatchset@x2.localnet>
+	<20090611.031852.90563118.davem@davemloft.net>
+	<4A3131D6.40807@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, mfuzzey@gmail.com,
-	netdev@vger.kernel.org
-To: nico@cam.org
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40059
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51857
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752310AbZFLADu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:03:50 -0400
-In-Reply-To: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+	by vger.kernel.org with ESMTP id S1763559AbZFLAFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:05:10 -0400
+In-Reply-To: <4A3131D6.40807@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Pitre <nico@cam.org>
-Date: Thu, 11 Jun 2009 12:22:59 -0400 (EDT)
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 11 Jun 2009 18:33:26 +0200
 
-> I think this is a good example from the embedded world providing a
-> clean solution to a recurring issue which would return again to
-> quick hacks if the mainline reception is "use a cramfs" again.
+> I still need to verify that no drivers are using the raw values for
+> the NETDEV_TX codes since NETDEV_TX_LOCKED is using a different
+> value with my patch.
 
-Well initrd is the cleanest solution.
-
-People don't want to do it because it requires some work, and there
-always recurring passive-aggressive mentions of "space issues" which
-frankly is totally bogus.  You can make this thing as tiny as you want
-it to be.
-
-If someone implemented it one time, then it could be shared by other
-folks needing the same solution.
-
-But I guess us upstream kernel folk just "don't understand."
+Yeah, auditing 500 ->hard_start_xmit implementations is fun.
