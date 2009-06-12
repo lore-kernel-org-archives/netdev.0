@@ -1,40 +1,81 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [PATCH] netdev: dm9000: require compat net dev ops
-Date: Thu, 11 Jun 2009 20:47:58 -0400
-Message-ID: <8bd0f97a0906111747q3e3bdd2ck29eca4dd24a1883@mail.gmail.com>
-References: <1244761350-2823-1-git-send-email-vapier@gentoo.org>
-	<20090611.164908.11590745.davem@davemloft.net> <8bd0f97a0906111651r30310598la58774d8ee0bf3ad@mail.gmail.com>
-	<20090611.171840.241102806.davem@davemloft.net>
+From: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Subject: Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
+Date: Fri, 12 Jun 2009 10:02:07 +0900
+Message-ID: <20090612100207.6f21b208.usui@mxm.nes.nec.co.jp>
+References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
+	<20090611093149.GA12543@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: containers@lists.linux-foundation.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, hadi@cyberus.ca, jarkao2@gmail.com
+To: Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yw-out-2324.google.com ([74.125.46.28]:48944 "EHLO
-	yw-out-2324.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbZFLAsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:48:16 -0400
-Received: by yw-out-2324.google.com with SMTP id 5so1264617ywb.1
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 17:48:18 -0700 (PDT)
-In-Reply-To: <20090611.171840.241102806.davem@davemloft.net>
+Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:48297 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755373AbZFLBNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 21:13:48 -0400
+In-Reply-To: <20090611093149.GA12543@bombadil.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2009 at 20:18, David Miller wrote:
-> From: Mike Frysinger Thu, 11 Jun 2009 19:51:04 -0400
->> On Thu, Jun 11, 2009 at 19:49, David Miller wrote:
->>> From: Mike Frysinger Thu, 11 Jun 2009 19:02:30 -0400
->>>> The dm9000 driver hasn't been upgraded yet, so select the compat net dev
->>>> ops option for now.
->>>
->>> This config option no longer exists in the networking tree.
->>
->> so compat support no longer exists, or dm9000 has been fixed, or
->> dm9000 is broken, or dm9000 is dropped, or ...... ?
->
-> Compat support no longer exists, and dm9000 is converted in
-> net-next-2.6
+Hi, Thomas
 
-works for me.  said patch works fine for 2.6.30.
--mike
+Thank you for your comments.
+
+On Thu, 11 Jun 2009 05:31:49 -0400
+Thomas Graf <tgraf@infradead.org> wrote:
+
+> Very nice, this is a big improvement.
+> 
+> On Thu, Jun 11, 2009 at 06:05:55PM +0900, Minoru Usui wrote:
+> > +static int get_tc_classid(u32 *classid, const char *str)
+> 
+> Maybe make this return u32?
+
+Yes, you are right.
+I'll fix it.
+
+> 
+> >  {
+> > -	return cgrp_cls_state(cgrp)->classid;
+> > +	u32 maj, min;
+> > +	char *p;
+> > +
+> > +	/* check "0" for reset request */
+> > +	if (!strcmp(str, "0")) {
+> > +		*classid = 0;
+> > +		return 0;
+> > +	}
+> > +
+> > +	/* parse major number */
+> > +	maj = simple_strtoul(str, &p, 16);
+> > +	if (p == str) {
+> > +		maj = 0;
+> > +		if (*p != ':')
+> > +			return -EINVAL;
+> > +	}
+> > +
+> > +	/* parse minor number */
+> > +	if (*p == ':') {
+> > +		if (maj >= (1<<16))
+> > +			return -EINVAL;
+> > +
+> > +		str = p + 1;
+> > +		min = simple_strtoul(str, &p, 16);
+> > +		if (*p != 0)
+> > +			return -EINVAL;
+> > +		if (min >= (1<<16))
+> > +			return -EINVAL;
+> > +	} else if (*p != 0)
+> > +		return -EINVAL;
+> 
+> What do you think about keeping things backwards compatible by
+> accepting both the X:Y and XY format?
+> 
+> } else if (*p != 0)
+> 	return strtoul(str, NULL, 0);
+
+OK. I'll do it.
+-- 
+Minoru Usui <usui@mxm.nes.nec.co.jp>
