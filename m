@@ -1,44 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: IFF_LOWER_UP does not fit in ifr_flags
-Date: Thu, 11 Jun 2009 20:57:35 -0700 (PDT)
-Message-ID: <20090611.205735.120685201.davem@davemloft.net>
-References: <89A39FC0957640879F8975880836CF91@edgeware.tv>
-	<20090529205028.3e01786b.akpm@linux-foundation.org>
-	<1244219047.7969.7.camel@Maple>
+Subject: Re: CONFIG_ARPD help text
+Date: Thu, 11 Jun 2009 20:59:06 -0700 (PDT)
+Message-ID: <20090611.205906.215886308.davem@davemloft.net>
+References: <4A314CC5.9090505@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, fredrik.arnerup@edgeware.tv,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46604
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46610
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757434AbZFLD5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 23:57:33 -0400
-In-Reply-To: <1244219047.7969.7.camel@Maple>
+	by vger.kernel.org with ESMTP id S1758172AbZFLD7E convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Jun 2009 23:59:04 -0400
+In-Reply-To: <4A314CC5.9090505@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Fri, 05 Jun 2009 16:24:07 +0000
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Thu, 11 Jun 2009 21:28:21 +0300
 
-> On Fri, 2009-05-29 at 20:50 -0700, Andrew Morton wrote:
->> On Thu, 28 May 2009 14:59:05 +0200 "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv> wrote:
->> 
->> > Documentation/networking/operstates.txt (and netdevice(7)) claims that
->> > the flags IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO can be read from user space
->> > using ioctl() with SIOCGIFFLAGS. Looking in include/linux/if.h however,
->> > the flags are returned in a struct ifreq in the field ifr_flags which
->> > is declared as a short, while the flags are defined as:
->> > 
->> > #define IFF_LOWER_UP    0x10000         /* driver signals L1 up         */
->> > #define IFF_DORMANT     0x20000         /* driver signals dormant       */
->> > #define IFF_ECHO        0x40000         /* echo sent packets            */
-> 
-> [PATCH] net core: Some interface flags not returned by SIOCGIFFLAGS
- ...
-> Reported-by:  "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
-> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> I just re-read again the CONFIG_ARPD help text. It says it's
+> "experimental and also obsolete".
+>=20
+> But as opennhrp relies on this, and has shown the usefulness for
+> this interface - it can be used to implement other protocols that
+> resolve neighbor address than ARP in userland. In this case the
+> NHRP protocol.
+>=20
+> Would it be acceptable to remove the designation as "obsolete"?
+>=20
+> Also, I'm running the opennhrp on production with reasonable
+> size network (100+ nodes in gre subnet). And with the fix I sent
+> previously it seems to work very stable. Is there something more
+> to be done, or could the "experimental" marking be removed also?
+>=20
+> I could also update the help to explain where the option is useful.
+> Or should the option be renamed to something like NEIGH_NETLINK?
+> It also seems that IPv6 supports CONFIG_ARPD so it should probably
+> be moved from net/ipv4/Kconfig to likely net/core/Kconfig?
 
-Applied, thanks!
+I think it's rediculious to have these tags on something that's
+been in active, useful, use for years.  Feel free to remove them
+and to expand the help text.
+
+Thanks!
