@@ -1,87 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [BUG] fib_tries related Oops in 2.6.30
-Date: Fri, 12 Jun 2009 09:25:58 +0200
-Message-ID: <20090612072557.GA2761@ami.dom.local>
-References: <4A31173D.6010504@gmail.com>
+From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
+Date: Fri, 12 Jun 2009 10:26:25 +0300
+Message-ID: <200906121026.27010.remi.denis-courmont@nokia.com>
+References: <20090611034022.GC22424@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yan Zheng <zheng.yan@oracle.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Robert Olsson <robert.olsson@its.uu.se>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Chris Van Hoof <vanhoof@redhat.com>,
+	Clark Williams <williams@redhat.com>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Paul Moore <paul.moore@hp.com>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Nivedita Singhvi <niv@us.ibm.com>
+To: ext Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:42627 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754660AbZFLH0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 03:26:24 -0400
+Received: from smtp.nokia.com ([192.100.105.134]:63594 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755329AbZFLH0m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 03:26:42 -0400
+In-Reply-To: <20090611034022.GC22424@ghostprotocols.net>
 Content-Disposition: inline
-In-Reply-To: <4A31173D.6010504@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 06/11/2009 04:39 PM:
+On Thursday 11 June 2009 06:40:22 ext Arnaldo Carvalho de Melo wrote:
+> diff --git a/arch/x86/include/asm/unistd_64.h
+> b/arch/x86/include/asm/unistd_64.h index 900e161..713a32a 100644
+> --- a/arch/x86/include/asm/unistd_64.h
+> +++ b/arch/x86/include/asm/unistd_64.h
+> @@ -661,6 +661,8 @@ __SYSCALL(__NR_pwritev, sys_pwritev)
+>  __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
+>  #define __NR_perf_counter_open                 298
+>  __SYSCALL(__NR_perf_counter_open, sys_perf_counter_open)
+> +#define __NR_recvmmsg                          299
+> +__SYSCALL(__NR_recvmmsg, sys_recvmmsg)
 
-> Cc Robert Olsson.
-> 
-> Jarek P.
-> 
-> Yan Zheng wrote, On 06/10/2009 06:05 PM:
-> 
->> Hello,
->>
->> I pull linux-2.6.30 from linus-2.6 git tree. I got following oops
->> immediately after boot.
->>
->> # uname -a
->> Linux zhyan-cn 2.6.30 #1 SMP PREEMPT Wed Jun 10 23:37:22 CST 2009 i686
->> i686 i386 GNU/Linux
->>
->> ---
->> BUG: sleeping function called from invalid context at
-...
+I guess socketcall is deprecated in favor of full syscalls, then?
+(sorry if this is a stupid question)
 
-Robert, probably I miss something, but since I don't understand this
-last patch with preempt_disable(), I've looked a bit at this place and
-found this parent update after IMHO possible child destruction quite
-suspicious, so I wonder if you could check if this patch could change
-anything with previous oops. (It's mainly to test the idea, not to
-optimally fix it.)
+> +       if (timeout) {
+> +               /* Doesn't make much sense */
+> +               if (flags & MSG_DONTWAIT)
+> +                       return -EINVAL;
 
-Thanks,
-Jarek P.
----
+An application could possibly hit this degenerated case at the end of a=
+ loop=20
+or whatever, and EINVAL makes it look like this is a bug. Why not EAGAI=
+N?
 
- net/ipv4/fib_trie.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 538d2a9..565fc1d 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -989,16 +989,17 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- 	t_key cindex, key;
- 	struct tnode *tp;
- 
--	preempt_disable();
- 	key = tn->key;
- 
- 	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
- 		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
- 		wasfull = tnode_full(tp, tnode_get_child(tp, cindex));
-+		tnode_put_child_reorg((struct tnode *)tp, cindex, NULL,
-+				      wasfull);
- 		tn = (struct tnode *) resize(t, (struct tnode *)tn);
- 
- 		tnode_put_child_reorg((struct tnode *)tp, cindex,
--				      (struct node *)tn, wasfull);
-+				      (struct node *)tn, -1);
- 
- 		tp = node_parent((struct node *) tn);
- 		if (!tp)
-@@ -1010,7 +1011,6 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- 	if (IS_TNODE(tn))
- 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
- 
--	preempt_enable();
- 	return (struct node *)tn;
- }
- 
