@@ -1,52 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPoIB: Fix multicast packet drops before join is complete
-Date: Thu, 11 Jun 2009 16:58:56 -0700 (PDT)
-Message-ID: <20090611.165856.108387598.davem@davemloft.net>
-References: <ada1vps4u9e.fsf@cisco.com>
-	<20090609.215719.214969588.davem@davemloft.net>
-	<alpine.DEB.1.10.0906111107390.29827@gentwo.org>
+Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
+Date: Thu, 11 Jun 2009 17:00:19 -0700 (PDT)
+Message-ID: <20090611.170019.103063661.davem@davemloft.net>
+References: <20090611034022.GC22424@ghostprotocols.net>
+	<20090611.024100.233245804.davem@davemloft.net>
+	<20090611153444.GE22424@ghostprotocols.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, yosefe@Voltaire.COM
-To: cl@linux-foundation.org
+Cc: netdev@vger.kernel.org, vanhoof@redhat.com, williams@redhat.com,
+	caitlin.bestler@gmail.com, paul.moore@hp.com, steve@chygwyn.com,
+	remi.denis-courmont@nokia.com, nhorman@tuxdriver.com,
+	niv@us.ibm.com
+To: acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53170
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40054
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755266AbZFKX6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 19:58:54 -0400
-In-Reply-To: <alpine.DEB.1.10.0906111107390.29827@gentwo.org>
+	by vger.kernel.org with ESMTP id S1760695AbZFLAAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:00:17 -0400
+In-Reply-To: <20090611153444.GE22424@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Lameter <cl@linux-foundation.org>
-Date: Thu, 11 Jun 2009 11:07:52 -0400 (EDT)
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Thu, 11 Jun 2009 12:34:46 -0300
 
-> On Tue, 9 Jun 2009, David Miller wrote:
-> 
->> From: Roland Dreier <rdreier@cisco.com>
->> Date: Tue, 09 Jun 2009 20:55:57 -0700
->>
->> > Hmm... how do I do that?  The interface gets an skb that it sees should
->> > be sent to a multicast group that it is not a member of yet, and so it
->> > fires off a request to join that group (as a send-only member).  How
->> > does a netdev block the process that queued up a given skb to send?
->> > Couldn't the packet have come through a local software bridge or
->> > something like that, so the original process is long since lost to the
->> > network stack?
->>
->> If a facility doesn't exist yet, we're going to have to create
->> one.  It would need to do a downcall to the device when the
->> user joins a multicast group on a socket, and then the device
->> can do whatever magic is necessary to speak multicast immediately
->> and sleep until it really is available for immediate use.
-> 
-> Umm?? My patch does that....
+> Thanks for quickly pointing out this brainfart!
 
-No it does not.  It eliminates a limit on the generic intermediate
-queue.  It did no blocking, no sleeping, or the process when it
-joined the group.
+Couldn't everyone else smell it too?
 
-I was suggesting to block the process, at socket context time, when it
-joins a multicast group.  That way it wouldn't be able to do any sends
-until IPoIB could resolve the multicast join.
+Maybe I'm just super-sensitive.
