@@ -1,42 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Netperf 2.4.5 is released.
-Date: Thu, 11 Jun 2009 17:30:25 -0700
-Message-ID: <4A31A1A1.8050109@hp.com>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver configuration.
+Date: Thu, 11 Jun 2009 20:38:43 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0906112022000.31536@xanadu.home>
+References: <alpine.LFD.2.00.0906111452340.31536@xanadu.home>
+ <1244748719.2785.72.camel@achroite>
+ <alpine.LFD.2.00.0906111605060.31536@xanadu.home>
+ <20090611.171533.77414647.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: bhutchings@solarflare.com, mfuzzey@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:34173 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbZFLAaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:30:24 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [16.89.104.60])
-	by g1t0029.austin.hp.com (Postfix) with ESMTP id B5063380C1
-	for <netdev@vger.kernel.org>; Fri, 12 Jun 2009 00:30:26 +0000 (UTC)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id RAA12808
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 17:30:25 -0700 (PDT)
+Received: from relais.videotron.ca ([24.201.245.36]:32129 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751979AbZFLAjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:39:02 -0400
+Received: from xanadu.home ([66.131.194.97]) by VL-MO-MR003.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-4.01 (built Aug  3 2007; 32bit))
+ with ESMTP id <0KL300GJYOGKNS20@VL-MO-MR003.ip.videotron.ca> for
+ netdev@vger.kernel.org; Thu, 11 Jun 2009 20:38:44 -0400 (EDT)
+In-reply-to: <20090611.171533.77414647.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Folks -
+On Thu, 11 Jun 2009, David Miller wrote:
 
-I've declared the release of netperf 2.4.5.   You can obtain the sources either 
-via subversion from:
+> From: Nicolas Pitre <nico@cam.org>
+> Date: Thu, 11 Jun 2009 16:24:05 -0400 (EDT)
+> 
+> > Your shortsightedness and refusal for accommodation about needs 
+> > that aren't yours is representative of the main reason why there is 
+> > still a disconnect between mainline people and embedded people.
+> 
+> Our main beef with the embedded folks is short-sightedness and a
+> desire for quick solutions rather than clean ones with long term
+> considerations in mind.
 
-http://www.netperf.org/svn/netperf2/tags/netperf-2.4.5
+Let me quote Martin again:
 
-or you can obtain either a compressed tar or zip file from:
+| If your view prevails all I will have achieved is the replacement of 
+| my personel 2 line #ifdef hack by 500 lines of "generic" code that no 
+| one else will ever see. Of course in the grand scheme of things that's
+| insignificant but then I hope people don't complain about embedded
+| developpers not contributing enough. I did try, really.
 
-ftp://ftp.netperf.org/netperf
+Wasn't his patch looking like a clean solution with long term 
+considerations?  If no then I don't think we have much else left to 
+discuss.
 
-where you may chose from netperf-2.4.5.tar.bz2, netperf-2.4.5.tar.gz and
-netperf-2.4.5.zip.
+And no, as absurd and strange that might sound to you, maintaining extra 
+components to access the ethtool interface from user space (whether or 
+not it is for broken PHY or whatnot) in an embedded product is often not 
+worth the bother.  Those systems are not workstations where all that you 
+have to do is fire an editor and type one line of command in a script 
+because the default environment makes everything already available.  
 
-I suspect the change of greatest interest to netdev folks will be the fixes, 
-courtesy of Andrew Gallatin, for cpu utilization on newer kernels.
+Compare that to the quick solution that the one line hack represents.
 
-happy benchmarking,
 
-rick jones
+Nicolas
