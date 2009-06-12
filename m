@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: Fix IP alignment on non-mergeable RX path
-Date: Thu, 11 Jun 2009 20:55:27 -0700 (PDT)
-Message-ID: <20090611.205527.248808583.davem@davemloft.net>
-References: <1244743266.9669.64.camel@w-sridhar.beaverton.ibm.com>
-	<20090611205003.GA8677@gondor.apana.org.au>
-	<200906120829.23999.rusty@rustcorp.com.au>
+Subject: Re: [PATCH] Re: IFF_LOWER_UP does not fit in ifr_flags
+Date: Thu, 11 Jun 2009 20:57:35 -0700 (PDT)
+Message-ID: <20090611.205735.120685201.davem@davemloft.net>
+References: <89A39FC0957640879F8975880836CF91@edgeware.tv>
+	<20090529205028.3e01786b.akpm@linux-foundation.org>
+	<1244219047.7969.7.camel@Maple>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, sri@us.ibm.com, markmc@redhat.com,
-	kudinskas@uk.ibm.com, aliguori@linux.vnet.ibm.com,
-	pablo@uk.ibm.com, netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
+Cc: akpm@linux-foundation.org, fredrik.arnerup@edgeware.tv,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: john.dykstra1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46596
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46604
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751972AbZFLDzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 23:55:25 -0400
-In-Reply-To: <200906120829.23999.rusty@rustcorp.com.au>
+	by vger.kernel.org with ESMTP id S1757434AbZFLD5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 23:57:33 -0400
+In-Reply-To: <1244219047.7969.7.camel@Maple>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 12 Jun 2009 08:29:22 +0930
+From: John Dykstra <john.dykstra1@gmail.com>
+Date: Fri, 05 Jun 2009 16:24:07 +0000
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
+> On Fri, 2009-05-29 at 20:50 -0700, Andrew Morton wrote:
+>> On Thu, 28 May 2009 14:59:05 +0200 "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv> wrote:
+>> 
+>> > Documentation/networking/operstates.txt (and netdevice(7)) claims that
+>> > the flags IFF_LOWER_UP, IFF_DORMANT and IFF_ECHO can be read from user space
+>> > using ioctl() with SIOCGIFFLAGS. Looking in include/linux/if.h however,
+>> > the flags are returned in a struct ifreq in the field ifr_flags which
+>> > is declared as a short, while the flags are defined as:
+>> > 
+>> > #define IFF_LOWER_UP    0x10000         /* driver signals L1 up         */
+>> > #define IFF_DORMANT     0x20000         /* driver signals dormant       */
+>> > #define IFF_ECHO        0x40000         /* echo sent packets            */
 > 
-> We need to enforce the IP alignment on the non-mergeable RX path just
-> like the other RX path.  Not doing so results in misaligned IP
-> headers.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> [PATCH] net core: Some interface flags not returned by SIOCGIFFLAGS
+ ...
+> Reported-by:  "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
+> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
 
-Applied, thanks everyone.
+Applied, thanks!
