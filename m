@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC net 00/03]: dev_queue_xmit error propagation
-Date: Thu, 11 Jun 2009 17:05:12 -0700 (PDT)
-Message-ID: <20090611.170512.97427064.davem@davemloft.net>
-References: <20090609161658.6730.59754.sendpatchset@x2.localnet>
-	<20090611.031852.90563118.davem@davemloft.net>
-	<4A3131D6.40807@trash.net>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
+ configuration.
+Date: Thu, 11 Jun 2009 17:07:22 -0700 (PDT)
+Message-ID: <20090611.170722.149033282.davem@davemloft.net>
+References: <1244732090.2785.12.camel@achroite>
+	<alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+	<1244739166.2785.52.camel@achroite>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: nico@cam.org, mfuzzey@gmail.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51857
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51862
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763559AbZFLAFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:05:10 -0400
-In-Reply-To: <4A3131D6.40807@trash.net>
+	by vger.kernel.org with ESMTP id S1753695AbZFLAHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:07:20 -0400
+In-Reply-To: <1244739166.2785.52.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 11 Jun 2009 18:33:26 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 11 Jun 2009 17:52:46 +0100
 
-> I still need to verify that no drivers are using the raw values for
-> the NETDEV_TX codes since NETDEV_TX_LOCKED is using a different
-> value with my patch.
+> A clean solution would disable those modes altogether in the driver.
 
-Yeah, auditing 500 ->hard_start_xmit implementations is fun.
+Absolutely agreed, in this specific case.  If that part of the
+chip or the PHY is non-functional, it should be disabled in
+the driver entirely.
