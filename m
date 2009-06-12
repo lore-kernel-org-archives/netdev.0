@@ -1,107 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Fri, 12 Jun 2009 11:37:18 -0700
-Message-ID: <1244831838.9225.71.camel@HP1>
-References: <7e14b58794647ea1b1b0a644e14a11f6@localhost>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
+Date: Fri, 12 Jun 2009 21:14:50 +0200
+Message-ID: <200906122114.51432.rjw@sisk.pl>
+References: <bCxQpon4SCJ.A.RrF.yY7KKB@chimera> <38b2ab8a0906080029n5d0e167oc2fc217f19882816@mail.gmail.com> <38b2ab8a0906120627l51f8fcbby934e3459ce148d26@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	mcarlson@broadcom.com, davidch@broadcom.com
-To: "Jean-Louis Dupond" <info@dupondje.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1266 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757448AbZFLSoM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Jun 2009 14:44:12 -0400
-In-Reply-To: <7e14b58794647ea1b1b0a644e14a11f6@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <38b2ab8a0906120627l51f8fcbby934e3459ce148d26-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Friday 12 June 2009, Francis Moreau wrote:
+> On Mon, Jun 8, 2009 at 9:29 AM, Francis Moreau<francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > Hello
+> >
+> > On Sun, Jun 7, 2009 at 11:52 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+> >> This message has been generated automatically as a part of a report
+> >> of recent regressions.
+> >>
+> >> The following bug entry is on the current list of known regressions
+> >> from 2.6.29.  Please verify if it still should be listed and let me know
+> >> (either way).
+> >
+> > I just pulled the 2.6.30-rc8 kernel.
+> >
+> > I'm giving it a test during this week and let you know if the bug
+> > comes up again.
+> >
+> 
+> It's still there on 2.6.30-rc8
 
-On Fri, 2009-06-12 at 07:05 -0700, Jean-Louis Dupond wrote:
-> Hello,
-> 
-> I'm experiencing a problem with my "Broadcom Corporation NetXtreme
-> BCM5722 Gigabit Ethernet PCI Express" network card in my Dell R300
-> servers. When booting the server, the network card sometimes doesn't
-> advertise gigabit speeds, and so it auto-negotiates @ 10mbit. The speed
-> can then be set to gigabit with mii-tool, but its not a good solution!
-> On the other hand, sometimes when it boots, it just works perfectly, and
-> advertises gigabit speeds & auto-negotiates on gigabit!
-> 
-> I tried to debug the driver a bit, and found some strange behavior
-> :) Only 2 values were different in the writephy function when it booted
-> @ 10mbit & gigabit.
-> 
-> I found something obvious in the tg3_readphy & tg3_writephy methods.
-> 
-> > 807         while (loops != 0) {
-> > 808                 udelay(10);
-> > 809                 frame_val = tr32(MAC_MI_COM);
-> > 810                 if ((frame_val & MI_COM_BUSY) == 0) {
-> > 811                         udelay(5);
-> > 812                         frame_val = tr32(MAC_MI_COM);
-> > 813                         break;
-> > 814                 }
-> > 815                 loops -= 1;
-> > 816         }
-> 
+Thanks for the update.
 
-This code was written like this to make sure we get the correct MDIO
-data.  The data is supposed to be valid when the MI_COM_BUSY bit is
-cleared.  But on some chips, the data may not be ready until some
-microseconds after the BUSY bit is cleared.
-
-When you see the "wrong" speed being established, please provide the mii
-register dump using mii-tool -vvv eth0.  We'll then be able to see what
-we advertised and what the other side advertised.
-
-Thanks.
-
-> On line 809 frame_val is filled with a read (tr32) from the device.
-> On line 810 we check if its not 'MI_COM_BUSY'
-> If not then we have a delay of 5, and then we read it again ?!
-> I don't know why the value is read twice! I checked with some other
-> drivers (also broadcom) and there the read command was given some other
-> argument when reading the BUSY state, and then in the if, it was really
-> fetching the data. But in this case, we only have 2 times the same
-> argument!
-> 
-> With the original code the server booted into 10mbit the half of the
-> boots! When I removed line 811 & 812, then it booted into 10mbit only
-> 1/20 times ! Which is way better ! But its still not fully fixed!
-> 
-> ---------------------------------------------------------------------------
-> 
-> Today I found the programmers documentation on the Broadcom website and it
-> mentions the following:
-> 
-> > // Write value to MI communication register
-> > Mi_Communication_Register = Value32
-> > // Now read back MI Communication register until the start bit
-> > // has been cleared or we have timed out (>5000 reads)
-> > Loopcount = 5000
-> > While (LoopCount > 0)
-> > Begin
-> > Value32 = Mi_Communication_Register
-> > If (!(Value32 | 0x20000000)) then BREAK loop
-> > Else Loopcount--
-> > End
-> 
-> Here u can see its NOT needed to read the value twice.
-> Also there is no delay mentioned, so I removed it, and rebooted 20 times
-> without 1 time on 10mbit !
-> 
-> 
-> Feel free to give any other solutions / comments !
-> 
-> Sincerely,
-> Jean-Louis Dupond
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
+Best,
+Rafael
