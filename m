@@ -1,82 +1,62 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: net: fix network drivers ndo_start_xmit() return values (part 4)
-Date: Fri, 12 Jun 2009 16:37:34 +0200
-Message-ID: <4A32682E.5030402@trash.net>
+Subject: net: fix network drivers ndo_start_xmit() return values (part 5)
+Date: Fri, 12 Jun 2009 17:13:07 +0200
+Message-ID: <4A327083.5050701@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040002080600080201040205"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+ boundary="------------000205090105010309060006"
+Cc: Linux Netdev List <netdev@vger.kernel.org>, ursula.braun@de.ibm.com
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46403 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:47190 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763514AbZFLOhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 10:37:35 -0400
+	with ESMTP id S1751760AbZFLPNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 11:13:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------040002080600080201040205
+--------------000205090105010309060006
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Only a single driver handled by this patch, drivers/net/wan
-initially appeared to need more fixups.
 
-
---------------040002080600080201040205
+--------------000205090105010309060006
 Content-Type: text/x-patch;
- name="04.diff"
+ name="05.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="04.diff"
+ filename="05.diff"
 
-commit 0ede7036a67cd605c3717824f76518f5913ca3af
+commit a457e7b57fba9fe2209890bb068ecae60285d0db
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Jun 12 16:36:18 2009 +0200
+Date:   Fri Jun 12 17:07:07 2009 +0200
 
-    net: fix network drivers ndo_start_xmit() return values (part 4)
+    net: fix network drivers ndo_start_xmit() return values (part 5)
     
-    Fix up WAN drivers that return an errno value to qdisc_restart(), causing
+    Fix up s390 drivers that return an errno value to qdisc_restart(), causing
     qdisc_restart() to print a warning an requeue/retransmit the skb.
     
-    - cycx_x25: intention appears to be to requeue the skb
-    
-    Does not compile cleanly for me even without this patch, so untested.
+    - claw: impossible condition, simply remove it
     
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/drivers/net/wan/cycx_x25.c b/drivers/net/wan/cycx_x25.c
-index 35dea3b..f525f9f 100644
---- a/drivers/net/wan/cycx_x25.c
-+++ b/drivers/net/wan/cycx_x25.c
-@@ -615,7 +615,7 @@ static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
- 		case WAN_DISCONNECTED:
- 			if (cycx_x25_chan_connect(dev)) {
- 				netif_stop_queue(dev);
--				return -EBUSY;
-+				return NETDEV_TX_BUSY;
- 			}
- 			/* fall thru */
- 		case WAN_CONNECTED:
-@@ -624,7 +624,7 @@ static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
- 			netif_stop_queue(dev);
+diff --git a/drivers/s390/net/claw.c b/drivers/s390/net/claw.c
+index 30a43cc..7b6f46d 100644
+--- a/drivers/s390/net/claw.c
++++ b/drivers/s390/net/claw.c
+@@ -338,12 +338,6 @@ claw_tx(struct sk_buff *skb, struct net_device *dev)
  
- 			if (cycx_x25_chan_send(dev, skb))
--				return -EBUSY;
-+				return NETDEV_TX_BUSY;
- 
- 			break;
- 		default:
-@@ -656,7 +656,7 @@ static int cycx_netdevice_hard_start_xmit(struct sk_buff *skb,
- 		if (cycx_x25_chan_send(dev, skb)) {
- 			/* prepare for future retransmissions */
- 			skb_push(skb, 1);
--			return -EBUSY;
-+			return NETDEV_TX_BUSY;
- 		}
- 	}
- 
+ 	CLAW_DBF_TEXT(4, trace, "claw_tx");
+         p_ch=&privptr->channel[WRITE];
+-        if (skb == NULL) {
+-                privptr->stats.tx_dropped++;
+-		privptr->stats.tx_errors++;
+-		CLAW_DBF_TEXT_(2, trace, "clawtx%d", -EIO);
+-                return -EIO;
+-        }
+         spin_lock_irqsave(get_ccwdev_lock(p_ch->cdev), saveflags);
+         rc=claw_hw_tx( skb, dev, 1 );
+         spin_unlock_irqrestore(get_ccwdev_lock(p_ch->cdev), saveflags);
 
---------------040002080600080201040205--
+--------------000205090105010309060006--
