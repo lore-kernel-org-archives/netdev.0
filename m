@@ -1,81 +1,84 @@
-From: Minoru Usui <usui@mxm.nes.nec.co.jp>
-Subject: Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
-Date: Fri, 12 Jun 2009 10:02:07 +0900
-Message-ID: <20090612100207.6f21b208.usui@mxm.nes.nec.co.jp>
-References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
-	<20090611093149.GA12543@bombadil.infradead.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter 00/31: netfilter update
+Date: Fri, 12 Jun 2009 03:35:09 +0200
+Message-ID: <4A31B0CD.40300@trash.net>
+References: <20090611.161910.109357779.davem@davemloft.net>	<20090611.164047.74924409.davem@davemloft.net>	<4A31978A.3040300@trash.net> <20090611.165041.201036582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.linux-foundation.org, netdev@vger.kernel.org,
-	tgraf@suug.ch, hadi@cyberus.ca, jarkao2@gmail.com
-To: Thomas Graf <tgraf@infradead.org>
+Content-Type: multipart/mixed;
+ boundary="------------020807030704080406090104"
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:48297 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755373AbZFLBNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 21:13:48 -0400
-In-Reply-To: <20090611093149.GA12543@bombadil.infradead.org>
+Received: from stinky.trash.net ([213.144.137.162]:32769 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752648AbZFLBfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 21:35:09 -0400
+In-Reply-To: <20090611.165041.201036582.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Thomas
+This is a multi-part message in MIME format.
+--------------020807030704080406090104
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Thank you for your comments.
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Fri, 12 Jun 2009 01:47:22 +0200
+>
+>   
+>> Appologies again, I didn't test CONFIG_NETFILTER_DEBUG=y.
+>> I'll fix it up and do a few more compile tests myself.
+>>     
+>
+> Thank you.
+>   
 
-On Thu, 11 Jun 2009 05:31:49 -0400
-Thomas Graf <tgraf@infradead.org> wrote:
+I've added this patch and built all combinations I could come up with,
+I think it should finally be fine.
 
-> Very nice, this is a big improvement.
-> 
-> On Thu, Jun 11, 2009 at 06:05:55PM +0900, Minoru Usui wrote:
-> > +static int get_tc_classid(u32 *classid, const char *str)
-> 
-> Maybe make this return u32?
+Please pull from:
 
-Yes, you are right.
-I'll fix it.
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-> 
-> >  {
-> > -	return cgrp_cls_state(cgrp)->classid;
-> > +	u32 maj, min;
-> > +	char *p;
-> > +
-> > +	/* check "0" for reset request */
-> > +	if (!strcmp(str, "0")) {
-> > +		*classid = 0;
-> > +		return 0;
-> > +	}
-> > +
-> > +	/* parse major number */
-> > +	maj = simple_strtoul(str, &p, 16);
-> > +	if (p == str) {
-> > +		maj = 0;
-> > +		if (*p != ':')
-> > +			return -EINVAL;
-> > +	}
-> > +
-> > +	/* parse minor number */
-> > +	if (*p == ':') {
-> > +		if (maj >= (1<<16))
-> > +			return -EINVAL;
-> > +
-> > +		str = p + 1;
-> > +		min = simple_strtoul(str, &p, 16);
-> > +		if (*p != 0)
-> > +			return -EINVAL;
-> > +		if (min >= (1<<16))
-> > +			return -EINVAL;
-> > +	} else if (*p != 0)
-> > +		return -EINVAL;
-> 
-> What do you think about keeping things backwards compatible by
-> accepting both the X:Y and XY format?
-> 
-> } else if (*p != 0)
-> 	return strtoul(str, NULL, 0);
+Thanks!
 
-OK. I'll do it.
--- 
-Minoru Usui <usui@mxm.nes.nec.co.jp>
+
+--------------020807030704080406090104
+Content-Type: text/x-diff;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+commit 24992eacd8a9f4af286bdaaab627b6802ceb8bce
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Jun 12 01:53:09 2009 +0200
+
+    netfilter: ip_tables: fix build error
+    
+    Fix build error introduced by commit bb70dfa5 (netfilter: xtables:
+    consolidate comefrom debug cast access):
+    
+    net/ipv4/netfilter/ip_tables.c: In function 'ipt_do_table':
+    net/ipv4/netfilter/ip_tables.c:421: error: 'comefrom' undeclared (first use in this function)
+    net/ipv4/netfilter/ip_tables.c:421: error: (Each undeclared identifier is reported only once
+    net/ipv4/netfilter/ip_tables.c:421: error: for each function it appears in.)
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 5bf7c3f..fdefae6 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -418,7 +418,7 @@ ipt_do_table(struct sk_buff *skb,
+ #endif
+ 		verdict = t->u.kernel.target->target(skb, &tgpar);
+ #ifdef CONFIG_NETFILTER_DEBUG
+-		if (comefrom != 0xeeeeeeec && verdict == IPT_CONTINUE) {
++		if (tb_comefrom != 0xeeeeeeec && verdict == IPT_CONTINUE) {
+ 			printk("Target %s reentered!\n",
+ 			       t->u.kernel.target->name);
+ 			verdict = NF_DROP;
+
+--------------020807030704080406090104--
