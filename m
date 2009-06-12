@@ -1,211 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: net: fix network drivers ndo_start_xmit() return values (part 2)
-Date: Fri, 12 Jun 2009 15:17:19 +0200
-Message-ID: <4A32555F.1010907@trash.net>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
+	access
+Date: Fri, 12 Jun 2009 21:27:58 +0800
+Message-ID: <2a27d3730906120627l112030b3wa11ea5aa3fcb1087@mail.gmail.com>
+References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+	<90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
+	<3A45394FD742FA419B760BB8D398F9ED483CCD@zch01exm26.fsl.freescale.net>
+	<5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010109080506030304020600"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, samuel@sortiz.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44889 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758302AbZFLNRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 09:17:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Zhang Wei <zw@zh-kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010109080506030304020600
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-
-
---------------010109080506030304020600
-Content-Type: text/x-patch;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
-
-commit 3ce2adbe6573cb94e21d2bf3026ca0131badfb27
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Jun 12 15:14:36 2009 +0200
-
-    net: fix network drivers ndo_start_xmit() return values (part 2)
-    
-    Fix up IRDA drivers that return an errno value to qdisc_restart(), causing
-    qdisc_restart() to print a warning an requeue/retransmit the skb.
-    
-    - donauboe: intention appears to be to have the skb retransmitted without
-                error message
-    - irda-usb: intention is to drop silently according to comment
-    - kingsub-sir: skb is freed: use after free
-    - ks959-sir: skb is freed: use after free
-    - ksdazzle-sir: skb is freed: use after free
-    - mcs7880: skb is freed: use after free
-    
-    All but donauboe compile tested.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
-index 6b6548b..9a0346e 100644
---- a/drivers/net/irda/donauboe.c
-+++ b/drivers/net/irda/donauboe.c
-@@ -994,11 +994,11 @@ toshoboe_hard_xmit (struct sk_buff *skb, struct net_device *dev)
- 
-   /* change speed pending, wait for its execution */
-   if (self->new_speed)
--      return -EBUSY;
-+      return NETDEV_TX_BUSY;
- 
-   /* device stopped (apm) wait for restart */
-   if (self->stopped)
--      return -EBUSY;
-+      return NETDEV_TX_BUSY;
- 
-   toshoboe_checkstuck (self);
- 
-@@ -1049,7 +1049,7 @@ toshoboe_hard_xmit (struct sk_buff *skb, struct net_device *dev)
-       if (self->txpending)
-         {
- 	  spin_unlock_irqrestore(&self->spinlock, flags);
--          return -EBUSY;
-+          return NETDEV_TX_BUSY;
-         }
- 
-       /* If in SIR mode we need to generate a string of XBOFs */
-@@ -1105,7 +1105,7 @@ dumpbufs(skb->data,skb->len,'>');
-           ,skb->len, self->ring->tx[self->txs].control, self->txpending);
-       toshoboe_start_DMA(self, OBOE_CONFIG0H_ENTX);
-       spin_unlock_irqrestore(&self->spinlock, flags);
--      return -EBUSY;
-+      return NETDEV_TX_BUSY;
-     }
- 
-   if (INB (OBOE_ENABLEH) & OBOE_ENABLEH_SIRON)
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index 394b2b1..0c0831c 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -389,7 +389,6 @@ static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	s32 speed;
- 	s16 xbofs;
- 	int res, mtt;
--	int	err = 1;	/* Failed */
- 
- 	IRDA_DEBUG(4, "%s() on %s\n", __func__, netdev->name);
- 
-@@ -430,7 +429,6 @@ static int irda_usb_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 			irda_usb_change_speed_xbofs(self);
- 			netdev->trans_start = jiffies;
- 			/* Will netif_wake_queue() in callback */
--			err = 0;	/* No error */
- 			goto drop;
- 		}
- 	}
-@@ -542,7 +540,7 @@ drop:
- 	/* Drop silently the skb and exit */
- 	dev_kfree_skb(skb);
- 	spin_unlock_irqrestore(&self->lock, flags);
--	return err;		/* Usually 1 */
-+	return NETDEV_TX_OK;
- }
- 
- /*------------------------------------------------------------------*/
-diff --git a/drivers/net/irda/kingsun-sir.c b/drivers/net/irda/kingsun-sir.c
-index 9d813bc..c3e4e2c 100644
---- a/drivers/net/irda/kingsun-sir.c
-+++ b/drivers/net/irda/kingsun-sir.c
-@@ -156,9 +156,6 @@ static int kingsun_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	int wraplen;
- 	int ret = 0;
- 
--	if (skb == NULL || netdev == NULL)
--		return -EINVAL;
--
- 	netif_stop_queue(netdev);
- 
- 	/* the IRDA wrapping routines don't deal with non linear skb */
-@@ -197,7 +194,7 @@ static int kingsun_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	dev_kfree_skb(skb);
- 	spin_unlock(&kingsun->lock);
- 
--	return ret;
-+	return NETDEV_TX_OK;
- }
- 
- /* Receive callback function */
-diff --git a/drivers/net/irda/ks959-sir.c b/drivers/net/irda/ks959-sir.c
-index b6ffe97..d73b8b6 100644
---- a/drivers/net/irda/ks959-sir.c
-+++ b/drivers/net/irda/ks959-sir.c
-@@ -391,9 +391,6 @@ static int ks959_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	unsigned int wraplen;
- 	int ret = 0;
- 
--	if (skb == NULL || netdev == NULL)
--		return -EINVAL;
--
- 	netif_stop_queue(netdev);
- 
- 	/* the IRDA wrapping routines don't deal with non linear skb */
-@@ -428,7 +425,7 @@ static int ks959_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	dev_kfree_skb(skb);
- 	spin_unlock(&kingsun->lock);
- 
--	return ret;
-+	return NETDEV_TX_OK;
- }
- 
- /* Receive callback function */
-diff --git a/drivers/net/irda/ksdazzle-sir.c b/drivers/net/irda/ksdazzle-sir.c
-index 64df27f..1ef45ec 100644
---- a/drivers/net/irda/ksdazzle-sir.c
-+++ b/drivers/net/irda/ksdazzle-sir.c
-@@ -304,9 +304,6 @@ static int ksdazzle_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	unsigned int wraplen;
- 	int ret = 0;
- 
--	if (skb == NULL || netdev == NULL)
--		return -EINVAL;
--
- 	netif_stop_queue(netdev);
- 
- 	/* the IRDA wrapping routines don't deal with non linear skb */
-@@ -341,7 +338,7 @@ static int ksdazzle_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	dev_kfree_skb(skb);
- 	spin_unlock(&kingsun->lock);
- 
--	return ret;
-+	return NETDEV_TX_OK;
- }
- 
- /* Receive callback function */
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index fac504d..f4df100 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -824,10 +824,6 @@ static int mcs_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	int wraplen;
- 	int ret = 0;
- 
--
--	if (skb == NULL || ndev == NULL)
--		return -EINVAL;
--
- 	netif_stop_queue(ndev);
- 	mcs = netdev_priv(ndev);
- 
-@@ -870,7 +866,7 @@ static int mcs_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	dev_kfree_skb(skb);
- 	spin_unlock_irqrestore(&mcs->lock, flags);
--	return ret;
-+	return NETDEV_TX_OK;
- }
- 
- static const struct net_device_ops mcs_netdev_ops = {
-
---------------010109080506030304020600--
+T24gVGh1LCBKdW4gMTEsIDIwMDkgYXQgOTozMiBQTSwgS3VtYXIgR2FsYTxnYWxha0BrZXJuZWwu
+Y3Jhc2hpbmcub3JnPiB3cm90ZToKPgo+IE9uIEp1biAxMSwgMjAwOSwgYXQgNDo0NyBBTSwgTGkg
+WWFuZy1SNTg0NzIgd3JvdGU6Cj4KPj4+IE9uIE1heSAxMiwgMjAwOSwgYXQgMzozNSBBTSwgTGkg
+WWFuZyB3cm90ZToKPj4+Cj4+Pj4gQWRkIHRoZSBtYXBwaW5nIGZ1bmN0aW9ucyB1c2VkIHRvIHN1
+cHBvcnQgZGlyZWN0IElPIG1lbW9yeSBhY2Nlc3Mgb2YKPj4+PiByYXBpZElPLgo+Pj4+Cj4+Pj4g
+U2lnbmVkLW9mZi1ieTogWmhhbmcgV2VpIDx6d0B6aC1rZXJuZWwub3JnPgo+Pj4+IFNpZ25lZC1v
+ZmYtYnk6IExpIFlhbmcgPGxlb2xpQGZyZWVzY2FsZS5jb20+Cj4+Pgo+Pj4gVXNlIGluYm5kL291
+dGJuZCBpbnN0ZWFkIG9mIGluYi9vdXRiIHdoaWNoIG1ha2Ugb25lIHRoaW5rIG9mCj4+PiBieXRl
+IGxldmVsIGlvIGFjY2Vzc29ycy4KPj4+Cj4+PiBBcyBJIGxvb2sgYXQgdGhpcyBJIGRvbid0IHRo
+aW5rIHRoaXMgaXMgdGhlIGNvcnJlY3QgQVBJLiDCoEkKPj4+IHRoaW5rIHdlIHNob3VsZCBiZSB1
+c2luZyB0aGUgRE1BIG1hcHBpbmcgQVBJIHRvIGhpZGUgdGhlc2UKPj4+IGRldGFpbHMuIMKgVGhl
+IGNvbmNlcHQgb2YgbWFwcGluZyBsaWtlIHRoaXMgc2VlbXMgdG8gYmUgbW9yZSBhCj4+PiBmdW5j
+dGlvbiBvZiBGU0wncyBBZGRyZXNzIHRyYW5zbGF0aW9uL21hcHBpbmcgdW5pdCAoQVRNVSkgdGhh
+bgo+Pj4gYW55dGhpbmcgc3BlY2lmaWMgdG8gdGhlIFJJTyBidXMgc3RhbmRhcmQuCj4+Cj4+IFRo
+aXMgaXMgYSBzZXBhcmF0ZSBSSU8gYmxvY2sgbGV2ZWwgQVRNVS4gwqBBbHRob3VnaCBpdCBsb29r
+cyBsaWtlIHRoZQo+PiBzeXN0ZW0gbGV2ZWwgQVRNVSwgc3lzdGVtIEFUTVUgZG9lc24ndCBoYXZl
+IHRoZSBrbm93bGVkZ2Ugb2YgcmFwaWRJTwo+PiB0YXJnZXQgZGV2aWNlIElELiDCoFRoZSBtYXBw
+aW5nIG5lZWQgdG8gYmUgZHluYW1pYywgYXMgaXQncyBlYXN5IHRvIGhhdmUKPj4gbW9yZSBSSU8g
+ZGV2aWNlcyB0aGFuIHRoZSBvdXRib3VuZCB3aW5kb3dzLgo+Cj4gSSB1bmRlcnN0YW5kIHRoYXQu
+IMKgV2hhdCBJJ20gc2F5aW5nIGlzIHRoZSBSSU8gYmxvY2sgbGV2ZWwgQVRNVSBpcyBhCj4gRnJl
+ZXNjYWxlIHNwZWNpZmljIGRldGFpbCBhbmQgbm90IHBhcnQgb2YgYW55IHN0YW5kYXJkIFJJTyBi
+dXMgcHJvZ3JhbW1pbmcKPiBtb2RlbC4gwqBXZSBoYXZlIG1hcHBpbmcgQVBJcyB0aGF0IHdlIGNh
+biBjb25uZWN0IHRvIGZvciB0aGlzIHZpYSB0aGUgRE1BIEFQSQo+IGxheWVyLgoKT2ssIEkgc2Vl
+IHlvdXIgcG9pbnQgbm93LiBEbyB5b3UgbWVhbiBkbWFfbWFwXyooKSBmb3IgRE1BIEFQSSBsYXll
+cj8KQnV0IGluIG15IHVuZGVyc3RhbmRpbmcgdGhlIGN1cnJlbnQgZG1hX21hcF8qKCkgQVBJcyBh
+cmUgcHJlcGFyaW5nCmxvY2FsIG1lbW9yeSBmb3IgZGV2aWNlIHRvIGFjY2VzcyB3aGljaCBpcyBz
+aW1pbGFyIHRvIHRoZSBpbmJvdW5kCmNhc2UuICBJcyBpdCBzdWl0YWJsZSB0byBhbHNvIHVzZSB0
+aGVtIGZvciBtYXBwaW5nIGRldmljZSdzIHNwYWNlIGZvcgpDUFUgYWNjZXNzPyAgQ2FuIHlvdSBn
+aXZlIGFuIGV4YW1wbGUgb2YgdXNpbmcgdGhpcyBBUEkgZm9yIEFkZHJlc3MKVHJhbnNsYXRpb24g
+YW5kIE1hcHBpbmcgcHVycG9zZT8KCi0gTGVvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2
+QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4
+cHBjLWRldg==
