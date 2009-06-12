@@ -1,58 +1,48 @@
-From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [RFC v2] net: Introduce recvmmsg socket syscall
-Date: Fri, 12 Jun 2009 10:26:25 +0300
-Message-ID: <200906121026.27010.remi.denis-courmont@nokia.com>
-References: <20090611034022.GC22424@ghostprotocols.net>
+From: Iain Hibbert <plunky-+vE1BRBCC0GuOtvtkYNheg@public.gmane.org>
+Subject: Re: Expected behavior of shutdown() in multi-threaded socket
+ programming
+Date: Fri, 12 Jun 2009 09:46:05 +0100 (BST)
+Message-ID: <1244796365.448636.603.nullmailer@galant.ukfsn.org>
+References: <35c90d960905191429x1c3b6104qca2a672d50f0364c@mail.gmail.com> <35c90d960906111724w4794b40aw1c51d64586ecaeb6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chris Van Hoof <vanhoof@redhat.com>,
-	Clark Williams <williams@redhat.com>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Paul Moore <paul.moore@hp.com>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: ext Arnaldo Carvalho de Melo <acme@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:63594 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755329AbZFLH0m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 03:26:42 -0400
-In-Reply-To: <20090611034022.GC22424@ghostprotocols.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <35c90d960906111724w4794b40aw1c51d64586ecaeb6-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 11 June 2009 06:40:22 ext Arnaldo Carvalho de Melo wrote:
-> diff --git a/arch/x86/include/asm/unistd_64.h
-> b/arch/x86/include/asm/unistd_64.h index 900e161..713a32a 100644
-> --- a/arch/x86/include/asm/unistd_64.h
-> +++ b/arch/x86/include/asm/unistd_64.h
-> @@ -661,6 +661,8 @@ __SYSCALL(__NR_pwritev, sys_pwritev)
->  __SYSCALL(__NR_rt_tgsigqueueinfo, sys_rt_tgsigqueueinfo)
->  #define __NR_perf_counter_open                 298
->  __SYSCALL(__NR_perf_counter_open, sys_perf_counter_open)
-> +#define __NR_recvmmsg                          299
-> +__SYSCALL(__NR_recvmmsg, sys_recvmmsg)
+On Thu, 11 Jun 2009, Nick Pelly wrote:
 
-I guess socketcall is deprecated in favor of full syscalls, then?
-(sorry if this is a stupid question)
+> Any comments on this one? I would like to correct the behavior of
+> shutdown() on AF_BLUETOOTH sockets, but I have been advised by Marcel
+> Holtmann that we need to agree on the correct behavior first.
+>
+> How should shutdown() behave when other threads are blocked on the same socket?
 
-> +       if (timeout) {
-> +               /* Doesn't make much sense */
-> +               if (flags & MSG_DONTWAIT)
-> +                       return -EINVAL;
+IMHO consistency should apply.
 
-An application could possibly hit this degenerated case at the end of a=
- loop=20
-or whatever, and EINVAL makes it look like this is a bug. Why not EAGAI=
-N?
+The opengroup specification for shutdown() says
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+  "The shutdown() function shall cause all or part of a full-duplex
+  connection on the socket associated with the file descriptor socket to
+  be shut down."
 
+and while that does not really cover the case when the socket is blocked
+in accept(), if all the other socket types abort the block then that is
+what the PF_BLUETOOTH sockets should do too.
+
+The opengroup specification for accept() suggests EINVAL would be returned
+if the socket was not accepting connections and arguably that is the case
+after a shutdown(), though ECONNABORTED could be used too (your program
+displays ECONNABORTED on NetBSD for instance)
+
+> I also have similar results for other blocking syscalls such as
+> connect(), read(), write(), poll() etc, but the test program is not as
+> simple.
+
+They should all handle the shutdown().
+
+iain
