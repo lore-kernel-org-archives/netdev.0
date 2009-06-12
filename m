@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
  configuration.
-Date: Thu, 11 Jun 2009 17:07:22 -0700 (PDT)
-Message-ID: <20090611.170722.149033282.davem@davemloft.net>
-References: <1244732090.2785.12.camel@achroite>
-	<alpine.LFD.2.00.0906111159080.31536@xanadu.home>
+Date: Thu, 11 Jun 2009 17:09:48 -0700 (PDT)
+Message-ID: <20090611.170948.66762524.davem@davemloft.net>
+References: <alpine.LFD.2.00.0906111159080.31536@xanadu.home>
 	<1244739166.2785.52.camel@achroite>
+	<ba4215e10906111045yf7288fbt4495d4dc96217d65@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nico@cam.org, mfuzzey@gmail.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: bhutchings@solarflare.com, nico@cam.org, netdev@vger.kernel.org
+To: mfuzzey@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51862
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55942
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753695AbZFLAHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:07:20 -0400
-In-Reply-To: <1244739166.2785.52.camel@achroite>
+	by vger.kernel.org with ESMTP id S1751834AbZFLAJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:09:46 -0400
+In-Reply-To: <ba4215e10906111045yf7288fbt4495d4dc96217d65@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 11 Jun 2009 17:52:46 +0100
+From: Martin Fuzzey <mfuzzey@gmail.com>
+Date: Thu, 11 Jun 2009 19:45:07 +0200
 
-> A clean solution would disable those modes altogether in the driver.
+> The problems with the quick hack approach are:
+> 1) Different for each driver
+> 2) Need to understand how each driver works to do it
+> 3) Need to maintain the driver patch against evolving kernel
 
-Absolutely agreed, in this specific case.  If that part of the
-chip or the PHY is non-functional, it should be disabled in
-the driver entirely.
+Hardware specific solutions for hardware specific problems.
+
+You can instantiate a platform_device that the driver matches
+and uses to acquire board-specific-juju such as link modes
+which are non-functional.
