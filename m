@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6.31 00/21] WiMAX pull request
-Date: Thu, 11 Jun 2009 17:20:18 -0700 (PDT)
-Message-ID: <20090611.172018.219373100.davem@davemloft.net>
-References: <cover.1244755662.git.inaky@linux.intel.com>
+Subject: Re: [PATCH] r8169: do not bring device down when suspending
+Date: Thu, 11 Jun 2009 17:22:57 -0700 (PDT)
+Message-ID: <20090611.172257.90040273.davem@davemloft.net>
+References: <20090611204850.GA26691@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org
-To: inaky@linux.intel.com
+Cc: aeriksson@fastmail.fm, netdev@vger.kernel.org,
+	edward_hsu@realtek.com.tw
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51891
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51894
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757329AbZFLAUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:20:16 -0400
-In-Reply-To: <cover.1244755662.git.inaky@linux.intel.com>
+	by vger.kernel.org with ESMTP id S1751238AbZFLAWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Jun 2009 20:22:54 -0400
+In-Reply-To: <20090611204850.GA26691@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Thu, 11 Jun 2009 14:35:37 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 11 Jun 2009 22:48:51 +0200
 
-> This pull requests contains a long set of fixes to bugs and issues
-> found while debugging the SDIO version of the i2400m WiMAX
-> device. Most of them are in the generic part of the i2400m, and thus,
-> apply to both the USB and SDIO versions:
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git linux-2.6.31.y
+> Stopping all activity through ChipCmd and blindly acking the irqs
+> is neither nice nor completely needed: the transition to low-power
+> mode does enough work and it apparently keeps the device in a sane
+> state.
+> 
+> Patch suggested by a fix for http://bugzilla.kernel.org/show_bug.cgi?id=9512
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Tested-by: Anders Eriksson <aeriksson@fastmail.fm>
 
-Pulled, thanks a lot.
+This patch does not apply to net-next-2.6
+
+You're patching rtl8169_suspend(), but in net-next-2.6 it does nothing
+but call a function named rtl8169_net_suspend() which actually has the
+code you seem to be changing.
+
+Please submit a fixed up patch and let me know if you want me to queue
+this up to -stable.
+
+Thanks.
