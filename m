@@ -1,80 +1,163 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
-	access
-Date: Fri, 12 Jun 2009 08:58:49 -0500
-Message-ID: <718B5524-9FB1-4835-BAEA-C5B990F78DAC@kernel.crashing.org>
-References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
-	<90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
-	<3A45394FD742FA419B760BB8D398F9ED483CCD@zch01exm26.fsl.freescale.net>
-	<5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
-	<2a27d3730906120627l112030b3wa11ea5aa3fcb1087@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+From: Patrick McHardy <kaber@trash.net>
+Subject: net: fix network drivers ndo_start_xmit() return values (part 3)
+Date: Fri, 12 Jun 2009 16:08:02 +0200
+Message-ID: <4A326142.8030905@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------020206070100020502010700"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Zhu Yi <yi.zhu@intel.com>, mcgrof@gmail.com,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:45818 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764032AbZFLOID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 10:08:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------020206070100020502010700
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zhang Wei <zw@zh-kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	linuxppc-dev@ozlabs.org, akpm@linux-foundation.org
-To: Li Yang <leoli@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <2a27d3730906120627l112030b3wa11ea5aa3fcb1087@mail.gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
 
 
-On Jun 12, 2009, at 8:27 AM, Li Yang wrote:
+--------------020206070100020502010700
+Content-Type: text/x-patch;
+ name="03.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="03.diff"
 
-> On Thu, Jun 11, 2009 at 9:32 PM, Kumar  
-> Gala<galak@kernel.crashing.org> wrote:
->>
->> On Jun 11, 2009, at 4:47 AM, Li Yang-R58472 wrote:
->>
->>>> On May 12, 2009, at 3:35 AM, Li Yang wrote:
->>>>
->>>>> Add the mapping functions used to support direct IO memory  
->>>>> access of
->>>>> rapidIO.
->>>>>
->>>>> Signed-off-by: Zhang Wei <zw@zh-kernel.org>
->>>>> Signed-off-by: Li Yang <leoli@freescale.com>
->>>>
->>>> Use inbnd/outbnd instead of inb/outb which make one think of
->>>> byte level io accessors.
->>>>
->>>> As I look at this I don't think this is the correct API.  I
->>>> think we should be using the DMA mapping API to hide these
->>>> details.  The concept of mapping like this seems to be more a
->>>> function of FSL's Address translation/mapping unit (ATMU) than
->>>> anything specific to the RIO bus standard.
->>>
->>> This is a separate RIO block level ATMU.  Although it looks like the
->>> system level ATMU, system ATMU doesn't have the knowledge of rapidIO
->>> target device ID.  The mapping need to be dynamic, as it's easy to  
->>> have
->>> more RIO devices than the outbound windows.
->>
->> I understand that.  What I'm saying is the RIO block level ATMU is a
->> Freescale specific detail and not part of any standard RIO bus  
->> programming
->> model.  We have mapping APIs that we can connect to for this via  
->> the DMA API
->> layer.
->
-> Ok, I see your point now. Do you mean dma_map_*() for DMA API layer?
-> But in my understanding the current dma_map_*() APIs are preparing
-> local memory for device to access which is similar to the inbound
-> case.  Is it suitable to also use them for mapping device's space for
-> CPU access?  Can you give an example of using this API for Address
-> Translation and Mapping purpose?
+commit 1fd73a30c86a658fdc61710b187fda8d6b914ced
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Jun 12 16:02:08 2009 +0200
 
-Yes, I meant the dma_map_*() API.  Any system with a true IOMMU uses  
-the dma_map_ layer as the way to do address translation.
+    net: fix network drivers ndo_start_xmit() return values (part 3)
+    
+    Fix up wireless drivers that return an errno value to qdisc_restart(), causing
+    qdisc_restart() to print a warning an requeue/retransmit the skb.
+    
+    - airo: transmission not implemented for chip, intention is to free and abort
+    - ipw2200: transmission not implemented for promiscous mode, intention is to
+               drop
+    - prism54: intention is to drop
+    - wl3501_cs: intention appears to be to drop
+    - zd1201: error counter indicates intention is to drop
+    
+    All drivers compile tested.
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-- k
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+index 9eabf4d..dfb30b9 100644
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -2193,7 +2193,8 @@ static int airo_start_xmit11(struct sk_buff *skb, struct net_device *dev) {
+ 	if (test_bit(FLAG_MPI, &priv->flags)) {
+ 		/* Not implemented yet for MPI350 */
+ 		netif_stop_queue(dev);
+-		return -ENETDOWN;
++		dev_kfree_skb_any(skb);
++		return NETDEV_TX_OK;
+ 	}
+ 
+ 	if ( skb == NULL ) {
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index c3b3dfe..44c29b3 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -11524,7 +11524,8 @@ static int ipw_prom_stop(struct net_device *dev)
+ static int ipw_prom_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	IPW_DEBUG_INFO("prom dev->xmit\n");
+-	return -EOPNOTSUPP;
++	dev_kfree_skb(skb);
++	return NETDEV_TX_OK;
+ }
+ 
+ static const struct net_device_ops ipw_prom_netdev_ops = {
+diff --git a/drivers/net/wireless/prism54/islpci_eth.c b/drivers/net/wireless/prism54/islpci_eth.c
+index ef3ef45..8f62109 100644
+--- a/drivers/net/wireless/prism54/islpci_eth.c
++++ b/drivers/net/wireless/prism54/islpci_eth.c
+@@ -87,7 +87,6 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
+ 	unsigned long flags;
+ 	unsigned char wds_mac[6];
+ 	u32 curr_frag;
+-	int err = 0;
+ 
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+ 	DEBUG(SHOW_FUNCTION_CALLS, "islpci_eth_transmit \n");
+@@ -107,8 +106,6 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
+ 		isl38xx_w32_flush(priv->device_base, ISL38XX_DEV_INT_UPDATE,
+ 				  ISL38XX_DEV_INT_REG);
+ 		udelay(ISL38XX_WRITEIO_DELAY);
+-
+-		err = -EBUSY;
+ 		goto drop_free;
+ 	}
+ 	/* Check alignment and WDS frame formatting. The start of the packet should
+@@ -152,7 +149,6 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
+ 			if (unlikely(newskb == NULL)) {
+ 				printk(KERN_ERR "%s: Cannot allocate skb\n",
+ 				       ndev->name);
+-				err = -ENOMEM;
+ 				goto drop_free;
+ 			}
+ 			newskb_offset = (4 - (long) newskb->data) & 0x03;
+@@ -197,8 +193,6 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (unlikely(pci_map_address == 0)) {
+ 		printk(KERN_WARNING "%s: cannot map buffer to PCI\n",
+ 		       ndev->name);
+-
+-		err = -EIO;
+ 		goto drop_free;
+ 	}
+ 	/* Place the fragment in the control block structure. */
+@@ -246,7 +240,7 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
+ 	ndev->stats.tx_dropped++;
+ 	spin_unlock_irqrestore(&priv->slock, flags);
+ 	dev_kfree_skb(skb);
+-	return err;
++	return NETDEV_TX_OK;
+ }
+ 
+ static inline int
+diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl3501_cs.c
+index 1f64d60..e3e96bb 100644
+--- a/drivers/net/wireless/wl3501_cs.c
++++ b/drivers/net/wireless/wl3501_cs.c
+@@ -1348,6 +1348,7 @@ static int wl3501_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (rc) {
+ 		++dev->stats.tx_dropped;
+ 		netif_stop_queue(dev);
++		rc = NETDEV_TX_OK;
+ 	} else {
+ 		++dev->stats.tx_packets;
+ 		dev->stats.tx_bytes += skb->len;
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+index 5fabd9c..4430b8d 100644
+--- a/drivers/net/wireless/zd1201.c
++++ b/drivers/net/wireless/zd1201.c
+@@ -819,11 +819,11 @@ static int zd1201_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (err) {
+ 		dev->stats.tx_errors++;
+ 		netif_start_queue(dev);
+-		return err;
++	} else {
++		dev->stats.tx_packets++;
++		dev->stats.tx_bytes += skb->len;
++		dev->trans_start = jiffies;
+ 	}
+-	dev->stats.tx_packets++;
+-	dev->stats.tx_bytes += skb->len;
+-	dev->trans_start = jiffies;
+ 	kfree_skb(skb);
+ 
+ 	return 0;
+
+--------------020206070100020502010700--
