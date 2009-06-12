@@ -1,48 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: CONFIG_ARPD help text
-Date: Thu, 11 Jun 2009 20:59:06 -0700 (PDT)
-Message-ID: <20090611.205906.215886308.davem@davemloft.net>
-References: <4A314CC5.9090505@iki.fi>
+Subject: Re: [RFC] Restricting MDIO reads
+Date: Thu, 11 Jun 2009 21:00:44 -0700 (PDT)
+Message-ID: <20090611.210044.189146193.davem@davemloft.net>
+References: <1244736247.2785.35.camel@achroite>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: timo.teras@iki.fi
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46610
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36263
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758172AbZFLD7E convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Jun 2009 23:59:04 -0400
-In-Reply-To: <4A314CC5.9090505@iki.fi>
+	by vger.kernel.org with ESMTP id S1752022AbZFLEAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 00:00:41 -0400
+In-Reply-To: <1244736247.2785.35.camel@achroite>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Thu, 11 Jun 2009 21:28:21 +0300
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 11 Jun 2009 17:04:07 +0100
 
-> I just re-read again the CONFIG_ARPD help text. It says it's
-> "experimental and also obsolete".
->=20
-> But as opennhrp relies on this, and has shown the usefulness for
-> this interface - it can be used to implement other protocols that
-> resolve neighbor address than ARP in userland. In this case the
-> NHRP protocol.
->=20
-> Would it be acceptable to remove the designation as "obsolete"?
->=20
-> Also, I'm running the opennhrp on production with reasonable
-> size network (100+ nodes in gre subnet). And with the fix I sent
-> previously it seems to work very stable. Is there something more
-> to be done, or could the "experimental" marking be removed also?
->=20
-> I could also update the help to explain where the option is useful.
-> Or should the option be renamed to something like NEIGH_NETLINK?
-> It also seems that IPv6 supports CONFIG_ARPD so it should probably
-> be moved from net/ipv4/Kconfig to likely net/core/Kconfig?
+> Currently most drivers[1] that support the "MII" ioctls allow all users
+> to read MDIO registers, while MDIO writes require CAP_NET_ADMIN.
+> 
+> However, some MDIO registers and register bits have read-to-clear (latch
+> high, latch low or non-rollover) or multi-word latching semantics[2].
+> So reading from them may interfere with the driver or other users and
+> should also require CAP_NET_ADMIN.
+> 
+> It's not clear to me just which registers should be safe to read, and
+> this can vary between PHYs.   I think the correct thing to do is either
+> to restrict all MDIO reads or to whitelist standard-defined safe
+> registers.
+> 
+> Which applications, if any, depend on performing MDIO reads as an
+> unprivileged user?  Which registers do they expect to read?
 
-I think it's rediculious to have these tags on something that's
-been in active, useful, use for years.  Feel free to remove them
-and to expand the help text.
+I think we should apply CAP_NET_ADMIN to all register reads.
 
-Thanks!
+Anything without privs trying to read those things is asking
+for trouble.  It's an access with arbitrary, device specific,
+side effects.  Not exactly something we should ever allow the
+user to do without privs.
+
