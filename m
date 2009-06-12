@@ -1,54 +1,80 @@
-From: Paul Menage <menage@google.com>
-Subject: Re: [Devel] Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
-Date: Thu, 11 Jun 2009 22:06:00 -0700
-Message-ID: <6599ad830906112206n745fb0dw19cdb75d7c40b2a4@mail.gmail.com>
-References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
-	 <20090611.021347.142243970.davem@davemloft.net>
-	 <20090612124028.fe4c2100.usui@mxm.nes.nec.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	hadi@cyberus.ca, jarkao2@gmail.com
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH] ipv4: update ARPD help text
+Date: Fri, 12 Jun 2009 08:38:02 +0300
+Message-ID: <1244785082-7883-1-git-send-email-timo.teras@iki.fi>
+References: <20090611.205906.215886308.davem@davemloft.net>
+Cc: Timo Teras <timo.teras@iki.fi>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.13]:11213 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbZFLFGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 01:06:01 -0400
-Received: from zps78.corp.google.com (zps78.corp.google.com [172.25.146.78])
-	by smtp-out.google.com with ESMTP id n5C562Sk024054
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:06:02 -0700
-Received: from pxi26 (pxi26.prod.google.com [10.243.27.26])
-	by zps78.corp.google.com with ESMTP id n5C560xV025106
-	for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:06:01 -0700
-Received: by pxi26 with SMTP id 26so17913pxi.23
-        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:06:00 -0700 (PDT)
-In-Reply-To: <20090612124028.fe4c2100.usui@mxm.nes.nec.co.jp>
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:43394 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbZFLFiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Jun 2009 01:38:01 -0400
+Received: by ewy6 with SMTP id 6so2669290ewy.37
+        for <netdev@vger.kernel.org>; Thu, 11 Jun 2009 22:38:01 -0700 (PDT)
+In-Reply-To: <20090611.205906.215886308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 11, 2009 at 8:40 PM, Minoru Usui<usui@mxm.nes.nec.co.jp> wrote:
->
-> It's true. If my patch applied, old syntax can't use.
-> But I think compatibility is important, too.
-> So I'll make a new patch which can use both old and new syntax, when we write classid to net_cls.classid file.
->
-> Present implementation is an asymmetry with read and write.(read: decimal, write: hexadecimal)
+Removed the statements about ARP cache size as this config option does
+not affect it. The cache size is controlled by neigh_table gc thresholds.
 
-You can write the classid value in decimal too, or even octal - it
-just uses strtoull() to convert the string to an integer, so
-0x-prefixed hex values are handled automatically.
+Remove also expiremental and obsolete markings as the API originally
+intended for arp caching is useful for implementing ARP-like protocols
+(e.g. NHRP) in user space and has been there for a long enough time.
 
->
-> If it's ok, I'd like to be able to use tc syntax(X:Y style),
-> because cls_cgroup's purpose is select class which create by tc command.
-> tc command can only use classid syntax X:Y style, so we should be able to use X:Y style to cls_cgroup.
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+---
+ net/ipv4/Kconfig |   35 +++++++++++++----------------------
+ 1 files changed, 13 insertions(+), 22 deletions(-)
 
-We should keep it as it is - purely apart from compatibility issues,
-there's no need to introduce the complexity of the tc interface into
-the cls_cgroup kernel code. When a cgroup control file represents a
-simple integer, then it should be exposed as such.
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 5b919f7..70491d9 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -273,29 +273,20 @@ config IP_PIMSM_V2
+ 	  you want to play with it.
+ 
+ config ARPD
+-	bool "IP: ARP daemon support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL
++	bool "IP: ARP daemon support"
+ 	---help---
+-	  Normally, the kernel maintains an internal cache which maps IP
+-	  addresses to hardware addresses on the local network, so that
+-	  Ethernet/Token Ring/ etc. frames are sent to the proper address on
+-	  the physical networking layer. For small networks having a few
+-	  hundred directly connected hosts or less, keeping this address
+-	  resolution (ARP) cache inside the kernel works well. However,
+-	  maintaining an internal ARP cache does not work well for very large
+-	  switched networks, and will use a lot of kernel memory if TCP/IP
+-	  connections are made to many machines on the network.
+-
+-	  If you say Y here, the kernel's internal ARP cache will never grow
+-	  to more than 256 entries (the oldest entries are expired in a LIFO
+-	  manner) and communication will be attempted with the user space ARP
+-	  daemon arpd. Arpd then answers the address resolution request either
+-	  from its own cache or by asking the net.
+-
+-	  This code is experimental and also obsolete. If you want to use it,
+-	  you need to find a version of the daemon arpd on the net somewhere,
+-	  and you should also say Y to "Kernel/User network link driver",
+-	  below. If unsure, say N.
++	  The kernel maintains an internal cache which maps IP addresses to
++	  hardware addresses on the local network, so that Ethernet/Token Ring/
++	  etc. frames are sent to the proper address on the physical networking
++	  layer. Normally, kernel uses the ARP protocol to resolve these
++	  mappings.
++
++	  Saying Y here adds support to have an user space daemon to do this
++	  resolution instead. This is useful for implementing an alternate
++	  address resolution protocol (e.g. NHRP on mGRE tunnels) and also for
++	  testing purposes.
++
++	  If unsure, say N.
+ 
+ config SYN_COOKIES
+ 	bool "IP: TCP syncookie support (disabled per default)"
+-- 
+1.6.0.4
 
-Paul
