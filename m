@@ -1,67 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] net: refactor multicast/unicast address list
-Date: Sat, 13 Jun 2009 14:28:14 +0200
-Message-ID: <1244896094.13033.8.camel@johannes.local>
-References: <1244889678.13033.6.camel@johannes.local>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of queueing an extra skb.
+Date: Sat, 13 Jun 2009 22:00:37 +0930
+Message-ID: <200906132200.38034.rusty@rustcorp.com.au>
+References: <200905292346.04815.rusty@rustcorp.com.au> <200906031247.05591.rusty@rustcorp.com.au> <20090608052247.GA19826@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-83f81xpIfe4+s9oPp9KW"
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:40256 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbZFMM11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 08:27:27 -0400
-Received: by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.69)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1MFSKV-0006mY-O3
-	for netdev@vger.kernel.org; Sat, 13 Jun 2009 14:27:28 +0200
-In-Reply-To: <1244889678.13033.6.camel@johannes.local>
+Received: from ozlabs.org ([203.10.76.45]:54098 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756117AbZFMMar (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Jun 2009 08:30:47 -0400
+In-Reply-To: <20090608052247.GA19826@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 8 Jun 2009 02:52:47 pm Herbert Xu wrote:
+> No you've misunderstood my complaint.  I'm not trying to get you
+> to replace NETDEV_TX_BUSY by the equally abhorrent queue in the
+> driver, I'm saying that you should stop the queue before you get
+> a packet that overflows by looking at the amount of free queue
+> space after transmitting each packet.
+>
+> For most drivers this is easy to do.  What's so different about
+> virtio-net that makes this impossible?
 
---=-83f81xpIfe4+s9oPp9KW
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+If we assume the worst case; ie. that the next packet will use max frags, we 
+get close (make add_buf take a "unsigned int *descs_left" arg).  Obviously, 
+this is suboptimal use of the ring.  We can still get kmalloc failures w/ 
+indirect descriptors, but dropping a packet then isn't a huge deal IMHO.
 
-On Sat, 2009-06-13 at 12:41 +0200, Johannes Berg wrote:
-> I'm trying to use address lists without netdevs, but as
-> a first step I thought it would be good to reduce the
-> amount duplicated code between unicast and multicast
-> lists.
->=20
-> After introducing a new 'struct address_list', we can
-> unify a lot between these. The next step will probably
-> be exporting the __dev_addr_sync and __dev_addr_unsync
-> functions so I can use them without a netdev, but this
-> cleanup can stand on its own.
+But re your comment that the 67 drivers using TX_BUSY are doing it because of 
+driver bugs, that's hard to believe.  It either hardly ever happens (in which 
+case just drop the packet), or it happens (in which case we should handle it 
+correctly).
 
-Sorry, this was based against the wrong tree and now I see that in
-net-next the lists have diverged significantly. Ignore this.
+TX_BUSY makes me queasy:  you haven't convinced me it shouldn't be killed or 
+fixed.
 
-johannes
+Did you look at my attempted fix?
+Rusty.
 
---=-83f81xpIfe4+s9oPp9KW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
 
-iQIcBAABAgAGBQJKM5taAAoJEODzc/N7+Qma3c8P/jWaGVv3oFvHkNWifYvM8Q1r
-R/bAabJMEtYBxnDceW1ESeYoZAxYSa8fiywCa1ZKXtdthEAEP7TrIGJs1Odgn6oR
-a9VFuXaTgPnpJk/jXHBPXuMZwHL2QCVUR9oyEz9CPl6QKSZ45+uz3/5QlWWRwtaU
-pwDXaNKvpF11LCnJ0wdaxL0AswAticrt0iunIiGz+SjeRFLJd1q3ZTcTr6ayUnwJ
-tm5rZ2mJH1fTCIYt5s9tfzQzS+oW0ciJpxT1zyLMOmVfjAwsbT8A33eoEtl2eVUH
-o4GCvv/HjER9aDzbeavp3WTZPqxJT/gF1DdohFO08ADkWbW7FKBlYlLSdTVehWNz
-rzp4bLUwq/ST31zANnZKsZDkD7uZ5tXYoXh3USvrHGgwj9PVz88ewaOaGHuWilBt
-xSB6zSaCrKB/3ljsZDQTzJnPBZe6Vc3Dqv9n9xt5XYC6859uUXFgJWWWRb+X0jwT
-zw4IXZ8XvzEgPh/uyxgxC6qnv2vYvilwlWm08G4d+fViguofpqREniuvb+ADbLgx
-7OIobpBy2tHUs/NUuQlzGF09MHgrZEJv4XLMxlE8anP8pDqrtpieVf5aK7+9jQc7
-a3UmnK2bFn/Sf6FUeFIgyTkId/xc2RRkBZqiAg1LTWL+ZEsX/2UjK2b+uIGn30oG
-NWmJFSJkxxKCZDrcmY1J
-=tJgI
------END PGP SIGNATURE-----
 
---=-83f81xpIfe4+s9oPp9KW--
+
+
+
 
