@@ -1,34 +1,33 @@
-From: Anders Eriksson <aeriksson@fastmail.fm>
-Subject: Re: WoL and r8169
-Date: Sat, 13 Jun 2009 16:19:40 +0200
-Message-ID: <20090613141940.CE97933C0AC@tippex.mynet.homeunix.org>
-References: <20090607214220.5101B33C013@tippex.mynet.homeunix.org> <20090608215301.GA28044@electric-eye.fr.zoreil.com> <20090610102940.87FE633C023@tippex.mynet.homeunix.org> <20090610230116.GA23440@electric-eye.fr.zoreil.com> <20090611111412.C908733C023@tippex.mynet.homeunix.org> <20090612225247.GA29698@electric-eye.fr.zoreil.com>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
+	configuration.
+Date: Sat, 13 Jun 2009 18:10:39 +0100
+Message-ID: <20090613171039.GC16775@opensource.wolfsonmicro.com>
+References: <20090612105019.GA21599@sirena.org.uk> <20090612.043350.38954875.davem@davemloft.net> <20090612122431.GA8861@rakim.wolfsonmicro.main> <20090612.170157.205072127.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anders Eriksson <aeriksson@fastmail.fm>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: mfuzzey@gmail.com, bhutchings@solarflare.com, nico@cam.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch-smtp01.sth.basefarm.net ([80.76.149.212]:44250 "EHLO
-	ch-smtp01.sth.basefarm.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751113AbZFMOTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 10:19:55 -0400
-In-reply-to: <20090612225247.GA29698@electric-eye.fr.zoreil.com>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:50650 "EHLO
+	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754194AbZFMRKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 13:10:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20090612.170157.205072127.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jun 12, 2009 at 05:01:57PM -0700, David Miller wrote:
+> From: Mark Brown <broonie@opensource.wolfsonmicro.com>
 
-romieu@fr.zoreil.com said:
->> What's a magic tcp packet?
+> > OpenFirmware works well enough on the platforms that use it but it's far
+> > from universal.
 
-> As you said: a tcp packet which contains the magic sequence. 
+> Sounds like an argument for it being more-so :-)
 
-The WoL tools I've found use UDP exclusively. What do you use to send a magic 
-package using tcp?
-
-I don't see the value of sending one with tcp, though. The tcp case _I_ am
-looking for is to wake up on any tcp activity where the tcp session is used to
-carry regular application data. 
-
--Anders
-
-
+It'd be nice if it were; one of my problems with OpenFirmware right now
+is that it just makes for more work since it just winds up meaning we
+have to do platform data two ways.  If we made a decision to move to
+using OpenFirmware more consistently this would be less of an issue.
