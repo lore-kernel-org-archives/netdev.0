@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] Ethtool style in kernel network driver
- configuration.
-Date: Sat, 13 Jun 2009 01:07:12 -0700 (PDT)
-Message-ID: <20090613.010712.100174619.davem@davemloft.net>
-References: <4A334E7A.5020805@gmail.com>
-	<20090613.000729.118500646.davem@davemloft.net>
-	<4A335A8A.5080907@gmail.com>
+Subject: Re: net: use symbolic values for ndo_start_xmit() return codes
+Date: Sat, 13 Jun 2009 01:19:41 -0700 (PDT)
+Message-ID: <20090613.011941.261416607.davem@davemloft.net>
+References: <4A3280C5.2090101@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, nico@cam.org, netdev@vger.kernel.org
-To: mfuzzey@gmail.com
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48749
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50010
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754108AbZFMIHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 04:07:09 -0400
-In-Reply-To: <4A335A8A.5080907@gmail.com>
+	by vger.kernel.org with ESMTP id S1750782AbZFMITj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 04:19:39 -0400
+In-Reply-To: <4A3280C5.2090101@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Fuzzey <mfuzzey@gmail.com>
-Date: Sat, 13 Jun 2009 09:51:38 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 12 Jun 2009 18:22:29 +0200
 
-> David Miller wrote:
->> But the situation is different, the physical hardware has a limitation
->> and know of this belongs, or should be described, in the driver
->> somehow.
->>   
-> Theoretically I agree. However the only practical advantage I can see of
-> doing it in the driver is that it is then impossible to later re-enable
-> broken modes.
+> This is the final patch for now to get rid of invalid or magic return
+> values in ndo_start_xmit() functions. There are no NETDEV_TX_OK
+> conversions at this time to keep the noise down, but I wouldn't mind
+> doing that as a final step at the end of the merge window.
+> 
+> I'll make a final pass over all the drivers before submitting
+> the remaining patches.
 
-The bug is a hardware limitation.
+I applied all of this to net-next-2.6 and am doing build testing
+before I push it out to kernel.org
 
-The kernel programs and knows the hardware.
-
-Therefore knowledge of the limitation belongs in the kernel.
-
-In no other situation would we say "this aspect of this chip doesn't
-work, so we'll block usage of that in some high level configuration
-framework"
-
-No, we'd always deal with HW problems in the driver itself.
-
-You'd only re-enable the broken modes later when you know they
-are working properly, in which case you can update the driver as
-appropriate.  And this is what we'd do in other similar cases too.
+I highly encourage your NETDEV_TX_OK transformations. :-)
