@@ -1,85 +1,44 @@
-From: Torsten Mueller <torsten@archesoft.de>
-Subject: Compilation of Realtek r8169-6.010.00 fails on 2.6.30
-Date: Sun, 14 Jun 2009 00:28:16 +0200
-Message-ID: <4A342800.8070606@archesoft.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 00/07: netfilter update
+Date: Sat, 13 Jun 2009 16:53:48 -0700 (PDT)
+Message-ID: <20090613.165348.209715007.davem@davemloft.net>
+References: <20090613130934.2112.65299.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Realtek and the Linux r8169 crew <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns3.xtremeweb.de ([217.160.129.106]:3337 "EHLO ns3.xtremeweb.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751315AbZFMWzW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Jun 2009 18:55:22 -0400
-Received: from n15-2.dsl.vianetworks.de ([194.77.75.2] helo=slave.xtremeweb.de)
-	by ns3.xtremeweb.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.60)
-	(envelope-from <torsten@archesoft.de>)
-	id 1MFbi5-0006n3-Kb
-	for netdev@vger.kernel.org; Sun, 14 Jun 2009 00:28:25 +0200
-Received: from torsten.localnet.de ([192.168.0.15])
-	by slave.xtremeweb.de with esmtpa (Exim 4.69)
-	(envelope-from <torsten@archesoft.de>)
-	id 1MFbhw-0001ZZ-AA
-	for netdev@vger.kernel.org; Sun, 14 Jun 2009 00:28:16 +0200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56656
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753105AbZFMXxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 19:53:46 -0400
+In-Reply-To: <20090613130934.2112.65299.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Patrick McHardy <kaber@trash.net>
+Date: Sat, 13 Jun 2009 15:09:34 +0200 (MEST)
 
-i have problems compiling the driver for this card.
-I want to test this driver to check, if it gives more
-bandwidth in a gigabit network against the stock 2.6.30
-vanilla kernel driver.
+> following is a final netfilter update for 2.6.31, containing:
+> 
+> - a fix for a warning when reading one of the the nf_log files
+> 
+> - a patch to use the new mod_timer_pending() function in conntrack
+>   to avoid taking the global conntrack lock for timer updates
+> 
+> - a set of patches from Pablo to make conntrack event notifications
+>   runtime selectable and optionally reliable. This works by making
+>   sure at least the final destroy event is successfully transmitted,
+>   otherwise the event is re-broadcast until a configurable timeout
+>   is reached.
+> 
+> - a patch from Joe Perches to convert a bunch of printks without a
+>   log level to pr_err()
+> 
+> 
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-Can you lead me to a solution for this compilation problem ?
-
-Thanks,
-Torsten
-
-
-slave:/usr/src/rtl8169/r8169-6.010.00 # make clean modules
-make -C src/ clean
-make[1]: Entering directory `/usr/src/rtl8169/r8169-6.010.00/src'
-rm -rf *.o *.ko *~ core* .dep* .*.d .*.cmd *.mod.c *.a *.s .*.flags=20
-=2Etmp_versions Module.symvers Modules.symvers rset modules.order=20
-Module.markers
-make[1]: Leaving directory `/usr/src/rtl8169/r8169-6.010.00/src'
-make -C src/ modules
-make[1]: Entering directory `/usr/src/rtl8169/r8169-6.010.00/src'
-make -C /lib/modules/2.6.30/build=20
-SUBDIRS=3D/usr/src/rtl8169/r8169-6.010.00/src modules
-make[2]: Entering directory `/usr/src/linux-2.6.30'
-   CC [M]  /usr/src/rtl8169/r8169-6.010.00/src/r8169_n.o
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c: In function =91rtl8169_o=
-pen=92:
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:2753: warning: passing=20
-argument 2 of =91request_irq=92 from incompatible pointer type
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c: In function=20
-=91rtl8169_interrupt=92:
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:3682: error: implicit=20
-declaration of function =91netif_rx_schedule_prep=92
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:3683: error: implicit=20
-declaration of function =91__netif_rx_schedule=92
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:3714: error: expected=20
-expression before =91)=92 token
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:3714: warning: =91return=92=
-=20
-with a value, in function returning void
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c: In function =91rtl8169_p=
-oll=92:
-/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.c:3735: error: implicit=20
-declaration of function =91netif_rx_complete=92
-make[3]: *** [/usr/src/rtl8169/r8169-6.010.00/src/r8169_n.o] Error 1
-make[2]: *** [_module_/usr/src/rtl8169/r8169-6.010.00/src] Error 2
-make[2]: Leaving directory `/usr/src/linux-2.6.30'
-make[1]: *** [modules] Error 2
-make[1]: Leaving directory `/usr/src/rtl8169/r8169-6.010.00/src'
-make: *** [modules] Error 2
-
-slave:/usr/src/rtl8169/r8169-6.010.00 # uname -a
-Linux slave 2.6.30 #2 Sat Jun 13 23:31:10 CEST 2009 i686 athlon i386=20
-GNU/Linux
-slave:/usr/src/rtl8169/r8169-6.010.00 #
-
+Pulled, thanks a lot Patrick.
