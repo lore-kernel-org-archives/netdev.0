@@ -1,90 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 02/07: nf_conntrack: use mod_timer_pending() for conntrack refresh
-Date: Sat, 13 Jun 2009 15:09:37 +0200 (MEST)
-Message-ID: <20090613130937.2112.22333.sendpatchset@x2.localnet>
-References: <20090613130934.2112.65299.sendpatchset@x2.localnet>
+Subject: netfilter 00/07: netfilter update
+Date: Sat, 13 Jun 2009 15:09:34 +0200 (MEST)
+Message-ID: <20090613130934.2112.65299.sendpatchset@x2.localnet>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090613130934.2112.65299.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:37044 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753702AbZFMNJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 09:09:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 65cb9fda32be613216f601a330b311c3bd7a8436
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Sat Jun 13 12:21:49 2009 +0200
+Hi Dave,
 
-    netfilter: nf_conntrack: use mod_timer_pending() for conntrack refresh
-    
-    Use mod_timer_pending() instead of atomic sequence of del_timer()/
-    add_timer(). mod_timer_pending() does not rearm an inactive timer,
-    so we don't need the conntrack lock anymore to make sure we don't
-    accidentally rearm a timer of a conntrack which is in the process
-    of being destroyed.
-    
-    With this change, we don't need to take the global lock anymore at all,
-    counter updates can be performed under the per-conntrack lock.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+following is a final netfilter update for 2.6.31, containing:
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index edf9569..d8dffe7 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -807,8 +807,6 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 	NF_CT_ASSERT(ct->timeout.data == (unsigned long)ct);
- 	NF_CT_ASSERT(skb);
- 
--	spin_lock_bh(&nf_conntrack_lock);
--
- 	/* Only update if this is not a fixed timeout */
- 	if (test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status))
- 		goto acct;
-@@ -822,11 +820,8 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
- 		/* Only update the timeout if the new timeout is at least
- 		   HZ jiffies from the old timeout. Need del_timer for race
- 		   avoidance (may already be dying). */
--		if (newtime - ct->timeout.expires >= HZ
--		    && del_timer(&ct->timeout)) {
--			ct->timeout.expires = newtime;
--			add_timer(&ct->timeout);
--		}
-+		if (newtime - ct->timeout.expires >= HZ)
-+			mod_timer_pending(&ct->timeout, newtime);
- 	}
- 
- acct:
-@@ -835,13 +830,13 @@ acct:
- 
- 		acct = nf_conn_acct_find(ct);
- 		if (acct) {
-+			spin_lock_bh(&ct->lock);
- 			acct[CTINFO2DIR(ctinfo)].packets++;
- 			acct[CTINFO2DIR(ctinfo)].bytes +=
- 				skb->len - skb_network_offset(skb);
-+			spin_unlock_bh(&ct->lock);
- 		}
- 	}
--
--	spin_unlock_bh(&nf_conntrack_lock);
- }
- EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
- 
-@@ -853,14 +848,14 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
- 	if (do_acct) {
- 		struct nf_conn_counter *acct;
- 
--		spin_lock_bh(&nf_conntrack_lock);
- 		acct = nf_conn_acct_find(ct);
- 		if (acct) {
-+			spin_lock_bh(&ct->lock);
- 			acct[CTINFO2DIR(ctinfo)].packets++;
- 			acct[CTINFO2DIR(ctinfo)].bytes +=
- 				skb->len - skb_network_offset(skb);
-+			spin_unlock_bh(&ct->lock);
- 		}
--		spin_unlock_bh(&nf_conntrack_lock);
- 	}
- 
- 	if (del_timer(&ct->timeout)) {
+- a fix for a warning when reading one of the the nf_log files
+
+- a patch to use the new mod_timer_pending() function in conntrack
+  to avoid taking the global conntrack lock for timer updates
+
+- a set of patches from Pablo to make conntrack event notifications
+  runtime selectable and optionally reliable. This works by making
+  sure at least the final destroy event is successfully transmitted,
+  otherwise the event is re-broadcast until a configurable timeout
+  is reached.
+
+- a patch from Joe Perches to convert a bunch of printks without a
+  log level to pr_err()
+
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
+
+
+ include/linux/list_nulls.h                  |   18 +++
+ include/net/netfilter/nf_conntrack.h        |    2 +
+ include/net/netfilter/nf_conntrack_ecache.h |  175 ++++++++++++++---------
+ include/net/netfilter/nf_conntrack_extend.h |    2 +
+ include/net/netfilter/nf_conntrack_helper.h |    2 +
+ include/net/netns/conntrack.h               |    7 +-
+ net/netfilter/nf_conntrack_core.c           |  132 ++++++++++++-----
+ net/netfilter/nf_conntrack_ecache.c         |  209 ++++++++++++++++++---------
+ net/netfilter/nf_conntrack_helper.c         |   14 ++
+ net/netfilter/nf_conntrack_netlink.c        |   68 +++++----
+ net/netfilter/nf_log.c                      |    6 +-
+ net/netfilter/x_tables.c                    |   16 +-
+ 12 files changed, 431 insertions(+), 220 deletions(-)
+
+Joe Perches (1):
+      x_tables: Convert printk to pr_err
+
+Pablo Neira Ayuso (4):
+      netfilter: conntrack: move event caching to conntrack extension infrastructure
+      netfilter: conntrack: move helper destruction to nf_ct_helper_destroy()
+      list_nulls: add hlist_nulls_add_head and hlist_nulls_del
+      netfilter: conntrack: optional reliable conntrack event delivery
+
+Patrick McHardy (2):
+      netfilter: nf_log: fix sleeping function called from invalid context
+      netfilter: nf_conntrack: use mod_timer_pending() for conntrack refresh
