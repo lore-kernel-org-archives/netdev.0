@@ -1,175 +1,118 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 9/9] bonding: initialization rework
-Date: Fri, 12 Jun 2009 22:02:52 -0700
-Message-ID: <20090613050422.305329705@vyatta.com>
+Subject: [PATCH 4/9] bonding: fix destructor
+Date: Fri, 12 Jun 2009 22:02:47 -0700
+Message-ID: <20090613050421.816186819@vyatta.com>
 References: <20090613050243.100086546@vyatta.com>
 Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 To: Jay Vosburg <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:49231 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:49239 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751698AbZFMFGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Jun 2009 01:06:15 -0400
-Content-Disposition: inline; filename=bond_setup.patch
+	id S1754118AbZFMFGT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Jun 2009 01:06:19 -0400
+Content-Disposition: inline; filename=bond-destruct.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Need to rework how bonding devices are initialized to make it more
-amenable to creating bonding devices via netlink.
+It is not safe to use a network device destructor that is a function in
+the module, since it can be called after module is unloaded if sysfs
+handle is open.
+
+When eventually using netlink, the device cleanup code needs to be donen
+via uninit function.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
----
- drivers/net/bonding/bond_main.c |   67 +++++++++++++++++-----------------------
- 1 file changed, 30 insertions(+), 37 deletions(-)
-
---- a/drivers/net/bonding/bond_main.c	2009-06-12 21:46:35.170615781 -0700
-+++ b/drivers/net/bonding/bond_main.c	2009-06-12 21:46:37.135624224 -0700
-@@ -210,6 +210,7 @@ struct bond_parm_tbl ad_select_tbl[] = {
- /*-------------------------- Forward declarations ---------------------------*/
+--- a/drivers/net/bonding/bond_sysfs.c	2009-06-12 12:02:45.186919049 -0700
++++ b/drivers/net/bonding/bond_sysfs.c	2009-06-12 21:44:52.148228948 -0700
+@@ -127,7 +127,7 @@ static ssize_t bonding_store_bonds(struc
+ 				printk(KERN_INFO DRV_NAME
+ 					": %s is being deleted...\n",
+ 					bond->dev->name);
+-				bond_destroy(bond);
++				unregister_netdevice(bond->dev);
+ 				goto out_unlock;
+ 			}
  
- static void bond_send_gratuitous_arp(struct bonding *bond);
-+static int bond_init(struct net_device *bond_dev);
- static void bond_deinit(struct net_device *bond_dev);
- 
- /*---------------------------- General routines -----------------------------*/
-@@ -4518,6 +4519,7 @@ static const struct ethtool_ops bond_eth
- };
- 
- static const struct net_device_ops bond_netdev_ops = {
-+	.ndo_init		= bond_init,
- 	.ndo_uninit		= bond_uninit,
- 	.ndo_open		= bond_open,
- 	.ndo_stop		= bond_close,
-@@ -4533,38 +4535,22 @@ static const struct net_device_ops bond_
- 	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
- };
- 
--/*
-- * Does not allocate but creates a /proc entry.
-- * Allowed to fail.
-- */
--static int bond_init(struct net_device *bond_dev)
-+static void bond_setup(struct net_device *bond_dev)
+--- a/drivers/net/bonding/bonding.h	2009-06-12 12:02:45.187973745 -0700
++++ b/drivers/net/bonding/bonding.h	2009-06-12 12:02:53.504241280 -0700
+@@ -322,7 +322,6 @@ static inline void bond_unset_master_alb
+ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
+ int bond_create(const char *name);
+-void bond_destroy(struct bonding *bond);
+ int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_create_sysfs(void);
+ void bond_destroy_sysfs(void);
+--- a/drivers/net/bonding/bond_main.c	2009-06-12 12:03:10.776948783 -0700
++++ b/drivers/net/bonding/bond_main.c	2009-06-12 21:45:37.932394640 -0700
+@@ -1972,25 +1972,19 @@ int bond_release(struct net_device *bond
+ * Destroy a bonding device.
+ * Must be under rtnl_lock when this function is called.
+ */
+-void bond_destroy(struct bonding *bond)
+-{
+-	bond_deinit(bond->dev);
+-	bond_destroy_sysfs_entry(bond);
+-	unregister_netdevice(bond->dev);
+-}
+-
+-static void bond_destructor(struct net_device *bond_dev)
++static void bond_uninit(struct net_device *bond_dev)
  {
  	struct bonding *bond = netdev_priv(bond_dev);
  
--	pr_debug("Begin bond_init for %s\n", bond_dev->name);
++	bond_deinit(bond_dev);
++	bond_destroy_sysfs_entry(bond);
++
+ 	if (bond->wq)
+ 		destroy_workqueue(bond->wq);
+ 
+ 	netif_addr_lock_bh(bond_dev);
+ 	bond_mc_list_destroy(bond);
+ 	netif_addr_unlock_bh(bond_dev);
 -
- 	/* initialize rwlocks */
- 	rwlock_init(&bond->lock);
- 	rwlock_init(&bond->curr_slave_lock);
+-	free_netdev(bond_dev);
+ }
  
- 	bond->params = bonding_defaults;
+ /*
+@@ -2006,7 +2000,7 @@ int  bond_release_and_destroy(struct net
+ 	if ((ret == 0) && (bond->slave_cnt == 0)) {
+ 		printk(KERN_INFO DRV_NAME ": %s: destroying bond %s.\n",
+ 		       bond_dev->name, bond_dev->name);
+-		bond_destroy(bond);
++		unregister_netdevice(bond_dev);
+ 	}
+ 	return ret;
+ }
+@@ -4572,6 +4566,7 @@ static const struct ethtool_ops bond_eth
+ };
  
--	bond->wq = create_singlethread_workqueue(bond_dev->name);
--	if (!bond->wq)
--		return -ENOMEM;
--
- 	/* Initialize pointers */
--	bond->first_slave = NULL;
--	bond->curr_active_slave = NULL;
--	bond->current_arp_slave = NULL;
--	bond->primary_slave = NULL;
- 	bond->dev = bond_dev;
--	bond->send_grat_arp = 0;
--	bond->send_unsol_na = 0;
--	bond->setup_by_slave = 0;
- 	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
-+	ether_setup(bond_dev);
- 	bond_dev->netdev_ops = &bond_netdev_ops;
+ static const struct net_device_ops bond_netdev_ops = {
++	.ndo_uninit		= bond_uninit,
+ 	.ndo_open		= bond_open,
+ 	.ndo_stop		= bond_close,
+ 	.ndo_start_xmit		= bond_start_xmit,
+@@ -4622,7 +4617,7 @@ static int bond_init(struct net_device *
  	bond_dev->ethtool_ops = &bond_ethtool_ops;
  	bond_set_mode_ops(bond, bond->params.mode);
-@@ -4575,6 +4561,8 @@ static int bond_init(struct net_device *
+ 
+-	bond_dev->destructor = bond_destructor;
++	bond_dev->destructor = free_netdev;
+ 
+ 	/* Initialize the device options */
  	bond_dev->tx_queue_len = 0;
- 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
- 	bond_dev->priv_flags |= IFF_BONDING;
-+	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
-+
- 	if (bond->params.arp_interval)
- 		bond_dev->priv_flags |= IFF_MASTER_ARPMON;
- 
-@@ -4599,10 +4587,6 @@ static int bond_init(struct net_device *
- 			       NETIF_F_HW_VLAN_RX |
- 			       NETIF_F_HW_VLAN_FILTER);
- 
--	bond_create_proc_entry(bond);
--	list_add_tail(&bond->bond_list, &bond_dev_list);
--
--	return 0;
- }
- 
- static void bond_work_cancel_all(struct bonding *bond)
-@@ -5056,6 +5040,29 @@ static void bond_set_lockdep_class(struc
- 	netdev_for_each_tx_queue(dev, bond_set_lockdep_class_one, NULL);
- }
- 
-+/*
-+ * Called from registration process
-+ */
-+static int bond_init(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+
-+	pr_debug("Begin bond_init for %s\n", bond_dev->name);
-+
-+	bond->wq = create_singlethread_workqueue(bond_dev->name);
-+	if (!bond->wq)
-+		return -ENOMEM;
-+
-+	bond_set_lockdep_class(bond_dev);
-+
-+	netif_carrier_off(bond_dev);
-+
-+	bond_create_proc_entry(bond);
-+	list_add_tail(&bond->bond_list, &bond_dev_list);
-+
-+	return 0;
-+}
-+
- /* Create a new bond based on the specified name and bonding parameters.
-  * If name is NULL, obtain a suitable "bond%d" name for us.
-  * Caller must NOT hold rtnl_lock; we need to release it here before we
-@@ -5077,7 +5084,7 @@ int bond_create(const char *name)
+@@ -4706,7 +4701,7 @@ static void bond_free_all(void)
+ 		bond_work_cancel_all(bond);
+ 		/* Release the bonded slaves */
+ 		bond_release_all(bond_dev);
+-		bond_destroy(bond);
++		unregister_netdevice(bond_dev);
  	}
  
- 	bond_dev = alloc_netdev(sizeof(struct bonding), name ? name : "",
--				ether_setup);
-+				bond_setup);
- 	if (!bond_dev) {
- 		pr_err(DRV_NAME ": %s: eek! can't alloc netdev!\n",
- 		       name);
-@@ -5085,26 +5092,12 @@ int bond_create(const char *name)
- 		goto out_rtnl;
- 	}
- 
--	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
- 	if (!name) {
- 		res = dev_alloc_name(bond_dev, "bond%d");
- 		if (res < 0)
- 			goto out_netdev;
- 	}
- 
--	/* bond_init() must be called after dev_alloc_name() (for the
--	 * /proc files), but before register_netdevice(), because we
--	 * need to set function pointers.
--	 */
--
--	res = bond_init(bond_dev);
--	if (res < 0)
--		goto out_netdev;
--
--	bond_set_lockdep_class(bond_dev);
--
--	netif_carrier_off(bond_dev);
--
- 	res = register_netdevice(bond_dev);
- 	if (res < 0)
- 		goto out_bond;
+ 	bond_destroy_proc_dir();
 
 -- 
 
