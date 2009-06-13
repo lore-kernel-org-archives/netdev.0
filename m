@@ -1,23 +1,20 @@
-From: <rhcs@ns.sympatico.ca>
-Subject: A friend has contacted you                                8988
-Date: Sat, 13 Jun 2009 6:30:17 -0400
-Message-ID: <20090613103017.XTVI1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/3] x_tables: Convert printk to pr_err
+Date: Sat, 13 Jun 2009 12:35:04 +0200
+Message-ID: <4A3380D8.1060505@trash.net>
+References: <cover.1244705154.git.joe@perches.com> <cf0a2bad458fe3c9f989ca6db04b5a7f8367e1a7.1244705154.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from simmts5-srv.bellnexxia.net ([206.47.199.163]:36007 "EHLO
-	simmts5-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753174AbZFMKaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 06:30:15 -0400
-Received: from simip9-ac.srvr.bell.ca ([206.47.199.87])
-          by simmts5-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20090613103017.XTVI1658.simmts5-srv.bellnexxia.net@simip9-ac.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Sat, 13 Jun 2009 06:30:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <cf0a2bad458fe3c9f989ca6db04b5a7f8367e1a7.1244705154.git.joe@perches.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Do ulust for me? http://www.lolatpicture.com/h.htm
+Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
+Applied, thanks.
