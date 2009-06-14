@@ -1,67 +1,50 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [PATCH] Make e100 suspend handler support PCI
-	cards lacking PM	capability
-Date: Sun, 14 Jun 2009 19:20:22 +0200
-Message-ID: <20090614172022.GA22586@rhlx01.hs-esslingen.de>
-References: <20081229102515.GA17171@rhlx01.hs-esslingen.de>
-	<200906141606.29754.rjw@sisk.pl>
-	<20090614164604.GA19746@rhlx01.hs-esslingen.de>
-	<200906141909.46354.rjw@sisk.pl>
-Reply-To: andi@lisas.de
+From: Eric Lammerts <eric@lammerts.org>
+Subject: Re: 2.6.30: tun losing ip
+Date: Sun, 14 Jun 2009 14:36:10 -0400
+Message-ID: <4A35431A.50507@lammerts.org>
+References: <4A348824.1030503@lammerts.org> <Pine.LNX.4.64.0906141015130.11221@sister.anvils>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org, andi@lisas.de
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <200906141909.46354.rjw@sisk.pl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: kernel list <linux-kernel@vger.kernel.org>, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Hugh Dickins <hugh.dickins@tiscali.co.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762662AbZFNSgb@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0906141015130.11221@sister.anvils>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Sun, Jun 14, 2009 at 07:09:45PM +0200, Rafael J. Wysocki wrote:
-> On Sunday 14 June 2009, Andreas Mohr wrote:
-> > Couple questions still:
-> > - why do we call pci_wake_from_d3(...false) only!?
-> >   Wouldn't this break WoL after one iteration back and forth,
-> >   due to missing 'true' case?
+On 06/14/2009 05:28 AM, Hugh Dickins wrote:
+> On Sun, 14 Jun 2009, Eric Lammerts wrote:
+>> There is something strange going on with tun devices:
+<snip>
+>> First you see the ip, then you don't...
+>>
+>> I traced it back to this commit:
+>>
+>> $ git-bisect bad
+>> 05f54c13cd0c33694eec39a265475c5d6cf223cf is first bad commit
+>> commit 05f54c13cd0c33694eec39a265475c5d6cf223cf
+>> Author: Hugh Dickins <hugh@veritas.com>
+>> Date:   Thu Apr 16 21:55:29 2009 +0100
+>>
+>>     Revert "kobject: don't block for each kobject_uevent".
+>>
+>> If I take 2.6.30 and revert that commit, the problem goes away.
 > 
-> The 'true' case is the 'wake = true' one.
-
-OK, so it wasn't an explicit pci_wake_from_d3(...true), but the
-operations done there are the equivalent of it probably.
-
-> > - why do we call netif_device_detach() _after_ doing hardware shutdown
-> >   of the network controller? I'd guess this can cause huge issues?
-> >   Someone told me he had rtnl lock issues upon S2D with e100
-> >   (very similar to my rtnl issues during aborted .suspend),
-> >   and that might possibly be the reason?
+> I'm mortified!  But it's rather odd, that's just a straight reversion
+> of an earlier, clearly buggy commit: I guess you have some other issue,
+> which reverting to a wait here now uncovers.
 > 
-> I think you're right, but I'm not a network driver expert.
-> 
-> Perhaps you can change the ordering and see if that fixes the rtnl issue
-> (since you're able to reproduce it without my patch, that should be easy to
-> verify).
+> One likely workaround: I suspect your .config says something like
+> CONFIG_UEVENT_HELPER_PATH=/sbin/hotplug, but you've no /sbin/hotplug?
+> Please try changing that to CONFIG_UEVENT_HELPER_PATH="", and see if
+> the problem comes up with that resulting kernel.
 
-I'll test this - later.
+Actually I do have an /sbin/hotplug, with I now noticed has some old 
+script stuff behind it that starts a udhcpc... aarrrgh. I removed it and 
+the problem's gone.
 
-Thanks a lot,
+Apologies for wasting your time.
 
-Andreas Mohr
-
-------------------------------------------------------------------------------
-Crystal Reports - New Free Runtime and 30 Day Trial
-Check out the new simplified licensing option that enables unlimited
-royalty-free distribution of the report engine for externally facing 
-server and web deployment.
-http://p.sf.net/sfu/businessobjects
+Eric
