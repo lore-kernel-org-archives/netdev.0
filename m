@@ -1,44 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/07: netfilter update
-Date: Sat, 13 Jun 2009 16:53:48 -0700 (PDT)
-Message-ID: <20090613.165348.209715007.davem@davemloft.net>
-References: <20090613130934.2112.65299.sendpatchset@x2.localnet>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [GIT] IrDA pull request for 2.6.31-rc1
+Date: Sat, 13 Jun 2009 17:09:36 -0700 (PDT)
+Message-ID: <20090613.170936.106579443.davem@davemloft.net>
+References: <1244854033.3422.23.camel@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753105AbZFMXxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Jun 2009 19:53:46 -0400
-In-Reply-To: <20090613130934.2112.65299.sendpatchset@x2.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1244854033.3422.23.camel@sortiz-mobl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 13 Jun 2009 15:09:34 +0200 (MEST)
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Sat, 13 Jun 2009 02:47:13 +0200
 
-> following is a final netfilter update for 2.6.31, containing:
+> Hi Dave,
 > 
-> - a fix for a warning when reading one of the the nf_log files
+> This is a pull request for the 2.6.31 merge window, for the IrDA subsystem.
+> It's basically the blackfin driver, a wait counter fix and me advertising the
+> new IrDA git tree.
+> I hope it's not too late for making it to rc1 through your net-next-2.6 tree.
 > 
-> - a patch to use the new mod_timer_pending() function in conntrack
->   to avoid taking the global conntrack lock for timer updates
+> Here goes the pull request:
 > 
-> - a set of patches from Pablo to make conntrack event notifications
->   runtime selectable and optionally reliable. This works by making
->   sure at least the final destroy event is successfully transmitted,
->   otherwise the event is re-broadcast until a configurable timeout
->   is reached.
+> The following changes since commit 8981f01001c616f58f1623ecadfab8b1ed758da7:
+>   Herbert Xu (1):
+>         virtio_net: Fix IP alignment on non-mergeable RX path
 > 
-> - a patch from Joe Perches to convert a bunch of printks without a
->   log level to pr_err()
+> are available in the git repository at:
 > 
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+>   git://git.kernel.org/pub/scm/linux/kernel/git/sameo/irda-2.6.git for-next
 
-Pulled, thanks a lot Patrick.
+Pulled, thanks Samuel.
+
+------------------------------------------------------------------------------
+Crystal Reports - New Free Runtime and 30 Day Trial
+Check out the new simplified licensing option that enables unlimited
+royalty-free distribution of the report engine for externally facing 
+server and web deployment.
+http://p.sf.net/sfu/businessobjects
