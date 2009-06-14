@@ -1,98 +1,73 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: rfkill regression in net-next-2.6
-Date: Sun, 14 Jun 2009 11:17:47 +0200
-Message-ID: <4A34C03B.4030909@hartkopp.net>
-References: <20090604152011.GC2839@tuxdriver.com>	 <20090607.033751.191866033.davem@davemloft.net>	 <4A2BCC41.1060508@hartkopp.net> <20090607145830.GA2736@tuxdriver.com>	 <4A2BD8A5.4040302@hartkopp.net> <1244388583.23850.87.camel@localhost.localdomain> <4A34BAB9.9000104@hartkopp.net>
+From: Hugh Dickins <hugh.dickins@tiscali.co.uk>
+Subject: Re: 2.6.30: tun losing ip
+Date: Sun, 14 Jun 2009 10:28:59 +0100 (BST)
+Message-ID: <Pine.LNX.4.64.0906141015130.11221@sister.anvils>
+References: <4A348824.1030503@lammerts.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4A34BAB9.9000104-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kernel list <linux-kernel@vger.kernel.org>, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Eric Lammerts <eric@lammerts.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753139AbZFNJaI@vger.kernel.org>
+In-Reply-To: <4A348824.1030503@lammerts.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I missed the Dell dcdbas log output that seems to kill the LED ...
-see below.
+On Sun, 14 Jun 2009, Eric Lammerts wrote:
+> 
+> Hi,
+> I'm having problems with openvpn clients on 2.6.30. I get stuff like this:
+> 
+> TUN/TAP device tun0 opened
+> TUN/TAP TX queue length set to 100
+> /sbin/ifconfig tun0 10.2.222.50 pointopoint 10.2.222.49 mtu 1500
+> /sbin/route add -net 10.2.222.0 netmask 255.255.255.0 gw 10.2.222.49
+> SIOCADDRT: No such process
+> 
+> There is something strange going on with tun devices:
+> 
+> # tunctl -t tun1; ifconfig tun1 1.2.3.4; ifconfig tun1; sleep 1; ifconfig tun1
+> Set 'tun1' persistent and owned by uid 0
+> tun1      Link encap:Ethernet  HWaddr 1E:EF:79:F2:D9:67
+>           inet addr:1.2.3.4  Bcast:1.255.255.255  Mask:255.0.0.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:500
+>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+> 
+> tun1      Link encap:Ethernet  HWaddr 1E:EF:79:F2:D9:67
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:1 overruns:0 carrier:0
+>           collisions:0 txqueuelen:500
+>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+> 
+> First you see the ip, then you don't...
+> 
+> I traced it back to this commit:
+> 
+> $ git-bisect bad
+> 05f54c13cd0c33694eec39a265475c5d6cf223cf is first bad commit
+> commit 05f54c13cd0c33694eec39a265475c5d6cf223cf
+> Author: Hugh Dickins <hugh@veritas.com>
+> Date:   Thu Apr 16 21:55:29 2009 +0100
+> 
+>     Revert "kobject: don't block for each kobject_uevent".
+> 
+> If I take 2.6.30 and revert that commit, the problem goes away.
 
-Oliver Hartkopp wrote:
-> Marcel Holtmann wrote:
-> 
->> compiling RFKILL itself as a module is still working perfectly fine. It
->> is just the RFKILL_INPUT that can't be built as a module anymore. That
->> part was pointless anyway. And in the future RFKILL_INPUT will go away
->> and be replaced by a userspace implementation with proper support for
->> platform specific policies.
-> 
-> Hi all,
-> 
-> i have a Dell Lattitude 830 with Bluetooh and b43 WLAN and my RFKILL-switch is
-> set to ON.
-> 
-> On power on the BT LED is on and when booting with 2.6.30 or with 2.6.30-git5
-> the WLAN LED becomes illuminated within the boot process after b43 pulled his
-> firmware.
-> 
-> With net-next-2.6 the BT LED is switched OFF(!) during the boot process and
-> the Kernel log says:
-> 
-> [   15.276568] b43 ssb0:0: firmware: requesting b43/b0g0bsinitvals5.fw
-> [   15.423540] b43-phy0: Loading firmware version 410.2160 (2007-05-26 15:32:10)
-> [   15.545096] b43-phy0 debug: Chip initialized
-> [   15.545317] b43-phy0 debug: 32-bit DMA initialized
-> [   15.566383] b43-phy0 debug: Wireless interface started
-> [   15.566394] b43-phy0 debug: Adding Interface type 2
-> [   15.566670] b43-phy0: Radio hardware status changed to DISABLED
-> [   15.633069] b43-phy0: Radio turned on by software
-> [   15.647094] b43-phy0: The hardware RF-kill button still turns the radio
-> physically off. Press the button to turn it on.
-> [   15.673598] ADDRCONF(NETDEV_UP): wlan0: link is not ready
-> [   15.721053] b43-phy0 debug: Removing Interface type 2
-> [   15.733877] b43-phy0 debug: Wireless interface stopped
-> 
-> The WLAN LED is never illuminated with net-next-2.6.
-> 
-> The BT LED is switched off something around this time in the log:
+I'm mortified!  But it's rather odd, that's just a straight reversion
+of an earlier, clearly buggy commit: I guess you have some other issue,
+which reverting to a wait here now uncovers.
 
+One likely workaround: I suspect your .config says something like
+CONFIG_UEVENT_HELPER_PATH=/sbin/hotplug, but you've no /sbin/hotplug?
+Please try changing that to CONFIG_UEVENT_HELPER_PATH="", and see if
+the problem comes up with that resulting kernel.
 
-[    4.079342] usb 7-1.2: configuration #1 chosen from 1 choice
-[    6.663535] dcdbas dcdbas: Dell Systems Management Base Driver (version
-5.6.0-3.2)
-[    7.097116] usb 3-2: USB disconnect, address 2
-[    7.623369] Bluetooth: Core ver 2.15
-[    7.639047] NET: Registered protocol family 31
+But though that should be a good workaround, it doesn't shed light
+on your underlying problem.  Sorry, I've no hope of helping with
+ip/tun/tap questions - Cc'ed netdev.
 
-> 
-> [    7.639047] NET: Registered protocol family 31
-> [    7.651562] Bluetooth: HCI device and connection manager initialized
-> [    7.664155] Bluetooth: HCI socket layer initialized
-> [    7.756113] b43-pci-bridge 0000:0c:00.0: PCI INT A -> GSI 17 (level, low)
-> -> IRQ 17
-> [    7.769117] b43-pci-bridge 0000:0c:00.0: setting latency timer to 64
-> [    7.828160] yenta_cardbus 0000:03:01.0: CardBus bridge found [1028:01fe]
-> [    7.841107] yenta_cardbus 0000:03:01.0: O2: res at 0x94/0xD4: 00/ea
-> [    7.853830] yenta_cardbus 0000:03:01.0: O2: enabling read prefetch/write burst
-> [    7.867428] i801_smbus 0000:00:1f.3: PCI INT B -> GSI 17 (level, low) -> IRQ 17
-> [    7.881369] ssb: Sonics Silicon Backplane found on PCI device 0000:0c:00.0
-> [    7.897694] Bluetooth: Generic Bluetooth USB driver ver 0.5
-> [    7.910910] usbcore: registered new interface driver btusb
-> 
-> 
-> When i see the BT LED switching to off, i can manually switch the RFKILL
-> switch to OFF and ON, and then both LEDs get illuminated and WLAN is
-> successfully initialized by the boot process.
-> 
-> As we discussed about RFKILL and modules, i set CONFIG_RFKILL=y in my
-> net-netx-2.6 tree with no change of the behaviour.
-> 
-> Any idea what changed in net-next-2.6 that could produce this behaviour?
-> 
-> Regards,
-> Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hugh
