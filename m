@@ -1,83 +1,69 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Sun, 14 Jun 2009 22:54:07 -0700
-Message-ID: <65634d660906142254q4afb8f1ta63176817968c43d@mail.gmail.com>
-References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
-	 <20090610.012342.121254416.davem@davemloft.net>
+From: "Chei-Yol Kim" <gauri-mINagvnPBMnWF1p7bDn8Kw@public.gmane.org>
+Subject: RE: Re: [HELP] for using class group classifier network controller
+Date: Mon, 15 Jun 2009 15:15:44 +0900
+Message-ID: <9f9701c9ed80$b7357320$8310fe81@etri.info>
+Reply-To: Chei-Yol Kim <gauri-mINagvnPBMnWF1p7bDn8Kw@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:36551 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755288AbZFOFyK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 01:54:10 -0400
-Received: from zps36.corp.google.com (zps36.corp.google.com [172.25.146.36])
-	by smtp-out.google.com with ESMTP id n5F5sBr0020242
-	for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 06:54:12 +0100
-Received: from qw-out-1920.google.com (qwj9.prod.google.com [10.241.195.73])
-	by zps36.corp.google.com with ESMTP id n5F5s7gh022979
-	for <netdev@vger.kernel.org>; Sun, 14 Jun 2009 22:54:07 -0700
-Received: by qw-out-1920.google.com with SMTP id 9so1982417qwj.54
-        for <netdev@vger.kernel.org>; Sun, 14 Jun 2009 22:54:07 -0700 (PDT)
-In-Reply-To: <20090610.012342.121254416.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        tgraf-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: "Minoru Usui" <usui-vEbCzmPPqHe45+QrQBaojngSJqDPrsil@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 10, 2009 at 1:23 AM, David Miller<davem@davemloft.net> wrot=
-e:
-> From: Tom Herbert <therbert@google.com>
-> Date: Sun, 3 May 2009 21:03:01 -0700
->
->> This is an update of the receive packet steering patch (RPS) based o=
-n received
->> comments (thanks for all the comments). =A0Improvements are:
->>
->> 1) Removed config option for the feature.
->> 2) Made scheduling of backlog NAPI devices between CPUs lockless and=
- much
->> simpler.
->> 3) Added new softirq to do defer sending IPIs for coalescing.
->> 4) Imported hash from simple_rx_hash. =A0Eliminates modulo operation=
- to convert
->> hash to index.
->> 5) If no cpu is found for packet steering, then netif_receive_skb pr=
-ocesses
->> packet inline as before without queueing. =A0In paritcular if RPS is=
- not
->> configured on a device the receive path is unchanged from current fo=
-r
->> NAPI devices (one additional conditional).
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->
-> Just to keep this topic alive, I want to mention two things:
->
-> 1) Just the other day support for the IXGBE "Flow Director" was
-> =A0 added to net-next-2.6, it basically does flow steering in
-> =A0 hardware. =A0It remembers where the last TX for a flow was
-> =A0 made, and steers RX traffic there.
->
-> =A0 It's essentially a HW implementation of what we're proposing
-> =A0 here to do in software.
->
 
-That's very cool.  Does it preserve in order delivery?
 
-> 2) I'm steadily still trying to get struct sk_buff to the point
-> =A0 where we can replace the list handling implementation with a
-> =A0 standard "struct list_head" and thus union that with a
-> =A0 "struct call_single_data" so we can use remote cpu soft-irqs
-> =A0 for software packet flow steering.
->
+>Hi, Cheiyol 
+> 
+>> # classid 1:10 
+>> 
+>> echo 0x1000A > /dev/cpuctl/foo/net_cls.classid 
+>> 
+>> #classid 1:20 
+>> 
+>> echo 0x10014 > /dev/cpuctl/bob/net_cls.classid 
+> 
+>(snip) 
+> 
+>> # add class 1:10 for foo group 
+>> 
+>> $TC class add dev eth0 parent 1:0 classid 1:10 htb rate 50mbit 
+>> 
+>> # add class 1:20 for bob group 
+>> 
+>> $TC class add dev eth0 parent 1:0 classid 1:20 htb rate 30mbit 
+>> 
+>> # default class 
+>> 
+>> $TC class add dev eth0 parent 1:0 classid 1:30 htb rate 10mbit 
 
-I took another look at that an I have to wonder if it might be overly
-complicated somehow.  Seems like this use of the call_single_data
-structures would be essentially creating another type of skbuff list
-than sk_buff_head (but without qlen which I think still may be
-important).  I'm not sure that there's any less locking in that method
-either.  What is the advantage over using a shared skbuff queue and
-making doing a single IPI to schedule the backlog device on the remote
-CPU?
+>In class ID to use TC, both a major number and a minor number are hexadecimal. 
+>So 1:10 equals 0x00010010. 
+> 
+>I think, you should set 0x10010 to net_cls.classid if you classify to 1:10. 
+
+
+I have done this by your advice. But it didn't work.
+I followed the instructions by http://thread.gmane.org/gmane.linux.network/108551/focus=108661
+So I supposed classid 1:10 is the decimal number, so I set the 0xA0001 as 1:10.
+ 
+I'm curious if this patch net_cls operates well in other's hands.
+How about you?
+Does your system using net_cls operate well?
+If then, would you let me know the environment and configuration of your system.
+I would reference your environment for solving my problem.
+ 
+Thanks again for helping
+ 
+- Cheiyol 
