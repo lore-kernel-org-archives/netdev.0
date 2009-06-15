@@ -1,56 +1,62 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: tigon3 firmware problem with 2.6.30-rc8
-Date: Mon, 15 Jun 2009 11:40:55 +0200
-Message-ID: <BAY103-DAV1287B2D7B391A4AB5F556B23E0@phx.gbl>
-References: <BAY103-DAV11DE7A52D38E0062B2275DB2440@phx.gbl> <4A2E83C9.6020600@gmail.com> <BAY103-DAV841A131306FD596747306B2440@phx.gbl>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH][BUILD FAILURE 03/04] Next June 04:PPC64 randconfig
+	[drivers/net/lance.o]
+Date: Mon, 15 Jun 2009 19:43:01 +1000
+Message-ID: <1245058981.12400.3.camel@pasglop>
+References: <20090611035046.22125.26641.sendpatchset@subratamodak.linux.ibm.com>
+	<1245048698.5239.9.camel@subratamodak.linux.ibm.com>
+	<1245049899.19217.56.camel@pasglop>
+	<1245050509.5239.11.camel@subratamodak.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s41.bay0.hotmail.com ([65.54.246.241]:29930 "EHLO
-	bay0-omc3-s41.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751394AbZFOJmS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2009 05:42:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Linux-Next <linux-next@vger.kernel.org>, Paul Mackerras <paulus@samba.org>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>
+To: subrata@linux.vnet.ibm.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1245050509.5239.11.camel@subratamodak.linux.ibm.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Marco Berizzi wrote:
+On Mon, 2009-06-15 at 12:51 +0530, Subrata Modak wrote:
+> On Mon, 2009-06-15 at 17:11 +1000, Benjamin Herrenschmidt wrote:
+> > On Mon, 2009-06-15 at 12:21 +0530, Subrata Modak wrote:
+> > 
+> > > Benjamin,
+> > > 
+> > > I am not sure whether you liked the following patch to solve the above
+> > > problem. Do, you want me address some other issue(s)/fixes for this ?
+> > 
+> > I suppose ... in fact some old PReP machines can even have ISA slots
+> > iirc, but it's not going to do good with machines that have an iommu...
+> > 
+> > IE. Nobody should use that crap, period.
+> 
+> Great,
+> 
+> Can you please make some changes at drivers/net/Kconfig so that this guy
+> does not build for the PPC64 systems ?
 
-Eric Dumazet wrote:
+When I said "that crap" I was talking about those interfaces which I
+-hope- are deprecated :-)
 
-> Marco Berizzi a =E9crit :
-> > Hi folks,
-> >=20
-> > I have a problem with a 3 years old notebook NIC,
-> > tg3 with linux 2.6.29.4 and 2.6.30-rc8.
-> > When I modprobe tg3 all is fine. When I issue
-> > 'ifconfig eth0 1.1.1.1' I get this message:
-> >=20
-> > tg3 0000:02:0e.0: firmware: requesting tigon/tg3_tso5.bin
-> > eth0: Failed to load firmware "tigon/tg3_tso5.bin"
-> > eth0: TSO capability disabled.
-> > tg3 0000:02:0e.0: PME# disabled
-> > tg3: eth0: Link is up at 100 Mbps, full duplex.
-> > tg3: eth0: Flow control is off for TX and off for RX
-> >=20
-> > This is the output from ls -l /lib/firmware/tigon:
-> >=20
-> > root@Ghawar:~# ls -l /lib/firmware/tigon
-> > total 16
-> > -rw-r--r-- 1 root root 2668 2009-06-09 17:18 tg3.bin
-> > -rw-r--r-- 1 root root 7004 2009-06-09 17:18 tg3_tso.bin
-> > -rw-r--r-- 1 root root 3884 2009-06-09 17:18 tg3_tso5.bin
-> > root@Ghawar:~#
-> >=20
-> > However the nic is working.
-> >=20
-> > Any feed-back are welcome,
-> > TIA
-> >=20
->=20
-> You could try to set CONFIG_FIRMWARE_IN_KERNEL=3Dy in your .config
+I suspect we never really sorted out the issue of DMA mapping for old
+legacy ISA stuff... pci_map_* should work to some extent, though you
+have to pass it the ISA bridge pci_dev.
 
-same problem also with 2.6.30
-Is this the expected behaviour?
+Maybe it's time for somebody to start exposing a -proper- abstraction
+accross all platforms for that :-)
+
+Ben.
