@@ -1,43 +1,32 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: Any implementation of NETPOLL for bonding?
-Date: Mon, 15 Jun 2009 19:09:07 -0400
-Message-ID: <20090615230907.GA8515@gospo.rdu.redhat.com>
-References: <1245101162.11148.210.camel@psmith-ubeta.netezza.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] Receive Packet Steering
+Date: Mon, 15 Jun 2009 16:18:58 -0700 (PDT)
+Message-ID: <20090615.161858.00964937.davem@davemloft.net>
+References: <65634d660906142252y6f7fc021l844b172995c10044@mail.gmail.com>
+	<20090615.020240.84385988.davem@davemloft.net>
+	<65634d660906150939w7a940eegbe74aea7bfbb7f71@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-To: Paul Smith <paul@mad-scientist.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:48549 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751274AbZFOXKL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2009 19:10:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1245101162.11148.210.camel@psmith-ubeta.netezza.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52431
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751455AbZFOXSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 19:18:55 -0400
+In-Reply-To: <65634d660906150939w7a940eegbe74aea7bfbb7f71@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 15, 2009 at 05:26:02PM -0400, Paul Smith wrote:
-> I wanted to attach to my kernel with KGDBOE but failed because the
-> bonding driver doesn't support NETPOLL, and the only network access to
-> the system is over a bonded interface.
-> 
-> This is a big bummer for me :-).
-> 
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 15 Jun 2009 09:39:20 -0700
 
-I did some work in the not-too-distant past on this and can probably
-dig-up the patches and port them to the latest upstream.  Would you be
-able to test a patch?
+> There's no lock to put the call_single_data structures onto remote
+> CPU's list?  Looking at generic_exec_single...
 
-> Is there any possibility of NETPOLL being supported in the bonding
-> driver?  I found a very old patch set from Jeff Moyer (circa 2005)
-> adding NETPOLL support to the bonding driver but as far as I can
-> determine it's not present in current kernels.
-> 
+True, but hopefully that's cheaper than locking the remove
+queue.
 
-It's a bit unclear to me why Jeff's patches were never accepted, but I
-suspect if there were many that didn't like them before, they won't be
-well received now, but it sure would be nice to use kgdb and use
-netconsole on bonding interfaces, wouldn't it? :-)
-
-
+And also the latency should be much lower for actually
+processing the packet.
