@@ -1,152 +1,152 @@
-From: Raphael Hertzog <raphael@ouaza.com>
-Subject: Constantly varying download rate with a complex xen networking
-	setup, why?
-Date: Mon, 15 Jun 2009 09:53:13 +0200
-Message-ID: <20090615075313.GA22819@rivendell>
+From: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Subject: Re: [HELP] for using class group classifier network controller
+Date: Mon, 15 Jun 2009 17:18:14 +0900
+Message-ID: <20090615171814.db942957.usui@mxm.nes.nec.co.jp>
+References: <9f8101c9ed80$b730b830$8310fe81@etri.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <tgraf@infradead.org>, <netdev@vger.kernel.org>,
+	<containers@lists.linux-foundation.org>
+To: "Chei-Yol Kim" <gauri@etri.re.kr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakeen.ouaza.com ([212.85.152.62]:51027 "EHLO
-	arrakeen.ouaza.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbZFOIBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 04:01:38 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by arrakeen.ouaza.com (Postfix) with ESMTP id BAE2033330
-	for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 09:53:17 +0200 (CEST)
-Received: from arrakeen.ouaza.com ([127.0.0.1])
-	by localhost (arrakeen.ouaza.com [127.0.0.1]) (amavisd-new, port 10024)
-	with LMTP id lJwoYRxznwHN for <netdev@vger.kernel.org>;
-	Mon, 15 Jun 2009 09:53:17 +0200 (CEST)
-Received: from soleymieux.ouaza.com (soleymieux.ouaza.com [78.225.60.32])
-	by arrakeen.ouaza.com (Postfix) with ESMTPA id 7667E33324
-	for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 09:53:17 +0200 (CEST)
-Content-Disposition: inline
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:40761 "EHLO
+	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbZFOIWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 04:22:55 -0400
+In-Reply-To: <9f8101c9ed80$b730b830$8310fe81@etri.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ Please put me in CC of your answers ]
+On Mon, 15 Jun 2009 15:15:44 +0900
+"Chei-Yol Kim" <gauri@etri.re.kr> wrote:
 
-Hello,
+> 
+> 
+> >Hi, Cheiyol 
+> > 
+> >> # classid 1:10 
+> >> 
+> >> echo 0x1000A > /dev/cpuctl/foo/net_cls.classid 
+> >> 
+> >> #classid 1:20 
+> >> 
+> >> echo 0x10014 > /dev/cpuctl/bob/net_cls.classid 
+> > 
+> >(snip) 
+> > 
+> >> # add class 1:10 for foo group 
+> >> 
+> >> $TC class add dev eth0 parent 1:0 classid 1:10 htb rate 50mbit 
+> >> 
+> >> # add class 1:20 for bob group 
+> >> 
+> >> $TC class add dev eth0 parent 1:0 classid 1:20 htb rate 30mbit 
+> >> 
+> >> # default class 
+> >> 
+> >> $TC class add dev eth0 parent 1:0 classid 1:30 htb rate 10mbit 
+> 
+> >In class ID to use TC, both a major number and a minor number are hexadecimal. 
+> >So 1:10 equals 0x00010010. 
+> > 
+> >I think, you should set 0x10010 to net_cls.classid if you classify to 1:10. 
+> 
+> 
+> I have done this by your advice. But it didn't work.
+> I followed the instructions by http://thread.gmane.org/gmane.linux.network/108551/focus=108661
+> So I supposed classid 1:10 is the decimal number, so I set the 0xA0001 as 1:10.
+>  
+> I'm curious if this patch net_cls operates well in other's hands.
+> How about you?
+> Does your system using net_cls operate well?
+> If then, would you let me know the environment and configuration of your system.
+> I would reference your environment for solving my problem.
 
-I have a weird problem and I'm not sure if it comes from linux or from
-Xen. Thus I'd like your opinion and maybe your help so that I can
-do a proper bugreport where it belongs. I can do supplementary tests on
-request of course.
+Which is your problem?
 
-I probably should try to reproduce it with kvm and a newer kernel but t=
-he
-hardware where this got tested doesn't have the CPU instructions for
-virtualization. If you don't have any idea of what can be wrong in this
-setup, I will try to arrange that test but otherwise I would like your
-feedback before I do more tests.
+  a) network packet can't be classified into the class which is set to net_cls.classid
 
-(Note the full description below has also been submitted to
-http://serverfault.com/questions/22219/)
+  b) network packet can be classified into the class which is set to net_cls.classid, 
+     but its bandwidth limit doesn't work correctly.
 
-The network configuration in my Xen setup:
-- the dom0 has 3 network cards (eth0, eth1, eth2), 3 brigdes (xenbrE,
-  xenbrI, xenbrD) and each brigde integrates the corresponding network
-  card. Only xenbrD has an IP address configured (192.168.78.2, a priva=
-te
-  LAN) so that it can discuss with all domU.
-- there's a domU that is a firewall/router and it also contains 3 virtu=
-al
-  cards (eth0, eth1, eth2). It does masquerading for traffic going out =
-on
-  eth0 (the external interface which is part of xenbrE).
-  # grep vif /etc/xen/xm.slis=20
-  vif =3D [ 'mac=3D00:16:3e:14:85:11, bridge=3DxenbrE', 'mac=3D00:16:3e=
-:14:85:12, bridge=3DxenbrI', 'mac=3D00:16:3e:14:85:13, bridge=3DxenbrD'=
- ]
+If your problem is b), unfortunately I can't help you. 
+Because I am a begginer of cls_cgroup, and I haven't tested enough.
+(But I think I might be facing same problem.)
 
-My problem is that when I download a big file from the internet by HTTP=
- in
-the dom0, the download rate is not stable. It goes up progressively and=
- then
-stalls for a few seconds, and restart again going up progressively (and
-all this in loop until the download is complete). During the stalls, it=
- looks
-like all networking is blocked on the machine (noticed on interactive S=
-SH
-sessions).
+If your problem is a), you should check 'tc -s filter show'.
+You can see the result of classifing by cls_cgroup.
+I can classified to the class which is set to root's net_cls.classid.
 
-    dom0                             =E2=94=82domU
-         wget                        =E2=94=82
-           =E2=86=95                         =E2=94=82
-    eth2=E2=86=94xenbrD(192.168.78.2)=E2=86=94vif2.2=E2=86=90=E2=94=BC=E2=
-=86=92eth2(192.168.78.1/24)
-                                     =E2=94=82   =E2=86=95 masquerading
-    eth0=E2=86=94xenbrE=E2=86=94vif2.0=E2=86=90=E2=80=94=E2=80=94=E2=80=
-=94=E2=80=94=E2=80=94=E2=80=94=E2=80=94=E2=80=94=E2=80=94=E2=80=94=E2=80=
-=94=E2=80=94=E2=80=94=E2=80=94=E2=94=BC=E2=86=92eth0(192.168.1.20/24)
-     =E2=86=95
-    internet
+Environment: 
+  kernel: 2.6.30
+  tc: iproute2-2.6.29-1 with tc/f_cgroup.c patch in latest git.
+      (I think it's same, probably)
 
-If I do the same download but uses a (non-caching) HTTP proxy that runs=
- in
-the firewall domU, the download rate is stable at its maximum value.
+How to use:
+  1) set to qdisc, class, filter
 
-How can I avoid this problem?
+     # tc qdisc add dev bond0 root handle 1: htb default 30
 
-I suspect it's a bug in the networking stack but I would like assistanc=
-e
-to diagnose it more precisely (and maybe find a work-around).
+     # tc class add dev bond0 parent 1:0 classid 1:10 htb rate 1mbit
+     # tc class add dev bond0 parent 1:0 classid 1:20 htb rate 2mbit
+     # tc class add dev bond0 parent 1:0 classid 1:30 htb rate 3mbit
 
-This is a Debian Etch system with Xen 3.2 and the 2.6.26-xen-686 kernel=
- of
-Debian Lenny (backports). The bridges are created with
-/etc/network/interfaces:
+     # tc filter add dev bond0 protocol ip parent 1: prio 1 handle 0x1 cgroup
 
-    auto lo
-    iface lo inet loopback
+     # tc -s class show dev bond0
+     class htb 1:10 root prio 0 rate 1000Kbit ceil 1000Kbit burst 1724b cburst 1724b 
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)                         <- packet count is 0
+      rate 0bit 0pps backlog 0b 0p requeues 0 
+      lended: 0 borrowed: 0 giants: 0
+      tokens: 13476 ctokens: 13476
 
-    auto xenbrE
-    iface xenbrE inet manual
-            bridge_ports eth0
-            bridge_maxwait 0
+     class htb 1:20 root prio 0 rate 2000Kbit ceil 2000Kbit burst 1849b cburst 1849b 
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+      rate 0bit 0pps backlog 0b 0p requeues 0 
+      lended: 0 borrowed: 0 giants: 0
+      tokens: 7226 ctokens: 7226
 
-    auto xenbrI
-    iface xenbrI inet manual
-            bridge_ports eth1
-            bridge_maxwait 0
+     class htb 1:30 root prio 0 rate 3000Kbit ceil 3000Kbit burst 1974b cburst 1974b 
+      Sent 25804 bytes 214 pkt (dropped 0, overlimits 0 requeues 0) 
+      rate 3992bit 4pps backlog 0b 0p requeues 0 
+      lended: 214 borrowed: 0 giants: 0
+      tokens: 4851 ctokens: 4851
 
-    auto xenbrD
-    iface xenbrD inet static
-            address 192.168.78.2
-            netmask 255.255.255.0
-            gateway 192.168.78.1
-            bridge_ports eth2
-            bridge_maxwait 0
+  2) mount cls_cgroup and set root's net_cls.classid
 
-The xend configuration is not complicated:
+     # mount -t cgroup -onet_cls none /cgroup/net/
+     # cd /cgroup/net/
+     # ls
+     net_cls.classid  notify_on_release  release_agent  tasks
 
-    # grep '^(' /etc/xen/xend-config.sxp=20
-    (network-script network-dummy)
-    (vif-script vif-bridge)
-    (dom0-min-mem 150)
-    (dom0-cpus 0)
-    (vncpasswd '')
+     # echo 0x10010 > net_cls.classid                 # I want to classify 1:10
+     # cat net_cls.classid 
+     65552                                            # 65552 = 65536 + 16 = 0x10010
 
-And the only routing in dom0 redirects to the domU via xenbrD:
+  3) using network
 
-    # route -n
-    Kernel IP routing table
-    Destination     Gateway         Genmask         Flags Metric Ref   =
- Use Iface
-    192.168.78.0    0.0.0.0         255.255.255.0   U     0      0     =
-   0 xenbrD
-    0.0.0.0         192.168.78.1    0.0.0.0         UG    0      0     =
-   0 xenbrD
+  4) check the packet which is classified to the class which is set to net_cls.classid.
 
-In the domU, the only iptables configuration done is `iptables -t nat -=
-A
-POSTROUTING -s 192.168.78.0/24 -o eth0 -j MASQUERADE`.
+     # /home/usui/src/iproute2-2.6.29-1/tc/tc -s class show dev bond0
+     class htb 1:10 root prio 0 rate 1000Kbit ceil 1000Kbit burst 1724b cburst 1724b 
+      Sent 11238 bytes 95 pkt (dropped 0, overlimits 0 requeues 0)                    <- increase packet count
+      rate 2944bit 3pps backlog 0b 0p requeues 0 
+      lended: 95 borrowed: 0 giants: 0
+      tokens: 12601 ctokens: 12601
 
-Thank you for your help.
---=20
-Rapha=C3=ABl Hertzog -+- http://www.ouaza.com
+     class htb 1:20 root prio 0 rate 2000Kbit ceil 2000Kbit burst 1849b cburst 1849b 
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+      rate 0bit 0pps backlog 0b 0p requeues 0 
+      lended: 0 borrowed: 0 giants: 0
+      tokens: 7226 ctokens: 7226
 
-=46reexian : des d=C3=A9veloppeurs Debian au service des entreprises
-http://www.freexian.com
+     class htb 1:30 root prio 0 rate 3000Kbit ceil 3000Kbit burst 1974b cburst 1974b 
+      Sent 46092 bytes 342 pkt (dropped 0, overlimits 0 requeues 0) 
+      rate 320bit 0pps backlog 0b 0p requeues 0 
+      lended: 342 borrowed: 0 giants: 0
+      tokens: 5017 ctokens: 5017
+
+
+-- 
+Minoru Usui <usui@mxm.nes.nec.co.jp>
