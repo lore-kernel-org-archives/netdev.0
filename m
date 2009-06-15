@@ -1,68 +1,43 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
-	window
-Date: Mon, 15 Jun 2009 15:32:06 -0700
-Message-ID: <20090615223206.GA4966@kroah.com>
-References: <1245096771-3966-1-git-send-email-lrodriguez@atheros.com> <20090615201934.GA12685@kroah.com> <20090615214735.GE23972@bombadil.infradead.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: Any implementation of NETPOLL for bonding?
+Date: Mon, 15 Jun 2009 19:09:07 -0400
+Message-ID: <20090615230907.GA8515@gospo.rdu.redhat.com>
+References: <1245101162.11148.210.camel@psmith-ubeta.netezza.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org
-To: "Luis R. Rodriguez" <mcgrof-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: Paul Smith <paul@mad-scientist.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:48549 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751274AbZFOXKL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2009 19:10:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20090615214735.GE23972-PfSpb0PWhxZc2C7mugBRk2EX/6BAtgUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1245101162.11148.210.camel@psmith-ubeta.netezza.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 15, 2009 at 05:47:35PM -0400, Luis R. Rodriguez wrote:
-> From: Luis R. Rodriguez <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-> Subject: [PATCH] Documentation: add documentation summary for rc-series and merge window
+On Mon, Jun 15, 2009 at 05:26:02PM -0400, Paul Smith wrote:
+> I wanted to attach to my kernel with KGDBOE but failed because the
+> bonding driver doesn't support NETPOLL, and the only network access to
+> the system is over a bonded interface.
 > 
-> This is losely based on previous discussions on linux-kernel [1][2].
-> Lets also refer people reading the stable rules to
-> Documentation/development-process/.
+> This is a big bummer for me :-).
 > 
-> [1] http://marc.info/?l=linux-kernel&m=122048427801324&w=2
-> [2] http://marc.info/?l=linux-netdev&m=122048757705315&w=2
+
+I did some work in the not-too-distant past on this and can probably
+dig-up the patches and port them to the latest upstream.  Would you be
+able to test a patch?
+
+> Is there any possibility of NETPOLL being supported in the bonding
+> driver?  I found a very old patch set from Jeff Moyer (circa 2005)
+> adding NETPOLL support to the bonding driver but as far as I can
+> determine it's not present in current kernels.
 > 
-> Signed-off-by: Luis R. Rodriguez <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-> ---
->  Documentation/development-process/2.Process |   66 +++++++++++++++++++++++++++
->  Documentation/stable_kernel_rules.txt       |    5 ++
->  2 files changed, 71 insertions(+), 0 deletions(-)
-> 
-> diff --git a/Documentation/development-process/2.Process b/Documentation/development-process/2.Process
-> index d750321..e023db6 100644
-> --- a/Documentation/development-process/2.Process
-> +++ b/Documentation/development-process/2.Process
 
-You should cc: the author of this document, when modifying it.
+It's a bit unclear to me why Jeff's patches were never accepted, but I
+suspect if there were many that didn't like them before, they won't be
+well received now, but it sure would be nice to use kgdb and use
+netconsole on bonding interfaces, wouldn't it? :-)
 
-> @@ -7,6 +7,72 @@ course of one year, the kernel has since had to evolve a number of
->  processes to keep development happening smoothly.  A solid understanding of
->  how the process works is required in order to be an effective part of it.
->  
-> +2.0 SUMMARY
-> +
-> +This section provides a brief summary of the new kernel release rules.
-> +
-> +2.0.0 NEW KERNEL RELEASE RULES
 
-"New"?  We've been doing this for many many years now, what is "new"
-about it?
-
-And why are you starting a series with "0"?  Just to keep from having to
-modify all of the other numbers?  None of the other files in this
-directory start at 0...
-
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
