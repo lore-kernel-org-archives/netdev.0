@@ -1,163 +1,66 @@
-From: =?ISO-8859-1?Q?G=E1bor_Stefanik?= <netrolller.3d@gmail.com>
-Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
-	window
-Date: Mon, 15 Jun 2009 22:40:08 +0200
-Message-ID: <69e28c910906151340s44cafc35rdca24530fbae755@mail.gmail.com>
-References: <1245096771-3966-1-git-send-email-lrodriguez@atheros.com>
-	<1245097883.10970.5.camel@mj>
+From: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Expected behavior of shutdown() in multi-threaded socket
+	programming
+Date: Mon, 15 Jun 2009 14:20:43 -0700
+Message-ID: <35c90d960906151420l1805b5f6j78d4a8172874104e@mail.gmail.com>
+References: <35c90d960905191429x1c3b6104qca2a672d50f0364c@mail.gmail.com>
+	<35c90d960906111724w4794b40aw1c51d64586ecaeb6@mail.gmail.com>
+	<1244796365.448636.603.nullmailer@galant.ukfsn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	greg@kroah.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, tshibata@ab.jp.nec.com
-To: Pavel Roskin <proski@gnu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:50885 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbZFOUql convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 16:46:41 -0400
-In-Reply-To: <1245097883.10970.5.camel@mj>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+To: Iain Hibbert <plunky-+vE1BRBCC0GuOtvtkYNheg@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1244796365.448636.603.nullmailer-miDnOI7kXJ/y0YX2dClxIw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 15, 2009 at 10:31 PM, Pavel Roskin<proski@gnu.org> wrote:
-> On Mon, 2009-06-15 at 16:12 -0400, Luis R. Rodriguez wrote:
+On Fri, Jun 12, 2009 at 1:46 AM, Iain Hibbert<plunky-+vE1BRBCC0GuOtvtkYNheg@public.gmane.org> wr=
+ote:
+> On Thu, 11 Jun 2009, Nick Pelly wrote:
+>
+>> Any comments on this one? I would like to correct the behavior of
+>> shutdown() on AF_BLUETOOTH sockets, but I have been advised by Marce=
+l
+>> Holtmann that we need to agree on the correct behavior first.
 >>
->> +Stable kernel releases
->> +----------------------
->> +
->> +Stable kernels are released when they are ready. This means there i=
-s no
->> +strict guidelines for sticking to specific dates for a kernel relea=
-se.
+>> How should shutdown() behave when other threads are blocked on the s=
+ame socket?
 >
-> there are no strict guidelines
+> IMHO consistency should apply.
 >
->> +After a maintainer has sent his pull request to Linus during the me=
-rge
->> +window no further new development will be accepted for that tree an=
-d
->> +as such it marks the closure of development for that subsystem for =
-that
->> +kernel cycle. Developers wishing to target deadlines should simply =
-work
->> +on their development without regards or consideration for inclusion=
- to
->> +a specific kernel release. Once development is done it should simpl=
-y be
->> +posted. If you insist on targetting a kernel release for deadlines =
-you can
+> The opengroup specification for shutdown() says
 >
-> targeting
+> =A0"The shutdown() function shall cause all or part of a full-duplex
+> =A0connection on the socket associated with the file descriptor socke=
+t to
+> =A0be shut down."
 >
->> +try to be aware of the current rc cycle development and how soon it=
- seems
->> +the next stable kernel relase will be made. When Linus notes the la=
-st rc
+> and while that does not really cover the case when the socket is bloc=
+ked
+> in accept(), if all the other socket types abort the block then that =
+is
+> what the PF_BLUETOOTH sockets should do too.
 >
-> release
+> The opengroup specification for accept() suggests EINVAL would be ret=
+urned
+> if the socket was not accepting connections and arguably that is the =
+case
+> after a shutdown(), though ECONNABORTED could be used too (your progr=
+am
+> displays ECONNABORTED on NetBSD for instance)
 >
->> +cycle released may be the last -- that is a good sign you should al=
-ready
->> +have all your development done and merged in the respective develop=
-ment
->> +tree. If your code is not ready and merged into the respective main=
-tainers
->> +tree prior to the announced last potential rc kernel release chance=
-s are
->> +you missed getting your code in for the next kernel merge window.
->> +Excemptions here are new drivers, covered below.
+>> I also have similar results for other blocking syscalls such as
+>> connect(), read(), write(), poll() etc, but the test program is not =
+as
+>> simple.
 >
-> Exemptions
->
->> +rc-series rules
->> +---------------
->> +
->> +Rules on what kind of patches are accepted after the merge window c=
-loses.
->> +These are patches targetted for the kernel rc-series of a kernel pr=
-ior
->
-> targeted
->
->> +to its release.
->> +
->> + - it must fix a reported regression
->> + - if must fix a reported security hole
->> + - if must fix a reported oops/kernel hang
->> +
->> +This means any small-non-fix code changes, although they mix fix an=
- issue,
->
-> might fix
->
->> +will not be accepted. If the patch in question is for a driver that=
- has been
->> +around for more than a kernel release, then "small fixes" really ca=
-n't be
->> +worth all that much. And "small fixes" may be small and "obvious" t=
-hey
->> +definitely can regress.
->> +
->> +rc-series new driver excemption rule
->
-> exemption
->
->> +------------------------------------
->> +
->> +The very first release a new driver (or filesystem) is special. New=
- drivers
->> +are accepted during the rc series. Patches for the same driver then=
- are
->> +also accepted uring the same rc series of a kernel as well as fixes=
- as it
->
-> during
->
->> +cannot regress as no previous kernels exists with it.
->> +
->> +Once drivers are upstream for one kernel release (say on 2.6.29) th=
-e target
->> +*goal* after the merge window of the next kernel (respectively this=
- would be
->> +the 2.6.30 rc-series) is to address address regressions. Kernel oop=
-s/hangs
->
-> s/address address/address/
->
->> +and security issues are obviously accepted but the point is these s=
-hould have
->> +also been caught earlier as a general development goal. The rc-seri=
-es focus
->> +should really be to address regressions.
->> +
->> +Stable kernel rules
->> +-------------------
->> +
->> =A0Rules on what kind of patches are accepted, and which ones are no=
-t, into the
->> =A0"-stable" tree:
->
-> Sorry, I'm in pedantic mood today.
+> They should all handle the shutdown().
 
-At least you didn't end up making a spelling error in any of your
-corrections. :-)
+Sounds good to me.
 
->
-> --
-> Regards,
-> Pavel Roskin
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wirel=
-ess" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Thanks for the input.
 
-
-
---=20
-Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
+Nick
