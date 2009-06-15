@@ -1,70 +1,110 @@
-From: Raphael Hertzog <raphael@ouaza.com>
-Subject: Re: Constantly varying download rate with a complex xen networking
-	setup, why?
-Date: Mon, 15 Jun 2009 18:02:54 +0200
-Message-ID: <20090615160254.GA8550@rivendell>
-References: <20090615075313.GA22819@rivendell> <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH 2/1 v2] Re: [BUG] fib_tries related Oops in 2.6.30
+Date: Mon, 15 Jun 2009 18:08:01 +0200
+Message-ID: <20090615160800.GC2767@ami.dom.local>
+References: <20090615065333.GA4378@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-15?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <robert.olsson@its.uu.se>,
+	Yan Zheng <zheng.yan@oracle.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakeen.ouaza.com ([212.85.152.62]:60523 "EHLO
-	arrakeen.ouaza.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762114AbZFOQC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 12:02:57 -0400
+Received: from mail-fx0-f211.google.com ([209.85.220.211]:36200 "EHLO
+	mail-fx0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111AbZFOQIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 12:08:23 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
+In-Reply-To: <20090615065333.GA4378@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 15 juin 2009, Ilpo J=E4rvinen a =E9crit :
-> On Mon, 15 Jun 2009, Raphael Hertzog wrote:
->=20
-> > My problem is that when I download a big file from the internet by =
-HTTP in
-> > the dom0, the download rate is not stable. It goes up progressively=
- and then
-> > stalls for a few seconds, and restart again going up progressively =
-(and
-> > all this in loop until the download is complete).
->=20
-> My guess: TCP sawtooth pattern and the associated loss recovery...? W=
-hat=20
-> you describe here seems to match exactly to what is expected to happe=
-n=20
-> because of it (I see this happening quite often actually).
+Alas this top tnode needs even more.
 
-Why would this not happen for the same transfer done through a proxy (t=
-hat
-runs on the same machine but different domU)?
+Sorry/thanks,
+Jarek P.
+-------------------> take 2
+ipv4: Fix fib_trie rebalancing, part 2
 
-> What is the size of the bottleneck buffer and base RTTs of the releva=
-nt
-> flows (HTTP, ssh)?
+My previous patch, which explicitly delays freeing of tnodes by adding
+them to the list to flush them after the update is finished, isn't
+strict enough. It treats exceptionally tnodes without parent, assuming
+they are newly created, so "invisible" for the read side yet.
 
-How can I collect those information?
+But the top tnode doesn't have parent as well, so we have to exclude
+all exceptions (at least until a better way is found). Additionally we
+need to move rcu assignment of this node before flushing, so the
+return type of the trie_rebalance() function is changed.
 
-> Please verify "blocking" using tcpdump or so. You may find out e.g. t=
-hat=20
+Reported-by: Yan Zheng <zheng.yan@oracle.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
 
-I'll try to do so and follow-up.
+ net/ipv4/fib_trie.c |   23 ++++++++++-------------
+ 1 files changed, 10 insertions(+), 13 deletions(-)
 
-> network is not stalled but that out-of-order arrivals prevent=20
-> applications from making progress.
->=20
-> If this matches with your problem, deploying AQM at the bottleneck wo=
-uld=20
-> help.
-
-The bottleneck in my test setup is the ADSL connection and I don't cont=
-rol
-the ADSL router.
-
-Cheers,
---=20
-Rapha=EBl Hertzog -+- http://www.ouaza.com
-
-=46reexian : des d=E9veloppeurs Debian au service des entreprises
-http://www.freexian.com
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index d1a39b1..6188043 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -391,13 +391,8 @@ static inline void tnode_free(struct tnode *tn)
+ static void tnode_free_safe(struct tnode *tn)
+ {
+ 	BUG_ON(IS_LEAF(tn));
+-
+-	if (node_parent((struct node *) tn)) {
+-		tn->tnode_free = tnode_free_head;
+-		tnode_free_head = tn;
+-	} else {
+-		tnode_free(tn);
+-	}
++	tn->tnode_free = tnode_free_head;
++	tnode_free_head = tn;
+ }
+ 
+ static void tnode_free_flush(void)
+@@ -1009,7 +1004,7 @@ fib_find_node(struct trie *t, u32 key)
+ 	return NULL;
+ }
+ 
+-static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
++static void trie_rebalance(struct trie *t, struct tnode *tn)
+ {
+ 	int wasfull;
+ 	t_key cindex, key;
+@@ -1033,12 +1028,14 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
+ 	}
+ 
+ 	/* Handle last (top) tnode */
+-	if (IS_TNODE(tn)) {
++	if (IS_TNODE(tn))
+ 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
++
++	rcu_assign_pointer(t->trie, (struct node *)tn);
++	if (IS_TNODE(tn))
+ 		tnode_free_flush();
+-	}
+ 
+-	return (struct node *)tn;
++	return;
+ }
+ 
+ /* only used from updater-side */
+@@ -1186,7 +1183,7 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
+ 
+ 	/* Rebalance the trie */
+ 
+-	rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
++	trie_rebalance(t, tp);
+ done:
+ 	return fa_head;
+ }
+@@ -1605,7 +1602,7 @@ static void trie_leaf_remove(struct trie *t, struct leaf *l)
+ 	if (tp) {
+ 		t_key cindex = tkey_extract_bits(l->key, tp->pos, tp->bits);
+ 		put_child(t, (struct tnode *)tp, cindex, NULL);
+-		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
++		trie_rebalance(t, tp);
+ 	} else
+ 		rcu_assign_pointer(t->trie, NULL);
+ 
