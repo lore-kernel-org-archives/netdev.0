@@ -1,70 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: iproute2 action/policer question
-Date: Mon, 15 Jun 2009 09:32:08 -0400
-Message-ID: <1245072728.3948.14.camel@dogo.mojatatu.com>
-References: <20090615111927.GA12316@ff.dom.local>
-Reply-To: hadi@cyberus.ca
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Constantly varying download rate with a complex xen networking
+ setup, why?
+Date: Mon, 15 Jun 2009 17:18:27 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
+References: <20090615075313.GA22819@rivendell>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Raphael Hertzog <raphael@ouaza.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f173.google.com ([209.85.221.173]:46788 "EHLO
-	mail-qy0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751814AbZFONd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 09:33:26 -0400
-Received: by qyk3 with SMTP id 3so268549qyk.33
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 06:33:27 -0700 (PDT)
-In-Reply-To: <20090615111927.GA12316@ff.dom.local>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41948 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbZFOOS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 10:18:26 -0400
+In-Reply-To: <20090615075313.GA22819@rivendell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-06-15 at 11:19 +0000, Jarek Poplawski wrote:
+On Mon, 15 Jun 2009, Raphael Hertzog wrote:
 
-> > This is only a sample but is not working
+> My problem is that when I download a big file from the internet by HTTP in
+> the dom0, the download rate is not stable. It goes up progressively and then
+> stalls for a few seconds, and restart again going up progressively (and
+> all this in loop until the download is complete).
 
-It does seem to be working!
-How did you reach conclusion it wasnt working?
+My guess: TCP sawtooth pattern and the associated loss recovery...? What 
+you describe here seems to match exactly to what is expected to happen 
+because of it (I see this happening quite often actually). What is the 
+size of the bottleneck buffer and base RTTs of the relevant flows (HTTP, 
+ssh)?
 
-> >         Action statistics:
-> >         Sent 42351 bytes 110 pkt (dropped 0, overlimits 32 requeues 0)
-> >         rate 0bit 0pps backlog 0b 0p requeues 0
+> During the stalls, it looks like all networking is blocked on the 
+> machine (noticed on interactive SSH sessions).
 
-32 packets hit the policer - double check your parameters please to make
-sure they are correct.
+They too might be recovering from losses if the bottleneck is shared? 
+Please verify "blocking" using tcpdump or so. You may find out e.g. that 
+network is not stalled but that out-of-order arrivals prevent 
+applications from making progress.
 
-> According to iproute2/doc/actions/actions_general mangle targets
-> should work; and you could also try (if it doesn't work then probably
-> it can't be used...;-)
+If this matches with your problem, deploying AQM at the bottleneck would 
+help.
 
-They should all be usable. If something crashes, there is a bug
-somewhere.
 
-> But... I'm neither able to configure/compile it with the current
-> iproute2/iptables, nor test it with distro's builds (Debian testing).
-> After some checking I found iproute2 needs updating, because iptables
-> changes API (xtables.h) virtually with every new version, so I don't
-> even blame the ipt author or distro maintainer.
-> 
-
-We are hopefully getting stable there. Anything on debian lenny
-should be working with iptables 1.4.3; i expect at most "one last
-change" (famous last words) to break backward compat as iptables 
-moves from version 1.4.3.
-
-> I guess, after studying these iproute2 docs examples you should be
-> able to do such tricks eg. with mirred and other actions even without
-> ipt. Or you could ask authors for more docs...
-
-I have sparse time this week - but i can help with Debian Lenny which
-is what my laptop runs with some variable response latency.
-
-> PS: the tc classifier maintainer added to Cc.
-
-Thanks as always Jarek.
-
-cheers,
-jamal
-
+-- 
+ i.
