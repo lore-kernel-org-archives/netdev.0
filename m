@@ -1,66 +1,62 @@
-From: Stefan Schmidt <stefan@datenfreihafen.org>
-Subject: Re: kerneloops.org report for the week of June 14 2009
-Date: Mon, 15 Jun 2009 09:06:51 +0200
-Message-ID: <20090615070651.GB1221@excalibur.local>
-References: <20090614173331.18f01123@infradead.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH][BUILD FAILURE 03/04] Next June 04:PPC64 randconfig
+ [drivers/net/lance.o]
+Date: Mon, 15 Jun 2009 17:11:39 +1000
+Message-ID: <1245049899.19217.56.camel@pasglop>
+References: <20090611035046.22125.26641.sendpatchset@subratamodak.linux.ibm.com>
+	 <1245048698.5239.9.camel@subratamodak.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, tglx@tglx.de, alan@lxorguk.ukuu.org.uk,
-	rjw@sisk.pl, netdev@vger.kernel.org, mingo@elte.hu,
-	dwmw2@infradead.org, alsa-devel@alsa-project.org,
-	dri-devel@lists.sourceforge.net
-To: Arjan van de Ven <arjan@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756278AbZFOHHj@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090614173331.18f01123@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>
+To: subrata@linux.vnet.ibm.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1245048698.5239.9.camel@subratamodak.linux.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, 2009-06-15 at 12:21 +0530, Subrata Modak wrote:
 
-On Sun, 2009-06-14 at 17:33, Arjan van de Ven wrote:
+> Benjamin,
 > 
-> Rank 1: i915_gem_set_tiling (warning)
-> 	Reported 830 times (3700 total reports)
-> 	[gem] Failure in the tiling code
-> 	This warning was last seen in version 2.6.30, and first seen in 2.6.29-rc2.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_set_tiling
+> I am not sure whether you liked the following patch to solve the above
+> problem. Do, you want me address some other issue(s)/fixes for this ?
 
-There seem to be more then one issue. I'm running into one of them here on a
-Lenovo Thinkpad X200s. It's 2.6.30 and I enabled KMS the first time here. So I
-can't tell if it is a regression.
+I suppose ... in fact some old PReP machines can even have ISA slots
+iirc, but it's not going to do good with machines that have an iommu...
 
-http://www.kerneloops.org/oops.php?number=207353
+IE. Nobody should use that crap, period.
 
-The result is that the EDID data could not be read and the wrong screen size
-set:
-[   45.524589] i2c-adapter i2c-3: unable to read EDID block.
-[   45.588200] i915 0000:00:02.0: DVI-D-2: no EDID data
-[   45.777251] [drm] TMDS-14: set mode 1360x768 13
-[   45.777261] [drm] TMDS-16: set mode 1360x768 13 <= Should be 1280x900 here
+Cheers,
+Ben.
 
-Somehow the driver tries to use DVI1 and DVI2 while the display is connected to
-LVDS1.
+Cheers,
+Ben.
 
-stefan@excalibur:~$ xrandr
-Screen 0: minimum 320 x 200, current 1360 x 800, maximum 8192 x 8192
-VGA1 disconnected (normal left inverted right x axis y axis)
-LVDS1 connected 1280x800+0+0 (normal left inverted right x axis y axis) 261mm x
-163mm
-   1280x800       60.0*+   50.0  
-DVI1 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
-   1360x768       59.8* 
-   1152x864       60.0  
-   1024x768       60.0  
-   800x600        60.3  
-   640x480        59.9  
-DVI2 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
-   1360x768       59.8* 
-   1152x864       60.0  
-   1024x768       60.0  
-   800x600        60.3  
-   640x480        59.9
-
-regards
-Stefan Schmidt
+> Regards--
+> Subrata
+> 
+> > 
+> > --- linux-2.6.30-rc8/arch/powerpc/include/asm/io.h.orig	2009-06-10 21:56:49.000000000 -0500
+> > +++ linux-2.6.30-rc8/arch/powerpc/include/asm/io.h	2009-06-10 22:21:35.000000000 -0500
+> > @@ -680,6 +680,9 @@ extern void __iounmap_at(void *ea, unsig
+> >  #define mmio_outsw(addr, src, count)	writesw(addr, src, count)
+> >  #define mmio_outsl(addr, src, count)	writesl(addr, src, count)
+> > 
+> > +#define isa_virt_to_bus		virt_to_phys
+> > +#define isa_bus_to_virt		phys_to_virt
+> > +
+> >  /**
+> >   *	virt_to_phys	-	map virtual addresses to physical
+> >   *	@address: address to remap
+> > 
+> > ---
+> > Regards--
+> > Subrata
+> > 
