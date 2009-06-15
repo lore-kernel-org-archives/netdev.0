@@ -1,62 +1,70 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: rfkill regression in net-next-2.6
-Date: Mon, 15 Jun 2009 15:20:59 +0200
-Message-ID: <4A364ABB.6040704@hartkopp.net>
-References: <20090604152011.GC2839@tuxdriver.com>	 <20090607.033751.191866033.davem@davemloft.net>	 <4A2BCC41.1060508@hartkopp.net> <20090607145830.GA2736@tuxdriver.com>	 <4A2BD8A5.4040302@hartkopp.net>	 <1244388583.23850.87.camel@localhost.localdomain>	 <4A34BAB9.9000104@hartkopp.net>  <20090615120422.GA2729@tuxdriver.com> <1245068686.23912.0.camel@johannes.local>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: iproute2 action/policer question
+Date: Mon, 15 Jun 2009 09:32:08 -0400
+Message-ID: <1245072728.3948.14.camel@dogo.mojatatu.com>
+References: <20090615111927.GA12316@ff.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:36618 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689AbZFONVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 09:21:01 -0400
-In-Reply-To: <1245068686.23912.0.camel@johannes.local>
+Received: from mail-qy0-f173.google.com ([209.85.221.173]:46788 "EHLO
+	mail-qy0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814AbZFONd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 09:33:26 -0400
+Received: by qyk3 with SMTP id 3so268549qyk.33
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 06:33:27 -0700 (PDT)
+In-Reply-To: <20090615111927.GA12316@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Johannes Berg wrote:
-> On Mon, 2009-06-15 at 08:04 -0400, John W. Linville wrote:
->> On Sun, Jun 14, 2009 at 10:54:17AM +0200, Oliver Hartkopp wrote:
->>
->>> Any idea what changed in net-next-2.6 that could produce this behaviour?
->> The rfkill subsystem rewrite would seem suspect... :-)
+On Mon, 2009-06-15 at 11:19 +0000, Jarek Poplawski wrote:
+
+> > This is only a sample but is not working
+
+It does seem to be working!
+How did you reach conclusion it wasnt working?
+
+> >         Action statistics:
+> >         Sent 42351 bytes 110 pkt (dropped 0, overlimits 32 requeues 0)
+> >         rate 0bit 0pps backlog 0b 0p requeues 0
+
+32 packets hit the policer - double check your parameters please to make
+sure they are correct.
+
+> According to iproute2/doc/actions/actions_general mangle targets
+> should work; and you could also try (if it doesn't work then probably
+> it can't be used...;-)
+
+They should all be usable. If something crashes, there is a bug
+somewhere.
+
+> But... I'm neither able to configure/compile it with the current
+> iproute2/iptables, nor test it with distro's builds (Debian testing).
+> After some checking I found iproute2 needs updating, because iptables
+> changes API (xtables.h) virtually with every new version, so I don't
+> even blame the ipt author or distro maintainer.
 > 
-> Maybe this fixes it?
 
-Yes, that made it!
+We are hopefully getting stable there. Anything on debian lenny
+should be working with iptables 1.4.3; i expect at most "one last
+change" (famous last words) to break backward compat as iptables 
+moves from version 1.4.3.
 
-I booted with the RFKILL switch ON and OFF and the system and the LEDs are
-working as one would expect it.
+> I guess, after studying these iproute2 docs examples you should be
+> able to do such tricks eg. with mirred and other actions even without
+> ipt. Or you could ask authors for more docs...
 
-Thanks Johannes.
+I have sparse time this week - but i can help with Debian Lenny which
+is what my laptop runs with some variable response latency.
 
-Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
+> PS: the tc classifier maintainer added to Cc.
 
+Thanks as always Jarek.
 
-> 
-> johannes
-> 
-> --- wireless-testing.orig/drivers/platform/x86/dell-laptop.c	2009-06-15 14:23:25.000000000 +0200
-> +++ wireless-testing/drivers/platform/x86/dell-laptop.c	2009-06-15 14:23:35.000000000 +0200
-> @@ -177,7 +177,7 @@ dell_send_request(struct calling_interfa
->  static int dell_rfkill_set(void *data, bool blocked)
->  {
->  	struct calling_interface_buffer buffer;
-> -	int disable = blocked ? 0 : 1;
-> +	int disable = blocked ? 1 : 0;
->  	unsigned long radio = (unsigned long)data;
->  
->  	memset(&buffer, 0, sizeof(struct calling_interface_buffer));
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
 
