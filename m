@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Re: [BUG] fib_tries related Oops in 2.6.30
-Date: Mon, 15 Jun 2009 02:32:02 -0700 (PDT)
-Message-ID: <20090615.023202.245678744.davem@davemloft.net>
-References: <20090612072557.GA2761@ami.dom.local>
-	<20090615065333.GA4378@ff.dom.local>
+Subject: Re: [PATCH 3/2] pkt_sched: Rename PSCHED_US2NS and PSCHED_NS2US
+Date: Mon, 15 Jun 2009 02:32:11 -0700 (PDT)
+Message-ID: <20090615.023211.236994052.davem@davemloft.net>
+References: <20090609080513.GB5237@ff.dom.local>
+	<20090615091523.GA10411@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, zheng.yan@oracle.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: kaber@trash.net, vexwek@gmail.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, devik@cdi.cz, dada1@cosmosbay.com,
+	hazard@francoudi.com, slavon@bigtelecom.ru
 To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59914
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59919
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750918AbZFOJb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 05:31:59 -0400
-In-Reply-To: <20090615065333.GA4378@ff.dom.local>
+	by vger.kernel.org with ESMTP id S1752945AbZFOJcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 05:32:08 -0400
+In-Reply-To: <20090615091523.GA10411@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 15 Jun 2009 06:53:33 +0000
+Date: Mon, 15 Jun 2009 09:15:23 +0000
 
-> ipv4: Fix fib_trie rebalancing
+> On Tue, Jun 09, 2009 at 08:05:13AM +0000, Jarek Poplawski wrote:
+> ...
+>> This change breaks ticks - microseconds similarity, so some minor code
+>> fixes might be needed. It is also planned to change naming adequately
+>> eg. to PSCHED_TICKS2NS() etc. in the near future.
 > 
-> While doing trie_rebalance(): resize(), inflate(), halve() RCU free
-> tnodes before updating their parents. It depends on RCU delaying the
-> real destruction, but if RCU readers start after call_rcu() and before
-> parent update they could access freed memory.
+> -------------------->
+> pkt_sched: Rename PSCHED_US2NS and PSCHED_NS2US
 > 
-> It is currently prevented with preempt_disable() on the update side,
-> but it's not safe, except maybe classic RCU, plus it conflicts with
-> memory allocations with GFP_KERNEL flag used from these functions.
+> Let's use TICKS instead of US, so PSCHED_TICKS2NS and PSCHED_NS2TICKS
+> (like in PSCHED_TICKS_PER_SEC already) to avoid misleading.
 > 
-> This patch explicitly delays freeing of tnodes by adding them to the
-> list, which is flushed after the update is finished.
-> 
-> Reported-by: Yan Zheng <zheng.yan@oracle.com>
 > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-Applied to net-next-2.6
+Also applied to net-next-2.6, thanks.
