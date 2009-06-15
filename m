@@ -1,59 +1,98 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [HELP] for using class group classifier network controller
-Date: Mon, 15 Jun 2009 06:30:20 -0400
-Message-ID: <20090615103020.GA8894@bombadil.infradead.org>
-References: <4C86297B4AC6554B8BA018F0806590CE01C8AFA5@email1> <20090615113609.db5c0613.usui@mxm.nes.nec.co.jp>
+From: Li Yang <leoli@freescale.com>
+Subject: Re: [PATCH 1/6] rapidio: add common mapping APIs for RapidIO memory
+	access
+Date: Mon, 15 Jun 2009 18:38:56 +0800
+Message-ID: <2a27d3730906150338u224126e1yf6fb0b77675a6633@mail.gmail.com>
+References: <1242117363-14949-1-git-send-email-leoli@freescale.com>
+	 <90AED712-28A1-4800-978C-125A887D0DA7@kernel.crashing.org>
+	 <3A45394FD742FA419B760BB8D398F9ED483CCD@zch01exm26.fsl.freescale.net>
+	 <5D8775BD-9973-4DE8-B442-91FB15F86ACC@kernel.crashing.org>
+	 <2a27d3730906120627l112030b3wa11ea5aa3fcb1087@mail.gmail.com>
+	 <718B5524-9FB1-4835-BAEA-C5B990F78DAC@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?utf-8?B?6rmA7J6s7Je0?= <gauri@etri.re.kr>,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: Minoru Usui <usui@mxm.nes.nec.co.jp>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	mporter@kernel.crashing.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Zhang Wei <zw@zh-kernel.org>
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:53595 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbZFOKaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 06:30:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20090615113609.db5c0613.usui@mxm.nes.nec.co.jp>
+Received: from an-out-0708.google.com ([209.85.132.244]:41110 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753172AbZFOKiy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 06:38:54 -0400
+In-Reply-To: <718B5524-9FB1-4835-BAEA-C5B990F78DAC@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 15, 2009 at 11:36:09AM +0900, Minoru Usui wrote:
-> Hi, Cheiyol
-> 
-> > # classid 1:10
-> > 
-> > echo 0x1000A > /dev/cpuctl/foo/net_cls.classid
-> > 
-> > #classid 1:20
-> > 
-> > echo 0x10014 > /dev/cpuctl/bob/net_cls.classid
-> 
-> (snip)
-> 
-> > # add class 1:10 for foo group
-> > 
-> > $TC class add dev eth0 parent 1:0 classid 1:10 htb rate 50mbit
-> > 
-> > # add class 1:20 for bob group
-> > 
-> > $TC class add dev eth0 parent 1:0 classid 1:20 htb rate 30mbit
-> > 
-> > # default class
-> > 
-> > $TC class add dev eth0 parent 1:0 classid 1:30 htb rate 10mbit
-> 
-> In class ID to use TC, both a major number and a minor number are hexadecimal.
-> So 1:10 equals 0x00010010.
-> 
-> I think, you should set 0x10010 to net_cls.classid if you classify to 1:10.
+On Fri, Jun 12, 2009 at 9:58 PM, Kumar Gala<galak@kernel.crashing.org> =
+wrote:
+>
+> On Jun 12, 2009, at 8:27 AM, Li Yang wrote:
+>
+>> On Thu, Jun 11, 2009 at 9:32 PM, Kumar Gala<galak@kernel.crashing.or=
+g>
+>> wrote:
+>>>
+>>> On Jun 11, 2009, at 4:47 AM, Li Yang-R58472 wrote:
+>>>
+>>>>> On May 12, 2009, at 3:35 AM, Li Yang wrote:
+>>>>>
+>>>>>> Add the mapping functions used to support direct IO memory acces=
+s of
+>>>>>> rapidIO.
+>>>>>>
+>>>>>> Signed-off-by: Zhang Wei <zw@zh-kernel.org>
+>>>>>> Signed-off-by: Li Yang <leoli@freescale.com>
+>>>>>
+>>>>> Use inbnd/outbnd instead of inb/outb which make one think of
+>>>>> byte level io accessors.
+>>>>>
+>>>>> As I look at this I don't think this is the correct API. =C2=A0I
+>>>>> think we should be using the DMA mapping API to hide these
+>>>>> details. =C2=A0The concept of mapping like this seems to be more =
+a
+>>>>> function of FSL's Address translation/mapping unit (ATMU) than
+>>>>> anything specific to the RIO bus standard.
+>>>>
+>>>> This is a separate RIO block level ATMU. =C2=A0Although it looks l=
+ike the
+>>>> system level ATMU, system ATMU doesn't have the knowledge of rapid=
+IO
+>>>> target device ID. =C2=A0The mapping need to be dynamic, as it's ea=
+sy to have
+>>>> more RIO devices than the outbound windows.
+>>>
+>>> I understand that. =C2=A0What I'm saying is the RIO block level ATM=
+U is a
+>>> Freescale specific detail and not part of any standard RIO bus
+>>> programming
+>>> model. =C2=A0We have mapping APIs that we can connect to for this v=
+ia the DMA
+>>> API
+>>> layer.
+>>
+>> Ok, I see your point now. Do you mean dma_map_*() for DMA API layer?
+>> But in my understanding the current dma_map_*() APIs are preparing
+>> local memory for device to access which is similar to the inbound
+>> case. =C2=A0Is it suitable to also use them for mapping device's spa=
+ce for
+>> CPU access? =C2=A0Can you give an example of using this API for Addr=
+ess
+>> Translation and Mapping purpose?
+>
+> Yes, I meant the dma_map_*() API. =C2=A0Any system with a true IOMMU =
+uses the
+> dma_map_ layer as the way to do address translation.
 
-That's right, both net_cls.classid and tc use integers in hexadecimal form
-for both, printing and parsing.
+IOMMU case is not very similar to the RapidIO scenario.  RapidIO
+mapping is more like PCI address space mapping.
 
-10:10 -> 0x100010
-10:20 -> 0x100020
+To be specific, the DMA API return dma_addr_t not the rapidIO address
+type.  And they can only handle inbound mapping not both ways.  I
+don't think the DMA API is competent enough to be used here for RIO
+mapping.  Unless we have a more universal mapping API, it can be
+justified to create its own API.
 
-This seems to be the weak point regarding usability that's why I like
-Minoru Usui's patch so much. It would no longer be necessary to really
-understand the internals of classids etc.
+- Leo
