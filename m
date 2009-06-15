@@ -1,125 +1,64 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: kernel dies if loopback device not intialized
-Date: Mon, 15 Jun 2009 15:41:38 +0000
-Message-ID: <1245080498.7134.15.camel@Maple>
-References: <20090610203536.4357d309@nehalam>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: PIM-SM namespace changes
+Date: Mon, 15 Jun 2009 19:58:40 +0400
+Message-ID: <4A366FB0.40608@openvz.org>
+References: <20090518.222429.135907168.davem@davemloft.net>	<20090520004344.GA10143@boeing.com> <20090614.031716.53296931.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: thomas.goff@boeing.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:46443 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbZFOPtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 11:49:51 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so776910wah.21
-        for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 08:49:52 -0700 (PDT)
-In-Reply-To: <20090610203536.4357d309@nehalam>
+Received: from mailhub.sw.ru ([195.214.232.25]:1347 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763319AbZFOP7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2009 11:59:05 -0400
+In-Reply-To: <20090614.031716.53296931.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-06-10 at 20:35 -0700, Stephen Hemminger wrote:
-> This OOPS happens if system is booted up and loopback device
-> is not initialized. This means the loopback device is not yet in the
-> route table so when arp goes to send the error report, the route
-> lookup thinks it is a martian and then dies.
+David Miller wrote:
+> From: Tom Goff <thomas.goff@boeing.com>
+> Date: Tue, 19 May 2009 17:43:44 -0700
 > 
-> Granted this is a startup script problem, but kernel shouldn't die.
+>> For protocol registration I see three basic approaches for using PIM
+>> with namespaces:
+>>
+>>   - unconditionally add PIM when multicast routing is initialized
+>>     (maybe only ifdef CONFIG_NET_NS, otherwise preserve the current
+>>     behavior)
+>>
+>>   - keep a count of the number of namespaces that have enabled PIM and
+>>     add/delete PIM when transitioning from/to zero
+>>
+>>   - make all or some protocol registration per network namespace
+>>
+>> There are obviously tradeoffs and I would appreciate any
+>> comments/suggestions on alternatives that allow namespace use of
+>> dynamically enabled protocols.
 > 
-> [   55.601158] IP: [<c028968c>] ip_handle_martian_source+0x75/0xb8
-> [   55.604044] Oops: 0000 [#1] SMP
-> [   55.604044] last sysfs file: /sys/kernel/uevent_seqnum
-> [   55.604044] Modules linked in: iptable_nat ip6table_filter
-> iptable_filter ip6table_raw ip6_tables xt_NOTRACK iptable_raw ip_tables
-> x_tables nf_nat_pptp nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_h323
-> nf_conntrack_h323 nf_nat_sip nf_conntrack_sip nf_nat_proto_gre nf_nat_tftp
-> nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_tftp
-> nf_conntrack_ftp nf_conntrack ipv6 md_mod parport_pc parport psmouse
-> pcspkr serio_raw vmxnet container ac button i2c_piix4 i2c_core shpchp
-> pci_hotplug intel_agp agpgart evdev vfat fat ext2 battery squashfs loop
-> unionfs nls_utf8 isofs nls_base zlib_inflate ext3 jbd mbcache sd_mod sg
-> crc_t10dif sr_mod cdrom ata_piix pata_acpi floppy ata_generic mptspi
-> mptscsih mptbase scsi_transport_spi libata scsi_mod thermal processor fan
-> thermal_sys
-> [   55.604044]
-> [   55.604044] Pid: 0, comm: swapper Not tainted (2.6.29-1-586-vyatta #1)
-> VMware Virtual Platform
-> [   55.604044] EIP: 0060:[<c028968c>] EFLAGS: 00010293 CPU: 0
-> [   55.604044] EIP is at ip_handle_martian_source+0x75/0xb8
-> [   55.604044] EAX: 0000000e EBX: 00000000 ECX: c03e3d28 EDX: c03611e7
-> [   55.604044] ESI: ddc40000 EDI: fffffc00 EBP: 00000000 ESP: c03e3d28
-> [   55.604044]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-> [   55.604044] Process swapper (pid: 0, ti=c03e2000 task=c038533c
-> task.ti=c03e2000)
-> [   55.604044] Stack:
-> [   55.604044]  00000003 0100007f ffffffea c028c45b 1000000f 0100007f
-> 00000000 00000003
-> [   55.604044]  00000246 0100007f de5e9180 00000004 dfa6c600 df24ea80
-> c03e3dcc c03e3d90
-> [   55.604044]  00000000 00000003 00000000 1000000f 0100007f 00000000
-> 00000000 00000000
-> [   55.604044] Call Trace:
-> [   55.604044]  [<c028c45b>] ip_route_input+0xbf8/0xc20
-> [   55.604044]  [<c02ac0a9>] icmp_send+0x361/0x4c4
-> [   55.604044]  [<c0135a7e>] sched_clock_cpu+0x13f/0x14b
-> [   55.604044]  [<c011cf34>] update_rq_clock+0xe/0x1c
-> [   55.604044]  [<c0289174>] ipv4_link_failure+0x14/0x37
-> [   55.604044]  [<c02aa056>] arp_error_report+0x1c/0x24
-> [   55.604044]  [<c027a3ae>] neigh_timer_handler+0x1c4/0x282
-> [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
-> [   55.604044]  [<c01298eb>] run_timer_softirq+0x139/0x191
-> [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
-> [   55.604044]  [<c012680a>] __do_softirq+0x83/0x103
-> [   55.604044]  [<c01268bc>] do_softirq+0x32/0x36
-> [   55.604044]  [<c01269d7>] irq_exit+0x35/0x62
-> [   55.604044]  [<c010fbc4>] smp_apic_timer_interrupt+0x71/0x7b
-> [   55.604044]  [<c0103a48>] apic_timer_interrupt+0x28/0x30
-> [   55.604044]  [<c01085f0>] default_idle+0x2a/0x3d
-> [   55.604044]  [<c0102489>] cpu_idle+0x57/0x72
-> [   55.604044] Code: e8 a1 f1 04 00 83 c4 10 66 83 be d2 00 00 00 00 74 58
-> 8b bf 98 00 00 00 85 ff 74 4e 68 e7 11 36 c0 31 db e8 7e f1 04 00 58 eb 29
-> <0f> b6 04 1f 50 68 c8 20 35 c0 e8 6c f1 04 00 0f b7 86 d2 00 00
-> [   55.604044] EIP: [<c028968c>] ip_handle_martian_source+0x75/0xb8 SS:ESP
-> 0068:c03e3d28
-> [   55.604044] ---[ end trace bfa8f60b4b45cd60 ]---
-> [   55.604044] Kernel panic - not syncing: Fatal exception in interrupt
+> Ok, I'm willing to accept your current approach for now, let's
+> see what falls out of this.  Patch applied, thanks.
+> 
+> Doing the enabling per-namespace is complexity for an unknown
+> gain.  I don't even know what the benefit could be for how we
+> behaved previously.
+> 
+> Anyone know?
 
-The oops seems to be from the skb passed to ip_handle_martian_source(),
-which is the skb pulled from the ARP queue.  Either skb->mac_header is
-bogus, or the skb pointer itself is:
+Well, maybe I do :)
 
-	movl	148(%edi), %edi	# <variable>.mac_header, D.47506
-	testl	%edi, %edi	# D.47506
-	je	.L141	#,
-	pushl	$.LC1	#
-	xorl	%ebx, %ebx	# i
-	call	printk	#
-	popl	%eax	#
-	jmp	.L136	#
-.L137:
-	movzbl	(%ebx,%edi), %eax	#* D.47506, tmp72    ******** trap here *******
-	pushl	%eax	# tmp72
-	pushl	$.LC2	#
-	call	printk	#
-	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
-	popl	%edx	#
-	decl	%eax	# tmp74
-	cmpl	%eax, %ebx	# tmp74, i
-	popl	%ecx	#
-	jge	.L138	#,
-	pushl	$.LC3	#
-	call	printk	#
-	popl	%eax	#
-.L138:
-	incl	%ebx	# i
-.L136:
-	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
-	cmpl	%eax, %ebx	# <variable>.hard_header_len, i
-	jl	.L137	#,
+I haven't thought much about per-namespace protocols, but I think, that
+it makes sense to enable/disable at least virtual devices (tunnels and
+vlans currently) per-namespace.
 
-Stephen, I haven't been able to reproduce this--can you provide a
-recipe?  Where is that packet coming from?
+Not every namespace really needs this big amount of functionality and
+saving sizeof(struct net_device) + private - the fallback devices each
+tunnel creates, and this is somewhat around 4Kb each - sounds good.
 
-  --  John
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
