@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Mon, 15 Jun 2009 02:02:40 -0700 (PDT)
-Message-ID: <20090615.020240.84385988.davem@davemloft.net>
-References: <65634d660905032103h614225dbg9911e290f5537fbf@mail.gmail.com>
-	<20090610.012342.121254416.davem@davemloft.net>
-	<65634d660906142252y6f7fc021l844b172995c10044@mail.gmail.com>
+Subject: flow director and packet ordering
+Date: Mon, 15 Jun 2009 02:07:38 -0700 (PDT)
+Message-ID: <20090615.020738.243788769.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38895
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34674
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758276AbZFOJCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 05:02:37 -0400
-In-Reply-To: <65634d660906142252y6f7fc021l844b172995c10044@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751521AbZFOJHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 05:07:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 14 Jun 2009 22:52:13 -0700
 
->> Just to keep this topic alive, I want to mention two things:
->>
->> 1) Just the other day support for the IXGBE "Flow Director" was
->>   added to net-next-2.6, it basically does flow steering in
->>   hardware.  It remembers where the last TX for a flow was
->>   made, and steers RX traffic there.
->>
-> 
-> That's very cool.  Is this able to preserve in order delivery?
+Does the flow director implementation in IXGBE make sure to preserve
+packet ordering in some way?
 
-I don't know how the hardware works to this level of detail,
-sorry.  But yet that's a very important issue.
+You can't just change the RX flow destination queue whenever you like.
 
-> What is the advantage over using a shared skbuff queue and making
-> doing a single IPI to schedule the backlog device on the remote CPU?
+For example, if a transmit happens on cpu 1, then we start to receive
+some packets for that flow on that cpu, will a sudden set of transmits
+on another cpu make the flow director quickly switch the RX
+destination?
 
-No locking.  Queue is only ever accessed by the local cpu.
+That would be very bad.
+
+Without some extreme care that will result in potential packet
+reordering.
+
+There needs to be some safey net in place in your silicon to wait for
+a significant "quiet time" in the RX stream before you can revector
+the RX flow destination setting.  Enough time to let the stack process
+all that packets for that flow received on the currently bound flow
+CPU.
+
+To be honest, I'm not optimistic about this situation :-/
