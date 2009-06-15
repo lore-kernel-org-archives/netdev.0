@@ -1,47 +1,68 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Constantly varying download rate with a complex xen networking
- setup, why?
-Date: Mon, 15 Jun 2009 17:18:27 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
-References: <20090615075313.GA22819@rivendell>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: iproute2 action/policer question
+Date: Mon, 15 Jun 2009 16:52:22 +0200
+Message-ID: <20090615145222.GA2767@ami.dom.local>
+References: <20090615111927.GA12316@ff.dom.local> <1245072728.3948.14.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Raphael Hertzog <raphael@ouaza.com>
+Cc: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:41948 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506AbZFOOS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 10:18:26 -0400
-In-Reply-To: <20090615075313.GA22819@rivendell>
+Received: from mail-fx0-f206.google.com ([209.85.220.206]:63798 "EHLO
+	mail-fx0-f206.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756958AbZFOOwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 10:52:38 -0400
+Received: by fxm2 with SMTP id 2so348772fxm.37
+        for <netdev@vger.kernel.org>; Mon, 15 Jun 2009 07:52:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1245072728.3948.14.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Jun 2009, Raphael Hertzog wrote:
+On Mon, Jun 15, 2009 at 09:32:08AM -0400, jamal wrote:
+> On Mon, 2009-06-15 at 11:19 +0000, Jarek Poplawski wrote:
+> 
+> > > This is only a sample but is not working
+> 
+> It does seem to be working!
+> How did you reach conclusion it wasnt working?
+> 
+> > >         Action statistics:
+> > >         Sent 42351 bytes 110 pkt (dropped 0, overlimits 32 requeues 0)
+> > >         rate 0bit 0pps backlog 0b 0p requeues 0
+> 
+> 32 packets hit the policer - double check your parameters please to make
+> sure they are correct.
 
-> My problem is that when I download a big file from the internet by HTTP in
-> the dom0, the download rate is not stable. It goes up progressively and then
-> stalls for a few seconds, and restart again going up progressively (and
-> all this in loop until the download is complete).
+Actually, I wonder if these "dropped 0" are OK here if we expect
+dropping.
 
-My guess: TCP sawtooth pattern and the associated loss recovery...? What 
-you describe here seems to match exactly to what is expected to happen 
-because of it (I see this happening quite often actually). What is the 
-size of the bottleneck buffer and base RTTs of the relevant flows (HTTP, 
-ssh)?
+> 
+> > According to iproute2/doc/actions/actions_general mangle targets
+> > should work; and you could also try (if it doesn't work then probably
+> > it can't be used...;-)
+> 
+> They should all be usable. If something crashes, there is a bug
+> somewhere.
+> 
+> > But... I'm neither able to configure/compile it with the current
+> > iproute2/iptables, nor test it with distro's builds (Debian testing).
+> > After some checking I found iproute2 needs updating, because iptables
+> > changes API (xtables.h) virtually with every new version, so I don't
+> > even blame the ipt author or distro maintainer.
+> > 
+> 
+> We are hopefully getting stable there. Anything on debian lenny
+> should be working with iptables 1.4.3; i expect at most "one last
+> change" (famous last words) to break backward compat as iptables 
+> moves from version 1.4.3.
 
-> During the stalls, it looks like all networking is blocked on the 
-> machine (noticed on interactive SSH sessions).
+I've tried debian squeeze (testing) with: iptables v1.4.3.2, iproute2
+-ss090324, and action ipt -j MARK doesn't work. AFAIK debian lenny
+(stable) uses 1.4.2. I've also tried debian rescue probably based on
+lenny (with iptables 1.4.2), and it seemed it didn't work yet (I'll
+re-check this). When you have something new I'd be glad for Cc.
 
-They too might be recovering from losses if the bottleneck is shared? 
-Please verify "blocking" using tcpdump or so. You may find out e.g. that 
-network is not stalled but that out-of-order arrivals prevent 
-applications from making progress.
-
-If this matches with your problem, deploying AQM at the bottleneck would 
-help.
-
-
--- 
- i.
+Thanks more than always Jamal,
+Jarek P.
