@@ -1,64 +1,70 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: PIM-SM namespace changes
-Date: Mon, 15 Jun 2009 19:58:40 +0400
-Message-ID: <4A366FB0.40608@openvz.org>
-References: <20090518.222429.135907168.davem@davemloft.net>	<20090520004344.GA10143@boeing.com> <20090614.031716.53296931.davem@davemloft.net>
+From: Raphael Hertzog <raphael@ouaza.com>
+Subject: Re: Constantly varying download rate with a complex xen networking
+	setup, why?
+Date: Mon, 15 Jun 2009 18:02:54 +0200
+Message-ID: <20090615160254.GA8550@rivendell>
+References: <20090615075313.GA22819@rivendell> <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: thomas.goff@boeing.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: Ilpo =?iso-8859-15?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:1347 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763319AbZFOP7F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Jun 2009 11:59:05 -0400
-In-Reply-To: <20090614.031716.53296931.davem@davemloft.net>
+Received: from arrakeen.ouaza.com ([212.85.152.62]:60523 "EHLO
+	arrakeen.ouaza.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762114AbZFOQC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 12:02:57 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Tom Goff <thomas.goff@boeing.com>
-> Date: Tue, 19 May 2009 17:43:44 -0700
-> 
->> For protocol registration I see three basic approaches for using PIM
->> with namespaces:
->>
->>   - unconditionally add PIM when multicast routing is initialized
->>     (maybe only ifdef CONFIG_NET_NS, otherwise preserve the current
->>     behavior)
->>
->>   - keep a count of the number of namespaces that have enabled PIM and
->>     add/delete PIM when transitioning from/to zero
->>
->>   - make all or some protocol registration per network namespace
->>
->> There are obviously tradeoffs and I would appreciate any
->> comments/suggestions on alternatives that allow namespace use of
->> dynamically enabled protocols.
-> 
-> Ok, I'm willing to accept your current approach for now, let's
-> see what falls out of this.  Patch applied, thanks.
-> 
-> Doing the enabling per-namespace is complexity for an unknown
-> gain.  I don't even know what the benefit could be for how we
-> behaved previously.
-> 
-> Anyone know?
+Le lundi 15 juin 2009, Ilpo J=E4rvinen a =E9crit :
+> On Mon, 15 Jun 2009, Raphael Hertzog wrote:
+>=20
+> > My problem is that when I download a big file from the internet by =
+HTTP in
+> > the dom0, the download rate is not stable. It goes up progressively=
+ and then
+> > stalls for a few seconds, and restart again going up progressively =
+(and
+> > all this in loop until the download is complete).
+>=20
+> My guess: TCP sawtooth pattern and the associated loss recovery...? W=
+hat=20
+> you describe here seems to match exactly to what is expected to happe=
+n=20
+> because of it (I see this happening quite often actually).
 
-Well, maybe I do :)
+Why would this not happen for the same transfer done through a proxy (t=
+hat
+runs on the same machine but different domU)?
 
-I haven't thought much about per-namespace protocols, but I think, that
-it makes sense to enable/disable at least virtual devices (tunnels and
-vlans currently) per-namespace.
+> What is the size of the bottleneck buffer and base RTTs of the releva=
+nt
+> flows (HTTP, ssh)?
 
-Not every namespace really needs this big amount of functionality and
-saving sizeof(struct net_device) + private - the fallback devices each
-tunnel creates, and this is somewhat around 4Kb each - sounds good.
+How can I collect those information?
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Please verify "blocking" using tcpdump or so. You may find out e.g. t=
+hat=20
 
+I'll try to do so and follow-up.
+
+> network is not stalled but that out-of-order arrivals prevent=20
+> applications from making progress.
+>=20
+> If this matches with your problem, deploying AQM at the bottleneck wo=
+uld=20
+> help.
+
+The bottleneck in my test setup is the ADSL connection and I don't cont=
+rol
+the ADSL router.
+
+Cheers,
+--=20
+Rapha=EBl Hertzog -+- http://www.ouaza.com
+
+=46reexian : des d=E9veloppeurs Debian au service des entreprises
+http://www.freexian.com
