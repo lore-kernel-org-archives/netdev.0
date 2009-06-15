@@ -1,100 +1,66 @@
-From: Subrata Modak <subrata@linux.vnet.ibm.com>
-Subject: Re: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
-	randconfig [drivers/net/ucc_geth.o]
-Date: Mon, 15 Jun 2009 12:21:58 +0530
-Message-ID: <1245048719.5239.10.camel@subratamodak.linux.ibm.com>
-References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
-Reply-To: subrata@linux.vnet.ibm.com
+From: Stefan Schmidt <stefan@datenfreihafen.org>
+Subject: Re: kerneloops.org report for the week of June 14 2009
+Date: Mon, 15 Jun 2009 09:06:51 +0200
+Message-ID: <20090615070651.GB1221@excalibur.local>
+References: <20090614173331.18f01123@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>
-To: Tony Breeds <tony@bakeyournoodle.com>, netdev@vger.kernel.org,
-	michael@ellerman.id.au, Li Yang <leoli@freescale.com>,
-	Nathan Lynch <ntl@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756688AbZFOGwf@vger.kernel.org>
-In-Reply-To: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, tglx@tglx.de, alan@lxorguk.ukuu.org.uk,
+	rjw@sisk.pl, netdev@vger.kernel.org, mingo@elte.hu,
+	dwmw2@infradead.org, alsa-devel@alsa-project.org,
+	dri-devel@lists.sourceforge.net
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756278AbZFOHHj@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090614173331.18f01123@infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Li/Nathan,
+Hello.
 
-On Thu, 2009-06-11 at 09:07 +0530, Subrata Modak wrote: 
-> Hi Nathan,
+On Sun, 2009-06-14 at 17:33, Arjan van de Ven wrote:
 > 
-> >On Wed, 2009-06-10 at 21:28 -0500, Nathan Lynch wrote:
-> >Subrata Modak <subrata@linux.vnet.ibm.com> writes:
-> > 
-> > > On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
-> > >> Hi Subrata,
-> > >> 
-> > >> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ibm.com> wrote:
-> > >> >
-> > >> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
-> > >> > -	ph = of_get_property(np, "tbi-handle", NULL);
-> > >> > +	ph = (phandle *)of_get_property(np, "tbi-handle", NULL);
-> > >> 
-> > >> You don't need this cast because of_get_property() returns "void *".
-> > >
-> > > Stephen,
-> > >
-> > > True. But without this gcc complains:
-> > >
-> > > CC [M]  drivers/net/ucc_geth.o
-> > > drivers/net/ucc_geth.c: In function bucc_geth_probeb:
-> > > drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
-> > > from pointer target type
-> > 
-> > ph should be declared const phandle *.  Look at other uses of
-> > of_get_property.
-> >
-> 
-> Ok fine. Here is a revised patch again.
-> 
-> Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64 randconfig [drivers/net/ucc_geth.o]
-> Reference(s):
-> http://lkml.org/lkml/2009/6/4/241,
-> http://lkml.org/lkml/2009/6/10/338,
-> 
-> Fix the following build error:
-> 
-> drivers/net/ucc_geth.c: In function bucc_geth_probeb:
-> drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in this function)
-> drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is reported only once
-> drivers/net/ucc_geth.c:3822: error: for each function it appears in.)
-> drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in this function)
-> make[2]: *** [drivers/net/ucc_geth.o] Error 1
-> 
-> Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
-> ---
+> Rank 1: i915_gem_set_tiling (warning)
+> 	Reported 830 times (3700 total reports)
+> 	[gem] Failure in the tiling code
+> 	This warning was last seen in version 2.6.30, and first seen in 2.6.29-rc2.
+> 	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_set_tiling
 
-Is there anything else to be done in this patch. If this is OK, can this
-be applied. I am not sure, but, i find Li Yang as the maintainer for
-this in linux*/MAINTAINERS file. Kindly let me know if this patch needs
-to be revisited for some other issue(s).
+There seem to be more then one issue. I'm running into one of them here on a
+Lenovo Thinkpad X200s. It's 2.6.30 and I enabled KMS the first time here. So I
+can't tell if it is a regression.
 
-Regards--
-Subrata
+http://www.kerneloops.org/oops.php?number=207353
 
-> 
-> --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig	2009-06-10 11:58:39.000000000 -0500
-> +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c	2009-06-10 22:28:13.000000000 -0500
-> @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
-> 
->  static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *match)
->  {
-> +	struct device_node *mdio;
-> +	const phandle *ph;
->  	struct device *device = &ofdev->dev;
->  	struct device_node *np = ofdev->node;
->  	struct net_device *dev = NULL;
-> 
-> ---
-> Regards--
-> Subrata
-> 
+The result is that the EDID data could not be read and the wrong screen size
+set:
+[   45.524589] i2c-adapter i2c-3: unable to read EDID block.
+[   45.588200] i915 0000:00:02.0: DVI-D-2: no EDID data
+[   45.777251] [drm] TMDS-14: set mode 1360x768 13
+[   45.777261] [drm] TMDS-16: set mode 1360x768 13 <= Should be 1280x900 here
+
+Somehow the driver tries to use DVI1 and DVI2 while the display is connected to
+LVDS1.
+
+stefan@excalibur:~$ xrandr
+Screen 0: minimum 320 x 200, current 1360 x 800, maximum 8192 x 8192
+VGA1 disconnected (normal left inverted right x axis y axis)
+LVDS1 connected 1280x800+0+0 (normal left inverted right x axis y axis) 261mm x
+163mm
+   1280x800       60.0*+   50.0  
+DVI1 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
+   1360x768       59.8* 
+   1152x864       60.0  
+   1024x768       60.0  
+   800x600        60.3  
+   640x480        59.9  
+DVI2 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
+   1360x768       59.8* 
+   1152x864       60.0  
+   1024x768       60.0  
+   800x600        60.3  
+   640x480        59.9
+
+regards
+Stefan Schmidt
