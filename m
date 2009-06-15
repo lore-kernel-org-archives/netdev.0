@@ -1,69 +1,83 @@
-From: "Chei-Yol Kim" <gauri-mINagvnPBMnWF1p7bDn8Kw@public.gmane.org>
-Subject: RE: Re: [HELP] for using class group classifier network controller
-Date: Mon, 15 Jun 2009 15:15:44 +0900
-Message-ID: <9f9701c9ed80$b7357320$8310fe81@etri.info>
-Reply-To: Chei-Yol Kim <gauri-mINagvnPBMnWF1p7bDn8Kw@public.gmane.org>
+From: Subrata Modak <subrata@linux.vnet.ibm.com>
+Subject: Re: [PATCH][BUILD FAILURE 03/04] Next June 04:PPC64 randconfig
+	[drivers/net/lance.o]
+Date: Mon, 15 Jun 2009 12:21:38 +0530
+Message-ID: <1245048698.5239.9.camel@subratamodak.linux.ibm.com>
+References: <20090611035046.22125.26641.sendpatchset@subratamodak.linux.ibm.com>
+Reply-To: subrata@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        tgraf-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: "Minoru Usui" <usui-vEbCzmPPqHe45+QrQBaojngSJqDPrsil@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-class: urn:content-classes:message
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090611035046.22125.26641.sendpatchset@subratamodak.linux.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-
->Hi, Cheiyol 
+On Thu, 2009-06-11 at 09:20 +0530, Subrata Modak wrote: 
+> Hi Benjamin/Paul,
 > 
->> # classid 1:10 
->> 
->> echo 0x1000A > /dev/cpuctl/foo/net_cls.classid 
->> 
->> #classid 1:20 
->> 
->> echo 0x10014 > /dev/cpuctl/bob/net_cls.classid 
+> >On Thu, 2009-06-04 at 19:02 +0530, Subrata Modak wrote:
+> >CC      drivers/net/lance.o
+> > drivers/net/lance.c: In function 'lance_probe1':
+> > drivers/net/lance.c:575: error: implicit declaration of function 'isa_virt_to_bus'
+> > drivers/net/lance.c: In function 'lance_rx':
+> > drivers/net/lance.c:1197: error: implicit declaration of function 'isa_bus_to_virt'
+> > make[2]: *** [drivers/net/lance.o] Error 1
+> > make[1]: *** [drivers/net] Error 2
+> > make: *** [drivers] Error 2
 > 
->(snip) 
+> Reference: http://lkml.org/lkml/2009/6/4/240,
+> To fix the following build error:
 > 
->> # add class 1:10 for foo group 
->> 
->> $TC class add dev eth0 parent 1:0 classid 1:10 htb rate 50mbit 
->> 
->> # add class 1:20 for bob group 
->> 
->> $TC class add dev eth0 parent 1:0 classid 1:20 htb rate 30mbit 
->> 
->> # default class 
->> 
->> $TC class add dev eth0 parent 1:0 classid 1:30 htb rate 10mbit 
-
->In class ID to use TC, both a major number and a minor number are hexadecimal. 
->So 1:10 equals 0x00010010. 
+> drivers/net/lance.c: In function 'lance_probe1':
+> drivers/net/lance.c:575: error: implicit declaration of function 'isa_virt_to_bus'
+> drivers/net/lance.c: In function 'lance_rx':
+> drivers/net/lance.c:1197: error: implicit declaration of function 'isa_bus_to_virt'
+> make[2]: *** [drivers/net/lance.o] Error 1
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
 > 
->I think, you should set 0x10010 to net_cls.classid if you classify to 1:10. 
+> I would like to propose the following patch. The prototypes for the functions:
+> 'isa_virt_to_bus' & 'isa_virt_to_bus' are existing for some archs like the
+> mips, x86, parisc, arm & alpha, but, is missing for powerpc. Is it safe to
+> introduce the following soultion for powerpc ? It fixes the build problem
+> i reported earlier.
+> 
+> Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
+> ---
 
+Benjamin,
 
-I have done this by your advice. But it didn't work.
-I followed the instructions by http://thread.gmane.org/gmane.linux.network/108551/focus=108661
-So I supposed classid 1:10 is the decimal number, so I set the 0xA0001 as 1:10.
- 
-I'm curious if this patch net_cls operates well in other's hands.
-How about you?
-Does your system using net_cls operate well?
-If then, would you let me know the environment and configuration of your system.
-I would reference your environment for solving my problem.
- 
-Thanks again for helping
- 
-- Cheiyol 
+I am not sure whether you liked the following patch to solve the above
+problem. Do, you want me address some other issue(s)/fixes for this ?
+
+Regards--
+Subrata
+
+> 
+> --- linux-2.6.30-rc8/arch/powerpc/include/asm/io.h.orig	2009-06-10 21:56:49.000000000 -0500
+> +++ linux-2.6.30-rc8/arch/powerpc/include/asm/io.h	2009-06-10 22:21:35.000000000 -0500
+> @@ -680,6 +680,9 @@ extern void __iounmap_at(void *ea, unsig
+>  #define mmio_outsw(addr, src, count)	writesw(addr, src, count)
+>  #define mmio_outsl(addr, src, count)	writesl(addr, src, count)
+> 
+> +#define isa_virt_to_bus		virt_to_phys
+> +#define isa_bus_to_virt		phys_to_virt
+> +
+>  /**
+>   *	virt_to_phys	-	map virtual addresses to physical
+>   *	@address: address to remap
+> 
+> ---
+> Regards--
+> Subrata
+> 
