@@ -1,110 +1,110 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH 2/1 v2] Re: [BUG] fib_tries related Oops in 2.6.30
-Date: Mon, 15 Jun 2009 18:08:01 +0200
-Message-ID: <20090615160800.GC2767@ami.dom.local>
-References: <20090615065333.GA4378@ff.dom.local>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: Re: iproute2 action/policer question
+Date: Mon, 15 Jun 2009 18:09:57 +0200
+Message-ID: <4A367255.5050604@itcare.pl>
+References: <20090615111927.GA12316@ff.dom.local> <1245072728.3948.14.camel@dogo.mojatatu.com> <20090615145222.GA2767@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <robert.olsson@its.uu.se>,
-	Yan Zheng <zheng.yan@oracle.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f211.google.com ([209.85.220.211]:36200 "EHLO
-	mail-fx0-f211.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111AbZFOQIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 12:08:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20090615065333.GA4378@ff.dom.local>
+Received: from smtp.iq.pl ([86.111.241.19]:49042 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754854AbZFOQJ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2009 12:09:56 -0400
+In-Reply-To: <20090615145222.GA2767@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alas this top tnode needs even more.
+Jarek Poplawski pisze:
+> On Mon, Jun 15, 2009 at 09:32:08AM -0400, jamal wrote:
+>   
+>> On Mon, 2009-06-15 at 11:19 +0000, Jarek Poplawski wrote:
+>>
+>>     
+>>>> This is only a sample but is not working
+>>>>         
+>> It does seem to be working!
+>> How did you reach conclusion it wasnt working?
+>>
+>>     
+>>>>         Action statistics:
+>>>>         Sent 42351 bytes 110 pkt (dropped 0, overlimits 32 requeues 0)
+>>>>         rate 0bit 0pps backlog 0b 0p requeues 0
+>>>>         
+>> 32 packets hit the policer - double check your parameters please to make
+>> sure they are correct.
+>>     
+>
+>   
+Yes. packets hits policer but second action dont drop packets.
 
-Sorry/thanks,
-Jarek P.
--------------------> take 2
-ipv4: Fix fib_trie rebalancing, part 2
+Second is that in policer there is action to "-j MARK" mark packet but 
+where i can catch this mark ? in iptables mangle i make some rules to 
+match mark and make LOG target like this:
+but iptables rules catch nothing.
 
-My previous patch, which explicitly delays freeing of tnodes by adding
-them to the list to flush them after the update is finished, isn't
-strict enough. It treats exceptionally tnodes without parent, assuming
-they are newly created, so "invisible" for the read side yet.
+Chain PREROUTING (policy ACCEPT 19M packets, 19G bytes)
+ pkts bytes target     prot opt in     out     source               
+ destination
+     0     0 LOG        all  --  *      *       0.0.0.0/0            
+ 0.0.0.0/0           mark match 0x1 LOG flags 0 level 4
 
-But the top tnode doesn't have parent as well, so we have to exclude
-all exceptions (at least until a better way is found). Additionally we
-need to move rcu assignment of this node before flushing, so the
-return type of the trie_rebalance() function is changed.
+Chain POSTROUTING (policy ACCEPT 11M packets, 17G bytes)
+  pkts bytes target     prot opt in     out     source               
+ destination
+     0     0 LOG        all  --  *      *       0.0.0.0/0            
+ 0.0.0.0/0           mark match 0x1 LOG flags 0 level 4
 
-Reported-by: Yan Zheng <zheng.yan@oracle.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
 
- net/ipv4/fib_trie.c |   23 ++++++++++-------------
- 1 files changed, 10 insertions(+), 13 deletions(-)
+version of tools:
+iptables -V
+iptables v1.4.2
+tc -V
+tc utility, iproute2-ss090324
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index d1a39b1..6188043 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -391,13 +391,8 @@ static inline void tnode_free(struct tnode *tn)
- static void tnode_free_safe(struct tnode *tn)
- {
- 	BUG_ON(IS_LEAF(tn));
--
--	if (node_parent((struct node *) tn)) {
--		tn->tnode_free = tnode_free_head;
--		tnode_free_head = tn;
--	} else {
--		tnode_free(tn);
--	}
-+	tn->tnode_free = tnode_free_head;
-+	tnode_free_head = tn;
- }
- 
- static void tnode_free_flush(void)
-@@ -1009,7 +1004,7 @@ fib_find_node(struct trie *t, u32 key)
- 	return NULL;
- }
- 
--static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
-+static void trie_rebalance(struct trie *t, struct tnode *tn)
- {
- 	int wasfull;
- 	t_key cindex, key;
-@@ -1033,12 +1028,14 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- 	}
- 
- 	/* Handle last (top) tnode */
--	if (IS_TNODE(tn)) {
-+	if (IS_TNODE(tn))
- 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
-+
-+	rcu_assign_pointer(t->trie, (struct node *)tn);
-+	if (IS_TNODE(tn))
- 		tnode_free_flush();
--	}
- 
--	return (struct node *)tn;
-+	return;
- }
- 
- /* only used from updater-side */
-@@ -1186,7 +1183,7 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- 
- 	/* Rebalance the trie */
- 
--	rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
-+	trie_rebalance(t, tp);
- done:
- 	return fa_head;
- }
-@@ -1605,7 +1602,7 @@ static void trie_leaf_remove(struct trie *t, struct leaf *l)
- 	if (tp) {
- 		t_key cindex = tkey_extract_bits(l->key, tp->pos, tp->bits);
- 		put_child(t, (struct tnode *)tp, cindex, NULL);
--		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
-+		trie_rebalance(t, tp);
- 	} else
- 		rcu_assign_pointer(t->trie, NULL);
- 
+
+
+> Actually, I wonder if these "dropped 0" are OK here if we expect
+> dropping.
+>
+>   
+>>> According to iproute2/doc/actions/actions_general mangle targets
+>>> should work; and you could also try (if it doesn't work then probably
+>>> it can't be used...;-)
+>>>       
+>> They should all be usable. If something crashes, there is a bug
+>> somewhere.
+>>
+>>     
+>>> But... I'm neither able to configure/compile it with the current
+>>> iproute2/iptables, nor test it with distro's builds (Debian testing).
+>>> After some checking I found iproute2 needs updating, because iptables
+>>> changes API (xtables.h) virtually with every new version, so I don't
+>>> even blame the ipt author or distro maintainer.
+>>>
+>>>       
+>> We are hopefully getting stable there. Anything on debian lenny
+>> should be working with iptables 1.4.3; i expect at most "one last
+>> change" (famous last words) to break backward compat as iptables 
+>> moves from version 1.4.3.
+>>     
+>
+> I've tried debian squeeze (testing) with: iptables v1.4.3.2, iproute2
+> -ss090324, and action ipt -j MARK doesn't work. AFAIK debian lenny
+> (stable) uses 1.4.2. I've also tried debian rescue probably based on
+> lenny (with iptables 1.4.2), and it seemed it didn't work yet (I'll
+> re-check this). When you have something new I'd be glad for Cc.
+>
+> Thanks more than always Jamal,
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>   
+
