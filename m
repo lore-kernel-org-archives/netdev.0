@@ -1,42 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Re: iproute2 action/policer question
-Date: Tue, 16 Jun 2009 08:07:28 -0400
-Message-ID: <1245154048.4018.18.camel@dogo.mojatatu.com>
-References: <20090615111927.GA12316@ff.dom.local>
-	 <1245072728.3948.14.camel@dogo.mojatatu.com>
-	 <20090615214748.GA3857@ami.dom.local>
-Reply-To: hadi@cyberus.ca
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [GIT]: Networking
+Date: Tue, 16 Jun 2009 14:24:15 +0200
+Message-ID: <20090616122415.GA16630@elte.hu>
+References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net> <20090616105304.GA3579@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f201.google.com ([209.85.221.201]:46410 "EHLO
-	mail-qy0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755481AbZFPMIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 08:08:46 -0400
-Received: by qyk39 with SMTP id 39so83327qyk.33
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 05:08:48 -0700 (PDT)
-In-Reply-To: <20090615214748.GA3857@ami.dom.local>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:60973 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751998AbZFPMYV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2009 08:24:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20090616105304.GA3579@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-06-15 at 23:47 +0200, Jarek Poplawski wrote:
+
+* Ingo Molnar <mingo@elte.hu> wrote:
 
 > 
-> Jamal, after looking into act_gact or act_nat I guess we should update
-> drops here likewise, unless I miss something?
+> * David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Ingo Molnar <mingo@elte.hu>
+> > Date: Tue, 16 Jun 2009 11:15:38 +0200
+> > 
+> > > 
+> > > hm, FYI, these bits caused widespread scheduling-while-atomic 
+> > > problems on most of my test-systems:
+> > > 
+> > > BUG: sleeping function called from invalid context at net/core/sock.c:1851
+> > > in_atomic(): 1, irqs_disabled(): 0, pid: 544, name: rcu_torture_rea
+> > > 1 lock held by rcu_torture_rea/544:
+> > >  #0:  (&sk->sk_timer){......}, at: [<ffffffff81060560>] run_timer_softirq+0x120/0x2e0
+> > > Pid: 544, comm: rcu_torture_rea Tainted: G        W  2.6.30-tip #54067
+> > > Call Trace:
+> > >  [<ffffffff810820c3>] ? __debug_show_held_locks+0x13/0x30
+> > >  [<ffffffff810489e6>] __might_sleep+0xf6/0x120
+> > >  [<ffffffff81b3921d>] lock_sock_nested+0x3d/0x120
+> > >  [<ffffffff81c1a7d2>] x25_destroy_socket+0x22/0x180
+> > 
+> > Please give this patch a try.
+> 
+> Started testing it - thanks David!
 
-It is ok for consistency. 
-Nota bene: The drop is not really done by the policer; the policer
-mainly suggests that the packet be dropped; so the original idea (which
-is still valid) was some other action may decide to "undo" the drop. 
+With several dozen test-cycles (and [a]x25 reactivated) it looks 
+good and stable so far.
 
-So feel free to add Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Thanks,
 
-cheers,
-jamal
-
+	Ingo
