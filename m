@@ -1,137 +1,84 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH net-next-2.6] ixgbe: fix multi-ring polling [V2]
-Date: Tue, 16 Jun 2009 15:02:24 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.0906161458590.6404@jbrandeb-MOBL3.amr.corp.intel.com>
-References: <20090616205338.GB8515@gospo.rdu.redhat.com> <alpine.WNT.2.00.0906161400001.6404@jbrandeb-MOBL3.amr.corp.intel.com> <20090616214213.GC8515@gospo.rdu.redhat.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Wed, 17 Jun 2009 01:09:48 +0200
+Message-ID: <1245193788.21287.66.camel@johannes.local>
+References: <1244889678.13033.6.camel@johannes.local>
+	 <1244896094.13033.8.camel@johannes.local>
+	 <20090616111842.GG3521@psychotron.englab.brq.redhat.com>
+	 <1245151771.9256.3.camel@johannes.local>
+	 <20090616123808.GK3521@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40984 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751505AbZFPWCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2009 18:02:30 -0400
-In-Reply-To: <20090616214213.GC8515@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-UE8ydtDeKZ87RgRr96Gg"
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	davem <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090616123808.GK3521-YzwxZg+R7evSU73v1vjTzyO4YDw3rz4rAInAS/Ez/D0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Jun 2009, Andy Gospodarek wrote:
-> > > When looking at ixgbe_clean_rxtx_many I noticed two small problems.
-> > > 
-> > >  - work_done needs to be cleared before calling ixgbe_clean_rx_irq since
-> > >    it will exit without cleaning any buffers when work_done is greater
-> > >    than budget (which could happen pretty often after the first ring is
-> > >    cleaned).  A total count will ensure we still return the correct
-> > >    number of frames processed.
-> > 
-> > but (not seen in the below patch) the budget is divided by the number of 
-> > rings on this vector before it is passed to rx_clean, so each ring will 
-> > always get a chance to clean at least one buffer.
-> > 
-> 
-> Not by my reading of ixgbe_clean_rx_irq (which could be wrong, but I've
-> looked again to be sure).  If we have 2 rings that need to be cleaned
-> and a budget of 64 passed into ixgbe_clean_rxtx_many, then budget will
-> be 32 inside the loop.  If the system is busy and there are more than 32
-> buffers that need to be cleaned on the first ring ixgbe_clean_rx_irq
-> will not break until work_done is 32.  When the second ring is polled,
-> work_done is already 32 and so is budget.  The while loop in
-> ixgbe_clean_rx_irq will break immediately and nothing will be cleaned on
-> the second ring.  Let me know if I'm missing something.
 
-ah, you're right, the second loop will already have work_done set, so it 
-should be cleared each loop as your patch does.
+--=-UE8ydtDeKZ87RgRr96Gg
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> > >  - napi_complete should only be called if all rings associated with this
-> > >    napi instance were cleaned completely.  It seems wise to stay on the
-> > >    poll-list if not completely cleaned.
-> > 
-> > that part I agree to.
-> > 
-> > > 
-> > > This has been compile tested only.
-> > 
-> > we can test it but I think we need a V2, see below...
-> > 
-> > > 
-> > > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> > > ---
-> > > 
-> > >  ixgbe_main.c |   11 +++++++----
-> > >  1 file changed, 7 insertions(+), 4 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> > > index a551a96..c009642 100644
-> > > --- a/drivers/net/ixgbe/ixgbe_main.c
-> > > +++ b/drivers/net/ixgbe/ixgbe_main.c
-> > > @@ -1362,9 +1362,9 @@ static int ixgbe_clean_rxtx_many(struct napi_struct *napi, int budget)
-> > >  	                       container_of(napi, struct ixgbe_q_vector, napi);
-> > >  	struct ixgbe_adapter *adapter = q_vector->adapter;
-> > >  	struct ixgbe_ring *ring = NULL;
-> > > -	int work_done = 0, i;
-> > > +	int work_done = 0, total_work = 0, i;
-> > >  	long r_idx;
-> > > -	bool tx_clean_complete = true;
-> > > +	bool rx_clean_complete = true, tx_clean_complete = true;
-> > >  
-> > >  	r_idx = find_first_bit(q_vector->txr_idx, adapter->num_tx_queues);
-> > >  	for (i = 0; i < q_vector->txr_count; i++) {
-> > > @@ -1384,12 +1384,15 @@ static int ixgbe_clean_rxtx_many(struct napi_struct *napi, int budget)
-> > >  	budget = max(budget, 1);
-> > >  	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
-> > >  	for (i = 0; i < q_vector->rxr_count; i++) {
-> > > +		work_done = 0;
-> > >  		ring = &(adapter->rx_ring[r_idx]);
-> > >  #ifdef CONFIG_IXGBE_DCA
-> > >  		if (adapter->flags & IXGBE_FLAG_DCA_ENABLED)
-> > >  			ixgbe_update_rx_dca(adapter, ring);
-> > >  #endif
-> > >  		ixgbe_clean_rx_irq(q_vector, ring, &work_done, budget);
-> > > +		total_work += work_done;
-> > > +		rx_clean_complete &= (work_done < budget);
-> > >  		r_idx = find_next_bit(q_vector->rxr_idx, adapter->num_rx_queues,
-> > >  		                      r_idx + 1);
-> > >  	}
-> > > @@ -1397,7 +1400,7 @@ static int ixgbe_clean_rxtx_many(struct napi_struct *napi, int budget)
-> > >  	r_idx = find_first_bit(q_vector->rxr_idx, adapter->num_rx_queues);
-> > >  	ring = &(adapter->rx_ring[r_idx]);
-> > >  	/* If all Rx work done, exit the polling mode */
-> > > -	if (work_done < budget) {
-> > > +	if (rx_clean_complete && tx_clean_complete) {
-> > >  		napi_complete(napi);
-> > >  		if (adapter->itr_setting & 1)
-> > >  			ixgbe_set_itr_msix(q_vector);
-> > > @@ -1407,7 +1410,7 @@ static int ixgbe_clean_rxtx_many(struct napi_struct *napi, int budget)
-> > >  		return 0;
-> > >  	}
-> > >  
-> > > -	return work_done;
-> > > +	return total_work;
-> > 
-> > I don't think you can return total_work here unless it is always
-> >  == budget, otherwise NAPI will hang.
-> > 
-> > before the only values that would ever be returned were:
-> >  
-> > 1) napi_complete, return work_done (work_done < budget)
-> > 2) return work_done (work_done >= budget)
-> > 
-> > I'm not sure if the > case is even valid in the new napi model, the only 
-> > one we ever use is the work_done == budget to continue polling.
-> > 
-> 
-> Adding a check is no problem, but that means we need to save the
-> original budget.  It would be good to do that to avoid the WARN_ON_ONCE
-> in net_rx_action as well, but should we be cheating like that?  Here's
-> the new patch:
+On Tue, 2009-06-16 at 14:38 +0200, Jiri Pirko wrote:
 
-I hope davem can comment on that.
+> >> Yes, I've already converted unicast lists to use list_head there. I'm =
+sending
+> >> the patch doing the same for multicast lists soon.
+> >
+> >Very nice! After that maybe I'll take a look again at moving things into
+> >a common structure -- I ultimately want to use a multicast list without
+> >a netdev to sync multiple netdevs onto a common multicast list that is
+> >not part of a netdev.
+>=20
+> I see, hmm, I think I can do this change with my conversion... I was thin=
+king
+> about similar thing as you suggest before...
 
-> [PATCH net-next-2.6] ixgbe: fix multi-ring polling V2
+I don't think the patch for converting the multicast lists will hit .31,
+I take it?
 
-I think technically I'm okay with V2, the outstanding questions about what 
-exactly we should return need to be answered.
+I'd like to get this patch into the .32 tree once it opens
+http://johannes.sipsolutions.net/patches/kernel/all/LATEST/NNN-net-core-mc-=
+sync-list.patch
 
+but I don't know how to handle that wrt. your patch, which will clearly
+conflict with mein. Will you be sending that soon?
+
+I guess we could stick this one into wireless-testing, and then take it
+out again once your patch hits the tree and offers me similar API for
+list_head based multicast lists?
+
+johannes
+
+--=-UE8ydtDeKZ87RgRr96Gg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKOCY3AAoJEODzc/N7+QmadVgQAIii74dXzgsltM2khSGbpJq0
++HduX2BMg43HlyA09C7iZJJ+U5I25pfyx3+zjqdy2blj/I76eSdEJLQlSjjxN5pd
+8rCTJJMOrVByk+wqs9vlZVKMc42wf0YYN1GupBZgEyI8ofYSnZBFtVzKn49CLlDc
+AQRb7UvAL0tIeM6Xm8wU7WPAP55isdn/0ah9yoCtPhC+cFcvR+xINGdHd0g+worx
+JAIykN/RNrVhnVV11FqqL0xw2rtsEFzBH/zYN/dEGD442wBvgYnjOJK63BBX97SD
+5sHCxqhh5HdqXKvB+I/fZS/WZX0PLyc+Rm4AsV1tp92eYuz0tIDitXA173cuWo11
+bDmmV7gcdKvXezHHbE7u2fy1ckJfOiHImbyeYEfEkaLujZ/k3yoVK8W58NrSVPfS
+FeeAkic3mkXcuiKpE6czRzWhFcmnkv6gbqC4F0vhXOxv8wxSnyhICeeW6WPWSxPt
+ImZ56vLlsPdYKNryWp+txlW9aknJfWLaor5c0G1cQxuqgTCb1pPwtQgwdRZCt1fY
+IFnkGqXQR9bYrGah1PnJnwr1GdLILylRGaLHUB1aM2T/nwngPs8nKNrZ+73e32Se
+zcwm9vWjaV4Nl9SABbpV1HkYBEwhe3TJpnrtEJKs4x5LNni4dqcg7szeAUxeq9Pk
+4j+0/6bXwx01uqO/Q5nm
+=B1Ly
+-----END PGP SIGNATURE-----
+
+--=-UE8ydtDeKZ87RgRr96Gg--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
