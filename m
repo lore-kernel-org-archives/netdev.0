@@ -1,78 +1,92 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: flow director and packet ordering
-Date: Mon, 15 Jun 2009 23:42:16 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0906152327070.7160@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090615.020738.243788769.davem@davemloft.net>
+From: Stefan Schmidt <stefan@datenfreihafen.org>
+Subject: Re: WARN_ON's in i915_gem_tiling.c
+Date: Tue, 16 Jun 2009 09:11:05 +0200
+Message-ID: <20090616071105.GA19511@excalibur.local>
+References: <20090614173331.18f01123@infradead.org>
+	<20090615070651.GB1221@excalibur.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25621 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750816AbZFPGm3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2009 02:42:29 -0400
-In-Reply-To: <20090615.020738.243788769.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, dri-devel@lists.sourceforge.net, tglx@tglx.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rjw@sisk.pl, eric@anholt.net, akpm@linux-foundation.org,
+	dwmw2@infradead.org, torvalds@linux-foundation.org,
+	mingo@elte.hu, alan@lxorguk.ukuu.org.uk,
+	Arjan van de Ven <arjan@infradead.org>
+To: Stefan Schmidt <stefan@datenfreihafen.org>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <20090615070651.GB1221@excalibur.local>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+	<mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Sender: alsa-devel-bounces@alsa-project.org
+Errors-To: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Jun 2009, David Miller wrote:
+Hello.
 
+Bringing Eric into the loop here as he is listed as author of the
+i915_gem_tiling.c
+
+On Mon, 2009-06-15 at 09:06, Stefan Schmidt wrote:
 > 
-> Does the flow director implementation in IXGBE make sure to preserve
-> packet ordering in some way?
+> On Sun, 2009-06-14 at 17:33, Arjan van de Ven wrote:
+> > 
+> > Rank 1: i915_gem_set_tiling (warning)
+> > 	Reported 830 times (3700 total reports)
+> > 	[gem] Failure in the tiling code
+> > 	This warning was last seen in version 2.6.30, and first seen in 2.6.29-rc2.
+> > 	More info: http://www.kerneloops.org/searchweek.php?search=i915_gem_set_tiling
 > 
-> You can't just change the RX flow destination queue whenever you like.
+> There seem to be more then one issue. I'm running into one of them here on a
+> Lenovo Thinkpad X200s. It's 2.6.30 and I enabled KMS the first time here. So I
+> can't tell if it is a regression.
 > 
-> For example, if a transmit happens on cpu 1, then we start to receive
-> some packets for that flow on that cpu, will a sudden set of transmits
-> on another cpu make the flow director quickly switch the RX
-> destination?
+> http://www.kerneloops.org/oops.php?number=207353
 
-Not by design, no.  The mode of Flow Director that is currently in the 
-driver is the hashing mode.  82599 also supports a perfect match mode, 
-which isn't supported yet, since there's no good interface to program the 
-5-tuple filters (I've been watching the ethtool work from the Sun guys for 
-niu, but haven't had time to help).
+http://www.kerneloops.org/raw.php?rawid=453362&msgid=
 
-Back to the hashing mode.  The idea is that a particular flow, say on CPU 
-1, will be hashed.  There are two layers of hashing; the first 
-will land the flow into a bucket, the second will land it into the 
-filter lists.  The two hash values for the Tx packet are then written 
-to the filter table along with the Rx queue.  There are two ways that the 
-Rx queue for that flow could be moved: 1) The flow itself moves from CPU 1
-to a different CPU.  This is the most likely case that will move the Rx 
-flow.  2) We have a double collision on the hashes.  This really isn't 
-very likely that a different flow will collide on both hashed values.
+and
 
-The reason we have two levels of hashing is to try and avoid this possible 
-situation of a collision accidentally moving a different flow.
+http://www.kerneloops.org/oops.php?number=453361
 
+Are looking similar to #207353 to me. That's the one I can easily reproduce by
+booting into an KMS enabled kernel. Without modsetting eveything is fine. Let me
+know if there are patches I should give a try.
+
+> The result is that the EDID data could not be read and the wrong screen size
+> set:
+> [   45.524589] i2c-adapter i2c-3: unable to read EDID block.
+> [   45.588200] i915 0000:00:02.0: DVI-D-2: no EDID data
+> [   45.777251] [drm] TMDS-14: set mode 1360x768 13
+> [   45.777261] [drm] TMDS-16: set mode 1360x768 13 <= Should be 1280x900 here
 > 
-> That would be very bad.
-
-Agreed.
-
+> Somehow the driver tries to use DVI1 and DVI2 while the display is connected to
+> LVDS1.
 > 
-> Without some extreme care that will result in potential packet
-> reordering.
-> 
-> There needs to be some safey net in place in your silicon to wait for
-> a significant "quiet time" in the RX stream before you can revector
-> the RX flow destination setting.  Enough time to let the stack process
-> all that packets for that flow received on the currently bound flow
-> CPU.
+> stefan@excalibur:~$ xrandr
+> Screen 0: minimum 320 x 200, current 1360 x 800, maximum 8192 x 8192
+> VGA1 disconnected (normal left inverted right x axis y axis)
+> LVDS1 connected 1280x800+0+0 (normal left inverted right x axis y axis) 261mm x
+> 163mm
+>    1280x800       60.0*+   50.0  
+> DVI1 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
+>    1360x768       59.8* 
+>    1152x864       60.0  
+>    1024x768       60.0  
+>    800x600        60.3  
+>    640x480        59.9  
+> DVI2 connected 1360x768+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
+>    1360x768       59.8* 
+>    1152x864       60.0  
+>    1024x768       60.0  
+>    800x600        60.3  
+>    640x480        59.9
 
-The current Rx DMA's that have been posted must be completed before our 
-hardware will apply the changes to the Rx filters.
-
-> 
-> To be honest, I'm not optimistic about this situation :-/
-
-The way the internal hashing works in the software and hardware, I think 
-we're pretty safe with getting moved unexpectedely.
-
-Cheers,
--PJ Waskiewicz
+regards
+Stefan Schmidt
