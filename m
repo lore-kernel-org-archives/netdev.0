@@ -1,68 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] Re: iproute2 action/policer question
-Date: Tue, 16 Jun 2009 20:33:55 +0200
-Message-ID: <20090616183355.GA3800@ami.dom.local>
-References: <20090615111927.GA12316@ff.dom.local> <1245072728.3948.14.camel@dogo.mojatatu.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT]: Networking
+Date: Tue, 16 Jun 2009 11:59:34 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0906161155400.3282@localhost.localdomain>
+References: <20090616094813.GA1686@elte.hu> <20090616.025659.224075454.davem@davemloft.net> <20090616101132.GA28204@elte.hu> <20090616.033554.102149558.davem@davemloft.net> <4A37A058.1030701@gmail.com> <4A37AA0C.40507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>,
-	=?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, mingo@elte.hu,
+	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:39643 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753918AbZFPSfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 14:35:47 -0400
-Received: by bwz9 with SMTP id 9so4278689bwz.37
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 11:35:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1245072728.3948.14.camel@dogo.mojatatu.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59535 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761258AbZFPS7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 14:59:52 -0400
+In-Reply-To: <4A37AA0C.40507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is take 2 with Jamal's ack, and Pawel's name "simplified".
-Pawel, if you're not OK with this feel free to send your "Reported-by"
-line, and I hope David will replace it.
 
-Thanks,
-Jarek P.
--------------------> take 2
-pkt_sched: Update drops stats in act_police
 
-Action police statistics could be misleading because drops are not
-shown when expected.
+On Tue, 16 Jun 2009, Eric Dumazet wrote:
+> 
+> Here is first patch to take into account this initial offset in sk_wmem_alloc
+> 
+> (Only compiled, not tested)
 
-With feedback from: Jamal Hadi Salim <hadi@cyberus.ca>
+I think this is incredibly ugly and hacky.
 
-Reported-by: Pawel Staszewski <pstaszewski@itcare.pl>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
----
+> @@ -162,7 +162,7 @@ static void atalk_destroy_timer(unsigned long data)
+>  {
+>  	struct sock *sk = (struct sock *)data;
+>  
+> -	if (atomic_read(&sk->sk_wmem_alloc) ||
+> +	if (atomic_read(&sk->sk_wmem_alloc) > 1 ||
+>  	    atomic_read(&sk->sk_rmem_alloc)) {
 
- net/sched/act_police.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Seriously, look at that code, and tell me it makes sense.
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index f8f047b..723964c 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -294,6 +294,8 @@ static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
- 	if (police->tcfp_ewma_rate &&
- 	    police->tcf_rate_est.bps >= police->tcfp_ewma_rate) {
- 		police->tcf_qstats.overlimits++;
-+		if (police->tcf_action == TC_ACT_SHOT)
-+			police->tcf_qstats.drops++;
- 		spin_unlock(&police->tcf_lock);
- 		return police->tcf_action;
- 	}
-@@ -327,6 +329,8 @@ static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
- 	}
- 
- 	police->tcf_qstats.overlimits++;
-+	if (police->tcf_action == TC_ACT_SHOT)
-+		police->tcf_qstats.drops++;
- 	spin_unlock(&police->tcf_lock);
- 	return police->tcf_action;
- }
+No, it does not. The code looks like totally random line noise, and that 
+whole "> 1" test makes no conceptual sense what-so-ever.
+
+It _will_ result in random bugs later on, because code that doesn't make 
+sense will never be good in the long run.
+
+At the very least, add a helper function for "do I actually have 
+outstanding allocations" or something like that. IOW, do a 
+
+	/*
+	 * Comment here about that magical "1"
+	 */
+	static inline int sk_has_allocations(struct sock *sk)
+	{
+		return atomic_read(&sk->sk_wmem_alloc) > 1 ||
+			atomic_read(&sk->sk_rmem_alloc);
+	}
+
+and then make the various network protocols use that, rather than 
+open-coding some random internal implementation magic.
+
+		Linus
