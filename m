@@ -1,46 +1,43 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [GIT]: Networking
-Date: Tue, 16 Jun 2009 12:53:04 +0200
-Message-ID: <20090616105304.GA3579@elte.hu>
-References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Tue, 16 Jun 2009 13:18:43 +0200
+Message-ID: <20090616111842.GG3521@psychotron.englab.brq.redhat.com>
+References: <1244889678.13033.6.camel@johannes.local> <1244896094.13033.8.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:33156 "EHLO mx3.mail.elte.hu"
+Received: from mx2.redhat.com ([66.187.237.31]:42836 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751267AbZFPKxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2009 06:53:14 -0400
+	id S1752526AbZFPLSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Jun 2009 07:18:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20090616.034752.226811527.davem@davemloft.net>
+In-Reply-To: <1244896094.13033.8.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Sat, Jun 13, 2009 at 02:28:14PM CEST, johannes@sipsolutions.net wrote:
+>On Sat, 2009-06-13 at 12:41 +0200, Johannes Berg wrote:
+>> I'm trying to use address lists without netdevs, but as
+>> a first step I thought it would be good to reduce the
+>> amount duplicated code between unicast and multicast
+>> lists.
+>> 
+>> After introducing a new 'struct address_list', we can
+>> unify a lot between these. The next step will probably
+>> be exporting the __dev_addr_sync and __dev_addr_unsync
+>> functions so I can use them without a netdev, but this
+>> cleanup can stand on its own.
+>
+>Sorry, this was based against the wrong tree and now I see that in
+>net-next the lists have diverged significantly. Ignore this.
 
-* David Miller <davem@davemloft.net> wrote:
+Yes, I've already converted unicast lists to use list_head there. I'm sending
+the patch doing the same for multicast lists soon.
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Tue, 16 Jun 2009 11:15:38 +0200
-> 
-> > 
-> > hm, FYI, these bits caused widespread scheduling-while-atomic 
-> > problems on most of my test-systems:
-> > 
-> > BUG: sleeping function called from invalid context at net/core/sock.c:1851
-> > in_atomic(): 1, irqs_disabled(): 0, pid: 544, name: rcu_torture_rea
-> > 1 lock held by rcu_torture_rea/544:
-> >  #0:  (&sk->sk_timer){......}, at: [<ffffffff81060560>] run_timer_softirq+0x120/0x2e0
-> > Pid: 544, comm: rcu_torture_rea Tainted: G        W  2.6.30-tip #54067
-> > Call Trace:
-> >  [<ffffffff810820c3>] ? __debug_show_held_locks+0x13/0x30
-> >  [<ffffffff810489e6>] __might_sleep+0xf6/0x120
-> >  [<ffffffff81b3921d>] lock_sock_nested+0x3d/0x120
-> >  [<ffffffff81c1a7d2>] x25_destroy_socket+0x22/0x180
-> 
-> Please give this patch a try.
+Jirka
+>
+>johannes
 
-Started testing it - thanks David!
 
-	Ingo
