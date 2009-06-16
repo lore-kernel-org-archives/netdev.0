@@ -1,29 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] udp: remove unused union in udp_skb_cb.
-Date: Tue, 16 Jun 2009 02:40:58 -0700 (PDT)
-Message-ID: <20090616.024058.209622628.davem@davemloft.net>
-References: <eb3ff54b0906160150n74fb8984u84a366f5e472b4c3@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [GIT]: Networking
+Date: Tue, 16 Jun 2009 10:44:17 +0100
+Message-ID: <20090616104417.657d6682@lxorguk.ukuu.org.uk>
+References: <20090615.050449.144947903.davem@davemloft.net>
+	<20090616091538.GA4184@elte.hu>
+	<20090616.021955.243374916.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: mingo@elte.hu, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45137
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752700AbZFPJkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 05:40:55 -0400
-In-Reply-To: <eb3ff54b0906160150n74fb8984u84a366f5e472b4c3@mail.gmail.com>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:53695 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751485AbZFPJnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 05:43:15 -0400
+In-Reply-To: <20090616.021955.243374916.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Tue, 16 Jun 2009 11:50:11 +0300
+On Tue, 16 Jun 2009 02:19:55 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> This cleanup patch removes an unused union (header) in udp_skb_cb.
-> (include/net/udp.h)
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Tue, 16 Jun 2009 11:15:38 +0200
+> 
+> >  [<ffffffff810489e6>] __might_sleep+0xf6/0x120
+> >  [<ffffffff81b3921d>] lock_sock_nested+0x3d/0x120
+> >  [<ffffffff81c1a7d2>] x25_destroy_socket+0x22/0x180
+> >  [<ffffffff81c1aa4e>] x25_destroy_timer+0xe/0x10
+> >  [<ffffffff81060619>] run_timer_softirq+0x1d9/0x2e0
+> >  [<ffffffff81060560>] ? run_timer_softirq+0x120/0x2e0
+> 
+> What on your system is openning x25 sockets?  Some stress/torture
+> program that opens random sockets?
+> 
+> Or have you gotten into packet radio recently? :-)
 
-It is used Rami.  The layer above UDP packet processing used
-IPSKB() and the ipv6 variant (I forget what it's called) so
-we have to take care not to write over that layer's recorded
-values in the skb->cb[]
+packet radio is AX.25
+
+X.25 is the CCITT wired network protocol over HDLC/LAP-B
+
