@@ -1,255 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: net: fix network drivers ndo_start_xmit() return values
-Date: Tue, 16 Jun 2009 11:33:24 +0200
-Message-ID: <4A3766E4.3080500@trash.net>
-References: <4A367E14.4040104@trash.net>	<20090616061603.GA4494@ff.dom.local>	<20090616071204.GB4494@ff.dom.local> <20090616.022241.47960267.davem@davemloft.net>
+From: Jouni Malinen <j@w1.fi>
+Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
+	window
+Date: Tue, 16 Jun 2009 12:34:01 +0300
+Message-ID: <20090616093401.GA11602@jm.kir.nu>
+References: <1245096771-3966-1-git-send-email-lrodriguez@atheros.com> <20090615201934.GA12685@kroah.com> <20090615214735.GE23972@bombadil.infradead.org> <20090615223206.GA4966@kroah.com> <20090616004122.GC5492@tesla> <20090616021011.GF23972@bombadil.infradead.org> <20090616032034.GA17932@kroah.com> <20090616042113.GA5680@tesla>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070106060202020408030205"
-Cc: jarkao2@gmail.com, netdev@vger.kernel.org, perex@perex.cz
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34068 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbZFPJdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 05:33:23 -0400
-In-Reply-To: <20090616.022241.47960267.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	Luis Rodriguez <Luis.Rodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	"corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>,
+	"mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090616042113.GA5680@tesla>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070106060202020408030205
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Mon, Jun 15, 2009 at 09:21:14PM -0700, Luis R. Rodriguez wrote:
 
-David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Tue, 16 Jun 2009 07:12:04 +0000
->
->   
->> On Tue, Jun 16, 2009 at 06:16:03AM +0000, Jarek Poplawski wrote:
->>     
->>> On 15-06-2009 19:00, Patrick McHardy wrote:
->>>       
->>>> This patch contains the final driver ndo_start_xmit() return
->>>> value fixups. I'm pretty sure I got them all ...
->>>>         
->> ...You should probably revisit wireless/zd1201.c (return 0) btw.
->>     
->
-> Yes this patch needs a little bit more work :)
->   
+> +2.0.2: RC-SERIES RULES
+> +
+> +Rules on what kind of patches are accepted after the merge window closes.
+> +These are patches targeted for the kernel rc-series of a kernel prior
+> +to its release.
+> +
+> + - it must fix a reported regression
+> + - if must fix a reported security hole
+> + - if must fix a reported oops/kernel hang
 
-This one should be better.
 
---------------070106060202020408030205
-Content-Type: text/x-diff;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
+s/if/it/ twice..
 
-commit acc5f221cf65ce481ddf8b7ef9e058a37562d709
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Tue Jun 16 11:31:52 2009 +0200
+Is there a good reason for documenting different rules for rc-series and
+-stable releases? These three rules look stricter than the ones
+described in stable_kernel_rules.txt:
 
-    net: fix network drivers ndo_start_xmit() return values
-    
-    Fix up remaining drivers returning a magic or an errno value from their
-    ndo_start_xmit() functions that were missed in the first pass:
-    
-    - isdn_net: missed conversion
-    - bpqether: missed conversion: skb is freed, so return NETDEV_TX_OK
-    - hp100: intention appears to be to resubmit skb once resources are
-      available, but due to no queue handling it is dropped for now.
-    - lapbether: skb is freed, so return NETDEV_TX_OK
-    
-    Compile tested only.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+ - It must fix a problem that causes a build error (but not for things
+   marked CONFIG_BROKEN), an oops, a hang, data corruption, a real
+   security issue, or some "oh, that's not good" issue.  In short, something
+   critical.
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 34d54e7..de4aad0 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -1300,7 +1300,7 @@ isdn_net_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 				netif_stop_queue(ndev);
- 		}
- 	}
--	return 1;
-+	return NETDEV_TX_BUSY;
- }
- 
- /*
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index 5105548..abcd19a 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -260,7 +260,7 @@ static int bpq_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 */
- 	if (!netif_running(dev)) {
- 		kfree_skb(skb);
--		return -ENODEV;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	skb_pull(skb, 1);
-diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
-index 8feda9f..1d3429a 100644
---- a/drivers/net/hp100.c
-+++ b/drivers/net/hp100.c
-@@ -1495,13 +1495,8 @@ static int hp100_start_xmit_bm(struct sk_buff *skb, struct net_device *dev)
- 	hp100_outw(0x4210, TRACE);
- 	printk("hp100: %s: start_xmit_bm\n", dev->name);
- #endif
--
--	if (skb == NULL) {
--		return 0;
--	}
--
- 	if (skb->len <= 0)
--		return 0;
-+		goto drop;
- 
- 	if (lp->chip == HP100_CHIPID_SHASTA && skb_padto(skb, ETH_ZLEN))
- 		return 0;
-@@ -1514,10 +1509,10 @@ static int hp100_start_xmit_bm(struct sk_buff *skb, struct net_device *dev)
- #endif
- 		/* not waited long enough since last tx? */
- 		if (time_before(jiffies, dev->trans_start + HZ))
--			return -EAGAIN;
-+			goto drop;
- 
- 		if (hp100_check_lan(dev))
--			return -EIO;
-+			goto drop;
- 
- 		if (lp->lan_type == HP100_LAN_100 && lp->hub_status < 0) {
- 			/* we have a 100Mb/s adapter but it isn't connected to hub */
-@@ -1551,7 +1546,7 @@ static int hp100_start_xmit_bm(struct sk_buff *skb, struct net_device *dev)
- 		}
- 
- 		dev->trans_start = jiffies;
--		return -EAGAIN;
-+		goto drop;
- 	}
- 
- 	/*
-@@ -1591,6 +1586,10 @@ static int hp100_start_xmit_bm(struct sk_buff *skb, struct net_device *dev)
- 	dev->trans_start = jiffies;
- 
- 	return 0;
-+
-+drop:
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
- }
- 
- 
-@@ -1648,16 +1647,11 @@ static int hp100_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	hp100_outw(0x4212, TRACE);
- 	printk("hp100: %s: start_xmit\n", dev->name);
- #endif
--
--	if (skb == NULL) {
--		return 0;
--	}
--
- 	if (skb->len <= 0)
--		return 0;
-+		goto drop;
- 
- 	if (hp100_check_lan(dev))
--		return -EIO;
-+		goto drop;
- 
- 	/* If there is not enough free memory on the card... */
- 	i = hp100_inl(TX_MEM_FREE) & 0x7fffffff;
-@@ -1671,7 +1665,7 @@ static int hp100_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			printk("hp100: %s: trans_start timing problem\n",
- 			       dev->name);
- #endif
--			return -EAGAIN;
-+			goto drop;
- 		}
- 		if (lp->lan_type == HP100_LAN_100 && lp->hub_status < 0) {
- 			/* we have a 100Mb/s adapter but it isn't connected to hub */
-@@ -1705,7 +1699,7 @@ static int hp100_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			}
- 		}
- 		dev->trans_start = jiffies;
--		return -EAGAIN;
-+		goto drop;
- 	}
- 
- 	for (i = 0; i < 6000 && (hp100_inb(OPTION_MSW) & HP100_TX_CMD); i++) {
-@@ -1759,6 +1753,11 @@ static int hp100_start_xmit(struct sk_buff *skb, struct net_device *dev)
- #endif
- 
- 	return 0;
-+
-+drop:
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+
- }
- 
- 
-diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-index 2dd78d2..aff4f6b 100644
---- a/drivers/net/wan/lapbether.c
-+++ b/drivers/net/wan/lapbether.c
-@@ -149,46 +149,40 @@ static int lapbeth_data_indication(struct net_device *dev, struct sk_buff *skb)
-  */
- static int lapbeth_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	int err = -ENODEV;
-+	int err;
- 
- 	/*
- 	 * Just to be *really* sure not to send anything if the interface
- 	 * is down, the ethernet device may have gone.
- 	 */
--	if (!netif_running(dev)) {
-+	if (!netif_running(dev))
- 		goto drop;
--	}
- 
- 	switch (skb->data[0]) {
- 	case 0x00:
--		err = 0;
- 		break;
- 	case 0x01:
- 		if ((err = lapb_connect_request(dev)) != LAPB_OK)
- 			printk(KERN_ERR "lapbeth: lapb_connect_request "
- 			       "error: %d\n", err);
--		goto drop_ok;
-+		goto drop;
- 	case 0x02:
- 		if ((err = lapb_disconnect_request(dev)) != LAPB_OK)
- 			printk(KERN_ERR "lapbeth: lapb_disconnect_request "
- 			       "err: %d\n", err);
- 		/* Fall thru */
- 	default:
--		goto drop_ok;
-+		goto drop;
- 	}
- 
- 	skb_pull(skb, 1);
- 
- 	if ((err = lapb_data_request(dev, skb)) != LAPB_OK) {
- 		printk(KERN_ERR "lapbeth: lapb_data_request error - %d\n", err);
--		err = -ENOMEM;
- 		goto drop;
- 	}
--	err = 0;
- out:
--	return err;
--drop_ok:
--	err = 0;
-+	return NETDEV_TX_OK;
- drop:
- 	kfree_skb(skb);
- 	goto out;
+For example, a fix for data corruption that users can hit relatively
+easily sounds like a good example of something that should really be
+accepted during the rc-phase even if it is not really a regression or
+does not cause a kernel oops/hang.
 
---------------070106060202020408030205--
+"oh, that's not good" issue is somewhat more difficult to comment on,
+but I would expect that there could be some critical issues that really
+would benefit from an exception. What exactly would qualify is something
+that may be not be easily described in a sentence or two, though.
+
+
+The main problem I see with having a very hard line on not allowing
+critical fixes (however that would be defined) during the rc-phase is
+that it will take quite a long time to get the fix eventually out. As an
+example, a driver could have a bug that prevents it from working with
+certain subset of devices, but this is noticed only couple of kernel
+releases after the initial driver merge (e.g., for hardware that was not
+yet available for end users at the time the driver was initially
+submitted). In other words, the issue would not be a regression, not a
+security hole, and not an oops/kernel hang. However, it could make the
+driver unusable to large number of users (once the affected hardware
+model becomes available; say in a new laptop).
+
+If an issue is fixed just before a start of the next merge window the
+patch may not have had enough time to go through the maintainers and end
+up in linux-2.6.git in time before the merge window closes. If it
+weren't now allowed in during the rc-phase, it may not go into a stable
+release either (assuming the rc/stable rules are more or less the same)
+and we would be looking something like five month time until the fix
+would actually be released in a proper kernel release. Sure,
+users/distros could take in some additional patches to fix issues they
+care about, but worst case scenarios of close to half a year to fix an
+issue in a kernel release does not sound quite ideal.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
