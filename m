@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 16 Jun 2009 02:21:31 -0700 (PDT)
-Message-ID: <20090616.022131.267374816.davem@davemloft.net>
-References: <20090615.050449.144947903.davem@davemloft.net>
-	<20090616091538.GA4184@elte.hu>
+Subject: Re: net: fix network drivers ndo_start_xmit() return values
+Date: Tue, 16 Jun 2009 02:22:41 -0700 (PDT)
+Message-ID: <20090616.022241.47960267.davem@davemloft.net>
+References: <4A367E14.4040104@trash.net>
+	<20090616061603.GA4494@ff.dom.local>
+	<20090616071204.GB4494@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mingo@elte.hu
+Cc: kaber@trash.net, netdev@vger.kernel.org, perex@perex.cz
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40473
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40477
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751321AbZFPJV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 05:21:28 -0400
-In-Reply-To: <20090616091538.GA4184@elte.hu>
+	by vger.kernel.org with ESMTP id S1752547AbZFPJWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 05:22:38 -0400
+In-Reply-To: <20090616071204.GB4494@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 16 Jun 2009 11:15:38 +0200
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 16 Jun 2009 07:12:04 +0000
 
-> BUG: sleeping function called from invalid context at net/core/sock.c:1851
+> On Tue, Jun 16, 2009 at 06:16:03AM +0000, Jarek Poplawski wrote:
+>> On 15-06-2009 19:00, Patrick McHardy wrote:
+>> > This patch contains the final driver ndo_start_xmit() return
+>> > value fixups. I'm pretty sure I got them all ...
+> 
+> ...You should probably revisit wireless/zd1201.c (return 0) btw.
 
-This line in my tree (and Linus's) reads:
-
-	if (sk->sk_lock.owned)
-
-what gives? :-)
+Yes this patch needs a little bit more work :)
