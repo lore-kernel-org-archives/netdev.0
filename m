@@ -1,43 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Wed, 17 Jun 2009 02:38:56 +1000
-Message-ID: <20090616163856.GA17318@gondor.apana.org.au>
-References: <20090529162312.GA5191@neterion.com> <20090610054449.GB16984@gondor.apana.org.au> <20090612160926.GA4290@neterion.com> <20090612.164833.35888001.davem@davemloft.net> <20090616163547.GC5013@neterion.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] ipv6: Keep index within tab_unreach[]
+Date: Tue, 16 Jun 2009 20:40:21 +0200
+Message-ID: <4A37E715.4060504@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40824 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758330AbZFPQi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 12:38:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20090616163547.GC5013@neterion.com>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:45611 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754843AbZFPQkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 12:40:16 -0400
+Received: by bwz9 with SMTP id 9so4198615bwz.37
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 09:40:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 16, 2009 at 12:35:47PM -0400, Benjamin LaHaise wrote:
-> On Fri, Jun 12, 2009 at 04:48:33PM -0700, David Miller wrote:
-> > I find a 500Mbps difference, due to just one single cache miss on
-> > every packet, simply astounding and unbelievable.  But hey, it is
-> > what you are seeing, so something has to account for it. :)
-> 
-> The cache miss only accounts for ~50Mbpsi, it'd be nice if there was an 
-> easy way to get the whole 500Mbps back.  The rest seems to be in the 
-> general overhead of the GRO code vs the normal NAPI rx path.  The P4 
-> Xeon is substantially worse at string operations than the Core 2 / Core i7 
-> based Xeons, so I'm hoping to test and see if they do any better with the 
-> GRO code when I get access to a new machine soon.
+Ensure that index `code' remains within array tab_unreach[]
 
-I'm hoping to get onto this tomorrow.  I think there's definitely
-something broken because there's no way GRO should be slower than
-GRO off.  Slightly slower than LRO perhaps but surely not worse than
-not merging at all :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 36dff88..8f850de 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -923,7 +923,7 @@ int icmpv6_err_convert(int type, int code, int *err)
+ 	switch (type) {
+ 	case ICMPV6_DEST_UNREACH:
+ 		fatal = 1;
+-		if (code <= ICMPV6_PORT_UNREACH) {
++		if (code <= ICMPV6_PORT_UNREACH && code >= 0) {
+ 			*err  = tab_unreach[code].err;
+ 			fatal = tab_unreach[code].fatal;
+ 		}
