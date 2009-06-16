@@ -1,43 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Tue, 16 Jun 2009 12:08:29 -0700 (PDT)
-Message-ID: <20090616.120829.182011393.davem@davemloft.net>
-References: <4A37A058.1030701@gmail.com>
-	<4A37AA0C.40507@gmail.com>
-	<alpine.LFD.2.01.0906161155400.3282@localhost.localdomain>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: lots of cpu time spent in skb_copy_bits() in net-next with
+	small mtu
+Date: Tue, 16 Jun 2009 19:20:00 +0000
+Message-ID: <1245180000.7150.6.camel@Maple>
+References: <20090612161320.GB4290@neterion.com>
+	 <Pine.LNX.4.64.0906122248450.31625@melkinkari.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mingo@elte.hu, alan@lxorguk.ukuu.org.uk,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benjamin LaHaise <ben.lahaise@neterion.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48095
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759965AbZFPTI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 15:08:26 -0400
-In-Reply-To: <alpine.LFD.2.01.0906161155400.3282@localhost.localdomain>
+Received: from mail-pz0-f187.google.com ([209.85.222.187]:50433 "EHLO
+	mail-pz0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212AbZFPTUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 15:20:02 -0400
+Received: by pzk17 with SMTP id 17so2884645pzk.33
+        for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 12:20:04 -0700 (PDT)
+In-Reply-To: <Pine.LNX.4.64.0906122248450.31625@melkinkari.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 16 Jun 2009 11:59:34 -0700 (PDT)
+On Fri, 2009-06-12 at 22:57 +0300, Ilpo J=C3=A4rvinen wrote:
+> On Fri, 12 Jun 2009, Benjamin LaHaise wrote:
+>=20
+> > Just a heads up: something in net-next is resulting in lots of cpu =
+time=20
+> > being spent in skb_copy_bits() (called from tcp_collapse()) when an=
+ ethernet=20
+> > interface mtu is lowered to 576 on the source and dest machines run=
+ning=20
+> > netperf.  This behaviour does not appear in 2.6.29.  I'll try to bi=
+sect=20
+> > it this weekend.
+>=20
+> I'd suggest somebody goes through DaveM's abstraction patch 915219441=
+d56=20
+> (I'm totally out of time so somebody else has to do it if a timely=20
+> solution is desired)... It was quite messy on those parts and I alrea=
+dy=20
+> found one issue from it (2df9001edc3) and wouldn't be too surprised i=
+f=20
+> there would be some more lurking around...=20
 
-> At the very least, add a helper function for "do I actually have 
-> outstanding allocations" or something like that. IOW, do a 
-> 
-> 	/*
-> 	 * Comment here about that magical "1"
-> 	 */
-> 	static inline int sk_has_allocations(struct sock *sk)
-> 	{
-> 		return atomic_read(&sk->sk_wmem_alloc) > 1 ||
-> 			atomic_read(&sk->sk_rmem_alloc);
-> 	}
-> 
-> and then make the various network protocols use that, rather than 
-> open-coding some random internal implementation magic.
+I couldn't find anything wrong with tcp_prune_queue() and its helpers a=
+s
+they appear in today's net-next.
 
-I agree, this should be handled with a helper function
-abstraction rather than putting "1" checks all over the place.
+Take that with a grain of salt if you wish--I'm going to go take a
+couple grains of aspirin.
+
+  --  John
+
