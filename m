@@ -1,32 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Mon, 15 Jun 2009 16:18:58 -0700 (PDT)
-Message-ID: <20090615.161858.00964937.davem@davemloft.net>
-References: <65634d660906142252y6f7fc021l844b172995c10044@mail.gmail.com>
-	<20090615.020240.84385988.davem@davemloft.net>
-	<65634d660906150939w7a940eegbe74aea7bfbb7f71@mail.gmail.com>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
+	window
+Date: Mon, 15 Jun 2009 17:41:22 -0700
+Message-ID: <20090616004122.GC5492@tesla>
+References: <1245096771-3966-1-git-send-email-lrodriguez@atheros.com> <20090615201934.GA12685@kroah.com> <20090615214735.GE23972@bombadil.infradead.org> <20090615223206.GA4966@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: "Luis R. Rodriguez" <mcgrof@bombadil.infradead.org>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
+To: Greg KH <greg@kroah.com>, <corbet@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52431
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751455AbZFOXSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Jun 2009 19:18:55 -0400
-In-Reply-To: <65634d660906150939w7a940eegbe74aea7bfbb7f71@mail.gmail.com>
+Received: from mail.atheros.com ([12.36.123.2]:38755 "EHLO mail.atheros.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751179AbZFPAlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Jun 2009 20:41:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20090615223206.GA4966@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 15 Jun 2009 09:39:20 -0700
+On Mon, Jun 15, 2009 at 03:32:06PM -0700, Greg KH wrote:
+> On Mon, Jun 15, 2009 at 05:47:35PM -0400, Luis R. Rodriguez wrote:
+> > From: Luis R. Rodriguez <lrodriguez@atheros.com>
+> > Subject: [PATCH] Documentation: add documentation summary for rc-series and merge window
+> >
+> > This is losely based on previous discussions on linux-kernel [1][2].
+> > Lets also refer people reading the stable rules to
+> > Documentation/development-process/.
+> >
+> > [1] http://marc.info/?l=linux-kernel&m=122048427801324&w=2
+> > [2] http://marc.info/?l=linux-netdev&m=122048757705315&w=2
+> >
+> > Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
+> > ---
+> >  Documentation/development-process/2.Process |   66 +++++++++++++++++++++++++++
+> >  Documentation/stable_kernel_rules.txt       |    5 ++
+> >  2 files changed, 71 insertions(+), 0 deletions(-)
+> >
+> > diff --git a/Documentation/development-process/2.Process b/Documentation/development-process/2.Process
+> > index d750321..e023db6 100644
+> > --- a/Documentation/development-process/2.Process
+> > +++ b/Documentation/development-process/2.Process
+> 
+> You should cc: the author of this document, when modifying it.
 
-> There's no lock to put the call_single_data structures onto remote
-> CPU's list?  Looking at generic_exec_single...
+Added.
 
-True, but hopefully that's cheaper than locking the remove
-queue.
+> > @@ -7,6 +7,72 @@ course of one year, the kernel has since had to evolve a number of
+> >  processes to keep development happening smoothly.  A solid understanding of
+> >  how the process works is required in order to be an effective part of it.
+> >
+> > +2.0 SUMMARY
+> > +
+> > +This section provides a brief summary of the new kernel release rules.
+> > +
+> > +2.0.0 NEW KERNEL RELEASE RULES
+> 
+> "New"?  We've been doing this for many many years now, what is "new"
+> about it?
 
-And also the latency should be much lower for actually
-processing the packet.
+New as in the next kernel release, sorry. Didn't mean as in "this is a
+new process".
+
+> And why are you starting a series with "0"?  Just to keep from having to
+> modify all of the other numbers?  None of the other files in this
+> directory start at 0...
+
+Heh yeah.
+
+  Luis
