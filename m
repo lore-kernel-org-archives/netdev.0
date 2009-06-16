@@ -1,73 +1,31 @@
-From: Jean-Louis Dupond <info@dupondje.be>
-Subject: b44: device restarts on heavy load
-Date: Tue, 16 Jun 2009 16:47:43 +0200
-Message-ID: <4A37B08F.9000809@dupondje.be>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.4
+Date: Tue, 16 Jun 2009 16:54:05 +0200
+Message-ID: <4A37B20D.7070106@trash.net>
+References: <4A3787DB.1040704@trash.net> <x6ski01g7t@gzp> <4A379FC2.7060004@trash.net> <alpine.LSU.2.00.0906161629360.3418@fbirervta.pbzchgretzou.qr> <4A37AE6D.9020900@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.dupie.be ([85.17.239.130]:42333 "EHLO apollo.dupie.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752271AbZFPOrp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Jun 2009 10:47:45 -0400
-Received: from [192.168.3.138] (235.167-78-194.adsl-static.isp.belgacom.be [194.78.167.235])
-	(Authenticated sender: info@dupondje.be)
-	by apollo.dupie.be (Postfix) with ESMTP id 3B4681E501A6
-	for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 16:47:44 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Gabor Z. Papp" <gzp@papp.hu>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A37AE6D.9020900@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Patrick McHardy wrote:
+> Jan Engelhardt wrote:
+>> Nope, see `git show v1.4.4:configure.ac`.
+>> AC_INIT in configure.ac was indeed not updated.
+>>   
+>>     
+>
+> Damn, the release script fooled me. I'll fix up the tarballs.
+>   
 
-There seems to be a bug in the b44 driver to cause a restart/reset of 
-the network card. I tried to debug it a bit, and the error is in the 
-b44_poll method.
-
-846 static int b44_poll(struct napi_struct *napi, int budget)
-847 {
-848         struct b44 *bp = container_of(napi, struct b44, napi);
-849         int work_done;
-850
-851         spin_lock_irq(&bp->lock);
-852
-853         if (bp->istat & (ISTAT_TX | ISTAT_TO)) {
-854                 /* spin_lock(&bp->tx_lock); */
-855                 b44_tx(bp);
-856                 /* spin_unlock(&bp->tx_lock); */
-857         }
-858         spin_unlock_irq(&bp->lock);
-859
-860         work_done = 0;
-861         if (bp->istat & ISTAT_RX)
-862                 work_done += b44_rx(bp, budget);
-863
-864         if (bp->istat & ISTAT_ERRORS) {
-865                 unsigned long flags;
-866
-867                 spin_lock_irqsave(&bp->lock, flags);
-868                 b44_halt(bp);
-869                 b44_init_rings(bp);
-870                 b44_init_hw(bp, B44_FULL_RESET_SKIP_PHY);
-871                 netif_wake_queue(bp->dev);
-872                 spin_unlock_irqrestore(&bp->lock, flags);
-873                 work_done = 0;
-874         }
-875
-876         if (work_done < budget) {
-877                 napi_complete(napi);
-878                 b44_enable_ints(bp);
-879         }
-880
-881         return work_done;
-882 }
-
-
-It seems that suddenly bp->istat & ISTAT_ERRORS is true, so it resets 
-the network card. This isn't really nice :(
-
-There seems to be ALOT of people having this issue: 
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/279102
-
-Sincerely
-Jean-Louis Dupond
+All should be fixed now, including the git tag.
