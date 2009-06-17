@@ -1,67 +1,91 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 4/9] sky2: fix shutdown synchronization
-Date: Wed, 17 Jun 2009 10:30:35 -0700
-Message-ID: <20090617173139.828049268@vyatta.com>
-References: <20090617173031.703636683@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:45310 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758132AbZFQReD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 13:34:03 -0400
-Content-Disposition: inline; filename=sky2-rxsync-shut.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH] wireless extensions: play with netns
+Date: Wed, 17 Jun 2009 20:24:18 +0200
+Message-ID: <1245263058.31588.38.camel@johannes.local>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The logic in sky2_down was incorrect. Receiver could report status
-after rx_stop was called.
+This makes wireless extensions netns aware.
 
-The steps need to be:
-   * stop new frames from being transmitted
-   * shut off transmit/receive logic
-   * synchronize with NAPI to process status info about transmitter
-     and receiver
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+---
+Is this ok, or is this racy? I guess what I'm asking is -- will
+for_each_net() stop iterating over a netns that is going away before the
+pernet exit op is called? If yes, this should be fine.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ include/net/net_namespace.h |    3 +++
+ net/wireless/wext.c         |   30 ++++++++++++++++++++++--------
+ 2 files changed, 25 insertions(+), 8 deletions(-)
 
---- a/drivers/net/sky2.c	2009-06-17 10:29:53.382997969 -0700
-+++ b/drivers/net/sky2.c	2009-06-17 10:29:55.361810536 -0700
-@@ -1815,8 +1815,6 @@ static int sky2_down(struct net_device *
- 	sky2_write32(hw, B0_IMSK, imask);
- 	sky2_read32(hw, B0_IMSK);
+--- wireless-testing.orig/include/net/net_namespace.h	2009-06-17 20:20:47.000000000 +0200
++++ wireless-testing/include/net/net_namespace.h	2009-06-17 20:20:51.000000000 +0200
+@@ -78,6 +78,9 @@ struct net {
+ #ifdef CONFIG_XFRM
+ 	struct netns_xfrm	xfrm;
+ #endif
++#ifdef CONFIG_WIRELESS_EXT
++	struct sk_buff_head	wext_nlevents;
++#endif
+ 	struct net_generic	*gen;
+ };
  
--	synchronize_irq(hw->pdev->irq);
--
- 	/* Force flow control off */
- 	sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_PAUSE_OFF);
+--- wireless-testing.orig/net/wireless/wext.c	2009-06-17 20:20:47.000000000 +0200
++++ wireless-testing/net/wireless/wext.c	2009-06-17 20:20:51.000000000 +0200
+@@ -1273,11 +1273,25 @@ int compat_wext_handle_ioctl(struct net 
+  * Jean II
+  */
  
-@@ -1831,9 +1829,6 @@ static int sky2_down(struct net_device *
- 	ctrl &= ~(GM_GPCR_TX_ENA | GM_GPCR_RX_ENA);
- 	gma_write16(hw, port, GM_GP_CTRL, ctrl);
- 
--	/* Make sure no packets are pending */
--	napi_synchronize(&hw->napi);
--
- 	sky2_write8(hw, SK_REG(port, GPHY_CTRL), GPC_RST_SET);
- 
- 	/* Workaround shared GMAC reset */
-@@ -1864,6 +1859,15 @@ static int sky2_down(struct net_device *
- 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
- 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
- 
-+	/* Force any delayed status interrrupt and NAPI */
-+	sky2_write32(hw, STAT_LEV_TIMER_CNT, 0);
-+	sky2_write32(hw, STAT_TX_TIMER_CNT, 0);
-+	sky2_write32(hw, STAT_ISR_TIMER_CNT, 0);
-+	sky2_read8(hw, STAT_ISR_TIMER_CTRL);
+-static struct sk_buff_head wireless_nlevent_queue;
++static int __net_init wext_pernet_init(struct net *net)
++{
++	skb_queue_head_init(&net->wext_nlevents);
++	return 0;
++}
 +
-+	synchronize_irq(hw->pdev->irq);
-+	napi_synchronize(&hw->napi);
++static void __net_exit wext_pernet_exit(struct net *net)
++{
++	skb_queue_purge(&net->wext_nlevents);
++}
 +
- 	sky2_phy_power_down(hw, port);
++static struct pernet_operations wext_pernet_ops = {
++	.init = wext_pernet_init,
++	.exit = wext_pernet_exit,
++};
  
- 	/* turn off LED's */
-
--- 
-
+ static int __init wireless_nlevent_init(void)
+ {
+-	skb_queue_head_init(&wireless_nlevent_queue);
++	return register_pernet_subsys(&wext_pernet_ops);
+ 	return 0;
+ }
+ 
+@@ -1286,9 +1300,12 @@ subsys_initcall(wireless_nlevent_init);
+ static void wireless_nlevent_process(unsigned long data)
+ {
+ 	struct sk_buff *skb;
++	struct net *net;
+ 
+-	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
+-		rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++	for_each_net(net)
++		while ((skb = skb_dequeue(&net->wext_nlevents)))
++			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
++				    GFP_ATOMIC);
+ }
+ 
+ static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
+@@ -1341,9 +1358,6 @@ static void rtmsg_iwinfo(struct net_devi
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	if (!net_eq(dev_net(dev), &init_net))
+-		return;
