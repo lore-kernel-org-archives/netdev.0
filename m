@@ -1,71 +1,56 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] wireless extensions: play with netns
-Date: Thu, 18 Jun 2009 00:14:59 +0200
-Message-ID: <1245276899.31588.57.camel@johannes.local>
-References: <1245263058.31588.38.camel@johannes.local>
-	 <m1y6rqwpur.fsf@fess.ebiederm.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] skbuff:  don't corrupt mac_header on skb expansion
+Date: Wed, 17 Jun 2009 15:17:34 -0700
+Message-ID: <20090617151734.5ce02459@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-u4KbMmBmHXOWUKtj1UXC"
-Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m1y6rqwpur.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33074 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751835AbZFQWRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 18:17:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The skb mac_header field is sometimes NULL (or ~0u) as a sentinel
+value. The places where skb is expanded add an offset which would
+change this flag into an invalid pointer (or offset).
 
---=-u4KbMmBmHXOWUKtj1UXC
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-On Wed, 2009-06-17 at 13:46 -0700, Eric W. Biederman wrote:
-> Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
->=20
-> > This makes wireless extensions netns aware.
-> >
-> > Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> > ---
-> > Is this ok, or is this racy? I guess what I'm asking is -- will
-> > for_each_net() stop iterating over a netns that is going away before th=
-e
-> > pernet exit op is called? If yes, this should be fine.
->=20
-> for_each_net requires the rtnl_lock or the net_mutex to be safe.
-> You aren't taking either so your code is racy.
-
-So it looks like I can also use rcu_read_lock(), but there's no
-for_each_net_rcu(), should there be?
-
-johannes
-
---=-u4KbMmBmHXOWUKtj1UXC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKOWrgAAoJEODzc/N7+QmafsYP/2CLgeOFbLQhLLzOoVeF6je7
-GN9/2w5Z20Dq8I8YsZY82r7qDrJd8fZyvjnw0ZqgmkZ0ebdYr2YSPqrNBnJr3CLm
-1Abz5ddgVJ3T8P4EMqcZtfCjg/WoYDmbipjlAGCbWYFXGRcPf15qjrE71kkqPAKY
-Rsy+0aSQ+27PJ7nPK/8GsSExpFmpSL/oiLELiZRwx7K1YAfE1IV3mkpwMaUXGoep
-fo/srbkcwiaH+sESdOdRXkdXGj+08yFqn+BSBJSrYcFcryab0i1X47BJx1DUt51h
-W7N0t5Jpb1lyVeOQtbMJ8OJ9YhMm0s40z08z2ie6R7nxmJeL2TGlQ+wYSCW5J+lk
-vgPZ9fmW13xRjK0+Zm7quF4Lyb9ss4oAuDh/sVb1ro7WOb9mqmh0lrnJX9+P3pfQ
-lpFrjt5d2s7nuE81u+sE131lwhROLBgsZ+XhZR3rrm/hr7dmMkTH9oD6czPoYI1r
-6s2O2f8vT6qHf7ikvzbPVCrMQL+Z0N5JpllsOj/JSWNRD3jZO6p/HjJ5sIrGF6zz
-cjx7up6Bkqe4z72hr3UHo8WKf6Zj7T3rrPvyp718W89q72IeGmTWw48BwgMsTf+q
-Nm00//wwpnU/42ugdGHf6jAMOcBCGZAUZrfNdgHNQ54h7VCzqxd8yiE6l/S2des5
-WvCfojdlyJmlqiR86M10
-=HlDa
------END PGP SIGNATURE-----
-
---=-u4KbMmBmHXOWUKtj1UXC--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/net/core/skbuff.c	2009-06-17 15:02:19.208725168 -0700
++++ b/net/core/skbuff.c	2009-06-17 15:04:50.139435754 -0700
+@@ -657,7 +657,8 @@ static void copy_skb_header(struct sk_bu
+ 	/* {transport,network,mac}_header are relative to skb->head */
+ 	new->transport_header += offset;
+ 	new->network_header   += offset;
+-	new->mac_header	      += offset;
++	if (skb_mac_header_was_set(new))
++		new->mac_header	      += offset;
+ #endif
+ 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
+ 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
+@@ -839,7 +840,8 @@ int pskb_expand_head(struct sk_buff *skb
+ 	skb->tail	      += off;
+ 	skb->transport_header += off;
+ 	skb->network_header   += off;
+-	skb->mac_header	      += off;
++	if (skb_mac_header_was_set(skb))
++		skb->mac_header += off;
+ 	skb->csum_start       += nhead;
+ 	skb->cloned   = 0;
+ 	skb->hdr_len  = 0;
+@@ -931,7 +933,8 @@ struct sk_buff *skb_copy_expand(const st
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ 	n->transport_header += off;
+ 	n->network_header   += off;
+-	n->mac_header	    += off;
++	if (skb_mac_header_was_set(skb))
++		n->mac_header += off;
+ #endif
+ 
+ 	return n;
