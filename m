@@ -1,68 +1,61 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: lots of cpu time spent in skb_copy_bits() in net-next with small
- mtu
-Date: Wed, 17 Jun 2009 09:57:19 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0906170936320.28187@melkinkari.cs.Helsinki.FI>
-References: <Pine.LNX.4.64.0906122248450.31625@melkinkari.cs.Helsinki.FI>
- <1245180000.7150.6.camel@Maple> <Pine.LNX.4.64.0906170831020.28187@melkinkari.cs.Helsinki.FI>
- <20090616.225316.263195307.davem@davemloft.net>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Wed, 17 Jun 2009 09:21:01 +0200
+Message-ID: <20090617072100.GA3492@psychotron.englab.brq.redhat.com>
+References: <1244889678.13033.6.camel@johannes.local> <1244896094.13033.8.camel@johannes.local> <20090616111842.GG3521@psychotron.englab.brq.redhat.com> <1245151771.9256.3.camel@johannes.local> <20090616123808.GK3521@psychotron.englab.brq.redhat.com> <1245193788.21287.66.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243445-1534574638-1245221839=:28187"
-Cc: john.dykstra1@gmail.com, ben.lahaise@neterion.com,
-	Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49642 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336AbZFQG5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 02:57:17 -0400
-In-Reply-To: <20090616.225316.263195307.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	davem <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1245193788.21287.66.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Wed, Jun 17, 2009 at 01:09:48AM CEST, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org wrote:
+>On Tue, 2009-06-16 at 14:38 +0200, Jiri Pirko wrote:
+>
+>> >> Yes, I've already converted unicast lists to use list_head there. I'm sending
+>> >> the patch doing the same for multicast lists soon.
+>> >
+>> >Very nice! After that maybe I'll take a look again at moving things into
+>> >a common structure -- I ultimately want to use a multicast list without
+>> >a netdev to sync multiple netdevs onto a common multicast list that is
+>> >not part of a netdev.
+>> 
+>> I see, hmm, I think I can do this change with my conversion... I was thinking
+>> about similar thing as you suggest before...
+>
+>I don't think the patch for converting the multicast lists will hit .31,
+>I take it?
 
----696243445-1534574638-1245221839=:28187
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
+I'm preparing the patch right now. It's most likely it will hit .32.
 
-On Tue, 16 Jun 2009, David Miller wrote:
+>
+>I'd like to get this patch into the .32 tree once it opens
+>http://johannes.sipsolutions.net/patches/kernel/all/LATEST/NNN-net-core-mc-sync-list.patch
+>
+>but I don't know how to handle that wrt. your patch, which will clearly
+>conflict with mein. Will you be sending that soon?
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Wed, 17 Jun 2009 08:46:56 +0300 (EEST)
-> 
-> > While I took a very short view on it earlier I notice that handling of the 
-> > case when head is at the last skb and tail is at the end of queue was 
-> > changed (without mention in the commit message whether it was 
-> > intentionally) in the Dave's change (we used to exit at skb == tail while 
-> > we don't necessarily do that anymore but take the additional checks that 
-> > are made inside the loop ub tcp_collapse()). It would be nice if Dave 
-> > would split that kind of complex transformation into more easily 
-> > verifiable changes, even if the intermediate form itself would not remain 
-> > in the final form, as is it's rather hard to track it all :-).
-> > 
-> > I'm not sure if that change is significant though as one might view it as 
-> > the opposite, ie., that the previous was unintented early exit since we 
-> > wouldn't collapse bloated skb in the end but who knows... ...But I'm yet 
-> > to really _understand_ everything that is going on there.
-> 
-> Sorry, will be more careful in the future. :-)
+I see your need. I'll think about it and try to prepare the lists for this use.
+>
+>I guess we could stick this one into wireless-testing, and then take it
+>out again once your patch hits the tree and offers me similar API for
+>list_head based multicast lists?
 
-I re-looked into the problem I supposedly found earlier and it seems that
-it turned out to be a false alarm... Huoh, how complex it is track that 
-change :-).
+Or wait, I hope the patch will be ready in week tops.
 
-> Can we atleast verify that applying the following revert patch makes
-> the problem go away?  (it's a combination revert of commits
-> 2df9001edc382c331f338f45d259feeaa740c418 and
-> 915219441d566f1da0caa0e262be49b666159e17).
+Jirka
+>
+>johannes
 
-Yeah, that's a good start...
 
--- 
- i.
-
-ps. I'll be out of reach of email access for a week.
-
----696243445-1534574638-1245221839=:28187--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
