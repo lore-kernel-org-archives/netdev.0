@@ -1,61 +1,102 @@
-From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC] net: refactor multicast/unicast address list
-Date: Wed, 17 Jun 2009 09:21:01 +0200
-Message-ID: <20090617072100.GA3492@psychotron.englab.brq.redhat.com>
-References: <1244889678.13033.6.camel@johannes.local> <1244896094.13033.8.camel@johannes.local> <20090616111842.GG3521@psychotron.englab.brq.redhat.com> <1245151771.9256.3.camel@johannes.local> <20090616123808.GK3521@psychotron.englab.brq.redhat.com> <1245193788.21287.66.camel@johannes.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/14] GRO: Lots of microoptimisations
+Date: Wed, 17 Jun 2009 16:07:30 +0800
+Message-ID: <20090617080730.GA24410@gondor.apana.org.au>
+References: <20090529162312.GA5191@neterion.com> <20090610054449.GB16984@gondor.apana.org.au> <20090612160926.GA4290@neterion.com> <20090612.164833.35888001.davem@davemloft.net> <20090616163547.GC5013@neterion.com> <20090616163856.GA17318@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	davem <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:58035 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751727AbZFQIHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 04:07:37 -0400
 Content-Disposition: inline
-In-Reply-To: <1245193788.21287.66.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090616163856.GA17318@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 17, 2009 at 01:09:48AM CEST, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org wrote:
->On Tue, 2009-06-16 at 14:38 +0200, Jiri Pirko wrote:
->
->> >> Yes, I've already converted unicast lists to use list_head there. I'm sending
->> >> the patch doing the same for multicast lists soon.
->> >
->> >Very nice! After that maybe I'll take a look again at moving things into
->> >a common structure -- I ultimately want to use a multicast list without
->> >a netdev to sync multiple netdevs onto a common multicast list that is
->> >not part of a netdev.
->> 
->> I see, hmm, I think I can do this change with my conversion... I was thinking
->> about similar thing as you suggest before...
->
->I don't think the patch for converting the multicast lists will hit .31,
->I take it?
+On Wed, Jun 17, 2009 at 02:38:56AM +1000, Herbert Xu wrote:
+> 
+> I'm hoping to get onto this tomorrow.  I think there's definitely
+> something broken because there's no way GRO should be slower than
+> GRO off.  Slightly slower than LRO perhaps but surely not worse than
+> not merging at all :)
 
-I'm preparing the patch right now. It's most likely it will hit .32.
+OK, I'm seeing the opposite :)
 
->
->I'd like to get this patch into the .32 tree once it opens
->http://johannes.sipsolutions.net/patches/kernel/all/LATEST/NNN-net-core-mc-sync-list.patch
->
->but I don't know how to handle that wrt. your patch, which will clearly
->conflict with mein. Will you be sending that soon?
+[root@perf21 ~]# netperf -H 172.17.10.22
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.10.22 (172.17.10.22) port 0 AF_INET : spin interval : demo
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-I see your need. I'll think about it and try to prepare the lists for this use.
->
->I guess we could stick this one into wireless-testing, and then take it
->out again once your patch hits the tree and offers me similar API for
->list_head based multicast lists?
+ 87380  16384  16384    10.00    9280.04
+[root@perf21 ~]# netperf -H 172.17.10.22
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.17.10.22 (172.17.10.22) port 0 AF_INET : spin interval : demo
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-Or wait, I hope the patch will be ready in week tops.
+ 87380  16384  16384    10.00    6224.12
+[root@perf21 ~]# 
 
-Jirka
->
->johannes
+The corresponding commands on the receiver:
 
+[root@perf22 ~]# ./ethtool -k eth0
+Offload parameters for eth0:
+Cannot get device flags: Operation not supported
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+udp fragmentation offload: off
+generic segmentation offload: on
+generic receive offload: on
+large receive offload: off
+[root@perf22 ~]# ./ethtool -K eth0 gro off
+[root@perf22 ~]# ethtool -i eth0
+driver: vxge
+version: 2.0.1.17129-k
+firmware-version: 0.41.1
+bus-info: 0000:04:00.0
+[root@perf22 ~]# 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Last CPU on receiver
+
+processor       : 15
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 26
+model name      : Intel(R) Xeon(R) CPU           X5570  @ 2.93GHz
+stepping        : 5
+cpu MHz         : 2933.779
+cache size      : 8192 KB
+physical id     : 1
+siblings        : 8
+core id         : 3
+cpu cores       : 4
+apicid          : 23
+initial apicid  : 23
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 11
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx rdtscp lm constant_tsc arch_perfmon pebs bts rep_good xtopology tsc_reliable nonstop_tsc pni dtes64 monitor ds_cpl vmx est tm2 ssse3 cx16 xtpr pdcm dca sse4_1 sse4_2 popcnt lahf_lm tpr_shadow vnmi flexpriority ept vpid
+bogomips        : 5865.80
+clflush size    : 64
+cache_alignment : 64
+address sizes   : 40 bits physical, 48 bits virtual
+power management:
+
+The kernel is the Linus tree of an hour ago.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
