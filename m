@@ -1,40 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/14] GRO: Lots of microoptimisations
-Date: Wed, 17 Jun 2009 16:08:47 +0800
-Message-ID: <20090617080847.GA24504@gondor.apana.org.au>
-References: <20090529162312.GA5191@neterion.com> <20090610054449.GB16984@gondor.apana.org.au> <20090612160926.GA4290@neterion.com> <20090612.164833.35888001.davem@davemloft.net> <20090616163547.GC5013@neterion.com> <20090616163856.GA17318@gondor.apana.org.au> <20090617080730.GA24410@gondor.apana.org.au>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: iproute2 action/policer question
+Date: Wed, 17 Jun 2009 12:01:37 +0300
+Message-ID: <200906171201.37727.denys@visp.net.lb>
+References: <20090615111927.GA12316@ff.dom.local> <20090617061458.GA9412@ff.dom.local> <20090617062846.GA9764@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <ben.lahaise@neterion.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>,
+	=?utf-8?q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Andreas Henriksson <andreas@fatal.se>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58041 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754647AbZFQIIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 04:08:51 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:53843 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755769AbZFQJBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 05:01:32 -0400
+In-Reply-To: <20090617062846.GA9764@ff.dom.local>
 Content-Disposition: inline
-In-Reply-To: <20090617080730.GA24410@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 17, 2009 at 04:07:30PM +0800, Herbert Xu wrote:
-> On Wed, Jun 17, 2009 at 02:38:56AM +1000, Herbert Xu wrote:
-> > 
-> > I'm hoping to get onto this tomorrow.  I think there's definitely
-> > something broken because there's no way GRO should be slower than
-> > GRO off.  Slightly slower than LRO perhaps but surely not worse than
-> > not merging at all :)
-> 
-> OK, I'm seeing the opposite :)
+On Wednesday 17 June 2009 09:28:46 Jarek Poplawski wrote:
 
-Can you check your sender to see whether it's maxed out? That
-can play havoc when benchmarking the receiver.
+> >
+> > I confirm I can't get 'action ipt -j MARK' working on debian lenny
+> > (stable) with distro's iptables/tc. I'm not able to compile tc from
+> > vanilla sources properly either - configure fails 3 IPT tests. (I
+> > admit I can miss setting some (undocumented?) config variables.) So,
+> > with or without debian, IMHO iproute2 needs some updates for iptables
+> > 1.4.2, 1.4.3, and maybe even 1.4.4 now.
+>
+> OOPS! I _can_ configure it for 1.4.2 yet (so it's only about >= 1.4.3).
+>
+I check that, and found again many small changes in iptables, that screwed ipt 
+action in iproute2.
 
-Also what are the raw numbers that you were getting?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I really think it doesn't worth to put too much efforts fixing it, with each 
+new release iptables. I switch to other way of "tagging" packets, skbedit, 
+and it seems it is also faster.
