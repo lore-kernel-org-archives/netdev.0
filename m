@@ -1,68 +1,61 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next-2.6] ixgbe: fix multi-ring polling [V2]
-Date: Wed, 17 Jun 2009 17:06:52 -0400
-Message-ID: <20090617210652.GD8515@gospo.rdu.redhat.com>
-References: <alpine.WNT.2.00.0906161400001.6404@jbrandeb-MOBL3.amr.corp.intel.com> <20090616214213.GC8515@gospo.rdu.redhat.com> <alpine.WNT.2.00.0906161458590.6404@jbrandeb-MOBL3.amr.corp.intel.com> <20090617.044026.244800766.davem@davemloft.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH 0/2] Revert and reimplement Add SGMII support to UCC GETH
+Date: Wed, 17 Jun 2009 15:09:44 -0600
+Message-ID: <20090617210356.18435.96410.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse.brandeburg@intel.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:39058 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751444AbZFQVHF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 17:07:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20090617.044026.244800766.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sachin P Sant <sachinp@linux.vnet.ibm.com>, linux-kernel@vger.kernel.org,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Linux-Next <linux-next@vger.kernel.org>, Nathan Lynch <ntl@pobox.com>,
+	Haiying Wang <Haiying.Wang@freescale.com>, Li Yang <leoli@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, subrata@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 17, 2009 at 04:40:26AM -0700, David Miller wrote:
-> From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-> Date: Tue, 16 Jun 2009 15:02:24 -0700 (Pacific Daylight Time)
-> 
-> > On Tue, 16 Jun 2009, Andy Gospodarek wrote:
-> >> Adding a check is no problem, but that means we need to save the
-> >> original budget.  It would be good to do that to avoid the WARN_ON_ONCE
-> >> in net_rx_action as well, but should we be cheating like that?  Here's
-> >> the new patch:
-> > 
-> > I hope davem can comment on that.
-> > 
-> >> [PATCH net-next-2.6] ixgbe: fix multi-ring polling V2
-> > 
-> > I think technically I'm okay with V2, the outstanding questions about what 
-> > exactly we should return need to be answered.
-> 
-> If you aren't going to complete the NAPI run, you must indicate
-> to the caller of ->poll() that you've consumed the entire budget.
+Here is a fix for the build failure discovered during the 2.6.31 merge
+window on ucc_geth.c.  I decided to revert and reapply a fixed version
+of the patch to make the new version easier to review and bisect if I
+got the fixup wrong.  I've compile tested both patches, but I do not have
+hardware to run test.
 
-By 'complete the NAPI run' do you mean call napi_complete?  Looking at
-net_rx_action I don't see where it really matters how much work was done
-by ->poll as long as it's not more than the device weight (since that
-will spring the WARNing).
+Haiying, please confirm that I haven't horribly trashed your hard work
+with my changes.
 
-> This is the second driver where the multi-queue-in-one-irq "issue"
-> has been noticed.  Eric Dumazet posted a similar patch for NIU.
-> 
-> There are a few other ways to approach this problem, now that I've
-> thought about it for some time:
-> 
-> 1) Use multiple NAPI contexts to represent the queues even if
->    they are backed by a single interrupt.
+For anyone interested, I've also pushed these patches out to the -next-net
+branch of my git tree:
 
-So multiple calls to napi_schedule in a single interrupt handler?
-Interesting....
+The following changes since commit 65795efbd380a832ae508b04dba8f8e53f0b84d9:
+  Linus Torvalds (1):
+        Merge branch 'next-i2c' of git://aeryn.fluff.org.uk/bjdooks/linux
+
+are available in the git repository at:
+
+  git://git.secretlab.ca/git/linux-2.6 next-net
+
+Grant Likely (1):
+      Revert "net/ucc_geth: Add SGMII support for UEC GETH driver"
+
+Haiying Wang (1):
+      net/ucc_geth: Add SGMII support for UCC GETH driver
+
+ drivers/net/ucc_geth.c |  113 +++++++++++++++++++----------------------------
+ drivers/net/ucc_geth.h |    2 +-
+ 2 files changed, 47 insertions(+), 68 deletions(-)
 
 
-> 2) Use only "1" queue if you only have "1" interrupt.  (replace
->    "1" with "N" for all valid values of "N" :-)
-> 
-> Those approaches are a lot cleaner and keeps us from needing all
-> of this gross starvation-avoidance and budget faking code.
-
-I agree.  It also seems much cleaner to do it that way because then each
-queue or device gets the full weight.
-
+--
+Grant Likely, B.Sc. P.Eng.
+Secret Lab Technologies Ltd.
