@@ -1,236 +1,74 @@
-From: Yu Zhao <yu.zhao@intel.com>
-Subject: Re: SRIOV fails with "not enough MMIO resources"
-Date: Wed, 17 Jun 2009 12:58:19 +0800
-Message-ID: <4A3877EB.7020109@intel.com>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD77055985C4@nekter> <4A2DFCCC.10506@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD7705640305@nekter>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: lots of cpu time spent in skb_copy_bits() in net-next with	small
+ mtu
+Date: Wed, 17 Jun 2009 08:46:56 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0906170831020.28187@melkinkari.cs.Helsinki.FI>
+References: <20090612161320.GB4290@neterion.com>
+ <Pine.LNX.4.64.0906122248450.31625@melkinkari.cs.Helsinki.FI>
+ <1245180000.7150.6.camel@Maple>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243445-2057851837-1245217616=:28187"
+Cc: Benjamin LaHaise <ben.lahaise@neterion.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: John Dykstra <john.dykstra1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38631 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751429AbZFQE7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 00:59:03 -0400
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705640305@nekter>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60747 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752657AbZFQFqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 01:46:55 -0400
+In-Reply-To: <1245180000.7150.6.camel@Maple>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sivakumar Subramani wrote:
-> Sorry for the delay in reply. I got the setup back today. The PF BAR4
-> size  is 32M. BAR0 of each VF is 8M. I loading the driver with 4 VFs. I
-> am facing this problem, even if I load it with 3 VFs.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-OK, I see the problem. The total VFs supported by your SR-IOV device is 
-8 (0a:00.0/1) and 16 (09:00.0). And the VF MMIO area is calculated by 
-size of VF BAR multiplied total VFs. Passing 3 or 4 to 
-pci_enable_sriov() can not reduce the VF MMIO area size.
+---696243445-2057851837-1245217616=:28187
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
-So please hardcode the total VFs to 4 before you get a BIOS that 
-supports the SR-IOV:
+On Tue, 16 Jun 2009, John Dykstra wrote:
 
-diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-index b497daa..5ba6da0 100644
---- a/drivers/pci/iov.c
-+++ b/drivers/pci/iov.c
-@@ -430,6 +430,7 @@ static int sriov_init(struct pci_dev *dev, int pos)
-         if (!total)
-                 return 0;
-
-+       total = 4;
-         ctrl = 0;
-         list_for_each_entry(pdev, &dev->bus->devices, bus_list)
-                 if (pdev->is_physfn)
-
-
-> I have attached the code of sriov_init / sriov_enable / quirk_vxge_sriov
-> and the log of the debug statements that I have added in these function.
-> Please let you know your comments.
+> On Fri, 2009-06-12 at 22:57 +0300, Ilpo Järvinen wrote:
+> > On Fri, 12 Jun 2009, Benjamin LaHaise wrote:
+> > 
+> > > Just a heads up: something in net-next is resulting in lots of cpu time 
+> > > being spent in skb_copy_bits() (called from tcp_collapse()) when an ethernet 
+> > > interface mtu is lowered to 576 on the source and dest machines running 
+> > > netperf.  This behaviour does not appear in 2.6.29.  I'll try to bisect 
+> > > it this weekend.
+> > 
+> > I'd suggest somebody goes through DaveM's abstraction patch 915219441d56 
+> > (I'm totally out of time so somebody else has to do it if a timely 
+> > solution is desired)... It was quite messy on those parts and I already 
+> > found one issue from it (2df9001edc3) and wouldn't be too surprised if 
+> > there would be some more lurking around... 
 > 
-> </Siva>
+> I couldn't find anything wrong with tcp_prune_queue() and its helpers as
+> they appear in today's net-next.
 > 
-> Thanks,
-> ~Siva
-> -----Original Message-----
-> From: Yu Zhao [mailto:yu.zhao@intel.com] 
-> Sent: Tuesday, June 09, 2009 11:40 AM
-> To: Sreenivasa Honnur
-> Cc: netdev@vger.kernel.org; Sivakumar Subramani
-> Subject: Re: SRIOV fails with "not enough MMIO resources"
-> 
-> Sreenivasa Honnur wrote:
->> Hi,
->>
->> I added pci_enable_sriov / pci_disable_sriov in probe and remove
->> function for Neterion X3100 card to test SRIOV feature. While testing
-> I
->> got following error.
->>
->> Jun 8 00:02:59 bethweidel kernel: vxge: Copyright(c) 2002-2009
-> Neterion
->> Inc Jun 8 00:02:59 bethweidel kernel: vxge: Driver version:
->> 2.0.1.17129-k Jun 8 00:02:59 bethweidel kernel: vxge 0000:03:00.0: PCI
->> INT A -> GSI 16 (level, low) -> IRQ 16 Jun 8 00:02:59 bethweidel
-> kernel:
->> res->parent is ffff88013f129d28 for 2 Jun 8 00:02:59 bethweidel
-> kernel:
->> res->parent is ffff88013f129d28 for 4 Jun 8 00:02:59 bethweidel
-> kernel:
->> nres = 2 - iov->nres = 3 Jun 8 00:02:59 bethweidel kernel: vxge
->> 0000:03:00.0: not enough MMIO resources for SR-IOV ----> ERROR Jun 8
->> 00:02:59 bethweidel kernel: pci_enable_sriov returned -12 Jun 8
-> 00:02:59
->> bethweidel kernel: eth2: SERIAL NUMBER: SXC0919196 Jun 8 00:02:59
->> bethweidel kernel: eth2: PART NUMBER: X3110SR0003
->>
->>  
->>
->> When I dumped the config space of SRIOV Capability, I found BAR0 of
-> VFs
->> was not configured by BIOS and it was zero. So I added following
->> "quirk_vxge_sriov" quirk function to configure the BAR2 of PF as BAR0
-> of
->> VFs.
->>
->> Now lspci shows proper value. But I am still get same error. The code
->> that dumps this error is as follow. Here I trying to find out the
-> reason
->> why res->parent is not updated for BAR0 of VF. From the above log, I
-> can
->> see that Bar2 and BAR4's res->parent are update.
->>
->> Any possible reason why res->parent of VF's BAR0 is not updated?
-> 
-> Is the size of the PF BAR 4 big enough to cover the VF MMIO area 
-> indicated by VF BAR 0? (size of the PF BAR 4 >= size of VF BAR 0 *
-> NumVFs).
-> 
-> Can you please post the whole dmesg? I might be able to root cause the 
-> problem after looking at it.
-> 
->> sriov_enable :
->>
->> --------------
->>
->> nres = 0;
->>
->> for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
->>
->> res = dev->resource + PCI_IOV_RESOURCES + i;
->>
->> if (res->parent) {
->>
->> printk("res->parent is %llx for %d \n", res->parent,i );
->>
->> nres++;
->>
->> }
->>
->> }
->>
->> printk("nres = %d - iov->nres = %d \n", nres, iov->nres);
->>
->> if (nres != iov->nres) {
->>
->> dev_err(&dev->dev, "not enough MMIO resources for SR-IOV\n");
->>
->> return -ENOMEM;
->>
->> }
->>
->>  
->>
->> quirk_vxge_sriov:
->>
->> -----------------
->>
->> static void __devinit quirk_vxge_sriov(struct pci_dev *dev) {
->>
->> int pos, flags;
->>
->> u32 bar, start, size;
->>
->> printk("Entering quirk_vxge_sriov ...\n");
->>
->> if (PAGE_SIZE > 0x10000) {
->>
->> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
->>
->> return;
->>
->> }
->>
->> pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_SRIOV);
->>
->> printk("the pos is %d \n", pos);
->>
->> if (!pos) {
->>
->> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
->>
->> return;
->>
->> }
->>
->> pci_read_config_dword(dev, pos + PCI_SRIOV_BAR, &bar);
->>
->> if (bar & PCI_BASE_ADDRESS_MEM_MASK)
->>
->> {
->>
->> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
->>
->> return;
->>
->> }
->>
->> start = pci_resource_start(dev, 4);
->>
->> size = pci_resource_len(dev, 4);
->>
->> printk("Bar4 start %llx - size %llx \n", start, size);
->>
->> if (!start || size != 0x2000000 || start & (size - 1)) {
->>
->> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
->>
->> return;
->>
->> }
->>
->> pci_resource_flags(dev, 4) = 0;
->>
->> pci_write_config_dword(dev, PCI_BASE_ADDRESS_4, 0);
->>
->> pci_write_config_dword(dev, pos + PCI_SRIOV_BAR, start);
->>
->> pci_read_config_dword(dev, pos+PCI_SRIOV_BAR,&bar);
->>
->> printk("VF's Bar0 is %llx \n", bar);
->>
->> dev_info(&dev->dev, "use Flash Memory Space for SR-IOV BARs\n");
->>
->> printk("Exiting quirk_vxge_sriov ...\n"); }
->>
->>  
->>
->> Thanks,
->>
->> ~Siva
->>
->>  
->>
->>  
->>
->>  
->>
->>  
->>
->>  
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Take that with a grain of salt if you wish--I'm going to go take a
+> couple grains of aspirin.
 
+:-) Thanks for taking a look.
+
+While I took a very short view on it earlier I notice that handling of the 
+case when head is at the last skb and tail is at the end of queue was 
+changed (without mention in the commit message whether it was 
+intentionally) in the Dave's change (we used to exit at skb == tail while 
+we don't necessarily do that anymore but take the additional checks that 
+are made inside the loop ub tcp_collapse()). It would be nice if Dave 
+would split that kind of complex transformation into more easily 
+verifiable changes, even if the intermediate form itself would not remain 
+in the final form, as is it's rather hard to track it all :-).
+
+I'm not sure if that change is significant though as one might view it as 
+the opposite, ie., that the previous was unintented early exit since we 
+wouldn't collapse bloated skb in the end but who knows... ...But I'm yet 
+to really _understand_ everything that is going on there.
+
+
+-- 
+ i.
+---696243445-2057851837-1245217616=:28187--
