@@ -1,57 +1,36 @@
-From: Minoru Usui <usui@mxm.nes.nec.co.jp>
-Subject: Re: [Devel] Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
-Date: Wed, 17 Jun 2009 09:49:07 +0900
-Message-ID: <20090617094907.e8cd77bd.usui@mxm.nes.nec.co.jp>
-References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>
-	<20090611.021347.142243970.davem@davemloft.net>
-	<20090612124028.fe4c2100.usui@mxm.nes.nec.co.jp>
-	<6599ad830906112206n745fb0dw19cdb75d7c40b2a4@mail.gmail.com>
-	<20090615120035.a8b7b38f.usui@mxm.nes.nec.co.jp>
-	<20090615101919.GC7768@bombadil.infradead.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] phy_device: fix parameter name in kernel-doc
+Date: Tue, 16 Jun 2009 19:56:33 -0700
+Message-ID: <4A385B61.4050106@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Paul Menage <menage@google.com>,
-	David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	hadi@cyberus.ca, jarkao2@gmail.com
-To: Thomas Graf <tgraf@infradead.org>
+To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:33909 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995AbZFQC4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 22:56:21 -0400
-In-Reply-To: <20090615101919.GC7768@bombadil.infradead.org>
+Received: from acsinet12.oracle.com ([141.146.126.234]:38351 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbZFQC4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Jun 2009 22:56:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Jun 2009 06:19:19 -0400
-Thomas Graf <tgraf@infradead.org> wrote:
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> On Mon, Jun 15, 2009 at 12:00:35PM +0900, Minoru Usui wrote:
-> > Actually, In tc <-> kernel I/F (which uses netlink), tc sets classid to hexadecimal style not X:Y style.
-> > X:Y style is result of translating by tc command.
-> > 
-> > I thought this patch was very useful at first, but it's not necessary to implementing to the kernel.
-> > This function can be implemented on user space if we need.
-> > And we can also keep compatibility of net_cls.classid I/F. :-)
-> > 
-> > I drop this patch. I'm sorry for confusing a lot of people.
-> 
-> I found this patch to be extremely useful if it wasn't to break
-> compatibility but that issue can be resolved by accepting both
-> formats easly.
+Fix kernel-doc parameter name in phy_device.c.
 
-Thank you for agreeing my patch.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ drivers/net/phy/phy_device.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I think you said write format only. Am I right?
-What do you think about read format?
-Do you think you should keep read format as current implementation?
-
-I think we should need to unify read/write format, if we make cls_cgroup is more userfriendly. 
-Because some of people are confused about having to read their write value as different format.
-(Unfortunately, current implementation is so...)
-
-But this approach breaks compatibility, so I drop this patch.
--- 
-Minoru Usui <usui@mxm.nes.nec.co.jp>
+--- linux-2.6.30-git10.orig/drivers/net/phy/phy_device.c
++++ linux-2.6.30-git10/drivers/net/phy/phy_device.c
+@@ -244,7 +244,7 @@ EXPORT_SYMBOL(get_phy_device);
+ 
+ /**
+  * phy_device_register - Register the phy device on the MDIO bus
+- * @phy_device: phy_device structure to be added to the MDIO bus
++ * @phydev: phy_device structure to be added to the MDIO bus
+  */
+ int phy_device_register(struct phy_device *phydev)
+ {
