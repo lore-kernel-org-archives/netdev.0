@@ -1,97 +1,110 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [bug] __nf_ct_refresh_acct(): WARNING: at lib/list_debug.c:30
- __list_add+0x7d/0xad()
-Date: Wed, 17 Jun 2009 14:36:14 +0200
-Message-ID: <4A38E33E.1050006@trash.net>
-References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net> <20090616105304.GA3579@elte.hu> <20090616122415.GA16630@elte.hu> <20090617092152.GA17449@elte.hu> <4A38C2F3.3000009@gmail.com> <4A38D5BD.2040502@trash.net> <4A38D9BE.3020403@gmail.com> <4A38DAC4.2050902@trash.net> <4A38E2AE.3030106@gmail.com>
+From: Subrata Modak <subrata@linux.vnet.ibm.com>
+Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
+	randconfig [drivers/net/ucc_geth.o]
+Date: Wed, 17 Jun 2009 18:21:37 +0530
+Message-ID: <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
+References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
+	 <1245048719.5239.10.camel@subratamodak.linux.ibm.com>
+Reply-To: subrata@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33115 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756058AbZFQMgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 08:36:15 -0400
-In-Reply-To: <4A38E2AE.3030106@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Nathan Lynch <ntl@pobox.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au
+To: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1245048719.5239.10.camel@subratamodak.linux.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Patrick McHardy a =E9crit :
->> Eric Dumazet wrote:
->>> Patrick McHardy a =E9crit :
->>>> Before the conntrack is confirmed, it is exclusively handled by a
->>>> single CPU. I agree that we need to make sure the IPS_CONFIRMED_BI=
-T
->>>> is visible before we add the conntrack to the hash table since the
->>>> lookup is lockless, but simply moving the set_bit before the hash
->>>> insertion should be fine I think.
->>>>
->>>
->>> Problem is timeout.expires is either a relative or absolute timeout=
-,
->>> and changes happen
->>> in __nf_conntrack_confirm() or __nf_ct_refresh_acct().
->>>
->>> We must have a synchronization (an barriers), a single bit wont be
->>> enough.
->> Please have a look at the second patch I just sent. It relies
->> on the RCU barriers to make sure all stores are visible before
->> other CPUs can find the conntrack.
->>
->=20
-> Sorry, I dont understand how your second patch corrects the problem.
->=20
-> This (unconfirmed) conntrack is visible by another cpu.
+On Mon, 2009-06-15 at 12:22 +0530, Subrata Modak wrote:
+> Hi Li/Nathan,
+> 
+> On Thu, 2009-06-11 at 09:07 +0530, Subrata Modak wrote: 
+> > Hi Nathan,
+> > 
+> > >On Wed, 2009-06-10 at 21:28 -0500, Nathan Lynch wrote:
+> > >Subrata Modak <subrata@linux.vnet.ibm.com> writes:
+> > > 
+> > > > On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
+> > > >> Hi Subrata,
+> > > >> 
+> > > >> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ibm.com> wrote:
+> > > >> >
+> > > >> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
+> > > >> > -	ph = of_get_property(np, "tbi-handle", NULL);
+> > > >> > +	ph = (phandle *)of_get_property(np, "tbi-handle", NULL);
+> > > >> 
+> > > >> You don't need this cast because of_get_property() returns "void *".
+> > > >
+> > > > Stephen,
+> > > >
+> > > > True. But without this gcc complains:
+> > > >
+> > > > CC [M]  drivers/net/ucc_geth.o
+> > > > drivers/net/ucc_geth.c: In function bucc_geth_probeb:
+> > > > drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
+> > > > from pointer target type
+> > > 
+> > > ph should be declared const phandle *.  Look at other uses of
+> > > of_get_property.
+> > >
+> > 
+> > Ok fine. Here is a revised patch again.
+> > 
+> > Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64 randconfig [drivers/net/ucc_geth.o]
+> > Reference(s):
+> > http://lkml.org/lkml/2009/6/4/241,
+> > http://lkml.org/lkml/2009/6/10/338,
+> > 
+> > Fix the following build error:
+> > 
+> > drivers/net/ucc_geth.c: In function bucc_geth_probeb:
+> > drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in this function)
+> > drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is reported only once
+> > drivers/net/ucc_geth.c:3822: error: for each function it appears in.)
+> > drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in this function)
+> > make[2]: *** [drivers/net/ucc_geth.o] Error 1
+> > 
+> > Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
+> > ---
+> 
+> Is there anything else to be done in this patch. If this is OK, can this
+> be applied. I am not sure, but, i find Li Yang as the maintainer for
+> this in linux*/MAINTAINERS file. Kindly let me know if this patch needs
+> to be revisited for some other issue(s).
 
-No, before it is confirmed, its only visible to the CPU handling
-the initial packet of a connection. Confirmation is the step that
-makes it visible to other CPUs.
+Li,
 
-> This other
-> cpu can call __nf_ct_refresh_acct() while this cpu runs
-> in __nf_conntrack_confirm()
+Any thoughts on this patch ?
 
-Not for the same conntrack, that would be a seperate bug.
+Regards--
+Subrata
 
-Does that explain what I'm trying to do? :)
-
->=20
-> @@ -425,7 +425,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->  	/* Remove from unconfirmed list */
->  	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-> =20
-> -	__nf_conntrack_hash_insert(ct, hash, repl_hash);
->  	/* Timer relative to confirmation time, not original
->  	   setting time, otherwise we'd get timer wrap in
->  	   weird delay cases. */
-> @@ -433,8 +432,15 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->  	add_timer(&ct->timeout);
->=20
-> <<<< another cpu could here change timeout.expires (thinking its stil=
-l relative) >>>>
->=20
->  	atomic_inc(&ct->ct_general.use);
->  	set_bit(IPS_CONFIRMED_BIT, &ct->status);
-> +
-> +	/* Since the lookup is lockless, hash insertion must be after start=
-ing the
-> +	 * timer and setting the CONFIRMED bit. The RCU barriers guarantee =
-that no
-> +	 * other CPU can find the conntrack before the above stores are vis=
-ible.
-> +	 */
-> +	__nf_conntrack_hash_insert(ct, hash, repl_hash);
->  	NF_CT_STAT_INC(net, insert);
->  	spin_unlock_bh(&nf_conntrack_lock);
->  	help =3D nfct_help(ct);
->  	if (help && help->helper)
->  		nf_conntrack_event_cache(IPCT_HELPER, ct);
->=20
-
+> 
+> Regards--
+> Subrata
+> 
+> > 
+> > --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig	2009-06-10 11:58:39.000000000 -0500
+> > +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c	2009-06-10 22:28:13.000000000 -0500
+> > @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
+> > 
+> >  static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *match)
+> >  {
+> > +	struct device_node *mdio;
+> > +	const phandle *ph;
+> >  	struct device *device = &ofdev->dev;
+> >  	struct device_node *np = ofdev->node;
+> >  	struct net_device *dev = NULL;
+> > 
+> > ---
+> > Regards--
+> > Subrata
+> > 
