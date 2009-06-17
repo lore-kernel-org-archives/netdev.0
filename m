@@ -1,65 +1,40 @@
-From: Raphael Hertzog <raphael@ouaza.com>
-Subject: Re: Constantly varying download rate with a complex xen networking
- setup, why?
-Date: Wed, 17 Jun 2009 16:36:47 +0200
-Message-ID: <20090617143647.GD18586@rivendell>
-References: <20090615075313.GA22819@rivendell>
- <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
- <20090615160254.GA8550@rivendell>
- <Pine.LNX.4.64.0906151910220.16408@melkinkari.cs.Helsinki.FI>
- <20090617130050.GA18586@rivendell>
- <Pine.LNX.4.64.0906171659380.31880@melkinkari.cs.Helsinki.FI>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] skbuff: skb_mac_header_was_set is always true on >32 bit
+Date: Wed, 17 Jun 2009 08:23:27 -0700
+Message-ID: <20090617082327.196eda07@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: Ilpo =?iso-8859-15?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakeen.ouaza.com ([212.85.152.62]:48969 "EHLO
-	arrakeen.ouaza.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755385AbZFQOgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 10:36:48 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0906171659380.31880@melkinkari.cs.Helsinki.FI>
+Received: from mail.vyatta.com ([76.74.103.46]:38568 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752241AbZFQPXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 11:23:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 17 juin 2009, Ilpo J=E4rvinen a =E9crit :
-> On Wed, 17 Jun 2009, Raphael Hertzog wrote:
->=20
-> > Le lundi 15 juin 2009, Ilpo J=E4rvinen a =E9crit :
-> > > Maybe the proxy interferes there somehow... I don't know enough a=
-bout the
-> > > details to say but I suppose the proxy at least breaks your tcp c=
-onnection=20
-> > > to two parts.
-> >=20
-> > Indeed. Is there some processing done in a simple linux bridge wher=
-e the
-> > reapperance of the same TCP packet that has been created and sent o=
-n another
-> > local interface could create problem?
->=20
-> I thought out had a http proxy in between? I suppose it is certainly =
-doing=20
-> more than bridging. Anyway, I'll be week away, so no quick responses =
-are=20
-> to be expected from my part after this mail.
+Looking at the crash in log_martians(), one suspect is that the check for
+mac header being set is not correct.  The value of mac_header defaults to
+0 on allocation, therefore skb_mac_header_was_set will always be true on
+platforms using NET_SKBUFF_USES_OFFSET.
 
-Well, I have the problem when I don't use the proxy... if I use it, the
-download is split over two TCP connections and things are fine.
+Arnaldo, is this correct?
 
-Hence my question was if something could be confused by the fact that t=
-he
-same packet is seen twice on the same machine once (in output) via eth2=
-/xenbrD
-and once (in forward) via xenbrE (the routing between both bridges is d=
-one
-by the domU independently of the dom0 network config).
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Cheers,
---=20
-Rapha=EBl Hertzog -+- http://www.ouaza.com
-
-=46reexian : des d=E9veloppeurs Debian au service des entreprises
-http://www.freexian.com
+--- a/net/core/skbuff.c	2009-06-17 08:16:46.235188728 -0700
++++ b/net/core/skbuff.c	2009-06-17 08:17:25.810314332 -0700
+@@ -201,6 +201,10 @@ struct sk_buff *__alloc_skb(unsigned int
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++	skb->mac_header = ~0U;
++#endif
++
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+ 	atomic_set(&shinfo->dataref, 1);
