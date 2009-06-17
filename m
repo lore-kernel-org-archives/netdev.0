@@ -1,59 +1,69 @@
-From: Joerg Roedel <joerg.roedel@amd.com>
-Subject: Re: dma-debug warning with ixgbe
-Date: Wed, 17 Jun 2009 11:26:29 +0200
-Message-ID: <20090617092629.GP5139@amd.com>
-References: <20090616153417.GN5139@amd.com> <alpine.WNT.2.00.0906160907580.6076@jbrandeb-desk1.amr.corp.intel.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Wed, 17 Jun 2009 11:30:24 +0200
+Message-ID: <1245231024.19769.0.camel@johannes.local>
+References: <1244889678.13033.6.camel@johannes.local>
+	 <1244896094.13033.8.camel@johannes.local>
+	 <20090616111842.GG3521@psychotron.englab.brq.redhat.com>
+	 <1245151771.9256.3.camel@johannes.local>
+	 <20090616123808.GK3521@psychotron.englab.brq.redhat.com>
+	 <1245193788.21287.66.camel@johannes.local>
+	 <20090617072100.GA3492@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:8502 "EHLO
-	TX2EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbZFQJ0l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 05:26:41 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.WNT.2.00.0906160907580.6076@jbrandeb-desk1.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-dnQ+/1+qJHfXXfhoj60i"
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	davem <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090617072100.GA3492-YzwxZg+R7evSU73v1vjTzyO4YDw3rz4rAInAS/Ez/D0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 16, 2009 at 09:33:15AM -0700, Brandeburg, Jesse wrote:
-> On Tue, 16 Jun 2009, Joerg Roedel wrote:
-> > today I got this dma-debug warning with the ixgbe driver with a ker=
-nel
-> > near 2.6.30-rc8.
+
+--=-dnQ+/1+qJHfXXfhoj60i
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2009-06-17 at 09:21 +0200, Jiri Pirko wrote:
+
+> >I guess we could stick this one into wireless-testing, and then take it
+> >out again once your patch hits the tree and offers me similar API for
+> >list_head based multicast lists?
 >=20
-> Hi Joerg, thanks for the report, I thought we had fixed all of these=20
-> already but we must have missed this one.
->=20
-> > ------------[ cut here ]------------
-> > WARNING: at /data/repos/linux-2.6-iommu/lib/dma-debug.c:806
-> > check_unmap+0x214/0x5c3()
-> > Hardware name: Toonie
-> > ixgbe 0000:02:00.0: DMA-API: device driver frees DMA memory with
-> > different size [device address=3D0x0000000000045c12] [map size=3D25=
-8
-> > bytes] [unmap size=3D256 bytes]
->=20
-> The following patch should fix it, compile tested only, but it is pre=
-tty=20
-> straight forward.
+> Or wait, I hope the patch will be ready in week tops.
 
-Thanks for the quick answer :) But I tested the patch and the warning i=
-s
-still there.
+Yeah, that's fine, I'll ask people to throw in the simple export patch
+for testing. Thanks for considering! Please disregard my work on
+mac80211, I'll rebase over your work.
 
-	Joerg
+johannes
 
---=20
-           | Advanced Micro Devices GmbH
- Operating | Karl-Hammerschmidt-Str. 34, 85609 Dornach bei M=FCnchen
- System    |=20
- Research  | Gesch=E4ftsf=FChrer: Thomas M. McCoy, Giuliano Meroni
- Center    | Sitz: Dornach, Gemeinde Aschheim, Landkreis M=FCnchen
-           | Registergericht M=FCnchen, HRB Nr. 43632
+--=-dnQ+/1+qJHfXXfhoj60i
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKOLerAAoJEODzc/N7+Qma3PsQAI4I17KgsAViE89GdHtsAjPW
+lNLvCqooQFQn3otyhJ4eQn+jNF/c83Vjz3m7KfTjQG8hC3I5vum8akEld5+eunPN
+MT8GdLokKC7kpWLx7WyJYLiF1Puf9amUXsl/+HWUFG0wc9e/4pMIGe8OaDrEaAzW
+hwBfpDp84Fm18+74QkjnPdumGuc+mG4m8TrETBXuPl+chb9Cnq007ObGqaAwPV7O
+dIg1pTU8onPjmR/iryFw7Sn+jpHqQab9xqeSkwZFHR90o1OxARljkMOgjR49k8Mk
+26lgzN4T6132SGQL7WlpUJ9JUkR+1xdZdZp9JPYMPP+PraPCJL3BoOMZiErRMRT/
+qhMXmWo4QbpUm++ytAfdQDsByyBdbz1zLvrvnmBd7vnsT9sk5y74JUxt2BZg7b7D
+jF8pHs3vJmqh/61tyBkcwXVMChBhu5TFdyykJUwXHk7wlyRlbQiZXchrZyl7+z0i
+w72qwseisAk2MquQOQ00UYtP/90t2VANqQMoBdGg/W/GYwPy1p/s/UfHWKaGcTjG
+zDnLhgsKYhR6LxlbgVlNGim0xXb6r0Il5b6v1NKDjAkjaVcA54dBK7CRA3Ecgs9T
+Y54bFuKckvUeQQfpmhf5NVptFJ8JpdhAtlneZRgw9WGhuPdB9Hsf3Loeewl5D9cj
+Qjd2r5ErfU6jkVscanlj
+=oU1G
+-----END PGP SIGNATURE-----
+
+--=-dnQ+/1+qJHfXXfhoj60i--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
