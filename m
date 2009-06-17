@@ -1,150 +1,85 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64 randconfig [drivers/net/ucc_geth.o]
-Date: Wed, 17 Jun 2009 08:07:47 -0500
-Message-ID: <6E26D0A1-0FE5-4179-9DA8-FDF0E3D417DA@kernel.crashing.org>
-References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com> <1245048719.5239.10.camel@subratamodak.linux.ibm.com> <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>,
-	Nathan Lynch <ntl@pobox.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au
-To: subrata@linux.vnet.ibm.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: iproute2 action/policer question
+Date: Wed, 17 Jun 2009 09:09:54 -0400
+Message-ID: <1245244194.4025.21.camel@dogo.mojatatu.com>
+References: <20090615111927.GA12316@ff.dom.local>
+	 <20090617061458.GA9412@ff.dom.local> <20090617062846.GA9764@ff.dom.local>
+	 <200906171201.37727.denys@visp.net.lb>
+	 <20090617092626.GA11005@ff.dom.local>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Denys Fedoryschenko <denys@visp.net.lb>,
+	=?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Andreas Henriksson <andreas@fatal.se>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.25]:17717 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759944AbZFQNLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 09:11:13 -0400
+Received: by qw-out-2122.google.com with SMTP id 5so153043qwd.37
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2009 06:11:15 -0700 (PDT)
+In-Reply-To: <20090617092626.GA11005@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, 2009-06-17 at 09:26 +0000, Jarek Poplawski wrote:
+> On Wed, Jun 17, 2009 at 12:01:37PM +0300, Denys Fedoryschenko wrote:
+> > On Wednesday 17 June 2009 09:28:46 Jarek Poplawski wrote:
+> > 
+> > > >
+> > > > I confirm I can't get 'action ipt -j MARK' working on debian lenny
+> > > > (stable) with distro's iptables/tc. I'm not able to compile tc from
+> > > > vanilla sources properly either - configure fails 3 IPT tests. (I
+> > > > admit I can miss setting some (undocumented?) config variables.) So,
+> > > > with or without debian, IMHO iproute2 needs some updates for iptables
+> > > > 1.4.2, 1.4.3, and maybe even 1.4.4 now.
+> > >
+> > > OOPS! I _can_ configure it for 1.4.2 yet (so it's only about >= 1.4.3).
+> > >
+
+Something like that.
+It works fine with iptables 1.4.2 for Lenny on my laptop. 
+It should work fine for the release after Lenny for 1.4.3 once
+the debian maintainers pick up the latest iproute2.
+For other Distros: it should work fine if they have iptables 1.4.2/3.
+iptables 1.4.4 is not mainstream; i need to add a new test to detect
+it once it is mainstream (actually i could do it before it becomes
+mainstream and still make it backwards compatible).
+I contributed about 10 patches to iptables to try and make sure it
+doesnt break again ;-> Hopefully my efforts will be rewarded
+(or as the saying goes perhaps "no good deeds go unpunished");->
+I have confidence the iptables people are more aware of the API
+breakages now than before - so very low probability it will break
+post iptables 1.4.4.
+For versions lower than iptables 1.4.1 I think i will give up instead of
+making it compatible all the way back there.
+I use debian exclusively (and these days all my machines are lenny) so
+those are the only machines i test on.
+
+> > I check that, and found again many small changes in iptables, that screwed ipt 
+> > action in iproute2.
+> > 
+> > I really think it doesn't worth to put too much efforts fixing it, with each 
+> > new release iptables. I switch to other way of "tagging" packets, skbedit, 
+> > and it seems it is also faster.
+> 
+> If it were only about -j MARK you're 100% right. Other targets could
+> be harder to replace - if they work of course ;-) Of course it's all
+> up to Jamal, but on the other hand I'm really confused debian stable
+> (or even testing) maintains such a broken state without any notice
+> or simply disabling it to save people's time.
+> 
+
+It should work with others as well - if it doesnt theres a bug
+somewhere. I dont have time this week - but if theres a script that is
+supposed to work that doesnt work, please send it to me and i will look
+into it.
+
+cheers,
+jamal
 
 
-On Jun 17, 2009, at 7:51 AM, Subrata Modak wrote:
-
-> On Mon, 2009-06-15 at 12:22 +0530, Subrata Modak wrote:
->> Hi Li/Nathan,
->>
->> On Thu, 2009-06-11 at 09:07 +0530, Subrata Modak wrote:
->>> Hi Nathan,
->>>
->>>> On Wed, 2009-06-10 at 21:28 -0500, Nathan Lynch wrote:
->>>> Subrata Modak <subrata@linux.vnet.ibm.com> writes:
->>>>
->>>>> On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
->>>>>> Hi Subrata,
->>>>>>
->>>>>> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ibm.com 
->>>>>> > wrote:
->>>>>>>
->>>>>>> 	/* Find the TBI PHY.  If it's not there, we don't support  
->>>>>>> SGMII */
->>>>>>> -	ph = of_get_property(np, "tbi-handle", NULL);
->>>>>>> +	ph = (phandle *)of_get_property(np, "tbi-handle", NULL);
->>>>>>
->>>>>> You don't need this cast because of_get_property() returns  
->>>>>> "void *".
->>>>>
->>>>> Stephen,
->>>>>
->>>>> True. But without this gcc complains:
->>>>>
->>>>> CC [M]  drivers/net/ucc_geth.o
->>>>> drivers/net/ucc_geth.c: In function bucc_geth_probeb:
->>>>> drivers/net/ucc_geth.c:3824: warning: assignment discards  
->>>>> qualifiers
->>>>> from pointer target type
->>>>
->>>> ph should be declared const phandle *.  Look at other uses of
->>>> of_get_property.
->>>>
->>>
->>> Ok fine. Here is a revised patch again.
->>>
->>> Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64  
->>> randconfig [drivers/net/ucc_geth.o]
->>> Reference(s):
->>> http://lkml.org/lkml/2009/6/4/241,
->>> http://lkml.org/lkml/2009/6/10/338,
->>>
->>> Fix the following build error:
->>>
->>> drivers/net/ucc_geth.c: In function bucc_geth_probeb:
->>> drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in  
->>> this function)
->>> drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is  
->>> reported only once
->>> drivers/net/ucc_geth.c:3822: error: for each function it appears  
->>> in.)
->>> drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use  
->>> in this function)
->>> make[2]: *** [drivers/net/ucc_geth.o] Error 1
->>>
->>> Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
->>> ---
->>
->> Is there anything else to be done in this patch. If this is OK, can  
->> this
->> be applied. I am not sure, but, i find Li Yang as the maintainer for
->> this in linux*/MAINTAINERS file. Kindly let me know if this patch  
->> needs
->> to be revisited for some other issue(s).
->
-> Li,
->
-> Any thoughts on this patch ?
->
->
-> Regards--
-> Subrata
->
->>
->> Regards--
->> Subrata
->>
->>>
->>> --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig	2009-06-10  
->>> 11:58:39.000000000 -0500
->>> +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c	2009-06-10  
->>> 22:28:13.000000000 -0500
->>> @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
->>>
->>> static int ucc_geth_probe(struct of_device* ofdev, const struct  
->>> of_device_id *match)
->>> {
->>> +	struct device_node *mdio;
->>> +	const phandle *ph;
->>> 	struct device *device = &ofdev->dev;
->>> 	struct device_node *np = ofdev->node;
->>> 	struct net_device *dev = NULL;
->>>
->>> ---
->>> Regards--
->>> Subrata
->>>
-
-I'm confused by the proposed fix as we already have *mdio & *ph  
-defined in this function:
-
-static int ucc_geth_probe(struct of_device* ofdev, const struct  
-of_device_id *match)
-{
-         struct device *device = &ofdev->dev;
-         struct device_node *np = ofdev->node;
-         struct device_node *mdio;
-         struct net_device *dev = NULL;
-         struct ucc_geth_private *ugeth = NULL;
-         struct ucc_geth_info *ug_info;
-         struct resource res;
-         struct device_node *phy;
-         int err, ucc_num, max_speed = 0;
-         const phandle *ph;
-         const u32 *fixed_link;
-         const unsigned int *prop;
-         const char *sprop;
-         const void *mac_addr;
-...
-
-- k
