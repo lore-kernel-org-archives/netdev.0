@@ -1,134 +1,236 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: kernel dies if loopback device not intialized
-Date: Tue, 16 Jun 2009 21:53:31 -0700
-Message-ID: <20090616215331.2a1bd276@nehalam>
-References: <20090610203536.4357d309@nehalam>
-	<1245080498.7134.15.camel@Maple>
+From: Yu Zhao <yu.zhao@intel.com>
+Subject: Re: SRIOV fails with "not enough MMIO resources"
+Date: Wed, 17 Jun 2009 12:58:19 +0800
+Message-ID: <4A3877EB.7020109@intel.com>
+References: <78C9135A3D2ECE4B8162EBDCE82CAD77055985C4@nekter> <4A2DFCCC.10506@intel.com> <78C9135A3D2ECE4B8162EBDCE82CAD7705640305@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Dykstra <john.dykstra1@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38931 "EHLO mail.vyatta.com"
+Received: from mga09.intel.com ([134.134.136.24]:38631 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751253AbZFQExe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 00:53:34 -0400
-In-Reply-To: <1245080498.7134.15.camel@Maple>
+	id S1751429AbZFQE7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 00:59:03 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7705640305@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Jun 2009 15:41:38 +0000
-John Dykstra <john.dykstra1@gmail.com> wrote:
+Sivakumar Subramani wrote:
+> Sorry for the delay in reply. I got the setup back today. The PF BAR4
+> size  is 32M. BAR0 of each VF is 8M. I loading the driver with 4 VFs. I
+> am facing this problem, even if I load it with 3 VFs.
 
-> On Wed, 2009-06-10 at 20:35 -0700, Stephen Hemminger wrote:
-> > This OOPS happens if system is booted up and loopback device
-> > is not initialized. This means the loopback device is not yet in the
-> > route table so when arp goes to send the error report, the route
-> > lookup thinks it is a martian and then dies.
-> > 
-> > Granted this is a startup script problem, but kernel shouldn't die.
-> > 
-> > [   55.601158] IP: [<c028968c>] ip_handle_martian_source+0x75/0xb8
-> > [   55.604044] Oops: 0000 [#1] SMP
-> > [   55.604044] last sysfs file: /sys/kernel/uevent_seqnum
-> > [   55.604044] Modules linked in: iptable_nat ip6table_filter
-> > iptable_filter ip6table_raw ip6_tables xt_NOTRACK iptable_raw ip_tables
-> > x_tables nf_nat_pptp nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_h323
-> > nf_conntrack_h323 nf_nat_sip nf_conntrack_sip nf_nat_proto_gre nf_nat_tftp
-> > nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_tftp
-> > nf_conntrack_ftp nf_conntrack ipv6 md_mod parport_pc parport psmouse
-> > pcspkr serio_raw vmxnet container ac button i2c_piix4 i2c_core shpchp
-> > pci_hotplug intel_agp agpgart evdev vfat fat ext2 battery squashfs loop
-> > unionfs nls_utf8 isofs nls_base zlib_inflate ext3 jbd mbcache sd_mod sg
-> > crc_t10dif sr_mod cdrom ata_piix pata_acpi floppy ata_generic mptspi
-> > mptscsih mptbase scsi_transport_spi libata scsi_mod thermal processor fan
-> > thermal_sys
-> > [   55.604044]
-> > [   55.604044] Pid: 0, comm: swapper Not tainted (2.6.29-1-586-vyatta #1)
-> > VMware Virtual Platform
-> > [   55.604044] EIP: 0060:[<c028968c>] EFLAGS: 00010293 CPU: 0
-> > [   55.604044] EIP is at ip_handle_martian_source+0x75/0xb8
-> > [   55.604044] EAX: 0000000e EBX: 00000000 ECX: c03e3d28 EDX: c03611e7
-> > [   55.604044] ESI: ddc40000 EDI: fffffc00 EBP: 00000000 ESP: c03e3d28
-> > [   55.604044]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-> > [   55.604044] Process swapper (pid: 0, ti=c03e2000 task=c038533c
-> > task.ti=c03e2000)
-> > [   55.604044] Stack:
-> > [   55.604044]  00000003 0100007f ffffffea c028c45b 1000000f 0100007f
-> > 00000000 00000003
-> > [   55.604044]  00000246 0100007f de5e9180 00000004 dfa6c600 df24ea80
-> > c03e3dcc c03e3d90
-> > [   55.604044]  00000000 00000003 00000000 1000000f 0100007f 00000000
-> > 00000000 00000000
-> > [   55.604044] Call Trace:
-> > [   55.604044]  [<c028c45b>] ip_route_input+0xbf8/0xc20
-> > [   55.604044]  [<c02ac0a9>] icmp_send+0x361/0x4c4
-> > [   55.604044]  [<c0135a7e>] sched_clock_cpu+0x13f/0x14b
-> > [   55.604044]  [<c011cf34>] update_rq_clock+0xe/0x1c
-> > [   55.604044]  [<c0289174>] ipv4_link_failure+0x14/0x37
-> > [   55.604044]  [<c02aa056>] arp_error_report+0x1c/0x24
-> > [   55.604044]  [<c027a3ae>] neigh_timer_handler+0x1c4/0x282
-> > [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
-> > [   55.604044]  [<c01298eb>] run_timer_softirq+0x139/0x191
-> > [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
-> > [   55.604044]  [<c012680a>] __do_softirq+0x83/0x103
-> > [   55.604044]  [<c01268bc>] do_softirq+0x32/0x36
-> > [   55.604044]  [<c01269d7>] irq_exit+0x35/0x62
-> > [   55.604044]  [<c010fbc4>] smp_apic_timer_interrupt+0x71/0x7b
-> > [   55.604044]  [<c0103a48>] apic_timer_interrupt+0x28/0x30
-> > [   55.604044]  [<c01085f0>] default_idle+0x2a/0x3d
-> > [   55.604044]  [<c0102489>] cpu_idle+0x57/0x72
-> > [   55.604044] Code: e8 a1 f1 04 00 83 c4 10 66 83 be d2 00 00 00 00 74 58
-> > 8b bf 98 00 00 00 85 ff 74 4e 68 e7 11 36 c0 31 db e8 7e f1 04 00 58 eb 29
-> > <0f> b6 04 1f 50 68 c8 20 35 c0 e8 6c f1 04 00 0f b7 86 d2 00 00
-> > [   55.604044] EIP: [<c028968c>] ip_handle_martian_source+0x75/0xb8 SS:ESP
-> > 0068:c03e3d28
-> > [   55.604044] ---[ end trace bfa8f60b4b45cd60 ]---
-> > [   55.604044] Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> The oops seems to be from the skb passed to ip_handle_martian_source(),
-> which is the skb pulled from the ARP queue.  Either skb->mac_header is
-> bogus, or the skb pointer itself is:
-> 
-> 	movl	148(%edi), %edi	# <variable>.mac_header, D.47506
-> 	testl	%edi, %edi	# D.47506
-> 	je	.L141	#,
-> 	pushl	$.LC1	#
-> 	xorl	%ebx, %ebx	# i
-> 	call	printk	#
-> 	popl	%eax	#
-> 	jmp	.L136	#
-> .L137:
-> 	movzbl	(%ebx,%edi), %eax	#* D.47506, tmp72    ******** trap here *******
-> 	pushl	%eax	# tmp72
-> 	pushl	$.LC2	#
-> 	call	printk	#
-> 	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
-> 	popl	%edx	#
-> 	decl	%eax	# tmp74
-> 	cmpl	%eax, %ebx	# tmp74, i
-> 	popl	%ecx	#
-> 	jge	.L138	#,
-> 	pushl	$.LC3	#
-> 	call	printk	#
-> 	popl	%eax	#
-> .L138:
-> 	incl	%ebx	# i
-> .L136:
-> 	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
-> 	cmpl	%eax, %ebx	# <variable>.hard_header_len, i
-> 	jl	.L137	#,
-> 
-> Stephen, I haven't been able to reproduce this--can you provide a
-> recipe?  Where is that packet coming from?
-> 
->   --  John
-> 
+OK, I see the problem. The total VFs supported by your SR-IOV device is 
+8 (0a:00.0/1) and 16 (09:00.0). And the VF MMIO area is calculated by 
+size of VF BAR multiplied total VFs. Passing 3 or 4 to 
+pci_enable_sriov() can not reduce the VF MMIO area size.
 
-The packets come from SNMP smux which opens a TCP socket over 127.1
-but the loopback interface is in admin down. I suspect the packet
-bouncing from ARP is the TCP SYN packet which does not have a mac_header()
-because it is going over the (down) loopback.
+So please hardcode the total VFs to 4 before you get a BIOS that 
+supports the SR-IOV:
 
--- 
+diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+index b497daa..5ba6da0 100644
+--- a/drivers/pci/iov.c
++++ b/drivers/pci/iov.c
+@@ -430,6 +430,7 @@ static int sriov_init(struct pci_dev *dev, int pos)
+         if (!total)
+                 return 0;
+
++       total = 4;
+         ctrl = 0;
+         list_for_each_entry(pdev, &dev->bus->devices, bus_list)
+                 if (pdev->is_physfn)
+
+
+> I have attached the code of sriov_init / sriov_enable / quirk_vxge_sriov
+> and the log of the debug statements that I have added in these function.
+> Please let you know your comments.
+> 
+> </Siva>
+> 
+> Thanks,
+> ~Siva
+> -----Original Message-----
+> From: Yu Zhao [mailto:yu.zhao@intel.com] 
+> Sent: Tuesday, June 09, 2009 11:40 AM
+> To: Sreenivasa Honnur
+> Cc: netdev@vger.kernel.org; Sivakumar Subramani
+> Subject: Re: SRIOV fails with "not enough MMIO resources"
+> 
+> Sreenivasa Honnur wrote:
+>> Hi,
+>>
+>> I added pci_enable_sriov / pci_disable_sriov in probe and remove
+>> function for Neterion X3100 card to test SRIOV feature. While testing
+> I
+>> got following error.
+>>
+>> Jun 8 00:02:59 bethweidel kernel: vxge: Copyright(c) 2002-2009
+> Neterion
+>> Inc Jun 8 00:02:59 bethweidel kernel: vxge: Driver version:
+>> 2.0.1.17129-k Jun 8 00:02:59 bethweidel kernel: vxge 0000:03:00.0: PCI
+>> INT A -> GSI 16 (level, low) -> IRQ 16 Jun 8 00:02:59 bethweidel
+> kernel:
+>> res->parent is ffff88013f129d28 for 2 Jun 8 00:02:59 bethweidel
+> kernel:
+>> res->parent is ffff88013f129d28 for 4 Jun 8 00:02:59 bethweidel
+> kernel:
+>> nres = 2 - iov->nres = 3 Jun 8 00:02:59 bethweidel kernel: vxge
+>> 0000:03:00.0: not enough MMIO resources for SR-IOV ----> ERROR Jun 8
+>> 00:02:59 bethweidel kernel: pci_enable_sriov returned -12 Jun 8
+> 00:02:59
+>> bethweidel kernel: eth2: SERIAL NUMBER: SXC0919196 Jun 8 00:02:59
+>> bethweidel kernel: eth2: PART NUMBER: X3110SR0003
+>>
+>>  
+>>
+>> When I dumped the config space of SRIOV Capability, I found BAR0 of
+> VFs
+>> was not configured by BIOS and it was zero. So I added following
+>> "quirk_vxge_sriov" quirk function to configure the BAR2 of PF as BAR0
+> of
+>> VFs.
+>>
+>> Now lspci shows proper value. But I am still get same error. The code
+>> that dumps this error is as follow. Here I trying to find out the
+> reason
+>> why res->parent is not updated for BAR0 of VF. From the above log, I
+> can
+>> see that Bar2 and BAR4's res->parent are update.
+>>
+>> Any possible reason why res->parent of VF's BAR0 is not updated?
+> 
+> Is the size of the PF BAR 4 big enough to cover the VF MMIO area 
+> indicated by VF BAR 0? (size of the PF BAR 4 >= size of VF BAR 0 *
+> NumVFs).
+> 
+> Can you please post the whole dmesg? I might be able to root cause the 
+> problem after looking at it.
+> 
+>> sriov_enable :
+>>
+>> --------------
+>>
+>> nres = 0;
+>>
+>> for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
+>>
+>> res = dev->resource + PCI_IOV_RESOURCES + i;
+>>
+>> if (res->parent) {
+>>
+>> printk("res->parent is %llx for %d \n", res->parent,i );
+>>
+>> nres++;
+>>
+>> }
+>>
+>> }
+>>
+>> printk("nres = %d - iov->nres = %d \n", nres, iov->nres);
+>>
+>> if (nres != iov->nres) {
+>>
+>> dev_err(&dev->dev, "not enough MMIO resources for SR-IOV\n");
+>>
+>> return -ENOMEM;
+>>
+>> }
+>>
+>>  
+>>
+>> quirk_vxge_sriov:
+>>
+>> -----------------
+>>
+>> static void __devinit quirk_vxge_sriov(struct pci_dev *dev) {
+>>
+>> int pos, flags;
+>>
+>> u32 bar, start, size;
+>>
+>> printk("Entering quirk_vxge_sriov ...\n");
+>>
+>> if (PAGE_SIZE > 0x10000) {
+>>
+>> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+>>
+>> return;
+>>
+>> }
+>>
+>> pos = pci_find_ext_capability(dev, PCI_EXT_CAP_ID_SRIOV);
+>>
+>> printk("the pos is %d \n", pos);
+>>
+>> if (!pos) {
+>>
+>> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+>>
+>> return;
+>>
+>> }
+>>
+>> pci_read_config_dword(dev, pos + PCI_SRIOV_BAR, &bar);
+>>
+>> if (bar & PCI_BASE_ADDRESS_MEM_MASK)
+>>
+>> {
+>>
+>> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+>>
+>> return;
+>>
+>> }
+>>
+>> start = pci_resource_start(dev, 4);
+>>
+>> size = pci_resource_len(dev, 4);
+>>
+>> printk("Bar4 start %llx - size %llx \n", start, size);
+>>
+>> if (!start || size != 0x2000000 || start & (size - 1)) {
+>>
+>> printk("Returning quirk_vxge_sriov @%d \n", __LINE__);
+>>
+>> return;
+>>
+>> }
+>>
+>> pci_resource_flags(dev, 4) = 0;
+>>
+>> pci_write_config_dword(dev, PCI_BASE_ADDRESS_4, 0);
+>>
+>> pci_write_config_dword(dev, pos + PCI_SRIOV_BAR, start);
+>>
+>> pci_read_config_dword(dev, pos+PCI_SRIOV_BAR,&bar);
+>>
+>> printk("VF's Bar0 is %llx \n", bar);
+>>
+>> dev_info(&dev->dev, "use Flash Memory Space for SR-IOV BARs\n");
+>>
+>> printk("Exiting quirk_vxge_sriov ...\n"); }
+>>
+>>  
+>>
+>> Thanks,
+>>
+>> ~Siva
+>>
+>>  
+>>
+>>  
+>>
+>>  
+>>
+>>  
+>>
+>>  
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
