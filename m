@@ -1,61 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
- randconfig [drivers/net/ucc_geth.o]
-Date: Wed, 17 Jun 2009 23:23:41 +1000
-Message-ID: <20090617232341.c4543ff2.sfr@canb.auug.org.au>
-References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
-	<1245048719.5239.10.camel@subratamodak.linux.ibm.com>
-	<1245243097.4870.3.camel@subratamodak.linux.ibm.com>
-	<6E26D0A1-0FE5-4179-9DA8-FDF0E3D417DA@kernel.crashing.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [bug] __nf_ct_refresh_acct(): WARNING: at lib/list_debug.c:30
+ __list_add+0x7d/0xad()
+Date: Wed, 17 Jun 2009 15:27:28 +0200
+Message-ID: <4A38EF40.7040106@gmail.com>
+References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net> <20090616105304.GA3579@elte.hu> <20090616122415.GA16630@elte.hu> <20090617092152.GA17449@elte.hu> <4A38C2F3.3000009@gmail.com> <4A38D5BD.2040502@trash.net> <4A38D9BE.3020403@gmail.com> <4A38DAC4.2050902@trash.net> <4A38E2AE.3030106@gmail.com> <4A38E33E.1050006@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Jun_2009_23_23_41_+1000_.izVW4hEBDoJIIBE"
-Cc: subrata@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>, Nathan Lynch <ntl@pobox.com>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <6E26D0A1-0FE5-4179-9DA8-FDF0E3D417DA@kernel.crashing.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52016 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756679AbZFQN1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 09:27:52 -0400
+In-Reply-To: <4A38E33E.1050006@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__17_Jun_2009_23_23_41_+1000_.izVW4hEBDoJIIBE
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Kumar,
-
-On Wed, 17 Jun 2009 08:07:47 -0500 Kumar Gala <galak@kernel.crashing.org> w=
-rote:
->
+Patrick McHardy a =E9crit :
+> Eric Dumazet wrote:
+>> Patrick McHardy a =E9crit :
+>>> Eric Dumazet wrote:
+>>>> Patrick McHardy a =E9crit :
+>>>>> Before the conntrack is confirmed, it is exclusively handled by a
+>>>>> single CPU. I agree that we need to make sure the IPS_CONFIRMED_B=
+IT
+>>>>> is visible before we add the conntrack to the hash table since th=
+e
+>>>>> lookup is lockless, but simply moving the set_bit before the hash
+>>>>> insertion should be fine I think.
+>>>>>
+>>>>
+>>>> Problem is timeout.expires is either a relative or absolute timeou=
+t,
+>>>> and changes happen
+>>>> in __nf_conntrack_confirm() or __nf_ct_refresh_acct().
+>>>>
+>>>> We must have a synchronization (an barriers), a single bit wont be
+>>>> enough.
+>>> Please have a look at the second patch I just sent. It relies
+>>> on the RCU barriers to make sure all stores are visible before
+>>> other CPUs can find the conntrack.
+>>>
+>>
+>> Sorry, I dont understand how your second patch corrects the problem.
+>>
+>> This (unconfirmed) conntrack is visible by another cpu.
 >=20
-> I'm confused by the proposed fix as we already have *mdio & *ph =20
-> defined in this function:
+> No, before it is confirmed, its only visible to the CPU handling
+> the initial packet of a connection. Confirmation is the step that
+> makes it visible to other CPUs.
 
-Which tree are you looking at?  Linus' tree, and linux-next, do not have
-those local variables ...
+Thanks Patrick, I missed this, and your patch seems fine now :)
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+>=20
+>> This other
+>> cpu can call __nf_ct_refresh_acct() while this cpu runs
+>> in __nf_conntrack_confirm()
+>=20
+> Not for the same conntrack, that would be a seperate bug.
+>=20
+> Does that explain what I'm trying to do? :)
 
---Signature=_Wed__17_Jun_2009_23_23_41_+1000_.izVW4hEBDoJIIBE
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAko47l0ACgkQjjKRsyhoI8z1OgCgqkPf9dXeSPtNV2LlDOCBzfGn
-VaUAoJedD4+E4MU3dN11tRAzwqt/7AxN
-=Cphp
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Jun_2009_23_23_41_+1000_.izVW4hEBDoJIIBE--
+Yes sure, thanks again.
