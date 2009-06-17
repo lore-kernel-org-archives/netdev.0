@@ -1,110 +1,80 @@
-From: Subrata Modak <subrata@linux.vnet.ibm.com>
-Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
-	randconfig [drivers/net/ucc_geth.o]
-Date: Wed, 17 Jun 2009 18:21:37 +0530
-Message-ID: <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
-References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
-	 <1245048719.5239.10.camel@subratamodak.linux.ibm.com>
-Reply-To: subrata@linux.vnet.ibm.com
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Wed, 17 Jun 2009 14:58:18 +0200
+Message-ID: <1245243498.31588.6.camel@johannes.local>
+References: <1244889678.13033.6.camel@johannes.local>
+	 <1244896094.13033.8.camel@johannes.local>
+	 <20090616111842.GG3521@psychotron.englab.brq.redhat.com>
+	 <1245151771.9256.3.camel@johannes.local>
+	 <20090616123808.GK3521@psychotron.englab.brq.redhat.com>
+	 <1245193788.21287.66.camel@johannes.local>
+	 <20090617072100.GA3492@psychotron.englab.brq.redhat.com>
+	 <1245231024.19769.0.camel@johannes.local>
+	 <20090617122616.GB2791@tuxdriver.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-2IiJcVAdmPXEmDS8SIyd"
+Cc: Jiri Pirko <jpirko@redhat.com>, Netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	davem <davem@davemloft.net>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:33488 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752989AbZFQM6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 08:58:52 -0400
+In-Reply-To: <20090617122616.GB2791@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-2IiJcVAdmPXEmDS8SIyd
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Nathan Lynch <ntl@pobox.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au
-To: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1245048719.5239.10.camel@subratamodak.linux.ibm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2009-06-15 at 12:22 +0530, Subrata Modak wrote:
-> Hi Li/Nathan,
-> 
-> On Thu, 2009-06-11 at 09:07 +0530, Subrata Modak wrote: 
-> > Hi Nathan,
-> > 
-> > >On Wed, 2009-06-10 at 21:28 -0500, Nathan Lynch wrote:
-> > >Subrata Modak <subrata@linux.vnet.ibm.com> writes:
-> > > 
-> > > > On Thu, 2009-06-11 at 11:05 +1000, Stephen Rothwell wrote:
-> > > >> Hi Subrata,
-> > > >> 
-> > > >> On Wed, 10 Jun 2009 23:13:23 +0530 Subrata Modak <subrata@linux.vnet.ibm.com> wrote:
-> > > >> >
-> > > >> >  	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
-> > > >> > -	ph = of_get_property(np, "tbi-handle", NULL);
-> > > >> > +	ph = (phandle *)of_get_property(np, "tbi-handle", NULL);
-> > > >> 
-> > > >> You don't need this cast because of_get_property() returns "void *".
-> > > >
-> > > > Stephen,
-> > > >
-> > > > True. But without this gcc complains:
-> > > >
-> > > > CC [M]  drivers/net/ucc_geth.o
-> > > > drivers/net/ucc_geth.c: In function bucc_geth_probeb:
-> > > > drivers/net/ucc_geth.c:3824: warning: assignment discards qualifiers
-> > > > from pointer target type
-> > > 
-> > > ph should be declared const phandle *.  Look at other uses of
-> > > of_get_property.
-> > >
-> > 
-> > Ok fine. Here is a revised patch again.
-> > 
-> > Subject: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64 randconfig [drivers/net/ucc_geth.o]
-> > Reference(s):
-> > http://lkml.org/lkml/2009/6/4/241,
-> > http://lkml.org/lkml/2009/6/10/338,
-> > 
-> > Fix the following build error:
-> > 
-> > drivers/net/ucc_geth.c: In function bucc_geth_probeb:
-> > drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in this function)
-> > drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is reported only once
-> > drivers/net/ucc_geth.c:3822: error: for each function it appears in.)
-> > drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in this function)
-> > make[2]: *** [drivers/net/ucc_geth.o] Error 1
-> > 
-> > Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
-> > ---
-> 
-> Is there anything else to be done in this patch. If this is OK, can this
-> be applied. I am not sure, but, i find Li Yang as the maintainer for
-> this in linux*/MAINTAINERS file. Kindly let me know if this patch needs
-> to be revisited for some other issue(s).
+On Wed, 2009-06-17 at 08:26 -0400, John W. Linville wrote:
+> On Wed, Jun 17, 2009 at 11:30:24AM +0200, Johannes Berg wrote:
+> > On Wed, 2009-06-17 at 09:21 +0200, Jiri Pirko wrote:
+> >=20
+> > > >I guess we could stick this one into wireless-testing, and then take=
+ it
+> > > >out again once your patch hits the tree and offers me similar API fo=
+r
+> > > >list_head based multicast lists?
+> > >=20
+> > > Or wait, I hope the patch will be ready in week tops.
+> >=20
+> > Yeah, that's fine, I'll ask people to throw in the simple export patch
+> > for testing. Thanks for considering! Please disregard my work on
+> > mac80211, I'll rebase over your work.
+>=20
+> If you need Jiri's patch in wireless-testing I can make arrangements
+> to cherry-pick it.
 
-Li,
+Not the one he just sent, that one's concerned with unicast address
+lists. We'll see. The mdev removal still had a bunch of issues anyway.
 
-Any thoughts on this patch ?
+johannes
 
-Regards--
-Subrata
+--=-2IiJcVAdmPXEmDS8SIyd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-> 
-> Regards--
-> Subrata
-> 
-> > 
-> > --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig	2009-06-10 11:58:39.000000000 -0500
-> > +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c	2009-06-10 22:28:13.000000000 -0500
-> > @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
-> > 
-> >  static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *match)
-> >  {
-> > +	struct device_node *mdio;
-> > +	const phandle *ph;
-> >  	struct device *device = &ofdev->dev;
-> >  	struct device_node *np = ofdev->node;
-> >  	struct net_device *dev = NULL;
-> > 
-> > ---
-> > Regards--
-> > Subrata
-> > 
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKOOhlAAoJEODzc/N7+QmaAWMP/A1L5cKHWTRiWJrzfvOoctK8
+YRT0y/0fHE0X82sToBk+rnXe8f4MY0amFn6Gyi02ZazrdHwYcBpogicnGj40o3vw
+PYyQ4X3nsee4iY+D8bZ5863jYFeBHDXnfOPkfwmJuRW0EGftx+u5yugtrIsneete
+DlqX65z8tJwHc8zHTaXAVZJ7c6dGVEOUSyUvLI1Zl3upQmANtKSv8XfX/fMNGKx1
+MMyQF0Ma0+aguEwdtaRs/5/t+V3hxuuNeXSKVGre8e3FK5GliPem0bni8gBoDQTB
+wRLTwP0cd2Ad4PJaaEjVzY1ZG2/gNJnR9vgljQmoQwlmra2W9XdIjddsooOsY0I1
+c4aYkp/2REIY7nEid0+vjpU2f5fDU5SeHhXboTAxupWh+Ht93y7BQAyNx7xIGu2p
+YHxAD+ugNDJ+HYDmXG7Qd4P1dGIHQoJfXsG9Xd84VMhE0hcUnLqop5nTJxrMs9g7
+pwtbT37nKrgvz0Dt7njY0KKZG5CitXeO+rTjUSEAoGc+sMXPIEmZHH5bHTCUAQWj
+jwA8MyVLudnVAiFp2E8j7v+gi8zIzSxYo4g04bPbz9G5kbksqroXYGHmNcGG1Viu
+4EIY/gVrheQG6DObUMyqlRybPmPdap4eeBIRzxcyB3iVvhx80cnUptkqurRC0Y9Z
+Sw4lnpXlo7I4ir7L5ra3
+=hWxz
+-----END PGP SIGNATURE-----
+
+--=-2IiJcVAdmPXEmDS8SIyd--
+
