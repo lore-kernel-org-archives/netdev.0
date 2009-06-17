@@ -1,50 +1,51 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Constantly varying download rate with a complex xen networking
- setup, why?
-Date: Wed, 17 Jun 2009 17:02:43 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0906171659380.31880@melkinkari.cs.Helsinki.FI>
-References: <20090615075313.GA22819@rivendell>
- <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI>
- <20090615160254.GA8550@rivendell> <Pine.LNX.4.64.0906151910220.16408@melkinkari.cs.Helsinki.FI>
- <20090617130050.GA18586@rivendell>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: iproute2 action/policer question
+Date: Wed, 17 Jun 2009 15:30:18 +0200
+Message-ID: <20090617133018.GA9928@amd64.fatal.se>
+References: <20090615111927.GA12316@ff.dom.local>
+ <20090617061458.GA9412@ff.dom.local>
+ <20090617062846.GA9764@ff.dom.local>
+ <200906171201.37727.denys@visp.net.lb>
+ <20090617092626.GA11005@ff.dom.local>
+ <1245244194.4025.21.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243445-285537263-1245247328=:31880"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Raphael Hertzog <raphael@ouaza.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	=?utf-8?B?UGF3ZcWC?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38927 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796AbZFQOCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 10:02:42 -0400
-In-Reply-To: <20090617130050.GA18586@rivendell>
-Content-ID: <Pine.LNX.4.64.0906171702140.31880@melkinkari.cs.Helsinki.FI>
+Received: from 78-82-252-13.tn.glocalnet.net ([78.82.252.13]:42116 "EHLO
+	localhost" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1764717AbZFQOND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 10:13:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1245244194.4025.21.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hello!
 
----696243445-285537263-1245247328=:31880
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0906171702141.31880@melkinkari.cs.Helsinki.FI>
+On Wed, Jun 17, 2009 at 09:09:54AM -0400, jamal wrote:
+[...]
+> It works fine with iptables 1.4.2 for Lenny on my laptop. 
+> It should work fine for the release after Lenny for 1.4.3 once
+> the debian maintainers pick up the latest iproute2.
 
-On Wed, 17 Jun 2009, Raphael Hertzog wrote:
+Do you mean the yet unreleased version?
+The latest release, v2.6.29-1, is available in both Sid (unstable) and
+Squeeze (testing) already and apparently people are having problems
+with it....
 
-> Le lundi 15 juin 2009, Ilpo Järvinen a écrit :
-> > Maybe the proxy interferes there somehow... I don't know enough about the
-> > details to say but I suppose the proxy at least breaks your tcp connection 
-> > to two parts.
-> 
-> Indeed. Is there some processing done in a simple linux bridge where the
-> reapperance of the same TCP packet that has been created and sent on another
-> local interface could create problem?
+[..]
+> I have confidence the iptables people are more aware of the API
+> breakages now than before - so very low probability it will break
+> post iptables 1.4.4.
+[..]
 
-I thought out had a http proxy in between? I suppose it is certainly doing 
-more than bridging. Anyway, I'll be week away, so no quick responses are 
-to be expected from my part after this mail.
-
+Proper .so versioning would be nice.
 
 -- 
- i.
----696243445-285537263-1245247328=:31880--
+Andreas Henriksson
+(...who only have sporadic internet access at the moment.)
