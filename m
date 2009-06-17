@@ -1,43 +1,41 @@
-From: Chaithrika U S <chaithrika@ti.com>
-Subject: [PATCH] TI DaVinci EMAC : Fix rmmod error
-Date: Wed, 17 Jun 2009 07:28:54 -0400
-Message-ID: <1245238134-23512-1-git-send-email-chaithrika@ti.com>
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	Chaithrika U S <chaithrika@ti.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:39263 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758274AbZFQMKo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 08:10:44 -0400
-Received: from dflp53.itg.ti.com ([128.247.5.6])
-	by arroyo.ext.ti.com (8.13.7/8.13.7) with ESMTP id n5HCAgKk009862
-	for <netdev@vger.kernel.org>; Wed, 17 Jun 2009 07:10:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [RFC] net: refactor multicast/unicast address list
+Date: Wed, 17 Jun 2009 08:26:16 -0400
+Message-ID: <20090617122616.GB2791@tuxdriver.com>
+References: <1244889678.13033.6.camel@johannes.local> <1244896094.13033.8.camel@johannes.local> <20090616111842.GG3521@psychotron.englab.brq.redhat.com> <1245151771.9256.3.camel@johannes.local> <20090616123808.GK3521@psychotron.englab.brq.redhat.com> <1245193788.21287.66.camel@johannes.local> <20090617072100.GA3492@psychotron.englab.brq.redhat.com> <1245231024.19769.0.camel@johannes.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	davem <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1245231024.19769.0.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-clk_disable was called twice in the remove function.
-Correct this so that the driver module unloads without error.
+On Wed, Jun 17, 2009 at 11:30:24AM +0200, Johannes Berg wrote:
+> On Wed, 2009-06-17 at 09:21 +0200, Jiri Pirko wrote:
+> 
+> > >I guess we could stick this one into wireless-testing, and then take it
+> > >out again once your patch hits the tree and offers me similar API for
+> > >list_head based multicast lists?
+> > 
+> > Or wait, I hope the patch will be ready in week tops.
+> 
+> Yeah, that's fine, I'll ask people to throw in the simple export patch
+> for testing. Thanks for considering! Please disregard my work on
+> mac80211, I'll rebase over your work.
 
-Signed-off-by: Chaithrika U S <chaithrika@ti.com>
----
-Applies to Linus' kernel tree
+If you need Jiri's patch in wireless-testing I can make arrangements
+to cherry-pick it.
 
- drivers/net/davinci_emac.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 0e9b9f9..2df8fb0 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2767,7 +2767,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
- 
- 	dev_notice(&ndev->dev, "DaVinci EMAC: davinci_emac_remove()\n");
- 
--	clk_disable(emac_clk);
- 	platform_set_drvdata(pdev, NULL);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	mdiobus_unregister(priv->mii_bus);
+John
 -- 
-1.5.6
-
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
