@@ -1,109 +1,134 @@
-From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Subject: [PATCH net-next-2.6] vxge: Enable SRIOV support n the driver.
-Date: Wed, 17 Jun 2009 00:48:55 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10906170047300.6160-100000@guinness>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: kernel dies if loopback device not intialized
+Date: Tue, 16 Jun 2009 21:53:31 -0700
+Message-ID: <20090616215331.2a1bd276@nehalam>
+References: <20090610203536.4357d309@nehalam>
+	<1245080498.7134.15.camel@Maple>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: support@neterion.com, ram.vepa@neterion.com,
-	santosh.rastapur@neterion.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: John Dykstra <john.dykstra1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:44314 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbZFQEus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 00:50:48 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:38931 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751253AbZFQExe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 00:53:34 -0400
+In-Reply-To: <1245080498.7134.15.camel@Maple>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Enabled SRIOV support in the driver.
-- Call __vxge_hw_verify_pci_e_info() for the PF only. This function
-  verifies the negotiated link width and current link speed in the
-  Link Status Register (offset 12h) which are reserved fields for VFs
-  as per the SRIOV specification, section 3.5.8.
-- Implemented David Miller's comment to remove the #ifdef CONFIG_PCI_IOV as 
-  these intefaces have NOP versions declared when the defintion is not set.
+On Mon, 15 Jun 2009 15:41:38 +0000
+John Dykstra <john.dykstra1@gmail.com> wrote:
 
-Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
----
-diff -urpN org/drivers/net/vxge/vxge-config.c mod/drivers/net/vxge/vxge-config.c
---- org/drivers/net/vxge/vxge-config.c	2009-06-15 22:51:49.000000000 -0700
-+++ mod/drivers/net/vxge/vxge-config.c	2009-06-15 22:55:59.000000000 -0700
-@@ -454,7 +454,7 @@ __vxge_hw_verify_pci_e_info(struct __vxg
- 	return VXGE_HW_OK;
- }
- 
--static enum vxge_hw_status
-+enum vxge_hw_status
- __vxge_hw_device_is_privilaged(struct __vxge_hw_device *hldev)
- {
- 	if ((hldev->host_type == VXGE_HW_NO_MR_NO_SR_NORMAL_FUNCTION ||
-@@ -676,10 +676,12 @@ enum vxge_hw_status __vxge_hw_device_ini
- {
- 	enum vxge_hw_status status = VXGE_HW_OK;
- 
--	/* Validate the pci-e link width and speed */
--	status = __vxge_hw_verify_pci_e_info(hldev);
--	if (status != VXGE_HW_OK)
--		goto exit;
-+	if (VXGE_HW_OK == __vxge_hw_device_is_privilaged(hldev)) {
-+		/* Validate the pci-e link width and speed */
-+		status = __vxge_hw_verify_pci_e_info(hldev);
-+		if (status != VXGE_HW_OK)
-+			goto exit;
-+	}
- 
- 	vxge_hw_wrr_rebalance(hldev);
- exit:
-diff -urpN org/drivers/net/vxge/vxge-main.c mod/drivers/net/vxge/vxge-main.c
---- org/drivers/net/vxge/vxge-main.c	2009-06-15 22:51:43.000000000 -0700
-+++ mod/drivers/net/vxge/vxge-main.c	2009-06-16 10:43:50.000000000 -0700
-@@ -4203,6 +4203,16 @@ vxge_probe(struct pci_dev *pdev, const s
- 		max_vpath_supported++;
- 	}
- 
-+	/* Enable SRIOV mode, if firmware has SRIOV support and if it is a PF */
-+	if ((VXGE_HW_FUNCTION_MODE_SRIOV ==
-+		ll_config.device_hw_info.function_mode) &&
-+		(max_config_dev > 1) && (pdev->is_physfn)) {
-+			ret = pci_enable_sriov(pdev, max_config_dev - 1);
-+			if (ret)
-+				vxge_debug_ll_config(VXGE_ERR,
-+					"Failed to enable SRIOV: %d \n", ret);
-+	}
-+
- 	/*
- 	 * Configure vpaths and get driver configured number of vpaths
- 	 * which is less than or equal to the maximum vpaths per function.
-@@ -4366,6 +4376,7 @@ _exit6:
- 
- 	vxge_device_unregister(hldev);
- _exit5:
-+	pci_disable_sriov(pdev);
- 	vxge_hw_device_terminate(hldev);
- _exit4:
- 	iounmap(attr.bar1);
-@@ -4429,6 +4440,8 @@ vxge_remove(struct pci_dev *pdev)
- 	iounmap(vdev->bar0);
- 	iounmap(vdev->bar1);
- 
-+	pci_disable_sriov(pdev);
-+
- 	/* we are safe to free it now */
- 	free_netdev(dev);
- 
-diff -urpN org/drivers/net/vxge/vxge-version.h mod/drivers/net/vxge/vxge-version.h
---- org/drivers/net/vxge/vxge-version.h	2009-06-15 22:51:54.000000000 -0700
-+++ mod/drivers/net/vxge/vxge-version.h	2009-06-16 10:47:33.000000000 -0700
-@@ -17,7 +17,7 @@
- 
- #define VXGE_VERSION_MAJOR	"2"
- #define VXGE_VERSION_MINOR	"0"
--#define VXGE_VERSION_FIX	"1"
--#define VXGE_VERSION_BUILD	"17129"
-+#define VXGE_VERSION_FIX	"4"
-+#define VXGE_VERSION_BUILD	"17795"
- #define VXGE_VERSION_FOR	"k"
- #endif
+> On Wed, 2009-06-10 at 20:35 -0700, Stephen Hemminger wrote:
+> > This OOPS happens if system is booted up and loopback device
+> > is not initialized. This means the loopback device is not yet in the
+> > route table so when arp goes to send the error report, the route
+> > lookup thinks it is a martian and then dies.
+> > 
+> > Granted this is a startup script problem, but kernel shouldn't die.
+> > 
+> > [   55.601158] IP: [<c028968c>] ip_handle_martian_source+0x75/0xb8
+> > [   55.604044] Oops: 0000 [#1] SMP
+> > [   55.604044] last sysfs file: /sys/kernel/uevent_seqnum
+> > [   55.604044] Modules linked in: iptable_nat ip6table_filter
+> > iptable_filter ip6table_raw ip6_tables xt_NOTRACK iptable_raw ip_tables
+> > x_tables nf_nat_pptp nf_conntrack_pptp nf_conntrack_proto_gre nf_nat_h323
+> > nf_conntrack_h323 nf_nat_sip nf_conntrack_sip nf_nat_proto_gre nf_nat_tftp
+> > nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_tftp
+> > nf_conntrack_ftp nf_conntrack ipv6 md_mod parport_pc parport psmouse
+> > pcspkr serio_raw vmxnet container ac button i2c_piix4 i2c_core shpchp
+> > pci_hotplug intel_agp agpgart evdev vfat fat ext2 battery squashfs loop
+> > unionfs nls_utf8 isofs nls_base zlib_inflate ext3 jbd mbcache sd_mod sg
+> > crc_t10dif sr_mod cdrom ata_piix pata_acpi floppy ata_generic mptspi
+> > mptscsih mptbase scsi_transport_spi libata scsi_mod thermal processor fan
+> > thermal_sys
+> > [   55.604044]
+> > [   55.604044] Pid: 0, comm: swapper Not tainted (2.6.29-1-586-vyatta #1)
+> > VMware Virtual Platform
+> > [   55.604044] EIP: 0060:[<c028968c>] EFLAGS: 00010293 CPU: 0
+> > [   55.604044] EIP is at ip_handle_martian_source+0x75/0xb8
+> > [   55.604044] EAX: 0000000e EBX: 00000000 ECX: c03e3d28 EDX: c03611e7
+> > [   55.604044] ESI: ddc40000 EDI: fffffc00 EBP: 00000000 ESP: c03e3d28
+> > [   55.604044]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> > [   55.604044] Process swapper (pid: 0, ti=c03e2000 task=c038533c
+> > task.ti=c03e2000)
+> > [   55.604044] Stack:
+> > [   55.604044]  00000003 0100007f ffffffea c028c45b 1000000f 0100007f
+> > 00000000 00000003
+> > [   55.604044]  00000246 0100007f de5e9180 00000004 dfa6c600 df24ea80
+> > c03e3dcc c03e3d90
+> > [   55.604044]  00000000 00000003 00000000 1000000f 0100007f 00000000
+> > 00000000 00000000
+> > [   55.604044] Call Trace:
+> > [   55.604044]  [<c028c45b>] ip_route_input+0xbf8/0xc20
+> > [   55.604044]  [<c02ac0a9>] icmp_send+0x361/0x4c4
+> > [   55.604044]  [<c0135a7e>] sched_clock_cpu+0x13f/0x14b
+> > [   55.604044]  [<c011cf34>] update_rq_clock+0xe/0x1c
+> > [   55.604044]  [<c0289174>] ipv4_link_failure+0x14/0x37
+> > [   55.604044]  [<c02aa056>] arp_error_report+0x1c/0x24
+> > [   55.604044]  [<c027a3ae>] neigh_timer_handler+0x1c4/0x282
+> > [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
+> > [   55.604044]  [<c01298eb>] run_timer_softirq+0x139/0x191
+> > [   55.604044]  [<c027a1ea>] neigh_timer_handler+0x0/0x282
+> > [   55.604044]  [<c012680a>] __do_softirq+0x83/0x103
+> > [   55.604044]  [<c01268bc>] do_softirq+0x32/0x36
+> > [   55.604044]  [<c01269d7>] irq_exit+0x35/0x62
+> > [   55.604044]  [<c010fbc4>] smp_apic_timer_interrupt+0x71/0x7b
+> > [   55.604044]  [<c0103a48>] apic_timer_interrupt+0x28/0x30
+> > [   55.604044]  [<c01085f0>] default_idle+0x2a/0x3d
+> > [   55.604044]  [<c0102489>] cpu_idle+0x57/0x72
+> > [   55.604044] Code: e8 a1 f1 04 00 83 c4 10 66 83 be d2 00 00 00 00 74 58
+> > 8b bf 98 00 00 00 85 ff 74 4e 68 e7 11 36 c0 31 db e8 7e f1 04 00 58 eb 29
+> > <0f> b6 04 1f 50 68 c8 20 35 c0 e8 6c f1 04 00 0f b7 86 d2 00 00
+> > [   55.604044] EIP: [<c028968c>] ip_handle_martian_source+0x75/0xb8 SS:ESP
+> > 0068:c03e3d28
+> > [   55.604044] ---[ end trace bfa8f60b4b45cd60 ]---
+> > [   55.604044] Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> The oops seems to be from the skb passed to ip_handle_martian_source(),
+> which is the skb pulled from the ARP queue.  Either skb->mac_header is
+> bogus, or the skb pointer itself is:
+> 
+> 	movl	148(%edi), %edi	# <variable>.mac_header, D.47506
+> 	testl	%edi, %edi	# D.47506
+> 	je	.L141	#,
+> 	pushl	$.LC1	#
+> 	xorl	%ebx, %ebx	# i
+> 	call	printk	#
+> 	popl	%eax	#
+> 	jmp	.L136	#
+> .L137:
+> 	movzbl	(%ebx,%edi), %eax	#* D.47506, tmp72    ******** trap here *******
+> 	pushl	%eax	# tmp72
+> 	pushl	$.LC2	#
+> 	call	printk	#
+> 	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
+> 	popl	%edx	#
+> 	decl	%eax	# tmp74
+> 	cmpl	%eax, %ebx	# tmp74, i
+> 	popl	%ecx	#
+> 	jge	.L138	#,
+> 	pushl	$.LC3	#
+> 	call	printk	#
+> 	popl	%eax	#
+> .L138:
+> 	incl	%ebx	# i
+> .L136:
+> 	movzwl	210(%esi), %eax	# <variable>.hard_header_len, <variable>.hard_header_len
+> 	cmpl	%eax, %ebx	# <variable>.hard_header_len, i
+> 	jl	.L137	#,
+> 
+> Stephen, I haven't been able to reproduce this--can you provide a
+> recipe?  Where is that packet coming from?
+> 
+>   --  John
+> 
 
+The packets come from SNMP smux which opens a TCP socket over 127.1
+but the loopback interface is in admin down. I suspect the packet
+bouncing from ARP is the TCP SYN packet which does not have a mac_header()
+because it is going over the (down) loopback.
+
+-- 
