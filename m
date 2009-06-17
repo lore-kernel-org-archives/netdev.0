@@ -1,49 +1,97 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [RFC] skbuff: skb_mac_header_was_set is always true on >32 bit
-Date: Wed, 17 Jun 2009 13:37:16 -0300
-Message-ID: <20090617163716.GA21530@ghostprotocols.net>
-References: <20090617082327.196eda07@nehalam>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
+	randconfig [drivers/net/ucc_geth.o]
+Date: Wed, 17 Jun 2009 11:29:54 -0600
+Message-ID: <fa686aa40906171029p4d5b876fm16d0f144b1a19346@mail.gmail.com>
+References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
+	<1245048719.5239.10.camel@subratamodak.linux.ibm.com> <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
+	<6E26D0A1-0FE5-4179-9DA8-FDF0E3D417DA@kernel.crashing.org>
+	<20090617232341.c4543ff2.sfr@canb.auug.org.au> <20090617233452.03ac78d5.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:57257 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756908AbZFQQhb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Jun 2009 12:37:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20090617082327.196eda07@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kumar Gala <galak@kernel.crashing.org>, subrata@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Li Yang <leoli@freescale.com>,
+	Nathan Lynch <ntl@pobox.com>,
+	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>,
+	Balbir Singh <balbir@linux.vnet.ibm.com>,
+	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
+	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au,
+	Haiying Wang <Haiying.Wang@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090617233452.03ac78d5.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Wed, Jun 17, 2009 at 08:23:27AM -0700, Stephen Hemminger escreveu:
-> Looking at the crash in log_martians(), one suspect is that the check for
-> mac header being set is not correct.  The value of mac_header defaults to
-> 0 on allocation, therefore skb_mac_header_was_set will always be true on
-> platforms using NET_SKBUFF_USES_OFFSET.
-> 
-> Arnaldo, is this correct?
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+On Wed, Jun 17, 2009 at 7:34 AM, Stephen Rothwell<sfr@canb.auug.org.au>=
+ wrote:
+> On Wed, 17 Jun 2009 23:23:41 +1000 Stephen Rothwell <sfr@canb.auug.or=
+g.au> wrote:
+>>
+>> Hi Kumar,
+>>
+>> On Wed, 17 Jun 2009 08:07:47 -0500 Kumar Gala <galak@kernel.crashing=
+=2Eorg> wrote:
+>> >
+>> >
+>> > I'm confused by the proposed fix as we already have *mdio & *ph
+>> > defined in this function:
+>>
+>> Which tree are you looking at? =A0Linus' tree, and linux-next, do no=
+t have
+>> those local variables ...
+>
+> Hmmm, commit 0b9da337dca972e7a4144e298ec3adb8f244d4a4 ("net: Rework
+> ucc_geth driver to use of_mdio infrastructure") removed the locals al=
+ong
+> with their usages, then commit 047584ce94108012288554a5f84585d792cc7f=
+8f
+> ("net/ucc_geth: Add SGMII support for UEC GETH driver") added more us=
+es
+> without adding the variables back.
+>
+> Here is the patch again:
+>
+> From: Subrata Modak <subrata@linux.vnet.ibm.com>
+> Subject: [PATCH] Fix build error in ucc_geth.c
+>
+> Fix the following build error:
+>
+> drivers/net/ucc_geth.c: In function bucc_geth_probeb:
+> drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in thi=
+s function)
+> drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is re=
+ported only once
+> drivers/net/ucc_geth.c:3822: error: for each function it appears in.)
+> drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in t=
+his function)
+> make[2]: *** [drivers/net/ucc_geth.o] Error 1
+>
+> Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
+>
+> --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig =A0 =A0 =A0 =A02009-=
+06-10 11:58:39.000000000 -0500
+> +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c =A0 =A0 2009-06-10 22:28:=
+13.000000000 -0500
+> @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
+>
+> =A0static int ucc_geth_probe(struct of_device* ofdev, const struct of=
+_device_id *match)
+> =A0{
+> + =A0 =A0 =A0 struct device_node *mdio;
+> + =A0 =A0 =A0 const phandle *ph;
+> =A0 =A0 =A0 =A0struct device *device =3D &ofdev->dev;
+> =A0 =A0 =A0 =A0struct device_node *np =3D ofdev->node;
+> =A0 =A0 =A0 =A0struct net_device *dev =3D NULL;
 
-Yeah, looks right, I forgot to initialize it to the value I changed the
-test in skb_mac_header_was_set when doing the offset patch :-\
+Ah, this might not be the right fix then.  I'll look.
 
-Thanks!
+g.
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-
-> --- a/net/core/skbuff.c	2009-06-17 08:16:46.235188728 -0700
-> +++ b/net/core/skbuff.c	2009-06-17 08:17:25.810314332 -0700
-> @@ -201,6 +201,10 @@ struct sk_buff *__alloc_skb(unsigned int
->  	skb->data = data;
->  	skb_reset_tail_pointer(skb);
->  	skb->end = skb->tail + size;
-> +#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> +	skb->mac_header = ~0U;
-> +#endif
-> +
->  	/* make sure we initialize shinfo sequentially */
->  	shinfo = skb_shinfo(skb);
->  	atomic_set(&shinfo->dataref, 1);
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
