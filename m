@@ -1,107 +1,130 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH][Resend 2][BUILD FAILURE 04/04] Next June 04:PPC64
-	randconfig [drivers/net/ucc_geth.o]
-Date: Wed, 17 Jun 2009 14:37:38 -0600
-Message-ID: <fa686aa40906171337n13813d9wddaa03f2e8904f80@mail.gmail.com>
-References: <20090611033705.20842.75501.sendpatchset@subratamodak.linux.ibm.com>
-	<1245048719.5239.10.camel@subratamodak.linux.ibm.com> <1245243097.4870.3.camel@subratamodak.linux.ibm.com>
-	<6E26D0A1-0FE5-4179-9DA8-FDF0E3D417DA@kernel.crashing.org>
-	<20090617232341.c4543ff2.sfr@canb.auug.org.au> <20090617233452.03ac78d5.sfr@canb.auug.org.au>
-	<fa686aa40906171029p4d5b876fm16d0f144b1a19346@mail.gmail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH] wireless extensions: play with netns
+Date: Wed, 17 Jun 2009 13:46:20 -0700
+Message-ID: <m1y6rqwpur.fsf@fess.ebiederm.org>
+References: <1245263058.31588.38.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kumar Gala <galak@kernel.crashing.org>, subrata@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Li Yang <leoli@freescale.com>,
-	Nathan Lynch <ntl@pobox.com>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au,
-	Haiying Wang <Haiying.Wang@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f214.google.com ([209.85.217.214]:48339 "EHLO
-	mail-gx0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbZFQUh4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 16:37:56 -0400
-In-Reply-To: <fa686aa40906171029p4d5b876fm16d0f144b1a19346@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1245263058.31588.38.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org> (Johannes Berg's message of "Wed\, 17 Jun 2009 20\:24\:18 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 17, 2009 at 11:29 AM, Grant Likely<grant.likely@secretlab.c=
-a> wrote:
-> On Wed, Jun 17, 2009 at 7:34 AM, Stephen Rothwell<sfr@canb.auug.org.a=
-u> wrote:
->> On Wed, 17 Jun 2009 23:23:41 +1000 Stephen Rothwell <sfr@canb.auug.o=
-rg.au> wrote:
->>>
->>> Hi Kumar,
->>>
->>> On Wed, 17 Jun 2009 08:07:47 -0500 Kumar Gala <galak@kernel.crashin=
-g.org> wrote:
->>> >
->>> >
->>> > I'm confused by the proposed fix as we already have *mdio & *ph
->>> > defined in this function:
->>>
->>> Which tree are you looking at? =A0Linus' tree, and linux-next, do n=
-ot have
->>> those local variables ...
->>
->> Hmmm, commit 0b9da337dca972e7a4144e298ec3adb8f244d4a4 ("net: Rework
->> ucc_geth driver to use of_mdio infrastructure") removed the locals a=
-long
->> with their usages, then commit 047584ce94108012288554a5f84585d792cc7=
-f8f
->> ("net/ucc_geth: Add SGMII support for UEC GETH driver") added more u=
-ses
->> without adding the variables back.
->>
->> Here is the patch again:
->>
->> From: Subrata Modak <subrata@linux.vnet.ibm.com>
->> Subject: [PATCH] Fix build error in ucc_geth.c
->>
->> Fix the following build error:
->>
->> drivers/net/ucc_geth.c: In function bucc_geth_probeb:
->> drivers/net/ucc_geth.c:3822: error: 'ph' undeclared (first use in th=
-is function)
->> drivers/net/ucc_geth.c:3822: error: (Each undeclared identifier is r=
-eported only once
->> drivers/net/ucc_geth.c:3822: error: for each function it appears in.=
-)
->> drivers/net/ucc_geth.c:3832: error: 'mdio' undeclared (first use in =
-this function)
->> make[2]: *** [drivers/net/ucc_geth.o] Error 1
->>
->> Signed-off-by: Subrata Modak <subrata@linux.vnet.ibm.com>
->>
->> --- linux-2.6.30-rc8/drivers/net/ucc_geth.c.orig =A0 =A0 =A0 =A02009=
--06-10 11:58:39.000000000 -0500
->> +++ linux-2.6.30-rc8/drivers/net/ucc_geth.c =A0 =A0 2009-06-10 22:28=
-:13.000000000 -0500
->> @@ -3595,6 +3595,8 @@ static const struct net_device_ops ucc_g
->>
->> =A0static int ucc_geth_probe(struct of_device* ofdev, const struct o=
-f_device_id *match)
->> =A0{
->> + =A0 =A0 =A0 struct device_node *mdio;
->> + =A0 =A0 =A0 const phandle *ph;
->> =A0 =A0 =A0 =A0struct device *device =3D &ofdev->dev;
->> =A0 =A0 =A0 =A0struct device_node *np =3D ofdev->node;
->> =A0 =A0 =A0 =A0struct net_device *dev =3D NULL;
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
+
+> This makes wireless extensions netns aware.
 >
-> Ah, this might not be the right fix then. =A0I'll look.
+> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> ---
+> Is this ok, or is this racy? I guess what I'm asking is -- will
+> for_each_net() stop iterating over a netns that is going away before the
+> pernet exit op is called? If yes, this should be fine.
 
-Yeah, this is not the right fix.  The SGMII change doesn't mesh well
-with the of_mdio changes and needed some rewriting.  I'm about to post
-a patch (compile tested only) which should make things happy.
+for_each_net requires the rtnl_lock or the net_mutex to be safe.
+You aren't taking either so your code is racy.
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+A dying network namespace will be removed from the net_namespace_list
+(aka for_each_net) before the per net exit methods are called.
+
+Is grabbing the rtnl_lock safe in your workqueue and is that something
+we want to do?
+
+Eric
+
+
+>  include/net/net_namespace.h |    3 +++
+>  net/wireless/wext.c         |   30 ++++++++++++++++++++++--------
+>  2 files changed, 25 insertions(+), 8 deletions(-)
+>
+> --- wireless-testing.orig/include/net/net_namespace.h	2009-06-17 20:20:47.000000000 +0200
+> +++ wireless-testing/include/net/net_namespace.h	2009-06-17 20:20:51.000000000 +0200
+> @@ -78,6 +78,9 @@ struct net {
+>  #ifdef CONFIG_XFRM
+>  	struct netns_xfrm	xfrm;
+>  #endif
+> +#ifdef CONFIG_WIRELESS_EXT
+> +	struct sk_buff_head	wext_nlevents;
+> +#endif
+>  	struct net_generic	*gen;
+>  };
+>  
+> --- wireless-testing.orig/net/wireless/wext.c	2009-06-17 20:20:47.000000000 +0200
+> +++ wireless-testing/net/wireless/wext.c	2009-06-17 20:20:51.000000000 +0200
+> @@ -1273,11 +1273,25 @@ int compat_wext_handle_ioctl(struct net 
+>   * Jean II
+>   */
+>  
+> -static struct sk_buff_head wireless_nlevent_queue;
+> +static int __net_init wext_pernet_init(struct net *net)
+> +{
+> +	skb_queue_head_init(&net->wext_nlevents);
+> +	return 0;
+> +}
+> +
+> +static void __net_exit wext_pernet_exit(struct net *net)
+> +{
+> +	skb_queue_purge(&net->wext_nlevents);
+> +}
+> +
+> +static struct pernet_operations wext_pernet_ops = {
+> +	.init = wext_pernet_init,
+> +	.exit = wext_pernet_exit,
+> +};
+>  
+>  static int __init wireless_nlevent_init(void)
+>  {
+> -	skb_queue_head_init(&wireless_nlevent_queue);
+> +	return register_pernet_subsys(&wext_pernet_ops);
+>  	return 0;
+>  }
+>  
+> @@ -1286,9 +1300,12 @@ subsys_initcall(wireless_nlevent_init);
+>  static void wireless_nlevent_process(unsigned long data)
+>  {
+>  	struct sk_buff *skb;
+> +	struct net *net;
+>  
+> -	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
+> -		rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+> +	for_each_net(net)
+> +		while ((skb = skb_dequeue(&net->wext_nlevents)))
+> +			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
+> +				    GFP_ATOMIC);
+>  }
+>  
+>  static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
+> @@ -1341,9 +1358,6 @@ static void rtmsg_iwinfo(struct net_devi
+>  	struct sk_buff *skb;
+>  	int err;
+>  
+> -	if (!net_eq(dev_net(dev), &init_net))
+> -		return;
+> -
+>  	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+>  	if (!skb)
+>  		return;
+> @@ -1356,7 +1370,7 @@ static void rtmsg_iwinfo(struct net_devi
+>  	}
+>  
+>  	NETLINK_CB(skb).dst_group = RTNLGRP_LINK;
+> -	skb_queue_tail(&wireless_nlevent_queue, skb);
+> +	skb_queue_tail(&dev_net(dev)->wext_nlevents, skb);
+>  	tasklet_schedule(&wireless_nlevent_tasklet);
+>  }
+>  
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
