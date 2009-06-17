@@ -1,51 +1,68 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: iproute2 action/policer question
-Date: Wed, 17 Jun 2009 06:45:41 +0000
-Message-ID: <20090617064541.GA9819@ff.dom.local>
-References: <20090615111927.GA12316@ff.dom.local> <1245072728.3948.14.camel@dogo.mojatatu.com> <20090615145222.GA2767@ami.dom.local> <1245153872.4018.14.camel@dogo.mojatatu.com> <20090617061458.GA9412@ff.dom.local> <20090617062846.GA9764@ff.dom.local>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: lots of cpu time spent in skb_copy_bits() in net-next with small
+ mtu
+Date: Wed, 17 Jun 2009 09:57:19 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0906170936320.28187@melkinkari.cs.Helsinki.FI>
+References: <Pine.LNX.4.64.0906122248450.31625@melkinkari.cs.Helsinki.FI>
+ <1245180000.7150.6.camel@Maple> <Pine.LNX.4.64.0906170831020.28187@melkinkari.cs.Helsinki.FI>
+ <20090616.225316.263195307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Andreas Henriksson <andreas@fatal.se>
-To: jamal <hadi@cyberus.ca>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243445-1534574638-1245221839=:28187"
+Cc: john.dykstra1@gmail.com, ben.lahaise@neterion.com,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f212.google.com ([209.85.220.212]:60989 "EHLO
-	mail-fx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800AbZFQGpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 02:45:45 -0400
-Received: by fxm8 with SMTP id 8so61825fxm.37
-        for <netdev@vger.kernel.org>; Tue, 16 Jun 2009 23:45:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090617062846.GA9764@ff.dom.local>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49642 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752336AbZFQG5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 02:57:17 -0400
+In-Reply-To: <20090616.225316.263195307.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 17, 2009 at 06:28:46AM +0000, Jarek Poplawski wrote:
-> On Wed, Jun 17, 2009 at 06:14:58AM +0000, Jarek Poplawski wrote:
-> > On Tue, Jun 16, 2009 at 08:04:32AM -0400, jamal wrote:
-> > > On Mon, 2009-06-15 at 16:52 +0200, Jarek Poplawski wrote:
-> > > 
-> > > > I've tried debian squeeze (testing) with: iptables v1.4.3.2, iproute2
-> > > > -ss090324, and action ipt -j MARK doesn't work. AFAIK debian lenny
-> > > > (stable) uses 1.4.2. I've also tried debian rescue probably based on
-> > > > lenny (with iptables 1.4.2), and it seemed it didn't work yet (I'll
-> > > > re-check this). When you have something new I'd be glad for Cc.
-> > > 
-> > > I am suprised it broke again. 
-> > > Lets CC the debian iproute maintainer. 
-> > 
-> > I confirm I can't get 'action ipt -j MARK' working on debian lenny
-> > (stable) with distro's iptables/tc. I'm not able to compile tc from
-> > vanilla sources properly either - configure fails 3 IPT tests. (I
-> > admit I can miss setting some (undocumented?) config variables.) So,
-> > with or without debian, IMHO iproute2 needs some updates for iptables
-> > 1.4.2, 1.4.3, and maybe even 1.4.4 now.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696243445-1534574638-1245221839=:28187
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: 8BIT
+
+On Tue, 16 Jun 2009, David Miller wrote:
+
+> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Wed, 17 Jun 2009 08:46:56 +0300 (EEST)
 > 
-> OOPS! I _can_ configure it for 1.4.2 yet (so it's only about >= 1.4.3).
+> > While I took a very short view on it earlier I notice that handling of the 
+> > case when head is at the last skb and tail is at the end of queue was 
+> > changed (without mention in the commit message whether it was 
+> > intentionally) in the Dave's change (we used to exit at skb == tail while 
+> > we don't necessarily do that anymore but take the additional checks that 
+> > are made inside the loop ub tcp_collapse()). It would be nice if Dave 
+> > would split that kind of complex transformation into more easily 
+> > verifiable changes, even if the intermediate form itself would not remain 
+> > in the final form, as is it's rather hard to track it all :-).
+> > 
+> > I'm not sure if that change is significant though as one might view it as 
+> > the opposite, ie., that the previous was unintented early exit since we 
+> > wouldn't collapse bloated skb in the end but who knows... ...But I'm yet 
+> > to really _understand_ everything that is going on there.
+> 
+> Sorry, will be more careful in the future. :-)
 
-Btw., so 'action -j MARK' can work with iptables 1.4.2 & updated
-iproute2, but I confirm Pawel's report that 'action -j LOG' doesn't
-work yet.
+I re-looked into the problem I supposedly found earlier and it seems that
+it turned out to be a false alarm... Huoh, how complex it is track that 
+change :-).
 
-Jarek P.
+> Can we atleast verify that applying the following revert patch makes
+> the problem go away?  (it's a combination revert of commits
+> 2df9001edc382c331f338f45d259feeaa740c418 and
+> 915219441d566f1da0caa0e262be49b666159e17).
+
+Yeah, that's a good start...
+
+-- 
+ i.
+
+ps. I'll be out of reach of email access for a week.
+
+---696243445-1534574638-1245221839=:28187--
