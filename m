@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vxge: Enable SRIOV support n the driver.
-Date: Wed, 17 Jun 2009 04:32:45 -0700 (PDT)
-Message-ID: <20090617.043245.88359322.davem@davemloft.net>
-References: <Pine.GSO.4.10.10906170047300.6160-100000@guinness>
+Subject: Re: [bug] __nf_ct_refresh_acct(): WARNING: at lib/list_debug.c:30
+ __list_add+0x7d/0xad()
+Date: Wed, 17 Jun 2009 04:35:34 -0700 (PDT)
+Message-ID: <20090617.043534.259824726.davem@davemloft.net>
+References: <20090617092152.GA17449@elte.hu>
+	<4A38C2F3.3000009@gmail.com>
+	<20090617110803.GA10175@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com,
-	ram.vepa@neterion.com, santosh.rastapur@neterion.com
-To: Sivakumar.Subramani@neterion.com
+Cc: eric.dumazet@gmail.com, tglx@linutronix.de,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47134
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47142
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933109AbZFQLcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 07:32:42 -0400
-In-Reply-To: <Pine.GSO.4.10.10906170047300.6160-100000@guinness>
+	by vger.kernel.org with ESMTP id S1751850AbZFQLfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 07:35:31 -0400
+In-Reply-To: <20090617110803.GA10175@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Date: Wed, 17 Jun 2009 00:48:55 -0400 (EDT)
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 17 Jun 2009 13:08:03 +0200
 
-> - Enabled SRIOV support in the driver.
-> - Call __vxge_hw_verify_pci_e_info() for the PF only. This function
->   verifies the negotiated link width and current link speed in the
->   Link Status Register (offset 12h) which are reserved fields for VFs
->   as per the SRIOV specification, section 3.5.8.
-> - Implemented David Miller's comment to remove the #ifdef CONFIG_PCI_IOV as 
->   these intefaces have NOP versions declared when the defintion is not set.
 > 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-> Signed-off-by: Rastapur Santosh <santosh.rastapur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> * Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+>> IPS_CONFIRMED_BIT is set under nf_conntrack_lock (in __nf_conntrack_confirm()),
+>> we probably want to add a synchronisation under ct->lock as well,
+>> or __nf_ct_refresh_acct() could set ct->timeout.expires to extra_jiffies,
+>> while a different cpu could confirm the conntrack.
+>> 
+>> Following patch as RFC
+> 
+> A quick test suggests that it seems to works here - thanks Eric!
 
-Applied.
+Patrick, please take a quick look at Eric's fix.  I'd like to
+apply it quickly if it looks good to you.
+
+Thanks!
