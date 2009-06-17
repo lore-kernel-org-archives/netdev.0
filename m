@@ -1,227 +1,47 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH 2/2] net/ucc_geth: Add SGMII support for UCC GETH driver
-Date: Wed, 17 Jun 2009 17:16:10 -0600
-Message-ID: <20090617231609.7051.57806.stgit@localhost.localdomain>
-References: <20090617231306.7051.56146.stgit@localhost.localdomain>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH] wireless extensions: play with netns
+Date: Wed, 17 Jun 2009 16:24:58 -0700
+Message-ID: <m1r5xitpdh.fsf@fess.ebiederm.org>
+References: <1245263058.31588.38.camel@johannes.local>
+	<m1y6rqwpur.fsf@fess.ebiederm.org>
+	<1245276899.31588.57.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <galak@kernel.crashing.org>,
-	Li Yang <leoli@freescale.com>, Nathan Lynch <ntl@pobox.com>,
-	Sachin P Sant <sachinp@linux.vnet.ibm.com>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	linux-kernel@vger.kernel.org,
-	Balbir Singh <balbir@linux.vnet.ibm.com>,
-	Linuxppc-dev <Linuxppc-dev@ozlabs.org>,
-	Tony Breeds <tony@bakeyournoodle.com>, michael@ellerman.id.au,
-	Haiying Wang <Haiying.Wang@freescale.com>, davem@davemloft.net
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	subrata@linux.vnet.ibm.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:65005 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763005AbZFQXQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 19:16:09 -0400
-In-Reply-To: <20090617231306.7051.56146.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1245276899.31588.57.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org> (Johannes Berg's message of "Thu\, 18 Jun 2009 00\:14\:59 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Haiying Wang <Haiying.Wang@freescale.com>
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
 
--- derived from reverted commit 047584ce94108012288554a5f84585d792cc7f8f
--- reworked by Grant Likely to play nice with commit:
-   "net: Rework ucc_geth driver to use of_mdio infrastructure"
-   (0b9da337dca972e7a4144e298ec3adb8f244d4a4)
+> On Wed, 2009-06-17 at 13:46 -0700, Eric W. Biederman wrote:
+>> Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
+>> 
+>> > This makes wireless extensions netns aware.
+>> >
+>> > Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+>> > ---
+>> > Is this ok, or is this racy? I guess what I'm asking is -- will
+>> > for_each_net() stop iterating over a netns that is going away before the
+>> > pernet exit op is called? If yes, this should be fine.
+>> 
+>> for_each_net requires the rtnl_lock or the net_mutex to be safe.
+>> You aren't taking either so your code is racy.
+>
+> So it looks like I can also use rcu_read_lock(), but there's no
+> for_each_net_rcu(), should there be?
 
-Signed-off-by: Haiying Wang <Haiying.Wang@freescale.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
+I'm not using rcu safe list manipulation.  What makes it look like
+rcu_read_lock() is safe?
 
- arch/powerpc/include/asm/qe.h |    2 +
- drivers/net/ucc_geth.c        |   58 ++++++++++++++++++++++++++++++++++++++++-
- drivers/net/ucc_geth.h        |   28 +++++++++++++++++++-
- 3 files changed, 86 insertions(+), 2 deletions(-)
-
-
-diff --git a/arch/powerpc/include/asm/qe.h b/arch/powerpc/include/asm/qe.h
-index e0faf33..157c5ca 100644
---- a/arch/powerpc/include/asm/qe.h
-+++ b/arch/powerpc/include/asm/qe.h
-@@ -675,6 +675,8 @@ struct ucc_slow_pram {
- #define UCC_GETH_UPSMR_RMM      0x00001000
- #define UCC_GETH_UPSMR_CAM      0x00000400
- #define UCC_GETH_UPSMR_BRO      0x00000200
-+#define UCC_GETH_UPSMR_SMM	0x00000080
-+#define UCC_GETH_UPSMR_SGMM	0x00000020
- 
- /* UCC Transmit On Demand Register (UTODR) */
- #define UCC_SLOW_TOD	0x8000
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 5118993..40c6eba 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (C) 2006-2007 Freescale Semicondutor, Inc. All rights reserved.
-+ * Copyright (C) 2006-2009 Freescale Semicondutor, Inc. All rights reserved.
-  *
-  * Author: Shlomi Gridish <gridish@freescale.com>
-  *	   Li Yang <leoli@freescale.com>
-@@ -1410,6 +1410,9 @@ static int adjust_enet_interface(struct ucc_geth_private *ugeth)
- 	    (ugeth->phy_interface == PHY_INTERFACE_MODE_RTBI)) {
- 		upsmr |= UCC_GETH_UPSMR_TBIM;
- 	}
-+	if ((ugeth->phy_interface == PHY_INTERFACE_MODE_SGMII))
-+		upsmr |= UCC_GETH_UPSMR_SGMM;
-+
- 	out_be32(&uf_regs->upsmr, upsmr);
- 
- 	/* Disable autonegotiation in tbi mode, because by default it
-@@ -1531,6 +1534,49 @@ static void adjust_link(struct net_device *dev)
- 	spin_unlock_irqrestore(&ugeth->lock, flags);
- }
- 
-+/* Initialize TBI PHY interface for communicating with the
-+ * SERDES lynx PHY on the chip.  We communicate with this PHY
-+ * through the MDIO bus on each controller, treating it as a
-+ * "normal" PHY at the address found in the UTBIPA register.  We assume
-+ * that the UTBIPA register is valid.  Either the MDIO bus code will set
-+ * it to a value that doesn't conflict with other PHYs on the bus, or the
-+ * value doesn't matter, as there are no other PHYs on the bus.
-+ */
-+static void uec_configure_serdes(struct net_device *dev)
-+{
-+	struct ucc_geth_private *ugeth = netdev_priv(dev);
-+	struct ucc_geth_info *ug_info = ugeth->ug_info;
-+	struct phy_device *tbiphy;
-+
-+	if (!ug_info->tbi_node) {
-+		dev_warn(&dev->dev, "SGMII mode requires that the device "
-+			"tree specify a tbi-handle\n");
-+		return;
-+	}
-+
-+	tbiphy = of_phy_find_device(ug_info->tbi_node);
-+	if (!tbiphy) {
-+		dev_err(&dev->dev, "error: Could not get TBI device\n");
-+		return;
-+	}
-+
-+	/*
-+	 * If the link is already up, we must already be ok, and don't need to
-+	 * configure and reset the TBI<->SerDes link.  Maybe U-Boot configured
-+	 * everything for us?  Resetting it takes the link down and requires
-+	 * several seconds for it to come back.
-+	 */
-+	if (phy_read(tbiphy, ENET_TBI_MII_SR) & TBISR_LSTATUS)
-+		return;
-+
-+	/* Single clk mode, mii mode off(for serdes communication) */
-+	phy_write(tbiphy, ENET_TBI_MII_ANA, TBIANA_SETTINGS);
-+
-+	phy_write(tbiphy, ENET_TBI_MII_TBICON, TBICON_CLK_SELECT);
-+
-+	phy_write(tbiphy, ENET_TBI_MII_CR, TBICR_SETTINGS);
-+}
-+
- /* Configure the PHY for dev.
-  * returns 0 if success.  -1 if failure
-  */
-@@ -1554,6 +1600,9 @@ static int init_phy(struct net_device *dev)
- 		return -ENODEV;
- 	}
- 
-+	if (priv->phy_interface == PHY_INTERFACE_MODE_SGMII)
-+		uec_configure_serdes(dev);
-+
- 	phydev->supported &= (ADVERTISED_10baseT_Half |
- 				 ADVERTISED_10baseT_Full |
- 				 ADVERTISED_100baseT_Half |
-@@ -3531,6 +3580,8 @@ static phy_interface_t to_phy_interface(const char *phy_connection_type)
- 		return PHY_INTERFACE_MODE_RGMII_RXID;
- 	if (strcasecmp(phy_connection_type, "rtbi") == 0)
- 		return PHY_INTERFACE_MODE_RTBI;
-+	if (strcasecmp(phy_connection_type, "sgmii") == 0)
-+		return PHY_INTERFACE_MODE_SGMII;
- 
- 	return PHY_INTERFACE_MODE_MII;
- }
-@@ -3575,6 +3626,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 		PHY_INTERFACE_MODE_RMII, PHY_INTERFACE_MODE_RGMII,
- 		PHY_INTERFACE_MODE_GMII, PHY_INTERFACE_MODE_RGMII,
- 		PHY_INTERFACE_MODE_TBI, PHY_INTERFACE_MODE_RTBI,
-+		PHY_INTERFACE_MODE_SGMII,
- 	};
- 
- 	ugeth_vdbg("%s: IN", __func__);
-@@ -3666,6 +3718,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	}
- 	ug_info->phy_node = phy;
- 
-+	/* Find the TBI PHY node.  If it's not there, we don't support SGMII */
-+	ug_info->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
-+
- 	/* get the phy interface type, or default to MII */
- 	prop = of_get_property(np, "phy-connection-type", NULL);
- 	if (!prop) {
-@@ -3690,6 +3745,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 		case PHY_INTERFACE_MODE_RGMII_TXID:
- 		case PHY_INTERFACE_MODE_TBI:
- 		case PHY_INTERFACE_MODE_RTBI:
-+		case PHY_INTERFACE_MODE_SGMII:
- 			max_speed = SPEED_1000;
- 			break;
- 		default:
-diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
-index 8160276..195ab26 100644
---- a/drivers/net/ucc_geth.h
-+++ b/drivers/net/ucc_geth.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights reserved.
-+ * Copyright (C) Freescale Semicondutor, Inc. 2006-2009. All rights reserved.
-  *
-  * Author: Shlomi Gridish <gridish@freescale.com>
-  *
-@@ -193,6 +193,31 @@ struct ucc_geth {
- #define	ENET_TBI_MII_JD		0x10	/* Jitter diagnostics */
- #define	ENET_TBI_MII_TBICON	0x11	/* TBI control */
- 
-+/* TBI MDIO register bit fields*/
-+#define TBISR_LSTATUS          0x0004
-+#define TBICON_CLK_SELECT       0x0020
-+#define TBIANA_ASYMMETRIC_PAUSE 0x0100
-+#define TBIANA_SYMMETRIC_PAUSE  0x0080
-+#define TBIANA_HALF_DUPLEX      0x0040
-+#define TBIANA_FULL_DUPLEX      0x0020
-+#define TBICR_PHY_RESET         0x8000
-+#define TBICR_ANEG_ENABLE       0x1000
-+#define TBICR_RESTART_ANEG      0x0200
-+#define TBICR_FULL_DUPLEX       0x0100
-+#define TBICR_SPEED1_SET        0x0040
-+
-+#define TBIANA_SETTINGS ( \
-+		TBIANA_ASYMMETRIC_PAUSE \
-+		| TBIANA_SYMMETRIC_PAUSE \
-+		| TBIANA_FULL_DUPLEX \
-+		)
-+#define TBICR_SETTINGS ( \
-+		TBICR_PHY_RESET \
-+		| TBICR_ANEG_ENABLE \
-+		| TBICR_FULL_DUPLEX \
-+		| TBICR_SPEED1_SET \
-+		)
-+
- /* UCC GETH MACCFG1 (MAC Configuration 1 Register) */
- #define MACCFG1_FLOW_RX                         0x00000020	/* Flow Control
- 								   Rx */
-@@ -1100,6 +1125,7 @@ struct ucc_geth_info {
- 	u16 pausePeriod;
- 	u16 extensionField;
- 	struct device_node *phy_node;
-+	struct device_node *tbi_node;
- 	u8 weightfactor[NUM_TX_QUEUES];
- 	u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
- 	u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
-
+Eric
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
