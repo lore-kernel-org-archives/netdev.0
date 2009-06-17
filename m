@@ -1,99 +1,130 @@
-From: Nigel Kukard <nkukard@lbsd.net>
-Subject: Re: [Bugme-new] [Bug 13561] New: swapper: page allocation failure.
- order:0, mode:0x20
-Date: Wed, 17 Jun 2009 19:29:25 +0000
-Message-ID: <4A394415.30004@lbsd.net>
-References: <bug-13561-10286@http.bugzilla.kernel.org/> <20090617121610.d4f0ea9d.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: iproute2 action/policer question
+Date: Wed, 17 Jun 2009 21:43:18 +0200
+Message-ID: <20090617194318.GA2747@ami.dom.local>
+References: <20090615111927.GA12316@ff.dom.local> <20090617061458.GA9412@ff.dom.local> <20090617062846.GA9764@ff.dom.local> <200906171201.37727.denys@visp.net.lb> <20090617092626.GA11005@ff.dom.local> <1245244194.4025.21.camel@dogo.mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Denys Fedoryschenko <denys@visp.net.lb>,
+	=?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Andreas Henriksson <andreas@fatal.se>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from authsmtp-0-3.virt.iitsp.net ([66.197.161.151]:59966 "EHLO
-	authsmtp-0-3.virt.iitsp.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751946AbZFQTiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 15:38:20 -0400
-In-Reply-To: <20090617121610.d4f0ea9d.akpm@linux-foundation.org>
+Received: from mail-fx0-f212.google.com ([209.85.220.212]:38956 "EHLO
+	mail-fx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755031AbZFQTny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 15:43:54 -0400
+Received: by fxm8 with SMTP id 8so585400fxm.37
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2009 12:43:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1245244194.4025.21.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 17, 2009 at 09:09:54AM -0400, jamal wrote:
+> On Wed, 2009-06-17 at 09:26 +0000, Jarek Poplawski wrote:
+> > On Wed, Jun 17, 2009 at 12:01:37PM +0300, Denys Fedoryschenko wrote:
+> > > On Wednesday 17 June 2009 09:28:46 Jarek Poplawski wrote:
+> > > 
+> > > > >
+> > > > > I confirm I can't get 'action ipt -j MARK' working on debian lenny
+> > > > > (stable) with distro's iptables/tc. I'm not able to compile tc from
+> > > > > vanilla sources properly either - configure fails 3 IPT tests. (I
+> > > > > admit I can miss setting some (undocumented?) config variables.) So,
+> > > > > with or without debian, IMHO iproute2 needs some updates for iptables
+> > > > > 1.4.2, 1.4.3, and maybe even 1.4.4 now.
+> > > >
+> > > > OOPS! I _can_ configure it for 1.4.2 yet (so it's only about >= 1.4.3).
+> > > >
+> 
+> Something like that.
+> It works fine with iptables 1.4.2 for Lenny on my laptop. 
 
->
-> On Wed, 17 Jun 2009 18:41:24 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->
->   
->> http://bugzilla.kernel.org/show_bug.cgi?id=13561
->>
->>            Summary: swapper: page allocation failure. order:0, mode:0x20
->>            Product: Memory Management
->>
->> ...
->>
->> [ 1884.639134] swapper: page allocation failure. order:0, mode:0x20
->> [ 1884.639136] Pid: 0, comm: swapper Tainted: P           2.6.29.4-1.0 #1
->> [ 1884.639137] Call Trace:
->> [ 1884.639139]  <IRQ>  [<ffffffff8028828b>] __alloc_pages_internal+0x41e/0x43f
->> [ 1884.639146]  [<ffffffff802ac183>] alloc_pages_current+0xb9/0xc2
->> [ 1884.639149]  [<ffffffff802b08eb>] new_slab+0xcf/0x28c
->> [ 1884.639151]  [<ffffffff802b0d14>] __slab_alloc+0x200/0x3e2
->> [ 1884.639154]  [<ffffffff803d9e3b>] ? __alloc_skb+0x42/0x131
->> [ 1884.639157]  [<ffffffff804974cc>] ? _spin_lock_irqsave+0x28/0x31
->> [ 1884.639160]  [<ffffffff803d9e3b>] ? __alloc_skb+0x42/0x131
->> [ 1884.639162]  [<ffffffff802b12cf>] kmem_cache_alloc_node+0x7c/0xc6
->> [ 1884.639165]  [<ffffffff8024b8a4>] ? __mod_timer+0xb3/0xc5
->> [ 1884.639168]  [<ffffffff803d9e3b>] __alloc_skb+0x42/0x131
->> [ 1884.639171]  [<ffffffff8041892e>] tcp_send_ack+0x2b/0x112
->> [ 1884.639173]  [<ffffffff80415c53>] __tcp_ack_snd_check+0x65/0x7d
->> [ 1884.639176]  [<ffffffff80416906>] tcp_rcv_established+0x7d7/0x926
->> [ 1884.639179]  [<ffffffff8041dfb3>] tcp_v4_do_rcv+0x1b1/0x35e
->> [ 1884.639181]  [<ffffffff8041e606>] tcp_v4_rcv+0x4a6/0x785
->> [ 1884.639185]  [<ffffffff80402a2d>] ip_local_deliver_finish+0x177/0x25a
->> [ 1884.639187]  [<ffffffff80402b82>] ip_local_deliver+0x72/0x7a
->> [ 1884.639190]  [<ffffffff804025e3>] ip_rcv_finish+0x32b/0x345
->> [ 1884.639192]  [<ffffffff80402879>] ip_rcv+0x27c/0x2b9
->> [ 1884.639195]  [<ffffffff803e05b0>] netif_receive_skb+0x471/0x496
->> [ 1884.639201]  [<ffffffffa0ca07c0>] rtl8169_rx_interrupt+0x362/0x43d [r8169]
->> [ 1884.639205]  [<ffffffffa0ca38b3>] rtl8169_poll+0x3f/0x1fe [r8169]
->> [ 1884.639208]  [<ffffffff803de82c>] net_rx_action+0xae/0x19c
->> [ 1884.639212]  [<ffffffff8024745d>] __do_softirq+0x8a/0x139
->> [ 1884.639214]  [<ffffffff8021259c>] call_softirq+0x1c/0x30
->> [ 1884.639217]  [<ffffffff80213d78>] do_softirq+0x44/0x8f
->> [ 1884.639219]  [<ffffffff80247153>] irq_exit+0x3f/0x7e
->> [ 1884.639222]  [<ffffffff80213ff3>] do_IRQ+0xc3/0xe4
->> [ 1884.639224]  [<ffffffff80211d13>] ret_from_intr+0x0/0x29
->> [ 1884.639225]  <EOI>  [<ffffffff8022704e>] ? native_safe_halt+0x6/0x8
->> [ 1884.639230]  [<ffffffff802180c2>] ? default_idle+0x2e/0x4b
->> [ 1884.639233]  [<ffffffff8021830c>] ? c1e_idle+0x109/0x110
->> [ 1884.639235]  [<ffffffff802590c9>] ? atomic_notifier_call_chain+0x13/0x15
->> [ 1884.639239]  [<ffffffff8021022e>] ? cpu_idle+0x59/0x9a
->> [ 1884.639242]  [<ffffffff804925d6>] ? start_secondary+0x254/0x25b
->>     
->
-> yep, that's OK.  The kernel was excessively low on memory and the
-> network driver was unable to allocate a page for a received packet. 
->   
+You mean Lenny with not Lenny's iproute2, I guess. Does 'works fine'
+include 'action ipt -j LOG'? Anyway, let's say you're right here, and
+it's "Lenny's" problem.
 
-Even though the box had 4Gbyte RAM with nothing running but console? 
-maybe I"m mistaking the amount of RAM for the amount of memory in a
-buffer used for network IO?
+> It should work fine for the release after Lenny for 1.4.3 once
+> the debian maintainers pick up the latest iproute2.
 
--N
+Why do you think so? I've tried it with current (git) iproute2 and
+iptables 1.4.3.2 (Debian include files are eq. to vanilla), and here
+is the configure output:
 
+TC schedulers
+ ATM    no
+ IPT    /tmp/ipttest.c:6: error: variable 'afinfo' has initializer but incomplete type
+/tmp/ipttest.c:7: error: unknown field 'libprefix' specified in initializer
+/tmp/ipttest.c:7: warning: excess elements in struct initializer
+/tmp/ipttest.c:7: warning: (near initialization for 'afinfo')
+/tmp/ipttest.c:10: warning: 'enum exittype' declared inside parameter list
+/tmp/ipttest.c:10: warning: its scope is only this definition or declaration, which is probably not what you wa
+/tmp/ipttest.c:10: error: parameter 1 ('status') has incomplete type
+failed test 2
+In file included from /tmp/ipttest.c:2:
+/home/info/src/git/iproute2/include/xt-internal.h:36: error: redefinition of 'struct xtables_rule_match'
+/home/info/src/git/iproute2/include/xt-internal.h:50: error: conflicting types for 'xtables_insmod'
+/usr/local/include/xtables.h:215: error: previous declaration of 'xtables_insmod' was here
+/tmp/ipttest.c:11: warning: 'enum exittype' declared inside parameter list
+/tmp/ipttest.c:11: warning: its scope is only this definition or declaration, which is probably not what you wa
+/tmp/ipttest.c:11: error: parameter 1 ('status') has incomplete type
+failed test 3 using iptables
 
-> The packet will just be dropped and everything should recover.  If you
-> get a lot of these warnings (one per minute?) then increasing the value
-> in /proc/sys/vm/min_free_kbytes should help.
->
->
-> Dave, we get quite a few reports of this nature, especially from e1000
-> (grr).  Do you think we could/should suppress the warning, by
-> sprinkling a few __GFP_NOWARNs in the right places?  It doesn't seem
-> like it's being very useful?
->
->
->   
+After this I get tc compiled, but it gives misleading error messages
+later (just like distro's tc).
+ 
+> For other Distros: it should work fine if they have iptables 1.4.2/3.
 
+The latest official version 1.4.3.2 (until today) doesn't work fine
+for Debian & me (maybe we're special...).
+
+> iptables 1.4.4 is not mainstream; i need to add a new test to detect
+> it once it is mainstream (actually i could do it before it becomes
+> mainstream and still make it backwards compatible).
+> I contributed about 10 patches to iptables to try and make sure it
+> doesnt break again ;-> Hopefully my efforts will be rewarded
+> (or as the saying goes perhaps "no good deeds go unpunished");->
+> I have confidence the iptables people are more aware of the API
+> breakages now than before - so very low probability it will break
+> post iptables 1.4.4.
+
+I don't understand why you're defending those ugly destroyers of your
+outstanding work?! (Did they threaten you? Don't worry - they're far
+away in Australia... ;-)
+
+> For versions lower than iptables 1.4.1 I think i will give up instead of
+> making it compatible all the way back there.
+> I use debian exclusively (and these days all my machines are lenny) so
+> those are the only machines i test on.
+
+As a matter of fact, after I couldn't even check Pawel's simple
+examples neither on debian testing nor stable I was very near of
+looking for another the distro...
+
+> 
+> > > I check that, and found again many small changes in iptables, that screwed ipt 
+> > > action in iproute2.
+> > > 
+> > > I really think it doesn't worth to put too much efforts fixing it, with each 
+> > > new release iptables. I switch to other way of "tagging" packets, skbedit, 
+> > > and it seems it is also faster.
+> > 
+> > If it were only about -j MARK you're 100% right. Other targets could
+> > be harder to replace - if they work of course ;-) Of course it's all
+> > up to Jamal, but on the other hand I'm really confused debian stable
+> > (or even testing) maintains such a broken state without any notice
+> > or simply disabling it to save people's time.
+> > 
+> 
+> It should work with others as well - if it doesnt theres a bug
+> somewhere. I dont have time this week - but if theres a script that is
+> supposed to work that doesnt work, please send it to me and i will look
+> into it.
+
+Just similarly to Pawel:
+tc qdisc add dev lo root handle 1: htb
+tc filter add dev lo parent 1: proto ip pref 5 u32 match u32 0 0 action ipt -j LOG
+
+Cheers,
+Jarek P.
