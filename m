@@ -1,110 +1,42 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] pegasus usb-net: Fix endianness bugs
-Date: Thu, 18 Jun 2009 19:03:47 +0200
-Message-ID: <200906181903.47541.mb@bu3sch.de>
+From: Bob Copeland <me@bobcopeland.com>
+Subject: Re: kerneloops.org report for the week of June 14 2009
+Date: Thu, 18 Jun 2009 13:08:39 -0400
+Message-ID: <b6c5339f0906181008v1cd4b06aof866ea9a91d2eb84@mail.gmail.com>
+References: <20090614173331.18f01123@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, tglx@tglx.de, alan@lxorguk.ukuu.org.uk,
+	rjw@sisk.pl, netdev@vger.kernel.org, mingo@elte.hu,
+	dwmw2@infradead.org, alsa-devel@alsa-project.org,
+	dri-devel@lists.sourceforge.net
+To: Arjan van de Ven <arjan@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f214.google.com ([209.85.217.214]:44369 "EHLO
+	mail-gx0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753762AbZFRROd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 13:14:33 -0400
+In-Reply-To: <20090614173331.18f01123@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes various endianness bugs. Some harmless and some real ones.
-This is tested on a PowerPC-64 machine.
+On Sun, Jun 14, 2009 at 8:33 PM, Arjan van de Ven<arjan@infradead.org> =
+wrote:
+> Rank 9: minstrel_get_rate (warning)
+> =A0 =A0 =A0 =A0Reported 64 times (384 total reports)
+> =A0 =A0 =A0 =A0Issue with the ath5k driver
+> =A0 =A0 =A0 =A0This warning was last seen in version 2.6.30-rc3, and =
+first seen in 2.6.27.12.
+> =A0 =A0 =A0 =A0More info: http://www.kerneloops.org/searchweek.php?se=
+arch=3Dminstrel_get_rate
 
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Cc: Stable <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+I believe this is fixed by http://lkml.org/lkml/2009/6/5/269, now
+in pre-2.6.31.  Hmm, odd though, we should be seeing reports from
+other wireless drivers since it's a general memory corruption
+unrelated to ath5k (but not all use the mac80211 rate controllers).
 
----
- drivers/net/usb/pegasus.c |   29 +++++++++++++++++------------
- 1 file changed, 17 insertions(+), 12 deletions(-)
+(2.6.27.12 must be a backport, minstrel didn't exist until .29)
 
---- linux-2.6.30.orig/drivers/net/usb/pegasus.c
-+++ linux-2.6.30/drivers/net/usb/pegasus.c
-@@ -297,7 +297,7 @@ static int update_eth_regs_async(pegasus
- 
- 	pegasus->dr.bRequestType = PEGASUS_REQT_WRITE;
- 	pegasus->dr.bRequest = PEGASUS_REQ_SET_REGS;
--	pegasus->dr.wValue = 0;
-+	pegasus->dr.wValue = cpu_to_le16(0);
- 	pegasus->dr.wIndex = cpu_to_le16(EthCtrl0);
- 	pegasus->dr.wLength = cpu_to_le16(3);
- 	pegasus->ctrl_urb->transfer_buffer_length = 3;
-@@ -446,11 +446,12 @@ static int write_eprom_word(pegasus_t * 
- 	int i;
- 	__u8 tmp, d[4] = { 0x3f, 0, 0, EPROM_WRITE };
- 	int ret;
-+	__le16 le_data = cpu_to_le16(data);
- 
- 	set_registers(pegasus, EpromOffset, 4, d);
- 	enable_eprom_write(pegasus);
- 	set_register(pegasus, EpromOffset, index);
--	set_registers(pegasus, EpromData, 2, &data);
-+	set_registers(pegasus, EpromData, 2, &le_data);
- 	set_register(pegasus, EpromCtrl, EPROM_WRITE);
- 
- 	for (i = 0; i < REG_TIMEOUT; i++) {
-@@ -923,29 +924,32 @@ static struct net_device_stats *pegasus_
- 
- static inline void disable_net_traffic(pegasus_t * pegasus)
- {
--	int tmp = 0;
-+	__le16 tmp = cpu_to_le16(0);
- 
--	set_registers(pegasus, EthCtrl0, 2, &tmp);
-+	set_registers(pegasus, EthCtrl0, sizeof(tmp), &tmp);
- }
- 
- static inline void get_interrupt_interval(pegasus_t * pegasus)
- {
--	__u8 data[2];
-+	u16 data;
-+	u8 interval;
- 
--	read_eprom_word(pegasus, 4, (__u16 *) data);
-+	read_eprom_word(pegasus, 4, &data);
-+	interval = data >> 8;
- 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
--		if (data[1] < 0x80) {
-+		if (interval < 0x80) {
- 			if (netif_msg_timer(pegasus))
- 				dev_info(&pegasus->intf->dev, "intr interval "
- 					"changed from %ums to %ums\n",
--					data[1], 0x80);
--			data[1] = 0x80;
-+					interval, 0x80);
-+			interval = 0x80;
-+			data = (data & 0x00FF) | ((u16)interval << 8);
- #ifdef PEGASUS_WRITE_EEPROM
--			write_eprom_word(pegasus, 4, *(__u16 *) data);
-+			write_eprom_word(pegasus, 4, data);
- #endif
- 		}
- 	}
--	pegasus->intr_interval = data[1];
-+	pegasus->intr_interval = interval;
- }
- 
- static void set_carrier(struct net_device *net)
-@@ -1299,7 +1303,8 @@ static int pegasus_blacklisted(struct us
- 	/* Special quirk to keep the driver from handling the Belkin Bluetooth
- 	 * dongle which happens to have the same ID.
- 	 */
--	if ((udd->idVendor == VENDOR_BELKIN && udd->idProduct == 0x0121) &&
-+	if ((udd->idVendor == cpu_to_le16(VENDOR_BELKIN)) &&
-+	    (udd->idProduct == cpu_to_le16(0x0121)) &&
- 	    (udd->bDeviceClass == USB_CLASS_WIRELESS_CONTROLLER) &&
- 	    (udd->bDeviceProtocol == 1))
- 		return 1;
-
-
--- 
-Greetings, Michael.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Bob Copeland %% www.bobcopeland.com
