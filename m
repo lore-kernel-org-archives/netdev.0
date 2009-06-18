@@ -1,79 +1,53 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
 Subject: Re: [PATCH] wireless extensions: play with netns
-Date: Thu, 18 Jun 2009 02:02:06 +0200
-Message-ID: <1245283327.31588.74.camel@johannes.local>
+Date: Wed, 17 Jun 2009 17:27:19 -0700
+Message-ID: <m18wjqs7x4.fsf@fess.ebiederm.org>
 References: <1245263058.31588.38.camel@johannes.local>
-	 <m1y6rqwpur.fsf@fess.ebiederm.org>
-	 <1245276899.31588.57.camel@johannes.local>
-	 <m1r5xitpdh.fsf@fess.ebiederm.org>
-	 <1245282099.31588.69.camel@johannes.local>
-	 <m17hzato0r.fsf@fess.ebiederm.org>
+	<m1y6rqwpur.fsf@fess.ebiederm.org>
+	<1245276899.31588.57.camel@johannes.local>
+	<m1r5xitpdh.fsf@fess.ebiederm.org>
+	<1245282099.31588.69.camel@johannes.local>
+	<1245282315.31588.71.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-r63WaNt1gsUUaBg4KPBB"
+Content-Type: text/plain; charset=us-ascii
 Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	"Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
 	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m17hzato0r.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
+In-Reply-To: <1245282315.31588.71.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org> (Johannes Berg's message of "Thu\, 18 Jun 2009 01\:45\:15 +0200")
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
 
---=-r63WaNt1gsUUaBg4KPBB
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> On Thu, 2009-06-18 at 01:41 +0200, Johannes Berg wrote:
+>> On Wed, 2009-06-17 at 16:24 -0700, Eric W. Biederman wrote:
+>> 
+>> > > So it looks like I can also use rcu_read_lock(), but there's no
+>> > > for_each_net_rcu(), should there be?
+>> > 
+>> > I'm not using rcu safe list manipulation.  What makes it look like
+>> > rcu_read_lock() is safe?
+>> 
+>> Indeed. I was looking at rcu_barrier() only. How about the patch below?
+>
+> With that, my genl patch can look like this:
+>
+> Subject: genetlink: make netns aware
+>
+> This makes generic netlink network namespace aware.
+> No actual generic netlink families are made namespace
+> aware, they need to be checked one by one and then
+> set the family->netnsok member to true.
 
-On Wed, 2009-06-17 at 16:54 -0700, Eric W. Biederman wrote:
+Are skb_clone and nlmsg_multicast really guaranteed not to sleep?
 
-> > Subject: net: make namespace iteration possible under RCU
-> >
-> > We already call rcu_barrier(), so all we need to take
-> > care of is using proper RCU list add/del primitives.
->=20
-> This of course gives you a network namespace that can be found by for_eac=
-h_net rcu
-> while the per net exit functions are running.  I think that opens up to r=
-aces
-> that I don't want to think about.
+That seems like a lot of code and a lot of code paths.
 
-Indeed. Can we move the rcu_barrier() up? Or we could insert a
-synchronize_rcu() (which is sufficient for rcu_read_lock) before the
-exit functions are run?
-
-> I still haven't tracked down how I am occasionally getting time wait sock=
-ets
-> with an invalid network namespace.
-
-Ouch.
-
-johannes
-
---=-r63WaNt1gsUUaBg4KPBB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKOYP6AAoJEODzc/N7+QmaX2AQAL1fupDuQBJQV+iCimB+r8Ek
-V9Bzl15XtroN6Rqd6wwTxLQLKzJS4ifwfRSjLTofgeXEKV9hxBuyDp+ZZEa2A/FB
-a9RKZZ0tsf4+lhT1AzXl+tWl8bXGFvPTz1Fo7Rx5i/b5JkRQrVJgwF6K6DP14yTj
-aZb+2n1ttbdH1bcmL+teaRZH7GOFaNbKaav/ryu3RWuAa6mVAS/TrO3gKfVb2s6I
-yBNp7qN7bfbX3d8HbTFsvhmK/ZrOad4+kxh/YJdA2DUHywD8SkH2x9j+Br6zG6Vg
-frUprJK9bpE3uC/4n1JbkLKlO5OGyeulqWgtipnM/imG8hcXkipBrxPb/lSMuRzB
-0LCXOlOdBDEKYw4J5qug+lUaIvsQNm/jSyCk82ihViiWfe/4WODH78uTahyrw45R
-g5fInk5c/pWHJowBEsGSdZv9OFuFZHZYXdjm/HfbyYEat/Boi1GpzsA/CMqHvpSv
-+SySw0NX8TDWgSjd9epIIsJoasQ8KsB3vYSsAKOHIioycwa32DBEHsFfaeEzi4qq
-/t/3Wh8+KXb5Y/DMqDVwjLqxPYfF6COkNRZP/XbhQrQEXC986miiRml05bdexKQv
-Gyvz2Xy/SQbS3mXi/rFn04wJ0DdZLuwHR6JOGvHRdXraZp0soCJC85wtnIPzPC+Q
-l9OccWf08uafbvWOpUqN
-=Lbm6
------END PGP SIGNATURE-----
-
---=-r63WaNt1gsUUaBg4KPBB--
-
+Eric
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
