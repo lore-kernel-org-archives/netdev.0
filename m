@@ -1,46 +1,46 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv6: Keep index within tab_unreach[]
-Date: Thu, 18 Jun 2009 00:09:36 -0400
-Message-ID: <4A39BE00.1050506@hp.com>
-References: <4A37E715.4060504@gmail.com>	<4A39A200.20603@hp.com> <20090617.192039.171958637.davem@davemloft.net>
+From: Adam Bernau <adam.r.bernau@gmail.com>
+Subject: sunhme duplicate macs
+Date: Thu, 18 Jun 2009 14:39:49 +1000
+Message-ID: <9983e31f0906172139v3027d453k65e83590d7788fc1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:41149 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbZFREKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 00:10:00 -0400
-In-Reply-To: <20090617.192039.171958637.davem@davemloft.net>
+Received: from mail-px0-f189.google.com ([209.85.216.189]:40752 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbZFREjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 00:39:47 -0400
+Received: by pxi27 with SMTP id 27so814307pxi.33
+        for <netdev@vger.kernel.org>; Wed, 17 Jun 2009 21:39:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Brian Haley <brian.haley@hp.com>
-> Date: Wed, 17 Jun 2009 22:10:08 -0400
-> 
->> Roel Kluin wrote:
->>> @@ -923,7 +923,7 @@ int icmpv6_err_convert(int type, int code, int *err)
->>>  	switch (type) {
->>>  	case ICMPV6_DEST_UNREACH:
->>>  		fatal = 1;
->>> -		if (code <= ICMPV6_PORT_UNREACH) {
->>> +		if (code <= ICMPV6_PORT_UNREACH && code >= 0) {
->>>  			*err  = tab_unreach[code].err;
->>>  			fatal = tab_unreach[code].fatal;
->>>  		}
->> The code value in the ICMPv6 header is a u8, so should always be positive, right?
->> It doesn't hurt I guess though.
-> 
-> True.  Probably best to pass this thing in as a 'u8', rathern than as
-> an 'int'.
+I've been annoyed at the duplicate macs on my Sun qfe card (sunhme
+driver) for a while, and was doing some research. Back in Oct 2007
+there was a patch on the linux-kernel and netdev mailing lists. At the
+time the patch was rejected as the incorrect fix, and it was suggested
+that the is_quattro_p function might be the problem by always
+returning 0. I noticed that it has the following check at the start of
+the function
 
-"type" is a u8 too, but both seem to be passed as int's everywhere (rawv6,
-tcp, sctp and dccp), and in the err_handler() func pointer in the inet6_protocol
-struct.  I can try and cook something up in the next few days that changes
-it all to u8's.
+2867        if (busdev == NULL ||
+2868            busdev->vendor != PCI_VENDOR_ID_DEC ||
+2869            busdev->device != PCI_DEVICE_ID_DEC_21153)
+2870                return 0;
 
--Brian
+A few lines lower down, it iterates through devices looking for SUN
+PCI IDS and increments the count.
+
+2877                if (this_pdev->vendor == PCI_VENDOR_ID_SUN &&
+2878                    this_pdev->device == PCI_DEVICE_ID_SUN_HAPPYMEAL)
+2879                        n_hmes++;
+
+According to lspci my qfe cards have the vendor ID of Sun and are
+happymeals, not DECs. Does this mean that the first checks on lines
+2868, 2869 are actually incorrect, which causes the return 0 to be hit
+every time - ie a relic or copy/paste problem from another driver.
+Alternatively, did DEC make some qfe's, and Sun some others? There is
+also another DEC reference on lines 3152,3
+
+    Adam
