@@ -1,69 +1,122 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] ftrace: change the export format of
-	trace_kfree_skb()
-Date: Thu, 18 Jun 2009 06:35:38 -0400
-Message-ID: <20090618103538.GA8978@hmsreliant.think-freely.org>
-References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com> <20090610072618.GA6016@nowhere> <4A39B3E4.6060004@cn.fujitsu.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH] wireless extensions: make netns aware
+Date: Thu, 18 Jun 2009 13:07:15 +0200
+Message-ID: <1245323235.31588.84.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	David Miller <davem@davemloft.net>
-To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55887 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756314AbZFRKfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:35:51 -0400
-Content-Disposition: inline
-In-Reply-To: <4A39B3E4.6060004@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm-BGArkANP9klv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 18, 2009 at 11:26:28AM +0800, Xiao Guangrong wrote:
-> Use %pf instead of %p to output the function's address and print the
-> protocol's name.
-> 
-> Before patch:
-> 
->   <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
->   <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
->   <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
->   <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
->           
-> After patch:
-> 
->   <idle>-0     [000]   169.979205: kfree_skb: skbaddr=ceddc240 protocol=ETH_P_802_2 location=netif_receive_skb
->   <idle>-0     [000]   172.587000: kfree_skb: skbaddr=ceddc300 protocol=ETH_P_802_2 location=netif_receive_skb
->     ping-3391  [000]   192.109803: kfree_skb: skbaddr=ceddc900 protocol=ETH_P_IP location=icmp_rcv
->     ping-3391  [000]   192.109902: kfree_skb: skbaddr=ceddc780 protocol=ETH_P_IP location=icmp_rcv
-> 
-> Changelog v1->v2:
-> Convert protocol from raw numeric to its name as Frederic's suggestion
-> 
-> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-> Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
-> ---
->  include/trace/events/skb.h |   70 ++++++++++++++++++++++++++++++++++++++++++-
->  1 files changed, 68 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> index 1e8fabb..2496060 100644
-> --- a/include/trace/events/skb.h
-> +++ b/include/trace/events/skb.h
-> @@ -7,6 +7,71 @@
->  #undef TRACE_SYSTEM
->  #define TRACE_SYSTEM skb
->  
-> +#define protocol_name(protocol) { protocol, #protocol }
-> +#define show_protocol_name(val)					\
-> +	__print_symbolic(val,					\
+This makes wireless extensions netns aware. The
+tasklet sending the events is converted to a work
+struct so that we can rtnl_lock() in it.
 
-Don't you need to include ftrace.h to pull in the __print_symbolic definition?
-Or is that always guaranteed to be included from tracepoint.h?
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+---
+wireless tree or net tree? I'll let you decide.
 
-Neil
+ include/net/net_namespace.h |    3 ++
+ net/wireless/wext.c         |   61 ++++++++++++++++++++------------------------
+ 2 files changed, 32 insertions(+), 32 deletions(-)
 
-> 
+--- wireless-testing.orig/include/net/net_namespace.h	2009-06-17 23:51:38.000000000 +0200
++++ wireless-testing/include/net/net_namespace.h	2009-06-17 23:55:42.000000000 +0200
+@@ -78,6 +78,9 @@ struct net {
+ #ifdef CONFIG_XFRM
+ 	struct netns_xfrm	xfrm;
+ #endif
++#ifdef CONFIG_WIRELESS_EXT
++	struct sk_buff_head	wext_nlevents;
++#endif
+ 	struct net_generic	*gen;
+ };
+ 
+--- wireless-testing.orig/net/wireless/wext.c	2009-06-17 23:51:38.000000000 +0200
++++ wireless-testing/net/wireless/wext.c	2009-06-17 23:55:42.000000000 +0200
+@@ -1250,48 +1250,48 @@ int compat_wext_handle_ioctl(struct net 
+ }
+ #endif
+ 
+-/************************* EVENT PROCESSING *************************/
+-/*
+- * Process events generated by the wireless layer or the driver.
+- * Most often, the event will be propagated through rtnetlink
+- */
++static int __net_init wext_pernet_init(struct net *net)
++{
++	skb_queue_head_init(&net->wext_nlevents);
++	return 0;
++}
+ 
+-/* ---------------------------------------------------------------- */
+-/*
+- * Locking...
+- * ----------
+- *
+- * Thanks to Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> for fixing
+- * the locking issue in here and implementing this code !
+- *
+- * The issue : wireless_send_event() is often called in interrupt context,
+- * while the Netlink layer can never be called in interrupt context.
+- * The fully formed RtNetlink events are queued, and then a tasklet is run
+- * to feed those to Netlink.
+- * The skb_queue is interrupt safe, and its lock is not held while calling
+- * Netlink, so there is no possibility of dealock.
+- * Jean II
+- */
++static void __net_exit wext_pernet_exit(struct net *net)
++{
++	skb_queue_purge(&net->wext_nlevents);
++}
+ 
+-static struct sk_buff_head wireless_nlevent_queue;
++static struct pernet_operations wext_pernet_ops = {
++	.init = wext_pernet_init,
++	.exit = wext_pernet_exit,
++};
+ 
+ static int __init wireless_nlevent_init(void)
+ {
+-	skb_queue_head_init(&wireless_nlevent_queue);
++	return register_pernet_subsys(&wext_pernet_ops);
+ 	return 0;
+ }
+ 
+ subsys_initcall(wireless_nlevent_init);
+ 
+-static void wireless_nlevent_process(unsigned long data)
++/* Process events generated by the wireless layer or the driver. */
++static void wireless_nlevent_process(struct work_struct *work)
+ {
+ 	struct sk_buff *skb;
++	struct net *net;
+ 
+-	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
+-		rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++	rtnl_lock();
++
++	for_each_net(net) {
++		while ((skb = skb_dequeue(&net->wext_nlevents)))
++			rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL,
++				    GFP_KERNEL);
++	}
++
++	rtnl_unlock();
+ }
+ 
+-static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
++static DECLARE_WORK(wireless_nlevent_work, wireless_nlevent_process);
+ 
+ /* ---------------------------------------------------------------- */
+ /*
+@@ -1341,9 +1341,6 @@ static void rtmsg_iwinfo(struct net_devi
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	if (!net_eq(dev_net(dev), &init_net))
+-		return;
