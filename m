@@ -1,39 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] r8169: remove unused variable
-Date: Thu, 18 Jun 2009 15:49:49 +0200
-Message-ID: <1245332989-26685-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: inet_csk_get_port lock imbalance?
+Date: Thu, 18 Jun 2009 15:55:54 +0200
+Message-ID: <4A3A476A.1060808@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:53472 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755869AbZFRNtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 09:49:47 -0400
+Received: from mail-fx0-f212.google.com ([209.85.220.212]:46369 "EHLO
+	mail-fx0-f212.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753485AbZFRNzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 09:55:51 -0400
+Received: by fxm8 with SMTP id 8so1064197fxm.37
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2009 06:55:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-all references got removed by 865c652d6be9929927cabdc54b137b7541eb6612
-(r8169: remove non-napi code).
+Hi,
 
-Signed-off-by: Florian Westphal <fwestphal@astaro.com>
----
- drivers/net/r8169.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+we've found a weird locking discipline in inet_csk_get_port. Who is
+supposed to unlock the spin lock in the place marked in the code below?
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 4e22462..4b53b58 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -51,9 +51,6 @@
- #define TX_BUFFS_AVAIL(tp) \
- 	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx - 1)
- 
--/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
--static const int max_interrupt_work = 20;
--
- /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
-    The RTL chips use a 64 element hash table based on the Ethernet CRC. */
- static const int multicast_filter_limit = 32;
--- 
-1.6.0.6
+do {
+        head = &hashinfo->bhash[inet_bhashfn(net, rover,
+                        hashinfo->bhash_size)];
+        spin_lock(&head->lock);
+        inet_bind_bucket_for_each(tb, node, &head->chain)
+                if (ib_net(tb) == net && tb->port == rover) {
+...
+		}
+        break;  ////////// here
+next:
+        spin_unlock(&head->lock);
+        if (++rover > high)
+                rover = low;
+} while (--remaining > 0);
+
+Thanks.
 
