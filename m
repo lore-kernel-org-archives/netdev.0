@@ -1,34 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: fix dma api mismatches
-Date: Thu, 18 Jun 2009 12:02:21 -0700 (PDT)
-Message-ID: <20090618.120221.92059096.davem@davemloft.net>
-References: <20090618.004642.31377117.davem@davemloft.net>
-	<1FC56210173BB445BD77F608D6FB8D03036AA43501@HQMAIL03.nvidia.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH 7/9] sky2: skb recycling
+Date: Thu, 18 Jun 2009 14:13:20 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.0906181411470.6076@jbrandeb-desk1.amr.corp.intel.com>
+References: <20090617173031.703636683@vyatta.com> <20090617173140.244124173@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: AAbdulla@nvidia.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39060
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752638AbZFRTCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 15:02:18 -0400
-In-Reply-To: <1FC56210173BB445BD77F608D6FB8D03036AA43501@HQMAIL03.nvidia.com>
+Received: from mga11.intel.com ([192.55.52.93]:40386 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752883AbZFRVNW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2009 17:13:22 -0400
+In-Reply-To: <20090617173140.244124173@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ayaz Abdulla <AAbdulla@nvidia.com>
-Date: Thu, 18 Jun 2009 10:33:43 -0700
 
-> Doing a quick indentifier search on 2.6.17 shows that
-> pci_unmap_page() just calls pci_unmap_single().
 
-You should check more recent kernels.
+On Wed, 17 Jun 2009, Stephen Hemminger wrote:
 
-> I think this will just add extra clutter. We can just add a comment
-> in the code instead that they perform the same thing.
+> This patch implements skb recycling. It reclaims transmitted skb's
+> for use in the receive ring.
 
-It causes log messages with the DMA API debugging layer that checks
-whether you match up the calls correctly.
-
+Was sky2 able to show any gain in forwarding performance due to this 
+patch?  Was it significant?  What kind of machine was used to test?
