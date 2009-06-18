@@ -1,186 +1,69 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: [RFC] tcp: race in receive part
-Date: Thu, 18 Jun 2009 12:27:27 +0200
-Message-ID: <20090618102727.GC3782@jolsa.lab.eng.brq.redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] ftrace: change the export format of
+	trace_kfree_skb()
+Date: Thu, 18 Jun 2009 06:35:38 -0400
+Message-ID: <20090618103538.GA8978@hmsreliant.think-freely.org>
+References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com> <20090610072618.GA6016@nowhere> <4A39B3E4.6060004@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	oleg@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>,
+	David Miller <davem@davemloft.net>
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53939 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756601AbZFRK1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2009 06:27:30 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55887 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756314AbZFRKfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:35:51 -0400
 Content-Disposition: inline
+In-Reply-To: <4A39B3E4.6060004@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Jun 18, 2009 at 11:26:28AM +0800, Xiao Guangrong wrote:
+> Use %pf instead of %p to output the function's address and print the
+> protocol's name.
+> 
+> Before patch:
+> 
+>   <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
+>   <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
+>   <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
+>   <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
+>           
+> After patch:
+> 
+>   <idle>-0     [000]   169.979205: kfree_skb: skbaddr=ceddc240 protocol=ETH_P_802_2 location=netif_receive_skb
+>   <idle>-0     [000]   172.587000: kfree_skb: skbaddr=ceddc300 protocol=ETH_P_802_2 location=netif_receive_skb
+>     ping-3391  [000]   192.109803: kfree_skb: skbaddr=ceddc900 protocol=ETH_P_IP location=icmp_rcv
+>     ping-3391  [000]   192.109902: kfree_skb: skbaddr=ceddc780 protocol=ETH_P_IP location=icmp_rcv
+> 
+> Changelog v1->v2:
+> Convert protocol from raw numeric to its name as Frederic's suggestion
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
+> ---
+>  include/trace/events/skb.h |   70 ++++++++++++++++++++++++++++++++++++++++++-
+>  1 files changed, 68 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+> index 1e8fabb..2496060 100644
+> --- a/include/trace/events/skb.h
+> +++ b/include/trace/events/skb.h
+> @@ -7,6 +7,71 @@
+>  #undef TRACE_SYSTEM
+>  #define TRACE_SYSTEM skb
+>  
+> +#define protocol_name(protocol) { protocol, #protocol }
+> +#define show_protocol_name(val)					\
+> +	__print_symbolic(val,					\
 
-in RHEL4 we can see a race in the tcp layer. We were not able to reprod=
-uce=20
-this on the upstream kernel, but since the issue occurs very rarelly
-(once per 8 days), we just might not be lucky.
+Don't you need to include ftrace.h to pull in the __print_symbolic definition?
+Or is that always guaranteed to be included from tracepoint.h?
 
-I'm affraid this might be a long email, I'll try to structure it nicely=
-=2E. :)
+Neil
 
-
-
-RACE DESCRIPTION
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-There's a nice pdf describing the issue (and sollution using locks) on
-https://bugzilla.redhat.com/attachment.cgi?id=3D345014
-
-
-The race fires, when following code paths meet, and the tp->rcv_nxt and
-__add_wait_queue updates stay in CPU caches.
-
-CPU1                         CPU2
-
-
-sys_select                   receive packet
-  ...                        ...
-  __add_wait_queue           update tp->rcv_nxt
-  ...                        ...
-  tp->rcv_nxt check          sock_def_readable
-  ...                        {
-  schedule                      ...
-                                if (sk->sk_sleep && waitqueue_active(sk=
-->sk_sleep))
-                                        wake_up_interruptible(sk->sk_sl=
-eep)
-                                ...
-                             }
-
-If there were no cache the code would work ok, since the wait_queue and
-rcv_nxt are opposit to each other.
-
-Meaning that once tp->rcv_nxt is updated by CPU2, the CPU1 either alrea=
-dy
-passed the tp->rcv_nxt check and sleeps, or will get the new value for
-tp->rcv_nxt and will return with new data mask. =20
-In both cases the process (CPU1) is being added to the wait queue, so t=
-he
-waitqueue_active (CPU2) call cannot miss and will wake up CPU1.
-
-The bad case is when the __add_wait_queue changes done by CPU1 stay in =
-its
-cache , and so does the tp->rcv_nxt update on CPU2 side.  The CPU1 will=
- then
-endup calling schedule and sleep forever if there are no more data on t=
-he
-socket.
-
-Adding smp_mb() calls before sock_def_readable call and after __add_wai=
-t_queue
-should prevent the above bad scenario.
-
-The upstream patch is attached. It seems to prevent the issue.
-
-
-
-CPU BUGS
-=3D=3D=3D=3D=3D=3D=3D=3D
-
-The customer has been able to reproduce this problem only on one CPU mo=
-del:
-Xeon E5345*2. They didn't reproduce on XEON MV, for example.
-
-That CPU model happens to have 2 possible issues, that might cause the =
-issue:
-(see errata http://www.intel.com/Assets/PDF/specupdate/315338.pdf)
-
-AJ39 and AJ18. The first one can be workarounded by BIOS upgrade,
-the other one has following notes:
-
-      Software should ensure at least one of the following is true when
-      modifying shared data by multiple agents:
-             =E2=80=A2 The shared data is aligned
-             =E2=80=A2 Proper semaphores or barriers are used in order =
-to
-                prevent concurrent data accesses.
-
-
-
-RFC
-=3D=3D=3D
-
-I'm aware that not having this issue reproduced on upstream lowers the =
-odds
-having this checked in. However AFAICS the issue is present. I'd apprec=
-iate
-any comment/ideas.
-
-
-thanks,
-jirka
-
-
-Signed-off-by: Jiri Olsa <jolsa@redhat.com>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 17b89c5..f5d9dbf 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -340,6 +340,11 @@ unsigned int tcp_poll(struct file *file, struct so=
-cket *sock, poll_table *wait)
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-=20
- 	poll_wait(file, sk->sk_sleep, wait);
-+
-+	/* Get in sync with tcp_data_queue, tcp_urg
-+	   and tcp_rcv_established function. */
-+	smp_mb();
-+
- 	if (sk->sk_state =3D=3D TCP_LISTEN)
- 		return inet_csk_listen_poll(sk);
-=20
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2bdb0da..0606e5e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4362,8 +4362,11 @@ queue_and_out:
-=20
- 		if (eaten > 0)
- 			__kfree_skb(skb);
--		else if (!sock_flag(sk, SOCK_DEAD))
-+		else if (!sock_flag(sk, SOCK_DEAD)) {
-+			/* Get in sync with tcp_poll function. */
-+			smp_mb();
- 			sk->sk_data_ready(sk, 0);
-+		}
- 		return;
- 	}
-=20
-@@ -4967,8 +4970,11 @@ static void tcp_urg(struct sock *sk, struct sk_b=
-uff *skb, struct tcphdr *th)
- 			if (skb_copy_bits(skb, ptr, &tmp, 1))
- 				BUG();
- 			tp->urg_data =3D TCP_URG_VALID | tmp;
--			if (!sock_flag(sk, SOCK_DEAD))
-+			if (!sock_flag(sk, SOCK_DEAD)) {
-+				/* Get in sync with tcp_poll function. */
-+				smp_mb();
- 				sk->sk_data_ready(sk, 0);
-+			}
- 		}
- 	}
- }
-@@ -5317,8 +5323,11 @@ no_ack:
- #endif
- 			if (eaten)
- 				__kfree_skb(skb);
--			else
-+			else {
-+				/* Get in sync with tcp_poll function. */
-+				smp_mb();
- 				sk->sk_data_ready(sk, 0);
-+			}
- 			return 0;
- 		}
- 	}
+> 
