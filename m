@@ -1,69 +1,75 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH] e1000e: stop unnecessary polling when using msi-x
-Date: Thu, 18 Jun 2009 15:06:36 -0700
-Message-ID: <4A3ABA6C.9030604@intel.com>
-References: <20090618215737.GF8515@gospo.rdu.redhat.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: wireless netns work
+Date: Fri, 19 Jun 2009 00:06:45 +0200
+Message-ID: <1245362805.6495.3.camel@johannes.local>
+References: <1245328543.13790.31.camel@johannes.local>
+	 <1245329713.13790.37.camel@johannes.local>
+	 <40f31dec0906181016nffa031flac8f464c929f1bc9@mail.gmail.com>
+	 <43e72e890906181443g54269d1bm7ce24dcb46e7e921@mail.gmail.com>
+	 <1245361694.6495.2.camel@johannes.local>
+	 <43e72e890906181504i3b48b1fbj88fe485890e5f1a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"stable@kernel.org" <stable@kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63031 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753955AbZFRWGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2009 18:06:34 -0400
-In-Reply-To: <20090618215737.GF8515@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-dX2T67YB3VTASrUbQuOP"
+Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Georgy Berdyshev <codingmaster-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <43e72e890906181504i3b48b1fbj88fe485890e5f1a0-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek wrote:
-> The last hunk of this commit:
-> 
->     commit 12d04a3c12b420f23398b4d650127642469a60a6
->     Author: Alexander Duyck <alexander.h.duyck@intel.com>
->     Date:   Wed Mar 25 22:05:03 2009 +0000
-> 
->         e1000e: commonize tx cleanup routine to match e1000 & igb
-> 
-> changed the logic for determining if we should call napi_complete or
-> not at then end of a napi poll.
-> 
-> If the NIC is using MSI-X with no work to do in ->poll, net_rx_action
-> can just spin indefinitely on older kernels and for 2 jiffies on newer
-> kernels since napi_complete is never called and budget isn't
-> decremented.
-> 
-> Discovered and verified while testing driver backport to an older
-> kernel.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> 
-> ---
-> 
->  netdev.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index 677f604..679885a 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -1997,7 +1997,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
->  	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
->  	struct e1000_hw *hw = &adapter->hw;
->  	struct net_device *poll_dev = adapter->netdev;
-> -	int tx_cleaned = 0, work_done = 0;
-> +	int tx_cleaned = 1, work_done = 0;
->  
->  	adapter = netdev_priv(poll_dev);
-> 
-> 
-This is most certainly a bug, and the fix is correct.  The logic for 
-tx_cleaned is supposed to default to true in the event that there are no 
-   tx queues cleaned as part of the polling routine.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+--=-dX2T67YB3VTASrUbQuOP
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2009-06-18 at 15:04 -0700, Luis R. Rodriguez wrote:
+> On Thu, Jun 18, 2009 at 2:48 PM, Johannes Berg<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>=
+ wrote:
+> > On Thu, 2009-06-18 at 14:43 -0700, Luis R. Rodriguez wrote:
+> >
+> >> For example, I see you used mac80211_hwsim and was able to use two
+> >> wlan interfaces to talk to each other. This seems great for testing
+> >> purposes but it remains unclear to me the advantage of testing with
+> >> separate namespaces vs creating two wlan interfaces on one namespace
+> >> with mac80211_hwsim.
+> >
+> > You cannot ping within one namespace and have the packets actually flow
+> > over the virtual 'air'.
+>=20
+> I see, thanks! How does using a separate namespace fix this limitation?
+
+Well that's the magic ;) Think of it as having one copy of the
+networking stack per netns.
+
+johannes
+
+--=-dX2T67YB3VTASrUbQuOP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKOrpyAAoJEODzc/N7+QmaAxMP/0+jJFlOJyAtcMeLwtQNFLEq
+FPzM9tjf/rfOLZEr73wEY2KIvQHf9ApbzHcXmPZ6Z92TFQXZIRRoqy0fjxN17oZy
+d5fKWEkG/Jb7Z7rRenQ1BsQzgnj98lQn8Hrp8+8rKbSDfm1ijVHXoY9l2vtbXJ4R
+zdtxAwJvReySaPkt0TbufFJsIXK5RyTaJWyEs1QZQ14Cwt6KgMUhqRD2p9VYQT2f
+fCUrAlW7xjbbedOvptVITeo+m2vtWpy09l9jjkzkqegWBW4C8LzLooXgxk9AQZS+
+r5CSqdqqbCuMBP0EhiAS2DJNwAR1b+RgDWgjmUFTJ0jnADxdsgSFgLysDjCJQr13
+lgh2cArlYEaW19xHOzzwT1zS/ui7KSl3lVyyYxVjf1K7lmd6WRkCKRwjwfqL8WSn
+292Q22JjfJ5BavljADYaP/AWzRQhD7vbvl3s9b+MXizULO18LGKmaTie6WEeRmHn
+p5K/MmifhzH3JwSrJlyxNl6Y4CiwNsQ3fvp7a65ciKp3oc8SX9D6OL3vVUp5wWKs
+TKTuWktkz8bB2SkThXuphhQ0+oEJVcqNhhJwb/0hVT2TeJCwbdjS1ruJL8XpF6ii
+pxET/LQil8D5S2kM5gKBamYlAPpuxut2CszgkA7HBCsD/N3yRkqMEBmcz5QPx/iP
+EHiOOhpTFpePZc2xYdIF
+=BNIX
+-----END PGP SIGNATURE-----
+
+--=-dX2T67YB3VTASrUbQuOP--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
