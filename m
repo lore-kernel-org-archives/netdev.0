@@ -1,66 +1,60 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] pegasus usb-net: Fix endianness bugs
-Date: Thu, 18 Jun 2009 20:02:42 +0200
-Message-ID: <200906182002.42629.mb@bu3sch.de>
-References: <200906181903.47541.mb@bu3sch.de> <20090618174621.GA3416@psychotron.englab.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090618174621.GA3416-YzwxZg+R7evSU73v1vjTzyO4YDw3rz4rAInAS/Ez/D0@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/5] MAINTAINERS: Fix Atheros pattern paths
+Date: Thu, 18 Jun 2009 11:08:01 -0700
+Message-ID: <8ee51d1f4d9f1076ae013721d189c7b0d9db2df8.1245345515.git.joe@perches.com>
+References: <cover.1245345515.git.joe@perches.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Bob Copeland <me@bobcopeland.com>,
+	"Luis R . Rodriguez" <lrodriguez@atheros.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	Jiri Slaby <jirislaby@gmail.com>, ath5k-devel@venema.h4ckr.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:1512 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754041AbZFRSIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 14:08:05 -0400
+In-Reply-To: <cover.1245345515.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 18 June 2009 19:46:22 Jiri Pirko wrote:
-> >--- linux-2.6.30.orig/drivers/net/usb/pegasus.c
-> >+++ linux-2.6.30/drivers/net/usb/pegasus.c
-> >@@ -297,7 +297,7 @@ static int update_eth_regs_async(pegasus
-> > 
-> > 	pegasus->dr.bRequestType = PEGASUS_REQT_WRITE;
-> > 	pegasus->dr.bRequest = PEGASUS_REQ_SET_REGS;
-> >-	pegasus->dr.wValue = 0;
-> >+	pegasus->dr.wValue = cpu_to_le16(0);
-> Is this necessary? I mean zero is still zero :-)
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ MAINTAINERS |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Well, yes. However wValue is a little endian variable and 0 is CPU endian.
-The fact that 0 is represented with the same bits in LE and BE doesn't really
-matter. It documents the fact that we really require this to be a LE value.
-GCC will recognize it and optimize it away, so it's not a runtime issue.
-And  wValue = cpu_to_le16(0)  is used in the rest of the driver, too. This is the
-only place that doesn't use it. So let's fix it. If only for consistency.
-
-> >+	u8 interval;
-> > 
-> >-	read_eprom_word(pegasus, 4, (__u16 *) data);
-> >+	read_eprom_word(pegasus, 4, &data);
-> >+	interval = data >> 8;
-> > 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
-> >-		if (data[1] < 0x80) {
-> >+		if (interval < 0x80) {
-> > 			if (netif_msg_timer(pegasus))
-> > 				dev_info(&pegasus->intf->dev, "intr interval "
-> > 					"changed from %ums to %ums\n",
-> >-					data[1], 0x80);
-> >-			data[1] = 0x80;
-> >+					interval, 0x80);
-> >+			interval = 0x80;
-> >+			data = (data & 0x00FF) | ((u16)interval << 8);
->                                                   ^^^^^ you do not need this
-> 							  typecast
-
-Hm, well. The cast is there because "interval" is an 8bit variable.
-I think the behavior of C is machine dependent in such a situation.
-But as Linux doesn't run on anything with less than 32bit registers, it probably
-doesn't matter.
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fb94add..4e73646 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -946,7 +946,7 @@ M:	me@bobcopeland.com
+ L:	linux-wireless@vger.kernel.org
+ L:	ath5k-devel@lists.ath5k.org
+ S:	Maintained
+-F:	drivers/net/wireless/ath5k/
++F:	drivers/net/wireless/ath/ath5k/
+ 
+ ATHEROS ATH9K WIRELESS DRIVER
+ P:	Luis R. Rodriguez
+@@ -962,7 +962,7 @@ M:	senthilkumar@atheros.com
+ L:	linux-wireless@vger.kernel.org
+ L:	ath9k-devel@lists.ath9k.org
+ S:	Supported
+-F:	drivers/net/wireless/ath9k/
++F:	drivers/net/wireless/ath/ath9k/
+ 
+ ATHEROS AR9170 WIRELESS DRIVER
+ P:	Christian Lamparter
+@@ -970,7 +970,7 @@ M:	chunkeey@web.de
+ L:	linux-wireless@vger.kernel.org
+ W:	http://wireless.kernel.org/en/users/Drivers/ar9170
+ S:	Maintained
+-F:	drivers/net/wireless/ar9170/
++F:	drivers/net/wireless/ath/ar9170/
+ 
+ ATI_REMOTE2 DRIVER
+ P:	Ville Syrjala
 -- 
-Greetings, Michael.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.6.3.1.10.g659a0.dirty
+
