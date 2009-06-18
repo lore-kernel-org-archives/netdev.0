@@ -1,75 +1,112 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: (unknown)
-Date: Thu, 18 Jun 2009 18:26:12 +0400
-Message-ID: <1245335177-16810-1-git-send-email-dbaryshkov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Sergey Lapin <slapin@ossfans.org>
+Subject: [PATCH 2/5] crc-itu-t: add bit-reversed calculation
+Date: Thu, 18 Jun 2009 18:26:14 +0400
+Message-ID: <1245335177-16810-3-git-send-email-dbaryshkov@gmail.com>
+References: <1245335177-16810-1-git-send-email-dbaryshkov@gmail.com>
+ <1245335177-16810-2-git-send-email-dbaryshkov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Sergey Lapin <slapin@ossfans.org>,
+	Darren Salt <linux@youmustbejoking.demon.co.uk>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ew0-f210.google.com ([209.85.219.210]:58265 "EHLO
 	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724AbZFRO0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:26:36 -0400
-Subject: 
+	with ESMTP id S1754835AbZFRO0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:26:37 -0400
+In-Reply-To: <1245335177-16810-2-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From Dmitry Eremin-Solenikov <dbaryshkov@gmail.com> # This line is ignored.
-GIT:
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [RFC][PATCH 0/5] Please review the data-only IEEE 802.15.4 MAC implementation
-In-Reply-To: 
+From: Darren Salt <linux@youmustbejoking.demon.co.uk>
 
-Hello,
+Changes since original patch by Darren:
+* add 'select BITREVERSE'
+* fix kerneldoc
 
-I'd like to submit several our next patches for linux-next inclusion
-(most probably not yet for 2.6.31 though). Could you please review them?
+Signed-off-by: Darren Salt <linux@youmustbejoking.demon.co.uk>
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+---
+ include/linux/crc-itu-t.h |   10 ++++++++++
+ lib/Kconfig               |    1 +
+ lib/crc-itu-t.c           |   17 +++++++++++++++++
+ 3 files changed, 28 insertions(+), 0 deletions(-)
 
-The following changes since commit 81e2a3d5b75cbf0b42428b9d5a7cc7c85be9e7a7:
-  Eric Dumazet (1):
-        atm: sk_wmem_alloc initial value is one
+diff --git a/include/linux/crc-itu-t.h b/include/linux/crc-itu-t.h
+index 84920f3..7b2b7ba 100644
+--- a/include/linux/crc-itu-t.h
++++ b/include/linux/crc-itu-t.h
+@@ -6,6 +6,9 @@
+  *   Poly  0x0x1021 (x^16 + x^12 + x^15 + 1)
+  *   Init  0
+  *
++ * The bit-reversed buffer variants may be non-standard, but some firmware
++ * loaders require them.
++ *
+  * This source code is licensed under the GNU General Public License,
+  * Version 2. See the file COPYING for more details.
+  */
+@@ -14,15 +17,22 @@
+ #define CRC_ITU_T_H
+ 
+ #include <linux/types.h>
++#include <linux/bitrev.h>
+ 
+ extern u16 const crc_itu_t_table[256];
+ 
+ extern u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len);
++extern u16 crc_itu_t_bitreversed(u16 crc, const u8 *buffer, size_t len);
+ 
+ static inline u16 crc_itu_t_byte(u16 crc, const u8 data)
+ {
+ 	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ data) & 0xff];
+ }
+ 
++static inline u16 crc_itu_t_bitreversed_byte(u16 crc, const u8 data)
++{
++	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ bitrev8(data)) & 0xff];
++}
++
+ #endif /* CRC_ITU_T_H */
+ 
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 8ade0a7..0ec01c3 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -45,6 +45,7 @@ config CRC_T10DIF
+ 
+ config CRC_ITU_T
+ 	tristate "CRC ITU-T V.41 functions"
++	select BITREVERSE
+ 	help
+ 	  This option is provided for the case where no in-kernel-tree
+ 	  modules require CRC ITU-T V.41 functions, but a module built outside
+diff --git a/lib/crc-itu-t.c b/lib/crc-itu-t.c
+index a63472b..a1422d8 100644
+--- a/lib/crc-itu-t.c
++++ b/lib/crc-itu-t.c
+@@ -64,6 +64,23 @@ u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len)
+ }
+ EXPORT_SYMBOL(crc_itu_t);
+ 
++/**
++ * crc_itu_t_bitreversed - Compute the CRC-ITU-T for the bit-reversed data buffer;
++ *
++ * @crc:     previous CRC value
++ * @buffer:  data pointer
++ * @len:     number of bytes in the buffer
++ *
++ * Returns the updated CRC value
++ */
++u16 crc_itu_t_bitreversed(u16 crc, const u8 *buffer, size_t len)
++{
++	while (len--)
++		crc = crc_itu_t_bitreversed_byte(crc, *buffer++);
++	return crc;
++}
++EXPORT_SYMBOL(crc_itu_t_bitreversed);
++
+ MODULE_DESCRIPTION("CRC ITU-T V.41 calculations");
+ MODULE_LICENSE("GPL");
+ 
+-- 
+1.6.3.1
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
-
-Darren Salt (1):
-      crc-itu-t: add bit-reversed calculation
-
-Dmitry Eremin-Solenikov (5):
-      ieee802154: use standard routine for printing dumps
-      mac802154: add a software MAC 802.15.4 implementation
-      ieee802154: add virtual loopback driver
-      MAINTAINERS: fix IEEE 802.15.4 entry
-      Merge branch 'for-linus' into for-next
-
- MAINTAINERS                        |    5 +-
- drivers/ieee802154/Kconfig         |   13 +
- drivers/ieee802154/Makefile        |    1 +
- drivers/ieee802154/fakelb.c        |  345 +++++++++++++++
- include/linux/crc-itu-t.h          |   10 +
- include/linux/if.h                 |    2 +
- include/net/ieee802154/mac802154.h |   83 ++++
- lib/Kconfig                        |    1 +
- lib/crc-itu-t.c                    |   17 +
- net/Kconfig                        |    1 +
- net/Makefile                       |    1 +
- net/ieee802154/af_ieee802154.c     |   12 +-
- net/mac802154/Kconfig              |   17 +
- net/mac802154/Makefile             |    4 +
- net/mac802154/dev.c                |  845 ++++++++++++++++++++++++++++++++++++
- net/mac802154/mac802154.h          |   62 +++
- net/mac802154/mac_cmd.c            |   94 ++++
- net/mac802154/mdev.c               |  298 +++++++++++++
- net/mac802154/mib.h                |   32 ++
- net/mac802154/rx.c                 |   98 +++++
- 20 files changed, 1930 insertions(+), 11 deletions(-)
- create mode 100644 drivers/ieee802154/fakelb.c
- create mode 100644 include/net/ieee802154/mac802154.h
- create mode 100644 net/mac802154/Kconfig
- create mode 100644 net/mac802154/Makefile
- create mode 100644 net/mac802154/dev.c
- create mode 100644 net/mac802154/mac802154.h
- create mode 100644 net/mac802154/mac_cmd.c
- create mode 100644 net/mac802154/mdev.c
- create mode 100644 net/mac802154/mib.h
- create mode 100644 net/mac802154/rx.c
