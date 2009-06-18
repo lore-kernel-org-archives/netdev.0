@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/1 v2] Re: [BUG] fib_tries related Oops in 2.6.30
-Date: Wed, 17 Jun 2009 18:56:58 -0700 (PDT)
-Message-ID: <20090617.185658.226201750.davem@davemloft.net>
-References: <20090615065333.GA4378@ff.dom.local>
-	<20090615160800.GC2767@ami.dom.local>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: [Devel] Re: [PATCH 1/1] cls_cgroup: unify classid syntax to tc
+Date: Thu, 18 Jun 2009 10:01:27 +0800
+Message-ID: <4A399FF7.5060209@cn.fujitsu.com>
+References: <20090611180555.f2c76568.usui@mxm.nes.nec.co.jp>	<20090611.021347.142243970.davem@davemloft.net>	<20090612124028.fe4c2100.usui@mxm.nes.nec.co.jp>	<6599ad830906112206n745fb0dw19cdb75d7c40b2a4@mail.gmail.com>	<20090615120035.a8b7b38f.usui@mxm.nes.nec.co.jp>	<20090615101919.GC7768@bombadil.infradead.org> <20090617094907.e8cd77bd.usui@mxm.nes.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, zheng.yan@oracle.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: Thomas Graf <tgraf@infradead.org>, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, hadi@cyberus.ca,
+	tgraf@suug.ch, Paul Menage <menage@google.com>,
+	David Miller <davem@davemloft.net>, jarkao2@gmail.com
+To: Minoru Usui <usui@mxm.nes.nec.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54910
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753094AbZFRB4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 21:56:54 -0400
-In-Reply-To: <20090615160800.GC2767@ami.dom.local>
+Received: from cn.fujitsu.com ([222.73.24.84]:56287 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752877AbZFRB7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Jun 2009 21:59:52 -0400
+In-Reply-To: <20090617094907.e8cd77bd.usui@mxm.nes.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 15 Jun 2009 18:08:01 +0200
+Minoru Usui wrote:
+> On Mon, 15 Jun 2009 06:19:19 -0400
+> Thomas Graf <tgraf@infradead.org> wrote:
+> 
+>> On Mon, Jun 15, 2009 at 12:00:35PM +0900, Minoru Usui wrote:
+>>> Actually, In tc <-> kernel I/F (which uses netlink), tc sets classid to hexadecimal style not X:Y style.
+>>> X:Y style is result of translating by tc command.
+>>>
+>>> I thought this patch was very useful at first, but it's not necessary to implementing to the kernel.
+>>> This function can be implemented on user space if we need.
+>>> And we can also keep compatibility of net_cls.classid I/F. :-)
+>>>
+>>> I drop this patch. I'm sorry for confusing a lot of people.
+>> I found this patch to be extremely useful if it wasn't to break
+>> compatibility but that issue can be resolved by accepting both
+>> formats easly.
+> 
+> Thank you for agreeing my patch.
+> 
+> I think you said write format only. Am I right?
+> What do you think about read format?
+> Do you think you should keep read format as current implementation?
+> 
+> I think we should need to unify read/write format, if we make cls_cgroup is more userfriendly. 
+> Because some of people are confused about having to read their write value as different format.
+> (Unfortunately, current implementation is so...)
+> 
+> But this approach breaks compatibility, so I drop this patch.
 
-> ipv4: Fix fib_trie rebalancing, part 2
-> 
-> My previous patch, which explicitly delays freeing of tnodes by adding
-> them to the list to flush them after the update is finished, isn't
-> strict enough. It treats exceptionally tnodes without parent, assuming
-> they are newly created, so "invisible" for the read side yet.
-> 
-> But the top tnode doesn't have parent as well, so we have to exclude
-> all exceptions (at least until a better way is found). Additionally we
-> need to move rcu assignment of this node before flushing, so the
-> return type of the trie_rebalance() function is changed.
-> 
-> Reported-by: Yan Zheng <zheng.yan@oracle.com>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+How about adding a new control file net_cls.tc_classid?
 
-Applied, thanks a lot Jarek.
