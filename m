@@ -1,165 +1,281 @@
 From: Sathya Perla <sathyap@serverengines.com>
-Subject: [net-next PATCH 3/4] be2net: cleanup multicast_set cmd to avoid
-	mc_list copy
-Date: Thu, 18 Jun 2009 15:39:25 +0530
-Message-ID: <20090618100925.GA12704@serverengines.com>
+Subject: [net-next PATCH 4/4] be2net: receive asynchronous link status
+	notifications from BE
+Date: Thu, 18 Jun 2009 15:40:27 +0530
+Message-ID: <20090618101027.GA12762@serverengines.com>
 Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:14461 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:14536 "EHLO
 	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751970AbZFRKJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:09:50 -0400
+	by vger.kernel.org with ESMTP id S1753874AbZFRKKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:10:52 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleanup multicast_set method to avoid an extra copy of mc_list
- and unwanted promiscuos sets to BE.
+Rcv and process ansync link status notifications from BE instead of polling
+ for link status in the be_worker thread.
 
 Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 ---
- drivers/net/benet/be.h      |    1 +
- drivers/net/benet/be_cmds.c |   19 ++++++++++------
- drivers/net/benet/be_cmds.h |    4 +-
- drivers/net/benet/be_main.c |   49 +++++++++++++++----------------------------
- 4 files changed, 32 insertions(+), 41 deletions(-)
+ drivers/net/benet/be.h      |    6 +++++-
+ drivers/net/benet/be_cmds.c |   34 +++++++++++++++++++++++++++-------
+ drivers/net/benet/be_cmds.h |   36 +++++++++++++++++++++++++++++-------
+ drivers/net/benet/be_main.c |   37 +++++++++++++++++++------------------
+ 4 files changed, 80 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index ef5be13..94b75cb 100644
+index 94b75cb..f703758 100644
 --- a/drivers/net/benet/be.h
 +++ b/drivers/net/benet/be.h
-@@ -274,6 +274,7 @@ struct be_adapter {
- 
- 	struct be_link_info link;
- 	u32 port_num;
-+	bool promiscuous;
+@@ -163,6 +163,10 @@ struct be_ctrl_info {
+ 	struct be_mcc_obj mcc_obj;
+ 	spinlock_t mcc_lock;	/* For serializing mcc cmds to BE card */
+ 	spinlock_t mcc_cq_lock;
++
++	/* MCC Async callback */
++	void (*async_cb)(void *adapter, bool link_up);
++	void *adapter_ctxt;
  };
  
- extern struct ethtool_ops be_ethtool_ops;
+ #include "be_cmds.h"
+@@ -272,7 +276,7 @@ struct be_adapter {
+ 	u32 if_handle;		/* Used to configure filtering */
+ 	u32 pmac_id;		/* MAC addr handle used by BE card */
+ 
+-	struct be_link_info link;
++	bool link_up;
+ 	u32 port_num;
+ 	bool promiscuous;
+ };
 diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 0b60508..dad2d2b 100644
+index dad2d2b..a6fd457 100644
 --- a/drivers/net/benet/be_cmds.c
 +++ b/drivers/net/benet/be_cmds.c
-@@ -927,8 +927,8 @@ int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl, u8 port_num, bool en)
-  * Use MCC for this command as it may be called in BH context
-  * (mc == NULL) => multicast promiscous
-  */
--int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
--			u32 num, bool promiscuous)
-+int be_cmd_multicast_set(struct be_ctrl_info *ctrl, u32 if_id,
-+		struct dev_mc_list *mc_list, u32 mc_count)
- {
- #define BE_MAX_MC		32 /* set mcast promisc if > 32 */
- 	struct be_mcc_wrb *wrb;
-@@ -947,11 +947,16 @@ int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
- 		OPCODE_COMMON_NTWK_MULTICAST_SET, sizeof(*req));
+@@ -69,6 +69,20 @@ static int be_mcc_compl_process(struct be_ctrl_info *ctrl,
+ 	return 0;
+ }
  
- 	req->interface_id = if_id;
--	req->promiscuous = promiscuous;
--	if (!promiscuous) {
--		req->num_mac = cpu_to_le16(num);
--		if (num)
--			memcpy(req->mac, mac_table, ETH_ALEN * num);
-+	if (mc_list && mc_count <= BE_MAX_MC) {
-+		int i;
-+		struct dev_mc_list *mc;
++/* Link state evt is a string of bytes; no need for endian swapping */
++static void be_async_link_state_process(struct be_ctrl_info *ctrl,
++		struct be_async_event_link_state *evt)
++{
++	ctrl->async_cb(ctrl->adapter_ctxt,
++		evt->port_link_status == ASYNC_EVENT_LINK_UP ? true : false);
++}
 +
-+		req->num_mac = cpu_to_le16(mc_count);
++static inline bool is_link_state_evt(u32 trailer)
++{
++	return (((trailer >> ASYNC_TRAILER_EVENT_CODE_SHIFT) &
++		ASYNC_TRAILER_EVENT_CODE_MASK) ==
++				ASYNC_EVENT_CODE_LINK_STATE);
++}
+ 
+ static struct be_mcc_cq_entry *be_mcc_compl_get(struct be_ctrl_info *ctrl)
+ {
+@@ -89,7 +103,14 @@ void be_process_mcc(struct be_ctrl_info *ctrl)
+ 
+ 	spin_lock_bh(&ctrl->mcc_cq_lock);
+ 	while ((compl = be_mcc_compl_get(ctrl))) {
+-		if (!(compl->flags & CQE_FLAGS_ASYNC_MASK)) {
++		if (compl->flags & CQE_FLAGS_ASYNC_MASK) {
++			/* Interpret flags as an async trailer */
++			BUG_ON(!is_link_state_evt(compl->flags));
 +
-+		for (mc = mc_list, i = 0; mc; mc = mc->next, i++)
-+			memcpy(req->mac[i].byte, mc->dmi_addr, ETH_ALEN);
-+	} else {
-+		req->promiscuous = 1;
++			/* Interpret compl as a async link evt */
++			be_async_link_state_process(ctrl,
++				(struct be_async_event_link_state *) compl);
++		} else {
+ 			be_mcc_compl_process(ctrl, compl);
+ 			atomic_dec(&ctrl->mcc_obj.q.used);
+ 		}
+@@ -786,13 +807,15 @@ int be_cmd_get_stats(struct be_ctrl_info *ctrl, struct be_dma_mem *nonemb_cmd)
+ }
+ 
+ int be_cmd_link_status_query(struct be_ctrl_info *ctrl,
+-			struct be_link_info *link)
++			bool *link_up)
+ {
+ 	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
+ 	struct be_cmd_req_link_status *req = embedded_payload(wrb);
+ 	int status;
+ 
+ 	spin_lock(&ctrl->mbox_lock);
++
++	*link_up = false;
+ 	memset(wrb, 0, sizeof(*wrb));
+ 
+ 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0);
+@@ -803,11 +826,8 @@ int be_cmd_link_status_query(struct be_ctrl_info *ctrl,
+ 	status = be_mbox_db_ring(ctrl);
+ 	if (!status) {
+ 		struct be_cmd_resp_link_status *resp = embedded_payload(wrb);
+-		link->speed = resp->mac_speed;
+-		link->duplex = resp->mac_duplex;
+-		link->fault = resp->mac_fault;
+-	} else {
+-		link->speed = PHY_LINK_SPEED_ZERO;
++		if (resp->mac_speed != PHY_LINK_SPEED_ZERO)
++			*link_up = true;
  	}
  
- 	be_mcc_notify_wait(ctrl);
+ 	spin_unlock(&ctrl->mbox_lock);
 diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index 0a9189d..a567aa4 100644
+index a567aa4..747626d 100644
 --- a/drivers/net/benet/be_cmds.h
 +++ b/drivers/net/benet/be_cmds.h
-@@ -716,8 +716,8 @@ extern int be_cmd_vlan_config(struct be_ctrl_info *ctrl, u32 if_id,
- 			bool promiscuous);
- extern int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl,
- 			u8 port_num, bool en);
--extern int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id,
--			u8 *mac_table, u32 num, bool promiscuous);
-+extern int be_cmd_multicast_set(struct be_ctrl_info *ctrl, u32 if_id,
-+			struct dev_mc_list *mc_list, u32 mc_count);
- extern int be_cmd_set_flow_control(struct be_ctrl_info *ctrl,
- 			u32 tx_fc, u32 rx_fc);
- extern int be_cmd_get_flow_control(struct be_ctrl_info *ctrl,
+@@ -76,6 +76,34 @@ struct be_mcc_cq_entry {
+ 	u32 flags;		/* dword 3 */
+ };
+ 
++/* When the async bit of mcc_compl is set, the last 4 bytes of
++ * mcc_compl is interpreted as follows:
++ */
++#define ASYNC_TRAILER_EVENT_CODE_SHIFT	8	/* bits 8 - 15 */
++#define ASYNC_TRAILER_EVENT_CODE_MASK	0xFF
++#define ASYNC_EVENT_CODE_LINK_STATE	0x1
++struct be_async_event_trailer {
++	u32 code;
++};
++
++enum {
++	ASYNC_EVENT_LINK_DOWN 	= 0x0,
++	ASYNC_EVENT_LINK_UP 	= 0x1
++};
++
++/* When the event code of an async trailer is link-state, the mcc_compl
++ * must be interpreted as follows
++ */
++struct be_async_event_link_state {
++	u8 physical_port;
++	u8 port_link_status;
++	u8 port_duplex;
++	u8 port_speed;
++	u8 port_fault;
++	u8 rsvd0[7];
++	struct be_async_event_trailer trailer;
++} __packed;
++
+ struct be_mcc_mailbox {
+ 	struct be_mcc_wrb wrb;
+ 	struct be_mcc_cq_entry cqe;
+@@ -580,12 +608,6 @@ struct be_cmd_req_link_status {
+ 	u32 rsvd;
+ };
+ 
+-struct be_link_info {
+-	u8 duplex;
+-	u8 speed;
+-	u8 fault;
+-};
+-
+ enum {
+ 	PHY_LINK_DUPLEX_NONE = 0x0,
+ 	PHY_LINK_DUPLEX_HALF = 0x1,
+@@ -704,7 +726,7 @@ extern int be_cmd_rxq_create(struct be_ctrl_info *ctrl,
+ extern int be_cmd_q_destroy(struct be_ctrl_info *ctrl, struct be_queue_info *q,
+ 			int type);
+ extern int be_cmd_link_status_query(struct be_ctrl_info *ctrl,
+-			struct be_link_info *link);
++			bool *link_up);
+ extern int be_cmd_reset(struct be_ctrl_info *ctrl);
+ extern int be_cmd_get_stats(struct be_ctrl_info *ctrl,
+ 			struct be_dma_mem *nonemb_cmd);
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index a4ce80e..3dc6803 100644
+index 3dc6803..e133ff1 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -549,47 +549,32 @@ static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
- 	be_vid_config(netdev);
+@@ -214,28 +214,24 @@ static void netdev_stats_update(struct be_adapter *adapter)
+ 	dev_stats->tx_window_errors = 0;
  }
  
--static void be_set_multicast_filter(struct net_device *netdev)
-+static void be_set_multicast_list(struct net_device *netdev)
+-static void be_link_status_update(struct be_adapter *adapter)
++void be_link_status_update(void *ctxt, bool link_up)
  {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	struct dev_mc_list *mc_ptr;
--	u8 mac_addr[32][ETH_ALEN];
--	int i = 0;
-+	struct be_ctrl_info *ctrl = &adapter->ctrl;
+-	struct be_link_info *prev = &adapter->link;
+-	struct be_link_info now = { 0 };
++	struct be_adapter *adapter = ctxt;
+ 	struct net_device *netdev = adapter->netdev;
  
--	if (netdev->flags & IFF_ALLMULTI) {
--		/* set BE in Multicast promiscuous */
--		be_cmd_mcast_mac_set(&adapter->ctrl,
--					adapter->if_handle, NULL, 0, true);
--		return;
-+	if (netdev->flags & IFF_PROMISC) {
-+		be_cmd_promiscuous_config(ctrl, adapter->port_num, 1);
-+		adapter->promiscuous = true;
-+		goto done;
- 	}
- 
--	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
--		memcpy(&mac_addr[i][0], mc_ptr->dmi_addr, ETH_ALEN);
--		if (++i >= 32) {
--			be_cmd_mcast_mac_set(&adapter->ctrl,
--				adapter->if_handle, &mac_addr[0][0], i, false);
--			i = 0;
--		}
+-	be_cmd_link_status_query(&adapter->ctrl, &now);
 -
-+	/* BE was previously in promiscous mode; disable it */
-+	if (adapter->promiscuous) {
-+		adapter->promiscuous = false;
-+		be_cmd_promiscuous_config(ctrl, adapter->port_num, 0);
+ 	/* If link came up or went down */
+-	if (now.speed != prev->speed && (now.speed == PHY_LINK_SPEED_ZERO ||
+-			prev->speed == PHY_LINK_SPEED_ZERO)) {
+-		if (now.speed == PHY_LINK_SPEED_ZERO) {
+-			netif_stop_queue(netdev);
+-			netif_carrier_off(netdev);
+-			printk(KERN_INFO "%s: Link down\n", netdev->name);
+-		} else {
++	if (adapter->link_up != link_up) {
++		if (link_up) {
+ 			netif_start_queue(netdev);
+ 			netif_carrier_on(netdev);
+ 			printk(KERN_INFO "%s: Link up\n", netdev->name);
++		} else {
++			netif_stop_queue(netdev);
++			netif_carrier_off(netdev);
++			printk(KERN_INFO "%s: Link down\n", netdev->name);
+ 		}
++		adapter->link_up = link_up;
  	}
- 
--	if (i) {
--		/* reset the promiscuous mode also. */
--		be_cmd_mcast_mac_set(&adapter->ctrl,
--			adapter->if_handle, &mac_addr[0][0], i, false);
-+	if (netdev->flags & IFF_ALLMULTI) {
-+		be_cmd_multicast_set(ctrl, adapter->if_handle, NULL, 0);
-+		goto done;
- 	}
--}
--
--static void be_set_multicast_list(struct net_device *netdev)
--{
--	struct be_adapter *adapter = netdev_priv(netdev);
- 
--	if (netdev->flags & IFF_PROMISC) {
--		be_cmd_promiscuous_config(&adapter->ctrl, adapter->port_num, 1);
--	} else {
--		be_cmd_promiscuous_config(&adapter->ctrl, adapter->port_num, 0);
--		be_set_multicast_filter(netdev);
--	}
-+	be_cmd_multicast_set(ctrl, adapter->if_handle, netdev->mc_list,
-+		netdev->mc_count);
-+done:
-+	return;
+-	*prev = now;
  }
  
- static void be_rx_rate_update(struct be_adapter *adapter)
+ /* Update the EQ delay n BE based on the RX frags consumed / sec */
+@@ -1395,9 +1391,6 @@ static void be_worker(struct work_struct *work)
+ 		container_of(work, struct be_adapter, work.work);
+ 	int status;
+ 
+-	/* Check link */
+-	be_link_status_update(adapter);
+-
+ 	/* Get Stats */
+ 	status = be_cmd_get_stats(&adapter->ctrl, &adapter->stats.cmd);
+ 	if (!status)
+@@ -1522,6 +1515,8 @@ static int be_open(struct net_device *netdev)
+ 	struct be_ctrl_info *ctrl = &adapter->ctrl;
+ 	struct be_eq_obj *rx_eq = &adapter->rx_eq;
+ 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
++	bool link_up;
++	int status;
+ 
+ 	/* First time posting */
+ 	be_post_rx_frags(adapter);
+@@ -1540,7 +1535,10 @@ static int be_open(struct net_device *netdev)
+ 	/* Rx compl queue may be in unarmed state; rearm it */
+ 	be_cq_notify(ctrl, adapter->rx_obj.cq.id, true, 0);
+ 
+-	be_link_status_update(adapter);
++	status = be_cmd_link_status_query(ctrl, &link_up);
++	if (status)
++		return status;
++	be_link_status_update(adapter, link_up);
+ 
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
+@@ -1617,7 +1615,7 @@ static int be_close(struct net_device *netdev)
+ 
+ 	netif_stop_queue(netdev);
+ 	netif_carrier_off(netdev);
+-	adapter->link.speed = PHY_LINK_SPEED_ZERO;
++	adapter->link_up = false;
+ 
+ 	be_intr_set(ctrl, false);
+ 
+@@ -1808,6 +1806,9 @@ static int be_ctrl_init(struct be_adapter *adapter)
+ 	spin_lock_init(&ctrl->mcc_lock);
+ 	spin_lock_init(&ctrl->mcc_cq_lock);
+ 
++	ctrl->async_cb = be_link_status_update;
++	ctrl->adapter_ctxt = adapter;
++
+ 	val = ioread32(ctrl->pcicfg + PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET);
+ 	ctrl->pci_func = (val >> MEMBAR_CTRL_INT_CTRL_PFUNC_SHIFT) &
+ 					MEMBAR_CTRL_INT_CTRL_PFUNC_MASK;
 -- 
 1.6.0.4
 
