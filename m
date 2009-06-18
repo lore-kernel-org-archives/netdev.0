@@ -1,128 +1,127 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [ofa-general][PATCH 2/2] mlx4: ConnectX multi functional device
-	support
-Date: Thu, 18 Jun 2009 15:37:09 +0300
-Message-ID: <4A3A34F5.9030800@mellanox.co.il>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] net: move and export get_net_ns_by_pid
+Date: Thu, 18 Jun 2009 13:56:39 +0200
+Message-ID: <1245326201.13790.10.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:55447 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754177AbZFRL5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 07:57:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MT26468 (0x6764) device can open multiple physical functions.
-The current driver can only work with one (primary) pf.
-For all other functions, QUERY_FW command would fail with
-CMD_STAT_MULTI_FUNC_REQ error code. We should not work on those
-devices, but they should remain in the driver's ownership.
+The function get_net_ns_by_pid(), to get a network
+namespace from a pid_t, will be required in cfg80211
+as well. Therefore, let's move it to net_namespace.c
+and export it.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- drivers/net/mlx4/cmd.c      |    5 ++++-
- drivers/net/mlx4/main.c     |   20 ++++++++++++++++----
- include/linux/mlx4/device.h |    1 +
- 3 files changed, 21 insertions(+), 5 deletions(-)
+I first thought we could make it a static inline when
+!CONFIG_NET_NS, but we need to return -ESRCH for invalid
+PIDs so that isn't possible.
 
-diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/mlx4/cmd.c
-index 2845a05..92d649c 100644
---- a/drivers/net/mlx4/cmd.c
-+++ b/drivers/net/mlx4/cmd.c
-@@ -80,7 +80,9 @@ enum {
- 	/* Bad management packet (silently discarded): */
- 	CMD_STAT_BAD_PKT	= 0x30,
- 	/* More outstanding CQEs in CQ than new CQ size: */
--	CMD_STAT_BAD_SIZE	= 0x40
-+	CMD_STAT_BAD_SIZE	= 0x40,
-+	/* Multi Function device support required: */
-+	CMD_STAT_MULTI_FUNC_REQ	= 0x50
- };
+ include/net/net_namespace.h |    2 ++
+ net/core/net_namespace.c    |   21 +++++++++++++++++++++
+ net/core/rtnetlink.c        |   21 +--------------------
+ 3 files changed, 24 insertions(+), 20 deletions(-)
+
+--- wireless-testing.orig/include/net/net_namespace.h	2009-06-18 13:45:57.000000000 +0200
++++ wireless-testing/include/net/net_namespace.h	2009-06-18 13:51:57.000000000 +0200
+@@ -111,6 +111,8 @@ static inline struct net *copy_net_ns(un
  
- enum {
-@@ -128,6 +130,7 @@ static int mlx4_status_to_errno(u8 status)
- 		[CMD_STAT_LAM_NOT_PRE]	  = -EAGAIN,
- 		[CMD_STAT_BAD_PKT]	  = -EINVAL,
- 		[CMD_STAT_BAD_SIZE]	  = -ENOMEM,
-+		[CMD_STAT_MULTI_FUNC_REQ] = -EACCES,
- 	};
+ extern struct list_head net_namespace_list;
  
- 	if (status >= ARRAY_SIZE(trans_table) ||
-diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index 57326f9..541243e 100644
---- a/drivers/net/mlx4/main.c
-+++ b/drivers/net/mlx4/main.c
-@@ -729,7 +729,10 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
++extern struct net *get_net_ns_by_pid(pid_t pid);
++
+ #ifdef CONFIG_NET_NS
+ extern void __put_net(struct net *net);
  
- 	err = mlx4_QUERY_FW(dev);
- 	if (err) {
--		mlx4_err(dev, "QUERY_FW command failed, aborting.\n");
-+		if (err == -EACCES)
-+			mlx4_dbg(dev, "Function disabled.\n");
-+		else
-+			mlx4_err(dev, "QUERY_FW command failed, aborting.\n");
- 		return err;
- 	}
+--- wireless-testing.orig/net/core/net_namespace.c	2009-06-18 13:45:57.000000000 +0200
++++ wireless-testing/net/core/net_namespace.c	2009-06-18 13:52:22.000000000 +0200
+@@ -7,6 +7,7 @@
+ #include <linux/sched.h>
+ #include <linux/idr.h>
+ #include <linux/rculist.h>
++#include <linux/nsproxy.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
  
-@@ -1137,8 +1140,14 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	}
+@@ -204,6 +205,26 @@ struct net *copy_net_ns(unsigned long fl
+ }
+ #endif
  
- 	err = mlx4_init_hca(dev);
--	if (err)
--		goto err_cmd;
-+	if (err) {
-+		if (err == -EACCES) {
-+			dev->flags |= MLX4_FLAG_NOT_PRIME;
-+			pci_set_drvdata(pdev, dev);
-+			return 0;
-+		} else
-+			goto err_cmd;
++struct net *get_net_ns_by_pid(pid_t pid)
++{
++	struct task_struct *tsk;
++	struct net *net;
++
++	/* Lookup the network namespace */
++	net = ERR_PTR(-ESRCH);
++	rcu_read_lock();
++	tsk = find_task_by_vpid(pid);
++	if (tsk) {
++		struct nsproxy *nsproxy;
++		nsproxy = task_nsproxy(tsk);
++		if (nsproxy)
++			net = get_net(nsproxy->net_ns);
 +	}
++	rcu_read_unlock();
++	return net;
++}
++EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
++
+ static int __init net_ns_init(void)
+ {
+ 	struct net_generic *ng;
+--- wireless-testing.orig/net/core/rtnetlink.c	2009-06-18 13:45:42.000000000 +0200
++++ wireless-testing/net/core/rtnetlink.c	2009-06-18 13:50:05.000000000 +0200
+@@ -35,7 +35,6 @@
+ #include <linux/security.h>
+ #include <linux/mutex.h>
+ #include <linux/if_addr.h>
+-#include <linux/nsproxy.h>
  
- 	err = mlx4_alloc_eq_table(dev);
- 	if (err)
-@@ -1234,6 +1243,8 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 	int p;
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -52,6 +51,7 @@
+ #include <net/pkt_sched.h>
+ #include <net/fib_rules.h>
+ #include <net/rtnetlink.h>
++#include <net/net_namespace.h>
  
- 	if (dev) {
-+		if (dev->flags & MLX4_FLAG_NOT_PRIME)
-+			goto cmd_cleanup;
- 		mlx4_stop_sense(dev);
- 		mlx4_unregister_device(dev);
- 
-@@ -1256,11 +1267,12 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 		mlx4_cleanup_uar_table(dev);
- 		mlx4_free_eq_table(dev);
- 		mlx4_close_hca(dev);
--		mlx4_cmd_cleanup(dev);
- 
- 		if (dev->flags & MLX4_FLAG_MSI_X)
- 			pci_disable_msix(pdev);
- 
-+cmd_cleanup:
-+		mlx4_cmd_cleanup(dev);
- 		kfree(priv);
- 		pci_release_region(pdev, 2);
- 		pci_release_region(pdev, 0);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index ce7cc6c..637e72c 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -42,6 +42,7 @@
- enum {
- 	MLX4_FLAG_MSI_X		= 1 << 0,
- 	MLX4_FLAG_OLD_PORT_CMDS	= 1 << 1,
-+	MLX4_FLAG_NOT_PRIME	= 1 << 2,
+ struct rtnl_link
+ {
+@@ -725,25 +725,6 @@ static const struct nla_policy ifla_info
+ 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
  };
  
- enum {
--- 
-1.6.0
+-static struct net *get_net_ns_by_pid(pid_t pid)
+-{
+-	struct task_struct *tsk;
+-	struct net *net;
+-
+-	/* Lookup the network namespace */
+-	net = ERR_PTR(-ESRCH);
+-	rcu_read_lock();
+-	tsk = find_task_by_vpid(pid);
+-	if (tsk) {
+-		struct nsproxy *nsproxy;
+-		nsproxy = task_nsproxy(tsk);
+-		if (nsproxy)
+-			net = get_net(nsproxy->net_ns);
+-	}
+-	rcu_read_unlock();
+-	return net;
+-}
+-
+ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ {
+ 	if (dev) {
+
+
