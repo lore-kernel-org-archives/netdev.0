@@ -1,112 +1,49 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/5] crc-itu-t: add bit-reversed calculation
-Date: Thu, 18 Jun 2009 18:26:14 +0400
-Message-ID: <1245335177-16810-3-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 5/5] MAINTAINERS: fix IEEE 802.15.4 entry
+Date: Thu, 18 Jun 2009 18:26:17 +0400
+Message-ID: <1245335177-16810-6-git-send-email-dbaryshkov@gmail.com>
 References: <1245335177-16810-1-git-send-email-dbaryshkov@gmail.com>
  <1245335177-16810-2-git-send-email-dbaryshkov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Sergey Lapin <slapin@ossfans.org>,
-	Darren Salt <linux@youmustbejoking.demon.co.uk>
+ <1245335177-16810-3-git-send-email-dbaryshkov@gmail.com>
+ <1245335177-16810-4-git-send-email-dbaryshkov@gmail.com>
+ <1245335177-16810-5-git-send-email-dbaryshkov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Sergey Lapin <slapin@ossfans.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:58265 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754835AbZFRO0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:26:37 -0400
-In-Reply-To: <1245335177-16810-2-git-send-email-dbaryshkov@gmail.com>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:61805 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761559AbZFRO0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:26:45 -0400
+In-Reply-To: <1245335177-16810-5-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Darren Salt <linux@youmustbejoking.demon.co.uk>
+IEEE 802.15.4 git tree was moved from my private area to shared one.
+Fix address accordingly.
 
-Changes since original patch by Darren:
-* add 'select BITREVERSE'
-* fix kerneldoc
+Also note that our mailing list is moderated for non-subscribers.
 
-Signed-off-by: Darren Salt <linux@youmustbejoking.demon.co.uk>
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 ---
- include/linux/crc-itu-t.h |   10 ++++++++++
- lib/Kconfig               |    1 +
- lib/crc-itu-t.c           |   17 +++++++++++++++++
- 3 files changed, 28 insertions(+), 0 deletions(-)
+ MAINTAINERS |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/crc-itu-t.h b/include/linux/crc-itu-t.h
-index 84920f3..7b2b7ba 100644
---- a/include/linux/crc-itu-t.h
-+++ b/include/linux/crc-itu-t.h
-@@ -6,6 +6,9 @@
-  *   Poly  0x0x1021 (x^16 + x^12 + x^15 + 1)
-  *   Init  0
-  *
-+ * The bit-reversed buffer variants may be non-standard, but some firmware
-+ * loaders require them.
-+ *
-  * This source code is licensed under the GNU General Public License,
-  * Version 2. See the file COPYING for more details.
-  */
-@@ -14,15 +17,22 @@
- #define CRC_ITU_T_H
- 
- #include <linux/types.h>
-+#include <linux/bitrev.h>
- 
- extern u16 const crc_itu_t_table[256];
- 
- extern u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len);
-+extern u16 crc_itu_t_bitreversed(u16 crc, const u8 *buffer, size_t len);
- 
- static inline u16 crc_itu_t_byte(u16 crc, const u8 data)
- {
- 	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ data) & 0xff];
- }
- 
-+static inline u16 crc_itu_t_bitreversed_byte(u16 crc, const u8 data)
-+{
-+	return (crc << 8) ^ crc_itu_t_table[((crc >> 8) ^ bitrev8(data)) & 0xff];
-+}
-+
- #endif /* CRC_ITU_T_H */
- 
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 8ade0a7..0ec01c3 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -45,6 +45,7 @@ config CRC_T10DIF
- 
- config CRC_ITU_T
- 	tristate "CRC ITU-T V.41 functions"
-+	select BITREVERSE
- 	help
- 	  This option is provided for the case where no in-kernel-tree
- 	  modules require CRC ITU-T V.41 functions, but a module built outside
-diff --git a/lib/crc-itu-t.c b/lib/crc-itu-t.c
-index a63472b..a1422d8 100644
---- a/lib/crc-itu-t.c
-+++ b/lib/crc-itu-t.c
-@@ -64,6 +64,23 @@ u16 crc_itu_t(u16 crc, const u8 *buffer, size_t len)
- }
- EXPORT_SYMBOL(crc_itu_t);
- 
-+/**
-+ * crc_itu_t_bitreversed - Compute the CRC-ITU-T for the bit-reversed data buffer;
-+ *
-+ * @crc:     previous CRC value
-+ * @buffer:  data pointer
-+ * @len:     number of bytes in the buffer
-+ *
-+ * Returns the updated CRC value
-+ */
-+u16 crc_itu_t_bitreversed(u16 crc, const u8 *buffer, size_t len)
-+{
-+	while (len--)
-+		crc = crc_itu_t_bitreversed_byte(crc, *buffer++);
-+	return crc;
-+}
-+EXPORT_SYMBOL(crc_itu_t_bitreversed);
-+
- MODULE_DESCRIPTION("CRC ITU-T V.41 calculations");
- MODULE_LICENSE("GPL");
- 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 61c190a..b2158ae 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2824,9 +2824,9 @@ P:	Dmitry Eremin-Solenikov
+ M:	dbaryshkov@gmail.com
+ P:	Sergey Lapin
+ M:	slapin@ossfans.org
+-L:	linux-zigbee-devel@lists.sourceforge.net
++L:	linux-zigbee-devel@lists.sourceforge.net (moderated for non-subscribers)
+ W:	http://apps.sourceforge.net/trac/linux-zigbee
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lumag/lowpan.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git
+ S:	Maintained
+ F:	net/ieee802154/
+ F:	drivers/ieee801254/
 -- 
 1.6.3.1
 
