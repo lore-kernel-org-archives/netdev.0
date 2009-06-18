@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Net / e100: Fix suspend of devices that cannot be
- power managed
-Date: Wed, 17 Jun 2009 19:03:38 -0700 (PDT)
-Message-ID: <20090617.190338.69331786.davem@davemloft.net>
-References: <200906141606.29754.rjw@sisk.pl>
-	<20090614164604.GA19746@rhlx01.hs-esslingen.de>
-	<200906142146.47639.rjw@sisk.pl>
+Subject: Re: [PATCH net-next] net: group address list and its count
+Date: Wed, 17 Jun 2009 19:03:58 -0700 (PDT)
+Message-ID: <20090617.190358.95208276.davem@davemloft.net>
+References: <20090617111218.GB3834@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, andi@lisas.de,
-	akpm@linux-foundation.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: rjw@sisk.pl
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50541
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50546
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754562AbZFRCDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 22:03:34 -0400
-In-Reply-To: <200906142146.47639.rjw@sisk.pl>
+	by vger.kernel.org with ESMTP id S1755715AbZFRCDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 22:03:54 -0400
+In-Reply-To: <20090617111218.GB3834@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Sun, 14 Jun 2009 21:46:46 +0200
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Wed, 17 Jun 2009 13:12:19 +0200
 
-> From: Rafael J. Wysocki <rjw@sisk.pl>
+> [PATCH net-next] net: group address list and its count
 > 
-> If the adapter is not power-manageable using either ACPI, or the
-> native PCI PM interface, __e100_power_off() returns error code, which
-> causes every attempt to suspend to fail, although it should return 0
-> in such a case.  Fix this problem by ignoring the return value of
-> pci_set_power_state() in __e100_power_off().
+> This patch is inspired by patch recently posted by Johannes Berg. Basically what
+> my patch does is to group list and a count of addresses into newly introduced
+> structure netdev_hw_addr_list. This brings us two benefits:
+> 1) struct net_device becames a bit nicer.
+> 2) in the future there will be a possibility to operate with lists independently
+>    on netdevices (with exporting right functions).
+> I wanted to introduce this patch before I'll post a multicast lists conversion.
 > 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> Acked-by: Andreas Mohr <andi@lisas.de>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Applied, thanks!
+I like this a lot, applied, thanks Jiri.
