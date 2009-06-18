@@ -1,74 +1,120 @@
-From: Ayaz Abdulla <AAbdulla@nvidia.com>
-Subject: RE: [PATCH] forcedeth: fix dma api mismatches
-Date: Thu, 18 Jun 2009 10:33:43 -0700
-Message-ID: <1FC56210173BB445BD77F608D6FB8D03036AA43501@HQMAIL03.nvidia.com>
-References: <20090618.004642.31377117.davem@davemloft.net>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] pegasus usb-net: Fix endianness bugs
+Date: Thu, 18 Jun 2009 19:46:22 +0200
+Message-ID: <20090618174621.GA3416@psychotron.englab.brq.redhat.com>
+References: <200906181903.47541.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate04.nvidia.com ([216.228.112.152]:17212 "EHLO
-	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136AbZFRRdn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 13:33:43 -0400
-In-Reply-To: <20090618.004642.31377117.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200906181903.47541.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Doing a quick indentifier search on 2.6.17 shows that pci_unmap_page() just calls pci_unmap_single().
-
-I think this will just add extra clutter. We can just add a comment in the code instead that they perform the same thing.
-
-Ayaz
-
-
-
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]
-Sent: Thursday, June 18, 2009 12:47 AM
-To: eric.dumazet@gmail.com
-Cc: Ayaz Abdulla; netdev@vger.kernel.org
-Subject: Re: [PATCH] forcedeth: fix dma api mismatches
-
-
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 18 Jun 2009 09:17:59 +0200
-
-> Please find following patch, candidate for stable, but alas not tested
-> since I dont have the hardware. I hit this on a 2.6.30 kernel on a machine
-> I dont have access anymore.
+Thu, Jun 18, 2009 at 07:03:47PM CEST, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org wrote:
+>This fixes various endianness bugs. Some harmless and some real ones.
+>This is tested on a PowerPC-64 machine.
 >
-> Thank you
+>Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+>Cc: Stable <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 >
-> [PATCH] forcedeth: fix dma api mismatches
+>---
+> drivers/net/usb/pegasus.c |   29 +++++++++++++++++------------
+> 1 file changed, 17 insertions(+), 12 deletions(-)
 >
-> forcedeth doesnt use properly dma api in its tx completion path
-> and in nv_loopback_test()
->
-> pci_map_single() should be paired with pci_unmap_single()
-> pci_map_page() should be paired with pci_unmap_page()
->
-> forcedeth xmit path uses pci_map_single() & pci_map_page(),
-> but tx completion path only uses pci_unmap_single()
->
-> nv_loopback_test() uses pci_map_single() & pci_unmap_page()
->
-> Add a dma_single field in struct nv_skb_map, and
-> define a helper function nv_unmap_txskb
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Ayaz Abdulla <aabdulla@nvidia.com>
+>--- linux-2.6.30.orig/drivers/net/usb/pegasus.c
+>+++ linux-2.6.30/drivers/net/usb/pegasus.c
+>@@ -297,7 +297,7 @@ static int update_eth_regs_async(pegasus
+> 
+> 	pegasus->dr.bRequestType = PEGASUS_REQT_WRITE;
+> 	pegasus->dr.bRequest = PEGASUS_REQ_SET_REGS;
+>-	pegasus->dr.wValue = 0;
+>+	pegasus->dr.wValue = cpu_to_le16(0);
+Is this necessary? I mean zero is still zero :-)
 
-I'm going to apply this to net-next-2.6 now since it looks
-painfully correct to me.
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+> 	pegasus->dr.wIndex = cpu_to_le16(EthCtrl0);
+> 	pegasus->dr.wLength = cpu_to_le16(3);
+> 	pegasus->ctrl_urb->transfer_buffer_length = 3;
+>@@ -446,11 +446,12 @@ static int write_eprom_word(pegasus_t * 
+> 	int i;
+> 	__u8 tmp, d[4] = { 0x3f, 0, 0, EPROM_WRITE };
+> 	int ret;
+>+	__le16 le_data = cpu_to_le16(data);
+> 
+> 	set_registers(pegasus, EpromOffset, 4, d);
+> 	enable_eprom_write(pegasus);
+> 	set_register(pegasus, EpromOffset, index);
+>-	set_registers(pegasus, EpromData, 2, &data);
+>+	set_registers(pegasus, EpromData, 2, &le_data);
+> 	set_register(pegasus, EpromCtrl, EPROM_WRITE);
+> 
+> 	for (i = 0; i < REG_TIMEOUT; i++) {
+>@@ -923,29 +924,32 @@ static struct net_device_stats *pegasus_
+> 
+> static inline void disable_net_traffic(pegasus_t * pegasus)
+> {
+>-	int tmp = 0;
+>+	__le16 tmp = cpu_to_le16(0);
+> 
+>-	set_registers(pegasus, EthCtrl0, 2, &tmp);
+>+	set_registers(pegasus, EthCtrl0, sizeof(tmp), &tmp);
+> }
+> 
+> static inline void get_interrupt_interval(pegasus_t * pegasus)
+> {
+>-	__u8 data[2];
+>+	u16 data;
+>+	u8 interval;
+> 
+>-	read_eprom_word(pegasus, 4, (__u16 *) data);
+>+	read_eprom_word(pegasus, 4, &data);
+>+	interval = data >> 8;
+> 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
+>-		if (data[1] < 0x80) {
+>+		if (interval < 0x80) {
+> 			if (netif_msg_timer(pegasus))
+> 				dev_info(&pegasus->intf->dev, "intr interval "
+> 					"changed from %ums to %ums\n",
+>-					data[1], 0x80);
+>-			data[1] = 0x80;
+>+					interval, 0x80);
+>+			interval = 0x80;
+>+			data = (data & 0x00FF) | ((u16)interval << 8);
+                                                  ^^^^^ you do not need this
+							  typecast
+> #ifdef PEGASUS_WRITE_EEPROM
+>-			write_eprom_word(pegasus, 4, *(__u16 *) data);
+>+			write_eprom_word(pegasus, 4, data);
+> #endif
+> 		}
+> 	}
+>-	pegasus->intr_interval = data[1];
+>+	pegasus->intr_interval = interval;
+> }
+> 
+> static void set_carrier(struct net_device *net)
+>@@ -1299,7 +1303,8 @@ static int pegasus_blacklisted(struct us
+> 	/* Special quirk to keep the driver from handling the Belkin Bluetooth
+> 	 * dongle which happens to have the same ID.
+> 	 */
+>-	if ((udd->idVendor == VENDOR_BELKIN && udd->idProduct == 0x0121) &&
+>+	if ((udd->idVendor == cpu_to_le16(VENDOR_BELKIN)) &&
+>+	    (udd->idProduct == cpu_to_le16(0x0121)) &&
+> 	    (udd->bDeviceClass == USB_CLASS_WIRELESS_CONTROLLER) &&
+> 	    (udd->bDeviceProtocol == 1))
+> 		return 1;
+>
+>
+>-- 
+>Greetings, Michael.
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
