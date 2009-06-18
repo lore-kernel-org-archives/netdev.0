@@ -1,61 +1,87 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] ftrace: change the export format of
-	trace_kfree_skb()
-Date: Thu, 18 Jun 2009 10:08:02 -0400
-Message-ID: <20090618140802.GA10300@hmsreliant.think-freely.org>
-References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com> <20090610072618.GA6016@nowhere> <4A39B3E4.6060004@cn.fujitsu.com> <20090618103538.GA8978@hmsreliant.think-freely.org> <alpine.DEB.2.00.0906180847540.6890@gandalf.stny.rr.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: inet_csk_get_port lock imbalance?
+Date: Thu, 18 Jun 2009 16:14:25 +0200
+Message-ID: <20090618141425.GA31266@Chamillionaire.breakpoint.cc>
+References: <4A3A476A.1060808@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Steven Rostedt <rostedt@goodmis.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53162 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762117AbZFROII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:08:08 -0400
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:60263 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754210AbZFROOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:14:25 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0906180847540.6890@gandalf.stny.rr.com>
+In-Reply-To: <4A3A476A.1060808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 18, 2009 at 08:51:12AM -0400, Steven Rostedt wrote:
+Jiri Slaby <jirislaby@gmail.com> wrote:
+> Hi,
 > 
-> On Thu, 18 Jun 2009, Neil Horman wrote:
-> > > 
-> > > diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> > > index 1e8fabb..2496060 100644
-> > > --- a/include/trace/events/skb.h
-> > > +++ b/include/trace/events/skb.h
-> > > @@ -7,6 +7,71 @@
-> > >  #undef TRACE_SYSTEM
-> > >  #define TRACE_SYSTEM skb
-> > >  
-> > > +#define protocol_name(protocol) { protocol, #protocol }
-> > > +#define show_protocol_name(val)					\
-> > > +	__print_symbolic(val,					\
-> > 
-> > Don't you need to include ftrace.h to pull in the __print_symbolic definition?
-> > Or is that always guaranteed to be included from tracepoint.h?
+> we've found a weird locking discipline in inet_csk_get_port. Who is
+> supposed to unlock the spin lock in the place marked in the code below?
 > 
-> Its use is in one of the fields of TRACE_EVENT that are only used by 
-> define_trace.h. All other users will ignore it.
-> 
-> #define TRACE_EVENT(name, proto, args, struct, assign, print)	\
-> 	DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))
-> 
-> Only name, proto, args is used. The define_trace.h will include 
-> trace/ftrace.h and that will use the struct, assign and print args.
-> 
-> So the answer is "no" ;-)
-> 
-> -- Steve
-> 
-> 
+> do {
+>         head = &hashinfo->bhash[inet_bhashfn(net, rover,
+>                         hashinfo->bhash_size)];
+>         spin_lock(&head->lock);
+>         inet_bind_bucket_for_each(tb, node, &head->chain)
+>                 if (ib_net(tb) == net && tb->port == rover) {
+> ...
+> 		}
+>         break;  ////////// here
+> next:
+>         spin_unlock(&head->lock);
+>         if (++rover > high)
+>                 rover = low;
+> } while (--remaining > 0);
 
-Ok, thanks
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+looks weird, but seems intentional (and ok):
+          } while (--remaining > 0);
+-> you arrive here after break; with head->lock held.
+...
+                if (remaining <= 0) {
+			...
+->if you get here, then the loop was left with head->lock unlocked.
+..
+        } else {
+have_snum:
+...
+          spin_lock(&head->lock);
+-> we do not hit this code path in the "locked" case.
+...
+           goto tb_found;
+        }
+        tb = NULL;
+        goto tb_not_found;
+-> we go to tb_not_found, with head->lock held. it cannot be in unlocked state here.
+
+...
+tb_not_found:
+        ret = 1;
+        if (!tb && (tb = inet_bind_bucket_create(hashinfo->bind_bucket_cachep,
+                                        net, head, snum)) == NULL)
+                goto fail_unlock;
+        if (hlist_empty(&tb->owners)) {
+                if (sk->sk_reuse && sk->sk_state != TCP_LISTEN)
+                        tb->fastreuse = 1;
+                else
+                        tb->fastreuse = 0;
+        } else if (tb->fastreuse &&
+                   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
+                tb->fastreuse = 0;
+success:
+        if (!inet_csk(sk)->icsk_bind_hash)
+                inet_bind_hash(sk, tb, snum);
+        WARN_ON(inet_csk(sk)->icsk_bind_hash != tb);
+        ret = 0;
+
+fail_unlock:
+        spin_unlock(&head->lock);
+-> here it will be unlocked
+
+I'd appreciate it if you consider the above a blatant lie and check it again :-)
 
