@@ -1,54 +1,66 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH] Consolidate shared code between enic and fnic drivers.
-Date: Thu, 18 Jun 2009 12:45:47 -0500
-Message-ID: <4A3A7D4B.5050204@cs.wisc.edu>
-References: <C65FC516.7747%scofeldm@cisco.com>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] pegasus usb-net: Fix endianness bugs
+Date: Thu, 18 Jun 2009 20:02:42 +0200
+Message-ID: <200906182002.42629.mb@bu3sch.de>
+References: <200906181903.47541.mb@bu3sch.de> <20090618174621.GA3416@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Reinecke <hare@suse.de>,
-	James.Bottomley@HansenPartnership.com, davem@davemloft.net,
-	gospo@redhat.com, abjoglek@cisco.com, jeykholt@cisco.com,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <C65FC516.7747%scofeldm@cisco.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090618174621.GA3416-YzwxZg+R7evSU73v1vjTzyO4YDw3rz4rAInAS/Ez/D0@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Scott Feldman wrote:
-> On 6/18/09 10:03 AM, "Mike Christie" <michaelc@cs.wisc.edu> wrote:
-> 
->> Hannes Reinecke wrote:
->>> Hmm. Seeing that we're getting more and more of these type of drivers
->>> (cf bnx2 / bnx2i / cnic, enic / fnic, and at least one other in the pipe)
->>> one does wonder whether we should establish a separate directory for
->>> these kind of things.
->>> drivers/virtual or drivers/shared springs to mind.
->>>
->>> Having them in the network directory is probably not the
->>> correct choice.
->>>
->> I think it might sometimes. I am not sure though. I think we have two
->> models. One where this common/lib/helper/shim module requires a net
->> driver/netdev and one where it does not.
->>
->> I think vnic should go in a new dir. fnic does not require enic to
->> interact with hardare. It only needs the vnic module and vnic module
->> should not need the enic one. The fnic module does not interact with the
->> network layer's net_device.
-> 
-> I wanted to break vnic out into a new dir, but I couldn't figure out where
-> this new dir lives.  I considered drivers/net/vnic, drivers/net/enic/vnic,
-> and drivers/vnic.  But none seemed right so I just left the vnic files in
-> the enic dir and built two modules there.  The fnic linkage is awkward, but
-> it works.  I like Hannes suggestion of drivers/shared/vnic (or
-> drivers/shared/cisco_vnic per Ben), especially if there are other drivers in
-> the tree that could use the drivers/shared dir today.
-> 
+On Thursday 18 June 2009 19:46:22 Jiri Pirko wrote:
+> >--- linux-2.6.30.orig/drivers/net/usb/pegasus.c
+> >+++ linux-2.6.30/drivers/net/usb/pegasus.c
+> >@@ -297,7 +297,7 @@ static int update_eth_regs_async(pegasus
+> > 
+> > 	pegasus->dr.bRequestType = PEGASUS_REQT_WRITE;
+> > 	pegasus->dr.bRequest = PEGASUS_REQ_SET_REGS;
+> >-	pegasus->dr.wValue = 0;
+> >+	pegasus->dr.wValue = cpu_to_le16(0);
+> Is this necessary? I mean zero is still zero :-)
 
-For the includes then, do we put them in include/shared/cisco_vnic or do 
-we do that EXTRA_CFLAGS += -Idrivers/shared/cisco_vnic? In that patch 
-for fnic/vnic/enic I sent a while back I did the EXTRA_CFLAGS, only 
-because that is how cxgb3/iw_cxgb3 was doing it. I am not sure if that 
-is nice or not. It was on the TODO to check it out.
+Well, yes. However wValue is a little endian variable and 0 is CPU endian.
+The fact that 0 is represented with the same bits in LE and BE doesn't really
+matter. It documents the fact that we really require this to be a LE value.
+GCC will recognize it and optimize it away, so it's not a runtime issue.
+And  wValue = cpu_to_le16(0)  is used in the rest of the driver, too. This is the
+only place that doesn't use it. So let's fix it. If only for consistency.
+
+> >+	u8 interval;
+> > 
+> >-	read_eprom_word(pegasus, 4, (__u16 *) data);
+> >+	read_eprom_word(pegasus, 4, &data);
+> >+	interval = data >> 8;
+> > 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
+> >-		if (data[1] < 0x80) {
+> >+		if (interval < 0x80) {
+> > 			if (netif_msg_timer(pegasus))
+> > 				dev_info(&pegasus->intf->dev, "intr interval "
+> > 					"changed from %ums to %ums\n",
+> >-					data[1], 0x80);
+> >-			data[1] = 0x80;
+> >+					interval, 0x80);
+> >+			interval = 0x80;
+> >+			data = (data & 0x00FF) | ((u16)interval << 8);
+>                                                   ^^^^^ you do not need this
+> 							  typecast
+
+Hm, well. The cast is there because "interval" is an 8bit variable.
+I think the behavior of C is machine dependent in such a situation.
+But as Linux doesn't run on anything with less than 32bit registers, it probably
+doesn't matter.
+
+-- 
+Greetings, Michael.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
