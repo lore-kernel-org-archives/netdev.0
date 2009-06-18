@@ -1,73 +1,64 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: RE: [PATCH 1/2] netxen: fix detection of cut-thru firmware mode
-Date: Thu, 18 Jun 2009 08:46:18 -0700
-Message-ID: <7608421F3572AB4292BB2532AE89D5658187610BDB@AVEXMB1.qlogic.org>
-References: <1245338871-27112-1-git-send-email-dhananjay@qlogic.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [bug] __nf_ct_refresh_acct(): WARNING: at lib/list_debug.c:30
+ __list_add+0x7d/0xad()
+Date: Thu, 18 Jun 2009 18:09:48 +0200
+Message-ID: <4A3A66CC.4090205@trash.net>
+References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net> <20090616105304.GA3579@elte.hu> <20090616122415.GA16630@elte.hu> <20090617092152.GA17449@elte.hu> <4A38C2F3.3000009@gmail.com> <20090617110803.GA10175@elte.hu> <20090618052356.GA18722@elte.hu> <4A39D778.9020607@cosmosbay.com> <4A3A0D45.8090806@trash.net> <4A3A5599.4080906@trash.net> <4A3A6143.3040607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:25315 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbZFRPtM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 11:49:12 -0400
-In-Reply-To: <1245338871-27112-1-git-send-email-dhananjay@qlogic.com>
-Content-Language: en-US
+Received: from stinky.trash.net ([213.144.137.162]:34759 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753329AbZFRQJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 12:09:49 -0400
+In-Reply-To: <4A3A6143.3040607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+Eric Dumazet wrote:
+> In my own analysis, I found death_by_timeout() might be problematic,
+> with RCU and lockless lookups.
+> 
+> static void death_by_timeout(unsigned long ul_conntrack)
+> {
+>         struct nf_conn *ct = (void *)ul_conntrack;
+> 
+>         if (!test_bit(IPS_DYING_BIT, &ct->status) &&
+>             unlikely(nf_conntrack_event(IPCT_DESTROY, ct) < 0)) {
+>                 /* destroy event was not delivered */
+>                 nf_ct_delete_from_lists(ct);
+> << HERE >>
+> 
+>                 nf_ct_insert_dying_list(ct);
+>                 return;
+>         }
+>         set_bit(IPS_DYING_BIT, &ct->status);
+>         nf_ct_delete_from_lists(ct);
+>         nf_ct_put(ct);
+> }
+> 
+> 
+> We delete ct from a list and insert it in a new list.
+> 
+> I believe a reader could "*catch*" ct while doing a lookup and miss the end
+> of its chain. (nulls algo check the null value at the end of lookup and can
+> decide to restart the lookup if the null value is not the expected one)
+> 
+> We need to change nf_conntrack_init_net() and use a different "null" value,
+> guaranteed not being used in regular lists
 
-Sorry, these patches were accidentally sent again.
-You have already applied both.
+Good catch. This is a new bug, but it shouldn't matter in this case
+since nf_conntrack_event() can't fail unless you have a userspace
+listener that makes use of reliable delivery, which I think hasn't
+even been released yet.
 
--Dhananjay
-________________________________________
-From: Dhananjay Phadke [dhananjay@qlogic.com]
-Sent: Thursday, June 18, 2009 8:27 AM
-To: davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Subject: [PATCH 1/2] netxen: fix detection of cut-thru firmware mode
+> Patch follows :
 
-Fix the detection of cut-thru mode of the hardware (direct dma
-to host) to mode configured in SRE (ingress block) rather than
-onboard memory control.
-
-Signed-off-by: Dhananjay Phadke <dhananjay@qlogic.com>
----
- drivers/net/netxen/netxen_nic_hdr.h |    1 +
- drivers/net/netxen/netxen_nic_hw.c  |    4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 7f0ddbf..3cc0478 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -355,6 +355,7 @@ enum {
- #define NETXEN_HW_CRB_HUB_AGT_ADR_LPC  \
-        ((NETXEN_HW_H6_CH_HUB_ADR << 7) | NETXEN_HW_LPC_CRB_AGT_ADR)
-
-+#define NETXEN_SRE_MISC                        (NETXEN_CRB_SRE + 0x0002c)
- #define NETXEN_SRE_INT_STATUS          (NETXEN_CRB_SRE + 0x00034)
- #define NETXEN_SRE_PBI_ACTIVE_STATUS   (NETXEN_CRB_SRE + 0x01014)
- #define NETXEN_SRE_L1RE_CTL            (NETXEN_CRB_SRE + 0x03000)
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 42ffb82..9702509 100644
---- a/drivers/net/netxen/netxen_nic_hw.c
-+++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -2041,8 +2041,8 @@ void netxen_nic_get_firmware_info(struct netxen_adapter *adapter)
-                        fw_major, fw_minor, fw_build);
-
-        if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
--               i = NXRD32(adapter, NETXEN_MIU_MN_CONTROL);
--               adapter->ahw.cut_through = (i & 0x4) ? 1 : 0;
-+               i = NXRD32(adapter, NETXEN_SRE_MISC);
-+               adapter->ahw.cut_through = (i & 0x8000) ? 1 : 0;
-                dev_info(&pdev->dev, "firmware running in %s mode\n",
-                adapter->ahw.cut_through ? "cut-through" : "legacy");
-        }
---
-1.6.0.2
-
+Looks good. If you send me a Signed-off-by: I'll already apply it.
