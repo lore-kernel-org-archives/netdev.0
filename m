@@ -1,67 +1,77 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [bug] __nf_ct_refresh_acct(): WARNING: at lib/list_debug.c:30
- __list_add+0x7d/0xad()
-Date: Thu, 18 Jun 2009 18:13:41 +0200
-Message-ID: <4A3A67B5.1060909@netfilter.org>
-References: <20090615.050449.144947903.davem@davemloft.net> <20090616091538.GA4184@elte.hu> <20090616.034752.226811527.davem@davemloft.net> <20090616105304.GA3579@elte.hu> <20090616122415.GA16630@elte.hu> <20090617092152.GA17449@elte.hu> <4A38C2F3.3000009@gmail.com> <20090617110803.GA10175@elte.hu> <20090618052356.GA18722@elte.hu> <4A39D778.9020607@cosmosbay.com> <4A3A0D45.8090806@trash.net> <4A3A5599.4080906@trash.net> <4A3A6143.3040607@gmail.com> <4A3A66CC.4090205@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 4/5] ieee802154: add virtual loopback driver
+Date: Thu, 18 Jun 2009 18:14:38 +0200
+Message-ID: <4A3A67EE.3000809@trash.net>
+References: <1245335177-16810-1-git-send-email-dbaryshkov@gmail.com> <1245335177-16810-2-git-send-email-dbaryshkov@gmail.com> <1245335177-16810-3-git-send-email-dbaryshkov@gmail.com> <1245335177-16810-4-git-send-email-dbaryshkov@gmail.com> <1245335177-16810-5-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Ingo Molnar <mingo@elte.hu>,
-	David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sergey Lapin <slapin@ossfans.org>
+To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53688 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752616AbZFRQNt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2009 12:13:49 -0400
-In-Reply-To: <4A3A66CC.4090205@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:34889 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634AbZFRQOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 12:14:36 -0400
+In-Reply-To: <1245335177-16810-5-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
-> Eric Dumazet wrote:
->> In my own analysis, I found death_by_timeout() might be problematic,
->> with RCU and lockless lookups.
->>
->> static void death_by_timeout(unsigned long ul_conntrack)
->> {
->>         struct nf_conn *ct = (void *)ul_conntrack;
->>
->>         if (!test_bit(IPS_DYING_BIT, &ct->status) &&
->>             unlikely(nf_conntrack_event(IPCT_DESTROY, ct) < 0)) {
->>                 /* destroy event was not delivered */
->>                 nf_ct_delete_from_lists(ct);
->> << HERE >>
->>
->>                 nf_ct_insert_dying_list(ct);
->>                 return;
->>         }
->>         set_bit(IPS_DYING_BIT, &ct->status);
->>         nf_ct_delete_from_lists(ct);
->>         nf_ct_put(ct);
->> }
->>
->>
->> We delete ct from a list and insert it in a new list.
->>
->> I believe a reader could "*catch*" ct while doing a lookup and miss
->> the end
->> of its chain. (nulls algo check the null value at the end of lookup
->> and can
->> decide to restart the lookup if the null value is not the expected one)
->>
->> We need to change nf_conntrack_init_net() and use a different "null"
->> value,
->> guaranteed not being used in regular lists
+Dmitry Eremin-Solenikov wrote:
+> fakelb is a virtual loopback driver implementing one or several
+> interconnected radios. Packets from the radio are either sent
+> back to the node (if no other fake radio are registered) or to
+> all other fake radio.
 > 
-> Good catch. This is a new bug, but it shouldn't matter in this case
-> since nf_conntrack_event() can't fail unless you have a userspace
-> listener that makes use of reliable delivery, which I think hasn't
-> even been released yet.
+> +static ssize_t
+> +adddev_store(struct device *dev, struct device_attribute *attr,
+> +	const char *buf, size_t n)
+> +{
+> +	struct platform_device *pdev = to_platform_device(dev);
+> +	struct fake_priv *priv = platform_get_drvdata(pdev);
+> +	char hw[8] = {};
+> +	int i, j, ch, err;
+> +
+> +	for (i = 0, j = 0; i < 16 && j < n; j++) {
+> +		ch = buf[j];
+> +		switch (buf[j]) {
+> +		default:
+> +			return -EINVAL;
+> +		case '0'...'9':
+> +			ch -= '0';
+> +			break;
+> +		case 'A'...'F':
+> +			ch -= 'A' - 10;
+> +			break;
+> +		case 'a'...'f':
+> +			ch -= 'a' - 10;
+> +			break;
+> +		case ':':
+> +		case '.':
+> +			continue;
+> +		}
+> +		if (i % 2)
+> +			hw[i/2] = (hw[i/2] & 0xf0) | ch;
+> +		else
+> +			hw[i/2] = ch << 4;
+> +		i++;
+> +	}
+> +	if (i != 16)
+> +		return -EINVAL;
+> +	err = ieee802154fake_add_priv(dev, priv, hw);
+> +	if (err)
+> +		return err;
+> +	return n;
+> +}
+> +
+> +static DEVICE_ATTR(adddev, 0200, NULL, adddev_store);
+> +
+> +static struct attribute *fake_attrs[] = {
+> +	&dev_attr_adddev.attr,
+> +	NULL,
+> +};
 
-Indeed. I didn't include user-space support for this yet in my tree, so
-this should not be the problem. Thanks for the catch anyway!
+
+No new sysfs interfaces for network device creation please.
+Please use the rtnl_link API.
