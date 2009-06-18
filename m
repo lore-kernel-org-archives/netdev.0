@@ -1,60 +1,40 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] e1000e: stop unnecessary polling when using msi-x
-Date: Thu, 18 Jun 2009 17:57:37 -0400
-Message-ID: <20090618215737.GF8515@gospo.rdu.redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: wireless netns work
+Date: Thu, 18 Jun 2009 15:04:11 -0700
+Message-ID: <43e72e890906181504i3b48b1fbj88fe485890e5f1a0@mail.gmail.com>
+References: <1245328543.13790.31.camel@johannes.local> <1245329713.13790.37.camel@johannes.local>
+	<40f31dec0906181016nffa031flac8f464c929f1bc9@mail.gmail.com>
+	<43e72e890906181443g54269d1bm7ce24dcb46e7e921@mail.gmail.com>
+	<1245361694.6495.2.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@kernel.org
-To: netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	alexander.h.duyck@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Nick Kossifidis <mickflemm@gmail.com>,
+	Georgy Berdyshev <codingmaster@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58574 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753134AbZFRV63 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2009 17:58:29 -0400
-Content-Disposition: inline
+Received: from mail-gx0-f214.google.com ([209.85.217.214]:42138 "EHLO
+	mail-gx0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757988AbZFRWE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 18:04:29 -0400
+In-Reply-To: <1245361694.6495.2.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 18, 2009 at 2:48 PM, Johannes Berg<johannes@sipsolutions.net> wrote:
+> On Thu, 2009-06-18 at 14:43 -0700, Luis R. Rodriguez wrote:
+>
+>> For example, I see you used mac80211_hwsim and was able to use two
+>> wlan interfaces to talk to each other. This seems great for testing
+>> purposes but it remains unclear to me the advantage of testing with
+>> separate namespaces vs creating two wlan interfaces on one namespace
+>> with mac80211_hwsim.
+>
+> You cannot ping within one namespace and have the packets actually flow
+> over the virtual 'air'.
 
-The last hunk of this commit:
+I see, thanks! How does using a separate namespace fix this limitation?
 
-    commit 12d04a3c12b420f23398b4d650127642469a60a6
-    Author: Alexander Duyck <alexander.h.duyck@intel.com>
-    Date:   Wed Mar 25 22:05:03 2009 +0000
-
-        e1000e: commonize tx cleanup routine to match e1000 & igb
-
-changed the logic for determining if we should call napi_complete or
-not at then end of a napi poll.
-
-If the NIC is using MSI-X with no work to do in ->poll, net_rx_action
-can just spin indefinitely on older kernels and for 2 jiffies on newer
-kernels since napi_complete is never called and budget isn't
-decremented.
-
-Discovered and verified while testing driver backport to an older
-kernel.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
----
-
- netdev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 677f604..679885a 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -1997,7 +1997,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
- 	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct net_device *poll_dev = adapter->netdev;
--	int tx_cleaned = 0, work_done = 0;
-+	int tx_cleaned = 1, work_done = 0;
- 
- 	adapter = netdev_priv(poll_dev);
-
-
+  Luis
