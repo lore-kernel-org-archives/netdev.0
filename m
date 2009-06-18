@@ -1,42 +1,30 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/2] MAINTAINERS: fix address of IEEE 802.15.4 git tree
-Date: Thu, 18 Jun 2009 18:16:47 +0400
-Message-ID: <1245334607-16046-3-git-send-email-dbaryshkov@gmail.com>
-References: <1245334607-16046-1-git-send-email-dbaryshkov@gmail.com>
- <1245334607-16046-2-git-send-email-dbaryshkov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	slapin@ossfans.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: inet_csk_get_port lock imbalance?
+Date: Thu, 18 Jun 2009 16:23:37 +0200
+Message-ID: <4A3A4DE9.1050607@gmail.com>
+References: <4A3A476A.1060808@gmail.com> <20090618141425.GA31266@Chamillionaire.breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:59071 "EHLO
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:54614 "EHLO
 	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758019AbZFRORH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:17:07 -0400
-In-Reply-To: <1245334607-16046-2-git-send-email-dbaryshkov@gmail.com>
+	with ESMTP id S1752011AbZFROXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 10:23:35 -0400
+Received: by bwz9 with SMTP id 9so1107425bwz.37
+        for <netdev@vger.kernel.org>; Thu, 18 Jun 2009 07:23:37 -0700 (PDT)
+In-Reply-To: <20090618141425.GA31266@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IEEE 802.15.4 git tree was moved from my private area to shared one.
-Fix address accordingly.
+On 06/18/2009 04:14 PM, Florian Westphal wrote:
+> Jiri Slaby <jirislaby@gmail.com> wrote:
+>> we've found a weird locking discipline in inet_csk_get_port. Who is
+>> supposed to unlock the spin lock in the place marked in the code below?
+> I'd appreciate it if you consider the above a blatant lie and check it again :-)
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- MAINTAINERS |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 61c190a..e1cfb12 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2826,7 +2826,7 @@ P:	Sergey Lapin
- M:	slapin@ossfans.org
- L:	linux-zigbee-devel@lists.sourceforge.net
- W:	http://apps.sourceforge.net/trac/linux-zigbee
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lumag/lowpan.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git
- S:	Maintained
- F:	net/ieee802154/
- F:	drivers/ieee801254/
--- 
-1.6.3.1
-
+Yes, you are right, I went through 'if (remaining <= 0) {' branch
+through which it can't go. Thanks.
