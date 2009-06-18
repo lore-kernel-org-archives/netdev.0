@@ -1,60 +1,32 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/5] MAINTAINERS: Fix Atheros pattern paths
-Date: Thu, 18 Jun 2009 11:08:01 -0700
-Message-ID: <8ee51d1f4d9f1076ae013721d189c7b0d9db2df8.1245345515.git.joe@perches.com>
-References: <cover.1245345515.git.joe@perches.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Bob Copeland <me@bobcopeland.com>,
-	"Luis R . Rodriguez" <lrodriguez@atheros.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	Jiri Slaby <jirislaby@gmail.com>, ath5k-devel@venema.h4ckr.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/2] af_iucv patches for linux-2.6.31
+Date: Thu, 18 Jun 2009 11:19:57 -0700 (PDT)
+Message-ID: <20090618.111957.70533925.davem@davemloft.net>
+References: <20090618075446.890351000@linux.vnet.ibm.com>
+	<20090618.013410.04304670.davem@davemloft.net>
+	<1245329094.14954.38.camel@braunu-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ursula.braun@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:1512 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754041AbZFRSIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 14:08:05 -0400
-In-Reply-To: <cover.1245345515.git.joe@perches.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35554
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752541AbZFRSTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 14:19:54 -0400
+In-Reply-To: <1245329094.14954.38.camel@braunu-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- MAINTAINERS |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Thu, 18 Jun 2009 14:44:54 +0200
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index fb94add..4e73646 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -946,7 +946,7 @@ M:	me@bobcopeland.com
- L:	linux-wireless@vger.kernel.org
- L:	ath5k-devel@lists.ath5k.org
- S:	Maintained
--F:	drivers/net/wireless/ath5k/
-+F:	drivers/net/wireless/ath/ath5k/
- 
- ATHEROS ATH9K WIRELESS DRIVER
- P:	Luis R. Rodriguez
-@@ -962,7 +962,7 @@ M:	senthilkumar@atheros.com
- L:	linux-wireless@vger.kernel.org
- L:	ath9k-devel@lists.ath9k.org
- S:	Supported
--F:	drivers/net/wireless/ath9k/
-+F:	drivers/net/wireless/ath/ath9k/
- 
- ATHEROS AR9170 WIRELESS DRIVER
- P:	Christian Lamparter
-@@ -970,7 +970,7 @@ M:	chunkeey@web.de
- L:	linux-wireless@vger.kernel.org
- W:	http://wireless.kernel.org/en/users/Drivers/ar9170
- S:	Maintained
--F:	drivers/net/wireless/ar9170/
-+F:	drivers/net/wireless/ath/ar9170/
- 
- ATI_REMOTE2 DRIVER
- P:	Ville Syrjala
--- 
-1.6.3.1.10.g659a0.dirty
+> sorry, I did a git pull on linux-2.6.git first, and the af_iucv patches
+> applied cleanly on my system.
 
+It couldn't have applied to Linus's tree because all the IUCV
+bits you submitted to me for 2.6.31 are in his tree and that is
+what created the conflicts.
