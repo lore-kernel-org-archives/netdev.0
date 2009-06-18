@@ -1,51 +1,51 @@
-From: Nick Kossifidis <mickflemm@gmail.com>
-Subject: Re: wireless netns work
-Date: Thu, 18 Jun 2009 20:16:40 +0300
-Message-ID: <40f31dec0906181016nffa031flac8f464c929f1bc9@mail.gmail.com>
-References: <1245328543.13790.31.camel@johannes.local>
-	 <1245329713.13790.37.camel@johannes.local>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [PATCH] Consolidate shared code between enic and fnic drivers.
+Date: Thu, 18 Jun 2009 10:19:02 -0700
+Message-ID: <C65FC516.7747%scofeldm@cisco.com>
+References: <4A3A735C.7090603@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:61821 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887AbZFRRQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 13:16:39 -0400
-In-Reply-To: <1245329713.13790.37.camel@johannes.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <James.Bottomley@HansenPartnership.com>, <davem@davemloft.net>,
+	<gospo@redhat.com>, <abjoglek@cisco.com>, <jeykholt@cisco.com>,
+	<netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>
+To: Mike Christie <michaelc@cs.wisc.edu>,
+	Hannes Reinecke <hare@suse.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <4A3A735C.7090603@cs.wisc.edu>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2009/6/18 Johannes Berg <johannes@sipsolutions.net>:
-> On Thu, 2009-06-18 at 14:35 +0200, Johannes Berg wrote:
->
->> Oddly, the link works unidirectionally in both directions, if I ping
->> from either side tcpdump shows the echo requests on the other side, but
->> no echo reply is being generated. Still investigating why this is, since
->> it works fine with veth. Ideas why this is broken would be
->> appreciated :)
->
-> Ok, the missing piece of the puzzle is this patch:
-> http://johannes.sipsolutions.net/patches/kernel/all/LATEST/NNN-hwsim-skb-cleanup.patch
->
-> root@(none):~# ping -Q 0x80 10.0.0.1
-> PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
-> Warning: time of day goes back (-311263us), taking countermeasures.
-> 64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=0.487 ms
-> 64 bytes from 10.0.0.1: icmp_seq=2 ttl=64 time=0.122 ms
-> 64 bytes from 10.0.0.1: icmp_seq=3 ttl=64 time=0.121 ms
-> 64 bytes from 10.0.0.1: icmp_seq=4 ttl=64 time=0.130 ms
->
+On 6/18/09 10:03 AM, "Mike Christie" <michaelc@cs.wisc.edu> wrote:
 
-Well done !!!
+> Hannes Reinecke wrote:
+>> Hmm. Seeing that we're getting more and more of these type of drivers
+>> (cf bnx2 / bnx2i / cnic, enic / fnic, and at least one other in the pipe)
+>> one does wonder whether we should establish a separate directory for
+>> these kind of things.
+>> drivers/virtual or drivers/shared springs to mind.
+>> 
+>> Having them in the network directory is probably not the
+>> correct choice.
+>> 
+> 
+> I think it might sometimes. I am not sure though. I think we have two
+> models. One where this common/lib/helper/shim module requires a net
+> driver/netdev and one where it does not.
+> 
+> I think vnic should go in a new dir. fnic does not require enic to
+> interact with hardare. It only needs the vnic module and vnic module
+> should not need the enic one. The fnic module does not interact with the
+> network layer's net_device.
 
-Don't you think it's time we create a mac80211 test suite based on hwsim ?
-I think it's an interesting project...
+I wanted to break vnic out into a new dir, but I couldn't figure out where
+this new dir lives.  I considered drivers/net/vnic, drivers/net/enic/vnic,
+and drivers/vnic.  But none seemed right so I just left the vnic files in
+the enic dir and built two modules there.  The fnic linkage is awkward, but
+it works.  I like Hannes suggestion of drivers/shared/vnic (or
+drivers/shared/cisco_vnic per Ben), especially if there are other drivers in
+the tree that could use the drivers/shared dir today.
 
--- 
-GPG ID: 0xD21DB2DB
-As you read this post global entropy rises. Have Fun ;-)
-Nick
+-scott
+
