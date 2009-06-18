@@ -1,152 +1,165 @@
 From: Sathya Perla <sathyap@serverengines.com>
-Subject: [net-next PATCH 2/4] be2net: Use MCC queue for cmds that may be
-	called in BH context
-Date: Thu, 18 Jun 2009 15:35:54 +0530
-Message-ID: <20090618100554.GA12685@serverengines.com>
+Subject: [net-next PATCH 3/4] be2net: cleanup multicast_set cmd to avoid
+	mc_list copy
+Date: Thu, 18 Jun 2009 15:39:25 +0530
+Message-ID: <20090618100925.GA12704@serverengines.com>
 Reply-To: Sathya Perla <sathyap@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:13924 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:14461 "EHLO
 	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751970AbZFRKGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:06:18 -0400
+	by vger.kernel.org with ESMTP id S1751970AbZFRKJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 06:09:50 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currenlty multicast_set and promiscuous_config cmds -- that may be called in BH context -- 
-use the blocking MCC mbox to post cmds.
-An mbox cmd is protected via a spin_lock(cmd_lock) and not spin_lock_bh() as it is undesirable
-to disable BHs while a blocking mbox cmd is in progress (and take long to finish.)
-This can lockup a cmd in progress in process context.
-So, these two cmds in BH context must use the MCC queue to post cmds.
+Cleanup multicast_set method to avoid an extra copy of mc_list
+ and unwanted promiscuos sets to BE.
 
 Signed-off-by: Sathya Perla <sathyap@serverengines.com>
 ---
- drivers/net/benet/be_cmds.c |   69 ++++++++++++++++++++++++++++++++----------
- 1 files changed, 52 insertions(+), 17 deletions(-)
+ drivers/net/benet/be.h      |    1 +
+ drivers/net/benet/be_cmds.c |   19 ++++++++++------
+ drivers/net/benet/be_cmds.h |    4 +-
+ drivers/net/benet/be_main.c |   49 +++++++++++++++----------------------------
+ 4 files changed, 32 insertions(+), 41 deletions(-)
 
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index ef5be13..94b75cb 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -274,6 +274,7 @@ struct be_adapter {
+ 
+ 	struct be_link_info link;
+ 	u32 port_num;
++	bool promiscuous;
+ };
+ 
+ extern struct ethtool_ops be_ethtool_ops;
 diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index f1ec191..0b60508 100644
+index 0b60508..dad2d2b 100644
 --- a/drivers/net/benet/be_cmds.c
 +++ b/drivers/net/benet/be_cmds.c
-@@ -17,7 +17,7 @@
- 
- #include "be.h"
- 
--void be_mcc_notify(struct be_ctrl_info *ctrl)
-+static void be_mcc_notify(struct be_ctrl_info *ctrl)
+@@ -927,8 +927,8 @@ int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl, u8 port_num, bool en)
+  * Use MCC for this command as it may be called in BH context
+  * (mc == NULL) => multicast promiscous
+  */
+-int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
+-			u32 num, bool promiscuous)
++int be_cmd_multicast_set(struct be_ctrl_info *ctrl, u32 if_id,
++		struct dev_mc_list *mc_list, u32 mc_count)
  {
- 	struct be_queue_info *mccq = &ctrl->mcc_obj.q;
- 	u32 val = 0;
-@@ -101,6 +101,28 @@ void be_process_mcc(struct be_ctrl_info *ctrl)
- 	spin_unlock_bh(&ctrl->mcc_cq_lock);
- }
+ #define BE_MAX_MC		32 /* set mcast promisc if > 32 */
+ 	struct be_mcc_wrb *wrb;
+@@ -947,11 +947,16 @@ int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
+ 		OPCODE_COMMON_NTWK_MULTICAST_SET, sizeof(*req));
  
-+/* Wait till no more pending mcc requests are present */
-+static void be_mcc_wait_compl(struct be_ctrl_info *ctrl)
-+{
-+#define mcc_timeout		50000 /* 5s timeout */
-+	int i;
-+	for (i = 0; i < mcc_timeout; i++) {
-+		be_process_mcc(ctrl);
-+		if (atomic_read(&ctrl->mcc_obj.q.used) == 0)
-+			break;
-+		udelay(100);
-+	}
-+	if (i == mcc_timeout)
-+		printk(KERN_WARNING DRV_NAME "mcc poll timed out\n");
-+}
+ 	req->interface_id = if_id;
+-	req->promiscuous = promiscuous;
+-	if (!promiscuous) {
+-		req->num_mac = cpu_to_le16(num);
+-		if (num)
+-			memcpy(req->mac, mac_table, ETH_ALEN * num);
++	if (mc_list && mc_count <= BE_MAX_MC) {
++		int i;
++		struct dev_mc_list *mc;
 +
-+/* Notify MCC requests and wait for completion */
-+static void be_mcc_notify_wait(struct be_ctrl_info *ctrl)
-+{
-+	be_mcc_notify(ctrl);
-+	be_mcc_wait_compl(ctrl);
-+}
++		req->num_mac = cpu_to_le16(mc_count);
 +
- static int be_mbox_db_ready_wait(void __iomem *db)
- {
- 	int cnt = 0, wait = 5;
-@@ -872,14 +894,18 @@ int be_cmd_vlan_config(struct be_ctrl_info *ctrl, u32 if_id, u16 *vtag_array,
- 	return status;
- }
- 
-+/* Use MCC for this command as it may be called in BH context */
- int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl, u8 port_num, bool en)
- {
--	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
--	struct be_cmd_req_promiscuous_config *req = embedded_payload(wrb);
--	int status;
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_promiscuous_config *req;
- 
--	spin_lock(&ctrl->mbox_lock);
--	memset(wrb, 0, sizeof(*wrb));
-+	spin_lock_bh(&ctrl->mcc_lock);
-+
-+	wrb = wrb_from_mcc(&ctrl->mcc_obj.q);
-+	BUG_ON(!wrb);
-+
-+	req = embedded_payload(wrb);
- 
- 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0);
- 
-@@ -891,21 +917,29 @@ int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl, u8 port_num, bool en)
- 	else
- 		req->port0_promiscuous = en;
- 
--	status = be_mbox_db_ring(ctrl);
-+	be_mcc_notify_wait(ctrl);
- 
--	spin_unlock(&ctrl->mbox_lock);
--	return status;
-+	spin_unlock_bh(&ctrl->mcc_lock);
-+	return 0;
- }
- 
-+/*
-+ * Use MCC for this command as it may be called in BH context
-+ * (mc == NULL) => multicast promiscous
-+ */
- int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
- 			u32 num, bool promiscuous)
- {
--	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
--	struct be_cmd_req_mcast_mac_config *req = embedded_payload(wrb);
--	int status;
-+#define BE_MAX_MC		32 /* set mcast promisc if > 32 */
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_mcast_mac_config *req;
- 
--	spin_lock(&ctrl->mbox_lock);
--	memset(wrb, 0, sizeof(*wrb));
-+	spin_lock_bh(&ctrl->mcc_lock);
-+
-+	wrb = wrb_from_mcc(&ctrl->mcc_obj.q);
-+	BUG_ON(!wrb);
-+
-+	req = embedded_payload(wrb);
- 
- 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0);
- 
-@@ -920,10 +954,11 @@ int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id, u8 *mac_table,
- 			memcpy(req->mac, mac_table, ETH_ALEN * num);
++		for (mc = mc_list, i = 0; mc; mc = mc->next, i++)
++			memcpy(req->mac[i].byte, mc->dmi_addr, ETH_ALEN);
++	} else {
++		req->promiscuous = 1;
  	}
  
--	status = be_mbox_db_ring(ctrl);
-+	be_mcc_notify_wait(ctrl);
- 
--	spin_unlock(&ctrl->mbox_lock);
--	return status;
-+	spin_unlock_bh(&ctrl->mcc_lock);
-+
-+	return 0;
+ 	be_mcc_notify_wait(ctrl);
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index 0a9189d..a567aa4 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -716,8 +716,8 @@ extern int be_cmd_vlan_config(struct be_ctrl_info *ctrl, u32 if_id,
+ 			bool promiscuous);
+ extern int be_cmd_promiscuous_config(struct be_ctrl_info *ctrl,
+ 			u8 port_num, bool en);
+-extern int be_cmd_mcast_mac_set(struct be_ctrl_info *ctrl, u32 if_id,
+-			u8 *mac_table, u32 num, bool promiscuous);
++extern int be_cmd_multicast_set(struct be_ctrl_info *ctrl, u32 if_id,
++			struct dev_mc_list *mc_list, u32 mc_count);
+ extern int be_cmd_set_flow_control(struct be_ctrl_info *ctrl,
+ 			u32 tx_fc, u32 rx_fc);
+ extern int be_cmd_get_flow_control(struct be_ctrl_info *ctrl,
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index a4ce80e..3dc6803 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -549,47 +549,32 @@ static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
+ 	be_vid_config(netdev);
  }
  
- int be_cmd_set_flow_control(struct be_ctrl_info *ctrl, u32 tx_fc, u32 rx_fc)
+-static void be_set_multicast_filter(struct net_device *netdev)
++static void be_set_multicast_list(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	struct dev_mc_list *mc_ptr;
+-	u8 mac_addr[32][ETH_ALEN];
+-	int i = 0;
++	struct be_ctrl_info *ctrl = &adapter->ctrl;
+ 
+-	if (netdev->flags & IFF_ALLMULTI) {
+-		/* set BE in Multicast promiscuous */
+-		be_cmd_mcast_mac_set(&adapter->ctrl,
+-					adapter->if_handle, NULL, 0, true);
+-		return;
++	if (netdev->flags & IFF_PROMISC) {
++		be_cmd_promiscuous_config(ctrl, adapter->port_num, 1);
++		adapter->promiscuous = true;
++		goto done;
+ 	}
+ 
+-	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
+-		memcpy(&mac_addr[i][0], mc_ptr->dmi_addr, ETH_ALEN);
+-		if (++i >= 32) {
+-			be_cmd_mcast_mac_set(&adapter->ctrl,
+-				adapter->if_handle, &mac_addr[0][0], i, false);
+-			i = 0;
+-		}
+-
++	/* BE was previously in promiscous mode; disable it */
++	if (adapter->promiscuous) {
++		adapter->promiscuous = false;
++		be_cmd_promiscuous_config(ctrl, adapter->port_num, 0);
+ 	}
+ 
+-	if (i) {
+-		/* reset the promiscuous mode also. */
+-		be_cmd_mcast_mac_set(&adapter->ctrl,
+-			adapter->if_handle, &mac_addr[0][0], i, false);
++	if (netdev->flags & IFF_ALLMULTI) {
++		be_cmd_multicast_set(ctrl, adapter->if_handle, NULL, 0);
++		goto done;
+ 	}
+-}
+-
+-static void be_set_multicast_list(struct net_device *netdev)
+-{
+-	struct be_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (netdev->flags & IFF_PROMISC) {
+-		be_cmd_promiscuous_config(&adapter->ctrl, adapter->port_num, 1);
+-	} else {
+-		be_cmd_promiscuous_config(&adapter->ctrl, adapter->port_num, 0);
+-		be_set_multicast_filter(netdev);
+-	}
++	be_cmd_multicast_set(ctrl, adapter->if_handle, netdev->mc_list,
++		netdev->mc_count);
++done:
++	return;
+ }
+ 
+ static void be_rx_rate_update(struct be_adapter *adapter)
 -- 
 1.6.0.4
 
