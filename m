@@ -1,71 +1,110 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH] Consolidate shared code between enic and fnic drivers.
-Date: Thu, 18 Jun 2009 12:03:24 -0500
-Message-ID: <4A3A735C.7090603@cs.wisc.edu>
-References: <20090618050502.30610.69142.stgit@palito_client100.nuovasystems.com> <4A3A090B.9020306@suse.de>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: [PATCH] pegasus usb-net: Fix endianness bugs
+Date: Thu, 18 Jun 2009 19:03:47 +0200
+Message-ID: <200906181903.47541.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <scofeldm@cisco.com>,
-	James.Bottomley@HansenPartnership.com, davem@davemloft.net,
-	gospo@redhat.com, abjoglek@cisco.com, jeykholt@cisco.com,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-To: Hannes Reinecke <hare@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:45115 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751460AbZFRRD6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Jun 2009 13:03:58 -0400
-In-Reply-To: <4A3A090B.9020306@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Reinecke wrote:
-> Hi all,
-> 
-> Scott Feldman wrote:
->> Consolidate shared code between enic and fnic drivers.
->>
->> [David/James, we need a little help with this one...this single patch
->> spans scsi and netdev, so we're not sure which tree/maintainer needs
->> to pick up the patch.  Please advise.  It's for 2.6.31.  The patch is
->> against linux-2.6.git.]
->>
-> Ah, finally. I was actually waiting someone would spot this ...
-> 
->> The Cisco enic 10G Ethernet driver and the fnic FCoE HBA driver share
->> much of the same hardware-access code because enic and fnic devices are
->> really two functions on a converged-I/O PCIe device.  This patch
->> consolidates the shared code into one shared module, thus eliminating
->> the code duplication.  No functional changes are made by the patch.
->>
->> Why weren't these consolidated in the first place?  fnic went in late in
->> 2.6.30 on the scsi branch (merge exception for new drivers), and it was
->> too late to modify enic which was already included in 2.6.28.
->>
-> Hmm. Seeing that we're getting more and more of these type of drivers
-> (cf bnx2 / bnx2i / cnic, enic / fnic, and at least one other in the pipe)
-> one does wonder whether we should establish a separate directory for
-> these kind of things.
-> drivers/virtual or drivers/shared springs to mind.
-> 
-> Having them in the network directory is probably not the
-> correct choice.
-> 
+This fixes various endianness bugs. Some harmless and some real ones.
+This is tested on a PowerPC-64 machine.
 
-I think it might sometimes. I am not sure though. I think we have two 
-models. One where this common/lib/helper/shim module requires a net 
-driver/netdev and one where it does not.
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Cc: Stable <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-I think vnic should go in a new dir. fnic does not require enic to 
-interact with hardare. It only needs the vnic module and vnic module 
-should not need the enic one. The fnic module does not interact with the 
-  network layer's net_device.
+---
+ drivers/net/usb/pegasus.c |   29 +++++++++++++++++------------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
 
-For the second model, maybe cnic should be in the net dir. I am not 
-sure. Here, bnx2i needs cnic which requires bnx2 to interact with the 
-hardware. bnx2i does not directly interact with the net_device, but it 
-does through the cnic/bnx2 code. cxb3/cxgb3i implements this model too.
+--- linux-2.6.30.orig/drivers/net/usb/pegasus.c
++++ linux-2.6.30/drivers/net/usb/pegasus.c
+@@ -297,7 +297,7 @@ static int update_eth_regs_async(pegasus
+ 
+ 	pegasus->dr.bRequestType = PEGASUS_REQT_WRITE;
+ 	pegasus->dr.bRequest = PEGASUS_REQ_SET_REGS;
+-	pegasus->dr.wValue = 0;
++	pegasus->dr.wValue = cpu_to_le16(0);
+ 	pegasus->dr.wIndex = cpu_to_le16(EthCtrl0);
+ 	pegasus->dr.wLength = cpu_to_le16(3);
+ 	pegasus->ctrl_urb->transfer_buffer_length = 3;
+@@ -446,11 +446,12 @@ static int write_eprom_word(pegasus_t * 
+ 	int i;
+ 	__u8 tmp, d[4] = { 0x3f, 0, 0, EPROM_WRITE };
+ 	int ret;
++	__le16 le_data = cpu_to_le16(data);
+ 
+ 	set_registers(pegasus, EpromOffset, 4, d);
+ 	enable_eprom_write(pegasus);
+ 	set_register(pegasus, EpromOffset, index);
+-	set_registers(pegasus, EpromData, 2, &data);
++	set_registers(pegasus, EpromData, 2, &le_data);
+ 	set_register(pegasus, EpromCtrl, EPROM_WRITE);
+ 
+ 	for (i = 0; i < REG_TIMEOUT; i++) {
+@@ -923,29 +924,32 @@ static struct net_device_stats *pegasus_
+ 
+ static inline void disable_net_traffic(pegasus_t * pegasus)
+ {
+-	int tmp = 0;
++	__le16 tmp = cpu_to_le16(0);
+ 
+-	set_registers(pegasus, EthCtrl0, 2, &tmp);
++	set_registers(pegasus, EthCtrl0, sizeof(tmp), &tmp);
+ }
+ 
+ static inline void get_interrupt_interval(pegasus_t * pegasus)
+ {
+-	__u8 data[2];
++	u16 data;
++	u8 interval;
+ 
+-	read_eprom_word(pegasus, 4, (__u16 *) data);
++	read_eprom_word(pegasus, 4, &data);
++	interval = data >> 8;
+ 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
+-		if (data[1] < 0x80) {
++		if (interval < 0x80) {
+ 			if (netif_msg_timer(pegasus))
+ 				dev_info(&pegasus->intf->dev, "intr interval "
+ 					"changed from %ums to %ums\n",
+-					data[1], 0x80);
+-			data[1] = 0x80;
++					interval, 0x80);
++			interval = 0x80;
++			data = (data & 0x00FF) | ((u16)interval << 8);
+ #ifdef PEGASUS_WRITE_EEPROM
+-			write_eprom_word(pegasus, 4, *(__u16 *) data);
++			write_eprom_word(pegasus, 4, data);
+ #endif
+ 		}
+ 	}
+-	pegasus->intr_interval = data[1];
++	pegasus->intr_interval = interval;
+ }
+ 
+ static void set_carrier(struct net_device *net)
+@@ -1299,7 +1303,8 @@ static int pegasus_blacklisted(struct us
+ 	/* Special quirk to keep the driver from handling the Belkin Bluetooth
+ 	 * dongle which happens to have the same ID.
+ 	 */
+-	if ((udd->idVendor == VENDOR_BELKIN && udd->idProduct == 0x0121) &&
++	if ((udd->idVendor == cpu_to_le16(VENDOR_BELKIN)) &&
++	    (udd->idProduct == cpu_to_le16(0x0121)) &&
+ 	    (udd->bDeviceClass == USB_CLASS_WIRELESS_CONTROLLER) &&
+ 	    (udd->bDeviceProtocol == 1))
+ 		return 1;
 
-I am fine with the second type of module going in a new dir too, but I 
-just wanted to make sure everyone knows the differences between the models.
+
+-- 
+Greetings, Michael.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
