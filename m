@@ -1,65 +1,60 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: wireless netns work
-Date: Thu, 18 Jun 2009 23:48:14 +0200
-Message-ID: <1245361694.6495.2.camel@johannes.local>
-References: <1245328543.13790.31.camel@johannes.local>
-	 <1245329713.13790.37.camel@johannes.local>
-	 <40f31dec0906181016nffa031flac8f464c929f1bc9@mail.gmail.com>
-	 <43e72e890906181443g54269d1bm7ce24dcb46e7e921@mail.gmail.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH] e1000e: stop unnecessary polling when using msi-x
+Date: Thu, 18 Jun 2009 17:57:37 -0400
+Message-ID: <20090618215737.GF8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-3abe21AtgDqps6qiskoI"
-Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Georgy Berdyshev <codingmaster-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <43e72e890906181443g54269d1bm7ce24dcb46e7e921-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org
+To: netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:58574 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753134AbZFRV63 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Jun 2009 17:58:29 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-3abe21AtgDqps6qiskoI
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+The last hunk of this commit:
 
-On Thu, 2009-06-18 at 14:43 -0700, Luis R. Rodriguez wrote:
+    commit 12d04a3c12b420f23398b4d650127642469a60a6
+    Author: Alexander Duyck <alexander.h.duyck@intel.com>
+    Date:   Wed Mar 25 22:05:03 2009 +0000
 
-> For example, I see you used mac80211_hwsim and was able to use two
-> wlan interfaces to talk to each other. This seems great for testing
-> purposes but it remains unclear to me the advantage of testing with
-> separate namespaces vs creating two wlan interfaces on one namespace
-> with mac80211_hwsim.
+        e1000e: commonize tx cleanup routine to match e1000 & igb
 
-You cannot ping within one namespace and have the packets actually flow
-over the virtual 'air'.
+changed the logic for determining if we should call napi_complete or
+not at then end of a napi poll.
 
-johannes
+If the NIC is using MSI-X with no work to do in ->poll, net_rx_action
+can just spin indefinitely on older kernels and for 2 jiffies on newer
+kernels since napi_complete is never called and budget isn't
+decremented.
 
---=-3abe21AtgDqps6qiskoI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Discovered and verified while testing driver backport to an older
+kernel.
 
------BEGIN PGP SIGNATURE-----
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-iQIcBAABAgAGBQJKOrYaAAoJEODzc/N7+QmaKnMP/jOZMGePN6ZQKvIqaU5BmCb8
-KdPVolnOcYE3CX8WifJghf6SLsXVJ/CmaMzm8YHvQSVas4+QnybcxE75Zj6IdQ2B
-OL2e/KcEEGMF4cEg21hp48uUe9WRzbHzREZqR1TbIgZB5rQNYCvo5ZMeVDHUcaDZ
-EoSP0iOkVWdTS9mS8pOOx4AgxJsWbGBowYhV487JM3TShaWC864CyLsFwbIFOVhr
-JUioikdlEAx94uv7CDPGZfJ99nEb1iUlq34Nyu7hSGCZCLN2kwi9tbJAGouGTB3C
-hTyFov9hQ+LUwPMO82UH7SATh9aeeF6OYSgpjKYPEuYO/bdhVt1KT9F7SpsAb5Q/
-wTPGbxlOwDhegZ/abgZBrRPyidSNIeobgdZLZkynwrDgb3RzK95qetdyCuLQCNRK
-Z/PlOeTREjJDr2ZgZwcd0APFWZee/eZflePdSJ2yMeVkhDPn6enUgp+gxdr29ZZl
-E5wRs6CrchlFezJtPQuvaMHcLXZEx9GDRJNHOGCxNKQjNrN5x0+bfetGnmb2EP++
-3irdfegmZq5Mj911M7r0UZ1ghNSo1SwtM51R2yE9g1zkpRDn77FZmWs+qOcQnSZa
-n7ETVaCj1m0QaDuSu4ODqaIp6VkwjM5q8ZYiFYLBOAnVw/4K295/+RQMj1O8RsW8
-5hJbKpWe/0/IorFEvdjB
-=udJN
------END PGP SIGNATURE-----
+---
 
---=-3abe21AtgDqps6qiskoI--
+ netdev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 677f604..679885a 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1997,7 +1997,7 @@ static int e1000_clean(struct napi_struct *napi, int budget)
+ 	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *poll_dev = adapter->netdev;
+-	int tx_cleaned = 0, work_done = 0;
++	int tx_cleaned = 1, work_done = 0;
+ 
+ 	adapter = netdev_priv(poll_dev);
+
+
