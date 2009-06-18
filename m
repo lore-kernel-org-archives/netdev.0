@@ -1,54 +1,60 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2] ftrace: change the export format of
- trace_kfree_skb()
-Date: Thu, 18 Jun 2009 08:51:12 -0400 (EDT)
-Message-ID: <alpine.DEB.2.00.0906180847540.6890@gandalf.stny.rr.com>
-References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com> <20090610072618.GA6016@nowhere> <4A39B3E4.6060004@cn.fujitsu.com> <20090618103538.GA8978@hmsreliant.think-freely.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] mac80211_hwsim: clean up the skb before passing it back
+Date: Thu, 18 Jun 2009 14:51:12 +0200
+Message-ID: <1245329472.13790.33.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@aristanetworks.com>,
+	Pavel Emelyanov <xemul@openvz.org>
+To: John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:36617 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763499AbZFRMvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 08:51:17 -0400
-In-Reply-To: <20090618103538.GA8978@hmsreliant.think-freely.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:49661 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761794AbZFRMvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 08:51:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We need to clean up the skb before we can copy it, this
+is required for proper operation since the socket it is
+still attached to could potentially live in a different
+network namespace or so.
 
-On Thu, 18 Jun 2009, Neil Horman wrote:
-> > 
-> > diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> > index 1e8fabb..2496060 100644
-> > --- a/include/trace/events/skb.h
-> > +++ b/include/trace/events/skb.h
-> > @@ -7,6 +7,71 @@
-> >  #undef TRACE_SYSTEM
-> >  #define TRACE_SYSTEM skb
-> >  
-> > +#define protocol_name(protocol) { protocol, #protocol }
-> > +#define show_protocol_name(val)					\
-> > +	__print_symbolic(val,					\
-> 
-> Don't you need to include ftrace.h to pull in the __print_symbolic definition?
-> Or is that always guaranteed to be included from tracepoint.h?
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+I stole this code from veth, maybe there should be a function somewhere?
 
-Its use is in one of the fields of TRACE_EVENT that are only used by 
-define_trace.h. All other users will ignore it.
+ drivers/net/wireless/mac80211_hwsim.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-#define TRACE_EVENT(name, proto, args, struct, assign, print)	\
-	DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))
+--- wireless-testing.orig/drivers/net/wireless/mac80211_hwsim.c	2009-06-18 14:42:01.000000000 +0200
++++ wireless-testing/drivers/net/wireless/mac80211_hwsim.c	2009-06-18 14:44:27.000000000 +0200
+@@ -15,6 +15,8 @@
+ 
+ #include <linux/list.h>
+ #include <linux/spinlock.h>
++#include <net/dst.h>
++#include <net/xfrm.h>
+ #include <net/mac80211.h>
+ #include <net/ieee80211_radiotap.h>
+ #include <linux/if_arp.h>
+@@ -409,6 +411,14 @@ static bool mac80211_hwsim_tx_frame(stru
+ 	if (data->ps != PS_DISABLED)
+ 		hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_PM);
+ 
++	/* release the skb's source info */
++	skb_orphan(skb);
++	dst_release(skb->dst);
++	skb->dst = NULL;
++	skb->mark = 0;
++	secpath_reset(skb);
++	nf_reset(skb);
++
+ 	/* Copy skb to all enabled radios that are on the current frequency */
+ 	spin_lock(&hwsim_radio_lock);
+ 	list_for_each_entry(data2, &hwsim_radios, list) {
 
-Only name, proto, args is used. The define_trace.h will include 
-trace/ftrace.h and that will use the struct, assign and print args.
-
-So the answer is "no" ;-)
-
--- Steve
 
