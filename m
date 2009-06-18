@@ -1,114 +1,46 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: wireless netns work
-Date: Thu, 18 Jun 2009 14:35:43 +0200
-Message-ID: <1245328543.13790.31.camel@johannes.local>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: Re: [patch 0/2] af_iucv patches for linux-2.6.31
+Date: Thu, 18 Jun 2009 14:44:54 +0200
+Message-ID: <1245329094.14954.38.camel@braunu-laptop>
+References: <20090618075446.890351000@linux.vnet.ibm.com>
+	 <20090618.013410.04304670.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-HlqO3EB7v0BqmDxVqv5A"
-Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---=-HlqO3EB7v0BqmDxVqv5A
 Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: ursula.braun@de.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:52763 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbZFRMox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 08:44:53 -0400
+In-Reply-To: <20090618.013410.04304670.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2009-06-18 at 01:34 -0700, David Miller wrote:
+> From: Ursula Braun <ursula.braun@de.ibm.com>
+> Date: Thu, 18 Jun 2009 09:54:46 +0200
+> 
+> > Hendrik has built 2 af_iucv patches fixing inappropriate return code handling
+> > for sendmsg. They are built against linux-2.6.30. We would like to see them
+> > included in 2.6.31 - if possible.
+> 
+> These patches do not apply cleanly against Linus's current tree nor
+> net-next-2.6 which is what you should be subumitting patches again.
+> 
+> This late in the merge window it really behooves you to do anything
+> other than submit patches against the previous release... it's
+> almost guarenteed to fail, really.
 
-You've all seen the netns patches fly by -- time to explain what I'm
-doing maybe?
+Dave,
 
-First, I've not copied all patches to both lists, please look at
-http://johannes.sipsolutions.net/patches/kernel/all/LATEST/ for all the
-patches with netns in their name, as there are:
+sorry, I did a git pull on linux-2.6.git first, and the af_iucv patches
+applied cleanly on my system. Anyway, I understand that I have been too
+late in the merge window. I will submit the patches against net-next-2.6
+again.
 
-## netns work [sent]
-006-wext-netns.patch
-007-netns-rcu.patch
-008-genl-netns.patch
-009-mac80211-netns.patch
-010-netns-export-get-by-pid.patch
+Regards, Ursula
 
-## netns work [rfc]
-011-cfg80211-netns.patch
-
-## play together
-012-mac80211-allow-netns.patch
-
-## HACK HACK HACK
-013-mac80211-no-netdev-dev.patch
-
-
-Also, to play with it you will need the netns branch of iw, which has
-this simple commit:
-http://git.sipsolutions.net/gitweb.cgi?p=3Diw.git;a=3Dcommitdiff;h=3D518d40=
-92312a8b02bdb49163ae403de7abc9bdee
-
-Also grab ns_exec and compile it:
-http://johannes.sipsolutions.net/files/ns_exec.c.txt
-
-Now compile your kernel with all the above patches (including the HACK
-one) and let's play:
-
-# modprobe mac80211_hsim
-
-open a new terminal, and in it do
-# ns_exec -c -n /bin/bash
-and note the PID. In the new shell, also do
-# ip link set lo up
-
-Then in the old terminal, do
-# iw phy#0 set netns PID-from-above
-
-You'll get a sysfs complaint. Now, in the old terminal:
-# ip addr add 192.168.12.1/24 dev wlan1
-and in the new netns terminal:
-# ip addr add 192.168.12.2/24 dev wlan0
-
-Now you can run hostapd on one of them and connect to the other. This
-bit works fine. Once the link is established, you _should_ also be able
-to ping between the two, but that doesn't work.
-
-Oddly, the link works unidirectionally in both directions, if I ping
-from either side tcpdump shows the echo requests on the other side, but
-no echo reply is being generated. Still investigating why this is, since
-it works fine with veth. Ideas why this is broken would be
-appreciated :)
-
-(and to play with veth, do
-# ip link add type veth
-# ip link set veth0 netns <PID>
-# ip addr add ...
-)
-
-johannes
-
---=-HlqO3EB7v0BqmDxVqv5A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKOjScAAoJEODzc/N7+QmaC/gQAKsC9/uHH6KxCJ1nsCYuzcUD
-E137VKmbtHcGPxTLsUOp/GxiV3Oz9HrYUX3cKCwm3BdrTHjR8I/tOfdL+hdcETVe
-MDmBIndpo4Oy9v9S1ndlfGt77rek8cIq/1XruvAWldbFOJ7JqBUWKPOG9N15JYoh
-gFBo78MC9h/9W0O/MVpyWiTX4W3w41ncvVbSypqbMr5lRhOLt7jXRY9kKRohGr31
-BS4zi9KKoed3CEwcZ5ksqV1BaTP8HJyhhMEjp14E6YeTNNl82eUa1wBeWFIAGE/4
-wknx6bi3YI2SlaOII5/6nuY0iJHyvIkVC7pzuLZVjzinAYG2JKJzVSLKU6ZRBd6G
-tQmBFBeCxyweNWIuVZODBzYc+8im5K+FM6+gx7RpMv6f/oIec7ajSTzXpQs6+q+G
-Zza2VFbSrOvuyzK1nANxLdqYKZygXkCXhx5qe2L6LI03S5gy5okjJaSXZpuQMH18
-TkZC5HQIhkhjEr9+RXYjdvVPciobVzJd7lH/7ZXQlAJ0ZWrhTPYxphUD5rGUft+v
-887zwbVhCycR1b2rjPXZ/cwyLIWgRU/JTXvfRV21EWswn9pCl5ejl0C8pGK8l2h1
-vKXLS71HdbxIghfpO3ryzB0nL4Xi275+RZ1WhvLhIdqTjWcajj6Aw4wqSqVJ7Rql
-lcMOJNayZzOQRAT75JWy
-=dS6j
------END PGP SIGNATURE-----
-
---=-HlqO3EB7v0BqmDxVqv5A--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
