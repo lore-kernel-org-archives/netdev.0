@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: group address list and its count
-Date: Wed, 17 Jun 2009 19:03:58 -0700 (PDT)
-Message-ID: <20090617.190358.95208276.davem@davemloft.net>
-References: <20090617111218.GB3834@psychotron.englab.brq.redhat.com>
+Subject: Re: [PATCH] net: correct off-by-one write allocations reports
+Date: Wed, 17 Jun 2009 19:05:52 -0700 (PDT)
+Message-ID: <20090617.190552.127426863.davem@davemloft.net>
+References: <4A37F495.9030101@gmail.com>
+	<4A37FC93.7070403@gmail.com>
+	<4A389031.1060902@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johannes@sipsolutions.net
-To: jpirko@redhat.com
+Cc: torvalds@linux-foundation.org, mingo@elte.hu,
+	alan@lxorguk.ukuu.org.uk, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50546
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48983
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755715AbZFRCDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 22:03:54 -0400
-In-Reply-To: <20090617111218.GB3834@psychotron.englab.brq.redhat.com>
+	by vger.kernel.org with ESMTP id S1752615AbZFRCFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Jun 2009 22:05:49 -0400
+In-Reply-To: <4A389031.1060902@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 17 Jun 2009 13:12:19 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 17 Jun 2009 08:41:53 +0200
 
-> [PATCH net-next] net: group address list and its count
+> [PATCH] net: correct off-by-one write allocations reports
 > 
-> This patch is inspired by patch recently posted by Johannes Berg. Basically what
-> my patch does is to group list and a count of addresses into newly introduced
-> structure netdev_hw_addr_list. This brings us two benefits:
-> 1) struct net_device becames a bit nicer.
-> 2) in the future there will be a possibility to operate with lists independently
->    on netdevices (with exporting right functions).
-> I wanted to introduce this patch before I'll post a multicast lists conversion.
+> commit 2b85a34e911bf483c27cfdd124aeb1605145dc80 
+> (net: No more expensive sock_hold()/sock_put() on each tx)
+> changed initial sk_wmem_alloc value.
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> We need to take into account this offset when reporting
+> sk_wmem_alloc to user, in PROC_FS files or various
+> ioctls (SIOCOUTQ/TIOCOUTQ)
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I like this a lot, applied, thanks Jiri.
+Applied.
