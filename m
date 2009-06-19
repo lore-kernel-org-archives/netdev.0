@@ -1,32 +1,48 @@
-From: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] man page update (ip.7) to reflect new socket option in 2.6.31
-Date: Fri, 19 Jun 2009 00:02:21 -0700
-Message-ID: <4A3B37FD.4040801@us.ibm.com>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Subject: Re: [patch 0/2] af_iucv patches for linux-2.6.31
+Date: Fri, 19 Jun 2009 09:04:26 +0200
+Message-ID: <20090619090426.19969a0b@skybase>
+References: <20090618075446.890351000@linux.vnet.ibm.com>
+	<20090618.013410.04304670.davem@davemloft.net>
+	<1245329094.14954.38.camel@braunu-laptop>
+	<20090618.111957.70533925.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ubraun@linux.vnet.ibm.com, ursula.braun@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	heiko.carstens@de.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:43896 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbZFSHEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:04:36 -0400
+In-Reply-To: <20090618.111957.70533925.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the IP_MULTICAST_ALL option to
-the ip.7 man page, to bring it up to date with
-2.6.31 development.
+Hi David,
 
+On Thu, 18 Jun 2009 11:19:57 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Signed-off-by: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Date: Thu, 18 Jun 2009 14:44:54 +0200
+> 
+> > sorry, I did a git pull on linux-2.6.git first, and the af_iucv patches
+> > applied cleanly on my system.
+> 
+> It couldn't have applied to Linus's tree because all the IUCV
+> bits you submitted to me for 2.6.31 are in his tree and that is
+> what created the conflicts.
 
----
-  man7/ip.7 |   10 +++++++++-
-  1 files changed, 9 insertions(+), 1 deletions(-)
+Now I am confused. I just tested the two patches Uschi sent with todays
+upstream tree. The patches apply fine. Where is the problem, wrong tree?
 
-diff --git a/man7/ip.7 b/man7/ip.7
-index ab866a1..6932ba2 100644
---- a/man7/ip.7
-+++ b/man7/ip.7
-@@ -357,7 +357,6 @@ and retrieve the MTU by calling
-  with the
-  .B IP_MTU
-  option.
+-- 
+blue skies,
+   Martin.
+
+"Reality continues to ruin my life." - Calvin.
+
