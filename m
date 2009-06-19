@@ -1,54 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: can we reuse an skb
-Date: Fri, 19 Jun 2009 14:41:14 -0400
-Message-ID: <20090619184114.GG18237@hmsreliant.think-freely.org>
-References: <962874.62146.qm@web94813.mail.in2.yahoo.com> <4A3B6A71.9060709@gmail.com>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH] TI DaVinci EMAC : Fix rmmod error
+Date: Fri, 19 Jun 2009 13:54:12 -0700
+Message-ID: <87hbyct05n.fsf@deeprootsystems.com>
+References: <1245238134-23512-1-git-send-email-chaithrika@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Radha Mohan <radhamohan_ch@yahoo.com>, netdev@vger.kernel.org
-To: Saikiran Madugula <hummerbliss@gmail.com>
+Cc: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: Chaithrika U S <chaithrika@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48472 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbZFSSlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 14:41:22 -0400
-Content-Disposition: inline
-In-Reply-To: <4A3B6A71.9060709@gmail.com>
+Received: from wf-out-1314.google.com ([209.85.200.170]:14398 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753171AbZFSUyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 16:54:12 -0400
+Received: by wf-out-1314.google.com with SMTP id 26so946903wfd.4
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 13:54:15 -0700 (PDT)
+In-Reply-To: <1245238134-23512-1-git-send-email-chaithrika@ti.com> (Chaithrika U. S.'s message of "Wed\, 17 Jun 2009 07\:28\:54 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 19, 2009 at 11:37:37AM +0100, Saikiran Madugula wrote:
-> Radha Mohan wrote:
-> > Hi,
-> > 
-> > For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx(). 
-> > 
-> > Any pointers will be helpful.
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/28/3433504
-Thats usefull on the transmit side, This appears to be in relation to receive
-side buffering.
+Chaithrika U S <chaithrika@ti.com> writes:
 
-The answer to the question I think is, yes, you probably could come up with some
-method to recycle skb's on the recieve side, but in all honesty, you're not
-likely to come up with a solution that doesn't kill your performance.  If you
-want to recycle the same skbs to your hardware, you either have to detect when
-an application has received that data at the top of the stack, or you have to
-copy the data out of the skb you just got from your hardware, so you can reuse
-it immediately.  Theres not much point in doing the latter, as it doesn't avoid
-the skb allocation your trying to not make.  The former is technically feasible,
-but it requires your driver to wait an indefinate amount of time while an
-application (or applications, if you consider the multicast case) all get on the
-scheduler and receive from their open sockets, so theres no easy way to size
-your receive ring, and if you run out, you have to drop frames until someone
-releases an skb to you.
+> clk_disable was called twice in the remove function.
+> Correct this so that the driver module unloads without error.
+>
+> Signed-off-by: Chaithrika U S <chaithrika@ti.com>
 
-Its far easier, and more efficient to just allocate a new skb, and insert that
-your hardwares ring buffer.  And its really not that expensive considering the
-caching effect that our various allocators have
-Neil
+Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
+(TI DaVinci arch maintainer)
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Will pull into DaVinci git until it merges upstream.
+
+Kevin
+
+> ---
+> Applies to Linus' kernel tree
+>
+>  drivers/net/davinci_emac.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+> index 0e9b9f9..2df8fb0 100644
+> --- a/drivers/net/davinci_emac.c
+> +++ b/drivers/net/davinci_emac.c
+> @@ -2767,7 +2767,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+>  
+>  	dev_notice(&ndev->dev, "DaVinci EMAC: davinci_emac_remove()\n");
+>  
+> -	clk_disable(emac_clk);
+>  	platform_set_drvdata(pdev, NULL);
+>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	mdiobus_unregister(priv->mii_bus);
+> -- 
+> 1.5.6
+>
+> _______________________________________________
+> Davinci-linux-open-source mailing list
+> Davinci-linux-open-source@linux.davincidsp.com
+> http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source
