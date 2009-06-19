@@ -1,64 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: stop unnecessary polling when using msi-x
-Date: Fri, 19 Jun 2009 00:24:54 -0700 (PDT)
-Message-ID: <20090619.002454.04323414.davem@davemloft.net>
-References: <20090618215737.GF8515@gospo.rdu.redhat.com>
-	<4A3ABA6C.9030604@intel.com>
+Subject: Re: [PATCH] mv643xx_eth: fix unicast filter programming in
+ promiscuous mode
+Date: Fri, 19 Jun 2009 00:25:08 -0700 (PDT)
+Message-ID: <20090619.002508.239934377.davem@davemloft.net>
+References: <20090618213502.GM12752@mail.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, stable@kernel.org
-To: alexander.h.duyck@intel.com
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50156
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50161
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752613AbZFSHYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:24:50 -0400
-In-Reply-To: <4A3ABA6C.9030604@intel.com>
+	by vger.kernel.org with ESMTP id S1752807AbZFSHZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:25:04 -0400
+In-Reply-To: <20090618213502.GM12752@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 18 Jun 2009 15:06:36 -0700
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Thu, 18 Jun 2009 23:35:02 +0200
 
-> Andy Gospodarek wrote:
->> The last hunk of this commit:
->>     commit 12d04a3c12b420f23398b4d650127642469a60a6
->>     Author: Alexander Duyck <alexander.h.duyck@intel.com>
->>     Date:   Wed Mar 25 22:05:03 2009 +0000
->>         e1000e: commonize tx cleanup routine to match e1000 & igb
->> changed the logic for determining if we should call napi_complete or
->> not at then end of a napi poll.
->> If the NIC is using MSI-X with no work to do in ->poll, net_rx_action
->> can just spin indefinitely on older kernels and for 2 jiffies on newer
->> kernels since napi_complete is never called and budget isn't
->> decremented.
->> Discovered and verified while testing driver backport to an older
->> kernel.
->> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->> ---
->>  netdev.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
->> index 677f604..679885a 100644
->> --- a/drivers/net/e1000e/netdev.c
->> +++ b/drivers/net/e1000e/netdev.c
->> @@ -1997,7 +1997,7 @@ static int e1000_clean(struct napi_struct *napi,
->> int budget)
->>  	struct e1000_adapter *adapter = container_of(napi, struct
->>  	e1000_adapter, napi);
->>  	struct e1000_hw *hw = &adapter->hw;
->>  	struct net_device *poll_dev = adapter->netdev;
->> -	int tx_cleaned = 0, work_done = 0;
->> +	int tx_cleaned = 1, work_done = 0;
->>   	adapter = netdev_priv(poll_dev);
->> 
-> This is most certainly a bug, and the fix is correct.  The logic for
-> tx_cleaned is supposed to default to true in the event that there are
-> no tx queues cleaned as part of the polling routine.
+> From: Prabhanjan Sarnaik <sarnaik@marvell.com>
 > 
-> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> The Unicast Promiscious Mode (UPM) bit in the mv643xx_eth port
+> configuration register doesn't do exactly what its name would suggest:
+> setting this bit merely enables reception of all unicast frames with a
+> destination address that differs from our local MAC address in bits
+> [47:4].  In particular, it doesn't have any effect on unicast frames
+> with a destination address that matches our MAC address in bits [47:4]
+> -- these will still be tested against the 16-entry unicast address
+> filter table.
+> 
+> Therefore, if the interface is set to promiscuous mode, just setting
+> the unicast promiscuous bit isn't enough -- we need to set all filter
+> bits in the unicast filter table to 1 as well.
+> 
+> Reported-by: Sachin Sanap <ssanap@marvell.com>
+> Signed-off-by: Prabhanjan Sarnaik <sarnaik@marvell.com>
+> Tested-by: Siddarth Gore <gores@marvell.com>
+> Tested-by: Mahavir Jain <mjain@marvell.com>
+> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+> Cc: stable@kernel.org
+> ---
+> This patch is relevant for 2.6.29 and 2.6.30 as well.
 
-Applied, thanks.
+Applied, and queued up for -stable.
