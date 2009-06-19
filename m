@@ -1,37 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] usbnet cdc_subset: fix issues talking to PXA gadgets
-Date: Fri, 19 Jun 2009 00:24:03 -0700 (PDT)
-Message-ID: <20090619.002403.98174871.davem@davemloft.net>
-References: <200906190011.28320.david-b@pacbell.net>
+Subject: Re: [PATCH] e1000e: stop unnecessary polling when using msi-x
+Date: Fri, 19 Jun 2009 00:24:54 -0700 (PDT)
+Message-ID: <20090619.002454.04323414.davem@davemloft.net>
+References: <20090618215737.GF8515@gospo.rdu.redhat.com>
+	<4A3ABA6C.9030604@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aric@sdgsystems.com
-To: david-b@pacbell.net
+Cc: andy@greyhouse.net, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, stable@kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52953
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50156
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752233AbZFSHX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:23:59 -0400
-In-Reply-To: <200906190011.28320.david-b@pacbell.net>
+	by vger.kernel.org with ESMTP id S1752613AbZFSHYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:24:50 -0400
+In-Reply-To: <4A3ABA6C.9030604@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Brownell <david-b@pacbell.net>
-Date: Fri, 19 Jun 2009 00:11:28 -0700
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Thu, 18 Jun 2009 15:06:36 -0700
 
-> From: David Brownell <dbrownell@users.sourceforge.net>
+> Andy Gospodarek wrote:
+>> The last hunk of this commit:
+>>     commit 12d04a3c12b420f23398b4d650127642469a60a6
+>>     Author: Alexander Duyck <alexander.h.duyck@intel.com>
+>>     Date:   Wed Mar 25 22:05:03 2009 +0000
+>>         e1000e: commonize tx cleanup routine to match e1000 & igb
+>> changed the logic for determining if we should call napi_complete or
+>> not at then end of a napi poll.
+>> If the NIC is using MSI-X with no work to do in ->poll, net_rx_action
+>> can just spin indefinitely on older kernels and for 2 jiffies on newer
+>> kernels since napi_complete is never called and budget isn't
+>> decremented.
+>> Discovered and verified while testing driver backport to an older
+>> kernel.
+>> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>> ---
+>>  netdev.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+>> index 677f604..679885a 100644
+>> --- a/drivers/net/e1000e/netdev.c
+>> +++ b/drivers/net/e1000e/netdev.c
+>> @@ -1997,7 +1997,7 @@ static int e1000_clean(struct napi_struct *napi,
+>> int budget)
+>>  	struct e1000_adapter *adapter = container_of(napi, struct
+>>  	e1000_adapter, napi);
+>>  	struct e1000_hw *hw = &adapter->hw;
+>>  	struct net_device *poll_dev = adapter->netdev;
+>> -	int tx_cleaned = 0, work_done = 0;
+>> +	int tx_cleaned = 1, work_done = 0;
+>>   	adapter = netdev_priv(poll_dev);
+>> 
+> This is most certainly a bug, and the fix is correct.  The logic for
+> tx_cleaned is supposed to default to true in the event that there are
+> no tx queues cleaned as part of the polling routine.
 > 
-> The host-side CDC subset driver is binding more specifically
-> than it should ... only to PXA 210/25x/26x Linux-USB gadgets.
-> 
-> Loosen that restriction to match the gadget driver itself.
-> This helps various PXA 27x and PXA 3xx devices be happier
-> when talking to Linux hosts; and a few other gadgets too.
-> 
-> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-> Tested-by: Aric D. Blumer <aric@sdgsystems.com>
-> ---
-> Appropriate for -stable ... behaves like a protocol bug.
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied and queued up for -stable.
+Applied, thanks.
