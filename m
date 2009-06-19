@@ -1,54 +1,93 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: [patch v2] usbnet cdc_subset: fix issues talking to PXA gadgets
-Date: Fri, 19 Jun 2009 03:10:03 -0700
-Message-ID: <200906190310.03309.david-b@pacbell.net>
-References: <200906190011.28320.david-b@pacbell.net>
+From: Nicholas Van Orton <turanammo@gmail.com>
+Subject: Re: can we reuse an skb
+Date: Fri, 19 Jun 2009 15:41:20 +0530
+Message-ID: <b9e8fcbd0906190311k1db4653bm1d560743faa4ded1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Aric D. Blumer" <aric@sdgsystems.com>
-To: Network development list <netdev@vger.kernel.org>
+Cc: jon_zhou@agilent.com, radhamohan_ch@yahoo.com,
+	netdev@vger.kernel.org
+To: Peter Chacko <peterchacko35@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp109.sbc.mail.gq1.yahoo.com ([67.195.14.39]:45496 "HELO
-	smtp109.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753134AbZFSKKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 06:10:02 -0400
-In-Reply-To: <200906190011.28320.david-b@pacbell.net>
-Content-Disposition: inline
+Received: from mail-px0-f189.google.com ([209.85.216.189]:43172 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754584AbZFSKLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 06:11:18 -0400
+Received: by pxi27 with SMTP id 27so1690108pxi.33
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 03:11:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Brownell <dbrownell@users.sourceforge.net>
+On Fri, 2009-06-19 at 12:51 +0530, Peter Chacko wrote:
+Radha,
+>
+> skb memory is coming from slab allocation pool, which itself are
+> re-usable pools. kmalloc(ATOMIC) on these object caches don't incur
+> much penalty as think for a case when it does memory
+> allocation/de-allocation. So the intelligence you want to put in the
+> driver is already done by slab layer. But if you want to add some
+> thing like per-flow ring-buffers, optimized for a point-to-point link
+> or similar purpose, you can have a driver level cache .
 
-The host-side CDC subset driver is binding more specifically
-than it should ... only to PXA 210/25x/26x Linux-USB gadgets.
+Does this mean that when skb buffer has been allocated using
+dev_alloc_skb(), filled with received data and passed to the upper
+layers
+the kernel would automatically do the task of releasing this buffer
+without the user calling dev_kfree_skb()? I once got
+KERNEL: assertion (!atomic_read(&skb->users)) failed at net/core/dev.c
+errors when trying
+to free them using dev_kfree_skb()
 
-Loosen that restriction to match the gadget driver driver.
-This will various PXA 27x and PXA 3xx devices happier when
-talking to Linux hosts, potentially others.
+Could this be cause I did not wait until netif_rx_completed() was called?
 
-Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
-Tested-by: Aric D. Blumer <aric@sdgsystems.com>
----
-Updated:  typo fixed.
+Regards,
+Nicholas
 
- drivers/net/usb/cdc_subset.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
 
---- a/drivers/net/usb/cdc_subset.c
-+++ b/drivers/net/usb/cdc_subset.c
-@@ -307,9 +307,10 @@ static const struct usb_device_id	produc
- 	USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
- 	.driver_info =  (unsigned long) &blob_info,
- }, {
--	// Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
--	// e.g. Gumstix, current OpenZaurus, ...
--	USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
-+	// Linux Ethernet/RNDIS gadget, mostly on PXA, second config
-+	// e.g. Gumstix, current OpenZaurus, ... or anything else
-+	// that just enables this gadget option.
-+	USB_DEVICE (0x0525, 0xa4a2),
- 	.driver_info =	(unsigned long) &linuxdev_info,
- },
- #endif
+
+
+>
+> thanks
+>
+> On Fri, Jun 19, 2009 at 12:21 PM, <jon_zhou@agilent.com> wrote:
+> > I am also thinking about this...
+> >
+> > i.e.pcnet32.c
+> > seems the skb will be claimed to be unuseful(mark some bits) in the device driver, than it will be recycled in the softirq handler,
+> >
+> > that means unable to reuse it, unless modidy the driver.
+> >
+> > Regards,
+> > zhou rui
+> >
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Radha Mohan
+> > Sent: Friday, June 19, 2009 2:47 PM
+> > To: netdev@vger.kernel.org
+> > Subject: can we reuse an skb
+> >
+> >
+> > Hi,
+> >
+> > For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx().
+> >
+> > Any pointers will be helpful.
+> >
+> > -- Mohan
+> >
+> >
+> >      ICC World Twenty20 England &#39;09 exclusively on YAHOO! CRICKET http://cricket.yahoo.com
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
