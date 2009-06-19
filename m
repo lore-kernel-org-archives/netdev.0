@@ -1,115 +1,64 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: [PATCH 4/9] sky2: fix shutdown synchronization
-Date: Fri, 19 Jun 2009 08:53:30 +0900
-Message-ID: <4A3AD37A.8080703@ring3k.org>
-References: <20090617173031.703636683@vyatta.com>	<20090617173139.828049268@vyatta.com>	<4A3ACCCF.1080605@ring3k.org> <20090618164105.6f17481e@nehalam>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v2] ftrace: change the export format of
+ trace_kfree_skb()
+Date: Thu, 18 Jun 2009 20:33:31 -0400 (EDT)
+Message-ID: <alpine.DEB.2.00.0906182033101.6890@gandalf.stny.rr.com>
+References: <4A2DF91F.7030906@cn.fujitsu.com> <20090609182730.GA6057@nowhere> <4A2F0F1D.7010101@cn.fujitsu.com> <20090610072618.GA6016@nowhere> <4A39B3E4.6060004@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070406000600010402090602"
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f189.google.com ([209.85.216.189]:45117 "EHLO
-	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668AbZFRXyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 19:54:35 -0400
-Received: by pxi27 with SMTP id 27so1397542pxi.33
-        for <netdev@vger.kernel.org>; Thu, 18 Jun 2009 16:54:37 -0700 (PDT)
-In-Reply-To: <20090618164105.6f17481e@nehalam>
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.124]:55435 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbZFSAd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Jun 2009 20:33:29 -0400
+In-Reply-To: <4A39B3E4.6060004@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070406000600010402090602
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Stephen Hemminger wrote:
-> On Fri, 19 Jun 2009 08:25:03 +0900
-> Mike McCormack <mikem@ring3k.org> wrote:
+On Thu, 18 Jun 2009, Xiao Guangrong wrote:
+
+> Use %pf instead of %p to output the function's address and print the
+> protocol's name.
 > 
->> Hi Steven,
->>
->> After applying your complete patch series, I'm still getting crashes in 
->> sky2_poll, and I can make them go away by adding an msleep(1) before 
->> these lines in sky2_down.
->>
+> Before patch:
 > 
-> adding msleep adds delay so interrupt and packets can clear, that is okay,
-> but would rather have something deterministic?  perhaps it needs to poll
-> irq status register or napi status.
+>   <idle>-0     [000] 60144.542521: kfree_skb: skbaddr=de7b8240 protocol=2048 location=c1365429
+>   <idle>-0     [000] 60164.488153: kfree_skb: skbaddr=da66f900 protocol=2048 location=c1365429
+>   <idle>-0     [000] 60193.493933: kfree_skb: skbaddr=deaeb480 protocol=4 location=c134ec25
+>   <idle>-0     [000] 60253.118421: kfree_skb: skbaddr=de7c4900 protocol=4 location=c134ec25
+>           
+> After patch:
+> 
+>   <idle>-0     [000]   169.979205: kfree_skb: skbaddr=ceddc240 protocol=ETH_P_802_2 location=netif_receive_skb
+>   <idle>-0     [000]   172.587000: kfree_skb: skbaddr=ceddc300 protocol=ETH_P_802_2 location=netif_receive_skb
+>     ping-3391  [000]   192.109803: kfree_skb: skbaddr=ceddc900 protocol=ETH_P_IP location=icmp_rcv
+>     ping-3391  [000]   192.109902: kfree_skb: skbaddr=ceddc780 protocol=ETH_P_IP location=icmp_rcv
+> 
+> Changelog v1->v2:
+> Convert protocol from raw numeric to its name as Frederic's suggestion
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
 
-Well, having a check for NULL rx_ring in sky2_poll functions is a little 
-more deterministic, but I know you don't like that :-)
+I get this:
 
-Another possibility is to try reordering the shutdown, I can have a go 
-at experimenting with that.
+  CC      net/core/net-traces.o
+In file included from include/trace/ftrace.h:262,
+                 from include/trace/define_trace.h:57,
+                 from include/trace/events/skb.h:107,
+                 from net/core/net-traces.c:28:
+include/trace/events/skb.h: In function 'ftrace_raw_output_kfree_skb':
+include/trace/events/skb.h:78: error: 'ETH_P_IEEE802154' undeclared (first 
+use in this function)
+include/trace/events/skb.h:78: error: (Each undeclared identifier is 
+reported only once
+include/trace/events/skb.h:78: error: for each function it appears in.)
 
-I have found two other potential problems:
-
-* there appears to be a race in sky2_poll (patch attached)
-
-* sky2_up can cause receiver hangs due to a similar race to the one in 
-sky2_down (I have some code which stops that from happening and will try 
-put this top of your changes and push a patch out today for your inspection)
-
-thanks,
-
-Mike
-
---------------070406000600010402090602
-Content-Type: text/x-patch;
- name="0001-Fix-a-race-condition-in-sky2_poll.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="0001-Fix-a-race-condition-in-sky2_poll.patch"
-
->From e9a7e8c1863a998428046bf7eaf7951379645822 Mon Sep 17 00:00:00 2001
-From: Mike McCormack <mikem@ring3k.org>
-Date: Thu, 18 Jun 2009 20:37:41 +0900
-Subject: [PATCH] Fix a race condition in sky2_poll
-
-Clear interrupt only when the status buffer is fully drained,
-Make sure to clear interrupt when work_done == work_limit
- and the buffer is drained.
----
- drivers/net/sky2.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7681d28..ca1e9e5 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2524,9 +2524,6 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
- 		}
- 	} while (hw->st_idx != idx);
- 
--	/* Fully processed status ring so clear irq */
--	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
--
- exit_loop:
- 	sky2_rx_done(hw, 0, total_packets[0], total_bytes[0]);
- 	sky2_rx_done(hw, 1, total_packets[1], total_bytes[1]);
-@@ -2779,9 +2776,16 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
- 	if (status & Y2_IS_IRQ_PHY2)
- 		sky2_phy_intr(hw, 1);
- 
--	while ((idx = sky2_read16(hw, STAT_PUT_IDX)) != hw->st_idx) {
-+	idx = sky2_read16(hw, STAT_PUT_IDX);
-+	while (idx != hw->st_idx) {
- 		work_done += sky2_status_intr(hw, work_limit - work_done, idx);
- 
-+		/* If we fully processed the status ring, clear the irq */
-+		idx = sky2_read16(hw, STAT_PUT_IDX);
-+		if (idx == hw->st_idx) {
-+			sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-+			break;
-+		}
- 		if (work_done >= work_limit)
- 			goto done;
- 	}
--- 
-1.5.6.5
-
-
---------------070406000600010402090602--
+-- Steve
