@@ -1,71 +1,72 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of queueing an extra skb.
-Date: Fri, 19 Jun 2009 23:20:44 +0930
-Message-ID: <200906192320.44904.rusty@rustcorp.com.au>
-References: <200905292346.04815.rusty@rustcorp.com.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
+	queueing an extra skb.
+Date: Fri, 19 Jun 2009 22:10:14 +0800
+Message-ID: <20090619141014.GA19828@gondor.apana.org.au>
+References: <200905292346.04815.rusty@rustcorp.com.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au> <200906192320.44904.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	David Miller <davem@davemloft.net>,
 	Matt Carlson <mcarlson@broadcom.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:38048 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751865AbZFSNuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2009 09:50:44 -0400
-In-Reply-To: <20090619043613.GA15163@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:46382 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751559AbZFSOKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 10:10:14 -0400
 Content-Disposition: inline
+In-Reply-To: <200906192320.44904.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 19 Jun 2009 02:06:13 pm Herbert Xu wrote:
-> On Fri, Jun 19, 2009 at 01:07:19PM +0930, Rusty Russell wrote:
-> > You didn't comment on my patch which tried to fix NETDEV_TX_BUSY tho?
-> However, that is still wrong for many packet schedulers.  For
-> example, if the requeued packet is of a lower priority, and a
-> higher priority packet comes along, we want the higher priority
-> packet to preempt the requeued packet.  Right now it just doesn't
-> happen.
+On Fri, Jun 19, 2009 at 11:20:44PM +0930, Rusty Russell wrote:
 >
-> This is not as trivial as it seems because on a busy host this can
-> happen many times a second.  With TX_BUSY the QoS guarantees are
-> simply not workable.
+> Your use of the word guarantee here indicates an idealized concept of QoS 
+> which cannot exist on any NIC which has a queue.  We should try to approach 
+> the ideal, but understand we cannot reach it.
 
-Your use of the word guarantee here indicates an idealized concept of QoS 
-which cannot exist on any NIC which has a queue.  We should try to approach 
-the ideal, but understand we cannot reach it.
+I'm just pointing out that it's better to not have to do this.
 
-AFAICT, having a non-resortable head entry in the queue is exactly like having 
-one-packet slightly longer queue on the NIC.  A little further from the ideal, 
-but actually *less* damaging to QoS idea unless it happens on every second 
-packet.
+Since TX_BUSY and requeueing the packet is unnecessary in the
+first place because we can avoid it by managing the stop-queue
+action properly, there is no reason to do this because of its
+downsides.
 
-On the other hand, we're underutilizing the queue to avoid it.  I find that a 
-little embarrassing.
+> On the other hand, we're underutilizing the queue to avoid it.  I find that a 
+> little embarrassing.
 
-> > We provided an API, people used it.  Constantly trying to disclaim our
-> > responsibility for the resulting mess makes me fucking ANGRY.
->
-> Where have I disclaimed responsibility? If we were doing that
-> then we wouldn't be having this discussion.
+Here's why I think this is not an issue.  If your NIC is high
+bandwidth then your ring is going to have to be huge so the
+amount that is underutilised (a 64K packet) is tiny.  If your
+NIC is low bandwidth then this is where you often need QoS and
+in that case you do *NOT* want to fully utilise the HW queue.
 
-"Anyway, I don't think we should reshape our APIs based on how
-broken the existing users are."
+> I feel we're being horribly deceptive by giving them a nice API, and upon 
+> review, telling them "don't use that".  And it's been ongoing for far too 
+> long.
 
-Perhaps I was reading too much into it, but the implication that we should 
-blame the driver authors for writing their drivers in what I consider to be 
-the most straightforward and efficient way.
+If you look at our API documentation it actually says:
 
-I feel we're being horribly deceptive by giving them a nice API, and upon 
-review, telling them "don't use that".  And it's been ongoing for far too 
-long.
+        Return codes:
+        o NETDEV_TX_OK everything ok.
+        o NETDEV_TX_BUSY Cannot transmit packet, try later
+          Usually a bug, means queue start/stop flow control is broken in
+          the driver. Note: the driver must NOT put the skb in its DMA ring.
+        o NETDEV_TX_LOCKED Locking failed, please retry quickly.
+          Only valid when NETIF_F_LLTX is set.
 
-> In fact queueing it in the driver is just as bad as return TX_BUSY!
+So I don't feel too bad :)
 
-Agreed (modulo the tcpdump issue).  And worse, because it's ugly and complex!
+> > In fact queueing it in the driver is just as bad as return TX_BUSY!
+> 
+> Agreed (modulo the tcpdump issue).  And worse, because it's ugly and complex!
 
-Thanks,
-Rusty.
+The right solution is to stop the queue properly.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
