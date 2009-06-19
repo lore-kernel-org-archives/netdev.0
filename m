@@ -1,53 +1,29 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: kerneloops.org report for the week of June 14 2009
-Date: Thu, 18 Jun 2009 22:32:38 -0700
-Message-ID: <20090618223238.4d6b6707@infradead.org>
-References: <20090614173331.18f01123@infradead.org>
-	<b6c5339f0906181008v1cd4b06aof866ea9a91d2eb84@mail.gmail.com>
+From: Radha Mohan <radhamohan_ch@yahoo.com>
+Subject: can we reuse an skb
+Date: Fri, 19 Jun 2009 12:16:56 +0530 (IST)
+Message-ID: <962874.62146.qm@web94813.mail.in2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, tglx@tglx.de, alan@lxorguk.ukuu.org.uk,
-	rjw@sisk.pl, netdev@vger.kernel.org, mingo@elte.hu,
-	dwmw2@infradead.org, alsa-devel@alsa-project.org,
-	dri-devel@lists.sourceforge.net
-To: Bob Copeland <me@bobcopeland.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47408 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751279AbZFSFcF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 01:32:05 -0400
-In-Reply-To: <b6c5339f0906181008v1cd4b06aof866ea9a91d2eb84@mail.gmail.com>
+Received: from n8-vm0.bullet.mail.in.yahoo.com ([202.86.4.189]:45053 "HELO
+	n8-vm0.bullet.mail.in.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752552AbZFSGrG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2009 02:47:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Jun 2009 13:08:39 -0400
-Bob Copeland <me@bobcopeland.com> wrote:
 
-> On Sun, Jun 14, 2009 at 8:33 PM, Arjan van de
-> Ven<arjan@infradead.org> wrote:
-> > Rank 9: minstrel_get_rate (warning)
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Reported 64 times (384 total reports)
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Issue with the ath5k driver
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0This warning was last seen in version 2.=
-6.30-rc3, and first
-> > seen in 2.6.27.12. More info:
-> > http://www.kerneloops.org/searchweek.php?search=3Dminstrel_get_rate
->=20
-> I believe this is fixed by http://lkml.org/lkml/2009/6/5/269, now
-> in pre-2.6.31.  Hmm, odd though, we should be seeing reports from
-> other wireless drivers since it's a general memory corruption
-> unrelated to ath5k (but not all use the mac80211 rate controllers).
->=20
+Hi,
 
-well.. out of the 534 reports or so that I have by now... 525 have
-ath5k loaded.....
+For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx(). 
 
-it's not 100% but it'd pretty close.
+Any pointers will be helpful.
+
+-- Mohan
 
 
---=20
-Arjan van de Ven 	Intel Open Source Technology Centre
-=46or development, discussion and tips for power savings,=20
-visit http://www.lesswatts.org
+      ICC World Twenty20 England &#39;09 exclusively on YAHOO! CRICKET http://cricket.yahoo.com
+
