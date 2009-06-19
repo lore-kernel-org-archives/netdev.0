@@ -1,39 +1,80 @@
-From: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] man page update (ip.7) to reflect new socket option in
- 2.6.31
-Date: Fri, 19 Jun 2009 00:21:54 -0700
-Message-ID: <4A3B3C92.9050003@us.ibm.com>
-References: <4A3B37FD.4040801@us.ibm.com>
+From: Peter Chacko <peterchacko35@gmail.com>
+Subject: Re: can we reuse an skb
+Date: Fri, 19 Jun 2009 12:51:59 +0530
+Message-ID: <1f808b4a0906190021s19a710b9k8dca22f160eb8dfb@mail.gmail.com>
+References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
+	 <60230E21F17E384C9BF0B9C98D9E3FDC048963D6@sgp-sg-mb02.sgp.agilent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4A3B37FD.4040801-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: radhamohan_ch@yahoo.com, netdev@vger.kernel.org
+To: jon_zhou@agilent.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f189.google.com ([209.85.216.189]:64059 "EHLO
+	mail-px0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975AbZFSHV4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:21:56 -0400
+Received: by pxi27 with SMTP id 27so1608639pxi.33
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 00:21:59 -0700 (PDT)
+In-Reply-To: <60230E21F17E384C9BF0B9C98D9E3FDC048963D6@sgp-sg-mb02.sgp.agilent.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nivedita Singhvi wrote:
-> This patch adds the IP_MULTICAST_ALL option to
-> the ip.7 man page, to bring it up to date with
-> 2.6.31 development.
+Radha,
 
-Ah, the "since" is intended to be inclusive. The
-2.6.30 needs to be 2.6.31. Correct version below.
-Apologies!
+skb memory is coming from slab allocation pool, which itself are
+re-usable pools. kmalloc(ATOMIC) on these object caches don't incur
+much penalty as think for a case when it does memory
+allocation/de-allocation. So the intelligence you want to put in the
+driver is already done by slab layer. But if you want to add some
+thing like per-flow ring-buffers, optimized for a point-to-point link
+or similar purpose, you can have a driver level cache .
 
-Signed-off-by: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+thanks
 
----
-  man7/ip.7 |   10 +++++++++-
-  1 files changed, 9 insertions(+), 1 deletions(-)
-
-diff --git a/man7/ip.7 b/man7/ip.7
-index ab866a1..6932ba2 100644
---- a/man7/ip.7
-+++ b/man7/ip.7
-@@ -357,7 +357,6 @@ and retrieve the MTU by calling
-  with the
-  .B IP_MTU
-  option.
+On Fri, Jun 19, 2009 at 12:21 PM, <jon_zhou@agilent.com> wrote:
+> I am also thinking about this...
+>
+> i.e.pcnet32.c
+> seems the skb will be claimed to be unuseful(mark some bits) in the d=
+evice driver, than it will be recycled in the softirq handler,
+>
+> that means unable to reuse it, unless modidy the driver.
+>
+> Regards,
+> zhou rui
+>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.o=
+rg] On Behalf Of Radha Mohan
+> Sent: Friday, June 19, 2009 2:47 PM
+> To: netdev@vger.kernel.org
+> Subject: can we reuse an skb
+>
+>
+> Hi,
+>
+> For an ethernet driver, we need to allocate some pool of SKBs for rec=
+eiving packets. Is there any way we can reuse the same SKBs without the=
+ need to re-allocate in atomic every time one has been used up for neti=
+f_rx().
+>
+> Any pointers will be helpful.
+>
+> -- Mohan
+>
+>
+> =A0 =A0 =A0ICC World Twenty20 England &#39;09 exclusively on YAHOO! C=
+RICKET http://cricket.yahoo.com
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in =
+the body of a message to majordomo@vger.kernel.org More majordomo info =
+at =A0http://vger.kernel.org/majordomo-info.html
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
