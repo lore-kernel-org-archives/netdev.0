@@ -1,97 +1,71 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH -next] cdc_ether: additional PID's to the whitelist
-Date: Fri, 19 Jun 2009 06:26:46 -0700
-Message-ID: <200906190626.46962.david-b@pacbell.net>
-References: <94BF386B051B5849BA84A45DDFC4E60A05035C38@esealmw118.eemea.ericsson.se>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of queueing an extra skb.
+Date: Fri, 19 Jun 2009 23:20:44 +0930
+Message-ID: <200906192320.44904.rusty@rustcorp.com.au>
+References: <200905292346.04815.rusty@rustcorp.com.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jonas =?iso-8859-1?q?Sj=F6quist?= <jonas.sjoquist@ericsson.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp110.sbc.mail.gq1.yahoo.com ([67.195.14.95]:24066 "HELO
-	smtp110.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751303AbZFSN0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 09:26:45 -0400
-In-Reply-To: <94BF386B051B5849BA84A45DDFC4E60A05035C38@esealmw118.eemea.ericsson.se>
+Received: from ozlabs.org ([203.10.76.45]:38048 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751865AbZFSNuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Jun 2009 09:50:44 -0400
+In-Reply-To: <20090619043613.GA15163@gondor.apana.org.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 18 June 2009, Jonas Sj=F6quist wrote:
-> This patch adds five PID's to the whitelist set of devices.
->=20
-> Devices added to the whitelist:
->=20
-> Dell Wireless 5530 HSPA
-> Ericsson Mobile Broadband Module variants (F3507g, F3607gw and F3307)
-> Toshiba F3507g
->=20
-> Signed-off-by: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
+On Fri, 19 Jun 2009 02:06:13 pm Herbert Xu wrote:
+> On Fri, Jun 19, 2009 at 01:07:19PM +0930, Rusty Russell wrote:
+> > You didn't comment on my patch which tried to fix NETDEV_TX_BUSY tho?
+> However, that is still wrong for many packet schedulers.  For
+> example, if the requeued packet is of a lower priority, and a
+> higher priority packet comes along, we want the higher priority
+> packet to preempt the requeued packet.  Right now it just doesn't
+> happen.
+>
+> This is not as trivial as it seems because on a busy host this can
+> happen many times a second.  With TX_BUSY the QoS guarantees are
+> simply not workable.
 
-Acked-by: David Brownell <dbrownell@users.sourceforge.net>
+Your use of the word guarantee here indicates an idealized concept of QoS 
+which cannot exist on any NIC which has a queue.  We should try to approach 
+the ideal, but understand we cannot reach it.
 
+AFAICT, having a non-resortable head entry in the queue is exactly like having 
+one-packet slightly longer queue on the NIC.  A little further from the ideal, 
+but actually *less* damaging to QoS idea unless it happens on every second 
+packet.
 
+On the other hand, we're underutilizing the queue to avoid it.  I find that a 
+little embarrassing.
 
->=20
-> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-> index 3717569..5a6797a 100644
-> --- a/drivers/net/usb/Kconfig
-> +++ b/drivers/net/usb/Kconfig
-> @@ -169,10 +169,12 @@ config USB_NET_CDCETHER
->  	  The Linux-USB CDC Ethernet Gadget driver is an open implementatio=
-n.
->   	  This driver should work with at least the following devices:
-> =20
-> + 	    * Dell Wireless 5530 HSPA
->   	    * Ericsson PipeRider (all variants)
-> + 	    * Ericsson Mobile Broadband Module (all variants)
->   	    * Motorola (DM100 and SB4100)
->   	    * Broadcom Cable Modem (reference design)
-> - 	    * Toshiba PCX1100U
-> + 	    * Toshiba (PCX1100U and F3507g)
->  	    * ...
-> =20
->  	  This driver creates an interface named "ethX", where X depends on
-> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.=
-c
-> index 01fd528..4a6aff5 100644
-> --- a/drivers/net/usb/cdc_ether.c
-> +++ b/drivers/net/usb/cdc_ether.c
-> @@ -533,6 +533,31 @@ static const struct usb_device_id	products [] =3D=
- {
->  	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1900, USB_CLASS_COMM,
->  			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
->  	.driver_info =3D (unsigned long) &cdc_info,
-> +}, {
-> +	/* Ericsson F3507g ver. 2 */
-> +	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1902, USB_CLASS_COMM,
-> +			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D (unsigned long) &cdc_info,
-> +}, {
-> +	/* Ericsson F3607gw */
-> +	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1904, USB_CLASS_COMM,
-> +			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D (unsigned long) &cdc_info,
-> +}, {
-> +	/* Ericsson F3307 */
-> +	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1906, USB_CLASS_COMM,
-> +			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D (unsigned long) &cdc_info,
-> +}, {
-> +	/* Toshiba F3507g */
-> +	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
-> +			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D (unsigned long) &cdc_info,
-> +}, {
-> +	/* Dell F3507g */
-> +	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8147, USB_CLASS_COMM,
-> +			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
-> +	.driver_info =3D (unsigned long) &cdc_info,
->  },
->  	{ },		// END
->  };
->=20
->=20
+> > We provided an API, people used it.  Constantly trying to disclaim our
+> > responsibility for the resulting mess makes me fucking ANGRY.
+>
+> Where have I disclaimed responsibility? If we were doing that
+> then we wouldn't be having this discussion.
 
+"Anyway, I don't think we should reshape our APIs based on how
+broken the existing users are."
 
+Perhaps I was reading too much into it, but the implication that we should 
+blame the driver authors for writing their drivers in what I consider to be 
+the most straightforward and efficient way.
+
+I feel we're being horribly deceptive by giving them a nice API, and upon 
+review, telling them "don't use that".  And it's been ongoing for far too 
+long.
+
+> In fact queueing it in the driver is just as bad as return TX_BUSY!
+
+Agreed (modulo the tcpdump issue).  And worse, because it's ugly and complex!
+
+Thanks,
+Rusty.
