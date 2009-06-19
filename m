@@ -1,42 +1,54 @@
-From: Tim Schneider <schneid5@cs.uni-bonn.de>
-Subject: Hopcount in Pluggable Congestion Avoidance Module
-Date: Fri, 19 Jun 2009 10:51:59 +0200
-Message-ID: <7F4E1ECF-94C4-4311-BEEE-CD5CA299B681@cs.uni-bonn.de>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: David Brownell <david-b@pacbell.net>
+Subject: [patch v2] usbnet cdc_subset: fix issues talking to PXA gadgets
+Date: Fri, 19 Jun 2009 03:10:03 -0700
+Message-ID: <200906190310.03309.david-b@pacbell.net>
+References: <200906190011.28320.david-b@pacbell.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: "Aric D. Blumer" <aric@sdgsystems.com>
+To: Network development list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:48035 "EHLO
-	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288AbZFSJEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 05:04:47 -0400
-Received: from [192.168.148.197] (unknown [131.220.243.209])
-	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id E77715C834
-	for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 10:52:07 +0200 (MEST)
-	(envelope-from schneid5@cs.uni-bonn.de)
-	(envelope-to netdev@vger.kernel.org) (1)
-	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
+Received: from smtp109.sbc.mail.gq1.yahoo.com ([67.195.14.39]:45496 "HELO
+	smtp109.sbc.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753134AbZFSKKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 06:10:02 -0400
+In-Reply-To: <200906190011.28320.david-b@pacbell.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+From: David Brownell <dbrownell@users.sourceforge.net>
 
-I am trying to implement a new congestion avoidance module which is  
-optimized for multihop wireless networks. Since I'm new to kernel  
-programming, it took me some time to find out about the pluggable  
-congestion avoidance modules, which seem to be a really great and easy  
-way to implement new algorithms. Unfortunately it is essential for me  
-to have the hopcount of the TCP connection to implement the algorithm  
-properly. As of now, I haven't found a way to get that Information out  
-of the TCP-Socket. I also understand, that the TTL, which is, if I  
-understand correctly, only available at the IP-Layer, does not provide  
-reliable informations about the hopcount, since the TTL is set to 64  
-as standard, but can be changed by anyone at will.
-Are there any mechanisms to get the correct hopcount into my module?  
-If not, is there a way to get the TTL of the ACK-Package, when it's  
-received?
+The host-side CDC subset driver is binding more specifically
+than it should ... only to PXA 210/25x/26x Linux-USB gadgets.
 
-Thank you for your help.
+Loosen that restriction to match the gadget driver driver.
+This will various PXA 27x and PXA 3xx devices happier when
+talking to Linux hosts, potentially others.
 
-Tim Schneider
+Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+Tested-by: Aric D. Blumer <aric@sdgsystems.com>
+---
+Updated:  typo fixed.
+
+ drivers/net/usb/cdc_subset.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/usb/cdc_subset.c
++++ b/drivers/net/usb/cdc_subset.c
+@@ -307,9 +307,10 @@ static const struct usb_device_id	produc
+ 	USB_DEVICE (0x1286, 0x8001),    // "blob" bootloader
+ 	.driver_info =  (unsigned long) &blob_info,
+ }, {
+-	// Linux Ethernet/RNDIS gadget on pxa210/25x/26x, second config
+-	// e.g. Gumstix, current OpenZaurus, ...
+-	USB_DEVICE_VER (0x0525, 0xa4a2, 0x0203, 0x0203),
++	// Linux Ethernet/RNDIS gadget, mostly on PXA, second config
++	// e.g. Gumstix, current OpenZaurus, ... or anything else
++	// that just enables this gadget option.
++	USB_DEVICE (0x0525, 0xa4a2),
+ 	.driver_info =	(unsigned long) &linuxdev_info,
+ },
+ #endif
