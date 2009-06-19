@@ -1,72 +1,37 @@
-From: Radha Mohan <radhamohan_ch@yahoo.com>
-Subject: Re: can we reuse an skb
-Date: Fri, 19 Jun 2009 12:40:08 +0530 (IST)
-Message-ID: <207157.90170.qm@web94803.mail.in2.yahoo.com>
-References: <962874.62146.qm@web94813.mail.in2.yahoo.com> <60230E21F17E384C9BF0B9C98D9E3FDC048963D6@sgp-sg-mb02.sgp.agilent.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] usbnet cdc_subset: fix issues talking to PXA gadgets
+Date: Fri, 19 Jun 2009 00:24:03 -0700 (PDT)
+Message-ID: <20090619.002403.98174871.davem@davemloft.net>
+References: <200906190011.28320.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: jon_zhou@agilent.com, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, aric@sdgsystems.com
+To: david-b@pacbell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n14-vm0.bullet.mail.in.yahoo.com ([202.86.5.219]:43547 "HELO
-	n14-vm0.bullet.mail.in.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752467AbZFSHWn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2009 03:22:43 -0400
-In-Reply-To: <60230E21F17E384C9BF0B9C98D9E3FDC048963D6@sgp-sg-mb02.sgp.agilent.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52953
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752233AbZFSHX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:23:59 -0400
+In-Reply-To: <200906190011.28320.david-b@pacbell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Brownell <david-b@pacbell.net>
+Date: Fri, 19 Jun 2009 00:11:28 -0700
 
+> From: David Brownell <dbrownell@users.sourceforge.net>
+> 
+> The host-side CDC subset driver is binding more specifically
+> than it should ... only to PXA 210/25x/26x Linux-USB gadgets.
+> 
+> Loosen that restriction to match the gadget driver itself.
+> This helps various PXA 27x and PXA 3xx devices be happier
+> when talking to Linux hosts; and a few other gadgets too.
+> 
+> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
+> Tested-by: Aric D. Blumer <aric@sdgsystems.com>
+> ---
+> Appropriate for -stable ... behaves like a protocol bug.
 
-We may need to modify the part in kernel where kfree_skb() will be called somewhere after copying to user space. Right?
-
-I came to know that Windows NDIS has this type of facility. The NDIS gives back the buffer after copying to application.
-
-I came across a patch made long ago for 2.4.19 citing the same concept
-http://www.candelatech.com/oss/napi_tune_2.4.19.patch
-
--- Mohan
-
-
-
------ Original Message ----
-From: "jon_zhou@agilent.com" <jon_zhou@agilent.com>
-To: radhamohan_ch@yahoo.com; netdev@vger.kernel.org
-Sent: Friday, 19 June, 2009 12:21:45 PM
-Subject: RE: can we reuse an skb
-
-I am also thinking about this...
-
-i.e.pcnet32.c
-seems the skb will be claimed to be unuseful(mark some bits) in the device driver, than it will be recycled in the softirq handler,
-
-that means unable to reuse it, unless modidy the driver.
-
-Regards,
-zhou rui
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Radha Mohan
-Sent: Friday, June 19, 2009 2:47 PM
-To: netdev@vger.kernel.org
-Subject: can we reuse an skb
-
-
-Hi,
-
-For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx(). 
-
-Any pointers will be helpful.
-
--- Mohan
-
-
-      ICC World Twenty20 England '09 exclusively on YAHOO! CRICKET http://cricket.yahoo.com
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-      ICC World Twenty20 England &#39;09 exclusively on YAHOO! CRICKET http://cricket.yahoo.com
-
+Applied and queued up for -stable.
