@@ -1,53 +1,49 @@
-From: <jon_zhou@agilent.com>
-Subject: RE: can we reuse an skb
-Date: Fri, 19 Jun 2009 14:51:45 +0800
-Message-ID: <60230E21F17E384C9BF0B9C98D9E3FDC048963D6@sgp-sg-mb02.sgp.agilent.com>
-References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/2] af_iucv patches for linux-2.6.31
+Date: Fri, 19 Jun 2009 00:11:03 -0700 (PDT)
+Message-ID: <20090619.001103.186026755.davem@davemloft.net>
+References: <1245329094.14954.38.camel@braunu-laptop>
+	<20090618.111957.70533925.davem@davemloft.net>
+	<20090619090426.19969a0b@skybase>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <radhamohan_ch@yahoo.com>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ubraun@linux.vnet.ibm.com, ursula.braun@de.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	heiko.carstens@de.ibm.com
+To: schwidefsky@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aglsgpbs03.sgp.agilent.com ([192.25.82.35]:60772 "EHLO
-	aglsgpbs03.sgp.agilent.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752467AbZFSHFP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Jun 2009 03:05:15 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <962874.62146.qm@web94813.mail.in2.yahoo.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37456
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751615AbZFSHK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:10:59 -0400
+In-Reply-To: <20090619090426.19969a0b@skybase>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am also thinking about this...
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Date: Fri, 19 Jun 2009 09:04:26 +0200
 
-i.e.pcnet32.c
-seems the skb will be claimed to be unuseful(mark some bits) in the device driver, than it will be recycled in the softirq handler,
+> Hi David,
+> 
+> On Thu, 18 Jun 2009 11:19:57 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+>> Date: Thu, 18 Jun 2009 14:44:54 +0200
+>> 
+>> > sorry, I did a git pull on linux-2.6.git first, and the af_iucv patches
+>> > applied cleanly on my system.
+>> 
+>> It couldn't have applied to Linus's tree because all the IUCV
+>> bits you submitted to me for 2.6.31 are in his tree and that is
+>> what created the conflicts.
+> 
+> Now I am confused. I just tested the two patches Uschi sent with todays
+> upstream tree. The patches apply fine. Where is the problem, wrong tree?
 
-that means unable to reuse it, unless modidy the driver.
+Weird, I just retried and they do apply cleanly.
 
-Regards,
-zhou rui
+I have no idea what happened, sorry.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Radha Mohan
-Sent: Friday, June 19, 2009 2:47 PM
-To: netdev@vger.kernel.org
-Subject: can we reuse an skb
-
-
-Hi,
-
-For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx(). 
-
-Any pointers will be helpful.
-
--- Mohan
-
-
-      ICC World Twenty20 England &#39;09 exclusively on YAHOO! CRICKET http://cricket.yahoo.com
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+They are in my tree now, thanks.
