@@ -1,60 +1,80 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH] TI DaVinci EMAC : Fix rmmod error
-Date: Fri, 19 Jun 2009 13:54:12 -0700
-Message-ID: <87hbyct05n.fsf@deeprootsystems.com>
-References: <1245238134-23512-1-git-send-email-chaithrika@ti.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
+	window
+Date: Sat, 20 Jun 2009 00:19:09 +0200
+Message-ID: <20090619221909.GC2229@elf.ucw.cz>
+References: <20090615214735.GE23972@bombadil.infradead.org> <20090615223206.GA4966@kroah.com> <20090616004122.GC5492@tesla> <20090616021011.GF23972@bombadil.infradead.org> <20090616032034.GA17932@kroah.com> <20090616042113.GA5680@tesla> <20090616093401.GA11602@jm.kir.nu> <20090616181705.GB31506@tesla> <20090619150015.GC1389@ucw.cz> <43e72e890906191010v4b2e79a5x2c7b722b8209933c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
-To: Chaithrika U S <chaithrika@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.170]:14398 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753171AbZFSUyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 16:54:12 -0400
-Received: by wf-out-1314.google.com with SMTP id 26so946903wfd.4
-        for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 13:54:15 -0700 (PDT)
-In-Reply-To: <1245238134-23512-1-git-send-email-chaithrika@ti.com> (Chaithrika U. S.'s message of "Wed\, 17 Jun 2009 07\:28\:54 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jouni Malinen <j@w1.fi>,
+	Luis Rodriguez <Luis.Rodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+To: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <43e72e890906191010v4b2e79a5x2c7b722b8209933c-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Chaithrika U S <chaithrika@ti.com> writes:
 
-> clk_disable was called twice in the remove function.
-> Correct this so that the driver module unloads without error.
->
-> Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+> >> +2.0.2: RC-SERIES RULES
+> >> +
+> >> +Rules on what kind of patches are accepted after the merge window closes.
+> >> +These are patches targeted for the kernel rc-series of a kernel prior
+> >> +to its release.
+> >> +
+> >> + - it must fix a reported regression
+> >> + - it must fix a reported security hole
+> >> + - it must fix a reported oops/kernel hang
+> >
+> > - it must fix a bug.
+> 
+> Well that's for certain, but there is a difference between a general
+> notion of a bug and the type of bug fixes that should go in during the
+> rc-series. This documentation patch highlights the difference.
 
-Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
-(TI DaVinci arch maintainer)
+Yes, and I'm trying to tell you that this documentation patch is
+wrong.
 
-Will pull into DaVinci git until it merges upstream.
+Non-intrusive bugfixes _are_ welcome after -rc1.
 
-Kevin
+> > I do not think the 'reported' requirement is there in -rc,
+> 
+> Well if its not reported how else would you find out about it during
+> the rc-series? And if its something easily triggerable that should
+> have been fixed earlier, not late in the rc-series.
 
-> ---
-> Applies to Linus' kernel tree
->
->  drivers/net/davinci_emac.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-> index 0e9b9f9..2df8fb0 100644
-> --- a/drivers/net/davinci_emac.c
-> +++ b/drivers/net/davinci_emac.c
-> @@ -2767,7 +2767,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
->  
->  	dev_notice(&ndev->dev, "DaVinci EMAC: davinci_emac_remove()\n");
->  
-> -	clk_disable(emac_clk);
->  	platform_set_drvdata(pdev, NULL);
->  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->  	mdiobus_unregister(priv->mii_bus);
-> -- 
-> 1.5.6
->
-> _______________________________________________
-> Davinci-linux-open-source mailing list
-> Davinci-linux-open-source@linux.davincidsp.com
-> http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source
+'reported' means 'someone is hitting that bug' in that context. If you
+do code inspection on drivers/foo/bar.c and find that it will hang on
+may 13, 2017; then that's a bug but not "reported" one -- users are
+not hitting it. Such bug may be uninteresting for -stable, but would
+probably be ok for -rc.
+
+> > and yes,
+> > compile-fixes etc are welcome.
+> 
+> Sure, but what are these doing so late in the rc-series?
+
+Bugs happen :-).
+
+> > Non-intrusive bugfixes too, afaict.
+> 
+> It really depends on what you mean but generally no, and this is why I
+> think this clarification is important.
+
+I believe you are wrong.
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
