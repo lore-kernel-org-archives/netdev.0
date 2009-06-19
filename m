@@ -1,78 +1,108 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] fix NULL pointer + success return in route lookup path
-Date: Fri, 19 Jun 2009 13:18:14 -0400
-Message-ID: <20090619171814.GE18237@hmsreliant.think-freely.org>
+From: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
+Subject: [PATCH 2.6.31] p54: band-aid to restore driver functionality
+Date: Fri, 19 Jun 2009 19:28:27 +0200
+Message-ID: <200906191928.28386.chunkeey@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mbizon@freebox.fr, dada1@cosmosbay.com, kuznet@ms2.inr.ac.ru,
-	davem@davemloft.net, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39111 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbZFSRS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 13:18:28 -0400
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: "linux-wireless" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Don't drop route if we're not caching	
+This patch is the trade-off between size vs. time vs. functionality.
+Unfortunately, It reverts some portions of
+"[PATCH 3/10]: p54: Use SKB list handling helpers instead of by-hand code."
+as rewriting the mm code to only rely on the available helper functions
+in include/linux/skbuff.h is beyond scope of -rcX patches.
 
-	I recently got a report of an oops on a route lookup.  Maxime was
-testing what would happen if route caching was turned off (doing so by setting
-making rt_caching always return 0), and found that it triggered an oops.  I
-looked at it and found that the problem stemmed from the fact that the route
-lookup routines were returning success from their lookup paths (which is good),
-but never set the **rp pointer to anything (which is bad).  This happens because
-in rt_intern_hash, if rt_caching returns false, we call rt_drop and return 0.
-This almost emulates slient success.  What we should be doing is assigning *rp =
-rt and _not_ dropping the route.  This way, during slow path lookups, when we
-create a new route cache entry, we don't immediately discard it, rather we just
-don't add it into the cache hash table, but we let this one lookup use it for
-the purpose of this route request.  Maxime has tested and reports it prevents
-the oops.  There is still a subsequent routing issue that I'm looking into
-further, but I'm confident that, even if its related to this same path, this
-patch makes sense to take.
+in p54_assign_address:
+target_skb is used as a mere "pointer" after which the next element
+will be queued. It's perfectly _legal_ if this pointer points to 
+priv->tx_queue's head/tail.
+Also ieee80211_stop_queue(s) must not be called during initialisation.
 
-Regards
-Neil
-    
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+in p54_free_skb: 
+Nearly ;-)... Actually, the skb->prev || skb->next check was once very
+useful for finding double frees in the back-end driver code.
+However, it is dead code now and can be removed.
 
-
- route.c |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index cd76b3c..65b3a8b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1085,8 +1085,16 @@ restart:
- 	now = jiffies;
+Signed-off-by: Christian Lamparter <chunkeey-S0/GAf8tV78@public.gmane.org>
+---
+--- a/drivers/net/wireless/p54/p54common.c	2009-06-19 17:02:53.000000000 +0200
++++ b/drivers/net/wireless/p54/p54common.c	2009-06-19 18:17:16.000000000 +0200
+@@ -823,14 +823,8 @@ void p54_free_skb(struct ieee80211_hw *d
+ 	struct p54_tx_info *range;
+ 	unsigned long flags;
  
- 	if (!rt_caching(dev_net(rt->u.dst.dev))) {
--		rt_drop(rt);
--		return 0;
-+		/*
-+		 * If we're not caching, just tell the caller we
-+		 * were successful and don't touch the route.  The
-+		 * caller hold the sole reference to the cache entry, and
-+		 * it will be released when the caller is done with it.
-+		 * If we drop it here, the callers have no way to resolve routes
-+		 * when we're not caching.  Instead, just point *rp at rt, so
-+		 * the caller gets a single use out of the route
-+		 */
-+		goto report_and_exit;
+-	if (unlikely(!skb || !dev || skb_queue_empty(&priv->tx_queue)))
+-		return;
+-
+-	/* There used to be a check here to see if the SKB was on the
+-	 * TX queue or not.  This can never happen because all SKBs we
+-	 * see here successfully went through p54_assign_address()
+-	 * which means the SKB is on the ->tx_queue.
+-	 */
++	if (unlikely(!skb || WARN_ON(!dev)))
++		return ;
+ 
+ 	spin_lock_irqsave(&priv->tx_queue.lock, flags);
+ 	info = IEEE80211_SKB_CB(skb);
+@@ -1149,7 +1143,8 @@ static int p54_assign_address(struct iee
+ 		 * We have throttle normal data traffic, because we must
+ 		 * have a few spare slots for control frames left.
+ 		 */
+-		ieee80211_stop_queues(dev);
++		if (likely(priv->mode != NL80211_IFTYPE_UNSPECIFIED))
++			ieee80211_stop_queues(dev);
+ 		queue_delayed_work(dev->workqueue, &priv->work,
+ 				   msecs_to_jiffies(P54_TX_TIMEOUT));
+ 
+@@ -1170,7 +1165,7 @@ static int p54_assign_address(struct iee
+ 		range = (void *)info->rate_driver_data;
+ 		hole_size = range->start_addr - last_addr;
+ 		if (!target_skb && hole_size >= len) {
+-			target_skb = skb_queue_prev(&priv->tx_queue, entry);
++			target_skb = entry->prev;
+ 			hole_size -= len;
+ 			target_addr = last_addr;
+ 		}
+@@ -1178,7 +1173,7 @@ static int p54_assign_address(struct iee
+ 		last_addr = range->end_addr;
+ 	}
+ 	if (!target_skb && priv->rx_end - last_addr >= len) {
+-		target_skb = skb_peek_tail(&priv->tx_queue);
++		target_skb = priv->tx_queue.prev;
+ 		largest_hole = max(largest_hole, priv->rx_end - last_addr - len);
+ 		if (!skb_queue_empty(&priv->tx_queue)) {
+ 			info = IEEE80211_SKB_CB(target_skb);
+@@ -1190,7 +1185,8 @@ static int p54_assign_address(struct iee
+ 
+ 	if (!target_skb) {
+ 		spin_unlock_irqrestore(&priv->tx_queue.lock, flags);
+-		ieee80211_stop_queues(dev);
++		if (likely(priv->mode != NL80211_IFTYPE_UNSPECIFIED))
++			ieee80211_stop_queues(dev);
+ 		return -ENOSPC;
  	}
  
- 	rthp = &rt_hash_table[hash].chain;
-@@ -1217,6 +1225,8 @@ restart:
- 	rcu_assign_pointer(rt_hash_table[hash].chain, rt);
+@@ -1201,8 +1197,9 @@ static int p54_assign_address(struct iee
+ 	__skb_queue_after(&priv->tx_queue, target_skb, skb);
+ 	spin_unlock_irqrestore(&priv->tx_queue.lock, flags);
  
- 	spin_unlock_bh(rt_hash_lock_addr(hash));
-+
-+report_and_exit:
- 	if (rp)
- 		*rp = rt;
- 	else
+-	if (largest_hole < priv->headroom + sizeof(struct p54_hdr) +
+-			   48 + IEEE80211_MAX_RTS_THRESHOLD + priv->tailroom)
++	if ((largest_hole < priv->headroom + sizeof(struct p54_hdr) +
++			   48 + IEEE80211_MAX_RTS_THRESHOLD + priv->tailroom) &&
++		(priv->mode != NL80211_IFTYPE_UNSPECIFIED))
+ 		ieee80211_stop_queues(dev);
+ 
+ 	data->req_id = cpu_to_le32(target_addr + priv->headroom);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
