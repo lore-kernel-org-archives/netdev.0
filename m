@@ -1,57 +1,28 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] isdn: Remove left over conflict marker in Docmentation/isdn/00-INDEX
-Date: Fri, 19 Jun 2009 03:27:43 -0700
-Message-ID: <m18wjobjs0.fsf@fess.ebiederm.org>
+From: Saikiran Madugula <hummerbliss@gmail.com>
+Subject: Re: can we reuse an skb
+Date: Fri, 19 Jun 2009 11:37:37 +0100
+Message-ID: <4A3B6A71.9060709@gmail.com>
+References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Radha Mohan <radhamohan_ch@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:38971 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571AbZFSK1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 06:27:44 -0400
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:63217 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531AbZFSKhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 06:37:37 -0400
+Received: by ewy6 with SMTP id 6so2407963ewy.37
+        for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 03:37:39 -0700 (PDT)
+In-Reply-To: <962874.62146.qm@web94813.mail.in2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-In merge:
-   commit aba7453037c3a90714caae77a622dceaf1173786
-   Merge: a4fe91e... 93af7ac...
-   Author: David S. Miller <davem@davemloft.net>
-   Date:   Wed Apr 29 20:30:35 2009 -0700
-   
-       Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6
-   
-       Conflicts:
-           Documentation/isdn/00-INDEX
-           drivers/net/wireless/iwlwifi/iwl-scan.c
-           drivers/net/wireless/rndis_wlan.c
-           net/mac80211/main.c
-
-The following useless line was retained.
-
->>>>>>> 93af7aca44f0e82e67bda10a0fb73d383edcc8bd:Documentation/isdn/00-INDEX
-
-Delete it and leave 00-INDEX looking reasonable.
-
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
----
- Documentation/isdn/00-INDEX |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/Documentation/isdn/00-INDEX b/Documentation/isdn/00-INDEX
-index f6010a5..e6ff335 100644
---- a/Documentation/isdn/00-INDEX
-+++ b/Documentation/isdn/00-INDEX
-@@ -22,7 +22,6 @@ README.gigaset
- 	- info on the drivers for Siemens Gigaset ISDN adapters.
- README.icn
- 	- info on the ICN-ISDN-card and its driver.
-->>>>>>> 93af7aca44f0e82e67bda10a0fb73d383edcc8bd:Documentation/isdn/00-INDEX
- README.HiSax
- 	- info on the HiSax driver which replaces the old teles.
- README.audio
--- 
-1.6.0.6
-
+Radha Mohan wrote:
+> Hi,
+> 
+> For an ethernet driver, we need to allocate some pool of SKBs for receiving packets. Is there any way we can reuse the same SKBs without the need to re-allocate in atomic every time one has been used up for netif_rx(). 
+> 
+> Any pointers will be helpful.
+http://kerneltrap.org/mailarchive/linux-netdev/2008/9/28/3433504
