@@ -1,30 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] pegasus usb-net: Fix endianness bugs
-Date: Fri, 19 Jun 2009 00:25:26 -0700 (PDT)
-Message-ID: <20090619.002526.231532187.davem@davemloft.net>
-References: <200906181903.47541.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ieee802154: use standard routine for printing dumps
+Date: Fri, 19 Jun 2009 00:25:40 -0700 (PDT)
+Message-ID: <20090619.002540.32287277.davem@davemloft.net>
+References: <1245334607-16046-1-git-send-email-dbaryshkov@gmail.com>
+	<1245334607-16046-2-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200906181903.47541.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	slapin@ossfans.org
+To: dbaryshkov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50169
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753194AbZFSHZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 03:25:36 -0400
+In-Reply-To: <1245334607-16046-2-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Date: Thu, 18 Jun 2009 19:03:47 +0200
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Thu, 18 Jun 2009 18:16:46 +0400
 
-> This fixes various endianness bugs. Some harmless and some real ones.
-> This is tested on a PowerPC-64 machine.
+> Use print_hex_dump_bytes instead of self-written dumping function
+> for outputting packet dumps.
 > 
-> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-> Cc: Stable <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 
-Applied and queued up for -stable, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
