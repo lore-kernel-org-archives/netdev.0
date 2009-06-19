@@ -1,49 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] usbnet cdc_subset: fix issues talking to PXA gadgets
-Date: Fri, 19 Jun 2009 01:07:56 -0700 (PDT)
-Message-ID: <20090619.010756.193703794.davem@davemloft.net>
-References: <200906190011.28320.david-b@pacbell.net>
-	<20090619.002403.98174871.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Tim Schneider <schneid5@cs.uni-bonn.de>
+Subject: Hopcount in Pluggable Congestion Avoidance Module
+Date: Fri, 19 Jun 2009 10:51:59 +0200
+Message-ID: <7F4E1ECF-94C4-4311-BEEE-CD5CA299B681@cs.uni-bonn.de>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aric@sdgsystems.com
-To: david-b@pacbell.net
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35637
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751793AbZFSIHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 04:07:53 -0400
-In-Reply-To: <20090619.002403.98174871.davem@davemloft.net>
+Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:48035 "EHLO
+	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbZFSJEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Jun 2009 05:04:47 -0400
+Received: from [192.168.148.197] (unknown [131.220.243.209])
+	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id E77715C834
+	for <netdev@vger.kernel.org>; Fri, 19 Jun 2009 10:52:07 +0200 (MEST)
+	(envelope-from schneid5@cs.uni-bonn.de)
+	(envelope-to netdev@vger.kernel.org) (1)
+	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 19 Jun 2009 00:24:03 -0700 (PDT)
+Hey,
 
-> From: David Brownell <david-b@pacbell.net>
-> Date: Fri, 19 Jun 2009 00:11:28 -0700
-> 
->> From: David Brownell <dbrownell@users.sourceforge.net>
->> 
->> The host-side CDC subset driver is binding more specifically
->> than it should ... only to PXA 210/25x/26x Linux-USB gadgets.
->> 
->> Loosen that restriction to match the gadget driver itself.
->> This helps various PXA 27x and PXA 3xx devices be happier
->> when talking to Linux hosts; and a few other gadgets too.
->> 
->> Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
->> Tested-by: Aric D. Blumer <aric@sdgsystems.com>
->> ---
->> Appropriate for -stable ... behaves like a protocol bug.
-> 
-> Applied and queued up for -stable.
+I am trying to implement a new congestion avoidance module which is  
+optimized for multihop wireless networks. Since I'm new to kernel  
+programming, it took me some time to find out about the pluggable  
+congestion avoidance modules, which seem to be a really great and easy  
+way to implement new algorithms. Unfortunately it is essential for me  
+to have the hopcount of the TCP connection to implement the algorithm  
+properly. As of now, I haven't found a way to get that Information out  
+of the TCP-Socket. I also understand, that the TTL, which is, if I  
+understand correctly, only available at the IP-Layer, does not provide  
+reliable informations about the hopcount, since the TTL is set to 64  
+as standard, but can be changed by anyone at will.
+Are there any mechanisms to get the correct hopcount into my module?  
+If not, is there a way to get the TTL of the ACK-Package, when it's  
+received?
 
-David this doesn't even compile:
+Thank you for your help.
 
-  CC [M]  drivers/net/usb/cdc_subset.o
-drivers/net/usb/cdc_subset.c:313:32: error: macro "USB_DEVICE_VER" requires 4 arguments, but only 2 given
-drivers/net/usb/cdc_subset.c:313: error: 'USB_DEVICE_VER' undeclared here (not in a function)
-
-There is absolutely no excuse for this, really.
+Tim Schneider
