@@ -1,49 +1,58 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [PATCH] econet: have failed ec_queue_packet() call return
- NET_RX_BAD
-Date: Sat, 20 Jun 2009 20:50:26 +0930
-Message-ID: <20090620205026.05219c33.lk-netdev@lk-netdev.nosense.org>
-References: <20090620200438.b5443520.lk-netdev@lk-netdev.nosense.org>
-	<20090620105325.GC31266@Chamillionaire.breakpoint.cc>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: can we reuse an skb
+Date: Sat, 20 Jun 2009 12:51:27 +0100
+Message-ID: <1245498687.12125.24.camel@deadeye>
+References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
+	 <4A3BC326.4090203@hp.com> <20090619.162957.156347025.davem@davemloft.net>
+	 <1f808b4a0906192054k6182ac2fh1618f0e630033518@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Westphal <fw@strlen.de>
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	radhamohan_ch@yahoo.com, netdev@vger.kernel.org
+To: Peter Chacko <peterchacko35@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:54021 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896AbZFTLUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 07:20:31 -0400
-In-Reply-To: <20090620105325.GC31266@Chamillionaire.breakpoint.cc>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54509 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751232AbZFTLvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 07:51:33 -0400
+In-Reply-To: <1f808b4a0906192054k6182ac2fh1618f0e630033518@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Sat, 2009-06-20 at 09:24 +0530, Peter Chacko wrote:
+> But if a network application is holding on to a NIC-drive level pooled
+> buffers,  we also have architectural issues in violating layered
+> software design. Application plays at a stateful protocol level, while
+> driver should be stateless and flow-unaware.
 
-On Sat, 20 Jun 2009 12:53:25 +0200
-Florian Westphal <fw@strlen.de> wrote:
+Meanwhile, in the real world, we want to avoid copying data, so an skb
+doesn't belong to any specific protocol layer.
 
-> Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote:
-> > econet_rcv() calls ec_queue_packet(). The return from ec_queue_packet()
-> > is the direct result of a call to sock_queue_rcv_skb(). Error returns
-> > from ec_queue_packet() and therefore sock_queue_rcv_skb() are due to
-> > kernel errors, so have econet_rcv() return NET_RX_BAD in this case.
+> Another thought in the lines of radha's original idea:
 > 
-> What about doing this instead?
-> 
+> Assume that we have n-cores capable of processing packet at the same
+> time. if we trade off memory for computing, why don't we pre-allocate
+> "n" dedicated skb buffers regardless of the size of each packet, but
+> just as big as the size of the MTU itself.(forget JUMBO packet for
+> now).
 
-I think there is value in distinguishing between network/protocol
-errors and kernel errors. It helps determine where the fault might lie
-- in the network somewhere, or isolated to the receiving host. In
-larger organisations there is typically a networks support team and a
-hosts/sys admin team. Hints such as this that help determine who's
-problem the fault is to deal with can be a big time saver (being a
-networking person on one of these sorts of teams, I'm scrathing an
-itch :-) )
+MTU is interface-specific, and the MTU tells us whether jumbos are
+allowed or not.
 
-If these econet patches are accepted, I'll send through similar patches
-for the other protocols in the kernel where necessary.
+Anyway, where is this pre-allocation to be done?
 
-Thanks,
-Mark.
+> (  today, dev_alloc_skb() allocate based on the packet len, which
+> is memory usage optimized.).
+[...]
+
+skbs for received packets are normally allocated in advance anyway,
+which means they are already MTU-sized.  However, LRO or GRO can make it
+worthwhile to defer skb allocation.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
