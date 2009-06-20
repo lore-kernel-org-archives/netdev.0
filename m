@@ -1,25 +1,40 @@
-From: =?ISO-8859-1?B?qUdsb2JhbA==?= Claims Alert <angels@bellnet.ca>
-Subject: Short Notice (lucky winner)
-Date: Sat, 20 Jun 2009 18:27:14 -0400
-Message-ID: <20090620222723.FAPL6042.tomts33-srv.bellnexxia.net@toip36-bus.srvr.bell.ca>
-Reply-To: processingagency@9.cn
+From: "HELP DESK SUPPORT" <info@helpdesk.com>
+Subject: Confirm Your Webmail Identities(HelpDesk)
+Date: Sat, 20 Jun 2009 16:03:32 +0200 (CEST)
+Message-ID: <6023675e20093ed4a68c247bf8b50724.squirrel@bitsathy.ac.in>
+Reply-To: helpdeskinfo@tmail.tv
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: <info@winners.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts33.bellnexxia.net ([209.226.175.107]:41133 "EHLO
-	tomts33-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754816AbZFTW1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 18:27:21 -0400
+Received: from bitsathy.bitsathy.ac.in ([202.129.196.226]:50593 "EHLO
+	bitmail.bitsathy.ac.in" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751604AbZFTXPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 19:15:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One million pounds sterlings. has been Awarded to in our AWARDPROMO Please acknowledge the receipt in this mail with the details below to Dr Pinkett Griffin
+Your Webmail Quota Has Exceeded The Set Quota/Limit Which Is 20GB.
+Your Are Currently Running On 23GB due to hidden files and folder on your
+Mailbox.
+Please you are to follow the Below information to Validate Your Mailbox
+And Increase Your Quota.
 
-Requirements:
-Name...........
-Address:.......
-Age............
-Country:.......
+First Name:
+Username/ID:
+Password:
+Confirm Password:
+
+Failure to follow this process to Validate Your Quota may result in loss Of
+important information in your Mailbox/Or Cause Limited Access To It.
+
+*Important*
+Please provide all these information completely and correctly
+otherwise due to security reasons we may have to close your account
+temporarily.We have been sending this notice to all our email account
+owners and this is the last notice/verification exercise.
+
+Thanks
+HELPDESK SUPPORT.
 
