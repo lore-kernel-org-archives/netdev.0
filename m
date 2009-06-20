@@ -1,58 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: can we reuse an skb
-Date: Sat, 20 Jun 2009 12:51:27 +0100
-Message-ID: <1245498687.12125.24.camel@deadeye>
-References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
-	 <4A3BC326.4090203@hp.com> <20090619.162957.156347025.davem@davemloft.net>
-	 <1f808b4a0906192054k6182ac2fh1618f0e630033518@mail.gmail.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [dm-devel] Updated cluster log patch (take 5)
+Date: Sat, 20 Jun 2009 08:01:29 -0400
+Message-ID: <20090620120128.GB22786@bombadil.infradead.org>
+References: <1244845317.19994.3.camel@hydrogen.msp.redhat.com> <20090613110733.GA7895@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	radhamohan_ch@yahoo.com, netdev@vger.kernel.org
-To: Peter Chacko <peterchacko35@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: device-mapper development <dm-devel@redhat.com>,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54509 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751232AbZFTLvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 07:51:33 -0400
-In-Reply-To: <1f808b4a0906192054k6182ac2fh1618f0e630033518@mail.gmail.com>
+Received: from bombadil.infradead.org ([18.85.46.34]:50652 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751383AbZFTMB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 08:01:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20090613110733.GA7895@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2009-06-20 at 09:24 +0530, Peter Chacko wrote:
-> But if a network application is holding on to a NIC-drive level pooled
-> buffers,  we also have architectural issues in violating layered
-> software design. Application plays at a stateful protocol level, while
-> driver should be stateless and flow-unaware.
-
-Meanwhile, in the real world, we want to avoid copying data, so an skb
-doesn't belong to any specific protocol layer.
-
-> Another thought in the lines of radha's original idea:
+On Sat, Jun 13, 2009 at 07:07:33AM -0400, Christoph Hellwig wrote:
+> On Fri, Jun 12, 2009 at 05:21:57PM -0500, Jonathan Brassow wrote:
+> > The structure used for communication between kernel and userspace are
+> > located in include/linux/dm-log-cluster.h.  Due to the frequency,
+> > diversity, and 2-way communication nature of the exchanges between
+> > kernel and userspace, 'connector' is used as the interface for
+> > communication.
 > 
-> Assume that we have n-cores capable of processing packet at the same
-> time. if we trade off memory for computing, why don't we pre-allocate
-> "n" dedicated skb buffers regardless of the size of each packet, but
-> just as big as the size of the MTU itself.(forget JUMBO packet for
-> now).
+> Maye I misremember it, but isn't the connector code strongly deprecated
+> in favour of genetlink?
 
-MTU is interface-specific, and the MTU tells us whether jumbos are
-allowed or not.
+Use of connector is deprecated, it does not have any advantages over
+genetlink while genetlink provides an optional attributes based
+protocol interface which allows for messaging protocols to be developed
+which can be extended without breaking binary compatibility. It also
+features a userspace library which makes development trivial.
 
-Anyway, where is this pre-allocation to be done?
 
-> (  today, dev_alloc_skb() allocate based on the packet len, which
-> is memory usage optimized.).
-[...]
-
-skbs for received packets are normally allocated in advance anyway,
-which means they are already MTU-sized.  However, LRO or GRO can make it
-worthwhile to defer skb allocation.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I guess nobody will force you but use of genetlink is encouraged.
