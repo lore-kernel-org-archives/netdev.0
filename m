@@ -1,32 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: can we reuse an skb
-Date: Sat, 20 Jun 2009 22:49:12 -0700 (PDT)
-Message-ID: <20090620.224912.217086631.davem@davemloft.net>
-References: <4A3BC326.4090203@hp.com>
-	<20090619.162957.156347025.davem@davemloft.net>
-	<1f808b4a0906202241l1d74364ft52d99ecb6b0274f5@mail.gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
+	window
+Date: Sun, 21 Jun 2009 08:24:58 +0200
+Message-ID: <20090621062458.GC1474@ucw.cz>
+References: <20090616004122.GC5492@tesla> <20090616021011.GF23972@bombadil.infradead.org> <20090616032034.GA17932@kroah.com> <20090616042113.GA5680@tesla> <20090616093401.GA11602@jm.kir.nu> <20090616181705.GB31506@tesla> <20090619150015.GC1389@ucw.cz> <43e72e890906191010v4b2e79a5x2c7b722b8209933c@mail.gmail.com> <20090619221909.GC2229@elf.ucw.cz> <43e72e890906191551j1a201a87u4fcccb15ec961762@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, radhamohan_ch@yahoo.com, netdev@vger.kernel.org
-To: peterchacko35@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jouni Malinen <j@w1.fi>,
+	Luis Rodriguez <Luis.Rodriguez@atheros.com>,
+	Greg KH <greg@kroah.com>, "corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32788
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751472AbZFUFtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 01:49:09 -0400
-In-Reply-To: <1f808b4a0906202241l1d74364ft52d99ecb6b0274f5@mail.gmail.com>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:33111 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751656AbZFUGaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 02:30:02 -0400
+Content-Disposition: inline
+In-Reply-To: <43e72e890906191551j1a201a87u4fcccb15ec961762@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Chacko <peterchacko35@gmail.com>
-Date: Sun, 21 Jun 2009 11:11:16 +0530
+> > Non-intrusive bugfixes _are_ welcome after -rc1.
+> 
+> That's great news to me.
+> 
+> I think it would really help to get a clarification on what is meant
+> by "non-intrusive bugfixes" though. Can you elaborate on that?
 
-> Here i am considering a special case where Linux stack is not used in
-> a host environment. Its dedicated packet processor. Application data
-> is not expected. (discarded if thats the case).
+Typo fix in printk() is non-intrusive, 'apply this series' is
+borderline; if issue is bad enough it may be ok. I guess only Linus
+can clarify more.
 
-Linux is a general purpose operating system.
+> >> > Non-intrusive bugfixes too, afaict.
+> >>
+> >> It really depends on what you mean but generally no, and this is why I
+> >> think this clarification is important.
+> >
+> > I believe you are wrong.
+> 
+> I was actually hoping I would be. But I'd like some confirmation that I am.
+> 
+> For example, based on your feedback we have a series of fixes we'd
+> like to try to get merged for 2.6.31-rc2 for ath9k. I have been under
+> the impression that since those fixes do not meet the criteria
+> clarified by my original patch on documentation for the rc-series that
+> they would not get merged and our only option to get users to get
+> these patches is to wait for 2.6.32 or use some sort of bleeding edge
+> backport package. We try hard to get out our patches in time prior
 
-You can modify it for your own needs, locally, however you want.  But
-upstream, we have to consider all use cases, not just your's.
+I believe 'no git merges after rc1' is one of rules.
+									Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
