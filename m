@@ -1,63 +1,81 @@
-From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
-	window
-Date: Sat, 20 Jun 2009 17:47:43 -0700
-Message-ID: <43e72e890906201747qb409fa7ue1bc84272417e03@mail.gmail.com>
-References: <20090615214735.GE23972@bombadil.infradead.org>
-	<20090616021011.GF23972@bombadil.infradead.org> <20090616032034.GA17932@kroah.com>
-	<20090616042113.GA5680@tesla> <20090616093401.GA11602@jm.kir.nu>
-	<20090616181705.GB31506@tesla> <20090619150015.GC1389@ucw.cz>
-	<43e72e890906191010v4b2e79a5x2c7b722b8209933c@mail.gmail.com>
-	<20090619221909.GC2229@elf.ucw.cz> <alpine.LFD.2.01.0906191555390.16802@localhost.localdomain>
+From: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <kolbjorn.barmen@uninett.no>
+Subject: Re: [PATCH v2] IPv6: Add 'autoconf' and 'disable_ipv6' module
+ parameters
+Date: Sun, 21 Jun 2009 06:04:22 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.0906210557500.11635@firda.kolla.no>
+References: <4A204A31.4010105@hp.com> <20090601.030835.261332360.davem@davemloft.net> <4A23E014.4040909@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Jouni Malinen <j@w1.fi>,
-	Luis Rodriguez <Luis.Rodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>,
-	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.01.0906191555390.16802-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux@kolla.no, vladislav.yasevich@hp.com
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from regensburg.uninett.no ([158.38.180.100]:32899 "EHLO
+	regensburg.uninett.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbZFUEMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 00:12:12 -0400
+In-Reply-To: <4A23E014.4040909@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 19, 2009 at 3:56 PM, Linus
-Torvalds<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
->
->
-> On Sat, 20 Jun 2009, Pavel Machek wrote:
->>
->> Non-intrusive bugfixes _are_ welcome after -rc1.
->
-> After -rc1, yes.
->
-> After something like -rc5? No.
->
-> They had better be _really_ important things, and _really_ obvious an=
-d
-> non-intrusive. =C2=A0Not just "any bug".
+On Mon, 1 Jun 2009, Brian Haley wrote:
 
-=46or the sake of documentation and to help developers better understan=
-d
-this it would be nice if we could be a little more clear here. I can
-think of patches which may not be obvious but yet very important, for
-example. Can we simply document that the patches must be important,
-non-intrusive, and must have a very clear commit log entry of what it
-is fixing. Judgment for the degree of importance of the patch can be
-left up to the subsystem maintainer.
+> David Miller wrote:
+> > Applied, but really it is tiring fixing up all of the corruptions
+> > your email client made to this patch.
+> >=20
+> > I've had this problem so many times with you that I've totally
+> > lost any hope that you'll be able to submit patches cleanly and
+> > thus I'm resigned to just fix them up every time from now on. :-/
+>=20
+> Sorry, I'll start sending them to myself first in the future.  Just r=
+eject it
+> next time and force me to do the work to fix it up as it was my fault=
+=2E
 
-Is it reasonable to document this as I describe above?
+I also had to edit the patch for linebreaks etc :)
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Anyways... when I apply the patch and try too compile, I get:
+
+net/ipv6/addrconf.c: In function 'addrconf_disable_ipv6':
+net/ipv6/addrconf.c:4029: error: implicit declaration of function 'rest=
+art_syscall'
+make[2]: *** [net/ipv6/addrconf.o] Error 1
+make[1]: *** [net/ipv6] Error 2
+
+
+The relevant line is pointed out (->) below:
+
+----
+   static int addrconf_disable_ipv6(struct ctl_table *table, int *p, in=
+t old)
+   {
+           struct net *net;
+  =20
+           net =3D (struct net *)table->extra2;
+  =20
+           if (p =3D=3D &net->ipv6.devconf_dflt->disable_ipv6)
+                   return 0;
+  =20
+           if (!rtnl_trylock())
+->                 return restart_syscall();
+  =20
+           if (p =3D=3D &net->ipv6.devconf_all->disable_ipv6) {
+                   __s32 newf =3D net->ipv6.devconf_all->disable_ipv6;
+                   net->ipv6.devconf_dflt->disable_ipv6 =3D newf;
+                   addrconf_disable_change(net, newf);
+           } else if ((!*p) ^ (!old))
+                   dev_disable_change((struct inet6_dev *)table->extra1=
+);
+  =20
+           rtnl_unlock();
+           return 0;
+   }
+----
+
+=46or what it's worth, I'm using gcc 4.3.3.
+
+--=20
+Kolbj=C3=B8rn Barmen
+UNINETT Driftsenter
