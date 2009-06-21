@@ -1,68 +1,86 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [RFC][WIP] IEEE 802.15.4 implementation for Linux v1
-Date: Sun, 21 Jun 2009 08:40:19 +0200
-Message-ID: <20090621064018.GB1656@ucw.cz>
-References: <1243868091-5315-1-git-send-email-dbaryshkov@gmail.com> <9e4733910906122021k4568df6rd80fb915b64ac12@mail.gmail.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 1/6] mlx4_en: Counting all the dropped packets on the TX side
+Date: Sun, 21 Jun 2009 11:15:31 +0300
+Message-ID: <4A3DEC23.3050004@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
-	maxim.osipov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org, dmitry.baryshkov-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org,
-	oliver.fendt-kv7WeFo6aLtBDgjK7y7TUQ@public.gmane.org
-To: Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <9e4733910906122021k4568df6rd80fb915b64ac12-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Tziporet Koren <tziporet@mellanox.co.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mellanox.co.il ([194.90.237.43]:51476 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752211AbZFUHZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Jun 2009 03:25:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri 2009-06-12 23:21:34, Jon Smirl wrote:
-> On Mon, Jun 1, 2009 at 10:54 AM, Dmitry
-> Eremin-Solenikov<dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > Hi,
-> >
-> > As a part of research activities the Embedded Systems - Open Platform Group
-> > from Siemens Corporate Technology we are working on adding support for
-> > the IEEE 802.15.4 Wireless Personal Area Networks to the Linux. Our current
-> > implementation is neither certified nor even feature complete. However
-> > we'd like to present current state of our patchset to the Linux developers
-> > community to gain comments, fixes, ideas, etc. This is not yet a pull request,
-> > but more like an RFC.
-> >
-> > The project page is available at http://apps.sourceforge.net/trac/linux-zigbee
-> > with source code of kernel part available from git at
-> > http://zigbee-linux.git.sourceforge.net, mirrored for convenience at
-> > git://git.kernel.org/pub/scm/linux/kernel/git/lumag/lowpan.git
-> >
-> > The source code for userspace utils is available from git at
-> > http://linux-zigbee.git.sourceforge.net/
-> 
-> The Zigbee alliance requires a minimum of $3,500/yr from any company
-> making a product based on the spec. How are you going to reconcile
-> this requirement with the GPL? They exempt non-commercial users but
-> the GPL doesn't allow code to be free for one purpose and pay for
-> another.
-> 
-> "The ZigBee Specification is available to individuals, companies and
-> institutions free of charge for all non-commercial purposes (including
-> university research, technical evaluation, and development of
-> non-commercial software, tools, or documentation). For ease of use,
-> clearly marked errata have been incorporated into this document. These
-> errata may not have been subjected to an Intellectual Property review,
-> and as such, may contain undeclared Necessary Claims. No part of this
-> specification may be used in development of a product for sale without
-> becoming a member of ZigBee Alliance. Copyright ? ZigBee Alliance,
+Reporting the counter's value through 'ethtool -S'
 
-Confusing legaleese, and probably void, too. If you can get hard copy
-of that book, and make sure your implementation is not derived work of
-that book, you are safe -- w.r.t. copyright. Someone would have to
-research the patents, or just move out of US.
-								Pavel
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_tx.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
+index 5dc7466..c0177c3 100644
+--- a/drivers/net/mlx4/en_tx.c
++++ b/drivers/net/mlx4/en_tx.c
+@@ -515,14 +515,12 @@ static int get_real_size(struct sk_buff *skb, struct net_device *dev,
+ 			else {
+ 				if (netif_msg_tx_err(priv))
+ 					en_warn(priv, "Non-linear headers\n");
+-				dev_kfree_skb_any(skb);
+ 				return 0;
+ 			}
+ 		}
+ 		if (unlikely(*lso_header_size > MAX_LSO_HDR_SIZE)) {
+ 			if (netif_msg_tx_err(priv))
+ 				en_warn(priv, "LSO header size too big\n");
+-			dev_kfree_skb_any(skb);
+ 			return 0;
+ 		}
+ 	} else {
+@@ -622,7 +620,7 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 	real_size = get_real_size(skb, dev, &lso_header_size);
+ 	if (unlikely(!real_size))
+-		return NETDEV_TX_OK;
++		goto tx_drop;
+ 
+ 	/* Allign descriptor to TXBB size */
+ 	desc_size = ALIGN(real_size, TXBB_SIZE);
+@@ -630,8 +628,7 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (unlikely(nr_txbb > MAX_DESC_TXBBS)) {
+ 		if (netif_msg_tx_err(priv))
+ 			en_warn(priv, "Oversized header or SG list\n");
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
++		goto tx_drop;
+ 	}
+ 
+ 	tx_ind = skb->queue_mapping;
+@@ -657,8 +654,7 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (unlikely(!priv->port_up)) {
+ 		if (netif_msg_tx_err(priv))
+ 			en_warn(priv, "xmit: port down!\n");
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
++		goto tx_drop;
+ 	}
+ 
+ 	/* Track current inflight packets for performance analysis */
+@@ -785,5 +781,10 @@ int mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	mlx4_en_xmit_poll(priv, tx_ind);
+ 
+ 	return 0;
++
++tx_drop:
++	dev_kfree_skb_any(skb);
++	priv->stats.tx_dropped++;
++	return NETDEV_TX_OK;
+ }
+ 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.6.0
+
