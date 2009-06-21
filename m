@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ROSE] 2.6.29 rose patch missing in 2.6.30
-Date: Sun, 21 Jun 2009 03:56:59 -0700 (PDT)
-Message-ID: <20090621.035659.93001317.davem@davemloft.net>
-References: <4A3E0EB2.7020106@free.fr>
+From: Al Boldi <a1426z@gawab.com>
+Subject: [RFD] Pluggable code design (was: can we reuse an skb)
+Date: Sun, 21 Jun 2009 14:46:13 +0300
+Message-ID: <200906211446.13665.a1426z__89.6947844468698$1245585150$gmane$org@gawab.com>
+References: <962874.62146.qm@web94813.mail.in2.yahoo.com> <20090619.162957.156347025.davem@davemloft.net> <1f808b4a0906202241l1d74364ft52d99ecb6b0274f5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f6bvp@free.fr
+Cc: rick.jones2@hp.com, radhamohan_ch@yahoo.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Peter Chacko <peterchacko35@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831AbZFUK4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 06:56:55 -0400
-In-Reply-To: <4A3E0EB2.7020106@free.fr>
+Received: from mailhost5.gawab.com ([66.220.20.5]:49773 "HELO info14.gawab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752124AbZFULvw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Jun 2009 07:51:52 -0400
+In-Reply-To: <1f808b4a0906202241l1d74364ft52d99ecb6b0274f5@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bernard Pidoux F6BVP <f6bvp@free.fr>
-Date: Sun, 21 Jun 2009 12:42:58 +0200
+Peter Chacko wrote:
+> What i am considering here is the super optimization of memory buffers
+> for a multi-layer packet processor, without needing to move packets
+> into user space. In that case, i am optimizing my custom network stack
+> with a pre-allocated MTU sized and a few  jumbo-sized buffers. And no
+> interrupts as i do NAPI at all times, as this is a dedicated
+> appliance. I keep all these buffers in the L1 cache and hence i have
+> different sets of pools for different cores. I  am currently guiding
+> my engineers to implement the code changes now..
 
-> Hi David,
-> 
-> Problems with ROSE protocol came back with 2.6.30 kernel.
-> I discovered the reason.
-> Rose patch I submitted in November was applied in kernels until
-> 2.6.29.4.
-> However this patch is not present in 2.6.30.
-> 
-> Is there any reason ?
-> 
-> Here are the reference to my patch and your acceptance message :
+Yes, having a customizable/pluggable network stack sounds very useful.
 
-Alan Cox found them to be incorrect and we had to revert
-them.
+In general, OpenSource projects like Linux don't give much incentive to 
+pluggable designs, because the source, being open, represents a weired form 
+of pluggability.  Unfortunately, this "hack it up / code it hard" design 
+style usually inhibits healthy development.
+
+A rethink is probably in place...
+
+
+Thanks!
+
+--
+Al
