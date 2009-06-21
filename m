@@ -1,55 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix NULL pointer + success return in route lookup path
-Date: Sat, 20 Jun 2009 16:47:48 -0700 (PDT)
-Message-ID: <20090620.164748.227654288.davem@davemloft.net>
-References: <20090619171814.GE18237@hmsreliant.think-freely.org>
-	<4A3CD7EC.2040904@gmail.com>
-	<4A3D10BD.3050301@gmail.com>
+From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC] Documentation: add documentation for rc-series and merge
+	window
+Date: Sat, 20 Jun 2009 17:47:43 -0700
+Message-ID: <43e72e890906201747qb409fa7ue1bc84272417e03@mail.gmail.com>
+References: <20090615214735.GE23972@bombadil.infradead.org>
+	<20090616021011.GF23972@bombadil.infradead.org> <20090616032034.GA17932@kroah.com>
+	<20090616042113.GA5680@tesla> <20090616093401.GA11602@jm.kir.nu>
+	<20090616181705.GB31506@tesla> <20090619150015.GC1389@ucw.cz>
+	<43e72e890906191010v4b2e79a5x2c7b722b8209933c@mail.gmail.com>
+	<20090619221909.GC2229@elf.ucw.cz> <alpine.LFD.2.01.0906191555390.16802@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, mbizon@freebox.fr,
-	dada1@cosmosbay.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: jarkao2@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40693
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751762AbZFTXro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Jun 2009 19:47:44 -0400
-In-Reply-To: <4A3D10BD.3050301@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Jouni Malinen <j@w1.fi>,
+	Luis Rodriguez <Luis.Rodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>,
+	Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.01.0906191555390.16802-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 20 Jun 2009 18:39:25 +0200
+On Fri, Jun 19, 2009 at 3:56 PM, Linus
+Torvalds<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+>
+>
+> On Sat, 20 Jun 2009, Pavel Machek wrote:
+>>
+>> Non-intrusive bugfixes _are_ welcome after -rc1.
+>
+> After -rc1, yes.
+>
+> After something like -rc5? No.
+>
+> They had better be _really_ important things, and _really_ obvious an=
+d
+> non-intrusive. =C2=A0Not just "any bug".
 
-> Jarek Poplawski wrote, On 06/20/2009 02:37 PM:
-> 
->> Neil Horman wrote, On 06/19/2009 07:18 PM:
->> 
->>> Don't drop route if we're not caching	
-> 
-> ...
-> 
->>>  route.c |   14 ++++++++++++--
->>>  1 file changed, 12 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
->>> index cd76b3c..65b3a8b 100644
->>> --- a/net/ipv4/route.c
->>> +++ b/net/ipv4/route.c
->>> @@ -1085,8 +1085,16 @@ restart:
->>>  	now = jiffies;
->>>  
->>>  	if (!rt_caching(dev_net(rt->u.dst.dev))) {
->>> -		rt_drop(rt);
-> 
-> 
-> One more question: if this rt is assigned to an skb, there is only
-> skb_dst_drop() in kfree_skb(), but it seems we skip rt_free() part,
-> or I miss something?
+=46or the sake of documentation and to help developers better understan=
+d
+this it would be nice if we could be a little more clear here. I can
+think of patches which may not be obvious but yet very important, for
+example. Can we simply document that the patches must be important,
+non-intrusive, and must have a very clear commit log entry of what it
+is fixing. Judgment for the degree of importance of the patch can be
+left up to the subsystem maintainer.
 
-This whole code path was buggy, if it returns success it should
-do as the normal success code path does which is assign for
-non-SKB case to *rp, or skb_dst_set().
+Is it reasonable to document this as I describe above?
+
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
