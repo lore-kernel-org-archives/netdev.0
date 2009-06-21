@@ -1,81 +1,80 @@
-From: =?UTF-8?Q?Kolbj=C3=B8rn_Barmen?= <kolbjorn.barmen@uninett.no>
-Subject: Re: [PATCH v2] IPv6: Add 'autoconf' and 'disable_ipv6' module
- parameters
-Date: Sun, 21 Jun 2009 06:04:22 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.0906210557500.11635@firda.kolla.no>
-References: <4A204A31.4010105@hp.com> <20090601.030835.261332360.davem@davemloft.net> <4A23E014.4040909@hp.com>
+From: Peter Chacko <peterchacko35@gmail.com>
+Subject: Re: can we reuse an skb
+Date: Sun, 21 Jun 2009 11:11:16 +0530
+Message-ID: <1f808b4a0906202241l1d74364ft52d99ecb6b0274f5@mail.gmail.com>
+References: <962874.62146.qm@web94813.mail.in2.yahoo.com>
+	 <4A3BC326.4090203@hp.com>
+	 <20090619.162957.156347025.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, linux@kolla.no, vladislav.yasevich@hp.com
-To: Brian Haley <brian.haley@hp.com>
+Cc: rick.jones2@hp.com, radhamohan_ch@yahoo.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from regensburg.uninett.no ([158.38.180.100]:32899 "EHLO
-	regensburg.uninett.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbZFUEMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 00:12:12 -0400
-In-Reply-To: <4A23E014.4040909@hp.com>
+Received: from mail-pz0-f197.google.com ([209.85.222.197]:44319 "EHLO
+	mail-pz0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751761AbZFUFlO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Jun 2009 01:41:14 -0400
+Received: by pzk35 with SMTP id 35so100878pzk.33
+        for <netdev@vger.kernel.org>; Sat, 20 Jun 2009 22:41:16 -0700 (PDT)
+In-Reply-To: <20090619.162957.156347025.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 1 Jun 2009, Brian Haley wrote:
+Hi Dave,
 
-> David Miller wrote:
-> > Applied, but really it is tiring fixing up all of the corruptions
-> > your email client made to this patch.
-> >=20
-> > I've had this problem so many times with you that I've totally
-> > lost any hope that you'll be able to submit patches cleanly and
-> > thus I'm resigned to just fix them up every time from now on. :-/
->=20
-> Sorry, I'll start sending them to myself first in the future.  Just r=
-eject it
-> next time and force me to do the work to fix it up as it was my fault=
-=2E
+Here i am considering a special case where Linux stack is not used in
+a host environment. Its dedicated packet processor. Application data
+is not expected. (discarded if thats the case).
 
-I also had to edit the patch for linebreaks etc :)
+In the case of a host, yes we cannot pre-allocate buffers as it would
+requires us to create another copy at the L4  junction. Current memory
+allocation for packet buffers are only meant for this case. Not meant
+for a special case when the Linux box is a 100% packet processor.I
+wish to argue that in this special case, we don't need an skb_alloc()
+or skb_free() sorts of interface.
 
-Anyways... when I apply the patch and try too compile, I get:
+What i am considering here is the super optimization of memory buffers
+for a multi-layer packet processor, without needing to move packets
+into user space. In that case, i am optimizing my custom network stack
+with a pre-allocated MTU sized and a few  jumbo-sized buffers. And no
+interrupts as i do NAPI at all times, as this is a dedicated
+appliance. I keep all these buffers in the L1 cache and hence i have
+different sets of pools for different cores. I  am currently guiding
+my engineers to implement the code changes now..
 
-net/ipv6/addrconf.c: In function 'addrconf_disable_ipv6':
-net/ipv6/addrconf.c:4029: error: implicit declaration of function 'rest=
-art_syscall'
-make[2]: *** [net/ipv6/addrconf.o] Error 1
-make[1]: *** [net/ipv6] Error 2
+Seeking your advice if any body has done this already or a patch is
+available or any advice against this ...
+
+I would greatly appreciate if any one of you could share me your
+experience in related work.
 
 
-The relevant line is pointed out (->) below:
 
-----
-   static int addrconf_disable_ipv6(struct ctl_table *table, int *p, in=
-t old)
-   {
-           struct net *net;
-  =20
-           net =3D (struct net *)table->extra2;
-  =20
-           if (p =3D=3D &net->ipv6.devconf_dflt->disable_ipv6)
-                   return 0;
-  =20
-           if (!rtnl_trylock())
-->                 return restart_syscall();
-  =20
-           if (p =3D=3D &net->ipv6.devconf_all->disable_ipv6) {
-                   __s32 newf =3D net->ipv6.devconf_all->disable_ipv6;
-                   net->ipv6.devconf_dflt->disable_ipv6 =3D newf;
-                   addrconf_disable_change(net, newf);
-           } else if ((!*p) ^ (!old))
-                   dev_disable_change((struct inet6_dev *)table->extra1=
-);
-  =20
-           rtnl_unlock();
-           return 0;
-   }
-----
-
-=46or what it's worth, I'm using gcc 4.3.3.
-
---=20
-Kolbj=C3=B8rn Barmen
-UNINETT Driftsenter
+Best regards,
+Peter chacko.
+On Sat, Jun 20, 2009 at 4:59 AM, David Miller<davem@davemloft.net> wrot=
+e:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Fri, 19 Jun 2009 09:56:06 -0700
+>
+>> Assuming a driver did have its own "pool" and didn't rely on the
+>> pool(s) from which skbs are drawn, doesn't that mean you have to now
+>> have another configuable? =A0There is no good guarantees on when the
+>> upper layers will be finished with the skb right? =A0Which means you
+>> would be requiring the admin(s) to have an idea of how long their
+>> applications wait to pull data from their sockets and configure your
+>> driver accordingly.
+>>
+>> It would seem there would have to be a considerable performance gain
+>> demonstrated for that kind of thing?
+>
+> Applications can hold onto such data "forever" if they want to.
+>
+> Any scheme which doesn't allow dynamically increasing the pool
+> is prone to trivial DoS.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
