@@ -1,91 +1,154 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of	queueing an
- extra skb.
-Date: Mon, 22 Jun 2009 19:11:35 +0530
-Message-ID: <OF0CA43795.2C22F3BA-ON652575DD.004AA623-652575DD.004B3809@in.ibm.com>
-References: <200905292346.04815.rusty@rustcorp.com.au> <200906181647.51045.rusty@rustcorp.com.au> <20090618073422.GA4087@gondor.apana.org.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au> <OF1B3705AA.30E31D1D-ON652575DD.001F2CCD-652575DD.001FAE94@in.ibm.com> <20090622073417.GA21698@gondor.apana.org.au>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: problem with 'net: Partially allow skb destructors to be used
+ on receive path'
+Date: Mon, 22 Jun 2009 15:44:38 +0200
+Message-ID: <4A3F8AC6.2070803@hartkopp.net>
+References: <4A3CE170.8030604@hartkopp.net> <20090622122525.GA24481@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([59.145.155.8]:39603 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443AbZFVNlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 09:41:46 -0400
-Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
-	by e28smtp08.in.ibm.com (8.13.1/8.13.1) with ESMTP id n5MCoKWR013143
-	for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 18:20:20 +0530
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n5MDfgIP2007114
-	for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 19:11:42 +0530
-Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
-	by d28av05.in.ibm.com (8.13.1/8.13.3) with ESMTP id n5MDff4g010919
-	for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 23:41:42 +1000
-In-Reply-To: <20090622073417.GA21698@gondor.apana.org.au>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:35540 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751255AbZFVNou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 09:44:50 -0400
+In-Reply-To: <20090622122525.GA24481@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Herbert. I thought lesser processing is required for those skbs
-queued at
-the driver (avoid qdisc_restart, and repeated calls to dequeue_skb where
-skb from
-the cached 'gso_skb' is checked if send'able and put back till the queue is
-re-enabled)
-and hence some gains is possible. So far, my testing of queueing in the
-driver shows
-good results for some test cases and bad results for others, hence my
-question on
-the topic as I am not able to figure out why some cases test worse.
+Herbert Xu wrote:
+> On Sat, Jun 20, 2009 at 03:17:36PM +0200, Oliver Hartkopp wrote:
+>> Hello Herbert,
+>>
+>> i got a feedback on the SocketCAN users ML from Michel Marti that the can-raw
+>> socket option CAN_RAW_RECV_OWN_MSGS is out of order since 2.6.30.
+>>
+>> https://lists.berlios.de/pipermail/socketcan-users/2009-June/000959.html
+> 
+> OK this patch should fix the problem.
 
-- KK
+It does - at least for me ;-)
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote on 06/22/2009 01:04:17 PM:
+I tried to apply the patch on 2.6.30 also and only got some offsets (as expected).
 
-> Herbert Xu <herbert@gondor.apana.org.au>
-> 06/22/2009 01:04 PM
->
-> To
->
-> Krishna Kumar2/India/IBM@IBMIN
->
-> cc
->
-> David Miller <davem@davemloft.net>, Matt Carlson <mcarlson@broadcom.com>,
+Do you think, it's a good idea to queue this up for 2.6.30-stable?
 
-> netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-> virtualization@lists.linux-foundation.org
->
-> Subject
->
-> Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of queueing an
-extra skb.
->
-> On Mon, Jun 22, 2009 at 11:16:03AM +0530, Krishna Kumar2 wrote:
-> >
-> > I was curious about "queueing it in the driver" part: why is this bad?
-Do
-> > you
-> > anticipate any performance problems, or does it break QoS, or something
-> > else I
-> > have missed?
->
-> Queueing it in the driver is bad because it is no different than
-> queueing it at the upper layer, which is what will happen when
-> you return TX_BUSY.
->
-> Because we've ripped out the qdisc requeueing logic (which is
-> horribly complex and only existed because of TX_BUSY), it means
-> that higher priority packets cannot preempt a packet that is queued
-> in this way.
->
-> Cheers,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Many thanks,
+Oliver
+
+Tested-by: Oliver Hartkopp <olver@hartkopp.net>
+
+> 
+> net: Move rx skb_orphan call to where needed
+> 
+> In order to get the tun driver to account packets, we need to be
+> able to receive packets with destructors set.  To be on the safe
+> side, I added an skb_orphan call for all protocols by default since
+> some of them (IP in particular) cannot handle receiving packets
+> destructors properly.
+> 
+> Now it seems that at least one protocol (CAN) expects to be able
+> to pass skb->sk through the rx path without getting clobbered.
+> 
+> So this patch attempts to fix this properly by moving the skb_orphan
+> call to where it's actually needed.  In particular, I've added it
+> to skb_set_owner_[rw] which is what most users of skb->destructor
+> call.
+> 
+> This is actually an improvement for tun too since it means that
+> we only give back the amount charged to the socket when the skb
+> is passed to another socket that will also be charged accordingly.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 9f80a76..d16a304 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -448,6 +448,7 @@ static inline void sctp_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+>  {
+>  	struct sctp_ulpevent *event = sctp_skb2event(skb);
+>  
+> +	skb_orphan(skb);
+>  	skb->sk = sk;
+>  	skb->destructor = sctp_sock_rfree;
+>  	atomic_add(event->rmem_len, &sk->sk_rmem_alloc);
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 07133c5..352f06b 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1252,6 +1252,7 @@ static inline int sk_has_allocations(const struct sock *sk)
+>  
+>  static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+>  {
+> +	skb_orphan(skb);
+>  	skb->sk = sk;
+>  	skb->destructor = sock_wfree;
+>  	/*
+> @@ -1264,6 +1265,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+>  
+>  static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+>  {
+> +	skb_orphan(skb);
+>  	skb->sk = sk;
+>  	skb->destructor = sock_rfree;
+>  	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+> diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+> index 5f1d210..de56d39 100644
+> --- a/net/ax25/ax25_in.c
+> +++ b/net/ax25/ax25_in.c
+> @@ -437,8 +437,7 @@ free:
+>  int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
+>  		  struct packet_type *ptype, struct net_device *orig_dev)
+>  {
+> -	skb->sk = NULL;		/* Initially we don't know who it's for */
+> -	skb->destructor = NULL;	/* Who initializes this, dammit?! */
+> +	skb_orphan(skb);
+>  
+>  	if (!net_eq(dev_net(dev), &init_net)) {
+>  		kfree_skb(skb);
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index baf2dc1..60b5728 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2310,8 +2310,6 @@ ncls:
+>  	if (!skb)
+>  		goto out;
+>  
+> -	skb_orphan(skb);
+> -
+>  	type = skb->protocol;
+>  	list_for_each_entry_rcu(ptype,
+>  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+> diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+> index 5922feb..cb762c8 100644
+> --- a/net/irda/af_irda.c
+> +++ b/net/irda/af_irda.c
+> @@ -913,9 +913,6 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
+>  	/* Clean up the original one to keep it in listen state */
+>  	irttp_listen(self->tsap);
+>  
+> -	/* Wow ! What is that ? Jean II */
+> -	skb->sk = NULL;
+> -	skb->destructor = NULL;
+>  	kfree_skb(skb);
+>  	sk->sk_ack_backlog--;
+>  
+> diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
+> index 67c99d2..7ba9661 100644
+> --- a/net/irda/ircomm/ircomm_lmp.c
+> +++ b/net/irda/ircomm/ircomm_lmp.c
+> @@ -196,6 +196,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
+>  	/* Don't forget to refcount it - see ircomm_tty_do_softint() */
+>  	skb_get(skb);
+>  
+> +	skb_orphan(skb);
+>  	skb->destructor = ircomm_lmp_flow_control;
+>  
+>  	if ((self->pkt_count++ > 7) && (self->flow_status == FLOW_START)) {
+> 
+
 
