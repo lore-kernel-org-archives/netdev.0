@@ -1,154 +1,86 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: problem with 'net: Partially allow skb destructors to be used
- on receive path'
-Date: Mon, 22 Jun 2009 15:44:38 +0200
-Message-ID: <4A3F8AC6.2070803@hartkopp.net>
-References: <4A3CE170.8030604@hartkopp.net> <20090622122525.GA24481@gondor.apana.org.au>
+From: Peter Chacko <peterchacko35@gmail.com>
+Subject: Re: can we reuse an skb
+Date: Mon, 22 Jun 2009 19:26:32 +0530
+Message-ID: <1f808b4a0906220656o3f8cb6c7jef7b1406aee8b3ec@mail.gmail.com>
+References: <b9e8fcbd0906190311k1db4653bm1d560743faa4ded1@mail.gmail.com>
+	 <1245677654.4541.37.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicholas Van Orton <turanammo@gmail.com>, jon_zhou@agilent.com,
+	radhamohan_ch@yahoo.com, netdev@vger.kernel.org
+To: Philby John <pjohn@in.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:35540 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751255AbZFVNou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 09:44:50 -0400
-In-Reply-To: <20090622122525.GA24481@gondor.apana.org.au>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:33570 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276AbZFVN4b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 09:56:31 -0400
+Received: by bwz9 with SMTP id 9so3150865bwz.37
+        for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 06:56:33 -0700 (PDT)
+In-Reply-To: <1245677654.4541.37.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Sat, Jun 20, 2009 at 03:17:36PM +0200, Oliver Hartkopp wrote:
->> Hello Herbert,
+Philby,
+
+I thank you much for your time helping me out, answering me.
+
+My intention here is to customize packet buffer allocation for
+special case, when the linux box in question is just packet processor.
+ That i don't want to allocate memory from a common pool for common
+purpose, like slab cached , re-usable objects like skb. I want to have
+finer control of the memory access time(by allocating objects from L1
+cache, and  keeping it around as fixed no of  packet buffers, like in
+a typical routers.
+
+I just want to know whether i can re-use any body's work /a patch
+available in this goal, before  i embark on making custom code.
+
+As you said, i will down-load the most updated code and correct my
+self, if there are enough optimizations available already.
+
+Thanks
+Peter chacko,
+
+
+On Mon, Jun 22, 2009 at 7:04 PM, Philby John<pjohn@in.mvista.com> wrote=
+:
+> On Fri, 2009-06-19 at 15:41 +0530, Nicholas Van Orton wrote:
+>> Does this mean that when skb buffer has been allocated using
+>> dev_alloc_skb(), filled with received data and passed to the upper
+>> layers
+>> the kernel would automatically do the task of releasing this buffer
+>> without the user calling dev_kfree_skb()?
+>
+> Yes, I think that is the case. Except when the user calls an ioctl th=
+at
+> closes your ethernet device, by say using $ifconfig eth0 down, in whi=
+ch
+> case you must free the ring skb buffer's allocated using
+> dev_kfree_skb().
+>
+>> =A0I once got
+>> KERNEL: assertion (!atomic_read(&skb->users)) failed at net/core/dev=
+=2Ec
+>> errors when trying
+>> to free them using dev_kfree_skb()
 >>
->> i got a feedback on the SocketCAN users ML from Michel Marti that the can-raw
->> socket option CAN_RAW_RECV_OWN_MSGS is out of order since 2.6.30.
->>
->> https://lists.berlios.de/pipermail/socketcan-users/2009-June/000959.html
-> 
-> OK this patch should fix the problem.
-
-It does - at least for me ;-)
-
-I tried to apply the patch on 2.6.30 also and only got some offsets (as expected).
-
-Do you think, it's a good idea to queue this up for 2.6.30-stable?
-
-Many thanks,
-Oliver
-
-Tested-by: Oliver Hartkopp <olver@hartkopp.net>
-
-> 
-> net: Move rx skb_orphan call to where needed
-> 
-> In order to get the tun driver to account packets, we need to be
-> able to receive packets with destructors set.  To be on the safe
-> side, I added an skb_orphan call for all protocols by default since
-> some of them (IP in particular) cannot handle receiving packets
-> destructors properly.
-> 
-> Now it seems that at least one protocol (CAN) expects to be able
-> to pass skb->sk through the rx path without getting clobbered.
-> 
-> So this patch attempts to fix this properly by moving the skb_orphan
-> call to where it's actually needed.  In particular, I've added it
-> to skb_set_owner_[rw] which is what most users of skb->destructor
-> call.
-> 
-> This is actually an improvement for tun too since it means that
-> we only give back the amount charged to the socket when the skb
-> is passed to another socket that will also be charged accordingly.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index 9f80a76..d16a304 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -448,6 +448,7 @@ static inline void sctp_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
->  {
->  	struct sctp_ulpevent *event = sctp_skb2event(skb);
->  
-> +	skb_orphan(skb);
->  	skb->sk = sk;
->  	skb->destructor = sctp_sock_rfree;
->  	atomic_add(event->rmem_len, &sk->sk_rmem_alloc);
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 07133c5..352f06b 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1252,6 +1252,7 @@ static inline int sk_has_allocations(const struct sock *sk)
->  
->  static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
->  {
-> +	skb_orphan(skb);
->  	skb->sk = sk;
->  	skb->destructor = sock_wfree;
->  	/*
-> @@ -1264,6 +1265,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
->  
->  static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
->  {
-> +	skb_orphan(skb);
->  	skb->sk = sk;
->  	skb->destructor = sock_rfree;
->  	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-> diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
-> index 5f1d210..de56d39 100644
-> --- a/net/ax25/ax25_in.c
-> +++ b/net/ax25/ax25_in.c
-> @@ -437,8 +437,7 @@ free:
->  int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
->  		  struct packet_type *ptype, struct net_device *orig_dev)
->  {
-> -	skb->sk = NULL;		/* Initially we don't know who it's for */
-> -	skb->destructor = NULL;	/* Who initializes this, dammit?! */
-> +	skb_orphan(skb);
->  
->  	if (!net_eq(dev_net(dev), &init_net)) {
->  		kfree_skb(skb);
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index baf2dc1..60b5728 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2310,8 +2310,6 @@ ncls:
->  	if (!skb)
->  		goto out;
->  
-> -	skb_orphan(skb);
-> -
->  	type = skb->protocol;
->  	list_for_each_entry_rcu(ptype,
->  			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-> diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-> index 5922feb..cb762c8 100644
-> --- a/net/irda/af_irda.c
-> +++ b/net/irda/af_irda.c
-> @@ -913,9 +913,6 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
->  	/* Clean up the original one to keep it in listen state */
->  	irttp_listen(self->tsap);
->  
-> -	/* Wow ! What is that ? Jean II */
-> -	skb->sk = NULL;
-> -	skb->destructor = NULL;
->  	kfree_skb(skb);
->  	sk->sk_ack_backlog--;
->  
-> diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
-> index 67c99d2..7ba9661 100644
-> --- a/net/irda/ircomm/ircomm_lmp.c
-> +++ b/net/irda/ircomm/ircomm_lmp.c
-> @@ -196,6 +196,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
->  	/* Don't forget to refcount it - see ircomm_tty_do_softint() */
->  	skb_get(skb);
->  
-> +	skb_orphan(skb);
->  	skb->destructor = ircomm_lmp_flow_control;
->  
->  	if ((self->pkt_count++ > 7) && (self->flow_status == FLOW_START)) {
-> 
-
-
+>> Could this be cause I did not wait until netif_rx_completed() was ca=
+lled?
+>
+> You are using an old version of the kernel, can't see such code in
+> 2.6.30. From what I know, this usually happens if skb->users is not
+> equal to one, which means the buffer is in use by some user. Like I
+> said, you needn't call dev_kfree_skb() explicitly, it will be freed
+> after use by the upper network layers.
+>
+> netif_receive_skb() ->deliver_skb()-> pt_prev->func() ->
+> ip_rcv() -> ip_rcv_finish()
+>
+> ip_rcv_finish() would finally free it as per the specified protocol.
+> This I think is the flow, but I guess there would be experts here who
+> would correct me if I am wrong.
+>
+> -Philby
+>
+>
