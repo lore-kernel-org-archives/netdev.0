@@ -1,142 +1,200 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] ipv4 routing: Fixes to allow route cache entries to
-	work when route caching is disabled
-Date: Mon, 22 Jun 2009 19:20:51 +0200
-Message-ID: <20090622172051.GB2737@ami.dom.local>
-References: <20090622152314.GB14359@hmsreliant.think-freely.org> <20090622165145.GA2737@ami.dom.local> <20090622170327.GA14673@hmsreliant.think-freely.org>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: [PATCH] Documentation: add documentation summary for rc-series and
+	merge window
+Date: Mon, 22 Jun 2009 14:04:38 -0400
+Message-ID: <20090622180438.GG23972@bombadil.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, mbizon@freebox.fr
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Pavel Machek <pavel@ucw.cz>, Greg KH <greg@kroah.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>,
+	lrodriguez@atheros.com
+To: torvalds@linux-foundation.org, Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:46494 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbZFVRVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 13:21:05 -0400
-Received: by bwz9 with SMTP id 9so3328560bwz.37
-        for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 10:21:04 -0700 (PDT)
+Received: from bombadil.infradead.org ([18.85.46.34]:52861 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545AbZFVSEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 14:04:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20090622170327.GA14673@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 01:03:27PM -0400, Neil Horman wrote:
-> On Mon, Jun 22, 2009 at 06:51:45PM +0200, Jarek Poplawski wrote:
-> > On Mon, Jun 22, 2009 at 11:23:14AM -0400, Neil Horman wrote:
-> > > Hey all-
-> > > 	As we've been discussing recently, There are a few bugs with routing if
-> > > we exceed our route cache rebuild count, and subsequently disable route caching.
-> > > An oops was reported to me, which has been subsequently fixed, and then
-> > > subsequently a route cache leak and failure to forward frames was reported to me
-> > > when rt_caching returns false.  I've reproduced these on a local system, and
-> > > tracked down the cause.  This patch fixes both of these problems for me on my
-> > > test system.
-> > > 
-> > > 
-> > >     Ensure that route cache entries are usable and reclaimable when caching is off
-> > >     
-> > >     When route caching is disabled (rt_caching returns false), We still use route
-> > >     cache entries that are created and passed into rt_intern_hash once.  These
-> > >     routes need to be made usable for the one call path that holds a reference to
-> > >     them, and they need to be reclaimed when they're finished with their use.  To be
-> > >     made usable, they need to be associated with a neighbor table entry (which they
-> > >     currently are not), otherwise iproute_finish2 just discards the packet, since we
-> > >     don't know which L2 peer to send the packet to.  To do this binding, we need to
-> > >     follow the path a bit higher up in rt_intern_hash, which calls
-> > >     arp_bind_neighbour, but not assign the route entry to the hash table.
-> > >     Currently, if caching is off, we simply assign the route to the rp pointer and
-> > >     are reutrn success.  This patch associates us with a neighbor entry first.
-> > >     
-> > >     Secondly, we need to make sure that any single use routes like this are known to
-> > >     the garbage collector when caching is off.  If caching is off, and we try to
-> > >     hash in a route, it will leak when its refcount reaches zero.  To avoid this,
-> > >     this patch calls rt_free on the route cache entry passed into rt_intern_hash.
-> > >     This places us on the gc list for the route cache garbage collector, so that
-> > >     when its refcount reaches zero, it will be reclaimed (Thanks to Alexey for this
-> > >     suggestion).
-> > >     
-> > >     I've tested this on a local system here, and with these patches in place, I'm
-> > >     able to maintain routed connectivity to remote systems, even if I set
-> > >     /proc/sys/net/ipv4/rt_cache_rebuild_count to -1, which forces rt_caching to
-> > >     return false.
-> > >     
-> > >     Best
-> > >     Neil
-> > >     
-> > >     Signed-off-by: Neil Horman <nhorman@redhat.com>
-> > >     Reported-by: Jarek Poplawski <jarkao2@gmail.com>
-> > >     Reported-by: Maxime Bizon <mbizon@freebox.fr>
-> > > 
-> > > 
-> > >  route.c |   44 ++++++++++++++++++++++++++------------------
-> > >  1 file changed, 26 insertions(+), 18 deletions(-)
-> > > 
-> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > index 65b3a8b..4b21513 100644
-> > > --- a/net/ipv4/route.c
-> > > +++ b/net/ipv4/route.c
-> > > @@ -1076,6 +1076,7 @@ static int rt_intern_hash(unsigned hash, struct rtable *rt,
-> > >  	u32 		min_score;
-> > >  	int		chain_length;
-> > >  	int attempts = !in_softirq();
-> > > +	int caching = rt_caching(dev_net(rt->u.dst.dev));
-> > >  
-> > >  restart:
-> > >  	chain_length = 0;
-> > > @@ -1084,7 +1085,7 @@ restart:
-> > >  	candp = NULL;
-> > >  	now = jiffies;
-> > >  
-> > > -	if (!rt_caching(dev_net(rt->u.dst.dev))) {
-> > > +	if (!caching) {
-> > >  		/*
-> > >  		 * If we're not caching, just tell the caller we
-> > >  		 * were successful and don't touch the route.  The
-> > > @@ -1093,8 +1094,12 @@ restart:
-> > >  		 * If we drop it here, the callers have no way to resolve routes
-> > >  		 * when we're not caching.  Instead, just point *rp at rt, so
-> > >  		 * the caller gets a single use out of the route
-> > > +		 * Note that we do rt_free on this new route entry, so that
-> > > +		 * once its refcount hits zero, we are still able to reap it
-> > > +		 * (Thanks Alexey)
-> > 
-> > I hope Alexey Dobriyan won't be confused... 
-> > 
-> > >  		 */
-> > > -		goto report_and_exit;
-> > > +		rt_free(rt);
-> > 
-> > To save some coulds & woulds in the future I'd(!) prefer here
-> > dst_free() yet.
-> Not sure I see the advantage.  The path winds up being the same regardless, the
-> typing matches up with the rt_free call, and by using the RCU path we are given
-> the possibility to batch a bunch of spinlocks in the cache at an RCU quiesence
-> point.
+This is losely based on previous discussions on linux-kernel [1][2][3].
+Lets also refer people reading the stable rules to
+Documentation/development-process/.
 
-IMHO it's simply misleading. I don't think call_rcu() is a proper way
-to improve cache performance.
+Also add the number of days it has taken between releases,
+and provide the average for the last 10 releases: 86.0 days.
 
-> 
-> 
-> > 
-> > > +		goto skip_hashing;
-> > 
-> > Aren't we jumping over a spin_lock here?
-> > 
-> We are jumping over a spinlock, both the acquire and release, which is exactly
-> what we want, since when rt_caching returns false, we're not adding the route
-> cache entry into the hash table, which is what that lock protects.
+[1] http://marc.info/?l=linux-kernel&m=122048427801324&w=2
+[2] http://marc.info/?l=linux-netdev&m=122048757705315&w=2
+[3] http://marc.info/?l=linux-kernel&m=124515657407679&w=2
 
-+skip_hashing:
->  	if (rt->rt_type == RTN_UNICAST || rt->fl.iif == 0) {
->  		int err = arp_bind_neighbour(&rt->u.dst);
->  		if (err) {
+Signed-off-by: Luis R. Rodriguez <lrodriguez@atheros.com>
+---
 
-Even if (err) is impossible here with skip_hashing I think it's
-_extremely_ unreadable. Why can't we inline these lines in the above
-'if (!caching)' block and save one such if later?
+OK PATCH form now based on all the feedback.
 
-Jarek P.
+ Documentation/development-process/2.Process |  121 ++++++++++++++++++++++++--
+ Documentation/stable_kernel_rules.txt       |    5 +
+ 2 files changed, 116 insertions(+), 10 deletions(-)
+
+diff --git a/Documentation/development-process/2.Process b/Documentation/development-process/2.Process
+index d750321..41a05ed 100644
+--- a/Documentation/development-process/2.Process
++++ b/Documentation/development-process/2.Process
+@@ -7,20 +7,121 @@ course of one year, the kernel has since had to evolve a number of
+ processes to keep development happening smoothly.  A solid understanding of
+ how the process works is required in order to be an effective part of it.
+ 
++2.0:SUMMARY
++
++This section provides a brief summary of the kernel release rules.
++
++2.0.0: KERNEL RELEASE RULES
++
++Stable kernels are released when they are ready! This means there are
++absolutely no strict guidelines for sticking to specific dates for a
++kernel release.
++
++2.0.1: MERGE WINDOW
++
++The merge window opens up after the next stable kernel is released.
++The merge window is when maintainers of different subsystems send pull
++requests to Linus for code they have been queuing up for the next
++stable kernel. This is typically now done through respective
++foo-next-2.6.git trees where foo is your subsystem. Each maintainer
++queues up patches for the next kernel cycle in this foo-next-2.6.git
++tree. After the merge window the kernel is worked on through the
++rc-series of the kernel release. The merge window closes at the first
++rc-series release.
++
++After a maintainer has sent his pull request to Linus during the merge
++window no further new development will be accepted for that tree and
++as such it marks the closure of development for that subsystem for that
++kernel cycle.
++
++Developers wishing to target deadlines should simply work on their development
++without regards or consideration for inclusion to a specific kernel release.
++Once development is done it should simply be posted. If you insist on targeting
++a kernel release for deadlines you can try to be aware of the current rc cycle 
++development and how soon it seems the next stable kernel release will be made.
++
++A good indication of when the next stable kernel release will be made is when
++Linus notes the last rc cycle released may be the last. By this time you
++should already have all your development done and merged in the respective
++development tree. If your code is not ready and merged into the respective
++maintainers tree prior to the announced last potential rc kernel release
++chances are you missed getting your code in for the next kernel merge window.
++Exemptions here are new drivers, covered below.
++
++2.0.2: RC-SERIES RULES
++
++This section summarizes what kind of patches are accepted before the merge
++window closes and after it closes. These patches are targeted for the kernel
++prior to its final release.
++
++The rc-series focus should really be to address regressions.
++
++2.0.2.0: RC-SERIES RULES PRIOR TO THE RC1 RELEASE
++
++These are the types of patches that will get accepted prior to a kernel rc1 release,
++during the merge window:
++
++ - it must fix a regression
++ - it must fix a security hole
++ - it must fix a oops/kernel hang
++
++Non-intrusive bug fixes or small fixes will not be accepted. If the patch in
++question is for a driver that has been around for more than a kernel release,
++then "small fixes" really can't be worth all that much. And "small fixes" may
++be small and "obvious" they definitely can regress.
++
++When in doubt consult with your subsystem maintainer or just allow him to
++do the judging of where the patches deserves to go to, a proper commit log
++should help with this effort.
++
++2.0.2.1: RC-SERIES RULES AFTER THE RC1 RELEASE
++
++There are no more merges after the rc1 release.
++
++The same type of patches are accepted after the rc1 release with the addition
++of non-intrusive bug fix patches. Non-intrusive bug fixes must be important
++and address very clearly the bug they are fixing. Non-intrusive bug fixes
++can fix issues which are not a regression, security hole or a kernel oops/hang.
++
++Non-intrusive bug fix patches will not be accepted late in the rc-series, after
++the rc5, for example.
++
++You should not take it for granted non-intrusive bug fixes will always be accepted.
++Ultimately it is up to the subsystem maintainers to decide whether to accept such a fix
++or not, which is why your commit log entry is very important. You want to provide as
++much detail as is posisible in order to help maintainers make the right call.
++
++2.0.3 RC-SERIES NEW DRIVER EXEMPTION RULE
++
++The very first release a new driver or filesystem is special. New drivers
++are accepted during the rc series. Patches for the same driver then are
++also accepted during the same rc series of a kernel as well as fixes for it
++cannot regress as no previous kernels exists with it.
++
++Once drivers are upstream for one kernel release (say on 2.6.29) the target
++*goal* after the merge window of the next kernel (respectively this would be
++the 2.6.30 rc-series) is to address regressions. Kernel oops/hangs and security
++issues are obviously accepted but the point is these should have also been
++caught earlier as a general development goal.
+ 
+ 2.1: THE BIG PICTURE
+ 
+ The kernel developers use a loosely time-based release process, with a new
+-major kernel release happening every two or three months.  The recent
+-release history looks like this:
+-
+-	2.6.26	July 13, 2008
+-	2.6.25	April 16, 2008
+-	2.6.24	January 24, 2008
+-	2.6.23	October 9, 2007
+-	2.6.22	July 8, 2007
+-	2.6.21	April 25, 2007
+-	2.6.20	February 4, 2007
++major kernel release happening about every two or three months. The current
++average time based on the last 10 releases is 86.0 days. The recent release
++history along with the number of days between each release looks like this:
++
++	2.6.30	June 10, 2009 - 78 days
++	2.6.29  March 23, 2009 - 89 days
++	2.6.28	December 29, 2008 - 76 days
++	2.6.27	October 8, 2008 - 88 days
++	2.6.26	July 13, 2008 - 88 days
++	2.6.25	April 16, 2008 - 83 days
++	2.6.24	January 24, 2008 - 108 days
++	2.6.23	October 9, 2007 - 94 days
++	2.6.22	July 8, 2007 - 75 days
++	2.6.21	April 25, 2007 - 81 days
++	2.6.20	February 4, 2007 - 68
+ 
+ Every 2.6.x release is a major kernel release with new features, internal
+ API changes, and more.  A typical 2.6 release can contain over 10,000
+diff --git a/Documentation/stable_kernel_rules.txt b/Documentation/stable_kernel_rules.txt
+index a452227..113e8c8 100644
+--- a/Documentation/stable_kernel_rules.txt
++++ b/Documentation/stable_kernel_rules.txt
+@@ -1,5 +1,10 @@
+ Everything you ever wanted to know about Linux 2.6 -stable releases.
+ 
++For further details, such as stable kernel release schedules, rc-series
++policies and process of development please refer to:
++
++Documentation/development-process/
++
+ Rules on what kind of patches are accepted, and which ones are not, into the
+ "-stable" tree:
+ 
+-- 
+1.6.3.1
 
