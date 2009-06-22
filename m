@@ -1,76 +1,145 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] fix NULL pointer + success return in route lookup path
-Date: Mon, 22 Jun 2009 12:18:53 +0000
-Message-ID: <20090622121853.GC6994@ff.dom.local>
-References: <20090621171141.GA2893@localhost.localdomain> <20090622054315.GA4928@ff.dom.local> <20090622085950.GA26598@ms2.inr.ac.ru> <20090622110023.GA6994@ff.dom.local> <20090622110819.GB13043@hmsreliant.think-freely.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: problem with 'net: Partially allow skb destructors to be used
+	on receive path'
+Date: Mon, 22 Jun 2009 20:25:25 +0800
+Message-ID: <20090622122525.GA24481@gondor.apana.org.au>
+References: <4A3CE170.8030604@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mbizon@freebox.fr, dada1@cosmosbay.com, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Oliver Hartkopp <oliver@hartkopp.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.157]:43412 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233AbZFVMS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 08:18:57 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so533682fga.17
-        for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 05:18:58 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:57913 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751506AbZFVMZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 08:25:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20090622110819.GB13043@hmsreliant.think-freely.org>
+In-Reply-To: <4A3CE170.8030604@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 07:08:19AM -0400, Neil Horman wrote:
-> On Mon, Jun 22, 2009 at 11:00:23AM +0000, Jarek Poplawski wrote:
-> > On Mon, Jun 22, 2009 at 12:59:50PM +0400, Alexey Kuznetsov wrote:
-> > > On Mon, Jun 22, 2009 at 05:43:15AM +0000, Jarek Poplawski wrote:
-> > > > Maybe it can work, but it needs a thorough checking now and adds a new
-> > > > code path to track later while looking for bugs. So, I wonder if it's
-> > > > not better to link such dsts in rt_intern_hash anyway, probably as a
-> > > > separate list, scanned only for expired entries.
-> > > 
-> > > Such a list already exists, it is gc list in core/dst.c.
-> > > 
-> > > The fix to the problem could be replacing rt_drop() with rt_free()
-> > > (adding rt_free() after the patch, which deleted rt_drop()), something like:
-> > > 
-> > > 	if (!rt_caching(dev_net(rt->u.dst.dev))) {
-> > > 		/* ..... */
-> > > +		rt_free(rt);
-> > > 		goto report_and_exit;
-> > > 	}
-> > > 
-> > > rt_free() will put the route on that gc list and it will be releases
-> > > as soon as refcnt becomes 0.
-> > 
-> > One little doubt would be RCU: if it's currently used in rt_free, and
-> > some code depends on it, there would be a change: rt could be freed
-> > just after atomic dec, without waiting for RCU yet. The second one is
+On Sat, Jun 20, 2009 at 03:17:36PM +0200, Oliver Hartkopp wrote:
+> Hello Herbert,
 > 
-> Not sure that I see the concern.  How are we going to call dst_rcu_free without
-> waiting for a quiesence of the use of this route?  When it enters rt_intern_hash
-> is use count is one, and if we call rt_free in this case, we are guaranteeing
-> that this path is the only user (no one else will be able to get a reference to
-> it as they can't look it up in the cache).  Once the route is dropped at the end
-> of this route lookup, its use is over and the garbage collector will reap it.
-
-The main question is where this RCU is really needed? (I guess not in
-route cache, which controls moving it to dst gc.) If it's not necessary
-like Alexey wrote, then this change doesn't matter.
-
+> i got a feedback on the SocketCAN users ML from Michel Marti that the can-raw
+> socket option CAN_RAW_RECV_OWN_MSGS is out of order since 2.6.30.
 > 
-> > about timing: freeing this always from a workqueue could probably
-> > make a problem if softirqs are often disabled.
-> > 
-> You mean often, or permanently?  If softirqs are often disabled, thats no big
-> deal, as long as they are enabled at least sometimes, the garbage colelctor will
-> run, and we'll be ok.  If softirqs are disabled permanently (or for sufficiently
-> long periods that we gather huge number of routes waiting to be reaped), I think
-> we have larger problems on our hands
+> https://lists.berlios.de/pipermail/socketcan-users/2009-June/000959.html
 
-If there is a lot of new skbs per napi and a workqueue code triggered
-later there could be problem with getting this memory back on time.
+OK this patch should fix the problem.
 
-Jarek P.
+net: Move rx skb_orphan call to where needed
+
+In order to get the tun driver to account packets, we need to be
+able to receive packets with destructors set.  To be on the safe
+side, I added an skb_orphan call for all protocols by default since
+some of them (IP in particular) cannot handle receiving packets
+destructors properly.
+
+Now it seems that at least one protocol (CAN) expects to be able
+to pass skb->sk through the rx path without getting clobbered.
+
+So this patch attempts to fix this properly by moving the skb_orphan
+call to where it's actually needed.  In particular, I've added it
+to skb_set_owner_[rw] which is what most users of skb->destructor
+call.
+
+This is actually an improvement for tun too since it means that
+we only give back the amount charged to the socket when the skb
+is passed to another socket that will also be charged accordingly.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 9f80a76..d16a304 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -448,6 +448,7 @@ static inline void sctp_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
+ 	struct sctp_ulpevent *event = sctp_skb2event(skb);
+ 
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sctp_sock_rfree;
+ 	atomic_add(event->rmem_len, &sk->sk_rmem_alloc);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 07133c5..352f06b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1252,6 +1252,7 @@ static inline int sk_has_allocations(const struct sock *sk)
+ 
+ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ {
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sock_wfree;
+ 	/*
+@@ -1264,6 +1265,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ 
+ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sock_rfree;
+ 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+index 5f1d210..de56d39 100644
+--- a/net/ax25/ax25_in.c
++++ b/net/ax25/ax25_in.c
+@@ -437,8 +437,7 @@ free:
+ int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		  struct packet_type *ptype, struct net_device *orig_dev)
+ {
+-	skb->sk = NULL;		/* Initially we don't know who it's for */
+-	skb->destructor = NULL;	/* Who initializes this, dammit?! */
++	skb_orphan(skb);
+ 
+ 	if (!net_eq(dev_net(dev), &init_net)) {
+ 		kfree_skb(skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index baf2dc1..60b5728 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2310,8 +2310,6 @@ ncls:
+ 	if (!skb)
+ 		goto out;
+ 
+-	skb_orphan(skb);
+-
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 5922feb..cb762c8 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -913,9 +913,6 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
+ 	/* Clean up the original one to keep it in listen state */
+ 	irttp_listen(self->tsap);
+ 
+-	/* Wow ! What is that ? Jean II */
+-	skb->sk = NULL;
+-	skb->destructor = NULL;
+ 	kfree_skb(skb);
+ 	sk->sk_ack_backlog--;
+ 
+diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
+index 67c99d2..7ba9661 100644
+--- a/net/irda/ircomm/ircomm_lmp.c
++++ b/net/irda/ircomm/ircomm_lmp.c
+@@ -196,6 +196,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
+ 	/* Don't forget to refcount it - see ircomm_tty_do_softint() */
+ 	skb_get(skb);
+ 
++	skb_orphan(skb);
+ 	skb->destructor = ircomm_lmp_flow_control;
+ 
+ 	if ((self->pkt_count++ > 7) && (self->flow_status == FLOW_START)) {
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
