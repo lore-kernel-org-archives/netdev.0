@@ -1,145 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: problem with 'net: Partially allow skb destructors to be used
-	on receive path'
-Date: Mon, 22 Jun 2009 20:25:25 +0800
-Message-ID: <20090622122525.GA24481@gondor.apana.org.au>
-References: <4A3CE170.8030604@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Oliver Hartkopp <oliver@hartkopp.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57913 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751506AbZFVMZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 08:25:28 -0400
-Content-Disposition: inline
-In-Reply-To: <4A3CE170.8030604@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/07: netfilter fixes
+Date: Mon, 22 Jun 2009 14:53:49 +0200 (MEST)
+Message-ID: <20090622125349.6531.35515.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 20, 2009 at 03:17:36PM +0200, Oliver Hartkopp wrote:
-> Hello Herbert,
-> 
-> i got a feedback on the SocketCAN users ML from Michel Marti that the can-raw
-> socket option CAN_RAW_RECV_OWN_MSGS is out of order since 2.6.30.
-> 
-> https://lists.berlios.de/pipermail/socketcan-users/2009-June/000959.html
+Hi Dave,
 
-OK this patch should fix the problem.
+the following patches fix a number of netfilter bugs:
 
-net: Move rx skb_orphan call to where needed
+- a conntrack race condition in death_by_timeout() when moving dying entries
+  to the dying list. Fix from Eric Dumazet.
 
-In order to get the tun driver to account packets, we need to be
-able to receive packets with destructors set.  To be on the safe
-side, I added an skb_orphan call for all protocols by default since
-some of them (IP in particular) cannot handle receiving packets
-destructors properly.
+- a conntrack confirmation race condition that might lead to new conntrack
+  entries becoming visible before they are fully set up.
 
-Now it seems that at least one protocol (CAN) expects to be able
-to pass skb->sk through the rx path without getting clobbered.
+- a conntrack lookup race condition that might lead to deleted conntrack
+  entries being returned
 
-So this patch attempts to fix this properly by moving the skb_orphan
-call to where it's actually needed.  In particular, I've added it
-to skb_set_owner_[rw] which is what most users of skb->destructor
-call.
+- some sparse endianess fixes
 
-This is actually an improvement for tun too since it means that
-we only give back the amount charged to the socket when the skb
-is passed to another socket that will also be charged accordingly.
+- a fix for the nf_log proc handler, which is accessing userspace memory directly
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+- an incomplete initialization in the quota match, fix from Jan Engelhardt
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 9f80a76..d16a304 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -448,6 +448,7 @@ static inline void sctp_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- {
- 	struct sctp_ulpevent *event = sctp_skb2event(skb);
- 
-+	skb_orphan(skb);
- 	skb->sk = sk;
- 	skb->destructor = sctp_sock_rfree;
- 	atomic_add(event->rmem_len, &sk->sk_rmem_alloc);
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 07133c5..352f06b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1252,6 +1252,7 @@ static inline int sk_has_allocations(const struct sock *sk)
- 
- static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
- {
-+	skb_orphan(skb);
- 	skb->sk = sk;
- 	skb->destructor = sock_wfree;
- 	/*
-@@ -1264,6 +1265,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
- 
- static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- {
-+	skb_orphan(skb);
- 	skb->sk = sk;
- 	skb->destructor = sock_rfree;
- 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
-diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
-index 5f1d210..de56d39 100644
---- a/net/ax25/ax25_in.c
-+++ b/net/ax25/ax25_in.c
-@@ -437,8 +437,7 @@ free:
- int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
- 		  struct packet_type *ptype, struct net_device *orig_dev)
- {
--	skb->sk = NULL;		/* Initially we don't know who it's for */
--	skb->destructor = NULL;	/* Who initializes this, dammit?! */
-+	skb_orphan(skb);
- 
- 	if (!net_eq(dev_net(dev), &init_net)) {
- 		kfree_skb(skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index baf2dc1..60b5728 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2310,8 +2310,6 @@ ncls:
- 	if (!skb)
- 		goto out;
- 
--	skb_orphan(skb);
--
- 	type = skb->protocol;
- 	list_for_each_entry_rcu(ptype,
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 5922feb..cb762c8 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -913,9 +913,6 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
- 	/* Clean up the original one to keep it in listen state */
- 	irttp_listen(self->tsap);
- 
--	/* Wow ! What is that ? Jean II */
--	skb->sk = NULL;
--	skb->destructor = NULL;
- 	kfree_skb(skb);
- 	sk->sk_ack_backlog--;
- 
-diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
-index 67c99d2..7ba9661 100644
---- a/net/irda/ircomm/ircomm_lmp.c
-+++ b/net/irda/ircomm/ircomm_lmp.c
-@@ -196,6 +196,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
- 	/* Don't forget to refcount it - see ircomm_tty_do_softint() */
- 	skb_get(skb);
- 
-+	skb_orphan(skb);
- 	skb->destructor = ircomm_lmp_flow_control;
- 
- 	if ((self->pkt_count++ > 7) && (self->flow_status == FLOW_START)) {
+- an incorrect comparison in the rateest match
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
+
+
+ net/netfilter/nf_conntrack_core.c |   25 ++++++++++++++++++++-----
+ net/netfilter/nf_log.c            |   16 +++++++++++-----
+ net/netfilter/xt_NFQUEUE.c        |    8 ++++----
+ net/netfilter/xt_cluster.c        |    8 ++++----
+ net/netfilter/xt_quota.c          |    1 +
+ net/netfilter/xt_rateest.c        |    2 +-
+ 6 files changed, 41 insertions(+), 19 deletions(-)
+
+Eric Dumazet (1):
+      netfilter: nf_conntrack: death_by_timeout() fix
+
+Jan Engelhardt (1):
+      netfilter: xt_quota: fix incomplete initialization
+
+Patrick McHardy (5):
+      netfilter: nf_conntrack: fix confirmation race condition
+      netfilter: nf_conntrack: fix conntrack lookup race
+      netfilter: fix some sparse endianess warnings
+      netfilter: nf_log: fix direct userspace memory access in proc handler
+      netfilter: xt_rateest: fix comparison with self
