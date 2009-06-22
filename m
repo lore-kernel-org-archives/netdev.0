@@ -1,46 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
-	queueing an extra skb.
-Date: Mon, 22 Jun 2009 15:34:17 +0800
-Message-ID: <20090622073417.GA21698@gondor.apana.org.au>
-References: <200905292346.04815.rusty@rustcorp.com.au> <200906181647.51045.rusty@rustcorp.com.au> <20090618073422.GA4087@gondor.apana.org.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au> <OF1B3705AA.30E31D1D-ON652575DD.001F2CCD-652575DD.001FAE94@in.ibm.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [QUESTION] About IPv6 flowlabel in a TCP IPv6 Server
+Date: Mon, 22 Jun 2009 11:45:40 +0300
+Message-ID: <200906221145.40481.remi.denis-courmont@nokia.com>
+References: <4A36F751.6070306@atr.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: ext Kengo Sakai <kengo.sakai@atr.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51318 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751002AbZFVHe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 03:34:27 -0400
+Received: from smtp.nokia.com ([192.100.122.233]:49837 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752995AbZFVIoS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 04:44:18 -0400
+In-Reply-To: <4A36F751.6070306@atr.jp>
 Content-Disposition: inline
-In-Reply-To: <OF1B3705AA.30E31D1D-ON652575DD.001F2CCD-652575DD.001FAE94@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 11:16:03AM +0530, Krishna Kumar2 wrote:
->
-> I was curious about "queueing it in the driver" part: why is this bad? Do
-> you
-> anticipate any performance problems, or does it break QoS, or something
-> else I
-> have missed?
 
-Queueing it in the driver is bad because it is no different than
-queueing it at the upper layer, which is what will happen when
-you return TX_BUSY.
+	Hello Kengo-san,
 
-Because we've ripped out the qdisc requeueing logic (which is
-horribly complex and only existed because of TX_BUSY), it means
-that higher priority packets cannot preempt a packet that is queued
-in this way.
+On Tuesday 16 June 2009 04:37:21 ext Kengo Sakai wrote:
+> 2) Can a flowlabel be set to a sending packet in a TCP IPv6 Server?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I don't understand your question. To me, you cannot send "packets", at =
+least=20
+not directly, via TCP sockets in the first place. Userland pushes data =
+to the=20
+kernel buffers, and those buffers are segmented in some opaque (from us=
+erland)=20
+way. There is certainly no 1:1 matching of send() calls to packets.
+
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
+
