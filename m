@@ -1,126 +1,101 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ipv4 routing: Fixes to allow route cache entries to
-	work when route caching is disabled
-Date: Mon, 22 Jun 2009 13:03:27 -0400
-Message-ID: <20090622170327.GA14673@hmsreliant.think-freely.org>
-References: <20090622152314.GB14359@hmsreliant.think-freely.org> <20090622165145.GA2737@ami.dom.local>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: [PATCH] r8169: add phy_reset parameter
+Date: Mon, 22 Jun 2009 18:13:18 +0100
+Message-ID: <4A3FBBAE.6010005@simon.arlott.org.uk>
+References: <4A3E7FC5.6060400@simon.arlott.org.uk> <20090621.142930.251405926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, mbizon@freebox.fr
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40017 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148AbZFVRDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 13:03:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20090622165145.GA2737@ami.dom.local>
+Received: from proxima.lp0.eu ([81.2.80.65]:48746 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752744AbZFVRNR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jun 2009 13:13:17 -0400
+In-Reply-To: <20090621.142930.251405926.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 06:51:45PM +0200, Jarek Poplawski wrote:
-> On Mon, Jun 22, 2009 at 11:23:14AM -0400, Neil Horman wrote:
-> > Hey all-
-> > 	As we've been discussing recently, There are a few bugs with routing if
-> > we exceed our route cache rebuild count, and subsequently disable route caching.
-> > An oops was reported to me, which has been subsequently fixed, and then
-> > subsequently a route cache leak and failure to forward frames was reported to me
-> > when rt_caching returns false.  I've reproduced these on a local system, and
-> > tracked down the cause.  This patch fixes both of these problems for me on my
-> > test system.
-> > 
-> > 
-> >     Ensure that route cache entries are usable and reclaimable when caching is off
-> >     
-> >     When route caching is disabled (rt_caching returns false), We still use route
-> >     cache entries that are created and passed into rt_intern_hash once.  These
-> >     routes need to be made usable for the one call path that holds a reference to
-> >     them, and they need to be reclaimed when they're finished with their use.  To be
-> >     made usable, they need to be associated with a neighbor table entry (which they
-> >     currently are not), otherwise iproute_finish2 just discards the packet, since we
-> >     don't know which L2 peer to send the packet to.  To do this binding, we need to
-> >     follow the path a bit higher up in rt_intern_hash, which calls
-> >     arp_bind_neighbour, but not assign the route entry to the hash table.
-> >     Currently, if caching is off, we simply assign the route to the rp pointer and
-> >     are reutrn success.  This patch associates us with a neighbor entry first.
-> >     
-> >     Secondly, we need to make sure that any single use routes like this are known to
-> >     the garbage collector when caching is off.  If caching is off, and we try to
-> >     hash in a route, it will leak when its refcount reaches zero.  To avoid this,
-> >     this patch calls rt_free on the route cache entry passed into rt_intern_hash.
-> >     This places us on the gc list for the route cache garbage collector, so that
-> >     when its refcount reaches zero, it will be reclaimed (Thanks to Alexey for this
-> >     suggestion).
-> >     
-> >     I've tested this on a local system here, and with these patches in place, I'm
-> >     able to maintain routed connectivity to remote systems, even if I set
-> >     /proc/sys/net/ipv4/rt_cache_rebuild_count to -1, which forces rt_caching to
-> >     return false.
-> >     
-> >     Best
-> >     Neil
-> >     
-> >     Signed-off-by: Neil Horman <nhorman@redhat.com>
-> >     Reported-by: Jarek Poplawski <jarkao2@gmail.com>
-> >     Reported-by: Maxime Bizon <mbizon@freebox.fr>
-> > 
-> > 
-> >  route.c |   44 ++++++++++++++++++++++++++------------------
-> >  1 file changed, 26 insertions(+), 18 deletions(-)
-> > 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 65b3a8b..4b21513 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -1076,6 +1076,7 @@ static int rt_intern_hash(unsigned hash, struct rtable *rt,
-> >  	u32 		min_score;
-> >  	int		chain_length;
-> >  	int attempts = !in_softirq();
-> > +	int caching = rt_caching(dev_net(rt->u.dst.dev));
-> >  
-> >  restart:
-> >  	chain_length = 0;
-> > @@ -1084,7 +1085,7 @@ restart:
-> >  	candp = NULL;
-> >  	now = jiffies;
-> >  
-> > -	if (!rt_caching(dev_net(rt->u.dst.dev))) {
-> > +	if (!caching) {
-> >  		/*
-> >  		 * If we're not caching, just tell the caller we
-> >  		 * were successful and don't touch the route.  The
-> > @@ -1093,8 +1094,12 @@ restart:
-> >  		 * If we drop it here, the callers have no way to resolve routes
-> >  		 * when we're not caching.  Instead, just point *rp at rt, so
-> >  		 * the caller gets a single use out of the route
-> > +		 * Note that we do rt_free on this new route entry, so that
-> > +		 * once its refcount hits zero, we are still able to reap it
-> > +		 * (Thanks Alexey)
+On 21/06/09 22:29, David Miller wrote:
+> From: Simon Arlott <simon@fire.lp0.eu>
+> Date: Sun, 21 Jun 2009 19:45:25 +0100
 > 
-> I hope Alexey Dobriyan won't be confused... 
+>> When booting over the network the physical link will already be up
+>> and configured appropriately, so there is no need to reset it and
+>> cause auto-negotiation to occur again. Adding an option to disable
+>> this makes it possible to avoid a 2 second delay while booting.
+>> 
+>> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 > 
-> >  		 */
-> > -		goto report_and_exit;
-> > +		rt_free(rt);
-> 
-> To save some coulds & woulds in the future I'd(!) prefer here
-> dst_free() yet.
-Not sure I see the advantage.  The path winds up being the same regardless, the
-typing matches up with the rt_free call, and by using the RCU path we are given
-the possibility to batch a bunch of spinlocks in the cache at an RCU quiesence
-point.
+> This is getting out of control.
 
+I'll look into getting ipconfig to detect link up notifications so its
+sleep()s can then just be removed...
 
-> 
-> > +		goto skip_hashing;
-> 
-> Aren't we jumping over a spin_lock here?
-> 
-We are jumping over a spinlock, both the acquire and release, which is exactly
-what we want, since when rt_caching returns false, we're not adding the route
-cache entry into the hash table, which is what that lock protects.
+> We're not going to add a hundred different obscure module options to
+> eliminate delays and device resets.
 
-Neil
+What about detecting link up before calling rtl8169_phy_reset instead?
 
+I've tried not resetting the PHY but still setting the speed to auto
+1000-FD, however this still resets the link.
+
+The downside is that the speed won't be reset if the link is up while
+booting. This may actually be desirable but it's not the current
+behaviour. It could be possible to check if the speed is already set
+to auto 1000-FD, although as the comment setting it indicates, the
+8101 is a special case.
+
+On my system the PHY/link speed is also getting reset by the boot ROM,
+so I can't check that any change would be persisted.
+
+This works ok for me:
+[    0.469009] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    0.469134]   alloc irq_desc for 18 on node -1
+[    0.469143]   alloc kstat_irqs on node -1
+[    0.469164] r8169 0000:00:09.0: PCI INT A -> GSI 18 (level, low) -> IRQ 18
+[    0.469315] r8169 0000:00:09.0: no PCI Express capability
+[    0.470354] eth0: RTL8169sc/8110sc at 0xbf700000, 00:30:18:b0:25:c2, XID 18000000 IRQ 18
+[    0.470498] r8169: eth0: PHY reset skipped (link up)
+[    0.470606] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    0.470719]   alloc irq_desc for 19 on node -1
+[    0.470728]   alloc kstat_irqs on node -1
+[    0.470742] r8169 0000:00:0b.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
+[    0.470875] r8169 0000:00:0b.0: no PCI Express capability
+[    0.471870] eth1: RTL8169sc/8110sc at 0xbf704000, 00:30:18:b0:25:c3, XID 18000000 IRQ 19
+(eth1 has no link)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 4e22462..ae3e174 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1798,13 +1798,18 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ 		mdio_write(ioaddr, 0x0b, 0x0000); //w 0x0b 15 0 0
+ 	}
+ 
+-	rtl8169_phy_reset(dev, tp);
++	/* Reset PHY/speed only if the link is not already up. */
++	if (tp->link_ok(ioaddr)) {
++		printk(KERN_INFO PFX "%s: PHY reset skipped (link up)\n", dev->name);
++	} else {
++		rtl8169_phy_reset(dev, tp);
+ 
+-	/*
+-	 * rtl8169_set_speed_xmii takes good care of the Fast Ethernet
+-	 * only 8101. Don't panic.
+-	 */
+-	rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL);
++		/*
++		 * rtl8169_set_speed_xmii takes good care of the Fast Ethernet
++		 * only 8101. Don't panic.
++		 */
++		rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL);
++	}
+ 
+ 	if ((RTL_R8(PHYstatus) & TBI_Enable) && netif_msg_link(tp))
+ 		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
+
+-- 
+Simon Arlott
