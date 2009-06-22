@@ -1,116 +1,103 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ipv4 routing: Fixes to allow route cache entries to
-	work when route caching is disabled
-Date: Mon, 22 Jun 2009 16:18:53 -0400
-Message-ID: <20090622201853.GA16295@hmsreliant.think-freely.org>
-References: <20090622152314.GB14359@hmsreliant.think-freely.org> <20090622165145.GA2737@ami.dom.local> <20090622170327.GA14673@hmsreliant.think-freely.org> <20090622172051.GB2737@ami.dom.local> <20090622183955.GC14673@hmsreliant.think-freely.org> <20090622195712.GC2737@ami.dom.local>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH] profile: Suppress warning about large allocations when
+	profile=1 is specified
+Date: Mon, 22 Jun 2009 14:00:15 -0300
+Message-ID: <20090622170015.GC18558@ghostprotocols.net>
+References: <200906162232.n5GMWRZe026963@imap1.linux-foundation.org> <20090616223649.719ea378.akpm@linux-foundation.org> <20090617111800.GA15261@elte.hu> <20090617113120.GA5061@elte.hu> <20090617113534.GA21276@elte.hu> <20090617121913.GC28529@csn.ul.ie> <20090620100932.GA5863@fancy-poultry.org> <20090620195000.GC10878@csn.ul.ie> <20090620214835.GA6528@fancy-poultry.org> <20090622113104.GD3981@csn.ul.ie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, mbizon@freebox.fr
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Heinz Diehl <htd@fancy-poultry.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	torvalds@linux-foundation.org, fengguang.wu@intel.com,
+	Pekka Enberg <penberg@cs.helsinki.fi>,
+	Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>,
+	DCCP Mailing List <dccp@vger.kernel.org>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>
+To: Mel Gorman <mel@csn.ul.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51145 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152AbZFVUS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 16:18:58 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:58008 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750997AbZFVU1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Jun 2009 16:27:16 -0400
 Content-Disposition: inline
-In-Reply-To: <20090622195712.GC2737@ami.dom.local>
+In-Reply-To: <20090622113104.GD3981@csn.ul.ie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, Version 3 of the patch, with Jareks cosmetic changes in place:
+Em Mon, Jun 22, 2009 at 12:31:05PM +0100, Mel Gorman escreveu:
+> On Sat, Jun 20, 2009 at 11:48:35PM +0200, Heinz Diehl wrote:
+> > On 20.06.2009, Mel Gorman wrote: 
+> > 
+> > > I can't figure out from this trace where the problem is coming from. Can
+> > > you post your .config and the full dmesg please?
+> > 
+> > Yes, of course. It's attached.
+> > 
+> 
+> I have no idea why the stack trace is so badly managed but the problem appears
+> to be in DCCP so can you try the patch below please? It applies on top of the
+> profile=1 patch fix. If it works for you, I'll split out the patch properly
+> into three separate patches and repost.
+> 
+> Some questions though
+> 
+> 1. Could DCCP use alloc_large_system_hash()?
 
+Possibly. Ideally this should use whatever TCP is using now, as this
+came more or less intact from there. IIRC it was not shared because TCP
+used/uses alloc routines that were available only at boot time, DCCP
+can't use it because it can be loaded as a module.
 
-Ensure that route cache entries are usable and reclaimable with caching is off
+I'd say go with this patch and later, after FISL (this week) I'll look
+at this again.
 
-When route caching is disabled (rt_caching returns false), We still use route
-cache entries that are created and passed into rt_intern_hash once.  These
-routes need to be made usable for the one call path that holds a reference to
-them, and they need to be reclaimed when they're finished with their use.  To be
-made usable, they need to be associated with a neighbor table entry (which they
-currently are not), otherwise iproute_finish2 just discards the packet, since we
-don't know which L2 peer to send the packet to.  To do this binding, we need to
-follow the path a bit higher up in rt_intern_hash, which calls
-arp_bind_neighbour, but not assign the route entry to the hash table.
-Currently, if caching is off, we simply assign the route to the rp pointer and
-are reutrn success.  This patch associates us with a neighbor entry first.
+So, for the NOWARN bits:
 
-Secondly, we need to make sure that any single use routes like this are known to
-the garbage collector when caching is off.  If caching is off, and we try to
-hash in a route, it will leak when its refcount reaches zero.  To avoid this,
-this patch calls rt_free on the route cache entry passed into rt_intern_hash.
-This places us on the gc list for the route cache garbage collector, so that
-when its refcount reaches zero, it will be reclaimed (Thanks to Alexey for this
-suggestion).
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-I've tested this on a local system here, and with these patches in place, I'm
-able to maintain routed connectivity to remote systems, even if I set
-/proc/sys/net/ipv4/rt_cache_rebuild_count to -1, which forces rt_caching to
-return false.
+Thanks,
 
-Best
-Neil
-
-Signed-off-by: Neil Horman <nhorman@redhat.com>
-Reported-by: Jarek Poplawski <jarkao2@gmail.com>
-Reported-by: Maxime Bizon <mbizon@freebox.fr>
-
-
- route.c |   26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
-
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 65b3a8b..badb536 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1093,8 +1093,27 @@ restart:
- 		 * If we drop it here, the callers have no way to resolve routes
- 		 * when we're not caching.  Instead, just point *rp at rt, so
- 		 * the caller gets a single use out of the route
-+		 * Note that we do rt_free on this new route entry, so that
-+		 * once its refcount hits zero, we are still able to reap it
-+		 * (Thanks Alexey)
-+		 * Note also the rt_free uses call_rcu.  We don't actually
-+		 * need rcu protection here, this is just our path to get
-+		 * on the route gc list.
- 		 */
--		goto report_and_exit;
-+
-+		if (rt->rt_type == RTN_UNICAST || rt->fl.iif == 0) {
-+			int err = arp_bind_neighbour(&rt->u.dst);
-+			if (err) {
-+				if (net_ratelimit())
-+					printk(KERN_WARNING
-+					    "Neighbour table failure & not caching routes.\n");
-+				rt_drop(rt);
-+				return err;
-+			}
-+		}
-+
-+		rt_free(rt);
-+		goto skip_hashing;
- 	}
+- Arnaldo
  
- 	rthp = &rt_hash_table[hash].chain;
-@@ -1211,7 +1230,8 @@ restart:
- #if RT_CACHE_DEBUG >= 2
- 	if (rt->u.dst.rt_next) {
- 		struct rtable *trt;
--		printk(KERN_DEBUG "rt_cache @%02x: %pI4", hash, &rt->rt_dst);
-+		printk(KERN_DEBUG "rt_cache @%02x: %pI4",
-+		       hash, &rt->rt_dst);
- 		for (trt = rt->u.dst.rt_next; trt; trt = trt->u.dst.rt_next)
- 			printk(" . %pI4", &trt->rt_dst);
- 		printk("\n");
-@@ -1226,7 +1246,7 @@ restart:
- 
- 	spin_unlock_bh(rt_hash_lock_addr(hash));
- 
--report_and_exit:
-+skip_hashing:
- 	if (rp)
- 		*rp = rt;
- 	else
+> 2. Any idea why the stack trace for the warning was so useless?
+> 
+> ==== CUT HERE ====
+> dccp: Suppress warning about large allocations from DCCP
+> 
+> The DCCP protocol tries to allocate some large hash tables during
+> initialisation using the largest size possible. The allocator warns if
+> the allocations are too large but the caller is able to handle
+> allocation failure. This patch disables the warnings in the case DCCP
+> requests too large an allocation.
+> 
+> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
+> --- 
+>  net/dccp/proto.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+> index 314a1b5..fd21676 100644
+> --- a/net/dccp/proto.c
+> +++ b/net/dccp/proto.c
+> @@ -1066,7 +1066,7 @@ static int __init dccp_init(void)
+>  		       (dccp_hashinfo.ehash_size - 1))
+>  			dccp_hashinfo.ehash_size--;
+>  		dccp_hashinfo.ehash = (struct inet_ehash_bucket *)
+> -			__get_free_pages(GFP_ATOMIC, ehash_order);
+> +			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, ehash_order);
+>  	} while (!dccp_hashinfo.ehash && --ehash_order > 0);
+>  
+>  	if (!dccp_hashinfo.ehash) {
+> @@ -1091,7 +1091,7 @@ static int __init dccp_init(void)
+>  		    bhash_order > 0)
+>  			continue;
+>  		dccp_hashinfo.bhash = (struct inet_bind_hashbucket *)
+> -			__get_free_pages(GFP_ATOMIC, bhash_order);
+> +			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, bhash_order);
+>  	} while (!dccp_hashinfo.bhash && --bhash_order >= 0);
+>  
+>  	if (!dccp_hashinfo.bhash) {
