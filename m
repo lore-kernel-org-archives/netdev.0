@@ -1,40 +1,31 @@
-From: Dave Jones <davej@redhat.com>
-Subject: [PATCH] Fix velocity driver unmapping incorrect size.
-Date: Sun, 21 Jun 2009 23:37:35 -0400
-Message-ID: <20090622033735.GA9923@redhat.com>
-References: <20090621173745.GC26093@redhat.com> <20090621.184345.194558005.davem@davemloft.net>
+From: Graham Murray <gmurray@webwayone.co.uk>
+Subject: Re: [PATCH 2/9] sky2: more receive shutdown
+Date: Mon, 22 Jun 2009 06:13:02 +0100
+Message-ID: <7wbpogc0m9.fsf@gmdev.webwayone.co.uk>
+References: <20090617173031.703636683@vyatta.com>
+	<20090617173139.582840975@vyatta.com>
+	<7wiqirz89f.fsf@gmdev.webwayone.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:43595 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751636AbZFVDhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 Jun 2009 23:37:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20090621.184345.194558005.davem@davemloft.net>
+Received: from procserver.webwayone.co.uk ([62.8.115.202]:40916 "EHLO
+	procserver.webwayone.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751228AbZFVFNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 01:13:01 -0400
+Received: from gmdev.webwayone.co.uk (gmdev.webwayone.co.uk [192.168.50.45])
+	by procserver.webwayone.co.uk (8.14.2/8.14.2) with ESMTP id n5M5D2ej007844
+	for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 06:13:02 +0100
+In-Reply-To: <7wiqirz89f.fsf@gmdev.webwayone.co.uk> (Graham Murray's message
+	of "Sat, 20 Jun 2009 08:14:52 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh man, this was subtle.  How did this never bite us before ?
--- 
+Graham Murray <gmurray@webwayone.co.uk> writes:
 
-When a packet is greater than ETH_ZLEN, we end up assigning the
-boolean result of a comparison to the size we unmap.
+> With this this patch applied, the receive on my network card does not
+> work from boot. Git bisect identified this as the 'bad' commit and after
+> reverting it all works properly.
 
-Signed-off-by: Dave Jones <davej@redhat.com>
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index b02f7ad..46405e9 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1847,7 +1847,7 @@ static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_
- 	 */
- 	if (tdinfo->skb_dma) {
- 
--		pktlen = (skb->len > ETH_ZLEN ? : ETH_ZLEN);
-+		pktlen = (skb->len > ETH_ZLEN ? skb->len : ETH_ZLEN);
- 		for (i = 0; i < tdinfo->nskb_dma; i++) {
- #ifdef VELOCITY_ZERO_COPY_SUPPORT
- 			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i], le16_to_cpu(td->tdesc1.len), PCI_DMA_TODEVICE);
+I should add that there is no panic, BUG, oops etc, nor any other
+printk messages, the interface just does not work.
