@@ -1,95 +1,116 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC/HACK] net/compat/wext: allow sending different messages
- to compat tasks
-Date: Mon, 22 Jun 2009 07:57:04 +0200
-Message-ID: <1245650224.4180.5.camel@johannes.local>
-References: <1245589835.5003.2.camel@johannes.local>
-	 <200906220003.22458.arnd@arndb.de>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: [PATCH] econet: have failed ec_queue_packet() call return
+ NET_RX_BAD
+Date: Mon, 22 Jun 2009 16:20:03 +0930
+Message-ID: <20090622162003.35ff28da.lk-netdev@lk-netdev.nosense.org>
+References: <20090620200438.b5443520.lk-netdev@lk-netdev.nosense.org>
+	<20090620105325.GC31266@Chamillionaire.breakpoint.cc>
+	<20090620205026.05219c33.lk-netdev@lk-netdev.nosense.org>
+	<20090621.225018.185805046.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OgOcFHhm4T8zG82A3Yj1"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:42688 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992AbZFVF5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 01:57:06 -0400
-In-Reply-To: <200906220003.22458.arnd@arndb.de>
+Received: from smtp4.adam.net.au ([202.136.110.247]:34150 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbZFVGua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 02:50:30 -0400
+In-Reply-To: <20090621.225018.185805046.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
---=-OgOcFHhm4T8zG82A3Yj1
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+On Sun, 21 Jun 2009 22:50:18 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-On Mon, 2009-06-22 at 00:03 +0200, Arnd Bergmann wrote:
-> On Sunday 21 June 2009, Johannes Berg wrote:
-> > --- wireless-testing.orig/net/compat.c  2009-06-19 17:50:30.000000000 +=
-0200
-> > +++ wireless-testing/net/compat.c       2009-06-19 17:53:13.000000000 +=
-0200
-> > @@ -782,16 +782,18 @@ asmlinkage long compat_sys_socketcall(in
-> >                 ret =3D sys_socketpair(a0, a1, a[2], compat_ptr(a[3]));
-> >                 break;
-> >         case SYS_SEND:
-> > -               ret =3D sys_send(a0, compat_ptr(a1), a[2], a[3]);
-> > +               ret =3D sys_send(a0, compat_ptr(a1), a[2], a[3] | MSG_C=
-MSG_COMPAT);
-> >                 break;
-> >         case SYS_SENDTO:
-> > -               ret =3D sys_sendto(a0, compat_ptr(a1), a[2], a[3], comp=
-at_ptr(a[4]), a[5]);
-> > +               ret =3D sys_sendto(a0, compat_ptr(a1), a[2], a[3] | MSG=
-_CMSG_COMPAT,
-> > +                                compat_ptr(a[4]), a[5]);
-> >                 break;
-> >         case SYS_RECV:
-> > -               ret =3D sys_recv(a0, compat_ptr(a1), a[2], a[3]);
-> > +               ret =3D sys_recv(a0, compat_ptr(a1), a[2], a[3] | MSG_C=
-MSG_COMPAT);
-> >                 break;
-> >         case SYS_RECVFROM:
-> > -               ret =3D sys_recvfrom(a0, compat_ptr(a1), a[2], a[3], co=
-mpat_ptr(a[4]), compat_ptr(a[5]));
-> > +               ret =3D sys_recvfrom(a0, compat_ptr(a1), a[2], a[3] | M=
-SG_CMSG_COMPAT,
-> > +                                  compat_ptr(a[4]), compat_ptr(a[5]));
-> >                 break;
-> >         case SYS_SHUTDOWN:
-> >                 ret =3D sys_shutdown(a0,a1);
->=20
-> I suppose if you do this, you also need to introduce a
-> compat_sys_{send,sendto,recv,recvfrom} entry point
-> for architectures that do not go through sys_socket but
-> call sys_{send,sendto,recv,recvfrom} directly. I think
-> this is only sparc and mips.
+> From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+> Date: Sat, 20 Jun 2009 20:50:26 +0930
+> 
+> > On Sat, 20 Jun 2009 12:53:25 +0200
+> > Florian Westphal <fw@strlen.de> wrote:
+> > 
+> >> Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote:
+> >> > econet_rcv() calls ec_queue_packet(). The return from ec_queue_packet()
+> >> > is the direct result of a call to sock_queue_rcv_skb(). Error returns
+> >> > from ec_queue_packet() and therefore sock_queue_rcv_skb() are due to
+> >> > kernel errors, so have econet_rcv() return NET_RX_BAD in this case.
+> >> 
+> >> What about doing this instead?
+> > 
+> > I think there is value in distinguishing between network/protocol
+> > errors and kernel errors. It helps determine where the fault might lie
+> > - in the network somewhere, or isolated to the receiving host. In
+> > larger organisations there is typically a networks support team and a
+> > hosts/sys admin team. Hints such as this that help determine who's
+> > problem the fault is to deal with can be a big time saver (being a
+> > networking person on one of these sorts of teams, I'm scrathing an
+> > itch :-) )
+> > 
+> > If these econet patches are accepted, I'll send through similar patches
+> > for the other protocols in the kernel where necessary.
+> 
+> Indeed I bet whoever added NET_RX_BAD thought the distinction had
+> value too.
+> 
+> But it's been there for many years, and:
+> 
+> 1) almost nobody sets it
+> 
+> 2) nothing really acts upon or reports it specially
+> 
+> and if after all that time these two things are still true, then
+> it's obviously worthless in reality.
+> 
 
-Thanks, good catch, I'll take a look. Since I only care about recv(from)
-I guess it would be better to only do those.
+It could be a bit of a chicken-and-egg problem. I didn't know there was
+the option for the kernel to distinguish these errors until I
+looked into the variety of NET_TX returns. Of course, the kernel doesn't
+actually distinguish these types of errors because none of the protocols
+(or at least the main ones I've looked at) specifically report them.
 
-johannes
+I'm not aware though as to currently where a general per-protocol count
+of NET_RX_BADs vs NET_RX_DROPs might be exposed. I interpret the NIC
+stats to be specific to the ethernet layer, so I think the dropped and
+error counts for a NIC shouldn't be incremented for these layer 3
+protocol errors. Having a brief look at the IPv4 and IPv6
+implementations, they count these or similar errors in their MIB
+counters.
 
---=-OgOcFHhm4T8zG82A3Yj1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Have a brief read through Neil Horman's dropwatch project page (I've
+cc'd Neil), it would seem that the ideal place to report NET_RX_DROP vs
+NET_RX_BAD would be via the netlink drop monitor protocol, exposing
+packet drops between the generic incoming SKB and protocol handling
+layer. Possibly more granularity could be added to report the error
+type e.g. failed layer 3 checksum, incorrect version, socket queue full
+etc.
 
------BEGIN PGP SIGNATURE-----
+> Therefore my inclination is to apply Florian's patch once the
+> merge window closes and the next-next-net-2.6 stuff starts getting
+> applied :-)
+> 
+> You can submit the econet stuff relative to that if you like.  But
+> I wonder Mark, are you actually using that protocol? :-)
+> 
 
-iQIcBAABAgAGBQJKPx0sAAoJEODzc/N7+QmaUQwP/RCoU7lJM8u1ZpJvLUd6xmPR
-4sgVDqOLVZql8VRp1WWnHw4jY0wyC3nX7UHqKFgSZNinWDADR06oejHzcRzwA3HM
-e+6j+txKX8EdZQM+fLUBnSary7UMvNNwc5ayZt7Fv6WnZgPmD61BBvqI8LlcMGCg
-j5bIn3l0OqV3Vrc3tyqu2hcduzBzEHPT0Ok9biSVbnKVdyrgPBTGQPOSC4Emfh5o
-Zn4533EmqIn69tV1/vOyPzgCBcRXomdhlG0IAKUpDJe4s9GVZH/Wze9k8Kei5+8T
-Iiwds4d2ap1eQVE1a6CyQ0D4yVHaywYRch+sjWpRFsZNrnj039dB8gUW2HWV3g8s
-ivx4YbMyLuN0++8DONqq8//q/RHdZat3rIErjy/xOUCY5T6U6jStKlNCPJ0RL7O4
-FAKEXGFIvLkZN3ekFtgWhwAYfnm53/qEGkLY0rOiDnTR8GdBcxGdTbBUEltVljAw
-lggxpfGOkyI7y+KE4b2ChCZnN2FOR6O8zFXOHB9LO924T5iPNMdMAJfpotYjBMDK
-jS3O18NWFI+sXYpFhqNxVYdnC4yMzBkSaxHPNUrqt/mB92Bj2AVHR6I18Fm1GgBN
-KA0xVWS4WtPE0GCkZndsxyUVGRQZp+mUokV2qvh/pkQIOFWfMiWJsGXySKaeL5bf
-X0gWSGUpKKWxc5v34cCW
-=nFKK
------END PGP SIGNATURE-----
+Hah! I've used it once in my life. In the late 80s, BBC Microcomputers
+were pretty propular here in Australia in schools, and my high school
+had a network of them. Of course I don't think I even knew the word
+protocol at the time, let alone which one we were using.
 
---=-OgOcFHhm4T8zG82A3Yj1--
+More recently though I did use the this econet implementation as one
+of the things I looked at when I worked on ECTP a few months ago. I
+looked around at appletalk, ipx, decnet, ipv4 and ipv6 to see examples
+of the correct NET_RX return, which is when I noticed some
+inconsistencies and also the lack of use of NET_RX_BAD where I thought
+it should be used. (as an inconsistency example, in 2.6.30,
+IPv6 is currently always returning 0, NET_RX_SUCCESS, even when the
+packet is dropped.) I thought I'd have a go at cleaning up some of these
+inconsistencies, with econet a very non-intrusive place to start.
+
+Regards,
+Mark.
+
 
