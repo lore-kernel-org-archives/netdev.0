@@ -1,38 +1,53 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH v2] IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
-Date: Mon, 22 Jun 2009 11:25:15 -0400
-Message-ID: <4A3FA25B.5040909@hp.com>
-References: <4A204A31.4010105@hp.com> <20090601.030835.261332360.davem@davemloft.net> <4A23E014.4040909@hp.com> <alpine.LNX.2.01.0906210557500.11635@firda.kolla.no>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] sh_eth: remove redundant test on unsigned
+Date: Mon, 22 Jun 2009 19:38:00 +0200
+Message-ID: <4A3FC178.7050505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, linux@kolla.no, vladislav.yasevich@hp.com
-To: =?UTF-8?B?S29sYmrDuHJuIEJhcm1lbg==?= <kolbjorn.barmen@uninett.no>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:37120 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751347AbZFVPZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 11:25:16 -0400
-In-Reply-To: <alpine.LNX.2.01.0906210557500.11635@firda.kolla.no>
+Received: from mail-ew0-f210.google.com ([209.85.219.210]:33134 "EHLO
+	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261AbZFVPhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 11:37:25 -0400
+Received: by ewy6 with SMTP id 6so4796243ewy.37
+        for <netdev@vger.kernel.org>; Mon, 22 Jun 2009 08:37:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kolbj=C3=B8rn Barmen wrote:
-> Anyways... when I apply the patch and try too compile, I get:
->=20
-> net/ipv6/addrconf.c: In function 'addrconf_disable_ipv6':
-> net/ipv6/addrconf.c:4029: error: implicit declaration of function 're=
-start_syscall'
-> make[2]: *** [net/ipv6/addrconf.o] Error 1
-> make[1]: *** [net/ipv6] Error 2
+Unsigned boguscnt cannot be less than 0.
 
-Can you send me your .config?  restart_syscall() is called further-up i=
-n
-addrconf_fixup_forwarding() which didn't seem to generate an error.  Or=
- can
-you try Davem's latest net-next-2.6 tree?
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+or should I make boguscnt int?
 
-Thanks,
-
--Brian
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index 341882f..a2d82dd 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -865,8 +865,7 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 	struct sh_eth_cpu_data *cd = mdp->cd;
+ 	irqreturn_t ret = IRQ_NONE;
+-	u32 ioaddr, boguscnt = RX_RING_SIZE;
+-	u32 intr_status = 0;
++	u32 ioaddr, intr_status = 0;
+ 
+ 	ioaddr = ndev->base_addr;
+ 	spin_lock(&mdp->lock);
+@@ -901,12 +900,6 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
+ 	if (intr_status & cd->eesr_err_check)
+ 		sh_eth_error(ndev, intr_status);
+ 
+-	if (--boguscnt < 0) {
+-		printk(KERN_WARNING
+-		       "%s: Too much work at interrupt, status=0x%4.4x.\n",
+-		       ndev->name, intr_status);
+-	}
+-
+ other_irq:
+ 	spin_unlock(&mdp->lock);
+ 
