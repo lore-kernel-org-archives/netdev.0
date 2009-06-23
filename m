@@ -1,37 +1,52 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 1/2] qla3xxx: Give the PHY time to come out of reset.
-Date: Tue, 23 Jun 2009 12:00:01 -0700
-Message-ID: <1245783602-6542-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:35406 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888AbZFWTF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 15:05:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jake Edge <jake-T1hC0tSOHrs@public.gmane.org>
+Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
+ rc-series and merge window
+Date: Tue, 23 Jun 2009 13:06:02 -0600
+Message-ID: <20090623130602.6cd6b713@chukar>
+References: <20090622222217.GH23972@bombadil.infradead.org>
+	<m3fxdqj2bz.fsf@lwn.net>
+	<m3bpoen5pp.fsf@intrepid.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "corbet\@lwn.net" <corbet-T1hC0tSOHrs@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"akpm\@linux-foundation.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"alan\@lxorguk.ukuu.org.uk" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tshibata\@ab.jp.nec.com" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+To: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <m3bpoen5pp.fsf-gTjgKJgtlHj77SC2UrCW1FMQynFLKtET@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 23 Jun 2009 20:52:02 +0200 Krzysztof Halasa wrote:
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qla3xxx.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+> Perhaps it's just me :-) but I think we're trying to codify the rules
+> way too much. The general rules (merge window = new features etc) are
+> obviously ok but why do we need strict details like intrusive vs
+> non-intrusive etc? People should just use a common sense and good
+> judgement and, if in doubt in some particular case, ask. We are unable
+> to describe all situations in a single text file.
 
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index cadc32c..d9e3835 100644
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -3151,7 +3151,8 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 	ql_write_common_reg(qdev, &port_regs->CommonRegs.serialPortInterfaceReg,
- 			    (ISP_SERIAL_PORT_IF_WE |
- 			     (ISP_SERIAL_PORT_IF_WE << 16)));
--
-+	/* Give the PHY time to come out of reset. */
-+	mdelay(100);
- 	qdev->port_link_state = LS_DOWN;
- 	netif_carrier_off(qdev->ndev);
- 
+Me2 :)
+
+That may be a flaw in some parts of this doc is that it tries to
+get too detailed, too rigid, etc. for a process that is more fluid and
+has lots of independent parts each working in its own slightly
+different way.  It does seem like there is value in much of what's
+here, but there just aren't any black-and-white rules for exactly how
+patches are handled.
+
+jake
+
 -- 
-1.6.0.2
-
+Jake Edge - LWN - jake-T1hC0tSOHrs@public.gmane.org - http://lwn.net
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
