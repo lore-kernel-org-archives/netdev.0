@@ -1,47 +1,43 @@
-From: British Telecom Plc <info@bt.org>
-Subject: The Sum Of =?iso-8859-1?b?ozEsMDAwLDAwMC4wMA==?= Pounds
-Date: Mon, 22 Jun 2009 21:57:05 -0400
-Message-ID: <20090622215705.ig0yzocdq5no0404@email.accountsupport.com>
-Reply-To: btprizeoffice11@btinternet.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
+	queueing an extra skb.
+Date: Tue, 23 Jun 2009 10:54:59 +0800
+Message-ID: <20090623025459.GA5991@gondor.apana.org.au>
+References: <200905292346.04815.rusty@rustcorp.com.au> <200906181647.51045.rusty@rustcorp.com.au> <20090618073422.GA4087@gondor.apana.org.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au> <OF1B3705AA.30E31D1D-ON652575DD.001F2CCD-652575DD.001FAE94@in.ibm.com> <20090622073417.GA21698@gondor.apana.org.au> <20090622182529.GA4990@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout10.yourhostingaccount.com ([65.254.253.83]:39917 "EHLO
-	mailout10.yourhostingaccount.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751010AbZFWCha convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Jun 2009 22:37:30 -0400
-Received: from mailscan13.yourhostingaccount.com ([10.1.15.13] helo=mailscan13.yourhostingaccount.com)
-	by mailout10.yourhostingaccount.com with esmtp (Exim)
-	id 1MIvGP-00078m-OW
-	for netdev@vger.kernel.org; Mon, 22 Jun 2009 21:57:33 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:58285 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751576AbZFWCzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 22:55:06 -0400
 Content-Disposition: inline
+In-Reply-To: <20090622182529.GA4990@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 22, 2009 at 11:25:29AM -0700, Matt Carlson wrote:
+>
+> As was said elsewhere, from the driver writer's perspective every packet
+> that has already been submitted (queued) to the hardware cannot be
+> preempted.  Slightly extending that logic doesn't seem like that much of
+> a problem, especially if it saves the troublesome requeuing logic higher up.
 
+I think this is pretty much the same as returning TX_BUSY :)
 
-The Sum Of =A31,000,000.00 Pounds has been won by your EMAIL Address in=
- our 2009
-sweepstakes program. Do get back to this office with your claims requir=
-ement
-such as
+Do you have access to one of these buggy cards? Can you run some
+tests to see what the difference between TSO and GSO is on them?
 
-1.Name in full
-2.Address
-3.Nationality
-4.Age
-5.Sex
-6.Occupation
-7.Phone/Fax
-8.Present Country
-
-Reply to this confidential Email Address: btprizeoffice11@btinternet.co=
-m
-
-Best Regards
-Mrs. Cindy Howard.
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
