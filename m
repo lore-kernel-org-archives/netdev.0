@@ -1,35 +1,38 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [RFC] tcp: race in receive part
-Date: Tue, 23 Jun 2009 21:44:49 +0200
-Message-ID: <20090623194449.GB28836@redhat.com>
-References: <20090618102727.GC3782@jolsa.lab.eng.brq.redhat.com> <4A3A49F2.6060705@gmail.com> <20090623091257.GA4850@jolsa.lab.eng.brq.redhat.com> <4A40AF2A.3050509@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: problem with 'net: Partially allow skb destructors to be used
+ on receive path'
+Date: Tue, 23 Jun 2009 16:37:43 -0700 (PDT)
+Message-ID: <20090623.163743.98163763.davem@davemloft.net>
+References: <20090622122525.GA24481@gondor.apana.org.au>
+	<4A3F8AC6.2070803@hartkopp.net>
+	<20090622145642.GA31280@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oliver@hartkopp.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41168 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759079AbZFWW7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2009 18:59:24 -0400
-Content-Disposition: inline
-In-Reply-To: <4A40AF2A.3050509@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44984
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753893AbZFWXhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 19:37:39 -0400
+In-Reply-To: <20090622145642.GA31280@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Off-topic)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 22 Jun 2009 22:56:42 +0800
 
-On 06/23, Eric Dumazet wrote:
->
-> The optimization we could do, defining
-> a smp_mb_after_read_lock() that could be a nop on x86
+> On Mon, Jun 22, 2009 at 03:44:38PM +0200, Oliver Hartkopp wrote:
+>>
+>> I tried to apply the patch on 2.6.30 also and only got some offsets (as expected).
+> 
+> Thanks for testing!
+> 
+>> Do you think, it's a good idea to queue this up for 2.6.30-stable?
+> 
+> If it's OK with Dave then it's OK with me.
 
-Imho it would be nice to have smp_mb__before/after_lock.
+I've applied Herbert's patch, thanks everyone!
 
-insert_work(), __pte_alloc(), try_to_wake_up() could use it. Probably
-something else.
-
-Oleg.
-
+I'll queue it up for -stable too.
