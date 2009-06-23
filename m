@@ -1,76 +1,89 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 10/10] nf_conntrack: Use rcu_barrier().
-Date: Tue, 23 Jun 2009 18:23:33 +0200
-Message-ID: <4A410185.3090706@trash.net>
-References: <20090623150330.22490.87327.stgit@localhost> <20090623150444.22490.27931.stgit@localhost>
+Subject: Re: net: use NETDEV_TX_OK instead of 0 in ndo_start_xmit() functions
+Date: Tue, 23 Jun 2009 18:26:36 +0200
+Message-ID: <4A41023C.8040000@trash.net>
+References: <4A40FCBC.9040700@trash.net> <1245774088.29098.10.camel@Joe-Laptop.home>
 Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------060703030405080706070101"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:48071 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191AbZFWQ0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 12:26:35 -0400
+In-Reply-To: <1245774088.29098.10.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------060703030405080706070101
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dougthompson@xmission.com, bluesmoke-devel@lists.sourceforge.net,
-	axboe@kernel.dk, christine.caulfield@googlemail.com,
-	Trond.Myklebust@netapp.com, linux-wireless@vger.kernel.org,
-	johannes@sipsolutions.net, yoshfuji@linux-ipv6.org,
-	shemminger@linux-foundation.org, linux-nfs@vger.kernel.org,
-	bfields@fieldses.org, neilb@suse.de, linux-ext4@vger.kernel.org,
-	tytso@mit.edu, adilger@sun.com, netfilter-devel@vger.kernel.org
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-In-Reply-To: <20090623150444.22490.27931.stgit@localhost>
-Sender: linux-ext4-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-Jesper Dangaard Brouer wrote:
-> I'm not sure which is are most optimal place to call rcu_barrier().
-> The patch probably calls rcu_barrier() too much, but its a better
-> safe than sorry approach.
+Joe Perches wrote:
+> On Tue, 2009-06-23 at 18:03 +0200, Patrick McHardy wrote:
+>> This patch is the result of an automatic spatch transformation to
+>> convert all ndo_start_xmit() return values of 0 to NETDEV_TX_OK.
 > 
-> There is embedded some comments that I would like Patrick McHardy
-> to look at.
-> 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 5f72b94..cea4537 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1084,6 +1084,8 @@ static void nf_conntrack_cleanup_init_net(void)
->  {
->  	nf_conntrack_helper_fini();
->  	nf_conntrack_proto_fini();
-> +	rcu_barrier();
-> +	/* Need to wait for call_rcu() before dealloc the kmem_cache */
->  	kmem_cache_destroy(nf_conntrack_cachep);
+> It might be useful if you submitted the spatch source
+> that created this transformation.
 
-Which call_rcu() is this referring to? If its the conntrack destruction,
-that one is gone in the current kernel and I think destruction is
-handled properly by the sl*b-allocators (SLAB_DESTROY_BY_RCU).
+I would have added it to the changelog, but it includes some workarounds
+for false-negatives since the version used in Debian seems to be buggy.
+Namely, it didn't manage to find occurences if there was only one, so I
+included a number of NOP transformations to work around that. Or maybe
+I'm doing something wrong :)
 
-> @@ -1118,6 +1120,9 @@ void nf_conntrack_cleanup(struct net *net)
->  	/* This makes sure all current packets have passed through
->  	   netfilter framework.  Roll on, two-stage module
->  	   delete... */
-> +	/* hawk@comx.dk 2009-06-20: Think this should be replaced by a
-> +          rcu_barrier() ???
-> +	*/
->  	synchronize_net();
+Attached for reference.
 
-AFAICT this one is used to make sure the old value of the ip_ct_attach
-hook is not visible anymore before beginning cleanup and is not needed
-for anything else.
 
->  	nf_conntrack_cleanup_net(net);
-> diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-> index 1935153..29c6cd0 100644
-> --- a/net/netfilter/nf_conntrack_standalone.c
-> +++ b/net/netfilter/nf_conntrack_standalone.c
-> @@ -500,6 +500,8 @@ static void nf_conntrack_net_exit(struct net *net)
->  	nf_conntrack_standalone_fini_sysctl(net);
->  	nf_conntrack_standalone_fini_proc(net);
->  	nf_conntrack_cleanup(net);
-> +	/* hawk@comx.dk: Think rcu_barrier() should to be called earlier? */
-> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
->  }
 
-Which call_rcu() is this referring to? We should place them in
-the cleanup sub-functions to make this clearly visible.
+--------------060703030405080706070101
+Content-Type: text/plain;
+ name="netdev.spatch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netdev.spatch"
+
+@ ndomatch @
+identifier ndo, xmit;
+@@
+
+struct net_device_ops ndo = {
+	.ndo_start_xmit		= xmit,
+};
+
+@forall@
+identifier skb, dev;
+identifier ndomatch.xmit;
+@@
+
+int xmit(struct sk_buff *skb, struct net_device *dev)
+{
+...
+(
+-	return 1;
++	return NETDEV_TX_BUSY;
+|
+-	return -1;
++	return NETDEV_TX_LOCKED;
+|
+-	return 0;
++	return NETDEV_TX_OK;
+|
+-	return NETDEV_TX_BUSY;
++	return NETDEV_TX_BUSY;
+|
+-	return NETDEV_TX_LOCKED;
++	return NETDEV_TX_LOCKED;
+|
+-	return NETDEV_TX_OK;
++	return NETDEV_TX_OK;
+)
+...
+}
+
+--------------060703030405080706070101--
