@@ -1,7 +1,7 @@
 From: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
-Subject: [PATCH 06/10] ipv6: Use rcu_barrier() on module unload.
-Date: Tue, 23 Jun 2009 17:04:24 +0200
-Message-ID: <20090623150424.22490.47149.stgit@localhost>
+Subject: [PATCH 10/10] nf_conntrack: Use rcu_barrier().
+Date: Tue, 23 Jun 2009 17:04:44 +0200
+Message-ID: <20090623150444.22490.27931.stgit@localhost>
 References: <20090623150330.22490.87327.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,33 +18,63 @@ Cc: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>,
 	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tytso-3s7WtUTddSA@public.gmane.org, adilger-xsfywfwIY+M@public.gmane.org,
 	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20090623150330.22490.87327.stgit@localhost>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The ipv6 module uses rcu_call() thus it should use rcu_barrier() on
-module unload.
+I'm not sure which is are most optimal place to call rcu_barrier().
+The patch probably calls rcu_barrier() too much, but its a better
+safe than sorry approach.
+
+There is embedded some comments that I would like Patrick McHardy
+to look at.
+
+Signed-off-by: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
 ---
 
- net/ipv6/af_inet6.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/netfilter/nf_conntrack_core.c       |    5 +++++
+ net/netfilter/nf_conntrack_standalone.c |    2 ++
+ 2 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 85b3d00..caa0278 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -1284,6 +1284,8 @@ static void __exit inet6_exit(void)
- 	proto_unregister(&udplitev6_prot);
- 	proto_unregister(&udpv6_prot);
- 	proto_unregister(&tcpv6_prot);
-+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 5f72b94..cea4537 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1084,6 +1084,8 @@ static void nf_conntrack_cleanup_init_net(void)
+ {
+ 	nf_conntrack_helper_fini();
+ 	nf_conntrack_proto_fini();
++	rcu_barrier();
++	/* Need to wait for call_rcu() before dealloc the kmem_cache */
+ 	kmem_cache_destroy(nf_conntrack_cachep);
+ }
+ 
+@@ -1118,6 +1120,9 @@ void nf_conntrack_cleanup(struct net *net)
+ 	/* This makes sure all current packets have passed through
+ 	   netfilter framework.  Roll on, two-stage module
+ 	   delete... */
++	/* hawk-4UpuNZONu4c@public.gmane.org 2009-06-20: Think this should be replaced by a
++          rcu_barrier() ???
++	*/
+ 	synchronize_net();
+ 
+ 	nf_conntrack_cleanup_net(net);
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 1935153..29c6cd0 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -500,6 +500,8 @@ static void nf_conntrack_net_exit(struct net *net)
+ 	nf_conntrack_standalone_fini_sysctl(net);
+ 	nf_conntrack_standalone_fini_proc(net);
+ 	nf_conntrack_cleanup(net);
++	/* hawk-4UpuNZONu4c@public.gmane.org: Think rcu_barrier() should to be called earlier? */
 +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
  }
- module_exit(inet6_exit);
  
+ static struct pernet_operations nf_conntrack_net_ops = {
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
