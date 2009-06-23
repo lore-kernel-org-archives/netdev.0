@@ -1,68 +1,76 @@
-From: Jake Edge <jake-T1hC0tSOHrs@public.gmane.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
  rc-series and merge window
-Date: Tue, 23 Jun 2009 13:02:13 -0600
-Message-ID: <20090623130213.36b8ba8e@chukar>
-References: <20090622222217.GH23972@bombadil.infradead.org>
-	<m3fxdqj2bz.fsf@lwn.net>
-	<20090623175533.GK5305@mosca>
+Date: Tue, 23 Jun 2009 12:04:54 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0906231156220.3240@localhost.localdomain>
+References: <20090622222217.GH23972@bombadil.infradead.org> <m3fxdqj2bz.fsf@lwn.net> <m3bpoen5pp.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Luis Rodriguez <Luis.Rodriguez-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	"torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	"corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
-To: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090623175533.GK5305@mosca>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jake Edge <jake@lwn.net>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Pavel Machek <pavel@ucw.cz>, Greg KH <greg@kroah.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46209 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751071AbZFWTFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 15:05:43 -0400
+In-Reply-To: <m3bpoen5pp.fsf@intrepid.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Jun 2009 10:55:33 -0700 Luis R. Rodriguez wrote:
 
-> You're right, thanks, will add that. Since you bring this up, are
-> there a lot of trees not using the foo-next-2.6.git convention?
 
-Hmm, it seems like I have seen a wide variety of tree names and/or
-branch names included in the git pull requests ... also, the tree/branch
-names used in linux-next:
-http://linux.f-seidel.de/linux-next/pmwiki/pmwiki.php?n=Linux-next.IncludedTrees
-seem to be all over the map ...
-
-> > Again, seemingly too rigid based on what really happens ... but
-> > maybe this is documenting the "ideal"
+On Tue, 23 Jun 2009, Krzysztof Halasa wrote:
 > 
-> Well I take it that the maintainers who know they can get away with
-> some excemptions here don't need to read this to figure that out. But
-> I suppose it may be worth mentioning excemptions do exist, for the
-> record. BTW, just curious, are there any examples of this?
+> I would say, to address regressions and fix bugs. Not only those added
+> recently, though obviously older bugs should have already been fixed.
 
-I think you have created a new word: excemptions :)  I kinda like it,
-but I think you mean exceptions.
+The thing is, I don't take bug fixes late in the -rc just because they are 
+bug fixes.
 
-I think there are multiple examples of new features being merged after
--rc1, but nothing comes to mind immediately ... I think the plan is to
-only add features during the merge window, but it occasionally gets
-overridden ...
+And I really shouldn't.
 
-> Yes, thanks. BTW are you up for taking a stab at this yourself? I'm
-> not sure when I'll be able to again.
+If it's an old bug, and doesn't cause an oops or a security issue, it had 
+damn well better wait for the next merge window. There is absolutely _no_ 
+reason to just blindly "fix bugs" at the end of the rc stage, because 
+quite frankly, the risks coming from fixing a bug is often bigger than the 
+advantage.
 
-Jon may have some comments, when he has a chance to look ... let's see
-where it goes from there ...
+Even "obvious bugs" may be things that people depend on, or that other 
+parts of the kernel simply rely on indirectly. For a recent example of 
+this, see what happened when we fixed an obvious bug on x86-64 to check 
+user space addresses properly: it turns out that 'strnlen_user()' depended 
+on the bug ("misfeature"), and had to be fixed when the bug was fixed.
 
-jake
+So no. Regressions really are _different_ from "fixing bugs".
 
--- 
-Jake Edge - LWN - jake-T1hC0tSOHrs@public.gmane.org - http://lwn.net
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regressions need to be fixed even if it may even re-introduce another 
+long-time bug - simply because we're much better off with a _consistent_ 
+set of bugs where people can depend on their machine either working or 
+not, than with some kind of unstable situation that never gets anywhere 
+(we found that out the hard way with both ACPI and power management).
+
+So the end result is:
+
+ - we always want to fix bugs
+
+ - but the primary time to fix bugs is during the merge window
+
+ - after the merge window closes, the effort should be on _regressions_, 
+   nothing else.
+
+ - security issues and oopses etc catastrophic bugs obviously need to be 
+   handled at any stage.
+
+IOW, "it fixes a bug" is _not_ sufficient. The real issue is "it _really_ 
+can't wait to the next merge window", not "bug or not".
+
+				Linus
