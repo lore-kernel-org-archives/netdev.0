@@ -1,46 +1,55 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 2/2] qla3xxx: Don't sleep while holding lock.
-Date: Tue, 23 Jun 2009 12:00:02 -0700
-Message-ID: <1245783602-6542-2-git-send-email-ron.mercer@qlogic.com>
-References: <1245783602-6542-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
+ rc-series and merge window
+Date: Tue, 23 Jun 2009 12:11:52 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0906231210040.3240@localhost.localdomain>
+References: <20090622222217.GH23972@bombadil.infradead.org> <m3fxdqj2bz.fsf@lwn.net> <m3bpoen5pp.fsf@intrepid.localdomain> <20090623130602.6cd6b713@chukar>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Krzysztof Halasa <khc@pm.waw.pl>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Pavel Machek <pavel@ucw.cz>, Greg KH <greg@kroah.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
+To: Jake Edge <jake@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:35406 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754365AbZFWTF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 15:05:56 -0400
-In-Reply-To: <1245783602-6542-1-git-send-email-ron.mercer@qlogic.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54792 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752326AbZFWTMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 15:12:06 -0400
+In-Reply-To: <20090623130602.6cd6b713@chukar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qla3xxx.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index d9e3835..56333ee 100644
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -3143,6 +3143,7 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 						(void __iomem *)port_regs;
- 	u32 delay = 10;
- 	int status = 0;
-+	unsigned long hw_flags = 0;
- 
- 	if(ql_mii_setup(qdev))
- 		return -1;
-@@ -3352,7 +3353,9 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 		value = ql_read_page0_reg(qdev, &port_regs->portStatus);
- 		if (value & PORT_STATUS_IC)
- 			break;
-+		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
- 		msleep(500);
-+		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
- 	} while (--delay);
- 
- 	if (delay == 0) {
--- 
-1.6.0.2
 
+On Tue, 23 Jun 2009, Jake Edge wrote:
+
+> On Tue, 23 Jun 2009 20:52:02 +0200 Krzysztof Halasa wrote:
+> 
+> > Perhaps it's just me :-) but I think we're trying to codify the rules
+> > way too much. The general rules (merge window = new features etc) are
+> > obviously ok but why do we need strict details like intrusive vs
+> > non-intrusive etc? People should just use a common sense and good
+> > judgement and, if in doubt in some particular case, ask. We are unable
+> > to describe all situations in a single text file.
+> 
+> Me2 :)
+
+Well, I do agree that documenting the rules and making them inflexible 
+shouldn't be the primary goal.
+
+But the fact is, "common sense" hasn't worked very well. I consistently 
+get pull requests from maintainers that have well-meaning "fix bugs" in 
+them, and that cause a lot of totally pointless churn.
+
+In fact, this whole discussion has shown one thing: people still think 
+that "bug fix" somehow automatically means that it's appropriate after the 
+merge window. That's simply not so. 
+
+			Linus
