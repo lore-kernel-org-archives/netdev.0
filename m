@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 04/10] sunrpc: Use rcu_barrier() on unload.
-Date: Tue, 23 Jun 2009 17:04:14 +0200
-Message-ID: <20090623150414.22490.14888.stgit@localhost>
+Subject: [PATCH 02/10] bridge: Use rcu_barrier() instead of syncronize_net()
+	on unload.
+Date: Tue, 23 Jun 2009 17:04:04 +0200
+Message-ID: <20090623150404.22490.15268.stgit@localhost>
 References: <20090623150330.22490.87327.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,38 +20,35 @@ Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
 	netfilter-devel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:36387 "EHLO
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:36347 "EHLO
 	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760274AbZFWPEM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 11:04:12 -0400
+	with ESMTP id S1760192AbZFWPED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 11:04:03 -0400
 In-Reply-To: <20090623150330.22490.87327.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sunrpc module uses rcu_call() thus it should use rcu_barrier() on
-module unload.
-
-Have not verified that the possibility for new call_rcu() callbacks
-has been disabled.  As a hint for checking, the functions calling
-call_rcu() (unx_destroy_cred and generic_destroy_cred) are
-registered as crdestroy function pointer in struct rpc_credops.
+When unloading modules that uses call_rcu() callbacks, then we must
+use rcu_barrier().  This module uses syncronize_net() which is not
+enough to be sure that all callback has been completed.
 
 Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 ---
 
- net/sunrpc/sunrpc_syms.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/bridge/br.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 843629f..adaa819 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -66,6 +66,7 @@ cleanup_sunrpc(void)
- #ifdef CONFIG_PROC_FS
- 	rpc_proc_exit();
- #endif
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 9aac521..e1241c7 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -93,7 +93,7 @@ static void __exit br_deinit(void)
+ 
+ 	unregister_pernet_subsys(&br_net_ops);
+ 
+-	synchronize_net();
 +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
- }
- MODULE_LICENSE("GPL");
- module_init(init_sunrpc);
+ 
+ 	br_netfilter_fini();
+ #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
 
