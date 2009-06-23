@@ -1,36 +1,121 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: multicast for v2.6.29
-Date: Tue, 23 Jun 2009 17:41:19 +0300
-Message-ID: <4A40E98F.5050903@iki.fi>
-References: <4A40E151.10007@iki.fi>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [PATCH 00/10] We must use rcu_barrier() on module unload
+Date: Tue, 23 Jun 2009 17:03:53 +0200
+Message-ID: <20090623150330.22490.87327.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:53181 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759055AbZFWOlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 10:41:18 -0400
-Received: by ewy6 with SMTP id 6so174258ewy.37
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2009 07:41:20 -0700 (PDT)
-In-Reply-To: <4A40E151.10007@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dougthompson@xmission.com, bluesmoke-devel@lists.sourceforge.net,
+	axboe@kernel.dk, "Patrick McHardy" <kaber@trash.net>,
+	christine.caulfield@googlemail.com, Trond.Myklebust@netapp.com,
+	linux-wireless@vger.kernel.org, johannes@sipsolutions.net,
+	yoshfuji@linux-ipv6.org, shemminger@linux-foundation.org,
+	linux-nfs@vger.kernel.org, bfields@fieldses.org, neilb@suse.de,
+	linux-ext4@vger.kernel.org, tytso@mit.edu, adilger@sun.com,
+	netfilter-devel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Whoops. This was not supposed be sent on the list as-is.
+This patch series is an attempt to cleanup the entire tree, for
+potential oops'es during module unload, due to outstanding RCU
+callbacks. (My last rcu_barrier patch series only addressed net/).
 
-This is more of an RFC, for what I want to do in future. Multicast routing
-for NBMA destinations.
+If an unloadable module uses RCU callbacks, it need to use
+rcu_barrier() so that the module may be safely unloaded.
 
-The patch is quick hack, and breaks ABI, and not intended for inclusion.
-I suppose the multicast routing would need to be updated to Netlink era
-before doing this kind of thing. And remove the hard coded limits such
-as amount of MFC destinations and that you can have only one multicast
-router user space process.
+For documentation see:
 
-If you have any comments on the patch, they are appreciated.
+ Paul E. McKenney's Blog
+ http://paulmck.livejournal.com/7314.html
 
-Thanks,
-  Timo
+ http://lwn.net/Articles/217484/
+
+ Documentation/RCU/rcubarrier.txt
+
+
+Looking through the Linux kernel for call_rcu() users and unloadable
+modules I found 10 modules that didn't behave correctly.
+
+Please: MAINTAINERS needs to verify that the module exit code prevent
+any new RCU callbacks from being posted (before rcu_barrier() is
+called). (I have tried to do this verification, but most of these
+module are simply too large and complex for me to verify this within
+reasonable time)
+
+[Overview description, following patch ordering]
+
+The modules ext4, bridge, mac80211, sunrpc, nfs and ipv6 are fairly
+straight forward (maintainers still needs to check for prevent of new
+RCU callbacks).
+
+The module decnet, has disabled its module_exit() (since ^1da177e) but
+it still seems relevant to keep the code updated.
+
+The modules edac_core and cfq-iosched, has implemented their own
+open-coded wait_for_completion() scheme, in order to wait for
+call_rcu() calls.  Maintainers needs to look into removing this code
+and using rcu_barrier() instead.
+
+The module nf_conntrack, has embedded some comments that I would like
+Patrick McHardy to look at.  As I'm not sure which is are most optimal
+place to call rcu_barrier().  The patch probably calls rcu_barrier()
+too much, but its a better safe than sorry approach.
+
+
+I have made a patch for each individual module, so objections can be
+made on a per module basis.  I have Cc'ed all of the patches to the
+maintainers of each module (according to the MAINTAINERS file).
+
+
+The patchset is made on top of Linus Torvalds tree (starting on top of
+commit f234012f52a3).
+
+Who wants to pickup these patches? (I usually go through DaveM, but
+this also touches subsystems that are not (yet?) under DaveM's
+maintainer ship)
+
+
+---
+Jesper Dangaard Brouer (10):
+      nf_conntrack: Use rcu_barrier().
+      cfq-iosched: Uses its own open-coded rcu_barrier.
+      edac_core: Uses call_rcu() and its own wait_for_completion scheme.
+      decnet: Use rcu_barrier() on module unload.
+      ipv6: Use rcu_barrier() on module unload.
+      nfs: Use rcu_barrier() on module unload.
+      sunrpc: Use rcu_barrier() on unload.
+      mac80211: Use rcu_barrier() on unload.
+      bridge: Use rcu_barrier() instead of syncronize_net() on unload.
+      ext4: Use rcu_barrier() on module unload.
+
+
+ block/cfq-iosched.c                     |    6 ++++++
+ drivers/edac/edac_device.c              |    5 +++++
+ drivers/edac/edac_mc.c                  |    5 +++++
+ drivers/edac/edac_pci.c                 |    5 +++++
+ fs/ext4/mballoc.c                       |    4 +++-
+ fs/nfs/inode.c                          |    1 +
+ net/bridge/br.c                         |    2 +-
+ net/decnet/af_decnet.c                  |    6 ++++++
+ net/ipv6/af_inet6.c                     |    2 ++
+ net/mac80211/main.c                     |    2 ++
+ net/netfilter/nf_conntrack_core.c       |    5 +++++
+ net/netfilter/nf_conntrack_standalone.c |    2 ++
+ net/sunrpc/sunrpc_syms.c                |    1 +
+ 13 files changed, 44 insertions(+), 2 deletions(-)
+
+
+--
+Best regards,
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
