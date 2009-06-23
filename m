@@ -1,45 +1,62 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Announcing ConnMan.net
-Date: Tue, 23 Jun 2009 09:55:47 -0700
-Message-ID: <43e72e890906230955i4761c1b7q56368afc57cd8cdc@mail.gmail.com>
-References: <1245775609.15367.129.camel@violet>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH 04/10] sunrpc: Use rcu_barrier() on unload.
+Date: Tue, 23 Jun 2009 12:59:13 -0400
+Message-ID: <1245776353.9586.1.camel@heimdal.trondhjem.org>
+References: <20090623150330.22490.87327.stgit@localhost>
+	 <20090623150414.22490.14888.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jukka.rissanen-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-To: Marcel Holtmann <holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1245775609.15367.129.camel@violet>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dougthompson@xmission.com, bluesmoke-devel@lists.sourceforge.net,
+	axboe@kernel.dk, Patrick McHardy <kaber@trash.net>,
+	christine.caulfield@googlemail.com, linux-wireless@vger.kernel.org,
+	johannes@sipsolutions.net, yoshfuji@linux-ipv6.org,
+	shemminger@linux-foundation.org, linux-nfs@vger.kernel.org,
+	bfields@fieldses.org, neilb@suse.de, linux-ext4@vger.kernel.org,
+	tytso@mit.edu, adilger@sun.com, netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090623150414.22490.14888.stgit@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 23, 2009 at 9:46 AM, Marcel
-Holtmann<holtmann-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
-> Intel and Nokia are pleased to jointly launch the ConnMan project, an
-> open source project to accelerate and expand development of Internet
-> connection management for Linux Devices. ConnMan will be utilized as a
-> technology within Moblin and Maemo. Connman.net is now the place to
-> bring developers together who are interested in furthering the
-> development of Internet connection management within Linux. Review the
-> source code for more information. ConnMan is licensed under GPLv2, and
-> provides a daemon for managing Internet connections within Linux
-> devices. ConnMan is a fully modular system that can be extended, through
-> plugins, to support all kinds of wired or wireless technologies.
-> Configuration methods, like DHCP and domain name resolving, are
-> implemented using plug-ins as well. The plug-in approach allows for easy
-> adaption and modification for various use cases. Nokia and Intel will
-> jointly maintain the ConnMan project. We'd like to invite all developers
-> to join the connman.net effort and community.
+On Tue, 2009-06-23 at 17:04 +0200, Jesper Dangaard Brouer wrote:
+> The sunrpc module uses rcu_call() thus it should use rcu_barrier() on
+> module unload.
+> 
+> Have not verified that the possibility for new call_rcu() callbacks
+> has been disabled.  As a hint for checking, the functions calling
+> call_rcu() (unx_destroy_cred and generic_destroy_cred) are
+> registered as crdestroy function pointer in struct rpc_credops.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> ---
+> 
+>  net/sunrpc/sunrpc_syms.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+> index 843629f..adaa819 100644
+> --- a/net/sunrpc/sunrpc_syms.c
+> +++ b/net/sunrpc/sunrpc_syms.c
+> @@ -66,6 +66,7 @@ cleanup_sunrpc(void)
+>  #ifdef CONFIG_PROC_FS
+>  	rpc_proc_exit();
+>  #endif
+> +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+>  }
+>  MODULE_LICENSE("GPL");
+>  module_init(init_sunrpc);
+> 
 
-Here's a wiki for it:
+Acked-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
-http://wireless.kernel.org/en/users/Documentation/connman
-
-Can we get a link to it from the home page?
-
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+NetApp
+Trond.Myklebust@netapp.com
+www.netapp.com
