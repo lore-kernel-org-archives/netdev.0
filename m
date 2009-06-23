@@ -1,56 +1,43 @@
-From: Igor Widlinski <igor.widlinski@eigendev.com>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Tue, 23 Jun 2009 18:21:20 +0000 (UTC)
-Message-ID: <loom.20090623T181758-637@post.gmane.org>
-References: <4A32D3DB.30703@dupondje.be> <C27F8246C663564A84BB7AB343977242178EE78063@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
+	rc-series and merge window
+Date: Tue, 23 Jun 2009 11:37:36 -0700
+Message-ID: <20090623183736.GA4928@kroah.com>
+References: <20090622222217.GH23972@bombadil.infradead.org> <m3fxdqj2bz.fsf@lwn.net> <20090623175533.GK5305@mosca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Jake Edge <jake@lwn.net>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	Pavel Machek <pavel@ucw.cz>, "corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tshibata@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:57795 "EHLO ciao.gmane.org"
+Received: from kroah.org ([198.145.64.141]:50425 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424AbZFWSZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2009 14:25:04 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1MJAg3-0007D9-8s
-	for netdev@vger.kernel.org; Tue, 23 Jun 2009 18:25:03 +0000
-Received: from 24.85.224.244 ([24.85.224.244])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2009 18:25:03 +0000
-Received: from igor.widlinski by 24.85.224.244 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Jun 2009 18:25:03 +0000
+	id S1754641AbZFWSmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jun 2009 14:42:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20090623175533.GK5305@mosca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan <mchan <at> broadcom.com> writes:
+On Tue, Jun 23, 2009 at 10:55:33AM -0700, Luis R. Rodriguez wrote:
+> > > +After a driver has been present for one kernel release the relaxed rules for
+> > > +it during the rc-series are no longer applicable.
+> > 
+> > except staging drivers?
+> 
+> Hm, I consider staging a different chapter.
 
-> 
-> Jean-Louis Dupond wrote:
-> 
-> > I surely tried other cables. But its surely not the cable because:
-> > 1) We tried other cables
-> > 2) After a reboot it works, or after a mii-tool -R
-> > 3) We have this issue on like +100 servers :(
-> >
-> > The servers are connected on a Dell PowerConnect 6248 switch.
-> >
-> 
-> I'll ask our lab to test this.  Thanks.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo <at> vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Actually, no, I've been treating drivers/staging/ under the same merge
+rules at the moment as the rest of the kernel.
 
+thanks,
 
-We just noticed a similar issue on one of our servers (Dell R300, with BCM5722
-Ethernet card). It is connected to 3 com 4200g switch.
-
-We switched the cables in the morning, and the same issue still exists. Will
-reboot sometime next week. Hopefully that fixes things.
-
+greg k-h
