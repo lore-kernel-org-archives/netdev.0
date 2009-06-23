@@ -1,91 +1,68 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for rc-series and merge window
-Date: Tue, 23 Jun 2009 20:52:02 +0200
-Message-ID: <m3bpoen5pp.fsf@intrepid.localdomain>
+From: Jake Edge <jake-T1hC0tSOHrs@public.gmane.org>
+Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
+ rc-series and merge window
+Date: Tue, 23 Jun 2009 13:02:13 -0600
+Message-ID: <20090623130213.36b8ba8e@chukar>
 References: <20090622222217.GH23972@bombadil.infradead.org>
 	<m3fxdqj2bz.fsf@lwn.net>
+	<20090623175533.GK5305@mosca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	torvalds@linux-foundation.org, Pavel Machek <pavel@ucw.cz>,
-	Greg KH <greg@kroah.com>, "corbet\@lwn.net" <corbet@lwn.net>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"akpm\@linux-foundation.org" <akpm@linux-foundation.org>,
-	"alan\@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tshibata\@ab.jp.nec.com" <tshibata@ab.jp.nec.com>
-To: Jake Edge <jake@lwn.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:50627 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751936AbZFWSwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Jun 2009 14:52:03 -0400
-In-Reply-To: <m3fxdqj2bz.fsf@lwn.net> (Jake Edge's message of "Tue\, 23 Jun 2009 11\:18\:40 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Luis Rodriguez <Luis.Rodriguez-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
+	"torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	"corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
+To: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090623175533.GK5305@mosca>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jake Edge <jake@lwn.net> writes:
+On Tue, 23 Jun 2009 10:55:33 -0700 Luis R. Rodriguez wrote:
 
->> +After the merge window the kernel is worked on through the rc-series of the
->> +kernel release. The rc-series focus is to address regressions. The merge window
->> +closes upon the first rc-series release, rc1.
->
-> to address regressions and fix bugs introduced by the new features added
-> during the merge window.
+> You're right, thanks, will add that. Since you bring this up, are
+> there a lot of trees not using the foo-next-2.6.git convention?
 
-I would say, to address regressions and fix bugs. Not only those added
-recently, though obviously older bugs should have already been fixed.
+Hmm, it seems like I have seen a wide variety of tree names and/or
+branch names included in the git pull requests ... also, the tree/branch
+names used in linux-next:
+http://linux.f-seidel.de/linux-next/pmwiki/pmwiki.php?n=Linux-next.IncludedTrees
+seem to be all over the map ...
 
->> +After a subsystem maintainer has sent his pull request to Linus during the merge
->> +window no further new development will be accepted for that
->> +foo-next-2.6.git
+> > Again, seemingly too rigid based on what really happens ... but
+> > maybe this is documenting the "ideal"
+> 
+> Well I take it that the maintainers who know they can get away with
+> some excemptions here don't need to read this to figure that out. But
+> I suppose it may be worth mentioning excemptions do exist, for the
+> record. BTW, just curious, are there any examples of this?
 
-This is IMHO uncertain. Typical, but uncertain. I guess the maintainer
-would already know what to do so I'm not sure there is a point to write
-it down in this file.
+I think you have created a new word: excemptions :)  I kinda like it,
+but I think you mean exceptions.
 
-> It doesn't seem like you need to keep stressing that the merge window
-> closes with -rc1 ... but maybe that's just me ...
+I think there are multiple examples of new features being merged after
+-rc1, but nothing comes to mind immediately ... I think the plan is to
+only add features during the merge window, but it occasionally gets
+overridden ...
 
-Me2 :-)
+> Yes, thanks. BTW are you up for taking a stab at this yourself? I'm
+> not sure when I'll be able to again.
 
->> +Non-intrusive bug fixes fixes will very likely not be accepted.
-                      ^^^^^^^^^^^
-I guess it depends on many factors, such as importance of the bug vs the
-risk at the given point. Intrusive bug fixes are sometimes unavoidable
-and there may be simply no better option than applying them at once.
+Jon may have some comments, when he has a chance to look ... let's see
+where it goes from there ...
 
-> Again, maybe it's just me, but this 'non-intrusive' distinction doesn't
-> read quite right ...
+jake
 
-Me2 :-)
-
-> I guess the problem is that non-intrusive and
-> regression/security/oops fixes are not mutually exclusive
-
-Precisely. This is about risk vs gain.
-
-> so, when do these non-intrusive bug fixes get accepted?  only
-> pre-merge window?
-
-Doesn't make sense. Merge window = new features. Fixes can be accepted
-anytime (this obviously includes merge window).
-
->> +The very first release a new driver or filesystem is special. New drivers
->> +are accepted during the rc-series! Patches for the same driver then are
->> +also accepted during the same rc-series of a kernel as well as fixes for it
->> +cannot regress as no previous kernels exists with it.
-
-Given that fixes are accepted anytime (well, almost, depending on risk
-vs gain), then obviously fixes for new driver aren't worse.
-
-
-Perhaps it's just me :-) but I think we're trying to codify the rules
-way too much. The general rules (merge window = new features etc) are
-obviously ok but why do we need strict details like intrusive vs
-non-intrusive etc? People should just use a common sense and good
-judgement and, if in doubt in some particular case, ask. We are unable
-to describe all situations in a single text file.
 -- 
-Krzysztof Halasa
+Jake Edge - LWN - jake-T1hC0tSOHrs@public.gmane.org - http://lwn.net
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
