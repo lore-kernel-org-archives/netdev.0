@@ -1,7 +1,7 @@
 From: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
-Subject: [PATCH 05/10] nfs: Use rcu_barrier() on module unload.
-Date: Tue, 23 Jun 2009 17:04:19 +0200
-Message-ID: <20090623150419.22490.94087.stgit@localhost>
+Subject: [PATCH 06/10] ipv6: Use rcu_barrier() on module unload.
+Date: Tue, 23 Jun 2009 17:04:24 +0200
+Message-ID: <20090623150424.22490.47149.stgit@localhost>
 References: <20090623150330.22490.87327.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,34 +18,33 @@ Cc: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>,
 	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tytso-3s7WtUTddSA@public.gmane.org, adilger-xsfywfwIY+M@public.gmane.org,
 	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20090623150330.22490.87327.stgit@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The exit path unregister and destroys a lot of stuff, but I have not
-verified that nfs_free_delegation() cannot start new call_rcu() callbacks.
-
-Signed-off-by: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
+The ipv6 module uses rcu_call() thus it should use rcu_barrier() on
+module unload.
 ---
 
- fs/nfs/inode.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/ipv6/af_inet6.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-index 64f8719..40bf2b7 100644
---- a/fs/nfs/inode.c
-+++ b/fs/nfs/inode.c
-@@ -1518,6 +1518,7 @@ static void __exit exit_nfs_fs(void)
- 	unregister_nfs_fs();
- 	nfs_fs_proc_exit();
- 	nfsiod_stop();
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 85b3d00..caa0278 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -1284,6 +1284,8 @@ static void __exit inet6_exit(void)
+ 	proto_unregister(&udplitev6_prot);
+ 	proto_unregister(&udpv6_prot);
+ 	proto_unregister(&tcpv6_prot);
++
 +	rcu_barrier(); /* Wait for completion of call_rcu()'s */
  }
+ module_exit(inet6_exit);
  
- /* Not quite true; I just maintain it */
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
