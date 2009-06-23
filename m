@@ -1,43 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/4] virtio_net: return NETDEV_TX_BUSY instead of
-	queueing an extra skb.
-Date: Tue, 23 Jun 2009 10:54:59 +0800
-Message-ID: <20090623025459.GA5991@gondor.apana.org.au>
-References: <200905292346.04815.rusty@rustcorp.com.au> <200906181647.51045.rusty@rustcorp.com.au> <20090618073422.GA4087@gondor.apana.org.au> <200906191307.20360.rusty@rustcorp.com.au> <20090619043613.GA15163@gondor.apana.org.au> <OF1B3705AA.30E31D1D-ON652575DD.001F2CCD-652575DD.001FAE94@in.ibm.com> <20090622073417.GA21698@gondor.apana.org.au> <20090622182529.GA4990@xw6200.broadcom.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 1/2] netxen: fix build with without CONFIG_PM
+Date: Mon, 22 Jun 2009 23:26:20 -0700
+Message-ID: <1245738381-30163-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58285 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751576AbZFWCzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Jun 2009 22:55:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20090622182529.GA4990@xw6200.broadcom.net>
+Received: from nxgate.netxen.com ([38.99.60.130]:51581 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751315AbZFWG0X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Jun 2009 02:26:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 11:25:29AM -0700, Matt Carlson wrote:
->
-> As was said elsewhere, from the driver writer's perspective every packet
-> that has already been submitted (queued) to the hardware cannot be
-> preempted.  Slightly extending that logic doesn't seem like that much of
-> a problem, especially if it saves the troublesome requeuing logic higher up.
+wrap pci suspend() and resume() with CONFIG_PM check.
 
-I think this is pretty much the same as returning TX_BUSY :)
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Do you have access to one of these buggy cards? Can you run some
-tests to see what the difference between TSO and GSO is on them?
-
-Thanks,
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 71daa3d..43ac333 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1178,6 +1178,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+ 	free_netdev(netdev);
+ }
+ 
++#ifdef CONFIG_PM
+ static int
+ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
+ {
+@@ -1242,6 +1243,7 @@ netxen_nic_resume(struct pci_dev *pdev)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ static int netxen_nic_open(struct net_device *netdev)
+ {
+@@ -1771,8 +1773,10 @@ static struct pci_driver netxen_driver = {
+ 	.id_table = netxen_pci_tbl,
+ 	.probe = netxen_nic_probe,
+ 	.remove = __devexit_p(netxen_nic_remove),
++#ifdef CONFIG_PM
+ 	.suspend = netxen_nic_suspend,
+ 	.resume = netxen_nic_resume
++#endif
+ };
+ 
+ /* Driver Registration on NetXen card    */
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.0.2
+
