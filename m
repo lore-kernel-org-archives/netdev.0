@@ -1,52 +1,81 @@
-From: Jake Edge <jake-T1hC0tSOHrs@public.gmane.org>
-Subject: Re: [PATCH v3.1415] Documentation: add documentation summary for
- rc-series and merge window
-Date: Tue, 23 Jun 2009 13:23:16 -0600
-Message-ID: <20090623132316.28a4a348@chukar>
-References: <20090622222217.GH23972@bombadil.infradead.org>
-	<m3fxdqj2bz.fsf@lwn.net>
-	<m3bpoen5pp.fsf@intrepid.localdomain>
-	<20090623130602.6cd6b713@chukar>
-	<alpine.LFD.2.01.0906231210040.3240@localhost.localdomain>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: let SJA1000 driver depend on HAS_IOMEM
+Date: Tue, 23 Jun 2009 21:26:11 +0200
+Message-ID: <4A412C53.8050607@grandegger.com>
+References: <20090623073120.GA5955@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	"corbet-T1hC0tSOHrs@public.gmane.org" <corbet-T1hC0tSOHrs@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org" <tshibata-zZGIbrA41Td8UrSeD/g0lQ@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.01.0906231210040.3240-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:47443 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753878AbZFWT0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Jun 2009 15:26:13 -0400
+In-Reply-To: <20090623073120.GA5955@osiris.boeblingen.de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Jun 2009 12:11:52 -0700 (PDT) Linus Torvalds wrote:
+Heiko Carstens wrote:
+> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+> 
+> Fixes this compile error on s390:
+> 
+> drivers/net/can/sja1000/sja1000_platform.c: In function 'sp_read_reg':
+> drivers/net/can/sja1000/sja1000_platform.c:42: error: implicit declaration of function 'ioread8'
+> drivers/net/can/sja1000/sja1000_platform.c: In function 'sp_write_reg':
+> drivers/net/can/sja1000/sja1000_platform.c:47: error: implicit declaration of function 'iowrite8'
+> drivers/net/can/sja1000/sja1000_platform.c: In function 'sp_probe':
+> drivers/net/can/sja1000/sja1000_platform.c:79: error: implicit declaration of function 'ioremap_nocache'
+> 
+> Cc: Wolfgang Grandegger <wg@grandegger.com>
+> Cc: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> ---
+>  drivers/net/can/Kconfig |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Index: linux-2.6/drivers/net/can/Kconfig
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/can/Kconfig
+> +++ linux-2.6/drivers/net/can/Kconfig
+> @@ -36,7 +36,7 @@ config CAN_CALC_BITTIMING
+>  	  If unsure, say Y.
+>  
+>  config CAN_SJA1000
+> -	depends on CAN_DEV
+> +	depends on CAN_DEV && HAS_IOMEM
+>  	tristate "Philips SJA1000"
+>  	---help---
+>  	  Driver for the SJA1000 CAN controllers from Philips or NXP
 
-> In fact, this whole discussion has shown one thing: people still
-> think that "bug fix" somehow automatically means that it's
-> appropriate after the merge window. That's simply not so. 
+Hm, this Kconfig entry is not directly responsible for building
+sja1000_platform.o. It builds sja1000.o, which does not rely on
+HAS_IOMEM. It should be added to "config CAN_SJA1000_PLATFORM" instead.
+Does the patch below work for you?
 
-Makes sense.  It certainly is counter-intuitive sometimes, though.
-Just to clarify, there would seem to be one other category of bugs that
-is reasonable post-merge-window: those introduced by new features (or
-bug fixes) that were added during the merge window (i.e. something
-found in testing the new code during the -rc cycle). Those don't
-necessarily have to be security/oops problems and, for the most part,
-can't be regressions (at least for new features).  Or should those
-wait, by and large, for the next merge window?
+Wolfgang.
 
-jake
+---
+ drivers/net/can/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-Jake Edge - LWN - jake-T1hC0tSOHrs@public.gmane.org - http://lwn.net
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Index: net-next-2.6/drivers/net/can/Kconfig
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/Kconfig
++++ net-next-2.6/drivers/net/can/Kconfig
+@@ -42,7 +42,7 @@ config CAN_SJA1000
+ 	  Driver for the SJA1000 CAN controllers from Philips or NXP
+
+ config CAN_SJA1000_PLATFORM
+-	depends on CAN_SJA1000
++	depends on HAS_IOMEM && CAN_SJA1000
+ 	tristate "Generic Platform Bus based SJA1000 driver"
+ 	---help---
+ 	  This driver adds support for the SJA1000 chips connected to
+
+
