@@ -1,69 +1,54 @@
-From: Jens Axboe <jens.axboe-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 09/10] cfq-iosched: Uses its own open-coded rcu_barrier.
-Date: Wed, 24 Jun 2009 08:42:37 +0200
-Message-ID: <20090624064236.GE31415@kernel.dk>
-References: <20090623150330.22490.87327.stgit@localhost> <20090623150439.22490.14657.stgit@localhost>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: let SJA1000 driver depend on HAS_IOMEM
+Date: Wed, 24 Jun 2009 08:52:38 +0200
+Message-ID: <4A41CD36.8030202@hartkopp.net>
+References: <20090623073120.GA5955@osiris.boeblingen.de.ibm.com> <4A412C53.8050607@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dougthompson-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, bluesmoke-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
-	christine.caulfield-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tytso-3s7WtUTddSA@public.gmane.org, adilger-xsfywfwIY+M@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090623150439.22490.14657.stgit@localhost>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:32277 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689AbZFXGwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 02:52:41 -0400
+In-Reply-To: <4A412C53.8050607@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 23 2009, Jesper Dangaard Brouer wrote:
-> This module cfq-iosched, has discovered the value of waiting for
-> call_rcu() completion, but its has its own open-coded implementation
-> of rcu_barrier(), which I don't think is 'strong' enough.
-> 
-> This patch only leaves a comment for the maintainers to consider.
+Wolfgang Grandegger wrote:
+> Heiko Carstens wrote:
 
-We need a stronger primitive and rcu_barrier(), since we also need to
-wait for the rcu calls to even be scheduled. So I don't think the below
-can be improved, it's already fine.
 
+>> Index: linux-2.6/drivers/net/can/Kconfig
+>> ===================================================================
+>> --- linux-2.6.orig/drivers/net/can/Kconfig
+>> +++ linux-2.6/drivers/net/can/Kconfig
+>> @@ -36,7 +36,7 @@ config CAN_CALC_BITTIMING
+>>  	  If unsure, say Y.
+>>  
+>>  config CAN_SJA1000
+>> -	depends on CAN_DEV
+>> +	depends on CAN_DEV && HAS_IOMEM
+>>  	tristate "Philips SJA1000"
+>>  	---help---
+>>  	  Driver for the SJA1000 CAN controllers from Philips or NXP
 > 
-> Signed-off-by: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
-> ---
-> 
->  block/cfq-iosched.c |    6 ++++++
->  1 files changed, 6 insertions(+), 0 deletions(-)
-> 
-> diff --git a/block/cfq-iosched.c b/block/cfq-iosched.c
-> index 833ec18..c15555b 100644
-> --- a/block/cfq-iosched.c
-> +++ b/block/cfq-iosched.c
-> @@ -2657,6 +2657,12 @@ static void __exit cfq_exit(void)
->  	/*
->  	 * this also protects us from entering cfq_slab_kill() with
->  	 * pending RCU callbacks
-> +	 *
-> +	 * hawk-4UpuNZONu4c@public.gmane.org 2009-06-18: Maintainer please consider using
-> +	 *  rcu_barrier() instead of this open-coded wait for
-> +	 *  completion implementation.  I think it provides a better
-> +	 *  guarantee that all CPUs are finished, although
-> +	 *  elv_ioc_count_read() do consider all CPUs.
->  	 */
->  	if (elv_ioc_count_read(ioc_count))
->  		wait_for_completion(&all_gone);
-> 
+> Hm, this Kconfig entry is not directly responsible for building
+> sja1000_platform.o. It builds sja1000.o, which does not rely on
+> HAS_IOMEM. It should be added to "config CAN_SJA1000_PLATFORM" instead.
 
--- 
-Jens Axboe
+Hi Wolfgang,
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+the question is, if we should add HAS_IOMEM to almost every SJA1000 depended
+driver like SJA1000_PLATFORM, SJA1000_OF_PLATFORM, EMS_PCI and KVASER_PCI ???
+
+Is it possible to have a support for the SJA1000 that does *not* depend on
+HAS_IOMEM?
+
+Regards,
+Oliver
