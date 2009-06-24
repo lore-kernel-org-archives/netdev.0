@@ -1,68 +1,46 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] gianfar: Fix half-duplex operation for non-MII/RMII
-	interfaces
-Date: Wed, 24 Jun 2009 15:18:59 -0500
-Message-ID: <ED58F994-6BDC-4496-8445-EA1D984F1379@freescale.com>
-References: <20090624182734.GA14306@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	Li Yang <leoli@freescale.com>, David Miller <davem@davemloft.net>
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20090624182734.GA14306@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <daniel@caiaq.de>
+Subject: Re: smsc9220 with omap3
+Date: Wed, 24 Jun 2009 22:21:58 +0200
+Message-ID: <20090624202158.GD29236@buzzloop.caiaq.de>
+References: <4A40FE32.1030708@compulab.co.il> <20090623222928.GM29236@buzzloop.caiaq.de> <4A423DA0.6010306@compulab.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	ARM Linux <linux-arm-kernel@lists.arm.linux.org.uk>
+To: Mike Rapoport <mike@compulab.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from buzzloop.caiaq.de ([212.112.241.133]:44069 "EHLO
+	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752012AbZFXUV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 16:21:59 -0400
+Content-Disposition: inline
+In-Reply-To: <4A423DA0.6010306@compulab.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 24, 2009 at 05:52:16PM +0300, Mike Rapoport wrote:
+> > We're using that chip connected to a PXA300 and it works well, so I
+> > wouldn't suspect the driver. Does it work from any other scenario like
+> > the bootloader? And I don't know OMAP, but it might be helpful to others
+> > if you posted your platform_data config.
+> 
+> The platform_data I use is:
+> static struct smsc911x_platform_config smsc911x_config = {
+> 	.irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+> 	.irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL,
+> 	.flags = SMSC911X_USE_32BIT | SMSC911X_FORCE_INTERNAL_PHY,
+> };
+> 
+> The chip is properly detected, and if I tweak the loopback test to return 0, the
+>  driver does not complain any more. Moreover, it seems that RX work, at least
+> ifconfig reports non-zero values for RX packets. Still, there is no even single
+> packet transmitted from the smsc9220 :(
+> I suspect that there's some problem with the hardware, and probably someone
+> encountered similar problems and may have found a solution.
 
-On Jun 24, 2009, at 1:27 PM, Anton Vorontsov wrote:
+For the electrical part, there is a reference schematic from SMSC. And
+on PXA, you need some dumb CMOS logic or a CPLD for proper interfacing
+of the digital bus. Don't know if the latter is also necessary for OMAP.
 
-> It appears that gianfar driver has the same problem[1] that I
-> just fixed for ucc_geth.
->
-> NFS boot using 10/half link takes about 10 minutes to complete:
->
+Daniel
 
->
-> The symptoms were observed on MPC8379E-RDB boards (eTSEC). Although
-> I didn't find where documentation forbids clearing Full Duplex bit
-> for non-MII/RMII modes, it's pretty distinct that the bit should be
-> set.
->
-> It's no wonder though, QE Ethernet and TSEC are pretty similar.
-
-> -			if (!(phydev->duplex))
-> -				tempval &= ~(MACCFG2_FULL_DUPLEX);
-> +			if (!phydev->duplex &&
-> +					(phyi == PHY_INTERFACE_MODE_MII ||
-> +					 phyi == PHY_INTERFACE_MODE_RMII))
-
-
-Hmm....have you tested this on a GMII interface?  *Technically*, full  
-duplex is required for GMII, as GMII is used only for gigabit.   
-However, we've been treating the GMII interface type as an indicator  
-that the PHY *has* a GMII connection to the NIC.  When gianfar detects  
-the speed is 10/100 it switches to the compatible MII interface via  
-this code, just below:
-
-                         case 100:
-                         case 10:
-                                 tempval =
-                                     ((tempval & ~(MACCFG2_IF)) |  
-MACCFG2_MII);
-
-
-My concern is that you will be detecting the GMII interface, and  
-disallowing half-duplex, despite the fact that the interface is  
-actually running at 10 or 100 Mbit.
-
-Andy
