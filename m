@@ -1,40 +1,52 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH -tip 0/3] expedited "big hammer" RCU grace periods
-Date: Wed, 24 Jun 2009 11:44:23 -0700
-Message-ID: <20090624184423.GK6779@linux.vnet.ibm.com>
-References: <20090624164535.GA13334@linux.vnet.ibm.com> <20090624180303.GE7576@elte.hu>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [RFC] tcp: race in receive part
+Date: Wed, 24 Jun 2009 18:30:24 +0200
+Message-ID: <20090624163024.GA29337@redhat.com>
+References: <20090618102727.GC3782@jolsa.lab.eng.brq.redhat.com> <4A3A49F2.6060705@gmail.com> <20090623091257.GA4850@jolsa.lab.eng.brq.redhat.com> <4A40AF2A.3050509@gmail.com> <20090624102038.GA5409@jolsa.lab.eng.brq.redhat.com> <4A42082D.9060402@gmail.com> <20090624162112.GB5409@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: Ingo Molnar <mingo@elte.hu>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:48291 "EHLO e3.ny.us.ibm.com"
+Received: from mx2.redhat.com ([66.187.237.31]:58504 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751631AbZFXSoX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2009 14:44:23 -0400
+	id S1751317AbZFXTpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2009 15:45:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20090624180303.GE7576@elte.hu>
+In-Reply-To: <20090624162112.GB5409@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2009 at 08:03:03PM +0200, Ingo Molnar wrote:
-> 
-> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> 
-> >  include/linux/rcuclassic.h    |   15 ++-
-> 
-> heh, we dont have this file anymore ... as of today, right? :)
+On 06/24, Jiri Olsa wrote:
+>
+> +/* The read_lock() on x86 is a full memory barrier. */
+> +#define smp_mb__after_read_lock() barrier()
 
-Ah, I was assuming that expedited RCU would happen before removal of
-Classic RCU.
+Just curious, why do we need barrier() ?
 
-I will respin the expedited RCU patch.  ;-)
+I must admit, personally I dislike _read_lock part. Because I think we
+need a "more generic" smp_mb__{before,after}_lock() or whatever which
+work for spin_lock/read_lock/write_lock.
 
-							Thanx, Paul
+In that case it can have more users. Btw, in fs/select.c too, see
+__pollwake().
+
+And surprise,
+
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -219,6 +219,10 @@ static void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
+>  	init_waitqueue_func_entry(&entry->wait, pollwake);
+>  	entry->wait.private = pwq;
+>  	add_wait_queue(wait_address, &entry->wait);
+> +
+> +	/* This memory barrier is paired with the smp_mb__after_read_lock
+> +	 * in the sk_has_sleeper. */
+> +	smp_mb();
+
+This could be smp_mb__after_lock() too.
+
+Oleg.
+
