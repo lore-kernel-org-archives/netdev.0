@@ -1,89 +1,114 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Wed, 24 Jun 2009 10:36:08 -0700
-Message-ID: <20090624173608.GA8985@xw6200.broadcom.net>
-References: <7e14b58794647ea1b1b0a644e14a11f6@localhost>
- <1244831838.9225.71.camel@HP1> <4A32CDE9.7020602@dupondje.be>
- <1244844106.9225.92.camel@HP1> <4A32D3DB.30703@dupondje.be>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] ucc_geth: Fix half-duplex operation for non-MII/RMII
+	interfaces
+Date: Wed, 24 Jun 2009 21:45:57 +0400
+Message-ID: <20090624174557.GA31479@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"David Christensen" <davidch@broadcom.com>
-To: "Jean-Louis Dupond" <info@dupondje.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1080 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751289AbZFXRgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2009 13:36:14 -0400
-In-Reply-To: <4A32D3DB.30703@dupondje.be>
+Cc: linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Was there a version of the kernel where this device worked reliably?
+Currently the half-duplex operation seems to not work reliably for
+RGMII/GMII PHY interfaces. It takes about 10 minutes to boot NFS
+rootfs using 10/half link, following symptoms were observed:
 
-Can you post the driver sign-on messages?  (I'm looking to see if ASF
-is enabled.)
+  ucc_geth: QE UCC Gigabit Ethernet Controller
+  ucc_geth: UCC1 at 0xe0082000 (irq = 32)
+  [...]
+  Sending DHCP and RARP requests .
+  PHY: mdio@e0082120:07 - Link is Up - 10/Half
+  ., OK
+  [...]
+  Looking up port of RPC 100003/2 on 10.0.0.2
+  Looking up port of RPC 100005/1 on 10.0.0.2
+  VFS: Mounted root (nfs filesystem) readonly on device 0:13.
+  Freeing unused kernel memory: 204k init
+  eth0: no IPv6 routers present
+  nfs: server 10.0.0.2 not responding, still trying
+  nfs: server 10.0.0.2 not responding, still trying
+  nfs: server 10.0.0.2 not responding, still trying
+  nfs: server 10.0.0.2 OK
+  nfs: server 10.0.0.2 OK
+  nfs: server 10.0.0.2 not responding, still trying
+  [... few minutes of OK/not responding flood ...]
 
-On Fri, Jun 12, 2009 at 03:16:59PM -0700, Jean-Louis Dupond wrote:
-> I surely tried other cables. But its surely not the cable because:
-> 1) We tried other cables
-> 2) After a reboot it works, or after a mii-tool -R
-> 3) We have this issue on like +100 servers :(
-> 
-> The servers are connected on a Dell PowerConnect 6248 switch.
-> 
-> Sincerely
-> 
-> Michael Chan schreef:
-> > On Fri, 2009-06-12 at 14:51 -0700, Jean-Louis Dupond wrote:
-> >> Hello!
-> >>
-> >> Here is a mii-tool -vvv on a box that doesn't advertise gbit speeds! It 
-> >> just doesn't advertise gbit @ random, sometimes it does, sometimes not! 
-> >> Without any logic in it!
-> >>
-> >> # mii-tool  -vvv
-> >> Using SIOCGMIIPHY=0x8947
-> >> eth0: link ok
-> >>     registers for MII PHY 1:
-> >>       1000 794d 0143 bed0 05e1 0000 0064 2001
-> >>       0000 0300 0000 0000 0000 0000 0000 3000
-> > 
-> > Register 1 shows that autoneg did not complete (bit 5 is not set).
-> > The tg3 device has advertised 10/100/1000 in register 4 and register 9,
-> > but registers 5 and 0xa (link partner's advertisement registers are 0).
-> > 
-> > When it works, these registers should look very different.
-> > 
-> > Have you tried other cables?  What is the link partner?
-> > 
-> >>       0000 0101 0000 0000 0000 0000 0000 0000
-> >>       7477 0104 0000 ffff 2801 0000 8000 0000
-> >>     product info: vendor 00:50:ef, model 45 rev 0
-> >>     basic mode:   autonegotiation enabled
-> >>     basic status: link ok
-> >>     capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
-> >> 10baseT-FD 10baseT-HD
-> >>     advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-
-> >> control
-> >>
-> >> # dmesg | grep tg3
-> >> [    3.331702] tg3.c:v3.92.1 (June 9, 2008)
-> >> [   18.238654] tg3: eth0: Link is up at 10 Mbps, half duplex.
-> >> [   18.238654] tg3: eth0: Flow control is off for TX and off for RX.
-> >>
-> >>
-> > 
-> > 
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+The statistic shows that there are indeed some errors:
 
+  # ethtool -S eth0 | grep -v ": 0"
+  NIC statistics:
+       tx-64-frames: 42
+       tx-65-127-frames: 9
+       tx-128-255-frames: 4768
+       rx-64-frames: 41
+       rx-65-127-frames: 260
+       rx-128-255-frames: 2679
+       tx-bytes-ok: 859634
+       tx-multicast-frames: 5
+       tx-broadcast-frames: 7
+       rx-frames: 8333
+       rx-bytes-ok: 8039364
+       rx-bytes-all: 8039364
+       stats-counter-mask: 4294901760
+       tx-single-collision: 324
+       tx-multiple-collision: 47
+       tx-late-collsion: 604
+       tx-aborted-frames: 604
+       tx-frames-ok: 4967
+       tx-256-511-frames: 3
+       tx-512-1023-frames: 79
+       tx-1024-1518-frames: 71
+       rx-256-511-frames: 37
+       rx-512-1023-frames: 73
+       rx-1024-1518-frames: 5243
+
+According to current QEIWRM (Rev. 2 5/2009), FDX bit can be 0 for
+RGMII(10/100) modes, while MPC8568ERM (Rev. C 02/2007) spec says
+that cleared FDX bit is permitted for MII/RMII modes only.
+
+The symptoms above were seen on MPC8569E-MDS boards, so QEIWRM is
+clearly wrong, and this patch completely cures the problems above.
+
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/ucc_geth.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 464df03..e618cf2 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1469,12 +1469,16 @@ static void adjust_link(struct net_device *dev)
+ 	if (phydev->link) {
+ 		u32 tempval = in_be32(&ug_regs->maccfg2);
+ 		u32 upsmr = in_be32(&uf_regs->upsmr);
++		phy_interface_t phyi = ugeth->phy_interface;
++
+ 		/* Now we make sure that we can be in full duplex mode.
+ 		 * If not, we operate in half-duplex mode. */
+ 		if (phydev->duplex != ugeth->oldduplex) {
+ 			new_state = 1;
+-			if (!(phydev->duplex))
+-				tempval &= ~(MACCFG2_FDX);
++			if (!phydev->duplex &&
++					(phyi == PHY_INTERFACE_MODE_MII ||
++					 phyi == PHY_INTERFACE_MODE_RMII))
++				tempval &= ~MACCFG2_FDX;
+ 			else
+ 				tempval |= MACCFG2_FDX;
+ 			ugeth->oldduplex = phydev->duplex;
+-- 
+1.6.3.1
