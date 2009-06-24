@@ -1,56 +1,68 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [RFC] tcp: race in receive part
-Date: Wed, 24 Jun 2009 18:41:02 +0200
-Message-ID: <20090624164102.GB29337@redhat.com>
-References: <20090618102727.GC3782@jolsa.lab.eng.brq.redhat.com> <4A3A49F2.6060705@gmail.com> <20090623091257.GA4850@jolsa.lab.eng.brq.redhat.com> <4A40AF2A.3050509@gmail.com> <20090624102038.GA5409@jolsa.lab.eng.brq.redhat.com> <4A42082D.9060402@gmail.com> <20090624162112.GB5409@jolsa.lab.eng.brq.redhat.com> <20090624163024.GA29337@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:38486 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752991AbZFXTzi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2009 15:55:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20090624163024.GA29337@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] gianfar: Fix half-duplex operation for non-MII/RMII
+	interfaces
+Date: Wed, 24 Jun 2009 15:18:59 -0500
+Message-ID: <ED58F994-6BDC-4496-8445-EA1D984F1379@freescale.com>
+References: <20090624182734.GA14306@oksana.dev.rtsoft.ru>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"; DelSp="yes"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	Li Yang <leoli@freescale.com>, David Miller <davem@davemloft.net>
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090624182734.GA14306@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On 06/24, Oleg Nesterov wrote:
->
-> On 06/24, Jiri Olsa wrote:
-> >
-> > +/* The read_lock() on x86 is a full memory barrier. */
-> > +#define smp_mb__after_read_lock() barrier()
->
-> Just curious, why do we need barrier() ?
->
-> I must admit, personally I dislike _read_lock part. Because I think we
-> need a "more generic" smp_mb__{before,after}_lock() or whatever which
-> work for spin_lock/read_lock/write_lock.
->
-> In that case it can have more users. Btw, in fs/select.c too, see
-> __pollwake().
->
-> And surprise,
->
-> > --- a/fs/select.c
-> > +++ b/fs/select.c
-> > @@ -219,6 +219,10 @@ static void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
-> >  	init_waitqueue_func_entry(&entry->wait, pollwake);
-> >  	entry->wait.private = pwq;
-> >  	add_wait_queue(wait_address, &entry->wait);
-> > +
-> > +	/* This memory barrier is paired with the smp_mb__after_read_lock
-> > +	 * in the sk_has_sleeper. */
-> > +	smp_mb();
->
-> This could be smp_mb__after_lock() too.
 
-Cough. this needs mb__after_UNlock(), sorry.
+On Jun 24, 2009, at 1:27 PM, Anton Vorontsov wrote:
 
-Oleg.
+> It appears that gianfar driver has the same problem[1] that I
+> just fixed for ucc_geth.
+>
+> NFS boot using 10/half link takes about 10 minutes to complete:
+>
 
+>
+> The symptoms were observed on MPC8379E-RDB boards (eTSEC). Although
+> I didn't find where documentation forbids clearing Full Duplex bit
+> for non-MII/RMII modes, it's pretty distinct that the bit should be
+> set.
+>
+> It's no wonder though, QE Ethernet and TSEC are pretty similar.
+
+> -			if (!(phydev->duplex))
+> -				tempval &= ~(MACCFG2_FULL_DUPLEX);
+> +			if (!phydev->duplex &&
+> +					(phyi == PHY_INTERFACE_MODE_MII ||
+> +					 phyi == PHY_INTERFACE_MODE_RMII))
+
+
+Hmm....have you tested this on a GMII interface?  *Technically*, full  
+duplex is required for GMII, as GMII is used only for gigabit.   
+However, we've been treating the GMII interface type as an indicator  
+that the PHY *has* a GMII connection to the NIC.  When gianfar detects  
+the speed is 10/100 it switches to the compatible MII interface via  
+this code, just below:
+
+                         case 100:
+                         case 10:
+                                 tempval =
+                                     ((tempval & ~(MACCFG2_IF)) |  
+MACCFG2_MII);
+
+
+My concern is that you will be detecting the GMII interface, and  
+disallowing half-duplex, despite the fact that the interface is  
+actually running at 10 or 100 Mbit.
+
+Andy
