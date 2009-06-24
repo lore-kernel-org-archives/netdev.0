@@ -1,59 +1,56 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH -tip 3/3] synchronize_sched_expedited() rcutorture doc
-Date: Wed, 24 Jun 2009 09:48:19 -0700
-Message-ID: <20090624164819.GC13796@linux.vnet.ibm.com>
-References: <20090624164535.GA13334@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: e100 skb allocation
+Date: Wed, 24 Jun 2009 12:54:21 -0400
+Message-ID: <20090624165421.GB18486@hmsreliant.think-freely.org>
+References: <b9e8fcbd0906240149g2f2e18f2vcd7dce234c949564@mail.gmail.com> <20090624104750.GA18486@hmsreliant.think-freely.org> <b9e8fcbd0906240928h6c5db9a6va48e42799376149e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mingo@elte.hu, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Nicholas Van Orton <turanammo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44723 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760596AbZFXQy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 12:54:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20090624164535.GA13334@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <b9e8fcbd0906240928h6c5db9a6va48e42799376149e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch updates the rcutorture documentation to include updated
-output format.
+On Wed, Jun 24, 2009 at 09:58:38PM +0530, Nicholas Van Orton wrote:
+> On Wed, Jun 24, 2009 at 4:17 PM, Neil Horman<nhorman@tuxdriver.com> w=
+rote:
+> > On Wed, Jun 24, 2009 at 02:19:48PM +0530, Nicholas Van Orton wrote:
+> >> Hello,
+> >>
+> >> =A0 =A0 =A0 For the Intel 8256 Ethernet Controller (e100.c), I not=
+ice that at the
+> >> time of skb allocation using netdev_alloc_skb() and just before
+> >> calling skb_reserve(), rx->skb->head and rx->skb->tail do not poin=
+t to
+> >> the same location. In fact they are already 16bytes apart. After
+> >> calling =A0skb_reserve(), which would add a 2 byte padding, head a=
+nd
+> >> tail would be 18 bytes apart. Is this behaviour correct? Shouldn't=
+ the
+> >> ethernet header be 14+2 bytes after padding? Why aren't head and t=
+ail
+> >> at the same location at the beginning?
+> >>
+> > Yes, its fine (although IIRC it should be 32, rather than 16 bytes)=
+=2E
+> > netdev_alloc_skb, in its implementation, allocates an skb that is N=
+ET_SKB_PAD
+> > bytes larger than the caller requested, then it calls skb_reserve i=
+nternally to
+> > add NET_SKB_PAD bytes of data to the skb's buffer.
+> >
+>=20
+> Thanks a bunch for steering me in the right direction. Things are muc=
+h
+> clearer now.
+>=20
+No problem :)
+Neil
 
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
----
-
- torture.txt |   17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
-
-diff --git a/Documentation/RCU/torture.txt b/Documentation/RCU/torture.txt
-index a342b6e..f39a3fc 100644
---- a/Documentation/RCU/torture.txt
-+++ b/Documentation/RCU/torture.txt
-@@ -162,6 +162,23 @@ of the "old" and "current" counters for the corresponding CPU.  The
- "idx" value maps the "old" and "current" values to the underlying array,
- and is useful for debugging.
- 
-+Similarly, sched_expedited RCU provides the following:
-+
-+	sched_expedited-torture: rtc: d0000000016c1880 ver: 1090796 tfle: 0 rta: 1090796 rtaf: 0 rtf: 1090787 rtmbe: 0 nt: 27713319
-+	sched_expedited-torture: Reader Pipe:  12660320201 95875 0 0 0 0 0 0 0 0 0
-+	sched_expedited-torture: Reader Batch:  12660424885 0 0 0 0 0 0 0 0 0 0
-+	sched_expedited-torture: Free-Block Circulation:  1090795 1090795 1090794 1090793 1090792 1090791 1090790 1090789 1090788 1090787 0
-+	state: -1 / 0:0 3:0 4:0
-+
-+As before, the first four lines are similar to those for RCU.
-+The last line shows the task-migration state.  The first number is
-+-1 if synchronize_sched_expedited() is idle, -2 if in the process of
-+posting wakeups to the migration kthreads, and N when waiting on CPU N.
-+Each of the colon-separated fields following the "/" is a CPU:state pair.
-+Valid states are "0" for idle, "1" for waiting for quiescent state,
-+"2" for passed through quiescent state, and "3" when a race with a
-+CPU-hotplug event forces use of the synchronize_sched() primitive.
-+
- 
- USAGE
- 
