@@ -1,38 +1,23 @@
-From: Nick Kossifidis <mickflemm@gmail.com>
-Subject: Re: Linux wireless mini-summit -- Berlin, June 2009
-Date: Wed, 24 Jun 2009 13:19:38 +0300
-Message-ID: <40f31dec0906240319q52444a96w32c21b4c9ec461c@mail.gmail.com>
-References: <20090403182724.GA7364@tuxdriver.com>
-	 <40f31dec0906030535k3af1f6e7u68c82a4f984e7029@mail.gmail.com>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: bnx2 firmware problem with 2.6.30
+Date: Wed, 24 Jun 2009 12:18:52 +0200
+Message-ID: <BAY103-DAV98BB612E3FD17243F9D83B2370@phx.gbl>
+References: <BAY103-DAV109D9C8B5604B2AF4A84EB2360@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:64822 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751234AbZFXKTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 06:19:38 -0400
-In-Reply-To: <40f31dec0906030535k3af1f6e7u68c82a4f984e7029@mail.gmail.com>
+Received: from bay0-omc3-s12.bay0.hotmail.com ([65.54.246.212]:20638 "EHLO
+	bay0-omc3-s12.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751241AbZFXKUY convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2009 06:20:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/6/3 Nick Kossifidis <mickflemm@gmail.com>:
->
->
-> Can we book a room on Holiday in
-> (http://fedoraproject.org/wiki/FUDCon:Berlin_2009_lodging) or is it
-> only for Fedora people ? What's the process ? I've managed to find
-> some funding for travel expenses but most hotels are really expensive
-> (i plan to come on 24 and leave on 29).
->
+this fix the problem:
 
-Just arrived, looking forward to see you all ;-)
+CONFIG_FIRMWARE_IN_KERNEL=y
+CONFIG_BNX2=y
 
-
--- 
-GPG ID: 0xD21DB2DB
-As you read this post global entropy rises. Have Fun ;-)
-Nick
