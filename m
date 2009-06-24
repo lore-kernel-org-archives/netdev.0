@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10] We must use rcu_barrier() on module unload
-Date: Wed, 24 Jun 2009 00:02:11 -0700 (PDT)
-Message-ID: <20090624.000211.175032622.davem@davemloft.net>
-References: <20090623150330.22490.87327.stgit@localhost>
+Subject: Re: [PATCH] bnx2: Fix the behavior of ethtool when ONBOOT=no
+Date: Wed, 24 Jun 2009 00:08:52 -0700 (PDT)
+Message-ID: <20090624.000852.186373553.davem@davemloft.net>
+References: <C27F8246C663564A84BB7AB343977242178EE78081@IRVEXCHCCR01.corp.ad.broadcom.com>
+	<4A41BD86.9050208@miraclelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dougthompson@xmission.com,
-	bluesmoke-devel@lists.sourceforge.net, axboe@kernel.dk,
-	kaber@trash.net, christine.caulfield@googlemail.com,
-	Trond.Myklebust@netapp.com, linux-wireless@vger.kernel.org,
-	johannes@sipsolutions.net, yoshfuji@linux-ipv6.org,
-	shemminger@linux-foundation.org, linux-nfs@vger.kernel.org,
-	bfields@fieldses.org, neilb@suse.de, linux-ext4@vger.kernel.org,
-	tytso@mit.edu, adilger@sun.com, netfilter-devel@vger.kernel.org
-To: hawk@comx.dk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755407AbZFXHCT@vger.kernel.org>
-In-Reply-To: <20090623150330.22490.87327.stgit@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+To: nooiwa@miraclelinux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39989
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753003AbZFXHIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 03:08:48 -0400
+In-Reply-To: <4A41BD86.9050208@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Date: Tue, 23 Jun 2009 17:03:53 +0200
+From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
+Date: Wed, 24 Jun 2009 14:45:42 +0900
 
-> This patch series is an attempt to cleanup the entire tree, for
-> potential oops'es during module unload, due to outstanding RCU
-> callbacks. (My last rcu_barrier patch series only addressed net/).
+> Hi Michael
+> 
+> Thank you for your reply.
+> 
+> I tested this patch now.
+> The result was good for me.
 
-This series has net/ stuff too :-)
-
-I'll let the networking cases sit for a while and get review before
-I apply them.
+I've applied your patch, thank you.
