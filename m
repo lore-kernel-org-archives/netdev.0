@@ -1,56 +1,50 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: e100 skb allocation
-Date: Wed, 24 Jun 2009 12:54:21 -0400
-Message-ID: <20090624165421.GB18486@hmsreliant.think-freely.org>
-References: <b9e8fcbd0906240149g2f2e18f2vcd7dce234c949564@mail.gmail.com> <20090624104750.GA18486@hmsreliant.think-freely.org> <b9e8fcbd0906240928h6c5db9a6va48e42799376149e@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: Fix the behavior of ethtool when ONBOOT=no
+Date: Wed, 24 Jun 2009 09:59:20 -0700
+Message-ID: <1245862760.12000.507.camel@nseg_linux_HP1.broadcom.com>
+References: <4A41961B.2090206@miraclelinux.com>
+ <4A4257B8.2090105@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Nicholas Van Orton <turanammo@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Naohiro Ooiwa" <nooiwa@miraclelinux.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44723 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760596AbZFXQy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 12:54:27 -0400
-Content-Disposition: inline
-In-Reply-To: <b9e8fcbd0906240928h6c5db9a6va48e42799376149e@mail.gmail.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1394 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754720AbZFXRKA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Jun 2009 13:10:00 -0400
+In-Reply-To: <4A4257B8.2090105@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2009 at 09:58:38PM +0530, Nicholas Van Orton wrote:
-> On Wed, Jun 24, 2009 at 4:17 PM, Neil Horman<nhorman@tuxdriver.com> w=
-rote:
-> > On Wed, Jun 24, 2009 at 02:19:48PM +0530, Nicholas Van Orton wrote:
-> >> Hello,
-> >>
-> >> =A0 =A0 =A0 For the Intel 8256 Ethernet Controller (e100.c), I not=
-ice that at the
-> >> time of skb allocation using netdev_alloc_skb() and just before
-> >> calling skb_reserve(), rx->skb->head and rx->skb->tail do not poin=
-t to
-> >> the same location. In fact they are already 16bytes apart. After
-> >> calling =A0skb_reserve(), which would add a 2 byte padding, head a=
-nd
-> >> tail would be 18 bytes apart. Is this behaviour correct? Shouldn't=
- the
-> >> ethernet header be 14+2 bytes after padding? Why aren't head and t=
-ail
-> >> at the same location at the beginning?
-> >>
-> > Yes, its fine (although IIRC it should be 32, rather than 16 bytes)=
-=2E
-> > netdev_alloc_skb, in its implementation, allocates an skb that is N=
-ET_SKB_PAD
-> > bytes larger than the caller requested, then it calls skb_reserve i=
-nternally to
-> > add NET_SKB_PAD bytes of data to the skb's buffer.
-> >
->=20
-> Thanks a bunch for steering me in the right direction. Things are muc=
-h
-> clearer now.
->=20
-No problem :)
-Neil
+
+On Wed, 2009-06-24 at 09:43 -0700, Rick Jones wrote:
+> Naohiro Ooiwa wrote:
+> > Hi Michael
+> > 
+> > I found a little bug.
+> > 
+> > When configure in ifcfg-eth* is ONBOOT=no,
+> > the behavior of ethtool command is wrong.
+> > 
+> >     # grep ONBOOT /etc/sysconfig/network-scripts/ifcfg-eth2
+> >     ONBOOT=no
+> >     # ethtool eth2 | tail -n1
+> >             Link detected: yes
+> > 
+> > I think "Link detected" should be "no".
+> 
+> Why?  Sure, there is no IP on the link, but does that mean the link is 
+> otherwise unusable?  Is ethtool only about IP status?
+> 
+
+Once the device is closed, we no longer keep track of the link state and
+no longer have register access to determine the link state.  So we
+assume it is down.  In reality, it may still be up if WoL is enabled or
+management firmware is running, but the driver can no longer keep track
+of it.  If we have to assume one or the other, I think it is more
+correct to assume it is down.
+
 
