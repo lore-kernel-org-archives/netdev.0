@@ -1,53 +1,54 @@
-From: Nicholas Van Orton <turanammo@gmail.com>
-Subject: Re: e100 skb allocation
-Date: Wed, 24 Jun 2009 21:58:38 +0530
-Message-ID: <b9e8fcbd0906240928h6c5db9a6va48e42799376149e@mail.gmail.com>
-References: <b9e8fcbd0906240149g2f2e18f2vcd7dce234c949564@mail.gmail.com>
-	 <20090624104750.GA18486@hmsreliant.think-freely.org>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: Any implementation of NETPOLL for bonding?
+Date: Wed, 24 Jun 2009 12:34:40 -0400
+Message-ID: <bdfc5d6e0906240934w18f80a1aq3075954326155b90@mail.gmail.com>
+References: <1245101162.11148.210.camel@psmith-ubeta.netezza.com>
+	 <20090615230907.GA8515@gospo.rdu.redhat.com>
+	 <1245165201.11148.244.camel@psmith-ubeta.netezza.com>
+	 <1245776460.9022.19.camel@psmith-ubeta.netezza.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+To: paul@mad-scientist.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.234]:3194 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149AbZFXQ2h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 12:28:37 -0400
-Received: by rv-out-0506.google.com with SMTP id f6so241432rvb.1
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2009 09:28:38 -0700 (PDT)
-In-Reply-To: <20090624104750.GA18486@hmsreliant.think-freely.org>
+Received: from mail-qy0-f193.google.com ([209.85.221.193]:47421 "EHLO
+	mail-qy0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760904AbZFXQkw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 12:40:52 -0400
+Received: by qyk31 with SMTP id 31so1151276qyk.33
+        for <netdev@vger.kernel.org>; Wed, 24 Jun 2009 09:40:54 -0700 (PDT)
+In-Reply-To: <1245776460.9022.19.camel@psmith-ubeta.netezza.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2009 at 4:17 PM, Neil Horman<nhorman@tuxdriver.com> wro=
-te:
-> On Wed, Jun 24, 2009 at 02:19:48PM +0530, Nicholas Van Orton wrote:
->> Hello,
->>
->> =A0 =A0 =A0 For the Intel 8256 Ethernet Controller (e100.c), I notic=
-e that at the
->> time of skb allocation using netdev_alloc_skb() and just before
->> calling skb_reserve(), rx->skb->head and rx->skb->tail do not point =
-to
->> the same location. In fact they are already 16bytes apart. After
->> calling =A0skb_reserve(), which would add a 2 byte padding, head and
->> tail would be 18 bytes apart. Is this behaviour correct? Shouldn't t=
+On Tue, Jun 23, 2009 at 1:01 PM, Paul Smith<paul@mad-scientist.us> wrot=
+e:
+> On Tue, 2009-06-16 at 11:13 -0400, Paul Smith wrote:
+>> On Mon, 2009-06-15 at 19:09 -0400, Andy Gospodarek wrote:
+>> > On Mon, Jun 15, 2009 at 05:26:02PM -0400, Paul Smith wrote:
+>> > > I wanted to attach to my kernel with KGDBOE but failed because t=
 he
->> ethernet header be 14+2 bytes after padding? Why aren't head and tai=
-l
->> at the same location at the beginning?
->>
-> Yes, its fine (although IIRC it should be 32, rather than 16 bytes).
-> netdev_alloc_skb, in its implementation, allocates an skb that is NET=
-_SKB_PAD
-> bytes larger than the caller requested, then it calls skb_reserve int=
-ernally to
-> add NET_SKB_PAD bytes of data to the skb's buffer.
+>> > > bonding driver doesn't support NETPOLL, and the only network acc=
+ess to
+>> > > the system is over a bonded interface.
+>> >
+>> > I did some work in the not-too-distant past on this and can probab=
+ly
+>> > dig-up the patches and port them to the latest upstream. =A0Would =
+you be
+>> > able to test a patch?
+>
+> Hi Andy; did you have any time to dig these out and forward them to m=
+e?
+> I'm happy to test them for you.
+>
+> Thanks!
+>
 >
 
-Thanks a bunch for steering me in the right direction. Things are much
-clearer now.
+I did, but they are in rough shape right now since they are so old
+(they don't apply at all).
 
-Regards,
-Nicholas
+I should be able to get them compiling and running by the end of the da=
+y today.
