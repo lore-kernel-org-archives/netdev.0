@@ -1,48 +1,55 @@
-From: Michael Opdenacker <michael@free-electrons.com>
-Subject: [PATCH 1/1] Minor code cleanup in drivers/net/r6040.c
-Date: Thu, 25 Jun 2009 09:05:09 +0200
-Message-ID: <1245913509-23245-1-git-send-email-michael@free-electrons.com>
-Cc: Michael Opdenacker <michael@free-electrons.com>
-To: florian@openwrt.org, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jens Rosenboom <me@jayr.de>
+Subject: PATCH: ipv6: avoid wraparound for expired lifetimes
+Date: Thu, 25 Jun 2009 09:39:43 +0200
+Message-ID: <20090625073943.GO21357@jayr.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.191.76.200]:58332 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758167AbZFYHMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 03:12:32 -0400
+Received: from mout4.freenet.de ([195.4.92.94]:58445 "EHLO mout4.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752449AbZFYHjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2009 03:39:45 -0400
+Received: from [195.4.92.20] (helo=10.mx.freenet.de)
+	by mout4.freenet.de with esmtpa (ID exim) (port 25) (Exim 4.69 #92)
+	id 1MJjYf-00019k-T8
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 09:39:45 +0200
+Received: from v6.beuys.jayr.de ([2001:748:305:1001:290:27ff:fe2d:b4cc]:47374 helo=beuys.jayr.de)
+	by 10.mx.freenet.de with esmtps (TLSv1:AES256-SHA:256) (port 25) (Exim 4.69 #79)
+	id 1MJjYf-0008NP-LU
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 09:39:45 +0200
+Received: from jens by beuys.jayr.de with local (Exim 4.69)
+	(envelope-from <jens@jayr.de>)
+	id 1MJjYd-0000AG-DI
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 09:39:43 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Replaced '0' by 'bar' in the probe function.
- The 'bar' variable was already set to '0' and is already
- used in pci_iomap(). This is cleaner and improves code
- consistency.
+If the valid or preferred lifetime for an address expires, the kernel
+shows huge values for these due to a counter wrap, the following patch
+should fix this, at least it did in the test I ran.
 
-Signed-off-by: Michael Opdenacker <michael@free-electrons.com>
----
- drivers/net/r6040.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index ed63d23..b3197e9 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -1112,13 +1112,13 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	}
- 
- 	/* IO Size check */
--	if (pci_resource_len(pdev, 0) < io_size) {
-+	if (pci_resource_len(pdev, bar) < io_size) {
- 		printk(KERN_ERR DRV_NAME ": Insufficient PCI resources, aborting\n");
- 		err = -EIO;
- 		goto err_out;
- 	}
- 
--	pioaddr = pci_resource_start(pdev, 0);	/* IO map base address */
-+	pioaddr = pci_resource_start(pdev, bar);	/* IO map base address */
- 	pci_set_master(pdev);
- 
- 	dev = alloc_etherdev(sizeof(struct r6040_private));
--- 
-1.6.0.4
-
+--- linux-2.6.30.orig/net/ipv6/addrconf.c	2009-06-10 05:05:27.000000000 +0200
++++ linux-2.6.30/net/ipv6/addrconf.c	2009-06-25 09:33:38.000000000 +0200
+@@ -3361,9 +3361,17 @@
+ 		valid = ifa->valid_lft;
+ 		if (preferred != INFINITY_LIFE_TIME) {
+ 			long tval = (jiffies - ifa->tstamp)/HZ;
+-			preferred -= tval;
+-			if (valid != INFINITY_LIFE_TIME)
+-				valid -= tval;
++			if (preferred > tval) {
++				preferred -= tval;
++			} else {
++				preferred = 0;
++			}
++			if (valid != INFINITY_LIFE_TIME) {
++				if (valid > tval) {
++					valid -= tval;
++				} else {
++					valid = 0;
++				}
+ 		}
+ 	} else {
+ 		preferred = INFINITY_LIFE_TIME;
