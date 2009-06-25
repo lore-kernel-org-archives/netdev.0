@@ -1,236 +1,170 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH] vxge: fix GRO receive with INTA interrupts
-Date: Thu, 25 Jun 2009 17:18:19 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77056E4779@nekter>
-References: <20090625183134.40e8fd7a@leela>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
+Date: Thu, 25 Jun 2009 23:19:45 +0200
+Message-ID: <4A43E9F1.90209@cosmosbay.com>
+References: <4A439C6B.9090502@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Michal Schmidt" <mschmidt@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:59871 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751950AbZFYVSV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 17:18:21 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090625183134.40e8fd7a@leela>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49524 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753111AbZFYVTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 17:19:53 -0400
+In-Reply-To: <4A439C6B.9090502@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michal,
+Pawe=B3 Staszewski a =E9crit :
+> Hello ALL
+>=20
+> Some time ago i report this:
+> http://bugzilla.kernel.org/show_bug.cgi?id=3D6648
+>=20
+> and now with 2.6.29 / 2.6.29.1 / 2.6.29.3 and 2.6.30 it back
+> dmesg output:
+> oprofile: using NMI interrupt.
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
+> Fix inflate_threshold_root. Now=3D15 size=3D11 bits
 
-Thanks. We are in the midst of submitting a few bug fixes and will add
-this fix to the list. We fixed it without assuming that only 1 vpath
-will be enabled with INTA. It's been hard coded to 1 with INTA, for
-performance reasons, but when I get some time, I'd like to optimize the
-completion handling to over come this issue.
+Curious, you seem to hit an old alloc_pages limit()... (MAX_ORDER alloc=
+ation)
 
-Ram
-> -----Original Message-----
-> From: Michal Schmidt [mailto:mschmidt@redhat.com]
-> Sent: Thursday, June 25, 2009 9:32 AM
-> To: Ramkrishna Vepa
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH] vxge: fix GRO receive with INTA interrupts
-> 
-> TCP receiving in vxge is extremely slow when using INTA interrupts.
-> The bug is that vxge_poll_inta() receives frames on ring->napi's
-> gro_list, but never flushes GRO for this napi_struct, because there's
-> a second napi_struct in struct vxgedev.
-> There's no need for the second napi_struct. We can use ring->napi
-> only. When vxge has to fallback to INTA, we know there will be exactly
-> one vpath (and exactly one vxge_ring). This change results in a
-cleanup
-> too.
-> Tested successfully with netperf, booted with and without pci=nomsi.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> commit c60c53194a4ed435294fffba239a0b264e208483
-> Author: Michal Schmidt <mschmidt@redhat.com>
-> Date:   Thu Jun 25 15:06:57 2009 +0200
-> 
->     vxge: missing GRO flush when using INTA
-> 
->     Fixes very slow TCP.
-> 
-> diff --git a/drivers/net/vxge/vxge-main.c
-b/drivers/net/vxge/vxge-main.c
-> index 6034497..6132ef4 100644
-> --- a/drivers/net/vxge/vxge-main.c
-> +++ b/drivers/net/vxge/vxge-main.c
-> @@ -1660,7 +1660,7 @@ int vxge_reset(struct vxgedev *vdev)
-> 
->  /**
->   * vxge_poll - Receive handler when Receive Polling is used.
-> - * @dev: pointer to the device structure.
-> + * @napi: pointer to the NAPI structure.
->   * @budget: Number of packets budgeted to be processed in this
-iteration.
->   *
->   * This function comes into picture only if Receive side is being
-handled
-> @@ -1672,14 +1672,12 @@ int vxge_reset(struct vxgedev *vdev)
->   */
->  static int vxge_poll_msix(struct napi_struct *napi, int budget)
->  {
-> -	struct vxge_ring *ring =
-> -		container_of(napi, struct vxge_ring, napi);
-> -	int budget_org = budget;
-> -	ring->budget = budget;
-> +	struct vxge_ring *ring = container_of(napi, struct vxge_ring,
-napi);
-> 
-> +	ring->budget = budget;
->  	vxge_hw_vpath_poll_rx(ring->handle);
-> 
-> -	if (ring->pkts_processed < budget_org) {
-> +	if (ring->pkts_processed < budget) {
->  		napi_complete(napi);
->  		/* Re enable the Rx interrupts for the vpath */
->  		vxge_hw_channel_msix_unmask(
-> @@ -1692,35 +1690,24 @@ static int vxge_poll_msix(struct napi_struct
-> *napi, int budget)
-> 
->  static int vxge_poll_inta(struct napi_struct *napi, int budget)
->  {
-> -	struct vxgedev *vdev = container_of(napi, struct vxgedev, napi);
-> -	int pkts_processed = 0;
-> -	int i;
-> -	int budget_org = budget;
-> -	struct vxge_ring *ring;
-> -
-> -	struct __vxge_hw_device  *hldev = (struct __vxge_hw_device *)
-> -		pci_get_drvdata(vdev->pdev);
-> +	struct vxge_ring *ring = container_of(napi, struct vxge_ring,
-napi);
-> +	struct vxge_vpath *vpath = container_of(ring, struct vxge_vpath,
-> ring);
-> +	struct vxgedev *vdev = vpath->vdev;
-> 
-> -	for (i = 0; i < vdev->no_of_vpath; i++) {
-> -		ring = &vdev->vpaths[i].ring;
-> -		ring->budget = budget;
-> -		vxge_hw_vpath_poll_rx(ring->handle);
-> -		pkts_processed += ring->pkts_processed;
-> -		budget -= ring->pkts_processed;
-> -		if (budget <= 0)
-> -			break;
-> -	}
-> +	ring->budget = budget;
-> +	vxge_hw_vpath_poll_rx(ring->handle);
-> 
->  	VXGE_COMPLETE_ALL_TX(vdev);
-> 
-> -	if (pkts_processed < budget_org) {
-> +	if (ring->pkts_processed < budget) {
-> +		struct __vxge_hw_device *hldev = vdev->devh;
->  		napi_complete(napi);
->  		/* Re enable the Rx interrupts for the ring */
->  		vxge_hw_device_unmask_all(hldev);
->  		vxge_hw_device_flush_io(hldev);
->  	}
-> 
-> -	return pkts_processed;
-> +	return ring->pkts_processed;
->  }
-> 
->  #ifdef CONFIG_NET_POLL_CONTROLLER
-> @@ -2165,7 +2152,7 @@ static irqreturn_t vxge_isr_napi(int irq, void
-> *dev_id)
->  			(64 - VXGE_HW_MAX_VIRTUAL_PATHS))) {
-> 
->  			vxge_hw_device_clear_tx_rx(hldev);
-> -			napi_schedule(&vdev->napi);
-> +			napi_schedule(&vdev->vpaths[0].ring.napi);
->  			vxge_debug_intr(VXGE_TRACE,
->  				"%s:%d  Exiting...", __func__,
-__LINE__);
->  			return IRQ_HANDLED;
-> @@ -2707,17 +2694,12 @@ vxge_open(struct net_device *dev)
->  		goto out1;
->  	}
-> 
-> -
-> -	if (vdev->config.intr_type != MSI_X) {
-> -		netif_napi_add(dev, &vdev->napi, vxge_poll_inta,
-> +	for (i = 0; i < vdev->no_of_vpath; i++) {
-> +		netif_napi_add(dev, &vdev->vpaths[i].ring.napi,
-> +			vdev->config.intr_type == MSI_X ?
-> +				vxge_poll_msix : vxge_poll_inta,
->  			vdev->config.napi_weight);
-> -		napi_enable(&vdev->napi);
-> -	} else {
-> -		for (i = 0; i < vdev->no_of_vpath; i++) {
-> -			netif_napi_add(dev, &vdev->vpaths[i].ring.napi,
-> -			    vxge_poll_msix, vdev->config.napi_weight);
-> -			napi_enable(&vdev->vpaths[i].ring.napi);
-> -		}
-> +		napi_enable(&vdev->vpaths[i].ring.napi);
->  	}
-> 
->  	/* configure RTH */
-> @@ -2835,13 +2817,8 @@ out2:
->  	vxge_rem_isr(vdev);
-> 
->  	/* Disable napi */
-> -	if (vdev->config.intr_type != MSI_X)
-> -		napi_disable(&vdev->napi);
-> -	else {
-> -		for (i = 0; i < vdev->no_of_vpath; i++)
-> -			napi_disable(&vdev->vpaths[i].ring.napi);
-> -	}
-> -
-> +	for (i = 0; i < vdev->no_of_vpath; i++)
-> +		napi_disable(&vdev->vpaths[i].ring.napi);
->  out1:
->  	vxge_close_vpaths(vdev, 0);
->  out0:
-> @@ -2868,13 +2845,8 @@ void vxge_free_mac_add_list(struct vxge_vpath
-> *vpath)
->  static void vxge_napi_del_all(struct vxgedev *vdev)
->  {
->  	int i;
-> -	if (vdev->config.intr_type != MSI_X)
-> -		netif_napi_del(&vdev->napi);
-> -	else {
-> -		for (i = 0; i < vdev->no_of_vpath; i++)
-> -			netif_napi_del(&vdev->vpaths[i].ring.napi);
-> -	}
-> -	return;
-> +	for (i = 0; i < vdev->no_of_vpath; i++)
-> +		netif_napi_del(&vdev->vpaths[i].ring.napi);
->  }
-> 
->  int do_vxge_close(struct net_device *dev, int do_io)
-> @@ -2940,12 +2912,8 @@ int do_vxge_close(struct net_device *dev, int
-> do_io)
->  	del_timer_sync(&vdev->vp_reset_timer);
-> 
->  	/* Disable napi */
-> -	if (vdev->config.intr_type != MSI_X)
-> -		napi_disable(&vdev->napi);
-> -	else {
-> -		for (i = 0; i < vdev->no_of_vpath; i++)
-> -			napi_disable(&vdev->vpaths[i].ring.napi);
-> -	}
-> +	for (i = 0; i < vdev->no_of_vpath; i++)
-> +		napi_disable(&vdev->vpaths[i].ring.napi);
-> 
->  	netif_carrier_off(vdev->ndev);
->  	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
-> diff --git a/drivers/net/vxge/vxge-main.h
-b/drivers/net/vxge/vxge-main.h
-> index 9704b2b..2b6a2ea 100644
-> --- a/drivers/net/vxge/vxge-main.h
-> +++ b/drivers/net/vxge/vxge-main.h
-> @@ -348,7 +348,6 @@ struct vxgedev {
->  	int max_vpath_supported;
->  	int no_of_vpath;
-> 
-> -	struct napi_struct napi;
->  	/* A debug option, when enabled and if error condition occurs,
->  	 * the driver will do following steps:
->  	 * - mask all interrupts
+Your root node has 2^18 =3D 262144 pointers of 8 bytes -> 2097152 bytes=
+ (+ header -> 4194304 bytes)
+
+But since following commit, we should use vmalloc() so this PAGE_SIZE<<=
+10) limit
+should not anymore be applied.
+
+Could you do a "cat /proc/vmallocinfo" just to check your big tnodes ar=
+e vmalloced() ?
+
+
+commit 15be75cdb5db442d0e33d37b20832b88f3ccd383
+Author: Stephen Hemminger <shemminger@vyatta.com>
+Date:   Thu Apr 10 02:56:38 2008 -0700
+
+    IPV4: fib_trie use vmalloc for large tnodes
+
+    Use vmalloc rather than alloc_pages to avoid wasting memory.
+    The problem is that tnode structure has a power of 2 sized array,
+    plus a header. So the current code wastes almost half the memory
+    allocated because it always needs the next bigger size to hold
+    that small header.
+
+    This is similar to an earlier patch by Eric, but instead of a list
+    and lock, I used a workqueue to handle the fact that vfree can't
+    be done in interrupt context.
+
+    Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+>=20
+> cat /proc/net/fib_triestat
+> Basic info: size of leaf: 40 bytes, size of tnode: 56 bytes.
+> Main:
+>        Aver depth:     2.28
+>        Max depth:      6
+>        Leaves:         276539
+>        Prefixes:       289922
+>        Internal nodes: 66762
+>          1: 35046  2: 13824  3: 9508  4: 4897  5: 2331  6: 1149  7: 5=
+=20
+> 9: 1  18: 1
+>        Pointers: 691228
+> Null ptrs: 347928
+> Total size: 35709  kB
+>=20
+> Counters:
+> ---------
+> gets =3D 26276593
+> backtracks =3D 547306
+> semantic match passed =3D 26188746
+> semantic match miss =3D 1117
+> null node hit=3D 27285055
+> skipped node resize =3D 0
+>=20
+> Local:
+>        Aver depth:     3.33
+>        Max depth:      4
+>        Leaves:         9
+>        Prefixes:       10
+>        Internal nodes: 8
+>          1: 8
+>        Pointers: 16
+> Null ptrs: 0
+> Total size: 2  kB
+>=20
+> Counters:
+> ---------
+> gets =3D 26642350
+> backtracks =3D 1282818
+> semantic match passed =3D 18166
+> semantic match miss =3D 0
+> null node hit=3D 0
+> skipped node resize =3D 0
+>=20
+>=20
+>=20
+> This machine is running bgpd with two bgp peers / full route table
+>=20
+> cat /proc/meminfo
+> MemTotal:       12279032 kB
+> MemFree:        11521920 kB
+> Buffers:           80288 kB
+> Cached:            34416 kB
+> SwapCached:            0 kB
+> Active:           286816 kB
+> Inactive:          82024 kB
+> Active(anon):     254296 kB
+> Inactive(anon):        0 kB
+> Active(file):      32520 kB
+> Inactive(file):    82024 kB
+> Unevictable:           0 kB
+> Mlocked:               0 kB
+> SwapTotal:        987988 kB
+> SwapFree:         987988 kB
+> Dirty:              1140 kB
+> Writeback:             0 kB
+> AnonPages:        254164 kB
+> Mapped:             5440 kB
+> Slab:             365084 kB
+> SReclaimable:      28784 kB
+> SUnreclaim:       336300 kB
+> PageTables:         2104 kB
+> NFS_Unstable:          0 kB
+> Bounce:                0 kB
+> WritebackTmp:          0 kB
+> CommitLimit:     7127504 kB
+> Committed_AS:     267704 kB
+> VmallocTotal:   34359738367 kB
+> VmallocUsed:       11824 kB
+> VmallocChunk:   34359707815 kB
+> HugePages_Total:       0
+> HugePages_Free:        0
+> HugePages_Rsvd:        0
+> HugePages_Surp:        0
+> Hugepagesize:       2048 kB
+> DirectMap4k:        3392 kB
+> DirectMap2M:    12578816 kB
+>=20
+>=20
+> Interfaces mtu is1500
+
