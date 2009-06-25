@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH -tip 1/3] synchronize_sched_expedited() primitive
-Date: Thu, 25 Jun 2009 09:08:16 -0700
-Message-ID: <39466.8976929553$1245946236@news.gmane.org>
+Subject: [PATCH -tip 3/3] synchronize_sched_expedited() rcutorture doc + updates
+Date: Thu, 25 Jun 2009 09:08:18 -0700
+Message-ID: <31819.0677943223$1245946718@news.gmane.org>
 References: <20090625160706.GA9467@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	torvalds@linux-foundation.org, davem@davemloft.net,
@@ -12,325 +12,321 @@ Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759272AbZFYQIr@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090625160706.GA9467@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds the synchronize_sched_expedited() primitive that implements
-the "big hammer" expedited RCU grace periods.  This primitive is placed
-in kernel/sched.c rather than kernel/rcupdate.c due to its need to
-interact closely with the migration_thread() kthread.  The idea is to
-wake up this kthread with req->task set to NULL, in response to which
-the kthread reports the quiescent state resulting from the kthread
-having been scheduled.
+From: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-Because this patch needs to fallback to the slow versions of the
-primitives in response to some races with CPU onlining and offlining,
-a new synchronize_rcu_bh() primitive is added as well.
+This patch updates the rcutorture documentation to include updated
+output format.  It also brings the RCU documentation up to date.
 
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
- include/linux/rcupdate.h   |   25 +++++----
- include/linux/rcupreempt.h |   10 ++++
- include/linux/rcutree.h    |   12 ++++-
- kernel/rcupdate.c          |   25 +++++++++
- kernel/sched.c             |  129 +++++++++++++++++++++++++++++++++++++++++++-
- 5 files changed, 186 insertions(+), 15 deletions(-)
+ Documentation/RCU/RTFP.txt       |   77 ++++++++++++++++++++++++++++++++++++++
+ Documentation/RCU/UP.txt         |   34 ++++++++++++----
+ Documentation/RCU/checklist.txt  |   20 +++++++--
+ Documentation/RCU/rcubarrier.txt |    7 +++
+ Documentation/RCU/torture.txt    |   23 ++++++++++-
+ Documentation/RCU/whatisRCU.txt  |   14 +++++-
+ 6 files changed, 156 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-index 0cdfdb6..3c89d6a 100644
---- a/include/linux/rcupdate.h
-+++ b/include/linux/rcupdate.h
-@@ -51,7 +51,19 @@ struct rcu_head {
- 	void (*func)(struct rcu_head *head);
- };
- 
--/* Internal to kernel, but needed by rcupreempt.h. */
-+/* Exported common interfaces */
-+extern void synchronize_rcu(void);
-+extern void synchronize_rcu_bh(void);
-+extern void rcu_barrier(void);
-+extern void rcu_barrier_bh(void);
-+extern void rcu_barrier_sched(void);
-+extern void synchronize_sched_expedited(void);
-+extern int sched_expedited_torture_stats(char *page);
-+
-+/* Internal to kernel */
-+extern void rcu_init(void);
-+extern void rcu_scheduler_starting(void);
-+extern int rcu_needs_cpu(int cpu);
- extern int rcu_scheduler_active;
- 
- #if defined(CONFIG_TREE_RCU)
-@@ -257,15 +269,4 @@ extern void call_rcu(struct rcu_head *head,
- extern void call_rcu_bh(struct rcu_head *head,
- 			void (*func)(struct rcu_head *head));
- 
--/* Exported common interfaces */
--extern void synchronize_rcu(void);
--extern void rcu_barrier(void);
--extern void rcu_barrier_bh(void);
--extern void rcu_barrier_sched(void);
--
--/* Internal to kernel */
--extern void rcu_init(void);
--extern void rcu_scheduler_starting(void);
--extern int rcu_needs_cpu(int cpu);
--
- #endif /* __LINUX_RCUPDATE_H */
-diff --git a/include/linux/rcupreempt.h b/include/linux/rcupreempt.h
-index fce5227..f164ac9 100644
---- a/include/linux/rcupreempt.h
-+++ b/include/linux/rcupreempt.h
-@@ -74,6 +74,16 @@ extern int rcu_needs_cpu(int cpu);
- 
- extern void __synchronize_sched(void);
- 
-+static inline void synchronize_rcu_expedited(void)
-+{
-+	synchronize_rcu();  /* Placeholder for new rcupreempt implementation. */
-+}
-+
-+static inline void synchronize_rcu_bh_expedited(void)
-+{
-+	synchronize_rcu_bh();  /* Placeholder for new rcupreempt impl. */
-+}
-+
- extern void __rcu_init(void);
- extern void rcu_init_sched(void);
- extern void rcu_check_callbacks(int cpu, int user);
-diff --git a/include/linux/rcutree.h b/include/linux/rcutree.h
-index 5a51538..d4dfd24 100644
---- a/include/linux/rcutree.h
-+++ b/include/linux/rcutree.h
-@@ -286,8 +286,14 @@ static inline void __rcu_read_unlock_bh(void)
- 
- #define call_rcu_sched(head, func) call_rcu(head, func)
- 
--static inline void rcu_init_sched(void)
-+static inline void synchronize_rcu_expedited(void)
-+{
-+	synchronize_sched_expedited();
-+}
-+
-+static inline void synchronize_rcu_bh_expedited(void)
- {
-+	synchronize_sched_expedited();
+diff --git a/Documentation/RCU/RTFP.txt b/Documentation/RCU/RTFP.txt
+index 9f711d2..d2b8523 100644
+--- a/Documentation/RCU/RTFP.txt
++++ b/Documentation/RCU/RTFP.txt
+@@ -743,3 +743,80 @@ Revised:
+ 	RCU, realtime RCU, sleepable RCU, performance.
+ "
  }
- 
- extern void __rcu_init(void);
-@@ -297,6 +303,10 @@ extern void rcu_restart_cpu(int cpu);
- extern long rcu_batches_completed(void);
- extern long rcu_batches_completed_bh(void);
- 
-+static inline void rcu_init_sched(void)
-+{
++
++@article{PaulEMcKenney2008RCUOSR
++,author="Paul E. McKenney and Jonathan Walpole"
++,title="Introducing technology into the {Linux} kernel: a case study"
++,Year="2008"
++,journal="SIGOPS Oper. Syst. Rev."
++,volume="42"
++,number="5"
++,pages="4--17"
++,issn="0163-5980"
++,doi={http://doi.acm.org/10.1145/1400097.1400099}
++,publisher="ACM"
++,address="New York, NY, USA"
++,annotation={
++	Linux changed RCU to a far greater degree than RCU has changed Linux.
++}
 +}
 +
- #ifdef CONFIG_NO_HZ
- void rcu_enter_nohz(void);
- void rcu_exit_nohz(void);
-diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
-index a967c9f..eae29c2 100644
---- a/kernel/rcupdate.c
-+++ b/kernel/rcupdate.c
-@@ -98,6 +98,30 @@ void synchronize_rcu(void)
- }
- EXPORT_SYMBOL_GPL(synchronize_rcu);
- 
-+/**
-+ * synchronize_rcu_bh - wait until an rcu_bh grace period has elapsed.
-+ *
-+ * Control will return to the caller some time after a full rcu_bh grace
-+ * period has elapsed, in other words after all currently executing rcu_bh
-+ * read-side critical sections have completed.  RCU read-side critical
-+ * sections are delimited by rcu_read_lock_bh() and rcu_read_unlock_bh(),
-+ * and may be nested.
-+ */
-+void synchronize_rcu_bh(void)
-+{
-+	struct rcu_synchronize rcu;
-+
-+	if (rcu_blocking_is_gp())
-+		return;
-+
-+	init_completion(&rcu.completion);
-+	/* Will wake me after RCU finished. */
-+	call_rcu_bh(&rcu.head, wakeme_after_rcu);
-+	/* Wait for it. */
-+	wait_for_completion(&rcu.completion);
++@unpublished{PaulEMcKenney2008HierarchicalRCU
++,Author="Paul E. McKenney"
++,Title="Hierarchical {RCU}"
++,month="November"
++,day="3"
++,year="2008"
++,note="Available:
++\url{http://lwn.net/Articles/305782/}
++[Viewed November 6, 2008]"
++,annotation="
++	RCU with combining-tree-based grace-period detection,
++	permitting it to handle thousands of CPUs.
++"
 +}
-+EXPORT_SYMBOL_GPL(synchronize_rcu_bh);
 +
- static void rcu_barrier_callback(struct rcu_head *notused)
- {
- 	if (atomic_dec_and_test(&rcu_barrier_cpu_count))
-@@ -129,6 +153,7 @@ static void rcu_barrier_func(void *type)
- static inline void wait_migrated_callbacks(void)
- {
- 	wait_event(rcu_migrate_wq, !atomic_read(&rcu_migrate_type_count));
-+	smp_mb(); /* In case we didn't sleep. */
- }
- 
- /*
-diff --git a/kernel/sched.c b/kernel/sched.c
-index 7c9098d..9ae80be 100644
---- a/kernel/sched.c
-+++ b/kernel/sched.c
-@@ -7024,6 +7024,11 @@ fail:
- 	return ret;
- }
- 
-+#define RCU_MIGRATION_IDLE	0
-+#define RCU_MIGRATION_NEED_QS	1
-+#define RCU_MIGRATION_GOT_QS	2
-+#define RCU_MIGRATION_MUST_SYNC	3
-+
- /*
-  * migration_thread - this is a highprio system thread that performs
-  * thread migration by bumping thread off CPU then 'pushing' onto
-@@ -7031,6 +7036,7 @@ fail:
-  */
- static int migration_thread(void *data)
- {
-+	int badcpu;
- 	int cpu = (long)data;
- 	struct rq *rq;
- 
-@@ -7065,8 +7071,17 @@ static int migration_thread(void *data)
- 		req = list_entry(head->next, struct migration_req, list);
- 		list_del_init(head->next);
- 
--		spin_unlock(&rq->lock);
--		__migrate_task(req->task, cpu, req->dest_cpu);
-+		if (req->task != NULL) {
-+			spin_unlock(&rq->lock);
-+			__migrate_task(req->task, cpu, req->dest_cpu);
-+		} else if (likely(cpu == (badcpu = smp_processor_id()))) {
-+			req->dest_cpu = RCU_MIGRATION_GOT_QS;
-+			spin_unlock(&rq->lock);
-+		} else {
-+			req->dest_cpu = RCU_MIGRATION_MUST_SYNC;
-+			spin_unlock(&rq->lock);
-+			WARN_ONCE(1, "migration_thread() on CPU %d, expected %d\n", badcpu, cpu);
-+		}
- 		local_irq_enable();
- 
- 		complete(&req->done);
-@@ -10554,3 +10569,113 @@ struct cgroup_subsys cpuacct_subsys = {
- 	.subsys_id = cpuacct_subsys_id,
- };
- #endif	/* CONFIG_CGROUP_CPUACCT */
-+
-+#ifndef CONFIG_SMP
-+
-+int rcu_expedited_torture_stats(char *page)
-+{
-+	return 0;
++@conference{PaulEMcKenney2009MaliciousURCU
++,Author="Paul E. McKenney"
++,Title="Using a Malicious User-Level {RCU} to Torture {RCU}-Based Algorithms"
++,Booktitle="linux.conf.au 2009"
++,month="January"
++,year="2009"
++,address="Hobart, Australia"
++,note="Available:
++\url{http://www.rdrop.com/users/paulmck/RCU/urcutorture.2009.01.22a.pdf}
++[Viewed February 2, 2009]"
++,annotation="
++	Realtime RCU and torture-testing RCU uses.
++"
 +}
-+EXPORT_SYMBOL_GPL(rcu_expedited_torture_stats);
 +
-+void synchronize_sched_expedited(void)
-+{
++@unpublished{MathieuDesnoyers2009URCU
++,Author="Mathieu Desnoyers"
++,Title="[{RFC} git tree] Userspace {RCU} (urcu) for {Linux}"
++,month="February"
++,day="5"
++,year="2009"
++,note="Available:
++\url{http://lkml.org/lkml/2009/2/5/572}
++\url{git://lttng.org/userspace-rcu.git}
++[Viewed February 20, 2009]"
++,annotation="
++	Mathieu Desnoyers's user-space RCU implementation.
++	git://lttng.org/userspace-rcu.git
++"
 +}
-+EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
 +
-+#else /* #ifndef CONFIG_SMP */
-+
-+static DEFINE_PER_CPU(struct migration_req, rcu_migration_req);
-+static DEFINE_MUTEX(rcu_sched_expedited_mutex);
-+
-+#define RCU_EXPEDITED_STATE_POST -2
-+#define RCU_EXPEDITED_STATE_IDLE -1
-+
-+static int rcu_expedited_state = RCU_EXPEDITED_STATE_IDLE;
-+
-+int rcu_expedited_torture_stats(char *page)
-+{
-+	int cnt = 0;
-+	int cpu;
-+
-+	cnt += sprintf(&page[cnt], "state: %d /", rcu_expedited_state);
-+	for_each_online_cpu(cpu) {
-+		 cnt += sprintf(&page[cnt], " %d:%d",
-+				cpu, per_cpu(rcu_migration_req, cpu).dest_cpu);
-+	}
-+	cnt += sprintf(&page[cnt], "\n");
-+	return cnt;
++@unpublished{PaulEMcKenney2009BloatWatchRCU
++,Author="Paul E. McKenney"
++,Title="{RCU}: The {Bloatwatch} Edition"
++,month="March"
++,day="17"
++,year="2009"
++,note="Available:
++\url{http://lwn.net/Articles/323929/}
++[Viewed March 20, 2009]"
++,annotation="
++	Uniprocessor assumptions allow simplified RCU implementation.
++"
 +}
-+EXPORT_SYMBOL_GPL(rcu_expedited_torture_stats);
+diff --git a/Documentation/RCU/UP.txt b/Documentation/RCU/UP.txt
+index aab4a9e..90ec534 100644
+--- a/Documentation/RCU/UP.txt
++++ b/Documentation/RCU/UP.txt
+@@ -2,14 +2,13 @@ RCU on Uniprocessor Systems
+ 
+ 
+ A common misconception is that, on UP systems, the call_rcu() primitive
+-may immediately invoke its function, and that the synchronize_rcu()
+-primitive may return immediately.  The basis of this misconception
++may immediately invoke its function.  The basis of this misconception
+ is that since there is only one CPU, it should not be necessary to
+ wait for anything else to get done, since there are no other CPUs for
+ anything else to be happening on.  Although this approach will -sort- -of-
+ work a surprising amount of the time, it is a very bad idea in general.
+-This document presents three examples that demonstrate exactly how bad an
+-idea this is.
++This document presents three examples that demonstrate exactly how bad
++an idea this is.
+ 
+ 
+ Example 1: softirq Suicide
+@@ -82,11 +81,18 @@ Quick Quiz #2: What locking restriction must RCU callbacks respect?
+ 
+ Summary
+ 
+-Permitting call_rcu() to immediately invoke its arguments or permitting
+-synchronize_rcu() to immediately return breaks RCU, even on a UP system.
+-So do not do it!  Even on a UP system, the RCU infrastructure -must-
+-respect grace periods, and -must- invoke callbacks from a known environment
+-in which no locks are held.
++Permitting call_rcu() to immediately invoke its arguments breaks RCU,
++even on a UP system.  So do not do it!  Even on a UP system, the RCU
++infrastructure -must- respect grace periods, and -must- invoke callbacks
++from a known environment in which no locks are held.
 +
-+static long synchronize_sched_expedited_count;
++It -is- safe for synchronize_sched() and synchronize_rcu_bh() to return
++immediately on an UP system.  It is also safe for synchronize_rcu()
++to return immediately on UP systems, except when running preemptable
++RCU.
 +
-+/*
-+ * Wait for an rcu-sched grace period to elapse, but use "big hammer"
-+ * approach to force grace period to end quickly.  This consumes
-+ * significant time on all CPUs, and is thus not recommended for
-+ * any sort of common-case code.
-+ *
-+ * Note that it is illegal to call this function while holding any
-+ * lock that is acquired by a CPU-hotplug notifier.  Failing to
-+ * observe this restriction will result in deadlock.
-+ */
-+void synchronize_sched_expedited(void)
-+{
-+	int cpu;
-+	unsigned long flags;
-+	bool need_full_sync = 0;
-+	struct rq *rq;
-+	struct migration_req *req;
-+	long snap;
-+	int trycount = 0;
++Quick Quiz #3: Why can't synchronize_rcu() return immediately on
++	UP systems running preemptable RCU?
+ 
+ 
+ Answer to Quick Quiz #1:
+@@ -117,3 +123,13 @@ Answer to Quick Quiz #2:
+ 	callbacks acquire locks directly.  However, a great many RCU
+ 	callbacks do acquire locks -indirectly-, for example, via
+ 	the kfree() primitive.
 +
-+	smp_mb();  /* ensure prior mod happens before capturing snap. */
-+	snap = ACCESS_ONCE(synchronize_sched_expedited_count) + 1;
-+	get_online_cpus();
-+	while (!mutex_trylock(&rcu_sched_expedited_mutex)) {
-+		put_online_cpus();
-+		if (trycount++ < 10)
-+			udelay(trycount * num_online_cpus());
-+		else {
-+			synchronize_sched();
-+			return;
-+		}
-+		if (ACCESS_ONCE(synchronize_sched_expedited_count) - snap > 0) {
-+			smp_mb(); /* ensure test happens before caller kfree */
-+			return;
-+		}
-+		get_online_cpus();
-+	}
-+	rcu_expedited_state = RCU_EXPEDITED_STATE_POST;
-+	for_each_online_cpu(cpu) {
-+		rq = cpu_rq(cpu);
-+		req = &per_cpu(rcu_migration_req, cpu);
-+		init_completion(&req->done);
-+		req->task = NULL;
-+		req->dest_cpu = RCU_MIGRATION_NEED_QS;
-+		spin_lock_irqsave(&rq->lock, flags);
-+		list_add(&req->list, &rq->migration_queue);
-+		spin_unlock_irqrestore(&rq->lock, flags);
-+		wake_up_process(rq->migration_thread);
-+	}
-+	for_each_online_cpu(cpu) {
-+		rcu_expedited_state = cpu;
-+		req = &per_cpu(rcu_migration_req, cpu);
-+		rq = cpu_rq(cpu);
-+		wait_for_completion(&req->done);
-+		spin_lock_irqsave(&rq->lock, flags);
-+		if (unlikely(req->dest_cpu == RCU_MIGRATION_MUST_SYNC))
-+			need_full_sync = 1;
-+		req->dest_cpu = RCU_MIGRATION_IDLE;
-+		spin_unlock_irqrestore(&rq->lock, flags);
-+	}
-+	rcu_expedited_state = RCU_EXPEDITED_STATE_IDLE;
-+	mutex_unlock(&rcu_sched_expedited_mutex);
-+	put_online_cpus();
-+	if (need_full_sync)
-+		synchronize_sched();
-+}
-+EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
++Answer to Quick Quiz #3:
++	Why can't synchronize_rcu() return immediately on UP systems
++	running preemptable RCU?
 +
-+#endif /* #else #ifndef CONFIG_SMP */
++	Because some other task might have been preempted in the middle
++	of an RCU read-side critical section.  If synchronize_rcu()
++	simply immediately returned, it would prematurely signal the
++	end of the grace period, which would come as a nasty shock to
++	that other thread when it started running again.
+diff --git a/Documentation/RCU/checklist.txt b/Documentation/RCU/checklist.txt
+index accfe2f..51525a3 100644
+--- a/Documentation/RCU/checklist.txt
++++ b/Documentation/RCU/checklist.txt
+@@ -11,7 +11,10 @@ over a rather long period of time, but improvements are always welcome!
+ 	structure is updated more than about 10% of the time, then
+ 	you should strongly consider some other approach, unless
+ 	detailed performance measurements show that RCU is nonetheless
+-	the right tool for the job.
++	the right tool for the job.  Yes, you might think of RCU
++	as simply cutting overhead off of the readers and imposing it
++	on the writers.  That is exactly why normal uses of RCU will
++	do much more reading than updating.
+ 
+ 	Another exception is where performance is not an issue, and RCU
+ 	provides a simpler implementation.  An example of this situation
+@@ -240,10 +243,11 @@ over a rather long period of time, but improvements are always welcome!
+ 	instead need to use synchronize_irq() or synchronize_sched().
+ 
+ 12.	Any lock acquired by an RCU callback must be acquired elsewhere
+-	with irq disabled, e.g., via spin_lock_irqsave().  Failing to
+-	disable irq on a given acquisition of that lock will result in
+-	deadlock as soon as the RCU callback happens to interrupt that
+-	acquisition's critical section.
++	with softirq disabled, e.g., via spin_lock_irqsave(),
++	spin_lock_bh(), etc.  Failing to disable irq on a given
++	acquisition of that lock will result in deadlock as soon as the
++	RCU callback happens to interrupt that acquisition's critical
++	section.
+ 
+ 13.	RCU callbacks can be and are executed in parallel.  In many cases,
+ 	the callback code simply wrappers around kfree(), so that this
+@@ -310,3 +314,9 @@ over a rather long period of time, but improvements are always welcome!
+ 	Because these primitives only wait for pre-existing readers,
+ 	it is the caller's responsibility to guarantee safety to
+ 	any subsequent readers.
++
++16.	The various RCU read-side primitives do -not- contain memory
++	barriers.  The CPU (and in some cases, the compiler) is free
++	to reorder code into and out of RCU read-side critical sections.
++	It is the responsibility of the RCU update-side primitives to
++	deal with this.
+diff --git a/Documentation/RCU/rcubarrier.txt b/Documentation/RCU/rcubarrier.txt
+index 909602d..e439a0e 100644
+--- a/Documentation/RCU/rcubarrier.txt
++++ b/Documentation/RCU/rcubarrier.txt
+@@ -170,6 +170,13 @@ module invokes call_rcu() from timers, you will need to first cancel all
+ the timers, and only then invoke rcu_barrier() to wait for any remaining
+ RCU callbacks to complete.
+ 
++Of course, if you module uses call_rcu_bh(), you will need to invoke
++rcu_barrier_bh() before unloading.  Similarly, if your module uses
++call_rcu_sched(), you will need to invoke rcu_barrier_sched() before
++unloading.  If your module uses call_rcu(), call_rcu_bh(), -and-
++call_rcu_sched(), then you will need to invoke each of rcu_barrier(),
++rcu_barrier_bh(), and rcu_barrier_sched().
++
+ 
+ Implementing rcu_barrier()
+ 
+diff --git a/Documentation/RCU/torture.txt b/Documentation/RCU/torture.txt
+index a342b6e..9dba3bb 100644
+--- a/Documentation/RCU/torture.txt
++++ b/Documentation/RCU/torture.txt
+@@ -76,8 +76,10 @@ torture_type	The type of RCU to test: "rcu" for the rcu_read_lock() API,
+ 		"rcu_sync" for rcu_read_lock() with synchronous reclamation,
+ 		"rcu_bh" for the rcu_read_lock_bh() API, "rcu_bh_sync" for
+ 		rcu_read_lock_bh() with synchronous reclamation, "srcu" for
+-		the "srcu_read_lock()" API, and "sched" for the use of
+-		preempt_disable() together with synchronize_sched().
++		the "srcu_read_lock()" API, "sched" for the use of
++		preempt_disable() together with synchronize_sched(),
++		and "sched_expedited" for the use of preempt_disable()
++		with synchronize_sched_expedited().
+ 
+ verbose		Enable debug printk()s.  Default is disabled.
+ 
+@@ -162,6 +164,23 @@ of the "old" and "current" counters for the corresponding CPU.  The
+ "idx" value maps the "old" and "current" values to the underlying array,
+ and is useful for debugging.
+ 
++Similarly, sched_expedited RCU provides the following:
++
++	sched_expedited-torture: rtc: d0000000016c1880 ver: 1090796 tfle: 0 rta: 1090796 rtaf: 0 rtf: 1090787 rtmbe: 0 nt: 27713319
++	sched_expedited-torture: Reader Pipe:  12660320201 95875 0 0 0 0 0 0 0 0 0
++	sched_expedited-torture: Reader Batch:  12660424885 0 0 0 0 0 0 0 0 0 0
++	sched_expedited-torture: Free-Block Circulation:  1090795 1090795 1090794 1090793 1090792 1090791 1090790 1090789 1090788 1090787 0
++	state: -1 / 0:0 3:0 4:0
++
++As before, the first four lines are similar to those for RCU.
++The last line shows the task-migration state.  The first number is
++-1 if synchronize_sched_expedited() is idle, -2 if in the process of
++posting wakeups to the migration kthreads, and N when waiting on CPU N.
++Each of the colon-separated fields following the "/" is a CPU:state pair.
++Valid states are "0" for idle, "1" for waiting for quiescent state,
++"2" for passed through quiescent state, and "3" when a race with a
++CPU-hotplug event forces use of the synchronize_sched() primitive.
++
+ 
+ USAGE
+ 
+diff --git a/Documentation/RCU/whatisRCU.txt b/Documentation/RCU/whatisRCU.txt
+index 9617082..97ded24 100644
+--- a/Documentation/RCU/whatisRCU.txt
++++ b/Documentation/RCU/whatisRCU.txt
+@@ -785,6 +785,7 @@ RCU pointer/list traversal:
+ 	rcu_dereference
+ 	list_for_each_entry_rcu
+ 	hlist_for_each_entry_rcu
++	hlist_nulls_for_each_entry_rcu
+ 
+ 	list_for_each_continue_rcu	(to be deprecated in favor of new
+ 					 list_for_each_entry_continue_rcu)
+@@ -807,19 +808,23 @@ RCU:	Critical sections	Grace period		Barrier
+ 
+ 	rcu_read_lock		synchronize_net		rcu_barrier
+ 	rcu_read_unlock		synchronize_rcu
++				synchronize_rcu_expedited
+ 				call_rcu
+ 
+ 
+ bh:	Critical sections	Grace period		Barrier
+ 
+ 	rcu_read_lock_bh	call_rcu_bh		rcu_barrier_bh
+-	rcu_read_unlock_bh
++	rcu_read_unlock_bh	synchronize_rcu_bh
++				synchronize_rcu_bh_expedited
+ 
+ 
+ sched:	Critical sections	Grace period		Barrier
+ 
+-	[preempt_disable]	synchronize_sched	rcu_barrier_sched
+-	[and friends]		call_rcu_sched
++	rcu_read_lock_sched	synchronize_sched	rcu_barrier_sched
++	rcu_read_unlock_sched	call_rcu_sched
++	[preempt_disable]	synchronize_sched_expedited
++	[and friends]
+ 
+ 
+ SRCU:	Critical sections	Grace period		Barrier
+@@ -827,6 +832,9 @@ SRCU:	Critical sections	Grace period		Barrier
+ 	srcu_read_lock		synchronize_srcu	N/A
+ 	srcu_read_unlock
+ 
++SRCU:	Initialization/cleanup
++	init_srcu_struct
++	cleanup_srcu_struct
+ 
+ See the comment headers in the source code (or the docbook generated
+ from them) for more information.
 -- 
 1.5.2.5
+
