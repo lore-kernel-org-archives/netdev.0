@@ -1,59 +1,64 @@
-From: "Webmail Technical Team" <technicalteam@webmail.org>
-Subject: WebMail Quota Alert!!!
-Date: Thu, 25 Jun 2009 21:17:26 +0700 (WIT)
-Message-ID: <4056.82.128.17.69.1245939446.squirrel@webmail.cp.co.id>
-Reply-To: upgrade2beta@yahoo.com.hk
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH -tip 0/3] expedited "big hammer" RCU grace periods
+Date: Thu, 25 Jun 2009 08:27:36 -0700
+Message-ID: <20090625152736.GC6761@linux.vnet.ibm.com>
+References: <20090624164535.GA13334@linux.vnet.ibm.com> <20090624180303.GE7576@elte.hu> <20090624184423.GK6779@linux.vnet.ibm.com> <20090625095953.GC29980@elte.hu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpi222-40.cp.co.id ([222.124.147.40]:37855 "EHLO
-	maximmus.cp.co.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149AbZFYPKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 11:10:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090625095953.GC29980@elte.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Jun 25, 2009 at 11:59:53AM +0200, Ingo Molnar wrote:
+> 
+> * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> 
+> > On Wed, Jun 24, 2009 at 08:03:03PM +0200, Ingo Molnar wrote:
+> > > 
+> > > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > > 
+> > > >  include/linux/rcuclassic.h    |   15 ++-
+> > > 
+> > > heh, we dont have this file anymore ... as of today, right? :)
+> > 
+> > Ah, I was assuming that expedited RCU would happen before removal 
+> > of Classic RCU.
+> 
+> Our general preference is to zap code.
 
-Dear WebMail User,
+Actually worked out nicely in this case -- the fact that Classic RCU
+is no longer in -tip meant that I could dump 25% of my test cases for
+expedited RCU.  ;-)
 
-This message was sent automatically to periodically checks the size of
-inboxes,
-where new messages are received. The program is done weekly to ensure no
-one's
-inbox grows too large. If your inbox becomes too large, you will be unable to
-receive new targeted email. Just before this message was sent, you had 18
-Megabytes
-(MB) or more of messages stored in your Web mail account.Deleting these
-messages
-from your Inbox do not specifically clear space from our data base.
-To help us re-set your SPACE on our Data Base prior to maintain your web
-mail account,
-you must reply to this e-mail and enter your:
+I will be posting the updated patch shortly.
 
-First Name:__________
-E-Mail ID:______
-Password:__________
+> /me stares at:
+> 
+>   $ git diff --stat -M v2.6.30..v2.6.31-rc1 | tail -1
+>   7743 files changed, 782278 insertions(+), 403162 deletions(-)
+> 
+> /me corrects himself:
+> 
+> Okay, so the zapping of code is the divine guiding principle we've 
+> been following for 15 years. Ending up with a kernel that is 11 
+> million lines of code is a small imperfection of mankind and is to 
+> be fixed.
 
-You will continue to receive this warning message periodically if your
-webmail account
-size on our data base continues to be between 18 and 20 MB. If your inbox
-size grows to 20 MB,
-then a program on our data base will move your oldest email to a folder in
-your
-home directory to ensure that you will continue to be able to receive
-incoming
-email. You will be notified by email that this has taken place. If your inbox
-grows to 25 MB, you will be unable to receive new email as every email
-sent to you
-will be returning back to the sender as undelivered due to unexpected
-delay before arrival.
+;-)  ;-)  ;-)
 
-After you read this message, it is best to REPLY with your login Info and
-SAVE a copy.
+I guess that if 11 million lines of code is a small imperfection of
+mankind, we can only be thankful that we are not tasked with dealing
+with the large imperfections.  ;-)
 
-Thank you for your cooperation.
-
-Webmail Technical Team.
-
+							Thanx, Paul
