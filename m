@@ -1,37 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch] mdio add missing GPL flag
-Date: Thu, 25 Jun 2009 15:04:39 +0100
-Message-ID: <1245938679.2785.0.camel@achroite>
-References: <1245934531.7828.25.camel@allekto>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
+Date: Thu, 25 Jun 2009 14:24:14 +0200
+Message-ID: <1245932654-424f6eb9656d75bc862590453a717473@brownhat.org>
+References: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Reinecke <nr@das-labor.org>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Tim Hockin <thockin@hockin.org>,
+	Jens Osterkamp <jens@de.ibm.com>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	Ion Badulescu <ionut@cs.columbia.edu>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Alexander Indenbaum <baum@tehutinetworks.net>,
+	Samuel Chessman <chessman@tux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	David Dillow <dave@thedillows.org>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:47222 "EHLO
-	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755958AbZFYOEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 10:04:38 -0400
-In-Reply-To: <1245934531.7828.25.camel@allekto>
+Received: from smtp2.infomaniak.ch ([84.16.68.90]:32891 "EHLO
+	smtp2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919AbZFYOPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 10:15:13 -0400
+In-Reply-To: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-06-25 at 14:55 +0200, Nicolas Reinecke wrote:
-> Add missing GPL flag and description.
-> 
-> mdio: module license 'unspecified' taints kernel.
-> Disabling lock debugging due to kernel taint
+----- Message d'origine -----
+De: Joe Perches <joe@perches.com>
+Date: Wed, 24 Jun 2009 22:13:28 -0700
+Sujet: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
 
-Oops, sorry about that.
+> drivers/net/sis900.c              |    6 +--
 
-> Signed-off-by: Nicolas Reinecke <nr <at> das-labor.org> 
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+sis900 changes ok.
 
-Ben.
+Acked-by: Daniele Venzano <venza@brownhat.org>
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--
+Daniele Venzano
+venza@brownhat.org
+http://www.brownhat.org
