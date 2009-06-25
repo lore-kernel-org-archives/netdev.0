@@ -1,72 +1,61 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: Re: [PATCH] ucc_geth: Fix half-duplex operation for non-MII/RMII
- interfaces
-Date: Thu, 25 Jun 2009 15:17:25 +0400
-Message-ID: <20090625111725.GA30165@oksana.dev.rtsoft.ru>
-References: <20090624174557.GA31479@oksana.dev.rtsoft.ru>
- <4A4306F2.3070909@mvista.com>
- <20090625070236.GA27711@oksana.dev.rtsoft.ru>
-Reply-To: avorontsov@ru.mvista.com
+From: Jesper Dangaard Brouer <jdb-4UpuNZONu4c@public.gmane.org>
+Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
+Date: Thu, 25 Jun 2009 13:52:09 +0200
+Message-ID: <1245930729.24921.67.camel@localhost.localdomain>
+References: <20090623150330.22490.87327.stgit@localhost>
+	 <20090623150429.22490.15113.stgit@localhost>
+	 <4A41C67E.8070301@googlemail.com>
+	 <1245843884.6695.54.camel@localhost.localdomain>
+	 <1245845367.24921.3.camel@localhost.localdomain>
+	 <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com>
+Reply-To: jdb-4UpuNZONu4c@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Mark Huth <mhuth@mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:7853 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751084AbZFYLRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 07:17:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20090625070236.GA27711@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dougthompson-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
+	shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tytso-3s7WtUTddSA@public.gmane.org, adilger-xsfywfwIY+M@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Chrissie Caulfield <christine.caulfield-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 25, 2009 at 11:02:36AM +0400, Anton Vorontsov wrote:
-[...]
-> Of course, it could be that the root cause of the problems
-> I observe is weird NIC on my host. Well, then QA team should
-> have used the same broken NIC on their hosts. :-)
-> 
-> I can easily test it by interconnecting two targets though.
-[...]
-> Definitely. Though I'm out of ideas if it's NOT host-side issue.
+On Wed, 2009-06-24 at 14:50 +0100, Chrissie Caulfield wrote:
+> I don't have any objection to the patch at all, 
 
-Two boards interconnected work fine. eTSEC + SKY2 NIC also work
-OK. I'll test some more NICs, known to not work is 3Com
-Corporation 3c905C-TX/TX-M [Tornado] (rev 74).
+Thus assuming an:
 
+Acked-by: Chrissie Caulfield <christine.caulfield-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 
-After some netperf tests, statistic on a gianfar board:
+(wondering if patchworks picks this up...)
 
-# ethtool -S eth0 | grep -v ": 0"
-NIC statistics:
-     rx-dropped-by-kernel: 2
-     tx-rx-64-frames: 52
-     tx-rx-65-127-frames: 20668
-     tx-rx-128-255-frames: 10343
-     tx-rx-256-511-frames: 113
-     tx-rx-512-1023-frames: 147
-     tx-rx-1024-1518-frames: 45965
-     rx-bytes: 45075782
-     rx-packets: 50300
-     rx-carrier-sense-error: 1
-     rx-fragmented-frames: 7600
-     tx-byte-counter: 27401677
-     tx-packets: 34618
-     tx-broadcast-packets: 3
-     tx-deferral-packets: 5
-     tx-single-collision-packets: 4039
-     tx-multiple-collision-packets: 1943
-     tx-excessive-collision-packets: 30
-     tx-total-collision: 785
+> it just seemed a  
+> little odd to deliberately add code inside #if 0 ;-)
 
+Yes, but it makes sense if you want to fix that code path later on.
 
-Thanks for the ideas, Mark.
+And I'm not the only one who have added code here... git blame:
 
--- 
-Anton Vorontsov
-email: cbouatmailru@gmail.com
-irc://irc.freenode.net/bd2
+fa34ddd7 (Thomas Graf              2007-03-22 11:57:46 -0700 2401)
+457c4cbc (Eric W. Biederman        2007-09-12 12:01:34 +0200 2413)
+
+Cheers,
+                                  -- 
+                    Med venlig hilsen / Best regards
+                              Jesper Brouer
+                            ComX Networks A/S
+                         Linux Network developer
+                       Cand. Scient Datalog / MSc.
+                    Author of http://adsl-optimizer.dk
+               LinkedIn: http://www.linkedin.com/in/brouer
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
