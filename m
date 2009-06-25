@@ -1,61 +1,29 @@
-From: Brandon Philips <brandon@ifup.org>
-Subject: [PATCH] atl1*: add device_set_wakeup_enable to atl1*_set_wol
-Date: Wed, 24 Jun 2009 17:09:14 -0700
-Message-ID: <20090625000914.GL3648@jenkins.smartcity.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2: Fix the behavior of ethtool when ONBOOT=no
+Date: Wed, 24 Jun 2009 17:12:46 -0700 (PDT)
+Message-ID: <20090624.171246.236728523.davem@davemloft.net>
+References: <1245862760.12000.507.camel@nseg_linux_HP1.broadcom.com>
+	<20090624.164233.166634429.davem@davemloft.net>
+	<1245887312.12000.543.camel@nseg_linux_HP1.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jcliburn@gmail.com, csnook@redhat.com, jie.yang@atheros.com,
-	rjw@sisk.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, nooiwa@miraclelinux.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.231]:25603 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754565AbZFYAKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 20:10:14 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so204234rvb.5
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2009 17:10:17 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39994
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754344AbZFYAMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 20:12:41 -0400
+In-Reply-To: <1245887312.12000.543.camel@nseg_linux_HP1.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tell PCI core that atl1* device can wakeup the system when WOL is
-enabled by calling device_set_wakeup_enable. 
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 24 Jun 2009 16:48:32 -0700
 
-Joerg noted that his atl1e device WOL fine after enabling it with
-ethtool and changing /sys/class/net/eth0/device/power/wakeup to enabled
-Tested on atl1e: https://bugzilla.novell.com/show_bug.cgi?id=493214
+> I don't know about NetworkManager, but the old ifup script will bring up
+> the device, wait up to 5 seconds for link up, and then do DHCP.
 
-Tested by: Joerg Reuter <jreuter@novell.com>
-Signed-off-by: Brandon Philips <bphilips@suse.de>
-
----
- drivers/net/atl1c/atl1c_ethtool.c |    2 ++
- drivers/net/atl1e/atl1e_ethtool.c |    2 ++
- 2 files changed, 4 insertions(+)
-
-Index: linux-2.6/drivers/net/atl1e/atl1e_ethtool.c
-===================================================================
---- linux-2.6.orig/drivers/net/atl1e/atl1e_ethtool.c
-+++ linux-2.6/drivers/net/atl1e/atl1e_ethtool.c
-@@ -365,6 +365,8 @@ static int atl1e_set_wol(struct net_devi
- 	if (wol->wolopts & WAKE_PHY)
- 		adapter->wol |= AT_WUFC_LNKC;
- 
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
- 	return 0;
- }
- 
-Index: linux-2.6/drivers/net/atl1c/atl1c_ethtool.c
-===================================================================
---- linux-2.6.orig/drivers/net/atl1c/atl1c_ethtool.c
-+++ linux-2.6/drivers/net/atl1c/atl1c_ethtool.c
-@@ -281,6 +281,8 @@ static int atl1c_set_wol(struct net_devi
- 	if (wol->wolopts & WAKE_PHY)
- 		adapter->wol |= AT_WUFC_LNKC;
- 
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
- 	return 0;
- }
- 
+I'll swallow a handful of antacid tablets and take a look at
+the NM sources :-/
