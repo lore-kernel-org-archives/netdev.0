@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH -tip 3/3] synchronize_sched_expedited() rcutorture doc + updates
-Date: Thu, 25 Jun 2009 09:08:18 -0700
-Message-ID: <31819.0677943223$1245946718@news.gmane.org>
+Subject: [PATCH -tip 2/3] synchronize_sched_expedited() torture tests
+Date: Thu, 25 Jun 2009 09:08:17 -0700
+Message-ID: <33661.1295970671$1245946718@news.gmane.org>
 References: <20090625160706.GA9467@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	torvalds@linux-foundation.org, davem@davemloft.net,
@@ -12,321 +12,337 @@ Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:47435 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752411AbZFYQRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2009 12:17:25 -0400
 In-Reply-To: <20090625160706.GA9467@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-This patch updates the rcutorture documentation to include updated
-output format.  It also brings the RCU documentation up to date.
+This patch adds rcutorture tests for the new synchronize_sched_expedited()
+primitive, and also does some whitespace cleanups in kernel/rcutorture.c
+as well.
 
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
- Documentation/RCU/RTFP.txt       |   77 ++++++++++++++++++++++++++++++++++++++
- Documentation/RCU/UP.txt         |   34 ++++++++++++----
- Documentation/RCU/checklist.txt  |   20 +++++++--
- Documentation/RCU/rcubarrier.txt |    7 +++
- Documentation/RCU/torture.txt    |   23 ++++++++++-
- Documentation/RCU/whatisRCU.txt  |   14 +++++-
- 6 files changed, 156 insertions(+), 19 deletions(-)
+ kernel/rcutorture.c |  202 ++++++++++++++++++++++++++++-----------------------
+ 1 files changed, 110 insertions(+), 92 deletions(-)
 
-diff --git a/Documentation/RCU/RTFP.txt b/Documentation/RCU/RTFP.txt
-index 9f711d2..d2b8523 100644
---- a/Documentation/RCU/RTFP.txt
-+++ b/Documentation/RCU/RTFP.txt
-@@ -743,3 +743,80 @@ Revised:
- 	RCU, realtime RCU, sleepable RCU, performance.
- "
+diff --git a/kernel/rcutorture.c b/kernel/rcutorture.c
+index 9b4a975..b33db53 100644
+--- a/kernel/rcutorture.c
++++ b/kernel/rcutorture.c
+@@ -257,14 +257,14 @@ struct rcu_torture_ops {
+ 	void (*init)(void);
+ 	void (*cleanup)(void);
+ 	int (*readlock)(void);
+-	void (*readdelay)(struct rcu_random_state *rrsp);
++	void (*read_delay)(struct rcu_random_state *rrsp);
+ 	void (*readunlock)(int idx);
+ 	int (*completed)(void);
+-	void (*deferredfree)(struct rcu_torture *p);
++	void (*deferred_free)(struct rcu_torture *p);
+ 	void (*sync)(void);
+ 	void (*cb_barrier)(void);
+ 	int (*stats)(char *page);
+-	int irqcapable;
++	int irq_capable;
+ 	char *name;
+ };
+ static struct rcu_torture_ops *cur_ops = NULL;
+@@ -320,7 +320,7 @@ rcu_torture_cb(struct rcu_head *p)
+ 		rp->rtort_mbtest = 0;
+ 		rcu_torture_free(rp);
+ 	} else
+-		cur_ops->deferredfree(rp);
++		cur_ops->deferred_free(rp);
  }
+ 
+ static void rcu_torture_deferred_free(struct rcu_torture *p)
+@@ -329,18 +329,18 @@ static void rcu_torture_deferred_free(struct rcu_torture *p)
+ }
+ 
+ static struct rcu_torture_ops rcu_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = rcu_barrier,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= rcu_barrier,
++	.stats		= NULL,
++	.irq_capable 	= 1,
++	.name 		= "rcu"
+ };
+ 
+ static void rcu_sync_torture_deferred_free(struct rcu_torture *p)
+@@ -370,18 +370,18 @@ static void rcu_sync_torture_init(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_torture_read_lock,
+-	.readdelay = rcu_read_delay,
+-	.readunlock = rcu_torture_read_unlock,
+-	.completed = rcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = synchronize_rcu,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_torture_read_lock,
++	.read_delay	= rcu_read_delay,
++	.readunlock	= rcu_torture_read_unlock,
++	.completed	= rcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_rcu,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_sync"
+ };
+ 
+ /*
+@@ -432,33 +432,33 @@ static void rcu_bh_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops rcu_bh_ops = {
+-	.init = NULL,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_bh_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = rcu_barrier_bh,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh"
++	.init		= NULL,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_bh_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= rcu_barrier_bh,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh"
+ };
+ 
+ static struct rcu_torture_ops rcu_bh_sync_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = rcu_bh_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = rcu_bh_torture_read_unlock,
+-	.completed = rcu_bh_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = rcu_bh_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "rcu_bh_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= rcu_bh_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= rcu_bh_torture_read_unlock,
++	.completed	= rcu_bh_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= rcu_bh_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "rcu_bh_sync"
+ };
+ 
+ /*
+@@ -530,17 +530,17 @@ static int srcu_torture_stats(char *page)
+ }
+ 
+ static struct rcu_torture_ops srcu_ops = {
+-	.init = srcu_torture_init,
+-	.cleanup = srcu_torture_cleanup,
+-	.readlock = srcu_torture_read_lock,
+-	.readdelay = srcu_read_delay,
+-	.readunlock = srcu_torture_read_unlock,
+-	.completed = srcu_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = srcu_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = srcu_torture_stats,
+-	.name = "srcu"
++	.init		= srcu_torture_init,
++	.cleanup	= srcu_torture_cleanup,
++	.readlock	= srcu_torture_read_lock,
++	.read_delay	= srcu_read_delay,
++	.readunlock	= srcu_torture_read_unlock,
++	.completed	= srcu_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= srcu_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= srcu_torture_stats,
++	.name		= "srcu"
+ };
+ 
+ /*
+@@ -574,32 +574,49 @@ static void sched_torture_synchronize(void)
+ }
+ 
+ static struct rcu_torture_ops sched_ops = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sched_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = rcu_barrier_sched,
+-	.stats = NULL,
+-	.irqcapable = 1,
+-	.name = "sched"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sched_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= rcu_barrier_sched,
++	.stats		= NULL,
++	.irq_capable	= 1,
++	.name		= "sched"
+ };
+ 
+ static struct rcu_torture_ops sched_ops_sync = {
+-	.init = rcu_sync_torture_init,
+-	.cleanup = NULL,
+-	.readlock = sched_torture_read_lock,
+-	.readdelay = rcu_read_delay,  /* just reuse rcu's version. */
+-	.readunlock = sched_torture_read_unlock,
+-	.completed = sched_torture_completed,
+-	.deferredfree = rcu_sync_torture_deferred_free,
+-	.sync = sched_torture_synchronize,
+-	.cb_barrier = NULL,
+-	.stats = NULL,
+-	.name = "sched_sync"
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= sched_torture_synchronize,
++	.cb_barrier	= NULL,
++	.stats		= NULL,
++	.name		= "sched_sync"
++};
 +
-+@article{PaulEMcKenney2008RCUOSR
-+,author="Paul E. McKenney and Jonathan Walpole"
-+,title="Introducing technology into the {Linux} kernel: a case study"
-+,Year="2008"
-+,journal="SIGOPS Oper. Syst. Rev."
-+,volume="42"
-+,number="5"
-+,pages="4--17"
-+,issn="0163-5980"
-+,doi={http://doi.acm.org/10.1145/1400097.1400099}
-+,publisher="ACM"
-+,address="New York, NY, USA"
-+,annotation={
-+	Linux changed RCU to a far greater degree than RCU has changed Linux.
-+}
-+}
++extern int rcu_expedited_torture_stats(char *page);
 +
-+@unpublished{PaulEMcKenney2008HierarchicalRCU
-+,Author="Paul E. McKenney"
-+,Title="Hierarchical {RCU}"
-+,month="November"
-+,day="3"
-+,year="2008"
-+,note="Available:
-+\url{http://lwn.net/Articles/305782/}
-+[Viewed November 6, 2008]"
-+,annotation="
-+	RCU with combining-tree-based grace-period detection,
-+	permitting it to handle thousands of CPUs.
-+"
-+}
-+
-+@conference{PaulEMcKenney2009MaliciousURCU
-+,Author="Paul E. McKenney"
-+,Title="Using a Malicious User-Level {RCU} to Torture {RCU}-Based Algorithms"
-+,Booktitle="linux.conf.au 2009"
-+,month="January"
-+,year="2009"
-+,address="Hobart, Australia"
-+,note="Available:
-+\url{http://www.rdrop.com/users/paulmck/RCU/urcutorture.2009.01.22a.pdf}
-+[Viewed February 2, 2009]"
-+,annotation="
-+	Realtime RCU and torture-testing RCU uses.
-+"
-+}
-+
-+@unpublished{MathieuDesnoyers2009URCU
-+,Author="Mathieu Desnoyers"
-+,Title="[{RFC} git tree] Userspace {RCU} (urcu) for {Linux}"
-+,month="February"
-+,day="5"
-+,year="2009"
-+,note="Available:
-+\url{http://lkml.org/lkml/2009/2/5/572}
-+\url{git://lttng.org/userspace-rcu.git}
-+[Viewed February 20, 2009]"
-+,annotation="
-+	Mathieu Desnoyers's user-space RCU implementation.
-+	git://lttng.org/userspace-rcu.git
-+"
-+}
-+
-+@unpublished{PaulEMcKenney2009BloatWatchRCU
-+,Author="Paul E. McKenney"
-+,Title="{RCU}: The {Bloatwatch} Edition"
-+,month="March"
-+,day="17"
-+,year="2009"
-+,note="Available:
-+\url{http://lwn.net/Articles/323929/}
-+[Viewed March 20, 2009]"
-+,annotation="
-+	Uniprocessor assumptions allow simplified RCU implementation.
-+"
-+}
-diff --git a/Documentation/RCU/UP.txt b/Documentation/RCU/UP.txt
-index aab4a9e..90ec534 100644
---- a/Documentation/RCU/UP.txt
-+++ b/Documentation/RCU/UP.txt
-@@ -2,14 +2,13 @@ RCU on Uniprocessor Systems
++static struct rcu_torture_ops sched_expedited_ops = {
++	.init		= rcu_sync_torture_init,
++	.cleanup	= NULL,
++	.readlock	= sched_torture_read_lock,
++	.read_delay	= rcu_read_delay,  /* just reuse rcu's version. */
++	.readunlock	= sched_torture_read_unlock,
++	.completed	= sched_torture_completed,
++	.deferred_free	= rcu_sync_torture_deferred_free,
++	.sync		= synchronize_sched_expedited,
++	.cb_barrier	= NULL,
++	.stats		= rcu_expedited_torture_stats,
++	.irq_capable	= 1,
++	.name		= "sched_expedited"
+ };
  
+ /*
+@@ -635,7 +652,7 @@ rcu_torture_writer(void *arg)
+ 				i = RCU_TORTURE_PIPE_LEN;
+ 			atomic_inc(&rcu_torture_wcount[i]);
+ 			old_rp->rtort_pipe_count++;
+-			cur_ops->deferredfree(old_rp);
++			cur_ops->deferred_free(old_rp);
+ 		}
+ 		rcu_torture_current_version++;
+ 		oldbatch = cur_ops->completed();
+@@ -700,7 +717,7 @@ static void rcu_torture_timer(unsigned long unused)
+ 	if (p->rtort_mbtest == 0)
+ 		atomic_inc(&n_rcu_torture_mberror);
+ 	spin_lock(&rand_lock);
+-	cur_ops->readdelay(&rand);
++	cur_ops->read_delay(&rand);
+ 	n_rcu_torture_timers++;
+ 	spin_unlock(&rand_lock);
+ 	preempt_disable();
+@@ -738,11 +755,11 @@ rcu_torture_reader(void *arg)
  
- A common misconception is that, on UP systems, the call_rcu() primitive
--may immediately invoke its function, and that the synchronize_rcu()
--primitive may return immediately.  The basis of this misconception
-+may immediately invoke its function.  The basis of this misconception
- is that since there is only one CPU, it should not be necessary to
- wait for anything else to get done, since there are no other CPUs for
- anything else to be happening on.  Although this approach will -sort- -of-
- work a surprising amount of the time, it is a very bad idea in general.
--This document presents three examples that demonstrate exactly how bad an
--idea this is.
-+This document presents three examples that demonstrate exactly how bad
-+an idea this is.
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task started");
+ 	set_user_nice(current, 19);
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		setup_timer_on_stack(&t, rcu_torture_timer, 0);
  
+ 	do {
+-		if (irqreader && cur_ops->irqcapable) {
++		if (irqreader && cur_ops->irq_capable) {
+ 			if (!timer_pending(&t))
+ 				mod_timer(&t, 1);
+ 		}
+@@ -757,7 +774,7 @@ rcu_torture_reader(void *arg)
+ 		}
+ 		if (p->rtort_mbtest == 0)
+ 			atomic_inc(&n_rcu_torture_mberror);
+-		cur_ops->readdelay(&rand);
++		cur_ops->read_delay(&rand);
+ 		preempt_disable();
+ 		pipe_count = p->rtort_pipe_count;
+ 		if (pipe_count > RCU_TORTURE_PIPE_LEN) {
+@@ -778,7 +795,7 @@ rcu_torture_reader(void *arg)
+ 	} while (!kthread_should_stop() && fullstop == FULLSTOP_DONTSTOP);
+ 	VERBOSE_PRINTK_STRING("rcu_torture_reader task stopping");
+ 	rcutorture_shutdown_absorb("rcu_torture_reader");
+-	if (irqreader && cur_ops->irqcapable)
++	if (irqreader && cur_ops->irq_capable)
+ 		del_timer_sync(&t);
+ 	while (!kthread_should_stop())
+ 		schedule_timeout_uninterruptible(1);
+@@ -1078,6 +1095,7 @@ rcu_torture_init(void)
+ 	int firsterr = 0;
+ 	static struct rcu_torture_ops *torture_ops[] =
+ 		{ &rcu_ops, &rcu_sync_ops, &rcu_bh_ops, &rcu_bh_sync_ops,
++		  &sched_expedited_ops,
+ 		  &srcu_ops, &sched_ops, &sched_ops_sync, };
  
- Example 1: softirq Suicide
-@@ -82,11 +81,18 @@ Quick Quiz #2: What locking restriction must RCU callbacks respect?
- 
- Summary
- 
--Permitting call_rcu() to immediately invoke its arguments or permitting
--synchronize_rcu() to immediately return breaks RCU, even on a UP system.
--So do not do it!  Even on a UP system, the RCU infrastructure -must-
--respect grace periods, and -must- invoke callbacks from a known environment
--in which no locks are held.
-+Permitting call_rcu() to immediately invoke its arguments breaks RCU,
-+even on a UP system.  So do not do it!  Even on a UP system, the RCU
-+infrastructure -must- respect grace periods, and -must- invoke callbacks
-+from a known environment in which no locks are held.
-+
-+It -is- safe for synchronize_sched() and synchronize_rcu_bh() to return
-+immediately on an UP system.  It is also safe for synchronize_rcu()
-+to return immediately on UP systems, except when running preemptable
-+RCU.
-+
-+Quick Quiz #3: Why can't synchronize_rcu() return immediately on
-+	UP systems running preemptable RCU?
- 
- 
- Answer to Quick Quiz #1:
-@@ -117,3 +123,13 @@ Answer to Quick Quiz #2:
- 	callbacks acquire locks directly.  However, a great many RCU
- 	callbacks do acquire locks -indirectly-, for example, via
- 	the kfree() primitive.
-+
-+Answer to Quick Quiz #3:
-+	Why can't synchronize_rcu() return immediately on UP systems
-+	running preemptable RCU?
-+
-+	Because some other task might have been preempted in the middle
-+	of an RCU read-side critical section.  If synchronize_rcu()
-+	simply immediately returned, it would prematurely signal the
-+	end of the grace period, which would come as a nasty shock to
-+	that other thread when it started running again.
-diff --git a/Documentation/RCU/checklist.txt b/Documentation/RCU/checklist.txt
-index accfe2f..51525a3 100644
---- a/Documentation/RCU/checklist.txt
-+++ b/Documentation/RCU/checklist.txt
-@@ -11,7 +11,10 @@ over a rather long period of time, but improvements are always welcome!
- 	structure is updated more than about 10% of the time, then
- 	you should strongly consider some other approach, unless
- 	detailed performance measurements show that RCU is nonetheless
--	the right tool for the job.
-+	the right tool for the job.  Yes, you might think of RCU
-+	as simply cutting overhead off of the readers and imposing it
-+	on the writers.  That is exactly why normal uses of RCU will
-+	do much more reading than updating.
- 
- 	Another exception is where performance is not an issue, and RCU
- 	provides a simpler implementation.  An example of this situation
-@@ -240,10 +243,11 @@ over a rather long period of time, but improvements are always welcome!
- 	instead need to use synchronize_irq() or synchronize_sched().
- 
- 12.	Any lock acquired by an RCU callback must be acquired elsewhere
--	with irq disabled, e.g., via spin_lock_irqsave().  Failing to
--	disable irq on a given acquisition of that lock will result in
--	deadlock as soon as the RCU callback happens to interrupt that
--	acquisition's critical section.
-+	with softirq disabled, e.g., via spin_lock_irqsave(),
-+	spin_lock_bh(), etc.  Failing to disable irq on a given
-+	acquisition of that lock will result in deadlock as soon as the
-+	RCU callback happens to interrupt that acquisition's critical
-+	section.
- 
- 13.	RCU callbacks can be and are executed in parallel.  In many cases,
- 	the callback code simply wrappers around kfree(), so that this
-@@ -310,3 +314,9 @@ over a rather long period of time, but improvements are always welcome!
- 	Because these primitives only wait for pre-existing readers,
- 	it is the caller's responsibility to guarantee safety to
- 	any subsequent readers.
-+
-+16.	The various RCU read-side primitives do -not- contain memory
-+	barriers.  The CPU (and in some cases, the compiler) is free
-+	to reorder code into and out of RCU read-side critical sections.
-+	It is the responsibility of the RCU update-side primitives to
-+	deal with this.
-diff --git a/Documentation/RCU/rcubarrier.txt b/Documentation/RCU/rcubarrier.txt
-index 909602d..e439a0e 100644
---- a/Documentation/RCU/rcubarrier.txt
-+++ b/Documentation/RCU/rcubarrier.txt
-@@ -170,6 +170,13 @@ module invokes call_rcu() from timers, you will need to first cancel all
- the timers, and only then invoke rcu_barrier() to wait for any remaining
- RCU callbacks to complete.
- 
-+Of course, if you module uses call_rcu_bh(), you will need to invoke
-+rcu_barrier_bh() before unloading.  Similarly, if your module uses
-+call_rcu_sched(), you will need to invoke rcu_barrier_sched() before
-+unloading.  If your module uses call_rcu(), call_rcu_bh(), -and-
-+call_rcu_sched(), then you will need to invoke each of rcu_barrier(),
-+rcu_barrier_bh(), and rcu_barrier_sched().
-+
- 
- Implementing rcu_barrier()
- 
-diff --git a/Documentation/RCU/torture.txt b/Documentation/RCU/torture.txt
-index a342b6e..9dba3bb 100644
---- a/Documentation/RCU/torture.txt
-+++ b/Documentation/RCU/torture.txt
-@@ -76,8 +76,10 @@ torture_type	The type of RCU to test: "rcu" for the rcu_read_lock() API,
- 		"rcu_sync" for rcu_read_lock() with synchronous reclamation,
- 		"rcu_bh" for the rcu_read_lock_bh() API, "rcu_bh_sync" for
- 		rcu_read_lock_bh() with synchronous reclamation, "srcu" for
--		the "srcu_read_lock()" API, and "sched" for the use of
--		preempt_disable() together with synchronize_sched().
-+		the "srcu_read_lock()" API, "sched" for the use of
-+		preempt_disable() together with synchronize_sched(),
-+		and "sched_expedited" for the use of preempt_disable()
-+		with synchronize_sched_expedited().
- 
- verbose		Enable debug printk()s.  Default is disabled.
- 
-@@ -162,6 +164,23 @@ of the "old" and "current" counters for the corresponding CPU.  The
- "idx" value maps the "old" and "current" values to the underlying array,
- and is useful for debugging.
- 
-+Similarly, sched_expedited RCU provides the following:
-+
-+	sched_expedited-torture: rtc: d0000000016c1880 ver: 1090796 tfle: 0 rta: 1090796 rtaf: 0 rtf: 1090787 rtmbe: 0 nt: 27713319
-+	sched_expedited-torture: Reader Pipe:  12660320201 95875 0 0 0 0 0 0 0 0 0
-+	sched_expedited-torture: Reader Batch:  12660424885 0 0 0 0 0 0 0 0 0 0
-+	sched_expedited-torture: Free-Block Circulation:  1090795 1090795 1090794 1090793 1090792 1090791 1090790 1090789 1090788 1090787 0
-+	state: -1 / 0:0 3:0 4:0
-+
-+As before, the first four lines are similar to those for RCU.
-+The last line shows the task-migration state.  The first number is
-+-1 if synchronize_sched_expedited() is idle, -2 if in the process of
-+posting wakeups to the migration kthreads, and N when waiting on CPU N.
-+Each of the colon-separated fields following the "/" is a CPU:state pair.
-+Valid states are "0" for idle, "1" for waiting for quiescent state,
-+"2" for passed through quiescent state, and "3" when a race with a
-+CPU-hotplug event forces use of the synchronize_sched() primitive.
-+
- 
- USAGE
- 
-diff --git a/Documentation/RCU/whatisRCU.txt b/Documentation/RCU/whatisRCU.txt
-index 9617082..97ded24 100644
---- a/Documentation/RCU/whatisRCU.txt
-+++ b/Documentation/RCU/whatisRCU.txt
-@@ -785,6 +785,7 @@ RCU pointer/list traversal:
- 	rcu_dereference
- 	list_for_each_entry_rcu
- 	hlist_for_each_entry_rcu
-+	hlist_nulls_for_each_entry_rcu
- 
- 	list_for_each_continue_rcu	(to be deprecated in favor of new
- 					 list_for_each_entry_continue_rcu)
-@@ -807,19 +808,23 @@ RCU:	Critical sections	Grace period		Barrier
- 
- 	rcu_read_lock		synchronize_net		rcu_barrier
- 	rcu_read_unlock		synchronize_rcu
-+				synchronize_rcu_expedited
- 				call_rcu
- 
- 
- bh:	Critical sections	Grace period		Barrier
- 
- 	rcu_read_lock_bh	call_rcu_bh		rcu_barrier_bh
--	rcu_read_unlock_bh
-+	rcu_read_unlock_bh	synchronize_rcu_bh
-+				synchronize_rcu_bh_expedited
- 
- 
- sched:	Critical sections	Grace period		Barrier
- 
--	[preempt_disable]	synchronize_sched	rcu_barrier_sched
--	[and friends]		call_rcu_sched
-+	rcu_read_lock_sched	synchronize_sched	rcu_barrier_sched
-+	rcu_read_unlock_sched	call_rcu_sched
-+	[preempt_disable]	synchronize_sched_expedited
-+	[and friends]
- 
- 
- SRCU:	Critical sections	Grace period		Barrier
-@@ -827,6 +832,9 @@ SRCU:	Critical sections	Grace period		Barrier
- 	srcu_read_lock		synchronize_srcu	N/A
- 	srcu_read_unlock
- 
-+SRCU:	Initialization/cleanup
-+	init_srcu_struct
-+	cleanup_srcu_struct
- 
- See the comment headers in the source code (or the docbook generated
- from them) for more information.
+ 	mutex_lock(&fullstop_mutex);
 -- 
 1.5.2.5
 
