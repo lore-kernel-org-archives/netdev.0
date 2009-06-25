@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: [PATCH -tip 2/3] synchronize_sched_expedited() torture tests
 Date: Thu, 25 Jun 2009 09:08:17 -0700
-Message-ID: <33661.1295970671$1245946718@news.gmane.org>
+Message-ID: <17343.0367526182$1245946723@news.gmane.org>
 References: <20090625160706.GA9467@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	torvalds@linux-foundation.org, davem@davemloft.net,
@@ -12,14 +12,10 @@ Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:47435 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752411AbZFYQRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2009 12:17:25 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <20090625160706.GA9467@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
