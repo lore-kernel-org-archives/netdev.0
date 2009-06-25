@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: [PATCH -tip 1/3] synchronize_sched_expedited() primitive
 Date: Thu, 25 Jun 2009 09:08:16 -0700
-Message-ID: <41931.1785990887$1245946234@news.gmane.org>
+Message-ID: <39466.8976929553$1245946236@news.gmane.org>
 References: <20090625160706.GA9467@linux.vnet.ibm.com>
 Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	torvalds@linux-foundation.org, davem@davemloft.net,
@@ -12,9 +12,9 @@ Cc: mingo@elte.hu, akpm@linux-foundation.org,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759272AbZFYQIr@vger.kernel.org>
 In-Reply-To: <20090625160706.GA9467@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This adds the synchronize_sched_expedited() primitive that implements
@@ -334,4 +334,3 @@ index 7c9098d..9ae80be 100644
 +#endif /* #else #ifndef CONFIG_SMP */
 -- 
 1.5.2.5
-
