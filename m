@@ -1,64 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tcp: race in receive part
-Date: Thu, 25 Jun 2009 12:51:12 +0200
-Message-ID: <4A4356A0.20606@gmail.com>
-References: <20090618102727.GC3782@jolsa.lab.eng.brq.redhat.com> <4A3A49F2.6060705@gmail.com> <20090623091257.GA4850@jolsa.lab.eng.brq.redhat.com> <4A40AF2A.3050509@gmail.com> <20090624102038.GA5409@jolsa.lab.eng.brq.redhat.com> <4A42082D.9060402@gmail.com> <20090624162112.GB5409@jolsa.lab.eng.brq.redhat.com> <20090624163024.GA29337@redhat.com> <20090624164102.GB29337@redhat.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] ucc_geth: Fix half-duplex operation for non-MII/RMII
+ interfaces
+Date: Thu, 25 Jun 2009 15:17:25 +0400
+Message-ID: <20090625111725.GA30165@oksana.dev.rtsoft.ru>
+References: <20090624174557.GA31479@oksana.dev.rtsoft.ru>
+ <4A4306F2.3070909@mvista.com>
+ <20090625070236.GA27711@oksana.dev.rtsoft.ru>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com
-To: Oleg Nesterov <oleg@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: Mark Huth <mhuth@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:56237 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbZFYKvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 06:51:53 -0400
-In-Reply-To: <20090624164102.GB29337@redhat.com>
+Received: from ru.mvista.com ([213.79.90.228]:7853 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751084AbZFYLRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 07:17:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20090625070236.GA27711@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oleg Nesterov a =E9crit :
-> On 06/24, Oleg Nesterov wrote:
->> On 06/24, Jiri Olsa wrote:
->>> +/* The read_lock() on x86 is a full memory barrier. */
->>> +#define smp_mb__after_read_lock() barrier()
->> Just curious, why do we need barrier() ?
->>
->> I must admit, personally I dislike _read_lock part. Because I think =
-we
->> need a "more generic" smp_mb__{before,after}_lock() or whatever whic=
-h
->> work for spin_lock/read_lock/write_lock.
->>
->> In that case it can have more users. Btw, in fs/select.c too, see
->> __pollwake().
->>
->> And surprise,
->>
->>> --- a/fs/select.c
->>> +++ b/fs/select.c
->>> @@ -219,6 +219,10 @@ static void __pollwait(struct file *filp, wait=
-_queue_head_t *wait_address,
->>>  	init_waitqueue_func_entry(&entry->wait, pollwake);
->>>  	entry->wait.private =3D pwq;
->>>  	add_wait_queue(wait_address, &entry->wait);
->>> +
->>> +	/* This memory barrier is paired with the smp_mb__after_read_lock
->>> +	 * in the sk_has_sleeper. */
->>> +	smp_mb();
->> This could be smp_mb__after_lock() too.
->=20
-> Cough. this needs mb__after_UNlock(), sorry.
->=20
+On Thu, Jun 25, 2009 at 11:02:36AM +0400, Anton Vorontsov wrote:
+[...]
+> Of course, it could be that the root cause of the problems
+> I observe is weird NIC on my host. Well, then QA team should
+> have used the same broken NIC on their hosts. :-)
+> 
+> I can easily test it by interconnecting two targets though.
+[...]
+> Definitely. Though I'm out of ideas if it's NOT host-side issue.
 
-Yes, and this time you need separate smp_mb__after_spin_unlock(),
-as rwlocks and spinlocks dont have same unlock implementation.
+Two boards interconnected work fine. eTSEC + SKY2 NIC also work
+OK. I'll test some more NICs, known to not work is 3Com
+Corporation 3c905C-TX/TX-M [Tornado] (rev 74).
 
-(spin_unlock dont have memory barrier on x86, while read_write_unlock d=
-o have a barrier)
 
-As it wont give us a benefit on x86 but code obfuscation, I suspect we =
-can leave this for now :)
+After some netperf tests, statistic on a gianfar board:
 
+# ethtool -S eth0 | grep -v ": 0"
+NIC statistics:
+     rx-dropped-by-kernel: 2
+     tx-rx-64-frames: 52
+     tx-rx-65-127-frames: 20668
+     tx-rx-128-255-frames: 10343
+     tx-rx-256-511-frames: 113
+     tx-rx-512-1023-frames: 147
+     tx-rx-1024-1518-frames: 45965
+     rx-bytes: 45075782
+     rx-packets: 50300
+     rx-carrier-sense-error: 1
+     rx-fragmented-frames: 7600
+     tx-byte-counter: 27401677
+     tx-packets: 34618
+     tx-broadcast-packets: 3
+     tx-deferral-packets: 5
+     tx-single-collision-packets: 4039
+     tx-multiple-collision-packets: 1943
+     tx-excessive-collision-packets: 30
+     tx-total-collision: 785
+
+
+Thanks for the ideas, Mark.
+
+-- 
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
