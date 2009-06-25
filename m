@@ -1,48 +1,28 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
-Date: Thu, 25 Jun 2009 14:24:14 +0200
-Message-ID: <1245932654-424f6eb9656d75bc862590453a717473@brownhat.org>
-References: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
+From: =?Big5?B?u6+1tb33?= <i7qd7i9m085@gmail.com>
+Subject: =?Big5?B?odeh1zIwMDkvNi8yNSCxesHZqFOms6RArdOxTcTdqrql+Ld+uvQ=?=
+	=?Big5?B?r7i23KFI?=
+Date: Thu, 25 Jun 2009 21:53:02 +0800
+Message-ID: <7a4c83570906250653i6b45d442o1832a4469b194271@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Tim Hockin <thockin@hockin.org>,
-	Jens Osterkamp <jens@de.ibm.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	Ion Badulescu <ionut@cs.columbia.edu>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Alexander Indenbaum <baum@tehutinetworks.net>,
-	Samuel Chessman <chessman@tux.org>,
-	Kyle McMartin <kyle@mcmartin.ca>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	David Dillow <dave@thedillows.org>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=Big5
+Content-Transfer-Encoding: base64
+To: netsmartz_contact@ncmec.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.infomaniak.ch ([84.16.68.90]:32891 "EHLO
-	smtp2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751919AbZFYOPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 10:15:13 -0400
-In-Reply-To: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
+Received: from mail-px0-f114.google.com ([209.85.216.114]:40915 "EHLO
+	mail-px0-f114.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754428AbZFYO0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 10:26:05 -0400
+Received: by pxi12 with SMTP id 12so177385pxi.33
+        for <netdev@vger.kernel.org>; Thu, 25 Jun 2009 07:26:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Message d'origine -----
-De: Joe Perches <joe@perches.com>
-Date: Wed, 24 Jun 2009 22:13:28 -0700
-Sujet: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
-
-> drivers/net/sis900.c              |    6 +--
-
-sis900 changes ok.
-
-Acked-by: Daniele Venzano <venza@brownhat.org>
-
---
-Daniele Venzano
-venza@brownhat.org
-http://www.brownhat.org
+MjAwOS02LTI1ICAtICAyMTo1MgoKpHNr4L5QrOx0p95HuvRsrbZ1s115rXAKCqfaTa3Md6q6Zal2
+NaaucaFHq8ik4WyquqhDo7il83KkcKjGsaGhQbOjrE+kc2fgvqq6a6RqqMaxoQoKp9pjrcxVYaZi
+dLHApVh2pfi3fqfOtki69GevuKVdp3SrZaV4uvSttqz8pHUrq+GleLresnq1e6ahCgqtrVauyUit
+rU22cUWxTa7Xu/kgpXWtbiQyOSw5MDAgICimYrBlo7imfjEwME1CIKSjra2sebZxuvSvuKrFtqEp
+Cgqn2lStzG6wtXqqukmko06ldXWsTzS69FNCr7ihQabTV6xPTLF6Z6X4Sbd+Yqq6N6RKMqRmCgqj
+uFCt02Ombnaqukul+HG3fnC69FOvuDVFuOpmrsZEp1k5rsltp/N2t3NOqrows3RqbavXQ6xPbKvc
+S62rVa1uMaq6Cgql+Gy3fqLtpMZjsKpOq353veg0uc5TtqShQaW0U7N5RDCxejequmS69FC49Euq
++VGtsQoKv+9Wvtx4pHNN4L5Rpqh4tE5YsXpDqrp3T7naNTe3UQoKZsV3qu+o07lxaayiuN+2wLFN
+rfuhRzBfOV8zXzhfN182XzRfM185XzUKNqHRdKH0TKGvRqG7Uj8K
