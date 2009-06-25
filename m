@@ -1,67 +1,69 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/1] Minor code cleanup in drivers/net/r6040.c
-Date: Thu, 25 Jun 2009 10:18:40 +0200
-Message-ID: <200906251018.40995.florian@openwrt.org>
-References: <1245913509-23245-1-git-send-email-michael@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Opdenacker <michael@free-electrons.com>
+From: Ionut Nicu <ionut.nicu@freescale.com>
+Subject: [PATCH] fsl_pq_mdio: Fix fsl_pq_mdio to work with modules
+Date: Thu, 25 Jun 2009 11:23:39 +0300
+Message-ID: <1245918219-27299-1-git-send-email-ionut.nicu@freescale.com>
+Cc: Ionut Nicu <ionut.nicu@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f210.google.com ([209.85.219.210]:61373 "EHLO
-	mail-ew0-f210.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbZFYISm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 04:18:42 -0400
-In-Reply-To: <1245913509-23245-1-git-send-email-michael@free-electrons.com>
-Content-Disposition: inline
+Received: from az33egw02.freescale.net ([192.88.158.103]:34788 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbZFYIXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 04:23:47 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n5P8NksF028377
+	for <netdev@vger.kernel.org>; Thu, 25 Jun 2009 01:23:47 -0700 (MST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Thursday 25 June 2009 09:05:09 Michael Opdenacker, vous avez =C3=A9c=
-rit=C2=A0:
->  Replaced '0' by 'bar' in the probe function.
->  The 'bar' variable was already set to '0' and is already
->  used in pci_iomap(). This is cleaner and improves code
->  consistency.
->
-> Signed-off-by: Michael Opdenacker <michael@free-electrons.com>
+This patch fixes the case when ucc_geth or gianfar are compiled
+as modules. Without this patch the call to phy_connect() fails.
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: Ionut Nicu <ionut.nicu@freescale.com>
+Acked-by: Andy Fleming <afleming@freescale.com>
+---
+ drivers/net/fsl_pq_mdio.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-> ---
->  drivers/net/r6040.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-> index ed63d23..b3197e9 100644
-> --- a/drivers/net/r6040.c
-> +++ b/drivers/net/r6040.c
-> @@ -1112,13 +1112,13 @@ static int __devinit r6040_init_one(struct pc=
-i_dev
-> *pdev, }
->
->  	/* IO Size check */
-> -	if (pci_resource_len(pdev, 0) < io_size) {
-> +	if (pci_resource_len(pdev, bar) < io_size) {
->  		printk(KERN_ERR DRV_NAME ": Insufficient PCI resources, aborting\n=
-");
->  		err =3D -EIO;
->  		goto err_out;
->  	}
->
-> -	pioaddr =3D pci_resource_start(pdev, 0);	/* IO map base address */
-> +	pioaddr =3D pci_resource_start(pdev, bar);	/* IO map base address *=
-/
->  	pci_set_master(pdev);
->
->  	dev =3D alloc_etherdev(sizeof(struct r6040_private));
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
+index 3af5813..d167090 100644
+--- a/drivers/net/fsl_pq_mdio.c
++++ b/drivers/net/fsl_pq_mdio.c
+@@ -188,7 +188,7 @@ static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
+ }
+ 
+ 
+-#ifdef CONFIG_GIANFAR
++#if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
+ static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs)
+ {
+ 	struct gfar __iomem *enet_regs;
+@@ -206,7 +206,7 @@ static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs)
+ #endif
+ 
+ 
+-#ifdef CONFIG_UCC_GETH
++#if defined(CONFIG_UCC_GETH) || defined(CONFIG_UCC_GETH_MODULE)
+ static int get_ucc_id_for_range(u64 start, u64 end, u32 *ucc_id)
+ {
+ 	struct device_node *np = NULL;
+@@ -291,7 +291,7 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
+ 	if (of_device_is_compatible(np, "fsl,gianfar-mdio") ||
+ 			of_device_is_compatible(np, "fsl,gianfar-tbi") ||
+ 			of_device_is_compatible(np, "gianfar")) {
+-#ifdef CONFIG_GIANFAR
++#if defined(CONFIG_GIANFAR) || defined(CONFIG_GIANFAR_MODULE)
+ 		tbipa = get_gfar_tbipa(regs);
+ #else
+ 		err = -ENODEV;
+@@ -299,7 +299,7 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
+ #endif
+ 	} else if (of_device_is_compatible(np, "fsl,ucc-mdio") ||
+ 			of_device_is_compatible(np, "ucc_geth_phy")) {
+-#ifdef CONFIG_UCC_GETH
++#if defined(CONFIG_UCC_GETH) || defined(CONFIG_UCC_GETH_MODULE)
+ 		u32 id;
+ 		static u32 mii_mng_master;
+ 
+-- 
+1.6.2.4
 
-
-
---=20
-Best regards, Florian Fainelli
-Email : florian@openwrt.org
-http://openwrt.org
--------------------------------
