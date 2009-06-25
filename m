@@ -1,29 +1,66 @@
-From: Chris Snook <chris.snook@gmail.com>
-Subject: Re: [PATCH] atl1*: add device_set_wakeup_enable to atl1*_set_wol
-Date: Thu, 25 Jun 2009 01:49:42 -0400
-Message-ID: <13a12eea0906242249j3252f79bv387b3b43b5066cc@mail.gmail.com>
-References: <20090625000914.GL3648@jenkins.smartcity.com> <20090625003727.GA14726@jenkins.home.ifup.org>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
+Date: Thu, 25 Jun 2009 01:50:54 -0400
+Message-ID: <1245909054.22064.33.camel@obelisk.thedillows.org>
+References: <cover.1245906151.git.joe@perches.com>
+	 <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, jie.yang@atheros.com, rjw@sisk.pl,
-	netdev@vger.kernel.org
-To: Brandon Philips <brandon@ifup.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f190.google.com ([209.85.216.190]:40815 "EHLO
-	mail-px0-f190.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750893AbZFYFt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 01:49:59 -0400
-Received: by pxi28 with SMTP id 28so809312pxi.33
-        for <netdev@vger.kernel.org>; Wed, 24 Jun 2009 22:50:02 -0700 (PDT)
-In-Reply-To: <20090625003727.GA14726@jenkins.home.ifup.org>
+Received: from smtp.knology.net ([24.214.63.101]:40580 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751411AbZFYFux (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2009 01:50:53 -0400
+In-Reply-To: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 24, 2009 at 8:37 PM, Brandon Philips<brandon@ifup.org> wrote:
-> BTW, Chris Snook's email address bounced. Can someone with a newer
-> address update MAINTAINERS?
+On Wed, 2009-06-24 at 22:13 -0700, Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
+>  drivers/net/typhoon.c             |   18 +++-----
 
-Sorry about that. I'll send a patch momentarily.
+It's not a huge leap in readability, but whaddayagonnado?
 
--- Chris
+Acked-by: Dave Dillow <dave@thedillows.org>
+
+> diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+> index cf25eb4..c0063c5 100644
+> --- a/drivers/net/typhoon.c
+> +++ b/drivers/net/typhoon.c
+> @@ -215,12 +215,9 @@ static struct typhoon_card_info typhoon_card_info[] __devinitdata = {
+>   * bits 12-16 indicate card type: (0) client and (1) server
+>   */
+>  static struct pci_device_id typhoon_pci_tbl[] = {
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0,TYPHOON_TX },
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_TX_95,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_TX95 },
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_TX_97,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_TX97 },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990), TYPHOON_TX },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990_TX_95), TYPHOON_TX95 },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990_TX_97), TYPHOON_TX97 },
+>  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
+>  	  PCI_ANY_ID, 0x1000, 0, 0, TYPHOON_TXM },
+>  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
+> @@ -235,12 +232,9 @@ static struct pci_device_id typhoon_pci_tbl[] = {
+>  	  PCI_ANY_ID, 0x2101, 0, 0, TYPHOON_FX95SVR },
+>  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_FX,
+>  	  PCI_ANY_ID, 0x2102, 0, 0, TYPHOON_FX97SVR },
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR95,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR95 },
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR97,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR97 },
+> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR,
+> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR95), TYPHOON_SVR95 },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR97), TYPHOON_SVR97 },
+> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR), TYPHOON_SVR },
+>  	{ 0, }
+>  };
+>  MODULE_DEVICE_TABLE(pci, typhoon_pci_tbl);
+
+
