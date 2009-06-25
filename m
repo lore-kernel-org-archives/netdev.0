@@ -1,20 +1,22 @@
-From: <onilth@nbnet.nb.ca>
-Subject: CONTACT MR PHIL HERALD (phil.herald1@gala.net)
-Date: Wed, 24 Jun 2009 21:52:44 -0400
-Message-ID: <20090625015246.SMKR29191.tomts29-srv.bellnexxia.net@toip53-bus.srvr.bell.ca>
-Reply-To: phil.herald1@gala.net
+From: David Miller <davem@davemloft.net>
+Subject: net GIT trees rebased...
+Date: Wed, 24 Jun 2009 19:58:35 -0700 (PDT)
+Message-ID: <20090624.195835.60084771.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: <info@wins.net>
+Cc: netdev@vger.kernel.org
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts29.bellnexxia.net ([209.226.175.103]:40701 "EHLO
-	tomts29-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752828AbZFYBwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 21:52:45 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58648
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751772AbZFYC6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 22:58:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Congrats in our Uk monthly online award bonanza by sending yourName,Add,Age,Tel to (phil.herald1@gala.net)for 891,934GBP.send your data for more details
 
+I've rebased both net-2.6 and net-next-2.6, coinciding with
+today's 2.6.31-rc1 release and the merge window closing.
 
+Just FYI...
