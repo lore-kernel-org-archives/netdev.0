@@ -1,54 +1,93 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH -tip 0/3] expedited "big hammer" RCU grace periods
-Date: Thu, 25 Jun 2009 11:59:53 +0200
-Message-ID: <20090625095953.GC29980@elte.hu>
-References: <20090624164535.GA13334@linux.vnet.ibm.com> <20090624180303.GE7576@elte.hu> <20090624184423.GK6779@linux.vnet.ibm.com>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: [PATCH v3 10/10] nf_conntrack: Use rcu_barrier()
+Date: Thu, 25 Jun 2009 12:02:58 +0200
+Message-ID: <1245924178.24921.61.camel@localhost.localdomain>
+References: <20090623150330.22490.87327.stgit@localhost>
+	 <20090623150444.22490.27931.stgit@localhost>  <4A410185.3090706@trash.net>
+	 <1245834139.6695.31.camel@localhost.localdomain>
+	 <1245836409.6695.35.camel@localhost.localdomain> <4A423108.60109@trash.net>
+	 <1245922153.24921.56.camel@localhost.localdomain>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
-	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
-	r000n@r000n.net, benh@kernel.crashing.org,
-	mathieu.desnoyers@polymtl.ca
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:55419 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751994AbZFYKAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2009 06:00:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20090624184423.GK6779@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux-foundation.org>, linux-mm@kvack.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dougthompson@xmission.com, bluesmoke-devel@lists.sourceforge.net,
+	axboe@kernel.dk, christine.caulfield@googlemail.com,
+	Trond.Myklebust@netapp.com, linux-wireless@vger.kernel.org,
+	johannes@sipsolutions.net, yoshfuji@linux-ipv6.org,
+	shemminger@linux-foundation.org, linux-nfs@vger.kernel.org,
+	bfields@fieldses.org, neilb@suse.de, linux-ext4@vger.kernel.org,
+	tytso@mit.edu, adilger@sun.com, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+In-Reply-To: <1245922153.24921.56.camel@localhost.localdomain>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, 2009-06-25 at 11:29 +0200, Jesper Dangaard Brouer wrote:
+> Should I make two different patchs?
+
+Here is the single patch... Patrick tell me if you want it split up?
 
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+[PATCH v3 10/10] nf_conntrack: Use rcu_barrier()
 
-> On Wed, Jun 24, 2009 at 08:03:03PM +0200, Ingo Molnar wrote:
-> > 
-> > * Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > 
-> > >  include/linux/rcuclassic.h    |   15 ++-
-> > 
-> > heh, we dont have this file anymore ... as of today, right? :)
-> 
-> Ah, I was assuming that expedited RCU would happen before removal 
-> of Classic RCU.
+From: Jesper Dangaard Brouer <hawk@comx.dk>
 
-Our general preference is to zap code.
+RCU barriers, rcu_barrier(), is inserted two places.
 
-/me stares at:
+ In nf_conntrack_expect.c nf_conntrack_expect_fini() before the
+ kmem_cache_destroy().  Firstly to make sure the callback to the
+ nf_ct_expect_free_rcu() code is still around.  Secondly because I'm
+ unsure about the consequence of having in flight
+ nf_ct_expect_free_rcu/kmem_cache_free() calls while doing a
+ kmem_cache_destroy() slab destroy.
 
-  $ git diff --stat -M v2.6.30..v2.6.31-rc1 | tail -1
-  7743 files changed, 782278 insertions(+), 403162 deletions(-)
+ And in nf_conntrack_extend.c nf_ct_extend_unregister(), inorder to
+ wait for completion of callbacks to __nf_ct_ext_free_rcu(), which is
+ invoked by __nf_ct_ext_add().  It might be more efficient to call
+ rcu_barrier() in nf_conntrack_core.c nf_conntrack_cleanup_net(), but
+ thats make it more difficult to read the code (as the callback code
+ in located in nf_conntrack_extend.c).
 
-/me corrects himself:
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+---
 
-Okay, so the zapping of code is the divine guiding principle we've 
-been following for 15 years. Ending up with a kernel that is 11 
-million lines of code is a small imperfection of mankind and is to 
-be fixed.
+ net/netfilter/nf_conntrack_expect.c |    4 +++-
+ net/netfilter/nf_conntrack_extend.c |    2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-	Ingo
+
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index afde8f9..2032dfe 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -617,8 +617,10 @@ err1:
+ void nf_conntrack_expect_fini(struct net *net)
+ {
+ 	exp_proc_remove(net);
+-	if (net_eq(net, &init_net))
++	if (net_eq(net, &init_net)) {
++		rcu_barrier(); /* Wait for call_rcu() before destroy */
+ 		kmem_cache_destroy(nf_ct_expect_cachep);
++	}
+ 	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
+ 			     nf_ct_expect_hsize);
+ }
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 4b2c769..fef95be 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -186,6 +186,6 @@ void nf_ct_extend_unregister(struct nf_ct_ext_type *type)
+ 	rcu_assign_pointer(nf_ct_ext_types[type->id], NULL);
+ 	update_alloc_size(type);
+ 	mutex_unlock(&nf_ct_ext_type_mutex);
+-	synchronize_rcu();
++	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_extend_unregister);
+
