@@ -1,58 +1,61 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] bnx2: Fix the behavior of ethtool when ONBOOT=no
-Date: Wed, 24 Jun 2009 16:48:32 -0700
-Message-ID: <1245887312.12000.543.camel@nseg_linux_HP1.broadcom.com>
-References: <4A41961B.2090206@miraclelinux.com>
- <4A4257B8.2090105@hp.com>
- <1245862760.12000.507.camel@nseg_linux_HP1.broadcom.com>
- <20090624.164233.166634429.davem@davemloft.net>
+From: Brandon Philips <brandon@ifup.org>
+Subject: [PATCH] atl1*: add device_set_wakeup_enable to atl1*_set_wol
+Date: Wed, 24 Jun 2009 17:09:14 -0700
+Message-ID: <20090625000914.GL3648@jenkins.smartcity.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "rick.jones2@hp.com" <rick.jones2@hp.com>,
-	"nooiwa@miraclelinux.com" <nooiwa@miraclelinux.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jcliburn@gmail.com, csnook@redhat.com, jie.yang@atheros.com,
+	rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1452 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752269AbZFXX6h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Jun 2009 19:58:37 -0400
-In-Reply-To: <20090624.164233.166634429.davem@davemloft.net>
+Received: from rv-out-0506.google.com ([209.85.198.231]:25603 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754565AbZFYAKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Jun 2009 20:10:14 -0400
+Received: by rv-out-0506.google.com with SMTP id k40so204234rvb.5
+        for <netdev@vger.kernel.org>; Wed, 24 Jun 2009 17:10:17 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tell PCI core that atl1* device can wakeup the system when WOL is
+enabled by calling device_set_wakeup_enable. 
 
-On Wed, 2009-06-24 at 16:42 -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Wed, 24 Jun 2009 09:59:20 -0700
-> 
-> > On Wed, 2009-06-24 at 09:43 -0700, Rick Jones wrote:
-> >> Why?  Sure, there is no IP on the link, but does that mean the link is 
-> >> otherwise unusable?  Is ethtool only about IP status?
-> >> 
-> > 
-> > Once the device is closed, we no longer keep track of the link state and
-> > no longer have register access to determine the link state.  So we
-> > assume it is down.  In reality, it may still be up if WoL is enabled or
-> > management firmware is running, but the driver can no longer keep track
-> > of it.  If we have to assume one or the other, I think it is more
-> > correct to assume it is down.
-> 
-> This is a big problem.  I misread this situation when I decided to
-> apply the patch yesterday, sorry.  We're going to have to revert it.
-> 
-> Applications like NetworkManager decide which devices to bring up and
-> attempt DHCP etc. on based upon the link status.
-> 
-> So if we report link down, the interface won't even be tried even if a
-> cable is plugged in.
-> 
-> Actually I wonder, does NM bring the interface "up" before checking
-> link state?  Does anyone know?
-> 
+Joerg noted that his atl1e device WOL fine after enabling it with
+ethtool and changing /sys/class/net/eth0/device/power/wakeup to enabled
+Tested on atl1e: https://bugzilla.novell.com/show_bug.cgi?id=493214
 
-I don't know about NetworkManager, but the old ifup script will bring up
-the device, wait up to 5 seconds for link up, and then do DHCP.
+Tested by: Joerg Reuter <jreuter@novell.com>
+Signed-off-by: Brandon Philips <bphilips@suse.de>
 
+---
+ drivers/net/atl1c/atl1c_ethtool.c |    2 ++
+ drivers/net/atl1e/atl1e_ethtool.c |    2 ++
+ 2 files changed, 4 insertions(+)
 
+Index: linux-2.6/drivers/net/atl1e/atl1e_ethtool.c
+===================================================================
+--- linux-2.6.orig/drivers/net/atl1e/atl1e_ethtool.c
++++ linux-2.6/drivers/net/atl1e/atl1e_ethtool.c
+@@ -365,6 +365,8 @@ static int atl1e_set_wol(struct net_devi
+ 	if (wol->wolopts & WAKE_PHY)
+ 		adapter->wol |= AT_WUFC_LNKC;
+ 
++	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
++
+ 	return 0;
+ }
+ 
+Index: linux-2.6/drivers/net/atl1c/atl1c_ethtool.c
+===================================================================
+--- linux-2.6.orig/drivers/net/atl1c/atl1c_ethtool.c
++++ linux-2.6/drivers/net/atl1c/atl1c_ethtool.c
+@@ -281,6 +281,8 @@ static int atl1c_set_wol(struct net_devi
+ 	if (wol->wolopts & WAKE_PHY)
+ 		adapter->wol |= AT_WUFC_LNKC;
+ 
++	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
++
+ 	return 0;
+ }
+ 
