@@ -1,769 +1,123 @@
-From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
-Subject: weird problem
-Date: Thu, 25 Jun 2009 18:06:48 +0200
-Message-ID: <4A43A098.1@itcare.pl>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH -tip 0/3] expedited "big hammer" RCU grace periods
+Date: Thu, 25 Jun 2009 09:07:06 -0700
+Message-ID: <20090625160706.GA9467@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mingo@elte.hu, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	dada1@cosmosbay.com, zbr@ioremap.net, jeff.chua.linux@gmail.com,
+	paulus@samba.org, laijs@cn.fujitsu.com, jengelh@medozas.de,
+	r000n@r000n.net, benh@kernel.crashing.org,
+	mathieu.desnoyers@polymtl.ca
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:52251 "EHLO smtp.iq.pl"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:37995 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751411AbZFYQGt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2009 12:06:49 -0400
-Received: from unknown (HELO [192.168.1.10]) (itcare_pstaszewski@[83.7.206.39])
-          (envelope-sender <pstaszewski@itcare.pl>)
-          by smtp.iq.pl with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 25 Jun 2009 16:06:49 -0000
+	id S1757045AbZFYQHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2009 12:07:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I dont know where to put this message so i start here because server=20
-that i see this funny thing is make only networking
-Routing (bgpd) / traffic management (iproute2)
+Respin of http://lkml.org/lkml/2009/6/24/350 to allow for the removal
+of Classic RCU (in favor of Hierarchical RCU) from the -tip tree.
 
-This starts on kernels >=3D 2.6.29
+This patch set implements the "big hammer" expedited RCU grace periods.
+This leverages the existing per-CPU migration kthreads, as suggested
+by Ingo.  These are awakened in a loop, and waited for in a second loop.
+Not fully scalable, but removing the extra hop through smp_call_function
+reduces latency on systems with moderate numbers of CPUs.  The
+synchronize_rcu_expedited() and synchronize_bh_expedited() primitives
+invoke synchronize_sched_expedited(), except for CONFIG_PREEMPT_RCU,
+where they instead invoke synchronize_rcu() and synchronize_rcu_bh(),
+respectively.  This will be fixed in the future, after preemptable RCU
+is folded into the rcutree implementation.
 
-On server i have almost constant traffic that is about 300Mbit/s RX and=
-=20
-300Mbit/s TX
-Server have two interfaces:
-04:00.0 Ethernet controller: Intel Corporation 82573E Gigabit Ethernet=20
-Controller (Copper) (rev 03)
-05:00.0 Ethernet controller: Intel Corporation 82573L Gigabit Ethernet=20
-Controller
+As before, this does nothing to expedite callbacks already registered
+with call_rcu() or call_rcu_bh(), but there is no need to.
 
-iBGP peer < - > [ eth0 - forward + shaping - eth1 ] < - >  eBGP
+Passes many hours of rcutorture testing in parallel with a script
+that randomly offlines and onlines CPUs in a number of configurations.
+Grace periods take about 40 microseconds on an 8-CPU Power machine, which
+I believe is good enough from a performance viewpoint for the near future.
+This represents some slowdown from v7, which was unfortunately necessary
+to fix some bugs.
 
-=20
-And what is weird is CPU Load
-it fluctuate from 10% to almost 80% - but traffic is  constant :
- bwm-ng v0.6 (probing every 10.000s), press 'h' for help
-  input: /proc/net/dev type: rate
-  |         iface                   Rx                  =20
-Tx                Total
- =20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-               lo:           0.00  b/s            0.00  b/s           =20
-0.00  b/s
-             eth0:         200.22 Mb/s          266.74 Mb/s         =20
-466.96 Mb/s
-             eth1:         264.00 Mb/s          192.59 Mb/s         =20
-456.59 Mb/s
- =20
------------------------------------------------------------------------=
--------
-            total:         464.22 Mb/s          459.34 Mb/s         =20
-923.56 Mb/s
+This is finally ready for inclusion.  ;-)
 
+Shortcomings:
 
- bwm-ng v0.6 (probing every 10.000s), press 'h' for help
-  input: /proc/net/dev type: rate
-  /         iface                   Rx                  =20
-Tx                Total
- =20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-               lo:            0.00 P/s             0.00 P/s            =
-=20
-0.00 P/s
-             eth0:        51314.95 P/s         49880.20 P/s       =20
-101195.14 P/s
-             eth1:        43309.85 P/s         41885.79 P/s        =20
-85195.64 P/s
- =20
------------------------------------------------------------------------=
--------
-            total:        94624.80 P/s         91765.99 P/s       =20
-186390.79 P/s
+o	Does not address preemptable RCU (though synchronize_sched_expedited()
+	is in fact expedited in this configuration).
 
+o	Probably not helpful on systems with thousands of CPUs, but likely
+	quite helpful even on systems with a few hundred CPUs.
 
-mpstat -P ALL 1
-18:00:05     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:06     all    0.00    0.00    0.00    0.00    1.33   13.65   =20
-0.00    0.00   85.02
-18:00:06       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:06       1    0.00    0.00    0.00    0.00    3.77   39.62   =20
-0.00    0.00   56.60
-18:00:06       2    0.00    0.00    0.00    0.00    7.92   70.30   =20
-0.00    0.00   21.78
-18:00:06       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:06       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:06       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:06       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:06       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v7:
 
-18:00:06     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:07     all    0.12    0.00    0.12    0.00    1.19   13.35   =20
-0.00    0.00   85.22
-18:00:07       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:07       1    0.00    0.00    0.00    0.00    2.75   42.20   =20
-0.00    0.00   55.05
-18:00:07       2    0.00    0.00    0.99    0.00    5.94   65.35   =20
-0.00    0.00   27.72
-18:00:07       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:07       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:07       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:07       6    0.00    0.00    0.99    0.00    0.00    0.00   =20
-0.00    0.00   99.01
-18:00:07       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Fixed several embarrassing bugs turned up by tests on multiple
+	configurations.
 
-18:00:07     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:08     all    0.00    0.00    0.12    0.00    0.85   13.42   =20
-0.00    0.00   85.61
-18:00:08       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:08       1    0.00    0.00    0.00    0.00    1.85   38.89   =20
-0.00    0.00   59.26
-18:00:08       2    0.00    0.00    0.00    0.00    5.94   68.32   =20
-0.00    0.00   25.74
-18:00:08       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:08       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:08       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:08       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:08       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v6:
 
-18:00:08     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:09     all    0.00    0.00    0.00    0.00    1.33   14.18   =20
-0.00    0.00   84.48
-18:00:09       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:09       1    0.00    0.00    0.99    0.00    2.97   50.50   =20
-0.00    0.00   45.54
-18:00:09       2    0.00    0.00    0.00    0.00    6.93   65.35   =20
-0.00    0.00   27.72
-18:00:09       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:09       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:09       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:09       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:09       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Moved to using the migration threads, as suggested by Ingo.
 
-18:00:09     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:10     all    0.00    0.00    0.24    0.00    1.20   11.81   =20
-0.00    0.00   86.75
-18:00:10       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:10       1    0.00    0.00    0.95    0.00    4.76   35.24   =20
-0.00    0.00   59.05
-18:00:10       2    0.00    0.00    0.00    0.00    4.95   59.41   =20
-0.00    0.00   35.64
-18:00:10       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:10       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:10       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:10       6    0.00    0.00    0.95    0.00    0.00    0.00   =20
-0.00    0.00   99.05
-18:00:10       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v5:
 
-18:00:10     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:11     all    0.00    0.00    0.24    0.00    0.36    5.97   =20
-0.00    0.00   93.43
-18:00:11       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:11       1    0.00    0.00    0.97    0.00    0.97   17.48   =20
-0.00    0.00   80.58
-18:00:11       2    0.00    0.00    0.00    0.00    2.88   31.73   =20
-0.00    0.00   65.38
-18:00:11       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:11       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:11       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:11       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:11       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Fixed several embarrassing locking bugs, including those
+	noted by Ingo and Lai.
 
-18:00:11     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:12     all    0.00    0.00    0.25    0.00    0.37    5.76   =20
-0.00    0.00   93.63
-18:00:12       0    0.00    0.00    0.00    1.06    0.00    0.00   =20
-0.00    0.00   98.94
-18:00:12       1    0.00    0.00    1.92    0.00    0.00   18.27   =20
-0.00    0.00   79.81
-18:00:12       2    0.00    0.00    0.96    0.00    1.92   26.92   =20
-0.00    0.00   70.19
-18:00:12       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:12       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:12       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:12       6    0.96    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00   99.04
-18:00:12       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Added a missing set of braces.
 
-18:00:12     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:13     all    0.12    0.00    0.25    0.00    0.12    2.34   =20
-0.00    0.00   97.17
-18:00:13       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:13       1    0.00    0.00    0.00    0.00    0.97    7.77   =20
-0.00    0.00   91.26
-18:00:13       2    0.00    0.00    0.98    0.00    0.98   10.78   =20
-0.00    0.00   87.25
-18:00:13       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:13       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:13       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:13       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:13       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Cut out the extra kthread, so that synchronize_sched_expedited()
+	directly calls smp_call_function() and waits for the quiescent
+	states.
 
-18:00:13     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:14     all    0.00    0.00    0.37    0.00    0.37    2.33   =20
-0.00    0.00   96.94
-18:00:14       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:14       1    0.00    0.00    1.92    0.00    0.96    7.69   =20
-0.00    0.00   89.42
-18:00:14       2    0.00    0.00    0.97    0.00    0.97   10.68   =20
-0.00    0.00   87.38
-18:00:14       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:14       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:14       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:14       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:14       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Removed some debug code, but promoted one to production.
 
-18:00:14     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:15     all    0.00    0.00    0.61    0.00    0.25    2.45   =20
-0.00    0.00   96.69
-18:00:15       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:15       1    0.00    0.00    3.85    0.00    0.96    7.69   =20
-0.00    0.00   87.50
-18:00:15       2    0.00    0.00    0.96    0.00    1.92   12.50   =20
-0.00    0.00   84.62
-18:00:15       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:15       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:15       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:15       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:15       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Fix a compiler warning.
 
-18:00:15     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:16     all    0.00    0.00    0.37    0.00    0.37    1.83   =20
-0.00    0.00   97.43
-18:00:16       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:16       1    0.00    0.00    1.96    0.00    0.98    4.90   =20
-0.00    0.00   92.16
-18:00:16       2    0.00    0.00    1.00    0.00    1.00   10.00   =20
-0.00    0.00   88.00
-18:00:16       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:16       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:16       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:16       6    0.98    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00   99.02
-18:00:16       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v4:
 
-18:00:16     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:17     all    0.00    0.00    0.25    0.00    0.25    2.73   =20
-0.00    0.00   96.78
-18:00:17       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:17       1    0.00    0.00    1.96    0.00    0.00    8.82   =20
-0.00    0.00   89.22
-18:00:17       2    0.00    0.00    0.99    0.00    1.98   11.88   =20
-0.00    0.00   85.15
-18:00:17       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:17       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:17       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:17       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:17       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Use per-CPU kthreads to force the quiescent states in parallel.
 
-18:00:17     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:18     all    0.12    0.00    0.12    0.00    0.95   11.51   =20
-0.00    0.00   87.31
-18:00:18       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:18       1    0.00    0.00    0.00    0.00    3.03   33.33   =20
-0.00    0.00   63.64
-18:00:18       2    0.00    0.00    0.00    0.00    5.00   64.00   =20
-0.00    0.00   31.00
-18:00:18       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:18       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:18       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:18       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:18       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v3:
 
-18:00:18     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:19     all    0.36    0.00    0.12    0.00    1.46   14.48   =20
-0.00    0.00   83.58
-18:00:19       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:19       1    0.00    0.00    0.00    0.00    4.00   46.00   =20
-0.00    0.00   50.00
-18:00:19       2    0.00    0.00    0.99    0.00    7.92   72.28   =20
-0.00    0.00   18.81
-18:00:19       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:19       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:19       5    2.86    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00   97.14
-18:00:19       6    0.95    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00   99.05
-18:00:19       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Use a kthread that schedules itself on each CPU in turn to
+	force a grace period.  The synchronize_rcu() primitive
+	wakes up the kthread in order to avoid messing with affinity
+	masks on user tasks.
 
-18:00:19     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:20     all    0.00    0.00    0.00    0.00    1.58   14.86   =20
-0.00    0.00   83.56
-18:00:20       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:20       1    0.00    0.00    0.00    0.00    3.96   49.50   =20
-0.00    0.00   46.53
-18:00:20       2    0.00    0.00    0.00    0.00    9.00   73.00   =20
-0.00    0.00   18.00
-18:00:20       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:20       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:20       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:20       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:20       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Tried a number of additional variations on the v3 approach, none
+	of which helped much.
 
-18:00:20     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:21     all    0.00    0.00    0.00    0.00    1.71   14.86   =20
-0.00    0.00   83.43
-18:00:21       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:21       1    0.00    0.00    0.00    0.00    5.05   51.52   =20
-0.00    0.00   43.43
-18:00:21       2    0.00    0.00    0.00    0.00   10.00   70.00   =20
-0.00    0.00   20.00
-18:00:21       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:21       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:21       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:21       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:21       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v2:
 
-18:00:21     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:22     all    0.00    0.00    0.24    0.00    1.70   13.97   =20
-0.00    0.00   84.08
-18:00:22       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:22       1    0.00    0.00    0.00    0.00    4.95   42.57   =20
-0.00    0.00   52.48
-18:00:22       2    0.00    0.00    1.01    0.00    8.08   72.73   =20
-0.00    0.00   18.18
-18:00:22       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:22       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:22       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:22       6    0.00    0.00    0.95    0.00    0.00    0.00   =20
-0.00    0.00   99.05
-18:00:22       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Use reschedule IPIs rather than a softirq.
 
-18:00:22     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:23     all    0.12    0.00    0.00    0.00    1.58   14.13   =20
-0.00    0.00   84.17
-18:00:23       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:23       1    0.00    0.00    0.00    0.00    5.00   45.00   =20
-0.00    0.00   50.00
-18:00:23       2    0.99    0.00    0.00    0.00    8.91   70.30   =20
-0.00    0.00   19.80
-18:00:23       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:23       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:23       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:23       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:23       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+Changes since v1:
 
-18:00:23     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:24     all    0.00    0.00    0.00    0.00    1.34   14.13   =20
-0.00    0.00   84.53
-18:00:24       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:24       1    0.00    0.00    0.00    0.00    4.04   42.42   =20
-0.00    0.00   53.54
-18:00:24       2    0.00    0.00    0.00    0.00    6.93   73.27   =20
-0.00    0.00   19.80
-18:00:24       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:24       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:24       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:24       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:24       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Added rcutorture support, and added exports required by
+	rcutorture.
 
-18:00:24     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:25     all    0.12    0.00    0.12    0.00    1.45   14.67   =20
-0.00    0.00   83.64
-18:00:25       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:25       1    0.00    0.00    0.99    0.00    3.96   45.54   =20
-0.00    0.00   49.50
-18:00:25       2    0.00    0.00    0.00    0.00    8.00   75.00   =20
-0.00    0.00   17.00
-18:00:25       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:25       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:25       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:25       6    0.95    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00   99.05
-18:00:25       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Added comment stating that smp_call_function() implies a
+	memory barrier, suggested by Mathieu.
 
-18:00:25     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:26     all    0.00    0.00    0.00    0.00    1.22   14.60   =20
-0.00    0.00   84.18
-18:00:26       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:26       1    0.99    0.00    0.00    0.00    2.97   50.50   =20
-0.00    0.00   45.54
-18:00:26       2    0.00    0.00    0.00    0.00    7.07   68.69   =20
-0.00    0.00   24.24
-18:00:26       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:26       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:26       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:26       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:26       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
+o	Added #include for delay.h.
 
-18:00:26     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:27     all    0.00    0.00    0.00    0.00    1.59   15.02   =20
-0.00    0.00   83.39
-18:00:27       0    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:27       1    0.00    0.00    0.00    0.00    6.00   52.00   =20
-0.00    0.00   42.00
-18:00:27       2    0.00    0.00    0.00    0.00    6.93   71.29   =20
-0.00    0.00   21.78
-18:00:27       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:27       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:27       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:27       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:27       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-
-18:00:27     CPU    %usr   %nice    %sys %iowait    %irq   %soft =20
-%steal  %guest   %idle
-18:00:28     all    0.00    0.00    0.00    0.00    1.33   14.56   =20
-0.00    0.00   84.10
-18:00:28       0    0.00    0.00    0.00    0.00    0.00    0.99   =20
-0.00    0.00   99.01
-18:00:28       1    0.00    0.00    0.00    0.00    4.00   50.00   =20
-0.00    0.00   46.00
-18:00:28       2    0.00    0.00    0.00    0.00    6.06   69.70   =20
-0.00    0.00   24.24
-18:00:28       3    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:28       4    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:28       5    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:28       6    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-18:00:28       7    0.00    0.00    0.00    0.00    0.00    0.00   =20
-0.00    0.00  100.00
-
-at the same time top shows:
-  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
-   28 root      15  -5     0    0    0 S    2  0.0   0:16.60 events/1
-   29 root      15  -5     0    0    0 S    2  0.0   0:15.62 events/2
-   10 root      15  -5     0    0    0 S    2  0.0   0:41.01 ksoftirqd/=
-2
-    7 root      15  -5     0    0    0 S    1  0.0   0:31.17 ksoftirqd/=
-1
-   30 root      15  -5     0    0    0 S    1  0.0   0:03.00 events/3
- 6545 root      20   0 11112 3244 1780 S    0  0.0   0:08.69 oprofiled
- 6845 root      20   0 19084 1384 1008 R    0  0.0   0:00.07 top
-    1 root      20   0  3812  612  520 S    0  0.0   0:01.00 init
-    2 root      15  -5     0    0    0 S    0  0.0   0:00.00 kthreadd
-    3 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-0
-    4 root      15  -5     0    0    0 S    0  0.0   0:01.04 ksoftirqd/=
-0
-    5 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/0
-    6 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-1
-    8 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/1
-    9 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-2
-   11 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/2
-   12 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-3
-   13 root      15  -5     0    0    0 S    0  0.0   0:00.00 ksoftirqd/=
-3
-   14 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/3
-   15 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-4
-   16 root      15  -5     0    0    0 S    0  0.0   0:00.00 ksoftirqd/=
-4
-   17 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/4
-   18 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-5
-   19 root      15  -5     0    0    0 S    0  0.0   0:00.00 ksoftirqd/=
-5
-   20 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/5
-   21 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-6
-   22 root      15  -5     0    0    0 S    0  0.0   0:00.00 ksoftirqd/=
-6
-   23 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/6
-   24 root      RT  -5     0    0    0 S    0  0.0   0:00.00 migration/=
-7
-   25 root      15  -5     0    0    0 S    0  0.0   0:00.00 ksoftirqd/=
-7
-   26 root      RT  -5     0    0    0 S    0  0.0   0:00.00 watchdog/7
-   27 root      15  -5     0    0    0 S    0  0.0   0:00.00 events/0
-   31 root      15  -5     0    0    0 S    0  0.0   0:00.00 events/4
-   32 root      15  -5     0    0    0 S    0  0.0   0:00.01 events/5
-   33 root      15  -5     0    0    0 S    0  0.0   0:00.02 events/6
-   34 root      15  -5     0    0    0 S    0  0.0   0:00.01 events/7
-   35 root      15  -5     0    0    0 S    0  0.0   0:00.01 khelper
-   41 root      15  -5     0    0    0 S    0  0.0   0:00.00 async/mgr
-  159 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/0
-  160 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/1
-  161 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/2
-  162 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/3
-  163 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/4
-  164 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/5
-  165 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/6
-  166 root      15  -5     0    0    0 S    0  0.0   0:00.00 kblockd/7
-  167 root      15  -5     0    0    0 S    0  0.0   0:00.00 kacpid
-  168 root      15  -5     0    0    0 S    0  0.0   0:00.00 kacpi_noti=
-fy
-  246 root      15  -5     0    0    0 S    0  0.0   0:00.00 ata/0
-  247 root      15  -5     0    0    0 S    0  0.0   0:00.00 ata/1
-
-and oprofile output:
-CPU: Core 2, speed 3000.08 MHz (estimated)
-Counted CPU_CLK_UNHALTED events (Clock cycles when not halted) with a=20
-unit mask of 0x00 (Unhalted core cycles) count 100000
-samples  %        image name               app name                =20
-symbol name
-11138304 12.3598  vmlinux                  vmlinux                  rb_=
-next
-7714260   8.5602  vmlinux                  vmlinux                 =20
-e1000_clean
-5380466   5.9705  vmlinux                  vmlinux                 =20
-e1000_intr_msi
-4881445   5.4168  vmlinux                  vmlinux                 =20
-u32_classify
-3977072   4.4132  vmlinux                  vmlinux                 =20
-_raw_spin_lock
-3471611   3.8523  vmlinux                  vmlinux                 =20
-hfsc_dequeue
-3103493   3.4438  vmlinux                  vmlinux                 =20
-hfsc_enqueue
-2636824   2.9260  vmlinux                  vmlinux                 =20
-delay_tsc
-2464293   2.7345  vmlinux                  vmlinux                 =20
-e1000_xmit_frame
-2035779   2.2590  vmlinux                  vmlinux                 =20
-e1000_clean_tx_irq
-1947231   2.1608  vmlinux                  vmlinux                 =20
-mwait_idle
-1919540   2.1300  vmlinux                  vmlinux                 =20
-ipt_do_table
-1908544   2.1178  vmlinux                  vmlinux                 =20
-e1000_clean_rx_irq
-1865996   2.0706  vmlinux                  vmlinux                 =20
-update_vf
-1829293   2.0299  vmlinux                  vmlinux                  rb_=
-erase
-1777847   1.9728  vmlinux                  vmlinux                 =20
-ip_route_input
-1430773   1.5877  vmlinux                  vmlinux                 =20
-rb_insert_color
-1329674   1.4755  vmlinux                  vmlinux                 =20
-__alloc_skb
-1091678   1.2114  vmlinux                  vmlinux                 =20
-sfq_enqueue
-985105    1.0931  vmlinux                  vmlinux                  rb_=
-first
-944928    1.0486  vmlinux                  vmlinux                 =20
-sfq_dequeue
-756452    0.8394  vmlinux                  vmlinux                  rea=
-d_tsc
-728703    0.8086  vmlinux                  vmlinux                 =20
-nf_iterate
-665551    0.7385  vmlinux                  vmlinux                 =20
-ip_forward
-662616    0.7353  vmlinux                  vmlinux                 =20
-dev_queue_xmit
-648919    0.7201  vmlinux                  vmlinux                 =20
-__qdisc_run
-615592    0.6831  vmlinux                  vmlinux                  ip_=
-rcv
-589743    0.6544  vmlinux                  vmlinux                 =20
-apic_timer_interrupt
-550581    0.6110  vmlinux                  vmlinux                 =20
-irq_entries_start
-536172    0.5950  vmlinux                  vmlinux                 =20
-getnstimeofday
-527467    0.5853  vmlinux                  vmlinux                  rb_=
-last
-508305    0.5640  vmlinux                  vmlinux                 =20
-skb_release_data
-506763    0.5623  vmlinux                  vmlinux                  kfr=
-ee
-506269    0.5618  vmlinux                  vmlinux                 =20
-dst_release
-464412    0.5153  vmlinux                  vmlinux                 =20
-__hrtimer_start_range_ns
-456354    0.5064  vmlinux                  vmlinux                 =20
-e1000_alloc_rx_buffers
-435339    0.4831  vmlinux                  vmlinux                 =20
-dev_hard_start_xmit
-371439    0.4122  vmlinux                  vmlinux                 =20
-local_bh_enable
-369266    0.4098  vmlinux                  vmlinux                 =20
-__rb_rotate_left
-361627    0.4013  vmlinux                  vmlinux                 =20
-net_tx_action
-357797    0.3970  vmlinux                  vmlinux                  rts=
-c_y2x
-350595    0.3890  vmlinux                  vmlinux                 =20
-_raw_spin_unlock
-349359    0.3877  vmlinux                  vmlinux                 =20
-kmem_cache_alloc
-336255    0.3731  vmlinux                  vmlinux                 =20
-skb_dma_map
-328809    0.3649  vmlinux                  vmlinux                 =20
-netif_receive_skb
-315826    0.3505  vmlinux                  vmlinux                 =20
-fn_trie_lookup
-313065    0.3474  vmlinux                  vmlinux                 =20
-__kmalloc
-307684    0.3414  vmlinux                  vmlinux                 =20
-__do_softirq
-298676    0.3314  vmlinux                  vmlinux                  skb=
-_pull
-292352    0.3244  vmlinux                  vmlinux                 =20
-__napi_complete
-288878    0.3206  vmlinux                  vmlinux                 =20
-get_next_timer_interrupt
-280449    0.3112  vmlinux                  vmlinux                 =20
-ip_finish_output
-264482    0.2935  vmlinux                  vmlinux                 =20
-consume_skb
-251622    0.2792  vmlinux                  vmlinux                 =20
-__remove_hrtimer
-227178    0.2521  vmlinux                  vmlinux                 =20
-tc_classify_compat
-226224    0.2510  vmlinux                  vmlinux                 =20
-handle_edge_irq
-
-
-
-proces that this machine is running is only quagga (zebra + bgpd +=20
-oprofiled)
-
-
-Regards
-Pawe=B3 Staszewski
-
-
+ Documentation/RCU/RTFP.txt       |   77 ++++++++++++++
+ Documentation/RCU/UP.txt         |   34 ++++--
+ Documentation/RCU/checklist.txt  |   20 ++-
+ Documentation/RCU/rcubarrier.txt |    7 +
+ Documentation/RCU/torture.txt    |   23 ++++
+ Documentation/RCU/whatisRCU.txt  |   15 ++
+ include/linux/rcupdate.h         |   25 ++--
+ include/linux/rcupreempt.h       |   10 +
+ include/linux/rcutree.h          |   12 ++
+ kernel/rcupdate.c                |   25 ++++
+ kernel/rcutorture.c              |  203 +++++++++++++++++++++------------------
+ kernel/sched.c                   |  130 ++++++++++++++++++++++++
+ 12 files changed, 452 insertions(+), 129 deletions(-)
