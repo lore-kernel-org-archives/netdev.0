@@ -1,52 +1,52 @@
-From: =?ISO-8859-1?Q?P=E1draig_Brady?= <P@draigBrady.com>
-Subject: Re: Announcing ConnMan.net
-Date: Thu, 25 Jun 2009 15:39:11 +0100
-Message-ID: <4A438C0F.7090907@draigBrady.com>
-References: <1245775609.15367.129.camel@violet>
+From: Jens Rosenboom <me@jayr.de>
+Subject: [PATCH] ipv6: avoid wraparound for expired preferred lifetime
+Date: Thu, 25 Jun 2009 16:55:50 +0200
+Message-ID: <20090625145550.GQ21357@jayr.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	jukka.rissanen@nokia.com
-To: Marcel Holtmann <holtmann@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail124.emailantidote.com ([80.169.59.124]:55913 "EHLO
-	SC-MTA-05.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752695AbZFYOuB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 10:50:01 -0400
-In-Reply-To: <1245775609.15367.129.camel@violet>
+Received: from mout4.freenet.de ([195.4.92.94]:40443 "EHLO mout4.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751919AbZFYOzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Jun 2009 10:55:53 -0400
+Received: from [195.4.92.18] (helo=8.mx.freenet.de)
+	by mout4.freenet.de with esmtpa (ID exim) (port 25) (Exim 4.69 #92)
+	id 1MJqMj-0002gW-7o
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 16:55:53 +0200
+Received: from v6.beuys.jayr.de ([2001:748:305:1001:290:27ff:fe2d:b4cc]:56769 helo=beuys.jayr.de)
+	by 8.mx.freenet.de with esmtps (TLSv1:AES256-SHA:256) (port 25) (Exim 4.69 #79)
+	id 1MJqMj-0006Pg-4O
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 16:55:53 +0200
+Received: from jens by beuys.jayr.de with local (Exim 4.69)
+	(envelope-from <jens@jayr.de>)
+	id 1MJqMg-00029d-QG
+	for netdev@vger.kernel.org; Thu, 25 Jun 2009 16:55:50 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marcel Holtmann wrote:
-> Intel and Nokia are pleased to jointly launch the ConnMan project, an
-> open source project to accelerate and expand development of Internet
-> connection management for Linux Devices. ConnMan will be utilized as =
-a
-> technology within Moblin and Maemo. Connman.net is now the place to
-> bring developers together who are interested in furthering the
-> development of Internet connection management within Linux. Review th=
-e
-> source code for more information. ConnMan is licensed under GPLv2, an=
-d
-> provides a daemon for managing Internet connections within Linux
-> devices. ConnMan is a fully modular system that can be extended, thro=
-ugh
-> plugins, to support all kinds of wired or wireless technologies.
-> Configuration methods, like DHCP and domain name resolving, are
-> implemented using plug-ins as well. The plug-in approach allows for e=
-asy
-> adaption and modification for various use cases. Nokia and Intel will
-> jointly maintain the ConnMan project. We'd like to invite all develop=
-ers
-> to join the connman.net effort and community.
->=20
-> Marcel Holtmann, Intel Open Source Technology Center
-> Jukka Rissanen, Nokia Devices, Maemo Software
+Avoid showing wrong high values when the preferred lifetime of an address
+is expired.
 
-I was wondering how this related to networkmanager.
-Dan Williams just posted some comparisons:
-http://blogs.gnome.org/dcbw/2009/06/25/networkmanager-and-connman/
+Signed-off-by: Jens Rosenboom <me@jayr.de>
 
-cheers,
-P=E1draig.
+---
+
+Revised patch, it should suffice to only check the preferred lifetime, as
+the address is deleted before the valid lifetime can wrap around.
+
+--- linux-2.6.30.orig/net/ipv6/addrconf.c	2009-06-10 05:05:27.000000000 +0200
++++ linux-2.6.30/net/ipv6/addrconf.c	2009-06-25 16:43:19.000000000 +0200
+@@ -3361,7 +3361,10 @@ static int inet6_fill_ifaddr(struct sk_b
+ 		valid = ifa->valid_lft;
+ 		if (preferred != INFINITY_LIFE_TIME) {
+ 			long tval = (jiffies - ifa->tstamp)/HZ;
+-			preferred -= tval;
++			if (preferred > tval)
++				preferred -= tval;
++			else
++				preferred = 0;
+ 			if (valid != INFINITY_LIFE_TIME)
+ 				valid -= tval;
+ 		}
