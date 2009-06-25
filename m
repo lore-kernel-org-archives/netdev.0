@@ -1,51 +1,50 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: PATCH: ipv6: avoid wraparound for expired lifetimes
-Date: Thu, 25 Jun 2009 12:35:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0906251227370.1447@melkinkari.cs.Helsinki.FI>
-References: <20090625073943.GO21357@jayr.de> <Pine.LNX.4.64.0906251135410.917@melkinkari.cs.Helsinki.FI>
- <20090625090603.GP21357@jayr.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6.30-git21] Network Namespace test failure
+Date: Thu, 25 Jun 2009 02:49:14 -0700 (PDT)
+Message-ID: <20090625.024914.114440252.davem@davemloft.net>
+References: <4A42391A.4040802@in.ibm.com>
+	<20090625031449.GA26767@us.ibm.com>
+	<20090625033847.GA27181@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243445-273107291-1245922522=:1447"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Jens Rosenboom <me@jayr.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sachinp@in.ibm.com, netdev@vger.kernel.org,
+	serue@linux.vnet.ibm.com, matthltc@us.ibm.com,
+	shemminger@vyatta.com
+To: serue@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:58983 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752576AbZFYJfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 05:35:20 -0400
-In-Reply-To: <20090625090603.GP21357@jayr.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37727
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751312AbZFYJtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 05:49:09 -0400
+In-Reply-To: <20090625033847.GA27181@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Date: Wed, 24 Jun 2009 22:38:47 -0500
 
----696243445-273107291-1245922522=:1447
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-On Thu, 25 Jun 2009, Jens Rosenboom wrote:
-
-> On Thu, Jun 25, 2009 at 11:40:19AM +0300, Ilpo Järvinen wrote:
-> > On Thu, 25 Jun 2009, Jens Rosenboom wrote:
-> > 
-> > > If the valid or preferred lifetime for an address expires, the kernel
-> > > shows huge values for these due to a counter wrap,
-> > 
-> > I suspect we have plenty of potentially counter-wrapped printouts all 
-> > around the kernel. So you're fixing just a tip of the iceberg.
+>>From 7193023ad09dbc4b57909c0204c19ed93472cd9e Mon Sep 17 00:00:00 2001
+> From: root <root@elm3b203.beaverton.ibm.com>
+> Date: Wed, 24 Jun 2009 20:26:17 -0700
+> Subject: [PATCH 1/1] veth: don't free priv->status until dev->destructor
 > 
-> So are you implying that because I don't fix all of them at once, I
-> shouldn't bother to start at all?
+> Since commit ae0e8e82205c903978a79ebf5e31c670b61fa5b4, priv->status
+> has been freed at veth_close().  But that causes a NULL deref at
+> veth_xmit.  This patch moves priv->status free back to the device
+> destructor.
+> 
+> Signed-off-by: Serge Hallyn <serue@us.ibm.com>
 
-I meant that fixing this place alone won't magically fix the rest which 
-suffer from the very same symptoms even though you might have never seen 
-the other cases in practice (that's why I used the iceberg parable).
+I think ae0e8e82205c903978a79ebf5e31c670b61fa5b4 is worse than
+the problem it's trying to cure.  It introduces two regressions:
 
-I was thinking that some kind of helper would be useful for annotating 
-what is happening and changing the other places too (not necessarily in 
-the very same patch).
+1) This OOPS we are discussing.
 
--- 
- i.
----696243445-273107291-1245922522=:1447--
+2) statistics are not "remembered" across ifdown/ifup and that
+   disagrees with how every other network device works
+
+I'm going to revert that change, and the dev->destructor pointing
+to module code problem will need to be fixed in another way.
+
+Thanks.
