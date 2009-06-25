@@ -1,144 +1,184 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: Re: [PATCH] ucc_geth: Fix half-duplex operation for non-MII/RMII
- interfaces
-Date: Wed, 24 Jun 2009 22:11:14 -0700
-Message-ID: <4A4306F2.3070909@mvista.com>
-References: <20090624174557.GA31479@oksana.dev.rtsoft.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Li Yang <leoli@freescale.com>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 02/19] drivers/atm: Use PCI_VDEVICE
+Date: Wed, 24 Jun 2009 22:13:18 -0700
+Message-ID: <5b7c60739ce4077bf33eac0b3977c77c1dfa6278.1245906152.git.joe@perches.com>
+References: <cover.1245906151.git.joe@perches.com>
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:16609 "EHLO
-	gateway-1237.mvista.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225AbZFYFLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 01:11:18 -0400
-In-Reply-To: <20090624174557.GA31479@oksana.dev.rtsoft.ru>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:1435 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752724AbZFYFNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 01:13:38 -0400
+In-Reply-To: <cover.1245906151.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Vorontsov wrote:
-> Currently the half-duplex operation seems to not work reliably for
-> RGMII/GMII PHY interfaces. It takes about 10 minutes to boot NFS
-> rootfs using 10/half link, following symptoms were observed:
-> 
->   ucc_geth: QE UCC Gigabit Ethernet Controller
->   ucc_geth: UCC1 at 0xe0082000 (irq = 32)
->   [...]
->   Sending DHCP and RARP requests .
->   PHY: mdio@e0082120:07 - Link is Up - 10/Half
->   ., OK
-So why does the phy think this is a half-duplex network?
->   [...]
->   Looking up port of RPC 100003/2 on 10.0.0.2
->   Looking up port of RPC 100005/1 on 10.0.0.2
->   VFS: Mounted root (nfs filesystem) readonly on device 0:13.
->   Freeing unused kernel memory: 204k init
->   eth0: no IPv6 routers present
->   nfs: server 10.0.0.2 not responding, still trying
->   nfs: server 10.0.0.2 not responding, still trying
->   nfs: server 10.0.0.2 not responding, still trying
->   nfs: server 10.0.0.2 OK
->   nfs: server 10.0.0.2 OK
->   nfs: server 10.0.0.2 not responding, still trying
->   [... few minutes of OK/not responding flood ...]
-> 
-> The statistic shows that there are indeed some errors:
-> 
->   # ethtool -S eth0 | grep -v ": 0"
->   NIC statistics:
->        tx-64-frames: 42
->        tx-65-127-frames: 9
->        tx-128-255-frames: 4768
->        rx-64-frames: 41
->        rx-65-127-frames: 260
->        rx-128-255-frames: 2679
->        tx-bytes-ok: 859634
->        tx-multicast-frames: 5
->        tx-broadcast-frames: 7
->        rx-frames: 8333
->        rx-bytes-ok: 8039364
->        rx-bytes-all: 8039364
->        stats-counter-mask: 4294901760
->        tx-single-collision: 324
->        tx-multiple-collision: 47
->        tx-late-collsion: 604
->        tx-aborted-frames: 604
-The above two counters are the actual errors from a half-duplex ethernet 
-configuration.  The size of the collision domain is limited so that the 
-collisions from one end will reach the other end within the minimum 
-frame length wire time.  Thus the collision will be detected within the 
-first 64 bytes of the frame.  A late collision indicates a 
-mis-configured network. The fact that everything seems to work when the 
-MAC is placed into full-duplex mode hints that the network is really a 
-full-duplex network.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/atm/ambassador.c |    6 ++----
+ drivers/atm/eni.c        |    6 ++----
+ drivers/atm/firestream.c |    6 ++----
+ drivers/atm/fore200e.c   |    3 +--
+ drivers/atm/he.c         |    3 +--
+ drivers/atm/horizon.c    |    3 +--
+ drivers/atm/idt77252.c   |    3 +--
+ drivers/atm/nicstar.c    |    3 +--
+ drivers/atm/solos-pci.c  |    2 +-
+ drivers/atm/zatm.c       |    6 ++----
+ 10 files changed, 14 insertions(+), 27 deletions(-)
 
-Otherwise, if the network is really half-duplex, then presence of a 
-full-duplex node will result in the other nodes seeing CRC/framing 
-errors on receive, and possibly also late collisions, as the full-duplex 
-node does not observe the CS or the CD( carrier sense and collision 
-detect) part of CSMA/CD, because it doesn't care.
-
-Putting a node in full-duplex will always make the nasty collision 
-related errors go away, but it may not be a proper diagnosis of the problem.
->        tx-frames-ok: 4967
->        tx-256-511-frames: 3
->        tx-512-1023-frames: 79
->        tx-1024-1518-frames: 71
->        rx-256-511-frames: 37
->        rx-512-1023-frames: 73
->        rx-1024-1518-frames: 5243
-> 
-> According to current QEIWRM (Rev. 2 5/2009), FDX bit can be 0 for
-> RGMII(10/100) modes, while MPC8568ERM (Rev. C 02/2007) spec says
-> that cleared FDX bit is permitted for MII/RMII modes only.
-> 
-> The symptoms above were seen on MPC8569E-MDS boards, so QEIWRM is
-> clearly wrong, and this patch completely cures the problems above.
-
-Not so fast - RGMII and GMII refer to the interface between the MAC and 
-the PHY.  While Gigabit physical links will always be full-duplex, phys 
-that detect lower operational modes will indicate half-duplex where 
-needed, and putting the MAC into full-duplex will make other nodes see 
-errors.
-
-As Andy indicated later, it may be necessary to alter the interface 
-definition in those cases, depending on the particular hardware. 
-Forcing full-duplex does not seem to be a general solution.
-
-Mark Huth
-MontaVista Software
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> ---
->  drivers/net/ucc_geth.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> index 464df03..e618cf2 100644
-> --- a/drivers/net/ucc_geth.c
-> +++ b/drivers/net/ucc_geth.c
-> @@ -1469,12 +1469,16 @@ static void adjust_link(struct net_device *dev)
->  	if (phydev->link) {
->  		u32 tempval = in_be32(&ug_regs->maccfg2);
->  		u32 upsmr = in_be32(&uf_regs->upsmr);
-> +		phy_interface_t phyi = ugeth->phy_interface;
-> +
->  		/* Now we make sure that we can be in full duplex mode.
->  		 * If not, we operate in half-duplex mode. */
->  		if (phydev->duplex != ugeth->oldduplex) {
->  			new_state = 1;
-> -			if (!(phydev->duplex))
-> -				tempval &= ~(MACCFG2_FDX);
-> +			if (!phydev->duplex &&
-> +					(phyi == PHY_INTERFACE_MODE_MII ||
-> +					 phyi == PHY_INTERFACE_MODE_RMII))
-> +				tempval &= ~MACCFG2_FDX;
->  			else
->  				tempval |= MACCFG2_FDX;
->  			ugeth->oldduplex = phydev->duplex;
+diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+index 703364b..cae8b04 100644
+--- a/drivers/atm/ambassador.c
++++ b/drivers/atm/ambassador.c
+@@ -2377,10 +2377,8 @@ MODULE_PARM_DESC(pci_lat, "PCI latency in bus cycles");
+ /********** module entry **********/
+ 
+ static struct pci_device_id amb_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 },
+-	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR_BAD, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 },
++	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR), 0 },
++	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_AMBASSADOR_BAD), 0 },
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 5503bfc..b1d7acd 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -2268,10 +2268,8 @@ out0:
+ 
+ 
+ static struct pci_device_id eni_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_EF, PCI_DEVICE_ID_EF_ATM_FPGA, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 /* FPGA */ },
+-	{ PCI_VENDOR_ID_EF, PCI_DEVICE_ID_EF_ATM_ASIC, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 1 /* ASIC */ },
++	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_FPGA), 0 /* FPGA */ },
++	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_ASIC), 1 /* ASIC */ },
+ 	{ 0, }
+ };
+ MODULE_DEVICE_TABLE(pci,eni_pci_tbl);
+diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+index b119640..8cb3088 100644
+--- a/drivers/atm/firestream.c
++++ b/drivers/atm/firestream.c
+@@ -2026,10 +2026,8 @@ static void __devexit firestream_remove_one (struct pci_dev *pdev)
+ }
+ 
+ static struct pci_device_id firestream_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS50, 
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, FS_IS50},
+-	{ PCI_VENDOR_ID_FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS155, 
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, FS_IS155},
++	{ PCI_VDEVICE(FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS50), FS_IS50},
++	{ PCI_VDEVICE(FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS155), FS_IS155},
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index 10f000d..1241b08 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -2770,8 +2770,7 @@ static void __devexit fore200e_pca_remove_one(struct pci_dev *pci_dev)
+ 
+ 
+ static struct pci_device_id fore200e_pca_tbl[] = {
+-    { PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, PCI_ANY_ID, PCI_ANY_ID,
+-      0, 0, (unsigned long) &fore200e_bus[0] },
++    { PCI_VDEVICE(FORE, PCI_DEVICE_ID_FORE_PCA200E), (unsigned long) &fore200e_bus[0] },
+     { 0, }
+ };
+ 
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index 2de6406..a536a53 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -2921,8 +2921,7 @@ module_param(sdh, bool, 0);
+ MODULE_PARM_DESC(sdh, "use SDH framing (default 0)");
+ 
+ static struct pci_device_id he_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_HE, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 },
++	{ PCI_VDEVICE(FORE, PCI_DEVICE_ID_FORE_HE), 0 },
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
+index 6b969f8..cec9a66 100644
+--- a/drivers/atm/horizon.c
++++ b/drivers/atm/horizon.c
+@@ -2896,8 +2896,7 @@ MODULE_PARM_DESC(max_rx_size, "maximum size of RX AAL5 frames");
+ MODULE_PARM_DESC(pci_lat, "PCI latency in bus cycles");
+ 
+ static struct pci_device_id hrz_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_HORIZON, PCI_ANY_ID, PCI_ANY_ID,
+-	  0, 0, 0 },
++	{ PCI_VDEVICE(MADGE, PCI_DEVICE_ID_MADGE_HORIZON), 0 },
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index e33ae00..351b9b0 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -3781,8 +3781,7 @@ err_out_disable_pdev:
+ 
+ static struct pci_device_id idt77252_pci_tbl[] =
+ {
+-	{ PCI_VENDOR_ID_IDT, PCI_DEVICE_ID_IDT_IDT77252,
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VDEVICE(IDT, PCI_DEVICE_ID_IDT_IDT77252), 0 },
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index 3da804b..8ddacf8 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -277,8 +277,7 @@ static void __devexit nicstar_remove_one(struct pci_dev *pcidev)
+ 
+ static struct pci_device_id nicstar_pci_tbl[] __devinitdata =
+ {
+-	{PCI_VENDOR_ID_IDT, PCI_DEVICE_ID_IDT_IDT77201,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
++	{PCI_VDEVICE(IDT, PCI_DEVICE_ID_IDT_IDT77201), 0},
+ 	{0,}			/* terminate list */
+ };
+ MODULE_DEVICE_TABLE(pci, nicstar_pci_tbl);
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 9359613..376c120 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -1265,7 +1265,7 @@ static void fpga_remove(struct pci_dev *dev)
+ }
+ 
+ static struct pci_device_id fpga_pci_tbl[] __devinitdata = {
+-	{ 0x10ee, 0x0300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VDEVICE(XILINX, 0x0300), 0 },
+ 	{ 0, }
+ };
+ 
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index 752b1ba..d33d6b6 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -1636,10 +1636,8 @@ out_free:
+ MODULE_LICENSE("GPL");
+ 
+ static struct pci_device_id zatm_pci_tbl[] __devinitdata = {
+-	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1221,
+-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ZATM_COPPER },
+-	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1225,
+-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1221), ZATM_COPPER },
++	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1225), 0 },
+ 	{ 0, }
+ };
+ MODULE_DEVICE_TABLE(pci, zatm_pci_tbl);
+-- 
+1.6.3.1.10.g659a0.dirty
 
