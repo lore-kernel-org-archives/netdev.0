@@ -1,37 +1,49 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: Socket options for different architectures (a short question)
-Date: Thu, 25 Jun 2009 15:42:54 +0300
-Message-ID: <55c333c0906250542r13d506b9i5bfcb4fd317a2852@mail.gmail.com>
+From: Nicolas Reinecke <nr@das-labor.org>
+Subject: [Patch] mdio add missing GPL flag
+Date: Thu, 25 Jun 2009 14:55:31 +0200
+Message-ID: <1245934531.7828.25.camel@allekto>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:39272 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbZFYMmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 08:42:53 -0400
-Received: by bwz9 with SMTP id 9so1367414bwz.37
-        for <netdev@vger.kernel.org>; Thu, 25 Jun 2009 05:42:55 -0700 (PDT)
+Received: from vegas.das-labor.org ([80.82.213.127]:59486 "EHLO
+	vegas.das-labor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbZFYNB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 09:01:59 -0400
+Received: from [IPv6:2001:470:9960:28f1:215:17ff:fe0b:bf62] (unknown [IPv6:2001:470:9960:28f1:215:17ff:fe0b:bf62])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: pl4nkton)
+	by vegas.das-labor.org (Postfix) with ESMTPSA id DAC9E9A077
+	for <netdev@vger.kernel.org>; Thu, 25 Jun 2009 14:55:35 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, netdev list,
+Add missing GPL flag and description.
 
-I have a short question about socket options:
-why does each architecture has a list of the socket options
-it supports in a separate socket.h header ? it seems to me that the list
-of these options is identical (I did not verified this though)
-Is there a case when some specific platform/platforms define socket
-options in a different way ?
-Is there a case when some platform supports only part of the socket
-options ?
-For example, for
+mdio: module license 'unspecified' taints kernel.
+Disabling lock debugging due to kernel taint
 
-SO_DEBUG,SO_REUSEADDR, SO_SNDBUF, etc, we have the same definitions in
+Signed-off-by: Nicolas Reinecke <nr <at> das-labor.org> 
+---
+drivers/net/mdio.c |    5 +++++
+1 files changed, 5 insertions(+), 0 deletions(-)
 
- arch/ia64/include/asm/socket.h, arch/xtensa/include/asm/socket.h,
- arch/x86/include/asm/socket.h ,arch/powerpc/include/asm/socket.h and so on.
+diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
+index dc45e98..09a351c 100644
+--- a/drivers/net/mdio.c
++++ b/drivers/net/mdio.c
+@@ -14,6 +14,11 @@
+#include <linux/mdio.h>
+#include <linux/module.h>
 
-Regards,
- Kevin
++MODULE_DESCRIPTION("Generic support for MDIO-compatible transceivers");
++MODULE_AUTHOR("Copyright 2006-2009 Solarflare Communications Inc.");
++MODULE_LICENSE("GPL");
++
++
+/**
+  * mdio45_probe - probe for an MDIO (clause 45) device
+  * @mdio: MDIO interface
+
