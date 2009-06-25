@@ -1,66 +1,59 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH 12/19] drivers/net: Use PCI_VDEVICE
-Date: Thu, 25 Jun 2009 01:50:54 -0400
-Message-ID: <1245909054.22064.33.camel@obelisk.thedillows.org>
-References: <cover.1245906151.git.joe@perches.com>
-	 <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
+From: Mike Rapoport <mike@compulab.co.il>
+Subject: Re: smsc9220 with omap3
+Date: Thu, 25 Jun 2009 08:52:51 +0300
+Message-ID: <4A4310B3.8060902@compulab.co.il>
+References: <4A40FE32.1030708@compulab.co.il> <20090623222928.GM29236@buzzloop.caiaq.de> <4A423DA0.6010306@compulab.co.il> <20090624202158.GD29236@buzzloop.caiaq.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Cc: steve.glendinning@smsc.com, netdev@vger.kernel.org,
+	ARM Linux <linux-arm-kernel@lists.arm.linux.org.uk>
+To: Daniel Mack <daniel@caiaq.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.knology.net ([24.214.63.101]:40580 "EHLO smtp.knology.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751411AbZFYFux (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Jun 2009 01:50:53 -0400
-In-Reply-To: <f746d5c571120f930fb6bb50d8303766573f927d.1245906152.git.joe@perches.com>
+Received: from legaljet.webserversystems.com ([67.18.134.218]:51190 "EHLO
+	compulab.site5.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004AbZFYFw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Jun 2009 01:52:57 -0400
+In-Reply-To: <20090624202158.GD29236@buzzloop.caiaq.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-06-24 at 22:13 -0700, Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
->  drivers/net/typhoon.c             |   18 +++-----
+Daniel Mack wrote:
+> On Wed, Jun 24, 2009 at 05:52:16PM +0300, Mike Rapoport wrote:
+>>> We're using that chip connected to a PXA300 and it works well, so I
+>>> wouldn't suspect the driver. Does it work from any other scenario like
+>>> the bootloader? And I don't know OMAP, but it might be helpful to others
+>>> if you posted your platform_data config.
+>> The platform_data I use is:
+>> static struct smsc911x_platform_config smsc911x_config = {
+>> 	.irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+>> 	.irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL,
+>> 	.flags = SMSC911X_USE_32BIT | SMSC911X_FORCE_INTERNAL_PHY,
+>> };
+>>
+>> The chip is properly detected, and if I tweak the loopback test to return 0, the
+>>  driver does not complain any more. Moreover, it seems that RX work, at least
+>> ifconfig reports non-zero values for RX packets. Still, there is no even single
+>> packet transmitted from the smsc9220 :(
+>> I suspect that there's some problem with the hardware, and probably someone
+>> encountered similar problems and may have found a solution.
+> 
+> For the electrical part, there is a reference schematic from SMSC.
 
-It's not a huge leap in readability, but whaddayagonnado?
+Yeah, I know. We actually copied the design from the reference.
 
-Acked-by: Dave Dillow <dave@thedillows.org>
+> And on PXA, you need some dumb CMOS logic or a CPLD for proper interfacing
+> of the digital bus. Don't know if the latter is also necessary for OMAP.
 
-> diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-> index cf25eb4..c0063c5 100644
-> --- a/drivers/net/typhoon.c
-> +++ b/drivers/net/typhoon.c
-> @@ -215,12 +215,9 @@ static struct typhoon_card_info typhoon_card_info[] __devinitdata = {
->   * bits 12-16 indicate card type: (0) client and (1) server
->   */
->  static struct pci_device_id typhoon_pci_tbl[] = {
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0,TYPHOON_TX },
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_TX_95,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_TX95 },
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_TX_97,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_TX97 },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990), TYPHOON_TX },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990_TX_95), TYPHOON_TX95 },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990_TX_97), TYPHOON_TX97 },
->  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
->  	  PCI_ANY_ID, 0x1000, 0, 0, TYPHOON_TXM },
->  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
-> @@ -235,12 +232,9 @@ static struct pci_device_id typhoon_pci_tbl[] = {
->  	  PCI_ANY_ID, 0x2101, 0, 0, TYPHOON_FX95SVR },
->  	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_FX,
->  	  PCI_ANY_ID, 0x2102, 0, 0, TYPHOON_FX97SVR },
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR95,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR95 },
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR97,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR97 },
-> -	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990SVR,
-> -	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPHOON_SVR },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR95), TYPHOON_SVR95 },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR97), TYPHOON_SVR97 },
-> +	{ PCI_VDEVICE(3COM, PCI_DEVICE_ID_3COM_3CR990SVR), TYPHOON_SVR },
->  	{ 0, }
->  };
->  MODULE_DEVICE_TABLE(pci, typhoon_pci_tbl);
+Do you mean that the logic is necessary to demux address and data? If yes, OMAP
+does not need it.
+Besides, we have no problem in CPU <-> lan9220 communications, there's no
+network traffic from the chip. :(
 
+> Daniel
+> 
+
+-- 
+Sincerely yours,
+Mike.
 
