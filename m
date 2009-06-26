@@ -1,69 +1,72 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH] net: fix race in the receive/select
-Date: Fri, 26 Jun 2009 16:50:27 +0200
-Message-ID: <20090626145027.GA6534@redhat.com>
-References: <20090625122545.GA3625@jolsa.lab.eng.brq.redhat.com> <20090625122416.GA23613@redhat.com> <alpine.DEB.1.10.0906251827510.9517@makko.or.mcafeemobile.com> <4A442B65.8040701@gmail.com> <alpine.DEB.1.10.0906251858520.9517@makko.or.mcafeemobile.com> <4A443033.8060401@gmail.com> <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626135742.GB3845@redhat.com> <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
+Date: Fri, 26 Jun 2009 20:05:45 +0200
+Message-ID: <20090626180544.GA6908@ami.dom.local>
+References: <20090626125449.GA8897@ff.dom.local> <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se> <20090626151051.GA2714@ami.dom.local> <20090626153010.GC6771@linux.vnet.ibm.com> <20090626155410.GA6526@ami.dom.local> <20090626161500.GB6526@ami.dom.local> <20090626162340.GF6771@linux.vnet.ibm.com> <20090626164557.GB6755@ami.dom.local> <20090626170538.GK6771@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	Tejun Heo <htejun@gmail.com>
-To: Davide Libenzi <davidel@xmailserver.org>
+Cc: Robert Olsson <robert@robur.slu.se>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
+	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:56892 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815AbZFZSFF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2009 14:05:05 -0400
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:38901 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756264AbZFZSF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 14:05:59 -0400
+Received: by bwz9 with SMTP id 9so2176443bwz.37
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 11:06:00 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com>
+In-Reply-To: <20090626170538.GK6771@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26, Davide Libenzi wrote:
->
-> On Fri, 26 Jun 2009, Oleg Nesterov wrote:
->
-> > And if we remove waitqueue_active() in xxx_update(), then lock/unlock is
-> > not needed too.
-> >
-> > If xxx_poll() takes q->lock first, it can safely miss the changes in ->status
-> > and schedule(): xxx_update() will take q->lock, notice the sleeper and wake
-> > it up (ok, it will set ->triggered but this doesn't matter).
-> >
-> > If xxx_update() takes q->lock first, xxx_poll() must see the changes in
-> > status after poll_wait()->unlock(&q->lock) (in fact, after lock, not unlock).
->
-> Sure. The snippet above was just to show what typically the code does, not
-> a suggestion on how to solve the socket case.
+On Fri, Jun 26, 2009 at 10:05:38AM -0700, Paul E. McKenney wrote:
+...
+> In that case, simply invoking synchronize_rcu() every once and awhile
+> should take care of things.  This could be at the end of every large
+> trie operation, or you could even count the call_rcu() invocations and
+> do a synchronize_rcu() every 100th, 1,000th, or whatever, based on
+> the amount of memory available.
 
-Yes, yes. I just meant you are right imho, we shouldn't add mb() into
-add_wait_queue().
+OK, for now the minimal change for testing (2.6.30 needs previously
+mentioned two commits from 2.6.31-rc). (I guess I'll send it with a
+changelog after net-next is opened.)
 
-> But yeah, the problem in this case is the waitqueue_active() call. Without
-> that, the wait queue lock/unlock in poll_wait() and the one in wake_up()
-> guarantees the necessary barriers.
-> Some might argue the costs of the lock/unlock of q->lock, and wonder if
-> MBs are a more efficient solution. This is something I'm not going into.
-> To me, it just looked not right having cross-matching MB in different
-> subsystems.
+Thanks,
+Jarek P.
+--- (take 4 - for testing)
 
-This is subjective and thus up to maintainers, but personally I think you
-are very, very right.
+ net/ipv4/fib_trie.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-Perhaps we can add
-
-	void sock_poll_wait(struct file *file, struct sock *sk, poll_table *pt)
-	{
-		if (pt) {
-			poll_wait(file, sk->sk_sleep, pt);
-			/*
-			 * fat comment
-			 */
-			smp_mb(); // or smp_mb__after_unlock();
-		}
-	}
-
-Oleg.
-
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 012cf5a..98b31a1 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1008,7 +1008,7 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+ {
+ 	int wasfull;
+ 	t_key cindex, key;
+-	struct tnode *tp;
++	struct tnode *tp, *oldtnode = tn;
+ 
+ 	key = tn->key;
+ 
+@@ -1028,8 +1028,12 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+ 	}
+ 
+ 	/* Handle last (top) tnode */
+-	if (IS_TNODE(tn))
++	if (IS_TNODE(tn)) {
++		/* force memory freeing after last changes */
++		if (oldtnode != tn)
++			synchronize_rcu();
+ 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
++	}
+ 
+ 	rcu_assign_pointer(t->trie, (struct node *)tn);
+ 	tnode_free_flush();
