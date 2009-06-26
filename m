@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 2/5] mac80211: Use rcu_barrier() on unload.
-Date: Fri, 26 Jun 2009 22:45:53 +0200
-Message-ID: <20090626204553.10664.57323.stgit@localhost>
+Subject: [PATCH 1/5] bridge: Use rcu_barrier() instead of syncronize_net() on
+	unload.
+Date: Fri, 26 Jun 2009 22:45:48 +0200
+Message-ID: <20090626204548.10664.75094.stgit@localhost>
 References: <20090626204152.10664.69628.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,39 +10,36 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <hawk@comx.dk>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:34391 "EHLO
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:34385 "EHLO
 	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751618AbZFZUpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 16:45:50 -0400
+	with ESMTP id S1751312AbZFZUpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 16:45:45 -0400
 In-Reply-To: <20090626204152.10664.69628.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mac80211 module uses rcu_call() thus it should use rcu_barrier()
-on module unload.
-
-The rcu_barrier() is placed in mech.c ieee80211_stop_mesh() which is
-invoked from ieee80211_stop() in case vif.type == NL80211_IFTYPE_MESH_POINT.
+When unloading modules that uses call_rcu() callbacks, then we must
+use rcu_barrier().  This module uses syncronize_net() which is not
+enough to be sure that all callback has been completed.
 
 Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
 Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 ---
 
- net/mac80211/mesh.c |    2 +-
+ net/bridge/br.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index fc712e6..11cf45b 100644
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -494,7 +494,7 @@ void ieee80211_stop_mesh(struct ieee80211_sub_if_data *sdata)
- 	 * should it be using the interface and enqueuing
- 	 * frames at this very time on another CPU.
- 	 */
--	synchronize_rcu();
-+	rcu_barrier(); /* Wait for RX path and call_rcu()'s */
- 	skb_queue_purge(&sdata->u.mesh.skb_queue);
- }
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 9aac521..e1241c7 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -93,7 +93,7 @@ static void __exit br_deinit(void)
  
+ 	unregister_pernet_subsys(&br_net_ops);
+ 
+-	synchronize_net();
++	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ 
+ 	br_netfilter_fini();
+ #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
 
