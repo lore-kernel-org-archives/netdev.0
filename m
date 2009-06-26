@@ -1,69 +1,68 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
-Date: Sat, 27 Jun 2009 09:35:04 +0200
-Message-ID: <1246088104.29340.5.camel@localhost.localdomain>
-References: <1245845367.24921.3.camel@localhost.localdomain>
-	 <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com>
-	 <1245930729.24921.67.camel@localhost.localdomain>
-	 <20090625.161046.19938291.davem@davemloft.net>
-	 <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
-	 <alpine.DEB.2.01.0906262010091.6439@bogon>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 0/3] wireless extensions improvements
+Date: Fri, 26 Jun 2009 22:12:47 +0200
+Message-ID: <1246047167.21314.61.camel@johannes.local>
+References: <20090624113447.441667549@sipsolutions.net>
+	 <20090625.161817.112930127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
-	linux-nfs@vger.kernel.org, linux-ext4@vger.kernel.org,
-	catalin.marinas@gmail.com
-To: Christian Kujau <lists@nerdbynature.de>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.01.0906262010091.6439@bogon>
-Sender: linux-ext4-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-7+yRh/nD94Y0iQwlgmX0"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090625.161817.112930127.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-06-26 at 20:15 -0700, Christian Kujau wrote:
-> On Fri, 26 Jun 2009, Jesper Dangaard Brouer wrote:
-> > I'll resubmit the patches to you and netdev, to limit the spam effect...
-> 
-> Out of curiosity: why was linux-ext4 Cc'ed on these rcu_barrier patches
-> (but not other fs-lists but linux-nfs)? I did not see any ../fs/ext4/ 
-> changes.
 
-There was a ../fs/ext4/ change in patch [01/10].
+--=-7+yRh/nD94Y0iQwlgmX0
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Titled: "ext4: Use rcu_barrier() on module unload"
+On Thu, 2009-06-25 at 16:18 -0700, David Miller wrote:
 
-git show --stat d6a4ea73b7e8779607dd48735d9a9c521c890857
-commit d6a4ea73b7e8779607dd48735d9a9c521c890857
-Author: Jesper Dangaard Brouer <hawk@comx.dk>
-Date:   Tue Jun 23 15:40:54 2009 +0200
+> These changes look fine to me, so I'll likely put them into
+> net-next-2.6 as soon as I open that up.
 
-    ext4: Use rcu_barrier() on module unload.
-    
-    The ext4 module uses rcu_call() thus it should use rcu_barrier()on
-    module unload.
-    
-    The kmem cache ext4_pspace_cachep is sometimes free'ed using
-    call_rcu() callbacks.  Thus, we must wait for completion of call_rcu()
-    before doing kmem_cache_destroy().
-    
-    I have difficult determining if no new call_rcu() callbacks can be envoked.
-    Would the maintainer please verify this?
-    
-    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+Alright, sounds good.
 
- fs/ext4/mballoc.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> FWIW, I bet we could make read() easily work properly to for the
+> compat stuff, and it would be nice to shore up that one minor hole.
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+Yes, but I think that would require introducing compat_sys_read() and
+touching all architectures.
 
+One other thing I just thought about -- the things you were mentioning
+wrt. u64 alignment, is that relevant for sendmsg() as well? This doesn't
+cover that at all, so far, obviously. If that would be needed, we'd also
+need more work there, we can of course do that as we go along and add
+code to deal with just the kernel->userspace messages where necessary.
+
+johannes
+
+--=-7+yRh/nD94Y0iQwlgmX0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKRSu8AAoJEODzc/N7+QmaQr0QAKX/TqjXZslAvmhIZYNbf2VM
+zwyEu9/Nii/2WNrbPtSlP3384Fo3OpgvkK2517yGa8yw+S4Fjsv9ypJ3t4tN9WmQ
+NfbUaJE/tOoduYoLvgkc28emmrhzy8d0V+Sde3s1m1SLDnFNGHj18xvc/hdiXsPB
+dBfnt8OCTznlsAbGQqdddQVCikC5txAj1jmkCdug5ZY5+j8QhXyllbPFEjjghhlb
+ZRfpoBOKpgm244gmV/0F5TY7VENlxFA22HsTlBOOSX4DdIc6sANieKYHymxtvX+z
+JTd83bI4+DaI6t2KG6puCKtZE2hL+jZGwPXXsltEppPAskGjcELFb+MW93iJkumE
+NpmYbRdQrF5KlT+xV10BKpYGlJTe3NAqGu0a3+HTeFRHw7/cgo3ZetqL/uhi0GHw
+m9/lfEazHCw2djDrT4AELnyFah7vufLS/qEh3QH1l9Gg9DDAQCpXcFdip2t1gfHQ
+GWfMrpMYZrysWoZlDb8wPNn+8uMN8nWNvUCjWBOprEastgtqfKwy5PUxadqTKCwX
+Mxpf8p7Lj4EmRTx4Lgsq2gf3U+oFZjLkoNdUfU5ovHmC/Jr7e7XDOD5885vAzDgo
+zEn8Jzov96SPu5x7/PK830C5Y93PK6khE8BsBWytTDmpE8VNJ14pGcodalTvqGAY
+lA3fbMKCbJnCSXTsG4zc
+=6wJJ
+-----END PGP SIGNATURE-----
+
+--=-7+yRh/nD94Y0iQwlgmX0--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
