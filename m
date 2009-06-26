@@ -1,72 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 20:05:45 +0200
-Message-ID: <20090626180544.GA6908@ami.dom.local>
-References: <20090626125449.GA8897@ff.dom.local> <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se> <20090626151051.GA2714@ami.dom.local> <20090626153010.GC6771@linux.vnet.ibm.com> <20090626155410.GA6526@ami.dom.local> <20090626161500.GB6526@ami.dom.local> <20090626162340.GF6771@linux.vnet.ibm.com> <20090626164557.GB6755@ami.dom.local> <20090626170538.GK6771@linux.vnet.ibm.com>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Fri, 26 Jun 2009 11:12:15 -0700 (PDT)
+Message-ID: <alpine.DEB.1.10.0906261111230.16400@makko.or.mcafeemobile.com>
+References: <20090625122545.GA3625@jolsa.lab.eng.brq.redhat.com> <20090625122416.GA23613@redhat.com> <alpine.DEB.1.10.0906251827510.9517@makko.or.mcafeemobile.com> <4A442B65.8040701@gmail.com> <alpine.DEB.1.10.0906251858520.9517@makko.or.mcafeemobile.com>
+ <4A443033.8060401@gmail.com> <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626135742.GB3845@redhat.com> <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com> <20090626145027.GA6534@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <robert@robur.slu.se>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
-	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	Tejun Heo <htejun@gmail.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:38901 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756264AbZFZSF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 14:05:59 -0400
-Received: by bwz9 with SMTP id 9so2176443bwz.37
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 11:06:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090626170538.GK6771@linux.vnet.ibm.com>
+Received: from x35.xmailserver.org ([64.71.152.41]:54969 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752169AbZFZSQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 14:16:15 -0400
+Received: from makko.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.26 ESMTP Server]
+	id <S2F3DE8> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Fri, 26 Jun 2009 14:15:53 -0400
+In-Reply-To: <20090626145027.GA6534@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 26, 2009 at 10:05:38AM -0700, Paul E. McKenney wrote:
-...
-> In that case, simply invoking synchronize_rcu() every once and awhile
-> should take care of things.  This could be at the end of every large
-> trie operation, or you could even count the call_rcu() invocations and
-> do a synchronize_rcu() every 100th, 1,000th, or whatever, based on
-> the amount of memory available.
+On Fri, 26 Jun 2009, Oleg Nesterov wrote:
 
-OK, for now the minimal change for testing (2.6.30 needs previously
-mentioned two commits from 2.6.31-rc). (I guess I'll send it with a
-changelog after net-next is opened.)
+> Perhaps we can add
+> 
+> 	void sock_poll_wait(struct file *file, struct sock *sk, poll_table *pt)
+> 	{
+> 		if (pt) {
+> 			poll_wait(file, sk->sk_sleep, pt);
+> 			/*
+> 			 * fat comment
+> 			 */
+> 			smp_mb(); // or smp_mb__after_unlock();
+> 		}
+> 	}
 
-Thanks,
-Jarek P.
---- (take 4 - for testing)
+That'd be fine IMHO. Are DaveM and Eric OK?
 
- net/ipv4/fib_trie.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 012cf5a..98b31a1 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1008,7 +1008,7 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- {
- 	int wasfull;
- 	t_key cindex, key;
--	struct tnode *tp;
-+	struct tnode *tp, *oldtnode = tn;
- 
- 	key = tn->key;
- 
-@@ -1028,8 +1028,12 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- 	}
- 
- 	/* Handle last (top) tnode */
--	if (IS_TNODE(tn))
-+	if (IS_TNODE(tn)) {
-+		/* force memory freeing after last changes */
-+		if (oldtnode != tn)
-+			synchronize_rcu();
- 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
-+	}
- 
- 	rcu_assign_pointer(t->trie, (struct node *)tn);
- 	tnode_free_flush();
+- Davide
+
+
