@@ -1,97 +1,77 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 08:03:02 +0000
-Message-ID: <20090626080302.GB5204@ff.dom.local>
-References: <4A43E9F1.90209@cosmosbay.com>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Fri, 26 Jun 2009 08:10:19 +0000
+Message-ID: <20090626081018.GC5204@ff.dom.local>
+References: <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626054230.GA5204@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: =?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
-	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Oleg Nesterov <oleg@redhat.com>, Jiri Olsa <jolsa@redhat.com>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	Tejun Heo <htejun@gmail.com>
+To: Davide Libenzi <davidel@xmailserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:40130 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbZFZIDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 04:03:06 -0400
-Received: by bwz9 with SMTP id 9so1860281bwz.37
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 01:03:06 -0700 (PDT)
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:58087 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225AbZFZIKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 04:10:22 -0400
 Content-Disposition: inline
-In-Reply-To: <4A43E9F1.90209@cosmosbay.com>
+In-Reply-To: <20090626054230.GA5204@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25-06-2009 23:19, Eric Dumazet wrote:
-> Pawe? Staszewski a ?crit :
->> Hello ALL
->>
->> Some time ago i report this:
->> http://bugzilla.kernel.org/show_bug.cgi?id=6648
->>
->> and now with 2.6.29 / 2.6.29.1 / 2.6.29.3 and 2.6.30 it back
->> dmesg output:
->> oprofile: using NMI interrupt.
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
->> Fix inflate_threshold_root. Now=15 size=11 bits
+On Fri, Jun 26, 2009 at 05:42:30AM +0000, Jarek Poplawski wrote:
+> On 26-06-2009 05:14, Davide Libenzi wrote:
+> > On Fri, 26 Jun 2009, Eric Dumazet wrote:
+> > 
+> >> I wont argue with you David, just try to correct bugs.
+> >>
+> >> fs/ext4/ioctl.c line 182
+> >>
+> >> 	set_current_state(TASK_INTERRUPTIBLE);
+> >> 	add_wait_queue(&EXT4_SB(sb)->ro_wait_queue, &wait);
+> >> 	if (timer_pending(&EXT4_SB(sb)->turn_ro_timer)) {
+> >> 		schedule();
+> >>
+> >> Another example of missing barrier after add_wait_queue()
+> >>
+> >> Because add_wait_queue() misses a barrier, we have to add one after each call.
+> >>
+> >> Maybe it would be safer to add barrier in add_wait_queue() itself, not in _pollwait().
+> > 
+> > Not all the code that uses add_wait_queue() does need to have the MB,
+> > like code that does the most common pattern:
+> > 
+> > xxx_poll(...) {
+> > 	poll_wait(...);
+> > 	lock();
+> > 	flags = calc_flags(->status);
+> > 	unlock();
+> > 	return flags;
+> > }
+> > 
+> > xxx_update(...) {
+> > 	lock();
+> > 	->status = ...;
+> > 	unlock();
+> > 	if (waitqueue_active())
+> > 		wake_up();
+> > }
+> > 
+> > It's the code that does the lockless flags calculation in ->poll that 
+> > might need it.
+> > I dunno what the amount of changes are, but cross-matching MB across 
+> > subsystems does not look nice.
+> > IMHO that's a detail of the subsystem locking, and should be confined 
+> > inside the subsystem itself.
+> > No?
 > 
-> Curious, you seem to hit an old alloc_pages limit()... (MAX_ORDER allocation)
-> 
-> Your root node has 2^18 = 262144 pointers of 8 bytes -> 2097152 bytes (+ header -> 4194304 bytes)
-> 
-> But since following commit, we should use vmalloc() so this PAGE_SIZE<<10) limit
-> should not anymore be applied.
-> 
+> How about poll_wait_mb() and waitqueue_active_mb() (with mb and
+> additional check for NULL of wait_queue_head)?
 
-On the other hand, even if there is no problem with memory, it seems
-because of hitting max_resize the threshold should be changed, e.g.
-by reverting the patch below.
+Hmm... But considering Eric's arguments I see it would be hard
+/impossible to do it with the current api, so let's forget.
 
 Jarek P.
-
-
-commit 965ffea43d4ebe8cd7b9fee78d651268dd7d23c5
-Author: Robert Olsson <robert.olsson@its.uu.se>
-Date:   Mon Mar 19 16:29:58 2007 -0700
-
-    [IPV4]: fib_trie root node settings
-    
-    The threshold for root node can be more aggressive set to get
-    better tree compression. The new setting mekes the root grow
-    from 16 to 19 bits and substansial improvemnt in Aver depth
-    this with the current table of 214393 prefixes
-    
-    But really the dynamic resize should need more investigation
-    both in terms convergence and performance and maybe it should
-    be possible to change...
-    
-    Maybe just for the brave to start with or we may have to back
-    this out.
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 5d2b43d..9be7da7 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -292,8 +292,8 @@ static inline void check_tnode(const struct tnode *tn)
- 
- static int halve_threshold = 25;
- static int inflate_threshold = 50;
--static int halve_threshold_root = 15;
--static int inflate_threshold_root = 25;
-+static int halve_threshold_root = 8;
-+static int inflate_threshold_root = 15;
- 
- 
- static void __alias_free_mem(struct rcu_head *head)
