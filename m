@@ -1,106 +1,91 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 1/4] of/mdio: Add fixed link support
-Date: Sat, 27 Jun 2009 02:29:45 +0400
-Message-ID: <20090626222945.GA32487@oksana.dev.rtsoft.ru>
+Subject: [PATCH 3/4] ucc_geth: Revive fixed link support
+Date: Sat, 27 Jun 2009 02:29:50 +0400
+Message-ID: <20090626222950.GC32487@oksana.dev.rtsoft.ru>
 References: <20090626222900.GA14594@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>,
-	Andy Fleming <afleming@freescale.com>, linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=utf-8
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Li Yang <leoli@freescale.com>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ru.mvista.com ([213.79.90.228]:11819 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755350AbZFZW3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 18:29:47 -0400
 Content-Disposition: inline
 In-Reply-To: <20090626222900.GA14594@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently the fixed link support is broken for all OF ethernet drivers,
-an "OF MDIO rework" removed most of the support. Instead of re-adding
-fixed-link stuff to the drivers, add the support to a framework, so we
-won't duplicate any code.
+Since commit 0b9da337dca972e7a4144e298ec3adb8f244d4a4 ("Rework
+ucc_geth driver to use of_mdio infrastructure") the fixed-link
+support is broken.
 
-With this patch, if a node pointer is NULL, then of_phy_connect() will
-try to find ethernet device's node, then will look for fixed-link
-property, and if specified, it connects PHY as usual, via bus_id (fixed
-link PHYs do not have any device tree nodes associated with them).
+This patch fixes the support by removing !ug_info->phy_node check,
+today the of_phy_connect() will try to find a fixed PHY if the
+phy_node appears to be NULL.
+
+Also, remove an old fixed-link code that we don't use any longer.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/of/of_mdio.c |   45 +++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 41 insertions(+), 4 deletions(-)
+ drivers/net/ucc_geth.c |   18 +++---------------
+ 1 files changed, 3 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index aee967d..cfd876a 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -9,6 +9,10 @@
-  * out of the OpenFirmware device tree and using it to populate an mii_bus.
-  */
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 40c6eba..2dc83b1 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -1590,9 +1590,6 @@ static int init_phy(struct net_device *dev)
+ 	priv->oldspeed = 0;
+ 	priv->oldduplex = -1;
  
-+#include <linux/kernel.h>
-+#include <linux/device.h>
-+#include <linux/netdevice.h>
-+#include <linux/err.h>
- #include <linux/phy.h>
- #include <linux/of.h>
- #include <linux/of_mdio.h>
-@@ -129,11 +133,44 @@ struct phy_device *of_phy_connect(struct net_device *dev,
- 				  void (*hndlr)(struct net_device *), u32 flags,
- 				  phy_interface_t iface)
- {
--	struct phy_device *phy = of_phy_find_device(phy_np);
-+	struct phy_device *phy = NULL;
-+
-+	if (phy_np) {
-+		int ret;
-+
-+		phy = of_phy_find_device(phy_np);
-+		if (!phy)
-+			return NULL;
-+
-+		ret = phy_connect_direct(dev, phy, hndlr, flags, iface);
-+		if (ret)
-+			return NULL;
-+	} else if (dev->dev.parent) {
-+		struct device_node *net_np;
-+		const u32 *phy_id;
-+		char *bus_id;
-+		int sz;
-+
-+		net_np = dev_archdata_get_node(&dev->dev.parent->archdata);
-+		if (!net_np)
-+			return NULL;
-+
-+		phy_id = of_get_property(net_np, "fixed-link", &sz);
-+		if (!phy_id || sz < sizeof(*phy_id))
-+			return NULL;
-+
-+		bus_id = kasprintf(GFP_KERNEL, PHY_ID_FMT, "0", phy_id[0]);
-+		if (!bus_id) {
-+			dev_err(&dev->dev, "could not allocate memory\n");
-+			return NULL;
-+		}
+-	if (!ug_info->phy_node)
+-		return 0;
+-
+ 	phydev = of_phy_connect(dev, ug_info->phy_node, &adjust_link, 0,
+ 				priv->phy_interface);
+ 	if (!phydev) {
+@@ -3608,9 +3605,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	struct ucc_geth_private *ugeth = NULL;
+ 	struct ucc_geth_info *ug_info;
+ 	struct resource res;
+-	struct device_node *phy;
+ 	int err, ucc_num, max_speed = 0;
+-	const u32 *fixed_link;
+ 	const unsigned int *prop;
+ 	const char *sprop;
+ 	const void *mac_addr;
+@@ -3708,15 +3703,8 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
  
--	if (!phy)
--		return NULL;
-+		phy = phy_connect(dev, bus_id, hndlr, 0, iface);
-+		kfree(bus_id);
-+		if (IS_ERR(phy))
-+			return NULL;
-+	}
+ 	ug_info->uf_info.regs = res.start;
+ 	ug_info->uf_info.irq = irq_of_parse_and_map(np, 0);
+-	fixed_link = of_get_property(np, "fixed-link", NULL);
+-	if (fixed_link) {
+-		phy = NULL;
+-	} else {
+-		phy = of_parse_phandle(np, "phy-handle", 0);
+-		if (phy == NULL)
+-			return -ENODEV;
+-	}
+-	ug_info->phy_node = phy;
++
++	ug_info->phy_node = of_parse_phandle(np, "phy-handle", 0);
  
--	return phy_connect_direct(dev, phy, hndlr, flags, iface) ? NULL : phy;
-+	return phy;
- }
- EXPORT_SYMBOL(of_phy_connect);
+ 	/* Find the TBI PHY node.  If it's not there, we don't support SGMII */
+ 	ug_info->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
+@@ -3725,7 +3713,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	prop = of_get_property(np, "phy-connection-type", NULL);
+ 	if (!prop) {
+ 		/* handle interface property present in old trees */
+-		prop = of_get_property(phy, "interface", NULL);
++		prop = of_get_property(ug_info->phy_node, "interface", NULL);
+ 		if (prop != NULL) {
+ 			phy_interface = enet_to_phy_interface[*prop];
+ 			max_speed = enet_to_speed[*prop];
 -- 
 1.6.3.1
+
