@@ -1,62 +1,53 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH 0/5] rcu_barrier: Resubmitting the the networking bits
-Date: Fri, 26 Jun 2009 21:31:49 +0200
-Message-ID: <20090626192258.1724.76461.stgit@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Fri, 26 Jun 2009 21:35:28 +0200
+Message-ID: <4A452300.5080507@gmail.com>
+References: <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com>	<20090626145027.GA6534@redhat.com>	<alpine.DEB.1.10.0906261111230.16400@makko.or.mcafeemobile.com> <20090626.111738.141246987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, davidel@xmailserver.org,
+	oleg@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	htejun@gmail.com
+To: jolsa@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:33566 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbZFZTbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 15:31:47 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47353 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753931AbZFZTgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 15:36:31 -0400
+In-Reply-To: <20090626.111738.141246987.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset is a resubmit of the network related part of a patchseries
-titled "We must use rcu_barrier() on module unload".  Just to make it
-easier for DaveM to pick it up.
+David Miller a =E9crit :
+> From: Davide Libenzi <davidel@xmailserver.org>
+> Date: Fri, 26 Jun 2009 11:12:15 -0700 (PDT)
+>=20
+>> On Fri, 26 Jun 2009, Oleg Nesterov wrote:
+>>
+>>> Perhaps we can add
+>>>
+>>> 	void sock_poll_wait(struct file *file, struct sock *sk, poll_table=
+ *pt)
+>>> 	{
+>>> 		if (pt) {
+>>> 			poll_wait(file, sk->sk_sleep, pt);
+>>> 			/*
+>>> 			 * fat comment
+>>> 			 */
+>>> 			smp_mb(); // or smp_mb__after_unlock();
+>>> 		}
+>>> 	}
+>> That'd be fine IMHO. Are DaveM and Eric OK?
+>=20
+> No objections from me.
 
-If an unloadable module uses RCU callbacks, it need to use
-rcu_barrier() so that the module may be safely unloaded.
+Very good :)
 
-For documentation see:
+Jiri, please respin a patch with this idea from Oleg
 
- Paul E. McKenney's Blog
- http://paulmck.livejournal.com/7314.html
+(We'll have to check all calls to poll_wait() in net tree)
 
- http://lwn.net/Articles/217484/
-
- Documentation/RCU/rcubarrier.txt
-
-Patchset is made on top of Linus'es tree, 4075ea8c54a7506844a69f674990241e7766357b.
-But I have testet is applies to net-next-2.6.
-
----
-
-Jesper Dangaard Brouer (5):
-      decnet: Use rcu_barrier() on module unload.
-      ipv6: Use rcu_barrier() on module unload.
-      sunrpc: Use rcu_barrier() on unload.
-      mac80211: Use rcu_barrier() on unload.
-      bridge: Use rcu_barrier() instead of syncronize_net() on unload.
-
-
- net/bridge/br.c          |    2 +-
- net/decnet/af_decnet.c   |    2 ++
- net/ipv6/af_inet6.c      |    2 ++
- net/mac80211/mesh.c      |    2 +-
- net/sunrpc/sunrpc_syms.c |    1 +
- 5 files changed, 7 insertions(+), 2 deletions(-)
-
--- 
-Best regards,
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks everybody
 
