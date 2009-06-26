@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
+From: Krzysztof Oledzki <ole@ans.pl>
 Subject: Re: [PATCH 2/2]: net: Do software flow seperation on receive.
-Date: Fri, 26 Jun 2009 16:52:30 -0700 (PDT)
-Message-ID: <20090626.165230.68583655.davem@davemloft.net>
+Date: Sat, 27 Jun 2009 01:40:35 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.0906270136390.23295@bizon.gios.gov.pl>
 References: <20080917.193442.232214911.davem@davemloft.net>
-	<alpine.LNX.1.10.0906270136390.23295@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1797157929-1246059635=:23295"
 Cc: netdev@vger.kernel.org, jens.axboe@oracle.com,
 	nickpiggin@yahoo.com.au
-To: ole@ans.pl
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40107
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751311AbZFZXw0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 19:52:26 -0400
-In-Reply-To: <alpine.LNX.1.10.0906270136390.23295@bizon.gios.gov.pl>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:41262 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751287AbZFZX6k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 19:58:40 -0400
+In-Reply-To: <20080917.193442.232214911.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Oledzki <ole@ans.pl>
-Date: Sat, 27 Jun 2009 01:40:35 +0200 (CEST)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> What is the future of this patch? Was it only a proof of concept or is
-> it going to be included in the mainline one day?
+---1144830174-1797157929-1246059635=:23295
+Content-Type: TEXT/PLAIN; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-Lots of work and thinking is necessary to do this right.
 
-Maybe something will be integrated into my tree in the
-next few months or so.
+Hello,
+
+On Wed, 17 Sep 2008, David Miller wrote:
+
+>
+> net: Do software flow seperation on receive.
+>
+> Push netif_receive_skb() work to remote cpus via flow
+> hashing and remove softirqs.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+
+<CUT>
+
+What is the future of this patch? Was it only a proof of concept or is it 
+going to be included in the mainline one day?
+
+Best regards,
+
+
+ 			Krzysztof Olêdzki
+---1144830174-1797157929-1246059635=:23295--
