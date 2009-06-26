@@ -1,7 +1,7 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH 3/4] ucc_geth: Revive fixed link support
-Date: Sat, 27 Jun 2009 02:29:50 +0400
-Message-ID: <20090626222950.GC32487@oksana.dev.rtsoft.ru>
+Subject: [PATCH 2/4] gianfar: Revive fixed link support
+Date: Sat, 27 Jun 2009 02:29:48 +0400
+Message-ID: <20090626222948.GB32487@oksana.dev.rtsoft.ru>
 References: <20090626222900.GA14594@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -11,81 +11,82 @@ Cc: Grant Likely <grant.likely@secretlab.ca>,
 	linuxppc-dev@ozlabs.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ru.mvista.com ([213.79.90.228]:11819 "EHLO
+Received: from ru.mvista.com ([213.79.90.228]:11814 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755350AbZFZW3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 18:29:47 -0400
+	by vger.kernel.org with ESMTP id S1753392AbZFZW3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 18:29:45 -0400
 Content-Disposition: inline
 In-Reply-To: <20090626222900.GA14594@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 0b9da337dca972e7a4144e298ec3adb8f244d4a4 ("Rework
-ucc_geth driver to use of_mdio infrastructure") the fixed-link
-support is broken.
+Since commit fe192a49118f5b1272317d60c7930ece4e13ae49 ("Rework gianfar
+driver to use of_mdio infrastructure") the fixed-link support is
+broken, the driver oopses at init_phy():
 
-This patch fixes the support by removing !ug_info->phy_node check,
-today the of_phy_connect() will try to find a fixed PHY if the
-phy_node appears to be NULL.
+  Unable to handle kernel paging request for data at address 0x000000e4
+  Faulting instruction address: 0xc01cf298
+  Oops: Kernel access of bad area, sig: 11 [#1]
+  [...]
+  NIP [c01cf298] init_phy+0x80/0xdc
+  LR [c01cf250] init_phy+0x38/0xdc
+  Call Trace:
+  [cf81fe80] [c01d1cf8] gfar_enet_open+0x6c/0x19c
+  [cf81fea0] [c024494c] dev_open+0xfc/0x134
+  [cf81fec0] [c0242edc] dev_change_flags+0x84/0x1ac
+  [cf81fee0] [c0399ee0] ic_open_devs+0x168/0x2d8
+  [cf81ff20] [c039b2e8] ip_auto_config+0x90/0x2a4
+  [cf81ff60] [c0003884] do_one_initcall+0x34/0x1a8
+
+This patch fixes the oops, and removes phy_node checks (of_phy_connect
+call now tries to find fixed PHYs if the phy_node is NULL).
 
 Also, remove an old fixed-link code that we don't use any longer.
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/ucc_geth.c |   18 +++---------------
- 1 files changed, 3 insertions(+), 15 deletions(-)
+ drivers/net/gianfar.c |   21 +++++----------------
+ 1 files changed, 5 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 40c6eba..2dc83b1 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1590,9 +1590,6 @@ static int init_phy(struct net_device *dev)
- 	priv->oldspeed = 0;
- 	priv->oldduplex = -1;
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 4ae1d25..41b2107 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -262,15 +262,6 @@ static int gfar_of_init(struct net_device *dev)
+ 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_MAGIC_PACKET;
  
--	if (!ug_info->phy_node)
--		return 0;
+ 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
+-	if (!priv->phy_node) {
+-		u32 *fixed_link;
 -
- 	phydev = of_phy_connect(dev, ug_info->phy_node, &adjust_link, 0,
- 				priv->phy_interface);
- 	if (!phydev) {
-@@ -3608,9 +3605,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	struct ucc_geth_private *ugeth = NULL;
- 	struct ucc_geth_info *ug_info;
- 	struct resource res;
--	struct device_node *phy;
- 	int err, ucc_num, max_speed = 0;
--	const u32 *fixed_link;
- 	const unsigned int *prop;
- 	const char *sprop;
- 	const void *mac_addr;
-@@ -3708,15 +3703,8 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 
- 	ug_info->uf_info.regs = res.start;
- 	ug_info->uf_info.irq = irq_of_parse_and_map(np, 0);
--	fixed_link = of_get_property(np, "fixed-link", NULL);
--	if (fixed_link) {
--		phy = NULL;
--	} else {
--		phy = of_parse_phandle(np, "phy-handle", 0);
--		if (phy == NULL)
--			return -ENODEV;
+-		fixed_link = (u32 *)of_get_property(np, "fixed-link", NULL);
+-		if (!fixed_link) {
+-			err = -ENODEV;
+-			goto err_out;
+-		}
 -	}
--	ug_info->phy_node = phy;
-+
-+	ug_info->phy_node = of_parse_phandle(np, "phy-handle", 0);
  
- 	/* Find the TBI PHY node.  If it's not there, we don't support SGMII */
- 	ug_info->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
-@@ -3725,7 +3713,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	prop = of_get_property(np, "phy-connection-type", NULL);
- 	if (!prop) {
- 		/* handle interface property present in old trees */
--		prop = of_get_property(phy, "interface", NULL);
-+		prop = of_get_property(ug_info->phy_node, "interface", NULL);
- 		if (prop != NULL) {
- 			phy_interface = enet_to_phy_interface[*prop];
- 			max_speed = enet_to_speed[*prop];
+ 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
+ 	priv->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
+@@ -657,13 +648,11 @@ static int init_phy(struct net_device *dev)
+ 
+ 	interface = gfar_get_interface(dev);
+ 
+-	if (priv->phy_node) {
+-		priv->phydev = of_phy_connect(dev, priv->phy_node, &adjust_link,
+-					      0, interface);
+-		if (!priv->phydev) {
+-			dev_err(&dev->dev, "error: Could not attach to PHY\n");
+-			return -ENODEV;
+-		}
++	priv->phydev = of_phy_connect(dev, priv->phy_node, &adjust_link, 0,
++				      interface);
++	if (!priv->phydev) {
++		dev_err(&dev->dev, "could not attach to PHY\n");
++		return -ENODEV;
+ 	}
+ 
+ 	if (interface == PHY_INTERFACE_MODE_SGMII)
 -- 
 1.6.3.1
 
