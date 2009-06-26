@@ -1,138 +1,154 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [Bugme-new] [Bug 13627] New: Tunnel device ignores TCP/UDP
  traffic
-Date: Fri, 26 Jun 2009 12:44:44 -0700
-Message-ID: <20090626124444.c24d9b38.akpm@linux-foundation.org>
+Date: Fri, 26 Jun 2009 13:02:24 -0700 (PDT)
+Message-ID: <20090626.130224.232645797.davem@davemloft.net>
 References: <bug-13627-10286@http.bugzilla.kernel.org/>
+	<20090626124444.c24d9b38.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	olver@hartkopp.net, bugzilla-daemon@bugzilla.kernel.org,
 	bugme-daemon@bugzilla.kernel.org, pm@debian.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Oliver Hartkopp <olver@hartkopp.net>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:43474 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754832AbZFZTpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 15:45:55 -0400
-In-Reply-To: <bug-13627-10286@http.bugzilla.kernel.org/>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46932
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750899AbZFZUCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 16:02:19 -0400
+In-Reply-To: <20090626124444.c24d9b38.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Fri, 26 Jun 2009 12:44:44 -0700
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> It's a post-2.6.30 regression which Paul has bisected down to
+> 
+>   commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
+>   Author:     Herbert Xu <herbert@gondor.apana.org.au>
+>   AuthorDate: Mon Jun 22 02:25:25 2009 +0000
+>   Commit:     David S. Miller <davem@davemloft.net>
+>   CommitDate: Tue Jun 23 16:36:25 2009 -0700
+> 
+>       net: Move rx skb_orphan call to where needed
+> 
+> (thanks for doing the bisection!)
 
-On Fri, 26 Jun 2009 14:45:11 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+Then it's good that we partially reverted that change just
+the other day :-)
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13627
-> 
->            Summary: Tunnel device ignores TCP/UDP traffic
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.31-rc1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: pm@debian.org
->         Regression: Yes
-> 
+commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Mon Jun 22 02:25:25 2009 +0000
 
-It's a post-2.6.30 regression which Paul has bisected down to
+    net: Move rx skb_orphan call to where needed
+    
+    In order to get the tun driver to account packets, we need to be
+    able to receive packets with destructors set.  To be on the safe
+    side, I added an skb_orphan call for all protocols by default since
+    some of them (IP in particular) cannot handle receiving packets
+    destructors properly.
+    
+    Now it seems that at least one protocol (CAN) expects to be able
+    to pass skb->sk through the rx path without getting clobbered.
+    
+    So this patch attempts to fix this properly by moving the skb_orphan
+    call to where it's actually needed.  In particular, I've added it
+    to skb_set_owner_[rw] which is what most users of skb->destructor
+    call.
+    
+    This is actually an improvement for tun too since it means that
+    we only give back the amount charged to the socket when the skb
+    is passed to another socket that will also be charged accordingly.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Tested-by: Oliver Hartkopp <olver@hartkopp.net>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-  commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
-  Author:     Herbert Xu <herbert@gondor.apana.org.au>
-  AuthorDate: Mon Jun 22 02:25:25 2009 +0000
-  Commit:     David S. Miller <davem@davemloft.net>
-  CommitDate: Tue Jun 23 16:36:25 2009 -0700
-
-      net: Move rx skb_orphan call to where needed
-
-(thanks for doing the bisection!)
-
-> Using OpenVPN on 2.6.29.4 and 2.6.30 works but 2.6.31-rc1 doesn't.
-> 
-> I can ping (ICMP) the remote end, and see the packets going back and forth
-> using tcpdump, but they don't appear to be reaching the upper layers.
-> 
-> traceroute with -U (UDP) and -T (TCP SYN) options (ie. raw packet socket)
-> works.
-> 
-> There are no iptables filters in place. Nothing unusual appears in dmesg or
-> syslog.
-> 
-> root@thinkpad:~# ping 172.17.2.1
-> PING 172.17.2.1 (172.17.2.1) 56(84) bytes of data.
-> 64 bytes from 172.17.2.1: icmp_seq=1 ttl=64 time=97.9 ms
-> 64 bytes from 172.17.2.1: icmp_seq=2 ttl=64 time=108 ms
-> 64 bytes from 172.17.2.1: icmp_seq=3 ttl=64 time=184 ms
-> 64 bytes from 172.17.2.1: icmp_seq=4 ttl=64 time=96.0 ms
-> ^C
-> --- 172.17.2.1 ping statistics ---
-> 4 packets transmitted, 4 received, 0% packet loss, time 3004ms
-> rtt min/avg/max/mdev = 96.022/121.776/184.465/36.510 ms
-> 
-> # tcptraceroute -n 192.168.1.1 1
-> traceroute to 192.168.1.1 (192.168.1.1), 30 hops max, 60 byte packets
->  1  192.168.1.1  90.230 ms  105.535 ms  104.833 ms
-> 
-> 
-> ~# telnet 172.17.2.1 1
-> Trying 172.17.2.1...
-> ^C
-> 
-> # tcpdump -n -p -i tun0
-> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-> listening on tun0, link-type RAW (Raw IP), capture size 96 bytes
-> 15:28:44.450554 IP 172.17.2.10.46287 > 172.17.2.1.1: Flags [S], seq 434762695,
-> win 5840, options [mss 1460,sackOK,TS val 169108 ecr 0,nop,wscale 6], length 0
-> 15:28:44.542303 IP 172.17.2.1.1 > 172.17.2.10.46287: Flags [R.], seq 0, ack
-> 434762696, win 0, length 0
-> 
-> 
-> # ip link
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> 4: wmaster0: <UP,LOWER_UP> mtu 0 qdisc pfifo_fast state UNKNOWN qlen 1000
->     link/ieee802.11 00:14:a4:04:df:09 brd 00:00:00:00:00:00
-> 5: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP
-> qlen 1000
->     link/ether 00:14:a4:04:df:09 brd ff:ff:ff:ff:ff:ff
-> 8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UNKNOWN qlen 100
->     link/[65534]
-> 
-> # ip addr
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->     inet 127.0.0.1/8 scope host lo
->     inet6 ::1/128 scope host
->        valid_lft forever preferred_lft forever
-> 4: wmaster0: <UP,LOWER_UP> mtu 0 qdisc pfifo_fast state UNKNOWN qlen 1000
->     link/ieee802.11 00:14:a4:04:df:09 brd 00:00:00:00:00:00
-> 5: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP
-> qlen 1000
->     link/ether 00:14:a4:04:df:09 brd ff:ff:ff:ff:ff:ff
->     inet 192.168.10.118/24 brd 192.168.10.255 scope global wlan0
->     inet6 fe80::214:a4ff:fe04:df09/64 scope link
->        valid_lft forever preferred_lft forever
-> 8: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UNKNOWN qlen 100
->     link/[65534]
->     inet 172.17.2.10 peer 172.17.2.9/32 scope global tun0
-> 
-> # ip route
-> 172.17.2.9 dev tun0  proto kernel  scope link  src 172.17.2.10
-> 192.168.1.0/24 via 172.17.2.9 dev tun0  metric 20
-> 172.17.2.0/24 via 172.17.2.9 dev tun0
-> 192.168.10.0/24 dev wlan0  proto kernel  scope link  src 192.168.10.118
-> default via 192.168.10.1 dev wlan0
-
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 9f80a76..d16a304 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -448,6 +448,7 @@ static inline void sctp_skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
+ 	struct sctp_ulpevent *event = sctp_skb2event(skb);
+ 
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sctp_sock_rfree;
+ 	atomic_add(event->rmem_len, &sk->sk_rmem_alloc);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 570c7a1..7f5c41c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1250,6 +1250,7 @@ static inline int sk_has_allocations(const struct sock *sk)
+ 
+ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ {
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sock_wfree;
+ 	/*
+@@ -1262,6 +1263,7 @@ static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
+ 
+ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ {
++	skb_orphan(skb);
+ 	skb->sk = sk;
+ 	skb->destructor = sock_rfree;
+ 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
+diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+index 5f1d210..de56d39 100644
+--- a/net/ax25/ax25_in.c
++++ b/net/ax25/ax25_in.c
+@@ -437,8 +437,7 @@ free:
+ int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		  struct packet_type *ptype, struct net_device *orig_dev)
+ {
+-	skb->sk = NULL;		/* Initially we don't know who it's for */
+-	skb->destructor = NULL;	/* Who initializes this, dammit?! */
++	skb_orphan(skb);
+ 
+ 	if (!net_eq(dev_net(dev), &init_net)) {
+ 		kfree_skb(skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index baf2dc1..60b5728 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2310,8 +2310,6 @@ ncls:
+ 	if (!skb)
+ 		goto out;
+ 
+-	skb_orphan(skb);
+-
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 5922feb..cb762c8 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -913,9 +913,6 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
+ 	/* Clean up the original one to keep it in listen state */
+ 	irttp_listen(self->tsap);
+ 
+-	/* Wow ! What is that ? Jean II */
+-	skb->sk = NULL;
+-	skb->destructor = NULL;
+ 	kfree_skb(skb);
+ 	sk->sk_ack_backlog--;
+ 
+diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
+index 67c99d2..7ba9661 100644
+--- a/net/irda/ircomm/ircomm_lmp.c
++++ b/net/irda/ircomm/ircomm_lmp.c
+@@ -196,6 +196,7 @@ static int ircomm_lmp_data_request(struct ircomm_cb *self,
+ 	/* Don't forget to refcount it - see ircomm_tty_do_softint() */
+ 	skb_get(skb);
+ 
++	skb_orphan(skb);
+ 	skb->destructor = ircomm_lmp_flow_control;
+ 
+ 	if ((self->pkt_count++ > 7) && (self->flow_status == FLOW_START)) {
