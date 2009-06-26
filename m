@@ -1,361 +1,62 @@
-From: Robert Olsson <robert@robur.slu.se>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 15:52:55 +0200
-Message-ID: <19012.53943.734747.493480@robur.slu.se>
-References: <4A43E9F1.90209@cosmosbay.com>
-	<20090626080302.GB5204@ff.dom.local>
-	<19012.37515.146191.198843@robur.slu.se>
-	<20090626093727.GA6832@ff.dom.local>
-	<19012.49700.908412.410984@robur.slu.se>
-	<20090626125449.GA8897@ff.dom.local>
-	<20090626132820.GB8897@ff.dom.local>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] sky2: Fix checksum endianness
+Date: Fri, 26 Jun 2009 18:51:59 +0400
+Message-ID: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
-	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from robur.slu.se ([130.238.98.12]:33558 "EHLO robur.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754202AbZFZNw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2009 09:52:57 -0400
-In-Reply-To: <20090626132820.GB8897@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
+sky2 driver on PowerPC targets floods kernel log with following errors:
 
-Jarek Poplawski writes:
+  eth1: hw csum failure.
+  Call Trace:
+  [ef84b8a0] [c00075e4] show_stack+0x50/0x160 (unreliable)
+  [ef84b8d0] [c02fa178] netdev_rx_csum_fault+0x3c/0x5c
+  [ef84b8f0] [c02f6920] __skb_checksum_complete_head+0x7c/0x84
+  [ef84b900] [c02f693c] __skb_checksum_complete+0x14/0x24
+  [ef84b910] [c0337e08] tcp_v4_rcv+0x4c8/0x6f8
+  [ef84b940] [c031a9c8] ip_local_deliver+0x98/0x210
+  [ef84b960] [c031a788] ip_rcv+0x38c/0x534
+  [ef84b990] [c0300338] netif_receive_skb+0x260/0x36c
+  [ef84b9c0] [c025de00] sky2_poll+0x5dc/0xcf8
+  [ef84ba20] [c02fb7fc] net_rx_action+0xc0/0x144
 
- Thanks, 
+The NIC is Yukon-2 EC chip revision 1.
 
- Should be worth testing so we synchronize_rcu instead of doing call_rcu's
- 
- Cheers
-					--ro
+Converting checksum field from le16 to CPU byte order fixes the issue.
 
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/sky2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- > Alternatively here is a faster version with less synchronize_rcu().
- > 
- > Jarek P.
- > 
- > --- (take 2 - for testing)
- > 
- >  net/ipv4/fib_trie.c |   27 +++++++++++++++++++++------
- >  1 files changed, 21 insertions(+), 6 deletions(-)
- > 
- > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
- > index 012cf5a..2936b2e 100644
- > --- a/net/ipv4/fib_trie.c
- > +++ b/net/ipv4/fib_trie.c
- > @@ -366,6 +366,14 @@ static void __tnode_vfree(struct work_struct *arg)
- >  	vfree(tn);
- >  }
- >  
- > +static void __tnode_free(struct tnode *tn)
- > +{
- > +	if (size <= PAGE_SIZE)
- > +		kfree(tn);
- > +	else
- > +		vfree(tn);
- > +}
- > +
- >  static void __tnode_free_rcu(struct rcu_head *head)
- >  {
- >  	struct tnode *tn = container_of(head, struct tnode, rcu);
- > @@ -402,7 +410,7 @@ static void tnode_free_flush(void)
- >  	while ((tn = tnode_free_head)) {
- >  		tnode_free_head = tn->tnode_free;
- >  		tn->tnode_free = NULL;
- > -		tnode_free(tn);
- > +		__tnode_free(tn);
- >  	}
- >  }
- >  
- > @@ -1021,18 +1029,25 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- >  				      (struct node *)tn, wasfull);
- >  
- >  		tp = node_parent((struct node *) tn);
- > -		tnode_free_flush();
- >  		if (!tp)
- >  			break;
- >  		tn = tp;
- >  	}
- >  
- > +	if (tnode_free_head) {
- > +		synchronize_rcu();
- > +		tnode_free_flush();
- > +	}
- > +
- >  	/* Handle last (top) tnode */
- > -	if (IS_TNODE(tn))
- > +	if (IS_TNODE(tn)) {
- >  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
- > -
- > -	rcu_assign_pointer(t->trie, (struct node *)tn);
- > -	tnode_free_flush();
- > +		rcu_assign_pointer(t->trie, (struct node *)tn);
- > +		synchronize_rcu();
- > +		tnode_free_flush();
- > +	} else {
- > +		rcu_assign_pointer(t->trie, (struct node *)tn);
- > +	}
- >  
- >  	return;
- >  }
- > 
- > 
- > 
- > ---
- > commit e0f7cb8c8cc6cccce28d2ce39ad8c60d23c3799f
- > Author: Jarek Poplawski <jarkao2@gmail.com>
- > Date:   Mon Jun 15 02:31:29 2009 -0700
- > 
- >     ipv4: Fix fib_trie rebalancing
- >     
- >     While doing trie_rebalance(): resize(), inflate(), halve() RCU free
- >     tnodes before updating their parents. It depends on RCU delaying the
- >     real destruction, but if RCU readers start after call_rcu() and before
- >     parent update they could access freed memory.
- >     
- >     It is currently prevented with preempt_disable() on the update side,
- >     but it's not safe, except maybe classic RCU, plus it conflicts with
- >     memory allocations with GFP_KERNEL flag used from these functions.
- >     
- >     This patch explicitly delays freeing of tnodes by adding them to the
- >     list, which is flushed after the update is finished.
- >     
- >     Reported-by: Yan Zheng <zheng.yan@oracle.com>
- >     Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
- >     Signed-off-by: David S. Miller <davem@davemloft.net>
- > 
- > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
- > index 538d2a9..d1a39b1 100644
- > --- a/net/ipv4/fib_trie.c
- > +++ b/net/ipv4/fib_trie.c
- > @@ -123,6 +123,7 @@ struct tnode {
- >  	union {
- >  		struct rcu_head rcu;
- >  		struct work_struct work;
- > +		struct tnode *tnode_free;
- >  	};
- >  	struct node *child[0];
- >  };
- > @@ -161,6 +162,8 @@ static void tnode_put_child_reorg(struct tnode *tn, int i, struct node *n,
- >  static struct node *resize(struct trie *t, struct tnode *tn);
- >  static struct tnode *inflate(struct trie *t, struct tnode *tn);
- >  static struct tnode *halve(struct trie *t, struct tnode *tn);
- > +/* tnodes to free after resize(); protected by RTNL */
- > +static struct tnode *tnode_free_head;
- >  
- >  static struct kmem_cache *fn_alias_kmem __read_mostly;
- >  static struct kmem_cache *trie_leaf_kmem __read_mostly;
- > @@ -385,6 +388,29 @@ static inline void tnode_free(struct tnode *tn)
- >  		call_rcu(&tn->rcu, __tnode_free_rcu);
- >  }
- >  
- > +static void tnode_free_safe(struct tnode *tn)
- > +{
- > +	BUG_ON(IS_LEAF(tn));
- > +
- > +	if (node_parent((struct node *) tn)) {
- > +		tn->tnode_free = tnode_free_head;
- > +		tnode_free_head = tn;
- > +	} else {
- > +		tnode_free(tn);
- > +	}
- > +}
- > +
- > +static void tnode_free_flush(void)
- > +{
- > +	struct tnode *tn;
- > +
- > +	while ((tn = tnode_free_head)) {
- > +		tnode_free_head = tn->tnode_free;
- > +		tn->tnode_free = NULL;
- > +		tnode_free(tn);
- > +	}
- > +}
- > +
- >  static struct leaf *leaf_new(void)
- >  {
- >  	struct leaf *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
- > @@ -495,7 +521,7 @@ static struct node *resize(struct trie *t, struct tnode *tn)
- >  
- >  	/* No children */
- >  	if (tn->empty_children == tnode_child_length(tn)) {
- > -		tnode_free(tn);
- > +		tnode_free_safe(tn);
- >  		return NULL;
- >  	}
- >  	/* One child */
- > @@ -509,7 +535,7 @@ static struct node *resize(struct trie *t, struct tnode *tn)
- >  
- >  			/* compress one level */
- >  			node_set_parent(n, NULL);
- > -			tnode_free(tn);
- > +			tnode_free_safe(tn);
- >  			return n;
- >  		}
- >  	/*
- > @@ -670,7 +696,7 @@ static struct node *resize(struct trie *t, struct tnode *tn)
- >  			/* compress one level */
- >  
- >  			node_set_parent(n, NULL);
- > -			tnode_free(tn);
- > +			tnode_free_safe(tn);
- >  			return n;
- >  		}
- >  
- > @@ -756,7 +782,7 @@ static struct tnode *inflate(struct trie *t, struct tnode *tn)
- >  			put_child(t, tn, 2*i, inode->child[0]);
- >  			put_child(t, tn, 2*i+1, inode->child[1]);
- >  
- > -			tnode_free(inode);
- > +			tnode_free_safe(inode);
- >  			continue;
- >  		}
- >  
- > @@ -801,9 +827,9 @@ static struct tnode *inflate(struct trie *t, struct tnode *tn)
- >  		put_child(t, tn, 2*i, resize(t, left));
- >  		put_child(t, tn, 2*i+1, resize(t, right));
- >  
- > -		tnode_free(inode);
- > +		tnode_free_safe(inode);
- >  	}
- > -	tnode_free(oldtnode);
- > +	tnode_free_safe(oldtnode);
- >  	return tn;
- >  nomem:
- >  	{
- > @@ -885,7 +911,7 @@ static struct tnode *halve(struct trie *t, struct tnode *tn)
- >  		put_child(t, newBinNode, 1, right);
- >  		put_child(t, tn, i/2, resize(t, newBinNode));
- >  	}
- > -	tnode_free(oldtnode);
- > +	tnode_free_safe(oldtnode);
- >  	return tn;
- >  nomem:
- >  	{
- > @@ -989,7 +1015,6 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- >  	t_key cindex, key;
- >  	struct tnode *tp;
- >  
- > -	preempt_disable();
- >  	key = tn->key;
- >  
- >  	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
- > @@ -1001,16 +1026,18 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- >  				      (struct node *)tn, wasfull);
- >  
- >  		tp = node_parent((struct node *) tn);
- > +		tnode_free_flush();
- >  		if (!tp)
- >  			break;
- >  		tn = tp;
- >  	}
- >  
- >  	/* Handle last (top) tnode */
- > -	if (IS_TNODE(tn))
- > +	if (IS_TNODE(tn)) {
- >  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
- > +		tnode_free_flush();
- > +	}
- >  
- > -	preempt_enable();
- >  	return (struct node *)tn;
- >  }
- >  
- > ---
- > commit 7b85576d15bf2574b0a451108f59f9ad4170dd3f
- > Author: Jarek Poplawski <jarkao2@gmail.com>
- > Date:   Thu Jun 18 00:28:51 2009 -0700
- > 
- >     ipv4: Fix fib_trie rebalancing, part 2
- >     
- >     My previous patch, which explicitly delays freeing of tnodes by adding
- >     them to the list to flush them after the update is finished, isn't
- >     strict enough. It treats exceptionally tnodes without parent, assuming
- >     they are newly created, so "invisible" for the read side yet.
- >     
- >     But the top tnode doesn't have parent as well, so we have to exclude
- >     all exceptions (at least until a better way is found). Additionally we
- >     need to move rcu assignment of this node before flushing, so the
- >     return type of the trie_rebalance() function is changed.
- >     
- >     Reported-by: Yan Zheng <zheng.yan@oracle.com>
- >     Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
- >     Signed-off-by: David S. Miller <davem@davemloft.net>
- > 
- > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
- > index d1a39b1..012cf5a 100644
- > --- a/net/ipv4/fib_trie.c
- > +++ b/net/ipv4/fib_trie.c
- > @@ -391,13 +391,8 @@ static inline void tnode_free(struct tnode *tn)
- >  static void tnode_free_safe(struct tnode *tn)
- >  {
- >  	BUG_ON(IS_LEAF(tn));
- > -
- > -	if (node_parent((struct node *) tn)) {
- > -		tn->tnode_free = tnode_free_head;
- > -		tnode_free_head = tn;
- > -	} else {
- > -		tnode_free(tn);
- > -	}
- > +	tn->tnode_free = tnode_free_head;
- > +	tnode_free_head = tn;
- >  }
- >  
- >  static void tnode_free_flush(void)
- > @@ -1009,7 +1004,7 @@ fib_find_node(struct trie *t, u32 key)
- >  	return NULL;
- >  }
- >  
- > -static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- > +static void trie_rebalance(struct trie *t, struct tnode *tn)
- >  {
- >  	int wasfull;
- >  	t_key cindex, key;
- > @@ -1033,12 +1028,13 @@ static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
- >  	}
- >  
- >  	/* Handle last (top) tnode */
- > -	if (IS_TNODE(tn)) {
- > +	if (IS_TNODE(tn))
- >  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
- > -		tnode_free_flush();
- > -	}
- >  
- > -	return (struct node *)tn;
- > +	rcu_assign_pointer(t->trie, (struct node *)tn);
- > +	tnode_free_flush();
- > +
- > +	return;
- >  }
- >  
- >  /* only used from updater-side */
- > @@ -1186,7 +1182,7 @@ static struct list_head *fib_insert_node(struct trie *t, u32 key, int plen)
- >  
- >  	/* Rebalance the trie */
- >  
- > -	rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
- > +	trie_rebalance(t, tp);
- >  done:
- >  	return fa_head;
- >  }
- > @@ -1605,7 +1601,7 @@ static void trie_leaf_remove(struct trie *t, struct leaf *l)
- >  	if (tp) {
- >  		t_key cindex = tkey_extract_bits(l->key, tp->pos, tp->bits);
- >  		put_child(t, (struct tnode *)tp, cindex, NULL);
- > -		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
- > +		trie_rebalance(t, tp);
- >  	} else
- >  		rcu_assign_pointer(t->trie, NULL);
- >  
- > --
- > To unsubscribe from this list: send the line "unsubscribe netdev" in
- > the body of a message to majordomo@vger.kernel.org
- > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 7681d28..daf961a 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2495,7 +2495,7 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
+ 			if (likely(status >> 16 == (status & 0xffff))) {
+ 				skb = sky2->rx_ring[sky2->rx_next].skb;
+ 				skb->ip_summed = CHECKSUM_COMPLETE;
+-				skb->csum = status & 0xffff;
++				skb->csum = le16_to_cpu(status);
+ 			} else {
+ 				printk(KERN_NOTICE PFX "%s: hardware receive "
+ 				       "checksum problem (status = %#x)\n",
+-- 
+1.6.3.1
