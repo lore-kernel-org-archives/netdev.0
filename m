@@ -1,129 +1,92 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: [PATCH 1/1] veth: don't free priv->status until dev->destructor
-	(v2)
-Date: Fri, 26 Jun 2009 11:24:18 -0500
-Message-ID: <20090626162418.GA24828@us.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: hunging ifenslave command
+Date: Fri, 26 Jun 2009 18:36:15 +0200
+Message-ID: <20090626163615.GA6755@ami.dom.local>
+References: <4A3A3DEA.20602@onet.eu> <4A3CE5D5.8070308@gmail.com> <4A44D1FC.8090001@onet.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers@lists.osdl.org>,
-	Sachin Sant <sachinp@in.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, matthltc@us.ibm.com,
-	lkml <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758946AbZFZQd6@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: sdrb <sdrb@onet.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:48363 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756943AbZFZQg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 12:36:29 -0400
+Received: by fxm9 with SMTP id 9so2212402fxm.37
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 09:36:31 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A44D1FC.8090001@onet.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Based on the commit msg on ae0e8e82205c903978a79ebf5e31c670b61fa5b4, it looks
-like oopses were caused when people were reading the veth dev stats while the
-module was being unloaded, causing a deref of freed memory in veth_get_stats()?
-If so, I believe the following patch (still against mainline, so not on top of
-my previous patch or on top of a git-revert of
-ae0e8e82205c903978a79ebf5e31c670b61fa5b)) should prevent that.  All the stats
-are gathered within one rcu cycle, while the device free hook first sets the
-device stats struct to NULL, waits an rcu cycle before freeing it.
+On Fri, Jun 26, 2009 at 03:49:48PM +0200, sdrb wrote:
+> Jarek Poplawski pisze:
+>> sdrb wrote, On 06/18/2009 03:15 PM:
+>>
+>>> Hello,
+>>>
+>>> I have got problem with hunging "ifenslave" command.
+>>> I configured bond0 interfaces with 3 slaved interfaces: eth0, eth1 
+>>> and eth2. While I'm removing one of it - sometimes only the 
+>>> "ifenslave" command hangs up but sometimes the whole system is 
+>>> hanging up completely - so it's not possible to even write on the 
+>>> console.
+>>>
+>>> I'm using linux kernel 2.6.27.10 with bonding driver version v3.3.0  
+>>> (June 10, 2008) and ethernet card driver r8168 version 8.006.00-NAPI.
+>>>
+>>> Anyone knows where is the problem with it?
+>>
+>>
+>> Hi,
+>>
+>> I don't know, but I guess, if anyone knew it would be fixed now. So, I'd
+>> recommend trying the current stable (2.6.30), and if no difference, maybe
+>> some debugging like turning on lockdep (lock debugging with prove
+>> locking correctness). If still nothing reported, try to get a few SysRq
+>> logs when it happens e.g. Alt-PrtScr with t, d, w, q, and send them with
+>> .config and dmesg (gzipped or as attachments to the bugzilla report).
+>
+> Ok, I dig a little in the 2.6.27.10 kernel and I've taken the newest  
+> driver (ver 8.012.00) from the realtek website.
+> Sorry - I haven't tested it under 2.6.30, because I had to fix it just  
+> for 2.6.27.10.
+>
+> I investigated this problem and I noticed that probably there is problem  
+> with rtnl_lock().
+> Below there is backtrace for three tasks I've got from logs:
+...
+> I've made some patch for r8168 driver and it seems it works, but I'm not  
+> sure if I did it correctly or if it isn't too dangerous solution :)
+> The patch is in attachment. With this patch the "ifenslave" command  
+> doesn't hang as earlier.
+> Can anyone review it?
+>
+I didn't verify this (is it an out of tree driver?), but it's quite
+probable. This type of bug was fixed a while ago in most drivers, and
+if this one is similar to r8169 you could probably try to move this
+flush_scheduled_work() to the .remove callback because it works a bit
+different than cancel_delayed_work() (or cancel_delayed_work_sync()
+which should be more reliable).
 
-I haven't been able to reproduce the original oops though (been trying
-to cat the stats sysfs files while rmmoding veth, to no avail, and haven't
-found an original bug report or testcase), so can't verify whether this patch
-prevents the original oops.
+Btw., this type of bugs should be reported by lockdep (with a config
+option I mentioned earlier).
 
-Does this look sufficient?
+Jarek P.
 
-thanks,
--serge
+>
+> sdrb
+>
 
->From a8eb0950b47ff6c5dfe2debafbd203dcced75bd3 Mon Sep 17 00:00:00 2001
-From: root <root@elm3b203.beaverton.ibm.com>
-Date: Wed, 24 Jun 2009 20:26:17 -0700
-Subject: [PATCH 1/1] veth: don't free priv->status until dev->destructor (v2)
+> --- r8168_n.c	2009-04-21 05:05:33.000000000 +0200
+> +++ r8168_n.c	2009-06-26 15:04:12.988842186 +0200
+> @@ -5752,7 +5752,7 @@ rtl8168_down(struct net_device *dev)
+>  	rtl8168_delete_esd_timer(dev, &tp->esd_timer);
+>  	rtl8168_delete_link_timer(dev, &tp->link_timer);
+>  
+> -	flush_scheduled_work();
+> +	cancel_delayed_work(&tp->task);
+>  
+>  #ifdef CONFIG_R8168_NAPI
+>  #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 
-Since commit ae0e8e82205c903978a79ebf5e31c670b61fa5b4, priv->status
-has been freed at veth_close().  But that causes a NULL deref at
-veth_xmit.  This patch moves priv->status free back to the device
-destructor.  It also tries to prevent the original possible
-sysfs-induced oops.  All the stats are now gathered within one rcu
-cycle, while the device free hook first sets the device stats struct to
-NULL, waits an rcu cycle before freeing
-it.
-
-Changelog:
-	June 26: try to fix the original oops.
-
-Signed-off-by: Serge Hallyn <serue@us.ibm.com>
----
- drivers/net/veth.c |   22 ++++++++++++++++++----
- 1 files changed, 18 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 87197dd..112add0 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -208,7 +208,7 @@ rx_drop:
- 
- static struct net_device_stats *veth_get_stats(struct net_device *dev)
- {
--	struct veth_priv *priv = netdev_priv(dev);
-+	struct veth_priv *priv;
- 	struct net_device_stats *dev_stats = &dev->stats;
- 	unsigned int cpu;
- 	struct veth_net_stats *stats;
-@@ -220,6 +220,8 @@ static struct net_device_stats *veth_get_stats(struct net_device *dev)
- 	dev_stats->tx_dropped = 0;
- 	dev_stats->rx_dropped = 0;
- 
-+	rcu_read_lock();
-+	priv = netdev_priv(dev);
- 	if (priv->stats)
- 		for_each_online_cpu(cpu) {
- 			stats = per_cpu_ptr(priv->stats, cpu);
-@@ -231,6 +233,7 @@ static struct net_device_stats *veth_get_stats(struct net_device *dev)
- 			dev_stats->tx_dropped += stats->tx_dropped;
- 			dev_stats->rx_dropped += stats->rx_dropped;
- 		}
-+	rcu_read_unlock();
- 
- 	return dev_stats;
- }
-@@ -257,8 +260,6 @@ static int veth_close(struct net_device *dev)
- 	netif_carrier_off(dev);
- 	netif_carrier_off(priv->peer);
- 
--	free_percpu(priv->stats);
--	priv->stats = NULL;
- 	return 0;
- }
- 
-@@ -299,6 +300,19 @@ static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_set_mac_address = eth_mac_addr,
- };
- 
-+static void veth_dev_free(struct net_device *dev)
-+{
-+	struct veth_priv *priv;
-+	struct veth_net_stats *stats;
-+
-+	priv = netdev_priv(dev);
-+	stats = priv->stats;
-+	priv->stats = NULL;
-+	synchronize_rcu();
-+	free_percpu(stats);
-+	free_netdev(dev);
-+}
-+
- static void veth_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-@@ -306,7 +320,7 @@ static void veth_setup(struct net_device *dev)
- 	dev->netdev_ops = &veth_netdev_ops;
- 	dev->ethtool_ops = &veth_ethtool_ops;
- 	dev->features |= NETIF_F_LLTX;
--	dev->destructor = free_netdev;
-+	dev->destructor = veth_dev_free;
- }
- 
- /*
--- 
-1.6.2.3
