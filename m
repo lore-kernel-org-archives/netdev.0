@@ -1,192 +1,331 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 13617] New: GRO:__napi_complete from
- net_rx_action crash
-Date: Fri, 26 Jun 2009 10:24:58 -0700 (PDT)
-Message-ID: <20090626.102458.96012087.davem@davemloft.net>
-References: <bug-13617-10286@http.bugzilla.kernel.org/>
-	<20090625122915.eedcea39.akpm@linux-foundation.org>
-	<4A4501D7.8050301@qlogic.com>
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
+Date: Fri, 26 Jun 2009 19:26:29 +0200
+Message-ID: <4A4504C5.70306@itcare.pl>
+References: <4A439C6B.9090502@itcare.pl> <4A43E9F1.90209@cosmosbay.com> <4A43F1A2.3090108@itcare.pl> <4A440019.3020009@gmail.com> <4A449DAD.9030606@itcare.pl> <4A44A41A.6080608@gmail.com> <4A44A728.1000202@itcare.pl> <4A44A87A.4010601@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	amit.salecha@qlogic.com, herbert@gondor.apana.org.au
-To: dhananjay.phadke@qlogic.com
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51647
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754997AbZFZRYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 13:24:54 -0400
-In-Reply-To: <4A4501D7.8050301@qlogic.com>
+Received: from smtp.iq.pl ([86.111.241.19]:39035 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750951AbZFZR0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Jun 2009 13:26:31 -0400
+In-Reply-To: <4A44A87A.4010601@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Date: Fri, 26 Jun 2009 10:13:59 -0700
 
-> mea culpa, likely driver can wait more for rx to drain
-> so that we race with napi disable.
-> 
-> Although, I have question for Dave. If napi code is
-> anyway forcing napi completion, should it not flush
-> gro flows also? This code predates GRO.
+> OK thanks
+>
+> Please report (while machine has enough load) output of
+>
+> rtstat -c20 -i1
+>
+> (rtstat is a symbolic link to lnstat, if not provided by your distro)
+>
+>
+>
+>   
 
-I think there are some reasons, but Herbert Xu is more likely
-to remember than I am, CC:'d :-)
+here you have
+rtstat  -i 1 -c 20
+rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
+ entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
+out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
+        |        |     tot|      mc|     ute|        |  an_dst|  
+an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
+_search|t_search|
+   93362|22930850| 1671866|       0|    1369|       2|       0|       
+0|   53432|    1324|       0|       0|       0|       0|       0| 
+4783896|   11985|
+   92067|  101426|    5315|       0|       2|       0|       0|       
+0|     258|       2|       0|       0|       0|       0|       0|   
+21893|       6|
+   90561|  100094|    4666|       0|       6|       0|       0|       
+0|     267|       1|       0|       0|       0|       0|       0|   
+23433|      30|
+   90101|   98672|    5630|       0|       2|       0|       0|       
+0|     253|       0|       0|       0|       0|       0|       0|   
+24386|      34|
+   89994|   99962|    5654|       0|       6|       0|       0|       
+0|     266|       2|       0|       0|       0|       0|       0|   
+26251|      38|
+   95209|   91974|   14860|       0|       9|       0|       0|       
+0|     236|      31|       0|       0|       0|       0|       0|   
+14238|      35|
+   95323|  101714|   10126|       0|      14|       0|       0|       
+0|     255|       9|       0|       0|       0|       0|       0|    
+8532|      21|
+   94814|   99918|    8539|       0|       5|       0|       0|       
+0|     258|       4|       0|       0|       0|       0|       0|   
+11069|      24|
+   98510|   93929|   12672|       0|      13|       0|       0|       
+0|     238|      31|       0|       0|       0|       0|       0|   
+12704|      34|
+   98983|   96131|   11128|       0|      12|       0|       0|       
+0|     252|      10|       0|       0|       0|       0|       0|    
+7142|      18|
+   98824|   99036|    8995|       0|       5|       0|       0|       
+0|     256|       3|       0|       0|       0|       0|       0|    
+9343|      16|
+   97868|  100032|    7544|       0|       5|       0|       0|       
+0|     254|       1|       0|       0|       0|       0|       0|   
+11902|      17|
+   96929|  101942|    6722|       0|       7|       0|       0|       
+0|     263|       3|       0|       0|       0|       0|       0|   
+13778|      46|
+   95932|  100725|    6217|       0|       4|       0|       0|       
+0|     259|       3|       0|       0|       0|       0|       0|   
+15175|      47|
+   94432|  102074|    5549|       0|       7|       0|       0|       
+0|     268|       2|       0|       0|       0|       0|       0|   
+16996|      54|
+   92986|  103602|    5187|       0|       3|       0|       0|       
+0|     260|       0|       0|       0|       0|       0|       0|   
+18333|      43|
+   91387|  103934|    4666|       0|       6|       0|       0|       
+0|     261|       3|       0|       0|       0|       0|       0|   
+19316|      46|
+   90615|  104916|    5333|       0|       5|       0|       0|       
+0|     260|       4|       0|       0|       0|       0|       0|   
+21376|      48|
+   89941|  101375|    5189|       0|       8|       0|       0|       
+0|     270|       0|       0|       0|       0|       0|       0|   
+22249|      47|
+   89744|  101425|    5529|       0|       6|       0|       0|       
+0|     263|       4|       0|       0|       0|       0|       0|   
+24089|      57|
 
-> Andrew Morton wrote:
->> 
->> (switched to email.  Please respond via emailed reply-to-all, not via the
->> bugzilla web interface).
->> 
->> 
->> netdev core crashed.  The netxen driver may be implicated.
->> 
->> 
->> Why did amit@netxen.com create this bug report?  Isn't Dhananjay
->> sitting in the next cube?  Perhaps you believe that the driver is OK
->> and that the bug lies in the netdev core?
->> 
->> 
->> 
->> On Thu, 25 Jun 2009 06:55:14 GMT
->> bugzilla-daemon@bugzilla.kernel.org wrote:
->> 
->>> http://bugzilla.kernel.org/show_bug.cgi?id=13617
->>>
->>>            Summary: GRO:__napi_complete from net_rx_action crash
->>>            Product: Drivers
->>>            Version: 2.5
->>>           Platform: All
->>>         OS/Version: Linux
->>>               Tree: Mainline
->>>             Status: NEW
->>>           Severity: normal
->>>           Priority: P1
->>>          Component: Network
->>>         AssignedTo: drivers_network@kernel-bugs.osdl.org
->>>         ReportedBy: amit@netxen.com
->>>         Regression: No
->>>
->>>
->>> In net_rx_action, there is check if napi_disable_pending then call
->>> __napi_complete.
->>> In __napi_complete, there is BUG_ON(n->gro_list);
->>> Which has hit in below bug dump.
->>> Why __napi_complete is called from net_rx_action instead of napi_complete.
->>> napi_complete flushes the gro list.
->>>
->>> Below code excerpt from net_rx_action 
->>> http://lxr.linux.no/linux+v2.6.30/net/core/dev.c#L2736
->>>
->>>    if (unlikely(work == weight)) {
->>> 2791       if (unlikely(napi_disable_pending(n)))
->>> 2792              __napi_complete(n);
->>> 2793        else
->>> 2794              list_move_tail(&n->poll_list, list);
->>> 2795   }
->>>
->>> ------------[ cut here ]------------
->>> kernel BUG at net/core/dev.c:2672!
->>> invalid opcode: 0000 [#1] SMP 
->>> last sysfs file: /sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
->>> CPU 2 
->>> Modules linked in: netxen_nic nfs lockd nfs_acl auth_rpcgss ipv6 deflate
->>> zlib_deflate ctr twofish twofish_common serpent blowfish des_generic cbc
->>> aes_x86_64 aes_generic xcbc sha256_generic md5 crypto_null af_key autofs4
->>> sunrpc iscsi_tcp libiscsi_tcp libiscsi scsi_transport_iscsi dm_mirror
->>> dm_region_hash dm_log dm_multipath dm_mod video output sbs sbshc pci_slot
->>> battery acpi_memhotplug ac parport ipmi_devintf ide_cd_mod rtc_cmos bnx2 cdrom
->>> serio_raw ipmi_si rtc_core button ipmi_msghandler iTCO_wdt rtc_lib shpchp hpilo
->>> hpwdt i5000_edac pcspkr edac_core ata_piix libata sd_mod scsi_mod cciss ext3
->>> jbd uhci_hcd ohci_hcd ehci_hcd [last unloaded: microcode]
->>> Pid: 0, comm: swapper Tainted: G        W  2.6.30 #1 ProLiant DL380 G5
->>> RIP: 0010:[<ffffffff8043b128>]  [<ffffffff8043b128>] __napi_complete+0x15/0x25
->>> RSP: 0018:ffff880028139eb0  EFLAGS: 00010086
->>> RAX: ffff88023d4056b8 RBX: ffff88023d4056a8 RCX: 0000000002202318
->>> RDX: 00000000001b0000 RSI: ffff880028139d98 RDI: ffff88023d4056a8
->>> RBP: 0000000000000080 R08: 0000000002200000 R09: 000006de15931680
->>> R10: ffffc20011a32318 R11: 0000000000000005 R12: 0000000000000000
->>> R13: ffff8800281440e0 R14: 0000000000000080 R15: 000000000000012c
->>> FS:  0000000000000000(0000) GS:ffff880028136000(0000) knlGS:0000000000000000
->>> CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
->>> CR2: 00000000008cb530 CR3: 000000023d9ab000 CR4: 00000000000006e0
->>> Jun 23 23:41:27 DR0: 0000000000000000 DR1: 0000000000000000 DR2:
->>> 0000000000000000
->>> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->>> Process swapper (pid: 0, threadinfo ffff88023ed28000, task ffff88023ed27570)
->>> Stack:
->>>  ffff88023d4056a8 ffffffff8043ec9f 0000000000000001dut4146 last mes
->>> 000000010004f429
->>>  ffff88023d4056b8sage repeated 6  0000000000000046 0000000000000001
->>> 0000000000000100times
->>> Jun 23 23
->>>  ffffffff8069a098 0000000000000018 000000000000000a:41:32 dut4146 k
->>> ffffffff8023eba6
->>> ernel: BUG: scheCall Trace:
->>> duling while ato <IRQ> <0>mic: swapper/0/0 [<ffffffff8043ec9f>] ?
->>> net_rx_action+0xf0/0x162
->>>  [<ffffffff8023eba6>] ? __do_softirq+0xa3/0x163
->>>  [<ffffffff8020ca7c>] ? call_softirq+0x1c/0x28
->>> x10000100
->>> Jun 2 [<ffffffff8020dc1a>] ? do_softirq+0x2c/0x68
->>>  [<ffffffff8023eac6>] ? irq_exit+0x3f/0x7c
->>>  [<ffffffff8020d46b>] ? do_IRQ+0xa9/0xbf
->>> 3 23:41:32 dut41 [<ffffffff8020c353>] ? ret_from_intr+0x0/0xa
->>>  <EOI> 46 kernel: Modul<0> [<ffffffff80220e41>] ?
->>> hpet_legacy_next_event+0x0/0x7
->>> es linked in: ne [<ffffffff80386e2c>] ? acpi_hw_register_read+0x52/0xe5
->>>  [<ffffffff80394b2a>] ? acpi_idle_enter_simple+0x120/0x14e
->>>  [<ffffffff80394b20>] ? acpi_idle_enter_simple+0x116/0x14e
->>>  [<ffffffff8039486b>] ? acpi_idle_enter_bm+0xd5/0x274
->>>  [<ffffffff8041c020>] ? cpuidle_idle_call+0x7f/0xbb
->>>  [<ffffffff8020aaa5>] ? cpu_idle+0x4a/0x6d
->>> Code: txen_nic nfs loc48 8d kd nfs_acl auth_43 70 48 rpcgss ipv6 defl39 c2 ate
->>> zlib_deflate0f  ctr twofish two18 0e 75 fish_common serpdf ent blowfish des31
->>> c9 41 _generic cbc aes58 5b _x86_64 aes_gene5d 48 89 ric xcbc sha256_c8 c3
->>> generic md5 cryp53 f6 to_null af_key a47 10 01 utofs4 sunrpc is48 89 fb csi_tcp
->>> libiscsi75 04 _tcp libiscsi sc0f 0b eb si_transport_iscfe 48 83 si dm_mirror
->>> dm_7f 50 region_hash dm_l00 74 04 og dm_multipath <0f> dm_mod video out0b eb
->>> put sbs sbshc pcfe e8 i_slot battery a1f cpi_memhotplug a10 f1 ff c parport
->>> ipmi_df0 80 evintf ide_cd_mo63 10 fe d rtc_cmos bnx2 5b c3 cdrom serio_raw 53
->>> 48 89 ipmi_si rtc_corefb e8 
->>>  button ipmi_msgRIP  [<ffffffff8043b128>] __napi_complete+0x15/0x25
->>>  RSP <ffff880028139eb0>
->>> ---[ end trace 9c6b22b26aefd1b1 ]---
->>> handler iTCO_wdtKernel panic - not syncing: Fatal exception in interrupt
->>> Pid: 0, comm: swapper Tainted: G      D W  2.6.30 #1
->>> Call Trace:
->>>  <IRQ>  [<ffffffff8023a3b5>] ? panic+0x86/0x134
->>>  [<ffffffff8020e348>] ? show_registers+0x211/0x21d
->>>  [<ffffffff8024f5ea>] ? up+0xe/0x36
->>>  [<ffffffff8023a9db>] ? release_console_sem+0x174/0x18e
->>>  [<ffffffff804bdd54>] ? oops_end+0xa0/0xad
->>>  [<ffffffff8020cf2c>] ? do_invalid_op+0x85/0x8f
->>>  [<ffffffff8043b128>] ? __napi_complete+0x15/0x25
->>>  [<ffffffffa03ebfe2>] ? netxen_nic_hw_write_wx_2M+0x24/0xa8 [netxen_nic]
->>>  [<ffffffffa03ef866>] ? netxen_process_rcv_ring+0x4eb/0x501 [netxen_nic]
->>>  rtc_lib shpchp  [<ffffffff8020c715>] ? invalid_op+0x15/0x20
->>>  [<ffffffff8043b128>] ? __napi_complete+0x15/0x25
->>>  [<ffffffff8043ec9f>] ? net_rx_action+0xf0/0x162
->>>  [<ffffffff8023eba6>] ? __do_softirq+0xa3/0x163
->>>  [<ffffffff8020ca7c>] ? call_softirq+0x1c/0x28
->>>  [<ffffffff8020dc1a>] ? do_softirq+0x2c/0x68
->>>  [<ffffffff8023eac6>] ? irq_exit+0x3f/0x7c
->>>  [<ffffffff8020d46b>] ? do_IRQ+0xa9/0xbf
->>>  [<ffffffff8020c353>] ? ret_from_intr+0x0/0xa
->>>  <EOI>  [<ffffffff80220e41>] ? hpet_legacy_next_event+0x0/0x7
->>>  [<ffffffff80386e2c>] ? acpi_hw_register_read+0x52/0xe5
->>>  [<ffffffff80394b2a>] ? acpi_idle_enter_simple+0x120/0x14e
->>>  [<ffffffff80394b20>] ? acpi_idle_enter_simple+0x116/0x14e
->>>  [<ffffffff8039486b>] ? acpi_idle_enter_bm+0xd5/0x274
->>>  [<ffffffff8041c020>] ? cpuidle_idle_call+0x7f/0xbb
->>>  [<ffffffff8020aaa5>] ? cpu_idle+0x4a/0x6d
->>>
->>> -- 
->>> Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
->>> ------- You are receiving this mail because: -------
->>> You are on the CC list for the bug.
->> 
->> Checked by AVG - www.avg.com 
->> Version: 8.5.374 / Virus Database: 270.12.91/2201 - Release Date: 06/25/09 17:58:00
+
+ath the same time cpu load
+19:24:34     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:35     all    0.00    0.00    0.00    0.00    1.39   20.36    
+0.00    0.00   78.25
+19:24:35       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:35       1    0.00    0.00    0.00    0.00    5.00   74.00    
+0.00    0.00   21.00
+19:24:35       2    0.00    0.00    0.00    0.00    5.00   73.00    
+0.00    0.00   22.00
+19:24:35       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:35       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:35       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:35       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:35       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:35     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:36     all    0.00    0.00    0.00    0.00    1.21   16.03    
+0.00    0.00   82.77
+19:24:36       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:36       1    0.00    0.00    0.00    0.00    5.05   75.76    
+0.00    0.00   19.19
+19:24:36       2    0.00    0.00    0.99    0.00    5.94   69.31    
+0.00    0.00   23.76
+19:24:36       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:36       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:36       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:36       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:36       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:36     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:37     all    0.00    0.00    0.14    0.00    1.64   20.19    
+0.00    0.00   78.04
+19:24:37       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:37       1    0.00    0.00    0.00    0.00    5.94   73.27    
+0.00    0.00   20.79
+19:24:37       2    0.00    0.00    0.00    0.00    7.00   75.00    
+0.00    0.00   18.00
+19:24:37       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:37       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:37       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:37       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:37       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:37     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:38     all    0.00    0.00    0.00    0.00    0.90   14.24    
+0.00    0.00   84.86
+19:24:38       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:38       1    0.00    0.00    0.00    0.00    4.00   73.00    
+0.00    0.00   23.00
+19:24:38       2    0.00    0.00    0.00    0.00    5.05   69.70    
+0.00    0.00   25.25
+19:24:38       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:38       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:38       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:38       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:38       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:38     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:39     all    0.00    0.00    0.00    0.00    2.43   29.80    
+0.00    0.00   67.77
+19:24:39       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:39       1    0.00    0.00    0.00    0.00    5.00   67.00    
+0.00    0.00   28.00
+19:24:39       2    0.00    0.00    0.00    0.00    5.94   67.33    
+0.00    0.00   26.73
+19:24:39       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:39       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:39       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:39       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:39       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:39     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:40     all    0.00    0.00    0.00    0.00    1.43   14.15    
+0.00    0.00   84.42
+19:24:40       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:40       1    0.00    0.00    0.00    0.00    5.94   68.32    
+0.00    0.00   25.74
+19:24:40       2    0.00    0.00    0.00    0.00    7.07   71.72    
+0.00    0.00   21.21
+19:24:40       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:40       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:40       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:40       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:40       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+19:24:40     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
+%steal  %guest   %idle
+19:24:41     all    0.00    0.00    0.00    0.00    1.40   17.68    
+0.00    0.00   80.92
+19:24:41       0    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:41       1    0.00    0.00    0.00    0.00    6.06   70.71    
+0.00    0.00   23.23
+19:24:41       2    0.00    0.00    0.00    0.00    5.88   67.65    
+0.00    0.00   26.47
+19:24:41       3    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:41       4    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:41       5    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:41       6    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+19:24:41       7    0.00    0.00    0.00    0.00    0.00    0.00    
+0.00    0.00  100.00
+
+cat /proc/interrupts
+           CPU0       CPU1       CPU2       CPU3       CPU4       
+CPU5       CPU6       CPU7
+  0:         42          0          0          1          0          
+1          0          0   IO-APIC-edge      timer
+  1:          0          0          0          1          0          
+0          0          1   IO-APIC-edge      i8042
+  9:          0          0          0          0          0          
+0          0          0   IO-APIC-fasteoi   acpi
+ 14:          0          0          0          0          0          
+0          0          0   IO-APIC-edge      ide0
+ 15:          0          0          0          0          0          
+0          0          0   IO-APIC-edge      ide1
+ 29:    1139988    4692793      89662          3          0          
+1          0          3   PCI-MSI-edge      eth0
+ 30:          0          2    6207546          1          0          
+3          0          0   PCI-MSI-edge      eth1
+ 31:          0          1          1          0          0          
+0          0          0   PCI-MSI-edge
+ 32:          0          0          0          0          0          
+0          2          0   PCI-MSI-edge
+ 33:          1          1          0          0          0          
+0          0          0   PCI-MSI-edge
+ 34:          0          0          0          1          0          
+1          0          0   PCI-MSI-edge
+ 35:          0          0          0          1          0          
+0          0          1   PCI-MSI-edge
+ 36:          0          0          0          0          1          
+0          0          1   PCI-MSI-edge
+ 37:          1          0          0          0          0          
+1          0          0   PCI-MSI-edge
+ 38:          0          0          1          0          1          
+0          0          0   PCI-MSI-edge
+ 39:          0          0          2          0          0          
+0          0          0   PCI-MSI-edge
+ 40:          0          0          0          0          0          
+0          2          0   PCI-MSI-edge
+ 41:          0          2          0          0          0          
+0          0          0   PCI-MSI-edge
+ 42:          0          0          0          0          0          
+2          0          0   PCI-MSI-edge
+ 43:          0          0          0          2          0          
+0          0          0   PCI-MSI-edge
+ 44:          0          0          0          0          0          
+0          0          2   PCI-MSI-edge
+ 45:          2          0          0          0          0          
+0          0          0   PCI-MSI-edge
+ 46:          0          0          0          0          2          
+0          0          0   PCI-MSI-edge
+ 48:        191        200        185        213        219        
+219        227        214   PCI-MSI-edge      ahci
+ 49:          0          1          1          0          0          
+2          1          0   PCI-MSI-edge      ioat-msi
+NMI:          0          0          0          0          0          
+0          0          0   Non-maskable interrupts
+LOC:    1083019    6233788    7735401      12394      15178      
+10718      21192       8515   Local timer interrupts
+RES:        921         44         33         20         13          
+8         10         12   Rescheduling interrupts
+CAL:         20         85         88         87         90         
+90         91         86   Function call interrupts
+TLB:        103        114        918        929         95        
+113        973        990   TLB shootdowns
+SPU:          0          0          0          0          0          
+0          0          0   Spurious interrupts
+ERR:          0
+MIS:          0
+
+i use smp_affinity
+eth0 is on cpu1
+eth1 is on cpu2
+
+all test on kernel 2.6.29.5
+
+and only one info in dmesg about Fix inflate_threshold
+Fix inflate_threshold_root. Now=15 size=11 bits
+
+This info appear when bgpd process start to learn routes from peers
+
+
+
