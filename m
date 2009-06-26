@@ -1,40 +1,36 @@
-From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
-Subject: Re: [2.6.31-rc1] iwlagn (4965): no wireless due to RFKILL problem
-Date: Fri, 26 Jun 2009 14:10:57 +0200
-Message-ID: <200906261410.58808.elendil@planet.nl>
-References: <200906261336.29318.elendil@planet.nl> <8db1092f0906260459n308311faweb6d9733cdd1eb13@mail.gmail.com>
+From: Dunhill Award <kevin_jones@rrohio.com>
+Subject: Mrs. Joan Thomas
+Date: Fri, 26 Jun 2009 7:24:27 -0500
+Message-ID: <7h9gbp$dkdgem@rrcs-agw-01b.hrndva.rr.com>
+Reply-To: t.s009@btinternet.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alan Jenkins <alan-jenkins-cCz0Lq7MMjm9FHfhHBbuYA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-To: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8db1092f0906260459n308311faweb6d9733cdd1eb13-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <info@org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hrndva-commlb.mail.rr.com ([71.74.57.8]:59771 "EHLO
+	hrndva-commlb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758313AbZFZMY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 08:24:27 -0400
+Received: from rrcs-agw-01.hrndva.rr.com ([24.28.200.151])
+          by hrndva-comm-mta02.mail.rr.com with ESMTP
+          id <20090626122430.YGVL17442.hrndva-comm-mta02.mail.rr.com@rrcs-agw-01.hrndva.rr.com>
+          for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 12:24:30 +0000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 26 June 2009, Maciej Rutecki wrote:
-> 2009/6/26 Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>:
-> > I've tried .31-rc1 on my HP 2510p notebook and the only problem I
-> > found was that wireless no longer works. The cause looks to be
-> > related to RFKILL.
->
-> Same on HP/Compaq nx6310, caused by hp-wmi module. It's disable
-> bluetooth and wireless. I must turn it on in Windows XP (in HP tools).
-> Workaround: don't load hp-wmi. Already I try find how enable it via
-> /sys like in Windows.
+The Sum Of =A3750,000.00 Pounds has been won by your EMAIL Address in o=
+ur DUNHILL Online Promo. Do get back to this office with your claims re=
+quirement such as
 
-Thanks for narrowing it down.
+1.Name
+2.Address
+3.Nationality
+4.Age
+5.Sex
+6.Occupation
+7.Phone/Fax
+8.Present Country
 
-Well, with 2.6.30 hp-wmi worked together with rfkill without problems.
-Looking at the commit logs, it looks like the rfkill rewrite by Johannes 
-and Alan is the cause here. CCs added.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sincerely
+Mrs. Joan Thomas
