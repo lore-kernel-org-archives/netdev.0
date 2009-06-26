@@ -1,62 +1,105 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] sky2: Fix checksum endianness
-Date: Fri, 26 Jun 2009 18:51:59 +0400
-Message-ID: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
+Date: Fri, 26 Jun 2009 17:10:52 +0200
+Message-ID: <20090626151051.GA2714@ami.dom.local>
+References: <4A43E9F1.90209@cosmosbay.com> <20090626080302.GB5204@ff.dom.local> <19012.37515.146191.198843@robur.slu.se> <20090626093727.GA6832@ff.dom.local> <19012.49700.908412.410984@robur.slu.se> <20090626125449.GA8897@ff.dom.local> <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
+	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Robert Olsson <robert@robur.slu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:52365 "EHLO
+	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751722AbZFZPLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 11:11:14 -0400
+Received: by fxm9 with SMTP id 9so2162905fxm.37
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 08:11:16 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <19012.53943.734747.493480@robur.slu.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sky2 driver on PowerPC targets floods kernel log with following errors:
+On Fri, Jun 26, 2009 at 03:52:55PM +0200, Robert Olsson wrote:
+> 
+> Jarek Poplawski writes:
+> 
+>  Thanks, 
+> 
+>  Should be worth testing so we synchronize_rcu instead of doing call_rcu's
+>  
 
-  eth1: hw csum failure.
-  Call Trace:
-  [ef84b8a0] [c00075e4] show_stack+0x50/0x160 (unreliable)
-  [ef84b8d0] [c02fa178] netdev_rx_csum_fault+0x3c/0x5c
-  [ef84b8f0] [c02f6920] __skb_checksum_complete_head+0x7c/0x84
-  [ef84b900] [c02f693c] __skb_checksum_complete+0x14/0x24
-  [ef84b910] [c0337e08] tcp_v4_rcv+0x4c8/0x6f8
-  [ef84b940] [c031a9c8] ip_local_deliver+0x98/0x210
-  [ef84b960] [c031a788] ip_rcv+0x38c/0x534
-  [ef84b990] [c0300338] netif_receive_skb+0x260/0x36c
-  [ef84b9c0] [c025de00] sky2_poll+0x5dc/0xcf8
-  [ef84ba20] [c02fb7fc] net_rx_action+0xc0/0x144
+Alas take 2 (nor 1) doesn't compile, so here it is again.
 
-The NIC is Yukon-2 EC chip revision 1.
+Thanks,
+Jarek P.
+--- (take 3 - for testing)
 
-Converting checksum field from le16 to CPU byte order fixes the issue.
+ net/ipv4/fib_trie.c |   30 ++++++++++++++++++++++++------
+ 1 files changed, 24 insertions(+), 6 deletions(-)
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/sky2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7681d28..daf961a 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2495,7 +2495,7 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
- 			if (likely(status >> 16 == (status & 0xffff))) {
- 				skb = sky2->rx_ring[sky2->rx_next].skb;
- 				skb->ip_summed = CHECKSUM_COMPLETE;
--				skb->csum = status & 0xffff;
-+				skb->csum = le16_to_cpu(status);
- 			} else {
- 				printk(KERN_NOTICE PFX "%s: hardware receive "
- 				       "checksum problem (status = %#x)\n",
--- 
-1.6.3.1
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 012cf5a..1a4c4b7 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -366,6 +366,17 @@ static void __tnode_vfree(struct work_struct *arg)
+ 	vfree(tn);
+ }
+ 
++static void __tnode_free(struct tnode *tn)
++{
++	size_t size = sizeof(struct tnode) +
++		      (sizeof(struct node *) << tn->bits);
++
++	if (size <= PAGE_SIZE)
++		kfree(tn);
++	else
++		vfree(tn);
++}
++
+ static void __tnode_free_rcu(struct rcu_head *head)
+ {
+ 	struct tnode *tn = container_of(head, struct tnode, rcu);
+@@ -402,7 +413,7 @@ static void tnode_free_flush(void)
+ 	while ((tn = tnode_free_head)) {
+ 		tnode_free_head = tn->tnode_free;
+ 		tn->tnode_free = NULL;
+-		tnode_free(tn);
++		__tnode_free(tn);
+ 	}
+ }
+ 
+@@ -1021,18 +1032,25 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+ 				      (struct node *)tn, wasfull);
+ 
+ 		tp = node_parent((struct node *) tn);
+-		tnode_free_flush();
+ 		if (!tp)
+ 			break;
+ 		tn = tp;
+ 	}
+ 
++	if (tnode_free_head) {
++		synchronize_rcu();
++		tnode_free_flush();
++	}
++
+ 	/* Handle last (top) tnode */
+-	if (IS_TNODE(tn))
++	if (IS_TNODE(tn)) {
+ 		tn = (struct tnode *)resize(t, (struct tnode *)tn);
+-
+-	rcu_assign_pointer(t->trie, (struct node *)tn);
+-	tnode_free_flush();
++		rcu_assign_pointer(t->trie, (struct node *)tn);
++		synchronize_rcu();
++		tnode_free_flush();
++	} else {
++		rcu_assign_pointer(t->trie, (struct node *)tn);
++	}
+ 
+ 	return;
+ }
