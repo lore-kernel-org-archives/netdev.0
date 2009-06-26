@@ -1,159 +1,45 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 09:23:40 -0700
-Message-ID: <20090626162340.GF6771@linux.vnet.ibm.com>
-References: <19012.37515.146191.198843@robur.slu.se> <20090626093727.GA6832@ff.dom.local> <19012.49700.908412.410984@robur.slu.se> <20090626125449.GA8897@ff.dom.local> <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se> <20090626151051.GA2714@ami.dom.local> <20090626153010.GC6771@linux.vnet.ibm.com> <20090626155410.GA6526@ami.dom.local> <20090626161500.GB6526@ami.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: Fix checksum endianness
+Date: Fri, 26 Jun 2009 09:28:58 -0700 (PDT)
+Message-ID: <20090626.092858.64239359.davem@davemloft.net>
+References: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <robert@robur.slu.se>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
-	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org
+To: avorontsov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:47019 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760829AbZFZQXj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2009 12:23:39 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n5QGIXZS001434
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 12:18:33 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n5QGNgQ5257868
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 12:23:42 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n5QGNfg6015533
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 12:23:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20090626161500.GB6526@ami.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41867
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750784AbZFZQ2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 12:28:53 -0400
+In-Reply-To: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 26, 2009 at 06:15:00PM +0200, Jarek Poplawski wrote:
-> On Fri, Jun 26, 2009 at 05:54:10PM +0200, Jarek Poplawski wrote:
-> > On Fri, Jun 26, 2009 at 08:30:10AM -0700, Paul E. McKenney wrote:
-> > > On Fri, Jun 26, 2009 at 05:10:52PM +0200, Jarek Poplawski wrote:
-> > > > On Fri, Jun 26, 2009 at 03:52:55PM +0200, Robert Olsson wrote:
-> > > > > 
-> > > > > Jarek Poplawski writes:
-> > > > > 
-> > > > >  Thanks, 
-> > > > > 
-> > > > >  Should be worth testing so we synchronize_rcu instead of doing call_rcu's
-> > > > >  
-> > > > 
-> > > > Alas take 2 (nor 1) doesn't compile, so here it is again.
-> > > 
-> > > So the idea is to balance memory and latency, so that large changes
-> > > (those affecting the root node) get at least one synchronize_rcu(),
-> > > while smaller changes just use call_rcu(), correct?  This means that
-> > > the amount of memory awaiting an RCU grace period is limited, but
-> > > the algorithm avoids per-node synchronize_rcu() overhead.
-> > > 
-> > > If I understand the goal correctly, looks good!  (Give or take my
-> > > limited understanding of fib_trie and is usage, of course.)
-> > 
-> > The goal is practically to replace all call_rcu() during
-> > trie_rebalance() with synchronize_rcu() (except some freeing after
-> > ENOMEM). I guess currently (<= 2.6.30) call_rcu() can free this
-> > memory after trie_rebalance() has finished, that's why there were
-> > problems with enabled preemption. So this patch tries to do/force
-> > this a bit earlier - at least before the top/largest node is
-> > rebalanced.
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Fri, 26 Jun 2009 18:51:59 +0400
+
+> sky2 driver on PowerPC targets floods kernel log with following errors:
 > 
-> On the other hand, we could probably stay with call_rcu() plus only
-> one synchronize_rcu() before the top node's resize() if you think it's
-> enough here?
-
-Well, my first task is to understand the problem/goal.  ;-)
-
-My guess from what you said above is that use of call_rcu(), when
-combined with changes to the trie in rapid succession, is resulting
-in excessive memory awaiting a grace period.  Is this the case, or am I
-confused?
-
-							Thanx, Paul
-
-> Thanks,
-> Jarek P.
+>   eth1: hw csum failure.
+>   Call Trace:
+>   [ef84b8a0] [c00075e4] show_stack+0x50/0x160 (unreliable)
+>   [ef84b8d0] [c02fa178] netdev_rx_csum_fault+0x3c/0x5c
+>   [ef84b8f0] [c02f6920] __skb_checksum_complete_head+0x7c/0x84
+>   [ef84b900] [c02f693c] __skb_checksum_complete+0x14/0x24
+>   [ef84b910] [c0337e08] tcp_v4_rcv+0x4c8/0x6f8
+>   [ef84b940] [c031a9c8] ip_local_deliver+0x98/0x210
+>   [ef84b960] [c031a788] ip_rcv+0x38c/0x534
+>   [ef84b990] [c0300338] netif_receive_skb+0x260/0x36c
+>   [ef84b9c0] [c025de00] sky2_poll+0x5dc/0xcf8
+>   [ef84ba20] [c02fb7fc] net_rx_action+0xc0/0x144
 > 
-> > 
-> > > 
-> > > 							Thanx, Paul
-> > > 
-> > > > Thanks,
-> > > > Jarek P.
-> > > > --- (take 3 - for testing)
-> > > > 
-> > > >  net/ipv4/fib_trie.c |   30 ++++++++++++++++++++++++------
-> > > >  1 files changed, 24 insertions(+), 6 deletions(-)
-> > > > 
-> > > > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> > > > index 012cf5a..1a4c4b7 100644
-> > > > --- a/net/ipv4/fib_trie.c
-> > > > +++ b/net/ipv4/fib_trie.c
-> > > > @@ -366,6 +366,17 @@ static void __tnode_vfree(struct work_struct *arg)
-> > > >  	vfree(tn);
-> > > >  }
-> > > > 
-> > > > +static void __tnode_free(struct tnode *tn)
-> > > > +{
-> > > > +	size_t size = sizeof(struct tnode) +
-> > > > +		      (sizeof(struct node *) << tn->bits);
-> > > > +
-> > > > +	if (size <= PAGE_SIZE)
-> > > > +		kfree(tn);
-> > > > +	else
-> > > > +		vfree(tn);
-> > > > +}
-> > > > +
-> > > >  static void __tnode_free_rcu(struct rcu_head *head)
-> > > >  {
-> > > >  	struct tnode *tn = container_of(head, struct tnode, rcu);
-> > > > @@ -402,7 +413,7 @@ static void tnode_free_flush(void)
-> > > >  	while ((tn = tnode_free_head)) {
-> > > >  		tnode_free_head = tn->tnode_free;
-> > > >  		tn->tnode_free = NULL;
-> > > > -		tnode_free(tn);
-> > > > +		__tnode_free(tn);
-> > > >  	}
-> > > >  }
-> > > > 
-> > > > @@ -1021,18 +1032,25 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
-> > > >  				      (struct node *)tn, wasfull);
-> > > > 
-> > > >  		tp = node_parent((struct node *) tn);
-> > > > -		tnode_free_flush();
-> > > >  		if (!tp)
-> > > >  			break;
-> > > >  		tn = tp;
-> > > >  	}
-> > > > 
-> > > > +	if (tnode_free_head) {
-> > > > +		synchronize_rcu();
-> > > > +		tnode_free_flush();
-> > > > +	}
-> > > > +
-> > > >  	/* Handle last (top) tnode */
-> > > > -	if (IS_TNODE(tn))
-> > > > +	if (IS_TNODE(tn)) {
-> > > >  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
-> > > > -
-> > > > -	rcu_assign_pointer(t->trie, (struct node *)tn);
-> > > > -	tnode_free_flush();
-> > > > +		rcu_assign_pointer(t->trie, (struct node *)tn);
-> > > > +		synchronize_rcu();
-> > > > +		tnode_free_flush();
-> > > > +	} else {
-> > > > +		rcu_assign_pointer(t->trie, (struct node *)tn);
-> > > > +	}
-> > > > 
-> > > >  	return;
-> > > >  }
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The NIC is Yukon-2 EC chip revision 1.
+> 
+> Converting checksum field from le16 to CPU byte order fixes the issue.
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+
+Applied, thank you!
