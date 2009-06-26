@@ -1,85 +1,51 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 11:21:43 -0700
-Message-ID: <20090626182143.GN6771@linux.vnet.ibm.com>
-References: <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se> <20090626151051.GA2714@ami.dom.local> <20090626153010.GC6771@linux.vnet.ibm.com> <20090626155410.GA6526@ami.dom.local> <20090626161500.GB6526@ami.dom.local> <20090626162340.GF6771@linux.vnet.ibm.com> <20090626164557.GB6755@ami.dom.local> <20090626170538.GK6771@linux.vnet.ibm.com> <20090626180544.GA6908@ami.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jesper Dangaard Brouer <hawk-dAYI7NvHqcQ@public.gmane.org>
+Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
+Date: Fri, 26 Jun 2009 21:18:24 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
+References: <1245845367.24921.3.camel@localhost.localdomain>
+ <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com>
+ <1245930729.24921.67.camel@localhost.localdomain> <20090625.161046.19938291.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <robert@robur.slu.se>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
-	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:57835 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752169AbZFZSVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2009 14:21:41 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n5QIFHdv006205
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 14:15:17 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n5QILiWk245780
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 14:21:44 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n5QILhkq003414
-	for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 14:21:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090626180544.GA6908@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jesper Dangaard Brouer <jdb-4UpuNZONu4c@public.gmane.org>, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	catalin.marinas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090625.161046.19938291.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 26, 2009 at 08:05:45PM +0200, Jarek Poplawski wrote:
-> On Fri, Jun 26, 2009 at 10:05:38AM -0700, Paul E. McKenney wrote:
-> ...
-> > In that case, simply invoking synchronize_rcu() every once and awhile
-> > should take care of things.  This could be at the end of every large
-> > trie operation, or you could even count the call_rcu() invocations and
-> > do a synchronize_rcu() every 100th, 1,000th, or whatever, based on
-> > the amount of memory available.
-> 
-> OK, for now the minimal change for testing (2.6.30 needs previously
-> mentioned two commits from 2.6.31-rc). (I guess I'll send it with a
-> changelog after net-next is opened.)
+On Thu, 25 Jun 2009, David Miller wrote:
 
-Looks promising to me!!!
+> However, could you formally resubmit just the networking bits
+> as that would make life a lot easier for me.
 
-							Thanx, Paul
+As maintainer of now three kernel subsystems, you are allowed to push work 
+my way... And thanks to StGit (http://www.procode.org/stgit/) picking the 
+patchset a part is easy :-) (kudos to Catalin Marinas)
 
-> Thanks,
-> Jarek P.
-> --- (take 4 - for testing)
-> 
->  net/ipv4/fib_trie.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 012cf5a..98b31a1 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1008,7 +1008,7 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
->  {
->  	int wasfull;
->  	t_key cindex, key;
-> -	struct tnode *tp;
-> +	struct tnode *tp, *oldtnode = tn;
-> 
->  	key = tn->key;
-> 
-> @@ -1028,8 +1028,12 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
->  	}
-> 
->  	/* Handle last (top) tnode */
-> -	if (IS_TNODE(tn))
-> +	if (IS_TNODE(tn)) {
-> +		/* force memory freeing after last changes */
-> +		if (oldtnode != tn)
-> +			synchronize_rcu();
->  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
-> +	}
-> 
->  	rcu_assign_pointer(t->trie, (struct node *)tn);
->  	tnode_free_flush();
+I'll resubmit the patches to you and netdev, to limit the spam effect...
+
+Thus, you are getting 5 of the patches 02, 03, 04, 06 and 07.  And I have 
+added the Acked-by's.  And Patrick has already picked up the netfilter 
+patch.
+
+> Thanks a lot Jesper!
+You are welcome :-)
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
