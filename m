@@ -1,45 +1,129 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Fix checksum endianness
-Date: Fri, 26 Jun 2009 09:28:58 -0700 (PDT)
-Message-ID: <20090626.092858.64239359.davem@davemloft.net>
-References: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: [PATCH 1/1] veth: don't free priv->status until dev->destructor
+	(v2)
+Date: Fri, 26 Jun 2009 11:24:18 -0500
+Message-ID: <20090626162418.GA24828@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org
-To: avorontsov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41867
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750784AbZFZQ2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 12:28:53 -0400
-In-Reply-To: <20090626145159.GA2242@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Containers <containers@lists.osdl.org>,
+	Sachin Sant <sachinp@in.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, matthltc@us.ibm.com,
+	lkml <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758946AbZFZQd6@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Date: Fri, 26 Jun 2009 18:51:59 +0400
+Based on the commit msg on ae0e8e82205c903978a79ebf5e31c670b61fa5b4, it looks
+like oopses were caused when people were reading the veth dev stats while the
+module was being unloaded, causing a deref of freed memory in veth_get_stats()?
+If so, I believe the following patch (still against mainline, so not on top of
+my previous patch or on top of a git-revert of
+ae0e8e82205c903978a79ebf5e31c670b61fa5b)) should prevent that.  All the stats
+are gathered within one rcu cycle, while the device free hook first sets the
+device stats struct to NULL, waits an rcu cycle before freeing it.
 
-> sky2 driver on PowerPC targets floods kernel log with following errors:
-> 
->   eth1: hw csum failure.
->   Call Trace:
->   [ef84b8a0] [c00075e4] show_stack+0x50/0x160 (unreliable)
->   [ef84b8d0] [c02fa178] netdev_rx_csum_fault+0x3c/0x5c
->   [ef84b8f0] [c02f6920] __skb_checksum_complete_head+0x7c/0x84
->   [ef84b900] [c02f693c] __skb_checksum_complete+0x14/0x24
->   [ef84b910] [c0337e08] tcp_v4_rcv+0x4c8/0x6f8
->   [ef84b940] [c031a9c8] ip_local_deliver+0x98/0x210
->   [ef84b960] [c031a788] ip_rcv+0x38c/0x534
->   [ef84b990] [c0300338] netif_receive_skb+0x260/0x36c
->   [ef84b9c0] [c025de00] sky2_poll+0x5dc/0xcf8
->   [ef84ba20] [c02fb7fc] net_rx_action+0xc0/0x144
-> 
-> The NIC is Yukon-2 EC chip revision 1.
-> 
-> Converting checksum field from le16 to CPU byte order fixes the issue.
-> 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+I haven't been able to reproduce the original oops though (been trying
+to cat the stats sysfs files while rmmoding veth, to no avail, and haven't
+found an original bug report or testcase), so can't verify whether this patch
+prevents the original oops.
 
-Applied, thank you!
+Does this look sufficient?
+
+thanks,
+-serge
+
+>From a8eb0950b47ff6c5dfe2debafbd203dcced75bd3 Mon Sep 17 00:00:00 2001
+From: root <root@elm3b203.beaverton.ibm.com>
+Date: Wed, 24 Jun 2009 20:26:17 -0700
+Subject: [PATCH 1/1] veth: don't free priv->status until dev->destructor (v2)
+
+Since commit ae0e8e82205c903978a79ebf5e31c670b61fa5b4, priv->status
+has been freed at veth_close().  But that causes a NULL deref at
+veth_xmit.  This patch moves priv->status free back to the device
+destructor.  It also tries to prevent the original possible
+sysfs-induced oops.  All the stats are now gathered within one rcu
+cycle, while the device free hook first sets the device stats struct to
+NULL, waits an rcu cycle before freeing
+it.
+
+Changelog:
+	June 26: try to fix the original oops.
+
+Signed-off-by: Serge Hallyn <serue@us.ibm.com>
+---
+ drivers/net/veth.c |   22 ++++++++++++++++++----
+ 1 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 87197dd..112add0 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -208,7 +208,7 @@ rx_drop:
+ 
+ static struct net_device_stats *veth_get_stats(struct net_device *dev)
+ {
+-	struct veth_priv *priv = netdev_priv(dev);
++	struct veth_priv *priv;
+ 	struct net_device_stats *dev_stats = &dev->stats;
+ 	unsigned int cpu;
+ 	struct veth_net_stats *stats;
+@@ -220,6 +220,8 @@ static struct net_device_stats *veth_get_stats(struct net_device *dev)
+ 	dev_stats->tx_dropped = 0;
+ 	dev_stats->rx_dropped = 0;
+ 
++	rcu_read_lock();
++	priv = netdev_priv(dev);
+ 	if (priv->stats)
+ 		for_each_online_cpu(cpu) {
+ 			stats = per_cpu_ptr(priv->stats, cpu);
+@@ -231,6 +233,7 @@ static struct net_device_stats *veth_get_stats(struct net_device *dev)
+ 			dev_stats->tx_dropped += stats->tx_dropped;
+ 			dev_stats->rx_dropped += stats->rx_dropped;
+ 		}
++	rcu_read_unlock();
+ 
+ 	return dev_stats;
+ }
+@@ -257,8 +260,6 @@ static int veth_close(struct net_device *dev)
+ 	netif_carrier_off(dev);
+ 	netif_carrier_off(priv->peer);
+ 
+-	free_percpu(priv->stats);
+-	priv->stats = NULL;
+ 	return 0;
+ }
+ 
+@@ -299,6 +300,19 @@ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_set_mac_address = eth_mac_addr,
+ };
+ 
++static void veth_dev_free(struct net_device *dev)
++{
++	struct veth_priv *priv;
++	struct veth_net_stats *stats;
++
++	priv = netdev_priv(dev);
++	stats = priv->stats;
++	priv->stats = NULL;
++	synchronize_rcu();
++	free_percpu(stats);
++	free_netdev(dev);
++}
++
+ static void veth_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -306,7 +320,7 @@ static void veth_setup(struct net_device *dev)
+ 	dev->netdev_ops = &veth_netdev_ops;
+ 	dev->ethtool_ops = &veth_ethtool_ops;
+ 	dev->features |= NETIF_F_LLTX;
+-	dev->destructor = free_netdev;
++	dev->destructor = veth_dev_free;
+ }
+ 
+ /*
+-- 
+1.6.2.3
