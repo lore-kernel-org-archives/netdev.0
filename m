@@ -1,331 +1,54 @@
-From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Fri, 26 Jun 2009 19:26:29 +0200
-Message-ID: <4A4504C5.70306@itcare.pl>
-References: <4A439C6B.9090502@itcare.pl> <4A43E9F1.90209@cosmosbay.com> <4A43F1A2.3090108@itcare.pl> <4A440019.3020009@gmail.com> <4A449DAD.9030606@itcare.pl> <4A44A41A.6080608@gmail.com> <4A44A728.1000202@itcare.pl> <4A44A87A.4010601@gmail.com>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Fri, 26 Jun 2009 10:32:17 -0700 (PDT)
+Message-ID: <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com>
+References: <20090625122545.GA3625@jolsa.lab.eng.brq.redhat.com> <20090625122416.GA23613@redhat.com> <alpine.DEB.1.10.0906251827510.9517@makko.or.mcafeemobile.com> <4A442B65.8040701@gmail.com> <alpine.DEB.1.10.0906251858520.9517@makko.or.mcafeemobile.com>
+ <4A443033.8060401@gmail.com> <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626135742.GB3845@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	Tejun Heo <htejun@gmail.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:39035 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951AbZFZR0b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Jun 2009 13:26:31 -0400
-In-Reply-To: <4A44A87A.4010601@gmail.com>
+Received: from x35.xmailserver.org ([64.71.152.41]:49748 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbZFZRgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 13:36:19 -0400
+Received: from makko.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.26 ESMTP Server]
+	id <S2F3DC2> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Fri, 26 Jun 2009 13:35:57 -0400
+In-Reply-To: <20090626135742.GB3845@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 26 Jun 2009, Oleg Nesterov wrote:
 
-> OK thanks
+> And if we remove waitqueue_active() in xxx_update(), then lock/unlock is
+> not needed too.
 >
-> Please report (while machine has enough load) output of
->
-> rtstat -c20 -i1
->
-> (rtstat is a symbolic link to lnstat, if not provided by your distro)
->
->
->
->   
+> If xxx_poll() takes q->lock first, it can safely miss the changes in ->status
+> and schedule(): xxx_update() will take q->lock, notice the sleeper and wake
+> it up (ok, it will set ->triggered but this doesn't matter).
+> 
+> If xxx_update() takes q->lock first, xxx_poll() must see the changes in
+> status after poll_wait()->unlock(&q->lock) (in fact, after lock, not unlock).
 
-here you have
-rtstat  -i 1 -c 20
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
- entries|  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| 
-out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
-        |        |     tot|      mc|     ute|        |  an_dst|  
-an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| 
-_search|t_search|
-   93362|22930850| 1671866|       0|    1369|       2|       0|       
-0|   53432|    1324|       0|       0|       0|       0|       0| 
-4783896|   11985|
-   92067|  101426|    5315|       0|       2|       0|       0|       
-0|     258|       2|       0|       0|       0|       0|       0|   
-21893|       6|
-   90561|  100094|    4666|       0|       6|       0|       0|       
-0|     267|       1|       0|       0|       0|       0|       0|   
-23433|      30|
-   90101|   98672|    5630|       0|       2|       0|       0|       
-0|     253|       0|       0|       0|       0|       0|       0|   
-24386|      34|
-   89994|   99962|    5654|       0|       6|       0|       0|       
-0|     266|       2|       0|       0|       0|       0|       0|   
-26251|      38|
-   95209|   91974|   14860|       0|       9|       0|       0|       
-0|     236|      31|       0|       0|       0|       0|       0|   
-14238|      35|
-   95323|  101714|   10126|       0|      14|       0|       0|       
-0|     255|       9|       0|       0|       0|       0|       0|    
-8532|      21|
-   94814|   99918|    8539|       0|       5|       0|       0|       
-0|     258|       4|       0|       0|       0|       0|       0|   
-11069|      24|
-   98510|   93929|   12672|       0|      13|       0|       0|       
-0|     238|      31|       0|       0|       0|       0|       0|   
-12704|      34|
-   98983|   96131|   11128|       0|      12|       0|       0|       
-0|     252|      10|       0|       0|       0|       0|       0|    
-7142|      18|
-   98824|   99036|    8995|       0|       5|       0|       0|       
-0|     256|       3|       0|       0|       0|       0|       0|    
-9343|      16|
-   97868|  100032|    7544|       0|       5|       0|       0|       
-0|     254|       1|       0|       0|       0|       0|       0|   
-11902|      17|
-   96929|  101942|    6722|       0|       7|       0|       0|       
-0|     263|       3|       0|       0|       0|       0|       0|   
-13778|      46|
-   95932|  100725|    6217|       0|       4|       0|       0|       
-0|     259|       3|       0|       0|       0|       0|       0|   
-15175|      47|
-   94432|  102074|    5549|       0|       7|       0|       0|       
-0|     268|       2|       0|       0|       0|       0|       0|   
-16996|      54|
-   92986|  103602|    5187|       0|       3|       0|       0|       
-0|     260|       0|       0|       0|       0|       0|       0|   
-18333|      43|
-   91387|  103934|    4666|       0|       6|       0|       0|       
-0|     261|       3|       0|       0|       0|       0|       0|   
-19316|      46|
-   90615|  104916|    5333|       0|       5|       0|       0|       
-0|     260|       4|       0|       0|       0|       0|       0|   
-21376|      48|
-   89941|  101375|    5189|       0|       8|       0|       0|       
-0|     270|       0|       0|       0|       0|       0|       0|   
-22249|      47|
-   89744|  101425|    5529|       0|       6|       0|       0|       
-0|     263|       4|       0|       0|       0|       0|       0|   
-24089|      57|
+Sure. The snippet above was just to show what typically the code does, not 
+a suggestion on how to solve the socket case.
+But yeah, the problem in this case is the waitqueue_active() call. Without 
+that, the wait queue lock/unlock in poll_wait() and the one in wake_up() 
+guarantees the necessary barriers.
+Some might argue the costs of the lock/unlock of q->lock, and wonder if 
+MBs are a more efficient solution. This is something I'm not going into.
+To me, it just looked not right having cross-matching MB in different 
+subsystems.
 
 
-ath the same time cpu load
-19:24:34     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:35     all    0.00    0.00    0.00    0.00    1.39   20.36    
-0.00    0.00   78.25
-19:24:35       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:35       1    0.00    0.00    0.00    0.00    5.00   74.00    
-0.00    0.00   21.00
-19:24:35       2    0.00    0.00    0.00    0.00    5.00   73.00    
-0.00    0.00   22.00
-19:24:35       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:35       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:35       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:35       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:35       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
 
-19:24:35     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:36     all    0.00    0.00    0.00    0.00    1.21   16.03    
-0.00    0.00   82.77
-19:24:36       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:36       1    0.00    0.00    0.00    0.00    5.05   75.76    
-0.00    0.00   19.19
-19:24:36       2    0.00    0.00    0.99    0.00    5.94   69.31    
-0.00    0.00   23.76
-19:24:36       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:36       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:36       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:36       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:36       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-19:24:36     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:37     all    0.00    0.00    0.14    0.00    1.64   20.19    
-0.00    0.00   78.04
-19:24:37       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:37       1    0.00    0.00    0.00    0.00    5.94   73.27    
-0.00    0.00   20.79
-19:24:37       2    0.00    0.00    0.00    0.00    7.00   75.00    
-0.00    0.00   18.00
-19:24:37       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:37       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:37       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:37       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:37       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-19:24:37     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:38     all    0.00    0.00    0.00    0.00    0.90   14.24    
-0.00    0.00   84.86
-19:24:38       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:38       1    0.00    0.00    0.00    0.00    4.00   73.00    
-0.00    0.00   23.00
-19:24:38       2    0.00    0.00    0.00    0.00    5.05   69.70    
-0.00    0.00   25.25
-19:24:38       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:38       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:38       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:38       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:38       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-19:24:38     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:39     all    0.00    0.00    0.00    0.00    2.43   29.80    
-0.00    0.00   67.77
-19:24:39       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:39       1    0.00    0.00    0.00    0.00    5.00   67.00    
-0.00    0.00   28.00
-19:24:39       2    0.00    0.00    0.00    0.00    5.94   67.33    
-0.00    0.00   26.73
-19:24:39       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:39       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:39       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:39       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:39       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-19:24:39     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:40     all    0.00    0.00    0.00    0.00    1.43   14.15    
-0.00    0.00   84.42
-19:24:40       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:40       1    0.00    0.00    0.00    0.00    5.94   68.32    
-0.00    0.00   25.74
-19:24:40       2    0.00    0.00    0.00    0.00    7.07   71.72    
-0.00    0.00   21.21
-19:24:40       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:40       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:40       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:40       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:40       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-19:24:40     CPU    %usr   %nice    %sys %iowait    %irq   %soft  
-%steal  %guest   %idle
-19:24:41     all    0.00    0.00    0.00    0.00    1.40   17.68    
-0.00    0.00   80.92
-19:24:41       0    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:41       1    0.00    0.00    0.00    0.00    6.06   70.71    
-0.00    0.00   23.23
-19:24:41       2    0.00    0.00    0.00    0.00    5.88   67.65    
-0.00    0.00   26.47
-19:24:41       3    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:41       4    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:41       5    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:41       6    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-19:24:41       7    0.00    0.00    0.00    0.00    0.00    0.00    
-0.00    0.00  100.00
-
-cat /proc/interrupts
-           CPU0       CPU1       CPU2       CPU3       CPU4       
-CPU5       CPU6       CPU7
-  0:         42          0          0          1          0          
-1          0          0   IO-APIC-edge      timer
-  1:          0          0          0          1          0          
-0          0          1   IO-APIC-edge      i8042
-  9:          0          0          0          0          0          
-0          0          0   IO-APIC-fasteoi   acpi
- 14:          0          0          0          0          0          
-0          0          0   IO-APIC-edge      ide0
- 15:          0          0          0          0          0          
-0          0          0   IO-APIC-edge      ide1
- 29:    1139988    4692793      89662          3          0          
-1          0          3   PCI-MSI-edge      eth0
- 30:          0          2    6207546          1          0          
-3          0          0   PCI-MSI-edge      eth1
- 31:          0          1          1          0          0          
-0          0          0   PCI-MSI-edge
- 32:          0          0          0          0          0          
-0          2          0   PCI-MSI-edge
- 33:          1          1          0          0          0          
-0          0          0   PCI-MSI-edge
- 34:          0          0          0          1          0          
-1          0          0   PCI-MSI-edge
- 35:          0          0          0          1          0          
-0          0          1   PCI-MSI-edge
- 36:          0          0          0          0          1          
-0          0          1   PCI-MSI-edge
- 37:          1          0          0          0          0          
-1          0          0   PCI-MSI-edge
- 38:          0          0          1          0          1          
-0          0          0   PCI-MSI-edge
- 39:          0          0          2          0          0          
-0          0          0   PCI-MSI-edge
- 40:          0          0          0          0          0          
-0          2          0   PCI-MSI-edge
- 41:          0          2          0          0          0          
-0          0          0   PCI-MSI-edge
- 42:          0          0          0          0          0          
-2          0          0   PCI-MSI-edge
- 43:          0          0          0          2          0          
-0          0          0   PCI-MSI-edge
- 44:          0          0          0          0          0          
-0          0          2   PCI-MSI-edge
- 45:          2          0          0          0          0          
-0          0          0   PCI-MSI-edge
- 46:          0          0          0          0          2          
-0          0          0   PCI-MSI-edge
- 48:        191        200        185        213        219        
-219        227        214   PCI-MSI-edge      ahci
- 49:          0          1          1          0          0          
-2          1          0   PCI-MSI-edge      ioat-msi
-NMI:          0          0          0          0          0          
-0          0          0   Non-maskable interrupts
-LOC:    1083019    6233788    7735401      12394      15178      
-10718      21192       8515   Local timer interrupts
-RES:        921         44         33         20         13          
-8         10         12   Rescheduling interrupts
-CAL:         20         85         88         87         90         
-90         91         86   Function call interrupts
-TLB:        103        114        918        929         95        
-113        973        990   TLB shootdowns
-SPU:          0          0          0          0          0          
-0          0          0   Spurious interrupts
-ERR:          0
-MIS:          0
-
-i use smp_affinity
-eth0 is on cpu1
-eth1 is on cpu2
-
-all test on kernel 2.6.29.5
-
-and only one info in dmesg about Fix inflate_threshold
-Fix inflate_threshold_root. Now=15 size=11 bits
-
-This info appear when bgpd process start to learn routes from peers
-
+- Davide
 
 
