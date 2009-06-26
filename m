@@ -1,51 +1,62 @@
-From: Jesper Dangaard Brouer <hawk-dAYI7NvHqcQ@public.gmane.org>
-Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
-Date: Fri, 26 Jun 2009 21:18:24 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
-References: <1245845367.24921.3.camel@localhost.localdomain>
- <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com>
- <1245930729.24921.67.camel@localhost.localdomain> <20090625.161046.19938291.davem@davemloft.net>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [PATCH 0/5] rcu_barrier: Resubmitting the the networking bits
+Date: Fri, 26 Jun 2009 21:31:49 +0200
+Message-ID: <20090626192258.1724.76461.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jesper Dangaard Brouer <jdb-4UpuNZONu4c@public.gmane.org>, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	catalin.marinas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090625.161046.19938291.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:33566 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbZFZTbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 15:31:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Jun 2009, David Miller wrote:
+This patchset is a resubmit of the network related part of a patchseries
+titled "We must use rcu_barrier() on module unload".  Just to make it
+easier for DaveM to pick it up.
 
-> However, could you formally resubmit just the networking bits
-> as that would make life a lot easier for me.
+If an unloadable module uses RCU callbacks, it need to use
+rcu_barrier() so that the module may be safely unloaded.
 
-As maintainer of now three kernel subsystems, you are allowed to push work 
-my way... And thanks to StGit (http://www.procode.org/stgit/) picking the 
-patchset a part is easy :-) (kudos to Catalin Marinas)
+For documentation see:
 
-I'll resubmit the patches to you and netdev, to limit the spam effect...
+ Paul E. McKenney's Blog
+ http://paulmck.livejournal.com/7314.html
 
-Thus, you are getting 5 of the patches 02, 03, 04, 06 and 07.  And I have 
-added the Acked-by's.  And Patrick has already picked up the netfilter 
-patch.
+ http://lwn.net/Articles/217484/
 
-> Thanks a lot Jesper!
-You are welcome :-)
+ Documentation/RCU/rcubarrier.txt
 
-Cheers,
-   Jesper Brouer
+Patchset is made on top of Linus'es tree, 4075ea8c54a7506844a69f674990241e7766357b.
+But I have testet is applies to net-next-2.6.
 
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+
+Jesper Dangaard Brouer (5):
+      decnet: Use rcu_barrier() on module unload.
+      ipv6: Use rcu_barrier() on module unload.
+      sunrpc: Use rcu_barrier() on unload.
+      mac80211: Use rcu_barrier() on unload.
+      bridge: Use rcu_barrier() instead of syncronize_net() on unload.
+
+
+ net/bridge/br.c          |    2 +-
+ net/decnet/af_decnet.c   |    2 ++
+ net/ipv6/af_inet6.c      |    2 ++
+ net/mac80211/mesh.c      |    2 +-
+ net/sunrpc/sunrpc_syms.c |    1 +
+ 5 files changed, 7 insertions(+), 2 deletions(-)
+
+-- 
+Best regards,
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
