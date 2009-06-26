@@ -1,92 +1,152 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: hunging ifenslave command
-Date: Fri, 26 Jun 2009 18:36:15 +0200
-Message-ID: <20090626163615.GA6755@ami.dom.local>
-References: <4A3A3DEA.20602@onet.eu> <4A3CE5D5.8070308@gmail.com> <4A44D1FC.8090001@onet.eu>
+Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
+Date: Fri, 26 Jun 2009 18:45:57 +0200
+Message-ID: <20090626164557.GB6755@ami.dom.local>
+References: <20090626093727.GA6832@ff.dom.local> <19012.49700.908412.410984@robur.slu.se> <20090626125449.GA8897@ff.dom.local> <20090626132820.GB8897@ff.dom.local> <19012.53943.734747.493480@robur.slu.se> <20090626151051.GA2714@ami.dom.local> <20090626153010.GC6771@linux.vnet.ibm.com> <20090626155410.GA6526@ami.dom.local> <20090626161500.GB6526@ami.dom.local> <20090626162340.GF6771@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: sdrb <sdrb@onet.eu>
+Cc: Robert Olsson <robert@robur.slu.se>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	=?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
+	<pstaszewski@itcare.pl>, Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f213.google.com ([209.85.220.213]:48363 "EHLO
+Received: from mail-fx0-f213.google.com ([209.85.220.213]:55036 "EHLO
 	mail-fx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756943AbZFZQg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 12:36:29 -0400
-Received: by fxm9 with SMTP id 9so2212402fxm.37
-        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 09:36:31 -0700 (PDT)
+	with ESMTP id S1750951AbZFZQqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 12:46:01 -0400
+Received: by fxm9 with SMTP id 9so2217276fxm.37
+        for <netdev@vger.kernel.org>; Fri, 26 Jun 2009 09:46:03 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <4A44D1FC.8090001@onet.eu>
+In-Reply-To: <20090626162340.GF6771@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 26, 2009 at 03:49:48PM +0200, sdrb wrote:
-> Jarek Poplawski pisze:
->> sdrb wrote, On 06/18/2009 03:15 PM:
->>
->>> Hello,
->>>
->>> I have got problem with hunging "ifenslave" command.
->>> I configured bond0 interfaces with 3 slaved interfaces: eth0, eth1 
->>> and eth2. While I'm removing one of it - sometimes only the 
->>> "ifenslave" command hangs up but sometimes the whole system is 
->>> hanging up completely - so it's not possible to even write on the 
->>> console.
->>>
->>> I'm using linux kernel 2.6.27.10 with bonding driver version v3.3.0  
->>> (June 10, 2008) and ethernet card driver r8168 version 8.006.00-NAPI.
->>>
->>> Anyone knows where is the problem with it?
->>
->>
->> Hi,
->>
->> I don't know, but I guess, if anyone knew it would be fixed now. So, I'd
->> recommend trying the current stable (2.6.30), and if no difference, maybe
->> some debugging like turning on lockdep (lock debugging with prove
->> locking correctness). If still nothing reported, try to get a few SysRq
->> logs when it happens e.g. Alt-PrtScr with t, d, w, q, and send them with
->> .config and dmesg (gzipped or as attachments to the bugzilla report).
->
-> Ok, I dig a little in the 2.6.27.10 kernel and I've taken the newest  
-> driver (ver 8.012.00) from the realtek website.
-> Sorry - I haven't tested it under 2.6.30, because I had to fix it just  
-> for 2.6.27.10.
->
-> I investigated this problem and I noticed that probably there is problem  
-> with rtnl_lock().
-> Below there is backtrace for three tasks I've got from logs:
-...
-> I've made some patch for r8168 driver and it seems it works, but I'm not  
-> sure if I did it correctly or if it isn't too dangerous solution :)
-> The patch is in attachment. With this patch the "ifenslave" command  
-> doesn't hang as earlier.
-> Can anyone review it?
->
-I didn't verify this (is it an out of tree driver?), but it's quite
-probable. This type of bug was fixed a while ago in most drivers, and
-if this one is similar to r8169 you could probably try to move this
-flush_scheduled_work() to the .remove callback because it works a bit
-different than cancel_delayed_work() (or cancel_delayed_work_sync()
-which should be more reliable).
+On Fri, Jun 26, 2009 at 09:23:40AM -0700, Paul E. McKenney wrote:
+> On Fri, Jun 26, 2009 at 06:15:00PM +0200, Jarek Poplawski wrote:
+> > On Fri, Jun 26, 2009 at 05:54:10PM +0200, Jarek Poplawski wrote:
+> > > On Fri, Jun 26, 2009 at 08:30:10AM -0700, Paul E. McKenney wrote:
+> > > > On Fri, Jun 26, 2009 at 05:10:52PM +0200, Jarek Poplawski wrote:
+> > > > > On Fri, Jun 26, 2009 at 03:52:55PM +0200, Robert Olsson wrote:
+> > > > > > 
+> > > > > > Jarek Poplawski writes:
+> > > > > > 
+> > > > > >  Thanks, 
+> > > > > > 
+> > > > > >  Should be worth testing so we synchronize_rcu instead of doing call_rcu's
+> > > > > >  
+> > > > > 
+> > > > > Alas take 2 (nor 1) doesn't compile, so here it is again.
+> > > > 
+> > > > So the idea is to balance memory and latency, so that large changes
+> > > > (those affecting the root node) get at least one synchronize_rcu(),
+> > > > while smaller changes just use call_rcu(), correct?  This means that
+> > > > the amount of memory awaiting an RCU grace period is limited, but
+> > > > the algorithm avoids per-node synchronize_rcu() overhead.
+> > > > 
+> > > > If I understand the goal correctly, looks good!  (Give or take my
+> > > > limited understanding of fib_trie and is usage, of course.)
+> > > 
+> > > The goal is practically to replace all call_rcu() during
+> > > trie_rebalance() with synchronize_rcu() (except some freeing after
+> > > ENOMEM). I guess currently (<= 2.6.30) call_rcu() can free this
+> > > memory after trie_rebalance() has finished, that's why there were
+> > > problems with enabled preemption. So this patch tries to do/force
+> > > this a bit earlier - at least before the top/largest node is
+> > > rebalanced.
+> > 
+> > On the other hand, we could probably stay with call_rcu() plus only
+> > one synchronize_rcu() before the top node's resize() if you think it's
+> > enough here?
+> 
+> Well, my first task is to understand the problem/goal.  ;-)
+> 
+> My guess from what you said above is that use of call_rcu(), when
+> combined with changes to the trie in rapid succession, is resulting
+> in excessive memory awaiting a grace period.  Is this the case, or am I
+> confused?
 
-Btw., this type of bugs should be reported by lockdep (with a config
-option I mentioned earlier).
+Exactly! (I guess... ;-)
 
+Thanks,
 Jarek P.
-
->
-> sdrb
->
-
-> --- r8168_n.c	2009-04-21 05:05:33.000000000 +0200
-> +++ r8168_n.c	2009-06-26 15:04:12.988842186 +0200
-> @@ -5752,7 +5752,7 @@ rtl8168_down(struct net_device *dev)
->  	rtl8168_delete_esd_timer(dev, &tp->esd_timer);
->  	rtl8168_delete_link_timer(dev, &tp->link_timer);
->  
-> -	flush_scheduled_work();
-> +	cancel_delayed_work(&tp->task);
->  
->  #ifdef CONFIG_R8168_NAPI
->  #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
-
+> > 
+> > > 
+> > > > 
+> > > > 							Thanx, Paul
+> > > > 
+> > > > > Thanks,
+> > > > > Jarek P.
+> > > > > --- (take 3 - for testing)
+> > > > > 
+> > > > >  net/ipv4/fib_trie.c |   30 ++++++++++++++++++++++++------
+> > > > >  1 files changed, 24 insertions(+), 6 deletions(-)
+> > > > > 
+> > > > > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> > > > > index 012cf5a..1a4c4b7 100644
+> > > > > --- a/net/ipv4/fib_trie.c
+> > > > > +++ b/net/ipv4/fib_trie.c
+> > > > > @@ -366,6 +366,17 @@ static void __tnode_vfree(struct work_struct *arg)
+> > > > >  	vfree(tn);
+> > > > >  }
+> > > > > 
+> > > > > +static void __tnode_free(struct tnode *tn)
+> > > > > +{
+> > > > > +	size_t size = sizeof(struct tnode) +
+> > > > > +		      (sizeof(struct node *) << tn->bits);
+> > > > > +
+> > > > > +	if (size <= PAGE_SIZE)
+> > > > > +		kfree(tn);
+> > > > > +	else
+> > > > > +		vfree(tn);
+> > > > > +}
+> > > > > +
+> > > > >  static void __tnode_free_rcu(struct rcu_head *head)
+> > > > >  {
+> > > > >  	struct tnode *tn = container_of(head, struct tnode, rcu);
+> > > > > @@ -402,7 +413,7 @@ static void tnode_free_flush(void)
+> > > > >  	while ((tn = tnode_free_head)) {
+> > > > >  		tnode_free_head = tn->tnode_free;
+> > > > >  		tn->tnode_free = NULL;
+> > > > > -		tnode_free(tn);
+> > > > > +		__tnode_free(tn);
+> > > > >  	}
+> > > > >  }
+> > > > > 
+> > > > > @@ -1021,18 +1032,25 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
+> > > > >  				      (struct node *)tn, wasfull);
+> > > > > 
+> > > > >  		tp = node_parent((struct node *) tn);
+> > > > > -		tnode_free_flush();
+> > > > >  		if (!tp)
+> > > > >  			break;
+> > > > >  		tn = tp;
+> > > > >  	}
+> > > > > 
+> > > > > +	if (tnode_free_head) {
+> > > > > +		synchronize_rcu();
+> > > > > +		tnode_free_flush();
+> > > > > +	}
+> > > > > +
+> > > > >  	/* Handle last (top) tnode */
+> > > > > -	if (IS_TNODE(tn))
+> > > > > +	if (IS_TNODE(tn)) {
+> > > > >  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
+> > > > > -
+> > > > > -	rcu_assign_pointer(t->trie, (struct node *)tn);
+> > > > > -	tnode_free_flush();
+> > > > > +		rcu_assign_pointer(t->trie, (struct node *)tn);
+> > > > > +		synchronize_rcu();
+> > > > > +		tnode_free_flush();
+> > > > > +	} else {
+> > > > > +		rcu_assign_pointer(t->trie, (struct node *)tn);
+> > > > > +	}
+> > > > > 
+> > > > >  	return;
+> > > > >  }
+> > > > > --
+> > > > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > > > the body of a message to majordomo@vger.kernel.org
+> > > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
