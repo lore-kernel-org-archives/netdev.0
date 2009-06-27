@@ -1,20 +1,33 @@
-From: IRL <rainbowmontessori@bellnet.ca>
-Subject: Lucky Winner
-Date: Fri, 26 Jun 2009 22:48:37 -0400
-Message-ID: <20090627024841.KDTU1576.tomts44-srv.bellnexxia.net@toip39-bus.srvr.bell.ca>
-Reply-To: irishdpt.112@9.cn
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
+Date: Fri, 26 Jun 2009 20:15:57 -0700 (PDT)
+Message-ID: <alpine.DEB.2.01.0906262010091.6439@bogon>
+References: <1245845367.24921.3.camel@localhost.localdomain> <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com> <1245930729.24921.67.camel@localhost.localdomain> <20090625.161046.19938291.davem@davemloft.net>
+ <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: <info@winner.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts44-srv.bellnexxia.net ([209.226.175.111]:38116 "EHLO
-	tomts44-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751299AbZF0Csl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 22:48:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <jdb@comx.dk>,
+	paulmck@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
+	linux-nfs@vger.kernel.org, linux-ext4@vger.kernel.org,
+	catalin.marinas@gmail.com
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Congrats...You are a winner of (1,801,613.00 EURO. ): Send your information to Dr. Donnell Duncan  at (irishdpt.112@9.cn). Name: Age: Address, Phone,Occupation, Country
+On Fri, 26 Jun 2009, Jesper Dangaard Brouer wrote:
+> I'll resubmit the patches to you and netdev, to limit the spam effect...
 
+Out of curiosity: why was linux-ext4 Cc'ed on these rcu_barrier patches
+(but not other fs-lists but linux-nfs)? I did not see any ../fs/ext4/ 
+changes.
 
+Christian.
+-- 
+BOFH excuse #6:
+
+global warming
