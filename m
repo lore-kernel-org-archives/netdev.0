@@ -1,150 +1,38 @@
-From: Jean-Louis Dupond <info@dupondje.be>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Sat, 27 Jun 2009 11:58:24 +0200
-Message-ID: <4A45ED40.4090408@dupondje.be>
-References: <7e14b58794647ea1b1b0a644e14a11f6@localhost> <1244831838.9225.71.camel@HP1> <4A32CDE9.7020602@dupondje.be> <1244844106.9225.92.camel@HP1> <4A32D3DB.30703@dupondje.be> <20090624173608.GA8985@xw6200.broadcom.net> <4A453E8F.3000405@dupondje.be> <20090627022629.GA27439@xw6200.broadcom.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [bisected][Oops] 2.6.31-rc1: tun
+Date: Sat, 27 Jun 2009 19:39:37 +0800
+Message-ID: <20090627113937.GA22796@gondor.apana.org.au>
+References: <20090627125354.12623679@mosly.slynet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Christensen <davidch@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sergei Trofimovich <slyich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.dupie.be ([85.17.239.130]:42929 "EHLO apollo.dupie.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753279AbZF0J6W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Jun 2009 05:58:22 -0400
-In-Reply-To: <20090627022629.GA27439@xw6200.broadcom.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:58405 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751216AbZF0Ljj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2009 07:39:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20090627125354.12623679@mosly.slynet.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Got the output for gbit & 100mbit now.
-
-GBIT:
-eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 
-00:22:19:be:c4:48
-eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-tg3: eth0: Link is up at 1000 Mbps, full duplex.
-tg3: eth0: Flow control is off for TX and off for RX.
-
-
-100mbit (sometimes it goes 100mbit instead of gbit also):
-eth0: Tigon3 [partno(BCM95722) rev a200 PHY(5722/5756)] (PCI Express) 
-10/100/1000Base-T Ethernet 00:22:19:c7:28:c3
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] WireSpeed[1] TSOcap[1]
-eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-tg3: eth0: Link is up at 100 Mbps, full duplex.
-tg3: eth0: Flow control is off for TX and off for RX.
-
-
-Cables are 2 meters long & cat 5e. The servers are in racks, so its all 
-near each other :)
-
-
-Matt Carlson schreef:
-> On Fri, Jun 26, 2009 at 02:33:03PM -0700, Jean-Louis Dupond wrote:
->> Hi,
->>
->> All tested kernels had the same issue (2.6.22, 2.5.25.4 & 2.6.28.1).
+On Sat, Jun 27, 2009 at 12:53:54PM +0300, Sergei Trofimovich wrote:
+>
+> It was rather straightforward to bisect[1]: bad state is nonworking (sometimes Oopsing
+> as you can see in previous email) openvpn.
 > 
-> O.K.  So that means the problem wasn't recently introduced.  Good to
-> know.
-> 
->> dmesg |grep tg3:
->>
->> tg3.c:v3.97 (December 10, 2008)
->> tg3 0000:01:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
->> tg3 0000:01:00.0: setting latency timer to 64
->> tg3 0000:01:00.0: PME# disabled
->> tg3 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
->> tg3 0000:02:00.0: setting latency timer to 64
->> tg3 0000:02:00.0: PME# disabled
->> tg3 0000:01:00.0: PME# disabled
->> tg3: eth0: Link is up at 1000 Mbps, full duplex.
->> tg3: eth0: Flow control is off for TX and off for RX.
->>
->> Now here it booted @ Gbit speeds!
-> 
-> The specific set of lines I'm looks something like this:
-> 
-> eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 00:10:18:15:16:b6
-> eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
-> eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
->                                         ^^^^^^
-> eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-> 
-> 
-> Like Michael, I'm tempted to look into the cabling too.  How long are
-> they?  Silly question, but are they Cat5e?  When link does come up, does
-> it take unusually long?
-> 
->> Matt Carlson schreef:
->>> Was there a version of the kernel where this device worked reliably?
->>>
->>> Can you post the driver sign-on messages?  (I'm looking to see if ASF
->>> is enabled.)
->>>
->>> On Fri, Jun 12, 2009 at 03:16:59PM -0700, Jean-Louis Dupond wrote:
->>>> I surely tried other cables. But its surely not the cable because:
->>>> 1) We tried other cables
->>>> 2) After a reboot it works, or after a mii-tool -R
->>>> 3) We have this issue on like +100 servers :(
->>>>
->>>> The servers are connected on a Dell PowerConnect 6248 switch.
->>>>
->>>> Sincerely
->>>>
->>>> Michael Chan schreef:
->>>>> On Fri, 2009-06-12 at 14:51 -0700, Jean-Louis Dupond wrote:
->>>>>> Hello!
->>>>>>
->>>>>> Here is a mii-tool -vvv on a box that doesn't advertise gbit speeds! It 
->>>>>> just doesn't advertise gbit @ random, sometimes it does, sometimes not! 
->>>>>> Without any logic in it!
->>>>>>
->>>>>> # mii-tool  -vvv
->>>>>> Using SIOCGMIIPHY=0x8947
->>>>>> eth0: link ok
->>>>>>     registers for MII PHY 1:
->>>>>>       1000 794d 0143 bed0 05e1 0000 0064 2001
->>>>>>       0000 0300 0000 0000 0000 0000 0000 3000
->>>>> Register 1 shows that autoneg did not complete (bit 5 is not set).
->>>>> The tg3 device has advertised 10/100/1000 in register 4 and register 9,
->>>>> but registers 5 and 0xa (link partner's advertisement registers are 0).
->>>>>
->>>>> When it works, these registers should look very different.
->>>>>
->>>>> Have you tried other cables?  What is the link partner?
->>>>>
->>>>>>       0000 0101 0000 0000 0000 0000 0000 0000
->>>>>>       7477 0104 0000 ffff 2801 0000 8000 0000
->>>>>>     product info: vendor 00:50:ef, model 45 rev 0
->>>>>>     basic mode:   autonegotiation enabled
->>>>>>     basic status: link ok
->>>>>>     capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
->>>>>> 10baseT-FD 10baseT-HD
->>>>>>     advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-
->>>>>> control
->>>>>>
->>>>>> # dmesg | grep tg3
->>>>>> [    3.331702] tg3.c:v3.92.1 (June 9, 2008)
->>>>>> [   18.238654] tg3: eth0: Link is up at 10 Mbps, half duplex.
->>>>>> [   18.238654] tg3: eth0: Flow control is off for TX and off for RX.
->>>>>>
->>>>>>
->>>>>
->>>>> --
->>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>> the body of a message to majordomo@vger.kernel.org
->>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
+> Reverting commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f against 
+> v2.6.31-rc1-115-g442ce8a or against v2.6.31-rc1 stabilizes kernel and makes openvpn
+> work again.
+
+Should be fixed already with the patch that I forwarded you in
+the previous email.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
