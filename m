@@ -1,8 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
 Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Sat, 27 Jun 2009 21:20:57 +0200
-Message-ID: <20090627192057.GA5041@ami.dom.local>
-References: <19012.37515.146191.198843@robur.slu.se>
+Date: Sat, 27 Jun 2009 22:51:23 +0200
+Message-ID: <20090627205123.GA5265@ami.dom.local>
+References: <19012.37515.146191.198843@robur.slu.se> <20090627192057.GA5041@ami.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: =?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
@@ -12,64 +12,32 @@ Cc: =?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
 	Linux Network Development list <netdev@vger.kernel.org>
 To: Robert Olsson <robert@robur.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:47065 "EHLO
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:35548 "EHLO
 	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751062AbZF0TVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2009 15:21:10 -0400
-Received: by fxm18 with SMTP id 18so279630fxm.37
-        for <netdev@vger.kernel.org>; Sat, 27 Jun 2009 12:21:11 -0700 (PDT)
+	with ESMTP id S1750840AbZF0Uvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2009 16:51:37 -0400
+Received: by fxm18 with SMTP id 18so303792fxm.37
+        for <netdev@vger.kernel.org>; Sat, 27 Jun 2009 13:51:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <19012.37515.146191.198843@robur.slu.se>
+In-Reply-To: <20090627192057.GA5041@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson wrote, On 06/26/2009 11:19 AM:
-
-> Jarek Poplawski writes:
+On Sat, Jun 27, 2009 at 09:20:57PM +0200, Jarek Poplawski wrote:
+...
+> Then these settable thresholds might be more useful here than memory
+> fixes, but here is some idea to try handle this automatically within
+> some limits. The patch below increases inflate_threshold_root (only)
+> up to ~50% of its initial value if needed, and should be able to go
+> back sometimes.
 > 
->  > >> oprofile: using NMI interrupt.
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
->  > >> Fix inflate_threshold_root. Now=15 size=11 bits
-> 
->  > On the other hand, even if there is no problem with memory, it seems
->  > because of hitting max_resize the threshold should be changed, e.g.
->  > by reverting the patch below.
-> 
->  You seem to have some temporary memory problem. So the printout might be
->  a bit misleading in this case. We really like to keep the root node as big 
->  as we can to keep the tree as flat as possible for performance reasons.
->  (We're even more motivated now when we can disable the route cache)
-> 
->  So I'll guess the next insert/delete inflates the root node to be within
->  the interval. So I'll assume this just a temporary failure?
-> 
->  I would be nice to have *threshholds* settable by /proc or /sys. I would
->  use this in the other direction to trade memory for even faster lookups. 
->  
->  But maybe experts memory allocation has some good suggestions.
+> Pawel and Jorge, could you try this? (It applies to 2.6.29 too, with
+> some offsets.)
 
-Robert, you and Eric pointed at memory problems, so I thought I missed
-something. But after the second look I see "skipped node resize" should
-show this, but it's always zero on these reports. So, isn't it possible
-the current inflate_threshold_root is simply unreachable with some
-conditions, at least within 10 loops?
+A tiny adjustment in the last if...
 
-Then these settable thresholds might be more useful here than memory
-fixes, but here is some idea to try handle this automatically within
-some limits. The patch below increases inflate_threshold_root (only)
-up to ~50% of its initial value if needed, and should be able to go
-back sometimes.
-
-Pawel and Jorge, could you try this? (It applies to 2.6.29 too, with
-some offsets.)
-
-Thanks,
 Jarek P.
----
+--- (take 2)
 
  net/ipv4/fib_trie.c |   23 ++++++++++++++++-------
  1 files changed, 16 insertions(+), 7 deletions(-)
@@ -120,7 +88,7 @@ index 012cf5a..1dc1bb4 100644
  				   inflate_threshold, tn->bits);
 -	}
 +		}
-+	} else if (max_resize < 5 && !tn->parent && inflate_threshold_root_fix)
++	} else if (max_resize > 4 && !tn->parent && inflate_threshold_root_fix)
 +		inflate_threshold_root_fix--;
  
  	check_tnode(tn);
