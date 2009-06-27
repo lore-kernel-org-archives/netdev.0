@@ -1,105 +1,150 @@
-From: Frans Pop <elendil@planet.nl>
-Subject: Re: [2.6.31-rc1] iwlagn (4965): no wireless due to RFKILL problem
-Date: Sat, 27 Jun 2009 11:49:54 +0200
-Message-ID: <200906271149.56051.elendil@planet.nl>
-References: <200906261336.29318.elendil@planet.nl> <200906261410.58808.elendil@planet.nl> <1246048132.21314.75.camel@johannes.local>
+From: Jean-Louis Dupond <info@dupondje.be>
+Subject: Re: tg3 driver not advertising 1000mbit
+Date: Sat, 27 Jun 2009 11:58:24 +0200
+Message-ID: <4A45ED40.4090408@dupondje.be>
+References: <7e14b58794647ea1b1b0a644e14a11f6@localhost> <1244831838.9225.71.camel@HP1> <4A32CDE9.7020602@dupondje.be> <1244844106.9225.92.camel@HP1> <4A32D3DB.30703@dupondje.be> <20090624173608.GA8985@xw6200.broadcom.net> <4A453E8F.3000405@dupondje.be> <20090627022629.GA27439@xw6200.broadcom.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	linux-wireless@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org,
-	Alan Jenkins <alan-jenkins@tuffmail.co.uk>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Christensen <davidch@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpm-eml104.kpnxchange.com ([195.121.3.8]:54982 "EHLO
-	CPSMTPM-EML104.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752576AbZF0Jtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Jun 2009 05:49:55 -0400
-In-Reply-To: <1246048132.21314.75.camel@johannes.local>
-Content-Disposition: inline
+Received: from apollo.dupie.be ([85.17.239.130]:42929 "EHLO apollo.dupie.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753279AbZF0J6W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Jun 2009 05:58:22 -0400
+In-Reply-To: <20090627022629.GA27439@xw6200.broadcom.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 26 June 2009, Johannes Berg wrote:
-> On Fri, 2009-06-26 at 14:10 +0200, Frans Pop wrote:
-> > Well, with 2.6.30 hp-wmi worked together with rfkill without
-> > problems. Looking at the commit logs, it looks like the rfkill
-> > rewrite by Johannes and Alan is the cause here. CCs added.
->
-> Hmm, looks like there might be another polarity error, try this:
-> -       int query = BIT(b + 8) | ((!!blocked) << b);
-> +       int query = BIT(b + 8) | ((!blocked) << b);
+Hi,
 
-Thanks Johannes, that makes wireless work again.
+Got the output for gbit & 100mbit now.
 
-However, I just saw another possible issue.
+GBIT:
+eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 
+00:22:19:be:c4:48
+eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
+eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
+eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+tg3: eth0: Link is up at 1000 Mbps, full duplex.
+tg3: eth0: Flow control is off for TX and off for RX.
 
-When I disable wireless using the hardware switch and the enable it again
-almost immediately after on 2.6.30, I get:
-[disable]
-iwlagn 0000:10:00.0: Radio Frequency Kill Switch is On:
-Kill switch must be turned off for wireless networking to work.
-usb 3-1: USB disconnect, address 2
-[enable]
-Registered led device: iwl-phy0::radio
-Registered led device: iwl-phy0::assoc
-Registered led device: iwl-phy0::RX
-Registered led device: iwl-phy0::TX
-usb 3-1: new full speed USB device using uhci_hcd and address 3
-usb 3-1: configuration #1 chosen from 1 choice
-wlan0: no probe response from AP 00:14:c1:38:e5:15 - disassociating
-iwlagn 0000:10:00.0: index 0 not used in uCode key table.
-wlan0: authenticate with AP 00:14:c1:38:e5:15
-wlan0: authenticate with AP 00:14:c1:38:e5:15
-wlan0: authenticated
-wlan0: associate with AP 00:14:c1:38:e5:15
-wlan0: RX ReassocResp from 00:14:c1:38:e5:15 (capab=0x411 status=0 aid=1)
-wlan0: associated
 
-And without any other action networking is up again.
+100mbit (sometimes it goes 100mbit instead of gbit also):
+eth0: Tigon3 [partno(BCM95722) rev a200 PHY(5722/5756)] (PCI Express) 
+10/100/1000Base-T Ethernet 00:22:19:c7:28:c3
+eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] WireSpeed[1] TSOcap[1]
+eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+tg3: eth0: Link is up at 100 Mbps, full duplex.
+tg3: eth0: Flow control is off for TX and off for RX.
 
-With 2.6.31 I get this:
-[disable]
-wlan0: deauthenticating by local choice (reason=3)
-iwlagn 0000:10:00.0: Error sending REPLY_ADD_STA: enqueue_hcmd failed: -5
-mac80211-phy0: failed to remove key (0, 00:14:c1:38:e5:15) from hardware (-5)
-iwlagn 0000:10:00.0: Error sending REPLY_ADD_STA: enqueue_hcmd failed: -5
-mac80211-phy0: failed to remove key (1, ff:ff:ff:ff:ff:ff) from hardware (-5)
-usb 3-1: USB disconnect, address 2
-[enable]
-usb 3-1: new full speed USB device using uhci_hcd and address 3
-usb 3-1: configuration #1 chosen from 1 choice
 
-A lot uglier with those errors. And after that I have to run ifdown/ifup
-before networking is up again (ifup only does not work as it will complain
-"interface already configured"):
+Cables are 2 meters long & cat 5e. The servers are in racks, so its all 
+near each other :)
 
-[ifdown wlan0]
-Registered led device: iwl-phy0::radio
-Registered led device: iwl-phy0::assoc
-Registered led device: iwl-phy0::RX
-Registered led device: iwl-phy0::TX
-ADDRCONF(NETDEV_UP): wlan0: link is not ready
-[ifup wlan 0]
-Registered led device: iwl-phy0::radio
-Registered led device: iwl-phy0::assoc
-Registered led device: iwl-phy0::RX
-Registered led device: iwl-phy0::TX
-ADDRCONF(NETDEV_UP): wlan0: link is not ready
-wlan0: authenticate with AP 00:14:c1:38:e5:15
-wlan0: authenticated
-wlan0: associate with AP 00:14:c1:38:e5:15
-wlan0: RX AssocResp from 00:14:c1:38:e5:15 (capab=0x411 status=0 aid=1)
-wlan0: associated
-ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
 
-BTW, would it make sense to bring back the first two lines shown with .30
-(or at least the first one):
-   iwlagn 0000:10:00.0: Radio Frequency Kill Switch is On:
-   Kill switch must be turned off for wireless networking to work.
-IMHO it's good to register the reason for the disconnect.
-
-Cheers,
-FJP
+Matt Carlson schreef:
+> On Fri, Jun 26, 2009 at 02:33:03PM -0700, Jean-Louis Dupond wrote:
+>> Hi,
+>>
+>> All tested kernels had the same issue (2.6.22, 2.5.25.4 & 2.6.28.1).
+> 
+> O.K.  So that means the problem wasn't recently introduced.  Good to
+> know.
+> 
+>> dmesg |grep tg3:
+>>
+>> tg3.c:v3.97 (December 10, 2008)
+>> tg3 0000:01:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
+>> tg3 0000:01:00.0: setting latency timer to 64
+>> tg3 0000:01:00.0: PME# disabled
+>> tg3 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+>> tg3 0000:02:00.0: setting latency timer to 64
+>> tg3 0000:02:00.0: PME# disabled
+>> tg3 0000:01:00.0: PME# disabled
+>> tg3: eth0: Link is up at 1000 Mbps, full duplex.
+>> tg3: eth0: Flow control is off for TX and off for RX.
+>>
+>> Now here it booted @ Gbit speeds!
+> 
+> The specific set of lines I'm looks something like this:
+> 
+> eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 00:10:18:15:16:b6
+> eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
+> eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+>                                         ^^^^^^
+> eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> 
+> 
+> Like Michael, I'm tempted to look into the cabling too.  How long are
+> they?  Silly question, but are they Cat5e?  When link does come up, does
+> it take unusually long?
+> 
+>> Matt Carlson schreef:
+>>> Was there a version of the kernel where this device worked reliably?
+>>>
+>>> Can you post the driver sign-on messages?  (I'm looking to see if ASF
+>>> is enabled.)
+>>>
+>>> On Fri, Jun 12, 2009 at 03:16:59PM -0700, Jean-Louis Dupond wrote:
+>>>> I surely tried other cables. But its surely not the cable because:
+>>>> 1) We tried other cables
+>>>> 2) After a reboot it works, or after a mii-tool -R
+>>>> 3) We have this issue on like +100 servers :(
+>>>>
+>>>> The servers are connected on a Dell PowerConnect 6248 switch.
+>>>>
+>>>> Sincerely
+>>>>
+>>>> Michael Chan schreef:
+>>>>> On Fri, 2009-06-12 at 14:51 -0700, Jean-Louis Dupond wrote:
+>>>>>> Hello!
+>>>>>>
+>>>>>> Here is a mii-tool -vvv on a box that doesn't advertise gbit speeds! It 
+>>>>>> just doesn't advertise gbit @ random, sometimes it does, sometimes not! 
+>>>>>> Without any logic in it!
+>>>>>>
+>>>>>> # mii-tool  -vvv
+>>>>>> Using SIOCGMIIPHY=0x8947
+>>>>>> eth0: link ok
+>>>>>>     registers for MII PHY 1:
+>>>>>>       1000 794d 0143 bed0 05e1 0000 0064 2001
+>>>>>>       0000 0300 0000 0000 0000 0000 0000 3000
+>>>>> Register 1 shows that autoneg did not complete (bit 5 is not set).
+>>>>> The tg3 device has advertised 10/100/1000 in register 4 and register 9,
+>>>>> but registers 5 and 0xa (link partner's advertisement registers are 0).
+>>>>>
+>>>>> When it works, these registers should look very different.
+>>>>>
+>>>>> Have you tried other cables?  What is the link partner?
+>>>>>
+>>>>>>       0000 0101 0000 0000 0000 0000 0000 0000
+>>>>>>       7477 0104 0000 ffff 2801 0000 8000 0000
+>>>>>>     product info: vendor 00:50:ef, model 45 rev 0
+>>>>>>     basic mode:   autonegotiation enabled
+>>>>>>     basic status: link ok
+>>>>>>     capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+>>>>>> 10baseT-FD 10baseT-HD
+>>>>>>     advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-
+>>>>>> control
+>>>>>>
+>>>>>> # dmesg | grep tg3
+>>>>>> [    3.331702] tg3.c:v3.92.1 (June 9, 2008)
+>>>>>> [   18.238654] tg3: eth0: Link is up at 10 Mbps, half duplex.
+>>>>>> [   18.238654] tg3: eth0: Flow control is off for TX and off for RX.
+>>>>>>
+>>>>>>
+>>>>>
+>>>>> --
+>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
