@@ -1,33 +1,38 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: [PATCH 07/10] decnet: Use rcu_barrier() on module unload.
-Date: Fri, 26 Jun 2009 20:15:57 -0700 (PDT)
-Message-ID: <alpine.DEB.2.01.0906262010091.6439@bogon>
-References: <1245845367.24921.3.camel@localhost.localdomain> <5A680E0A-EFEB-44EA-9F06-F338E6CBD6D1@googlemail.com> <1245930729.24921.67.camel@localhost.localdomain> <20090625.161046.19938291.davem@davemloft.net>
- <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 13617] New: GRO:__napi_complete from
+	net_rx_action crash
+Date: Sat, 27 Jun 2009 11:33:53 +0800
+Message-ID: <20090627033353.GA20458@gondor.apana.org.au>
+References: <4A4501D7.8050301@qlogic.com> <20090626.102458.96012087.davem@davemloft.net> <20090627014900.GA19639@gondor.apana.org.au> <20090626.192804.199785674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <jdb@comx.dk>,
-	paulmck@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
-	linux-nfs@vger.kernel.org, linux-ext4@vger.kernel.org,
-	catalin.marinas@gmail.com
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0906262100210.14848@ask.diku.dk>
-Sender: linux-ext4-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dhananjay.phadke@qlogic.com, akpm@linux-foundation.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org, amit.salecha@qlogic.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:43119 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751288AbZF0DeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Jun 2009 23:34:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20090626.192804.199785674.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Jun 2009, Jesper Dangaard Brouer wrote:
-> I'll resubmit the patches to you and netdev, to limit the spam effect...
+On Fri, Jun 26, 2009 at 07:28:04PM -0700, David Miller wrote:
+>
+> I remembered that change where we had to disable GRO in the
+> legacy RX path and all the IRQ disabling problems we ran into
+> there.  So I went and had a look at that to make sure we won't
+> have similar issues here, luckily it seems not.
 
-Out of curiosity: why was linux-ext4 Cc'ed on these rcu_barrier patches
-(but not other fs-lists but linux-nfs)? I did not see any ../fs/ext4/ 
-changes.
+Yeah the netpoll lock is all we need since netpoll is the only
+other thing that can race against this.
 
-Christian.
+Thanks,
 -- 
-BOFH excuse #6:
-
-global warming
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
