@@ -1,115 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: fix race in the receive/select
-Date: Sun, 28 Jun 2009 13:22:14 +0200
-Message-ID: <4A475266.9040203@gmail.com>
-References: <20090625122545.GA3625@jolsa.lab.eng.brq.redhat.com> <20090625122416.GA23613@redhat.com> <alpine.DEB.1.10.0906251827510.9517@makko.or.mcafeemobile.com> <4A442B65.8040701@gmail.com> <alpine.DEB.1.10.0906251858520.9517@makko.or.mcafeemobile.com> <4A443033.8060401@gmail.com> <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626135742.GB3845@redhat.com> <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com> <20090626145027.GA6534@redhat.com> <4A474FB5.4070901@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 10/19] drivers/net/wan: Use PCI_VDEVICE
+Date: Sun, 28 Jun 2009 13:43:04 +0200
+Message-ID: <m3y6rcfut3.fsf@intrepid.localdomain>
+References: <cover.1245906151.git.joe@perches.com>
+	<f333b1dcffc974f1df83e8d005f61a710604b8b6.1245906152.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Davide Libenzi <davidel@xmailserver.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	Tejun Heo <htejun@gmail.com>
-To: Oleg Nesterov <oleg@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Kevin Curtis <kevin.curtis@farsite.co.uk>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:33934 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145AbZF1LW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2009 07:22:26 -0400
-In-Reply-To: <4A474FB5.4070901@gmail.com>
+Received: from khc.piap.pl ([195.187.100.11]:60796 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752188AbZF1LnG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2009 07:43:06 -0400
+In-Reply-To: <f333b1dcffc974f1df83e8d005f61a710604b8b6.1245906152.git.joe@perches.com> (Joe Perches's message of "Wed\, 24 Jun 2009 22\:13\:26 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote, On 06/28/2009 01:10 PM:
+Joe Perches <joe@perches.com> writes:
 
-> Oleg Nesterov wrote, On 06/26/2009 04:50 PM:
-> 
->> On 06/26, Davide Libenzi wrote:
->>> On Fri, 26 Jun 2009, Oleg Nesterov wrote:
->>>
->>>> And if we remove waitqueue_active() in xxx_update(), then lock/unlock is
->>>> not needed too.
->>>>
->>>> If xxx_poll() takes q->lock first, it can safely miss the changes in ->status
->>>> and schedule(): xxx_update() will take q->lock, notice the sleeper and wake
->>>> it up (ok, it will set ->triggered but this doesn't matter).
->>>>
->>>> If xxx_update() takes q->lock first, xxx_poll() must see the changes in
->>>> status after poll_wait()->unlock(&q->lock) (in fact, after lock, not unlock).
->>> Sure. The snippet above was just to show what typically the code does, not
->>> a suggestion on how to solve the socket case.
->> Yes, yes. I just meant you are right imho, we shouldn't add mb() into
->> add_wait_queue().
->>
->>> But yeah, the problem in this case is the waitqueue_active() call. Without
->>> that, the wait queue lock/unlock in poll_wait() and the one in wake_up()
->>> guarantees the necessary barriers.
->>> Some might argue the costs of the lock/unlock of q->lock, and wonder if
->>> MBs are a more efficient solution. This is something I'm not going into.
->>> To me, it just looked not right having cross-matching MB in different
->>> subsystems.
->> This is subjective and thus up to maintainers, but personally I think you
->> are very, very right.
->>
->> Perhaps we can add
->>
->> 	void sock_poll_wait(struct file *file, struct sock *sk, poll_table *pt)
->> 	{
->> 		if (pt) {
->> 			poll_wait(file, sk->sk_sleep, pt);
->> 			/*
->> 			 * fat comment
->> 			 */
->> 			smp_mb(); // or smp_mb__after_unlock();
->> 		}
->> 	}
->>
->> Oleg.
-> 
-> 
-> Maybe 'a bit' further?:
-> 
-> static inline void __poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
-> {
-> 	p->qproc(filp, wait_address, p);
-> }
-> 
-> static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
-> {
-> 	if (p && wait_address)
-> 		__poll_wait(filp, wait_address, p);
-> }
-> 
-> static inline void sock_poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
-> {
-> 	if (p && wait_address) {
-> 		__poll_wait(filp, wait_address, p);
-> 		/*
-> 		 * fat comment
-> 		 */
-> 		smp_mb(); // or smp_mb__after_unlock();
-> 	}
-> }
-> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/wan/farsync.c   |   21 +++++++--------------
+>  drivers/net/wan/pc300_drv.c |   12 ++++++------
+>  drivers/net/wan/pc300too.c  |   12 ++++--------
+>  drivers/net/wan/wanxl.c     |    9 +++------
+>  4 files changed, 20 insertions(+), 34 deletions(-)
 
+Looks good.
 
-Hmm... of course:
+Though I guess I'd delete these now unnecessary empty lines if I were
+you:
 
-static inline void sock_poll_wait(struct file * filp, struct sock *sk, poll_table *p)
-{
- 	if (p && sk->sk_sleep) {
- 		__poll_wait(filp, sk->sk_sleep, p);
- 		/*
- 		 * fat comment
- 		 */
- 		smp_mb(); // or smp_mb__after_unlock();
- 	}
-}
- 
+> +++ b/drivers/net/wan/farsync.c
+> @@ -528,26 +528,19 @@ static int fst_debug_mask = { FST_DEBUG };
+>   *      PCI ID lookup table
+>   */
+>  static struct pci_device_id fst_pci_dev_id[] __devinitdata = {
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_T2P, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_T2P},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_T2P), FST_TYPE_T2P},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_T4P, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_T4P},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_T4P), FST_TYPE_T4P},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_T1U, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_T1U},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_T1U), FST_TYPE_T1U},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_T2U, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_T2U},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_T2U), FST_TYPE_T2U},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_T4U, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_T4U},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_T4U), FST_TYPE_T4U},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_TE1, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_TE1},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_TE1), FST_TYPE_TE1},
+>  
+> -	{PCI_VENDOR_ID_FARSITE, PCI_DEVICE_ID_FARSITE_TE1C, PCI_ANY_ID, 
+> -	 PCI_ANY_ID, 0, 0, FST_TYPE_TE1},
+> +	{PCI_VDEVICE(FARSITE, PCI_DEVICE_ID_FARSITE_TE1C), FST_TYPE_TE1},
+>  	{0,}			/* End */
+>  };
 
-Jarek P.
- 
-
-
+The rest of WAN bits - ack.
+-- 
+Krzysztof Halasa
