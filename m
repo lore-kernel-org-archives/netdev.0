@@ -1,87 +1,52 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Sun, 28 Jun 2009 21:56:08 +0200
-Message-ID: <20090628195608.GA2741@ami.dom.local>
-References: <19012.37515.146191.198843@robur.slu.se> <20090627192057.GA5041@ami.dom.local> <19015.20051.432572.460207@robur.slu.se> <20090628143511.GA20541@ami.dom.local> <4A478D02.10805@itcare.pl> <4A4790C3.508@itcare.pl>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [Bug 13639] New: tun regression
+Date: Sun, 28 Jun 2009 17:32:08 -0300
+Message-ID: <20090628203208.GA3022@ghostprotocols.net>
+References: <bug-13639-60@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Robert Olsson <robert@robur.slu.se>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <olver@hartkopp.net>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>, bugzilla-daemon@bugzilla.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, alessandro.guido@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:59607 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbZF1T4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2009 15:56:34 -0400
-Received: by fxm18 with SMTP id 18so614218fxm.37
-        for <netdev@vger.kernel.org>; Sun, 28 Jun 2009 12:56:36 -0700 (PDT)
+Received: from mx2.redhat.com ([66.187.237.31]:50110 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751102AbZF1UcS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Jun 2009 16:32:18 -0400
 Content-Disposition: inline
-In-Reply-To: <4A4790C3.508@itcare.pl>
+In-Reply-To: <bug-13639-60@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 28, 2009 at 05:48:19PM +0200, Pawe=B3 Staszewski wrote:
->
-> After apply this patch something is wrong
->
-> Traffic is not forwarded
-> no info in dmesg / no info from bgp
-> and also i can't connect to bgpd process
->
-> I revert kernel to past version with first Jarek patch
->
+Em Sat, Jun 27, 2009 at 10:23:04PM +0000, bugzilla-daemon@bugzilla.kernel.org escreveu:
+> http://bugzilla.kernel.org/show_bug.cgi?id=13639
+> 
+>            Summary: tun regression
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.31-rc1
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: alessandro.guido@gmail.com
+>         Regression: Yes
+> 
+> 
+> ssh doesn't work with OpenVPN anymore but ping does.
+> 
+> I've bisected it down to
+> 
+> Commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f
+> net: Move rx skb_orphan call to where needed
 
-Thank you very much, Pawel, for trying this. I'm starting to look for
-the reason. In the meantime try to get some fib_trie stats for Robert.
+DNS as well doesn't work here, only ping, reverted the above cset and
+got it working again (vpnc here).
 
-Jarek P.
->
->
-> Pawe=B3 Staszewski pisze:
->>
->>
->> After 18 hours from apply first Jarek patch i have no info about Fix=
- =20
->> inflate_threshold_root
->> even if i make: "clear ip bgp *" on router
->> So i change Jarek patch from previous to this new one for test and w=
-e =20
->> will see ...
->>
->> Regards
->> Pawel Staszewski
->>
->>
->> Jarek Poplawski pisze:
->>> On Sun, Jun 28, 2009 at 01:04:51PM +0200, Robert Olsson wrote:
->>> ...
->>> =20
->>>>  The memory patches and "manual RCU" are also interesting to addre=
-ss
->>>>  the case with PREEMTP's.
->>>>    =20
->>>
->>> Since 2.6.29 looks like prefered here, and there were a lot of take=
-s
->>> in this thread, I attach below a combined all-in-one patch includin=
-g:
->>> - 2.6.29 -> 2.6.30 preemption disable patch
->>> - 2 RCU vs. preemption fixes from 2.6.31-rc
->>> - "manual RCU" patch to force vfree/kfree before root's resize (tak=
-e 3)
->>> - "automatic" inflate_threshold_root fix (take 2)
->>>
->>> Thanks,
->>> Jarek P.
->>>
->>> --- (for 2.6.29.x or even .28 or .27; any testing appreciated)
->>>
->>> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->>> --- a/net/ipv4/fib_trie.c    2009-06-27 20:25:06.000000000 +0200
->>> +++ b/net/ipv4/fib_trie.c    2009-06-28 15:45:02.000000000 +0200
-=2E..
+- Arnaldo
