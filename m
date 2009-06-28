@@ -1,26 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: QLGE 10Gb ETHERNET - pair P:/M: entries
- properly
-Date: Sun, 28 Jun 2009 11:40:27 -0700 (PDT)
-Message-ID: <20090628.114027.140260515.davem@davemloft.net>
-References: <cover.1246173664.git.joe@perches.com>
-	<86a775a4ef18051cbf116f969e07d8cb36e56b10.1246173681.git.joe@perches.com>
-	<1246214119.13673.19.camel@Joe-Laptop.home>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: using C99 in nasm
+Date: Sun, 28 Jun 2009 23:06:50 +0400
+Message-ID: <20090628190650.GE19425@lenovo>
+References: <20090628181915.GB19425@lenovo>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, trivial@kernel.org,
-	akpm@linux-foundation.org, ron.mercer@qlogic.com,
-	linux-driver@qlogic.com, netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757336AbZF1Skc@vger.kernel.org>
-In-Reply-To: <1246214119.13673.19.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: NKML <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:3379 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752921AbZF1TGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Jun 2009 15:06:48 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so331589fga.17
+        for <netdev@vger.kernel.org>; Sun, 28 Jun 2009 12:06:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090628181915.GB19425@lenovo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 28 Jun 2009 11:35:19 -0700
+[Cyrill Gorcunov - Sun, Jun 28, 2009 at 10:19:15PM +0400]
+| Hi,
+| 
+| is there a special reason why don't we
+| use C99 style of assignment for structure members?
+|
 
-> Signed-off-by: Joe Perches <joe@perches.com>
+Oh my. Sorry for noise. Wrong mailing list.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+	-- Cyrill
