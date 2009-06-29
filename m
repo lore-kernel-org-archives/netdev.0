@@ -1,124 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter 02/04: tcp conntrack: fix unacknowledged data detection with NAT
-Date: Mon, 29 Jun 2009 16:20:15 +0200 (MEST)
-Message-ID: <20090629142010.5728.30435.sendpatchset@x2.localnet>
-References: <20090629142007.5728.63458.sendpatchset@x2.localnet>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090629142007.5728.63458.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: kmemleak reports firmware loader funnies in iwlwifi
+Date: Mon, 29 Jun 2009 15:33:56 +0100
+Message-ID: <1246286036.21450.35.camel@pc1117.cambridge.arm.com>
+References: <20090626171933.GA23170@redhat.com>
+	 <tnxy6rbv0oq.fsf@pc1117.cambridge.arm.com>
+	 <84144f020906290248w474ad2ffpe6a8b5bede3d2c20@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cam-admin0.cambridge.arm.com ([193.131.176.58]:37786 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752593AbZF2OeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 10:34:11 -0400
+In-Reply-To: <84144f020906290248w474ad2ffpe6a8b5bede3d2c20@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit a3a9f79e361e864f0e9d75ebe2a0cb43d17c4272
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Mon Jun 29 14:07:56 2009 +0200
+On Mon, 2009-06-29 at 12:48 +0300, Pekka Enberg wrote:
+> Hi Catalin,
+> 
+> On Mon, Jun 29, 2009 at 12:39 PM, Catalin
+> Marinas<catalin.marinas@arm.com> wrote:
+> > diff --git a/drivers/base/firmware_class.c b/drivers/base/firmware_class.c
+> > index ddeb819..26fb808 100644
+> > --- a/drivers/base/firmware_class.c
+> > +++ b/drivers/base/firmware_class.c
+> > @@ -179,6 +179,13 @@ static ssize_t firmware_loading_store(struct device *dev,
+> >                                dev_err(dev, "%s: vmap() failed\n", __func__);
+> >                                goto err;
+> >                        }
+> > +                       /*
+> > +                        * This block of memory is later freed using vfree.
+> > +                        * Since kmemleak does not track vmap calls, just
+> > +                        * inform it about this block but ignore it during
+> > +                        * scanning.
+> > +                        */
+> > +                       kmemleak_alloc(fw_priv->fw->data, 0, -1, GFP_KERNEL);
+> >                        /* Pages will be freed by vfree() */
+> >                        fw_priv->pages = NULL;
+> >                        fw_priv->page_array_size = 0;
+> 
+> Would it be possible to put this hook in vmap() somehow?
 
-    netfilter: tcp conntrack: fix unacknowledged data detection with NAT
-    
-    When NAT helpers change the TCP packet size, the highest seen sequence
-    number needs to be corrected. This is currently only done upwards, when
-    the packet size is reduced the sequence number is unchanged. This causes
-    TCP conntrack to falsely detect unacknowledged data and decrease the
-    timeout.
-    
-    Fix by updating the highest seen sequence number in both directions after
-    packet mangling.
-    
-    Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
+I tried to do this but it has some other implications. If I add the vmap
+hook, I would need to add vunmap as well. On ARM, at least, iounmap
+calls vunmap (but not vmap) which means that I would need to add ioremap
+support as well. That's not a bug issue but this is more like a new
+feature than a bug fix.
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index a632689..cbdd628 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -258,8 +258,8 @@ static inline bool nf_ct_kill(struct nf_conn *ct)
- /* Update TCP window tracking data when NAT mangles the packet */
- extern void nf_conntrack_tcp_update(const struct sk_buff *skb,
- 				    unsigned int dataoff,
--				    struct nf_conn *ct,
--				    int dir);
-+				    struct nf_conn *ct, int dir,
-+				    s16 offset);
- 
- /* Fake conntrack entry for untracked connections */
- extern struct nf_conn nf_conntrack_untracked;
-diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 155c008..09172a6 100644
---- a/net/ipv4/netfilter/nf_nat_helper.c
-+++ b/net/ipv4/netfilter/nf_nat_helper.c
-@@ -191,7 +191,8 @@ nf_nat_mangle_tcp_packet(struct sk_buff *skb,
- 				    ct, ctinfo);
- 		/* Tell TCP window tracking about seq change */
- 		nf_conntrack_tcp_update(skb, ip_hdrlen(skb),
--					ct, CTINFO2DIR(ctinfo));
-+					ct, CTINFO2DIR(ctinfo),
-+					(int)rep_len - (int)match_len);
- 
- 		nf_conntrack_event_cache(IPCT_NATSEQADJ, ct);
- 	}
-@@ -377,6 +378,7 @@ nf_nat_seq_adjust(struct sk_buff *skb,
- 	struct tcphdr *tcph;
- 	int dir;
- 	__be32 newseq, newack;
-+	s16 seqoff, ackoff;
- 	struct nf_conn_nat *nat = nfct_nat(ct);
- 	struct nf_nat_seq *this_way, *other_way;
- 
-@@ -390,15 +392,18 @@ nf_nat_seq_adjust(struct sk_buff *skb,
- 
- 	tcph = (void *)skb->data + ip_hdrlen(skb);
- 	if (after(ntohl(tcph->seq), this_way->correction_pos))
--		newseq = htonl(ntohl(tcph->seq) + this_way->offset_after);
-+		seqoff = this_way->offset_after;
- 	else
--		newseq = htonl(ntohl(tcph->seq) + this_way->offset_before);
-+		seqoff = this_way->offset_before;
- 
- 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
- 		  other_way->correction_pos))
--		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_after);
-+		ackoff = other_way->offset_after;
- 	else
--		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_before);
-+		ackoff = other_way->offset_before;
-+
-+	newseq = htonl(ntohl(tcph->seq) + seqoff);
-+	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
- 
- 	inet_proto_csum_replace4(&tcph->check, skb, tcph->seq, newseq, 0);
- 	inet_proto_csum_replace4(&tcph->check, skb, tcph->ack_seq, newack, 0);
-@@ -413,7 +418,7 @@ nf_nat_seq_adjust(struct sk_buff *skb,
- 	if (!nf_nat_sack_adjust(skb, tcph, ct, ctinfo))
- 		return 0;
- 
--	nf_conntrack_tcp_update(skb, ip_hdrlen(skb), ct, dir);
-+	nf_conntrack_tcp_update(skb, ip_hdrlen(skb), ct, dir, seqoff);
- 
- 	return 1;
- }
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 33fc0a4..97a82ba 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -720,8 +720,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
- /* Caller must linearize skb at tcp header. */
- void nf_conntrack_tcp_update(const struct sk_buff *skb,
- 			     unsigned int dataoff,
--			     struct nf_conn *ct,
--			     int dir)
-+			     struct nf_conn *ct, int dir,
-+			     s16 offset)
- {
- 	const struct tcphdr *tcph = (const void *)skb->data + dataoff;
- 	const struct ip_ct_tcp_state *sender = &ct->proto.tcp.seen[dir];
-@@ -734,7 +734,7 @@ void nf_conntrack_tcp_update(const struct sk_buff *skb,
- 	/*
- 	 * We have to worry for the ack in the reply packet only...
- 	 */
--	if (after(end, ct->proto.tcp.seen[dir].td_end))
-+	if (ct->proto.tcp.seen[dir].td_end + offset == end)
- 		ct->proto.tcp.seen[dir].td_end = end;
- 	ct->proto.tcp.last_end = end;
- 	spin_unlock_bh(&ct->lock);
+I propose that for now I disable the kmemleak warning for unknown
+pointers and add a patch to linux-next which tracks ioremap and vmap
+mappings. Does this sound fine?
+
+Thanks.
+
+-- 
+Catalin
+
