@@ -1,44 +1,28 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/3] nl802154: fix Oops in ieee802154_nl_get_dev
-Date: Mon, 29 Jun 2009 19:02:14 +0400
-Message-ID: <1246287735-2692-3-git-send-email-dbaryshkov@gmail.com>
-References: <1246287735-2692-1-git-send-email-dbaryshkov@gmail.com>
- <1246287735-2692-2-git-send-email-dbaryshkov@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	slapin@ossfans.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@Voltaire.com>
+Subject: Re: difference in counters values between vlan and parent device
+Date: Mon, 29 Jun 2009 18:05:06 +0300
+Message-ID: <4A48D822.6020100@Voltaire.com>
+References: <Pine.LNX.4.64.0906291654310.27208@zuben.voltaire.com> <4A48D191.9020903@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:61503 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760138AbZF2PCl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 11:02:41 -0400
-In-Reply-To: <1246287735-2692-2-git-send-email-dbaryshkov@gmail.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:10653 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756997AbZF2PFL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 11:05:11 -0400
+In-Reply-To: <4A48D191.9020903@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ieee802154_nl_get_dev() lacks check for the existance of the device
-that was returned by dev_get_XXX, thus resulting in Oops for non-existing
-devices. Fix it.
+Patrick McHardy wrote:
+> So the average packet size is 56 bytes on eth1 and 42 bytes
+> on eth1.4001. So the difference is 14 bytes, which is expected
+> since the mac header is pulled off before delivery to the VLAN device.
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- net/ieee802154/netlink.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+yes makes sense... I am using 22 bytes for netperf payload which without VLAN produces 64=22+8+20+14 bytes frames (8 bytes for UDP header, 20 bytes for IP header, 14 bytes for Eth header). Now with vlans, how many bytes are on the wire, 78=64+14 ?
 
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index 105ad10..332b947 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -276,6 +276,9 @@ static struct net_device *ieee802154_nl_get_dev(struct genl_info *info)
- 	else
- 		return NULL;
- 
-+	if (!dev)
-+		return NULL;
-+
- 	if (dev->type != ARPHRD_IEEE802154) {
- 		dev_put(dev);
- 		return NULL;
--- 
-1.6.3.1
 
+Or.
