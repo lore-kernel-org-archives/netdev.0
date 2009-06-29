@@ -1,55 +1,66 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: difference in counters values between vlan and parent device
-Date: Mon, 29 Jun 2009 17:16:34 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0906291654310.27208@zuben.voltaire.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:26437 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759887AbZF2OQn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 10:16:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: nf_conntrack 01/04: Use rcu_barrier()
+Date: Mon, 29 Jun 2009 16:20:14 +0200 (MEST)
+Message-ID: <20090629142009.5728.27914.sendpatchset@x2.localnet>
+References: <20090629142007.5728.63458.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090629142007.5728.63458.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I noticed that the rx byte counters for 8021q/vlan devices are showing lower
-quantities then the parent device. Below are three cuts of /proc/net/dev
-where one can see clearly that after running unidirectional traffic over
-the vlan the vlan TX packet/byte counters follow well the parent counters,
-where after running bidirectional traffic the parent RX byte counters are
-30% (30M vs 22M) higher, the packet counters follow the parent.
+commit 308ff823ebd749a94d3b6ac26b95bc0eb114c39e
+Author: Jesper Dangaard Brouer <hawk@comx.dk>
+Date:   Thu Jun 25 16:32:52 2009 +0200
 
-Now, looking in net/8021q/vlan_dev.c :: vlan_skb_recv() I see this code,
+    nf_conntrack: Use rcu_barrier()
+    
+    RCU barriers, rcu_barrier(), is inserted two places.
+    
+     In nf_conntrack_expect.c nf_conntrack_expect_fini() before the
+     kmem_cache_destroy().  Firstly to make sure the callback to the
+     nf_ct_expect_free_rcu() code is still around.  Secondly because I'm
+     unsure about the consequence of having in flight
+     nf_ct_expect_free_rcu/kmem_cache_free() calls while doing a
+     kmem_cache_destroy() slab destroy.
+    
+     And in nf_conntrack_extend.c nf_ct_extend_unregister(), inorder to
+     wait for completion of callbacks to __nf_ct_ext_free_rcu(), which is
+     invoked by __nf_ct_ext_add().  It might be more efficient to call
+     rcu_barrier() in nf_conntrack_core.c nf_conntrack_cleanup_net(), but
+     thats make it more difficult to read the code (as the callback code
+     in located in nf_conntrack_extend.c).
+    
+    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-	stats->rx_packets++;
-	stats->rx_bytes += skb->len;
-
-I understand that skb->len as seen by the parent device may be different
-then the len seen by 8021q but I don't see how it can account to 30%.
-
-For what it worth, this is 2.6.30
-
-Or.
-
-1. both devices are fresh, just loaded the NIC driver (igb) and then setup a vlan
-
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-  eth1:       0       0    0    0    0     0          0         0    14456      55    0    0    0     0       0          0
-eth1.4001:       0       0    0    0    0     0          0         0     6434      23    0    0    0     0       0          0
-
-2. after running unidirectional traffic over the vlan (netperf UDP_STREAM)
-
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-  eth1:    1644      11    0    0    0     0          0         0 1136967388 17764927    0    0    0     0       0          0
-eth1.4001:    1490      11    0    0    0     0          0         0 1136959282 17764893    0    0    0     0       0          0
-
-3. after running bidirectional traffic over the vlan (netperf UDP_RR)
-
-Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-  eth1:30611926  546614    0    0    0     0          0         0 1160471756 18311532    0    0    0     0       0          0
-eth1.4001:22959330  546614    0    0    0     0          0         0 1160463650 18311498    0    0    0     0       0          0
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index afde8f9..2032dfe 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -617,8 +617,10 @@ err1:
+ void nf_conntrack_expect_fini(struct net *net)
+ {
+ 	exp_proc_remove(net);
+-	if (net_eq(net, &init_net))
++	if (net_eq(net, &init_net)) {
++		rcu_barrier(); /* Wait for call_rcu() before destroy */
+ 		kmem_cache_destroy(nf_ct_expect_cachep);
++	}
+ 	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
+ 			     nf_ct_expect_hsize);
+ }
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 4b2c769..fef95be 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -186,6 +186,6 @@ void nf_ct_extend_unregister(struct nf_ct_ext_type *type)
+ 	rcu_assign_pointer(nf_ct_ext_types[type->id], NULL);
+ 	update_alloc_size(type);
+ 	mutex_unlock(&nf_ct_ext_type_mutex);
+-	synchronize_rcu();
++	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_extend_unregister);
