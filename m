@@ -1,546 +1,273 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
 Subject: Re: rib_trie / Fix inflate_threshold_root. Now=15 size=11 bits
-Date: Mon, 29 Jun 2009 09:57:25 +0200
-Message-ID: <4A4873E5.2000402@itcare.pl>
-References: <19012.37515.146191.198843@robur.slu.se>	<20090627192057.GA5041@ami.dom.local>	<20090627205123.GA5265@ami.dom.local> <19015.20442.620760.399214@robur.slu.se>
+Date: Mon, 29 Jun 2009 10:08:11 +0200
+Message-ID: <4A48766B.8020206@itcare.pl>
+References: <19012.37515.146191.198843@robur.slu.se> <20090627192057.GA5041@ami.dom.local> <19015.20051.432572.460207@robur.slu.se> <20090628143511.GA20541@ami.dom.local> <4A478D02.10805@itcare.pl> <4A4790C3.508@itcare.pl> <20090628213602.GA4584@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert@robur.slu.se>,
 	Robert Olsson <Robert.Olsson@data.slu.se>,
 	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
 	Eric Dumazet <dada1@cosmosbay.com>,
 	Robert Olsson <robert.olsson@its.uu.se>,
 	Linux Network Development list <netdev@vger.kernel.org>
-To: Robert Olsson <robert@robur.slu.se>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:48131 "EHLO smtp.iq.pl"
+Received: from smtp.iq.pl ([86.111.241.19]:35953 "EHLO smtp.iq.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230AbZF2H50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 03:57:26 -0400
-In-Reply-To: <19015.20442.620760.399214@robur.slu.se>
+	id S1752016AbZF2IIL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 04:08:11 -0400
+In-Reply-To: <20090628213602.GA4584@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Olsson pisze:
-> When testing please monitor size of root node and and aver depth
+Jarek Poplawski pisze:
+> To David Miller:
+> since among patches tested negatively by Pawel are current 2 fixes
+> from 2.6.31-rc, I hope they weren't sent to -stable yet. Otherwise,
+> please withdraw them until they are tested alone. Thanks.
 >
-> Cheers
-> 				--ro
->   
-Some fib_triestats - kernel.2.6.29.5 with first Jarek patch.
-
-Dump every 10sec:
-
-Mon Jun 29 11:54:31 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276978
-        Prefixes:       290448
-        Internal nodes: 66813
-          1: 34703  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691606
-Null ptrs: 347816
-Total size: 18403  kB
-
-Counters:
----------
-gets = 390981859
-backtracks = 5332465
-semantic match passed = 390452936
-semantic match miss = 30198
-null node hit= 375522207
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391017445
-backtracks = 121012874
-semantic match passed = 37565
-semantic match miss = 0
-null node hit= 261583
-skipped node resize = 0
-
-Mon Jun 29 11:54:41 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276976
-        Prefixes:       290446
-        Internal nodes: 66813
-          1: 34703  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691606
-Null ptrs: 347818
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391061852
-backtracks = 5334173
-semantic match passed = 390532664
-semantic match miss = 30199
-null node hit= 375595706
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391097445
-backtracks = 121039213
-semantic match passed = 37570
-semantic match miss = 0
-null node hit= 261589
-skipped node resize = 0
-
-Mon Jun 29 11:54:51 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276978
-        Prefixes:       290448
-        Internal nodes: 66813
-          1: 34703  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691606
-Null ptrs: 347816
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391177325
-backtracks = 5336127
-semantic match passed = 390647917
-semantic match miss = 30208
-null node hit= 375699713
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391212932
-backtracks = 121075919
-semantic match passed = 37586
-semantic match miss = 0
-null node hit= 261701
-skipped node resize = 0
-
-Mon Jun 29 11:55:01 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276978
-        Prefixes:       290448
-        Internal nodes: 66813
-          1: 34703  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691606
-Null ptrs: 347816
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391254016
-backtracks = 5337816
-semantic match passed = 390724361
-semantic match miss = 30214
-null node hit= 375768712
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391289631
-backtracks = 121101285
-semantic match passed = 37598
-semantic match miss = 0
-null node hit= 261707
-skipped node resize = 0
-
-Mon Jun 29 11:55:11 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276976
-        Prefixes:       290445
-        Internal nodes: 66812
-          1: 34702  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691604
-Null ptrs: 347817
-Total size: 18402  kB
-
-Counters:
----------
-gets = 391317389
-backtracks = 5339175
-semantic match passed = 390787523
-semantic match miss = 30215
-null node hit= 375827612
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391353001
-backtracks = 121122087
-semantic match passed = 37599
-semantic match miss = 0
-null node hit= 261709
-skipped node resize = 0
-
-Mon Jun 29 11:55:21 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276981
-        Prefixes:       290451
-        Internal nodes: 66813
-          1: 34704  2: 13943  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691604
-Null ptrs: 347811
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391434307
-backtracks = 5340855
-semantic match passed = 390904256
-semantic match miss = 30225
-null node hit= 375931780
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391469942
-backtracks = 121157220
-semantic match passed = 37619
-semantic match miss = 0
-null node hit= 261753
-skipped node resize = 0
-
-Mon Jun 29 11:55:31 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276981
-        Prefixes:       290451
-        Internal nodes: 66813
-          1: 34704  2: 13943  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691604
-Null ptrs: 347811
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391519852
-backtracks = 5342208
-semantic match passed = 390989658
-semantic match miss = 30234
-null node hit= 376010537
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391555492
-backtracks = 121181992
-semantic match passed = 37625
-semantic match miss = 0
-null node hit= 261762
-skipped node resize = 0
-
-Mon Jun 29 11:55:42 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276978
-        Prefixes:       290447
-        Internal nodes: 66812
-          1: 34703  2: 13943  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691602
-Null ptrs: 347813
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391589032
-backtracks = 5343757
-semantic match passed = 391058601
-semantic match miss = 30237
-null node hit= 376075389
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391624673
-backtracks = 121202115
-semantic match passed = 37628
-semantic match miss = 0
-null node hit= 261763
-skipped node resize = 0
-
-Mon Jun 29 11:55:52 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276985
-        Prefixes:       290455
-        Internal nodes: 66814
-          1: 34704  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691608
-Null ptrs: 347810
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391723925
-backtracks = 5345934
-semantic match passed = 391193292
-semantic match miss = 30242
-null node hit= 376195655
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391759578
-backtracks = 121241080
-semantic match passed = 37640
-semantic match miss = 0
-null node hit= 261804
-skipped node resize = 0
-
-Mon Jun 29 11:56:02 2009
-Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
-Main:
-        Aver depth:     2.28
-        Max depth:      7
-        Leaves:         276985
-        Prefixes:       290455
-        Internal nodes: 66814
-          1: 34704  2: 13944  3: 9921  4: 4807  5: 2273  6: 1158  7: 5  
-9: 1  18: 1
-        Pointers: 691608
-Null ptrs: 347810
-Total size: 18403  kB
-
-Counters:
----------
-gets = 391811219
-backtracks = 5347635
-semantic match passed = 391280357
-semantic match miss = 30250
-null node hit= 376276182
-skipped node resize = 0
-
-Local:
-        Aver depth:     3.75
-        Max depth:      5
-        Leaves:         12
-        Prefixes:       13
-        Internal nodes: 10
-          1: 9  2: 1
-        Pointers: 22
-Null ptrs: 1
-Total size: 2  kB
-
-Counters:
----------
-gets = 391846880
-backtracks = 121265316
-semantic match passed = 37648
-semantic match miss = 0
-null node hit= 261813
-skipped node resize = 0
-
-
->      	       	       	    	 
+> To Pawel:
+> On Sun, Jun 28, 2009 at 05:48:19PM +0200, Pawe=B3 Staszewski wrote:
+>  =20
+>> After apply this patch something is wrong
+>>
+>> Traffic is not forwarded
+>> no info in dmesg / no info from bgp
+>> and also i can't connect to bgpd process
+>>
+>> I revert kernel to past version with first Jarek patch
+>>
+>>    =20
 >
-> Jarek Poplawski writes:
->  > On Sat, Jun 27, 2009 at 09:20:57PM +0200, Jarek Poplawski wrote:
->  > ...
->  > > Then these settable thresholds might be more useful here than memory
->  > > fixes, but here is some idea to try handle this automatically within
->  > > some limits. The patch below increases inflate_threshold_root (only)
->  > > up to ~50% of its initial value if needed, and should be able to go
->  > > back sometimes.
->  > > 
->  > > Pawel and Jorge, could you try this? (It applies to 2.6.29 too, with
->  > > some offsets.)
->  > 
->  > A tiny adjustment in the last if...
->  > 
->  > Jarek P.
->  > --- (take 2)
->  > 
->  >  net/ipv4/fib_trie.c |   23 ++++++++++++++++-------
->  >  1 files changed, 16 insertions(+), 7 deletions(-)
->  > 
->  > diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->  > index 012cf5a..1dc1bb4 100644
->  > --- a/net/ipv4/fib_trie.c
->  > +++ b/net/ipv4/fib_trie.c
->  > @@ -318,6 +318,7 @@ static const int halve_threshold = 25;
->  >  static const int inflate_threshold = 50;
->  >  static const int halve_threshold_root = 8;
->  >  static const int inflate_threshold_root = 15;
->  > +static int inflate_threshold_root_fix;
->  >  
->  >  
->  >  static void __alias_free_mem(struct rcu_head *head)
->  > @@ -602,7 +603,8 @@ static struct node *resize(struct trie *t, struct tnode *tn)
->  >  	/* Keep root node larger  */
->  >  
->  >  	if (!tn->parent)
->  > -		inflate_threshold_use = inflate_threshold_root;
->  > +		inflate_threshold_use = inflate_threshold_root +
->  > +					inflate_threshold_root_fix;
->  >  	else
->  >  		inflate_threshold_use = inflate_threshold;
->  >  
->  > @@ -626,15 +628,22 @@ static struct node *resize(struct trie *t, struct tnode *tn)
->  >  	}
->  >  
->  >  	if (max_resize < 0) {
->  > -		if (!tn->parent)
->  > -			pr_warning("Fix inflate_threshold_root."
->  > -				   " Now=%d size=%d bits\n",
->  > -				   inflate_threshold_root, tn->bits);
->  > -		else
->  > +		if (!tn->parent) {
->  > +			if (inflate_threshold_root_fix * 2 <
->  > +			    inflate_threshold_root)
->  > +				inflate_threshold_root_fix++;
->  > +			else
->  > +				pr_warning("Fix inflate_threshold_root."
->  > +					   " Now=%d size=%d bits fix=%d\n",
->  > +					   inflate_threshold_root, tn->bits,
->  > +					   inflate_threshold_root_fix);
->  > +		} else {
->  >  			pr_warning("Fix inflate_threshold."
->  >  				   " Now=%d size=%d bits\n",
->  >  				   inflate_threshold, tn->bits);
->  > -	}
->  > +		}
->  > +	} else if (max_resize > 4 && !tn->parent && inflate_threshold_root_fix)
->  > +		inflate_threshold_root_fix--;
->  >  
->  >  	check_tnode(tn);
->  >  
->  > --
->  > To unsubscribe from this list: send the line "unsubscribe netdev" in
->  > the body of a message to majordomo@vger.kernel.org
->  > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Since checking this can take time I attach here a patch with only
+> changes which are currently in 2.6.31-rc. Of course, this part can be
+> broken as well, so it's up to you: if you could try it with caution
+> somewhere it would be very helpful; otherwise don't bother.
+>
+> It could be applied to 2.6.29 with or without this currently working
+> patch.
+>
+>  =20
+
+Ok.
+I applied this patch 15mins ago to 2.6.29.5 and now it's working -=20
+traffic is forwarded.
+
+Some fib_triestats
+cat /proc/net/fib_triestat
+Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
+Main:
+        Aver depth:     2.29
+        Max depth:      6
+        Leaves:         277015
+        Prefixes:       290493
+        Internal nodes: 67115
+          1: 35733  2: 13635  3: 9544  4: 4832  5: 2239  6: 1125  7: 5 =
+=20
+9: 1  18: 1
+        Pointers: 686614
+Null ptrs: 342485
+Total size: 18396  kB
+
+Counters:
+---------
+gets =3D 3956301
+backtracks =3D 192497
+semantic match passed =3D 3895955
+semantic match miss =3D 133
+null node hit=3D 4306948
+skipped node resize =3D 0
+
+Local:
+        Aver depth:     3.75
+        Max depth:      5
+        Leaves:         12
+        Prefixes:       13
+        Internal nodes: 10
+          1: 9  2: 1
+        Pointers: 22
+Null ptrs: 1
+Total size: 2  kB
+
+Counters:
+---------
+gets =3D 3960981
+backtracks =3D 2152441
+semantic match passed =3D 4757
+semantic match miss =3D 0
+null node hit=3D 194997
+skipped node resize =3D 0
+
+
+
+> Thanks,
+> Jarek P.
+> --- (for 2.6.29.x, .28 or .27)
+>
+> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> --- a/net/ipv4/fib_trie.c	2009-06-27 20:25:06.000000000 +0200
+> +++ b/net/ipv4/fib_trie.c	2009-06-28 23:06:02.000000000 +0200
+> @@ -123,6 +123,7 @@ struct tnode {
+>  	union {
+>  		struct rcu_head rcu;
+>  		struct work_struct work;
+> +		struct tnode *tnode_free;
+>  	};
+>  	struct node *child[0];
+>  };
+> @@ -161,6 +162,8 @@ static void tnode_put_child_reorg(struct
+>  static struct node *resize(struct trie *t, struct tnode *tn);
+>  static struct tnode *inflate(struct trie *t, struct tnode *tn);
+>  static struct tnode *halve(struct trie *t, struct tnode *tn);
+> +/* tnodes to free after resize(); protected by RTNL */
+> +static struct tnode *tnode_free_head;
+> =20
+>  static struct kmem_cache *fn_alias_kmem __read_mostly;
+>  static struct kmem_cache *trie_leaf_kmem __read_mostly;
+> @@ -385,6 +388,24 @@ static inline void tnode_free(struct tno
+>  		call_rcu(&tn->rcu, __tnode_free_rcu);
+>  }
+> =20
+> +static void tnode_free_safe(struct tnode *tn)
+> +{
+> +	BUG_ON(IS_LEAF(tn));
+> +	tn->tnode_free =3D tnode_free_head;
+> +	tnode_free_head =3D tn;
+> +}
+> +
+> +static void tnode_free_flush(void)
+> +{
+> +	struct tnode *tn;
+> +
+> +	while ((tn =3D tnode_free_head)) {
+> +		tnode_free_head =3D tn->tnode_free;
+> +		tn->tnode_free =3D NULL;
+> +		tnode_free(tn);
+> +	}
+> +}
+> +
+>  static struct leaf *leaf_new(void)
+>  {
+>  	struct leaf *l =3D kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+> @@ -495,7 +516,7 @@ static struct node *resize(struct trie *
+> =20
+>  	/* No children */
+>  	if (tn->empty_children =3D=3D tnode_child_length(tn)) {
+> -		tnode_free(tn);
+> +		tnode_free_safe(tn);
+>  		return NULL;
+>  	}
+>  	/* One child */
+> @@ -509,7 +530,7 @@ static struct node *resize(struct trie *
+> =20
+>  			/* compress one level */
+>  			node_set_parent(n, NULL);
+> -			tnode_free(tn);
+> +			tnode_free_safe(tn);
+>  			return n;
+>  		}
+>  	/*
+> @@ -670,7 +691,7 @@ static struct node *resize(struct trie *
+>  			/* compress one level */
+> =20
+>  			node_set_parent(n, NULL);
+> -			tnode_free(tn);
+> +			tnode_free_safe(tn);
+>  			return n;
+>  		}
+> =20
+> @@ -756,7 +777,7 @@ static struct tnode *inflate(struct trie
+>  			put_child(t, tn, 2*i, inode->child[0]);
+>  			put_child(t, tn, 2*i+1, inode->child[1]);
+> =20
+> -			tnode_free(inode);
+> +			tnode_free_safe(inode);
+>  			continue;
+>  		}
+> =20
+> @@ -801,9 +822,9 @@ static struct tnode *inflate(struct trie
+>  		put_child(t, tn, 2*i, resize(t, left));
+>  		put_child(t, tn, 2*i+1, resize(t, right));
+> =20
+> -		tnode_free(inode);
+> +		tnode_free_safe(inode);
+>  	}
+> -	tnode_free(oldtnode);
+> +	tnode_free_safe(oldtnode);
+>  	return tn;
+>  nomem:
+>  	{
+> @@ -885,7 +906,7 @@ static struct tnode *halve(struct trie *
+>  		put_child(t, newBinNode, 1, right);
+>  		put_child(t, tn, i/2, resize(t, newBinNode));
+>  	}
+> -	tnode_free(oldtnode);
+> +	tnode_free_safe(oldtnode);
+>  	return tn;
+>  nomem:
+>  	{
+> @@ -983,12 +1004,14 @@ fib_find_node(struct trie *t, u32 key)
+>  	return NULL;
+>  }
+> =20
+> -static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
+> +static void trie_rebalance(struct trie *t, struct tnode *tn)
+>  {
+>  	int wasfull;
+> -	t_key cindex, key =3D tn->key;
+> +	t_key cindex, key;
+>  	struct tnode *tp;
+> =20
+> +	key =3D tn->key;
+> +
+>  	while (tn !=3D NULL && (tp =3D node_parent((struct node *)tn)) !=3D=
+ NULL) {
+>  		cindex =3D tkey_extract_bits(key, tp->pos, tp->bits);
+>  		wasfull =3D tnode_full(tp, tnode_get_child(tp, cindex));
+> @@ -998,6 +1021,7 @@ static struct node *trie_rebalance(struc
+>  				      (struct node *)tn, wasfull);
+> =20
+>  		tp =3D node_parent((struct node *) tn);
+> +		tnode_free_flush();
+>  		if (!tp)
+>  			break;
+>  		tn =3D tp;
+> @@ -1007,7 +1031,10 @@ static struct node *trie_rebalance(struc
+>  	if (IS_TNODE(tn))
+>  		tn =3D (struct tnode *)resize(t, (struct tnode *)tn);
+> =20
+> -	return (struct node *)tn;
+> +	rcu_assign_pointer(t->trie, (struct node *)tn);
+> +	tnode_free_flush();
+> +
+> +	return;
+>  }
+> =20
+>  /* only used from updater-side */
+> @@ -1155,7 +1182,7 @@ static struct list_head *fib_insert_node
+> =20
+>  	/* Rebalance the trie */
+> =20
+> -	rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
+> +	trie_rebalance(t, tp);
+>  done:
+>  	return fa_head;
+>  }
+> @@ -1575,7 +1602,7 @@ static void trie_leaf_remove(struct trie
+>  	if (tp) {
+>  		t_key cindex =3D tkey_extract_bits(l->key, tp->pos, tp->bits);
+>  		put_child(t, (struct tnode *)tp, cindex, NULL);
+> -		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
+> +		trie_rebalance(t, tp);
+>  	} else
+>  		rcu_assign_pointer(t->trie, NULL);
+> =20
 >
 >
->   
+>
+>  =20
 
