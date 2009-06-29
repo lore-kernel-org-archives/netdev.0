@@ -1,64 +1,86 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: forcedeth skb_gso_segment warning
-Date: Mon, 29 Jun 2009 12:03:30 +0800
-Message-ID: <20090629040330.GA2981@gondor.apana.org.au>
-References: <1244539163.4672.5.camel@johannes.local>
+Date: Mon, 29 Jun 2009 12:06:41 +0800
+Message-ID: <20090629040641.GA3357@gondor.apana.org.au>
+References: <1244539163.4672.5.camel@johannes.local> <20090629040330.GA2981@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Johannes Berg <johannes@sipsolutions.net>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60298 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:60302 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750734AbZF2EDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 00:03:34 -0400
+	with ESMTP id S1750759AbZF2EGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 00:06:44 -0400
 Content-Disposition: inline
-In-Reply-To: <1244539163.4672.5.camel@johannes.local>
+In-Reply-To: <20090629040330.GA2981@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 09, 2009 at 11:19:23AM +0200, Johannes Berg wrote:
-> Happened a number of times:
+On Mon, Jun 29, 2009 at 12:03:30PM +0800, Herbert Xu wrote:
 > 
-> Jun  8 18:56:25 johannes kernel: [33987.849090] ------------[ cut here ]------------
-> Jun  8 18:56:25 johannes kernel: [33987.849106] WARNING: at /home/johannes/sys/wireless-testing/net/core/dev.c:1560 skb_gso_segment+0x233/0x2e0()
-> Jun  8 18:56:25 johannes kernel: [33987.849110] Hardware name: MacBook5,1
-> Jun  8 18:56:25 johannes kernel: [33987.849114] forcedeth: caps=(0x10823, 0x19082b) len=65212 data_len=63712 ip_summed=0
+> tcp: Stop non-TSO packets morphing into TSO
 
-Thank you!
+Here's a follow-up patch to optimise this boundary case.
 
-This was the clue I needed.  The fact that the packet is TSO and
-not completely non-linear.
-
-tcp: Stop non-TSO packets morphing into TSO
+tcp: Do not tack on TSO data to non-TSO packet
 
 If a socket starts out on a non-TSO route, and then switches to
-a TSO route, then the tail on the tx queue can morph into a TSO
-packet, causing mischief because the rest of the stack does not
-expect a partially linear TSO packet.
+a TSO route, then we will tack on data to the tail of the tx queue
+even if it started out life as non-TSO.  This is suboptimal because
+all of it will then be copied and checksummed unnecessarily.
 
 This patch fixes this by ensuring that skb->ip_summed is set to
-CHECKSUM_PARTIAL before declaring a packet as TSO.
+CHECKSUM_PARTIAL before appending extra data beyond the MSS.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 416fc4c..5bdf08d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -725,7 +725,8 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff *skb)
- static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb,
- 				 unsigned int mss_now)
- {
--	if (skb->len <= mss_now || !sk_can_gso(sk)) {
-+	if (skb->len <= mss_now || !sk_can_gso(sk) ||
-+	    skb->ip_summed == CHECKSUM_NONE) {
- 		/* Avoid the costly divide in the normal
- 		 * non-TSO case.
- 		 */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 17b89c5..7870a53 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -903,13 +903,17 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ 		iov++;
+ 
+ 		while (seglen > 0) {
+-			int copy;
++			int copy = 0;
++			int max = size_goal;
+ 
+ 			skb = tcp_write_queue_tail(sk);
++			if (tcp_send_head(sk)) {
++				if (skb->ip_summed == CHECKSUM_NONE)
++					max = mss_now;
++				copy = max - skb->len;
++			}
+ 
+-			if (!tcp_send_head(sk) ||
+-			    (copy = size_goal - skb->len) <= 0) {
+-
++			if (copy <= 0) {
+ new_segment:
+ 				/* Allocate new segment. If the interface is SG,
+ 				 * allocate skb fitting to single page.
+@@ -930,6 +934,7 @@ new_segment:
+ 
+ 				skb_entail(sk, skb);
+ 				copy = size_goal;
++				max = size_goal;
+ 			}
+ 
+ 			/* Try to append data to the end of skb. */
+@@ -1028,7 +1033,7 @@ new_segment:
+ 			if ((seglen -= copy) == 0 && iovlen == 0)
+ 				goto out;
+ 
+-			if (skb->len < size_goal || (flags & MSG_OOB))
++			if (skb->len < max || (flags & MSG_OOB))
+ 				continue;
+ 
+ 			if (forced_push(tp)) {
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
