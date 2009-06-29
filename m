@@ -1,47 +1,35 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Inconsistency in number of Unix sockets
-Date: Mon, 29 Jun 2009 17:37:23 +0300
-Message-ID: <31436f4a0906290737w7eba05a7r5e2ab96b4b2838a2@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com
-To: netdev@vger.kernel.org
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [GIT PULL] Fixes for the IEEE 802.15.4 code
+Date: Mon, 29 Jun 2009 19:02:12 +0400
+Message-ID: <1246287735-2692-1-git-send-email-dbaryshkov@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	slapin@ossfans.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:63426 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.153]:36258 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753972AbZF2OhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 10:37:22 -0400
-Received: by fg-out-1718.google.com with SMTP id e21so910437fga.17
-        for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 07:37:23 -0700 (PDT)
+	with ESMTP id S1753487AbZF2PCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 11:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Please pull three following patches, containing small fixes for the IEEE 802.15.4
+code. The branch is based against net-next/master. Thank you.
 
-On kernel 2.6.29.4-167: (Fedora 11):
+The following changes since commit 28d0325ce6e0a52f53d8af687e6427fee59004d3:
+  Linus Torvalds (1):
+        Linux 2.6.31-rc1
 
-Why is this inconsistency in number of Unix sockets, when running the following:
+are available in the git repository at:
 
- cat /proc/net/protocols | grep UNIX
-UNIX       432    986      -1   ....
+  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
 
-lsof -U | wc -l
-989
+Dmitry Eremin-Solenikov (3):
+      MAINTAINERS: ieee802154 lists are moderated for non-subscribers.
+      nl802154: fix Oops in ieee802154_nl_get_dev
+      nl802154: add module license and description
 
-netstat --unix | wc -l
-906
+ MAINTAINERS              |    2 +-
+ net/ieee802154/netlink.c |    6 ++++++
+ 2 files changed, 7 insertions(+), 1 deletions(-)
 
-cat /proc/net/unix | wc -l
-986
-
-On which of this statistics should we rely when we want to know how
-many Unix Domain sockets do we have ? There is a variable named unix_nr_socks,
-but AFAIK, the patch which used it (for /proc/net/protocols ) was
-reverted lately.
-
-commit 1748376b6626acf59c24e9592ac67b3fe2a0e026
-by Eric Dumazet <dada1@cosmosbay.com>
-
-Regards,
-DS
