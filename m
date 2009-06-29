@@ -1,89 +1,66 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: kerneloops.org report for the week
-Date: Mon, 29 Jun 2009 05:18:04 +0200
-Message-ID: <20090629031804.GA6764@elte.hu>
-References: <20090628091055.12a4fb9e@infradead.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: forcedeth skb_gso_segment warning
+Date: Mon, 29 Jun 2009 12:03:30 +0800
+Message-ID: <20090629040330.GA2981@gondor.apana.org.au>
+References: <1244539163.4672.5.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org, x86@kernel.org
-To: Arjan van de Ven <arjan@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Yinghai Lu <yinghai@kernel.org>
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:59834 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751763AbZF2DSg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Jun 2009 23:18:36 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:60298 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750734AbZF2EDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 00:03:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20090628091055.12a4fb9e@infradead.org>
+In-Reply-To: <1244539163.4672.5.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-* Arjan van de Ven <arjan@infradead.org> wrote:
-
-> Few "highlights" this week
-> * mem_cgroup_add_lru_list (rank 2) is a high rising issue;
->   it's list corruption, question is why this is new
-> * rank 13 (memcmp in the raid code) is also new
-> * the warning in get_free_pages that has been discussed on lkml is dropping
->   from the ranks again
+On Tue, Jun 09, 2009 at 11:19:23AM +0200, Johannes Berg wrote:
+> Happened a number of times:
 > 
-> 
-> This week, a total of 15273 oopses and warnings have been reported,
-> compared to 13384 reports in the previous week.
-> 
-> 
-> Rank 2: mem_cgroup_add_lru_list (warn)
-> 	Reported 1554 times (1622 total reports)
-> 	List corruption in the VM code
-> 	This oops was last seen in version 2.6.30-git19, and first seen in 2.6.29.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=mem_cgroup_add_lru_list
+> Jun  8 18:56:25 johannes kernel: [33987.849090] ------------[ cut here ]------------
+> Jun  8 18:56:25 johannes kernel: [33987.849106] WARNING: at /home/johannes/sys/wireless-testing/net/core/dev.c:1560 skb_gso_segment+0x233/0x2e0()
+> Jun  8 18:56:25 johannes kernel: [33987.849110] Hardware name: MacBook5,1
+> Jun  8 18:56:25 johannes kernel: [33987.849114] forcedeth: caps=(0x10823, 0x19082b) len=65212 data_len=63712 ip_summed=0
 
-At least one list corruption bug was fixed by:
+Thank you!
 
-   cb4cbcf: mm: fix incorrect page removal from LRU
+This was the clue I needed.  The fact that the packet is TSO and
+not completely non-linear.
 
-> Rank 3: getnstimeofday (warning)
-> 	Reported 1319 times (4893 total reports)
-> 	[suspend resume] getnstimeofday() is called before timekeeping is resumed
-> 	This oops was last seen in version 2.6.30, and first seen in 2.6.24.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=getnstimeofday
+tcp: Stop non-TSO packets morphing into TSO
 
-Probably caused by some buggy driver callback?
+If a socket starts out on a non-TSO route, and then switches to
+a TSO route, then the tail on the tx queue can morph into a TSO
+packet, causing mischief because the rest of the stack does not
+expect a partially linear TSO packet.
 
-> Rank 7: hres_timers_resume (warning)
-> 	Reported 763 times (2368 total reports)
-> 	[suspend resume] hres_timers_resume() is incorrectly called with interrupts on
-> 	This warning was last seen in version 2.6.30, and first seen in 2.6.24.7.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=hres_timers_resume
+This patch fixes this by ensuring that skb->ip_summed is set to
+CHECKSUM_PARTIAL before declaring a packet as TSO.
 
-This is probably a driver incorrectly enabling irqs in a resume 
-callback. This should be easier and more specific to debug with the 
-lockdep based annotation i suggested for the suspend code in various 
-`mails.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> Rank 8: generic_get_mtrr (warning)
-> 	Reported 544 times (2061 total reports)
-> 	BIOS bug where the MTRRs are not set up correctly
-> 	This warning was last seen in version 2.6.30, and first seen in 2.6.25.3.
-> 	More info: http://www.kerneloops.org/searchweek.php?search=generic_get_mtrr
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 416fc4c..5bdf08d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -725,7 +725,8 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff *skb)
+ static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb,
+ 				 unsigned int mss_now)
+ {
+-	if (skb->len <= mss_now || !sk_can_gso(sk)) {
++	if (skb->len <= mss_now || !sk_can_gso(sk) ||
++	    skb->ip_summed == CHECKSUM_NONE) {
+ 		/* Avoid the costly divide in the normal
+ 		 * non-TSO case.
+ 		 */
 
-I think this calls for enabling the x86 MTRR sanitizer by default - 
-500 out of 15000 reports suggests a significant proportion of Linux 
-systems is affected by MTRR setup problems.
-
-I.e. we should change:
-
-config MTRR_SANITIZER_ENABLE_DEFAULT
-        int "MTRR cleanup enable value (0-1)"
-        range 0 1
-        default "0"
-
-To 'default "1"'. Any objections?
-
-If the MTRR sanitizer is enabled then i think the above warning in 
-generic_get_mtrr() should never trigger.
-
-	Ingo
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
