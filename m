@@ -1,81 +1,55 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: [PATCH 2/2] memory barrier: adding smp_mb__after_lock
-Date: Mon, 29 Jun 2009 16:15:59 +0200
-Message-ID: <20090629141559.GG3845@jolsa.lab.eng.brq.redhat.com>
-References: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: difference in counters values between vlan and parent device
+Date: Mon, 29 Jun 2009 17:16:34 +0300 (IDT)
+Message-ID: <Pine.LNX.4.64.0906291654310.27208@zuben.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
-	oleg@redhat.com, davidel@xmailserver.org, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41580 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759606AbZF2OQB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 10:16:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:26437 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759887AbZF2OQn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 10:16:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I noticed that the rx byte counters for 8021q/vlan devices are showing lower
+quantities then the parent device. Below are three cuts of /proc/net/dev
+where one can see clearly that after running unidirectional traffic over
+the vlan the vlan TX packet/byte counters follow well the parent counters,
+where after running bidirectional traffic the parent RX byte counters are
+30% (30M vs 22M) higher, the packet counters follow the parent.
 
-Adding smp_mb__after_lock define to be used as a smp_mb call after
-a lock.  
+Now, looking in net/8021q/vlan_dev.c :: vlan_skb_recv() I see this code,
 
-Making it nop for x86, since {read|write|spin}_lock() on x86 are 
-full memory barriers.
+	stats->rx_packets++;
+	stats->rx_bytes += skb->len;
 
-wbr,
-jirka
+I understand that skb->len as seen by the parent device may be different
+then the len seen by 8021q but I don't see how it can account to 30%.
 
+For what it worth, this is 2.6.30
 
-Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Or.
 
----
- arch/x86/include/asm/spinlock.h |    3 +++
- include/linux/spinlock.h        |    5 +++++
- include/net/sock.h              |    2 +-
- 3 files changed, 9 insertions(+), 1 deletions(-)
+1. both devices are fresh, just loaded the NIC driver (igb) and then setup a vlan
 
-diff --git a/arch/x86/include/asm/spinlock.h b/arch/x86/include/asm/spinlock.h
-index b7e5db8..39ecc5f 100644
---- a/arch/x86/include/asm/spinlock.h
-+++ b/arch/x86/include/asm/spinlock.h
-@@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
- 
-+/* The {read|write|spin}_lock() on x86 are full memory barriers. */
-+#define smp_mb__after_lock() do { } while (0)
-+
- #endif /* _ASM_X86_SPINLOCK_H */
-diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-index 252b245..ae053bd 100644
---- a/include/linux/spinlock.h
-+++ b/include/linux/spinlock.h
-@@ -132,6 +132,11 @@ do {								\
- #endif /*__raw_spin_is_contended*/
- #endif
- 
-+/* The lock does not imply full memory barrier. */
-+#ifndef smp_mb__after_lock
-+#define smp_mb__after_lock() smp_mb()
-+#endif
-+
- /**
-  * spin_unlock_wait - wait until the spinlock gets unlocked
-  * @lock: the spinlock in question.
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e9137ed..05fbf8b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1277,7 +1277,7 @@ static inline void sock_poll_wait(struct file *filp, struct sock *sk,
- 		 *
- 		 * This memory barrier is paired in the sk_has_sleeper.
- 		*/
--		smp_mb();
-+		smp_mb__after_lock();
- 	}
- }
- 
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth1:       0       0    0    0    0     0          0         0    14456      55    0    0    0     0       0          0
+eth1.4001:       0       0    0    0    0     0          0         0     6434      23    0    0    0     0       0          0
+
+2. after running unidirectional traffic over the vlan (netperf UDP_STREAM)
+
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth1:    1644      11    0    0    0     0          0         0 1136967388 17764927    0    0    0     0       0          0
+eth1.4001:    1490      11    0    0    0     0          0         0 1136959282 17764893    0    0    0     0       0          0
+
+3. after running bidirectional traffic over the vlan (netperf UDP_RR)
+
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+  eth1:30611926  546614    0    0    0     0          0         0 1160471756 18311532    0    0    0     0       0          0
+eth1.4001:22959330  546614    0    0    0     0          0         0 1160463650 18311498    0    0    0     0       0          0
