@@ -1,88 +1,119 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: forcedeth skb_gso_segment warning
-Date: Mon, 29 Jun 2009 12:06:41 +0800
-Message-ID: <20090629040641.GA3357@gondor.apana.org.au>
-References: <1244539163.4672.5.camel@johannes.local> <20090629040330.GA2981@gondor.apana.org.au>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] xfrm: use xfrm_addr_cmp() instead of compare addresses directly
+Date: Mon, 29 Jun 2009 12:42:53 +0800
+Message-ID: <4A48464D.2010501@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60302 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750759AbZF2EGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 00:06:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090629040330.GA2981@gondor.apana.org.au>
+Received: from cn.fujitsu.com ([222.73.24.84]:55926 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748AbZF2Enq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 00:43:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 29, 2009 at 12:03:30PM +0800, Herbert Xu wrote:
-> 
-> tcp: Stop non-TSO packets morphing into TSO
+Clean up to use xfrm_addr_cmp() instead of compare addresses directly.
 
-Here's a follow-up patch to optimise this boundary case.
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/xfrm/xfrm_state.c |   57 +++++++------------------------------------------
+ 1 files changed, 8 insertions(+), 49 deletions(-)
 
-tcp: Do not tack on TSO data to non-TSO packet
-
-If a socket starts out on a non-TSO route, and then switches to
-a TSO route, then we will tack on data to the tail of the tx queue
-even if it started out life as non-TSO.  This is suboptimal because
-all of it will then be copied and checksummed unnecessarily.
-
-This patch fixes this by ensuring that skb->ip_summed is set to
-CHECKSUM_PARTIAL before appending extra data beyond the MSS.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 17b89c5..7870a53 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -903,13 +903,17 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 		iov++;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 5f1f865..f2f7c63 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -668,22 +668,10 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, xfrm_address_t *d
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_byspi+h, byspi) {
+ 		if (x->props.family != family ||
+ 		    x->id.spi       != spi ||
+-		    x->id.proto     != proto)
++		    x->id.proto     != proto ||
++		    xfrm_addr_cmp(&x->id.daddr, daddr, family))
+ 			continue;
  
- 		while (seglen > 0) {
--			int copy;
-+			int copy = 0;
-+			int max = size_goal;
- 
- 			skb = tcp_write_queue_tail(sk);
-+			if (tcp_send_head(sk)) {
-+				if (skb->ip_summed == CHECKSUM_NONE)
-+					max = mss_now;
-+				copy = max - skb->len;
-+			}
- 
--			if (!tcp_send_head(sk) ||
--			    (copy = size_goal - skb->len) <= 0) {
+-		switch (family) {
+-		case AF_INET:
+-			if (x->id.daddr.a4 != daddr->a4)
+-				continue;
+-			break;
+-		case AF_INET6:
+-			if (!ipv6_addr_equal((struct in6_addr *)daddr,
+-					     (struct in6_addr *)
+-					     x->id.daddr.a6))
+-				continue;
+-			break;
+-		}
 -
-+			if (copy <= 0) {
- new_segment:
- 				/* Allocate new segment. If the interface is SG,
- 				 * allocate skb fitting to single page.
-@@ -930,6 +934,7 @@ new_segment:
+ 		xfrm_state_hold(x);
+ 		return x;
+ 	}
+@@ -699,26 +687,11 @@ static struct xfrm_state *__xfrm_state_lookup_byaddr(struct net *net, xfrm_addre
  
- 				skb_entail(sk, skb);
- 				copy = size_goal;
-+				max = size_goal;
- 			}
+ 	hlist_for_each_entry(x, entry, net->xfrm.state_bysrc+h, bysrc) {
+ 		if (x->props.family != family ||
+-		    x->id.proto     != proto)
++		    x->id.proto     != proto ||
++		    xfrm_addr_cmp(&x->id.daddr, daddr, family) ||
++		    xfrm_addr_cmp(&x->props.saddr, saddr, family))
+ 			continue;
  
- 			/* Try to append data to the end of skb. */
-@@ -1028,7 +1033,7 @@ new_segment:
- 			if ((seglen -= copy) == 0 && iovlen == 0)
- 				goto out;
+-		switch (family) {
+-		case AF_INET:
+-			if (x->id.daddr.a4 != daddr->a4 ||
+-			    x->props.saddr.a4 != saddr->a4)
+-				continue;
+-			break;
+-		case AF_INET6:
+-			if (!ipv6_addr_equal((struct in6_addr *)daddr,
+-					     (struct in6_addr *)
+-					     x->id.daddr.a6) ||
+-			    !ipv6_addr_equal((struct in6_addr *)saddr,
+-					     (struct in6_addr *)
+-					     x->props.saddr.a6))
+-				continue;
+-			break;
+-		}
+-
+ 		xfrm_state_hold(x);
+ 		return x;
+ 	}
+@@ -1001,25 +974,11 @@ static struct xfrm_state *__find_acq_core(struct net *net, unsigned short family
+ 		    x->props.family != family ||
+ 		    x->km.state     != XFRM_STATE_ACQ ||
+ 		    x->id.spi       != 0 ||
+-		    x->id.proto	    != proto)
++		    x->id.proto	    != proto ||
++		    xfrm_addr_cmp(&x->id.daddr, daddr, family) ||
++		    xfrm_addr_cmp(&x->props.saddr, saddr, family))
+ 			continue;
  
--			if (skb->len < size_goal || (flags & MSG_OOB))
-+			if (skb->len < max || (flags & MSG_OOB))
- 				continue;
- 
- 			if (forced_push(tp)) {
-
-Cheers,
+-		switch (family) {
+-		case AF_INET:
+-			if (x->id.daddr.a4    != daddr->a4 ||
+-			    x->props.saddr.a4 != saddr->a4)
+-				continue;
+-			break;
+-		case AF_INET6:
+-			if (!ipv6_addr_equal((struct in6_addr *)x->id.daddr.a6,
+-					     (struct in6_addr *)daddr) ||
+-			    !ipv6_addr_equal((struct in6_addr *)
+-					     x->props.saddr.a6,
+-					     (struct in6_addr *)saddr))
+-				continue;
+-			break;
+-		}
+-
+ 		xfrm_state_hold(x);
+ 		return x;
+ 	}
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.2.2
+
+
+
+
