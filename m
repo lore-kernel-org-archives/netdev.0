@@ -1,62 +1,37 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] linux-2.4: br2684: allocation out of atomic context
-Date: Mon, 29 Jun 2009 16:49:05 +0100
-Message-ID: <20090629154905.GD18570@linux-mips.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] MAINTAINERS: Add NETFILTER git
+Date: Mon, 29 Jun 2009 08:59:58 -0700
+Message-ID: <1246291198.10129.19.camel@Joe-Laptop.home>
+References: <20090629142007.5728.63458.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frank Seidel <Frank.Seidel@sphairon.com>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:38734 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753059AbZF2PtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 11:49:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090629142007.5728.63458.sendpatchset@x2.localnet>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arne Redlich <redlicha@sphairon.com>
+On Mon, 2009-06-29 at 16:20 +0200, Patrick McHardy wrote:
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
 
-Moved GFP_Kernel allocation out of atomic context
+Do you think this should be added to MAINTAINERS?
 
-Signed-off-by: Arne Redlich <redlicha@sphairon.com>
-Signed-off-by: Frank Seidel <Frank.Seidel@sphairon.com>
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
----
- net/atm/br2684.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Signed-off-by: Joe Perches <joe@perches.com>
 
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -509,6 +509,10 @@ Note: we do not have explicit unassign,
- 		MOD_DEC_USE_COUNT;
- 		return -EFAULT;
- 	}
-+	brvcc = kmalloc(sizeof(struct br2684_vcc), GFP_KERNEL);
-+	if (!brvcc)
-+		return -ENOMEM;
-+	memset(brvcc, 0, sizeof(struct br2684_vcc));
- 	write_lock_irq(&devs_lock);
- 	brdev = br2684_find_dev(&be.ifspec);
- 	if (brdev == NULL) {
-@@ -532,11 +536,6 @@ Note: we do not have explicit unassign,
- 		err = -EINVAL;
- 		goto error;
- 	}
--	brvcc = kmalloc(sizeof(struct br2684_vcc), GFP_KERNEL);
--	if (!brvcc) {
--		err = -ENOMEM;
--		goto error;
--	}
- 	memset(brvcc, 0, sizeof(struct br2684_vcc));
- 	DPRINTK("br2684_regvcc vcc=%p, encaps=%d, brvcc=%p\n", atmvcc, be.encaps,
- 		brvcc);
-@@ -567,6 +566,7 @@ Note: we do not have explicit unassign,
- 	return 0;
-     error:
- 	write_unlock_irq(&devs_lock);
-+	kfree(brvcc);
- 	MOD_DEC_USE_COUNT;
- 	return err;
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fa2a16d..a5042de 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4044,6 +4044,7 @@ L:	netfilter@vger.kernel.org
+ L:	coreteam@netfilter.org
+ W:	http://www.netfilter.org/
+ W:	http://www.iptables.org/
++T:	git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
+ S:	Supported
+ F:	include/linux/netfilter*
+ F:	include/linux/netfilter/
+
+
