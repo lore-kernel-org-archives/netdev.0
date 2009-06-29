@@ -1,80 +1,70 @@
-From: Markus Wick <markus@selfnet.de>
-Subject: BugReport: "ip route local ..." outside the table 255 (local)
-Date: Mon, 29 Jun 2009 18:46:16 +0200
-Message-ID: <200906291846.20962.markus@selfnet.de>
-References: <200906250238.40369.markus@selfnet.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
+	Now=15 size=11 bits
+Date: Mon, 29 Jun 2009 19:09:59 +0200
+Message-ID: <20090629170959.GA2742@ami.dom.local>
+References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local> <4A48EACF.30903@itcare.pl>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1439432.3LJnYvq4h4";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert@robur.slu.se>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.selfnet.de ([141.70.124.9]:39064 "EHLO mail.selfnet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751073AbZF2Qq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 12:46:28 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.selfnet.de (Postfix) with ESMTP id B7432B3606A
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 18:46:29 +0200 (CEST)
-Received: from mail.selfnet.de ([127.0.0.1])
- by localhost (mailtest.selfnet.de [127.0.0.1]) (amavisd-maia, port 10024)
- with ESMTP id 06630-03 for <netdev@vger.kernel.org>;
- Mon, 29 Jun 2009 18:46:29 +0200 (CEST)
-Received: from degasus.localnet (degasus.vaih.selfnet.de [10.4.186.33])
-	by mail.selfnet.de (Postfix) with ESMTPSA id 8CB54B36067
-	for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 18:46:29 +0200 (CEST)
-In-Reply-To: <200906250238.40369.markus@selfnet.de>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:48281 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073AbZF2RKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 13:10:23 -0400
+Received: by bwz9 with SMTP id 9so3394092bwz.37
+        for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 10:10:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A48EACF.30903@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1439432.3LJnYvq4h4
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Mon, Jun 29, 2009 at 06:24:47PM +0200, Pawe=B3 Staszewski wrote:
+> Jarek Poplawski pisze:
+>> On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote:
+>>  =20
+>>> I apply this patch
+>>>
+>>> fib_triestats in attached file :)
+>>>    =20
+>>
+>> Great! But it would be nice to check if this (accidentally ;-) might
+>> fix the previous problem, so I attach below the patch with "manual
+>> RCU", which btw. (or even more important) should verify RCU use here=
+=2E
+>>
+>>  =20
+> After this patches all is OK now i don't see Fix inflate_threshold_ro=
+ot.
+> Even if i make "clear ip bgp * "
+>
+> Before this patches when i make clear ip bgp there was always info in=
+ =20
+> dmesg about "Fix inflate_threshold_root"
+>
+>
+>> It should be applied on top of this last "Fix..., part3". And
+>> again: it's quite probable it can fail, so with caution, no hurry
+>> (it can wait for quiet time)...
+>>
+>>  =20
+> After apply this last patch - traffic is not forwarded again :)
+> i was fast and have only some fib_triestats in attached file before =20
+> failover switch routers.
+>
+> This stats are from machine with this last patch that makes kernel to=
+ =20
+> stop forwarding
 
-Hello
+OK, I'll look at it again.
 
-Has anybody tried it? I think it is a bug but I don't know where.
-Perhaps the mistake is in the routing decision (or in the userspace=20
-application). iptables trace shows the packages in the filter/input table.
-Perhaps socket lookout?
-
-Please can somebody try the following example and confirm it:
-
-sudo ip route add local 192.168.56.0/24 dev eth0 table local
-ping 192.168.56.1
-## *succeed*
-
-sudo ip route add local 192.168.57.0/24 dev eth0 table main
-ping 192.168.57.1
-## connect: Invalid argument
-
-Thanks
-
-Markus
-
---nextPart1439432.3LJnYvq4h4
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iQIcBAABAgAGBQJKSO/YAAoJEIJAXxkDX2HF6EIP/A03Mc9X82GuSqJiqiFEVoAU
-UqvULRiOMI3I1itEKG5FIZcYgdUsYHFH+nxeBxpdv+wtDnzvIG7m64cFLiUPF7Tq
-el6mxbnUBRDCfxdf5m8gLjOf6S1FOeQjqW8h89rw+ntl85TCKP2we7pg34JZ+b1a
-U9doouBHTUHTM5TRx2P10nCRzr8EujLgYH9MmBxbF8RRHdypEnz8YXGDgURQAS37
-vDA4TG+KgVDgCTjI2D0eHRBzdsIHLHXShdsG6OrSzcml0N8zshZ4mGPFXwP6z2yc
-t5VrqgJNMgHUOtFFAGI9lGymAB18BMGH0qMssYh2i7bfs6X7F+PQg59+bpJWZc38
-DMhfpd3EF+baKUFys1H2V1tDiKlLVRFBgRGhEQFI66J57c+rIP9jbpaaKvQms4XW
-r3udnqYnwvyzAjZ72EUZ/2EMnMYysWGI+jyC7iwBmV6Dh1cRsdedxvI36Xk/FE0H
-w+wRhfskZ66N9ywBqZ7VNCYxlx9mlRh1VL4KiGxBCqVXr4fIHlnFK3inDsJvx/V8
-fgpaVyaA4ceQc97DgHe1c8Uof/B2CCPggYKfzI/UC5lGZiqas0fIR3riDHNnm49J
-M7qeTydEuBZi++j5QAUdeZL0klUsM9y+KrZRtiKZyIUCFWg874YL20Hgl6Yo/TdS
-fmCV5kJ/avvueCoeLcQk
-=1zX9
------END PGP SIGNATURE-----
-
---nextPart1439432.3LJnYvq4h4--
+Thanks for testing!
+Jarek P.
