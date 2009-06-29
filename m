@@ -1,56 +1,66 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: kmemleak reports firmware loader funnies in iwlwifi
-Date: Mon, 29 Jun 2009 12:48:29 +0300
-Message-ID: <84144f020906290248w474ad2ffpe6a8b5bede3d2c20@mail.gmail.com>
-References: <20090626171933.GA23170@redhat.com>
-	 <tnxy6rbv0oq.fsf@pc1117.cambridge.arm.com>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [2.6.31-rc1] iwlagn (4965): regression when hardware rf switch is used
+Date: Mon, 29 Jun 2009 11:48:54 +0200
+Message-ID: <200906291148.55386.elendil@planet.nl>
+References: <200906291128.05639.elendil@planet.nl> <1246268022.7775.24.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:50059 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749AbZF2Js1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 05:48:27 -0400
-In-Reply-To: <tnxy6rbv0oq.fsf@pc1117.cambridge.arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1246268022.7775.24.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Catalin,
+On Monday 29 June 2009, Johannes Berg wrote:
+> > [enable]
+> > usb 3-1: new full speed USB device using uhci_hcd and address 3
+> > usb 3-1: configuration #1 chosen from 1 choice
+>
+> That is completely unrelated. You plugged in a USB device too :)
 
-On Mon, Jun 29, 2009 at 12:39 PM, Catalin
-Marinas<catalin.marinas@arm.com> wrote:
-> diff --git a/drivers/base/firmware_class.c b/drivers/base/firmware_cl=
-ass.c
-> index ddeb819..26fb808 100644
-> --- a/drivers/base/firmware_class.c
-> +++ b/drivers/base/firmware_class.c
-> @@ -179,6 +179,13 @@ static ssize_t firmware_loading_store(struct dev=
-ice *dev,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_er=
-r(dev, "%s: vmap() failed\n", __func__);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto e=
-rr;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* This block of memo=
-ry is later freed using vfree.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Since kmemleak doe=
-s not track vmap calls, just
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* inform it about th=
-is block but ignore it during
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* scanning.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kmemleak_alloc(fw_priv-=
->fw->data, 0, -1, GFP_KERNEL);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Pages will be freed=
- by vfree() */
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fw_priv->pages =3D NUL=
-L;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fw_priv->page_array_si=
-ze =3D 0;
+No, it's my "bluetooth + wlan" device. Note that disabling wireless with 
+the hardware switch also gives 'usb 3-1: USB disconnect, address 2'.
 
-Would it be possible to put this hook in vmap() somehow?
+>From lsusb:
+Bus 003 Device 002: ID 03f0:171d Hewlett-Packard Wireless (Bluetooth + 
+WLAN) Interface [Integrated Module]
+
+> > A lot uglier with those errors. And after that I have to run
+> > ifdown/ifup before networking is up again (ifup only does not work as
+> > it will complain "interface already configured"):
+>
+> And that's actually expected, and/or a bug in the debian networking
+> scripts.
+> (You can trigger the same problem by doing
+> ifup wlan0
+> ip link set wlan0 down
+> ifup wlan0 -> error)
+
+OK, I can accept that. Wonder why it does work with 2.6.30 then. But it 
+can certainly wait until the driver problem you mentioned is resolved.
+
+> To get your network connection back automatically we will require
+> changes to userland tools to listen to rfkill events.
+>
+> > BTW, would it make sense to bring back the first two lines shown with
+> > .30 (or at least the first one):
+> >    iwlagn 0000:10:00.0: Radio Frequency Kill Switch is On:
+> >    Kill switch must be turned off for wireless networking to work.
+> > IMHO it's good to register the reason for the disconnect.
+>
+> I guess something like that could be added to cfg80211:
+> phy0: taking interfaces down due to rfkill
+
+Yes, that would be nice.
+
+Thanks,
+FJP
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
