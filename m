@@ -1,56 +1,97 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: [PATCH] net: fix race in the receive/select
-Date: Mon, 29 Jun 2009 11:27:41 +0200
-Message-ID: <20090629092741.GB3845@jolsa.lab.eng.brq.redhat.com>
-References: <alpine.DEB.1.10.0906251858520.9517@makko.or.mcafeemobile.com> <4A443033.8060401@gmail.com> <alpine.DEB.1.10.0906251947530.9517@makko.or.mcafeemobile.com> <20090626135742.GB3845@redhat.com> <alpine.DEB.1.10.0906261018580.16400@makko.or.mcafeemobile.com> <20090626145027.GA6534@redhat.com> <4A474FB5.4070901@gmail.com> <4A475266.9040203@gmail.com> <20090628180412.GA9171@redhat.com> <20090628214846.GB4584@ami.dom.local>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: [2.6.31-rc1] iwlagn (4965): regression when hardware rf switch is used
+Date: Mon, 29 Jun 2009 11:28:04 +0200
+Message-ID: <200906291128.05639.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	Tejun Heo <htejun@gmail.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:41009 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757723AbZF2J1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 05:27:43 -0400
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20090628214846.GB4584@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 28, 2009 at 11:48:46PM +0200, Jarek Poplawski wrote:
-> On Sun, Jun 28, 2009 at 08:04:12PM +0200, Oleg Nesterov wrote:
-> > On 06/28, Jarek Poplawski wrote:
-> ...
-> > > Hmm... of course:
-> > >
-> > > static inline void sock_poll_wait(struct file * filp, struct sock *sk, poll_table *p)
-> > > {
-> > >  	if (p && sk->sk_sleep) {
-> > >  		__poll_wait(filp, sk->sk_sleep, p);
-> > >  		/*
-> > >  		 * fat comment
-> > >  		 */
-> > >  		smp_mb(); // or smp_mb__after_unlock();
-> > >  	}
-> > > }
-> > 
-> > Perhaps it makes sense to check ->sk_sleep != NULL in sock_poll_wait(), but
-> > I don't think we need __poll_wait(). poll_wait() is inline, I think gcc
-> > will optimize out "if (p && wait_address)" check if poll_wait() is called
-> > from sock_poll_wait().
-> 
-> Sure, to me it looks a bit more readable, but let Jiri choose.;-)
-> 
-> Cheers,
-> Jarek P. 
+(Reported earlier in 'no wireless due to RFKILL problem' thread, but
+Johannes suggested opening a new thread as it is a separate issue.)
 
-yes :) I like more Jarek's way.. and I'll send separate patch for the
-smp_mb_after_lock change.
+I've tried .31-rc1 on my HP 2510p notebook and noticed a problem when
+using the hardware rf kill switch.
 
-thanks,
-jirka
+If disable wireless using the hardware switch and the enable it again
+almost immediately after on 2.6.30, I get:
+[disable]
+iwlagn 0000:10:00.0: Radio Frequency Kill Switch is On:
+Kill switch must be turned off for wireless networking to work.
+usb 3-1: USB disconnect, address 2
+[enable]
+Registered led device: iwl-phy0::radio
+Registered led device: iwl-phy0::assoc
+Registered led device: iwl-phy0::RX
+Registered led device: iwl-phy0::TX
+usb 3-1: new full speed USB device using uhci_hcd and address 3
+usb 3-1: configuration #1 chosen from 1 choice
+wlan0: no probe response from AP 00:14:c1:38:e5:15 - disassociating
+iwlagn 0000:10:00.0: index 0 not used in uCode key table.
+wlan0: authenticate with AP 00:14:c1:38:e5:15
+wlan0: authenticate with AP 00:14:c1:38:e5:15
+wlan0: authenticated
+wlan0: associate with AP 00:14:c1:38:e5:15
+wlan0: RX ReassocResp from 00:14:c1:38:e5:15 (capab=0x411 status=0 aid=1)
+wlan0: associated
+
+And without any other action networking is up again.
+
+
+But with 2.6.31 I get this:
+[disable]
+wlan0: deauthenticating by local choice (reason=3)
+iwlagn 0000:10:00.0: Error sending REPLY_ADD_STA: enqueue_hcmd failed: -5
+mac80211-phy0: failed to remove key (0, 00:14:c1:38:e5:15) from hardware (-5)
+iwlagn 0000:10:00.0: Error sending REPLY_ADD_STA: enqueue_hcmd failed: -5
+mac80211-phy0: failed to remove key (1, ff:ff:ff:ff:ff:ff) from hardware (-5)
+usb 3-1: USB disconnect, address 2
+[enable]
+usb 3-1: new full speed USB device using uhci_hcd and address 3
+usb 3-1: configuration #1 chosen from 1 choice
+
+A lot uglier with those errors. And after that I have to run ifdown/ifup
+before networking is up again (ifup only does not work as it will complain
+"interface already configured"):
+
+[ifdown wlan0]
+Registered led device: iwl-phy0::radio
+Registered led device: iwl-phy0::assoc
+Registered led device: iwl-phy0::RX
+Registered led device: iwl-phy0::TX
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[ifup wlan 0]
+Registered led device: iwl-phy0::radio
+Registered led device: iwl-phy0::assoc
+Registered led device: iwl-phy0::RX
+Registered led device: iwl-phy0::TX
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:14:c1:38:e5:15
+wlan0: authenticated
+wlan0: associate with AP 00:14:c1:38:e5:15
+wlan0: RX AssocResp from 00:14:c1:38:e5:15 (capab=0x411 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+
+BTW, would it make sense to bring back the first two lines shown with .30
+(or at least the first one):
+   iwlagn 0000:10:00.0: Radio Frequency Kill Switch is On:
+   Kill switch must be turned off for wireless networking to work.
+IMHO it's good to register the reason for the disconnect.
+
+>From lspci:
+10:00.0 Network controller [0280]: Intel Corporation PRO/Wireless
+        4965 AG or AGN [Kedron] Network Connection [8086:4229] (rev 61)
+
+Cheers,
+FJP
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
