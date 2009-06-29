@@ -1,33 +1,36 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/2] net: adding memory barrier to the poll and receive
-	callbacks
-Date: Mon, 29 Jun 2009 19:19:26 +0200
-Message-ID: <20090629171926.GB2742@ami.dom.local>
-References: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com> <20090629141445.GF3845@jolsa.lab.eng.brq.redhat.com>
+From: Zan Lynx <zlynx@acm.org>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Mon, 29 Jun 2009 10:59:57 -0600
+Message-ID: <4A48F30D.8000803@acm.org>
+References: <20090625122545.GA3625@jolsa.lab.eng.brq.redhat.com> <87eit3l7y6.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, oleg@redhat.com, davidel@xmailserver.org,
-	eric.dumazet@gmail.com
-To: Jiri Olsa <jolsa@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, oleg@redhat.com, eric.dumazet@gmail.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:38588 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbZF2RTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 13:19:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20090629141445.GF3845@jolsa.lab.eng.brq.redhat.com>
+Received: from [199.45.143.218] ([199.45.143.218]:33878 "EHLO zlynx.org"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751073AbZF2RXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 13:23:34 -0400
+In-Reply-To: <87eit3l7y6.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 29, 2009 at 04:14:45PM +0200, Jiri Olsa wrote:
-...
-> +static inline void sock_poll_wait(struct file *filp, struct sock *sk,
-...
-> +	sock_poll_wait(file, sk->sk_sleep, wait);
+Andi Kleen wrote:
+> At least on x86 I can't see how it happens. mb() is only a compile
+> time barrier and the compiler doesn't optimize over indirect callbacks
+> like __pollwait() anyways.
 
------------------------------^^^^^^^^^^^^
-Is it something with my eyes or it wasn't compiled? ;-)
+Just a note about this. That used to be true, that GCC didn't optimize 
+indirect calls. However, see -findirect-inlining in GCC 4.4.
 
-Jarek P.
+I am not saying that it applies here, but it is something to remember.
+
+-- 
+Zan Lynx
+zlynx@acm.org
+
+"Knowledge is Power.  Power Corrupts.  Study Hard.  Be Evil."
