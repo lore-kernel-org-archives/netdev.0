@@ -1,33 +1,166 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 1/2] net: adding memory barrier to the poll and receive
-	callbacks
-Date: Mon, 29 Jun 2009 20:14:42 +0200
-Message-ID: <20090629181442.GF2742@ami.dom.local>
-References: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com> <20090629141445.GF3845@jolsa.lab.eng.brq.redhat.com> <alpine.DEB.1.10.0906290826300.29966@makko.or.mcafeemobile.com> <20090629173217.GC2742@ami.dom.local> <alpine.DEB.1.10.0906291033140.30244@makko.or.mcafeemobile.com> <20090629180431.GE2742@ami.dom.local>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3 driver not advertising 1000mbit
+Date: Mon, 29 Jun 2009 11:50:38 -0700
+Message-ID: <20090629185038.GA29283@xw6200.broadcom.net>
+References: <7e14b58794647ea1b1b0a644e14a11f6@localhost>
+ <1244831838.9225.71.camel@HP1> <4A32CDE9.7020602@dupondje.be>
+ <1244844106.9225.92.camel@HP1> <4A32D3DB.30703@dupondje.be>
+ <20090624173608.GA8985@xw6200.broadcom.net>
+ <4A453E8F.3000405@dupondje.be>
+ <20090627022629.GA27439@xw6200.broadcom.net>
+ <4A45ED40.4090408@dupondje.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, oleg@redhat.com, eric.dumazet@gmail.com
-To: Davide Libenzi <davidel@xmailserver.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David Christensen" <davidch@broadcom.com>
+To: "Jean-Louis Dupond" <info@dupondje.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:38188 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757745AbZF2SPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 14:15:16 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:3802 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752304AbZF2Sur (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 14:50:47 -0400
+In-Reply-To: <4A45ED40.4090408@dupondje.be>
 Content-Disposition: inline
-In-Reply-To: <20090629180431.GE2742@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 29, 2009 at 08:04:31PM +0200, Jarek Poplawski wrote:
-...
-> Btw., maybe I miss something but I guess Oleg proposed something in
-> between: inlining __poll_wait(), which would save us 'extra API' and
-> compiler doubts. (But I still prefer Jiri's choice. ;-)
+O.K.  ASF is enabled.  Can you give me the output of 'ethtool -i eth0'
+on as late a kernel (or driver version) as you can?  This should give me
+the firmware version number.
 
-After re-reading I guess Oleg didn't proposed anything in between yet.
+On Sat, Jun 27, 2009 at 02:58:24AM -0700, Jean-Louis Dupond wrote:
+> Hi,
+> 
+> Got the output for gbit & 100mbit now.
+> 
+> GBIT:
+> eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 
+> 00:22:19:be:c4:48
+> eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
+> eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
+> eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> tg3: eth0: Link is up at 1000 Mbps, full duplex.
+> tg3: eth0: Flow control is off for TX and off for RX.
+> 
+> 
+> 100mbit (sometimes it goes 100mbit instead of gbit also):
+> eth0: Tigon3 [partno(BCM95722) rev a200 PHY(5722/5756)] (PCI Express) 
+> 10/100/1000Base-T Ethernet 00:22:19:c7:28:c3
+> eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] WireSpeed[1] TSOcap[1]
+> eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> tg3: eth0: Link is up at 100 Mbps, full duplex.
+> tg3: eth0: Flow control is off for TX and off for RX.
+> 
+> 
+> Cables are 2 meters long & cat 5e. The servers are in racks, so its all 
+> near each other :)
+> 
+> 
+> Matt Carlson schreef:
+> > On Fri, Jun 26, 2009 at 02:33:03PM -0700, Jean-Louis Dupond wrote:
+> >> Hi,
+> >>
+> >> All tested kernels had the same issue (2.6.22, 2.5.25.4 & 2.6.28.1).
+> > 
+> > O.K.  So that means the problem wasn't recently introduced.  Good to
+> > know.
+> > 
+> >> dmesg |grep tg3:
+> >>
+> >> tg3.c:v3.97 (December 10, 2008)
+> >> tg3 0000:01:00.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
+> >> tg3 0000:01:00.0: setting latency timer to 64
+> >> tg3 0000:01:00.0: PME# disabled
+> >> tg3 0000:02:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
+> >> tg3 0000:02:00.0: setting latency timer to 64
+> >> tg3 0000:02:00.0: PME# disabled
+> >> tg3 0000:01:00.0: PME# disabled
+> >> tg3: eth0: Link is up at 1000 Mbps, full duplex.
+> >> tg3: eth0: Flow control is off for TX and off for RX.
+> >>
+> >> Now here it booted @ Gbit speeds!
+> > 
+> > The specific set of lines I'm looks something like this:
+> > 
+> > eth0: Tigon3 [partno(BCM95722) rev a200] (PCI Express) MAC address 00:10:18:15:16:b6
+> > eth0: attached PHY is 5722/5756 (10/100/1000Base-T Ethernet) (WireSpeed[1])
+> > eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> >                                         ^^^^^^
+> > eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> > 
+> > 
+> > Like Michael, I'm tempted to look into the cabling too.  How long are
+> > they?  Silly question, but are they Cat5e?  When link does come up, does
+> > it take unusually long?
+> > 
+> >> Matt Carlson schreef:
+> >>> Was there a version of the kernel where this device worked reliably?
+> >>>
+> >>> Can you post the driver sign-on messages?  (I'm looking to see if ASF
+> >>> is enabled.)
+> >>>
+> >>> On Fri, Jun 12, 2009 at 03:16:59PM -0700, Jean-Louis Dupond wrote:
+> >>>> I surely tried other cables. But its surely not the cable because:
+> >>>> 1) We tried other cables
+> >>>> 2) After a reboot it works, or after a mii-tool -R
+> >>>> 3) We have this issue on like +100 servers :(
+> >>>>
+> >>>> The servers are connected on a Dell PowerConnect 6248 switch.
+> >>>>
+> >>>> Sincerely
+> >>>>
+> >>>> Michael Chan schreef:
+> >>>>> On Fri, 2009-06-12 at 14:51 -0700, Jean-Louis Dupond wrote:
+> >>>>>> Hello!
+> >>>>>>
+> >>>>>> Here is a mii-tool -vvv on a box that doesn't advertise gbit speeds! It 
+> >>>>>> just doesn't advertise gbit @ random, sometimes it does, sometimes not! 
+> >>>>>> Without any logic in it!
+> >>>>>>
+> >>>>>> # mii-tool  -vvv
+> >>>>>> Using SIOCGMIIPHY=0x8947
+> >>>>>> eth0: link ok
+> >>>>>>     registers for MII PHY 1:
+> >>>>>>       1000 794d 0143 bed0 05e1 0000 0064 2001
+> >>>>>>       0000 0300 0000 0000 0000 0000 0000 3000
+> >>>>> Register 1 shows that autoneg did not complete (bit 5 is not set).
+> >>>>> The tg3 device has advertised 10/100/1000 in register 4 and register 9,
+> >>>>> but registers 5 and 0xa (link partner's advertisement registers are 0).
+> >>>>>
+> >>>>> When it works, these registers should look very different.
+> >>>>>
+> >>>>> Have you tried other cables?  What is the link partner?
+> >>>>>
+> >>>>>>       0000 0101 0000 0000 0000 0000 0000 0000
+> >>>>>>       7477 0104 0000 ffff 2801 0000 8000 0000
+> >>>>>>     product info: vendor 00:50:ef, model 45 rev 0
+> >>>>>>     basic mode:   autonegotiation enabled
+> >>>>>>     basic status: link ok
+> >>>>>>     capabilities: 1000baseT-HD 1000baseT-FD 100baseTx-FD 100baseTx-HD
+> >>>>>> 10baseT-FD 10baseT-HD
+> >>>>>>     advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-
+> >>>>>> control
+> >>>>>>
+> >>>>>> # dmesg | grep tg3
+> >>>>>> [    3.331702] tg3.c:v3.92.1 (June 9, 2008)
+> >>>>>> [   18.238654] tg3: eth0: Link is up at 10 Mbps, half duplex.
+> >>>>>> [   18.238654] tg3: eth0: Flow control is off for TX and off for RX.
+> >>>>>>
+> >>>>>>
+> >>>>>
+> >>>>> --
+> >>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>>>> the body of a message to majordomo@vger.kernel.org
+> >>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+> > 
+> 
 
-Sorry,
-Jarek P.
