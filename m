@@ -1,206 +1,381 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: svc: failed to register lockdv1 RPC service (errno 97).
-Date: Mon, 29 Jun 2009 10:15:50 -0400
-Message-ID: <6CB29B19-A6D2-4FFB-9BCB-CC248540CACB@oracle.com>
-References: <200905110248.48695.elendil@planet.nl> <8054CA42-CAFC-4DFC-A3A9-107AF29284EE@oracle.com>  <200905111639.43636.elendil@planet.nl> <62189277-05F4-4AC7-97EC-AFDE39F781E3@oracle.com> <25ae2d690906282333j7c9cb5b9nb954470e0694c3ce@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: Frans Pop <elendil@planet.nl>, Netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Linux NFS mailing list <linux-nfs@vger.kernel.org>
-To: db <db.pub.mail@gmail.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: [PATCH 1/2] net: adding memory barrier to the poll and receive
+	callbacks
+Date: Mon, 29 Jun 2009 16:14:45 +0200
+Message-ID: <20090629141445.GF3845@jolsa.lab.eng.brq.redhat.com>
+References: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
+	oleg@redhat.com, davidel@xmailserver.org, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:26361 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752484AbZF2OP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 10:15:58 -0400
-In-Reply-To: <25ae2d690906282333j7c9cb5b9nb954470e0694c3ce@mail.gmail.com>
+Received: from mx2.redhat.com ([66.187.237.31]:41543 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757237AbZF2OOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 10:14:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jun 29, 2009, at 2:33 AM, db wrote:
-> I'm running arm 2.6.30 kernel and a 2.6.30 kernel on my desktop.
->
-> I see this  "[1257016.190000] nfsd: last server has exited, flushing
-> export cache
-> [1257018.250000] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> ."
-> On both ends. The arm is running debian lenny (armel). The desktop is
-> debian lenny (32bit i368). When this error i cannot continue to
-> transfer files.
+Adding memory barrier after the poll_wait function, paired with
+receive callbacks. Adding fuctions sock_poll_wait and sock_has_sleeper
+to wrap the memory barrier.
 
-Right at the moment I think this message is a coincidence.  But let's  
-chase it a little and see what we get.
-
-First, you provided a couple of kernel log snippets here, but you  
-didn't identify which snippet comes from your server, and which from  
-your client.  I assume the above one comes from your server, and the  
-below comes from your client.
-
-Do you happen to have IPv6 configured on your systems ("ifconfig - 
-a")?  What is the output of "rpcinfo" on your client and on your  
-server?  Are you running portmap or rpcbind on these systems?
-
-> Here is the config of the /etc/exports and what i try to use
->
-> "/media/nfs_shares/rsync/  *(rw,no_subtree_check)"
-> i mount on the desktop with
->
-> [root@desktop ]# mount 192.168.1.12:/media/Y/W/  /media/mount_point/  
-> -o soft
-
-"cat /proc/mounts" on your client so we can see exactly what mount  
-options the kernel has chosen.
-
-> and i try using rsync like this (from my desktop).
->
->
-> rsync -av --progress /home/User_NAME/BACKUP/Y/W/X/ /media/ 
-> mount_point/W/X
-> and it just hangs. I then try to unmount it and i have problems doing
-> so. so i need to force the umount
->
-> "19051.391800]     Performance counters on
-> [319051.391804]     input device check on
-> [319051.391807]     Actions configured
-> [399843.223405] RPC: Registered udp transport module.
-> [399843.223413] RPC: Registered tcp transport module.
-> [399843.346956] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> [401465.708049] device eth1 left promiscuous mode
-> [401689.794716] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> [402224.640535] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> [402356.791524] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> [402702.197491] svc: failed to register lockdv1 RPC service (errno  
-> 97).
-> "
-> I am only using nfs2. I am not using nfs4 / nfs3.
->
-> This issue is most troublesome as it breaks my use of nfs.
-
-Have you captured a network trace?   Start the trace before mounting  
-the server.  I usually use something like "sudo tethereal -w /tmp/raw" .
-
-> 2009/5/12 Chuck Lever <chuck.lever@oracle.com>:
->> On May 11, 2009, at 10:39 AM, Frans Pop wrote:
->>>
->>> On Monday 11 May 2009, you wrote:
->>>>
->>>> On May 10, 2009, at 8:48 PM, Frans Pop wrote:
->>>>>
->>>>> After switching from 2.6.29.2 to 2.6.30-rc5 I get this new message
->>>>> during boot of my home server:
->>>>>  svc: failed to register lockdv1 RPC service (errno 97).
->>>>
->>>> Is this the only instance of this message, or do you see it several
->>>> times?
->>>
->>> It's the only one.
->>>
->>>>> This looks to be the result of the following commit:
->>>>> commit 363f724cdd3d2ae554e261be995abdeb15f7bdd9
->>>>> Author: Chuck Lever <chuck.lever@oracle.com>
->>>>>  SUNRPC: rpcb_register() should handle errors silently
->>>>>  Move error reporting for RPC registration to rpcb_register's
->>>>> caller.
->>>>>
->>>>> Question is: do I really want to know this? I assume the "failure"
->>>>> happened with previous kernels too, but silently.
->>>>
->>>> The point of that commit was to report errors _less_ frequently.
->>>
->>> :-)
->>>
->>>> The server-side RPC code is attempting to be more automatic about
->>>> which address families are supported by kernel NFS services.  This
->>>> message tells us that some particular case is not handled yet.  I
->>>> suspect you weren't seeing this error in the past at all.
->>>
->>> Correct. Neither this exact error, nor anything remotely similar.
->>
->> No, I meant that whether or not you saw an error message, the  
->> underlying
->> condition probably was not occurring before 2.6.30.
->>
->>>> Can you report more about your server configuration?  What
->>>> distribution is this?
->>>
->>> Debian stable (Lenny).
->>> nfs-common and nfs-kernel-server (1.1.2)
->>>
->>> I'm using nfs4. rpc.statd is not running; rpc.mountd and  
->>> rpc.idmapd are.
->>
->> The NFS client and server appear to start lockd listeners for  
->> NFSv4.  They
->> probably don't need to.  But that's a separate issue.
->>
->>>> Does user space have portmapper or rpcbind?
->>>
->>> portmap (6.0)
->>>
->>>> Are you blacklisting ipv6.ko?
->>>
->>> No, the server has IPv6 enabled.
->>> I'm using NFS mainly from my laptop though, which does not have an  
->>> IPv6
->>> address for my home network.
->>>
->>>> What's the output of "rpcinfo" on your server after it has  
->>>> started NFSD?
->>>
->>> I guess you mean the -p option?
->>>
->>> $ rpcinfo -p
->>>  program vers proto   port
->>>   100000    2   tcp    111  portmapper
->>>   100000    2   udp    111  portmapper
->>>   100003    2   udp   2049  nfs
->>>   100003    3   udp   2049  nfs
->>>   100003    4   udp   2049  nfs
->>>   100021    1   udp  47955  nlockmgr
->>>   100021    3   udp  47955  nlockmgr
->>>   100021    4   udp  47955  nlockmgr
->>>   100021    1   tcp  41860  nlockmgr
->>>   100021    3   tcp  41860  nlockmgr
->>>   100021    4   tcp  41860  nlockmgr
->>>   100003    2   tcp   2049  nfs
->>>   100003    3   tcp   2049  nfs
->>>   100003    4   tcp   2049  nfs
->>>   100005    1   udp  40032  mountd
->>>   100005    1   tcp  40623  mountd
->>>   100005    2   udp  40032  mountd
->>>   100005    2   tcp  40623  mountd
->>>   100005    3   udp  40032  mountd
->>>   100005    3   tcp  40623  mountd
->>>   391002    2   tcp    792  sgi_fam
->>
->> In this case, it looks like the message can be treated as a  
->> notice.  I think
->> in general we could safely make that a dprintk, but I'd like to  
->> wait a bit
->> more to see if we catch any bad behavior.
->>
->> --
->> Chuck Lever
->> chuck[dot]lever[at]oracle[dot]com
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux- 
->> kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->>
-
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+Without the memory barrier, following race can happen.
+The race fires, when following code paths meet, and the tp->rcv_nxt 
+and __add_wait_queue updates stay in CPU caches.
 
 
+CPU1                         CPU2
 
+sys_select                   receive packet
+  ...                        ...
+  __add_wait_queue           update tp->rcv_nxt
+  ...                        ...
+  tp->rcv_nxt check          sock_def_readable
+  ...                        {
+  schedule                      ...
+                                if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+                                        wake_up_interruptible(sk->sk_sleep)
+                                ...
+                             }
+
+If there was no cache the code would work ok, since the wait_queue and
+rcv_nxt are opposit to each other.
+
+Meaning that once tp->rcv_nxt is updated by CPU2, the CPU1 either already
+passed the tp->rcv_nxt check and sleeps, or will get the new value for
+tp->rcv_nxt and will return with new data mask.
+In both cases the process (CPU1) is being added to the wait queue, so the
+waitqueue_active (CPU2) call cannot miss and will wake up CPU1.
+
+The bad case is when the __add_wait_queue changes done by CPU1 stay in its
+cache, and so does the tp->rcv_nxt update on CPU2 side.  The CPU1 will then
+endup calling schedule and sleep forever if there are no more data on the
+socket.
+
+
+Calls to poll_wait in following modules were ommited:
+	net/bluetooth/af_bluetooth.c
+	net/irda/af_irda.c
+	net/irda/irnet/irnet_ppp.c
+	net/mac80211/rc80211_pid_debugfs.c
+	net/phonet/socket.c
+	net/rds/af_rds.c
+	net/rfkill/core.c
+	net/sunrpc/cache.c
+	net/sunrpc/rpc_pipe.c
+	net/tipc/socket.c
+
+wbr,
+jirka
+
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+
+---
+ include/linux/poll.h |   11 +++++++++--
+ include/net/sock.h   |   40 ++++++++++++++++++++++++++++++++++++++++
+ net/atm/common.c     |    6 +++---
+ net/core/datagram.c  |    2 +-
+ net/core/sock.c      |    8 ++++----
+ net/dccp/output.c    |    2 +-
+ net/dccp/proto.c     |    2 +-
+ net/ipv4/tcp.c       |    2 +-
+ net/iucv/af_iucv.c   |    4 ++--
+ net/rxrpc/af_rxrpc.c |    4 ++--
+ net/unix/af_unix.c   |    8 ++++----
+ 11 files changed, 68 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/poll.h b/include/linux/poll.h
+index fa287f2..b2ea8ef 100644
+--- a/include/linux/poll.h
++++ b/include/linux/poll.h
+@@ -35,10 +35,17 @@ typedef struct poll_table_struct {
+ 	unsigned long key;
+ } poll_table;
+ 
+-static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
++static inline void __poll_wait(struct file *filp,
++				wait_queue_head_t *wait_address, poll_table *p)
++{
++	p->qproc(filp, wait_address, p);
++}
++
++static inline void poll_wait(struct file *filp,
++				wait_queue_head_t *wait_address, poll_table *p)
+ {
+ 	if (p && wait_address)
+-		p->qproc(filp, wait_address, p);
++		__poll_wait(filp, wait_address, p);
+ }
+ 
+ static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 352f06b..e9137ed 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -54,6 +54,7 @@
+ 
+ #include <linux/filter.h>
+ #include <linux/rculist_nulls.h>
++#include <linux/poll.h>
+ 
+ #include <asm/atomic.h>
+ #include <net/dst.h>
+@@ -1241,6 +1242,45 @@ static inline int sk_has_allocations(const struct sock *sk)
+ 	return sk_wmem_alloc_get(sk) || sk_rmem_alloc_get(sk);
+ }
+ 
++/**
++ * sk_has_sleeper - check if there are any waiting processes
++ * @sk: socket
++ *
++ * Returns true if socket has waiting processes
++ */
++static inline int sk_has_sleeper(struct sock *sk)
++{
++	/*
++	 * We need to be sure we are in sync with the
++	 * add_wait_queue modifications to the wait queue.
++	 *
++	 * This memory barrier is paired in the sock_poll_wait.
++	 */
++	smp_mb();
++	return sk->sk_sleep && waitqueue_active(sk->sk_sleep);
++}
++
++/**
++ * sock_poll_wait - place memory barrier behind the __poll_wait call.
++ * @filp: file
++ * @sk:   socket
++ * @p:    poll_table
++ */
++static inline void sock_poll_wait(struct file *filp, struct sock *sk,
++		poll_table *p)
++{
++	if (p && sk->sk_sleep) {
++		__poll_wait(filp, sk->sk_sleep, p);
++		/*
++		 * We need to be sure we are in sync with the
++		 * socket flags modification.
++		 *
++		 * This memory barrier is paired in the sk_has_sleeper.
++		*/
++		smp_mb();
++	}
++}
++
+ /*
+  * 	Queue a received datagram if it will fit. Stream and sequenced
+  *	protocols can't normally use this as they need to fit buffers in
+diff --git a/net/atm/common.c b/net/atm/common.c
+index c1c9793..8c4d843 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -92,7 +92,7 @@ static void vcc_sock_destruct(struct sock *sk)
+ static void vcc_def_wakeup(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up(sk->sk_sleep);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+@@ -110,7 +110,7 @@ static void vcc_write_space(struct sock *sk)
+ 	read_lock(&sk->sk_callback_lock);
+ 
+ 	if (vcc_writable(sk)) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
+ 			wake_up_interruptible(sk->sk_sleep);
+ 
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+@@ -594,7 +594,7 @@ unsigned int vcc_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	struct atm_vcc *vcc;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	vcc = ATM_SD(sock);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 58abee1..b0fe692 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -712,7 +712,7 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b0ba569..6354863 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1715,7 +1715,7 @@ EXPORT_SYMBOL(sock_no_sendpage);
+ static void sock_def_wakeup(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible_all(sk->sk_sleep);
+ 	read_unlock(&sk->sk_callback_lock);
+ }
+@@ -1723,7 +1723,7 @@ static void sock_def_wakeup(struct sock *sk)
+ static void sock_def_error_report(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible_poll(sk->sk_sleep, POLLERR);
+ 	sk_wake_async(sk, SOCK_WAKE_IO, POLL_ERR);
+ 	read_unlock(&sk->sk_callback_lock);
+@@ -1732,7 +1732,7 @@ static void sock_def_error_report(struct sock *sk)
+ static void sock_def_readable(struct sock *sk, int len)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN |
+ 						POLLRDNORM | POLLRDBAND);
+ 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+@@ -1747,7 +1747,7 @@ static void sock_def_write_space(struct sock *sk)
+ 	 * progress.  --DaveM
+ 	 */
+ 	if ((atomic_read(&sk->sk_wmem_alloc) << 1) <= sk->sk_sndbuf) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
+ 			wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT |
+ 						POLLWRNORM | POLLWRBAND);
+ 
+diff --git a/net/dccp/output.c b/net/dccp/output.c
+index c0e88c1..c96119f 100644
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -196,7 +196,7 @@ void dccp_write_space(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible(sk->sk_sleep);
+ 	/* Should agree with poll, otherwise some programs break */
+ 	if (sock_writeable(sk))
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 314a1b5..94ca8ea 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -311,7 +311,7 @@ unsigned int dccp_poll(struct file *file, struct socket *sock,
+ 	unsigned int mask;
+ 	struct sock *sk = sock->sk;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	if (sk->sk_state == DCCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 17b89c5..aa0ac36 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -339,7 +339,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	struct sock *sk = sock->sk;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	if (sk->sk_state == TCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+ 
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index 6be5f92..49c15b4 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -306,7 +306,7 @@ static inline int iucv_below_msglim(struct sock *sk)
+ static void iucv_sock_wake_msglim(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+-	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++	if (sk_has_sleeper(sk))
+ 		wake_up_interruptible_all(sk->sk_sleep);
+ 	sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	read_unlock(&sk->sk_callback_lock);
+@@ -1256,7 +1256,7 @@ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask = 0;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 
+ 	if (sk->sk_state == IUCV_LISTEN)
+ 		return iucv_accept_poll(sk);
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index eac5e7b..bfe493e 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -63,7 +63,7 @@ static void rxrpc_write_space(struct sock *sk)
+ 	_enter("%p", sk);
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (rxrpc_writable(sk)) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
+ 			wake_up_interruptible(sk->sk_sleep);
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+@@ -588,7 +588,7 @@ static unsigned int rxrpc_poll(struct file *file, struct socket *sock,
+ 	unsigned int mask;
+ 	struct sock *sk = sock->sk;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* the socket is readable if there are any messages waiting on the Rx
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 36d4e44..fc3ebb9 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -315,7 +315,7 @@ static void unix_write_space(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (unix_writable(sk)) {
+-		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		if (sk_has_sleeper(sk))
+ 			wake_up_interruptible_sync(sk->sk_sleep);
+ 		sk_wake_async(sk, SOCK_WAKE_SPACE, POLL_OUT);
+ 	}
+@@ -1985,7 +1985,7 @@ static unsigned int unix_poll(struct file *file, struct socket *sock, poll_table
+ 	struct sock *sk = sock->sk;
+ 	unsigned int mask;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+@@ -2022,7 +2022,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 	struct sock *sk = sock->sk, *other;
+ 	unsigned int mask, writable;
+ 
+-	poll_wait(file, sk->sk_sleep, wait);
++	sock_poll_wait(file, sk->sk_sleep, wait);
+ 	mask = 0;
+ 
+ 	/* exceptional events? */
+@@ -2053,7 +2053,7 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ 		other = unix_peer_get(sk);
+ 		if (other) {
+ 			if (unix_peer(other) != sk) {
+-				poll_wait(file, &unix_sk(other)->peer_wait,
++				sock_poll_wait(file, &unix_sk(other)->peer_wait,
+ 					  wait);
+ 				if (unix_recvq_full(other))
+ 					writable = 0;
