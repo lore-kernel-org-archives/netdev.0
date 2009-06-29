@@ -1,60 +1,27 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] net/irda: convert bfin_sir to net_device_ops
-Date: Mon, 29 Jun 2009 15:34:20 -0400
-Message-ID: <1246304060-20606-1-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
-	Graf Yang <graf.yang@analog.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:47643 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbZF2Teo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Jun 2009 15:34:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 1/2] net: adding memory barrier to the poll and receive
+	callbacks
+Date: Mon, 29 Jun 2009 21:47:34 +0200
+Message-ID: <20090629194733.GA3004@ami.dom.local>
+References: <20090629140434.GE3845@jolsa.lab.eng.brq.redhat.com> <20090629141445.GF3845@jolsa.lab.eng.brq.redhat.com> <alpine.DEB.1.10.0906290826300.29966@makko.or.mcafeemobile.com> <20090629173217.GC2742@ami.dom.local> <alpine.DEB.1.10.0906291033140.30244@makko.or.mcafeemobile.com> <20090629180431.GE2742@ami.dom.local> <20090629181442.GF2742@ami.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, oleg@redhat.com, eric.dumazet@gmail.com
+To: Davide Libenzi <davidel@xmailserver.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759184AbZF2Tr6@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090629181442.GF2742@ami.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Graf Yang <graf.yang@analog.com>
+On Mon, Jun 29, 2009 at 08:14:42PM +0200, Jarek Poplawski wrote:
+...
+> > (But I still prefer Jiri's choice. ;-)
 
-Signed-off-by: Graf Yang <graf.yang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/irda/bfin_sir.c |   16 ++++++++++------
- 1 files changed, 10 insertions(+), 6 deletions(-)
+...Even if Jiri decides to change his mind, because it really wasn't
+intended for any persuasions.
 
-diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
-index f3eed6a..911c082 100644
---- a/drivers/net/irda/bfin_sir.c
-+++ b/drivers/net/irda/bfin_sir.c
-@@ -677,6 +677,14 @@ static int bfin_sir_init_iobuf(iobuff_t *io, int size)
- 	return 0;
- }
- 
-+static const struct net_device_ops bfin_sir_ndo = {
-+	.ndo_open		= bfin_sir_open,
-+	.ndo_stop		= bfin_sir_stop,
-+	.ndo_start_xmit		= bfin_sir_hard_xmit,
-+	.ndo_do_ioctl		= bfin_sir_ioctl,
-+	.ndo_get_stats		= bfin_sir_stats,
-+};
-+
- static int __devinit bfin_sir_probe(struct platform_device *pdev)
- {
- 	struct net_device *dev;
-@@ -718,12 +726,8 @@ static int __devinit bfin_sir_probe(struct platform_device *pdev)
- 	if (err)
- 		goto err_mem_3;
- 
--	dev->hard_start_xmit = bfin_sir_hard_xmit;
--	dev->open            = bfin_sir_open;
--	dev->stop            = bfin_sir_stop;
--	dev->do_ioctl        = bfin_sir_ioctl;
--	dev->get_stats       = bfin_sir_stats;
--	dev->irq             = sir_port->irq;
-+	dev->netdev_ops = &bfin_sir_ndo;
-+	dev->irq = sir_port->irq;
- 
- 	irda_init_max_qos_capabilies(&self->qos);
- 
--- 
-1.6.3.3
-
+Jarek P.
