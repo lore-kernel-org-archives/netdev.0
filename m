@@ -1,43 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Fixing up TCP/UDP checksum for UDP encap. ESP4 packets
-	in transport mode
-Date: Tue, 30 Jun 2009 15:00:36 +0800
-Message-ID: <20090630070036.GA16225@gondor.apana.org.au>
-References: <20090622090731.GA22496@gondor.apana.org.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
+	Now=15 size=11 bits
+Date: Tue, 30 Jun 2009 07:09:29 +0000
+Message-ID: <20090630070929.GB5589@ff.dom.local>
+References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Christophe Saout <christophe@saout.de>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert@robur.slu.se>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45792 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751571AbZF3HAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 03:00:39 -0400
+Received: from fg-out-1718.google.com ([72.14.220.157]:64614 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbZF3HJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 03:09:33 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so603213fga.17
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 00:09:35 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090622090731.GA22496@gondor.apana.org.au>
+In-Reply-To: <20090629104703.GC4712@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 22, 2009 at 05:07:31PM +0800, Herbert Xu wrote:
->
-> The correct solution is to use the encap nat_oa field to adjust
-> the checksum.  That's why that field exists.
+On Mon, Jun 29, 2009 at 10:47:03AM +0000, Jarek Poplawski wrote:
+> On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote:
+> > I apply this patch
+> >
+> > fib_triestats in attached file :)
+>=20
+> Great! But it would be nice to check if this (accidentally ;-) might
+> fix the previous problem, so I attach below the patch with "manual
+> RCU", which btw. (or even more important) should verify RCU use here.
+>=20
+> It should be applied on top of this last "Fix..., part3". And
+> again: it's quite probable it can fail, so with caution, no hurry
+> (it can wait for quiet time)...
 
-Alas the IKEv2 people still haven't got their acts together so
-this is currently only possible with IKEv1.
+Pawel, here is another try to check what's going on here, so just
+like before, but this one on top of these 2 last working patches,
+plus quite time... (Stats aren't necessary; if these are some doubts
+let me know.)
 
-So I think we should offer both options (plus the option of doing
-nothing as we do now).  The default should be to do nothing, as
-recomputing the checksum carries some risk which we should make
-explicit to the admin by requiring them to turn the option on.
+Thanks,
+Jarek P.
+--------------------> (synchronize_rcu take 5)
 
-Now as to the technical problem of how to recompute the checksums
-cleanly, may I draw your attention to gso_send_checksum which does
-exactly what you want.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+--- a/net/ipv4/fib_trie.c	2009-06-29 10:00:14.000000000 +0000
++++ b/net/ipv4/fib_trie.c	2009-06-30 06:50:35.000000000 +0000
+@@ -1036,6 +1036,7 @@ static void trie_rebalance(struct trie *
+=20
+ 	rcu_assign_pointer(t->trie, (struct node *)tn);
+ 	tnode_free_flush();
++	synchronize_rcu();
+=20
+ 	return;
+ }
