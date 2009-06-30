@@ -1,40 +1,80 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
- configurable
-Date: Tue, 30 Jun 2009 22:16:35 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0906302211300.25417@fbirervta.pbzchgretzou.qr>
-References: <1246379267.3749.42.camel@blaa> <20090630170027.GA22691@gondor.apana.org.au> <20090630.120608.193727499.davem@davemloft.net>
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.	Now=15
+ size=11 bits
+Date: Tue, 30 Jun 2009 22:16:57 +0200
+Message-ID: <4A4A72B9.3030400@itcare.pl>
+References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local> <20090630070929.GB5589@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: herbert@gondor.apana.org.au, markmc@redhat.com,
-	netdev@vger.kernel.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Robert Olsson <robert@robur.slu.se>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:41120 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859AbZF3UQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 16:16:34 -0400
-In-Reply-To: <20090630.120608.193727499.davem@davemloft.net>
+Received: from smtp.iq.pl ([86.111.241.19]:41998 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754015AbZF3UQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2009 16:16:57 -0400
+In-Reply-To: <20090630070929.GB5589@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Tuesday 2009-06-30 21:06, David Miller wrote:
->Adding appropriate lists and persons to CC:
+Jarek Poplawski pisze:
+> On Mon, Jun 29, 2009 at 10:47:03AM +0000, Jarek Poplawski wrote:
+>  =20
+>> On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote:
+>>    =20
+>>> I apply this patch
+>>>
+>>> fib_triestats in attached file :)
+>>>      =20
+>> Great! But it would be nice to check if this (accidentally ;-) might
+>> fix the previous problem, so I attach below the patch with "manual
+>> RCU", which btw. (or even more important) should verify RCU use here=
+=2E
+>>
+>> It should be applied on top of this last "Fix..., part3". And
+>> again: it's quite probable it can fail, so with caution, no hurry
+>> (it can wait for quiet time)...
+>>    =20
 >
->> On Tue, Jun 30, 2009 at 05:27:47PM +0100, Mark McLoughlin wrote:
->>> 
->>> However, because nf_conntrack introduces an skb_orphan(), it is now
->>> recommended that bridge-nf-call-iptables be disabled completely so as
->>> to ensure features like TUNSETSNDBUF work as expected.
->> 
->> Patrick, does conntrack ever make sense for bridging? Perhaps
->> we should get rid of that completely?
+> Pawel, here is another try to check what's going on here, so just
+> like before, but this one on top of these 2 last working patches,
+> plus quite time... (Stats aren't necessary; if these are some doubts
+> let me know.)
+>
+> Thanks,
+> Jarek P.
+> --------------------> (synchronize_rcu take 5)
+>
+> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> --- a/net/ipv4/fib_trie.c	2009-06-29 10:00:14.000000000 +0000
+> +++ b/net/ipv4/fib_trie.c	2009-06-30 06:50:35.000000000 +0000
+> @@ -1036,6 +1036,7 @@ static void trie_rebalance(struct trie *
+> =20
+>  	rcu_assign_pointer(t->trie, (struct node *)tn);
+>  	tnode_free_flush();
+> +	synchronize_rcu();
+> =20
+>  	return;
+>  }
+>  =20
 
-It makes sense absolutely. Consider:
+Apply and tested
 
-* packet enters bridge
-* NF_HOOK(PF_INET6, NF_INET_PRE_ROUTING, ...) is called by nr_netfilter.c
-* (connection tracking entry is set up)
-* let bridging decision be "local delivery"
+Traffic is not forwarded after apply this patch.:)
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>  =20
+
