@@ -1,109 +1,72 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] IPv6: preferred lifetime of address not getting updated
-Date: Thu, 02 Jul 2009 13:10:52 -0400
-Message-ID: <4A4CEA1C.3070606@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jens Rosenboom <jens.rosenboom@freenet.ag>
-To: David Miller <davem@davemloft.net>
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Subject: [PATCH net-2.6 6/7] jme: Tuning rxsum function
+Date: Wed, 1 Jul 2009 05:14:30 +0800
+Message-ID: <20090702183224.1175D5D2DB@cooldavid.org>
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"Ethan Hsiao" <ethanhsiao@jmicron.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:26829 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751428AbZGBRKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 13:10:51 -0400
+Received: from cooldavid.org ([220.133.139.86]:49278 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751538AbZGBSpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 14:45:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's a bug in addrconf_prefix_rcv() where it won't update the
-preferred lifetime of an IPv6 address if the current valid lifetime
-of the address is less than 2 hours (the minimum value in the RA).
+1. Use more efficient way to determine flag status.
+2. Hardware dose not mark fragment bit against IPv6 packets,
+   print TCP/UDP checksum warning message for IPv4 packets only.
 
-For example, If I send a router advertisement with a prefix that
-has valid lifetime = preferred lifetime = 2 hours we'll build
-this address:
-
-3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2001:1890:1109:a20:217:8ff:fe7d:4718/64 scope global dynamic 
-       valid_lft 7175sec preferred_lft 7175sec
-
-If I then send the same prefix with valid lifetime = preferred
-lifetime = 0 it will be ignored since the minimum valid lifetime
-is 2 hours:
-
-3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2001:1890:1109:a20:217:8ff:fe7d:4718/64 scope global dynamic 
-       valid_lft 7161sec preferred_lft 7161sec
-
-But according to RFC 4862 we should always reset the preferred lifetime
-even if the valid lifetime is invalid, which would cause the address
-to immediately get deprecated.  So with this patch we'd see this:
-
-5: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2001:1890:1109:a20:21f:29ff:fe5a:ef04/64 scope global deprecated dynamic 
-       valid_lft 7163sec preferred_lft 0sec
-
-The comment winds-up being 5x the size of the code to fix the problem.
-
-This patch is against net-2.6.
-
------
-
-Update the preferred lifetime of IPv6 addresses derived from a prefix
-info option in a router advertisement even if the valid lifetime in
-the option is invalid, as specified in RFC 4862 Section 5.5.3e.  Fixes
-an issue where an address will not immediately become deprecated.
-Reported by Jens Rosenboom.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 ---
+ drivers/net/jme.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3883b40..43b3c9f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1916,8 +1916,32 @@ ok:
- 					update_lft = 1;
- 				else if (stored_lft <= MIN_VALID_LIFETIME) {
- 					/* valid_lft <= stored_lft is always true */
--					/* XXX: IPsec */
--					update_lft = 0;
-+					/*
-+					 * RFC 4862 Section 5.5.3e:
-+					 * "Note that the preferred lifetime of
-+					 *  the corresponding address is always
-+					 *  reset to the Preferred Lifetime in
-+					 *  the received Prefix Information
-+					 *  option, regardless of whether the
-+					 *  valid lifetime is also reset or
-+					 *  ignored."
-+					 *
-+					 *  So if the preferred lifetime in
-+					 *  this advertisement is different
-+					 *  than what we have stored, but the
-+					 *  valid lifetime is invalid, just
-+					 *  reset prefered_lft.
-+					 *
-+					 *  We must set the valid lifetime
-+					 *  to the stored lifetime since we'll
-+					 *  be updating the timestamp below,
-+					 *  else we'll set it back to the
-+					 *  minumum.
-+					 */
-+					if (prefered_lft != ifp->prefered_lft) {
-+						valid_lft = stored_lft;
-+						update_lft = 1;
-+					}
- 				} else {
- 					valid_lft = MIN_VALID_LIFETIME;
- 					if (valid_lft < prefered_lft)
-@@ -3085,7 +3109,7 @@ restart:
- 				spin_unlock(&ifp->lock);
- 				continue;
- 			} else if (age >= ifp->prefered_lft) {
--				/* jiffies - ifp->tsamp > age >= ifp->prefered_lft */
-+				/* jiffies - ifp->tstamp > age >= ifp->prefered_lft */
- 				int deprecate = 0;
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index 29cd5f4..e7068c7 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -880,27 +880,27 @@ jme_rxsum_ok(struct jme_adapter *jme, u16 flags)
+ 	if (!(flags & (RXWBFLAG_TCPON | RXWBFLAG_UDPON | RXWBFLAG_IPV4)))
+ 		return false;
  
- 				if (!(ifp->flags&IFA_F_DEPRECATED)) {
+-	if (unlikely(!(flags & RXWBFLAG_MF) &&
+-	(flags & RXWBFLAG_TCPON) && !(flags & RXWBFLAG_TCPCS))) {
+-		msg_rx_err(jme, "TCP Checksum error.\n");
+-		goto out_sumerr;
++	if (unlikely((flags & (RXWBFLAG_MF | RXWBFLAG_TCPON | RXWBFLAG_TCPCS))
++			== RXWBFLAG_TCPON)) {
++		if (flags & RXWBFLAG_IPV4)
++			msg_rx_err(jme, "TCP Checksum error\n");
++		return false;
+ 	}
+ 
+-	if (unlikely(!(flags & RXWBFLAG_MF) &&
+-	(flags & RXWBFLAG_UDPON) && !(flags & RXWBFLAG_UDPCS))) {
+-		msg_rx_err(jme, "UDP Checksum error.\n");
+-		goto out_sumerr;
++	if (unlikely((flags & (RXWBFLAG_MF | RXWBFLAG_UDPON | RXWBFLAG_UDPCS))
++			== RXWBFLAG_UDPON)) {
++		if (flags & RXWBFLAG_IPV4)
++			msg_rx_err(jme, "UDP Checksum error.\n");
++		return false;
+ 	}
+ 
+-	if (unlikely((flags & RXWBFLAG_IPV4) && !(flags & RXWBFLAG_IPCS))) {
++	if (unlikely((flags & (RXWBFLAG_IPV4 | RXWBFLAG_IPCS))
++			== RXWBFLAG_IPV4)) {
+ 		msg_rx_err(jme, "IPv4 Checksum error.\n");
+-		goto out_sumerr;
++		return false;
+ 	}
+ 
+ 	return true;
+-
+-out_sumerr:
+-	return false;
+ }
+ 
+ static void
+-- 
+1.6.0.6
+
