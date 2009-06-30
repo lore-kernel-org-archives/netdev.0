@@ -1,67 +1,66 @@
-From: =?ISO-8859-1?Q?Ra=FAl_Hern=E1ndez?= <rauhersu@gmail.com>
-Subject: Re: QoS hot changes changes (tc)
-Date: Tue, 30 Jun 2009 08:21:34 +0200
-Message-ID: <3f847c820906292321w1b85a423o2f5b25badddb9dd2@mail.gmail.com>
-References: <3f847c820906260619g238b6a17ub17af3f27da83ef5@mail.gmail.com>
-	 <4A469242.4070000@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: weird problem
+Date: Tue, 30 Jun 2009 06:40:22 +0000
+Message-ID: <20090630064022.GA5589@ff.dom.local>
+References: <4A450955.1010806@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org >> Linux Netdev List"
-	<netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: =?us-ascii?B?PT9JU08tODg1OS0yP1E/UGF3ZT1CM19TdGFzemV3c2tpPz0=?=
+	<pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:5266 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbZF3GVb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 02:21:31 -0400
-Received: by fg-out-1718.google.com with SMTP id e21so1041025fga.17
-        for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 23:21:34 -0700 (PDT)
-In-Reply-To: <4A469242.4070000@gmail.com>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:47977 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbZF3Gk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 02:40:26 -0400
+Received: by bwz9 with SMTP id 9so3684056bwz.37
+        for <netdev@vger.kernel.org>; Mon, 29 Jun 2009 23:40:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A450955.1010806@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Jarek ! I will try to test them running traffic to see how they
-are doing. I miss some documentation related to these stuff :-(.
-
-Regards,
-Raul
-
-2009/6/27 Jarek Poplawski <jarkao2@gmail.com>:
-> Ra=FAl Hern=E1ndez wrote, On 06/26/2009 03:19 PM:
->
->> Hi there,
+On 26-06-2009 19:45, Pawe. Staszewski wrote:
+> Eric Dumazet pisze:
+...
+>> Pawel made some reports errors in fib thread, so I am not sure he really
+>>  tried 2.6.30 and had same oprofile results.
 >>
->> I am trying to characterize the situation in which we perform a chan=
-ge
->> in the shaping done by the Linux kernel (tc+qdisc), specifically whe=
-n
->> modifying the bandwidth as a hot change while shaping with a previou=
-s
->> bw value. The system I am describing performs shaping per stream
->> (uplink and/or dowinlink or total), just marking the TOS of the ip
->> packet and provisioning the kernel via 'tc' to shape the packets.
+>> rt_worker_func() taking 13% of cpu0 is an alarm for me :)
+>> And 21% of cpu0 and 34% of cpu6 taken by oprofiled seems odd too...
 >>
->> My question is whether someone has tried to modify bw parameters, ie=
-:
->> move from 90 to 45 kb/s while the queues are already being populated
->> with trafffic .Do not know if the shaper algorithm is able to adjust
->> the bw without service disruption/experiment transitory behavior as =
-I
->> guess the algorithm must have some kind of feedback which depends of
->> the bytes already shaped and the value of the bw itself (ie: leaky
->> bucket).
+>> Pawel, could you give us :
 >>
->> Any experience with this kind of changes :-) ? Thx !
->
-> No experience in measuring the effects of such changes, but looking
-> into code shows it depends on a shaper algorithm: tbf seems to reset
-> the queue, htb doesn't.
->
-> Jarek P.
->
+>> grep . /proc/sys/net/ipv4/route/*
+>> cat /proc/interrupts
+>>
+>> on your various kernels (previous to 2.6.29, 2.6.29, 2.6.30, ...)
+>>
+>> I suspect a change in hash table size, and/or change in interrupt affinities...
 
+Btw., Pawel these eth0's don't look like affined or I miss something?
 
-
---=20
-"We cannot change the cards we are dealt, just how we play the hand.
+Jarek P.
+...
+> 
+> cat /proc/interrupts
+>            CPU0       CPU1       CPU2       CPU3       CPU4       
+> CPU5       CPU6       CPU7
+...
+>  29:    1139988   18351004      89662          3          0          
+> 1          0          3   PCI-MSI-edge      eth0
+>  30:          0          2   20221692          1          0          
+> 3          0          0   PCI-MSI-edge      eth1
+...
+> second machine:
+> Linux TM_02_C1 2.6.30 #1 SMP Thu Jun 25 21:49:58 CEST 2009 i686 Intel(R) 
+> Xeon(R) CPU 3075 @ 2.66GHz GenuineIntel GNU/Linux
+> 
+> cat /proc/interrupts
+>            CPU0       CPU1
+...
+>  28:      13482      11260   PCI-MSI-edge      eth2
+>  29:          3 1326457765   PCI-MSI-edge      eth1
+>  30: 1240943198  137973134   PCI-MSI-edge      eth0
