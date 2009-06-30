@@ -1,50 +1,74 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 5/5] igb: return PCI_ERS_RESULT_DISCONNECT on
-	permanent error
-Date: Tue, 30 Jun 2009 15:46:34 -0700
-Message-ID: <20090630224633.17771.74883.stgit@localhost.localdomain>
-References: <20090630224515.17771.76848.stgit@localhost.localdomain>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Tue, 30 Jun 2009 15:55:59 -0700
+Message-ID: <m1r5x1z5z4.fsf@fess.ebiederm.org>
+References: <200903011344.45814.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:52465
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755978AbZF3Wqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 18:46:49 -0400
-In-Reply-To: <20090630224515.17771.76848.stgit@localhost.localdomain>
+Received: from out02.mta.xmission.com ([166.70.13.232]:38924 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759254AbZF3W4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 18:56:02 -0400
+In-Reply-To: <200903011344.45814.denys@visp.net.lb> (Denys Fedoryschenko's message of "Sun\, 1 Mar 2009 13\:44\:45 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Denys Fedoryschenko <denys@visp.net.lb> writes:
 
-PCI drivers that implement the io_error_detected callback should return
-PCI_ERS_RESULT_DISCONNECT if the state passed in is
-pci_channel_io_perm_failure.  This patch fixes the issue for igb.
+> Windows (XP at least) hosts on boot, with configured static ip, performing 
+> address conflict detection, which is defined in RFC3927.
+> Here is quote of important information:
+>
+> "
+> An ARP announcement is identical to the ARP Probe described above, 
+> except    that now the sender and target IP addresses are both set 
+> to the host's newly selected IPv4 address. 
+> "
+>
+> But it same time this goes wrong with RFC5227.
+> "
+> The 'sender IP address' field MUST be set to all zeroes; this is to avoid
+> polluting ARP caches in other hosts on the same link in the case
+> where the address turns out to be already in use by another host.
+> "
+>
+> When ARP proxy configured, it must not answer to both cases, because 
+> it is address conflict verification in any case. For Windows it is just 
+> causing to detect false "ip conflict". Already there is code for RFC5227, so 
+> just trivially we just check also if source ip == target ip.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I have a problem with this patch.  It stops gratuitous arps updating
+my arp cache.  I'm still trying to figure out what the correct behaviour
+should be.
 
- drivers/net/igb/igb_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Perhaps making the goto out; become if (sip == 0) goto out;
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 468356d..be48029 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -5339,6 +5339,9 @@ static pci_ers_result_t igb_io_error_detected(struct pci_dev *pdev,
- 
- 	netif_device_detach(netdev);
- 
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
- 	if (netif_running(netdev))
- 		igb_down(adapter);
- 	pci_disable_device(pdev);
+Eric
 
+
+
+>
+> Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> ---
+>
+> diff --git a/net-next-2.6/net/ipv4/arp.c b/linux-net-next-a/net/ipv4/arp.c
+> index 3f6b735..5afaf2a 100644
+> --- a/net-next-2.6/net/ipv4/arp.c
+> +++ b/linux-net-next-a/net/ipv4/arp.c
+> @@ -801,8 +801,11 @@ static int arp_process(struct sk_buff *skb)
+>   *  cache.
+>   */
+>  
+> -	/* Special case: IPv4 duplicate address detection packet (RFC2131) */
+> -	if (sip == 0) {
+> +	/* 
+> +	*  Special case: IPv4 duplicate address detection packet (RFC2131)
+> +	*  and Gratuitous ARP/ARP Announce. (RFC3927, Section 2.4) 
+> +	*/
+> +	if (sip == 0 || tip == sip) {
+>  		if (arp->ar_op == htons(ARPOP_REQUEST) &&
+>  		    inet_addr_type(net, tip) == RTN_LOCAL &&
+>  		    !arp_ignore(in_dev, sip, tip))
