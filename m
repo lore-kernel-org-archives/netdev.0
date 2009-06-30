@@ -1,7 +1,7 @@
 From: Andreas Jaggi <aj@open.ch>
 Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
-Date: Tue, 30 Jun 2009 11:05:30 +0200
-Message-ID: <4A49D55A.4050600@open.ch>
+Date: Tue, 30 Jun 2009 11:06:49 +0200
+Message-ID: <4A49D5A9.1060409@open.ch>
 References: <4A48BC82.6040801@open.ch> <4A48C643.5030709@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
@@ -10,15 +10,15 @@ Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, shemminger@osdl.org
 To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.open.ch ([213.156.224.131]:9624 "EHLO mail6.open.ch"
+Received: from mail6.open.ch ([213.156.224.131]:9661 "EHLO mail6.open.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756230AbZF3JFX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2009 05:05:23 -0400
+	id S1750893AbZF3JGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Jun 2009 05:06:42 -0400
 In-Reply-To: <4A48C643.5030709@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now using the rtnl_link interface.
+And the corresponding patch for iproute2.
 
 >> When tunneling IP traffic with GRE this patch makes it possible to 
 >> export the ToS/DiffServ information to the outer IP header.
@@ -28,17 +28,17 @@ Now using the rtnl_link interface.
 >> an MPLS backbone network).
 >>
 >> The feature is disabled by default and can be enabled on a 
->> per-interface basis.
+>> per-interface basis (/proc/sys/net/ipv4/conf/ethX/gre_copy_tos).
 >>
 >> Also does this bring Linux back in the game, as JunOS/IOS provide this 
 >> for quite some time:
 >> http://www.cisco.com/en/US/docs/ios/11_3/feature/guide/greqos.html
 >> http://www.juniper.net/techpubs/software/junos/junos94/swconfig-services/configuring-a-gre-tunnel-to-copy-tos-bits-to-the-outer-ip-header.html 
 
-diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h dev-gre/include/linux/if_tunnel.h
---- vanilla-linux-2.6.29.4/include/linux/if_tunnel.h	2009-05-19 01:52:34.000000000 +0200
-+++ dev-gre/include/linux/if_tunnel.h	2009-06-30 08:22:52.000000000 +0200
-@@ -34,6 +34,7 @@
+diff -urN iproute2-2.6.29-1/include/linux/if_tunnel.h iproute2-2.6.29-1-gre-dev/include/linux/if_tunnel.h
+--- iproute2-2.6.29-1/include/linux/if_tunnel.h	2009-03-24 23:40:54.000000000 +0100
++++ iproute2-2.6.29-1-gre-dev/include/linux/if_tunnel.h	2009-06-30 08:39:18.000000000 +0200
+@@ -31,6 +31,7 @@
  	__be32			i_key;
  	__be32			o_key;
  	struct iphdr		iph;
@@ -46,7 +46,7 @@ diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h dev-gre/include/linux
  };
  
  /* SIT-mode i_flags */
-@@ -63,6 +64,7 @@
+@@ -60,6 +61,7 @@
  	IFLA_GRE_REMOTE,
  	IFLA_GRE_TTL,
  	IFLA_GRE_TOS,
@@ -54,58 +54,96 @@ diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h dev-gre/include/linux
  	IFLA_GRE_PMTUDISC,
  	__IFLA_GRE_MAX,
  };
-diff -urN vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c dev-gre/net/ipv4/ip_gre.c
---- vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c	2009-05-19 01:52:34.000000000 +0200
-+++ dev-gre/net/ipv4/ip_gre.c	2009-06-30 10:48:57.000000000 +0200
-@@ -677,7 +677,7 @@
- 	}
+diff -urN iproute2-2.6.29-1/ip/iptunnel.c iproute2-2.6.29-1-gre-dev/ip/iptunnel.c
+--- iproute2-2.6.29-1/ip/iptunnel.c	2009-03-24 23:40:54.000000000 +0100
++++ iproute2-2.6.29-1-gre-dev/ip/iptunnel.c	2009-06-30 10:31:19.000000000 +0200
+@@ -41,7 +41,7 @@
+ 	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+ 	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]\n");
+ 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+-	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
++	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ [no]copytos ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: NAME := STRING\n");
+ 	fprintf(stderr, "       ADDR := { IP_ADDRESS | any }\n");
+@@ -160,6 +160,10 @@
+ 			p->iph.frag_off = 0;
+ 		} else if (strcmp(*argv, "pmtudisc") == 0) {
+ 			p->iph.frag_off = htons(IP_DF);
++		} else if (strcmp(*argv, "nocopytos") == 0) {
++			p->copy_tos = 0;
++		} else if (strcmp(*argv, "copytos") == 0) {
++			p->copy_tos = 1;
+ 		} else if (strcmp(*argv, "remote") == 0) {
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "any"))
+@@ -353,6 +357,9 @@
+ 	if (!(p->iph.frag_off&htons(IP_DF)))
+ 		printf(" nopmtudisc");
  
- 	tos = tiph->tos;
--	if (tos&1) {
-+	if (tunnel->parms.copy_tos || tos&1) {
- 		if (skb->protocol == htons(ETH_P_IP))
- 			tos = old_iph->tos;
- 		tos &= ~1;
-@@ -991,6 +991,7 @@
- 				t->parms.iph.ttl = p.iph.ttl;
- 				t->parms.iph.tos = p.iph.tos;
- 				t->parms.iph.frag_off = p.iph.frag_off;
-+				t->parms.copy_tos = p.copy_tos;
- 				if (t->parms.link != p.link) {
- 					t->parms.link = p.link;
- 					dev->mtu = ipgre_tunnel_bind_dev(dev);
-@@ -1383,6 +1384,9 @@
- 	if (data[IFLA_GRE_TOS])
- 		parms->iph.tos = nla_get_u8(data[IFLA_GRE_TOS]);
- 
-+	if (data[IFLA_GRE_COPY_TOS])
-+		parms->copy_tos = nla_get_u8(data[IFLA_GRE_COPY_TOS]);
++	if (p->copy_tos)
++		printf(" copytos");
 +
- 	if (!data[IFLA_GRE_PMTUDISC] || nla_get_u8(data[IFLA_GRE_PMTUDISC]))
- 		parms->iph.frag_off = htons(IP_DF);
- }
-@@ -1536,6 +1540,8 @@
- 		nla_total_size(1) +
- 		/* IFLA_GRE_TOS */
- 		nla_total_size(1) +
-+		/* IFLA_GRE_COPY_TOS */
-+		nla_total_size(1) +
- 		/* IFLA_GRE_PMTUDISC */
- 		nla_total_size(1) +
- 		0;
-@@ -1555,6 +1561,7 @@
- 	NLA_PUT_BE32(skb, IFLA_GRE_REMOTE, p->iph.daddr);
- 	NLA_PUT_U8(skb, IFLA_GRE_TTL, p->iph.ttl);
- 	NLA_PUT_U8(skb, IFLA_GRE_TOS, p->iph.tos);
-+	NLA_PUT_U8(skb, IFLA_GRE_COPY_TOS, p->copy_tos);
- 	NLA_PUT_U8(skb, IFLA_GRE_PMTUDISC, !!(p->iph.frag_off & htons(IP_DF)));
+ 	if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) && p->o_key == p->i_key)
+ 		printf(" key %s", s3);
+ 	else if ((p->i_flags|p->o_flags)&GRE_KEY) {
+diff -urN iproute2-2.6.29-1/ip/link_gre.c iproute2-2.6.29-1-gre-dev/ip/link_gre.c
+--- iproute2-2.6.29-1/ip/link_gre.c	2009-03-24 23:40:54.000000000 +0100
++++ iproute2-2.6.29-1-gre-dev/ip/link_gre.c	2009-06-30 10:31:48.000000000 +0200
+@@ -29,7 +29,7 @@
+ 	fprintf(stderr, "Usage: ip link { add | set | change | replace | del } NAME\n");
+ 	fprintf(stderr, "          type { gre | gretap } [ remote ADDR ] [ local ADDR ]\n");
+ 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+-	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
++	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ [no]copytos ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: NAME := STRING\n");
+ 	fprintf(stderr, "       ADDR := { IP_ADDRESS | any }\n");
+@@ -61,6 +61,7 @@
+ 	__u8 pmtudisc = 1;
+ 	__u8 ttl = 0;
+ 	__u8 tos = 0;
++	__u8 copy_tos = 0;
+ 	int len;
+ 
+ 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
+@@ -125,6 +126,9 @@
+ 		if (greinfo[IFLA_GRE_TOS])
+ 			tos = *(__u8 *)RTA_DATA(greinfo[IFLA_GRE_TOS]);
+ 
++		if (greinfo[IFLA_GRE_COPY_TOS])
++			copy_tos = *(__u8 *)RTA_DATA(greinfo[IFLA_GRE_COPY_TOS]);
++
+ 		if (greinfo[IFLA_GRE_LINK])
+ 			link = *(__u8 *)RTA_DATA(greinfo[IFLA_GRE_LINK]);
+ 	}
+@@ -196,6 +200,10 @@
+ 			pmtudisc = 0;
+ 		} else if (!matches(*argv, "pmtudisc")) {
+ 			pmtudisc = 1;
++		} else if (!matches(*argv, "nocopytos")) {
++			copy_tos = 0;
++		} else if (!matches(*argv, "copytos")) {
++			copy_tos = 1;
+ 		} else if (!matches(*argv, "remote")) {
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "any"))
+@@ -262,6 +270,7 @@
+ 		addattr32(n, 1024, IFLA_GRE_LINK, link);
+ 	addattr_l(n, 1024, IFLA_GRE_TTL, &ttl, 1);
+ 	addattr_l(n, 1024, IFLA_GRE_TOS, &tos, 1);
++	addattr_l(n, 1024, IFLA_GRE_COPY_TOS, &copy_tos, 1);
  
  	return 0;
-@@ -1573,6 +1580,7 @@
- 	[IFLA_GRE_REMOTE]	= { .len = FIELD_SIZEOF(struct iphdr, daddr) },
- 	[IFLA_GRE_TTL]		= { .type = NLA_U8 },
- 	[IFLA_GRE_TOS]		= { .type = NLA_U8 },
-+	[IFLA_GRE_COPY_TOS]	= { .type = NLA_U8 },
- 	[IFLA_GRE_PMTUDISC]	= { .type = NLA_U8 },
- };
+ }
+@@ -325,6 +334,10 @@
+ 	    !*(__u8 *)RTA_DATA(tb[IFLA_GRE_PMTUDISC]))
+ 		fputs("nopmtudisc ", f);
+ 
++	if (tb[IFLA_GRE_COPY_TOS] &&
++	    *(__u8 *)RTA_DATA(tb[IFLA_GRE_COPY_TOS]))
++		fputs("copytos ", f);
++
+ 	if (tb[IFLA_GRE_IFLAGS])
+ 		iflags = *(__u16 *)RTA_DATA(tb[IFLA_GRE_IFLAGS]);
  
