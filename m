@@ -1,62 +1,40 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Tue, 30 Jun 2009 22:14:22 +0200
-Message-ID: <20090630201422.GA3026@ami.dom.local>
-References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629105820.GD4712@ff.dom.local> <20090630.124849.167332569.davem@davemloft.net>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
+ configurable
+Date: Tue, 30 Jun 2009 22:16:35 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0906302211300.25417@fbirervta.pbzchgretzou.qr>
+References: <1246379267.3749.42.camel@blaa> <20090630170027.GA22691@gondor.apana.org.au> <20090630.120608.193727499.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pstaszewski@itcare.pl, robert@robur.slu.se,
-	Robert.Olsson@data.slu.se, jorge@dti2.net, dada1@cosmosbay.com,
-	robert.olsson@its.uu.se, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: herbert@gondor.apana.org.au, markmc@redhat.com,
+	netdev@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:51602 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863AbZF3UOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 16:14:53 -0400
-Received: by bwz25 with SMTP id 25so111246bwz.37
-        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 13:14:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090630.124849.167332569.davem@davemloft.net>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:41120 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859AbZF3UQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 16:16:34 -0400
+In-Reply-To: <20090630.120608.193727499.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 30, 2009 at 12:48:49PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Mon, 29 Jun 2009 10:58:20 +0000
->=20
-> > On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote:
-> >> I apply this patch
-> >>
-> >> fib_triestats in attached file :)
-> >>
-> >>> ------------------->
-> >>> ipv4: Fix fib_trie rebalancing, part 3
-> >>>
-> >>> Alas current delaying of freeing old tnodes by RCU in trie_rebala=
-nce
-> >>> is still not enough because we can free a top tnode before updati=
-ng a
-> >>> t->trie pointer.
-> >>>
-> >>> Reported-by: Pawel Staszewski <pstaszewski@itcare.pl>
-> >>> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> >>> ---
-> >=20
-> > David, I guess you could add:
-> >=20
-> > Tested-by: Pawel Staszewski <pstaszewski@itcare.pl>
->=20
-> Done, and applied, thanks Jarek.
 
-Btw., a little comment: there are still some issues while trying to
-reclaim memory after synchronize_rcu, which means the algorithm is
-buggy, or RCU use is still buggy, or maybe some timing because of
-synchronize_rcu. Anyway, fib_trie still seems to be safe only with
-CONFIG_PREEMPT_NONE, so I have no idea how this should be fixed in
--stables (or why people don't report more this BUG in 2.6.30)...
+On Tuesday 2009-06-30 21:06, David Miller wrote:
+>Adding appropriate lists and persons to CC:
+>
+>> On Tue, Jun 30, 2009 at 05:27:47PM +0100, Mark McLoughlin wrote:
+>>> 
+>>> However, because nf_conntrack introduces an skb_orphan(), it is now
+>>> recommended that bridge-nf-call-iptables be disabled completely so as
+>>> to ensure features like TUNSETSNDBUF work as expected.
+>> 
+>> Patrick, does conntrack ever make sense for bridging? Perhaps
+>> we should get rid of that completely?
 
-Thanks,
-Jarek P.
+It makes sense absolutely. Consider:
+
+* packet enters bridge
+* NF_HOOK(PF_INET6, NF_INET_PRE_ROUTING, ...) is called by nr_netfilter.c
+* (connection tracking entry is set up)
+* let bridging decision be "local delivery"
