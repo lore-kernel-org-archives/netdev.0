@@ -1,86 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Tue, 30 Jun 2009 22:41:42 +0200
-Message-ID: <20090630204141.GB3026@ami.dom.local>
-References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local> <20090630070929.GB5589@ff.dom.local> <4A4A72B9.3030400@itcare.pl>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
+ configurable
+Date: Wed, 1 Jul 2009 06:27:37 +0930
+Message-ID: <20090701062737.6cac2193.lk-netdev@lk-netdev.nosense.org>
+References: <1246379267.3749.42.camel@blaa>
+	<20090630170027.GA22691@gondor.apana.org.au>
+	<20090630.120608.193727499.davem@davemloft.net>
+	<alpine.LSU.2.00.0906302211300.25417@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Robert Olsson <robert@robur.slu.se>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Robert Olsson <robert.olsson@its.uu.se>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	markmc@redhat.com, netdev@vger.kernel.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:64240 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755898AbZF3UmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 16:42:08 -0400
-Received: by fxm18 with SMTP id 18so406147fxm.37
-        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 13:42:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A4A72B9.3030400@itcare.pl>
+Received: from smtp2.adam.net.au ([202.136.110.251]:50223 "EHLO
+	smtp2.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800AbZF3U6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 16:58:10 -0400
+In-Reply-To: <alpine.LSU.2.00.0906302211300.25417@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 30, 2009 at 10:16:57PM +0200, Pawe=B3 Staszewski wrote:
-> Jarek Poplawski pisze:
->> On Mon, Jun 29, 2009 at 10:47:03AM +0000, Jarek Poplawski wrote:
->>  =20
->>> On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote:
->>>    =20
->>>> I apply this patch
->>>>
->>>> fib_triestats in attached file :)
->>>>      =20
->>> Great! But it would be nice to check if this (accidentally ;-) migh=
-t
->>> fix the previous problem, so I attach below the patch with "manual
->>> RCU", which btw. (or even more important) should verify RCU use her=
-e.
->>>
->>> It should be applied on top of this last "Fix..., part3". And
->>> again: it's quite probable it can fail, so with caution, no hurry
->>> (it can wait for quiet time)...
->>>    =20
->>
->> Pawel, here is another try to check what's going on here, so just
->> like before, but this one on top of these 2 last working patches,
->> plus quite time... (Stats aren't necessary; if these are some doubts
->> let me know.)
->>
->> Thanks,
->> Jarek P.
->> --------------------> (synchronize_rcu take 5)
->>
->> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->> --- a/net/ipv4/fib_trie.c	2009-06-29 10:00:14.000000000 +0000
->> +++ b/net/ipv4/fib_trie.c	2009-06-30 06:50:35.000000000 +0000
->> @@ -1036,6 +1036,7 @@ static void trie_rebalance(struct trie *
->>   	rcu_assign_pointer(t->trie, (struct node *)tn);
->>  	tnode_free_flush();
->> +	synchronize_rcu();
->>   	return;
->>  }
->>  =20
->
-> Apply and tested
->
-> Traffic is not forwarded after apply this patch.:)
+Hi,
 
-A little comment: these last 2 patches weren't exactly to fix the
-problem you reported, which should be mostly fixed by the earlier
-patch.
+On Tue, 30 Jun 2009 22:16:35 +0200 (CEST)
+Jan Engelhardt <jengelh@medozas.de> wrote:
 
-There is some other bug, which you omit with CONFIG_PREEMPT_NONE
-(but it's not for sure there is no by effects). So, I'd like to be
-sure you are willing and can (without too much risk) to do more such
-tests. Alas I've no way to generate similar conditions so it would
-simply have to wait for somebody else.
+> 
+> On Tuesday 2009-06-30 21:06, David Miller wrote:
+> >Adding appropriate lists and persons to CC:
+> >
+> >> On Tue, Jun 30, 2009 at 05:27:47PM +0100, Mark McLoughlin wrote:
+> >>> 
+> >>> However, because nf_conntrack introduces an skb_orphan(), it is now
+> >>> recommended that bridge-nf-call-iptables be disabled completely so as
+> >>> to ensure features like TUNSETSNDBUF work as expected.
+> >> 
+> >> Patrick, does conntrack ever make sense for bridging? Perhaps
+> >> we should get rid of that completely?
+> 
+> It makes sense absolutely. Consider:
+> 
+> * packet enters bridge
+> * NF_HOOK(PF_INET6, NF_INET_PRE_ROUTING, ...) is called by nr_netfilter.c
+> * (connection tracking entry is set up)
+> * let bridging decision be "local delivery"
 
-Many thanks again,
-Jarek P.
+I really like this feature, although it is only because I've spent
+time thinking about it, and it's usefulness, after having been burnt
+quite a lot by it, due to it's quite strange side effects on traffic.
+e.g. it'll defragment bridged IP packets, and then, if the outbound
+bridge interface MTU is big enough, will send off large single ethernet
+frames. If you're not expecting that, or don't work out what is
+going on, you'll believe you're seeing the input traffic in the form
+it arrived, and you'll believe it for quite a long time :-(
+
+I'm not sure if it supposed to work on IP traffic carried within
+bridge PPPoE/PPP, but it does - and that was very, very confusing to
+work out what had happened too. PPPoE comes up, as does PPP and IPCP,
+but forwarded IP packets are dropped unless there is a FORWARD
+iptables rule.
+
+I do agree though, either it should default to off, or the behaviour be
+made far more prominent somehow.
+
+Regards,
+Mark.
+
