@@ -1,188 +1,52 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: weird problem
-Date: Tue, 30 Jun 2009 10:36:27 +0200
-Message-ID: <4A49CE8B.7080402@itcare.pl>
-References: <20090630064022.GA5589@ff.dom.local> <4A49CE44.6030001@itcare.pl>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tc filter flow hash question
+Date: Tue, 30 Jun 2009 08:57:06 +0000
+Message-ID: <20090630085706.GD5589@ff.dom.local>
+References: <4A49C906.9010102@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080903020700010202010201"
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:32995 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750802AbZF3Ig0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2009 04:36:26 -0400
-In-Reply-To: <4A49CE44.6030001@itcare.pl>
+Received: from fg-out-1718.google.com ([72.14.220.154]:58093 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbZF3I5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 04:57:08 -0400
+Received: by fg-out-1718.google.com with SMTP id e21so1063473fga.17
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 01:57:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A49C906.9010102@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080903020700010202010201
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+On 30-06-2009 10:12, Badalian Vyacheslav wrote:
+> Hello all.
+> Sorry for mail to this maillist, but in internet i can't found any
+> information to understand this situation, lartc list is dead, function
+> do not documented and only developers understand how it works.
 
-sorry i forgot to attach file
+They only pretend they understand how it works...
 
-Paweł Staszewski pisze:
-> Jarek Poplawski pisze:
->> On 26-06-2009 19:45, Pawe. Staszewski wrote:
->>  
->>> Eric Dumazet pisze:
->>>     
->> ...
->>  
->>>> Pawel made some reports errors in fib thread, so I am not sure he 
->>>> really
->>>>  tried 2.6.30 and had same oprofile results.
->>>>
->>>> rt_worker_func() taking 13% of cpu0 is an alarm for me :)
->>>> And 21% of cpu0 and 34% of cpu6 taken by oprofiled seems odd too...
->>>>
->>>> Pawel, could you give us :
->>>>
->>>> grep . /proc/sys/net/ipv4/route/*
->>>> cat /proc/interrupts
->>>>
->>>> on your various kernels (previous to 2.6.29, 2.6.29, 2.6.30, ...)
->>>>
->>>> I suspect a change in hash table size, and/or change in interrupt 
->>>> affinities...
->>>>       
->>
->> Btw., Pawel these eth0's don't look like affined or I miss something?
->>
->> Jarek P.
->> ...
->>  
->>> cat /proc/interrupts
->>>            CPU0       CPU1       CPU2       CPU3       CPU4       
->>> CPU5       CPU6       CPU7
->>>     
->> ...
->>  
->>>  29:    1139988   18351004      89662          3          0          
->>> 1          0          3   PCI-MSI-edge      eth0
->>>  30:          0          2   20221692          1          0          
->>> 3          0          0   PCI-MSI-edge      eth1
->>>     
->> ...
->>   
-> Yes
-> it don't look because i switch a little later after some seconds with 
-> traffic on this host
->
-> Cpu1 - 18351004 interrupts on eth0 (and yes here i forgot to change on 
-> boot so there are some interrupts cpu0 1139988 / cpu2 89662)
-> Cpu2 - 20221692 interrupts on eth1
->
->
-> in attached file are new stats with more counters from /cat 
-> /proc/interrupts
->
->
->
->>> second machine:
->>> Linux TM_02_C1 2.6.30 #1 SMP Thu Jun 25 21:49:58 CEST 2009 i686 
->>> Intel(R) Xeon(R) CPU 3075 @ 2.66GHz GenuineIntel GNU/Linux
->>>
->>> cat /proc/interrupts
->>>            CPU0       CPU1
->>>     
->> ...
->>  
->>>  28:      13482      11260   PCI-MSI-edge      eth2
->>>  29:          3 1326457765   PCI-MSI-edge      eth1
->>>  30: 1240943198  137973134   PCI-MSI-edge      eth0
->>>     
->>
->>
->>   
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+> 
+> As i understand if i add flow hash i divide speed to KEYs (example to
+> dst) not for sessions right?
+> 
+> Why if i add simple example my traffic stop and i get DROP at parent class?
+> 
+> This my sample
+> 
+> tc qdisc add dev eth0 root handle 1 htb default 7
+> class add dev eth0 parent 1: classid 1:7 htb rate 500mbit ceil 1000mbit
+> prio 3
+> qdisc add dev eth0 parent 1:7 handle 10: sfq perturb 10
+> # all normal
+> tc filter add dev eth0 protocol ip parent 10: handle 2 flow hash keys
+> src,dst
+> # all traffic drop
+> 
 
+Here are some hints (if we don't mention google ;-)
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.29.y.git;a=commitdiff;h=e5dfb815181fcb186d6080ac3a091eadff2d98fe
 
---------------080903020700010202010201
-Content-Type: text/plain;
- name="interrupts_aff.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="interrupts_aff.txt"
-
-Y2F0IC9wcm9jL2ludGVycnVwdHMNCiAgICAgICAgICAgQ1BVMCAgICAgICBDUFUxICAgICAg
-IENQVTIgICAgICAgQ1BVMyAgICAgICBDUFU0ICAgICAgIENQVTUgICAgICAgQ1BVNiAgICAg
-ICBDUFU3DQogIDA6ICAgICAgICAyMjMgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAx
-NDUgICAgICAgIDE2OSAgICAgICAgMTk3ICAgICAgICAxODMgICAgICAgIDE3MSAgIElPLUFQ
-SUMtZWRnZSAgICAgIHRpbWVyDQogIDE6ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAg
-ICAwICAgICAgICAgIDEgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMSAgIElPLUFQSUMtZWRnZSAgICAgIGk4MDQyDQogIDk6ICAgICAgICAgIDAgICAgICAg
-ICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgIElPLUFQSUMtZmFzdGVvaSAgIGFjcGkNCiAxNDogICAgICAg
-ICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgSU8tQVBJQy1lZGdlICAgICAgaWRlMA0K
-IDE1OiAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICBJTy1BUElDLWVkZ2Ug
-ICAgICBpZGUxDQogMjk6ICAgIDExMzk5ODggIDQxNTk3OTE0MSAgICAgIDg5NjYyICAgICAg
-ICAgIDMgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAgIDAgICAgICAgICAgMyAgIFBD
-SS1NU0ktZWRnZSAgICAgIGV0aDANCiAzMDogICAgICAgICAgMCAgICAgICAgICAyICAzOTc0
-MzUwMTMgICAgICAgICAgMSAgICAgICAgICAwICAgICAgICAgIDMgICAgICAgICAgMCAgICAg
-ICAgICAwICAgUENJLU1TSS1lZGdlICAgICAgZXRoMQ0KIDMxOiAgICAgICAgICAwICAgICAg
-ICAgIDEgICAgICAgICAgMSAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAg
-ICAgICAwICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiAzMjogICAgICAgICAgMCAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAg
-ICAgICAgMiAgICAgICAgICAwICAgUENJLU1TSS1lZGdlDQogMzM6ICAgICAgICAgIDEgICAg
-ICAgICAgMSAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0ktZWRnZQ0KIDM0OiAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAgIDAgICAgICAgICAgMSAg
-ICAgICAgICAwICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiAzNTogICAgICAgICAgMCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMSAgICAgICAgICAwICAgICAgICAgIDAg
-ICAgICAgICAgMCAgICAgICAgICAxICAgUENJLU1TSS1lZGdlDQogMzY6ICAgICAgICAgIDAg
-ICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMSAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMSAgIFBDSS1NU0ktZWRnZQ0KIDM3OiAgICAgICAgICAx
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
-MSAgICAgICAgICAwICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiAzODogICAgICAgICAg
-MCAgICAgICAgICAwICAgICAgICAgIDEgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAg
-IDAgICAgICAgICAgMCAgICAgICAgICAwICAgUENJLU1TSS1lZGdlDQogMzk6ICAgICAgICAg
-IDAgICAgICAgICAgMCAgICAgICAgICAyICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAg
-ICAwICAgICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0ktZWRnZQ0KIDQwOiAgICAgICAg
-ICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMCAgICAgICAgICAyICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiA0MTogICAgICAg
-ICAgMCAgICAgICAgICAyICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgUENJLU1TSS1lZGdlDQogNDI6ICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAg
-ICAgICAyICAgICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0ktZWRnZQ0KIDQzOiAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAyICAgICAgICAgIDAgICAg
-ICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiA0NDogICAg
-ICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAyICAgUENJLU1TSS1lZGdlDQogNDU6ICAg
-ICAgICAgIDIgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0ktZWRnZQ0KIDQ2OiAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDIg
-ICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICBQQ0ktTVNJLWVkZ2UNCiA0ODog
-ICAgICAyNzc1MiAgICAgIDE2NDQ4ICAgICAgMTYzOTIgICAgICAyNzc3NCAgICAgIDI3OTMw
-ICAgICAgMjc4NDAgICAgICAyNzkyNCAgICAgIDI3NjgyICAgUENJLU1TSS1lZGdlICAgICAg
-YWhjaQ0KIDQ5OiAgICAgICAgICAwICAgICAgICAgIDEgICAgICAgICAgMSAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMiAgICAgICAgICAxICAgICAgICAgIDAgICBQQ0ktTVNJ
-LWVkZ2UgICAgICBpb2F0LW1zaQ0KTk1JOiAgICAgNzgyNTUzICAgNDI1NjUzODEgICA0MTk0
-ODg3NiAgICAgMjM3MDkxICAgICAzNTk2NjIgICAgIDM2NDIwMSAgICAgMjAyMjA2ICAgICAy
-MjU0MDYgICBOb24tbWFza2FibGUgaW50ZXJydXB0cw0KTE9DOiAgICA1OTMwNDU0ICA0NDk0
-NDE4MjYgIDQyODUzNjU5OSAgICAyMzYwNDc2ICAgIDIwODMwODYgICAgMjExNTEzNSAgICAy
-NDE1NDkzICAgIDIxMTY5NDUgICBMb2NhbCB0aW1lciBpbnRlcnJ1cHRzDQpSRVM6ICAgICAg
-IDE3MTQgICAgICAgMTM4MiAgICAgICAxOTQ0ICAgICAgICA5MDQgICAgICAgIDgxMCAgICAg
-ICAgNzIwICAgICAgIDEwNTEgICAgICAgIDkwNyAgIFJlc2NoZWR1bGluZyBpbnRlcnJ1cHRz
-DQpDQUw6ICAgICAgICAgMzIgICAgICAgICA5OCAgICAgICAgMTAwICAgICAgICAxMDAgICAg
-ICAgIDEwMyAgICAgICAgIDk4ICAgICAgICAxMDAgICAgICAgICA5NyAgIEZ1bmN0aW9uIGNh
-bGwgaW50ZXJydXB0cw0KVExCOiAgICAgICAxNTU5ICAgICAgIDI0NzYgICAgICAxOTM5MyAg
-ICAgIDE4ODA2ICAgICAgIDE1MTAgICAgICAgMTg3MCAgICAgIDIxMDcxICAgICAgMjIwOTYg
-ICBUTEIgc2hvb3Rkb3ducw0KU1BVOiAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
-MCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAg
-IDAgICBTcHVyaW91cyBpbnRlcnJ1cHRzDQpFUlI6ICAgICAgICAgIDANCk1JUzogICAgICAg
-ICAgMA0K
---------------080903020700010202010201--
+Regards,
+Jarek P.
