@@ -1,90 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 2/2] memory barrier: adding smp_mb__after_lock
-Date: Tue, 30 Jun 2009 13:14:20 +0200
-Message-ID: <4A49F38C.80104@gmail.com>
-References: <20090630103642.GB9657@jolsa.lab.eng.brq.redhat.com> <20090630104106.GD9657@jolsa.lab.eng.brq.redhat.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: tc filter flow hash question
+Date: Tue, 30 Jun 2009 11:09:08 +0000
+Message-ID: <20090630110908.GC8592@ff.dom.local>
+References: <20090630085706.GD5589@ff.dom.local> <4A49D872.5050403@bigtelecom.ru> <20090630092344.GA8592@ff.dom.local> <4A49DF97.6090608@bigtelecom.ru> <20090630095628.GB8592@ff.dom.local> <4A49E94E.40209@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
-	davidel@xmailserver.org, eric.dumazet@gmail.com
-To: Jiri Olsa <jolsa@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35349 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbZF3LOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 07:14:43 -0400
-In-Reply-To: <20090630104106.GD9657@jolsa.lab.eng.brq.redhat.com>
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:57689 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752908AbZF3LJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 07:09:11 -0400
+Received: by bwz9 with SMTP id 9so48080bwz.37
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 04:09:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A49E94E.40209@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Olsa a =E9crit :
-> Adding smp_mb__after_lock define to be used as a smp_mb call after
-> a lock. =20
->=20
-> Making it nop for x86, since {read|write|spin}_lock() on x86 are=20
-> full memory barriers.
->=20
-> wbr,
-> jirka
->=20
->=20
-> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
->=20
-> ---
->  arch/x86/include/asm/spinlock.h |    3 +++
->  include/linux/spinlock.h        |    5 +++++
->  include/net/sock.h              |    2 +-
->  3 files changed, 9 insertions(+), 1 deletions(-)
->=20
-> diff --git a/arch/x86/include/asm/spinlock.h b/arch/x86/include/asm/s=
-pinlock.h
-> index b7e5db8..39ecc5f 100644
-> --- a/arch/x86/include/asm/spinlock.h
-> +++ b/arch/x86/include/asm/spinlock.h
-> @@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_rwlock_=
-t *rw)
->  #define _raw_read_relax(lock)	cpu_relax()
->  #define _raw_write_relax(lock)	cpu_relax()
-> =20
-> +/* The {read|write|spin}_lock() on x86 are full memory barriers. */
-> +#define smp_mb__after_lock() do { } while (0)
-> +
->  #endif /* _ASM_X86_SPINLOCK_H */
-> diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-> index 252b245..ae053bd 100644
-> --- a/include/linux/spinlock.h
-> +++ b/include/linux/spinlock.h
-> @@ -132,6 +132,11 @@ do {								\
->  #endif /*__raw_spin_is_contended*/
->  #endif
-> =20
-> +/* The lock does not imply full memory barrier. */
-> +#ifndef smp_mb__after_lock
-> +#define smp_mb__after_lock() smp_mb()
-> +#endif
-> +
->  /**
->   * spin_unlock_wait - wait until the spinlock gets unlocked
->   * @lock: the spinlock in question.
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index a12df10..0d57e83 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1277,7 +1277,7 @@ static inline void sock_poll_wait(struct file *=
-filp,
->  		 *
->  		 * This memory barrier is paired in the sk_has_sleeper.
->  		*/
-> -		smp_mb();
-> +		smp_mb__after_lock();
->  	}
->  }
+On Tue, Jun 30, 2009 at 02:30:38PM +0400, Badalian Vyacheslav wrote:
+> Jarek Poplawski ??????????:
+> > On Tue, Jun 30, 2009 at 01:49:11PM +0400, Badalian Vyacheslav wrote:
+> > ...
+> >   
+> >> This example not approach? 
+> >>
+> >> tc qdisc add dev eth0 root handle 1 htb default 7
+> >> tc class add dev eth0 parent 1: classid 1:7 htb rate 500mbit ceil 1000mbit prio 3
+> >> tc qdisc add dev eth0 parent 1:7 handle 10: sfq perturb 10
+> >>
+> >> # all traffic go to class 1-7.
+> >>
+> >> # Try group traffic by "src,dst" key
+> >>
+> >> tc filter add dev eth0 protocol ip parent 10: handle 2 flow hash keys src,dst
+> >>
+> >> # all traffic dropped
+> >>     
+> >
+> > Try:
+> > tc filter add dev eth0 protocol ip parent 10: handle 2 flow hash keys src,dst divisor 1024
+> >
+> >   
+> Outh! Very thanks! I'm so stupid. its simple :(
+> 
+> Also i look in code and see in flow_classify function this lines:
+> 
+> if (f->divisor)
+>         classid %= f->divisor;
+> 
+> classid generated in up.
+> Also i see to SFQ code and see that SFQ create 1024 hashes.
+> If we do not add divisor when added filter rule we get classid > 1024
+> and its not go to hash of SFQ (my example).
+> Also divisor must be > 0 because = NaN as i understand.
+> I not sure that it must be <= 1024 because it may use not in SFQ and i
+> don't know MAX size of other qdiscs but if it use only in in SFQ i think
+> we need to check <= SFQ_HASH_DIVISOR also?
+> 
+> Maybe "if" code must be changed to
+> 
+> if (f->divisor && f->divisor > 0)
+>         classid %= f->divisor;
+> else
+>         classid %= 1024;
+> 
+> 
+> How you think?
 
-I believe you took wrong point to use this new thing :)
+I guess the author preferred to signal that something is misconfigured
+with drops, but you could try to send a patch or ask him to make sure.
 
-It was meant to be used in sk_has_sleeper() only (as sk_has_sleeper()
- follows a read_lock())
+Btw., sfq isn't very useful with real 1024 or even much less flows, so
+you should probably start looking for sch_drr with cls_flow examples
+(there were a few of them on the list).
 
+Best regards,
+Jarek P.
