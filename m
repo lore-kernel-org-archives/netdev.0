@@ -1,23 +1,29 @@
-From: Mrs Dianne Thompson <info@ihug.co.nz>
-Subject: (no subject)
-Date: Tue, 30 Jun 2009 13:28:20 +1200
-Message-ID: <56fadc6a072f52b6a074f0f9e33f3120@vodafone.co.nz>
-Reply-To: cgnl2009@9.cn
+From: David Miller <davem@davemloft.net>
+Subject: Re: netfilter 00/04: netfilter fixes
+Date: Mon, 29 Jun 2009 19:23:32 -0700 (PDT)
+Message-ID: <20090629.192332.170260578.davem@davemloft.net>
+References: <20090629142007.5728.63458.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailfilter2.ihug.co.nz ([203.109.136.2]:13223 "EHLO
-	mailfilter2.ihug.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490AbZF3B2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 21:28:21 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38060
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752542AbZF3CX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 22:23:26 -0400
+In-Reply-To: <20090629142007.5728.63458.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 29 Jun 2009 16:20:13 +0200 (MEST)
 
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+> 
+> Thanks!
 
--- 
-Contact Mr David Green for a sum pay out of 1,230,310 GBP. Provide Your
-Name: Address: Age: Sex: Occupation:Email:cgnl2009@9.cn)for
-Verification immediately.
+Pulled, thanks a lot Patrick!
