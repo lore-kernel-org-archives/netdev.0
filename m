@@ -1,57 +1,90 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
- configurable
-Date: Tue, 30 Jun 2009 23:30:42 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0906302303350.27569@fbirervta.pbzchgretzou.qr>
-References: <1246379267.3749.42.camel@blaa> <20090630170027.GA22691@gondor.apana.org.au> <20090630.120608.193727499.davem@davemloft.net> <alpine.LSU.2.00.0906302211300.25417@fbirervta.pbzchgretzou.qr>
- <20090701062737.6cac2193.lk-netdev@lk-netdev.nosense.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/4] ixgbe: Fix SFP log messages
+Date: Tue, 30 Jun 2009 14:43:55 -0700
+Message-ID: <20090630214349.17464.25370.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	markmc@redhat.com, netdev@vger.kernel.org, kaber@trash.net,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, bdschuym@pandora.be
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, stable@kernel.org,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:34610 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbZF3Vak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:30:40 -0400
-In-Reply-To: <20090701062737.6cac2193.lk-netdev@lk-netdev.nosense.org>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:42614
+	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752551AbZF3VoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:44:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-On Tuesday 2009-06-30 22:57, Mark Smith wrote:
->>> 
->>> does conntrack ever make sense for bridging? Perhaps
->>> we should get rid of that completely?
->> 
->> It makes sense absolutely. Consider:
->> 
->> * packet enters bridge
->> * NF_HOOK(PF_INET6, NF_INET_PRE_ROUTING, ...) is called by nr_netfilter.c
->> * (connection tracking entry is set up)
->> * let bridging decision be "local delivery"
->quite a lot by it, due to it's quite strange side effects on traffic.
->e.g. it'll defragment bridged IP packets[...]
+We had a wide range of log messages for the same sort of SFP
+failure.  This patch makes them all more similar and less
+confusing along with converting them to dev_err.
 
-Hm not good. Then again, Netfilter does not know where the packet comes
-from or where it goes, and Bridge does not know that Conntrack is
-(potentially, it even varies) part of PREROUTING.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
->I'm not sure if it supposed to work on IP traffic carried within
->bridge PPPoE/PPP, but it does
+ drivers/net/ixgbe/ixgbe_main.c |   25 +++++++++++++++++--------
+ 1 files changed, 17 insertions(+), 8 deletions(-)
 
-Bridge unpacks such frames if I've seen the code right :-/
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index e756e22..30d8c0e 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2701,7 +2701,10 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 	 */
+ 	err = hw->phy.ops.identify(hw);
+ 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+-		DPRINTK(PROBE, ERR, "PHY not supported on this NIC %d\n", err);
++		dev_err(&adapter->pdev->dev, "failed to initialize because "
++			"an unsupported SFP+ module type was detected.\n"
++			"Reload the driver after installing a supported "
++			"module.\n");
+ 		ixgbe_down(adapter);
+ 		return err;
+ 	}
+@@ -3720,10 +3723,11 @@ static void ixgbe_sfp_task(struct work_struct *work)
+ 			goto reschedule;
+ 		ret = hw->phy.ops.reset(hw);
+ 		if (ret == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+-			DPRINTK(PROBE, ERR, "failed to initialize because an "
+-			        "unsupported SFP+ module type was detected.\n"
+-			        "Reload the driver after installing a "
+-			        "supported module.\n");
++			dev_err(&adapter->pdev->dev, "failed to initialize "
++				"because an unsupported SFP+ module type "
++				"was detected.\n"
++				"Reload the driver after installing a "
++				"supported module.\n");
+ 			unregister_netdev(adapter->netdev);
+ 		} else {
+ 			DPRINTK(PROBE, INFO, "detected SFP+: %d\n",
+@@ -4526,7 +4530,10 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
+ 	adapter->flags |= IXGBE_FLAG_IN_SFP_MOD_TASK;
+ 	err = hw->phy.ops.identify_sfp(hw);
+ 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+-		DPRINTK(PROBE, ERR, "PHY not supported on this NIC %d\n", err);
++		dev_err(&adapter->pdev->dev, "failed to initialize because "
++			"an unsupported SFP+ module type was detected.\n"
++			"Reload the driver after installing a supported "
++			"module.\n");
+ 		ixgbe_down(adapter);
+ 		return;
+ 	}
+@@ -5513,8 +5520,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 			  round_jiffies(jiffies + (2 * HZ)));
+ 		err = 0;
+ 	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+-		dev_err(&adapter->pdev->dev, "failed to load because an "
+-		        "unsupported SFP+ module type was detected.\n");
++		dev_err(&adapter->pdev->dev, "failed to initialize because "
++			"an unsupported SFP+ module type was detected.\n"
++			"Reload the driver after installing a supported "
++			"module.\n");
+ 		goto err_sw_init;
+ 	} else if (err) {
+ 		dev_err(&adapter->pdev->dev, "HW Init failed: %d\n", err);
 
-        if (skb->protocol == htons(ETH_P_IPV6) || IS_VLAN_IPV6(skb) ||
-            IS_PPPOE_IPV6(skb)) {
-                nf_bridge_pull_encap_header_rcsum(skb);
-                return br_nf_pre_routing_ipv6(hook, skb, in, out, okfn);
-        }
-
-I, too, wonder, why it would unpack PPP here.
-
-However, there is a sysctl flag called vlan_tagged/pppoe_tagged which 
-you can se to zero to not pull_encap VLAN/PPP.
