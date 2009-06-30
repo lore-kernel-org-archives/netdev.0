@@ -1,29 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/irda: convert bfin_sir to net_device_ops
-Date: Mon, 29 Jun 2009 19:44:03 -0700 (PDT)
-Message-ID: <20090629.194403.250663395.davem@davemloft.net>
-References: <1246304060-20606-1-git-send-email-vapier@gentoo.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [1/7] cdc_eem: Use netdev stats structure
+Date: Tue, 30 Jun 2009 10:49:40 +0800
+Message-ID: <20090630024940.GA14707@gondor.apana.org.au>
+References: <200906300045.n5U0j2To004168@rs49.luxsci.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
-	graf.yang@analog.com
-To: vapier@gentoo.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, shemminger@vyatta.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Kibbey <bjk@luxsci.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55118
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753105AbZF3Cn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 22:43:58 -0400
-In-Reply-To: <1246304060-20606-1-git-send-email-vapier@gentoo.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:35253 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752761AbZF3Ctt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 22:49:49 -0400
+Content-Disposition: inline
+In-Reply-To: <200906300045.n5U0j2To004168@rs49.luxsci.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Mon, 29 Jun 2009 15:34:20 -0400
+This series should fix the problem:
 
-> From: Graf Yang <graf.yang@analog.com>
-> 
-> Signed-off-by: Graf Yang <graf.yang@analog.com>
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+cdc_eem: Use netdev stats structure
 
-Applied, thanks.
+Now that netdev has its own stats structure we should use that
+instead.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
+index 80e0177..cd35d50 100644
+--- a/drivers/net/usb/cdc_eem.c
++++ b/drivers/net/usb/cdc_eem.c
+@@ -319,7 +319,7 @@ static int eem_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 				return crc == crc2;
+ 
+ 			if (unlikely(crc != crc2)) {
+-				dev->stats.rx_errors++;
++				dev->net->stats.rx_errors++;
+ 				dev_kfree_skb_any(skb2);
+ 			} else
+ 				usbnet_skb_return(dev, skb2);
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
