@@ -1,50 +1,102 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 3/4] ixgbe: Fix link capabilities during adapter resets
-Date: Tue, 30 Jun 2009 14:44:36 -0700
-Message-ID: <20090630214436.17464.65010.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 4/4] ixgbe: fix unmap length bug
+Date: Tue, 30 Jun 2009 14:44:56 -0700
+Message-ID: <20090630214456.17464.70554.stgit@localhost.localdomain>
 References: <20090630214349.17464.25370.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, stable@kernel.org,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Joerg Roedel <joerg.roedel@amd.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:51671 "EHLO
-	QMTA03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753193AbZF3Vow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:44:52 -0400
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:54323
+	"EHLO QMTA09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753254AbZF3VpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:45:15 -0400
 In-Reply-To: <20090630214349.17464.25370.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Adapter link advertisement capabilities were not persistent during
-adapter resets. While configuring multispeed fiber link check for
-phy autoneg_advertised settings before overwriting with default
-link capabilities
+This patch addresses three WARN_ON statements from DMA-API debug code
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+ixgbe is mapping more than it unmaps, reduce the length of the map call and
+remove the "used once" local variable.
+
+found by Joerg Roedel <joerg.roedel@amd.com> in 2.6.30, so is a candidate
+for -stable.
+
+in addition, fix missing ->dma = 0 after unmap to prevent double free with
+pci_unmap_single
+
+and lastly, don't unmap (half) pages that aren't mapped.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Joerg Roedel <joerg.roedel@amd.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 30d8c0e..fce2ef4 100644
+index fce2ef4..5588ef4 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4506,7 +4506,8 @@ static void ixgbe_multispeed_fiber_task(struct work_struct *work)
- 	u32 autoneg;
+@@ -563,7 +563,6 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 	union ixgbe_adv_rx_desc *rx_desc;
+ 	struct ixgbe_rx_buffer *bi;
+ 	unsigned int i;
+-	unsigned int bufsz = rx_ring->rx_buf_len + NET_IP_ALIGN;
  
- 	adapter->flags |= IXGBE_FLAG_IN_SFP_LINK_TASK;
--	if (hw->mac.ops.get_link_capabilities)
-+	autoneg = hw->phy.autoneg_advertised;
-+	if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
- 		hw->mac.ops.get_link_capabilities(hw, &autoneg,
- 		                                  &hw->mac.autoneg);
- 	if (hw->mac.ops.setup_link_speed)
+ 	i = rx_ring->next_to_use;
+ 	bi = &rx_ring->rx_buffer_info[i];
+@@ -593,7 +592,9 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 
+ 		if (!bi->skb) {
+ 			struct sk_buff *skb;
+-			skb = netdev_alloc_skb(adapter->netdev, bufsz);
++			skb = netdev_alloc_skb(adapter->netdev,
++			                       (rx_ring->rx_buf_len +
++			                        NET_IP_ALIGN));
+ 
+ 			if (!skb) {
+ 				adapter->alloc_rx_buff_failed++;
+@@ -608,7 +609,8 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 			skb_reserve(skb, NET_IP_ALIGN);
+ 
+ 			bi->skb = skb;
+-			bi->dma = pci_map_single(pdev, skb->data, bufsz,
++			bi->dma = pci_map_single(pdev, skb->data,
++			                         rx_ring->rx_buf_len,
+ 			                         PCI_DMA_FROMDEVICE);
+ 		}
+ 		/* Refresh the desc even if buffer_addrs didn't change because
+@@ -732,6 +734,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			pci_unmap_single(pdev, rx_buffer_info->dma,
+ 			                 rx_ring->rx_buf_len,
+ 			                 PCI_DMA_FROMDEVICE);
++			rx_buffer_info->dma = 0;
+ 			skb_put(skb, len);
+ 		}
+ 
+@@ -2815,9 +2818,11 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 		}
+ 		if (!rx_buffer_info->page)
+ 			continue;
+-		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE / 2,
+-		               PCI_DMA_FROMDEVICE);
+-		rx_buffer_info->page_dma = 0;
++		if (rx_buffer_info->page_dma) {
++			pci_unmap_page(pdev, rx_buffer_info->page_dma,
++			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
++			rx_buffer_info->page_dma = 0;
++		}
+ 		put_page(rx_buffer_info->page);
+ 		rx_buffer_info->page = NULL;
+ 		rx_buffer_info->page_offset = 0;
 
