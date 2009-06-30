@@ -1,63 +1,50 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Ben Kibbey <bjk@luxsci.net>
 Subject: Re: [Bugme-new] [Bug 13589] New: usbnet and /proc/net/dev stats
-Date: Mon, 29 Jun 2009 17:23:41 -0700
-Message-ID: <20090629172341.50bce90f.akpm@linux-foundation.org>
-References: <bug-13589-10286@http.bugzilla.kernel.org/>
+Date: Mon, 29 Jun 2009 20:42:51 -0400
+Message-ID: <200906300045.n5U0j2To004168@rs49.luxsci.com>
+References: <bug-13589-10286@http.bugzilla.kernel.org/> <20090629172341.50bce90f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
 	bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>, bjk@luxsci.net
-To: netdev@vger.kernel.org
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54516 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752548AbZF3AYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Jun 2009 20:24:09 -0400
-In-Reply-To: <bug-13589-10286@http.bugzilla.kernel.org/>
+Received: from rs49.luxsci.com ([65.61.166.75]:51012 "EHLO rs49.luxsci.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751486AbZF3Axo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Jun 2009 20:53:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20090629172341.50bce90f.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 29, 2009 at 05:23:41PM -0700, Andrew Morton wrote:
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+All usbnet stats weren't getting updated (ifconfig, was always showing 0).
+When applied to 2.6.30 this fixes it. Commit 805aaa29fa was the culprit and
+reverting it re-adds usbnet_get_stats() but needed to be modified to add whats
+in usbnet_netdev_ops:
 
-On Sat, 20 Jun 2009 16:24:13 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+--- /tmp/usbnet.c	2009-06-29 20:35:59.000000000 -0400
++++ usbnet.c	2009-06-20 11:40:41.000000000 -0400
+@@ -1106,9 +1106,16 @@
+ }
+ EXPORT_SYMBOL_GPL(usbnet_disconnect);
+ 
++static struct net_device_stats *usbnet_get_stats (struct net_device *net)
++{
++       struct usbnet   *dev = netdev_priv(net);
++       return &dev->stats;
++}
++
+ static const struct net_device_ops usbnet_netdev_ops = {
+ 	.ndo_open		= usbnet_open,
+ 	.ndo_stop		= usbnet_stop,
++	.ndo_get_stats		= usbnet_get_stats,
+ 	.ndo_start_xmit		= usbnet_start_xmit,
+ 	.ndo_tx_timeout		= usbnet_tx_timeout,
+ 	.ndo_change_mtu		= usbnet_change_mtu,
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13589
-> 
->            Summary: usbnet and /proc/net/dev stats
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.30
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: bjk@luxsci.net
->         Regression: No
-> 
-> 
-> Commit 805aaa29fa breaks device statistics with the usbnet module. Reverting
-> this commit fixes it. I think usbnet needed this callback to lookup the dev so
-> it could update .stats.
-> 
-> Also, I do have CONFIG_COMPAT_NET_DEV_OPS defined and am using usbnet with
-> cdc_ether and zaurus.
-> 
-
-This has turned into a bit of a mess, as the fix which I typed in needs
-the revert of another patch, and I don't know what actually went wrong
-with usbnet stats anyway.
-
-Could someone (Stephen?) please take a look?
-
-As it appears to be a 2.6.29->2.6.30 regression, please remember to cc
-stable@kernel.org on any fixes, thanks.
-
+-- 
+Ben Kibbey (bjk) @ FreeNode/OFTC/Jabber
