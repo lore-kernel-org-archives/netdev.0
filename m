@@ -1,90 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/4] ixgbe: Fix SFP log messages
-Date: Tue, 30 Jun 2009 14:43:55 -0700
-Message-ID: <20090630214349.17464.25370.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/4] ixgbe: Fix device capabilities of 82599 single
+	speed fiber NICs.
+Date: Tue, 30 Jun 2009 14:44:16 -0700
+Message-ID: <20090630214416.17464.72434.stgit@localhost.localdomain>
+References: <20090630214349.17464.25370.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, stable@kernel.org,
-	Don Skidmore <donald.c.skidmore@intel.com>,
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:42614
-	"EHLO QMTA13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752551AbZF3VoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:44:12 -0400
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:46658 "EHLO
+	QMTA09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752859AbZF3Voc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 17:44:32 -0400
+In-Reply-To: <20090630214349.17464.25370.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 
-We had a wide range of log messages for the same sort of SFP
-failure.  This patch makes them all more similar and less
-confusing along with converting them to dev_err.
+82599 single speed fiber modules only support 10G/Full. Return
+proper device capabilities while querrying the adapter and error
+while changing device advertisement/speed/duplex capabilities.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   25 +++++++++++++++++--------
- 1 files changed, 17 insertions(+), 8 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e756e22..30d8c0e 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2701,7 +2701,10 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	 */
- 	err = hw->phy.ops.identify(hw);
- 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
--		DPRINTK(PROBE, ERR, "PHY not supported on this NIC %d\n", err);
-+		dev_err(&adapter->pdev->dev, "failed to initialize because "
-+			"an unsupported SFP+ module type was detected.\n"
-+			"Reload the driver after installing a supported "
-+			"module.\n");
- 		ixgbe_down(adapter);
- 		return err;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 86f4f3e..0f7b6a3 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -139,7 +139,7 @@ static int ixgbe_get_settings(struct net_device *netdev,
+ 	ecmd->autoneg = AUTONEG_ENABLE;
+ 	ecmd->transceiver = XCVR_EXTERNAL;
+ 	if ((hw->phy.media_type == ixgbe_media_type_copper) ||
+-	    (hw->mac.type == ixgbe_mac_82599EB)) {
++	    (hw->phy.multispeed_fiber)) {
+ 		ecmd->supported |= (SUPPORTED_1000baseT_Full |
+ 		                    SUPPORTED_Autoneg);
+ 
+@@ -217,7 +217,7 @@ static int ixgbe_set_settings(struct net_device *netdev,
+ 	s32 err = 0;
+ 
+ 	if ((hw->phy.media_type == ixgbe_media_type_copper) ||
+-	    (hw->mac.type == ixgbe_mac_82599EB)) {
++	    (hw->phy.multispeed_fiber)) {
+ 		/* 10000/copper and 1000/copper must autoneg
+ 		 * this function does not support any duplex forcing, but can
+ 		 * limit the advertising of the adapter to only 10000 or 1000 */
+@@ -245,6 +245,7 @@ static int ixgbe_set_settings(struct net_device *netdev,
+ 	} else {
+ 		/* in this case we currently only support 10Gb/FULL */
+ 		if ((ecmd->autoneg == AUTONEG_ENABLE) ||
++		    (ecmd->advertising != ADVERTISED_10000baseT_Full) ||
+ 		    (ecmd->speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL))
+ 			return -EINVAL;
  	}
-@@ -3720,10 +3723,11 @@ static void ixgbe_sfp_task(struct work_struct *work)
- 			goto reschedule;
- 		ret = hw->phy.ops.reset(hw);
- 		if (ret == IXGBE_ERR_SFP_NOT_SUPPORTED) {
--			DPRINTK(PROBE, ERR, "failed to initialize because an "
--			        "unsupported SFP+ module type was detected.\n"
--			        "Reload the driver after installing a "
--			        "supported module.\n");
-+			dev_err(&adapter->pdev->dev, "failed to initialize "
-+				"because an unsupported SFP+ module type "
-+				"was detected.\n"
-+				"Reload the driver after installing a "
-+				"supported module.\n");
- 			unregister_netdev(adapter->netdev);
- 		} else {
- 			DPRINTK(PROBE, INFO, "detected SFP+: %d\n",
-@@ -4526,7 +4530,10 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
- 	adapter->flags |= IXGBE_FLAG_IN_SFP_MOD_TASK;
- 	err = hw->phy.ops.identify_sfp(hw);
- 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
--		DPRINTK(PROBE, ERR, "PHY not supported on this NIC %d\n", err);
-+		dev_err(&adapter->pdev->dev, "failed to initialize because "
-+			"an unsupported SFP+ module type was detected.\n"
-+			"Reload the driver after installing a supported "
-+			"module.\n");
- 		ixgbe_down(adapter);
- 		return;
- 	}
-@@ -5513,8 +5520,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 			  round_jiffies(jiffies + (2 * HZ)));
- 		err = 0;
- 	} else if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
--		dev_err(&adapter->pdev->dev, "failed to load because an "
--		        "unsupported SFP+ module type was detected.\n");
-+		dev_err(&adapter->pdev->dev, "failed to initialize because "
-+			"an unsupported SFP+ module type was detected.\n"
-+			"Reload the driver after installing a supported "
-+			"module.\n");
- 		goto err_sw_init;
- 	} else if (err) {
- 		dev_err(&adapter->pdev->dev, "HW Init failed: %d\n", err);
 
