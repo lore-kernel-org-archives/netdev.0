@@ -1,19 +1,35 @@
-From: Louis Penca <holly.powerking@bellnet.ca>
-Subject: ***You_Won***
-Date: Tue, 30 Jun 2009 10:53:12 -0400
-Message-ID: <20090630145329.NLLE1649.tomts47-srv.bellnexxia.net@toip35-bus.srvr.bell.ca>
-Reply-To: dr_kinghope@y7mail.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
+	configurable
+Date: Wed, 1 Jul 2009 01:00:27 +0800
+Message-ID: <20090630170027.GA22691@gondor.apana.org.au>
+References: <1246379267.3749.42.camel@blaa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: <info@co.irish>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Mark McLoughlin <markmc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts47.bellnexxia.net ([209.226.175.191]:64112 "EHLO
-	tomts47-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751838AbZF3Oxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 10:53:50 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:47142 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752223AbZF3RA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 13:00:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1246379267.3749.42.camel@blaa>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1,350,000.00 GBP has been award to you in the IRISH PROMOTION 2009 ,send us your Names/Tel/Address/Country:dr_kinghope@y7mail.com
+On Tue, Jun 30, 2009 at 05:27:47PM +0100, Mark McLoughlin wrote:
+> 
+> However, because nf_conntrack introduces an skb_orphan(), it is now
+> recommended that bridge-nf-call-iptables be disabled completely so as
+> to ensure features like TUNSETSNDBUF work as expected.
 
+Patrick, does conntrack ever make sense for bridging? Perhaps
+we should get rid of that completely?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
