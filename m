@@ -1,45 +1,63 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: WARNING: at include/net/sock.h:417 udp_lib_unhash
-Date: Wed, 1 Jul 2009 12:08:17 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F8AB77D05@rrsmsx501.amr.corp.intel.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Wed, 1 Jul 2009 21:12:40 +0300
+Message-ID: <200907012112.40396.denys@visp.net.lb>
+References: <200903011344.45814.denys@visp.net.lb> <200907011242.12812.denys@visp.net.lb> <m1ws6sqp3b.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:64809 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751791AbZGASIP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 14:08:15 -0400
-Content-Language: en-US
+Received: from hosting.visp.net.lb ([194.146.153.11]:50678 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754953AbZGASMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 14:12:49 -0400
+In-Reply-To: <m1ws6sqp3b.fsf@fess.ebiederm.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I see the following trace during netperf stress mixed UDP/TCP IPv4/6 traffic. This is on recent pulls from net-2.6 and net-next.
+On Wednesday 01 July 2009 20:40:08 Eric W. Biederman wrote:
+>
+> Of course a Gratuitous ARP is not intended to solicit a reply.  Because
+> two machines should not be configured to have the same IP address.
+>
+> In the case of two machines being configured with the same IP address
+> replying to gratuitous ARP is correct behaviour.  As it allows discovery
+> of the network misconfiguration.
+Yes, and it is doing that with my patch also. It is answering if there is same 
+_local address_, so it is definitely ip conflict. 
 
-[45197.989163] ------------[ cut here ]------------
-[45197.994309] WARNING: at include/net/sock.h:417 udp_lib_unhash+0x81/0xab()
-[45197.994311] Hardware name: X7DA8
-[45197.994314] Modules linked in: e1000 [last unloaded: e1000]
-[45197.994326] Pid: 7110, comm: netserver Tainted: G        W  2.6.31-rc1-net-next-e1000-06250902 #8
-[45197.994331] Call Trace:
-[45197.994336]  [<ffffffff8135e0dc>] ? udp_lib_unhash+0x81/0xab
-[45197.994344]  [<ffffffff8103cac9>] warn_slowpath_common+0x77/0x8f
-[45197.994349]  [<ffffffff8103caf0>] warn_slowpath_null+0xf/0x11
-[45197.994352]  [<ffffffff8135e0dc>] udp_lib_unhash+0x81/0xab
-[45197.994357]  [<ffffffff81301acb>] sk_common_release+0x2f/0xb4
-[45197.994364]  [<ffffffff813a0256>] udp_lib_close+0x9/0xb
-[45197.994369]  [<ffffffff81364259>] inet_release+0x58/0x5f
-[45197.994374]  [<ffffffff8138c8bd>] inet6_release+0x30/0x35
-[45197.994383]  [<ffffffff812ff273>] sock_release+0x1a/0x6c
-[45197.994386]  [<ffffffff812ff763>] sock_close+0x22/0x26
-[45197.994392]  [<ffffffff810c69a0>] __fput+0xf0/0x18c
-[45197.994395]  [<ffffffff810c6d00>] fput+0x15/0x19
-[45197.994399]  [<ffffffff810c3c3e>] filp_close+0x5c/0x67
-[45197.994404]  [<ffffffff810c3cc4>] sys_close+0x7b/0xb6
-[45197.994412]  [<ffffffff8100baeb>] system_call_fastpath+0x16/0x1b
-[45197.994418] ---[ end trace 5acab6fc0afdaaa3 ]---
+But Proxy ARP answering to ARP Announce without checking if destination 
+address taken - wrong.  Because it should check if host in destination 
+(proxied) network really is taken and should not answer if it is not. 
 
-Emil
+>
+> The problem is that you have a proxy machine configured to proxy for
+> the ip that is also assigned to another machine in the same broadcast
+> domain.  That is a bug.
+Where it is defined as bug? 
+Sometimes it can be used on purpose, to filter traffic in local segment with 
+lot of unmanaged switches.
+
+
+>
+> The only case where I can imagine proxying the default route would even
+> approach being correct is on a point to point link.  But that seems
+> pointless as you could simply have a default route to the other side.
+Examples just came in mind:
+1)Mobile IP. 
+
+2)Port isolated setup, available on some switches and on wireless access 
+points, when hosts cannot talk one to each other via broadcast domain, only 
+via gateway. In this case gateway must give reply to legitimate arp requests, 
+but ignore arp announce(gratuitous ARP).
+
+I will search more respectable sources of information for this case. Btw it is 
+difficult to find out this days "generic" gateway host without default 
+gateway :-)
+
+And last case, it breaks things for high availability ONLY because it doesn't 
+update neighbor table. That can be fixed easily and i sent patches for that.
