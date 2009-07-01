@@ -1,40 +1,105 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [PATCHv3 1/2] net: adding memory barrier to the poll and receive
- callbacks
-Date: Wed, 1 Jul 2009 08:14:47 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0907010812110.10303@makko.or.mcafeemobile.com>
-References: <20090630125240.GB4406@jolsa.lab.eng.brq.redhat.com> <20090630125425.GC4406@jolsa.lab.eng.brq.redhat.com> <alpine.DEB.1.10.0906301210210.3968@makko.or.mcafeemobile.com> <20090701065724.GA2852@jolsa.lab.eng.brq.redhat.com>
- <alpine.DEB.1.10.0907010002010.8492@makko.or.mcafeemobile.com> <20090701073001.GA4769@jolsa.lab.eng.brq.redhat.com> <20090701080946.GB4769@jolsa.lab.eng.brq.redhat.com>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [2.6.31-rc1] iwlagn (4965): regression when hardware rf switch is used
+Date: Wed, 1 Jul 2009 17:58:35 +0200
+Message-ID: <200907011758.36621.elendil@planet.nl>
+References: <200906291128.05639.elendil@planet.nl> <1246383858.17896.527.camel@rc-desk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
-	eric.dumazet@gmail.com
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([64.71.152.41]:43586 "EHLO
-	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbZGAPPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 11:15:23 -0400
-Received: from makko.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.26 ESMTP Server]
-	id <S2F5144> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Wed, 1 Jul 2009 11:14:32 -0400
-In-Reply-To: <20090701080946.GB4769@jolsa.lab.eng.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: reinette chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1246383858.17896.527.camel@rc-desk>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Jul 2009, Jiri Olsa wrote:
+On Tuesday 30 June 2009, reinette chatre wrote:
+> Subject: [PATCH] iwlagn: do not send key clear commands when rfkill
+> enabled
+>
+> Do all key clearing except sending sommands to device when rfkill
+> enabled. When rfkill enabled the interface is brought down and will
+> be brought back up correctly after rfkill is enabled again.
+>
+> Same change is not needed for iwl3945 as it ignores return code when
+> sending key clearing command to device.
 
-> ok, how about this
+With this patch things look a lot cleaner:
 
-Looks good. maybe you can remove things like "The fix is generic for other 
-protocols as well", that are more fot for the email body patch 
-description.
+[enable hardware rf kill switch]
+iwlagn 0000:10:00.0: RF_KILL bit toggled to disable radio.
+wlan0: deauthenticating by local choice (reason=3)
+usb 3-1: USB disconnect, address 2
+[disable hardware rf kill switch]
+iwlagn 0000:10:00.0: RF_KILL bit toggled to enable radio.
+usb 3-1: new full speed USB device using uhci_hcd and address 3
+usb 3-1: configuration #1 chosen from 1 choice
+[ifdown wlan0]
+Registered led device: iwl-phy0::radio
+Registered led device: iwl-phy0::assoc
+Registered led device: iwl-phy0::RX
+Registered led device: iwl-phy0::TX
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+[ifup wlan0]
+Registered led device: iwl-phy0::radio
+Registered led device: iwl-phy0::assoc
+Registered led device: iwl-phy0::RX
+Registered led device: iwl-phy0::TX
+ADDRCONF(NETDEV_UP): wlan0: link is not ready
+wlan0: authenticate with AP 00:14:c1:38:e5:15
+wlan0: authenticated
+wlan0: associate with AP 00:14:c1:38:e5:15
+wlan0: RX AssocResp from 00:14:c1:38:e5:15 (capab=0x411 status=0 aid=1)
+wlan0: associated
+ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+wlan0: no IPv6 routers present
 
 
-- Davide
+One thing I do not quite get is why both ifdown and ifup result in leds 
+getting registered. It does not happen when I do a "normal" ifdown (when 
+the wireless interface is up and rfkill is not enabled).
+
+I could understand the leds being registered immediately after I disable 
+the rf kill switch, but don't understand why it gets postponed until I do 
+ifdown. That makes it seem as if the change in RF_KILL only gets 
+processed halfway through with the registering of leds left dangling.
 
 
+> Signed-off-by: Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Reported-by: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Tested-by: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+
+
+> --- a/drivers/net/wireless/iwlwifi/iwl-agn.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+> @@ -960,7 +960,7 @@ static void iwl_irq_tasklet_legacy(struct iwl_priv
+> *priv) CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW))
+>  			hw_rf_kill = 1;
+>
+> -		IWL_DEBUG_RF_KILL(priv, "RF_KILL bit toggled to %s.\n",
+> +		IWL_WARN(priv, "RF_KILL bit toggled to %s.\n",
+>  				hw_rf_kill ? "disable radio" : "enable radio");
+>
+>  		priv->isr_stats.rfkill++;
+> @@ -1133,7 +1133,7 @@ static void iwl_irq_tasklet(struct iwl_priv
+> *priv) CSR_GP_CNTRL_REG_FLAG_HW_RF_KILL_SW))
+>  			hw_rf_kill = 1;
+>
+> -		IWL_DEBUG_RF_KILL(priv, "RF_KILL bit toggled to %s.\n",
+> +		IWL_WARN(priv, "RF_KILL bit toggled to %s.\n",
+>  				hw_rf_kill ? "disable radio" : "enable radio");
+
+If these two messages get promoted to regular user messages, maybe they 
+could be made a bit less technical? I doubt "RF_KILL bit toggled" is 
+going to mean all that much to most users.
+
+Thanks,
+FJP
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
