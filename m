@@ -1,108 +1,84 @@
-From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.	Now=15
- size=11 bits
-Date: Wed, 01 Jul 2009 01:31:09 +0200
-Message-ID: <4A4AA03D.5090808@itcare.pl>
-References: <20090629083315.GA4712@ff.dom.local> <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local> <20090630070929.GB5589@ff.dom.local> <4A4A72B9.3030400@itcare.pl> <20090630204141.GB3026@ami.dom.local>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: How to configure MDI status per port
+Date: Tue, 30 Jun 2009 17:32:25 -0700
+Message-ID: <9929d2390906301732s7752b86aj8fa969ce28659906@mail.gmail.com>
+References: <4A3085CA.2000300@riverbed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Jarek Poplawski <jarkao2@gmail.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	Arthur Jones <ajones@riverbed.com>
+To: clala@riverbed.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:33238 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754454AbZF3XbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Jun 2009 19:31:08 -0400
-In-Reply-To: <20090630204141.GB3026@ami.dom.local>
+Received: from mail-yx0-f188.google.com ([209.85.210.188]:33704 "EHLO
+	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760600AbZGAAcW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Jun 2009 20:32:22 -0400
+Received: by yxe26 with SMTP id 26so764594yxe.33
+        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 17:32:25 -0700 (PDT)
+In-Reply-To: <4A3085CA.2000300@riverbed.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski pisze:
-> On Tue, Jun 30, 2009 at 10:16:57PM +0200, Pawe=B3 Staszewski wrote:
->  =20
->> Jarek Poplawski pisze:
->>    =20
->>> On Mon, Jun 29, 2009 at 10:47:03AM +0000, Jarek Poplawski wrote:
->>>  =20
->>>      =20
->>>> On Mon, Jun 29, 2009 at 11:51:52AM +0200, Pawe=B3 Staszewski wrote=
-:
->>>>    =20
->>>>        =20
->>>>> I apply this patch
->>>>>
->>>>> fib_triestats in attached file :)
->>>>>      =20
->>>>>          =20
->>>> Great! But it would be nice to check if this (accidentally ;-) mig=
-ht
->>>> fix the previous problem, so I attach below the patch with "manual
->>>> RCU", which btw. (or even more important) should verify RCU use he=
-re.
->>>>
->>>> It should be applied on top of this last "Fix..., part3". And
->>>> again: it's quite probable it can fail, so with caution, no hurry
->>>> (it can wait for quiet time)...
->>>>    =20
->>>>        =20
->>> Pawel, here is another try to check what's going on here, so just
->>> like before, but this one on top of these 2 last working patches,
->>> plus quite time... (Stats aren't necessary; if these are some doubt=
-s
->>> let me know.)
->>>
->>> Thanks,
->>> Jarek P.
->>> --------------------> (synchronize_rcu take 5)
->>>
->>> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
->>> --- a/net/ipv4/fib_trie.c	2009-06-29 10:00:14.000000000 +0000
->>> +++ b/net/ipv4/fib_trie.c	2009-06-30 06:50:35.000000000 +0000
->>> @@ -1036,6 +1036,7 @@ static void trie_rebalance(struct trie *
->>>   	rcu_assign_pointer(t->trie, (struct node *)tn);
->>>  	tnode_free_flush();
->>> +	synchronize_rcu();
->>>   	return;
->>>  }
->>>  =20
->>>      =20
->> Apply and tested
->>
->> Traffic is not forwarded after apply this patch.:)
->>    =20
+On Wed, Jun 10, 2009 at 9:19 PM, Chaitanya Lala<clala@riverbed.com> wro=
+te:
+> Hi,
 >
-> A little comment: these last 2 patches weren't exactly to fix the
-> problem you reported, which should be mostly fixed by the earlier
-> patch.
+> I have a requirement to be able to configure/change the default MDI-X=
+ status
+> of each ethernet port. This should be possible on a per port basis i.=
+e. it
+> should be possible to configure, say, port 0 to auto mdi-x mode & por=
+t 1 to
+> manual MDI-X mode. A couple of possible implementation strategies cou=
+ld
+> achieve this but both have some problems. Following is an overview of=
+ the
+> two.
 >
-> There is some other bug, which you omit with CONFIG_PREEMPT_NONE
-> (but it's not for sure there is no by effects). So, I'd like to be
-> sure you are willing and can (without too much risk) to do more such
-> tests. Alas I've no way to generate similar conditions so it would
-> simply have to wait for somebody else.
+> 1.) Use a module parameter. Pass an array of values, each value
+> corresponding to ethernet port supported by the driver. For example,
+> modprobe e1000e mdix_values=3D1,0,2,0 (where the numbers 0,1 & 2 repr=
+esent
+> auto MDI-X, manual MDI =C2=A0& manual MDI-X modes respectively) assig=
+ns value 1
+> for port 0, 0 for port 1, 2 for port 2 and so on. This value can be a=
+ssigned
+> to the mdix parameter (member of the e1000_phy_info structure in the =
+case of
+> e1000e driver) in the probe routine. The problem here is how to map t=
+he
+> ordered list of numbers to the ethernet ports so that each number in =
+the
+> list always corresponds to the same ethernet interface. I assume that=
+ the
+> order of enumeration of ethernet ports can change based on changes to=
+ the
+> system topology, i.e. plugging/pulling of additional NIC cards.
 >
->  =20
-Yes i can make tests like this.
-My network is splited to test clients and other normal clients
-so it's really no problem to make testing. - if testing clients working=
-=20
-then traffic from normal clients is also switched to this router (but i=
-f=20
-traffic is not forwarded "like in this case" for testing clients then=20
-failover switching them to working router )
+> 2.) Using ethtool and each driver sets the value in its set_settings
+> function (part of the ethtool operations structure). The value receiv=
+ed for
+> each port can be assigned to the mdix parameter (member of the
+> e1000_phy_info structure in the case of e1000e driver) but the proble=
+m is
+> that the value is useful iff it is assigned before the probe routine =
+is
+> invoked, because the settings in the chip registers are done only at =
+probe
+> time. Is there a way to change this value and have it take effect whe=
+n
+> changed by ethtool?
+>
+> Any other ideas are most welcome.
+>
+> Thanks,
+> Chaitanya
 
-and other point to make this tests - is that - it is good to have all i=
-n=20
-linux kernel networking working well :)
+Option 2 (using ethtool is the right way to go) as far as the driver,
+there most likely will need some work to be done since they may not be
+setup to handle the manual setting of MDI/MDIX parameter.
 
-Regards
-Pawe=B3 Staszewski
-
-> Many thanks again,
-> Jarek P.
->
->
->  =20
-
+--=20
+Cheers,
+Jeff
