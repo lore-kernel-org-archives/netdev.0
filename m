@@ -1,53 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
-Date: Wed, 01 Jul 2009 12:28:27 +0200
-Message-ID: <4A4B3A4B.9000502@trash.net>
-References: <4A48BC82.6040801@open.ch> <4A48C643.5030709@trash.net> <4A49D55A.4050600@open.ch>
+From: Mark McLoughlin <markmc@redhat.com>
+Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
+ configurable
+Date: Wed, 01 Jul 2009 11:45:58 +0100
+Message-ID: <1246445158.598.30.camel@blaa>
+References: <1246379267.3749.42.camel@blaa>
+	 <20090630.201630.134200035.davem@davemloft.net>
+Reply-To: Mark McLoughlin <markmc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, shemminger@osdl.org
-To: Andreas Jaggi <aj@open.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54592 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852AbZGAK2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 06:28:34 -0400
-In-Reply-To: <4A49D55A.4050600@open.ch>
+Received: from mx2.redhat.com ([66.187.237.31]:52628 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752095AbZGAKqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2009 06:46:13 -0400
+In-Reply-To: <20090630.201630.134200035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andreas Jaggi wrote:
-> Now using the rtnl_link interface.
-
-Your patches are seriously whitespace-damaged. Please make sure
-to send them properly (test by sending to yourself first).
-
-> diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h 
-> dev-gre/include/linux/if_tunnel.h
-> --- vanilla-linux-2.6.29.4/include/linux/if_tunnel.h    2009-05-19 
-> 01:52:34.000000000 +0200
-> +++ dev-gre/include/linux/if_tunnel.h    2009-06-30 08:22:52.000000000 
-> +0200
-> @@ -34,6 +34,7 @@
->     __be32            i_key;
->     __be32            o_key;
->     struct iphdr        iph;
-> +    __u8            copy_tos;
-
-You can't change this structure, this will break compatibility.
-
-> };
+On Tue, 2009-06-30 at 20:16 -0700, David Miller wrote:
+> From: Mark McLoughlin <markmc@redhat.com>
+> Date: Tue, 30 Jun 2009 17:27:47 +0100
 > 
-> /* SIT-mode i_flags */
-> @@ -63,6 +64,7 @@
->     IFLA_GRE_REMOTE,
->     IFLA_GRE_TTL,
->     IFLA_GRE_TOS,
-> +    IFLA_GRE_COPY_TOS,
->     IFLA_GRE_PMTUDISC,
->     __IFLA_GRE_MAX,
+> > For these reasons, it makes sense to allow distributions to disable
+> > netfilter on the bridge by default and require those specialized users
+> > to enable it explicitly via sysctl.
+> 
+> I heard that distributions ship some file, what's it called...
+> something like /etc/sysctl.conf :-)
+> 
+> Really, if someone thinkgs the default stinks and dists don't like it
+> for their users, they can use sysctl.conf to set it how they please.
 
-You can't add new attributes in the middle, they need to be added at
-the end.
+If upstream agrees the default stinks, then upstream could start making
+moves towards rectifying it :-)
+
+I like Patrick's idea of adding it to feature-removal-schedule
+
+> Notwithstanding that changing this default can break working
+> setups and scripts.  Yes they can "change", but they were just
+> (rightly) using the kernel as it came to them.
+
+Yep, that's a valid concern.
+
+Weighing up the impact on the small number of people who use it versus
+the ongoing impact on everyone else, I think it's best to make the
+change.
+
+Cheers,
+Mark.
+
