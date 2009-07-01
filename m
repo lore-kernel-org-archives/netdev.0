@@ -1,36 +1,281 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
- configurable
-Date: Wed, 01 Jul 2009 09:02:02 -0700 (PDT)
-Message-ID: <20090701.090202.247626454.davem@davemloft.net>
-References: <1246379267.3749.42.camel@blaa>
-	<20090630.201630.134200035.davem@davemloft.net>
-	<1246445158.598.30.camel@blaa>
+From: Ben Dooks <ben@simtec.co.uk>
+Subject: Re: [PATCH] dm9000: add checksum offload support
+Date: Wed, 01 Jul 2009 16:12:26 +0100
+Message-ID: <4A4B7CDA.2090102@simtec.co.uk>
+References: <1246460217-5991-1-git-send-email-mike@compulab.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: markmc@redhat.com
+Cc: netdev@vger.kernel.org, yeasah@comrex.com
+To: Mike Rapoport <mike@compulab.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33068
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752891AbZGAQB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 12:01:56 -0400
-In-Reply-To: <1246445158.598.30.camel@blaa>
+Received: from hull.simtec.co.uk ([78.105.113.97]:53666 "EHLO
+	preston.local.simtec.co.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752164AbZGAQCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 12:02:21 -0400
+In-Reply-To: <1246460217-5991-1-git-send-email-mike@compulab.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark McLoughlin <markmc@redhat.com>
-Date: Wed, 01 Jul 2009 11:45:58 +0100
+Mike Rapoport wrote:
+> From: Yeasah Pell <yeasah@comrex.com>
 
-> Weighing up the impact on the small number of people who use it versus
-> the ongoing impact on everyone else, I think it's best to make the
-> change.
+Not a very informative message here. At least add a copy
+of the subject, better to elaborate on the patch contents
+here, such as the versions of the DM9000 that this will
+work on.
 
-Consider the posibility that the people using it aren't saying
-anything because things just-work for them right now.
+> Signed-off-by: Yeasah Pell <yeasah@comrex.com>
+> Signed-off-by: Mike Rapoport <mike@compulab.co.il>
+> ---
+>  drivers/net/dm9000.c |  105 +++++++++++++++++++++++++++++++++++++++++--------
+>  drivers/net/dm9000.h |   18 +++++++++
+>  2 files changed, 106 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+> index dd771de..52b02d6 100644
+> --- a/drivers/net/dm9000.c
+> +++ b/drivers/net/dm9000.c
+> @@ -92,6 +92,7 @@ typedef struct board_info {
+>  	u16		tx_pkt_cnt;
+>  	u16		queue_pkt_len;
+>  	u16		queue_start_addr;
+> +	u16		queue_ip_summed;
+>  	u16		dbug_cnt;
+>  	u8		io_mode;		/* 0:word, 2:byte */
+>  	u8		phy_addr;
+> @@ -124,6 +125,9 @@ typedef struct board_info {
+>  
+>  	struct mii_if_info mii;
+>  	u32		msg_enable;
+> +
+> +	int		rx_csum;
+> +	int		can_csum;
+>  } board_info_t;
+>  
+>  /* debug code */
+> @@ -460,6 +464,40 @@ static int dm9000_nway_reset(struct net_device *dev)
+>  	return mii_nway_restart(&dm->mii);
+>  }
+>  
+> +static uint32_t dm9000_get_rx_csum(struct net_device *dev)
+> +{
+> +	board_info_t *dm = to_dm9000_board(dev);
+> +	return dm->rx_csum;
+> +}
+> +
+> +static int dm9000_set_rx_csum(struct net_device *dev, uint32_t data)
+> +{
+> +	board_info_t *dm = to_dm9000_board(dev);
+> +	unsigned long flags;
+> +
+> +	if (dm->can_csum) {
+> +		dm->rx_csum = data;
+> +
+> +		spin_lock_irqsave(&dm->lock, flags);
+> +		iow(dm, DM9000_RCSR, dm->rx_csum ? RCSR_CSUM : 0);
+> +		spin_unlock_irqrestore(&dm->lock, flags);
+> +
+> +		return 0;
+> +	}
+> +
+> +	return -EOPNOTSUPP;
+> +}
+> +
+> +static int dm9000_set_tx_csum(struct net_device *dev, uint32_t data)
+> +{
+> +	board_info_t *dm = to_dm9000_board(dev);
+> +	int ret = -EOPNOTSUPP;
+> +
+> +	if (dm->can_csum)
+> +		ret = ethtool_op_set_tx_csum(dev, data);
+> +	return ret;
+> +}
+> +
+>  static u32 dm9000_get_link(struct net_device *dev)
+>  {
+>  	board_info_t *dm = to_dm9000_board(dev);
+> @@ -540,6 +578,10 @@ static const struct ethtool_ops dm9000_ethtool_ops = {
+>   	.get_eeprom_len		= dm9000_get_eeprom_len,
+>   	.get_eeprom		= dm9000_get_eeprom,
+>   	.set_eeprom		= dm9000_set_eeprom,
+> +	.get_rx_csum		= dm9000_get_rx_csum,
+> +	.set_rx_csum		= dm9000_set_rx_csum,
+> +	.get_tx_csum		= ethtool_op_get_tx_csum,
+> +	.set_tx_csum		= dm9000_set_tx_csum,
+>  };
+>  
+>  static void dm9000_show_carrier(board_info_t *db,
+> @@ -685,6 +727,9 @@ dm9000_init_dm9000(struct net_device *dev)
+>  	/* I/O mode */
+>  	db->io_mode = ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mode */
+>  
+> +	/* Checksum mode */
+> +	dm9000_set_rx_csum(dev, db->rx_csum);
+> +
+>  	/* GPIO0 on pre-activate PHY */
+>  	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
+>  	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
+> @@ -743,6 +788,28 @@ static void dm9000_timeout(struct net_device *dev)
+>  	spin_unlock_irqrestore(&db->lock, flags);
+>  }
+>  
+> +static void dm9000_send_packet(struct net_device *dev,
+> +			       int ip_summed,
+> +			       u16 pkt_len)
+> +{
+> +	board_info_t *dm = to_dm9000_board(dev);
+> +
+> +	/* The DM9000 is not smart enough to leave fragmented packets alone. */
+> +	if (ip_summed == CHECKSUM_NONE)
+> +		iow(dm, DM9000_TCCR, 0);
+> +	else
+> +		iow(dm, DM9000_TCCR, TCCR_IP | TCCR_UDP | TCCR_TCP);
 
-If you change this default, I guarentee we will hear from them.
+Is it worth keeping a local copy of this and
+only writing on change, since a write to the device is
+at-least two IO cycles?
 
-"everyone else" is making noise only because the default isn't
-what they want.  There is no other reason.
+> +	/* Set TX length to DM9000 */
+> +	iow(dm, DM9000_TXPLL, pkt_len);
+> +	iow(dm, DM9000_TXPLH, pkt_len >> 8);
+> +
+> +	/* Issue TX polling command */
+> +	iow(dm, DM9000_TCR, TCR_TXREQ);	/* Cleared after TX complete */
+> +
+> +	dev->trans_start = jiffies;	/* save the time stamp */
+> +}
+> +
+>  /*
+>   *  Hardware start transmission.
+>   *  Send a packet to media from the upper layer.
+> @@ -769,17 +836,11 @@ dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	db->tx_pkt_cnt++;
+>  	/* TX control: First packet immediately send, second packet queue */
+>  	if (db->tx_pkt_cnt == 1) {
+> -		/* Set TX length to DM9000 */
+> -		iow(db, DM9000_TXPLL, skb->len);
+> -		iow(db, DM9000_TXPLH, skb->len >> 8);
+> -
+> -		/* Issue TX polling command */
+> -		iow(db, DM9000_TCR, TCR_TXREQ);	/* Cleared after TX complete */
+> -
+> -		dev->trans_start = jiffies;	/* save the time stamp */
+> +		dm9000_send_packet(dev, skb->ip_summed, skb->len);
+>  	} else {
+>  		/* Second packet */
+>  		db->queue_pkt_len = skb->len;
+> +		db->queue_ip_summed = skb->ip_summed;
+>  		netif_stop_queue(dev);
+>  	}
+>  
+> @@ -809,12 +870,9 @@ static void dm9000_tx_done(struct net_device *dev, board_info_t *db)
+>  			dev_dbg(db->dev, "tx done, NSR %02x\n", tx_status);
+>  
+>  		/* Queue packet check & send */
+> -		if (db->tx_pkt_cnt > 0) {
+> -			iow(db, DM9000_TXPLL, db->queue_pkt_len);
+> -			iow(db, DM9000_TXPLH, db->queue_pkt_len >> 8);
+> -			iow(db, DM9000_TCR, TCR_TXREQ);
+> -			dev->trans_start = jiffies;
+> -		}
+> +		if (db->tx_pkt_cnt > 0)
+> +			dm9000_send_packet(dev, db->queue_ip_summed,
+> +					   db->queue_pkt_len);
+>  		netif_wake_queue(dev);
+>  	}
+>  }
+> @@ -846,14 +904,14 @@ dm9000_rx(struct net_device *dev)
+>  		rxbyte = readb(db->io_data);
+>  
+>  		/* Status check: this byte must be 0 or 1 */
+> -		if (rxbyte > DM9000_PKT_RDY) {
+> +		if (rxbyte & DM9000_PKT_ERR) {
+>  			dev_warn(db->dev, "status check fail: %d\n", rxbyte);
+>  			iow(db, DM9000_RCR, 0x00);	/* Stop Device */
+>  			iow(db, DM9000_ISR, IMR_PAR);	/* Stop INT request */
+>  			return;
+>  		}
+>  
+> -		if (rxbyte != DM9000_PKT_RDY)
+> +		if (!(rxbyte & DM9000_PKT_RDY))
+>  			return;
+>  
+>  		/* A packet ready now  & Get status/length */
+> @@ -914,6 +972,12 @@ dm9000_rx(struct net_device *dev)
+>  
+>  			/* Pass to upper layer */
+>  			skb->protocol = eth_type_trans(skb, dev);
+> +			if (db->rx_csum) {
+> +				if ((((rxbyte & 0x1c) << 3) & rxbyte) == 0)
+> +					skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +				else
+> +					skb->ip_summed = CHECKSUM_NONE;
+> +			}
+>  			netif_rx(skb);
+>  			dev->stats.rx_packets++;
+>  
+> @@ -922,7 +986,7 @@ dm9000_rx(struct net_device *dev)
+>  
+>  			(db->dumpblk)(db->io_data, RxLen);
+>  		}
+> -	} while (rxbyte == DM9000_PKT_RDY);
+> +	} while (rxbyte & DM9000_PKT_RDY);
+>  }
+>  
+>  static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+> @@ -1349,6 +1413,13 @@ dm9000_probe(struct platform_device *pdev)
+>  		db->type = TYPE_DM9000E;
+>  	}
+>  
+> +	/* dm9000a/b are capable of hardware checksum offload */
+> +	if (db->type == TYPE_DM9000A || db->type == TYPE_DM9000B) {
+> +		db->can_csum = 1;
+> +		db->rx_csum = 1;
+> +		ndev->features |= NETIF_F_IP_CSUM;
+
+can ndev->features be checked and db->can_csum be removed?
+
+> +	}
+> +
+>  	/* from this point we assume that we have found a DM9000 */
+>  
+>  	/* driver system function */
+> diff --git a/drivers/net/dm9000.h b/drivers/net/dm9000.h
+> index ba25cf5..80817c2 100644
+> --- a/drivers/net/dm9000.h
+> +++ b/drivers/net/dm9000.h
+> @@ -45,6 +45,10 @@
+>  #define DM9000_CHIPR           0x2C
+>  #define DM9000_SMCR            0x2F
+>  
+> +#define DM9000_ETXCSR          0x30
+> +#define DM9000_TCCR	       0x31
+> +#define DM9000_RCSR	       0x32
+> +
+>  #define CHIPR_DM9000A	       0x19
+>  #define CHIPR_DM9000B	       0x1B
+>  
+> @@ -131,7 +135,21 @@
+>  
+>  #define GPCR_GEP_CNTL       (1<<0)
+>  
+> +#define TCCR_IP		    (1<<0)
+> +#define TCCR_TCP	    (1<<1)
+> +#define TCCR_UDP	    (1<<2)
+> +
+> +#define RCSR_UDP_BAD	    (1<<7)
+> +#define RCSR_TCP_BAD	    (1<<6)
+> +#define RCSR_IP_BAD	    (1<<5)
+> +#define RCSR_UDP	    (1<<4)
+> +#define RCSR_TCP	    (1<<3)
+> +#define RCSR_IP		    (1<<2)
+> +#define RCSR_CSUM	    (1<<1)
+> +#define RCSR_DISCARD	    (1<<0)
+> +
+>  #define DM9000_PKT_RDY		0x01	/* Packet ready to receive */
+> +#define DM9000_PKT_ERR		0x02
+>  #define DM9000_PKT_MAX		1536	/* Received packet max size */
+>  
+>  /* DM9000A / DM9000B definitions */
+
