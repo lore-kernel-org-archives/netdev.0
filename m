@@ -1,56 +1,33 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: Unix socket sendpage
-Date: Wed, 1 Jul 2009 09:32:40 +0300
-Message-ID: <b25312890906302332t10bc4cd0kf465c9e9afa04590@mail.gmail.com>
-References: <200906291513.30426.remi.denis-courmont@nokia.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] linux-2.4: br2684: fix double freeing skb
+Date: Wed, 1 Jul 2009 08:49:37 +0200
+Message-ID: <20090701064937.GA22396@1wt.eu>
+References: <4A49C9BC.6050908@sphairon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?R=E9mi_Denis=2DCourmont?=
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Frank Seidel <Frank.Seidel@sphairon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:61493 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbZGAGh6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 02:37:58 -0400
-Received: by fxm18 with SMTP id 18so580875fxm.37
-        for <netdev@vger.kernel.org>; Tue, 30 Jun 2009 23:37:59 -0700 (PDT)
-In-Reply-To: <200906291513.30426.remi.denis-courmont@nokia.com>
+Received: from 1wt.eu ([62.212.114.60]:37072 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751012AbZGAGt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2009 02:49:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4A49C9BC.6050908@sphairon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-  This is just a wild guess: maybe it has to do with that
- sendfile()  is for copying  data between one file descriptor and
-another; sendfile() invokes sendpage() of the corresponding protocol.
+On Tue, Jun 30, 2009 at 10:15:56AM +0200, Frank Seidel wrote:
+> Author: Peter Sieber <siep@sphairon.com>
+> 
+> Fix double freeing skb, see net/core/dev.c
+> dev_queue_xmit().
+> 
+> Signed-off-by: Peter Sieber <siep@sphairon.com>
+> Signed-off-by: Frank Seidel <Frank.Seidel@sphairon.com>
 
-With AF_UNIX sockets, which are IPC mechanism,  you can pass file
-descriptors from one process to another
-using control messages (ancillary data).
-You can do it with SCM_RIGHTS type control message. (the msg_control
-of msg should point to a cmsghdr with SCM_RIGHTS as its cmsg_type)
+queued for inclusion, thanks Frank!
 
-Just want to reiterate that I am not sure about it.
+Willy
 
-Regards,
-Rami Rosen
-
-
-
-2009/6/29 Rémi Denis-Courmont <remi.denis-courmont@nokia.com>:
->
->        Hello,
->
-> Am I unaware of some fundamental reasons why AF_UNIX sockets do not support
-> sendpage(splice)? or is it just that nobody bothered to write the code?
->
-> --
-> Rémi Denis-Courmont
-> Nokia Devices R&D, Maemo Software, Helsinki
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
