@@ -1,57 +1,193 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default	configurable
-Date: Wed, 01 Jul 2009 19:01:15 +0200
-Message-ID: <4A4B965B.4070700@trash.net>
-References: <1246379267.3749.42.camel@blaa> <20090630170027.GA22691@gondor.apana.org.au> <4A4B24DE.10103@trash.net> <20090701090736.GA32306@gondor.apana.org.au> <4A4B2AA8.3090406@trash.net> <20090701163335.GA5559@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark McLoughlin <markmc@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [patch 10/12] MIPS: BCM63XX: Add integrated ethernet PHY support for phylib.
+Date: Wed, 01 Jul 2009 12:29:36 +0100
+Message-ID: <20090701120940.096077223@linux-mips.org>
+References: <20090701112926.825088732@linux-mips.org>
+Cc: Maxime Bizon <mbizon@freebox.fr>,
+	Florian Fainelli <florian@openwrt.org>
+To: linux-mips@linux-mips.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63836 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276AbZGARBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 13:01:22 -0400
-In-Reply-To: <20090701163335.GA5559@gondor.apana.org.au>
+Received: from eddie.linux-mips.org ([78.24.191.182]:49805 "EHLO
+	eddie.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754368AbZGARBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 13:01:45 -0400
+Received: (from localhost user: 'ralf' uid#500 fake: STDIN
+	(ralf@eddie.linux-mips.org)) by ftp.linux-mips.org id S1491877AbZGARHL
+	for <netdev@vger.kernel.org>; Wed, 1 Jul 2009 19:07:11 +0200
+Content-Disposition: inline; filename=0010.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu wrote:
-> On Wed, Jul 01, 2009 at 11:21:44AM +0200, Patrick McHardy wrote:
->> Agreed, at least as long as this is still the default behaviour.
->> Mark, could you add this to your patch? br_nf_pre_routing_finish()
->> looks like a good place to print a warning when skb->nfct != NULL.
-> 
-> Here's a suggestion:
-> 
-> Can we add another field to the conntrack tuple? This would be used
-> to ensure that every bridge's conntrack is distinct from each other,
-> as well as that of the system IP stack.
+From:	Maxime Bizon <mbizon@freebox.fr>
 
-We would need a key that can be uniquely determined at all points
-and that can be inverted (taking into account ebtables NAT, NAT to
-a different bridge etc) - I can't think of a suitable one right now.
-But besides the conntrack size increase, I don't think this is the
-correct solution for this problem.
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Defragmentation (before conntrack) would still allow fragments to
-cross boundaries, unless we key the defragmentation queues using the
-same key. And generally defragmenting bridged packets by default,
-possibly passing them through NAT, IP routing etc. is simply wrong
-and only (somewhat) works in certain scenarios. Helpers might get
-confused when the same packet is flooded to multiple output ports,
-IPsec policies might magically get applied, etc etc. The best way
-to make people aware of all these implications and avoid unsuspecting
-people running into this again and again would be to change the
-defaults and have people think before they use this. Long term I
-think this needs to be completely redesigned.
+ drivers/net/phy/Kconfig   |    6 ++
+ drivers/net/phy/Makefile  |    1 
+ drivers/net/phy/bcm63xx.c |  132 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 139 insertions(+)
+ create mode 100644 drivers/net/phy/bcm63xx.c
 
-And for the record, I don't believe that this is used a lot and we're
-just not aware because it simply works. The fact is it always had major
-problems that we fixed as good as possible over the years, but I'm
-pretty certain I've heard from just about every user of this at least
-once :)
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -56,6 +56,12 @@ config BROADCOM_PHY
+ 	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481
+ 	  and BCM5482 PHYs.
+ 
++config BCM63XX_PHY
++	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
++	depends on BCM63XX
++	---help---
++	  Currently supports the 6348 and 6358 PHYs.
++
+ config ICPLUS_PHY
+ 	tristate "Drivers for ICPlus PHYs"
+ 	---help---
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -11,6 +11,7 @@ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
++obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
+ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_LSI_ET1011C_PHY)	+= et1011c.o
+--- /dev/null
++++ b/drivers/net/phy/bcm63xx.c
+@@ -0,0 +1,132 @@
++/*
++ *	Driver for Broadcom 63xx SOCs integrated PHYs
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define MII_BCM63XX_IR		0x1a	/* interrupt register */
++#define MII_BCM63XX_IR_EN	0x4000	/* global interrupt enable */
++#define MII_BCM63XX_IR_DUPLEX	0x0800	/* duplex changed */
++#define MII_BCM63XX_IR_SPEED	0x0400	/* speed changed */
++#define MII_BCM63XX_IR_LINK	0x0200	/* link changed */
++#define MII_BCM63XX_IR_GMASK	0x0100	/* global interrupt mask */
++
++MODULE_DESCRIPTION("Broadcom 63xx internal PHY driver");
++MODULE_AUTHOR("Maxime Bizon <mbizon@freebox.fr>");
++MODULE_LICENSE("GPL");
++
++static int bcm63xx_config_init(struct phy_device *phydev)
++{
++	int reg, err;
++
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	/* Mask interrupts globally.  */
++	reg |= MII_BCM63XX_IR_GMASK;
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	if (err < 0)
++		return err;
++
++	/* Unmask events we are interested in  */
++	reg = ~(MII_BCM63XX_IR_DUPLEX |
++		MII_BCM63XX_IR_SPEED |
++		MII_BCM63XX_IR_LINK) |
++		MII_BCM63XX_IR_EN;
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	if (err < 0)
++		return err;
++	return 0;
++}
++
++static int bcm63xx_ack_interrupt(struct phy_device *phydev)
++{
++	int reg;
++
++	/* Clear pending interrupts.  */
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	return 0;
++}
++
++static int bcm63xx_config_intr(struct phy_device *phydev)
++{
++	int reg, err;
++
++	reg = phy_read(phydev, MII_BCM63XX_IR);
++	if (reg < 0)
++		return reg;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		reg &= ~MII_BCM63XX_IR_GMASK;
++	else
++		reg |= MII_BCM63XX_IR_GMASK;
++
++	err = phy_write(phydev, MII_BCM63XX_IR, reg);
++	return err;
++}
++
++static struct phy_driver bcm63xx_1_driver = {
++	.phy_id		= 0x00406000,
++	.phy_id_mask	= 0xfffffc00,
++	.name		= "Broadcom BCM63XX (1)",
++	/* ASYM_PAUSE bit is marked RO in datasheet, so don't cheat */
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm63xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm63xx_ack_interrupt,
++	.config_intr	= bcm63xx_config_intr,
++	.driver		= { .owner = THIS_MODULE },
++};
++
++/* same phy as above, with just a different OUI */
++static struct phy_driver bcm63xx_2_driver = {
++	.phy_id		= 0x002bdc00,
++	.phy_id_mask	= 0xfffffc00,
++	.name		= "Broadcom BCM63XX (2)",
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm63xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm63xx_ack_interrupt,
++	.config_intr	= bcm63xx_config_intr,
++	.driver		= { .owner = THIS_MODULE },
++};
++
++static int __init bcm63xx_phy_init(void)
++{
++	int ret;
++
++	ret = phy_driver_register(&bcm63xx_1_driver);
++	if (ret)
++		goto out_63xx_1;
++	ret = phy_driver_register(&bcm63xx_2_driver);
++	if (ret)
++		goto out_63xx_2;
++	return ret;
++
++out_63xx_2:
++	phy_driver_unregister(&bcm63xx_1_driver);
++out_63xx_1:
++	return ret;
++}
++
++static void __exit bcm63xx_phy_exit(void)
++{
++	phy_driver_unregister(&bcm63xx_1_driver);
++	phy_driver_unregister(&bcm63xx_2_driver);
++}
++
++module_init(bcm63xx_phy_init);
++module_exit(bcm63xx_phy_exit);
+
 
