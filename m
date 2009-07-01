@@ -1,94 +1,32 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: [PATCHv3 1/2] net: adding memory barrier to the poll and
-	receive callbacks
-Date: Wed, 1 Jul 2009 08:57:24 +0200
-Message-ID: <20090701065724.GA2852@jolsa.lab.eng.brq.redhat.com>
-References: <20090630125240.GB4406@jolsa.lab.eng.brq.redhat.com> <20090630125425.GC4406@jolsa.lab.eng.brq.redhat.com> <alpine.DEB.1.10.0906301210210.3968@makko.or.mcafeemobile.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Wed, 1 Jul 2009 15:03:32 +0800
+Message-ID: <20090701070332.GA31103@gondor.apana.org.au>
+References: <87eit3l7y6.fsf@basil.nowhere.org> <20090701033924.GA29762@gondor.apana.org.au> <20090701062732.GK6760@one.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
-	eric.dumazet@gmail.com
-To: Davide Libenzi <davidel@xmailserver.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753217AbZGAG5k@vger.kernel.org>
+Cc: jolsa@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, oleg@redhat.com, eric.dumazet@gmail.com
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753185AbZGAHDp@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.1.10.0906301210210.3968@makko.or.mcafeemobile.com>
+In-Reply-To: <20090701062732.GK6760@one.firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 30, 2009 at 12:13:40PM -0700, Davide Libenzi wrote:
-> On Tue, 30 Jun 2009, Jiri Olsa wrote:
-> 
-> > Adding memory barrier after the poll_wait function, paired with
-> > receive callbacks. Adding fuctions sock_poll_wait and sock_has_sleeper
-> > to wrap the memory barrier.
-> > 
-> > Without the memory barrier, following race can happen.
-> > The race fires, when following code paths meet, and the tp->rcv_nxt 
-> > and __add_wait_queue updates stay in CPU caches.
-> > 
-> > 
-> > CPU1                         CPU2
-> > 
-> > sys_select                   receive packet
-> >   ...                        ...
-> >   __add_wait_queue           update tp->rcv_nxt
-> >   ...                        ...
-> >   tp->rcv_nxt check          sock_def_readable
-> >   ...                        {
-> >   schedule                      ...
-> >                                 if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-> >                                         wake_up_interruptible(sk->sk_sleep)
-> >                                 ...
-> >                              }
-> > 
-> > If there was no cache the code would work ok, since the wait_queue and
-> > rcv_nxt are opposit to each other.
-> > 
-> > Meaning that once tp->rcv_nxt is updated by CPU2, the CPU1 either already
-> > passed the tp->rcv_nxt check and sleeps, or will get the new value for
-> > tp->rcv_nxt and will return with new data mask.
-> > In both cases the process (CPU1) is being added to the wait queue, so the
-> > waitqueue_active (CPU2) call cannot miss and will wake up CPU1.
-> > 
-> > The bad case is when the __add_wait_queue changes done by CPU1 stay in its
-> > cache, and so does the tp->rcv_nxt update on CPU2 side.  The CPU1 will then
-> > endup calling schedule and sleep forever if there are no more data on the
-> > socket.
-> 
-> > +static inline int sk_has_sleeper(struct sock *sk)
-> > +{
-> > +	/*
-> > +	 * We need to be sure we are in sync with the
-> > +	 * add_wait_queue modifications to the wait queue.
-> > +	 *
-> > +	 * This memory barrier is paired in the sock_poll_wait.
-> > +	 */
-> > +	smp_mb();
-> > +	return sk->sk_sleep && waitqueue_active(sk->sk_sleep);
-> > +}
-> 
-> Jiri, since this is a pretty tricky condition, would you mind to have a 
-> reduced version of the patch comment added to the source code?
-> Patch comments are not really useful when you're trying to make sense of 
-> some code ;)
-> 
+On Wed, Jul 01, 2009 at 08:27:32AM +0200, Andi Kleen wrote:
+>
+> mfence is not needed for normal C code (not using non temporal
+> stores) in the Linux memory model on x86 and is a no-op. Only the compile
+> time barrier matters.
 
-well, to be honest I thought it was already reduced :) however I have
-no problem to make it shorter.. any suggestions? 
+In that case this bug needs to be digged deeper regardless of
+this patch.
 
-"This memory barrier protects the add_wait_queue modifications.
-It is paired in the sock_poll_wait."
-
-or do you want only the 
-
-"This memory barrier is paired in the sock_poll_wait."
-
-
-jirka
-> 
-> - Davide
-> 
-> 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
