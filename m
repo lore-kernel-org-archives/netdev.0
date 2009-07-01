@@ -1,30 +1,65 @@
-From: Joerg Roedel <joro@8bytes.org>
-Subject: Re: [PATCH] Support DMA-API debugging facility on PowerPC
-Date: Wed, 1 Jul 2009 20:34:44 +0200
-Message-ID: <20090701183444.GI4182@8bytes.org>
-References: <1227284770-19215-1-git-send-email-joerg.roedel@amd.com> <1227286492.4901.208.camel@macbook.infradead.org> <20081121165722.GD1386@amd.com> <1227287215.4901.213.camel@macbook.infradead.org> <20081121171802.GK733@elte.hu> <20081121172046.GF1386@amd.com> <1227288269.4901.222.camel@macbook.infradead.org> <20081121172722.GG1386@amd.com> <1233873842.8135.6.camel@macbook.infradead.org> <1246454380.3681.1634.camel@macbook.infradead.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (possibly caused
+    by netem)
+Date: Wed, 01 Jul 2009 20:39:27 +0200
+Message-ID: <4A4BAD5F.7050908@gmail.com>
+References: <4A4A9DD6.8060800@anarazel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>, benh@kernel.crashing.org,
-	netdev@vger.kernel.org, iommu@lists.linux-foundation.org,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755888AbZGASex@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1246454380.3681.1634.camel@macbook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Andres Freund <andres@anarazel.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:45084 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbZGASjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 14:39:49 -0400
+In-Reply-To: <4A4A9DD6.8060800@anarazel.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 01, 2009 at 02:19:40PM +0100, David Woodhouse wrote:
+Andres Freund wrote, On 07/01/2009 01:20 AM:
+
+> Hi,
+
+Hi,
+
 > 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
-> Tested-by: Johannes Berg <johannes@sipsolutions.net>
+> While playing around with netem (time, not packet count based loss-
+> bursts) I experienced soft lockups several times - to exclude it was my
+> modifications causing this I recompiled with the original and it is
+> still locking up.
+> I captured several of those traces via the thankfully
+> still working netconsole.
+> The simplest policy I could reproduce the error with was:
+> tc qdisc add dev eth0 root handle 1: netem delay 10ms loss 0
+> 
+> I could not reproduce the error without delay - but that may only be a
+> timing issue, as the host I was mainly transferring data to was on a
+> local network.
+> I could not reproduce the issue on lo.
+> 
+> The time to reproduce the error varied from seconds after executing tc 
+> to several minutes.
+> 
+> Traces 5+6 are made with vanilla 52989765629e7d182b4f146050ebba0abf2cb0b7
+> 
+> The earlier traces are made with parts of my patches applied, and only 
+> included for completeness as I don't believe my modifications were 
+> causing this and all traces are different, so it may give some clues.
+> 
+> Lockdep was enabled but did not diagnose anything relevant (one dvb 
+> warning during bootup).
+> 
+> Any ideas for debugging?
 
-Acked-by: Joerg Roedel <joerg.roedel@amd.com>
+Maybe these traces will be enough, but lockdep report could save time.
+If dvb warning triggers every time then lockdep probably turns off
+just after (it works this way, unless something was changed). So,
+could you try to repeat this without dvb? Btw., did you try this on
+some earlier kernel?
 
-Great stuff. You may also consider registering the powerpc io buses to
-dma-api debug. Then you get the driver memory leak functionality too.
-
-Joerg
+Thanks,
+Jarek P.
