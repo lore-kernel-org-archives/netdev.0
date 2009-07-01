@@ -1,65 +1,56 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (possibly caused
-    by netem)
-Date: Wed, 01 Jul 2009 20:39:27 +0200
-Message-ID: <4A4BAD5F.7050908@gmail.com>
-References: <4A4A9DD6.8060800@anarazel.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Andres Freund <andres@anarazel.de>
+From: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+Subject: [9P PATCH 2/2] net/9p: Fix crash due to bad mount parameters.
+Date: Wed,  1 Jul 2009 12:50:54 -0600
+Message-ID: <1246474254-10401-2-git-send-email-adkulkar@umail.iu.edu>
+References: <1246474254-10401-1-git-send-email-adkulkar@umail.iu.edu>
+Cc: v9fs-developer@lists.sourceforge.net,
+	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:45084 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbZGASjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 14:39:49 -0400
-In-Reply-To: <4A4A9DD6.8060800@anarazel.de>
+Received: from mail-px0-f190.google.com ([209.85.216.190]:63209 "EHLO
+	mail-px0-f190.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755549AbZGAStV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 14:49:21 -0400
+In-Reply-To: <1246474254-10401-1-git-send-email-adkulkar@umail.iu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andres Freund wrote, On 07/01/2009 01:20 AM:
+It is not safe to use match_int without checking the token type returned
+by match_token (especially when the token type returned is Opt_err and
+args is empty). Fix it.
 
-> Hi,
+Signed-off-by: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+---
+:100644 100644 c613ed08.. b884d98... M	net/9p/trans_fd.c
+ net/9p/trans_fd.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Hi,
+diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+index c613ed0..b884d98 100644
+--- a/net/9p/trans_fd.c
++++ b/net/9p/trans_fd.c
+@@ -731,12 +731,14 @@ static int parse_opts(char *params, struct p9_fd_opts *opts)
+ 		if (!*p)
+ 			continue;
+ 		token = match_token(p, tokens, args);
+-		r = match_int(&args[0], &option);
+-		if (r < 0) {
+-			P9_DPRINTK(P9_DEBUG_ERROR,
+-			 "integer field, but no integer?\n");
+-			ret = r;
+-			continue;
++		if (token != Opt_err) {
++			r = match_int(&args[0], &option);
++			if (r < 0) {
++				P9_DPRINTK(P9_DEBUG_ERROR,
++				"integer field, but no integer?\n");
++				ret = r;
++				continue;
++			}
+ 		}
+ 		switch (token) {
+ 		case Opt_port:
+-- 
+1.6.3.3
 
-> 
-> While playing around with netem (time, not packet count based loss-
-> bursts) I experienced soft lockups several times - to exclude it was my
-> modifications causing this I recompiled with the original and it is
-> still locking up.
-> I captured several of those traces via the thankfully
-> still working netconsole.
-> The simplest policy I could reproduce the error with was:
-> tc qdisc add dev eth0 root handle 1: netem delay 10ms loss 0
-> 
-> I could not reproduce the error without delay - but that may only be a
-> timing issue, as the host I was mainly transferring data to was on a
-> local network.
-> I could not reproduce the issue on lo.
-> 
-> The time to reproduce the error varied from seconds after executing tc 
-> to several minutes.
-> 
-> Traces 5+6 are made with vanilla 52989765629e7d182b4f146050ebba0abf2cb0b7
-> 
-> The earlier traces are made with parts of my patches applied, and only 
-> included for completeness as I don't believe my modifications were 
-> causing this and all traces are different, so it may give some clues.
-> 
-> Lockdep was enabled but did not diagnose anything relevant (one dvb 
-> warning during bootup).
-> 
-> Any ideas for debugging?
-
-Maybe these traces will be enough, but lockdep report could save time.
-If dvb warning triggers every time then lockdep probably turns off
-just after (it works this way, unless something was changed). So,
-could you try to repeat this without dvb? Btw., did you try this on
-some earlier kernel?
-
-Thanks,
-Jarek P.
