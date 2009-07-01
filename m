@@ -1,230 +1,300 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 2/2] netxen: avoid frequent firmware reset
-Date: Wed,  1 Jul 2009 14:41:43 -0700
-Message-ID: <1246484503-10817-2-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.	Now=15
+ size=11 bits
+Date: Thu, 02 Jul 2009 00:17:19 +0200
+Message-ID: <4A4BE06F.3090608@itcare.pl>
+References: <4A488EB8.4070602@itcare.pl> <20090629104703.GC4712@ff.dom.local> <20090630070929.GB5589@ff.dom.local> <4A4A72B9.3030400@itcare.pl> <20090630204141.GB3026@ami.dom.local> <4A4AA03D.5090808@itcare.pl> <20090701063651.GA4876@ff.dom.local> <20090701072409.GA12592@ff.dom.local> <4A4B2FA8.3040007@itcare.pl> <20090701101333.GB12715@ff.dom.local> <20090701110407.GC12715@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030101060308060309090900"
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	Robert Olsson <robert@robur.slu.se>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:55456 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752542AbZGAVlk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jul 2009 17:41:40 -0400
+Received: from smtp.iq.pl ([86.111.241.19]:37302 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753401AbZGAWRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2009 18:17:20 -0400
+In-Reply-To: <20090701110407.GC12715@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Restrict firmware reset to following cases -
+This is a multi-part message in MIME format.
+--------------030101060308060309090900
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 8bit
 
-o chip rev is NX2031 (firmare doesn't support heartbit).
-o firmware is dead.
-o previous attempt to init firmware had failed.
-o we have got newer file firmware.
+Jarek Poplawski pisze:
+> On Wed, Jul 01, 2009 at 10:13:33AM +0000, Jarek Poplawski wrote:
+>   
+>> On Wed, Jul 01, 2009 at 11:43:04AM +0200, Pawe³ Staszewski wrote:
+>> ...
+>>     
+>>> Yes on on previous patches there was / no warnings / no oopses or lockups
+>>>
+>>> But now i apply this patch and i make more testing.
+>>> First boot with start of bgpd and - traffic is not forwarded
+>>> So i start to search and make only some routes (static without bgpd)  
+>>> thru this host
+>>> And all is working for this host when i make all by static routes.
+>>>
+>>> So i change a little my bgp configuration and make default route to only  
+>>> one of my iBGP peers and start bgpd process
+>>> All is working and what is weird is number of routes in kernel table.
+>>> Kernel is learning routes from bgpd but very slowly - really very slowly.
+>>>       
+>> Pawel, this is really very helpful! So, this is (probably) only about
+>> timing, not wrong memory freeing. On the other hand this test was only
+>> for inserts. Btw., if you didn't start the second test, you can skip
+>> it. I have to rethink this.
+>>     
+>
+> So, after your findings I'm about to recommend sending to -stable
+> 3 patches from net-2.6, with additional lowering of threshold_root
+> settings, but it would be nice if you could give it a try with
+> CONFIG_PREEMPT instead of CONFIG_PREEMPT_NONE (if it doesn't break
+> your other apps!) It is expected to work this time...;-) Maybe a
+> bit slower.
+>
+>   
+Patch applied to 2.6.29.5 with CONFIG_PREEMPT_NONE
+And working :)
 
-This speeds up module load tremendously (by upto 8 sec),
-also avoids downtime for NCSI (management) pass-thru
-traffic.
+fib_triestats in attached file
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
----
- drivers/net/netxen/netxen_nic.h      |    4 +-
- drivers/net/netxen/netxen_nic_hdr.h  |    1 +
- drivers/net/netxen/netxen_nic_init.c |   86 ++++++++++++++++++++++++++++++---
- drivers/net/netxen/netxen_nic_main.c |    4 ++
- 4 files changed, 86 insertions(+), 9 deletions(-)
+I think I can test it with PREEMPT enabled but first i must make some 
+other tests of my apps that are on server.
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 26afcb5..e1cdba7 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -625,6 +625,7 @@ struct netxen_new_user_info {
- #define NX_P2_MN_ROMIMAGE	0
- #define NX_P3_CT_ROMIMAGE	1
- #define NX_P3_MN_ROMIMAGE	2
-+#define NX_FLASH_ROMIMAGE	3
- 
- #define NETXEN_USER_START_OLD NETXEN_PXE_START	/* for backward compatibility */
- 
-@@ -1254,7 +1255,7 @@ struct netxen_adapter {
- 	u32 resv3;
- 
- 	u8 has_link_events;
--	u8 resv1;
-+	u8 fw_type;
- 	u16 tx_context_id;
- 	u16 mtu;
- 	u16 is_up;
-@@ -1398,6 +1399,7 @@ void netxen_free_adapter_offload(struct netxen_adapter *adapter);
- int netxen_initialize_adapter_offload(struct netxen_adapter *adapter);
- int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val);
- int netxen_load_firmware(struct netxen_adapter *adapter);
-+int netxen_need_fw_reset(struct netxen_adapter *adapter);
- void netxen_request_firmware(struct netxen_adapter *adapter);
- void netxen_release_firmware(struct netxen_adapter *adapter);
- int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose);
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index 3cc0478..8241036 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -853,6 +853,7 @@ enum {
- #define NX_PEG_TUNE_CAPABILITY		(NETXEN_CAM_RAM(0x02c))
- 
- #define NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL		(0x14)
-+#define NETXEN_PEG_ALIVE_COUNTER	(NETXEN_CAM_RAM(0xb0))
- 
- #define	ISR_MSI_INT_TRIGGER(FUNC) (NETXEN_PCIX_PS_REG(PCIX_MSI_F(FUNC)))
- #define ISR_LEGACY_INT_TRIGGERED(VAL)	(((VAL) & 0x300) == 0x200)
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index 7bdcbc6..b899bd5 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -684,11 +684,84 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
- }
- 
- int
-+netxen_need_fw_reset(struct netxen_adapter *adapter)
-+{
-+	u32 count, old_count;
-+	u32 val, version, major, minor, build;
-+	int i, timeout;
-+	u8 fw_type;
-+
-+	/* NX2031 firmware doesn't support heartbit */
-+	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+		return 1;
-+
-+	/* last attempt had failed */
-+	if (NXRD32(adapter, CRB_CMDPEG_STATE) == PHAN_INITIALIZE_FAILED)
-+		return 1;
-+
-+	old_count = count = NXRD32(adapter, NETXEN_PEG_ALIVE_COUNTER);
-+
-+	for (i = 0; i < 10; i++) {
-+
-+		timeout = msleep_interruptible(200);
-+		if (timeout) {
-+			NXWR32(adapter, CRB_CMDPEG_STATE,
-+					PHAN_INITIALIZE_FAILED);
-+			return -EINTR;
-+		}
-+
-+		count = NXRD32(adapter, NETXEN_PEG_ALIVE_COUNTER);
-+		if (count != old_count)
-+			break;
-+	}
-+
-+	/* firmware is dead */
-+	if (count == old_count)
-+		return 1;
-+
-+	/* check if we have got newer or different file firmware */
-+	if (adapter->fw) {
-+
-+		const struct firmware *fw = adapter->fw;
-+
-+		val = cpu_to_le32(*(u32 *)&fw->data[NX_FW_VERSION_OFFSET]);
-+		version = NETXEN_DECODE_VERSION(val);
-+
-+		major = NXRD32(adapter, NETXEN_FW_VERSION_MAJOR);
-+		minor = NXRD32(adapter, NETXEN_FW_VERSION_MINOR);
-+		build = NXRD32(adapter, NETXEN_FW_VERSION_SUB);
-+
-+		if (version > NETXEN_VERSION_CODE(major, minor, build))
-+			return 1;
-+
-+		if (version == NETXEN_VERSION_CODE(major, minor, build)) {
-+
-+			val = NXRD32(adapter, NETXEN_MIU_MN_CONTROL);
-+			fw_type = (val & 0x4) ?
-+				NX_P3_CT_ROMIMAGE : NX_P3_MN_ROMIMAGE;
-+
-+			if (adapter->fw_type != fw_type)
-+				return 1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static char *fw_name[] = {
-+	"nxromimg.bin", "nx3fwct.bin", "nx3fwmn.bin", "flash",
-+};
-+
-+int
- netxen_load_firmware(struct netxen_adapter *adapter)
- {
- 	u64 *ptr64;
- 	u32 i, flashaddr, size;
- 	const struct firmware *fw = adapter->fw;
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	dev_info(&pdev->dev, "loading firmware from %s\n",
-+			fw_name[adapter->fw_type]);
- 
- 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
- 		NXWR32(adapter, NETXEN_ROMUSB_GLB_CAS_RST, 1);
-@@ -806,12 +879,10 @@ netxen_validate_firmware(struct netxen_adapter *adapter, const char *fwname)
- 	return 0;
- }
- 
--static char *fw_name[] = { "nxromimg.bin", "nx3fwct.bin", "nx3fwmn.bin" };
--
- void netxen_request_firmware(struct netxen_adapter *adapter)
- {
- 	u32 capability, flashed_ver;
--	int fw_type;
-+	u8 fw_type;
- 	struct pci_dev *pdev = adapter->pdev;
- 	int rc = 0;
- 
-@@ -838,6 +909,7 @@ request_mn:
- 		}
- 	}
- 
-+	fw_type = NX_FLASH_ROMIMAGE;
- 	adapter->fw = NULL;
- 	goto done;
- 
-@@ -849,6 +921,7 @@ request_fw:
- 			goto request_mn;
- 		}
- 
-+		fw_type = NX_FLASH_ROMIMAGE;
- 		adapter->fw = NULL;
- 		goto done;
- 	}
-@@ -862,16 +935,13 @@ request_fw:
- 			goto request_mn;
- 		}
- 
-+		fw_type = NX_FLASH_ROMIMAGE;
- 		adapter->fw = NULL;
- 		goto done;
- 	}
- 
- done:
--	if (adapter->fw)
--		dev_info(&pdev->dev, "loading firmware from file %s\n",
--				fw_name[fw_type]);
--	else
--		dev_info(&pdev->dev, "loading firmware from flash\n");
-+	adapter->fw_type = fw_type;
- }
- 
- 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 2919a2d..27539dd 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -718,6 +718,10 @@ netxen_start_firmware(struct netxen_adapter *adapter, int request_fw)
- 	if (request_fw)
- 		netxen_request_firmware(adapter);
- 
-+	err = netxen_need_fw_reset(adapter);
-+	if (err <= 0)
-+		return err;
-+
- 	if (first_boot != 0x55555555) {
- 		NXWR32(adapter, CRB_CMDPEG_STATE, 0);
- 		netxen_pinit_from_rom(adapter, 0);
--- 
-1.6.0.2
+Regards
+Pawe³ Staszewski
 
+> Thanks,
+> Jarek P.
+> --------> (all-in-one preempt fixes to apply with vanilla 2.6.29.x)
+>
+> diff -Nurp a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> --- a/net/ipv4/fib_trie.c	2009-07-01 06:17:08.000000000 +0000
+> +++ b/net/ipv4/fib_trie.c	2009-07-01 10:43:44.000000000 +0000
+> @@ -123,6 +123,7 @@ struct tnode {
+>  	union {
+>  		struct rcu_head rcu;
+>  		struct work_struct work;
+> +		struct tnode *tnode_free;
+>  	};
+>  	struct node *child[0];
+>  };
+> @@ -161,6 +162,8 @@ static void tnode_put_child_reorg(struct
+>  static struct node *resize(struct trie *t, struct tnode *tn);
+>  static struct tnode *inflate(struct trie *t, struct tnode *tn);
+>  static struct tnode *halve(struct trie *t, struct tnode *tn);
+> +/* tnodes to free after resize(); protected by RTNL */
+> +static struct tnode *tnode_free_head;
+>  
+>  static struct kmem_cache *fn_alias_kmem __read_mostly;
+>  static struct kmem_cache *trie_leaf_kmem __read_mostly;
+> @@ -313,8 +316,8 @@ static inline void check_tnode(const str
+>  
+>  static const int halve_threshold = 25;
+>  static const int inflate_threshold = 50;
+> -static const int halve_threshold_root = 8;
+> -static const int inflate_threshold_root = 15;
+> +static const int halve_threshold_root = 15;
+> +static const int inflate_threshold_root = 25;
+>  
+>  
+>  static void __alias_free_mem(struct rcu_head *head)
+> @@ -385,6 +388,24 @@ static inline void tnode_free(struct tno
+>  		call_rcu(&tn->rcu, __tnode_free_rcu);
+>  }
+>  
+> +static void tnode_free_safe(struct tnode *tn)
+> +{
+> +	BUG_ON(IS_LEAF(tn));
+> +	tn->tnode_free = tnode_free_head;
+> +	tnode_free_head = tn;
+> +}
+> +
+> +static void tnode_free_flush(void)
+> +{
+> +	struct tnode *tn;
+> +
+> +	while ((tn = tnode_free_head)) {
+> +		tnode_free_head = tn->tnode_free;
+> +		tn->tnode_free = NULL;
+> +		tnode_free(tn);
+> +	}
+> +}
+> +
+>  static struct leaf *leaf_new(void)
+>  {
+>  	struct leaf *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+> @@ -495,7 +516,7 @@ static struct node *resize(struct trie *
+>  
+>  	/* No children */
+>  	if (tn->empty_children == tnode_child_length(tn)) {
+> -		tnode_free(tn);
+> +		tnode_free_safe(tn);
+>  		return NULL;
+>  	}
+>  	/* One child */
+> @@ -509,7 +530,7 @@ static struct node *resize(struct trie *
+>  
+>  			/* compress one level */
+>  			node_set_parent(n, NULL);
+> -			tnode_free(tn);
+> +			tnode_free_safe(tn);
+>  			return n;
+>  		}
+>  	/*
+> @@ -670,7 +691,7 @@ static struct node *resize(struct trie *
+>  			/* compress one level */
+>  
+>  			node_set_parent(n, NULL);
+> -			tnode_free(tn);
+> +			tnode_free_safe(tn);
+>  			return n;
+>  		}
+>  
+> @@ -756,7 +777,7 @@ static struct tnode *inflate(struct trie
+>  			put_child(t, tn, 2*i, inode->child[0]);
+>  			put_child(t, tn, 2*i+1, inode->child[1]);
+>  
+> -			tnode_free(inode);
+> +			tnode_free_safe(inode);
+>  			continue;
+>  		}
+>  
+> @@ -801,9 +822,9 @@ static struct tnode *inflate(struct trie
+>  		put_child(t, tn, 2*i, resize(t, left));
+>  		put_child(t, tn, 2*i+1, resize(t, right));
+>  
+> -		tnode_free(inode);
+> +		tnode_free_safe(inode);
+>  	}
+> -	tnode_free(oldtnode);
+> +	tnode_free_safe(oldtnode);
+>  	return tn;
+>  nomem:
+>  	{
+> @@ -885,7 +906,7 @@ static struct tnode *halve(struct trie *
+>  		put_child(t, newBinNode, 1, right);
+>  		put_child(t, tn, i/2, resize(t, newBinNode));
+>  	}
+> -	tnode_free(oldtnode);
+> +	tnode_free_safe(oldtnode);
+>  	return tn;
+>  nomem:
+>  	{
+> @@ -983,12 +1004,14 @@ fib_find_node(struct trie *t, u32 key)
+>  	return NULL;
+>  }
+>  
+> -static struct node *trie_rebalance(struct trie *t, struct tnode *tn)
+> +static void trie_rebalance(struct trie *t, struct tnode *tn)
+>  {
+>  	int wasfull;
+> -	t_key cindex, key = tn->key;
+> +	t_key cindex, key;
+>  	struct tnode *tp;
+>  
+> +	key = tn->key;
+> +
+>  	while (tn != NULL && (tp = node_parent((struct node *)tn)) != NULL) {
+>  		cindex = tkey_extract_bits(key, tp->pos, tp->bits);
+>  		wasfull = tnode_full(tp, tnode_get_child(tp, cindex));
+> @@ -999,6 +1022,10 @@ static struct node *trie_rebalance(struc
+>  
+>  		tp = node_parent((struct node *) tn);
+>  		if (!tp)
+> +			rcu_assign_pointer(t->trie, (struct node *)tn);
+> +
+> +		tnode_free_flush();
+> +		if (!tp)
+>  			break;
+>  		tn = tp;
+>  	}
+> @@ -1007,7 +1034,10 @@ static struct node *trie_rebalance(struc
+>  	if (IS_TNODE(tn))
+>  		tn = (struct tnode *)resize(t, (struct tnode *)tn);
+>  
+> -	return (struct node *)tn;
+> +	rcu_assign_pointer(t->trie, (struct node *)tn);
+> +	tnode_free_flush();
+> +
+> +	return;
+>  }
+>  
+>  /* only used from updater-side */
+> @@ -1155,7 +1185,7 @@ static struct list_head *fib_insert_node
+>  
+>  	/* Rebalance the trie */
+>  
+> -	rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
+> +	trie_rebalance(t, tp);
+>  done:
+>  	return fa_head;
+>  }
+> @@ -1575,7 +1605,7 @@ static void trie_leaf_remove(struct trie
+>  	if (tp) {
+>  		t_key cindex = tkey_extract_bits(l->key, tp->pos, tp->bits);
+>  		put_child(t, (struct tnode *)tp, cindex, NULL);
+> -		rcu_assign_pointer(t->trie, trie_rebalance(t, tp));
+> +		trie_rebalance(t, tp);
+>  	} else
+>  		rcu_assign_pointer(t->trie, NULL);
+>  
+>
+>
+>   
+
+
+--------------030101060308060309090900
+Content-Type: text/plain;
+ name="fib_triestats.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="fib_triestats.txt"
+
+cat /proc/net/fib_triestat
+Basic info: size of leaf: 20 bytes, size of tnode: 36 bytes.
+Main:
+        Aver depth:     2.44
+        Max depth:      6
+        Leaves:         277395
+        Prefixes:       290874
+        Internal nodes: 66711
+          1: 32915  2: 14668  3: 10752  4: 4913  5: 2197  6: 895  7: 367  8: 3  17: 1
+        Pointers: 595526
+Null ptrs: 251421
+Total size: 18044  kB
+
+Counters:
+---------
+gets = 2705388
+backtracks = 137797
+semantic match passed = 2658993
+semantic match miss = 87
+null node hit= 1980950
+skipped node resize = 0
+
+Local:
+        Aver depth:     3.75
+        Max depth:      5
+        Leaves:         12
+        Prefixes:       13
+        Internal nodes: 10
+          1: 9  2: 1
+        Pointers: 22
+Null ptrs: 1
+Total size: 2  kB
+
+Counters:
+---------
+gets = 2709741
+backtracks = 1584810
+semantic match passed = 4417
+semantic match miss = 0
+null node hit= 192688
+skipped node resize = 0
+
+--------------030101060308060309090900--
