@@ -1,74 +1,110 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default
- configurable
-Date: Thu, 2 Jul 2009 06:48:40 +0930
-Message-ID: <20090702064840.d187bab6.lk-netdev@lk-netdev.nosense.org>
-References: <20090630.201630.134200035.davem@davemloft.net>
-	<1246445158.598.30.camel@blaa>
-	<4A4B3F9A.9060105@trash.net>
-	<20090701.090250.52376308.davem@davemloft.net>
-	<4A4B8954.70803@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, markmc@redhat.com,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: Patrick McHardy <kaber@trash.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 1/2] gigaset: accept connection establishment messages in any order
+Date: Wed,  1 Jul 2009 23:20:57 +0200 (CEST)
+Message-ID: <20090701-patch-01.tilman@imap.cc>
+References: <20090701-patch-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>
+To: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.adam.net.au ([202.136.110.251]:52005 "EHLO
-	smtp2.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752326AbZGAVTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 17:19:07 -0400
-In-Reply-To: <4A4B8954.70803@trash.net>
+Received: from gimli.pxnet.com ([195.227.45.7]:49492 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752684AbZGAVVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2009 17:21:07 -0400
+In-Reply-To: <20090701-patch-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Jul 2009 18:05:40 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+ISDN connection setup failed if the "connection active" and
+"B channel up" messages from the device arrived in a different
+order than expected. Modify the state machine to accept them in
+any order.
 
-> David Miller wrote:
-> > From: Patrick McHardy <kaber@trash.net>
-> > Date: Wed, 01 Jul 2009 12:51:06 +0200
-> > 
-> >> I agree, this has already caused an endless amount of problems for
-> >> users due to the unexpected behaviour and, in some cases, bugs.
-> >>
-> >> Dave's point is certainly valid as well, until we change the defaults,
-> >> distributions can use sysctl.conf. But I think we should move towards
-> >> changing the defaults.
-> > 
-> > You must do this via something like your suggestion, the
-> > feature-removal-schedule.txt thing.
-> 
-> Yes, of course. But I prefer the runtime warning (at least on top),
-> my feeling is not many people actually read feature-removal-schedule.
-> 
+Impact: bugfix
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: stable <stable@kernel.org>
+---
+ drivers/isdn/gigaset/ev-layer.c |   44 +++++++++++++++++---------------------
+ 1 files changed, 20 insertions(+), 24 deletions(-)
 
-Reviewing my earlier email, I realised I didn't say why I liked it.
-Yes, I've been burned by it quite a bit, but that was because I wasn't
-aware of it.
-
-I do see a lot of value in it for "layer 3 transparent" firewalling.
-Adding a firewall to a network can be a bit of an effort as it may
-involve changing the networks routing configuration, and consequently
-all the things that involves e.g. renumbering hosts, spitting up
-subnets or adding new ones. Being able to insert a layer 3
-transparent firewalling device between the upstream router and the
-downstream hosts would be far, far easier.
-
-With it being able to firewall bridged PPPoE/PPP traffic, potentially
-made it even more useful, although in less common cases. For example, I
-have a number of devices at home that are themselves running PPPoE/PPP,
-rather than having a single upstream router running it. If I wasn't
-confident of the firewalling capabilities of each of those devices, I
-could insert a layer 3 transparent iptables firewall, and add another
-level of firewalling to the PPPoE/PPP encapsulated traffic.
-
-So, I'd certainly like the feature to stay. It just needs to either not
-be on by default, or the default made more obvious and a method added
-to make it easy to switch off.
-
-Thanks,
-Mark.
-
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index ec51696..2d91049 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -294,32 +294,33 @@ struct reply_t gigaset_tab_cid[] =
+ 	{RSP_OK,      604,604, -1,                605, 5, {ACT_CMD+AT_MSN}},
+ 	{RSP_OK,      605,605, -1,                606, 5, {ACT_CMD+AT_ISO}},
+ 	{RSP_NULL,    605,605, -1,                606, 5, {ACT_CMD+AT_ISO}},
+-	{RSP_OK,      606,606, -1,                607, 5, {0},             "+VLS=17\r"}, /* set "Endgeraetemodus" */
++	{RSP_OK,      606,606, -1,                607, 5, {0}, "+VLS=17\r"},
+ 	{RSP_OK,      607,607, -1,                608,-1},
+-	//{RSP_ZSAU,    608,608,ZSAU_PROCEEDING,    608, 0, {ACT_ERROR}},//DELETE
+ 	{RSP_ZSAU,    608,608,ZSAU_PROCEEDING,    609, 5, {ACT_CMD+AT_DIAL}},
+ 	{RSP_OK,      609,609, -1,                650, 0, {ACT_DIALING}},
+ 
+-	{RSP_ZVLS,    608,608, 17,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZCTP,    609,609, -1,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZCPN,    609,609, -1,                 -1,-1, {ACT_DEBUG}},
+ 	{RSP_ERROR,   601,609, -1,                  0, 0, {ACT_ABORTDIAL}},
+ 	{EV_TIMEOUT,  601,609, -1,                  0, 0, {ACT_ABORTDIAL}},
+ 
+-	/* dialing */
+-	{RSP_ZCTP,    650,650, -1,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZCPN,    650,650, -1,                 -1,-1, {ACT_DEBUG}},
+-	{RSP_ZSAU,    650,650,ZSAU_CALL_DELIVERED, -1,-1, {ACT_DEBUG}}, /* some devices don't send this */
+-
+-	/* connection established  */
+-	{RSP_ZSAU,    650,650,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT}}, //FIXME -> DLE1
+-	{RSP_ZSAU,    750,750,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT}}, //FIXME -> DLE1
+-
+-	{EV_BC_OPEN,  800,800, -1,                800,-1, {ACT_NOTIFY_BC_UP}}, //FIXME new constate + timeout
++	/* optional dialing responses */
++	{EV_BC_OPEN,  650,650, -1,                651,-1},
++	{RSP_ZVLS,    608,651, 17,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZCTP,    609,651, -1,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZCPN,    609,651, -1,                 -1,-1, {ACT_DEBUG}},
++	{RSP_ZSAU,    650,651,ZSAU_CALL_DELIVERED, -1,-1, {ACT_DEBUG}},
++
++	/* connect */
++	{RSP_ZSAU,    650,650,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT}},
++	{RSP_ZSAU,    651,651,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT,
++							   ACT_NOTIFY_BC_UP}},
++	{RSP_ZSAU,    750,750,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT}},
++	{RSP_ZSAU,    751,751,ZSAU_ACTIVE,        800,-1, {ACT_CONNECT,
++							   ACT_NOTIFY_BC_UP}},
++	{EV_BC_OPEN,  800,800, -1,                800,-1, {ACT_NOTIFY_BC_UP}},
+ 
+ 	/* remote hangup */
+-	{RSP_ZSAU,    650,650,ZSAU_DISCONNECT_IND,  0, 0, {ACT_REMOTEREJECT}},
+-	{RSP_ZSAU,    750,750,ZSAU_DISCONNECT_IND,  0, 0, {ACT_REMOTEHUP}},
++	{RSP_ZSAU,    650,651,ZSAU_DISCONNECT_IND,  0, 0, {ACT_REMOTEREJECT}},
++	{RSP_ZSAU,    750,751,ZSAU_DISCONNECT_IND,  0, 0, {ACT_REMOTEHUP}},
+ 	{RSP_ZSAU,    800,800,ZSAU_DISCONNECT_IND,  0, 0, {ACT_REMOTEHUP}},
+ 
+ 	/* hangup */
+@@ -358,7 +359,8 @@ struct reply_t gigaset_tab_cid[] =
+ 	{RSP_ZSAU,    700,729,ZSAU_ACTIVE,          0, 0, {ACT_ABORTACCEPT}},
+ 	{RSP_ZSAU,    700,729,ZSAU_DISCONNECT_IND,  0, 0, {ACT_ABORTACCEPT}},
+ 
+-	{EV_TIMEOUT,  750,750, -1,                  0, 0, {ACT_CONNTIMEOUT}},
++	{EV_BC_OPEN,  750,750, -1,                751,-1},
++	{EV_TIMEOUT,  750,751, -1,                  0, 0, {ACT_CONNTIMEOUT}},
+ 
+ 	/* B channel closed (general case) */
+ 	{EV_BC_CLOSED, -1, -1, -1,                 -1,-1, {ACT_NOTIFY_BC_DOWN}}, //FIXME
+@@ -876,12 +878,6 @@ static void bchannel_down(struct bc_state *bcs)
+ 
+ static void bchannel_up(struct bc_state *bcs)
+ {
+-	if (!(bcs->chstate & CHS_D_UP)) {
+-		dev_notice(bcs->cs->dev, "%s: D channel not up\n", __func__);
+-		bcs->chstate |= CHS_D_UP;
+-		gigaset_i4l_channel_cmd(bcs, ISDN_STAT_DCONN);
+-	}
+-
+ 	if (bcs->chstate & CHS_B_UP) {
+ 		dev_notice(bcs->cs->dev, "%s: B channel already up\n",
+ 			   __func__);
+-- 
+1.6.2.1.214.ge986c
 
