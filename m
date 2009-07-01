@@ -1,365 +1,129 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 3/3 v3] net/compat/wext: send different messages to compat
- tasks
-Date: Wed, 01 Jul 2009 23:26:02 +0200
-Message-ID: <1246483562.8154.11.camel@johannes.local>
-References: <20090624113447.441667549@sipsolutions.net>
-	 <20090624113731.935845071@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH 1/2] netxen: fix the version code macro
+Date: Wed,  1 Jul 2009 14:41:42 -0700
+Message-ID: <1246484503-10817-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:60960 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808AbZGAV0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 17:26:04 -0400
-In-Reply-To: <20090624113731.935845071@sipsolutions.net>
+Received: from nxgate.netxen.com ([38.99.60.130]:55452 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752515AbZGAVlk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jul 2009 17:41:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wireless extensions have the unfortunate problem that events
-are multicast netlink messages, and are not independent of
-pointer size. Thus, currently 32-bit tasks on 64-bit platforms
-cannot properly receive events and fail with all kinds of
-strange problems, for instance wpa_supplicant never notices
-disassociations, due to the way the 64-bit event looks (to a
-32-bit process), the fact that the address is all zeroes is
-lost, it thinks instead it is 00:00:00:00:01:00.
+Correct firmware encoding is 8 bit major, 8 bit minor and
+16 bit subversion. Flash has sizes rightly set, but original
+driver submission messed it leaving 16 bit major and 8 bit
+subversion.
 
-The same problem existed with the ioctls, until David Miller
-fixed those some time ago in an heroic effort.
+Also fix a infinite loop when cut-thru file firmware is
+invalid.
 
-A different problem caused by this is that we cannot send the
-ASSOCREQIE/ASSOCRESPIE events because sending them causes a
-32-bit wpa_supplicant on a 64-bit system to overwrite its
-internal information, which is worse than it not getting the
-information at all -- so we currently resort to sending a
-custom string event that it then parses. This, however, has a
-severe size limitation we are frequently hitting with modern
-access points; this limitation would can be lifted after this
-patch by sending the correct binary, not custom, event.
-
-A similar problem apparently happens for some other netlink
-users on x86_64 with 32-bit tasks due to the alignment for
-64-bit quantities.
-
-In order to fix these problems, I have implemented a way to
-send compat messages to tasks. When sending an event, we send
-the non-compat event data together with a compat event data in
-skb_shinfo(main_skb)->frag_list. Then, when the event is read
-from the socket, the netlink code makes sure to pass out only
-the skb that is compatible with the task. This approach was
-suggested by David Miller, my original approach required
-always sending two skbs but that had various small problems.
-
-To determine whether compat is needed or not, I have used the
-MSG_CMSG_COMPAT flag, and adjusted the call path for recv and
-recvfrom to include it, even if those calls do not have a cmsg
-parameter.
-
-I have not solved one small part of the problem, and I don't
-think it is necessary to: if a 32-bit application uses read()
-rather than any form of recvmsg() it will still get the wrong
-(64-bit) event. However, neither do applications actually do
-this, nor would it be a regression.
-
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
-v2: * after some discussion with davem, use frag_list as noted,
-      and note that there are more possible uses for this
-    * add another Kconfig symbol for code that can use select
-      for the feature
-    * add help, in Kconfig, describing the feature
-v3: * don't NULL out frag_list incorrectly, keep as required
+ drivers/net/netxen/netxen_nic.h      |   13 ++++++++++++-
+ drivers/net/netxen/netxen_nic_init.c |   25 ++++++++++++++-----------
+ 2 files changed, 26 insertions(+), 12 deletions(-)
 
- arch/mips/kernel/scall64-n32.S |    2 -
- arch/mips/kernel/scall64-o32.S |    4 +-
- arch/sparc/kernel/sys32.S      |    2 -
- include/linux/wireless.h       |    8 ++++
- net/Kconfig                    |   20 ++++++++++
- net/compat.c                   |   17 +++++++-
- net/netlink/af_netlink.c       |   36 ++++++++++++++++++
- net/wireless/wext.c            |   78 +++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 160 insertions(+), 7 deletions(-)
-
---- wireless-testing.orig/net/wireless/wext.c	2009-07-01 21:46:44.000000000 +0200
-+++ wireless-testing/net/wireless/wext.c	2009-07-01 21:46:47.000000000 +0200
-@@ -417,6 +417,21 @@ static const int event_type_size[] = {
- 	IW_EV_QUAL_LEN,			/* IW_HEADER_TYPE_QUAL */
- };
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index 970cede..26afcb5 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -60,7 +60,18 @@
+ #define _NETXEN_NIC_LINUX_SUBVERSION 30
+ #define NETXEN_NIC_LINUX_VERSIONID  "4.0.30"
  
-+#ifdef CONFIG_COMPAT
-+static const int compat_event_type_size[] = {
-+	IW_EV_COMPAT_LCP_LEN,		/* IW_HEADER_TYPE_NULL */
-+	0,
-+	IW_EV_COMPAT_CHAR_LEN,		/* IW_HEADER_TYPE_CHAR */
-+	0,
-+	IW_EV_COMPAT_UINT_LEN,		/* IW_HEADER_TYPE_UINT */
-+	IW_EV_COMPAT_FREQ_LEN,		/* IW_HEADER_TYPE_FREQ */
-+	IW_EV_COMPAT_ADDR_LEN,		/* IW_HEADER_TYPE_ADDR */
-+	0,
-+	IW_EV_COMPAT_POINT_LEN,		/* Without variable payload */
-+	IW_EV_COMPAT_PARAM_LEN,		/* IW_HEADER_TYPE_PARAM */
-+	IW_EV_COMPAT_QUAL_LEN,		/* IW_HEADER_TYPE_QUAL */
-+};
-+#endif
+-#define NETXEN_VERSION_CODE(a, b, c)	(((a) << 16) + ((b) << 8) + (c))
++#define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
++#define _major(v)	(((v) >> 24) & 0xff)
++#define _minor(v)	(((v) >> 16) & 0xff)
++#define _build(v)	((v) & 0xffff)
++
++/* version in image has weird encoding:
++ *  7:0  - major
++ * 15:8  - minor
++ * 31:16 - build (little endian)
++ */
++#define NETXEN_DECODE_VERSION(v) \
++	NETXEN_VERSION_CODE(((v) & 0xff), (((v) >> 8) & 0xff), ((v) >> 16))
  
- /************************ COMMON SUBROUTINES ************************/
- /*
-@@ -1348,6 +1363,22 @@ void wireless_send_event(struct net_devi
- 	struct sk_buff *skb;
- 	struct nlmsghdr *nlh;
- 	struct nlattr *nla;
-+#ifdef CONFIG_COMPAT
-+	struct __compat_iw_event *compat_event;
-+	struct compat_iw_point compat_wrqu;
-+	struct sk_buff *compskb;
-+#endif
-+
-+	/*
-+	 * Nothing in the kernel sends scan events with data, be safe.
-+	 * This is necessary because we cannot fix up scan event data
-+	 * for compat, due to being contained in 'extra', but normally
-+	 * applications are required to retrieve the scan data anyway
-+	 * and no data is included in the event, this codifies that
-+	 * practice.
-+	 */
-+	if (WARN_ON(cmd == SIOCGIWSCAN && extra))
-+		extra = NULL;
- 
- 	/* Get the description of the Event */
- 	if (cmd <= SIOCIWLAST) {
-@@ -1446,7 +1477,54 @@ void wireless_send_event(struct net_devi
- 		memcpy(((char *) event) + hdr_len, extra, extra_len);
- 
- 	nlmsg_end(skb, nlh);
-+#ifdef CONFIG_COMPAT
-+	hdr_len = compat_event_type_size[descr->header_type];
-+	event_len = hdr_len + extra_len;
-+
-+	compskb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-+	if (!compskb) {
-+		kfree_skb(skb);
-+		return;
-+	}
-+
-+	/* Send via the RtNetlink event channel */
-+	nlh = rtnetlink_ifinfo_prep(dev, compskb);
-+	if (WARN_ON(!nlh)) {
-+		kfree_skb(skb);
-+		kfree_skb(compskb);
-+		return;
-+	}
-+
-+	/* Add the wireless events in the netlink packet */
-+	nla = nla_reserve(compskb, IFLA_WIRELESS, event_len);
-+	if (!nla) {
-+		kfree_skb(skb);
-+		kfree_skb(compskb);
-+		return;
-+	}
-+	compat_event = nla_data(nla);
-+
-+	compat_event->len = event_len;
-+	compat_event->cmd = cmd;
-+	if (descr->header_type == IW_HEADER_TYPE_POINT) {
-+		compat_wrqu.length = wrqu->data.length;
-+		compat_wrqu.flags = wrqu->data.flags;
-+		memcpy(&compat_event->pointer,
-+			((char *) &compat_wrqu) + IW_EV_COMPAT_POINT_OFF,
-+			hdr_len - IW_EV_COMPAT_LCP_LEN);
-+		if (extra_len)
-+			memcpy(((char *) compat_event) + hdr_len,
-+				extra, extra_len);
-+	} else {
-+		/* extra_len must be zero, so no if (extra) needed */
-+		memcpy(&compat_event->pointer, wrqu,
-+			hdr_len - IW_EV_COMPAT_LCP_LEN);
-+	}
- 
-+	nlmsg_end(compskb, nlh);
-+
-+	skb_shinfo(skb)->frag_list = compskb;
-+#endif
- 	skb_queue_tail(&dev_net(dev)->wext_nlevents, skb);
- 	schedule_work(&wireless_nlevent_work);
- }
---- wireless-testing.orig/net/Kconfig	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/net/Kconfig	2009-07-01 21:46:47.000000000 +0200
-@@ -23,6 +23,26 @@ menuconfig NET
- 
- if NET
- 
-+config WANT_COMPAT_NETLINK_MESSAGES
-+	bool
-+	help
-+	  This option can be selected by other options that need compat
-+	  netlink messages.
-+
-+config COMPAT_NETLINK_MESSAGES
-+	def_bool y
-+	depends on COMPAT
-+	depends on WIRELESS_EXT || WANT_COMPAT_NETLINK_MESSAGES
-+	help
-+	  This option makes it possible to send different netlink messages
-+	  to tasks depending on whether the task is a compat task or not. To
-+	  achieve this, you need to set skb_shinfo(skb)->frag_list to the
-+	  compat skb before sending the skb, the netlink code will sort out
-+	  which message to actually pass to the task.
-+
-+	  Newly written code should NEVER need this option but do
-+	  compat-independent messages instead!
-+
- menu "Networking options"
- 
- source "net/packet/Kconfig"
---- wireless-testing.orig/net/netlink/af_netlink.c	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/net/netlink/af_netlink.c	2009-07-01 23:24:21.000000000 +0200
-@@ -1356,7 +1356,7 @@ static int netlink_recvmsg(struct kiocb 
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	int noblock = flags&MSG_DONTWAIT;
- 	size_t copied;
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *frag __maybe_unused = NULL;
- 	int err;
- 
- 	if (flags&MSG_OOB)
-@@ -1368,6 +1368,35 @@ static int netlink_recvmsg(struct kiocb 
- 	if (skb == NULL)
- 		goto out;
- 
-+#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
-+	if (unlikely(skb_shinfo(skb)->frag_list)) {
-+		bool need_compat = !!(flags & MSG_CMSG_COMPAT);
-+
-+		/*
-+		 * If this skb has a frag_list, then here that means that
-+		 * we will have to use the frag_list skb for compat tasks
-+		 * and the regular skb for non-compat tasks.
-+		 *
-+		 * The skb might (and likely will) be cloned, so we can't
-+		 * just reset frag_list and go on with things -- we need to
-+		 * keep that. For the compat case that's easy -- simply get
-+		 * a reference to the compat skb and free the regular one
-+		 * including the frag. For the non-compat case, we need to
-+		 * avoid sending the frag to the user -- so assign NULL but
-+		 * restore it below before freeing the skb.
-+		 */
-+		if (need_compat) {
-+			struct sk_buff *compskb = skb_shinfo(skb)->frag_list;
-+			skb_get(compskb);
-+			kfree_skb(skb);
-+			skb = compskb;
-+		} else {
-+			frag = skb_shinfo(skb)->frag_list;
-+			skb_shinfo(skb)->frag_list = NULL;
-+		}
-+	}
-+#endif
-+
- 	msg->msg_namelen = 0;
- 
- 	copied = skb->len;
-@@ -1398,6 +1427,11 @@ static int netlink_recvmsg(struct kiocb 
- 	siocb->scm->creds = *NETLINK_CREDS(skb);
- 	if (flags & MSG_TRUNC)
- 		copied = skb->len;
-+
-+#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
-+	skb_shinfo(skb)->frag_list = frag;
-+#endif
-+
- 	skb_free_datagram(sk, skb);
- 
- 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2)
---- wireless-testing.orig/net/compat.c	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/net/compat.c	2009-07-01 21:46:47.000000000 +0200
-@@ -743,6 +743,18 @@ asmlinkage long compat_sys_recvmsg(int f
- 	return sys_recvmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
- }
- 
-+asmlinkage long compat_sys_recv(int fd, void __user *buf, size_t len, unsigned flags)
-+{
-+	return sys_recv(fd, buf, len, flags | MSG_CMSG_COMPAT);
-+}
-+
-+asmlinkage long compat_sys_recvfrom(int fd, void __user *buf, size_t len,
-+				    unsigned flags, struct sockaddr __user *addr,
-+				    int __user *addrlen)
-+{
-+	return sys_recvfrom(fd, buf, len, flags | MSG_CMSG_COMPAT, addr, addrlen);
-+}
-+
- asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
+ #define NETXEN_NUM_FLASH_SECTORS (64)
+ #define NETXEN_FLASH_SECTOR_SIZE (64 * 1024)
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 055bb61..7bdcbc6 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -756,7 +756,7 @@ static int
+ netxen_validate_firmware(struct netxen_adapter *adapter, const char *fwname)
  {
- 	int ret;
-@@ -788,10 +800,11 @@ asmlinkage long compat_sys_socketcall(in
- 		ret = sys_sendto(a0, compat_ptr(a1), a[2], a[3], compat_ptr(a[4]), a[5]);
- 		break;
- 	case SYS_RECV:
--		ret = sys_recv(a0, compat_ptr(a1), a[2], a[3]);
-+		ret = compat_sys_recv(a0, compat_ptr(a1), a[2], a[3]);
- 		break;
- 	case SYS_RECVFROM:
--		ret = sys_recvfrom(a0, compat_ptr(a1), a[2], a[3], compat_ptr(a[4]), compat_ptr(a[5]));
-+		ret = compat_sys_recvfrom(a0, compat_ptr(a1), a[2], a[3],
-+					  compat_ptr(a[4]), compat_ptr(a[5]));
- 		break;
- 	case SYS_SHUTDOWN:
- 		ret = sys_shutdown(a0,a1);
---- wireless-testing.orig/include/linux/wireless.h	2009-07-01 21:24:32.000000000 +0200
-+++ wireless-testing/include/linux/wireless.h	2009-07-01 21:46:47.000000000 +0200
-@@ -1132,6 +1132,14 @@ struct __compat_iw_event {
- };
- #define IW_EV_COMPAT_LCP_LEN offsetof(struct __compat_iw_event, pointer)
- #define IW_EV_COMPAT_POINT_OFF offsetof(struct compat_iw_point, length)
+ 	__le32 val;
+-	u32 major, minor, build, ver, min_ver, bios;
++	u32 ver, min_ver, bios;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	const struct firmware *fw = adapter->fw;
+ 
+@@ -768,21 +768,18 @@ netxen_validate_firmware(struct netxen_adapter *adapter, const char *fwname)
+ 		return -EINVAL;
+ 
+ 	val = cpu_to_le32(*(u32 *)&fw->data[NX_FW_VERSION_OFFSET]);
+-	major = (__force u32)val & 0xff;
+-	minor = ((__force u32)val >> 8) & 0xff;
+-	build = (__force u32)val >> 16;
+ 
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		min_ver = NETXEN_VERSION_CODE(4, 0, 216);
+ 	else
+ 		min_ver = NETXEN_VERSION_CODE(3, 4, 216);
+ 
+-	ver = NETXEN_VERSION_CODE(major, minor, build);
++	ver = NETXEN_DECODE_VERSION(val);
+ 
+-	if ((major > _NETXEN_NIC_LINUX_MAJOR) || (ver < min_ver)) {
++	if ((_major(ver) > _NETXEN_NIC_LINUX_MAJOR) || (ver < min_ver)) {
+ 		dev_err(&pdev->dev,
+ 				"%s: firmware version %d.%d.%d unsupported\n",
+-				fwname, major, minor, build);
++				fwname, _major(ver), _minor(ver), _build(ver));
+ 		return -EINVAL;
+ 	}
+ 
+@@ -798,11 +795,12 @@ netxen_validate_firmware(struct netxen_adapter *adapter, const char *fwname)
+ 	if (netxen_rom_fast_read(adapter,
+ 			NX_FW_VERSION_OFFSET, (int *)&val))
+ 		return -EIO;
+-	major = (__force u32)val & 0xff;
+-	minor = ((__force u32)val >> 8) & 0xff;
+-	build = (__force u32)val >> 16;
+-	if (NETXEN_VERSION_CODE(major, minor, build) > ver)
++	val = NETXEN_DECODE_VERSION(val);
++	if (val > ver) {
++		dev_info(&pdev->dev, "%s: firmware is older than flash\n",
++				fwname);
+ 		return -EINVAL;
++	}
+ 
+ 	NXWR32(adapter, NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
+ 	return 0;
+@@ -830,6 +828,8 @@ request_mn:
+ 
+ 	netxen_rom_fast_read(adapter,
+ 			NX_FW_VERSION_OFFSET, (int *)&flashed_ver);
++	flashed_ver = NETXEN_DECODE_VERSION(flashed_ver);
 +
-+/* Size of the various events for compat */
-+#define IW_EV_COMPAT_CHAR_LEN	(IW_EV_COMPAT_LCP_LEN + IFNAMSIZ)
-+#define IW_EV_COMPAT_UINT_LEN	(IW_EV_COMPAT_LCP_LEN + sizeof(__u32))
-+#define IW_EV_COMPAT_FREQ_LEN	(IW_EV_COMPAT_LCP_LEN + sizeof(struct iw_freq))
-+#define IW_EV_COMPAT_PARAM_LEN	(IW_EV_COMPAT_LCP_LEN + sizeof(struct iw_param))
-+#define IW_EV_COMPAT_ADDR_LEN	(IW_EV_COMPAT_LCP_LEN + sizeof(struct sockaddr))
-+#define IW_EV_COMPAT_QUAL_LEN	(IW_EV_COMPAT_LCP_LEN + sizeof(struct iw_quality))
- #define IW_EV_COMPAT_POINT_LEN	\
- 	(IW_EV_COMPAT_LCP_LEN + sizeof(struct compat_iw_point) - \
- 	 IW_EV_COMPAT_POINT_OFF)
---- wireless-testing.orig/arch/sparc/kernel/sys32.S	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/arch/sparc/kernel/sys32.S	2009-07-01 21:46:48.000000000 +0200
-@@ -121,7 +121,7 @@ SIGN2(sys32_syslog, sys_syslog, %o0, %o2
- SIGN1(sys32_umask, sys_umask, %o0)
- SIGN3(sys32_tgkill, sys_tgkill, %o0, %o1, %o2)
- SIGN1(sys32_sendto, sys_sendto, %o0)
--SIGN1(sys32_recvfrom, sys_recvfrom, %o0)
-+SIGN1(sys32_recvfrom, compat_sys_recvfrom, %o0)
- SIGN3(sys32_socket, sys_socket, %o0, %o1, %o2)
- SIGN2(sys32_connect, sys_connect, %o0, %o2)
- SIGN2(sys32_bind, sys_bind, %o0, %o2)
---- wireless-testing.orig/arch/mips/kernel/scall64-n32.S	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/arch/mips/kernel/scall64-n32.S	2009-07-01 21:46:48.000000000 +0200
-@@ -164,7 +164,7 @@ EXPORT(sysn32_call_table)
- 	PTR	sys_connect
- 	PTR	sys_accept
- 	PTR	sys_sendto
--	PTR	sys_recvfrom
-+	PTR	compat_sys_recvfrom
- 	PTR	compat_sys_sendmsg		/* 6045 */
- 	PTR	compat_sys_recvmsg
- 	PTR	sys_shutdown
---- wireless-testing.orig/arch/mips/kernel/scall64-o32.S	2009-07-01 21:24:31.000000000 +0200
-+++ wireless-testing/arch/mips/kernel/scall64-o32.S	2009-07-01 21:46:48.000000000 +0200
-@@ -378,8 +378,8 @@ sys_call_table:
- 	PTR	sys_getsockname
- 	PTR	sys_getsockopt
- 	PTR	sys_listen
--	PTR	sys_recv			/* 4175 */
--	PTR	sys_recvfrom
-+	PTR	compat_sys_recv			/* 4175 */
-+	PTR	compat_sys_recvfrom
- 	PTR	compat_sys_recvmsg
- 	PTR	sys_send
- 	PTR	compat_sys_sendmsg
-
+ 	if (flashed_ver >= NETXEN_VERSION_CODE(4, 0, 220)) {
+ 		capability = NXRD32(adapter, NX_PEG_TUNE_CAPABILITY);
+ 		if (capability & NX_PEG_TUNE_MN_PRESENT) {
+@@ -838,6 +838,9 @@ request_mn:
+ 		}
+ 	}
+ 
++	adapter->fw = NULL;
++	goto done;
++
+ request_fw:
+ 	rc = request_firmware(&adapter->fw, fw_name[fw_type], &pdev->dev);
+ 	if (rc != 0) {
+-- 
+1.6.0.2
 
