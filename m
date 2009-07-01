@@ -1,55 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] bridge: make bridge-nf-call-*tables default configurable
-Date: Wed, 01 Jul 2009 12:51:06 +0200
-Message-ID: <4A4B3F9A.9060105@trash.net>
-References: <1246379267.3749.42.camel@blaa>	 <20090630.201630.134200035.davem@davemloft.net> <1246445158.598.30.camel@blaa>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: fix race in the receive/select
+Date: Wed, 1 Jul 2009 18:58:52 +0800
+Message-ID: <20090701105852.GA925@gondor.apana.org.au>
+References: <87eit3l7y6.fsf@basil.nowhere.org> <20090701033924.GA29762@gondor.apana.org.au> <20090701062732.GK6760@one.firstfloor.org> <20090701070332.GA31103@gondor.apana.org.au> <20090701072226.GN6760@one.firstfloor.org> <20090701083144.GA31863@gondor.apana.org.au> <20090701084430.GC4769@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Mark McLoughlin <markmc@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, oleg@redhat.com, eric.dumazet@gmail.com
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55033 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754849AbZGAKvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 06:51:12 -0400
-In-Reply-To: <1246445158.598.30.camel@blaa>
+Received: from rhun.apana.org.au ([64.62.148.172]:43999 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753476AbZGAK6y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jul 2009 06:58:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20090701084430.GC4769@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark McLoughlin wrote:
-> On Tue, 2009-06-30 at 20:16 -0700, David Miller wrote:
->> From: Mark McLoughlin <markmc@redhat.com>
->> Date: Tue, 30 Jun 2009 17:27:47 +0100
->>
->>> For these reasons, it makes sense to allow distributions to disable
->>> netfilter on the bridge by default and require those specialized users
->>> to enable it explicitly via sysctl.
->> I heard that distributions ship some file, what's it called...
->> something like /etc/sysctl.conf :-)
->>
->> Really, if someone thinkgs the default stinks and dists don't like it
->> for their users, they can use sysctl.conf to set it how they please.
+On Wed, Jul 01, 2009 at 10:44:30AM +0200, Jiri Olsa wrote:
+>
+> no, only RHEL 4.. 
 > 
-> If upstream agrees the default stinks, then upstream could start making
-> moves towards rectifying it :-)
-> 
-> I like Patrick's idea of adding it to feature-removal-schedule
-> 
->> Notwithstanding that changing this default can break working
->> setups and scripts.  Yes they can "change", but they were just
->> (rightly) using the kernel as it came to them.
-> 
-> Yep, that's a valid concern.
-> 
-> Weighing up the impact on the small number of people who use it versus
-> the ongoing impact on everyone else, I think it's best to make the
-> change.
+> it is very hard to reproduce. I was succesfull once
+> on RHEL4 after 8 days, never on upstream though.
 
-I agree, this has already caused an endless amount of problems for
-users due to the unexpected behaviour and, in some cases, bugs.
+It would be good to know whether this bug occurs on the upstream
+kernel because as it stands, the patch is a no-op for the upstream
+kernel on x86-64.
 
-Dave's point is certainly valid as well, until we change the defaults,
-distributions can use sysctl.conf. But I think we should move towards
-changing the defaults.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
