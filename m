@@ -1,90 +1,107 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3 driver not advertising 1000mbit
-Date: Thu, 2 Jul 2009 09:42:12 -0700
-Message-ID: <20090702164212.GA8430@xw6200.broadcom.net>
-References: <1244831838.9225.71.camel@HP1>
- <4A32CDE9.7020602@dupondje.be> <1244844106.9225.92.camel@HP1>
- <4A32D3DB.30703@dupondje.be>
- <20090624173608.GA8985@xw6200.broadcom.net>
- <4A453E8F.3000405@dupondje.be>
- <20090627022629.GA27439@xw6200.broadcom.net>
- <4A45ED40.4090408@dupondje.be>
- <20090629185038.GA29283@xw6200.broadcom.net>
- <4A49D8ED.5060109@dupondje.be>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: HFSC link sharing behavior related query
+Date: Thu, 02 Jul 2009 18:36:01 +0200
+Message-ID: <4A4CE1F1.5060300@ziu.info>
+References: <e54032850907020423q730dad3cm666594dfc130ffa9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David Christensen" <davidch@broadcom.com>
-To: "Jean-Louis Dupond" <info@dupondje.be>
+Cc: netdev@vger.kernel.org
+To: Sanket Shah <sanketshah5124@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1795 "EHLO mms2.broadcom.com"
+Received: from drutsystem.com ([80.72.38.138]:3945 "EHLO drutsystem.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752126AbZGBQmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2009 12:42:17 -0400
-In-Reply-To: <4A49D8ED.5060109@dupondje.be>
-Content-Disposition: inline
+	id S1751268AbZGBQ7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 12:59:25 -0400
+In-Reply-To: <e54032850907020423q730dad3cm666594dfc130ffa9@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 30, 2009 at 02:20:45AM -0700, Jean-Louis Dupond wrote:
-> # ethtool -i eth0
-> driver: tg3
-> version: 3.97
-> firmware-version: 5722-v3.08, ASFIPMI v6.02
-> bus-info: 0000:01:00.0
+Sanket Shah wrote:
+> Hi,
+> 	We are doing experiments on hfsc in various network scenarios. Some
+> of the results are not as per our expectation/understanding of our
+> hfsc behavior.
 > 
-> Kernel version 2.6.29.4
+> -----------------------------------------------------------------------------------------------------------------------
+> 	Scenario 1:
+> 
+> 		1: (hfsc qdisc)
+> 		|
+> 		|
+> 		1:1 (hfsc root class) (rt 0, ls 40, ul 40)
+> 		|
+> 	----------------------------------------------------------------
+> 	|								|
+> 	1:2 (rt 10, ls 1, ul 20)				1:3 (rt 30, ls 1, ul 40)
+> 	|								|
+> 	2: (sfq qdisc)						3: (sfq qdisc)
+> 
+> 	In above scenario,
+> 		1:2 and 1:3 both are doing http download and we are getting following results.
+> 
+> 		1:2 - 10 kbps
+> 		1:3 - 30 kbps		
+> 			That is as per the expectation.
+> 
+> 	After 5 minutes we are changing ls and ul of 1:1 from 40 to 100. (rt
+> 0, ls 100, ul 100)
+> 		
+> 		For first 2 minutes after above change,
+> 
+> 			1:2 - 20 kbps
+> 			1:3 - 80 kbps
+> 				In this case ul curve is getting violated for 2 mins.
+> 
+> 		After 2 minutes,
+> 
+> 			1:2 - 20 kbps
+> 			1:3 - 50 kbps
+> 				That is expected.
+> 
+> 	Is it an expected behavior ?
+> 	why ul curve got violated ?
+> 
 
-Rats.  I mirrored your setup here, but I still can't reproduce the
-problem.  I still suspect this is a bad driver <=> firmware interaction.
+Regarding this scenario, I have 4 stages (all expected, afaics):
 
-Can you apply the following patch and show me the resulting syslog
-entries?  The patch is just making sure the firmware request to shutdown
-really goes through.
+1) 10 : 30 (beginning)
+2) 70 : 30 (right after changing 1:1, beacuse of:
+		vt far apart between 1:2 and 1:3
+		ft artificially limited)
+3) 20 : 80 (once 1:2's ft catches up)
+4) 20 : 40 (once both ft "stabilize")
+
+This is the effect of two things:
+
+1) LS curve is in 1 to 1 ratio ; looking at initial bandwidth assignment 
+20 : 20 - but 40 is all what both children can get from LS (due to UL). 
+Actually they will get nothing, as RT curve already covers that in 10:30 
+ratio. Furthermore virtual time calculated from LS of both child classes 
+will drift apart (more and more with passing time), which is precise 
+thing HFSC is trying to avoid
+
+2) UL curve is artificially limited - in this particular case in initial 
+period - only realtime criterion is updating virtual time, and RT curve 
+is half of UL one - thus ft calculated from received service using UL 
+will drift away from current time (again - more and more with passing 
+time). ITOW the class will become greedy :)  Actually there is a code 
+fragment commented out that is probably meant to prevent that.
+
+The effect is, that imemdiately after bumping up UL to 100 at 1:1, LS 
+criterion will be only considering class 1:2 as long as virtual time has 
+long way to catch with 1:3 (due to 1). At the same time 1:2's fittime is 
+lower than it should be (due to 2), so the class will not be upper 
+limited for some time period. RT of 1:3 will serve it 30, all available 
+LS will go to 1:2.
+
+After fittime catches up, 1:2 will get cut down by its UL again, while 
+1:3 will not be limited by it for some time. Thus - 20:80. vt won't 
+really matter at this time, as the arbitration is "choose class with 
+lowest vt, while ft fits". vt will start drifting apart again.
+
+Finally, once ft of both classes catch up, the final effect will be 20:40.
 
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 46a3f86..900e28b 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -1124,6 +1124,9 @@ static void tg3_wait_for_event_ack(struct tg3 *tp)
- 			break;
- 		udelay(8);
- 	}
-+
-+	if (i == delay_cnt)
-+		printk( KERN_WARNING "Firmware didn't ack driver event!\n" );
- }
- 
- /* tp->lock is held. */
-@@ -6330,12 +6333,16 @@ static void tg3_stop_fw(struct tg3 *tp)
- 		/* Wait for RX cpu to ACK the previous event. */
- 		tg3_wait_for_event_ack(tp);
- 
-+		printk( KERN_NOTICE "%s: Stopping firmware.\n", tp->dev->name );
-+
- 		tg3_write_mem(tp, NIC_SRAM_FW_CMD_MBOX, FWCMD_NICDRV_PAUSE_FW);
- 
- 		tg3_generate_fw_event(tp);
- 
- 		/* Wait for RX cpu to ACK this event. */
- 		tg3_wait_for_event_ack(tp);
-+
-+		printk( KERN_NOTICE "%s: Operation completed.\n", tp->dev->name );
- 	}
- }
- 
-@@ -7537,6 +7544,8 @@ static void tg3_timer(unsigned long __opaque)
- 		    !(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE)) {
- 			tg3_wait_for_event_ack(tp);
- 
-+			printk( KERN_NOTICE "%s: Sending keepalive event.\n", tp->dev->name );
-+
- 			tg3_write_mem(tp, NIC_SRAM_FW_CMD_MBOX,
- 				      FWCMD_NICDRV_ALIVE3);
- 			tg3_write_mem(tp, NIC_SRAM_FW_CMD_LEN_MBOX, 4);
+(I'll have to doublecheck it later, and look at the 2nd question)
 
