@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
-Date: Thu, 02 Jul 2009 13:36:55 -0700
-Message-ID: <m1ab3m255k.fsf@fess.ebiederm.org>
+Date: Thu, 02 Jul 2009 13:51:29 -0700
+Message-ID: <m11voyzu3y.fsf@fess.ebiederm.org>
 References: <200903011344.45814.denys@visp.net.lb>
 	<200907011242.12812.denys@visp.net.lb>
 	<m1ws6sqp3b.fsf@fess.ebiederm.org>
@@ -11,10 +11,10 @@ Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:48816 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:58298 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574AbZGBUg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:36:56 -0400
+	with ESMTP id S1752229AbZGBUva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:51:30 -0400
 In-Reply-To: <200907012201.13760.denys@visp.net.lb> (Denys Fedoryschenko's message of "Wed\, 1 Jul 2009 22\:01\:13 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -60,12 +60,20 @@ Denys Fedoryschenko <denys@visp.net.lb> writes:
 >
 > And RFC define to not do that (use default route for proxy_arp).
 
-We agree that proxy_arp for the default route is problem behavior.
+I just looked at the kernel code in a bit more detail as well as some examples.
+With routing properly setup it appears largely fool proof.
+The relevant piece in arp_process appears to be:
 
-The question is can you configure proxy_arp to not do that in your
-configuration?
+             if (addr_type == RTN_UNICAST  && rt->u.dst.dev != dev &&
 
-There is the medium_id tunable and the per interface proxy_arp tunable.
+Which says if when we consult the routing tables we would route the
+packet out an interface that it did not come in by do the whole
+proxy arp thing.
+
+Which says to me you do not have a route to the machine which
+is getting a address conflict on the network segment on which it
+is located.
+
+In summary the evidence I have suggests your routing is misconfigured.
 
 Eric
-
