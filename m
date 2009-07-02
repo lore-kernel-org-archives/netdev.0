@@ -1,132 +1,115 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [GIT]: Networking
-Date: Thu, 02 Jul 2009 13:29:35 -0400
-Message-ID: <4A4CEE7F.9060705@nvidia.com>
-References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com> <4A4CBE7D.2060603@gmail.com> <4A4CDCA4.3040505@nvidia.com> <4A4D3596.8060209@gmail.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Fri, 3 Jul 2009 02:03:08 +0300
+Message-ID: <200907030203.08294.denys@visp.net.lb>
+References: <200903011344.45814.denys@visp.net.lb> <200907030022.55186.denys@visp.net.lb> <m1y6r6wwxy.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:2507 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139AbZGBW75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 18:59:57 -0400
-In-Reply-To: <4A4D3596.8060209@gmail.com>
+Received: from hosting.visp.net.lb ([194.146.153.11]:37500 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbZGBXD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 19:03:28 -0400
+In-Reply-To: <m1y6r6wwxy.fsf@fess.ebiederm.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Friday 03 July 2009 01:18:33 Eric W. Biederman wrote:
+>
+> The problem is you have machines on the wrong subnet.
+>
+> If you are not enforcing which network your laptops are in you
+> want ethernet bridging not proxy_arp.
+>
+> Eric
+>
+More important - feature must work CORRECTLY. Sometimes bridge is not fitting 
+all needs. Probably behavior of well known networking vendor will be 
+respected.
+
+Here is example tested on Cisco IOS ( Cisco IOS Software, 7200 Software 
+(C7200-ADVIPSERVICESK9-M), Version 12.4(4)T1, RELEASE SOFTWARE (fc4))
 
 
-Eric Dumazet wrote:
-> Ayaz Abdulla a =E9crit :
->=20
->>
->>Eric Dumazet wrote:
->>
->>>Eric Dumazet a =E9crit :
->>>
->>>
->>>>Ingo Molnar a =E9crit :
->>>>
->>>>
->>>>>>The following changes since commit
->>>>>>52989765629e7d182b4f146050ebba0abf2cb0b7:
->>>>>> Linus Torvalds (1):
->>>>>>       Merge git://git.kernel.org/.../davem/net-2.6
->>>>>>
->>>>>>are available in the git repository at:
->>>>>>
->>>>>> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git ma=
-ster
->>>>>
->>>>>Hm, something in this lot quickly wrecked networking here - see th=
-e
->>>>>tx timeout dump below. It starts with:
->>>>>
->>>>>[  351.004596] WARNING: at net/sched/sch_generic.c:246
->>>>>dev_watchdog+0x10b/0x19c()
->>>>>[  351.011815] Hardware name: System Product Name
->>>>>[  351.016220] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0
->>>>>timed out
->>>>>
->>>>>Config attached. Unfortunately i've got no time to do bisection to=
-day.
->>>>
->>>>
->>>>
->>>>forcedeth might have a problem, in its netif_wake_queue() logic, bu=
-t
->>>>I could not see why a recent patch could make this problem visible =
-now.
->>>>
->>>>CPU0/1: AMD Athlon(tm) 64 X2 Dual Core Processor 3800+ stepping 02
->>>>is not a new cpu either :)
->>>>
->>>>forcedeth uses an internal tx_stop without appropriate barrier.
->>>>
->>>>Could you try following patch ?
->>>>
->>>>(random guess as I dont have much time right now)
->>>
->>>
->>>Oh well this patch was soooo stupid, sorry Ingo.
->>>
->>>
->>>We might have a race in napi_schedule(), leaving interrupts disabled
->>>forever.
->>>I cannot test this patch, I dont have the hardware...
->>>
->>>Thanks
->>>
->>>diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
->>>index 1094d29..3b4e076 100644
->>>--- a/drivers/net/forcedeth.c
->>>+++ b/drivers/net/forcedeth.c
->>>@@ -3514,11 +3514,13 @@ static irqreturn_t nv_nic_irq(int foo, void
->>>*data)
->>>     nv_msi_workaround(np);
->>>=20
->>> #ifdef CONFIG_FORCEDETH_NAPI
->>>-    napi_schedule(&np->napi);
->>>-
->>>-    /* Disable furthur irq's
->>>-       (msix not enabled with napi) */
->>>-    writel(0, base + NvRegIrqMask);
->>>+    if (napi_schedule_prep(&np->napi)) {
->>>+        /*
->>>+         * Disable further irq's (msix not enabled with napi)
->>>+         */
->>>+        writel(0, base + NvRegIrqMask);
->>>+        __napi_schedule(&np->napi);
->>>+    }
->>
->>Yes, good catch. There is a race condition here with napi poll.
->>
->>I would prefer to do the following to keep the code simple and clean.
->>
->>writel(0, base + NvRegIrqMask);
->>napi_schedule(&np->napi);
->=20
->=20
->=20
-> CC trimmed down to network devs only :)
->=20
-> It would be racy too ...
->=20
-> check drivers/net/amd8111e.c, drivers/net/natsemi.c ...
->=20
-> If this cpu inconditionaly calls writel(0, base + NvRegIrqMask);=20
-> while another cpu just called writel(np->irqmask, base + NvRegIrqMask=
-),
-> we end with disabled interrupts ?
-<BCC linux-kernel>
-
-Yes, but the next instruction is to call napi_schedule() which will=20
-re-enable interrupts in napi function.
+interface FastEthernet1/0
+ ip address 10.0.1.2 255.255.255.0
+ duplex half
+!
+interface FastEthernet2/0
+ ip address 10.0.2.2 255.255.255.0
+ duplex half
+!
+ip default-gateway 10.0.2.1
 
 
->=20
+fa 1/0 - tap0
+fa 2/0 - tap1
+
+home ~ # arping -I tap0 10.0.1.5
+ARPING 10.0.1.5 from 10.0.1.21 tap0
+^CSent 3 probes (3 broadcast(s))
+Received 0 response(s)
+home ~ # arping -I tap0 10.0.2.5
+ARPING 10.0.2.5 from 10.0.1.21 tap0
+Unicast reply from 10.0.2.5 [CA:00:0A:FC:00:1C]  6.477ms
+Unicast reply from 10.0.2.5 [CA:00:0A:FC:00:1C]  5.520ms
+Unicast reply from 10.0.2.5 [CA:00:0A:FC:00:1C]  4.842ms
+^CSent 3 probes (1 broadcast(s))
+Received 3 response(s)
+home ~ # arping -I tap0 4.5.6.7
+ARPING 4.5.6.7 from 10.0.1.21 tap0
+^CSent 4 probes (4 broadcast(s))
+Received 0 response(s)
+
+home ~ # ip addr add dev tap0 10.0.2.5
+home ~ # arping -I tap0 10.0.2.5
+ARPING 10.0.2.5 from 10.0.2.5 tap0
+
+home ~ # tcpdump -ni tap0 -s 1500 -vvv
+tcpdump: WARNING: tap0: no IPv4 address assigned
+tcpdump: listening on tap0, link-type EN10MB (Ethernet), capture size 1500 
+bytes
+01:46:21.404454
+01:46:31.404566
+01:46:35.756623 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.5, length 28
+01:46:36.756740 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.5, length 28
+01:46:37.756821 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.5, length 28
+
+they dont answer btw also for ip's who is not in their network, but this 
+doesn't matter, not defined in RFC, but good manner. Also it make impossible 
+situation with ARP announce answered by Cisco and  will not make false 
+positive IP conflict detection on Windows.
+
+home ~ # tcpdump -ni tap0 -s 1500 -vvv
+tcpdump: listening on tap0, link-type EN10MB (Ethernet), capture size 1500 
+bytes
+01:47:17.754393 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.7, length 28
+01:47:18.754581 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.7, length 28
+01:47:19.754628 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.7, length 28
+01:47:20.754674 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.0.2.5 
+(ff:ff:ff:ff:ff:ff) tell 10.0.2.7, length 28
+
+
+This is default behaviour,i just did 6 commands, no shutdown for interfaces, 
+assign ip's, default gw and enable proxy arp on interfaces(btw seems they are 
+enabled by default!), and it is CORRECT.
+
+Conclusion:
+
+1)Do not use default gateway for proxy-arp
+2)Do not answer for ip's who doesn't belong to this interface (at least)
+
+If i will put in network Linux machine, set default gw on other interface, and 
+set proxy_arp - it will screw up whole network giving arp reply to all arp 
+requests.
