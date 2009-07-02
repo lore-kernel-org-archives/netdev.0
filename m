@@ -1,79 +1,56 @@
-From: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-Subject: Re: [PATCH] bnx2: Fix the behavior of ethtool when ONBOOT=no
-Date: Thu, 02 Jul 2009 13:46:55 +0900
-Message-ID: <4A4C3BBF.8050005@miraclelinux.com>
-References: <1245862760.12000.507.camel@nseg_linux_HP1.broadcom.com>	<4A480FA8.4000401@miraclelinux.com>	<1246373417.1685.3.camel@lb-tlvb-eilong> <20090630.124619.163112912.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
+	Now=15 size=11 bits
+Date: Thu, 2 Jul 2009 05:32:16 +0000
+Message-ID: <20090702053216.GA4954@ff.dom.local>
+References: <20090630070929.GB5589@ff.dom.local> <4A4A72B9.3030400@itcare.pl> <20090630204141.GB3026@ami.dom.local> <4A4AA03D.5090808@itcare.pl> <20090701063651.GA4876@ff.dom.local> <20090701072409.GA12592@ff.dom.local> <4A4B2FA8.3040007@itcare.pl> <20090701101333.GB12715@ff.dom.local> <20090701110407.GC12715@ff.dom.local> <4A4BE06F.3090608@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, mchan@broadcom.com, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	Robert Olsson <robert@robur.slu.se>
+To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw.miraclelinux.com ([122.216.84.157]:48088 "EHLO
-	mailgw.miraclelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849AbZGBErM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 00:47:12 -0400
-In-Reply-To: <20090630.124619.163112912.davem@davemloft.net>
+Received: from fg-out-1718.google.com ([72.14.220.154]:46267 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754723AbZGBFcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 01:32:19 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so1034091fga.17
+        for <netdev@vger.kernel.org>; Wed, 01 Jul 2009 22:32:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A4BE06F.3090608@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
-
-I'm sorry for my tactless mail.
-I see your comment.
-
-Best Regards,
-Naohiro Ooiwa
-
-David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Tue, 30 Jun 2009 17:50:16 +0300
-> 
->> On Sun, 2009-06-28 at 17:49 -0700, Naohiro Ooiwa wrote:
->>> Hi Michael
->>>
->>> Thank you for your comment.
->>>
->>> I tried to create a patch of bnx2x driver.
->>> It's the same fix as bnx2 driver.
->>> Could you please check the my patch ?
->>>
->>> Of cource, I made sure of compile.
->> It is also working as expected. I already made a similar patch based on
->> your bnx2 fix and it looks exactly the same...
+On Thu, Jul 02, 2009 at 12:17:19AM +0200, Pawe=B3 Staszewski wrote:
+> Jarek Poplawski pisze:
+=2E..
+>> So, after your findings I'm about to recommend sending to -stable
+>> 3 patches from net-2.6, with additional lowering of threshold_root
+>> settings, but it would be nice if you could give it a try with
+>> CONFIG_PREEMPT instead of CONFIG_PREEMPT_NONE (if it doesn't break
+>> your other apps!) It is expected to work this time...;-) Maybe a
+>> bit slower.
 >>
->> Thanks!
->>
->>> Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
->> Acked-by: Eilon Greenstein <eilong@broadcom.com>
-> 
-> Applied, but you really need to begin writing proper changelog
-> entries when you send patches out.  Here is the one I wrote for you
-> below.  Otherwise a random person looking at this change will have no
-> idea the reason for it, nor what it is related to.
-> 
-> ==================================================
-> bnx2x: Fix the behavior of ethtool when ONBOOT=no
-> 
-> This is the same fix as commit
-> 7959ea254ed18faee41160b1c50b3c9664735967 ("bnx2: Fix the behavior of
-> ethtool when ONBOOT=no"), but for bnx2x:
-> 
-> --------------------
->     When configure in ifcfg-eth* is ONBOOT=no,
->     the behavior of ethtool command is wrong.
->     
->         # grep ONBOOT /etc/sysconfig/network-scripts/ifcfg-eth2
->         ONBOOT=no
->         # ethtool eth2 | tail -n1
->                 Link detected: yes
->     
->     I think "Link detected" should be "no".
-> --------------------
-> 
-> Signed-off-by: Naohiro Ooiwa <nooiwa@miraclelinux.com>
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
+>>  =20
+> Patch applied to 2.6.29.5 with CONFIG_PREEMPT_NONE
+> And working :)
 
+Hmm... It should, because you tested very similar patch already;-)
+Sorry if I didn't make it clear.
+
+>
+> fib_triestats in attached file
+>
+> I think I can test it with PREEMPT enabled but first i must make some=
+ =20
+> other tests of my apps that are on server.
+
+It could probably matter only if you're using some broken out-of-tree
+patches. Otherwise the kernel is expected to work OK.
+
+Btw., it would be also interesting to check if there is any difference
+wrt. these route cache problems while PREEMPT is enabled.
+
+Thanks,
+Jarek P.
