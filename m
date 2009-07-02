@@ -1,31 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [9P PATCH 2/2] net/9p: Fix crash due to bad mount parameters.
-Date: Thu, 02 Jul 2009 13:18:33 -0700 (PDT)
-Message-ID: <20090702.131833.250097602.davem@davemloft.net>
-References: <1246474254-10401-1-git-send-email-adkulkar@umail.iu.edu>
-	<1246474254-10401-2-git-send-email-adkulkar@umail.iu.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
+Date: Thu, 02 Jul 2009 21:33:28 +0100
+Message-ID: <1246566808.9821.2.camel@deadeye>
+References: <20090702111820.GA21085@serverengines.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: adkulkar@umail.iu.edu
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38084
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755207AbZGBUS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:18:27 -0400
-In-Reply-To: <1246474254-10401-2-git-send-email-adkulkar@umail.iu.edu>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:45943 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754016AbZGBUd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:33:28 -0400
+In-Reply-To: <20090702111820.GA21085@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Abhishek Kulkarni <adkulkar@umail.iu.edu>
-Date: Wed,  1 Jul 2009 12:50:54 -0600
+On Thu, 2009-07-02 at 16:48 +0530, Sarveshwar Bandi wrote: 
+> Please review and apply patch to net-next tree. Patch implements the 
+> request_firmware interface.
+[...] 
+> +	/* fw ver on board matches */
+> +	if (!strncmp(fhdr->sign + strlen(FW_FILE_HDR_SIGN), fw_ver,
+> +			FW_VER_LEN))
+> +		goto fw_exit;
+> +
+> +	dev_info(&adapter->pdev->dev,
+> +		"Flashing firmware file %s\n", fw_file);
+[...]
 
-> It is not safe to use match_int without checking the token type returned
-> by match_token (especially when the token type returned is Opt_err and
-> args is empty). Fix it.
-> 
-> Signed-off-by: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+request_firmware() is really intended for loading non-persistent
+"firmware" that must be loaded into the device's RAM after power-on
+reset.  It is not expected and should not be necessary that drivers
+automatically update firmware in flash memory.  I also understand that
+some OEMs specifically forbid their suppliers to do this automatically
+in drivers.
 
-Applied.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
