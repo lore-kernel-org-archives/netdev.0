@@ -1,96 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Thu, 02 Jul 2009 12:51:17 +0200
-Message-ID: <4A4C9125.8020705@gmail.com>
-References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu>
+From: Joao Correia <joaomiguelcorreia@gmail.com>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (possibly caused
+	by netem)
+Date: Thu, 2 Jul 2009 11:51:56 +0100
+Message-ID: <a5d9929e0907020351u4e441486nf285ac6cb32c3202@mail.gmail.com>
+References: <4A4A9DD6.8060800@anarazel.de> <4A4BAD5F.7050908@gmail.com>
+	<4A4BD384.3090407@anarazel.de> <4A4C0144.5070203@anarazel.de>
+	<20090702093031.GC4954@ff.dom.local> <20090702101207.GA7056@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:50577 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375AbZGBKvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 06:51:32 -0400
-In-Reply-To: <20090702075724.GA10608@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Andres Freund <andres@anarazel.de>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756270AbZGBKwa@vger.kernel.org>
+In-Reply-To: <20090702101207.GA7056@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ingo Molnar a =E9crit :
->> The following changes since commit 52989765629e7d182b4f146050ebba0ab=
-f2cb0b7:
->>   Linus Torvalds (1):
->>         Merge git://git.kernel.org/.../davem/net-2.6
+Im getting this one too. On any .31-rc1-gitXX, it pops up a few
+seconds after i turn traffic shaping on with tc/htb (no netem here).
+Its easily reproducible on my end, turn on traffic shaping, get
+traffic flowing, box freezes. No error message, nothing on logs,
+although -sometimes- i get lockdep error messages on screen, but
+scrolls too fast and box is otherwise unresponsive, so i can't get the
+error out.
+
+This does not happen on 2.6.30 at all.
+
+Hope this helps.
+
+(i tried both CONFIG_PACKET_MMAP off and the patch, still happens).
+
+Joao Correia
+Centro de Informatica
+Universidade da Beira Interior
+Portugal
+
+
+(snip firewall script. TCBIN is just tc, OUTIF is just the outside
+interface (gigabit D-Link using r8169 driver))
+$TCBIN class add dev $OUTIF parent 1: classid 1:1 htb rate
+${UPLINK}kbit ceil ${UPLINK}kbit
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:10 htb rate
+$[30*$UPLINK/100]kbit ceil $[30*$UPLINK/100]kbit prio 0
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:11 htb rate
+$[30*$UPLINK/100]kbit ceil ${UPLINK}kbit prio 1
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:12 htb rate
+$[8*$UPLINK/100]kbit ceil ${UPLINK}kbit prio 2
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:13 htb rate
+$[8*$UPLINK/100]kbit ceil ${UPLINK}kbit prio 2
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:14 htb rate
+$[10*$UPLINK/100]kbit ceil ${UPLINK}kbit prio 7 quantum 50000
+$TCBIN class add dev $OUTIF parent 1:1 classid 1:15 htb rate
+$[13*$UPLINK/100]kbit ceil ${UPLINK}kbit prio 8
+
+$TCBIN qdisc add dev $OUTIF parent 1:12 handle 120: sfq perturb 10
+$TCBIN qdisc add dev $OUTIF parent 1:13 handle 130: sfq perturb 10
+$TCBIN qdisc add dev $OUTIF parent 1:14 handle 140: sfq perturb 10
+$TCBIN qdisc add dev $OUTIF parent 1:15 handle 150: sfq perturb 10
+
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 1 handle 1 fw
+classid 1:10
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 2 handle 2 fw
+classid 1:11
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 3 handle 3 fw
+classid 1:12
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 4 handle 4 fw
+classid 1:13
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 5 handle 5 fw
+classid 1:14
+$TCBIN filter add dev $OUTIF parent 1:0 protocol ip prio 6 handle 6 fw
+classid 1:15
+(snip firewall script)
+
+On Thu, Jul 2, 2009 at 11:12 AM, Jarek Poplawski<jarkao2@gmail.com> wro=
+te:
+> On Thu, Jul 02, 2009 at 09:30:31AM +0000, Jarek Poplawski wrote:
+>> On Thu, Jul 02, 2009 at 02:37:24AM +0200, Andres Freund wrote:
+>> ...
+>> > So I tried - and I did not catch any lockdep output before the cra=
+sh.
+>> > Unfortunately I do not have another machine on the same local netw=
+ork to
+>> > catch any messages after the crash... So I could be missing some w=
+arning
+>> > (I did synchronous logging though).
+>> > Will check with netconsole tomorrow.
 >>
->> are available in the git repository at:
->>
->>   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git mast=
-er
->=20
-> Hm, something in this lot quickly wrecked networking here - see the=20
-> tx timeout dump below. It starts with:
->=20
-> [  351.004596] WARNING: at net/sched/sch_generic.c:246 dev_watchdog+0=
-x10b/0x19c()
-> [  351.011815] Hardware name: System Product Name
-> [  351.016220] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0 ti=
-med out
->=20
-> Config attached. Unfortunately i've got no time to do bisection=20
-> today.
-
-
-
-forcedeth might have a problem, in its netif_wake_queue() logic, but
-I could not see why a recent patch could make this problem visible now.
-
-CPU0/1: AMD Athlon(tm) 64 X2 Dual Core Processor 3800+ stepping 02
-is not a new cpu either :)
-
-forcedeth uses an internal tx_stop without appropriate barrier.
-
-Could you try following patch ?
-
-(random guess as I dont have much time right now)
-
-Thank you
-
-
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 1094d29..dc6bbde 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -2165,7 +2165,7 @@ static int nv_start_xmit(struct sk_buff *skb, str=
-uct net_device *dev)
- 	empty_slots =3D nv_get_empty_tx_slots(np);
- 	if (unlikely(empty_slots <=3D entries)) {
- 		netif_stop_queue(dev);
--		np->tx_stop =3D 1;
-+		set_mb(np->tx_stop, 1);
- 		spin_unlock_irqrestore(&np->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2286,7 +2286,7 @@ static int nv_start_xmit_optimized(struct sk_buff=
- *skb, struct net_device *dev)
- 	empty_slots =3D nv_get_empty_tx_slots(np);
- 	if (unlikely(empty_slots <=3D entries)) {
- 		netif_stop_queue(dev);
--		np->tx_stop =3D 1;
-+		set_mb(np->tx_stop, 1);
- 		spin_unlock_irqrestore(&np->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2564,7 +2564,7 @@ static void nv_tx_timeout(struct net_device *dev)
- 	else
- 		status =3D readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
-=20
--	printk(KERN_INFO "%s: Got tx_timeout. irq: %08x\n", dev->name, status=
-);
-+	printk(KERN_INFO "%s: Got tx_timeout. irq: %08x tx_stop=3D%d\n", dev-=
->name, status, np->tx_stop);
-=20
- 	{
- 		int i;
+>> Could you try if this patch changes anything?
+>
+> ...and maybe CONFIG_PACKET_MMAP turned off.
+>
+> Jarek P.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
