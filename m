@@ -1,62 +1,64 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [PATCHv4 2/2] memory barrier: adding smp_mb__after_lock
-Date: Thu, 2 Jul 2009 07:39:04 -0700 (PDT)
-Message-ID: <alpine.DEB.1.10.0907020738020.5194@makko.or.mcafeemobile.com>
-References: <20090702063259.GA3429@jolsa.lab.eng.brq.redhat.com> <20090702063624.GC3429@jolsa.lab.eng.brq.redhat.com> <4A4C5983.7000501@gmail.com>
+From: Julius Volz <julius.volz@gmail.com>
+Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG messages
+Date: Thu, 2 Jul 2009 16:43:39 +0200
+Message-ID: <43ca39800907020743v1ccc1979o5a934d5ead05edc9@mail.gmail.com>
+References: <20090624132232.GA9633@egardia>
+	 <20090628154302.GB21519@verge.net.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-761880546-1246545545=:5194"
-Cc: Jiri Olsa <jolsa@redhat.com>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([64.71.152.41]:38867 "EHLO
-	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478AbZGBOjD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 10:39:03 -0400
-Received: from makko.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.26 ESMTP Server]
-	id <S2F559B> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Thu, 2 Jul 2009 10:38:03 -0400
-In-Reply-To: <4A4C5983.7000501@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	robert.gallagher@heanet.ie
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20090628154302.GB21519@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi Simon,
 
---8323329-761880546-1246545545=:5194
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+On Sun, Jun 28, 2009 at 5:43 PM, Simon Horman<horms@verge.net.au> wrote=
+:
+> On Wed, Jun 24, 2009 at 03:22:32PM +0200, Julius Volz wrote:
+>> Add handling of incoming ICMPv6 Packet Too Big messages. This messag=
+e
+>> is received when a realserver sends a packet >PMTU to the client. Th=
+e
+>> hop on this path with insufficient MTU will generate an ICMPv6 Packe=
+t
+>> Too Big message back to the VIP. The LVS server receives this messag=
+e,
+>> but the call to the function handling this has been missing. Thus, I=
+PVS
+>> fails to forward the message to the real server, which then does not
+>> adjust the path MTU. This patch adds the missing call to
+>> ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
+>>
+>> Thanks to Rob Gallagher from HEAnet for reporting this issue and for
+>> testing this patch in production (with direct routing mode).
+>>
+>> Signed-off-by: Julius Volz <julius.volz@gmail.com>
+>> Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
+>
+> Hi Julius, Hi Rob,
+>
+> this seems reasonable to me, although it seems that the following
+> code is common. I wonder if its repetition could be removed.
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (related)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return=
+ verdict;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ip_vs_fill_iphdr(af, s=
+kb_network_header(skb), &iph);
 
-On Thu, 2 Jul 2009, Eric Dumazet wrote:
+I agree, though I see no "nice" way to remove this duplication
+considering the ifs and #ifdefs around this. You could move the
+related and verdict variables to the top of the function and then
+recheck afterwards whether one of these ICMP-handling branches was
+entered and put the common code in there. But this seems more
+cumbersome to me than repeating the code. Maybe you see a nicer way?
+Btw., exactly this structure already exists in ip_vs_out(), which is
+why I adopted it like this for ip_vs_in().
 
-> Jiri Olsa a écrit :
-> > Adding smp_mb__after_lock define to be used as a smp_mb call after
-> > a lock.  
-> > 
-> > Making it nop for x86, since {read|write|spin}_lock() on x86 are 
-> > full memory barriers.
-> > 
-> > wbr,
-> > jirka
-> > 
-> > 
-> > Signed-off-by: Jiri Olsa <jolsa@redhat.com>
-> 
-> 
-> Maybe we should remind that sk_has_helper() is always called
-> right after a call to read_lock() as in :
-> 
-> 	read_lock(&sk->sk_callback_lock);
-> 	if (sk_has_sleeper(sk))
-> 		wake_up_interruptible_all(sk->sk_sleep);
-
-Agreed, that'd be to have it in the source code comment.
-
-
-- Davide
-
-
---8323329-761880546-1246545545=:5194--
+Cheers,
+Julius
