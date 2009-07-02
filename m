@@ -1,118 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Fri, 03 Jul 2009 00:32:54 +0200
-Message-ID: <4A4D3596.8060209@gmail.com>
-References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com> <4A4CBE7D.2060603@gmail.com> <4A4CDCA4.3040505@nvidia.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/4] ixgbe: fix issues with failing to detect insert
+	of unsupported module
+Date: Thu, 02 Jul 2009 15:50:12 -0700
+Message-ID: <20090702225012.22746.57218.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39494 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755022AbZGBWdB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 18:33:01 -0400
-In-Reply-To: <4A4CDCA4.3040505@nvidia.com>
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:59779 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752214AbZGBWu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 18:50:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ayaz Abdulla a =E9crit :
->=20
->=20
-> Eric Dumazet wrote:
->> Eric Dumazet a =E9crit :
->>
->>> Ingo Molnar a =E9crit :
->>>
->>>>> The following changes since commit
->>>>> 52989765629e7d182b4f146050ebba0abf2cb0b7:
->>>>>  Linus Torvalds (1):
->>>>>        Merge git://git.kernel.org/.../davem/net-2.6
->>>>>
->>>>> are available in the git repository at:
->>>>>
->>>>>  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git ma=
-ster
->>>>
->>>> Hm, something in this lot quickly wrecked networking here - see th=
-e
->>>> tx timeout dump below. It starts with:
->>>>
->>>> [  351.004596] WARNING: at net/sched/sch_generic.c:246
->>>> dev_watchdog+0x10b/0x19c()
->>>> [  351.011815] Hardware name: System Product Name
->>>> [  351.016220] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0
->>>> timed out
->>>>
->>>> Config attached. Unfortunately i've got no time to do bisection to=
-day.
->>>
->>>
->>>
->>> forcedeth might have a problem, in its netif_wake_queue() logic, bu=
-t
->>> I could not see why a recent patch could make this problem visible =
-now.
->>>
->>> CPU0/1: AMD Athlon(tm) 64 X2 Dual Core Processor 3800+ stepping 02
->>> is not a new cpu either :)
->>>
->>> forcedeth uses an internal tx_stop without appropriate barrier.
->>>
->>> Could you try following patch ?
->>>
->>> (random guess as I dont have much time right now)
->>
->>
->> Oh well this patch was soooo stupid, sorry Ingo.
->>
->>
->> We might have a race in napi_schedule(), leaving interrupts disabled
->> forever.
->> I cannot test this patch, I dont have the hardware...
->>
->> Thanks
->>
->> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
->> index 1094d29..3b4e076 100644
->> --- a/drivers/net/forcedeth.c
->> +++ b/drivers/net/forcedeth.c
->> @@ -3514,11 +3514,13 @@ static irqreturn_t nv_nic_irq(int foo, void
->> *data)
->>      nv_msi_workaround(np);
->> =20
->>  #ifdef CONFIG_FORCEDETH_NAPI
->> -    napi_schedule(&np->napi);
->> -
->> -    /* Disable furthur irq's
->> -       (msix not enabled with napi) */
->> -    writel(0, base + NvRegIrqMask);
->> +    if (napi_schedule_prep(&np->napi)) {
->> +        /*
->> +         * Disable further irq's (msix not enabled with napi)
->> +         */
->> +        writel(0, base + NvRegIrqMask);
->> +        __napi_schedule(&np->napi);
->> +    }
->=20
-> Yes, good catch. There is a race condition here with napi poll.
->=20
-> I would prefer to do the following to keep the code simple and clean.
->=20
-> writel(0, base + NvRegIrqMask);
-> napi_schedule(&np->napi);
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
+Several small fixes around negative test case of the insertion of a
+IXGBE_ERR_NOT_SUPPORTED module.
 
-CC trimmed down to network devs only :)
+- mdio45_probe call was always failing due to mdio.prtad not being
+set.  The function set to mdio.mdio_read was still working as we just
+happen to always be at prtad == 0.  This will allow us to set the phy_id
+and phy.type correctly now.
 
-It would be racy too ...
+- There was timing issue with i2c calls when initiated from a tasklet.
+A small delay was added to allow the electrical oscillation to calm down.
 
-check drivers/net/amd8111e.c, drivers/net/natsemi.c ...
+- Logic change in ixgbe_sfp_task that allows NOT_SUPPORTED condition
+to be recognized.
 
-If this cpu inconditionaly calls writel(0, base + NvRegIrqMask);=20
-while another cpu just called writel(np->irqmask, base + NvRegIrqMask),
-we end with disabled interrupts ?
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |    8 ++++++--
+ drivers/net/ixgbe/ixgbe_phy.c  |    3 +++
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 5588ef4..aaf482c 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3724,7 +3724,7 @@ static void ixgbe_sfp_task(struct work_struct *work)
+ 	if ((hw->phy.type == ixgbe_phy_nl) &&
+ 	    (hw->phy.sfp_type == ixgbe_sfp_type_not_present)) {
+ 		s32 ret = hw->phy.ops.identify_sfp(hw);
+-		if (ret)
++		if (ret == IXGBE_ERR_SFP_NOT_PRESENT)
+ 			goto reschedule;
+ 		ret = hw->phy.ops.reset(hw);
+ 		if (ret == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+@@ -4534,13 +4534,17 @@ static void ixgbe_sfp_config_module_task(struct work_struct *work)
+ 	u32 err;
+ 
+ 	adapter->flags |= IXGBE_FLAG_IN_SFP_MOD_TASK;
++
++	/* Time for electrical oscillations to settle down */
++	msleep(100);
+ 	err = hw->phy.ops.identify_sfp(hw);
++
+ 	if (err == IXGBE_ERR_SFP_NOT_SUPPORTED) {
+ 		dev_err(&adapter->pdev->dev, "failed to initialize because "
+ 			"an unsupported SFP+ module type was detected.\n"
+ 			"Reload the driver after installing a supported "
+ 			"module.\n");
+-		ixgbe_down(adapter);
++		unregister_netdev(adapter->netdev);
+ 		return;
+ 	}
+ 	hw->mac.ops.setup_sfp(hw);
+diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
+index 453e966..9ecad17 100644
+--- a/drivers/net/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ixgbe/ixgbe_phy.c
+@@ -60,6 +60,7 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
+ 
+ 	if (hw->phy.type == ixgbe_phy_unknown) {
+ 		for (phy_addr = 0; phy_addr < IXGBE_MAX_PHY_ADDR; phy_addr++) {
++			hw->phy.mdio.prtad = phy_addr;
+ 			if (mdio45_probe(&hw->phy.mdio, phy_addr) == 0) {
+ 				ixgbe_get_phy_id(hw);
+ 				hw->phy.type =
+@@ -68,6 +69,8 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw)
+ 				break;
+ 			}
+ 		}
++		/* clear value if nothing found */
++		hw->phy.mdio.prtad = 0;
+ 	} else {
+ 		status = 0;
+ 	}
 
