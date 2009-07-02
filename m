@@ -1,81 +1,110 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Thu, 2 Jul 2009 06:00:11 +0000
-Message-ID: <20090702060011.GB4954@ff.dom.local>
-References: <20090630204141.GB3026@ami.dom.local> <4A4AA03D.5090808@itcare.pl> <20090701063651.GA4876@ff.dom.local> <20090701072409.GA12592@ff.dom.local> <4A4B2FA8.3040007@itcare.pl> <20090701101333.GB12715@ff.dom.local> <20090701110407.GC12715@ff.dom.local> <4A4BE06F.3090608@itcare.pl> <20090702053216.GA4954@ff.dom.local> <4A4C48FD.7040002@itcare.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at include/net/sock.h:417 udp_lib_unhash
+Date: Thu, 02 Jul 2009 08:10:14 +0200
+Message-ID: <4A4C4F46.2070701@gmail.com>
+References: <EA929A9653AAE14F841771FB1DE5A1365F8AB77D05@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	Robert Olsson <robert@robur.slu.se>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Cc: NetDev <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jiri Olsa <jolsa@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:59824 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751094AbZGBGAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 02:00:15 -0400
-Received: by fxm18 with SMTP id 18so1249205fxm.37
-        for <netdev@vger.kernel.org>; Wed, 01 Jul 2009 23:00:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A4C48FD.7040002@itcare.pl>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:49430 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbZGBGLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 02:11:36 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F8AB77D05@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 02, 2009 at 07:43:25AM +0200, Pawe=B3 Staszewski wrote:
-> Jarek Poplawski pisze:
->> On Thu, Jul 02, 2009 at 12:17:19AM +0200, Pawe=B3 Staszewski wrote:
->>  =20
->>> Jarek Poplawski pisze:
->>>    =20
->> ...
->>  =20
->>>> So, after your findings I'm about to recommend sending to -stable
->>>> 3 patches from net-2.6, with additional lowering of threshold_root
->>>> settings, but it would be nice if you could give it a try with
->>>> CONFIG_PREEMPT instead of CONFIG_PREEMPT_NONE (if it doesn't break
->>>> your other apps!) It is expected to work this time...;-) Maybe a
->>>> bit slower.
->>>>
->>>>        =20
->>> Patch applied to 2.6.29.5 with CONFIG_PREEMPT_NONE
->>> And working :)
->>>    =20
->>
->> Hmm... It should, because you tested very similar patch already;-)
->> Sorry if I didn't make it clear.
->>
->>  =20
-> Yes i know there was almost identical one.
-> And i see this was without sync rcu :)
+Tantilov, Emil S a =E9crit :
+> I see the following trace during netperf stress mixed UDP/TCP IPv4/6 =
+traffic. This is on recent pulls from net-2.6 and net-next.
+>=20
+> [45197.989163] ------------[ cut here ]------------
+> [45197.994309] WARNING: at include/net/sock.h:417 udp_lib_unhash+0x81=
+/0xab()
+> [45197.994311] Hardware name: X7DA8
+> [45197.994314] Modules linked in: e1000 [last unloaded: e1000]
+> [45197.994326] Pid: 7110, comm: netserver Tainted: G        W  2.6.31=
+-rc1-net-next-e1000-06250902 #8
+> [45197.994331] Call Trace:
+> [45197.994336]  [<ffffffff8135e0dc>] ? udp_lib_unhash+0x81/0xab
+> [45197.994344]  [<ffffffff8103cac9>] warn_slowpath_common+0x77/0x8f
+> [45197.994349]  [<ffffffff8103caf0>] warn_slowpath_null+0xf/0x11
+> [45197.994352]  [<ffffffff8135e0dc>] udp_lib_unhash+0x81/0xab
+> [45197.994357]  [<ffffffff81301acb>] sk_common_release+0x2f/0xb4
+> [45197.994364]  [<ffffffff813a0256>] udp_lib_close+0x9/0xb
+> [45197.994369]  [<ffffffff81364259>] inet_release+0x58/0x5f
+> [45197.994374]  [<ffffffff8138c8bd>] inet6_release+0x30/0x35
+> [45197.994383]  [<ffffffff812ff273>] sock_release+0x1a/0x6c
+> [45197.994386]  [<ffffffff812ff763>] sock_close+0x22/0x26
+> [45197.994392]  [<ffffffff810c69a0>] __fput+0xf0/0x18c
+> [45197.994395]  [<ffffffff810c6d00>] fput+0x15/0x19
+> [45197.994399]  [<ffffffff810c3c3e>] filp_close+0x5c/0x67
+> [45197.994404]  [<ffffffff810c3cc4>] sys_close+0x7b/0xb6
+> [45197.994412]  [<ffffffff8100baeb>] system_call_fastpath+0x16/0x1b
+> [45197.994418] ---[ end trace 5acab6fc0afdaaa3 ]---
+>=20
+> Emil--
 
-Yes, it looks like we can't free memory so simple because of such huge
-latencies. =20
+Thanks for this report Emil.
 
->
->>> fib_triestats in attached file
->>>
->>> I think I can test it with PREEMPT enabled but first i must make so=
-me=20
->>>  other tests of my apps that are on server.
->>>    =20
->>
->> It could probably matter only if you're using some broken out-of-tre=
-e
->> patches. Otherwise the kernel is expected to work OK.
->>
->>  =20
-> Im a little confused about using of PREEMPT kernel because of past
-> there was many oopses / lockups :) but yes that was a little long tim=
-e ago.
-> I will try to make this test today.
->
->> Btw., it would be also interesting to check if there is any differen=
-ce
->> wrt. these route cache problems while PREEMPT is enabled.
+I could not find a recent change in this area in last kernels.
+If struct sk is hashed (sk_hashed() true), then sk_refcnt was increment=
+ed
+in sk_nulls_add_node_rcu(), thus its value should be >=3D 2.
 
-And you're very right! The place we're fixing is the best example. On
-the other hand, I hope there is not many such places yet. But if we
-test/fix it there will be one less...
+Maybe we have a missing memory barrier somewhere or a list corruption.
 
-Jarek P.
+1) Could you try CONFIG_DEBUG_LIST=3Dy ?
+
+2) Could you give model of cpu, since it reminds me the ongoing discuss=
+ion raised by Jiri Olsa.
+
+CPU1 does an atomic_inc(&sk->sk_refcnt)  : refcnt changes from 1 to 2
+then CPU2 does an atomic_read(&sk->sk_refcnt) and reads 1 instead of 2
+
+David, maybe this test is not safe and if we really want to do a check
+we need to use a stronger atomic function.
+
+If you can reproduce this problem easily could you try following patch =
+?
+
+Thank you
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 352f06b..96ab278 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -393,8 +393,9 @@ static __inline__ int sk_del_node_init(struct sock =
+*sk)
+=20
+ 	if (rc) {
+ 		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) =3D=3D 1);
+-		__sock_put(sk);
++		int res =3D atomic_dec_return(&sk->sk_refcnt);
++
++		WARN_ON(res <=3D 0);
+ 	}
+ 	return rc;
+ }
+@@ -413,9 +414,9 @@ static __inline__ int sk_nulls_del_node_init_rcu(st=
+ruct sock *sk)
+ 	int rc =3D __sk_nulls_del_node_init_rcu(sk);
+=20
+ 	if (rc) {
+-		/* paranoid for a while -acme */
+-		WARN_ON(atomic_read(&sk->sk_refcnt) =3D=3D 1);
+-		__sock_put(sk);
++		int res =3D atomic_dec_return(&sk->sk_refcnt);
++
++		WARN_ON(res <=3D 0);
+ 	}
+ 	return rc;
+ }
