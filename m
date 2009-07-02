@@ -1,129 +1,82 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
-Date: Fri, 3 Jul 2009 00:22:55 +0300
-Message-ID: <200907030022.55186.denys@visp.net.lb>
-References: <200903011344.45814.denys@visp.net.lb> <200907012201.13760.denys@visp.net.lb> <m11voyzu3y.fsf@fess.ebiederm.org>
+From: Robert Olsson <robert@herjulf.net>
+Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
+	Now=15 size=11 bits
+Date: Thu, 2 Jul 2009 23:32:26 +0200
+Message-ID: <19021.10090.995805.740700@gargle.gargle.HOWL>
+References: <20090701063651.GA4876@ff.dom.local>
+	<20090701072409.GA12592@ff.dom.local>
+	<4A4B2FA8.3040007@itcare.pl>
+	<20090701101333.GB12715@ff.dom.local>
+	<20090701110407.GC12715@ff.dom.local>
+	<4A4BE06F.3090608@itcare.pl>
+	<20090702053216.GA4954@ff.dom.local>
+	<4A4C48FD.7040002@itcare.pl>
+	<20090702060011.GB4954@ff.dom.local>
+	<19020.53998.330803.83554@gargle.gargle.HOWL>
+	<20090702190626.GA2737@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Robert Olsson <robert@herjulf.net>,
+	=?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:36800 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754573AbZGBVXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 17:23:12 -0400
-In-Reply-To: <m11voyzu3y.fsf@fess.ebiederm.org>
-Content-Disposition: inline
+Received: from av9-1-sn3.vrr.skanova.net ([81.228.9.185]:52672 "EHLO
+	av9-1-sn3.vrr.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756571AbZGBVbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 17:31:46 -0400
+In-Reply-To: <20090702190626.GA2737@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 02 July 2009 23:51:29 Eric W. Biederman wrote:
->
-> I just looked at the kernel code in a bit more detail as well as some
-> examples. With routing properly setup it appears largely fool proof.
-> The relevant piece in arp_process appears to be:
->
->              if (addr_type == RTN_UNICAST  && rt->u.dst.dev != dev &&
->
-> Which says if when we consult the routing tables we would route the
-> packet out an interface that it did not come in by do the whole
-> proxy arp thing.
->
-> Which says to me you do not have a route to the machine which
-> is getting a address conflict on the network segment on which it
-> is located.
->
-> In summary the evidence I have suggests your routing is misconfigured.
->
-> Eric
-It just have default route. Using it in proxy_arp clearly VIOLATE RFC!
 
-I did small simulated setup.
+Jarek Poplawski writes:
 
-Example:
-default via 10.0.1.1 dev eth1
-10.0.0.0/24 dev eth0  proto kernel  scope link  src 10.0.0.2
-10.0.1.0/24 dev eth1  proto kernel  scope link  src 10.0.1.2
-
-eth0 attached to my tap0
-
-defaulthost ~ # sysctl -w net.ipv4.conf.eth0.proxy_arp=1
-net.ipv4.conf.eth0.proxy_arp = 1
-
-Testing
-
-home ~ # arping -I tap0 10.0.1.6
-ARPING 10.0.1.6 from 10.0.0.1 tap0
-Unicast reply from 10.0.1.6 [52:54:00:12:34:56]  85.706ms
-Unicast reply from 10.0.1.6 [52:54:00:12:34:56]  0.683ms
-^CSent 2 probes (1 broadcast(s))
-Received 2 response(s)
-
-!!! Correct. Thats why i need proxy_arp, i can reach hosts in eth1
-
-home ~ # arping -I tap0 5.6.7.8
-ARPING 5.6.7.8 from 10.0.0.1 tap0
-Unicast reply from 5.6.7.8 [52:54:00:12:34:56]  353.697ms
-Unicast reply from 5.6.7.8 [52:54:00:12:34:56]  0.740ms
-Unicast reply from 5.6.7.8 [52:54:00:12:34:56]  0.697ms
-^CSent 3 probes (1 broadcast(s))
-Received 3 response(s)
-
-!!! Not correct. It uses default route as reference "where i can route", which 
-violates RFC.
-Laptop with ip 5.6.7.8 (have nothing to do to with this router) with Windows 
-XP will not be able to work. He will get ip conflict.
-Network , for example, is on unmanaged switches, so i cannot isolate it from 
-this router.
-
-If i do:
-defaulthost ~ # sysctl -w net.ipv4.conf.eth1.medium_id=2
-net.ipv4.conf.eth1.medium_id = 2
-defaulthost ~ # sysctl -w net.ipv4.conf.eth0.medium_id=2
-net.ipv4.conf.eth0.medium_id = 2
+ > >  Controlling RCU seems crucial. Insertion of the full BGP table increased
+ > >  from 2 seconds to > 20 min with one synchronize_rcu patches.
+ > 
+ > I wish I knew this a few days before. I could imagine a slow down,
+ > but it looked like it was stuck. Since these last changes weren't
+ > tested on SMP + PREEMPT I thought there is still something broken.
+ > (I was mainly interested in this synchronize_rcu at the moment as
+ > a preemption test.)  
 
 
-home ~ # arping -I tap0 5.6.7.8
-ARPING 5.6.7.8 from 10.0.0.1 tap0
-^CSent 3 probes (3 broadcast(s))
-Received 0 response(s)
+ Honestly this huge slowdown was surprise for me too. I think I sent 
+ you a script so you could insert the full table yourself.
 
-Correct. Laptop will not get ip conflict
+ > >  And fib_trie "worst case" wrt memory is the root node. So maybe we should 
+ > >  monitor changes in root node and use this to control synchronize_rcu.
+ > > 
+ > >  Didn't Paul suggest something like this?
+ > 
+ > Sure, and it needs testing, but we should send some safe preemption
+ > fix for -stable first, don't we?
+ 
+ Yes my hope was that we could combine them... personally I'll need 
+ to understand who we can preeemted better in the different configs
+ and most of that this can be handled by "standard" RCU.
 
-home ~ # arping -I tap0 10.0.1.6
-ARPING 10.0.1.6 from 10.0.0.1 tap0
-^CSent 3 probes (3 broadcast(s))
-Received 0 response(s)
+ > >  And with don't find any decent solution we have to add an option for 
+ > >  a fixed and pre-allocated root-nod typically for BGP-routers.
+ > 
+ > Probably you're right; I'd prefer to see the test results showing
+ > a difference vs. simply less aggressive root thresholds. But of
+ > course, even if not convinced, I'll respect your choice as the author
+ > and maintainer, so feel free to NAK my proposals - I won't get it
+ > personally.;-)
 
-Not correct. Oops, i cannot talk with 10.0.1.6 anymore, and proxy_arp supposed 
-to help me with this.
+ Thresholds we can change no problem... but very soon I'll people 
+ will start routing without the route cache this at least in close
+ to Internet core ,we will need all fib_look performance we can get.
 
-If i set different medium id - it will be same as default, 0. 
-Any ideas how medium_id will help here?
+ fib_trie was designed for classical RCU and no preempt you see the
+ names i file... so this new and very challenging work to all of us.
+ 
+ First week of vacation and have to fix the roof of the house...
+ it's hot and dirty. 
 
-
-So once more again, i dont mind proxy_arp main purprose to help devices to 
-communicate in different physical networks. But if it gives answers to ARP 
-announce it is WRONG. Because ARP answer for ARP announce(gratitous), it 
-should only answer if it really knows about ip conflict. In current setup - 
-if it have ip on this machine. 
-
-ARP announce main puprose to update ARP cache AND to check for possible IP 
-conflicts. proxy_arp current behavior will just screw this idea even without 
-default issue.
-
-If i have two networks proxy arp'ed
-10.0.0.0/24 physical segment
-10.0.1.0/24 physical segment
-
-proxy_arp host between them, so users can set on their laptops /22 and 
-communicate freely like they are in one segment.
-
-Some user with XP on laptop with ip 10.0.0.66/22 will come to 10.0.1.0/24 
-physical segment. As second he will turn on his laptop - proxy_arp host will 
-give him incorrect answer to his ARP announce "10.0.0.66 (ff:ff:ff:ff:ff:ff) 
-tell 10.0.0.66", it will tell "Reply 10.0.0.66 is-at 52:54:00:12:34:56" - 
-that IP is busy. And thats wrong. arp_proxy should help hosts to communicate, 
-but should not give incorrect answers that ip is taken.
+ Cheers.
+					--ro
