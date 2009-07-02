@@ -1,64 +1,35 @@
-From: Julius Volz <julius.volz@gmail.com>
-Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG messages
-Date: Thu, 2 Jul 2009 16:43:39 +0200
-Message-ID: <43ca39800907020743v1ccc1979o5a934d5ead05edc9@mail.gmail.com>
-References: <20090624132232.GA9633@egardia>
-	 <20090628154302.GB21519@verge.net.au>
+From: Tziporet Koren <tziporet@dev.mellanox.co.il>
+Subject: Re: [ofa-general][PATCH 2/2] mlx4: ConnectX multi functional device
+	support
+Date: Thu, 02 Jul 2009 18:23:03 +0300
+Message-ID: <4A4CD0D7.6070409@mellanox.co.il>
+References: <4A3A34F5.9030800@mellanox.co.il>
+	<4A4C816A.2040506@mellanox.co.il> <adabpo317c5.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	robert.gallagher@heanet.ie
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20090628154302.GB21519@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adabpo317c5.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon,
-
-On Sun, Jun 28, 2009 at 5:43 PM, Simon Horman<horms@verge.net.au> wrote=
-:
-> On Wed, Jun 24, 2009 at 03:22:32PM +0200, Julius Volz wrote:
->> Add handling of incoming ICMPv6 Packet Too Big messages. This messag=
-e
->> is received when a realserver sends a packet >PMTU to the client. Th=
-e
->> hop on this path with insufficient MTU will generate an ICMPv6 Packe=
-t
->> Too Big message back to the VIP. The LVS server receives this messag=
-e,
->> but the call to the function handling this has been missing. Thus, I=
-PVS
->> fails to forward the message to the real server, which then does not
->> adjust the path MTU. This patch adds the missing call to
->> ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
->>
->> Thanks to Rob Gallagher from HEAnet for reporting this issue and for
->> testing this patch in production (with direct routing mode).
->>
->> Signed-off-by: Julius Volz <julius.volz@gmail.com>
->> Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
+Roland Dreier wrote:
+>  > Is there any update, will they make it to 2.6.31?
 >
-> Hi Julius, Hi Rob,
->
-> this seems reasonable to me, although it seems that the following
-> code is common. I wonder if its repetition could be removed.
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (related)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return=
- verdict;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ip_vs_fill_iphdr(af, s=
-kb_network_header(skb), &iph);
+> Not sure... need to evaluate the risk of regression
+>   
+The risk is very low, however without it our new device coming in July 
+will not work on the new kernel :-(
+And if not on 2.6.31 can you at list queue it on your future work tree?
 
-I agree, though I see no "nice" way to remove this duplication
-considering the ifs and #ifdefs around this. You could move the
-related and verdict variables to the top of the function and then
-recheck afterwards whether one of these ICMP-handling branches was
-entered and put the common code in there. But this seems more
-cumbersome to me than repeating the code. Maybe you see a nicer way?
-Btw., exactly this structure already exists in ip_vs_out(), which is
-why I adopted it like this for ip_vs_in().
-
-Cheers,
-Julius
+Tziporet
