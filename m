@@ -1,62 +1,36 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: Re: [PATCH net-2.6 6/6] jme: Advance driver version number
-Date: Fri, 3 Jul 2009 03:16:46 +0800
-Message-ID: <20090702191128.M54727@cooldavid.org>
-References: <20090702183224.0B77E5D2D9@cooldavid.org>
-Reply-To: cooldavid@cooldavid.org
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: ipv6 preferred lifetime wraparound...
+Date: Thu, 02 Jul 2009 21:23:43 +0200
+Message-ID: <1246562623.8814.21.camel@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=big5
-Cc: "netdev" <netdev@vger.kernel.org>,
-	"Ethan Hsiao" <ethanhsiao@jmicron.com>
-To: Guo-Fu Tseng <cooldavid@cooldavid.org>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Jens Rosenboom <me@jayr.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([220.133.139.86]:48277 "EHLO cooldavid.org"
+Received: from mtah11.telenor.se ([62.127.194.4]:34081 "EHLO mtah11.telenor.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799AbZGBTTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2009 15:19:39 -0400
-In-Reply-To: <20090702183224.0B77E5D2D9@cooldavid.org>
+	id S1751145AbZGBTpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 15:45:09 -0400
+Received: from iph1.telenor.se (iph1.telenor.se [195.54.127.132])
+	by mtah11.telenor.se (Postfix) with ESMTP id 6E33C32F57
+	for <netdev@vger.kernel.org>; Thu,  2 Jul 2009 21:22:37 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for this incorrect patch...
-I forget to remove this out-dated patch file from my patch directory.
+Hello!
 
-And not until now I realized that the commit time will take from
-"format-patch" and affect the timestamp of mail.
-
-I'll be more careful next time.. sorry all..
-
-On Mon, 29 Jun 2009 04:59:38 +0800, Guo-Fu Tseng wrote
-> Advance driver version number after modifications.
-> 
-> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
-> ---
->  drivers/net/jme.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/jme.h b/drivers/net/jme.h
-> index db912f6..251abed 100644
-> --- a/drivers/net/jme.h
-> +++ b/drivers/net/jme.h
-> @@ -25,7 +25,7 @@
->  #define __JME_H_INCLUDED__
-> 
->  #define DRV_NAME	"jme"
-> -#define DRV_VERSION	"1.0.4"
-> +#define DRV_VERSION	"1.0.5"
->  #define PFX		DRV_NAME ": "
-> 
->  #define PCI_DEVICE_ID_JMICRON_JMC250	0x0250
-> -- 
-> 1.6.0.6
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I spotted your patch[1] to prevent ipv6 preferred lifetime wraparound.
+It looks to me like you fixed the preferred lifetime, but did not touch
+the valid lifetime. According to a debian bugreport[2] it seems both of
+them like to wrap around. Shouldn't the "valid -= tval;", visible in
+your patch context, also be conditional similar to your change for
+"preferred -= tval;" ?
 
 
-Guo-Fu Tseng
+Regards,
+Andreas Henriksson
+
+[1]: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=a1faa69810b2af562b70b2a71c116c7d03575dd3
+[2]: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=518710
 
