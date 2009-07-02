@@ -1,110 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at include/net/sock.h:417 udp_lib_unhash
-Date: Thu, 02 Jul 2009 08:10:14 +0200
-Message-ID: <4A4C4F46.2070701@gmail.com>
-References: <EA929A9653AAE14F841771FB1DE5A1365F8AB77D05@rrsmsx501.amr.corp.intel.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: [PATCHv4 0/2] net: fix race in the receive/select
+Date: Thu, 2 Jul 2009 08:32:59 +0200
+Message-ID: <20090702063259.GA3429@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: NetDev <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jiri Olsa <jolsa@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
+	oleg@redhat.com, davidel@xmailserver.org, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49430 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751639AbZGBGLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 02:11:36 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F8AB77D05@rrsmsx501.amr.corp.intel.com>
+Received: from mx2.redhat.com ([66.187.237.31]:47623 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbZGBGdF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 02:33:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tantilov, Emil S a =E9crit :
-> I see the following trace during netperf stress mixed UDP/TCP IPv4/6 =
-traffic. This is on recent pulls from net-2.6 and net-next.
->=20
-> [45197.989163] ------------[ cut here ]------------
-> [45197.994309] WARNING: at include/net/sock.h:417 udp_lib_unhash+0x81=
-/0xab()
-> [45197.994311] Hardware name: X7DA8
-> [45197.994314] Modules linked in: e1000 [last unloaded: e1000]
-> [45197.994326] Pid: 7110, comm: netserver Tainted: G        W  2.6.31=
--rc1-net-next-e1000-06250902 #8
-> [45197.994331] Call Trace:
-> [45197.994336]  [<ffffffff8135e0dc>] ? udp_lib_unhash+0x81/0xab
-> [45197.994344]  [<ffffffff8103cac9>] warn_slowpath_common+0x77/0x8f
-> [45197.994349]  [<ffffffff8103caf0>] warn_slowpath_null+0xf/0x11
-> [45197.994352]  [<ffffffff8135e0dc>] udp_lib_unhash+0x81/0xab
-> [45197.994357]  [<ffffffff81301acb>] sk_common_release+0x2f/0xb4
-> [45197.994364]  [<ffffffff813a0256>] udp_lib_close+0x9/0xb
-> [45197.994369]  [<ffffffff81364259>] inet_release+0x58/0x5f
-> [45197.994374]  [<ffffffff8138c8bd>] inet6_release+0x30/0x35
-> [45197.994383]  [<ffffffff812ff273>] sock_release+0x1a/0x6c
-> [45197.994386]  [<ffffffff812ff763>] sock_close+0x22/0x26
-> [45197.994392]  [<ffffffff810c69a0>] __fput+0xf0/0x18c
-> [45197.994395]  [<ffffffff810c6d00>] fput+0x15/0x19
-> [45197.994399]  [<ffffffff810c3c3e>] filp_close+0x5c/0x67
-> [45197.994404]  [<ffffffff810c3cc4>] sys_close+0x7b/0xb6
-> [45197.994412]  [<ffffffff8100baeb>] system_call_fastpath+0x16/0x1b
-> [45197.994418] ---[ end trace 5acab6fc0afdaaa3 ]---
->=20
-> Emil--
+This patchset fixies the race within the poll_wait call and the receive callbacks,
+by adding memory barrier.
 
-Thanks for this report Emil.
+- 1/2 includes the actual fix
+- 2/2 includes optimization for the x86 arch
 
-I could not find a recent change in this area in last kernels.
-If struct sk is hashed (sk_hashed() true), then sk_refcnt was increment=
-ed
-in sk_nulls_add_node_rcu(), thus its value should be >=3D 2.
+It is discussed and described in the following discussions:
 
-Maybe we have a missing memory barrier somewhere or a list corruption.
+http://lkml.org/lkml/2009/6/18/124
+http://lkml.org/lkml/2009/6/25/188
+http://lkml.org/lkml/2009/6/29/216
 
-1) Could you try CONFIG_DEBUG_LIST=3Dy ?
+Patchset is made on top of Linus'es tree d960eea974f5e500c0dcb95a934239cc1f481cfd .
 
-2) Could you give model of cpu, since it reminds me the ongoing discuss=
-ion raised by Jiri Olsa.
+Booted on x86_64.
 
-CPU1 does an atomic_inc(&sk->sk_refcnt)  : refcnt changes from 1 to 2
-then CPU2 does an atomic_read(&sk->sk_refcnt) and reads 1 instead of 2
+wbr,
+jirka
 
-David, maybe this test is not safe and if we really want to do a check
-we need to use a stronger atomic function.
-
-If you can reproduce this problem easily could you try following patch =
-?
-
-Thank you
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 352f06b..96ab278 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -393,8 +393,9 @@ static __inline__ int sk_del_node_init(struct sock =
-*sk)
-=20
- 	if (rc) {
- 		/* paranoid for a while -acme */
--		WARN_ON(atomic_read(&sk->sk_refcnt) =3D=3D 1);
--		__sock_put(sk);
-+		int res =3D atomic_dec_return(&sk->sk_refcnt);
-+
-+		WARN_ON(res <=3D 0);
- 	}
- 	return rc;
- }
-@@ -413,9 +414,9 @@ static __inline__ int sk_nulls_del_node_init_rcu(st=
-ruct sock *sk)
- 	int rc =3D __sk_nulls_del_node_init_rcu(sk);
-=20
- 	if (rc) {
--		/* paranoid for a while -acme */
--		WARN_ON(atomic_read(&sk->sk_refcnt) =3D=3D 1);
--		__sock_put(sk);
-+		int res =3D atomic_dec_return(&sk->sk_refcnt);
-+
-+		WARN_ON(res <=3D 0);
- 	}
- 	return rc;
- }
+---
+ arch/x86/include/asm/spinlock.h |    3 ++
+ include/linux/spinlock.h        |    5 +++
+ include/net/sock.h              |   66 +++++++++++++++++++++++++++++++++++++++
+ net/atm/common.c                |    6 ++--
+ net/core/datagram.c             |    2 +-
+ net/core/sock.c                 |    8 ++--
+ net/dccp/output.c               |    2 +-
+ net/dccp/proto.c                |    2 +-
+ net/ipv4/tcp.c                  |    2 +-
+ net/iucv/af_iucv.c              |    4 +-
+ net/rxrpc/af_rxrpc.c            |    4 +-
+ net/unix/af_unix.c              |    8 ++--
+ 12 files changed, 93 insertions(+), 19 deletions(-)
