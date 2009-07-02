@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: fixes for PHY_RESUMING state changes
-Date: Thu, 02 Jul 2009 13:17:53 -0700 (PDT)
-Message-ID: <20090702.131753.201104772.davem@davemloft.net>
-References: <1246489234.26353.60.camel@rhino>
-	<3253A2AC-9D19-4B02-8526-0D460C6E409E@freescale.com>
+Subject: Re: [net-2.6 PATCH] if_ether: add define for 1588 aka Timesync
+Date: Thu, 02 Jul 2009 13:18:06 -0700 (PDT)
+Message-ID: <20090702.131806.65182934.davem@davemloft.net>
+References: <20090701233825.20878.1411.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wfarnsworth@mvista.com, netdev@vger.kernel.org
-To: afleming@freescale.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38075
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38079
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757499AbZGBURr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:17:47 -0400
-In-Reply-To: <3253A2AC-9D19-4B02-8526-0D460C6E409E@freescale.com>
+	by vger.kernel.org with ESMTP id S1757641AbZGBUSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 16:18:00 -0400
+In-Reply-To: <20090701233825.20878.1411.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
-Date: Wed, 1 Jul 2009 19:34:24 -0500
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 01 Jul 2009 16:38:26 -0700
 
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> On Jul 1, 2009, at 6:00 PM, Wade Farnsworth wrote:
+> This patch adds ETH_P_1588 protocol ID define.
 > 
->> The PHY_HALTED state disables phydev->link, but the link will not be
->> updated upon entering PHY_RESUMING.  Add a call to phy_read_status()
->> to
->> update the link before entering PHY_RUNNING.  If the link is not up at
->> this point, enter the PHY_NOLINK state instead.
->>
->> Also, when transitioning from PHY_RESUMING to PHY_RUNNING, calls to
->> netif_carrier_on() and phydev->adjust_link() are missing.  Add the
->> calls
->> similar to the other transitions to PHY_RUNNING.
->>
->> Signed-off-by: Wade Farnsworth <wfarnsworth@mvista.com>
-> 
-> Acked-by: Andy Fleming <afleming@freescale.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
 Applied.
