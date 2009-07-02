@@ -1,97 +1,50 @@
-From: Sanket Shah <sanketshah5124@gmail.com>
-Subject: HFSC link sharing behavior related query
-Date: Thu, 2 Jul 2009 16:53:40 +0530
-Message-ID: <e54032850907020423q730dad3cm666594dfc130ffa9@mail.gmail.com>
+From: Andres Freund <andres@anarazel.de>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (possibly	caused
+ by netem)
+Date: Thu, 02 Jul 2009 13:43:49 +0200
+Message-ID: <4A4C9D75.5010300@anarazel.de>
+References: <4A4A9DD6.8060800@anarazel.de> <4A4BAD5F.7050908@gmail.com> <4A4BD384.3090407@anarazel.de> <4A4C0144.5070203@anarazel.de> <20090702093031.GC4954@ff.dom.local> <20090702101207.GA7056@ff.dom.local> <4A4C95FC.7040305@anarazel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:42291 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750940AbZGBLXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 07:23:38 -0400
-Received: by wf-out-1314.google.com with SMTP id 26so621307wfd.4
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2009 04:23:40 -0700 (PDT)
+Received: from mail.anarazel.de ([217.115.131.40]:33658 "EHLO smtp.anarazel.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751928AbZGBLnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 07:43:47 -0400
+In-Reply-To: <4A4C95FC.7040305@anarazel.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-	We are doing experiments on hfsc in various network scenarios. Some
-of the results are not as per our expectation/understanding of our
-hfsc behavior.
+On 07/02/2009 01:11 PM, Andres Freund wrote:
+> On 07/02/2009 12:12 PM, Jarek Poplawski wrote:
+>> On Thu, Jul 02, 2009 at 09:30:31AM +0000, Jarek Poplawski wrote:
+>>> On Thu, Jul 02, 2009 at 02:37:24AM +0200, Andres Freund wrote:
+>>> ...
+>>>> So I tried - and I did not catch any lockdep output before the crash.
+>>>> Unfortunately I do not have another machine on the same local
+>>>> network to
+>>>> catch any messages after the crash... So I could be missing some
+>>>> warning
+>>>> (I did synchronous logging though).
+>>>> Will check with netconsole tomorrow.
+>>>
+>>> Could you try if this patch changes anything?
+>>
+>> ...and maybe CONFIG_PACKET_MMAP turned off.
+> Ok. Removed the skb_orphan and turned of CONFIG_PACKET_MMAP. Seemingly
+> the same game.
+> I now had another computer to catch the netconsole output. Still no
+> lockdep warnings.
+>
+> Unfortunately the other computer was a windows machine with its strange
+> terminal, so long lines are wrapped at 80cols, but that shouldn't be too
+> bad.
+I will start trying to place the issue by testing with existing kernels 
+between 2.6.30 and now.
 
------------------------------------------------------------------------------------------------------------------------
-	Scenario 1:
-
-		1: (hfsc qdisc)
-		|
-		|
-		1:1 (hfsc root class) (rt 0, ls 40, ul 40)
-		|
-	----------------------------------------------------------------
-	|								|
-	1:2 (rt 10, ls 1, ul 20)				1:3 (rt 30, ls 1, ul 40)
-	|								|
-	2: (sfq qdisc)						3: (sfq qdisc)
-
-	In above scenario,
-		1:2 and 1:3 both are doing http download and we are getting following results.
-
-		1:2 - 10 kbps
-		1:3 - 30 kbps		
-			That is as per the expectation.
-
-	After 5 minutes we are changing ls and ul of 1:1 from 40 to 100. (rt
-0, ls 100, ul 100)
-		
-		For first 2 minutes after above change,
-
-			1:2 - 20 kbps
-			1:3 - 80 kbps
-				In this case ul curve is getting violated for 2 mins.
-
-		After 2 minutes,
-
-			1:2 - 20 kbps
-			1:3 - 50 kbps
-				That is expected.
-
-	Is it an expected behavior ?
-	why ul curve got violated ?
-
------------------------------------------------------------------------------------------------------------------------
-
-	Scenario 2:
-
-		1: (hfsc qdisc)
-		|
-		|
-		1:1 (hfsc root class) (rt 0, ls 200, ul 200)
-		|
--------------------------------------------------------------------------------------------------------------------------
-|					|					|					|	
-1:2 (rt 75, ls 32, ul 200)	1:3 (rt 25, ls 16, ul 200)	1:4(rt 50, ls 8,
-ul 200)	1:5 (rt 25,ls 128,ul 200)
-|					|					|					|
-2: (sfq qdisc)			3: (sfq qdisc)			4:(sfq qdisc)			5: (sfq qdisc)
-
-	In above scenario,
-		1:2, 1:3, 1:4, 1:5 all are doing http download and we are expecting
-following results,
-
-		1:2 - 75 kbps
-		1:3 - 25 kbps		
-		1:4 - 50 kbps
-		1:5 - 50 kbps (according to link sharing ratio, excess 25 kbps
-bandwidth should remain with 1:5)
-
-		But we are observing that 25 kbps excess bandwidth is floating
-across 1:2,1:3 and 1:5 on about 4 to 5 minutes. We are also observing
-few packet drops in 1:2 and 1:3. Is there any relation between link
-sharing and packet drop ?
-
------------------------------------------------------------------------------------------------------------------------
-
-Regards,
-Sanket Shah
+Andres
