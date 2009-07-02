@@ -1,82 +1,133 @@
-From: Robert Olsson <robert@herjulf.net>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Thu, 2 Jul 2009 23:32:26 +0200
-Message-ID: <19021.10090.995805.740700@gargle.gargle.HOWL>
-References: <20090701063651.GA4876@ff.dom.local>
-	<20090701072409.GA12592@ff.dom.local>
-	<4A4B2FA8.3040007@itcare.pl>
-	<20090701101333.GB12715@ff.dom.local>
-	<20090701110407.GC12715@ff.dom.local>
-	<4A4BE06F.3090608@itcare.pl>
-	<20090702053216.GA4954@ff.dom.local>
-	<4A4C48FD.7040002@itcare.pl>
-	<20090702060011.GB4954@ff.dom.local>
-	<19020.53998.330803.83554@gargle.gargle.HOWL>
-	<20090702190626.GA2737@ami.dom.local>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Re: [GIT]: Networking
+Date: Thu, 02 Jul 2009 12:13:24 -0400
+Message-ID: <4A4CDCA4.3040505@nvidia.com>
+References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com> <4A4CBE7D.2060603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <robert@herjulf.net>,
-	=?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from av9-1-sn3.vrr.skanova.net ([81.228.9.185]:52672 "EHLO
-	av9-1-sn3.vrr.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756571AbZGBVbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 17:31:46 -0400
-In-Reply-To: <20090702190626.GA2737@ami.dom.local>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:6381 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752749AbZGBVn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 17:43:59 -0400
+In-Reply-To: <4A4CBE7D.2060603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Jarek Poplawski writes:
 
- > >  Controlling RCU seems crucial. Insertion of the full BGP table increased
- > >  from 2 seconds to > 20 min with one synchronize_rcu patches.
- > 
- > I wish I knew this a few days before. I could imagine a slow down,
- > but it looked like it was stuck. Since these last changes weren't
- > tested on SMP + PREEMPT I thought there is still something broken.
- > (I was mainly interested in this synchronize_rcu at the moment as
- > a preemption test.)  
+Eric Dumazet wrote:
+> Eric Dumazet a =E9crit :
+>=20
+>>Ingo Molnar a =E9crit :
+>>
+>>>>The following changes since commit 52989765629e7d182b4f146050ebba0a=
+bf2cb0b7:
+>>>>  Linus Torvalds (1):
+>>>>        Merge git://git.kernel.org/.../davem/net-2.6
+>>>>
+>>>>are available in the git repository at:
+>>>>
+>>>>  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git mas=
+ter
+>>>
+>>>Hm, something in this lot quickly wrecked networking here - see the=20
+>>>tx timeout dump below. It starts with:
+>>>
+>>>[  351.004596] WARNING: at net/sched/sch_generic.c:246 dev_watchdog+=
+0x10b/0x19c()
+>>>[  351.011815] Hardware name: System Product Name
+>>>[  351.016220] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0 t=
+imed out
+>>>
+>>>Config attached. Unfortunately i've got no time to do bisection=20
+>>>today.
+>>
+>>
+>>
+>>forcedeth might have a problem, in its netif_wake_queue() logic, but
+>>I could not see why a recent patch could make this problem visible no=
+w.
+>>
+>>CPU0/1: AMD Athlon(tm) 64 X2 Dual Core Processor 3800+ stepping 02
+>>is not a new cpu either :)
+>>
+>>forcedeth uses an internal tx_stop without appropriate barrier.
+>>
+>>Could you try following patch ?
+>>
+>>(random guess as I dont have much time right now)
+>=20
+>=20
+> Oh well this patch was soooo stupid, sorry Ingo.
+>=20
+>=20
+> We might have a race in napi_schedule(), leaving interrupts disabled =
+forever.
+> I cannot test this patch, I dont have the hardware...
+>=20
+> Thanks
+>=20
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index 1094d29..3b4e076 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -3514,11 +3514,13 @@ static irqreturn_t nv_nic_irq(int foo, void *=
+data)
+>  	nv_msi_workaround(np);
+> =20
+>  #ifdef CONFIG_FORCEDETH_NAPI
+> -	napi_schedule(&np->napi);
+> -
+> -	/* Disable furthur irq's
+> -	   (msix not enabled with napi) */
+> -	writel(0, base + NvRegIrqMask);
+> +	if (napi_schedule_prep(&np->napi)) {
+> +		/*
+> +		 * Disable further irq's (msix not enabled with napi)
+> +		 */
+> +		writel(0, base + NvRegIrqMask);
+> +		__napi_schedule(&np->napi);
+> +	}
 
+Yes, good catch. There is a race condition here with napi poll.
 
- Honestly this huge slowdown was surprise for me too. I think I sent 
- you a script so you could insert the full table yourself.
+I would prefer to do the following to keep the code simple and clean.
 
- > >  And fib_trie "worst case" wrt memory is the root node. So maybe we should 
- > >  monitor changes in root node and use this to control synchronize_rcu.
- > > 
- > >  Didn't Paul suggest something like this?
- > 
- > Sure, and it needs testing, but we should send some safe preemption
- > fix for -stable first, don't we?
- 
- Yes my hope was that we could combine them... personally I'll need 
- to understand who we can preeemted better in the different configs
- and most of that this can be handled by "standard" RCU.
+writel(0, base + NvRegIrqMask);
+napi_schedule(&np->napi);
 
- > >  And with don't find any decent solution we have to add an option for 
- > >  a fixed and pre-allocated root-nod typically for BGP-routers.
- > 
- > Probably you're right; I'd prefer to see the test results showing
- > a difference vs. simply less aggressive root thresholds. But of
- > course, even if not convinced, I'll respect your choice as the author
- > and maintainer, so feel free to NAK my proposals - I won't get it
- > personally.;-)
+=2E....
 
- Thresholds we can change no problem... but very soon I'll people 
- will start routing without the route cache this at least in close
- to Internet core ,we will need all fib_look performance we can get.
-
- fib_trie was designed for classical RCU and no preempt you see the
- names i file... so this new and very challenging work to all of us.
- 
- First week of vacation and have to fix the roof of the house...
- it's hot and dirty. 
-
- Cheers.
-					--ro
+> =20
+>  #else
+>  	do
+> @@ -3615,12 +3617,13 @@ static irqreturn_t nv_nic_irq_optimized(int f=
+oo, void *data)
+>  	nv_msi_workaround(np);
+> =20
+>  #ifdef CONFIG_FORCEDETH_NAPI
+> -	napi_schedule(&np->napi);
+> -
+> -	/* Disable furthur irq's
+> -	   (msix not enabled with napi) */
+> -	writel(0, base + NvRegIrqMask);
+> -
+> +	if (napi_schedule_prep(&np->napi)) {
+> +		/*
+> +		 * Disable further irq's (msix not enabled with napi)
+> +		 */
+> +		writel(0, base + NvRegIrqMask);
+> +		__napi_schedule(&np->napi);
+> +	}
+>  #else
+>  	do
+>  	{
