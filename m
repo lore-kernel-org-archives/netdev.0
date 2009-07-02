@@ -1,202 +1,517 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (possibly	caused
- by netem)
-Date: Thu, 02 Jul 2009 13:11:56 +0200
-Message-ID: <4A4C95FC.7040305@anarazel.de>
-References: <4A4A9DD6.8060800@anarazel.de> <4A4BAD5F.7050908@gmail.com> <4A4BD384.3090407@anarazel.de> <4A4C0144.5070203@anarazel.de> <20090702093031.GC4954@ff.dom.local> <20090702101207.GA7056@ff.dom.local>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [PATCH] be2net: Implementation of request_firmware interface.
+Date: Thu, 2 Jul 2009 16:48:40 +0530
+Message-ID: <20090702111820.GA21085@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020802070901000500000001"
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.anarazel.de ([217.115.131.40]:50973 "EHLO smtp.anarazel.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753600AbZGBLL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jul 2009 07:11:57 -0400
-In-Reply-To: <20090702101207.GA7056@ff.dom.local>
+Received: from segment-124-30.sify.net ([124.30.166.146]:46861 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751538AbZGBLSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 07:18:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020802070901000500000001
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Please review and apply patch to net-next tree. Patch implements the 
+request_firmware interface.
 
-On 07/02/2009 12:12 PM, Jarek Poplawski wrote:
-> On Thu, Jul 02, 2009 at 09:30:31AM +0000, Jarek Poplawski wrote:
->> On Thu, Jul 02, 2009 at 02:37:24AM +0200, Andres Freund wrote:
->> ...
->>> So I tried - and I did not catch any lockdep output before the crash.
->>> Unfortunately I do not have another machine on the same local network to
->>> catch any messages after the crash... So I could be missing some warning
->>> (I did synchronous logging though).
->>> Will check with netconsole tomorrow.
->>
->> Could you try if this patch changes anything?
->
-> ...and maybe CONFIG_PACKET_MMAP turned off.
-Ok. Removed the skb_orphan and turned of CONFIG_PACKET_MMAP. Seemingly 
-the same game.
-I now had another computer to catch the netconsole output. Still no 
-lockdep warnings.
+- Sarvesh
 
-Unfortunately the other computer was a windows machine with its strange 
-terminal, so long lines are wrapped at 80cols, but that shouldn't be too 
-bad.
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+---
+ drivers/net/benet/be.h      |    1 
+ drivers/net/benet/be_cmds.c |   28 ++++
+ drivers/net/benet/be_cmds.h |   18 +++
+ drivers/net/benet/be_hw.h   |   89 ++++++++++++++
+ drivers/net/benet/be_main.c |  271 +++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 407 insertions(+), 0 deletions(-)
 
-Andres
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index f703758..4f9ae46 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -29,6 +29,7 @@ #include <linux/if_vlan.h>
+ #include <linux/workqueue.h>
+ #include <linux/interrupt.h>
+ #include <linux/inet_lro.h>
++#include <linux/firmware.h>
+ 
+ #include "be_hw.h"
+ 
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 583517e..acb3115 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1061,3 +1061,31 @@ int be_cmd_query_fw_cfg(struct be_ctrl_i
+ 	spin_unlock(&ctrl->mbox_lock);
+ 	return status;
+ }
++
++int be_cmd_write_flashrom(struct be_ctrl_info *ctrl, struct be_dma_mem *cmd,
++			u32 flash_type, u32 flash_opcode, u32 buf_size)
++{
++	struct be_mcc_wrb *wrb = wrb_from_mbox(&ctrl->mbox_mem);
++	struct be_cmd_write_flashrom *req = cmd->va;
++	struct be_sge *sge = nonembedded_sgl(wrb);
++	int status;
++
++	spin_lock(&ctrl->mbox_lock);
++	memset(wrb, 0, sizeof(*wrb));
++	be_wrb_hdr_prepare(wrb, cmd->size, false, 1);
++
++	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++		OPCODE_COMMON_WRITE_FLASHROM, cmd->size);
++	sge->pa_hi = cpu_to_le32(upper_32_bits(cmd->dma));
++	sge->pa_lo = cpu_to_le32(cmd->dma & 0xFFFFFFFF);
++	sge->len = cpu_to_le32(cmd->size);
++
++	req->params.op_type = cpu_to_le32(flash_type);
++	req->params.op_code = cpu_to_le32(flash_opcode);
++	req->params.data_buf_size = cpu_to_le32(buf_size);
++
++	status = be_mbox_db_ring(ctrl);
++
++	spin_unlock(&ctrl->mbox_lock);
++	return status;
++}
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index 747626d..e2b8479 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -117,6 +117,7 @@ #define OPCODE_COMMON_NTWK_MAC_SET			2
+ #define OPCODE_COMMON_NTWK_MULTICAST_SET		3
+ #define OPCODE_COMMON_NTWK_VLAN_CONFIG  		4
+ #define OPCODE_COMMON_NTWK_LINK_STATUS_QUERY		5
++#define OPCODE_COMMON_WRITE_FLASHROM			7
+ #define OPCODE_COMMON_CQ_CREATE				12
+ #define OPCODE_COMMON_EQ_CREATE				13
+ #define OPCODE_COMMON_MCC_CREATE        		21
+@@ -697,6 +698,20 @@ struct be_cmd_resp_query_fw_cfg {
+ 	u32 rsvd[26];
+ };
+ 
++/****************** Firmware Flash ******************/
++struct flashrom_params {
++	u32 op_code;
++	u32 op_type;
++	u32 data_buf_size;
++	u32 offset;
++	u8 data_buf[4];
++};
++
++struct be_cmd_write_flashrom {
++	struct be_cmd_req_hdr hdr;
++	struct flashrom_params params;
++};
++
+ extern int be_pci_fnum_get(struct be_ctrl_info *ctrl);
+ extern int be_cmd_POST(struct be_ctrl_info *ctrl);
+ extern int be_cmd_mac_addr_query(struct be_ctrl_info *ctrl, u8 *mac_addr,
+@@ -745,4 +760,7 @@ extern int be_cmd_set_flow_control(struc
+ extern int be_cmd_get_flow_control(struct be_ctrl_info *ctrl,
+ 			u32 *tx_fc, u32 *rx_fc);
+ extern int be_cmd_query_fw_cfg(struct be_ctrl_info *ctrl, u32 *port_num);
++extern int be_cmd_write_flashrom(struct be_ctrl_info *ctrl,
++			struct be_dma_mem *cmd, u32 flash_oper,
++			u32 flash_opcode, u32 buf_size);
+ extern void be_process_mcc(struct be_ctrl_info *ctrl);
+diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
+index b02e805..6035f1b 100644
+--- a/drivers/net/benet/be_hw.h
++++ b/drivers/net/benet/be_hw.h
+@@ -55,6 +55,28 @@ #define MEMBAR_CTRL_INT_CTRL_HOSTINTR_MA
+ #define MEMBAR_CTRL_INT_CTRL_PFUNC_MASK  	0x7 	/* bits 26 - 28 */
+ #define MEMBAR_CTRL_INT_CTRL_PFUNC_SHIFT	26
+ 
++/********* Soft Reset registers ***********/
++#define PCICFG_SOFT_RESET_CSR_OFFSET		0x5c
++#define PCICFG_SOFT_RESET_MASK			(1 << 7) /* bit 7 */
++
++#define PCICFG_ONLINE0_CSR_OFFSET		0xb0
++#define PCICFG_ONLINE1_CSR_OFFSET		0xb4
++#define PCICFG_MPU_IRAM_ONLINE_MASK		(1 << 3) /* bit 3 */
++
++#define PCICFG_UE_STATUS_LOW_MASK_OFFSET	0xa8
++#define PCICFG_UE_STATUS_HIGH_MASK_OFFSET	0xac
++
++#define MPU_EP_CONTROL_CSR_OFFSET		0x0
++#define MPU_EP_CONTROL_CPU_RESET_MASK		(1 << 31) /* bit 31 */
++
++/********* POST Descriptors ***************/
++#define MPU_EP_SEMAPHORE_OFFSET			0xac
++#define MPU_POST_ERR_MASK			(1 << 31) /* bit 31 */
++#define MPU_POST_STAGE_MASK			0xFFFF	/* bits 0 - 15 */
++#define MPU_POST_STAGE_ARMFW_RDY		0xc000
++#define MPU_POST_STAGE_AWAIT_HOST_RDY		0x1
++#define MPU_POST_STAGE_HOST_RDY			0x2
++
+ /********* Event Q door bell *************/
+ #define DB_EQ_OFFSET			DB_CQ_OFFSET
+ #define DB_EQ_RING_ID_MASK		0x1FF	/* bits 0 - 8 */
+@@ -215,3 +237,70 @@ struct amap_eth_rx_compl {
+ struct be_eth_rx_compl {
+ 	u32 dw[4];
+ };
++
++/* Flashrom related descriptors */
++#define IMAGE_TYPE_FIRMWARE		160
++#define IMAGE_TYPE_BOOTCODE		224
++#define IMAGE_TYPE_OPTIONROM		32
++
++#define NUM_FLASHDIR_ENTRIES		32
++
++#define FLASHROM_TYPE_FIRMWARE		0
++#define FLASHROM_TYPE_REDBOOT		1
++#define FLASHROM_TYPE_BIOS		2
++
++#define FLASHROM_OPER_FLASH		1
++#define FLASHROM_OPER_SAVE		2
++
++struct controller_id {
++	u32 vendor;
++	u32 device;
++	u32 subvendor;
++	u32 subdevice;
++};
++
++struct flash_file_hdr {
++	u8 sign[32];
++	u32 cksum;
++	u32 antidote;
++	struct controller_id cont_id;
++	u32 file_len;
++	u32 chunk_num;
++	u32 total_chunks;
++	u32 num_imgs;
++	u8 build[24];
++};
++
++struct flash_section_hdr {
++	u32 format_rev;
++	u32 cksum;
++	u32 antidote;
++	u32 build_no;
++	u8 id_string[64];
++	u32 active_entry_mask;
++	u32 valid_entry_mask;
++	u32 org_content_mask;
++	u32 rsvd0;
++	u32 rsvd1;
++	u32 rsvd2;
++	u32 rsvd3;
++	u32 rsvd4;
++};
++
++struct flash_section_entry {
++	u32 type;
++	u32 offset;
++	u32 pad_size;
++	u32 image_size;
++	u32 cksum;
++	u32 entry_point;
++	u32 rsvd0;
++	u32 rsvd1;
++	u8 ver_data[32];
++};
++
++struct flash_section_info {
++	u8 cookie[32];
++	struct flash_section_hdr fsec_hdr;
++	struct flash_section_entry fsec_entry[32];
++};
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 66c10c8..fd9f3b5 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1635,6 +1635,273 @@ static int be_close(struct net_device *n
+ 	return 0;
+ }
+ 
++#define FW_FILE_HDR_SIGN 	"ServerEngines Corp. "
++char flash_cookie[2][16] =	{"*** SE FLAS",
++				"H DIRECTORY *** "};
++static int be_flash_image(struct be_adapter *adapter,
++			const struct firmware *fw,
++			struct flash_section_info *fsec,
++			struct be_dma_mem *flash_cmd, u32 flash_type)
++{
++	int status;
++	u32 flash_op, image_type = 0, total_bytes;
++	int num_bytes, i;
++	const u8 *p = fw->data;
++	struct flash_section_entry *fsec_entry = NULL;
++	struct be_cmd_write_flashrom *req = flash_cmd->va;
++
++	switch (flash_type) {
++	case FLASHROM_TYPE_FIRMWARE:
++		image_type = IMAGE_TYPE_FIRMWARE;
++		break;
++	case FLASHROM_TYPE_BIOS:
++		image_type = IMAGE_TYPE_OPTIONROM;
++		break;
++	case FLASHROM_TYPE_REDBOOT:
++		image_type = IMAGE_TYPE_BOOTCODE;
++		break;
++	}
++
++	for (i = 0; i < NUM_FLASHDIR_ENTRIES; i++) {
++		if ((fsec->fsec_entry[i].type == image_type) &&
++		(fsec->fsec_hdr.active_entry_mask & (1<<i)) &&
++		(fsec->fsec_hdr.valid_entry_mask & (1<<i))) {
++			fsec_entry = &fsec->fsec_entry[i];
++			break;
++		}
++	}
++
++	if (!fsec_entry) {
++		dev_err(&adapter->pdev->dev,
++			"Section missing in firmware image\n");
++		return -1;
++	}
++
++	p += sizeof(struct flash_file_hdr) + fsec_entry->offset;
++	if (p + fsec_entry->image_size > fw->data + fw->size)
++		return -1;
++
++	total_bytes = fsec_entry->image_size;
++	if (total_bytes%256)
++		total_bytes = (256 - total_bytes%256) + total_bytes;
++
++	while (total_bytes) {
++		if (total_bytes > 32*1024)
++			num_bytes = 32*1024;
++		else
++			num_bytes = total_bytes;
++		total_bytes -= num_bytes;
++
++		if (!total_bytes)
++			flash_op = FLASHROM_OPER_FLASH;
++		else
++			flash_op = FLASHROM_OPER_SAVE;
++		memcpy(req->params.data_buf, p, num_bytes);
++		p += num_bytes;
++		status = be_cmd_write_flashrom(&adapter->ctrl, flash_cmd,
++				flash_type, flash_op, num_bytes);
++		if (status)
++			return -1;
++		yield();
++	}
++
++	return 0;
++}
++
++static int be_wait_for_post_cmpl(struct be_ctrl_info *ctrl)
++{
++	u32 post_err, post_stage, reg;
++	int status = 0, i = 0;
++
++	do {
++		reg = ioread32(ctrl->csr + MPU_EP_SEMAPHORE_OFFSET);
++		post_err = reg & MPU_POST_ERR_MASK;
++		post_stage = reg & MPU_POST_STAGE_MASK;
++		yield();
++		udelay(1000);
++
++	} while (!post_err &&
++		 (post_stage !=  MPU_POST_STAGE_ARMFW_RDY) &&
++		 (i++ < 60000));
++
++	if (post_err || (post_stage != MPU_POST_STAGE_ARMFW_RDY))
++		status = -1;
++
++	return status;
++}
++
++static int be_pci_soft_reset(struct be_ctrl_info *ctrl)
++{
++	u8 __iomem *addr;
++	u32 soft_reset, val;
++	int i = 0;
++
++	addr = ctrl->pcicfg + PCICFG_SOFT_RESET_CSR_OFFSET;
++	val = ioread32(addr);
++	val |= PCICFG_SOFT_RESET_MASK;
++	iowrite32(val, addr);
++
++	/* Wait till soft reset is deasserted */
++	do {
++		udelay(50);
++		val = ioread32(addr);
++		soft_reset = val & PCICFG_SOFT_RESET_MASK;
++	} while (soft_reset && (i++ < 1024));
++
++	if (soft_reset)
++		return -1;
++
++	/* Mask all UEs */
++	val = 0xffffffff;
++	addr = ctrl->pcicfg + PCICFG_UE_STATUS_LOW_MASK_OFFSET;
++	iowrite32(val, addr);
++
++	addr = ctrl->pcicfg + PCICFG_UE_STATUS_HIGH_MASK_OFFSET;
++	iowrite32(val, addr);
++
++	/* Take everyone offline except mpu iram */
++	val = 0;
++	addr = ctrl->pcicfg + PCICFG_ONLINE0_CSR_OFFSET;
++	iowrite32(val, addr);
++
++	val = PCICFG_MPU_IRAM_ONLINE_MASK;
++	addr = ctrl->pcicfg + PCICFG_ONLINE1_CSR_OFFSET;
++	iowrite32(val, addr);
++
++	udelay(20000);
++
++	/* Soft Again*/
++	addr = ctrl->pcicfg + PCICFG_SOFT_RESET_CSR_OFFSET;
++	val = ioread32(addr);
++	val |= PCICFG_SOFT_RESET_MASK;
++
++	iowrite32(val, addr);
++
++	i = 0;
++	do {
++		udelay(50);
++		val = ioread32(addr);
++		soft_reset = val & PCICFG_SOFT_RESET_MASK;
++	} while (soft_reset && (i++ < 1024));
++
++	if (soft_reset)
++		return -1;
++
++	udelay(20000);
++
++	/* Take mpu out of reset*/
++	addr = ctrl->csr + MPU_EP_CONTROL_CSR_OFFSET;
++	val = ioread32(addr);
++	val &= ~MPU_EP_CONTROL_CPU_RESET_MASK;
++
++	iowrite32(val, addr);
++
++	if (be_wait_for_post_cmpl(ctrl))
++		return -1;
++
++	return 0;
++}
++
++int be_load_fw(struct be_adapter *adapter)
++{
++	char fw_file[64];
++	const struct firmware *fw;
++	struct flash_file_hdr *fhdr;
++	struct flash_section_info *fsec = NULL;
++	struct be_dma_mem flash_cmd;
++	int status;
++	const u8 *p;
++	bool entry_found = false;
++	int flash_type;
++	char fw_ver[FW_VER_LEN];
++	char fw_cfg;
++
++	status = be_cmd_get_fw_ver(&adapter->ctrl, fw_ver);
++	if (status)
++		return status;
++
++	fw_cfg = *(fw_ver + 2);
++	if (fw_cfg == '0')
++		fw_cfg = '1';
++	sprintf(fw_file, "be2-cna%c-fw.ufi", fw_cfg);
++
++	if (request_firmware(&fw, fw_file, &adapter->pdev->dev))
++		goto fw_exit;
++
++	p = fw->data;
++	fhdr = (struct flash_file_hdr *) p;
++	if (memcmp(fhdr->sign, FW_FILE_HDR_SIGN, strlen(FW_FILE_HDR_SIGN))) {
++		dev_err(&adapter->pdev->dev,
++			"Firmware(%s) load error (signature did not match)\n",
++				fw_file);
++		status = -1;
++		goto fw_exit;
++	}
++
++	/* fw ver on board matches */
++	if (!strncmp(fhdr->sign + strlen(FW_FILE_HDR_SIGN), fw_ver,
++			FW_VER_LEN))
++		goto fw_exit;
++
++	dev_info(&adapter->pdev->dev,
++		"Flashing firmware file %s\n", fw_file);
++
++	p += sizeof(struct flash_file_hdr);
++	while (p < (fw->data + fw->size)) {
++		fsec = (struct flash_section_info *)p;
++		if (!memcmp(flash_cookie, fsec->cookie, sizeof(flash_cookie))) {
++			entry_found = true;
++			break;
++		}
++		p += 32;
++	}
++
++	if (!entry_found) {
++		status = -1;
++		dev_err(&adapter->pdev->dev,
++			"Flash cookie not found in firmware image\n");
++		goto fw_exit;
++	}
++
++	flash_cmd.size = sizeof(struct be_cmd_write_flashrom) + 32*1024;
++	flash_cmd.va = pci_alloc_consistent(adapter->pdev, flash_cmd.size,
++					&flash_cmd.dma);
++	if (!flash_cmd.va) {
++		status = -ENOMEM;
++		dev_err(&adapter->pdev->dev,
++			"Memory allocation failure while flashing\n");
++		goto fw_exit;
++	}
++
++	for (flash_type = FLASHROM_TYPE_FIRMWARE;
++		flash_type <= FLASHROM_TYPE_BIOS; flash_type++) {
++		status = be_flash_image(adapter, fw, fsec, &flash_cmd,
++				flash_type);
++		if (status)
++			break;
++	}
++
++	pci_free_consistent(adapter->pdev, flash_cmd.size, flash_cmd.va,
++				flash_cmd.dma);
++	if (status) {
++		dev_err(&adapter->pdev->dev, "Firmware load error\n");
++		goto fw_exit;
++	}
++
++	if (be_pci_soft_reset(&adapter->ctrl)) {
++		dev_err(&adapter->pdev->dev,
++			"Chip reset after load new firmware failed\n");
++		status = -1;
++	}
++
++	if (!status && !be_cmd_get_fw_ver(&adapter->ctrl, fw_ver))
++		dev_info(&adapter->pdev->dev,
++			"Firmware(ver: %s) flashed succesfully\n", fw_ver);
++fw_exit:
++	release_firmware(fw);
++	return status;
++}
++
+ static int be_get_frag_header(struct skb_frag_struct *frag, void **mac_hdr,
+ 				void **ip_hdr, void **tcpudp_hdr,
+ 				u64 *hdr_flags, void *priv)
+@@ -1926,6 +2193,10 @@ static int __devinit be_probe(struct pci
+ 	if (status)
+ 		goto free_netdev;
+ 
++	status = be_load_fw(adapter);
++	if (status)
++		goto ctrl_clean;
++
+ 	status = be_stats_init(adapter);
+ 	if (status)
+ 		goto ctrl_clean;
+-- 
+1.4.0
 
-
---------------020802070901000500000001
-Content-Type: text/plain;
- name="dump_no_orphan_no_mmap.log"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="dump_no_orphan_no_mmap.log"
-
-WyAgMjE1LjIwODA0NF0gbmV0ZW06IHZlcnNpb24gMS4yDQoNClsgIDM1MC4wNDAxMzZdIEJV
-Rzogc29mdCBsb2NrdXAgLSBDUFUjMSBzdHVjayBmb3IgNjFzISBbb3BlbnZwbjo0MjQ4XQ0K
-WyAgMzUwLjA0MDEzNl0gTW9kdWxlcyBsaW5rZWQgaW46IHNjaF9uZXRlbSBzYnMgc2JzaGMg
-cGNtY2lhIHNuZF9oZGFfY29kZWNfY29uZXgNCmFudCB5ZW50YV9zb2NrZXQgcnNyY19ub25z
-dGF0aWMgc25kX2hkYV9pbnRlbCBzbmRfaGRhX2NvZGVjIHRoaW5rcGFkX2FjcGkgaXdsYWdu
-DQogcGNtY2lhX2NvcmUgYnR1c2Igc25kX2h3ZGVwIGVoY2lfaGNkIHVoY2lfaGNkDQpbICAz
-NTAuMDQwMTM2XSBpcnEgZXZlbnQgc3RhbXA6IDE0OTkyNQ0KWyAgMzUwLjA0MDEzNl0gaGFy
-ZGlycXMgbGFzdCAgZW5hYmxlZCBhdCAoMTQ5OTI0KTogWzxmZmZmZmZmZjgxMDM2YTEwPl0g
-cmVzdG9yZV8NCmFyZ3MrMHgwLzB4MzANClsgIDM1MC4wNDAxMzZdIGhhcmRpcnFzIGxhc3Qg
-ZGlzYWJsZWQgYXQgKDE0OTkyNSk6IFs8ZmZmZmZmZmY4MTAzNWQzYT5dIHNhdmVfYXJnDQpz
-KzB4NmEvMHg3MA0KWyAgMzUwLjA0MDEzNl0gc29mdGlycXMgbGFzdCAgZW5hYmxlZCBhdCAo
-MTk5NDYpOiBbPGZmZmZmZmZmODE1NTI4YWQ+XSBsb2NrX3NvY2sNCl9uZXN0ZWQrMHg4ZC8w
-eDEzMA0KWyAgMzUwLjA0MDEzNl0gc29mdGlycXMgbGFzdCBkaXNhYmxlZCBhdCAoMTk5NTIp
-OiBbPGZmZmZmZmZmODE1NjI3YTg+XSBkZXZfcXVldWUNCl94bWl0KzB4NTgvMHg0YjANClsg
-IDM1MC4wNDAxMzZdIENQVSAxOg0KWyAgMzUwLjA0MDEzNl0gTW9kdWxlcyBsaW5rZWQgaW46
-IHNjaF9uZXRlbSBzYnMgc2JzaGMgcGNtY2lhIHNuZF9oZGFfY29kZWNfY29uZXgNCmFudCB5
-ZW50YV9zb2NrZXQgcnNyY19ub25zdGF0aWMgc25kX2hkYV9pbnRlbCBzbmRfaGRhX2NvZGVj
-IHRoaW5rcGFkX2FjcGkgaXdsYWduDQogcGNtY2lhX2NvcmUgYnR1c2Igc25kX2h3ZGVwIGVo
-Y2lfaGNkIHVoY2lfaGNkDQpbICAzNTAuMDQwMTM2XSBQaWQ6IDQyNDgsIGNvbW06IG9wZW52
-cG4gTm90IHRhaW50ZWQgMi42LjMxLXJjMS1hbmRyZXMtMDA0MzctZ2RlNw0KMzI3YS1kaXJ0
-eSAjNjEgMjA4MjUyRw0KWyAgMzUwLjA0MDEzNl0gUklQOiAwMDEwOls8ZmZmZmZmZmY4MTAz
-ZTI3Nj5dICBbPGZmZmZmZmZmODEwM2UyNzY+XSBuYXRpdmVfcmVhZF8NCnRzYysweDYvMHgy
-MA0KWyAgMzUwLjA0MDEzNl0gUlNQOiAwMDE4OmZmZmY4ODAxMjcxYzc4YjggIEVGTEFHUzog
-MDAwMDAyMDYNClsgIDM1MC4wNDAxMzZdIFJBWDogMDAwMDAwMDAwYWUyMGJkOCBSQlg6IGZm
-ZmY4ODAxMjcxYzc4YjggUkNYOiAwMDAwMDAwMDBhZTIwYjAwDQoNClsgIDM1MC4wNDAxMzZd
-IFJEWDogMDAwMDAwMDAwMDAwMDBiMCBSU0k6IDAwMDAwMDAwMDAwMDYwNDAgUkRJOiAwMDAw
-MDAwMDAwMDAwMDAxDQoNClsgIDM1MC4wNDAxMzZdIFJCUDogZmZmZmZmZmY4MTAzNmI2ZSBS
-MDg6IGZmZmZmZmZmODIxNzUxODAgUjA5OiAwMDAwMDAwMDAwMDAwMDAwDQoNClsgIDM1MC4w
-NDAxMzZdIFIxMDogMDAwMDAwMDAwMDAwMDAwMCBSMTE6IDAwMDAwMDAwMDAwMDAwMDAgUjEy
-OiBmZmZmODgwMTI3MWM2MDAwDQoNClsgIDM1MC4wNDAxMzZdIFIxMzogMDAwMDAwMDAwMDAw
-MDAwMCBSMTQ6IGZmZmY4ODAwMmVmZWM0MDAgUjE1OiAwMDAwMDAwMDAwMDAwMDAwDQoNClsg
-IDM1MC4wNDAxMzZdIEZTOiAgMDAwMDdmOThkZGM2NDZmMCgwMDAwKSBHUzpmZmZmODgwMDJl
-ZmRlMDAwKDAwMDApIGtubEdTOjAwMDAwDQowMDAwMDAwMDAwMA0KWyAgMzUwLjA0MDEzNl0g
-Q1M6ICAwMDEwIERTOiAwMDAwIEVTOiAwMDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMw0KWyAg
-MzUwLjA0MDEzNl0gQ1IyOiAwMDAwMDAwMDA1NTkzMDA4IENSMzogMDAwMDAwMDEyNzQyZjAw
-MCBDUjQ6IDAwMDAwMDAwMDAwMDI2ZTANCg0KWyAgMzUwLjA0MDEzNl0gRFIwOiAwMDAwMDAw
-MDAwMDAwMDAwIERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IDAwMDAwMDAwMDAwMDAwMDAN
-Cg0KWyAgMzUwLjA0MDEzNl0gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBm
-ZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAwMDA0MDANCg0KWyAgMzUwLjA0MDEzNl0gQ2FsbCBU
-cmFjZToNClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZmODEyYTk2YzI+XSA/IGRlbGF5X3Rz
-YysweDIyLzB4ODANClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZmODEyYTk1ZGE+XSA/IF9f
-ZGVsYXkrMHhhLzB4MTANClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZmODEyYWRkYmQ+XSA/
-IF9yYXdfc3Bpbl9sb2NrKzB4ZmQvMHgxNzANClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZm
-ODE2ZTkyZjE+XSA/IF9zcGluX2xvY2srMHg1MS8weDcwDQpbICAzNTAuMDQwMTM2XSAgWzxm
-ZmZmZmZmZjgxNTYyODM2Pl0gPyBkZXZfcXVldWVfeG1pdCsweGU2LzB4NGIwDQpbICAzNTAu
-MDQwMTM2XSAgWzxmZmZmZmZmZjgxNTYyODM2Pl0gPyBkZXZfcXVldWVfeG1pdCsweGU2LzB4
-NGIwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNTYyN2EzPl0gPyBkZXZfcXVldWVf
-eG1pdCsweDUzLzB4NGIwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNTk0YmFjPl0g
-PyBpcF9maW5pc2hfb3V0cHV0KzB4MTNjLzB4MzIwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZm
-ZmZmZjgxNTk0ZTBiPl0gPyBpcF9vdXRwdXQrMHg3Yi8weGQwDQpbICAzNTAuMDQwMTM2XSAg
-WzxmZmZmZmZmZjgxNTkzYmYwPl0gPyBpcF9sb2NhbF9vdXQrMHgyMC8weDMwDQpbICAzNTAu
-MDQwMTM2XSAgWzxmZmZmZmZmZjgxNTk0M2M1Pl0gPyBpcF9xdWV1ZV94bWl0KzB4MTY1LzB4
-M2IwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNWE4ZDQ5Pl0gPyB0Y3BfdHJhbnNt
-aXRfc2tiKzB4M2U5LzB4NzgwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNWFiM2I3
-Pl0gPyB0Y3Bfd3JpdGVfeG1pdCsweDFlNy8weDlkMA0KWyAgMzUwLjA0MDEzNl0gIFs8ZmZm
-ZmZmZmY4MTVhYmMwYj5dID8gX190Y3BfcHVzaF9wZW5kaW5nX2ZyYW1lcysweDJiLzB4ZDAN
-ClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZmODE1OWUzMjc+XSA/IHRjcF9zZW5kbXNnKzB4
-ODg3LzB4YjkwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNTRmYTg2Pl0gPyBzb2Nr
-X3NlbmRtc2crMHgxMjYvMHgxNDANClsgIDM1MC4wNDAxMzZdICBbPGZmZmZmZmZmODEwOTdi
-NjA+XSA/IGF1dG9yZW1vdmVfd2FrZV9mdW5jdGlvbisweDAvMHg0MA0KWyAgMzUwLjA0MDEz
-Nl0gIFs8ZmZmZmZmZmY4MTA5N2I2MD5dID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4
-MC8weDQwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxMGFiMGU3Pl0gPyBtYXJrX2hl
-bGRfbG9ja3MrMHg2Ny8weDkwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxNmU5MGJi
-Pl0gPyBfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDNiLzB4NzANClsgIDM1MC4wNDAxMzZd
-ICBbPGZmZmZmZmZmODE1NTA5YzA+XSA/IHN5c19zZW5kdG8rMHhmMC8weDEzMA0KWyAgMzUw
-LjA0MDEzNl0gIFs8ZmZmZmZmZmY4MTBhYjNmZD5dID8gdHJhY2VfaGFyZGlycXNfb25fY2Fs
-bGVyKzB4MTRkLzB4MTkwDQpbICAzNTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxMGFiNDRkPl0g
-PyB0cmFjZV9oYXJkaXJxc19vbisweGQvMHgxMA0KWyAgMzUwLjA0MDEzNl0gIFs8ZmZmZmZm
-ZmY4MTBhMWMyNz5dID8gZ2V0bnN0aW1lb2ZkYXkrMHg1Ny8weGUwDQpbICAzNTAuMDQwMTM2
-XSAgWzxmZmZmZmZmZjgxMDliYmYxPl0gPyBrdGltZV9nZXRfdHMrMHg1MS8weDcwDQpbICAz
-NTAuMDQwMTM2XSAgWzxmZmZmZmZmZjgxMDM1ZWMyPl0gPyBzeXN0ZW1fY2FsbF9mYXN0cGF0
-aCsweDE2LzB4MWINClsgIDQxNS41MzgxMzZdIEJVRzogc29mdCBsb2NrdXAgLSBDUFUjMSBz
-dHVjayBmb3IgNjFzISBbb3BlbnZwbjo0MjQ4XQ0KWyAgNDE1LjUzODEzNl0gTW9kdWxlcyBs
-aW5rZWQgaW46IHNjaF9uZXRlbSBzYnMgc2JzaGMgcGNtY2lhIHNuZF9oZGFfY29kZWNfY29u
-ZXgNCmFudCB5ZW50YV9zb2NrZXQgcnNyY19ub25zdGF0aWMgc25kX2hkYV9pbnRlbCBzbmRf
-aGRhX2NvZGVjIHRoaW5rcGFkX2FjcGkgaXdsYWduDQogcGNtY2lhX2NvcmUgYnR1c2Igc25k
-X2h3ZGVwIGVoY2lfaGNkIHVoY2lfaGNkDQpbICA0MTUuNTM4MTM2XSBpcnEgZXZlbnQgc3Rh
-bXA6IDI4MTA1MQ0KWyAgNDE1LjUzODEzNl0gaGFyZGlycXMgbGFzdCAgZW5hYmxlZCBhdCAo
-MjgxMDUwKTogWzxmZmZmZmZmZjgxMDM2YTEwPl0gcmVzdG9yZV8NCmFyZ3MrMHgwLzB4MzAN
-ClsgIDQxNS41MzgxMzZdIGhhcmRpcnFzIGxhc3QgZGlzYWJsZWQgYXQgKDI4MTA1MSk6IFs8
-ZmZmZmZmZmY4MTAzNWQzYT5dIHNhdmVfYXJnDQpzKzB4NmEvMHg3MA0KWyAgNDE1LjUzODEz
-Nl0gc29mdGlycXMgbGFzdCAgZW5hYmxlZCBhdCAoMTk5NDYpOiBbPGZmZmZmZmZmODE1NTI4
-YWQ+XSBsb2NrX3NvY2sNCl9uZXN0ZWQrMHg4ZC8weDEzMA0KWyAgNDE1LjUzODEzNl0gc29m
-dGlycXMgbGFzdCBkaXNhYmxlZCBhdCAoMTk5NTIpOiBbPGZmZmZmZmZmODE1NjI3YTg+XSBk
-ZXZfcXVldWUNCl94bWl0KzB4NTgvMHg0YjANClsgIDQxNS41MzgxMzZdIENQVSAxOg0KWyAg
-NDE1LjUzODEzNl0gTW9kdWxlcyBsaW5rZWQgaW46IHNjaF9uZXRlbSBzYnMgc2JzaGMgcGNt
-Y2lhIHNuZF9oZGFfY29kZWNfY29uZXgNCmFudCB5ZW50YV9zb2NrZXQgcnNyY19ub25zdGF0
-aWMgc25kX2hkYV9pbnRlbCBzbmRfaGRhX2NvZGVjIHRoaW5rcGFkX2FjcGkgaXdsYWduDQog
-cGNtY2lhX2NvcmUgYnR1c2Igc25kX2h3ZGVwIGVoY2lfaGNkIHVoY2lfaGNkDQpbICA0MTUu
-NTM4MTM2XSBQaWQ6IDQyNDgsIGNvbW06IG9wZW52cG4gTm90IHRhaW50ZWQgMi42LjMxLXJj
-MS1hbmRyZXMtMDA0MzctZ2RlNw0KMzI3YS1kaXJ0eSAjNjEgMjA4MjUyRw0KWyAgNDE1LjUz
-ODEzNl0gUklQOiAwMDEwOls8ZmZmZmZmZmY4MTAzZTI3Nj5dICBbPGZmZmZmZmZmODEwM2Uy
-NzY+XSBuYXRpdmVfcmVhZF8NCnRzYysweDYvMHgyMA0KWyAgNDE1LjUzODEzNl0gUlNQOiAw
-MDE4OmZmZmY4ODAxMjcxYzc4YjggIEVGTEFHUzogMDAwMDAyMDYNClsgIDQxNS41MzgxMzZd
-IFJBWDogMDAwMDAwMDA4Y2Y5MDU5YyBSQlg6IGZmZmY4ODAxMjcxYzc4YjggUkNYOiAwMDAw
-MDAwMDhjZjkwNTBjDQoNClsgIDQxNS41MzgxMzZdIFJEWDogMDAwMDAwMDAwMDAwMDBkNCBS
-U0k6IDAwMDAwMDAwMDAwMDYwNDAgUkRJOiAwMDAwMDAwMDAwMDAwMDAxDQoNClsgIDQxNS41
-MzgxMzZdIFJCUDogZmZmZmZmZmY4MTAzNmI2ZSBSMDg6IGZmZmZmZmZmODIxNzUxODAgUjA5
-OiAwMDAwMDAwMDAwMDAwMDAwDQoNClsgIDQxNS41MzgxMzZdIFIxMDogMDAwMDAwMDAwMDAw
-MDAwMCBSMTE6IDAwMDAwMDAwMDAwMDAwMDAgUjEyOiAwMDAwMDAwMDAwMDAzZmVkDQoNClsg
-IDQxNS41MzgxMzZdIFIxMzogZmZmZjg4MDAyZWZkZTAwMCBSMTQ6IGZmZmY4ODAxMjcxYzYw
-MDAgUjE1OiAwMDAwMDAwMDAwMDAwMDAwDQoNClsgIDQxNS41MzgxMzZdIEZTOiAgMDAwMDdm
-OThkZGM2NDZmMCgwMDAwKSBHUzpmZmZmODgwMDJlZmRlMDAwKDAwMDApIGtubEdTOjAwMDAw
-DQowMDAwMDAwMDAwMA0KWyAgNDE1LjUzODEzNl0gQ1M6ICAwMDEwIERTOiAwMDAwIEVTOiAw
-MDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMw0KWyAgNDE1LjUzODEzNl0gQ1IyOiAwMDAwMDAw
-MDA1NTkzMDA4IENSMzogMDAwMDAwMDEyNzQyZjAwMCBDUjQ6IDAwMDAwMDAwMDAwMDI2ZTAN
-Cg0KWyAgNDE1LjUzODEzNl0gRFIwOiAwMDAwMDAwMDAwMDAwMDAwIERSMTogMDAwMDAwMDAw
-MDAwMDAwMCBEUjI6IDAwMDAwMDAwMDAwMDAwMDANCg0KWyAgNDE1LjUzODEzNl0gRFIzOiAw
-MDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAw
-MDA0MDANCg0KWyAgNDE1LjUzODEzNl0gQ2FsbCBUcmFjZToNClsgIDQxNS41MzgxMzZdICBb
-PGZmZmZmZmZmODEyYTk2ZWE+XSA/IGRlbGF5X3RzYysweDRhLzB4ODANClsgIDQxNS41Mzgx
-MzZdICBbPGZmZmZmZmZmODEyYTk1ZGE+XSA/IF9fZGVsYXkrMHhhLzB4MTANClsgIDQxNS41
-MzgxMzZdICBbPGZmZmZmZmZmODEyYWRkYmQ+XSA/IF9yYXdfc3Bpbl9sb2NrKzB4ZmQvMHgx
-NzANClsgIDQxNS41MzgxMzZdICBbPGZmZmZmZmZmODE2ZTkyZjE+XSA/IF9zcGluX2xvY2sr
-MHg1MS8weDcwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNTYyODM2Pl0gPyBkZXZf
-cXVldWVfeG1pdCsweGU2LzB4NGIwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNTYy
-ODM2Pl0gPyBkZXZfcXVldWVfeG1pdCsweGU2LzB4NGIwDQpbICA0MTUuNTM4MTM2XSAgWzxm
-ZmZmZmZmZjgxNTYyN2EzPl0gPyBkZXZfcXVldWVfeG1pdCsweDUzLzB4NGIwDQpbICA0MTUu
-NTM4MTM2XSAgWzxmZmZmZmZmZjgxNTk0YmFjPl0gPyBpcF9maW5pc2hfb3V0cHV0KzB4MTNj
-LzB4MzIwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNTk0ZTBiPl0gPyBpcF9vdXRw
-dXQrMHg3Yi8weGQwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNTkzYmYwPl0gPyBp
-cF9sb2NhbF9vdXQrMHgyMC8weDMwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNTk0
-M2M1Pl0gPyBpcF9xdWV1ZV94bWl0KzB4MTY1LzB4M2IwDQpbICA0MTUuNTM4MTM2XSAgWzxm
-ZmZmZmZmZjgxNWE4ZDQ5Pl0gPyB0Y3BfdHJhbnNtaXRfc2tiKzB4M2U5LzB4NzgwDQpbICA0
-MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNWFiM2I3Pl0gPyB0Y3Bfd3JpdGVfeG1pdCsweDFl
-Ny8weDlkMA0KWyAgNDE1LjUzODEzNl0gIFs8ZmZmZmZmZmY4MTVhYmMwYj5dID8gX190Y3Bf
-cHVzaF9wZW5kaW5nX2ZyYW1lcysweDJiLzB4ZDANClsgIDQxNS41MzgxMzZdICBbPGZmZmZm
-ZmZmODE1OWUzMjc+XSA/IHRjcF9zZW5kbXNnKzB4ODg3LzB4YjkwDQpbICA0MTUuNTM4MTM2
-XSAgWzxmZmZmZmZmZjgxNTRmYTg2Pl0gPyBzb2NrX3NlbmRtc2crMHgxMjYvMHgxNDANClsg
-IDQxNS41MzgxMzZdICBbPGZmZmZmZmZmODEwOTdiNjA+XSA/IGF1dG9yZW1vdmVfd2FrZV9m
-dW5jdGlvbisweDAvMHg0MA0KWyAgNDE1LjUzODEzNl0gIFs8ZmZmZmZmZmY4MTA5N2I2MD5d
-ID8gYXV0b3JlbW92ZV93YWtlX2Z1bmN0aW9uKzB4MC8weDQwDQpbICA0MTUuNTM4MTM2XSAg
-WzxmZmZmZmZmZjgxMGFiMGU3Pl0gPyBtYXJrX2hlbGRfbG9ja3MrMHg2Ny8weDkwDQpbICA0
-MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxNmU5MGJiPl0gPyBfc3Bpbl91bmxvY2tfaXJxcmVz
-dG9yZSsweDNiLzB4NzANClsgIDQxNS41MzgxMzZdICBbPGZmZmZmZmZmODE1NTA5YzA+XSA/
-IHN5c19zZW5kdG8rMHhmMC8weDEzMA0KWyAgNDE1LjUzODEzNl0gIFs8ZmZmZmZmZmY4MTBh
-YjNmZD5dID8gdHJhY2VfaGFyZGlycXNfb25fY2FsbGVyKzB4MTRkLzB4MTkwDQpbICA0MTUu
-NTM4MTM2XSAgWzxmZmZmZmZmZjgxMGFiNDRkPl0gPyB0cmFjZV9oYXJkaXJxc19vbisweGQv
-MHgxMA0KWyAgNDE1LjUzODEzNl0gIFs8ZmZmZmZmZmY4MTBhMWMyNz5dID8gZ2V0bnN0aW1l
-b2ZkYXkrMHg1Ny8weGUwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgxMDliYmYxPl0g
-PyBrdGltZV9nZXRfdHMrMHg1MS8weDcwDQpbICA0MTUuNTM4MTM2XSAgWzxmZmZmZmZmZjgx
-MDM1ZWMyPl0gPyBzeXN0ZW1fY2FsbF9mYXN0cGF0aCsweDE2LzB4MWINCg0KDQoNCg0K
---------------020802070901000500000001--
