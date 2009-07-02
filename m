@@ -1,35 +1,46 @@
-From: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Subject: [net-next-2.6 PATCH 2/9] vxge: Fixed memory leak by freeing memory
- allocated for device_config
-Date: Thu, 2 Jul 2009 03:13:12 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10907020312280.13763-100000@guinness>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH 9/9] vxge: Version update
+Date: Thu, 02 Jul 2009 09:27:03 +0200
+Message-ID: <4A4C6147.7030700@gmail.com>
+References: <Pine.GSO.4.10.10907020318070.13763-100000@guinness>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, support@neterion.com
+To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:37774 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608AbZGBH0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 03:26:42 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:47861 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685AbZGBH1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 03:27:14 -0400
+In-Reply-To: <Pine.GSO.4.10.10907020318070.13763-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Fixed memory leak by freeing memory allocated for device_config.
+Sreenivasa Honnur a =E9crit :
+> - Version update
+>=20
+> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
+> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> ---
+> diff -urpN patch_8/drivers/net/vxge/vxge-version.h patch_9/drivers/ne=
+t/vxge/vxge-version.h
+> --- patch_8/drivers/net/vxge/vxge-version.h	2009-06-30 12:14:09.00000=
+0000 +0530
+> +++ patch_9/drivers/net/vxge/vxge-version.h	2009-06-30 12:47:50.00000=
+0000 +0530
+> @@ -18,6 +18,6 @@
+>  #define VXGE_VERSION_MAJOR	"2"
+>  #define VXGE_VERSION_MINOR	"0"
+>  #define VXGE_VERSION_FIX	"4"
+> -#define VXGE_VERSION_BUILD	"17795"
+> +#define VXGE_VERSION_BUILD	"17899"
+>  #define VXGE_VERSION_FOR	"k"
+>  #endif
+>=20
 
-Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-
----
-diff -urpN patch_1/drivers/net/vxge/vxge-main.c patch_2/drivers/net/vxge/vxge-main.c
---- patch_1/drivers/net/vxge/vxge-main.c	2009-06-21 23:32:44.000000000 -0700
-+++ patch_2/drivers/net/vxge/vxge-main.c	2009-06-21 23:43:43.000000000 -0700
-@@ -4348,6 +4348,7 @@ vxge_probe(struct pci_dev *pdev, const s
- 		vdev->vpaths[i].mac_addr_cnt = 1;
- 	}
- 
-+	kfree(device_config);
- 	vxge_debug_entryexit(VXGE_TRACE, "%s: %s:%d  Exiting...",
- 		vdev->ndev->name, __func__, __LINE__);
- 
+Just curious, why do you change only BUILD, after all previous changes
+that seem quite important, like requiring a new firmware (see patch 7/9=
+) and or
+fixing crash issues ?
 
