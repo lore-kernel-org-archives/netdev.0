@@ -1,59 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Thu, 2 Jul 2009 21:06:26 +0200
-Message-ID: <20090702190626.GA2737@ami.dom.local>
-References: <20090701063651.GA4876@ff.dom.local> <20090701072409.GA12592@ff.dom.local> <4A4B2FA8.3040007@itcare.pl> <20090701101333.GB12715@ff.dom.local> <20090701110407.GC12715@ff.dom.local> <4A4BE06F.3090608@itcare.pl> <20090702053216.GA4954@ff.dom.local> <4A4C48FD.7040002@itcare.pl> <20090702060011.GB4954@ff.dom.local> <19020.53998.330803.83554@gargle.gargle.HOWL>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH net-2.6 6/6] jme: Advance driver version number
+Date: Fri, 3 Jul 2009 03:16:46 +0800
+Message-ID: <20090702191128.M54727@cooldavid.org>
+References: <20090702183224.0B77E5D2D9@cooldavid.org>
+Reply-To: cooldavid@cooldavid.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Robert Olsson <robert@herjulf.net>
+Content-Type: text/plain;
+	charset=big5
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"Ethan Hsiao" <ethanhsiao@jmicron.com>
+To: Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:45263 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbZGBTGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 15:06:48 -0400
-Received: by bwz25 with SMTP id 25so1423511bwz.37
-        for <netdev@vger.kernel.org>; Thu, 02 Jul 2009 12:06:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <19020.53998.330803.83554@gargle.gargle.HOWL>
+Received: from cooldavid.org ([220.133.139.86]:48277 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750799AbZGBTTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 15:19:39 -0400
+In-Reply-To: <20090702183224.0B77E5D2D9@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 02, 2009 at 05:31:58PM +0200, Robert Olsson wrote:
+Sorry for this incorrect patch...
+I forget to remove this out-dated patch file from my patch directory.
+
+And not until now I realized that the commit time will take from
+"format-patch" and affect the timestamp of mail.
+
+I'll be more careful next time.. sorry all..
+
+On Mon, 29 Jun 2009 04:59:38 +0800, Guo-Fu Tseng wrote
+> Advance driver version number after modifications.
 > 
-> Jarek Poplawski writes:
+> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+> ---
+>  drivers/net/jme.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
->  > Yes, it looks like we can't free memory so simple because of such huge
->  > latencies.  
+> diff --git a/drivers/net/jme.h b/drivers/net/jme.h
+> index db912f6..251abed 100644
+> --- a/drivers/net/jme.h
+> +++ b/drivers/net/jme.h
+> @@ -25,7 +25,7 @@
+>  #define __JME_H_INCLUDED__
 > 
->  Controlling RCU seems crucial. Insertion of the full BGP table increased
->  from 2 seconds to > 20 min with one synchronize_rcu patches.
-
-I wish I knew this a few days before. I could imagine a slow down,
-but it looked like it was stuck. Since these last changes weren't
-tested on SMP + PREEMPT I thought there is still something broken.
-(I was mainly interested in this synchronize_rcu at the moment as
-a preemption test.)  
-
->  And fib_trie "worst case" wrt memory is the root node. So maybe we should 
->  monitor changes in root node and use this to control synchronize_rcu.
+>  #define DRV_NAME	"jme"
+> -#define DRV_VERSION	"1.0.4"
+> +#define DRV_VERSION	"1.0.5"
+>  #define PFX		DRV_NAME ": "
 > 
->  Didn't Paul suggest something like this?
+>  #define PCI_DEVICE_ID_JMICRON_JMC250	0x0250
+> -- 
+> 1.6.0.6
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Sure, and it needs testing, but we should send some safe preemption
-fix for -stable first, don't we?
 
->  And with don't find any decent solution we have to add an option for 
->  a fixed and pre-allocated root-nod typically for BGP-routers.
+Guo-Fu Tseng
 
-Probably you're right; I'd prefer to see the test results showing
-a difference vs. simply less aggressive root thresholds. But of
-course, even if not convinced, I'll respect your choice as the author
-and maintainer, so feel free to NAK my proposals - I won't get it
-personally.;-)
-
-Cheers,
-Jarek P.
