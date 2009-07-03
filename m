@@ -1,51 +1,42 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused by netem)
-Date: Fri, 3 Jul 2009 13:26:21 +0200
-Message-ID: <200907031326.21822.andres@anarazel.de>
-References: <200907030331.32531.andres@anarazel.de> <20090703061213.GA4847@ff.dom.local>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
+Date: Fri, 3 Jul 2009 11:30:27 +0000
+Message-ID: <20090703113027.GC4847@ff.dom.local>
+References: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com> <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com> <20090703090606.GA3902@elte.hu> <4A4DCD54.1080908@gmail.com> <20090703092438.GE3902@elte.hu> <20090703095659.GA4518@jolsa.lab.eng.brq.redhat.com> <20090703102530.GD32128@elte.hu> <20090703111848.GA10267@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, oleg@redhat.com, davidel@xmailserver.org
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.anarazel.de ([217.115.131.40]:51037 "EHLO smtp.anarazel.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752003AbZGCL0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2009 07:26:22 -0400
-In-Reply-To: <20090703061213.GA4847@ff.dom.local>
+Received: from mail-bw0-f207.google.com ([209.85.218.207]:59811 "EHLO
+	mail-bw0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752916AbZGCLac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 07:30:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20090703111848.GA10267@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 03 July 2009 08:12:13 Jarek Poplawski wrote:
-> On Fri, Jul 03, 2009 at 03:31:31AM +0200, Andres Freund wrote:
-> ...
->
-> > Ok. I finally see the light. I bisected the issue down to
-> > eea08f32adb3f97553d49a4f79a119833036000a :  timers: Logic to move non
-> > pinned timers
-> >
-> > Disabling timer migration like provided in the earlier commit stops the
-> > issue from occuring.
-> >
-> > That it is related to timers is sensible in the light of my findings,
-> > that I could trigger the issue only when using delay in netem - that is
-> > the codepath using qdisc_watchdog...
->
-> Andres, thanks for your work and time. It saved me a lot of searching,
-> because I wasn't able to trigger this on my old box.
-Thanks. It allowed me to go through some of my remaining paperwork ;-)
+On Fri, Jul 03, 2009 at 01:18:48PM +0200, Jiri Olsa wrote:
+...
+> diff --git a/arch/x86/include/asm/spinlock.h b/arch/x86/include/asm/spinlock.h
+> index b7e5db8..4e77853 100644
+> --- a/arch/x86/include/asm/spinlock.h
+> +++ b/arch/x86/include/asm/spinlock.h
+...
+> @@ -1271,6 +1271,9 @@ static inline int sk_has_allocations(const struct sock *sk)
+>   * in its cache, and so does the tp->rcv_nxt update on CPU2 side.  The CPU1
+>   * could then endup calling schedule and sleep forever if there are no more
+>   * data on the socket.
+> + *
+> + * The sk_has_helper is always called right after a call to read_lock, so we
+Btw.:
+- * The sk_has_helper is always called right after a call to read_lock, so we
++ * The sk_has_sleeper is always called right after a call to read_lock, so we
 
-Does anybody of you have an idea where the problem actually resides? 
-qdisc_watchdog_schedule looks innocent enough for my uneducated eyes - and the 
-patch/infrastructure from Arun goes over my head...
-I will happily test some ideas/patches.
-
-Aside from that - is the whole PSCHED_TICKS2NS/PSCHED_NS2TICKS conversion 
-business purely backward compatibility?
-
-Andres
+Jarek P.
