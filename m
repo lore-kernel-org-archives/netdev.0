@@ -1,109 +1,179 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
-Date: Fri, 3 Jul 2009 02:46:17 +0300
-Message-ID: <200907030246.18054.denys@visp.net.lb>
-References: <200903011344.45814.denys@visp.net.lb> <200907030203.08294.denys@visp.net.lb> <m1ws6qu0te.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [GIT]: Networking
+Date: Fri, 03 Jul 2009 02:07:56 +0200
+Message-ID: <4A4D4BDC.8010304@gmail.com>
+References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com> <4A4CBE7D.2060603@gmail.com> <4A4CDCA4.3040505@nvidia.com> <4A4D3596.8060209@gmail.com> <4A4CEE7F.9060705@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:46673 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754232AbZGBXqh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 19:46:37 -0400
-In-Reply-To: <m1ws6qu0te.fsf@fess.ebiederm.org>
-Content-Disposition: inline
+Received: from gw1.cosmosbay.com ([212.99.114.194]:58289 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbZGCAH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 20:07:58 -0400
+In-Reply-To: <4A4CEE7F.9060705@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 03 July 2009 02:23:09 Eric W. Biederman wrote:
-> What IOS is irrelevant to this discussion.
-Directly relevant, Cisco usually following standards very well.
+Ayaz Abdulla a =E9crit :
+>=20
+>=20
+> Eric Dumazet wrote:
+>> Ayaz Abdulla a =E9crit :
+>>
+>>>
+>>> Eric Dumazet wrote:
+>>>
+>>>> Eric Dumazet a =E9crit :
+>>>>
+>>>>
+>>>>> Ingo Molnar a =E9crit :
+>>>>>
+>>>>>
+>>>>>>> The following changes since commit
+>>>>>>> 52989765629e7d182b4f146050ebba0abf2cb0b7:
+>>>>>>> Linus Torvalds (1):
+>>>>>>>       Merge git://git.kernel.org/.../davem/net-2.6
+>>>>>>>
+>>>>>>> are available in the git repository at:
+>>>>>>>
+>>>>>>> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git m=
+aster
+>>>>>>
+>>>>>> Hm, something in this lot quickly wrecked networking here - see =
+the
+>>>>>> tx timeout dump below. It starts with:
+>>>>>>
+>>>>>> [  351.004596] WARNING: at net/sched/sch_generic.c:246
+>>>>>> dev_watchdog+0x10b/0x19c()
+>>>>>> [  351.011815] Hardware name: System Product Name
+>>>>>> [  351.016220] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue=
+ 0
+>>>>>> timed out
+>>>>>>
+>>>>>> Config attached. Unfortunately i've got no time to do bisection
+>>>>>> today.
+>>>>>
+>>>>>
+>>>>>
+>>>>> forcedeth might have a problem, in its netif_wake_queue() logic, =
+but
+>>>>> I could not see why a recent patch could make this problem visibl=
+e
+>>>>> now.
+>>>>>
+>>>>> CPU0/1: AMD Athlon(tm) 64 X2 Dual Core Processor 3800+ stepping 0=
+2
+>>>>> is not a new cpu either :)
+>>>>>
+>>>>> forcedeth uses an internal tx_stop without appropriate barrier.
+>>>>>
+>>>>> Could you try following patch ?
+>>>>>
+>>>>> (random guess as I dont have much time right now)
+>>>>
+>>>>
+>>>> Oh well this patch was soooo stupid, sorry Ingo.
+>>>>
+>>>>
+>>>> We might have a race in napi_schedule(), leaving interrupts disabl=
+ed
+>>>> forever.
+>>>> I cannot test this patch, I dont have the hardware...
+>>>>
+>>>> Thanks
+>>>>
+>>>> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+>>>> index 1094d29..3b4e076 100644
+>>>> --- a/drivers/net/forcedeth.c
+>>>> +++ b/drivers/net/forcedeth.c
+>>>> @@ -3514,11 +3514,13 @@ static irqreturn_t nv_nic_irq(int foo, voi=
+d
+>>>> *data)
+>>>>     nv_msi_workaround(np);
+>>>>
+>>>> #ifdef CONFIG_FORCEDETH_NAPI
+>>>> -    napi_schedule(&np->napi);
+>>>> -
+>>>> -    /* Disable furthur irq's
+>>>> -       (msix not enabled with napi) */
+>>>> -    writel(0, base + NvRegIrqMask);
+>>>> +    if (napi_schedule_prep(&np->napi)) {
+>>>> +        /*
+>>>> +         * Disable further irq's (msix not enabled with napi)
+>>>> +         */
+>>>> +        writel(0, base + NvRegIrqMask);
+>>>> +        __napi_schedule(&np->napi);
+>>>> +    }
+>>>
+>>> Yes, good catch. There is a race condition here with napi poll.
+>>>
+>>> I would prefer to do the following to keep the code simple and clea=
+n.
+>>>
+>>> writel(0, base + NvRegIrqMask);
+>>> napi_schedule(&np->napi);
+>>
+>>
+>>
+>> CC trimmed down to network devs only :)
+>>
+>> It would be racy too ...
+>>
+>> check drivers/net/amd8111e.c, drivers/net/natsemi.c ...
+>>
+>> If this cpu inconditionaly calls writel(0, base + NvRegIrqMask); whi=
+le
+>> another cpu just called writel(np->irqmask, base + NvRegIrqMask),
+>> we end with disabled interrupts ?
+> <BCC linux-kernel>
+>=20
+> Yes, but the next instruction is to call napi_schedule() which will
+> re-enable interrupts in napi function.
+
+Sorry, I dont get it. You are referring to softirqs, while I speak
+of hardware (NIC) interrupts, that can be masked for ever.
+
+With your patch :
+
+CPU0                                     CPU1
+napi_complete();
+/* please note there is no smp_wmb()
+   in __napi_complete() after
+   clear_bit(NAPI_STATE_SCHED, &n->state);
+   (It's implied on x86 because of lock prefix)
+*/
+writel(np->irqmask, base + NvRegIrqMask)
+                                         writel(0, base + NvRegIrqMask)=
+;
+                                         napi_schedule(&np->napi); // m=
+ight do nothing because this cpu see=20
+								   // NAPI_STATE_SCHED set to one
+
+NIC cannot deliver further interrupts.
 
 
-> Especially when I don't see the "ip proxy-arp" command.
->From Cisco IOS manual:
-ip proxy-arp
+With my patch :
 
-....
-
-Defaults
-
-Enabled 
-
-It will show in config only "no ip proxy arp"
-
-For example
-show running 
-....
-interface FastEthernet2/0
- ip address 10.0.2.2 255.255.255.0
- duplex half
-....
-
-Router(config)#inter FastEthernet 2/0
-Router(config-if)#no ip proxy-arp
-
-show running
-
-....
-interface FastEthernet2/0
- ip address 10.0.2.2 255.255.255.0
- no ip proxy-arp
- duplex half
-....
-
->
-> Having two networks:
-> 10.0.0.0/24 physical segment
-> 10.0.1.0/24 physical segment
->
-> It is correct for proxy arp to answer to for 10.0.0.66
-> when it is plugged into the 10.0.1.0/24 network.
-It is not defined in standart, correct or not. 
-
->
-> Because in that case 10.0.0.66 is on the wrong subnet, and your
-> network is misconfigured.
-What Linux does care about this?
-It is not police inspector to block me from taking this ip in wrong subnet.
-
-And without emotions - it is not his job to give answers for wrong request 
-(ARP Announce), from wrong ip (not linux with proxy arp enabled interface 
-subnet). Especially because there is no use for current behavior, other than 
-making problems.
-
-And most important what you are telling violates RFC again, i finally found 
-this in RFC 1027:
-
-..."The gateway
-    is acting as an agent for host B, which is why this technique is
-    called "Proxy ARP"; we will refer to this as a transparent subnet
-    gateway or ARP subnet gateway.
-"...
-
-"    An ARP subnet gateway implementation must not reply if the physical
-    networks of the source and target of an ARP request are the same.
-    In this case, either the target host is presumably either on the
-    same physical network as the source host and can answer for itself,
-    or the target host lies in the same direction from the gateway as
-    does the source host, and an ARP reply from the would cause a loop.
-"
-Also not very clear, but maybe it is a reason why Cisco doesn't answer to ip 
-who is not reachable from this interface
-"
-    If the IP networks of the source and target hosts of an ARP request
-    are different, an ARP subnet gateway implementation should not
-    reply.  This is to prevent the ARP subnet gateway from being used to
-    reach foreign IP networks and thus possibly bypass security checks
-    provided by IP gateways.
-"
+CPU0                                     CPU1
+napi_complete();
+/* please note there is no smp_wmb()
+   in __napi_complete() after
+   clear_bit(NAPI_STATE_SCHED, &n->state);
+*/
+writel(np->irqmask, base + NvRegIrqMask)
+					  if (napi_schedule_prep(&np->napi)) // if false, NIC can deliver =
+further interrupts.
+						// if true, we mask interrupts but re-enable napi. packets will b=
+e processed,
+						// interrupt will be re-enabled later.
 
 
+My patch has a guarantee that we mask NIC interrupts *only* if napi is =
+re-scheduled.
 
->
-> Eric
-
-
+It probably makes no difference on x86, but it might be better to have =
+same logic in all drivers...
