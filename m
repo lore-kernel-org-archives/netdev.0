@@ -1,124 +1,59 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
-Date: Fri, 3 Jul 2009 13:31:30 -0400
-Message-ID: <20090703173130.GA16089@Krystal>
-References: <20090703152951.GA28837@gondor.apana.org.au> <4A4E25BB.8060408@gmail.com> <20090703154700.GD10256@Krystal> <20090703170621.GS8943@linux.vnet.ibm.com>
+From: Dave <kilroyd@googlemail.com>
+Subject: Re: [PATCH] check spinlock_t/rwlock_t argument type on non-SMP builds
+Date: Fri, 03 Jul 2009 20:02:01 +0100
+Message-ID: <4A4E55A9.7090001@gmail.com>
+References: <1246560291-8104-1-git-send-email-kilroyd@googlemail.com> <20090703073801.GA10191@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, mingo@elte.hu,
-	jolsa@redhat.com, a.p.zijlstra@chello.nl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
-	oleg@redhat.com, davidel@xmailserver.org, Paul.McKenney@us.ibm.com
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758487AbZGCRbm@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090703170621.GS8943@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David Kilroy <kilroyd@googlemail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f215.google.com ([209.85.219.215]:52748 "EHLO
+	mail-ew0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756475AbZGCTCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 15:02:08 -0400
+In-Reply-To: <20090703073801.GA10191@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> On Fri, Jul 03, 2009 at 11:47:00AM -0400, Mathieu Desnoyers wrote:
-> > * Eric Dumazet (eric.dumazet@gmail.com) wrote:
-> > > Herbert Xu a =E9crit :
-> > > > Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
-> > > >> Why don't we create a read_lock without acquire semantic inste=
-ad (e.g.
-> > > >> read_lock_nomb(), or something with a better name like __read_=
-lock()) ?
-> > > >> On architectures where memory barriers are needed to provide t=
-he acquire
-> > > >> semantic, it would be faster to do :
-> > > >>
-> > > >> __read_lock();
-> > > >> smp_mb();
-> > > >>
-> > > >> than :
-> > > >>
-> > > >> read_lock(); <- e.g. lwsync + isync or something like that
-> > > >> smp_mb(); <- full sync.
-> > > >=20
-> > > > Hmm, why do we even care when read_lock should just die?
-> > > >=20
-> > > > Cheers,
-> > >=20
-> > > +1 :)
-> > >=20
-> > > Do you mean using a spinlock instead or what ?
-> > >=20
-> >=20
-> > I think he meant RCU.
-> >=20
-> > > Also, how many arches are able to have a true __read_lock()
-> > > (or __spin_lock() if that matters), without acquire semantic ?
-> >=20
-> > At least PowerPC, MIPS, recent ARM, alpha.
->=20
-> Are you guys sure you are in agreement about what you all mean by
-> "acquire semantics"?
->=20
+Ingo Molnar wrote:
+> * David Kilroy <kilroyd@googlemail.com> wrote:
+> 
+>> When writing code for UP without CONFIG_DEBUG_SPINLOCK it's easy 
+>> to get the first argument to the spinlock/rwlock functions wrong. 
+>> This is because the parameter is not actually used in this 
+>> configuration.
+>>
+>> Typically you will only find out it's wrong
+>>  * by rebuilding with CONFIG_SMP or CONFIG_DEBUG_SPINLOCK
+>>  * after you've submitted your beautiful patch series.
+>>
+>> The first means a long wait, and the latter is a bit late.
+>>
+>> Add typechecking on the first argument of these macro functions. 
+>> Note that since the typecheck now references the variable, the 
+>> explicit read is redundant and can be removed.
+>>
+>> This change causes compiler warnings in net/ipv4/route.c, as this 
+>> passes NULL as the first argument in the UP configuration. Simply 
+>> cast this.
+> 
+> Wondering - can the wrappers be moved from CPP land to C land by 
+> turning them into inlines? (i havent checked all usages so there 
+> might be some surprises, but by and large it ought to be possible.)
 
-I use acquire/release semantic with the following meaning :
+I thought about doing it that way. I decided not to because I suspected
+it would be harder to verify that the behaviour is unchanged.
 
-=2E..
-read A
-read_unlock()
+Also the _lock_irqsave functions output to the flags parameter (which
+isn't a pointer) so that has to remain a macro.
 
-read B
-
-read_lock();
-read C
-
-read_unlock would provide release semantic by disallowing read A to mov=
-e
-after the read_unlock.
-
-read_lock would provide acquire semantic by disallowing read C to move
-before read_lock.
-
-read B is free to move.
+If you'd really rather an inline version, I can spend some time looking
+into it.
 
 
-> Clearly, any correct __read_lock() implementation must enforce orderi=
-ng
-> with respect to the most recent __write_unlock(), but this does not
-> necesarily imply all possible definitions of "acquire semantics".
->=20
-
-Yes, you are right. We could never remove _all_ memory barriers from
-__read_lock()/__read_unlock implementations even if we require somethin=
-g
-such as :
-
-__read_lock()
-smp_mb()
-
-critical section.
-
-smp_mb()
-__read_unlock()
-
-Because we also need to guarantee that consecutive unlock/lock won't be
-reordered, which implies a barrier _outside_ of the read lock/unlock
-atomic operations.
-
-But anyway I'm not sure it's worth trying to optimize rwlocks, given
-that for critical sections where the performance hit of a memory barrie=
-r
-would be perceivable, we should really think about using RCU rather tha=
-n
-beating this dead horse. :)
-
-Thanks,
-
-Mathieu.
-
-
-> 							Thanx, Paul
-
---=20
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE =
-9A68
+Dave.
