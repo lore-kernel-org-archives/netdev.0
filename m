@@ -1,86 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tun netns BUG()
-Date: Fri, 3 Jul 2009 17:03:55 +0800
-Message-ID: <20090703090355.GA25768@gondor.apana.org.au>
-References: <m1ljo61cya.fsf@fess.ebiederm.org> <20090703083501.GA25536@gondor.apana.org.au>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
+Date: Fri, 3 Jul 2009 11:06:06 +0200
+Message-ID: <20090703090606.GA3902@elte.hu>
+References: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com> <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dwmw2@infradead.org, netdev@vger.kernel.org,
-	johannes@sipsolutions.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
+	davidel@xmailserver.org, eric.dumazet@gmail.com
+To: Jiri Olsa <jolsa@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:53162 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751678AbZGCJED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 05:04:03 -0400
+Received: from mx3.mail.elte.hu ([157.181.1.138]:59293 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750896AbZGCJGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2009 05:06:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20090703083501.GA25536@gondor.apana.org.au>
+In-Reply-To: <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 03, 2009 at 04:35:01PM +0800, Herbert Xu wrote:
-> 
-> This just turns a wide-open race into a less likely one (that's
-> why it appears to fix the problem).  The crux of the issue is that 
-> __tun_get(tfile) != NULL has nothing to do with whether the device
-> has been unregistered.
 
-tun: Fix device unregister race
+* Jiri Olsa <jolsa@redhat.com> wrote:
 
-It is currently possible for an asynchronous device unregister
-to cause the same tun device to be unregistered twice.  This
-is because the unregister in tun_chr_close only checks whether
-__tun_get(tfile) != NULL.  This however has nothing to do with
-whether the device has already been unregistered.  All it tells
-you is whether __tun_detach has been called.
+> +++ b/arch/x86/include/asm/spinlock.h
+> @@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
+>  #define _raw_read_relax(lock)	cpu_relax()
+>  #define _raw_write_relax(lock)	cpu_relax()
+>  
+> +/* The {read|write|spin}_lock() on x86 are full memory barriers. */
+> +#define smp_mb__after_lock() do { } while (0)
 
-This patch fixes this by using the most obvious thing to test
-whether the device has been unregistered.
+Two small stylistic comments, please make this an inline function:
 
-It also moves __tun_detach outside of rtnl_unlock since nothing
-that it does requires that lock.
+static inline void smp_mb__after_lock(void) { }
+#define smp_mb__after_lock
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+(untested)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 11a0ba4..b393536 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1324,20 +1324,22 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun;
- 
--
--	rtnl_lock();
- 	tun = __tun_get(tfile);
- 	if (tun) {
--		DBG(KERN_INFO "%s: tun_chr_close\n", tun->dev->name);
-+		struct net_device *dev = tun->dev;
-+
-+		DBG(KERN_INFO "%s: tun_chr_close\n", dev->name);
- 
- 		__tun_detach(tun);
- 
- 		/* If desireable, unregister the netdevice. */
--		if (!(tun->flags & TUN_PERSIST))
--			unregister_netdevice(tun->dev);
--
-+		if (!(tun->flags & TUN_PERSIST)) {
-+			rtnl_lock();
-+			if (dev->reg_state == NETREG_REGISTERED)
-+				unregister_netdevice(dev);
-+			rtnl_unlock();
-+		}
- 	}
--	rtnl_unlock();
- 
- 	tun = tfile->tun;
- 	if (tun)
+> +/* The lock does not imply full memory barrier. */
+> +#ifndef smp_mb__after_lock
+> +#define smp_mb__after_lock() smp_mb()
+> +#endif
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ditto.
+
+	Ingo
