@@ -1,59 +1,93 @@
-From: Dave <kilroyd@googlemail.com>
-Subject: Re: [PATCH] check spinlock_t/rwlock_t argument type on non-SMP builds
-Date: Fri, 03 Jul 2009 20:02:01 +0100
-Message-ID: <4A4E55A9.7090001@gmail.com>
-References: <1246560291-8104-1-git-send-email-kilroyd@googlemail.com> <20090703073801.GA10191@elte.hu>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [Bugme-new] [Bug 13692] New: dccp_ipv4 has >1 usage count and
+	cannot be removed
+Date: Fri, 3 Jul 2009 21:41:43 +0200
+Message-ID: <20090703194143.GA9410@gerrit.erg.abdn.ac.uk>
+References: <bug-13692-10286@http.bugzilla.kernel.org/> <20090702151807.aa5b8447.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Kilroy <kilroyd@googlemail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, oakad@yahoo.com,
+	dccp@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f215.google.com ([209.85.219.215]:52748 "EHLO
-	mail-ew0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756475AbZGCTCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 15:02:08 -0400
-In-Reply-To: <20090703073801.GA10191@elte.hu>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:40190 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758769AbZGCTmY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2009 15:42:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20090702151807.aa5b8447.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar wrote:
-> * David Kilroy <kilroyd@googlemail.com> wrote:
-> 
->> When writing code for UP without CONFIG_DEBUG_SPINLOCK it's easy 
->> to get the first argument to the spinlock/rwlock functions wrong. 
->> This is because the parameter is not actually used in this 
->> configuration.
->>
->> Typically you will only find out it's wrong
->>  * by rebuilding with CONFIG_SMP or CONFIG_DEBUG_SPINLOCK
->>  * after you've submitted your beautiful patch series.
->>
->> The first means a long wait, and the latter is a bit late.
->>
->> Add typechecking on the first argument of these macro functions. 
->> Note that since the typecheck now references the variable, the 
->> explicit read is redundant and can be removed.
->>
->> This change causes compiler warnings in net/ipv4/route.c, as this 
->> passes NULL as the first argument in the UP configuration. Simply 
->> cast this.
-> 
-> Wondering - can the wrappers be moved from CPP land to C land by 
-> turning them into inlines? (i havent checked all usages so there 
-> might be some surprises, but by and large it ought to be possible.)
+| > http://bugzilla.kernel.org/show_bug.cgi?id=13692
+| > 
+| >            Summary: dccp_ipv4 has >1 usage count and cannot be removed
+<snip>
+| > 
+| > Upon loading of dccp_ipv4 (either through autoload or explicitly, with
+| > modprobe) the usage count of the module is immediately set to 2 and the module
+| > can not be unloaded.
+| > 
+| > Usage count seems to be correctly incremented/decremented during operation, but
+| > never gets lower than 2.
+| > 
+I am not sure that this should be treated as a bug. DCCP has a control
+socket which causes extra reference counts. The above issue, however, is
+harmless, since dccp_ipv4 can be removed with "rmmod -f", as shown in
+the trace below.
 
-I thought about doing it that way. I decided not to because I suspected
-it would be harder to verify that the behaviour is unchanged.
+On the contrary, this provides protection against accidental removal.
+The module can safely be removed when all timewait sockets have been
+released. Someone wishing to unload the module should be aware of this
+possibility and ensured, via 'ss -dane', that no more sockets are used.
 
-Also the _lock_irqsave functions output to the flags parameter (which
-isn't a pointer) so that has to remain a macro.
+In a very early version of DCCP (~ 2005 .. 2006) there used to be an
+"unload hack" kernel config option:
 
-If you'd really rather an inline version, I can spend some time looking
-into it.
+config IP_DCCP_UNLOAD_HACK
+         depends on IP_DCCP=m && IP_DCCP_CCID3=m
+         bool "DCCP control sock unload hack"
+         ---help---
+           Enable this to be able to unload the dccp module when the it
+           has only one refcount held, the control sock one. Just execute
+           "rmmod dccp_ccid3 dccp"
+ 
+           Just say N.
+==> The last sentence also seems to capture the mailing list consensus;
+    the question whether to reinstate the unload hack came up several
+    times but was not met with widespread approval.
 
+In summary, if a user knows what s/he is doing, it is possible to safely
+unload dccp_ipv{4,6} when DCCP is compiled as a module.
 
-Dave.
+Originally the unload option was there mainly to allow work on the
+modules, there was even one suggestion to completely disable module
+unloading.
+
+I believe that the current state provides some protection against
+accidental/unwanted removal by unsuspecting users. Arnaldo, what
+do you think?
+
+Here is the trace (and it worked like this for the past 4 years):
+  ~ $ lsmod
+  Module                  Size  Used by
+
+  ~ $ modprobe -v dccp_ipv4 
+  insmod /lib/modules/2.6.31-rc1/kernel/net/dccp/dccp.ko 
+  insmod /lib/modules/2.6.31-rc1/kernel/net/dccp/dccp_ipv4.ko 
+
+  ~ $ lsmod
+  Module                  Size  Used by
+  dccp_ipv4              14856  2 
+  dccp                  102984  1 dccp_ipv4
+
+  ~ $ rmmod -f dccp_ipv4
+  ~ $ lsmod
+  Module                  Size  Used by
+  dccp                  102984  0 
+  ~ $ rmmod dccp
+  ~ $ lsmod
+  Module                  Size  Used by
