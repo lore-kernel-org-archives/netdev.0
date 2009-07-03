@@ -1,57 +1,77 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused by netem)
-Date: Fri, 3 Jul 2009 14:30:00 +0200
-Message-ID: <200907031430.00946.andres@anarazel.de>
-References: <200907030331.32531.andres@anarazel.de> <200907031326.21822.andres@anarazel.de> <20090703120301.GD4847@ff.dom.local>
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
+Date: Fri, 3 Jul 2009 10:04:01 -0400
+Message-ID: <20090703140401.GA10256@Krystal>
+References: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com> <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com> <20090703090606.GA3902@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.anarazel.de ([217.115.131.40]:49708 "EHLO smtp.anarazel.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751072AbZGCMaC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2009 08:30:02 -0400
-In-Reply-To: <20090703120301.GD4847@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
+	davidel@xmailserver.org, eric.dumazet@gmail.com,
+	Paul McKenney <Paul.McKenney@us.ibm.com>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757968AbZGCOGT@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090703090606.GA3902@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 03 July 2009 14:03:01 Jarek Poplawski wrote:
-> On Fri, Jul 03, 2009 at 01:26:21PM +0200, Andres Freund wrote:
-> > On Friday 03 July 2009 08:12:13 Jarek Poplawski wrote:
-> > > On Fri, Jul 03, 2009 at 03:31:31AM +0200, Andres Freund wrote:
-> > > ...
-> > >
-> > > > Ok. I finally see the light. I bisected the issue down to
-> > > > eea08f32adb3f97553d49a4f79a119833036000a :  timers: Logic to move non
-> > > > pinned timers
-> > > >
-> > > > Disabling timer migration like provided in the earlier commit stops
-> > > > the issue from occuring.
-> > > >
-> > > > That it is related to timers is sensible in the light of my findings,
-> > > > that I could trigger the issue only when using delay in netem - that
-> > > > is the codepath using qdisc_watchdog...
-> > > Andres, thanks for your work and time. It saved me a lot of searching,
-> > > because I wasn't able to trigger this on my old box.
-> > Thanks. It allowed me to go through some of my remaining paperwork ;-)
-> > Does anybody of you have an idea where the problem actually resides?
-> Do you mean possibly broken timers are not enough?
-I have no ideas how/if the timers are actually broken or if the problem does 
-reside somewhere else and is just made visible by the timer changes.
+* Ingo Molnar (mingo@elte.hu) wrote:
+> 
+> * Jiri Olsa <jolsa@redhat.com> wrote:
+> 
+> > +++ b/arch/x86/include/asm/spinlock.h
+> > @@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
+> >  #define _raw_read_relax(lock)	cpu_relax()
+> >  #define _raw_write_relax(lock)	cpu_relax()
+> >  
+> > +/* The {read|write|spin}_lock() on x86 are full memory barriers. */
+> > +#define smp_mb__after_lock() do { } while (0)
+> 
 
-I would have expected more problem with completely borked timers ;-)
+Hm. Looking at http://lkml.org/lkml/2009/6/23/192, a very basic question
+comes to my mind :
+
+Why don't we create a read_lock without acquire semantic instead (e.g.
+read_lock_nomb(), or something with a better name like __read_lock()) ?
+On architectures where memory barriers are needed to provide the acquire
+semantic, it would be faster to do :
+
+__read_lock();
+smp_mb();
+
+than :
+
+read_lock(); <- e.g. lwsync + isync or something like that
+smp_mb(); <- full sync.
+
+Second point : __add_wait_queue/waitqueue_active/wake_up_interruptible
+would probably benefit from adding comments about their combined use
+with other checks and how nice memory barriers are.
+
+Mathieu
 
 
-> > Aside from that - is the whole PSCHED_TICKS2NS/PSCHED_NS2TICKS conversion
-> > business purely backward compatibility?
-> The whole PSCHED_ conversion was to get finer resolution without
-> breaking backward compatibility, I hope.;-)
-I haven't seen any problems - just curious ;-)
+> Two small stylistic comments, please make this an inline function:
+> 
+> static inline void smp_mb__after_lock(void) { }
+> #define smp_mb__after_lock
+> 
+> (untested)
+> 
+> > +/* The lock does not imply full memory barrier. */
+> > +#ifndef smp_mb__after_lock
+> > +#define smp_mb__after_lock() smp_mb()
+> > +#endif
+> 
+> ditto.
+> 
+> 	Ingo
 
-Andres
+-- 
+Mathieu Desnoyers
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
