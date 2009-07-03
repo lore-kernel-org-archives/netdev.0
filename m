@@ -1,48 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
-Date: Fri, 3 Jul 2009 15:55:30 +0800
-Message-ID: <20090703075530.GA25190@gondor.apana.org.au>
-References: <20090602.171418.186096253.davem@davemloft.net>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: [PATCHv5 0/2] net: fix race in the receive/select
+Date: Fri, 3 Jul 2009 10:12:19 +0200
+Message-ID: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rusty@rustcorp.com.au, patrick.ohly@intel.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	divy@chelsio.com, rolandd@cisco.com, xemul@openvz.org,
-	dcbw@redhat.com, libertas-dev@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
+	oleg@redhat.com, davidel@xmailserver.org, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49382 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752486AbZGCHzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 03:55:47 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:34351 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751709AbZGCIMU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2009 04:12:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20090602.171418.186096253.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
->
->> I think I'll do this in the driver for now, and let's revisit doing it 
->> generically later?
-> 
-> That might be the best course of action for the time being.
-> This whole area is a rat's nest.
+This patchset fixies the race within the poll_wait call and the receive callbacks,
+by adding memory barrier.
 
-Calling skb_orphan like this should be forbidden.  Apart from the
-problems already raised, it is a sign that the driver is trying to
-paper over a more serious issue of not cleaning up skb's timely.
+- 1/2 includes the actual fix
+- 2/2 includes optimization for the x86 arch
 
-Yes skb_orphan will work for the cases where calling the skb
-destructor allows forward progress, but for the cases where you
-really need to the skb to be freed (e.g., iSCSI or Xen), this
-simply doesn't work.
+It is discussed and described in the following discussions:
 
-So anytime someone tries to propose such a solution it is a sign
-that they have bigger problems.
+http://lkml.org/lkml/2009/6/18/124
+http://lkml.org/lkml/2009/6/25/188
+http://lkml.org/lkml/2009/6/29/216
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Patchset is made on top of Linus'es tree 7c5371c403abb29f01bc6cff6c5096abdf2dc524 .
+
+Booted on x86_64.
+
+wbr,
+jirka
+
+---
+ arch/x86/include/asm/spinlock.h |    3 ++
+ include/linux/spinlock.h        |    5 +++
+ include/net/sock.h              |   69 +++++++++++++++++++++++++++++++++++++++
+ net/atm/common.c                |    6 ++--
+ net/core/datagram.c             |    2 +-
+ net/core/sock.c                 |    8 ++--
+ net/dccp/output.c               |    2 +-
+ net/dccp/proto.c                |    2 +-
+ net/ipv4/tcp.c                  |    2 +-
+ net/iucv/af_iucv.c              |    4 +-
+ net/rxrpc/af_rxrpc.c            |    4 +-
+ net/unix/af_unix.c              |    8 ++--
+ 12 files changed, 96 insertions(+), 19 deletions(-)
