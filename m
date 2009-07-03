@@ -1,88 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
-Date: Fri, 3 Jul 2009 12:25:30 +0200
-Message-ID: <20090703102530.GD32128@elte.hu>
-References: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com> <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com> <20090703090606.GA3902@elte.hu> <4A4DCD54.1080908@gmail.com> <20090703092438.GE3902@elte.hu> <20090703095659.GA4518@jolsa.lab.eng.brq.redhat.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Fri, 3 Jul 2009 14:02:34 +0300
+Message-ID: <200907031402.34941.denys@visp.net.lb>
+References: <200903011344.45814.denys@visp.net.lb> <200907030246.18054.denys@visp.net.lb> <m1ab3mihjv.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
-	davidel@xmailserver.org
-To: Jiri Olsa <jolsa@redhat.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:41185 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752389AbZGCKZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2009 06:25:43 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:41668 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbZGCLCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 07:02:50 -0400
+In-Reply-To: <m1ab3mihjv.fsf@fess.ebiederm.org>
 Content-Disposition: inline
-In-Reply-To: <20090703095659.GA4518@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Friday 03 July 2009 06:14:44 Eric W. Biederman wrote:
 
-* Jiri Olsa <jolsa@redhat.com> wrote:
+Actually problem doesn't worth a broken egg even.
+I am not confused. Just i am trying to explain that some feature 
+implementation must follow standards somehow, especially because it break 
+things. And it breaks. Actual use for proxy_arp in modern world is very small, 
+and i think it is used rarely, only for PPP links for remote customers. But 
+even in this case it will break things, if this box have default gateway.
 
-> On Fri, Jul 03, 2009 at 11:24:38AM +0200, Ingo Molnar wrote:
-> >=20
-> > * Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > > Ingo Molnar a =E9crit :
-> > > > * Jiri Olsa <jolsa@redhat.com> wrote:
-> > > >=20
-> > > >> +++ b/arch/x86/include/asm/spinlock.h
-> > > >> @@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_=
-rwlock_t *rw)
-> > > >>  #define _raw_read_relax(lock)	cpu_relax()
-> > > >>  #define _raw_write_relax(lock)	cpu_relax()
-> > > >> =20
-> > > >> +/* The {read|write|spin}_lock() on x86 are full memory barrie=
-rs. */
-> > > >> +#define smp_mb__after_lock() do { } while (0)
-> > > >=20
-> > > > Two small stylistic comments, please make this an inline functi=
-on:
-> > > >=20
-> > > > static inline void smp_mb__after_lock(void) { }
-> > > > #define smp_mb__after_lock
-> > > >=20
-> > > > (untested)
-> > > >=20
-> > > >> +/* The lock does not imply full memory barrier. */
-> > > >> +#ifndef smp_mb__after_lock
-> > > >> +#define smp_mb__after_lock() smp_mb()
-> > > >> +#endif
-> > > >=20
-> > > > ditto.
-> > > >=20
-> > > > 	Ingo
-> > >=20
-> > > This was following existing implementations of various smp_mb__??=
-? helpers :
-> > >=20
-> > > # grep -4 smp_mb__before_clear_bit include/asm-generic/bitops.h
-> > >=20
-> > > /*
-> > >  * clear_bit may not imply a memory barrier
-> > >  */
-> > > #ifndef smp_mb__before_clear_bit
-> > > #define smp_mb__before_clear_bit()      smp_mb()
-> > > #define smp_mb__after_clear_bit()       smp_mb()
-> > > #endif
-> >=20
-> > Did i mention that those should be fixed too? :-)
-> >=20
-> > 	Ingo
->=20
-> ok, could I include it in the 2/2 or you prefer separate patch?
+1)If Linux have default gateway configured "some other" interface, enabling 
+proxy_arp on ethernet interface will break communication for any network that 
+is not configured on this Linux interface. It will just give ARP reply for 
+all ARP requests.
 
-depends on whether it will regress ;-)
+2)ACD (Address conflict detection) used in DHCP, Mobile IP and etc, and it 
+uses gratituous ARP/ARP Announce. 
+Proxy ARP used to help route networks. 
+Gratituous ARP/ARP Announce packet have no use for routing, it is for ACD and 
+ARP cache updating (for clusters). Linux ARP proxy gives answer to such 
+packets, which doesn't have use for routing, but breaks ACD (gives false 
+positive ip conflict).
 
-If it regresses, it's better to have it separate. If it wont, it can=20
-be included. If unsure, default to the more conservative option.
-
-	Ingo
+Anyway, i ask advice from one of RFC authors. I will forward it here as soon 
+as receive it.
