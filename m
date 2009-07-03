@@ -1,37 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict
- verification
-Date: Thu, 02 Jul 2009 18:38:04 -0700 (PDT)
-Message-ID: <20090702.183804.21926158.davem@davemloft.net>
-References: <200907030203.08294.denys@visp.net.lb>
-	<m1ws6qu0te.fsf@fess.ebiederm.org>
-	<200907030246.18054.denys@visp.net.lb>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH 1/2] xfrm4: fix the ports decode of sctp protocol
+Date: Fri, 03 Jul 2009 10:57:23 +0800
+Message-ID: <4A4D7393.1060303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: denys@visp.net.lb
+Cc: Netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35602
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753121AbZGCBh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 21:37:58 -0400
-In-Reply-To: <200907030246.18054.denys@visp.net.lb>
+Received: from cn.fujitsu.com ([222.73.24.84]:54542 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756638AbZGCC6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jul 2009 22:58:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Date: Fri, 3 Jul 2009 02:46:17 +0300
+The SCTP pushed the skb data above the sctp chunk header, so the check
+of pskb_may_pull(skb, xprth + 4 - skb->data) in _decode_session4() will
+never return 0 because xprth + 4 - skb->data < 0, the ports decode of
+sctp will always fail.
 
-> On Friday 03 July 2009 02:23:09 Eric W. Biederman wrote:
->> What IOS is irrelevant to this discussion.
-> Directly relevant, Cisco usually following standards very well.
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/ipv4/xfrm4_policy.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-No, IT IS TOTALLY FREAKIN IRRELEVANT!  And if you don't understand
-that GO AWAY NOW.
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 60d918c..0071ee6 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -136,7 +136,8 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 		case IPPROTO_TCP:
+ 		case IPPROTO_SCTP:
+ 		case IPPROTO_DCCP:
+-			if (pskb_may_pull(skb, xprth + 4 - skb->data)) {
++			if (xprth + 4 < skb->data ||
++			    pskb_may_pull(skb, xprth + 4 - skb->data)) {
+ 				__be16 *ports = (__be16 *)xprth;
+ 
+ 				fl->fl_ip_sport = ports[!!reverse];
+-- 
+1.6.2.2
 
-If you, on the other hand, give a coherent and reasonable explanation
-_WHY_ a certain behavior should be followed, that is convincing.  And
-this is regardless of what Cisco does one way or the other.
 
-Just like us, Cisco does stupid misguided shit too.
+
+
