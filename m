@@ -1,26 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Fri, 03 Jul 2009 02:07:56 +0200
-Message-ID: <4A4D4BDC.8010304@gmail.com>
-References: <20090630.213927.180401151.davem@davemloft.net> <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com> <4A4CBE7D.2060603@gmail.com> <4A4CDCA4.3040505@nvidia.com> <4A4D3596.8060209@gmail.com> <4A4CEE7F.9060705@nvidia.com>
+From: Ayaz Abdulla <AAbdulla@nvidia.com>
+Subject: RE: [GIT]: Networking
+Date: Thu, 2 Jul 2009 18:11:01 -0700
+Message-ID: <1FC56210173BB445BD77F608D6FB8D03036AA92EEA@HQMAIL03.nvidia.com>
+References: <20090630.213927.180401151.davem@davemloft.net>
+ <20090702075724.GA10608@elte.hu> <4A4C9125.8020705@gmail.com>
+ <4A4CBE7D.2060603@gmail.com> <4A4CDCA4.3040505@nvidia.com>
+ <4A4D3596.8060209@gmail.com>
+ <4A4CEE7F.9060705@nvidia.com>,<4A4D4BDC.8010304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:58289 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbZGCAH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 20:07:58 -0400
-In-Reply-To: <4A4CEE7F.9060705@nvidia.com>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:2098 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455AbZGCBLE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jul 2009 21:11:04 -0400
+In-Reply-To: <4A4D4BDC.8010304@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Our hw only runs on architectures that provide coherency. i.e x86
+
+I'm fine with keeping it with both napi_schedule_prep() and __napi_sche=
+dule() if you want it to be similar to other drivers.
+
+Thanks!
+________________________________________
+=46rom: Eric Dumazet [eric.dumazet@gmail.com]
+Sent: Thursday, July 02, 2009 5:07 PM
+To: Ayaz Abdulla
+Cc: David Miller; netdev@vger.kernel.org
+Subject: Re: [GIT]: Networking
+
 Ayaz Abdulla a =E9crit :
->=20
->=20
+>
+>
 > Eric Dumazet wrote:
 >> Ayaz Abdulla a =E9crit :
 >>
@@ -130,7 +148,7 @@ le
 >> another cpu just called writel(np->irqmask, base + NvRegIrqMask),
 >> we end with disabled interrupts ?
 > <BCC linux-kernel>
->=20
+>
 > Yes, but the next instruction is to call napi_schedule() which will
 > re-enable interrupts in napi function.
 
@@ -150,8 +168,9 @@ writel(np->irqmask, base + NvRegIrqMask)
                                          writel(0, base + NvRegIrqMask)=
 ;
                                          napi_schedule(&np->napi); // m=
-ight do nothing because this cpu see=20
-								   // NAPI_STATE_SCHED set to one
+ight do nothing because this cpu see
+                                                                   // N=
+API_STATE_SCHED set to one
 
 NIC cannot deliver further interrupts.
 
@@ -165,11 +184,12 @@ napi_complete();
    clear_bit(NAPI_STATE_SCHED, &n->state);
 */
 writel(np->irqmask, base + NvRegIrqMask)
-					  if (napi_schedule_prep(&np->napi)) // if false, NIC can deliver =
-further interrupts.
-						// if true, we mask interrupts but re-enable napi. packets will b=
-e processed,
-						// interrupt will be re-enabled later.
+                                          if (napi_schedule_prep(&np->n=
+api)) // if false, NIC can deliver further interrupts.
+                                                // if true, we mask int=
+errupts but re-enable napi. packets will be processed,
+                                                // interrupt will be re=
+-enabled later.
 
 
 My patch has a guarantee that we mask NIC interrupts *only* if napi is =
@@ -177,3 +197,14 @@ re-scheduled.
 
 It probably makes no difference on x86, but it might be better to have =
 same logic in all drivers...
+-----------------------------------------------------------------------=
+------------
+This email message is for the sole use of the intended recipient(s) and=
+ may contain
+confidential information.  Any unauthorized review, use, disclosure or =
+distribution
+is prohibited.  If you are not the intended recipient, please contact t=
+he sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------=
+------------
