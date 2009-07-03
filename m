@@ -1,22 +1,21 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Jiri Olsa <jolsa@redhat.com>
 Subject: Re: [PATCHv4 2/2] memory barrier: adding smp_mb__after_lock
-Date: Fri, 3 Jul 2009 07:47:31 +0000
-Message-ID: <20090703074730.GB4847@ff.dom.local>
+Date: Fri, 3 Jul 2009 09:50:14 +0200
+Message-ID: <20090703075014.GC2902@jolsa.lab.eng.brq.redhat.com>
 References: <20090702063259.GA3429@jolsa.lab.eng.brq.redhat.com> <20090702063624.GC3429@jolsa.lab.eng.brq.redhat.com> <4A4C5983.7000501@gmail.com> <alpine.DEB.1.10.0907020738020.5194@makko.or.mcafeemobile.com> <20090703074126.GB2902@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Davide Libenzi <davidel@xmailserver.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, oleg@redhat.com
-To: Jiri Olsa <jolsa@redhat.com>
+	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com
+To: Davide Libenzi <davidel@xmailserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:52797 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbZGCHre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 03:47:34 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:60585 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752149AbZGCHuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2009 03:50:16 -0400
 Content-Disposition: inline
 In-Reply-To: <20090703074126.GB2902@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -57,11 +56,8 @@ e=20
 >=20
 > ok, I'll add it to the 1/2 part in v5
 >=20
+> jirka
 
-Btw., there is a tiny typo:
+actually I see the 2/2 would be better :)
 
-- receive callbacks. Adding fuctions sock_poll_wait and sock_has_sleepe=
-r
-+ receive callbacks. Adding fuctions sock_poll_wait and sk_has_sleeper
-
-Jarek P.
+jirka
