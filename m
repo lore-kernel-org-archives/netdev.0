@@ -1,50 +1,41 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
-Date: Fri, 3 Jul 2009 11:06:06 +0200
-Message-ID: <20090703090606.GA3902@elte.hu>
-References: <20090703081219.GE2902@jolsa.lab.eng.brq.redhat.com> <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] dsa: fix 88e6xxx statistics counter snapshotting
+Date: Fri, 3 Jul 2009 11:26:48 +0200
+Message-ID: <20090703092648.GM19647@mail.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
-	davidel@xmailserver.org, eric.dumazet@gmail.com
-To: Jiri Olsa <jolsa@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Cc: stable@kernel.org, Stephane.Contri@grassvalley.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:59293 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750896AbZGCJGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2009 05:06:22 -0400
+Received: from xi.wantstofly.org ([80.101.37.227]:39885 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752816AbZGCJRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 05:17:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20090703081445.GG2902@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephane Contri <Stephane.Contri@grassvalley.com>
 
-* Jiri Olsa <jolsa@redhat.com> wrote:
+The bit that tells us whether a statistics counter snapshot operation
+has completed is located in the GLOBAL register block, not in the
+GLOBAL2 register block, so fix up mv88e6xxx_stats_wait() to poll the
+right register address.
 
-> +++ b/arch/x86/include/asm/spinlock.h
-> @@ -302,4 +302,7 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
->  #define _raw_read_relax(lock)	cpu_relax()
->  #define _raw_write_relax(lock)	cpu_relax()
->  
-> +/* The {read|write|spin}_lock() on x86 are full memory barriers. */
-> +#define smp_mb__after_lock() do { } while (0)
+Signed-off-by: Stephane Contri <Stephane.Contri@grassvalley.com>
+Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
+Cc: stable@kernel.org
 
-Two small stylistic comments, please make this an inline function:
-
-static inline void smp_mb__after_lock(void) { }
-#define smp_mb__after_lock
-
-(untested)
-
-> +/* The lock does not imply full memory barrier. */
-> +#ifndef smp_mb__after_lock
-> +#define smp_mb__after_lock() smp_mb()
-> +#endif
-
-ditto.
-
-	Ingo
+diff --git a/net/dsa/mv88e6xxx.c b/net/dsa/mv88e6xxx.c
+index 4e4d8b5..efe661a 100644
+--- a/net/dsa/mv88e6xxx.c
++++ b/net/dsa/mv88e6xxx.c
+@@ -418,7 +418,7 @@ static int mv88e6xxx_stats_wait(struct dsa_switch *ds)
+ 	int i;
+ 
+ 	for (i = 0; i < 10; i++) {
+-		ret = REG_READ(REG_GLOBAL2, 0x1d);
++		ret = REG_READ(REG_GLOBAL, 0x1d);
+ 		if ((ret & 0x8000) == 0)
+ 			return 0;
+ 	}
