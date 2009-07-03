@@ -1,49 +1,57 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] check spinlock_t/rwlock_t argument type on non-SMP
-	builds
-Date: Fri, 3 Jul 2009 09:38:01 +0200
-Message-ID: <20090703073801.GA10191@elte.hu>
-References: <1246560291-8104-1-git-send-email-kilroyd@googlemail.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: Re: [PATCHv4 2/2] memory barrier: adding smp_mb__after_lock
+Date: Fri, 3 Jul 2009 09:41:26 +0200
+Message-ID: <20090703074126.GB2902@jolsa.lab.eng.brq.redhat.com>
+References: <20090702063259.GA3429@jolsa.lab.eng.brq.redhat.com> <20090702063624.GC3429@jolsa.lab.eng.brq.redhat.com> <4A4C5983.7000501@gmail.com> <alpine.DEB.1.10.0907020738020.5194@makko.or.mcafeemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Kilroy <kilroyd@googlemail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com
+To: Davide Libenzi <davidel@xmailserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:39351 "EHLO mx2.mail.elte.hu"
+Received: from mx2.redhat.com ([66.187.237.31]:58105 "EHLO mx2.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751401AbZGCHiH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jul 2009 03:38:07 -0400
+	id S1751709AbZGCHl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jul 2009 03:41:28 -0400
 Content-Disposition: inline
-In-Reply-To: <1246560291-8104-1-git-send-email-kilroyd@googlemail.com>
+In-Reply-To: <alpine.DEB.1.10.0907020738020.5194@makko.or.mcafeemobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 02, 2009 at 07:39:04AM -0700, Davide Libenzi wrote:
+> On Thu, 2 Jul 2009, Eric Dumazet wrote:
+>=20
+> > Jiri Olsa a =E9crit :
+> > > Adding smp_mb__after_lock define to be used as a smp_mb call afte=
+r
+> > > a lock. =20
+> > >=20
+> > > Making it nop for x86, since {read|write|spin}_lock() on x86 are=20
+> > > full memory barriers.
+> > >=20
+> > > wbr,
+> > > jirka
+> > >=20
+> > >=20
+> > > Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+> >=20
+> >=20
+> > Maybe we should remind that sk_has_helper() is always called
+> > right after a call to read_lock() as in :
+> >=20
+> > 	read_lock(&sk->sk_callback_lock);
+> > 	if (sk_has_sleeper(sk))
+> > 		wake_up_interruptible_all(sk->sk_sleep);
+>=20
+> Agreed, that'd be to have it in the source code comment.
+>=20
+>=20
+> - Davide
+>=20
 
-* David Kilroy <kilroyd@googlemail.com> wrote:
+ok, I'll add it to the 1/2 part in v5
 
-> When writing code for UP without CONFIG_DEBUG_SPINLOCK it's easy 
-> to get the first argument to the spinlock/rwlock functions wrong. 
-> This is because the parameter is not actually used in this 
-> configuration.
-> 
-> Typically you will only find out it's wrong
->  * by rebuilding with CONFIG_SMP or CONFIG_DEBUG_SPINLOCK
->  * after you've submitted your beautiful patch series.
-> 
-> The first means a long wait, and the latter is a bit late.
-> 
-> Add typechecking on the first argument of these macro functions. 
-> Note that since the typecheck now references the variable, the 
-> explicit read is redundant and can be removed.
-> 
-> This change causes compiler warnings in net/ipv4/route.c, as this 
-> passes NULL as the first argument in the UP configuration. Simply 
-> cast this.
-
-Wondering - can the wrappers be moved from CPP land to C land by 
-turning them into inlines? (i havent checked all usages so there 
-might be some surprises, but by and large it ought to be possible.)
-
-	Ingo
+jirka
