@@ -1,82 +1,36 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 1/3] drivers/net/smsc911x.c: Fix resource size off by 1 error
-Date: Sat, 4 Jul 2009 23:31:47 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0907042331070.9841@ask.diku.dk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Sat, 04 Jul 2009 14:57:32 -0700
+Message-ID: <m13a9c6rhv.fsf@fess.ebiederm.org>
+References: <200907030246.18054.denys@visp.net.lb>
+	<200907041055.24516.denys@visp.net.lb>
+	<m1fxdc8pcl.fsf@fess.ebiederm.org>
+	<200907041803.25436.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: steve.glendinning@smsc.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:56156 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752340AbZGDVbr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jul 2009 17:31:47 -0400
+Received: from out02.mta.xmission.com ([166.70.13.232]:36421 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276AbZGDV5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 17:57:33 -0400
+In-Reply-To: <200907041803.25436.denys@visp.net.lb> (Denys Fedoryschenko's message of "Sat\, 4 Jul 2009 18\:03\:25 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Denys Fedoryschenko <denys@visp.net.lb> writes:
 
-The call resource_size(res) returns res->end - res->start + 1 and thus the
-second change is semantics-preserving.  res_size is then used as the second
-argument of a call to request_mem_region, and the memory allocated by this
-call appears to be the same as what is released in the two calls to
-release_mem_region.  So the size argument for those calls should be
-resource_size(size) as well.  Alternatively, in the second call to
-release_mem_region, the second argument could be res_size, as that variable
-has already been initialized at the point of this call.
+> On Saturday 04 July 2009 18:00:58 Eric W. Biederman wrote:
+>>
+>> Problems occur when you have machines with ip addresses that you don't
+>> have routes to.  How do machines with addresses without routes to them
+>> get packets from machines in other subnets.
+>>
+>> Eric
+> They are not supposed to communicate then with this Linux host.
+> But Linux poisoning them by ARP replies.
 
-The problem was found using the following semantic patch:
-(http://www.emn.fr/x-info/coccinelle/)
+How can that possibly be a correct network configuration?
 
-// <smpl>
-@@
-struct resource *res;
-@@
-
-- (res->end - res->start) + 1
-+ resource_size(res)
-
-@@
-struct resource *res;
-@@
-
-- res->end - res->start
-+ BAD(resource_size(res))
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/smsc911x.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff -u -p a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
---- a/drivers/net/smsc911x.c 2009-06-24 21:18:49.000000000 +0200
-+++ b/drivers/net/smsc911x.c 2009-07-04 21:38:00.000000000 +0200
-@@ -1938,7 +1938,7 @@ static int __devexit smsc911x_drv_remove
- 	if (!res)
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 
--	release_mem_region(res->start, res->end - res->start);
-+	release_mem_region(res->start, resource_size(res));
- 
- 	iounmap(pdata->ioaddr);
- 
-@@ -1976,7 +1976,7 @@ static int __devinit smsc911x_drv_probe(
- 		retval = -ENODEV;
- 		goto out_0;
- 	}
--	res_size = res->end - res->start + 1;
-+	res_size = resource_size(res);
- 
- 	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 	if (!irq_res) {
-@@ -2104,7 +2104,7 @@ out_unmap_io_3:
- out_free_netdev_2:
- 	free_netdev(dev);
- out_release_io_1:
--	release_mem_region(res->start, res->end - res->start);
-+	release_mem_region(res->start, resource_size(res));
- out_0:
- 	return retval;
- }
+Eric
