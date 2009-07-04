@@ -1,60 +1,44 @@
-From: Alex Dubov <oakad@yahoo.com>
-Subject: Re: [Bugme-new] [Bug 13692] New: dccp_ipv4 has >1 usage count and cannot be removed
-Date: Sat, 4 Jul 2009 00:58:54 -0700 (PDT)
-Message-ID: <474687.88131.qm@web37607.mail.mud.yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
+Date: Sat, 4 Jul 2009 17:09:10 +0800
+Message-ID: <20090704090910.GA2185@gondor.apana.org.au>
+References: <20090703075530.GA25190@gondor.apana.org.au> <20090703.200254.172991821.davem@davemloft.net> <20090704030830.GA32442@gondor.apana.org.au> <20090703.201347.146036232.davem@davemloft.net> <20090704074245.GA1615@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, dccp@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, patrick.ohly@intel.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	divy@chelsio.com, rolandd@cisco.com, xemul@openvz.org,
+	dcbw@redhat.com, libertas-dev@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37607.mail.mud.yahoo.com ([209.191.87.90]:30295 "HELO
-	web37607.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753120AbZGDIFd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jul 2009 04:05:33 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:53097 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751414AbZGDJJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 05:09:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20090704074245.GA1615@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jul 04, 2009 at 03:42:45PM +0800, Herbert Xu wrote:
+> 
+> Here's an idea: We let the sender decide whether we need to enable
+> notification.  This decision would be carried as a flag in the skb.
+> For example, UDP would set this flag when its socket buffer is close
+> to capacity.  Routing would set this flag per NAPI run, etc.
 
+Actually it doesn't even matter for routing because only those
+that are charged by the skb's or the pages care and they're the
+only ones that would need to set this.
 
---- On Fri, 7/3/09, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+One potential problem is if the socket is constantly running
+close to capacity, but that should only happen if the device
+TX queue is also close to capacity which means that the qdisc
+queue should be non-empty.
 
-> Date: Friday, July 3, 2009, 12:41 PM
-> | > http://bugzilla.kernel.org/show_bug.cgi?id=3D13692
-> | >=20
-> | >=A0 =A0 =A0 =A0 =A0 =A0 Summary:
-> dccp_ipv4 has >1 usage count and cannot be removed
-> <snip>
-> | >=20
-> | > Upon loading of dccp_ipv4 (either through autoload
-> or explicitly, with
-> | > modprobe) the usage count of the module is
-> immediately set to 2 and the module
-> | > can not be unloaded.
-> | >=20
-> | > Usage count seems to be correctly
-> incremented/decremented during operation, but
-> | > never gets lower than 2.
-> | >=20
->=20
-> I believe that the current state provides some protection
-> against
-> accidental/unwanted removal by unsuspecting users. Arnaldo,
-> what
-> do you think?
->=20
-
-Well, I tried "rmmod -f" first thing after noticing this behavior
-and got a kernel crash dump immediately.
-
-I'm not near that machine currently, but I'll post the crash dump on
-Monday.
-
-
-
-     =20
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
