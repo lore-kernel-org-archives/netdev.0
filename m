@@ -1,21 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/6] e1000e: PHY loopback broken on 82578
-Date: Fri, 03 Jul 2009 20:14:43 -0700 (PDT)
-Message-ID: <20090703.201443.81204164.davem@davemloft.net>
-References: <20090701232731.20555.63487.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bruce.w.allan@intel.com
-To: jeffrey.t.kirsher@intel.com
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [patch 0/2] a few bridge code cleanups
+Date: Sat, 04 Jul 2009 10:11:56 +0400
+Message-ID: <20090704061156.658235360@openvz.org>
+To: shemminger@linux-foundation.org, kaber@trash.net,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34704
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753777AbZGDDOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jul 2009 23:14:36 -0400
-In-Reply-To: <20090701232731.20555.63487.stgit@localhost.localdomain>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:48104 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbZGDGXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 02:23:20 -0400
+Received: by fxm18 with SMTP id 18so2520752fxm.37
+        for <netdev@vger.kernel.org>; Fri, 03 Jul 2009 23:23:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-All 6 patches applied, thanks!
+here is a few bridge cleanups - code alignment
+and conditional compilation for structure members.
+
+Please review. Hope I didn't miss anything.
+Anyway if it breaks someone patch queue --
+just drop this series then.
+
+Cyrill
