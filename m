@@ -1,46 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
-Date: Sat, 4 Jul 2009 15:42:45 +0800
-Message-ID: <20090704074245.GA1615@gondor.apana.org.au>
-References: <20090703075530.GA25190@gondor.apana.org.au> <20090703.200254.172991821.davem@davemloft.net> <20090704030830.GA32442@gondor.apana.org.au> <20090703.201347.146036232.davem@davemloft.net>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Sat, 4 Jul 2009 10:55:24 +0300
+Message-ID: <200907041055.24516.denys@visp.net.lb>
+References: <200907030246.18054.denys@visp.net.lb> <200907032337.16065.denys@visp.net.lb> <m163e9e0mg.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rusty@rustcorp.com.au, patrick.ohly@intel.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	divy@chelsio.com, rolandd@cisco.com, xemul@openvz.org,
-	dcbw@redhat.com, libertas-dev@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39326 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752729AbZGDHnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 03:43:04 -0400
+Received: from hosting.visp.net.lb ([194.146.153.11]:37976 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752257AbZGDHzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 03:55:42 -0400
+In-Reply-To: <m163e9e0mg.fsf@fess.ebiederm.org>
 Content-Disposition: inline
-In-Reply-To: <20090703.201347.146036232.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 03, 2009 at 08:13:47PM -0700, David Miller wrote:
+On Saturday 04 July 2009 03:46:15 Eric W. Biederman wrote:
+> Denys Fedoryschenko <denys@visp.net.lb> writes:
+> > On Friday 03 July 2009 23:20:05 David Miller wrote:
+> >> I really never should have applied your initial patch, I severely
+> >> regret it.  Thanksfully it's reverted now and we can look into
+> >> this issue more properly.
+> >
+> > If it was said before...
+> >
+> > Then maybe i will try to do some new sysctl value?
+> >
+> > By default it will be old behavior, but it can be changed to new on user
+> > choice.
+> >
+> > Let's say
+> >
+> > net.ipv4.arp_proxy_gateway
+> > net.ipv4.arp_proxy_gratuitous
 >
-> NIU
-> 
-> I basically can't defer interrupts because the chip supports
-> per-TX-desc interrupt indications but it lacks an "all TX queue sent"
-> event.  So if, say, tell it to interrupt every 1/4 of the TX queue
-> then up to 1/4 of the queue can have packets "stuck" in there
-> if TX activity all of a sudden ceases.
+> How do machines with addresses without routes to them
+> get packets from machines in other subnets?
+>
+> Eric
+ARP proxy generally was supposed to not export default route(by RFC and by 
+logic) it should be maybe other name, arp_proxy_no_default_gateway_export - 
+but i guess it is too long. With exporting default gateway i have two 
+choices - eat it and have answer to almost any ARP request, or loose for 
+proxy_arp completely this interface (by setting same medium id).
 
-Here's an idea: We let the sender decide whether we need to enable
-notification.  This decision would be carried as a flag in the skb.
-For example, UDP would set this flag when its socket buffer is close
-to capacity.  Routing would set this flag per NAPI run, etc.
+Btw usually proxy_arp "answers" only for directly attached networks, e.g. link 
+layer routes (no gateway), but sure this is not a rule, and sometimes it is 
+even useful to "proxy" gatewayed routes. I am concerned only about 0.0.0.0/0 
+route, which is equal to wildcard.
 
-Of course you'd ignore this flag completely if the qdisc queue is
-non-empty.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If i understand question correctly.
