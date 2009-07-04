@@ -1,57 +1,66 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: >10% performance degradation since 2.6.18
-Date: Sat, 04 Jul 2009 05:19:28 -0400
-Message-ID: <4A4F1EA0.3070501@garzik.org>
-References: <20090703025607.GK5480@parisc-linux.org> <87skhdaaub.fsf@basil.nowhere.org> <20090703185414.GP23611@kernel.dk> <20090703191321.GO5480@parisc-linux.org> <20090703192235.GV23611@kernel.dk> <20090703194557.GQ5480@parisc-linux.org> <20090703195458.GK2041@one.firstfloor.org> <20090703130421.646fe5cb@infradead.org> <20090703233505.GL2041@one.firstfloor.org> <20090703230408.4433ee39@infradead.org> <20090704084430.GO2041@one.firstfloor.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
+Date: Sat, 04 Jul 2009 08:00:58 -0700
+Message-ID: <m1fxdc8pcl.fsf@fess.ebiederm.org>
+References: <200907030246.18054.denys@visp.net.lb>
+	<200907032337.16065.denys@visp.net.lb>
+	<m163e9e0mg.fsf@fess.ebiederm.org>
+	<200907041055.24516.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Jens Axboe <jens.axboe@oracle.com>,
-	linux-kernel@vger.kernel.org,
-	"Styner, Douglas W" <douglas.w.styner@intel.com>,
-	Chinang Ma <chinang.ma@intel.com>,
-	"Prickett, Terry O" <terry.o.prickett@intel.com>,
-	Matthew Wilcox <matthew.r.wilcox@intel.com>,
-	Eric.Moore@lsi.com, DL-MPTFusionLinux@lsi.com,
-	NetDev <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755653AbZGDJWf@vger.kernel.org>
-In-Reply-To: <20090704084430.GO2041@one.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58712 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750848AbZGDPA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 11:00:59 -0400
+In-Reply-To: <200907041055.24516.denys@visp.net.lb> (Denys Fedoryschenko's message of "Sat\, 4 Jul 2009 10\:55\:24 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen wrote:
->> for networking, especially for incoming data such as new connections,
->> that isn't the case.. that's more or less randomly (well hash based)
->> distributed.
-> 
-> Ok. Still binding them all to a single CPU all is quite dumb. It
-> makes MSI-X quite useless and probably even harmful.
-> 
-> We don't default to socket power saving for normal scheduling either, 
-> but only when you specify a special knob. I don't see why interrupts
-> should be different.
+Denys Fedoryschenko <denys@visp.net.lb> writes:
 
-In the pre-MSI-X days, you'd have cachelines bouncing all over the place 
-if you distributed networking interrupts across CPUs, particularly given 
-that NAPI would run some things on a single CPU anyway.
+> On Saturday 04 July 2009 03:46:15 Eric W. Biederman wrote:
+>> Denys Fedoryschenko <denys@visp.net.lb> writes:
+>> > On Friday 03 July 2009 23:20:05 David Miller wrote:
+>> >> I really never should have applied your initial patch, I severely
+>> >> regret it.  Thanksfully it's reverted now and we can look into
+>> >> this issue more properly.
+>> >
+>> > If it was said before...
+>> >
+>> > Then maybe i will try to do some new sysctl value?
+>> >
+>> > By default it will be old behavior, but it can be changed to new on user
+>> > choice.
+>> >
+>> > Let's say
+>> >
+>> > net.ipv4.arp_proxy_gateway
+>> > net.ipv4.arp_proxy_gratuitous
+>>
+>> How do machines with addresses without routes to them
+>> get packets from machines in other subnets?
+>>
+>> Eric
+> ARP proxy generally was supposed to not export default route(by RFC and by 
+> logic) it should be maybe other name, arp_proxy_no_default_gateway_export - 
+> but i guess it is too long. With exporting default gateway i have two 
+> choices - eat it and have answer to almost any ARP request, or loose for 
+> proxy_arp completely this interface (by setting same medium id).
+>
+> Btw usually proxy_arp "answers" only for directly attached networks, e.g. link 
+> layer routes (no gateway), but sure this is not a rule, and sometimes it is 
+> even useful to "proxy" gatewayed routes. I am concerned only about 0.0.0.0/0 
+> route, which is equal to wildcard.
+>
+> If i understand question correctly.
 
-Today, machines are faster, we have multiple interrupts per device, and 
-we have multiple RX/TX queues.  I would be interested to see hard 
-numbers (as opposed to guesses) about various new ways to distributed 
-interrupts across CPUs.
+Problems occur when you have machines with ip addresses that you don't
+have routes to.  How do machines with addresses without routes to them
+get packets from machines in other subnets.
 
-What's the best setup for power usage?
-What's the best setup for performance?
-Are they the same?
-Is it most optimal to have the interrupt for socket $X occur on the same 
-CPU as where the app is running?
-If yes, how to best handle when the scheduler moves app to another CPU?
-Should we reprogram the NIC hardware flow steering mechanism at that point?
+Eric
 
-Interesting questions, and I hope we'd see some hard number comparisons 
-before solutions start flowing into the kernel.
 
-	Jeff
