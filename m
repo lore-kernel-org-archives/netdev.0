@@ -1,56 +1,60 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
-Date: Sat, 4 Jul 2009 10:55:24 +0300
-Message-ID: <200907041055.24516.denys@visp.net.lb>
-References: <200907030246.18054.denys@visp.net.lb> <200907032337.16065.denys@visp.net.lb> <m163e9e0mg.fsf@fess.ebiederm.org>
+From: Alex Dubov <oakad@yahoo.com>
+Subject: Re: [Bugme-new] [Bug 13692] New: dccp_ipv4 has >1 usage count and cannot be removed
+Date: Sat, 4 Jul 2009 00:58:54 -0700 (PDT)
+Message-ID: <474687.88131.qm@web37607.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, dccp@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:37976 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752257AbZGDHzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 03:55:42 -0400
-In-Reply-To: <m163e9e0mg.fsf@fess.ebiederm.org>
-Content-Disposition: inline
+Received: from web37607.mail.mud.yahoo.com ([209.191.87.90]:30295 "HELO
+	web37607.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753120AbZGDIFd convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jul 2009 04:05:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 04 July 2009 03:46:15 Eric W. Biederman wrote:
-> Denys Fedoryschenko <denys@visp.net.lb> writes:
-> > On Friday 03 July 2009 23:20:05 David Miller wrote:
-> >> I really never should have applied your initial patch, I severely
-> >> regret it.  Thanksfully it's reverted now and we can look into
-> >> this issue more properly.
-> >
-> > If it was said before...
-> >
-> > Then maybe i will try to do some new sysctl value?
-> >
-> > By default it will be old behavior, but it can be changed to new on user
-> > choice.
-> >
-> > Let's say
-> >
-> > net.ipv4.arp_proxy_gateway
-> > net.ipv4.arp_proxy_gratuitous
->
-> How do machines with addresses without routes to them
-> get packets from machines in other subnets?
->
-> Eric
-ARP proxy generally was supposed to not export default route(by RFC and by 
-logic) it should be maybe other name, arp_proxy_no_default_gateway_export - 
-but i guess it is too long. With exporting default gateway i have two 
-choices - eat it and have answer to almost any ARP request, or loose for 
-proxy_arp completely this interface (by setting same medium id).
 
-Btw usually proxy_arp "answers" only for directly attached networks, e.g. link 
-layer routes (no gateway), but sure this is not a rule, and sometimes it is 
-even useful to "proxy" gatewayed routes. I am concerned only about 0.0.0.0/0 
-route, which is equal to wildcard.
 
-If i understand question correctly.
+--- On Fri, 7/3/09, Gerrit Renker <gerrit@erg.abdn.ac.uk> wrote:
+
+> Date: Friday, July 3, 2009, 12:41 PM
+> | > http://bugzilla.kernel.org/show_bug.cgi?id=3D13692
+> | >=20
+> | >=A0 =A0 =A0 =A0 =A0 =A0 Summary:
+> dccp_ipv4 has >1 usage count and cannot be removed
+> <snip>
+> | >=20
+> | > Upon loading of dccp_ipv4 (either through autoload
+> or explicitly, with
+> | > modprobe) the usage count of the module is
+> immediately set to 2 and the module
+> | > can not be unloaded.
+> | >=20
+> | > Usage count seems to be correctly
+> incremented/decremented during operation, but
+> | > never gets lower than 2.
+> | >=20
+>=20
+> I believe that the current state provides some protection
+> against
+> accidental/unwanted removal by unsuspecting users. Arnaldo,
+> what
+> do you think?
+>=20
+
+Well, I tried "rmmod -f" first thing after noticing this behavior
+and got a kernel crash dump immediately.
+
+I'm not near that machine currently, but I'll post the crash dump on
+Monday.
+
+
+
+     =20
