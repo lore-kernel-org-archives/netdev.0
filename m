@@ -1,44 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (
-	possibly?caused by netem)
-Date: Sat, 4 Jul 2009 08:36:46 +0200
-Message-ID: <20090704063646.GA3410@ami.dom.local>
-References: <20090703120301.GD4847@ff.dom.local> <20090703.132220.57384838.davem@davemloft.net> <20090703225640.GA3639@ami.dom.local> <20090703.185553.218218176.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
+Date: Sat, 4 Jul 2009 15:42:45 +0800
+Message-ID: <20090704074245.GA1615@gondor.apana.org.au>
+References: <20090703075530.GA25190@gondor.apana.org.au> <20090703.200254.172991821.davem@davemloft.net> <20090704030830.GA32442@gondor.apana.org.au> <20090703.201347.146036232.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andres@anarazel.de, arun@linux.vnet.ibm.com, tglx@linutronix.de,
-	shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: rusty@rustcorp.com.au, patrick.ohly@intel.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	divy@chelsio.com, rolandd@cisco.com, xemul@openvz.org,
+	dcbw@redhat.com, libertas-dev@lists.infradead.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755009AbZGDGhS@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:39326 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752729AbZGDHnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 03:43:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20090703.185553.218218176.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090703.201347.146036232.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 03, 2009 at 06:55:53PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Sat, 4 Jul 2009 00:56:40 +0200
+On Fri, Jul 03, 2009 at 08:13:47PM -0700, David Miller wrote:
+>
+> NIU
 > 
-> > On Fri, Jul 03, 2009 at 01:22:20PM -0700, David Miller wrote:
-> >> Well, if you look at that commit the bisect pointed to Jarek, it is a
-> >> change which starts causing a situation which never happened before.
-> >> Namely, timers added on one cpu can be migrated and fire on another.
-> >> 
-> >> So this could be exposing races in the networking that technically
-> >> always existed.
-> > 
-> > I'm not sure I get your point; could you give some example?
-> > Actually, I've suspected races in timers code.
-> 
-> Let's say that a particular networking timer always gets
-> re-added on the cpu where the timer fires.
-> 
-> In that case, beforehand, no inter-cpu races could possibly
-> be tested.  But with the new timer code, such races could
-> now be potentially triggered.
+> I basically can't defer interrupts because the chip supports
+> per-TX-desc interrupt indications but it lacks an "all TX queue sent"
+> event.  So if, say, tell it to interrupt every 1/4 of the TX queue
+> then up to 1/4 of the queue can have packets "stuck" in there
+> if TX activity all of a sudden ceases.
 
-Maybe I still miss something, but even if it were possible, lockdep
-should have reported such things long ago.
+Here's an idea: We let the sender decide whether we need to enable
+notification.  This decision would be carried as a flag in the skb.
+For example, UDP would set this flag when its socket buffer is close
+to capacity.  Routing would set this flag per NAPI run, etc.
 
-Jarek P.
+Of course you'd ignore this flag completely if the qdisc queue is
+non-empty.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
