@@ -1,87 +1,53 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict
- verification
-Date: Sun, 5 Jul 2009 15:46:44 +0930
-Message-ID: <20090705154644.38e41050.lk-netdev@lk-netdev.nosense.org>
-References: <200907030246.18054.denys@visp.net.lb>
-	<200907041803.25436.denys@visp.net.lb>
-	<m13a9c6rhv.fsf@fess.ebiederm.org>
-	<200907050100.08148.denys@visp.net.lb>
-	<20090705085203.332f0c3b.lk-netdev@lk-netdev.nosense.org>
-	<m13a9c2dsg.fsf@fess.ebiederm.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] drivers/net/cs89x0.c: Avoid using magic number in set_dma_mode
+Date: Sun, 5 Jul 2009 09:23:21 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0907050922570.27464@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:51140 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbZGEGQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 02:16:48 -0400
-In-Reply-To: <m13a9c2dsg.fsf@fess.ebiederm.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:49698 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751703AbZGEHXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2009 03:23:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 04 Jul 2009 17:07:11 -0700
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+From: Julia Lawall <julia@diku.dk>
 
-> Mark Smith <lk-netdev@lk-netdev.nosense.org> writes:
-> 
-> > On Sun, 5 Jul 2009 01:00:08 +0300
-> > Denys Fedoryschenko <denys@visp.net.lb> wrote:
-> >
-> >> On Sunday 05 July 2009 00:57:32 Eric W. Biederman wrote:
-> >> >
-> >> > How can that possibly be a correct network configuration?
-> >> >
-> >> > Eric
-> >> It is a problem to have different networks, who doesn't communicate one with 
-> >> each other, in same ethernet segment?
-> >> 
-> >> Does it violate anything?
-> >
-> > I'm pretty sure it doesn't.
-> >
-> > It's a common enough situation. A second subnet (or more) is assigned
-> > to a link because the first isn't large enough, and renumbering the
-> > hosts into a larger subnet is not practical at the time. A
-> > 'one-armed router' is used up stream to have traffic go between the
-> > different subnets, at the cost of traffic double traversing the link.
-> > (The worst example I've seen is 25 subnets operating this way!)
-> >
-> > Fundamentally it is no different to routing traffic to other subnets.
-> > IP was designed on the assumption that there'd only be a single subnet
-> > per link, so nothing was done to make this scenario more efficent.
-> >
-> > IPv6 has introduced the ability for hosts to be told by their default
-> > router that destinations they think are "offlink", because the address
-> > falls outside a locally assigned or learned prefixes, are actually
-> > "onlink", preventing this double traversing problem.
-> 
-> Multiple subnets on an ethernet segment sure.  Multiple subnets
-> subnets that don't communicate?  Not telling your router about all of
-> the subnets on the ethernet segment?
-> 
-> The combination of not configuring the router to know about all of the
-> subnets and enabling proxy arp is what is causing problems for Denys.
-> 
-> That sure seems like a misconfiguration to me.
-> 
+The constant DMA_RX_MODE is defined to be 0x14 in the local include file
+cs89x0.h.  Since a constant with the same name is used elsewhere with
+set_dma_mode, it seems likely that this constant could be used here.
 
-A misconfiguration if you don't intend it, otherwise, isolation between
-subnets on a common link can be useful. I've taken advantage of it
-in networking test labs. 
+The semantic match that finds this problem is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
 
-It can also be useful for basic traffic engineering. You set up two
-routers attached to the same link, but both with different configured
-prefixes. Nodes are assigned adresses out of one or the other prefix,
-to influence which outbound (and inbound) path their traffic takes.
-Leaving it like that would be a bit unusual, however it could be as
-part of a gradual transition to splitting the link to reduce the
-broadcast domain size.
+// <smpl>
+@@ expression E1; identifier I; constant int C; @@
+(
+set_dma_mode(E1,I,...)
+|
+*set_dma_mode(E1,C,...)
+)
+// </smpl>
 
-Regards,
-Mark.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
+---
+ drivers/net/cs89x0.c    |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+index 3eee666..67c9702 100644
+--- a/drivers/net/cs89x0.c
++++ b/drivers/net/cs89x0.c
+@@ -1367,7 +1367,7 @@ net_open(struct net_device *dev)
+ 			spin_lock_irqsave(&lp->lock, flags);
+ 			disable_dma(dev->dma);
+ 			clear_dma_ff(dev->dma);
+-			set_dma_mode(dev->dma, 0x14); /* auto_init as well */
++			set_dma_mode(dev->dma, DMA_RX_MODE); /* auto_init as well */
+ 			set_dma_addr(dev->dma, isa_virt_to_bus(lp->dma_buff));
+ 			set_dma_count(dev->dma, lp->dmasize*1024);
+ 			enable_dma(dev->dma);
