@@ -1,66 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] arp announce, arp_proxy and windows ip conflict verification
-Date: Sat, 04 Jul 2009 17:07:11 -0700
-Message-ID: <m13a9c2dsg.fsf@fess.ebiederm.org>
-References: <200907030246.18054.denys@visp.net.lb>
-	<200907041803.25436.denys@visp.net.lb>
-	<m13a9c6rhv.fsf@fess.ebiederm.org>
-	<200907050100.08148.denys@visp.net.lb>
-	<20090705085203.332f0c3b.lk-netdev@lk-netdev.nosense.org>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH] pcnet_cs: add new id
+Date: Sun, 5 Jul 2009 09:17:10 +0900
+Message-ID: <20090705091710.e8b9dc74.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denys Fedoryschenko <denys@visp.net.lb>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60522 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554AbZGEAHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 20:07:14 -0400
-In-Reply-To: <20090705085203.332f0c3b.lk-netdev@lk-netdev.nosense.org> (Mark Smith's message of "Sun\, 5 Jul 2009 08\:52\:03 +0930")
+Received: from userg502.nifty.com ([202.248.238.82]:21743 "EHLO
+	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752392AbZGEARb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 20:17:31 -0400
+Received: from localhost.localdomain (eaoska141023.adsl.ppp.infoweb.ne.jp [219.104.14.23])by userg502.nifty.com with SMTP id n650HIHu011490
+	for <netdev@vger.kernel.org>; Sun, 5 Jul 2009 09:17:18 +0900
+In-Reply-To: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Smith <lk-netdev@lk-netdev.nosense.org> writes:
 
-> On Sun, 5 Jul 2009 01:00:08 +0300
-> Denys Fedoryschenko <denys@visp.net.lb> wrote:
->
->> On Sunday 05 July 2009 00:57:32 Eric W. Biederman wrote:
->> >
->> > How can that possibly be a correct network configuration?
->> >
->> > Eric
->> It is a problem to have different networks, who doesn't communicate one with 
->> each other, in same ethernet segment?
->> 
->> Does it violate anything?
->
-> I'm pretty sure it doesn't.
->
-> It's a common enough situation. A second subnet (or more) is assigned
-> to a link because the first isn't large enough, and renumbering the
-> hosts into a larger subnet is not practical at the time. A
-> 'one-armed router' is used up stream to have traffic go between the
-> different subnets, at the cost of traffic double traversing the link.
-> (The worst example I've seen is 25 subnets operating this way!)
->
-> Fundamentally it is no different to routing traffic to other subnets.
-> IP was designed on the assumption that there'd only be a single subnet
-> per link, so nothing was done to make this scenario more efficent.
->
-> IPv6 has introduced the ability for hosts to be told by their default
-> router that destinations they think are "offlink", because the address
-> falls outside a locally assigned or learned prefixes, are actually
-> "onlink", preventing this double traversing problem.
+add new id (RIOS System PC CARD3 ETHERNET).
 
-Multiple subnets on an ethernet segment sure.  Multiple subnets
-subnets that don't communicate?  Not telling your router about all of
-the subnets on the ethernet segment?
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-The combination of not configuring the router to know about all of the
-subnets and enabling proxy arp is what is causing problems for Denys.
+---
 
-That sure seems like a misconfiguration to me.
-
-Eric
+--- linux-2.6.31-rc1/drivers/net/pcmcia/pcnet_cs.c.orig	2009-06-27 10:15:47.000000000 +0900
++++ linux-2.6.31-rc1/drivers/net/pcmcia/pcnet_cs.c	2009-07-04 14:19:21.000000000 +0900
+@@ -1727,6 +1727,7 @@ static struct pcmcia_device_id pcnet_ids
+ 	PCMCIA_DEVICE_PROD_ID12("PRETEC", "Ethernet CompactLAN 10BaseT 3.3V", 0xebf91155, 0x7f5a4f50),
+ 	PCMCIA_DEVICE_PROD_ID12("Psion Dacom", "Gold Card Ethernet", 0xf5f025c2, 0x3a30e110),
+ 	PCMCIA_DEVICE_PROD_ID12("=RELIA==", "Ethernet", 0xcdd0644a, 0x00b2e941),
++	PCMCIA_DEVICE_PROD_ID12("RIOS Systems Co.", "PC CARD3 ETHERNET", 0x7dd33481, 0x10b41826),
+ 	PCMCIA_DEVICE_PROD_ID12("RP", "1625B Ethernet NE2000 Compatible", 0xe3e66e22, 0xb96150df),
+ 	PCMCIA_DEVICE_PROD_ID12("RPTI", "EP400 Ethernet NE2000 Compatible", 0xdc6f88fd, 0x4a7e2ae0),
+ 	PCMCIA_DEVICE_PROD_ID12("RPTI", "EP401 Ethernet NE2000 Compatible", 0xdc6f88fd, 0x4bcbd7fd),
