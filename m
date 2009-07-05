@@ -1,53 +1,53 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] drivers/net/cs89x0.c: Avoid using magic number in set_dma_mode
-Date: Sun, 5 Jul 2009 09:23:21 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0907050922570.27464@ask.diku.dk>
+From: Tziporet Koren <tziporet@dev.mellanox.co.il>
+Subject: Re: [ofa-general][PATCH 2/2] mlx4: ConnectX multi functional device
+	support
+Date: Sun, 05 Jul 2009 11:10:13 +0300
+Message-ID: <4A505FE5.4040108@mellanox.co.il>
+References: <4A3A34F5.9030800@mellanox.co.il>	<4A4C816A.2040506@mellanox.co.il>
+	<adabpo317c5.fsf@cisco.com>	<4A4CD0D7.6070409@mellanox.co.il>
+	<ada7hyr10do.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:49698 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751703AbZGEHXT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2009 03:23:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <ada7hyr10do.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+Roland Dreier wrote:
+>  
+> Well, I need to think over the patch a little more.  The risk is
+> certainly not zero, since we are changing device initialization for all
+> mlx4 devices.  And I'm not sure if missing 2.6.31 support is that big a
+> deal for you, is it?  How many users do you have building their own
+> upstream kernels?  You're just going to tell everyone to use OFED
+> anyway, right?
+>   
+This is NOT related to OFED at all. This is our 10G NIC driver. See the 
+description:
 
-The constant DMA_RX_MODE is defined to be 0x14 in the local include file
-cs89x0.h.  Since a constant with the same name is used elsewhere with
-set_dma_mode, it seems likely that this constant could be used here.
+/* MT26468 ConnectX EN 10GigE, PCIe, 2.0 5Gt/s */
 
-The semantic match that finds this problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+We have several customer that take our 10G driver from kernel.org, and 
+once the HW is out we will have a problem.
+Also to include this code in next Redhat & Novell updates we need to 
+have it in the kernel too.
 
-// <smpl>
-@@ expression E1; identifier I; constant int C; @@
-(
-set_dma_mode(E1,I,...)
-|
-*set_dma_mode(E1,C,...)
-)
-// </smpl>
+I know the risk is not zero, but you must admit its not high either, and 
+we already tested it here thoroughly here with all device IDs
+Since we sent the patches on time for inclusion not clear why they are 
+being declined now.
+Please see what can be done.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/cs89x0.c    |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-index 3eee666..67c9702 100644
---- a/drivers/net/cs89x0.c
-+++ b/drivers/net/cs89x0.c
-@@ -1367,7 +1367,7 @@ net_open(struct net_device *dev)
- 			spin_lock_irqsave(&lp->lock, flags);
- 			disable_dma(dev->dma);
- 			clear_dma_ff(dev->dma);
--			set_dma_mode(dev->dma, 0x14); /* auto_init as well */
-+			set_dma_mode(dev->dma, DMA_RX_MODE); /* auto_init as well */
- 			set_dma_addr(dev->dma, isa_virt_to_bus(lp->dma_buff));
- 			set_dma_count(dev->dma, lp->dmasize*1024);
- 			enable_dma(dev->dma);
+Thanks,
+Tziporet
