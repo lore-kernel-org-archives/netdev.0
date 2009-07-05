@@ -1,8 +1,8 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 2/2] bnx2x: Fix the maximal values of coalescing
- timeouts.
-Date: Sun, 5 Jul 2009 17:18:14 +0300
-Message-ID: <1246803494.1685.19.camel@lb-tlvb-eilong>
+Subject: [PATCH 1/2] bnx2x: Disable HC coalescing when setting timeout
+ to zero.
+Date: Sun, 5 Jul 2009 17:18:12 +0300
+Message-ID: <1246803492.1685.18.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -11,56 +11,48 @@ Cc: "Linux Netdev List" <netdev@vger.kernel.org>,
 	"Flavio Leitner" <fleitner@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1252 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2393 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753771AbZGEOS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2009 10:18:58 -0400
+	id S1751641AbZGEOSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2009 10:18:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch properly defines the maximum values for rx/tx coalescing timeouts.
+Problem reported by Flavio Leitner <fleitner@redhat.com>:
+When setting rx/tx coalescing timeout to the values less than 12 traffic was
+stopped.
+
+The FW supports coalescing in 12us granularity, and so value of less then 12
+should be interpreted as disabling coalescing
 
 Signed-off-by: Vlad Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x.h      |    2 ++
- drivers/net/bnx2x_main.c |    8 ++++----
- 2 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 8678457..85a737c 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -902,6 +902,8 @@ struct bnx2x {
- 	u16			rx_quick_cons_trip;
- 	u16			rx_ticks_int;
- 	u16			rx_ticks;
-+/* Maximal coalescing timeout in us */
-+#define BNX2X_MAX_COALESCE_TOUT		(0xf0*12)
-
- 	u32			lin_cnt;
+ drivers/net/bnx2x_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 5737b75..6c67be6 100644
+index 951714a..5737b75 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -9069,12 +9069,12 @@ static int bnx2x_set_coalesce(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
+@@ -4434,7 +4434,7 @@ static void bnx2x_update_coalesce(struct bnx2x *bp)
+ 		REG_WR16(bp, BAR_USTRORM_INTMEM +
+ 			 USTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
+ 						     U_SB_ETH_RX_CQ_INDEX),
+-			 bp->rx_ticks ? 0 : 1);
++			 (bp->rx_ticks/12) ? 0 : 1);
 
- 	bp->rx_ticks = (u16) coal->rx_coalesce_usecs;
--	if (bp->rx_ticks > 3000)
--		bp->rx_ticks = 3000;
-+	if (bp->rx_ticks > BNX2X_MAX_COALESCE_TOUT)
-+		bp->rx_ticks = BNX2X_MAX_COALESCE_TOUT;
+ 		/* HC_INDEX_C_ETH_TX_CQ_CONS */
+ 		REG_WR8(bp, BAR_CSTRORM_INTMEM +
+@@ -4444,7 +4444,7 @@ static void bnx2x_update_coalesce(struct bnx2x *bp)
+ 		REG_WR16(bp, BAR_CSTRORM_INTMEM +
+ 			 CSTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
+ 						     C_SB_ETH_TX_CQ_INDEX),
+-			 bp->tx_ticks ? 0 : 1);
++			 (bp->tx_ticks/12) ? 0 : 1);
+ 	}
+ }
 
- 	bp->tx_ticks = (u16) coal->tx_coalesce_usecs;
--	if (bp->tx_ticks > 0x3000)
--		bp->tx_ticks = 0x3000;
-+	if (bp->tx_ticks > BNX2X_MAX_COALESCE_TOUT)
-+		bp->tx_ticks = BNX2X_MAX_COALESCE_TOUT;
-
- 	if (netif_running(dev))
- 		bnx2x_update_coalesce(bp);
 --
 1.6.0.4
 
