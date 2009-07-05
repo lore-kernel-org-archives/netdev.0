@@ -1,38 +1,49 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] skbuff:  don't corrupt mac_header on skb expansion
-Date: Sun, 5 Jul 2009 11:55:21 +0800
-Message-ID: <20090705035521.GA7693@gondor.apana.org.au>
-References: <20090617151734.5ce02459@nehalam>
+Subject: Re: >10% performance degradation since 2.6.18
+Date: Sun, 5 Jul 2009 12:01:37 +0800
+Message-ID: <20090705040137.GA7747@gondor.apana.org.au>
+References: <4A4F1EA0.3070501@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: acme@ghostprotocols.net, davem@davemloft.net,
+Cc: andi@firstfloor.org, arjan@infradead.org, matthew@wil.cx,
+	jens.axboe@oracle.com, linux-kernel@vger.kernel.org,
+	douglas.w.styner@intel.com, chinang.ma@intel.com,
+	terry.o.prickett@intel.com, matthew.r.wilcox@intel.com,
+	Eric.Moore@lsi.com, DL-MPTFusionLinux@lsi.com,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60806 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:58370 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753727AbZGEDz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 23:55:26 -0400
+	with ESMTP id S1750712AbZGEECX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 00:02:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20090617151734.5ce02459@nehalam>
+In-Reply-To: <4A4F1EA0.3070501@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote:
-> The skb mac_header field is sometimes NULL (or ~0u) as a sentinel
-> value. The places where skb is expanded add an offset which would
-> change this flag into an invalid pointer (or offset).
+Jeff Garzik <jeff@garzik.org> wrote:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> What's the best setup for power usage?
+> What's the best setup for performance?
+> Are they the same?
 
-What uses skb_mac_header_was_set apart from a debugging printk
-in route.c and nfnetlink_log (which is also essentially a debugging
-printk)?
+Yes.
 
-This seems to be a bit much just to make a couple printks work?
+> Is it most optimal to have the interrupt for socket $X occur on the same 
+> CPU as where the app is running?
 
-What about using mac_len instead to figure out whether the MAC
-header is there?
+Yes.
+
+> If yes, how to best handle when the scheduler moves app to another CPU?
+> Should we reprogram the NIC hardware flow steering mechanism at that point?
+
+Not really.  For now the best thing to do is to pin everything
+down and not move at all, because we can't afford to move.
+
+The only way for moving to work is if we had the ability to get
+the sockets to follow the processes.  That means, we must have
+one RX queue per socket.
 
 Cheers,
 -- 
