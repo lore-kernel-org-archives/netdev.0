@@ -1,50 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
-Date: Sun, 05 Jul 2009 15:20:04 +0100
-Message-ID: <1246803604.3898.6.camel@deadeye>
-References: <20090702111820.GA21085@serverengines.com>
-	 <1246566808.9821.2.camel@deadeye> <20090705121637.GA3627@serverengines.com>
+From: "Jorge Bastos" <mysql.jorge@decimal.pt>
+Subject: Crashes on ppp system
+Date: Sun, 5 Jul 2009 17:00:15 +0100 (WEST)
+Message-ID: <1201.87.196.129.60.1246809615.squirrel@webmail.decimal.pt>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57621 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753583AbZGEOUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 10:20:05 -0400
-In-Reply-To: <20090705121637.GA3627@serverengines.com>
+Received: from mailrly04.isp.novis.pt ([195.23.133.224]:53133 "EHLO
+	mailrly04.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752059AbZGEQGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 12:06:50 -0400
+Received: from webmail.decimal.pt (localhost [127.0.0.1])
+	by web.decimal.pt (Postfix) with ESMTP id C8CD82CB1F
+	for <netdev@vger.kernel.org>; Sun,  5 Jul 2009 17:00:15 +0100 (WEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-07-05 at 17:46 +0530, Sarveshwar Bandi wrote:
-> I understand that most drivers  use request_firmware() to load  volatile
-> firmware. I do see that there are other nic drivers that use this inferface to
-> flash persistent firmware.
-> 
->  We have other tools for offline flashing; but there is requirement
-> to flash f/w through driver without having to use other proprietary  tools.
+Howdy,
+I have a machine used for GW at my job, and i have a PPTPD VPN setup on it
+using poptop, and after updating to 2.6.30 i have crashes on the kernel
+all the time.
+Since i don't have the text, i made two pictures with it :P
 
-The firmware blob is proprietary and has to be distributed separately
-from the kernel.  So does it really matter that you have to distribute a
-special tool as well?
+http://neotrix.decimal.pt/dbmail/ppp_1.jpg
+http://neotrix.decimal.pt/dbmail/ppp_2.jpg
 
-(Based on requirements specified by major OEMs, I have implemented
-firmware update through the sfc driver (MDIO and MTD interfaces) but
-under the control of a separate tool.)
+As you can see on the pic, i'm using 2.6.31-rc1-git11 now, since 2.6.30
+i've tryed several git versions that had some work on the kernel PPP
+system, and the crash remains.
 
-> Since the firmware load happens only when there is a version mismatch with
-> f/w in /lib/firmware, Users who want to avoid automatic flashing at boot time
-> can choose not to copy the f/w file under /lib/firmware.
-[...]
+Is there anything else i can help on this?
 
-Is there a way of loading the firmware into the controller's RAM but not
-writing it to flash?  That ought to be the default behaviour.
+Jorge,
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
