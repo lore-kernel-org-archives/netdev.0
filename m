@@ -1,36 +1,45 @@
-From: "Jorge Bastos" <mysql.jorge@decimal.pt>
-Subject: Crashes on ppp system
-Date: Sun, 5 Jul 2009 17:00:15 +0100 (WEST)
-Message-ID: <1201.87.196.129.60.1246809615.squirrel@webmail.decimal.pt>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: >10% performance degradation since 2.6.18
+Date: Mon, 6 Jul 2009 00:11:51 +0800
+Message-ID: <20090705161151.GA11923@gondor.apana.org.au>
+References: <4A4F1EA0.3070501@garzik.org> <20090705040137.GA7747@gondor.apana.org.au> <20090705130926.GS5480@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, andi@firstfloor.org,
+	arjan@infradead.org, jens.axboe@oracle.com,
+	linux-kernel@vger.kernel.org, douglas.w.styner@intel.com,
+	chinang.ma@intel.com, terry.o.prickett@intel.com,
+	matthew.r.wilcox@intel.com, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Matthew Wilcox <matthew@wil.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrly04.isp.novis.pt ([195.23.133.224]:53133 "EHLO
-	mailrly04.isp.novis.pt" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752059AbZGEQGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 12:06:50 -0400
-Received: from webmail.decimal.pt (localhost [127.0.0.1])
-	by web.decimal.pt (Postfix) with ESMTP id C8CD82CB1F
-	for <netdev@vger.kernel.org>; Sun,  5 Jul 2009 17:00:15 +0100 (WEST)
+Received: from rhun.apana.org.au ([64.62.148.172]:47639 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752059AbZGEQM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 12:12:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20090705130926.GS5480@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Howdy,
-I have a machine used for GW at my job, and i have a PPTPD VPN setup on it
-using poptop, and after updating to 2.6.30 i have crashes on the kernel
-all the time.
-Since i don't have the text, i made two pictures with it :P
+On Sun, Jul 05, 2009 at 07:09:26AM -0600, Matthew Wilcox wrote:
+> 
+> Maybe not one RX queue per socket -- sockets belonging to the same
+> thread could share the same RX queue.  I'm fairly ignorant of the way
+> networking works these days; is it possible to dynamically reassign a
+> socket between RX queues, so we'd only need one RX queue per CPU?
 
-http://neotrix.decimal.pt/dbmail/ppp_1.jpg
-http://neotrix.decimal.pt/dbmail/ppp_2.jpg
+Not reliably.  You can tweak the hash in the NIC to redirect
+traffic (aka flow director) but ultimately if you've got more
+sockets than queues then it's a losing game.
 
-As you can see on the pic, i'm using 2.6.31-rc1-git11 now, since 2.6.30
-i've tryed several git versions that had some work on the kernel PPP
-system, and the crash remains.
+A better strategy for now is to pin everything down and try to
+get user-space involved by using threads and distributing the
+sockets based on which queue they're associated with.
 
-Is there anything else i can help on this?
-
-Jorge,
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
