@@ -1,29 +1,40 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: QUESTION: can netdev_alloc_skb() errors be reduced  by  tuning?
-Date: Sun, 5 Jul 2009 11:44:48 +0800
-Message-ID: <20090705034448.GA7588@gondor.apana.org.au>
-References: <4A3737CE.3020305@gmail.com>
+Subject: Re: [PATCH] ipv6: Keep index within tab_unreach[]
+Date: Sun, 5 Jul 2009 11:46:55 +0800
+Message-ID: <20090705034655.GA7635@gondor.apana.org.au>
+References: <4A37E715.4060504@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: starlight@binnacle.cx, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, mel@csn.ul.ie, linux-mm@kvack.org,
-	hugh.dickins@tiscali.co.uk, Lee.Schermerhorn@hp.com,
-	kosaki.motohiro@jp.fujitsu.com, ebmunson@us.ibm.com, agl@us.ibm.com,
-	apw@canonical.com, wli@movementarian.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Roel Kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:50506 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753482AbZGEDq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jul 2009 23:46:56 -0400
 Content-Disposition: inline
-In-Reply-To: <4A3737CE.3020305@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A37E715.4060504@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Roel Kluin <roel.kluin@gmail.com> wrote:
+> Ensure that index `code' remains within array tab_unreach[]
 > 
-> Because of slab rounding, this reallocation should be done only if resulting data
-> portion is really smaller (50 %) than original skb.
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> ---
+> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> index 36dff88..8f850de 100644
+> --- a/net/ipv6/icmp.c
+> +++ b/net/ipv6/icmp.c
+> @@ -923,7 +923,7 @@ int icmpv6_err_convert(int type, int code, int *err)
+>        switch (type) {
+>        case ICMPV6_DEST_UNREACH:
+>                fatal = 1;
+> -               if (code <= ICMPV6_PORT_UNREACH) {
+> +               if (code <= ICMPV6_PORT_UNREACH && code >= 0) {
 
-If we're going to do this in the core then we should only do it
-in the spots where the packet may be held indefinitely.
+Why not make code unsigned?
 
 Cheers,
 -- 
@@ -31,9 +42,3 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
