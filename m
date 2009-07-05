@@ -1,8 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH -stable] Re: rib_trie / Fix inflate_threshold_root. Now=15
-	size=11 bits
-Date: Sun, 5 Jul 2009 14:56:05 +0200
-Message-ID: <20090705125605.GA3094@ami.dom.local>
+Subject: [PATCH v2 -stable] Re: rib_trie / Fix inflate_threshold_root.
+	Now=15 size=11 bits
+Date: Sun, 5 Jul 2009 15:08:28 +0200
+Message-ID: <20090705130828.GB3094@ami.dom.local>
 References: <20090701063651.GA4876@ff.dom.local> <20090701072409.GA12592@ff.dom.local> <4A4B2FA8.3040007@itcare.pl> <20090701101333.GB12715@ff.dom.local> <20090701110407.GC12715@ff.dom.local> <4A4BE06F.3090608@itcare.pl> <20090702053216.GA4954@ff.dom.local> <4A4C48FD.7040002@itcare.pl> <20090702060011.GB4954@ff.dom.local> <4A4FF34E.7080001@itcare.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2
@@ -13,16 +13,18 @@ Cc: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
 	"Jorge Boncompte [DTI2]" <jorge@dti2.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:39507 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754059AbZGEM4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 08:56:31 -0400
-Received: by fxm18 with SMTP id 18so3233146fxm.37
-        for <netdev@vger.kernel.org>; Sun, 05 Jul 2009 05:56:33 -0700 (PDT)
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:53534 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753478AbZGENIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 09:08:48 -0400
+Received: by bwz25 with SMTP id 25so400653bwz.37
+        for <netdev@vger.kernel.org>; Sun, 05 Jul 2009 06:08:50 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <4A4FF34E.7080001@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+(Take 2: Changelog spelling fixes, sorry.)
 
 David & Robert,
 below are my recommendations for -stable plus one more patch:
@@ -148,8 +150,8 @@ and it causes misleading warnings during big updates, but it might be
 also responsible for memory problems, especially with non-preempt
 configs, when RCU freeing is delayed long after call_rcu.
 
-It should be also mentionned that because of non-atomic changes during
-resizing/rebalancing the current lookup algorithm can miss valid leafs
+It should be also mentioned that because of non-atomic changes during
+resizing/rebalancing the current lookup algorithm can miss valid leaves
 so it's additional argument to shorten these activities even at a cost
 of a minimally longer searching.
 
