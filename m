@@ -1,61 +1,50 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH 1/2] bnx2x: Disable HC coalescing when setting timeout
- to zero.
-Date: Sun, 5 Jul 2009 17:18:12 +0300
-Message-ID: <1246803492.1685.18.camel@lb-tlvb-eilong>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
+Date: Sun, 05 Jul 2009 15:20:04 +0100
+Message-ID: <1246803604.3898.6.camel@deadeye>
+References: <20090702111820.GA21085@serverengines.com>
+	 <1246566808.9821.2.camel@deadeye> <20090705121637.GA3627@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev List" <netdev@vger.kernel.org>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Flavio Leitner" <fleitner@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2393 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751641AbZGEOSx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jul 2009 10:18:53 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57621 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753583AbZGEOUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 10:20:05 -0400
+In-Reply-To: <20090705121637.GA3627@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Problem reported by Flavio Leitner <fleitner@redhat.com>:
-When setting rx/tx coalescing timeout to the values less than 12 traffic was
-stopped.
+On Sun, 2009-07-05 at 17:46 +0530, Sarveshwar Bandi wrote:
+> I understand that most drivers  use request_firmware() to load  volatile
+> firmware. I do see that there are other nic drivers that use this inferface to
+> flash persistent firmware.
+> 
+>  We have other tools for offline flashing; but there is requirement
+> to flash f/w through driver without having to use other proprietary  tools.
 
-The FW supports coalescing in 12us granularity, and so value of less then 12
-should be interpreted as disabling coalescing
+The firmware blob is proprietary and has to be distributed separately
+from the kernel.  So does it really matter that you have to distribute a
+special tool as well?
 
-Signed-off-by: Vlad Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+(Based on requirements specified by major OEMs, I have implemented
+firmware update through the sfc driver (MDIO and MTD interfaces) but
+under the control of a separate tool.)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 951714a..5737b75 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -4434,7 +4434,7 @@ static void bnx2x_update_coalesce(struct bnx2x *bp)
- 		REG_WR16(bp, BAR_USTRORM_INTMEM +
- 			 USTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
- 						     U_SB_ETH_RX_CQ_INDEX),
--			 bp->rx_ticks ? 0 : 1);
-+			 (bp->rx_ticks/12) ? 0 : 1);
+> Since the firmware load happens only when there is a version mismatch with
+> f/w in /lib/firmware, Users who want to avoid automatic flashing at boot time
+> can choose not to copy the f/w file under /lib/firmware.
+[...]
 
- 		/* HC_INDEX_C_ETH_TX_CQ_CONS */
- 		REG_WR8(bp, BAR_CSTRORM_INTMEM +
-@@ -4444,7 +4444,7 @@ static void bnx2x_update_coalesce(struct bnx2x *bp)
- 		REG_WR16(bp, BAR_CSTRORM_INTMEM +
- 			 CSTORM_SB_HC_DISABLE_OFFSET(port, sb_id,
- 						     C_SB_ETH_TX_CQ_INDEX),
--			 bp->tx_ticks ? 0 : 1);
-+			 (bp->tx_ticks/12) ? 0 : 1);
- 	}
- }
+Is there a way of loading the firmware into the controller's RAM but not
+writing it to flash?  That ought to be the default behaviour.
 
---
-1.6.0.4
+Ben.
 
-
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
