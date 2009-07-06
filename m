@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] econet: have failed ec_queue_packet() call return
- NET_RX_BAD
-Date: Sun, 05 Jul 2009 19:47:05 -0700 (PDT)
-Message-ID: <20090705.194705.179239113.davem@davemloft.net>
-References: <20090620200438.b5443520.lk-netdev@lk-netdev.nosense.org>
-	<20090620105325.GC31266@Chamillionaire.breakpoint.cc>
+Subject: Re: net: use NETDEV_TX_OK instead of 0 in ndo_start_xmit()
+ functions
+Date: Sun, 05 Jul 2009 19:47:24 -0700 (PDT)
+Message-ID: <20090705.194724.257325428.davem@davemloft.net>
+References: <4A40FCBC.9040700@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lk-netdev@lk-netdev.nosense.org, netdev@vger.kernel.org
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36963
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36967
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756223AbZGFCq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:46:58 -0400
-In-Reply-To: <20090620105325.GC31266@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1752778AbZGFCrS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:47:18 -0400
+In-Reply-To: <4A40FCBC.9040700@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Sat, 20 Jun 2009 12:53:25 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 23 Jun 2009 18:03:08 +0200
 
-> Subject: [PATCH] net: remove NET_RX_BAD and NET_RX_CN* defines
-> 
-> almost no users in the tree; and the few that use them treat them
-> like NET_RX_DROP.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+>     net: use NETDEV_TX_OK instead of 0 in ndo_start_xmit() functions
+>     
+>     This patch is the result of an automatic spatch transformation to convert
+>     all ndo_start_xmit() return values of 0 to NETDEV_TX_OK.
+>     
+>     Some occurences are missed by the automatic conversion, those will be
+>     handled in a seperate patch.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Applied to net-next-2.6
+Applied.
