@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] tipc: Add socket options to get number of
- queued messages
-Date: Sun, 05 Jul 2009 19:48:52 -0700 (PDT)
-Message-ID: <20090705.194852.40898712.davem@davemloft.net>
-References: <1246368339-19754-1-git-send-email-allan.stephens@windriver.com>
+Subject: Re: [PATCH net-next-2.6] cleanup: remove unused member in
+ scm_cookie.
+Date: Sun, 05 Jul 2009 19:48:28 -0700 (PDT)
+Message-ID: <20090705.194828.252263393.davem@davemloft.net>
+References: <eb3ff54b0906250742r1507927ai1755e514506bad0d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oscar.medina@motorola.com
-To: allan.stephens@windriver.com
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36980
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36977
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754570AbZGFCsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:48:46 -0400
-In-Reply-To: <1246368339-19754-1-git-send-email-allan.stephens@windriver.com>
+	by vger.kernel.org with ESMTP id S1755526AbZGFCsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:48:21 -0400
+In-Reply-To: <eb3ff54b0906250742r1507927ai1755e514506bad0d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
-Date: Tue, 30 Jun 2009 09:25:39 -0400
+From: Rami Rosen <ramirose@gmail.com>
+Date: Thu, 25 Jun 2009 17:42:19 +0300
 
-> From: oscar.medina@motorola.com <oscar.medina@motorola.com>
+> This patch removes an unused member (seq) scm_cookie; besides initialized
+> to 0 in the header file, it is not used.
 > 
-> This patch allows a TIPC application to determine the number of messages
-> currently waiting in a socket's receive queue (TIPC_SOCK_RECVQ_DEPTH) or
-> in all TIPC socket receive queues (TIPC_NODE_RECVQ_DEPTH).
-> 
-> Signed-off-by: Oscar Medina <oscar.medina@motorola.com>
-> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied to net-next-2.6
+Applied.
