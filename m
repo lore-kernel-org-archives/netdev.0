@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: convert remaining non-symbolic return values in
- ndo_start_xmit() functions
-Date: Sun, 05 Jul 2009 19:47:55 -0700 (PDT)
-Message-ID: <20090705.194755.05791300.davem@davemloft.net>
-References: <4A40FF13.2060704@trash.net>
+Subject: Re: [PATCH 1/1] Minor code cleanup in drivers/net/r6040.c
+Date: Sun, 05 Jul 2009 19:48:16 -0700 (PDT)
+Message-ID: <20090705.194816.40719812.davem@davemloft.net>
+References: <1245913509-23245-1-git-send-email-michael@free-electrons.com>
+	<200906251018.40995.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: michael@free-electrons.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36970
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36973
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753204AbZGFCrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:47:49 -0400
-In-Reply-To: <4A40FF13.2060704@trash.net>
+	by vger.kernel.org with ESMTP id S1753351AbZGFCsJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jul 2009 22:48:09 -0400
+In-Reply-To: <200906251018.40995.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 23 Jun 2009 18:13:07 +0200
+=46rom: Florian Fainelli <florian@openwrt.org>
+Date: Thu, 25 Jun 2009 10:18:40 +0200
 
->     net: convert remaining non-symbolic return values in ndo_start_xmit() functions
->     
->     This patch converts the remaining occurences of raw return values to their
->     symbolic counterparts in ndo_start_xmit() functions that were missed by the
->     previous automatic conversion.
->     
->     Additionally code that assumed the symbolic value of NETDEV_TX_OK to be zero
->     is changed to explicitly use NETDEV_TX_OK.
->     
->     Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Le Thursday 25 June 2009 09:05:09 Michael Opdenacker, vous avez =E9cr=
+it=A0:
+>>  Replaced '0' by 'bar' in the probe function.
+>>  The 'bar' variable was already set to '0' and is already
+>>  used in pci_iomap(). This is cleaner and improves code
+>>  consistency.
+>>
+>> Signed-off-by: Michael Opdenacker <michael@free-electrons.com>
+>=20
+> Acked-by: Florian Fainelli <florian@openwrt.org>
 
-Applied to net-next-2.6....
-
+Applied to net-next-2.6
