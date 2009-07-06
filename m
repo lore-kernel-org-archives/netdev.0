@@ -1,45 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT]: Networking
-Date: Sun, 05 Jul 2009 19:04:00 -0700 (PDT)
-Message-ID: <20090705.190400.130883789.davem@davemloft.net>
-References: <4A4CBE7D.2060603@gmail.com>
-	<20090702200526.GA2969@elte.hu>
-	<20090703214609.GA7776@elte.hu>
+From: Theodore Tso <tytso-3s7WtUTddSA@public.gmane.org>
+Subject: Re: [PATCH 01/10] ext4: Use rcu_barrier() on module unload.
+Date: Sun, 5 Jul 2009 22:31:13 -0400
+Message-ID: <20090706023113.GE6706@mit.edu>
+References: <20090623150330.22490.87327.stgit@localhost> <20090623150358.22490.24818.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, joerg.roedel@amd.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	aabdulla@nvidia.com
-To: mingo@elte.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35929
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752893AbZGFCDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:03:54 -0400
-In-Reply-To: <20090703214609.GA7776@elte.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dougthompson-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, bluesmoke-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	christine.caulfield-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	linux-ext4-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, adilger-xsfywfwIY+M@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jesper Dangaard Brouer <hawk-4UpuNZONu4c@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090623150358.22490.24818.stgit@localhost>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 3 Jul 2009 23:46:09 +0200
+On Tue, Jun 23, 2009 at 05:03:59PM +0200, Jesper Dangaard Brouer wrote:
+> The ext4 module uses rcu_call() thus it should use rcu_barrier()on
+> module unload.
+> 
+> The kmem cache ext4_pspace_cachep is sometimes free'ed using
+> call_rcu() callbacks.  Thus, we must wait for completion of call_rcu()
+> before doing kmem_cache_destroy().
+> 
+> I have difficult determining if no new call_rcu() callbacks can be envoked.
+> Would the maintainer please verify this?
 
-> 
-> * Ingo Molnar <mingo@elte.hu> wrote:
-> 
->> * Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> 
->> > We might have a race in napi_schedule(), leaving interrupts 
->> > disabled forever. I cannot test this patch, I dont have the 
->> > hardware...
->> 
->> I have tested it and the config that failed before works now. (as 
->> do other configs as well)
->> 
->> I'll have to re-test whether the failing config fails with your 
->> fix reverted - that will have to wait until tomorrow or so.
-> 
-> update: that forcedeth system is still working fine.
+Yes, that's correct.  Thanks; I've included this in the ext4 patch
+queue.
 
-I've applied Eric's patch, thanks!
+						- Ted
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
