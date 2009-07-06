@@ -1,58 +1,42 @@
-From: "Sonasath, Moiz" <m-sonasath@ti.com>
-Subject: [PATCH] [RFC] Potential bug in defining 'irq field' of 'ifmap
- structure'
-Date: Mon, 6 Jul 2009 17:23:36 -0500
-Message-ID: <CD8CC2B65FEE304DA95744A5472698F202952C3124@dlee06.ent.ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"Pandita, Vikram" <vikram.pandita@ti.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: [PATCH] fec: remove extra ";" from definition names
+Date: Tue, 7 Jul 2009 09:28:34 +1000
+Message-ID: <200907062328.n66NSYmn008147@localhost.localdomain>
+Cc: gerg@uclinux.org, s.hauer@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rex.securecomputing.com ([203.24.151.4]:51737 "EHLO
+	snapgear.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752868AbZGFX3C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jul 2009 19:29:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-From: Moiz Sonasath <m-sonasath@ti.com>
-
-There seems to be a bug in the ioctl implementation in /kernel/net/core/dev.c 
- 
-dev_ifsioc_locked()
-	case SIOCGIFMAP:
-			ifr->ifr_map.irq = dev->irq;   // ?? type mismatch
-
-Here
-ifr->ifr_map.irq) is of type unsigned char
-dev-irq is of type unsigned int
-
-So ifconfig reports a wrong irq number when the dev->irq number is > 255.
-
-I am confused to see the same typedefs in file: net/if.h 
-Not sure how to make changes for the user side net/if.h file?
-
-Signed-off-by: Moiz Sonasath <m-sonasath@ti.com>
-Signed-off-by: Vikram Pandita <vikram.pandita@ti.com>
-	
+fec: remove extra ";" from definition names
+    
+Signed-off-by: Greg Ungerer <gerg@uclinux.org>
 ---
- include/linux/if.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 2d89c96..1ac6559 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -126,7 +126,7 @@ struct ifmap
- 	unsigned long mem_start;
- 	unsigned long mem_end;
- 	unsigned short base_addr;
--	unsigned char irq;
-+	unsigned int irq;
- 	unsigned char dma;
- 	unsigned char port;
- 	/* 3 bytes spare */
--- 
-1.5.6.3
-
+diff --git a/drivers/net/fec.h b/drivers/net/fec.h
+index 30b7dd6..6958d85 100644
+--- a/drivers/net/fec.h
++++ b/drivers/net/fec.h
+@@ -46,12 +46,12 @@
+ 
+ #else
+ 
+-#define FEC_ECNTRL;		0x000 /* Ethernet control reg */
+-#define FEC_IEVENT;		0x004 /* Interrupt even reg */
+-#define FEC_IMASK;		0x008 /* Interrupt mask reg */
+-#define FEC_IVEC;		0x00c /* Interrupt vec status reg */
+-#define FEC_R_DES_ACTIVE;	0x010 /* Receive descriptor reg */
+-#define FEC_X_DES_ACTIVE;	0x01c /* Transmit descriptor reg */
++#define FEC_ECNTRL		0x000 /* Ethernet control reg */
++#define FEC_IEVENT		0x004 /* Interrupt even reg */
++#define FEC_IMASK		0x008 /* Interrupt mask reg */
++#define FEC_IVEC		0x00c /* Interrupt vec status reg */
++#define FEC_R_DES_ACTIVE	0x010 /* Receive descriptor reg */
++#define FEC_X_DES_ACTIVE	0x01c /* Transmit descriptor reg */
+ #define FEC_MII_DATA		0x040 /* MII manage frame reg */
+ #define FEC_MII_SPEED		0x044 /* MII speed control reg */
+ #define FEC_R_BOUND		0x08c /* FIFO receive bound reg */
