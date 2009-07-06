@@ -1,45 +1,65 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [PATCH] econet: have failed ec_queue_packet() call return
- NET_RX_BAD
-Date: Mon, 6 Jul 2009 20:02:14 +0930
-Message-ID: <20090706200214.7767fd6a.lk-netdev@lk-netdev.nosense.org>
-References: <20090620200438.b5443520.lk-netdev@lk-netdev.nosense.org>
-	<20090620105325.GC31266@Chamillionaire.breakpoint.cc>
-	<20090705.194705.179239113.davem@davemloft.net>
+From: Pablo Bitton <pablo.bitton@gmail.com>
+Subject: [PATCH v2] davinci_emac: fix kernel oops when changing MAC address
+	while interface is down
+Date: Mon, 06 Jul 2009 13:50:46 +0300
+Message-ID: <1246877446.8072.3.camel@desktop-002>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, lk-netdev@lk-netdev.nosense.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: davinci-linux-open-source@linux.davincidsp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.adam.net.au ([202.136.110.251]:46188 "EHLO
-	smtp2.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753026AbZGFKcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 06:32:24 -0400
-In-Reply-To: <20090705.194705.179239113.davem@davemloft.net>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:34209 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753783AbZGFKms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 06:42:48 -0400
+Received: by bwz25 with SMTP id 25so1108345bwz.37
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2009 03:42:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Check that network interface is running before changing its MAC address.
+Otherwise, rxch is accessed when it's NULL - causing a kernel oops.
+Moreover, check that the new MAC address is valid.
 
-On Sun, 05 Jul 2009 19:47:05 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Signed-off-by: Pablo Bitton <pablo.bitton@gmail.com>
+Signed-off-by: Chaithrika U S <chaithrika@ti.com>
+Tested-by: Chaithrika U S <chaithrika@ti.com>
+[tested on DM6467 EVM]
 
-> From: Florian Westphal <fw@strlen.de>
-> Date: Sat, 20 Jun 2009 12:53:25 +0200
-> 
-> > Subject: [PATCH] net: remove NET_RX_BAD and NET_RX_CN* defines
-> > 
-> > almost no users in the tree; and the few that use them treat them
-> > like NET_RX_DROP.
-> > 
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> 
-> Applied to net-next-2.6
+---
+ drivers/net/davinci_emac.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-Will my first econet patch go in? It was just a "no magic numbers"
-patch, unrelated to the NET_RX_DROP vs NET_RX_BAD issue.
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index cf689a0..dddb2b9 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1821,11 +1821,19 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+        struct sockaddr *sa = addr;
+        DECLARE_MAC_BUF(mac);
+ 
++       if (!is_valid_ether_addr(sa->sa_data))
++               return -EINVAL;
++
+        /* Store mac addr in priv and rx channel and set it in EMAC hw */
+        memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
+-       memcpy(rxch->mac_addr, sa->sa_data, ndev->addr_len);
+        memcpy(ndev->dev_addr, sa->sa_data, ndev->addr_len);
+-       emac_setmac(priv, EMAC_DEF_RX_CH, rxch->mac_addr);
++
++       /* If the interface is down - rxch is NULL. */
++       /* MAC address is configured only after the interface is enabled. */
++       if (netif_running(ndev)) {
++               memcpy(rxch->mac_addr, sa->sa_data, ndev->addr_len);
++               emac_setmac(priv, EMAC_DEF_RX_CH, rxch->mac_addr);
++       }
+ 
+        if (netif_msg_drv(priv))
+                dev_notice(emac_dev, "DaVinci EMAC: emac_dev_setmac_addr %s\n",
+-- 
+1.5.4.3
 
-Regards,
-Mark.
+
+
+
