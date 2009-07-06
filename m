@@ -1,62 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: >10% performance degradation since 2.6.18
-Date: Mon, 6 Jul 2009 09:19:39 +0800
-Message-ID: <20090706011939.GD15156@gondor.apana.org.au>
-References: <20090705040137.GA7747@gondor.apana.org.au> <4A5110B9.4030904@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: flow director and packet ordering
+Date: Sun, 05 Jul 2009 18:59:56 -0700 (PDT)
+Message-ID: <20090705.185956.121092946.davem@davemloft.net>
+References: <20090705041955.GA7892@gondor.apana.org.au>
+	<20090705.155354.85683961.davem@davemloft.net>
+	<20090706011051.GB15156@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, arjan@infradead.org, matthew@wil.cx,
-	jens.axboe@oracle.com, linux-kernel@vger.kernel.org,
-	douglas.w.styner@intel.com, chinang.ma@intel.com,
-	terry.o.prickett@intel.com, matthew.r.wilcox@intel.com,
-	Eric.Moore@lsi.com, DL-MPTFusionLinux@lsi.com,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32887 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751709AbZGFBUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 21:20:33 -0400
-Content-Disposition: inline
-In-Reply-To: <4A5110B9.4030904@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38214
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751709AbZGFB7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 21:59:49 -0400
+In-Reply-To: <20090706011051.GB15156@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 05, 2009 at 04:44:41PM -0400, Jeff Garzik wrote:
->
-> Efficient power usage means scaling _down_ when activity decreases.  A  
-> blind "distribute network activity across all CPUs" policy does not  
-> appear to be responsive to that type of situation.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 6 Jul 2009 09:10:51 +0800
 
-I didn't suggest distributing network activity across all CPUs.
-It should be distributed across all active CPUs.
+> In that case I don't see the big need in moving the flows/sockets
+> after establishment.  After all process migration should be rare,
+> so if it does occur then it's OK for the existing sockets to stay
+> on their original queue.
 
-> Consider two competing CPU hogs:  a kernel with tons of netfilter tables  
-> and rules, plus an application that uses a lot of CPU.
->
-> Can you not reach a threshold where it makes more sense to split kernel  
-> and userland work onto different CPUs?
+I personally assume that a master process that accepts connections
+and then hands them off down to worker threads is quite common.
 
-In that case the best split would be split the application into
-different threads which can then move onto different CPUs.  Doing
-what you said above will probably work assuming the CPUs share
-cache, otherwise it will suck.
+> I'm curious about what the limit on the number of flows is though.
+> Because when you go above that limit performance will magically
+> suck :)
 
-> That seems to presume it is impossible to reprogram the NIC RX queue  
-> selection rules?
->
-> If you can add a new 'flow' to a NIC hardware RX queue, surely you can  
-> imagine a remove + add operation for a migrated 'flow'...  and thus, at  
-> least on the NIC hardware level, flows can follow processes.
-
-Right, that would work as long as you can add a rule for each socket
-you cared about.  Though it's interesting to know whether the number
-of rules can keep up with the number of sockets that we usually
-encounter on busy servers.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes, of course that's an important aspect of the implementation.
