@@ -1,22 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 1/9] vxge: Removed ioremap of unused bar
- addresses and their references
-Date: Sun, 05 Jul 2009 19:49:32 -0700 (PDT)
-Message-ID: <20090705.194932.18305818.davem@davemloft.net>
-References: <Pine.GSO.4.10.10907020309550.13763-100000@guinness>
+Subject: Re: [PATCH net-2.6 1/7] jme: Some minor coding style consistency
+ modifications
+Date: Sun, 05 Jul 2009 19:51:05 -0700 (PDT)
+Message-ID: <20090705.195105.92877513.davem@davemloft.net>
+References: <20090702183223.CC05E5D0C6@cooldavid.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa.Honnur@neterion.com
+Cc: netdev@vger.kernel.org, ethanhsiao@jmicron.com
+To: cooldavid@cooldavid.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36984
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33025
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753901AbZGFCtZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:49:25 -0400
-In-Reply-To: <Pine.GSO.4.10.10907020309550.13763-100000@guinness>
+	by vger.kernel.org with ESMTP id S1753172AbZGFCu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:50:58 -0400
+In-Reply-To: <20090702183223.CC05E5D0C6@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-All 9 patches applied, thanks.
+I can't apply these patches as is.
+
+They are a mix of bug fixes that might be legitimate for
+net-2.6 and cleanups and other changes which are totally
+inappropriate for net-2.6 (and therefore should be
+targetted for net-next-2.6 instead).
+
+Please resubmit this properly.  Thank you.
