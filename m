@@ -1,44 +1,58 @@
 From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [PATCH] econet: have failed ec_queue_packet() call return
- NET_RX_BAD
-Date: Tue, 7 Jul 2009 06:37:52 +0930
-Message-ID: <20090707063752.8e4fc5cf.lk-netdev@lk-netdev.nosense.org>
-References: <20090620105325.GC31266@Chamillionaire.breakpoint.cc>
-	<20090705.194705.179239113.davem@davemloft.net>
-	<20090706200214.7767fd6a.lk-netdev@lk-netdev.nosense.org>
-	<20090706.114852.196263142.davem@davemloft.net>
+Subject: [patch] ipv6: correct return on ipv6_rcv() packet drop
+Date: Tue, 7 Jul 2009 06:56:24 +0930
+Message-ID: <20090707065624.ee55809e.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.adam.net.au ([202.136.110.249]:58733 "EHLO
+Received: from smtp3.adam.net.au ([202.136.110.249]:41250 "EHLO
 	smtp3.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbZGFVHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 17:07:55 -0400
-In-Reply-To: <20090706.114852.196263142.davem@davemloft.net>
+	with ESMTP id S1752194AbZGFV0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 17:26:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 06 Jul 2009 11:48:52 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+The routine ipv6_rcv() uses magic number 0 for a return when it drops a
+packet. This corresponds to NET_RX_SUCCESS, which is obviously
+incorrect. Correct this by using NET_RX_DROP instead.
 
-> From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-> Date: Mon, 6 Jul 2009 20:02:14 +0930
-> 
-> > Will my first econet patch go in? It was just a "no magic numbers"
-> > patch, unrelated to the NET_RX_DROP vs NET_RX_BAD issue.
-> 
-> I'm happy to apply that one, could you please resend it
-> to the list?  That would make my life easier, thanks!
+ps. It isn't exactly clear who the IPv6 maintainers are, apologies if
+I've missed any.
 
-Done, as a non-thread email.
+Signed-off-by: Mark Smith <markzzzsmith@yahoo.com.au>
 
-Regards,
-Mark.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 8f04bd9..bb05c17 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -63,7 +63,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		kfree_skb(skb);
+-		return 0;
++		return NET_RX_DROP;
+ 	}
+ 
+ 	rcu_read_lock();
+@@ -133,7 +133,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 		if (ipv6_parse_hopopts(skb) < 0) {
+ 			IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_INHDRERRORS);
+ 			rcu_read_unlock();
+-			return 0;
++			return NET_RX_DROP;
+ 		}
+ 	}
+ 
+@@ -146,7 +146,7 @@ err:
+ drop:
+ 	rcu_read_unlock();
+ 	kfree_skb(skb);
+-	return 0;
++	return NET_RX_DROP;
+ }
+ 
+ /*
