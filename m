@@ -1,81 +1,38 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: >10% performance degradation since 2.6.18
-Date: Mon, 6 Jul 2009 12:05:31 -0600
-Message-ID: <20090706180530.GX5480@parisc-linux.org>
-References: <20090705040137.GA7747@gondor.apana.org.au> <4A522D9A.1090006@hp.com> <BC02C49EEB98354DBA7F5DD76F2A9E800357D5A0C5@azsmsx501.amr.corp.intel.com> <20090706174203.GV5480@parisc-linux.org> <BC02C49EEB98354DBA7F5DD76F2A9E800357E11BC8@azsmsx501.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jeff Garzik <jeff@garzik.org>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"arjan@infradead.org" <arjan@infradead.org>,
-	"jens.axboe@oracle.com" <jens.axboe@oracle.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Styner, Douglas W" <douglas.w.styner@intel.com>,
-	"Prickett, Terry O" <terry.o.prickett@intel.com>,
-	"Wilcox, Matthew R" <matthew.r.wilcox@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: "Ma, Chinang" <chinang.ma@intel.com>
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: BUG: scheduling while atomic
+Date: Mon, 6 Jul 2009 20:07:34 +0200
+Message-ID: <6BC3DACB-2179-4322-B270-475180CC8AA2@it-loops.com>
+References: <23AED400-6DA5-462F-94F0-BEE34AC08A7A@it-loops.com> <20090627140643.7140f6a9@lxorguk.ukuu.org.uk> <33C7D336-F062-47B3-9033-D3DC465F793C@it-loops.com> <20090706074333.GA17276@gondor.apana.org.au> <20090706083119.GA17782@gondor.apana.org.au> <20090706163239.3f557b45@lxorguk.ukuu.org.uk> <20090706181736.766b3e7c@lxorguk.ukuu.org.uk>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:39921 "EHLO
-	mail.parisc-linux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbZGFSF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 14:05:29 -0400
-Content-Disposition: inline
-In-Reply-To: <BC02C49EEB98354DBA7F5DD76F2A9E800357E11BC8@azsmsx501.amr.corp.intel.com>
+Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:45223
+	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751090AbZGFSHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 14:07:33 -0400
+In-Reply-To: <20090706181736.766b3e7c@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 06, 2009 at 10:57:09AM -0700, Ma, Chinang wrote:
-> >-----Original Message-----
-> >From: Matthew Wilcox [mailto:matthew@wil.cx]
-> >Sent: Monday, July 06, 2009 10:42 AM
-> >To: Ma, Chinang
-> >Cc: Rick Jones; Herbert Xu; Jeff Garzik; andi@firstfloor.org;
-> >arjan@infradead.org; jens.axboe@oracle.com; linux-kernel@vger.kernel.org;
-> >Styner, Douglas W; Prickett, Terry O; Wilcox, Matthew R;
-> >netdev@vger.kernel.org; Brandeburg, Jesse
-> >Subject: Re: >10% performance degradation since 2.6.18
-> >
-> >On Mon, Jul 06, 2009 at 10:36:11AM -0700, Ma, Chinang wrote:
-> >> For OLTP workload we are not pushing much network throughput. Lower
-> >network latency is more important for OLTP performance. For the original
-> >Nehalem 2 sockets OLTP result in this mail thread, we bound the two NIC
-> >interrupts to cpu1 and cpu9 (one NIC per sockets). Database processes are
-> >divided into two groups and pinned to socket and each processe only
-> >received request from the NIC it bound to. This binding scheme gave us >1%
-> >performance boost pre-Nehalem date. We also see positive impact on this NHM
-> >system.
-> >
-> >So you've tried spreading the four RX and TX interrupts for each card
-> >out over, say, CPUs 1, 3, 5, 7 for eth1 and then 9, 11, 13, 15 for eth0,
-> >and it produces worse performance than having all four tied to CPUs 1
-> >and 9?  Interesting.
-> 
-> I was comparing 2 NIC on 2 sockets to 2 NIC on the same socket. I have not tried spreading out the interrupt for a NIC to cpus in the same sockets. Is there good reason for trying this?
 
-If spreading the network load from one CPU to two CPUs increases the
-performance, spreading the network load from two to eight might get even
-better performance.
+On Jul 6, 2009, at 19:17, Alan Cox wrote:
 
-Are the clients now pinned to the CPU package on which they receive their
-network interrupts?
+> This is the more drastic way of doing it. I had hoped to put this  
+> off but
+> in fact it cleans stuff up enormously. This has had only basic testing
+> but the underlying idea is to simply remove all the pty special casing
+> that causes messes in the first place.
+<snip>
 
-> >Can you try changing IGB_MAX_RX_QUEUES (in drivers/net/igb/igb.h, about
-> >line 60) to 1, and seeing if performance improves that way?
-> 
-> I suppose this should wait until we find out whether spread out NIC interrupt in socket helps or not.
+Hi Alan,
 
-Yes, let's try having the driver work the way that LAD designed it
-first ;-)
+Must commit a6540f731d506d9e82444cf0020e716613d4c46c still be reverted  
+with your patch or can it stay in?
 
-They may not have been optimising for the database client workload,
-of course.
-
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+Kind regards,
+Michael 
