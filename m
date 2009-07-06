@@ -1,66 +1,52 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: Re: PROBLEM: tun/tap crashes if open() /dev/net/tun and then poll()
- it.
-Date: Mon, 6 Jul 2009 07:48:35 +0200
-Message-ID: <20090706074835.3fe641f0@mako-desktop>
-References: <4A4F1480.70203@gmail.com>
-	<20090706001114.2d4517be@mako-desktop>
-	<20090706011230.GC15156@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv2] sctp: fix warning at inet_sock_destruct() while
+	release sctp socket
+Date: Mon, 6 Jul 2009 14:49:57 +0800
+Message-ID: <20090706064957.GA16971@gondor.apana.org.au>
+References: <4A518EDF.9030501@cn.fujitsu.com> <4A518F8C.2090807@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eugene Kapun <abacabadabacaba@gmail.com>, maxk@qualcomm.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20090706011230.GC15156@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:53004 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750910AbZGFGuE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 02:50:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4A518F8C.2090807@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Jul 2009 09:12:30 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, Jul 06, 2009 at 01:45:48PM +0800, Wei Yongjun wrote:
+> Commit 'net: Move rx skb_orphan call to where needed' broken sctp protocol
+> with warning at inet_sock_destruct(). Actually, sctp can do this right with
+> sctp_sock_rfree_frag() and sctp_skb_set_owner_r_frag() pair.
+> 
+>     sctp_sock_rfree_frag(skb);
+>     sctp_skb_set_owner_r_frag(skb, newsk);
+> 
+> This patch not revert the commit d55d87fdff8252d0e2f7c28c2d443aee17e9d70f,
+> instead remove the sctp_sock_rfree_frag() function.
 
-> On Mon, Jul 06, 2009 at 12:11:14AM +0200, Mariusz Kozlowski wrote:
-> >
-> > 	Can you try this patch?
-... 
-> Good catch.  Can you please resend with a sign-off?
+It took me a while to understand your patch but yeah it does seem
+to be the right fix.  So essentially we were freeing the packet
+twice as my newly added skb_orphan in sctp_skb_set_owner_r is
+repeating what sctp_sock_rfree_frag has already done for the
+migration case.
 
-Sure. Just wanted to wait for confirmation from Eugene.
-
-Fix NULL pointer dereference in tun_chr_pool() introduced by
-commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554 and triggered
-by this code:
-
-	int fd;
-	struct pollfd pfd;
-	fd = open("/dev/net/tun", O_RDWR);
-	pfd.fd = fd;
-	pfd.events = POLLIN | POLLOUT;
-	poll(&pfd, 1, 0);
-
-Reported-by: Eugene Kapun <abacabadabacaba@gmail.com>
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a1b0697..bcbb25e 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -482,12 +482,14 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
- {
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun = __tun_get(tfile);
--	struct sock *sk = tun->sk;
-+	struct sock *sk;
- 	unsigned int mask = 0;
+While your patch simply eliminates sctp_sock_rfree_frag so that
+we only free things once.
  
- 	if (!tun)
- 		return POLLERR;
- 
-+	sk = tun->sk;
-+
- 	DBG(KERN_INFO "%s: tun_chr_poll\n", tun->dev->name);
- 
- 	poll_wait(file, &tfile->read_wait, wait);
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
