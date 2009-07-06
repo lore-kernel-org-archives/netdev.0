@@ -1,40 +1,49 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: flow director and packet ordering
-Date: Mon, 6 Jul 2009 09:10:51 +0800
-Message-ID: <20090706011051.GB15156@gondor.apana.org.au>
-References: <20090616.023132.194401812.davem@davemloft.net> <20090705041955.GA7892@gondor.apana.org.au> <20090705.155354.85683961.davem@davemloft.net>
+Subject: Re: PROBLEM: tun/tap crashes if open() /dev/net/tun and then
+	poll() it.
+Date: Mon, 6 Jul 2009 09:12:30 +0800
+Message-ID: <20090706011230.GC15156@gondor.apana.org.au>
+References: <4A4F1480.70203@gmail.com> <20090706001114.2d4517be@mako-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58621 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750759AbZGFBKx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 21:10:53 -0400
+Cc: Eugene Kapun <abacabadabacaba@gmail.com>, maxk@qualcomm.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090705.155354.85683961.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090706001114.2d4517be@mako-desktop>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 05, 2009 at 03:53:54PM -0700, David Miller wrote:
+On Mon, Jul 06, 2009 at 12:11:14AM +0200, Mariusz Kozlowski wrote:
 >
-> Flows map to queues, queues don't move.  Rather the mapping between
-> flows and queues changes dynamically.
+> 	Can you try this patch?
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 11a0ba4..c599327 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -486,12 +486,14 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+>  {
+>  	struct tun_file *tfile = file->private_data;
+>  	struct tun_struct *tun = __tun_get(tfile);
+> -	struct sock *sk = tun->sk;
+> +	struct sock *sk;
+>  	unsigned int mask = 0;
+>  
+>  	if (!tun)
+>  		return POLLERR;
+>  
+> +	sk = tun->sk;
+> +
+>  	DBG(KERN_INFO "%s: tun_chr_poll\n", tun->dev->name);
+>  
+>  	poll_wait(file, &tun->socket.wait, wait);
 
-Oh that makes more sense.
+Good catch.  Can you please resend with a sign-off?
 
-In that case I don't see the big need in moving the flows/sockets
-after establishment.  After all process migration should be rare,
-so if it does occur then it's OK for the existing sockets to stay
-on their original queue.
-
-I'm curious about what the limit on the number of flows is though.
-Because when you go above that limit performance will magically
-suck :)
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
