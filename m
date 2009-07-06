@@ -1,49 +1,45 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: BUG: scheduling while atomic
-Date: Mon, 6 Jul 2009 19:18:52 +0100
-Message-ID: <20090706191852.3e138fc5@lxorguk.ukuu.org.uk>
-References: <23AED400-6DA5-462F-94F0-BEE34AC08A7A@it-loops.com>
-	<20090627140643.7140f6a9@lxorguk.ukuu.org.uk>
-	<33C7D336-F062-47B3-9033-D3DC465F793C@it-loops.com>
-	<20090706074333.GA17276@gondor.apana.org.au>
-	<20090706083119.GA17782@gondor.apana.org.au>
-	<20090706163239.3f557b45@lxorguk.ukuu.org.uk>
-	<20090706181736.766b3e7c@lxorguk.ukuu.org.uk>
-	<6BC3DACB-2179-4322-B270-475180CC8AA2@it-loops.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] skbuff:  don't corrupt mac_header on skb expansion
+Date: Mon, 6 Jul 2009 11:23:14 -0700
+Message-ID: <20090706112314.70078b19@nehalam>
+References: <20090617151734.5ce02459@nehalam>
+	<20090705035521.GA7693@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Michael Guntsche <mike@it-loops.com>
+Cc: acme@ghostprotocols.net, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:54971 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751748AbZGFSR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 14:17:56 -0400
-In-Reply-To: <6BC3DACB-2179-4322-B270-475180CC8AA2@it-loops.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52092 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752052AbZGFSXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jul 2009 14:23:16 -0400
+In-Reply-To: <20090705035521.GA7693@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Jul 2009 20:07:34 +0200
-Michael Guntsche <mike@it-loops.com> wrote:
+On Sun, 5 Jul 2009 11:55:21 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > The skb mac_header field is sometimes NULL (or ~0u) as a sentinel
+> > value. The places where skb is expanded add an offset which would
+> > change this flag into an invalid pointer (or offset).
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> On Jul 6, 2009, at 19:17, Alan Cox wrote:
+> What uses skb_mac_header_was_set apart from a debugging printk
+> in route.c and nfnetlink_log (which is also essentially a debugging
+> printk)?
 > 
-> > This is the more drastic way of doing it. I had hoped to put this  
-> > off but
-> > in fact it cleans stuff up enormously. This has had only basic testing
-> > but the underlying idea is to simply remove all the pty special casing
-> > that causes messes in the first place.
-> <snip>
+> This seems to be a bit much just to make a couple printks work?
 > 
-> Hi Alan,
+> What about using mac_len instead to figure out whether the MAC
+> header is there?
 > 
-> Must commit a6540f731d506d9e82444cf0020e716613d4c46c still be reverted  
-> with your patch or can it stay in?
+> Cheers,
 
-Herbert is (as usual ;)) correct that it should be reverted.
+No worries, either way works, I was just trying to keep acme's original code
 
-Alan
+-- 
