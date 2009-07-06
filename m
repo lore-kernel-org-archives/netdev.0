@@ -1,29 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 1/7] jme: Some minor coding style consistency
- modifications
-Date: Sun, 05 Jul 2009 19:51:05 -0700 (PDT)
-Message-ID: <20090705.195105.92877513.davem@davemloft.net>
-References: <20090702183223.CC05E5D0C6@cooldavid.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: flow director and packet ordering
+Date: Mon, 6 Jul 2009 10:55:14 +0800
+Message-ID: <20090706025514.GA15764@gondor.apana.org.au>
+References: <20090705041955.GA7892@gondor.apana.org.au> <20090705.155354.85683961.davem@davemloft.net> <20090706011051.GB15156@gondor.apana.org.au> <20090705.185956.121092946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ethanhsiao@jmicron.com
-To: cooldavid@cooldavid.org
+Content-Type: text/plain; charset=us-ascii
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33025
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753172AbZGFCu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:50:58 -0400
-In-Reply-To: <20090702183223.CC05E5D0C6@cooldavid.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:43170 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753204AbZGFCzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jul 2009 22:55:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20090705.185956.121092946.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jul 05, 2009 at 06:59:56PM -0700, David Miller wrote:
+>
+> I personally assume that a master process that accepts connections
+> and then hands them off down to worker threads is quite common.
 
-I can't apply these patches as is.
+In this scenario I think it might be better to determine which
+worker thread to hand the socket to based on the current RX queue
+assignment.  This way you won't have to worry about what limit
+the hardware has in terms of how many flows it can assign.
 
-They are a mix of bug fixes that might be legitimate for
-net-2.6 and cleanups and other changes which are totally
-inappropriate for net-2.6 (and therefore should be
-targetted for net-next-2.6 instead).
+Of course if you can't modify the app then you'd have to rely on
+hardware assignment.
 
-Please resubmit this properly.  Thank you.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
