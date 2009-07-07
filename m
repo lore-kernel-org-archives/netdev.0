@@ -1,38 +1,38 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: radvd 1.3 released
-Date: Tue, 7 Jul 2009 07:51:06 +0300 (EEST)
-Message-ID: <alpine.LRH.2.00.0907070748430.31731@netcore.fi>
+From: Pablo Bitton <pablo.bitton@gmail.com>
+Subject: Re: [v2] davinci_emac: fix kernel oops when changing MAC address
+	while interface is down
+Date: Tue, 7 Jul 2009 08:51:48 +0300
+Message-ID: <7448ec710907062251w176989dm38b7bb56dd944742@mail.gmail.com>
+References: <20090706.182037.265245699.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: radvd-devel-l@litech.org
-To: netdev@vger.kernel.org, radvd-announce-l@litech.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:53083 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751253AbZGGFu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jul 2009 01:50:27 -0400
+Received: from fg-out-1718.google.com ([72.14.220.154]:61703 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360AbZGGFvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 01:51:46 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so811489fga.17
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2009 22:51:48 -0700 (PDT)
+In-Reply-To: <20090706.182037.265245699.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+My bad... will fix, test and resubmit ASAP.
 
-A new version of radvd has been released.  This is a maintenance
-release that provides minor changes and one new 'clients' feature 
-which can be used to make radvd use only unicast and allow only 
-specific clients instead of multicast (work by Michael Stapelberg).
-
-Get it at: http://www.litech.org/radvd/
-
-     *  Add a "clients" directive which can be used to specify the 
-clients to which radvd will unicast RAs and ignore RSs from every 
-other client. Possibly useful in gradual rollouts.
-     * Work around Linux IPV6_RECVPKTINFO|IPV6_RECVHOPLIMIT renumbering 
-issues with some combinations of glibc and kernel (e.g. OpenWrt and 
-Freetz projects)
-     * Use getifaddrs() on BSD instead of ioctl; work around unaligned 
-traps on Alpha; Make NetBSD 5 compile.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+On Tue, Jul 7, 2009 at 4:20 AM, David Miller<davem@davemloft.net> wrote:
+>
+> Your patch won't apply proprely.
+>
+> Your email client has corrupted the patch, turning TAB characters
+> into spaces.
+>
+> Please see Documentation/email-clients.txt in the kernel tree
+> so that you can learn how to properly send patches and not waste
+> everyone's time.
+>
+> Thanks.
+>
+>
