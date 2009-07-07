@@ -1,81 +1,67 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Wed, 8 Jul 2009 01:50:29 +0200
-Message-ID: <20090707235029.GA8207@ami.dom.local>
-References: <20090702060011.GB4954@ff.dom.local> <4A4FF34E.7080001@itcare.pl> <4A4FF40B.5090003@itcare.pl> <20090705162003.GA19477@ami.dom.local> <20090705173208.GB19477@ami.dom.local> <20090705213232.GG8943@linux.vnet.ibm.com> <20090705222301.GA3203@ami.dom.local> <4A513D0D.5070204@itcare.pl> <20090706090207.GB3065@ami.dom.local> <4A53D28D.8060409@itcare.pl>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
+Date: Wed, 8 Jul 2009 01:51:49 +0200
+Message-ID: <20090707235149.GA10268@redhat.com>
+References: <20090707101816.GA6619@jolsa.lab.eng.brq.redhat.com> <20090707134601.GB6619@jolsa.lab.eng.brq.redhat.com> <20090707140135.GA5506@Krystal> <20090707143416.GB11704@redhat.com> <20090707150406.GC7124@Krystal> <20090707154440.GA15605@redhat.com> <1246981815.9777.12.camel@twins> <20090707194533.GB13858@Krystal> <4A53CFDC.6080005@gmail.com> <20090707232811.GC19217@Krystal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	Robert Olsson <robert@robur.slu.se>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Jiri Olsa <jolsa@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
+	htejun@gmail.com, jarkao2@gmail.com, davidel@xmailserver.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:45195 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756068AbZGGXuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 19:50:46 -0400
-Received: by bwz25 with SMTP id 25so2441591bwz.37
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2009 16:50:44 -0700 (PDT)
+Received: from mx2.redhat.com ([66.187.237.31]:33898 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756198AbZGGXzD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jul 2009 19:55:03 -0400
 Content-Disposition: inline
-In-Reply-To: <4A53D28D.8060409@itcare.pl>
+In-Reply-To: <20090707232811.GC19217@Krystal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 08, 2009 at 12:56:13AM +0200, Pawe=B3 Staszewski wrote:
-> Jarek Poplawski pisze:
-=2E..
->> ---> (synchronize take 9; apply on top of the 2.6.29.x with the last
->>   	all-in-one patch, or net-2.6)
->>
->>  =20
+On 07/07, Mathieu Desnoyers wrote:
 >
-> Applied to 2.6.29.5 preempt/no-preempt and tested: - with preempt i m=
-ake =20
-> only one test with sync_pages =3D 256 to check that is working :)
+> * Eric Dumazet (eric.dumazet@gmail.com) wrote:
+> >
+> > What would be __read_lock() ? I cant see how it could *not* use lock prefix
+> > actually and or being cheaper...
+> >
 >
-> So here are some tests for different sync_pages size.
-=2E..
-> So i see in prev tests i make something wrong in time counting
-> So i modify test script and make tests again:
+> (I'll use read_lock_noacquire() instead of __read_lock() because
+> __read_lock() is already used for low-level primitives and will produce
+> name clashes. But I recognise that noacquire is just an ugly name.)
 >
-> echo 64 > /sys/module/fib_trie/parameters/sync_pages
-> Total size reach max in 13 sec
->
-> echo 128 > /sys/module/fib_trie/parameters/sync_pages
-> Total size reach max in 10 sec
->
-> echo 256 > /sys/module/fib_trie/parameters/sync_pages
-> Total size reach max in 10 sec
->
-> And for sync_paqges >256 time for propagating routes is always 10sec.
+> Here, a __read_lock_noacquire _must_ be followed by a
+> smp__mb_after_lock(), and a __read_unlock_norelease() _must_ be
+> preceded by a smp__mb_before_unlock().
 
-So this means sync_pages 128 or 256 is reasonable.
+Your point was, smp_mb__after_lock() adds more complexity to the
+barriers/locking rules.
 
->
-> Also today i have many messages in dmesg like this:
-> Fix inflate_threshold_root. Now=3D25 size=3D11 bits
-> :)
+Do you really think __read_lock_noacquire() makes this all more
+simple/understandable? And again, we need __read_lock_irq_noaquire/etc.
 
-This is something new and a bit surprising to me: the same threshold
-in previous tests didn't generate this? Do you mean more than:=20
-"Fix inflate_threshold_root. Now=3D15 size=3D11 bits" before?
+Personally, I disagree. In fact, I do not understand when/why
+_noacquire can be used, but this is another story.
 
-> And after tune :
-> /sys/module/fib_trie/parameters/inflate_threshold_root
-> no more info :)
+Let's look from the different angle. The first patch from Jiri fixes
+the bug. Yes, it is not clear if this is possible to trigger this
+bug in practice, but still nobody disagrees the bug does exist.
+The second patch fixes the added pessimization.
 
-With what value?
+So, if you do not agree with these patches, perhaps you can send
+fixes on top of these changes?
 
-Pawel, let's say that current defaults are:
-inflate_threshold_root 25 sync_pages 256
 
-I'd like you to try to check if e.g.:
-inflate_threshold_root 15 sync_pages 256
-can give you any visible or subjective difference worth tweaking it
-at all? (These stats from the next messages don't show this enough.)
-You don't need to hurry with this...
 
-Thanks,
-Jarek P.
+Sadly, I already removed the previous emails so I can't add my
+acked-by to Jiri's patches. I didn't do this before because I
+thought I am in no position to ack these changes. But looking
+at this discussion, I'd like to vote for both these patches
+anyway ;)
+
+Oleg.
+
