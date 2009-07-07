@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: use after free bug in socket code
-Date: Mon, 06 Jul 2009 19:07:09 -0700 (PDT)
-Message-ID: <20090706.190709.214907244.davem@davemloft.net>
-References: <19020.39270.408816.360526@ipc1.ka-ro>
+Subject: Re: [PATCH] net: fix OF fixed-link property handling on Freescale
+ network device drivers
+Date: Mon, 06 Jul 2009 19:07:53 -0700 (PDT)
+Message-ID: <20090706.190753.85468651.davem@davemloft.net>
+References: <20090703221851.23909.923.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, urs.thuermann@volkswagen.de,
-	oliver.hartkopp@volkswagen.de
-To: LW@KARO-electronics.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com, leoli@freescale.com,
+	afleming@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51418
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51422
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754113AbZGGCHC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jul 2009 22:07:02 -0400
-In-Reply-To: <19020.39270.408816.360526@ipc1.ka-ro>
+	by vger.kernel.org with ESMTP id S1754829AbZGGCHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 22:07:46 -0400
+In-Reply-To: <20090703221851.23909.923.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Lothar Wa=DFmann <LW@KARO-electronics.de>
-Date: Thu, 2 Jul 2009 13:26:30 +0200
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Fri, 03 Jul 2009 16:20:19 -0600
 
-> Hi,
->=20
-> while developing a canbus driver (with kernel 2.6.30-rc4) I
-> encountered a use-after-free bug that led to the following crash (due
-> to CONFIG_DEBUG_SLAB being enabled):
- ...
-> With the following patch I could alleviate the problem and did not
-> find any negative side effects, but I'm not sure, whether this is the
-> Right Thing(TM), since I'm not too familiar with the networking code:
- ...
-> Any comments on this?
+> Anton, can you please review, comment and test?  I've tested it on an
+> mpc8349 board, but that is the only hardware that I have.  I've also
+> probably made mistakes and it needs to be split up into separate patches,
+> but this is probably a sufficient form for first review.  I'll also give
+> it another once over tomorrow when after I've had a decent night sleep.
 
-A patch like this shouldn't be needed.
+Can we get some review and testing of this patch going so we
+can fix this regression as soon as possible?
 
-Can one of the CAN folks look into this?
+Thanks.
