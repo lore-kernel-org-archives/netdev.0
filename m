@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: remove extra ";" from definition names
-Date: Mon, 06 Jul 2009 18:10:38 -0700 (PDT)
-Message-ID: <20090706.181038.30078495.davem@davemloft.net>
-References: <200907062328.n66NSYmn008147@localhost.localdomain>
+Subject: Re: [PATCH v3] dm9000: add checksum offload support
+Date: Mon, 06 Jul 2009 18:13:02 -0700 (PDT)
+Message-ID: <20090706.181302.109020502.davem@davemloft.net>
+References: <4A519F1F.90706@compulab.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gerg@uclinux.org, s.hauer@pengutronix.de
-To: gerg@snapgear.com
+Cc: netdev@vger.kernel.org, ben-linux-arm@fluff.org, yeasah@comrex.com,
+	romieu@fr.zoreil.com
+To: mike@compulab.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32973
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32987
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754040AbZGGBKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 21:10:31 -0400
-In-Reply-To: <200907062328.n66NSYmn008147@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753339AbZGGBMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 21:12:55 -0400
+In-Reply-To: <4A519F1F.90706@compulab.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Ungerer <gerg@snapgear.com>
-Date: Tue, 7 Jul 2009 09:28:34 +1000
+From: Mike Rapoport <mike@compulab.co.il>
+Date: Mon, 06 Jul 2009 09:52:15 +0300
 
-> fec: remove extra ";" from definition names
->     
-> Signed-off-by: Greg Ungerer <gerg@uclinux.org>
+>> From: Yeasah Pell <yeasah@comrex.com>
+> 
+> Add checksum offload support for DM9000A and DM9000B chips.
+> 
+> --
+> v2 changes: added a local copy of ip_summed to save IO cycles in dm9000_send_packet
+> v3 changes: trans_start updating is removed.
+> 
+> Signed-off-by: Yeasah Pell <yeasah@comrex.com>
+> Signed-off-by: Mike Rapoport <mike@compulab.co.il>
 
-Applied to net-next-2.6
+Applied to net-next-2.6, thanks.
