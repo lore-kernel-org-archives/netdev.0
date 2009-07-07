@@ -1,37 +1,61 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.31-rc2: Reported regressions from 2.6.30
-Date: Tue, 7 Jul 2009 22:41:52 +0200
-Message-ID: <200907072241.53505.rjw@sisk.pl>
-References: <35kKlbXMqWN.A.RXD.D0oUKB@chimera> <200907072125.47762.elendil@planet.nl>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] ucc_geth: Add support for skb recycling
+Date: Tue, 07 Jul 2009 13:46:54 -0700
+Message-ID: <4A53B43E.4010905@hp.com>
+References: <20090707183842.GA8425@oksana.dev.rtsoft.ru>	<4A53984A.4050002@hp.com>
+	<20090707203712.GA11157@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200907072125.47762.elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>, Li Yang <leoli@freescale.com>,
+	David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@marvell.com>
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090707203712.GA11157@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 07 July 2009, Frans Pop wrote:
-> > If you know of any other unresolved regressions from 2.6.30, please let
-> > me know either and I'll add them to the list.
+Anton Vorontsov wrote:
+> On Tue, Jul 07, 2009 at 11:47:38AM -0700, Rick Jones wrote:
+>>Admittedly, all the world is not TCP, but a big chunk is, so are you
+>>likely to have reference counts go to zero on the tx queue for
+>>anything other than small standalone TCP ACK segments?
 > 
-> Please add: http://lkml.org/lkml/2009/6/29/88
 > 
-> Reinette Chatre is handling the bug and posted a patch in 
-> http://lkml.org/lkml/2009/6/30/224
+> That's a generic question wrt skb recycling, right? Whether we can
+> always recycle transmitted skbs. No, sometimes (or mostly) we can't.
+> 
+> Initially, I was quite puzzled by this support... looking at how
+> gianfar driver works (it has the same support as of 0fd56bb5be6455d0),
+> I noticed that skb_recycle_check() always returns 0, and so we
+> don't recycle the skbs.
+> 
+> Though, things change when the kernel starts packets forwarding,
+> *then* skb recycling path actually triggers.
+> 
+> Lennert (skb recycling author) hints us that the gain is indeed
+> in forwarding/routing workload:
+> 
+> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/28/3433514
+ >
+> 
+> Hope I understood everything correctly. :-)
 
-Added as http://bugzilla.kernel.org/show_bug.cgi?id=13742.
+Given the text reads:
 
-Thanks,
-Rafael
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  This gives a nice increase in the maximum loss-free packet forwarding
+  rate in routing workloads.
+
+Your understanding is probably correct.  Might have been "nice" :) to get a 
+definition of a "nice increase" though :)
+
+rick jones
