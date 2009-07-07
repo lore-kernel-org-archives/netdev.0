@@ -1,7 +1,7 @@
 From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] c/r: Add AF_UNIX support (v5)
-Date: Tue,  7 Jul 2009 12:26:15 -0700
-Message-ID: <1246994776-1882-2-git-send-email-danms@us.ibm.com>
+Subject: [PATCH 2/2] c/r: Add AF_INET support (v3)
+Date: Tue,  7 Jul 2009 12:26:16 -0700
+Message-ID: <1246994776-1882-3-git-send-email-danms@us.ibm.com>
 References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,1171 +21,623 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds basic checkpoint/restart support for AF_UNIX sockets.  It
-has been tested with a single and multiple processes, and with data inflight
-at the time of checkpoint.  It supports socketpair()s, path-based, and
-abstract sockets.
+This patch adds AF_INET c/r support based on the framework established in
+my AF_UNIX patch.  I've tested it by checkpointing a single app with a
+pair of sockets connected over loopback.
 
-Changes in v5:
-  - Change laddr and raddr buffers in socket header to be long enough
-    for INET6 addresses
-  - Place socket.c and sock.h function definitions inside #ifdef
-    CONFIG_CHECKPOINT
-  - Add explicit check in sock_unix_makeaddr() to refuse if the
-    checkpoint image specifies an addr length of 0
-  - Split sock_unix_restart() into a few pieces to facilitate:
-  - Changed behavior of the unix restore code so that unlinked LISTEN
-    sockets don't do a bind()...unlink()
-  - Save the base path of a bound socket's path so that we can chdir()
-    to the base before bind() if it is a relative path
-  - Call bind() for any socket that is not established but has a
-    non-zero-length local address
-  - Enforce the current sysctl limit on socket buffer size during restart
-    unless the user holds CAP_NET_ADMIN
-  - Unlink a path-based socket before calling bind()
+A couple points about the operation:
 
-Changes in v4:
-  - Changed the signdness of rcvlowat, rcvtimeo, sndtimeo, and backlog
-    to match their struct sock definitions.  This should avoid issues
-    with sign extension.
-  - Add a sock_cptrst_verify() function to be run at restore time to
-    validate several of the values in the checkpoint image against
-    limits, flag masks, etc.
-  - Write an error string with ctk_write_err() in the obscure cases
-  - Don't write socket buffers for listen sockets
-  - Sanity check address lengths before we agree to allocate memory
-  - Check the result of inserting the peer object in the objhash on
-    restart
-  - Check return value of sock_cptrst() on restart
-  - Change logic in remote getname() phase of checkpoint to not fail for
-    closed (et al) sockets
-  - Eliminate the memory copy while reading socket buffers on restart
+ 1. In order to properly hook up the established sockets with the matching
+    listening parent socket, I added a new list to the ckpt_ctx and run the
+    parent attachment in the deferqueue at the end of the restart process.
+ 2. I don't do anything to redirect or freeze traffic flowing to or from the
+    remote system (to prevent a RST from breaking things).  I expect that
+    userspace will bring down a veth device or freeze traffic to the remote
+    system to handle this case.
 
 Changes in v3:
-  - Move sock_file_checkpoint() above sock_file_restore()
-  - Change __sock_file_*() functions to do_sock_file_*()
-  - Adjust some of the struct cr_hdr_socket alignment
-  - Improve the sock_copy_buffers() algorithm to avoid locking the source
-    queue for the entire operation
-  - Fix alignment in the socket header struct(s)
-  - Move the per-protocol structure (ckpt_hdr_socket_un) out of the
-    common socket header and read/write it separately
-  - Fix missing call to sock_cptrst() in restore path
-  - Break out the socket joining into another function
-  - Fix failure to restore the socket address thus fixing getname()
-  - Check the state values on restart
-  - Fix case of state being TCP_CLOSE, which allows dgram sockets to be
-    properly connected (if appropriate) to their peer and maintain the
-    sockaddr for getname() operation
-  - Fix restoring a listening socket that has been unlink()'d
-  - Fix checkpointing sockets with an in-flight FD-passing SKB.  Fail
-    with EBUSY.
-  - Fix checkpointing listening sockets with an unaccepted connection.
-    Fail with EBUSY.
-  - Changed 'un' to 'unix' in function and structure names
+ - Add AF_INET6 support
 
 Changes in v2:
-  - Change GFP_KERNEL to GFP_ATOMIC in sock_copy_buffers() (this seems
-    to be rather common in other uses of skb_copy())
-  - Move the ckpt_hdr_socket structure definition to linux/socket.h
-  - Fix whitespace issue
-  - Move sock_file_checkpoint() to net/socket.c for symmetry
+ - Check for data in the TCP out-of-order queue and fail if present
+ - Fix a logic issue in sock_add_parent()
+ - Add comment about holding a reference to sock for parent list
+ - Write error messages to checkpoint stream where appropriate
+ - Fix up checking of some return values in restart phase
+ - Fix up restart logic to restore socket info for all states
+ - Avoid running sk_proto->hash() for non-TCP sockets
+ - Fix calling bind() for unconnected (i.e. DGRAM) sockets
+ - Change 'in' to 'inet' in structure and function names
 
 Cc: Oren Laaden <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
 Cc: Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 ---
- checkpoint/files.c             |    7 +
- checkpoint/objhash.c           |   27 ++
- include/linux/checkpoint_hdr.h |   13 +
- include/linux/socket.h         |   62 ++++
- include/net/sock.h             |   11 +
- net/Makefile                   |    2 +
- net/checkpoint.c               |  732 ++++++++++++++++++++++++++++++++++++++++
- net/socket.c                   |   86 +++++
- 8 files changed, 940 insertions(+), 0 deletions(-)
- create mode 100644 net/checkpoint.c
+ checkpoint/sys.c                 |    2 +
+ include/linux/checkpoint_hdr.h   |    1 +
+ include/linux/checkpoint_types.h |    2 +
+ include/linux/socket.h           |  102 ++++++++++++
+ net/checkpoint.c                 |  337 +++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 439 insertions(+), 5 deletions(-)
 
-diff --git a/checkpoint/files.c b/checkpoint/files.c
-index c32b95b..176d3fd 100644
---- a/checkpoint/files.c
-+++ b/checkpoint/files.c
-@@ -21,6 +21,7 @@
+diff --git a/checkpoint/sys.c b/checkpoint/sys.c
+index 38a5299..b6f18ea 100644
+--- a/checkpoint/sys.c
++++ b/checkpoint/sys.c
+@@ -242,6 +242,8 @@ static struct ckpt_ctx *ckpt_ctx_alloc(int fd, unsigned long uflags,
+ 	INIT_LIST_HEAD(&ctx->pgarr_pool);
+ 	init_waitqueue_head(&ctx->waitq);
+ 
++	INIT_LIST_HEAD(&ctx->listen_sockets);
++
+ 	err = -EBADF;
+ 	ctx->file = fget(fd);
+ 	if (!ctx->file)
+diff --git a/include/linux/checkpoint_hdr.h b/include/linux/checkpoint_hdr.h
+index f59b071..16e21ee 100644
+--- a/include/linux/checkpoint_hdr.h
++++ b/include/linux/checkpoint_hdr.h
+@@ -93,6 +93,7 @@ enum {
+ 	CKPT_HDR_SOCKET_BUFFERS,
+ 	CKPT_HDR_SOCKET_BUFFER,
+ 	CKPT_HDR_SOCKET_UNIX,
++	CKPT_HDR_SOCKET_INET,
+ 
+ 	CKPT_HDR_TAIL = 9001,
+ 
+diff --git a/include/linux/checkpoint_types.h b/include/linux/checkpoint_types.h
+index 27fbe26..d7db190 100644
+--- a/include/linux/checkpoint_types.h
++++ b/include/linux/checkpoint_types.h
+@@ -60,6 +60,8 @@ struct ckpt_ctx {
+ 	struct list_head pgarr_list;	/* page array to dump VMA contents */
+ 	struct list_head pgarr_pool;	/* pool of empty page arrays chain */
+ 
++	struct list_head listen_sockets;/* listening parent sockets */
++
+ 	/* [multi-process checkpoint] */
+ 	struct task_struct **tasks_arr; /* array of all tasks [checkpoint] */
+ 	int nr_tasks;                   /* size of tasks array */
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index e7d64eb..c723d96 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -334,6 +334,108 @@ struct ckpt_hdr_socket_unix {
+ 	__u32 flags;
+ } __attribute__ ((aligned(8)));
+ 
++struct ckpt_hdr_socket_inet {
++	struct ckpt_hdr h;
++
++	__u32 daddr;
++	__u32 rcv_saddr;
++	__u32 saddr;
++	__u16 dport;
++	__u16 num;
++	__u16 sport;
++	__s16 uc_ttl;
++	__u16 cmsg_flags;
++	__u16 __pad;
++
++	struct {
++		__u64 timeout;
++		__u32 ato;
++		__u32 lrcvtime;
++		__u16 last_seg_size;
++		__u16 rcv_mss;
++		__u8 pending;
++		__u8 quick;
++		__u8 pingpong;
++		__u8 blocked;
++	} icsk_ack __attribute__ ((aligned(8)));
++
++	/* FIXME: Skipped opt, tos, multicast, cork settings */
++
++	struct {
++		__u64 last_synq_overflow;
++
++		__u32 rcv_nxt;
++		__u32 copied_seq;
++		__u32 rcv_wup;
++		__u32 snd_nxt;
++		__u32 snd_una;
++		__u32 snd_sml;
++		__u32 rcv_tstamp;
++		__u32 lsndtime;
++
++		__u32 snd_wl1;
++		__u32 snd_wnd;
++		__u32 max_window;
++		__u32 mss_cache;
++		__u32 window_clamp;
++		__u32 rcv_ssthresh;
++		__u32 frto_highmark;
++
++		__u32 srtt;
++		__u32 mdev;
++		__u32 mdev_max;
++		__u32 rttvar;
++		__u32 rtt_seq;
++
++		__u32 packets_out;
++		__u32 retrans_out;
++
++		__u32 snd_up;
++		__u32 rcv_wnd;
++		__u32 write_seq;
++		__u32 pushed_seq;
++		__u32 lost_out;
++		__u32 sacked_out;
++		__u32 fackets_out;
++		__u32 tso_deferred;
++		__u32 bytes_acked;
++
++		__s32 lost_cnt_hint;
++		__u32 retransmit_high;
++
++		__u32 lost_retrans_low;
++
++		__u32 prior_ssthresh;
++		__u32 high_seq;
++
++		__u32 retrans_stamp;
++		__u32 undo_marker;
++		__s32 undo_retrans;
++		__u32 total_retrans;
++
++		__u32 urg_seq;
++		__u32 keepalive_time;
++		__u32 keepalive_intvl;
++
++		__u16 urg_data;
++		__u16 advmss;
++		__u8 frto_counter;
++		__u8 nonagle;
++
++		__u8 ecn_flags;
++		__u8 reordering;
++
++		__u8 keepalive_probes;
++	} tcp __attribute__ ((aligned(8)));
++
++	struct {
++		char saddr[16];
++		char rcv_saddr[16];
++		char daddr[16];
++	} inet6 __attribute__ ((aligned(8)));
++
++} __attribute__ ((aligned(8)));
++
+ struct ckpt_hdr_socket {
+ 	struct ckpt_hdr h;
+ 
+diff --git a/net/checkpoint.c b/net/checkpoint.c
+index 0ff1656..ee069fa 100644
+--- a/net/checkpoint.c
++++ b/net/checkpoint.c
+@@ -16,16 +16,69 @@
  #include <linux/syscalls.h>
+ #include <linux/sched.h>
+ #include <linux/fs_struct.h>
++#include <linux/tcp.h>
++#include <linux/in.h>
+ 
+ #include <net/af_unix.h>
+ #include <net/tcp_states.h>
++#include <net/tcp.h>
+ 
  #include <linux/checkpoint.h>
  #include <linux/checkpoint_hdr.h>
-+#include <net/sock.h>
++#include <linux/deferqueue.h>
  
+ /* Size of an empty struct sockaddr_un */
+ #define UNIX_LEN_EMPTY 2
  
- /**************************************************************************
-@@ -519,6 +520,12 @@ static struct restore_file_ops restore_file_ops[] = {
- 		.file_type = CKPT_FILE_PIPE,
- 		.restore = pipe_file_restore,
- 	},
-+	/* socket */
-+	{
-+		.file_name = "SOCKET",
-+		.file_type = CKPT_FILE_SOCKET,
-+		.restore = sock_file_restore,
-+	},
- };
- 
- static struct file *do_restore_file(struct ckpt_ctx *ctx)
-diff --git a/checkpoint/objhash.c b/checkpoint/objhash.c
-index f604655..17686b5 100644
---- a/checkpoint/objhash.c
-+++ b/checkpoint/objhash.c
-@@ -20,6 +20,7 @@
- #include <linux/user_namespace.h>
- #include <linux/checkpoint.h>
- #include <linux/checkpoint_hdr.h>
-+#include <net/sock.h>
- 
- struct ckpt_obj;
- struct ckpt_obj_ops;
-@@ -264,6 +265,22 @@ static int obj_groupinfo_users(void *ptr)
- 	return atomic_read(&((struct group_info *) ptr)->usage);
- }
- 
-+static int obj_sock_grab(void *ptr)
++struct ckpt_parent_sock {
++	struct sock *sock;
++	__u32 oref;
++	struct list_head list;
++};
++
++static int sock_add_parent(struct ckpt_ctx *ctx, struct sock *sock)
 +{
-+	sock_hold((struct sock *) ptr);
++	struct ckpt_parent_sock *parent;
++	__u32 objref;
++	int new;
++
++	objref = ckpt_obj_lookup_add(ctx, sock, CKPT_OBJ_SOCK, &new);
++	if (objref < 0)
++		return objref;
++	else if (!new)
++		return 0;
++
++	parent = kmalloc(sizeof(*parent), GFP_KERNEL);
++	if (!parent)
++		return -ENOMEM;
++
++	/* The deferqueue is processed before the objhash is free()'d,
++	 * thus the objhash holds a reference to sock for us
++	 */
++	parent->sock = sock;
++	parent->oref = objref;
++	INIT_LIST_HEAD(&parent->list);
++
++	list_add(&parent->list, &ctx->listen_sockets);
++
 +	return 0;
 +}
 +
-+static void obj_sock_drop(void *ptr)
++static struct sock *sock_get_parent(struct ckpt_ctx *ctx, struct sock *sock)
 +{
-+	sock_put((struct sock *) ptr);
-+}
++	struct ckpt_parent_sock *parent;
++	struct inet_sock *c = inet_sk(sock);
 +
-+static int obj_sock_users(void *ptr)
-+{
-+	return atomic_read(&((struct sock *) ptr)->sk_refcnt);
-+}
++	list_for_each_entry(parent, &ctx->listen_sockets, list) {
++		struct inet_sock *p = inet_sk(parent->sock);
 +
- static struct ckpt_obj_ops ckpt_obj_ops[] = {
- 	/* ignored object */
- 	{
-@@ -391,6 +408,16 @@ static struct ckpt_obj_ops ckpt_obj_ops[] = {
- 		.checkpoint = checkpoint_groupinfo,
- 		.restore = restore_groupinfo,
- 	},
-+	/* sock object */
-+	{
-+		.obj_name = "SOCKET",
-+		.obj_type = CKPT_OBJ_SOCK,
-+		.ref_drop = obj_sock_drop,
-+		.ref_grab = obj_sock_grab,
-+		.ref_users = obj_sock_users,
-+		.checkpoint = sock_file_checkpoint,
-+		.restore = sock_file_restore,
-+	},
- };
- 
- 
-diff --git a/include/linux/checkpoint_hdr.h b/include/linux/checkpoint_hdr.h
-index 37bae3d..f59b071 100644
---- a/include/linux/checkpoint_hdr.h
-+++ b/include/linux/checkpoint_hdr.h
-@@ -88,6 +88,12 @@ enum {
- 
- 	CKPT_HDR_SIGHAND = 601,
- 
-+	CKPT_HDR_FD_SOCKET = 601,
-+	CKPT_HDR_SOCKET,
-+	CKPT_HDR_SOCKET_BUFFERS,
-+	CKPT_HDR_SOCKET_BUFFER,
-+	CKPT_HDR_SOCKET_UNIX,
-+
- 	CKPT_HDR_TAIL = 9001,
- 
- 	CKPT_HDR_ERROR = 9999,
-@@ -121,6 +127,7 @@ enum obj_type {
- 	CKPT_OBJ_CRED,
- 	CKPT_OBJ_USER,
- 	CKPT_OBJ_GROUPINFO,
-+	CKPT_OBJ_SOCK,
- 	CKPT_OBJ_MAX
- };
- 
-@@ -316,6 +323,7 @@ enum file_type {
- 	CKPT_FILE_IGNORE = 0,
- 	CKPT_FILE_GENERIC,
- 	CKPT_FILE_PIPE,
-+	CKPT_FILE_SOCKET,
- 	CKPT_FILE_MAX
- };
- 
-@@ -339,6 +347,11 @@ struct ckpt_hdr_file_pipe {
- 	__s32 pipe_objref;
- } __attribute__((aligned(8)));
- 
-+struct ckpt_hdr_file_socket {
-+	struct ckpt_hdr_file common;
-+	__u16 family;
-+} __attribute__((aligned(8)));
-+
- struct ckpt_hdr_file_pipe_state {
- 	struct ckpt_hdr h;
- 	__s32 pipe_len;
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 421afb4..e7d64eb 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -23,6 +23,7 @@ struct __kernel_sockaddr_storage {
- #include <linux/uio.h>			/* iovec support		*/
- #include <linux/types.h>		/* pid_t			*/
- #include <linux/compiler.h>		/* __user			*/
-+#include <linux/checkpoint_hdr.h>	/* ckpt_hdr			*/
- 
- #ifdef __KERNEL__
- # ifdef CONFIG_PROC_FS
-@@ -323,5 +324,66 @@ extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr *ka
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
- 
- #endif
-+
-+#define CKPT_UNIX_LINKED 1
-+#define CKPT_UNIX_HASCWD 2
-+struct ckpt_hdr_socket_unix {
-+	struct ckpt_hdr h;
-+	__u32 this;
-+	__u32 peer;
-+	__u32 flags;
-+} __attribute__ ((aligned(8)));
-+
-+struct ckpt_hdr_socket {
-+	struct ckpt_hdr h;
-+
-+	struct ckpt_socket { /* struct socket */
-+		__u64 flags;
-+		__u8 state;
-+	} socket __attribute__ ((aligned(8)));
-+
-+	struct ckpt_sock_common { /* struct sock_common */
-+		__u32 bound_dev_if;
-+		__u16 family;
-+		__u8 state;
-+		__u8 reuse;
-+	} sock_common __attribute__ ((aligned(8)));
-+
-+	struct ckpt_sock { /* struct sock */
-+		__s64 rcvlowat;
-+		__s64 rcvtimeo;
-+		__s64 sndtimeo;
-+		__u64 flags;
-+		__u64 lingertime;
-+
-+		__u32 err;
-+		__u32 err_soft;
-+		__u32 priority;
-+		__s32 rcvbuf;
-+		__s32 sndbuf;
-+		__u16 type;
-+		__s16 backlog;
-+
-+		__u8 protocol;
-+		__u8 state;
-+		__u8 shutdown;
-+		__u8 userlocks;
-+		__u8 no_check;
-+	} sock __attribute__ ((aligned(8)));
-+
-+	/* common to all supported families */
-+	__u32 laddr_len;
-+	__u32 raddr_len;
-+	/* inet6 socket addresses are the largest, at 28 bytes */
-+	char laddr[28];
-+	char raddr[28];
-+
-+} __attribute__ ((aligned(8)));
-+
-+struct ckpt_hdr_socket_buffer {
-+	struct ckpt_hdr h;
-+	__u32 skb_count;
-+} __attribute__ ((aligned(8)));
-+
- #endif /* not kernel and not glibc */
- #endif /* _LINUX_SOCKET_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4bb1ff9..1657655 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1482,4 +1482,15 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
-+#ifdef CONFIG_CHECKPOINT
-+/* Checkpoint/Restart Functions */
-+struct ckpt_ctx;
-+struct ckpt_hdr_socket;
-+extern int sock_file_checkpoint(struct ckpt_ctx *, void *);
-+extern void *sock_file_restore(struct ckpt_ctx *);
-+extern struct socket *do_sock_file_restore(struct ckpt_ctx *,
-+					   struct ckpt_hdr_socket *);
-+extern int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file);
-+#endif
-+
- #endif	/* _SOCK_H */
-diff --git a/net/Makefile b/net/Makefile
-index 9e00a55..c226ed1 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -65,3 +65,5 @@ ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
- obj-$(CONFIG_WIMAX)		+= wimax/
-+
-+obj-$(CONFIG_CHECKPOINT)	+= checkpoint.o
-diff --git a/net/checkpoint.c b/net/checkpoint.c
-new file mode 100644
-index 0000000..0ff1656
---- /dev/null
-+++ b/net/checkpoint.c
-@@ -0,0 +1,732 @@
-+/*
-+ *  Copyright 2009 IBM Corporation
-+ *
-+ *  Author: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License as
-+ *  published by the Free Software Foundation, version 2 of the
-+ *  License.
-+ */
-+
-+#include <linux/socket.h>
-+#include <linux/mount.h>
-+#include <linux/file.h>
-+#include <linux/namei.h>
-+#include <linux/syscalls.h>
-+#include <linux/sched.h>
-+#include <linux/fs_struct.h>
-+
-+#include <net/af_unix.h>
-+#include <net/tcp_states.h>
-+
-+#include <linux/checkpoint.h>
-+#include <linux/checkpoint_hdr.h>
-+
-+/* Size of an empty struct sockaddr_un */
-+#define UNIX_LEN_EMPTY 2
-+
-+static inline int sock_unix_need_cwd(struct sockaddr_un *a)
-+{
-+	return (a->sun_path[0] != '/');
-+}
-+
-+static int sock_copy_buffers(struct sk_buff_head *from, struct sk_buff_head *to)
-+{
-+	int count = 0;
-+	struct sk_buff *skb;
-+
-+	skb_queue_walk(from, skb) {
-+		struct sk_buff *tmp;
-+
-+		tmp = dev_alloc_skb(skb->len);
-+		if (!tmp)
-+			return -ENOMEM;
-+
-+		spin_lock(&from->lock);
-+		skb_morph(tmp, skb);
-+		spin_unlock(&from->lock);
-+
-+		skb_queue_tail(to, tmp);
-+		count++;
++		if (c->sport == p->sport)
++			return parent->sock;
 +	}
 +
-+	return count;
++	return NULL;
 +}
 +
-+static int __sock_write_buffers(struct ckpt_ctx *ctx,
-+				struct sk_buff_head *queue)
-+{
-+	struct sk_buff *skb;
-+	int ret = 0;
-+
-+	skb_queue_walk(queue, skb) {
-+		if (UNIXCB(skb).fp) {
-+			ckpt_write_err(ctx, "fd-passing is not supported");
+ static inline int sock_unix_need_cwd(struct sockaddr_un *a)
+ {
+ 	return (a->sun_path[0] != '/');
+@@ -55,17 +108,23 @@ static int sock_copy_buffers(struct sk_buff_head *from, struct sk_buff_head *to)
+ }
+ 
+ static int __sock_write_buffers(struct ckpt_ctx *ctx,
++				uint16_t family,
+ 				struct sk_buff_head *queue)
+ {
+ 	struct sk_buff *skb;
+ 	int ret = 0;
+ 
+ 	skb_queue_walk(queue, skb) {
+-		if (UNIXCB(skb).fp) {
++		if ((family == AF_UNIX) && UNIXCB(skb).fp) {
+ 			ckpt_write_err(ctx, "fd-passing is not supported");
+ 			return -EBUSY;
+ 		}
+ 
++		if (skb_shinfo(skb)->nr_frags) {
++			ckpt_write_err(ctx, "socket has fragments in-flight");
 +			return -EBUSY;
 +		}
 +
-+		ret = ckpt_write_obj_type(ctx, skb->data, skb->len,
-+					  CKPT_HDR_SOCKET_BUFFER);
-+		if (ret)
-+			return ret;
-+	}
+ 		ret = ckpt_write_obj_type(ctx, skb->data, skb->len,
+ 					  CKPT_HDR_SOCKET_BUFFER);
+ 		if (ret)
+@@ -75,7 +134,9 @@ static int __sock_write_buffers(struct ckpt_ctx *ctx,
+ 	return 0;
+ }
+ 
+-static int sock_write_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++static int sock_write_buffers(struct ckpt_ctx *ctx,
++			      uint16_t family,
++			      struct sk_buff_head *queue)
+ {
+ 	struct ckpt_hdr_socket_buffer *h;
+ 	struct sk_buff_head tmpq;
+@@ -95,7 +156,7 @@ static int sock_write_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
+ 
+ 	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
+ 	if (!ret)
+-		ret = __sock_write_buffers(ctx, &tmpq);
++		ret = __sock_write_buffers(ctx, family, &tmpq);
+ 
+  out:
+ 	ckpt_hdr_put(ctx, h);
+@@ -309,6 +370,166 @@ static int sock_cptrst(struct ckpt_ctx *ctx,
+ 		return 0;
+ }
+ 
++static int sock_inet_tcp_cptrst(struct ckpt_ctx *ctx,
++				struct tcp_sock *sk,
++				struct ckpt_hdr_socket_inet *hh,
++				int op)
++{
++	CKPT_COPY(op, hh->tcp.rcv_nxt, sk->rcv_nxt);
++	CKPT_COPY(op, hh->tcp.copied_seq, sk->copied_seq);
++	CKPT_COPY(op, hh->tcp.rcv_wup, sk->rcv_wup);
++	CKPT_COPY(op, hh->tcp.snd_nxt, sk->snd_nxt);
++	CKPT_COPY(op, hh->tcp.snd_una, sk->snd_una);
++	CKPT_COPY(op, hh->tcp.snd_sml, sk->snd_sml);
++	CKPT_COPY(op, hh->tcp.rcv_tstamp, sk->rcv_tstamp);
++	CKPT_COPY(op, hh->tcp.lsndtime, sk->lsndtime);
++
++	CKPT_COPY(op, hh->tcp.snd_wl1, sk->snd_wl1);
++	CKPT_COPY(op, hh->tcp.snd_wnd, sk->snd_wnd);
++	CKPT_COPY(op, hh->tcp.max_window, sk->max_window);
++	CKPT_COPY(op, hh->tcp.mss_cache, sk->mss_cache);
++	CKPT_COPY(op, hh->tcp.window_clamp, sk->window_clamp);
++	CKPT_COPY(op, hh->tcp.rcv_ssthresh, sk->rcv_ssthresh);
++	CKPT_COPY(op, hh->tcp.frto_highmark, sk->frto_highmark);
++	CKPT_COPY(op, hh->tcp.advmss, sk->advmss);
++	CKPT_COPY(op, hh->tcp.frto_counter, sk->frto_counter);
++	CKPT_COPY(op, hh->tcp.nonagle, sk->nonagle);
++
++	CKPT_COPY(op, hh->tcp.srtt, sk->srtt);
++	CKPT_COPY(op, hh->tcp.mdev, sk->mdev);
++	CKPT_COPY(op, hh->tcp.mdev_max, sk->mdev_max);
++	CKPT_COPY(op, hh->tcp.rttvar, sk->rttvar);
++	CKPT_COPY(op, hh->tcp.rtt_seq, sk->rtt_seq);
++
++	CKPT_COPY(op, hh->tcp.packets_out, sk->packets_out);
++	CKPT_COPY(op, hh->tcp.retrans_out, sk->retrans_out);
++
++	CKPT_COPY(op, hh->tcp.urg_data, sk->urg_data);
++	CKPT_COPY(op, hh->tcp.ecn_flags, sk->ecn_flags);
++	CKPT_COPY(op, hh->tcp.reordering, sk->reordering);
++	CKPT_COPY(op, hh->tcp.snd_up, sk->snd_up);
++
++	CKPT_COPY(op, hh->tcp.keepalive_probes, sk->keepalive_probes);
++
++	CKPT_COPY(op, hh->tcp.rcv_wnd, sk->rcv_wnd);
++	CKPT_COPY(op, hh->tcp.write_seq, sk->write_seq);
++	CKPT_COPY(op, hh->tcp.pushed_seq, sk->pushed_seq);
++	CKPT_COPY(op, hh->tcp.lost_out, sk->lost_out);
++	CKPT_COPY(op, hh->tcp.sacked_out, sk->sacked_out);
++	CKPT_COPY(op, hh->tcp.fackets_out, sk->fackets_out);
++	CKPT_COPY(op, hh->tcp.tso_deferred, sk->tso_deferred);
++	CKPT_COPY(op, hh->tcp.bytes_acked, sk->bytes_acked);
++
++	CKPT_COPY(op, hh->tcp.lost_cnt_hint, sk->lost_cnt_hint);
++	CKPT_COPY(op, hh->tcp.retransmit_high, sk->retransmit_high);
++
++	CKPT_COPY(op, hh->tcp.lost_retrans_low, sk->lost_retrans_low);
++
++	CKPT_COPY(op, hh->tcp.prior_ssthresh, sk->prior_ssthresh);
++	CKPT_COPY(op, hh->tcp.high_seq, sk->high_seq);
++
++	CKPT_COPY(op, hh->tcp.retrans_stamp, sk->retrans_stamp);
++	CKPT_COPY(op, hh->tcp.undo_marker, sk->undo_marker);
++	CKPT_COPY(op, hh->tcp.undo_retrans, sk->undo_retrans);
++	CKPT_COPY(op, hh->tcp.total_retrans, sk->total_retrans);
++
++	CKPT_COPY(op, hh->tcp.urg_seq, sk->urg_seq);
++	CKPT_COPY(op, hh->tcp.keepalive_time, sk->keepalive_time);
++	CKPT_COPY(op, hh->tcp.keepalive_intvl, sk->keepalive_intvl);
++
++	CKPT_COPY(op, hh->tcp.last_synq_overflow, sk->last_synq_overflow);
 +
 +	return 0;
 +}
 +
-+static int sock_write_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
-+{
-+	struct ckpt_hdr_socket_buffer *h;
-+	struct sk_buff_head tmpq;
-+	int ret = -ENOMEM;
-+
-+	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_BUFFERS);
-+	if (!h)
-+		goto out;
-+
-+	skb_queue_head_init(&tmpq);
-+
-+	h->skb_count = sock_copy_buffers(queue, &tmpq);
-+	if (h->skb_count < 0) {
-+		ret = h->skb_count;
-+		goto out;
-+	}
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
-+	if (!ret)
-+		ret = __sock_write_buffers(ctx, &tmpq);
-+
-+ out:
-+	ckpt_hdr_put(ctx, h);
-+	__skb_queue_purge(&tmpq);
-+
-+	return ret;
-+}
-+
-+static int sock_unix_write_cwd(struct ckpt_ctx *ctx,
-+			       struct sock *sock,
-+			       const char *sockpath)
-+{
-+	struct path path;
-+	char *buf;
-+	char *fqpath;
-+	char *delim;
-+	int offset;
-+	int ret = -ENOENT;
-+
-+	buf = kmalloc(PATH_MAX, GFP_KERNEL);
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	path.dentry = unix_sk(sock)->dentry;
-+	path.mnt = unix_sk(sock)->mnt;
-+
-+	fqpath = d_path(&path, buf, PATH_MAX);
-+	if (!fqpath)
-+		goto out;
-+
-+	offset = strlen(fqpath) - strlen(sockpath);
-+	if (offset <= 0) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	delim = &fqpath[offset];
-+	*delim = '\0';
-+
-+	ret = ckpt_write_obj_type(ctx, fqpath, strlen(fqpath),
-+				  CKPT_HDR_FILE_NAME);
-+ out:
-+	kfree(buf);
-+	return ret;
-+}
-+
-+static char *sock_unix_read_cwd(struct ckpt_ctx *ctx)
-+{
-+	char *path;
-+	char *hpath;
-+	struct ckpt_hdr *h;
-+
-+	h = ckpt_read_buf_type(ctx, PATH_MAX, CKPT_HDR_FILE_NAME);
-+	hpath = (char *) (h + 1);
-+	if (IS_ERR(h))
-+		return (char *) h;
-+
-+	path = kzalloc(strlen(hpath) + 1, GFP_KERNEL);
-+	if (!path) {
-+		path = ERR_PTR(ENOMEM);
-+		goto out;
-+	}
-+
-+	memcpy(path, hpath, strlen(hpath));
-+ out:
-+	ckpt_hdr_put(ctx, h);
-+
-+	return path;
-+}
-+
-+static int sock_unix_checkpoint(struct ckpt_ctx *ctx,
-+			        struct sock *sock,
-+			        struct ckpt_hdr_socket *h)
-+{
-+	struct unix_sock *sk = unix_sk(sock);
-+	struct unix_sock *pr = unix_sk(sk->peer);
-+	struct ckpt_hdr_socket_unix *un;
-+	int new;
-+	int ret = -ENOMEM;
-+
-+	if ((sock->sk_state == TCP_LISTEN) &&
-+	    !skb_queue_empty(&sock->sk_receive_queue)) {
-+		ckpt_write_err(ctx, "listening socket has unaccepted peers");
-+		return -EBUSY;
-+	}
-+
-+	un = ckpt_hdr_get_type(ctx, sizeof(*un), CKPT_HDR_SOCKET_UNIX);
-+	if (!un)
-+		goto out;
-+
-+	if (sk->dentry && (sk->dentry->d_inode->i_nlink > 0))
-+		un->flags |= CKPT_UNIX_LINKED;
-+
-+	un->this = ckpt_obj_lookup_add(ctx, sk, CKPT_OBJ_SOCK, &new);
-+	if (un->this < 0)
-+		goto out;
-+
-+	if (sk->peer)
-+		un->peer = ckpt_obj_lookup_add(ctx, pr, CKPT_OBJ_SOCK, &new);
-+	else
-+		un->peer = 0;
-+
-+	if (un->peer < 0) {
-+		ret = un->peer;
-+		goto out;
-+	}
-+
-+ 	if ((sk->dentry) && sock_unix_need_cwd((struct sockaddr_un *) h->laddr))
-+		un->flags |= CKPT_UNIX_HASCWD;
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) un);
-+	if (ret < 0)
-+		goto out;
-+
-+	if (un->flags & CKPT_UNIX_HASCWD) {
-+		struct sockaddr_un *un = (struct sockaddr_un *) h->laddr;
-+		ret = sock_unix_write_cwd(ctx, sock, un->sun_path);
-+	}
-+ out:
-+	ckpt_hdr_put(ctx, un);
-+
-+	return ret;
-+}
-+
-+static int sock_cptrst_verify(struct ckpt_hdr_socket *h)
-+{
-+	uint8_t userlocks_mask = SOCK_SNDBUF_LOCK | SOCK_RCVBUF_LOCK |
-+		                 SOCK_BINDADDR_LOCK | SOCK_BINDPORT_LOCK;
-+
-+	if (h->sock.shutdown & ~SHUTDOWN_MASK)
-+		return -EINVAL;
-+	if (h->sock.userlocks & ~userlocks_mask)
-+		return -EINVAL;
-+	if (h->sock.sndtimeo < 0)
-+		return -EINVAL;
-+	if (h->sock.rcvtimeo < 0)
-+		return -EINVAL;
-+	if ((h->sock.userlocks & SOCK_SNDBUF_LOCK) &&
-+	    ((h->sock.sndbuf < SOCK_MIN_SNDBUF) ||
-+	     (h->sock.sndbuf > sysctl_wmem_max)))
-+		return -EINVAL;
-+	if ((h->sock.userlocks & SOCK_RCVBUF_LOCK) &&
-+	    ((h->sock.rcvbuf < SOCK_MIN_RCVBUF) ||
-+	     (h->sock.rcvbuf > sysctl_rmem_max)))
-+		return -EINVAL;
-+	if ((h->sock.flags & SOCK_LINGER) &&
-+	    (h->sock.lingertime > MAX_SCHEDULE_TIMEOUT))
-+		return -EINVAL;
-+	/* Current highest errno is ~530; this should provide some sanity */
-+	if ((h->sock.err < 0) || (h->sock.err > 1024))
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static int sock_cptrst(struct ckpt_ctx *ctx,
-+		       struct sock *sock,
-+		       struct ckpt_hdr_socket *h,
-+		       int op)
-+{
-+	if (sock->sk_socket) {
-+		CKPT_COPY(op, h->socket.flags, sock->sk_socket->flags);
-+		CKPT_COPY(op, h->socket.state, sock->sk_socket->state);
-+	}
-+
-+	CKPT_COPY(op, h->sock_common.reuse, sock->sk_reuse);
-+	CKPT_COPY(op, h->sock_common.bound_dev_if, sock->sk_bound_dev_if);
-+	CKPT_COPY(op, h->sock_common.family, sock->sk_family);
-+
-+	CKPT_COPY(op, h->sock.shutdown, sock->sk_shutdown);
-+	CKPT_COPY(op, h->sock.userlocks, sock->sk_userlocks);
-+	CKPT_COPY(op, h->sock.no_check, sock->sk_no_check);
-+	CKPT_COPY(op, h->sock.protocol, sock->sk_protocol);
-+	CKPT_COPY(op, h->sock.err, sock->sk_err);
-+	CKPT_COPY(op, h->sock.err_soft, sock->sk_err_soft);
-+	CKPT_COPY(op, h->sock.priority, sock->sk_priority);
-+	CKPT_COPY(op, h->sock.rcvlowat, sock->sk_rcvlowat);
-+	CKPT_COPY(op, h->sock.backlog, sock->sk_max_ack_backlog);
-+	CKPT_COPY(op, h->sock.rcvtimeo, sock->sk_rcvtimeo);
-+	CKPT_COPY(op, h->sock.sndtimeo, sock->sk_sndtimeo);
-+	CKPT_COPY(op, h->sock.rcvbuf, sock->sk_rcvbuf);
-+	CKPT_COPY(op, h->sock.sndbuf, sock->sk_sndbuf);
-+	CKPT_COPY(op, h->sock.flags, sock->sk_flags);
-+	CKPT_COPY(op, h->sock.lingertime, sock->sk_lingertime);
-+	CKPT_COPY(op, h->sock.type, sock->sk_type);
-+	CKPT_COPY(op, h->sock.state, sock->sk_state);
-+
-+	if ((h->socket.state == SS_CONNECTED) &&
-+	    (h->sock.state != TCP_ESTABLISHED)) {
-+		ckpt_write_err(ctx, "socket/sock in inconsistent state: %i/%i",
-+			       h->socket.state, h->sock.state);
-+		return -EINVAL;
-+	} else if ((h->sock.state < TCP_ESTABLISHED) ||
-+		   (h->sock.state >= TCP_MAX_STATES)) {
-+		ckpt_write_err(ctx, "sock in invalid state: %i", h->sock.state);
-+		return -EINVAL;
-+	} else if ((h->socket.state < SS_FREE) ||
-+		   (h->socket.state > SS_DISCONNECTING)) {
-+		ckpt_write_err(ctx, "socket in invalid state: %i",
-+			       h->socket.state);
-+		return -EINVAL;
-+	}
-+
-+	if (op == CKPT_CPT)
-+		return sock_cptrst_verify(h);
-+	else
-+		return 0;
-+}
-+
-+int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file)
-+{
-+	struct socket *socket = file->private_data;
-+	struct sock *sock = socket->sk;
-+	struct ckpt_hdr_socket *h;
-+	int ret = 0;
-+
-+	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_SOCKET);
-+	if (!h)
-+		return -ENOMEM;
-+
-+	h->laddr_len = sizeof(h->laddr);
-+	h->raddr_len = sizeof(h->raddr);
-+
-+	if (socket->ops->getname(socket, (struct sockaddr *)&h->laddr,
-+				 &h->laddr_len, 0)) {
-+		ckpt_write_err(ctx, "Unable to getname of local");
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (socket->ops->getname(socket, (struct sockaddr *)&h->raddr,
-+				 &h->raddr_len, 1)) {
-+		if ((sock->sk_type != SOCK_DGRAM) &&
-+		    (sock->sk_state == TCP_ESTABLISHED)) {
-+			ckpt_write_err(ctx, "Unable to getname of remote");
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+		h->raddr_len = 0;
-+	}
-+
-+	ret = sock_cptrst(ctx, sock, h, CKPT_CPT);
-+	if (ret)
-+		goto out;
-+
-+	if (sock->sk_family == AF_UNIX) {
-+		ret = sock_unix_checkpoint(ctx, sock, h);
-+		if (ret)
-+			goto out;
-+	} else {
-+		ckpt_write_err(ctx, "unsupported socket family %i",
-+			       sock->sk_family);
-+		ret = EINVAL;
-+		goto out;
-+	}
-+
-+	if (sock->sk_state != TCP_LISTEN) {
-+		ret = sock_write_buffers(ctx, &sock->sk_receive_queue);
-+		if (ret)
-+			goto out;
-+
-+		ret = sock_write_buffers(ctx, &sock->sk_write_queue);
-+		if (ret)
-+			goto out;
-+	}
-+ out:
-+	ckpt_hdr_put(ctx, h);
-+
-+	return ret;
-+}
-+
-+static int sock_read_buffer(struct ckpt_ctx *ctx,
++static int sock_inet_cptrst(struct ckpt_ctx *ctx,
 +			    struct sock *sock,
-+			    struct sk_buff **skb)
++			    struct ckpt_hdr_socket_inet *hh,
++			  int op)
 +{
-+	struct ckpt_hdr h;
-+	int ret = 0;
-+	int len;
++	struct inet_sock *sk = inet_sk(sock);
++	struct inet_connection_sock *icsk = inet_csk(sock);
++	int ret;
 +
-+	len = _ckpt_read_hdr_type(ctx, &h, CKPT_HDR_SOCKET_BUFFER);
-+	if (len < 0)
-+		return len;
++	CKPT_COPY(op, hh->daddr, sk->daddr);
++	CKPT_COPY(op, hh->rcv_saddr, sk->rcv_saddr);
++	CKPT_COPY(op, hh->dport, sk->dport);
++	CKPT_COPY(op, hh->num, sk->num);
++	CKPT_COPY(op, hh->saddr, sk->saddr);
++	CKPT_COPY(op, hh->sport, sk->sport);
++	CKPT_COPY(op, hh->uc_ttl, sk->uc_ttl);
++	CKPT_COPY(op, hh->cmsg_flags, sk->cmsg_flags);
 +
-+	if (len > SKB_MAX_ALLOC) {
-+		ckpt_debug("Socket buffer too big (%i > %lu)",
-+			   len, SKB_MAX_ALLOC);
-+		return -ENOSPC;
++	CKPT_COPY(op, hh->icsk_ack.pending, icsk->icsk_ack.pending);
++	CKPT_COPY(op, hh->icsk_ack.quick, icsk->icsk_ack.quick);
++	CKPT_COPY(op, hh->icsk_ack.pingpong, icsk->icsk_ack.pingpong);
++	CKPT_COPY(op, hh->icsk_ack.blocked, icsk->icsk_ack.blocked);
++	CKPT_COPY(op, hh->icsk_ack.ato, icsk->icsk_ack.ato);
++	CKPT_COPY(op, hh->icsk_ack.timeout, icsk->icsk_ack.timeout);
++	CKPT_COPY(op, hh->icsk_ack.lrcvtime, icsk->icsk_ack.lrcvtime);
++	CKPT_COPY(op,
++		hh->icsk_ack.last_seg_size, icsk->icsk_ack.last_seg_size);
++	CKPT_COPY(op, hh->icsk_ack.rcv_mss, icsk->icsk_ack.rcv_mss);
++
++	if (sock->sk_protocol == IPPROTO_TCP)
++		ret = sock_inet_tcp_cptrst(ctx, tcp_sk(sock), hh, op);
++	else if (sock->sk_protocol == IPPROTO_UDP)
++		ret = 0;
++	else {
++		ckpt_write_err(ctx, "unknown socket protocol %d",
++			       sock->sk_protocol);
++		ret = -EINVAL;
 +	}
 +
-+	*skb = sock_alloc_send_skb(sock, len, MSG_DONTWAIT, &ret);
-+	if (*skb == NULL)
-+		return ENOMEM;
-+
-+	ret = _ckpt_read_payload(ctx, &h, skb_put(*skb, len));
-+
-+	return ret;
-+}
-+
-+static int sock_read_buffers(struct ckpt_ctx *ctx,
-+			     struct sock *sock,
-+			     struct sk_buff_head *queue,
-+			     uint32_t skb_limit)
-+{
-+	struct ckpt_hdr_socket_buffer *h;
-+	int ret = 0;
-+	int i;
-+	uint32_t total = 0;
-+
-+	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_BUFFERS);
-+	if (IS_ERR(h)) {
-+		ret = PTR_ERR(h);
-+		goto out;
-+	}
-+
-+	for (i = 0; i < h->skb_count; i++) {
-+		struct sk_buff *skb = NULL;
-+
-+		ret = sock_read_buffer(ctx, sock, &skb);
-+		if (ret)
-+			break;
-+
-+		skb_queue_tail(queue, skb);
-+
-+		total += skb->len;
-+		if (skb_limit && (total > skb_limit)) {
-+			ckpt_write_err(ctx,
-+				       "Socket buffers exceeded limit of %u",
-+				       total);
-+			ret = -ENOSPC;
-+			goto out;
++	if (sock->sk_family == AF_INET6) {
++		struct ipv6_pinfo *inet6 = inet6_sk(sock);
++		unsigned alen = sizeof(struct in6_addr);
++		if (op == CKPT_CPT) {
++			memcpy(hh->inet6.saddr, &inet6->saddr, alen);
++			memcpy(hh->inet6.rcv_saddr, &inet6->rcv_saddr, alen);
++			memcpy(hh->inet6.daddr, &inet6->daddr, alen);
++		} else {
++			memcpy(&inet6->saddr, hh->inet6.saddr, alen);
++			memcpy(&inet6->rcv_saddr, hh->inet6.rcv_saddr, alen);
++			memcpy(&inet6->daddr, hh->inet6.daddr, alen);
 +		}
 +	}
-+ out:
-+	ckpt_hdr_put(ctx, h);
 +
 +	return ret;
 +}
 +
-+static struct unix_address *sock_unix_makeaddr(struct sockaddr_un *sun_addr,
-+					       unsigned len)
++static int sock_inet_checkpoint(struct ckpt_ctx *ctx,
++				struct sock *sock,
++				struct ckpt_hdr_socket *h)
 +{
-+	struct unix_address *addr;
++	int ret = -EINVAL;
++	struct ckpt_hdr_socket_inet *in;
 +
-+	if (len > UNIX_PATH_MAX)
-+		return ERR_PTR(ENOSPC);
-+	else if (len == 0)
-+		return ERR_PTR(ENOSPC);
-+
-+	addr = kmalloc(sizeof(*addr) + len, GFP_KERNEL);
-+	if (!addr)
-+		return ERR_PTR(ENOMEM);
-+
-+	memcpy(addr->name, sun_addr, len);
-+	addr->len = len;
-+	atomic_set(&addr->refcnt, 1);
-+
-+	return addr;
-+}
-+
-+static int sock_unix_join(struct sock *a,
-+			  struct sock *b,
-+			  struct ckpt_hdr_socket *h)
-+{
-+	struct unix_address *addr;
-+
-+	sock_hold(a);
-+	sock_hold(b);
-+
-+	unix_sk(a)->peer = b;
-+	unix_sk(b)->peer = a;
-+
-+	a->sk_peercred.pid = task_tgid_vnr(current);
-+	current_euid_egid(&a->sk_peercred.uid,
-+			  &a->sk_peercred.gid);
-+
-+	b->sk_peercred.pid = task_tgid_vnr(current);
-+	current_euid_egid(&b->sk_peercred.uid,
-+			  &b->sk_peercred.gid);
-+
-+	if (h->laddr_len == UNIX_LEN_EMPTY)
-+		addr = sock_unix_makeaddr((struct sockaddr_un *)&h->raddr,
-+					  h->raddr_len);
-+	else if (h->raddr_len == UNIX_LEN_EMPTY)
-+		addr = sock_unix_makeaddr((struct sockaddr_un *)&h->laddr,
-+					  h->laddr_len);
-+	if (IS_ERR(addr))
-+	    return PTR_ERR(addr);
-+
-+	atomic_inc(&addr->refcnt); /* Held by both ends */
-+	unix_sk(a)->addr = unix_sk(b)->addr = addr;
-+
-+	return 0;
-+}
-+
-+static int sock_unix_restart_connected(struct ckpt_ctx *ctx,
-+				       struct ckpt_hdr_socket *h,
-+				       struct ckpt_hdr_socket_unix *un,
-+				       struct socket *socket)
-+{
-+	struct sock *this = socket->sk;
-+	struct sock *peer = ckpt_obj_fetch(ctx, un->peer, CKPT_OBJ_SOCK);
-+	int ret;
-+
-+	if (!IS_ERR(peer)) {
-+		/* We're last, so join with peer */
-+		ret = sock_unix_join(this, peer, h);
-+	} else if (PTR_ERR(peer) == -EINVAL) {
-+		/* We're first, so add our socket and wait for peer */
-+		ret = ckpt_obj_insert(ctx, socket->sk, un->this, CKPT_OBJ_SOCK);
-+		if (ret >= 0)
-+			ret = 0;
-+	} else {
-+		ret = PTR_ERR(peer);
++	if (sock->sk_protocol == IPPROTO_TCP) {
++		struct tcp_sock *tsock = tcp_sk(sock);
++		if (!skb_queue_empty(&tsock->out_of_order_queue)) {
++			ckpt_write_err(ctx, "TCP socket has out-of-order data");
++			return -EBUSY;
++		}
 +	}
 +
-+	return ret;
-+}
-+
-+static int sock_unix_unlink(const char *name)
-+{
-+	struct path spath;
-+	struct path ppath;
-+	int ret;
-+
-+	ret = kern_path(name, 0, &spath);
-+	if (ret)
-+		return ret;
-+
-+	ret = kern_path(name, LOOKUP_PARENT, &ppath);
-+	if (ret)
-+		goto out_s;
-+
-+	if (!spath.dentry) {
-+		ckpt_debug("No dentry found for %s\n", name);
-+		ret = -ENOENT;
-+		goto out_p;
-+	}
-+
-+	if (!ppath.dentry || !ppath.dentry->d_inode) {
-+		ckpt_debug("No inode for parent of %s\n", name);
-+		ret = -ENOENT;
-+		goto out_p;
-+	}
-+
-+	ret = vfs_unlink(ppath.dentry->d_inode, spath.dentry);
-+ out_p:
-+	path_put(&ppath);
-+ out_s:
-+	path_put(&spath);
-+
-+	return ret;
-+}
-+
-+/* Call bind() for socket, optionally changing (temporarily) to @path first
-+ * if non-NULL
-+ */
-+static int sock_unix_chdir_and_bind(struct socket *socket,
-+				    const char *path,
-+				    struct sockaddr *addr,
-+				    unsigned long addrlen)
-+{
-+	struct sockaddr_un *un = (struct sockaddr_un *)addr;
-+	int ret;
-+	struct path cur;
-+	struct path dir;
-+
-+	if (path) {
-+		ckpt_debug("switching to cwd %s for unix bind", path);
-+
-+		ret = kern_path(path, 0, &dir);
-+		if (ret)
-+			return ret;
-+
-+		ret = inode_permission(dir.dentry->d_inode,
-+				       MAY_EXEC | MAY_ACCESS);
-+		if (ret)
-+			goto out;
-+
-+		write_lock(&current->fs->lock);
-+		cur = current->fs->pwd;
-+		current->fs->pwd = dir;
-+		write_unlock(&current->fs->lock);
-+	}
-+
-+	ret = sock_unix_unlink(un->sun_path);
-+	ckpt_debug("unlink(%s): %i\n", un->sun_path, ret);
-+	if ((ret != 0) && (ret != ENOENT))
++	in = ckpt_hdr_get_type(ctx, sizeof(*in), CKPT_HDR_SOCKET_INET);
++	if (!in)
 +		goto out;
 +
-+	ret = socket->ops->bind(socket, addr, addrlen);
++	ret = sock_inet_cptrst(ctx, sock, in, CKPT_CPT);
++	if (ret < 0)
++		goto out;
 +
-+	if (path) {
-+		write_lock(&current->fs->lock);
-+		current->fs->pwd = cur;
-+		write_unlock(&current->fs->lock);
-+	}
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
++	if (ret < 0)
++		goto out;
++
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) in);
 + out:
-+	if (path)
-+		path_put(&dir);
-+
 +	return ret;
 +}
 +
-+static int sock_unix_fakebind(struct socket *socket,
-+			      struct sockaddr_un *addr,
-+			      unsigned long len)
+ int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file)
+ {
+ 	struct socket *socket = file->private_data;
+@@ -349,6 +570,11 @@ int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file)
+ 		ret = sock_unix_checkpoint(ctx, sock, h);
+ 		if (ret)
+ 			goto out;
++	} else if ((sock->sk_family == AF_INET) ||
++		   (sock->sk_family == AF_INET6)) {
++		ret = sock_inet_checkpoint(ctx, sock, h);
++		if (ret)
++			goto out;
+ 	} else {
+ 		ckpt_write_err(ctx, "unsupported socket family %i",
+ 			       sock->sk_family);
+@@ -357,11 +583,13 @@ int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file)
+ 	}
+ 
+ 	if (sock->sk_state != TCP_LISTEN) {
+-		ret = sock_write_buffers(ctx, &sock->sk_receive_queue);
++		uint16_t family = sock->sk_family;
++
++		ret = sock_write_buffers(ctx, family, &sock->sk_receive_queue);
+ 		if (ret)
+ 			goto out;
+ 
+-		ret = sock_write_buffers(ctx, &sock->sk_write_queue);
++		ret = sock_write_buffers(ctx, family, &sock->sk_write_queue);
+ 		if (ret)
+ 			goto out;
+ 	}
+@@ -677,6 +905,101 @@ static int sock_unix_restart(struct ckpt_ctx *ctx,
+ 	return ret;
+ }
+ 
++struct dq_sock {
++	struct sock *sock;
++	struct ckpt_ctx *ctx;
++};
++
++static int __sock_hash_parent(void *data)
 +{
-+	struct unix_address *uaddr;
++	struct dq_sock *dq = (struct dq_sock *)data;
++	struct sock *parent;
 +
-+	uaddr = sock_unix_makeaddr(addr, len);
-+	if (IS_ERR(uaddr))
-+		return PTR_ERR(uaddr);
++	dq->sock->sk_prot->hash(dq->sock);
 +
-+	unix_sk(socket->sk)->addr = uaddr;
++	parent = sock_get_parent(dq->ctx, dq->sock);
++	if (parent) {
++		inet_sk(dq->sock)->num = ntohs(inet_sk(dq->sock)->sport);
++		local_bh_disable();
++		__inet_inherit_port(parent, dq->sock);
++		local_bh_enable();
++	} else {
++		inet_sk(dq->sock)->num = 0;
++		inet_hash_connect(&tcp_death_row, dq->sock);
++		inet_sk(dq->sock)->num = ntohs(inet_sk(dq->sock)->sport);
++	}
 +
 +	return 0;
 +}
 +
-+static int sock_unix_bind(struct ckpt_hdr_socket *h,
-+			  struct ckpt_hdr_socket_unix *un,
-+			  struct socket *socket,
-+			  const char *path)
++static int sock_defer_hash(struct ckpt_ctx *ctx, struct sock *sock)
 +{
-+	struct sockaddr *addr = (struct sockaddr *)&h->laddr;
-+	struct sockaddr_un *uaddr = (struct sockaddr_un *)addr;
-+	unsigned long len = h->laddr_len;
++	struct dq_sock dq;
 +
-+	if (!(un->flags & CKPT_UNIX_LINKED))
-+		return sock_unix_fakebind(socket, uaddr, len);
-+	else if (uaddr->sun_path[0])
-+		return sock_unix_chdir_and_bind(socket, path, addr, len);
-+	else
-+		return socket->ops->bind(socket, addr, len);
++	dq.sock = sock;
++	dq.ctx = ctx;
++
++	return deferqueue_add(ctx->deferqueue, &dq, sizeof(dq),
++			      __sock_hash_parent, __sock_hash_parent);
 +}
 +
-+static int sock_unix_restart(struct ckpt_ctx *ctx,
++static int sock_inet_restart(struct ckpt_ctx *ctx,
 +			     struct ckpt_hdr_socket *h,
 +			     struct socket *socket)
 +{
-+	struct ckpt_hdr_socket_unix *un;
-+	int ret = -EINVAL;
-+	char *cwd = NULL;
++	int ret;
++	struct ckpt_hdr_socket_inet *in;
++	struct sockaddr_in *l = (struct sockaddr_in *)&h->laddr;
 +
-+	un = ckpt_read_obj_type(ctx, sizeof(*un), CKPT_HDR_SOCKET_UNIX);
-+	if (IS_ERR(un))
-+		return PTR_ERR(un);
++	in = ckpt_read_obj_type(ctx, sizeof(*in), CKPT_HDR_SOCKET_INET);
++	if (IS_ERR(in))
++		return PTR_ERR(in);
 +
-+	if (un->peer < 0)
-+		goto out;
-+
-+	if (un->flags & CKPT_UNIX_HASCWD) {
-+		cwd = sock_unix_read_cwd(ctx);
-+		if (IS_ERR(cwd)) {
-+			ret = PTR_ERR(cwd);
++	/* Listening sockets and those that are closed but have a local
++	 * address need to call bind()
++	 */
++	if ((h->sock.state == TCP_LISTEN) ||
++	    ((h->sock.state == TCP_CLOSE) && (h->laddr_len > 0))) {
++		socket->sk->sk_reuse = 2;
++		inet_sk(socket->sk)->freebind = 1;
++		ret = socket->ops->bind(socket,
++					(struct sockaddr *)l,
++					h->laddr_len);
++		ckpt_debug("inet bind: %i", ret);
++		if (ret < 0)
 +			goto out;
++
++		if (h->sock.state == TCP_LISTEN) {
++			ret = socket->ops->listen(socket, h->sock.backlog);
++			ckpt_debug("inet listen: %i", ret);
++			if (ret < 0)
++				goto out;
++
++			ret = sock_add_parent(ctx, socket->sk);
++			if (ret < 0)
++				goto out;
 +		}
-+	}
-+
-+	if ((h->sock.state != TCP_ESTABLISHED) && h->laddr_len) {
-+		ret = sock_unix_bind(h, un, socket, cwd);
-+		if (ret)
-+			goto out;
-+	}
-+
-+	if ((h->sock.state == TCP_ESTABLISHED) || (h->sock.state == TCP_CLOSE))
-+		ret = sock_unix_restart_connected(ctx, h, un, socket);
-+	else if (h->sock.state == TCP_LISTEN)
-+		ret = socket->ops->listen(socket, h->sock.backlog);
-+	else
-+		ckpt_write_err(ctx, "unsupported UNIX socket state %i",
-+			       h->sock.state);
-+ out:
-+	ckpt_hdr_put(ctx, un);
-+	kfree(cwd);
-+	return ret;
-+}
-+
-+struct socket *do_sock_file_restore(struct ckpt_ctx *ctx,
-+				    struct ckpt_hdr_socket *h)
-+{
-+	struct socket *socket;
-+	int ret;
-+
-+	ret = sock_create(h->sock_common.family, h->sock.type, 0, &socket);
-+	if (ret < 0)
-+		return ERR_PTR(ret);
-+
-+	if (h->sock_common.family == AF_UNIX) {
-+		ret = sock_unix_restart(ctx, h, socket);
-+		ckpt_debug("sock_unix_restart: %i\n", ret);
 +	} else {
-+		ckpt_write_err(ctx, "unsupported family %i\n",
-+			       h->sock_common.family);
-+		ret = -EINVAL;
-+	}
-+
-+	if (ret)
-+		goto out;
-+
-+	ret = sock_cptrst(ctx, socket->sk, h, CKPT_RST);
-+	if (ret)
-+		goto out;
-+
-+	if (h->sock.state != TCP_LISTEN) {
-+		struct sock *sk = socket->sk;
-+		uint32_t rlimit = sysctl_rmem_max;
-+		uint32_t wlimit = sysctl_wmem_max;
-+
-+		if (capable(CAP_NET_ADMIN))
-+			rlimit = wlimit = 0;
-+
-+		ret = sock_read_buffers(ctx, socket->sk, &sk->sk_receive_queue,
-+					rlimit);
++		ret = sock_cptrst(ctx, socket->sk, h, CKPT_RST);
 +		if (ret)
 +			goto out;
 +
-+		ret = sock_read_buffers(ctx, socket->sk, &sk->sk_write_queue,
-+					wlimit);
++		ret = sock_inet_cptrst(ctx, socket->sk, in, CKPT_RST);
 +		if (ret)
 +			goto out;
++
++		if ((h->sock.state == TCP_ESTABLISHED) &&
++		    (h->sock.protocol == IPPROTO_TCP))
++			/* Delay hashing this sock until the end so we can
++			 * hook it up with its parent (if appropriate)
++			 */
++			ret = sock_defer_hash(ctx, socket->sk);
 +	}
-+ out:
-+	if (ret) {
-+		sock_release(socket);
-+		socket = ERR_PTR(ret);
-+	}
 +
-+	return socket;
-+}
-+
-diff --git a/net/socket.c b/net/socket.c
-index 791d71a..97950d6 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -96,6 +96,9 @@
- #include <net/sock.h>
- #include <linux/netfilter.h>
- 
-+#include <linux/checkpoint.h>
-+#include <linux/checkpoint_hdr.h>
-+
- static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
- static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
- 			 unsigned long nr_segs, loff_t pos);
-@@ -140,6 +143,9 @@ static const struct file_operations socket_file_ops = {
- 	.sendpage =	sock_sendpage,
- 	.splice_write = generic_splice_sendpage,
- 	.splice_read =	sock_splice_read,
-+#ifdef CONFIG_CHECKPOINT
-+	.checkpoint =   sock_file_checkpoint,
-+#endif
- };
- 
- /*
-@@ -415,6 +421,86 @@ int sock_map_fd(struct socket *sock, int flags)
- 	return fd;
- }
- 
-+#ifdef CONFIG_CHECKPOINT
-+int sock_file_checkpoint(struct ckpt_ctx *ctx, void *ptr)
-+{
-+	struct ckpt_hdr_file_socket *h;
-+	int ret;
-+	struct file *file = ptr;
-+
-+	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_FILE);
-+	if (!h)
-+		return -ENOMEM;
-+
-+	h->common.f_type = CKPT_FILE_SOCKET;
-+
-+	ret = checkpoint_file_common(ctx, file, &h->common);
-+	if (ret < 0)
-+		goto out;
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = do_sock_file_checkpoint(ctx, file);
-+ out:
-+	ckpt_hdr_put(ctx, h);
++  out:
 +	return ret;
-+}
++ }
 +
-+static struct file *sock_alloc_attach_fd(struct socket *socket)
-+{
-+	struct file *file;
-+	int err;
-+
-+	file = get_empty_filp();
-+	if (!file)
-+		return ERR_PTR(ENOMEM);
-+
-+	err = sock_attach_fd(socket, file, 0);
-+	if (err < 0) {
-+		put_filp(file);
-+		file = ERR_PTR(err);
-+	}
-+
-+	return file;
-+}
-+
-+void *sock_file_restore(struct ckpt_ctx *ctx)
-+{
-+	struct ckpt_hdr_socket *h = NULL;
-+	struct socket *socket = NULL;
-+	struct file *file = NULL;
-+	int err;
-+
-+	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET);
-+	if (IS_ERR(h))
-+		return h;
-+
-+	socket = do_sock_file_restore(ctx, h);
-+	if (IS_ERR(socket)) {
-+		err = PTR_ERR(socket);
-+		goto err_put;
-+	}
-+
-+	file = sock_alloc_attach_fd(socket);
-+	if (IS_ERR(file)) {
-+		err = PTR_ERR(file);
-+		goto err_release;
-+	}
-+
-+	ckpt_hdr_put(ctx, h);
-+
-+	return file;
-+
-+ err_release:
-+	sock_release(socket);
-+ err_put:
-+	ckpt_hdr_put(ctx, h);
-+
-+	return ERR_PTR(err);
-+}
-+#endif /* CONFIG_CHECKPOINT */
-+
- static struct socket *sock_from_file(struct file *file, int *err)
+ struct socket *do_sock_file_restore(struct ckpt_ctx *ctx,
+ 				    struct ckpt_hdr_socket *h)
  {
- 	if (file->f_op == &socket_file_ops)
+@@ -690,6 +1013,10 @@ struct socket *do_sock_file_restore(struct ckpt_ctx *ctx,
+ 	if (h->sock_common.family == AF_UNIX) {
+ 		ret = sock_unix_restart(ctx, h, socket);
+ 		ckpt_debug("sock_unix_restart: %i\n", ret);
++	} else if ((h->sock_common.family == AF_INET) ||
++		   (h->sock_common.family == AF_INET6)) {
++		ret = sock_inet_restart(ctx, h, socket);
++		ckpt_debug("sock_inet_restart: %i\n", ret);
+ 	} else {
+ 		ckpt_write_err(ctx, "unsupported family %i\n",
+ 			       h->sock_common.family);
 -- 
 1.6.2.2
