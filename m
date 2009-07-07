@@ -1,34 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC] Fixing up TCP/UDP checksum for UDP encap. ESP4 packets
 	in transport mode
-Date: Tue, 7 Jul 2009 10:18:45 +0800
-Message-ID: <20090707021845.GA27460@gondor.apana.org.au>
-References: <20090707014008.GA27100@gondor.apana.org.au> <20090706.185411.136676235.davem@davemloft.net> <20090707015850.GA27305@gondor.apana.org.au> <20090706.190235.248640426.davem@davemloft.net>
+Date: Tue, 7 Jul 2009 10:21:01 +0800
+Message-ID: <20090707022101.GA27525@gondor.apana.org.au>
+References: <20090707014008.GA27100@gondor.apana.org.au> <20090706.185411.136676235.davem@davemloft.net> <20090707015850.GA27305@gondor.apana.org.au> <20090706.190235.248640426.davem@davemloft.net> <20090707021845.GA27460@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: christophe@saout.de, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36555 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:36561 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753062AbZGGCSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 22:18:47 -0400
+	with ESMTP id S1754091AbZGGCVC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 22:21:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20090706.190235.248640426.davem@davemloft.net>
+In-Reply-To: <20090707021845.GA27460@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 06, 2009 at 07:02:35PM -0700, David Miller wrote:
->
-> Indeed, there is no way to handle checksums sanely.  The whole
-> end-to-end protection of the checksum would be entirely subverted
-> if we fixed it up.
+On Tue, Jul 07, 2009 at 10:18:45AM +0800, Herbert Xu wrote:
+> On Mon, Jul 06, 2009 at 07:02:35PM -0700, David Miller wrote:
+> >
+> > Indeed, there is no way to handle checksums sanely.  The whole
+> > end-to-end protection of the checksum would be entirely subverted
+> > if we fixed it up.
 
-Exactly, the only safe solution is to use natoa to fix up the
-checksums properly (doable in theory, but almost no one actually
-uses it in practice, as seen by the fact that it's not even
-possible with the current spec of IKEv2), or better yet, use
-tunnel mode.  20 bytes is small change on the Internet.
+Oh and if we were going to fix it up, it'd make much more sense
+as an explicit netfilter target so people know what they're
+getting themselves into.
 
 Cheers,
 -- 
