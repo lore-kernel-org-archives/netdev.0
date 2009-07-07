@@ -1,42 +1,57 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: [patch] ipv6: correct return on ipv6_rcv() packet drop
-Date: Wed, 8 Jul 2009 06:34:13 +0930
-Message-ID: <20090708063413.fe18dc6f.lk-netdev@lk-netdev.nosense.org>
-References: <20090707065624.ee55809e.lk-netdev@lk-netdev.nosense.org>
-	<20090706.180945.113737445.davem@davemloft.net>
-	<20090707185015.391c893f.lk-netdev@lk-netdev.nosense.org>
-	<20090707.085219.101591166.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/3] genetlink: make netns aware
+Date: Tue, 07 Jul 2009 23:24:13 +0200
+Message-ID: <1247001854.4755.47.camel@johannes.local>
+References: <20090707120835.953398074@sipsolutions.net>
+	 <20090707121422.511673156@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-5YKwwZLE7KpFf+/bZm/3"
+Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
+	Pavel Emelyanov <xemul@openvz.org>, Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:48844 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755841AbZGGVE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 17:04:27 -0400
-In-Reply-To: <20090707.085219.101591166.davem@davemloft.net>
+Received: from xc.sipsolutions.net ([83.246.72.84]:44658 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758328AbZGGVYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 17:24:48 -0400
+In-Reply-To: <20090707121422.511673156@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 07 Jul 2009 08:52:19 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-> Date: Tue, 7 Jul 2009 18:50:15 +0930
-> 
-> > Today I came across this earlier partial version of what I
-> > independently identified and submitted, so I shouldn't get full credit
-> > for it:
-> > 
-> > http://lkml.indiana.edu/hypermail/linux/kernel/0804.1/2393.html
-> 
-> I already pushed your change out to my public tree so we're
-> past the point of being able to modify the commit message.
-> 
-> We'll just try to be more careful next time.
+--=-5YKwwZLE7KpFf+/bZm/3
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Is there an easier way to avoid this, other than a google search? I
-happened to discover it by doing a google search when I was at work, to
-see how my patch was going. I suppose possibly not.
+On Tue, 2009-07-07 at 14:16 +0200, Johannes Berg wrote:
+> plain text document attachment (030-genl-netns.patch)
+> This makes generic netlink network namespace aware.
+
+No, buggy again, and again for some reason I didn't notice on first
+testing :(
+
+johannes
+
+--=-5YKwwZLE7KpFf+/bZm/3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKU7z5AAoJEODzc/N7+QmaeawP/itF2KJw9hE+utRQLK92pYHc
+ewV+t+Y+j7qrLJRT9SS07qGJ6a7m2a7iCqSHTb9rRHahNZu67jrPr8F+kmzPjFje
+QKTrxw1brubAF8/azaLc/JFCL1thh6myjI7ldv7YvuszvAXNq5E+i3T782NAP6M/
+H3wueJHTiqMUmTbp//hf8omOKuKyhhwotYPfYbiHAI7KX+r9y5k2jaVquzUbL1Vd
+MbjEZmLzWJQ9U+PbeYxR+decKuOUWsS5kmnxEvZR0GXtIa2FkhBRU/8gJIfrY03x
+MDVb2c/YRWT5bf4oMBFxdH8On3RSw8IZF6gN4ecGIcAKO1rgKESMrKIVs+Ct4xye
+ar4pdtnZfKOwhhARzj0qDiUdW6UbIVVShRoKZ2Ec/YPpryReQuSO0Eynm2J+Ym1a
+Wzp9oNZ3nN1k78/2uKMl4zyNwCR9+4JAh2U7W3pPLouk60JRgOOIq4BgymzsmPgm
+0+TsZi1p0vo8doWpuqSs6MY+smQAWG0ev/VKKBr/lHRSwxOb0YmUT6O6PtIg+SyG
+GgjuPhqF0oUA19cWnTRCCOmGxR9zkffyaocjGZdWFTfsWfmNa4Ox2GG32xiINxhN
+7szZbRkshERpaGtrXXBxTwKQNxJSa9MpRUMT4dCoFBUOAkpsAPWREWEJ0Roho0WW
+REYjYasD4hB+8pMcACjy
+=u8J/
+-----END PGP SIGNATURE-----
+
+--=-5YKwwZLE7KpFf+/bZm/3--
+
