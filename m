@@ -1,37 +1,48 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Tue,  7 Jul 2009 02:00:37 +0200 (CEST)
-Message-ID: <bXZeuxPQAWE.A.Bv.rBpUKB@chimera>
-References: <tSdKBEwEOhE.A.2wF.s_oUKB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [RFC] Potential bug in defining 'irq field' of 'ifmap
+ structure'
+Date: Mon, 06 Jul 2009 17:25:01 -0700 (PDT)
+Message-ID: <20090706.172501.136390568.davem@davemloft.net>
+References: <CD8CC2B65FEE304DA95744A5472698F202952C3124@dlee06.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers@vger.kernel.org>,
-	"Francis Moreau" <francis.moro@gmail.com>,
-	"netdev" <netdev@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	vikram.pandita@ti.com
+To: m-sonasath@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:58067 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756627AbZGGAH4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 20:07:56 -0400
-In-Reply-To: <tSdKBEwEOhE.A.2wF.s_oUKB@chimera>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50244
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759966AbZGGAYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 20:24:54 -0400
+In-Reply-To: <CD8CC2B65FEE304DA95744A5472698F202952C3124@dlee06.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.29 and 2.6.30.
+From: "Sonasath, Moiz" <m-sonasath@ti.com>
+Date: Mon, 6 Jul 2009 17:23:36 -0500
 
-The following bug entry is on the current list of known regressions
-introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-be listed and let me know (either way).
+> There seems to be a bug in the ioctl implementation in /kernel/net/core/dev.c 
+>  
+> dev_ifsioc_locked()
+> 	case SIOCGIFMAP:
+> 			ifr->ifr_map.irq = dev->irq;   // ?? type mismatch
+> 
+> Here
+> ifr->ifr_map.irq) is of type unsigned char
+> dev-irq is of type unsigned int
+> 
+> So ifconfig reports a wrong irq number when the dev->irq number is > 255.
 
+This is a known and unavoidable limitation of this interface.
+It's only real use is to control ISA style IRQs which are
+< 255.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro@gmail.com>
-Date		: 2009-05-03 16:22 (65 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
+> I am confused to see the same typedefs in file: net/if.h 
+> Not sure how to make changes for the user side net/if.h file?
+> 
+> Signed-off-by: Moiz Sonasath <m-sonasath@ti.com>
+> Signed-off-by: Vikram Pandita <vikram.pandita@ti.com>
 
-
+You can't make these kinds of changes, every userland binary out there
+using this structure would break.
