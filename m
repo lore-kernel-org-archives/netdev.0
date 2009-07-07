@@ -1,61 +1,54 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] ucc_geth: Add support for skb recycling
-Date: Tue, 07 Jul 2009 13:46:54 -0700
-Message-ID: <4A53B43E.4010905@hp.com>
-References: <20090707183842.GA8425@oksana.dev.rtsoft.ru>	<4A53984A.4050002@hp.com>
-	<20090707203712.GA11157@oksana.dev.rtsoft.ru>
+From: "Pandita, Vikram" <vikram.pandita@ti.com>
+Subject: RE: [PATCH] [RFC] Potential bug in defining 'irq field' of 'ifmap
+ structure'
+Date: Wed, 8 Jul 2009 02:27:51 +0530
+Message-ID: <FCCFB4CDC6E5564B9182F639FC35608702F55E9549@dbde02.ent.ti.com>
+References: <CD8CC2B65FEE304DA95744A5472698F202952C3124@dlee06.ent.ti.com>
+ <20090706.172501.136390568.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Andy Fleming <afleming@freescale.com>, Li Yang <leoli@freescale.com>,
-	David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@marvell.com>
-To: avorontsov@ru.mvista.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20090707203712.GA11157@oksana.dev.rtsoft.ru>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"Sonasath, Moiz" <m-sonasath@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20090706.172501.136390568.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anton Vorontsov wrote:
-> On Tue, Jul 07, 2009 at 11:47:38AM -0700, Rick Jones wrote:
->>Admittedly, all the world is not TCP, but a big chunk is, so are you
->>likely to have reference counts go to zero on the tx queue for
->>anything other than small standalone TCP ACK segments?
-> 
-> 
-> That's a generic question wrt skb recycling, right? Whether we can
-> always recycle transmitted skbs. No, sometimes (or mostly) we can't.
-> 
-> Initially, I was quite puzzled by this support... looking at how
-> gianfar driver works (it has the same support as of 0fd56bb5be6455d0),
-> I noticed that skb_recycle_check() always returns 0, and so we
-> don't recycle the skbs.
-> 
-> Though, things change when the kernel starts packets forwarding,
-> *then* skb recycling path actually triggers.
-> 
-> Lennert (skb recycling author) hints us that the gain is indeed
-> in forwarding/routing workload:
-> 
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/28/3433514
- >
-> 
-> Hope I understood everything correctly. :-)
+David
 
-Given the text reads:
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>> dev_ifsioc_locked()
+>> 	case SIOCGIFMAP:
+>> 			ifr->ifr_map.irq = dev->irq;   // ?? type mismatch
+>>
+>> Here
+>> ifr->ifr_map.irq) is of type unsigned char
+>> dev-irq is of type unsigned int
+>>
+>> So ifconfig reports a wrong irq number when the dev->irq number is > 255.
+>
+>This is a known and unavoidable limitation of this interface.
+>It's only real use is to control ISA style IRQs which are < 255.
 
-  This gives a nice increase in the maximum loss-free packet forwarding
-  rate in routing workloads.
+On Zoom2 TI OMAP3 based board, the IRQ we are requesting is value=381 and hence the problem reported.
+We do understand that this would break all user level code.
 
-Your understanding is probably correct.  Might have been "nice" :) to get a 
-definition of a "nice increase" though :)
+>
+>> I am confused to see the same typedefs in file: net/if.h
+>> Not sure how to make changes for the user side net/if.h file?
 
-rick jones
+Any idea why net/if.h user level file does not have same definitions as linux/if.h?
+In other words, what is the origin of net/if.h file?
+
+>>
+>> Signed-off-by: Moiz Sonasath <m-sonasath@ti.com>
+>> Signed-off-by: Vikram Pandita <vikram.pandita@ti.com>
+>
+>You can't make these kinds of changes, every userland binary out there
+>using this structure would break.
+
