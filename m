@@ -1,128 +1,36 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 3/3] net: move and export get_net_ns_by_pid
-Date: Tue, 07 Jul 2009 14:08:39 +0200
-Message-ID: <20090707121422.683422636@sipsolutions.net>
-References: <20090707120835.953398074@sipsolutions.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (
+	possibly?caused by netem)
+Date: Tue, 7 Jul 2009 15:18:03 +0200
+Message-ID: <20090707131803.GA6520@ami.dom.local>
+References: <200907031326.21822.andres@anarazel.de> <20090706163106.GA4559@ami.dom.local> <a5d9929e0907061023g4306d80ewfc8907653b949005@mail.gmail.com> <200907061926.43625.andres@anarazel.de> <20090707065014.GA3296@ami.dom.local> <a5d9929e0907070340y63280508t92e6c7e4ce464994@mail.gmail.com>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
-	Pavel Emelyanov <xemul@openvz.org>, Thomas Graf <tgraf@suug.ch>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Andres Freund <andres@anarazel.de>
+To: Joao Correia <joaomiguelcorreia@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:48669 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756531AbZGGMQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 08:16:18 -0400
-Content-Disposition: inline; filename=031-netns-export-get-by-pid.patch
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:47293 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753936AbZGGNSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 09:18:15 -0400
+Content-Disposition: inline
+In-Reply-To: <a5d9929e0907070340y63280508t92e6c7e4ce464994@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function get_net_ns_by_pid(), to get a network
-namespace from a pid_t, will be required in cfg80211
-as well. Therefore, let's move it to net_namespace.c
-and export it. We can't make it a static inline in
-the !NETNS case because it needs to verify that the
-given pid even exists (and return -ESRCH).
+On Tue, Jul 07, 2009 at 11:40:16AM +0100, Joao Correia wrote:
+> I am now running 2.6.31-rc2 for a couple of hours, no freeze.
+> 
+> Let me know what/if i can help with tracking down the original source
+> of the problem.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- include/net/net_namespace.h |    2 ++
- net/core/net_namespace.c    |   21 +++++++++++++++++++++
- net/core/rtnetlink.c        |   21 +--------------------
- 3 files changed, 24 insertions(+), 20 deletions(-)
+OK, so we know it's only about timers. Here is another tiny patch
+(the previous one should be removed), which could tell (with oops) if
+there's something while migrating. Anyway, the bug should be back :-(
 
---- wireless-testing.orig/include/net/net_namespace.h	2009-07-07 12:18:30.000000000 +0200
-+++ wireless-testing/include/net/net_namespace.h	2009-07-07 12:25:42.000000000 +0200
-@@ -111,6 +111,8 @@ static inline struct net *copy_net_ns(un
- 
- extern struct list_head net_namespace_list;
- 
-+extern struct net *get_net_ns_by_pid(pid_t pid);
-+
- #ifdef CONFIG_NET_NS
- extern void __put_net(struct net *net);
- 
---- wireless-testing.orig/net/core/net_namespace.c	2009-07-07 12:18:19.000000000 +0200
-+++ wireless-testing/net/core/net_namespace.c	2009-07-07 12:25:42.000000000 +0200
-@@ -7,6 +7,7 @@
- #include <linux/sched.h>
- #include <linux/idr.h>
- #include <linux/rculist.h>
-+#include <linux/nsproxy.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
-@@ -201,6 +202,26 @@ struct net *copy_net_ns(unsigned long fl
- }
- #endif
- 
-+struct net *get_net_ns_by_pid(pid_t pid)
-+{
-+	struct task_struct *tsk;
-+	struct net *net;
-+
-+	/* Lookup the network namespace */
-+	net = ERR_PTR(-ESRCH);
-+	rcu_read_lock();
-+	tsk = find_task_by_vpid(pid);
-+	if (tsk) {
-+		struct nsproxy *nsproxy;
-+		nsproxy = task_nsproxy(tsk);
-+		if (nsproxy)
-+			net = get_net(nsproxy->net_ns);
-+	}
-+	rcu_read_unlock();
-+	return net;
-+}
-+EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
-+
- static int __init net_ns_init(void)
- {
- 	struct net_generic *ng;
---- wireless-testing.orig/net/core/rtnetlink.c	2009-07-07 12:15:29.000000000 +0200
-+++ wireless-testing/net/core/rtnetlink.c	2009-07-07 12:25:42.000000000 +0200
-@@ -35,7 +35,6 @@
- #include <linux/security.h>
- #include <linux/mutex.h>
- #include <linux/if_addr.h>
--#include <linux/nsproxy.h>
- 
- #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -52,6 +51,7 @@
- #include <net/pkt_sched.h>
- #include <net/fib_rules.h>
- #include <net/rtnetlink.h>
-+#include <net/net_namespace.h>
- 
- struct rtnl_link
- {
-@@ -725,25 +725,6 @@ static const struct nla_policy ifla_info
- 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
- };
- 
--static struct net *get_net_ns_by_pid(pid_t pid)
--{
--	struct task_struct *tsk;
--	struct net *net;
--
--	/* Lookup the network namespace */
--	net = ERR_PTR(-ESRCH);
--	rcu_read_lock();
--	tsk = find_task_by_vpid(pid);
--	if (tsk) {
--		struct nsproxy *nsproxy;
--		nsproxy = task_nsproxy(tsk);
--		if (nsproxy)
--			net = get_net(nsproxy->net_ns);
--	}
--	rcu_read_unlock();
--	return net;
--}
--
- static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
- {
- 	if (dev) {
-
--- 
-
+Thanks,
+Jarek P.
