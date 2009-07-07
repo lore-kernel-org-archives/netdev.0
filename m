@@ -1,62 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 (
-	possibly?caused by netem)
-Date: Tue, 7 Jul 2009 08:50:14 +0200
-Message-ID: <20090707065014.GA3296@ami.dom.local>
-References: <200907031326.21822.andres@anarazel.de> <20090706163106.GA4559@ami.dom.local> <a5d9929e0907061023g4306d80ewfc8907653b949005@mail.gmail.com> <200907061926.43625.andres@anarazel.de>
+From: =?iso-8859-15?q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+Subject: Re: use after free bug in socket code
+Date: Tue, 7 Jul 2009 08:59:59 +0200
+Message-ID: <19026.62063.501414.659047@ipc1.ka-ro>
+References: <19020.39270.408816.360526@ipc1.ka-ro>
+	<20090706.190709.214907244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joao Correia <joaomiguelcorreia@gmail.com>,
-	Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andres Freund <andres@anarazel.de>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, urs.thuermann@volkswagen.de,
+	oliver.hartkopp@volkswagen.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:49417 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920AbZGGGu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 02:50:27 -0400
-Content-Disposition: inline
-In-Reply-To: <200907061926.43625.andres@anarazel.de>
+Received: from mail.karo-electronics.de ([81.173.242.67]:55994 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754163AbZGGG75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 02:59:57 -0400
+In-Reply-To: <20090706.190709.214907244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 06, 2009 at 07:26:43PM +0200, Andres Freund wrote:
-> On Monday 06 July 2009 19:23:18 Joao Correia wrote:
-> > Hello
-> >
-> > Since i already had the kernel compiled and ready to boot when i read
-> > this, i gave it a go anyway :-).
-> >
-> > I can reproduce the freeze with those 4 patches applied, so i can
-> > confirm that its, at least, related to, or exposed by, those patches.
-> > There must be something else too, or its just too much fuzziness, but
-> > the freeze takes a bit more time (approximately five minutes, give or
-> > take) compared to the instant freeze before, but its there with the
-> > patches, and without them, no freeze.
-> >
-> > I assume there isnt a "safe" way to get them out of current .31-rc's,
-> > right?
-> `echo 0 > /proc/sys/kernel/timer_migration` should mitigate the problem.
+Hi,
 
-I guess it should fix it entirely. Btw., here is a patch disabling the
-timers' part, so to make it hrtimers only. Could you try?
+David Miller writes:
+> From: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> Date: Thu, 2 Jul 2009 13:26:30 +0200
+>=20
+> > Hi,
+> >=20
+> > while developing a canbus driver (with kernel 2.6.30-rc4) I
+> > encountered a use-after-free bug that led to the following crash (d=
+ue
+> > to CONFIG_DEBUG_SLAB being enabled):
+>  ...
+> > With the following patch I could alleviate the problem and did not
+> > find any negative side effects, but I'm not sure, whether this is t=
+he
+> > Right Thing(TM), since I'm not too familiar with the networking cod=
+e:
+>  ...
+> > Any comments on this?
+>=20
+> A patch like this shouldn't be needed.
+>=20
+Could you explain why it shouldn't be needed?
+To me it seems much more logical to invalidate any references from
+some object 'B' (struct sock) to some object 'A' (struct socket) when
+object 'A' is being released rather than invalidating them when object
+'B' is being released.
 
-Thanks,
-Jarek P.
----
+As far as I understand the code the 'struct socket' can vanish any
+time after sock_release() has been called. Thus the pointers in the
+'struct sock' that point to the 'struct socket' should be invalidated
+at that point and not when the 'struct sock' itself is being released.
 
-diff --git a/kernel/timer.c b/kernel/timer.c
-index 0b36b9e..011429c 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -634,7 +634,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
- 
- 	cpu = smp_processor_id();
- 
--#if defined(CONFIG_NO_HZ) && defined(CONFIG_SMP)
-+#if 0
- 	if (!pinned && get_sysctl_timer_migration() && idle_cpu(cpu)) {
- 		int preferred_cpu = get_nohz_load_balancer();
- 
+Also, the messages I had added showed that sock_release() is being
+called before sk_common_release() (from standard networking code that
+has nothing to do with my can driver) leaving the 'struct sock' object
+with dangling 'sk_sleep' and 'sk_socket' pointers for the time between
+those two function calls. And I don't see anything preventing those
+pointers being dereferenced during this time.
+
+
+Lothar Wa=DFmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=DFe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=E4ftsf=FChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
