@@ -1,34 +1,30 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] ucc_geth: Add support for skb recycling
-Date: Tue, 07 Jul 2009 11:47:38 -0700
-Message-ID: <4A53984A.4050002@hp.com>
-References: <20090707183842.GA8425@oksana.dev.rtsoft.ru>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: 2.6.31-rc2: Reported regressions from 2.6.30
+Date: Tue, 7 Jul 2009 21:25:45 +0200
+Message-ID: <200907072125.47762.elendil@planet.nl>
+References: <35kKlbXMqWN.A.RXD.D0oUKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andy Fleming <afleming@freescale.com>,
-	Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:33195 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbZGGSrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 14:47:42 -0400
-In-Reply-To: <20090707183842.GA8425@oksana.dev.rtsoft.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-To: <35kKlbXMqWN.A.RXD.D0oUKB@chimera>
+Content-Disposition: inline
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Anton Vorontsov wrote:
-> We can reclaim transmitted skbs to use in the receive path, so-called
-> skb recycling support.
-> 
-> Also reorder ucc_geth_poll() steps, so that we'll clean tx ring firstly,
-> thus maybe reclaim some skbs for rx.
+> If you know of any other unresolved regressions from 2.6.30, please let
+> me know either and I'll add them to the list.
 
-Admittedly, all the world is not TCP, but a big chunk is, so are you likely to 
-have reference counts go to zero on the tx queue for anything other than small 
-standalone TCP ACK segments?
+Please add: http://lkml.org/lkml/2009/6/29/88
 
-rick jones
+Reinette Chatre is handling the bug and posted a patch in 
+http://lkml.org/lkml/2009/6/30/224
+
+Thanks,
+FJP
