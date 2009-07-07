@@ -1,62 +1,33 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: use after free bug in socket code
-Date: Tue, 07 Jul 2009 14:15:01 +0200
-Message-ID: <4A533C45.5000702@hartkopp.net>
-References: <19020.39270.408816.360526@ipc1.ka-ro> <20090706.190709.214907244.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 0/3] network namespaces for generic netlink
+Date: Tue, 07 Jul 2009 14:08:36 +0200
+Message-ID: <20090707120835.953398074@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LW@KARO-electronics.de, netdev@vger.kernel.org,
-	urs.thuermann@volkswagen.de
-To: David Miller <davem@davemloft.net>,
-	Urs Thuermann <urs@isnogud.escape.de>
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
+	Pavel Emelyanov <xemul@openvz.org>, Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:47012 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755211AbZGGMPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 08:15:03 -0400
-In-Reply-To: <20090706.190709.214907244.davem@davemloft.net>
+Received: from xc.sipsolutions.net ([83.246.72.84]:48660 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755387AbZGGMQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 08:16:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Lothar Wa=DFmann <LW@KARO-electronics.de>
-> Date: Thu, 2 Jul 2009 13:26:30 +0200
->=20
->> Hi,
->>
->> while developing a canbus driver (with kernel 2.6.30-rc4) I
->> encountered a use-after-free bug that led to the following crash (du=
-e
->> to CONFIG_DEBUG_SLAB being enabled):
->  ...
->> With the following patch I could alleviate the problem and did not
->> find any negative side effects, but I'm not sure, whether this is th=
-e
->> Right Thing(TM), since I'm not too familiar with the networking code=
-:
->  ...
->> Any comments on this?
->=20
-> A patch like this shouldn't be needed.
->=20
-> Can one of the CAN folks look into this?
+This is a repost of my earlier patches, now with
+fixed semantics and locking. The first patch is
+required to make RCU-iteration of the network
+namespace list possible, which the second patch
+requires.
 
-Hi Dave,
+The third patch is preparation for nl80211 netns
+work, I'm happy to give that to John instead to
+go via the wireless tree with the patch that will
+make use of the now exported function, but it is
+possible that other generic netlink users will
+also require it once they being upgrading their
+family to be netns aware.
 
-i did - but i had no concerns that Lothars remark was an appropriate re=
-quest.
-
-I'm not the socket layer expert but IMO this looks like something to be=
- fixed
-in standard networking code.
-
-The only thing we do in out private sk->sk_destruct function is:
-
-   skb_queue_purge(&sk->sk_receive_queue);
-
-As Urs is currently out of office, i added his private mail address ...
-
-Regards,
-Oliver
+johannes
 
