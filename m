@@ -1,37 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Fixing up TCP/UDP checksum for UDP encap. ESP4 packets
-	in transport mode
-Date: Tue, 7 Jul 2009 10:21:01 +0800
-Message-ID: <20090707022101.GA27525@gondor.apana.org.au>
-References: <20090707014008.GA27100@gondor.apana.org.au> <20090706.185411.136676235.davem@davemloft.net> <20090707015850.GA27305@gondor.apana.org.au> <20090706.190235.248640426.davem@davemloft.net> <20090707021845.GA27460@gondor.apana.org.au>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH] sky2: Fix a race condition in sky2_poll
+Date: Tue, 7 Jul 2009 13:09:30 +0900
+Message-ID: <392fb48f0907062109t207d4c3evfa25281029544ef@mail.gmail.com>
+References: <392fb48f0906200101y5c83e853w170829f2ce40b274@mail.gmail.com>
+	 <20090706115101.68a8daaf@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: christophe@saout.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:36561 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754091AbZGGCVC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 22:21:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20090707021845.GA27460@gondor.apana.org.au>
+Received: from mail-gx0-f226.google.com ([209.85.217.226]:51683 "EHLO
+	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817AbZGGEJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 00:09:27 -0400
+Received: by gxk26 with SMTP id 26so1558160gxk.13
+        for <netdev@vger.kernel.org>; Mon, 06 Jul 2009 21:09:30 -0700 (PDT)
+In-Reply-To: <20090706115101.68a8daaf@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, 2009 at 10:18:45AM +0800, Herbert Xu wrote:
-> On Mon, Jul 06, 2009 at 07:02:35PM -0700, David Miller wrote:
-> >
-> > Indeed, there is no way to handle checksums sanely.  The whole
-> > end-to-end protection of the checksum would be entirely subverted
-> > if we fixed it up.
+Hi Stephen,
 
-Oh and if we were going to fix it up, it'd make much more sense
-as an explicit netfilter target so people know what they're
-getting themselves into.
+2009/7/7 Stephen Hemminger <shemminger@linux-foundation.org>:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Have you actually seen this race, or are you hypothesizing based
+> on code review?
+
+Based on code review prompted by seeing "receiver hang detected"
+messages in the log.
+
+> I think the original works fine. There is a race where interrupt is cleared early,
+> and the poll processing runs an extra time but that is harmless.
+
+There also appears to be a logic problem where the interrupt will not
+be cleared until another packet is received, which is the case I was
+originally trying to fix.  It looks like if just enough packets are
+received (so work_done >= to_do and we go through exit_loop) in
+sky2_status_intr(), the interrupt may not be cleared even though no
+packets remain.
+
+> Now the driver misses the status interrupt.
+
+My interpretation was that the interrupt condition must be cleared at
+least once before acknowledging it.
+
+In any case, the receiver hang detection logic will restart the
+driver.  I see this happening quite a bit, and it seems to happen most
+commonly after sky2_up is called.
+
+thanks,
+
+Mike
