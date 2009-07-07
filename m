@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] dm9000: add checksum offload support
-Date: Mon, 06 Jul 2009 18:13:02 -0700 (PDT)
-Message-ID: <20090706.181302.109020502.davem@davemloft.net>
-References: <4A519F1F.90706@compulab.co.il>
+Subject: Re: [PATCH] net: Take GSO into account when capturing packets
+Date: Mon, 06 Jul 2009 18:15:31 -0700 (PDT)
+Message-ID: <20090706.181531.105788026.davem@davemloft.net>
+References: <4A523CB0.8080005@polymtl.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben-linux-arm@fluff.org, yeasah@comrex.com,
-	romieu@fr.zoreil.com
-To: mike@compulab.co.il
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tcpdump-workers@lists.tcpdump.org, wireshark-dev@wireshark.org
+To: benjamin.poirier@polymtl.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32987
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32993
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753339AbZGGBMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 21:12:55 -0400
-In-Reply-To: <4A519F1F.90706@compulab.co.il>
+	by vger.kernel.org with ESMTP id S1752957AbZGGBPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jul 2009 21:15:25 -0400
+In-Reply-To: <4A523CB0.8080005@polymtl.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Rapoport <mike@compulab.co.il>
-Date: Mon, 06 Jul 2009 09:52:15 +0300
+From: Benjamin Poirier <benjamin.poirier@polymtl.ca>
+Date: Mon, 06 Jul 2009 14:04:32 -0400
 
->> From: Yeasah Pell <yeasah@comrex.com>
+> move the point where the support routine for packet capture is called to
+> better reflect what is transmitted on the wire when GSO is active.
 > 
-> Add checksum offload support for DM9000A and DM9000B chips.
+> At the moment, packet capture (a la tcpdump) on the transmission side happens
+> before GSO takes place (if it does). Therefore, even if a packet gets
+> segmented by GSO, the capture shows that one big packet was sent when in fact
+> many small packets were sent on the wire. This behavior does not reflect the
+> "reality" of what is transmitted and could lead to confusion, especially since
+> a capture on the receiving side shows the segmented packets.
 > 
-> --
-> v2 changes: added a local copy of ip_summed to save IO cycles in dm9000_send_packet
-> v3 changes: trans_start updating is removed.
-> 
-> Signed-off-by: Yeasah Pell <yeasah@comrex.com>
-> Signed-off-by: Mike Rapoport <mike@compulab.co.il>
+> Signed-off-by: Benjamin Poirier <benjamin.poirier@polymtl.ca>
 
-Applied to net-next-2.6, thanks.
+TSO does the same exact thing except that the networking card
+chops up the packet before it hits the wire.
+
+I really doubt there is anything seriously to gain by having
+GSO behave one way and TSO another, and we should just keep
+things as they are right now.
+
+I'm not applying this, sorry.
