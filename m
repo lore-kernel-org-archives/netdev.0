@@ -1,59 +1,65 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
-Date: Tue, 7 Jul 2009 15:45:33 -0400
-Message-ID: <20090707194533.GB13858@Krystal>
-References: <20090703095659.GA4518@jolsa.lab.eng.brq.redhat.com> <20090703102530.GD32128@elte.hu> <20090703111848.GA10267@jolsa.lab.eng.brq.redhat.com> <20090707101816.GA6619@jolsa.lab.eng.brq.redhat.com> <20090707134601.GB6619@jolsa.lab.eng.brq.redhat.com> <20090707140135.GA5506@Krystal> <20090707143416.GB11704@redhat.com> <20090707150406.GC7124@Krystal> <20090707154440.GA15605@redhat.com> <1246981815.9777.12.camel@twins>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] ucc_geth: Add support for skb recycling
+Date: Wed, 8 Jul 2009 00:37:12 +0400
+Message-ID: <20090707203712.GA11157@oksana.dev.rtsoft.ru>
+References: <20090707183842.GA8425@oksana.dev.rtsoft.ru>
+	<4A53984A.4050002@hp.com>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>, Jiri Olsa <jolsa@redhat.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
-	davem@redhat.com, htejun@gmail.com, jarkao2@gmail.com,
-	davidel@xmailserver.org
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts40.bellnexxia.net ([209.226.175.97]:58956 "EHLO
-	tomts40-srv.bellnexxia.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754912AbZGGTpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 15:45:51 -0400
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Andy Fleming <afleming@freescale.com>, Li Yang <leoli@freescale.com>,
+	David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@marvell.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 Content-Disposition: inline
-In-Reply-To: <1246981815.9777.12.camel@twins>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4A53984A.4050002@hp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-* Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> On Tue, 2009-07-07 at 17:44 +0200, Oleg Nesterov wrote:
-> > On 07/07, Mathieu Desnoyers wrote:
-> > >
-> > > Actually, thinking about it more, to appropriately support x86, as well
-> > > as powerpc, arm and mips, we would need something like:
-> > >
-> > > read_lock_smp_mb()
-> > >
-> > > Which would be a read_lock with an included memory barrier.
-> > 
-> > Then we need read_lock_irq_smp_mb, read_lock_irqsave__smp_mb, write_lock_xxx,
-> > otherwise it is not clear why only read_lock() has _smp_mb() version.
-> > 
-> > The same for spin_lock_xxx...
+On Tue, Jul 07, 2009 at 11:47:38AM -0700, Rick Jones wrote:
+> Anton Vorontsov wrote:
+> >We can reclaim transmitted skbs to use in the receive path, so-called
+> >skb recycling support.
+> >
+> >Also reorder ucc_geth_poll() steps, so that we'll clean tx ring firstly,
+> >thus maybe reclaim some skbs for rx.
 > 
-> At which time the smp_mb__{before,after}_{un,}lock become attractive
-> again.
-> 
+> Admittedly, all the world is not TCP, but a big chunk is, so are you
+> likely to have reference counts go to zero on the tx queue for
+> anything other than small standalone TCP ACK segments?
 
-Then having a new __read_lock() (without acquire semantic) which would
-be required to be followed by a smp__mb_after_lock() would make sense. I
-think this would fit all of x86, powerpc, arm, mips without having to
-create tons of new primitives. Only "simpler" ones that clearly separate
-locking from memory barriers.
+That's a generic question wrt skb recycling, right? Whether we can
+always recycle transmitted skbs. No, sometimes (or mostly) we can't.
 
-Mathieu
+Initially, I was quite puzzled by this support... looking at how
+gianfar driver works (it has the same support as of 0fd56bb5be6455d0),
+I noticed that skb_recycle_check() always returns 0, and so we
+don't recycle the skbs.
+
+Though, things change when the kernel starts packets forwarding,
+*then* skb recycling path actually triggers.
+
+Lennert (skb recycling author) hints us that the gain is indeed
+in forwarding/routing workload:
+
+http://kerneltrap.org/mailarchive/linux-netdev/2008/9/28/3433514
+
+Hope I understood everything correctly. :-)
 
 
-
+Thanks!
 
 -- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
