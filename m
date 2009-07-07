@@ -1,33 +1,91 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 0/3] network namespaces for generic netlink
-Date: Tue, 07 Jul 2009 14:08:36 +0200
-Message-ID: <20090707120835.953398074@sipsolutions.net>
+Subject: [PATCH 1/3] net: make namespace iteration possible under RCU
+Date: Tue, 07 Jul 2009 14:08:37 +0200
+Message-ID: <20090707121422.343021507@sipsolutions.net>
+References: <20090707120835.953398074@sipsolutions.net>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
 	Pavel Emelyanov <xemul@openvz.org>, Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:48660 "EHLO
+Received: from xc.sipsolutions.net ([83.246.72.84]:48662 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755387AbZGGMQK (ORCPT
+	with ESMTP id S1755377AbZGGMQK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 08:16:10 -0400
+Content-Disposition: inline; filename=029-netns-rcu.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a repost of my earlier patches, now with
-fixed semantics and locking. The first patch is
-required to make RCU-iteration of the network
-namespace list possible, which the second patch
-requires.
+All we need to take care of is using proper RCU list
+add/del primitives and inserting a synchronize_rcu()
+at one place to make sure the exit notifiers are run
+after everybody has stopped iterating the list.
 
-The third patch is preparation for nl80211 netns
-work, I'm happy to give that to John instead to
-go via the wireless tree with the patch that will
-make use of the now exported function, but it is
-possible that other generic netlink users will
-also require it once they being upgrading their
-family to be netns aware.
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+ include/net/net_namespace.h |    3 +++
+ net/core/net_namespace.c    |   14 +++++++++++---
+ 2 files changed, 14 insertions(+), 3 deletions(-)
 
-johannes
+--- wireless-testing.orig/include/net/net_namespace.h	2009-07-07 04:14:39.000000000 +0200
++++ wireless-testing/include/net/net_namespace.h	2009-07-07 12:17:17.000000000 +0200
+@@ -211,6 +211,9 @@ static inline struct net *read_pnet(stru
+ #define for_each_net(VAR)				\
+ 	list_for_each_entry(VAR, &net_namespace_list, list)
+ 
++#define for_each_net_rcu(VAR)				\
++	list_for_each_entry_rcu(VAR, &net_namespace_list, list)
++
+ #ifdef CONFIG_NET_NS
+ #define __net_init
+ #define __net_exit
+--- wireless-testing.orig/net/core/net_namespace.c	2009-07-07 03:43:35.000000000 +0200
++++ wireless-testing/net/core/net_namespace.c	2009-07-07 12:18:19.000000000 +0200
+@@ -6,6 +6,7 @@
+ #include <linux/delay.h>
+ #include <linux/sched.h>
+ #include <linux/idr.h>
++#include <linux/rculist.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ 
+@@ -127,7 +128,7 @@ static struct net *net_create(void)
+ 	rv = setup_net(net);
+ 	if (rv == 0) {
+ 		rtnl_lock();
+-		list_add_tail(&net->list, &net_namespace_list);
++		list_add_tail_rcu(&net->list, &net_namespace_list);
+ 		rtnl_unlock();
+ 	}
+ 	mutex_unlock(&net_mutex);
+@@ -156,9 +157,16 @@ static void cleanup_net(struct work_stru
+ 
+ 	/* Don't let anyone else find us. */
+ 	rtnl_lock();
+-	list_del(&net->list);
++	list_del_rcu(&net->list);
+ 	rtnl_unlock();
+ 
++	/*
++	 * Another CPU might be rcu-iterating the list, wait for it.
++	 * This needs to be before calling the exit() notifiers, so
++	 * the rcu_barrier() below isn't sufficient alone.
++	 */
++	synchronize_rcu();
++
+ 	/* Run all of the network namespace exit methods */
+ 	list_for_each_entry_reverse(ops, &pernet_list, list) {
+ 		if (ops->exit)
+@@ -219,7 +227,7 @@ static int __init net_ns_init(void)
+ 		panic("Could not setup the initial network namespace");
+ 
+ 	rtnl_lock();
+-	list_add_tail(&init_net.list, &net_namespace_list);
++	list_add_tail_rcu(&init_net.list, &net_namespace_list);
+ 	rtnl_unlock();
+ 
+ 	mutex_unlock(&net_mutex);
+
+-- 
 
