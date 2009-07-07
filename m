@@ -1,42 +1,62 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.31-rc2: Reported regressions from 2.6.30
-Date: Tue, 7 Jul 2009 13:36:51 +0200
-Message-ID: <200907071336.53308.rjw@sisk.pl>
-References: <35kKlbXMqWN.A.RXD.D0oUKB@chimera> <200907070325.51439.andres@anarazel.de>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: use after free bug in socket code
+Date: Tue, 07 Jul 2009 14:15:01 +0200
+Message-ID: <4A533C45.5000702@hartkopp.net>
+References: <19020.39270.408816.360526@ipc1.ka-ro> <20090706.190709.214907244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Andres Freund <andres@anarazel.de>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <200907070325.51439.andres@anarazel.de>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LW@KARO-electronics.de, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de
+To: David Miller <davem@davemloft.net>,
+	Urs Thuermann <urs@isnogud.escape.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:47012 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755211AbZGGMPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 08:15:03 -0400
+In-Reply-To: <20090706.190709.214907244.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 07 July 2009, Andres Freund wrote:
-> Hi Rafael,
-> 
-> On Tuesday 07 July 2009 01:42:09 Rafael J. Wysocki wrote:
-> > If you know of any other unresolved regressions from 2.6.30, please let me
-> > know either and I'll add them to the list.  Also, please let me know if any
-> > of the entries below are invalid.
-> There is also http://lkml.org/lkml/2009/6/30/398 : Soft-Lockup/Race in 
-> networking in 2.6.31-rc1+195 (possibly caused by netem)
+David Miller wrote:
+> From: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> Date: Thu, 2 Jul 2009 13:26:30 +0200
+>=20
+>> Hi,
+>>
+>> while developing a canbus driver (with kernel 2.6.30-rc4) I
+>> encountered a use-after-free bug that led to the following crash (du=
+e
+>> to CONFIG_DEBUG_SLAB being enabled):
+>  ...
+>> With the following patch I could alleviate the problem and did not
+>> find any negative side effects, but I'm not sure, whether this is th=
+e
+>> Right Thing(TM), since I'm not too familiar with the networking code=
+:
+>  ...
+>> Any comments on this?
+>=20
+> A patch like this shouldn't be needed.
+>=20
+> Can one of the CAN folks look into this?
 
-Thanks, added to the list.
+Hi Dave,
 
-Best,
-Rafael
+i did - but i had no concerns that Lothars remark was an appropriate re=
+quest.
+
+I'm not the socket layer expert but IMO this looks like something to be=
+ fixed
+in standard networking code.
+
+The only thing we do in out private sk->sk_destruct function is:
+
+   skb_queue_purge(&sk->sk_receive_queue);
+
+As Urs is currently out of office, i added his private mail address ...
+
+Regards,
+Oliver
+
