@@ -1,89 +1,109 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCHv5 2/2] memory barrier: adding smp_mb__after_lock
-Date: Tue, 7 Jul 2009 11:04:06 -0400
-Message-ID: <20090707150406.GC7124@Krystal>
-References: <20090703090606.GA3902@elte.hu> <4A4DCD54.1080908@gmail.com> <20090703092438.GE3902@elte.hu> <20090703095659.GA4518@jolsa.lab.eng.brq.redhat.com> <20090703102530.GD32128@elte.hu> <20090703111848.GA10267@jolsa.lab.eng.brq.redhat.com> <20090707101816.GA6619@jolsa.lab.eng.brq.redhat.com> <20090707134601.GB6619@jolsa.lab.eng.brq.redhat.com> <20090707140135.GA5506@Krystal> <20090707143416.GB11704@redhat.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: Re: [PATCH] net: fix OF fixed-link property handling on Freescale
+ network device drivers
+Date: Tue, 7 Jul 2009 19:12:41 +0400
+Message-ID: <20090707151241.GA26831@oksana.dev.rtsoft.ru>
+References: <20090703221851.23909.923.stgit@localhost.localdomain>
+Reply-To: avorontsov@ru.mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Olsa <jolsa@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, davem@redhat.com,
-	htejun@gmail.com, jarkao2@gmail.com, davidel@xmailserver.org
-To: Oleg Nesterov <oleg@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, leoli@freescale.com, afleming@freescale.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts40.bellnexxia.net ([209.226.175.97]:60290 "EHLO
-	tomts40-srv.bellnexxia.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752977AbZGGPHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 11:07:08 -0400
+Received: from ru.mvista.com ([213.79.90.228]:43579 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751356AbZGGPMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 11:12:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20090707143416.GB11704@redhat.com>
+In-Reply-To: <20090703221851.23909.923.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Oleg Nesterov (oleg@redhat.com) wrote:
-> On 07/07, Mathieu Desnoyers wrote:
-> >
-> > As with any optimization (and this is one that adds a semantic that will
-> > just grow the memory barrier/locking rule complexity), it should come
-> > with performance benchmarks showing real-life improvements.
+On Fri, Jul 03, 2009 at 04:20:19PM -0600, Grant Likely wrote:
+> From: Grant Likely <grant.likely@secretlab.ca>
 > 
-> Well, the same applies to smp_mb__xxx_atomic_yyy or smp_mb__before_clear_bit.
-> 
-> Imho the new helper is not worse, and it could be also used by
-> try_to_wake_up(), __pollwake(), insert_work() at least.
+> The MDIO rework patches broke the handling of fixed MII links.
+[...]
+> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+> ---
+> Anton, can you please review, comment and test?  I've tested it on an
+> mpc8349 board, but that is the only hardware that I have.  I've also
+> probably made mistakes and it needs to be split up into separate patches,
+> but this is probably a sufficient form for first review.  I'll also give
+> it another once over tomorrow when after I've had a decent night sleep.
 
-It's basically related to Amdahl law. If the smp_mb is a small portion
-of the overall read_lock cost, then it may not be worth it to remove it.
-At the contrary, if the mb is a big portion of set/clear bit, then it's
-worth it. We also have to consider the frequency at which these
-operations are done to figure out the overall performance impact.
-Also, locks imply cache-line bouncing, which are typically costly.
-clear/set bit does not imply this as much. So the tradeoffs are very
-different there.
+fs_enet this time...
 
-So it's not as simple as "we do this for set/clear bit, we should
-therefore do this for locks".
+[..]
+> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+> index b892c3a..39244b2 100644
+> --- a/drivers/net/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/fs_enet/fs_enet-main.c
+> @@ -722,8 +722,6 @@ static void generic_adjust_link(struct  net_device *dev)
+>  	} else if (fep->oldlink) {
+>  		new_state = 1;
+>  		fep->oldlink = 0;
+> -		fep->oldspeed = 0;
+> -		fep->oldduplex = -1;
+>  	}
+>  
+>  	if (new_state && netif_msg_link(fep))
+> @@ -749,25 +747,21 @@ static void fs_adjust_link(struct net_device *dev)
+>  static int fs_init_phy(struct net_device *dev)
+>  {
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+> -	struct phy_device *phydev;
+>  
+> -	fep->oldlink = 0;
+> -	fep->oldspeed = 0;
+> -	fep->oldduplex = -1;
+> +	/* If a link is already flagged, then set up initial state */
+> +	if (fep->oldlink) {
+> +		netif_carrier_on(dev);
+> +		fep->ops->restart(dev);
 
-> 
-> > Otherwise I'd recommend sticking to smp_mb() if this execution path is
-> > not that critical, or to move to RCU if it's _that_ critical.
-> >
-> > A valid argument would be if the data structures protected are so
-> > complex that RCU is out of question but still the few cycles saved by
-> > removing a memory barrier are really significant.
-> 
-> Not sure I understand how RCU can help,
-> 
+->restart() will dereference phydev, which is NULL.
 
-Changing a read_lock to a rcu_read_lock would save the whole atomic
-cache-line bouncing operation on that fast path. But it may imply data
-structure redesign. So it is more for future development than current
-kernel releases.
+grep for 'phydev' in fs_enet/mac-*.c.
 
-> > And even then, the
-> > proper solution would be more something like a
-> > __read_lock()+smp_mb+smp_mb+__read_unlock(), so we get the performance
-> > improvements on architectures other than x86 as well.
-> 
-> Hmm. could you explain what you mean?
-> 
-
-Actually, thinking about it more, to appropriately support x86, as well
-as powerpc, arm and mips, we would need something like:
-
-read_lock_smp_mb()
-
-Which would be a read_lock with an included memory barrier.
-
-Mathieu
+Unable to handle kernel paging request for data at address 0x000000d0
+Faulting instruction address: 0xc01842cc
+Oops: Kernel access of bad area, sig: 11 [#1]
+[...]
+NIP [c01842cc] restart+0x3ac/0x434
+LR [c0184260] restart+0x340/0x434
+Call Trace:               
+[c3825e60] [c0184260] restart+0x340/0x434 (unreliable)
+[c3825e80] [c018231c] fs_init_phy+0x3c/0xbc
+[c3825e90] [c01838a4] fs_enet_open+0x110/0x1cc
+[c3825eb0] [c01b19b0] dev_open+0xcc/0x130
+[c3825ed0] [c01b0100] dev_change_flags+0xb8/0x18c
+[c3825ef0] [c030c4e4] ic_open_devs+0x188/0x284
+[c3825f30] [c030d770] ip_auto_config+0x7c/0x278
+[c3825f60] [c000393c] do_one_initcall+0x58/0x19c
+[c3825fd0] [c02f62e4] do_initcalls+0x30/0x50
+[c3825fe0] [c02f6374] kernel_init+0x38/0x94
+[c3825ff0] [c0010824] kernel_thread+0x4c/0x68
+Instruction dump:         
+901e0004 801c0060 2f800000 419e0020 7c0004ac 801e0004 0c000000 4c00012c
+64000002 7c0004ac 901e0004 813d0110 <800900d0> 2f800000 419e0024 7c0004ac
+---[ end trace 1ae193a95823d5e4 ]---
 
 
-> Oleg.
-> 
+And the same comment regarding link speed/duplex reporting for
+userspace:
+
+# ethtool eth1
+Settings for eth1:
+Cannot get device settings: No such device
+        Current message level: 0x00000000 (0)
+        Link detected: yes
+
+
+Thanks,
 
 -- 
-Mathieu Desnoyers
-OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
+Anton Vorontsov
+email: cbouatmailru@gmail.com
+irc://irc.freenode.net/bd2
