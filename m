@@ -1,32 +1,46 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: MIPS: BCM63XX: Add integrated ethernet mac support.
-Date: Wed, 8 Jul 2009 16:25:21 +0100
-Message-ID: <20090708152521.GB856@linux-mips.org>
-References: <20090707.192658.31078101.davem@davemloft.net>
+From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
+Date: Wed, 08 Jul 2009 08:30:24 -0700
+Message-ID: <87ab3fqjjj.fsf@caffeine.danplanet.com>
+References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
+	<1246994776-1882-3-git-send-email-danms@us.ibm.com>
+	<4A54A61A.30307@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mbizon@freebox.fr, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:47746 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751365AbZGHPZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2009 11:25:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20090707.192658.31078101.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 07, 2009 at 07:26:58PM -0700, David Miller wrote:
+OL> The live c/r of open connections is very useful for process
+OL> migration. For other scenarios (e.g. fault recovery in HPC) it
+OL> does not matter that much.
 
-> I can't apply this to net-next-2.6 beause it depends upon
-> the patches that add arch/mips/bcm63xx etc.
-> 
-> So Ralf you can add this to your tree and feel free to add
-> my signoff:
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+Perhaps it makes sense to shelve the INET patch for a while until we
+can get the UNIX patch worked into decent shape?
 
-Thanks, will do.  Will show up in linux-next shortly.
+OL> Are you certain that none of the values below needs to be
+OL> sanitized before put in the kernel ?
 
-  Ralf
+No.
+
+I removed the "I'm sure there are lots of holes here" comment so as
+not to scare off the netdev folks.  In case it's not (painfully)
+obvious, the UNIX patch has gotten significantly more attention so
+far.
+
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
