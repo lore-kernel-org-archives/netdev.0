@@ -1,19 +1,19 @@
 From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: [PATCH 25/44] includecheck fix: drivers/net, smc911x.h
-Date: Wed, 08 Jul 2009 20:55:29 +0530
-Message-ID: <1247066729.4382.72.camel@ht.satnam>
+Subject: [PATCH 39/44] includecheck fix: include/linux, icmpv6.h
+Date: Wed, 08 Jul 2009 21:23:11 +0530
+Message-ID: <1247068391.4382.103.camel@ht.satnam>
 References: <1247063308.4382.12.camel@ht.satnam>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, nico@cam.org,
+To: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>, Sam Ravnborg <sam@ravnborg.org>,
 	LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:53170 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:53279 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756364AbZGHQED (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jul 2009 12:04:03 -0400
+	id S1759305AbZGHQGM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2009 12:06:12 -0400
 In-Reply-To: <1247063308.4382.12.camel@ht.satnam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,25 +21,26 @@ List-ID: <netdev.vger.kernel.org>
 
 fix the following 'make includecheck' warning:
 
-  drivers/net/smc911x.h: mach/dma.h is included more than once.
+  include/linux/icmpv6.h: linux/skbuff.h is included more than once.
 
 Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
 ---
- drivers/net/smc911x.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ include/linux/icmpv6.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
-index 8140f7c..05adb6a 100644
---- a/drivers/net/smc911x.h
-+++ b/drivers/net/smc911x.h
-@@ -236,7 +236,6 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
-  * Use a DMA for RX and TX packets.
-  */
- #include <linux/dma-mapping.h>
--#include <mach/dma.h>
+diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
+index b6a8518..c0d8357 100644
+--- a/include/linux/icmpv6.h
++++ b/include/linux/icmpv6.h
+@@ -171,8 +171,6 @@ struct icmp6_filter {
+ #ifdef __KERNEL__
  
- static dma_addr_t rx_dmabuf, tx_dmabuf;
- static int rx_dmalen, tx_dmalen;
+ #include <linux/netdevice.h>
+-#include <linux/skbuff.h>
+-
+ 
+ extern void				icmpv6_send(struct sk_buff *skb,
+ 						    u8 type, u8 code,
 -- 
 1.6.0.6
 
