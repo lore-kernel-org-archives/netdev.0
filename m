@@ -1,62 +1,74 @@
-From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/2] c/r: Add AF_UNIX support (v5)
-Date: Wed, 08 Jul 2009 09:55:46 -0700
-Message-ID: <8763e3qfl9.fsf@caffeine.danplanet.com>
-References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	<1246994776-1882-2-git-send-email-danms@us.ibm.com>
-	<4A543D82.5080408@cs.columbia.edu>
-	<87ljmzqjvl.fsf@caffeine.danplanet.com>
-	<4A54CCDB.1090602@cs.columbia.edu>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+Date: Wed, 8 Jul 2009 11:02:22 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F8ACEC9A1@rrsmsx501.amr.corp.intel.com>
+References: <4A537469.3040207@gmail.com>
+	<EA929A9653AAE14F841771FB1DE5A1365F8ACEBEE9@rrsmsx501.amr.corp.intel.com>
+	<4A53CD39.7080407@gmail.com> <20090707.191424.167842005.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4A54CCDB.1090602-eQaUEPhvms7ENvBUuze7eA@public.gmane.org> (Oren Laadan's message of
-	"Wed\, 08 Jul 2009 12\:44\:11 -0400")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "emils.tantilov@gmail.com" <emils.tantilov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"jolsa@redhat.com" <jolsa@redhat.com>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:14694 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754100AbZGHRCo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 13:02:44 -0400
+In-Reply-To: <20090707.191424.167842005.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OL> It will mostly fix the buffer limits, but not entirely: if the
-OL> original socket first raised the limits above defualt, then sent
-OL> data (not read by peer), then you'll still need to adjust the
-OL> limit before restoring the buffers.
+David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 08 Jul 2009 00:33:29 +0200
+> 
+>> [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+>> 
+>> Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code rely that some
+>> fields should not be blindly overwritten, even with null.
+>> 
+>> These fields are sk->sk_refcnt and sk->sk_nulls_node.next
+>> 
+>> Current sk_prot_alloc() implementation doesnt respect this
+>> hypothesis, calling kmem_cache_alloc() with __GFP_ZERO and setting
+>> sk_refcnt to 1 instead of atomically increment it.
+>> 
+>> Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> I've applied this but will wait for some more testing before
+> I push it out for real to kernel.org
 
-If we cap the buffers in the checkpoint image to the current system
-limit (sysctl) and then set the per-socket buffer limit (after reading
-them in) to the value in the checkpoint image then we get the desired
-result, right?
+Still seeing traces during the test even with this patch applied:
 
-OL> I can't predict the future, but it's been there forever...
+[ 1089.430093] ------------[ cut here ]------------
+[ 1089.435667] WARNING: at include/net/sock.h:423 udp_lib_unhash+0x73/0xa0()
+[ 1089.435670] Hardware name: S5520HC
+[ 1089.435671] Modules linked in: igb dca mdio [last unloaded: ixgbe]
+[ 1089.435678] Pid: 15545, comm: netserver Not tainted 2.6.31-rc1-net-2.6-igb-ed-07071641 #4
+[ 1089.435681] Call Trace:
+[ 1089.435686]  [<ffffffff813e8a2f>] ? udp_lib_unhash+0x73/0xa0
+[ 1089.435691]  [<ffffffff81057b49>] warn_slowpath_common+0x77/0x8f
+[ 1089.435696]  [<ffffffff81057b70>] warn_slowpath_null+0xf/0x11
+[ 1089.435700]  [<ffffffff813e8a2f>] udp_lib_unhash+0x73/0xa0
+[ 1089.435705]  [<ffffffff8138e616>] sk_common_release+0x2f/0xb4
+[ 1089.435710]  [<ffffffff81429028>] udp_lib_close+0x9/0xb
+[ 1089.435715]  [<ffffffff813ee62a>] inet_release+0x58/0x5f
+[ 1089.435720]  [<ffffffff814158e5>] inet6_release+0x30/0x35
+[ 1089.435725]  [<ffffffff8138be4b>] sock_release+0x1a/0x6c
+[ 1089.435729]  [<ffffffff8138c366>] sock_close+0x22/0x26
+[ 1089.435735]  [<ffffffff810ec923>] __fput+0xf0/0x18c
+[ 1089.435739]  [<ffffffff810eccd1>] fput+0x15/0x18
+[ 1089.435742]  [<ffffffff810e9bfa>] filp_close+0x5c/0x67
+[ 1089.435746]  [<ffffffff810e9c80>] sys_close+0x7b/0xb6
+[ 1089.435751]  [<ffffffff81027aab>] system_call_fastpath+0x16/0x1b
+[ 1089.435755] ---[ end trace a79410bd00b8b1ac ]---
 
-Yeah, after I sent that I remembered that the magic 108 is in the
-sockaddr_un structure which is a userspace API and therefore not
-likely to change.
-
-OL> But the point is that I would interpret ENOSPC as "storage/space
-OL> is exhausted", while here the error is that this value is simply
-OL> invalid for the particular kernel on which the restart occurs.
-
-Yep, fair enough.
-
-OL> In the original system, once the file becomes unreachable it
-OL> cannot be made reachable again by simple (re)mounting, IOW it can
-OL> no longer be connected-to.
-
-Ah, I thought you meant "was reachable on the source system and not
-reachable on the target system".  I'm with you now :)
-
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+Emil
