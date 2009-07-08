@@ -1,46 +1,49 @@
-From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
-Date: Wed, 08 Jul 2009 08:30:24 -0700
-Message-ID: <87ab3fqjjj.fsf@caffeine.danplanet.com>
-References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	<1246994776-1882-3-git-send-email-danms@us.ibm.com>
-	<4A54A61A.30307@cs.columbia.edu>
+From: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Subject: [PATCH 24/44] includecheck fix: drivers/net, axnet_cs.c
+Date: Wed, 08 Jul 2009 20:53:53 +0530
+Message-ID: <1247066633.4382.70.camel@ht.satnam>
+References: <1247063308.4382.12.camel@ht.satnam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+	linux-pcmcia@lists.infradead.org, Sam Ravnborg <sam@ravnborg.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1247063308.4382.12.camel@ht.satnam>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-OL> The live c/r of open connections is very useful for process
-OL> migration. For other scenarios (e.g. fault recovery in HPC) it
-OL> does not matter that much.
 
-Perhaps it makes sense to shelve the INET patch for a while until we
-can get the UNIX patch worked into decent shape?
+fix the following 'make includecheck' warning:
 
-OL> Are you certain that none of the values below needs to be
-OL> sanitized before put in the kernel ?
+  drivers/net/pcmcia/axnet_cs.c: linux/etherdevice.h is included more than once.
 
-No.
+Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
+---
+ drivers/net/pcmcia/axnet_cs.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-I removed the "I'm sure there are lots of holes here" comment so as
-not to scare off the netdev folks.  In case it's not (painfully)
-obvious, the UNIX patch has gotten significantly more attention so
-far.
-
+diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
+index 0e38d80..5a17117 100644
+--- a/drivers/net/pcmcia/axnet_cs.c
++++ b/drivers/net/pcmcia/axnet_cs.c
+@@ -893,8 +893,6 @@ static const char version_8390[] = KERN_INFO \
+ #include <linux/in.h>
+ #include <linux/interrupt.h>
+ 
+-#include <linux/etherdevice.h>
+-
+ #define BUG_83C690
+ 
+ /* These are the operational function interfaces to board-specific
 -- 
-Dan Smith
-IBM Linux Technology Center
-email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+1.6.0.6
