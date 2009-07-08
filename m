@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: Remove a dead line of code
-Date: Tue, 07 Jul 2009 19:22:57 -0700 (PDT)
-Message-ID: <20090707.192257.186841895.davem@davemloft.net>
-References: <20090707181133.8021.9712.stgit@flek.lan>
+Subject: Re: [PATCH] ucc_geth: Add support for skb recycling
+Date: Tue, 07 Jul 2009 19:23:07 -0700 (PDT)
+Message-ID: <20090707.192307.222215206.davem@davemloft.net>
+References: <20090707183842.GA8425@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.moore@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34532
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755818AbZGHCWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jul 2009 22:22:55 -0400
-In-Reply-To: <20090707181133.8021.9712.stgit@flek.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, leoli@freescale.com, afleming@freescale.com,
+	linuxppc-dev@ozlabs.org
+To: avorontsov@ru.mvista.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090707183842.GA8425@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Tue, 07 Jul 2009 14:11:33 -0400
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Date: Tue, 7 Jul 2009 22:38:42 +0400
 
-> Remove an unnecessary assignment.
+> We can reclaim transmitted skbs to use in the receive path, so-called
+> skb recycling support.
 > 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+> Also reorder ucc_geth_poll() steps, so that we'll clean tx ring firstly,
+> thus maybe reclaim some skbs for rx.
+> 
+> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 
 Applied to net-next-2.6
