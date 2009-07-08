@@ -1,43 +1,55 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 1/2] c/r: Add AF_UNIX support (v5)
-Date: Wed, 08 Jul 2009 12:27:20 -0700
-Message-ID: <87y6qzou07.fsf@caffeine.danplanet.com>
-References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	<1246994776-1882-2-git-send-email-danms@us.ibm.com>
-	<4A543D82.5080408@cs.columbia.edu> <20090708140152.GC10787@us.ibm.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: [PATCHv6 0/2] net: fix race in the receive/select
+Date: Wed, 8 Jul 2009 21:47:26 +0200
+Message-ID: <20090708194726.GA3196@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Oren Laadan <orenl@cs.columbia.edu>, containers@lists.osdl.org,
-	netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>
-To: "Serge E. Hallyn" <serue@us.ibm.com>
+Cc: eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca,
+	mingo@elte.hu, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, fbl@redhat.com, nhorman@redhat.com,
+	htejun@gmail.com, jarkao2@gmail.com, oleg@redhat.com,
+	davidel@xmailserver.org, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:33464 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753481AbZGHT1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 15:27:23 -0400
-In-Reply-To: <20090708140152.GC10787@us.ibm.com> (Serge E. Hallyn's message of "Wed\, 8 Jul 2009 09\:01\:52 -0500")
+Received: from mx2.redhat.com ([66.187.237.31]:42521 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754539AbZGHTr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jul 2009 15:47:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SH> That also caused you to skip a bunch of security_* calls (at the
-SH> least here, at the recv equivalent, do_sock_getname, and at your
-SH> bind at restore).
+This patchset fixies the race within the poll_wait call and the receive callbacks,
+by adding memory barrier.
 
-SH> I don't think simply inserting them here is the right thing to do,
-SH> bc then as the main code changes this code is likely to fall out
-SH> of sync.  So like Oren says, I think you need to do more re-use of
-SH> the common code.  For the bind() case, for instance, write a
-SH> common helper used by both sys_bind() and your restart bind, which
-SH> does the security check and then calls sock->ops->bind().  It
-SH> makes your patchset a bit more intrusive, but easier to maintain.
+- 1/2 includes the actual fix
+- 2/2 includes optimization for the x86 arch
 
-Does it make sense to modify kern_bind() (and friends) to make the
-security_*() calls and then make sys_bind() and my restore code use
-kern_bind()?  I don't know enough about the security stuff to know if
-the other uses of kern_bind() in the kernel would trip up if the
-checks are done there...
+It is discussed and described in the following discussions:
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+http://lkml.org/lkml/2009/6/18/124
+http://lkml.org/lkml/2009/6/25/188
+http://lkml.org/lkml/2009/6/29/216
+http://lkml.org/lkml/2009/7/3/68
+
+Patchset is made on top of Linus'es tree 44b572809581d5a10dbe35aa6bf689f32b9c5ad6 .
+
+Booted on x86_64.
+
+wbr,
+jirka
+
+---
+ arch/x86/include/asm/spinlock.h |    4 ++
+ include/linux/spinlock.h        |    5 +++
+ include/net/sock.h              |   69 +++++++++++++++++++++++++++++++++++++++
+ net/atm/common.c                |    6 ++--
+ net/core/datagram.c             |    2 +-
+ net/core/sock.c                 |    8 ++--
+ net/dccp/output.c               |    2 +-
+ net/dccp/proto.c                |    2 +-
+ net/ipv4/tcp.c                  |    2 +-
+ net/iucv/af_iucv.c              |    4 +-
+ net/rxrpc/af_rxrpc.c            |    4 +-
+ net/unix/af_unix.c              |    8 ++--
+ 12 files changed, 97 insertions(+), 19 deletions(-)
