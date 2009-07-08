@@ -1,41 +1,258 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2 -stable] Re: rib_trie / Fix inflate_threshold_root.
-	Now=15 size=11 bits
-Date: Wed, 8 Jul 2009 08:44:48 +0200
-Message-ID: <20090708064448.GA3148@ami.dom.local>
-References: <20090702060011.GB4954@ff.dom.local> <4A4FF34E.7080001@itcare.pl> <20090705130828.GB3094@ami.dom.local> <20090707.194208.76202299.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+Date: Wed, 08 Jul 2009 08:50:08 +0200
+Message-ID: <4A5441A0.3050504@gmail.com>
+References: <4A537469.3040207@gmail.com>	<EA929A9653AAE14F841771FB1DE5A1365F8ACEBEE9@rrsmsx501.amr.corp.intel.com>	<4A53CD39.7080407@gmail.com> <20090707.191424.167842005.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pstaszewski@itcare.pl, netdev@vger.kernel.org, robert@robur.slu.se,
-	jorge@dti2.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: emil.s.tantilov@intel.com, emils.tantilov@gmail.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, jolsa@redhat.com,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:46521 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758630AbZGHGp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 02:45:26 -0400
-Received: by bwz25 with SMTP id 25so2573045bwz.37
-        for <netdev@vger.kernel.org>; Tue, 07 Jul 2009 23:45:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090707.194208.76202299.davem@davemloft.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:39148 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755989AbZGHGun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 02:50:43 -0400
+In-Reply-To: <20090707.191424.167842005.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 07, 2009 at 07:42:08PM -0700, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Sun, 5 Jul 2009 15:08:28 +0200
-> 
-> > This new patch below is intended only for -stable (and later for
-> > net-next), because it doesn't meet rules of the current -rc. Anyway,
-> > it's not critical (but it actually fixes a regression from 2.6.22).
-> 
-> I think if we' re going to toss this into -stable, we should
-> put it into net-2.6 too, and that's what I'm going to do.
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 08 Jul 2009 00:33:29 +0200
+>=20
+>> [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+>>
+>> Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code rely that som=
+e
+>> fields should not be blindly overwritten, even with null.
+>>
+>> These fields are sk->sk_refcnt and sk->sk_nulls_node.next
+>>
+>> Current sk_prot_alloc() implementation doesnt respect this hypothesi=
+s,
+>> calling kmem_cache_alloc() with __GFP_ZERO and setting sk_refcnt to =
+1
+>> instead of atomically increment it.
+>>
+>> Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> I've applied this but will wait for some more testing before
+> I push it out for real to kernel.org
 
-It's your decision: I don't think this patch is worth any arguing
-about (de)stabilizing. Btw., since -stable rules are less strict it
-seems natural such patches with bug fixes should rather go net-next
--> -stable way, unless I miss something?
+Thanks David
 
-Thanks,
-Jarek P.
+I forgot to CC Paul and Patrick, so I'll ask them to look at this patch=
+=2E
+
+Patrick, a similar fix is needed in conntrack as well, we currently
+uses "ct =3D kmem_cache_zalloc(nf_conntrack_cachep, gfp);" and thus
+ overwrite struct hlist_nulls_node hnnode; contained
+in "struct nf_conntrack_tuple_hash", while lockless readers still
+potentialy need them. Setting hnnode.next to NULL is dangerous
+since last bit is not set (not a nulls value), a reader could
+try to dereference this NULL pointer and trap.
+
+
+Here is the patch again so that Paul & Patrick can comment on it.
+
+I am not sure about the refcnt thing (blindly setting it to 0 again
+should be OK in fact, since no reader should/can to the=20
+atomic_inc_if_not_zero on it), but the nulls.next thing is problematic.
+
+[PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+
+Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code rely that some
+fields should not be blindly overwritten, even with null.
+
+These fields are sk->sk_refcnt and sk->sk_nulls_node.next
+
+Current sk_prot_alloc() implementation doesnt respect this hypothesis,
+calling kmem_cache_alloc() with __GFP_ZERO and setting sk_refcnt to 1
+instead of atomically increment it.
+
+Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/sock.h            |   24 +++++++++------
+ net/core/sock.c               |   49 ++++++++++++++++++++++++++++----
+ net/ipv4/inet_timewait_sock.c |    2 -
+ 3 files changed, 59 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 352f06b..3f6284e 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -103,15 +103,15 @@ struct net;
+=20
+ /**
+  *	struct sock_common - minimal network layer representation of socket=
+s
++ *	@skc_node: main hash linkage for various protocol lookup tables
++ *	@skc_nulls_node: main hash linkage for UDP/UDP-Lite protocol
++ *	@skc_refcnt: reference count
++ *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_family: network address family
+  *	@skc_state: Connection state
+  *	@skc_reuse: %SO_REUSEADDR setting
+  *	@skc_bound_dev_if: bound device index if !=3D 0
+- *	@skc_node: main hash linkage for various protocol lookup tables
+- *	@skc_nulls_node: main hash linkage for UDP/UDP-Lite protocol
+  *	@skc_bind_node: bind hash linkage for various protocol lookup table=
+s
+- *	@skc_refcnt: reference count
+- *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_prot: protocol handlers inside a network family
+  *	@skc_net: reference to the network namespace of this socket
+  *
+@@ -119,17 +119,23 @@ struct net;
+  *	for struct sock and struct inet_timewait_sock.
+  */
+ struct sock_common {
+-	unsigned short		skc_family;
+-	volatile unsigned char	skc_state;
+-	unsigned char		skc_reuse;
+-	int			skc_bound_dev_if;
++	/*
++	 * WARNING : skc_node, skc_refcnt must be first elements of this stru=
+ct
++	 * (sk_prot_alloc() should not clear skc_node.next & skc_refcnt becau=
+se
++	 *  of RCU lookups)
++	 */
+ 	union {
+ 		struct hlist_node	skc_node;
+ 		struct hlist_nulls_node skc_nulls_node;
+ 	};
+-	struct hlist_node	skc_bind_node;
+ 	atomic_t		skc_refcnt;
++
+ 	unsigned int		skc_hash;
++	unsigned short		skc_family;
++	volatile unsigned char	skc_state;
++	unsigned char		skc_reuse;
++	int			skc_bound_dev_if;
++	struct hlist_node	skc_bind_node;
+ 	struct proto		*skc_prot;
+ #ifdef CONFIG_NET_NS
+ 	struct net	 	*skc_net;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b0ba569..cf43ff1 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -939,8 +939,31 @@ static struct sock *sk_prot_alloc(struct proto *pr=
+ot, gfp_t priority,
+ 	struct kmem_cache *slab;
+=20
+ 	slab =3D prot->slab;
+-	if (slab !=3D NULL)
+-		sk =3D kmem_cache_alloc(slab, priority);
++	if (slab !=3D NULL) {
++		/*
++		 * caches using SLAB_DESTROY_BY_RCU should let sk_node
++		 * and sk_refcnt untouched.
++		 *
++		 * Following makes sense only if sk first fields are
++		 * in following order : sk_node, refcnt, sk_hash
++		 */
++		BUILD_BUG_ON(offsetof(struct sock, sk_node) !=3D 0);
++		BUILD_BUG_ON(offsetof(struct sock, sk_refcnt) !=3D
++			     sizeof(sk->sk_node));
++		BUILD_BUG_ON(offsetof(struct sock, sk_hash) !=3D
++			     sizeof(sk->sk_node) + sizeof(sk->sk_refcnt));
++		sk =3D kmem_cache_alloc(slab, priority & ~__GFP_ZERO);
++		if (!sk)
++			return sk;
++		if (priority & __GFP_ZERO) {
++			if (prot->slab_flags & SLAB_DESTROY_BY_RCU)
++				memset(&sk->sk_hash, 0,
++				       prot->obj_size -
++				       offsetof(struct sock, sk_hash));
++			else
++				memset(sk, 0, prot->obj_size);
++		}
++	}
+ 	else
+ 		sk =3D kmalloc(prot->obj_size, priority);
+=20
+@@ -1125,7 +1148,7 @@ struct sock *sk_clone(const struct sock *sk, cons=
+t gfp_t priority)
+=20
+ 		newsk->sk_err	   =3D 0;
+ 		newsk->sk_priority =3D 0;
+-		atomic_set(&newsk->sk_refcnt, 2);
++		atomic_add(2, &newsk->sk_refcnt);
+=20
+ 		/*
+ 		 * Increment the counter in the same struct proto as the master
+@@ -1840,7 +1863,7 @@ void sock_init_data(struct socket *sock, struct s=
+ock *sk)
+=20
+ 	sk->sk_stamp =3D ktime_set(-1L, 0);
+=20
+-	atomic_set(&sk->sk_refcnt, 1);
++	atomic_inc(&sk->sk_refcnt);
+ 	atomic_set(&sk->sk_wmem_alloc, 1);
+ 	atomic_set(&sk->sk_drops, 0);
+ }
+@@ -2140,12 +2163,25 @@ static inline void release_proto_idx(struct pro=
+to *prot)
+ }
+ #endif
+=20
++/*
++ * We need to initialize skc->skc_refcnt to 0, and skc->skc_node.pprev=
+ to NULL
++ * but only on newly allocated objects (check sk_prot_alloc())
++ */
++static void sk_init_once(void *arg)
++{
++	struct sock_common *skc =3D arg;
++
++	atomic_set(&skc->skc_refcnt, 0);
++	skc->skc_node.pprev =3D NULL;
++}
++
+ int proto_register(struct proto *prot, int alloc_slab)
+ {
+ 	if (alloc_slab) {
+ 		prot->slab =3D kmem_cache_create(prot->name, prot->obj_size, 0,
+ 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
+-					NULL);
++					prot->slab_flags & SLAB_DESTROY_BY_RCU ?
++					    sk_init_once : NULL);
+=20
+ 		if (prot->slab =3D=3D NULL) {
+ 			printk(KERN_CRIT "%s: Can't create sock SLAB cache!\n",
+@@ -2187,7 +2223,8 @@ int proto_register(struct proto *prot, int alloc_=
+slab)
+ 						  0,
+ 						  SLAB_HWCACHE_ALIGN |
+ 							prot->slab_flags,
+-						  NULL);
++						  prot->slab_flags & SLAB_DESTROY_BY_RCU ?
++							sk_init_once : NULL);
+ 			if (prot->twsk_prot->twsk_slab =3D=3D NULL)
+ 				goto out_free_timewait_sock_slab_name;
+ 		}
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_soc=
+k.c
+index 61283f9..a2997df 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -139,7 +139,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const st=
+ruct sock *sk, const int stat
+ 		tw->tw_transparent  =3D inet->transparent;
+ 		tw->tw_prot	    =3D sk->sk_prot_creator;
+ 		twsk_net_set(tw, hold_net(sock_net(sk)));
+-		atomic_set(&tw->tw_refcnt, 1);
++		atomic_inc(&tw->tw_refcnt);
+ 		inet_twsk_dead_node_init(tw);
+ 		__module_get(tw->tw_prot->owner);
+ 	}
+
