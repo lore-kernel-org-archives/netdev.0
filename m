@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 4/8 net-next-2.6] cxgb3: AQ100X phy support update
-Date: Tue, 07 Jul 2009 22:48:48 -0700
-Message-ID: <20090708054848.11344.54063.stgit@speedy5>
+Subject: [PATCH 5/8 net-next-2.6] cxgb3: fix phy power down
+Date: Tue, 07 Jul 2009 22:48:53 -0700
+Message-ID: <20090708054853.11344.89582.stgit@speedy5>
 References: <20090708054832.11344.82449.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,53 +10,60 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:23915 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:6812 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755919AbZGHFsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 01:48:50 -0400
+	with ESMTP id S1758371AbZGHFsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 01:48:55 -0400
 In-Reply-To: <20090708054832.11344.82449.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Add missing SUPPORTED_TP flag.
-Update FW version checking.
-Do the full initialization even if the FW version is unknown,
-it might help catching further issues.
+2 phys are were not getting the Global Tx disable bit set
+when powered down, leading to an inconsistent link state
+on peer.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/aq100x.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/cxgb3/ael1002.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
 
-diff --git a/drivers/net/cxgb3/aq100x.c b/drivers/net/cxgb3/aq100x.c
-index b1fd5bf..341b7ef 100644
---- a/drivers/net/cxgb3/aq100x.c
-+++ b/drivers/net/cxgb3/aq100x.c
-@@ -271,7 +271,8 @@ int t3_aq100x_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
+index 99e3e0f..66e47f7 100644
+--- a/drivers/net/cxgb3/ael1002.c
++++ b/drivers/net/cxgb3/ael1002.c
+@@ -224,12 +224,6 @@ static int ael1006_reset(struct cphy *phy, int wait)
+ 	return t3_phy_reset(phy, MDIO_MMD_PMAPMD, wait);
+ }
  
- 	cphy_init(phy, adapter, phy_addr, &aq100x_ops, mdio_ops,
- 		  SUPPORTED_1000baseT_Full | SUPPORTED_10000baseT_Full |
--		  SUPPORTED_Autoneg | SUPPORTED_AUI, "1000/10GBASE-T");
-+		  SUPPORTED_TP | SUPPORTED_Autoneg | SUPPORTED_AUI,
-+		  "1000/10GBASE-T");
+-static int ael1006_power_down(struct cphy *phy, int enable)
+-{
+-	return mdio_set_flag(&phy->mdio, phy->mdio.prtad, MDIO_MMD_PMAPMD,
+-			     MDIO_CTRL1, MDIO_CTRL1_LPOWER, enable);
+-}
+-
+ static struct cphy_ops ael1006_ops = {
+ 	.reset = ael1006_reset,
+ 	.intr_enable = t3_phy_lasi_intr_enable,
+@@ -237,7 +231,7 @@ static struct cphy_ops ael1006_ops = {
+ 	.intr_clear = t3_phy_lasi_intr_clear,
+ 	.intr_handler = t3_phy_lasi_intr_handler,
+ 	.get_link_status = get_link_status_r,
+-	.power_down = ael1006_power_down,
++	.power_down = ael1002_power_down,
+ 	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
+ };
  
- 	/*
- 	 * The PHY has been out of reset ever since the system powered up.  So
-@@ -316,11 +317,9 @@ int t3_aq100x_phy_prep(struct cphy *phy, struct adapter *adapter, int phy_addr,
+@@ -1888,7 +1882,7 @@ static struct cphy_ops qt2045_ops = {
+ 	.intr_clear = t3_phy_lasi_intr_clear,
+ 	.intr_handler = t3_phy_lasi_intr_handler,
+ 	.get_link_status = get_link_status_x,
+-	.power_down = ael1006_power_down,
++	.power_down = ael1002_power_down,
+ 	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
+ };
  
- 	/* Firmware version check. */
- 	t3_mdio_read(phy, MDIO_MMD_VEND1, AQ_FW_VERSION, &v);
--	if (v != 30) {
-+	if (v != 101)
- 		CH_WARN(adapter, "PHY%d: unsupported firmware %d\n",
- 			phy_addr, v);
--		return 0; /* allow t3_prep_adapter to succeed */
--	}
- 
- 	/*
- 	 * The PHY should start in really-low-power mode.  Prepare it for normal
 
