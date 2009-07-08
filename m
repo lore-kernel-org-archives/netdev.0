@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 5/8 net-next-2.6] cxgb3: fix phy power down
-Date: Tue, 07 Jul 2009 22:48:53 -0700
-Message-ID: <20090708054853.11344.89582.stgit@speedy5>
+Subject: [PATCH 6/8 net-next-2.6] cxgb3: Fix mss table initialization
+Date: Tue, 07 Jul 2009 22:48:59 -0700
+Message-ID: <20090708054858.11344.86017.stgit@speedy5>
 References: <20090708054832.11344.82449.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,60 +10,36 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6812 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:3106 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758371AbZGHFsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 01:48:55 -0400
+	with ESMTP id S1758473AbZGHFtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 01:49:01 -0400
 In-Reply-To: <20090708054832.11344.82449.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Divy Le Ray <divy@chelsio.com>
 
-2 phys are were not getting the Global Tx disable bit set
-when powered down, leading to an inconsistent link state
-on peer.
+Fix the HW SMT table initialization to avoid random
+mss miscomputations for offload connections.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/ael1002.c |   10 ++--------
- 1 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/cxgb3/cxgb3_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 
-diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-index 99e3e0f..66e47f7 100644
---- a/drivers/net/cxgb3/ael1002.c
-+++ b/drivers/net/cxgb3/ael1002.c
-@@ -224,12 +224,6 @@ static int ael1006_reset(struct cphy *phy, int wait)
- 	return t3_phy_reset(phy, MDIO_MMD_PMAPMD, wait);
- }
- 
--static int ael1006_power_down(struct cphy *phy, int enable)
--{
--	return mdio_set_flag(&phy->mdio, phy->mdio.prtad, MDIO_MMD_PMAPMD,
--			     MDIO_CTRL1, MDIO_CTRL1_LPOWER, enable);
--}
--
- static struct cphy_ops ael1006_ops = {
- 	.reset = ael1006_reset,
- 	.intr_enable = t3_phy_lasi_intr_enable,
-@@ -237,7 +231,7 @@ static struct cphy_ops ael1006_ops = {
- 	.intr_clear = t3_phy_lasi_intr_clear,
- 	.intr_handler = t3_phy_lasi_intr_handler,
- 	.get_link_status = get_link_status_r,
--	.power_down = ael1006_power_down,
-+	.power_down = ael1002_power_down,
- 	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
-@@ -1888,7 +1882,7 @@ static struct cphy_ops qt2045_ops = {
- 	.intr_clear = t3_phy_lasi_intr_clear,
- 	.intr_handler = t3_phy_lasi_intr_handler,
- 	.get_link_status = get_link_status_x,
--	.power_down = ael1006_power_down,
-+	.power_down = ael1002_power_down,
- 	.mmds = MDIO_DEVS_PMAPMD | MDIO_DEVS_PCS | MDIO_DEVS_PHYXS,
- };
- 
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index ef59921..49fe46d 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -470,6 +470,7 @@ static int init_tp_parity(struct adapter *adap)
+ 		memset(req, 0, sizeof(*req));
+ 		req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+ 		OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SMT_WRITE_REQ, i));
++		req->mtu_idx = NMTUS - 1;
+ 		req->iff = i;
+ 		t3_mgmt_tx(adap, skb);
+ 		if (skb == adap->nofail_skb) {
 
