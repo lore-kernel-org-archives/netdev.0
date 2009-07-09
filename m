@@ -1,41 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] don't touch bridge sysfs in container.
-Date: Thu, 9 Jul 2009 14:23:17 -0700
-Message-ID: <20090709142317.542c51a4@nehalam>
-References: <871vorcrrm.wl%chamas@h4.dion.ne.jp>
-	<20090708093320.1416dfd8@nehalam>
-	<877hyicf4x.wl%chamas@h4.dion.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>,
-	netdev@vger.kernel.org
-To: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: [patch 0/3]  net: Sanitizing hrtimer usage in net/sched/sch_cbq.c
+Date: Thu, 09 Jul 2009 21:59:18 -0000
+Message-ID: <20090709215455.703939259@linutronix.de>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <peterz@infradead.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34001 "EHLO mail.vyatta.com"
+Received: from www.tglx.de ([62.245.132.106]:37927 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754059AbZGIVXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2009 17:23:23 -0400
-In-Reply-To: <877hyicf4x.wl%chamas@h4.dion.ne.jp>
+	id S1754577AbZGIV7g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2009 17:59:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 09 Jul 2009 19:41:34 +0900
-Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp> wrote:
+While looking at the "Soft-Lockup/Race in networking in 2.6.31-rc1+195
+( possibly caused by netem)" issue (http://lkml.org/lkml/2009/7/2/519)
+I noticed some serious problems in the hrtimer related code of
+net/sched/sched/sch_cbq.c.
 
->  Hello,
-> 
-> At Wed, 8 Jul 2009 09:33:20 -0700,
-> Stephen Hemminger wrote:
-> 
-> > There is a per netns sysfs interface, it should be changed to use that.
-> 
-> Sorry, I can see only:
-> 
->     - add netns suffix was disagreed
->     - tagged sysfs may not be merged
+The following patch series addresses these.
 
-Without tagged sysfs, how could bridge interface work in other containers?
+I'm not entirely sure whether patch [1/3] covers all possible
+concurrent modifications, but it fixes the most obvious ones. The
+remaining details are left to the networking experts.
 
+Patches [1/3] and [2/3] might be stable material as well.
 
--- 
+Thanks,
+
+	tglx
+
