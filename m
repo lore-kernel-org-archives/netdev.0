@@ -1,40 +1,36 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: [regression] ath5k: Overrides regulatory domain set for cfg80211
-Date: Thu, 9 Jul 2009 00:10:52 -0700
-Message-ID: <43e72e890907090010y2ebd4f2bvd5fe5612084fe6df@mail.gmail.com>
-References: <200907082340.07787.elendil@planet.nl> <43e72e890907081508n6fa5781an1dcbda078efc5379@mail.gmail.com>
-	<200907090905.27154.hs4233@mail.mn-solutions.de>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
+ using phylib
+Date: Thu, 09 Jul 2009 09:56:50 +0200
+Message-ID: <1247126210.9777.317.camel@twins>
+References: <20090707235812.GA12824@oksana.dev.rtsoft.ru>
+	 <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins>
+	 <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain>
+	 <20090708141024.f8b581c5.akpm@linux-foundation.org>
+	 <20090708213331.GA9346@oksana.dev.rtsoft.ru>
+	 <20090708144744.5555b88d.akpm@linux-foundation.org>
+	 <20090708222003.GA12318@oksana.dev.rtsoft.ru>
+	 <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, Frans Pop <elendil@planet.nl>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Holger Schurig <hs4233@mail.mn-solutions.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f226.google.com ([209.85.217.226]:51948 "EHLO
-	mail-gx0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429AbZGIHLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 03:11:13 -0400
-In-Reply-To: <200907090905.27154.hs4233@mail.mn-solutions.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Andrew Morton <akpm@linux-foundation.org>, oleg@redhat.com,
+	mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758889AbZGIH5M@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 9, 2009 at 12:05 AM, Holger
-Schurig<hs4233@mail.mn-solutions.de> wrote:
->> Eventually, as you will read from the feature-removal
->> schedule, we intend on getting the Linux desktop to provide
->> automatic hints of the user's location through things like
->> GeoClue.
->
-> Please think about embedded people. We don't need no stinkin'
-> geoclue. We'll need a kernel parameter or an commant for "iw" or
-> some other netlink based command.
+On Wed, 2009-07-08 at 17:01 -0700, Linus Torvalds wrote:
+> Looking at the people looking at SYSTEM_RUNNING, I do note some odd cases. 
+> Why the heck does kernel/perf_counter.c do it, for example?
 
-Note I wrote "Linux desktop" not Linux embedded. And we already have a
-nl80211 command for this exact purpose. You can even use
-wpa_supplicant if you don't want to use iw.
+Ah, those are the swcounter and other probe entry points. I've had
+several cases where we called into the perf counter code from those
+points before it was initialized, getting in kernel segfaults due to
+dereferencing uninitialized data etc..
 
-I wouldn't be surprised to see geoclue in embedded devices though.
-
-  Luis
+I could keep a variable that tracked the perf_counter_init() state, and
+use that instead if you prefer?
