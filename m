@@ -1,125 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ip_push_pending_frames() fix
-Date: Thu, 09 Jul 2009 16:38:52 +0200
-Message-ID: <4A5600FC.1080101@gmail.com>
-References: <4A53CD39.7080407@gmail.com>	<20090707.191424.167842005.davem@davemloft.net>	<EA929A9653AAE14F841771FB1DE5A1365F8ACEC9A1@rrsmsx501.amr.corp.intel.com> <20090708.104539.226485646.davem@davemloft.net> <4A552A0D.8080106@gmail.com> <EA929A9653AAE14F841771FB1DE5A1365F8AD4E371@rrsmsx501.amr.corp.intel.com> <4A5537DA.1060200@gmail.com> <EA929A9653AAE14F841771FB1DE5A1365F8AD4E64E@rrsmsx501.amr.corp.intel.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
+ using phylib
+Date: Thu, 09 Jul 2009 09:43:00 -0500
+Message-ID: <1247150580.21295.937.camel@calx>
+References: <20090707235812.GA12824@oksana.dev.rtsoft.ru>
+	 <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins>
+	 <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain>
+	 <20090708141024.f8b581c5.akpm@linux-foundation.org>
+	 <20090708213331.GA9346@oksana.dev.rtsoft.ru>
+	 <20090708144744.5555b88d.akpm@linux-foundation.org>
+	 <20090708222003.GA12318@oksana.dev.rtsoft.ru>
+	 <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+	 <1247145977.21295.899.camel@calx>  <1247147206.7439.2.camel@twins>
+	 <1247149093.21295.915.camel@calx>  <1247149862.12784.6.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"emils.tantilov@gmail.com" <emils.tantilov@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"jolsa@redhat.com" <jolsa@redhat.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Andrew Morton <akpm@linux-foundation.org>, oleg@redhat.com,
+	mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:49263 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759419AbZGIOjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 10:39:22 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F8AD4E64E@rrsmsx501.amr.corp.intel.com>
+Received: from waste.org ([66.93.16.53]:47700 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760730AbZGIOqI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2009 10:46:08 -0400
+In-Reply-To: <1247149862.12784.6.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tantilov, Emil S a =E9crit :
-> Eric Dumazet wrote:
->> Tantilov, Emil S a =E9crit :
->>> Eric Dumazet wrote:
->>>> David Miller a =E9crit :
->>>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->>>>> Date: Wed, 8 Jul 2009 11:02:22 -0600
->>>>>
->>>>>> Still seeing traces during the test even with this patch applied=
-:
->>>>>>
->>>>>> [ 1089.430093] ------------[ cut here ]------------
->>>>>> [ 1089.435667] WARNING: at include/net/sock.h:423
->>>>>> udp_lib_unhash+0x73/0xa0() [ 1089.435670] Hardware name: S5520HC
->>>>> Ok I'll back this out for now, needs more investigation
->>>>> obviously.
->>>> Hmm... I never said it was supposed to fix Emil problem, just that
->>>> I discovered one potential problem by code inspection.
->>>>
->>>> I could not find yet sk_refcnt mismatch.
->>>> As we do less atomic ops per packet than before, some old bug coul=
-d
->>>> surface now...=20
->>>>
->>>> Emil, is it easy to reproduce this problem, considering I have a
->>>> similar platform than yours (dual quad core machine, E5450 cpus @
->>>> 3GHz) ?
->>> Eric,
->>>
->>> It should be easy to reproduce. At least I have been able to
->>> consistently=20
->>> reproduce it on several different systems with different drivers
->>> (e1000, e1000e, igb).=20
->>>
->>> The test I'm running is a mix of IPV4/6 TCP/UDP traffic with netper=
-f
->>> (also mixing different types TCP/UDP_STREAM, TCP_MAERTS, TCP_UDP_RR
->>> etc). How much this matters I don't know - it's possible that just
->>> UDP traffic would do it. I also think it may have something to do
->>> with IPv6 because of the trace, but I am not sure.  =20
->>>
->>> If you need more information let me know.
->>>
->> OK thanks, this was helpful, corking or not corking, that is the
->> question :)=20
->>
->> I think ip6_push_pending_frames() & ip_push_pending_frames
->> have a problem after recent commit
->> 2b85a34e911bf483c27cfdd124aeb1605145dc80 (net: No more expensive
->> sock_hold()/sock_put() on each tx)=20
->>
->> [PATCH] net: ip_push_pending_frames() fix
->>
->> After commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
->> (net: No more expensive sock_hold()/sock_put() on each tx)
->> we do not take any more references on sk->sk_refcnt on outgoing
->> packets.=20
->>
->> I forgot to delete two __sock_put() from ip_push_pending_frames()
->> and ip6_push_pending_frames().
->>
->> Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
->> index 2470262..7d08210 100644
->> --- a/net/ipv4/ip_output.c
->> +++ b/net/ipv4/ip_output.c
->> @@ -1243,7 +1243,6 @@ int ip_push_pending_frames(struct sock *sk)
->>  		skb->len +=3D tmp_skb->len;
->>  		skb->data_len +=3D tmp_skb->len;
->>  		skb->truesize +=3D tmp_skb->truesize;
->> -		__sock_put(tmp_skb->sk);
->>  		tmp_skb->destructor =3D NULL;
->>  		tmp_skb->sk =3D NULL;
->>  	}
->> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->> index 7c76e3d..87f8419 100644
->> --- a/net/ipv6/ip6_output.c
->> +++ b/net/ipv6/ip6_output.c
->> @@ -1484,7 +1484,6 @@ int ip6_push_pending_frames(struct sock *sk)
->>  		skb->len +=3D tmp_skb->len;
->>  		skb->data_len +=3D tmp_skb->len;
->>  		skb->truesize +=3D tmp_skb->truesize;
->> -		__sock_put(tmp_skb->sk);
->>  		tmp_skb->destructor =3D NULL;
->>  		tmp_skb->sk =3D NULL;
->>  	}
->=20
-> Thanks Eric,
->=20
-> With this patch the test ran all night without issues.
->=20
+On Thu, 2009-07-09 at 16:31 +0200, Peter Zijlstra wrote:
+> On Thu, 2009-07-09 at 09:18 -0500, Matt Mackall wrote:
+> > 
+> > Sorry if I was unclear. I'm suggesting setting the count so the existing
+> > PREEMPT_ACTIVE test here fires:
+> > 
+> > int __sched _cond_resched(void)
+> > {
+> >         if (need_resched() && !(preempt_count() & PREEMPT_ACTIVE) &&
+> >                                         system_state == SYSTEM_RUNNING) {
+> >                 __cond_resched();
+> >                 return 1;
+> >         }
+> >         return 0;
+> > }
+> 
+> Right, /me read preempt and thought a simple preempt inc but didn't read
+> the code. Shame on me.
+> 
+> So something like (utterly untested and such)
 
-Thanks a lot Emil for testing and your feedback.
+Yeah, that's what I had in mind. Probably throw in a define:
 
-David, could you please add another tag ?
+/* for disabling scheduling in early boot */
+#define PREEMPT_EARLY (1 + PREEMPT_ACTIVE)
 
-Tested-by: Emil S Tantilov <emils.tantilov@gmail.com>
+and slap a comment on the sub_preempt_count().
 
-Thanks
+Does anything actually use scheduler_running yet? Perhaps my tree is
+old.
+
+Also, might_sleep's use of system_state probably bears revisiting.
+
+-- 
+http://selenic.com : development and support for Mercurial and Linux
+
+
