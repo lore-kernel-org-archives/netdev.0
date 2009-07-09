@@ -1,115 +1,54 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH net-next-2.6 4/5] udpv6: Remove unused skb argument of
- ipv6_select_ident()
-Date: Thu, 09 Jul 2009 11:10:01 -0700
-Message-ID: <1247163001.8649.93.camel@w-sridhar.beaverton.ibm.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH for 2.6.31] cxgb3: Fix crash caused by stashing wrong netdev_queue
+Date: Thu, 09 Jul 2009 12:30:25 -0700
+Message-ID: <adabpnty7qm.fsf_-_@cisco.com>
+References: <adaeisq23rq.fsf@cisco.com> <adaljmyzof4.fsf@cisco.com>
+	<4A554A1D.3070703@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:55418 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753629AbZGISKI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2009 14:10:08 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e7.ny.us.ibm.com (8.13.1/8.13.1) with ESMTP id n69Hv5lw020870
-	for <netdev@vger.kernel.org>; Thu, 9 Jul 2009 13:57:05 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n69IA7Gd254728
-	for <netdev@vger.kernel.org>; Thu, 9 Jul 2009 14:10:07 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n69IA62G002362
-	for <netdev@vger.kernel.org>; Thu, 9 Jul 2009 14:10:07 -0400
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:60026 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753270AbZGITab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 15:30:31 -0400
+In-Reply-To: <4A554A1D.3070703@chelsio.com> (Divy Le Ray's message of "Wed, 08
+	Jul 2009 18:38:37 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net-next-2.6 4/5] udpv6: Remove unused skb argument of ipv6_select_ident()
+Commit c3a8c5b6 ("cxgb3: move away from LLTX") exposed a bug in how
+cxgb3 looks up the netdev_queue it stashes away in a qset during
+initialization.  For multiport devices, the TX queue index it uses is
+offset by the first_qset index of each port.  This leads to a crash
+once LLTX is removed, since hard_start_xmit is called with one TX
+queue lock held, while the TX reclaim timer task grabs a different
+(wrong) TX queue lock when it frees skbs.
 
-- move ipv6_select_ident() inline function to ipv6.h and remove the unused
-  skb argument
+Fix this by removing the first_qset offset used to look up the TX
+queue passed into t3_sge_alloc_qset() from setup_sge_qsets().
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
 ---
- include/net/ipv6.h    |   12 ++++++++++++
- net/ipv6/ip6_output.c |   18 +++---------------
- 2 files changed, 15 insertions(+), 15 deletions(-)
+OK, found the bug that was causing the crash I saw.  With this patch
+everything looks solid again.  Please apply.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index f27fd83..ad9a511 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -441,6 +441,18 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
- 
-+static __inline__ void ipv6_select_ident(struct frag_hdr *fhdr)
-+{
-+	static u32 ipv6_fragmentation_id = 1;
-+	static DEFINE_SPINLOCK(ip6_id_lock);
-+
-+	spin_lock_bh(&ip6_id_lock);
-+	fhdr->identification = htonl(ipv6_fragmentation_id);
-+	if (++ipv6_fragmentation_id == 0)
-+		ipv6_fragmentation_id = 1;
-+	spin_unlock_bh(&ip6_id_lock);
-+}
-+
- /*
-  *	Prototypes exported by ipv6
-  */
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 1c6f0fc..dd1a980 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -57,18 +57,6 @@
- 
- static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
- 
--static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *fhdr)
--{
--	static u32 ipv6_fragmentation_id = 1;
--	static DEFINE_SPINLOCK(ip6_id_lock);
--
--	spin_lock_bh(&ip6_id_lock);
--	fhdr->identification = htonl(ipv6_fragmentation_id);
--	if (++ipv6_fragmentation_id == 0)
--		ipv6_fragmentation_id = 1;
--	spin_unlock_bh(&ip6_id_lock);
--}
--
- int __ip6_local_out(struct sk_buff *skb)
- {
- 	int len;
-@@ -706,7 +694,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 		skb_reset_network_header(skb);
- 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
- 
--		ipv6_select_ident(skb, fh);
-+		ipv6_select_ident(fh);
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		fh->frag_off = htons(IP6_MF);
-@@ -844,7 +832,7 @@ slow_path:
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		if (!frag_id) {
--			ipv6_select_ident(skb, fh);
-+			ipv6_select_ident(fh);
- 			frag_id = fh->identification;
- 		} else
- 			fh->identification = frag_id;
-@@ -1093,7 +1081,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 		skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 					     sizeof(struct frag_hdr)) & ~7;
- 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--		ipv6_select_ident(skb, &fhdr);
-+		ipv6_select_ident(&fhdr);
- 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 		__skb_queue_tail(&sk->sk_write_queue, skb);
- 
+ drivers/net/cxgb3/cxgb3_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 538dda4..fb5df5c 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -642,8 +642,7 @@ static int setup_sge_qsets(struct adapter *adap)
+ 		struct port_info *pi = netdev_priv(dev);
+ 
+ 		pi->qs = &adap->sge.qs[pi->first_qset];
+-		for (j = pi->first_qset; j < pi->first_qset + pi->nqsets;
+-		     ++j, ++qset_idx) {
++		for (j = 0; j < pi->nqsets; ++j, ++qset_idx) {
+ 			set_qset_lro(dev, qset_idx, pi->rx_offload & T3_LRO);
+ 			err = t3_sge_alloc_qset(adap, qset_idx, 1,
+ 				(adap->flags & USING_MSIX) ? qset_idx + 1 :
