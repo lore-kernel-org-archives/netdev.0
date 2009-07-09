@@ -1,53 +1,44 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
- using phylib
-Date: Thu, 09 Jul 2009 10:06:08 -0500
-Message-ID: <1247151968.21295.947.camel@calx>
-References: <20090707235812.GA12824@oksana.dev.rtsoft.ru>
-	 <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins>
-	 <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain>
-	 <20090708141024.f8b581c5.akpm@linux-foundation.org>
-	 <20090708213331.GA9346@oksana.dev.rtsoft.ru>
-	 <20090708144744.5555b88d.akpm@linux-foundation.org>
-	 <20090708222003.GA12318@oksana.dev.rtsoft.ru>
-	 <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
-	 <1247145977.21295.899.camel@calx>  <1247147206.7439.2.camel@twins>
-	 <1247149093.21295.915.camel@calx>  <1247149862.12784.6.camel@twins>
-	 <1247150580.21295.937.camel@calx>  <1247151079.12784.10.camel@twins>
+From: Don Fry <pcnet32@verizon.net>
+Subject: patch acceptance question
+Date: Thu, 09 Jul 2009 08:21:36 -0700
+Message-ID: <1247152896.29603.15.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Andrew Morton <akpm@linux-foundation.org>, oleg@redhat.com,
-	mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:37760 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760922AbZGIPJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2009 11:09:03 -0400
-In-Reply-To: <1247151079.12784.10.camel@twins>
+Received: from vms173005pub.verizon.net ([206.46.173.5]:52483 "EHLO
+	vms173005pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752975AbZGIPWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 11:22:09 -0400
+Received: from [192.168.1.3] ([96.253.170.133]) by vms173005.mailsrvcs.net
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008; 32bit))
+ with ESMTPA id <0KMI0006CTC0KZY6@vms173005.mailsrvcs.net> for
+ netdev@vger.kernel.org; Thu, 09 Jul 2009 10:21:37 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-07-09 at 16:51 +0200, Peter Zijlstra wrote:
-> > Does anything actually use scheduler_running yet? Perhaps my tree is
-> > old.
-> 
-> # git grep scheduler_running
-> kernel/sched.c:static __read_mostly int scheduler_running;
-> kernel/sched.c: scheduler_running = 1;
-> kernel/sched_rt.c:      if (unlikely(!scheduler_running))
-> kernel/sched_rt.c:      if (unlikely(!scheduler_running))
-> 
-> If memory serves there used to be more, but I think that migrated into
-> kernel/sched_clock.c, which has sched_clock_running.
+I was surprised today to see a change to pcnet32.c in 2.6.31-rc2-git4
+which maybe I missed yesterday on netdev.  Most of the changes are okay,
+but one in particular will result in some ugly printing.
 
-The static in the first line makes that a bit of a head-scratcher? Oh, I
-see: it's living in sin. Going to avert my eyes for now.
+What is the path that (probably janitorial) changes take that get
+included in mainline?   Had I seen it before it went in I would have
+commented on it then.
 
--- 
-http://selenic.com : development and support for Mercurial and Linux
+Old:
+pcnet32: PCnet/FAST+ 79C972 at 0x1020, 00:0c:46:53:8d:0c
+    tx_start_pt(0x0c00):~220 bytes, BCR18(9861):BurstWrEn BurstRdEn
+NoUFlow 
+    SRAMSIZE=0x1700, SRAM_BND=0x0800, assigned IRQ 21.
 
+
+New:
+pcnet32: PCnet/FAST+ 79C972 at 0x1020, 00:0c:46:53:8d:0c<6>  tx_start_pt
+(0x0c00):~220 bytes, BCR18(9861):BurstWrEn BurstRdEn NoUFlow 
+    SRAMSIZE=0x1700, SRAM_BND=0x0800, assigned IRQ 21.
+
+
+Thanks,
+Don Fry
 
