@@ -1,109 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: ip_push_pending_frames() fix
-Date: Thu, 09 Jul 2009 02:20:42 +0200
-Message-ID: <4A5537DA.1060200@gmail.com>
-References: <4A53CD39.7080407@gmail.com>	<20090707.191424.167842005.davem@davemloft.net>	<EA929A9653AAE14F841771FB1DE5A1365F8ACEC9A1@rrsmsx501.amr.corp.intel.com> <20090708.104539.226485646.davem@davemloft.net> <4A552A0D.8080106@gmail.com> <EA929A9653AAE14F841771FB1DE5A1365F8AD4E371@rrsmsx501.amr.corp.intel.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: origin tree build failure
+Date: Thu, 9 Jul 2009 10:28:29 +1000
+Message-ID: <20090709102829.ab45dc71.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"emils.tantilov@gmail.com" <emils.tantilov@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"jolsa@redhat.com" <jolsa@redhat.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36762 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661AbZGIAVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 20:21:09 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365F8AD4E371@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Linus <torvalds@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tantilov, Emil S a =E9crit :
-> Eric Dumazet wrote:
->> David Miller a =E9crit :
->>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->>> Date: Wed, 8 Jul 2009 11:02:22 -0600
->>>
->>>> Still seeing traces during the test even with this patch applied:
->>>>
->>>> [ 1089.430093] ------------[ cut here ]------------
->>>> [ 1089.435667] WARNING: at include/net/sock.h:423
->>>> udp_lib_unhash+0x73/0xa0() [ 1089.435670] Hardware name: S5520HC
->>> Ok I'll back this out for now, needs more investigation
->>> obviously.
->> Hmm... I never said it was supposed to fix Emil problem, just that
->> I discovered one potential problem by code inspection.
->>
->> I could not find yet sk_refcnt mismatch.
->> As we do less atomic ops per packet than before, some old bug could
->> surface now...
->>
->> Emil, is it easy to reproduce this problem, considering I have a
->> similar platform than yours (dual quad core machine, E5450 cpus @
->> 3GHz) ?=20
->=20
-> Eric,
->=20
-> It should be easy to reproduce. At least I have been able to consiste=
-ntly=20
-> reproduce it on several different systems with different drivers (e10=
-00, e1000e, igb).=20
->=20
-> The test I'm running is a mix of IPV4/6 TCP/UDP traffic with netperf =
-(also mixing different types TCP/UDP_STREAM, TCP_MAERTS, TCP_UDP_RR etc=
-). How much this matters I don't know - it's possible that just UDP tra=
-ffic would do it. I also think it may have something to do with IPv6
-> because of the trace, but I am not sure.
->=20
-> If you need more information let me know.
->=20
+Hi Linus,
 
-OK thanks, this was helpful, corking or not corking, that is the questi=
-on :)
+Today's linux-next build (x86_64 allmodconfig) failed like this:
 
-I think ip6_push_pending_frames() & ip_push_pending_frames=20
-have a problem after recent commit 2b85a34e911bf483c27cfdd124aeb1605145=
-dc80=20
-(net: No more expensive sock_hold()/sock_put() on each tx)
+drivers/net/fealnx.c: In function 'fealnx_tx_timeout':
+drivers/net/fealnx.c:1219: error: 'PR_CONT' undeclared (first use in this function)
+drivers/net/fealnx.c:1219: error: (Each undeclared identifier is reported only once
+drivers/net/fealnx.c:1219: error: for each function it appears in.)
+drivers/net/fealnx.c:1219: error: expected ')' before string constant
+drivers/net/fealnx.c:1224: error: expected ')' before string constant
+drivers/net/fealnx.c:1225: error: expected ')' before string constant
 
-[PATCH] net: ip_push_pending_frames() fix
+Caused by commit ad361c9884e809340f6daca80d56a9e9c871690a ("Remove
+multiple KERN_ prefixes from printk formats").  I applied the following
+patch.
 
-After commit 2b85a34e911bf483c27cfdd124aeb1605145dc80=20
-(net: No more expensive sock_hold()/sock_put() on each tx)
-we do not take any more references on sk->sk_refcnt on outgoing packets=
-=2E
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 9 Jul 2009 10:23:07 +1000
+Subject: [PATCH] Fix up typo in KERN_ prefixes removal
 
-I forgot to delete two __sock_put() from ip_push_pending_frames()
-and ip6_push_pending_frames().
+This fixes a type in commit ad361c9884e809340f6daca80d56a9e9c871690a
+"Remove multiple KERN_ prefixes from printk formats".
 
-Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 2470262..7d08210 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1243,7 +1243,6 @@ int ip_push_pending_frames(struct sock *sk)
- 		skb->len +=3D tmp_skb->len;
- 		skb->data_len +=3D tmp_skb->len;
- 		skb->truesize +=3D tmp_skb->truesize;
--		__sock_put(tmp_skb->sk);
- 		tmp_skb->destructor =3D NULL;
- 		tmp_skb->sk =3D NULL;
+ drivers/net/fealnx.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/fealnx.c b/drivers/net/fealnx.c
+index 053fb49..48385c4 100644
+--- a/drivers/net/fealnx.c
++++ b/drivers/net/fealnx.c
+@@ -1216,13 +1216,13 @@ static void fealnx_tx_timeout(struct net_device *dev)
+ 	{
+ 		printk(KERN_DEBUG "  Rx ring %p: ", np->rx_ring);
+ 		for (i = 0; i < RX_RING_SIZE; i++)
+-			printk(PR_CONT " %8.8x",
++			printk(KERN_CONT " %8.8x",
+ 			       (unsigned int) np->rx_ring[i].status);
+ 		printk(KERN_CONT "\n");
+ 		printk(KERN_DEBUG "  Tx ring %p: ", np->tx_ring);
+ 		for (i = 0; i < TX_RING_SIZE; i++)
+-			printk(PR_CONT " %4.4x", np->tx_ring[i].status);
+-		printk(PR_CONT "\n");
++			printk(KERN_CONT " %4.4x", np->tx_ring[i].status);
++		printk(KERN_CONT "\n");
  	}
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7c76e3d..87f8419 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1484,7 +1484,6 @@ int ip6_push_pending_frames(struct sock *sk)
- 		skb->len +=3D tmp_skb->len;
- 		skb->data_len +=3D tmp_skb->len;
- 		skb->truesize +=3D tmp_skb->truesize;
--		__sock_put(tmp_skb->sk);
- 		tmp_skb->destructor =3D NULL;
- 		tmp_skb->sk =3D NULL;
- 	}
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+-- 
+1.6.3.3
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
