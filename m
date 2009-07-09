@@ -1,70 +1,36 @@
-From: Andres Freund <andres@anarazel.de>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused by netem)
-Date: Thu, 9 Jul 2009 17:28:22 +0200
-Message-ID: <200907091728.23367.andres@anarazel.de>
-References: <200907031326.21822.andres@anarazel.de> <20090709142414.GC3651@ami.dom.local> <alpine.LFD.2.00.0907091625540.24704@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: use after free bug in socket code
+Date: Thu, 9 Jul 2009 23:45:33 +0800
+Message-ID: <20090709154533.GA27413@gondor.apana.org.au>
+References: <19028.16049.907160.45293@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Joao Correia <joaomiguelcorreia@gmail.com>,
-	Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <peterz@infradead.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de
+To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.anarazel.de ([217.115.131.40]:50431 "EHLO smtp.anarazel.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757057AbZGIP21 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2009 11:28:27 -0400
-In-Reply-To: <alpine.LFD.2.00.0907091625540.24704@localhost.localdomain>
+Received: from rhun.apana.org.au ([64.62.148.172]:52396 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1761121AbZGIPpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 11:45:41 -0400
+Content-Disposition: inline
+In-Reply-To: <19028.16049.907160.45293@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Thursday 09 July 2009 16:28:05 Thomas Gleixner wrote:
-> On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> > On Thu, Jul 09, 2009 at 04:15:28PM +0200, Thomas Gleixner wrote:
-> > > On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> > > > On Thu, Jul 09, 2009 at 02:03:50PM +0200, Thomas Gleixner wrote:
-> > > > > On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> > > > > > > I have the feeling that the code relies on some implicit cpu
-> > > > > > > boundness, which is not longer guaranteed with the timer
-> > > > > > > migration changes, but that's a question for the network
-> > > > > > > experts.
-> > > > > >
-> > > > > > As a matter of fact, I've just looked at this __netif_schedule(),
-> > > > > > which really is cpu bound, so you might be 100% right.
-> > > > >
-> > > > > So the watchdog is the one which causes the trouble. The patch
-> > > > > below should fix this.
-> > > >
-> > > > I hope so. On the other hand it seems it should work with this
-> > > > migration yet, so it probably needs additional debugging.
-> > >
-> > > Right. I just provided the patch to narrow down the problem, but
-> > > please test the fix of the hrtimer migration code which I sent out a
-> > > bit earlier: http://lkml.org/lkml/2009/7/9/150
-> > >
-> > > It fixes a possible endless loop in the timer code which is related to
-> > > the migration changes. Looking at the backtraces of the spinlock
-> > > lockup I think that is what you hit.
-> >
-> > Actually, Andres and Joao hit this, and I hope they'll try these two
-> > patches.
+Lothar Wa=DFmann <LW@karo-electronics.de> wrote:
 >
-> Please test them separate from each other. The one I sent in this
-> thread was just for narrowing down the issue, but I'm now quite sure
-> that they really hit the issue which is addressed by the hrtimer
-> patch.
-No crash yet. 15min running (seconds to a minute before).
+> So, could you point me to the place where the reference count of the
+> socket object is being incremented when a struct sock is associated
+> with it?
 
-Will let it run for some hours to be sure.
+It's implicit.  Anyway, you should remodel your release function
+on a working protocol.
 
-Nice!
-
-Andres
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
