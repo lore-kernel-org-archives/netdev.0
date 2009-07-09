@@ -1,70 +1,78 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
-Date: Wed, 8 Jul 2009 17:35:51 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365F8AD4E371@rrsmsx501.amr.corp.intel.com>
-References: <4A53CD39.7080407@gmail.com>
-	<20090707.191424.167842005.davem@davemloft.net>
-	<EA929A9653AAE14F841771FB1DE5A1365F8ACEC9A1@rrsmsx501.amr.corp.intel.com>
- <20090708.104539.226485646.davem@davemloft.net> <4A552A0D.8080106@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
+ using phylib
+Date: Wed, 8 Jul 2009 17:01:14 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+References: <20090707235812.GA12824@oksana.dev.rtsoft.ru> <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins> <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain> <20090708141024.f8b581c5.akpm@linux-foundation.org>
+ <20090708213331.GA9346@oksana.dev.rtsoft.ru> <20090708144744.5555b88d.akpm@linux-foundation.org> <20090708222003.GA12318@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "emils.tantilov@gmail.com" <emils.tantilov@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"jolsa@redhat.com" <jolsa@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, a.p.zijlstra@chello.nl,
+	oleg@redhat.com, mingo@elte.hu, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Anton Vorontsov <avorontsov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:37139 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754661AbZGHXgD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 19:36:03 -0400
-In-Reply-To: <4A552A0D.8080106@gmail.com>
-Content-Language: en-US
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52399 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756513AbZGIADA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 20:03:00 -0400
+In-Reply-To: <20090708222003.GA12318@oksana.dev.rtsoft.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> David Miller a =E9crit :
->> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->> Date: Wed, 8 Jul 2009 11:02:22 -0600
->>=20
->>> Still seeing traces during the test even with this patch applied:
->>>=20
->>> [ 1089.430093] ------------[ cut here ]------------
->>> [ 1089.435667] WARNING: at include/net/sock.h:423
->>> udp_lib_unhash+0x73/0xa0() [ 1089.435670] Hardware name: S5520HC
->>=20
->> Ok I'll back this out for now, needs more investigation
->> obviously.
->=20
-> Hmm... I never said it was supposed to fix Emil problem, just that
-> I discovered one potential problem by code inspection.
->=20
-> I could not find yet sk_refcnt mismatch.
-> As we do less atomic ops per packet than before, some old bug could
-> surface now...
->=20
-> Emil, is it easy to reproduce this problem, considering I have a
-> similar platform than yours (dual quad core machine, E5450 cpus @
-> 3GHz) ?=20
 
-Eric,
 
-It should be easy to reproduce. At least I have been able to consistent=
-ly=20
-reproduce it on several different systems with different drivers (e1000=
-, e1000e, igb).=20
+On Thu, 9 Jul 2009, Anton Vorontsov wrote:
+> 
+> The netpoll code is using msleep() just a few lines below cond_resched(),
+> so we won't make things worse. ;-)
 
-The test I'm running is a mix of IPV4/6 TCP/UDP traffic with netperf (a=
-lso mixing different types TCP/UDP_STREAM, TCP_MAERTS, TCP_UDP_RR etc).=
- How much this matters I don't know - it's possible that just UDP traff=
-ic would do it. I also think it may have something to do with IPv6
-because of the trace, but I am not sure.
+Yeah. That function is definitely sleeping. It does things like 
+kmalloc(GFP_KERNEL), rtnl_lock() and synchronize_rcu() etc too, so an 
+added msleep() is the least of our problems.
 
-If you need more information let me know.
+Afaik, it's called from a bog-standard "module_init()", which happens late 
+enough that everything works.
 
-Thanks,
-Emil
+In fact, I wonder if we should set SYSTEM_RUNNING much earlier - _before_ 
+doing the whole "do_initcalls()". By then we've set up all the core stuff 
+and enabled interrupts, so we really _are_ running. We just don't 
+necessarily have drivers, filesystems etc loaded yet. But anything that 
+happens late enough to be an initcall should be largely considered to 
+be during "normal code".
+
+(The "early_initcall" cases are special - those really do happen pretty 
+early).
+
+So ACK on Anton's patch, but I wonder if we _also_ should do the 
+following?
+
+Looking at the people looking at SYSTEM_RUNNING, I do note some odd cases. 
+Why the heck does kernel/perf_counter.c do it, for example?
+
+		Linus
+
+---
+ init/main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/init/main.c b/init/main.c
+index 2c5ade7..f10d9cd 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -788,6 +788,7 @@ static void __init do_initcalls(void)
+ {
+ 	initcall_t *call;
+ 
++	system_state = SYSTEM_RUNNING;
+ 	for (call = __early_initcall_end; call < __initcall_end; call++)
+ 		do_one_initcall(*call);
+ 
+@@ -839,7 +840,6 @@ static noinline int init_post(void)
+ 	free_initmem();
+ 	unlock_kernel();
+ 	mark_rodata_ro();
+-	system_state = SYSTEM_RUNNING;
+ 	numa_default_policy();
+ 
+ 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
