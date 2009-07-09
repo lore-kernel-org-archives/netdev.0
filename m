@@ -1,85 +1,65 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
- using phylib
-Date: Thu, 09 Jul 2009 15:46:46 +0200
-Message-ID: <1247147206.7439.2.camel@twins>
-References: <20090707235812.GA12824@oksana.dev.rtsoft.ru>
-	 <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins>
-	 <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain>
-	 <20090708141024.f8b581c5.akpm@linux-foundation.org>
-	 <20090708213331.GA9346@oksana.dev.rtsoft.ru>
-	 <20090708144744.5555b88d.akpm@linux-foundation.org>
-	 <20090708222003.GA12318@oksana.dev.rtsoft.ru>
-	 <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
-	 <1247145977.21295.899.camel@calx>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused
+ by netem)
+Date: Thu, 9 Jul 2009 16:15:28 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.0907091601120.24704@localhost.localdomain>
+References: <200907031326.21822.andres@anarazel.de> <200907071811.27570.andres@anarazel.de> <20090708080852.GC3148@ami.dom.local> <200907090023.18040.andres@anarazel.de> <20090708224828.GD3666@ami.dom.local> <alpine.LFD.2.00.0907090956490.24704@localhost.localdomain>
+ <20090709104412.GA3651@ami.dom.local> <alpine.LFD.2.00.0907091401040.24704@localhost.localdomain> <20090709132256.GB3651@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Andrew Morton <akpm@linux-foundation.org>, oleg@redhat.com,
-	mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andres Freund <andres@anarazel.de>,
+	Joao Correia <joaomiguelcorreia@gmail.com>,
+	Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep18-int.chello.at ([62.179.121.38]:2598 "EHLO
-	viefep18-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758578AbZGINq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 09:46:58 -0400
-In-Reply-To: <1247145977.21295.899.camel@calx>
+Received: from www.tglx.de ([62.245.132.106]:40863 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757499AbZGIOPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2009 10:15:47 -0400
+In-Reply-To: <20090709132256.GB3651@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-07-09 at 08:26 -0500, Matt Mackall wrote: 
-> On Wed, 2009-07-08 at 17:01 -0700, Linus Torvalds wrote:
-> > 
-> > On Thu, 9 Jul 2009, Anton Vorontsov wrote:
+On Thu, 9 Jul 2009, Jarek Poplawski wrote:
+> On Thu, Jul 09, 2009 at 02:03:50PM +0200, Thomas Gleixner wrote:
+> > On Thu, 9 Jul 2009, Jarek Poplawski wrote:
+> > > > 
+> > > > I have the feeling that the code relies on some implicit cpu
+> > > > boundness, which is not longer guaranteed with the timer migration
+> > > > changes, but that's a question for the network experts.
 > > > 
-> > > The netpoll code is using msleep() just a few lines below cond_resched(),
-> > > so we won't make things worse. ;-)
+> > > As a matter of fact, I've just looked at this __netif_schedule(),
+> > > which really is cpu bound, so you might be 100% right.
 > > 
-> > Yeah. That function is definitely sleeping. It does things like 
-> > kmalloc(GFP_KERNEL), rtnl_lock() and synchronize_rcu() etc too, so an 
-> > added msleep() is the least of our problems.
-> > 
-> > Afaik, it's called from a bog-standard "module_init()", which happens late 
-> > enough that everything works.
-> > 
-> > In fact, I wonder if we should set SYSTEM_RUNNING much earlier - _before_ 
-> > doing the whole "do_initcalls()".
+> > So the watchdog is the one which causes the trouble. The patch below
+> > should fix this.
 > 
-> Well there are two ways of consistently defining SYSTEM_RUNNING:
-> 
-> a) define it with reference to the well-understood notion of booting vs
-> running and don't switch it until handing off to init
+> I hope so. On the other hand it seems it should work with this
+> migration yet, so it probably needs additional debugging.
 
-This makes the most sense IMHO.
+Right. I just provided the patch to narrow down the problem, but
+please test the fix of the hrtimer migration code which I sent out a
+bit earlier: http://lkml.org/lkml/2009/7/9/150
 
-> b) define it with reference to its usage by an arbitrary user like
-> cond_resched()
-> 
-> In the latter case, we obviously need to move it to the earliest point
-> that scheduling is possible. But there are a number of things like 
-> 
-> http://lxr.linux.no/linux+v2.6.30/kernel/printk.c#L228
-> 
-> that assume the definition is actually (a). We're currently within a
-> couple lines of a strict definition of (a) already, so I actually think
-> cond_resched() is just wrong (and we already know it broke a
-> previously-working user). It should perhaps be using another private
-> flag that gets set as soon as scheduling is up and running.
+It fixes a possible endless loop in the timer code which is related to
+the migration changes. Looking at the backtraces of the spinlock
+lockup I think that is what you hit.
 
-Right as mentioned before in this thread, we grew scheduler_running a
-while back which could be used for this.
+       spin_lock(root_lock);
+       qdisc_run(q);
+	 __qdisc_run(q);
+	   dequeue_skb(q);
+             q->dequeue(q);
+               qdisc_watchdog_schedule();
+                 hrtimer_start();
+                   switch_hrtimer_base(); <- loops forever
 
-> But I'd actually go further and say that it's unfortunate to be checking
-> extra flags in such an important inline, especially since the check is
-> false for all but the first couple seconds of run time. Seems like we
-> could avoid adding an extra check by artificially elevating the preempt
-> count in early boot (or at compile time) then dropping it when
-> scheduling becomes available.
+Now the other CPU is stuck in dev_xmit() spin_lock(root_lock)
 
-Calling cond_resched() and co when !preemptable is an error so this
-wouldn't actually work.
+Thanks,
 
-
-
+	tglx
