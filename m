@@ -1,24 +1,38 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: include/linux/mii.h licence?
-Date: Thu, 9 Jul 2009 22:54:07 +0200
-Message-ID: <20090709205407.GP28344@game.jcrosoft.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: include/linux/mii.h licence?
+Date: Thu, 9 Jul 2009 14:13:14 -0700
+Message-ID: <20090709141314.09e38093@nehalam>
+References: <20090709205407.GP28344@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 15.mail-out.ovh.net ([91.121.27.217]:49383 "HELO
-	15.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753737AbZGIVJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 17:09:34 -0400
-Content-Disposition: inline
+Received: from mail.vyatta.com ([76.74.103.46]:33411 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755356AbZGIVNU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2009 17:13:20 -0400
+In-Reply-To: <20090709205407.GP28344@game.jcrosoft.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Thu, 9 Jul 2009 22:54:07 +0200
+Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com> wrote:
 
-	what is the licence of the include/linux/mii.h file?
-	GPLv2 or GPLv2+
+> Hi David,
+> 
+> 	what is the licence of the include/linux/mii.h file?
+> 	GPLv2 or GPLv2+
+> 
+> Best Regards,
+> J.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Best Regards,
-J.
+Consensus is that files without individual license are covered by overall
+Linux GPLv2 defined in COPYING in top level directory; but IANAL.
+
+-- 
