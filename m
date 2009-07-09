@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
- using phylib
-Date: Wed, 08 Jul 2009 20:08:52 -0700 (PDT)
-Message-ID: <20090708.200852.15061282.davem@davemloft.net>
-References: <20090708144744.5555b88d.akpm@linux-foundation.org>
-	<20090708222003.GA12318@oksana.dev.rtsoft.ru>
-	<alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH]: remove redundant sched/ in net/Makefile
+Date: Thu, 09 Jul 2009 12:06:47 +0800
+Message-ID: <4A556CD7.6090201@gmail.com>
+Reply-To: xiaosuo@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: avorontsov@ru.mvista.com, akpm@linux-foundation.org,
-	a.p.zijlstra@chello.nl, oleg@redhat.com, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, xiaosuo <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36872
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756824AbZGIDIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jul 2009 23:08:49 -0400
-In-Reply-To: <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+Received: from wa-out-1112.google.com ([209.85.146.181]:38121 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbZGIEG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 00:06:59 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so1147764wah.21
+        for <netdev@vger.kernel.org>; Wed, 08 Jul 2009 21:06:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 8 Jul 2009 17:01:14 -0700 (PDT)
+Remove redundant sched/ in net/Makefile.
 
-> So ACK on Anton's patch,
+sched/ is contained in previous:
+obj-$(CONFIG_NET) += ethernet/ 802/ sched/ netlink/,
+so the later
+obj-$(CONFIG_NET_SCHED) += sched/
+isn't necessary.
 
-I'll integrate it into my tree, thanks.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+Makefile | 1 -
+1 file changed, 1 deletion(-)
 
-> but I wonder if we _also_ should do the following?
+diff --git a/net/Makefile b/net/Makefile
+index ba324ae..1542e72 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -24,7 +24,6 @@ obj-y				+= ipv6/
+ endif
+ obj-$(CONFIG_PACKET)		+= packet/
+ obj-$(CONFIG_NET_KEY)		+= key/
+-obj-$(CONFIG_NET_SCHED)		+= sched/
+ obj-$(CONFIG_BRIDGE)		+= bridge/
+ obj-$(CONFIG_NET_DSA)		+= dsa/
+ obj-$(CONFIG_IPX)		+= ipx/
 
-I think we should set SYSTEM_RUNNING earlier, makes sense
-to me.
