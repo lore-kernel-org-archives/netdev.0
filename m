@@ -1,33 +1,34 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: Hitting slab BUG with bridging/cxgb3 on 2.6.31-rc2
-Date: Wed, 08 Jul 2009 22:38:23 -0700
-Message-ID: <adaab3eza9c.fsf@cisco.com>
-References: <adaeisq23rq.fsf@cisco.com> <adaljmyzof4.fsf@cisco.com>
-	<4A554A1D.3070703@chelsio.com> <adaeisqzawa.fsf@cisco.com>
+From: Holger Schurig <hs4233-x6+DxXLjN1AJvtFkdXX2Hg4jNU5vUVPG@public.gmane.org>
+Subject: Re: [regression] ath5k: Overrides regulatory domain set for cfg80211
+Date: Thu, 9 Jul 2009 09:05:27 +0200
+Message-ID: <200907090905.27154.hs4233@mail.mn-solutions.de>
+References: <200907082340.07787.elendil@planet.nl> <43e72e890907081508n6fa5781an1dcbda078efc5379@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:26600 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751100AbZGIFiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 01:38:25 -0400
-In-Reply-To: <adaeisqzawa.fsf@cisco.com> (Roland Dreier's message of "Wed, 08
-	Jul 2009 22:24:37 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <43e72e890907081508n6fa5781an1dcbda078efc5379-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+> Eventually, as you will read from the feature-removal
+> schedule, we intend on getting the Linux desktop to provide
+> automatic hints of the user's location through things like
+> GeoClue.
 
- > Yep, reverting that makes things work solid.  I don't see an obvious
- > problem with that patch... seems the only places that free TX skbs are
- > the xmit routine itself, and in sge_timer_tx() where it's protected by
- > doing __netif_tx_lock().
+Please think about embedded people. We don't need no stinkin' 
+geoclue. We'll need a kernel parameter or an commant for "iw" or 
+some other netlink based command.
 
-Looking a little deeper -- it seems that at least the msix interrupt
-routines do look at txq stuff without taking the tx_lock, and possibly
-wake the tx queue racily maybe....
-
-Oh well, I'll let you stare at it a little now...
-
- - R.
+-- 
+http://www.holgerschurig.de
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
