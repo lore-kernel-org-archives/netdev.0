@@ -1,36 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: use after free bug in socket code
-Date: Thu, 9 Jul 2009 23:45:33 +0800
-Message-ID: <20090709154533.GA27413@gondor.apana.org.au>
-References: <19028.16049.907160.45293@ipc1.ka-ro>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused
+ by netem)
+Date: Thu, 9 Jul 2009 18:01:56 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.0907091801130.24704@localhost.localdomain>
+References: <200907031326.21822.andres@anarazel.de> <20090709142414.GC3651@ami.dom.local> <alpine.LFD.2.00.0907091625540.24704@localhost.localdomain> <200907091728.23367.andres@anarazel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de
-To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Joao Correia <joaomiguelcorreia@gmail.com>,
+	Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Andres Freund <andres@anarazel.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52396 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1761121AbZGIPpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 11:45:41 -0400
-Content-Disposition: inline
-In-Reply-To: <19028.16049.907160.45293@ipc1.ka-ro>
+Received: from www.tglx.de ([62.245.132.106]:58976 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757951AbZGIQCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jul 2009 12:02:24 -0400
+In-Reply-To: <200907091728.23367.andres@anarazel.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lothar Wa=DFmann <LW@karo-electronics.de> wrote:
->
-> So, could you point me to the place where the reference count of the
-> socket object is being incremented when a struct sock is associated
-> with it?
+Andres,
 
-It's implicit.  Anyway, you should remodel your release function
-on a working protocol.
+On Thu, 9 Jul 2009, Andres Freund wrote:
+> On Thursday 09 July 2009 16:28:05 Thomas Gleixner wrote:
+> > Please test them separate from each other. The one I sent in this
+> > thread was just for narrowing down the issue, but I'm now quite sure
+> > that they really hit the issue which is addressed by the hrtimer
+> > patch.
+> No crash yet. 15min running (seconds to a minute before).
+> 
+> Will let it run for some hours to be sure.
 
-Cheers,
---=20
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Which one of the patches are you testing ?
+
+Thanks,
+
+	tglx
