@@ -1,60 +1,95 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: Soft-Lockup/Race in networking in 2.6.31-rc1+195 ( possibly?caused
- by netem)
-Date: Thu, 9 Jul 2009 16:28:05 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.0907091625540.24704@localhost.localdomain>
-References: <200907031326.21822.andres@anarazel.de> <200907071811.27570.andres@anarazel.de> <20090708080852.GC3148@ami.dom.local> <200907090023.18040.andres@anarazel.de> <20090708224828.GD3666@ami.dom.local> <alpine.LFD.2.00.0907090956490.24704@localhost.localdomain>
- <20090709104412.GA3651@ami.dom.local> <alpine.LFD.2.00.0907091401040.24704@localhost.localdomain> <20090709132256.GB3651@ami.dom.local> <alpine.LFD.2.00.0907091601120.24704@localhost.localdomain> <20090709142414.GC3651@ami.dom.local>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH] netpoll: Fix carrier detection for drivers that are
+ using phylib
+Date: Thu, 09 Jul 2009 16:31:02 +0200
+Message-ID: <1247149862.12784.6.camel@twins>
+References: <20090707235812.GA12824@oksana.dev.rtsoft.ru>
+	 <20090708005000.GA12380@redhat.com> <1247034263.9777.24.camel@twins>
+	 <alpine.LFD.2.01.0907080907210.3210@localhost.localdomain>
+	 <20090708141024.f8b581c5.akpm@linux-foundation.org>
+	 <20090708213331.GA9346@oksana.dev.rtsoft.ru>
+	 <20090708144744.5555b88d.akpm@linux-foundation.org>
+	 <20090708222003.GA12318@oksana.dev.rtsoft.ru>
+	 <alpine.LFD.2.01.0907081701050.3352@localhost.localdomain>
+	 <1247145977.21295.899.camel@calx>  <1247147206.7439.2.camel@twins>
+	 <1247149093.21295.915.camel@calx>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andres Freund <andres@anarazel.de>,
-	Joao Correia <joaomiguelcorreia@gmail.com>,
-	Arun R Bharadwaj <arun@linux.vnet.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761221AbZGIO2c@vger.kernel.org>
-In-Reply-To: <20090709142414.GC3651@ami.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Andrew Morton <akpm@linux-foundation.org>, oleg@redhat.com,
+	mingo@elte.hu, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from viefep14-int.chello.at ([62.179.121.34]:46402 "EHLO
+	viefep14-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760737AbZGIObL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 10:31:11 -0400
+In-Reply-To: <1247149093.21295.915.camel@calx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> On Thu, Jul 09, 2009 at 04:15:28PM +0200, Thomas Gleixner wrote:
-> > On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> > > On Thu, Jul 09, 2009 at 02:03:50PM +0200, Thomas Gleixner wrote:
-> > > > On Thu, 9 Jul 2009, Jarek Poplawski wrote:
-> > > > > > 
-> > > > > > I have the feeling that the code relies on some implicit cpu
-> > > > > > boundness, which is not longer guaranteed with the timer migration
-> > > > > > changes, but that's a question for the network experts.
-> > > > > 
-> > > > > As a matter of fact, I've just looked at this __netif_schedule(),
-> > > > > which really is cpu bound, so you might be 100% right.
-> > > > 
-> > > > So the watchdog is the one which causes the trouble. The patch below
-> > > > should fix this.
-> > > 
-> > > I hope so. On the other hand it seems it should work with this
-> > > migration yet, so it probably needs additional debugging.
-> > 
-> > Right. I just provided the patch to narrow down the problem, but
-> > please test the fix of the hrtimer migration code which I sent out a
-> > bit earlier: http://lkml.org/lkml/2009/7/9/150
-> > 
-> > It fixes a possible endless loop in the timer code which is related to
-> > the migration changes. Looking at the backtraces of the spinlock
-> > lockup I think that is what you hit.
+On Thu, 2009-07-09 at 09:18 -0500, Matt Mackall wrote:
 > 
-> Actually, Andres and Joao hit this, and I hope they'll try these two
-> patches.
+> Sorry if I was unclear. I'm suggesting setting the count so the existing
+> PREEMPT_ACTIVE test here fires:
+> 
+> int __sched _cond_resched(void)
+> {
+>         if (need_resched() && !(preempt_count() & PREEMPT_ACTIVE) &&
+>                                         system_state == SYSTEM_RUNNING) {
+>                 __cond_resched();
+>                 return 1;
+>         }
+>         return 0;
+> }
 
-Please test them separate from each other. The one I sent in this
-thread was just for narrowing down the issue, but I'm now quite sure
-that they really hit the issue which is addressed by the hrtimer
-patch.
+Right, /me read preempt and thought a simple preempt inc but didn't read
+the code. Shame on me.
 
-Thanks,
+So something like (utterly untested and such)
 
-	tglx
+---
+
+ arch/x86/include/asm/thread_info.h |    2 +-
+ kernel/sched.c                     |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
+index b078352..7b5dbce 100644
+--- a/arch/x86/include/asm/thread_info.h
++++ b/arch/x86/include/asm/thread_info.h
+@@ -49,7 +49,7 @@ struct thread_info {
+ 	.exec_domain	= &default_exec_domain,	\
+ 	.flags		= 0,			\
+ 	.cpu		= 0,			\
+-	.preempt_count	= 1,			\
++	.preempt_count	= 1 + PREEMPT_ACTIVE,	\
+ 	.addr_limit	= KERNEL_DS,		\
+ 	.restart_block = {			\
+ 		.fn = do_no_restart_syscall,	\
+diff --git a/kernel/sched.c b/kernel/sched.c
+index fd3ac58..8e81162 100644
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -6599,8 +6599,7 @@ static void __cond_resched(void)
+ 
+ int __sched _cond_resched(void)
+ {
+-	if (need_resched() && !(preempt_count() & PREEMPT_ACTIVE) &&
+-					system_state == SYSTEM_RUNNING) {
++	if (need_resched() && !(preempt_count() & PREEMPT_ACTIVE)) {
+ 		__cond_resched();
+ 		return 1;
+ 	}
+@@ -9422,6 +9421,7 @@ void __init sched_init(void)
+ 	perf_counter_init();
+ 
+ 	scheduler_running = 1;
++	sub_preempt_count(PREEMPT_ACTIVE);
+ }
+ 
+ #ifdef CONFIG_DEBUG_SPINLOCK_SLEEP
+
+
