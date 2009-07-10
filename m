@@ -1,38 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
-	usage
-Date: Fri, 10 Jul 2009 16:02:47 +0800
-Message-ID: <20090710080247.GA2693@gondor.apana.org.au>
-References: <20090608023757.GA6244@localhost> <20090706105216.GA19124@gondor.apana.org.au> <20090709131746.GA27965@localhost> <20090709.171355.09466097.davem@davemloft.net> <20090710080017.GA24168@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wu Fengguang <fengguang.wu@intel.com>
+From: Tim Schneider <schneid5@cs.uni-bonn.de>
+Subject: Using Wireless Extensions in a Kernel Module
+Date: Fri, 10 Jul 2009 11:23:22 +0200
+Message-ID: <A353FA76-7D71-425F-BD67-FEE6DC26EF6F@cs.uni-bonn.de>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49913 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751023AbZGJICx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 04:02:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20090710080017.GA24168@localhost>
+Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:51019 "EHLO
+	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348AbZGJJXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 05:23:25 -0400
+Received: from [10.0.1.10] (dslb-084-063-085-116.pools.arcor-ip.net [84.63.85.116])
+	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id 542705C839
+	for <netdev@vger.kernel.org>; Fri, 10 Jul 2009 11:23:23 +0200 (MEST)
+	(envelope-from schneid5@cs.uni-bonn.de)
+	(envelope-to netdev@vger.kernel.org) (1)
+	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 10, 2009 at 04:00:17PM +0800, Wu Fengguang wrote:
-> 
-> The (sk_allocation & ~__GFP_WAIT) cases should be rare, but I guess
-> the networking code shall do it anyway, because sk_allocation defaults
-> to GFP_KERNEL. It seems that currently the networking code simply uses
-> a lot of GFP_ATOMIC, do they really mean "I cannot sleep"?
+Hi,
 
-Yep because they're done from softirq context.
+I am trying to write a Kernel Module with an implementation of a new  
+TCP-Algorithm. Since I need to know the RSSI-Value (Received Signal  
+Strength indication) of the sent package, I extended the Pluggable  
+Congestion Control Mechanism by a new function which is called right  
+after the package is send. At that point, I need to read the RSSI-Value.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm now trying to somehow access that value, but I can't figure out  
+how. I've come as far, that I found out about the Wirelless  
+Extensions, which seem to be very promising. In the header file the  
+author states, that this mechanism can be used by both user-space apps  
+and kernel modules. Unfortunately nobody seems to ever have used it in  
+kernel space, since I can't find any documentations about it.
+
+I would be very glad, if somebody could give me link to a page  
+containing informations about this topic, or even just a hint that  
+could help me.
+
+Thank you
+
+Tim Schneider
+
