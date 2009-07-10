@@ -1,166 +1,211 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT]: Networking
-Date: Thu, 09 Jul 2009 20:17:51 -0700 (PDT)
-Message-ID: <20090709.201751.09493544.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 1/2] netdev: restore MAC address set and validate operations
+Date: Fri, 10 Jul 2009 04:54:35 +0100
+Message-ID: <1247198075.21924.129.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753246AbZGJDSA@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OPz4ut/z0s9SDca6XloY"
+Cc: Stephen Hemminger <shemminger@vyatta.com>, stable@vger.kernel.org,
+	536455@bugs.debian.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50673 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751376AbZGJDyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 23:54:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-1) FEC build fix and FEC_X_DES_ACTIVE register offset cure, from
-   Greg Ungerer.
+--=-OPz4ut/z0s9SDca6XloY
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-2) The socket poll vs. wake up memory ordering fix, after going
-   through many revisions and discussion, seems ready to merge.
-   From Jiri Olsa.
+alloc_etherdev() used to install default implementations of these
+operations, but they must now be explicitly installed in struct
+net_device_ops.
 
-3) The netpoll carrier detection fix from Anton Vorontsov.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Stephen Hemminger caught most of these omissions.  I think this covers
+the rest.
 
-4) Revert fib_trie to pre-2.6.22 era root node thresholds to
-   fix memory allocation overstress seen with BGP workloads.
-   From Jarek Poplawski.
+This is applicable to 2.6.30 with small offsets in some files.
 
-5) davinci_emac goes OOPS if MAC address changed while interface
-   is down, fix from Pablo Bitton.
+Ben.
 
-6) cxgb3 hits wrong TX queue and crashses, from Roland Dreier.
+ drivers/net/arm/ixp4xx_eth.c        |    3 ++-
+ drivers/net/ehea/ehea_main.c        |    1 +
+ drivers/net/gianfar.c               |    2 ++
+ drivers/net/plip.c                  |    2 ++
+ drivers/net/ps3_gelic_net.c         |    1 +
+ drivers/net/ps3_gelic_wireless.c    |    1 +
+ drivers/net/sunvnet.c               |    1 +
+ drivers/net/usb/kaweth.c            |    2 ++
+ drivers/net/usb/pegasus.c           |    2 ++
+ drivers/net/wireless/orinoco/main.c |    3 ++-
+ 10 files changed, 16 insertions(+), 2 deletions(-)
 
-7) IGB bug fix from Alexander Duyck
+diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+index 6f42ad7..87fde32 100644
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -1142,7 +1142,8 @@ static const struct net_device_ops ixp4xx_netdev_ops =
+=3D {
+ 	.ndo_start_xmit =3D eth_xmit,
+ 	.ndo_set_multicast_list =3D eth_set_mcast_list,
+ 	.ndo_do_ioctl =3D eth_ioctl,
+-
++	.ndo_set_mac_address =3D eth_mac_addr,
++	.ndo_validate_addr =3D eth_validate_addr,
+ };
+=20
+ static int __devinit eth_init_one(struct platform_device *pdev)
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 147c4b0..c7d1886 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -3081,6 +3081,7 @@ static const struct net_device_ops ehea_netdev_ops =
+=3D {
+ #endif
+ 	.ndo_get_stats		=3D ehea_get_stats,
+ 	.ndo_set_mac_address	=3D ehea_set_mac_addr,
++	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_set_multicast_list	=3D ehea_set_multicast_list,
+ 	.ndo_change_mtu		=3D ehea_change_mtu,
+ 	.ndo_vlan_rx_register	=3D ehea_vlan_rx_register,
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 4ae1d25..43d813e 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -156,6 +156,8 @@ static const struct net_device_ops gfar_netdev_ops =3D =
+{
+ 	.ndo_tx_timeout =3D gfar_timeout,
+ 	.ndo_do_ioctl =3D gfar_ioctl,
+ 	.ndo_vlan_rx_register =3D gfar_vlan_rx_register,
++	.ndo_set_mac_address =3D eth_mac_addr,
++	.ndo_validate_addr =3D eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller =3D gfar_netpoll,
+ #endif
+diff --git a/drivers/net/plip.c b/drivers/net/plip.c
+index 7a62f78..b79f776 100644
+--- a/drivers/net/plip.c
++++ b/drivers/net/plip.c
+@@ -270,6 +270,8 @@ static const struct net_device_ops plip_netdev_ops =3D =
+{
+ 	.ndo_stop		 =3D plip_close,
+ 	.ndo_start_xmit		 =3D plip_tx_packet,
+ 	.ndo_do_ioctl		 =3D plip_ioctl,
++	.ndo_set_mac_address	 =3D eth_mac_addr,
++	.ndo_validate_addr	 =3D eth_validate_addr,
+ };
+=20
+ /* Entry point of PLIP driver.
+diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ps3_gelic_net.c
+index d1a5fb4..a3932c9 100644
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -1411,6 +1411,7 @@ static const struct net_device_ops gelic_netdevice_op=
+s =3D {
+ 	.ndo_set_multicast_list =3D gelic_net_set_multi,
+ 	.ndo_change_mtu =3D gelic_net_change_mtu,
+ 	.ndo_tx_timeout =3D gelic_net_tx_timeout,
++	.ndo_set_mac_address =3D eth_mac_addr,
+ 	.ndo_validate_addr =3D eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller =3D gelic_net_poll_controller,
+diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ps3_gelic_wirel=
+ess.c
+index b6b3ca9..6932b08 100644
+--- a/drivers/net/ps3_gelic_wireless.c
++++ b/drivers/net/ps3_gelic_wireless.c
+@@ -2707,6 +2707,7 @@ static const struct net_device_ops gelic_wl_netdevice=
+_ops =3D {
+ 	.ndo_set_multicast_list =3D gelic_net_set_multi,
+ 	.ndo_change_mtu =3D gelic_net_change_mtu,
+ 	.ndo_tx_timeout =3D gelic_net_tx_timeout,
++	.ndo_set_mac_address =3D eth_mac_addr,
+ 	.ndo_validate_addr =3D eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller =3D gelic_net_poll_controller,
+diff --git a/drivers/net/sunvnet.c b/drivers/net/sunvnet.c
+index a82fb2a..bc74db0 100644
+--- a/drivers/net/sunvnet.c
++++ b/drivers/net/sunvnet.c
+@@ -1017,6 +1017,7 @@ static const struct net_device_ops vnet_ops =3D {
+ 	.ndo_stop		=3D vnet_close,
+ 	.ndo_set_multicast_list	=3D vnet_set_rx_mode,
+ 	.ndo_set_mac_address	=3D vnet_set_mac_addr,
++	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_tx_timeout		=3D vnet_tx_timeout,
+ 	.ndo_change_mtu		=3D vnet_change_mtu,
+ 	.ndo_start_xmit		=3D vnet_start_xmit,
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index e013147..238bea1 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -999,6 +999,8 @@ static const struct net_device_ops kaweth_netdev_ops =
+=3D {
+ 	.ndo_tx_timeout =3D		kaweth_tx_timeout,
+ 	.ndo_set_multicast_list =3D	kaweth_set_rx_mode,
+ 	.ndo_get_stats =3D		kaweth_netdev_stats,
++	.ndo_set_mac_address =3D		eth_mac_addr,
++	.ndo_validate_addr =3D		eth_validate_addr,
+ };
+=20
+ static int kaweth_probe(
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 73acbd2..9bea2af 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -1493,6 +1493,8 @@ static const struct net_device_ops pegasus_netdev_ops=
+ =3D {
+ 	.ndo_set_multicast_list =3D	pegasus_set_multicast,
+ 	.ndo_get_stats =3D		pegasus_netdev_stats,
+ 	.ndo_tx_timeout =3D		pegasus_tx_timeout,
++	.ndo_set_mac_address =3D		eth_mac_addr,
++	.ndo_validate_addr =3D		eth_validate_addr,
+ };
+=20
+ static struct usb_driver pegasus_driver =3D {
+diff --git a/drivers/net/wireless/orinoco/main.c b/drivers/net/wireless/ori=
+noco/main.c
+index 345593c..a370e51 100644
+--- a/drivers/net/wireless/orinoco/main.c
++++ b/drivers/net/wireless/orinoco/main.c
+@@ -2521,6 +2521,8 @@ static const struct net_device_ops orinoco_netdev_ops=
+ =3D {
+ 	.ndo_start_xmit		=3D orinoco_xmit,
+ 	.ndo_set_multicast_list	=3D orinoco_set_multicast_list,
+ 	.ndo_change_mtu		=3D orinoco_change_mtu,
++	.ndo_set_mac_address	=3D eth_mac_addr,
++	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_tx_timeout		=3D orinoco_tx_timeout,
+ 	.ndo_get_stats		=3D orinoco_get_stats,
+ };
+@@ -2555,7 +2557,6 @@ struct net_device
+ 	priv->wireless_data.spy_data =3D &priv->spy_data;
+ 	dev->wireless_data =3D &priv->wireless_data;
+ #endif
+-	/* we use the default eth_mac_addr for setting the MAC addr */
+=20
+ 	/* Reserve space in skb for the SNAP header */
+ 	dev->hard_header_len +=3D ENCAPS_OVERHEAD;
+--=20
+1.6.3.3
 
-8) IXGBE bug fix from Yi Zou
 
-9) R6040 bug fixes from Florian Fainelli
 
-10) Merge in wireless bug fixes via John Linville.
+--=-OPz4ut/z0s9SDca6XloY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Please pull, thanks a lot!
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-The following changes since commit 2e3167308048ca6c810733384d8289082f7e4ec1:
-  Roland Dreier (1):
-        fealnx: Fix build breakage -- PR_CONT should be KERN_CONT
+iD8DBQBKVrt379ZNCRIGYgcRAjCwAKCp8O769F5JvLlmCVgXyNiQAiQddQCgrmfM
+X+IZRlVPU1IVRVxHFFqOmn0=
+=ouxW
+-----END PGP SIGNATURE-----
 
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Alexander Duyck (1):
-      igb: set lan id prior to configuring phy
-
-Andrey Yurovsky (1):
-      mac80211: fix allocation in mesh_queue_preq
-
-Anton Vorontsov (1):
-      netpoll: Fix carrier detection for drivers that are using phylib
-
-Clyde McPherson (2):
-      b43: Add support for 4318E
-      ssb: Add support for 4318E
-
-David S. Miller (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-Florian Fainelli (2):
-      r6040: restore MIER register correctly when IRQ line is shared
-      r6040: bump driver version to 0.24 and date to 08 July 2009
-
-Greg Ungerer (2):
-      fec: remove extra ";" from definition names
-      fec: fix definition of 5272 version of FEC_X_DES_ACTIVE register
-
-Hin-Tak Leung (1):
-      zd1211rw: adding SONY IFU-WLM2 (054c:0257) as a zd1211b device
-
-Jarek Poplawski (1):
-      ipv4: Fix fib_trie rebalancing, part 4 (root thresholds)
-
-Jaswinder Singh Rajput (1):
-      includecheck fix: include/linux, rfkill.h
-
-Jay Sternberg (1):
-      Atheros Kconfig needs to be dependent on WLAN_80211
-
-Jiri Olsa (2):
-      net: adding memory barrier to the poll and receive callbacks
-      memory barrier: adding smp_mb__after_lock
-
-Jiri Slaby (1):
-      Wireless: nl80211, fix lock imbalance
-
-Johannes Berg (4):
-      hp-wmi: fix rfkill bug
-      cfg80211: fix refcount leak
-      mac80211_hwsim: avoid NULL access
-      mac80211: fix docbook
-
-Larry Finger (2):
-      b43/b43legacy: fix radio LED initialization
-      p54: tx refused but queue active
-
-Luciano Coelho (1):
-      mac80211: minstrel: avoid accessing negative indices in rix_to_ndx()
-
-Pablo Bitton (1):
-      davinci_emac: fix kernel oops when changing MAC address while interface is down
-
-Pascal Terjan (1):
-      zd1211rw: 07b8:6001 is a ZD1211B
-
-Roland Dreier (1):
-      cxgb3: Fix crash caused by stashing wrong netdev_queue
-
-Samuel Ortiz (1):
-      iwmc3200wifi: add Kconfig help
-
-Vasanthakumar Thiagarajan (1):
-      ath9k: Fix leak in tx descriptor
-
-Yi Zou (1):
-      ixgbe: Fix coexistence of FCoE and Flow Director in 82599
-
- Documentation/DocBook/mac80211.tmpl        |    2 -
- arch/x86/include/asm/spinlock.h            |    4 ++
- drivers/net/cxgb3/cxgb3_main.c             |    3 +-
- drivers/net/davinci_emac.c                 |   12 ++++-
- drivers/net/fec.h                          |   12 ++--
- drivers/net/igb/e1000_82575.c              |    4 ++
- drivers/net/ixgbe/ixgbe_dcb_nl.c           |    6 ++
- drivers/net/ixgbe/ixgbe_main.c             |   19 ++++---
- drivers/net/r6040.c                        |    9 ++-
- drivers/net/wireless/ath/Kconfig           |    1 +
- drivers/net/wireless/ath/ath9k/xmit.c      |    9 +++-
- drivers/net/wireless/b43/b43.h             |    1 +
- drivers/net/wireless/b43/main.c            |    7 ++-
- drivers/net/wireless/b43/pcmcia.c          |    1 +
- drivers/net/wireless/b43legacy/b43legacy.h |    1 +
- drivers/net/wireless/b43legacy/main.c      |    7 ++-
- drivers/net/wireless/iwmc3200wifi/Kconfig  |    9 ++++
- drivers/net/wireless/mac80211_hwsim.c      |    1 +
- drivers/net/wireless/p54/p54common.c       |    5 +-
- drivers/net/wireless/zd1211rw/zd_usb.c     |    3 +-
- drivers/platform/x86/hp-wmi.c              |    2 +-
- drivers/ssb/pcmcia.c                       |    6 ++-
- include/linux/rfkill.h                     |    1 -
- include/linux/spinlock.h                   |    5 ++
- include/net/sock.h                         |   69 ++++++++++++++++++++++++++++
- net/atm/common.c                           |    6 +-
- net/core/datagram.c                        |    2 +-
- net/core/netpoll.c                         |    2 +-
- net/core/sock.c                            |    8 ++--
- net/dccp/output.c                          |    2 +-
- net/dccp/proto.c                           |    2 +-
- net/ipv4/fib_trie.c                        |    4 +-
- net/ipv4/tcp.c                             |    2 +-
- net/iucv/af_iucv.c                         |    4 +-
- net/mac80211/mesh_hwmp.c                   |    2 +-
- net/mac80211/rc80211_minstrel.c            |    5 ++-
- net/rxrpc/af_rxrpc.c                       |    4 +-
- net/unix/af_unix.c                         |    8 ++--
- net/wireless/nl80211.c                     |    1 +
- net/wireless/scan.c                        |    1 -
- 40 files changed, 192 insertions(+), 60 deletions(-)
+--=-OPz4ut/z0s9SDca6XloY--
