@@ -1,46 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] netlink: remove unused exports
-Date: Fri, 10 Jul 2009 20:32:06 +0200
-Message-ID: <1247250726.29747.15.camel@johannes.local>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH 0/4] generic netlink namespace awareness
+Date: Fri, 10 Jul 2009 21:51:31 +0200
+Message-ID: <20090710195131.504091075@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:49974 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753725AbZGJScL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 14:32:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I added those myself in commits b4ff4f04 and 84659eb5,
-but I see no reason now why they should be exported,
-only generic netlink uses them which cannot be modular.
+This patch series makes generic netlink network namespace
+aware, in some way, paving the way for making wireless
+completely netns aware (which I will submit to John's tree).
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- net/netlink/af_netlink.c |    2 --
- 1 file changed, 2 deletions(-)
+The required changes are basically some preparations in
+core netlink, a change to make it possible to iterate net
+namespaces under just RCU (which may be useful elsewhere in
+the future), the actual genetlink patch and finally also
+exporting get_net_ns_by_pid() which wireless will need.
 
---- wireless-testing.orig/net/netlink/af_netlink.c	2009-07-10 20:21:46.000000000 +0200
-+++ wireless-testing/net/netlink/af_netlink.c	2009-07-10 20:26:28.000000000 +0200
-@@ -1575,7 +1575,6 @@ int netlink_change_ngroups(struct sock *
- 	kfree(old);
- 	return err;
- }
--EXPORT_SYMBOL(netlink_change_ngroups);
- 
- /**
-  * netlink_clear_multicast_users - kick off multicast listeners
-@@ -1598,7 +1597,6 @@ void netlink_clear_multicast_users(struc
- 
- 	netlink_table_ungrab();
- }
--EXPORT_SYMBOL(netlink_clear_multicast_users);
- 
- void netlink_set_nonroot(int protocol, unsigned int flags)
- {
+The last patch (for get_net_ns_by_pid) could go through
+the wireless tree as well, but I've put it in here since
+it touches core code. The others probably shouldn't go
+through the wireless tree since they touch more than that.
 
+The first patch in this series fixes the last remaining
+problem I had with the generic netlink one, the patches
+are actually unchanged from the previous submission other
+than adding patch 1 in front.
 
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
