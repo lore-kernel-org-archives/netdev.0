@@ -1,42 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
- usage
-Date: Thu, 09 Jul 2009 17:13:55 -0700 (PDT)
-Message-ID: <20090709.171355.09466097.davem@davemloft.net>
-References: <20090608023757.GA6244@localhost>
-	<20090706105216.GA19124@gondor.apana.org.au>
-	<20090709131746.GA27965@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH for 2.6.31] cxgb3: Fix crash caused by stashing wrong
+ netdev_queue
+Date: Thu, 09 Jul 2009 17:16:56 -0700 (PDT)
+Message-ID: <20090709.171656.216329696.davem@davemloft.net>
+References: <4A554A1D.3070703@chelsio.com>
+	<adabpnty7qm.fsf_-_@cisco.com>
+	<4A565DE9.3040504@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090709131746.GA27965@localhost>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: rdreier@cisco.com, netdev@vger.kernel.org
+To: divy@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60509
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751066AbZGJAQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 20:16:53 -0400
+In-Reply-To: <4A565DE9.3040504@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date: Thu, 9 Jul 2009 21:17:46 +0800
+From: Divy Le Ray <divy@chelsio.com>
+Date: Thu, 09 Jul 2009 14:15:21 -0700
 
-> @@ -2100,7 +2100,8 @@ void tcp_send_fin(struct sock *sk)
->  	} else {
->  		/* Socket is locked, keep trying until memory is available. */
->  		for (;;) {
-> -			skb = alloc_skb_fclone(MAX_TCP_HEADER, GFP_KERNEL);
-> +			skb = alloc_skb_fclone(MAX_TCP_HEADER,
-> +					       sk->sk_allocation);
->  			if (skb)
->  				break;
->  			yield();
+> Roland Dreier wrote:
+>> Commit c3a8c5b6 ("cxgb3: move away from LLTX") exposed a bug in how
+>> cxgb3 looks up the netdev_queue it stashes away in a qset during
+>> initialization.  For multiport devices, the TX queue index it uses is
+>> offset by the first_qset index of each port.  This leads to a crash
+>> once LLTX is removed, since hard_start_xmit is called with one TX
+>> queue lock held, while the TX reclaim timer task grabs a different
+>> (wrong) TX queue lock when it frees skbs.
+>>
+>> Fix this by removing the first_qset offset used to look up the TX
+>> queue passed into t3_sge_alloc_qset() from setup_sge_qsets().
+>>   
+> 
+> Thanks Roland!
+> You were very fast to fix it, you beat us.
+> 
+> Acked-by: Divy Le Ray <divy@chelsio.com>
+> 
+>> Signed-off-by: Roland Dreier <rolandd@cisco.com>
 
-I think this specific case needs more thinking.
-
-If the allocation fails, and it's GFP_ATOMIC, we are going to yield()
-(which sleeps) and loop endlessly waiting for the allocation to
-succeed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
