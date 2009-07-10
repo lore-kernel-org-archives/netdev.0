@@ -1,29 +1,33 @@
 From: Ben Hutchings <ben@decadent.org.uk>
 Subject: [PATCH 2/2] netdev: restore MTU change operation
-Date: Fri, 10 Jul 2009 04:57:34 +0100
-Message-ID: <1247198254.21924.132.camel@deadeye>
+Date: Fri, 10 Jul 2009 04:59:01 +0100
+Message-ID: <1247198341.21924.133.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-2jNb3s8jldnMeRGu8FoK"
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-TKa8p1Z7fK58l9mQsBlI"
 Cc: Stephen Hemminger <shemminger@vyatta.com>, stable@vger.kernel.org,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54968 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54975 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751376AbZGJD5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 23:57:42 -0400
+	by vger.kernel.org with ESMTP id S1751343AbZGJD7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 23:59:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-2jNb3s8jldnMeRGu8FoK
+--=-TKa8p1Z7fK58l9mQsBlI
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
 alloc_etherdev() used to install a default implementation of this
 operation, but it must now be explicitly installed in struct
 net_device_ops.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
+Sorry about the previous copy without S-o-b.
+
 It's not clear that all these drivers should allow changing MTU, but
 they apparently used to.
 
@@ -191,16 +195,16 @@ index d3489a3..88c30a5 100644
 1.6.3.3
 
 
---=-2jNb3s8jldnMeRGu8FoK
+--=-TKa8p1Z7fK58l9mQsBlI
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 
-iD8DBQBKVrws79ZNCRIGYgcRArrsAKCrdwvCqzcRTfczSFdR4UINLSzWugCguyGD
-Ek1zFm5Oze7x7WV79Dsagds=
-=Fpp7
+iD8DBQBKVryE79ZNCRIGYgcRAg/wAJ4minKmrgiGqbc1M+zMSPSN5V09iACgyxOD
+ZZ9JxkeRIKF0j+2QkmE0u9M=
+=xGxS
 -----END PGP SIGNATURE-----
 
---=-2jNb3s8jldnMeRGu8FoK--
+--=-TKa8p1Z7fK58l9mQsBlI--
