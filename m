@@ -1,43 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next-2.6 0/5] Add support for software UDP
-	fragmentation offload(UFO)
-Date: Fri, 10 Jul 2009 09:04:05 +0800
-Message-ID: <20090710010405.GA32639@gondor.apana.org.au>
-References: <1247162981.8649.89.camel@w-sridhar.beaverton.ibm.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: 2.6.31-rc2: Reported regressions from 2.6.30
+Date: Thu, 09 Jul 2009 20:46:57 -0500
+Message-ID: <1247190417.7306.2.camel@merlyn>
+References: <35kKlbXMqWN.A.RXD.D0oUKB@chimera>
+	 <200907070325.51439.andres@anarazel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51162 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750912AbZGJBEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 21:04:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1247162981.8649.89.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eric Sesterhenn <eric.sesterhenn@lsexperts.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Andres Freund <andres@anarazel.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <200907070325.51439.andres@anarazel.de>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 09, 2009 at 11:09:41AM -0700, Sridhar Samudrala wrote:
-> The following set of patches fixes support for UDP fragmentation offload
-> in the core networking stack to send/receive large UDP packets over UFO
-> enabled devices and fallback to software UFO when the outgoing device 
-> doesn't support UFO.
-> These patches enable setting UFO on virtio-net and tap devices and allow
-> large UDP packets to be sent between guest to host and inter guest under
-> KVM.
-> 
-> [PATCH net-next-2.6 1/5] udpv4: Handle large incoming UDP/IPv4 packets and support software UFO.
-> [PATCH net-next-2.6 2/5] udpv6: Fix HW checksum support for outgoing UFO packets
-> [PATCH net-next-2.6 3/5] udpv6: Fix gso_size setting in ip6_ufo_append_data
-> [PATCH net-next-2.6 4/5] udpv6: Remove unused skb argument of ipv6_select_ident()
-> [PATCH net-next-2.6 5/5] udpv6: Handle large incoming UDP/IPv6 packets and support software UFO
+On Tue, 2009-07-07 at 03:25 +0200, Andres Freund wrote:
+> There is also http://lkml.org/lkml/2009/6/30/398 : Soft-Lockup/Race
+> in 
+> networking in 2.6.31-rc1+195 (possibly caused by netem)
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+There is some similarity between this soft lockup and the one reported
+in http://www.spinics.net/lists/netdev/msg100957.html.  In both, the
+process is doing both sends and receives on raw sockets.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  --  John
+
