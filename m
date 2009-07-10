@@ -1,91 +1,120 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH 2/4] net: make namespace iteration possible under RCU
-Date: Fri, 10 Jul 2009 21:51:33 +0200
-Message-ID: <20090710195536.341132270@sipsolutions.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 1/4] netlink: use call_rcu for netlink_change_ngroups
+Date: Fri, 10 Jul 2009 21:51:32 +0200
+Message-ID: <20090710195536.193846183@sipsolutions.net>
 References: <20090710195131.504091075@sipsolutions.net>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline; filename=028-netns-rcu.patch
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, tgraf@suug.ch,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:46290 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756675AbZGJT50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 15:57:26 -0400
+Content-Disposition: inline; filename=027-netlink-groups-realloc-rcu.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All we need to take care of is using proper RCU list
-add/del primitives and inserting a synchronize_rcu()
-at one place to make sure the exit notifiers are run
-after everybody has stopped iterating the list.
+For the network namespace work in generic netlink I need
+to be able to call this function under rcu_read_lock(),
+otherwise the locking becomes a nightmare and more locks
+would be needed. Instead, just embed a struct rcu_head
+(actually a struct listeners_rcu_head that also carries
+the pointer to the memory block) into the listeners
+memory so we can use call_rcu() instead of synchronising
+and then freeing. No rcu_barrier() is needed since this
+code cannot be modular.
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 ---
- include/net/net_namespace.h |    3 +++
- net/core/net_namespace.c    |   14 +++++++++++---
- 2 files changed, 14 insertions(+), 3 deletions(-)
+ net/netlink/af_netlink.c |   34 ++++++++++++++++++++++++++++++----
+ 1 file changed, 30 insertions(+), 4 deletions(-)
 
---- wireless-testing.orig/include/net/net_namespace.h	2009-07-07 04:14:39.000000000 +0200
-+++ wireless-testing/include/net/net_namespace.h	2009-07-07 12:17:17.000000000 +0200
-@@ -211,6 +211,9 @@ static inline struct net *read_pnet(stru
- #define for_each_net(VAR)				\
- 	list_for_each_entry(VAR, &net_namespace_list, list)
+--- wireless-testing.orig/net/netlink/af_netlink.c	2009-07-10 20:36:53.000000000 +0200
++++ wireless-testing/net/netlink/af_netlink.c	2009-07-10 20:51:40.000000000 +0200
+@@ -83,6 +83,11 @@ struct netlink_sock {
+ 	struct module		*module;
+ };
  
-+#define for_each_net_rcu(VAR)				\
-+	list_for_each_entry_rcu(VAR, &net_namespace_list, list)
++struct listeners_rcu_head {
++	struct rcu_head rcu_head;
++	void *ptr;
++};
 +
- #ifdef CONFIG_NET_NS
- #define __net_init
- #define __net_exit
---- wireless-testing.orig/net/core/net_namespace.c	2009-07-07 03:43:35.000000000 +0200
-+++ wireless-testing/net/core/net_namespace.c	2009-07-07 12:18:19.000000000 +0200
-@@ -6,6 +6,7 @@
- #include <linux/delay.h>
- #include <linux/sched.h>
- #include <linux/idr.h>
-+#include <linux/rculist.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
+ #define NETLINK_KERNEL_SOCKET	0x1
+ #define NETLINK_RECV_PKTINFO	0x2
+ #define NETLINK_BROADCAST_SEND_ERROR	0x4
+@@ -1487,7 +1492,8 @@ netlink_kernel_create(struct net *net, i
+ 	if (groups < 32)
+ 		groups = 32;
  
-@@ -127,7 +128,7 @@ static struct net *net_create(void)
- 	rv = setup_net(net);
- 	if (rv == 0) {
- 		rtnl_lock();
--		list_add_tail(&net->list, &net_namespace_list);
-+		list_add_tail_rcu(&net->list, &net_namespace_list);
- 		rtnl_unlock();
+-	listeners = kzalloc(NLGRPSZ(groups), GFP_KERNEL);
++	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
++			    GFP_KERNEL);
+ 	if (!listeners)
+ 		goto out_sock_release;
+ 
+@@ -1535,6 +1541,14 @@ netlink_kernel_release(struct sock *sk)
+ EXPORT_SYMBOL(netlink_kernel_release);
+ 
+ 
++static void netlink_free_old_listeners(struct rcu_head *rcu_head)
++{
++	struct listeners_rcu_head *lrh;
++
++	lrh = container_of(rcu_head, struct listeners_rcu_head, rcu_head);
++	kfree(lrh->ptr);
++}
++
+ /**
+  * netlink_change_ngroups - change number of multicast groups
+  *
+@@ -1550,6 +1564,7 @@ EXPORT_SYMBOL(netlink_kernel_release);
+ int netlink_change_ngroups(struct sock *sk, unsigned int groups)
+ {
+ 	unsigned long *listeners, *old = NULL;
++	struct listeners_rcu_head *old_rcu_head;
+ 	struct netlink_table *tbl = &nl_table[sk->sk_protocol];
+ 	int err = 0;
+ 
+@@ -1558,7 +1573,9 @@ int netlink_change_ngroups(struct sock *
+ 
+ 	netlink_table_grab();
+ 	if (NLGRPSZ(tbl->groups) < NLGRPSZ(groups)) {
+-		listeners = kzalloc(NLGRPSZ(groups), GFP_ATOMIC);
++		listeners = kzalloc(NLGRPSZ(groups) +
++				    sizeof(struct listeners_rcu_head),
++				    GFP_ATOMIC);
+ 		if (!listeners) {
+ 			err = -ENOMEM;
+ 			goto out_ungrab;
+@@ -1566,13 +1583,22 @@ int netlink_change_ngroups(struct sock *
+ 		old = tbl->listeners;
+ 		memcpy(listeners, old, NLGRPSZ(tbl->groups));
+ 		rcu_assign_pointer(tbl->listeners, listeners);
++		/*
++		 * Free the old memory after an RCU grace period so we
++		 * don't leak it. We use call_rcu() here in order to be
++		 * able to call this function from atomic contexts. The
++		 * allocation of this memory will have reserved enough
++		 * space for struct listeners_rcu_head at the end.
++		 */
++		old_rcu_head = (void *)(tbl->listeners +
++					NLGRPLONGS(tbl->groups));
++		old_rcu_head->ptr = old;
++		call_rcu(&old_rcu_head->rcu_head, netlink_free_old_listeners);
  	}
- 	mutex_unlock(&net_mutex);
-@@ -156,9 +157,16 @@ static void cleanup_net(struct work_stru
+ 	tbl->groups = groups;
  
- 	/* Don't let anyone else find us. */
- 	rtnl_lock();
--	list_del(&net->list);
-+	list_del_rcu(&net->list);
- 	rtnl_unlock();
+  out_ungrab:
+ 	netlink_table_ungrab();
+-	synchronize_rcu();
+-	kfree(old);
+ 	return err;
+ }
  
-+	/*
-+	 * Another CPU might be rcu-iterating the list, wait for it.
-+	 * This needs to be before calling the exit() notifiers, so
-+	 * the rcu_barrier() below isn't sufficient alone.
-+	 */
-+	synchronize_rcu();
-+
- 	/* Run all of the network namespace exit methods */
- 	list_for_each_entry_reverse(ops, &pernet_list, list) {
- 		if (ops->exit)
-@@ -219,7 +227,7 @@ static int __init net_ns_init(void)
- 		panic("Could not setup the initial network namespace");
- 
- 	rtnl_lock();
--	list_add_tail(&init_net.list, &net_namespace_list);
-+	list_add_tail_rcu(&init_net.list, &net_namespace_list);
- 	rtnl_unlock();
- 
- 	mutex_unlock(&net_mutex);
 
 -- 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
