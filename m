@@ -1,95 +1,117 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: weird problem
-Date: Fri, 10 Jul 2009 16:47:54 +0200
-Message-ID: <20090710144754.GA25385@ami.dom.local>
-References: <20090708223459.GB3666@ami.dom.local> <4A5679CC.800@itcare.pl> <4A568444.7010307@itcare.pl>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [regression] ath5k: Overrides regulatory domain set for cfg80211
+Date: Fri, 10 Jul 2009 08:24:32 -0700
+Message-ID: <43e72e890907100824o1a4116aeh6e4d28aa504b29cc@mail.gmail.com>
+References: <200907082340.07787.elendil@planet.nl> <200907090311.40205.elendil@planet.nl>
+	<43e72e890907081907j279f48eep99e73cc2951dfdb@mail.gmail.com>
+	<200907101343.14113.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Frans Pop <elendil@planet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:34305 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546AbZGJOsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 10:48:08 -0400
-Received: by fxm18 with SMTP id 18so938436fxm.37
-        for <netdev@vger.kernel.org>; Fri, 10 Jul 2009 07:48:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A568444.7010307@itcare.pl>
+Received: from mail-qy0-f193.google.com ([209.85.221.193]:36964 "EHLO
+	mail-qy0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751935AbZGJPYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jul 2009 11:24:53 -0400
+In-Reply-To: <200907101343.14113.elendil@planet.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 10, 2009 at 01:59:00AM +0200, Pawe=B3 Staszewski wrote:
-> Today i make other tests with change of =20
-> /proc/sys/net/ipv4/rt_cache_rebuild_count and kernel 2.6.30.1
+On Fri, Jul 10, 2009 at 4:43 AM, Frans Pop<elendil@planet.nl> wrote:
+
+>> >> For further information please also read
+>> >> Documentation/feature-removal-schedule.txt. Please use a valid
+>> >> ISO-3166 alpha2 country code, I also advise to abandon the usage of
+>> >> the ieee80211_regdom module parameter which we do eventually intend
+>> >> on deprecating and if you know anyone using that please suggest the
+>> >> same.
+>> >
+>> > As mentioned above I do not currently have the option of abandoning
+>> > it.
+>>
+>> Yes you do, but you don't seem to want to do anything beyond what your
+>> distribution offers, which is different.
 >
-> And when rt_cache_rebuild_count is set to "-1" i have always load on =
-=20
-> x86_64 machine approx 40-50% of each cpu where network card is binded=
- by =20
-> irq_aff
+> You're right :-)
+> However, I am also a Debian Developer and Debian may (just as we did for
+> Etch), at some point want to offer a newer kernel than the current .26
+> for stable (possibly .31).
+
+That'd be nice!
+
+> From that PoV it is important to ensure there
+> are no incompatibilities with what's in Debian stable.
+
+And there shouldn't be.
+
+Side note:
+
+I'd suggest to disable OLD_REG and provide crda and iw on your shiny
+new kernel. In the absence of crda you still have a really good world
+regulatory domain with good world roaming capabilities. For setting
+the regulatory domain you can look at what Fedora folks did with the
+timezone info until the desktop catches up (geoclue and whatever).
+
+> For that reason I am very conservative when it comes to installer newer or
+> backported versions of packages.
+
+Sure.
+
+>> > That seems particularly bad in my case. For some weird reason this
+>> > Trust PCMCIA card seems to have AM in its EEPROM, which is Armenia...
+>> > The card was bought in the Netherlands (NL), which is also where I
+>> > live.
+>>
+>> Yeah the short story of that is Armenia and Netherlands both have the
+>> same regulatory rules, the first alpha2 that matched the same group
+>> was picked up, which just so happened to be Armenia. In the future it
+>> will be easier if cards are just programmed with the alpha2 country
+>> code or with a world regulatory domain code, and just abandon the
+>> grouping idea. That is something we will have to look forward to
+>> change and promote for future device. What counts for regulatory
+>> purposes is your device is complaint. The alternative was to keep all
+>> the regulatory information statically in the kernel for each
+>> regulatory group for Atheros devices.
 >
-> when rt_cache_rebuild_count is set to more than "-1" i have 15 to 20 =
-sec =20
-> of 1 to 3% cpu and after 40-50% cpu
-=2E..
+> Ah! I had no idea about that and I guess that this is the real issue here:
+> a simple usability problem. If I had seen the correct countrycode (NL
+> instead of AM), I probably never would have reported a regression. What
+> prompted my mail was that, from a user PoV, the country being selected
+> looked to be completely broken. How am I, as a simple user, supposed to
+> know that Armenia uses the same domain as the Netherlands and that what
+> the driver is doing is actually 100% correct (and even that my PCMCIA
+> card is not as broken as I thought)?
 
-Here is one more patch for testing (with caution!). It adds possibility
-to turn off cache disabling (so it should even more resemble 2.6.28)
-after setting: rt_cache_rebuild_count =3D 0
+Yeah, its a good point.
 
-I'd like you to try this patch:
-1) together with the previous patch and "rt_cache_rebuild_count =3D 0"
-   to check if there is still the difference wrt. 2.6.28; Btw., let
-   me know which /proc/sys/net/ipv4/route/* settings do you need to
-   change and why
+> Would it be possible to improve the info presented by the kernel? Maybe
+> print an extra line with a list of countries that use the selected reg
+> domain (depends I guess on what's the max. nr. of countries that share a
+> domain). Or at least indicate that the country code is a somewhat random
+> choice.
 
-2) alone (without the previous patch) and "rt_cache_rebuild_count =3D 0=
-"
+Perhaps an informative "group regulatory domain" printk may make
+sense, you're right.
 
-3) if it's possible to try 2.6.30.1 without these patches, but with
-   default /proc/sys/net/ipv4/route/* settings, and higher
-   rt_cache_rebuild_count, e.g. 100; I'm interested if/how long it
-   takes to trigger higher cpu load and the warning "... rebuilds is
-   over limit, route caching disabled"; (Btw., I wonder why you didn't
-   mention about these or maybe also other route caching warnings?)
+>> > I can to some extend understand respecting hardware settings for APs,
+>> > but for a wireless NIC it seems a useless limitation.
+>>
+>> You are right to a certain degree. The thing is wireless cards *can*
+>> be used as APs on a regular desktops. Perhaps not with iwlagn, but
+>> with ath5k and ath9k you can do AP, IBSS, Mesh, all of which actually
+>> do start transmit with out any AP being around. For these cases you
+>> *do* need to ensure proper regulatory compliance. And we haven't even
+>> touched on DFS!
+>
+> Well, IIUC you do know what mode the card is being used in, so in theory
+> you could distinguish between them. I'm not pushing for that though.
+>
+> End conclusion is that there is no regression and no backwards
+> compatibility issue (which is good news), just a usability issue.
 
-Regards,
-Jarek P.
---- (debugging patch #2; apply to 2.6.30.1 or 2.6.29.6)
+Yup.
 
- net/ipv4/route.c |   16 +++++++++++-----
- 1 files changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 278f46f..3d183cb 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1181,12 +1181,18 @@ restart:
- 	} else {
- 		if (chain_length > rt_chain_length_max) {
- 			struct net *net =3D dev_net(rt->u.dst.dev);
--			int num =3D ++net->ipv4.current_rt_cache_rebuild_count;
--			if (!rt_caching(dev_net(rt->u.dst.dev))) {
--				printk(KERN_WARNING "%s: %d rebuilds is over limit, route caching =
-disabled\n",
--					rt->u.dst.dev->name, num);
-+
-+			if (net->ipv4.sysctl_rt_cache_rebuild_count > 0) {
-+				int num =3D ++net->ipv4.current_rt_cache_rebuild_count;
-+
-+				if (!rt_caching(net))
-+					printk(KERN_WARNING
-+					       "%s: %d rebuilds is over limit, "
-+					       "route caching disabled\n",
-+					       rt->u.dst.dev->name, num);
-+
-+				rt_emergency_hash_rebuild(net);
- 			}
--			rt_emergency_hash_rebuild(dev_net(rt->u.dst.dev));
- 		}
- 	}
-=20
+  Luis
