@@ -1,45 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv7 2/2] memory barrier: adding smp_mb__after_lock
-Date: Thu, 09 Jul 2009 17:08:11 -0700 (PDT)
-Message-ID: <20090709.170811.21077750.davem@davemloft.net>
-References: <20090708220717.GB2945@jolsa.redhat.com>
-	<20090708221031.GD2945@jolsa.redhat.com>
-	<4A557153.8000108@gmail.com>
+Subject: Re: patch acceptance question
+Date: Thu, 09 Jul 2009 17:10:33 -0700 (PDT)
+Message-ID: <20090709.171033.138040764.davem@davemloft.net>
+References: <1247152896.29603.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jolsa@redhat.com, netdev@vger.kernel.org,
-	mathieu.desnoyers@polymtl.ca, mingo@elte.hu,
-	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
-	fbl@redhat.com, nhorman@redhat.com, htejun@gmail.com,
-	jarkao2@gmail.com, oleg@redhat.com, davidel@xmailserver.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pcnet32@verizon.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38866
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38873
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751873AbZGJAII convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jul 2009 20:08:08 -0400
-In-Reply-To: <4A557153.8000108@gmail.com>
+	by vger.kernel.org with ESMTP id S1750920AbZGJAKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 20:10:30 -0400
+In-Reply-To: <1247152896.29603.15.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jul 2009 06:25:55 +0200
+From: Don Fry <pcnet32@verizon.net>
+Date: Thu, 09 Jul 2009 08:21:36 -0700
 
-> Jiri Olsa a =E9crit :
->> Adding smp_mb__after_lock define to be used as a smp_mb call after
->> a lock.
->>=20
->> Making it nop for x86, since {read|write|spin}_lock() on x86 are
->> full memory barriers.
->>=20
->> wbr,
->> jirka
->>=20
->>=20
->> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I was surprised today to see a change to pcnet32.c in 2.6.31-rc2-git4
+> which maybe I missed yesterday on netdev.  Most of the changes are okay,
+> but one in particular will result in some ugly printing.
+> 
+> What is the path that (probably janitorial) changes take that get
+> included in mainline?   Had I seen it before it went in I would have
+> commented on it then.
 
-Also applied, thanks everyone!
+In the amount of typing you did for sending this email, you
+could have submitted a fix instead.
+
+I think the change in question went straight into Linus's tree.
