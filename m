@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/3] net: Sanitizing hrtimer usage in
- net/sched/sch_cbq.c
-Date: Thu, 09 Jul 2009 17:39:30 -0700 (PDT)
-Message-ID: <20090709.173930.195849446.davem@davemloft.net>
-References: <20090709215455.703939259@linutronix.de>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
+	usage
+Date: Fri, 10 Jul 2009 08:59:57 +0800
+Message-ID: <20090710005957.GA32555@gondor.apana.org.au>
+References: <20090608023757.GA6244@localhost> <20090706105216.GA19124@gondor.apana.org.au> <20090709131746.GA27965@localhost> <20090709.171355.09466097.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net, peterz@infradead.org
-To: tglx@linutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43861
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750833AbZGJAj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 20:39:27 -0400
-In-Reply-To: <20090709215455.703939259@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090709.171355.09466097.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Thu, 09 Jul 2009 21:59:18 -0000
+On Thu, Jul 09, 2009 at 05:13:55PM -0700, David Miller wrote:
+>
+> I think this specific case needs more thinking.
+> 
+> If the allocation fails, and it's GFP_ATOMIC, we are going to yield()
+> (which sleeps) and loop endlessly waiting for the allocation to
+> succeed.
 
-> While looking at the "Soft-Lockup/Race in networking in 2.6.31-rc1+195
-> ( possibly caused by netem)" issue (http://lkml.org/lkml/2009/7/2/519)
-> I noticed some serious problems in the hrtimer related code of
-> net/sched/sched/sch_cbq.c.
-> 
-> The following patch series addresses these.
-> 
-> I'm not entirely sure whether patch [1/3] covers all possible
-> concurrent modifications, but it fixes the most obvious ones. The
-> remaining details are left to the networking experts.
-> 
-> Patches [1/3] and [2/3] might be stable material as well.
+Indeed.  We could do one of the following:
 
-Thanks a lot for these paches Thomas, I'll look at them more
-closely.
+1) Preallocate, either universally or conditinally on sk_allocation.
+2) Set a bit somewhere to indicate FIN and retry the allocation as
+part of retransmit.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
