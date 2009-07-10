@@ -1,41 +1,43 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
-	usage
-Date: Fri, 10 Jul 2009 08:59:57 +0800
-Message-ID: <20090710005957.GA32555@gondor.apana.org.au>
-References: <20090608023757.GA6244@localhost> <20090706105216.GA19124@gondor.apana.org.au> <20090709131746.GA27965@localhost> <20090709.171355.09466097.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6 0/5] Add support for software UDP
+	fragmentation offload(UFO)
+Date: Fri, 10 Jul 2009 09:04:05 +0800
+Message-ID: <20090710010405.GA32639@gondor.apana.org.au>
+References: <1247162981.8649.89.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:51162 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750912AbZGJBEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 21:04:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20090709.171355.09466097.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1247162981.8649.89.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 09, 2009 at 05:13:55PM -0700, David Miller wrote:
->
-> I think this specific case needs more thinking.
+On Thu, Jul 09, 2009 at 11:09:41AM -0700, Sridhar Samudrala wrote:
+> The following set of patches fixes support for UDP fragmentation offload
+> in the core networking stack to send/receive large UDP packets over UFO
+> enabled devices and fallback to software UFO when the outgoing device 
+> doesn't support UFO.
+> These patches enable setting UFO on virtio-net and tap devices and allow
+> large UDP packets to be sent between guest to host and inter guest under
+> KVM.
 > 
-> If the allocation fails, and it's GFP_ATOMIC, we are going to yield()
-> (which sleeps) and loop endlessly waiting for the allocation to
-> succeed.
+> [PATCH net-next-2.6 1/5] udpv4: Handle large incoming UDP/IPv4 packets and support software UFO.
+> [PATCH net-next-2.6 2/5] udpv6: Fix HW checksum support for outgoing UFO packets
+> [PATCH net-next-2.6 3/5] udpv6: Fix gso_size setting in ip6_ufo_append_data
+> [PATCH net-next-2.6 4/5] udpv6: Remove unused skb argument of ipv6_select_ident()
+> [PATCH net-next-2.6 5/5] udpv6: Handle large incoming UDP/IPv6 packets and support software UFO
 
-Indeed.  We could do one of the following:
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-1) Preallocate, either universally or conditinally on sk_allocation.
-2) Set a bit somewhere to indicate FIN and retry the allocation as
-part of retransmit.
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
