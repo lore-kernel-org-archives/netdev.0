@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: Fix coexistence of FCoE and Flow
- Director in 82599
-Date: Thu, 09 Jul 2009 17:17:20 -0700 (PDT)
-Message-ID: <20090709.171720.66965956.davem@davemloft.net>
-References: <20090709122944.962.54056.stgit@localhost.localdomain>
+Subject: Re: [patch 0/3] net: Sanitizing hrtimer usage in
+ net/sched/sch_cbq.c
+Date: Thu, 09 Jul 2009 17:39:30 -0700 (PDT)
+Message-ID: <20090709.173930.195849446.davem@davemloft.net>
+References: <20090709215455.703939259@linutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, yi.zou@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net, peterz@infradead.org
+To: tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60513
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43861
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750718AbZGJARR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 20:17:17 -0400
-In-Reply-To: <20090709122944.962.54056.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1750833AbZGJAj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jul 2009 20:39:27 -0400
+In-Reply-To: <20090709215455.703939259@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 09 Jul 2009 05:29:50 -0700
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 09 Jul 2009 21:59:18 -0000
 
-> From: Yi Zou <yi.zou@intel.com>
+> While looking at the "Soft-Lockup/Race in networking in 2.6.31-rc1+195
+> ( possibly caused by netem)" issue (http://lkml.org/lkml/2009/7/2/519)
+> I noticed some serious problems in the hrtimer related code of
+> net/sched/sched/sch_cbq.c.
 > 
-> Fix coexistence of Fiber Channel over Ethernet (FCoE) and Flow Director (FDIR)
-> in 82599 and remove the disabling of FDIR when FCoE is enabled.
+> The following patch series addresses these.
 > 
-> Currently, FDIR is turned off when FCoE is enabled under the assumption that
-> FCoE is always enabled with DCB being turned on. However, FDIR does not have
-> to be turned off all the time when FCoE is enabled since FCoE can be enabled
-> without DCB being turned on, e.g., use link pause only. This patch makes sure
-> that when DCB is turned on or off, FDIR is turned on or off correspondingly;
-> and when FCoE is enabled, it does not disable FDIR, rather, it will have FDIR
-> set up properly so FCoE and FDIR can coexist regardless of DCB being on or off.
+> I'm not entirely sure whether patch [1/3] covers all possible
+> concurrent modifications, but it fixes the most obvious ones. The
+> remaining details are left to the networking experts.
 > 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Patches [1/3] and [2/3] might be stable material as well.
 
-Applied.
+Thanks a lot for these paches Thomas, I'll look at them more
+closely.
