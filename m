@@ -1,61 +1,64 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] drivers/net/bonding: Adjust constant name
-Date: Sat, 11 Jul 2009 13:03:55 -0700
-Message-ID: <9220.1247342635@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0907111006090.29592@ask.diku.dk>
-Cc: bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: need help with wireless netns crash
+Date: Sat, 11 Jul 2009 13:26:45 -0700
+Message-ID: <m1ocrrq83e.fsf@fess.ebiederm.org>
+References: <1247302033.30647.72.camel@johannes.local>
+	<m11vonsi1p.fsf@fess.ebiederm.org>
+	<1247304161.30647.83.camel@johannes.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:33583 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752849AbZGKUDy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Jul 2009 16:03:54 -0400
-In-reply-to: <Pine.LNX.4.64.0907111006090.29592@ask.diku.dk>
+Received: from out01.mta.xmission.com ([166.70.13.231]:35304 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752849AbZGKU0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2009 16:26:50 -0400
+In-Reply-To: <1247304161.30647.83.camel@johannes.local> (Johannes Berg's message of "Sat\, 11 Jul 2009 11\:22\:41 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Johannes Berg <johannes@sipsolutions.net> writes:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Subject: explain netns notifiers a little better
+>
+> Eric explained this to me -- and afterwards the comment
+> made sense, but not before. Add the the critical point
+> about interfaces having to be gone from the netns before
+> subsys notifiers are called.
+>
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> ---
+>  include/net/net_namespace.h |   16 +++++++++-------
+>  1 file changed, 9 insertions(+), 7 deletions(-)
+>
+> --- wireless-testing.orig/include/net/net_namespace.h	2009-07-11 11:18:20.000000000 +0200
+> +++ wireless-testing/include/net/net_namespace.h	2009-07-11 11:20:49.000000000 +0200
+> @@ -239,13 +239,15 @@ struct pernet_operations {
+>   * needs per network namespace operations use device pernet operations,
+>   * otherwise use pernet subsys operations.
+>   *
+> - * This is critically important.  Most of the network code cleanup
+> - * runs with the assumption that dev_remove_pack has been called so no
+> - * new packets will arrive during and after the cleanup functions have
+> - * been called.  dev_remove_pack is not per namespace so instead the
+> - * guarantee of no more packets arriving in a network namespace is
+> - * provided by ensuring that all network devices and all sockets have
+> - * left the network namespace before the cleanup methods are called.
+> + * Network interfaces need to be removed from a dying netns _before_
+> + * subsys notifiers can be called, as most of the network code cleanup
+> + * (which is done from subsys notifiers) runs with the assumption that
+> + * dev_remove_pack has been called so no new packets will arrive during
+> + * and after the cleanup functions have been called.  dev_remove_pack
+> + * is not per namespace so instead the guarantee of no more packets
+> + * arriving in a network namespace is provided by ensuring that all
+> + * network devices and all sockets have left the network namespace
+> + * before the cleanup methods are called.
+>   *
+>   * For the longest time the ipv4 icmp code was registered as a pernet
+>   * device which caused kernel oops, and panics during network
 
-From: Julia Lawall <julia@diku.dk>
+That seems like a reasonable cleanup to the wording.
 
-AD_SHORT_TIMEOUT and AD_STATE_LACP_ACTIVITY have the same value, but
-AD_STATE_LACP_ACTIVITY better reflects the intended semantics.
+Eric
 
-[ J adds: AD_STATE_LACP_ACTIVITY is a value defined by the standard, and
-should be set here in accordance with 802.3ad 43.4.12; AD_SHORT_TIMEOUT
-is a constant specific to the Linux 802.3ad implementation that happens
-to have the same value ]
-
-The semantic match that finds this problem is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
-
-// <smpl>
-@@
-struct port_params p;
-@@
-* p.port_state |= AD_SHORT_TIMEOUT
-// </smpl>
-
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
----
- drivers/net/bonding/bond_3ad.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index d4b5708..88a1446 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1109,7 +1109,8 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			//mux machine in case of EXPIRED even if LINK_DOWN didn't arrive for the port.
- 			port->partner_oper.port_state &= ~AD_STATE_SYNCHRONIZATION;
- 			port->sm_vars &= ~AD_PORT_MATCHED;
--			port->partner_oper.port_state |= AD_SHORT_TIMEOUT;
-+			port->partner_oper.port_state |=
-+				AD_STATE_LACP_ACTIVITY;
- 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
- 			port->actor_oper_port_state |= AD_STATE_EXPIRED;
- 			break;
