@@ -1,28 +1,38 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] NET: Fix locking issues in PPP, 6pack, mkiss and strip
- line disciplines.
-Date: Sun, 12 Jul 2009 23:48:54 +0100
-Message-ID: <20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
-References: <20090712172720.GA7313@linux-mips.org>
-	<20090712222658.GC26798@linux-mips.org>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] atl1c: misplaced parenthesis
+Date: Mon, 13 Jul 2009 00:57:38 +0200
+Message-ID: <4A5A6A62.6070707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Guido Trentalancia <guido@trentalancia.com>,
-	Paul Mackerras <paulus@samba.org>, linux-hams@vger.kernel.org,
-	Hans Albas PE1AYX <hans@esrac.ele.tue.nl>
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20090712222658.GC26798@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: jcliburn@gmail.com, atl1-devel@lists.sourceforge.net,
+	Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-1920.google.com ([74.125.78.150]:52530 "EHLO
+	ey-out-1920.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbZGLW4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 18:56:12 -0400
+Received: by ey-out-1920.google.com with SMTP id 3so371069eyh.36
+        for <netdev@vger.kernel.org>; Sun, 12 Jul 2009 15:56:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The issue was, that the locking code in mkiss was assuming it was only
-> ever being called in process or bh context.  Fixed by converting the
-> involved locking code to use irq-safe locks.
+Fix misplaced parenthesis
 
-Which historically of course was correct until the networking layer
-changed behaviour some years ago.
-
-These look good to me.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
+index cd547a2..a383122 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -1689,7 +1689,7 @@ static void atl1c_clean_rx_irq(struct atl1c_adapter *adapter, u8 que,
+ 		if (likely(RRS_RXD_IS_VALID(rrs->word3))) {
+ 			rfd_num = (rrs->word0 >> RRS_RX_RFD_CNT_SHIFT) &
+ 				RRS_RX_RFD_CNT_MASK;
+-			if (unlikely(rfd_num) != 1)
++			if (unlikely(rfd_num != 1))
+ 				/* TODO support mul rfd*/
+ 				if (netif_msg_rx_err(adapter))
+ 					dev_warn(&pdev->dev,
