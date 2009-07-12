@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ip_push_pending_frames() fix
-Date: Sat, 11 Jul 2009 20:27:02 -0700 (PDT)
-Message-ID: <20090711.202702.30626847.davem@davemloft.net>
-References: <4A552A0D.8080106@gmail.com>
-	<EA929A9653AAE14F841771FB1DE5A1365F8AD4E371@rrsmsx501.amr.corp.intel.com>
-	<4A5537DA.1060200@gmail.com>
+Subject: Re: [PATCH] net: sk_prot_alloc() should not blindly overwrite
+ memory
+Date: Sat, 11 Jul 2009 20:27:27 -0700 (PDT)
+Message-ID: <20090711.202727.18146102.davem@davemloft.net>
+References: <20090707.191424.167842005.davem@davemloft.net>
+	<4A5441A0.3050504@gmail.com>
+	<4A5581C5.5070409@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: emil.s.tantilov@intel.com, emils.tantilov@gmail.com,
 	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, jolsa@redhat.com
+	jeffrey.t.kirsher@intel.com, jolsa@redhat.com, kaber@trash.net,
+	paulmck@linux.vnet.ibm.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37360
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37366
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751944AbZGLD1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2009 23:27:05 -0400
-In-Reply-To: <4A5537DA.1060200@gmail.com>
+	by vger.kernel.org with ESMTP id S1752085AbZGLD1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2009 23:27:23 -0400
+In-Reply-To: <4A5581C5.5070409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jul 2009 02:20:42 +0200
+Date: Thu, 09 Jul 2009 07:36:05 +0200
 
-> [PATCH] net: ip_push_pending_frames() fix
+> [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
 > 
-> After commit 2b85a34e911bf483c27cfdd124aeb1605145dc80 
-> (net: No more expensive sock_hold()/sock_put() on each tx)
-> we do not take any more references on sk->sk_refcnt on outgoing packets.
+> Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code correctness
+> depends on sk->sk_nulls_node.next being always valid. A NULL
+> value is not allowed as it might fault a lockless reader.
 > 
-> I forgot to delete two __sock_put() from ip_push_pending_frames()
-> and ip6_push_pending_frames().
+> Current sk_prot_alloc() implementation doesnt respect this hypothesis,
+> calling kmem_cache_alloc() with __GFP_ZERO. Just call memset() around
+> the forbidden field.
 > 
-> Reported-by: Emil S Tantilov <emils.tantilov@gmail.com>
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, with the Tested-by marker added.
+APplied and queued up for -stable.
