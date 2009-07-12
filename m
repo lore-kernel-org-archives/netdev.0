@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sk_prot_alloc() should not blindly overwrite
- memory
-Date: Sat, 11 Jul 2009 20:27:27 -0700 (PDT)
-Message-ID: <20090711.202727.18146102.davem@davemloft.net>
-References: <20090707.191424.167842005.davem@davemloft.net>
-	<4A5441A0.3050504@gmail.com>
-	<4A5581C5.5070409@gmail.com>
+Subject: Re: [PATCH] sit: fix regression: do not release skb->dst before
+ xmit
+Date: Sat, 11 Jul 2009 20:31:02 -0700 (PDT)
+Message-ID: <20090711.203102.250710958.davem@davemloft.net>
+References: <1247317289-27867-1-git-send-email-contact@saschahlusiak.de>
+	<4A58927F.7040405@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: emil.s.tantilov@intel.com, emils.tantilov@gmail.com,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, jolsa@redhat.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: contact@saschahlusiak.de, netdev@vger.kernel.org,
+	berni@birkenwald.de
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37366
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41544
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752085AbZGLD1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jul 2009 23:27:23 -0400
-In-Reply-To: <4A5581C5.5070409@gmail.com>
+	by vger.kernel.org with ESMTP id S1751944AbZGLDa7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Jul 2009 23:30:59 -0400
+In-Reply-To: <4A58927F.7040405@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jul 2009 07:36:05 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 11 Jul 2009 15:24:15 +0200
 
-> [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
-> 
-> Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code correctness
-> depends on sk->sk_nulls_node.next being always valid. A NULL
-> value is not allowed as it might fault a lockless reader.
-> 
-> Current sk_prot_alloc() implementation doesnt respect this hypothesis,
-> calling kmem_cache_alloc() with __GFP_ZERO. Just call memset() around
-> the forbidden field.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Sascha Hlusiak a =E9crit :
+>> The sit module makes use of skb->dst in it's xmit function,
+>> so since 93f154b594fe47 sit tunnels are broken, because the
+>> flag IFF_XMIT_DST_RELEASE is not unset.
+>>=20
+>> This patch unsets that flag for sit devices to fix this
+>> regression.
+>>=20
+>> Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-APplied and queued up for -stable.
+Applied, thanks.
