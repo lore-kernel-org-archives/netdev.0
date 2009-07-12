@@ -1,38 +1,40 @@
 From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] atl1c: misplaced parenthesis
-Date: Mon, 13 Jul 2009 00:57:38 +0200
-Message-ID: <4A5A6A62.6070707@gmail.com>
+Subject: [PATCH] atlx: duplicate testing of MCAST flag
+Date: Mon, 13 Jul 2009 01:12:37 +0200
+Message-ID: <4A5A6DE5.4090801@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: jcliburn@gmail.com, atl1-devel@lists.sourceforge.net,
 	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-1920.google.com ([74.125.78.150]:52530 "EHLO
-	ey-out-1920.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691AbZGLW4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 18:56:12 -0400
-Received: by ey-out-1920.google.com with SMTP id 3so371069eyh.36
-        for <netdev@vger.kernel.org>; Sun, 12 Jul 2009 15:56:10 -0700 (PDT)
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:61194 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921AbZGLXLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 19:11:11 -0400
+Received: by ewy26 with SMTP id 26so2212354ewy.37
+        for <netdev@vger.kernel.org>; Sun, 12 Jul 2009 16:11:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix misplaced parenthesis
+Fix duplicate testing of MCAST flag
 
 Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-index cd547a2..a383122 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -1689,7 +1689,7 @@ static void atl1c_clean_rx_irq(struct atl1c_adapter *adapter, u8 que,
- 		if (likely(RRS_RXD_IS_VALID(rrs->word3))) {
- 			rfd_num = (rrs->word0 >> RRS_RX_RFD_CNT_SHIFT) &
- 				RRS_RX_RFD_CNT_MASK;
--			if (unlikely(rfd_num) != 1)
-+			if (unlikely(rfd_num != 1))
- 				/* TODO support mul rfd*/
- 				if (netif_msg_rx_err(adapter))
- 					dev_warn(&pdev->dev,
+I think the first should be UCAST, correct?
+
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
+index c734b19..204db96 100644
+--- a/drivers/net/atlx/atl2.c
++++ b/drivers/net/atlx/atl2.c
+@@ -2071,7 +2071,7 @@ static int atl2_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE))
+ 		return -EOPNOTSUPP;
+ 
+-	if (wol->wolopts & (WAKE_MCAST|WAKE_BCAST|WAKE_MCAST))
++	if (wol->wolopts & (WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
+ 		return -EOPNOTSUPP;
+ 
+ 	/* these settings will always override what we currently have */
