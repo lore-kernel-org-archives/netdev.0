@@ -1,111 +1,45 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH] sky2: Avoid transmitting during sky2_restart()
-Date: Sun, 12 Jul 2009 14:39:29 +0900
-Message-ID: <392fb48f0907112239j4c85932cj3f5f180bb8507143@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+Date: Sun, 12 Jul 2009 09:07:23 +0200
+Message-ID: <4A598BAB.6030400@gmail.com>
+References: <20090707.191424.167842005.davem@davemloft.net>	<4A5441A0.3050504@gmail.com>	<4A5581C5.5070409@gmail.com> <20090711.202727.18146102.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: emil.s.tantilov@intel.com, emils.tantilov@gmail.com,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, jolsa@redhat.com, kaber@trash.net,
+	paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f215.google.com ([209.85.217.215]:62535 "EHLO
-	mail-gx0-f215.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751169AbZGLFja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 01:39:30 -0400
-Received: by gxk11 with SMTP id 11so1375791gxk.13
-        for <netdev@vger.kernel.org>; Sat, 11 Jul 2009 22:39:30 -0700 (PDT)
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50958 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247AbZGLHHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 03:07:54 -0400
+In-Reply-To: <20090711.202727.18146102.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+David Miller a =E9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 09 Jul 2009 07:36:05 +0200
+>=20
+>> [PATCH] net: sk_prot_alloc() should not blindly overwrite memory
+>>
+>> Some sockets use SLAB_DESTROY_BY_RCU, and our RCU code correctness
+>> depends on sk->sk_nulls_node.next being always valid. A NULL
+>> value is not allowed as it might fault a lockless reader.
+>>
+>> Current sk_prot_alloc() implementation doesnt respect this hypothesi=
+s,
+>> calling kmem_cache_alloc() with __GFP_ZERO. Just call memset() aroun=
+d
+>> the forbidden field.
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> APplied and queued up for -stable.
 
-"ifconfig eth1 up; pktget eth1" will crashed my machine within 10
-seconds. (eth1 is sky2)
-It appears that sky2_tx_timeout causes a restart, and packets in the
-tx queue are free'd twice (once in sky2_status_intr and once in
-sky2_down).
-Furthermore, if sky2_xmit_frame is called during sky2_restart, bad
-things will happen.
+I'll try to find some time to fix netfilter conntrack as well.
 
-This patch fixes both problems and was tested on top of my previous
-sky2_down fix.
-
-thanks,
-
-Mike
-
----
-
-Block the transmit queue during sky2_restart().
-Don't free transmit packets in sky2_status_intr() during restart,
- as they'll be free'd in sky2_tx_clean()
-
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |    9 ++++++++-
- drivers/net/sky2.h |    1 +
- 2 files changed, 9 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 21ec0ca..77fd1b9 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1540,6 +1540,8 @@ static inline int tx_dist(unsigned tail, unsigned head)
- /* Number of list elements available for next tx */
- static inline int tx_avail(const struct sky2_port *sky2)
- {
-+	if (unlikely(sky2->hw->flags & SKY2_HW_RESTARTING))
-+		return 0;
- 	return sky2->tx_pending - tx_dist(sky2->tx_cons, sky2->tx_prod);
- }
-
-@@ -2366,7 +2368,8 @@ static inline void sky2_tx_done(struct
-net_device *dev, u16 last)
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
-
--	if (netif_running(dev)) {
-+	if (netif_running(dev) &&
-+	    !(sky2->hw->flags & SKY2_HW_RESTARTING)) {
- 		netif_tx_lock(dev);
- 		sky2_tx_complete(sky2, last);
- 		netif_tx_unlock(dev);
-@@ -3081,6 +3084,7 @@ static void sky2_restart(struct work_struct *work)
- 	int i, err;
-
- 	rtnl_lock();
-+	hw->flags |= SKY2_HW_RESTARTING;
- 	for (i = 0; i < hw->ports; i++) {
- 		dev = hw->dev[i];
- 		if (netif_running(dev))
-@@ -3092,6 +3096,7 @@ static void sky2_restart(struct work_struct *work)
- 	sky2_reset(hw);
- 	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
- 	napi_enable(&hw->napi);
-+	hw->flags &= ~SKY2_HW_RESTARTING;
-
- 	for (i = 0; i < hw->ports; i++) {
- 		dev = hw->dev[i];
-@@ -3102,6 +3107,8 @@ static void sky2_restart(struct work_struct *work)
- 				       dev->name, err);
- 				dev_close(dev);
- 			}
-+			else
-+				netif_wake_queue(dev);
- 		}
- 	}
-
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index b5549c9..e71c161 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -2073,6 +2073,7 @@ struct sky2_hw {
- #define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
- #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
- #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
-+#define SKY2_HW_RESTARTING	0x00000100	/* true while restarting */
-
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
--- 
-1.5.6.5
+Thanks
