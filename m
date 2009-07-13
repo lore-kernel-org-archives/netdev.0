@@ -1,129 +1,160 @@
-From: Gautam Kachroo <gk@aristanetworks.com>
-Subject: [PATCH] iproute2 flush: handle larger tables and deleted entries
-Date: Mon, 13 Jul 2009 09:39:56 -0700
-Message-ID: <4e0db5bc0907130939k48b16256j8f60c786a7e5e44c@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-2.6.30.1 with gcc-3.4.6 compile error
+Date: Mon, 13 Jul 2009 19:29:54 +0200
+Message-ID: <4A5B6F12.6030101@gmail.com>
+References: <9b5c9bb30907130944l3624870ck507f5a9f0f79452b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wf-out-1314.google.com ([209.85.200.169]:60407 "EHLO
-	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249AbZGMQj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 12:39:57 -0400
-Received: by wf-out-1314.google.com with SMTP id 26so798243wfd.4
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2009 09:39:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Teck Choon Giam <giamteckchoon@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756710AbZGMRaA@vger.kernel.org>
+In-Reply-To: <9b5c9bb30907130944l3624870ck507f5a9f0f79452b@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-use a new netlink socket when sending flush messages to avoid reading
-any pending data on the existing netlink socket.
+Teck Choon Giam a =E9crit :
+> Hi,
+>=20
+> Anyone encounter the below error while compiling linux-2.6.30.1 with =
+gcc-3.4.6?
+>=20
+> drivers/net/igb/igb_main.c: In function `igb_up':
+> drivers/net/igb/igb_main.c:130: sorry, unimplemented: inlining failed
+> in call to 'igb_set_rah_pool': function body not available
+> drivers/net/igb/igb_main.c:938: sorry, unimplemented: called from her=
+e
+> drivers/net/igb/igb_main.c:133: sorry, unimplemented: inlining failed
+> in call to 'igb_set_vmolr': function body not available
+> drivers/net/igb/igb_main.c:939: sorry, unimplemented: called from her=
+e
+> make[3]: *** [drivers/net/igb/igb_main.o] Error 1
+> make[2]: *** [drivers/net/igb] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
+>=20
+> This is CentOS 4.x system.  While using same configuration to compile
+> in CentOS 5.x systems with gcc-4.1.2 do not encounter such error and
+> my guess is gcc version issue?  Any idea?
+>=20
 
-read all of the response from the netlink request -- this response can
-be split over multiple recv calls, pretty much one per netlink request
-message. ENOENT errors, which correspond to attempts to delete an
-already deleted entry, are ignored. Other errors are not ignored.
+You are right, this driver cannot compile with gcc-3.4.6 and needs
+following patch.
 
-Signed-off-by: Gautam Kachroo <gk@aristanetworks.com>
+[PATCH] igb: gcc-3.4.6 fix
+
+forward declaration of inline function should be avoided, or
+old gcc cannot compile.
+
+Reported-by: Teck Choon Giam <giamteckchoon@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
 
-resending in plain text format
-
-rtnl_send_check calls recv after sending the delete messages. It does
-this to catch errors, e.g. user doesn't have permissions to send
-netlink messages. It treats *any* response as an error, even if the
-message is not an NLMSG_ERROR. However, this doesn't work if the dump
-is in the middle of being processed. recv will return the next chunk
-of the dump. This was causing the flush operation to bail early, e.g.
-when there is a large arp cache.
-
-Ignoring ENOENT lets flush succeed even if entries have been deleted
-from underneath the flush.
-
-
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -111,7 +111,10 @@ int rtnl_send(struct rtnl_handle *rth, const char
-*buf, int len)
-        return send(rth->fd, buf, len, 0);
- }
-
--int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
-+/* send the message in buf using the socket in rth and check for errors
-+   (ignoring ENOENT errors)
-+*/
-+int rtnl_send_check_impl(struct rtnl_handle *rth, const char *buf, int len)
- {
-        struct nlmsghdr *h;
-        int status;
-@@ -122,28 +125,51 @@ int rtnl_send_check(struct rtnl_handle *rth,
-const char *buf, int len)
-                return status;
-
-        /* Check for errors */
--       status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT);
--       if (status < 0) {
--               if (errno == EAGAIN)
--                       return 0;
--               return -1;
--       }
-+       for (;;) {
-+               status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT);
-+               if (status < 0) {
-+                       if (errno == EAGAIN)
-+                               return 0;
-+                       return -1;
-+               }
-
--       for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, status);
--            h = NLMSG_NEXT(h, status)) {
--               if (h->nlmsg_type == NLMSG_ERROR) {
--                       struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
--                       if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct
-nlmsgerr)))
--                               fprintf(stderr, "ERROR truncated\n");
--                       else
--                               errno = -err->error;
-+               for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, status);
-+                    h = NLMSG_NEXT(h, status)) {
-+                       if (h->nlmsg_type == NLMSG_ERROR) {
-+                               struct nlmsgerr *err = (struct
-nlmsgerr*)NLMSG_DATA(h);
-+                               if (h->nlmsg_len <
-NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
-+                                       fprintf(stderr, "ERROR truncated\n");
-+                                       return -1;
-+                               }
-+                               else {
-+                                       if (err->error != -ENOENT) {
-+                                               errno = -err->error;
-+                                               return -1;
-+                                       }
-+                               }
-+                       }
-                }
--               return -1;
-        }
-
-        return 0;
- }
-
-+/* creates a netlink socket and passes it to rtnl_send_check_impl to send the
-+   message in buf
-+*/
-+int rtnl_send_check(struct rtnl_handle *unused, const char *buf, int len)
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index be48029..adb09d3 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -127,14 +127,48 @@ static void igb_restore_vlan(struct igb_adapter *=
+);
+ static void igb_ping_all_vfs(struct igb_adapter *);
+ static void igb_msg_task(struct igb_adapter *);
+ static int igb_rcv_msg_from_vf(struct igb_adapter *, u32);
+-static inline void igb_set_rah_pool(struct e1000_hw *, int , int);
+ static void igb_set_mc_list_pools(struct igb_adapter *, int, u16);
+ static void igb_vmm_control(struct igb_adapter *);
+-static inline void igb_set_vmolr(struct e1000_hw *, int);
+-static inline int igb_set_vf_rlpml(struct igb_adapter *, int, int);
+ static int igb_set_vf_mac(struct igb_adapter *adapter, int, unsigned c=
+har *);
+ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
+=20
++static inline void igb_set_vmolr(struct e1000_hw *hw, int vfn)
 +{
-+       struct rtnl_handle rth = { .fd = -1 };
-+       int ret;
-+       if (rtnl_open(&rth, 0) < 0) {
-+               fprintf(stderr, "Cannot open rtnetlink\n");
-+               return -1;
-+       }
-+       ret = rtnl_send_check_impl(&rth, buf, len);
-+       rtnl_close(&rth);
-+       return ret;
++	u32 reg_data;
++
++	reg_data =3D rd32(E1000_VMOLR(vfn));
++	reg_data |=3D E1000_VMOLR_BAM |	 /* Accept broadcast */
++	            E1000_VMOLR_ROPE |   /* Accept packets matched in UTA */
++	            E1000_VMOLR_ROMPE |  /* Accept packets matched in MTA */
++	            E1000_VMOLR_AUPE |   /* Accept untagged packets */
++	            E1000_VMOLR_STRVLAN; /* Strip vlan tags */
++	wr32(E1000_VMOLR(vfn), reg_data);
 +}
 +
- int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
++static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int si=
+ze,
++                                 int vfn)
++{
++	struct e1000_hw *hw =3D &adapter->hw;
++	u32 vmolr;
++
++	vmolr =3D rd32(E1000_VMOLR(vfn));
++	vmolr &=3D ~E1000_VMOLR_RLPML_MASK;
++	vmolr |=3D size | E1000_VMOLR_LPE;
++	wr32(E1000_VMOLR(vfn), vmolr);
++
++	return 0;
++}
++
++static inline void igb_set_rah_pool(struct e1000_hw *hw, int pool, int=
+ entry)
++{
++	u32 reg_data;
++
++	reg_data =3D rd32(E1000_RAH(entry));
++	reg_data &=3D ~E1000_RAH_POOL_MASK;
++	reg_data |=3D E1000_RAH_POOL_1 << pool;;
++	wr32(E1000_RAH(entry), reg_data);
++}
++
+ #ifdef CONFIG_PM
+ static int igb_suspend(struct pci_dev *, pm_message_t);
+ static int igb_resume(struct pci_dev *);
+@@ -5418,43 +5452,6 @@ static void igb_io_resume(struct pci_dev *pdev)
+ 	igb_get_hw_control(adapter);
+ }
+=20
+-static inline void igb_set_vmolr(struct e1000_hw *hw, int vfn)
+-{
+-	u32 reg_data;
+-
+-	reg_data =3D rd32(E1000_VMOLR(vfn));
+-	reg_data |=3D E1000_VMOLR_BAM |	 /* Accept broadcast */
+-	            E1000_VMOLR_ROPE |   /* Accept packets matched in UTA */
+-	            E1000_VMOLR_ROMPE |  /* Accept packets matched in MTA */
+-	            E1000_VMOLR_AUPE |   /* Accept untagged packets */
+-	            E1000_VMOLR_STRVLAN; /* Strip vlan tags */
+-	wr32(E1000_VMOLR(vfn), reg_data);
+-}
+-
+-static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int si=
+ze,
+-                                 int vfn)
+-{
+-	struct e1000_hw *hw =3D &adapter->hw;
+-	u32 vmolr;
+-
+-	vmolr =3D rd32(E1000_VMOLR(vfn));
+-	vmolr &=3D ~E1000_VMOLR_RLPML_MASK;
+-	vmolr |=3D size | E1000_VMOLR_LPE;
+-	wr32(E1000_VMOLR(vfn), vmolr);
+-
+-	return 0;
+-}
+-
+-static inline void igb_set_rah_pool(struct e1000_hw *hw, int pool, int=
+ entry)
+-{
+-	u32 reg_data;
+-
+-	reg_data =3D rd32(E1000_RAH(entry));
+-	reg_data &=3D ~E1000_RAH_POOL_MASK;
+-	reg_data |=3D E1000_RAH_POOL_1 << pool;;
+-	wr32(E1000_RAH(entry), reg_data);
+-}
+-
+ static void igb_set_mc_list_pools(struct igb_adapter *adapter,
+ 				  int entry_count, u16 total_rar_filters)
  {
-        struct nlmsghdr nlh;
