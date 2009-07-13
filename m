@@ -1,54 +1,106 @@
-From: Abhishek Kulkarni <adkulkar@umail.iu.edu>
-Subject: [PATCH] [net/9p]: default 9p transport module fix
-Date: Mon, 13 Jul 2009 07:49:51 -0600
-Message-ID: <1247492991-26009-2-git-send-email-adkulkar@umail.iu.edu>
-References: <1247492991-26009-1-git-send-email-adkulkar@umail.iu.edu>
-Cc: ericvh@gmail.com, Abhishek Kulkarni <adkulkar@umail.iu.edu>,
-	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.230]:39641 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755947AbZGMNuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 09:50:17 -0400
-In-Reply-To: <1247492991-26009-1-git-send-email-adkulkar@umail.iu.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with module
+	unload
+Date: Mon, 13 Jul 2009 18:27:48 +0300
+Message-ID: <4A5B5274.2020801@mellanox.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
+List-Id: netdev.vger.kernel.org
 
-The default 9p transport module is not chosen unless an option parameter (any)
-is passed to mount, which thus returns a ENOPROTOSUPPORT. This fix moves the
-check out of parse_opts into p9_client_create.
+There is a race condition when the mlx4_core module is being unloaded
+during the execution of restart task due to catastrophic error.
+Added a global mutex that synchs those operations. If the catastrophic task
+tries to catch the mutex, and it is already taken, it means that somebody is unloading the
+module, and there is no point in executing the restart operation.
+If the unload function tries to catch the mutex and it is taken,
+it would wait for the catas task to finish and then unload the module.
 
-Signed-off-by: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
-:100644 100644 cc25e63... 787ccdd... M	net/9p/client.c
- net/9p/client.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/mlx4/catas.c |    4 ++++
+ drivers/net/mlx4/main.c  |    6 ++++++
+ drivers/net/mlx4/mlx4.h  |    2 ++
+ 3 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/9p/client.c b/net/9p/client.c
-index cc25e63..787ccdd 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -117,9 +117,6 @@ static int parse_opts(char *opts, struct p9_client *clnt)
- 		}
- 	}
+diff --git a/drivers/net/mlx4/catas.c b/drivers/net/mlx4/catas.c
+index aa9674b..e3aa7e9 100644
+--- a/drivers/net/mlx4/catas.c
++++ b/drivers/net/mlx4/catas.c
+@@ -91,6 +91,9 @@ static void catas_reset(struct work_struct *work)
+ 	LIST_HEAD(tlist);
+ 	int ret;
  
--	if (!clnt->trans_mod)
--		clnt->trans_mod = v9fs_get_default_trans();
--
- 	kfree(options);
- 	return ret;
- }
-@@ -689,6 +686,9 @@ struct p9_client *p9_client_create(const char *dev_name, char *options)
- 	if (err < 0)
- 		goto error;
- 
-+	if (!clnt->trans_mod)
-+		clnt->trans_mod = v9fs_get_default_trans();
++	if (!mutex_trylock(&drv_mutex))
++		return;
 +
- 	if (clnt->trans_mod == NULL) {
- 		err = -EPROTONOSUPPORT;
- 		P9_DPRINTK(P9_DEBUG_ERROR,
+ 	spin_lock_irq(&catas_lock);
+ 	list_splice_init(&catas_list, &tlist);
+ 	spin_unlock_irq(&catas_lock);
+@@ -103,6 +106,7 @@ static void catas_reset(struct work_struct *work)
+ 		else
+ 			mlx4_dbg(dev, "Reset succeeded\n");
+ 	}
++	mutex_unlock(&drv_mutex);
+ }
+ 
+ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+index dac621b..9cd5123 100644
+--- a/drivers/net/mlx4/main.c
++++ b/drivers/net/mlx4/main.c
+@@ -77,6 +77,8 @@ static char mlx4_version[] __devinitdata =
+ 	DRV_NAME ": Mellanox ConnectX core driver v"
+ 	DRV_VERSION " (" DRV_RELDATE ")\n";
+ 
++struct mutex drv_mutex;
++
+ static struct mlx4_profile default_profile = {
+ 	.num_qp		= 1 << 17,
+ 	.num_srq	= 1 << 16,
+@@ -1325,6 +1327,8 @@ static int __init mlx4_init(void)
+ {
+ 	int ret;
+ 
++	mutex_init(&drv_mutex);
++
+ 	if (mlx4_verify_params())
+ 		return -EINVAL;
+ 
+@@ -1340,7 +1344,9 @@ static int __init mlx4_init(void)
+ 
+ static void __exit mlx4_cleanup(void)
+ {
++	mutex_lock(&drv_mutex);
+ 	pci_unregister_driver(&mlx4_driver);
++	mutex_unlock(&drv_mutex);
+ 	destroy_workqueue(mlx4_wq);
+ }
+ 
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
+index 5bd79c2..bd8fb43 100644
+--- a/drivers/net/mlx4/mlx4.h
++++ b/drivers/net/mlx4/mlx4.h
+@@ -284,6 +284,8 @@ struct mlx4_sense {
+ 	struct delayed_work	sense_poll;
+ };
+ 
++extern struct mutex drv_mutex;
++
+ struct mlx4_priv {
+ 	struct mlx4_dev		dev;
+ 
 -- 
-1.6.0.4
-
+1.6.0
