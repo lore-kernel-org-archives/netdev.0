@@ -1,53 +1,57 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] NET: Fix locking issues in PPP, 6pack, mkiss and strip
- line disciplines.
-Date: Mon, 13 Jul 2009 09:19:28 +0100
-Message-ID: <20090713091928.7e89bab8@lxorguk.ukuu.org.uk>
-References: <20090712172720.GA7313@linux-mips.org>
-	<20090712222658.GC26798@linux-mips.org>
-	<20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
-	<20090712.210730.170014470.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	guido@trentalancia.com, paulus@samba.org,
-	linux-hams@vger.kernel.org, hans@esrac.ele.tue.nl
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20090712.210730.170014470.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <klto@zhaw.ch>
+Subject: [PATCH] net: Rename lookup_neigh_params function
+Date: Mon, 13 Jul 2009 10:53:40 +0200
+Message-ID: <1247475220-20518-1-git-send-email-klto@zhaw.ch>
+Cc: netdev@vger.kernel.org, Tobias Klauser <klto@zhaw.ch>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.zhaw.ch ([160.85.104.51]:33146 "EHLO mx2.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754824AbZGMJAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2009 05:00:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 12 Jul 2009 21:07:30 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Rename lookup_neigh_params to lookup_neigh_parms as the struct is named
+neigh_parms and all other functions dealing with the struct carry
+neigh_parms in their names.
 
-> From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> Date: Sun, 12 Jul 2009 23:48:54 +0100
-> 
-> >> The issue was, that the locking code in mkiss was assuming it was only
-> >> ever being called in process or bh context.  Fixed by converting the
-> >> involved locking code to use irq-safe locks.
-> > 
-> > Which historically of course was correct until the networking layer
-> > changed behaviour some years ago.
-> 
-> Networking layer?  Surely you mean the TTY layer or USB because I
-> don't see anything networking in his traces :-)
+Signed-off-by: Tobias Klauser <klto@zhaw.ch>
+---
+ net/core/neighbour.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-No I mean the network layer.
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 163b4f5..c6f9ad8 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1316,7 +1316,7 @@ void pneigh_enqueue(struct neigh_table *tbl, struct neigh_parms *p,
+ }
+ EXPORT_SYMBOL(pneigh_enqueue);
+ 
+-static inline struct neigh_parms *lookup_neigh_params(struct neigh_table *tbl,
++static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
+ 						      struct net *net, int ifindex)
+ {
+ 	struct neigh_parms *p;
+@@ -1337,7 +1337,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 	struct net *net = dev_net(dev);
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
+-	ref = lookup_neigh_params(tbl, net, 0);
++	ref = lookup_neigh_parms(tbl, net, 0);
+ 	if (!ref)
+ 		return NULL;
+ 
+@@ -1906,7 +1906,7 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		if (tbp[NDTPA_IFINDEX])
+ 			ifindex = nla_get_u32(tbp[NDTPA_IFINDEX]);
+ 
+-		p = lookup_neigh_params(tbl, net, ifindex);
++		p = lookup_neigh_parms(tbl, net, ifindex);
+ 		if (p == NULL) {
+ 			err = -ENOENT;
+ 			goto errout_tbl_lock;
+-- 
+1.6.0.4
 
-
-Historically it went
-
-		network bh
-			transmit packet
-				ldisc layer
-					tty write method
-
-and lots of code assumed that. Today the network bits get kicked off at
-IRQ level.
-
-Most tty stuff now handles it, some of it has been broken with ppp for
-ages but its been so long its hardly a regression any more and its dumb
-stuff like jtag consoles and i2c serial ports that break.
