@@ -1,55 +1,54 @@
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Subject: Re: [PATCH] atlx: duplicate testing of MCAST flag
-Date: Sun, 12 Jul 2009 19:04:20 -0500
-Message-ID: <3400f2f60907121704s105ba16bqebcdb75bc855888e@mail.gmail.com>
-References: <4A5A6DE5.4090801@gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH] sky2: Avoid transmitting during sky2_restart()
+Date: Mon, 13 Jul 2009 09:06:25 +0900
+Message-ID: <392fb48f0907121706n2ebd0751l110b109de1a18ce8@mail.gmail.com>
+References: <392fb48f0907112239j4c85932cj3f5f180bb8507143@mail.gmail.com>
+	 <20090712101817.5399f06d@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: atl1-devel@lists.sourceforge.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f184.google.com ([209.85.210.184]:34304 "EHLO
-	mail-yx0-f184.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751709AbZGMAEX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 20:04:23 -0400
-Received: by yxe14 with SMTP id 14so2597304yxe.33
-        for <netdev@vger.kernel.org>; Sun, 12 Jul 2009 17:04:20 -0700 (PDT)
-In-Reply-To: <4A5A6DE5.4090801@gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.159]:17200 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671AbZGMAG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 20:06:27 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so338596fga.17
+        for <netdev@vger.kernel.org>; Sun, 12 Jul 2009 17:06:25 -0700 (PDT)
+In-Reply-To: <20090712101817.5399f06d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 12, 2009 at 6:12 PM, Roel Kluin<roel.kluin@gmail.com> wrote=
-:
-> Fix duplicate testing of MCAST flag
+2009/7/13 Stephen Hemminger <shemminger@linux-foundation.org>:
+> On Sun, 12 Jul 2009 14:39:29 +0900
+> Mike McCormack <mikem@ring3k.org> wrote:
 >
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> I think the first should be UCAST, correct?
+>> Hi Stephen,
+>>
+>> "ifconfig eth1 up; pktget eth1" will crashed my machine within 10
+>> seconds. (eth1 is sky2)
+>> It appears that sky2_tx_timeout causes a restart, and packets in the
+>> tx queue are free'd twice (once in sky2_status_intr and once in
+>> sky2_down).
+>> Furthermore, if sky2_xmit_frame is called during sky2_restart, bad
+>> things will happen.
+>>
+>> This patch fixes both problems and was tested on top of my previous
+>> sky2_down fix.
+>>
+>> thanks,
+>>
+>> Mike
 >
-> diff --git a/drivers/net/atlx/atl2.c b/drivers/net/atlx/atl2.c
-> index c734b19..204db96 100644
-> --- a/drivers/net/atlx/atl2.c
-> +++ b/drivers/net/atlx/atl2.c
-> @@ -2071,7 +2071,7 @@ static int atl2_set_wol(struct net_device *netd=
-ev, struct ethtool_wolinfo *wol)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (wol->wolopts & (WAKE_ARP | WAKE_MAGICS=
-ECURE))
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EOPNOT=
-SUPP;
->
-> - =C2=A0 =C2=A0 =C2=A0 if (wol->wolopts & (WAKE_MCAST|WAKE_BCAST|WAKE=
-_MCAST))
-> + =C2=A0 =C2=A0 =C2=A0 if (wol->wolopts & (WAKE_UCAST | WAKE_BCAST | =
-WAKE_MCAST))
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EOPNOT=
-SUPP;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* these settings will always override wha=
-t we currently have */
->
+> This should be fixed by managing the queue properly, not
+> by using a state flag. I will correct the problem.
 
-Acked-by: Jay Cliburn <jcliburn@gmail.com>
+I think some kind of state needs to be used, as sky2_tx_complete()
+will wake the tx queue if you use netif_tx_stop_queue() and
+netif_tx_lock() is used elsewhere, and is not recursive.  I am happy
+to change the patch if you have a suggestion on which function to use.
+
+thanks,
+
+Mike
