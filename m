@@ -1,43 +1,36 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] NET: Fix locking issues in PPP, 6pack, mkiss and strip
- line disciplines.
-Date: Mon, 13 Jul 2009 20:27:25 +0100
-Message-ID: <20090713202725.32618249@lxorguk.ukuu.org.uk>
-References: <20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
-	<20090712.210730.170014470.davem@davemloft.net>
-	<20090713091928.7e89bab8@lxorguk.ukuu.org.uk>
-	<20090713.103139.188324296.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with module unload
+Date: Mon, 13 Jul 2009 12:45:32 -0700
+Message-ID: <adak52cv02r.fsf@cisco.com>
+References: <4A5B5274.2020801@mellanox.co.il>
+	<20090713.111407.196601373.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-	guido@trentalancia.com, paulus@samba.org,
-	linux-hams@vger.kernel.org, hans@esrac.ele.tue.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: yevgenyp@mellanox.co.il, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:58690 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755196AbZGMT3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 15:29:40 -0400
-In-Reply-To: <20090713.103139.188324296.davem@davemloft.net>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:37611 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754906AbZGMTpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 15:45:33 -0400
+In-Reply-To: <20090713.111407.196601373.davem@davemloft.net> (David Miller's
+	message of "Mon, 13 Jul 2009 11:14:07 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->	spin_lock_bh() --> BH disable in hard IRQ, OH NOEZ!
 
-No I didn't see his original message just the patch - his original is a
-fixed bug.
+ > Applied, thanks.
 
-> mkiss_receive_buf(), the problematic code path, is invoked by
-> the TTY layer directly from LDISC flushing and the TTY device's
-> IRQ handler here.
-> 
-> How does networking's TX policy have anything to do with this?
+Dave, please don't apply mlx4_core patches without giving me a chance to
+review them.  In this case the patch looks buggy to me: I don't see how
+it handles, say, hot remove of one device -- it only handles module
+removal.  And I would hope we could fix this without adding a global
+symbol as namespace polluting as "drv_mutex".
 
-Sorry I'd been looking at the other side stuff with ppp which is a
-sleeping v bh issue and misinterpreted Ralf's post.
+Yevgeny didn't even send this patch to you; he just cc'ed netdev as a
+courtesy.  However I understand that the physical location of mlx4_core
+in drivers/net makes it easy to do this.  Maybe this is the best
+argument in favor of moving the mlx4_core stuff to drivers/shared?
 
-In fact Ralf's fix isn't needed. The incorrect uses of tty->low_latency
-all got killed and the pty code got rewritten which was the other case
-that could occur.
-
+ - R.
