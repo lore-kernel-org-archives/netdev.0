@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-2.6.30.1 with gcc-3.4.6 compile error
-Date: Mon, 13 Jul 2009 11:11:57 -0700 (PDT)
-Message-ID: <20090713.111157.59101216.davem@davemloft.net>
-References: <9b5c9bb30907130944l3624870ck507f5a9f0f79452b@mail.gmail.com>
-	<4A5B6F12.6030101@gmail.com>
+Subject: Re: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with
+ module unload
+Date: Mon, 13 Jul 2009 11:14:07 -0700 (PDT)
+Message-ID: <20090713.111407.196601373.davem@davemloft.net>
+References: <4A5B5274.2020801@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: giamteckchoon@gmail.com, linux-kernel@vger.kernel.org,
+Cc: rdreier@cisco.com, general@lists.openfabrics.org,
 	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756783AbZGMSLz@vger.kernel.org>
-In-Reply-To: <4A5B6F12.6030101@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56228
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755854AbZGMSOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 14:14:03 -0400
+In-Reply-To: <4A5B5274.2020801@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 13 Jul 2009 19:29:54 +0200
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Mon, 13 Jul 2009 18:27:48 +0300
 
-> [PATCH] igb: gcc-3.4.6 fix
+> There is a race condition when the mlx4_core module is being unloaded
+> during the execution of restart task due to catastrophic error.
+> Added a global mutex that synchs those operations. If the catastrophic task
+> tries to catch the mutex, and it is already taken, it means that somebody is unloading the
+> module, and there is no point in executing the restart operation.
+> If the unload function tries to catch the mutex and it is taken,
+> it would wait for the catas task to finish and then unload the module.
 > 
-> forward declaration of inline function should be avoided, or
-> old gcc cannot compile.
-> 
-> Reported-by: Teck Choon Giam <giamteckchoon@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Applied, thanks a lot Eric.
+Applied, thanks.
