@@ -1,34 +1,37 @@
-From: John Dykstra <john.dykstra1@gmail.com>
+From: Dan Smith <danms@us.ibm.com>
 Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
-Date: Mon, 13 Jul 2009 14:02:08 -0500
-Message-ID: <1247511728.15106.1.camel@merlyn>
+Date: Mon, 13 Jul 2009 12:10:28 -0700
+Message-ID: <87zlb8l7q3.fsf@caffeine.danplanet.com>
 References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	 <1246994776-1882-3-git-send-email-danms@us.ibm.com>
+	<1246994776-1882-3-git-send-email-danms@us.ibm.com>
+	<1247511728.15106.1.camel@merlyn>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
 	Oren Laaden <orenl@cs.columbia.edu>,
 	Alexey Dobriyan <adobriyan@gmail.com>
-To: Dan Smith <danms@us.ibm.com>
+To: John Dykstra <john.dykstra1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f226.google.com ([209.85.219.226]:36217 "EHLO
-	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970AbZGMTCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 15:02:17 -0400
-Received: by ewy26 with SMTP id 26so2765926ewy.37
-        for <netdev@vger.kernel.org>; Mon, 13 Jul 2009 12:02:15 -0700 (PDT)
-In-Reply-To: <1246994776-1882-3-git-send-email-danms@us.ibm.com>
+Received: from gw0.danplanet.com ([71.245.107.82]:42348 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754686AbZGMTKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 15:10:30 -0400
+In-Reply-To: <1247511728.15106.1.camel@merlyn> (John Dykstra's message of "Mon\, 13 Jul 2009 14\:02\:08 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-07-07 at 12:26 -0700, Dan Smith wrote:
-> Changes in v2:
->  - Check for data in the TCP out-of-order queue and fail if present
+JD> Why?  It seems that this would cause checkpoints to fail
+JD> unexpectedly,
 
-Why?  It seems that this would cause checkpoints to fail unexpectedly,
-and is probably unnecessary in a migration scenario, because the peer
-will retransmit the segments given appropriate ACKs.
+Well, there are other places where the checkpoint will fail with EBUSY
+because something is in a transitional state.
 
-  --  John
+JD> and is probably unnecessary in a migration scenario, because the
+JD> peer will retransmit the segments given appropriate ACKs.
 
+Cool, sounds like we can punt on this particular one... Thanks :)
+
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
