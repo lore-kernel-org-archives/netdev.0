@@ -1,129 +1,428 @@
-From: Tomas Winkler <tomas.winkler@intel.com>
-Subject: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
-Date: Tue, 14 Jul 2009 01:09:13 +0300
-Message-ID: <1247522953-12702-1-git-send-email-tomas.winkler@intel.com>
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Tomas Winkler <tomas.winkler@intel.com>
-To: drzeus-list@drzeus.cx, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: weird problem
+Date: Tue, 14 Jul 2009 01:26:46 +0200
+Message-ID: <4A5BC2B6.9020709@itcare.pl>
+References: <20090708223459.GB3666@ami.dom.local> <4A5679CC.800@itcare.pl> <4A568444.7010307@itcare.pl> <20090710144754.GA25385@ami.dom.local> <20090711062455.GA3095@ami.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34497 "EHLO mga09.intel.com"
+Received: from smtp.iq.pl ([86.111.241.19]:46733 "EHLO smtp.iq.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752858AbZGMWJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2009 18:09:28 -0400
+	id S1753811AbZGMX0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2009 19:26:51 -0400
+In-Reply-To: <20090711062455.GA3095@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. add intel's sdio vendor id to sdio_ids.h
-2. move iwmc3200 sdio devices ids to sdio_ids.h
+Jarek Poplawski pisze:
+> On Fri, Jul 10, 2009 at 04:47:54PM +0200, Jarek Poplawski wrote:
+>  =20
+>> On Fri, Jul 10, 2009 at 01:59:00AM +0200, Pawe=B3 Staszewski wrote:
+>>    =20
+>>> Today i make other tests with change of =20
+>>> /proc/sys/net/ipv4/rt_cache_rebuild_count and kernel 2.6.30.1
+>>>
+>>> And when rt_cache_rebuild_count is set to "-1" i have always load o=
+n =20
+>>> x86_64 machine approx 40-50% of each cpu where network card is bind=
+ed by =20
+>>> irq_aff
+>>>
+>>> when rt_cache_rebuild_count is set to more than "-1" i have 15 to 2=
+0 sec =20
+>>> of 1 to 3% cpu and after 40-50% cpu
+>>>      =20
+>> ...
+>>
+>> Here is one more patch for testing (with caution!). It adds possibil=
+ity
+>> to turn off cache disabling (so it should even more resemble 2.6.28)
+>> after setting: rt_cache_rebuild_count =3D 0
+>>
+>> I'd like you to try this patch:
+>> 1) together with the previous patch and "rt_cache_rebuild_count =3D =
+0"
+>>    to check if there is still the difference wrt. 2.6.28; Btw., let
+>>    me know which /proc/sys/net/ipv4/route/* settings do you need to
+>>    change and why
+>>
+>> 2) alone (without the previous patch) and "rt_cache_rebuild_count =3D=
+ 0"
+>>
+>> 3) if it's possible to try 2.6.30.1 without these patches, but with
+>>    default /proc/sys/net/ipv4/route/* settings, and higher
+>>    rt_cache_rebuild_count, e.g. 100; I'm interested if/how long it
+>>    takes to trigger higher cpu load and the warning "... rebuilds is
+>>    over limit, route caching disabled"; (Btw., I wonder why you didn=
+'t
+>>    mention about these or maybe also other route caching warnings?)
+>>    =20
+>
+> Here is take 2 to respect setting "rt_cache_rebuild_count =3D 0" even
+> after cache rebuild counter has been increased earlier. (Btw, don't
+> forget about this setting after going back to vanilla kernel.)
+>
+>  =20
+Applied to 2.6.30.1
+1) With
 
-This patch is against 2.6.31-rc2
-7638d5322bd89d49e013a03fe2afaeb6d214fabd
+rt_cache_rebuild_count =3D 0
+ grep . /proc/sys/net/ipv4/route/*
+/proc/sys/net/ipv4/route/error_burst:1250
+/proc/sys/net/ipv4/route/error_cost:250
+/proc/sys/net/ipv4/route/gc_elasticity:4
+/proc/sys/net/ipv4/route/gc_interval:15
+/proc/sys/net/ipv4/route/gc_min_interval:0
+/proc/sys/net/ipv4/route/gc_min_interval_ms:0
+/proc/sys/net/ipv4/route/gc_thresh:190536
+/proc/sys/net/ipv4/route/gc_timeout:15=20
+/proc/sys/net/ipv4/route/max_size:1524288=20
+/proc/sys/net/ipv4/route/min_adv_mss:256
+/proc/sys/net/ipv4/route/min_pmtu:552
+/proc/sys/net/ipv4/route/mtu_expires:600
+/proc/sys/net/ipv4/route/redirect_load:5
+/proc/sys/net/ipv4/route/redirect_number:9
+/proc/sys/net/ipv4/route/redirect_silence:5120
+/proc/sys/net/ipv4/route/secret_interval:3600
 
-Cc:inaky.perez-gonzalez@intel.com
-Cc:cindy.h.kao@intel.com
-Cc:samuel.ortiz@intel.com
-Cc:yi.zhu@intel.com
-Cc:drzeus-list@drzeus.cx
-Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
----
- drivers/net/wimax/i2400m/sdio.c          |   10 ++++------
- drivers/net/wireless/iwmc3200wifi/sdio.c |    4 +++-
- drivers/net/wireless/iwmc3200wifi/sdio.h |    3 ---
- include/linux/mmc/sdio_ids.h             |    5 +++++
- 4 files changed, 12 insertions(+), 10 deletions(-)
+I tune this route parameters after looking of traffic/route cache to ha=
+ve not many entries in cache that are not needed anymore
+so gc_timeout =3D 15
+limit of max entries =3D 1524288
+And make route cahce a little more "faster" for me after tune=20
+gc_elasticity
+secret_interval
+gc_interval
+gc_thresh
 
-diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
-index 2538825..3dc1990 100644
---- a/drivers/net/wimax/i2400m/sdio.c
-+++ b/drivers/net/wimax/i2400m/sdio.c
-@@ -58,6 +58,7 @@
-  */
- 
- #include <linux/debugfs.h>
-+#include <linux/mmc/sdio_ids.h>
- #include <linux/mmc/sdio.h>
- #include <linux/mmc/sdio_func.h>
- #include "i2400m-sdio.h"
-@@ -501,14 +502,11 @@ void i2400ms_remove(struct sdio_func *func)
- 	d_fnend(3, dev, "SDIO func %p\n", func);
- }
- 
--enum {
--	I2400MS_INTEL_VID = 0x89,
--};
--
- static
- const struct sdio_device_id i2400ms_sdio_ids[] = {
--	/* Intel: i2400m WiMAX over SDIO */
--	{ SDIO_DEVICE(I2400MS_INTEL_VID, 0x1402) },
-+	/* Intel: i2400m WiMAX (iwm3200) over SDIO */
-+	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
-+	  SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX) },
- 	{ }, 			/* end: all zeroes */
- };
- MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
-diff --git a/drivers/net/wireless/iwmc3200wifi/sdio.c b/drivers/net/wireless/iwmc3200wifi/sdio.c
-index 9166818..995a3f6 100644
---- a/drivers/net/wireless/iwmc3200wifi/sdio.c
-+++ b/drivers/net/wireless/iwmc3200wifi/sdio.c
-@@ -65,6 +65,7 @@
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/debugfs.h>
-+#include <linux/mmc/sdio_ids.h>
- #include <linux/mmc/sdio.h>
- #include <linux/mmc/sdio_func.h>
- 
-@@ -492,7 +493,8 @@ static void iwm_sdio_remove(struct sdio_func *func)
- }
- 
- static const struct sdio_device_id iwm_sdio_ids[] = {
--	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL, SDIO_DEVICE_ID_IWM) },
-+	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
-+	  SDIO_DEVICE_ID_INTEL_IWMC3200WIFI) },
- 	{ /* end: all zeroes */	},
- };
- MODULE_DEVICE_TABLE(sdio, iwm_sdio_ids);
-diff --git a/drivers/net/wireless/iwmc3200wifi/sdio.h b/drivers/net/wireless/iwmc3200wifi/sdio.h
-index b3c156b..aab6b68 100644
---- a/drivers/net/wireless/iwmc3200wifi/sdio.h
-+++ b/drivers/net/wireless/iwmc3200wifi/sdio.h
-@@ -39,9 +39,6 @@
- #ifndef __IWM_SDIO_H__
- #define __IWM_SDIO_H__
- 
--#define SDIO_VENDOR_ID_INTEL 0x89
--#define SDIO_DEVICE_ID_IWM   0x1403
--
- #define IWM_SDIO_DATA_ADDR           0x0
- #define IWM_SDIO_INTR_ENABLE_ADDR    0x14
- #define IWM_SDIO_INTR_STATUS_ADDR    0x13
-diff --git a/include/linux/mmc/sdio_ids.h b/include/linux/mmc/sdio_ids.h
-index 39751c8..b46a57a 100644
---- a/include/linux/mmc/sdio_ids.h
-+++ b/include/linux/mmc/sdio_ids.h
-@@ -22,6 +22,11 @@
- /*
-  * Vendors and devices.  Sort key: vendor first, device next.
-  */
-+#define SDIO_VENDOR_ID_INTEL			0x0089
-+#define SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX	0x1402
-+#define SDIO_DEVICE_ID_INTEL_IWMC3200WIFI	0x1403
-+#define SDIO_DEVICE_ID_INTEL_IWMC3200TOP        0x1404
-+#define SDIO_DEVICE_ID_INTEL_IWMC3200BT		0x1406
- 
- #define SDIO_VENDOR_ID_MARVELL			0x02df
- #define SDIO_DEVICE_ID_MARVELL_LIBERTAS		0x9103
--- 
-1.6.0.6
+So with this parameters=20
+15 sec of=20
+something like this:
+00:41:23     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:41:24     all    0.00    0.00    0.12    0.00    1.49   10.46    0.0=
+0    0.00   87.92
+00:41:24       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:24       1    0.00    0.00    0.00    0.00    4.00   36.00    0.0=
+0    0.00   60.00
+00:41:24       2    0.00    0.00    0.00    0.00    8.91   47.52    0.0=
+0    0.00   43.56
+00:41:24       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:24       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:24       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:24       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:24       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
 
----------------------------------------------------------------------
-Intel Israel (74) Limited
+and 15 sec of something like this:
+00:41:44     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:41:45     all    0.00    0.00    0.00    0.00    0.00    0.42    0.0=
+0    0.00   99.58
+00:41:45       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:45       1    0.00    0.00    0.00    0.00    0.00    1.00    0.0=
+0    0.00   99.00
+00:41:45       2    0.00    0.00    0.00    0.00    0.00    2.04    0.0=
+0    0.00   97.96
+00:41:45       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:45       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:45       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:45       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:41:45       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+So i change=20
+/proc/sys/net/ipv4/route/gc_timeout  to 1
+with=20
+rt_cache_rebuild_count =3D 0
+And output is like 20 sec of something like this
+00:48:52     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:48:53     all    0.00    0.00    0.19    0.00    0.19    0.58    0.0=
+0    0.00   99.03
+00:48:53       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:53       1    0.00    0.00    0.99    0.00    0.99    0.00    0.0=
+0    0.00   98.02
+00:48:53       2    0.00    0.00    0.00    0.00    0.00    2.00    0.0=
+0    0.00   98.00
+00:48:53       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:53       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:53       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:53       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:53       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+and after this two second of something like this:
+00:48:49     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:48:50     all    0.00    0.00    0.09    0.00    0.27    2.17    0.0=
+0    0.00   97.46
+00:48:50       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:50       1    0.00    0.00    0.00    0.00    1.96    6.86    0.0=
+0    0.00   91.18
+00:48:50       2    0.00    0.00    0.00    0.00    0.99   16.83    0.0=
+0    0.00   82.18
+00:48:50       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:50       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:50       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:50       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:50       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+00:48:50     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:48:51     all    0.00    0.00    0.00    0.00    1.86   10.41    0.0=
+0    0.00   87.73
+00:48:51       0    0.00    0.00    0.00    0.00    0.00    1.00    0.0=
+0    0.00   99.00
+00:48:51       1    0.00    0.00    0.00    0.00    4.85   26.21    0.0=
+0    0.00   68.93
+00:48:51       2    0.00    0.00    1.00    0.00    5.00   29.00    0.0=
+0    0.00   65.00
+00:48:51       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:51       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:51       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:51       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:48:51       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+
+Another test:
+
+gc_timeout =3D 1
+rt_cache_rebuild_count =3D 100
+10 to 14 sec of something like this:
+00:51:36     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:51:37     all    0.00    0.00    0.00    0.00    0.00    0.27    0.0=
+0    0.00   99.73
+00:51:37       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:51:37       1    0.00    0.00    0.00    0.00    0.00    2.00    0.0=
+0    0.00   98.00
+00:51:37       2    0.00    0.00    0.00    0.00    0.00    1.00    0.0=
+0    0.00   99.00
+00:51:37       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:51:37       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:51:37       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:51:37       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:51:37       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+and two seconds of 10 to 30% cpu load more
+
+
+2).
+Only last patch=20
+and almost all the time output like this
+00:59:49     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+00:59:50     all    0.00    0.00    0.13    0.00    1.73    8.00    0.0=
+0    0.00   90.13
+00:59:50       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:59:50       1    0.00    0.00    0.00    0.00    4.00   24.00    0.0=
+0    0.00   72.00
+00:59:50       2    0.00    0.00    0.00    0.00    8.91   34.65    0.0=
+0    0.00   56.44
+00:59:50       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:59:50       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:59:50       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:59:50       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+00:59:50       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+sometimes after 15 to 30 sec i have 1 to 2% cpu load
+
+3).
+
+with default settings and without this patch i have almost all the time=
+ output like this:
+01:21:40     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+01:21:41     all    0.00    0.00    0.00    0.00    2.14   10.97    0.0=
+0    0.00   86.89
+01:21:41       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:21:41       1    0.00    0.00    0.00    0.00    6.93   34.65    0.0=
+0    0.00   58.42
+01:21:41       2    0.00    0.00    0.00    0.00    7.07   42.42    0.0=
+0    0.00   50.51
+01:21:41       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:21:41       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:21:41       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:21:41       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:21:41       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+
+
+ with my settings:
+/proc/sys/net/ipv4/route/error_burst:1250
+/proc/sys/net/ipv4/route/error_cost:250
+/proc/sys/net/ipv4/route/gc_elasticity:4
+/proc/sys/net/ipv4/route/gc_interval:15
+/proc/sys/net/ipv4/route/gc_min_interval:0
+/proc/sys/net/ipv4/route/gc_min_interval_ms:0
+/proc/sys/net/ipv4/route/gc_thresh:190536
+/proc/sys/net/ipv4/route/gc_timeout:15
+/proc/sys/net/ipv4/route/max_size:1524288
+/proc/sys/net/ipv4/route/min_adv_mss:256
+/proc/sys/net/ipv4/route/min_pmtu:552
+/proc/sys/net/ipv4/route/mtu_expires:600
+/proc/sys/net/ipv4/route/redirect_load:5
+/proc/sys/net/ipv4/route/redirect_number:9
+/proc/sys/net/ipv4/route/redirect_silence:5120
+/proc/sys/net/ipv4/route/secret_interval:3600
+
+
+15 sec of 30 to 50 % cpu and 15 sec 1 to 2 % cpu
+
+with=20
+/proc/sys/net/ipv4/route/gc_interval:1
+almost all the time like this
+01:23:45     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %stea=
+l  %guest   %idle
+01:23:46     all    0.00    0.00    0.00    0.00    0.00    0.12    0.0=
+0    0.00   99.88
+01:23:46       0    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:23:46       1    0.00    0.00    0.00    0.00    1.00    0.00    0.0=
+0    0.00   99.00
+01:23:46       2    0.00    0.00    0.00    0.00    0.00    1.02    0.0=
+0    0.00   98.98
+01:23:46       3    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:23:46       4    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:23:46       5    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:23:46       6    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+01:23:46       7    0.00    0.00    0.00    0.00    0.00    0.00    0.0=
+0    0.00  100.00
+
+with max two outputs of 20 to 30% cpu in different times from 12 to  15=
+sec
+
+
+And i dont know but i think patch for turning off route cache is not wo=
+rking=20
+because with this patches and=20
+rt_cache_rebuild_count =3D 0
+I have=20
+rtstat -k entries -c 10 -i 1
+rt_cache|
+ entries|
+   52929|
+   46301|
+   40971|
+   36928|
+   34882|
+   34915|
+   36431|
+   37752|
+
+
+Regards=20
+Pawel Staszewski
+
+
+> Jarek P.
+> --- (debugging patch #2 take 2; apply to 2.6.30.1 or 2.6.29.6)
+>
+>
+>  net/ipv4/route.c |   21 ++++++++++++++-------
+>  1 files changed, 14 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 278f46f..f74db20 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -678,8 +678,9 @@ static inline u32 rt_score(struct rtable *rt)
+> =20
+>  static inline bool rt_caching(const struct net *net)
+>  {
+> -	return net->ipv4.current_rt_cache_rebuild_count <=3D
+> -		net->ipv4.sysctl_rt_cache_rebuild_count;
+> +	return (net->ipv4.current_rt_cache_rebuild_count <=3D
+> +		net->ipv4.sysctl_rt_cache_rebuild_count) ||
+> +	       net->ipv4.sysctl_rt_cache_rebuild_count =3D=3D 0;
+>  }
+> =20
+>  static inline bool compare_hash_inputs(const struct flowi *fl1,
+> @@ -1181,12 +1182,18 @@ restart:
+>  	} else {
+>  		if (chain_length > rt_chain_length_max) {
+>  			struct net *net =3D dev_net(rt->u.dst.dev);
+> -			int num =3D ++net->ipv4.current_rt_cache_rebuild_count;
+> -			if (!rt_caching(dev_net(rt->u.dst.dev))) {
+> -				printk(KERN_WARNING "%s: %d rebuilds is over limit, route cachin=
+g disabled\n",
+> -					rt->u.dst.dev->name, num);
+> +
+> +			if (net->ipv4.sysctl_rt_cache_rebuild_count > 0) {
+> +				int num =3D ++net->ipv4.current_rt_cache_rebuild_count;
+> +
+> +				if (!rt_caching(net))
+> +					printk(KERN_WARNING
+> +					       "%s: %d rebuilds is over limit, "
+> +					       "route caching disabled\n",
+> +					       rt->u.dst.dev->name, num);
+> +
+> +				rt_emergency_hash_rebuild(net);
+>  			}
+> -			rt_emergency_hash_rebuild(dev_net(rt->u.dst.dev));
+>  		}
+>  	}
+> =20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
+>  =20
 
