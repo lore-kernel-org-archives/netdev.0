@@ -1,106 +1,104 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with module
-	unload
-Date: Mon, 13 Jul 2009 18:27:48 +0300
-Message-ID: <4A5B5274.2020801@mellanox.co.il>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
+Date: Mon, 13 Jul 2009 08:33:03 -0700
+Message-ID: <20090713083303.61a59b63@nehalam>
+References: <20090713133225.GA20946@urbino.open.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	kaber@trash.net
+To: Andreas Jaggi <aj@open.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48318 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756202AbZGMPdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jul 2009 11:33:09 -0400
+In-Reply-To: <20090713133225.GA20946@urbino.open.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a race condition when the mlx4_core module is being unloaded
-during the execution of restart task due to catastrophic error.
-Added a global mutex that synchs those operations. If the catastrophic task
-tries to catch the mutex, and it is already taken, it means that somebody is unloading the
-module, and there is no point in executing the restart operation.
-If the unload function tries to catch the mutex and it is taken,
-it would wait for the catas task to finish and then unload the module.
+On Mon, 13 Jul 2009 15:32:25 +0200
+Andreas Jaggi <aj@open.ch> wrote:
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/catas.c |    4 ++++
- drivers/net/mlx4/main.c  |    6 ++++++
- drivers/net/mlx4/mlx4.h  |    2 ++
- 3 files changed, 12 insertions(+), 0 deletions(-)
+> When tunneling IP traffic with GRE this patch makes it possible to export the
+> ToS/DiffServ information to the outer IP header. This is particularly useful in
+> a scenario with ESP/AH where the inner IP header is encrypted but the packet
+> priority/DiffServ information should still be respected by the transporting
+> routers (for example in an MPLS backbone network).
+>
+> The feature is disabled by default and can be enabled on per-interface basis.
+> The flag is stored in an unused bit of ip_tunnel_parm.o_flags, and can be
+> modified through the rntl_link interface.
 
-diff --git a/drivers/net/mlx4/catas.c b/drivers/net/mlx4/catas.c
-index aa9674b..e3aa7e9 100644
---- a/drivers/net/mlx4/catas.c
-+++ b/drivers/net/mlx4/catas.c
-@@ -91,6 +91,9 @@ static void catas_reset(struct work_struct *work)
- 	LIST_HEAD(tlist);
- 	int ret;
- 
-+	if (!mutex_trylock(&drv_mutex))
-+		return;
-+
- 	spin_lock_irq(&catas_lock);
- 	list_splice_init(&catas_list, &tlist);
- 	spin_unlock_irq(&catas_lock);
-@@ -103,6 +106,7 @@ static void catas_reset(struct work_struct *work)
- 		else
- 			mlx4_dbg(dev, "Reset succeeded\n");
- 	}
-+	mutex_unlock(&drv_mutex);
- }
- 
- void mlx4_start_catas_poll(struct mlx4_dev *dev)
-diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index dac621b..9cd5123 100644
---- a/drivers/net/mlx4/main.c
-+++ b/drivers/net/mlx4/main.c
-@@ -77,6 +77,8 @@ static char mlx4_version[] __devinitdata =
- 	DRV_NAME ": Mellanox ConnectX core driver v"
- 	DRV_VERSION " (" DRV_RELDATE ")\n";
- 
-+struct mutex drv_mutex;
-+
- static struct mlx4_profile default_profile = {
- 	.num_qp		= 1 << 17,
- 	.num_srq	= 1 << 16,
-@@ -1325,6 +1327,8 @@ static int __init mlx4_init(void)
- {
- 	int ret;
- 
-+	mutex_init(&drv_mutex);
-+
- 	if (mlx4_verify_params())
- 		return -EINVAL;
- 
-@@ -1340,7 +1344,9 @@ static int __init mlx4_init(void)
- 
- static void __exit mlx4_cleanup(void)
- {
-+	mutex_lock(&drv_mutex);
- 	pci_unregister_driver(&mlx4_driver);
-+	mutex_unlock(&drv_mutex);
- 	destroy_workqueue(mlx4_wq);
- }
- 
-diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/mlx4/mlx4.h
-index 5bd79c2..bd8fb43 100644
---- a/drivers/net/mlx4/mlx4.h
-+++ b/drivers/net/mlx4/mlx4.h
-@@ -284,6 +284,8 @@ struct mlx4_sense {
- 	struct delayed_work	sense_poll;
- };
- 
-+extern struct mutex drv_mutex;
-+
- struct mlx4_priv {
- 	struct mlx4_dev		dev;
- 
+Why make it an option? Sounds like it should always be on.
+
+> Also does this bring Linux back in the game, as JunOS/IOS provide this for
+> quite some time:
+> http://www.cisco.com/en/US/docs/ios/11_3/feature/guide/greqos.html
+> http://www.juniper.net/techpubs/software/junos/junos94/swconfig-services/configuring-a-gre-tunnel-to-copy-tos-bits-to-the-outer-ip-header.html
+> 
+> Signed-off-by: Andreas Jaggi <aj@open.ch>
+> 
+> diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h dev-gre/include/linux/if_tunnel.h
+> --- vanilla-linux-2.6.29.4/include/linux/if_tunnel.h	2009-05-19 01:52:34.000000000 +0200
+> +++ dev-gre/include/linux/if_tunnel.h	2009-07-13 15:15:26.000000000 +0200
+> @@ -24,6 +24,7 @@
+>  #define GRE_REC		__constant_htons(0x0700)
+>  #define GRE_FLAGS	__constant_htons(0x00F8)
+>  #define GRE_VERSION	__constant_htons(0x0007)
+> +#define GRE_COPY_TOS	__constant_htons(0x0008)
+>  
+>  struct ip_tunnel_parm
+>  {
+> diff -urN vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c dev-gre/net/ipv4/ip_gre.c
+> --- vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c	2009-05-19 01:52:34.000000000 +0200
+> +++ dev-gre/net/ipv4/ip_gre.c	2009-07-01 15:30:44.000000000 +0200
+> @@ -677,7 +677,7 @@
+>  	}
+>  
+>  	tos = tiph->tos;
+> -	if (tos&1) {
+> +	if (tunnel->parms.o_flags&GRE_COPY_TOS || tos&1) {
+
+This needs whitespace and parenthesis, to be safe and conform to
+kernel coding style.
+
+>  		if (skb->protocol == htons(ETH_P_IP))
+>  			tos = old_iph->tos;
+>  		tos &= ~1;
+> @@ -804,7 +804,7 @@
+>  			iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
+>  	}
+>  
+> -	((__be16 *)(iph + 1))[0] = tunnel->parms.o_flags;
+> +	((__be16 *)(iph + 1))[0] = tunnel->parms.o_flags&~GRE_FLAGS;
+more white space
+
+>  	((__be16 *)(iph + 1))[1] = (dev->type == ARPHRD_ETHER) ?
+>  				   htons(ETH_P_TEB) : skb->protocol;
+>  
+> @@ -1080,7 +1080,7 @@
+>  	__be16 *p = (__be16*)(iph+1);
+>  
+>  	memcpy(iph, &t->parms.iph, sizeof(struct iphdr));
+> -	p[0]		= t->parms.o_flags;
+> +	p[0]		= t->parms.o_flags&~GRE_FLAGS;
+>  	p[1]		= htons(type);
+>  
+>  	/*
+> @@ -1503,6 +1503,7 @@
+>  	t->parms.iph.ttl = p.iph.ttl;
+>  	t->parms.iph.tos = p.iph.tos;
+>  	t->parms.iph.frag_off = p.iph.frag_off;
+> +	t->parms.o_flags |= p.o_flags&GRE_COPY_TOS;
+>  
+>  	if (t->parms.link != p.link) {
+>  		t->parms.link = p.link;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
 -- 
-1.6.0
