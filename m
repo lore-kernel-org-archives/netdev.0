@@ -1,52 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with
-	module unload
-Date: Mon, 13 Jul 2009 13:09:36 -0700 (PDT)
-Message-ID: <20090713.130936.41603615.davem@davemloft.net>
-References: <4A5B5274.2020801@mellanox.co.il>
-	<20090713.111407.196601373.davem@davemloft.net>
-	<adak52cv02r.fsf@cisco.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/4] drivers/net/wireless: adjust NULL test
+Date: Mon, 13 Jul 2009 22:44:08 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0907132243420.12374@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adak52cv02r.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757186AbZGMUoN@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 13 Jul 2009 12:45:32 -0700
+From: Julia Lawall <julia@diku.dk>
 
->  > Applied, thanks.
-> 
-> Dave, please don't apply mlx4_core patches without giving me a chance to
-> review them.  In this case the patch looks buggy to me: I don't see how
-> it handles, say, hot remove of one device -- it only handles module
-> removal.  And I would hope we could fix this without adding a global
-> symbol as namespace polluting as "drv_mutex".
-> 
-> Yevgeny didn't even send this patch to you; he just cc'ed netdev as a
-> courtesy.  However I understand that the physical location of mlx4_core
-> in drivers/net makes it easy to do this.  Maybe this is the best
-> argument in favor of moving the mlx4_core stuff to drivers/shared?
+Clearly bss cannot be NULL at the point of the test.  The just allocated
+bss->bss is more appropriate to test at this point.
 
-If it gets sent to netdev, it's for a networking driver, and it says
-"PATCH" rather than "RFC" or "please review" or "don't apply" you
-cannot reasonably expect me to not look into applying the thing.
+A simplified version of the semantic match that finds this problem is as
+follows: (http://www.emn.fr/x-info/coccinelle/)
 
-And if you're saying that patches for this device should start not
-going through me, and the tactic to accomplish that is to move the
-bulk of the driver into some driver/shared area, that's really weird.
+// <smpl>
+@r@
+expression x,E,E1;
+identifier f,l;
+position p1,p2;
+@@
 
-Anyways I didn't push the patch out to kernel.org yet so it's easy for
-me to remove it.
+*x@p1->f = E1;
+... when != x = E
+    when != goto l;
+(
+*x@p2 == NULL
+|
+*x@p2 != NULL
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/wireless/iwmc3200wifi/rx.c         |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/iwmc3200wifi/rx.c b/drivers/net/wireless/iwmc3200wifi/rx.c
+index 3909477..453fcb2 100644
+--- a/drivers/net/wireless/iwmc3200wifi/rx.c
++++ b/drivers/net/wireless/iwmc3200wifi/rx.c
+@@ -698,7 +698,7 @@ static int iwm_mlme_update_bss_table(struct iwm_priv *iwm, u8 *buf,
+ 	}
+ 
+ 	bss->bss = kzalloc(bss_len, GFP_KERNEL);
+-	if (!bss) {
++	if (!bss->bss) {
+ 		kfree(bss);
+ 		IWM_ERR(iwm, "Couldn't allocate bss\n");
+ 		return -ENOMEM;
