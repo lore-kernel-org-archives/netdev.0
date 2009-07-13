@@ -1,51 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/bonding: Adjust constant name
-Date: Sun, 12 Jul 2009 20:26:10 -0700 (PDT)
-Message-ID: <20090712.202610.254288767.davem@davemloft.net>
-References: <Pine.LNX.4.64.0907111006090.29592@ask.diku.dk>
-	<9220.1247342635@death.nxdomain.ibm.com>
+Subject: Re: [PATCH] NET: Fix locking issues in PPP, 6pack, mkiss and strip
+ line disciplines.
+Date: Sun, 12 Jul 2009 21:07:30 -0700 (PDT)
+Message-ID: <20090712.210730.170014470.davem@davemloft.net>
+References: <20090712172720.GA7313@linux-mips.org>
+	<20090712222658.GC26798@linux-mips.org>
+	<20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia@diku.dk, bonding-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47780
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752318AbZGMD0G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jul 2009 23:26:06 -0400
-In-Reply-To: <9220.1247342635@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
+	guido@trentalancia.com, paulus@samba.org,
+	linux-hams@vger.kernel.org, hans@esrac.ele.tue.nl
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Sat, 11 Jul 2009 13:03:55 -0700
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Sun, 12 Jul 2009 23:48:54 +0100
 
+>> The issue was, that the locking code in mkiss was assuming it was only
+>> ever being called in process or bh context.  Fixed by converting the
+>> involved locking code to use irq-safe locks.
 > 
-> From: Julia Lawall <julia@diku.dk>
-> 
-> AD_SHORT_TIMEOUT and AD_STATE_LACP_ACTIVITY have the same value, but
-> AD_STATE_LACP_ACTIVITY better reflects the intended semantics.
-> 
-> [ J adds: AD_STATE_LACP_ACTIVITY is a value defined by the standard, and
-> should be set here in accordance with 802.3ad 43.4.12; AD_SHORT_TIMEOUT
-> is a constant specific to the Linux 802.3ad implementation that happens
-> to have the same value ]
-> 
-> The semantic match that finds this problem is as follows:
-> (http://www.emn.fr/x-info/coccinelle/)
-> 
-> // <smpl>
-> @@
-> struct port_params p;
-> @@
-> * p.port_state |= AD_SHORT_TIMEOUT
-> // </smpl>
-> 
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Which historically of course was correct until the networking layer
+> changed behaviour some years ago.
 
-Applied.
+Networking layer?  Surely you mean the TTY layer or USB because I
+don't see anything networking in his traces :-)
+
+> These look good to me.
+
+Thanks for reviewing, I'll apply his patch.
