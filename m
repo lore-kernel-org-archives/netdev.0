@@ -1,104 +1,81 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
-Date: Mon, 13 Jul 2009 08:33:03 -0700
-Message-ID: <20090713083303.61a59b63@nehalam>
-References: <20090713133225.GA20946@urbino.open.ch>
+From: =?iso-8859-15?q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+Subject: Re: use after free bug in socket code
+Date: Mon, 13 Jul 2009 18:00:05 +0200
+Message-ID: <19035.23045.386506.297464@ipc1.ka-ro>
+References: <19028.16049.907160.45293@ipc1.ka-ro>
+	<20090709154533.GA27413@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	kaber@trash.net
-To: Andreas Jaggi <aj@open.ch>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de, oliver.hartkopp@volkswagen.de
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48318 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756202AbZGMPdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2009 11:33:09 -0400
-In-Reply-To: <20090713133225.GA20946@urbino.open.ch>
+Received: from mail.karo-electronics.de ([81.173.242.67]:64621 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756256AbZGMQAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 12:00:12 -0400
+In-Reply-To: <20090709154533.GA27413@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Jul 2009 15:32:25 +0200
-Andreas Jaggi <aj@open.ch> wrote:
+Hi,
 
-> When tunneling IP traffic with GRE this patch makes it possible to export the
-> ToS/DiffServ information to the outer IP header. This is particularly useful in
-> a scenario with ESP/AH where the inner IP header is encrypted but the packet
-> priority/DiffServ information should still be respected by the transporting
-> routers (for example in an MPLS backbone network).
->
-> The feature is disabled by default and can be enabled on per-interface basis.
-> The flag is stored in an unused bit of ip_tunnel_parm.o_flags, and can be
-> modified through the rntl_link interface.
+Herbert Xu writes:
+> Lothar Wa=DFmann <LW@karo-electronics.de> wrote:
+> >
+> > So, could you point me to the place where the reference count of th=
+e
+> > socket object is being incremented when a struct sock is associated
+> > with it?
+>=20
+> It's implicit.  Anyway, you should remodel your release function
+> on a working protocol.
+>=20
+OK. I checked the release functions of the can raw and bcm protocols
+and found that they obviously are the culprits since they lack the
+call to sock_orphan that other network protocol drivers have:
 
-Why make it an option? Sounds like it should always be on.
-
-> Also does this bring Linux back in the game, as JunOS/IOS provide this for
-> quite some time:
-> http://www.cisco.com/en/US/docs/ios/11_3/feature/guide/greqos.html
-> http://www.juniper.net/techpubs/software/junos/junos94/swconfig-services/configuring-a-gre-tunnel-to-copy-tos-bits-to-the-outer-ip-header.html
-> 
-> Signed-off-by: Andreas Jaggi <aj@open.ch>
-> 
-> diff -urN vanilla-linux-2.6.29.4/include/linux/if_tunnel.h dev-gre/include/linux/if_tunnel.h
-> --- vanilla-linux-2.6.29.4/include/linux/if_tunnel.h	2009-05-19 01:52:34.000000000 +0200
-> +++ dev-gre/include/linux/if_tunnel.h	2009-07-13 15:15:26.000000000 +0200
-> @@ -24,6 +24,7 @@
->  #define GRE_REC		__constant_htons(0x0700)
->  #define GRE_FLAGS	__constant_htons(0x00F8)
->  #define GRE_VERSION	__constant_htons(0x0007)
-> +#define GRE_COPY_TOS	__constant_htons(0x0008)
->  
->  struct ip_tunnel_parm
->  {
-> diff -urN vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c dev-gre/net/ipv4/ip_gre.c
-> --- vanilla-linux-2.6.29.4/net/ipv4/ip_gre.c	2009-05-19 01:52:34.000000000 +0200
-> +++ dev-gre/net/ipv4/ip_gre.c	2009-07-01 15:30:44.000000000 +0200
-> @@ -677,7 +677,7 @@
->  	}
->  
->  	tos = tiph->tos;
-> -	if (tos&1) {
-> +	if (tunnel->parms.o_flags&GRE_COPY_TOS || tos&1) {
-
-This needs whitespace and parenthesis, to be safe and conform to
-kernel coding style.
-
->  		if (skb->protocol == htons(ETH_P_IP))
->  			tos = old_iph->tos;
->  		tos &= ~1;
-> @@ -804,7 +804,7 @@
->  			iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
->  	}
->  
-> -	((__be16 *)(iph + 1))[0] = tunnel->parms.o_flags;
-> +	((__be16 *)(iph + 1))[0] = tunnel->parms.o_flags&~GRE_FLAGS;
-more white space
-
->  	((__be16 *)(iph + 1))[1] = (dev->type == ARPHRD_ETHER) ?
->  				   htons(ETH_P_TEB) : skb->protocol;
->  
-> @@ -1080,7 +1080,7 @@
->  	__be16 *p = (__be16*)(iph+1);
->  
->  	memcpy(iph, &t->parms.iph, sizeof(struct iphdr));
-> -	p[0]		= t->parms.o_flags;
-> +	p[0]		= t->parms.o_flags&~GRE_FLAGS;
->  	p[1]		= htons(type);
->  
->  	/*
-> @@ -1503,6 +1503,7 @@
->  	t->parms.iph.ttl = p.iph.ttl;
->  	t->parms.iph.tos = p.iph.tos;
->  	t->parms.iph.frag_off = p.iph.frag_off;
-> +	t->parms.o_flags |= p.o_flags&GRE_COPY_TOS;
->  
->  	if (t->parms.link != p.link) {
->  		t->parms.link = p.link;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff -ur linux-2.6.30/net/can/bcm.c linux-2.6.30-karo/net/can/bcm.c
+--- linux-2.6.30/net/can/bcm.c	2009-06-10 05:05:27.000000000 +0200
++++ linux-2.6.30-karo/net/can/bcm.c	2009-07-12 20:12:38.000000000 +0200
+@@ -1469,6 +1469,9 @@
+ 		bo->ifindex =3D 0;
+ 	}
+=20
++	sock_orphan(sk);
++	sock->sk =3D NULL;
++
+ 	release_sock(sk);
+ 	sock_put(sk);
+=20
+diff -ur linux-2.6.30/net/can/raw.c linux-2.6.30-karo/net/can/raw.c
+--- linux-2.6.30/net/can/raw.c	2009-06-10 05:05:27.000000000 +0200
++++ linux-2.6.30-karo/net/can/raw.c	2009-07-12 20:12:29.000000000 +0200
+@@ -306,6 +306,9 @@
+ 	ro->bound   =3D 0;
+ 	ro->count   =3D 0;
+=20
++	sock_orphan(sk);
++	sock->sk =3D NULL;
++
+ 	release_sock(sk);
+ 	sock_put(sk);
+=20
 
 
--- 
+Could someone of the CAN-Folks comment on this?
+
+
+Best regards,
+Lothar Wa=DFmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=DFe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=E4ftsf=FChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
