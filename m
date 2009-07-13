@@ -1,72 +1,53 @@
-From: Tim Schneider <schneid5@cs.uni-bonn.de>
-Subject: Re: Using Wireless Extensions in a Kernel Module
-Date: Mon, 13 Jul 2009 08:24:36 +0200
-Message-ID: <9A4B18C9-91B4-4B9B-A147-49C3BB04E296@cs.uni-bonn.de>
-References: <A353FA76-7D71-425F-BD67-FEE6DC26EF6F@cs.uni-bonn.de> <4A5850E7.5020708@gdt.id.au>
-Mime-Version: 1.0 (Apple Message framework v935.3)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] NET: Fix locking issues in PPP, 6pack, mkiss and strip
+ line disciplines.
+Date: Mon, 13 Jul 2009 09:19:28 +0100
+Message-ID: <20090713091928.7e89bab8@lxorguk.ukuu.org.uk>
+References: <20090712172720.GA7313@linux-mips.org>
+	<20090712222658.GC26798@linux-mips.org>
+	<20090712234854.10cfcef2@lxorguk.ukuu.org.uk>
+	<20090712.210730.170014470.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:57034 "EHLO
-	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbZGMGYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 02:24:40 -0400
-Received: from [10.0.1.10] (dslb-084-063-085-116.pools.arcor-ip.net [84.63.85.116])
-	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id 377315C828
-	for <netdev@vger.kernel.org>; Mon, 13 Jul 2009 08:24:38 +0200 (MEST)
-	(envelope-from schneid5@cs.uni-bonn.de)
-	(envelope-to netdev@vger.kernel.org) (1)
-	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
-In-Reply-To: <4A5850E7.5020708@gdt.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
+	guido@trentalancia.com, paulus@samba.org,
+	linux-hams@vger.kernel.org, hans@esrac.ele.tue.nl
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20090712.210730.170014470.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Glen, hi Marcel
+On Sun, 12 Jul 2009 21:07:30 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-thank you for your answers.
+> From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Date: Sun, 12 Jul 2009 23:48:54 +0100
+> 
+> >> The issue was, that the locking code in mkiss was assuming it was only
+> >> ever being called in process or bh context.  Fixed by converting the
+> >> involved locking code to use irq-safe locks.
+> > 
+> > Which historically of course was correct until the networking layer
+> > changed behaviour some years ago.
+> 
+> Networking layer?  Surely you mean the TTY layer or USB because I
+> don't see anything networking in his traces :-)
 
-I am trying to develop the algorithm for a wireless multihop network,  
-so no, I'm not making the classical error ;) Still you're right that I  
-should consider the possibility, that the Algorithm is used on a wired  
-network. In that case it definitely should not crash the whole system.
+No I mean the network layer.
 
-Thank you for your hint with the other mailing list. I'm going to try  
-my luck there.
 
-Regards
+Historically it went
 
-Tim
+		network bh
+			transmit packet
+				ldisc layer
+					tty write method
 
-Am 11.07.2009 um 10:44 schrieb Glen Turner:
->
-> Hi Tim,
->
-> I'm not sure you aren't making a classic error of optimising the  
-> unusual
-> case.
->
-> The usual situation is that the TCP sender is on the wired network,  
-> the
-> TCP receiver is on the wireless network. Since the sender determines  
-> the
-> packet scheduling, determining the received signal strength at the TCP
-> receiver isn't much help.
->
-> What would be really, really useful is a channel to get this sort of
-> information back to the sender in a form in which the feedback is  
-> useful
-> even after a RTT/2 delay. There are a few explicit congestion  
-> notification
-> protocols around, and adapting one of those to add the wireless  
-> condition
-> of intermediate and end hops could be the sort of useful  
-> augmentation that
-> gives these protocols enough of an advantage of TCP to be worth  
-> deploying.
->
-> Best wishes, Glen
->
-> -- 
-> Glen Turner   <http://www.gdt.id.au/~gdt/>
+and lots of code assumed that. Today the network bits get kicked off at
+IRQ level.
 
+Most tty stuff now handles it, some of it has been broken with ppp for
+ages but its been so long its hardly a regression any more and its dumb
+stuff like jtag consoles and i2c serial ports that break.
