@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atlx: duplicate testing of MCAST flag
-Date: Mon, 13 Jul 2009 11:03:20 -0700 (PDT)
-Message-ID: <20090713.110320.86530698.davem@davemloft.net>
-References: <4A5A6DE5.4090801@gmail.com>
-	<3400f2f60907121704s105ba16bqebcdb75bc855888e@mail.gmail.com>
+Subject: Re: linux-2.6.30.1 with gcc-3.4.6 compile error
+Date: Mon, 13 Jul 2009 11:11:57 -0700 (PDT)
+Message-ID: <20090713.111157.59101216.davem@davemloft.net>
+References: <9b5c9bb30907130944l3624870ck507f5a9f0f79452b@mail.gmail.com>
+	<4A5B6F12.6030101@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roel.kluin@gmail.com, atl1-devel@lists.sourceforge.net,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: jcliburn@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43224
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753387AbZGMSDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 14:03:16 -0400
-In-Reply-To: <3400f2f60907121704s105ba16bqebcdb75bc855888e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: giamteckchoon@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756783AbZGMSLz@vger.kernel.org>
+In-Reply-To: <4A5B6F12.6030101@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "J. K. Cliburn" <jcliburn@gmail.com>
-Date: Sun, 12 Jul 2009 19:04:20 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 13 Jul 2009 19:29:54 +0200
 
-> On Sun, Jul 12, 2009 at 6:12 PM, Roel Kluin<roel.kluin@gmail.com> wrote:
->> Fix duplicate testing of MCAST flag
->>
->> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> Acked-by: Jay Cliburn <jcliburn@gmail.com>
+> [PATCH] igb: gcc-3.4.6 fix
+> 
+> forward declaration of inline function should be avoided, or
+> old gcc cannot compile.
+> 
+> Reported-by: Teck Choon Giam <giamteckchoon@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied, thanks a lot Eric.
