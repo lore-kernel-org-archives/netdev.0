@@ -1,41 +1,49 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH 2/2] NET: sungem, use spin_trylock_irqsave
-Date: Mon, 13 Jul 2009 23:23:40 +0200
-Message-ID: <1247520220-31960-2-git-send-email-jirislaby@gmail.com>
-References: <1247520220-31960-1-git-send-email-jirislaby@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Slaby <jirislaby@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757545AbZGMVdN@vger.kernel.org>
-In-Reply-To: <1247520220-31960-1-git-send-email-jirislaby@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general][PATCH] mlx4_core: Synch catastrophic flow with module unload
+Date: Mon, 13 Jul 2009 14:53:59 -0700
+Message-ID: <adabpnouu4o.fsf@cisco.com>
+References: <4A5B5274.2020801@mellanox.co.il>
+	<20090713.111407.196601373.davem@davemloft.net>
+	<adak52cv02r.fsf@cisco.com>
+	<20090713.130936.41603615.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:29427 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756454AbZGMVyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 17:54:03 -0400
+In-Reply-To: <20090713.130936.41603615.davem@davemloft.net> (David Miller's
+	message of "Mon, 13 Jul 2009 13:09:36 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use spin_trylock_irqsave instead of open-coded
-local_irq_save+spin_trylock.
 
-Impact: cleanup
+ > If it gets sent to netdev, it's for a networking driver, and it says
+ > "PATCH" rather than "RFC" or "please review" or "don't apply" you
+ > cannot reasonably expect me to not look into applying the thing.
 
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
----
- drivers/net/sungem.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ > And if you're saying that patches for this device should start not
+ > going through me, and the tactic to accomplish that is to move the
+ > bulk of the driver into some driver/shared area, that's really weird.
 
-diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
-index d2dfe0a..22474a8 100644
---- a/drivers/net/sungem.c
-+++ b/drivers/net/sungem.c
-@@ -1032,10 +1032,8 @@ static int gem_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			(csum_stuff_off << 21));
- 	}
- 
--	local_irq_save(flags);
--	if (!spin_trylock(&gp->tx_lock)) {
-+	if (!spin_trylock_irqsave(&gp->tx_lock)) {
- 		/* Tell upper layer to requeue */
--		local_irq_restore(flags);
- 		return NETDEV_TX_LOCKED;
- 	}
- 	/* We raced with gem_do_stop() */
--- 
-1.6.3.2
+Well, first of all, if a driver, networking or not, has an active
+maintainer, I would expect you to give that maintainer a chance to look
+at any not-totally-trivial patches affecting that driver.
+
+But in this case, mlx4_core (as opposed to mlx4_en from the same
+drivers/net/mlx4 directory) really is not a network driver -- it is a
+low-level multiplexer for access to hardware that really is more
+InfiniBand than ethernet (with a dash of Fibre Channel thrown in).  And
+yes, I am saying that making it clearer that mlx4_core is not an
+network driver by moving the source to a more appropriate place does
+seem to make sense.
+
+ > Anyways I didn't push the patch out to kernel.org yet so it's easy for
+ > me to remove it.
+
+Thanks.
+
+ - R.
