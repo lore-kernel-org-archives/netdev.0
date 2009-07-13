@@ -1,102 +1,72 @@
-From: Dongdong Deng <dongdong.deng@windriver.com>
-Subject: [PATCH] drivers/net: using spin_lock_irqsave() in net_send_packet()
-Date: Mon, 13 Jul 2009 14:27:06 +0800
-Message-ID: <1247466426-14205-1-git-send-email-dongdong.deng@windriver.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Tim Schneider <schneid5@cs.uni-bonn.de>
+Subject: Re: Using Wireless Extensions in a Kernel Module
+Date: Mon, 13 Jul 2009 08:24:36 +0200
+Message-ID: <9A4B18C9-91B4-4B9B-A147-49C3BB04E296@cs.uni-bonn.de>
+References: <A353FA76-7D71-425F-BD67-FEE6DC26EF6F@cs.uni-bonn.de> <4A5850E7.5020708@gdt.id.au>
+Mime-Version: 1.0 (Apple Message framework v935.3)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39407 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750801AbZGMGQG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jul 2009 02:16:06 -0400
+Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:57034 "EHLO
+	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbZGMGYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jul 2009 02:24:40 -0400
+Received: from [10.0.1.10] (dslb-084-063-085-116.pools.arcor-ip.net [84.63.85.116])
+	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id 377315C828
+	for <netdev@vger.kernel.org>; Mon, 13 Jul 2009 08:24:38 +0200 (MEST)
+	(envelope-from schneid5@cs.uni-bonn.de)
+	(envelope-to netdev@vger.kernel.org) (1)
+	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
+In-Reply-To: <4A5850E7.5020708@gdt.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-spin_unlock_irq() will enable interrupt in net_send_packet(),
-this patch changes it to spin_lock_irqsave/spin_lock_irqrestore,
-so that it doesn't enable interrupts when already disabled,
-and netconsole would work properly over cs89x0/isa-skeleton.
+Hi Glen, hi Marcel
 
-Call trace:
-netconsole write_msg()
-{
- ...
- -> spin_lock_irqsave();
-        -> netpoll_send_udp()
-          -> netpoll_send_skb()
-            -> net_send_packet()
-              ->...
+thank you for your answers.
 
- -> spin_unlock_irqrestore();
- ...
-}
+I am trying to develop the algorithm for a wireless multihop network,  
+so no, I'm not making the classical error ;) Still you're right that I  
+should consider the possibility, that the Algorithm is used on a wired  
+network. In that case it definitely should not crash the whole system.
 
-Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
----
- drivers/net/cs89x0.c       |    7 ++++---
- drivers/net/isa-skeleton.c |    5 +++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+Thank you for your hint with the other mailing list. I'm going to try  
+my luck there.
 
-diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
-index 3eee666..5d619ae 100644
---- a/drivers/net/cs89x0.c
-+++ b/drivers/net/cs89x0.c
-@@ -1523,6 +1523,7 @@ static void net_timeout(struct net_device *dev)
- 
- static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
-+	unsigned long flags;
- 	struct net_local *lp = netdev_priv(dev);
- 
- 	if (net_debug > 3) {
-@@ -1535,7 +1536,7 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
-                   ask the chip to start transmitting before the
-                   whole packet has been completely uploaded. */
- 
--	spin_lock_irq(&lp->lock);
-+	spin_lock_irqsave(&lp->lock, flags);
- 	netif_stop_queue(dev);
- 
- 	/* initiate a transmit sequence */
-@@ -1549,13 +1550,13 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
- 		 * we're waiting for TxOk, so return 1 and requeue this packet.
- 		 */
- 
--		spin_unlock_irq(&lp->lock);
-+		spin_unlock_irqrestore(&lp->lock, flags);
- 		if (net_debug) printk("cs89x0: Tx buffer not free!\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 	/* Write the contents of the packet */
- 	writewords(dev->base_addr, TX_FRAME_PORT,skb->data,(skb->len+1) >>1);
--	spin_unlock_irq(&lp->lock);
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 	lp->stats.tx_bytes += skb->len;
- 	dev->trans_start = jiffies;
- 	dev_kfree_skb (skb);
-diff --git a/drivers/net/isa-skeleton.c b/drivers/net/isa-skeleton.c
-index 73585fd..d12377b 100644
---- a/drivers/net/isa-skeleton.c
-+++ b/drivers/net/isa-skeleton.c
-@@ -430,7 +430,8 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
- 	 * hardware interrupt handler.  Queue flow control is
- 	 * thus managed under this lock as well.
- 	 */
--	spin_lock_irq(&np->lock);
-+	unsigned long flags;
-+	spin_lock_irqsave(&np->lock, flags);
- 
- 	add_to_tx_ring(np, skb, length);
- 	dev->trans_start = jiffies;
-@@ -446,7 +447,7 @@ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
- 	 * is when the transmit statistics are updated.
- 	 */
- 
--	spin_unlock_irq(&np->lock);
-+	spin_unlock_irqrestore(&np->lock, flags);
- #else
- 	/* This is the case for older hardware which takes
- 	 * a single transmit buffer at a time, and it is
--- 
-1.6.0.4
+Regards
+
+Tim
+
+Am 11.07.2009 um 10:44 schrieb Glen Turner:
+>
+> Hi Tim,
+>
+> I'm not sure you aren't making a classic error of optimising the  
+> unusual
+> case.
+>
+> The usual situation is that the TCP sender is on the wired network,  
+> the
+> TCP receiver is on the wireless network. Since the sender determines  
+> the
+> packet scheduling, determining the received signal strength at the TCP
+> receiver isn't much help.
+>
+> What would be really, really useful is a channel to get this sort of
+> information back to the sender in a form in which the feedback is  
+> useful
+> even after a RTT/2 delay. There are a few explicit congestion  
+> notification
+> protocols around, and adapting one of those to add the wireless  
+> condition
+> of intermediate and end hops could be the sort of useful  
+> augmentation that
+> gives these protocols enough of an advantage of TCP to be worth  
+> deploying.
+>
+> Best wishes, Glen
+>
+> -- 
+> Glen Turner   <http://www.gdt.id.au/~gdt/>
 
