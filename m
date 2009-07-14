@@ -1,69 +1,95 @@
-From: Andreas Jaggi <aj@open.ch>
-Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
-Date: Tue, 14 Jul 2009 16:21:51 +0200
-Message-ID: <20090714142151.GA8461@urbino.open.ch>
-References: <20090713133225.GA20946@urbino.open.ch> <20090713.104433.244099298.davem@davemloft.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: use after free bug in socket code
+Date: Tue, 14 Jul 2009 16:41:18 +0200
+Message-ID: <4A5C990E.3080703@hartkopp.net>
+References: <19028.16049.907160.45293@ipc1.ka-ro>	<20090709154533.GA27413@gondor.apana.org.au>	<19035.23045.386506.297464@ipc1.ka-ro>	<4A5B730B.8090902@hartkopp.net> <19036.9400.263297.330963@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
-	davem@davemloft.net
-To: Wojtek Sawasciuk <voyo@no-ip.pl>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	netdev@vger.kernel.org, urs.thuermann@volkswagen.de,
+	Urs Thuermann <urs@isnogud.escape.de>
+To: =?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.open.ch ([213.156.224.131]:56300 "EHLO mail6.open.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751372AbZGNOVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2009 10:21:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20090713.104433.244099298.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:58652 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753815AbZGNOl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2009 10:41:29 -0400
+In-Reply-To: <19036.9400.263297.330963@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 14, 2009 at 01:39:48PM +0100, Wojtek Sawasciuk wrote:
-> I think I have similar problems to yours, and I spotted your email on  
-> the lists when googling :)
-> Andreas, sorry but I think your patch is unnecessary, at last in this form.
-> From long time there is possibility to create tunnel with tos options,  
-> you can use "inherit" or any other value to set it to encapsulated 
-> packets.
->
-> ip tun add mode gre name tun1 remote 1.2.3.5 local 10.0.0.234 tos inherit
-> or
-> ip tun add mode gre name tun2 remote 1.2.3.6 local 10.0.0.234 tos 2
->
-> and its working, *almost* ok.
-> only problem is when you set tos value with bit 1 set in it, regarding  
-> this fragment of code from ip_gre.c , in ipgre_tunnel_xmit function:
->
->        tos = tiph->tos;
->        if (tos&1) {
->                if (skb->protocol == htons(ETH_P_IP))
->                        tos = old_iph->tos;
->                tos &= ~1;
->        }
->
-> (ie. set tos to 2 - it will replicate it to 2, set tos to 3 - it will  
-> change it to 2).
->
-> IHMO it should be replaced to use maybe MBZ bit (look on RFC1349) ,  
-> instead of bit 1 , to pass on value of tos , from tunnel parameter to IP  
-> header.
-> and this should be sufficient to make it work properly.
+Lothar Wa=DFmann wrote:
+> Oliver Hartkopp writes:
+>>
+>> Would you like to prepare a proper patch and post it on netdev?
+>>
+> I'll do.
 
-You're right, my patch in this form is not necessary.
+=46ine.
 
-But as you point out, there is a bug in the handling of the ToS/DiffServ
-bits in GRE.
-iproute2 and the Linux GRE driver use a tos value of 1 to indicate an
-'inherit'/'copy-tos' behavior (and then clear this bit before using the
-tos value in the IP header of the encapsulation GRE packet).
+> I would also submit a second patch to add an appropriate MODULE_ALIAS
+> to the protocol drivers, so they can be autoloaded when compiled as
+> module:
+> diff -ur linux-2.6.30/net/can/bcm.c linux-2.6.30-karo/net/can/bcm.c
+> --- linux-2.6.30/net/can/bcm.c	2009-06-10 05:05:27.000000000 +0200
+> +++ linux-2.6.30-karo/net/can/bcm.c	2009-07-12 20:12:38.000000000 +02=
+00
+> @@ -75,6 +75,7 @@
+>  MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
+>  MODULE_LICENSE("Dual BSD/GPL");
+>  MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+> +MODULE_ALIAS("can-proto-2");
+> =20
+>  /* easy access to can_frame payload */
+>  static inline u64 GET_U64(const struct can_frame *cp)
+> diff -ur linux-2.6.30/net/can/raw.c linux-2.6.30-karo/net/can/raw.c
+> --- linux-2.6.30/net/can/raw.c	2009-06-10 05:05:27.000000000 +0200
+> +++ linux-2.6.30-karo/net/can/raw.c	2009-07-12 20:12:29.000000000 +02=
+00
+> @@ -62,6 +62,7 @@
+>  MODULE_DESCRIPTION("PF_CAN raw protocol");
+>  MODULE_LICENSE("Dual BSD/GPL");
+>  MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
+> +MODULE_ALIAS("can-proto-1");
+> =20
+>  #define MASK_ALL 0
+> =20
 
-This was fine for RFC1349 where this bit is defined as MBZ/must-be-zero.
-But with RFC3168, this bit (and the other previously unused one in the tos field)
-are used for the ECN bits (ECT + CE). Therefore a tos value of 1 is 'legal' and
-conflicts with the 'inherit'/'copy-tos' indication of iproute2 and the
-Linux GRE driver.
+Good idea.
 
-This creates the problem you described, where IP packets who have a tos
-value of 1 (with the ECT bit set to 1) are handled with the 'inherit'/'copy-tos'
-mechanism and the resulting GRE IP header has a tos value of 0! (the ECT bit
-set to 0 instead of 1)
+I currently added these aliases somewhere in my /etc/modprobe.d directo=
+ry. But
+if this can be done by the kernel itself, we can reduce the distro-depe=
+nded
+configuation effort.
+
+You can add my
+
+Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
+
+to both discussed patches directly.
+
+>=20
+>> ps. This code section was stable for more than three years now. Can =
+you tell
+>> me, how you kicked your system to run into this problem?
+>>
+> I was working on a chip driver for the i.MX25 flexcan controller. The
+> bug was visible due to CONFIG_DEBUG_SLAB=3Dy which makes sure that
+> memory is poisoned with a special pattern upon being freed.
+
+Nice hint! I will enable this in my config also.
+
+>=20
+> The situation where this triggers a bug is when the chip driver's
+> hard_start_xmit function returns a NETDEV_TX_BUSY and subsequently th=
+e
+> can interface is deconfigured.
+>=20
+> Maybe you could try this on different hardware?
+
+Will do when i'm back at work ;-)
+
+Many Thanks,
+Oliver
