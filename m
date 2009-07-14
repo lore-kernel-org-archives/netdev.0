@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gre: fix ToS/DiffServ inherit bug
-Date: Tue, 14 Jul 2009 09:34:33 -0700 (PDT)
-Message-ID: <20090714.093433.216171575.davem@davemloft.net>
-References: <20090714153648.GC8461@urbino.open.ch>
+Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
+Date: Tue, 14 Jul 2009 09:35:20 -0700 (PDT)
+Message-ID: <20090714.093520.136169461.davem@davemloft.net>
+References: <20090713133225.GA20946@urbino.open.ch>
+	<20090713.104433.244099298.davem@davemloft.net>
+	<20090714071410.GA4793@urbino.open.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: voyo@no-ip.pl, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	kaber@trash.net
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net
 To: aj@open.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56575
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56581
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754865AbZGNQe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2009 12:34:29 -0400
-In-Reply-To: <20090714153648.GC8461@urbino.open.ch>
+	by vger.kernel.org with ESMTP id S1755452AbZGNQfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2009 12:35:16 -0400
+In-Reply-To: <20090714071410.GA4793@urbino.open.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andreas Jaggi <aj@open.ch>
-Date: Tue, 14 Jul 2009 17:36:48 +0200
+Date: Tue, 14 Jul 2009 09:14:10 +0200
 
-> Fixes two bugs:
-> - ToS/DiffServ inheritance was unintentionally activated when using impair fixed ToS values
-> - ECN bit was lost during ToS/DiffServ inheritance
+> On Mon, Jul 13, 2009 at 10:44:33AM -0700, David Miller wrote:
+>> Why not just create a new IFLA_GRE_* attribute to pass in
+>> flags like this that purely are private to the GRE Linux
+>> tunnel driver and have nothing to do with values defined
+>> by GRE tunnel headers at all?
 > 
-> Signed-off-by: Andreas Jaggi <aj@open.ch>
- ...
->  	tos = tiph->tos;
-> -	if (tos&1) {
-> +	if (tos == 1) {
-> +		tos = 0;
->  		if (skb->protocol == htons(ETH_P_IP))
->  			tos = old_iph->tos;
-> -		tos &= ~1;
->  	}
+> OK. What would be an appropriate place to store such a private flag in
+> the GRE driver?
+> 
+> I thought of extending the ip_tunnel_parms struct with '__u16 priv_flags'
+> (But this would break compatibility with the iproute2 tools?)
 
-Note that this only works out because one wouldn't specify ECN
-bits in the TOS to use for the tunnel.
-
-But it demonstrates the outright danger of trying to use
-"undefined" flag bits in protocol header fields to pass
-private control flags into the driver from user interfaces.
+You'll need to find a place.  Worst case you can make a top-level
+new structure, that contains the user interface structure and
+then the new __u16 priv_flags thing.  And allocate that per-tunnel
+instead of what it does now.
