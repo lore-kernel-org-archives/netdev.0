@@ -1,44 +1,55 @@
-From: Tobias Klauser <klto@zhaw.ch>
-Subject: [PATCH] skbuff.h: Fix comment for NET_IP_ALIGN
-Date: Tue, 14 Jul 2009 10:48:16 +0200
-Message-ID: <1247561296-25010-1-git-send-email-klto@zhaw.ch>
-Cc: netdev@vger.kernel.org, Tobias Klauser <klto@zhaw.ch>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.zhaw.ch ([160.85.104.51]:49562 "EHLO mx2.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752269AbZGNIsQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jul 2009 04:48:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [patch 1/3] net: serialize hrtimer callback in sched_cbq
+Date: Tue, 14 Jul 2009 10:55:14 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.0907141040350.2777@localhost.localdomain>
+References: <20090709215455.703939259@linutronix.de> <20090709215606.526259917@linutronix.de> <20090712.135555.207096388.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net, peterz@infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753268AbZGNIzl@vger.kernel.org>
+In-Reply-To: <20090712.135555.207096388.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the correct function call for skb_reserve in the comment for
-NET_IP_ALIGN.
+David,
 
-Signed-off-by: Tobias Klauser <klto@zhaw.ch>
----
- include/linux/skbuff.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Sun, 12 Jul 2009, David Miller wrote:
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b47b3f0..f2c69a2 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1342,12 +1342,12 @@ static inline int skb_network_offset(const struct sk_buff *skb)
-  * shifting the start of the packet by 2 bytes. Drivers should do this
-  * with:
-  *
-- * skb_reserve(NET_IP_ALIGN);
-+ * skb_reserve(skb, NET_IP_ALIGN);
-  *
-  * The downside to this alignment of the IP header is that the DMA is now
-  * unaligned. On some architectures the cost of an unaligned DMA is high
-  * and this cost outweighs the gains made by aligning the IP header.
-- * 
-+ *
-  * Since this trade off varies between architectures, we allow NET_IP_ALIGN
-  * to be overridden.
-  */
--- 
-1.6.0.4
+> From: Thomas Gleixner <tglx@linutronix.de>
+> Date: Thu, 09 Jul 2009 21:59:22 -0000
+> 
+> > The hrtimer callback cbq_undelay() is not serialized against
+> > cbq_ovl_delay(). That affects at least q->pmask and q->delay_timer.
+> > 
+> > Lock it proper.
+> > 
+> > Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> 
+> The problems here are even much deeper than it appears.
+> 
+> First of all, I am to understand that hrtimers run from hardware
+> interrupt context, right?  If so, all of these datastructures are
+> softirq safe only.
+> 
+> And it is not merely the immediate things you see being modified in
+> this hrtimer, such as ->pmask etc., it is also the q->active[]
+> pointers, the list state for the classes, just about everything in the
+> qdisc state is referenced in this hrtimer code path.
 
+That's what I was worried about.
+ 
+> I wonder how many queer unexplainable bugs we see because of this.
+> 
+> What should probably happen is that the hrtimer merely fires off work
+> at software interrupt context (perhaps a tasklet or similar), and that
+> software interrupt code take the qdisc's root lock throughout it's
+> execution.
+
+Sigh, I almost expected that the removal of the callback modes will
+fire back some day.
+
+Thanks,
+
+	tglx
