@@ -1,36 +1,34 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [patch 1/3] net: serialize hrtimer callback in sched_cbq
-Date: Tue, 14 Jul 2009 09:42:14 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain>
-References: <20090709215606.526259917@linutronix.de>  <20090712.135555.207096388.davem@davemloft.net>  <alpine.LFD.2.00.0907141040350.2777@localhost.localdomain>  <20090714.090055.56906831.davem@davemloft.net> <1247588890.7500.186.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gre: fix ToS/DiffServ inherit bug
+Date: Tue, 14 Jul 2009 09:43:23 -0700 (PDT)
+Message-ID: <20090714.094323.247351883.davem@davemloft.net>
+References: <20090714153648.GC8461@urbino.open.ch>
+	<20090714.093433.216171575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: voyo@no-ip.pl, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
 	kaber@trash.net
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755542AbZGNQmw@vger.kernel.org>
-In-Reply-To: <1247588890.7500.186.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: aj@open.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36163
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753373AbZGNQnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2009 12:43:18 -0400
+In-Reply-To: <20090714.093433.216171575.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: David Miller <davem@davemloft.net>
+Date: Tue, 14 Jul 2009 09:34:33 -0700 (PDT)
 
-
-On Tue, 14 Jul 2009, Peter Zijlstra wrote:
+> From: Andreas Jaggi <aj@open.ch>
+> Date: Tue, 14 Jul 2009 17:36:48 +0200
 > 
-> Linus really hated the softirq mode, which is what prompted me to change
-> that.
-> 
-> Now, it might be he only hated the particular interface and the
-> resulting code, but I think to remember he simply thought the whole
-> thing daft.
+>> Fixes two bugs:
+>> - ToS/DiffServ inheritance was unintentionally activated when using impair fixed ToS values
+>> - ECN bit was lost during ToS/DiffServ inheritance
+>> 
+>> Signed-off-by: Andreas Jaggi <aj@open.ch>
 
-Yes. And I hated the bugs it had. 
-
-Don't make something as core as timers any more complicated. Don't take 
-locks in timers and then complain about deadlocks. If your locking is 
-broken, don't make the core timers be idiotically broken.
-
-Because it was. The code was a total mess to follow, and had bugs.
-
-		Linus
+In case it wasn't clear, I've applied this patch.
