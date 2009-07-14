@@ -1,137 +1,69 @@
-From: Wolfgang Denk <wd@denx.de>
-Subject: [PATCH v2] fs_enet/mii-fec.c: fix MII speed calculation
-Date: Tue, 14 Jul 2009 15:42:46 +0200
-Message-ID: <1247578966-9847-1-git-send-email-wd@denx.de>
-References: <1244751543-21977-2-git-send-email-wd@denx.de>
+From: Andreas Jaggi <aj@open.ch>
+Subject: Re: [PATCH] gre: copy ToS/DiffServ bits to outer IP header
+Date: Tue, 14 Jul 2009 16:21:51 +0200
+Message-ID: <20090714142151.GA8461@urbino.open.ch>
+References: <20090713133225.GA20946@urbino.open.ch> <20090713.104433.244099298.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wolfgang Denk <wd@denx.de>
-To: linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1244751543-21977-2-git-send-email-wd@denx.de>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, kaber@trash.net,
+	davem@davemloft.net
+To: Wojtek Sawasciuk <voyo@no-ip.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail6.open.ch ([213.156.224.131]:56300 "EHLO mail6.open.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751372AbZGNOVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jul 2009 10:21:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20090713.104433.244099298.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The MII speed calculation was based on the CPU clock (ppc_proc_freq),
-but for MPC512x we must use the bus clock instead.
+On Tue, Jul 14, 2009 at 01:39:48PM +0100, Wojtek Sawasciuk wrote:
+> I think I have similar problems to yours, and I spotted your email on  
+> the lists when googling :)
+> Andreas, sorry but I think your patch is unnecessary, at last in this form.
+> From long time there is possibility to create tunnel with tos options,  
+> you can use "inherit" or any other value to set it to encapsulated 
+> packets.
+>
+> ip tun add mode gre name tun1 remote 1.2.3.5 local 10.0.0.234 tos inherit
+> or
+> ip tun add mode gre name tun2 remote 1.2.3.6 local 10.0.0.234 tos 2
+>
+> and its working, *almost* ok.
+> only problem is when you set tos value with bit 1 set in it, regarding  
+> this fragment of code from ip_gre.c , in ipgre_tunnel_xmit function:
+>
+>        tos = tiph->tos;
+>        if (tos&1) {
+>                if (skb->protocol == htons(ETH_P_IP))
+>                        tos = old_iph->tos;
+>                tos &= ~1;
+>        }
+>
+> (ie. set tos to 2 - it will replicate it to 2, set tos to 3 - it will  
+> change it to 2).
+>
+> IHMO it should be replaced to use maybe MBZ bit (look on RFC1349) ,  
+> instead of bit 1 , to pass on value of tos , from tunnel parameter to IP  
+> header.
+> and this should be sufficient to make it work properly.
 
-This patch makes it use the correct clock and makes sure we don't
-clobber reserved bits in the MII_SPEED register.
+You're right, my patch in this form is not necessary.
 
-Signed-off-by: Wolfgang Denk <wd@denx.de>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: Kumar Gala <galak@kernel.crashing.org>
-Cc: <netdev@vger.kernel.org>
----
-Note 1: This patch is a rewrite of a previous posting:
-        http://patchwork.ozlabs.org/patch/28584/
-Note 2: Function mpc5xxx_get_mii_speed() was introduced for re-use
-        in a later patch to drivers/net/fec_mpc52xx.c and
-	drivers/net/fec_mpc52xx_phy.c, which also contain code to
-	calculate the MII speed without taking care to check for
-	overflow or to write only the bits that belong to the
-	MII_SPEED field when setting the MII speed.
+But as you point out, there is a bug in the handling of the ToS/DiffServ
+bits in GRE.
+iproute2 and the Linux GRE driver use a tos value of 1 to indicate an
+'inherit'/'copy-tos' behavior (and then clear this bit before using the
+tos value in the IP header of the encapsulation GRE packet).
 
- arch/powerpc/sysdev/mpc5xxx_clocks.c |   37 ++++++++++++++++++++++++++++++++++
- drivers/net/fs_enet/mii-fec.c        |   13 +++++++++--
- 2 files changed, 47 insertions(+), 3 deletions(-)
+This was fine for RFC1349 where this bit is defined as MBZ/must-be-zero.
+But with RFC3168, this bit (and the other previously unused one in the tos field)
+are used for the ECN bits (ECT + CE). Therefore a tos value of 1 is 'legal' and
+conflicts with the 'inherit'/'copy-tos' indication of iproute2 and the
+Linux GRE driver.
 
-diff --git a/arch/powerpc/sysdev/mpc5xxx_clocks.c b/arch/powerpc/sysdev/mpc5xxx_clocks.c
-index 34e12f9..e26d12b 100644
---- a/arch/powerpc/sysdev/mpc5xxx_clocks.c
-+++ b/arch/powerpc/sysdev/mpc5xxx_clocks.c
-@@ -31,3 +31,40 @@ mpc5xxx_get_bus_frequency(struct device_node *node)
- 	return p_bus_freq ? *p_bus_freq : 0;
- }
- EXPORT_SYMBOL(mpc5xxx_get_bus_frequency);
-+
-+/**
-+ *	mpc5xxx_get_mii_speed - Get the MII_SPEED value
-+ *	@node:	device node
-+ *
-+ *	Returns the MII_SPEED value for MPC512x and MPC52xx systems.
-+ *	The value gets computed such that the resulting MDC frequency
-+ *	is 2.5 MHz or lower.
-+ */
-+
-+int
-+mpc5xxx_get_mii_speed(struct of_device *ofdev)
-+{
-+	unsigned int clock, speed;
-+
-+	clock = mpc5xxx_get_bus_frequency(ofdev->node);
-+
-+	if (!clock) {
-+		dev_err(&ofdev->dev, "could not determine IPS/IPB clock\n");
-+		return -ENODEV;
-+	}
-+
-+	/* scale for a MII clock <= 2.5 MHz */
-+	speed = (clock + 2499999) / 2500000;
-+
-+	/* only 6 bits available for MII speed */
-+	if (speed > 0x3F) {
-+		speed = 0x3F;
-+		dev_err(&ofdev->dev,
-+			"MII clock (%d MHz) exceeds max (2.5 MHz)\n",
-+			clock / speed);
-+	}
-+
-+	/* Field is in bits 25:30 of MII_SPEED register */
-+	return speed << 1;
-+}
-+EXPORT_SYMBOL(mpc5xxx_get_mii_speed);
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index 75a0999..a28d39f 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -36,6 +36,7 @@
- #include <asm/pgtable.h>
- #include <asm/irq.h>
- #include <asm/uaccess.h>
-+#include <asm/mpc5xxx.h>
- 
- #include "fs_enet.h"
- #include "fec.h"
-@@ -103,7 +104,6 @@ static int fs_enet_fec_mii_reset(struct mii_bus *bus)
- static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
-                                         const struct of_device_id *match)
- {
--	struct device_node *np = NULL;
- 	struct resource res;
- 	struct mii_bus *new_bus;
- 	struct fec_info *fec;
-@@ -133,13 +133,20 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
- 	if (!fec->fecp)
- 		goto out_fec;
- 
--	fec->mii_speed = ((ppc_proc_freq + 4999999) / 5000000) << 1;
-+	if (of_device_is_compatible(ofdev->node, "fsl,mpc5121-fec-mdio")) {
-+		i = mpc5xxx_get_mii_speed(ofdev);
-+		if (i < 0)
-+			goto out_unmap_regs;
-+		fec->mii_speed = i;
-+	} else {
-+		fec->mii_speed = ((ppc_proc_freq + 4999999) / 5000000) << 1;
-+	}
- 
- 	setbits32(&fec->fecp->fec_r_cntrl, FEC_RCNTRL_MII_MODE);
- 	setbits32(&fec->fecp->fec_ecntrl, FEC_ECNTRL_PINMUX |
- 	                                  FEC_ECNTRL_ETHER_EN);
- 	out_be32(&fec->fecp->fec_ievent, FEC_ENET_MII);
--	out_be32(&fec->fecp->fec_mii_speed, fec->mii_speed);
-+	clrsetbits_be32(&fec->fecp->fec_mii_speed, 0x7E, fec->mii_speed);
- 
- 	new_bus->phy_mask = ~0;
- 	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
--- 
-1.6.0.6
+This creates the problem you described, where IP packets who have a tos
+value of 1 (with the ECT bit set to 1) are handled with the 'inherit'/'copy-tos'
+mechanism and the resulting GRE IP header has a tos value of 0! (the ECT bit
+set to 0 instead of 1)
