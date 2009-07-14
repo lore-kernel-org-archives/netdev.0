@@ -1,50 +1,73 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: use after free bug in socket code
-Date: Tue, 14 Jul 2009 19:53:42 +0200
-Message-ID: <4A5CC626.8020800@grandegger.com>
-References: <19028.16049.907160.45293@ipc1.ka-ro>	<20090709154533.GA27413@gondor.apana.org.au>	<19035.23045.386506.297464@ipc1.ka-ro>	<4A5B730B.8090902@hartkopp.net>	<19036.9400.263297.330963@ipc1.ka-ro>	<4A5C990E.3080703@hartkopp.net> <19036.41388.634723.358236@ipc1.ka-ro>
+From: Eric Van Hensbergen <ericvh@gmail.com>
+Subject: Re: [PATCH] [net/9p] Possible regression in p9_client_stat
+Date: Tue, 14 Jul 2009 13:29:57 -0500
+Message-ID: <a4e6962a0907141129r7c7fd19jb6da6ff229433a13@mail.gmail.com>
+References: <1247492991-26009-1-git-send-email-adkulkar@umail.iu.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	netdev@vger.kernel.org, urs.thuermann@volkswagen.de,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: =?ISO-8859-1?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:56207 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754543AbZGNRxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jul 2009 13:53:47 -0400
-In-Reply-To: <19036.41388.634723.358236@ipc1.ka-ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, v9fs-developer@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755434AbZGNSaA@vger.kernel.org>
+In-Reply-To: <1247492991-26009-1-git-send-email-adkulkar@umail.iu.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Lothar Wa=DFmann wrote:
-> Hi,
->=20
-> Oliver Hartkopp writes:
->>> The situation where this triggers a bug is when the chip driver's
->>> hard_start_xmit function returns a NETDEV_TX_BUSY and subsequently =
-the
->>> can interface is deconfigured.
->>>
->>> Maybe you could try this on different hardware?
->> Will do when i'm back at work ;-)
->>
-> Should I wait for the results of your tests before submitting the
-> patches?
+applied v9fs-devel
 
-A user has reported sporadic kernel panics with a down/up/restart stres=
-s
-test a while ago on the Socket-CAN mailing list and the patch seems to
-solve his problem:
-
-https://lists.berlios.de/pipermail/socketcan-users/2009-July/000985.htm=
-l
-
-=46rom my point of view you can go ahead.
-
-Thanks.
-
-Wolfgang.
+On Mon, Jul 13, 2009 at 8:49 AM, Abhishek Kulkarni<adkulkar@umail.iu.ed=
+u> wrote:
+> Fix a possible regression with p9_client_stat where it can try to kfr=
+ee an ERR_PTR
+> after an erroneous p9pdu_readf. Also remove an unnecessary data buffe=
+r increment
+> in p9_client_read.
+>
+> Signed-off-by: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+> ---
+> :100644 100644 dd43a82... cc25e63... M =A0net/9p/client.c
+> =A0net/9p/client.c | =A0 =A07 ++-----
+> =A01 files changed, 2 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/9p/client.c b/net/9p/client.c
+> index dd43a82..cc25e63 100644
+> --- a/net/9p/client.c
+> +++ b/net/9p/client.c
+> @@ -1098,7 +1098,6 @@ p9_client_read(struct p9_fid *fid, char *data, =
+char __user *udata, u64 offset,
+>
+> =A0 =A0 =A0 =A0if (data) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0memmove(data, dataptr, count);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 data +=3D count;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0if (udata) {
+> @@ -1192,9 +1191,9 @@ struct p9_wstat *p9_client_stat(struct p9_fid *=
+fid)
+>
+> =A0 =A0 =A0 =A0err =3D p9pdu_readf(req->rc, clnt->dotu, "wS", &ignore=
+d, ret);
+> =A0 =A0 =A0 =A0if (err) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D ERR_PTR(err);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0p9pdu_dump(1, req->rc);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto free_and_error;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 p9_free_req(clnt, req);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto error;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0P9_DPRINTK(P9_DEBUG_9P,
+> @@ -1211,8 +1210,6 @@ struct p9_wstat *p9_client_stat(struct p9_fid *=
+fid)
+> =A0 =A0 =A0 =A0p9_free_req(clnt, req);
+> =A0 =A0 =A0 =A0return ret;
+>
+> -free_and_error:
+> - =A0 =A0 =A0 p9_free_req(clnt, req);
+> =A0error:
+> =A0 =A0 =A0 =A0kfree(ret);
+> =A0 =A0 =A0 =A0return ERR_PTR(err);
+> --
+> 1.6.0.4
+>
+>
