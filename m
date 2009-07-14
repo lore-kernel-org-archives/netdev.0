@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/3] net: serialize hrtimer callback in sched_cbq
-Date: Tue, 14 Jul 2009 09:01:24 -0700 (PDT)
-Message-ID: <20090714.090124.216664038.davem@davemloft.net>
-References: <20090709215606.526259917@linutronix.de>
-	<20090712.135555.207096388.davem@davemloft.net>
-	<4A5C402A.7090906@trash.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: sk_lock: inconsistent {RECLAIM_FS-ON-W} -> {IN-RECLAIM_FS-W}
+ usage
+Date: Tue, 14 Jul 2009 09:04:32 -0700 (PDT)
+Message-ID: <20090714.090432.13343695.davem@davemloft.net>
+References: <20090709.171355.09466097.davem@davemloft.net>
+	<20090710080017.GA24168@localhost>
+	<20090710080247.GA2693@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peterz@infradead.org
-To: kaber@trash.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755251AbZGNQBV@vger.kernel.org>
-In-Reply-To: <4A5C402A.7090906@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090710080247.GA2693-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 14 Jul 2009 10:22:02 +0200
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Date: Fri, 10 Jul 2009 16:02:47 +0800
 
-> That's my understanding what HRTIMER_SOFTIRQ is used for. I think
-> simply grabbing the root lock in cbq_undelay() should be fine.
+> On Fri, Jul 10, 2009 at 04:00:17PM +0800, Wu Fengguang wrote:
+>> 
+>> The (sk_allocation & ~__GFP_WAIT) cases should be rare, but I guess
+>> the networking code shall do it anyway, because sk_allocation defaults
+>> to GFP_KERNEL. It seems that currently the networking code simply uses
+>> a lot of GFP_ATOMIC, do they really mean "I cannot sleep"?
 > 
-> Compile-tested only.
+> Yep because they're done from softirq context.
 
-Unfortunately, as Peter and Thomas explained, this is not the case.
+Yes, this is the core issue.
+
+All of Wu's talk about how "GFP_ATOMIC will wake up kswapd and
+therefore can succeed just as well as GFP_KERNEL" is not relevant,
+because GFP_ATOMIC means sleeping is not allowed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
