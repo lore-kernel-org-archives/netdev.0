@@ -1,36 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] veth: don't free priv->status until
- dev->destructor (v2)
-Date: Wed, 15 Jul 2009 08:50:12 -0700 (PDT)
-Message-ID: <20090715.085012.223420354.davem@davemloft.net>
-References: <20090626162418.GA24828@us.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 3/3 v3] net/compat/wext: send different messages to
+ compat tasks
+Date: Wed, 15 Jul 2009 09:08:45 -0700 (PDT)
+Message-ID: <20090715.090845.213389391.davem@davemloft.net>
+References: <20090624113447.441667549@sipsolutions.net>
+	<20090624113731.935845071@sipsolutions.net>
+	<1246483562.8154.11.camel@johannes.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, containers@lists.osdl.org,
-	sachinp@in.ibm.com, netdev@vger.kernel.org, matthltc@us.ibm.com,
-	linux-kernel@vger.kernel.org
-To: serue@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755562AbZGOPuK@vger.kernel.org>
-In-Reply-To: <20090626162418.GA24828@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1246483562.8154.11.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Date: Fri, 26 Jun 2009 11:24:18 -0500
 
-> I haven't been able to reproduce the original oops though (been
-> trying to cat the stats sysfs files while rmmoding veth, to no
-> avail, and haven't found an original bug report or testcase), so
-> can't verify whether this patch prevents the original oops.
-
-If you 'cat' it you're unlikely to trigger the oops.
-
-You have to hold the sysfs files open, and then elsewhere do the
-rmmod, wait, and then continue with some access to those open sysfs
-file descriptors (f.e. do some reads).
-
-I'd also need this patch to be against current sources as they'll
-never apply since I did the revert quite some time ago.
-
-Thanks.
+Ok, all 3 patches applied to net-next-2.6, let's see what explodes ;-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
