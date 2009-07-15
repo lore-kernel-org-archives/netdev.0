@@ -1,90 +1,62 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Achieved 10Gbit/s bidirectional routing
-Date: Wed, 15 Jul 2009 18:50:31 +0200
-Message-ID: <1247676631.30876.29.camel@localhost.localdomain>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Using splice to carry Xen granted pages through the
+	network stack?
+Date: Wed, 15 Jul 2009 10:14:09 -0700
+Message-ID: <4A5E0E61.6020704@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	jesse.brandeburg@intel.com,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:40767 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755221AbZGOQue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 12:50:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Warfield <andy@cs.ubc.ca>, Xen-devel <xen-devel@lists.xensource.com>,
+	Jake Wires <Jake.Wires@citrix.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, NetDev <netdev@vger.kernel.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Chris Mason <chris.mason@oracle.com>,
+	Daniel Stodden <Daniel.Stodden@citrix.com>
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
+[ I originally sent this in March or so, but I don't think you
+responded, and this still seems like an interesting idea. ]
 
-I'm giving a talk at LinuxCon, about 10Gbit/s routing on standard
-hardware running Linux.
+Hi Jens,
 
-  http://linuxcon.linuxfoundation.org/meetings/1585
-  https://events.linuxfoundation.org/lc09o17
+In a thread from December last year ("Support for zero-copy TCP transmit
+of user space data") you suggested using the splice machinery as a way
+to implement zero-copy transmit for iscsi data.
 
-I'm getting some really good 10Gbit/s bidirectional routing results
-with Intels latest 82599 chip. (I got two pre-release engineering
-samples directly from Intel, thanks Peter)
+I have a similar problem relating to doing zero-copy transmit of pages
+granted from another Xen domain.  These are pages which are in some ways
+similar to device mappings (they have no struct page unless we jump
+through some hoops to give them one, for example) which are given to us
+by another domain (virtual machine)'s network stack since they contain
+data they want to transmit through our stack.  Once the stack has
+finished with the pages we need to get them back to return to the
+original domain (and definitely not let them get freed into the normal
+kernel pool).
 
-Using a Core i7-920, and tuning the memory according to the RAMs
-X.M.P. settings DDR3-1600MHz, notice this also increases the QPI to
-6.4GT/s.  (Motherboard P6T6 WS revolution)
+I've been looking a little bit at the splice stuff to work out how it
+might be useful in this case.  One issue struct page; I guess we really
+can't get away from having one for granted pages and still get the full
+value of using splice (especially I can see also see it being useful on
+the block side of the world as well).  So, we can jump through hoops for
+that.
 
-With big 1514 bytes packets, I can basically do 10Gbit/s wirespeed
-bidirectional routing.
+But the general plumbing of splice into the network stack seems to have
+been an open issue since you introduced it 3 years ago (using as a
+reference http://lwn.net/Articles/181169/).  Has any work been done on
+this aspect since?  What would need to be done to do it?  Would it mean
+wiring up a pipe_buffer_operations to operate with something like
+Rusty's skb_shared_info destructor?
 
-Notice bidirectional routing means that we actually has to move approx
-40Gbit/s through memory and in-and-out of the interfaces.
-
-Formatted quick view using 'ifstat -b'
-
-  eth31-in   eth31-out   eth32-in  eth32-out
-    9.57  +    9.52  +     9.51 +     9.60  = 38.20 Gbit/s
-    9.60  +    9.55  +     9.52 +     9.62  = 38.29 Gbit/s
-    9.61  +    9.53  +     9.52 +     9.62  = 38.28 Gbit/s
-    9.61  +    9.53  +     9.54 +     9.62  = 38.30 Gbit/s
-
-[Adding an extra NIC]
-
-Another observation is that I'm hitting some kind of bottleneck on the
-PCI-express switch.  Adding an extra NIC in a PCIe slot connected to
-the same PCIe switch, does not scale beyond 40Gbit/s collective
-throughput.
-
-But, I happened to have a special motherboard ASUS P6T6 WS revolution,
-which has an additional PCIe switch chip NVIDIA's NF200.
-
-Connecting two dual port 10GbE NICs via two different PCI-express
-switch chips, makes things scale again!  I have achieved a collective
-throughput of 66.25 Gbit/s.  This results is also influenced by my
-pktgen machines cannot keep up, and I'm getting closer to the memory
-bandwidth limits.
-
-FYI: I found a really good reference explaining the PCI-express
-architecture, written by Intel:
-
- http://download.intel.com/design/intarch/papers/321071.pdf
-
-I'm not sure how to explain the PCI-express chip bottleneck I'm
-seeing, but my guess is that I'm limited by the number of outstanding
-packets/DMA-transfers and the latency for the DMA operations.
-
-Does any one have datasheets on the X58 and NVIDIA's NF200 PCI-express
-chips, that can tell me the number of outstanding transfers they
-support?
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+Thanks,
+   J
