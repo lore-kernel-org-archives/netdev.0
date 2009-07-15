@@ -1,90 +1,42 @@
-From: Gautam Kachroo <gk@aristanetworks.com>
-Subject: Re: [PATCH] iproute2 flush: handle larger tables and deleted entries
-Date: Wed, 15 Jul 2009 10:50:57 -0700
-Message-ID: <4e0db5bc0907151050w56529bffh9878b99cc2fdaae5@mail.gmail.com>
-References: <4e0db5bc0907130939k48b16256j8f60c786a7e5e44c@mail.gmail.com>
-	 <4A5C5233.4010007@trash.net>
-	 <4e0db5bc0907140945i3190cfb7g7b3e6a0f1c10bc8a@mail.gmail.com>
-	 <4A5DF369.1090107@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net/can bugfix: use after free bug in can protocol
+ drivers
+Date: Wed, 15 Jul 2009 11:20:52 -0700 (PDT)
+Message-ID: <20090715.112052.12345414.davem@davemloft.net>
+References: <19036.41388.634723.358236@ipc1.ka-ro>
+	<4A5CC626.8020800@grandegger.com>
+	<19037.40189.520170.8242@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: wg@grandegger.com, oliver@hartkopp.net,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	urs.thuermann@volkswagen.de, urs@isnogud.escape.de
+To: LW@KARO-electronics.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f197.google.com ([209.85.222.197]:57813 "EHLO
-	mail-pz0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755838AbZGORu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 13:50:58 -0400
-Received: by pzk35 with SMTP id 35so2122382pzk.33
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 10:50:57 -0700 (PDT)
-In-Reply-To: <4A5DF369.1090107@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34632
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932142AbZGOSUs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2009 14:20:48 -0400
+In-Reply-To: <19037.40189.520170.8242@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2009 at 8:19 AM, Patrick McHardy<kaber@trash.net> wrote:
-> Gautam Kachroo wrote:
->> On Tue, Jul 14, 2009 at 2:38 AM, Patrick McHardy<kaber@trash.net> wrote:
->>> Gautam Kachroo wrote:
->>>> use a new netlink socket when sending flush messages to avoid reading
->>>> any pending data on the existing netlink socket.
->>>>
->>>> read all of the response from the netlink request -- this response can
->>>> be split over multiple recv calls, pretty much one per netlink request
->>>> message. ENOENT errors, which correspond to attempts to delete an
->>>> already deleted entry, are ignored. Other errors are not ignored.
->>>
->>> In which case would there be any pending data? From what I can see,
->>> this can only happen when using batching, but in that case the
->>> previous command should continue reading until it has received all
->>> responses (which the netlink functions appear to be doing properly).
->>
->> What is the "previous command"?
->
-> The last command before the one executing when using batching.
+=46rom: Lothar Wa=DFmann <LW@KARO-electronics.de>
+Date: Wed, 15 Jul 2009 11:10:21 +0200
 
-This is independent of batching (I assume you're referring to the
--batch option to the ip command).
-It happens when running a command like "ip neigh flush to 0.0.0.0/0"
-if there are many neighbor entries.
+> Fix a use after free bug in can protocol drivers
+>=20
+> The release functions of the can protocol drivers lack a call to
+> sock_orphan() which leads to referencing freed memory under certain
+> circumstances.
+>=20
+> This patch fixes a bug reported here:
+> https://lists.berlios.de/pipermail/socketcan-users/2009-July/000985.h=
+tml
+>=20
+> Signed-off-by: Lothar Wassmann <LW@KARO-electronics.de>
+> Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
 
-The implementation of flush commands, e.g. ip neigh flush, sends a
-dump request, e.g. RTM_GETNEIGH, and then sends requests, e.g.
-RTM_DELNEIGH, *while* there can be unread data from the dump request.
-There would be unread data if the response to the dump request was
-split over multiple calls to recvmsg.
-
->> Are you referring to rtnl_dump_filter? If rtnl_send_check comes across
->> a failure, rtnl_dump_filter will not continue reading.
->>
->> Here's the situation that I'm referring to:
->>
->> If rtnl_send_check detects an error, it returns -1. rtnl_send_check is
->> called from flush_update. The multiple implementations of flush_update
->> (e.g. in ipneigh.c, ipaddress.c) propagate this return value to their
->> caller, e.g. print_neigh or print_addrinfo.
->>
->> print_neigh, print_addrinfo, etc. are called from rtnl_dump_filter.
->> rtnl_dump_filter sits in a loop calling recvmsg on the netlink socket.
->> However, it returns the error value if the filter function (e.g.
->> print_neigh) returns an error. In this case, rtnl_dump_filter can
->> return before it's read all the responses.
->> The error return from rtnl_dump_filter causes the program to exit.
->
-> Yes, and I agree with your patch so far. My question is why you
-> need another socket.
->
->> use a new netlink socket when sending flush messages to avoid reading
->> any pending data on the existing netlink socket.
->
-> Under what circumstances would there be pending data when
-> performing a new iproute operation?
-
-As above, it's not that there is pending data when performing a new
-iproute operation, it's that there can be pending data while
-performing a single iproute operation, namely ip <object> flush.
-The benefit of a new socket is that it won't have any data from the
-dump request waiting for it.
-
-thanks,
--gk
+Applied.
