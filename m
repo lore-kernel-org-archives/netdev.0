@@ -1,7 +1,7 @@
 From: =?iso-8859-15?q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-Subject: [PATCH 1/2] net/can bugfix: use after free bug in can protocol drivers
-Date: Wed, 15 Jul 2009 11:10:21 +0200
-Message-ID: <19037.40189.520170.8242@ipc1.ka-ro>
+Subject: [PATCH 2/2] net/can: add module alias to can protocol drivers
+Date: Wed, 15 Jul 2009 11:12:25 +0200
+Message-ID: <19037.40313.827769.602243@ipc1.ka-ro>
 References: <19028.16049.907160.45293@ipc1.ka-ro>
 	<20090709154533.GA27413@gondor.apana.org.au>
 	<19035.23045.386506.297464@ipc1.ka-ro>
@@ -15,59 +15,48 @@ Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Oliver Hartkopp <oliver@hartkopp.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	netdev@vger.kernel.org, urs.thuermann@volkswagen.de,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: Wolfgang Grandegger <wg@grandegger.com>
+	Wolfgang Grandegger <wg@grandegger.com>,
+	urs.thuermann@volkswagen.de, Urs Thuermann <urs@isnogud.escape.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.karo-electronics.de ([81.173.242.67]:65103 "EHLO
+Received: from mail.karo-electronics.de ([81.173.242.67]:65200 "EHLO
 	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753429AbZGOJKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 05:10:39 -0400
+	with ESMTP id S1753473AbZGOJM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 05:12:28 -0400
+In-Reply-To: <19037.40189.520170.8242@ipc1.ka-ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ix a use after free bug in can protocol drivers
-
-The release functions of the can protocol drivers lack a call to
-sock_orphan() which leads to referencing freed memory under certain
-circumstances.
-
-This patch fixes a bug reported here:
-https://lists.berlios.de/pipermail/socketcan-users/2009-July/000985.htm=
-l
+Add appropriate MODULE_ALIAS() to facilitate autoloading of can protoco=
+l drivers
 
 Signed-off-by: Lothar Wassmann <LW@KARO-electronics.de>
 Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
 ---
-diff -upr linux-2.6.30/net/can/bcm.c linux-2.6.30-karo/net/can/bcm.c
---- linux-2.6.30/net/can/bcm.c  2009-06-10 05:05:27.000000000 +0200
-+++ linux-2.6.30-karo/net/can/bcm.c        2009-07-14 14:13:01.00000000=
-0 +0200
-@@ -1469,6 +1469,9 @@ static int bcm_release(struct socket *so
- 		bo->ifindex =3D 0;
- 	}
+diff -ur linux-2.6.30/net/can/bcm.c linux-2.6.30-karo/net/can/bcm.c
+--- linux-2.6.30-karo.orig/net/can/bcm.c	2009-07-15 10:58:51.000000000 =
++0200
++++ linux-2.6.30-karo/net/can/bcm.c	2009-07-14 13:48:52.000000000 +0200
+@@ -75,6 +75,7 @@
+ MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
++MODULE_ALIAS("can-proto-2");
 =20
-+	sock_orphan(sk);
-+	sock->sk =3D NULL;
-+
- 	release_sock(sk);
- 	sock_put(sk);
+ /* easy access to can_frame payload */
+ static inline u64 GET_U64(const struct can_frame *cp)
+diff -ur linux-2.6.30/net/can/raw.c linux-2.6.30-karo/net/can/raw.c
+--- linux-2.6.30-karo.orig/net/can/raw.c	2009-07-15 10:59:03.000000000 =
++0200
++++ linux-2.6.30-karo/net/can/raw.c	2009-07-14 13:48:52.000000000 +0200
+@@ -62,6 +62,7 @@
+ MODULE_DESCRIPTION("PF_CAN raw protocol");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
++MODULE_ALIAS("can-proto-1");
 =20
-diff -upr linux-2.6.30/net/can/raw.c linux-2.6.30-karo/net/can/raw.c
---- linux-2.6.30/net/can/raw.c  2009-06-10 05:05:27.000000000 +0200
-+++ linux-2.6.30-karo/net/can/raw.c        2009-07-14 14:13:07.00000000=
-0 +0200
-@@ -306,6 +306,9 @@ static int raw_release(struct socket *so
- 	ro->bound   =3D 0;
- 	ro->count   =3D 0;
+ #define MASK_ALL 0
 =20
-+	sock_orphan(sk);
-+	sock->sk =3D NULL;
-+
- 	release_sock(sk);
- 	sock_put(sk);
-=20
-
 
 
 Lothar Wa=DFmann
