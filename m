@@ -1,61 +1,47 @@
-From: Christian Tramnitz <chris.ace-hi6Y0CQ0nG0@public.gmane.org>
-Subject: Re: Belkin F5D5055 not really working with the asix driver
-Date: Wed, 15 Jul 2009 11:17:36 +0200
-Message-ID: <4A5D9EB0.3000909@gmx.net>
-References: <1295ed070811040131p9170c37r5435750fa17a6f43@mail.gmail.com>
+From: <jon_zhou@agilent.com>
+Subject: why some packets lost during transmission?
+Date: Wed, 15 Jul 2009 17:17:27 +0800
+Message-ID: <60230E21F17E384C9BF0B9C98D9E3FDC04B4D3D8@sgp-sg-mb02.sgp.agilent.com>
+References: <A353FA76-7D71-425F-BD67-FEE6DC26EF6F@cs.uni-bonn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1295ed070811040131p9170c37r5435750fa17a6f43-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aglsgpbs01.sgp.agilent.com ([192.25.82.30]:41788 "EHLO
+	aglsgpbs01.sgp.agilent.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752185AbZGOJUW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2009 05:20:22 -0400
+Received: from mppd (localhost.localdomain [127.0.0.1])
+	by aglsgpbs01.sgp.agilent.com (Postfix) with ESMTP id 22AEE84186
+	for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 09:20:19 +0000 (GMT)
+Received: from SGP-SG-BH03.sgp.agilent.com (sgp-sg-bh03.sgp.agilent.com [141.183.6.41])
+	by aglsgpbs01.sgp.agilent.com (Postfix) with ESMTP id 1F4F284183
+	for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 09:20:19 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <A353FA76-7D71-425F-BD67-FEE6DC26EF6F@cs.uni-bonn.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry for hijacking this really old report (and for cross-posting to USB 
-where I think it may belong too).
-I'm having the same problem with a Belkin f5d5055 but could gather some 
-more details:
+hi
 
-The adapter only refuses to work after a cold reboot (poweroff / 
-powerup) while it is actually working when hotplugged into a running 
-system (including consecutive reboots).
+I try to send packets like this:
 
-Does anyone have an idea what could be causing this?
-The same system (and components like cable, switches) were running fine 
-with an AX88772 based adapter, but the AX88178 seems to behave 
-differently...
+for (i=0;i<loop;i++)
+{
+    dev->hard_start_xmit(my_skb,dev);
+}
 
+the 'dev' point to network device.
 
-Thanks,
-    Christian
+but too many packets lost if the 'loop' is big(i.e. 5000),  I suspect the tx buffer of the NIC is full,but the driver does not print any related info.
+
+how does the upper layer(i.e.arp,qdisc) handle this situation?
 
 
-Pantelis Koukousoulas wrote:
-> Hi, I got a belkin f5d5055 usb 2.0 gigabit adapter that should be
-> supported by usbnet + the asix driver, still although recognized it
-> doesn't actually work. More specifically, the card is recognized, the
-> interface is created and brought up etc only no packets flow from/to
-> the device.
-> 
-> I tried the exact same card, cable and router combination with windows
-> and it works fine (ping, dhcp everything) so I suspect the driver
-> might be the problem.
-> 
-> I recompiled with debug information enabled and I attach the trace,
-> hoping it will help.
-> I can also provide usbmon traces and a usbsnoop trace from the windows
-> machine where it works if needed.
-> 
-> Unfortunately I don't have the time to dig through the datasheets/code
-> to fix the problem myself :(
-> 
-> Thanks in advance.
-> 
-> P.s., Please CC me in any replies since I 'm not subscribed in this list
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks&Regards,
+zhou rui
+
