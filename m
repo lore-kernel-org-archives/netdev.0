@@ -1,32 +1,32 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ixgbe:  schedule while atomic bug during dev_disable_lro 	2.6.31-rc3
-Date: Wed, 15 Jul 2009 16:50:15 -0700
-Message-ID: <4A5E6B37.2080605@candelatech.com>
-References: <4A5E5F8A.308@candelatech.com> <1247700919.2788.11.camel@achroite>
+Subject: Determine veth peer device?
+Date: Wed, 15 Jul 2009 16:55:10 -0700
+Message-ID: <4A5E6C5E.1070808@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:33462 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:40266 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756115AbZGOXuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 19:50:17 -0400
-In-Reply-To: <1247700919.2788.11.camel@achroite>
+	with ESMTP id S1756167AbZGOXzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 19:55:10 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id n6FNtA34004076
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 16:55:10 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2009 04:35 PM, Ben Hutchings wrote:
-> On Wed, 2009-07-15 at 16:00 -0700, Ben Greear wrote:
->> I just got a fancy new 10G NIC and tried it out in a (patched elsewhere, but stock ixgbe driver) 2.6.31-rc3) kernel.
->
-> And what exactly are those patches?
+Is there a way to determine the peer device for a
+veth interface in user-space?
 
-various and sundry, but so far I only see this problem with ixgbe
-(the 1G NICs don't complain at least).
+I didn't see anything obvious printed in 'ip link show'
 
-I'll build an un-patched kernel and see if I can reproduce them.
+[root@i7-1qc-1 ~]# ip link show dev veth0
+7: veth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+     link/ether 72:2e:4d:74:5b:a6 brd ff:ff:ff:ff:ff:ff
 
 Thanks,
 Ben
