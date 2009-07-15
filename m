@@ -1,72 +1,61 @@
-From: =?iso-8859-15?q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
-Subject: [PATCH 2/2] net/can: add module alias to can protocol drivers
-Date: Wed, 15 Jul 2009 11:12:25 +0200
-Message-ID: <19037.40313.827769.602243@ipc1.ka-ro>
-References: <19028.16049.907160.45293@ipc1.ka-ro>
-	<20090709154533.GA27413@gondor.apana.org.au>
-	<19035.23045.386506.297464@ipc1.ka-ro>
-	<4A5B730B.8090902@hartkopp.net>
-	<19036.9400.263297.330963@ipc1.ka-ro>
-	<4A5C990E.3080703@hartkopp.net>
-	<19036.41388.634723.358236@ipc1.ka-ro>
-	<4A5CC626.8020800@grandegger.com>
+From: Christian Tramnitz <chris.ace-hi6Y0CQ0nG0@public.gmane.org>
+Subject: Re: Belkin F5D5055 not really working with the asix driver
+Date: Wed, 15 Jul 2009 11:17:36 +0200
+Message-ID: <4A5D9EB0.3000909@gmx.net>
+References: <1295ed070811040131p9170c37r5435750fa17a6f43@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	urs.thuermann@volkswagen.de, Urs Thuermann <urs@isnogud.escape.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.karo-electronics.de ([81.173.242.67]:65200 "EHLO
-	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753473AbZGOJM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 05:12:28 -0400
-In-Reply-To: <19037.40189.520170.8242@ipc1.ka-ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1295ed070811040131p9170c37r5435750fa17a6f43-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add appropriate MODULE_ALIAS() to facilitate autoloading of can protoco=
-l drivers
+Sorry for hijacking this really old report (and for cross-posting to USB 
+where I think it may belong too).
+I'm having the same problem with a Belkin f5d5055 but could gather some 
+more details:
 
-Signed-off-by: Lothar Wassmann <LW@KARO-electronics.de>
-Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
----
-diff -ur linux-2.6.30/net/can/bcm.c linux-2.6.30-karo/net/can/bcm.c
---- linux-2.6.30-karo.orig/net/can/bcm.c	2009-07-15 10:58:51.000000000 =
-+0200
-+++ linux-2.6.30-karo/net/can/bcm.c	2009-07-14 13:48:52.000000000 +0200
-@@ -75,6 +75,7 @@
- MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
-+MODULE_ALIAS("can-proto-2");
-=20
- /* easy access to can_frame payload */
- static inline u64 GET_U64(const struct can_frame *cp)
-diff -ur linux-2.6.30/net/can/raw.c linux-2.6.30-karo/net/can/raw.c
---- linux-2.6.30-karo.orig/net/can/raw.c	2009-07-15 10:59:03.000000000 =
-+0200
-+++ linux-2.6.30-karo/net/can/raw.c	2009-07-14 13:48:52.000000000 +0200
-@@ -62,6 +62,7 @@
- MODULE_DESCRIPTION("PF_CAN raw protocol");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
-+MODULE_ALIAS("can-proto-1");
-=20
- #define MASK_ALL 0
-=20
+The adapter only refuses to work after a cold reboot (poweroff / 
+powerup) while it is actually working when hotplugged into a running 
+system (including consecutive reboots).
+
+Does anyone have an idea what could be causing this?
+The same system (and components like cable, switches) were running fine 
+with an AX88772 based adapter, but the AX88178 seems to behave 
+differently...
 
 
-Lothar Wa=DFmann
---=20
-___________________________________________________________
+Thanks,
+    Christian
 
-Ka-Ro electronics GmbH | Pascalstra=DFe 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Gesch=E4ftsf=FChrer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
 
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+Pantelis Koukousoulas wrote:
+> Hi, I got a belkin f5d5055 usb 2.0 gigabit adapter that should be
+> supported by usbnet + the asix driver, still although recognized it
+> doesn't actually work. More specifically, the card is recognized, the
+> interface is created and brought up etc only no packets flow from/to
+> the device.
+> 
+> I tried the exact same card, cable and router combination with windows
+> and it works fine (ping, dhcp everything) so I suspect the driver
+> might be the problem.
+> 
+> I recompiled with debug information enabled and I attach the trace,
+> hoping it will help.
+> I can also provide usbmon traces and a usbsnoop trace from the windows
+> machine where it works if needed.
+> 
+> Unfortunately I don't have the time to dig through the datasheets/code
+> to fix the problem myself :(
+> 
+> Thanks in advance.
+> 
+> P.s., Please CC me in any replies since I 'm not subscribed in this list
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
