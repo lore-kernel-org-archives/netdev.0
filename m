@@ -1,27 +1,27 @@
-From: Moni Shoua <monis@Voltaire.COM>
-Subject: Re: [PATCH] bonding: clean muticast addresses when bevice changes
- type
-Date: Wed, 15 Jul 2009 18:03:17 +0300
-Message-ID: <4A5DEFB5.1080206@Voltaire.COM>
-References: <4A5DEE1F.4090707@Voltaire.COM>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: ebtables: Use print_mac instead of own function
+Date: Wed, 15 Jul 2009 17:13:00 +0200
+Message-ID: <4A5DF1FC.3050404@trash.net>
+References: <1247655306-21337-1-git-send-email-klto@zhaw.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	bonding-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>
-To: Moni Shoua <monis@Voltaire.COM>
+Cc: bart.de.schuymer@pandora.be, shemminger@linux-foundation.org,
+	davem@davemloft.net, ebtables-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Tobias Klauser <klto@zhaw.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:23551 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754937AbZGOPDX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2009 11:03:23 -0400
-In-Reply-To: <4A5DEE1F.4090707@Voltaire.COM>
+Received: from stinky.trash.net ([213.144.137.162]:57255 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755228AbZGOPNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 11:13:07 -0400
+In-Reply-To: <1247655306-21337-1-git-send-email-klto@zhaw.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I forgot to mention that the need for this patch was raised here
-http://lists.openfabrics.org/pipermail/general/2009-July/060496.html
+Tobias Klauser wrote:
+> ebt_log uses its own implementation of print_mac to print MAC addresses.
+> This patch converts it to use print_mac from linux/if_ether.h
+
+You can do this even simpler by using %pM as format string.
 
