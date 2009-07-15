@@ -1,86 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: nf_conntrack_alloc() should not use kmem_cache_zalloc()
-Date: Wed, 15 Jul 2009 17:28:52 +0200
-Message-ID: <4A5DF5B4.5090809@trash.net>
-References: <20090707.191424.167842005.davem@davemloft.net>	<4A5441A0.3050504@gmail.com>	<4A5581C5.5070409@gmail.com> <20090711.202727.18146102.davem@davemloft.net> <4A598BAB.6030400@gmail.com> <4A5DCB7C.9000502@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] net: deprecate print_mac
+Date: Wed, 15 Jul 2009 17:23:23 +0200
+Message-ID: <1247671403.10754.8.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57678 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755435AbZGOP3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 11:29:02 -0400
-In-Reply-To: <4A5DCB7C.9000502@gmail.com>
+Received: from xc.sipsolutions.net ([83.246.72.84]:36722 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755490AbZGOPfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 11:35:50 -0400
+Received: by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1MR6WJ-0008Ov-JE
+	for netdev@vger.kernel.org; Wed, 15 Jul 2009 17:35:48 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> [PATCH] net: nf_conntrack_alloc() should not use kmem_cache_zalloc()
-> 
-> When a slab cache uses SLAB_DESTROY_BY_RCU, we must be careful when allocating
-> objects, since slab allocator could give a freed object still used by lockless
-> readers.
-> 
-> In particular, nf_conntrack RCU lookups rely on ct->tuplehash[xxx].hnnode.next
-> being always valid (ie containing a valid 'nulls' value, or a valid pointer to next
-> object in hash chain.)
-> 
-> kmem_cache_zalloc() setups object with NULL values, but a NULL value is not valid
-> for ct->tuplehash[xxx].hnnode.next.
-> 
-> Fix is to call kmem_cache_alloc() and do the zeroing ourself.
+We've had %pM for long enough now, time to deprecate
+print_mac() and remove the __maybe_unused attribute
+from DECLARE_MAC_BUF so that variables declared with
+that can be found and removed. Otherwise people are
+putting in new users of print_mac().
 
-I think this is still racy, please see below:
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+On my tree, with three other patches I have submitted
+to gianfar, fcoe and wireless, there's now no user of
+DECLARE_MAC_BUF() left. I'm open to just killing it
+right away, but that seems like a pain to coordinate
+and would likely get merge conflicts, so this is much
+simpler and then killing it next cycle.
 
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index 7508f11..23feafa 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -561,17 +561,28 @@ struct nf_conn *nf_conntrack_alloc(struct net *net,
->  		}
->  	}
->  
-> -	ct = kmem_cache_zalloc(nf_conntrack_cachep, gfp);
-> +	/*
-> +	 * Do not use kmem_cache_zalloc(), as this cache uses
-> +	 * SLAB_DESTROY_BY_RCU.
-> +	 */
-> +	ct = kmem_cache_alloc(nf_conntrack_cachep, gfp);
->  	if (ct == NULL) {
->  		pr_debug("nf_conntrack_alloc: Can't alloc conntrack.\n");
->  		atomic_dec(&net->ct.count);
->  		return ERR_PTR(-ENOMEM);
->  	}
-> -
+ include/linux/if_ether.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-__nf_conntrack_find() on another CPU finds the entry at this point.
+--- wireless-testing.orig/include/linux/if_ether.h	2009-07-15 17:13:31.000000000 +0200
++++ wireless-testing/include/linux/if_ether.h	2009-07-15 17:13:36.000000000 +0200
+@@ -138,10 +138,10 @@ extern ssize_t sysfs_format_mac(char *bu
+ /*
+  *	Display a 6 byte device address (MAC) in a readable format.
+  */
+-extern char *print_mac(char *buf, const unsigned char *addr);
++extern char *print_mac(char *buf, const unsigned char *addr) __deprecated;
+ #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+ #define MAC_BUF_SIZE	18
+-#define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE] __maybe_unused
++#define DECLARE_MAC_BUF(var) char var[MAC_BUF_SIZE]
+ 
+ #endif
+ 
 
-> +	/*
-> +	 * Let ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.next
-> +	 * and ct->tuplehash[IP_CT_DIR_REPLY].hnnode.next unchanged.
-> +	 */
-> +	memset(&ct->tuplehash[IP_CT_DIR_MAX], 0,
-> +	       sizeof(*ct) - offsetof(struct nf_conn, tuplehash[IP_CT_DIR_MAX]));
->  	spin_lock_init(&ct->lock);
->  	atomic_set(&ct->ct_general.use, 1);
-
-nf_conntrack_find_get() successfully tries to atomic_inc_not_zero()
-at this point, following by another tuple comparison which is also
-successful.
-
-Am I missing something? I think we need to make sure the reference
-count is not increased until the new tuples are visible.
-
->  	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
-> +	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
->  	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *repl;
-> +	ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev = NULL;
->  	/* Don't set timer yet: wait for confirmation */
->  	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
->  #ifdef CONFIG_NET_NS
-> 
 
