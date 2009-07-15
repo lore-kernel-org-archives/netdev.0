@@ -1,91 +1,90 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 2/2] MPC52xx FEC: be more conservative when setting
-	MII_SPEED register
-Date: Wed, 15 Jul 2009 11:18:59 -0600
-Message-ID: <fa686aa40907151018n194a154cmb8549c98c673d2bb@mail.gmail.com>
-References: <1247578966-9847-1-git-send-email-wd@denx.de> <1247671133-12148-2-git-send-email-wd@denx.de>
+From: Gautam Kachroo <gk@aristanetworks.com>
+Subject: Re: [PATCH] iproute2 flush: handle larger tables and deleted entries
+Date: Wed, 15 Jul 2009 10:50:57 -0700
+Message-ID: <4e0db5bc0907151050w56529bffh9878b99cc2fdaae5@mail.gmail.com>
+References: <4e0db5bc0907130939k48b16256j8f60c786a7e5e44c@mail.gmail.com>
+	 <4A5C5233.4010007@trash.net>
+	 <4e0db5bc0907140945i3190cfb7g7b3e6a0f1c10bc8a@mail.gmail.com>
+	 <4A5DF369.1090107@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linuxppc-dev@ozlabs.org, Kumar Gala <galak@kernel.crashing.org>,
-	netdev@vger.kernel.org
-To: Wolfgang Denk <wd@denx.de>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f213.google.com ([209.85.217.213]:45251 "EHLO
-	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755654AbZGORTU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 13:19:20 -0400
-Received: by gxk9 with SMTP id 9so2430342gxk.13
-        for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 10:19:19 -0700 (PDT)
-In-Reply-To: <1247671133-12148-2-git-send-email-wd@denx.de>
+Received: from mail-pz0-f197.google.com ([209.85.222.197]:57813 "EHLO
+	mail-pz0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755838AbZGORu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 13:50:58 -0400
+Received: by pzk35 with SMTP id 35so2122382pzk.33
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 10:50:57 -0700 (PDT)
+In-Reply-To: <4A5DF369.1090107@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 15, 2009 at 9:18 AM, Wolfgang Denk<wd@denx.de> wrote:
-> This patch adds error checking and prevents clobbering unrelated bits
-> (reserved bits or the DIS_PREAMBLE bit) when writing the MII_SPEED
-> register on MPC52xx systems.
+On Wed, Jul 15, 2009 at 8:19 AM, Patrick McHardy<kaber@trash.net> wrote:
+> Gautam Kachroo wrote:
+>> On Tue, Jul 14, 2009 at 2:38 AM, Patrick McHardy<kaber@trash.net> wrote:
+>>> Gautam Kachroo wrote:
+>>>> use a new netlink socket when sending flush messages to avoid reading
+>>>> any pending data on the existing netlink socket.
+>>>>
+>>>> read all of the response from the netlink request -- this response can
+>>>> be split over multiple recv calls, pretty much one per netlink request
+>>>> message. ENOENT errors, which correspond to attempts to delete an
+>>>> already deleted entry, are ignored. Other errors are not ignored.
+>>>
+>>> In which case would there be any pending data? From what I can see,
+>>> this can only happen when using batching, but in that case the
+>>> previous command should continue reading until it has received all
+>>> responses (which the netlink functions appear to be doing properly).
+>>
+>> What is the "previous command"?
 >
-> Signed-off-by: Wolfgang Denk <wd@denx.de>
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: Kumar Gala <galak@kernel.crashing.org>
-> Cc: <netdev@vger.kernel.org>
+> The last command before the one executing when using batching.
 
-As I mentioned in the other patch, I don't want the 5121 and 5200 FEC
-devices using common code for this.  It is a tiny block of code and
-they are different devices.  Just open code the needed calculation
-into this driver.
+This is independent of batching (I assume you're referring to the
+-batch option to the ip command).
+It happens when running a command like "ip neigh flush to 0.0.0.0/0"
+if there are many neighbor entries.
 
-g.
+The implementation of flush commands, e.g. ip neigh flush, sends a
+dump request, e.g. RTM_GETNEIGH, and then sends requests, e.g.
+RTM_DELNEIGH, *while* there can be unread data from the dump request.
+There would be unread data if the response to the dump request was
+split over multiple calls to recvmsg.
 
-> ---
-> =A0drivers/net/fec_mpc52xx.c =A0 =A0 | =A0 =A02 +-
-> =A0drivers/net/fec_mpc52xx_phy.c | =A0 =A06 ++++--
-> =A02 files changed, 5 insertions(+), 3 deletions(-)
+>> Are you referring to rtnl_dump_filter? If rtnl_send_check comes across
+>> a failure, rtnl_dump_filter will not continue reading.
+>>
+>> Here's the situation that I'm referring to:
+>>
+>> If rtnl_send_check detects an error, it returns -1. rtnl_send_check is
+>> called from flush_update. The multiple implementations of flush_update
+>> (e.g. in ipneigh.c, ipaddress.c) propagate this return value to their
+>> caller, e.g. print_neigh or print_addrinfo.
+>>
+>> print_neigh, print_addrinfo, etc. are called from rtnl_dump_filter.
+>> rtnl_dump_filter sits in a loop calling recvmsg on the netlink socket.
+>> However, it returns the error value if the filter function (e.g.
+>> print_neigh) returns an error. In this case, rtnl_dump_filter can
+>> return before it's read all the responses.
+>> The error return from rtnl_dump_filter causes the program to exit.
 >
-> diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-> index cc78633..b69d440 100644
-> --- a/drivers/net/fec_mpc52xx.c
-> +++ b/drivers/net/fec_mpc52xx.c
-> @@ -639,7 +639,7 @@ static void mpc52xx_fec_hw_init(struct net_device=
- *dev)
-> =A0 =A0 =A0 =A0/* set phy speed.
-> =A0 =A0 =A0 =A0 * this can't be done in phy driver, since it needs to=
- be called
-> =A0 =A0 =A0 =A0 * before fec stuff (even on resume) */
-> - =A0 =A0 =A0 out_be32(&fec->mii_speed, priv->mdio_speed);
-> + =A0 =A0 =A0 clrsetbits_be32(&fec->mii_speed, 0x7E, priv->mdio_speed=
-);
-> =A0}
+> Yes, and I agree with your patch so far. My question is why you
+> need another socket.
 >
-> =A0/**
-> diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_=
-phy.c
-> index 31e6d62..f733d43 100644
-> --- a/drivers/net/fec_mpc52xx_phy.c
-> +++ b/drivers/net/fec_mpc52xx_phy.c
-> @@ -105,8 +105,10 @@ static int mpc52xx_fec_mdio_probe(struct of_devi=
-ce *of,
-> =A0 =A0 =A0 =A0dev_set_drvdata(dev, bus);
+>> use a new netlink socket when sending flush messages to avoid reading
+>> any pending data on the existing netlink socket.
 >
-> =A0 =A0 =A0 =A0/* set MII speed */
-> - =A0 =A0 =A0 out_be32(&priv->regs->mii_speed,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((mpc5xxx_get_bus_frequency(of->node) >=
-> 20) / 5) << 1);
-> + =A0 =A0 =A0 i =3D mpc5xxx_get_mii_speed(of);
-> + =A0 =A0 =A0 if (i<0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_unmap;
-> + =A0 =A0 =A0 clrsetbits_be32(&priv->regs->mii_speed, 0x7E, i);
->
-> =A0 =A0 =A0 =A0err =3D of_mdiobus_register(bus, np);
-> =A0 =A0 =A0 =A0if (err)
-> --
-> 1.6.0.6
->
->
+> Under what circumstances would there be pending data when
+> performing a new iproute operation?
 
+As above, it's not that there is pending data when performing a new
+iproute operation, it's that there can be pending data while
+performing a single iproute operation, namely ip <object> flush.
+The benefit of a new socket is that it won't have any data from the
+dump request waiting for it.
 
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+thanks,
+-gk
