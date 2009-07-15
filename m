@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net/can: add module alias to can protocol drivers
-Date: Wed, 15 Jul 2009 11:21:00 -0700 (PDT)
-Message-ID: <20090715.112100.154649647.davem@davemloft.net>
-References: <4A5CC626.8020800@grandegger.com>
-	<19037.40189.520170.8242@ipc1.ka-ro>
-	<19037.40313.827769.602243@ipc1.ka-ro>
+Subject: Re: [PATCH] gianfar: remove unused DECLARE_MAC_BUF
+Date: Wed, 15 Jul 2009 11:31:33 -0700 (PDT)
+Message-ID: <20090715.113133.153230182.davem@davemloft.net>
+References: <1247671139.10754.3.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, oliver@hartkopp.net,
-	herbert@gondor.apana.org.au, wg@grandegger.com,
-	urs.thuermann@volkswagen.de, urs@isnogud.escape.de
-To: LW@KARO-electronics.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, galak@kernel.crashing.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34641
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41628
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932173AbZGOSU4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2009 14:20:56 -0400
-In-Reply-To: <19037.40313.827769.602243@ipc1.ka-ro>
+	by vger.kernel.org with ESMTP id S1755845AbZGOSb3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 14:31:29 -0400
+In-Reply-To: <1247671139.10754.3.camel@johannes.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Lothar Wa=DFmann <LW@KARO-electronics.de>
-Date: Wed, 15 Jul 2009 11:12:25 +0200
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 15 Jul 2009 17:18:59 +0200
 
-> Add appropriate MODULE_ALIAS() to facilitate autoloading of can proto=
-col drivers
->=20
-> Signed-off-by: Lothar Wassmann <LW@KARO-electronics.de>
-> Acked-by: Oliver Hartkopp <oliver@hartkopp.net>
+> The use of it was converted to %pM, but the variable
+> stuck -- remove it now to not cause spurious warnings.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Applied.
+Applied to net-next-2.6, thanks.
