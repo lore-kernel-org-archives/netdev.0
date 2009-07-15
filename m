@@ -1,118 +1,90 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Wed, 15 Jul 2009 16:20:31 +0200
-Message-ID: <200907151620.31509.oliver@neukum.org>
-References: <1247666341-7121-1-git-send-email-remi.denis-courmont@nokia.com>
+From: Moni Shoua <monis@Voltaire.COM>
+Subject: [PATCH] bonding: clean muticast addresses when bevice changes type
+Date: Wed, 15 Jul 2009 17:56:31 +0300
+Message-ID: <4A5DEE1F.4090707@Voltaire.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1247666341-7121-1-git-send-email-remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Roland Dreier <rdreier@cisco.com>,
+	bonding-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:20415 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755214AbZGOO4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jul 2009 10:56:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 15. Juli 2009 15:59:01 schrieb R=C3=A9mi Denis-Courmont:
+Bonding device  forbids slave device of different types under the same master.
+However, it is possible for a bonding master to change  type during its lifetime. 
+This can be either from ARPHRD_ETHER to ARPHRD_INFINIBAND or the other way arround.  
+The change of type requires device level multicast address cleanup because device
+level multicast addresses depend on the device type. 
 
-Hello,
+The patch adds a call to dev_close() before the bonding master changes type and 
+dev_open() just after that.
 
-> +	netif_stop_queue(dev);
-> +	if (atomic_inc_return(&pnd->tx_queue) < dev->tx_queue_len)
-> +		netif_wake_queue(dev);
+In the example below I enslaved an IPoIB device (ib0) under bond0. Since
+each bonding master starts as device of type ARPHRD_ETHER by default, a change
+of type occurs when ib0 is enslaved.
 
-This is unelegant.
+This is how /proc/net/dev_mcast looks like without the patch
 
+5    bond0           1     0     00ffffffff12601bffff000000000001ff96ca05
+5    bond0           1     0     01005e000116
+5    bond0           1     0     01005e7ffffd
+5    bond0           1     0     01005e000001
+5    bond0           1     0     333300000001
+6    ib0             1     0     00ffffffff12601bffff000000000001ff96ca05
+6    ib0             1     0     333300000001
+6    ib0             1     0     01005e000001
+6    ib0             1     0     01005e7ffffd
+6    ib0             1     0     01005e000116
+6    ib0             1     0     00ffffffff12401bffff00000000000000000001
+6    ib0             1     0     00ffffffff12601bffff00000000000000000001
 
-> +	err =3D usb_set_interface(pnd->usb, num, pnd->active_setting);
-> +	if (err)
-> +		return err;
-> +
-> +	for (i =3D 0; i < rxq_size; i++) {
-> +		struct urb *req =3D usb_alloc_urb(0, GFP_KERNEL);
-> +
-> +		if (req && rx_submit(pnd, req, GFP_KERNEL)) {
-> +			usb_free_urb(req);
-> +			req =3D NULL;
-> +		}
-> +		pnd->urbs[i] =3D req;
-> +	}
+and this is how it looks like after the patch.
 
-You should fail if you cannot get a minimum number of URBs running.
-> +
-> +	netif_wake_queue(dev);
-> +	return 0;
-> +}
-[..]
-> +	/* Endpoints */
-> +	if ((data_desc->endpoint[0].desc.bEndpointAddress & USB_DIR_IN) =3D=
-=3D
-> +			USB_DIR_IN) {
+5    bond0           1     0     00ffffffff12601bffff000000000001ff96ca05
+5    bond0           1     0     00ffffffff12601bffff00000000000000000001
+5    bond0           1     0     00ffffffff12401bffff0000000000000ffffffd
+5    bond0           1     0     00ffffffff12401bffff00000000000000000116
+5    bond0           1     0     00ffffffff12401bffff00000000000000000001
+6    ib0             1     0     00ffffffff12601bffff000000000001ff96ca05
+6    ib0             1     0     00ffffffff12401bffff00000000000000000116
+6    ib0             1     0     00ffffffff12401bffff0000000000000ffffffd
+6    ib0             2     0     00ffffffff12401bffff00000000000000000001
+6    ib0             2     0     00ffffffff12601bffff00000000000000000001
 
-Please use the macro.
-
-> +		pnd->rx_pipe =3D usb_rcvbulkpipe(usbdev,
-> +			data_desc->endpoint[0].desc.bEndpointAddress);
-> +		pnd->tx_pipe =3D usb_sndbulkpipe(usbdev,
-> +			data_desc->endpoint[1].desc.bEndpointAddress);
-> +	} else {
-> +		pnd->rx_pipe =3D usb_rcvbulkpipe(usbdev,
-> +			data_desc->endpoint[1].desc.bEndpointAddress);
-> +		pnd->tx_pipe =3D usb_sndbulkpipe(usbdev,
-> +			data_desc->endpoint[0].desc.bEndpointAddress);
-> +	}
-> +	pnd->active_setting =3D data_desc - data_intf->altsetting;
-> +
-> +	err =3D usb_driver_claim_interface(&usbpn_driver, data_intf, pnd);
-> +	if (err)
-> +		goto out;
-> +
-> +	/* Force inactive mode until the network device is brought UP */
-> +	usb_set_interface(usbdev, union_header->bSlaveInterface0,
-> +				!pnd->active_setting);
-> +	usb_set_intfdata(intf, pnd);
-> +	BUG_ON(!usb_get_intfdata(intf));
-
-What for?
-
-> +
-> +	err =3D register_netdev(dev);
-> +	if (err) {
-> +		usb_driver_release_interface(&usbpn_driver, data_intf);
-> +		goto out;
-> +	}
-> +
-> +	dev_dbg(&dev->dev, "USB CDC Phonet device found\n");
-> +	return 0;
-> +
-> +out:
-> +	usb_set_intfdata(intf, NULL);
-> +	free_netdev(dev);
-> +	return err;
-> +}
-> +
-> +static void usbpn_disconnect(struct usb_interface *intf)
-> +{
-> +	struct usbpn_dev *pnd =3D usb_get_intfdata(intf);
-> +
-
-What happens if this happens in the unexpected order?
-
-> +	if (intf !=3D pnd->data_intf) {
-> +		usb_driver_release_interface(&usbpn_driver, pnd->data_intf);
-> +		return;
-> +	}
-> +
-> +	unregister_netdev(pnd->dev);
-> +	usb_put_dev(pnd->usb);
-> +}
-
-	Regards
-		Oliver
-
+Signed-off-by: Moni Shoua <monis@voltaire.com>
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+ drivers/net/bonding/bond_main.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d927f71..aa1be1f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1459,8 +1459,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the same bond
+ 	 */
+ 	if (bond->slave_cnt == 0) {
+-		if (slave_dev->type != ARPHRD_ETHER)
+-			bond_setup_by_slave(bond_dev, slave_dev);
++		if (bond_dev->type != slave_dev->type) {
++			dev_close(bond_dev);
++			pr_debug("%s: change device type from %d to %d\n",
++				bond_dev->name, bond_dev->type, slave_dev->type);
++			if (slave_dev->type != ARPHRD_ETHER)
++				bond_setup_by_slave(bond_dev, slave_dev);
++			else
++				ether_setup(bond_dev);
++			dev_open(bond_dev);
++		}
+ 	} else if (bond_dev->type != slave_dev->type) {
+ 		pr_err(DRV_NAME ": %s ether type (%d) is different "
+ 			"from other slaves (%d), can not enslave it.\n",
