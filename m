@@ -1,109 +1,83 @@
-From: Deepak Shah <deepakshah.mnit@gmail.com>
-Subject: Re: TESTING ROUTING CODE !!
-Date: Fri, 17 Jul 2009 00:06:36 +0530
-Message-ID: <5e7272990907161136h48e120barc35e49cfeeeee791@mail.gmail.com>
-References: <e49baca60907161039s7ceb493bje3b1a5c943ce5f33@mail.gmail.com>
-	 <A66C29B8-4F62-4180-8D93-DF3A46F77D5D@gmail.com>
-	 <e49baca60907161113s411e7d4ck472a9141881f56a1@mail.gmail.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: ixgbe:  schedule while atomic bug during dev_disable_lro
+ 2.6.31-rc3
+Date: Thu, 16 Jul 2009 12:13:48 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0907161206260.5316@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <4A5E5F8A.308@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=000e0cd149409ed581046ed6f32e
-Cc: Kent Tu <kachin2@gmail.com>,
-	"kernelnewbies@nl.linux.org" <kernelnewbies@nl.linux.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Leena M." <kernmonk@gmail.com>
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-In-Reply-To: <e49baca60907161113s411e7d4ck472a9141881f56a1@mail.gmail.com>
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:2173 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933066AbZGPTOV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2009 15:14:21 -0400
+In-Reply-To: <4A5E5F8A.308@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---000e0cd149409ed581046ed6f32e
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Wed, 15 Jul 2009, Ben Greear wrote:
 
-you can use xen , vmware or virtual box....
+> I just got a fancy new 10G NIC and tried it out in a (patched elsewhere, but stock ixgbe driver) 2.6.31-rc3) kernel.
+> 
+> First of all, it runs very fast:  sustained 9.5Gbps tx + rx on two ports concurrently (using modified pktgen),
+> with 1500 byte pkts.
+> 
+> I did see a warning in the boot logs though.
 
-thanks
-deepak
+Yes, see below for an explanation.
 
-On Thu, Jul 16, 2009 at 11:43 PM, Leena M. <kernmonk@gmail.com> wrote:
+> ixgbe: 0000:03:00.0: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
+> ixgbe 0000:03:00.0: (PCI Express:5.0Gb/s:Width x8) 00:0c:bd:00:90:1a
+> ixgbe 0000:03:00.0: MAC: 2, PHY: 9, SFP+: 5, PBA No: e57138-000
+> ixgbe 0000:03:00.0: This device is a pre-production adapter/LOM.  Please be aware there may be issues associated with your hardware.  If you are experiencing 
+> problems please contact your Intel or hardware representative who provided you with this hardware.
 
-> Any specific VM do you recommend , How about Xen ?
->
-> Regards,
-> Leena
->
->
-> On Thu, Jul 16, 2009 at 11:36 PM, Kent Tu <kachin2@gmail.com> wrote:
->
->> I'd recommend you to use virtual machines.
->>
->>
->>
->>
->> On Jul 16, 2009, at 10:39 AM, "Leena M." <kernmonk@gmail.com> wrote:
->>
->> How can we test routing and other networking code
->>> given a single machine with plenty of ram and processing power ?
->>>
->>> Regards,
->>> Leena
->>>
->>
->
+It's self-explanatory; the EEPROM version on the NIC is not the 
+production-level EEPROM.  If you run ethtool -i ethX on this interface, 
+you will see what the firmware (EEPROM) version is.  My guess is it's 
+going to be 0.5-1 or something; the production firmware is 0.9-3.  If you 
+received this NIC from an Intel rep, they can get you the production 
+EEPROM and tools necessary to reprogram the NIC.
 
+> BUG: scheduling while atomic: S99lanforge/2133/0x00000002
+> Modules linked in: sco stp llc bnep l2cap bluetooth nfs lockd fscache nfs_acl auth_rpcgss sunrpc ipv6 dm_multipath uinput ixgbe i2c_i801 i2c_core dca mdio 
+> e1000e iTCO_wdt iTCO_vendor_support pcspkr ata_generic pata_acpi [last unloaded: bridge]
+> Pid: 2133, comm: S99lanforge Not tainted 2.6.31-rc3 #2
+> Call Trace:
+>   [<ffffffff81042456>] __schedule_bug+0x5c/0x60
+>   [<ffffffff813e6712>] schedule+0xc1/0x85e
+>   [<ffffffff8104488a>] ? check_preempt_wakeup+0x2d/0x1b7
+>   [<ffffffff813e880b>] ? _spin_unlock_irqrestore+0x37/0x42
+>   [<ffffffff813e7182>] schedule_timeout+0x97/0xbb
+>   [<ffffffff8105857e>] ? process_timeout+0x0/0xb
+>   [<ffffffff813e71bf>] schedule_timeout_uninterruptible+0x19/0x1b
+>   [<ffffffff81058a25>] msleep+0x16/0x1d
+>   [<ffffffffa005e160>] ixgbe_stop_adapter_generic+0x38/0x97 [ixgbe]
+>   [<ffffffffa0063e5a>] ixgbe_reset_hw_82599+0x13/0x1a4 [ixgbe]
+>   [<ffffffffa005cfc3>] ixgbe_init_hw_generic+0xf/0x1d [ixgbe]
+>   [<ffffffffa0056f04>] ixgbe_reset+0x1e/0xef [ixgbe]
+>   [<ffffffffa005ee71>] ixgbe_set_flags+0x5c/0x66 [ixgbe]
+>   [<ffffffff81343fe2>] dev_disable_lro+0x4d/0x69
+>   [<ffffffff81398191>] devinet_sysctl_forward+0xd7/0x1a4
+>   [<ffffffff81136111>] proc_sys_call_handler+0x8d/0xb7
+>   [<ffffffff8113614a>] proc_sys_write+0xf/0x11
+>   [<ffffffff810e856d>] vfs_write+0xa9/0x106
+>   [<ffffffff810e8680>] sys_write+0x45/0x69
+>   [<ffffffff81011b42>] system_call_fastpath+0x16/0x1b
 
--- 
-Thanks
-Deepak Shah
+We haven't seen such a panic in our testing, but we don't heavily test 
+toggling the LRO flags.  We lightly touch the flags, but nothing heavy. 
+Note that there is a difference in this device, 82599 (assumed since
+your lspci shows you're linked at 5.0 Gt/sec), that we have a HW-based
+LRO running.  This is the preferred configuration the driver uses at
+load; there may be something broken with how we switch between HW LRO +
+GRO and just straight GRO.
 
---000e0cd149409ed581046ed6f32e
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+I will see if our validation guys can reproduce this.  In the meantime, 
+can you try without preempt enabled?  Also, it wasn't obvious to me if 
+this is 100% reproducible, or if it's racy.  Can you comment on that?
 
-<div>you can use xen , vmware or virtual box....</div>
-<div>=A0</div>
-<div>thanks</div>
-<div>deepak<br><br></div>
-<div class=3D"gmail_quote">On Thu, Jul 16, 2009 at 11:43 PM, Leena M. <span=
- dir=3D"ltr">&lt;<a href=3D"mailto:kernmonk@gmail.com">kernmonk@gmail.com</=
-a>&gt;</span> wrote:<br>
-<blockquote class=3D"gmail_quote" style=3D"PADDING-LEFT: 1ex; MARGIN: 0px 0=
-px 0px 0.8ex; BORDER-LEFT: #ccc 1px solid">Any specific VM do you recommend=
- , How about Xen ?<br><br>Regards,<br><font color=3D"#888888">Leena</font>=
-=20
-<div>
-<div></div>
-<div class=3D"h5"><br><br>
-<div class=3D"gmail_quote">On Thu, Jul 16, 2009 at 11:36 PM, Kent Tu <span =
-dir=3D"ltr">&lt;<a href=3D"mailto:kachin2@gmail.com" target=3D"_blank">kach=
-in2@gmail.com</a>&gt;</span> wrote:<br>
-<blockquote class=3D"gmail_quote" style=3D"PADDING-LEFT: 1ex; MARGIN: 0pt 0=
-pt 0pt 0.8ex; BORDER-LEFT: rgb(204,204,204) 1px solid">I&#39;d recommend yo=
-u to use virtual machines.=20
-<div>
-<div></div>
-<div><br><br><br><br>On Jul 16, 2009, at 10:39 AM, &quot;Leena M.&quot; &lt=
-;<a href=3D"mailto:kernmonk@gmail.com" target=3D"_blank">kernmonk@gmail.com=
-</a>&gt; wrote:<br><br>
-<blockquote class=3D"gmail_quote" style=3D"PADDING-LEFT: 1ex; MARGIN: 0pt 0=
-pt 0pt 0.8ex; BORDER-LEFT: rgb(204,204,204) 1px solid">How can we test rout=
-ing and other networking code<br>given a single machine with plenty of ram =
-and processing power ?<br>
-<br>Regards,<br>Leena<br></blockquote></div></div></blockquote></div><br></=
-div></div></blockquote></div><br><br clear=3D"all">
-<div></div><br>-- <br>Thanks<br>Deepak Shah<br>
-
---000e0cd149409ed581046ed6f32e--
-
---
-To unsubscribe from this list: send an email with
-"unsubscribe kernelnewbies" to ecartis@nl.linux.org
-Please read the FAQ at http://kernelnewbies.org/FAQ
+Cheers,
+-PJ
