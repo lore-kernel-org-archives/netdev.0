@@ -1,37 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Bad sky2 interrupt handling?
-Date: Thu, 16 Jul 2009 16:37:27 -0700
-Message-ID: <20090716163727.666db0cc@nehalam>
-References: <20090716162552.7f7b3031@jbarnes-g45>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/2] ixgbe: clear mac address data block in DCB mode
+Date: Thu, 16 Jul 2009 16:43:10 -0700
+Message-ID: <20090716234303.23595.85275.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Lucy Liu <lucy.liu@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40407 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933608AbZGPXhd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2009 19:37:33 -0400
-In-Reply-To: <20090716162552.7f7b3031@jbarnes-g45>
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:52155
+	"EHLO QMTA07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933620AbZGPXnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 19:43:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Jul 2009 16:25:52 -0700
-Jesse Barnes <jbarnes@virtuousgeek.org> wrote:
+From: Lucy Liu <lucy.liu@intel.com>
 
-> I was debugging what I thought was a graphics driver problem today (some
-> page flipping code I'm working on was only flipping at about 10Hz
-> rather than ~60Hz) but it appears it's actually due to a bad
-> interaction with the Marvell 88E8036 controller on this machine.
-> 
-> MSI fails on this box (haven't looked too much at why yet), so the i915
-> driver shares an interrupt with USB, firewire, sdhci and the NIC.
-> 
-> Is sky2 the wrong driver to be using here?  Or is there some way of
-> reducing its overhead when (presumably) it doesn't have anything to do?
+This change clears the address data block memory space, which is needed for
+the 82598 which does not have a SAN MAC.
 
-No, that is the right driver.  If MSI fails, does the driver still think
-it can use MSI?
+Signed-off-by: Lucy Liu <lucy.liu@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
--- 
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 7c5978a..5b8dab2 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -175,6 +175,8 @@ static void ixgbe_dcbnl_get_perm_hw_addr(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	int i, j;
+ 
++	memset(perm_addr, 0xff, MAX_ADDR_LEN);
++
+ 	for (i = 0; i < netdev->addr_len; i++)
+ 		perm_addr[i] = adapter->hw.mac.perm_addr[i];
+ 
+
