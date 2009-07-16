@@ -1,27 +1,40 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
-Date: Thu, 16 Jul 2009 20:23:47 +0800
-Message-ID: <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
-References: <1247522953-12702-1-git-send-email-tomas.winkler@intel.com>
- <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Winkler, Tomas" <tomas.winkler@intel.com>
-To: "Zhu, Yi" <yi.zhu@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>,
-	"drzeus-list@drzeus.cx" <drzeus-list@drzeus.cx>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-w
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755841AbZGPMYn@vger.kernel.org>
-In-Reply-To: <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: netfilter 00/03: netfilter fixes
+Date: Thu, 16 Jul 2009 14:26:44 +0200 (MEST)
+Message-ID: <20090716122638.23343.77832.sendpatchset@x2.localnet>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+Hi Dave,
 
-BTW, subject should be "iwmc3200".
+following are two netfilter fixes for 2.6.31 and a MAINTAINERS update:
 
-Thanks,
--yi
+- a fix for the nf_conntrack_alloc() race from Eric
+- a fix for incorrect invocation of nf_log_packet() in the new osf match
+- a patch to add my netfilter git tree to MAINTAINERS
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+
+Thanks!
+
+
+ Documentation/RCU/rculist_nulls.txt |    7 ++++++-
+ MAINTAINERS                         |    1 +
+ net/netfilter/nf_conntrack_core.c   |   21 ++++++++++++++++++---
+ net/netfilter/xt_osf.c              |    5 +++--
+ 4 files changed, 28 insertions(+), 6 deletions(-)
+
+Eric Dumazet (1):
+      netfilter: nf_conntrack: nf_conntrack_alloc() fixes
+
+Joe Perches (1):
+      netfilter: add netfilter git to MAINTAINERS
+
+Patrick McHardy (1):
+      netfilter: xt_osf: fix nf_log_packet() arguments
