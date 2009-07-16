@@ -1,44 +1,49 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
-Date: Thu, 16 Jul 2009 18:57:34 +0200
-Message-ID: <1247763454.4549.56.camel@violet>
-References: <1247522953-12702-1-git-send-email-tomas.winkler@intel.com>
-	 <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
-	 <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
-	 <1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ixgbe:  schedule while atomic bug during dev_disable_lro 	2.6.31-rc3
+Date: Thu, 16 Jul 2009 10:39:28 -0700
+Message-ID: <4A5F65D0.9080202@candelatech.com>
+References: <4A5E5F8A.308@candelatech.com> <1247700919.2788.11.camel@achroite> <4A5E6B37.2080605@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Zhu, Yi" <yi.zhu@intel.com>,
-	"drzeus-list@drzeus.cx" <drzeus-list@drzeus.cx>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Tomas Winkler <tomasw@gmail.com>
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:55258 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932584AbZGPQ5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 12:57:49 -0400
-In-Reply-To: <1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:39879 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932520AbZGPRjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 13:39:31 -0400
+In-Reply-To: <4A5E6B37.2080605@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 07/15/2009 04:50 PM, Ben Greear wrote:
+> On 07/15/2009 04:35 PM, Ben Hutchings wrote:
+>> On Wed, 2009-07-15 at 16:00 -0700, Ben Greear wrote:
+>>> I just got a fancy new 10G NIC and tried it out in a (patched
+>>> elsewhere, but stock ixgbe driver) 2.6.31-rc3) kernel.
+>>
+>> And what exactly are those patches?
+>
+> various and sundry, but so far I only see this problem with ixgbe
+> (the 1G NICs don't complain at least).
+>
+> I'll build an un-patched kernel and see if I can reproduce them.
 
-> > > Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
-> >
-> > BTW, subject should be "iwmc3200".
-> 
-> Thanks. I'll address all comments although I'm not sure how to split
-> the patch since adding SDIO_VENDOR_ID_INTEL to sdio_ids.h it affects
-> all the drivers anyhow, so I'm suggesting to route it through netdev.
+I see the same problem on a stock kernel.  I'm running a pre-empt kernel..think
+that might have some bearing on the problem?
 
-I think it is best that you take the whole patch via net-next-2.6 to
-avoid breakage during the next merge window.
+Full dmesg here:
+http://www.candelatech.com/oss/i7_dmesg.txt
 
-Regards
+Kernel config file here:
+http://www.candelatech.com/oss/i7_config.txt
 
-Marcel
+Thanks,
+Ben
 
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
