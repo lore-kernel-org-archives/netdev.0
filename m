@@ -1,66 +1,30 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Thu, 16 Jul 2009 10:12:41 +0300
-Message-ID: <200907161012.42452.remi.denis-courmont@nokia.com>
-References: <1247666341-7121-1-git-send-email-remi.denis-courmont@nokia.com> <200907151620.31509.oliver@neukum.org>
+From: Tobias Klauser <klto@zhaw.ch>
+Subject: Re: [PATCH] netfilter: ebtables: Use print_mac instead of own function
+Date: Thu, 16 Jul 2009 09:25:14 +0200
+Message-ID: <4A5ED5DA.303@zhaw.ch>
+References: <1247655306-21337-1-git-send-email-klto@zhaw.ch> <4A5DF1FC.3050404@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: ext Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:23522 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbZGPHLO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 03:11:14 -0400
-In-Reply-To: <200907151620.31509.oliver@neukum.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: bart.de.schuymer@pandora.be, shemminger@linux-foundation.org,
+	davem@davemloft.net, ebtables-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4A5DF1FC.3050404@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 15 July 2009 17:20:31 ext Oliver Neukum wrote:
-> Am Mittwoch, 15. Juli 2009 15:59:01 schrieb R=C3=A9mi Denis-Courmont:
->
-> Hello,
->
-> > +	netif_stop_queue(dev);
-> > +	if (atomic_inc_return(&pnd->tx_queue) < dev->tx_queue_len)
-> > +		netif_wake_queue(dev);
->
-> This is unelegant.
+On 07/15/2009 05:13 PM, Patrick McHardy wrote:
+> Tobias Klauser wrote:
+>> ebt_log uses its own implementation of print_mac to print MAC addresses.
+>> This patch converts it to use print_mac from linux/if_ether.h
+> 
+> You can do this even simpler by using %pM as format string.
 
-But I cannot think of any alternative that would not involve a spin loc=
-k and=20
-disable IRQs. There is a race between qdisc and USB TX completion here.
+Sorry, I didn't know about that one. I'll send an updated patch.
 
-I'm not sure what you're trying to suggest...?
+Thanks for the hint.
 
-> > +static void usbpn_disconnect(struct usb_interface *intf)
-> > +{
-> > +	struct usbpn_dev *pnd =3D usb_get_intfdata(intf);
-> > +
->
-> What happens if this happens in the unexpected order?
-
-Right, the data interface gets released twice. This "works" since=20
-usb_driver_release_interface() has an explicit check. I will try to cle=
-an it=20
-up anyway.
-
-> > +	if (intf !=3D pnd->data_intf) {
-> > +		usb_driver_release_interface(&usbpn_driver, pnd->data_intf);
-> > +		return;
-> > +	}
-> > +
-> > +	unregister_netdev(pnd->dev);
-> > +	usb_put_dev(pnd->usb);
-> > +}
-
-Thanks for the review.
-
---=20
-R=C3=A9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+Tobias
 
