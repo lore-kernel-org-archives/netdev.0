@@ -1,35 +1,76 @@
-From: Kent Tu <kachin2@gmail.com>
+From: "Leena M." <kernmonk@gmail.com>
 Subject: Re: TESTING ROUTING CODE !!
-Date: Thu, 16 Jul 2009 11:06:54 -0700
-Message-ID: <A66C29B8-4F62-4180-8D93-DF3A46F77D5D@gmail.com>
+Date: Thu, 16 Jul 2009 23:43:45 +0530
+Message-ID: <e49baca60907161113s411e7d4ck472a9141881f56a1@mail.gmail.com>
 References: <e49baca60907161039s7ceb493bje3b1a5c943ce5f33@mail.gmail.com>
-Mime-Version: 1.0 (iPhone Mail 7A341)
-Content-Type: text/plain;
-	charset=us-ascii;
-	format=flowed
-Content-Transfer-Encoding: 7bit
+	 <A66C29B8-4F62-4180-8D93-DF3A46F77D5D@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary=0003255732eeeeecea046ed6a134
 Cc: "kernelnewbies@nl.linux.org" <kernelnewbies@nl.linux.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Leena M." <kernmonk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f197.google.com ([209.85.222.197]:49496 "EHLO
-	mail-pz0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932937AbZGPSHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 14:07:00 -0400
-Received: by pzk35 with SMTP id 35so196134pzk.33
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2009 11:06:59 -0700 (PDT)
-In-Reply-To: <e49baca60907161039s7ceb493bje3b1a5c943ce5f33@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Kent Tu <kachin2@gmail.com>
+Return-path: <kernelnewbies-bounce@nl.linux.org>
+In-Reply-To: <A66C29B8-4F62-4180-8D93-DF3A46F77D5D@gmail.com>
+Sender: kernelnewbies-bounce@nl.linux.org
+Errors-to: kernelnewbies-bounce@nl.linux.org
+List-help: <mailto:ecartis@nl.linux.org?Subject=help>
+List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
+List-owner: <mailto:ecartis-owner@nl.linux.org>
+List-post: <mailto:kernelnewbies@nl.linux.org>
+List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+List-Id: netdev.vger.kernel.org
 
-I'd recommend you to use virtual machines.
+--0003255732eeeeecea046ed6a134
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
+Any specific VM do you recommend , How about Xen ?
 
+Regards,
+Leena
 
-On Jul 16, 2009, at 10:39 AM, "Leena M." <kernmonk@gmail.com> wrote:
+On Thu, Jul 16, 2009 at 11:36 PM, Kent Tu <kachin2@gmail.com> wrote:
 
-> How can we test routing and other networking code
-> given a single machine with plenty of ram and processing power ?
+> I'd recommend you to use virtual machines.
 >
-> Regards,
-> Leena
+>
+>
+>
+> On Jul 16, 2009, at 10:39 AM, "Leena M." <kernmonk@gmail.com> wrote:
+>
+>  How can we test routing and other networking code
+>> given a single machine with plenty of ram and processing power ?
+>>
+>> Regards,
+>> Leena
+>>
+>
+
+--0003255732eeeeecea046ed6a134
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+Any specific VM do you recommend , How about Xen ?<br><br>Regards,<br>Leena<br><br><div class="gmail_quote">On Thu, Jul 16, 2009 at 11:36 PM, Kent Tu <span dir="ltr">&lt;<a href="mailto:kachin2@gmail.com">kachin2@gmail.com</a>&gt;</span> wrote:<br>
+<blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;">I&#39;d recommend you to use virtual machines.<div><div></div><div class="h5"><br>
+<br>
+<br>
+<br>
+On Jul 16, 2009, at 10:39 AM, &quot;Leena M.&quot; &lt;<a href="mailto:kernmonk@gmail.com" target="_blank">kernmonk@gmail.com</a>&gt; wrote:<br>
+<br>
+<blockquote class="gmail_quote" style="border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padding-left: 1ex;">
+How can we test routing and other networking code<br>
+given a single machine with plenty of ram and processing power ?<br>
+<br>
+Regards,<br>
+Leena<br>
+</blockquote>
+</div></div></blockquote></div><br>
+
+--0003255732eeeeecea046ed6a134--
+
+--
+To unsubscribe from this list: send an email with
+"unsubscribe kernelnewbies" to ecartis@nl.linux.org
+Please read the FAQ at http://kernelnewbies.org/FAQ
