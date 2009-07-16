@@ -1,15 +1,15 @@
 From: Tobias Klauser <klto@zhaw.ch>
-Subject: [PATCH 7/8] rt2x00: Use %pM conversion specifier
-Date: Thu, 16 Jul 2009 11:00:39 +0200
-Message-ID: <1247734839-21394-1-git-send-email-klto@zhaw.ch>
+Subject: [PATCH 8/8] wl12xx: Use %pM conversion specifier
+Date: Thu, 16 Jul 2009 11:01:15 +0200
+Message-ID: <1247734875-21447-1-git-send-email-klto@zhaw.ch>
 Cc: Tobias Klauser <klto@zhaw.ch>
-To: linville@tuxdriver.com, IvDoorn@gmail.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com
+To: linville@tuxdriver.com, kalle.valo@nokia.com, me@bobcopeland.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.zhaw.ch ([160.85.104.51]:60156 "EHLO mx2.zhaw.ch"
+Received: from mx2.zhaw.ch ([160.85.104.51]:60281 "EHLO mx2.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754338AbZGPJAk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2009 05:00:40 -0400
+	id S1754388AbZGPJBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2009 05:01:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -17,25 +17,27 @@ Use the %pM conversion specifier for printk instead of print_mac.
 
 Signed-off-by: Tobias Klauser <klto@zhaw.ch>
 ---
- drivers/net/wireless/rt2x00/rt2800usb.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/wireless/wl12xx/main.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
-index 3756166..da84afb 100644
---- a/drivers/net/wireless/rt2x00/rt2800usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2800usb.c
-@@ -2224,10 +2224,8 @@ static int rt2800usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
- 	 */
- 	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
- 	if (!is_valid_ether_addr(mac)) {
--		DECLARE_MAC_BUF(macbuf);
--
- 		random_ether_addr(mac);
--		EEPROM(rt2x00dev, "MAC: %s\n", print_mac(macbuf, mac));
-+		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
- 	}
+diff --git a/drivers/net/wireless/wl12xx/main.c b/drivers/net/wireless/wl12xx/main.c
+index 603d611..5962c4f 100644
+--- a/drivers/net/wireless/wl12xx/main.c
++++ b/drivers/net/wireless/wl12xx/main.c
+@@ -423,11 +423,10 @@ static int wl12xx_op_add_interface(struct ieee80211_hw *hw,
+ 				   struct ieee80211_if_init_conf *conf)
+ {
+ 	struct wl12xx *wl = hw->priv;
+-	DECLARE_MAC_BUF(mac);
+ 	int ret = 0;
  
- 	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
+-	wl12xx_debug(DEBUG_MAC80211, "mac80211 add interface type %d mac %s",
+-		     conf->type, print_mac(mac, conf->mac_addr));
++	wl12xx_debug(DEBUG_MAC80211, "mac80211 add interface type %d mac %pM",
++		     conf->type, conf->mac_addr);
+ 
+ 	mutex_lock(&wl->mutex);
+ 
 -- 
 1.6.0.4
 
