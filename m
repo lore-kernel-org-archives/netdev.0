@@ -1,34 +1,43 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next-2.6 1/2] virtio-net: Allow UFO feature to be set and advertised.
-Date: Thu, 16 Jul 2009 11:58:22 +0930
-Message-ID: <200907161158.24794.rusty@rustcorp.com.au>
-References: <1247617262.4998.76.camel@IBM-19B5263ED41-009047018100.beaverton.ibm.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: TCP MD5 connections get stuck with IPV6 mapped listener
+Date: Thu, 16 Jul 2009 02:40:21 +0000
+Message-ID: <1247712021.7129.29.camel@Maple>
+References: <20090715121119.12fc69e5@s6510>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Cc: Adam Langley <agl@imperialviolet.org>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:33585 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757129AbZGPC2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jul 2009 22:28:36 -0400
-In-Reply-To: <1247617262.4998.76.camel@IBM-19B5263ED41-009047018100.beaverton.ibm.com>
-Content-Disposition: inline
+Received: from mail-px0-f185.google.com ([209.85.216.185]:62815 "EHLO
+	mail-px0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757057AbZGPCkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jul 2009 22:40:24 -0400
+Received: by pxi15 with SMTP id 15so1880551pxi.33
+        for <netdev@vger.kernel.org>; Wed, 15 Jul 2009 19:40:24 -0700 (PDT)
+In-Reply-To: <20090715121119.12fc69e5@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Jul 2009 09:51:02 am Sridhar Samudrala wrote:
-> [PATCH net-next-2.6 1/2] virtio-net: Allow UFO feature to be set
->
-> - Allow setting UFO on virtio-net and advertise to host.
->
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+On Wed, 2009-07-15 at 12:11 -0700, Stephen Hemminger wrote:
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> While investigating some TCP MD5 issues, with BGP, broke things
+> up into a simple test program found that
+> if server is listening on IPV6 for TCP with MD5 key
+> and client connects with IPV4 MD5 key, the connection gets stuck after
+> the initial SYN-SENT, SYN-ACK.
 
-Thanks!
-Rusty.
+Stephen, I put a patch out on a separate thread "[PATCH] tcp: Fix MD5
+signature checking on IPv4 mapped sockets."
+
+I tested the obvious cases using your excellent tool, but I don't have
+the infrastructure for complete testing.  I expect you do.
+-- 
+John Dykstra
+voice:           +1 651 484-1098            Yahoo IM:  jdykstra72
+
+LinkedIn:        http://www.linkedin.com/in/JohnDykstra
+Blog:            http://johndykstra.blogspot.com/ 
+
+
+
