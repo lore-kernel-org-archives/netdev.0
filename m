@@ -1,42 +1,38 @@
-From: Vincent CUISSARD <vincent.cuissard@gmail.com>
-Subject: [PATCH] cdc-eem: bad crc checking
-Date: Thu, 16 Jul 2009 18:08:58 +0200
-Message-ID: <5ca532980907160908k3c18fd16k18e17f92a18de5a8@mail.gmail.com>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: Re: [PATCH 2/8] ar9170: Remove unused DECLARE_MAC_BUF
+Date: Thu, 16 Jul 2009 09:39:15 -0700
+Message-ID: <43e72e890907160939m1b1a90c5ye1a1d27be1843714@mail.gmail.com>
+References: <1247734381-20718-1-git-send-email-klto@zhaw.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: chunkeey@web.de, linville@tuxdriver.com, johannes@sipsolutions.net,
+	yi.zhu@intel.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tobias Klauser <klto@zhaw.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f226.google.com ([209.85.219.226]:35911 "EHLO
-	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932526AbZGPQI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 12:08:59 -0400
-Received: by ewy26 with SMTP id 26so244233ewy.37
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2009 09:08:58 -0700 (PDT)
+Received: from qw-out-2122.google.com ([74.125.92.24]:46701 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932549AbZGPQjg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 12:39:36 -0400
+In-Reply-To: <1247734381-20718-1-git-send-email-klto@zhaw.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the driver received an EEM packet with CRC option enabled, driver must
-compute and check the CRC of the Ethernet data. Previous version computes CRC
-on Ethernet data plus the original CRC value. Skbuff is correctly trimed but
-the old length is used when CRC is computed.
+On Thu, Jul 16, 2009 at 1:53 AM, Tobias Klauser<klto@zhaw.ch> wrote:
+> Is not needed anymore because of the %pM printk conversion specifier.
+>
+> Signed-off-by: Tobias Klauser <klto@zhaw.ch>
+> ---
+> =C2=A0drivers/net/wireless/ath/ar9170/main.c | =C2=A0 =C2=A01 -
+> =C2=A01 files changed, 0 insertions(+), 1 deletions(-)
 
+This is already patched by Johannes through the patch titled:
 
-Signed-off-by: Vincent CUISSARD <vincent.cuissard@gmail.com>
----
- drivers/net/usb/cdc_eem.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+[PATCH] wireless: remove print_mac uses
 
-diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
-index 80e0177..b9e7162 100644
---- a/drivers/net/usb/cdc_eem.c
-+++ b/drivers/net/usb/cdc_eem.c
-@@ -311,7 +311,7 @@ static int eem_rx_fixup(struct usbnet *dev, struct
-sk_buff *skb)
- 			 *	bmCRC = 0	: CRC = 0xDEADBEEF
- 			 */
- 			if (header & BIT(14))
--				crc2 = ~crc32_le(~0, skb2->data, len);
-+				crc2 = ~crc32_le(~0, skb2->data, skb2->len);
- 			else
- 				crc2 = 0xdeadbeef;
+Please see and resubmit if there is anything missing:
+
+http://marc.info/?l=3Dlinux-wireless&m=3D124767211929848&w=3D2
+
+ Luis
