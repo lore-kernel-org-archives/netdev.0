@@ -1,42 +1,27 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net: nf_conntrack_alloc() fixes
-Date: Thu, 16 Jul 2009 14:05:02 +0200
-Message-ID: <4A5F176E.7010508@trash.net>
-References: <20090707.191424.167842005.davem@davemloft.net>	<4A5441A0.3050504@gmail.com>	<4A5581C5.5070409@gmail.com> <20090711.202727.18146102.davem@davemloft.net> <4A598BAB.6030400@gmail.com> <4A5DCB7C.9000502@gmail.com> <4A5DF5B4.5090809@trash.net> <4A5E33D9.2030602@gmail.com>
+From: "Zhu, Yi" <yi.zhu@intel.com>
+Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+Date: Thu, 16 Jul 2009 20:23:47 +0800
+Message-ID: <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
+References: <1247522953-12702-1-git-send-email-tomas.winkler@intel.com>
+ <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54556 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118AbZGPMFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 08:05:11 -0400
-In-Reply-To: <4A5E33D9.2030602@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Winkler, Tomas" <tomas.winkler@intel.com>
+To: "Zhu, Yi" <yi.zhu@intel.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>,
+	"drzeus-list@drzeus.cx" <drzeus-list@drzeus.cx>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-w
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755841AbZGPMYn@vger.kernel.org>
+In-Reply-To: <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> [PATCH] net: nf_conntrack_alloc() fixes
-> 
-> When a slab cache uses SLAB_DESTROY_BY_RCU, we must be careful when allocating
-> objects, since slab allocator could give a freed object still used by lockless
-> readers.
-> 
-> In particular, nf_conntrack RCU lookups rely on ct->tuplehash[xxx].hnnode.next
-> being always valid (ie containing a valid 'nulls' value, or a valid pointer to next
-> object in hash chain.)
-> 
-> kmem_cache_zalloc() setups object with NULL values, but a NULL value is not valid
-> for ct->tuplehash[xxx].hnnode.next.
-> 
-> Fix is to call kmem_cache_alloc() and do the zeroing ourself.
-> 
-> As spotted by Patrick, we also need to make sure lookup keys are committed to
-> memory before setting refcount to 1, or a lockless reader could get a reference
-> on the old version of the object. Its key re-check could then pass the barrier. 
+> Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
 
-Looks good to me. Applied, thanks Eric. I'll push it to -stable
-with the other fixes in a couple of days.
+BTW, subject should be "iwmc3200".
+
+Thanks,
+-yi
