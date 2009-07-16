@@ -1,68 +1,46 @@
 From: Tobias Klauser <klto@zhaw.ch>
-Subject: [PATCH 4/8] libertas: Use %pM conversion specifier
-Date: Thu, 16 Jul 2009 10:56:57 +0200
-Message-ID: <1247734617-20902-1-git-send-email-klto@zhaw.ch>
+Subject: [PATCH 5/8] mac80211_hwsim: Remove unused DECLARE_MAC_BUF
+Date: Thu, 16 Jul 2009 10:57:53 +0200
+Message-ID: <1247734673-20955-1-git-send-email-klto@zhaw.ch>
 Cc: Tobias Klauser <klto@zhaw.ch>
-To: dcbw@redhat.com, linville@tuxdriver.com, johannes@sipsolutions.net,
-	proski@gnu.org, davem@davemloft.net,
-	libertas-dev@lists.infradead.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com, johannes@sipsolutions.net,
+	jouni.malinen@atheros.com, lrodriguez@atheros.com,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.zhaw.ch ([160.85.104.51]:59235 "EHLO mx2.zhaw.ch"
+Received: from mx2.zhaw.ch ([160.85.104.51]:59445 "EHLO mx2.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753352AbZGPI47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2009 04:56:59 -0400
+	id S1753808AbZGPI5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2009 04:57:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the %pM conversion specifier for printk instead of print_mac.
+Is not needed anymore because of the %pM printk conversion specifier.
 
 Signed-off-by: Tobias Klauser <klto@zhaw.ch>
 ---
- drivers/net/wireless/libertas/assoc.c |   10 +++-------
- 1 files changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/wireless/mac80211_hwsim.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/libertas/assoc.c b/drivers/net/wireless/libertas/assoc.c
-index b9b3741..a953647 100644
---- a/drivers/net/wireless/libertas/assoc.c
-+++ b/drivers/net/wireless/libertas/assoc.c
-@@ -129,7 +129,6 @@ static int lbs_set_authentication(struct lbs_private *priv, u8 bssid[6], u8 auth
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index a111bda..08cfd4b 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -757,7 +757,6 @@ static void hwsim_send_ps_poll(void *dat, u8 *mac, struct ieee80211_vif *vif)
  {
- 	struct cmd_ds_802_11_authenticate cmd;
- 	int ret = -1;
--	DECLARE_MAC_BUF(mac);
+ 	struct mac80211_hwsim_data *data = dat;
+ 	struct hwsim_vif_priv *vp = (void *)vif->drv_priv;
+-	DECLARE_MAC_BUF(buf);
+ 	struct sk_buff *skb;
+ 	struct ieee80211_pspoll *pspoll;
  
- 	lbs_deb_enter(LBS_DEB_JOIN);
+@@ -787,7 +786,6 @@ static void hwsim_send_nullfunc(struct mac80211_hwsim_data *data, u8 *mac,
+ 				struct ieee80211_vif *vif, int ps)
+ {
+ 	struct hwsim_vif_priv *vp = (void *)vif->drv_priv;
+-	DECLARE_MAC_BUF(buf);
+ 	struct sk_buff *skb;
+ 	struct ieee80211_hdr *hdr;
  
-@@ -138,8 +137,7 @@ static int lbs_set_authentication(struct lbs_private *priv, u8 bssid[6], u8 auth
- 
- 	cmd.authtype = iw_auth_to_ieee_auth(auth);
- 
--	lbs_deb_join("AUTH_CMD: BSSID %s, auth 0x%x\n",
--		print_mac(mac, bssid), cmd.authtype);
-+	lbs_deb_join("AUTH_CMD: BSSID %pM, auth 0x%x\n", bssid, cmd.authtype);
- 
- 	ret = lbs_cmd_with_response(priv, CMD_802_11_AUTHENTICATE, &cmd);
- 
-@@ -342,8 +340,6 @@ static int lbs_associate(struct lbs_private *priv,
- 
- 	/* Firmware v9+ indicate authentication suites as a TLV */
- 	if (priv->fwrelease >= 0x09000000) {
--		DECLARE_MAC_BUF(mac);
--
- 		auth = (struct mrvl_ie_auth_type *) pos;
- 		auth->header.type = cpu_to_le16(TLV_TYPE_AUTH_TYPE);
- 		auth->header.len = cpu_to_le16(2);
-@@ -351,8 +347,8 @@ static int lbs_associate(struct lbs_private *priv,
- 		auth->auth = cpu_to_le16(tmpauth);
- 		pos += sizeof(auth->header) + 2;
- 
--		lbs_deb_join("AUTH_CMD: BSSID %s, auth 0x%x\n",
--			print_mac(mac, bss->bssid), priv->secinfo.auth_mode);
-+		lbs_deb_join("AUTH_CMD: BSSID %pM, auth 0x%x\n",
-+			bss->bssid, priv->secinfo.auth_mode);
- 	}
- 
- 	/* WPA/WPA2 IEs */
 -- 
 1.6.0.4
 
