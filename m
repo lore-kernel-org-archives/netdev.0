@@ -1,83 +1,44 @@
-From: Tobias Klauser <klto@zhaw.ch>
-Subject: [PATCH v2] netfilter: ebtables: Use %pM conversion specifier
-Date: Thu, 16 Jul 2009 09:25:51 +0200
-Message-ID: <1247729151-6210-1-git-send-email-klto@zhaw.ch>
-References: <1247655306-21337-1-git-send-email-klto@zhaw.ch>
-Cc: netdev@vger.kernel.org, Tobias Klauser <klto@zhaw.ch>
-To: bart.de.schuymer@pandora.be, shemminger@linux-foundation.org,
-	kaber@trash.net, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: e1000e 2.6.30.1 massive packet loss
+Date: Thu, 16 Jul 2009 10:04:07 +0200
+Message-ID: <4A5EDEF7.7090303@cosmosbay.com>
+References: <81bfc67a0907160049q3d43093cy52276f0fe1157d89@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Caleb Cushing <xenoterracide@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.zhaw.ch ([160.85.104.51]:37271 "EHLO mx2.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751002AbZGPHZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jul 2009 03:25:52 -0400
-In-Reply-To: <1247655306-21337-1-git-send-email-klto@zhaw.ch>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59733 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752754AbZGPIEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 04:04:14 -0400
+In-Reply-To: <81bfc67a0907160049q3d43093cy52276f0fe1157d89@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebt_log uses its own implementation of print_mac to print MAC addresses.
-This patch converts it to use the %pM conversion specifier for printk.
+Caleb Cushing a =C3=A9crit :
+> So from 2.6.30 to .1 I noticed that via an icmp test (mtr) 20-50%
+> packet loss web browsing became impractical (downgrading fixed the
+> issue). I'm wondering if the change to the driver (w/ msi) is the
+> cause? also wondering if this is known and will be fixed in .2 I can
+> provide more information if necessary.
+>=20
 
-Signed-off-by: Tobias Klauser <klto@zhaw.ch>
----
- net/bridge/netfilter/ebt_log.c |   29 +++++++----------------------
- 1 files changed, 7 insertions(+), 22 deletions(-)
+Added netdev to get more attention to this.
 
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index a94f3cc..e4ea3fd 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -50,14 +50,6 @@ struct arppayload
- 	unsigned char ip_dst[4];
- };
- 
--static void print_MAC(const unsigned char *p)
--{
--	int i;
--
--	for (i = 0; i < ETH_ALEN; i++, p++)
--		printk("%02x%c", *p, i == ETH_ALEN - 1 ? ' ':':');
--}
--
- static void
- print_ports(const struct sk_buff *skb, uint8_t protocol, int offset)
- {
-@@ -88,14 +80,11 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
- 	unsigned int bitmask;
- 
- 	spin_lock_bh(&ebt_log_lock);
--	printk("<%c>%s IN=%s OUT=%s MAC source = ", '0' + loginfo->u.log.level,
--	       prefix, in ? in->name : "", out ? out->name : "");
--
--	print_MAC(eth_hdr(skb)->h_source);
--	printk("MAC dest = ");
--	print_MAC(eth_hdr(skb)->h_dest);
--
--	printk("proto = 0x%04x", ntohs(eth_hdr(skb)->h_proto));
-+	printk("<%c>%s IN=%s OUT=%s MAC source = %pM MAC dest = %pM proto = 0x%04x",
-+	       '0' + loginfo->u.log.level, prefix,
-+	       in ? in->name : "", out ? out->name : "",
-+	       eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
-+	       ntohs(eth_hdr(skb)->h_proto));
- 
- 	if (loginfo->type == NF_LOG_TYPE_LOG)
- 		bitmask = loginfo->u.log.logflags;
-@@ -171,12 +160,8 @@ ebt_log_packet(u_int8_t pf, unsigned int hooknum,
- 				printk(" INCOMPLETE ARP payload");
- 				goto out;
- 			}
--			printk(" ARP MAC SRC=");
--			print_MAC(ap->mac_src);
--			printk(" ARP IP SRC=%pI4", ap->ip_src);
--			printk(" ARP MAC DST=");
--			print_MAC(ap->mac_dst);
--			printk(" ARP IP DST=%pI4", ap->ip_dst);
-+			printk(" ARP MAC SRC=%pM ARP IP SRC=%pI4 ARP MAC DST=%pM ARP IP DST=%pI4",
-+					ap->mac_src, ap->ip_src, ap->mac_dst, ap->ip_dst);
- 		}
- 	}
- out:
--- 
-1.6.0.4
+What do you call 20-50% packet loss ?
+(Losses to icmp flood itself, or tcp losses ?
+Is the machine answering to icmp flood, or is it the origin ?
 
+Are you saying packet loss was not occurring with 2.6.30 ?
+
+Could you describe your methodology ?
+
+You could give us results of "cat /proc/interrupts" from both
+versions, because it sounds as an interrupt affinity problem.
+
+# cat /proc/interrupts
+# tc -s -d qdisc
+# ifconfig -a
