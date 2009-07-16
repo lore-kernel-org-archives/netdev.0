@@ -1,37 +1,28 @@
-From: Trilok Soni <soni.trilok@gmail.com>
-Subject: Re: [PATCH] Add mac resource support for w90p910
-Date: Thu, 16 Jul 2009 18:39:52 +0530
-Message-ID: <5d5443650907160609j742c407dpffaf818e5552a7e1@mail.gmail.com>
-References: <4A5F21E2.90307@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/8] gianfar: Remove unused DECLARE_MAC_BUF
+Date: Thu, 16 Jul 2009 06:16:27 -0700 (PDT)
+Message-ID: <20090716.061627.193734311.davem@davemloft.net>
+References: <1247734285-20648-1-git-send-email-klto@zhaw.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
-	Russell King <linux@arm.linux.org.uk>,
-	"Eric.miao" <eric.y.miao@gmail.com>
-To: Wan ZongShun <mcuos.com@gmail.com>
+Cc: afleming@freescale.com, galak@kernel.crashing.org,
+	netdev@vger.kernel.org
+To: klto@zhaw.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f192.google.com ([209.85.221.192]:62432 "EHLO
-	mail-qy0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755860AbZGPNJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 09:09:55 -0400
-Received: by qyk30 with SMTP id 30so65659qyk.33
-        for <netdev@vger.kernel.org>; Thu, 16 Jul 2009 06:09:52 -0700 (PDT)
-In-Reply-To: <4A5F21E2.90307@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60478
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755993AbZGPNQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 09:16:23 -0400
+In-Reply-To: <1247734285-20648-1-git-send-email-klto@zhaw.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Wan,
+From: Tobias Klauser <klto@zhaw.ch>
+Date: Thu, 16 Jul 2009 10:51:25 +0200
 
-On Thu, Jul 16, 2009 at 6:19 PM, Wan ZongShun<mcuos.com@gmail.com> wrote:
-> +
-> +struct platform_device w90p910_device_emc = {
+> Is not needed anymore because of the %pM printk conversion specifier.
+> 
+> Signed-off-by: Tobias Klauser <klto@zhaw.ch>
 
-static?
-
--- 
----Trilok Soni
-http://triloksoni.wordpress.com
-http://www.linkedin.com/in/triloksoni
+I already applied the same fix from Johannes yesterday.
