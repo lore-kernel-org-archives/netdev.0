@@ -1,36 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
-Date: Thu, 16 Jul 2009 13:07:26 -0700 (PDT)
-Message-ID: <20090716.130726.220404456.davem@davemloft.net>
-References: <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
-	<1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
-	<1247763454.4549.56.camel@violet>
+From: Gregory Carter <gcarter@aesgi.com>
+Subject: Re: TESTING ROUTING CODE !!
+Date: Thu, 16 Jul 2009 14:16:07 -0500
+Message-ID: <4A5F7C77.3090806@aesgi.com>
+References: <e49baca60907161039s7ceb493bje3b1a5c943ce5f33@mail.gmail.com>	 <A66C29B8-4F62-4180-8D93-DF3A46F77D5D@gmail.com>	 <e49baca60907161113s411e7d4ck472a9141881f56a1@mail.gmail.com> <f284c33d0907161134q20d01fc2wf63f484b63bb52d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tomasw@gmail.com, yi.zhu@intel.com, drzeus-list@drzeus.cx,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: marcel@holtmann.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933247AbZGPUHY@vger.kernel.org>
-In-Reply-To: <1247763454.4549.56.camel@violet>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Leena M." <kernmonk@gmail.com>, Kent Tu <kachin2@gmail.com>,
+	"kernelnewbies@nl.linux.org" <kernelnewbies@nl.linux.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mulyadi Santosa <mulyadi.santosa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.aesgi.com ([207.234.130.182]:60509 "EHLO brahe.aesgi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933223AbZGPUNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jul 2009 16:13:25 -0400
+In-Reply-To: <f284c33d0907161134q20d01fc2wf63f484b63bb52d@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Thu, 16 Jul 2009 18:57:34 +0200
+I am currently using KVM.
 
-> Hi Dave,
-> 
->> > > Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
->> >
->> > BTW, subject should be "iwmc3200".
->> 
->> Thanks. I'll address all comments although I'm not sure how to split
->> the patch since adding SDIO_VENDOR_ID_INTEL to sdio_ids.h it affects
->> all the drivers anyhow, so I'm suggesting to route it through netdev.
-> 
-> I think it is best that you take the whole patch via net-next-2.6 to
-> avoid breakage during the next merge window.
+Works very well for creating virtual networks, and testing iptable and 
+marking of packets for different routing code tests.
 
-Fair enough.
+I use KVM because it keeps all of the machines seperate, and of course, 
+some of my machines are BSD.
+
+So if you have different code bases you want to try your modifications 
+with, KVM is a good choice IMHO.
+
+-Gregory Carter
+-Applied Engineering Software Group
+-gcarter@aesgi.com
+
+On 07/16/2009 01:34 PM, Mulyadi Santosa wrote:
+> On Fri, Jul 17, 2009 at 1:13 AM, Leena M.<kernmonk@gmail.com>  wrote:
+>> Any specific VM do you recommend , How about Xen ?
+>>
+>> Regards,
+>> Leena
+>
+> Please don't top post...
+>
+> Since you talked about routing protocol, I think User Mode Linux would
+> do just fine. It runs completely in user space and can be easily
+> hooked with gdb.
+>
+>
+
