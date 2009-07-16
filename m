@@ -1,42 +1,29 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: Avoid races in sky2_down
-Date: Thu, 16 Jul 2009 16:21:40 -0700
-Message-ID: <20090716162140.20fcb1c5@nehalam>
-References: <392fb48f0906200102k57f7964ah9f74c2cf40ea64b0@mail.gmail.com>
-	<20090707181807.5b69a926@nehalam>
-	<392fb48f0907072016i14cd650fv3524b345c79e498d@mail.gmail.com>
-	<392fb48f0907112228v52624339x4f6c418ed0ee07a5@mail.gmail.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Bad sky2 interrupt handling?
+Date: Thu, 16 Jul 2009 16:25:52 -0700
+Message-ID: <20090716162552.7f7b3031@jbarnes-g45>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:56350 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933571AbZGPXWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 19:22:04 -0400
-In-Reply-To: <392fb48f0907112228v52624339x4f6c418ed0ee07a5@mail.gmail.com>
+Received: from outbound-mail-148.bluehost.com ([67.222.38.38]:54487 "HELO
+	outbound-mail-148.bluehost.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933574AbZGPXce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 19:32:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 12 Jul 2009 14:28:04 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+I was debugging what I thought was a graphics driver problem today (some
+page flipping code I'm working on was only flipping at about 10Hz
+rather than ~60Hz) but it appears it's actually due to a bad
+interaction with the Marvell 88E8036 controller on this machine.
 
-> Hi Stephen,
-> 
-> Resending with sign off. (You may have this in your tree already, but
-> just in case...)
-> I ran some overnight tests with this patch in, and my machine manages
-> to stay up all night, where it crashed within minutes before.
-> 
-> Mike
-> 
-> ---
-> 
-> Reset rx chain before trying to drain it.
-> Shut interrupts off last, incase there's something to report.
-> 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+MSI fails on this box (haven't looked too much at why yet), so the i915
+driver shares an interrupt with USB, firewire, sdhci and the NIC.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Is sky2 the wrong driver to be using here?  Or is there some way of
+reducing its overhead when (presumably) it doesn't have anything to do?
+
+-- 
+Jesse Barnes, Intel Open Source Technology Center
