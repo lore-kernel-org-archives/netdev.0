@@ -1,30 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ixgbe: schedule while atomic bug during dev_disable_lro
- 2.6.31-rc3
-Date: Thu, 16 Jul 2009 13:17:29 -0700 (PDT)
-Message-ID: <20090716.131729.148777441.davem@davemloft.net>
-References: <4A5E5F8A.308@candelatech.com>
-	<Pine.WNT.4.64.0907161206260.5316@ppwaskie-MOBL2.amr.corp.intel.com>
-	<4A5F8062.6090009@candelatech.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 7/8] rt2x00: Use %pM conversion specifier
+Date: Thu, 16 Jul 2009 22:27:30 +0200
+Message-ID: <200907162227.30362.IvDoorn@gmail.com>
+References: <1247734839-21394-1-git-send-email-klto@zhaw.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com
+To: Tobias Klauser <klto@zhaw.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44523
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933261AbZGPURY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 16:17:24 -0400
-In-Reply-To: <4A5F8062.6090009@candelatech.com>
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:51648 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932834AbZGPU1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 16:27:35 -0400
+In-Reply-To: <1247734839-21394-1-git-send-email-klto@zhaw.ch>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 16 Jul 2009 12:32:50 -0700
+On Thursday 16 July 2009, Tobias Klauser wrote:
+> Use the %pM conversion specifier for printk instead of print_mac.
+> 
+> Signed-off-by: Tobias Klauser <klto@zhaw.ch>
 
-> I believe the trigger for this is my script that enables ip_forward.
-> I'm not twiddling LRO settings directly as far as I can tell.
+Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-Turning on/off bridging or forwarding twiddles the LRO settings
-as a side effect.
+> ---
+>  drivers/net/wireless/rt2x00/rt2800usb.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
+> index 3756166..da84afb 100644
+> --- a/drivers/net/wireless/rt2x00/rt2800usb.c
+> +++ b/drivers/net/wireless/rt2x00/rt2800usb.c
+> @@ -2224,10 +2224,8 @@ static int rt2800usb_validate_eeprom(struct rt2x00_dev *rt2x00dev)
+>  	 */
+>  	mac = rt2x00_eeprom_addr(rt2x00dev, EEPROM_MAC_ADDR_0);
+>  	if (!is_valid_ether_addr(mac)) {
+> -		DECLARE_MAC_BUF(macbuf);
+> -
+>  		random_ether_addr(mac);
+> -		EEPROM(rt2x00dev, "MAC: %s\n", print_mac(macbuf, mac));
+> +		EEPROM(rt2x00dev, "MAC: %pM\n", mac);
+>  	}
+>  
+>  	rt2x00_eeprom_read(rt2x00dev, EEPROM_ANTENNA, &word);
+
+
