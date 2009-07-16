@@ -1,38 +1,44 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: Re: [PATCH 2/8] ar9170: Remove unused DECLARE_MAC_BUF
-Date: Thu, 16 Jul 2009 09:39:15 -0700
-Message-ID: <43e72e890907160939m1b1a90c5ye1a1d27be1843714@mail.gmail.com>
-References: <1247734381-20718-1-git-send-email-klto@zhaw.ch>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+Date: Thu, 16 Jul 2009 18:57:34 +0200
+Message-ID: <1247763454.4549.56.camel@violet>
+References: <1247522953-12702-1-git-send-email-tomas.winkler@intel.com>
+	 <AFAB8585072C7E48BC5C6F9C87F9B79703BA8388BB@pdsmsx502.ccr.corp.intel.com>
+	 <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
+	 <1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: chunkeey@web.de, linville@tuxdriver.com, johannes@sipsolutions.net,
-	yi.zhu@intel.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tobias Klauser <klto@zhaw.ch>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Zhu, Yi" <yi.zhu@intel.com>,
+	"drzeus-list@drzeus.cx" <drzeus-list@drzeus.cx>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Tomas Winkler <tomasw@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:46701 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932549AbZGPQjg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 12:39:36 -0400
-In-Reply-To: <1247734381-20718-1-git-send-email-klto@zhaw.ch>
+Received: from senator.holtmann.net ([87.106.208.187]:55258 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932584AbZGPQ5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 12:57:49 -0400
+In-Reply-To: <1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 16, 2009 at 1:53 AM, Tobias Klauser<klto@zhaw.ch> wrote:
-> Is not needed anymore because of the %pM printk conversion specifier.
->
-> Signed-off-by: Tobias Klauser <klto@zhaw.ch>
-> ---
-> =C2=A0drivers/net/wireless/ath/ar9170/main.c | =C2=A0 =C2=A01 -
-> =C2=A01 files changed, 0 insertions(+), 1 deletions(-)
+Hi Dave,
 
-This is already patched by Johannes through the patch titled:
+> > > Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+> >
+> > BTW, subject should be "iwmc3200".
+> 
+> Thanks. I'll address all comments although I'm not sure how to split
+> the patch since adding SDIO_VENDOR_ID_INTEL to sdio_ids.h it affects
+> all the drivers anyhow, so I'm suggesting to route it through netdev.
 
-[PATCH] wireless: remove print_mac uses
+I think it is best that you take the whole patch via net-next-2.6 to
+avoid breakage during the next merge window.
 
-Please see and resubmit if there is anything missing:
+Regards
 
-http://marc.info/?l=3Dlinux-wireless&m=3D124767211929848&w=3D2
+Marcel
 
- Luis
+
