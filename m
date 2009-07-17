@@ -1,74 +1,112 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 3/3] netxen: fix thermal check and shutdown
-Date: Fri, 17 Jul 2009 18:27:08 -0700
-Message-ID: <1247880428-4895-4-git-send-email-dhananjay@netxen.com>
-References: <1247880428-4895-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [PATCH 12/15] RDS/IB: Always use PAGE_SIZE for FMR page size
+Date: Fri, 17 Jul 2009 16:13:33 -0700
+Message-ID: <1247872416-17834-13-git-send-email-andy.grover@oracle.com>
+References: <1247872416-17834-1-git-send-email-andy.grover@oracle.com>
+Cc: rds-devel@oss.oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:44295 "EHLO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754326AbZGRB1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jul 2009 21:27:10 -0400
-In-Reply-To: <1247880428-4895-1-git-send-email-dhananjay@netxen.com>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:47252 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756971AbZGRCpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 22:45:17 -0400
+Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
+	by rgminet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n6I2kqm7023603
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Sat, 18 Jul 2009 02:46:54 GMT
+In-Reply-To: <1247872416-17834-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check temperature for all PCI functions, that can allow
-graceful shutdown of all interfaces on the overheated card.
+While FMRs allow significant flexibility in what size of pages they can use,
+we really just want FMR pages to match CPU page size. Roland says we can
+count on this always being supported, so this simplifies things.
 
-Old code was only monitoring temperature for function 0 only.
-
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Andy Grover <andy.grover@oracle.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ net/rds/ib.c      |    3 ---
+ net/rds/ib.h      |    3 ---
+ net/rds/ib_rdma.c |   12 ++++++------
+ 3 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 370c52f..637ac8b 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1535,10 +1535,12 @@ static int netxen_nic_check_temp(struct netxen_adapter *adapter)
- 		printk(KERN_ALERT
- 		       "%s: Device temperature %d degrees C exceeds"
- 		       " maximum allowed. Hardware has been shut down.\n",
--		       netxen_nic_driver_name, temp_val);
-+		       netdev->name, temp_val);
-+
-+		netif_device_detach(netdev);
-+		netxen_nic_down(adapter, netdev);
-+		netxen_nic_detach(adapter);
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 27abdd3..868559a 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -85,9 +85,6 @@ void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_wrs = dev_attr->max_qp_wr;
+ 	rds_ibdev->max_sge = min(dev_attr->max_sge, RDS_IB_MAX_SGE);
  
--		netif_carrier_off(netdev);
--		netif_stop_queue(netdev);
- 		rv = 1;
- 	} else if (temp_state == NX_TEMP_WARN) {
- 		if (adapter->temp == NX_TEMP_NORMAL) {
-@@ -1546,13 +1548,13 @@ static int netxen_nic_check_temp(struct netxen_adapter *adapter)
- 			       "%s: Device temperature %d degrees C "
- 			       "exceeds operating range."
- 			       " Immediate action needed.\n",
--			       netxen_nic_driver_name, temp_val);
-+			       netdev->name, temp_val);
+-	rds_ibdev->fmr_page_shift = max(9, ffs(dev_attr->page_size_cap) - 1);
+-	rds_ibdev->fmr_page_size  = 1 << rds_ibdev->fmr_page_shift;
+-	rds_ibdev->fmr_page_mask  = ~((u64) rds_ibdev->fmr_page_size - 1);
+ 	rds_ibdev->fmr_max_remaps = dev_attr->max_map_per_fmr?: 32;
+ 	rds_ibdev->max_fmrs = dev_attr->max_fmr ?
+ 			min_t(unsigned int, dev_attr->max_fmr, fmr_pool_size) :
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index c0de7af..1378b85 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -159,9 +159,6 @@ struct rds_ib_device {
+ 	struct ib_pd		*pd;
+ 	struct ib_mr		*mr;
+ 	struct rds_ib_mr_pool	*mr_pool;
+-	int			fmr_page_shift;
+-	int			fmr_page_size;
+-	u64			fmr_page_mask;
+ 	unsigned int		fmr_max_remaps;
+ 	unsigned int		max_fmrs;
+ 	int			max_sge;
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 81033af..ef3ab5b 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -211,7 +211,7 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev)
+ 
+ 	pool->fmr_attr.max_pages = fmr_message_size;
+ 	pool->fmr_attr.max_maps = rds_ibdev->fmr_max_remaps;
+-	pool->fmr_attr.page_shift = rds_ibdev->fmr_page_shift;
++	pool->fmr_attr.page_shift = PAGE_SHIFT;
+ 	pool->max_free_pinned = rds_ibdev->max_fmrs * fmr_message_size / 4;
+ 
+ 	/* We never allow more than max_items MRs to be allocated.
+@@ -349,13 +349,13 @@ static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibm
+ 		unsigned int dma_len = ib_sg_dma_len(dev, &scat[i]);
+ 		u64 dma_addr = ib_sg_dma_address(dev, &scat[i]);
+ 
+-		if (dma_addr & ~rds_ibdev->fmr_page_mask) {
++		if (dma_addr & ~PAGE_MASK) {
+ 			if (i > 0)
+ 				return -EINVAL;
+ 			else
+ 				++page_cnt;
  		}
- 	} else {
- 		if (adapter->temp == NX_TEMP_WARN) {
- 			printk(KERN_INFO
- 			       "%s: Device temperature is now %d degrees C"
--			       " in normal range.\n", netxen_nic_driver_name,
-+			       " in normal range.\n", netdev->name,
- 			       temp_val);
- 		}
+-		if ((dma_addr + dma_len) & ~rds_ibdev->fmr_page_mask) {
++		if ((dma_addr + dma_len) & ~PAGE_MASK) {
+ 			if (i < sg_dma_len - 1)
+ 				return -EINVAL;
+ 			else
+@@ -365,7 +365,7 @@ static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibm
+ 		len += dma_len;
  	}
-@@ -1625,7 +1627,7 @@ void netxen_watchdog_task(struct work_struct *work)
- 	struct netxen_adapter *adapter =
- 		container_of(work, struct netxen_adapter, watchdog_task);
  
--	if ((adapter->portnum  == 0) && netxen_nic_check_temp(adapter))
-+	if (netxen_nic_check_temp(adapter))
- 		return;
+-	page_cnt += len >> rds_ibdev->fmr_page_shift;
++	page_cnt += len >> PAGE_SHIFT;
+ 	if (page_cnt > fmr_message_size)
+ 		return -EINVAL;
  
- 	if (!adapter->has_link_events)
+@@ -378,9 +378,9 @@ static int rds_ib_map_fmr(struct rds_ib_device *rds_ibdev, struct rds_ib_mr *ibm
+ 		unsigned int dma_len = ib_sg_dma_len(dev, &scat[i]);
+ 		u64 dma_addr = ib_sg_dma_address(dev, &scat[i]);
+ 
+-		for (j = 0; j < dma_len; j += rds_ibdev->fmr_page_size)
++		for (j = 0; j < dma_len; j += PAGE_SIZE)
+ 			dma_pages[page_cnt++] =
+-				(dma_addr & rds_ibdev->fmr_page_mask) + j;
++				(dma_addr & PAGE_MASK) + j;
+ 	}
+ 
+ 	ret = ib_map_phys_fmr(ibmr->fmr,
 -- 
-1.6.0.2
+1.6.0.4
 
