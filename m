@@ -1,75 +1,172 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 11/15] RDS: Fix completion notifications on blocking sockets
-Date: Fri, 17 Jul 2009 16:13:32 -0700
-Message-ID: <1247872416-17834-12-git-send-email-andy.grover@oracle.com>
-References: <1247872416-17834-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet11.oracle.com ([148.87.113.123]:17730 "EHLO
-	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758030AbZGQXOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 19:14:08 -0400
-Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
-	by rgminet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n6HNFhQG022716
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 23:15:44 GMT
-In-Reply-To: <1247872416-17834-1-git-send-email-andy.grover@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [2.6.30.1] Significant latency playing video file from NFS4 share
+Date: Sat, 18 Jul 2009 01:31:11 +0200
+Message-ID: <200907180131.12586.elendil@planet.nl>
+References: <200907172250.51504.elendil@planet.nl> <1247871086.4945.38.camel@heimdal.trondhjem.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1247871086.4945.38.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Completion or congestion notifications were not being checked
-if the socket went to sleep. This patch fixes that.
+Thanks for the quick response!
 
-Signed-off-by: Andy Grover <andy.grover@oracle.com>
----
- net/rds/recv.c |   24 +++++++++++++-----------
- 1 files changed, 13 insertions(+), 11 deletions(-)
+On Saturday 18 July 2009, Trond Myklebust wrote:
+> Have you tried running nfs-iostat from the nfs-utils package to try and
+> figure out what the latency is on each READ request from the client?
+>
+> You need to run something like
+>
+>     nfs-iostat --page 20 10 /src/<mountpoint>
+>
+> while running the vlc app.
 
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index f2118c5..86bc1a0 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -409,18 +409,18 @@ int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 	if (msg_flags & MSG_OOB)
- 		goto out;
- 
--	/* If there are pending notifications, do those - and nothing else */
--	if (!list_empty(&rs->rs_notify_queue)) {
--		ret = rds_notify_queue_get(rs, msg);
--		goto out;
--	}
-+	while (1) {
-+		/* If there are pending notifications, do those - and nothing else */
-+		if (!list_empty(&rs->rs_notify_queue)) {
-+			ret = rds_notify_queue_get(rs, msg);
-+			break;
-+		}
- 
--	if (rs->rs_cong_notify) {
--		ret = rds_notify_cong(rs, msg);
--		goto out;
--	}
-+		if (rs->rs_cong_notify) {
-+			ret = rds_notify_cong(rs, msg);
-+			break;
-+		}
- 
--	while (1) {
- 		if (!rds_next_incoming(rs, &inc)) {
- 			if (nonblock) {
- 				ret = -EAGAIN;
-@@ -428,7 +428,9 @@ int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 			}
- 
- 			timeo = wait_event_interruptible_timeout(*sk->sk_sleep,
--						rds_next_incoming(rs, &inc),
-+						(!list_empty(&rs->rs_notify_queue)
-+						|| rs->rs_cong_notify
-+						|| rds_next_incoming(rs, &inc)),
- 						timeo);
- 			rdsdebug("recvmsg woke inc %p timeo %ld\n", inc,
- 				 timeo);
--- 
-1.6.0.4
+$ ../nfs-iostat.py --page 20 10 /srv/fjp/david
 
+Note:
+The mount point selection could be improved. I first had a trailing slash
+after the mount point and that resulted in all mounts being included in the
+output. Removing the slash helped.
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.65            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.406         101.661         250.613        0 (0.0%)         1211.745        1222.640
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+13 nfs_readpage() calls read 13 pages
+1417 nfs_readpages() calls read 971428 pages (685.6 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+18760 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.25            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.100           0.426           4.262        0 (0.0%)           6.000           6.000
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+2 nfs_readpages() calls read 2 pages (1.0 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.80            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.750         192.196         256.262        0 (0.0%)         1998.933        1999.200
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+1 nfs_readpages() calls read 960 pages (960.0 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.00            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+0 nfs_readpages() calls read 0 pages
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.85            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.750         192.196         256.262        0 (0.0%)         1927.467        1927.467
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+1 nfs_readpages() calls read 960 pages (960.0 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.00            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+0 nfs_readpages() calls read 0 pages
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.85            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.750         192.196         256.262        0 (0.0%)         1930.933        1931.467
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+1 nfs_readpages() calls read 960 pages (960.0 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+5 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+elrond:/david mounted on /srv/fjp/david:
+
+   op/s         rpc bklog
+   0.15            0.00
+read:             ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.100           0.426           4.262        0 (0.0%)           6.000           6.000
+write:            ops/s            kB/s           kB/op         retrans         avg RTT (ms)    avg exe (ms)
+                  0.000           0.000           0.000        0 (0.0%)           0.000           0.000
+
+0 nfs_readpage() calls read 0 pages
+2 nfs_readpages() calls read 2 pages (1.0 pages per call)
+
+0 nfs_updatepage() calls
+0 nfs_writepage() calls wrote 0 pages
+6 nfs_writepages() calls wrote 0 pages (0.0 pages per call)
+
+Cheers,
+FJP
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
