@@ -1,50 +1,210 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2] Receive Packet Steering
-Date: Fri, 17 Jul 2009 12:59:31 -0700
-Message-ID: <65634d660907171259l2a3a31fel549176274201bd66@mail.gmail.com>
-References: <65634d660907141628g671812f9t4219cc8b6a493425@mail.gmail.com>
-	 <20090716.194846.58845712.davem@davemloft.net>
-	 <65634d660907171105s4989758ah533203d107924b6a@mail.gmail.com>
-	 <20090717.110840.128146209.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Achieved 10Gbit/s bidirectional routing
+Date: Fri, 17 Jul 2009 22:35:46 +0200
+Message-ID: <20090717203546.GA31259@1wt.eu>
+References: <1247676631.30876.29.camel@localhost.localdomain> <20090715232253.91d9f264.billfink@mindspring.com> <1247737144.30876.53.camel@localhost.localdomain> <20090716113827.19fbb379.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	jesse.brandeburg@intel.com,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.33.17]:19100 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126AbZGQT7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 15:59:36 -0400
-Received: from spaceape13.eur.corp.google.com (spaceape13.eur.corp.google.com [172.28.16.147])
-	by smtp-out.google.com with ESMTP id n6HJxYBr018483
-	for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 20:59:34 +0100
-Received: from qw-out-1920.google.com (qwf5.prod.google.com [10.241.194.69])
-	by spaceape13.eur.corp.google.com with ESMTP id n6HJxV2Y018109
-	for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 12:59:32 -0700
-Received: by qw-out-1920.google.com with SMTP id 5so408894qwf.50
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 12:59:31 -0700 (PDT)
-In-Reply-To: <20090717.110840.128146209.davem@davemloft.net>
+Received: from 1wt.eu ([62.212.114.60]:33504 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753198AbZGQUgF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jul 2009 16:36:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20090716113827.19fbb379.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2009 at 11:08 AM, David Miller<davem@davemloft.net> wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Fri, 17 Jul 2009 11:05:58 -0700
->
->> The advantage is that Toeplitz, or any reasonable device provided
->> hash, allows packet steering to be done without taking any cache
->> misses on the packet itself.  In particular, this helps with a NIC
->> that just provides Toeplitz hash (without multiQ),
->
-> Good point.
->
-> Depending upon the cache line size, however, we might have
-> at least the IP header in the cpu cache at this point since
-> eth_type_trans() had to pull in the entire ethernet header
-> underneath.
->
+On Thu, Jul 16, 2009 at 11:38:27AM -0400, Bill Fink wrote:
+> On Thu, 16 Jul 2009, Jesper Dangaard Brouer wrote:
+> 
+> > On Wed, 2009-07-15 at 23:22 -0400, Bill Fink wrote:
+> > > On Wed, 15 Jul 2009, Jesper Dangaard Brouer wrote:
+> > > 
+> > > > I'm giving a talk at LinuxCon, about 10Gbit/s routing on standard
+> > > > hardware running Linux.
+> > > > 
+> > > >   http://linuxcon.linuxfoundation.org/meetings/1585
+> > > >   https://events.linuxfoundation.org/lc09o17
+> > > > 
+> > > > I'm getting some really good 10Gbit/s bidirectional routing results
+> > > > with Intels latest 82599 chip. (I got two pre-release engineering
+> > > > samples directly from Intel, thanks Peter)
+> > > > 
+> > > > Using a Core i7-920, and tuning the memory according to the RAMs
+> > > > X.M.P. settings DDR3-1600MHz, notice this also increases the QPI to
+> > > > 6.4GT/s.  (Motherboard P6T6 WS revolution)
+> > > > 
+> > > > With big 1514 bytes packets, I can basically do 10Gbit/s wirespeed
+> > > > bidirectional routing.
+> > > > 
+> > > > Notice bidirectional routing means that we actually has to move approx
+> > > > 40Gbit/s through memory and in-and-out of the interfaces.
+> > > > 
+> > > > Formatted quick view using 'ifstat -b'
+> > > > 
+> > > >   eth31-in   eth31-out   eth32-in  eth32-out
+> > > >     9.57  +    9.52  +     9.51 +     9.60  = 38.20 Gbit/s
+> > > >     9.60  +    9.55  +     9.52 +     9.62  = 38.29 Gbit/s
+> > > >     9.61  +    9.53  +     9.52 +     9.62  = 38.28 Gbit/s
+> > > >     9.61  +    9.53  +     9.54 +     9.62  = 38.30 Gbit/s
+> > > > 
+> > > > [Adding an extra NIC]
+> > > > 
+> > > > Another observation is that I'm hitting some kind of bottleneck on the
+> > > > PCI-express switch.  Adding an extra NIC in a PCIe slot connected to
+> > > > the same PCIe switch, does not scale beyond 40Gbit/s collective
+> > > > throughput.
+> > 
+> > Correcting my self, according to Bill's info below.
+> > 
+> > It does not scale when adding an extra NIC to the same NVIDIA NF200 PCIe
+> > switch chip (reason explained below by Bill)
+> > 
+> >  
+> > > > But, I happened to have a special motherboard ASUS P6T6 WS revolution,
+> > > > which has an additional PCIe switch chip NVIDIA's NF200.
+> > > > 
+> > > > Connecting two dual port 10GbE NICs via two different PCI-express
+> > > > switch chips, makes things scale again!  I have achieved a collective
+> > > > throughput of 66.25 Gbit/s.  This results is also influenced by my
+> > > > pktgen machines cannot keep up, and I'm getting closer to the memory
+> > > > bandwidth limits.
+> > > > 
+> > > > FYI: I found a really good reference explaining the PCI-express
+> > > > architecture, written by Intel:
+> > > > 
+> > > >  http://download.intel.com/design/intarch/papers/321071.pdf
+> > > > 
+> > > > I'm not sure how to explain the PCI-express chip bottleneck I'm
+> > > > seeing, but my guess is that I'm limited by the number of outstanding
+> > > > packets/DMA-transfers and the latency for the DMA operations.
+> > > > 
+> > > > Does any one have datasheets on the X58 and NVIDIA's NF200 PCI-express
+> > > > chips, that can tell me the number of outstanding transfers they
+> > > > support?
+> > > 
+> > > We've achieved 70 Gbps aggregate unidirectional TCP performance from
+> > > one P6T6 based system to another.  We figured out in our case that
+> > > we were being limited by the interconnect between the Intel X58 and
+> > > Nvidia N200 chips.  The first 2 PCIe 2.0 slots are directly off the
+> > > Intel X58 and get the full 40 Gbps throughput from the dual-port
+> > > Myricom 10-GigE NICs we have installed in them.  But the other
+> > > 3 PCIe 2.0 slots are on the Nvidia N200 chip, and I discovered
+> > > through googling that the link between the X58 and N200 chips
+> > > only operates at PCIe x16 _1.0_ speed, which limits the possible
+> > > aggregate throughput of the last 3 PCIe 2.0 slots to only 32 Gbps.
+> > 
+> > This definitly explains the bottlenecks I have seen! Thanks!
+> > 
+> > Yes, it seems to scale when installing the two NICs in the first two
+> > slots, both connected to the X58.  If overclocking the RAM and CPU a
+> > bit, I can match my pktgen machines speed which gives a collective
+> > throughput of 67.95 Gbit/s.
+> > 
+> >    eth33          eth34          eth31         eth32
+> >  in     out     in     out     in    out     in    out 
+> > 7.54 + 9.58  + 9.56 + 7.56  + 7.33 + 9.53 + 9.50 + 7.35  = 67.95 Gbit/s
+> > 
+> > Now I just need a faster generator machine, to find the next bottleneck ;-)
+> > 
+> > 
+> > > This was clearly seen in our nuttcp testing:
+> > > 
+> > > [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -xc3/3 -p5008 192.168.8.11
+> > > n2: 11505.2648 MB /  10.09 sec = 9566.2298 Mbps 37 %TX 55 %RX 0 retrans 0.10 msRTT
+> > > n3: 11727.4489 MB /  10.02 sec = 9815.7570 Mbps 39 %TX 44 %RX 0 retrans 0.10 msRTT
+> > > n4: 11770.1250 MB /  10.07 sec = 9803.9901 Mbps 39 %TX 51 %RX 0 retrans 0.10 msRTT
+> > > n5: 11837.9320 MB /  10.05 sec = 9876.5725 Mbps 39 %TX 47 %RX 0 retrans 0.10 msRTT
+> > > n6:  9096.8125 MB /  10.09 sec = 7559.3310 Mbps 30 %TX 32 %RX 0 retrans 0.10 msRTT
+> > > n7:  9100.1211 MB /  10.10 sec = 7559.7790 Mbps 30 %TX 44 %RX 0 retrans 0.10 msRTT
+> > > n8:  9095.6179 MB /  10.10 sec = 7557.9983 Mbps 31 %TX 33 %RX 0 retrans 0.10 msRTT
+> > > n9:  9075.5472 MB /  10.08 sec = 7551.0234 Mbps 31 %TX 33 %RX 0 retrans 0.11 msRTT
+> > > 
+> > > This used 4 dual-port Myricom 10-GigE NICs.  We also tested with
+> > > a fifth dual-port 10-GigE NIC, but the aggregate throughput stayed
+> > > at about 70 Gbps, due to the performance bottleneck between the
+> > > X58 and N200 chips.
+> > 
+> > This is also very excellent results!
+> > 
+> > Thanks a lot Bill !!!
+> 
+> We also achieved nearly 80 Gbps in bidirectional TCP tests (40 Gbps
+> simultaneously in each direction):
+> 
+> [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -r -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -r -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -r -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -r -xc3/3 -p5008 192.168.8.11                                    
+> n2: 11542.6250 MB /  10.07 sec = 9619.9920 Mbps 44 %TX 51 %RX 0 retrans 0.12 msRTT                                                                      
+> n3: 11543.7143 MB /  10.06 sec = 9622.2153 Mbps 41 %TX 49 %RX 0 retrans 0.15 msRTT                                                   
+> n4: 11622.8125 MB /  10.05 sec = 9701.0296 Mbps 43 %TX 51 %RX 0 retrans 0.10 msRTT                                                                      
+> n5: 11523.6875 MB /  10.03 sec = 9638.8883 Mbps 43 %TX 50 %RX 0 retrans 0.15 msRTT                                                                      
+> n6: 11608.0141 MB /  10.04 sec = 9695.7388 Mbps 43 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
+> n7: 11580.1250 MB /  10.04 sec = 9679.3910 Mbps 43 %TX 50 %RX 0 retrans 0.13 msRTT                                                                      
+> n8: 11608.0000 MB /  10.06 sec = 9678.7596 Mbps 42 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
+> n9: 11553.3750 MB /  10.05 sec = 9643.7296 Mbps 45 %TX 50 %RX 0 retrans 0.11 msRTT                                                                      
+> 
+> This was using 2 dual-port 10-GigE NICs in the first two PCIe 2.0 slots.
+> We are using an Intel i7 965 quad-core 3.2 GHz Nehalem processor
+> (overclocked to 3.4 GHz) and 2000 MHz DDR3 memory.  Adding an additional
+> dual-port 10-GigE NIC on the Nvidia N200 chip does only marginally
+> better, as it appears we are basically CPU limited at this point for
+> this test (the sum of the TX and RX CPU utilization for each pair of
+> 10-GigE interfaces is about 93%).
 
-eth_type_trans does not need to even be called assuming that the
-packet type information can be inferred from the RX descriptor.  We
-are doing steering completely based on contents of the RX descriptor.
+Hey guys, those are really nice numbers. Since TCP splicing appeared in the
+kernel (once we got it fixed), I achieved 10 Gbps of HTTP proxying using
+haproxy with very low CPU usage (about 20% of a Core2Duo 2.66 GHz).
+
+Before buying the machines, I had been wandering around with the NICs
+donated by Myricom in order to try to find a machine capable of supporting
+this. My conclusion was that a lot of machines had difficulties getting
+above 3.5, 4.7 and 6.5 Gbps of output traffic (those 3 numbers were always
+the same, depending on the chipsets). There clearly was a bandwidth
+limitation imposed by the chipset.
+
+So I waited for the X38 and AM780FX chipsets to become available and
+bought 3 machines (1 C2D, 1 AMD X2, 1 AMD X4). Those ones have no problem
+with 10 Gbps of forwarded traffic (20 Gbps of total bus bandwidth), even
+with 1500 bytes frames, but I don't know how high they can go, maybe
+they will saturate slightly above.
+
+Unfortunately, I only have 5 NICs in 3 machines and no switch (and CX4
+is hard to find these days), so I'm probably stuck at 10 Gbps max.
+
+Interestingly, I had the impression that forwarding data with TCP
+splicing costs less CPU than IP forwarding, because the NICs can do
+LRO.
+
+Also, I know a french service provider who uses haproxy on Core i7
+machines and who has already reached 5 Gbps of sustained traffic
+with recent intel dual-port NICs (though I'm not sure exactly which
+ones). This is with very little CPU usage too, less than 2-3% user
+and 15% system+softirq. On previous machines (quad core xeons), it
+was impossible to go beyond 3 Gbps, it looked like the chipset was
+the limitating factor too (though I don't precisely remember which
+one it was).
+
+I really blamed the NICs because this guys machine was about 4 times
+more powerful than mine, but apparently it was just a chipset issue.
+
+I also happen to have a customer who recently received a few Sun NXGE,
+mounted in Sun x2100-m2 using an nvidia chipset which I tested OK at
+10 Gbps with my myri10GE NICs. I'll try to see if I can run some tests
+there, as Davem once said those NICs are really good too.
+
+All in all, I find it really cool that our beloved OS scales that
+well with the hardware :-)
+
+Regards,
+Willy
+
