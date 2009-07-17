@@ -1,46 +1,97 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 4/4] ixgbe: Bump version number
-Date: Thu, 16 Jul 2009 18:51:11 -0700
-Message-ID: <20090717015110.24074.85722.stgit@localhost.localdomain>
-References: <20090717014951.24074.75893.stgit@localhost.localdomain>
+From: Wan ZongShun <mcuos.com@gmail.com>
+Subject: Re: [PATCH] Add mac resource support for w90p910
+Date: Fri, 17 Jul 2009 10:01:46 +0800
+Message-ID: <4A5FDB8A.10807@gmail.com>
+References: <4A5F21E2.90307@gmail.com> <5d5443650907160609j742c407dpffaf818e5552a7e1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
+	Russell King <linux@arm.linux.org.uk>,
+	"Eric.miao" <eric.y.miao@gmail.com>
+To: Trilok Soni <soni.trilok@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:34246
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757690AbZGQBv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 21:51:29 -0400
-In-Reply-To: <20090717014951.24074.75893.stgit@localhost.localdomain>
+Received: from wf-out-1314.google.com ([209.85.200.168]:37163 "EHLO
+	wf-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933610AbZGQCB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 22:01:56 -0400
+Received: by wf-out-1314.google.com with SMTP id 26so148692wfd.4
+        for <netdev@vger.kernel.org>; Thu, 16 Jul 2009 19:01:56 -0700 (PDT)
+In-Reply-To: <5d5443650907160609j742c407dpffaf818e5552a7e1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Dear Trilok,
 
-Keep the version number marching along as updates come in.
+Thanks for your reviewing, I fixed up and resubmitted this patch.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+patch text:
+
+Add mac resource support for w90p910 mac driver
+
+Signed-off-by: Wan ZongShun <mcuos.com@gmail.com>
 ---
+ arch/arm/mach-w90x900/mach-w90p910evb.c |   28 ++++++++++++++++++++++++++++
+ 1 files changed, 28 insertions(+), 0 deletions(-)
 
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+diff --git a/arch/arm/mach-w90x900/mach-w90p910evb.c b/arch/arm/mach-w90x900/mach-w90p910evb.c
+index 7a62bd3..3becabb 100644
+--- a/arch/arm/mach-w90x900/mach-w90p910evb.c
++++ b/arch/arm/mach-w90x900/mach-w90p910evb.c
+@@ -228,6 +228,33 @@ struct platform_device w90x900_device_usbgadget = {
+ };
+ EXPORT_SYMBOL(w90x900_device_usbgadget);
+ 
++/* USB mac device */
++
++static struct resource w90x900_emc_resource[] = {
++	[0] = {
++		.start = W90X900_PA_EMC,
++		.end   = W90X900_PA_EMC + W90X900_SZ_EMC - 1,
++		.flags = IORESOURCE_MEM,
++	},
++	[1] = {
++		.start = IRQ_EMCTX,
++		.end   = IRQ_EMCTX,
++		.flags = IORESOURCE_IRQ,
++	},
++	[2] = {
++		.start = IRQ_EMCRX,
++		.end   = IRQ_EMCRX,
++		.flags = IORESOURCE_IRQ,
++	}
++};
++
++static struct platform_device w90p910_device_emc = {
++	.name		= "w90p910-emc",
++	.id		= -1,
++	.num_resources	= ARRAY_SIZE(w90x900_emc_resource),
++	.resource	= w90x900_emc_resource,
++};
++
+ static struct map_desc w90p910_iodesc[] __initdata = {
+ };
+ 
+@@ -242,6 +269,7 @@ static struct platform_device *w90p910evb_dev[] __initdata = {
+ 	&w90x900_device_rtc,
+ 	&w90x900_device_kpi,
+ 	&w90x900_device_usbgadget,
++	&w90p910_device_emc,
+ };
+ 
+ static void __init w90p910evb_map_io(void)
+-- 
+1.5.6.3
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a3bbcfd..79f60e8 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -48,7 +48,7 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
-                               "Intel(R) 10 Gigabit PCI Express Network Driver";
- 
--#define DRV_VERSION "2.0.34-k2"
-+#define DRV_VERSION "2.0.37-k2"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static char ixgbe_copyright[] = "Copyright (c) 1999-2009 Intel Corporation.";
- 
+
+> Hi Wan,
+> 
+> On Thu, Jul 16, 2009 at 6:19 PM, Wan ZongShun<mcuos.com@gmail.com> wrote:
+>> +
+>> +struct platform_device w90p910_device_emc = {
+> 
+> static?
+> 
 
