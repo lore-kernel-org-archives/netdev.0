@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] udp: cleanups
-Date: Fri, 17 Jul 2009 09:48:19 -0700 (PDT)
-Message-ID: <20090717.094819.00490376.davem@davemloft.net>
-References: <4A6051D8.3080804@gmail.com>
+Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
+Date: Fri, 17 Jul 2009 10:03:34 -0700 (PDT)
+Message-ID: <20090717.100334.160030992.davem@davemloft.net>
+References: <20090716111548.GP20288@secunet.com>
+	<20090716111747.GR20288@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53592
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934746AbZGQQsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 12:48:14 -0400
-In-Reply-To: <4A6051D8.3080804@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20090716111747.GR20288@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 17 Jul 2009 12:26:32 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 16 Jul 2009 13:17:47 +0200
 
-> Pure style cleanups.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> +	/* 
+> +	 * head must be a scatterlist with two entries.
+> +	 * We remove a potentially set termination bit
+> +	 * on the first enty.
+> +	 */
+> +	head->page_link &= ~0x02;
+> +
+>  	if (chain) {
+>  		head->length += sg->length;
 
-Applied.
+Isn't there some interface to do this, rather than revealing the
+implementation details of how the scatter list marking works?
+
+If not, such an interface should be created and used here.  Otherwise
+any change in that implementation will break this code.
