@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
-Date: Fri, 17 Jul 2009 10:03:34 -0700 (PDT)
-Message-ID: <20090717.100334.160030992.davem@davemloft.net>
-References: <20090716111548.GP20288@secunet.com>
-	<20090716111747.GR20288@secunet.com>
+Subject: Re: [PATCH] MAINTAINERS entry for STRIP driver
+Date: Fri, 17 Jul 2009 10:07:49 -0700 (PDT)
+Message-ID: <20090717.100749.66195706.davem@davemloft.net>
+References: <20090717144228.GA10838@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20090716111747.GR20288@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ralf@linux-mips.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40338
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933639AbZGQRHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 13:07:45 -0400
+In-Reply-To: <20090717144228.GA10838@linux-mips.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 16 Jul 2009 13:17:47 +0200
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Fri, 17 Jul 2009 15:42:28 +0100
 
-> +	/* 
-> +	 * head must be a scatterlist with two entries.
-> +	 * We remove a potentially set termination bit
-> +	 * on the first enty.
-> +	 */
-> +	head->page_link &= ~0x02;
-> +
->  	if (chain) {
->  		head->length += sg->length;
+> The web server does no longer exist, it's not on archive.org nor does there
+> seem to be any mirror.
 
-Isn't there some interface to do this, rather than revealing the
-implementation details of how the scatter list marking works?
-
-If not, such an interface should be created and used here.  Otherwise
-any change in that implementation will break this code.
+Applied.
