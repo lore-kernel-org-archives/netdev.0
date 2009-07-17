@@ -1,7 +1,7 @@
 From: Wolfgang Denk <wd@denx.de>
-Subject: [PATCH 1/2 v5] fs_enet/mii-fec.c: fix MII speed calculation
-Date: Fri, 17 Jul 2009 14:27:07 +0200
-Message-ID: <1247833628-15952-1-git-send-email-wd@denx.de>
+Subject: [PATCH 2/2 v3] MPC52xx FEC: be more conservative when setting MII_SPEED register
+Date: Fri, 17 Jul 2009 14:27:08 +0200
+Message-ID: <1247833628-15952-2-git-send-email-wd@denx.de>
 References: <1247780546-4426-1-git-send-email-wd@denx.de>
 Cc: Wolfgang Denk <wd@denx.de>,
 	Grant Likely <grant.likely@secretlab.ca>,
@@ -9,71 +9,67 @@ Cc: Wolfgang Denk <wd@denx.de>,
 	<netdev@vger.kernel.org>
 To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:58321 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.10]:50152 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934487AbZGQM1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 08:27:11 -0400
+	with ESMTP id S934466AbZGQM1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 08:27:10 -0400
 In-Reply-To: <1247780546-4426-1-git-send-email-wd@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MII speed calculation was based on the CPU clock (ppc_proc_freq),
-but for MPC512x we must use the bus clock instead.
-
-This patch makes it use the correct clock and makes sure we don't
-clobber reserved bits in the MII_SPEED register.
+This patch adds error checking and prevents clobbering unrelated bits
+(reserved bits or the DIS_PREAMBLE bit) when writing the MII_SPEED
+register on MPC52xx systems.
 
 Signed-off-by: Wolfgang Denk <wd@denx.de>
 Cc: Grant Likely <grant.likely@secretlab.ca>
 Cc: Kumar Gala <galak@kernel.crashing.org>
 Cc: <netdev@vger.kernel.org>
 ---
-v5: - fix divider so we really use 2.5 MHz (instead of 1.25)
-    - use maximum divider in case MPC512x IPS clock is unknown
+v3: - use maximum divider in case MPC512x IPS clock is unknown
 
- drivers/net/fs_enet/mii-fec.c |   37 +++++++++++++++++++++++++++++++++----
- 1 files changed, 33 insertions(+), 4 deletions(-)
+ drivers/net/fec_mpc52xx.c     |    2 +-
+ drivers/net/fec_mpc52xx_phy.c |   23 ++++++++++++++++++++---
+ 2 files changed, 21 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index 75a0999..5176986 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -36,6 +36,7 @@
- #include <asm/pgtable.h>
- #include <asm/irq.h>
- #include <asm/uaccess.h>
-+#include <asm/mpc5xxx.h>
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index cc78633..b69d440 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -639,7 +639,7 @@ static void mpc52xx_fec_hw_init(struct net_device *dev)
+ 	/* set phy speed.
+ 	 * this can't be done in phy driver, since it needs to be called
+ 	 * before fec stuff (even on resume) */
+-	out_be32(&fec->mii_speed, priv->mdio_speed);
++	clrsetbits_be32(&fec->mii_speed, 0x7E, priv->mdio_speed);
+ }
  
- #include "fs_enet.h"
- #include "fec.h"
-@@ -103,11 +104,11 @@ static int fs_enet_fec_mii_reset(struct mii_bus *bus)
- static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
-                                         const struct of_device_id *match)
- {
--	struct device_node *np = NULL;
- 	struct resource res;
- 	struct mii_bus *new_bus;
- 	struct fec_info *fec;
--	int ret = -ENOMEM, i;
-+	int (*get_bus_freq)(struct device_node *) = match->data;
-+	int ret = -ENOMEM, clock, speed;
+ /**
+diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
+index 31e6d62..d3537e1 100644
+--- a/drivers/net/fec_mpc52xx_phy.c
++++ b/drivers/net/fec_mpc52xx_phy.c
+@@ -70,7 +70,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
+ 	struct mpc52xx_fec_mdio_priv *priv;
+ 	struct resource res = {};
+ 	int err;
+-	int i;
++	int i, clock, speed;
  
- 	new_bus = mdiobus_alloc();
- 	if (!new_bus)
-@@ -133,13 +134,35 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
- 	if (!fec->fecp)
- 		goto out_fec;
+ 	bus = mdiobus_alloc();
+ 	if (bus == NULL)
+@@ -105,8 +105,25 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
+ 	dev_set_drvdata(dev, bus);
  
--	fec->mii_speed = ((ppc_proc_freq + 4999999) / 5000000) << 1;
-+	if (get_bus_freq) {
-+		clock = get_bus_freq(ofdev->node);
-+		if (!clock) {
-+	 		/* Use maximum divider if clock is unknown */
-+			dev_warn(&ofdev->dev, "could not determine IPS clock\n");
-+			clock = 0x3F * 5000000;
-+		}
-+	} else
-+		clock = ppc_proc_freq;
+ 	/* set MII speed */
+-	out_be32(&priv->regs->mii_speed,
+-		((mpc5xxx_get_bus_frequency(of->node) >> 20) / 5) << 1);
++	clock = mpc5xxx_get_bus_frequency(of->node);
++	if (!clock) {
++		/* Use maximum divider if clock is unknown */
++		dev_err(&of->dev, "could not determine IPB clock\n");
++		clock = 0x3F * 5000000;
++	}
 +
 +	/*
 +	 * Scale for a MII clock <= 2.5 MHz
@@ -82,35 +78,14 @@ index 75a0999..5176986 100644
 +	speed = (clock + 4999999) / 5000000;
 +	if (speed > 0x3F) {
 +		speed = 0x3F;
-+		dev_err(&ofdev->dev,
-+			"MII clock (%d Hz) exceeds max (2.5 MHz)\n",
++		dev_err(&of->dev, "MII clock (%d Hz) exceeds max (2.5 MHz)\n",
 +			clock / speed);
 +	}
 +
-+	fec->mii_speed = speed << 1;
++	clrsetbits_be32(&priv->regs->mii_speed, 0x7E, speed << 1);
  
- 	setbits32(&fec->fecp->fec_r_cntrl, FEC_RCNTRL_MII_MODE);
- 	setbits32(&fec->fecp->fec_ecntrl, FEC_ECNTRL_PINMUX |
- 	                                  FEC_ECNTRL_ETHER_EN);
- 	out_be32(&fec->fecp->fec_ievent, FEC_ENET_MII);
--	out_be32(&fec->fecp->fec_mii_speed, fec->mii_speed);
-+	clrsetbits_be32(&fec->fecp->fec_mii_speed, 0x7E, fec->mii_speed);
- 
- 	new_bus->phy_mask = ~0;
- 	new_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-@@ -188,6 +211,12 @@ static struct of_device_id fs_enet_mdio_fec_match[] = {
- 	{
- 		.compatible = "fsl,pq1-fec-mdio",
- 	},
-+#if defined(CONFIG_PPC_MPC512x)
-+	{
-+		.compatible = "fsl,mpc5121-fec-mdio",
-+		.data = mpc5xxx_get_bus_frequency,
-+	},
-+#endif
- 	{},
- };
- 
+ 	err = of_mdiobus_register(bus, np);
+ 	if (err)
 -- 
 1.6.0.6
 
