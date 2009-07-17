@@ -1,61 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: RFC:  VETH patch to zero timestamp.
-Date: Thu, 16 Jul 2009 17:01:43 -0700
-Message-ID: <m18wioxjmg.fsf@fess.ebiederm.org>
-References: <4A5F9B1D.1050505@candelatech.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+Date: Fri, 17 Jul 2009 02:07:26 +0200
+Message-ID: <1247789246.4549.58.camel@violet>
+References: <AFAB8585072C7E48BC5C6F9C87F9B79703BA839300@pdsmsx502.ccr.corp.intel.com>
+	 <1ba2fa240907160804g18b1a215w3161c9682db7b35@mail.gmail.com>
+	 <1247763454.4549.56.camel@violet>
+	 <20090716.130726.220404456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>, xemul@openvz.org,
-	Linux Containers <containers@lists.osdl.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:38543 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933101AbZGQABu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 20:01:50 -0400
-In-Reply-To: <4A5F9B1D.1050505@candelatech.com> (Ben Greear's message of "Thu\, 16 Jul 2009 14\:26\:53 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: tomasw@gmail.com, yi.zhu@intel.com, drzeus-list@drzeus.cx,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933795AbZGQAHq@vger.kernel.org>
+In-Reply-To: <20090716.130726.220404456.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> writes:
+Hi Dave,
 
-> The patch below helps when using VETH and bridge(s)
-> This makes sure that the pkt timestamp is properly (re)calculated on
-> receiving the packet on the peer veth device.
->
-> I'm sure this patch is white-space damaged.  If this looks
-> useful, I'll generate a clean patch and send as attachment.
+> >> > > Subject: RE: [PATCH] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+> >> >
+> >> > BTW, subject should be "iwmc3200".
+> >> 
+> >> Thanks. I'll address all comments although I'm not sure how to split
+> >> the patch since adding SDIO_VENDOR_ID_INTEL to sdio_ids.h it affects
+> >> all the drivers anyhow, so I'm suggesting to route it through netdev.
+> > 
+> > I think it is best that you take the whole patch via net-next-2.6 to
+> > avoid breakage during the next merge window.
+> 
+> Fair enough.
 
-We reset everything else that needs to be reset.  So we might as well
-reset the timestamps as well.  Unless there is a big performance
-impact by doing so.
+after Tomas sent the revised version of course :)
 
-> Signed-off-by:  Ben Greear<greearb@candelatech.com>
->
->
-> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> index 1097c72..e9136af 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-> @@ -170,7 +173,12 @@ static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
->
->         if (skb->len > (rcv->mtu + MTU_PAD))
->                 goto rx_drop;
-> -
-> +
-> +       /* Zero out the time-stamp so that receiving code is forced
-> +        * to recalculate it.
-> +        */
-> +       skb->tstamp.tv64 = 0;
-> +
->         skb->pkt_type = PACKET_HOST;
->         skb->protocol = eth_type_trans(skb, rcv);
->         if (dev->features & NETIF_F_NO_CSUM)
->
->
-> Thanks,
-> Ben
->
-> -- 
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
+Regards
+
+Marcel
