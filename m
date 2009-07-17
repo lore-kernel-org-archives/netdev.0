@@ -1,43 +1,50 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [patch 1/3] net: serialize hrtimer callback in sched_cbq
-Date: Fri, 17 Jul 2009 08:44:30 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0907170838091.13838@localhost.localdomain>
-References: <20090709215606.526259917@linutronix.de>  <20090712.135555.207096388.davem@davemloft.net>  <alpine.LFD.2.00.0907141040350.2777@localhost.localdomain>  <20090714.090055.56906831.davem@davemloft.net>  <1247588890.7500.186.camel@twins>
- <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain> <1247832892.15751.35.camel@twins>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] media: strncpy does not null terminate string
+Date: Fri, 17 Jul 2009 17:54:18 +0200
+Message-ID: <4A609EAA.4050606@gmail.com>
+References: <4A607185.6020302@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964843AbZGQPo7@vger.kernel.org>
-In-Reply-To: <1247832892.15751.35.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: zambrano@broadcom.com, netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:49157 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964839AbZGQPw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 11:52:27 -0400
+Received: by ewy26 with SMTP id 26so962137ewy.37
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 08:52:25 -0700 (PDT)
+In-Reply-To: <4A607185.6020302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+strlcpy() will always null terminate the string. Also use the
+sizeof(version) to strlcopy() the version string.
 
-
-On Fri, 17 Jul 2009, Peter Zijlstra wrote:
-> 
-> How would something like the below work for people?
-
-This looks saner.
-
-It was the insanity of having the core timer code know about different 
-modes that caused all the sily problems.
-
-Having a separate abstraction layer for "I want to get a softirq timeout" 
-sounds fine, as long as the timer code itself never cares.
-
-That said, I don't think this shoud be a "hrtimer" issue (reflected in 
-your naming and include file choice). I think this is a softirq or tasklet 
-(or whatever) issue, and should be named that way.
-
-Why should the timer code (and header files) care about how you can use 
-tasklets with them? It shouldn't. The timers should be seen as the really 
-low-level critical code, and the timer code should never need to know 
-about softirq's or tasklets or whatever.
-
-So I think you shouldmove it to kernel/softirq.c.
-
-			Linus
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 36d4d37..1f7f015 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1756,15 +1756,15 @@ static void b44_get_drvinfo (struct net_device *dev, struct ethtool_drvinfo *inf
+ 	struct b44 *bp = netdev_priv(dev);
+ 	struct ssb_bus *bus = bp->sdev->bus;
+ 
+-	strncpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
+-	strncpy(info->version, DRV_MODULE_VERSION, sizeof(info->driver));
++	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+ 	switch (bus->bustype) {
+ 	case SSB_BUSTYPE_PCI:
+-		strncpy(info->bus_info, pci_name(bus->host_pci), sizeof(info->bus_info));
++		strlcpy(info->bus_info, pci_name(bus->host_pci), sizeof(info->bus_info));
+ 		break;
+ 	case SSB_BUSTYPE_PCMCIA:
+ 	case SSB_BUSTYPE_SSB:
+-		strncpy(info->bus_info, "SSB", sizeof(info->bus_info));
++		strlcpy(info->bus_info, "SSB", sizeof(info->bus_info));
+ 		break;
+ 	}
+ }
