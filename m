@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 v5] fs_enet/mii-fec.c: fix MII speed calculation
-Date: Fri, 17 Jul 2009 09:21:49 -0700 (PDT)
-Message-ID: <20090717.092149.116211946.davem@davemloft.net>
-References: <1247780546-4426-1-git-send-email-wd@denx.de>
-	<1247833628-15952-1-git-send-email-wd@denx.de>
-	<fa686aa40907170741n121d3e4cqdfddaf4d23d4d1fc@mail.gmail.com>
+Subject: Re: [net-next-2.6 PATCH 1/4] ixgbe: Remove legacy descriptor
+ support
+Date: Fri, 17 Jul 2009 09:47:50 -0700 (PDT)
+Message-ID: <20090717.094750.257194361.davem@davemloft.net>
+References: <20090717014951.24074.75893.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wd@denx.de, linuxppc-dev@ozlabs.org, galak@kernel.crashing.org,
-	netdev@vger.kernel.org
-To: grant.likely@secretlab.ca
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39214
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53576
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934702AbZGQQVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 12:21:44 -0400
-In-Reply-To: <fa686aa40907170741n121d3e4cqdfddaf4d23d4d1fc@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S933619AbZGQQrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 12:47:46 -0400
+In-Reply-To: <20090717014951.24074.75893.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Fri, 17 Jul 2009 08:41:08 -0600
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 16 Jul 2009 18:50:12 -0700
 
-> David, this isn't a critical bug fix or a regression, so I think it
-> should be merged for -next.
+> From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> 
+> The ethtool offline test is the only consumer of the legacy descriptors.
+> Update that path to only use advanced descriptors, and remove all support
+> for legacy descriptors.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Ok.
+Applied.
