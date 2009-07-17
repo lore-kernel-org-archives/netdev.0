@@ -1,7 +1,8 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH v2 0/4] net: Revive fixed link support
-Date: Fri, 17 Jul 2009 01:31:25 -0600
-Message-ID: <20090717065220.15652.93331.stgit@localhost.localdomain>
+Subject: [PATCH v2 3/4] gianfar: Revive fixed link support
+Date: Fri, 17 Jul 2009 01:31:42 -0600
+Message-ID: <20090717073141.15652.13215.stgit@localhost.localdomain>
+References: <20090717065220.15652.93331.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,78 +11,89 @@ To: avorontsov@ru.mvista.com, davem@davemloft.net,
 	afleming@freescale.com, netdev@vger.kernel.org,
 	linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f185.google.com ([209.85.216.185]:58828 "EHLO
-	mail-px0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934173AbZGQHbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 03:31:50 -0400
-Received: by mail-px0-f185.google.com with SMTP id 15so444558pxi.33
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 00:31:51 -0700 (PDT)
+Received: from wa-out-1112.google.com ([209.85.146.177]:15431 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934159AbZGQHbp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 03:31:45 -0400
+Received: by wa-out-1112.google.com with SMTP id j5so99972wah.21
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 00:31:44 -0700 (PDT)
+In-Reply-To: <20090717065220.15652.93331.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series is based on the "Net: Revive fixed link support" series
-posted by Anton Vorontsov on June 26.
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
 
-On June 26, Anton Vorontsov wrote:
-> The fixed link support is broken since The Big OF MDIO Rework,
-> the rework simply removed most of the code that was needed for
-> fixed links.
-> 
-> Too bad I didn't notice this earlier, I saw a bunch of patches
-> on the ml, but unfortunately I didn't look very close presuming
-> that Grant knew what he was doing. :-) And obviously I didn't
-> test linux-next on anything that requires a fixed link.
-> 
-> Anyway, here are four patches. The first one adds the fixed link
-> support to a framework, otherwise we'd duplicate the code across
-> the drivers (as we did previously), and I tried to keep drivers'
-> changes minimal.
+Since commit fe192a49118f5b1272317d60c7930ece4e13ae49 ("Rework gianfar
+driver to use of_mdio infrastructure") the fixed-link support is
+broken, the driver oopses at init_phy():
 
-I took issue with the approach on the basis of
-a) I find the whole dummy phy approach to be a hack and an abuse of the
-   mdio bus,
-b) Handling the lack of a phy is trivial and should just be done within
-   the MAC driver itself, and
-c) the approach caused all drivers using of_phy_connect() to parse the
-   'fixed-link' property, when only three drivers actually define and
-   use it.
+  Unable to handle kernel paging request for data at address 0x000000e4
+  Faulting instruction address: 0xc01cf298
+  Oops: Kernel access of bad area, sig: 11 [#1]
+  [...]
+  NIP [c01cf298] init_phy+0x80/0xdc
+  LR [c01cf250] init_phy+0x38/0xdc
+  Call Trace:
+  [cf81fe80] [c01d1cf8] gfar_enet_open+0x6c/0x19c
+  [cf81fea0] [c024494c] dev_open+0xfc/0x134
+  [cf81fec0] [c0242edc] dev_change_flags+0x84/0x1ac
+  [cf81fee0] [c0399ee0] ic_open_devs+0x168/0x2d8
+  [cf81ff20] [c039b2e8] ip_auto_config+0x90/0x2a4
+  [cf81ff60] [c0003884] do_one_initcall+0x34/0x1a8
 
-I wrote and posted a competing patch which removed the usage of a dummy
-phy and made each driver handle the lack of a phy gracefully.  However,
-Anton rightly pointed out that my patch still leaves the regression of
-userspace no longer being able to use ethtool to query the link speed
-because the affected drivers all depend on phylib for the ethtool
-ioctl implementations.
+This patch fixes the oops, and removes phy_node checks, and adds a call
+to of_phy_connect_fixed_link() if a phy isn't attached..
 
-Part of the problem I think is that the phylib code merges two separate
-constructs; the construct of an MDIO bus (on which many device may
-reside, not all of them PHYs), and the construct of an MII link whose
-speed and configuration need to be manipulated.  I've run into problems
-myself on how best to handle things like Ethernet switches which
-definitely do not behave like PHYs and the phylib state machine cannot
-be used on them.  It seems to me that the whole 'dummy phy' approach
-is just an artifact of the phylib model not being quite right yet. I
-want to investigate the possibility of separating the two concepts, but
-that will require a fair bit of thought and experimentation.
+Also, remove an old fixed-link code that we don't use any longer.
 
-Right now this is a regression situation during the 2.6.31
-stabilization, so I don't think it is appropriate to write a new set
-of ioctl handlers at this late stage when there is another solution.
-I've reworked Anton's patches to constrain the effects to just the
-three drivers which use 'fixed-link'.
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
-It kills me to leave the dummy phy approach in place, but the
-alternative is to invasive and risky to apply at this stage.
-It irks me to say so, but I think Anton's approach of reenabling
-the dummy phy is the right think to do,
-
-Anton, once again I don't have hardware to test this, so I rely on you
-to tell be if I screwed it up.  It has been compile tested.
-
-Cheers,
-g.
+ drivers/net/gianfar.c |   24 ++++++++----------------
+ 1 files changed, 8 insertions(+), 16 deletions(-)
 
 
---
-Grant Likely, B.Sc. P.Eng.
-Secret Lab Technologies Ltd.
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 4ae1d25..79fcc2c 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -262,15 +262,6 @@ static int gfar_of_init(struct net_device *dev)
+ 		priv->device_flags |= FSL_GIANFAR_DEV_HAS_MAGIC_PACKET;
+ 
+ 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
+-	if (!priv->phy_node) {
+-		u32 *fixed_link;
+-
+-		fixed_link = (u32 *)of_get_property(np, "fixed-link", NULL);
+-		if (!fixed_link) {
+-			err = -ENODEV;
+-			goto err_out;
+-		}
+-	}
+ 
+ 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
+ 	priv->tbi_node = of_parse_phandle(np, "tbi-handle", 0);
+@@ -657,13 +648,14 @@ static int init_phy(struct net_device *dev)
+ 
+ 	interface = gfar_get_interface(dev);
+ 
+-	if (priv->phy_node) {
+-		priv->phydev = of_phy_connect(dev, priv->phy_node, &adjust_link,
+-					      0, interface);
+-		if (!priv->phydev) {
+-			dev_err(&dev->dev, "error: Could not attach to PHY\n");
+-			return -ENODEV;
+-		}
++	priv->phydev = of_phy_connect(dev, priv->phy_node, &adjust_link, 0,
++				      interface);
++	if (!priv->phydev)
++		priv->phydev = of_phy_connect_fixed_link(dev, &adjust_link,
++							 interface);
++	if (!priv->phydev) {
++		dev_err(&dev->dev, "could not attach to PHY\n");
++		return -ENODEV;
+ 	}
+ 
+ 	if (interface == PHY_INTERFACE_MODE_SGMII)
+
