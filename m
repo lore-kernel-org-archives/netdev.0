@@ -1,77 +1,99 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 2/2 v4] MPC52xx FEC: be more conservative when setting
-	MII_SPEED register
-Date: Fri, 17 Jul 2009 12:31:33 -0600
-Message-ID: <fa686aa40907171131u79bf4bcdi66ad516c83919c99@mail.gmail.com>
-References: <1247833628-15952-2-git-send-email-wd@denx.de>
-	<1247835545-18650-1-git-send-email-wd@denx.de> <fa686aa40907170745h6c5fae6bia0cff0926c93393c@mail.gmail.com>
-	<20090717175138.97CB2832E416@gemini.denx.de>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: [PATCH] tcp:  Use correct peer adr when copying MD5 keys (WAS:
+	[PATCHv2] tcp: Fix MD5 signature checking on IPv4 mapped sockets)
+Date: Fri, 17 Jul 2009 19:23:22 +0000
+Message-ID: <1247858602.8509.7.camel@Maple>
+References: <1247756691.7627.5.camel@Maple>
+	 <20090716113652.65dd1c8d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linuxppc-dev@ozlabs.org, Kumar Gala <galak@kernel.crashing.org>,
-	netdev@vger.kernel.org
-To: Wolfgang Denk <wd@denx.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Adam Langley <agl@imperialviolet.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f184.google.com ([209.85.210.184]:42235 "EHLO
-	mail-yx0-f184.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917AbZGQSby convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 14:31:54 -0400
-Received: by yxe14 with SMTP id 14so1785578yxe.33
-        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 11:31:53 -0700 (PDT)
-In-Reply-To: <20090717175138.97CB2832E416@gemini.denx.de>
+Received: from mail-px0-f185.google.com ([209.85.216.185]:41717 "EHLO
+	mail-px0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027AbZGQTX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 15:23:26 -0400
+Received: by pxi15 with SMTP id 15so718736pxi.33
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 12:23:26 -0700 (PDT)
+In-Reply-To: <20090716113652.65dd1c8d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 17, 2009 at 11:51 AM, Wolfgang Denk<wd@denx.de> wrote:
-> Dear Grant Likely,
->
-> In message <fa686aa40907170745h6c5fae6bia0cff0926c93393c@mail.gmail.c=
-om> you wrote:
->>
->> > =A0drivers/net/fec_mpc52xx.c =A0 =A0 | =A0 25 ++++++++++++++++++++=
-++---
->> > =A0drivers/net/fec_mpc52xx_phy.c | =A0 23 ++++++++++++++++++++---
->>
->> Blech. =A0now this block of duplicated code I don't like. =A0This is=
- all
->> one device, so surely the mdio speed can be calculated once and used
->> for both drivers.... let me think about this for a bit. =A0'course t=
-his
->> problem is all rolled up in the nastiness of having two drivers
->> working on the same device. =A0I suspect is was a mistake to split u=
-p
->> all the powerpc ethernet drivers into separate of_platform drivers.
->
-> If you like, I can re-introduce the mpc5xxx_get_mii_speed() I unrolle=
-d
-> upon your request (with or without re-using it for the MPC512x case).
+On Thu, 2009-07-16 at 11:36 -0700, Stephen Hemminger wrote:
+> On Thu, 16 Jul 2009 10:04:51 -0500
+> John Dykstra <john.dykstra1@gmail.com> wrote:
+> 
+> > This revision to the patch removes a misplaced
+> > blank line.
+> > 
+> > ---
+> > Fix MD5 signature checking so that an IPv4 active open
+> > to an IPv6 socket can succeed.  In particular, use the
+> > correct address family's signature generation function
+> > for the SYN/ACK.
+> > 
+> > Reported-by:   Stephen Hemminger <shemminger@vyatta.com>
+> > Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> 
+> This fixes the syn-ack, but data does not flow.
 
-No, there's a deeper issues here.  I'm bothered that the mac driver is
-impacting the mdio driver.  I'd like to find a way for this whole
-thing to be handled cleaner, and not have two different drivers
-calculate it.
+The following patch is _in addition_ to the one I sent out yesterday.
+Since they are independent, and fix different bugs, I'm leaving them
+separate.
 
-g.
+I guess it's clear not many people are running authenticated BGP
+sessions on Linux...
 
->
->
-> Best regards,
->
-> Wolfgang Denk
->
-> --
-> DENX Software Engineering GmbH, =A0 =A0 MD: Wolfgang Denk & Detlev Zu=
-ndel
-> HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-> Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
-> What is mind? =A0No matter. =A0What is matter? =A0Never mind.
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0-- Thomas Hewitt Key, 1799-1875
->
+---
+
+[PATCH] tcp:  Use correct peer adr when copying MD5 keys
+
+When the TCP connection handshake completes on the passive
+side, a variety of state must be set up in the "child" sock,
+including the key if MD5 authentication is being used.  Fix TCP
+for both address families to label the key with the peer's
+destination address, rather than the address from the listening
+sock, which is usually the wildcard.
+
+Reported-by:   Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+---
+ net/ipv4/tcp_ipv4.c |    2 +-
+ net/ipv6/tcp_ipv6.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 7c107eb..6d88219 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1374,7 +1374,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		 */
+ 		char *newkey = kmemdup(key->key, key->keylen, GFP_ATOMIC);
+ 		if (newkey != NULL)
+-			tcp_v4_md5_do_add(newsk, inet_sk(sk)->daddr,
++			tcp_v4_md5_do_add(newsk, newinet->daddr,
+ 					  newkey, key->keylen);
+ 		newsk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 	}
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index ae3d657..d849dd5 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1442,7 +1442,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		 */
+ 		char *newkey = kmemdup(key->key, key->keylen, GFP_ATOMIC);
+ 		if (newkey != NULL)
+-			tcp_v6_md5_do_add(newsk, &inet6_sk(sk)->daddr,
++			tcp_v6_md5_do_add(newsk, &newnp->daddr,
+ 					  newkey, key->keylen);
+ 	}
+ #endif
+-- 
+1.5.4.3
 
 
 
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
