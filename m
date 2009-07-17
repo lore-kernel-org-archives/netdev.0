@@ -1,59 +1,61 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: Bad sky2 interrupt handling?
-Date: Thu, 16 Jul 2009 16:57:41 -0700
-Message-ID: <20090716165741.2142a679@jbarnes-g45>
-References: <20090716162552.7f7b3031@jbarnes-g45>
-	<20090716163727.666db0cc@nehalam>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC:  VETH patch to zero timestamp.
+Date: Thu, 16 Jul 2009 17:01:43 -0700
+Message-ID: <m18wioxjmg.fsf@fess.ebiederm.org>
+References: <4A5F9B1D.1050505@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@vger.kernel.org>, xemul@openvz.org,
+	Linux Containers <containers@lists.osdl.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound-mail-148.bluehost.com ([67.222.38.38]:55451 "HELO
-	outbound-mail-148.bluehost.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933628AbZGPX5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 19:57:44 -0400
-In-Reply-To: <20090716163727.666db0cc@nehalam>
+Received: from out02.mta.xmission.com ([166.70.13.232]:38543 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933101AbZGQABu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 20:01:50 -0400
+In-Reply-To: <4A5F9B1D.1050505@candelatech.com> (Ben Greear's message of "Thu\, 16 Jul 2009 14\:26\:53 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Jul 2009 16:37:27 -0700
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+Ben Greear <greearb@candelatech.com> writes:
 
-> On Thu, 16 Jul 2009 16:25:52 -0700
-> Jesse Barnes <jbarnes@virtuousgeek.org> wrote:
-> 
-> > I was debugging what I thought was a graphics driver problem today
-> > (some page flipping code I'm working on was only flipping at about
-> > 10Hz rather than ~60Hz) but it appears it's actually due to a bad
-> > interaction with the Marvell 88E8036 controller on this machine.
-> > 
-> > MSI fails on this box (haven't looked too much at why yet), so the
-> > i915 driver shares an interrupt with USB, firewire, sdhci and the
-> > NIC.
-> > 
-> > Is sky2 the wrong driver to be using here?  Or is there some way of
-> > reducing its overhead when (presumably) it doesn't have anything to
-> > do?
-> 
-> No, that is the right driver.  If MSI fails, does the driver still
-> think it can use MSI?
+> The patch below helps when using VETH and bridge(s)
+> This makes sure that the pkt timestamp is properly (re)calculated on
+> receiving the packet on the peer veth device.
+>
+> I'm sure this patch is white-space damaged.  If this looks
+> useful, I'll generate a clean patch and send as attachment.
 
-No, I think it's falling back correctly... lemme get the log.
+We reset everything else that needs to be reset.  So we might as well
+reset the timestamps as well.  Unless there is a big performance
+impact by doing so.
 
-...
-sky2 driver version 1.23
-sky2 0000:01:00.0: PCI INT A -> Link[LNKA] -> GSI 11 (level, low) -> IRQ 11 sky2 0000:01:00.0: setting latency timer to 64 sky2
-0000:01:00.0: Yukon-2 FE chip revision 1 sky2 0000:01:00.0: irq 18 for MSI/MSI-X
-sky2 0000:01:00.0: No interrupt generated using MSI,
-switching to INTx mode.
-sky2 eth0: addr 00:a0:d1:bb:88:52
-...
-sky2 skge: enabling interface
-sky2 skge: Link is up at 100 Mbps, full duplex, flow control both
-
-at least it looks like it.
-
--- 
-Jesse Barnes, Intel Open Source Technology Center
+> Signed-off-by:  Ben Greear<greearb@candelatech.com>
+>
+>
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 1097c72..e9136af 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -170,7 +173,12 @@ static int veth_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>         if (skb->len > (rcv->mtu + MTU_PAD))
+>                 goto rx_drop;
+> -
+> +
+> +       /* Zero out the time-stamp so that receiving code is forced
+> +        * to recalculate it.
+> +        */
+> +       skb->tstamp.tv64 = 0;
+> +
+>         skb->pkt_type = PACKET_HOST;
+>         skb->protocol = eth_type_trans(skb, rcv);
+>         if (dev->features & NETIF_F_NO_CSUM)
+>
+>
+> Thanks,
+> Ben
+>
+> -- 
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
