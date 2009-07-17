@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netfilter 00/03: netfilter fixes
-Date: Thu, 16 Jul 2009 17:37:45 -0700 (PDT)
-Message-ID: <20090716.173745.187759558.davem@davemloft.net>
-References: <20090716122638.23343.77832.sendpatchset@x2.localnet>
+Subject: Re: [PATCH] atl1c: add missing parentheses
+Date: Thu, 16 Jul 2009 18:08:35 -0700 (PDT)
+Message-ID: <20090716.180835.13703979.davem@davemloft.net>
+References: <4A5A5852.4010901@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090716122638.23343.77832.sendpatchset@x2.localnet>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jcliburn@gmail.com, atl1-devel@lists.sourceforge.net,
+	akpm@linux-foundation.org, netdev@vger.kernel.org
+To: roel.kluin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38010
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933444AbZGQBIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jul 2009 21:08:30 -0400
+In-Reply-To: <4A5A5852.4010901@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 16 Jul 2009 14:26:44 +0200 (MEST)
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Sun, 12 Jul 2009 23:40:34 +0200
 
-> following are two netfilter fixes for 2.6.31 and a MAINTAINERS update:
+> Parentheses are required or the comparison occurs before the bitand.
 > 
-> - a fix for the nf_conntrack_alloc() race from Eric
-> - a fix for incorrect invocation of nf_log_packet() in the new osf match
-> - a patch to add my netfilter git tree to MAINTAINERS
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-Pulled, thanks a lot Patrick!
+I'm sick and tired of waiting for someone to test this and it's so
+damn obvious, so, applied.  Thanks!
