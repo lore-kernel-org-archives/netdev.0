@@ -1,76 +1,43 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] Update Andreas Koensgen's email address
-Date: Fri, 17 Jul 2009 15:47:19 +0100
-Message-ID: <20090717144719.GA16470@linux-mips.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [patch 1/3] net: serialize hrtimer callback in sched_cbq
+Date: Fri, 17 Jul 2009 08:44:30 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0907170838091.13838@localhost.localdomain>
+References: <20090709215606.526259917@linutronix.de>  <20090712.135555.207096388.davem@davemloft.net>  <alpine.LFD.2.00.0907141040350.2777@localhost.localdomain>  <20090714.090055.56906831.davem@davemloft.net>  <1247588890.7500.186.camel@twins>
+ <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain> <1247832892.15751.35.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andreas Koensgen <ajk@comnets.uni-bremen.de>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934167AbZGQOrN@vger.kernel.org>
-Content-Disposition: inline
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964843AbZGQPo7@vger.kernel.org>
+In-Reply-To: <1247832892.15751.35.camel@twins>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kernel has used a stale email address of Andreas for a few years.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
----
-I've checked with Andreas; he's ok with this update.
 
-diff --git a/CREDITS b/CREDITS
-index 2b88fb3..e76d300 100644
---- a/CREDITS
-+++ b/CREDITS
-@@ -1856,7 +1856,7 @@ E: rfkoenig@immd4.informatik.uni-erlangen.de
- D: The Linux Support Team Erlangen
-=20
- N: Andreas Koensgen
--E: ajk@iehk.rwth-aachen.de
-+E: ajk@comnets.uni-bremen.de
- D: 6pack driver for AX.25
-=20
- N: Harald Koerfgen
-diff --git a/Documentation/networking/6pack.txt b/Documentation/network=
-ing/6pack.txt
-index d0777a1..8f33942 100644
---- a/Documentation/networking/6pack.txt
-+++ b/Documentation/networking/6pack.txt
-@@ -1,7 +1,7 @@
- This is the 6pack-mini-HOWTO, written by
-=20
- Andreas K=F6nsgen DG3KQ
--Internet: ajk@iehk.rwth-aachen.de
-+Internet: ajk@comnets.uni-bremen.de
- AMPR-net: dg3kq@db0pra.ampr.org
- AX.25:    dg3kq@db0ach.#nrw.deu.eu
-=20
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 18c3f0c..53db744 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -150,7 +150,7 @@ F:	drivers/scsi/53c700*
-=20
- 6PACK NETWORK DRIVER FOR AX.25
- P:	Andreas Koensgen
--M:	ajk@iehk.rwth-aachen.de
-+M:	ajk@comnets.uni-bremen.de
- L:	linux-hams@vger.kernel.org
- S:	Maintained
- F:	drivers/net/hamradio/6pack.c
-diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.=
-c
-index 1551600..981ab53 100644
---- a/drivers/net/hamradio/6pack.c
-+++ b/drivers/net/hamradio/6pack.c
-@@ -3,7 +3,7 @@
-  *		devices like TTY. It interfaces between a raw TTY and the
-  *		kernel's AX.25 protocol layers.
-  *
-- * Authors:	Andreas K=F6nsgen <ajk@iehk.rwth-aachen.de>
-+ * Authors:	Andreas K=F6nsgen <ajk@comnets.uni-bremen.de>
-  *              Ralf Baechle DL5RB <ralf@linux-mips.org>
-  *
-  * Quite a lot of stuff "stolen" by Joerg Reuter from slip.c, written =
-by
+On Fri, 17 Jul 2009, Peter Zijlstra wrote:
+> 
+> How would something like the below work for people?
+
+This looks saner.
+
+It was the insanity of having the core timer code know about different 
+modes that caused all the sily problems.
+
+Having a separate abstraction layer for "I want to get a softirq timeout" 
+sounds fine, as long as the timer code itself never cares.
+
+That said, I don't think this shoud be a "hrtimer" issue (reflected in 
+your naming and include file choice). I think this is a softirq or tasklet 
+(or whatever) issue, and should be named that way.
+
+Why should the timer code (and header files) care about how you can use 
+tasklets with them? It shouldn't. The timers should be seen as the really 
+low-level critical code, and the timer code should never need to know 
+about softirq's or tasklets or whatever.
+
+So I think you shouldmove it to kernel/softirq.c.
+
+			Linus
