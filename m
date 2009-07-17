@@ -1,338 +1,1170 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] udp: cleanups
-Date: Fri, 17 Jul 2009 12:26:32 +0200
-Message-ID: <4A6051D8.3080804@gmail.com>
+From: Wan ZongShun <mcuos.com@gmail.com>
+Subject: Re: [PATCH] Add mac driver for w90p910
+Date: Fri, 17 Jul 2009 19:21:37 +0800
+Message-ID: <4A605EC1.1070203@gmail.com>
+References: <4A5F2329.9090901@gmail.com> <5d5443650907161042g428afc74jf40f5daf71db7620@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-netdev <netdev@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.arm.linux.org.uk>,
+	"Eric.miao" <eric.y.miao@gmail.com>
+To: Trilok Soni <soni.trilok@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:47870 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934323AbZGQK0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 06:26:38 -0400
+Received: from mail-px0-f185.google.com ([209.85.216.185]:51771 "EHLO
+	mail-px0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934419AbZGQLVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jul 2009 07:21:47 -0400
+Received: by pxi15 with SMTP id 15so526648pxi.33
+        for <netdev@vger.kernel.org>; Fri, 17 Jul 2009 04:21:45 -0700 (PDT)
+In-Reply-To: <5d5443650907161042g428afc74jf40f5daf71db7620@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pure style cleanups.
+Dear Trilok,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Some locks seems useless, So I remove them, and regarding the casting,
+I have to keep "(dma_addr_t *)" here, as I remove it, a "warning occurs, as following:
+"warning: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type"
+
+So, I keep using it.
+
+Now, I fixed up my patch and resubmitted it.
+  
+
+patch text:
+
+Add mac driver support for evaluation board based on w90p910.
+
+Signed-off-by: Wan ZongShun <mcuos.com@gmail.com>
 ---
- net/ipv4/udp.c |   87 +++++++++++++++++++++++------------------------
- 1 files changed, 43 insertions(+), 44 deletions(-)
+ drivers/net/arm/Kconfig         |    8 +
+ drivers/net/arm/Makefile        |    1 +
+ drivers/net/arm/w90p910_ether.c | 1090 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 1099 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/arm/w90p910_ether.c
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 7bc2d08..8640d72 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -110,11 +110,12 @@ struct udp_table udp_table;
- EXPORT_SYMBOL(udp_table);
- 
- int sysctl_udp_mem[3] __read_mostly;
--int sysctl_udp_rmem_min __read_mostly;
--int sysctl_udp_wmem_min __read_mostly;
--
- EXPORT_SYMBOL(sysctl_udp_mem);
+diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+index 2895db1..c37ee9e 100644
+--- a/drivers/net/arm/Kconfig
++++ b/drivers/net/arm/Kconfig
+@@ -63,3 +63,11 @@ config IXP4XX_ETH
+ 	help
+ 	  Say Y here if you want to use built-in Ethernet ports
+ 	  on IXP4xx processor.
 +
-+int sysctl_udp_rmem_min __read_mostly;
- EXPORT_SYMBOL(sysctl_udp_rmem_min);
++config W90P910_ETH
++	tristate "Nuvoton w90p910 Ethernet support"
++	depends on ARM && ARCH_W90X900
++	select PHYLIB
++	help
++	  Say Y here if you want to use built-in Ethernet ports
++	  on w90p910 processor.
+diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+index 811a3cc..303171f 100644
+--- a/drivers/net/arm/Makefile
++++ b/drivers/net/arm/Makefile
+@@ -11,3 +11,4 @@ obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
+ obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
+ obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+ obj-$(CONFIG_IXP4XX_ETH)	+= ixp4xx_eth.o
++obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
+diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/arm/w90p910_ether.c
+new file mode 100644
+index 0000000..7b5f315
+--- /dev/null
++++ b/drivers/net/arm/w90p910_ether.c
+@@ -0,0 +1,1090 @@
++/*
++ * Copyright (c) 2008-2009 Nuvoton technology corporation.
++ *
++ * Wan ZongShun <mcuos.com@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation;version 2 of the License.
++ *
++ */
 +
-+int sysctl_udp_wmem_min __read_mostly;
- EXPORT_SYMBOL(sysctl_udp_wmem_min);
- 
- atomic_t udp_memory_allocated;
-@@ -158,7 +159,7 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
-  */
- int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		       int (*saddr_comp)(const struct sock *sk1,
--					 const struct sock *sk2 )    )
-+					 const struct sock *sk2))
- {
- 	struct udp_hslot *hslot;
- 	struct udp_table *udptable = sk->sk_prot->h.udp_table;
-@@ -221,14 +222,15 @@ fail_unlock:
- fail:
- 	return error;
- }
-+EXPORT_SYMBOL(udp_lib_get_port);
- 
- static int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
- {
- 	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
- 
--	return 	( !ipv6_only_sock(sk2)  &&
--		  (!inet1->rcv_saddr || !inet2->rcv_saddr ||
--		   inet1->rcv_saddr == inet2->rcv_saddr      ));
-+	return 	(!ipv6_only_sock(sk2)  &&
-+		 (!inet1->rcv_saddr || !inet2->rcv_saddr ||
-+		   inet1->rcv_saddr == inet2->rcv_saddr));
- }
- 
- int udp_v4_get_port(struct sock *sk, unsigned short snum)
-@@ -383,8 +385,8 @@ found:
- void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
- {
- 	struct inet_sock *inet;
--	struct iphdr *iph = (struct iphdr*)skb->data;
--	struct udphdr *uh = (struct udphdr*)(skb->data+(iph->ihl<<2));
-+	struct iphdr *iph = (struct iphdr *)skb->data;
-+	struct udphdr *uh = (struct udphdr *)(skb->data+(iph->ihl<<2));
- 	const int type = icmp_hdr(skb)->type;
- 	const int code = icmp_hdr(skb)->code;
- 	struct sock *sk;
-@@ -439,7 +441,7 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
- 		if (!harderr || sk->sk_state != TCP_ESTABLISHED)
- 			goto out;
- 	} else {
--		ip_icmp_error(sk, skb, err, uh->dest, info, (u8*)(uh+1));
-+		ip_icmp_error(sk, skb, err, uh->dest, info, (u8 *)(uh+1));
- 	}
- 	sk->sk_err = err;
- 	sk->sk_error_report(sk);
-@@ -474,7 +476,7 @@ EXPORT_SYMBOL(udp_flush_pending_frames);
-  * 	        (checksum field must be zeroed out)
-  */
- static void udp4_hwcsum_outgoing(struct sock *sk, struct sk_buff *skb,
--				 __be32 src, __be32 dst, int len      )
-+				 __be32 src, __be32 dst, int len)
- {
- 	unsigned int offset;
- 	struct udphdr *uh = udp_hdr(skb);
-@@ -545,7 +547,7 @@ static int udp_push_pending_frames(struct sock *sk)
- 
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
- 
--		udp4_hwcsum_outgoing(sk, skb, fl->fl4_src,fl->fl4_dst, up->len);
-+		udp4_hwcsum_outgoing(sk, skb, fl->fl4_src, fl->fl4_dst, up->len);
- 		goto send;
- 
- 	} else						 /*   `normal' UDP    */
-@@ -553,7 +555,7 @@ static int udp_push_pending_frames(struct sock *sk)
- 
- 	/* add protocol-dependent pseudo-header */
- 	uh->check = csum_tcpudp_magic(fl->fl4_src, fl->fl4_dst, up->len,
--				      sk->sk_protocol, csum             );
-+				      sk->sk_protocol, csum);
- 	if (uh->check == 0)
- 		uh->check = CSUM_MANGLED_0;
- 
-@@ -592,7 +594,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	 *	Check the flags.
- 	 */
- 
--	if (msg->msg_flags&MSG_OOB)	/* Mirror BSD error message compatibility */
-+	if (msg->msg_flags & MSG_OOB) /* Mirror BSD error message compatibility */
- 		return -EOPNOTSUPP;
- 
- 	ipc.opt = NULL;
-@@ -619,7 +621,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	 *	Get and verify the address.
- 	 */
- 	if (msg->msg_name) {
--		struct sockaddr_in * usin = (struct sockaddr_in*)msg->msg_name;
-+		struct sockaddr_in * usin = (struct sockaddr_in *)msg->msg_name;
- 		if (msg->msg_namelen < sizeof(*usin))
- 			return -EINVAL;
- 		if (usin->sin_family != AF_INET) {
-@@ -684,7 +686,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	}
- 
- 	if (connected)
--		rt = (struct rtable*)sk_dst_check(sk, 0);
-+		rt = (struct rtable *)sk_dst_check(sk, 0);
- 
- 	if (rt == NULL) {
- 		struct flowi fl = { .oif = ipc.oif,
-@@ -782,6 +784,7 @@ do_confirm:
- 	err = 0;
- 	goto out;
- }
-+EXPORT_SYMBOL(udp_sendmsg);
- 
- int udp_sendpage(struct sock *sk, struct page *page, int offset,
- 		 size_t size, int flags)
-@@ -871,6 +874,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(udp_ioctl);
- 
- /*
-  * 	This should be easy, if there is something there we
-@@ -892,7 +896,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	 *	Check any passed addresses
- 	 */
- 	if (addr_len)
--		*addr_len=sizeof(*sin);
-+		*addr_len = sizeof(*sin);
- 
- 	if (flags & MSG_ERRQUEUE)
- 		return ip_recv_error(sk, msg, len);
-@@ -923,9 +927,11 @@ try_again:
- 
- 	if (skb_csum_unnecessary(skb))
- 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
--					      msg->msg_iov, copied       );
-+					      msg->msg_iov, copied);
- 	else {
--		err = skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov);
-+		err = skb_copy_and_csum_datagram_iovec(skb,
-+						       sizeof(struct udphdr),
-+						       msg->msg_iov);
- 
- 		if (err == -EINVAL)
- 			goto csum_copy_err;
-@@ -941,8 +947,7 @@ try_again:
- 	sock_recv_timestamp(msg, sk, skb);
- 
- 	/* Copy the address. */
--	if (sin)
--	{
-+	if (sin) {
- 		sin->sin_family = AF_INET;
- 		sin->sin_port = udp_hdr(skb)->source;
- 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
-@@ -995,6 +1000,7 @@ int udp_disconnect(struct sock *sk, int flags)
- 	sk_dst_reset(sk);
- 	return 0;
- }
-+EXPORT_SYMBOL(udp_disconnect);
- 
- void udp_lib_unhash(struct sock *sk)
- {
-@@ -1044,7 +1050,7 @@ drop:
-  * Note that in the success and error cases, the skb is assumed to
-  * have either been requeued or freed.
-  */
--int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
-+int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 	int rc;
-@@ -1214,7 +1220,7 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
- 	if (uh->check == 0) {
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	} else if (skb->ip_summed == CHECKSUM_COMPLETE) {
--	       if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
-+		if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
- 				      proto, skb->csum))
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
-@@ -1355,7 +1361,7 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 	int err = 0;
- 	int is_udplite = IS_UDPLITE(sk);
- 
--	if (optlen<sizeof(int))
-+	if (optlen < sizeof(int))
- 		return -EINVAL;
- 
- 	if (get_user(val, (int __user *)optval))
-@@ -1426,6 +1432,7 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 
- 	return err;
- }
-+EXPORT_SYMBOL(udp_lib_setsockopt);
- 
- int udp_setsockopt(struct sock *sk, int level, int optname,
- 		   char __user *optval, int optlen)
-@@ -1453,7 +1460,7 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
- 	struct udp_sock *up = udp_sk(sk);
- 	int val, len;
- 
--	if (get_user(len,optlen))
-+	if (get_user(len, optlen))
- 		return -EFAULT;
- 
- 	len = min_t(unsigned int, len, sizeof(int));
-@@ -1486,10 +1493,11 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
- 
- 	if (put_user(len, optlen))
- 		return -EFAULT;
--	if (copy_to_user(optval, &val,len))
-+	if (copy_to_user(optval, &val, len))
- 		return -EFAULT;
- 	return 0;
- }
-+EXPORT_SYMBOL(udp_lib_getsockopt);
- 
- int udp_getsockopt(struct sock *sk, int level, int optname,
- 		   char __user *optval, int __user *optlen)
-@@ -1528,9 +1536,9 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	int 	is_lite = IS_UDPLITE(sk);
- 
- 	/* Check for false positives due to checksum errors */
--	if ( (mask & POLLRDNORM) &&
--	     !(file->f_flags & O_NONBLOCK) &&
--	     !(sk->sk_shutdown & RCV_SHUTDOWN)){
-+	if ((mask & POLLRDNORM) &&
-+	    !(file->f_flags & O_NONBLOCK) &&
-+	    !(sk->sk_shutdown & RCV_SHUTDOWN)) {
- 		struct sk_buff_head *rcvq = &sk->sk_receive_queue;
- 		struct sk_buff *skb;
- 
-@@ -1552,6 +1560,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	return mask;
- 
- }
-+EXPORT_SYMBOL(udp_poll);
- 
- struct proto udp_prot = {
- 	.name		   = "UDP",
-@@ -1582,6 +1591,7 @@ struct proto udp_prot = {
- 	.compat_getsockopt = compat_udp_getsockopt,
- #endif
- };
-+EXPORT_SYMBOL(udp_prot);
- 
- /* ------------------------------------------------------------------------ */
- #ifdef CONFIG_PROC_FS
-@@ -1703,11 +1713,13 @@ int udp_proc_register(struct net *net, struct udp_seq_afinfo *afinfo)
- 		rc = -ENOMEM;
- 	return rc;
- }
-+EXPORT_SYMBOL(udp_proc_register);
- 
- void udp_proc_unregister(struct net *net, struct udp_seq_afinfo *afinfo)
- {
- 	proc_net_remove(net, afinfo->name);
- }
-+EXPORT_SYMBOL(udp_proc_unregister);
- 
- /* ------------------------------------------------------------------------ */
- static void udp4_format_sock(struct sock *sp, struct seq_file *f,
-@@ -1741,7 +1753,7 @@ int udp4_seq_show(struct seq_file *seq, void *v)
- 		int len;
- 
- 		udp4_format_sock(v, seq, state->bucket, &len);
--		seq_printf(seq, "%*s\n", 127 - len ,"");
-+		seq_printf(seq, "%*s\n", 127 - len, "");
- 	}
- 	return 0;
- }
-@@ -1864,7 +1876,7 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb, int features)
- 	 * do checksum of UDP packets sent as multiple IP fragments.
- 	 */
- 	offset = skb->csum_start - skb_headroom(skb);
--	csum = skb_checksum(skb, offset, skb->len- offset, 0);
-+	csum = skb_checksum(skb, offset, skb->len - offset, 0);
- 	offset += skb->csum_offset;
- 	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
- 	skb->ip_summed = CHECKSUM_NONE;
-@@ -1877,16 +1889,3 @@ out:
- 	return segs;
- }
- 
--EXPORT_SYMBOL(udp_disconnect);
--EXPORT_SYMBOL(udp_ioctl);
--EXPORT_SYMBOL(udp_prot);
--EXPORT_SYMBOL(udp_sendmsg);
--EXPORT_SYMBOL(udp_lib_getsockopt);
--EXPORT_SYMBOL(udp_lib_setsockopt);
--EXPORT_SYMBOL(udp_poll);
--EXPORT_SYMBOL(udp_lib_get_port);
--
--#ifdef CONFIG_PROC_FS
--EXPORT_SYMBOL(udp_proc_register);
--EXPORT_SYMBOL(udp_proc_unregister);
--#endif
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/mii.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/ethtool.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++
++#define DRV_MODULE_NAME		"w90p910-emc"
++#define DRV_MODULE_VERSION	"0.1"
++
++/* Ethernet MAC Registers */
++#define REG_CAMCMR		0x00
++#define REG_CAMEN		0x04
++#define REG_CAMM_BASE		0x08
++#define REG_CAML_BASE		0x0c
++#define REG_TXDLSA		0x88
++#define REG_RXDLSA		0x8C
++#define REG_MCMDR		0x90
++#define REG_MIID		0x94
++#define REG_MIIDA		0x98
++#define REG_FFTCR		0x9C
++#define REG_TSDR		0xa0
++#define REG_RSDR		0xa4
++#define REG_DMARFC		0xa8
++#define REG_MIEN		0xac
++#define REG_MISTA		0xb0
++#define REG_CTXDSA		0xcc
++#define REG_CTXBSA		0xd0
++#define REG_CRXDSA		0xd4
++#define REG_CRXBSA		0xd8
++
++/* mac controller bit */
++#define MCMDR_RXON		0x01
++#define MCMDR_ACP		(0x01 << 3)
++#define MCMDR_SPCRC		(0x01 << 5)
++#define MCMDR_TXON		(0x01 << 8)
++#define MCMDR_FDUP		(0x01 << 18)
++#define MCMDR_ENMDC		(0x01 << 19)
++#define MCMDR_OPMOD		(0x01 << 20)
++#define SWR			(0x01 << 24)
++
++/* cam command regiser */
++#define CAMCMR_AUP		0x01
++#define CAMCMR_AMP		(0x01 << 1)
++#define CAMCMR_ABP		(0x01 << 2)
++#define CAMCMR_CCAM		(0x01 << 3)
++#define CAMCMR_ECMP		(0x01 << 4)
++#define CAM0EN			0x01
++
++/* mac mii controller bit */
++#define MDCCR			(0x0a << 20)
++#define PHYAD			(0x01 << 8)
++#define PHYWR			(0x01 << 16)
++#define PHYBUSY			(0x01 << 17)
++#define PHYPRESP		(0x01 << 18)
++#define CAM_ENTRY_SIZE		0x08
++
++/* rx and tx status */
++#define TXDS_TXCP		(0x01 << 19)
++#define RXDS_CRCE		(0x01 << 17)
++#define RXDS_PTLE		(0x01 << 19)
++#define RXDS_RXGD		(0x01 << 20)
++#define RXDS_ALIE		(0x01 << 21)
++#define RXDS_RP			(0x01 << 22)
++
++/* mac interrupt status*/
++#define MISTA_EXDEF		(0x01 << 19)
++#define MISTA_TXBERR		(0x01 << 24)
++#define MISTA_TDU		(0x01 << 23)
++#define MISTA_RDU		(0x01 << 10)
++#define MISTA_RXBERR		(0x01 << 11)
++
++#define ENSTART			0x01
++#define ENRXINTR		0x01
++#define ENRXGD			(0x01 << 4)
++#define ENRXBERR		(0x01 << 11)
++#define ENTXINTR		(0x01 << 16)
++#define ENTXCP			(0x01 << 18)
++#define ENTXABT			(0x01 << 21)
++#define ENTXBERR		(0x01 << 24)
++#define ENMDC			(0x01 << 19)
++#define PHYBUSY			(0x01 << 17)
++#define MDCCR_VAL		0xa00000
++
++/* rx and tx owner bit */
++#define RX_OWEN_DMA		(0x01 << 31)
++#define RX_OWEN_CPU		(~(0x03 << 30))
++#define TX_OWEN_DMA		(0x01 << 31)
++#define TX_OWEN_CPU		(~(0x01 << 31))
++
++/* tx frame desc controller bit */
++#define MACTXINTEN		0x04
++#define CRCMODE			0x02
++#define PADDINGMODE		0x01
++
++/* fftcr controller bit */
++#define TXTHD 			(0x03 << 8)
++#define BLENGTH			(0x01 << 20)
++
++/* global setting for driver */
++#define RX_DESC_SIZE		50
++#define TX_DESC_SIZE		10
++#define MAX_RBUFF_SZ		0x600
++#define MAX_TBUFF_SZ		0x600
++#define TX_TIMEOUT		50
++#define DELAY			1000
++#define CAM0			0x0
++
++static int w90p910_mdio_read(struct net_device *dev, int phy_id, int reg);
++
++struct w90p910_rxbd {
++	unsigned int sl;
++	unsigned int buffer;
++	unsigned int reserved;
++	unsigned int next;
++};
++
++struct w90p910_txbd {
++	unsigned int mode;
++	unsigned int buffer;
++	unsigned int sl;
++	unsigned int next;
++};
++
++struct recv_pdesc {
++	struct w90p910_rxbd desclist[RX_DESC_SIZE];
++	char recv_buf[RX_DESC_SIZE][MAX_RBUFF_SZ];
++};
++
++struct tran_pdesc {
++	struct w90p910_txbd desclist[TX_DESC_SIZE];
++	char tran_buf[RX_DESC_SIZE][MAX_TBUFF_SZ];
++};
++
++struct  w90p910_ether {
++	struct recv_pdesc *rdesc;
++	struct recv_pdesc *rdesc_phys;
++	struct tran_pdesc *tdesc;
++	struct tran_pdesc *tdesc_phys;
++	struct net_device_stats stats;
++	struct platform_device *pdev;
++	struct sk_buff *skb;
++	struct clk *clk;
++	struct clk *rmiiclk;
++	struct mii_if_info mii;
++	struct timer_list check_timer;
++	void __iomem *reg;
++	unsigned int rxirq;
++	unsigned int txirq;
++	unsigned int cur_tx;
++	unsigned int cur_rx;
++	unsigned int finish_tx;
++	unsigned int rx_packets;
++	unsigned int rx_bytes;
++	unsigned int start_tx_ptr;
++	unsigned int start_rx_ptr;
++	unsigned int linkflag;
++};
++
++static void update_linkspeed_register(struct net_device *dev,
++				unsigned int speed, unsigned int duplex)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = __raw_readl(ether->reg + REG_MCMDR);
++
++	if (speed == SPEED_100) {
++		/* 100 full/half duplex */
++		if (duplex == DUPLEX_FULL) {
++			val |= (MCMDR_OPMOD | MCMDR_FDUP);
++		} else {
++			val |= MCMDR_OPMOD;
++			val &= ~MCMDR_FDUP;
++		}
++	} else {
++		/* 10 full/half duplex */
++		if (duplex == DUPLEX_FULL) {
++			val |= MCMDR_FDUP;
++			val &= ~MCMDR_OPMOD;
++		} else {
++			val &= ~(MCMDR_FDUP | MCMDR_OPMOD);
++		}
++	}
++
++	__raw_writel(val, ether->reg + REG_MCMDR);
++}
++
++static void update_linkspeed(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	struct platform_device *pdev;
++	unsigned int bmsr, bmcr, lpa, speed, duplex;
++
++	pdev = ether->pdev;
++
++	if (!mii_link_ok(&ether->mii)) {
++		ether->linkflag = 0x0;
++		netif_carrier_off(dev);
++		dev_warn(&pdev->dev, "%s: Link down.\n", dev->name);
++		return;
++	}
++
++	if (ether->linkflag == 1)
++		return;
++
++	bmsr = w90p910_mdio_read(dev, ether->mii.phy_id, MII_BMSR);
++	bmcr = w90p910_mdio_read(dev, ether->mii.phy_id, MII_BMCR);
++
++	if (bmcr & BMCR_ANENABLE) {
++		if (!(bmsr & BMSR_ANEGCOMPLETE))
++			return;
++
++		lpa = w90p910_mdio_read(dev, ether->mii.phy_id, MII_LPA);
++
++		if ((lpa & LPA_100FULL) || (lpa & LPA_100HALF))
++			speed = SPEED_100;
++		else
++			speed = SPEED_10;
++
++		if ((lpa & LPA_100FULL) || (lpa & LPA_10FULL))
++			duplex = DUPLEX_FULL;
++		else
++			duplex = DUPLEX_HALF;
++
++	} else {
++		speed = (bmcr & BMCR_SPEED100) ? SPEED_100 : SPEED_10;
++		duplex = (bmcr & BMCR_FULLDPLX) ? DUPLEX_FULL : DUPLEX_HALF;
++	}
++
++	update_linkspeed_register(dev, speed, duplex);
++
++	dev_info(&pdev->dev, "%s: Link now %i-%s\n", dev->name, speed,
++			(duplex == DUPLEX_FULL) ? "FullDuplex" : "HalfDuplex");
++	ether->linkflag = 0x01;
++
++	netif_carrier_on(dev);
++}
++
++static void w90p910_check_link(unsigned long dev_id)
++{
++	struct net_device *dev = (struct net_device *) dev_id;
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	update_linkspeed(dev);
++	mod_timer(&ether->check_timer, jiffies + msecs_to_jiffies(1000));
++}
++
++static void w90p910_write_cam(struct net_device *dev,
++				unsigned int x, unsigned char *pval)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int msw, lsw;
++
++	msw = (pval[0] << 24) | (pval[1] << 16) | (pval[2] << 8) | pval[3];
++
++	lsw = (pval[4] << 24) | (pval[5] << 16);
++
++	__raw_writel(lsw, ether->reg + REG_CAML_BASE + x * CAM_ENTRY_SIZE);
++	__raw_writel(msw, ether->reg + REG_CAMM_BASE + x * CAM_ENTRY_SIZE);
++}
++
++static void w90p910_init_desc(struct net_device *dev)
++{
++	struct w90p910_ether *ether;
++	struct w90p910_txbd  *tdesc, *tdesc_phys;
++	struct w90p910_rxbd  *rdesc, *rdesc_phys;
++	unsigned int i, j;
++
++	ether = netdev_priv(dev);
++
++	ether->tdesc = (struct tran_pdesc *)
++			dma_alloc_coherent(NULL, sizeof(struct tran_pdesc),
++				(dma_addr_t *)&ether->tdesc_phys, GFP_KERNEL);
++
++	ether->rdesc = (struct recv_pdesc *)
++			dma_alloc_coherent(NULL, sizeof(struct recv_pdesc),
++				(dma_addr_t *)&ether->rdesc_phys, GFP_KERNEL);
++
++	for (i = 0; i < TX_DESC_SIZE; i++) {
++		tdesc = &(ether->tdesc->desclist[i]);
++
++		j = ((i + 1) / TX_DESC_SIZE);
++
++		if (j != 0) {
++			tdesc_phys = &(ether->tdesc_phys->desclist[0]);
++			ether->start_tx_ptr = (unsigned int)tdesc_phys;
++			tdesc->next = (unsigned int)ether->start_tx_ptr;
++		} else {
++			tdesc_phys = &(ether->tdesc_phys->desclist[i+1]);
++			tdesc->next = (unsigned int)tdesc_phys;
++		}
++
++		tdesc->buffer = (unsigned int)ether->tdesc_phys->tran_buf[i];
++		tdesc->sl = 0;
++		tdesc->mode = 0;
++	}
++
++	for (i = 0; i < RX_DESC_SIZE; i++) {
++		rdesc = &(ether->rdesc->desclist[i]);
++
++		j = ((i + 1) / RX_DESC_SIZE);
++
++		if (j != 0) {
++			rdesc_phys = &(ether->rdesc_phys->desclist[0]);
++			ether->start_rx_ptr = (unsigned int)rdesc_phys;
++			rdesc->next = (unsigned int)ether->start_rx_ptr;
++		} else {
++			rdesc_phys = &(ether->rdesc_phys->desclist[i+1]);
++			rdesc->next = (unsigned int)rdesc_phys;
++		}
++
++		rdesc->sl = RX_OWEN_DMA;
++		rdesc->buffer = (unsigned int)ether->rdesc_phys->recv_buf[i];
++	  }
++}
++
++static void w90p910_set_fifo_threshold(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = TXTHD | BLENGTH;
++	__raw_writel(val, ether->reg + REG_FFTCR);
++}
++
++static void w90p910_return_default_idle(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = __raw_readl(ether->reg + REG_MCMDR);
++	val |= SWR;
++	__raw_writel(val, ether->reg + REG_MCMDR);
++}
++
++static void w90p910_trigger_rx(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	__raw_writel(ENSTART, ether->reg + REG_RSDR);
++}
++
++static void w90p910_trigger_tx(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	__raw_writel(ENSTART, ether->reg + REG_TSDR);
++}
++
++static void w90p910_enable_mac_interrupt(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = ENTXINTR | ENRXINTR | ENRXGD | ENTXCP;
++	val |= ENTXBERR | ENRXBERR | ENTXABT;
++
++	__raw_writel(val, ether->reg + REG_MIEN);
++}
++
++static void w90p910_get_and_clear_int(struct net_device *dev,
++							unsigned int *val)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	*val = __raw_readl(ether->reg + REG_MISTA);
++	__raw_writel(*val, ether->reg + REG_MISTA);
++}
++
++static void w90p910_set_global_maccmd(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = __raw_readl(ether->reg + REG_MCMDR);
++	val |= MCMDR_SPCRC | MCMDR_ENMDC | MCMDR_ACP | ENMDC;
++	__raw_writel(val, ether->reg + REG_MCMDR);
++}
++
++static void w90p910_enable_cam(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	w90p910_write_cam(dev, CAM0, dev->dev_addr);
++
++	val = __raw_readl(ether->reg + REG_CAMEN);
++	val |= CAM0EN;
++	__raw_writel(val, ether->reg + REG_CAMEN);
++}
++
++static void w90p910_enable_cam_command(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = CAMCMR_ECMP | CAMCMR_ABP | CAMCMR_AMP;
++	__raw_writel(val, ether->reg + REG_CAMCMR);
++}
++
++static void w90p910_enable_tx(struct net_device *dev, unsigned int enable)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = __raw_readl(ether->reg + REG_MCMDR);
++
++	if (enable)
++		val |= MCMDR_TXON;
++	else
++		val &= ~MCMDR_TXON;
++
++	__raw_writel(val, ether->reg + REG_MCMDR);
++}
++
++static void w90p910_enable_rx(struct net_device *dev, unsigned int enable)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	unsigned int val;
++
++	val = __raw_readl(ether->reg + REG_MCMDR);
++
++	if (enable)
++		val |= MCMDR_RXON;
++	else
++		val &= ~MCMDR_RXON;
++
++	__raw_writel(val, ether->reg + REG_MCMDR);
++}
++
++static void w90p910_set_curdest(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	__raw_writel(ether->start_rx_ptr, ether->reg + REG_RXDLSA);
++	__raw_writel(ether->start_tx_ptr, ether->reg + REG_TXDLSA);
++}
++
++static void w90p910_reset_mac(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	w90p910_enable_tx(dev, 0);
++	w90p910_enable_rx(dev, 0);
++	w90p910_set_fifo_threshold(dev);
++	w90p910_return_default_idle(dev);
++
++	if (!netif_queue_stopped(dev))
++		netif_stop_queue(dev);
++
++	w90p910_init_desc(dev);
++
++	dev->trans_start = jiffies;
++	ether->cur_tx = 0x0;
++	ether->finish_tx = 0x0;
++	ether->cur_rx = 0x0;
++
++	w90p910_set_curdest(dev);
++	w90p910_enable_cam(dev);
++	w90p910_enable_cam_command(dev);
++	w90p910_enable_mac_interrupt(dev);
++	w90p910_enable_tx(dev, 1);
++	w90p910_enable_rx(dev, 1);
++	w90p910_trigger_tx(dev);
++	w90p910_trigger_rx(dev);
++
++	dev->trans_start = jiffies;
++
++	if (netif_queue_stopped(dev))
++		netif_wake_queue(dev);
++}
++
++static void w90p910_mdio_write(struct net_device *dev,
++					int phy_id, int reg, int data)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	struct platform_device *pdev;
++	unsigned int val, i;
++
++	pdev = ether->pdev;
++
++	__raw_writel(data, ether->reg + REG_MIID);
++
++	val = (phy_id << 0x08) | reg;
++	val |= PHYBUSY | PHYWR | MDCCR_VAL;
++	__raw_writel(val, ether->reg + REG_MIIDA);
++
++	for (i = 0; i < DELAY; i++) {
++		if ((__raw_readl(ether->reg + REG_MIIDA) & PHYBUSY) == 0)
++			break;
++	}
++
++	if (i == DELAY)
++		dev_warn(&pdev->dev, "mdio write timed out\n");
++}
++
++static int w90p910_mdio_read(struct net_device *dev, int phy_id, int reg)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	struct platform_device *pdev;
++	unsigned int val, i, data;
++
++	pdev = ether->pdev;
++
++	val = (phy_id << 0x08) | reg;
++	val |= PHYBUSY | MDCCR_VAL;
++	__raw_writel(val, ether->reg + REG_MIIDA);
++
++	for (i = 0; i < DELAY; i++) {
++		if ((__raw_readl(ether->reg + REG_MIIDA) & PHYBUSY) == 0)
++			break;
++	}
++
++	if (i == DELAY) {
++		dev_warn(&pdev->dev, "mdio read timed out\n");
++		data = 0xffff;
++	} else {
++		data = __raw_readl(ether->reg + REG_MIID);
++	}
++
++	return data;
++}
++
++static int w90p910_set_mac_address(struct net_device *dev, void *addr)
++{
++	struct sockaddr *address = addr;
++
++	if (!is_valid_ether_addr(address->sa_data))
++		return -EADDRNOTAVAIL;
++
++	memcpy(dev->dev_addr, address->sa_data, dev->addr_len);
++	w90p910_write_cam(dev, CAM0, dev->dev_addr);
++
++	return 0;
++}
++
++static int w90p910_ether_close(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	dma_free_writecombine(NULL, sizeof(struct w90p910_rxbd),
++				ether->rdesc, (dma_addr_t)ether->rdesc_phys);
++	dma_free_writecombine(NULL, sizeof(struct w90p910_txbd),
++				ether->tdesc, (dma_addr_t)ether->tdesc_phys);
++
++	netif_stop_queue(dev);
++
++	del_timer_sync(&ether->check_timer);
++	clk_disable(ether->rmiiclk);
++	clk_disable(ether->clk);
++
++	free_irq(ether->txirq, dev);
++	free_irq(ether->rxirq, dev);
++
++	return 0;
++}
++
++static struct net_device_stats *w90p910_ether_stats(struct net_device *dev)
++{
++	struct w90p910_ether *ether;
++
++	ether = netdev_priv(dev);
++
++	return &ether->stats;
++}
++
++static int w90p910_send_frame(struct net_device *dev,
++					unsigned char *data, int length)
++{
++	struct w90p910_ether *ether;
++	struct w90p910_txbd *txbd;
++	struct platform_device *pdev;
++	unsigned char *buffer;
++
++	ether = netdev_priv(dev);
++	pdev = ether->pdev;
++
++	txbd = &ether->tdesc->desclist[ether->cur_tx];
++	buffer = ether->tdesc->tran_buf[ether->cur_tx];
++	if (length > 1514) {
++		dev_err(&pdev->dev, "send data %d bytes, check it\n", length);
++		length = 1514;
++	}
++
++	txbd->sl = length & 0xFFFF;
++
++	memcpy(buffer, data, length);
++
++	txbd->mode = TX_OWEN_DMA | PADDINGMODE | CRCMODE | MACTXINTEN;
++
++	w90p910_enable_tx(dev, 1);
++
++	w90p910_trigger_tx(dev);
++
++	ether->cur_tx = (ether->cur_tx+1) % TX_DESC_SIZE;
++	txbd = &ether->tdesc->desclist[ether->cur_tx];
++
++	dev->trans_start = jiffies;
++
++	if (txbd->mode & TX_OWEN_DMA)
++		netif_stop_queue(dev);
++
++	return 0;
++}
++
++static int w90p910_ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	if (!(w90p910_send_frame(dev, skb->data, skb->len))) {
++		ether->skb = skb;
++		dev_kfree_skb_irq(skb);
++		return 0;
++	}
++	return -EAGAIN;
++}
++
++static irqreturn_t w90p910_tx_interrupt(int irq, void *dev_id)
++{
++	struct w90p910_ether *ether;
++	struct w90p910_txbd  *txbd;
++	struct platform_device *pdev;
++	struct tran_pdesc *tran_pdesc;
++	struct net_device *dev;
++	unsigned int cur_entry, entry, status;
++
++	dev = dev_id;
++	ether = netdev_priv(dev);
++	pdev = ether->pdev;
++
++	w90p910_get_and_clear_int(dev, &status);
++
++	cur_entry = __raw_readl(ether->reg + REG_CTXDSA);
++
++	tran_pdesc = ether->tdesc_phys;
++	entry = (unsigned int)(&tran_pdesc->desclist[ether->finish_tx]);
++
++	while (entry != cur_entry) {
++		txbd = &ether->tdesc->desclist[ether->finish_tx];
++
++		ether->finish_tx = (ether->finish_tx + 1) % TX_DESC_SIZE;
++
++		if (txbd->sl & TXDS_TXCP) {
++			ether->stats.tx_packets++;
++			ether->stats.tx_bytes += txbd->sl & 0xFFFF;
++		} else {
++			ether->stats.tx_errors++;
++		}
++
++		txbd->sl = 0x0;
++		txbd->mode = 0x0;
++
++		if (netif_queue_stopped(dev))
++			netif_wake_queue(dev);
++
++		entry = (unsigned int)(&tran_pdesc->desclist[ether->finish_tx]);
++	}
++
++	if (status & MISTA_EXDEF) {
++		dev_err(&pdev->dev, "emc defer exceed interrupt\n");
++	} else if (status & MISTA_TXBERR) {
++		dev_err(&pdev->dev, "emc bus error interrupt\n");
++		w90p910_reset_mac(dev);
++	} else if (status & MISTA_TDU) {
++		if (netif_queue_stopped(dev))
++			netif_wake_queue(dev);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static void netdev_rx(struct net_device *dev)
++{
++	struct w90p910_ether *ether;
++	struct w90p910_rxbd *rxbd;
++	struct platform_device *pdev;
++	struct recv_pdesc *rdesc_phys;
++	struct sk_buff *skb;
++	unsigned char *data;
++	unsigned int length, status, val, entry;
++
++	ether = netdev_priv(dev);
++	pdev = ether->pdev;
++	rdesc_phys = ether->rdesc_phys;
++
++	rxbd = &ether->rdesc->desclist[ether->cur_rx];
++
++	do {
++		val = __raw_readl(ether->reg + REG_CRXDSA);
++		entry = (unsigned int)&rdesc_phys->desclist[ether->cur_rx];
++
++		if (val == entry)
++			break;
++
++		status = rxbd->sl;
++		length = status & 0xFFFF;
++
++		if (status & RXDS_RXGD) {
++			data = ether->rdesc->recv_buf[ether->cur_rx];
++			skb = dev_alloc_skb(length+2);
++			if (!skb) {
++				dev_err(&pdev->dev, "get skb buffer error\n");
++				ether->stats.rx_dropped++;
++				return;
++			}
++
++			skb->dev = dev;
++			skb_reserve(skb, 2);
++			skb_put(skb, length);
++			skb_copy_to_linear_data(skb, data, length);
++			skb->protocol = eth_type_trans(skb, dev);
++			ether->stats.rx_packets++;
++			ether->stats.rx_bytes += length;
++			netif_rx(skb);
++		} else {
++			ether->stats.rx_errors++;
++
++			if (status & RXDS_RP) {
++				dev_err(&pdev->dev, "rx runt err\n");
++				ether->stats.rx_length_errors++;
++			} else if (status & RXDS_CRCE) {
++				dev_err(&pdev->dev, "rx crc err\n");
++				ether->stats.rx_crc_errors++;
++			} else if (status & RXDS_ALIE) {
++				dev_err(&pdev->dev, "rx aligment err\n");
++				ether->stats.rx_frame_errors++;
++			} else if (status & RXDS_PTLE) {
++				dev_err(&pdev->dev, "rx longer err\n");
++				ether->stats.rx_over_errors++;
++			}
++		}
++
++		rxbd->sl = RX_OWEN_DMA;
++		rxbd->reserved = 0x0;
++		ether->cur_rx = (ether->cur_rx+1) % RX_DESC_SIZE;
++		rxbd = &ether->rdesc->desclist[ether->cur_rx];
++
++		dev->last_rx = jiffies;
++	} while (1);
++}
++
++static irqreturn_t w90p910_rx_interrupt(int irq, void *dev_id)
++{
++	struct net_device *dev;
++	struct w90p910_ether  *ether;
++	struct platform_device *pdev;
++	unsigned int status;
++
++	dev = dev_id;
++	ether = netdev_priv(dev);
++	pdev = ether->pdev;
++
++	w90p910_get_and_clear_int(dev, &status);
++
++	if (status & MISTA_RDU) {
++		netdev_rx(dev);
++		w90p910_trigger_rx(dev);
++
++		return IRQ_HANDLED;
++	} else if (status & MISTA_RXBERR) {
++		dev_err(&pdev->dev, "emc rx bus error\n");
++		w90p910_reset_mac(dev);
++	}
++
++	netdev_rx(dev);
++	return IRQ_HANDLED;
++}
++
++static int w90p910_ether_open(struct net_device *dev)
++{
++	struct w90p910_ether *ether;
++	struct platform_device *pdev;
++
++	ether = netdev_priv(dev);
++	pdev = ether->pdev;
++
++	w90p910_reset_mac(dev);
++	w90p910_set_fifo_threshold(dev);
++	w90p910_set_curdest(dev);
++	w90p910_enable_cam(dev);
++	w90p910_enable_cam_command(dev);
++	w90p910_enable_mac_interrupt(dev);
++	w90p910_set_global_maccmd(dev);
++	w90p910_enable_rx(dev, 1);
++
++	ether->rx_packets = 0x0;
++	ether->rx_bytes = 0x0;
++
++	if (request_irq(ether->txirq, w90p910_tx_interrupt,
++						0x0, pdev->name, dev)) {
++		dev_err(&pdev->dev, "register irq tx failed\n");
++		return -EAGAIN;
++	}
++
++	if (request_irq(ether->rxirq, w90p910_rx_interrupt,
++						0x0, pdev->name, dev)) {
++		dev_err(&pdev->dev, "register irq rx failed\n");
++		free_irq(ether->txirq, dev);
++		return -EAGAIN;
++	}
++
++	mod_timer(&ether->check_timer, jiffies + msecs_to_jiffies(1000));
++	netif_start_queue(dev);
++	w90p910_trigger_rx(dev);
++
++	dev_info(&pdev->dev, "%s is OPENED\n", dev->name);
++
++	return 0;
++}
++
++static void w90p910_ether_set_multicast_list(struct net_device *dev)
++{
++	struct w90p910_ether *ether;
++	unsigned int rx_mode;
++
++	ether = netdev_priv(dev);
++
++	if (dev->flags & IFF_PROMISC)
++		rx_mode = CAMCMR_AUP | CAMCMR_AMP | CAMCMR_ABP | CAMCMR_ECMP;
++	else if ((dev->flags & IFF_ALLMULTI) || dev->mc_list)
++			rx_mode = CAMCMR_AMP | CAMCMR_ABP | CAMCMR_ECMP;
++		else
++				rx_mode = CAMCMR_ECMP | CAMCMR_ABP;
++	__raw_writel(rx_mode, ether->reg + REG_CAMCMR);
++}
++
++static int w90p910_ether_ioctl(struct net_device *dev,
++						struct ifreq *ifr, int cmd)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	struct mii_ioctl_data *data = if_mii(ifr);
++
++	return generic_mii_ioctl(&ether->mii, data, cmd, NULL);
++}
++
++static void w90p910_get_drvinfo(struct net_device *dev,
++					struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, DRV_MODULE_NAME);
++	strcpy(info->version, DRV_MODULE_VERSION);
++}
++
++static int w90p910_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	return mii_ethtool_gset(&ether->mii, cmd);
++}
++
++static int w90p910_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	return mii_ethtool_sset(&ether->mii, cmd);
++}
++
++static int w90p910_nway_reset(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	return mii_nway_restart(&ether->mii);
++}
++
++static u32 w90p910_get_link(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	return mii_link_ok(&ether->mii);
++}
++
++static const struct ethtool_ops w90p910_ether_ethtool_ops = {
++	.get_settings	= w90p910_get_settings,
++	.set_settings	= w90p910_set_settings,
++	.get_drvinfo	= w90p910_get_drvinfo,
++	.nway_reset	= w90p910_nway_reset,
++	.get_link	= w90p910_get_link,
++};
++
++static const struct net_device_ops w90p910_ether_netdev_ops = {
++	.ndo_open		= w90p910_ether_open,
++	.ndo_stop		= w90p910_ether_close,
++	.ndo_start_xmit		= w90p910_ether_start_xmit,
++	.ndo_get_stats		= w90p910_ether_stats,
++	.ndo_set_multicast_list	= w90p910_ether_set_multicast_list,
++	.ndo_set_mac_address	= w90p910_set_mac_address,
++	.ndo_do_ioctl		= w90p910_ether_ioctl,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_change_mtu		= eth_change_mtu,
++};
++
++static void __init get_mac_address(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++	struct platform_device *pdev;
++	char addr[6];
++
++	pdev = ether->pdev;
++
++	addr[0] = 0x00;
++	addr[1] = 0x02;
++	addr[2] = 0xac;
++	addr[3] = 0x55;
++	addr[4] = 0x88;
++	addr[5] = 0xa8;
++
++	if (is_valid_ether_addr(addr))
++		memcpy(dev->dev_addr, &addr, 0x06);
++	else
++		dev_err(&pdev->dev, "invalid mac address\n");
++}
++
++static int w90p910_ether_setup(struct net_device *dev)
++{
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	ether_setup(dev);
++	dev->netdev_ops = &w90p910_ether_netdev_ops;
++	dev->ethtool_ops = &w90p910_ether_ethtool_ops;
++
++	dev->tx_queue_len = 16;
++	dev->dma = 0x0;
++	dev->watchdog_timeo = TX_TIMEOUT;
++
++	get_mac_address(dev);
++
++	ether->cur_tx = 0x0;
++	ether->cur_rx = 0x0;
++	ether->finish_tx = 0x0;
++	ether->linkflag = 0x0;
++	ether->mii.phy_id = 0x01;
++	ether->mii.phy_id_mask = 0x1f;
++	ether->mii.reg_num_mask = 0x1f;
++	ether->mii.dev = dev;
++	ether->mii.mdio_read = w90p910_mdio_read;
++	ether->mii.mdio_write = w90p910_mdio_write;
++
++	setup_timer(&ether->check_timer, w90p910_check_link,
++						(unsigned long)dev);
++
++	return 0;
++}
++
++static int __devinit w90p910_ether_probe(struct platform_device *pdev)
++{
++	struct w90p910_ether *ether;
++	struct net_device *dev;
++	struct resource *res;
++	int error;
++
++	dev = alloc_etherdev(sizeof(struct w90p910_ether));
++	if (!dev)
++		return -ENOMEM;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (res == NULL) {
++		dev_err(&pdev->dev, "failed to get I/O memory\n");
++		error = -ENXIO;
++		goto failed_free;
++	}
++
++	res = request_mem_region(res->start, resource_size(res), pdev->name);
++	if (res == NULL) {
++		dev_err(&pdev->dev, "failed to request I/O memory\n");
++		error = -EBUSY;
++		goto failed_free;
++	}
++
++	ether = netdev_priv(dev);
++
++	ether->reg = ioremap(res->start, resource_size(res));
++	if (ether->reg == NULL) {
++		dev_err(&pdev->dev, "failed to remap I/O memory\n");
++		error = -ENXIO;
++		goto failed_free_mem;
++	}
++
++	ether->txirq = platform_get_irq(pdev, 0);
++	if (ether->txirq < 0) {
++		dev_err(&pdev->dev, "failed to get ether tx irq\n");
++		error = -ENXIO;
++		goto failed_free_io;
++	}
++
++	ether->rxirq = platform_get_irq(pdev, 1);
++	if (ether->rxirq < 0) {
++		dev_err(&pdev->dev, "failed to get ether rx irq\n");
++		error = -ENXIO;
++		goto failed_free_txirq;
++	}
++
++	platform_set_drvdata(pdev, dev);
++
++	ether->clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(ether->clk)) {
++		dev_err(&pdev->dev, "failed to get ether clock\n");
++		error = PTR_ERR(ether->clk);
++		goto failed_free_rxirq;
++	}
++
++	ether->rmiiclk = clk_get(&pdev->dev, "RMII");
++	if (IS_ERR(ether->rmiiclk)) {
++		dev_err(&pdev->dev, "failed to get ether clock\n");
++		error = PTR_ERR(ether->rmiiclk);
++		goto failed_put_clk;
++	}
++
++	ether->pdev = pdev;
++
++	w90p910_ether_setup(dev);
++
++	error = register_netdev(dev);
++	if (error != 0) {
++		dev_err(&pdev->dev, "Regiter EMC w90p910 FAILED\n");
++		error = -ENODEV;
++		goto failed_put_rmiiclk;
++	}
++
++	return 0;
++failed_put_rmiiclk:
++	clk_put(ether->rmiiclk);
++failed_put_clk:
++	clk_put(ether->clk);
++failed_free_rxirq:
++	free_irq(ether->rxirq, pdev);
++	platform_set_drvdata(pdev, NULL);
++failed_free_txirq:
++	free_irq(ether->txirq, pdev);
++failed_free_io:
++	iounmap(ether->reg);
++failed_free_mem:
++	release_mem_region(res->start, resource_size(res));
++failed_free:
++	free_netdev(dev);
++	return error;
++}
++
++static int __devexit w90p910_ether_remove(struct platform_device *pdev)
++{
++	struct net_device *dev = platform_get_drvdata(pdev);
++	struct w90p910_ether *ether = netdev_priv(dev);
++
++	unregister_netdev(dev);
++	clk_put(ether->rmiiclk);
++	clk_put(ether->clk);
++	del_timer_sync(&ether->check_timer);
++	platform_set_drvdata(pdev, NULL);
++	free_irq(ether->txirq, dev);
++	free_irq(ether->rxirq, dev);
++	free_netdev(dev);
++	return 0;
++}
++
++static struct platform_driver w90p910_ether_driver = {
++	.probe		= w90p910_ether_probe,
++	.remove		= __devexit_p(w90p910_ether_remove),
++	.driver		= {
++		.name	= "w90p910-emc",
++		.owner	= THIS_MODULE,
++	},
++};
++
++static int __init w90p910_ether_init(void)
++{
++	return platform_driver_register(&w90p910_ether_driver);
++}
++
++static void __exit w90p910_ether_exit(void)
++{
++	platform_driver_unregister(&w90p910_ether_driver);
++}
++
++module_init(w90p910_ether_init);
++module_exit(w90p910_ether_exit);
++
++MODULE_AUTHOR("Wan ZongShun <mcuos.com@gmail.com>");
++MODULE_DESCRIPTION("w90p910 MAC driver!");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:w90p910-emc");
++
+-- 
+1.5.6.3
