@@ -1,72 +1,114 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] check spinlock_t/rwlock_t argument type on non-SMP
-	builds
-Date: Sat, 18 Jul 2009 14:14:13 +0200
-Message-ID: <20090718121413.GE31007@elte.hu>
-References: <1246560291-8104-1-git-send-email-kilroyd@googlemail.com> <20090703073801.GA10191@elte.hu> <4A4E55A9.7090001@gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: [1/1] connector maintainer/mail update.
+Date: Sat, 18 Jul 2009 18:25:33 +0400
+Message-ID: <20090718142533.GA1948@ioremap.net>
+References: <1247696049-15699-1-git-send-email-vapier@gentoo.org> <20090716101957.GA9586@ioremap.net> <20090717.101550.223298982.davem@davemloft.net> <8bd0f97a0907172045j2cff6987xb7ea0aab438bef9d@mail.gmail.com> <20090717223307.d86a5551.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Dave <kilroyd@googlemail.com>
+Cc: Mike Frysinger <vapier.adi@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:55611 "EHLO mx3.mail.elte.hu"
+Received: from corega.com.ru ([195.178.208.66]:32994 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272AbZGRMPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jul 2009 08:15:13 -0400
+	id S1753149AbZGROZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jul 2009 10:25:35 -0400
 Content-Disposition: inline
-In-Reply-To: <4A4E55A9.7090001@gmail.com>
+In-Reply-To: <20090717223307.d86a5551.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Please apply.
 
-* Dave <kilroyd@googlemail.com> wrote:
+Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-> Ingo Molnar wrote:
-> > * David Kilroy <kilroyd@googlemail.com> wrote:
-> > 
-> >> When writing code for UP without CONFIG_DEBUG_SPINLOCK it's easy 
-> >> to get the first argument to the spinlock/rwlock functions wrong. 
-> >> This is because the parameter is not actually used in this 
-> >> configuration.
-> >>
-> >> Typically you will only find out it's wrong
-> >>  * by rebuilding with CONFIG_SMP or CONFIG_DEBUG_SPINLOCK
-> >>  * after you've submitted your beautiful patch series.
-> >>
-> >> The first means a long wait, and the latter is a bit late.
-> >>
-> >> Add typechecking on the first argument of these macro functions. 
-> >> Note that since the typecheck now references the variable, the 
-> >> explicit read is redundant and can be removed.
-> >>
-> >> This change causes compiler warnings in net/ipv4/route.c, as this 
-> >> passes NULL as the first argument in the UP configuration. Simply 
-> >> cast this.
-> > 
-> > Wondering - can the wrappers be moved from CPP land to C land by 
-> > turning them into inlines? (i havent checked all usages so there 
-> > might be some surprises, but by and large it ought to be 
-> > possible.)
-> 
-> I thought about doing it that way. I decided not to because I 
-> suspected it would be harder to verify that the behaviour is 
-> unchanged.
+diff --git a/Documentation/connector/cn_test.c b/Documentation/connector/cn_test.c
+index 6977c17..6344f7b 100644
+--- a/Documentation/connector/cn_test.c
++++ b/Documentation/connector/cn_test.c
+@@ -1,7 +1,7 @@
+ /*
+  * 	cn_test.c
+  * 
+- * 2004-2005 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+  * All rights reserved.
+  * 
+  * This program is free software; you can redistribute it and/or modify
+@@ -187,5 +187,5 @@ module_init(cn_test_init);
+ module_exit(cn_test_fini);
+ 
+ MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Evgeniy Polyakov <johnpol@2ka.mipt.ru>");
++MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
+ MODULE_DESCRIPTION("Connector's test module");
+diff --git a/Documentation/connector/ucon.c b/Documentation/connector/ucon.c
+index d738cde..c5092ad 100644
+--- a/Documentation/connector/ucon.c
++++ b/Documentation/connector/ucon.c
+@@ -1,7 +1,7 @@
+ /*
+  * 	ucon.c
+  *
+- * Copyright (c) 2004+ Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * Copyright (c) 2004+ Evgeniy Polyakov <zbr@ioremap.net>
+  *
+  *
+  * This program is free software; you can redistribute it and/or modify
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c944d61..764ce3b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1518,6 +1518,13 @@ S:	Supported
+ F:	fs/configfs/
+ F:	include/linux/configfs.h
+ 
++CONNECTOR
++P:	Evgeniy Polyakov
++M:	zbr@ioremap.net
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/connector/
++
+ CONTROL GROUPS (CGROUPS)
+ P:	Paul Menage
+ M:	menage@google.com
+diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+index c769ef2..b4ad84d 100644
+--- a/drivers/connector/cn_queue.c
++++ b/drivers/connector/cn_queue.c
+@@ -1,7 +1,7 @@
+ /*
+  * 	cn_queue.c
+  *
+- * 2004-2005 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index fd336c5..b135281 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -1,7 +1,7 @@
+ /*
+  * 	connector.c
+  *
+- * 2004-2005 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -33,7 +33,7 @@
+ #include <net/sock.h>
+ 
+ MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Evgeniy Polyakov <johnpol@2ka.mipt.ru>");
++MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
+ MODULE_DESCRIPTION("Generic userspace <-> kernelspace connector.");
+ 
+ static u32 cn_idx = CN_IDX_CONNECTOR;
 
-These things break noisily if they are wrong so i wouldnt be worried 
-about that aspect.
 
-> Also the _lock_irqsave functions output to the flags parameter 
-> (which isn't a pointer) so that has to remain a macro.
-
-Do we still need it? I remember it was originally due to some 
-sparc32-ness, but meanwhile that's fixed in Sparc so we can 
-generally pass irq flags around at will.
-
-> If you'd really rather an inline version, I can spend some time 
-> looking into it.
-
-Would be nice.
-
-	Ingo
+-- 
+	Evgeniy Polyakov
