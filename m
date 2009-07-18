@@ -1,264 +1,239 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] TCP: Add comments to (near) all functions in tcp_output.c
-Date: Sat, 18 Jul 2009 09:38:02 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0907180919270.31457@melkinkari.cs.Helsinki.FI>
-References: <20090717204004.GA516@basil.fritz.box>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: Achieved 10Gbit/s bidirectional routing
+Date: Sat, 18 Jul 2009 09:14:18 +0200
+Message-ID: <1247901258.6646.15.camel@localhost.localdomain>
+References: <1247676631.30876.29.camel@localhost.localdomain>
+	 <20090715232253.91d9f264.billfink@mindspring.com>
+	 <1247737144.30876.53.camel@localhost.localdomain>
+	 <20090716113827.19fbb379.billfink@mindspring.com>
+	 <20090717203546.GA31259@1wt.eu>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243445-1627044812-1247898768=:31457"
-Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48822 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751531AbZGRGiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2009 02:38:04 -0400
-In-Reply-To: <20090717204004.GA516@basil.fritz.box>
-Content-ID: <Pine.LNX.4.64.0907180932560.31457@melkinkari.cs.Helsinki.FI>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bill Fink <billfink@mindspring.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	jesse.brandeburg@intel.com,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932481AbZGRHOa@vger.kernel.org>
+In-Reply-To: <20090717203546.GA31259@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243445-1627044812-1247898768=:31457
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0907180932561.31457@melkinkari.cs.Helsinki.FI>
-
-On Fri, 17 Jul 2009, Andi Kleen wrote:
-
-> TCP: Add comments to (near) all functions in tcp_output.c
+On Fri, 2009-07-17 at 22:35 +0200, Willy Tarreau wrote:
+> On Thu, Jul 16, 2009 at 11:38:27AM -0400, Bill Fink wrote:
+> > On Thu, 16 Jul 2009, Jesper Dangaard Brouer wrote:
+> > 
+> > > On Wed, 2009-07-15 at 23:22 -0400, Bill Fink wrote:
+> > > > On Wed, 15 Jul 2009, Jesper Dangaard Brouer wrote:
+> > > > 
+> > > > > I'm giving a talk at LinuxCon, about 10Gbit/s routing on standard
+> > > > > hardware running Linux.
+> > > > > 
+> > > > >   http://linuxcon.linuxfoundation.org/meetings/1585
+> > > > >   https://events.linuxfoundation.org/lc09o17
+> > > > > 
+> > > > > I'm getting some really good 10Gbit/s bidirectional routing results
+> > > > > with Intels latest 82599 chip. (I got two pre-release engineering
+> > > > > samples directly from Intel, thanks Peter)
+> > > > > 
+> > > > > Using a Core i7-920, and tuning the memory according to the RAMs
+> > > > > X.M.P. settings DDR3-1600MHz, notice this also increases the QPI to
+> > > > > 6.4GT/s.  (Motherboard P6T6 WS revolution)
+> > > > > 
+> > > > > With big 1514 bytes packets, I can basically do 10Gbit/s wirespeed
+> > > > > bidirectional routing.
+> > > > > 
+> > > > > Notice bidirectional routing means that we actually has to move approx
+> > > > > 40Gbit/s through memory and in-and-out of the interfaces.
+> > > > > 
+> > > > > Formatted quick view using 'ifstat -b'
+> > > > > 
+> > > > >   eth31-in   eth31-out   eth32-in  eth32-out
+> > > > >     9.57  +    9.52  +     9.51 +     9.60  = 38.20 Gbit/s
+> > > > >     9.60  +    9.55  +     9.52 +     9.62  = 38.29 Gbit/s
+> > > > >     9.61  +    9.53  +     9.52 +     9.62  = 38.28 Gbit/s
+> > > > >     9.61  +    9.53  +     9.54 +     9.62  = 38.30 Gbit/s
+> > > > > 
+> > > > > [Adding an extra NIC]
+> > > > > 
+> > > > > Another observation is that I'm hitting some kind of bottleneck on the
+> > > > > PCI-express switch.  Adding an extra NIC in a PCIe slot connected to
+> > > > > the same PCIe switch, does not scale beyond 40Gbit/s collective
+> > > > > throughput.
+> > > 
+> > > Correcting my self, according to Bill's info below.
+> > > 
+> > > It does not scale when adding an extra NIC to the same NVIDIA NF200 PCIe
+> > > switch chip (reason explained below by Bill)
+> > > 
+> > >  
+> > > > > But, I happened to have a special motherboard ASUS P6T6 WS revolution,
+> > > > > which has an additional PCIe switch chip NVIDIA's NF200.
+> > > > > 
+> > > > > Connecting two dual port 10GbE NICs via two different PCI-express
+> > > > > switch chips, makes things scale again!  I have achieved a collective
+> > > > > throughput of 66.25 Gbit/s.  This results is also influenced by my
+> > > > > pktgen machines cannot keep up, and I'm getting closer to the memory
+> > > > > bandwidth limits.
+> > > > > 
+> > > > > FYI: I found a really good reference explaining the PCI-express
+> > > > > architecture, written by Intel:
+> > > > > 
+> > > > >  http://download.intel.com/design/intarch/papers/321071.pdf
+> > > > > 
+> > > > > I'm not sure how to explain the PCI-express chip bottleneck I'm
+> > > > > seeing, but my guess is that I'm limited by the number of outstanding
+> > > > > packets/DMA-transfers and the latency for the DMA operations.
+> > > > > 
+> > > > > Does any one have datasheets on the X58 and NVIDIA's NF200 PCI-express
+> > > > > chips, that can tell me the number of outstanding transfers they
+> > > > > support?
+> > > > 
+> > > > We've achieved 70 Gbps aggregate unidirectional TCP performance from
+> > > > one P6T6 based system to another.  We figured out in our case that
+> > > > we were being limited by the interconnect between the Intel X58 and
+> > > > Nvidia N200 chips.  The first 2 PCIe 2.0 slots are directly off the
+> > > > Intel X58 and get the full 40 Gbps throughput from the dual-port
+> > > > Myricom 10-GigE NICs we have installed in them.  But the other
+> > > > 3 PCIe 2.0 slots are on the Nvidia N200 chip, and I discovered
+> > > > through googling that the link between the X58 and N200 chips
+> > > > only operates at PCIe x16 _1.0_ speed, which limits the possible
+> > > > aggregate throughput of the last 3 PCIe 2.0 slots to only 32 Gbps.
+> > > 
+> > > This definitly explains the bottlenecks I have seen! Thanks!
+> > > 
+> > > Yes, it seems to scale when installing the two NICs in the first two
+> > > slots, both connected to the X58.  If overclocking the RAM and CPU a
+> > > bit, I can match my pktgen machines speed which gives a collective
+> > > throughput of 67.95 Gbit/s.
+> > > 
+> > >    eth33          eth34          eth31         eth32
+> > >  in     out     in     out     in    out     in    out 
+> > > 7.54 + 9.58  + 9.56 + 7.56  + 7.33 + 9.53 + 9.50 + 7.35  = 67.95 Gbit/s
+> > > 
+> > > Now I just need a faster generator machine, to find the next bottleneck ;-)
+> > > 
+> > > 
+> > > > This was clearly seen in our nuttcp testing:
+> > > > 
+> > > > [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -xc3/3 -p5008 192.168.8.11
+> > > > n2: 11505.2648 MB /  10.09 sec = 9566.2298 Mbps 37 %TX 55 %RX 0 retrans 0.10 msRTT
+> > > > n3: 11727.4489 MB /  10.02 sec = 9815.7570 Mbps 39 %TX 44 %RX 0 retrans 0.10 msRTT
+> > > > n4: 11770.1250 MB /  10.07 sec = 9803.9901 Mbps 39 %TX 51 %RX 0 retrans 0.10 msRTT
+> > > > n5: 11837.9320 MB /  10.05 sec = 9876.5725 Mbps 39 %TX 47 %RX 0 retrans 0.10 msRTT
+> > > > n6:  9096.8125 MB /  10.09 sec = 7559.3310 Mbps 30 %TX 32 %RX 0 retrans 0.10 msRTT
+> > > > n7:  9100.1211 MB /  10.10 sec = 7559.7790 Mbps 30 %TX 44 %RX 0 retrans 0.10 msRTT
+> > > > n8:  9095.6179 MB /  10.10 sec = 7557.9983 Mbps 31 %TX 33 %RX 0 retrans 0.10 msRTT
+> > > > n9:  9075.5472 MB /  10.08 sec = 7551.0234 Mbps 31 %TX 33 %RX 0 retrans 0.11 msRTT
+> > > > 
+> > > > This used 4 dual-port Myricom 10-GigE NICs.  We also tested with
+> > > > a fifth dual-port 10-GigE NIC, but the aggregate throughput stayed
+> > > > at about 70 Gbps, due to the performance bottleneck between the
+> > > > X58 and N200 chips.
+> > > 
+> > > This is also very excellent results!
+> > > 
+> > > Thanks a lot Bill !!!
+> > 
+> > We also achieved nearly 80 Gbps in bidirectional TCP tests (40 Gbps
+> > simultaneously in each direction):
+> > 
+> > [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -r -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -r -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -r -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -r -xc3/3 -p5008 192.168.8.11                                    
+> > n2: 11542.6250 MB /  10.07 sec = 9619.9920 Mbps 44 %TX 51 %RX 0 retrans 0.12 msRTT                                                                      
+> > n3: 11543.7143 MB /  10.06 sec = 9622.2153 Mbps 41 %TX 49 %RX 0 retrans 0.15 msRTT                                                   
+> > n4: 11622.8125 MB /  10.05 sec = 9701.0296 Mbps 43 %TX 51 %RX 0 retrans 0.10 msRTT                                                                      
+> > n5: 11523.6875 MB /  10.03 sec = 9638.8883 Mbps 43 %TX 50 %RX 0 retrans 0.15 msRTT                                                                      
+> > n6: 11608.0141 MB /  10.04 sec = 9695.7388 Mbps 43 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
+> > n7: 11580.1250 MB /  10.04 sec = 9679.3910 Mbps 43 %TX 50 %RX 0 retrans 0.13 msRTT                                                                      
+> > n8: 11608.0000 MB /  10.06 sec = 9678.7596 Mbps 42 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
+> > n9: 11553.3750 MB /  10.05 sec = 9643.7296 Mbps 45 %TX 50 %RX 0 retrans 0.11 msRTT                                                                      
+> > 
+> > This was using 2 dual-port 10-GigE NICs in the first two PCIe 2.0 slots.
+> > We are using an Intel i7 965 quad-core 3.2 GHz Nehalem processor
+> > (overclocked to 3.4 GHz) and 2000 MHz DDR3 memory.  Adding an additional
+> > dual-port 10-GigE NIC on the Nvidia N200 chip does only marginally
+> > better, as it appears we are basically CPU limited at this point for
+> > this test (the sum of the TX and RX CPU utilization for each pair of
+> > 10-GigE interfaces is about 93%).
 > 
-> While looking for something else I spent some time adding
-> one liner comments to the tcp_output.c functions that
-> didn't have any. That makes the comments more consistent.
+> Hey guys, those are really nice numbers. Since TCP splicing appeared in the
+> kernel (once we got it fixed), I achieved 10 Gbps of HTTP proxying using
+> haproxy with very low CPU usage (about 20% of a Core2Duo 2.66 GHz).
+
+Nice, but I think we have a bug with the measured CPU usage.  Eric
+Dumazet did a fix, but also pointed out that in a later mail, at I seem
+like it not fixed completely yet...
+
+> Before buying the machines, I had been wandering around with the NICs
+> donated by Myricom in order to try to find a machine capable of supporting
+> this. My conclusion was that a lot of machines had difficulties getting
+> above 3.5, 4.7 and 6.5 Gbps of output traffic (those 3 numbers were always
+> the same, depending on the chipsets). There clearly was a bandwidth
+> limitation imposed by the chipset.
 > 
-> I hope I documented everything right.
+> So I waited for the X38 and AM780FX chipsets to become available and
+> bought 3 machines (1 C2D, 1 AMD X2, 1 AMD X4). Those ones have no problem
+> with 10 Gbps of forwarded traffic (20 Gbps of total bus bandwidth), even
+> with 1500 bytes frames, but I don't know how high they can go, maybe
+> they will saturate slightly above.
+
+My experience is also that the AMDs can easily do 10Gbit/s forwarding,
+but doing bidirectional they suffer...
+
+
+> Unfortunately, I only have 5 NICs in 3 machines and no switch (and CX4
+> is hard to find these days), so I'm probably stuck at 10 Gbps max.
+
+We are a fiber company, so I'm using our spare 10G optics, but I'm
+limited by our supply of SFP+ currently.
+
+I'll be getting two 6 port 10GbE NIC using PCIe2 x16 82599, in august,
+so it will be interesting how high we can go! :-)
+
+> Interestingly, I had the impression that forwarding data with TCP
+> splicing costs less CPU than IP forwarding, because the NICs can do
+> LRO.
 > 
-> No code changes.
+> Also, I know a french service provider who uses haproxy on Core i7
+> machines and who has already reached 5 Gbps of sustained traffic
+> with recent intel dual-port NICs (though I'm not sure exactly which
+> ones). This is with very little CPU usage too, less than 2-3% user
+> and 15% system+softirq. On previous machines (quad core xeons), it
+> was impossible to go beyond 3 Gbps, it looked like the chipset was
+> the limitating factor too (though I don't precisely remember which
+> one it was).
 > 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> I really blamed the NICs because this guys machine was about 4 times
+> more powerful than mine, but apparently it was just a chipset issue.
 > 
-> ---
->  net/ipv4/tcp_output.c |   49 ++++++++++++++++++++++++++++++++++++++++++++-----
->  1 file changed, 44 insertions(+), 5 deletions(-)
-> 
-> Index: linux-2.6.31-rc3-ak/net/ipv4/tcp_output.c
-> ===================================================================
-> --- linux-2.6.31-rc3-ak.orig/net/ipv4/tcp_output.c
-> +++ linux-2.6.31-rc3-ak/net/ipv4/tcp_output.c
-> @@ -59,6 +59,8 @@ int sysctl_tcp_base_mss __read_mostly =
->  /* By default, RFC2861 behavior.  */
->  int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
->  
-> +/* Account for new data that has been sent to the network.
-> + */
->  static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-> @@ -142,6 +144,8 @@ static void tcp_cwnd_restart(struct sock
->  	tp->snd_cwnd_used = 0;
->  }
->  
-> +/* Congestion state accounting after a packet has been sent.
-> + */
->  static void tcp_event_data_sent(struct tcp_sock *tp,
->  				struct sk_buff *skb, struct sock *sk)
->  {
-> @@ -276,6 +280,8 @@ static u16 tcp_select_window(struct sock
->  	return new_win;
->  }
->  
-> +/* Packet ECN state for a SYN-ACK
-> + */
->  static inline void TCP_ECN_send_synack(struct tcp_sock *tp, struct sk_buff *skb)
->  {
->  	TCP_SKB_CB(skb)->flags &= ~TCPCB_FLAG_CWR;
-> @@ -283,6 +289,8 @@ static inline void TCP_ECN_send_synack(s
->  		TCP_SKB_CB(skb)->flags &= ~TCPCB_FLAG_ECE;
->  }
->  
-> +/* Packet ECN state for a SYN.
-> + */
->  static inline void TCP_ECN_send_syn(struct sock *sk, struct sk_buff *skb)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-> @@ -301,6 +309,9 @@ TCP_ECN_make_synack(struct request_sock
->  		th->ece = 1;
->  }
->  
-> +/* Set up ECN state for a packet on a ESTABLISHED socket that is about to
-> + * be sent.
-> + */
->  static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
->  				int tcp_header_len)
->  {
-> @@ -362,7 +373,9 @@ struct tcp_out_options {
->  	__u32 tsval, tsecr;	/* need to include OPTION_TS */
->  };
->  
-> -/* Beware: Something in the Internet is very sensitive to the ordering of
-> +/* Write previously computed TCP options to the packet.
-> + *
-> + * Beware: Something in the Internet is very sensitive to the ordering of
->   * TCP options, we learned this through the hard way, so be careful here.
->   * Luckily we can at least blame others for their non-compliance but from
->   * inter-operatibility perspective it seems that we're somewhat stuck with
-> @@ -445,6 +458,8 @@ static void tcp_options_write(__be32 *pt
->  	}
->  }
->  
-> +/* Compute TCP options for SYN packets and store them in the socket.
-> + */
+> I also happen to have a customer who recently received a few Sun NXGE,
+> mounted in Sun x2100-m2 using an nvidia chipset which I tested OK at
+> 10 Gbps with my myri10GE NICs. I'll try to see if I can run some tests
+> there, as Davem once said those NICs are really good too.
 
-These three (this and two below) calculate stuff not into socket but into 
-a tcp_out_options struct in stack, and besides that they also find out 
-the space that is needed for those options (the returned int).
+The Sun NIU NIC has to use several hardware queues to achieve 10GbE.
+Currently using these as generators, and thats one of my limiting
+factors.
 
->  static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
->  				struct tcp_out_options *opts,
->  				struct tcp_md5sig_key **md5) {
-> @@ -493,6 +508,8 @@ static unsigned tcp_syn_options(struct s
->  	return size;
->  }
->  
-> +/* Set up TCP options for SYN-ACKs and store them in the socket.
-> + */
->  static unsigned tcp_synack_options(struct sock *sk,
->  				   struct request_sock *req,
->  				   unsigned mss, struct sk_buff *skb,
-> @@ -541,6 +558,8 @@ static unsigned tcp_synack_options(struc
->  	return size;
->  }
->  
-> +/* Compute TCP options for ESTABLISHED sockets and store them in the socket.
-> + */
->  static unsigned tcp_established_options(struct sock *sk, struct sk_buff *skb,
->  					struct tcp_out_options *opts,
->  					struct tcp_md5sig_key **md5) {
-> @@ -705,7 +724,7 @@ static int tcp_transmit_skb(struct sock
->  	return net_xmit_eval(err);
->  }
->  
-> -/* This routine just queue's the buffer
-> +/* This routine just queues the buffer
->   *
->   * NOTE: probe0 timer is not checked, do not forget tcp_push_pending_frames,
->   * otherwise socket can stall.
-> @@ -909,6 +928,8 @@ static void __pskb_trim_head(struct sk_b
->  	skb->len = skb->data_len;
->  }
->  
-> +/* Remove acked data from a packet in the transmit queue.
-> + */
->  int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
->  {
->  	if (skb_cloned(skb) && pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
-> @@ -937,7 +958,9 @@ int tcp_trim_head(struct sock *sk, struc
->  	return 0;
->  }
->  
-> -/* Not accounting for SACKs here. */
-> +/* Calculate MSS
-> + * Not accounting for SACKs here.
-> + */
->  int tcp_mtu_to_mss(struct sock *sk, int pmtu)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-> @@ -1143,7 +1166,8 @@ static inline unsigned int tcp_cwnd_test
->  	return 0;
->  }
->  
-> -/* This must be invoked the first time we consider transmitting
-> +/* Intialize TSO state.
+> All in all, I find it really cool that our beloved OS scales that
+> well with the hardware :-)
 
-... of skb. ?
+Yes, its really amazing how well the Linux net stack scales.  I think
+the primary thanks for this efford goes to DaveMs multiqueue changes and
+Eric Dumazet's tuning.
 
-Not some some socket or whatever global state.
-
-> + * This must be invoked the first time we consider transmitting
->   * SKB onto the wire.
->   */
->  static int tcp_init_tso_segs(struct sock *sk, struct sk_buff *skb,
-> @@ -1242,6 +1266,8 @@ static unsigned int tcp_snd_test(struct
->  	return cwnd_quota;
->  }
->  
-> +/* Test if sending is allowed right now.
-> + */
->  int tcp_may_send_now(struct sock *sk)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-> @@ -1378,6 +1404,9 @@ send_now:
->  }
->  
->  /* Create a new MTU probe if we are ready.
-> + * MTU probe is trying to increase the path MTU again after PMTU
-> + * discovery initially shrunk the PMTU. This discovers routing
-> + * changes.
-
-I don't particularly like that "initially shrunk" part here. Honestly I 
-don't even know what that refers to :-) and mtu probe may well work from 
-1500 upwards too if your path is able... I mean that no shrunking 
-occurred in that scenario?!?
-
->   * Returns 0 if we should wait to probe (no cwnd available),
->   *         1 if a probe was sent,
->   *         -1 otherwise
-> @@ -1808,6 +1837,9 @@ static int tcp_can_collapse(struct sock
->  	return 1;
->  }
->  
-> +/* Collapse packets in the retransmit queue to make them
-> + * fit into the MSS/MTU and minimize packets on the wire.
-
-small packets? collapsed up to MSS/MTU?
-
-> + */
->  static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
->  				     int space)
->  {
-> @@ -1957,6 +1989,9 @@ int tcp_retransmit_skb(struct sock *sk,
->  	return err;
->  }
->  
-> +/* Check if we forward retransmits are possible in the current
-> + * window/congestion state.
-> + */
->  static int tcp_can_forward_retransmit(struct sock *sk)
->  {
->  	const struct inet_connection_sock *icsk = inet_csk(sk);
-> @@ -2145,7 +2180,8 @@ void tcp_send_active_reset(struct sock *
->  	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
->  }
->  
-> -/* WARNING: This routine must only be called when we have already sent
-> +/* Send a crossed SYN-ACK during socket establishment.
-> + * WARNING: This routine must only be called when we have already sent
->   * a SYN packet that crossed the incoming SYN that caused this routine
->   * to get called. If this assumption fails then the initial rcv_wnd
->   * and rcv_wscale values will not be correct.
-> @@ -2493,6 +2529,9 @@ static int tcp_xmit_probe_skb(struct soc
->  	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
->  }
->  
-> +/* Initiate keepalive or window probe from timer.
-> + * Retransmits the data on the head of the retransmit queue.
-
-skb = tcp_send_head(sk)? ...That's not head of the retransmit queue but 
-the first unsent segment. ...And it may send just a probe packet(s) if no 
-data is available.
-
-> + */
->  int tcp_write_wakeup(struct sock *sk)
->  {
->  	struct tcp_sock *tp = tcp_sk(sk);
-
-Other than those mentioned,
-
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
-
+ps. I'll offline untill tuesday.
 -- 
- i.
----696243445-1627044812-1247898768=:31457--
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
