@@ -1,239 +1,148 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: Achieved 10Gbit/s bidirectional routing
-Date: Sat, 18 Jul 2009 09:14:18 +0200
-Message-ID: <1247901258.6646.15.camel@localhost.localdomain>
-References: <1247676631.30876.29.camel@localhost.localdomain>
-	 <20090715232253.91d9f264.billfink@mindspring.com>
-	 <1247737144.30876.53.camel@localhost.localdomain>
-	 <20090716113827.19fbb379.billfink@mindspring.com>
-	 <20090717203546.GA31259@1wt.eu>
+From: sebastien <sriliam@free.fr>
+Subject: iproute2 : unambiguous reading.
+Date: Sat, 18 Jul 2009 11:43:16 +0200
+Message-ID: <1247910196.10953.84.camel@lya14-2-82-232-125-204>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	jesse.brandeburg@intel.com,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932481AbZGRHOa@vger.kernel.org>
-In-Reply-To: <20090717203546.GA31259@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-07-17 at 22:35 +0200, Willy Tarreau wrote:
-> On Thu, Jul 16, 2009 at 11:38:27AM -0400, Bill Fink wrote:
-> > On Thu, 16 Jul 2009, Jesper Dangaard Brouer wrote:
-> > 
-> > > On Wed, 2009-07-15 at 23:22 -0400, Bill Fink wrote:
-> > > > On Wed, 15 Jul 2009, Jesper Dangaard Brouer wrote:
-> > > > 
-> > > > > I'm giving a talk at LinuxCon, about 10Gbit/s routing on standard
-> > > > > hardware running Linux.
-> > > > > 
-> > > > >   http://linuxcon.linuxfoundation.org/meetings/1585
-> > > > >   https://events.linuxfoundation.org/lc09o17
-> > > > > 
-> > > > > I'm getting some really good 10Gbit/s bidirectional routing results
-> > > > > with Intels latest 82599 chip. (I got two pre-release engineering
-> > > > > samples directly from Intel, thanks Peter)
-> > > > > 
-> > > > > Using a Core i7-920, and tuning the memory according to the RAMs
-> > > > > X.M.P. settings DDR3-1600MHz, notice this also increases the QPI to
-> > > > > 6.4GT/s.  (Motherboard P6T6 WS revolution)
-> > > > > 
-> > > > > With big 1514 bytes packets, I can basically do 10Gbit/s wirespeed
-> > > > > bidirectional routing.
-> > > > > 
-> > > > > Notice bidirectional routing means that we actually has to move approx
-> > > > > 40Gbit/s through memory and in-and-out of the interfaces.
-> > > > > 
-> > > > > Formatted quick view using 'ifstat -b'
-> > > > > 
-> > > > >   eth31-in   eth31-out   eth32-in  eth32-out
-> > > > >     9.57  +    9.52  +     9.51 +     9.60  = 38.20 Gbit/s
-> > > > >     9.60  +    9.55  +     9.52 +     9.62  = 38.29 Gbit/s
-> > > > >     9.61  +    9.53  +     9.52 +     9.62  = 38.28 Gbit/s
-> > > > >     9.61  +    9.53  +     9.54 +     9.62  = 38.30 Gbit/s
-> > > > > 
-> > > > > [Adding an extra NIC]
-> > > > > 
-> > > > > Another observation is that I'm hitting some kind of bottleneck on the
-> > > > > PCI-express switch.  Adding an extra NIC in a PCIe slot connected to
-> > > > > the same PCIe switch, does not scale beyond 40Gbit/s collective
-> > > > > throughput.
-> > > 
-> > > Correcting my self, according to Bill's info below.
-> > > 
-> > > It does not scale when adding an extra NIC to the same NVIDIA NF200 PCIe
-> > > switch chip (reason explained below by Bill)
-> > > 
-> > >  
-> > > > > But, I happened to have a special motherboard ASUS P6T6 WS revolution,
-> > > > > which has an additional PCIe switch chip NVIDIA's NF200.
-> > > > > 
-> > > > > Connecting two dual port 10GbE NICs via two different PCI-express
-> > > > > switch chips, makes things scale again!  I have achieved a collective
-> > > > > throughput of 66.25 Gbit/s.  This results is also influenced by my
-> > > > > pktgen machines cannot keep up, and I'm getting closer to the memory
-> > > > > bandwidth limits.
-> > > > > 
-> > > > > FYI: I found a really good reference explaining the PCI-express
-> > > > > architecture, written by Intel:
-> > > > > 
-> > > > >  http://download.intel.com/design/intarch/papers/321071.pdf
-> > > > > 
-> > > > > I'm not sure how to explain the PCI-express chip bottleneck I'm
-> > > > > seeing, but my guess is that I'm limited by the number of outstanding
-> > > > > packets/DMA-transfers and the latency for the DMA operations.
-> > > > > 
-> > > > > Does any one have datasheets on the X58 and NVIDIA's NF200 PCI-express
-> > > > > chips, that can tell me the number of outstanding transfers they
-> > > > > support?
-> > > > 
-> > > > We've achieved 70 Gbps aggregate unidirectional TCP performance from
-> > > > one P6T6 based system to another.  We figured out in our case that
-> > > > we were being limited by the interconnect between the Intel X58 and
-> > > > Nvidia N200 chips.  The first 2 PCIe 2.0 slots are directly off the
-> > > > Intel X58 and get the full 40 Gbps throughput from the dual-port
-> > > > Myricom 10-GigE NICs we have installed in them.  But the other
-> > > > 3 PCIe 2.0 slots are on the Nvidia N200 chip, and I discovered
-> > > > through googling that the link between the X58 and N200 chips
-> > > > only operates at PCIe x16 _1.0_ speed, which limits the possible
-> > > > aggregate throughput of the last 3 PCIe 2.0 slots to only 32 Gbps.
-> > > 
-> > > This definitly explains the bottlenecks I have seen! Thanks!
-> > > 
-> > > Yes, it seems to scale when installing the two NICs in the first two
-> > > slots, both connected to the X58.  If overclocking the RAM and CPU a
-> > > bit, I can match my pktgen machines speed which gives a collective
-> > > throughput of 67.95 Gbit/s.
-> > > 
-> > >    eth33          eth34          eth31         eth32
-> > >  in     out     in     out     in    out     in    out 
-> > > 7.54 + 9.58  + 9.56 + 7.56  + 7.33 + 9.53 + 9.50 + 7.35  = 67.95 Gbit/s
-> > > 
-> > > Now I just need a faster generator machine, to find the next bottleneck ;-)
-> > > 
-> > > 
-> > > > This was clearly seen in our nuttcp testing:
-> > > > 
-> > > > [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -xc3/3 -p5008 192.168.8.11
-> > > > n2: 11505.2648 MB /  10.09 sec = 9566.2298 Mbps 37 %TX 55 %RX 0 retrans 0.10 msRTT
-> > > > n3: 11727.4489 MB /  10.02 sec = 9815.7570 Mbps 39 %TX 44 %RX 0 retrans 0.10 msRTT
-> > > > n4: 11770.1250 MB /  10.07 sec = 9803.9901 Mbps 39 %TX 51 %RX 0 retrans 0.10 msRTT
-> > > > n5: 11837.9320 MB /  10.05 sec = 9876.5725 Mbps 39 %TX 47 %RX 0 retrans 0.10 msRTT
-> > > > n6:  9096.8125 MB /  10.09 sec = 7559.3310 Mbps 30 %TX 32 %RX 0 retrans 0.10 msRTT
-> > > > n7:  9100.1211 MB /  10.10 sec = 7559.7790 Mbps 30 %TX 44 %RX 0 retrans 0.10 msRTT
-> > > > n8:  9095.6179 MB /  10.10 sec = 7557.9983 Mbps 31 %TX 33 %RX 0 retrans 0.10 msRTT
-> > > > n9:  9075.5472 MB /  10.08 sec = 7551.0234 Mbps 31 %TX 33 %RX 0 retrans 0.11 msRTT
-> > > > 
-> > > > This used 4 dual-port Myricom 10-GigE NICs.  We also tested with
-> > > > a fifth dual-port 10-GigE NIC, but the aggregate throughput stayed
-> > > > at about 70 Gbps, due to the performance bottleneck between the
-> > > > X58 and N200 chips.
-> > > 
-> > > This is also very excellent results!
-> > > 
-> > > Thanks a lot Bill !!!
-> > 
-> > We also achieved nearly 80 Gbps in bidirectional TCP tests (40 Gbps
-> > simultaneously in each direction):
-> > 
-> > [root@i7raid-1 ~]# ./nuttcp-6.2.6 -In2 -xc0/0 -p5001 192.168.1.11 & ./nuttcp-6.2.6 -In3 -r -xc0/0 -p5002 192.168.2.11 & ./nuttcp-6.2.6 -In4 -xc1/1 -p5003 192.168.3.11 & ./nuttcp-6.2.6 -In5 -r -xc1/1 -p5004 192.168.4.11 & ./nuttcp-6.2.6 -In6 -xc2/2 -p5005 192.168.5.11 & ./nuttcp-6.2.6 -In7 -r -xc2/2 -p5006 192.168.6.11 & ./nuttcp-6.2.6 -In8 -xc3/3 -p5007 192.168.7.11 & ./nuttcp-6.2.6 -In9 -r -xc3/3 -p5008 192.168.8.11                                    
-> > n2: 11542.6250 MB /  10.07 sec = 9619.9920 Mbps 44 %TX 51 %RX 0 retrans 0.12 msRTT                                                                      
-> > n3: 11543.7143 MB /  10.06 sec = 9622.2153 Mbps 41 %TX 49 %RX 0 retrans 0.15 msRTT                                                   
-> > n4: 11622.8125 MB /  10.05 sec = 9701.0296 Mbps 43 %TX 51 %RX 0 retrans 0.10 msRTT                                                                      
-> > n5: 11523.6875 MB /  10.03 sec = 9638.8883 Mbps 43 %TX 50 %RX 0 retrans 0.15 msRTT                                                                      
-> > n6: 11608.0141 MB /  10.04 sec = 9695.7388 Mbps 43 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
-> > n7: 11580.1250 MB /  10.04 sec = 9679.3910 Mbps 43 %TX 50 %RX 0 retrans 0.13 msRTT                                                                      
-> > n8: 11608.0000 MB /  10.06 sec = 9678.7596 Mbps 42 %TX 50 %RX 0 retrans 0.10 msRTT                                                                      
-> > n9: 11553.3750 MB /  10.05 sec = 9643.7296 Mbps 45 %TX 50 %RX 0 retrans 0.11 msRTT                                                                      
-> > 
-> > This was using 2 dual-port 10-GigE NICs in the first two PCIe 2.0 slots.
-> > We are using an Intel i7 965 quad-core 3.2 GHz Nehalem processor
-> > (overclocked to 3.4 GHz) and 2000 MHz DDR3 memory.  Adding an additional
-> > dual-port 10-GigE NIC on the Nvidia N200 chip does only marginally
-> > better, as it appears we are basically CPU limited at this point for
-> > this test (the sum of the TX and RX CPU utilization for each pair of
-> > 10-GigE interfaces is about 93%).
-> 
-> Hey guys, those are really nice numbers. Since TCP splicing appeared in the
-> kernel (once we got it fixed), I achieved 10 Gbps of HTTP proxying using
-> haproxy with very low CPU usage (about 20% of a Core2Duo 2.66 GHz).
+Hi,
 
-Nice, but I think we have a bug with the measured CPU usage.  Eric
-Dumazet did a fix, but also pointed out that in a later mail, at I seem
-like it not fixed completely yet...
+	First, thanks for all job done on that community in particular, and th=
+e
+others free ones in a more general way.
 
-> Before buying the machines, I had been wandering around with the NICs
-> donated by Myricom in order to try to find a machine capable of supporting
-> this. My conclusion was that a lot of machines had difficulties getting
-> above 3.5, 4.7 and 6.5 Gbps of output traffic (those 3 numbers were always
-> the same, depending on the chipsets). There clearly was a bandwidth
-> limitation imposed by the chipset.
-> 
-> So I waited for the X38 and AM780FX chipsets to become available and
-> bought 3 machines (1 C2D, 1 AMD X2, 1 AMD X4). Those ones have no problem
-> with 10 Gbps of forwarded traffic (20 Gbps of total bus bandwidth), even
-> with 1500 bytes frames, but I don't know how high they can go, maybe
-> they will saturate slightly above.
-
-My experience is also that the AMDs can easily do 10Gbit/s forwarding,
-but doing bidirectional they suffer...
+	I don't know where should be the right place of this remark and put
+this in netdev and netfilter vger's mailing list : hope this will be
+usefull.
 
 
-> Unfortunately, I only have 5 NICs in 3 machines and no switch (and CX4
-> is hard to find these days), so I'm probably stuck at 10 Gbps max.
 
-We are a fiber company, so I'm using our spare 10G optics, but I'm
-limited by our supply of SFP+ currently.
+Legacy :
 
-I'll be getting two 6 port 10GbE NIC using PCIe2 x16 82599, in august,
-so it will be interesting how high we can go! :-)
+	We, at my house work, have a non-free software which can be reach from
+network : client/server architecture. I will call it "network soft".
 
-> Interestingly, I had the impression that forwarding data with TCP
-> splicing costs less CPU than IP forwarding, because the NICs can do
-> LRO.
-> 
-> Also, I know a french service provider who uses haproxy on Core i7
-> machines and who has already reached 5 Gbps of sustained traffic
-> with recent intel dual-port NICs (though I'm not sure exactly which
-> ones). This is with very little CPU usage too, less than 2-3% user
-> and 15% system+softirq. On previous machines (quad core xeons), it
-> was impossible to go beyond 3 Gbps, it looked like the chipset was
-> the limitating factor too (though I don't precisely remember which
-> one it was).
-> 
-> I really blamed the NICs because this guys machine was about 4 times
-> more powerful than mine, but apparently it was just a chipset issue.
-> 
-> I also happen to have a customer who recently received a few Sun NXGE,
-> mounted in Sun x2100-m2 using an nvidia chipset which I tested OK at
-> 10 Gbps with my myri10GE NICs. I'll try to see if I can run some tests
-> there, as Davem once said those NICs are really good too.
+	For obscure reasons, we have 2 networks and 2 adsl box for this
+purpose : let's say that network1 is a 192.168.0.0/24 with an adsl mode=
+m
+gateway (gateway1 : 192.168.0.1) and network2 is a 192.168.1.0/24 with
+another adsl modem gateway (gateway2 : 192.168.1.1).
 
-The Sun NIU NIC has to use several hardware queues to achieve 10GbE.
-Currently using these as generators, and thats one of my limiting
-factors.
+	Network1 and network2 are Virtualy Laned by an hp switch and acts like
+2 physically separed networks : all is ethernet however.
 
-> All in all, I find it really cool that our beloved OS scales that
-> well with the hardware :-)
+	"Network Soft" is on network1. People who wants to use it from network=
+2
+must reach network1 via gateway1 and gateway2, using outside network1
+and network2 links. Thoses who are familar with "Fernand Renaud" jokes
+will understand the "22 =C3=A0 Asni=C3=A8res" situation.
 
-Yes, its really amazing how well the Linux net stack scales.  I think
-the primary thanks for this efford goes to DaveMs multiqueue changes and
-Eric Dumazet's tuning.
 
-ps. I'll offline untill tuesday.
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+
+Changes to the legacy :
+
+	We are not allowed to make an unique network, so I took a PII with two
+ethernet cards and put a linux box on that 600 BogoMips !
+
+	Two Ip adress on the PII box : one for network1 (eth0 : 192.168.0.2)
+and one for network2 (eth1 : 192.168.1.2).
+
+	I read howtos and other material and found that the maintainer of
+Debian didn't compile the routing ease in iptable and says that this is
+for iproute2.
+
+	Ok, I read more about this and go on. All I want is that packets from
+network2 and destined to "network soft" and packets from "network soft"
+and destined to network2 goes across the ethernet cards on the PII box.
+All other packets are respectively send to the two gateways : gateway1
+for network1 and gateway2 for network2.
+
+
+
+_*_ INFORMATION _*_ :
+
+	Saying to the PII box that all traffic from network1 to outside world
+uses gateway1 and that all traffic from network2 to outside world uses
+gateway2 was really easy and simple. I played with default route on
+clients on network1 and network2 and two rules in iproute2 : one for
+network1 and another for network2, less than ten minutes !
+
+	I surprisingly spent many hours to join the to networks via the PII
+box. All I have to say is that Packets from "network soft" and destined
+to network2 must go accross from ethernet1 in network1 to ethernet2 in
+network2 and reciprocaly for packets from network2 destined to "network
+soft". So, why  that wasted time ? What does I forgot ?
+
+
+	I re-read many times iproute2 man pages and It didn't work as I
+expected. I first make two routing commands :
+
+	ip route from 192.168.0.0/24 to 192.168.1.0/24 via 192.168.1.2 table
+network1
+
+	ip route from 192.168.1.0/24 to 192.168.0.0/24 via 192.168.0.2 table
+network2
+
+	Which does _not_ work. I supposed that linux was able to see that "fro=
+m
+192.168.0.0/24 to 192.168.1.0/24" concerning all packets, whatever they
+came in ethernet1 (network1) or in ethernet2 (network2), adjusting the
+route when according to cause 192.168.0.2 is on ethernet1 and
+192.168.1.2 is on ethernet2.
+
+	I added dev after the from/to directive but the device was conserved
+for the next via argument and ip says that there were no such device so
+I added after "via" the name of the concerned interface, and says
+something like :=20
+
+	ip route from 192.168.0.0/24 to 192.168.1.0/24 via 192.168.1.2 dev eth=
+1
+table network1
+
+	ip route from 192.168.1.0/24 to 192.168.0.0/24 via 192.168.0.2 dev eth=
+0
+table network2
+
+	Which doesn't worked too. Ip considers that we are talking about the
+same device for the two arguments from/to and via !
+
+
+	This fixed correctly what I wanted :
+
+	ip route from 192.168.0.0/24 to 192.168.1.0/24 dev eth0 via 192.168.1.=
+2
+dev eth1 table network1
+
+	ip route from 192.168.1.0/24 to 192.168.0.0/24 dev eth1 via 192.168.0.=
+2
+dev eth0 table network2
+
+	When repeating the name of the device, it works : this is not well
+documented in man pages or other text.
+
+
+
+NOTE :
+	One can see that eth0 is the ethernet1 in network1 and eth1 is
+ethernet2 in network2.
+
+
+
+DISCUSSION :
+
+	It's probably an evidence for you hackers that we must repeat the name
+for the device in order to get accross one of it to another one but it
+was not an evidence for me.
+
+	My remark goes to be better documented of that way of thinking : what
+are your opinions about that ?
+
+See ya.
+Best regards.
+
+
