@@ -1,148 +1,250 @@
-From: sebastien <sriliam@free.fr>
-Subject: iproute2 : unambiguous reading.
-Date: Sat, 18 Jul 2009 11:43:16 +0200
-Message-ID: <1247910196.10953.84.camel@lya14-2-82-232-125-204>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH] TCP: Add comments to (near) all functions in tcp_output.c
+	v2
+Date: Sat, 18 Jul 2009 12:31:59 +0200
+Message-ID: <20090718103159.GB2682@basil.fritz.box>
+References: <20090717204004.GA516@basil.fritz.box> <Pine.LNX.4.64.0907180919270.31457@melkinkari.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, netfilter@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,
-
-	First, thanks for all job done on that community in particular, and th=
-e
-others free ones in a more general way.
-
-	I don't know where should be the right place of this remark and put
-this in netdev and netfilter vger's mailing list : hope this will be
-usefull.
+Cc: Andi Kleen <andi@firstfloor.org>, Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:40700 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753447AbZGRKcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2009 06:32:04 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0907180919270.31457@melkinkari.cs.Helsinki.FI>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+Here's a updated version incorporating feedback.
+-Andi
 
-Legacy :
+---
 
-	We, at my house work, have a non-free software which can be reach from
-network : client/server architecture. I will call it "network soft".
+TCP: Add comments to (near) all functions in tcp_output.c v2
 
-	For obscure reasons, we have 2 networks and 2 adsl box for this
-purpose : let's say that network1 is a 192.168.0.0/24 with an adsl mode=
-m
-gateway (gateway1 : 192.168.0.1) and network2 is a 192.168.1.0/24 with
-another adsl modem gateway (gateway2 : 192.168.1.1).
+While looking for something else I spent some time adding
+one liner comments to the tcp_output.c functions that
+didn't have any. That makes the comments more consistent.
 
-	Network1 and network2 are Virtualy Laned by an hp switch and acts like
-2 physically separed networks : all is ethernet however.
+I hope I documented everything right.
 
-	"Network Soft" is on network1. People who wants to use it from network=
-2
-must reach network1 via gateway1 and gateway2, using outside network1
-and network2 links. Thoses who are familar with "Fernand Renaud" jokes
-will understand the "22 =C3=A0 Asni=C3=A8res" situation.
+No code changes.
 
+v2: Incorporated feedback from Ilpo.
 
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Changes to the legacy :
+---
+ net/ipv4/tcp_output.c |   51 +++++++++++++++++++++++++++++++++++++++++=
+++++-----
+ 1 file changed, 46 insertions(+), 5 deletions(-)
 
-	We are not allowed to make an unique network, so I took a PII with two
-ethernet cards and put a linux box on that 600 BogoMips !
-
-	Two Ip adress on the PII box : one for network1 (eth0 : 192.168.0.2)
-and one for network2 (eth1 : 192.168.1.2).
-
-	I read howtos and other material and found that the maintainer of
-Debian didn't compile the routing ease in iptable and says that this is
-for iproute2.
-
-	Ok, I read more about this and go on. All I want is that packets from
-network2 and destined to "network soft" and packets from "network soft"
-and destined to network2 goes across the ethernet cards on the PII box.
-All other packets are respectively send to the two gateways : gateway1
-for network1 and gateway2 for network2.
-
-
-
-_*_ INFORMATION _*_ :
-
-	Saying to the PII box that all traffic from network1 to outside world
-uses gateway1 and that all traffic from network2 to outside world uses
-gateway2 was really easy and simple. I played with default route on
-clients on network1 and network2 and two rules in iproute2 : one for
-network1 and another for network2, less than ten minutes !
-
-	I surprisingly spent many hours to join the to networks via the PII
-box. All I have to say is that Packets from "network soft" and destined
-to network2 must go accross from ethernet1 in network1 to ethernet2 in
-network2 and reciprocaly for packets from network2 destined to "network
-soft". So, why  that wasted time ? What does I forgot ?
-
-
-	I re-read many times iproute2 man pages and It didn't work as I
-expected. I first make two routing commands :
-
-	ip route from 192.168.0.0/24 to 192.168.1.0/24 via 192.168.1.2 table
-network1
-
-	ip route from 192.168.1.0/24 to 192.168.0.0/24 via 192.168.0.2 table
-network2
-
-	Which does _not_ work. I supposed that linux was able to see that "fro=
-m
-192.168.0.0/24 to 192.168.1.0/24" concerning all packets, whatever they
-came in ethernet1 (network1) or in ethernet2 (network2), adjusting the
-route when according to cause 192.168.0.2 is on ethernet1 and
-192.168.1.2 is on ethernet2.
-
-	I added dev after the from/to directive but the device was conserved
-for the next via argument and ip says that there were no such device so
-I added after "via" the name of the concerned interface, and says
-something like :=20
-
-	ip route from 192.168.0.0/24 to 192.168.1.0/24 via 192.168.1.2 dev eth=
-1
-table network1
-
-	ip route from 192.168.1.0/24 to 192.168.0.0/24 via 192.168.0.2 dev eth=
-0
-table network2
-
-	Which doesn't worked too. Ip considers that we are talking about the
-same device for the two arguments from/to and via !
-
-
-	This fixed correctly what I wanted :
-
-	ip route from 192.168.0.0/24 to 192.168.1.0/24 dev eth0 via 192.168.1.=
-2
-dev eth1 table network1
-
-	ip route from 192.168.1.0/24 to 192.168.0.0/24 dev eth1 via 192.168.0.=
-2
-dev eth0 table network2
-
-	When repeating the name of the device, it works : this is not well
-documented in man pages or other text.
-
-
-
-NOTE :
-	One can see that eth0 is the ethernet1 in network1 and eth1 is
-ethernet2 in network2.
-
-
-
-DISCUSSION :
-
-	It's probably an evidence for you hackers that we must repeat the name
-for the device in order to get accross one of it to another one but it
-was not an evidence for me.
-
-	My remark goes to be better documented of that way of thinking : what
-are your opinions about that ?
-
-See ya.
-Best regards.
-
-
+Index: linux-2.6.31-rc3-ak/net/ipv4/tcp_output.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- linux-2.6.31-rc3-ak.orig/net/ipv4/tcp_output.c
++++ linux-2.6.31-rc3-ak/net/ipv4/tcp_output.c
+@@ -59,6 +59,8 @@ int sysctl_tcp_base_mss __read_mostly =3D
+ /* By default, RFC2861 behavior.  */
+ int sysctl_tcp_slow_start_after_idle __read_mostly =3D 1;
+=20
++/* Account for new data that has been sent to the network.
++ */
+ static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *s=
+kb)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+@@ -142,6 +144,8 @@ static void tcp_cwnd_restart(struct sock
+ 	tp->snd_cwnd_used =3D 0;
+ }
+=20
++/* Congestion state accounting after a packet has been sent.
++ */
+ static void tcp_event_data_sent(struct tcp_sock *tp,
+ 				struct sk_buff *skb, struct sock *sk)
+ {
+@@ -276,6 +280,8 @@ static u16 tcp_select_window(struct sock
+ 	return new_win;
+ }
+=20
++/* Packet ECN state for a SYN-ACK
++ */
+ static inline void TCP_ECN_send_synack(struct tcp_sock *tp, struct sk_=
+buff *skb)
+ {
+ 	TCP_SKB_CB(skb)->flags &=3D ~TCPCB_FLAG_CWR;
+@@ -283,6 +289,8 @@ static inline void TCP_ECN_send_synack(s
+ 		TCP_SKB_CB(skb)->flags &=3D ~TCPCB_FLAG_ECE;
+ }
+=20
++/* Packet ECN state for a SYN.
++ */
+ static inline void TCP_ECN_send_syn(struct sock *sk, struct sk_buff *s=
+kb)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+@@ -301,6 +309,9 @@ TCP_ECN_make_synack(struct request_sock
+ 		th->ece =3D 1;
+ }
+=20
++/* Set up ECN state for a packet on a ESTABLISHED socket that is about=
+ to
++ * be sent.
++ */
+ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
+ 				int tcp_header_len)
+ {
+@@ -362,7 +373,9 @@ struct tcp_out_options {
+ 	__u32 tsval, tsecr;	/* need to include OPTION_TS */
+ };
+=20
+-/* Beware: Something in the Internet is very sensitive to the ordering=
+ of
++/* Write previously computed TCP options to the packet.
++ *
++ * Beware: Something in the Internet is very sensitive to the ordering=
+ of
+  * TCP options, we learned this through the hard way, so be careful he=
+re.
+  * Luckily we can at least blame others for their non-compliance but f=
+rom
+  * inter-operatibility perspective it seems that we're somewhat stuck =
+with
+@@ -445,6 +458,9 @@ static void tcp_options_write(__be32 *pt
+ 	}
+ }
+=20
++/* Compute TCP options for SYN packets. This is not the final
++ * network wire format yet.
++ */
+ static unsigned tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 				struct tcp_out_options *opts,
+ 				struct tcp_md5sig_key **md5) {
+@@ -493,6 +509,8 @@ static unsigned tcp_syn_options(struct s
+ 	return size;
+ }
+=20
++/* Set up TCP options for SYN-ACKs.
++ */
+ static unsigned tcp_synack_options(struct sock *sk,
+ 				   struct request_sock *req,
+ 				   unsigned mss, struct sk_buff *skb,
+@@ -541,6 +559,9 @@ static unsigned tcp_synack_options(struc
+ 	return size;
+ }
+=20
++/* Compute TCP options for ESTABLISHED sockets. This is not the
++ * final wire format yet.
++ */
+ static unsigned tcp_established_options(struct sock *sk, struct sk_buf=
+f *skb,
+ 					struct tcp_out_options *opts,
+ 					struct tcp_md5sig_key **md5) {
+@@ -705,7 +726,7 @@ static int tcp_transmit_skb(struct sock
+ 	return net_xmit_eval(err);
+ }
+=20
+-/* This routine just queue's the buffer
++/* This routine just queues the buffer
+  *
+  * NOTE: probe0 timer is not checked, do not forget tcp_push_pending_f=
+rames,
+  * otherwise socket can stall.
+@@ -909,6 +930,8 @@ static void __pskb_trim_head(struct sk_b
+ 	skb->len =3D skb->data_len;
+ }
+=20
++/* Remove acked data from a packet in the transmit queue.
++ */
+ int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
+ {
+ 	if (skb_cloned(skb) && pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+@@ -937,7 +960,9 @@ int tcp_trim_head(struct sock *sk, struc
+ 	return 0;
+ }
+=20
+-/* Not accounting for SACKs here. */
++/* Calculate MSS
++ * Not accounting for SACKs here.
++ */
+ int tcp_mtu_to_mss(struct sock *sk, int pmtu)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+@@ -1143,7 +1168,8 @@ static inline unsigned int tcp_cwnd_test
+ 	return 0;
+ }
+=20
+-/* This must be invoked the first time we consider transmitting
++/* Intialize TSO state of a skb.
++ * This must be invoked the first time we consider transmitting
+  * SKB onto the wire.
+  */
+ static int tcp_init_tso_segs(struct sock *sk, struct sk_buff *skb,
+@@ -1242,6 +1268,8 @@ static unsigned int tcp_snd_test(struct
+ 	return cwnd_quota;
+ }
+=20
++/* Test if sending is allowed right now.
++ */
+ int tcp_may_send_now(struct sock *sk)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+@@ -1378,6 +1406,10 @@ send_now:
+ }
+=20
+ /* Create a new MTU probe if we are ready.
++ * MTU probe is regularly attempting to increase the path MTU by
++ * deliberately sending larger packets.  This discovers routing
++ * changes resulting in larger path MTUs.
++ *
+  * Returns 0 if we should wait to probe (no cwnd available),
+  *         1 if a probe was sent,
+  *         -1 otherwise
+@@ -1808,6 +1840,9 @@ static int tcp_can_collapse(struct sock
+ 	return 1;
+ }
+=20
++/* Collapse packets in the retransmit queue to make to create
++ * less packets on the wire. This is only done on retransmission.
++ */
+ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *=
+to,
+ 				     int space)
+ {
+@@ -1957,6 +1992,9 @@ int tcp_retransmit_skb(struct sock *sk,
+ 	return err;
+ }
+=20
++/* Check if we forward retransmits are possible in the current
++ * window/congestion state.
++ */
+ static int tcp_can_forward_retransmit(struct sock *sk)
+ {
+ 	const struct inet_connection_sock *icsk =3D inet_csk(sk);
+@@ -2145,7 +2183,8 @@ void tcp_send_active_reset(struct sock *
+ 	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
+ }
+=20
+-/* WARNING: This routine must only be called when we have already sent
++/* Send a crossed SYN-ACK during socket establishment.
++ * WARNING: This routine must only be called when we have already sent
+  * a SYN packet that crossed the incoming SYN that caused this routine
+  * to get called. If this assumption fails then the initial rcv_wnd
+  * and rcv_wscale values will not be correct.
+@@ -2493,6 +2532,8 @@ static int tcp_xmit_probe_skb(struct soc
+ 	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
+ }
+=20
++/* Initiate keepalive or window probe from timer.
++ */
+ int tcp_write_wakeup(struct sock *sk)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
