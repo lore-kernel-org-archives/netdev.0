@@ -1,50 +1,18 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [1/1] connector maintainer/mail update.
-Date: Sat, 18 Jul 2009 15:17:02 -0400
-Message-ID: <8bd0f97a0907181217y81e9025mcd59c9741eb6ce96@mail.gmail.com>
-References: <1247696049-15699-1-git-send-email-vapier@gentoo.org>
-	<20090716101957.GA9586@ioremap.net> <20090717.101550.223298982.davem@davemloft.net>
-	<8bd0f97a0907172045j2cff6987xb7ea0aab438bef9d@mail.gmail.com>
-	<20090717223307.d86a5551.akpm@linux-foundation.org> <20090718142533.GA1948@ioremap.net>
-	<8bd0f97a0907181135w27c8c56al636aefc6bf7b09f8@mail.gmail.com>
-	<20090718184329.GA7103@ioremap.net> <8bd0f97a0907181151i460fbc83t41e0c7de4d5cadc@mail.gmail.com>
-	<20090718185928.GA7474@ioremap.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Evgeniy Polyakov <zbr@ioremap.net>
+From: aliyu_anita@ecunet.org
+Subject: Hello
+Date: Sat, 18 Jul 2009 20:15:03 -0400
+Message-ID: <200907190015.n6J0F3Bb025006@ecunet-web-1.ecunet.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f184.google.com ([209.85.210.184]:51121 "EHLO
-	mail-yx0-f184.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751397AbZGRTRW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jul 2009 15:17:22 -0400
-Received: by yxe14 with SMTP id 14so2566767yxe.33
-        for <netdev@vger.kernel.org>; Sat, 18 Jul 2009 12:17:22 -0700 (PDT)
-In-Reply-To: <20090718185928.GA7474@ioremap.net>
+Received: from mail.ecunet.org ([72.250.175.166]:35988 "EHLO ecunet.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753915AbZGSAPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jul 2009 20:15:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/7/18 Evgeniy Polyakov
-> On Sat, Jul 18, 2009 at 02:51:38PM -0400, Mike Frysinger wrote:
->> >> i dont think open-ended copyrights are acceptable. =C2=A0copyrigh=
-ts arent
->> >> something that extend forever which is why they need explicit upd=
-ating
->> >> (i.e. you'd want 2004-<last year you made a change>).
->> >
->> > It can be always replaced back if I will step aside.
->>
->> copyright doesnt disappear or go away if the maintainer changes.
->> there's nothing wrong with multiple people claiming copyright on a
->> file.
->
-> But apparently you do not like that there is no 'finish' date.
-> And this can be changed when I step aside :)
-
-*i* dont personally give two sh*ts about copyright.  i'm only pointing
-out common accepted practice with regard to maintaining copyright
-information.  accepted practice is that open ended markings like this
-are not legally applicable (ask the SFLC).
--mike
+Hello my lovely dear friend,
+Hope your enjoying the good atmosphere of the day accordingly,i know it might surprised how i got your email address,it was while surfing the net that i discovered it,then i derived interest and decided to drop few couple of mine
+words to you.first and foremost, i want to use this medium express myself once again to you,my name is miss.Aliyu Aliyu,single young girl,searching for a mature man with good sense of humour ,also will appreciate each other start having a good relationship with a real love,caring, understand and honest man,please i appreciate you endeavours contact me directly in the above email address so as to enable me sending my pictures directly to your email box for further introduction,shall be very glad reading good news from you soonest and God bless as you do comply.
+kiss,
+miss Anita
