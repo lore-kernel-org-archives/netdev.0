@@ -1,105 +1,169 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/4] inet6: Consolidate common code for IPv6 Hop Limit / Traffic Class
-Date: Sun, 19 Jul 2009 20:23:37 +0200
-Message-ID: <1248027819-23959-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/4] inet6: Conversion from u8 to int
+Date: Sun, 19 Jul 2009 20:23:38 +0200
+Message-ID: <1248027819-23959-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <inet6_minor_cleanups>
  <1248027819-23959-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1248027819-23959-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1248027819-23959-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54919 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54964 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750879AbZGSSgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jul 2009 14:36:24 -0400
-In-Reply-To: <1248027819-23959-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1750879AbZGSShY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jul 2009 14:37:24 -0400
+In-Reply-To: <1248027819-23959-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RFC 3542 definitions for Hop Limit (6.3) and Traffic Class (6.5) cmsg
-values differ only in the names of the cmsg type. So does the code.
-The patch combines these commonalities.
-
-Further changes:
-----------------
-Replaced other use of temporary 'int' variable with 'val' variable.
+This replaces assignments of the type "int on LHS" = "u8 on RHS" with
+simpler code. The LHS can express all of the unsigned right hand side
+values, hence the assigned value can not be negative.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/ipv6/datagram.c |   34 ++++++++++++----------------------
- 1 files changed, 12 insertions(+), 22 deletions(-)
+ net/ipv6/icmp.c          |   17 ++++-------------
+ net/ipv6/ip6_output.c    |   15 +++++----------
+ net/ipv6/ipv6_sockglue.c |    2 --
+ net/ipv6/raw.c           |    5 +----
+ net/ipv6/udp.c           |    5 +----
+ 5 files changed, 11 insertions(+), 33 deletions(-)
 
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -504,10 +504,10 @@ int datagram_send_ctl(struct net *net,
- 	struct cmsghdr *cmsg;
- 	struct ipv6_rt_hdr *rthdr;
- 	struct ipv6_opt_hdr *hdr;
-+	int val;
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -323,7 +323,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 	int iif = 0;
+ 	int addr_type = 0;
  	int len;
+-	int hlimit, tclass;
++	int hlimit;
+ 	int err = 0;
  
- 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
--		int addr_type;
+ 	if ((u8 *)hdr < skb->head ||
+@@ -469,10 +469,6 @@ route_done:
+ 	if (hlimit < 0)
+ 		hlimit = ip6_dst_hoplimit(dst);
  
- 		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
-@@ -532,17 +532,17 @@ int datagram_send_ctl(struct net *net,
- 				fl->oif = src_info->ipi6_ifindex;
- 			}
- 
--			addr_type = __ipv6_addr_type(&src_info->ipi6_addr);
-+			val = __ipv6_addr_type(&src_info->ipi6_addr);
- 
- 			if (fl->oif) {
- 				dev = dev_get_by_index(net, fl->oif);
- 				if (!dev)
- 					return -ENODEV;
--			} else if (addr_type & IPV6_ADDR_LINKLOCAL)
-+			} else if (val & IPV6_ADDR_LINKLOCAL)
- 				return -EINVAL;
- 
--			if (addr_type != IPV6_ADDR_ANY) {
--				int strict = __ipv6_addr_src_scope(addr_type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
-+			if (val != IPV6_ADDR_ANY) {
-+				int strict = __ipv6_addr_src_scope(val) <= IPV6_ADDR_SCOPE_LINKLOCAL;
- 				if (!ipv6_chk_addr(net, &src_info->ipi6_addr, strict ? dev : NULL, 0))
- 					return -EINVAL;
- 				ipv6_addr_copy(&fl->fl6_src, &src_info->ipi6_addr);
-@@ -666,30 +666,20 @@ int datagram_send_ctl(struct net *net,
- 
- 		case IPV6_2292HOPLIMIT:
- 		case IPV6_HOPLIMIT:
--			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
--				return -EINVAL;
+-	tclass = np->tclass;
+-	if (tclass < 0)
+-		tclass = 0;
 -
--			*hlimit = *(int *)CMSG_DATA(cmsg);
--			if (*hlimit < -1 || *hlimit > 0xff)
--				return -EINVAL;
--
--			break;
--
- 		case IPV6_TCLASS:
--		    {
--			int tc;
--
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
- 				return -EINVAL;
+ 	msg.skb = skb;
+ 	msg.offset = skb_network_offset(skb);
+ 	msg.type = type;
+@@ -488,8 +484,8 @@ route_done:
  
--			tc = *(int *)CMSG_DATA(cmsg);
--			if (tc < -1 || tc > 0xff)
-+			val = *(int *)CMSG_DATA(cmsg);
-+			if (val < -1 || val > 0xff)
- 				return -EINVAL;
+ 	err = ip6_append_data(sk, icmpv6_getfrag, &msg,
+ 			      len + sizeof(struct icmp6hdr),
+-			      sizeof(struct icmp6hdr),
+-			      hlimit, tclass, NULL, &fl, (struct rt6_info*)dst,
++			      sizeof(struct icmp6hdr), hlimit,
++			      np->tclass, NULL, &fl, (struct rt6_info*)dst,
+ 			      MSG_DONTWAIT);
+ 	if (err) {
+ 		ip6_flush_pending_frames(sk);
+@@ -522,7 +518,6 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	struct dst_entry *dst;
+ 	int err = 0;
+ 	int hlimit;
+-	int tclass;
  
--			*tclass = tc;
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+@@ -562,10 +557,6 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	if (hlimit < 0)
+ 		hlimit = ip6_dst_hoplimit(dst);
+ 
+-	tclass = np->tclass;
+-	if (tclass < 0)
+-		tclass = 0;
 -
-+			if (cmsg->cmsg_type == IPV6_TCLASS)
-+				*tclass = val;
-+			else
-+				*hlimit = val;
- 			break;
--		    }
-+
- 		default:
- 			LIMIT_NETDEBUG(KERN_DEBUG "invalid cmsg type: %d\n",
- 				       cmsg->cmsg_type);
+ 	idev = in6_dev_get(skb->dev);
+ 
+ 	msg.skb = skb;
+@@ -573,7 +564,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	msg.type = ICMPV6_ECHO_REPLY;
+ 
+ 	err = ip6_append_data(sk, icmpv6_getfrag, &msg, skb->len + sizeof(struct icmp6hdr),
+-				sizeof(struct icmp6hdr), hlimit, tclass, NULL, &fl,
++				sizeof(struct icmp6hdr), hlimit, np->tclass, NULL, &fl,
+ 				(struct rt6_info*)dst, MSG_DONTWAIT);
+ 
+ 	if (err) {
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -206,7 +206,8 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 	struct ipv6hdr *hdr;
+ 	u8  proto = fl->proto;
+ 	int seg_len = skb->len;
+-	int hlimit, tclass;
++	int hlimit = -1;
++	int tclass = 0;
+ 	u32 mtu;
+ 
+ 	if (opt) {
+@@ -249,19 +250,13 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 	/*
+ 	 *	Fill in the IPv6 header
+ 	 */
+-
+-	hlimit = -1;
+-	if (np)
++	if (np) {
++		tclass = np->tclass;
+ 		hlimit = np->hop_limit;
++	}
+ 	if (hlimit < 0)
+ 		hlimit = ip6_dst_hoplimit(dst);
+ 
+-	tclass = -1;
+-	if (np)
+-		tclass = np->tclass;
+-	if (tclass < 0)
+-		tclass = 0;
+-
+ 	*(__be32 *)hdr = htonl(0x60000000 | (tclass << 20)) | fl->fl6_flowlabel;
+ 
+ 	hdr->payload_len = htons(seg_len);
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -1037,8 +1037,6 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 
+ 	case IPV6_TCLASS:
+ 		val = np->tclass;
+-		if (val < 0)
+-			val = 0;
+ 		break;
+ 
+ 	case IPV6_RECVTCLASS:
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -877,11 +877,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 			hlimit = ip6_dst_hoplimit(dst);
+ 	}
+ 
+-	if (tclass < 0) {
++	if (tclass < 0)
+ 		tclass = np->tclass;
+-		if (tclass < 0)
+-			tclass = 0;
+-	}
+ 
+ 	if (msg->msg_flags&MSG_CONFIRM)
+ 		goto do_confirm;
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -900,11 +900,8 @@ do_udp_sendmsg:
+ 			hlimit = ip6_dst_hoplimit(dst);
+ 	}
+ 
+-	if (tclass < 0) {
++	if (tclass < 0)
+ 		tclass = np->tclass;
+-		if (tclass < 0)
+-			tclass = 0;
+-	}
+ 
+ 	if (msg->msg_flags&MSG_CONFIRM)
+ 		goto do_confirm;
