@@ -1,45 +1,68 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: dl2k: potential null dereference in recieve_packet()
-Date: Sun, 19 Jul 2009 14:59:24 +0300 (EAT)
-Message-ID: <alpine.DEB.2.00.0907171612530.12306@bicker>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [net-next-2.6 PATCH 1/3] mlx4_en: Adaptive moderation policy change
+Date: Sun, 19 Jul 2009 16:06:44 +0300
+Message-ID: <4A631A64.50804@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.251]:38639 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753417AbZGSM5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2009 08:57:35 -0400
-Received: by an-out-0708.google.com with SMTP id d40so2734163and.1
-        for <netdev@vger.kernel.org>; Sun, 19 Jul 2009 05:57:35 -0700 (PDT)
+Received: from mail.mellanox.co.il ([194.90.237.43]:39264 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753603AbZGSNIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jul 2009 09:08:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+If the net device is identified as "sender" (number of sent packets
+is higher then the number of received packets and the incoming packets are
+small), set the moderation time to its low limit.
+We do it because the incoming packets are acks, and we don't want to delay them
 
-Smatch (http://repo.or.cz/w/smatch.git) found a potential null dereference 
-in drivers/net/dl2k.c receive_packet().  If the allocation on line 874 
-fails we still dereference skb on line 890.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/mlx4/en_netdev.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
-drivers/net/dl2k.c 
-   874                          } else if ((skb = netdev_alloc_skb(dev, pkt_len + 2))) {
-   875                                  pci_dma_sync_single_for_cpu(np->pdev,
-   876                                                              desc_to_dma(desc),
-   877                                                              np->rx_buf_sz,
-   878                                                              PCI_DMA_FROMDEVICE);
-   879                                  /* 16 byte align the IP header */
-   880                                  skb_reserve (skb, 2);
-   881                                  skb_copy_to_linear_data (skb,
-   882                                                    np->rx_skbuff[entry]->data,
-   883                                                    pkt_len);
-   884                                  skb_put (skb, pkt_len);
-   885                                  pci_dma_sync_single_for_device(np->pdev,
-   886                                                                 desc_to_dma(desc),
-   887                                                                 np->rx_buf_sz,
-   888                                                                 PCI_DMA_FROMDEVICE);
-   889                          }
-   890                          skb->protocol = eth_type_trans (skb, dev);
-
-regards,
-dan carpenter
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 93f4abd..c8a24dc 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -414,6 +414,7 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 	unsigned long avg_pkt_size;
+ 	unsigned long rx_packets;
+ 	unsigned long rx_bytes;
++	unsigned long rx_byte_diff;
+ 	unsigned long tx_packets;
+ 	unsigned long tx_pkt_diff;
+ 	unsigned long rx_pkt_diff;
+@@ -437,6 +438,8 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 	rx_pkt_diff = ((unsigned long) (rx_packets -
+ 					priv->last_moder_packets));
+ 	packets = max(tx_pkt_diff, rx_pkt_diff);
++	rx_byte_diff = rx_bytes - priv->last_moder_bytes;
++	rx_byte_diff = rx_byte_diff ? rx_byte_diff : 1;
+ 	rate = packets * HZ / period;
+ 	avg_pkt_size = packets ? ((unsigned long) (rx_bytes -
+ 				 priv->last_moder_bytes)) / packets : 0;
+@@ -447,10 +450,13 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
+ 		/* If tx and rx packet rates are not balanced, assume that
+ 		 * traffic is mainly BW bound and apply maximum moderation.
+ 		 * Otherwise, moderate according to packet rate */
+-		if (2 * tx_pkt_diff > 3 * rx_pkt_diff ||
+-		    2 * rx_pkt_diff > 3 * tx_pkt_diff) {
++		if (2 * tx_pkt_diff > 3 * rx_pkt_diff &&
++		    rx_pkt_diff / rx_byte_diff <
++		    MLX4_EN_SMALL_PKT_SIZE)
++			moder_time = priv->rx_usecs_low;
++		else if (2 * rx_pkt_diff > 3 * tx_pkt_diff)
+ 			moder_time = priv->rx_usecs_high;
+-		} else {
++		else {
+ 			if (rate < priv->pkt_rate_low)
+ 				moder_time = priv->rx_usecs_low;
+ 			else if (rate > priv->pkt_rate_high)
+-- 
+1.6.0
 
