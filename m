@@ -1,26 +1,32 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: [PATCH 0/3] can: various fixes to the device driver interface
-Date: Mon, 20 Jul 2009 16:06:38 +0200
-Message-ID: <20090720140638.342067093@denx.de>
-Cc: socketcan-core@lists.berlios.de
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Phonet: sockets list through proc_fs
+Date: Mon, 20 Jul 2009 07:09:40 -0700 (PDT)
+Message-ID: <20090720.070940.88336950.davem@davemloft.net>
+References: <1248091650.4549.107.camel@violet>
+	<200907201549.30870.remi.denis-courmont@nokia.com>
+	<1248094840.4549.119.camel@violet>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:46725 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753824AbZGTOGk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 10:06:40 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57911
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751134AbZGTOJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 10:09:35 -0400
+In-Reply-To: <1248094840.4549.119.camel@violet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Mon, 20 Jul 2009 15:00:40 +0200
 
-this patch series fixes the following issues with CAN device driver
-interface and the SJA1000 driver:
+> in the end it is up to Dave, however I would put these things into
+> debugfs.
 
-[PATCH 1/3] can: sja1000: remove duplicated includes
-[PATCH 2/3] can: restart device even if dev_alloc_skb() fails
-[PATCH 3/3] can: switch carrier on if device was stopped while in bus-off state
+You're being rediculious.
 
-Wolfgang.
-
+Listing sockets is a standard facility, not a debugging thing.
+Just like listing processes.
 
