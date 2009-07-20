@@ -1,56 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c589_cs: re-initialize the multicast in the
- tc589_reset
-Date: Mon, 20 Jul 2009 08:29:06 -0700 (PDT)
-Message-ID: <20090720.082906.101507247.davem@davemloft.net>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090720080812.49633622.ken_kawasaki@spring.nifty.jp>
+From: Noah Watkins <jayhawk@soe.ucsc.edu>
+Subject: Re: regression: wireless authentication
+Date: Mon, 20 Jul 2009 09:19:00 -0700 (PDT)
+Message-ID: <1198385022.260301248106740802.JavaMail.root@mail-01.cse.ucsc.edu>
+References: <1279186756.260191248106587108.JavaMail.root@mail-01.cse.ucsc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57010
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751108AbZGTP3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 11:29:00 -0400
-In-Reply-To: <20090720080812.49633622.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1279186756.260191248106587108.JavaMail.root@mail-01.cse.ucsc.edu>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Mon, 20 Jul 2009 08:08:12 +0900
+The latest version I've tried that works fine is Linus' 2.6.31-rc3
+with the latest commit being:
 
-> 
-> 3c589_cs: 
-> re-initialize the multicast in the tc589_reset,
-> and spin_lock the set_multicast_list function.  
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+commit 35b5c55fee08e6e4001ba98060a2d0b82f70b5f4
+Merge: e9e961c... b2dde6a...
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Wed Jul 15 10:29:09 2009 -0700
 
-Applied, but you really need to fix your coding style.
+I encountered the problem I described when I booted:
 
-I know perhaps you were trying to be consistent with the
-rest of this driver, but when adding completely new code
-the conventions of the rest of the kernel ought to be
-followed, for example:
+2.6.31-rc3-next-20090716
 
-> +static void set_multicast_list(struct net_device *dev)
-> +{
-> +    struct el3_private *priv = netdev_priv(dev);
-> +    unsigned long flags;
-> +
-> +    spin_lock_irqsave(&priv->lock, flags);    
-> +    set_rx_mode(dev);
-> +    spin_unlock_irqrestore(&priv->lock, flags);    
-> +}
+-n
 
-One tab should begin each statement in this function, and
-spin_lock and spin_unlock lines had unnecessary trailing
-whitespace.
+----- Original Message -----
+=46rom: "John W. Linville" <linville@tuxdriver.com>
+To: "Stephen Rothwell" <sfr@canb.auug.org.au>
+Cc: "Noah Watkins" <jayhawk@soe.ucsc.edu>, linux-next@vger.kernel.org, =
+"LKML" <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org, "David S=
+=2E Miller" <davem@davemloft.net>
+Sent: Monday, July 20, 2009 7:59:34 AM GMT -08:00 US/Canada Pacific
+Subject: Re: regression: wireless authentication
 
-I fixed all of this up when applying your patch, but I
-absolutely will not do so next time.
+On Fri, Jul 17, 2009 at 02:10:47PM +1000, Stephen Rothwell wrote:
+> Hi Noah,
+>=20
+> Lets cc some people who may be able to help ...
+>=20
+> On Thu, 16 Jul 2009 20:57:06 -0700 Noah Watkins <jayhawk@soe.ucsc.edu=
+> wrote:
+> >
+> > With 2.6.31-rc3-next-20090716 all wireless access points are detect=
+ed, but
+> > authentication fails. I haven't verified on an access point w/o WPA=
+=2E
+> >=20
+> > 2.6.31-rc3 functions fine. I haven't been able to complete a bisect=
+ yet.
+> >=20
+> > 05:01.0 Network controller: Atheros Communications Inc. AR5008 Wire=
+less Network
+> > Adapter (rev 01)
 
-Thank you.
+Odd...have you (i.e. Noah) been using -next trees all along?  What was
+the last previous one that worked?  I didn't push anything out for
+-next to pick-up all last week...
+
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+			=C2=A1Viva Honduras Libre!
