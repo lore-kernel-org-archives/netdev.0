@@ -1,40 +1,37 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Mon, 20 Jul 2009 08:41:38 +0200
-Message-ID: <200907200841.38968.oliver@neukum.org>
-References: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com> <200907171547.39815.oliver@neukum.org> <200907200935.19103.remi.denis-courmont@nokia.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
+Date: Mon, 20 Jul 2009 14:55:14 +0800
+Message-ID: <20090720065514.GB4026@gondor.apana.org.au>
+References: <20090716111548.GP20288@secunet.com> <20090716111747.GR20288@secunet.com> <20090717.100334.160030992.davem@davemloft.net> <20090720062643.GA20288@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200907200935.19103.remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:47686 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751882AbZGTGzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 02:55:19 -0400
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20090720062643.GA20288@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 20. Juli 2009 08:35:18 schrieb R=C3=A9mi Denis-Courmont:
-> Recurrently:
-> If usbpn_xmit() is called, then the queue was not stopped, so tx_queu=
-e <
-> tx_queue_len. Then the queue is stopped. In the race free cases, eith=
-er
-> tx_queue is incremented up to the limit, and the queue remains stoppe=
-d; the
-> assertion is still valid.
-> Alternatively tx_queue remains below limit and the queue gets woken a=
-gain;
-> the assertion is still valid.
+On Mon, Jul 20, 2009 at 08:26:43AM +0200, Steffen Klassert wrote:
+>
+> We have sg_mark_end() which sets the termination bit on a sg list entry,
+> but we don't have an interface to remove the termination bit from a sg
+> list entry. 
 
-Yes, you are correct. I find no flaws with the driver.
+For the case at hand, as we've agreed to only do the chaining
+if there is only a single entry in the list, we don't need this
+at all.  All you need to do is copy the page pointer, offset and
+length without copying the raw scatterlist entry.
 
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
