@@ -1,54 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] New device ID for sc92031 [1088:2031]
-Date: Mon, 20 Jul 2009 08:27:17 -0700 (PDT)
-Message-ID: <20090720.082717.138297828.davem@davemloft.net>
-References: <1248026612-12792-1-git-send-email-cesarb@cesarb.net>
+Subject: Re: [PATCH] 3c589_cs: re-initialize the multicast in the
+ tc589_reset
+Date: Mon, 20 Jul 2009 08:29:06 -0700 (PDT)
+Message-ID: <20090720.082906.101507247.davem@davemloft.net>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090720080812.49633622.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, rain_maker@root-forum.org
-To: cesarb@cesarb.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57006
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57010
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751379AbZGTP1M convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jul 2009 11:27:12 -0400
-In-Reply-To: <1248026612-12792-1-git-send-email-cesarb@cesarb.net>
+	by vger.kernel.org with ESMTP id S1751108AbZGTP3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 11:29:00 -0400
+In-Reply-To: <20090720080812.49633622.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Cesar Eduardo Barros <cesarb@cesarb.net>
-Date: Sun, 19 Jul 2009 15:03:32 -0300
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Mon, 20 Jul 2009 08:08:12 +0900
 
-> rain_maker@root-forum.org wrote:
->> Hello cesar,
->>
->> In a recent thread in a german linux forum, a user reported his PIC
->> NIC not being recognized by the kernel.
->>
->> Fortunately he provided enough information and I was able to help hi=
-m
->> and get the device working with the sc92031 driver.
->>
->> The device ID is [1088:2031] (Vendor is called "Microcomputer System=
-s
->> (M) Son"), here is the respective thread in "ubuntuusers.de"
->>
->> http://forum.ubuntuusers.de/topic/lankarte-unter-xubuntu-wird-nicht-=
-erkannt/
->>
->> (Although you might not speak german, the code provided will show
->> you, that the device is actually working with your driver).
->>
->> It would be nice, if you include this new device ID to the
->> sc92031-driver.
->>
->> Regards,
->>
->> Axel K=F6llhofer (aka Rain_Maker)
->=20
-> Cc: rain_maker@root-forum.org
-> Signed-off-by: Cesar Eduardo Barros <cesarb@cesarb.net>
+> 
+> 3c589_cs: 
+> re-initialize the multicast in the tc589_reset,
+> and spin_lock the set_multicast_list function.  
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Applied, thanks.
+Applied, but you really need to fix your coding style.
+
+I know perhaps you were trying to be consistent with the
+rest of this driver, but when adding completely new code
+the conventions of the rest of the kernel ought to be
+followed, for example:
+
+> +static void set_multicast_list(struct net_device *dev)
+> +{
+> +    struct el3_private *priv = netdev_priv(dev);
+> +    unsigned long flags;
+> +
+> +    spin_lock_irqsave(&priv->lock, flags);    
+> +    set_rx_mode(dev);
+> +    spin_unlock_irqrestore(&priv->lock, flags);    
+> +}
+
+One tab should begin each statement in this function, and
+spin_lock and spin_unlock lines had unnecessary trailing
+whitespace.
+
+I fixed all of this up when applying your patch, but I
+absolutely will not do so next time.
+
+Thank you.
