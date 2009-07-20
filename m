@@ -1,120 +1,50 @@
-From: Mark Ware <mware@elphinstone.net>
-Subject: [RFC/PATCH] net: Rework mdio-ofgpio driver to use of_mdio infrastructure
-Date: Mon, 20 Jul 2009 22:20:39 +1000
-Message-ID: <4A646117.1030409@elphinstone.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] TCP: Add comments to (near) all functions in
+	tcp_output.c v2
+Date: Mon, 20 Jul 2009 14:34:04 +0200
+Message-ID: <20090720123404.GA16072@basil.fritz.box>
+References: <20090717204004.GA516@basil.fritz.box> <Pine.LNX.4.64.0907180919270.31457@melkinkari.cs.Helsinki.FI> <20090718103159.GB2682@basil.fritz.box> <4A645DDD.8050402@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail04.adl2.internode.on.net ([203.16.214.57]:48698 "EHLO
-	ipmail04.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751739AbZGTMUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 08:20:43 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:52997 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751739AbZGTMeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 08:34:09 -0400
+Content-Disposition: inline
+In-Reply-To: <4A645DDD.8050402@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when using the mdio-ofgpio driver.
+On Mon, Jul 20, 2009 at 08:06:53PM +0800, Shan Wei wrote:
+> Andi Kleen said:
+> > =20
+> > +/* Compute TCP options for ESTABLISHED sockets. This is not the
+> > + * final wire format yet.
+> > + */
+>=20
+> typo, =E2=80=9Cnetwork wire=E2=80=9D?
 
-The following patch is a fairly naive attempt to replicate similar changes made to the fs_enet mii-bitbang drivers.
+I don't see a typo.
 
-Signed-of-by: Mark Ware <mware@elphinstone.net>
----
+>=20
+>=20
+> > +/* Test if sending is allowed right now.
+> > + */
+> >  int tcp_may_send_now(struct sock *sk)
+>=20
+> Is it better to provide the condition be allowed?
 
-This patch probably misses some important details, but it does allow my mpc8280 based board to boot and use an NFS mounted root.
+Such a introductionary comment is not intended to be a full
+representation of the code, just a overview.
 
-  drivers/net/phy/mdio-gpio.c |   39 +++++++++++++--------------------------
-  1 files changed, 13 insertions(+), 26 deletions(-)
+-Andi
 
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 33984b7..6568176 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -30,6 +30,7 @@
-
-  #ifdef CONFIG_OF_GPIO
-  #include <linux/of_gpio.h>
-+#include <linux/of_mdio.h>
-  #include <linux/of_platform.h>
-  #endif
-
-@@ -83,7 +84,8 @@ static struct mdiobb_ops mdio_gpio_ops = {
-
-  static int __devinit mdio_gpio_bus_init(struct device *dev,
-  					struct mdio_gpio_platform_data *pdata,
--					int bus_id)
-+					int bus_id,
-+                    void *ofdev)
-  {
-  	struct mii_bus *new_bus;
-  	struct mdio_gpio_info *bitbang;
-@@ -129,7 +131,14 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
-
-  	dev_set_drvdata(dev, new_bus);
-
--	ret = mdiobus_register(new_bus);
-+#ifdef CONFIG_OF_GPIO
-+    if (ofdev)
-+        ret = of_mdiobus_register(new_bus, ((struct of_device *) ofdev)->node);
-+    else
-+#else
-+	    ret = mdiobus_register(new_bus);
-+#endif
-+
-  	if (ret)
-  		goto out_free_all;
-
-@@ -168,7 +177,7 @@ static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-  	if (!pdata)
-  		return -ENODEV;
-
--	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-+	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id, NULL);
-  }
-
-  static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-@@ -179,28 +188,10 @@ static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-  }
-
-  #ifdef CONFIG_OF_GPIO
--static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
--			      struct device_node *np)
--{
--	const u32 *data;
--	int len, id, irq;
--
--	data = of_get_property(np, "reg", &len);
--	if (!data || len != 4)
--		return;
--
--	id = *data;
--	pdata->phy_mask &= ~(1 << id);
--
--	irq = of_irq_to_resource(np, 0, NULL);
--	if (irq)
--		pdata->irqs[id] = irq;
--}
-
-  static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-                                          const struct of_device_id *match)
-  {
--	struct device_node *np = NULL;
-  	struct mdio_gpio_platform_data *pdata;
-  	int ret;
-
-@@ -218,11 +209,7 @@ static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-                  goto out_free;
-  	pdata->mdio = ret;
-
--	while ((np = of_get_next_child(ofdev->node, np)))
--		if (!strcmp(np->type, "ethernet-phy"))
--			add_phy(pdata, np);
--
--	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
-+	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc, ofdev);
-
-  out_free:
-  	kfree(pdata);
--- 
-1.5.6.5
+--=20
+ak@linux.intel.com -- Speaking for myself only.
