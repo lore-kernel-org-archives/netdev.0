@@ -1,30 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] can: various fixes to the device driver interface
-Date: Mon, 20 Jul 2009 12:28:50 -0700 (PDT)
-Message-ID: <20090720.122850.248253787.davem@davemloft.net>
-References: <20090720140638.342067093@denx.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/1] veth: don't free priv->status until dev->destructor
+ (v2)
+Date: Mon, 20 Jul 2009 14:25:42 -0700
+Message-ID: <20090720142542.4fb12c12@nehalam>
+References: <20090626162418.GA24828@us.ibm.com>
+	<20090715.085012.223420354.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de
-To: wg@grandegger.com
+Cc: David Miller <davem@davemloft.net>, containers@lists.osdl.org,
+	sachinp@in.ibm.com, netdev@vger.kernel.org, matthltc@us.ibm.com,
+	linux-kernel@vger.kernel.org
+To: serue@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50189
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752710AbZGTT2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 15:28:45 -0400
-In-Reply-To: <20090720140638.342067093@denx.de>
+Received: from mail.vyatta.com ([76.74.103.46]:45121 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752937AbZGTVZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2009 17:25:48 -0400
+In-Reply-To: <20090715.085012.223420354.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Mon, 20 Jul 2009 16:06:38 +0200
+On Wed, 15 Jul 2009 08:50:12 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> this patch series fixes the following issues with CAN device driver
-> interface and the SJA1000 driver:
+> From: "Serge E. Hallyn" <serue@us.ibm.com>
+> Date: Fri, 26 Jun 2009 11:24:18 -0500
 > 
-> [PATCH 1/3] can: sja1000: remove duplicated includes
-> [PATCH 2/3] can: restart device even if dev_alloc_skb() fails
-> [PATCH 3/3] can: switch carrier on if device was stopped while in bus-off state
+> > I haven't been able to reproduce the original oops though (been
+> > trying to cat the stats sysfs files while rmmoding veth, to no
+> > avail, and haven't found an original bug report or testcase), so
+> > can't verify whether this patch prevents the original oops.
+> 
+> If you 'cat' it you're unlikely to trigger the oops.
+> 
+> You have to hold the sysfs files open, and then elsewhere do the
+> rmmod, wait, and then continue with some access to those open sysfs
+> file descriptors (f.e. do some reads).
+> 
+> I'd also need this patch to be against current sources as they'll
+> never apply since I did the revert quite some time ago.
+> 
+> Thanks.
 
-All applied, thanks.
+
+My usual way of doing this is:
+
+#  (sleep 30; cat /sys/class/net/ethX/statistics/tx_bytes) &
+# rmmod the_buggy_driver
+
+wait...
+
+
+-- 
