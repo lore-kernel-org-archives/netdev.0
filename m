@@ -1,91 +1,44 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH] 3c589_cs: re-initialize the multicast in the tc589_reset
-Date: Mon, 20 Jul 2009 08:08:12 +0900
-Message-ID: <20090720080812.49633622.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
+Date: Mon, 20 Jul 2009 08:26:43 +0200
+Message-ID: <20090720062643.GA20288@secunet.com>
+References: <20090716111548.GP20288@secunet.com> <20090716111747.GR20288@secunet.com> <20090717.100334.160030992.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg502.nifty.com ([202.248.238.82]:59764 "EHLO
-	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbZGSXIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jul 2009 19:08:21 -0400
-Received: from localhost.localdomain (eaoska170254.adsl.ppp.infoweb.ne.jp [219.116.19.254])by userg502.nifty.com with SMTP id n6JN8HFF000380
-	for <netdev@vger.kernel.org>; Mon, 20 Jul 2009 08:08:17 +0900
-In-Reply-To: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090717.100334.160030992.davem@davemloft.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 17, 2009 at 10:03:34AM -0700, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Thu, 16 Jul 2009 13:17:47 +0200
+> 
+> > +	/* 
+> > +	 * head must be a scatterlist with two entries.
+> > +	 * We remove a potentially set termination bit
+> > +	 * on the first enty.
+> > +	 */
+> > +	head->page_link &= ~0x02;
+> > +
+> >  	if (chain) {
+> >  		head->length += sg->length;
+> 
+> Isn't there some interface to do this, rather than revealing the
+> implementation details of how the scatter list marking works?
 
-3c589_cs: 
-re-initialize the multicast in the tc589_reset,
-and spin_lock the set_multicast_list function.  
+We have sg_mark_end() which sets the termination bit on a sg list entry,
+but we don't have an interface to remove the termination bit from a sg
+list entry. 
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> 
+> If not, such an interface should be created and used here.  Otherwise
+> any change in that implementation will break this code.
 
----
-
---- linux-2.6.31-rc3/drivers/net/pcmcia/3c589_cs.c.orig	2009-07-19 19:13:10.000000000 +0900
-+++ linux-2.6.31-rc3/drivers/net/pcmcia/3c589_cs.c	2009-07-19 19:26:40.000000000 +0900
-@@ -156,6 +156,7 @@ static struct net_device_stats *el3_get_
- static int el3_rx(struct net_device *dev);
- static int el3_close(struct net_device *dev);
- static void el3_tx_timeout(struct net_device *dev);
-+static void set_rx_mode(struct net_device *dev);
- static void set_multicast_list(struct net_device *dev);
- static const struct ethtool_ops netdev_ethtool_ops;
- 
-@@ -488,8 +489,7 @@ static void tc589_reset(struct net_devic
-     /* Switch to register set 1 for normal use. */
-     EL3WINDOW(1);
- 
--    /* Accept b-cast and phys addr only. */
--    outw(SetRxFilter | RxStation | RxBroadcast, ioaddr + EL3_CMD);
-+    set_rx_mode(dev);
-     outw(StatsEnable, ioaddr + EL3_CMD); /* Turn on statistics. */
-     outw(RxEnable, ioaddr + EL3_CMD); /* Enable the receiver. */
-     outw(TxEnable, ioaddr + EL3_CMD); /* Enable transmitter. */
-@@ -700,7 +700,7 @@ static irqreturn_t el3_interrupt(int irq
- 		if (fifo_diag & 0x2000) {
- 		    /* Rx underrun */
- 		    tc589_wait_for_completion(dev, RxReset);
--		    set_multicast_list(dev);
-+    		    set_rx_mode(dev);
- 		    outw(RxEnable, ioaddr + EL3_CMD);
- 		}
- 		outw(AckIntr | AdapterFailure, ioaddr + EL3_CMD);
-@@ -905,14 +905,11 @@ static int el3_rx(struct net_device *dev
-     return 0;
- }
- 
--static void set_multicast_list(struct net_device *dev)
-+static void set_rx_mode(struct net_device *dev)
- {
--    struct el3_private *lp = netdev_priv(dev);
--    struct pcmcia_device *link = lp->p_dev;
-     unsigned int ioaddr = dev->base_addr;
-     u16 opts = SetRxFilter | RxStation | RxBroadcast;
- 
--    if (!pcmcia_dev_present(link)) return;
-     if (dev->flags & IFF_PROMISC)
- 	opts |= RxMulticast | RxProm;
-     else if (dev->mc_count || (dev->flags & IFF_ALLMULTI))
-@@ -920,6 +917,16 @@ static void set_multicast_list(struct ne
-     outw(opts, ioaddr + EL3_CMD);
- }
- 
-+static void set_multicast_list(struct net_device *dev)
-+{
-+    struct el3_private *priv = netdev_priv(dev);
-+    unsigned long flags;
-+
-+    spin_lock_irqsave(&priv->lock, flags);    
-+    set_rx_mode(dev);
-+    spin_unlock_irqrestore(&priv->lock, flags);    
-+}
-+
- static int el3_close(struct net_device *dev)
- {
-     struct el3_private *lp = netdev_priv(dev);
+A grep over the kernel tree showed that just the block and the
+crypto-layer doing this to chain sg lists. So we could create
+sg_unmark_end() and use it there. If desired, I would do it.
