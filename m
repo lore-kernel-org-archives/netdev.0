@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Use correct peer adr when copying MD5 keys
-Date: Mon, 20 Jul 2009 07:50:36 -0700 (PDT)
-Message-ID: <20090720.075036.39164841.davem@davemloft.net>
-References: <1247756691.7627.5.camel@Maple>
-	<20090716113652.65dd1c8d@nehalam>
-	<1247858602.8509.7.camel@Maple>
+Subject: Re: [PATCH] USB host CDC Phonet network interface driver
+Date: Mon, 20 Jul 2009 07:55:56 -0700 (PDT)
+Message-ID: <20090720.075556.92145474.davem@davemloft.net>
+References: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
+	<200907171547.39815.oliver@neukum.org>
+	<200907200935.19103.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	agl@imperialviolet.org, yoshfuji@linux-ipv6.org
-To: john.dykstra1@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: oliver@neukum.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52767
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53550
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751305AbZGTOub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 10:50:31 -0400
-In-Reply-To: <1247858602.8509.7.camel@Maple>
+	by vger.kernel.org with ESMTP id S1751038AbZGTOzv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jul 2009 10:55:51 -0400
+In-Reply-To: <200907200935.19103.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Fri, 17 Jul 2009 19:23:22 +0000
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Mon, 20 Jul 2009 09:35:18 +0300
 
-> [PATCH] tcp:  Use correct peer adr when copying MD5 keys
-> 
-> When the TCP connection handshake completes on the passive
-> side, a variety of state must be set up in the "child" sock,
-> including the key if MD5 authentication is being used.  Fix TCP
-> for both address families to label the key with the peer's
-> destination address, rather than the address from the listening
-> sock, which is usually the wildcard.
-> 
-> Reported-by:   Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+> In the racy case, tx_complete() fires, incrementation in
+> usbpn_xmit() and decrementation in tx_complete() will cancel each
+> other. So, regardless of their respective order, tx_queue will be
+> unchanged, and the assertion remains valid. A fortiori, it works
+> fine if usbpn_xmit() races with more than one call of tx_complete().
 
-Also applied, thanks!
+You can only do the wakeup race free without deadlocking the TX queue
+state if you grab the TX path lock, as TG3 does:
+
+	/* Need to make the tx_cons update visible to tg3_start_xmit()
+	 * before checking for netif_queue_stopped().  Without the
+	 * memory barrier, there is a small possibility that tg3_start_xmit()
+	 * will miss it and cause the queue to be stopped forever.
+	 */
+	smp_mb();
+
+	if (unlikely(netif_queue_stopped(tp->dev) &&
+		     (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))) {
+		netif_tx_lock(tp->dev);
+		if (netif_queue_stopped(tp->dev) &&
+		    (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp)))
+			netif_wake_queue(tp->dev);
+		netif_tx_unlock(tp->dev);
+	}
