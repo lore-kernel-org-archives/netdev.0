@@ -1,51 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Phonet: sockets list through proc_fs
-Date: Mon, 20 Jul 2009 11:05:05 +0200
-Message-ID: <4A643341.9090604@gmail.com>
-References: <1248078849-7343-1-git-send-email-remi.denis-courmont@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?=
+From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
 	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] Phonet: sockets list through proc_fs
+Date: Mon, 20 Jul 2009 12:28:46 +0300
+Message-ID: <200907201228.47125.remi.denis-courmont@nokia.com>
+References: <1248078849-7343-1-git-send-email-remi.denis-courmont@nokia.com> <1248079015.4549.101.camel@violet>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34677 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751724AbZGTJFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 05:05:12 -0400
-In-Reply-To: <1248078849-7343-1-git-send-email-remi.denis-courmont@nokia.com>
+Received: from smtp.nokia.com ([192.100.122.233]:16600 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043AbZGTJ0b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 05:26:31 -0400
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx06.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6K9PvDL016993
+	for <netdev@vger.kernel.org>; Mon, 20 Jul 2009 12:26:20 +0300
+Received: from leon.remlab.net (esdhcp03592.research.nokia.com [172.21.35.92])
+	by mgw-da01.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6K9QMeS009223
+	for <netdev@vger.kernel.org>; Mon, 20 Jul 2009 12:26:23 +0300
+In-Reply-To: <1248079015.4549.101.camel@violet>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R=C3=A9mi Denis-Courmont a =C3=A9crit :
-> From: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
+On Monday 20 July 2009 11:36:55 ext Marcel Holtmann wrote:
+> Hi Remi,
+>
+> > From: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>
+> isn't there are proper explaining commit message missing here?
 
-> +static int pn_sock_seq_show(struct seq_file *seq, void *v)
-> +{
-> +	int len;
-> +
-> +	if (v =3D=3D SEQ_START_TOKEN)
-> +		seq_printf(seq, "%s%n", "pt  loc  rem rs st tx_queue rx_queue "
-> +			"  uid inode ref pointer drops", &len);
-> +	else {
-> +		struct sock *sk =3D v;
-> +		struct pn_sock *pn =3D pn_sk(sk);
-> +
-> +		seq_printf(seq, "%2d %04X:%04X:%02X %02X %08X:%08X %5d %lu "
-> +			"%d %p %d%n",
-> +			sk->sk_protocol, pn->sobject, 0, pn->resource,
-> +			sk->sk_state,
-> +			atomic_read(&sk->sk_wmem_alloc),
-> +			atomic_read(&sk->sk_rmem_alloc),
+AFAIK, a one-liners stick to the Subject line.
 
-Please use sk_wmem_alloc_get(sk) and  sk_rmem_alloc_get(sk)
+(I use explicit From: due to my broken Microsoft-provided MTA).
 
-> +			sock_i_uid(sk), sock_i_ino(sk),
-> +			atomic_read(&sk->sk_refcnt), sk,
-> +			atomic_read(&sk->sk_drops), &len);
-> +	}
-> +	seq_printf(seq, "%*s\n", 127 - len, "");
-> +	return 0;
-> +}
+--=20
+R=C3=A9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
+
