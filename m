@@ -1,41 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
-Date: Mon, 20 Jul 2009 16:50:04 +0800
-Message-ID: <20090720085004.GA5018@gondor.apana.org.au>
-References: <20090716111548.GP20288@secunet.com> <20090716111747.GR20288@secunet.com> <20090717.100334.160030992.davem@davemloft.net> <20090720062643.GA20288@secunet.com> <20090720065514.GB4026@gondor.apana.org.au> <20090720075701.GC20288@secunet.com> <20090720082116.GA4797@gondor.apana.org.au> <20090720083640.GD20288@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Phonet: sockets list through proc_fs
+Date: Mon, 20 Jul 2009 11:05:05 +0200
+Message-ID: <4A643341.9090604@gmail.com>
+References: <1248078849-7343-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, Jens Axboe <jens.axboe@oracle.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090720083640.GD20288@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1vbnQ=?=
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:34677 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbZGTJFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 05:05:12 -0400
+In-Reply-To: <1248078849-7343-1-git-send-email-remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 20, 2009 at 10:36:40AM +0200, Steffen Klassert wrote:
-> 
-> For the crypto-layer it's just scatterwalk_sg_chain() that removes the
-> termination bit. 
+R=C3=A9mi Denis-Courmont a =C3=A9crit :
+> From: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
 
-The history behind this is that the crypto layer has used chaining
-way before generic chaining was invented.  When the generic code
-was added I tried to convert crypto over to that, however, that
-failed because generic chaining was not ported to every architecture.
+> +static int pn_sock_seq_show(struct seq_file *seq, void *v)
+> +{
+> +	int len;
+> +
+> +	if (v =3D=3D SEQ_START_TOKEN)
+> +		seq_printf(seq, "%s%n", "pt  loc  rem rs st tx_queue rx_queue "
+> +			"  uid inode ref pointer drops", &len);
+> +	else {
+> +		struct sock *sk =3D v;
+> +		struct pn_sock *pn =3D pn_sk(sk);
+> +
+> +		seq_printf(seq, "%2d %04X:%04X:%02X %02X %08X:%08X %5d %lu "
+> +			"%d %p %d%n",
+> +			sk->sk_protocol, pn->sobject, 0, pn->resource,
+> +			sk->sk_state,
+> +			atomic_read(&sk->sk_wmem_alloc),
+> +			atomic_read(&sk->sk_rmem_alloc),
 
-So that's why the crypto layer still retains its own chaining.
+Please use sk_wmem_alloc_get(sk) and  sk_rmem_alloc_get(sk)
 
-> For the block-layer it's blk_rq_map_integrity_sg() and two times in
-> blk_rq_map_sg().
-
-I suppose we should ask Jens whether he thinks this is worth adding
-an interface over?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> +			sock_i_uid(sk), sock_i_ino(sk),
+> +			atomic_read(&sk->sk_refcnt), sk,
+> +			atomic_read(&sk->sk_drops), &len);
+> +	}
+> +	seq_printf(seq, "%*s\n", 127 - len, "");
+> +	return 0;
+> +}
