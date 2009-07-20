@@ -1,26 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC] [PATCH 2/7] crypto: authenc - convert to ahash
-Date: Mon, 20 Jul 2009 09:57:01 +0200
-Message-ID: <20090720075701.GC20288@secunet.com>
-References: <20090716111548.GP20288@secunet.com> <20090716111747.GR20288@secunet.com> <20090717.100334.160030992.davem@davemloft.net> <20090720062643.GA20288@secunet.com> <20090720065514.GB4026@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: getaddrinfo - too many recvmsg calls
+Date: Mon, 20 Jul 2009 09:55:20 +0200
+Message-ID: <4A6422E8.9000001@gmail.com>
+References: <dffc28000907200005p7effca1cif4060b15be99e84@mail.gmail.com> <200907201014.18063.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090720065514.GB4026@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ext Zsolt SZALAI <zs.szalai@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50505 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752437AbZGTHz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jul 2009 03:55:29 -0400
+In-Reply-To: <200907201014.18063.remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 20, 2009 at 02:55:14PM +0800, Herbert Xu wrote:
-> 
-> For the case at hand, as we've agreed to only do the chaining
-> if there is only a single entry in the list, we don't need this
-> at all.  All you need to do is copy the page pointer, offset and
-> length without copying the raw scatterlist entry.
-> 
+R=E9mi Denis-Courmont a =E9crit :
+> On Monday 20 July 2009 10:05:56 ext Zsolt SZALAI wrote:
+>> The sanitycheck is now really simple, just a
+>>     addrinfo hints =3D { 0, AF_INET, 0, 0, 0, NULL, NULL, NULL };
+>>     int result =3D getaddrinfo(ipAddress, NULL, &hints, &addresses);
+>> call.
+>=20
+> What the heck is this supposed to do?
+> This piece of code tries to resolve <ipAddress> as numerical IPv4 add=
+ress *or*=20
+> a DNS hostname.
+>=20
+> If you want to check that a string is a valid IP address, call inet_p=
+ton(). If=20
+> you want to check that an IP address is assigned to the system, creat=
+e a=20
+> socket and bind to that address.
+>=20
 
-Agreed for this case. What about the existing code, should we create an
-interface for it?
+Yes, but beware of ip_nonlocal_bind option (/proc/sys/net/ipv4/ip_nonlo=
+cal_bind).
+
+If set to one, bind() will not tell you if address is assigned to the s=
+ystem.
