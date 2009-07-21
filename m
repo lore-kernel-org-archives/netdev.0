@@ -1,62 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Wireless fails to associate at boot (regression) due to commit
-  77fdaa12c
-Date: Tue, 21 Jul 2009 12:49:26 +0200
-Message-ID: <1248173366.11316.0.camel@johannes.local>
-References: <392fb48f0907202254t120ff3cmec885d164dc3344d@mail.gmail.com>
+From: Or Gerlitz <ogerlitz@Voltaire.com>
+Subject: Re: [Qemu-devel] [PATCH] net: add raw backend  - some performance
+ measurements
+Date: Tue, 21 Jul 2009 14:05:32 +0300
+Message-ID: <4A65A0FC.6090204@Voltaire.com>
+References: <4A4CA747.1050509@Voltaire.com>	<20090703023911.GD938@shareable.org> <4A534EC4.5030209@voltaire.com>	<20090707145739.GB14392@shareable.org> <4A54B0F1.3070201@voltaire.com>	<20090715203806.GF3056@shareable.org> <4A647B72.5090404@Voltaire.com>	<20090720155308.GA9327@gondor.apana.org.au> <4A656824.7070100@Voltaire.com>	<20090721072546.GA16131@gondor.apana.org.au> <20090721102733.GB22155@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-xEwIPU0kOf+swPZ4PrEw"
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jamie Lokier <jamie@shareable.org>,
+	Anthony Liguori <anthony@codemonkey.ws>, qemu-devel@nongnu.org,
+	Jan Kiszka <jan.kiszka@web.de>,
+	Mark McLoughlin <markmc@redhat.com>,
+	Dor Laor <dlaor@redhat.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xc.sipsolutions.net ([83.246.72.84]:40274 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754440AbZGUKt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 06:49:58 -0400
-In-Reply-To: <392fb48f0907202254t120ff3cmec885d164dc3344d@mail.gmail.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:16347 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752802AbZGULFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2009 07:05:43 -0400
+In-Reply-To: <20090721102733.GB22155@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Michael S. Tsirkin wrote:
+> With raw sockets, send will block or fail if the TX queue for device is
+> full. With tap+bridge, the buffer in tap has to fill up instead, which
+> is not the same. I'm not sure this is the issue here, but could be: the
+> benchmark is UDP, isn't it?
 
---=-xEwIPU0kOf+swPZ4PrEw
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Michael, 
 
-On Tue, 2009-07-21 at 14:54 +0900, Mike McCormack wrote:
-> Hi Johannes,
->=20
-> The following commit causes my wireless network not to associate after
-> bootup.
+What/where is this tap buffer? we're talking on VM TX, so looking on tun_get_user I see a call to 
+skb_copy_datagram_from_iovec() to copy from the user buffer to an skb, then a call to netif_rx_ni() and that's it... As for your question, indeed udp, the VM runs netperf/UDP_STREAM
 
-Hard to believe, but you're using wireless-testing which is known to be
-broken anyway at this point, because John has been on the road and
-hasn't merged fixes...
-
-Also wrong mailing list. If you follow wireless-testing, really do use
-(and read maybe) the wireless list.
-
-johannes
-
---=-xEwIPU0kOf+swPZ4PrEw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKZZ0zAAoJEODzc/N7+QmavhwP/jifyNaLvFexRvse2NrfwGEF
-kPmuTI0eK4+M5GDA/cya94bOx/Xp3ccgOAJzW0WU3Vh0Jfsuiu6SxnFLOiD5RIl1
-P2bEUClfa6fKblkVcaihJTzBjyfyFYOXhdKoZg2zfgFOU2a79iWLV0E6gwn0Skk+
-WnHau+wZDQOo56hKprKzfnRfHd2qb8bQ4vsGRCEccO4Pxd5tKnxQtbgd6JjlmW7Z
-ZqJkDN1QpoyUxOwCklcODXk9ldnn0qLKw6IQDaUg+oEz/7AXhPA/fe9uYyETze/l
-o0HXRvQSvhNTjti3rKm3HDNknjPVlD+M6DystOi9j5gK1B06PaefHqLyLYQKeYyg
-USdHK/ASXeku29Orbj1awregOQHFkevBkmwQlMTEEAqP8bItuRpnbj+PJ0ysMFai
-lEN+89HWmcZjcWI1WYh2PdtyDwkW/j2n55vbLXYjEI06/AsSzfxb8RhWs3/cLUy6
-KHjU6eGC7Lb3kgaskgm+d5rAsC9MqjxA0ko4x3ZwFRFuXP9d9TspYeZ9SPVChkPQ
-CxU8Q+5iTJkqo+E2J6qMbszOF1o/mps1HRDpawHwKPEG9X+0ZAZP7mHOwx7OHM+D
-QfhSK8ppIGRWo8oX7UWEhNsm96MKG0eKWkr4ORpycyXjXMYRta09/Oqx3Io/3QFP
-vcRtFLIRIK/Y/DeF3olZ
-=Hxzl
------END PGP SIGNATURE-----
-
---=-xEwIPU0kOf+swPZ4PrEw--
+Or.
 
