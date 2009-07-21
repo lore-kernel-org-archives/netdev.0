@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] can: sja1000: Add support for the new 4
- channel EMS CPC-PCI cards
-Date: Tue, 21 Jul 2009 12:38:25 -0700 (PDT)
-Message-ID: <20090721.123825.96946219.davem@davemloft.net>
-References: <4A65EB78.80008@grandegger.com>
+Subject: Re: [PATCH] USB host CDC Phonet network interface driver
+Date: Tue, 21 Jul 2009 12:42:17 -0700 (PDT)
+Message-ID: <20090721.124217.03326492.davem@davemloft.net>
+References: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
-	haas@ems-wuensche.com
-To: wg@grandegger.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39782
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33600
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755967AbZGUTiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:38:19 -0400
-In-Reply-To: <4A65EB78.80008@grandegger.com>
+	by vger.kernel.org with ESMTP id S1755555AbZGUTmM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2009 15:42:12 -0400
+In-Reply-To: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Tue, 21 Jul 2009 18:23:20 +0200
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Fri, 17 Jul 2009 12:56:06 +0300
 
-> This patch adds support to the ems_pci driver for the new, v2,
-> 4 channel CPC-PCI/PCIe/104P CAN cards from EMS Dr. Thomas Wuensche.
-> 
-> Signed-off-by: Sebastian Haas <haas@ems-wuensche.com>
-> Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> Many Nokia handsets support a Phonet interface to the cellular modem
+> via a vendor-specific USB interface. CDC Phonet follows the
+> Communications Device Class model, with one control interface, and
+> and a pair of inactive and active data alternative interface. The lat=
+er
+> has two bulk endpoint, one per direction.
+>=20
+> This was tested against Nokia E61, Nokia N95, and the existing Phonet
+> gadget function for the Linux composite USB gadget framework.
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Applied to net-next-2.6, thanks.
+Applied, thanks.
