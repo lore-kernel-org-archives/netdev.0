@@ -1,182 +1,542 @@
 From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH] Phonet: sockets list through proc_fs
-Date: Tue, 21 Jul 2009 14:57:57 +0300
-Message-ID: <1248177479-12669-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH] USB host CDC Phonet network interface driver
+Date: Tue, 21 Jul 2009 14:58:35 +0300
+Message-ID: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:54699 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbZGULz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 07:55:56 -0400
-Received: from vaebh106.NOE.Nokia.com (vaebh106.europe.nokia.com [10.160.244.32])
-	by mgw-mx06.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6LBtZU0012342
-	for <netdev@vger.kernel.org>; Tue, 21 Jul 2009 14:55:45 +0300
-Received: from localhost.localdomain (esdhcp03634.research.nokia.com [172.21.36.34])
-	by mgw-da02.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6LBtWcC014694
-	for <netdev@vger.kernel.org>; Tue, 21 Jul 2009 14:55:33 +0300
+Received: from smtp.nokia.com ([192.100.105.134]:45127 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158AbZGUL4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 07:56:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-This provides a list of sockets with their Phonet bind addresses and
-some socket debug informations through /proc/net/phonet.
+Many Nokia handsets support a Phonet interface to the cellular modem
+via a vendor-specific USB interface. CDC Phonet follows the
+Communications Device Class model, with one control interface, and
+and a pair of inactive and active data alternative interface. The later
+has two bulk endpoint, one per direction.
+
+This was tested against Nokia E61, Nokia N95, and the existing Phonet
+gadget function for the Linux composite USB gadget framework.
 
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/net/phonet/pn_dev.h |    2 +
- net/phonet/pn_dev.c         |    7 +++
- net/phonet/socket.c         |   96 +++++++++++++++++++++++++++++++++++=
+ drivers/net/usb/Kconfig      |    8 +
+ drivers/net/usb/Makefile     |    1 +
+ drivers/net/usb/cdc-phonet.c |  461 ++++++++++++++++++++++++++++++++++=
 ++++++++
- 3 files changed, 105 insertions(+), 0 deletions(-)
+ 3 files changed, 470 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/usb/cdc-phonet.c
 
-diff --git a/include/net/phonet/pn_dev.h b/include/net/phonet/pn_dev.h
-index 29d1267..44c923c 100644
---- a/include/net/phonet/pn_dev.h
-+++ b/include/net/phonet/pn_dev.h
-@@ -49,4 +49,6 @@ void phonet_address_notify(int event, struct net_devi=
-ce *dev, u8 addr);
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index a906d39..c47237c 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -369,4 +369,12 @@ config USB_NET_INT51X1
+ 	  (Powerline Communications) solution with an Intellon
+ 	  INT51x1/INT5200 chip, like the "devolo dLan duo".
 =20
- #define PN_NO_ADDR	0xff
-=20
-+extern const struct file_operations pn_sock_seq_fops;
++config USB_CDC_PHONET
++	tristate "CDC Phonet support"
++	depends on PHONET
++	help
++	  Choose this option to support the Phonet interface to a Nokia
++	  cellular modem, as found on most Nokia handsets with the
++	  "PC suite" USB profile.
 +
- #endif
-diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index b0d6ddd..5107b79 100644
---- a/net/phonet/pn_dev.c
-+++ b/net/phonet/pn_dev.c
-@@ -218,6 +218,11 @@ static int phonet_init_net(struct net *net)
- 	if (!pnn)
- 		return -ENOMEM;
+ endmenu
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index b870b0b..e17afb7 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -21,4 +21,5 @@ obj-$(CONFIG_USB_NET_ZAURUS)	+=3D zaurus.o
+ obj-$(CONFIG_USB_NET_MCS7830)	+=3D mcs7830.o
+ obj-$(CONFIG_USB_USBNET)	+=3D usbnet.o
+ obj-$(CONFIG_USB_NET_INT51X1)	+=3D int51x1.o
++obj-$(CONFIG_USB_CDC_PHONET)	+=3D cdc-phonet.o
 =20
-+	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops)) {
-+		kfree(pnn);
-+		return -ENOMEM;
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.=
+c
+new file mode 100644
+index 0000000..792af72
+--- /dev/null
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -0,0 +1,461 @@
++/*
++ * phonet.c -- USB CDC Phonet host driver
++ *
++ * Copyright (C) 2008-2009 Nokia Corporation. All rights reserved.
++ *
++ * Author: R=C3=A9mi Denis-Courmont
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. =C2=A0See the =
+GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
++ * 02110-1301 USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/usb.h>
++#include <linux/usb/cdc.h>
++#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include <linux/if_phonet.h>
++
++#define PN_MEDIA_USB	0x1B
++
++static const unsigned rxq_size =3D 17;
++
++struct usbpn_dev {
++	struct net_device	*dev;
++
++	struct usb_interface	*intf, *data_intf;
++	struct usb_device	*usb;
++	unsigned int		tx_pipe, rx_pipe;
++	u8 active_setting;
++	u8 disconnected;
++
++	unsigned		tx_queue;
++	spinlock_t		tx_lock;
++
++	spinlock_t		rx_lock;
++	struct sk_buff		*rx_skb;
++	struct urb		*urbs[0];
++};
++
++static void tx_complete(struct urb *req);
++static void rx_complete(struct urb *req);
++
++/*
++ * Network device callbacks
++ */
++static int usbpn_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct usbpn_dev *pnd =3D netdev_priv(dev);
++	struct urb *req =3D NULL;
++	unsigned long flags;
++	int err;
++
++	if (skb->protocol !=3D htons(ETH_P_PHONET))
++		goto drop;
++
++	req =3D usb_alloc_urb(0, GFP_ATOMIC);
++	if (!req)
++		goto drop;
++	usb_fill_bulk_urb(req, pnd->usb, pnd->tx_pipe, skb->data, skb->len,
++				tx_complete, skb);
++	req->transfer_flags =3D URB_ZERO_PACKET;
++	err =3D usb_submit_urb(req, GFP_ATOMIC);
++	if (err) {
++		usb_free_urb(req);
++		goto drop;
 +	}
 +
- 	INIT_LIST_HEAD(&pnn->pndevs.list);
- 	spin_lock_init(&pnn->pndevs.lock);
- 	net_assign_generic(net, phonet_net_id, pnn);
-@@ -233,6 +238,8 @@ static void phonet_exit_net(struct net *net)
- 	for_each_netdev(net, dev)
- 		phonet_device_destroy(dev);
- 	rtnl_unlock();
++	spin_lock_irqsave(&pnd->tx_lock, flags);
++	pnd->tx_queue++;
++	if (pnd->tx_queue >=3D dev->tx_queue_len)
++		netif_stop_queue(dev);
++	spin_unlock_irqrestore(&pnd->tx_lock, flags);
++	return 0;
 +
-+	proc_net_remove(net, "phonet");
- 	kfree(pnn);
- }
-=20
-diff --git a/net/phonet/socket.c b/net/phonet/socket.c
-index ada2a35..aa1617a 100644
---- a/net/phonet/socket.c
-+++ b/net/phonet/socket.c
-@@ -412,3 +412,99 @@ found:
- 	return 0;
- }
- EXPORT_SYMBOL(pn_sock_get_port);
-+
-+static struct sock *pn_sock_get_idx(struct seq_file *seq, loff_t pos)
-+{
-+	struct net *net =3D seq_file_net(seq);
-+	struct hlist_node *node;
-+	struct sock *sknode;
-+
-+	sk_for_each(sknode, node, &pnsocks.hlist) {
-+		if (!net_eq(net, sock_net(sknode)))
-+			continue;
-+		if (!pos)
-+			return sknode;
-+		pos--;
-+	}
-+	return NULL;
-+}
-+
-+static struct sock *pn_sock_get_next(struct seq_file *seq, struct sock=
- *sk)
-+{
-+	struct net *net =3D seq_file_net(seq);
-+
-+	do
-+		sk =3D sk_next(sk);
-+	while (sk && !net_eq(net, sock_net(sk)));
-+
-+	return sk;
-+}
-+
-+static void *pn_sock_seq_start(struct seq_file *seq, loff_t *pos)
-+	__acquires(pnsocks.lock)
-+{
-+	spin_lock_bh(&pnsocks.lock);
-+	return *pos ? pn_sock_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
-+}
-+
-+static void *pn_sock_seq_next(struct seq_file *seq, void *v, loff_t *p=
-os)
-+{
-+	struct sock *sk;
-+
-+	if (v =3D=3D SEQ_START_TOKEN)
-+		sk =3D pn_sock_get_idx(seq, 0);
-+	else
-+		sk =3D pn_sock_get_next(seq, v);
-+	(*pos)++;
-+	return sk;
-+}
-+
-+static void pn_sock_seq_stop(struct seq_file *seq, void *v)
-+	__releases(pnsocks.lock)
-+{
-+	spin_unlock_bh(&pnsocks.lock);
-+}
-+
-+static int pn_sock_seq_show(struct seq_file *seq, void *v)
-+{
-+	int len;
-+
-+	if (v =3D=3D SEQ_START_TOKEN)
-+		seq_printf(seq, "%s%n", "pt  loc  rem rs st tx_queue rx_queue "
-+			"  uid inode ref pointer drops", &len);
-+	else {
-+		struct sock *sk =3D v;
-+		struct pn_sock *pn =3D pn_sk(sk);
-+
-+		seq_printf(seq, "%2d %04X:%04X:%02X %02X %08X:%08X %5d %lu "
-+			"%d %p %d%n",
-+			sk->sk_protocol, pn->sobject, 0, pn->resource,
-+			sk->sk_state,
-+			sk_wmem_alloc_get(sk), sk_rmem_alloc_get(sk),
-+			sock_i_uid(sk), sock_i_ino(sk),
-+			atomic_read(&sk->sk_refcnt), sk,
-+			atomic_read(&sk->sk_drops), &len);
-+	}
-+	seq_printf(seq, "%*s\n", 127 - len, "");
++drop:
++	dev_kfree_skb(skb);
++	dev->stats.tx_dropped++;
 +	return 0;
 +}
 +
-+static const struct seq_operations pn_sock_seq_ops =3D {
-+	.start =3D pn_sock_seq_start,
-+	.next =3D pn_sock_seq_next,
-+	.stop =3D pn_sock_seq_stop,
-+	.show =3D pn_sock_seq_show,
-+};
-+
-+static int pn_sock_open(struct inode *inode, struct file *file)
++static void tx_complete(struct urb *req)
 +{
-+	return seq_open(file, &pn_sock_seq_ops);
++	struct sk_buff *skb =3D req->context;
++	struct net_device *dev =3D skb->dev;
++	struct usbpn_dev *pnd =3D netdev_priv(dev);
++
++	switch (req->status) {
++	case 0:
++		dev->stats.tx_bytes +=3D skb->len;
++		break;
++
++	case -ENOENT:
++	case -ECONNRESET:
++	case -ESHUTDOWN:
++		dev->stats.tx_aborted_errors++;
++	default:
++		dev->stats.tx_errors++;
++		dev_dbg(&dev->dev, "TX error (%d)\n", req->status);
++	}
++	dev->stats.tx_packets++;
++
++	spin_lock(&pnd->tx_lock);
++	pnd->tx_queue--;
++	netif_wake_queue(dev);
++	spin_unlock(&pnd->tx_lock);
++
++	dev_kfree_skb_any(skb);
++	usb_free_urb(req);
 +}
 +
-+const struct file_operations pn_sock_seq_fops =3D {
-+	.owner =3D THIS_MODULE,
-+	.open =3D pn_sock_open,
-+	.read =3D seq_read,
-+	.llseek =3D seq_lseek,
-+	.release =3D seq_release,
++static int rx_submit(struct usbpn_dev *pnd, struct urb *req, gfp_t gfp=
+_flags)
++{
++	struct net_device *dev =3D pnd->dev;
++	struct page *page;
++	int err;
++
++	page =3D __netdev_alloc_page(dev, gfp_flags);
++	if (!page)
++		return -ENOMEM;
++
++	usb_fill_bulk_urb(req, pnd->usb, pnd->rx_pipe, page_address(page),
++				PAGE_SIZE, rx_complete, dev);
++	req->transfer_flags =3D 0;
++	err =3D usb_submit_urb(req, gfp_flags);
++	if (unlikely(err)) {
++		dev_dbg(&dev->dev, "RX submit error (%d)\n", err);
++		netdev_free_page(dev, page);
++	}
++	return err;
++}
++
++static void rx_complete(struct urb *req)
++{
++	struct net_device *dev =3D req->context;
++	struct usbpn_dev *pnd =3D netdev_priv(dev);
++	struct page *page =3D virt_to_page(req->transfer_buffer);
++	struct sk_buff *skb;
++	unsigned long flags;
++
++	switch (req->status) {
++	case 0:
++		spin_lock_irqsave(&pnd->rx_lock, flags);
++		skb =3D pnd->rx_skb;
++		if (!skb) {
++			skb =3D pnd->rx_skb =3D netdev_alloc_skb(dev, 12);
++			if (likely(skb)) {
++				/* Can't use pskb_pull() on page in IRQ */
++				memcpy(skb_put(skb, 1), page_address(page), 1);
++				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
++						page, 1, req->actual_length);
++				page =3D NULL;
++			}
++		} else {
++			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
++					page, 0, req->actual_length);
++			page =3D NULL;
++		}
++		if (req->actual_length < PAGE_SIZE)
++			pnd->rx_skb =3D NULL; /* Last fragment */
++		else
++			skb =3D NULL;
++		spin_unlock_irqrestore(&pnd->rx_lock, flags);
++		if (skb) {
++			skb->protocol =3D htons(ETH_P_PHONET);
++			skb_reset_mac_header(skb);
++			__skb_pull(skb, 1);
++			skb->dev =3D dev;
++			dev->stats.rx_packets++;
++			dev->stats.rx_bytes +=3D skb->len;
++
++			netif_rx(skb);
++		}
++		goto resubmit;
++
++	case -ENOENT:
++	case -ECONNRESET:
++	case -ESHUTDOWN:
++		req =3D NULL;
++		break;
++
++	case -EOVERFLOW:
++		dev->stats.rx_over_errors++;
++		dev_dbg(&dev->dev, "RX overflow\n");
++		break;
++
++	case -EILSEQ:
++		dev->stats.rx_crc_errors++;
++		break;
++	}
++
++	dev->stats.rx_errors++;
++resubmit:
++	if (page)
++		netdev_free_page(dev, page);
++	if (req)
++		rx_submit(pnd, req, GFP_ATOMIC);
++}
++
++static int usbpn_close(struct net_device *dev);
++
++static int usbpn_open(struct net_device *dev)
++{
++	struct usbpn_dev *pnd =3D netdev_priv(dev);
++	int err;
++	unsigned i;
++	unsigned num =3D pnd->data_intf->cur_altsetting->desc.bInterfaceNumbe=
+r;
++
++	err =3D usb_set_interface(pnd->usb, num, pnd->active_setting);
++	if (err)
++		return err;
++
++	for (i =3D 0; i < rxq_size; i++) {
++		struct urb *req =3D usb_alloc_urb(0, GFP_KERNEL);
++
++		if (!req || rx_submit(pnd, req, GFP_KERNEL)) {
++			usbpn_close(dev);
++			return -ENOMEM;
++		}
++		pnd->urbs[i] =3D req;
++	}
++
++	netif_wake_queue(dev);
++	return 0;
++}
++
++static int usbpn_close(struct net_device *dev)
++{
++	struct usbpn_dev *pnd =3D netdev_priv(dev);
++	unsigned i;
++	unsigned num =3D pnd->data_intf->cur_altsetting->desc.bInterfaceNumbe=
+r;
++
++	netif_stop_queue(dev);
++
++	for (i =3D 0; i < rxq_size; i++) {
++		struct urb *req =3D pnd->urbs[i];
++
++		if (!req)
++			continue;
++		usb_kill_urb(req);
++		usb_free_urb(req);
++		pnd->urbs[i] =3D NULL;
++	}
++
++	return usb_set_interface(pnd->usb, num, !pnd->active_setting);
++}
++
++static int usbpn_set_mtu(struct net_device *dev, int new_mtu)
++{
++	if ((new_mtu < PHONET_MIN_MTU) || (new_mtu > PHONET_MAX_MTU))
++		return -EINVAL;
++
++	dev->mtu =3D new_mtu;
++	return 0;
++}
++
++static const struct net_device_ops usbpn_ops =3D {
++	.ndo_open	=3D usbpn_open,
++	.ndo_stop	=3D usbpn_close,
++	.ndo_start_xmit =3D usbpn_xmit,
++	.ndo_change_mtu =3D usbpn_set_mtu,
 +};
++
++static void usbpn_setup(struct net_device *dev)
++{
++	dev->features		=3D 0;
++	dev->netdev_ops		=3D &usbpn_ops,
++	dev->header_ops		=3D &phonet_header_ops;
++	dev->type		=3D ARPHRD_PHONET;
++	dev->flags		=3D IFF_POINTOPOINT | IFF_NOARP;
++	dev->mtu		=3D PHONET_MAX_MTU;
++	dev->hard_header_len	=3D 1;
++	dev->dev_addr[0]	=3D PN_MEDIA_USB;
++	dev->addr_len		=3D 1;
++	dev->tx_queue_len	=3D 3;
++
++	dev->destructor		=3D free_netdev;
++}
++
++/*
++ * USB driver callbacks
++ */
++static struct usb_device_id usbpn_ids[] =3D {
++	{
++		.match_flags =3D USB_DEVICE_ID_MATCH_VENDOR
++			| USB_DEVICE_ID_MATCH_INT_CLASS
++			| USB_DEVICE_ID_MATCH_INT_SUBCLASS,
++		.idVendor =3D 0x0421, /* Nokia */
++		.bInterfaceClass =3D USB_CLASS_COMM,
++		.bInterfaceSubClass =3D 0xFE,
++	},
++	{ },
++};
++
++MODULE_DEVICE_TABLE(usb, usbpn_ids);
++
++static struct usb_driver usbpn_driver;
++
++int usbpn_probe(struct usb_interface *intf, const struct usb_device_id=
+ *id)
++{
++	static const char ifname[] =3D "usbpn%d";
++	const struct usb_cdc_union_desc *union_header =3D NULL;
++	const struct usb_cdc_header_desc *phonet_header =3D NULL;
++	const struct usb_host_interface *data_desc;
++	struct usb_interface *data_intf;
++	struct usb_device *usbdev =3D interface_to_usbdev(intf);
++	struct net_device *dev;
++	struct usbpn_dev *pnd;
++	u8 *data;
++	int len, err;
++
++	data =3D intf->altsetting->extra;
++	len =3D intf->altsetting->extralen;
++	while (len >=3D 3) {
++		u8 dlen =3D data[0];
++		if (dlen < 3)
++			return -EINVAL;
++
++		/* bDescriptorType */
++		if (data[1] =3D=3D USB_DT_CS_INTERFACE) {
++			/* bDescriptorSubType */
++			switch (data[2]) {
++			case USB_CDC_UNION_TYPE:
++				if (union_header || dlen < 5)
++					break;
++				union_header =3D
++					(struct usb_cdc_union_desc *)data;
++				break;
++			case 0xAB:
++				if (phonet_header || dlen < 5)
++					break;
++				phonet_header =3D
++					(struct usb_cdc_header_desc *)data;
++				break;
++			}
++		}
++		data +=3D dlen;
++		len -=3D dlen;
++	}
++
++	if (!union_header || !phonet_header)
++		return -EINVAL;
++
++	data_intf =3D usb_ifnum_to_if(usbdev, union_header->bSlaveInterface0)=
+;
++	if (data_intf =3D=3D NULL)
++		return -ENODEV;
++	/* Data interface has one inactive and one active setting */
++	if (data_intf->num_altsetting !=3D 2)
++		return -EINVAL;
++	if (data_intf->altsetting[0].desc.bNumEndpoints =3D=3D 0
++	 && data_intf->altsetting[1].desc.bNumEndpoints =3D=3D 2)
++		data_desc =3D data_intf->altsetting + 1;
++	else
++	if (data_intf->altsetting[0].desc.bNumEndpoints =3D=3D 2
++	 && data_intf->altsetting[1].desc.bNumEndpoints =3D=3D 0)
++		data_desc =3D data_intf->altsetting;
++	else
++		return -EINVAL;
++
++	dev =3D alloc_netdev(sizeof(*pnd) + sizeof(pnd->urbs[0]) * rxq_size,
++				ifname, usbpn_setup);
++	if (!dev)
++		return -ENOMEM;
++
++	pnd =3D netdev_priv(dev);
++	SET_NETDEV_DEV(dev, &intf->dev);
++	netif_stop_queue(dev);
++
++	pnd->dev =3D dev;
++	pnd->usb =3D usb_get_dev(usbdev);
++	pnd->intf =3D intf;
++	pnd->data_intf =3D data_intf;
++	spin_lock_init(&pnd->tx_lock);
++	spin_lock_init(&pnd->rx_lock);
++	/* Endpoints */
++	if (usb_pipein(data_desc->endpoint[0].desc.bEndpointAddress)) {
++		pnd->rx_pipe =3D usb_rcvbulkpipe(usbdev,
++			data_desc->endpoint[0].desc.bEndpointAddress);
++		pnd->tx_pipe =3D usb_sndbulkpipe(usbdev,
++			data_desc->endpoint[1].desc.bEndpointAddress);
++	} else {
++		pnd->rx_pipe =3D usb_rcvbulkpipe(usbdev,
++			data_desc->endpoint[1].desc.bEndpointAddress);
++		pnd->tx_pipe =3D usb_sndbulkpipe(usbdev,
++			data_desc->endpoint[0].desc.bEndpointAddress);
++	}
++	pnd->active_setting =3D data_desc - data_intf->altsetting;
++
++	err =3D usb_driver_claim_interface(&usbpn_driver, data_intf, pnd);
++	if (err)
++		goto out;
++
++	/* Force inactive mode until the network device is brought UP */
++	usb_set_interface(usbdev, union_header->bSlaveInterface0,
++				!pnd->active_setting);
++	usb_set_intfdata(intf, pnd);
++
++	err =3D register_netdev(dev);
++	if (err) {
++		usb_driver_release_interface(&usbpn_driver, data_intf);
++		goto out;
++	}
++
++	dev_dbg(&dev->dev, "USB CDC Phonet device found\n");
++	return 0;
++
++out:
++	usb_set_intfdata(intf, NULL);
++	free_netdev(dev);
++	return err;
++}
++
++static void usbpn_disconnect(struct usb_interface *intf)
++{
++	struct usbpn_dev *pnd =3D usb_get_intfdata(intf);
++	struct usb_device *usb =3D pnd->usb;
++
++	if (pnd->disconnected)
++		return;
++
++	pnd->disconnected =3D 1;
++	usb_driver_release_interface(&usbpn_driver,
++			(pnd->intf =3D=3D intf) ? pnd->data_intf : pnd->intf);
++	unregister_netdev(pnd->dev);
++	usb_put_dev(usb);
++}
++
++static struct usb_driver usbpn_driver =3D {
++	.name =3D		"cdc_phonet",
++	.probe =3D	usbpn_probe,
++	.disconnect =3D	usbpn_disconnect,
++	.id_table =3D	usbpn_ids,
++};
++
++static int __init usbpn_init(void)
++{
++	return usb_register(&usbpn_driver);
++}
++
++static void __exit usbpn_exit(void)
++{
++	usb_deregister(&usbpn_driver);
++}
++
++module_init(usbpn_init);
++module_exit(usbpn_exit);
++
++MODULE_AUTHOR("Remi Denis-Courmont");
++MODULE_DESCRIPTION("USB CDC Phonet host interface");
++MODULE_LICENSE("GPL");
 --=20
 1.6.0.4
 
