@@ -1,28 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/1] connector maintainer/mail update.
-Date: Tue, 21 Jul 2009 12:44:08 -0700 (PDT)
-Message-ID: <20090721.124408.143518439.davem@davemloft.net>
-References: <8bd0f97a0907172045j2cff6987xb7ea0aab438bef9d@mail.gmail.com>
-	<20090717223307.d86a5551.akpm@linux-foundation.org>
-	<20090718142533.GA1948@ioremap.net>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [1/4 v2] Remove unused zero-copy code from velocity NIC driver.
+Date: Tue, 21 Jul 2009 15:44:41 -0400
+Message-ID: <20090721194441.GA32677@redhat.com>
+References: <200907211928.n6LJSLbe004367@gelk.kernelslacker.org> <20090721.123202.173837534.davem@davemloft.net> <20090721.123227.85658631.davem@davemloft.net> <20090721.123322.118453668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, vapier.adi@gmail.com,
-	netdev@vger.kernel.org
-To: zbr@ioremap.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33603
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755655AbZGUToC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:44:02 -0400
-In-Reply-To: <20090718142533.GA1948@ioremap.net>
+Received: from mx2.redhat.com ([66.187.237.31]:40533 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754834AbZGUToo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2009 15:44:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20090721.123322.118453668.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Date: Sat, 18 Jul 2009 18:25:33 +0400
+On Tue, Jul 21, 2009 at 12:33:22PM -0700, David Miller wrote:
 
-> Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
+ > >> David it still doesn't apply....
+ > >> 
+ > >> Try to apply this using GIT to net-next-2.6, it won't go.
+ > > 
+ > > Sorry, PEBKAC....
+ > 
+ > Ok, all applied to net-next-2.6, thanks.
 
-Applied, thanks.
+Phew, I was hella confused for a moment ;-)
+
+thanks !
+
+	Dave
