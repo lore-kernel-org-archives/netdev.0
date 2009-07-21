@@ -1,48 +1,32 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCHv2 1/2] mcastv6: Local variable shadows function argument
-Date: Tue, 21 Jul 2009 20:11:53 +0200
-Message-ID: <20090721181153.GA5970@gerrit.erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/4] trivial cleanups for via-velocity.c
+Date: Tue, 21 Jul 2009 11:12:35 -0700 (PDT)
+Message-ID: <20090721.111235.211304996.davem@davemloft.net>
+References: <200907211640.n6LGeG5d011439@gelk.kernelslacker.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	David L Stevens <dlstevens@us.ibm.com>
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:42268 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751674AbZGUSME (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 14:12:04 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52421
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751973AbZGUSMa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 14:12:30 -0400
+In-Reply-To: <200907211640.n6LGeG5d011439@gelk.kernelslacker.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 20 Jul 2009 23:34:56 -0400
 
-can you please apply this small one.
-Thanks to David L Stevens for clarification.
+> I've had these sitting around for a while, they should be safe to apply.
+> I checked a diff of the disassembly from objdump before/after, and
+> the only diffs were the placement of the functions & jump offsets changing
+> due to the reordering in diff 3/4.
 
-Gerrit
+These do not apply to the driver in the current tree, particularly
+it doesn't apply at all to net-next-2.6 which is where I would
+add this.
 
->>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-mcastv6: Local variable shadows function argument
-
-The local variable 'idev' shadows the function argument 'idev' to
-ip6_mc_add_src(). Fixed by removing the local declaration, as pmc->idev
-should be identical with 'idev' passed as argument.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
----
- net/ipv6/mcast.c |    1 -
- 1 file changed, 1 deletion(-)
-
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -2107,7 +2107,6 @@ static int ip6_mc_add_src(struct inet6_d
- 		for (j=0; j<i; j++)
- 			(void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
- 	} else if (isexclude != (pmc->mca_sfcount[MCAST_EXCLUDE] != 0)) {
--		struct inet6_dev *idev = pmc->idev;
- 		struct ip6_sf_list *psf;
- 
- 		/* filter mode change */
+Please fix this up and resubmit, thanks.
