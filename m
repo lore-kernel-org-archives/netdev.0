@@ -1,65 +1,48 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 5/10] bnx2x: SMP-safe inter_sem
-Date: Tue, 21 Jul 2009 18:47:41 +0300
-Message-ID: <1248191261.18195.48.camel@lb-tlvb-eilong>
-Reply-To: eilong@broadcom.com
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: [PATCH] macsonic, jazzsonic - fix oops on module unload
+Date: Wed, 22 Jul 2009 01:40:02 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.0907220119060.796@silk.local>
+References: <20090711170548.GC5205@suse.de> <1247345591-22643-8-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-9-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-10-git-send-email-u.kleine-koenig@pengutronix.de>
+ <1247345591-22643-11-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-12-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-13-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-14-git-send-email-u.kleine-koenig@pengutronix.de>
+ <1247345591-22643-15-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-16-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-17-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-18-git-send-email-u.kleine-koenig@pengutronix.de>
+ <1247345591-22643-19-git-send-email-u.kleine-koenig@pengutronix.de> <1247345591-22643-20-git-send-email-u.kleine-koenig@pengutronix.de> <alpine.OSX.2.00.0907220032230.796@silk.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Vlad Zolotarov" <vladz@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, Greg KH <gregkh@suse.de>,
+	=?ISO-8859-15?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4396 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755238AbZGUPrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 11:47:52 -0400
+Received: from www.telegraphics.com.au ([204.15.192.19]:53359 "EHLO
+	mail.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755325AbZGUPrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 11:47:52 -0400
+In-Reply-To: <alpine.OSX.2.00.0907220032230.796@silk.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vlad Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index f20df6d..18c3803 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -706,6 +706,8 @@ static void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
- 
- 	/* disable interrupt handling */
- 	atomic_inc(&bp->intr_sem);
-+	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
-+
- 	if (disable_hw)
- 		/* prevent the HW from sending interrupts */
- 		bnx2x_int_disable(bp);
-@@ -6642,7 +6644,12 @@ static void bnx2x_napi_disable(struct bnx2x *bp)
- 
- static void bnx2x_netif_start(struct bnx2x *bp)
- {
--	if (atomic_dec_and_test(&bp->intr_sem)) {
-+	int intr_sem;
-+
-+	intr_sem = atomic_dec_and_test(&bp->intr_sem);
-+	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
-+
-+	if (intr_sem) {
- 		if (netif_running(bp->dev)) {
- 			bnx2x_napi_enable(bp);
- 			bnx2x_int_enable(bp);
-@@ -8229,6 +8236,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 
- 	/* Disable interrupt handling until HW is initialized */
- 	atomic_set(&bp->intr_sem, 1);
-+	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
- 
- 	mutex_init(&bp->port.phy_mutex);
- 
--- 
-1.5.4.3
+Set the driver data before using it. Fixes an oops when doing rmmod.
 
+Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
+--- a/drivers/net/macsonic.c	2009-07-22 00:47:46.000000000 +1000
++++ b/drivers/net/macsonic.c	2009-07-22 00:49:39.000000000 +1000
+@@ -575,6 +575,7 @@
+  	lp = netdev_priv(dev);
+  	lp->device = &pdev->dev;
+  	SET_NETDEV_DEV(dev, &pdev->dev);
++	platform_set_drvdata(pdev, dev);
 
+  	/* This will catch fatal stuff like -ENOMEM as well as success */
+  	err = mac_onboard_sonic_probe(dev);
+--- a/drivers/net/jazzsonic.c	2009-07-22 00:47:52.000000000 +1000
++++ b/drivers/net/jazzsonic.c	2009-07-22 00:52:41.000000000 +1000
+@@ -222,6 +222,7 @@
+  	lp = netdev_priv(dev);
+  	lp->device = &pdev->dev;
+  	SET_NETDEV_DEV(dev, &pdev->dev);
++	platform_set_drvdata(pdev, dev);
+
+  	netdev_boot_setup_check(dev);
 
