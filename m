@@ -1,74 +1,47 @@
-From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH] register at91_ether using platform_driver_probe
-Date: Tue, 21 Jul 2009 22:11:39 +0200
-Message-ID: <1248207099-14583-1-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <200907111527.46441.david-b@pacbell.net>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] USB host CDC Phonet network interface driver
+Date: Tue, 21 Jul 2009 22:14:00 +0200
+Message-ID: <1248207240.28545.14.camel@violet>
+References: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
+	 <20090721.124217.03326492.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Marc Pignat <marc.pignat@hevs.ch>,
-	Andrew Victor <linux@maxim.org.za>,
-	Roel Kluin <12o3l@tiscali.nl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756012AbZGUUL5@vger.kernel.org>
-In-Reply-To: <200907111527.46441.david-b@pacbell.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090721.124217.03326492.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-at91ether_probe lives in .init.text, so using platform_driver_register
-to register it is wrong because binding a device after the init memory
-is discarded (e.g. via sysfs) results in an oops.
+Hi Dave,
 
-As requested by David Brownell platform_driver_probe is used instead of
-moving the probe function to .devinit.text as proposed initially.
-This saves some memory, but devices registered after the driver is
-probed are not bound (probably there are none) and binding via sysfs
-isn't possible.
+> > Many Nokia handsets support a Phonet interface to the cellular mode=
+m
+> > via a vendor-specific USB interface. CDC Phonet follows the
+> > Communications Device Class model, with one control interface, and
+> > and a pair of inactive and active data alternative interface. The l=
+ater
+> > has two bulk endpoint, one per direction.
+> >=20
+> > This was tested against Nokia E61, Nokia N95, and the existing Phon=
+et
+> > gadget function for the Linux composite USB gadget framework.
+> >=20
+> > Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.=
+com>
+>=20
+> Applied, thanks.
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Cc: David Brownell <dbrownell@users.sourceforge.net>
-Cc: netdev@vger.kernel.org
-Cc: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
-Cc: Marc Pignat <marc.pignat@hevs.ch>
-Cc: Andrew Victor <linux@maxim.org.za>
-Cc: Roel Kluin <12o3l@tiscali.nl>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
+I think that Remi sent an updated version today.
 
----
- drivers/net/arm/at91_ether.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Regards
 
-diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.=
-c
-index 2e7419a..5041d10 100644
---- a/drivers/net/arm/at91_ether.c
-+++ b/drivers/net/arm/at91_ether.c
-@@ -1228,7 +1228,6 @@ static int at91ether_resume(struct platform_devic=
-e *pdev)
- #endif
-=20
- static struct platform_driver at91ether_driver =3D {
--	.probe		=3D at91ether_probe,
- 	.remove		=3D __devexit_p(at91ether_remove),
- 	.suspend	=3D at91ether_suspend,
- 	.resume		=3D at91ether_resume,
-@@ -1240,7 +1239,7 @@ static struct platform_driver at91ether_driver =3D=
- {
-=20
- static int __init at91ether_init(void)
- {
--	return platform_driver_register(&at91ether_driver);
-+	return platform_driver_probe(&at91ether_driver, at91ether_probe);
- }
-=20
- static void __exit at91ether_exit(void)
---=20
-tg: (4b0a840..) t/platsection/at91ether_driver (depends on: linus/maste=
-r)
+Marcel
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
