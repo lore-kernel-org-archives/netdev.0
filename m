@@ -1,63 +1,202 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Constantly varying download rate with a complex xen networking
- setup, why?
-Date: Tue, 21 Jul 2009 11:52:28 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.0907211143100.10534@wel-95.cs.helsinki.fi>
-References: <20090615075313.GA22819@rivendell> <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI> <20090615160254.GA8550@rivendell> <Pine.LNX.4.64.0906151910220.16408@melkinkari.cs.Helsinki.FI> <20090617130050.GA18586@rivendell>
- <Pine.LNX.4.64.0906171659380.31880@melkinkari.cs.Helsinki.FI> <20090617143647.GD18586@rivendell>
+From: Mark Ware <mware@elphinstone.net>
+Subject: [PATCH v2] net: Rework mdio-ofgpio driver to use of_mdio 	infrastructure
+Date: Tue, 21 Jul 2009 19:50:33 +1000
+Message-ID: <4A658F69.7020002@elphinstone.net>
+References: <4A646117.1030409@elphinstone.net> <fa686aa40907200759h1e4ec8cfh8a35890127a899a1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-1468014785-1248165953=:10534"
-Cc: Netdev <netdev@vger.kernel.org>
-To: Raphael Hertzog <raphael@ouaza.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
+	linuxppc-dev <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42888 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057AbZGUIw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 04:52:29 -0400
-In-Reply-To: <20090617143647.GD18586@rivendell>
-Content-ID: <alpine.DEB.2.00.0907211149160.10534@wel-95.cs.helsinki.fi>
+Received: from ipmail04.adl2.internode.on.net ([203.16.214.57]:42398 "EHLO
+	ipmail04.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754515AbZGUJuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 05:50:37 -0400
+In-Reply-To: <fa686aa40907200759h1e4ec8cfh8a35890127a899a1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when using the mdio-ofgpio driver.
 
---8323329-1468014785-1248165953=:10534
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.0907211149161.10534@wel-95.cs.helsinki.fi>
+The following patch replicates similar changes made to the fs_enet mii-bitbang drivers.
+---
 
-On Wed, 17 Jun 2009, Raphael Hertzog wrote:
+This version attempts to address Grant's comments below:
 
-> Le mercredi 17 juin 2009, Ilpo Järvinen a écrit :
->> On Wed, 17 Jun 2009, Raphael Hertzog wrote:
->>
->>> Le lundi 15 juin 2009, Ilpo Järvinen a écrit :
->>>> Maybe the proxy interferes there somehow... I don't know enough about the
->>>> details to say but I suppose the proxy at least breaks your tcp connection
->>>> to two parts.
->>>
->>> Indeed. Is there some processing done in a simple linux bridge where the
->>> reapperance of the same TCP packet that has been created and sent on another
->>> local interface could create problem?
->>
->> I thought out had a http proxy in between? I suppose it is certainly doing
->> more than bridging. Anyway, I'll be week away, so no quick responses are
->> to be expected from my part after this mail.
->
-> Well, I have the problem when I don't use the proxy... if I use it, the
-> download is split over two TCP connections and things are fine.
->
-> Hence my question was if something could be confused by the fact that the
-> same packet is seen twice on the same machine once (in output) via 
-> eth2/xenbrD and once (in forward) via xenbrE (the routing between both 
-> bridges is done by the domU independently of the dom0 network config).
+Grant Likely wrote:
+ >
+ > You should refactor mdio_gpio_bus_init() to not call
+ > mdiobus_register() at all, and instead just return a pointer to the
+ > unregistered new_bus.  Then mdio_gpio_probe() and mdio_ofgpio_probe()
+ > can call the correct register variant directly.  Fewer ugly #ifdefs
+ > this way.  It also eliminates the need to cast the void* pointer.
+ >
 
-Did you ever get tcpdumps btw? Looking into your setup it would probably 
-be useful take it from all the interfaces where the packets are supposed 
-to pass.
+  drivers/net/phy/mdio-gpio.c |   77 ++++++++++++++++++++-----------------------
+  1 files changed, 36 insertions(+), 41 deletions(-)
 
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 33984b7..22cdd45 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -30,6 +30,7 @@
 
+  #ifdef CONFIG_OF_GPIO
+  #include <linux/of_gpio.h>
++#include <linux/of_mdio.h>
+  #include <linux/of_platform.h>
+  #endif
+
+@@ -81,13 +82,12 @@ static struct mdiobb_ops mdio_gpio_ops = {
+  	.get_mdio_data = mdio_get,
+  };
+
+-static int __devinit mdio_gpio_bus_init(struct device *dev,
++static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *dev,
+  					struct mdio_gpio_platform_data *pdata,
+  					int bus_id)
+  {
+  	struct mii_bus *new_bus;
+  	struct mdio_gpio_info *bitbang;
+-	int ret = -ENOMEM;
+  	int i;
+
+  	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
+@@ -104,8 +104,6 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
+
+  	new_bus->name = "GPIO Bitbanged MDIO",
+
+-	ret = -ENODEV;
+-
+  	new_bus->phy_mask = pdata->phy_mask;
+  	new_bus->irq = pdata->irqs;
+  	new_bus->parent = dev;
+@@ -129,15 +127,8 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
+
+  	dev_set_drvdata(dev, new_bus);
+
+-	ret = mdiobus_register(new_bus);
+-	if (ret)
+-		goto out_free_all;
+-
+-	return 0;
++	return new_bus;
+
+-out_free_all:
+-	dev_set_drvdata(dev, NULL);
+-	gpio_free(bitbang->mdio);
+  out_free_mdc:
+  	gpio_free(bitbang->mdc);
+  out_free_bus:
+@@ -145,30 +136,47 @@ out_free_bus:
+  out_free_bitbang:
+  	kfree(bitbang);
+  out:
+-	return ret;
++	return NULL;
+  }
+
+-static void __devexit mdio_gpio_bus_destroy(struct device *dev)
++static void __devinit mdio_gpio_bus_deinit(struct device *dev)
+  {
+  	struct mii_bus *bus = dev_get_drvdata(dev);
+  	struct mdio_gpio_info *bitbang = bus->priv;
+
+-	mdiobus_unregister(bus);
+-	free_mdio_bitbang(bus);
+  	dev_set_drvdata(dev, NULL);
+-	gpio_free(bitbang->mdc);
+  	gpio_free(bitbang->mdio);
++	gpio_free(bitbang->mdc);
++	free_mdio_bitbang(bus);
+  	kfree(bitbang);
+  }
+
++static void __devexit mdio_gpio_bus_destroy(struct device *dev)
++{
++	struct mii_bus *bus = dev_get_drvdata(dev);
++
++	mdiobus_unregister(bus);
++	mdio_gpio_bus_deinit(dev);
++}
++
+  static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+  {
+  	struct mdio_gpio_platform_data *pdata = pdev->dev.platform_data;
++	struct mii_bus *new_bus;
++	int ret;
+
+  	if (!pdata)
+  		return -ENODEV;
+
+-	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
++	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
++	if (!new_bus)
++		return -ENODEV;
++
++	ret = mdiobus_register(new_bus);
++	if (ret)
++		mdio_gpio_bus_deinit(&pdev->dev);
++
++	return ret;
+  }
+
+  static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+@@ -179,29 +187,12 @@ static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+  }
+
+  #ifdef CONFIG_OF_GPIO
+-static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
+-			      struct device_node *np)
+-{
+-	const u32 *data;
+-	int len, id, irq;
+-
+-	data = of_get_property(np, "reg", &len);
+-	if (!data || len != 4)
+-		return;
+-
+-	id = *data;
+-	pdata->phy_mask &= ~(1 << id);
+-
+-	irq = of_irq_to_resource(np, 0, NULL);
+-	if (irq)
+-		pdata->irqs[id] = irq;
+-}
+
+  static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+                                          const struct of_device_id *match)
+  {
+-	struct device_node *np = NULL;
+  	struct mdio_gpio_platform_data *pdata;
++	struct mii_bus *new_bus;
+  	int ret;
+
+  	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+@@ -215,14 +206,18 @@ static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+
+  	ret = of_get_gpio(ofdev->node, 1);
+  	if (ret < 0)
+-                goto out_free;
++		goto out_free;
+  	pdata->mdio = ret;
+
+-	while ((np = of_get_next_child(ofdev->node, np)))
+-		if (!strcmp(np->type, "ethernet-phy"))
+-			add_phy(pdata, np);
++	new_bus = mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
++	if (!new_bus)
++		return -ENODEV;
+
+-	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
++	ret = of_mdiobus_register(new_bus, ofdev->node);
++	if (ret)
++		mdio_gpio_bus_deinit(&ofdev->dev);
++
++	return ret;
+
+  out_free:
+  	kfree(pdata);
 -- 
-  i.
---8323329-1468014785-1248165953=:10534--
+1.5.6.5
