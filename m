@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Tue, 21 Jul 2009 12:42:17 -0700 (PDT)
-Message-ID: <20090721.124217.03326492.davem@davemloft.net>
-References: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [1/1] connector maintainer/mail update.
+Date: Tue, 21 Jul 2009 12:44:08 -0700 (PDT)
+Message-ID: <20090721.124408.143518439.davem@davemloft.net>
+References: <8bd0f97a0907172045j2cff6987xb7ea0aab438bef9d@mail.gmail.com>
+	<20090717223307.d86a5551.akpm@linux-foundation.org>
+	<20090718142533.GA1948@ioremap.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, vapier.adi@gmail.com,
+	netdev@vger.kernel.org
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33600
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33603
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755555AbZGUTmM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 15:42:12 -0400
-In-Reply-To: <1247824566-9141-1-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1755655AbZGUToC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:44:02 -0400
+In-Reply-To: <20090718142533.GA1948@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Fri, 17 Jul 2009 12:56:06 +0300
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Date: Sat, 18 Jul 2009 18:25:33 +0400
 
-> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> Many Nokia handsets support a Phonet interface to the cellular modem
-> via a vendor-specific USB interface. CDC Phonet follows the
-> Communications Device Class model, with one control interface, and
-> and a pair of inactive and active data alternative interface. The lat=
-er
-> has two bulk endpoint, one per direction.
->=20
-> This was tested against Nokia E61, Nokia N95, and the existing Phonet
-> gadget function for the Linux composite USB gadget framework.
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> Signed-off-by: Evgeniy Polyakov <zbr@ioremap.net>
 
 Applied, thanks.
