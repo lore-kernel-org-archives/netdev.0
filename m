@@ -1,202 +1,21 @@
-From: Mark Ware <mware@elphinstone.net>
-Subject: [PATCH v2] net: Rework mdio-ofgpio driver to use of_mdio 	infrastructure
-Date: Tue, 21 Jul 2009 19:50:33 +1000
-Message-ID: <4A658F69.7020002@elphinstone.net>
-References: <4A646117.1030409@elphinstone.net> <fa686aa40907200759h1e4ec8cfh8a35890127a899a1@mail.gmail.com>
+From: The Camelot Group <info@cgnl.net>
+Subject: (no subject)
+Date: Tue, 21 Jul 2009 22:02:06 +1200
+Message-ID: <26a2b4fe8e56ae67d28b5138573c5edb@vodafone.co.nz>
+Reply-To: cg_paycenter2009@8u8.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
-	linuxppc-dev <linuxppc-dev@ozlabs.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail04.adl2.internode.on.net ([203.16.214.57]:42398 "EHLO
-	ipmail04.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754515AbZGUJuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 05:50:37 -0400
-In-Reply-To: <fa686aa40907200759h1e4ec8cfh8a35890127a899a1@mail.gmail.com>
+Received: from mailfilter22.ihug.co.nz ([203.109.136.22]:12451 "EHLO
+	mailfilter22.ihug.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754541AbZGUKCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 06:02:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when using the mdio-ofgpio driver.
-
-The following patch replicates similar changes made to the fs_enet mii-bitbang drivers.
----
-
-This version attempts to address Grant's comments below:
-
-Grant Likely wrote:
- >
- > You should refactor mdio_gpio_bus_init() to not call
- > mdiobus_register() at all, and instead just return a pointer to the
- > unregistered new_bus.  Then mdio_gpio_probe() and mdio_ofgpio_probe()
- > can call the correct register variant directly.  Fewer ugly #ifdefs
- > this way.  It also eliminates the need to cast the void* pointer.
- >
-
-  drivers/net/phy/mdio-gpio.c |   77 ++++++++++++++++++++-----------------------
-  1 files changed, 36 insertions(+), 41 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 33984b7..22cdd45 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -30,6 +30,7 @@
-
-  #ifdef CONFIG_OF_GPIO
-  #include <linux/of_gpio.h>
-+#include <linux/of_mdio.h>
-  #include <linux/of_platform.h>
-  #endif
-
-@@ -81,13 +82,12 @@ static struct mdiobb_ops mdio_gpio_ops = {
-  	.get_mdio_data = mdio_get,
-  };
-
--static int __devinit mdio_gpio_bus_init(struct device *dev,
-+static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *dev,
-  					struct mdio_gpio_platform_data *pdata,
-  					int bus_id)
-  {
-  	struct mii_bus *new_bus;
-  	struct mdio_gpio_info *bitbang;
--	int ret = -ENOMEM;
-  	int i;
-
-  	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
-@@ -104,8 +104,6 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
-
-  	new_bus->name = "GPIO Bitbanged MDIO",
-
--	ret = -ENODEV;
--
-  	new_bus->phy_mask = pdata->phy_mask;
-  	new_bus->irq = pdata->irqs;
-  	new_bus->parent = dev;
-@@ -129,15 +127,8 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
-
-  	dev_set_drvdata(dev, new_bus);
-
--	ret = mdiobus_register(new_bus);
--	if (ret)
--		goto out_free_all;
--
--	return 0;
-+	return new_bus;
-
--out_free_all:
--	dev_set_drvdata(dev, NULL);
--	gpio_free(bitbang->mdio);
-  out_free_mdc:
-  	gpio_free(bitbang->mdc);
-  out_free_bus:
-@@ -145,30 +136,47 @@ out_free_bus:
-  out_free_bitbang:
-  	kfree(bitbang);
-  out:
--	return ret;
-+	return NULL;
-  }
-
--static void __devexit mdio_gpio_bus_destroy(struct device *dev)
-+static void __devinit mdio_gpio_bus_deinit(struct device *dev)
-  {
-  	struct mii_bus *bus = dev_get_drvdata(dev);
-  	struct mdio_gpio_info *bitbang = bus->priv;
-
--	mdiobus_unregister(bus);
--	free_mdio_bitbang(bus);
-  	dev_set_drvdata(dev, NULL);
--	gpio_free(bitbang->mdc);
-  	gpio_free(bitbang->mdio);
-+	gpio_free(bitbang->mdc);
-+	free_mdio_bitbang(bus);
-  	kfree(bitbang);
-  }
-
-+static void __devexit mdio_gpio_bus_destroy(struct device *dev)
-+{
-+	struct mii_bus *bus = dev_get_drvdata(dev);
-+
-+	mdiobus_unregister(bus);
-+	mdio_gpio_bus_deinit(dev);
-+}
-+
-  static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-  {
-  	struct mdio_gpio_platform_data *pdata = pdev->dev.platform_data;
-+	struct mii_bus *new_bus;
-+	int ret;
-
-  	if (!pdata)
-  		return -ENODEV;
-
--	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-+	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-+	if (!new_bus)
-+		return -ENODEV;
-+
-+	ret = mdiobus_register(new_bus);
-+	if (ret)
-+		mdio_gpio_bus_deinit(&pdev->dev);
-+
-+	return ret;
-  }
-
-  static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-@@ -179,29 +187,12 @@ static int __devexit mdio_gpio_remove(struct platform_device *pdev)
-  }
-
-  #ifdef CONFIG_OF_GPIO
--static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
--			      struct device_node *np)
--{
--	const u32 *data;
--	int len, id, irq;
--
--	data = of_get_property(np, "reg", &len);
--	if (!data || len != 4)
--		return;
--
--	id = *data;
--	pdata->phy_mask &= ~(1 << id);
--
--	irq = of_irq_to_resource(np, 0, NULL);
--	if (irq)
--		pdata->irqs[id] = irq;
--}
-
-  static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-                                          const struct of_device_id *match)
-  {
--	struct device_node *np = NULL;
-  	struct mdio_gpio_platform_data *pdata;
-+	struct mii_bus *new_bus;
-  	int ret;
-
-  	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-@@ -215,14 +206,18 @@ static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-
-  	ret = of_get_gpio(ofdev->node, 1);
-  	if (ret < 0)
--                goto out_free;
-+		goto out_free;
-  	pdata->mdio = ret;
-
--	while ((np = of_get_next_child(ofdev->node, np)))
--		if (!strcmp(np->type, "ethernet-phy"))
--			add_phy(pdata, np);
-+	new_bus = mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
-+	if (!new_bus)
-+		return -ENODEV;
-
--	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
-+	ret = of_mdiobus_register(new_bus, ofdev->node);
-+	if (ret)
-+		mdio_gpio_bus_deinit(&ofdev->dev);
-+
-+	return ret;
-
-  out_free:
-  	kfree(pdata);
--- 
-1.5.6.5
+A lump sum of (=C2=A31,230,310 GBP) have been credited to your
+E-mailAddress.Congrats...Confirm this receipt by contacting Mr Larry
+Whyte.Email: (cg_paycenter2009@8u8.hk) your Name:___ Address:___
+Age:___Sex:___ Occupation:___Tel/Fax:___Country
