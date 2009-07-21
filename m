@@ -1,53 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: veth: Zero timestamp in xmit path.
-Date: Tue, 21 Jul 2009 12:51:55 -0700 (PDT)
-Message-ID: <20090721.125155.168882282.davem@davemloft.net>
-References: <4A661B2F.7000608@candelatech.com>
+Subject: Re: [PATCH 0/4] inet6: minor cleanups
+Date: Tue, 21 Jul 2009 12:57:45 -0700 (PDT)
+Message-ID: <20090721.125745.210846096.davem@davemloft.net>
+References: <inet6_minor_cleanups>
+	<1248027819-23959-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45939
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49433
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753107AbZGUTvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:51:50 -0400
-In-Reply-To: <4A661B2F.7000608@candelatech.com>
+	by vger.kernel.org with ESMTP id S1755548AbZGUT5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:57:40 -0400
+In-Reply-To: <1248027819-23959-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 21 Jul 2009 12:46:55 -0700
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Sun, 19 Jul 2009 20:23:35 +0200
 
-> This patch zero's the timestamp before handing the packet to
-> the peer interface.  This lets the peer recalculate the rx timestamp
-> if it cares about timestamps.
+> This is a small set of minor-cleanup patches, found while
+> studying the tclass code.
 > 
-> The patch is against net-next, compile tested there.  Similar patch
-> was
-> functionally tested against 2.6.31-rc3.
-> 
-> 
-> Signed-Off-By:  Ben Greear<greearb@candelatech.com>
+> Patch #1: Unifies return convention of datagram_send_ctl().
 
-Oh, where to begin... sigh...
+OK.
 
-The "off" and "by" in "Signed-off-by" is not capitalized.
+> Patch #2: Consolidates cmsg code for Traffic Class / Hop Limit.
 
-There should not be two spaces after the Signed-off-by colon, there
-should be only one.
+You delete the 'addr_type' variable but that's rediculious.
 
-There should be a space between your name and your <> enclosed email
-address.
+The name of the variable describes what is held in it, now
+that value gets stored in 'val' which makes the code harder
+to read and understand.
 
-> @@ -171,6 +171,7 @@ static int veth_xmit(struct sk_buff *skb, struct
-> net_device *dev)
+I'm not applying this, it's noise, and on top of that it's
+bad noise and makes the code worse.
 
-Your email client corrupted the patch by splitting up this line.
+> Patch #3: Simplifies assignments from u8 to int (no conversion).
 
-This is all just being sloppy, and it shows a lack of care put
-into your submission.
+OK.
 
-Nevertheless I'm a sucker and I fixed this all up and applied your
-patch.
+> Patch #4: Finds that RT_TOS() redefines IPTOS_TOS().
+
+This macro probably exists so that if the ipv4 route cache entry TOS
+representation changes compared to IPTOS_TOS(), we would simply have
+to change the definition of this macro.
+
+Just because they happen to be the same now is no reason to kill off
+this macro I think.
+
+I'm not applying this either.
