@@ -1,137 +1,196 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: [PATCH] igb/e1000e/e1000/e100: make wol usable
-Date: Tue, 21 Jul 2009 14:59:31 -0700
-Message-ID: <273D38FBE7C6FE46A1689FCD014A0B8B55D57764@azsmsx505.amr.corp.intel.com>
-References: <20090721210115.GL8515@gospo.rdu.redhat.com>
+From: Mark Ware <mware@elphinstone.net>
+Subject: [PATCH v3] net: Rework mdio-ofgpio driver to use of_mdio infrastructure
+Date: Wed, 22 Jul 2009 08:24:15 +1000
+Message-ID: <4A66400F.3090309@elphinstone.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"stable@kernel.org" <stable@kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
+	Linuxppc-dev Development <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24864 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755079AbZGUV7i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 17:59:38 -0400
-In-Reply-To: <20090721210115.GL8515@gospo.rdu.redhat.com>
-Content-Language: en-US
+Received: from ipmail04.adl2.internode.on.net ([203.16.214.57]:60071 "EHLO
+	ipmail04.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756029AbZGUWYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 18:24:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Andy Gospodarek [mailto:andy@greyhouse.net] 
->Sent: Tuesday, July 21, 2009 2:01 PM
->To: netdev@vger.kernel.org
->Cc: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; 
->Waskiewicz Jr, Peter P; Ronciak, John; stable@kernel.org
->Subject: [PATCH] igb/e1000e/e1000/e100: make wol usable
->
->
->It seems that the patches that intended to use the new calls to check
->status and capabilities for WOL and fix it up:
->
->    commit bc79fc8409b3dccbde072e8113cc1fb3fd876fc5
->    Author: Rafael J. Wysocki <rjw@sisk.pl>
->    Date:   Wed Oct 29 14:22:18 2008 -0700
->
->        e100: adapt to the reworked PCI PM
->
->    commit e1b86d8479f90aadee57a3d07d8e61c815c202d9
->    Author: Rafael J. Wysocki <rjw@sisk.pl>
->    Date:   Fri Nov 7 20:30:37 2008 +0000
->
->        igb: Use device_set_wakeup_enable
->
->    commit de1264896c8012a261c1cba17e6a61199c276ad3
->    Author: Rafael J. Wysocki <rjw@sisk.pl>
->    Date:   Fri Nov 7 20:30:19 2008 +0000
->
->        e1000: Use device_set_wakeup_enable
->
->    commit 6ff68026f4757d68461b7fbeca5c944e1f5f8b44
->    Author: Rafael J. Wysocki <rjw@sisk.pl>
->    Date:   Wed Nov 12 09:52:32 2008 +0000
->
->        e1000e: Use device_set_wakeup_enable
->
->Unfortunately they left out some important bits.  This should make sure
->the e100, igb, e1000e, and e1000-based devices can actually enable WOL
->rather than their current state which is reported as not supported.
->
->This looks like it has been broken since 2.6.28.
->
->Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->---
->
-> e100.c             |    1 +
-> e1000/e1000_main.c |    1 +
-> e1000e/netdev.c    |    1 +
-> igb/igb_main.c     |    1 +
-> 4 files changed, 4 insertions(+)
->
->diff --git a/drivers/net/e100.c b/drivers/net/e100.c
->index 569df19..8824952 100644
->--- a/drivers/net/e100.c
->+++ b/drivers/net/e100.c
->@@ -2816,6 +2816,7 @@ static int __devinit e100_probe(struct 
->pci_dev *pdev,
-> 	if ((nic->mac >= mac_82558_D101_A4) &&
-> 	   (nic->eeprom[eeprom_id] & eeprom_id_wol)) {
-> 		nic->flags |= wol_magic;
->+		device_init_wakeup(&pdev->dev, true);
-> 		device_set_wakeup_enable(&pdev->dev, true);
-> 	}
-> 
->diff --git a/drivers/net/e1000/e1000_main.c 
->b/drivers/net/e1000/e1000_main.c
->index d7df00c..229d874 100644
->--- a/drivers/net/e1000/e1000_main.c
->+++ b/drivers/net/e1000/e1000_main.c
->@@ -1208,6 +1208,7 @@ static int __devinit e1000_probe(struct 
->pci_dev *pdev,
-> 
-> 	/* initialize the wol settings based on the eeprom settings */
-> 	adapter->wol = adapter->eeprom_wol;
->+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
-> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-> 
-> 	/* print bus type/speed/width info */
->diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
->index 63415bb..5c2edaa 100644
->--- a/drivers/net/e1000e/netdev.c
->+++ b/drivers/net/e1000e/netdev.c
->@@ -5196,6 +5196,7 @@ static int __devinit e1000_probe(struct 
->pci_dev *pdev,
-> 
-> 	/* initialize the wol settings based on the eeprom settings */
-> 	adapter->wol = adapter->eeprom_wol;
->+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
-> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-> 
-> 	/* save off EEPROM version number */
->diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
->index adb09d3..8512a40 100644
->--- a/drivers/net/igb/igb_main.c
->+++ b/drivers/net/igb/igb_main.c
->@@ -1475,6 +1475,7 @@ static int __devinit igb_probe(struct 
->pci_dev *pdev,
-> 
-> 	/* initialize the wol settings based on the eeprom settings */
-> 	adapter->wol = adapter->eeprom_wol;
->+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
-> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-> 
-> 	/* reset the hardware with the new settings */
-Andy,
+Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when using the mdio-ofgpio driver.
 
-WoL not supported is reported back when WoL is disabled in the EEPROM.  So if this is happening to you, that system (or at least  that interface) has WoL disabled.  How are you testing this?
+This patch replicates similar changes made to the fs_enet mii-bitbang drivers.  It has been tested on a custom mpc8280 based board using an NFS 
+mounted root.
 
-Cheers,
-John
------------------------------------------------------------
-"...that your people will judge you on what you can build, not what you destroy.", B. Obama, 2009 
+Signed-off-by: Mark Ware <mware@elphinstone.net>
+Acked-by: Grant Likely <grant.likely@secretlab.ca>
+---
+
+The only changes in v3 are to the commit message.
+
+  drivers/net/phy/mdio-gpio.c |   77 ++++++++++++++++++++-----------------------
+  1 files changed, 36 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 33984b7..22cdd45 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -30,6 +30,7 @@
+
+  #ifdef CONFIG_OF_GPIO
+  #include <linux/of_gpio.h>
++#include <linux/of_mdio.h>
+  #include <linux/of_platform.h>
+  #endif
+
+@@ -81,13 +82,12 @@ static struct mdiobb_ops mdio_gpio_ops = {
+  	.get_mdio_data = mdio_get,
+  };
+
+-static int __devinit mdio_gpio_bus_init(struct device *dev,
++static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *dev,
+  					struct mdio_gpio_platform_data *pdata,
+  					int bus_id)
+  {
+  	struct mii_bus *new_bus;
+  	struct mdio_gpio_info *bitbang;
+-	int ret = -ENOMEM;
+  	int i;
+
+  	bitbang = kzalloc(sizeof(*bitbang), GFP_KERNEL);
+@@ -104,8 +104,6 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
+
+  	new_bus->name = "GPIO Bitbanged MDIO",
+
+-	ret = -ENODEV;
+-
+  	new_bus->phy_mask = pdata->phy_mask;
+  	new_bus->irq = pdata->irqs;
+  	new_bus->parent = dev;
+@@ -129,15 +127,8 @@ static int __devinit mdio_gpio_bus_init(struct device *dev,
+
+  	dev_set_drvdata(dev, new_bus);
+
+-	ret = mdiobus_register(new_bus);
+-	if (ret)
+-		goto out_free_all;
+-
+-	return 0;
++	return new_bus;
+
+-out_free_all:
+-	dev_set_drvdata(dev, NULL);
+-	gpio_free(bitbang->mdio);
+  out_free_mdc:
+  	gpio_free(bitbang->mdc);
+  out_free_bus:
+@@ -145,30 +136,47 @@ out_free_bus:
+  out_free_bitbang:
+  	kfree(bitbang);
+  out:
+-	return ret;
++	return NULL;
+  }
+
+-static void __devexit mdio_gpio_bus_destroy(struct device *dev)
++static void __devinit mdio_gpio_bus_deinit(struct device *dev)
+  {
+  	struct mii_bus *bus = dev_get_drvdata(dev);
+  	struct mdio_gpio_info *bitbang = bus->priv;
+
+-	mdiobus_unregister(bus);
+-	free_mdio_bitbang(bus);
+  	dev_set_drvdata(dev, NULL);
+-	gpio_free(bitbang->mdc);
+  	gpio_free(bitbang->mdio);
++	gpio_free(bitbang->mdc);
++	free_mdio_bitbang(bus);
+  	kfree(bitbang);
+  }
+
++static void __devexit mdio_gpio_bus_destroy(struct device *dev)
++{
++	struct mii_bus *bus = dev_get_drvdata(dev);
++
++	mdiobus_unregister(bus);
++	mdio_gpio_bus_deinit(dev);
++}
++
+  static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+  {
+  	struct mdio_gpio_platform_data *pdata = pdev->dev.platform_data;
++	struct mii_bus *new_bus;
++	int ret;
+
+  	if (!pdata)
+  		return -ENODEV;
+
+-	return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
++	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
++	if (!new_bus)
++		return -ENODEV;
++
++	ret = mdiobus_register(new_bus);
++	if (ret)
++		mdio_gpio_bus_deinit(&pdev->dev);
++
++	return ret;
+  }
+
+  static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+@@ -179,29 +187,12 @@ static int __devexit mdio_gpio_remove(struct platform_device *pdev)
+  }
+
+  #ifdef CONFIG_OF_GPIO
+-static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
+-			      struct device_node *np)
+-{
+-	const u32 *data;
+-	int len, id, irq;
+-
+-	data = of_get_property(np, "reg", &len);
+-	if (!data || len != 4)
+-		return;
+-
+-	id = *data;
+-	pdata->phy_mask &= ~(1 << id);
+-
+-	irq = of_irq_to_resource(np, 0, NULL);
+-	if (irq)
+-		pdata->irqs[id] = irq;
+-}
+
+  static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+                                          const struct of_device_id *match)
+  {
+-	struct device_node *np = NULL;
+  	struct mdio_gpio_platform_data *pdata;
++	struct mii_bus *new_bus;
+  	int ret;
+
+  	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+@@ -215,14 +206,18 @@ static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
+
+  	ret = of_get_gpio(ofdev->node, 1);
+  	if (ret < 0)
+-                goto out_free;
++		goto out_free;
+  	pdata->mdio = ret;
+
+-	while ((np = of_get_next_child(ofdev->node, np)))
+-		if (!strcmp(np->type, "ethernet-phy"))
+-			add_phy(pdata, np);
++	new_bus = mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
++	if (!new_bus)
++		return -ENODEV;
+
+-	return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->mdc);
++	ret = of_mdiobus_register(new_bus, ofdev->node);
++	if (ret)
++		mdio_gpio_bus_deinit(&ofdev->dev);
++
++	return ret;
+
+  out_free:
+  	kfree(pdata);
+-- 
+1.5.6.5
+
