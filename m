@@ -1,31 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macsonic, jazzsonic - fix oops on module unload
-Date: Tue, 21 Jul 2009 12:22:00 -0700 (PDT)
-Message-ID: <20090721.122200.83947448.davem@davemloft.net>
-References: <1247345591-22643-20-git-send-email-u.kleine-koenig@pengutronix.de>
-	<alpine.OSX.2.00.0907220032230.796@silk.local>
-	<alpine.OSX.2.00.0907220119060.796@silk.local>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [0/4] trivial cleanups for via-velocity.c
+Date: Tue, 21 Jul 2009 15:27:42 -0400
+Message-ID: <20090721192741.GA3831@redhat.com>
+References: <200907211640.n6LGeG5d011439@gelk.kernelslacker.org> <20090721.111235.211304996.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@suse.de,
-	u.kleine-koenig@pengutronix.de
-To: fthain@telegraphics.com.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56066
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755973AbZGUTVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 15:21:54 -0400
-In-Reply-To: <alpine.OSX.2.00.0907220119060.796@silk.local>
+Received: from mx2.redhat.com ([66.187.237.31]:41997 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752469AbZGUT1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jul 2009 15:27:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20090721.111235.211304996.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Wed, 22 Jul 2009 01:40:02 +1000 (EST)
+On Tue, Jul 21, 2009 at 11:12:35AM -0700, David Miller wrote:
+ > From: Dave Jones <davej@redhat.com>
+ > Date: Mon, 20 Jul 2009 23:34:56 -0400
+ > 
+ > > I've had these sitting around for a while, they should be safe to apply.
+ > > I checked a diff of the disassembly from objdump before/after, and
+ > > the only diffs were the placement of the functions & jump offsets changing
+ > > due to the reordering in diff 3/4.
+ > 
+ > These do not apply to the driver in the current tree, particularly
+ > it doesn't apply at all to net-next-2.6 which is where I would
+ > add this.
+ > 
+ > Please fix this up and resubmit, thanks.
 
-> 
-> Set the driver data before using it. Fixes an oops when doing rmmod.
-> 
-> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+Actually only 1/4 needs rediffing. It removes the only line that changes
+in via-velocity in net-next.  I'll send a rediff.
 
-Applied, thanks.
+thanks,
+
+	Dave
+
