@@ -1,78 +1,137 @@
-From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
-Subject: Re: [2.6.30.1] Significant latency playing video file from NFS4 share
-Date: Tue, 21 Jul 2009 23:54:10 +0200
-Message-ID: <200907212354.11174.elendil@planet.nl>
-References: <200907172250.51504.elendil@planet.nl> <200907211931.50015.elendil@planet.nl> <1248199105.21343.16.camel@heimdal.trondhjem.org>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: [PATCH] igb/e1000e/e1000/e100: make wol usable
+Date: Tue, 21 Jul 2009 14:59:31 -0700
+Message-ID: <273D38FBE7C6FE46A1689FCD014A0B8B55D57764@azsmsx505.amr.corp.intel.com>
+References: <20090721210115.GL8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1248199105.21343.16.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"stable@kernel.org" <stable@kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:24864 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755079AbZGUV7i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 17:59:38 -0400
+In-Reply-To: <20090721210115.GL8515@gospo.rdu.redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 21 July 2009, Trond Myklebust wrote:
-> This would be where you are losing your performance. 1998.933 ms rtt
-> means that you are seeing a 2 second delay from the instant the RPC
-> client pushes the request into the socket to the moment that socket
-> receives a reply from the server.
+>-----Original Message-----
+>From: Andy Gospodarek [mailto:andy@greyhouse.net] 
+>Sent: Tuesday, July 21, 2009 2:01 PM
+>To: netdev@vger.kernel.org
+>Cc: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; 
+>Waskiewicz Jr, Peter P; Ronciak, John; stable@kernel.org
+>Subject: [PATCH] igb/e1000e/e1000/e100: make wol usable
 >
-> Basically, you have either a _very_ slow server, or (more likely) a
+>
+>It seems that the patches that intended to use the new calls to check
+>status and capabilities for WOL and fix it up:
+>
+>    commit bc79fc8409b3dccbde072e8113cc1fb3fd876fc5
+>    Author: Rafael J. Wysocki <rjw@sisk.pl>
+>    Date:   Wed Oct 29 14:22:18 2008 -0700
+>
+>        e100: adapt to the reworked PCI PM
+>
+>    commit e1b86d8479f90aadee57a3d07d8e61c815c202d9
+>    Author: Rafael J. Wysocki <rjw@sisk.pl>
+>    Date:   Fri Nov 7 20:30:37 2008 +0000
+>
+>        igb: Use device_set_wakeup_enable
+>
+>    commit de1264896c8012a261c1cba17e6a61199c276ad3
+>    Author: Rafael J. Wysocki <rjw@sisk.pl>
+>    Date:   Fri Nov 7 20:30:19 2008 +0000
+>
+>        e1000: Use device_set_wakeup_enable
+>
+>    commit 6ff68026f4757d68461b7fbeca5c944e1f5f8b44
+>    Author: Rafael J. Wysocki <rjw@sisk.pl>
+>    Date:   Wed Nov 12 09:52:32 2008 +0000
+>
+>        e1000e: Use device_set_wakeup_enable
+>
+>Unfortunately they left out some important bits.  This should make sure
+>the e100, igb, e1000e, and e1000-based devices can actually enable WOL
+>rather than their current state which is reported as not supported.
+>
+>This looks like it has been broken since 2.6.28.
+>
+>Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>---
+>
+> e100.c             |    1 +
+> e1000/e1000_main.c |    1 +
+> e1000e/netdev.c    |    1 +
+> igb/igb_main.c     |    1 +
+> 4 files changed, 4 insertions(+)
+>
+>diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+>index 569df19..8824952 100644
+>--- a/drivers/net/e100.c
+>+++ b/drivers/net/e100.c
+>@@ -2816,6 +2816,7 @@ static int __devinit e100_probe(struct 
+>pci_dev *pdev,
+> 	if ((nic->mac >= mac_82558_D101_A4) &&
+> 	   (nic->eeprom[eeprom_id] & eeprom_id_wol)) {
+> 		nic->flags |= wol_magic;
+>+		device_init_wakeup(&pdev->dev, true);
+> 		device_set_wakeup_enable(&pdev->dev, true);
+> 	}
+> 
+>diff --git a/drivers/net/e1000/e1000_main.c 
+>b/drivers/net/e1000/e1000_main.c
+>index d7df00c..229d874 100644
+>--- a/drivers/net/e1000/e1000_main.c
+>+++ b/drivers/net/e1000/e1000_main.c
+>@@ -1208,6 +1208,7 @@ static int __devinit e1000_probe(struct 
+>pci_dev *pdev,
+> 
+> 	/* initialize the wol settings based on the eeprom settings */
+> 	adapter->wol = adapter->eeprom_wol;
+>+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
+> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+> 
+> 	/* print bus type/speed/width info */
+>diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+>index 63415bb..5c2edaa 100644
+>--- a/drivers/net/e1000e/netdev.c
+>+++ b/drivers/net/e1000e/netdev.c
+>@@ -5196,6 +5196,7 @@ static int __devinit e1000_probe(struct 
+>pci_dev *pdev,
+> 
+> 	/* initialize the wol settings based on the eeprom settings */
+> 	adapter->wol = adapter->eeprom_wol;
+>+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
+> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+> 
+> 	/* save off EEPROM version number */
+>diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+>index adb09d3..8512a40 100644
+>--- a/drivers/net/igb/igb_main.c
+>+++ b/drivers/net/igb/igb_main.c
+>@@ -1475,6 +1475,7 @@ static int __devinit igb_probe(struct 
+>pci_dev *pdev,
+> 
+> 	/* initialize the wol settings based on the eeprom settings */
+> 	adapter->wol = adapter->eeprom_wol;
+>+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
+> 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+> 
+> 	/* reset the hardware with the new settings */
+Andy,
 
-The server should be fast enough.
+WoL not supported is reported back when WoL is disabled in the EEPROM.  So if this is happening to you, that system (or at least  that interface) has WoL disabled.  How are you testing this?
 
-> networking problem. A tcpdump ought to be able to show what the problem
-> is: whether it is the packets getting ACKed very slowly, and/or if you
-> have dropped packet issues or if it is truly a problem with the server
-> taking a long time to reply.
-
-I did run a traceroute alongside and that did not show packet loss, but I 
-do now see some TCP data loss events and retransmits of segments in
-'netstat -s', and "TCP Previous segment lost" with varying time gaps in 
-wireshark. So I guess it is indeed a networking problem.
-
-As I see it both with wired and wireless on the client, the problem must 
-be either in the server or the switch near the server (replacing the 
-cable from the server did not help).
-I suspect the integrated e1000e NIC. Guess I'll add an extra NIC in the 
-server soon to see if that helps.
-
-Thanks a lot for your help!
-
-
-P.S. I see one strange thing in wireshark: NFS (or the networking stack) 
-seems to switch between small and large package (?) sizes occasionally in 
-the same stream. Is that normal?
-
-Source     Destination   Protocol   Info
-[...]
-<server>   <client>      RPC        Continuation
-<server>   <client>      RPC        Continuation
-<client>   <server>      TCP        kink > nfs [ACK] ...
-<server>   <client>      RPC        Continuation
-<server>   <client>      RPC        Continuation
-<client>   <server>      TCP        kink > nfs [ACK] ...
-<server>   <client>      TCP        [TCP segment of reassembled PDU]
-<server>   <client>      TCP        [TCP segment of reassembled PDU]
-<client>   <server>      TCP        kink > nfs [ACK] ...
-<server>   <client>      TCP        [TCP segment of reassembled PDU]
-<server>   <client>      TCP        [TCP segment of reassembled PDU]
-<client>   <server>      TCP        kink > nfs [ACK] ...
-[...]
-<server>   <client>      TCP        [TCP segment of reassembled PDU]
-<server>   <client>      RPC        Continuation     (total: 65535 bytes)
-<client>   <server>      TCP        kink > nfs [ACK] ...
-<server>   <client>      RPC        Continuation
-<server>   <client>      RPC        Continuation
-<client>   <server>      TCP        kink > nfs [ACK] ...
-[...]
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+John
+-----------------------------------------------------------
+"...that your people will judge you on what you can build, not what you destroy.", B. Obama, 2009 
