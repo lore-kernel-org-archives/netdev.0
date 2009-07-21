@@ -1,112 +1,62 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH] igb/e1000e/e1000/e100: make wol usable
-Date: Tue, 21 Jul 2009 17:01:15 -0400
-Message-ID: <20090721210115.GL8515@gospo.rdu.redhat.com>
+From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] move xtsonic's probe function to .devinit.text
+Date: Tue, 21 Jul 2009 23:25:27 +0200
+Message-ID: <1248211527-32253-6-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <1248211527-32253-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, stable@kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Zankel <chris@zankel.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:38333 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753564AbZGUVCJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 17:02:09 -0400
-Content-Disposition: inline
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:53209 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787AbZGUVZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 17:25:39 -0400
+In-Reply-To: <1248211527-32253-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A pointer to xtsonic_probe is passed to the core via
+platform_driver_register and so the function must not disappear when th=
+e
+=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
+unbinding and binding a device to the driver via sysfs will result in a=
+n
+oops as does a device being registered late.
 
-It seems that the patches that intended to use the new calls to check
-status and capabilities for WOL and fix it up:
+An alternative to this patch is using platform_driver_probe instead of
+platform_driver_register plus removing the pointer to the probe functio=
+n
+from the struct platform_driver.
 
-    commit bc79fc8409b3dccbde072e8113cc1fb3fd876fc5
-    Author: Rafael J. Wysocki <rjw@sisk.pl>
-    Date:   Wed Oct 29 14:22:18 2008 -0700
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Cc: Chris Zankel <chris@zankel.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: netdev@vger.kernel.org
 
-        e100: adapt to the reworked PCI PM
-
-    commit e1b86d8479f90aadee57a3d07d8e61c815c202d9
-    Author: Rafael J. Wysocki <rjw@sisk.pl>
-    Date:   Fri Nov 7 20:30:37 2008 +0000
-
-        igb: Use device_set_wakeup_enable
-
-    commit de1264896c8012a261c1cba17e6a61199c276ad3
-    Author: Rafael J. Wysocki <rjw@sisk.pl>
-    Date:   Fri Nov 7 20:30:19 2008 +0000
-
-        e1000: Use device_set_wakeup_enable
-
-    commit 6ff68026f4757d68461b7fbeca5c944e1f5f8b44
-    Author: Rafael J. Wysocki <rjw@sisk.pl>
-    Date:   Wed Nov 12 09:52:32 2008 +0000
-
-        e1000e: Use device_set_wakeup_enable
-
-Unfortunately they left out some important bits.  This should make sure
-the e100, igb, e1000e, and e1000-based devices can actually enable WOL
-rather than their current state which is reported as not supported.
-
-This looks like it has been broken since 2.6.28.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
+ drivers/net/xtsonic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- e100.c             |    1 +
- e1000/e1000_main.c |    1 +
- e1000e/netdev.c    |    1 +
- igb/igb_main.c     |    1 +
- 4 files changed, 4 insertions(+)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 569df19..8824952 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2816,6 +2816,7 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 	if ((nic->mac >= mac_82558_D101_A4) &&
- 	   (nic->eeprom[eeprom_id] & eeprom_id_wol)) {
- 		nic->flags |= wol_magic;
-+		device_init_wakeup(&pdev->dev, true);
- 		device_set_wakeup_enable(&pdev->dev, true);
- 	}
- 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index d7df00c..229d874 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1208,6 +1208,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wol = adapter->eeprom_wol;
-+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
- 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
- 
- 	/* print bus type/speed/width info */
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 63415bb..5c2edaa 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -5196,6 +5196,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wol = adapter->eeprom_wol;
-+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
- 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
- 
- 	/* save off EEPROM version number */
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index adb09d3..8512a40 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1475,6 +1475,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 
- 	/* initialize the wol settings based on the eeprom settings */
- 	adapter->wol = adapter->eeprom_wol;
-+	device_init_wakeup(&adapter->pdev->dev, adapter->wol);
- 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
- 
- 	/* reset the hardware with the new settings */
-
-
+diff --git a/drivers/net/xtsonic.c b/drivers/net/xtsonic.c
+index 5a4ad15..0c44135 100644
+--- a/drivers/net/xtsonic.c
++++ b/drivers/net/xtsonic.c
+@@ -239,7 +239,7 @@ out:
+  * Actually probing is superfluous but we're paranoid.
+  */
+=20
+-int __init xtsonic_probe(struct platform_device *pdev)
++int __devinit xtsonic_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *dev;
+ 	struct sonic_local *lp;
+--=20
+tg: (aea1f79..) t/platsection/xtsonic_driver (depends on: linus/master)
