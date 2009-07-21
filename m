@@ -1,253 +1,163 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v2] net: Rework mdio-ofgpio driver to use of_mdio
-	infrastructure
-Date: Tue, 21 Jul 2009 11:09:46 -0600
-Message-ID: <fa686aa40907211009o473020e2wb0ea79130b6f1d09@mail.gmail.com>
-References: <4A646117.1030409@elphinstone.net> <fa686aa40907200759h1e4ec8cfh8a35890127a899a1@mail.gmail.com>
-	<4A658F69.7020002@elphinstone.net>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [2.6.30.1] Significant latency playing video file from NFS4 share
+Date: Tue, 21 Jul 2009 19:31:48 +0200
+Message-ID: <200907211931.50015.elendil@planet.nl>
+References: <200907172250.51504.elendil@planet.nl> <1247871086.4945.38.camel@heimdal.trondhjem.org> <200907180131.12586.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev <linuxppc-dev@ozlabs.org>,
-	David Miller <davem@davemloft.net>
-To: Mark Ware <mware@elphinstone.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:30891 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974AbZGURKH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 13:10:07 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so1266317qwh.37
-        for <netdev@vger.kernel.org>; Tue, 21 Jul 2009 10:10:06 -0700 (PDT)
-In-Reply-To: <4A658F69.7020002@elphinstone.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200907180131.12586.elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 21, 2009 at 3:50 AM, Mark Ware<mware@elphinstone.net> wrote=
-:
-> Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd=
-3c)
-> cause kernel crashes when using the mdio-ofgpio driver.
->
-> The following patch replicates similar changes made to the fs_enet
-> mii-bitbang drivers.
-
-This looks good to me.  I've not tested it though (no hardware that
-uses it).  You should specify the testing you've done in the commit
-log.  Your signed-off-by: line is also missing.
-
-Acked-by: Grant Likely <grant.likely@secretlab.ca>
-
-David, once the above issues are solved, this one needs to be merged fo=
-r 2.6.31.
-
-Cheers,
-g.
-
-> ---
->
-> This version attempts to address Grant's comments below:
->
-> Grant Likely wrote:
->>
->> You should refactor mdio_gpio_bus_init() to not call
->> mdiobus_register() at all, and instead just return a pointer to the
->> unregistered new_bus. =A0Then mdio_gpio_probe() and mdio_ofgpio_prob=
-e()
->> can call the correct register variant directly. =A0Fewer ugly #ifdef=
-s
->> this way. =A0It also eliminates the need to cast the void* pointer.
->>
->
-> =A0drivers/net/phy/mdio-gpio.c | =A0 77
-> ++++++++++++++++++++-----------------------
-> =A01 files changed, 36 insertions(+), 41 deletions(-)
->
-> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.=
-c
-> index 33984b7..22cdd45 100644
-> --- a/drivers/net/phy/mdio-gpio.c
-> +++ b/drivers/net/phy/mdio-gpio.c
-> @@ -30,6 +30,7 @@
->
-> =A0#ifdef CONFIG_OF_GPIO
-> =A0#include <linux/of_gpio.h>
-> +#include <linux/of_mdio.h>
-> =A0#include <linux/of_platform.h>
-> =A0#endif
->
-> @@ -81,13 +82,12 @@ static struct mdiobb_ops mdio_gpio_ops =3D {
-> =A0 =A0 =A0 =A0.get_mdio_data =3D mdio_get,
-> =A0};
->
-> -static int __devinit mdio_gpio_bus_init(struct device *dev,
-> +static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *=
-dev,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0struct mdio_gpio_platform_data
-> *pdata,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0int bus_id)
-> =A0{
-> =A0 =A0 =A0 =A0struct mii_bus *new_bus;
-> =A0 =A0 =A0 =A0struct mdio_gpio_info *bitbang;
-> - =A0 =A0 =A0 int ret =3D -ENOMEM;
-> =A0 =A0 =A0 =A0int i;
->
-> =A0 =A0 =A0 =A0bitbang =3D kzalloc(sizeof(*bitbang), GFP_KERNEL);
-> @@ -104,8 +104,6 @@ static int __devinit mdio_gpio_bus_init(struct de=
-vice
-> *dev,
->
-> =A0 =A0 =A0 =A0new_bus->name =3D "GPIO Bitbanged MDIO",
->
-> - =A0 =A0 =A0 ret =3D -ENODEV;
-> -
-> =A0 =A0 =A0 =A0new_bus->phy_mask =3D pdata->phy_mask;
-> =A0 =A0 =A0 =A0new_bus->irq =3D pdata->irqs;
-> =A0 =A0 =A0 =A0new_bus->parent =3D dev;
-> @@ -129,15 +127,8 @@ static int __devinit mdio_gpio_bus_init(struct d=
-evice
-> *dev,
->
-> =A0 =A0 =A0 =A0dev_set_drvdata(dev, new_bus);
->
-> - =A0 =A0 =A0 ret =3D mdiobus_register(new_bus);
-> - =A0 =A0 =A0 if (ret)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_free_all;
-> -
-> - =A0 =A0 =A0 return 0;
-> + =A0 =A0 =A0 return new_bus;
->
-> -out_free_all:
-> - =A0 =A0 =A0 dev_set_drvdata(dev, NULL);
-> - =A0 =A0 =A0 gpio_free(bitbang->mdio);
-> =A0out_free_mdc:
-> =A0 =A0 =A0 =A0gpio_free(bitbang->mdc);
-> =A0out_free_bus:
-> @@ -145,30 +136,47 @@ out_free_bus:
-> =A0out_free_bitbang:
-> =A0 =A0 =A0 =A0kfree(bitbang);
-> =A0out:
-> - =A0 =A0 =A0 return ret;
-> + =A0 =A0 =A0 return NULL;
-> =A0}
->
-> -static void __devexit mdio_gpio_bus_destroy(struct device *dev)
-> +static void __devinit mdio_gpio_bus_deinit(struct device *dev)
-> =A0{
-> =A0 =A0 =A0 =A0struct mii_bus *bus =3D dev_get_drvdata(dev);
-> =A0 =A0 =A0 =A0struct mdio_gpio_info *bitbang =3D bus->priv;
->
-> - =A0 =A0 =A0 mdiobus_unregister(bus);
-> - =A0 =A0 =A0 free_mdio_bitbang(bus);
-> =A0 =A0 =A0 =A0dev_set_drvdata(dev, NULL);
-> - =A0 =A0 =A0 gpio_free(bitbang->mdc);
-> =A0 =A0 =A0 =A0gpio_free(bitbang->mdio);
-> + =A0 =A0 =A0 gpio_free(bitbang->mdc);
-> + =A0 =A0 =A0 free_mdio_bitbang(bus);
-> =A0 =A0 =A0 =A0kfree(bitbang);
-> =A0}
->
-> +static void __devexit mdio_gpio_bus_destroy(struct device *dev)
-> +{
-> + =A0 =A0 =A0 struct mii_bus *bus =3D dev_get_drvdata(dev);
-> +
-> + =A0 =A0 =A0 mdiobus_unregister(bus);
-> + =A0 =A0 =A0 mdio_gpio_bus_deinit(dev);
-> +}
-> +
-> =A0static int __devinit mdio_gpio_probe(struct platform_device *pdev)
-> =A0{
-> =A0 =A0 =A0 =A0struct mdio_gpio_platform_data *pdata =3D pdev->dev.pl=
-atform_data;
-> + =A0 =A0 =A0 struct mii_bus *new_bus;
-> + =A0 =A0 =A0 int ret;
->
-> =A0 =A0 =A0 =A0if (!pdata)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
->
-> - =A0 =A0 =A0 return mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-> + =A0 =A0 =A0 new_bus =3D mdio_gpio_bus_init(&pdev->dev, pdata, pdev-=
->id);
-> + =A0 =A0 =A0 if (!new_bus)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
-> +
-> + =A0 =A0 =A0 ret =3D mdiobus_register(new_bus);
-> + =A0 =A0 =A0 if (ret)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio_gpio_bus_deinit(&pdev->dev);
-> +
-> + =A0 =A0 =A0 return ret;
-> =A0}
->
-> =A0static int __devexit mdio_gpio_remove(struct platform_device *pdev=
-)
-> @@ -179,29 +187,12 @@ static int __devexit mdio_gpio_remove(struct
-> platform_device *pdev)
-> =A0}
->
-> =A0#ifdef CONFIG_OF_GPIO
-> -static void __devinit add_phy(struct mdio_gpio_platform_data *pdata,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct devi=
-ce_node *np)
-> -{
-> - =A0 =A0 =A0 const u32 *data;
-> - =A0 =A0 =A0 int len, id, irq;
-> -
-> - =A0 =A0 =A0 data =3D of_get_property(np, "reg", &len);
-> - =A0 =A0 =A0 if (!data || len !=3D 4)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> -
-> - =A0 =A0 =A0 id =3D *data;
-> - =A0 =A0 =A0 pdata->phy_mask &=3D ~(1 << id);
-> -
-> - =A0 =A0 =A0 irq =3D of_irq_to_resource(np, 0, NULL);
-> - =A0 =A0 =A0 if (irq)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 pdata->irqs[id] =3D irq;
-> -}
->
-> =A0static int __devinit mdio_ofgpio_probe(struct of_device *ofdev,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 const struct of_device_id *match)
-> =A0{
-> - =A0 =A0 =A0 struct device_node *np =3D NULL;
-> =A0 =A0 =A0 =A0struct mdio_gpio_platform_data *pdata;
-> + =A0 =A0 =A0 struct mii_bus *new_bus;
-> =A0 =A0 =A0 =A0int ret;
->
-> =A0 =A0 =A0 =A0pdata =3D kzalloc(sizeof(*pdata), GFP_KERNEL);
-> @@ -215,14 +206,18 @@ static int __devinit mdio_ofgpio_probe(struct
-> of_device *ofdev,
->
-> =A0 =A0 =A0 =A0ret =3D of_get_gpio(ofdev->node, 1);
-> =A0 =A0 =A0 =A0if (ret < 0)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out_free;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_free;
-> =A0 =A0 =A0 =A0pdata->mdio =3D ret;
->
-> - =A0 =A0 =A0 while ((np =3D of_get_next_child(ofdev->node, np)))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(np->type, "ethernet-phy"))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 add_phy(pdata, np);
-> + =A0 =A0 =A0 new_bus =3D mdio_gpio_bus_init(&ofdev->dev, pdata, pdat=
-a->mdc);
-> + =A0 =A0 =A0 if (!new_bus)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
->
-> - =A0 =A0 =A0 return mdio_gpio_bus_init(&ofdev->dev, pdata, pdata->md=
-c);
-> + =A0 =A0 =A0 ret =3D of_mdiobus_register(new_bus, ofdev->node);
-> + =A0 =A0 =A0 if (ret)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio_gpio_bus_deinit(&ofdev->dev);
-> +
-> + =A0 =A0 =A0 return ret;
->
-> =A0out_free:
-> =A0 =A0 =A0 =A0kfree(pdata);
-> --
-> 1.5.6.5
->
-
-
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+QW55IHN1Z2dlc3Rpb25zIGJhc2VkIG9uIHRoZSBkYXRhIGJlbG93PwoKSXMgdGhlIHByb2JsZW0g
+bWF5YmUgdGhhdCB0aGUgYW1vdW50IG9mIGRhdGEgdHJhbnNmZXJyZWQgZWFjaCB0aW1lIGlzIHNv
+CmJpZyB0aGF0IHRoZSBuZXR3b3JrIHNwZWVkIGJlY29tZXMgYSBib3R0bGVuZWNrIGFuZCBjYXVz
+ZXMgdGhlIGxhdGVuY3k/CkkgY2FuIHJlcHJvZHVjZSB0aGUgaXNzdWUgd2l0aCBib3RoIGEgMTBN
+Qml0IHdpcmVkIGxpbmsgYW5kIHdpdGggYSA1NE1CaXQKd2lyZWxlc3MgbGluay4KCklzIHRoaXMg
+YSBrZXJuZWwgYnVnIG9yIGEgY29uZmlndXJhdGlvbiBpc3N1ZT8KClRoYW5rcywKRkpQCgpPbiBT
+YXR1cmRheSAxOCBKdWx5IDIwMDksIEZyYW5zIFBvcCB3cm90ZToKPiBUaGFua3MgZm9yIHRoZSBx
+dWljayByZXNwb25zZSEKPgo+IE9uIFNhdHVyZGF5IDE4IEp1bHkgMjAwOSwgVHJvbmQgTXlrbGVi
+dXN0IHdyb3RlOgo+ID4gSGF2ZSB5b3UgdHJpZWQgcnVubmluZyBuZnMtaW9zdGF0IGZyb20gdGhl
+IG5mcy11dGlscyBwYWNrYWdlIHRvIHRyeQo+ID4gYW5kIGZpZ3VyZSBvdXQgd2hhdCB0aGUgbGF0
+ZW5jeSBpcyBvbiBlYWNoIFJFQUQgcmVxdWVzdCBmcm9tIHRoZQo+ID4gY2xpZW50Pwo+ID4KPiA+
+IFlvdSBuZWVkIHRvIHJ1biBzb21ldGhpbmcgbGlrZQo+ID4KPiA+ICAgICBuZnMtaW9zdGF0IC0t
+cGFnZSAyMCAxMCAvc3JjLzxtb3VudHBvaW50Pgo+ID4KPiA+IHdoaWxlIHJ1bm5pbmcgdGhlIHZs
+YyBhcHAuCgokIC4uL25mcy1pb3N0YXQucHkgLS1wYWdlIDIwIDEwIC9zcnYvZmpwL2RhdmlkCgpO
+b3RlOgpUaGUgbW91bnQgcG9pbnQgc2VsZWN0aW9uIGNvdWxkIGJlIGltcHJvdmVkLiBJIGZpcnN0
+IGhhZCBhIHRyYWlsaW5nIHNsYXNoCmFmdGVyIHRoZSBtb3VudCBwb2ludCBhbmQgdGhhdCByZXN1
+bHRlZCBpbiBhbGwgbW91bnRzIGJlaW5nIGluY2x1ZGVkIGluIHRoZQpvdXRwdXQuIFJlbW92aW5n
+IHRoZSBzbGFzaCBoZWxwZWQuCgplbHJvbmQ6L2RhdmlkIG1vdW50ZWQgb24gL3Nydi9manAvZGF2
+aWQ6CgrCoCDCoG9wL3MgwqAgwqAgwqAgwqAgcnBjIGJrbG9nCsKgIMKgMC42NSDCoCDCoCDCoCDC
+oCDCoCDCoDAuMDAKcmVhZDogwqAgwqAgwqAgwqAgwqAgwqAgb3BzL3MgwqAgwqAgwqAgwqAgwqAg
+wqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29wIMKgIMKgIMKgIMKgIHJldHJhbnMgwqAgwqAgwqAg
+wqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4ZSAobXMpCsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIDAuNDA2IMKgIMKgIMKgIMKgIDEwMS42NjEgwqAgwqAgwqAgwqAgMjUwLjYxMyDCoCDCoCDC
+oCDCoDAgKDAuMCUpIMKgIMKgIMKgIMKgIDEyMTEuNzQ1IMKgIMKgIMKgIMKgMTIyMi42NDAKd3Jp
+dGU6IMKgIMKgIMKgIMKgIMKgIMKgb3BzL3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKg
+IMKgIMKgIGtCL29wIMKgIMKgIMKgIMKgIHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMp
+IMKgIMKgYXZnIGV4ZSAobXMpCsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKg
+IMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgMCAoMC4wJSkg
+wqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAKCjEzIG5mc19yZWFkcGFn
+ZSgpIGNhbGxzIHJlYWQgMTMgcGFnZXMKMTQxNyBuZnNfcmVhZHBhZ2VzKCkgY2FsbHMgcmVhZCA5
+NzE0MjggcGFnZXMgKDY4NS42IHBhZ2VzIHBlciBjYWxsKQoKMCBuZnNfdXBkYXRlcGFnZSgpIGNh
+bGxzCjAgbmZzX3dyaXRlcGFnZSgpIGNhbGxzIHdyb3RlIDAgcGFnZXMKMTg3NjAgbmZzX3dyaXRl
+cGFnZXMoKSBjYWxscyB3cm90ZSAwIHBhZ2VzICgwLjAgcGFnZXMgcGVyIGNhbGwpCgplbHJvbmQ6
+L2RhdmlkIG1vdW50ZWQgb24gL3Nydi9manAvZGF2aWQ6CgrCoCDCoG9wL3MgwqAgwqAgwqAgwqAg
+cnBjIGJrbG9nCsKgIMKgMC4yNSDCoCDCoCDCoCDCoCDCoCDCoDAuMDAKcmVhZDogwqAgwqAgwqAg
+wqAgwqAgwqAgb3BzL3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29w
+IMKgIMKgIMKgIMKgIHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4
+ZSAobXMpCsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuMTAwIMKgIMKgIMKgIMKgIMKgIDAu
+NDI2IMKgIMKgIMKgIMKgIMKgIDQuMjYyIMKgIMKgIMKgIMKgMCAoMC4wJSkgwqAgwqAgwqAgwqAg
+wqAgNi4wMDAgwqAgwqAgwqAgwqAgwqAgNi4wMDAKd3JpdGU6IMKgIMKgIMKgIMKgIMKgIMKgb3Bz
+L3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29wIMKgIMKgIMKgIMKg
+IHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4ZSAobXMpCsKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKg
+IMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgMCAoMC4wJSkgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAg
+wqAgwqAgwqAgwqAgMC4wMDAKCjAgbmZzX3JlYWRwYWdlKCkgY2FsbHMgcmVhZCAwIHBhZ2VzCjIg
+bmZzX3JlYWRwYWdlcygpIGNhbGxzIHJlYWQgMiBwYWdlcyAoMS4wIHBhZ2VzIHBlciBjYWxsKQoK
+MCBuZnNfdXBkYXRlcGFnZSgpIGNhbGxzCjAgbmZzX3dyaXRlcGFnZSgpIGNhbGxzIHdyb3RlIDAg
+cGFnZXMKNiBuZnNfd3JpdGVwYWdlcygpIGNhbGxzIHdyb3RlIDAgcGFnZXMgKDAuMCBwYWdlcyBw
+ZXIgY2FsbCkKCmVscm9uZDovZGF2aWQgbW91bnRlZCBvbiAvc3J2L2ZqcC9kYXZpZDoKCsKgIMKg
+b3AvcyDCoCDCoCDCoCDCoCBycGMgYmtsb2cKwqAgwqAwLjgwIMKgIMKgIMKgIMKgIMKgIMKgMC4w
+MApyZWFkOiDCoCDCoCDCoCDCoCDCoCDCoCBvcHMvcyDCoCDCoCDCoCDCoCDCoCDCoGtCL3MgwqAg
+wqAgwqAgwqAgwqAga0Ivb3AgwqAgwqAgwqAgwqAgcmV0cmFucyDCoCDCoCDCoCDCoCBhdmcgUlRU
+IChtcykgwqAgwqBhdmcgZXhlIChtcykKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgMC43NTAg
+wqAgwqAgwqAgwqAgMTkyLjE5NiDCoCDCoCDCoCDCoCAyNTYuMjYyIMKgIMKgIMKgIMKgMCAoMC4w
+JSkgwqAgwqAgwqAgwqAgMTk5OC45MzMgwqAgwqAgwqAgwqAxOTk5LjIwMAp3cml0ZTogwqAgwqAg
+wqAgwqAgwqAgwqBvcHMvcyDCoCDCoCDCoCDCoCDCoCDCoGtCL3MgwqAgwqAgwqAgwqAgwqAga0Iv
+b3AgwqAgwqAgwqAgwqAgcmV0cmFucyDCoCDCoCDCoCDCoCBhdmcgUlRUIChtcykgwqAgwqBhdmcg
+ZXhlIChtcykKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAg
+MC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAwICgwLjAlKSDCoCDCoCDCoCDC
+oCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAwLjAwMAoKMCBuZnNfcmVhZHBhZ2UoKSBjYWxscyBy
+ZWFkIDAgcGFnZXMKMSBuZnNfcmVhZHBhZ2VzKCkgY2FsbHMgcmVhZCA5NjAgcGFnZXMgKDk2MC4w
+IHBhZ2VzIHBlciBjYWxsKQoKMCBuZnNfdXBkYXRlcGFnZSgpIGNhbGxzCjAgbmZzX3dyaXRlcGFn
+ZSgpIGNhbGxzIHdyb3RlIDAgcGFnZXMKNiBuZnNfd3JpdGVwYWdlcygpIGNhbGxzIHdyb3RlIDAg
+cGFnZXMgKDAuMCBwYWdlcyBwZXIgY2FsbCkKCmVscm9uZDovZGF2aWQgbW91bnRlZCBvbiAvc3J2
+L2ZqcC9kYXZpZDoKCsKgIMKgb3AvcyDCoCDCoCDCoCDCoCBycGMgYmtsb2cKwqAgwqAwLjAwIMKg
+IMKgIMKgIMKgIMKgIMKgMC4wMApyZWFkOiDCoCDCoCDCoCDCoCDCoCDCoCBvcHMvcyDCoCDCoCDC
+oCDCoCDCoCDCoGtCL3MgwqAgwqAgwqAgwqAgwqAga0Ivb3AgwqAgwqAgwqAgwqAgcmV0cmFucyDC
+oCDCoCDCoCDCoCBhdmcgUlRUIChtcykgwqAgwqBhdmcgZXhlIChtcykKwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4w
+MDAgwqAgwqAgwqAgwqAwICgwLjAlKSDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDC
+oCAwLjAwMAp3cml0ZTogwqAgwqAgwqAgwqAgwqAgwqBvcHMvcyDCoCDCoCDCoCDCoCDCoCDCoGtC
+L3MgwqAgwqAgwqAgwqAgwqAga0Ivb3AgwqAgwqAgwqAgwqAgcmV0cmFucyDCoCDCoCDCoCDCoCBh
+dmcgUlRUIChtcykgwqAgwqBhdmcgZXhlIChtcykKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+MC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAg
+wqAwICgwLjAlKSDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAwLjAwMAoKMCBu
+ZnNfcmVhZHBhZ2UoKSBjYWxscyByZWFkIDAgcGFnZXMKMCBuZnNfcmVhZHBhZ2VzKCkgY2FsbHMg
+cmVhZCAwIHBhZ2VzCgowIG5mc191cGRhdGVwYWdlKCkgY2FsbHMKMCBuZnNfd3JpdGVwYWdlKCkg
+Y2FsbHMgd3JvdGUgMCBwYWdlcwo2IG5mc193cml0ZXBhZ2VzKCkgY2FsbHMgd3JvdGUgMCBwYWdl
+cyAoMC4wIHBhZ2VzIHBlciBjYWxsKQoKZWxyb25kOi9kYXZpZCBtb3VudGVkIG9uIC9zcnYvZmpw
+L2RhdmlkOgoKwqAgwqBvcC9zIMKgIMKgIMKgIMKgIHJwYyBia2xvZwrCoCDCoDAuODUgwqAgwqAg
+wqAgwqAgwqAgwqAwLjAwCnJlYWQ6IMKgIMKgIMKgIMKgIMKgIMKgIG9wcy9zIMKgIMKgIMKgIMKg
+IMKgIMKga0IvcyDCoCDCoCDCoCDCoCDCoCBrQi9vcCDCoCDCoCDCoCDCoCByZXRyYW5zIMKgIMKg
+IMKgIMKgIGF2ZyBSVFQgKG1zKSDCoCDCoGF2ZyBleGUgKG1zKQrCoCDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCAwLjc1MCDCoCDCoCDCoCDCoCAxOTIuMTk2IMKgIMKgIMKgIMKgIDI1Ni4yNjIgwqAg
+wqAgwqAgwqAwICgwLjAlKSDCoCDCoCDCoCDCoCAxOTI3LjQ2NyDCoCDCoCDCoCDCoDE5MjcuNDY3
+CndyaXRlOiDCoCDCoCDCoCDCoCDCoCDCoG9wcy9zIMKgIMKgIMKgIMKgIMKgIMKga0IvcyDCoCDC
+oCDCoCDCoCDCoCBrQi9vcCDCoCDCoCDCoCDCoCByZXRyYW5zIMKgIMKgIMKgIMKgIGF2ZyBSVFQg
+KG1zKSDCoCDCoGF2ZyBleGUgKG1zKQrCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAwLjAwMCDC
+oCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoDAgKDAu
+MCUpIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwCgowIG5mc19yZWFk
+cGFnZSgpIGNhbGxzIHJlYWQgMCBwYWdlcwoxIG5mc19yZWFkcGFnZXMoKSBjYWxscyByZWFkIDk2
+MCBwYWdlcyAoOTYwLjAgcGFnZXMgcGVyIGNhbGwpCgowIG5mc191cGRhdGVwYWdlKCkgY2FsbHMK
+MCBuZnNfd3JpdGVwYWdlKCkgY2FsbHMgd3JvdGUgMCBwYWdlcwo2IG5mc193cml0ZXBhZ2VzKCkg
+Y2FsbHMgd3JvdGUgMCBwYWdlcyAoMC4wIHBhZ2VzIHBlciBjYWxsKQoKZWxyb25kOi9kYXZpZCBt
+b3VudGVkIG9uIC9zcnYvZmpwL2RhdmlkOgoKwqAgwqBvcC9zIMKgIMKgIMKgIMKgIHJwYyBia2xv
+ZwrCoCDCoDAuMDAgwqAgwqAgwqAgwqAgwqAgwqAwLjAwCnJlYWQ6IMKgIMKgIMKgIMKgIMKgIMKg
+IG9wcy9zIMKgIMKgIMKgIMKgIMKgIMKga0IvcyDCoCDCoCDCoCDCoCDCoCBrQi9vcCDCoCDCoCDC
+oCDCoCByZXRyYW5zIMKgIMKgIMKgIMKgIGF2ZyBSVFQgKG1zKSDCoCDCoGF2ZyBleGUgKG1zKQrC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDC
+oCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoDAgKDAuMCUpIMKgIMKgIMKgIMKgIMKgIDAuMDAw
+IMKgIMKgIMKgIMKgIMKgIDAuMDAwCndyaXRlOiDCoCDCoCDCoCDCoCDCoCDCoG9wcy9zIMKgIMKg
+IMKgIMKgIMKgIMKga0IvcyDCoCDCoCDCoCDCoCDCoCBrQi9vcCDCoCDCoCDCoCDCoCByZXRyYW5z
+IMKgIMKgIMKgIMKgIGF2ZyBSVFQgKG1zKSDCoCDCoGF2ZyBleGUgKG1zKQrCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAwLjAwMCDCoCDCoCDCoCDCoCDCoCAw
+LjAwMCDCoCDCoCDCoCDCoDAgKDAuMCUpIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKg
+IMKgIDAuMDAwCgowIG5mc19yZWFkcGFnZSgpIGNhbGxzIHJlYWQgMCBwYWdlcwowIG5mc19yZWFk
+cGFnZXMoKSBjYWxscyByZWFkIDAgcGFnZXMKCjAgbmZzX3VwZGF0ZXBhZ2UoKSBjYWxscwowIG5m
+c193cml0ZXBhZ2UoKSBjYWxscyB3cm90ZSAwIHBhZ2VzCjYgbmZzX3dyaXRlcGFnZXMoKSBjYWxs
+cyB3cm90ZSAwIHBhZ2VzICgwLjAgcGFnZXMgcGVyIGNhbGwpCgplbHJvbmQ6L2RhdmlkIG1vdW50
+ZWQgb24gL3Nydi9manAvZGF2aWQ6CgrCoCDCoG9wL3MgwqAgwqAgwqAgwqAgcnBjIGJrbG9nCsKg
+IMKgMC44NSDCoCDCoCDCoCDCoCDCoCDCoDAuMDAKcmVhZDogwqAgwqAgwqAgwqAgwqAgwqAgb3Bz
+L3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29wIMKgIMKgIMKgIMKg
+IHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4ZSAobXMpCsKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuNzUwIMKgIMKgIMKgIMKgIDE5Mi4xOTYgwqAgwqAgwqAg
+wqAgMjU2LjI2MiDCoCDCoCDCoCDCoDAgKDAuMCUpIMKgIMKgIMKgIMKgIDE5MzAuOTMzIMKgIMKg
+IMKgIMKgMTkzMS40NjcKd3JpdGU6IMKgIMKgIMKgIMKgIMKgIMKgb3BzL3MgwqAgwqAgwqAgwqAg
+wqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29wIMKgIMKgIMKgIMKgIHJldHJhbnMgwqAgwqAg
+wqAgwqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4ZSAobXMpCsKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKg
+IMKgIMKgIMKgMCAoMC4wJSkgwqAgwqAgwqAgwqAgwqAgMC4wMDAgwqAgwqAgwqAgwqAgwqAgMC4w
+MDAKCjAgbmZzX3JlYWRwYWdlKCkgY2FsbHMgcmVhZCAwIHBhZ2VzCjEgbmZzX3JlYWRwYWdlcygp
+IGNhbGxzIHJlYWQgOTYwIHBhZ2VzICg5NjAuMCBwYWdlcyBwZXIgY2FsbCkKCjAgbmZzX3VwZGF0
+ZXBhZ2UoKSBjYWxscwowIG5mc193cml0ZXBhZ2UoKSBjYWxscyB3cm90ZSAwIHBhZ2VzCjUgbmZz
+X3dyaXRlcGFnZXMoKSBjYWxscyB3cm90ZSAwIHBhZ2VzICgwLjAgcGFnZXMgcGVyIGNhbGwpCgpl
+bHJvbmQ6L2RhdmlkIG1vdW50ZWQgb24gL3Nydi9manAvZGF2aWQ6CgrCoCDCoG9wL3MgwqAgwqAg
+wqAgwqAgcnBjIGJrbG9nCsKgIMKgMC4xNSDCoCDCoCDCoCDCoCDCoCDCoDAuMDAKcmVhZDogwqAg
+wqAgwqAgwqAgwqAgwqAgb3BzL3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKg
+IGtCL29wIMKgIMKgIMKgIMKgIHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMpIMKgIMKg
+YXZnIGV4ZSAobXMpCsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuMTAwIMKgIMKgIMKgIMKg
+IMKgIDAuNDI2IMKgIMKgIMKgIMKgIMKgIDQuMjYyIMKgIMKgIMKgIMKgMCAoMC4wJSkgwqAgwqAg
+wqAgwqAgwqAgNi4wMDAgwqAgwqAgwqAgwqAgwqAgNi4wMDAKd3JpdGU6IMKgIMKgIMKgIMKgIMKg
+IMKgb3BzL3MgwqAgwqAgwqAgwqAgwqAgwqBrQi9zIMKgIMKgIMKgIMKgIMKgIGtCL29wIMKgIMKg
+IMKgIMKgIHJldHJhbnMgwqAgwqAgwqAgwqAgYXZnIFJUVCAobXMpIMKgIMKgYXZnIGV4ZSAobXMp
+CsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgIMKgIDAuMDAwIMKg
+IMKgIMKgIMKgIMKgIDAuMDAwIMKgIMKgIMKgIMKgMCAoMC4wJSkgwqAgwqAgwqAgwqAgwqAgMC4w
+MDAgwqAgwqAgwqAgwqAgwqAgMC4wMDAKCjAgbmZzX3JlYWRwYWdlKCkgY2FsbHMgcmVhZCAwIHBh
+Z2VzCjIgbmZzX3JlYWRwYWdlcygpIGNhbGxzIHJlYWQgMiBwYWdlcyAoMS4wIHBhZ2VzIHBlciBj
+YWxsKQoKMCBuZnNfdXBkYXRlcGFnZSgpIGNhbGxzCjAgbmZzX3dyaXRlcGFnZSgpIGNhbGxzIHdy
+b3RlIDAgcGFnZXMKNiBuZnNfd3JpdGVwYWdlcygpIGNhbGxzIHdyb3RlIDAgcGFnZXMgKDAuMCBw
+YWdlcyBwZXIgY2FsbCkK
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
