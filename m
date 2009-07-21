@@ -1,68 +1,78 @@
-From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH] move sgiseeq's probe function to .devinit.text
-Date: Tue, 21 Jul 2009 23:25:26 +0200
-Message-ID: <1248211527-32253-5-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1248211527-32253-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Frans Pop <elendil-EIBgga6/0yRmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [2.6.30.1] Significant latency playing video file from NFS4 share
+Date: Tue, 21 Jul 2009 23:54:10 +0200
+Message-ID: <200907212354.11174.elendil@planet.nl>
+References: <200907172250.51504.elendil@planet.nl> <200907211931.50015.elendil@planet.nl> <1248199105.21343.16.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wang Chen <wangchen@cn.fujitsu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53240 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755503AbZGUVZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 17:25:48 -0400
-In-Reply-To: <1248211527-32253-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1248199105.21343.16.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-A pointer to sgiseeq_probe is passed to the core via
-platform_driver_register and so the function must not disappear when th=
-e
-=2Einit sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-unbinding and binding a device to the driver via sysfs will result in a=
-n
-oops as does a device being registered late.
+On Tuesday 21 July 2009, Trond Myklebust wrote:
+> This would be where you are losing your performance. 1998.933 ms rtt
+> means that you are seeing a 2 second delay from the instant the RPC
+> client pushes the request into the socket to the moment that socket
+> receives a reply from the server.
+>
+> Basically, you have either a _very_ slow server, or (more likely) a
 
-An alternative to this patch is using platform_driver_probe instead of
-platform_driver_register plus removing the pointer to the probe functio=
-n
-from the struct platform_driver.
+The server should be fast enough.
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-Cc: Wang Chen <wangchen@cn.fujitsu.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Jeff Garzik <jgarzik@redhat.com>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: netdev@vger.kernel.org
+> networking problem. A tcpdump ought to be able to show what the problem
+> is: whether it is the packets getting ACKed very slowly, and/or if you
+> have dropped packet issues or if it is truly a problem with the server
+> taking a long time to reply.
 
----
- drivers/net/sgiseeq.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I did run a traceroute alongside and that did not show packet loss, but I 
+do now see some TCP data loss events and retransmits of segments in
+'netstat -s', and "TCP Previous segment lost" with varying time gaps in 
+wireshark. So I guess it is indeed a networking problem.
 
-diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-index 5fb88ca..53fa4f6 100644
---- a/drivers/net/sgiseeq.c
-+++ b/drivers/net/sgiseeq.c
-@@ -720,7 +720,7 @@ static const struct net_device_ops sgiseeq_netdev_o=
-ps =3D {
- 	.ndo_validate_addr	=3D eth_validate_addr,
- };
-=20
--static int __init sgiseeq_probe(struct platform_device *pdev)
-+static int __devinit sgiseeq_probe(struct platform_device *pdev)
- {
- 	struct sgiseeq_platform_data *pd =3D pdev->dev.platform_data;
- 	struct hpc3_regs *hpcregs =3D pd->hpc;
---=20
-tg: (aea1f79..) t/platsection/sgiseeq_driver (depends on: linus/master)
+As I see it both with wired and wireless on the client, the problem must 
+be either in the server or the switch near the server (replacing the 
+cable from the server did not help).
+I suspect the integrated e1000e NIC. Guess I'll add an extra NIC in the 
+server soon to see if that helps.
+
+Thanks a lot for your help!
+
+
+P.S. I see one strange thing in wireshark: NFS (or the networking stack) 
+seems to switch between small and large package (?) sizes occasionally in 
+the same stream. Is that normal?
+
+Source     Destination   Protocol   Info
+[...]
+<server>   <client>      RPC        Continuation
+<server>   <client>      RPC        Continuation
+<client>   <server>      TCP        kink > nfs [ACK] ...
+<server>   <client>      RPC        Continuation
+<server>   <client>      RPC        Continuation
+<client>   <server>      TCP        kink > nfs [ACK] ...
+<server>   <client>      TCP        [TCP segment of reassembled PDU]
+<server>   <client>      TCP        [TCP segment of reassembled PDU]
+<client>   <server>      TCP        kink > nfs [ACK] ...
+<server>   <client>      TCP        [TCP segment of reassembled PDU]
+<server>   <client>      TCP        [TCP segment of reassembled PDU]
+<client>   <server>      TCP        kink > nfs [ACK] ...
+[...]
+<server>   <client>      TCP        [TCP segment of reassembled PDU]
+<server>   <client>      RPC        Continuation     (total: 65535 bytes)
+<client>   <server>      TCP        kink > nfs [ACK] ...
+<server>   <client>      RPC        Continuation
+<server>   <client>      RPC        Continuation
+<client>   <server>      TCP        kink > nfs [ACK] ...
+[...]
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
