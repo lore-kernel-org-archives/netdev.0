@@ -1,26 +1,21 @@
-From: glevy@sfsu.edu
-Subject: GREETING
-Date: Mon, 20 Jul 2009 21:16:07 -0700
-Message-ID: <20090720211607.m3d0feby0wo0swoc@webmail.sfsu.edu>
+From: <bigironaccounting@bellnet.ca>
+Subject: Contact Mr Phil Herald
+Date: Tue, 21 Jul 2009 1:03:00 -0400
+Message-ID: <20090721050306.DOQ8518.tomts35-srv.bellnexxia.net@toip36-bus.srvr.bell.ca>
+Reply-To: lottsclaims06@w.cn
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+To: <info@winners.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iron3.sfsu.edu ([130.212.10.128]:41350 "EHLO iron3.sfsu.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935AbZGUEQM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 00:16:12 -0400
-Content-Disposition: inline
+Received: from tomts35.bellnexxia.net ([209.226.175.109]:45096 "EHLO
+	tomts35-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752213AbZGUFDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 01:03:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings.
-You have a bank draft of $78,000USD with TNT company,which await  the  
-outstanding payment of $135USD Contact the TNT courier company for  
-claims with your personnal Details.Contact person :Mr west Oduduwa  
-Email: www.tntwestafricanzone@hotmail.com Tel:+234 808 904 8721
+Contact Mr Phil Herald for a sum pay out of 1,230,310 GBP.Provide Your Name:Address:Age:Sex: 
+Occupation:(Email:lottsclaims06@w.cn)for Verification immediately.
+
 
