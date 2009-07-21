@@ -1,87 +1,49 @@
-From: Ben Dooks <ben@simtec.co.uk>
-Subject: Re: [PATCH] dm9000: switch to dev_pm_ops
-Date: Tue, 21 Jul 2009 16:04:06 +0100
-Message-ID: <4A65D8E6.5010005@simtec.co.uk>
-References: <1248184837-22350-1-git-send-email-mike@compulab.co.il>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] USB host CDC Phonet network interface driver
+Date: Tue, 21 Jul 2009 17:34:23 +0200
+Message-ID: <1248190463.28545.13.camel@violet>
+References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
+	 <1248184373.6558.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mike Rapoport <mike@compulab.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:35923 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753257AbZGUPEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 11:04:42 -0400
-In-Reply-To: <1248184837-22350-1-git-send-email-mike@compulab.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1248184373.6558.15.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Mike Rapoport wrote:
-> Signed-off-by: Mike Rapoport <mike@compulab.co.il>
-Acked-by: Ben Dooks <ben-linux@fluff.org>
-> ---
->  drivers/net/dm9000.c |   18 ++++++++++++------
->  1 files changed, 12 insertions(+), 6 deletions(-)
+Hi Dan,
+
+> > Many Nokia handsets support a Phonet interface to the cellular modem
+> > via a vendor-specific USB interface. CDC Phonet follows the
+> > Communications Device Class model, with one control interface, and
+> > and a pair of inactive and active data alternative interface. The later
+> > has two bulk endpoint, one per direction.
+> > 
+> > This was tested against Nokia E61, Nokia N95, and the existing Phonet
+> > gadget function for the Linux composite USB gadget framework.
 > 
-> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-> index dd771de..7b639cd 100644
-> --- a/drivers/net/dm9000.c
-> +++ b/drivers/net/dm9000.c
-> @@ -1410,9 +1410,10 @@ out:
->  }
->  
->  static int
-> -dm9000_drv_suspend(struct platform_device *dev, pm_message_t state)
-> +dm9000_drv_suspend(struct device *dev)
->  {
-> -	struct net_device *ndev = platform_get_drvdata(dev);
-> +	struct platform_device *pdev = to_platform_device(dev);
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
->  	board_info_t *db;
->  
->  	if (ndev) {
-> @@ -1428,9 +1429,10 @@ dm9000_drv_suspend(struct platform_device *dev, pm_message_t state)
->  }
->  
->  static int
-> -dm9000_drv_resume(struct platform_device *dev)
-> +dm9000_drv_resume(struct device *dev)
->  {
-> -	struct net_device *ndev = platform_get_drvdata(dev);
-> +	struct platform_device *pdev = to_platform_device(dev);
-> +	struct net_device *ndev = platform_get_drvdata(pdev);
->  	board_info_t *db = netdev_priv(ndev);
->  
->  	if (ndev) {
-> @@ -1447,6 +1449,11 @@ dm9000_drv_resume(struct platform_device *dev)
->  	return 0;
->  }
->  
-> +static struct dev_pm_ops dm9000_drv_pm_ops = {
-> +	.suspend	= dm9000_drv_suspend,
-> +	.resume		= dm9000_drv_resume,
-> +};
-> +
->  static int __devexit
->  dm9000_drv_remove(struct platform_device *pdev)
->  {
-> @@ -1466,11 +1473,10 @@ static struct platform_driver dm9000_driver = {
->  	.driver	= {
->  		.name    = "dm9000",
->  		.owner	 = THIS_MODULE,
-> +		.pm	 = &dm9000_drv_pm_ops,
->  	},
->  	.probe   = dm9000_probe,
->  	.remove  = __devexit_p(dm9000_drv_remove),
-> -	.suspend = dm9000_drv_suspend,
-> -	.resume  = dm9000_drv_resume,
->  };
->  
->  static int __init
+> Is there an example somewhere of how to use Phonet to get a mobile
+> broadband connection in place of usb-serial and PPP?  I've read the
+> Phonet protocol description and other random docs I can find, but can't
+> figure out how that would work.  Or does "PC Suite" mode not support
+> that?
+
+I talked with Remi about it and he told me that currently there is no
+public example on how to do it. Also it involves a bit more event
+handling and other details via ISI modem library. At some point we will
+have an example inside oFono on how to do it, but not right now.
+
+Regards
+
+Marcel
 
 
--- 
-Ben Dooks, Software Engineer, Simtec Electronics
-
-http://www.simtec.co.uk/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
