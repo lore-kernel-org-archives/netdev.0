@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 1/2] mcastv6: Local variable shadows function argument
-Date: Tue, 21 Jul 2009 11:13:38 -0700 (PDT)
-Message-ID: <20090721.111338.84499428.davem@davemloft.net>
-References: <20090721181153.GA5970@gerrit.erg.abdn.ac.uk>
+Subject: Re: [net-next 1/10] bnx2x: Stop management traffic in loopback test
+Date: Tue, 21 Jul 2009 11:20:11 -0700 (PDT)
+Message-ID: <20090721.112011.216476312.davem@davemloft.net>
+References: <1248191242.18195.39.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52424
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56056
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754461AbZGUSNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 14:13:32 -0400
-In-Reply-To: <20090721181153.GA5970@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751973AbZGUSUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 14:20:05 -0400
+In-Reply-To: <1248191242.18195.39.camel@lb-tlvb-eilong>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 21 Jul 2009 20:11:53 +0200
 
-> mcastv6: Local variable shadows function argument
-> 
-> The local variable 'idev' shadows the function argument 'idev' to
-> ip6_mc_add_src(). Fixed by removing the local declaration, as pmc->idev
-> should be identical with 'idev' passed as argument.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> Acked-by: David L Stevens <dlstevens@us.ibm.com>
+All 10 patches applied, thanks.
 
-Applied to net-next-2.6
+On patch #10, the version bump, you ommitted the "bnx2x" in the
+subject line.  Please don't do that, as the text you add there
+becomes the commit message header line.
+
+I fixed it up this time, but next time I will bounce the entire
+patch set back to you.
+
+Thanks.
+
+
