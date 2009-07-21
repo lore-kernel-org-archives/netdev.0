@@ -1,42 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Qemu-devel] [PATCH] net: add raw backend  - some performance
-	measurements
-Date: Tue, 21 Jul 2009 15:25:46 +0800
-Message-ID: <20090721072546.GA16131@gondor.apana.org.au>
-References: <20090701162115.GA4555@shareable.org> <4A4CA747.1050509@Voltaire.com> <20090703023911.GD938@shareable.org> <4A534EC4.5030209@voltaire.com> <20090707145739.GB14392@shareable.org> <4A54B0F1.3070201@voltaire.com> <20090715203806.GF3056@shareable.org> <4A647B72.5090404@Voltaire.com> <20090720155308.GA9327@gondor.apana.org.au> <4A656824.7070100@Voltaire.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Constantly varying download rate with a complex xen networking
+ setup, why?
+Date: Tue, 21 Jul 2009 11:52:28 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.0907211143100.10534@wel-95.cs.helsinki.fi>
+References: <20090615075313.GA22819@rivendell> <Pine.LNX.4.64.0906151657380.16408@melkinkari.cs.Helsinki.FI> <20090615160254.GA8550@rivendell> <Pine.LNX.4.64.0906151910220.16408@melkinkari.cs.Helsinki.FI> <20090617130050.GA18586@rivendell>
+ <Pine.LNX.4.64.0906171659380.31880@melkinkari.cs.Helsinki.FI> <20090617143647.GD18586@rivendell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Lokier <jamie@shareable.org>,
-	Anthony Liguori <anthony@codemonkey.ws>, qemu-devel@nongnu.org,
-	Jan Kiszka <jan.kiszka@web.de>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Mark McLoughlin <markmc@redhat.com>,
-	Dor Laor <dlaor@redhat.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@Voltaire.com>
+Content-Type: MULTIPART/MIXED; boundary="8323329-1468014785-1248165953=:10534"
+Cc: Netdev <netdev@vger.kernel.org>
+To: Raphael Hertzog <raphael@ouaza.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57541 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751583AbZGUH0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 03:26:05 -0400
-Content-Disposition: inline
-In-Reply-To: <4A656824.7070100@Voltaire.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42888 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057AbZGUIw3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 04:52:29 -0400
+In-Reply-To: <20090617143647.GD18586@rivendell>
+Content-ID: <alpine.DEB.2.00.0907211149160.10534@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 21, 2009 at 10:03:00AM +0300, Or Gerlitz wrote:
-> 
-> okay, when setting net.bridge.bridge-nf-call-iptables to zero, the VM TX / tap+bridge packet rate climbs from 170K to 195K but it still way beyond the 240K rate achieved by the raw mode --> we have now a clear sign on the performance gain this approach provides. 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I find this hard to believe this bridge sans netfilter does a
-single lookup based on the MAC address and then just passes the
-packet to the underlying driver.
+--8323329-1468014785-1248165953=:10534
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.0907211149161.10534@wel-95.cs.helsinki.fi>
 
-Can you do an oprofile run to see if something else is chewing
-up CPU time under the guise of bridging?
+On Wed, 17 Jun 2009, Raphael Hertzog wrote:
 
-Thanks,
+> Le mercredi 17 juin 2009, Ilpo Järvinen a écrit :
+>> On Wed, 17 Jun 2009, Raphael Hertzog wrote:
+>>
+>>> Le lundi 15 juin 2009, Ilpo Järvinen a écrit :
+>>>> Maybe the proxy interferes there somehow... I don't know enough about the
+>>>> details to say but I suppose the proxy at least breaks your tcp connection
+>>>> to two parts.
+>>>
+>>> Indeed. Is there some processing done in a simple linux bridge where the
+>>> reapperance of the same TCP packet that has been created and sent on another
+>>> local interface could create problem?
+>>
+>> I thought out had a http proxy in between? I suppose it is certainly doing
+>> more than bridging. Anyway, I'll be week away, so no quick responses are
+>> to be expected from my part after this mail.
+>
+> Well, I have the problem when I don't use the proxy... if I use it, the
+> download is split over two TCP connections and things are fine.
+>
+> Hence my question was if something could be confused by the fact that the
+> same packet is seen twice on the same machine once (in output) via 
+> eth2/xenbrD and once (in forward) via xenbrE (the routing between both 
+> bridges is done by the domU independently of the dom0 network config).
+
+Did you ever get tcpdumps btw? Looking into your setup it would probably 
+be useful take it from all the interfaces where the packets are supposed 
+to pass.
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  i.
+--8323329-1468014785-1248165953=:10534--
