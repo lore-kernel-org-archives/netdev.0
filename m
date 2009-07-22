@@ -1,16 +1,15 @@
 From: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [net-next-2.6 PATCH 2/5] ixgbe: updates vlan feature
-	flags to enable	FCoE offloads on vlan interface
-Date: Wed, 22 Jul 2009 16:28:43 -0700
-Message-ID: <20090722232842.26937.3550.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/5] net: Add NETIF_F_FCOE_MTU to
+	indicate	support for a different MTU for FCoE
+Date: Wed, 22 Jul 2009 16:29:09 -0700
+Message-ID: <20090722232909.26937.31565.stgit@localhost.localdomain>
 References: <20090722232759.26937.78765.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, gospo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, gospo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
 In-Reply-To: <20090722232759.26937.78765.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
@@ -25,31 +24,29 @@ Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
 Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Vasu Dev <vasu.dev-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+From: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Updates netdev->vlan_features for NETIF_F_FCOE_CRC and NETIF_F_FSO, so that
-FCoE CRC and GSO offloads will get used for FCoE over ixgbe based vlan
-interface.
+Add NETIF_F_FCOE_MTU to indicate that the NIC can support a secondary MTU for
+converged traffic of LAN and Fiber Channel over Ethernet (FCoE). The MTU for
+FCoE is 2158 = 14 (FCoE header) + 24 (FC header) + 2112 (FC max payload) +
+4 (FC CRC) + 4 (FCoE trailer).
 
-Signed-off-by: Vasu Dev <vasu.dev-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 79f60e8..d89c695 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5588,6 +5588,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 			if (!(device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)) {
- 				netdev->features |= NETIF_F_FCOE_CRC;
- 				netdev->features |= NETIF_F_FSO;
-+				netdev->vlan_features |= NETIF_F_FCOE_CRC;
-+				netdev->vlan_features |= NETIF_F_FSO;
- 				netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
- 			} else {
- 				adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9f25ab2..9192cdf 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -701,6 +701,7 @@ struct net_device
+ /* the GSO_MASK reserves bits 16 through 23 */
+ #define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
+ #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
++#define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
