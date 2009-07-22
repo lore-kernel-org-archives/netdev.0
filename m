@@ -1,37 +1,71 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC] IPv6 route replacement
-Date: Wed, 22 Jul 2009 20:09:10 +0900
-Message-ID: <4A66F356.3000803@linux-ipv6.org>
-References: <20090722095040.GC3517@psychotron.englab.brq.redhat.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH] be2net: Bug fix in the non-lro path. Size of received
+	packet was not updated in statistics properly.
+Date: Wed, 22 Jul 2009 16:49:44 +0530
+Message-ID: <20090722111933.GA22465@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi,
-	kaber@trash.net, yoshfuji@linux-ipv6.org
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41615 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750953AbZGVLSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:18:10 -0400
-In-Reply-To: <20090722095040.GC3517@psychotron.englab.brq.redhat.com>
+Received: from segment-124-30.sify.net ([124.30.166.146]:4005 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752521AbZGVLTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:19:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch fixes a bug in the non-lro path. 
+Wrong size of received packet was being passed for updating receive statistics.
+This patch is against the net-2.6 git.
 
-Jiri Pirko wrote:
-> Now do you think this is the right behaviour? I would expect the first route to
-> be replaced. The same result is when you do "ip -6 route replace"
+Thanks
+-Ajit
 
-Well, even in IPv4 you cannot change metric;
-same route can be installed e.g., for manual
-backup route entry.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_main.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-But well, NLM_F_REPLACE handler is completely
-missing in IPv6.  I think we are okay with
-"replace" (NLM_F_CREATE|NLM_F_REPLACE) but we
-could return "no such route" for "change"
-(NLM_F_REPLACE).
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index c43f6a1..dea3155 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -667,7 +667,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
+ 	struct be_queue_info *rxq = &adapter->rx_obj.q;
+ 	struct be_rx_page_info *page_info;
+ 	u16 rxq_idx, i, num_rcvd, j;
+-	u32 pktsize, hdr_len, curr_frag_len;
++	u32 pktsize, hdr_len, curr_frag_len, size;
+ 	u8 *start;
+ 
+ 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
+@@ -708,12 +708,13 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
+ 	}
+ 
+ 	/* More frags present for this completion */
+-	pktsize -= curr_frag_len; /* account for above copied frag */
++	size = pktsize;
+ 	for (i = 1, j = 0; i < num_rcvd; i++) {
++		size -= curr_frag_len;
+ 		index_inc(&rxq_idx, rxq->len);
+ 		page_info = get_rx_page_info(adapter, rxq_idx);
+ 
+-		curr_frag_len = min(pktsize, rx_frag_size);
++		curr_frag_len = min(size, rx_frag_size);
+ 
+ 		/* Coalesce all frags from the same physical page in one slot */
+ 		if (page_info->page_offset == 0) {
+@@ -731,7 +732,6 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
+ 		skb_shinfo(skb)->frags[j].size += curr_frag_len;
+ 		skb->len += curr_frag_len;
+ 		skb->data_len += curr_frag_len;
+-		pktsize -= curr_frag_len;
+ 
+ 		memset(page_info, 0, sizeof(*page_info));
+ 	}
+-- 
+1.6.0.4
 
---yoshfuji
