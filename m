@@ -1,54 +1,37 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Wed, 22 Jul 2009 14:07:28 +0300
-Message-ID: <200907221407.29275.remi.denis-courmont@nokia.com>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com> <20090722101102.4aba96bd@lxorguk.ukuu.org.uk> <1248254134.28545.111.camel@violet>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Oliver Neukum <oliver@neukum.org>,
-	ext Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: ext Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:37269 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049AbZGVLGJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:06:09 -0400
-In-Reply-To: <1248254134.28545.111.camel@violet>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: [PATCH] net: KS8851 needs to depend on MII
+Date: Wed, 22 Jul 2009 15:16:51 +0400
+Message-ID: <1248261411-12533-1-git-send-email-a.beregalov@gmail.com>
+Cc: Alexander Beregalov <a.beregalov@gmail.com>
+To: linux-next@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, ben@simtec.co.uk
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 22 July 2009 12:15:34 ext Marcel Holtmann wrote:
-> Hi Alan,
->
-> > > The AT stuff is really problematic. Look at the hoops ISDN and so=
-ftware
-> > > modem drivers go through to emulate AT commands. I know even of a
-> > > CDC-ACM modem which can't deal with AT commands inline (that's wi=
-thin
-> > > spec). It seems to me we should have a modem API in kernel.
-> >
-> > For devices which don't deal in AT commands probably but for device=
-s
-> > whose firmware provides an AT command interface over serial I would
-> > disagree.
->
-> I fully agree here. Even if you think you get AT commands under contr=
-ol,
-> you really won't in the end. That standard is so wildly mis-interpret=
-ed
-> that it is not even funny anymore.
+fix this build error when CONFIG_MII is not set
+drivers/net/ks8851.c:999: undefined reference to `generic_mii_ioctl'
+drivers/net/ks8851.c:1050: undefined reference to `mii_link_ok'
+drivers/net/ks8851.c:1056: undefined reference to `mii_nway_restart'
+drivers/net/ks8851.c:1044: undefined reference to `mii_ethtool_sset'
+drivers/net/ks8851.c:1038: undefined reference to `mii_ethtool_gset'
 
-Possibly. Does anyone known of any "species" bypassing AT commands enti=
-rely,=20
-other than Phonet? as far as GPRS is concerned?
+Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+---
+ drivers/net/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
-
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 1dbaffd..3ed49f1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1732,6 +1732,7 @@ config KS8842
+ config KS8851
+        tristate "Micrel KS8851 SPI"
+        depends on SPI
++       select MII
+        help
+          SPI driver for Micrel KS8851 SPI attached network chip.
+ 
+-- 
+1.6.3.3
