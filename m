@@ -1,35 +1,29 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] softirq: tasklet_hrtimer
-Date: Wed, 22 Jul 2009 09:01:09 -0700 (PDT)
-Message-ID: <alpine.LFD.2.01.0907220900250.19335@localhost.localdomain>
-References: <1247588890.7500.186.camel@twins>  <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain>  <1247832892.15751.35.camel@twins>  <20090721.201855.32703627.davem@davemloft.net> <1248265724.27058.1366.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/4] net: Revive fixed link support
+Date: Wed, 22 Jul 2009 09:20:31 -0700 (PDT)
+Message-ID: <20090722.092031.138907133.davem@davemloft.net>
+References: <20090717065220.15652.93331.stgit@localhost.localdomain>
+	<20090718180448.GA3252@oksana.dev.rtsoft.ru>
+	<fa686aa40907181137v4a0ed1ednfed3194d1308296a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: avorontsov@ru.mvista.com, afleming@freescale.com,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	leoli@freescale.com
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48584 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751288AbZGVQCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:02:35 -0400
-In-Reply-To: <1248265724.27058.1366.camel@twins>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41506
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752399AbZGVQUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:20:25 -0400
+In-Reply-To: <fa686aa40907181137v4a0ed1ednfed3194d1308296a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Sat, 18 Jul 2009 12:37:34 -0600
 
+> Awesome.  Dave, can you please pick up this series?
 
-On Wed, 22 Jul 2009, Peter Zijlstra wrote:
->
-> Stick tasklets and hrtimers together to provide an in-softirq hrtimer
-> experience.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-
-Looks ok by me now.
-
-Acked-by: Linus Torvalds <torvalds@linux-foundation.org>
-
-	Thanks,
-		Linus
+Sure thing.
