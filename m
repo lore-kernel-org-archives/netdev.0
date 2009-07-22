@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: b44: device restarts on heavy load
-Date: Wed, 22 Jul 2009 08:56:00 -0700 (PDT)
-Message-ID: <20090722.085600.04460117.davem@davemloft.net>
-References: <4A37B08F.9000809@dupondje.be>
-	<4A37B60C.7000303@dupondje.be>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] softirq: tasklet_hrtimer
+Date: Wed, 22 Jul 2009 09:01:09 -0700 (PDT)
+Message-ID: <alpine.LFD.2.01.0907220900250.19335@localhost.localdomain>
+References: <1247588890.7500.186.camel@twins>  <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain>  <1247832892.15751.35.camel@twins>  <20090721.201855.32703627.davem@davemloft.net> <1248265724.27058.1366.camel@twins>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: info@dupondje.be
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, tglx@linutronix.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51028
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752946AbZGVPzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 11:55:55 -0400
-In-Reply-To: <4A37B60C.7000303@dupondje.be>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48584 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751288AbZGVQCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:02:35 -0400
+In-Reply-To: <1248265724.27058.1366.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Louis Dupond <info@dupondje.be>
-Date: Tue, 16 Jun 2009 17:11:08 +0200
 
-> To be more precise, the error is ISTAT_RFO 0x00004000 /* Receive FIFO
-> Overflow */
 
-The problem is that we need to know if a receive FIFO overflow
-puts the chip into a state where it must be reset.
+On Wed, 22 Jul 2009, Peter Zijlstra wrote:
+>
+> Stick tasklets and hrtimers together to provide an in-softirq hrtimer
+> experience.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
-And until we know that, we cannot simply exclude that condition
-from the reset test.
+Looks ok by me now.
+
+Acked-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+	Thanks,
+		Linus
