@@ -1,48 +1,30 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Wed, 22 Jul 2009 11:15:34 +0200
-Message-ID: <1248254134.28545.111.camel@violet>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
-	 <1248184373.6558.15.camel@localhost.localdomain>
-	 <200907221137.07005.remi.denis-courmont@nokia.com>
-	 <200907221041.51995.oliver@neukum.org>
-	 <20090722101102.4aba96bd@lxorguk.ukuu.org.uk>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/1] ipv4: IP_RECVERR should also enqueue source quench messages
+Date: Wed, 22 Jul 2009 11:32:59 +0200
+Message-ID: <87y6qh12r8.fsf@basil.nowhere.org>
+References: <1248219127-3203-1-git-send-email-hagen@jauu.net>
+	<20090721.200729.212201103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver@neukum.org>,
-	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>,
-	ext Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: hagen@jauu.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:37491 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868AbZGVJQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 05:16:14 -0400
-In-Reply-To: <20090722101102.4aba96bd@lxorguk.ukuu.org.uk>
+Received: from one.firstfloor.org ([213.235.205.2]:57991 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909AbZGVJdB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 05:33:01 -0400
+In-Reply-To: <20090721.200729.212201103.davem@davemloft.net> (David Miller's message of "Tue, 21 Jul 2009 20:07:29 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
+David Miller <davem@davemloft.net> writes:
+>
+> I'm almost entirely sure that this behavior is intentional.
 
-> > The AT stuff is really problematic. Look at the hoops ISDN and software
-> > modem drivers go through to emulate AT commands. I know even of a CDC-ACM
-> > modem which can't deal with AT commands inline (that's within spec).
-> > It seems to me we should have a modem API in kernel.
-> 
-> For devices which don't deal in AT commands probably but for devices
-> whose firmware provides an AT command interface over serial I would
-> disagree.
+I could also imagine that changing it could break some existing
+applications that do not expect to see source quenchs here.
 
-I fully agree here. Even if you think you get AT commands under control,
-you really won't in the end. That standard is so wildly mis-interpreted
-that it is not even funny anymore.
+-Andi
 
-Regards
-
-Marcel
-
-
+-- 
+ak@linux.intel.com -- Speaking for myself only.
