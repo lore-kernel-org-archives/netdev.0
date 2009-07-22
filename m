@@ -1,44 +1,40 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Wed, 22 Jul 2009 10:41:51 +0200
-Message-ID: <200907221041.51995.oliver@neukum.org>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com> <1248184373.6558.15.camel@localhost.localdomain> <200907221137.07005.remi.denis-courmont@nokia.com>
+From: <jon_zhou@agilent.com>
+Subject: the maximal speed of pktgen with 1Gbps NIC
+Date: Wed, 22 Jul 2009 16:57:57 +0800
+Message-ID: <60230E21F17E384C9BF0B9C98D9E3FDC04BDC92E@sgp-sg-mb02.sgp.agilent.com>
+References: <Pine.LNX.4.64.0907221032290.2211@zuben.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ext Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ext Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-To: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200907221137.07005.remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aglsgpbs02.sgp.agilent.com ([192.25.82.31]:48650 "EHLO
+	aglsgpbs02.sgp.agilent.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752507AbZGVJAy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2009 05:00:54 -0400
+Received: from mppd (localhost.localdomain [127.0.0.1])
+	by aglsgpbs02.sgp.agilent.com (Postfix) with ESMTP id 788134C142
+	for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 09:00:53 +0000 (GMT)
+Received: from SGP-SG-BH03.sgp.agilent.com (sgp-sg-bh03.sgp.agilent.com [141.183.6.41])
+	by aglsgpbs02.sgp.agilent.com (Postfix) with ESMTP id 74E744C141
+	for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 09:00:53 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <Pine.LNX.4.64.0907221032290.2211@zuben.voltaire.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 22. Juli 2009 10:37:06 schrieb R=C3=A9mi Denis-Courmont:
-> I guess in a perfect world, Linux would provide a common control inte=
-rface
-> for GPRS as it already does WiFi (and maybe soon will for WiMAX?). Bu=
-t I am
-> not sure we can unify AT+PPP, Phonet, AT+Ethernet and who knows what =
-else,
-> behind a common Netlink interface, especially as AT commands have alw=
-ays
-> been done in userland anyway.
+hi 
 
-The AT stuff is really problematic. Look at the hoops ISDN and software
-modem drivers go through to emulate AT commands. I know even of a CDC-A=
-CM
-modem which can't deal with AT commands inline (that's within spec).
-It seems to me we should have a modem API in kernel.
+anyone knows the maximal speed of pktgen with 1Gbps NIC?
 
-	Regards
-		Oliver
+on my pc, the maximal  speed is 500 Mbps when the packet size is 100 bytes(with boardcom 5755)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+possibly more fast?
+
+
+
+Regards,
+zhou rui
+
