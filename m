@@ -1,71 +1,54 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH] be2net: Bug fix in the non-lro path. Size of received
-	packet was not updated in statistics properly.
-Date: Wed, 22 Jul 2009 16:49:44 +0530
-Message-ID: <20090722111933.GA22465@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Ben Dooks <ben@simtec.co.uk>
+Subject: Re: [PATCH] net: KS8851 needs to depend on MII
+Date: Wed, 22 Jul 2009 12:19:17 +0100
+Message-ID: <4A66F5B5.2050606@simtec.co.uk>
+References: <1248261411-12533-1-git-send-email-a.beregalov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Alexander Beregalov <a.beregalov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:4005 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752521AbZGVLTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:19:39 -0400
-Content-Disposition: inline
+Received: from aeryn.fluff.org.uk ([87.194.8.8]:53290 "EHLO
+	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752551AbZGVLTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:19:50 -0400
+In-Reply-To: <1248261411-12533-1-git-send-email-a.beregalov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug in the non-lro path. 
-Wrong size of received packet was being passed for updating receive statistics.
-This patch is against the net-2.6 git.
+Alexander Beregalov wrote:
+> fix this build error when CONFIG_MII is not set
+> drivers/net/ks8851.c:999: undefined reference to `generic_mii_ioctl'
+> drivers/net/ks8851.c:1050: undefined reference to `mii_link_ok'
+> drivers/net/ks8851.c:1056: undefined reference to `mii_nway_restart'
+> drivers/net/ks8851.c:1044: undefined reference to `mii_ethtool_sset'
+> drivers/net/ks8851.c:1038: undefined reference to `mii_ethtool_gset'
 
-Thanks
--Ajit
+thanks, my test system has an DM9000 so that selected CONFIG_MII for me.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- drivers/net/benet/be_main.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
+Acked-by: Ben Dooks <ben@simtec.co.uk>
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index c43f6a1..dea3155 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -667,7 +667,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
- 	struct be_queue_info *rxq = &adapter->rx_obj.q;
- 	struct be_rx_page_info *page_info;
- 	u16 rxq_idx, i, num_rcvd, j;
--	u32 pktsize, hdr_len, curr_frag_len;
-+	u32 pktsize, hdr_len, curr_frag_len, size;
- 	u8 *start;
- 
- 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
-@@ -708,12 +708,13 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
- 	}
- 
- 	/* More frags present for this completion */
--	pktsize -= curr_frag_len; /* account for above copied frag */
-+	size = pktsize;
- 	for (i = 1, j = 0; i < num_rcvd; i++) {
-+		size -= curr_frag_len;
- 		index_inc(&rxq_idx, rxq->len);
- 		page_info = get_rx_page_info(adapter, rxq_idx);
- 
--		curr_frag_len = min(pktsize, rx_frag_size);
-+		curr_frag_len = min(size, rx_frag_size);
- 
- 		/* Coalesce all frags from the same physical page in one slot */
- 		if (page_info->page_offset == 0) {
-@@ -731,7 +732,6 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
- 		skb_shinfo(skb)->frags[j].size += curr_frag_len;
- 		skb->len += curr_frag_len;
- 		skb->data_len += curr_frag_len;
--		pktsize -= curr_frag_len;
- 
- 		memset(page_info, 0, sizeof(*page_info));
- 	}
+> ---
+>  drivers/net/Kconfig |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 1dbaffd..3ed49f1 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -1732,6 +1732,7 @@ config KS8842
+>  config KS8851
+>         tristate "Micrel KS8851 SPI"
+>         depends on SPI
+> +       select MII
+>         help
+>           SPI driver for Micrel KS8851 SPI attached network chip.
+>  
+
+
 -- 
-1.6.0.4
+Ben Dooks, Software Engineer, Simtec Electronics
 
+http://www.simtec.co.uk/
