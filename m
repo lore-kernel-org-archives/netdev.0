@@ -1,38 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: KS8851 needs to depend on MII
-Date: Wed, 22 Jul 2009 09:33:22 -0700 (PDT)
-Message-ID: <20090722.093322.129084266.davem@davemloft.net>
-References: <1248261411-12533-1-git-send-email-a.beregalov@gmail.com>
-	<4A66F5B5.2050606@simtec.co.uk>
+Subject: Re: [PATCH v3] net: Rework mdio-ofgpio driver to use of_mdio
+ infrastructure
+Date: Wed, 22 Jul 2009 09:40:59 -0700 (PDT)
+Message-ID: <20090722.094059.113003489.davem@davemloft.net>
+References: <4A66400F.3090309@elphinstone.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.beregalov@gmail.com, netdev@vger.kernel.org
-To: ben@simtec.co.uk
+Cc: grant.likely@secretlab.ca, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: mware@elphinstone.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44510
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43617
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751731AbZGVQdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:33:16 -0400
-In-Reply-To: <4A66F5B5.2050606@simtec.co.uk>
+	by vger.kernel.org with ESMTP id S1753530AbZGVQkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:40:53 -0400
+In-Reply-To: <4A66400F.3090309@elphinstone.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Dooks <ben@simtec.co.uk>
-Date: Wed, 22 Jul 2009 12:19:17 +0100
+From: Mark Ware <mware@elphinstone.net>
+Date: Wed, 22 Jul 2009 08:24:15 +1000
 
-> Alexander Beregalov wrote:
->> fix this build error when CONFIG_MII is not set
->> drivers/net/ks8851.c:999: undefined reference to `generic_mii_ioctl'
->> drivers/net/ks8851.c:1050: undefined reference to `mii_link_ok'
->> drivers/net/ks8851.c:1056: undefined reference to `mii_nway_restart'
->> drivers/net/ks8851.c:1044: undefined reference to `mii_ethtool_sset'
->> drivers/net/ks8851.c:1038: undefined reference to `mii_ethtool_gset'
+> Changes to the fs_enet driver
+> (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when
+> using the mdio-ofgpio driver.
 > 
-> thanks, my test system has an DM9000 so that selected CONFIG_MII for
-> me.
+> This patch replicates similar changes made to the fs_enet mii-bitbang
+> drivers.  It has been tested on a custom mpc8280 based board using an
+> NFS mounted root.
 > 
->> Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
-> Acked-by: Ben Dooks <ben@simtec.co.uk>
+> Signed-off-by: Mark Ware <mware@elphinstone.net>
+> Acked-by: Grant Likely <grant.likely@secretlab.ca>
 
-Applied, thanks.
+Your email client has massively corrupted this patch, I even tried
+to fix it up but it's so bad that I just gave up half-way through.
+
+Please use an attachment or whatever is necessary to get this
+patch submitted cleanly and without it getting damaged.  Read:
+
+linux/Documentation/email-clients.txt
+
+for tips.
+
+Thanks.
