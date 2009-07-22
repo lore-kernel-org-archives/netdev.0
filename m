@@ -1,75 +1,39 @@
-From: Chris Zankel <chris@zankel.net>
-Subject: Re: [PATCH] move xtsonic's probe function to .devinit.text
-Date: Tue, 21 Jul 2009 17:00:17 -0700
-Message-ID: <4A665691.6080203@zankel.net>
-References: <1248211527-32253-1-git-send-email-u.kleine-koenig@pengutronix.de> <1248211527-32253-6-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: remove unnecessary assignment
+Date: Wed, 22 Jul 2009 09:51:20 +0900
+Message-ID: <392fb48f0907211751k6bbbb6base944c6b7d80a3bf5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.onlive.com ([74.85.144.12]:1361 "EHLO mx01.onlive.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750937AbZGVAJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jul 2009 20:09:30 -0400
-In-Reply-To: <1248211527-32253-6-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail-gx0-f213.google.com ([209.85.217.213]:62864 "EHLO
+	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbZGVAvW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jul 2009 20:51:22 -0400
+Received: by gxk9 with SMTP id 9so5995313gxk.13
+        for <netdev@vger.kernel.org>; Tue, 21 Jul 2009 17:51:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Uwe,
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I will add it to the Xtensa tree in the next couple of days (together=20
-with other patches that have piled up - still fighting a compiler issue=
-).
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 3550c5d..661abd0 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -4117,7 +4117,7 @@ static int sky2_debug_show(struct seq_file *seq, void *v)
 
-Thanks,
--Chris
+ 	seq_printf(seq, "\nRx ring hw get=%d put=%d last=%d\n",
+ 		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_GET_IDX)),
+-		   last = sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_PUT_IDX)),
++		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_PUT_IDX)),
+ 		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_LAST_IDX)));
 
-
-Uwe Kleine-K=C3=B6nig wrote:
-> A pointer to xtsonic_probe is passed to the core via
-> platform_driver_register and so the function must not disappear when =
-the
-> .init sections are discarded.  Otherwise (if also having HOTPLUG=3Dy)
-> unbinding and binding a device to the driver via sysfs will result in=
- an
-> oops as does a device being registered late.
->
-> An alternative to this patch is using platform_driver_probe instead o=
-f
-> platform_driver_register plus removing the pointer to the probe funct=
-ion
-> from the struct platform_driver.
->
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-> Cc: Chris Zankel <chris@zankel.net>
->  =20
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Greg Kroah-Hartman <gregkh@suse.de>
-> Cc: netdev@vger.kernel.org
->
-> ---
->  drivers/net/xtsonic.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/xtsonic.c b/drivers/net/xtsonic.c
-> index 5a4ad15..0c44135 100644
-> --- a/drivers/net/xtsonic.c
-> +++ b/drivers/net/xtsonic.c
-> @@ -239,7 +239,7 @@ out:
->   * Actually probing is superfluous but we're paranoid.
->   */
-> =20
-> -int __init xtsonic_probe(struct platform_device *pdev)
-> +int __devinit xtsonic_probe(struct platform_device *pdev)
->  {
->  	struct net_device *dev;
->  	struct sonic_local *lp;
->  =20
-
+ 	sky2_read32(hw, B0_Y2_SP_LISR);
+-- 
+1.5.6.5
