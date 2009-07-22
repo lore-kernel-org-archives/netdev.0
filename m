@@ -1,57 +1,90 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: the maximal speed of pktgen with 1Gbps NIC
-Date: Wed, 22 Jul 2009 10:25:20 -0700
-Message-ID: <20090722102520.27a024ed@nehalam>
-References: <Pine.LNX.4.64.0907221032290.2211@zuben.voltaire.com>
-	<60230E21F17E384C9BF0B9C98D9E3FDC04BDC92E@sgp-sg-mb02.sgp.agilent.com>
-	<Pine.LNX.4.64.0907221448570.18880@tyr.diku.dk>
-	<1248275552.4058.0.camel@localhost>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] register at91_ether using platform_driver_probe
+Date: Wed, 22 Jul 2009 10:37:36 -0700
+Message-ID: <200907221037.36541.david-b@pacbell.net>
+References: <200907111527.46441.david-b@pacbell.net> <1248207099-14583-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>, jon_zhou@agilent.com,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53374 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754052AbZGVRZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 13:25:25 -0400
-In-Reply-To: <1248275552.4058.0.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	netdev@vger.kernel.org,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	Marc Pignat <marc.pignat@hevs.ch>,
+	Andrew Victor <linux@maxim.org.za>,
+	Roel Kluin <12o3l@tiscali.nl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Greg Kroah-Hartman" <gregkh@suse.de>
+To: "Uwe =?iso-8859-1?q?Kleine-K=F6nig?="
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754066AbZGVRhi@vger.kernel.org>
+In-Reply-To: <1248207099-14583-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Jul 2009 17:12:32 +0200
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Tuesday 21 July 2009, Uwe Kleine-K=F6nig wrote:
+> at91ether_probe lives in .init.text, so using platform_driver_registe=
+r
+> to register it is wrong because binding a device after the init memor=
+y
+> is discarded (e.g. via sysfs) results in an oops.
+>=20
+> As requested by David Brownell platform_driver_probe is used instead =
+of
+> moving the probe function to .devinit.text as proposed initially.
+> This saves some memory, but devices registered after the driver is
+> probed are not bound (probably there are none) and binding via sysfs
+> isn't possible.
 
-> On Wed, 2009-07-22 at 14:56 +0200, Jesper Dangaard Brouer wrote:
-> > On Wed, 22 Jul 2009, jon_zhou@agilent.com wrote:
-> > 
-> > > anyone knows the maximal speed of pktgen with 1Gbps NIC?
-> > 
-> > You are limited by the number of packets per second (pps) your machine can 
-> > generate.  This limitation is given by the CPU speed and the NIC used.
-> > 
-> > The maximum pps I have seen with pktgen at 1Gbit/s is 1200 kpps.
-> > 
-> > 1Gbit/s wire speed pps with 64 bytes packets is approx 1953 kpps.
-> > (1000*10^6/(64*8) = 1953125)
-> [...]
-> 
-> You need to take the inter-packet gap into consideration too.
-> 
-> Ben.
+Right, these devices do not hotplug.
 
-Speed	Packets/sec	TCP MByte/sec
- 10 M	    14880.95	     1,170,351
-100 M	   148809.52	    11,703,511
-  1 G	  1488095.24	   123,755,256
- 10 G	 14880952.38	 1,237,552,556
- 40 G	 59523809.52	 4,950,210,224
-100 G	148809523.81	12,375,525,559
+>=20
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> Cc: David Brownell <dbrownell@users.sourceforge.net>
 
-* TCP assumes timestamp option and jumbo frames if possible.
+Acked-by: David Brownell <dbrownell@users.sourceforge.net>
 
+=2E... and thanks for doing it this way.  :)
 
-http://www.erg.abdn.ac.uk/users/gorry/course/lan-pages/enet-calc.html
--- 
+> Cc: netdev@vger.kernel.org
+> Cc: Paulius Zaleckas <paulius.zaleckas@teltonika.lt>
+> Cc: Marc Pignat <marc.pignat@hevs.ch>
+> Cc: Andrew Victor <linux@maxim.org.za>
+> Cc: Roel Kluin <12o3l@tiscali.nl>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Greg Kroah-Hartman <gregkh@suse.de>
+>=20
+> ---
+>  drivers/net/arm/at91_ether.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ethe=
+r.c
+> index 2e7419a..5041d10 100644
+> --- a/drivers/net/arm/at91_ether.c
+> +++ b/drivers/net/arm/at91_ether.c
+> @@ -1228,7 +1228,6 @@ static int at91ether_resume(struct platform_dev=
+ice *pdev)
+>  #endif
+> =20
+>  static struct platform_driver at91ether_driver =3D {
+> -	.probe		=3D at91ether_probe,
+>  	.remove		=3D __devexit_p(at91ether_remove),
+>  	.suspend	=3D at91ether_suspend,
+>  	.resume		=3D at91ether_resume,
+> @@ -1240,7 +1239,7 @@ static struct platform_driver at91ether_driver =
+=3D {
+> =20
+>  static int __init at91ether_init(void)
+>  {
+> -	return platform_driver_register(&at91ether_driver);
+> +	return platform_driver_probe(&at91ether_driver, at91ether_probe);
+>  }
+> =20
+>  static void __exit at91ether_exit(void)
+> --=20
+> tg: (4b0a840..) t/platsection/at91ether_driver (depends on: linus/mas=
+ter)
+>=20
+>=20
