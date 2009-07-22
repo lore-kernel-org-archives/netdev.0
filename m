@@ -1,37 +1,37 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: [PATCH] net: KS8851 needs to depend on MII
-Date: Wed, 22 Jul 2009 15:16:51 +0400
-Message-ID: <1248261411-12533-1-git-send-email-a.beregalov@gmail.com>
-Cc: Alexander Beregalov <a.beregalov@gmail.com>
-To: linux-next@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, ben@simtec.co.uk
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC] IPv6 route replacement
+Date: Wed, 22 Jul 2009 20:09:10 +0900
+Message-ID: <4A66F356.3000803@linux-ipv6.org>
+References: <20090722095040.GC3517@psychotron.englab.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi,
+	kaber@trash.net, yoshfuji@linux-ipv6.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41615 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750953AbZGVLSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:18:10 -0400
+In-Reply-To: <20090722095040.GC3517@psychotron.englab.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fix this build error when CONFIG_MII is not set
-drivers/net/ks8851.c:999: undefined reference to `generic_mii_ioctl'
-drivers/net/ks8851.c:1050: undefined reference to `mii_link_ok'
-drivers/net/ks8851.c:1056: undefined reference to `mii_nway_restart'
-drivers/net/ks8851.c:1044: undefined reference to `mii_ethtool_sset'
-drivers/net/ks8851.c:1038: undefined reference to `mii_ethtool_gset'
+Hi,
 
-Signed-off-by: Alexander Beregalov <a.beregalov@gmail.com>
----
- drivers/net/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Jiri Pirko wrote:
+> Now do you think this is the right behaviour? I would expect the first route to
+> be replaced. The same result is when you do "ip -6 route replace"
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 1dbaffd..3ed49f1 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1732,6 +1732,7 @@ config KS8842
- config KS8851
-        tristate "Micrel KS8851 SPI"
-        depends on SPI
-+       select MII
-        help
-          SPI driver for Micrel KS8851 SPI attached network chip.
- 
--- 
-1.6.3.3
+Well, even in IPv4 you cannot change metric;
+same route can be installed e.g., for manual
+backup route entry.
+
+But well, NLM_F_REPLACE handler is completely
+missing in IPv6.  I think we are okay with
+"replace" (NLM_F_CREATE|NLM_F_REPLACE) but we
+could return "no such route" for "change"
+(NLM_F_REPLACE).
+
+--yoshfuji
