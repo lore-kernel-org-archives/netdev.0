@@ -1,15 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [net-next-2.6 PATCH 3/5] net: Add NETIF_F_FCOE_MTU to
-	indicate	support for a different MTU for FCoE
-Date: Wed, 22 Jul 2009 16:29:09 -0700
-Message-ID: <20090722232909.26937.31565.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 4/5] ixgbe: Add support for
+	NETIF_F_FCOE_MTU to	82599 devices
+Date: Wed, 22 Jul 2009 16:29:32 -0700
+Message-ID: <20090722232932.26937.44440.stgit@localhost.localdomain>
 References: <20090722232759.26937.78765.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, gospo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, gospo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
 In-Reply-To: <20090722232759.26937.78765.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
@@ -26,27 +27,56 @@ List-Id: netdev.vger.kernel.org
 
 From: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Add NETIF_F_FCOE_MTU to indicate that the NIC can support a secondary MTU for
-converged traffic of LAN and Fiber Channel over Ethernet (FCoE). The MTU for
-FCoE is 2158 = 14 (FCoE header) + 24 (FC header) + 2112 (FC max payload) +
-4 (FC CRC) + 4 (FCoE trailer).
+Enable netdev feature flag bit NETIF_F_FCOE_MTU for 82599 devices and enable
+jumbo frame correspondingly when NETIF_F_FCOE_MTU is set.
 
 Signed-off-by: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
 
- include/linux/netdevice.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9f25ab2..9192cdf 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -701,6 +701,7 @@ struct net_device
- /* the GSO_MASK reserves bits 16 through 23 */
- #define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
- #define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
-+#define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index d89c695..2852a17 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2043,7 +2043,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	else
+ 		hlreg0 |= IXGBE_HLREG0_JUMBOEN;
+ #ifdef IXGBE_FCOE
+-	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
++	if (netdev->features & NETIF_F_FCOE_MTU)
+ 		hlreg0 |= IXGBE_HLREG0_JUMBOEN;
+ #endif
+ 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
+@@ -2070,7 +2070,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 		adapter->rx_ring[i].rx_buf_len = rx_buf_len;
  
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
+ #ifdef IXGBE_FCOE
+-		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
++		if (netdev->features & NETIF_F_FCOE_MTU) {
+ 			struct ixgbe_ring_feature *f;
+ 			f = &adapter->ring_feature[RING_F_FCOE];
+ 			if ((rx_buf_len < IXGBE_FCOE_JUMBO_FRAME_SIZE) &&
+@@ -2619,7 +2619,7 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 
+ #ifdef IXGBE_FCOE
+ 	/* adjust max frame to be able to do baby jumbo for FCoE */
+-	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
++	if ((netdev->features & NETIF_F_FCOE_MTU) &&
+ 	    (max_frame < IXGBE_FCOE_JUMBO_FRAME_SIZE))
+ 		max_frame = IXGBE_FCOE_JUMBO_FRAME_SIZE;
+ 
+@@ -5588,8 +5588,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 			if (!(device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)) {
+ 				netdev->features |= NETIF_F_FCOE_CRC;
+ 				netdev->features |= NETIF_F_FSO;
++				netdev->features |= NETIF_F_FCOE_MTU;
+ 				netdev->vlan_features |= NETIF_F_FCOE_CRC;
+ 				netdev->vlan_features |= NETIF_F_FSO;
++				netdev->vlan_features |= NETIF_F_FCOE_MTU;
+ 				netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
+ 			} else {
+ 				adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
