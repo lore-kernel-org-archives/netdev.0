@@ -1,44 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: remove unnecessary assignment
-Date: Wed, 22 Jul 2009 09:58:49 -0700
-Message-ID: <20090722095849.2a94deff@nehalam>
-References: <392fb48f0907211751k6bbbb6base944c6b7d80a3bf5@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] NET / skge: Enable WoL by default if supported
+Date: Wed, 22 Jul 2009 09:59:53 -0700
+Message-ID: <20090722095953.0806bea2@nehalam>
+References: <200907221458.55616.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mike McCormack <mikem@ring3k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41483 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751723AbZGVQ7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 12:59:37 -0400
-In-Reply-To: <392fb48f0907211751k6bbbb6base944c6b7d80a3bf5@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	pm list <linux-pm@lists.linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Michael Guntsche <mike@it-loops.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753841AbZGVRAE@vger.kernel.org>
+In-Reply-To: <200907221458.55616.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Jul 2009 09:51:20 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+On Wed, 22 Jul 2009 14:58:55 +0200
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> From: Rafael J. Wysocki <rjw@sisk.pl>
+> 
+> If skge hardware is capable of waking up the system from sleep,
+> enable magic packet WoL during driver initialisation.
+> 
+> This makes WoL work without calling 'ethtool -s ethX wol g'
+> for each adapter.
+> 
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> Tested-by: Michael Guntsche <mike@it-loops.com>
 > ---
->  drivers/net/sky2.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>  drivers/net/skge.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 3550c5d..661abd0 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -4117,7 +4117,7 @@ static int sky2_debug_show(struct seq_file *seq, void *v)
-> 
->  	seq_printf(seq, "\nRx ring hw get=%d put=%d last=%d\n",
->  		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_GET_IDX)),
-> -		   last = sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_PUT_IDX)),
-> +		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_PUT_IDX)),
->  		   sky2_read16(hw, Y2_QADDR(rxqaddr[port], PREF_UNIT_LAST_IDX)));
-> 
->  	sky2_read32(hw, B0_Y2_SP_LISR);
+> Index: linux-2.6/drivers/net/skge.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/skge.c
+> +++ linux-2.6/drivers/net/skge.c
+> @@ -3856,8 +3856,10 @@ static struct net_device *skge_devinit(s
+>  	skge->speed = -1;
+>  	skge->advertising = skge_supported_modes(hw);
+>  
+> -	if (device_may_wakeup(&hw->pdev->dev))
+> +	if (device_can_wakeup(&hw->pdev->dev)) {
+>  		skge->wol = wol_supported(hw) & WAKE_MAGIC;
+> +		device_set_wakeup_enable(&hw->pdev->dev, skge->wol);
+> +	}
+>  
+>  	hw->dev[port] = dev;
+>  
 
 Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-
 -- 
