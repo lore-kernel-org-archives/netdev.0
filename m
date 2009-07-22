@@ -1,45 +1,65 @@
-From: Buster Holzbauer <gnomish_barbarian@yahoo.com>
-Subject: Checksum Question about new sk_buffs
-Date: Wed, 22 Jul 2009 12:42:11 -0700 (PDT)
-Message-ID: <362475.96996.qm@web30508.mail.mud.yahoo.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] igb/e1000e/e1000/e100: make wol usable
+Date: Wed, 22 Jul 2009 13:00:50 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0907221256420.13196@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090721210115.GL8515@gospo.rdu.redhat.com>
+ <273D38FBE7C6FE46A1689FCD014A0B8B55D57764@azsmsx505.amr.corp.intel.com>
+ <20090722022745.GM8515@gospo.rdu.redhat.com>
+ <5f2db9d90907212025k31c3a941v5fd1be9ed171e4c1@mail.gmail.com>
+ <20090722193400.GN8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"stable@kernel.org" <stable@kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web30508.mail.mud.yahoo.com ([68.142.200.121]:36076 "HELO
-	web30508.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752263AbZGVTmL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 15:42:11 -0400
+Received: from mga03.intel.com ([143.182.124.21]:18700 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755178AbZGVUAw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2009 16:00:52 -0400
+In-Reply-To: <20090722193400.GN8515@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> [PATCH] ixgbe: remove unnecessary call to device_init_wakeup
+> 
+> Calls to device_init_wakeup should not be necessary in drivers that use
+> device_set_wakeup_enable since pci_pm_init will set the can_wakeup flag
+> for the device when initialized.
+> 
+> I can't test this since I don't have any of the 82599 KX4 interfaces
+> (the only ones capable of WOL), but I did instrument ixgbe_probe and
+> know that can_wakeup=1 when device_init_wakeup is removed.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> 
+> ---
+> 
+>  ixgbe_main.c |    1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index 79f60e8..2f15abf 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -5640,7 +5640,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+>  		adapter->wol = 0;
+>  		break;
+>  	}
+> -	device_init_wakeup(&adapter->pdev->dev, true);
+>  	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+>  
+>  	/* pick up the PCI bus settings for reporting later */
 
-Hello,
+I need to rebuild one of my boxes in the lab that I do WoL testing on for 
+ixgbe devices.  That shouldn't take me long, and I'll test this.  If it 
+works as expected, I'll send my ack.
 
-I am a researcher at a university working on a new protocol based off o=
-f TCP, using the 2.6.26.5 kernel on a pair of gentoo machines. I need t=
-o send additional sk_buffs containing redundancy information as well as=
- the sk_buffs TCP would normally send containing data.=A0
-
-The redundancy sk_buffs are constructed by a function called by tcp_pus=
-h (). I create these sk_buffs by calling sk_stream_alloc_skb(), then up=
-dating a few fields in the header (such as sequence number), but I'm cl=
-early doing something wrong or missing a step. I believe this because a=
-fter adding a printk to the csum_error label in tcp_rcv_established, th=
-e receiver-side logs show that these redundancy sk_buffs are triggering=
- this label. The normal data sk_buffs, as expected, do not trigger this=
- printk.
-
-Does anyone have any information about the specific steps to create a n=
-ew sk_buff, update header fields, and populate it with data so that the=
- receiver processes the sk_buff correctly?=A0
-
-Thanks in advance for any help you can provide,
-Buster Holzbauer
-
-
-
-
-     =20
+Cheers,
+-PJ Waskiewicz
