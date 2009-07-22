@@ -1,127 +1,118 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: [PATCH] softirq: tasklet_hrtimer
-Date: Wed, 22 Jul 2009 14:28:44 +0200
-Message-ID: <1248265724.27058.1366.camel@twins>
-References: <1247588890.7500.186.camel@twins>
-	 <alpine.LFD.2.01.0907140940440.13838@localhost.localdomain>
-	 <1247832892.15751.35.camel@twins>
-	 <20090721.201855.32703627.davem@davemloft.net>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Avoid transmitting during sky2_restart()
+Date: Wed, 22 Jul 2009 21:39:22 +0900
+Message-ID: <392fb48f0907220539p79641245gefb725f49fafab4b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754365AbZGVM1l@vger.kernel.org>
-In-Reply-To: <20090721.201855.32703627.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f213.google.com ([209.85.217.213]:34207 "EHLO
+	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754205AbZGVMjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 08:39:23 -0400
+Received: by gxk9 with SMTP id 9so258581gxk.13
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 05:39:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thomas, will you take this?
+Hi Stephen,
+
+I've improved this patch a little to stop the transmit queue before
+starting to return NETDEV_TX_BUSY in sky2_xmit_frame().
+
+If you have any suggestions for how to get rid of the
+SKY2_HW_RESTARTING state please let me know.  As far as I can tell,
+the queue cannot be stopped during a restart using netif_stop_queue
+and netif_tx_lock, as those functions are used elsewhere in the code.
+
+thanks,
+
+Mike
 
 ---
-Subject: softirq: tasklet_hrtimer
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Wed Jul 22 14:18:35 CEST 2009
 
-Stick tasklets and hrtimers together to provide an in-softirq hrtimer
-experience.
+Block the transmit queue during sky2_restart().
+Don't free transmit packets in sky2_status_intr() during restart,
+ as they'll be free'd in sky2_tx_clean()
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
 ---
- include/linux/interrupt.h |   11 +++++++++++
- kernel/softirq.c          |   44 +++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 54 insertions(+), 1 deletion(-)
+ drivers/net/sky2.c |   19 ++++++++++++++++++-
+ drivers/net/sky2.h |    1 +
+ 2 files changed, 19 insertions(+), 1 deletions(-)
 
-Index: linux-2.6/include/linux/interrupt.h
-===================================================================
---- linux-2.6.orig/include/linux/interrupt.h
-+++ linux-2.6/include/linux/interrupt.h
-@@ -14,6 +14,7 @@
- #include <linux/irqflags.h>
- #include <linux/smp.h>
- #include <linux/percpu.h>
-+#include <linux/hrtimer.h>
- 
- #include <asm/atomic.h>
- #include <asm/ptrace.h>
-@@ -517,6 +518,16 @@ extern void tasklet_kill_immediate(struc
- extern void tasklet_init(struct tasklet_struct *t,
- 			 void (*func)(unsigned long), unsigned long data);
- 
-+struct tasklet_hrtimer {
-+	struct hrtimer 		timer;
-+	struct tasklet_struct	tasklet;
-+	enum hrtimer_restart	(*function)(struct hrtimer *);
-+};
-+
-+void tasklet_hrtimer_init(struct tasklet_hrtimer *ttimer,
-+			  enum hrtimer_restart (*function)(struct hrtimer *),
-+			  clockid_t which_clock, enum hrtimer_mode mode);
-+
- /*
-  * Autoprobing for irqs:
-  *
-Index: linux-2.6/kernel/softirq.c
-===================================================================
---- linux-2.6.orig/kernel/softirq.c
-+++ linux-2.6/kernel/softirq.c
-@@ -345,7 +345,9 @@ void open_softirq(int nr, void (*action)
- 	softirq_vec[nr].action = action;
- }
- 
--/* Tasklets */
-+/*
-+ * Tasklets
-+ */
- struct tasklet_head
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 661abd0..826d764 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1533,6 +1533,8 @@ static inline int tx_dist(unsigned tail, unsigned head)
+ /* Number of list elements available for next tx */
+ static inline int tx_avail(const struct sky2_port *sky2)
  {
- 	struct tasklet_struct *head;
-@@ -493,6 +495,46 @@ void tasklet_kill(struct tasklet_struct 
- 
- EXPORT_SYMBOL(tasklet_kill);
- 
-+/*
-+ * tasklet_hrtimer
-+ */
++	if (unlikely(sky2->hw->flags & SKY2_HW_RESTARTING))
++		return 0;
+ 	return sky2->tx_pending - tx_dist(sky2->tx_cons, sky2->tx_prod);
+ }
+
+@@ -2359,7 +2361,8 @@ static inline void sky2_tx_done(struct
+net_device *dev, u16 last)
+ {
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+
+-	if (netif_running(dev)) {
++	if (netif_running(dev) &&
++	    !(sky2->hw->flags & SKY2_HW_RESTARTING)) {
+ 		netif_tx_lock(dev);
+ 		sky2_tx_complete(sky2, last);
+ 		netif_tx_unlock(dev);
+@@ -3074,6 +3077,17 @@ static void sky2_restart(struct work_struct *work)
+ 	int i, err;
+
+ 	rtnl_lock();
 +
-+static enum hrtimer_restart __hrtimer_tasklet_trampoline(struct hrtimer *timer)
-+{
-+	struct tasklet_hrtimer *ttimer =
-+		container_of(timer, struct tasklet_hrtimer, timer);
++	/* stop transmit queues */
++	napi_disable(&hw->napi);
++	for (i = 0; i < hw->ports; i++) {
++		dev = hw->dev[i];
++		if (netif_running(dev))
++			netif_stop_queue(dev);
++	}
++	hw->flags |= SKY2_HW_RESTARTING;
++	napi_enable (&hw->napi);
 +
-+	tasklet_hi_schedule(&ttimer->tasklet);
-+
-+	return HRTIMER_NORESTART;
-+}
-+
-+static void __tasklet_hrtimer_trampoline(unsigned long data)
-+{
-+	struct tasklet_hrtimer *ttimer = (void *)data;
-+	enum hrtimer_restart restart;
-+
-+	restart = ttimer->function(&ttimer->timer);
-+	if (restart != HRTIMER_NORESTART)
-+		hrtimer_restart(&ttimer->timer);
-+}
-+
-+void tasklet_hrtimer_init(struct tasklet_hrtimer *ttimer,
-+			  enum hrtimer_restart (*function)(struct hrtimer *),
-+			  clockid_t which_clock, enum hrtimer_mode mode)
-+{
-+	hrtimer_init(&ttimer->timer, which_clock, mode);
-+	ttimer->timer.function = __hrtimer_tasklet_trampoline;
-+	tasklet_init(&ttimer->tasklet, __tasklet_hrtimer_trampoline,
-+		     (unsigned long)ttimer);
-+	ttimer->function = function;
-+}
-+EXPORT_SYMBOL_GPL(tasklet_hrtimer_init);
-+
-+/*
-+ * Remote softirq bits
-+ */
-+
- DEFINE_PER_CPU(struct list_head [NR_SOFTIRQS], softirq_work_list);
- EXPORT_PER_CPU_SYMBOL(softirq_work_list);
- 
+ 	for (i = 0; i < hw->ports; i++) {
+ 		dev = hw->dev[i];
+ 		if (netif_running(dev))
+@@ -3085,6 +3099,7 @@ static void sky2_restart(struct work_struct *work)
+ 	sky2_reset(hw);
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_BASE);
+ 	napi_enable(&hw->napi);
++	hw->flags &= ~SKY2_HW_RESTARTING;
+
+ 	for (i = 0; i < hw->ports; i++) {
+ 		dev = hw->dev[i];
+@@ -3095,6 +3110,8 @@ static void sky2_restart(struct work_struct *work)
+ 				       dev->name, err);
+ 				dev_close(dev);
+ 			}
++			else
++				netif_wake_queue(dev);
+ 		}
+ 	}
+
+diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
+index b5549c9..e71c161 100644
+--- a/drivers/net/sky2.h
++++ b/drivers/net/sky2.h
+@@ -2073,6 +2073,7 @@ struct sky2_hw {
+ #define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
+ #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
+ #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
++#define SKY2_HW_RESTARTING	0x00000100	/* true while restarting */
+
+ 	u8	     	     chip_id;
+ 	u8		     chip_rev;
+-- 
+1.5.6.5
