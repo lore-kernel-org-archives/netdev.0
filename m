@@ -1,37 +1,24 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [PATCH net-next-2.6] bonding: propogate vlan_features to	bonding
- master
-Date: Thu, 23 Jul 2009 10:24:25 +0300
-Message-ID: <4A681029.4070600@voltaire.com>
-References: <24949.1240530461@death.nxdomain.ibm.com>	<4A2CDB16.9030000@Voltaire.com> <4A642600.2010501@voltaire.com>	<3463.1248298460@death.nxdomain.ibm.com> <4A67FD4C.4080407@cosmosbay.com>
+From: MR PATRICK CHAN <k.muzundu@unza.zm>
+Subject: Your Webmail Quota Has Exceeded The Set Quota/Limit
+Date: Thu, 23 Jul 2009 00:29:23 +0200 (CAT)
+Message-ID: <790404.60001248301763712.JavaMail.root@impala.unza.zm>
+Reply-To: MR PATRICK CHAN
+	  <"patrickchan_contact2008@yahoo.co.jppatrickchan_contact2008"@yahoo.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:49408 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752838AbZGWHYe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jul 2009 03:24:34 -0400
-In-Reply-To: <4A67FD4C.4080407@cosmosbay.com>
+Received: from impala.unza.zm ([196.46.223.4]:41632 "EHLO impala.unza.zm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929AbZGWIAK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jul 2009 04:00:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Jay Vosburgh a =E9crit :
->> Propogate the vlan_features of the slave devices to the bonding mast=
-er device, using the same logic as for regular features.
-> Seems pretty cool, but I could not test it on my dev machine, since t=
-g3 and bnx2 drivers dont advertize yet vlan_features
-The bnx2x maintainer posted yesterday a patch that does so, I assume a=20
-similar patch could work for at least one of tg3 or bnx2. I copied both=
-=20
-maintainers on this email, in  the hope they can come up with a patch.
+Your Webmail Quota Has Exceeded The Set Quota/Limit Which Is 20GB.
+You  Are Currently Running On 23GB Due To Hidden Files And Folder On Your Mailbox.
+Please Click the Link Below To Validate Your Mailbox And Increase Your Quota.
 
-Or.
-
+www.jotform.com/form/92023703919
+Failure To Click This Link And Validate Your Quota May Result In Loss Of Important Information In Your Mailbox/Or Cause Limited Access To It.
