@@ -1,7 +1,7 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [PATCH 09/13] mISDN: Add driver for Winbond cards
-Date: Wed, 22 Jul 2009 20:06:05 +0200
-Message-ID: <707b2ce6c1f4f1261788f2ff09ad82c35e0e6240.1248546896.git.keil@b1-systems.de>
+Subject: [PATCH 07/13] mISDN: Driver for AVM Fritz!CARD PCI
+Date: Wed, 22 Jul 2009 19:52:24 +0200
+Message-ID: <6115d2f3fcaebed5b88fa9cefd178bb5b07461ff.1248546896.git.keil@b1-systems.de>
 References: <cover.1248546896.git.keil@b1-systems.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,59 +22,58 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add driver for Winbond W6692 based PCI cards.
+Add mISDN driver for AVM FRITZ!CARD PCI (all versions).
 
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/hardware/mISDN/Kconfig  |    7 +
- drivers/isdn/hardware/mISDN/Makefile |    1 +
- drivers/isdn/hardware/mISDN/w6692.c  | 1440 ++++++++++++++++++++++++++++++++++
- drivers/isdn/hardware/mISDN/w6692.h  |  190 +++++
- 4 files changed, 1638 insertions(+), 0 deletions(-)
- create mode 100644 drivers/isdn/hardware/mISDN/w6692.c
- create mode 100644 drivers/isdn/hardware/mISDN/w6692.h
+ drivers/isdn/hardware/mISDN/Kconfig    |    8 +
+ drivers/isdn/hardware/mISDN/Makefile   |    1 +
+ drivers/isdn/hardware/mISDN/avmfritz.c | 1152 ++++++++++++++++++++++++++++++++
+ 3 files changed, 1161 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/isdn/hardware/mISDN/avmfritz.c
 
 diff --git a/drivers/isdn/hardware/mISDN/Kconfig b/drivers/isdn/hardware/mISDN/Kconfig
-index 2600534..d72586e 100644
+index a8542b8..212dee6 100644
 --- a/drivers/isdn/hardware/mISDN/Kconfig
 +++ b/drivers/isdn/hardware/mISDN/Kconfig
-@@ -65,6 +65,13 @@ config MISDN_INFINEON
- 	  Enable support for cards with ISAC + HSCX, IPAC or IPAC-SX
- 	  chip from Infineon (former manufacturer Siemens).
+@@ -39,6 +39,14 @@ config MISDN_HFCUSB
+ 	  Enable support for USB ISDN TAs with Cologne Chip AG's
+ 	  HFC-S USB ISDN Controller
  
-+config MISDN_W6692
-+	tristate "Support for cards with Winbond 6692"
++config MISDN_AVMFRITZ
++	tristate "Support for AVM FRITZ!CARD PCI"
 +	depends on MISDN
 +	depends on PCI
++	select MISDN_IPAC
 +	help
-+	  Enable support for Winbond 6692 PCI chip based cards.
++	  Enable support for AVMs FRITZ!CARD PCI cards
 +
- 
- config MISDN_IPAC
- 	tristate
+ config MISDN_INFINEON
+ 	tristate "Support for cards with Infineon chipset"
+ 	depends on MISDN
 diff --git a/drivers/isdn/hardware/mISDN/Makefile b/drivers/isdn/hardware/mISDN/Makefile
-index e18f964..61dd5a5 100644
+index 2863455..8204d84 100644
 --- a/drivers/isdn/hardware/mISDN/Makefile
 +++ b/drivers/isdn/hardware/mISDN/Makefile
-@@ -9,6 +9,7 @@ obj-$(CONFIG_MISDN_HFCUSB) += hfcsusb.o
- obj-$(CONFIG_MISDN_AVMFRITZ) += avmfritz.o
- obj-$(CONFIG_MISDN_SPEEDFAX) += speedfax.o
+@@ -6,6 +6,7 @@
+ obj-$(CONFIG_MISDN_HFCPCI) += hfcpci.o
+ obj-$(CONFIG_MISDN_HFCMULTI) += hfcmulti.o
+ obj-$(CONFIG_MISDN_HFCUSB) += hfcsusb.o
++obj-$(CONFIG_MISDN_AVMFRITZ) += avmfritz.o
  obj-$(CONFIG_MISDN_INFINEON) += mISDNinfineon.o
-+obj-$(CONFIG_MISDN_W6692) += w6692.o
  # chip modules
  obj-$(CONFIG_MISDN_IPAC) += mISDNipac.o
- obj-$(CONFIG_MISDN_ISAR) += mISDNisar.o
-diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
+diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
 new file mode 100644
-index 0000000..1b9008f
+index 0000000..81ac541
 --- /dev/null
-+++ b/drivers/isdn/hardware/mISDN/w6692.c
-@@ -0,0 +1,1440 @@
++++ b/drivers/isdn/hardware/mISDN/avmfritz.c
+@@ -0,0 +1,1152 @@
 +/*
-+ * w6692.c     mISDN driver for Winbond w6692 based cards
++ * avm_fritz.c    low level stuff for AVM FRITZ!CARD PCI ISDN cards
++ *                Thanks to AVM, Berlin for informations
 + *
-+ * Author      Karsten Keil <kkeil-l3A5Bk7waGM@public.gmane.org>
-+ *             based on the w6692 I4L driver from Petr Novak <petr.novak@i.cz>
++ * Author       Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
 + *
 + * Copyright 2009  by Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
 + *
@@ -92,89 +91,140 @@ index 0000000..1b9008f
 + * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + *
 + */
-+
 +#include <linux/module.h>
 +#include <linux/pci.h>
 +#include <linux/delay.h>
 +#include <linux/mISDNhw.h>
-+#include "w6692.h"
++#include <asm/unaligned.h>
++#include "ipac.h"
 +
-+#define W6692_REV	"2.0"
 +
-+#define DBUSY_TIMER_VALUE	80
++#define AVMFRITZ_REV	"2.1"
++
++static int AVM_cnt;
++static int debug;
 +
 +enum {
-+	W6692_ASUS,
-+	W6692_WINBOND,
-+	W6692_USR
++	AVM_FRITZ_PCI,
++	AVM_FRITZ_PCIV2,
 +};
 +
-+/* private data in the PCI devices list */
-+struct w6692map {
-+	u_int	subtype;
-+	char	*name;
-+};
++#define HDLC_FIFO		0x0
++#define HDLC_STATUS		0x4
++#define CHIP_WINDOW		0x10
 +
-+static const struct w6692map  w6692_map[] =
-+{
-+	{W6692_ASUS, "Dynalink/AsusCom IS64PH"},
-+	{W6692_WINBOND, "Winbond W6692"},
-+	{W6692_USR, "USR W6692"}
-+};
++#define CHIP_INDEX		0x4
++#define AVM_HDLC_1		0x00
++#define AVM_HDLC_2		0x01
++#define AVM_ISAC_FIFO		0x02
++#define AVM_ISAC_REG_LOW	0x04
++#define AVM_ISAC_REG_HIGH	0x06
 +
-+#ifndef PCI_VENDOR_ID_USR
-+#define PCI_VENDOR_ID_USR	0x16ec
-+#define PCI_DEVICE_ID_USR_6692	0x3409
++#define AVM_STATUS0_IRQ_ISAC	0x01
++#define AVM_STATUS0_IRQ_HDLC	0x02
++#define AVM_STATUS0_IRQ_TIMER	0x04
++#define AVM_STATUS0_IRQ_MASK	0x07
++
++#define AVM_STATUS0_RESET	0x01
++#define AVM_STATUS0_DIS_TIMER	0x02
++#define AVM_STATUS0_RES_TIMER	0x04
++#define AVM_STATUS0_ENA_IRQ	0x08
++#define AVM_STATUS0_TESTBIT	0x10
++
++#define AVM_STATUS1_INT_SEL	0x0f
++#define AVM_STATUS1_ENA_IOM	0x80
++
++#define HDLC_MODE_ITF_FLG	0x01
++#define HDLC_MODE_TRANS		0x02
++#define HDLC_MODE_CCR_7		0x04
++#define HDLC_MODE_CCR_16	0x08
++#define HDLC_MODE_TESTLOOP	0x80
++
++#define HDLC_INT_XPR		0x80
++#define HDLC_INT_XDU		0x40
++#define HDLC_INT_RPR		0x20
++#define HDLC_INT_MASK		0xE0
++
++#define HDLC_STAT_RME		0x01
++#define HDLC_STAT_RDO		0x10
++#define HDLC_STAT_CRCVFRRAB	0x0E
++#define HDLC_STAT_CRCVFR	0x06
++#define HDLC_STAT_RML_MASK	0x3f00
++
++#define HDLC_CMD_XRS		0x80
++#define HDLC_CMD_XME		0x01
++#define HDLC_CMD_RRS		0x20
++#define HDLC_CMD_XML_MASK	0x3f00
++#define HDLC_FIFO_SIZE		32
++
++/* Fritz PCI v2.0 */
++
++#define AVM_HDLC_FIFO_1		0x10
++#define AVM_HDLC_FIFO_2		0x18
++
++#define AVM_HDLC_STATUS_1	0x14
++#define AVM_HDLC_STATUS_2	0x1c
++
++#define AVM_ISACX_INDEX		0x04
++#define AVM_ISACX_DATA		0x08
++
++/* data struct */
++#define LOG_SIZE		63
++
++struct hdlc_stat_reg {
++#ifdef __BIG_ENDIAN
++	u8 fill;
++	u8 mode;
++	u8 xml;
++	u8 cmd;
++#else
++	u8 cmd;
++	u8 xml;
++	u8 mode;
++	u8 fill;
 +#endif
++} __attribute__((packed));
 +
-+struct w6692_ch {
-+	struct bchannel		bch;
-+	u32			addr;
-+	struct timer_list	timer;
-+	u8			b_mode;
++struct hdlc_hw {
++	union {
++		u32 ctrl;
++		struct hdlc_stat_reg sr;
++	} ctrl;
++	u32 stat;
 +};
 +
-+struct w6692_hw {
++struct fritzcard {
 +	struct list_head	list;
 +	struct pci_dev		*pdev;
 +	char			name[MISDN_MAX_IDLEN];
-+	u32			irq;
++	u8			type;
++	u8			ctrlreg;
++	u16			irq;
 +	u32			irqcnt;
 +	u32			addr;
-+	u32			fmask;	/* feature mask - bit set per card nr */
-+	int			subtype;
-+	spinlock_t		lock;	/* hw lock */
-+	u8			imask;
-+	u8			pctl;
-+	u8			xaddr;
-+	u8			xdata;
-+	u8			state;
-+	struct w6692_ch		bc[2];
-+	struct dchannel		dch;
-+	char			log[64];
++	spinlock_t		lock; /* hw lock */
++	struct isac_hw		isac;
++	struct hdlc_hw		hdlc[2];
++	struct bchannel		bch[2];
++	char			log[LOG_SIZE + 1];
 +};
 +
 +static LIST_HEAD(Cards);
 +static DEFINE_RWLOCK(card_lock); /* protect Cards */
 +
-+static int w6692_cnt;
-+static int debug;
-+static u32 led;
-+static u32 pots;
-+
 +static void
-+_set_debug(struct w6692_hw *card)
++_set_debug(struct fritzcard *card)
 +{
-+	card->dch.debug = debug;
-+	card->bc[0].bch.debug = debug;
-+	card->bc[1].bch.debug = debug;
++	card->isac.dch.debug = debug;
++	card->bch[0].debug = debug;
++	card->bch[1].debug = debug;
 +}
 +
 +static int
 +set_debug(const char *val, struct kernel_param *kp)
 +{
 +	int ret;
-+	struct w6692_hw *card;
++	struct fritzcard *card;
 +
 +	ret = param_set_uint(val, kp);
 +	if (!ret) {
@@ -188,828 +238,494 @@ index 0000000..1b9008f
 +
 +MODULE_AUTHOR("Karsten Keil");
 +MODULE_LICENSE("GPL v2");
-+MODULE_VERSION(W6692_REV);
++MODULE_VERSION(AVMFRITZ_REV);
 +module_param_call(debug, set_debug, param_get_uint, &debug, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(debug, "W6692 debug mask");
-+module_param(led, uint, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(led, "W6692 LED support bitmask (one bit per card)");
-+module_param(pots, uint, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(pots, "W6692 POTS support bitmask (one bit per card)");
++MODULE_PARM_DESC(debug, "avmfritz debug mask");
 +
-+static inline u8
-+ReadW6692(struct w6692_hw *card, u8 offset)
-+{
-+	return inb(card->addr + offset);
-+}
++/* Interface functions */
 +
-+static inline void
-+WriteW6692(struct w6692_hw *card, u8 offset, u8 value)
++static u8
++ReadISAC_V1(void *p, u8 offset)
 +{
-+	outb(value, card->addr + offset);
-+}
++	struct fritzcard *fc = p;
++	u8 idx = (offset > 0x2f) ? AVM_ISAC_REG_HIGH : AVM_ISAC_REG_LOW;
 +
-+static inline u8
-+ReadW6692B(struct w6692_ch *bc, u8 offset)
-+{
-+	return inb(bc->addr + offset);
-+}
-+
-+static inline void
-+WriteW6692B(struct w6692_ch *bc, u8 offset, u8 value)
-+{
-+	outb(value, bc->addr + offset);
++	outb(idx, fc->addr + CHIP_INDEX);
++	return inb(fc->addr + CHIP_WINDOW + (offset & 0xf));
 +}
 +
 +static void
-+enable_hwirq(struct w6692_hw *card)
++WriteISAC_V1(void *p, u8 offset, u8 value)
 +{
-+	WriteW6692(card, W_IMASK, card->imask);
++	struct fritzcard *fc = p;
++	u8 idx = (offset > 0x2f) ? AVM_ISAC_REG_HIGH : AVM_ISAC_REG_LOW;
++
++	outb(idx, fc->addr + CHIP_INDEX);
++	outb(value, fc->addr + CHIP_WINDOW + (offset & 0xf));
 +}
 +
 +static void
-+disable_hwirq(struct w6692_hw *card)
++ReadFiFoISAC_V1(void *p, u8 off, u8 *data, int size)
 +{
-+	WriteW6692(card, W_IMASK, 0xff);
-+}
++	struct fritzcard *fc = p;
 +
-+static const char *W6692Ver[] = {"V00", "V01", "V10", "V11"};
-+
-+static void
-+W6692Version(struct w6692_hw *card)
-+{
-+	int val;
-+
-+	val = ReadW6692(card, W_D_RBCH);
-+	pr_notice("%s: Winbond W6692 version: %s\n", card->name,
-+		W6692Ver[(val >> 6) & 3]);
++	outb(AVM_ISAC_FIFO, fc->addr + CHIP_INDEX);
++	insb(fc->addr + CHIP_WINDOW, data, size);
 +}
 +
 +static void
-+w6692_led_handler(struct w6692_hw *card, int on)
++WriteFiFoISAC_V1(void *p, u8 off, u8 *data, int size)
 +{
-+	if ((!(card->fmask & led)) || card->subtype == W6692_USR)
-+		return;
-+	if (on) {
-+		card->xdata &= 0xfb;	/*  LED ON */
-+		WriteW6692(card, W_XDATA, card->xdata);
-+	} else {
-+		card->xdata |= 0x04;	/*  LED OFF */
-+		WriteW6692(card, W_XDATA, card->xdata);
-+	}
++	struct fritzcard *fc = p;
++
++	outb(AVM_ISAC_FIFO, fc->addr + CHIP_INDEX);
++	outsb(fc->addr + CHIP_WINDOW, data, size);
++}
++
++static u8
++ReadISAC_V2(void *p, u8 offset)
++{
++	struct fritzcard *fc = p;
++
++	outl(offset, fc->addr + AVM_ISACX_INDEX);
++	return 0xff & inl(fc->addr + AVM_ISACX_DATA);
 +}
 +
 +static void
-+ph_command(struct w6692_hw *card, u8 cmd)
++WriteISAC_V2(void *p, u8 offset, u8 value)
 +{
-+	pr_debug("%s: ph_command %x\n", card->name, cmd);
-+	WriteW6692(card, W_CIX, cmd);
++	struct fritzcard *fc = p;
++
++	outl(offset, fc->addr + AVM_ISACX_INDEX);
++	outl(value, fc->addr + AVM_ISACX_DATA);
 +}
 +
 +static void
-+W6692_new_ph(struct w6692_hw *card)
++ReadFiFoISAC_V2(void *p, u8 off, u8 *data, int size)
 +{
-+	if (card->state == W_L1CMD_RST)
-+		ph_command(card, W_L1CMD_DRC);
-+	schedule_event(&card->dch, FLG_PHCHANGE);
++	struct fritzcard *fc = p;
++	int i;
++
++	outl(off, fc->addr + AVM_ISACX_INDEX);
++	for (i = 0; i < size; i++)
++		data[i] = 0xff & inl(fc->addr + AVM_ISACX_DATA);
 +}
 +
 +static void
-+W6692_ph_bh(struct dchannel *dch)
++WriteFiFoISAC_V2(void *p, u8 off, u8 *data, int size)
 +{
-+	struct w6692_hw *card = dch->hw;
++	struct fritzcard *fc = p;
++	int i;
 +
-+	switch (card->state) {
-+	case W_L1CMD_RST:
-+		dch->state = 0;
-+		l1_event(dch->l1, HW_RESET_IND);
-+		break;
-+	case W_L1IND_CD:
-+		dch->state = 3;
-+		l1_event(dch->l1, HW_DEACT_CNF);
-+		break;
-+	case W_L1IND_DRD:
-+		dch->state = 3;
-+		l1_event(dch->l1, HW_DEACT_IND);
-+		break;
-+	case W_L1IND_CE:
-+		dch->state = 4;
-+		l1_event(dch->l1, HW_POWERUP_IND);
-+		break;
-+	case W_L1IND_LD:
-+		if (dch->state <= 5) {
-+			dch->state = 5;
-+			l1_event(dch->l1, ANYSIGNAL);
-+		} else {
-+			dch->state = 8;
-+			l1_event(dch->l1, LOSTFRAMING);
-+		}
-+		break;
-+	case W_L1IND_ARD:
-+		dch->state = 6;
-+		l1_event(dch->l1, INFO2);
-+		break;
-+	case W_L1IND_AI8:
-+		dch->state = 7;
-+		l1_event(dch->l1, INFO4_P8);
-+		break;
-+	case W_L1IND_AI10:
-+		dch->state = 7;
-+		l1_event(dch->l1, INFO4_P10);
-+		break;
-+	default:
-+		pr_debug("%s: TE unknown state %02x dch state %02x\n",
-+			card->name, card->state, dch->state);
-+		break;
-+	}
-+	pr_debug("%s: TE newstate %02x\n", card->name, dch->state);
++	outl(off, fc->addr + AVM_ISACX_INDEX);
++	for (i = 0; i < size; i++)
++		outl(data[i], fc->addr + AVM_ISACX_DATA);
 +}
 +
-+static void
-+W6692_empty_Dfifo(struct w6692_hw *card, int count)
++static struct bchannel *
++Sel_BCS(struct fritzcard *fc, u32 channel)
 +{
-+	struct dchannel *dch = &card->dch;
-+	u8 *ptr;
-+
-+	pr_debug("%s: empty_Dfifo %d\n", card->name, count);
-+	if (!dch->rx_skb) {
-+		dch->rx_skb = mI_alloc_skb(card->dch.maxlen, GFP_ATOMIC);
-+		if (!dch->rx_skb) {
-+			pr_info("%s: D receive out of memory\n", card->name);
-+			WriteW6692(card, W_D_CMDR, W_D_CMDR_RACK);
-+			return;
-+		}
-+	}
-+	if ((dch->rx_skb->len + count) >= dch->maxlen) {
-+		pr_debug("%s: empty_Dfifo overrun %d\n", card->name,
-+			dch->rx_skb->len + count);
-+		WriteW6692(card, W_D_CMDR, W_D_CMDR_RACK);
-+		return;
-+	}
-+	ptr = skb_put(dch->rx_skb, count);
-+	insb(card->addr + W_D_RFIFO, ptr, count);
-+	WriteW6692(card, W_D_CMDR, W_D_CMDR_RACK);
-+	if (debug & DEBUG_HW_DFIFO) {
-+		snprintf(card->log, 63, "D-recv %s %d ",
-+			card->name, count);
-+		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, ptr, count);
-+	}
-+}
-+
-+static void
-+W6692_fill_Dfifo(struct w6692_hw *card)
-+{
-+	struct dchannel *dch = &card->dch;
-+	int count;
-+	u8 *ptr;
-+	u8 cmd = W_D_CMDR_XMS;
-+
-+	pr_debug("%s: fill_Dfifo\n", card->name);
-+	if (!dch->tx_skb)
-+		return;
-+	count = dch->tx_skb->len - dch->tx_idx;
-+	if (count <= 0)
-+		return;
-+	if (count > W_D_FIFO_THRESH)
-+		count = W_D_FIFO_THRESH;
++	if (test_bit(FLG_ACTIVE, &fc->bch[0].Flags) &&
++		(fc->bch[0].nr & channel))
++		return &fc->bch[0];
++	else if (test_bit(FLG_ACTIVE, &fc->bch[1].Flags) &&
++		(fc->bch[1].nr & channel))
++		return &fc->bch[1];
 +	else
-+		cmd |= W_D_CMDR_XME;
-+	ptr = dch->tx_skb->data + dch->tx_idx;
-+	dch->tx_idx += count;
-+	outsb(card->addr + W_D_XFIFO, ptr, count);
-+	WriteW6692(card, W_D_CMDR, cmd);
-+	if (test_and_set_bit(FLG_BUSY_TIMER, &dch->Flags)) {
-+		pr_debug("%s: fill_Dfifo dbusytimer running\n", card->name);
-+		del_timer(&dch->timer);
-+	}
-+	init_timer(&dch->timer);
-+	dch->timer.expires = jiffies + ((DBUSY_TIMER_VALUE * HZ)/1000);
-+	add_timer(&dch->timer);
-+	if (debug & DEBUG_HW_DFIFO) {
-+		snprintf(card->log, 63, "D-send %s %d ",
-+			card->name, count);
-+		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, ptr, count);
++		return NULL;
++}
++
++static inline void
++__write_ctrl_pci(struct fritzcard *fc, struct hdlc_hw *hdlc, u32 channel) {
++	u32 idx = channel == 2 ? AVM_HDLC_2 : AVM_HDLC_1;
++
++	outl(idx, fc->addr + CHIP_INDEX);
++	outl(hdlc->ctrl.ctrl, fc->addr + CHIP_WINDOW + HDLC_STATUS);
++}
++
++static inline void
++__write_ctrl_pciv2(struct fritzcard *fc, struct hdlc_hw *hdlc, u32 channel) {
++	outl(hdlc->ctrl.ctrl, fc->addr + (channel == 2 ? AVM_HDLC_STATUS_2 :
++		AVM_HDLC_STATUS_1));
++}
++
++void
++write_ctrl(struct bchannel *bch, int which) {
++	struct fritzcard *fc = bch->hw;
++	struct hdlc_hw *hdlc;
++
++	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
++	pr_debug("%s: hdlc %c wr%x ctrl %x\n", fc->name, '@' + bch->nr,
++		which, hdlc->ctrl.ctrl);
++	switch (fc->type) {
++	case AVM_FRITZ_PCIV2:
++		__write_ctrl_pciv2(fc, hdlc, bch->nr);
++		break;
++	case AVM_FRITZ_PCI:
++		__write_ctrl_pci(fc, hdlc, bch->nr);
++		break;
 +	}
 +}
 +
-+static void
-+d_retransmit(struct w6692_hw *card)
++
++static inline u32
++__read_status_pci(u_long addr, u32 channel)
 +{
-+	struct dchannel *dch = &card->dch;
-+
-+	if (test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags))
-+		del_timer(&dch->timer);
-+#ifdef FIXME
-+	if (test_and_clear_bit(FLG_L1_BUSY, &dch->Flags))
-+		dchannel_sched_event(dch, D_CLEARBUSY);
-+#endif
-+	if (test_bit(FLG_TX_BUSY, &dch->Flags)) {
-+		/* Restart frame */
-+		dch->tx_idx = 0;
-+		W6692_fill_Dfifo(card);
-+	} else if (dch->tx_skb) { /* should not happen */
-+		pr_info("%s: %s without TX_BUSY\n", card->name, __func__);
-+		test_and_set_bit(FLG_TX_BUSY, &dch->Flags);
-+		dch->tx_idx = 0;
-+		W6692_fill_Dfifo(card);
-+	} else {
-+		pr_info("%s: XDU no TX_BUSY\n", card->name);
-+		if (get_next_dframe(dch))
-+			W6692_fill_Dfifo(card);
-+	}
++	outl(channel == 2 ? AVM_HDLC_2 : AVM_HDLC_1, addr + CHIP_INDEX);
++	return inl(addr + CHIP_WINDOW + HDLC_STATUS);
 +}
 +
-+static void
-+handle_rxD(struct w6692_hw *card) {
-+	u8	stat;
-+	int	count;
-+
-+	stat = ReadW6692(card, W_D_RSTA);
-+	if (stat & (W_D_RSTA_RDOV | W_D_RSTA_CRCE | W_D_RSTA_RMB)) {
-+		if (stat & W_D_RSTA_RDOV) {
-+			pr_debug("%s: D-channel RDOV\n", card->name);
-+#ifdef ERROR_STATISTIC
-+			card->dch.err_rx++;
-+#endif
-+		}
-+		if (stat & W_D_RSTA_CRCE) {
-+			pr_debug("%s: D-channel CRC error\n", card->name);
-+#ifdef ERROR_STATISTIC
-+			card->dch.err_crc++;
-+#endif
-+		}
-+		if (stat & W_D_RSTA_RMB) {
-+			pr_debug("%s: D-channel ABORT\n", card->name);
-+#ifdef ERROR_STATISTIC
-+			card->dch.err_rx++;
-+#endif
-+		}
-+		if (card->dch.rx_skb)
-+			dev_kfree_skb(card->dch.rx_skb);
-+		card->dch.rx_skb = NULL;
-+		WriteW6692(card, W_D_CMDR, W_D_CMDR_RACK | W_D_CMDR_RRST);
-+	} else {
-+		count = ReadW6692(card, W_D_RBCL) & (W_D_FIFO_THRESH - 1);
-+		if (count == 0)
-+			count = W_D_FIFO_THRESH;
-+		W6692_empty_Dfifo(card, count);
-+		recv_Dchannel(&card->dch);
-+	}
-+}
-+
-+static void
-+handle_txD(struct w6692_hw *card) {
-+	if (test_and_clear_bit(FLG_BUSY_TIMER, &card->dch.Flags))
-+		del_timer(&card->dch.timer);
-+	if (card->dch.tx_skb && card->dch.tx_idx < card->dch.tx_skb->len) {
-+		W6692_fill_Dfifo(card);
-+	} else {
-+		if (card->dch.tx_skb)
-+			dev_kfree_skb(card->dch.tx_skb);
-+		if (get_next_dframe(&card->dch))
-+			W6692_fill_Dfifo(card);
-+	}
-+}
-+
-+static void
-+handle_statusD(struct w6692_hw *card)
++static inline u32
++__read_status_pciv2(u_long addr, u32 channel)
 +{
-+	struct dchannel *dch = &card->dch;
-+	u8 exval, v1, cir;
-+
-+	exval = ReadW6692(card, W_D_EXIR);
-+
-+	pr_debug("%s: D_EXIR %02x\n", card->name, exval);
-+	if (exval & (W_D_EXI_XDUN | W_D_EXI_XCOL)) {
-+		/* Transmit underrun/collision */
-+		pr_debug("%s: D-channel underrun/collision\n", card->name);
-+#ifdef ERROR_STATISTIC
-+		dch->err_tx++;
-+#endif
-+		d_retransmit(card);
-+	}
-+	if (exval & W_D_EXI_RDOV) {	/* RDOV */
-+		pr_debug("%s: D-channel RDOV\n", card->name);
-+		WriteW6692(card, W_D_CMDR, W_D_CMDR_RRST);
-+	}
-+	if (exval & W_D_EXI_TIN2)	/* TIN2 - never */
-+		pr_debug("%s: spurious TIN2 interrupt\n", card->name);
-+	if (exval & W_D_EXI_MOC) {	/* MOC - not supported */
-+		v1 = ReadW6692(card, W_MOSR);
-+		pr_debug("%s: spurious MOC interrupt MOSR %02x\n",
-+			card->name, v1);
-+	}
-+	if (exval & W_D_EXI_ISC) {	/* ISC - Level1 change */
-+		cir = ReadW6692(card, W_CIR);
-+		pr_debug("%s: ISC CIR %02X\n", card->name, cir);
-+		if (cir & W_CIR_ICC) {
-+			v1 = cir & W_CIR_COD_MASK;
-+			pr_debug("%s: ph_state_change %x -> %x\n", card->name,
-+				dch->state, v1);
-+			card->state = v1;
-+			if (card->fmask & led) {
-+				switch (v1) {
-+				case W_L1IND_AI8:
-+				case W_L1IND_AI10:
-+					w6692_led_handler(card, 1);
-+					break;
-+				default:
-+					w6692_led_handler(card, 0);
-+					break;
-+				}
-+			}
-+			W6692_new_ph(card);
-+		}
-+		if (cir & W_CIR_SCC) {
-+			v1 = ReadW6692(card, W_SQR);
-+			pr_debug("%s: SCC SQR %02X\n", card->name, v1);
-+		}
-+	}
-+	if (exval & W_D_EXI_WEXP)
-+		pr_debug("%s: spurious WEXP interrupt!\n", card->name);
-+	if (exval & W_D_EXI_TEXP)
-+		pr_debug("%s: spurious TEXP interrupt!\n", card->name);
++	return inl(addr + (channel == 2 ? AVM_HDLC_STATUS_2 :
++		AVM_HDLC_STATUS_1));
 +}
 +
-+static void
-+W6692_empty_Bfifo(struct w6692_ch *wch, int count)
++
++static u32
++read_status(struct fritzcard *fc, u32 channel)
 +{
-+	struct w6692_hw *card = wch->bch.hw;
-+	u8 *ptr;
-+
-+	pr_debug("%s: empty_Bfifo %d\n", card->name, count);
-+	if (unlikely(wch->bch.state == ISDN_P_NONE)) {
-+		pr_debug("%s: empty_Bfifo ISDN_P_NONE\n", card->name);
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
-+		if (wch->bch.rx_skb)
-+			skb_trim(wch->bch.rx_skb, 0);
-+		return;
++	switch (fc->type) {
++	case AVM_FRITZ_PCIV2:
++		return __read_status_pciv2(fc->addr, channel);
++	case AVM_FRITZ_PCI:
++		return __read_status_pci(fc->addr, channel);
 +	}
-+	if (!wch->bch.rx_skb) {
-+		wch->bch.rx_skb = mI_alloc_skb(wch->bch.maxlen, GFP_ATOMIC);
-+		if (unlikely(!wch->bch.rx_skb)) {
-+			pr_info("%s: B receive out of memory\n", card->name);
-+			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK |
-+				W_B_CMDR_RACT);
-+			return;
-+		}
-+	}
-+	if (wch->bch.rx_skb->len + count > wch->bch.maxlen) {
-+		pr_debug("%s: empty_Bfifo incoming packet too large\n",
-+			card->name);
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
-+		skb_trim(wch->bch.rx_skb, 0);
-+		return;
-+	}
-+	ptr = skb_put(wch->bch.rx_skb, count);
-+	insb(wch->addr + W_B_RFIFO, ptr, count);
-+	WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
-+	if (debug & DEBUG_HW_DFIFO) {
-+		snprintf(card->log, 63, "B%1d-recv %s %d ",
-+			wch->bch.nr, card->name, count);
-+		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, ptr, count);
-+	}
-+}
-+
-+static void
-+W6692_fill_Bfifo(struct w6692_ch *wch)
-+{
-+	struct w6692_hw *card = wch->bch.hw;
-+	int count;
-+	u8 *ptr, cmd = W_B_CMDR_RACT | W_B_CMDR_XMS;
-+
-+	pr_debug("%s: fill Bfifo\n", card->name);
-+	if (!wch->bch.tx_skb)
-+		return;
-+	count = wch->bch.tx_skb->len - wch->bch.tx_idx;
-+	if (count <= 0)
-+		return;
-+	ptr = wch->bch.tx_skb->data + wch->bch.tx_idx;
-+	if (count > W_B_FIFO_THRESH)
-+		count = W_B_FIFO_THRESH;
-+	else if (test_bit(FLG_HDLC, &wch->bch.Flags))
-+		cmd |= W_B_CMDR_XME;
-+
-+	pr_debug("%s: fill Bfifo%d/%d\n", card->name,
-+			count, wch->bch.tx_idx);
-+	wch->bch.tx_idx += count;
-+	outsb(wch->addr + W_B_XFIFO, ptr, count);
-+	WriteW6692B(wch, W_B_CMDR, cmd);
-+	if (debug & DEBUG_HW_DFIFO) {
-+		snprintf(card->log, 63, "B%1d-send %s %d ",
-+			wch->bch.nr, card->name, count);
-+		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, ptr, count);
-+	}
-+}
-+
-+static int
-+setvolume(struct w6692_ch *wch, int mic, struct sk_buff *skb)
-+{
-+	struct w6692_hw *card = wch->bch.hw;
-+	u16 *vol = (u16 *)skb->data;
-+	u8 val;
-+
-+	if ((!(card->fmask & pots)) ||
-+	    !test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
-+		return -ENODEV;
-+	if (skb->len < 2)
-+		return -EINVAL;
-+	if (*vol > 7)
-+		return -EINVAL;
-+	val = *vol & 7;
-+	val = 7 - val;
-+	if (mic) {
-+		val <<= 3;
-+		card->xaddr &= 0xc7;
-+	} else {
-+		card->xaddr &= 0xf8;
-+	}
-+	card->xaddr |= val;
-+	WriteW6692(card, W_XADDR, card->xaddr);
++	/* dummy */
 +	return 0;
 +}
 +
-+static int
-+enable_pots(struct w6692_ch *wch)
++static void
++enable_hwirq(struct fritzcard *fc)
 +{
-+	struct w6692_hw *card = wch->bch.hw;
++	fc->ctrlreg |= AVM_STATUS0_ENA_IRQ;
++	outb(fc->ctrlreg, fc->addr + 2);
++}
 +
-+	if ((!(card->fmask & pots)) ||
-+	    !test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
-+		return -ENODEV;
-+	wch->b_mode |= W_B_MODE_EPCM | W_B_MODE_BSW0;
-+	WriteW6692B(wch, W_B_MODE, wch->b_mode);
-+	WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_XRST);
-+	card->pctl |= ((wch->bch.nr & 2) ? W_PCTL_PCX : 0);
-+	WriteW6692(card, W_PCTL, card->pctl);
-+	return 0;
++static void
++disable_hwirq(struct fritzcard *fc)
++{
++	fc->ctrlreg &= ~AVM_STATUS0_ENA_IRQ;
++	outb(fc->ctrlreg, fc->addr + 2);
 +}
 +
 +static int
-+disable_pots(struct w6692_ch *wch)
++modehdlc(struct bchannel *bch, int protocol)
 +{
-+	struct w6692_hw *card = wch->bch.hw;
++	struct fritzcard *fc = bch->hw;
++	struct hdlc_hw *hdlc;
 +
-+	if (!(card->fmask & pots))
-+		return -ENODEV;
-+	wch->b_mode &= ~(W_B_MODE_EPCM | W_B_MODE_BSW0);
-+	WriteW6692B(wch, W_B_MODE, wch->b_mode);
-+	WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_RACT |
-+		W_B_CMDR_XRST);
-+	return 0;
-+}
-+
-+static int
-+w6692_mode(struct w6692_ch *wch, u32 pr)
-+{
-+	struct w6692_hw	*card;
-+
-+	card = wch->bch.hw;
-+	pr_debug("%s: B%d protocol %x-->%x\n", card->name,
-+		wch->bch.nr, wch->bch.state, pr);
-+	switch (pr) {
++	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
++	pr_debug("%s: hdlc %c protocol %x-->%x ch %d\n", fc->name,
++		'@' + bch->nr, bch->state, protocol, bch->nr);
++	hdlc->ctrl.ctrl = 0;
++	switch (protocol) {
++	case -1: /* used for init */
++		bch->state = -1;
 +	case ISDN_P_NONE:
-+		if ((card->fmask & pots) && (wch->b_mode & W_B_MODE_EPCM))
-+			disable_pots(wch);
-+		wch->b_mode = 0;
-+		mISDN_clear_bchannel(&wch->bch);
-+		WriteW6692B(wch, W_B_MODE, wch->b_mode);
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_XRST);
-+		test_and_clear_bit(FLG_HDLC, &wch->bch.Flags);
-+		test_and_clear_bit(FLG_TRANSPARENT, &wch->bch.Flags);
++		if (bch->state == ISDN_P_NONE)
++			break;
++		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
++		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
++		write_ctrl(bch, 5);
++		bch->state = ISDN_P_NONE;
++		test_and_clear_bit(FLG_HDLC, &bch->Flags);
++		test_and_clear_bit(FLG_TRANSPARENT, &bch->Flags);
 +		break;
 +	case ISDN_P_B_RAW:
-+		wch->b_mode = W_B_MODE_MMS;
-+		WriteW6692B(wch, W_B_MODE, wch->b_mode);
-+		WriteW6692B(wch, W_B_EXIM, 0);
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_RACT |
-+			W_B_CMDR_XRST);
-+		test_and_set_bit(FLG_TRANSPARENT, &wch->bch.Flags);
++		bch->state = protocol;
++		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
++		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
++		write_ctrl(bch, 5);
++		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
++		write_ctrl(bch, 1);
++		hdlc->ctrl.sr.cmd = 0;
++		test_and_set_bit(FLG_TRANSPARENT, &bch->Flags);
 +		break;
 +	case ISDN_P_B_HDLC:
-+		wch->b_mode = W_B_MODE_ITF;
-+		WriteW6692B(wch, W_B_MODE, wch->b_mode);
-+		WriteW6692B(wch, W_B_ADM1, 0xff);
-+		WriteW6692B(wch, W_B_ADM2, 0xff);
-+		WriteW6692B(wch, W_B_EXIM, 0);
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_RACT |
-+			W_B_CMDR_XRST);
-+		test_and_set_bit(FLG_HDLC, &wch->bch.Flags);
++		bch->state = protocol;
++		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
++		hdlc->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
++		write_ctrl(bch, 5);
++		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
++		write_ctrl(bch, 1);
++		hdlc->ctrl.sr.cmd = 0;
++		test_and_set_bit(FLG_HDLC, &bch->Flags);
 +		break;
 +	default:
-+		pr_info("%s: protocol %x not known\n", card->name, pr);
++		pr_info("%s: protocol not known %x\n", fc->name, protocol);
 +		return -ENOPROTOOPT;
 +	}
-+	wch->bch.state = pr;
 +	return 0;
 +}
 +
 +static void
-+send_next(struct w6692_ch *wch)
++hdlc_empty_fifo(struct bchannel *bch, int count)
 +{
-+	if (wch->bch.tx_skb && wch->bch.tx_idx < wch->bch.tx_skb->len)
-+		W6692_fill_Bfifo(wch);
-+	else {
-+		if (wch->bch.tx_skb) {
-+			/* send confirm, on trans, free on hdlc. */
-+			if (test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
-+				confirm_Bsend(&wch->bch);
-+			dev_kfree_skb(wch->bch.tx_skb);
++	u32 *ptr;
++	u8 *p;
++	u32  val, addr;
++	int cnt = 0;
++	struct fritzcard *fc = bch->hw;
++
++	pr_debug("%s: %s %d\n", fc->name, __func__, count);
++	if (!bch->rx_skb) {
++		bch->rx_skb = mI_alloc_skb(bch->maxlen, GFP_ATOMIC);
++		if (!bch->rx_skb) {
++			pr_info("%s: B receive out of memory\n",
++				fc->name);
++			return;
 +		}
-+		if (get_next_bframe(&wch->bch))
-+			W6692_fill_Bfifo(wch);
++	}
++	if ((bch->rx_skb->len + count) > bch->maxlen) {
++		pr_debug("%s: overrun %d\n", fc->name,
++			bch->rx_skb->len + count);
++		return;
++	}
++	p = skb_put(bch->rx_skb, count);
++	ptr = (u32 *)p;
++	if (AVM_FRITZ_PCIV2 == fc->type)
++		addr = fc->addr + (bch->nr == 2 ?
++			AVM_HDLC_FIFO_2 : AVM_HDLC_FIFO_1);
++	else {
++		addr = fc->addr + CHIP_WINDOW;
++		outl(bch->nr == 2 ? AVM_HDLC_2 : AVM_HDLC_1, fc->addr);
++	}
++	while (cnt < count) {
++		val = le32_to_cpu(inl(addr));
++		put_unaligned(val, ptr);
++		ptr++;
++		cnt += 4;
++	}
++	if (debug & DEBUG_HW_BFIFO) {
++		snprintf(fc->log, LOG_SIZE, "B%1d-recv %s %d ",
++			bch->nr, fc->name, count);
++		print_hex_dump_bytes(fc->log, DUMP_PREFIX_OFFSET, p, count);
 +	}
 +}
 +
 +static void
-+W6692B_interrupt(struct w6692_hw *card, int ch)
++hdlc_fill_fifo(struct bchannel *bch)
 +{
-+	struct w6692_ch	*wch = &card->bc[ch];
-+	int		count;
-+	u8		stat, star = 0;
++	struct fritzcard *fc = bch->hw;
++	struct hdlc_hw *hdlc;
++	int count, cnt = 0;
++	u8 *p;
++	u32 *ptr, val, addr;
 +
-+	stat = ReadW6692B(wch, W_B_EXIR);
-+	pr_debug("%s: B%d EXIR %02x\n", card->name, wch->bch.nr, stat);
-+	if (stat & W_B_EXI_RME) {
-+		star = ReadW6692B(wch, W_B_STAR);
-+		if (star & (W_B_STAR_RDOV | W_B_STAR_CRCE | W_B_STAR_RMB)) {
-+			if ((star & W_B_STAR_RDOV) &&
-+			    test_bit(FLG_ACTIVE, &wch->bch.Flags)) {
-+				pr_debug("%s: B%d RDOV proto=%x\n", card->name,
-+					wch->bch.nr, wch->bch.state);
-+#ifdef ERROR_STATISTIC
-+				wch->bch.err_rdo++;
-+#endif
-+			}
-+			if (test_bit(FLG_HDLC, &wch->bch.Flags)) {
-+				if (star & W_B_STAR_CRCE) {
-+					pr_debug("%s: B%d CRC error\n",
-+						card->name, wch->bch.nr);
-+#ifdef ERROR_STATISTIC
-+					wch->bch.err_crc++;
-+#endif
-+				}
-+				if (star & W_B_STAR_RMB) {
-+					pr_debug("%s: B%d message abort\n",
-+						card->name, wch->bch.nr);
-+#ifdef ERROR_STATISTIC
-+					wch->bch.err_inv++;
-+#endif
-+				}
-+			}
-+			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK |
-+				W_B_CMDR_RRST | W_B_CMDR_RACT);
-+			if (wch->bch.rx_skb)
-+				skb_trim(wch->bch.rx_skb, 0);
++	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
++	if (!bch->tx_skb)
++		return;
++	count = bch->tx_skb->len - bch->tx_idx;
++	if (count <= 0)
++		return;
++	p = bch->tx_skb->data + bch->tx_idx;
++	hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XME;
++	if (count > HDLC_FIFO_SIZE) {
++		count = HDLC_FIFO_SIZE;
++	} else {
++		if (test_bit(FLG_HDLC, &bch->Flags))
++			hdlc->ctrl.sr.cmd |= HDLC_CMD_XME;
++	}
++	pr_debug("%s: %s %d/%d/%d", fc->name, __func__, count,
++		bch->tx_idx, bch->tx_skb->len);
++	ptr = (u32 *)p;
++	bch->tx_idx += count;
++	hdlc->ctrl.sr.xml = ((count == HDLC_FIFO_SIZE) ? 0 : count);
++	if (AVM_FRITZ_PCIV2 == fc->type) {
++		__write_ctrl_pciv2(fc, hdlc, bch->nr);
++		addr = fc->addr + (bch->nr == 2 ?
++			AVM_HDLC_FIFO_2 : AVM_HDLC_FIFO_1);
++	} else {
++		__write_ctrl_pci(fc, hdlc, bch->nr);
++		addr = fc->addr + CHIP_WINDOW;
++	}
++	while (cnt < count) {
++		val = get_unaligned(ptr);
++		outl(cpu_to_le32(val), addr);
++		ptr++;
++		cnt += 4;
++	}
++	if (debug & DEBUG_HW_BFIFO) {
++		snprintf(fc->log, LOG_SIZE, "B%1d-send %s %d ",
++			bch->nr, fc->name, count);
++		print_hex_dump_bytes(fc->log, DUMP_PREFIX_OFFSET, p, count);
++	}
++}
++
++static void
++HDLC_irq_xpr(struct bchannel *bch)
++{
++	if (bch->tx_skb && bch->tx_idx < bch->tx_skb->len)
++		hdlc_fill_fifo(bch);
++	else {
++		if (bch->tx_skb) {
++			/* send confirm, on trans, free on hdlc. */
++			if (test_bit(FLG_TRANSPARENT, &bch->Flags))
++				confirm_Bsend(bch);
++			dev_kfree_skb(bch->tx_skb);
++		}
++		if (get_next_bframe(bch))
++			hdlc_fill_fifo(bch);
++	}
++}
++
++static void
++HDLC_irq(struct bchannel *bch, u32 stat)
++{
++	struct fritzcard *fc = bch->hw;
++	int		len;
++	struct hdlc_hw	*hdlc;
++
++	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
++	pr_debug("%s: ch%d stat %#x\n", fc->name, bch->nr, stat);
++	if (stat & HDLC_INT_RPR) {
++		if (stat & HDLC_STAT_RDO) {
++			hdlc->ctrl.sr.xml = 0;
++			hdlc->ctrl.sr.cmd |= HDLC_CMD_RRS;
++			write_ctrl(bch, 1);
++			hdlc->ctrl.sr.cmd &= ~HDLC_CMD_RRS;
++			write_ctrl(bch, 1);
++			if (bch->rx_skb)
++				skb_trim(bch->rx_skb, 0);
 +		} else {
-+			count = ReadW6692B(wch, W_B_RBCL) &
-+				(W_B_FIFO_THRESH - 1);
-+			if (count == 0)
-+				count = W_B_FIFO_THRESH;
-+			W6692_empty_Bfifo(wch, count);
-+			recv_Bchannel(&wch->bch, 0);
-+		}
-+	}
-+	if (stat & W_B_EXI_RMR) {
-+		if (!(stat & W_B_EXI_RME))
-+			star = ReadW6692B(wch, W_B_STAR);
-+		if (star & W_B_STAR_RDOV) {
-+			pr_debug("%s: B%d RDOV proto=%x\n", card->name,
-+				wch->bch.nr, wch->bch.state);
-+#ifdef ERROR_STATISTIC
-+			wch->bch.err_rdo++;
-+#endif
-+			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK |
-+				W_B_CMDR_RRST | W_B_CMDR_RACT);
-+		} else {
-+			W6692_empty_Bfifo(wch, W_B_FIFO_THRESH);
-+			if (test_bit(FLG_TRANSPARENT, &wch->bch.Flags) &&
-+			    wch->bch.rx_skb && (wch->bch.rx_skb->len > 0))
-+				recv_Bchannel(&wch->bch, 0);
-+		}
-+	}
-+	if (stat & W_B_EXI_RDOV) {
-+		/* only if it is not handled yet */
-+		if (!(star & W_B_STAR_RDOV)) {
-+			pr_debug("%s: B%d RDOV IRQ proto=%x\n", card->name,
-+				wch->bch.nr, wch->bch.state);
-+#ifdef ERROR_STATISTIC
-+			wch->bch.err_rdo++;
-+#endif
-+			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK |
-+				W_B_CMDR_RRST | W_B_CMDR_RACT);
-+		}
-+	}
-+	if (stat & W_B_EXI_XFR) {
-+		if (!(stat & (W_B_EXI_RME | W_B_EXI_RMR))) {
-+			star = ReadW6692B(wch, W_B_STAR);
-+			pr_debug("%s: B%d star %02x\n", card->name,
-+				wch->bch.nr, star);
-+		}
-+		if (star & W_B_STAR_XDOW) {
-+			pr_debug("%s: B%d XDOW proto=%x\n", card->name,
-+				wch->bch.nr, wch->bch.state);
-+#ifdef ERROR_STATISTIC
-+			wch->bch.err_xdu++;
-+#endif
-+			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_XRST |
-+				W_B_CMDR_RACT);
-+			/* resend */
-+			if (wch->bch.tx_skb) {
-+				if (!test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
-+					wch->bch.tx_idx = 0;
++			len = (stat & HDLC_STAT_RML_MASK) >> 8;
++			if (!len)
++				len = 32;
++			hdlc_empty_fifo(bch, len);
++			if (!bch->rx_skb)
++				goto handle_tx;
++			if ((stat & HDLC_STAT_RME) || test_bit(FLG_TRANSPARENT,
++			    &bch->Flags)) {
++				if (((stat & HDLC_STAT_CRCVFRRAB) ==
++				    HDLC_STAT_CRCVFR) ||
++				    test_bit(FLG_TRANSPARENT, &bch->Flags)) {
++					recv_Bchannel(bch, 0);
++				} else {
++					pr_debug("%s: got invalid frame\n",
++						fc->name);
++					skb_trim(bch->rx_skb, 0);
++				}
 +			}
 +		}
-+		send_next(wch);
-+		if (stat & W_B_EXI_XDUN)
-+			return; /* handle XDOW only once */
 +	}
-+	if (stat & W_B_EXI_XDUN) {
-+		pr_debug("%s: B%d XDUN proto=%x\n", card->name,
-+			wch->bch.nr, wch->bch.state);
-+#ifdef ERROR_STATISTIC
-+		wch->bch.err_xdu++;
-+#endif
-+		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_XRST | W_B_CMDR_RACT);
-+		/* resend */
-+		if (wch->bch.tx_skb) {
-+			if (!test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
-+				wch->bch.tx_idx = 0;
++handle_tx:
++	if (stat & HDLC_INT_XDU) {
++		/* Here we lost an TX interrupt, so
++		 * restart transmitting the whole frame on HDLC
++		 * in transparent mode we send the next data
++		 */
++		if (bch->tx_skb)
++			pr_debug("%s: ch%d XDU len(%d) idx(%d) Flags(%lx)\n",
++				fc->name, bch->nr, bch->tx_skb->len,
++				bch->tx_idx, bch->Flags);
++		else
++			pr_debug("%s: ch%d XDU no tx_skb Flags(%lx)\n",
++				fc->name, bch->nr, bch->Flags);
++		if (bch->tx_skb && bch->tx_skb->len) {
++			if (!test_bit(FLG_TRANSPARENT, &bch->Flags))
++				bch->tx_idx = 0;
 +		}
-+		send_next(wch);
++		hdlc->ctrl.sr.xml = 0;
++		hdlc->ctrl.sr.cmd |= HDLC_CMD_XRS;
++		write_ctrl(bch, 1);
++		hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XRS;
++		HDLC_irq_xpr(bch);
++		return;
++	} else if (stat & HDLC_INT_XPR)
++		HDLC_irq_xpr(bch);
++}
++
++static inline void
++HDLC_irq_main(struct fritzcard *fc)
++{
++	u32 stat;
++	struct bchannel *bch;
++
++	stat = read_status(fc, 1);
++	if (stat & HDLC_INT_MASK) {
++		bch = Sel_BCS(fc, 1);
++		if (bch)
++			HDLC_irq(bch, stat);
++		else
++			pr_debug("%s: spurious ch1 IRQ\n", fc->name);
++	}
++	stat = read_status(fc, 2);
++	if (stat & HDLC_INT_MASK) {
++		bch = Sel_BCS(fc, 2);
++		if (bch)
++			HDLC_irq(bch, stat);
++		else
++			pr_debug("%s: spurious ch2 IRQ\n", fc->name);
 +	}
 +}
 +
 +static irqreturn_t
-+w6692_irq(int intno, void *dev_id)
++avm_fritz_interrupt(int intno, void *dev_id)
 +{
-+	struct w6692_hw	*card = dev_id;
-+	u8		ista;
++	struct fritzcard *fc = dev_id;
++	u8 val;
++	u8 sval;
 +
-+	spin_lock(&card->lock);
-+	ista = ReadW6692(card, W_ISTA);
-+	if ((ista | card->imask) == card->imask) {
-+		/* possible a shared  IRQ reqest */
-+		spin_unlock(&card->lock);
++	spin_lock(&fc->lock);
++	sval = inb(fc->addr + 2);
++	pr_debug("%s: irq stat0 %x\n", fc->name, sval);
++	if ((sval & AVM_STATUS0_IRQ_MASK) == AVM_STATUS0_IRQ_MASK) {
++		/* shared  IRQ from other HW */
++		spin_unlock(&fc->lock);
 +		return IRQ_NONE;
 +	}
-+	card->irqcnt++;
-+	pr_debug("%s: ista %02x\n", card->name, ista);
-+	ista &= ~card->imask;
-+	if (ista & W_INT_B1_EXI)
-+		W6692B_interrupt(card, 0);
-+	if (ista & W_INT_B2_EXI)
-+		W6692B_interrupt(card, 1);
-+	if (ista & W_INT_D_RME)
-+		handle_rxD(card);
-+	if (ista & W_INT_D_RMR)
-+		W6692_empty_Dfifo(card, W_D_FIFO_THRESH);
-+	if (ista & W_INT_D_XFR)
-+		handle_txD(card);
-+	if (ista & W_INT_D_EXI)
-+		handle_statusD(card);
-+	if (ista & (W_INT_XINT0 | W_INT_XINT1)) /* XINT0/1 - never */
-+		pr_debug("%s: W6692 spurious XINT!\n", card->name);
-+/* End IRQ Handler */
-+	spin_unlock(&card->lock);
++	fc->irqcnt++;
++
++	if (!(sval & AVM_STATUS0_IRQ_ISAC)) {
++		val = ReadISAC_V1(fc, ISAC_ISTA);
++		mISDNisac_irq(&fc->isac, val);
++	}
++	if (!(sval & AVM_STATUS0_IRQ_HDLC))
++		HDLC_irq_main(fc);
++	spin_unlock(&fc->lock);
 +	return IRQ_HANDLED;
 +}
 +
-+static void
-+dbusy_timer_handler(struct dchannel *dch)
++static irqreturn_t
++avm_fritzv2_interrupt(int intno, void *dev_id)
 +{
-+	struct w6692_hw	*card = dch->hw;
-+	int		rbch, star;
-+	u_long		flags;
++	struct fritzcard *fc = dev_id;
++	u8 val;
++	u8 sval;
 +
-+	if (test_bit(FLG_BUSY_TIMER, &dch->Flags)) {
-+		spin_lock_irqsave(&card->lock, flags);
-+		rbch = ReadW6692(card, W_D_RBCH);
-+		star = ReadW6692(card, W_D_STAR);
-+		pr_debug("%s: D-Channel Busy RBCH %02x STAR %02x\n",
-+			card->name, rbch, star);
-+		if (star & W_D_STAR_XBZ)	/* D-Channel Busy */
-+			test_and_set_bit(FLG_L1_BUSY, &dch->Flags);
-+		else {
-+			/* discard frame; reset transceiver */
-+			test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags);
-+			if (dch->tx_idx)
-+				dch->tx_idx = 0;
-+			else
-+				pr_info("%s: W6692 D-Channel Busy no tx_idx\n",
-+					card->name);
-+			/* Transmitter reset */
-+			WriteW6692(card, W_D_CMDR, W_D_CMDR_XRST);
-+		}
-+		spin_unlock_irqrestore(&card->lock, flags);
++	spin_lock(&fc->lock);
++	sval = inb(fc->addr + 2);
++	pr_debug("%s: irq stat0 %x\n", fc->name, sval);
++	if (!(sval & AVM_STATUS0_IRQ_MASK)) {
++		/* shared  IRQ from other HW */
++		spin_unlock(&fc->lock);
++		return IRQ_NONE;
 +	}
-+}
++	fc->irqcnt++;
 +
-+void initW6692(struct w6692_hw *card)
-+{
-+	u8	val;
-+
-+	card->dch.timer.function = (void *)dbusy_timer_handler;
-+	card->dch.timer.data = (u_long)&card->dch;
-+	init_timer(&card->dch.timer);
-+	w6692_mode(&card->bc[0], ISDN_P_NONE);
-+	w6692_mode(&card->bc[1], ISDN_P_NONE);
-+	WriteW6692(card, W_D_CTL, 0x00);
-+	disable_hwirq(card);
-+	WriteW6692(card, W_D_SAM, 0xff);
-+	WriteW6692(card, W_D_TAM, 0xff);
-+	WriteW6692(card, W_D_MODE, W_D_MODE_RACT);
-+	card->state = W_L1CMD_RST;
-+	ph_command(card, W_L1CMD_RST);
-+	ph_command(card, W_L1CMD_ECK);
-+	/* enable all IRQ but extern */
-+	card->imask = 0x18;
-+	WriteW6692(card, W_D_EXIM, 0x00);
-+	WriteW6692B(&card->bc[0], W_B_EXIM, 0);
-+	WriteW6692B(&card->bc[1], W_B_EXIM, 0);
-+	/* Reset D-chan receiver and transmitter */
-+	WriteW6692(card, W_D_CMDR, W_D_CMDR_RRST | W_D_CMDR_XRST);
-+	/* Reset B-chan receiver and transmitter */
-+	WriteW6692B(&card->bc[0], W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_XRST);
-+	WriteW6692B(&card->bc[1], W_B_CMDR, W_B_CMDR_RRST | W_B_CMDR_XRST);
-+	/* enable peripheral */
-+	if (card->subtype == W6692_USR) {
-+		/* seems that USR implemented some power control features
-+		 * Pin 79 is connected to the oscilator circuit so we
-+		 * have to handle it here
-+		 */
-+		card->pctl = 0x80;
-+		card->xdata = 0;
-+		WriteW6692(card, W_PCTL, card->pctl);
-+		WriteW6692(card, W_XDATA, card->xdata);
-+	} else {
-+		card->pctl = W_PCTL_OE5 | W_PCTL_OE4 | W_PCTL_OE2 |
-+			W_PCTL_OE1 | W_PCTL_OE0;
-+		card->xaddr = 0x00;/* all sw off */
-+		if (card->fmask & pots)
-+			card->xdata |= 0x06;	/*  POWER UP/ LED OFF / ALAW */
-+		if (card->fmask & led)
-+			card->xdata |= 0x04;	/* LED OFF */
-+		if ((card->fmask & pots) || (card->fmask & led)) {
-+			WriteW6692(card, W_PCTL, card->pctl);
-+			WriteW6692(card, W_XADDR, card->xaddr);
-+			WriteW6692(card, W_XDATA, card->xdata);
-+			val = ReadW6692(card, W_XADDR);
-+			if (debug & DEBUG_HW)
-+				pr_notice("%s: W_XADDR=%02x\n",
-+					card->name, val);
-+		}
++	if (sval & AVM_STATUS0_IRQ_HDLC)
++		HDLC_irq_main(fc);
++	if (sval & AVM_STATUS0_IRQ_ISAC) {
++		val = ReadISAC_V2(fc, ISACX_ISTA);
++		mISDNisac_irq(&fc->isac, val);
 +	}
-+}
-+
-+static void
-+reset_w6692(struct w6692_hw *card)
-+{
-+	WriteW6692(card, W_D_CTL, W_D_CTL_SRST);
-+	mdelay(10);
-+	WriteW6692(card, W_D_CTL, 0);
++	if (sval & AVM_STATUS0_IRQ_TIMER) {
++		pr_debug("%s: timer irq\n", fc->name);
++		outb(fc->ctrlreg | AVM_STATUS0_RES_TIMER, fc->addr + 2);
++		udelay(1);
++		outb(fc->ctrlreg, fc->addr + 2);
++	}
++	spin_unlock(&fc->lock);
++	return IRQ_HANDLED;
 +}
 +
 +static int
-+init_card(struct w6692_hw *card)
-+{
-+	int	cnt = 3;
-+	u_long	flags;
-+
-+	spin_lock_irqsave(&card->lock, flags);
-+	disable_hwirq(card);
-+	spin_unlock_irqrestore(&card->lock, flags);
-+	if (request_irq(card->irq, w6692_irq, IRQF_SHARED, card->name, card)) {
-+		pr_info("%s: couldn't get interrupt %d\n", card->name,
-+			card->irq);
-+		return -EIO;
-+	}
-+	while (cnt--) {
-+		spin_lock_irqsave(&card->lock, flags);
-+		initW6692(card);
-+		enable_hwirq(card);
-+		spin_unlock_irqrestore(&card->lock, flags);
-+		/* Timeout 10ms */
-+		msleep_interruptible(10);
-+		if (debug & DEBUG_HW)
-+			pr_notice("%s: IRQ %d count %d\n", card->name,
-+				card->irq, card->irqcnt);
-+		if (!card->irqcnt) {
-+			pr_info("%s: IRQ(%d) getting no IRQs during init %d\n",
-+				card->name, card->irq, 3 - cnt);
-+			reset_w6692(card);
-+		} else
-+			return 0;
-+	}
-+	free_irq(card->irq, card);
-+	return -EIO;
-+}
-+
-+static int
-+w6692_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
++avm_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
 +{
 +	struct bchannel *bch = container_of(ch, struct bchannel, ch);
-+	struct w6692_ch	*bc = container_of(bch, struct w6692_ch, bch);
-+	struct w6692_hw *card = bch->hw;
++	struct fritzcard *fc = bch->hw;
 +	int ret = -EINVAL;
 +	struct mISDNhead *hh = mISDN_HEAD_P(skb);
 +	u32 id;
@@ -1017,52 +733,154 @@ index 0000000..1b9008f
 +
 +	switch (hh->prim) {
 +	case PH_DATA_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
++		spin_lock_irqsave(&fc->lock, flags);
 +		ret = bchannel_senddata(bch, skb);
 +		if (ret > 0) { /* direct TX */
 +			id = hh->id; /* skb can be freed */
++			hdlc_fill_fifo(bch);
 +			ret = 0;
-+			W6692_fill_Bfifo(bc);
-+			spin_unlock_irqrestore(&card->lock, flags);
++			spin_unlock_irqrestore(&fc->lock, flags);
 +			if (!test_bit(FLG_TRANSPARENT, &bch->Flags))
 +				queue_ch_frame(ch, PH_DATA_CNF, id, NULL);
 +		} else
-+			spin_unlock_irqrestore(&card->lock, flags);
++			spin_unlock_irqrestore(&fc->lock, flags);
 +		return ret;
 +	case PH_ACTIVATE_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
++		spin_lock_irqsave(&fc->lock, flags);
 +		if (!test_and_set_bit(FLG_ACTIVE, &bch->Flags))
-+			ret = w6692_mode(bc, ch->protocol);
++			ret = modehdlc(bch, ch->protocol);
 +		else
 +			ret = 0;
-+		spin_unlock_irqrestore(&card->lock, flags);
++		spin_unlock_irqrestore(&fc->lock, flags);
 +		if (!ret)
 +			_queue_data(ch, PH_ACTIVATE_IND, MISDN_ID_ANY, 0,
 +				NULL, GFP_KERNEL);
 +		break;
 +	case PH_DEACTIVATE_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
++		spin_lock_irqsave(&fc->lock, flags);
 +		mISDN_clear_bchannel(bch);
-+		w6692_mode(bc, ISDN_P_NONE);
-+		spin_unlock_irqrestore(&card->lock, flags);
++		modehdlc(bch, ISDN_P_NONE);
++		spin_unlock_irqrestore(&fc->lock, flags);
 +		_queue_data(ch, PH_DEACTIVATE_IND, MISDN_ID_ANY, 0,
 +			NULL, GFP_KERNEL);
 +		ret = 0;
 +		break;
-+	default:
-+		pr_info("%s: %s unknown prim(%x,%x)\n",
-+			card->name, __func__, hh->prim, hh->id);
-+		ret = -EINVAL;
 +	}
 +	if (!ret)
 +		dev_kfree_skb(skb);
 +	return ret;
 +}
 +
++static void
++inithdlc(struct fritzcard *fc)
++{
++	modehdlc(&fc->bch[0], -1);
++	modehdlc(&fc->bch[1], -1);
++}
++
++void
++clear_pending_hdlc_ints(struct fritzcard *fc)
++{
++	u32 val;
++
++	val = read_status(fc, 1);
++	pr_debug("%s: HDLC 1 STA %x\n", fc->name, val);
++	val = read_status(fc, 2);
++	pr_debug("%s: HDLC 2 STA %x\n", fc->name, val);
++}
++
++static void
++reset_avm(struct fritzcard *fc)
++{
++	switch (fc->type) {
++	case AVM_FRITZ_PCI:
++		fc->ctrlreg = AVM_STATUS0_RESET | AVM_STATUS0_DIS_TIMER;
++		break;
++	case AVM_FRITZ_PCIV2:
++		fc->ctrlreg = AVM_STATUS0_RESET;
++		break;
++	}
++	if (debug & DEBUG_HW)
++		pr_notice("%s: reset\n", fc->name);
++	disable_hwirq(fc);
++	mdelay(5);
++	switch (fc->type) {
++	case AVM_FRITZ_PCI:
++		fc->ctrlreg = AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER;
++		disable_hwirq(fc);
++		outb(AVM_STATUS1_ENA_IOM, fc->addr + 3);
++		break;
++	case AVM_FRITZ_PCIV2:
++		fc->ctrlreg = 0;
++		disable_hwirq(fc);
++		break;
++	}
++	mdelay(1);
++	if (debug & DEBUG_HW)
++		pr_notice("%s: S0/S1 %x/%x\n", fc->name,
++			inb(fc->addr + 2), inb(fc->addr + 3));
++}
++
++static int
++init_card(struct fritzcard *fc)
++{
++	int		ret, cnt = 3;
++	u_long		flags;
++
++	reset_avm(fc); /* disable IRQ */
++	if (fc->type == AVM_FRITZ_PCIV2)
++		ret = request_irq(fc->irq, avm_fritzv2_interrupt,
++			IRQF_SHARED, fc->name, fc);
++	else
++		ret = request_irq(fc->irq, avm_fritz_interrupt,
++			IRQF_SHARED, fc->name, fc);
++	if (ret) {
++		pr_info("%s: couldn't get interrupt %d\n",
++			fc->name, fc->irq);
++		return ret;
++	}
++	while (cnt--) {
++		spin_lock_irqsave(&fc->lock, flags);
++		ret = fc->isac.init(&fc->isac);
++		if (ret) {
++			spin_unlock_irqrestore(&fc->lock, flags);
++			pr_info("%s: ISAC init failed with %d\n",
++				fc->name, ret);
++			break;
++		}
++		clear_pending_hdlc_ints(fc);
++		inithdlc(fc);
++		enable_hwirq(fc);
++		/* RESET Receiver and Transmitter */
++		if (AVM_FRITZ_PCIV2 == fc->type) {
++			WriteISAC_V2(fc, ISACX_MASK, 0);
++			WriteISAC_V2(fc, ISACX_CMDRD, 0x41);
++		} else {
++			WriteISAC_V1(fc, ISAC_MASK, 0);
++			WriteISAC_V1(fc, ISAC_CMDR, 0x41);
++		}
++		spin_unlock_irqrestore(&fc->lock, flags);
++		/* Timeout 10ms */
++		msleep_interruptible(10);
++		if (debug & DEBUG_HW)
++			pr_notice("%s: IRQ %d count %d\n", fc->name,
++				fc->irq, fc->irqcnt);
++		if (!fc->irqcnt) {
++			pr_info("%s: IRQ(%d) getting no IRQs during init %d\n",
++				fc->name, fc->irq, 3 - cnt);
++			reset_avm(fc);
++		} else
++			return 0;
++	}
++	free_irq(fc->irq, fc);
++	return -EIO;
++}
++
 +static int
 +channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
 +{
-+	int	ret = 0;
++	int ret = 0;
++	struct fritzcard *fc = bch->hw;
 +
 +	switch (cq->op) {
 +	case MISDN_CTRL_GETOP:
@@ -1071,7 +889,7 @@ index 0000000..1b9008f
 +	/* Nothing implemented yet */
 +	case MISDN_CTRL_FILL_EMPTY:
 +	default:
-+		pr_info("%s: unknown Op %x\n", __func__, cq->op);
++		pr_info("%s: %s unknown Op %x\n", fc->name, __func__, cq->op);
 +		ret = -EINVAL;
 +		break;
 +	}
@@ -1079,61 +897,24 @@ index 0000000..1b9008f
 +}
 +
 +static int
-+open_bchannel(struct w6692_hw *card, struct channel_req *rq)
-+{
-+	struct bchannel *bch;
-+
-+	if (rq->adr.channel > 2)
-+		return -EINVAL;
-+	if (rq->protocol == ISDN_P_NONE)
-+		return -EINVAL;
-+	bch = &card->bc[rq->adr.channel - 1].bch;
-+	if (test_and_set_bit(FLG_OPEN, &bch->Flags))
-+		return -EBUSY; /* b-channel can be only open once */
-+	test_and_clear_bit(FLG_FILLEMPTY, &bch->Flags);
-+	bch->ch.protocol = rq->protocol;
-+	rq->ch = &bch->ch;
-+	return 0;
-+}
-+
-+static int
-+channel_ctrl(struct w6692_hw *card, struct mISDN_ctrl_req *cq)
-+{
-+	int	ret = 0;
-+
-+	switch (cq->op) {
-+	case MISDN_CTRL_GETOP:
-+		cq->op = 0;
-+		break;
-+	default:
-+		pr_info("%s: unknown CTRL OP %x\n", card->name, cq->op);
-+		ret = -EINVAL;
-+		break;
-+	}
-+	return ret;
-+}
-+
-+static int
-+w6692_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
++avm_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
 +{
 +	struct bchannel *bch = container_of(ch, struct bchannel, ch);
-+	struct w6692_ch *bc = container_of(bch, struct w6692_ch, bch);
-+	struct w6692_hw *card = bch->hw;
++	struct fritzcard *fc = bch->hw;
 +	int ret = -EINVAL;
 +	u_long flags;
 +
-+	pr_debug("%s: %s cmd:%x %p\n", card->name, __func__, cmd, arg);
++	pr_debug("%s: %s cmd:%x %p\n", fc->name, __func__, cmd, arg);
 +	switch (cmd) {
 +	case CLOSE_CHANNEL:
 +		test_and_clear_bit(FLG_OPEN, &bch->Flags);
 +		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
-+			spin_lock_irqsave(&card->lock, flags);
++			spin_lock_irqsave(&fc->lock, flags);
 +			mISDN_freebchannel(bch);
-+			w6692_mode(bc, ISDN_P_NONE);
-+			spin_unlock_irqrestore(&card->lock, flags);
-+		} else {
-+			skb_queue_purge(&bch->rqueue);
-+			bch->rcount = 0;
++			test_and_clear_bit(FLG_TX_BUSY, &bch->Flags);
++			test_and_clear_bit(FLG_ACTIVE, &bch->Flags);
++			modehdlc(bch, ISDN_P_NONE);
++			spin_unlock_irqrestore(&fc->lock, flags);
 +		}
 +		ch->protocol = ISDN_P_NONE;
 +		ch->peer = NULL;
@@ -1144,285 +925,217 @@ index 0000000..1b9008f
 +		ret = channel_bctrl(bch, arg);
 +		break;
 +	default:
-+		pr_info("%s: %s unknown prim(%x)\n",
-+			card->name, __func__, cmd);
++		pr_info("%s: %s unknown prim(%x)\n", fc->name, __func__, cmd);
 +	}
 +	return ret;
 +}
 +
 +static int
-+w6692_l2l1D(struct mISDNchannel *ch, struct sk_buff *skb)
++channel_ctrl(struct fritzcard  *fc, struct mISDN_ctrl_req *cq)
++{
++	int	ret = 0;
++
++	switch (cq->op) {
++	case MISDN_CTRL_GETOP:
++		cq->op = MISDN_CTRL_LOOP;
++		break;
++	case MISDN_CTRL_LOOP:
++		/* cq->channel: 0 disable, 1 B1 loop 2 B2 loop, 3 both */
++		if (cq->channel < 0 || cq->channel > 3) {
++			ret = -EINVAL;
++			break;
++		}
++		ret = fc->isac.ctrl(&fc->isac, HW_TESTLOOP, cq->channel);
++		break;
++	default:
++		pr_info("%s: %s unknown Op %x\n", fc->name, __func__, cq->op);
++		ret = -EINVAL;
++		break;
++	}
++	return ret;
++}
++
++static int
++open_bchannel(struct fritzcard *fc, struct channel_req *rq)
++{
++	struct bchannel		*bch;
++
++	if (rq->adr.channel > 2)
++		return -EINVAL;
++	if (rq->protocol == ISDN_P_NONE)
++		return -EINVAL;
++	bch = &fc->bch[rq->adr.channel - 1];
++	if (test_and_set_bit(FLG_OPEN, &bch->Flags))
++		return -EBUSY; /* b-channel can be only open once */
++	test_and_clear_bit(FLG_FILLEMPTY, &bch->Flags);
++	bch->ch.protocol = rq->protocol;
++	rq->ch = &bch->ch;
++	return 0;
++}
++
++/*
++ * device control function
++ */
++static int
++avm_dctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
 +{
 +	struct mISDNdevice	*dev = container_of(ch, struct mISDNdevice, D);
 +	struct dchannel		*dch = container_of(dev, struct dchannel, dev);
-+	struct w6692_hw		*card = container_of(dch, struct w6692_hw, dch);
-+	int			ret = -EINVAL;
-+	struct mISDNhead	*hh = mISDN_HEAD_P(skb);
-+	u32			id;
-+	u_long			flags;
++	struct fritzcard	*fc = dch->hw;
++	struct channel_req	*rq;
++	int			err = 0;
 +
-+	switch (hh->prim) {
-+	case PH_DATA_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
-+		ret = dchannel_senddata(dch, skb);
-+		if (ret > 0) { /* direct TX */
-+			id = hh->id; /* skb can be freed */
-+			W6692_fill_Dfifo(card);
-+			ret = 0;
-+			spin_unlock_irqrestore(&card->lock, flags);
-+			queue_ch_frame(ch, PH_DATA_CNF, id, NULL);
-+		} else
-+			spin_unlock_irqrestore(&card->lock, flags);
-+		return ret;
-+	case PH_ACTIVATE_REQ:
-+		ret = l1_event(dch->l1, hh->prim);
-+		break;
-+	case PH_DEACTIVATE_REQ:
-+		test_and_clear_bit(FLG_L2_ACTIVATED, &dch->Flags);
-+		ret = l1_event(dch->l1, hh->prim);
-+		break;
-+	}
-+
-+	if (!ret)
-+		dev_kfree_skb(skb);
-+	return ret;
-+}
-+
-+static int
-+w6692_l1callback(struct dchannel *dch, u32 cmd)
-+{
-+	struct w6692_hw *card = container_of(dch, struct w6692_hw, dch);
-+	u_long flags;
-+
-+	pr_debug("%s: cmd(%x) state(%02x)\n", card->name, cmd, card->state);
-+	switch (cmd) {
-+	case INFO3_P8:
-+		spin_lock_irqsave(&card->lock, flags);
-+		ph_command(card, W_L1CMD_AR8);
-+		spin_unlock_irqrestore(&card->lock, flags);
-+		break;
-+	case INFO3_P10:
-+		spin_lock_irqsave(&card->lock, flags);
-+		ph_command(card, W_L1CMD_AR10);
-+		spin_unlock_irqrestore(&card->lock, flags);
-+		break;
-+	case HW_RESET_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
-+		if (card->state != W_L1IND_DRD)
-+			ph_command(card, W_L1CMD_RST);
-+		ph_command(card, W_L1CMD_ECK);
-+		spin_unlock_irqrestore(&card->lock, flags);
-+		break;
-+	case HW_DEACT_REQ:
-+		skb_queue_purge(&dch->squeue);
-+		if (dch->tx_skb) {
-+			dev_kfree_skb(dch->tx_skb);
-+			dch->tx_skb = NULL;
-+		}
-+		dch->tx_idx = 0;
-+		if (dch->rx_skb) {
-+			dev_kfree_skb(dch->rx_skb);
-+			dch->rx_skb = NULL;
-+		}
-+		test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
-+		if (test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags))
-+			del_timer(&dch->timer);
-+		break;
-+	case HW_POWERUP_REQ:
-+		spin_lock_irqsave(&card->lock, flags);
-+		ph_command(card, W_L1CMD_ECK);
-+		spin_unlock_irqrestore(&card->lock, flags);
-+		break;
-+	case PH_ACTIVATE_IND:
-+		test_and_set_bit(FLG_ACTIVE, &dch->Flags);
-+		_queue_data(&dch->dev.D, cmd, MISDN_ID_ANY, 0, NULL,
-+			GFP_ATOMIC);
-+		break;
-+	case PH_DEACTIVATE_IND:
-+		test_and_clear_bit(FLG_ACTIVE, &dch->Flags);
-+		_queue_data(&dch->dev.D, cmd, MISDN_ID_ANY, 0, NULL,
-+			GFP_ATOMIC);
-+		break;
-+	default:
-+		pr_debug("%s: %s unknown command %x\n", card->name,
-+			__func__, cmd);
-+		return -1;
-+	}
-+	return 0;
-+}
-+
-+static int
-+open_dchannel(struct w6692_hw *card, struct channel_req *rq)
-+{
-+	pr_debug("%s: %s dev(%d) open from %p\n", card->name, __func__,
-+		card->dch.dev.id, __builtin_return_address(1));
-+	if (rq->protocol != ISDN_P_TE_S0)
-+		return -EINVAL;
-+	if (rq->adr.channel == 1)
-+		/* E-Channel not supported */
-+		return -EINVAL;
-+	rq->ch = &card->dch.dev.D;
-+	rq->ch->protocol = rq->protocol;
-+	if (card->dch.state == 7)
-+		_queue_data(rq->ch, PH_ACTIVATE_IND, MISDN_ID_ANY,
-+		    0, NULL, GFP_KERNEL);
-+	return 0;
-+}
-+
-+static int
-+w6692_dctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
-+{
-+	struct mISDNdevice *dev = container_of(ch, struct mISDNdevice, D);
-+	struct dchannel *dch = container_of(dev, struct dchannel, dev);
-+	struct w6692_hw *card = container_of(dch, struct w6692_hw, dch);
-+	struct channel_req *rq;
-+	int err = 0;
-+
-+	pr_debug("%s: DCTRL: %x %p\n", card->name, cmd, arg);
++	pr_debug("%s: %s cmd:%x %p\n", fc->name, __func__, cmd, arg);
 +	switch (cmd) {
 +	case OPEN_CHANNEL:
 +		rq = arg;
 +		if (rq->protocol == ISDN_P_TE_S0)
-+			err = open_dchannel(card, rq);
++			err = fc->isac.open(&fc->isac, rq);
 +		else
-+			err = open_bchannel(card, rq);
++			err = open_bchannel(fc, rq);
 +		if (err)
 +			break;
 +		if (!try_module_get(THIS_MODULE))
-+			pr_info("%s: cannot get module\n", card->name);
++			pr_info("%s: cannot get module\n", fc->name);
 +		break;
 +	case CLOSE_CHANNEL:
-+		pr_debug("%s: dev(%d) close from %p\n", card->name,
-+			dch->dev.id, __builtin_return_address(0));
++		pr_debug("%s: dev(%d) close from %p\n", fc->name, dch->dev.id,
++			__builtin_return_address(0));
 +		module_put(THIS_MODULE);
 +		break;
 +	case CONTROL_CHANNEL:
-+		err = channel_ctrl(card, arg);
++		err = channel_ctrl(fc, arg);
 +		break;
 +	default:
-+		pr_debug("%s: unknown DCTRL command %x\n", card->name, cmd);
++		pr_debug("%s: %s unknown command %x\n",
++			fc->name, __func__, cmd);
 +		return -EINVAL;
 +	}
 +	return err;
 +}
 +
 +int
-+setup_w6692(struct w6692_hw *card)
++setup_fritz(struct fritzcard *fc)
 +{
-+	u32	val;
++	u32 val, ver;
 +
-+	if (!request_region(card->addr, 256, card->name)) {
-+		pr_info("%s: config port %x-%x already in use\n", card->name,
-+		       card->addr, card->addr + 255);
++	if (!request_region(fc->addr, 32, fc->name)) {
++		pr_info("%s: AVM config port %x-%x already in use\n",
++			fc->name, fc->addr, fc->addr + 31);
 +		return -EIO;
 +	}
-+	W6692Version(card);
-+	card->bc[0].addr = card->addr;
-+	card->bc[1].addr = card->addr + 0x40;
-+	val = ReadW6692(card, W_ISTA);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s ISTA=%02x\n", card->name, val);
-+	val = ReadW6692(card, W_IMASK);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s IMASK=%02x\n", card->name, val);
-+	val = ReadW6692(card, W_D_EXIR);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s D_EXIR=%02x\n", card->name, val);
-+	val = ReadW6692(card, W_D_EXIM);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s D_EXIM=%02x\n", card->name, val);
-+	val = ReadW6692(card, W_D_RSTA);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s D_RSTA=%02x\n", card->name, val);
++	switch (fc->type) {
++	case AVM_FRITZ_PCI:
++		val = inl(fc->addr);
++		outl(AVM_HDLC_1, fc->addr + CHIP_INDEX);
++		ver = inl(fc->addr + CHIP_WINDOW + HDLC_STATUS) >> 24;
++		if (debug & DEBUG_HW) {
++			pr_notice("%s: PCI stat %#x\n", fc->name, val);
++			pr_notice("%s: PCI Class %X Rev %d\n", fc->name,
++				val & 0xff, (val >> 8) & 0xff);
++			pr_notice("%s: HDLC version %x\n", fc->name, ver & 0xf);
++		}
++		ASSIGN_FUNC(V1, ISAC, fc->isac);
++		fc->isac.type = IPAC_TYPE_ISAC;
++		break;
++	case AVM_FRITZ_PCIV2:
++		val = inl(fc->addr);
++		ver = inl(fc->addr + AVM_HDLC_STATUS_1) >> 24;
++		if (debug & DEBUG_HW) {
++			pr_notice("%s: PCI V2 stat %#x\n", fc->name, val);
++			pr_notice("%s: PCI V2 Class %X Rev %d\n", fc->name,
++				val & 0xff, (val>>8) & 0xff);
++			pr_notice("%s: HDLC version %x\n", fc->name, ver & 0xf);
++		}
++		ASSIGN_FUNC(V2, ISAC, fc->isac);
++		fc->isac.type = IPAC_TYPE_ISACX;
++		break;
++	default:
++		release_region(fc->addr, 32);
++		pr_info("%s: AVM unknown type %d\n", fc->name, fc->type);
++		return -ENODEV;
++	}
++	pr_notice("%s: %s config irq:%d base:0x%X\n", fc->name,
++		(fc->type == AVM_FRITZ_PCI) ? "AVM Fritz!CARD PCI" :
++		"AVM Fritz!CARD PCIv2", fc->irq, fc->addr);
 +	return 0;
 +}
 +
 +static void
-+release_card(struct w6692_hw *card)
++release_card(struct fritzcard *card)
 +{
-+	u_long	flags;
++	u_long flags;
 +
-+	spin_lock_irqsave(&card->lock, flags);
 +	disable_hwirq(card);
-+	w6692_mode(&card->bc[0], ISDN_P_NONE);
-+	w6692_mode(&card->bc[1], ISDN_P_NONE);
-+	if ((card->fmask & led) || card->subtype == W6692_USR) {
-+		card->xdata |= 0x04;	/*  LED OFF */
-+		WriteW6692(card, W_XDATA, card->xdata);
-+	}
++	spin_lock_irqsave(&card->lock, flags);
++	modehdlc(&card->bch[0], ISDN_P_NONE);
++	modehdlc(&card->bch[1], ISDN_P_NONE);
 +	spin_unlock_irqrestore(&card->lock, flags);
++	card->isac.release(&card->isac);
 +	free_irq(card->irq, card);
-+	l1_event(card->dch.l1, CLOSE_CHANNEL);
-+	mISDN_unregister_device(&card->dch.dev);
-+	release_region(card->addr, 256);
-+	mISDN_freebchannel(&card->bc[1].bch);
-+	mISDN_freebchannel(&card->bc[0].bch);
-+	mISDN_freedchannel(&card->dch);
++	mISDN_freebchannel(&card->bch[1]);
++	mISDN_freebchannel(&card->bch[0]);
++	mISDN_unregister_device(&card->isac.dch.dev);
++	release_region(card->addr, 32);
++	pci_disable_device(card->pdev);
++	pci_set_drvdata(card->pdev, NULL);
 +	write_lock_irqsave(&card_lock, flags);
 +	list_del(&card->list);
 +	write_unlock_irqrestore(&card_lock, flags);
-+	pci_disable_device(card->pdev);
-+	pci_set_drvdata(card->pdev, NULL);
 +	kfree(card);
++	AVM_cnt--;
 +}
 +
-+static int
-+setup_instance(struct w6692_hw *card)
++static int __devinit
++setup_instance(struct fritzcard *card)
 +{
-+	int		i, err;
-+	u_long		flags;
++	int i, err;
++	u_long flags;
 +
-+	snprintf(card->name, MISDN_MAX_IDLEN - 1, "w6692.%d", w6692_cnt + 1);
++	snprintf(card->name, MISDN_MAX_IDLEN - 1, "AVM.%d", AVM_cnt + 1);
 +	write_lock_irqsave(&card_lock, flags);
 +	list_add_tail(&card->list, &Cards);
 +	write_unlock_irqrestore(&card_lock, flags);
-+	card->fmask = (1 << w6692_cnt);
++
 +	_set_debug(card);
++	card->isac.name = card->name;
 +	spin_lock_init(&card->lock);
-+	mISDN_initdchannel(&card->dch, MAX_DFRAME_LEN_L1, W6692_ph_bh);
-+	card->dch.dev.Dprotocols = (1 << ISDN_P_TE_S0);
-+	card->dch.dev.D.send = w6692_l2l1D;
-+	card->dch.dev.D.ctrl = w6692_dctrl;
-+	card->dch.dev.Bprotocols = (1 << (ISDN_P_B_RAW & ISDN_P_B_MASK)) |
-+		(1 << (ISDN_P_B_HDLC & ISDN_P_B_MASK));
-+	card->dch.hw = card;
-+	card->dch.dev.nrbchan = 2;
++	card->isac.hwlock = &card->lock;
++	mISDNisac_init(&card->isac, card);
++
++	card->isac.dch.dev.Bprotocols = (1 << (ISDN_P_B_RAW & ISDN_P_B_MASK)) |
++	    (1 << (ISDN_P_B_HDLC & ISDN_P_B_MASK));
++	card->isac.dch.dev.D.ctrl = avm_dctrl;
 +	for (i = 0; i < 2; i++) {
-+		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM);
-+		card->bc[i].bch.hw = card;
-+		card->bc[i].bch.nr = i + 1;
-+		card->bc[i].bch.ch.nr = i + 1;
-+		card->bc[i].bch.ch.send = w6692_l2l1B;
-+		card->bc[i].bch.ch.ctrl = w6692_bctrl;
-+		set_channelmap(i + 1, card->dch.dev.channelmap);
-+		list_add(&card->bc[i].bch.ch.list, &card->dch.dev.bchannels);
++		card->bch[i].nr = i + 1;
++		set_channelmap(i + 1, card->isac.dch.dev.channelmap);
++		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM);
++		card->bch[i].hw = card;
++		card->bch[i].ch.send = avm_l2l1B;
++		card->bch[i].ch.ctrl = avm_bctrl;
++		card->bch[i].ch.nr = i + 1;
++		list_add(&card->bch[i].ch.list, &card->isac.dch.dev.bchannels);
 +	}
-+	err = setup_w6692(card);
++	err = setup_fritz(card);
 +	if (err)
-+		goto error_setup;
-+	err = mISDN_register_device(&card->dch.dev, &card->pdev->dev,
++		goto error;
++	err = mISDN_register_device(&card->isac.dch.dev, &card->pdev->dev,
 +		card->name);
 +	if (err)
 +		goto error_reg;
 +	err = init_card(card);
-+	if (err)
-+		goto error_init;
-+	err = create_l1(&card->dch, w6692_l1callback);
-+	if (!err) {
-+		w6692_cnt++;
-+		pr_notice("W6692 %d cards installed\n", w6692_cnt);
++	if (!err)  {
++		AVM_cnt++;
++		pr_notice("AVM %d cards installed DEBUG\n", AVM_cnt);
 +		return 0;
 +	}
-+
-+	free_irq(card->irq, card);
-+error_init:
-+	mISDN_unregister_device(&card->dch.dev);
++	mISDN_unregister_device(&card->isac.dch.dev);
 +error_reg:
-+	release_region(card->addr, 256);
-+error_setup:
-+	mISDN_freebchannel(&card->bc[1].bch);
-+	mISDN_freebchannel(&card->bc[0].bch);
-+	mISDN_freedchannel(&card->dch);
++	release_region(card->addr, 32);
++error:
++	card->isac.release(&card->isac);
++	mISDN_freebchannel(&card->bch[1]);
++	mISDN_freebchannel(&card->bch[0]);
 +	write_lock_irqsave(&card_lock, flags);
 +	list_del(&card->list);
 +	write_unlock_irqrestore(&card_lock, flags);
@@ -1431,27 +1144,29 @@ index 0000000..1b9008f
 +}
 +
 +static int __devinit
-+w6692_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++fritzpci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 +{
-+	int		err = -ENOMEM;
-+	struct w6692_hw	*card;
-+	struct w6692map	*m = (struct w6692map *)ent->driver_data;
++	int err = -ENOMEM;
++	struct fritzcard *card;
 +
-+	card = kzalloc(sizeof(struct w6692_hw), GFP_KERNEL);
++	card = kzalloc(sizeof(struct fritzcard), GFP_KERNEL);
 +	if (!card) {
-+		pr_info("No kmem for w6692 card\n");
++		pr_info("No kmem for fritzcard\n");
 +		return err;
 +	}
++	if (pdev->device == PCI_DEVICE_ID_AVM_A1_V2)
++		card->type = AVM_FRITZ_PCIV2;
++	else
++		card->type = AVM_FRITZ_PCI;
 +	card->pdev = pdev;
-+	card->subtype = m->subtype;
 +	err = pci_enable_device(pdev);
 +	if (err) {
 +		kfree(card);
 +		return err;
 +	}
 +
-+	printk(KERN_INFO "mISDN_w6692: found adapter %s at %s\n",
-+	       m->name, pci_name(pdev));
++	pr_notice("mISDN: found adapter %s at %s\n",
++	       (char *) ent->driver_data, pci_name(pdev));
 +
 +	card->addr = pci_resource_start(pdev, 1);
 +	card->irq = pdev->irq;
@@ -1463,248 +1178,48 @@ index 0000000..1b9008f
 +}
 +
 +static void __devexit
-+w6692_remove_pci(struct pci_dev *pdev)
++fritz_remove_pci(struct pci_dev *pdev)
 +{
-+	struct w6692_hw	*card = pci_get_drvdata(pdev);
++	struct fritzcard *card = pci_get_drvdata(pdev);
 +
 +	if (card)
 +		release_card(card);
 +	else
 +		if (debug)
-+			pr_notice("%s: drvdata allready removed\n", __func__);
++			pr_info("%s: drvdata allready removed\n", __func__);
 +}
 +
-+static struct pci_device_id w6692_ids[] = {
-+	{ PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH,
-+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, (ulong)&w6692_map[0]},
-+	{ PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692,
-+	  PCI_VENDOR_ID_USR, PCI_DEVICE_ID_USR_6692, 0, 0,
-+	  (ulong)&w6692_map[2]},
-+	{ PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692,
-+	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, (ulong)&w6692_map[1]},
++static struct pci_device_id fcpci_ids[] __devinitdata = {
++	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1, PCI_ANY_ID, PCI_ANY_ID,
++	  0, 0, (unsigned long) "Fritz!Card PCI"},
++	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1_V2, PCI_ANY_ID, PCI_ANY_ID,
++	  0, 0, (unsigned long) "Fritz!Card PCI v2" },
 +	{ }
 +};
-+MODULE_DEVICE_TABLE(pci, w6692_ids);
++MODULE_DEVICE_TABLE(pci, fcpci_ids);
 +
-+static struct pci_driver w6692_driver = {
-+	.name =  "w6692",
-+	.probe = w6692_probe,
-+	.remove = __devexit_p(w6692_remove_pci),
-+	.id_table = w6692_ids,
++static struct pci_driver fcpci_driver = {
++	.name = "fcpci",
++	.probe = fritzpci_probe,
++	.remove = __devexit_p(fritz_remove_pci),
++	.id_table = fcpci_ids,
 +};
 +
-+static int __init w6692_init(void)
++static int __init AVM_init(void)
 +{
 +	int err;
 +
-+	pr_notice("Winbond W6692 PCI driver Rev. %s\n", W6692_REV);
-+
-+	err = pci_register_driver(&w6692_driver);
++	pr_notice("AVM Fritz PCI driver Rev. %s\n", AVMFRITZ_REV);
++	err = pci_register_driver(&fcpci_driver);
 +	return err;
 +}
 +
-+static void __exit w6692_cleanup(void)
++static void __exit AVM_cleanup(void)
 +{
-+	pci_unregister_driver(&w6692_driver);
++	pci_unregister_driver(&fcpci_driver);
 +}
 +
-+module_init(w6692_init);
-+module_exit(w6692_cleanup);
-diff --git a/drivers/isdn/hardware/mISDN/w6692.h b/drivers/isdn/hardware/mISDN/w6692.h
-new file mode 100644
-index 0000000..f956977
---- /dev/null
-+++ b/drivers/isdn/hardware/mISDN/w6692.h
-@@ -0,0 +1,190 @@
-+/*
-+ * Winbond W6692 specific defines
-+ *
-+ * Author       Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
-+ *		based on the w6692 I4L driver from Petr Novak <petr.novak@i.cz>
-+ *
-+ * Copyright 2009  by Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ *
-+ */
-+
-+/* Specifications of W6692 registers */
-+
-+#define W_D_RFIFO	0x00	/* R */
-+#define W_D_XFIFO	0x04	/* W */
-+#define W_D_CMDR	0x08	/* W */
-+#define W_D_MODE	0x0c	/* R/W */
-+#define W_D_TIMR	0x10	/* R/W */
-+#define W_ISTA		0x14	/* R_clr */
-+#define W_IMASK		0x18	/* R/W */
-+#define W_D_EXIR	0x1c	/* R_clr */
-+#define W_D_EXIM	0x20	/* R/W */
-+#define W_D_STAR	0x24	/* R */
-+#define W_D_RSTA	0x28	/* R */
-+#define W_D_SAM		0x2c	/* R/W */
-+#define W_D_SAP1	0x30	/* R/W */
-+#define W_D_SAP2	0x34	/* R/W */
-+#define W_D_TAM		0x38	/* R/W */
-+#define W_D_TEI1	0x3c	/* R/W */
-+#define W_D_TEI2	0x40	/* R/W */
-+#define W_D_RBCH	0x44	/* R */
-+#define W_D_RBCL	0x48	/* R */
-+#define W_TIMR2		0x4c	/* W */
-+#define W_L1_RC		0x50	/* R/W */
-+#define W_D_CTL		0x54	/* R/W */
-+#define W_CIR		0x58	/* R */
-+#define W_CIX		0x5c	/* W */
-+#define W_SQR		0x60	/* R */
-+#define W_SQX		0x64	/* W */
-+#define W_PCTL		0x68	/* R/W */
-+#define W_MOR		0x6c	/* R */
-+#define W_MOX		0x70	/* R/W */
-+#define W_MOSR		0x74	/* R_clr */
-+#define W_MOCR		0x78	/* R/W */
-+#define W_GCR		0x7c	/* R/W */
-+
-+#define	W_B_RFIFO	0x80	/* R */
-+#define	W_B_XFIFO	0x84	/* W */
-+#define	W_B_CMDR	0x88	/* W */
-+#define	W_B_MODE	0x8c	/* R/W */
-+#define	W_B_EXIR	0x90	/* R_clr */
-+#define	W_B_EXIM	0x94	/* R/W */
-+#define	W_B_STAR	0x98	/* R */
-+#define	W_B_ADM1	0x9c	/* R/W */
-+#define	W_B_ADM2	0xa0	/* R/W */
-+#define	W_B_ADR1	0xa4	/* R/W */
-+#define	W_B_ADR2	0xa8	/* R/W */
-+#define	W_B_RBCL	0xac	/* R */
-+#define	W_B_RBCH	0xb0	/* R */
-+
-+#define W_XADDR		0xf4	/* R/W */
-+#define W_XDATA		0xf8	/* R/W */
-+#define W_EPCTL		0xfc	/* W */
-+
-+/* W6692 register bits */
-+
-+#define	W_D_CMDR_XRST	0x01
-+#define	W_D_CMDR_XME	0x02
-+#define	W_D_CMDR_XMS	0x08
-+#define	W_D_CMDR_STT	0x10
-+#define	W_D_CMDR_RRST	0x40
-+#define	W_D_CMDR_RACK	0x80
-+
-+#define	W_D_MODE_RLP	0x01
-+#define	W_D_MODE_DLP	0x02
-+#define	W_D_MODE_MFD	0x04
-+#define	W_D_MODE_TEE	0x08
-+#define	W_D_MODE_TMS	0x10
-+#define	W_D_MODE_RACT	0x40
-+#define	W_D_MODE_MMS	0x80
-+
-+#define W_INT_B2_EXI	0x01
-+#define W_INT_B1_EXI	0x02
-+#define W_INT_D_EXI	0x04
-+#define W_INT_XINT0	0x08
-+#define W_INT_XINT1	0x10
-+#define W_INT_D_XFR	0x20
-+#define W_INT_D_RME	0x40
-+#define W_INT_D_RMR	0x80
-+
-+#define W_D_EXI_WEXP	0x01
-+#define W_D_EXI_TEXP	0x02
-+#define W_D_EXI_ISC	0x04
-+#define W_D_EXI_MOC	0x08
-+#define W_D_EXI_TIN2	0x10
-+#define W_D_EXI_XCOL	0x20
-+#define W_D_EXI_XDUN	0x40
-+#define W_D_EXI_RDOV	0x80
-+
-+#define	W_D_STAR_DRDY	0x10
-+#define	W_D_STAR_XBZ	0x20
-+#define	W_D_STAR_XDOW	0x80
-+
-+#define W_D_RSTA_RMB	0x10
-+#define W_D_RSTA_CRCE	0x20
-+#define W_D_RSTA_RDOV	0x40
-+
-+#define W_D_CTL_SRST	0x20
-+
-+#define W_CIR_SCC	0x80
-+#define W_CIR_ICC	0x40
-+#define W_CIR_COD_MASK	0x0f
-+
-+#define W_PCTL_PCX	0x01
-+#define W_PCTL_XMODE	0x02
-+#define W_PCTL_OE0	0x04
-+#define W_PCTL_OE1	0x08
-+#define W_PCTL_OE2	0x10
-+#define W_PCTL_OE3	0x20
-+#define W_PCTL_OE4	0x40
-+#define W_PCTL_OE5	0x80
-+
-+#define	W_B_CMDR_XRST	0x01
-+#define	W_B_CMDR_XME	0x02
-+#define	W_B_CMDR_XMS	0x04
-+#define	W_B_CMDR_RACT	0x20
-+#define	W_B_CMDR_RRST	0x40
-+#define	W_B_CMDR_RACK	0x80
-+
-+#define	W_B_MODE_FTS0	0x01
-+#define	W_B_MODE_FTS1	0x02
-+#define	W_B_MODE_SW56	0x04
-+#define	W_B_MODE_BSW0	0x08
-+#define	W_B_MODE_BSW1	0x10
-+#define	W_B_MODE_EPCM	0x20
-+#define	W_B_MODE_ITF	0x40
-+#define	W_B_MODE_MMS	0x80
-+
-+#define	W_B_EXI_XDUN	0x01
-+#define	W_B_EXI_XFR	0x02
-+#define	W_B_EXI_RDOV	0x10
-+#define	W_B_EXI_RME	0x20
-+#define	W_B_EXI_RMR	0x40
-+
-+#define	W_B_STAR_XBZ	0x01
-+#define	W_B_STAR_XDOW	0x04
-+#define	W_B_STAR_RMB	0x10
-+#define	W_B_STAR_CRCE	0x20
-+#define	W_B_STAR_RDOV	0x40
-+
-+#define	W_B_RBCH_LOV	0x20
-+
-+/* W6692 Layer1 commands */
-+
-+#define	W_L1CMD_ECK	0x00
-+#define W_L1CMD_RST	0x01
-+#define W_L1CMD_SCP	0x04
-+#define W_L1CMD_SSP	0x02
-+#define W_L1CMD_AR8	0x08
-+#define W_L1CMD_AR10	0x09
-+#define W_L1CMD_EAL	0x0a
-+#define W_L1CMD_DRC	0x0f
-+
-+/* W6692 Layer1 indications */
-+
-+#define W_L1IND_CE	0x07
-+#define W_L1IND_DRD	0x00
-+#define W_L1IND_LD	0x04
-+#define W_L1IND_ARD	0x08
-+#define W_L1IND_TI	0x0a
-+#define W_L1IND_ATI	0x0b
-+#define W_L1IND_AI8	0x0c
-+#define W_L1IND_AI10	0x0d
-+#define W_L1IND_CD	0x0f
-+
-+/* FIFO thresholds */
-+#define W_D_FIFO_THRESH	64
-+#define W_B_FIFO_THRESH	64
++module_init(AVM_init);
++module_exit(AVM_cleanup);
 -- 
 1.6.0.2
