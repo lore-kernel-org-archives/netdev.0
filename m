@@ -1,21 +1,16 @@
-From: Alessandro Rubini <ru@gnudd.com>
-Subject: [PATCH] smc91x.h: add config for Nomadik evaluation kit
-Date: Thu, 23 Jul 2009 00:39:04 +0200
-Message-ID: <20090722223904.GA13346@mail.gnudd.com>
+From: Alessandro Rubini <rubini-list@gnudd.com>
+Subject: [PATCH v2] smc91x.h: add config for Nomadik evaluation kit
+Date: Thu, 23 Jul 2009 00:49:08 +0200
+Message-ID: <20090722224908.GA13789@mail.gnudd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
+Cc: andrea.gallo@stericsson.com, STEricsson_nomadik_linux@list.st.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.gnudd.com ([213.203.150.91]:61493 "EHLO mail.gnudd.com"
+Received: from mail2.gnudd.com ([213.203.150.91]:61494 "EHLO mail.gnudd.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753832AbZGVWr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 18:47:56 -0400
-Received: from mail.gnudd.com (localhost [127.0.0.1])
-	by mail.gnudd.com (8.14.3/8.14.3/Debian-5) with ESMTP id n6MMd5gX013354
-	for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 00:39:05 +0200
-Received: (from rubini@localhost)
-	by mail.gnudd.com (8.14.3/8.14.3/Submit) id n6MMd5EU013353
-	for netdev@vger.kernel.org; Thu, 23 Jul 2009 00:39:05 +0200
+	id S1755191AbZGVWtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2009 18:49:23 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,6 +18,9 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alessandro Rubini <rubini@unipv.it>
 Acked-by: Andrea Gallo <andrea.gallo@stericsson.com>
 ---
+
+[sorry for the repost: I used a non-subscribed address and
+forgot to Cc: company people, V2 is otherwise the same as V1]
 
 Base support for the Nomadik SoC, by ST-Ericsson, is already
 included in the "nomadik" branch of rmk's tree.  This one-liner
