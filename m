@@ -1,38 +1,54 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [RFC] IPv6 route replacement
-Date: Wed, 22 Jul 2009 11:50:41 +0200
-Message-ID: <20090722095040.GC3517@psychotron.englab.brq.redhat.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] USB host CDC Phonet network interface driver
+Date: Wed, 22 Jul 2009 14:07:28 +0300
+Message-ID: <200907221407.29275.remi.denis-courmont@nokia.com>
+References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com> <20090722101102.4aba96bd@lxorguk.ukuu.org.uk> <1248254134.28545.111.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Oliver Neukum <oliver@neukum.org>,
+	ext Dan Williams <dcbw@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: ext Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:58441 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424AbZGVJuz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 05:50:55 -0400
+Received: from smtp.nokia.com ([192.100.105.134]:37269 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049AbZGVLGJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 07:06:09 -0400
+In-Reply-To: <1248254134.28545.111.camel@violet>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello guys.
+On Wednesday 22 July 2009 12:15:34 ext Marcel Holtmann wrote:
+> Hi Alan,
+>
+> > > The AT stuff is really problematic. Look at the hoops ISDN and so=
+ftware
+> > > modem drivers go through to emulate AT commands. I know even of a
+> > > CDC-ACM modem which can't deal with AT commands inline (that's wi=
+thin
+> > > spec). It seems to me we should have a modem API in kernel.
+> >
+> > For devices which don't deal in AT commands probably but for device=
+s
+> > whose firmware provides an AT command interface over serial I would
+> > disagree.
+>
+> I fully agree here. Even if you think you get AT commands under contr=
+ol,
+> you really won't in the end. That standard is so wildly mis-interpret=
+ed
+> that it is not even funny anymore.
 
-I would like to hear your opinion on the following:
+Possibly. Does anyone known of any "species" bypassing AT commands enti=
+rely,=20
+other than Phonet? as far as GPRS is concerned?
 
-[root@f11 ~]# ip -6 route list 3ffe::1:1
-[root@f11 ~]# ip -6 route add 3ffe::1:1 via fe80::20c:29ff:fe4c:3108 dev eth0 metric 1024
-[root@f11 ~]# ip -6 route list 3ffe::1:1
-3ffe::1:1 via fe80::20c:29ff:fe4c:3108 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-[root@f11 ~]# ip -6 route change 3ffe::1:1 via fe80::20c:29ff:fe4c:3108 dev eth0 metric 100
-[root@f11 ~]# ip -6 route list 3ffe::1:1
-3ffe::1:1 via fe80::20c:29ff:fe4c:3108 dev eth0  metric 100  mtu 1500 advmss 1440 hoplimit 4294967295
-3ffe::1:1 via fe80::20c:29ff:fe4c:3108 dev eth0  metric 1024  mtu 1500 advmss 1440 hoplimit 4294967295
-[root@f11 ~]#
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
-Now do you think this is the right behaviour? I would expect the first route to
-be replaced. The same result is when you do "ip -6 route replace"
-
-Thanks
-
-Jirka
