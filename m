@@ -1,75 +1,99 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH net-next-2.6] ethtool: device independent rx_csum and
- get_flags routines
-Date: Wed, 22 Jul 2009 16:38:22 -0700
-Message-ID: <1248305902.1061.84.camel@w-sridhar.beaverton.ibm.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] igb/e1000e/e1000/e100: make wol usable
+Date: Wed, 22 Jul 2009 16:43:03 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0907221642110.9900@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090721210115.GL8515@gospo.rdu.redhat.com>
+ <273D38FBE7C6FE46A1689FCD014A0B8B55D57764@azsmsx505.amr.corp.intel.com>
+ <20090722022745.GM8515@gospo.rdu.redhat.com>
+ <5f2db9d90907212025k31c3a941v5fd1be9ed171e4c1@mail.gmail.com>
+ <20090722193400.GN8515@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"stable@kernel.org" <stable@kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:58209 "EHLO e4.ny.us.ibm.com"
+Received: from mga02.intel.com ([134.134.136.20]:24859 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753619AbZGVXjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 19:39:07 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n6MNWdZ5012884
-	for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 19:32:39 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n6MNcNtK251758
-	for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 19:38:23 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n6MNZkS0000912
-	for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 19:35:46 -0400
+	id S1755206AbZGVXnE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jul 2009 19:43:04 -0400
+In-Reply-To: <20090722193400.GN8515@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[PATCH net-next-2.6] ethtool: add device independent rx_csum and get_flags routines
+On Wed, 22 Jul 2009, Andy Gospodarek wrote:
 
-This helps avoid error messages with ethtool -k on devices that
-don't provide device specific routines.
+> On Tue, Jul 21, 2009 at 08:25:31PM -0700, Alexander Duyck wrote:
+> > My understanding was that the can_wakeup was supposed to be
+> > initialized by pci_pm_init or platform_pci_wakeup_init based on the
+> > pci-e capabilities.  Is this not the case?  It seems like this is
+> > where you should be looking to determine why the the can_wakeup isn't
+> > being initialized correctly.
+> > 
+> > The patch below won't solve the problem either.  The problem is that
+> > the can_wakeup value is being disabled when the EEPROM doesn't support
+> > WOL.
+> 
+> The lack of EEPROM support for this was not the problem at all.
+> Ultimately it turns out that can_wakeup is set in pci_pm_init, so calls
+> to device_init_wakeup and device_set_wakeup_capable should not be needed
+> in any driver.
+> 
+> > If you have to do this in the drivers, then my suggestion is to take a
+> > look at how ixgbe is doing it.  You essentially need to initialize
+> > can_wakeup to true, and then set the should_wakeup attribute based on
+> > the EEPROM setting or via ethtool.  This way you can still toggle the
+> > should_wakeup option without being blocked by the EEPROM disabling it.
+> 
+> The first patch does exactly that (and ixgbe was part of my inspiration
+> for it).  Since can_wakeup and should_wakeup are both set in
+> device_init_wakeup it's a suitable alternative in driver probe
+> functions, but probably not ideal when drivers check for
+> device_can_wakeup in their ethtool set_wol functions.
+> 
+> Anyway, I knew I would find a bug or unnecessary code between e1000e and
+> friends or ixgbe, so it looks like ixgbe has an unnecessary call to
+> device_init_wakeup.  Feel free to consider this patch as an alternative.
+> 
+> 
+> 
+> [PATCH] ixgbe: remove unnecessary call to device_init_wakeup
+> 
+> Calls to device_init_wakeup should not be necessary in drivers that use
+> device_set_wakeup_enable since pci_pm_init will set the can_wakeup flag
+> for the device when initialized.
+> 
+> I can't test this since I don't have any of the 82599 KX4 interfaces
+> (the only ones capable of WOL), but I did instrument ixgbe_probe and
+> know that can_wakeup=1 when device_init_wakeup is removed.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> 
+> ---
+> 
+>  ixgbe_main.c |    1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+> index 79f60e8..2f15abf 100644
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -5640,7 +5640,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+>  		adapter->wol = 0;
+>  		break;
+>  	}
+> -	device_init_wakeup(&adapter->pdev->dev, true);
+>  	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+>  
+>  	/* pick up the PCI bus settings for reporting later */
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Works just fine on two different 82599 mezz cards that support WoL.  
+Thanks Andy for finding and fixing.
 
-------------------------------------------------------------------
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index d9d5160..cf36ff4 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -30,6 +30,11 @@ u32 ethtool_op_get_link(struct net_device *dev)
- 	return netif_carrier_ok(dev) ? 1 : 0;
- }
- 
-+u32 ethtool_op_get_rx_csum(struct net_device *dev)
-+{
-+	return (dev->features & NETIF_F_ALL_CSUM) != 0;
-+}
-+
- u32 ethtool_op_get_tx_csum(struct net_device *dev)
- {
- 	return (dev->features & NETIF_F_ALL_CSUM) != 0;
-@@ -1004,7 +1009,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 		break;
- 	case ETHTOOL_GRXCSUM:
- 		rc = ethtool_get_value(dev, useraddr, ethcmd,
--				       dev->ethtool_ops->get_rx_csum);
-+				       (dev->ethtool_ops->get_rx_csum ?
-+					dev->ethtool_ops->get_rx_csum :
-+					ethtool_op_get_rx_csum));
- 		break;
- 	case ETHTOOL_SRXCSUM:
- 		rc = ethtool_set_rx_csum(dev, useraddr);
-@@ -1068,7 +1075,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 		break;
- 	case ETHTOOL_GFLAGS:
- 		rc = ethtool_get_value(dev, useraddr, ethcmd,
--				       dev->ethtool_ops->get_flags);
-+				       (dev->ethtool_ops->get_flags ?
-+					dev->ethtool_ops->get_flags :
-+					ethtool_op_get_flags));
- 		break;
- 	case ETHTOOL_SFLAGS:
- 		rc = ethtool_set_value(dev, useraddr,
-
-
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
