@@ -1,53 +1,41 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next 6/10] bnx2x: Update vlan_features
-Date: Thu, 23 Jul 2009 12:46:27 +0200
-Message-ID: <4A683F83.1060701@trash.net>
-References: <1248191263.18195.49.camel@lb-tlvb-eilong>
+Subject: Re: [PATCH net-next-2.6] bonding: propogate vlan_features to bonding
+ master
+Date: Thu, 23 Jul 2009 13:03:59 +0200
+Message-ID: <4A68439F.8060305@trash.net>
+References: <24949.1240530461@death.nxdomain.ibm.com> <4A2CDB16.9030000@Voltaire.com> <4A642600.2010501@voltaire.com> <3463.1248298460@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gerlitz <ogerlitz@Voltaire.com>
-To: eilong@broadcom.com
+Cc: Or Gerlitz <ogerlitz@voltaire.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33267 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:33718 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752881AbZGWKqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 06:46:35 -0400
-In-Reply-To: <1248191263.18195.49.camel@lb-tlvb-eilong>
+	with ESMTP id S1750923AbZGWLEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 07:04:00 -0400
+In-Reply-To: <3463.1248298460@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eilon Greenstein wrote:
-> As noted by Or Gerlitz <ogerlitz@Voltaire.com>, the vlan_features was not
-> updated
+Jay Vosburgh wrote:
+> 	Propogate the vlan_features of the slave devices to the bonding
+> master device, using the same logic as for regular features.
 > 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
->  drivers/net/bnx2x_main.c |   19 +++++++++++++++++--
->  1 files changed, 17 insertions(+), 2 deletions(-)
+> 	Tested by Or Gerlitz <ogerlitz@voltaire.com>, who also removed
+> the debug logic from the original test patch.
 > 
-> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> index 18c3803..b404a9b 100644
-> --- a/drivers/net/bnx2x_main.c
-> +++ b/drivers/net/bnx2x_main.c
-> @@ -9310,9 +9310,17 @@ static int bnx2x_set_tso(struct net_device *dev, u32 data)
->  	if (data) {
->  		dev->features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
->  		dev->features |= NETIF_F_TSO6;
-> +#ifdef BCM_VLAN
-> +		dev->vlan_features |= (NETIF_F_TSO | NETIF_F_TSO_ECN);
-> +		dev->vlan_features |= NETIF_F_TSO6;
-> +#endif
->  	} else {
->  		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
->  		dev->features &= ~NETIF_F_TSO6;
-> +#ifdef BCM_VLAN
-> +		dev->vlan_features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
-> +		dev->vlan_features &= ~NETIF_F_TSO6;
-> +#endif
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3bf0cc6..5a8b882 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1354,6 +1359,7 @@ static int bond_compute_features(struct bonding *bond)
+>  done:
+>  	features |= (bond_dev->features & BOND_VLAN_FEATURES);
+>  	bond_dev->features = netdev_fix_features(features, NULL);
+> +	bond_dev->vlan_features = netdev_fix_features(vlan_features, NULL);
 
-vlan_features doesn't need to be updated, the resulting dev->features
-of the VLAN device is computed as the intersection of dev->features
-and dev->vlan_features.
 
+You need to call netdev_features_change() to make sure the VLAN
+code notices the change.
