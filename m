@@ -1,49 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
-   in back trace (regression)
-Date: Thu, 23 Jul 2009 21:11:22 +0200
-Message-ID: <4A68B5DA.5000307@gmail.com>
-References: <20090723000100.d74d6b1c.akpm@linux-foundation.org>	<20090723.091523.180916751.davem@davemloft.net>	<20090723105141.5272aee1.akpm@linux-foundation.org> <20090723.105344.244636270.davem@davemloft.net>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: md5 on listening sockets
+Date: Thu, 23 Jul 2009 19:16:13 +0000
+Message-ID: <1248376573.7971.19.camel@Maple>
+References: <aa9682190907230738y23636cc5yd8b4e7a854f7b59c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, for.poige+bugzilla.kernel.org@gmail.com,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Martin =?ISO-8859-1?Q?Djern=E6s?= <mdjernaes@pulz8.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f228.google.com ([209.85.218.228]:45678 "EHLO
-	mail-bw0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbZGWTLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 15:11:49 -0400
-Received: by bwz28 with SMTP id 28so1021488bwz.37
-        for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 12:11:48 -0700 (PDT)
-In-Reply-To: <20090723.105344.244636270.davem@davemloft.net>
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:45511 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753871AbZGWTQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 15:16:22 -0400
+Received: by ewy26 with SMTP id 26so1251433ewy.37
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 12:16:21 -0700 (PDT)
+In-Reply-To: <aa9682190907230738y23636cc5yd8b4e7a854f7b59c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote, On 07/23/2009 07:53 PM:
+On Thu, 2009-07-23 at 16:38 +0200, Martin Djern=C3=A6s wrote:
+> I've been looking at using the md5 keys on a listening socket as one
+> means of restricting access to the socket.=20
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Thu, 23 Jul 2009 10:51:41 -0700
-> 
->> I wouldn't have thought that pppoe would be affected by tty changes?
->>
->> As opposed to pppotty :)
-> 
-> Good point.  So it's unlikely any of the changes we're discussing
-> will influence this bug.
- 
+MD5 authentication is typically used for BGP sessions.  It is not a
+particularly strong authentication mechanism, as discussed in RFC 4278,
+and there are several better options available as long as you don't hav=
+e
+to be compatible with BGP peers.
 
-Here is a link showing around pppoe problem quite similar to
-the one fixed later in pty.c by Alan Cox, so IMHO the current
-2.6.31-rc is worth trying.
+> When I specify an md5 key
+> (with or without a peer ip address in the option) any tcp connect fro=
+m
+> another IP address will be accepted by this connection if the source
+> IP is not found in the "md5sig->keys4" array.
 
-From: Dave Young <hidave.darkstar@gmail.com>
-Subject: BUG: sleeping function called from invalid context at 
-	kernel/mutex.c:280
-Date: Fri, 19 Jun 2009 10:36:13 +0800
+The current behavior is consistent with the way MD5 authentication work=
+s
+on OpenBSD, and perhaps other BSDs.  This behavior is expected by open
+source routing applications.
 
-http://permalink.gmane.org/gmane.linux.network/131166
+I believe the intent is that the BGP well-known port must be able to
+accept connections from both authenticated and non-authenticated peers.
+It is up to the application to filter connections based on the address
+of the connecting peer.
 
-Jarek P.
+I agree that this behavior would be unfortunate for a general-purpose
+authentication mechanism, but that is not what TCP MD5 authentication
+is.
+
+--=20
+John Dykstra
+voice:           +1 651 484-1098            Yahoo IM:  jdykstra72
+
+LinkedIn:        http://www.linkedin.com/in/JohnDykstra
+Blog:            http://johndykstra.blogspot.com/=20
+
