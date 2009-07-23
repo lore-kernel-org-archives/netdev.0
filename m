@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 RESEND] net: Rework mdio-ofgpio driver to use
- of_mdio infrastructure
-Date: Thu, 23 Jul 2009 10:56:57 -0700 (PDT)
-Message-ID: <20090723.105657.127470596.davem@davemloft.net>
-References: <4A66400F.3090309@elphinstone.net>
-	<20090722.094059.113003489.davem@davemloft.net>
-	<4A68477B.4090505@elphinstone.net>
+Subject: Re: [PATCH net-next-2.6] bnx2: Update vlan_features
+Date: Thu, 23 Jul 2009 10:59:32 -0700 (PDT)
+Message-ID: <20090723.105932.249439810.davem@davemloft.net>
+References: <4A681029.4070600@voltaire.com>
+	<4A681F63.7060001@gmail.com>
+	<4A685122.3090300@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: mware@elphinstone.net
+Cc: ogerlitz@voltaire.com, kaber@trash.net, fubar@us.ibm.com,
+	netdev@vger.kernel.org, eilong@broadcom.com, mchan@broadcom.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41426
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41433
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751484AbZGWR4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 13:56:51 -0400
-In-Reply-To: <4A68477B.4090505@elphinstone.net>
+	by vger.kernel.org with ESMTP id S1750976AbZGWR70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 13:59:26 -0400
+In-Reply-To: <4A685122.3090300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Ware <mware@elphinstone.net>
-Date: Thu, 23 Jul 2009 21:20:27 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Jul 2009 14:01:38 +0200
 
-> Changes to the fs_enet driver (aa73832c5a80d6c52c69b18af858d88fa595dd3c) cause kernel crashes when using the mdio-ofgpio driver.
->  
-> This patch replicates similar changes made to the fs_enet mii-bitbang drivers.  It has been tested on a custom mpc8280 based board using an NFS mounted root.
->  
-> Signed-off-by: Mark Ware <mware@elphinstone.net>
-> Acked-by: Grant Likely <grant.likely@secretlab.ca>
+> [PATCH net-next-2.6] bnx2: Update vlan_features
+> 
+> In order to get full use of some advanced features of BNX2, we now need to
+> fill dev->vlan_features.
+> 
+> Patch successfully tested with vlan devices built on top of bonding.
+> (bond0 : one bnx2 slave, one tg3 slave (not yet vlan_features enabled)
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
+Can I get some Broadcom ACKs for this?
+
+Thanks.
