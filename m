@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Adding support for 802.1ad (q-in-q mode)
-Date: Thu, 23 Jul 2009 10:01:24 -0700 (PDT)
-Message-ID: <20090723.100124.169341665.davem@davemloft.net>
-References: <4A6837A8.9040208@trash.net>
-	<20090723.092301.115261115.davem@davemloft.net>
-	<4A6890C1.2000108@trash.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Thu, 23 Jul 2009 10:28:48 -0700
+Message-ID: <20090723102848.00a56ad1@nehalam>
+References: <4A65EC3F.4050400@gibraltar.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sarveshwarb@serverengines.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
+To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43741
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754500AbZGWRBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 13:01:18 -0400
-In-Reply-To: <4A6890C1.2000108@trash.net>
+Received: from mail.vyatta.com ([76.74.103.46]:36444 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752311AbZGWR2x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jul 2009 13:28:53 -0400
+In-Reply-To: <4A65EC3F.4050400@gibraltar.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 23 Jul 2009 18:33:05 +0200
+On Tue, 21 Jul 2009 18:26:39 +0200
+Rene Mayrhofer <rene.mayrhofer@gibraltar.at> wrote:
 
-> David Miller wrote:
->>> Sarveshwar Bandi wrote:
->>>> The outer vlan is totally transparent to the host. It is used by the NIC 
->>>> to demux packets across multiple pci network functions. Currently the 
->>>> outer vlan tags are configured on the NIC by OEM provided utilities.
->>> I see. A proper changelog entry would have explained that and avoided
->>> all this confusion. Not that I think using another tool for this is a
->>> good solution, but no objections from a functional POV.
->> 
->> Using OEM tools makes no sense, there should be something like an
->> ethtool interface for changing this setting and appropriate changes
->> to the common userland tools to provide access to them.
->> 
->> I'm not putting this change in until there is common infrastructure
->> submitted to common tools to control this configuration.
+> Hi everybody,
 > 
-> Thanks, thats my opinion as well. But I think we should handle
-> Q-in-Q using the VLAN netlink API and iproute instead of ethtool
-> for consistency.
+> [Please CC me in replies, I am not currently subscribed to this list.]
+> 
+> I have a fully reproducible kernel oops in the sky2 module in kernel
+> 2.6.28.10. The kernel is a vanilla 2.6.28.10 (and I can't switch to
+> anything newer at this time because of missing squashfs-lzma support),
+> patched with PaX, netfilter-layer7, squashfs (with LZMA), and IMQ. The
+> base system is a Debian Lenny with some updates from testing/unstable.
+> 
+> Whenever interfaces using the sky2 module (this box has 8 network
+> interfaces in a 19" rack appliance) go down, the oops occurs:
+> 
 
-That works for me too.
+You could try commenting out sky2_shutdown which does the Wol
+power down stuff. Maybe changing setting of Wake On Lan would
+help as well.
+
+What happens if you take interface down 'ip link set eth0 down' (or ifconfig)?
+
+There are several different register writes in the shutdown path.
+You could add code to check if a particular access is disabling
+the PCI buss with:
+
+    sky2_write(... som register...)
+    BUG_ON(sky2_read16(sky2->hw, B0_CTST) == 0xffff);
+
+
+
+-- 
