@@ -1,66 +1,44 @@
-From: Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [net-next-2.6 PATCH 5/5] fcoe: Use NETIF_F_FCOE_MTU
- flag to set up max frame size (lport->mfs)
-Date: Thu, 23 Jul 2009 11:48:03 -0700
-Message-ID: <1248374883.23392.31.camel@fritz>
-References: <20090722232759.26937.78765.stgit@localhost.localdomain>
-	<20090722232956.26937.24429.stgit@localhost.localdomain>
-	<1248373648.23392.24.camel@fritz>
-	<20090723.114002.51085260.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gospo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org
-Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <20090723.114002.51085260.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.open-fcoe.org/pipermail/devel>
-List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
-	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [net-next 6/10] bnx2x: Update vlan_features
+Date: Thu, 23 Jul 2009 11:47:37 -0700
+Message-ID: <2588.1248374857@death.nxdomain.ibm.com>
+References: <1248191263.18195.49.camel@lb-tlvb-eilong> <4A683F83.1060701@trash.net> <4A68462C.1080709@Voltaire.com> <4A68479F.1000807@trash.net> <4A6849D6.4050200@voltaire.com>
+Cc: Patrick McHardy <kaber@trash.net>, eilong@broadcom.com,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Or Gerlitz <ogerlitz@voltaire.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:39272 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754058AbZGWSrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:47:37 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n6NIjpMl025974
+	for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 12:45:51 -0600
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n6NIlaed224254
+	for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 12:47:36 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n6NIlZVf013968
+	for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 12:47:35 -0600
+In-reply-to: <4A6849D6.4050200@voltaire.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-07-23 at 11:40 -0700, David Miller wrote:
-> From: Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Date: Thu, 23 Jul 2009 11:27:28 -0700
-> 
-> > Please don't apply this patch to net-next. The other 4 patches in this
-> > series should be fine without it. If this patch is applied to net-next
-> > it means that most/all of the other fcoe features (that will go through
-> > linux-scsi) become dependent on this patch.
-> > 
-> > I was hoping to push the other fcoe features as-is and then push this
-> > patch through linux-scsi after the other 4 patches in this series had
-> > been merged by you.
-> 
-> Sure, I was just reading over this stuff.
-> 
-> But on the other hand, linux-scsi will be dependant upon net-next-2.6
-> because this patch here uses flags that will only be added there.
-> 
-Yes, absolutely, but it's only this small patch that creates the
-dependency. I figured that all of the other fcoe patches could go into
-James' scsi-misc tree and get merged first. Then this one could go into
-his scsi-post-merge tree and depend on net-next.
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
 
-It's really up to you and James, I just thought that would be easier.
+>okay, understood. So the patches to bnx2 and bnx2x can/should be made
+>simpler and the patch to bonding has to change and include a call to
+>netdev_features_change(), Jay, I assume you prefer to do that, if not, let
+>me know and I will.
 
-> Therefore there has to be a dependency in one direction or another,
-> the question is which one works better for you FCOE guys.
-> 
-> The best thing to do in these situations is usually to create the
-> dependency and merge into the tree where most of the subsystem
-> specific bits (and thus developer ACKs) are needed.  And then
-> just occaisionally go and ask the other subsystem guys for ACKs
-> when necessary.
-> 
-> _______________________________________________
-> devel mailing list
-> devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
-> http://www.open-fcoe.org/mailman/listinfo/devel
+	I'm working on the new bonding patch; adding the
+netdev_features_change call has locking implications, so the calls to
+bond_compute_features have to move around a bit.
+
+	Should have something later today.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
