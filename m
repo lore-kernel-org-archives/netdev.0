@@ -1,76 +1,90 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Thu, 23 Jul 2009 10:34:52 -0400
-Message-ID: <1248359692.774.22.camel@localhost.localdomain>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
-	 <20090722101102.4aba96bd@lxorguk.ukuu.org.uk>
-	 <1248254134.28545.111.camel@violet>
-	 <200907221407.29275.remi.denis-courmont@nokia.com>
+From: =?UTF-8?Q?Martin_Djern=C3=A6s?= <mdjernaes@pulz8.com>
+Subject: md5 on listening sockets
+Date: Thu, 23 Jul 2009 16:38:59 +0200
+Message-ID: <aa9682190907230738y23636cc5yd8b4e7a854f7b59c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ext Marcel Holtmann <marcel@holtmann.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Oliver Neukum <oliver@neukum.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:59974 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750943AbZGWOea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jul 2009 10:34:30 -0400
-In-Reply-To: <200907221407.29275.remi.denis-courmont@nokia.com>
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:58527 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752400AbZGWOjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 10:39:01 -0400
+Received: by ewy26 with SMTP id 26so1036573ewy.37
+        for <netdev@vger.kernel.org>; Thu, 23 Jul 2009 07:39:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-07-22 at 14:07 +0300, R=C3=A9mi Denis-Courmont wrote:
-> On Wednesday 22 July 2009 12:15:34 ext Marcel Holtmann wrote:
-> > Hi Alan,
-> >
-> > > > The AT stuff is really problematic. Look at the hoops ISDN and =
-software
-> > > > modem drivers go through to emulate AT commands. I know even of=
- a
-> > > > CDC-ACM modem which can't deal with AT commands inline (that's =
-within
-> > > > spec). It seems to me we should have a modem API in kernel.
-> > >
-> > > For devices which don't deal in AT commands probably but for devi=
-ces
-> > > whose firmware provides an AT command interface over serial I wou=
-ld
-> > > disagree.
-> >
-> > I fully agree here. Even if you think you get AT commands under con=
-trol,
-> > you really won't in the end. That standard is so wildly mis-interpr=
-eted
-> > that it is not even funny anymore.
->=20
-> Possibly. Does anyone known of any "species" bypassing AT commands en=
-tirely,=20
-> other than Phonet? as far as GPRS is concerned?
+Hi,
 
-There are any number of devices that expose only one AT port (which of
-course gets used by PPP for data) and then a proprietary port.  The
-proprietary port usually uses a custom USB protocol that can also handl=
-e
-SMS, status, RSSI, etc while the AT/PPP port is being used by ppp.
+I've been looking at using the md5 keys on a listening socket as one
+means of restricting access to the socket. When I specify an md5 key
+(with or without a peer ip address in the option) any tcp connect from
+another IP address will be accepted by this connection if the source
+IP is not found in the "md5sig->keys4" array.
 
-So if that's the case for phonet, maybe you just want to provide either
-(a) documentation of the setup/status/sms/etc protocols, or (b) a shim
-library implementation for them that handles communication with the
-device itself.
+The question is if this is intentional - and if does anyone know why?
 
-But IMHO, the call setup stuff is probably better done from userspace.
-It's a really hard API to abstract.  I guess you could write a netlink
-API for it like we have for 802.11, but with GSM/CDMA the standards are
-so widely ignored that it's just going to be impossible to get a stable
-kernel API for anything like this.  The actual logic and higher-level
-stuff has gotta be in userspace, while the low-level communication
-channel bits (serial, USB, phonet, etc) should live in the kernel.
+It does not look like this is the best option as md5 keys appear to be
+ignored and new connections will be accepted without keys if the peer
+is not aware of this. Since a correctly specified peer will always be
+expected to provide an md5 key, this does not cause an issue for TCP
+sessions where both sides configure a key - only if the client fail to
+provide it and the client is an unknown/rogue client from the point of
+the server.
 
-Dan
+In the code in tcp_ipv4.c I do see the following comment which I think
+Rick Payne from AYR added:
 
+/*
+ * RFC2385 MD5 checksumming requires a mapping of
+ * IP address->MD5 Key.
+ * We need to maintain these in the sk structure.
+ */
+
+But besides the mention of the TCP psudo header (which can/will use
+the ip address from the socket) I do not see any mention of this
+mapping in the RFC.
+
+This additional "destination ip" (or "peer ip") check cause us to
+blindly accept incoming connections without md5 keys on them
+
+
+Lookup is doing the following:
+
+	for (i = 0; i < tp->md5sig_info->entries4; i++) {
+		if (tp->md5sig_info->keys4[i].addr == addr)
+			return &tp->md5sig_info->keys4[i].base;
+	}
+	return NULL;
+
+When a listener receive a new connection from a sender who is not
+using the md5 hash the TCP code will do:
+
+tcp_v4_inbound_md5_hash()
+..
+	hash_expected = tcp_v4_md5_do_lookup(sk, iph->saddr);
+	hash_location = tcp_parse_md5sig_option(th);
+..
+	/* We've parsed the options - do we have a hash? */
+	if (!hash_expected && !hash_location)
+		return 0;
+
+which in turn is causing tcp not to discard this peer:
+
+tcp_v4_do_rcv()
+..
+	if (tcp_v4_inbound_md5_hash(sk, skb))
+		goto discard;
+
+I have tested this on 2.6.28-13 (stock Ubuntu) and traced the code on
+2.6.32-RC4 and both looks like they have the same behavior.
+
+I'm aware of the recently committed fix:
+http://marc.info/?l=linux-netdev&m=124785861111892&w=4 by John
+Dykstra, but I believe that since this is only on copy this should
+make no difference here.
+
+Regards,
+Martin Djernaes
