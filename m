@@ -1,27 +1,31 @@
 From: Wan ZongShun <mcuos.com@gmail.com>
-Subject: [PATCH] fixed up the previous mac driver for w90p910
-Date: Thu, 23 Jul 2009 12:18:34 +0800
-Message-ID: <4A67E49A.5090806@gmail.com>
-References: <4A5F2329.9090901@gmail.com>	<20090720.074554.16551322.davem@davemloft.net>	<5d5443650907201049j19fac3a6k4f2be7599ad240db@mail.gmail.com> <20090720.105217.236487133.davem@davemloft.net>
+Subject: [PATCH] Add mac driver patch fixed for w90p910
+Date: Thu, 23 Jul 2009 12:33:04 +0800
+Message-ID: <4A67E800.2070409@gmail.com>
+References: <4A5F2329.9090901@gmail.com>	<20090720.074554.16551322.davem@davemloft.net>	<5d5443650907201049j19fac3a6k4f2be7599ad240db@mail.gmail.com> <20090720.105217.236487133.davem@davemloft.net> <4A67E49A.5090806@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: soni.trilok@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.arm.linux.org.uk
-To: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>
+Cc: David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>, soni.trilok@gmail.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
+To: Wan ZongShun <mcuos.com@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:6398 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754AbZGWESo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 00:18:44 -0400
-Received: by wa-out-1112.google.com with SMTP id j5so98766wah.21
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 21:18:44 -0700 (PDT)
-In-Reply-To: <20090720.105217.236487133.davem@davemloft.net>
+Received: from mail-pz0-f192.google.com ([209.85.222.192]:61889 "EHLO
+	mail-pz0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbZGWEiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 00:38:22 -0400
+Received: by pzk30 with SMTP id 30so244199pzk.33
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 21:38:22 -0700 (PDT)
+In-Reply-To: <4A67E49A.5090806@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Dear Russell&David,
+
+"[PATCH] fixed up the previous mac driver for w90p910"
+
+Just now sent above patch failed, so resent it.
 
 Due to having a bit busy, when David has applied this mac patch,
 however,I did not fix it based on comments as pointed by Russell.
@@ -348,27 +352,3 @@ index 7b5f315..890716f 100644
  }
 -- 
 1.5.6.3
-
-
-> From: Trilok Soni <soni.trilok@gmail.com>
-> Date: Mon, 20 Jul 2009 23:19:38 +0530
-> 
->> Hi David,
->>
->> On Mon, Jul 20, 2009 at 8:15 PM, David Miller<davem@davemloft.net> wrote:
->>> From: Wan ZongShun <mcuos.com@gmail.com>
->>> Date: Thu, 16 Jul 2009 20:55:05 +0800
->>>
->>>> Add mac driver support for evaluation board based on w90p910.
->>>>
->>>> Signed-off-by: Wan ZongShun <mcuos.com@gmail.com>
->>> Applied, thanks.
->> I thought Wan will send us the updated patch with fixing comments as
->> pointed by Russell.
->>
->> Wan, could you please send updated patch.
-> 
-> Send me a relative patch as I've already pushed this driver commit
-> publicly and that cannot be undone without a lot of pain.
-> 
-
