@@ -1,44 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 2/2] ixgbe: Don't priority tag control frames
- in DCB mode
-Date: Thu, 23 Jul 2009 11:06:14 -0700 (PDT)
-Message-ID: <20090723.110614.180424233.davem@davemloft.net>
-References: <20090723000705.27299.19299.stgit@localhost.localdomain>
-	<20090723000733.27299.56014.stgit@localhost.localdomain>
+Subject: Re: [PATCH] igb/e1000e/e1000/e100: make wol usable
+Date: Thu, 23 Jul 2009 11:06:47 -0700 (PDT)
+Message-ID: <20090723.110647.228266156.davem@davemloft.net>
+References: <5f2db9d90907212025k31c3a941v5fd1be9ed171e4c1@mail.gmail.com>
+	<20090722193400.GN8515@gospo.rdu.redhat.com>
+	<Pine.WNT.4.64.0907221642110.9900@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, lucy.liu@intel.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: andy@greyhouse.net, alexander.duyck@gmail.com,
+	john.ronciak@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, stable@kernel.org
+To: peter.p.waskiewicz.jr@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59482
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59486
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751658AbZGWSGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:08 -0400
-In-Reply-To: <20090723000733.27299.56014.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751868AbZGWSGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:41 -0400
+In-Reply-To: <Pine.WNT.4.64.0907221642110.9900@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 22 Jul 2009 17:07:33 -0700
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Date: Wed, 22 Jul 2009 16:43:03 -0700 (Pacific Daylight Time)
 
-> From: Lucy Liu <lucy.liu@intel.com>
+> On Wed, 22 Jul 2009, Andy Gospodarek wrote:
 > 
-> Certain types of control packets (LLDP, LACP, etc.) are not supposed to have a
-> priority tag or vlan tag inserted.  Ixgbe driver is currently priority
-> tagging everything (if packet is not on a VLAN interface).
+>> [PATCH] ixgbe: remove unnecessary call to device_init_wakeup
+>> 
+>> Calls to device_init_wakeup should not be necessary in drivers that use
+>> device_set_wakeup_enable since pci_pm_init will set the can_wakeup flag
+>> for the device when initialized.
+>> 
+>> I can't test this since I don't have any of the 82599 KX4 interfaces
+>> (the only ones capable of WOL), but I did instrument ixgbe_probe and
+>> know that can_wakeup=1 when device_init_wakeup is removed.
+>> 
+>> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+ ...
+> Works just fine on two different 82599 mezz cards that support WoL.  
+> Thanks Andy for finding and fixing.
 > 
-> This patch modifies DCB mode, so that packets marked with skb priority
-> TC_PRIO_CONTROL are not priority tagged.  It also transmits these packets on
-> the highest priority traffic class.
-> Programs (like dcbd) can set the skb priority using a socket option.  Or, a tc
-> filter can be configured to set the priority value. Using the value
-> TC_PRIO_CONTROL (7) has the benefit that it is already defined in the kernel,
-> and the bonding LACP code already sets the skb->priority field to this value.
-> 
-> Signed-off-by: Lucy Liu <lucy.liu@intel.com>
 > Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied.
+Applied, thanks.
