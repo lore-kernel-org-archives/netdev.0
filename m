@@ -1,40 +1,27 @@
-From: Mark Ware <mware@elphinstone.net>
-Subject: Re: Re: [PATCH v3] net: Rework mdio-ofgpio driver to use of_mdio infrastructure
-Date: Thu, 23 Jul 2009 09:40:10 +0930
-Message-ID: <16861.1248307810@internode.on.net>
-Reply-To: mware@elphinstone.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net: Rework mdio-ofgpio driver to use
+ of_mdioinfrastructure
+Date: Wed, 22 Jul 2009 17:10:39 -0700 (PDT)
+Message-ID: <20090722.171039.101550426.davem@davemloft.net>
+References: <16811.1248307327@internode.on.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: mware@elphinstone.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail04.adl2.internode.on.net ([203.16.214.57]:3038 "EHLO
-	ipmail04.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750868AbZGWAKM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jul 2009 20:10:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39126
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751526AbZGWAKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jul 2009 20:10:33 -0400
+In-Reply-To: <16811.1248307327@internode.on.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- On Thu 23/07/09  2:10 AM , David Miller davem@davemloft.net sent:
-> Your email client has massively corrupted this patch, I even tried
-> to fix it up but it's so bad that I just gave up half-way through.
-> 
-> Please use an attachment or whatever is necessary to get this
-> patch submitted cleanly and without it getting damaged.  Read:
-> 
-> linux/Documentation/email-clients.txt
-> 
-> for tips.
-> 
-> Thanks.
+From: Mark Ware <mware@elphinstone.net>
+Date: Thu, 23 Jul 2009 09:02:07 +0900
 
-Dave,
+> Patch is attached, hopefully with correct MIME type - this webmail
+> client is worse than Outlook.
 
-The patch is actually attached this time.  (I hope - did I mention my dislike for this webmail interface?)
-
-Sorry for the further noise.
-
-Regards,
-Mark
+Where is it attached? :-/
