@@ -1,179 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] bnx2: Update vlan_features
-Date: Thu, 23 Jul 2009 10:29:23 +0200
-Message-ID: <4A681F63.7060001@gmail.com>
-References: <24949.1240530461@death.nxdomain.ibm.com>	<4A2CDB16.9030000@Voltaire.com> <4A642600.2010501@voltaire.com>	<3463.1248298460@death.nxdomain.ibm.com> <4A67FD4C.4080407@cosmosbay.com> <4A681029.4070600@voltaire.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
+Date: Thu, 23 Jul 2009 10:46:19 +0200
+Message-ID: <1248338779.17215.23.camel@localhost.localdomain>
+References: <1248266678.17215.15.camel@localhost.localdomain>
+	 <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36961 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbZGWI3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 04:29:43 -0400
-In-Reply-To: <4A681029.4070600@voltaire.com>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:54500 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549AbZGWIqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 04:46:21 -0400
+In-Reply-To: <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz a =E9crit :
-> Eric Dumazet wrote:
->> Jay Vosburgh a =E9crit :
->>> Propogate the vlan_features of the slave devices to the bonding
->>> master device, using the same logic as for regular features.
->> Seems pretty cool, but I could not test it on my dev machine, since
->> tg3 and bnx2 drivers dont advertize yet vlan_features
-> The bnx2x maintainer posted yesterday a patch that does so, I assume =
-a
-> similar patch could work for at least one of tg3 or bnx2. I copied bo=
-th
-> maintainers on this email, in  the hope they can come up with a patch=
-=2E
->=20
+On Wed, 2009-07-22 at 11:13 -0700, Waskiewicz Jr, Peter P wrote:
+> On Wed, 22 Jul 2009, Jesper Dangaard Brouer wrote:
+> 
+> > Hi Peter,
+> > 
+> > Got a panic from the ixgbe driver on my 82599 based NICs, while running
+> > two pktgen tests (1500 bytes packets) against the machine.
+> > 
+> > Kernel: 2.6.31-rc1-net-2.6-00122-ge594e96 with preemption
 
-Here is the bnx2 patch I cooked to test this vlan_features propagation =
-on bonding.
+Got a new panic.  The strange thing its not happening in the same
+place... and the anoying thing is that its hard to reproduce, as I have
+to run pktgen a very long time before it dies.
 
-Everything fine so far !
-
-# cat /proc/net/bonding/bond0
-Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
-
-Bonding Mode: fault-tolerance (active-backup)
-Primary Slave: None
-Currently Active Slave: eth1
-MII Status: up
-MII Polling Interval (ms): 100
-Up Delay (ms): 0
-Down Delay (ms): 0
-
-Slave Interface: eth1    (bnx2 driver)
-MII Status: up
-Link Failure Count: 2
-Permanent HW addr: 00:1e:0b:ec:d3:d2
-
-Slave Interface: eth2    (tg3 driver)
-MII Status: up
-Link Failure Count: 0
-Permanent HW addr: 00:1e:0b:92:78:50
+I'm starting to suspect it could be related to CPU freq scaling, as the
+last sysfs file is /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
+and the call stack originates from mwait_idle().
 
 
-# ethtool -k bond0
-Offload parameters for bond0:
-Cannot get device rx csum settings: Operation not supported
-rx-checksumming: off
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: off
-generic-receive-offload: off
-large-receive-offload: off
+[27925.077996] general protection fault: 0000 [#1] PREEMPT SMP 
+[27925.095080] last sysfs file: /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
+[27925.118042] CPU 7 
+[27925.124196] Modules linked in: asus_atk0110 ixgbe hwmon mdio r8169
+[27925.142863] Pid: 0, comm: swapper Not tainted 2.6.31-rc1-net-2.6-00122-ge594e96 #8 System Product Name
+[27925.171033] RIP: 0010:[<ffffffff81382b29>]  [<ffffffff81382b29>] skb_release_head_state+0x69/0xba
+[27925.197904] RSP: 0018:ffff880001942d70  EFLAGS: 00010286
+[27925.213938] RAX: 0000000000000000 RBX: ffff8800b0022100 RCX: 0000000000000400
+[27925.235443] RDX: 00000000000003d6 RSI: 00000000b9c03000 RDI: d100000000000000
+[27925.256958] RBP: ffff880001942d80 R08: 00000000000002a3 R09: ffffc90011e6a428
+[27925.278474] R10: 0000000101a5abfb R11: ffffffff813828c5 R12: ffff8800bac7c580
+[27925.299990] R13: 0000000000002a40 R14: 00000000000002a5 R15: 00000000000002a4
+[27925.321504] FS:  0000000000000000(0000) GS:ffff88000193f000(0000) knlGS:0000000000000000
+[27925.346030] CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+[27925.363373] CR2: 00007fecde5734a8 CR3: 00000000a5015000 CR4: 00000000000006a0
+[27925.384878] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[27925.406380] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[27925.427884] Process swapper (pid: 0, threadinfo ffff8800bef0c000, task ffff8800beef3480)
+[27925.452409] Stack:
+[27925.458553]  00000000000002a3 ffff8800b0022100 ffff880001942da0 ffffffff81382854
+[27925.480328] <0> ffffc90011e6a428 ffffc900119ee480 ffff880001942db0 ffffffff813828f5
+[27925.503588] <0> ffff880001942dc0 ffffffff8138b441 ffff880001942de0 ffffffffa001ab3e
+[27925.527521] Call Trace:
+[27925.534971]  <IRQ> 
+[27925.541385]  [<ffffffff81382854>] __kfree_skb+0x11/0x87
+[27925.557169]  [<ffffffff813828f5>] consume_skb+0x2b/0x2d
+[27925.572943]  [<ffffffff8138b441>] dev_kfree_skb_any+0x2e/0x30
+[27925.590287]  [<ffffffffa001ab3e>] ixgbe_unmap_and_free_tx_resource+0x39/0x4c [ixgbe]
+[27925.613772]  [<ffffffffa001acb5>] ixgbe_clean_tx_irq+0xcf/0x366 [ixgbe]
+[27925.633721]  [<ffffffffa001af88>] ixgbe_clean_txonly+0x3c/0xbd [ixgbe]
+[27925.653410]  [<ffffffff8138a7b5>] net_rx_action+0xb2/0x234
+[27925.669966]  [<ffffffff8103fb35>] __do_softirq+0x10c/0x211
+[27925.686521]  [<ffffffff8100cc2c>] call_softirq+0x1c/0x28
+[27925.702556]  [<ffffffff8100de84>] do_softirq+0x34/0x72
+[27925.718070]  [<ffffffff8103f83f>] irq_exit+0x36/0x85
+[27925.733065]  [<ffffffff8100d75f>] do_IRQ+0xa6/0xbd
+[27925.747540]  [<ffffffff8100c493>] ret_from_intr+0x0/0xa
+[27925.767191]  <EOI> 
+[27925.773603]  [<ffffffff81012355>] ? mwait_idle+0x89/0x9f
+[27925.789646]  [<ffffffff81012348>] ? mwait_idle+0x7c/0x9f
+[27925.805682]  [<ffffffff8142c948>] ? atomic_notifier_call_chain+0xf/0x11
+[27925.825624]  [<ffffffff8100aedb>] ? cpu_idle+0x4f/0xb3
+[27925.841137]  [<ffffffff81424478>] ? start_secondary+0x17f/0x184
+[27925.858994] Code: 00 ff 03 74 11 be 8e 01 00 00 48 c7 c7 fc d3 5f 81 e8 7f 79 cb ff 48 89 df ff 93 80 00 00 00 48 8b bb 88 00 00
+ 00 48 85 ff 74 0f <f0> ff 0f 0f 94 c0 84 c0 74 05 e8 68 1f 02 00 48 8b bb 90 00 00 
+[27925.915956] RIP  [<ffffffff81382b29>] skb_release_head_state+0x69/0xba
+[27925.935656]  RSP <ffff880001942d70>
+[27925.946574] ---[ end trace acd86b5373a70766 ]---
+[27925.960578] Kernel panic - not syncing: Fatal exception in interrupt
+[27925.979798] Pid: 0, comm: swapper Tainted: G      D    2.6.31-rc1-net-2.6-00122-ge594e96 #8
+[27926.005157] Call Trace:
+[27926.012654]  <IRQ>  [<ffffffff81427c6b>] panic+0xaa/0x155
+[27926.029070]  [<ffffffff8103f88c>] ? irq_exit+0x83/0x85
+[27926.044644]  [<ffffffff8100c493>] ? ret_from_intr+0x0/0xa
+[27926.061002]  [<ffffffff8142b039>] ? oops_end+0x6b/0xba
+[27926.076571]  [<ffffffff8142b078>] oops_end+0xaa/0xba
+[27926.091628]  [<ffffffff8100f0d1>] die+0x55/0x5e
+[27926.105374]  [<ffffffff8142ac8e>] do_general_protection+0x123/0x12b
+[27926.124324]  [<ffffffff8142a1af>] ? _spin_unlock+0x2a/0x35
+[27926.140936]  [<ffffffff8142a5df>] general_protection+0x1f/0x30
+[27926.158595]  [<ffffffff813828c5>] ? __kfree_skb+0x82/0x87
+[27926.174946]  [<ffffffff81382b29>] ? skb_release_head_state+0x69/0xba
+[27926.194169]  [<ffffffff81382854>] __kfree_skb+0x11/0x87
+[27926.210008]  [<ffffffff813828f5>] consume_skb+0x2b/0x2d
+[27926.225834]  [<ffffffff8138b441>] dev_kfree_skb_any+0x2e/0x30
+[27926.243231]  [<ffffffffa001ab3e>] ixgbe_unmap_and_free_tx_resource+0x39/0x4c [ixgbe]
+[27926.266772]  [<ffffffffa001acb5>] ixgbe_clean_tx_irq+0xcf/0x366 [ixgbe]
+[27926.286785]  [<ffffffffa001af88>] ixgbe_clean_txonly+0x3c/0xbd [ixgbe]
+[27926.306524]  [<ffffffff8138a7b5>] net_rx_action+0xb2/0x234
+[27926.323147]  [<ffffffff8103fb35>] __do_softirq+0x10c/0x211
+[27926.339765]  [<ffffffff8100cc2c>] call_softirq+0x1c/0x28
+[27926.355853]  [<ffffffff8100de84>] do_softirq+0x34/0x72
+[27926.371417]  [<ffffffff8103f83f>] irq_exit+0x36/0x85
+[27926.386466]  [<ffffffff8100d75f>] do_IRQ+0xa6/0xbd
+[27926.400990]  [<ffffffff8100c493>] ret_from_intr+0x0/0xa
+[27926.416819]  <EOI>  [<ffffffff81012355>] ? mwait_idle+0x89/0x9f
+[27926.434794]  [<ffffffff81012348>] ? mwait_idle+0x7c/0x9f
+[27926.450881]  [<ffffffff8142c948>] ? atomic_notifier_call_chain+0xf/0x11
+[27926.470877]  [<ffffffff8100aedb>] ? cpu_idle+0x4f/0xb3
+[27926.486454]  [<ffffffff81424478>] ? start_secondary+0x17f/0x184
 
-# ip link add link bond0 vlan.103 type vlan id 103
-# ethtool -k vlan.103
-Offload parameters for vlan.103:
-rx-checksumming: off
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: on
-generic-receive-offload: off
-large-receive-offload: off
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-
-Thanks Or & Jay
-
-[PATCH net-next-2.6] bnx2: Update vlan_features
-
-In order to get full use of some advanced features of BNX2, we now need=
- to
-fill dev->vlan_features.
-
-Patch successfully tested with vlan devices built on top of bonding.
-(bond0 : one bnx2 slave, one tg3 slave (not yet vlan_features enabled)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/bnx2.c |   36 ++++++++++++++++++++++++++++++------
- 1 files changed, 30 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index b70cc99..0868673 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -3485,6 +3485,20 @@ static int bnx2_poll(struct napi_struct *napi, i=
-nt budget)
- 	return work_done;
- }
-=20
-+static void inline vlan_features_add(struct net_device *dev, unsigned =
-long flags)
-+{
-+#ifdef BCM_VLAN
-+	dev->vlan_features |=3D flags;
-+#endif
-+}
-+
-+static void inline vlan_features_del(struct net_device *dev, unsigned =
-long flags)
-+{
-+#ifdef BCM_VLAN
-+	dev->vlan_features &=3D ~flags;
-+#endif
-+}
-+
- /* Called with rtnl_lock from vlan functions and also netif_tx_lock
-  * from set_multicast.
-  */
-@@ -7068,11 +7082,17 @@ bnx2_set_tso(struct net_device *dev, u32 data)
-=20
- 	if (data) {
- 		dev->features |=3D NETIF_F_TSO | NETIF_F_TSO_ECN;
--		if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709)
-+		vlan_features_add(dev, NETIF_F_TSO | NETIF_F_TSO_ECN);
-+		if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709) {
- 			dev->features |=3D NETIF_F_TSO6;
--	} else
-+			vlan_features_add(dev, NETIF_F_TSO6);
-+		}
-+	} else {
- 		dev->features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6 |
- 				   NETIF_F_TSO_ECN);
-+		vlan_features_del(dev, NETIF_F_TSO | NETIF_F_TSO6 |
-+				  NETIF_F_TSO_ECN);
-+	}
- 	return 0;
- }
-=20
-@@ -8064,16 +8084,20 @@ bnx2_init_one(struct pci_dev *pdev, const struc=
-t pci_device_id *ent)
- 	memcpy(dev->perm_addr, bp->mac_addr, 6);
-=20
- 	dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_SG;
--	if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709)
-+	vlan_features_add(dev, NETIF_F_IP_CSUM | NETIF_F_SG);
-+	if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709) {
- 		dev->features |=3D NETIF_F_IPV6_CSUM;
--
-+		vlan_features_add(dev, NETIF_F_IPV6_CSUM);
-+	}
- #ifdef BCM_VLAN
- 	dev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- #endif
- 	dev->features |=3D NETIF_F_TSO | NETIF_F_TSO_ECN;
--	if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709)
-+	vlan_features_add(dev, NETIF_F_TSO | NETIF_F_TSO_ECN);
-+	if (CHIP_NUM(bp) =3D=3D CHIP_NUM_5709) {
- 		dev->features |=3D NETIF_F_TSO6;
--
-+		vlan_features_add(dev, NETIF_F_TSO6);
-+	}
- 	if ((rc =3D register_netdev(dev))) {
- 		dev_err(&pdev->dev, "Cannot register net device\n");
- 		goto error;
