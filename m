@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/2] ixgbe: Enable FCoE offload when DCB is
- enabled for 82599
-Date: Thu, 23 Jul 2009 11:06:07 -0700 (PDT)
-Message-ID: <20090723.110607.28145569.davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 2/2] ixgbe: Don't priority tag control frames
+ in DCB mode
+Date: Thu, 23 Jul 2009 11:06:14 -0700 (PDT)
+Message-ID: <20090723.110614.180424233.davem@davemloft.net>
 References: <20090723000705.27299.19299.stgit@localhost.localdomain>
+	<20090723000733.27299.56014.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, yi.zou@intel.com,
+Cc: netdev@vger.kernel.org, gospo@redhat.com, lucy.liu@intel.com,
 	peter.p.waskiewicz.jr@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59478
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59482
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751379AbZGWSGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:02 -0400
-In-Reply-To: <20090723000705.27299.19299.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751658AbZGWSGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:08 -0400
+In-Reply-To: <20090723000733.27299.56014.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 22 Jul 2009 17:07:12 -0700
+Date: Wed, 22 Jul 2009 17:07:33 -0700
 
-> From: Yi Zou <yi.zou@intel.com>
+> From: Lucy Liu <lucy.liu@intel.com>
 > 
-> Currently, FCoE offload feature is turned on when the kernel config has
-> CONFIG_FCOE or CONFIG_FCOE_MODULE set. However, we really want to turn
-> FCoE offload on when there is FCoE traffic passing and turn it off when
-> it's just LAN traffic. Since FCoE depends on a lossless network provided
-> by DCB, this allows us to have FCoE turned on/off when user turns on DCB
-> using dcbtool.
+> Certain types of control packets (LLDP, LACP, etc.) are not supposed to have a
+> priority tag or vlan tag inserted.  Ixgbe driver is currently priority
+> tagging everything (if packet is not on a VLAN interface).
 > 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> This patch modifies DCB mode, so that packets marked with skb priority
+> TC_PRIO_CONTROL are not priority tagged.  It also transmits these packets on
+> the highest priority traffic class.
+> Programs (like dcbd) can set the skb priority using a socket option.  Or, a tc
+> filter can be configured to set the priority value. Using the value
+> TC_PRIO_CONTROL (7) has the benefit that it is already defined in the kernel,
+> and the bonding LACP code already sets the skb->priority field to this value.
+> 
+> Signed-off-by: Lucy Liu <lucy.liu@intel.com>
 > Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
