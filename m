@@ -1,52 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Thu, 23 Jul 2009 10:28:48 -0700
-Message-ID: <20090723102848.00a56ad1@nehalam>
-References: <4A65EC3F.4050400@gibraltar.at>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
+ in back trace (regression)
+Date: Thu, 23 Jul 2009 10:51:41 -0700
+Message-ID: <20090723105141.5272aee1.akpm@linux-foundation.org>
+References: <20090722134557.2457c5f5.akpm@linux-foundation.org>
+	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com>
+	<20090723000100.d74d6b1c.akpm@linux-foundation.org>
+	<20090723.091523.180916751.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
-To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Cc: for.poige+bugzilla.kernel.org@gmail.com,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36444 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752311AbZGWR2x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jul 2009 13:28:53 -0400
-In-Reply-To: <4A65EC3F.4050400@gibraltar.at>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60880 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753261AbZGWRwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 13:52:15 -0400
+In-Reply-To: <20090723.091523.180916751.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jul 2009 18:26:39 +0200
-Rene Mayrhofer <rene.mayrhofer@gibraltar.at> wrote:
+On Thu, 23 Jul 2009 09:15:23 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-> Hi everybody,
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Thu, 23 Jul 2009 00:01:00 -0700
 > 
-> [Please CC me in replies, I am not currently subscribed to this list.]
+> > Below is a ppp fix from 2.6.31, but it seems unlikely to fix your problem.
 > 
-> I have a fully reproducible kernel oops in the sky2 module in kernel
-> 2.6.28.10. The kernel is a vanilla 2.6.28.10 (and I can't switch to
-> anything newer at this time because of missing squashfs-lzma support),
-> patched with PaX, netfilter-layer7, squashfs (with LZMA), and IMQ. The
-> base system is a Debian Lenny with some updates from testing/unstable.
+> Andrew, that change was reverted, it's a NOP in the current tree.
 > 
-> Whenever interfaces using the sky2 module (this box has 8 network
-> interfaces in a 19" rack appliance) go down, the oops occurs:
-> 
+> There were various TTY layer fixups from Alan that could effect
+> PPP and related drivers.
 
-You could try commenting out sky2_shutdown which does the Wol
-power down stuff. Maybe changing setting of Wake On Lan would
-help as well.
+I wouldn't have thought that pppoe would be affected by tty changes?
 
-What happens if you take interface down 'ip link set eth0 down' (or ifconfig)?
-
-There are several different register writes in the shutdown path.
-You could add code to check if a particular access is disabling
-the PCI buss with:
-
-    sky2_write(... som register...)
-    BUG_ON(sky2_read16(sky2->hw, B0_CTST) == 0xffff);
-
-
-
--- 
+As opposed to pppotty :)
