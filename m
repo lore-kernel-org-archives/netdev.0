@@ -1,47 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igb/e1000e/e1000/e100: make wol usable
-Date: Thu, 23 Jul 2009 11:06:47 -0700 (PDT)
-Message-ID: <20090723.110647.228266156.davem@davemloft.net>
-References: <5f2db9d90907212025k31c3a941v5fd1be9ed171e4c1@mail.gmail.com>
-	<20090722193400.GN8515@gospo.rdu.redhat.com>
-	<Pine.WNT.4.64.0907221642110.9900@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Robert Love <robert.w.love@intel.com>
+Subject: Re: [Open-FCoE] [net-next-2.6 PATCH 5/5] fcoe: Use
+ NETIF_F_FCOE_MTU flag to set up	max frame size (lport->mfs)
+Date: Thu, 23 Jul 2009 11:27:28 -0700
+Message-ID: <1248373648.23392.24.camel@fritz>
+References: <20090722232759.26937.78765.stgit@localhost.localdomain>
+	 <20090722232956.26937.24429.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, alexander.duyck@gmail.com,
-	john.ronciak@intel.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, stable@kernel.org
-To: peter.p.waskiewicz.jr@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59486
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751868AbZGWSGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:41 -0400
-In-Reply-To: <Pine.WNT.4.64.0907221642110.9900@ppwaskie-MOBL2.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	gospo@redhat.com, devel@open-fcoe.org
+To: davem@davemloft.net, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090722232956.26937.24429.stgit@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Date: Wed, 22 Jul 2009 16:43:03 -0700 (Pacific Daylight Time)
-
-> On Wed, 22 Jul 2009, Andy Gospodarek wrote:
+On Wed, 2009-07-22 at 16:29 -0700, Jeff Kirsher wrote:
+> From: Yi Zou <yi.zou@intel.com>
 > 
->> [PATCH] ixgbe: remove unnecessary call to device_init_wakeup
->> 
->> Calls to device_init_wakeup should not be necessary in drivers that use
->> device_set_wakeup_enable since pci_pm_init will set the can_wakeup flag
->> for the device when initialized.
->> 
->> I can't test this since I don't have any of the 82599 KX4 interfaces
->> (the only ones capable of WOL), but I did instrument ixgbe_probe and
->> know that can_wakeup=1 when device_init_wakeup is removed.
->> 
->> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
- ...
-> Works just fine on two different 82599 mezz cards that support WoL.  
-> Thanks Andy for finding and fixing.
+> Add a define of FCOE_MTU as 2158 bytes and use FCOE_MTU when the LLD is found
+> to support NETIF_F_FCOE_MTU. The lport->mfs is then calculated out of the
+> 2158 FCOE_MTU. Otherwise, we stick with the netdev->mtu, i.e., LAN MTU. Also,
+> change the notification on NETDEV_CHANGEMTU event to bypass changing mfs when
+> LAN MTU is changed if NETIF_F_FCOE_MTU is supported.
 > 
-> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 
-Applied, thanks.
+Hi Dave,
+
+Please don't apply this patch to net-next. The other 4 patches in this
+series should be fine without it. If this patch is applied to net-next
+it means that most/all of the other fcoe features (that will go through
+linux-scsi) become dependent on this patch.
+
+I was hoping to push the other fcoe features as-is and then push this
+patch through linux-scsi after the other 4 patches in this series had
+been merged by you.
+
+Thanks, //Rob
+
+
