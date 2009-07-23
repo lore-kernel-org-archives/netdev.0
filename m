@@ -1,7 +1,8 @@
 From: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
-Subject: [PATCH 07/13] mISDN: Driver for AVM Fritz!CARD PCI
-Date: Wed, 22 Jul 2009 19:52:24 +0200
-Message-ID: <6115d2f3fcaebed5b88fa9cefd178bb5b07461ff.1248546896.git.keil@b1-systems.de>
+Subject: [PATCH 10/13] mISDN: Add support for Traverse Technologies NETJet PCI
+	cards
+Date: Thu, 23 Jul 2009 10:03:05 +0200
+Message-ID: <a900845e56617edc005fd8f35bfd5a407aaf96c8.1248546896.git.keil@b1-systems.de>
 References: <cover.1248546896.git.keil@b1-systems.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,56 +23,60 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add mISDN driver for AVM FRITZ!CARD PCI (all versions).
+Add support for cards based on the Tiger 300 and Tiger 320
+ISDN PCI chip.
+Currently only the ISAC ISDN line interface is supported.
 
 Signed-off-by: Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>
 ---
- drivers/isdn/hardware/mISDN/Kconfig    |    8 +
- drivers/isdn/hardware/mISDN/Makefile   |    1 +
- drivers/isdn/hardware/mISDN/avmfritz.c | 1152 ++++++++++++++++++++++++++++++++
- 3 files changed, 1161 insertions(+), 0 deletions(-)
- create mode 100644 drivers/isdn/hardware/mISDN/avmfritz.c
+ drivers/isdn/hardware/mISDN/Kconfig  |    9 +
+ drivers/isdn/hardware/mISDN/Makefile |    1 +
+ drivers/isdn/hardware/mISDN/netjet.c | 1156 ++++++++++++++++++++++++++++++++++
+ drivers/isdn/hardware/mISDN/netjet.h |   58 ++
+ 4 files changed, 1224 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/isdn/hardware/mISDN/netjet.c
+ create mode 100644 drivers/isdn/hardware/mISDN/netjet.h
 
 diff --git a/drivers/isdn/hardware/mISDN/Kconfig b/drivers/isdn/hardware/mISDN/Kconfig
-index a8542b8..212dee6 100644
+index d72586e..bde55d7 100644
 --- a/drivers/isdn/hardware/mISDN/Kconfig
 +++ b/drivers/isdn/hardware/mISDN/Kconfig
-@@ -39,6 +39,14 @@ config MISDN_HFCUSB
- 	  Enable support for USB ISDN TAs with Cologne Chip AG's
- 	  HFC-S USB ISDN Controller
+@@ -72,6 +72,15 @@ config MISDN_W6692
+ 	help
+ 	  Enable support for Winbond 6692 PCI chip based cards.
  
-+config MISDN_AVMFRITZ
-+	tristate "Support for AVM FRITZ!CARD PCI"
++config MISDN_NETJET
++	tristate "Support for NETJet cards"
 +	depends on MISDN
 +	depends on PCI
 +	select MISDN_IPAC
++	select ISDN_HDLC
 +	help
-+	  Enable support for AVMs FRITZ!CARD PCI cards
++	  Enable support for Traverse Technologies NETJet PCI cards.
 +
- config MISDN_INFINEON
- 	tristate "Support for cards with Infineon chipset"
- 	depends on MISDN
+ 
+ config MISDN_IPAC
+ 	tristate
 diff --git a/drivers/isdn/hardware/mISDN/Makefile b/drivers/isdn/hardware/mISDN/Makefile
-index 2863455..8204d84 100644
+index 61dd5a5..2987d99 100644
 --- a/drivers/isdn/hardware/mISDN/Makefile
 +++ b/drivers/isdn/hardware/mISDN/Makefile
-@@ -6,6 +6,7 @@
- obj-$(CONFIG_MISDN_HFCPCI) += hfcpci.o
- obj-$(CONFIG_MISDN_HFCMULTI) += hfcmulti.o
- obj-$(CONFIG_MISDN_HFCUSB) += hfcsusb.o
-+obj-$(CONFIG_MISDN_AVMFRITZ) += avmfritz.o
+@@ -10,6 +10,7 @@ obj-$(CONFIG_MISDN_AVMFRITZ) += avmfritz.o
+ obj-$(CONFIG_MISDN_SPEEDFAX) += speedfax.o
  obj-$(CONFIG_MISDN_INFINEON) += mISDNinfineon.o
+ obj-$(CONFIG_MISDN_W6692) += w6692.o
++obj-$(CONFIG_MISDN_NETJET) += netjet.o
  # chip modules
  obj-$(CONFIG_MISDN_IPAC) += mISDNipac.o
-diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
+ obj-$(CONFIG_MISDN_ISAR) += mISDNisar.o
+diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
 new file mode 100644
-index 0000000..81ac541
+index 0000000..6c1b164
 --- /dev/null
-+++ b/drivers/isdn/hardware/mISDN/avmfritz.c
-@@ -0,0 +1,1152 @@
++++ b/drivers/isdn/hardware/mISDN/netjet.c
+@@ -0,0 +1,1156 @@
 +/*
-+ * avm_fritz.c    low level stuff for AVM FRITZ!CARD PCI ISDN cards
-+ *                Thanks to AVM, Berlin for informations
++ * NETJet mISDN driver
 + *
 + * Author       Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
 + *
@@ -91,140 +96,100 @@ index 0000000..81ac541
 + * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + *
 + */
++
 +#include <linux/module.h>
 +#include <linux/pci.h>
 +#include <linux/delay.h>
 +#include <linux/mISDNhw.h>
-+#include <asm/unaligned.h>
 +#include "ipac.h"
++#include "iohelper.h"
++#include "netjet.h"
++#include <linux/isdn/hdlc.h>
 +
++#define NETJET_REV	"2.0"
 +
-+#define AVMFRITZ_REV	"2.1"
-+
-+static int AVM_cnt;
-+static int debug;
-+
-+enum {
-+	AVM_FRITZ_PCI,
-+	AVM_FRITZ_PCIV2,
++enum nj_types {
++	NETJET_S_TJ300,
++	NETJET_S_TJ320,
++	ENTERNOW__TJ320,
 +};
 +
-+#define HDLC_FIFO		0x0
-+#define HDLC_STATUS		0x4
-+#define CHIP_WINDOW		0x10
-+
-+#define CHIP_INDEX		0x4
-+#define AVM_HDLC_1		0x00
-+#define AVM_HDLC_2		0x01
-+#define AVM_ISAC_FIFO		0x02
-+#define AVM_ISAC_REG_LOW	0x04
-+#define AVM_ISAC_REG_HIGH	0x06
-+
-+#define AVM_STATUS0_IRQ_ISAC	0x01
-+#define AVM_STATUS0_IRQ_HDLC	0x02
-+#define AVM_STATUS0_IRQ_TIMER	0x04
-+#define AVM_STATUS0_IRQ_MASK	0x07
-+
-+#define AVM_STATUS0_RESET	0x01
-+#define AVM_STATUS0_DIS_TIMER	0x02
-+#define AVM_STATUS0_RES_TIMER	0x04
-+#define AVM_STATUS0_ENA_IRQ	0x08
-+#define AVM_STATUS0_TESTBIT	0x10
-+
-+#define AVM_STATUS1_INT_SEL	0x0f
-+#define AVM_STATUS1_ENA_IOM	0x80
-+
-+#define HDLC_MODE_ITF_FLG	0x01
-+#define HDLC_MODE_TRANS		0x02
-+#define HDLC_MODE_CCR_7		0x04
-+#define HDLC_MODE_CCR_16	0x08
-+#define HDLC_MODE_TESTLOOP	0x80
-+
-+#define HDLC_INT_XPR		0x80
-+#define HDLC_INT_XDU		0x40
-+#define HDLC_INT_RPR		0x20
-+#define HDLC_INT_MASK		0xE0
-+
-+#define HDLC_STAT_RME		0x01
-+#define HDLC_STAT_RDO		0x10
-+#define HDLC_STAT_CRCVFRRAB	0x0E
-+#define HDLC_STAT_CRCVFR	0x06
-+#define HDLC_STAT_RML_MASK	0x3f00
-+
-+#define HDLC_CMD_XRS		0x80
-+#define HDLC_CMD_XME		0x01
-+#define HDLC_CMD_RRS		0x20
-+#define HDLC_CMD_XML_MASK	0x3f00
-+#define HDLC_FIFO_SIZE		32
-+
-+/* Fritz PCI v2.0 */
-+
-+#define AVM_HDLC_FIFO_1		0x10
-+#define AVM_HDLC_FIFO_2		0x18
-+
-+#define AVM_HDLC_STATUS_1	0x14
-+#define AVM_HDLC_STATUS_2	0x1c
-+
-+#define AVM_ISACX_INDEX		0x04
-+#define AVM_ISACX_DATA		0x08
-+
-+/* data struct */
-+#define LOG_SIZE		63
-+
-+struct hdlc_stat_reg {
-+#ifdef __BIG_ENDIAN
-+	u8 fill;
-+	u8 mode;
-+	u8 xml;
-+	u8 cmd;
-+#else
-+	u8 cmd;
-+	u8 xml;
-+	u8 mode;
-+	u8 fill;
-+#endif
-+} __attribute__((packed));
-+
-+struct hdlc_hw {
-+	union {
-+		u32 ctrl;
-+		struct hdlc_stat_reg sr;
-+	} ctrl;
-+	u32 stat;
++struct tiger_dma {
++	size_t		size;
++	u32		*start;
++	int		idx;
++	u32		dmastart;
++	u32		dmairq;
++	u32		dmaend;
++	u32		dmacur;
 +};
 +
-+struct fritzcard {
++struct tiger_hw;
++
++struct tiger_ch {
++	struct bchannel		bch;
++	struct tiger_hw		*nj;
++	int			idx;
++	int			free;
++	int			lastrx;
++	u16			rxstate;
++	u16			txstate;
++	struct isdnhdlc_vars	hsend;
++	struct isdnhdlc_vars	hrecv;
++	u8			*hsbuf;
++	u8			*hrbuf;
++};
++
++#define TX_INIT		0x0001
++#define TX_IDLE		0x0002
++#define TX_RUN		0x0004
++#define TX_UNDERRUN	0x0100
++#define RX_OVERRUN	0x0100
++
++#define LOG_SIZE	64
++
++struct tiger_hw {
 +	struct list_head	list;
 +	struct pci_dev		*pdev;
 +	char			name[MISDN_MAX_IDLEN];
-+	u8			type;
-+	u8			ctrlreg;
-+	u16			irq;
++	enum nj_types		typ;
++	int			irq;
 +	u32			irqcnt;
-+	u32			addr;
-+	spinlock_t		lock; /* hw lock */
++	u32			base;
++	size_t			base_s;
++	dma_addr_t		dma;
++	void			*dma_p;
++	spinlock_t		lock;	/* lock HW */
 +	struct isac_hw		isac;
-+	struct hdlc_hw		hdlc[2];
-+	struct bchannel		bch[2];
-+	char			log[LOG_SIZE + 1];
++	struct tiger_dma	send;
++	struct tiger_dma	recv;
++	struct tiger_ch		bc[2];
++	u8			ctrlreg;
++	u8			dmactrl;
++	u8			auxd;
++	u8			last_is0;
++	u8			irqmask0;
++	char			log[LOG_SIZE];
 +};
 +
 +static LIST_HEAD(Cards);
 +static DEFINE_RWLOCK(card_lock); /* protect Cards */
++static u32 debug;
++static int nj_cnt;
 +
 +static void
-+_set_debug(struct fritzcard *card)
++_set_debug(struct tiger_hw *card)
 +{
 +	card->isac.dch.debug = debug;
-+	card->bch[0].debug = debug;
-+	card->bch[1].debug = debug;
++	card->bc[0].bch.debug = debug;
++	card->bc[1].bch.debug = debug;
 +}
 +
 +static int
 +set_debug(const char *val, struct kernel_param *kp)
 +{
 +	int ret;
-+	struct fritzcard *card;
++	struct tiger_hw *card;
 +
 +	ret = param_set_uint(val, kp);
 +	if (!ret) {
@@ -238,529 +203,643 @@ index 0000000..81ac541
 +
 +MODULE_AUTHOR("Karsten Keil");
 +MODULE_LICENSE("GPL v2");
-+MODULE_VERSION(AVMFRITZ_REV);
++MODULE_VERSION(NETJET_REV);
 +module_param_call(debug, set_debug, param_get_uint, &debug, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(debug, "avmfritz debug mask");
++MODULE_PARM_DESC(debug, "Netjet debug mask");
 +
-+/* Interface functions */
++static void
++nj_disable_hwirq(struct tiger_hw *card)
++{
++	outb(0, card->base + NJ_IRQMASK0);
++	outb(0, card->base + NJ_IRQMASK1);
++}
++
 +
 +static u8
-+ReadISAC_V1(void *p, u8 offset)
++ReadISAC_nj(void *p, u8 offset)
 +{
-+	struct fritzcard *fc = p;
-+	u8 idx = (offset > 0x2f) ? AVM_ISAC_REG_HIGH : AVM_ISAC_REG_LOW;
++	struct tiger_hw *card = p;
++	u8 ret;
 +
-+	outb(idx, fc->addr + CHIP_INDEX);
-+	return inb(fc->addr + CHIP_WINDOW + (offset & 0xf));
++	card->auxd &= 0xfc;
++	card->auxd |= (offset >> 4) & 3;
++	outb(card->auxd, card->base + NJ_AUXDATA);
++	ret = inb(card->base + NJ_ISAC_OFF + ((offset & 0x0f) << 2));
++	return ret;
 +}
 +
 +static void
-+WriteISAC_V1(void *p, u8 offset, u8 value)
++WriteISAC_nj(void *p, u8 offset, u8 value)
 +{
-+	struct fritzcard *fc = p;
-+	u8 idx = (offset > 0x2f) ? AVM_ISAC_REG_HIGH : AVM_ISAC_REG_LOW;
++	struct tiger_hw *card = p;
 +
-+	outb(idx, fc->addr + CHIP_INDEX);
-+	outb(value, fc->addr + CHIP_WINDOW + (offset & 0xf));
++	card->auxd &= 0xfc;
++	card->auxd |= (offset >> 4) & 3;
++	outb(card->auxd, card->base + NJ_AUXDATA);
++	outb(value, card->base + NJ_ISAC_OFF + ((offset & 0x0f) << 2));
 +}
 +
 +static void
-+ReadFiFoISAC_V1(void *p, u8 off, u8 *data, int size)
++ReadFiFoISAC_nj(void *p, u8 offset, u8 *data, int size)
 +{
-+	struct fritzcard *fc = p;
++	struct tiger_hw *card = p;
 +
-+	outb(AVM_ISAC_FIFO, fc->addr + CHIP_INDEX);
-+	insb(fc->addr + CHIP_WINDOW, data, size);
++	card->auxd &= 0xfc;
++	outb(card->auxd, card->base + NJ_AUXDATA);
++	insb(card->base + NJ_ISAC_OFF, data, size);
 +}
 +
 +static void
-+WriteFiFoISAC_V1(void *p, u8 off, u8 *data, int size)
++WriteFiFoISAC_nj(void *p, u8 offset, u8 *data, int size)
 +{
-+	struct fritzcard *fc = p;
++	struct tiger_hw *card = p;
 +
-+	outb(AVM_ISAC_FIFO, fc->addr + CHIP_INDEX);
-+	outsb(fc->addr + CHIP_WINDOW, data, size);
-+}
-+
-+static u8
-+ReadISAC_V2(void *p, u8 offset)
-+{
-+	struct fritzcard *fc = p;
-+
-+	outl(offset, fc->addr + AVM_ISACX_INDEX);
-+	return 0xff & inl(fc->addr + AVM_ISACX_DATA);
++	card->auxd &= 0xfc;
++	outb(card->auxd, card->base + NJ_AUXDATA);
++	outsb(card->base + NJ_ISAC_OFF, data, size);
 +}
 +
 +static void
-+WriteISAC_V2(void *p, u8 offset, u8 value)
++fill_mem(struct tiger_ch *bc, u32 idx, u32 cnt, u32 fill)
 +{
-+	struct fritzcard *fc = p;
++	struct tiger_hw *card = bc->bch.hw;
++	u32 mask = 0xff, val;
 +
-+	outl(offset, fc->addr + AVM_ISACX_INDEX);
-+	outl(value, fc->addr + AVM_ISACX_DATA);
-+}
-+
-+static void
-+ReadFiFoISAC_V2(void *p, u8 off, u8 *data, int size)
-+{
-+	struct fritzcard *fc = p;
-+	int i;
-+
-+	outl(off, fc->addr + AVM_ISACX_INDEX);
-+	for (i = 0; i < size; i++)
-+		data[i] = 0xff & inl(fc->addr + AVM_ISACX_DATA);
-+}
-+
-+static void
-+WriteFiFoISAC_V2(void *p, u8 off, u8 *data, int size)
-+{
-+	struct fritzcard *fc = p;
-+	int i;
-+
-+	outl(off, fc->addr + AVM_ISACX_INDEX);
-+	for (i = 0; i < size; i++)
-+		outl(data[i], fc->addr + AVM_ISACX_DATA);
-+}
-+
-+static struct bchannel *
-+Sel_BCS(struct fritzcard *fc, u32 channel)
-+{
-+	if (test_bit(FLG_ACTIVE, &fc->bch[0].Flags) &&
-+		(fc->bch[0].nr & channel))
-+		return &fc->bch[0];
-+	else if (test_bit(FLG_ACTIVE, &fc->bch[1].Flags) &&
-+		(fc->bch[1].nr & channel))
-+		return &fc->bch[1];
-+	else
-+		return NULL;
-+}
-+
-+static inline void
-+__write_ctrl_pci(struct fritzcard *fc, struct hdlc_hw *hdlc, u32 channel) {
-+	u32 idx = channel == 2 ? AVM_HDLC_2 : AVM_HDLC_1;
-+
-+	outl(idx, fc->addr + CHIP_INDEX);
-+	outl(hdlc->ctrl.ctrl, fc->addr + CHIP_WINDOW + HDLC_STATUS);
-+}
-+
-+static inline void
-+__write_ctrl_pciv2(struct fritzcard *fc, struct hdlc_hw *hdlc, u32 channel) {
-+	outl(hdlc->ctrl.ctrl, fc->addr + (channel == 2 ? AVM_HDLC_STATUS_2 :
-+		AVM_HDLC_STATUS_1));
-+}
-+
-+void
-+write_ctrl(struct bchannel *bch, int which) {
-+	struct fritzcard *fc = bch->hw;
-+	struct hdlc_hw *hdlc;
-+
-+	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
-+	pr_debug("%s: hdlc %c wr%x ctrl %x\n", fc->name, '@' + bch->nr,
-+		which, hdlc->ctrl.ctrl);
-+	switch (fc->type) {
-+	case AVM_FRITZ_PCIV2:
-+		__write_ctrl_pciv2(fc, hdlc, bch->nr);
-+		break;
-+	case AVM_FRITZ_PCI:
-+		__write_ctrl_pci(fc, hdlc, bch->nr);
-+		break;
++	pr_debug("%s: B%1d fill %02x len %d idx %d/%d\n", card->name,
++		bc->bch.nr, fill, cnt, idx, card->send.idx);
++	if (bc->bch.nr & 2) {
++		fill  <<= 8;
++		mask <<= 8;
 +	}
-+}
-+
-+
-+static inline u32
-+__read_status_pci(u_long addr, u32 channel)
-+{
-+	outl(channel == 2 ? AVM_HDLC_2 : AVM_HDLC_1, addr + CHIP_INDEX);
-+	return inl(addr + CHIP_WINDOW + HDLC_STATUS);
-+}
-+
-+static inline u32
-+__read_status_pciv2(u_long addr, u32 channel)
-+{
-+	return inl(addr + (channel == 2 ? AVM_HDLC_STATUS_2 :
-+		AVM_HDLC_STATUS_1));
-+}
-+
-+
-+static u32
-+read_status(struct fritzcard *fc, u32 channel)
-+{
-+	switch (fc->type) {
-+	case AVM_FRITZ_PCIV2:
-+		return __read_status_pciv2(fc->addr, channel);
-+	case AVM_FRITZ_PCI:
-+		return __read_status_pci(fc->addr, channel);
++	mask ^= 0xffffffff;
++	while (cnt--) {
++		val = card->send.start[idx];
++		val &= mask;
++		val |= fill;
++		card->send.start[idx++] = val;
++		if (idx >= card->send.size)
++			idx = 0;
 +	}
-+	/* dummy */
-+	return 0;
-+}
-+
-+static void
-+enable_hwirq(struct fritzcard *fc)
-+{
-+	fc->ctrlreg |= AVM_STATUS0_ENA_IRQ;
-+	outb(fc->ctrlreg, fc->addr + 2);
-+}
-+
-+static void
-+disable_hwirq(struct fritzcard *fc)
-+{
-+	fc->ctrlreg &= ~AVM_STATUS0_ENA_IRQ;
-+	outb(fc->ctrlreg, fc->addr + 2);
 +}
 +
 +static int
-+modehdlc(struct bchannel *bch, int protocol)
++mode_tiger(struct tiger_ch *bc, u32 protocol)
 +{
-+	struct fritzcard *fc = bch->hw;
-+	struct hdlc_hw *hdlc;
++	struct tiger_hw *card = bc->bch.hw;
 +
-+	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
-+	pr_debug("%s: hdlc %c protocol %x-->%x ch %d\n", fc->name,
-+		'@' + bch->nr, bch->state, protocol, bch->nr);
-+	hdlc->ctrl.ctrl = 0;
++	pr_debug("%s: B%1d protocol %x-->%x\n", card->name,
++		bc->bch.nr, bc->bch.state, protocol);
 +	switch (protocol) {
-+	case -1: /* used for init */
-+		bch->state = -1;
 +	case ISDN_P_NONE:
-+		if (bch->state == ISDN_P_NONE)
++		if (bc->bch.state == ISDN_P_NONE)
 +			break;
-+		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
-+		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
-+		write_ctrl(bch, 5);
-+		bch->state = ISDN_P_NONE;
-+		test_and_clear_bit(FLG_HDLC, &bch->Flags);
-+		test_and_clear_bit(FLG_TRANSPARENT, &bch->Flags);
++		fill_mem(bc, 0, card->send.size, 0xff);
++		bc->bch.state = protocol;
++		/* only stop dma and interrupts if both channels NULL */
++		if ((card->bc[0].bch.state == ISDN_P_NONE) &&
++		    (card->bc[1].bch.state == ISDN_P_NONE)) {
++			card->dmactrl = 0;
++			outb(card->dmactrl, card->base + NJ_DMACTRL);
++			outb(0, card->base + NJ_IRQMASK0);
++		}
++		test_and_clear_bit(FLG_HDLC, &bc->bch.Flags);
++		test_and_clear_bit(FLG_TRANSPARENT, &bc->bch.Flags);
++		bc->txstate = 0;
++		bc->rxstate = 0;
++		bc->lastrx = -1;
 +		break;
 +	case ISDN_P_B_RAW:
-+		bch->state = protocol;
-+		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
-+		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
-+		write_ctrl(bch, 5);
-+		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
-+		write_ctrl(bch, 1);
-+		hdlc->ctrl.sr.cmd = 0;
-+		test_and_set_bit(FLG_TRANSPARENT, &bch->Flags);
++		test_and_set_bit(FLG_TRANSPARENT, &bc->bch.Flags);
++		bc->bch.state = protocol;
++		bc->idx = 0;
++		bc->free = card->send.size/2;
++		bc->rxstate = 0;
++		bc->txstate = TX_INIT | TX_IDLE;
++		bc->lastrx = -1;
++		if (!card->dmactrl) {
++			card->dmactrl = 1;
++			outb(card->dmactrl, card->base + NJ_DMACTRL);
++			outb(0x0f, card->base + NJ_IRQMASK0);
++		}
 +		break;
 +	case ISDN_P_B_HDLC:
-+		bch->state = protocol;
-+		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
-+		hdlc->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
-+		write_ctrl(bch, 5);
-+		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
-+		write_ctrl(bch, 1);
-+		hdlc->ctrl.sr.cmd = 0;
-+		test_and_set_bit(FLG_HDLC, &bch->Flags);
++		test_and_set_bit(FLG_HDLC, &bc->bch.Flags);
++		bc->bch.state = protocol;
++		bc->idx = 0;
++		bc->free = card->send.size/2;
++		bc->rxstate = 0;
++		bc->txstate = TX_INIT | TX_IDLE;
++		isdnhdlc_rcv_init(&bc->hrecv, 0);
++		isdnhdlc_out_init(&bc->hsend, 0);
++		bc->lastrx = -1;
++		if (!card->dmactrl) {
++			card->dmactrl = 1;
++			outb(card->dmactrl, card->base + NJ_DMACTRL);
++			outb(0x0f, card->base + NJ_IRQMASK0);
++		}
 +		break;
 +	default:
-+		pr_info("%s: protocol not known %x\n", fc->name, protocol);
++		pr_info("%s: %s protocol %x not handled\n", card->name,
++			__func__, protocol);
 +		return -ENOPROTOOPT;
 +	}
++	card->send.dmacur = inl(card->base + NJ_DMA_READ_ADR);
++	card->recv.dmacur = inl(card->base + NJ_DMA_WRITE_ADR);
++	card->send.idx = (card->send.dmacur - card->send.dmastart) >> 2;
++	card->recv.idx = (card->recv.dmacur - card->recv.dmastart) >> 2;
++	pr_debug("%s: %s ctrl %x irq  %02x/%02x idx %d/%d\n",
++		card->name, __func__,
++		inb(card->base + NJ_DMACTRL),
++		inb(card->base + NJ_IRQMASK0),
++		inb(card->base + NJ_IRQSTAT0),
++		card->send.idx,
++		card->recv.idx);
 +	return 0;
 +}
 +
 +static void
-+hdlc_empty_fifo(struct bchannel *bch, int count)
++nj_reset(struct tiger_hw *card)
 +{
-+	u32 *ptr;
-+	u8 *p;
-+	u32  val, addr;
-+	int cnt = 0;
-+	struct fritzcard *fc = bch->hw;
++	outb(0xff, card->base + NJ_CTRL); /* Reset On */
++	mdelay(1);
 +
-+	pr_debug("%s: %s %d\n", fc->name, __func__, count);
-+	if (!bch->rx_skb) {
-+		bch->rx_skb = mI_alloc_skb(bch->maxlen, GFP_ATOMIC);
-+		if (!bch->rx_skb) {
-+			pr_info("%s: B receive out of memory\n",
-+				fc->name);
++	/* now edge triggered for TJ320 GE 13/07/00 */
++	/* see comment in IRQ function */
++	if (card->typ == NETJET_S_TJ320) /* TJ320 */
++		card->ctrlreg = 0x40;  /* Reset Off and status read clear */
++	else
++		card->ctrlreg = 0x00;  /* Reset Off and status read clear */
++	outb(card->ctrlreg, card->base + NJ_CTRL);
++	mdelay(10);
++
++	/* configure AUX pins (all output except ISAC IRQ pin) */
++	card->auxd = 0;
++	card->dmactrl = 0;
++	outb(~NJ_ISACIRQ, card->base + NJ_AUXCTRL);
++	outb(NJ_ISACIRQ,  card->base + NJ_IRQMASK1);
++	outb(card->auxd, card->base + NJ_AUXDATA);
++}
++
++static int
++inittiger(struct tiger_hw *card)
++{
++	int i;
++
++	card->dma_p = pci_alloc_consistent(card->pdev, NJ_DMA_SIZE,
++			&card->dma);
++	if (!card->dma_p) {
++		pr_info("%s: No DMA memory\n", card->name);
++		return -ENOMEM;
++	}
++	if ((u64)card->dma > 0xffffffff) {
++		pr_info("%s: DMA outside 32 bit\n", card->name);
++		return -ENOMEM;
++	}
++	for (i = 0; i < 2; i++) {
++		card->bc[i].hsbuf = kmalloc(NJ_DMA_TXSIZE, GFP_KERNEL);
++		if (!card->bc[i].hsbuf) {
++			pr_info("%s: no B%d send buffer\n", card->name, i + 1);
++			return -ENOMEM;
++		}
++		card->bc[i].hrbuf = kmalloc(NJ_DMA_RXSIZE, GFP_KERNEL);
++		if (!card->bc[i].hrbuf) {
++			pr_info("%s: no B%d recv buffer\n", card->name, i + 1);
++			return -ENOMEM;
++		}
++	}
++	memset(card->dma_p, 0xff, NJ_DMA_SIZE);
++
++	card->send.start = card->dma_p;
++	card->send.dmastart = (u32)card->dma;
++	card->send.dmaend = card->send.dmastart +
++		(4 * (NJ_DMA_TXSIZE - 1));
++	card->send.dmairq = card->send.dmastart +
++		(4 * ((NJ_DMA_TXSIZE / 2) - 1));
++	card->send.size = NJ_DMA_TXSIZE;
++
++	if (debug & DEBUG_HW)
++		pr_notice("%s: send buffer phy %#x - %#x - %#x  virt %p"
++			" size %zu u32\n", card->name,
++			card->send.dmastart, card->send.dmairq,
++			card->send.dmaend, card->send.start, card->send.size);
++
++	outl(card->send.dmastart, card->base + NJ_DMA_READ_START);
++	outl(card->send.dmairq, card->base + NJ_DMA_READ_IRQ);
++	outl(card->send.dmaend, card->base + NJ_DMA_READ_END);
++
++	card->recv.start = card->dma_p + (NJ_DMA_SIZE / 2);
++	card->recv.dmastart = (u32)card->dma  + (NJ_DMA_SIZE / 2);
++	card->recv.dmaend = card->recv.dmastart +
++		(4 * (NJ_DMA_RXSIZE - 1));
++	card->recv.dmairq = card->recv.dmastart +
++		(4 * ((NJ_DMA_RXSIZE / 2) - 1));
++	card->recv.size = NJ_DMA_RXSIZE;
++
++	if (debug & DEBUG_HW)
++		pr_notice("%s: recv buffer phy %#x - %#x - %#x  virt %p"
++			" size %zu u32\n", card->name,
++			card->recv.dmastart, card->recv.dmairq,
++			card->recv.dmaend, card->recv.start, card->recv.size);
++
++	outl(card->recv.dmastart, card->base + NJ_DMA_WRITE_START);
++	outl(card->recv.dmairq, card->base + NJ_DMA_WRITE_IRQ);
++	outl(card->recv.dmaend, card->base + NJ_DMA_WRITE_END);
++	return 0;
++}
++
++static void
++read_dma(struct tiger_ch *bc, u32 idx, int cnt)
++{
++	struct tiger_hw *card = bc->bch.hw;
++	int i, stat;
++	u32 val;
++	u8 *p, *pn;
++
++	if (bc->lastrx == idx) {
++		bc->rxstate |= RX_OVERRUN;
++		pr_info("%s: B%1d overrun at idx %d\n", card->name,
++			bc->bch.nr, idx);
++	}
++	bc->lastrx = idx;
++	if (!bc->bch.rx_skb) {
++		bc->bch.rx_skb = mI_alloc_skb(bc->bch.maxlen, GFP_ATOMIC);
++		if (!bc->bch.rx_skb) {
++			pr_info("%s: B%1d receive out of memory\n",
++				card->name, bc->bch.nr);
 +			return;
 +		}
 +	}
-+	if ((bch->rx_skb->len + count) > bch->maxlen) {
-+		pr_debug("%s: overrun %d\n", fc->name,
-+			bch->rx_skb->len + count);
-+		return;
-+	}
-+	p = skb_put(bch->rx_skb, count);
-+	ptr = (u32 *)p;
-+	if (AVM_FRITZ_PCIV2 == fc->type)
-+		addr = fc->addr + (bch->nr == 2 ?
-+			AVM_HDLC_FIFO_2 : AVM_HDLC_FIFO_1);
-+	else {
-+		addr = fc->addr + CHIP_WINDOW;
-+		outl(bch->nr == 2 ? AVM_HDLC_2 : AVM_HDLC_1, fc->addr);
-+	}
-+	while (cnt < count) {
-+		val = le32_to_cpu(inl(addr));
-+		put_unaligned(val, ptr);
-+		ptr++;
-+		cnt += 4;
-+	}
-+	if (debug & DEBUG_HW_BFIFO) {
-+		snprintf(fc->log, LOG_SIZE, "B%1d-recv %s %d ",
-+			bch->nr, fc->name, count);
-+		print_hex_dump_bytes(fc->log, DUMP_PREFIX_OFFSET, p, count);
-+	}
-+}
 +
-+static void
-+hdlc_fill_fifo(struct bchannel *bch)
-+{
-+	struct fritzcard *fc = bch->hw;
-+	struct hdlc_hw *hdlc;
-+	int count, cnt = 0;
-+	u8 *p;
-+	u32 *ptr, val, addr;
-+
-+	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
-+	if (!bch->tx_skb)
-+		return;
-+	count = bch->tx_skb->len - bch->tx_idx;
-+	if (count <= 0)
-+		return;
-+	p = bch->tx_skb->data + bch->tx_idx;
-+	hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XME;
-+	if (count > HDLC_FIFO_SIZE) {
-+		count = HDLC_FIFO_SIZE;
-+	} else {
-+		if (test_bit(FLG_HDLC, &bch->Flags))
-+			hdlc->ctrl.sr.cmd |= HDLC_CMD_XME;
-+	}
-+	pr_debug("%s: %s %d/%d/%d", fc->name, __func__, count,
-+		bch->tx_idx, bch->tx_skb->len);
-+	ptr = (u32 *)p;
-+	bch->tx_idx += count;
-+	hdlc->ctrl.sr.xml = ((count == HDLC_FIFO_SIZE) ? 0 : count);
-+	if (AVM_FRITZ_PCIV2 == fc->type) {
-+		__write_ctrl_pciv2(fc, hdlc, bch->nr);
-+		addr = fc->addr + (bch->nr == 2 ?
-+			AVM_HDLC_FIFO_2 : AVM_HDLC_FIFO_1);
-+	} else {
-+		__write_ctrl_pci(fc, hdlc, bch->nr);
-+		addr = fc->addr + CHIP_WINDOW;
-+	}
-+	while (cnt < count) {
-+		val = get_unaligned(ptr);
-+		outl(cpu_to_le32(val), addr);
-+		ptr++;
-+		cnt += 4;
-+	}
-+	if (debug & DEBUG_HW_BFIFO) {
-+		snprintf(fc->log, LOG_SIZE, "B%1d-send %s %d ",
-+			bch->nr, fc->name, count);
-+		print_hex_dump_bytes(fc->log, DUMP_PREFIX_OFFSET, p, count);
-+	}
-+}
-+
-+static void
-+HDLC_irq_xpr(struct bchannel *bch)
-+{
-+	if (bch->tx_skb && bch->tx_idx < bch->tx_skb->len)
-+		hdlc_fill_fifo(bch);
-+	else {
-+		if (bch->tx_skb) {
-+			/* send confirm, on trans, free on hdlc. */
-+			if (test_bit(FLG_TRANSPARENT, &bch->Flags))
-+				confirm_Bsend(bch);
-+			dev_kfree_skb(bch->tx_skb);
++	if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags)) {
++		if ((bc->bch.rx_skb->len + cnt) > bc->bch.maxlen) {
++			pr_debug("%s: B%1d overrun %d\n", card->name,
++				bc->bch.nr, bc->bch.rx_skb->len + cnt);
++			skb_trim(bc->bch.rx_skb, 0);
++			return;
 +		}
-+		if (get_next_bframe(bch))
-+			hdlc_fill_fifo(bch);
++		p = skb_put(bc->bch.rx_skb, cnt);
++	} else
++		p = bc->hrbuf;
++
++	for (i = 0; i < cnt; i++) {
++		val = card->recv.start[idx++];
++		if (bc->bch.nr & 2)
++			val >>= 8;
++		if (idx >= card->recv.size)
++			idx = 0;
++		p[i] = val & 0xff;
 +	}
-+}
++	pn = bc->hrbuf;
++next_frame:
++	if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
++		stat = isdnhdlc_decode(&bc->hrecv, pn, cnt, &i,
++			bc->bch.rx_skb->data, bc->bch.maxlen);
++		if (stat > 0) /* valid frame received */ 
++			p = skb_put(bc->bch.rx_skb, stat);
++		else if (stat == -HDLC_CRC_ERROR)
++			pr_info("%s: B%1d receive frame CRC error\n",
++				card->name, bc->bch.nr);
++		else if (stat == -HDLC_FRAMING_ERROR)
++			pr_info("%s: B%1d receive framing error\n",
++				card->name, bc->bch.nr);
++		else if (stat == -HDLC_LENGTH_ERROR)
++			pr_info("%s: B%1d receive frame too long (> %d)\n",
++				card->name, bc->bch.nr, bc->bch.maxlen);
++	} else
++		stat = cnt;	
 +
-+static void
-+HDLC_irq(struct bchannel *bch, u32 stat)
-+{
-+	struct fritzcard *fc = bch->hw;
-+	int		len;
-+	struct hdlc_hw	*hdlc;
-+
-+	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
-+	pr_debug("%s: ch%d stat %#x\n", fc->name, bch->nr, stat);
-+	if (stat & HDLC_INT_RPR) {
-+		if (stat & HDLC_STAT_RDO) {
-+			hdlc->ctrl.sr.xml = 0;
-+			hdlc->ctrl.sr.cmd |= HDLC_CMD_RRS;
-+			write_ctrl(bch, 1);
-+			hdlc->ctrl.sr.cmd &= ~HDLC_CMD_RRS;
-+			write_ctrl(bch, 1);
-+			if (bch->rx_skb)
-+				skb_trim(bch->rx_skb, 0);
-+		} else {
-+			len = (stat & HDLC_STAT_RML_MASK) >> 8;
-+			if (!len)
-+				len = 32;
-+			hdlc_empty_fifo(bch, len);
-+			if (!bch->rx_skb)
-+				goto handle_tx;
-+			if ((stat & HDLC_STAT_RME) || test_bit(FLG_TRANSPARENT,
-+			    &bch->Flags)) {
-+				if (((stat & HDLC_STAT_CRCVFRRAB) ==
-+				    HDLC_STAT_CRCVFR) ||
-+				    test_bit(FLG_TRANSPARENT, &bch->Flags)) {
-+					recv_Bchannel(bch, 0);
-+				} else {
-+					pr_debug("%s: got invalid frame\n",
-+						fc->name);
-+					skb_trim(bch->rx_skb, 0);
-+				}
++	if (stat > 0) {
++		if (debug & DEBUG_HW_BFIFO) {
++			snprintf(card->log, LOG_SIZE, "B%1d-recv %s %d ",
++				bc->bch.nr, card->name, stat);
++			print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET,
++				p, stat);
++		}
++		recv_Bchannel(&bc->bch, 0);
++	}
++	if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
++		pn += i;
++		cnt -= i;
++		if (!bc->bch.rx_skb) {
++			bc->bch.rx_skb = mI_alloc_skb(bc->bch.maxlen,
++				GFP_ATOMIC);
++			if (!bc->bch.rx_skb) {
++				pr_info("%s: B%1d receive out of memory\n",
++					card->name, bc->bch.nr);
++				return;
 +			}
 +		}
++		if (cnt > 0)
++			goto next_frame;
 +	}
-+handle_tx:
-+	if (stat & HDLC_INT_XDU) {
-+		/* Here we lost an TX interrupt, so
-+		 * restart transmitting the whole frame on HDLC
-+		 * in transparent mode we send the next data
-+		 */
-+		if (bch->tx_skb)
-+			pr_debug("%s: ch%d XDU len(%d) idx(%d) Flags(%lx)\n",
-+				fc->name, bch->nr, bch->tx_skb->len,
-+				bch->tx_idx, bch->Flags);
-+		else
-+			pr_debug("%s: ch%d XDU no tx_skb Flags(%lx)\n",
-+				fc->name, bch->nr, bch->Flags);
-+		if (bch->tx_skb && bch->tx_skb->len) {
-+			if (!test_bit(FLG_TRANSPARENT, &bch->Flags))
-+				bch->tx_idx = 0;
-+		}
-+		hdlc->ctrl.sr.xml = 0;
-+		hdlc->ctrl.sr.cmd |= HDLC_CMD_XRS;
-+		write_ctrl(bch, 1);
-+		hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XRS;
-+		HDLC_irq_xpr(bch);
++}
++
++static void
++recv_tiger(struct tiger_hw *card, u8 irq_stat)
++{
++	u32 idx;
++	int cnt = card->recv.size / 2;
++
++	/* Note receive is via the WRITE DMA channel */
++	card->last_is0 &= ~NJ_IRQM0_WR_MASK;
++	card->last_is0 |= (irq_stat & NJ_IRQM0_WR_MASK);
++
++	if (irq_stat & NJ_IRQM0_WR_END)
++		idx = cnt - 1;
++	else
++		idx = card->recv.size - 1;
++
++	if (test_bit(FLG_ACTIVE, &card->bc[0].bch.Flags))
++		read_dma(&card->bc[0], idx, cnt);
++	if (test_bit(FLG_ACTIVE, &card->bc[1].bch.Flags))
++		read_dma(&card->bc[1], idx, cnt);
++}
++
++/* sync with current DMA address at start or after exception */
++static void
++resync(struct tiger_ch *bc, struct tiger_hw *card)
++{
++	card->send.dmacur = inl(card->base | NJ_DMA_READ_ADR);
++	card->send.idx = (card->send.dmacur - card->send.dmastart) >> 2;
++	if (bc->free > card->send.size / 2)
++		bc->free = card->send.size / 2;
++	/* currently we simple sync to the next complete free area
++	 * this hast the advantage that we have always maximum time to
++	 * handle TX irq
++	 */
++	if (card->send.idx < ((card->send.size / 2) - 1))
++		bc->idx = (card->recv.size / 2) - 1;
++	else
++		bc->idx = card->recv.size - 1;
++	bc->txstate = TX_RUN;
++	pr_debug("%s: %s B%1d free %d idx %d/%d\n", card->name,
++		__func__, bc->bch.nr, bc->free, bc->idx, card->send.idx);
++}
++
++static int bc_next_frame(struct tiger_ch *);
++
++static void
++fill_hdlc_flag(struct tiger_ch *bc)
++{
++	struct tiger_hw *card = bc->bch.hw;
++	int count, i;
++	u32 m, v;
++	u8  *p;
++
++	if (bc->free == 0)
 +		return;
-+	} else if (stat & HDLC_INT_XPR)
-+		HDLC_irq_xpr(bch);
++	pr_debug("%s: %s B%1d %d state %x idx %d/%d\n", card->name,
++		__func__, bc->bch.nr, bc->free, bc->txstate,
++		bc->idx, card->send.idx);
++	if (bc->txstate & (TX_IDLE | TX_INIT | TX_UNDERRUN))
++		resync(bc, card);
++	count = isdnhdlc_encode(&bc->hsend, NULL, 0, &i,
++			bc->hsbuf, bc->free);
++	pr_debug("%s: B%1d hdlc encoded %d flags\n", card->name,
++			bc->bch.nr, count);
++	bc->free -= count;
++	p = bc->hsbuf;
++	m = (bc->bch.nr & 1) ? 0xffffff00 : 0xffff00ff;
++	for (i = 0; i < count; i++) {
++		if (bc->idx >= card->send.size)
++			bc->idx = 0;
++		v = card->send.start[bc->idx];
++		v &= m;
++		v |= (bc->bch.nr & 1) ? (u32)(p[i]) : ((u32)(p[i])) << 8;
++		card->send.start[bc->idx++] = v;
++	}
++	if (debug & DEBUG_HW_BFIFO) {
++		snprintf(card->log, LOG_SIZE, "B%1d-send %s %d ",
++			bc->bch.nr, card->name, count);
++		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, p, count);
++	}
 +}
 +
-+static inline void
-+HDLC_irq_main(struct fritzcard *fc)
++static void
++fill_dma(struct tiger_ch *bc)
 +{
-+	u32 stat;
-+	struct bchannel *bch;
++	struct tiger_hw *card = bc->bch.hw;
++	int count, i;
++	u32 m, v;
++	u8  *p;
 +
-+	stat = read_status(fc, 1);
-+	if (stat & HDLC_INT_MASK) {
-+		bch = Sel_BCS(fc, 1);
-+		if (bch)
-+			HDLC_irq(bch, stat);
-+		else
-+			pr_debug("%s: spurious ch1 IRQ\n", fc->name);
++	if (bc->free == 0)
++		return;
++	count = bc->bch.tx_skb->len - bc->bch.tx_idx;
++	if (count <= 0)
++		return;
++	pr_debug("%s: %s B%1d %d/%d/%d/%d state %x idx %d/%d\n", card->name,
++		__func__, bc->bch.nr, count, bc->free, bc->bch.tx_idx,
++		bc->bch.tx_skb->len, bc->txstate, bc->idx, card->send.idx);
++	if (bc->txstate & (TX_IDLE | TX_INIT | TX_UNDERRUN))
++		resync(bc, card);
++	p = bc->bch.tx_skb->data + bc->bch.tx_idx;
++	if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
++		count = isdnhdlc_encode(&bc->hsend, p, count, &i,
++			bc->hsbuf, bc->free);
++		pr_debug("%s: B%1d hdlc encoded %d in %d\n", card->name,
++			bc->bch.nr, i, count);
++		bc->bch.tx_idx += i;
++		bc->free -= count;
++		p = bc->hsbuf;
++	} else {
++		if (count > bc->free)
++			count = bc->free;
++		bc->bch.tx_idx += count;
++		bc->free -= count;
 +	}
-+	stat = read_status(fc, 2);
-+	if (stat & HDLC_INT_MASK) {
-+		bch = Sel_BCS(fc, 2);
-+		if (bch)
-+			HDLC_irq(bch, stat);
++	m = (bc->bch.nr & 1) ? 0xffffff00 : 0xffff00ff;
++	for (i = 0; i < count; i++) {
++		if (bc->idx >= card->send.size)
++			bc->idx = 0;
++		v = card->send.start[bc->idx];
++		v &= m;
++		v |= (bc->bch.nr & 1) ? (u32)(p[i]) : ((u32)(p[i])) << 8;
++		card->send.start[bc->idx++] = v;
++	}
++	if (debug & DEBUG_HW_BFIFO) {
++		snprintf(card->log, LOG_SIZE, "B%1d-send %s %d ",
++			bc->bch.nr, card->name, count);
++		print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET, p, count);
++	}
++	if (bc->free)
++		bc_next_frame(bc);
++}
++
++
++static int
++bc_next_frame(struct tiger_ch *bc)
++{
++	if (bc->bch.tx_skb && bc->bch.tx_idx < bc->bch.tx_skb->len)
++		fill_dma(bc);
++	else {
++		if (bc->bch.tx_skb) {
++			/* send confirm, on trans, free on hdlc. */
++			if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags))
++				confirm_Bsend(&bc->bch);
++			dev_kfree_skb(bc->bch.tx_skb);
++		}
++		if (get_next_bframe(&bc->bch))
++			fill_dma(bc);
 +		else
-+			pr_debug("%s: spurious ch2 IRQ\n", fc->name);
++			return 0;
++	}
++	return 1;
++}
++
++static void
++send_tiger_bc(struct tiger_hw *card, struct tiger_ch *bc)
++{
++	int ret;
++
++	bc->free += card->send.size / 2;
++	if (bc->free >= card->send.size) {
++		if (!(bc->txstate & (TX_UNDERRUN | TX_INIT))) {
++			pr_info("%s: B%1d TX underrun state %x\n", card->name,
++				bc->bch.nr, bc->txstate);
++			bc->txstate |= TX_UNDERRUN;
++		}
++		bc->free = card->send.size;
++	}
++	ret = bc_next_frame(bc);
++	if (!ret) {
++		if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
++			fill_hdlc_flag(bc);
++			return;
++		}
++		pr_debug("%s: B%1d TX no data free %d idx %d/%d\n", card->name,
++			bc->bch.nr, bc->free, bc->idx, card->send.idx);
++		if (!(bc->txstate & (TX_IDLE | TX_INIT))) {
++			fill_mem(bc, bc->idx, bc->free, 0xff);
++			if (bc->free == card->send.size)
++				bc->txstate |= TX_IDLE;
++		}
++	}
++}
++
++static void
++send_tiger(struct tiger_hw *card, u8 irq_stat)
++{
++	int i;
++
++	/* Note send is via the READ DMA channel */
++	if ((irq_stat & card->last_is0) & NJ_IRQM0_RD_MASK) {
++		pr_info("%s: tiger warn write double dma %x/%x\n",
++			card->name, irq_stat, card->last_is0);
++		return;
++	} else {
++		card->last_is0 &= ~NJ_IRQM0_RD_MASK;
++		card->last_is0 |= (irq_stat & NJ_IRQM0_RD_MASK);
++	}
++	for (i = 0; i < 2; i++) {
++		if (test_bit(FLG_ACTIVE, &card->bc[i].bch.Flags))
++			send_tiger_bc(card, &card->bc[i]);
 +	}
 +}
 +
 +static irqreturn_t
-+avm_fritz_interrupt(int intno, void *dev_id)
++nj_irq(int intno, void *dev_id)
 +{
-+	struct fritzcard *fc = dev_id;
-+	u8 val;
-+	u8 sval;
++	struct tiger_hw *card = dev_id;
++	u8 val, s1val, s0val;
 +
-+	spin_lock(&fc->lock);
-+	sval = inb(fc->addr + 2);
-+	pr_debug("%s: irq stat0 %x\n", fc->name, sval);
-+	if ((sval & AVM_STATUS0_IRQ_MASK) == AVM_STATUS0_IRQ_MASK) {
-+		/* shared  IRQ from other HW */
-+		spin_unlock(&fc->lock);
++	spin_lock(&card->lock);
++	s0val = inb(card->base | NJ_IRQSTAT0);
++	s1val = inb(card->base | NJ_IRQSTAT1);
++	if ((s1val & NJ_ISACIRQ) && (s0val == 0)) {
++		/* shared IRQ */
++		spin_unlock(&card->lock);
 +		return IRQ_NONE;
 +	}
-+	fc->irqcnt++;
-+
-+	if (!(sval & AVM_STATUS0_IRQ_ISAC)) {
-+		val = ReadISAC_V1(fc, ISAC_ISTA);
-+		mISDNisac_irq(&fc->isac, val);
++	pr_debug("%s: IRQSTAT0 %02x IRQSTAT1 %02x\n", card->name, s0val, s1val);
++	card->irqcnt++;
++	if (!(s1val & NJ_ISACIRQ)) {
++		val = ReadISAC_nj(card, ISAC_ISTA);
++		if (val)
++			mISDNisac_irq(&card->isac, val);
 +	}
-+	if (!(sval & AVM_STATUS0_IRQ_HDLC))
-+		HDLC_irq_main(fc);
-+	spin_unlock(&fc->lock);
-+	return IRQ_HANDLED;
-+}
 +
-+static irqreturn_t
-+avm_fritzv2_interrupt(int intno, void *dev_id)
-+{
-+	struct fritzcard *fc = dev_id;
-+	u8 val;
-+	u8 sval;
++	if (s0val)
++		/* write to clear */
++		outb(s0val, card->base | NJ_IRQSTAT0);
++	else
++		goto end;
++	s1val = s0val;
++	/* set bits in sval to indicate which page is free */
++	card->recv.dmacur = inl(card->base | NJ_DMA_WRITE_ADR);
++	card->recv.idx = (card->recv.dmacur - card->recv.dmastart) >> 2;
++	if (card->recv.dmacur < card->recv.dmairq)
++		s0val = 0x08;	/* the 2nd write area is free */
++	else
++		s0val = 0x04;	/* the 1st write area is free */
 +
-+	spin_lock(&fc->lock);
-+	sval = inb(fc->addr + 2);
-+	pr_debug("%s: irq stat0 %x\n", fc->name, sval);
-+	if (!(sval & AVM_STATUS0_IRQ_MASK)) {
-+		/* shared  IRQ from other HW */
-+		spin_unlock(&fc->lock);
-+		return IRQ_NONE;
-+	}
-+	fc->irqcnt++;
++	card->send.dmacur = inl(card->base | NJ_DMA_READ_ADR);
++	card->send.idx = (card->send.dmacur - card->send.dmastart) >> 2;
++	if (card->send.dmacur < card->send.dmairq)
++		s0val |= 0x02;	/* the 2nd read area is free */
++	else
++		s0val |= 0x01;	/* the 1st read area is free */
 +
-+	if (sval & AVM_STATUS0_IRQ_HDLC)
-+		HDLC_irq_main(fc);
-+	if (sval & AVM_STATUS0_IRQ_ISAC) {
-+		val = ReadISAC_V2(fc, ISACX_ISTA);
-+		mISDNisac_irq(&fc->isac, val);
++	pr_debug("%s: DMA Status %02x/%02x/%02x %d/%d\n", card->name,
++		s1val, s0val, card->last_is0,
++		card->recv.idx, card->send.idx);
++	/* test if we have a DMA interrupt */
++	if (s0val != card->last_is0) {
++		if ((s0val & NJ_IRQM0_RD_MASK) !=
++		    (card->last_is0 & NJ_IRQM0_RD_MASK))
++			/* got a write dma int */
++			send_tiger(card, s0val);
++		if ((s0val & NJ_IRQM0_WR_MASK) !=
++		    (card->last_is0 & NJ_IRQM0_WR_MASK))
++			/* got a read dma int */
++			recv_tiger(card, s0val);
 +	}
-+	if (sval & AVM_STATUS0_IRQ_TIMER) {
-+		pr_debug("%s: timer irq\n", fc->name);
-+		outb(fc->ctrlreg | AVM_STATUS0_RES_TIMER, fc->addr + 2);
-+		udelay(1);
-+		outb(fc->ctrlreg, fc->addr + 2);
-+	}
-+	spin_unlock(&fc->lock);
++end:
++	spin_unlock(&card->lock);
 +	return IRQ_HANDLED;
 +}
 +
 +static int
-+avm_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
++nj_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
 +{
-+	struct bchannel *bch = container_of(ch, struct bchannel, ch);
-+	struct fritzcard *fc = bch->hw;
 +	int ret = -EINVAL;
++	struct bchannel *bch = container_of(ch, struct bchannel, ch);
++	struct tiger_ch *bc = container_of(bch, struct tiger_ch, bch);
++	struct tiger_hw *card = bch->hw;
 +	struct mISDNhead *hh = mISDN_HEAD_P(skb);
 +	u32 id;
 +	u_long flags;
 +
 +	switch (hh->prim) {
 +	case PH_DATA_REQ:
-+		spin_lock_irqsave(&fc->lock, flags);
++		spin_lock_irqsave(&card->lock, flags);
 +		ret = bchannel_senddata(bch, skb);
 +		if (ret > 0) { /* direct TX */
 +			id = hh->id; /* skb can be freed */
-+			hdlc_fill_fifo(bch);
++			fill_dma(bc);
 +			ret = 0;
-+			spin_unlock_irqrestore(&fc->lock, flags);
++			spin_unlock_irqrestore(&card->lock, flags);
 +			if (!test_bit(FLG_TRANSPARENT, &bch->Flags))
 +				queue_ch_frame(ch, PH_DATA_CNF, id, NULL);
 +		} else
-+			spin_unlock_irqrestore(&fc->lock, flags);
++			spin_unlock_irqrestore(&card->lock, flags);
 +		return ret;
 +	case PH_ACTIVATE_REQ:
-+		spin_lock_irqsave(&fc->lock, flags);
++		spin_lock_irqsave(&card->lock, flags);
 +		if (!test_and_set_bit(FLG_ACTIVE, &bch->Flags))
-+			ret = modehdlc(bch, ch->protocol);
++			ret = mode_tiger(bc, ch->protocol);
 +		else
 +			ret = 0;
-+		spin_unlock_irqrestore(&fc->lock, flags);
++		spin_unlock_irqrestore(&card->lock, flags);
 +		if (!ret)
 +			_queue_data(ch, PH_ACTIVATE_IND, MISDN_ID_ANY, 0,
 +				NULL, GFP_KERNEL);
 +		break;
 +	case PH_DEACTIVATE_REQ:
-+		spin_lock_irqsave(&fc->lock, flags);
++		spin_lock_irqsave(&card->lock, flags);
 +		mISDN_clear_bchannel(bch);
-+		modehdlc(bch, ISDN_P_NONE);
-+		spin_unlock_irqrestore(&fc->lock, flags);
++		mode_tiger(bc, ISDN_P_NONE);
++		spin_unlock_irqrestore(&card->lock, flags);
 +		_queue_data(ch, PH_DEACTIVATE_IND, MISDN_ID_ANY, 0,
 +			NULL, GFP_KERNEL);
 +		ret = 0;
@@ -771,116 +850,11 @@ index 0000000..81ac541
 +	return ret;
 +}
 +
-+static void
-+inithdlc(struct fritzcard *fc)
-+{
-+	modehdlc(&fc->bch[0], -1);
-+	modehdlc(&fc->bch[1], -1);
-+}
-+
-+void
-+clear_pending_hdlc_ints(struct fritzcard *fc)
-+{
-+	u32 val;
-+
-+	val = read_status(fc, 1);
-+	pr_debug("%s: HDLC 1 STA %x\n", fc->name, val);
-+	val = read_status(fc, 2);
-+	pr_debug("%s: HDLC 2 STA %x\n", fc->name, val);
-+}
-+
-+static void
-+reset_avm(struct fritzcard *fc)
-+{
-+	switch (fc->type) {
-+	case AVM_FRITZ_PCI:
-+		fc->ctrlreg = AVM_STATUS0_RESET | AVM_STATUS0_DIS_TIMER;
-+		break;
-+	case AVM_FRITZ_PCIV2:
-+		fc->ctrlreg = AVM_STATUS0_RESET;
-+		break;
-+	}
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s: reset\n", fc->name);
-+	disable_hwirq(fc);
-+	mdelay(5);
-+	switch (fc->type) {
-+	case AVM_FRITZ_PCI:
-+		fc->ctrlreg = AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER;
-+		disable_hwirq(fc);
-+		outb(AVM_STATUS1_ENA_IOM, fc->addr + 3);
-+		break;
-+	case AVM_FRITZ_PCIV2:
-+		fc->ctrlreg = 0;
-+		disable_hwirq(fc);
-+		break;
-+	}
-+	mdelay(1);
-+	if (debug & DEBUG_HW)
-+		pr_notice("%s: S0/S1 %x/%x\n", fc->name,
-+			inb(fc->addr + 2), inb(fc->addr + 3));
-+}
-+
 +static int
-+init_card(struct fritzcard *fc)
-+{
-+	int		ret, cnt = 3;
-+	u_long		flags;
-+
-+	reset_avm(fc); /* disable IRQ */
-+	if (fc->type == AVM_FRITZ_PCIV2)
-+		ret = request_irq(fc->irq, avm_fritzv2_interrupt,
-+			IRQF_SHARED, fc->name, fc);
-+	else
-+		ret = request_irq(fc->irq, avm_fritz_interrupt,
-+			IRQF_SHARED, fc->name, fc);
-+	if (ret) {
-+		pr_info("%s: couldn't get interrupt %d\n",
-+			fc->name, fc->irq);
-+		return ret;
-+	}
-+	while (cnt--) {
-+		spin_lock_irqsave(&fc->lock, flags);
-+		ret = fc->isac.init(&fc->isac);
-+		if (ret) {
-+			spin_unlock_irqrestore(&fc->lock, flags);
-+			pr_info("%s: ISAC init failed with %d\n",
-+				fc->name, ret);
-+			break;
-+		}
-+		clear_pending_hdlc_ints(fc);
-+		inithdlc(fc);
-+		enable_hwirq(fc);
-+		/* RESET Receiver and Transmitter */
-+		if (AVM_FRITZ_PCIV2 == fc->type) {
-+			WriteISAC_V2(fc, ISACX_MASK, 0);
-+			WriteISAC_V2(fc, ISACX_CMDRD, 0x41);
-+		} else {
-+			WriteISAC_V1(fc, ISAC_MASK, 0);
-+			WriteISAC_V1(fc, ISAC_CMDR, 0x41);
-+		}
-+		spin_unlock_irqrestore(&fc->lock, flags);
-+		/* Timeout 10ms */
-+		msleep_interruptible(10);
-+		if (debug & DEBUG_HW)
-+			pr_notice("%s: IRQ %d count %d\n", fc->name,
-+				fc->irq, fc->irqcnt);
-+		if (!fc->irqcnt) {
-+			pr_info("%s: IRQ(%d) getting no IRQs during init %d\n",
-+				fc->name, fc->irq, 3 - cnt);
-+			reset_avm(fc);
-+		} else
-+			return 0;
-+	}
-+	free_irq(fc->irq, fc);
-+	return -EIO;
-+}
-+
-+static int
-+channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
++channel_bctrl(struct tiger_ch *bc, struct mISDN_ctrl_req *cq)
 +{
 +	int ret = 0;
-+	struct fritzcard *fc = bch->hw;
++	struct tiger_hw *card  = bc->bch.hw;
 +
 +	switch (cq->op) {
 +	case MISDN_CTRL_GETOP:
@@ -889,7 +863,7 @@ index 0000000..81ac541
 +	/* Nothing implemented yet */
 +	case MISDN_CTRL_FILL_EMPTY:
 +	default:
-+		pr_info("%s: %s unknown Op %x\n", fc->name, __func__, cq->op);
++		pr_info("%s: %s unknown Op %x\n", card->name, __func__, cq->op);
 +		ret = -EINVAL;
 +		break;
 +	}
@@ -897,24 +871,25 @@ index 0000000..81ac541
 +}
 +
 +static int
-+avm_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
++nj_bctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
 +{
 +	struct bchannel *bch = container_of(ch, struct bchannel, ch);
-+	struct fritzcard *fc = bch->hw;
++	struct tiger_ch *bc = container_of(bch, struct tiger_ch, bch);
++	struct tiger_hw *card  = bch->hw;
 +	int ret = -EINVAL;
 +	u_long flags;
 +
-+	pr_debug("%s: %s cmd:%x %p\n", fc->name, __func__, cmd, arg);
++	pr_debug("%s: %s cmd:%x %p\n", card->name, __func__, cmd, arg);
 +	switch (cmd) {
 +	case CLOSE_CHANNEL:
 +		test_and_clear_bit(FLG_OPEN, &bch->Flags);
 +		if (test_bit(FLG_ACTIVE, &bch->Flags)) {
-+			spin_lock_irqsave(&fc->lock, flags);
++			spin_lock_irqsave(&card->lock, flags);
 +			mISDN_freebchannel(bch);
 +			test_and_clear_bit(FLG_TX_BUSY, &bch->Flags);
 +			test_and_clear_bit(FLG_ACTIVE, &bch->Flags);
-+			modehdlc(bch, ISDN_P_NONE);
-+			spin_unlock_irqrestore(&fc->lock, flags);
++			mode_tiger(bc, ISDN_P_NONE);
++			spin_unlock_irqrestore(&card->lock, flags);
 +		}
 +		ch->protocol = ISDN_P_NONE;
 +		ch->peer = NULL;
@@ -922,16 +897,16 @@ index 0000000..81ac541
 +		ret = 0;
 +		break;
 +	case CONTROL_CHANNEL:
-+		ret = channel_bctrl(bch, arg);
++		ret = channel_bctrl(bc, arg);
 +		break;
 +	default:
-+		pr_info("%s: %s unknown prim(%x)\n", fc->name, __func__, cmd);
++		pr_info("%s: %s unknown prim(%x)\n", card->name, __func__, cmd);
 +	}
 +	return ret;
 +}
 +
 +static int
-+channel_ctrl(struct fritzcard  *fc, struct mISDN_ctrl_req *cq)
++channel_ctrl(struct tiger_hw *card, struct mISDN_ctrl_req *cq)
 +{
 +	int	ret = 0;
 +
@@ -945,10 +920,10 @@ index 0000000..81ac541
 +			ret = -EINVAL;
 +			break;
 +		}
-+		ret = fc->isac.ctrl(&fc->isac, HW_TESTLOOP, cq->channel);
++		ret = card->isac.ctrl(&card->isac, HW_TESTLOOP, cq->channel);
 +		break;
 +	default:
-+		pr_info("%s: %s unknown Op %x\n", fc->name, __func__, cq->op);
++		pr_info("%s: %s unknown Op %x\n", card->name, __func__, cq->op);
 +		ret = -EINVAL;
 +		break;
 +	}
@@ -956,15 +931,15 @@ index 0000000..81ac541
 +}
 +
 +static int
-+open_bchannel(struct fritzcard *fc, struct channel_req *rq)
++open_bchannel(struct tiger_hw *card, struct channel_req *rq)
 +{
-+	struct bchannel		*bch;
++	struct bchannel *bch;
 +
 +	if (rq->adr.channel > 2)
 +		return -EINVAL;
 +	if (rq->protocol == ISDN_P_NONE)
 +		return -EINVAL;
-+	bch = &fc->bch[rq->adr.channel - 1];
++	bch = &card->bc[rq->adr.channel - 1].bch;
 +	if (test_and_set_bit(FLG_OPEN, &bch->Flags))
 +		return -EBUSY; /* b-channel can be only open once */
 +	test_and_clear_bit(FLG_FILLEMPTY, &bch->Flags);
@@ -977,122 +952,140 @@ index 0000000..81ac541
 + * device control function
 + */
 +static int
-+avm_dctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
++nj_dctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
 +{
 +	struct mISDNdevice	*dev = container_of(ch, struct mISDNdevice, D);
 +	struct dchannel		*dch = container_of(dev, struct dchannel, dev);
-+	struct fritzcard	*fc = dch->hw;
++	struct tiger_hw	*card = dch->hw;
 +	struct channel_req	*rq;
 +	int			err = 0;
 +
-+	pr_debug("%s: %s cmd:%x %p\n", fc->name, __func__, cmd, arg);
++	pr_debug("%s: %s cmd:%x %p\n", card->name, __func__, cmd, arg);
 +	switch (cmd) {
 +	case OPEN_CHANNEL:
 +		rq = arg;
 +		if (rq->protocol == ISDN_P_TE_S0)
-+			err = fc->isac.open(&fc->isac, rq);
++			err = card->isac.open(&card->isac, rq);
 +		else
-+			err = open_bchannel(fc, rq);
++			err = open_bchannel(card, rq);
 +		if (err)
 +			break;
 +		if (!try_module_get(THIS_MODULE))
-+			pr_info("%s: cannot get module\n", fc->name);
++			pr_info("%s: cannot get module\n", card->name);
 +		break;
 +	case CLOSE_CHANNEL:
-+		pr_debug("%s: dev(%d) close from %p\n", fc->name, dch->dev.id,
++		pr_debug("%s: dev(%d) close from %p\n", card->name, dch->dev.id,
 +			__builtin_return_address(0));
 +		module_put(THIS_MODULE);
 +		break;
 +	case CONTROL_CHANNEL:
-+		err = channel_ctrl(fc, arg);
++		err = channel_ctrl(card, arg);
 +		break;
 +	default:
 +		pr_debug("%s: %s unknown command %x\n",
-+			fc->name, __func__, cmd);
++			card->name, __func__, cmd);
 +		return -EINVAL;
 +	}
 +	return err;
 +}
 +
-+int
-+setup_fritz(struct fritzcard *fc)
-+{
-+	u32 val, ver;
-+
-+	if (!request_region(fc->addr, 32, fc->name)) {
-+		pr_info("%s: AVM config port %x-%x already in use\n",
-+			fc->name, fc->addr, fc->addr + 31);
-+		return -EIO;
-+	}
-+	switch (fc->type) {
-+	case AVM_FRITZ_PCI:
-+		val = inl(fc->addr);
-+		outl(AVM_HDLC_1, fc->addr + CHIP_INDEX);
-+		ver = inl(fc->addr + CHIP_WINDOW + HDLC_STATUS) >> 24;
-+		if (debug & DEBUG_HW) {
-+			pr_notice("%s: PCI stat %#x\n", fc->name, val);
-+			pr_notice("%s: PCI Class %X Rev %d\n", fc->name,
-+				val & 0xff, (val >> 8) & 0xff);
-+			pr_notice("%s: HDLC version %x\n", fc->name, ver & 0xf);
-+		}
-+		ASSIGN_FUNC(V1, ISAC, fc->isac);
-+		fc->isac.type = IPAC_TYPE_ISAC;
-+		break;
-+	case AVM_FRITZ_PCIV2:
-+		val = inl(fc->addr);
-+		ver = inl(fc->addr + AVM_HDLC_STATUS_1) >> 24;
-+		if (debug & DEBUG_HW) {
-+			pr_notice("%s: PCI V2 stat %#x\n", fc->name, val);
-+			pr_notice("%s: PCI V2 Class %X Rev %d\n", fc->name,
-+				val & 0xff, (val>>8) & 0xff);
-+			pr_notice("%s: HDLC version %x\n", fc->name, ver & 0xf);
-+		}
-+		ASSIGN_FUNC(V2, ISAC, fc->isac);
-+		fc->isac.type = IPAC_TYPE_ISACX;
-+		break;
-+	default:
-+		release_region(fc->addr, 32);
-+		pr_info("%s: AVM unknown type %d\n", fc->name, fc->type);
-+		return -ENODEV;
-+	}
-+	pr_notice("%s: %s config irq:%d base:0x%X\n", fc->name,
-+		(fc->type == AVM_FRITZ_PCI) ? "AVM Fritz!CARD PCI" :
-+		"AVM Fritz!CARD PCIv2", fc->irq, fc->addr);
-+	return 0;
-+}
-+
-+static void
-+release_card(struct fritzcard *card)
++static int
++nj_init_card(struct tiger_hw *card)
 +{
 +	u_long flags;
++	int ret;
 +
-+	disable_hwirq(card);
 +	spin_lock_irqsave(&card->lock, flags);
-+	modehdlc(&card->bch[0], ISDN_P_NONE);
-+	modehdlc(&card->bch[1], ISDN_P_NONE);
++	nj_disable_hwirq(card);
 +	spin_unlock_irqrestore(&card->lock, flags);
-+	card->isac.release(&card->isac);
-+	free_irq(card->irq, card);
-+	mISDN_freebchannel(&card->bch[1]);
-+	mISDN_freebchannel(&card->bch[0]);
-+	mISDN_unregister_device(&card->isac.dch.dev);
-+	release_region(card->addr, 32);
-+	pci_disable_device(card->pdev);
-+	pci_set_drvdata(card->pdev, NULL);
++
++	card->irq = card->pdev->irq;
++	if (request_irq(card->irq, nj_irq, IRQF_SHARED, card->name, card)) {
++		pr_info("%s: couldn't get interrupt %d\n",
++			card->name, card->irq);
++		card->irq = -1;
++		return -EIO;
++	}
++
++	spin_lock_irqsave(&card->lock, flags);
++	nj_reset(card);
++	ret = card->isac.init(&card->isac);
++	if (ret)
++		goto error;
++	ret = inittiger(card);
++	if (ret)
++		goto error;
++	mode_tiger(&card->bc[0], ISDN_P_NONE);
++	mode_tiger(&card->bc[1], ISDN_P_NONE);
++error:
++	spin_unlock_irqrestore(&card->lock, flags);
++	return ret;
++}
++
++
++static void
++nj_release(struct tiger_hw *card)
++{
++	u_long flags;
++	int i;
++
++	if (card->base_s) {
++		spin_lock_irqsave(&card->lock, flags);
++		nj_disable_hwirq(card);
++		mode_tiger(&card->bc[0], ISDN_P_NONE);
++		mode_tiger(&card->bc[1], ISDN_P_NONE);
++		card->isac.release(&card->isac);
++		spin_unlock_irqrestore(&card->lock, flags);
++		release_region(card->base, card->base_s);
++		card->base_s = 0;
++	}
++	if (card->irq > 0)
++		free_irq(card->irq, card);
++	if (card->isac.dch.dev.dev.class)
++		mISDN_unregister_device(&card->isac.dch.dev);
++	
++	for (i = 0; i < 2; i++) {
++		mISDN_freebchannel(&card->bc[i].bch);
++		kfree(card->bc[i].hsbuf);
++		kfree(card->bc[i].hrbuf);
++	}
++	if (card->dma_p)
++		pci_free_consistent(card->pdev, NJ_DMA_SIZE,
++			card->dma_p, card->dma);
 +	write_lock_irqsave(&card_lock, flags);
 +	list_del(&card->list);
 +	write_unlock_irqrestore(&card_lock, flags);
++	pci_clear_master(card->pdev);
++	pci_disable_device(card->pdev);
++	pci_set_drvdata(card->pdev, NULL);
 +	kfree(card);
-+	AVM_cnt--;
 +}
 +
++
++static int
++nj_setup(struct tiger_hw *card)
++{
++	card->base = pci_resource_start(card->pdev, 0);
++	card->base_s = pci_resource_len(card->pdev, 0);
++	if (!request_region(card->base, card->base_s, card->name)) {
++		pr_info("%s: NETjet config port %#x-%#x already in use\n",
++			card->name, card->base,
++			(u32)(card->base + card->base_s - 1));
++		card->base_s = 0;
++		return -EIO;
++	}
++	ASSIGN_FUNC(nj, ISAC, card->isac);
++	return 0;
++}
++
++
 +static int __devinit
-+setup_instance(struct fritzcard *card)
++setup_instance(struct tiger_hw *card)
 +{
 +	int i, err;
 +	u_long flags;
 +
-+	snprintf(card->name, MISDN_MAX_IDLEN - 1, "AVM.%d", AVM_cnt + 1);
++	snprintf(card->name, MISDN_MAX_IDLEN - 1, "netjet.%d", nj_cnt + 1);
 +	write_lock_irqsave(&card_lock, flags);
 +	list_add_tail(&card->list, &Cards);
 +	write_unlock_irqrestore(&card_lock, flags);
@@ -1104,122 +1097,203 @@ index 0000000..81ac541
 +	mISDNisac_init(&card->isac, card);
 +
 +	card->isac.dch.dev.Bprotocols = (1 << (ISDN_P_B_RAW & ISDN_P_B_MASK)) |
-+	    (1 << (ISDN_P_B_HDLC & ISDN_P_B_MASK));
-+	card->isac.dch.dev.D.ctrl = avm_dctrl;
++		(1 << (ISDN_P_B_HDLC & ISDN_P_B_MASK));
++	card->isac.dch.dev.D.ctrl = nj_dctrl;
 +	for (i = 0; i < 2; i++) {
-+		card->bch[i].nr = i + 1;
++		card->bc[i].bch.nr = i + 1;
 +		set_channelmap(i + 1, card->isac.dch.dev.channelmap);
-+		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM);
-+		card->bch[i].hw = card;
-+		card->bch[i].ch.send = avm_l2l1B;
-+		card->bch[i].ch.ctrl = avm_bctrl;
-+		card->bch[i].ch.nr = i + 1;
-+		list_add(&card->bch[i].ch.list, &card->isac.dch.dev.bchannels);
++		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM);
++		card->bc[i].bch.hw = card;
++		card->bc[i].bch.ch.send = nj_l2l1B;
++		card->bc[i].bch.ch.ctrl = nj_bctrl;
++		card->bc[i].bch.ch.nr = i + 1;
++		list_add(&card->bc[i].bch.ch.list,
++			&card->isac.dch.dev.bchannels);
++		card->bc[i].bch.hw = card;
 +	}
-+	err = setup_fritz(card);
++	err = nj_setup(card);
 +	if (err)
 +		goto error;
 +	err = mISDN_register_device(&card->isac.dch.dev, &card->pdev->dev,
 +		card->name);
 +	if (err)
-+		goto error_reg;
-+	err = init_card(card);
++		goto error;
++	err = nj_init_card(card);
 +	if (!err)  {
-+		AVM_cnt++;
-+		pr_notice("AVM %d cards installed DEBUG\n", AVM_cnt);
++		nj_cnt++;
++		pr_notice("Netjet %d cards installed\n", nj_cnt);
 +		return 0;
 +	}
-+	mISDN_unregister_device(&card->isac.dch.dev);
-+error_reg:
-+	release_region(card->addr, 32);
 +error:
-+	card->isac.release(&card->isac);
-+	mISDN_freebchannel(&card->bch[1]);
-+	mISDN_freebchannel(&card->bch[0]);
-+	write_lock_irqsave(&card_lock, flags);
-+	list_del(&card->list);
-+	write_unlock_irqrestore(&card_lock, flags);
-+	kfree(card);
++	nj_release(card);
 +	return err;
 +}
 +
 +static int __devinit
-+fritzpci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++nj_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 +{
 +	int err = -ENOMEM;
-+	struct fritzcard *card;
++	int cfg;
++	struct tiger_hw *card;
 +
-+	card = kzalloc(sizeof(struct fritzcard), GFP_KERNEL);
++	if (pdev->subsystem_vendor == 0x8086 &&
++	    pdev->subsystem_device == 0x0003) {
++		pr_notice("Netjet: Digium X100P/X101P not handled\n");
++		return -ENODEV;
++	}
++
++	if (pdev->subsystem_vendor == 0x55 &&
++	    pdev->subsystem_device == 0x02) {
++		pr_notice("Netjet: Enter!Now not handled yet\n");
++		return -ENODEV;
++	}
++
++	card = kzalloc(sizeof(struct tiger_hw), GFP_ATOMIC);
 +	if (!card) {
-+		pr_info("No kmem for fritzcard\n");
++		pr_info("No kmem for Netjet\n");
 +		return err;
 +	}
-+	if (pdev->device == PCI_DEVICE_ID_AVM_A1_V2)
-+		card->type = AVM_FRITZ_PCIV2;
-+	else
-+		card->type = AVM_FRITZ_PCI;
++
 +	card->pdev = pdev;
++
 +	err = pci_enable_device(pdev);
 +	if (err) {
 +		kfree(card);
 +		return err;
 +	}
 +
-+	pr_notice("mISDN: found adapter %s at %s\n",
-+	       (char *) ent->driver_data, pci_name(pdev));
++	printk(KERN_INFO "nj_probe(mISDN): found adapter at %s\n",
++		pci_name(pdev));
 +
-+	card->addr = pci_resource_start(pdev, 1);
++	pci_set_master(pdev);
++
++	/* the TJ300 and TJ320 must be detected, the IRQ handling is different
++	 * unfortunately the chips use the same device ID, but the TJ320 has
++	 * the bit20 in status PCI cfg register set
++	 */
++	pci_read_config_dword(pdev, 0x04, &cfg);
++	if (cfg & 0x00100000)
++		card->typ = NETJET_S_TJ320;
++	else
++		card->typ = NETJET_S_TJ300;
++
++	card->base = pci_resource_start(pdev, 0);
 +	card->irq = pdev->irq;
 +	pci_set_drvdata(pdev, card);
 +	err = setup_instance(card);
 +	if (err)
 +		pci_set_drvdata(pdev, NULL);
++
 +	return err;
 +}
 +
-+static void __devexit
-+fritz_remove_pci(struct pci_dev *pdev)
++
++static void __devexit nj_remove(struct pci_dev *pdev)
 +{
-+	struct fritzcard *card = pci_get_drvdata(pdev);
++	struct tiger_hw *card = pci_get_drvdata(pdev);
 +
 +	if (card)
-+		release_card(card);
++		nj_release(card);
 +	else
-+		if (debug)
-+			pr_info("%s: drvdata allready removed\n", __func__);
++		pr_info("%s drvdata already removed\n", __func__);
 +}
 +
-+static struct pci_device_id fcpci_ids[] __devinitdata = {
-+	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1, PCI_ANY_ID, PCI_ANY_ID,
-+	  0, 0, (unsigned long) "Fritz!Card PCI"},
-+	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_A1_V2, PCI_ANY_ID, PCI_ANY_ID,
-+	  0, 0, (unsigned long) "Fritz!Card PCI v2" },
++/* We cannot select cards with PCI_SUB... IDs, since here are cards with
++ * SUB IDs set to PCI_ANY_ID, so we need to match all and reject
++ * known other cards which not work with this driver - see probe function */
++static struct pci_device_id nj_pci_ids[] __devinitdata = {
++	{ PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_300,
++	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 +	{ }
 +};
-+MODULE_DEVICE_TABLE(pci, fcpci_ids);
++MODULE_DEVICE_TABLE(pci, nj_pci_ids);
 +
-+static struct pci_driver fcpci_driver = {
-+	.name = "fcpci",
-+	.probe = fritzpci_probe,
-+	.remove = __devexit_p(fritz_remove_pci),
-+	.id_table = fcpci_ids,
++static struct pci_driver nj_driver = {
++	.name = "netjet",
++	.probe = nj_probe,
++	.remove = __devexit_p(nj_remove),
++	.id_table = nj_pci_ids,
 +};
 +
-+static int __init AVM_init(void)
++static int __init nj_init(void)
 +{
 +	int err;
 +
-+	pr_notice("AVM Fritz PCI driver Rev. %s\n", AVMFRITZ_REV);
-+	err = pci_register_driver(&fcpci_driver);
++	pr_notice("Netjet PCI driver Rev. %s\n", NETJET_REV);
++	err = pci_register_driver(&nj_driver);
 +	return err;
 +}
 +
-+static void __exit AVM_cleanup(void)
++static void __exit nj_cleanup(void)
 +{
-+	pci_unregister_driver(&fcpci_driver);
++	pci_unregister_driver(&nj_driver);
 +}
 +
-+module_init(AVM_init);
-+module_exit(AVM_cleanup);
++module_init(nj_init);
++module_exit(nj_cleanup);
+diff --git a/drivers/isdn/hardware/mISDN/netjet.h b/drivers/isdn/hardware/mISDN/netjet.h
+new file mode 100644
+index 0000000..d061ff9
+--- /dev/null
++++ b/drivers/isdn/hardware/mISDN/netjet.h
+@@ -0,0 +1,58 @@
++/*
++ * NETjet common header file
++ *
++ * Author	Karsten Keil
++ *              based on work of Matt Henderson and Daniel Potts,
++ *              Traverse Technologies P/L www.traverse.com.au
++ *
++ * Copyright 2009  by Karsten Keil <keil-4YnUg6GLQKNUnpShzZ3juw@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ */
++
++#define NJ_CTRL			0x00
++#define NJ_DMACTRL		0x01
++#define NJ_AUXCTRL		0x02
++#define NJ_AUXDATA		0x03
++#define NJ_IRQMASK0		0x04
++#define NJ_IRQMASK1		0x05
++#define NJ_IRQSTAT0		0x06
++#define NJ_IRQSTAT1		0x07
++#define NJ_DMA_READ_START	0x08
++#define NJ_DMA_READ_IRQ		0x0c
++#define NJ_DMA_READ_END		0x10
++#define NJ_DMA_READ_ADR		0x14
++#define NJ_DMA_WRITE_START	0x18
++#define NJ_DMA_WRITE_IRQ	0x1c
++#define NJ_DMA_WRITE_END	0x20
++#define NJ_DMA_WRITE_ADR	0x24
++#define NJ_PULSE_CNT		0x28
++
++#define NJ_ISAC_OFF		0xc0
++#define NJ_ISACIRQ		0x10
++
++#define NJ_IRQM0_RD_MASK	0x03
++#define NJ_IRQM0_RD_IRQ		0x01
++#define NJ_IRQM0_RD_END		0x02
++#define NJ_IRQM0_WR_MASK	0x0c
++#define NJ_IRQM0_WR_IRQ		0x04
++#define NJ_IRQM0_WR_END		0x08
++
++/* one page here is no need to be smaller */
++#define NJ_DMA_SIZE		4096
++/* 2 * 64 byte is a compromise between IRQ count and latency */
++#define NJ_DMA_RXSIZE		128  /* 2 * 64 */
++#define NJ_DMA_TXSIZE		128  /* 2 * 64 */
++
 -- 
 1.6.0.2
