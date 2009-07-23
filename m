@@ -1,38 +1,35 @@
 From: Wan ZongShun <mcuos.com@gmail.com>
-Subject: [PATCH] Add mac driver patch fixed for w90p910
-Date: Thu, 23 Jul 2009 12:33:04 +0800
-Message-ID: <4A67E800.2070409@gmail.com>
-References: <4A5F2329.9090901@gmail.com>	<20090720.074554.16551322.davem@davemloft.net>	<5d5443650907201049j19fac3a6k4f2be7599ad240db@mail.gmail.com> <20090720.105217.236487133.davem@davemloft.net> <4A67E49A.5090806@gmail.com>
+Subject: Re: [PATCH] Add mac driver for w90p910
+Date: Thu, 23 Jul 2009 12:52:24 +0800
+Message-ID: <4A67EC88.8010001@gmail.com>
+References: <4A5F2329.9090901@gmail.com>	<20090720.074554.16551322.davem@davemloft.net>	<5d5443650907201049j19fac3a6k4f2be7599ad240db@mail.gmail.com> <20090720.105217.236487133.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>, soni.trilok@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
-To: Wan ZongShun <mcuos.com@gmail.com>
+Cc: soni.trilok@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.arm.linux.org.uk, eric.y.miao@gmail.com
+To: David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f192.google.com ([209.85.222.192]:61889 "EHLO
-	mail-pz0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbZGWEiW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 00:38:22 -0400
-Received: by pzk30 with SMTP id 30so244199pzk.33
-        for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 21:38:22 -0700 (PDT)
-In-Reply-To: <4A67E49A.5090806@gmail.com>
+Received: from rv-out-0506.google.com ([209.85.198.226]:41698 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbZGWEwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 00:52:31 -0400
+Received: by rv-out-0506.google.com with SMTP id f6so189867rvb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Jul 2009 21:52:31 -0700 (PDT)
+In-Reply-To: <20090720.105217.236487133.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Russell&David,
+Dear sirs,
 
-"[PATCH] fixed up the previous mac driver for w90p910"
+I have to sent this patch third times and really didn't know why previous two mails
+were held by arm-linux-kernel. but it look like sending linux-netdev is successful,
+For any inconvenience caused, please forgive.
 
-Just now sent above patch failed, so resent it.
+I fixed up previous mac driver and make a patch relative to it.
 
-Due to having a bit busy, when David has applied this mac patch,
-however,I did not fix it based on comments as pointed by Russell.
-
-So, I have to resubmit a new patch relative to previous patch.
-
-patch text:
+thanks for your help.
 
 According to Russell's advice, I fixed up mac driver,
 which relatives to previous mac driver patch, and the
@@ -352,3 +349,5 @@ index 7b5f315..890716f 100644
  }
 -- 
 1.5.6.3
+ 
+
