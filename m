@@ -1,11 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: netfilter -stable 01/08: nf_log: fix sleeping function called from invalid context
-Date: Thu, 23 Jul 2009 16:15:26 +0200 (MEST)
-Message-ID: <20090723141525.19029.85029.sendpatchset@x2.localnet>
+Subject: netfilter -stable 02/08: nf_conntrack: fix confirmation race condition
+Date: Thu, 23 Jul 2009 16:15:27 +0200 (MEST)
+Message-ID: <20090723141526.19029.4804.sendpatchset@x2.localnet>
 References: <20090723141523.19029.89290.sendpatchset@x2.localnet>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org
 To: stable@kernel.org
@@ -14,74 +11,50 @@ In-Reply-To: <20090723141523.19029.89290.sendpatchset@x2.localnet>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit c45f59bca9d15e911636f9083035f6f847cff125
+commit 0293f8bc787be0f6a0ff9dba877c2f87f43dc60f
 Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Jul 3 10:31:15 2009 +0200
+Date:   Fri Jul 3 10:33:04 2009 +0200
 
-    netfilter: nf_log: fix sleeping function called from invalid contex=
-t
-   =20
-    Upstream commit 266d07cb1:
-   =20
-    Fix regression introduced by 17625274 "netfilter: sysctl support of
-    logger choice":
-   =20
-    BUG: sleeping function called from invalid context at /mnt/s390test=
-/linux-2.6-tip/arch/s390/include/as
-    in_atomic(): 1, irqs_disabled(): 0, pid: 3245, name: sysctl
-    CPU: 1 Not tainted 2.6.30-rc8-tipjun10-02053-g39ae214 #1
-    Process sysctl (pid: 3245, task: 000000007f675da0, ksp: 000000007eb=
-17cf0)
-    0000000000000000 000000007eb17be8 0000000000000002 0000000000000000
-           000000007eb17c88 000000007eb17c00 000000007eb17c00 000000000=
-0048156
-           00000000003e2de8 000000007f676118 000000007eb17f10 000000000=
-0000000
-           0000000000000000 000000007eb17be8 000000000000000d 000000007=
-eb17c58
-           00000000003e2050 000000000001635c 000000007eb17be8 000000007=
-eb17c30
-    Call Trace:
-    (=DD<00000000000162e6>=A8 show_trace+0x13a/0x148)
-     =DD<00000000000349ea>=A8 __might_sleep+0x13a/0x164
-     =DD<0000000000050300>=A8 proc_dostring+0x134/0x22c
-     =DD<0000000000312b70>=A8 nf_log_proc_dostring+0xfc/0x188
-     =DD<0000000000136f5e>=A8 proc_sys_call_handler+0xf6/0x118
-     =DD<0000000000136fda>=A8 proc_sys_read+0x26/0x34
-     =DD<00000000000d6e9c>=A8 vfs_read+0xac/0x158
-     =DD<00000000000d703e>=A8 SyS_read+0x56/0x88
-     =DD<0000000000027f42>=A8 sysc_noemu+0x10/0x16
-   =20
-    Use the nf_log_mutex instead of RCU to fix this.
-   =20
-    Reported-and-tested-by: Maran Pakkirisamy <maranpsamy@in.ibm.com>
+    netfilter: nf_conntrack: fix confirmation race condition
+    
+    Upstream commit 5c8ec910:
+    
+    New connection tracking entries are inserted into the hash before they
+    are fully set up, namely the CONFIRMED bit is not set and the timer not
+    started yet. This can theoretically lead to a race with timer, which
+    would set the timeout value to a relative value, most likely already in
+    the past.
+    
+    Perform hash insertion as the final step to fix this.
+    
     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index beb3731..2fefe14 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -248,14 +248,14 @@ static int nf_log_proc_dostring(ctl_table *table,=
- int write, struct file *filp,
- 		rcu_assign_pointer(nf_loggers[tindex], logger);
- 		mutex_unlock(&nf_log_mutex);
- 	} else {
--		rcu_read_lock();
--		logger =3D rcu_dereference(nf_loggers[tindex]);
-+		mutex_lock(&nf_log_mutex);
-+		logger =3D nf_loggers[tindex];
- 		if (!logger)
- 			table->data =3D "NONE";
- 		else
- 			table->data =3D logger->name;
- 		r =3D proc_dostring(table, write, filp, buffer, lenp, ppos);
--		rcu_read_unlock();
-+		mutex_unlock(&nf_log_mutex);
- 	}
-=20
- 	return r;
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 8020db6..c8bd559 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -385,7 +385,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	/* Remove from unconfirmed list */
+ 	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
+ 
+-	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ 	/* Timer relative to confirmation time, not original
+ 	   setting time, otherwise we'd get timer wrap in
+ 	   weird delay cases. */
+@@ -393,8 +392,16 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	add_timer(&ct->timeout);
+ 	atomic_inc(&ct->ct_general.use);
+ 	set_bit(IPS_CONFIRMED_BIT, &ct->status);
++
++	/* Since the lookup is lockless, hash insertion must be done after
++	 * starting the timer and setting the CONFIRMED bit. The RCU barriers
++	 * guarantee that no other CPU can find the conntrack before the above
++	 * stores are visible.
++	 */
++	__nf_conntrack_hash_insert(ct, hash, repl_hash);
+ 	NF_CT_STAT_INC(net, insert);
+ 	spin_unlock_bh(&nf_conntrack_lock);
++
+ 	help = nfct_help(ct);
+ 	if (help && help->helper)
+ 		nf_conntrack_event_cache(IPCT_HELPER, ct);
