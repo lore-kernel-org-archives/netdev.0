@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2: Update vlan_features
-Date: Thu, 23 Jul 2009 10:59:32 -0700 (PDT)
-Message-ID: <20090723.105932.249439810.davem@davemloft.net>
-References: <4A681029.4070600@voltaire.com>
-	<4A681F63.7060001@gmail.com>
-	<4A685122.3090300@gmail.com>
+Subject: Re: [net-2.6 PATCH 1/2] ixgbe: Enable FCoE offload when DCB is
+ enabled for 82599
+Date: Thu, 23 Jul 2009 11:06:07 -0700 (PDT)
+Message-ID: <20090723.110607.28145569.davem@davemloft.net>
+References: <20090723000705.27299.19299.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@voltaire.com, kaber@trash.net, fubar@us.ibm.com,
-	netdev@vger.kernel.org, eilong@broadcom.com, mchan@broadcom.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, yi.zou@intel.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41433
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59478
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750976AbZGWR70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 13:59:26 -0400
-In-Reply-To: <4A685122.3090300@gmail.com>
+	by vger.kernel.org with ESMTP id S1751379AbZGWSGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 14:06:02 -0400
+In-Reply-To: <20090723000705.27299.19299.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Jul 2009 14:01:38 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 22 Jul 2009 17:07:12 -0700
 
-> [PATCH net-next-2.6] bnx2: Update vlan_features
+> From: Yi Zou <yi.zou@intel.com>
 > 
-> In order to get full use of some advanced features of BNX2, we now need to
-> fill dev->vlan_features.
+> Currently, FCoE offload feature is turned on when the kernel config has
+> CONFIG_FCOE or CONFIG_FCOE_MODULE set. However, we really want to turn
+> FCoE offload on when there is FCoE traffic passing and turn it off when
+> it's just LAN traffic. Since FCoE depends on a lossless network provided
+> by DCB, this allows us to have FCoE turned on/off when user turns on DCB
+> using dcbtool.
 > 
-> Patch successfully tested with vlan devices built on top of bonding.
-> (bond0 : one bnx2 slave, one tg3 slave (not yet vlan_features enabled)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Can I get some Broadcom ACKs for this?
-
-Thanks.
+Applied.
