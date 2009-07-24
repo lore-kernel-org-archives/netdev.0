@@ -1,45 +1,54 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Fri, 24 Jul 2009 15:19:41 +0100
-Message-ID: <20090724151941.40dba19d@lxorguk.ukuu.org.uk>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
-	<200907241431.08858.oliver@neukum.org>
-	<20090724134805.0d9496be@lxorguk.ukuu.org.uk>
-	<200907241612.41871.oliver@neukum.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Fri, 24 Jul 2009 22:54:07 +0800
+Message-ID: <20090724145407.GA25861@gondor.apana.org.au>
+References: <20090720074607.32463.23013.sendpatchset@localhost.localdomain> <4A69AD0E.4020701@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "=?ISO-8859-14?B?UultaQ==?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	ext Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Jarek Poplawski <jarkao2@gmail.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:60162 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751827AbZGXOSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 10:18:54 -0400
-In-Reply-To: <200907241612.41871.oliver@neukum.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:47730 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751362AbZGXOyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 10:54:24 -0400
+Content-Disposition: inline
+In-Reply-To: <4A69AD0E.4020701@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Jul 2009 16:12:41 +0200
-Oliver Neukum <oliver@neukum.org> wrote:
+On Fri, Jul 24, 2009 at 02:46:06PM +0200, Eric Dumazet wrote:
+> Krishna Kumar a =E9crit :
+> > From: Krishna Kumar <krkumar2@in.ibm.com>
+> > diff -ruNp org/net/sched/sch_generic.c new/net/sched/sch_generic.c
+> > --- org/net/sched/sch_generic.c	2009-05-25 07:48:07.000000000 +0530
+> > +++ new/net/sched/sch_generic.c	2009-07-20 13:09:18.000000000 +0530
+> > @@ -56,12 +56,8 @@ static inline struct sk_buff *dequeue_sk
+> >  	struct sk_buff *skb =3D q->gso_skb;
+> > =20
+> >  	if (unlikely(skb)) {
+> > -		struct net_device *dev =3D qdisc_dev(q);
+> > -		struct netdev_queue *txq;
+> > -
+> >  		/* check the reason of requeuing without tx lock first */
+> > -		txq =3D netdev_get_tx_queue(dev, skb_get_queue_mapping(skb));
+> > -		if (!netif_tx_queue_stopped(txq) && !netif_tx_queue_frozen(txq))
+> > +		if (!netif_tx_queue_frozen(q->dev_queue))
+> >  			q->gso_skb =3D NULL;
+>=20
+> This part might be a separate patch...
+>=20
+> Are we sure these are equivalent ?
 
-> Am Freitag, 24. Juli 2009 14:48:05 schrieb Alan Cox:
-> > > No, I was thinking of having two full devices, a data channel and a
-> > > control channel for devices that really talk AT commands natively.
-> >
-> > If the hardware does it great, however for things like a 3G modem you
-> > have the problem that the PPP is over the AT command channel which may
-> > itself be multiplexed. And the muxing in question is *ugly* - sort of
-> > HDLC and LAP-B done wrong.
-> 
-> Well, yes, but we would really like a separate control channel, so we
-> can query parameters like signal strength, while we do PPP over the data
-> channel.
+I think the only thing that can change this is act_skbedit.  But
+really any queue that changes the skb queue mapping should physically
+move the packet to that qdisc.
 
-Thats the notion of the AT mux stuff - you get multiple AT channels and
-you can stuff PPP down one of them. It's still butt ugly.
+Cheers,
+--=20
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
