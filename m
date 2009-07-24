@@ -1,82 +1,78 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG
-	messages
-Date: Fri, 24 Jul 2009 12:47:16 +1000
-Message-ID: <20090724024711.GA13280@verge.net.au>
-References: <20090624132232.GA9633@egardia>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: fix for 82599 errata marking UDP checksum
+	errors
+Date: Thu, 23 Jul 2009 21:00:39 -0700
+Message-ID: <20090724040031.30202.1531.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Julius Volz <julius.volz@gmail.com>,
-	Rob Gallagher <robert.gallagher@heanet.ie>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090624132232.GA9633@egardia>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:60263
+	"EHLO QMTA04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750760AbZGXEA4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:00:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julius Volz <julius.volz@gmail.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG messages
+There is an 82599 errata that UDP frames with a zero checksum are
+incorrectly marked as checksum invalid by the hardware.  This was
+leading to misleading hw_csum_rx_error counts. This patch adds a
+test around this counter increase for this condition.
 
-Add handling of incoming ICMPv6 Packet Too Big messages. This message
-is received when a realserver sends a packet >PMTU to the client. The
-hop on this path with insufficient MTU will generate an ICMPv6 Packet
-Too Big message back to the VIP. The LVS server receives this message,
-but the call to the function handling this has been missing. Thus, IPVS
-fails to forward the message to the real server, which then does not
-adjust the path MTU. This patch adds the missing call to
-ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
-
-Thanks to Rob Gallagher from HEAnet for reporting this issue and for
-testing this patch in production (with direct routing mode).
-
-Signed-off-by: Julius Volz <julius.volz@gmail.com>
-Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/netfilter/ipvs/ip_vs_core.c |   23 +++++++++++++++++------
- 1 files changed, 17 insertions(+), 6 deletions(-)
 
-Dave, please consider applying this change.
+ drivers/net/ixgbe/ixgbe_main.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-I'm ok with it not going into 2.6.31 as I don't think that
-many people are affected by this problem.
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 8dddb17..5750800 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1274,13 +1274,24 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
- 		return NF_ACCEPT;
- 	}
- 
--	if (unlikely(iph.protocol == IPPROTO_ICMP)) {
--		int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
-+#ifdef CONFIG_IP_VS_IPV6
-+	if (af == AF_INET6) {
-+		if (unlikely(iph.protocol == IPPROTO_ICMPV6)) {
-+			int related, verdict = ip_vs_in_icmp_v6(skb, &related, hooknum);
- 
--		if (related)
--			return verdict;
--		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
--	}
-+			if (related)
-+				return verdict;
-+			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
-+		}
-+	} else
-+#endif
-+		if (unlikely(iph.protocol == IPPROTO_ICMP)) {
-+			int related, verdict = ip_vs_in_icmp(skb, &related, hooknum);
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 6887759..200454f 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -511,8 +511,11 @@ static void ixgbe_receive_skb(struct ixgbe_q_vector *q_vector,
+  * @skb: skb currently being received and modified
+  **/
+ static inline void ixgbe_rx_checksum(struct ixgbe_adapter *adapter,
+-                                     u32 status_err, struct sk_buff *skb)
++				     union ixgbe_adv_rx_desc *rx_desc,
++				     struct sk_buff *skb)
+ {
++	u32 status_err = le32_to_cpu(rx_desc->wb.upper.status_error);
 +
-+			if (related)
-+				return verdict;
-+			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
-+		}
+ 	skb->ip_summed = CHECKSUM_NONE;
  
- 	/* Protocol supported? */
- 	pp = ip_vs_proto_get(iph.protocol);
+ 	/* Rx csum disabled */
+@@ -530,6 +533,16 @@ static inline void ixgbe_rx_checksum(struct ixgbe_adapter *adapter,
+ 		return;
+ 
+ 	if (status_err & IXGBE_RXDADV_ERR_TCPE) {
++		u16 pkt_info = rx_desc->wb.lower.lo_dword.hs_rss.pkt_info;
++
++		/*
++		 * 82599 errata, UDP frames with a 0 checksum can be marked as
++		 * checksum errors.
++		 */
++		if ((pkt_info & IXGBE_RXDADV_PKTTYPE_UDP) &&
++		    (adapter->hw.mac.type == ixgbe_mac_82599EB))
++			return;
++
+ 		adapter->hw_csum_rx_error++;
+ 		return;
+ 	}
+@@ -803,7 +816,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			goto next_desc;
+ 		}
+ 
+-		ixgbe_rx_checksum(adapter, staterr, skb);
++		ixgbe_rx_checksum(adapter, rx_desc, skb);
+ 
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+
