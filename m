@@ -1,63 +1,76 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Fri, 24 Jul 2009 20:00:01 +0200
-Message-ID: <1248458401.28545.149.camel@violet>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
-	 <200907241431.08858.oliver@neukum.org>
-	 <20090724134805.0d9496be@lxorguk.ukuu.org.uk>
-	 <200907241612.41871.oliver@neukum.org>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: Jumbo frame question...
+Date: Fri, 24 Jul 2009 14:21:55 -0400
+Message-ID: <200907241421.55986.rgetz@blackfin.uclinux.org>
+References: <200907241141.55097.rgetz@blackfin.uclinux.org> <20090724.093243.201296391.davem@davemloft.net> <4A69E3CF.1040805@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>,
-	ext Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Oliver Neukum <oliver@neukum.org>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:36481 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753723AbZGXSAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 14:00:51 -0400
-In-Reply-To: <200907241612.41871.oliver@neukum.org>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:32922 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753694AbZGXSTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 14:19:06 -0400
+In-Reply-To: <4A69E3CF.1040805@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
-
-> > > No, I was thinking of having two full devices, a data channel and a
-> > > control channel for devices that really talk AT commands natively.
-> >
-> > If the hardware does it great, however for things like a 3G modem you
-> > have the problem that the PPP is over the AT command channel which may
-> > itself be multiplexed. And the muxing in question is *ugly* - sort of
-> > HDLC and LAP-B done wrong.
+On Fri 24 Jul 2009 12:39, Rick Jones pondered:
+> David Miller wrote:
+> > From: Robin Getz <rgetz@blackfin.uclinux.org>
+> > Date: Fri, 24 Jul 2009 11:41:55 -0400
+> > 
+> >>Should a gigabit card, configured as 100, be sending jumbo UDP frames?
+> >>
+> >>My understanding, is no - this is a spec violation..
 > 
-> Well, yes, but we would really like a separate control channel, so we
-> can query parameters like signal strength, while we do PPP over the data
-> channel.
+> In so far as there is no de jure spec for Jumbo Frames, it is rather
+> difficult to have a spec violation :).
 
-we don't want PPP at all. It is just plain stupid and a total braindead
-idea. Non of the GSM/UMTS networks talk PPP over the air interface or
-actually anywhere in their stack. The PPP is just between the host OS
-and the card. It is a pointless encapsulation of IP packets that comes
-from the POTS stuff where PPP over a telephone line made sense.
+The spec I was talking about was the MTU...
 
-And on top of that we have these magic *99# phone numbers to establish a
-PDP context, because the OS still sees them as POTS modem. All stupid
-and braindead. I am so happy that Ericsson and Option moved to proper
-high speed network devices and that Nokia Phonet had this all along.
-
-So besides the GPRS data access, the other problem with AT command
-control channels is that they are by no means async. Every single
-command is essentially blocking and so you need the TTY mux anyway so
-you can do scanning, text messaging and network monitoring at the same
-time without having your application look like a total dork.
-
-Regards
-
-Marcel
+rgetz@pinky:~> /sbin/ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr 00:11:11:B0:A5:D4
+          inet addr:192.168.0.10  Bcast:192.168.0.255  Mask:255.255.255.0
+          inet6 addr: fe80::211:11ff:feb0:a5d4/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:45978 errors:5 dropped:0 overruns:0 frame:0
+          TX packets:44536 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:3193 txqueuelen:1000
+          RX bytes:11583575 (11.0 Mb)  TX bytes:20025122 (19.0 Mb)
+          Interrupt:16
 
 
+My MTU is 1500, but when tftp requests a block size of over that - the host 
+does not fragment it (like I thought it should).
+
+> > There is nothing wrong with supporting jumbo frames
+> > when the speed is lower than 1GB.
+
+I would agree - if you had the MTU set up that big.
+
+> > If you configure the MTU to be jumbo size, it should
+> > be no surprise to you that this is what gets used.
+
+Which it is not.
+
+> Not a case of too much rope?  Given that (IIRC) Jumbo Frame was not
+> introduced in Ethernet NICs until Gigabit came along (eg Alteon), the
+> chances a (legacy) 100 Mbit/s network would have JF-capable NICs is epsilon.
+
+Yeah - I think that this is the issue - my old hub (which is what I normally 
+use for ethernet testing is only transferring it's MTU (1500 bytes), and 
+dropping the rest...
+
+Isn't there a MTU max size discovery that should be done somewhere before the 
+host sends jumbo packets?
+
+http://tools.ietf.org/html/rfc1191
+
+And -- in the UDP/TFTP case - isn't the server responsible for determining 
+this? (since it need to determine if fragmentation needs to happen or not?)
+
+-Robin
