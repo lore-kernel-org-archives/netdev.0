@@ -1,57 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Fri, 24 Jul 2009 16:37:49 +0800
-Message-ID: <20090724083749.GA23521@gondor.apana.org.au>
-References: <20090720074607.32463.23013.sendpatchset@localhost.localdomain> <20090724083006.GA5698@ff.dom.local>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
+Date: Fri, 24 Jul 2009 10:41:50 +0200
+Message-ID: <1248424910.17215.54.camel@localhost.localdomain>
+References: <1248266678.17215.15.camel@localhost.localdomain>
+	 <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>
+	 <1248338779.17215.23.camel@localhost.localdomain>
+	 <1248362493.17215.45.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38953 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750826AbZGXIiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 04:38:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20090724083006.GA5698@ff.dom.local>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:39436 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbZGXIlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 04:41:52 -0400
+In-Reply-To: <1248362493.17215.45.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 24, 2009 at 08:30:06AM +0000, Jarek Poplawski wrote:
-> On 20-07-2009 09:46, Krishna Kumar wrote:
-> > From: Krishna Kumar <krkumar2@in.ibm.com>
-> > 
-> > Driver sends an skb and stops the queue if no more space is
-> > available on the device, and returns OK. When dev_queue_xmit
-> > runs for the next skb, it enqueue's the skb & calls qdisc_run.
-> > qdisc_run dequeue's the skb and finds the queue is stopped
-> > after getting the HARD_LOCK_TX, and puts the skb back on
-> > gso_skb (the next iteration fails faster at dequeue_skb).
-> > 
-> > This patch avoids calling __qdisc_run if the queue is stopped.
-> > This also lets us remove the queue_stopped check in dequeue_skb
-> > and in qdisc_restart.
-> 
-> It was designed wrt. multiqueue handling mainly, were such a check
-> isn't enough at this place.
+On Thu, 2009-07-23 at 17:21 +0200, Jesper Dangaard Brouer wrote:
+> I'm going to run a test with a no-preempt kernel over night...
 
-Well multiqueue TX was designed so that each CPU could have its
-own queue.  While this isn't always the case due to resource
-constraints and legacy applications, we should optimise for the
-case where each CPU is using its own TX queue.
+The no-preempt kernel has been stable for 17 hours, while running a four
+times 10GbE pktgen load test (using 1024 bytes packets).
 
-Of course we should still maintain correctness should the unexpected
-occur.
+Kernel git version (git describe):
+ v2.6.31-rc1-932-g8e321c4
 
-So while I agree with Krishna's patch in principle, someone needs to
-make sure that it still does the right thing (i.e., it doesn't
-introduce potential starvation) if one CPU transmits to someone
-else's queue.
+Git ("git log e594e96..8e321c4 drivers/net/ixgbe") reports not changes
+to the ixgbe driver between these two kernel versions.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
