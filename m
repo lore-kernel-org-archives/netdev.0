@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 01/13] igb: remove media type fiber as it is
-	misleading
-Date: Thu, 23 Jul 2009 21:07:20 -0700
-Message-ID: <20090724040700.30709.31473.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 02/13] igb: make serdes power down available for
+	82575 in addition to 82576 parts
+Date: Thu, 23 Jul 2009 21:07:40 -0700
+Message-ID: <20090724040739.30709.14892.stgit@localhost.localdomain>
+References: <20090724040700.30709.31473.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,214 +12,94 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:34998 "EHLO
-	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750945AbZGXEHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:07:38 -0400
+Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:47940
+	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751053AbZGXEH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:07:56 -0400
+In-Reply-To: <20090724040700.30709.31473.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The current igb driver only supports copper and serdes.  The fiber media
-type is a holdover from earlier NICs as the current nics supported by igb
-all use serdes when communicating over a fiber connection.  As a result we
-can remove media type fiber without losing any functionality.
+There was a serdes power down workaround that was originally added for
+82576 fiber.  However it has also been found that this workaround is needed
+for serdes connections as well.  In addition it is also needed for 82575
+serdes so we we need to remove the checks restricting it to 82576.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c |    3 +--
- drivers/net/igb/e1000_hw.h    |    3 +--
- drivers/net/igb/e1000_mac.c   |   37 +++++++++++--------------------------
- drivers/net/igb/igb_ethtool.c |   25 +++++++++----------------
- drivers/net/igb/igb_main.c    |   12 ------------
- 5 files changed, 22 insertions(+), 58 deletions(-)
+ drivers/net/igb/e1000_82575.c |    7 +------
+ drivers/net/igb/e1000_82575.h |    5 +++++
+ drivers/net/igb/e1000_mac.c   |   14 +++++++++++---
+ 3 files changed, 17 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index ac28dd5..bd3efdb 100644
+index bd3efdb..fa4a762 100644
 --- a/drivers/net/igb/e1000_82575.c
 +++ b/drivers/net/igb/e1000_82575.c
-@@ -867,8 +867,7 @@ void igb_shutdown_fiber_serdes_link_82575(struct e1000_hw *hw)
+@@ -866,8 +866,7 @@ void igb_shutdown_fiber_serdes_link_82575(struct e1000_hw *hw)
+ {
  	u32 reg;
  
- 	if (hw->mac.type != e1000_82576 ||
--	    (hw->phy.media_type != e1000_media_type_fiber &&
--	     hw->phy.media_type != e1000_media_type_internal_serdes))
-+	    hw->phy.media_type != e1000_media_type_internal_serdes)
+-	if (hw->mac.type != e1000_82576 ||
+-	    hw->phy.media_type != e1000_media_type_internal_serdes)
++	if (hw->phy.media_type != e1000_media_type_internal_serdes)
  		return;
  
  	/* if the management interface is not enabled, then power down */
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 68aac20..f096ddd 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -61,8 +61,7 @@ enum e1000_mac_type {
- enum e1000_media_type {
- 	e1000_media_type_unknown = 0,
- 	e1000_media_type_copper = 1,
--	e1000_media_type_fiber = 2,
--	e1000_media_type_internal_serdes = 3,
-+	e1000_media_type_internal_serdes = 2,
- 	e1000_num_media_types
- };
- 
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index 472f3f1..37706d9 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -713,8 +713,7 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
- 	 * configuration of the MAC to match the "fc" parameter.
- 	 */
- 	if (mac->autoneg_failed) {
--		if (hw->phy.media_type == e1000_media_type_fiber ||
--		    hw->phy.media_type == e1000_media_type_internal_serdes)
-+		if (hw->phy.media_type == e1000_media_type_internal_serdes)
- 			ret_val = igb_force_mac_fc(hw);
- 	} else {
- 		if (hw->phy.media_type == e1000_media_type_copper)
-@@ -1161,22 +1160,16 @@ s32 igb_blink_led(struct e1000_hw *hw)
- 	u32 ledctl_blink = 0;
- 	u32 i;
- 
--	if (hw->phy.media_type == e1000_media_type_fiber) {
--		/* always blink LED0 for PCI-E fiber */
--		ledctl_blink = E1000_LEDCTL_LED0_BLINK |
--		     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
--	} else {
--		/*
--		 * set the blink bit for each LED that's "on" (0x0E)
--		 * in ledctl_mode2
--		 */
--		ledctl_blink = hw->mac.ledctl_mode2;
--		for (i = 0; i < 4; i++)
--			if (((hw->mac.ledctl_mode2 >> (i * 8)) & 0xFF) ==
--			    E1000_LEDCTL_MODE_LED_ON)
--				ledctl_blink |= (E1000_LEDCTL_LED0_BLINK <<
--						 (i * 8));
--	}
-+	/*
-+	 * set the blink bit for each LED that's "on" (0x0E)
-+	 * in ledctl_mode2
-+	 */
-+	ledctl_blink = hw->mac.ledctl_mode2;
-+	for (i = 0; i < 4; i++)
-+		if (((hw->mac.ledctl_mode2 >> (i * 8)) & 0xFF) ==
-+		    E1000_LEDCTL_MODE_LED_ON)
-+			ledctl_blink |= (E1000_LEDCTL_LED0_BLINK <<
-+					 (i * 8));
- 
- 	wr32(E1000_LEDCTL, ledctl_blink);
- 
-@@ -1191,15 +1184,7 @@ s32 igb_blink_led(struct e1000_hw *hw)
-  **/
- s32 igb_led_off(struct e1000_hw *hw)
+@@ -1228,10 +1227,6 @@ out:
+ static bool igb_sgmii_active_82575(struct e1000_hw *hw)
  {
--	u32 ctrl;
+ 	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
 -
- 	switch (hw->phy.media_type) {
--	case e1000_media_type_fiber:
--		ctrl = rd32(E1000_CTRL);
--		ctrl |= E1000_CTRL_SWDPIN0;
--		ctrl |= E1000_CTRL_SWDPIO0;
--		wr32(E1000_CTRL, ctrl);
--		break;
- 	case e1000_media_type_copper:
- 		wr32(E1000_LEDCTL, hw->mac.ledctl_mode1);
- 		break;
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 9598ac0..a9c37cb 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -168,8 +168,7 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		ecmd->duplex = -1;
- 	}
- 
--	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
--			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-+	ecmd->autoneg = hw->mac.autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
- 	return 0;
+-	if (hw->mac.type != e1000_82575 && hw->mac.type != e1000_82576)
+-		return false;
+-
+ 	return dev_spec->sgmii_active;
  }
  
-@@ -191,23 +190,18 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index 0f16aba..b674417 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -32,6 +32,11 @@ void igb_update_mc_addr_list(struct e1000_hw*, u8*, u32, u32, u32);
+ extern void igb_shutdown_fiber_serdes_link_82575(struct e1000_hw *hw);
+ extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
  
- 	if (ecmd->autoneg == AUTONEG_ENABLE) {
- 		hw->mac.autoneg = 1;
--		if (hw->phy.media_type == e1000_media_type_fiber)
--			hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full |
--						     ADVERTISED_FIBRE |
--						     ADVERTISED_Autoneg;
--		else
--			hw->phy.autoneg_advertised = ecmd->advertising |
--						     ADVERTISED_TP |
--						     ADVERTISED_Autoneg;
-+		hw->phy.autoneg_advertised = ecmd->advertising |
-+					     ADVERTISED_TP |
-+					     ADVERTISED_Autoneg;
- 		ecmd->advertising = hw->phy.autoneg_advertised;
--	} else
-+	} else {
- 		if (igb_set_spd_dplx(adapter, ecmd->speed + ecmd->duplex)) {
- 			clear_bit(__IGB_RESETTING, &adapter->state);
- 			return -EINVAL;
- 		}
++#define ID_LED_DEFAULT_82575_SERDES ((ID_LED_DEF1_DEF2 << 12) | \
++                                     (ID_LED_DEF1_DEF2 <<  8) | \
++                                     (ID_LED_DEF1_DEF2 <<  4) | \
++                                     (ID_LED_OFF1_ON2))
++
+ #define E1000_RAR_ENTRIES_82575   16
+ #define E1000_RAR_ENTRIES_82576   24
+ 
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
+index 37706d9..34f1a37 100644
+--- a/drivers/net/igb/e1000_mac.c
++++ b/drivers/net/igb/e1000_mac.c
+@@ -1064,9 +1064,17 @@ static s32 igb_valid_led_default(struct e1000_hw *hw, u16 *data)
+ 		goto out;
+ 	}
+ 
+-	if (*data == ID_LED_RESERVED_0000 || *data == ID_LED_RESERVED_FFFF)
+-		*data = ID_LED_DEFAULT;
+-
++	if (*data == ID_LED_RESERVED_0000 || *data == ID_LED_RESERVED_FFFF) {
++		switch(hw->phy.media_type) {
++		case e1000_media_type_internal_serdes:
++			*data = ID_LED_DEFAULT_82575_SERDES;
++			break;
++		case e1000_media_type_copper:
++		default:
++			*data = ID_LED_DEFAULT;
++			break;
++		}
 +	}
- 
- 	/* reset the link */
--
- 	if (netif_running(adapter->netdev)) {
- 		igb_down(adapter);
- 		igb_up(adapter);
-@@ -267,8 +261,8 @@ static int igb_set_pauseparam(struct net_device *netdev,
- 		} else
- 			igb_reset(adapter);
- 	} else
--		retval = ((hw->phy.media_type == e1000_media_type_fiber) ?
--			  igb_setup_link(hw) : igb_force_mac_fc(hw));
-+		retval = ((hw->phy.media_type == e1000_media_type_copper) ?
-+			  igb_force_mac_fc(hw) : igb_setup_link(hw));
- 
- 	clear_bit(__IGB_RESETTING, &adapter->state);
- 	return retval;
-@@ -1483,8 +1477,7 @@ static int igb_setup_loopback_test(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 reg;
- 
--	if (hw->phy.media_type == e1000_media_type_fiber ||
--	    hw->phy.media_type == e1000_media_type_internal_serdes) {
-+	if (hw->phy.media_type == e1000_media_type_internal_serdes) {
- 		reg = rd32(E1000_RCTL);
- 		reg |= E1000_RCTL_LBM_TCVR;
- 		wr32(E1000_RCTL, reg);
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index adb09d3..39b3b6a 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2618,10 +2618,6 @@ static bool igb_has_link(struct igb_adapter *adapter)
- 			link_active = true;
- 		}
- 		break;
--	case e1000_media_type_fiber:
--		ret_val = hw->mac.ops.check_for_link(hw);
--		link_active = !!(rd32(E1000_STATUS) & E1000_STATUS_LU);
--		break;
- 	case e1000_media_type_internal_serdes:
- 		ret_val = hw->mac.ops.check_for_link(hw);
- 		link_active = hw->mac.serdes_has_link;
-@@ -5136,14 +5132,6 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u16 spddplx)
- 
- 	mac->autoneg = 0;
- 
--	/* Fiber NICs only allow 1000 gbps Full duplex */
--	if ((adapter->hw.phy.media_type == e1000_media_type_fiber) &&
--		spddplx != (SPEED_1000 + DUPLEX_FULL)) {
--		dev_err(&adapter->pdev->dev,
--			"Unsupported Speed/Duplex configuration\n");
--		return -EINVAL;
--	}
--
- 	switch (spddplx) {
- 	case SPEED_10 + DUPLEX_HALF:
- 		mac->forced_speed_duplex = ADVERTISE_10_HALF;
+ out:
+ 	return ret_val;
+ }
 
