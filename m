@@ -1,51 +1,54 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] net/bridge: use kobject_put to release kobject in
- br_add_if error path
-Date: Fri, 24 Jul 2009 08:36:07 -0700
-Message-ID: <20090724083607.6b91282d@nehalam>
-References: <1248426392-30777-1-git-send-email-dfeng@redhat.com>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Jumbo frame question...
+Date: Fri, 24 Jul 2009 11:41:55 -0400
+Message-ID: <200907241141.55097.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Xiaotian Feng <dfeng@redhat.com>
-To: Xiaotian Feng <dfeng@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753143AbZGXPgd@vger.kernel.org>
-In-Reply-To: <1248426392-30777-1-git-send-email-dfeng@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:52827 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757AbZGXPiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 11:38:24 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Jul 2009 17:06:32 +0800
-Xiaotian Feng <dfeng@redhat.com> wrote:
+Should a gigabit card, configured as 100, be sending jumbo UDP frames?
 
-> kobject_init_and_add will alloc memory for kobj->name, so in br_add_if
-> error path, simply use kobject_del will not free memory for kobj->name.
-> Fix by using kobject_put instead, kobject_put will internally calls
-> kobject_del and frees memory for kobj->name.
-> 
-> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-> ---
->  net/bridge/br_if.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 8a96672..eb404dc 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -424,7 +424,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->  err2:
->  	br_fdb_delete_by_port(br, p, 1);
->  err1:
-> -	kobject_del(&p->kobj);
-> +	kobject_put(&p->kobj);
->  err0:
->  	dev_set_promiscuity(dev, -1);
->  put_back:
+My understanding, is no - this is a spec violation..
 
-I assume you tested this by doing something like adding two interfaces
-with the same MAC address to a bridge.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Settings for eth0:
+        Supported ports: [ MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 100Mb/s
+        Duplex: Half
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: g
+        Wake-on: d
+        Current message level: 0x000000ff (255)
+        Link detected: no
 
--- 
+happly sends UDP packets over 1500 bytes in length.
+
+Tested with TFTP, and 2.6.27 (as the tftp server).
+
+If tftp requests block sizes that are 4096 bytes, the sent packet is a single 
+4096 byte packet (not multiple MTU sized packets).
+
+?
+
+Thanks
+-Robin
