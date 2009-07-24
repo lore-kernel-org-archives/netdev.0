@@ -1,47 +1,60 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
-Date: Fri, 24 Jul 2009 11:47:24 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0907241142370.2084@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <1248266678.17215.15.camel@localhost.localdomain>
- <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>
- <1248338779.17215.23.camel@localhost.localdomain>
- <1248362493.17215.45.camel@localhost.localdomain>
- <1248424910.17215.54.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Jumbo frame question...
+Date: Fri, 24 Jul 2009 21:13:41 +0200
+Message-ID: <4A6A07E5.9080705@gmail.com>
+References: <200907241141.55097.rgetz@blackfin.uclinux.org> <20090724.093243.201296391.davem@davemloft.net> <4A69E3CF.1040805@hp.com> <200907241421.55986.rgetz@blackfin.uclinux.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Robin Getz <rgetz@blackfin.uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:25033 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753721AbZGXSrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jul 2009 14:47:23 -0400
-In-Reply-To: <1248424910.17215.54.camel@localhost.localdomain>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37891 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900AbZGXTPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 15:15:08 -0400
+In-Reply-To: <200907241421.55986.rgetz@blackfin.uclinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 24 Jul 2009, Jesper Dangaard Brouer wrote:
+Robin Getz a =C3=A9crit :
+> On Fri 24 Jul 2009 12:39, Rick Jones pondered:
+>> David Miller wrote:
+>>> From: Robin Getz <rgetz@blackfin.uclinux.org>
+>>> Date: Fri, 24 Jul 2009 11:41:55 -0400
+>>>
+>>>> Should a gigabit card, configured as 100, be sending jumbo UDP fra=
+mes?
+>>>>
+>>>> My understanding, is no - this is a spec violation..
+>> In so far as there is no de jure spec for Jumbo Frames, it is rather
+>> difficult to have a spec violation :).
+>=20
+> The spec I was talking about was the MTU...
+>=20
+> rgetz@pinky:~> /sbin/ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:11:11:B0:A5:D4
+>           inet addr:192.168.0.10  Bcast:192.168.0.255  Mask:255.255.2=
+55.0
+>           inet6 addr: fe80::211:11ff:feb0:a5d4/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:45978 errors:5 dropped:0 overruns:0 frame:0
+>           TX packets:44536 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:3193 txqueuelen:1000
+>           RX bytes:11583575 (11.0 Mb)  TX bytes:20025122 (19.0 Mb)
+>           Interrupt:16
+>=20
+>=20
+> My MTU is 1500, but when tftp requests a block size of over that - th=
+e host=20
+> does not fragment it (like I thought it should).
 
-> On Thu, 2009-07-23 at 17:21 +0200, Jesper Dangaard Brouer wrote:
-> > I'm going to run a test with a no-preempt kernel over night...
-> 
-> The no-preempt kernel has been stable for 17 hours, while running a four
-> times 10GbE pktgen load test (using 1024 bytes packets).
-> 
-> Kernel git version (git describe):
->  v2.6.31-rc1-932-g8e321c4
-> 
-> Git ("git log e594e96..8e321c4 drivers/net/ixgbe") reports not changes
-> to the ixgbe driver between these two kernel versions.
+Which broken driver would do this me asking, and how can you be sure a =
+jumbo frame was ever sent ?
 
-Thanks for the additional info Jesper.  This is definately a good data 
-point.  I'm not sure where to go with the preemption debugging at this 
-point with our driver under heavy load.  We're still trying to repro here.  
-I'll keep digging around though in the meantime.
+I guess your tcpdump is fooled by gso settings... Did you tried
+# ethtool -K eth0 gso off=20
 
-This is the second preemption-induced bug from ixgbe we've had reported in 
-a few days.  Eek!
 
-Cheers,
--PJ Waskiewicz
+
