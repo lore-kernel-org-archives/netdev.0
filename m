@@ -1,55 +1,35 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Fri, 24 Jul 2009 18:59:17 +0200
-Message-ID: <200907241859.17883.oliver@neukum.org>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com> <200907241612.41871.oliver@neukum.org> <20090724151941.40dba19d@lxorguk.ukuu.org.uk>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: Jumbo frame question...
+Date: Fri, 24 Jul 2009 14:45:52 -0400
+Message-ID: <20090724184552.GA2991@csclub.uwaterloo.ca>
+References: <200907241141.55097.rgetz@blackfin.uclinux.org> <20090724.093243.201296391.davem@davemloft.net> <4A69E3CF.1040805@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	ext Dan Williams <dcbw@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rgetz@blackfin.uclinux.org,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:55474 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833AbZGXSoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 14:44:10 -0400
-In-Reply-To: <20090724151941.40dba19d@lxorguk.ukuu.org.uk>
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:41849 "EHLO
+	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753537AbZGXSpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 14:45:52 -0400
 Content-Disposition: inline
+In-Reply-To: <4A69E3CF.1040805@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 24. Juli 2009 16:19:41 schrieb Alan Cox:
-> On Fri, 24 Jul 2009 16:12:41 +0200
+On Fri, Jul 24, 2009 at 09:39:43AM -0700, Rick Jones wrote:
+> In so far as there is no de jure spec for Jumbo Frames, it is rather 
+> difficult to have a spec violation :).
 >
-> Oliver Neukum <oliver@neukum.org> wrote:
-> > Am Freitag, 24. Juli 2009 14:48:05 schrieb Alan Cox:
-> > > > No, I was thinking of having two full devices, a data channel and a
-> > > > control channel for devices that really talk AT commands natively.
-> > >
-> > > If the hardware does it great, however for things like a 3G modem you
-> > > have the problem that the PPP is over the AT command channel which may
-> > > itself be multiplexed. And the muxing in question is *ugly* - sort of
-> > > HDLC and LAP-B done wrong.
-> >
-> > Well, yes, but we would really like a separate control channel, so we
-> > can query parameters like signal strength, while we do PPP over the data
-> > channel.
->
-> Thats the notion of the AT mux stuff - you get multiple AT channels and
-> you can stuff PPP down one of them. It's still butt ugly.
+> Not a case of too much rope?  Given that (IIRC) Jumbo Frame was not 
+> introduced in Ethernet NICs until Gigabit came along (eg Alteon), the 
+> chances a (legacy) 100 Mbit/s network would have JF-capable NICs is 
+> epsilon.
 
-That is a problem. But is it so ugly that we'd forgo the added functionality
-rather than implement it in the kernel?
-If not, I maintain that we should not maintain several different control channel
-interfaces, like some devices use cdc-wdm, others a ttyUSB and the AT mux
-stuff shall use yet a different method.
+Nothing would prevent you from using a 100Mbit fiber PHY on a gigabit
+capable network port, so you could have a 100Mbit port that supported
+jumbo frames.
 
-	Regards
-		Oliver
-
+-- 
+Len Sorensen
