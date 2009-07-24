@@ -1,53 +1,81 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
-Date: Fri, 24 Jul 2009 15:44:07 -0500
-Message-ID: <1248468247.16746.12.camel@merlyn>
-References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	 <1246994776-1882-3-git-send-email-danms@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169: WakeOnLan fix for the 8168
+Date: Sat, 25 Jul 2009 00:34:19 +0200
+Message-ID: <20090724223419.GA13085@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Oren Laaden <orenl@cs.columbia.edu>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?iso-8859-1?Q?Jarom=EDr_C=E1p=EDk?= <tavvva@volny.cz>,
+	Edward Hsu <edward_hsu@realtek.com.tw>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f192.google.com ([209.85.222.192]:35596 "EHLO
-	mail-pz0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbZGXUoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 16:44:14 -0400
-Received: by pzk30 with SMTP id 30so1215231pzk.33
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2009 13:44:14 -0700 (PDT)
-In-Reply-To: <1246994776-1882-3-git-send-email-danms@us.ibm.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58893 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754836AbZGXWbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 18:31:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-07-07 at 12:26 -0700, Dan Smith wrote:
->  2. I don't do anything to redirect or freeze traffic flowing to or from the
->     remote system (to prevent a RST from breaking things).  I expect that
->     userspace will bring down a veth device or freeze traffic to the remote
->     system to handle this case.
+More stuff for http://bugzilla.kernel.org/show_bug.cgi?id=3D9512
 
-Theoretically, you can drop any packet that's in flight (ingress or
-egress), because IP doesn't guarantee delivery.  TCP is able to recover,
-and a UDP or raw-socket application should already be designed to.  Of
-course, retransmissions will have an impact on application performance
-in the migration case, so that's got to be considered in the tradeoff.
-Main goal should probably be avoiding anything that shoves either end
-into slow-start.
+Some 8168 are unable to WoL when receiving is not enabled (plain
+old 8169 do not seem to care).
 
-Thinking out loud, have you considered draining TCP buffers rather than
-including them in the checkpoint?  You'd stop ingress traffic, and let
-the app run until it had read everything in the socket buffer.  On the
-egress side, you'd cork the app by telling it that buffers were full,
-and then wait until the data already at the socket layer had been
-transmitted.  Both are somewhat unbounded re time, and probably not
-worth it, but maybe there's some variant of this idea that has value.
-TCP transmit buffers on 10GE links can be pretty big...
+It is not exactly pretty to leave the receiver enabled but we
+should now enable DMA late enough for it to be safe. Some late
+stage boot failure due to pxe and friends may benefit from the
+delayed enabling of bus-mastering as well.
 
-BTW, if you see RSTs, that probably means you've created a protocol
-violation due to a buggy restore.  Just blocking or dropping packets
-shouldn't result in an RST unless it's very long.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Tested-by: Jarom=EDr C=E1p=EDk <tavvva@volny.cz>
+Cc: Edward Hsu <edward_hsu@realtek.com.tw>
+---
+ drivers/net/r8169.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
-  --  John
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 4b53b58..b82780d 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2060,8 +2060,6 @@ rtl8169_init_one(struct pci_dev *pdev, const stru=
+ct pci_device_id *ent)
+ 		}
+ 	}
+=20
+-	pci_set_master(pdev);
+-
+ 	/* ioremap MMIO region */
+ 	ioaddr =3D ioremap(pci_resource_start(pdev, region), R8169_REGS_SIZE)=
+;
+ 	if (!ioaddr) {
+@@ -2089,6 +2087,8 @@ rtl8169_init_one(struct pci_dev *pdev, const stru=
+ct pci_device_id *ent)
+=20
+ 	RTL_W16(IntrStatus, 0xffff);
+=20
++	pci_set_master(pdev);
++
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, ioaddr);
+=20
+@@ -3874,6 +3874,15 @@ static void rtl_shutdown(struct pci_dev *pdev)
+ 	spin_unlock_irq(&tp->lock);
+=20
+ 	if (system_state =3D=3D SYSTEM_POWER_OFF) {
++		/* WoL fails with some 8168 when the receiver is disabled. */
++		if (tp->features & RTL_FEATURE_WOL) {
++			pci_clear_master(pdev);
++
++			RTL_W8(ChipCmd, CmdRxEnb);
++			/* PCI commit */
++			RTL_R8(ChipCmd);
++		}
++
+ 		pci_wake_from_d3(pdev, true);
+ 		pci_set_power_state(pdev, PCI_D3hot);
+ 	}
+--=20
+1.6.2.5
 
