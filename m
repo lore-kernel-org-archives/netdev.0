@@ -1,66 +1,96 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 13/13] igbvf: resolve "frees DMA memory with
-	different size" warnings
-Date: Thu, 23 Jul 2009 21:11:01 -0700
-Message-ID: <20090724041100.30709.78568.stgit@localhost.localdomain>
-References: <20090724040700.30709.31473.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG	messages
+Date: Fri, 24 Jul 2009 06:25:25 +0200
+Message-ID: <4A6937B5.3040707@gmail.com>
+References: <20090624132232.GA9633@egardia> <20090724024711.GA13280@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:42219
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751524AbZGXELT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:11:19 -0400
-In-Reply-To: <20090724040700.30709.31473.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Julius Volz <julius.volz@gmail.com>,
+	Rob Gallagher <robert.gallagher@heanet.ie>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20090724024711.GA13280@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Simon Horman a =E9crit :
+> From: Julius Volz <julius.volz@gmail.com>
+>=20
+> IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG messages
+>=20
+> Add handling of incoming ICMPv6 Packet Too Big messages. This message
+> is received when a realserver sends a packet >PMTU to the client. The
+> hop on this path with insufficient MTU will generate an ICMPv6 Packet
+> Too Big message back to the VIP. The LVS server receives this message=
+,
+> but the call to the function handling this has been missing. Thus, IP=
+VS
+> fails to forward the message to the real server, which then does not
+> adjust the path MTU. This patch adds the missing call to
+> ip_vs_in_icmp_v6() in ip_vs_in() to handle this situation.
+>=20
+> Thanks to Rob Gallagher from HEAnet for reporting this issue and for
+> testing this patch in production (with direct routing mode).
+>=20
+> Signed-off-by: Julius Volz <julius.volz@gmail.com>
+> Tested-by: Rob Gallagher <robert.gallagher@heanet.ie>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+>=20
+> ---
+>  net/netfilter/ipvs/ip_vs_core.c |   23 +++++++++++++++++------
+>  1 files changed, 17 insertions(+), 6 deletions(-)
+>=20
+> Dave, please consider applying this change.
+>=20
+> I'm ok with it not going into 2.6.31 as I don't think that
+> many people are affected by this problem.
+>=20
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_=
+vs_core.c
+> index 8dddb17..5750800 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -1274,13 +1274,24 @@ ip_vs_in(unsigned int hooknum, struct sk_buff=
+ *skb,
+>  		return NF_ACCEPT;
+>  	}
+> =20
+> -	if (unlikely(iph.protocol =3D=3D IPPROTO_ICMP)) {
+> -		int related, verdict =3D ip_vs_in_icmp(skb, &related, hooknum);
+> +#ifdef CONFIG_IP_VS_IPV6
+> +	if (af =3D=3D AF_INET6) {
+> +		if (unlikely(iph.protocol =3D=3D IPPROTO_ICMPV6)) {
+> +			int related, verdict =3D ip_vs_in_icmp_v6(skb, &related, hooknum)=
+;
+> =20
+> -		if (related)
+> -			return verdict;
+> -		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+> -	}
+> +			if (related)
+> +				return verdict;
+> +			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+> +		}
+> +	} else
+> +#endif
+> +		if (unlikely(iph.protocol =3D=3D IPPROTO_ICMP)) {
+> +			int related, verdict =3D ip_vs_in_icmp(skb, &related, hooknum);
+> +
+> +			if (related)
+> +				return verdict;
+> +			ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+> +		}
+> =20
+>  	/* Protocol supported? */
+>  	pp =3D ip_vs_proto_get(iph.protocol);
 
-This change resolves some warnings seen with DMA debugging enabled in which
-we were mapping skb->data with size + NET_IP_ALIGN and unmapping it with
-just size.
+I see no reference to ICMPV6_PKT_TOOBIG in this patch, so ChangeLog mig=
+ht be
+misleading or uncomplete, since other ICMPV6 message types=20
+(ICMPV6_DEST_UNREACH/ICMPV6_TIME_EXCEED) will also be forwarded/handled=
+ ?
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/igbvf/netdev.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index 2bc9d63..926c31b 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -149,7 +149,6 @@ static void igbvf_alloc_rx_buffers(struct igbvf_ring *rx_ring,
- 		bufsz = adapter->rx_ps_hdr_size;
- 	else
- 		bufsz = adapter->rx_buffer_len;
--	bufsz += NET_IP_ALIGN;
- 
- 	while (cleaned_count--) {
- 		rx_desc = IGBVF_RX_DESC_ADV(*rx_ring, i);
-@@ -173,7 +172,7 @@ static void igbvf_alloc_rx_buffers(struct igbvf_ring *rx_ring,
- 		}
- 
- 		if (!buffer_info->skb) {
--			skb = netdev_alloc_skb(netdev, bufsz);
-+			skb = netdev_alloc_skb(netdev, bufsz + NET_IP_ALIGN);
- 			if (!skb) {
- 				adapter->alloc_rx_buff_failed++;
- 				goto no_buffers;
-@@ -286,7 +285,7 @@ static bool igbvf_clean_rx_irq(struct igbvf_adapter *adapter,
- 
- 		if (!skb_shinfo(skb)->nr_frags) {
- 			pci_unmap_single(pdev, buffer_info->dma,
--			                 adapter->rx_ps_hdr_size + NET_IP_ALIGN,
-+			                 adapter->rx_ps_hdr_size,
- 			                 PCI_DMA_FROMDEVICE);
- 			skb_put(skb, hlen);
- 		}
 
