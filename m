@@ -1,49 +1,57 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH 1/1] IEEE80154: Add documentation to the IEEE80154
- netlink and fakehard driver
-Date: Fri, 24 Jul 2009 08:31:18 +0000 (UTC)
-Message-ID: <h4brgl$q8g$1@ger.gmane.org>
-References: <1248281484-3064-1-git-send-email-dsilvers@digital-scurf.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Fri, 24 Jul 2009 16:37:49 +0800
+Message-ID: <20090724083749.GA23521@gondor.apana.org.au>
+References: <20090720074607.32463.23013.sendpatchset@localhost.localdomain> <20090724083006.GA5698@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Krishna Kumar <krkumar2@in.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:56930 "EHLO ciao.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751445AbZGXIba (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jul 2009 04:31:30 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1MUGBc-0004rV-FE
-	for netdev@vger.kernel.org; Fri, 24 Jul 2009 08:31:28 +0000
-Received: from iap-pxy-mow1.siemens.ru ([212.248.25.26])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2009 08:31:28 +0000
-Received: from dbaryshkov by iap-pxy-mow1.siemens.ru with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 24 Jul 2009 08:31:28 +0000
+Received: from rhun.apana.org.au ([64.62.148.172]:38953 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750826AbZGXIiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 04:38:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20090724083006.GA5698@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Silverstone wrote:
-
-> This adds some perfunctory documentation comments to the IEEE 802.15.4
-> fakehard.c driver (Fake hard MAC) and the nl802154.h (outgoing netlink
-> messages) header.
+On Fri, Jul 24, 2009 at 08:30:06AM +0000, Jarek Poplawski wrote:
+> On 20-07-2009 09:46, Krishna Kumar wrote:
+> > From: Krishna Kumar <krkumar2@in.ibm.com>
+> > 
+> > Driver sends an skb and stops the queue if no more space is
+> > available on the device, and returns OK. When dev_queue_xmit
+> > runs for the next skb, it enqueue's the skb & calls qdisc_run.
+> > qdisc_run dequeue's the skb and finds the queue is stopped
+> > after getting the HARD_LOCK_TX, and puts the skb back on
+> > gso_skb (the next iteration fails faster at dequeue_skb).
+> > 
+> > This patch avoids calling __qdisc_run if the queue is stopped.
+> > This also lets us remove the queue_stopped check in dequeue_skb
+> > and in qdisc_restart.
 > 
-> These comments are not necessarily complete, but they do reference the
-> IEEE 802.15.4-2006 document where possible.
-> 
+> It was designed wrt. multiqueue handling mainly, were such a check
+> isn't enough at this place.
 
-Thank you, pulled in. Will push to davem soon.
-In future please Cc either one of stack maintainers or linux-zigbee-devel
-list.
+Well multiqueue TX was designed so that each CPU could have its
+own queue.  While this isn't always the case due to resource
+constraints and legacy applications, we should optimise for the
+case where each CPU is using its own TX queue.
 
-Thank you!
+Of course we should still maintain correctness should the unexpected
+occur.
 
+So while I agree with Krishna's patch in principle, someone needs to
+make sure that it still does the right thing (i.e., it doesn't
+introduce potential starvation) if one CPU transmits to someone
+else's queue.
+
+Cheers,
 -- 
-With best wishes
-Dmitry
-
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
