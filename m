@@ -1,48 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/4 v2] Remove unused zero-copy code from velocity NIC driver.
-Date: Thu, 23 Jul 2009 15:58:55 -0700 (PDT)
-Message-ID: <20090723.155855.108555685.davem@davemloft.net>
-References: <20090721.123202.173837534.davem@davemloft.net>
-	<20090721.123227.85658631.davem@davemloft.net>
-	<20090721.123322.118453668.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next-2.6] bnx2: Update vlan_features
+Date: Thu, 23 Jul 2009 17:12:59 -0700
+Message-ID: <1248394379.13301.2.camel@HP1>
+References: <4A681029.4070600@voltaire.com> <4A681F63.7060001@gmail.com>
+ <4A685122.3090300@gmail.com>
+ <20090723.105932.249439810.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: davej@redhat.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"ogerlitz@voltaire.com" <ogerlitz@voltaire.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"fubar@us.ibm.com" <fubar@us.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49148
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751866AbZGWW6u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jul 2009 18:58:50 -0400
-In-Reply-To: <20090721.123322.118453668.davem@davemloft.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:3313 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbZGXAUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jul 2009 20:20:44 -0400
+In-Reply-To: <20090723.105932.249439810.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyMSBK
-dWwgMjAwOSAxMjozMzoyMiAtMDcwMCAoUERUKQ0KDQo+IE9rLCBhbGwgYXBwbGllZCB0byBuZXQt
-bmV4dC0yLjYsIHRoYW5rcy4NCg0KT2ssIG5vdyB3ZSBoYXZlIGEgc3RpbmtpbmcgcGlsZSBvZiBw
-b28gc2l0dWF0aW9uIHdoZW4gb25lIHRyaWVzIHRvDQpjb21waWxlIHRoZSB2ZWxvY2l0eSBkcml2
-ZXIgd2l0aG91dCBDT05GSUdfUE0gZGVmaW5lZC4NCg0KRmlyc3Qgd2UgaGl0Og0KDQpkcml2ZXJz
-L25ldC92aWEtdmVsb2NpdHkuYzogSW4gZnVuY3Rpb24g4oCYdmVsb2NpdHlfaW5pdF9tb2R1bGXi
-gJk6DQpkcml2ZXJzL25ldC92aWEtdmVsb2NpdHkuYzozMzAzOiBlcnJvcjogaW1wbGljaXQgZGVj
-bGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYdmVsb2NpdHlfcmVnaXN0ZXJfbm90aWZpZXLigJkNCmRy
-aXZlcnMvbmV0L3ZpYS12ZWxvY2l0eS5jOjMzMDY6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlv
-biBvZiBmdW5jdGlvbiDigJh2ZWxvY2l0eV91bnJlZ2lzdGVyX25vdGlmaWVy4oCZDQoNCkJlY2F1
-c2UgdGhlIHdob2xlIENPTkZJR19QTSArIENPTkZJR19JTkVUIGlmZGVmZmVyeSBhcm91bmQgdGhl
-c2UgZnVuY3Rpb25zDQp3YXMgbWlzc2VkIHVwLiAgU2ltcGxlIGVub3VnaCB0byBmaXgsIGJ1dCB0
-aGVuIHdlIGdldDoNCg0KZHJpdmVycy9uZXQvdmlhLXZlbG9jaXR5LmM6Mjk1Nzogd2FybmluZzog
-4oCYdmVsb2NpdHlfc3VzcGVuZOKAmSBkZWZpbmVkIGJ1dCBub3QgdXNlZA0KZHJpdmVycy9uZXQv
-dmlhLXZlbG9jaXR5LmM6MzAyNjogd2FybmluZzog4oCYdmVsb2NpdHlfcmVzdW1l4oCZIGRlZmlu
-ZWQgYnV0IG5vdCB1c2VkDQoNCkZpbmUsIGxldCdzIGlmZGVmIHByb3RlY3QgdGhlc2UgdHdvIGZ1
-bmN0aW9ucyB3aXRoIENPTkZJR19QTToNCg0KZHJpdmVycy9uZXQvdmlhLXZlbG9jaXR5LmM6Mjg1
-Mzogd2FybmluZzog4oCYdmVsb2NpdHlfc2V0X3dvbOKAmSBkZWZpbmVkIGJ1dCBub3QgdXNlZA0K
-ZHJpdmVycy9uZXQvdmlhLXZlbG9jaXR5LmM6MjkzOTogd2FybmluZzog4oCYdmVsb2NpdHlfc2F2
-ZV9jb250ZXh04oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkDQpkcml2ZXJzL25ldC92aWEtdmVsb2Np
-dHkuYzozMDAxOiB3YXJuaW5nOiDigJh2ZWxvY2l0eV9yZXN0b3JlX2NvbnRleHTigJkgZGVmaW5l
-ZCBidXQgbm90IHVzZWQNCg0KQW5kIGF0IHRoaXMgcG9pbnQgSSByZWFsbHkgZ2l2ZSB1cCBEYXZl
-LiAgVGhpcyB3aG9sZSB0aGluZyB0byBtb3ZlDQpmdW5jdGlvbnMgYXJvdW5kIHRvIGF2b2lkIGZv
-cndhcmQgZGVjbHMgaGFzIGNyZWF0ZWQgYSB3b3JzZSBwcm9ibGVtDQp0aGFuIGl0IHNvbHZlZC4N
-Cg0KVW5sZXNzIHlvdSBjYW4gZml4IHRoaXMsIGxpa2UsIGltbWVkaWF0ZWx5LiAgSSB3YW50IHRv
-IHJldmVydC4NCg0KVGhpcyBpcyBrZWVwaW5nIG1lIGZyb20gcHVsbGluZyBtb3JlIHdvcmsgaW50
-byBteSBuZXQtbmV4dC0yLjYNCnRyZWUuDQo=
+
+On Thu, 2009-07-23 at 10:59 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 23 Jul 2009 14:01:38 +0200
+> 
+> > [PATCH net-next-2.6] bnx2: Update vlan_features
+> > 
+> > In order to get full use of some advanced features of BNX2, we now need to
+> > fill dev->vlan_features.
+> > 
+> > Patch successfully tested with vlan devices built on top of bonding.
+> > (bond0 : one bnx2 slave, one tg3 slave (not yet vlan_features enabled)
+> > 
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Can I get some Broadcom ACKs for this?
+> 
+I've reviewed and tested Eric's 2nd patch.  Thanks.
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
+
