@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 05/13] igb: add completion timeout workaround for
-	82575/82576
-Date: Thu, 23 Jul 2009 21:08:35 -0700
-Message-ID: <20090724040834.30709.22183.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 06/13] igb: move all multicast addresses into
+	multicast table array
+Date: Thu, 23 Jul 2009 21:08:54 -0700
+Message-ID: <20090724040853.30709.97954.stgit@localhost.localdomain>
 References: <20090724040700.30709.31473.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,231 +12,271 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:36511 "EHLO
-	QMTA06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751076AbZGXEIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:08:52 -0400
+Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:48262
+	"EHLO QMTA15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751544AbZGXEJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 00:09:10 -0400
 In-Reply-To: <20090724040700.30709.31473.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The 82575 and 82576 hardware can both experience data corruption issues if
-a pci-e completion arrives after the timeout value.  In order to avoid this
-we need to increase the timeout value while pci-e master is disabled.
+This patch moves all of the multicast addresses out of the free Receive
+address registers and instead programs them all into the multicast table
+array.  As a result the multicast filtering may not be as precise, but it
+also greatly reduces the overhead for multicast addresses.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/igb/e1000_82575.c   |   58 +++++++++++++++++++++++++++++++++++++++
- drivers/net/igb/e1000_defines.h |    8 +++++
- drivers/net/igb/e1000_hw.h      |    4 ++-
- drivers/net/igb/e1000_mac.c     |   14 ---------
- drivers/net/igb/e1000_regs.h    |    1 +
- drivers/net/igb/igb_main.c      |   28 +++++++++++++++++++
- 6 files changed, 98 insertions(+), 15 deletions(-)
+ drivers/net/igb/e1000_82575.c |   59 -----------------------------------------
+ drivers/net/igb/e1000_82575.h |    1 -
+ drivers/net/igb/e1000_hw.h    |    4 +++
+ drivers/net/igb/e1000_mac.c   |   35 ++++++++++++++++++++++++
+ drivers/net/igb/e1000_mac.h   |    2 +
+ drivers/net/igb/igb_main.c    |   44 ++++++++++---------------------
+ 6 files changed, 56 insertions(+), 89 deletions(-)
 
 diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 606c25c..c4506bf 100644
+index c4506bf..5d2c2fb 100644
 --- a/drivers/net/igb/e1000_82575.c
 +++ b/drivers/net/igb/e1000_82575.c
-@@ -61,6 +61,7 @@ static void igb_release_swfw_sync_82575(struct e1000_hw *, u16);
- static bool igb_sgmii_active_82575(struct e1000_hw *);
- static s32  igb_reset_init_script_82575(struct e1000_hw *);
- static s32  igb_read_mac_addr_82575(struct e1000_hw *);
-+static s32  igb_set_pcie_completion_timeout(struct e1000_hw *hw);
- 
- static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- {
-@@ -909,6 +910,12 @@ static s32 igb_reset_hw_82575(struct e1000_hw *hw)
- 	if (ret_val)
- 		hw_dbg("PCI-E Master disable polling has failed.\n");
- 
-+	/* set the completion timeout for interface */
-+	ret_val = igb_set_pcie_completion_timeout(hw);
-+	if (ret_val) {
-+		hw_dbg("PCI-E Set completion timeout has failed.\n");
-+	}
-+
- 	hw_dbg("Masking off all interrupts\n");
- 	wr32(E1000_IMC, 0xffffffff);
- 
-@@ -1408,6 +1415,57 @@ void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
+@@ -798,65 +798,6 @@ static void igb_init_rx_addrs_82575(struct e1000_hw *hw, u16 rar_count)
  }
  
  /**
-+ *  igb_set_pcie_completion_timeout - set pci-e completion timeout
+- *  igb_update_mc_addr_list - Update Multicast addresses
+- *  @hw: pointer to the HW structure
+- *  @mc_addr_list: array of multicast addresses to program
+- *  @mc_addr_count: number of multicast addresses to program
+- *  @rar_used_count: the first RAR register free to program
+- *  @rar_count: total number of supported Receive Address Registers
+- *
+- *  Updates the Receive Address Registers and Multicast Table Array.
+- *  The caller must have a packed mc_addr_list of multicast addresses.
+- *  The parameter rar_count will usually be hw->mac.rar_entry_count
+- *  unless there are workarounds that change this.
+- **/
+-void igb_update_mc_addr_list(struct e1000_hw *hw,
+-                             u8 *mc_addr_list, u32 mc_addr_count,
+-                             u32 rar_used_count, u32 rar_count)
+-{
+-	u32 hash_value;
+-	u32 i;
+-	u8 addr[6] = {0,0,0,0,0,0};
+-	/*
+-	 * This function is essentially the same as that of 
+-	 * igb_update_mc_addr_list_generic. However it also takes care 
+-	 * of the special case where the register offset of the 
+-	 * second set of RARs begins elsewhere. This is implicitly taken care by 
+-	 * function e1000_rar_set_generic.
+-	 */
+-
+-	/*
+-	 * Load the first set of multicast addresses into the exact
+-	 * filters (RAR).  If there are not enough to fill the RAR
+-	 * array, clear the filters.
+-	 */
+-	for (i = rar_used_count; i < rar_count; i++) {
+-		if (mc_addr_count) {
+-			igb_rar_set(hw, mc_addr_list, i);
+-			mc_addr_count--;
+-			mc_addr_list += ETH_ALEN;
+-		} else {
+-			igb_rar_set(hw, addr, i);
+-		}
+-	}
+-
+-	/* Clear the old settings from the MTA */
+-	hw_dbg("Clearing MTA\n");
+-	for (i = 0; i < hw->mac.mta_reg_count; i++) {
+-		array_wr32(E1000_MTA, i, 0);
+-		wrfl();
+-	}
+-
+-	/* Load any remaining multicast addresses into the hash table. */
+-	for (; mc_addr_count > 0; mc_addr_count--) {
+-		hash_value = igb_hash_mc_addr(hw, mc_addr_list);
+-		hw_dbg("Hash value = 0x%03X\n", hash_value);
+-		igb_mta_set(hw, hash_value);
+-		mc_addr_list += ETH_ALEN;
+-	}
+-}
+-
+-/**
+  *  igb_shutdown_fiber_serdes_link_82575 - Remove link during power down
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index b674417..8a1e659 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -28,7 +28,6 @@
+ #ifndef _E1000_82575_H_
+ #define _E1000_82575_H_
+ 
+-void igb_update_mc_addr_list(struct e1000_hw*, u8*, u32, u32, u32);
+ extern void igb_shutdown_fiber_serdes_link_82575(struct e1000_hw *hw);
+ extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
+ 
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
+index eb41f3b..83f9b4f 100644
+--- a/drivers/net/igb/e1000_hw.h
++++ b/drivers/net/igb/e1000_hw.h
+@@ -338,6 +338,10 @@ struct e1000_mac_info {
+ 	u16 ifs_ratio;
+ 	u16 ifs_step_size;
+ 	u16 mta_reg_count;
++
++	/* Maximum size of the MTA register table in all supported adapters */
++	#define MAX_MTA_REG 128
++	u32 mta_shadow[MAX_MTA_REG];
+ 	u16 rar_entry_count;
+ 
+ 	u8  forced_speed_duplex;
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
+index 60343b5..46e27e9 100644
+--- a/drivers/net/igb/e1000_mac.c
++++ b/drivers/net/igb/e1000_mac.c
+@@ -261,6 +261,41 @@ void igb_mta_set(struct e1000_hw *hw, u32 hash_value)
+ }
+ 
+ /**
++ *  igb_update_mc_addr_list - Update Multicast addresses
 + *  @hw: pointer to the HW structure
++ *  @mc_addr_list: array of multicast addresses to program
++ *  @mc_addr_count: number of multicast addresses to program
 + *
-+ *  The defaults for 82575 and 82576 should be in the range of 50us to 50ms,
-+ *  however the hardware default for these parts is 500us to 1ms which is less
-+ *  than the 10ms recommended by the pci-e spec.  To address this we need to
-+ *  increase the value to either 10ms to 200ms for capability version 1 config,
-+ *  or 16ms to 55ms for version 2.
++ *  Updates entire Multicast Table Array.
++ *  The caller must have a packed mc_addr_list of multicast addresses.
 + **/
-+static s32 igb_set_pcie_completion_timeout(struct e1000_hw *hw)
++void igb_update_mc_addr_list(struct e1000_hw *hw,
++                             u8 *mc_addr_list, u32 mc_addr_count)
 +{
-+	u32 gcr = rd32(E1000_GCR);
-+	s32 ret_val = 0;
-+	u16 pcie_devctl2;
++	u32 hash_value, hash_bit, hash_reg;
++	int i;
 +
-+	/* only take action if timeout value is defaulted to 0 */
-+	if (gcr & E1000_GCR_CMPL_TMOUT_MASK)
-+		goto out;
++	/* clear mta_shadow */
++	memset(&hw->mac.mta_shadow, 0, sizeof(hw->mac.mta_shadow));
 +
-+	/*
-+	 * if capababilities version is type 1 we can write the
-+	 * timeout of 10ms to 200ms through the GCR register
-+	 */
-+	if (!(gcr & E1000_GCR_CAP_VER2)) {
-+		gcr |= E1000_GCR_CMPL_TMOUT_10ms;
-+		goto out;
++	/* update mta_shadow from mc_addr_list */
++	for (i = 0; (u32) i < mc_addr_count; i++) {
++		hash_value = igb_hash_mc_addr(hw, mc_addr_list);
++
++		hash_reg = (hash_value >> 5) & (hw->mac.mta_reg_count - 1);
++		hash_bit = hash_value & 0x1F;
++
++		hw->mac.mta_shadow[hash_reg] |= (1 << hash_bit);
++		mc_addr_list += (ETH_ALEN);
 +	}
 +
-+	/*
-+	 * for version 2 capabilities we need to write the config space
-+	 * directly in order to set the completion timeout value for
-+	 * 16ms to 55ms
-+	 */
-+	ret_val = igb_read_pcie_cap_reg(hw, PCIE_DEVICE_CONTROL2,
-+	                                &pcie_devctl2);
-+	if (ret_val)
-+		goto out;
-+
-+	pcie_devctl2 |= PCIE_DEVICE_CONTROL2_16ms;
-+
-+	ret_val = igb_write_pcie_cap_reg(hw, PCIE_DEVICE_CONTROL2,
-+	                                 &pcie_devctl2);
-+out:
-+	/* disable completion timeout resend */
-+	gcr &= ~E1000_GCR_CMPL_TMOUT_RESEND;
-+
-+	wr32(E1000_GCR, gcr);
-+	return ret_val;
++	/* replace the entire MTA table */
++	for (i = hw->mac.mta_reg_count - 1; i >= 0; i--)
++		array_wr32(E1000_MTA, i, hw->mac.mta_shadow[i]);
++	wrfl();
 +}
 +
 +/**
-  *  igb_vmdq_set_loopback_pf - enable or disable vmdq loopback
-  *  @hw: pointer to the hardware struct
-  *  @enable: state to enter, either enabled or disabled
-diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
-index 3bda3db..c858293 100644
---- a/drivers/net/igb/e1000_defines.h
-+++ b/drivers/net/igb/e1000_defines.h
-@@ -435,6 +435,12 @@
- /* Flow Control */
- #define E1000_FCRTL_XONE 0x80000000     /* Enable XON frame transmission */
- 
-+/* PCI Express Control */
-+#define E1000_GCR_CMPL_TMOUT_MASK       0x0000F000
-+#define E1000_GCR_CMPL_TMOUT_10ms       0x00001000
-+#define E1000_GCR_CMPL_TMOUT_RESEND     0x00010000
-+#define E1000_GCR_CAP_VER2              0x00040000
-+
- /* PHY Control Register */
- #define MII_CR_FULL_DUPLEX      0x0100  /* FDX =1, half duplex =0 */
- #define MII_CR_RESTART_AUTO_NEG 0x0200  /* Restart auto negotiation */
-@@ -569,9 +575,11 @@
- 
- /* PCI/PCI-X/PCI-EX Config space */
- #define PCIE_LINK_STATUS             0x12
-+#define PCIE_DEVICE_CONTROL2         0x28
- 
- #define PCIE_LINK_WIDTH_MASK         0x3F0
- #define PCIE_LINK_WIDTH_SHIFT        4
-+#define PCIE_DEVICE_CONTROL2_16ms    0x0005
- 
- #define PHY_REVISION_MASK      0xFFFFFFF0
- #define MAX_PHY_REG_ADDRESS    0x1F  /* 5 bit address bus (0-0x1F) */
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index f096ddd..eb41f3b 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -494,5 +494,7 @@ extern char *igb_get_hw_dev_name(struct e1000_hw *hw);
- #else
- #define hw_dbg(format, arg...)
- #endif
--
- #endif
-+/* These functions must be implemented by drivers */
-+s32  igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
-+s32  igb_write_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value);
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index 34f1a37..60343b5 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -37,20 +37,6 @@
- static s32 igb_set_default_fc(struct e1000_hw *hw);
- static s32 igb_set_fc_watermarks(struct e1000_hw *hw);
- 
--static s32 igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value)
--{
--	struct igb_adapter *adapter = hw->back;
--	u16 cap_offset;
--
--	cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
--	if (!cap_offset)
--		return -E1000_ERR_CONFIG;
--
--	pci_read_config_word(adapter->pdev, cap_offset + reg, value);
--
--	return 0;
--}
--
- /**
-  *  igb_get_bus_info_pcie - Get PCIe bus information
+  *  igb_hash_mc_addr - Generate a multicast hash value
   *  @hw: pointer to the HW structure
-diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
-index 6e59245..345d144 100644
---- a/drivers/net/igb/e1000_regs.h
-+++ b/drivers/net/igb/e1000_regs.h
-@@ -305,6 +305,7 @@ enum {
- #define E1000_CCMCTL      0x05B48 /* CCM Control Register */
- #define E1000_GIOCTL      0x05B44 /* GIO Analog Control Register */
- #define E1000_SCCTL       0x05B4C /* PCIc PLL Configuration Register */
-+#define E1000_GCR         0x05B00 /* PCI-Ex Control */
- #define E1000_FACTPS    0x05B30 /* Function Active and Power State to MNG */
- #define E1000_SWSM      0x05B50 /* SW Semaphore */
- #define E1000_FWSM      0x05B54 /* FW Semaphore */
+  *  @mc_addr: pointer to a multicast address
+diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/igb/e1000_mac.h
+index 1d690b4..f9ebfb3 100644
+--- a/drivers/net/igb/e1000_mac.h
++++ b/drivers/net/igb/e1000_mac.h
+@@ -51,6 +51,8 @@ s32  igb_get_speed_and_duplex_copper(struct e1000_hw *hw, u16 *speed,
+ 				       u16 *duplex);
+ s32  igb_id_led_init(struct e1000_hw *hw);
+ s32  igb_led_off(struct e1000_hw *hw);
++void igb_update_mc_addr_list(struct e1000_hw *hw,
++	                     u8 *mc_addr_list, u32 mc_addr_count);
+ s32  igb_setup_link(struct e1000_hw *hw);
+ s32  igb_validate_mdi_setting(struct e1000_hw *hw);
+ s32  igb_write_8bit_ctrl_reg(struct e1000_hw *hw, u32 reg,
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 39b3b6a..2cb5460 100644
+index 2cb5460..e4f4526 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -5029,6 +5029,34 @@ static int igb_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+@@ -127,7 +127,7 @@ static void igb_restore_vlan(struct igb_adapter *);
+ static void igb_ping_all_vfs(struct igb_adapter *);
+ static void igb_msg_task(struct igb_adapter *);
+ static int igb_rcv_msg_from_vf(struct igb_adapter *, u32);
+-static void igb_set_mc_list_pools(struct igb_adapter *, int, u16);
++static inline void igb_set_rah_pool(struct e1000_hw *, int , int);
+ static void igb_vmm_control(struct igb_adapter *);
+ static int igb_set_vf_mac(struct igb_adapter *adapter, int, unsigned char *);
+ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
+@@ -2535,7 +2535,6 @@ static void igb_set_multi(struct net_device *netdev)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+-	struct e1000_mac_info *mac = &hw->mac;
+ 	struct dev_mc_list *mc_ptr;
+ 	u8  *mta_list = NULL;
+ 	u32 rctl;
+@@ -2558,13 +2557,18 @@ static void igb_set_multi(struct net_device *netdev)
  	}
+ 	wr32(E1000_RCTL, rctl);
+ 
+-	if (netdev->mc_count) {
+-		mta_list = kzalloc(netdev->mc_count * 6, GFP_ATOMIC);
+-		if (!mta_list) {
+-			dev_err(&adapter->pdev->dev,
+-			        "failed to allocate multicast filter list\n");
+-			return;
+-		}
++	if (!netdev->mc_count) {
++		/* nothing to program, so clear mc list */
++		igb_update_mc_addr_list(hw, NULL, 0);
++		igb_restore_vf_multicasts(adapter);
++		return;
++	}
++
++	mta_list = kzalloc(netdev->mc_count * 6, GFP_ATOMIC);
++	if (!mta_list) {
++		dev_err(&adapter->pdev->dev,
++		        "failed to allocate multicast filter list\n");
++		return;
+ 	}
+ 
+ 	/* The shared function expects a packed array of only addresses. */
+@@ -2576,14 +2580,9 @@ static void igb_set_multi(struct net_device *netdev)
+ 		memcpy(mta_list + (i*ETH_ALEN), mc_ptr->dmi_addr, ETH_ALEN);
+ 		mc_ptr = mc_ptr->next;
+ 	}
+-	igb_update_mc_addr_list(hw, mta_list, i,
+-	                        adapter->vfs_allocated_count + 1,
+-	                        mac->rar_entry_count);
+-
+-	igb_set_mc_list_pools(adapter, i, mac->rar_entry_count);
+-	igb_restore_vf_multicasts(adapter);
+-
++	igb_update_mc_addr_list(hw, mta_list, i);
+ 	kfree(mta_list);
++	igb_restore_vf_multicasts(adapter);
  }
  
-+s32 igb_read_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value)
-+{
-+	struct igb_adapter *adapter = hw->back;
-+	u16 cap_offset;
-+
-+	cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
-+	if (!cap_offset)
-+		return -E1000_ERR_CONFIG;
-+
-+	pci_read_config_word(adapter->pdev, cap_offset + reg, value);
-+
-+	return 0;
-+}
-+
-+s32 igb_write_pcie_cap_reg(struct e1000_hw *hw, u32 reg, u16 *value)
-+{
-+	struct igb_adapter *adapter = hw->back;
-+	u16 cap_offset;
-+
-+	cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
-+	if (!cap_offset)
-+		return -E1000_ERR_CONFIG;
-+
-+	pci_write_config_word(adapter->pdev, cap_offset + reg, *value);
-+
-+	return 0;
-+}
-+
- static void igb_vlan_rx_register(struct net_device *netdev,
- 				 struct vlan_group *grp)
+ /* Need to wait a few seconds after link up to get diagnostic information from
+@@ -5468,19 +5467,6 @@ static void igb_io_resume(struct pci_dev *pdev)
+ 	igb_get_hw_control(adapter);
+ }
+ 
+-static void igb_set_mc_list_pools(struct igb_adapter *adapter,
+-				  int entry_count, u16 total_rar_filters)
+-{
+-	struct e1000_hw *hw = &adapter->hw;
+-	int i = adapter->vfs_allocated_count + 1;
+-
+-	if ((i + entry_count) < total_rar_filters)
+-		total_rar_filters = i + entry_count;
+-
+-	for (; i < total_rar_filters; i++)
+-		igb_set_rah_pool(hw, adapter->vfs_allocated_count, i);
+-}
+-
+ static int igb_set_vf_mac(struct igb_adapter *adapter,
+                           int vf, unsigned char *mac_addr)
  {
 
