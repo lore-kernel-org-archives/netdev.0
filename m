@@ -1,49 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
-Date: Sat, 25 Jul 2009 13:07:33 +0200
-Message-ID: <1248520053.28545.156.camel@violet>
-References: <4A6AD807.6060706@hartkopp.net>
-	 <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Sat, 25 Jul 2009 19:12:07 +0800
+Message-ID: <20090725111207.GA518@gondor.apana.org.au>
+References: <20090720074607.32463.23013.sendpatchset@localhost.localdomain> <20090724083006.GA5698@ff.dom.local> <20090724083749.GA23521@gondor.apana.org.au> <OFFA0E0F2C.B17AF73A-ON652575FD.00372349-652575FD.0039CB03@in.ibm.com> <20090725032436.GA30741@gondor.apana.org.au> <20090725110409.GA3086@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:49136 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530AbZGYLI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 07:08:26 -0400
-In-Reply-To: <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk>
+Received: from rhun.apana.org.au ([64.62.148.172]:44465 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752685AbZGYLMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 07:12:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20090725110409.GA3086@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
-
-> > this morning i got a NULL pointer dereference in tty_register_device() that
-> > looked similar to the one, i posted here on 03-jun-2009:
-> > 
-> > http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
-> > 
-> > As the boot sequence stopped after this point, i was only able to take a
-> > picture of it - see attached jpg.
-> > 
-> > I was able to shut down the system gracefully by pressing the power button.
-> > 
-> > The problem emerges really seldom.
-> > 
-> > Any idea?
+On Sat, Jul 25, 2009 at 01:04:09PM +0200, Jarek Poplawski wrote:
 > 
-> tty_register_device appears to have been called with a NULL pointer. Not
-> sure why however.
+> It would be nice to establish what difference is made by each part of
+> this patch. The check for stopped queue before each skb xmit was done
+> earlier too, so it's not exactly multiqueue penalization.
 
-if that is the pointer for the struct device, then that used to be fine
-in the past. Not all RFCOMM device have a parent when they are created.
+No, but getting into qdisc_restart when we know that the queue is
+stopped is just silly.  The only reason that is done right now is
+because of the pathological case where a packet on qdisc X maps to
+hardware queue Y.  This is something which almost nobody uses and
+yet it penalises everybody.
 
-Regards
-
-Marcel
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
