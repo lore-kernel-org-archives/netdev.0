@@ -1,39 +1,38 @@
 From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] at1700: Read buffer overflow
-Date: Sun, 26 Jul 2009 00:01:50 +0200
-Message-ID: <4A6B80CE.6060702@gmail.com>
+Subject: [PATCH] lmc: Read outside array bounds
+Date: Sun, 26 Jul 2009 00:18:17 +0200
+Message-ID: <4A6B84A9.7020506@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
+To: khc@pm.waw.pl, netdev <netdev@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:31520 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbZGYV7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 17:59:16 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so639447eyd.37
-        for <netdev@vger.kernel.org>; Sat, 25 Jul 2009 14:59:15 -0700 (PDT)
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:49667 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752222AbZGYWPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 18:15:43 -0400
+Received: by ewy26 with SMTP id 26so2447213ewy.37
+        for <netdev@vger.kernel.org>; Sat, 25 Jul 2009 15:15:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-loop bound looks to be wrong, for an array of length 8
+if dev_alloc_skb() fails on the first iteration of the allocation loop, and we
+break out of the loop, then we end up writing before the start of the array.
 
 Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
-Or is a value is missing? (others contrastingly end with `, 0')
-
-diff --git a/drivers/net/at1700.c b/drivers/net/at1700.c
-index 18b566a..cf30e27 100644
---- a/drivers/net/at1700.c
-+++ b/drivers/net/at1700.c
-@@ -318,7 +318,7 @@ static int __init at1700_probe1(struct net_device *dev, int ioaddr)
- 				pos3 = mca_read_stored_pos( slot, 3 );
- 				pos4 = mca_read_stored_pos( slot, 4 );
- 
--				for (l_i = 0; l_i < 0x09; l_i++)
-+				for (l_i = 0; l_i < 8; l_i++)
- 					if (( pos3 & 0x07) == at1700_ioaddr_pattern[l_i])
- 						break;
- 				ioaddr = at1700_mca_probe_list[l_i];
+diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+index 45b1822..ac8d5b2 100644
+--- a/drivers/net/wan/lmc/lmc_main.c
++++ b/drivers/net/wan/lmc/lmc_main.c
+@@ -1865,7 +1865,7 @@ static void lmc_softreset (lmc_softc_t * const sc) /*fold00*/
+             if(skb == NULL){
+                 printk(KERN_WARNING "%s: Failed to allocate receiver ring, will try again
+", sc->name);
+                 sc->failed_ring = 1;
+-                break;
++                return;
+             }
+             else{
+                 sc->lmc_rxq[i] = skb;
