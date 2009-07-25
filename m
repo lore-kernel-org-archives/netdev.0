@@ -1,30 +1,62 @@
-From: Robin Getz <rgetz@blackfin.uclinux.org>
-Subject: Re: Jumbo frame question...
-Date: Sat, 25 Jul 2009 08:34:34 -0400
-Message-ID: <200907250834.34175.rgetz@blackfin.uclinux.org>
-References: <200907241141.55097.rgetz@blackfin.uclinux.org> <200907241421.55986.rgetz@blackfin.uclinux.org> <4A6A07E5.9080705@gmail.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [net-next-2.6 PATCH 06/13] igb: move all multicast addresses
+ into multicast table array
+Date: Sat, 25 Jul 2009 14:45:03 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0907251443170.25573@ask.diku.dk>
+References: <20090724040700.30709.31473.stgit@localhost.localdomain>
+ <20090724040853.30709.97954.stgit@localhost.localdomain>
+ <Pine.LNX.4.64.0907241053200.24126@tyr.diku.dk> <1248486089.3462.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Rick Jones" <rick.jones2@hp.com>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:8322 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbZGYMbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 08:31:19 -0400
-In-Reply-To: <4A6A07E5.9080705@gmail.com>
-Content-Disposition: inline
+Received: from mgw2.diku.dk ([130.225.96.92]:51502 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751663AbZGYMpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jul 2009 08:45:07 -0400
+In-Reply-To: <1248486089.3462.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri 24 Jul 2009 15:13, Eric Dumazet pondered:
-> I guess your tcpdump is fooled by gso settings... Did you tried
-> # ethtool -K eth0 gso off 
+On Fri, 24 Jul 2009, Peter P Waskiewicz Jr wrote:
 
-No -- that was the problem - my hardware trying to be too smart for my software...
+> On Fri, 2009-07-24 at 01:57 -0700, Jesper Dangaard Brouer wrote:
+>> On Thu, 23 Jul 2009, Jeff Kirsher wrote:
+>>
+>>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>>
+>>> This patch moves all of the multicast addresses out of the free Receive
+>>> address registers and instead programs them all into the multicast table
+>>> array.  As a result the multicast filtering may not be as precise, but it
+>>> also greatly reduces the overhead for multicast addresses.
+>>
+>> What do you mean by "the multicast filtering may not be as precise" ?
+>>
+>> I'm planning to use these NICs for multicast traffic (both routing and
+>> monitoring).  Is there any precausing I need to be aware of?
+>>
+>
+> The receive address registers, or RARs, are perfect match filters.  The
+> multicast table array, or MTA, contains hashed values of the multicast
+> addresses.  Therefore, it isn't a perfect match for the multicast
+> addresses anymore.  But to support a larger number of multicast
+> addresses, they can't be written to the RARs, since those resources are
+> small and are needed for MAC and unicast address filtering.
 
-Thanks for the help - sorry for the noise.
+Well, thats great, as it will suit me better, as our multicast addresses 
+are nicely grouped :-)
 
--Robin
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
