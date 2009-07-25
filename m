@@ -1,39 +1,49 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Sat, 25 Jul 2009 13:04:09 +0200
-Message-ID: <20090725110409.GA3086@ami.dom.local>
-References: <20090720074607.32463.23013.sendpatchset@localhost.localdomain> <20090724083006.GA5698@ff.dom.local> <20090724083749.GA23521@gondor.apana.org.au> <OFFA0E0F2C.B17AF73A-ON652575FD.00372349-652575FD.0039CB03@in.ibm.com> <20090725032436.GA30741@gondor.apana.org.au>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
+Date: Sat, 25 Jul 2009 13:07:33 +0200
+Message-ID: <1248520053.28545.156.camel@violet>
+References: <4A6AD807.6060706@hartkopp.net>
+	 <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Hartkopp <oliver@hartkopp.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-bluetooth@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f218.google.com ([209.85.220.218]:61485 "EHLO
-	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbZGYLEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 07:04:22 -0400
-Received: by fxm18 with SMTP id 18so1834080fxm.37
-        for <netdev@vger.kernel.org>; Sat, 25 Jul 2009 04:04:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090725032436.GA30741@gondor.apana.org.au>
+Received: from senator.holtmann.net ([87.106.208.187]:49136 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752530AbZGYLI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 07:08:26 -0400
+In-Reply-To: <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 25, 2009 at 11:24:36AM +0800, Herbert Xu wrote:
-...
-> However, I am definitely with you in that we should perform this
-> optimisation since it makes sense for the majority of people who
-> use multiqueue TX.
+Hi Alan,
+
+> > this morning i got a NULL pointer dereference in tty_register_device() that
+> > looked similar to the one, i posted here on 03-jun-2009:
+> > 
+> > http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
+> > 
+> > As the boot sequence stopped after this point, i was only able to take a
+> > picture of it - see attached jpg.
+> > 
+> > I was able to shut down the system gracefully by pressing the power button.
+> > 
+> > The problem emerges really seldom.
+> > 
+> > Any idea?
 > 
-> So the fact that our current architecture penalises the people
-> who actually need multiqueue TX in order to ensure correctness
-> for the people who cannot use multiqueue TX effectively (i.e.,
-> those who use non-default qdiscs) makes me uneasy.
+> tty_register_device appears to have been called with a NULL pointer. Not
+> sure why however.
 
-It would be nice to establish what difference is made by each part of
-this patch. The check for stopped queue before each skb xmit was done
-earlier too, so it's not exactly multiqueue penalization.
+if that is the pointer for the struct device, then that used to be fine
+in the past. Not all RFCOMM device have a parent when they are created.
 
-Cheers,
-Jarek P.
+Regards
+
+Marcel
+
+
