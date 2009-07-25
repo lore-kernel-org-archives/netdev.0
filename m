@@ -1,42 +1,28 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
-Date: Sat, 25 Jul 2009 11:50:11 +0100
-Message-ID: <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk>
-References: <4A6AD807.6060706@hartkopp.net>
+From: Fathi Boudra <fabo-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 13803] New: hso: Tx timed out.
+Date: Sat, 25 Jul 2009 12:56:36 +0200
+Message-ID: <6a2e33620907250356o7a50108jfe59ae5e17aec03c@mail.gmail.com>
+References: <bug-13803-10286@http.bugzilla.kernel.org/>
+	 <20090723154337.709ca0cd.akpm@linux-foundation.org>
+Reply-To: fabo-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:46420 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751568AbZGYKtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 06:49:06 -0400
-In-Reply-To: <4A6AD807.6060706@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090723154337.709ca0cd.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 25 Jul 2009 12:01:43 +0200
-Oliver Hartkopp <oliver@hartkopp.net> wrote:
-
-> Hello Alan and Marcel,
-> 
-> this morning i got a NULL pointer dereference in tty_register_device() that
-> looked similar to the one, i posted here on 03-jun-2009:
-> 
-> http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
-> 
-> As the boot sequence stopped after this point, i was only able to take a
-> picture of it - see attached jpg.
-> 
-> I was able to shut down the system gracefully by pressing the power button.
-> 
-> The problem emerges really seldom.
-> 
-> Any idea?
-
-tty_register_device appears to have been called with a NULL pointer. Not
-sure why however.
+I noticed the bug is triggered when the GTM382 module is connected on
+my PC/104+ board through the PCI Express MiniCard.
+Using Option deviceKit plugged on the CPU board through USB 1.1
+connector, the bug isn't triggered.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
