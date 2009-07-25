@@ -1,94 +1,41 @@
-From: Michael Kerrisk <mtk.manpages-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [PATCH] man page update (ip.7) to reflect new socket option in
-	2.6.31
-Date: Sat, 25 Jul 2009 06:43:42 +0200
-Message-ID: <cfd18e0f0907242143i3de2ff52ke2d18e7dc03032e5@mail.gmail.com>
-References: <4A3B37FD.4040801@us.ibm.com> <4A3B3C92.9050003@us.ibm.com>
-Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe in
+	back trace (regression)
+Date: Sat, 25 Jul 2009 12:41:43 +0800
+Message-ID: <43d009740907242141w1eaf3926w97f3bba411d19af7@mail.gmail.com>
+References: <4A68B5DA.5000307@gmail.com> <20090725033328.GA30919@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4A3B3C92.9050003-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jarek Poplawski <jarkao2@gmail.com>, davem@davemloft.net,
+	akpm@linux-foundation.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f213.google.com ([209.85.217.213]:51260 "EHLO
+	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbZGYEsg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jul 2009 00:48:36 -0400
+Received: by gxk9 with SMTP id 9so3931990gxk.13
+        for <netdev@vger.kernel.org>; Fri, 24 Jul 2009 21:48:35 -0700 (PDT)
+In-Reply-To: <20090725033328.GA30919@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Nivedita
+2009/7/25 Herbert Xu <herbert@gondor.apana.org.au>:
+[...]
+> Well it depends on whether he's using the kernel pppoe stack or
+> doing pppoe in user-space. =C2=A0If the latter then yes those fixes
 
-On Fri, Jun 19, 2009 at 9:21 AM, Nivedita Singhvi<niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org> wrote=
-:
-> Nivedita Singhvi wrote:
->>
->> This patch adds the IP_MULTICAST_ALL option to
->> the ip.7 man page, to bring it up to date with
->> 2.6.31 development.
+	In my Bugzilla's bug-report I mentioned pppoe's related functions in
+oops-backtraces; how do you think could that really be caused by
+user-space pppoe "doing"? I don't think so. I guess you missed that
+point.
+
+> may help. =C2=A0Otherwise we really need to see the backtraces.
 >
-> Ah, the "since" is intended to be inclusive.
-
-Yep ;-).
-
-> The
-> 2.6.30 needs to be 2.6.31. Correct version below.
-> Apologies!
-
-No worries. Glad you caught it. Some belated comments below.
-
-> Signed-off-by: Nivedita Singhvi <niv-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
->
-> ---
-> =A0man7/ip.7 | =A0 10 +++++++++-
-> =A01 files changed, 9 insertions(+), 1 deletions(-)
->
-> diff --git a/man7/ip.7 b/man7/ip.7
-> index ab866a1..6932ba2 100644
-> --- a/man7/ip.7
-> +++ b/man7/ip.7
-> @@ -357,7 +357,6 @@ and retrieve the MTU by calling
-> =A0with the
-> =A0.B IP_MTU
-> =A0option.
-> -
-> =A0It is possible to implement RFC 4821 MTU probing with
-> =A0.B SOCK_DGRAM
-> =A0or
-> @@ -383,6 +382,15 @@ When an invalid socket option is passed,
-> =A0.B ENOPROTOOPT
-> =A0is returned.
-> =A0.TP
-> +.BR IP_MULTICAST_ALL " (since Linux 2.6.31)"
-> +Sets the multicast delivery policy to the socket. =A0Argument is a b=
-oolean
-
-Is the following better here:
-Sets the policy for multicast delivery to the socket
-?
-
-> +integer that enables or disables multicast delivery from all groups.
-> +If not set, delivery to the socket is restricted to data from those
-> multicast
-> +groups that have been explicitly subscribed to via a multicast join
-> operation
-> +for this socket. The default is 1 which means that a socket which is=
- bound
-> +to the wildcard address (INADDR_ANY) will receive multicast packets =
-from
-> all
-> +groups that have been subscribed to on this system.
-> +.TP
-> =A0.BR IP_MULTICAST_LOOP " (since Linux 1.2)"
-
-Cheers,
-
-Michael
+	It was always clear that backtraces were welcome but I hadn't a
+chance to save it yet.
 
 --=20
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Watch my Linux system programming book progress to publication!
-http://blog.man7.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+End of message. Next message?
