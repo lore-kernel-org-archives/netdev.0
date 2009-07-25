@@ -1,56 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Jumbo frame question...
-Date: Sat, 25 Jul 2009 11:28:37 +0800
-Message-ID: <20090725032837.GA30871@gondor.apana.org.au>
-References: <200907241141.55097.rgetz@blackfin.uclinux.org>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
+	in back trace (regression)
+Date: Sat, 25 Jul 2009 11:33:28 +0800
+Message-ID: <20090725033328.GA30919@gondor.apana.org.au>
+References: <4A68B5DA.5000307@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Robin Getz <rgetz@blackfin.uclinux.org>
+Cc: davem@davemloft.net, akpm@linux-foundation.org,
+	for.poige+bugzilla.kernel.org@gmail.com,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37690 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:47420 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752484AbZGYD2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 23:28:39 -0400
+	with ESMTP id S1751678AbZGYDdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jul 2009 23:33:39 -0400
 Content-Disposition: inline
-In-Reply-To: <200907241141.55097.rgetz@blackfin.uclinux.org>
+In-Reply-To: <4A68B5DA.5000307@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robin Getz <rgetz@blackfin.uclinux.org> wrote:
-> Should a gigabit card, configured as 100, be sending jumbo UDP frames?
-> 
-> My understanding, is no - this is a spec violation..
-> 
-> 
-> Settings for eth0:
->        Supported ports: [ MII ]
->        Supported link modes:   10baseT/Half 10baseT/Full
->                                100baseT/Half 100baseT/Full
->                                1000baseT/Half 1000baseT/Full
->        Supports auto-negotiation: Yes
->        Advertised link modes:  10baseT/Half 10baseT/Full
->                                100baseT/Half 100baseT/Full
->                                1000baseT/Half 1000baseT/Full
->        Advertised auto-negotiation: Yes
->        Speed: 100Mb/s
->        Duplex: Half
->        Port: Twisted Pair
->        PHYAD: 1
->        Transceiver: internal
->        Auto-negotiation: on
->        Supports Wake-on: g
->        Wake-on: d
->        Current message level: 0x000000ff (255)
->        Link detected: no
-> 
-> happly sends UDP packets over 1500 bytes in length.
-> 
-> Tested with TFTP, and 2.6.27 (as the tftp server).
+Jarek Poplawski <jarkao2@gmail.com> wrote:
+>
+> Here is a link showing around pppoe problem quite similar to
+> the one fixed later in pty.c by Alan Cox, so IMHO the current
+> 2.6.31-rc is worth trying.
 
-What's the kernel that you're running on the machine doing the
-sending, 2.6.27? If it's the latest kernel then it may be related
-to the UFO work that went in recently.
+Well it depends on whether he's using the kernel pppoe stack or
+doing pppoe in user-space.  If the latter then yes those fixes
+may help.  Otherwise we really need to see the backtraces.
 
 Cheers,
 -- 
