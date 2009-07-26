@@ -1,74 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] eexpress: Read buffer overflow
-Date: Sun, 26 Jul 2009 22:16:38 +0200
-Message-ID: <4A6CB9A6.4070406@gmail.com>
-References: <4A6B61FB.4050304@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 phonet causes build error
+Date: Sun, 26 Jul 2009 13:39:47 -0700 (PDT)
+Message-ID: <20090726.133947.109438410.davem@davemloft.net>
+References: <4A6CA3BF.7010709@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: oliver@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f228.google.com ([209.85.218.228]:63779 "EHLO
-	mail-bw0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752917AbZGZUQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 16:16:46 -0400
-Received: by bwz28 with SMTP id 28so2257433bwz.37
-        for <netdev@vger.kernel.org>; Sun, 26 Jul 2009 13:16:44 -0700 (PDT)
-In-Reply-To: <4A6B61FB.4050304@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54714
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752987AbZGZUjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 16:39:41 -0400
+In-Reply-To: <4A6CA3BF.7010709@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin wrote, On 07/25/2009 09:50 PM:
-
-> start_code is 69 words, but the code always writes a multiple of 16 words,
-> so the last 11 words written are outside the array.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> This was observed using Parfait http://research.sun.com/projects/parfait/
-> 
-> diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
-> index 1686dca..e304abb 100644
-> --- a/drivers/net/eexpress.c
-> +++ b/drivers/net/eexpress.c
-> @@ -1474,15 +1474,14 @@ static void eexp_hw_init586(struct net_device *dev)
->  	outw(0x0000, ioaddr + 0x800c);
->  	outw(0x0000, ioaddr + 0x800e);
->  
-> -	for (i = 0; i < (sizeof(start_code)); i+=32) {
-> -		int j;
-> -		outw(i, ioaddr + SM_PTR);
-> -		for (j = 0; j < 16; j+=2)
-> -			outw(start_code[(i+j)/2],
-> -			     ioaddr+0x4000+j);
-> -		for (j = 0; j < 16; j+=2)
-> -			outw(start_code[(i+j+16)/2],
-> -			     ioaddr+0x8000+j);
-
-
-(max) i = 64, (max) j = 14, (64+14+16)/2 = 47 < 69, so it seems to copy
-less than its size?
-
-Jarek P.
-
-> +	for (i = 0; i < ARRAY_SIZE(start_code); i += 16) {
-> +		int j, jmax;
-> +		outw(i * 2, ioaddr + SM_PTR);
-> +
-> +		jmax = min_t(int, 16, ARRAY_SIZE(start_code) - i);
-> +		for (j = 0; j < jmax; j++)
-> +			outw(start_code[i + j],
-> +			     ioaddr + j * 2 + (j < 8 ? 0x4000 : 0x8000 - 16));
->  	}
->  
->  	/* Do we want promiscuous mode or multicast? */
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
+RnJvbTogT2xpdmVyIEhhcnRrb3BwIDxvbGl2ZXJAaGFydGtvcHAubmV0Pg0KRGF0ZTogU3VuLCAy
+NiBKdWwgMjAwOSAyMDo0MzoxMSArMDIwMA0KDQo+IEhpIFJlbWksDQo+IA0KPiBpIGdvdCB0aGlz
+IGJ1aWxkIGVycm9yIGZyb20gdGhlIGxhdGVzdCBuZXQtbmV4dC0yLjY6DQo+IA0KPiBuZXQvcGhv
+bmV0L3BuX2Rldi5jOiBJbiBmdW5jdGlvbiDigJhwaG9uZXRfaW5pdF9uZXTigJk6DQo+IG5ldC9w
+aG9uZXQvcG5fZGV2LmM6MjIxOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rp
+b24NCj4g4oCYcHJvY19uZXRfZm9wc19jcmVhdGXigJkNCj4gbmV0L3Bob25ldC9wbl9kZXYuYzog
+SW4gZnVuY3Rpb24g4oCYcGhvbmV0X2V4aXRfbmV04oCZOg0KPiBuZXQvcGhvbmV0L3BuX2Rldi5j
+OjI0MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmHByb2NfbmV0
+X3JlbW92ZeKAmQ0KDQpJIGp1c3QgY29tbWl0dGVkIHRoZSBmb2xsb3dpbmcgZml4IGZvciB0aGlz
+Og0KDQpwaG9uZXQ6IEZpeCBidWlsZC4NCg0KQXMgcmVwb3J0ZWQgYnkgT2xpdmVyIEhhcnRrb3Bw
+Og0KDQpuZXQvcGhvbmV0L3BuX2Rldi5jOiBJbiBmdW5jdGlvbiDigJhwaG9uZXRfaW5pdF9uZXTi
+gJk6DQpuZXQvcGhvbmV0L3BuX2Rldi5jOjIyMTogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9u
+IG9mIGZ1bmN0aW9uDQrigJhwcm9jX25ldF9mb3BzX2NyZWF0ZeKAmQ0KbmV0L3Bob25ldC9wbl9k
+ZXYuYzogSW4gZnVuY3Rpb24g4oCYcGhvbmV0X2V4aXRfbmV04oCZOg0KbmV0L3Bob25ldC9wbl9k
+ZXYuYzoyNDI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhwcm9j
+X25ldF9yZW1vdmXigJkNCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBk
+YXZlbWxvZnQubmV0Pg0KLS0tDQogbmV0L3Bob25ldC9wbl9kZXYuYyB8ICAgIDEgKw0KIDEgZmls
+ZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0
+IGEvbmV0L3Bob25ldC9wbl9kZXYuYyBiL25ldC9waG9uZXQvcG5fZGV2LmMNCmluZGV4IDUxMDdi
+NzkuLjZiMzBjYzEgMTAwNjQ0DQotLS0gYS9uZXQvcGhvbmV0L3BuX2Rldi5jDQorKysgYi9uZXQv
+cGhvbmV0L3BuX2Rldi5jDQpAQCAtMjcsNiArMjcsNyBAQA0KICNpbmNsdWRlIDxsaW51eC9uZXQu
+aD4NCiAjaW5jbHVkZSA8bGludXgvbmV0ZGV2aWNlLmg+DQogI2luY2x1ZGUgPGxpbnV4L3Bob25l
+dC5oPg0KKyNpbmNsdWRlIDxsaW51eC9wcm9jX2ZzLmg+DQogI2luY2x1ZGUgPG5ldC9zb2NrLmg+
+DQogI2luY2x1ZGUgPG5ldC9uZXRucy9nZW5lcmljLmg+DQogI2luY2x1ZGUgPG5ldC9waG9uZXQv
+cG5fZGV2Lmg+DQotLSANCjEuNi4zLjMNCg0K
