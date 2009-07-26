@@ -1,54 +1,46 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2009-07-24
-Date: Sun, 26 Jul 2009 13:52:57 -0400
-Message-ID: <20090726175257.GA5630@tuxdriver.com>
-References: <20090724193625.GB2711@tuxdriver.com> <20090726.100214.125172881.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090726.100214.125172881.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH] netxen: reset ring consumer during cleanup
+Date: Sun, 26 Jul 2009 11:20:56 -0700
+Message-ID: <1248632456-24417-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nxgate.netxen.com ([38.99.60.130]:52931 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753891AbZGZSU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jul 2009 14:20:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 26, 2009 at 10:02:14AM -0700, David Miller wrote:
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Fri, 24 Jul 2009 15:36:25 -0400
->=20
-> > Here is the latest huge round of wireless patches intended for 2.6.=
-32.
-> > It hits all the usual areas (i.e. drivers, mac80211, and cfg80211) =
-with
-> > patches from all the usual suspects.  This includes the reworking o=
-f
-> > mac80211 to eliminate the confusing "master netdev".
-> >=20
-> > FWIW, my laptop has been happy with it.  Most of the bits here have=
- been
-> > in -next for at least a few days.
-> >=20
-> > Please let me know if there are problems!
->=20
-> Pulled, thanks a lot John!
->=20
-> Please try to resolve the regression reports that I saw posted agains=
-t
-> wireless-testing on the same day you sent this pull request.
+Reset consumer of status rings to 0 when cleaning
+up sw resources. Status rings are not deleted
+during suspend since they have napi objects.
 
-Certainly!  But FWIW I think most of those are about patches that I
-have not yet sent to you, so I don't think you need to worry a lot
-about your tree ATM.
+This ensures correct rx processing across suspen-resume.
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
-			=A1Viva Honduras Libre!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_init.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 5d3343e..7acf204 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -184,6 +184,13 @@ void netxen_free_sw_resources(struct netxen_adapter *adapter)
+ 	kfree(recv_ctx->rds_rings);
+ 
+ skip_rds:
++	if (recv_ctx->sds_rings == NULL)
++		goto skip_sds;
++
++	for(ring = 0; ring < adapter->max_sds_rings; ring++)
++		recv_ctx->sds_rings[ring].consumer = 0;
++
++skip_sds:
+ 	if (adapter->tx_ring == NULL)
+ 		return;
+ 
+-- 
+1.6.0.2
+
