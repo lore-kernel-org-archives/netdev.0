@@ -1,356 +1,238 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 05/12] netxen: refactor tso code
-Date: Sun, 26 Jul 2009 23:07:40 -0700
-Message-ID: <1248674867-18821-6-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 08/12] netxen: refactor net_device setup code
+Date: Sun, 26 Jul 2009 23:07:43 -0700
+Message-ID: <1248674867-18821-9-git-send-email-dhananjay@netxen.com>
 References: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:33576 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:33577 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751229AbZG0GHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751353AbZG0GHs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 27 Jul 2009 02:07:48 -0400
 In-Reply-To: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o move all tso / checksum offload code into netxen_tso_check().
-o optimize the tso header copy into simple loop.
-o clean up unnecessary unions from cmd_desc_type0 struct.
+Move all net_device initialization into one function
+netxen_setup_netdev().
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |   51 +++---------
- drivers/net/netxen/netxen_nic_main.c |  152 ++++++++++++++++------------------
- 2 files changed, 84 insertions(+), 119 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |  138 ++++++++++++++++++---------------
+ 1 files changed, 75 insertions(+), 63 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 3368af0..3a4cbd5 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -316,56 +316,29 @@ struct netxen_ring_ctx {
- 	cpu_to_le16(((_flags) & 0x7f) | (((_opcode) & 0x3f) << 7))
- 
- #define netxen_set_tx_frags_len(_desc, _frags, _len) \
--	(_desc)->num_of_buffers_total_length = \
-+	(_desc)->nfrags__length = \
- 	cpu_to_le32(((_frags) & 0xff) | (((_len) & 0xffffff) << 8))
- 
- struct cmd_desc_type0 {
- 	u8 tcp_hdr_offset;	/* For LSO only */
- 	u8 ip_hdr_offset;	/* For LSO only */
--	/* Bit pattern: 0-6 flags, 7-12 opcode, 13-15 unused */
--	__le16 flags_opcode;
--	/* Bit pattern: 0-7 total number of segments,
--	   8-31 Total size of the packet */
--	__le32 num_of_buffers_total_length;
--	union {
--		struct {
--			__le32 addr_low_part2;
--			__le32 addr_high_part2;
--		};
--		__le64 addr_buffer2;
--	};
-+	__le16 flags_opcode;	/* 15:13 unused, 12:7 opcode, 6:0 flags */
-+	__le32 nfrags__length;	/* 31:8 total len, 7:0 frag count */
-+
-+	__le64 addr_buffer2;
- 
--	__le16 reference_handle;	/* changed to u16 to add mss */
--	__le16 mss;		/* passed by NDIS_PACKET for LSO */
--	/* Bit pattern 0-3 port, 0-3 ctx id */
--	u8 port_ctxid;
-+	__le16 reference_handle;
-+	__le16 mss;
-+	u8 port_ctxid;		/* 7:4 ctxid 3:0 port */
- 	u8 total_hdr_length;	/* LSO only : MAC+IP+TCP Hdr size */
- 	__le16 conn_id;		/* IPSec offoad only */
- 
--	union {
--		struct {
--			__le32 addr_low_part3;
--			__le32 addr_high_part3;
--		};
--		__le64 addr_buffer3;
--	};
--	union {
--		struct {
--			__le32 addr_low_part1;
--			__le32 addr_high_part1;
--		};
--		__le64 addr_buffer1;
--	};
-+	__le64 addr_buffer3;
-+	__le64 addr_buffer1;
- 
- 	__le16 buffer_length[4];
- 
--	union {
--		struct {
--			__le32 addr_low_part4;
--			__le32 addr_high_part4;
--		};
--		__le64 addr_buffer4;
--	};
-+	__le64 addr_buffer4;
- 
- 	__le64 unused;
- 
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index fb976cb..381bd8f 100644
+index 8d4c30a..8a4e6ce 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1310,13 +1310,18 @@ static int netxen_nic_close(struct net_device *netdev)
- 	return 0;
+@@ -86,7 +86,7 @@ static int netxen_nic_open(struct net_device *netdev);
+ static int netxen_nic_close(struct net_device *netdev);
+ static int netxen_nic_xmit_frame(struct sk_buff *, struct net_device *);
+ static void netxen_tx_timeout(struct net_device *netdev);
+-static void netxen_tx_timeout_task(struct work_struct *work);
++static void netxen_reset_task(struct work_struct *work);
+ static void netxen_watchdog(unsigned long);
+ static int netxen_nic_poll(struct napi_struct *napi, int budget);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -202,7 +202,7 @@ netxen_napi_add(struct netxen_adapter *adapter, struct net_device *netdev)
+ 	struct netxen_recv_context *recv_ctx = &adapter->recv_ctx;
+ 
+ 	if (netxen_alloc_sds_rings(recv_ctx, adapter->max_sds_rings))
+-		return 1;
++		return -ENOMEM;
+ 
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+@@ -1001,6 +1001,68 @@ netxen_nic_detach(struct netxen_adapter *adapter)
+ 	adapter->is_up = 0;
  }
  
--static bool netxen_tso_check(struct net_device *netdev,
--		      struct cmd_desc_type0 *desc, struct sk_buff *skb)
-+static void
-+netxen_tso_check(struct net_device *netdev,
-+		struct nx_host_tx_ring *tx_ring,
-+		struct cmd_desc_type0 *first_desc,
-+		struct sk_buff *skb)
- {
--	bool tso = false;
- 	u8 opcode = TX_ETHER_PKT;
- 	__be16 protocol = skb->protocol;
- 	u16 flags = 0;
-+	u32 producer;
-+	int copied, offset, copy_len, hdr_len = 0, tso = 0;
-+	struct cmd_desc_type0 *hwdesc;
- 
- 	if (protocol == cpu_to_be16(ETH_P_8021Q)) {
- 		struct vlan_ethhdr *vh = (struct vlan_ethhdr *)skb->data;
-@@ -1327,13 +1332,14 @@ static bool netxen_tso_check(struct net_device *netdev,
- 	if ((netdev->features & (NETIF_F_TSO | NETIF_F_TSO6)) &&
- 			skb_shinfo(skb)->gso_size > 0) {
- 
--		desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
--		desc->total_hdr_length =
--			skb_transport_offset(skb) + tcp_hdrlen(skb);
-+		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++static int
++netxen_setup_netdev(struct netxen_adapter *adapter,
++		struct net_device *netdev)
++{
++	int err = 0;
++	struct pci_dev *pdev = adapter->pdev;
 +
-+		first_desc->mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
-+		first_desc->total_hdr_length = hdr_len;
- 
- 		opcode = (protocol == cpu_to_be16(ETH_P_IPV6)) ?
- 				TX_TCP_LSO6 : TX_TCP_LSO;
--		tso = true;
-+		tso = 1;
- 
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		u8 l4proto;
-@@ -1354,10 +1360,39 @@ static bool netxen_tso_check(struct net_device *netdev,
- 				opcode = TX_UDPV6_PKT;
- 		}
- 	}
--	desc->tcp_hdr_offset = skb_transport_offset(skb);
--	desc->ip_hdr_offset = skb_network_offset(skb);
--	netxen_set_tx_flags_opcode(desc, flags, opcode);
--	return tso;
-+	first_desc->tcp_hdr_offset = skb_transport_offset(skb);
-+	first_desc->ip_hdr_offset = skb_network_offset(skb);
-+	netxen_set_tx_flags_opcode(first_desc, flags, opcode);
++	adapter->rx_csum = 1;
++	adapter->mc_enabled = 0;
++	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
++		adapter->max_mc_count = 38;
++	else
++		adapter->max_mc_count = 16;
 +
-+	if (!tso)
-+		return;
++	netdev->netdev_ops	   = &netxen_netdev_ops;
++	netdev->watchdog_timeo     = 2*HZ;
 +
-+	/* For LSO, we need to copy the MAC/IP/TCP headers into
-+	 * the descriptor ring
-+	 */
-+	producer = tx_ring->producer;
-+	copied = 0;
-+	offset = 2;
++	netxen_nic_change_mtu(netdev, netdev->mtu);
 +
-+	while (copied < hdr_len) {
++	SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
 +
-+		copy_len = min((int)sizeof(struct cmd_desc_type0) - offset,
-+				(hdr_len - copied));
++	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
++	netdev->features |= (NETIF_F_GRO);
++	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
 +
-+		hwdesc = &tx_ring->desc_head[producer];
-+		tx_ring->cmd_buf_arr[producer].skb = NULL;
-+
-+		skb_copy_from_linear_data_offset(skb, copied,
-+				 (char *)hwdesc + offset, copy_len);
-+
-+		copied += copy_len;
-+		offset = 0;
-+
-+		producer = get_next_index(producer, tx_ring->num_desc);
++	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
++		netdev->features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
++		netdev->vlan_features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
 +	}
 +
-+	tx_ring->producer = producer;
-+	barrier();
- }
- 
- static void
-@@ -1381,9 +1416,8 @@ netxen_clean_tx_dma_mapping(struct pci_dev *pdev,
- static inline void
- netxen_clear_cmddesc(u64 *desc)
- {
--	int i;
--	for (i = 0; i < 8; i++)
--		desc[i] = 0ULL;
-+	desc[0] = 0ULL;
-+	desc[2] = 0ULL;
- }
- 
- static int
-@@ -1391,18 +1425,18 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- {
- 	struct netxen_adapter *adapter = netdev_priv(netdev);
- 	struct nx_host_tx_ring *tx_ring = adapter->tx_ring;
--	unsigned int first_seg_len = skb->len - skb->data_len;
-+	struct skb_frag_struct *frag;
- 	struct netxen_cmd_buffer *pbuf;
- 	struct netxen_skb_frag *buffrag;
--	struct cmd_desc_type0 *hwdesc;
--	struct pci_dev *pdev = adapter->pdev;
-+	struct cmd_desc_type0 *hwdesc, *first_desc;
-+	struct pci_dev *pdev;
- 	dma_addr_t temp_dma;
- 	int i, k;
-+	unsigned long offset;
- 
- 	u32 producer;
--	int frag_count, no_of_desc;
-+	int len, frag_count, no_of_desc;
- 	u32 num_txd = tx_ring->num_desc;
--	bool is_tso = false;
- 
- 	frag_count = skb_shinfo(skb)->nr_frags + 1;
- 
-@@ -1416,32 +1450,30 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	producer = tx_ring->producer;
- 
--	hwdesc = &tx_ring->desc_head[producer];
--	netxen_clear_cmddesc((u64 *)hwdesc);
--	pbuf = &tx_ring->cmd_buf_arr[producer];
-+	pdev = adapter->pdev;
-+	len = skb->len - skb->data_len;
- 
--	is_tso = netxen_tso_check(netdev, hwdesc, skb);
-+	temp_dma = pci_map_single(pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(pdev, temp_dma))
-+		goto drop_packet;
- 
-+	pbuf = &tx_ring->cmd_buf_arr[producer];
- 	pbuf->skb = skb;
- 	pbuf->frag_count = frag_count;
--	buffrag = &pbuf->frag_array[0];
--	temp_dma = pci_map_single(pdev, skb->data, first_seg_len,
--				      PCI_DMA_TODEVICE);
--	if (pci_dma_mapping_error(pdev, temp_dma))
--		goto drop_packet;
- 
-+	buffrag = &pbuf->frag_array[0];
- 	buffrag->dma = temp_dma;
--	buffrag->length = first_seg_len;
-+	buffrag->length = len;
++	if (adapter->pci_using_dac) {
++		netdev->features |= NETIF_F_HIGHDMA;
++		netdev->vlan_features |= NETIF_F_HIGHDMA;
++	}
 +
-+	first_desc = hwdesc = &tx_ring->desc_head[producer];
-+	netxen_clear_cmddesc((u64 *)hwdesc);
- 	netxen_set_tx_frags_len(hwdesc, frag_count, skb->len);
- 	netxen_set_tx_port(hwdesc, adapter->portnum);
++	netdev->irq = adapter->msix_entries[0].vector;
++
++	err = netxen_napi_add(adapter, netdev);
++	if (err)
++		return err;
++
++	init_timer(&adapter->watchdog_timer);
++	adapter->watchdog_timer.function = &netxen_watchdog;
++	adapter->watchdog_timer.data = (unsigned long)adapter;
++	INIT_WORK(&adapter->watchdog_task, netxen_watchdog_task);
++	INIT_WORK(&adapter->tx_timeout_task, netxen_reset_task);
++
++	if (netxen_read_mac_addr(adapter))
++		dev_warn(&pdev->dev, "failed to read mac addr\n");
++
++	netif_carrier_off(netdev);
++	netif_stop_queue(netdev);
++
++	err = register_netdev(netdev);
++	if (err) {
++		dev_err(&pdev->dev, "failed to register net device\n");
++		return err;
++	}
++
++	return 0;
++}
++
+ static int __devinit
+ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+@@ -1038,9 +1100,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
--	hwdesc->buffer_length[0] = cpu_to_le16(first_seg_len);
--	hwdesc->addr_buffer1 = cpu_to_le64(buffrag->dma);
-+	hwdesc->buffer_length[0] = cpu_to_le16(len);
-+	hwdesc->addr_buffer1 = cpu_to_le64(temp_dma);
- 
- 	for (i = 1, k = 1; i < frag_count; i++, k++) {
--		struct skb_frag_struct *frag;
--		int len, temp_len;
--		unsigned long offset;
- 
- 		/* move to next desc. if there is a need */
- 		if ((i & 0x3) == 0) {
-@@ -1452,11 +1484,11 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 			pbuf = &tx_ring->cmd_buf_arr[producer];
- 			pbuf->skb = NULL;
- 		}
-+		buffrag = &pbuf->frag_array[i];
- 		frag = &skb_shinfo(skb)->frags[i - 1];
- 		len = frag->size;
- 		offset = frag->page_offset;
- 
--		temp_len = len;
- 		temp_dma = pci_map_page(pdev, frag->page, offset,
- 					len, PCI_DMA_TODEVICE);
- 		if (pci_dma_mapping_error(pdev, temp_dma)) {
-@@ -1464,11 +1496,10 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 			goto drop_packet;
- 		}
- 
--		buffrag++;
- 		buffrag->dma = temp_dma;
--		buffrag->length = temp_len;
-+		buffrag->length = len;
- 
--		hwdesc->buffer_length[k] = cpu_to_le16(temp_len);
-+		hwdesc->buffer_length[k] = cpu_to_le16(len);
- 		switch (k) {
- 		case 0:
- 			hwdesc->addr_buffer1 = cpu_to_le64(temp_dma);
-@@ -1483,53 +1514,14 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 			hwdesc->addr_buffer4 = cpu_to_le64(temp_dma);
- 			break;
- 		}
--		frag++;
+ 	netdev = alloc_etherdev(sizeof(struct netxen_adapter));
+ 	if(!netdev) {
+-		printk(KERN_ERR"%s: Failed to allocate memory for the "
+-				"device block.Check system memory resource"
+-				" usage.\n", netxen_nic_driver_name);
++		dev_err(&pdev->dev, "failed to allocate net_device\n");
++		err = -ENOMEM;
+ 		goto err_out_free_res;
  	}
--	producer = get_next_index(producer, num_txd);
-+	tx_ring->producer = get_next_index(producer, num_txd);
  
--	/* For LSO, we need to copy the MAC/IP/TCP headers into
--	 * the descriptor ring
--	 */
--	if (is_tso) {
--		int hdr_len, first_hdr_len, more_hdr;
--		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
--		if (hdr_len > (sizeof(struct cmd_desc_type0) - 2)) {
--			first_hdr_len = sizeof(struct cmd_desc_type0) - 2;
--			more_hdr = 1;
--		} else {
--			first_hdr_len = hdr_len;
--			more_hdr = 0;
--		}
--		/* copy the MAC/IP/TCP headers to the cmd descriptor list */
--		hwdesc = &tx_ring->desc_head[producer];
--		pbuf = &tx_ring->cmd_buf_arr[producer];
--		pbuf->skb = NULL;
+@@ -1068,38 +1129,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* This will be reset for mezz cards  */
+ 	adapter->portnum = pci_func_id;
+-	adapter->rx_csum = 1;
+-	adapter->mc_enabled = 0;
+-	if (NX_IS_REVISION_P3(revision_id))
+-		adapter->max_mc_count = 38;
+-	else
+-		adapter->max_mc_count = 16;
 -
--		/* copy the first 64 bytes */
--		memcpy(((void *)hwdesc) + 2,
--		       (void *)(skb->data), first_hdr_len);
--		producer = get_next_index(producer, num_txd);
+-	netdev->netdev_ops	   = &netxen_netdev_ops;
+-	netdev->watchdog_timeo     = 2*HZ;
 -
--		if (more_hdr) {
--			hwdesc = &tx_ring->desc_head[producer];
--			pbuf = &tx_ring->cmd_buf_arr[producer];
--			pbuf->skb = NULL;
--			/* copy the next 64 bytes - should be enough except
--			 * for pathological case
--			 */
--			skb_copy_from_linear_data_offset(skb, first_hdr_len,
--							 hwdesc,
--							 (hdr_len -
--							  first_hdr_len));
--			producer = get_next_index(producer, num_txd);
--		}
+-	netxen_nic_change_mtu(netdev, netdev->mtu);
+-
+-	SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
+-
+-	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
+-	netdev->features |= (NETIF_F_GRO);
+-	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO);
+-
+-	if (NX_IS_REVISION_P3(revision_id)) {
+-		netdev->features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
+-		netdev->vlan_features |= (NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
 -	}
 -
--	tx_ring->producer = producer;
--	adapter->stats.txbytes += skb->len;
-+	netxen_tso_check(netdev, tx_ring, first_desc, skb);
+-	if (adapter->pci_using_dac) {
+-		netdev->features |= NETIF_F_HIGHDMA;
+-		netdev->vlan_features |= NETIF_F_HIGHDMA;
+-	}
  
- 	netxen_nic_update_cmd_producer(adapter, tx_ring);
+-	if (netxen_nic_get_board_info(adapter) != 0) {
+-		printk("%s: Error getting board config info.\n",
+-				netxen_nic_driver_name);
+-		err = -EIO;
++	err = netxen_nic_get_board_info(adapter);
++	if (err) {
++		dev_err(&pdev->dev, "Error getting board config info.\n");
+ 		goto err_out_iounmap;
+ 	}
  
-+	adapter->stats.txbytes += skb->len;
- 	adapter->stats.xmitcalled++;
+@@ -1119,6 +1152,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	err = netxen_start_firmware(adapter, 1);
+ 	if (err)
+ 		goto err_out_iounmap;
++
+ 	/*
+ 	 * See if the firmware gave us a virtual-physical port mapping.
+ 	 */
+@@ -1133,31 +1167,9 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	return NETDEV_TX_OK;
+ 	netxen_setup_intr(adapter);
+ 
+-	netdev->irq = adapter->msix_entries[0].vector;
+-
+-	if (netxen_napi_add(adapter, netdev))
+-		goto err_out_disable_msi;
+-
+-	init_timer(&adapter->watchdog_timer);
+-	adapter->watchdog_timer.function = &netxen_watchdog;
+-	adapter->watchdog_timer.data = (unsigned long)adapter;
+-	INIT_WORK(&adapter->watchdog_task, netxen_watchdog_task);
+-	INIT_WORK(&adapter->tx_timeout_task, netxen_tx_timeout_task);
+-
+-	err = netxen_read_mac_addr(adapter);
++	err = netxen_setup_netdev(adapter, netdev);
+ 	if (err)
+-		dev_warn(&pdev->dev, "failed to read mac addr\n");
+-
+-	netif_carrier_off(netdev);
+-	netif_stop_queue(netdev);
+-
+-	if ((err = register_netdev(netdev))) {
+-		printk(KERN_ERR "%s: register_netdev failed port #%d"
+-			       " aborting\n", netxen_nic_driver_name,
+-			       adapter->portnum);
+-		err = -EIO;
+ 		goto err_out_disable_msi;
+-	}
+ 
+ 	pci_set_drvdata(pdev, adapter);
+ 
+@@ -1676,10 +1688,13 @@ static void netxen_tx_timeout(struct net_device *netdev)
+ {
+ 	struct netxen_adapter *adapter = (struct netxen_adapter *)
+ 						netdev_priv(netdev);
++
++	dev_err(&netdev->dev, "transmit timeout, resetting.\n");
++
+ 	SCHEDULE_WORK(&adapter->tx_timeout_task);
+ }
+ 
+-static void netxen_tx_timeout_task(struct work_struct *work)
++static void netxen_reset_task(struct work_struct *work)
+ {
+ 	struct netxen_adapter *adapter =
+ 		container_of(work, struct netxen_adapter, tx_timeout_task);
+@@ -1687,9 +1702,6 @@ static void netxen_tx_timeout_task(struct work_struct *work)
+ 	if (!netif_running(adapter->netdev))
+ 		return;
+ 
+-	printk(KERN_ERR "%s %s: transmit timeout, resetting.\n",
+-	       netxen_nic_driver_name, adapter->netdev->name);
+-
+ 	netxen_napi_disable(adapter);
+ 
+ 	adapter->netdev->trans_start = jiffies;
 -- 
 1.6.0.2
 
