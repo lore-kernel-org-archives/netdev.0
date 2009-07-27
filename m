@@ -1,57 +1,43 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [net-2.6 PATCH] ixgbe: fix for 82599 errata marking UDP checksum
- errors
-Date: Sun, 26 Jul 2009 23:11:40 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0907262306090.9296@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <20090724040031.30202.1531.stgit@localhost.localdomain>
- <20090726.202154.00452824.davem@davemloft.net>
+From: "=?windows-1252?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: net-next-2.6 phonet causes build error
+Date: Mon, 27 Jul 2009 09:27:55 +0300
+Message-ID: <200907270927.55728.remi.denis-courmont@nokia.com>
+References: <4A6CA3BF.7010709@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:19124 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750908AbZG0GLk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2009 02:11:40 -0400
-In-Reply-To: <20090726.202154.00452824.davem@davemloft.net>
+Received: from smtp.nokia.com ([192.100.122.230]:18352 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753432AbZG0GZg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 02:25:36 -0400
+Received: from esebh105.NOE.Nokia.com (esebh105.ntc.nokia.com [172.21.138.211])
+	by mgw-mx03.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6R6PO6f008184
+	for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 09:25:28 +0300
+Received: from leon.remlab.net (esdhcp035142.research.nokia.com [172.21.35.142])
+	by mgw-da02.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6R6PKZL004080
+	for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 09:25:21 +0300
+In-Reply-To: <4A6CA3BF.7010709@hartkopp.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 26 Jul 2009, David Miller wrote:
+On Sunday 26 July 2009 21:43:11 ext Oliver Hartkopp wrote:
+> i got this build error from the latest net-next-2.6:
+>
+> net/phonet/pn_dev.c: In function =91phonet_init_net=92:
+> net/phonet/pn_dev.c:221: error: implicit declaration of function
+> =91proc_net_fops_create=92
+> net/phonet/pn_dev.c: In function =91phonet_exit_net=92:
+> net/phonet/pn_dev.c:242: error: implicit declaration of function
+> =91proc_net_remove=92
 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Thu, 23 Jul 2009 21:00:39 -0700
-> 
-> > From: Don Skidmore <donald.c.skidmore@intel.com>
-> > 
-> > There is an 82599 errata that UDP frames with a zero checksum are
-> > incorrectly marked as checksum invalid by the hardware.  This was
-> > leading to misleading hw_csum_rx_error counts. This patch adds a
-> > test around this counter increase for this condition.
-> > 
-> > Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> 
-> Applied, thanks.
-> 
-> But I wonder.   When you compute a checksum, and it's zero,
-> you have to use the complement as the checksum value.  How
-> does that relate to the problem being tackled here?
+Oops. This makes me wonder why I did not get that one here on my test=20
+builds???
 
-The problem is our hardware has an errata.  If the packet data contains no 
-checksum, or no checksum computed, our hardware doesn't recognize it.  So 
-when it tries to compute the checksum on Rx, it doesn't just figure out 
-that it needs to use the one's complement.  So it's not recognizing the 
-fact the checksum is either not computed, or computes to zero.
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
-The only place we've seen this show up is receiving from pktgen, where no 
-checksum is computed.  It is a really stupid HW errata, and is just an 
-annoyance really (our bad checksum counter soars when doing pktgen stress 
-testing).
-
-Cheers,
--PJ Waskiewicz
