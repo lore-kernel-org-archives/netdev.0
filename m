@@ -1,50 +1,35 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: net-next-2.6 phonet causes build error
-Date: Mon, 27 Jul 2009 17:18:29 +0200
-Message-ID: <1248707909.28545.200.camel@violet>
-References: <4A6CA3BF.7010709@hartkopp.net>
-	 <200907270927.55728.remi.denis-courmont@nokia.com>
-	 <20090727.080158.118098654.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: shrink net_device by #ifdef-ing protocol-specific
+ members
+Date: Mon, 27 Jul 2009 08:26:44 -0700 (PDT)
+Message-ID: <20090727.082644.265102452.davem@davemloft.net>
+References: <4A6DC314.2010303@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: lgrijincu@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:55988 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634AbZG0PTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 11:19:33 -0400
-In-Reply-To: <20090727.080158.118098654.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40536
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752127AbZG0P0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 11:26:37 -0400
+In-Reply-To: <4A6DC314.2010303@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+Date: Mon, 27 Jul 2009 18:09:08 +0300
 
-> >> net/phonet/pn_dev.c: In function =E2=80=98phonet_init_net=E2=80=99=
-:
-> >> net/phonet/pn_dev.c:221: error: implicit declaration of function
-> >> =E2=80=98proc_net_fops_create=E2=80=99
-> >> net/phonet/pn_dev.c: In function =E2=80=98phonet_exit_net=E2=80=99=
-:
-> >> net/phonet/pn_dev.c:242: error: implicit declaration of function
-> >> =E2=80=98proc_net_remove=E2=80=99
-> >=20
-> > Oops. This makes me wonder why I did not get that one here on my te=
-st=20
-> > builds???
->=20
-> Because the headers on your platform with your configuration end up
-> including linux/proc_fs.h indirectly.
+> Some members of net_device are used only by some protocols.
+> 
+> If those protocols are not compiled (as modules or linked in) they
+> should not take up space in the structure.
 
-this and similar automatic includes on x86 are still a problem. I alway=
-s
-try to compile test with a PPC based system, but even that architecture
-has a lot of indirect includes. I would be happy if we could get rid of
-these for x86 systems, but that seems a little bit wishful thinking.
+This benefits, at best, %0.000000001 of users of the Linux kernel,
+because every distribution is going to turn on every single option.
 
-Regards
+If you want to shrink structures, find ways to eliminate or
+shrink structure members in all cases.
 
-Marcel
-
-
+I'm not applying this.
