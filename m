@@ -1,33 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG
-	messages
-Date: Mon, 27 Jul 2009 12:37:55 +1000
-Message-ID: <20090727023754.GC723@verge.net.au>
-References: <20090624132232.GA9633@egardia> <20090724024711.GA13280@verge.net.au> <4A6937B5.3040707@gmail.com> <20090726.191905.158195470.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: deprecate print_mac
+Date: Sun, 26 Jul 2009 19:48:52 -0700 (PDT)
+Message-ID: <20090726.194852.219170593.davem@davemloft.net>
+References: <1247671403.10754.8.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, julius.volz@gmail.com,
-	robert.gallagher@heanet.ie
-To: David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090726.191905.158195470.davem@davemloft.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56699
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755315AbZG0Csq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:48:46 -0400
+In-Reply-To: <1247671403.10754.8.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 26, 2009 at 07:19:05PM -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 24 Jul 2009 06:25:25 +0200
-> 
-> > I see no reference to ICMPV6_PKT_TOOBIG in this patch, so ChangeLog
-> > might be misleading or uncomplete, since other ICMPV6 message types
-> > (ICMPV6_DEST_UNREACH/ICMPV6_TIME_EXCEED) will also be forwarded/handled
-> > ?
-> 
-> Agreed, this commit message could use a tidy.  What the patch actually is
-> doing is adding the handling of ipv6 icmp messages at all.
-> 
-> Simon could you clarify the commit message a bit and resubmit?
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 15 Jul 2009 17:23:23 +0200
 
-Will do.
+> We've had %pM for long enough now, time to deprecate
+> print_mac() and remove the __maybe_unused attribute
+> from DECLARE_MAC_BUF so that variables declared with
+> that can be found and removed. Otherwise people are
+> putting in new users of print_mac().
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+Applied.
