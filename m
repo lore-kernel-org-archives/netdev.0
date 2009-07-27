@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2x: Dont update vlan_features in
- bnx2x_set_tso()
-Date: Sun, 26 Jul 2009 19:49:20 -0700 (PDT)
-Message-ID: <20090726.194920.212730625.davem@davemloft.net>
-References: <1248394379.13301.2.camel@HP1>
-	<4A6960EF.5020204@gmail.com>
-	<1248605623.18195.58.camel@lb-tlvb-eilong>
+Subject: Re: [PATCH net-next-2.6] ethtool: device independent rx_csum and
+ get_flags routines
+Date: Sun, 26 Jul 2009 19:49:57 -0700 (PDT)
+Message-ID: <20090726.194957.162341485.davem@davemloft.net>
+References: <1248305902.1061.84.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mchan@broadcom.com, ogerlitz@voltaire.com,
-	kaber@trash.net, fubar@us.ibm.com, netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org
+To: sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56702
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56709
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755748AbZG0CtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:49:14 -0400
-In-Reply-To: <1248605623.18195.58.camel@lb-tlvb-eilong>
+	by vger.kernel.org with ESMTP id S1755480AbZG0Ctu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:49:50 -0400
+In-Reply-To: <1248305902.1061.84.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Sun, 26 Jul 2009 13:53:43 +0300
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Wed, 22 Jul 2009 16:38:22 -0700
 
-> On Fri, 2009-07-24 at 00:21 -0700, Eric Dumazet wrote:
->> Based on Patrick feedback, I believe we can add this followup too
->> 
->> [PATCH net-next-2.6] bnx2x: Dont update vlan_features in bnx2x_set_tso()
->> 
->> Patrick said : "vlan_features doesn't need to be updated, the resulting
->> dev->features of the VLAN device is computed as the intersection of
->> dev->features and dev->vlan_features."
->> 
-> Thanks Eric
+> [PATCH net-next-2.6] ethtool: add device independent rx_csum and get_flags routines
 > 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+> This helps avoid error messages with ethtool -k on devices that
+> don't provide device specific routines.
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Applied, thanks.
+Applied.
