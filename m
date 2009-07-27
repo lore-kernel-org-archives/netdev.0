@@ -1,53 +1,38 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC][PATCH 5/5] libxt_ipvs: user space lib for netfilter matcher
- xt_ipvs
-Date: Mon, 27 Jul 2009 20:40:23 +0200 (CEST)
-Message-ID: <alpine.LSU.2.00.0907272037500.20984@fbirervta.pbzchgretzou.qr>
-References: <20090727134457.12897.272.stgit@jazzy.zrh.corp.google.com> <20090727134852.13319.39035.stgit@jazzy.zrh.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] IPVS: logging sizeof(struct ip_vs_conn) on startup
+Date: Mon, 27 Jul 2009 11:48:45 -0700 (PDT)
+Message-ID: <20090727.114845.177925839.davem@davemloft.net>
+References: <4A6D7285.9080909@gmail.com>
+	<b5ddba180907270334m4bc4e968m85c16ea4756c3f5d@mail.gmail.com>
+	<20090727131357.9561.39720.stgit@jazzy.zrh.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hannes Eder <heder@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20090727134852.13319.39035.stgit@jazzy.zrh.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	lvs-users@linuxvirtualserver.org, malcolm@loadbalancer.org,
+	linux-kernel@vger.kernel.org, horms@verge.net.au
+To: heder@google.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754165AbZG0Ssj@vger.kernel.org>
+In-Reply-To: <20090727131357.9561.39720.stgit@jazzy.zrh.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Hannes Eder <heder@google.com>
+Date: Mon, 27 Jul 2009 15:13:57 +0200
 
-On Monday 2009-07-27 15:48, Hannes Eder wrote:
->+
->+	switch (c) {
->+	case '0': /* --ipvs */
->+		/* Nothing to do here. */
+> No more guessing, how much memory used by IPVS for a connection.
+> 
+> [ The number printed is a lower bound, as ip_vs_conn_cache uses
+> SLAB_HWCACHE_ALIGN. ]
+> 
+> Signed-off-by: Hannes Eder <heder@google.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-		Then why add it?
+Who needs to know this?  A developer?
 
->+	char buf[BUFSIZ];
->+
->+	if (family == NFPROTO_IPV4) {
->+		if (!numeric && addr->ip == 0) {
->+			printf("anywhere ");
->+			return;
->+		}
->+		if (numeric)
->+			strcpy(buf, xtables_ipaddr_to_numeric(&addr->in));
->+		else
->+			strcpy(buf, xtables_ipaddr_to_anyname(&addr->in));
->+		strcat(buf, xtables_ipmask_to_numeric(&mask->in));
->+		printf("%s ", buf);
+They can run tools such as 'pahole' et al. to fish out this
+information even when only a kernel binary is available.
 
-There is no need to use the strcpy/strcat hacks. Just directly printf it.
+For the user, it's just noise.
 
->--- /dev/null
->+++ b/extensions/libxt_ipvs.man
->@@ -0,0 +1,7 @@
->+ipvs tests where the packet was modified by IPVS, i.e. is the
->+skb_buff->ipvs_property set.
->+.TP
->+[\fB!\fP] \fB--ipvs
->+Does the packet have to IPVS property?
->+
->+TODO: Write proper documentation.
-
-Yes.
+I'm not applying this, sorry.
