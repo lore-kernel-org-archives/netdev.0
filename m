@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: WakeOnLan fix for the 8168
-Date: Sun, 26 Jul 2009 20:19:14 -0700 (PDT)
-Message-ID: <20090726.201914.110188393.davem@davemloft.net>
-References: <20090724223419.GA13085@electric-eye.fr.zoreil.com>
+Subject: Re: [net-2.6 PATCH] ixgbe: fix for 82599 errata marking UDP
+ checksum errors
+Date: Sun, 26 Jul 2009 20:21:54 -0700 (PDT)
+Message-ID: <20090726.202154.00452824.davem@davemloft.net>
+References: <20090724040031.30202.1531.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, tavvva@volny.cz, edward_hsu@realtek.com.tw
-To: romieu@fr.zoreil.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	donald.c.skidmore@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49053
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48566
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755461AbZG0DTH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jul 2009 23:19:07 -0400
-In-Reply-To: <20090724223419.GA13085@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1755847AbZG0DVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 23:21:47 -0400
+In-Reply-To: <20090724040031.30202.1531.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 25 Jul 2009 00:34:19 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 23 Jul 2009 21:00:39 -0700
 
-> More stuff for http://bugzilla.kernel.org/show_bug.cgi?id=3D9512
->=20
-> Some 8168 are unable to WoL when receiving is not enabled (plain
-> old 8169 do not seem to care).
->=20
-> It is not exactly pretty to leave the receiver enabled but we
-> should now enable DMA late enough for it to be safe. Some late
-> stage boot failure due to pxe and friends may benefit from the
-> delayed enabling of bus-mastering as well.
->=20
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Tested-by: Jarom=EDr C=E1p=EDk <tavvva@volny.cz>
+> From: Don Skidmore <donald.c.skidmore@intel.com>
+> 
+> There is an 82599 errata that UDP frames with a zero checksum are
+> incorrectly marked as checksum invalid by the hardware.  This was
+> leading to misleading hw_csum_rx_error counts. This patch adds a
+> test around this counter increase for this condition.
+> 
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied.
+Applied, thanks.
+
+But I wonder.   When you compute a checksum, and it's zero,
+you have to use the complement as the checksum value.  How
+does that relate to the problem being tackled here?
+
