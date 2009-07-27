@@ -1,45 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add some function overview comments in tcp_input.c
-Date: Sun, 26 Jul 2009 19:23:21 -0700 (PDT)
-Message-ID: <20090726.192321.257422911.davem@davemloft.net>
-References: <20090724094719.GA19200@basil.fritz.box>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG
+	messages
+Date: Mon, 27 Jul 2009 12:37:55 +1000
+Message-ID: <20090727023754.GC723@verge.net.au>
+References: <20090624132232.GA9633@egardia> <20090724024711.GA13280@verge.net.au> <4A6937B5.3040707@gmail.com> <20090726.191905.158195470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59685
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754914AbZG0CXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:23:14 -0400
-In-Reply-To: <20090724094719.GA19200@basil.fritz.box>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, julius.volz@gmail.com,
+	robert.gallagher@heanet.ie
+To: David Miller <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090726.191905.158195470.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Fri, 24 Jul 2009 11:47:19 +0200
-
-> Add some function overview comments in tcp_input.c
+On Sun, Jul 26, 2009 at 07:19:05PM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 24 Jul 2009 06:25:25 +0200
 > 
-> Only partial so far. I didn't attempt to accurately comment
-> the SACK machinery and the congestion state machine. 
+> > I see no reference to ICMPV6_PKT_TOOBIG in this patch, so ChangeLog
+> > might be misleading or uncomplete, since other ICMPV6 message types
+> > (ICMPV6_DEST_UNREACH/ICMPV6_TIME_EXCEED) will also be forwarded/handled
+> > ?
 > 
-> I also fixed the grammar in one or two other comments
-> (but still trying to keep the authentic "ANK language" @)
+> Agreed, this commit message could use a tidy.  What the patch actually is
+> doing is adding the handling of ipv6 icmp messages at all.
 > 
-> No code changes.
-> 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> Simon could you clarify the commit message a bit and resubmit?
 
-Most of your comments sound exactly the same as what I
-hear when I say the function's name out loud.
-
-That's worse than wasted space.
-
-What's the chapter from The Practice of Programming where
-they advise against this with a bunch of amusing examples?
-:-)
-
-I'm not applying this, sorry.
-
+Will do.
