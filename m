@@ -1,94 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Idea about increasing efficency of skb allocation in network
- devices
-Date: Mon, 27 Jul 2009 09:58:22 +0200
-Message-ID: <4A6D5E1E.3090907@gmail.com>
-References: <20090727003609.GA30438@localhost.localdomain> <20090726.180254.202825489.davem@davemloft.net> <4A6D52FF.2030008@inria.fr>
+From: "=?windows-1252?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: net-next-2.6 phonet causes build error
+Date: Mon, 27 Jul 2009 11:06:02 +0300
+Message-ID: <200907271106.02456.remi.denis-courmont@nokia.com>
+References: <4A6CA3BF.7010709@hartkopp.net> <200907270927.55728.remi.denis-courmont@nokia.com> <4A6D512A.1050504@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
-	netdev@vger.kernel.org
-To: Brice Goglin <Brice.Goglin@inria.fr>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: ext Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:52027 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbZG0H6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 03:58:36 -0400
-In-Reply-To: <4A6D52FF.2030008@inria.fr>
+Received: from smtp.nokia.com ([192.100.105.134]:45730 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718AbZG0IDy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 04:03:54 -0400
+In-Reply-To: <4A6D512A.1050504@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin a =E9crit :
-> David Miller wrote:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Sun, 26 Jul 2009 20:36:09 -0400
->>
->>  =20
->>> 	Since Network devices dma their memory into a provided DMA
->>> buffer (which can usually be at an arbitrary location, as they must
->>> cross potentially several pci busses to reach any memory location),
->>> I'm postulating that it would increase our receive path efficiency
->>> to provide a hint to the driver layer as to which node to allocate
->>> an skb data buffer on.  This hint would be determined by a feedback
->>> mechanism.  I was thinking that we could provide a callback functio=
-n
->>> via the skb, that accepted the skb and the originating net_device.
->>> This callback can track statistics on which numa nodes consume
->>> (read: copy data from) skbs that were produced by specific net
->>> devices.  Then, when in the future that netdevice allocates a new
->>> skb (perhaps via netdev_alloc_skb), we can use that statistical
->>> profile to determine if the data buffer should be allocated on the
->>> local node, or on a remote node instead.
->>>    =20
->> No matter what, you will do an inter-node memory operation.
->>
->> Unless, the consumer NUMA node is the same as the one the
->> device is on.
->>
->> Because since the device is on a NUMA node, if you DMA remotely
->> you've eaten the NUMA cost already.
->>
->> If you always DMA to the device's NUMA node (what we try to do now) =
-at
->> least the is the possibility of eliminating cross-NUMA traffic.
->>
->> Better to move the application or stack processing towards the NUMA
->> node the network device is on, I think.
->>  =20
->=20
-> Is there an easy way to get this NUMA node from the application socke=
-t
-> descriptor?
+On Monday 27 July 2009 10:03:06 ext Eric Dumazet wrote:
+> R=E9mi Denis-Courmont a =E9crit :
+> > On Sunday 26 July 2009 21:43:11 ext Oliver Hartkopp wrote:
+> >> i got this build error from the latest net-next-2.6:
+> >>
+> >> net/phonet/pn_dev.c: In function =91phonet_init_net=92:
+> >> net/phonet/pn_dev.c:221: error: implicit declaration of function
+> >> =91proc_net_fops_create=92
+> >> net/phonet/pn_dev.c: In function =91phonet_exit_net=92:
+> >> net/phonet/pn_dev.c:242: error: implicit declaration of function
+> >> =91proc_net_remove=92
+> >
+> > Oops. This makes me wonder why I did not get that one here on my te=
+st
+> > builds???
+>
+> I also have this warning :
+>
+> net/phonet/pn_dev.c: In function `phonet_device_get':
+> net/phonet/pn_dev.c:99: warning: 'dev' might be used uninitialized in=
+ this
+> function
 
-Thats not easy, this information can change for every packet (think of
-bonding setups, whith aggregation of devices on different NUMA nodes)
+Right. This is indeed a bug - thanks. Either my gcc version is bad at t=
+hat=20
+stuff or I have missing debug options :(
 
-We could add a getsockopt() call to peek this information from the next
-data to be read from socket (returns node id where skb data is sitting,
-hoping that NIC driver hadnt copybreak it (ie : allocate a small skb an=
-d
-copy the device provided data on it before feeding packet to network st=
-ack))
+> What about following patch ?
+>
+> [PATCH] phonet: phonet_device_get() fix
+>
+> net/phonet/pn_dev.c: In function `phonet_device_get':
+> net/phonet/pn_dev.c:99: warning: 'dev' might be used uninitialized in=
+ this
+> function
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+
+> ---
+>
+> diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+> index b0d6ddd..c2b77a6 100644
+> --- a/net/phonet/pn_dev.c
+> +++ b/net/phonet/pn_dev.c
+> @@ -96,7 +96,7 @@ struct net_device *phonet_device_get(struct net *ne=
+t)
+>  {
+>  	struct phonet_device_list *pndevs =3D phonet_device_list(net);
+>  	struct phonet_device *pnd;
+> -	struct net_device *dev;
+> +	struct net_device *dev =3D NULL;
+>
+>  	spin_lock_bh(&pndevs->lock);
+>  	list_for_each_entry(pnd, &pndevs->list, list) {
 
 
-> Also, one question that was raised at the Linux Symposium is: how do =
-you
-> know which processors run the receive queue for a specific connection=
- ?
-> It would be nice to have a way to retrieve such information in the
-> application to avoid inter-node and inter-core/cache traffic.
 
-All this depends on the fact you have multiqueue devices or not, and
-trafic spreads on all queues or not.
-
-Assuming you have single queue device, only current way to handle
-this is to do the reverse thinking.
-
-Ie, bind NIC interrupts to the appropriate set of cpus, and
-possibly bind user apps threads dealing with network trafic to same set=
-=2E
-
-Only background or cpu hungry threads should be allowed to run
-on foreigns nodes.
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
 
