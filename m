@@ -1,30 +1,61 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: r8169 (+others ?) and note_interrupt performance hit on 2.6.30.x
-Date: Mon, 27 Jul 2009 23:52:52 +0200
-Message-ID: <4A6E21B4.7090103@gmail.com>
-References: <4A6BA3CE.9000607@ziu.info> <20090726091803.GA28374@electric-eye.fr.zoreil.com> <4A6CA3EF.7080909@ziu.info>
+From: Todd Merritt <tmerritt@email.arizona.edu>
+Subject: Re: ixgbe: panic in =?utf-8?b?aXhnYmVfY2xlYW5fcnhfaXJxKCk=?=
+Date: Mon, 27 Jul 2009 21:50:31 +0000 (UTC)
+Message-ID: <loom.20090727T214746-75@post.gmane.org>
+References: <1248266678.17215.15.camel@localhost.localdomain>  <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>  <1248338779.17215.23.camel@localhost.localdomain>  <1248362493.17215.45.camel@localhost.localdomain> <1248424910.17215.54.camel@localhost.localdomain> <Pine.WNT.4.64.0907241142370.2084@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Michal Soltys <soltys@ziu.info>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f221.google.com ([209.85.218.221]:44906 "EHLO
-	mail-bw0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754855AbZG0VxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 17:53:16 -0400
-Received: by bwz21 with SMTP id 21so534823bwz.37
-        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 14:53:15 -0700 (PDT)
-In-Reply-To: <4A6CA3EF.7080909@ziu.info>
+Received: from main.gmane.org ([80.91.229.2]:43667 "EHLO ciao.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751634AbZG0VzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2009 17:55:04 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1MVY9u-0001IF-My
+	for netdev@vger.kernel.org; Mon, 27 Jul 2009 21:55:03 +0000
+Received: from 150.135.210.16 ([150.135.210.16])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 21:55:02 +0000
+Received: from tmerritt by 150.135.210.16 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 21:55:02 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michal Soltys wrote, On 07/26/2009 08:43 PM:
+Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr <at> intel.com> writes:
 
-...
-> Anwyay, not sure if this is useful, so if there is anything better
-> I could do, just push me in the right direction.
+> 
+> On Fri, 24 Jul 2009, Jesper Dangaard Brouer wrote:
+> 
+> > On Thu, 2009-07-23 at 17:21 +0200, Jesper Dangaard Brouer wrote:
+> > > I'm going to run a test with a no-preempt kernel over night...
+> > 
+> > The no-preempt kernel has been stable for 17 hours, while running a four
+> > times 10GbE pktgen load test (using 1024 bytes packets).
+> > 
+> > Kernel git version (git describe):
+> >  v2.6.31-rc1-932-g8e321c4
+> > 
+> > Git ("git log e594e96..8e321c4 drivers/net/ixgbe") reports not changes
+> > to the ixgbe driver between these two kernel versions.
+> 
+> Thanks for the additional info Jesper.  This is definately a good data 
+> point.  I'm not sure where to go with the preemption debugging at this 
+> point with our driver under heavy load.  We're still trying to repro here.  
+> I'll keep digging around though in the meantime.
+> 
+> This is the second preemption-induced bug from ixgbe we've had reported in 
+> a few days.  Eek!
+> 
+We're getting a panic in the same function with the stable version of the ixgbe
+driver 2.0.38.2-1 on redhat 5 kernel-2.6.18-128.1.10.el5.  Is there a dev
+release of the driver that might have a fix in it ?
 
-Short test of 2.6.29? (Unless you prefer a bisection...)
+Thanks,
+Todd
 
-Jarek P.
+
+
