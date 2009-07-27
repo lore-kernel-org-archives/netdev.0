@@ -1,65 +1,55 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/3] trivial: fix typo in ieee802154
-	documentation and add it to index
-Date: Mon, 27 Jul 2009 18:08:15 +0400
-Message-ID: <1248703695-7043-4-git-send-email-dbaryshkov@gmail.com>
-References: <1248703695-7043-1-git-send-email-dbaryshkov@gmail.com>
-	<1248703695-7043-2-git-send-email-dbaryshkov@gmail.com>
-	<1248703695-7043-3-git-send-email-dbaryshkov@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1248703695-7043-3-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-From: Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo-DmMZpsCg3uxeGPcbtGPokg@public.gmane.org>
----
- Documentation/networking/00-INDEX       |    2 ++
- Documentation/networking/ieee802154.txt |    2 +-
- 2 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/Documentation/networking/00-INDEX b/Documentation/networking/00-INDEX
-index 1634c6d..50189bf 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -60,6 +60,8 @@ framerelay.txt
- 	- info on using Frame Relay/Data Link Connection Identifier (DLCI).
- generic_netlink.txt
- 	- info on Generic Netlink
-+ieee802154.txt
-+	- Linux IEEE 802.15.4 implementation, API and drivers
- ip-sysctl.txt
- 	- /proc/sys/net/ipv4/* variables
- ip_dynaddr.txt
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index a0280ad..1d4ed66 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -69,7 +69,7 @@ We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
- SoftMAC
- =======
- 
--We are going to provide intermediate layer impelementing IEEE 802.15.4 MAC
-+We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
- in software. This is currently WIP.
- 
- See header include/net/ieee802154/mac802154.h and several drivers in
--- 
-1.6.3.3
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PULL REQ][PATCH 0/3] ieee 802.15.4 documentation updates
+Date: Mon, 27 Jul 2009 18:08:12 +0400
+Message-ID: <1248703695-7043-1-git-send-email-dbaryshkov@gmail.com>
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	Sergey Lapin <slapin@ossfans.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:33909 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764AbZG0OIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 10:08:34 -0400
+Received: by fg-out-1718.google.com with SMTP id e21so828874fga.17
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 07:08:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
+Please pull 3 small updates for IEEE 802.15.4 code (documentation and headers move).
+
+The following changes since commit 72dccb01e8632aa5ffe58070003d0fa19d007116:
+  Eric Dumazet (1):
+        bnx2: Update vlan_features
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
+
+Daniel Silverstone (1):
+      IEEE80154: Add documentation to the IEEE80154 netlink and fakehard driver
+
+Dmitry Eremin-Solenikov (1):
+      ieee802154: move headers out of extra directory
+
+Thadeu Lima de Souza Cascardo (1):
+      trivial: fix typo in ieee802154 documentation and add it to index
+
+ Documentation/networking/00-INDEX                  |    2 +
+ Documentation/networking/ieee802154.txt            |    2 +-
+ drivers/ieee802154/fakehard.c                      |  128 +++++++++++++++++++-
+ include/net/{ieee802154 => }/af_ieee802154.h       |    0
+ include/net/{ieee802154/mac_def.h => ieee802154.h} |    4 +-
+ include/net/ieee802154/nl802154.h                  |   41 ------
+ .../netdevice.h => ieee802154_netdev.h}            |    0
+ include/net/nl802154.h                             |  117 ++++++++++++++++++
+ net/ieee802154/af_ieee802154.c                     |    4 +-
+ net/ieee802154/dgram.c                             |    6 +-
+ net/ieee802154/netlink.c                           |    6 +-
+ net/ieee802154/raw.c                               |    2 +-
+ 12 files changed, 255 insertions(+), 57 deletions(-)
+ rename include/net/{ieee802154 => }/af_ieee802154.h (100%)
+ rename include/net/{ieee802154/mac_def.h => ieee802154.h} (98%)
+ delete mode 100644 include/net/ieee802154/nl802154.h
+ rename include/net/{ieee802154/netdevice.h => ieee802154_netdev.h} (100%)
+ create mode 100644 include/net/nl802154.h
