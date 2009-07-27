@@ -1,55 +1,30 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: Re: [PATCH NEXT 12/12] netxen: update version to 4.0.41
-Date: Mon, 27 Jul 2009 14:51:28 -0700
-Message-ID: <4A6E2160.1090704@qlogic.com>
-References: <20090727.103842.52201957.davem@davemloft.net>	<20090727.105403.202219074.davem@davemloft.net>	<7608421F3572AB4292BB2532AE89D56581877E22A4@AVEXMB1.qlogic.org> <20090727.123807.268367807.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: r8169 (+others ?) and note_interrupt performance hit on 2.6.30.x
+Date: Mon, 27 Jul 2009 23:52:52 +0200
+Message-ID: <4A6E21B4.7090103@gmail.com>
+References: <4A6BA3CE.9000607@ziu.info> <20090726091803.GA28374@electric-eye.fr.zoreil.com> <4A6CA3EF.7080909@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:50188 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612AbZG0Vv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 17:51:28 -0400
-In-Reply-To: <20090727.123807.268367807.davem@davemloft.net>
+Received: from mail-bw0-f221.google.com ([209.85.218.221]:44906 "EHLO
+	mail-bw0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754855AbZG0VxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 17:53:16 -0400
+Received: by bwz21 with SMTP id 21so534823bwz.37
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 14:53:15 -0700 (PDT)
+In-Reply-To: <4A6CA3EF.7080909@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Agreed that it duplicates work in individual drivers,
-and the naming style followed by different vendors.
+Michal Soltys wrote, On 07/26/2009 08:43 PM:
 
-But the problem is ethtool can work only after driver
-has successfully initialized interfaces. Otherwise,
-ethtool gets no chance to tune up/down.
+...
+> Anwyay, not sure if this is useful, so if there is anything better
+> I could do, just push me in the right direction.
 
-The driver defaults are for tuned for typical use cases.
-On some frugal systems with lower amount of RAM, the
-driver bails out failing to allocate enough ring space
-or rx buffers [especially for 32-bit kernels]. This is
-also a problem for multi-function (more than one PCI
-function per physical port) mode, where number of
-interfaces and hence the memory consumption gets
-multiplied. For these cases something that can set
-the bar before device initialization, is quite helpful.
+Short test of 2.6.29? (Unless you prefer a bisection...)
 
-Thanks,
-Dhananjay
-
-
-
-David Miller wrote:
-> No, it is not good.
-> 
-> With module parameters we:
-> 
-> 1) duplicate functionality
-> 
-> 2) every device driver will name the module parms differently,
->    therefore the interface for the user is different for every device
->    type
-> 
-> We discuss this all the time, and this is a pretty deep rooted
-> belief and requirement for all network drivers.
-
+Jarek P.
