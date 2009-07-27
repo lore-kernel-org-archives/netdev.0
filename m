@@ -1,54 +1,61 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
-Date: Mon, 27 Jul 2009 13:39:03 +0200
-Message-ID: <4A6D91D7.6030204@hartkopp.net>
-References: <4A6AD807.6060706@hartkopp.net> <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk> <1248520053.28545.156.camel@violet> <20090725131046.0f076f37@lxorguk.ukuu.org.uk> <20090727095904.GA5442@darkstar> <4A6D8BA3.3030601@hartkopp.net>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] Add Support for Freescale FlexCAN CAN controller
+Date: Mon, 27 Jul 2009 14:12:11 +0200
+Message-ID: <4A6D999B.9010607@grandegger.com>
+References: <20090724131933.GL2714@pengutronix.de>	<4A69CB46.1090704@grandegger.com>	<20090727062559.GP2714@pengutronix.de>	<4A6D727B.7030304@grandegger.com>	<4A6D76B7.8030105@hartkopp.net> <4A6D7C7E.9050703@grandegger.com> <4A6D86F5.7030707@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-bluetooth@vger.kernel.org
-To: Dave Young <hidave.darkstar@gmail.com>
+Cc: Socketcan-core@lists.berlios.de,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:38157 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbZG0LjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 07:39:06 -0400
-In-Reply-To: <4A6D8BA3.3030601@hartkopp.net>
+Received: from mail-out.m-online.net ([212.18.0.10]:41331 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbZG0MMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 08:12:14 -0400
+In-Reply-To: <4A6D86F5.7030707@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Oliver Hartkopp wrote:
-> Dave Young wrote:
->> On Sat, Jul 25, 2009 at 01:10:46PM +0100, Alan Cox wrote:
->>>>> tty_register_device appears to have been called with a NULL pointer. Not
->>>>> sure why however.
->>>> if that is the pointer for the struct device, then that used to be fine
->>>> in the past. Not all RFCOMM device have a parent when they are created.
->>> The tty layer doesn't care about the struct device really. Nothing there
->>> has changed. The NULL passed appears to be the driver argument.
->> Agree with you, because in rfcomm_init, rfcomm thread run before tty initilized, the following patch may fix the problem.
->> oliver, could you verify it it fix your problem?
+> Wolfgang Grandegger wrote:
+>> Oliver Hartkopp wrote:
+>>> Wolfgang Grandegger wrote:
+>>>> Sascha Hauer wrote:
+>>>>> On Fri, Jul 24, 2009 at 04:55:02PM +0200, Wolfgang Grandegger wrote:
+>>>> [...]
+>>>>>>> +	kfree_skb(skb);
+>>>>>> Support for echo skb using can_put/get_echo_skb() is missing. It should
+>>>>>> not be a big deal to add it.
+>>>>> In fact it's not missing, but the hardware is configured to receive its
+>>>>> own packets, so this isn't needed.
+>>>> But the user may disable IFF_ECHO, which should be handled somehow.
+>>> Really?
+>>>
+>>> IMO IFF_ECHO indicates the capability of the network driver to perform the MAC
+>>> layer frame echo on driver level.
+>>>
+>>> Only when you have a CAN driver that does not have this capability (the 'bad'
+>>> non default case) this flag is cleared.
+>>>
+>>> There is no need to provide a mode that can switch this functionality 'on' and
+>>> 'off'. IFF_ECHO is just an indication provided by the driver.
+>>>
+>>> When the FlexCAN controller can 'receive' a sent frame, so that it reflects
+>>> the correct message order on the bus, this is perfect.
+>>>
+>>> In this case Sascha should set the IFF_ECHO flag and he's done.
+>> I thought the user can toggle the IFF_ECHO flag with the "ip" utility,
+>> but obviously I'm wrong.
 > 
-> Hi Dave,
+> AFAIK the only driver that currently allows to switch this flag is the vcan
+> driver - but this is for testing purposes only and can be configured by the
+> module commandline.
 > 
-> i get this problem really seldom on my Laptop and i did not manage to get a
-> reproducible Oops of that problem.
-> 
-> Anyway the code you are pointing to seems to have a problem and your added
-> error handling looks good to me - even if i don't know if the initializations
-> can be reordered in that way.
-> 
-> I'll try your patch, but it could take a *long* time to prove it right ;-)
-> 
+> I assume having the echo functionality runtime configurable is only effort and
+> complicates the driver ...
 
-Just FYI:
+Yep.
 
-Your patch compiled, the system booted without problems and nothing is broken
-so far. I checked the BT, WLAN and BT dial-up with success. So it looks good
-to me.
-
-Regards,
-Oliver
+Wolfgang.
