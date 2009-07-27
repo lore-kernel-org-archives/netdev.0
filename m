@@ -1,130 +1,54 @@
-From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
-Subject: [PATCH] net: shrink struct net_device by #ifdef-ing protocol-specific
- members
-Date: Mon, 27 Jul 2009 16:38:23 +0300
-Message-ID: <4A6DADCF.8010801@ixiacom.com>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
+Date: Mon, 27 Jul 2009 22:07:36 +0800
+Message-ID: <20090727140736.GA1864@darkstar>
+References: <4A6AD807.6060706@hartkopp.net> <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk> <1248520053.28545.156.camel@violet> <20090725131046.0f076f37@lxorguk.ukuu.org.uk> <20090727095904.GA5442@darkstar> <4A6D8BA3.3030601@hartkopp.net> <4A6D91D7.6030204@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:3235 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754569AbZG0Nxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 09:53:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4A6D91D7.6030204-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Some members of net_device are used only by some protocols.
+On Mon, Jul 27, 2009 at 01:39:03PM +0200, Oliver Hartkopp wrote:
+> Oliver Hartkopp wrote:
+> > Dave Young wrote:
+> >> On Sat, Jul 25, 2009 at 01:10:46PM +0100, Alan Cox wrote:
+> >>>>> tty_register_device appears to have been called with a NULL pointer. Not
+> >>>>> sure why however.
+> >>>> if that is the pointer for the struct device, then that used to be fine
+> >>>> in the past. Not all RFCOMM device have a parent when they are created.
+> >>> The tty layer doesn't care about the struct device really. Nothing there
+> >>> has changed. The NULL passed appears to be the driver argument.
+> >> Agree with you, because in rfcomm_init, rfcomm thread run before tty initilized, the following patch may fix the problem.
+> >> oliver, could you verify it it fix your problem?
+> > 
+> > Hi Dave,
+> > 
+> > i get this problem really seldom on my Laptop and i did not manage to get a
+> > reproducible Oops of that problem.
+> > 
+> > Anyway the code you are pointing to seems to have a problem and your added
+> > error handling looks good to me - even if i don't know if the initializations
+> > can be reordered in that way.
+> > 
+> > I'll try your patch, but it could take a *long* time to prove it right ;-)
+> > 
+> 
+> Just FYI:
+> 
+> Your patch compiled, the system booted without problems and nothing is broken
+> so far. I checked the BT, WLAN and BT dial-up with success. So it looks good
+> to me.
 
-If those protocols are not compiled (as modules or linked in) they
-should not take up space in the structure.
+Thanks for the testing. Marcel, could you take a look? 
 
-These members are also used in inline functions defined in headers not
-protected by the protocol-specific CONFIG_ guards. Adding #ifdef CONFIG_*
-guards header wide is against the current style and more invasive than
-guarding only the definitions.
-
-Signed-off-by: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
----
- include/linux/inetdevice.h |    2 ++
- include/linux/netdevice.h  |   14 ++++++++++++++
- include/net/ax25.h         |    2 ++
- net/core/dev.c             |    6 ++++++
- 4 files changed, 24 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index acef2a7..88132ff 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -166,6 +166,7 @@ static __inline__ int bad_mask(__be32 mask, __be32 addr)
-
- #define endfor_ifa(in_dev) }
-
-+#ifdef CONFIG_INET
- static inline struct in_device *__in_dev_get_rcu(const struct
-net_device *dev)
- {
- 	struct in_device *in_dev = dev->ip_ptr;
-@@ -192,6 +193,7 @@ __in_dev_get_rtnl(const struct net_device *dev)
- {
- 	return (struct in_device*)dev->ip_ptr;
- }
-+#endif /* CONFIG_INET */
-
- extern void in_dev_finish_destroy(struct in_device *idev);
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5a96a1a..d175bb9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -762,14 +762,28 @@ struct net_device
- #ifdef CONFIG_NET_DSA
- 	void			*dsa_ptr;	/* dsa specific data */
- #endif
-+#ifdef CONFIG_ATALK
- 	void 			*atalk_ptr;	/* AppleTalk link 	*/
-+#endif
-+#ifdef CONFIG_INET
- 	void			*ip_ptr;	/* IPv4 specific data	*/
-+#endif
-+#ifdef CONFIG_DECNET
- 	void                    *dn_ptr;        /* DECnet specific data */
-+#endif
-+#ifdef CONFIG_IPV6
- 	void                    *ip6_ptr;       /* IPv6 specific data */
-+#endif
-+#ifdef CONFIG_ECONET
- 	void			*ec_ptr;	/* Econet specific data	*/
-+#endif
-+#ifdef CONFIG_AX25
- 	void			*ax25_ptr;	/* AX.25 specific data */
-+#endif
-+#ifdef CONFIG_WIRELESS
- 	struct wireless_dev	*ieee80211_ptr;	/* IEEE 802.11 specific data,
- 						   assign before registering */
-+#endif
-
- /*
-  * Cache line mostly used on receive path (including eth_type_trans())
-diff --git a/include/net/ax25.h b/include/net/ax25.h
-index 717e219..5695968 100644
---- a/include/net/ax25.h
-+++ b/include/net/ax25.h
-@@ -300,10 +300,12 @@ extern void ax25_digi_invert(const ax25_digi *,
-ax25_digi *);
- extern ax25_dev *ax25_dev_list;
- extern spinlock_t ax25_dev_lock;
-
-+#ifdef CONFIG_AX25
- static inline ax25_dev *ax25_dev_ax25dev(struct net_device *dev)
- {
- 	return dev->ax25_ptr;
- }
-+#endif /* CONFIG_AX25 */
-
- extern ax25_dev *ax25_addr_ax25dev(ax25_address *);
- extern void ax25_dev_device_up(struct net_device *);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e2e9e4a..3171148 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4686,9 +4686,15 @@ void netdev_run_todo(void)
-
- 		/* paranoia */
- 		BUG_ON(atomic_read(&dev->refcnt));
-+#ifdef CONFIG_INET
- 		WARN_ON(dev->ip_ptr);
-+#endif
-+#ifdef CONFIG_IPV6
- 		WARN_ON(dev->ip6_ptr);
-+#endif
-+#ifdef CONFIG_DECNET
- 		WARN_ON(dev->dn_ptr);
-+#endif
-
- 		if (dev->destructor)
- 			dev->destructor(dev);
--- 
-1.6.3.3
-
+> 
+> Regards,
+> Oliver
