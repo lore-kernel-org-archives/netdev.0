@@ -1,35 +1,45 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
-Date: Mon, 27 Jul 2009 15:31:47 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.0907271530400.5004@ppwaskie-MOBL2.amr.corp.intel.com>
-References: <1248266678.17215.15.camel@localhost.localdomain>
- <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>
- <1248338779.17215.23.camel@localhost.localdomain>
- <1248362493.17215.45.camel@localhost.localdomain>
- <1248424910.17215.54.camel@localhost.localdomain>
- <Pine.WNT.4.64.0907241142370.2084@ppwaskie-MOBL2.amr.corp.intel.com>
- <loom.20090727T214746-75@post.gmane.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Mon, 27 Jul 2009 15:35:48 -0700
+Message-ID: <20090727153548.7c0d9f85@nehalam>
+References: <4A65EC3F.4050400@gibraltar.at>
+	<20090723102848.00a56ad1@nehalam>
+	<4A6D8975.4050000@gibraltar.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Todd Merritt <tmerritt@email.arizona.edu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
+To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25866 "EHLO mga11.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42502 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753209AbZG0WcG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2009 18:32:06 -0400
-In-Reply-To: <loom.20090727T214746-75@post.gmane.org>
+	id S1754645AbZG0WiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2009 18:38:14 -0400
+In-Reply-To: <4A6D8975.4050000@gibraltar.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 27 Jul 2009, Todd Merritt wrote:
+Does this help?
 
-> We're getting a panic in the same function with the stable version of the ixgbe
-> driver 2.0.38.2-1 on redhat 5 kernel-2.6.18-128.1.10.el5.  Is there a dev
-> release of the driver that might have a fix in it ?
-
-Are you also running with preemption enabled?  We're having a very tough 
-time reproducing this bug in our lab, so no, we don't have any fix for it 
-yet.
-
--PJ
+--- a/drivers/net/sky2.c	2009-07-27 15:28:27.653757064 -0700
++++ b/drivers/net/sky2.c	2009-07-27 15:34:24.358730966 -0700
+@@ -2763,6 +2763,11 @@ static int sky2_poll(struct napi_struct 
+ 	int work_done = 0;
+ 	u16 idx;
+ 
++	if (unlikely(status == ~0)) {
++		dev_info(&hw->pdev->dev, "device status error\n");
++		goto clear_napi;
++	}
++
+ 	if (unlikely(status & Y2_IS_ERROR))
+ 		sky2_err_intr(hw, status);
+ 
+@@ -2779,6 +2784,7 @@ static int sky2_poll(struct napi_struct 
+ 			goto done;
+ 	}
+ 
++clear_napi:
+ 	napi_complete(napi);
+ 	sky2_read32(hw, B0_Y2_SP_LISR);
+ done:
