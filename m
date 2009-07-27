@@ -1,38 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: use kobject_put to release kobject in
- br_add_if error path
-Date: Sun, 26 Jul 2009 19:21:09 -0700 (PDT)
-Message-ID: <20090726.192109.14263864.davem@davemloft.net>
-References: <1248426392-30777-1-git-send-email-dfeng@redhat.com>
-	<20090724083607.6b91282d@nehalam>
+Subject: Re: [PATCH] Add some function overview comments in tcp_input.c
+Date: Sun, 26 Jul 2009 19:23:21 -0700 (PDT)
+Message-ID: <20090726.192321.257422911.davem@davemloft.net>
+References: <20090724094719.GA19200@basil.fritz.box>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dfeng@redhat.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755752AbZG0CVF@vger.kernel.org>
-In-Reply-To: <20090724083607.6b91282d@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59685
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754914AbZG0CXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:23:14 -0400
+In-Reply-To: <20090724094719.GA19200@basil.fritz.box>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Fri, 24 Jul 2009 08:36:07 -0700
+From: Andi Kleen <andi@firstfloor.org>
+Date: Fri, 24 Jul 2009 11:47:19 +0200
 
-> On Fri, 24 Jul 2009 17:06:32 +0800
-> Xiaotian Feng <dfeng@redhat.com> wrote:
+> Add some function overview comments in tcp_input.c
 > 
->> kobject_init_and_add will alloc memory for kobj->name, so in br_add_if
->> error path, simply use kobject_del will not free memory for kobj->name.
->> Fix by using kobject_put instead, kobject_put will internally calls
->> kobject_del and frees memory for kobj->name.
->> 
->> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-...
+> Only partial so far. I didn't attempt to accurately comment
+> the SACK machinery and the congestion state machine. 
 > 
-> I assume you tested this by doing something like adding two interfaces
-> with the same MAC address to a bridge.
+> I also fixed the grammar in one or two other comments
+> (but still trying to keep the authentic "ANK language" @)
 > 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> No code changes.
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
 
-Applied, thanks!
+Most of your comments sound exactly the same as what I
+hear when I say the function's name out loud.
+
+That's worse than wasted space.
+
+What's the chapter from The Practice of Programming where
+they advise against this with a bunch of amusing examples?
+:-)
+
+I'm not applying this, sorry.
+
