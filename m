@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: remove unnecessary assignment
-Date: Sun, 26 Jul 2009 19:07:15 -0700 (PDT)
-Message-ID: <20090726.190715.264337627.davem@davemloft.net>
-References: <392fb48f0907211751k6bbbb6base944c6b7d80a3bf5@mail.gmail.com>
-	<20090722095933.0db8c2c8@nehalam>
+Subject: Re: [PATCH 1/2] NET: NETROM: Don't use static buffer.
+Date: Sun, 26 Jul 2009 19:09:27 -0700 (PDT)
+Message-ID: <20090726.190927.145496853.davem@davemloft.net>
+References: <cover.1248620197.git.ralf@linux-mips.org>
+	<65cb898f276a2dc3c56e6a78b5bc422303e6856f.1248620197.git.ralf@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mikem@ring3k.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49657
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755663AbZG0CHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:07:08 -0400
-In-Reply-To: <20090722095933.0db8c2c8@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+To: ralf@linux-mips.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <65cb898f276a2dc3c56e6a78b5bc422303e6856f.1248620197.git.ralf@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 22 Jul 2009 09:59:33 -0700
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Sat, 25 Jul 2009 11:38:17 +0100
 
-> On Wed, 22 Jul 2009 09:51:20 +0900
-> Mike McCormack <mikem@ring3k.org> wrote:
+> The use of a static buffer in nr_call_to_digi() to return its result is
+> not threadproof and can result in corruption if multiple threads are
+> trying to perform SIOCADDRT ioctls.
 > 
->> Signed-off-by: Mike McCormack <mikem@ring3k.org>
- ...
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Applied to net-next-2.6
+So what frees up these now-dynamically-allocated digi objects?
