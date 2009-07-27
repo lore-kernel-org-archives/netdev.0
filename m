@@ -1,207 +1,281 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 11/12] netxen: support for ethtool set ringparam
-Date: Sun, 26 Jul 2009 23:07:46 -0700
-Message-ID: <1248674867-18821-12-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 04/12] netxen: annotate dma watchdog setup
+Date: Sun, 26 Jul 2009 23:07:39 -0700
+Message-ID: <1248674867-18821-5-git-send-email-dhananjay@netxen.com>
 References: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@netxen.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:33581 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:33565 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751484AbZG0GHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jul 2009 02:07:49 -0400
+	id S1751130AbZG0GHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2009 02:07:47 -0400
 In-Reply-To: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for ethtool -G to tune rx and tx ring sizes
-per interface basis.
+o remove superfluous code to setup PCI dma watchdog for NX2031.
+o disable dma watchdog completely for NX3031 (not required).
 
-This is only supported for NX3031 based cards.
-
-Signed-off-by: Amit Kumar Salecha <amit@netxen.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h         |    4 +++
- drivers/net/netxen/netxen_nic_ethtool.c |   44 +++++++++++++++++++++++++++++-
- drivers/net/netxen/netxen_nic_main.c    |   45 ++++++++++++++++++++++++-------
- 3 files changed, 82 insertions(+), 11 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |   73 +--------------------------------
+ drivers/net/netxen/netxen_nic_hdr.h  |    2 +-
+ drivers/net/netxen/netxen_nic_init.c |   59 ++++++++++++++++-----------
+ drivers/net/netxen/netxen_nic_main.c |    8 ++--
+ 4 files changed, 43 insertions(+), 99 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index d01cc09..9527f31 100644
+index 6b9e759..3368af0 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -1427,6 +1427,10 @@ struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev);
- void netxen_nic_update_cmd_producer(struct netxen_adapter *adapter,
- 		struct nx_host_tx_ring *tx_ring);
+@@ -1324,24 +1324,6 @@ struct netxen_adapter {
+ 	const struct firmware *fw;
+ };
  
-+/* Functions from netxen_nic_main.c */
-+u32 netxen_validate_ringparam(u32 val, u32 min, u32 max, char *);
-+int netxen_nic_reset_context(struct netxen_adapter *);
+-/*
+- * NetXen dma watchdog control structure
+- *
+- *	Bit 0		: enabled => R/O: 1 watchdog active, 0 inactive
+- *	Bit 1		: disable_request => 1 req disable dma watchdog
+- *	Bit 2		: enable_request =>  1 req enable dma watchdog
+- *	Bit 3-31	: unused
+- */
+-
+-#define netxen_set_dma_watchdog_disable_req(config_word) \
+-	_netxen_set_bits(config_word, 1, 1, 1)
+-#define netxen_set_dma_watchdog_enable_req(config_word) \
+-	_netxen_set_bits(config_word, 2, 1, 1)
+-#define netxen_get_dma_watchdog_enabled(config_word) \
+-	((config_word) & 0x1)
+-#define netxen_get_dma_watchdog_disabled(config_word) \
+-	(((config_word) >> 1) & 0x1)
+-
+ int netxen_niu_xgbe_enable_phy_interrupts(struct netxen_adapter *adapter);
+ int netxen_niu_gbe_enable_phy_interrupts(struct netxen_adapter *adapter);
+ int netxen_niu_xgbe_disable_phy_interrupts(struct netxen_adapter *adapter);
+@@ -1402,8 +1384,9 @@ unsigned long netxen_nic_pci_set_window_2M(struct netxen_adapter *adapter,
+ 		unsigned long long addr);
+ 
+ /* Functions from netxen_nic_init.c */
+-void netxen_free_adapter_offload(struct netxen_adapter *adapter);
+-int netxen_initialize_adapter_offload(struct netxen_adapter *adapter);
++int netxen_init_dummy_dma(struct netxen_adapter *adapter);
++void netxen_free_dummy_dma(struct netxen_adapter *adapter);
 +
- /*
-  * NetXen Board information
-  */
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
-index 80d286d..ec93aa7 100644
---- a/drivers/net/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -490,7 +490,8 @@ netxen_nic_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val);
+ int netxen_load_firmware(struct netxen_adapter *adapter);
+ int netxen_need_fw_reset(struct netxen_adapter *adapter);
+@@ -1510,56 +1493,6 @@ static inline void get_brd_name_by_type(u32 type, char *name)
+ 		name = "Unknown";
  }
  
- static void
--netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
-+netxen_nic_get_ringparam(struct net_device *dev,
-+		struct ethtool_ringparam *ring)
+-static inline int
+-dma_watchdog_shutdown_request(struct netxen_adapter *adapter)
+-{
+-	u32 ctrl;
+-
+-	/* check if already inactive */
+-	ctrl = adapter->hw_read_wx(adapter,
+-			NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL));
+-
+-	if (netxen_get_dma_watchdog_enabled(ctrl) == 0)
+-		return 1;
+-
+-	/* Send the disable request */
+-	netxen_set_dma_watchdog_disable_req(ctrl);
+-	NXWR32(adapter, NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), ctrl);
+-
+-	return 0;
+-}
+-
+-static inline int
+-dma_watchdog_shutdown_poll_result(struct netxen_adapter *adapter)
+-{
+-	u32 ctrl;
+-
+-	ctrl = adapter->hw_read_wx(adapter,
+-			NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL));
+-
+-	return (netxen_get_dma_watchdog_enabled(ctrl) == 0);
+-}
+-
+-static inline int
+-dma_watchdog_wakeup(struct netxen_adapter *adapter)
+-{
+-	u32 ctrl;
+-
+-	ctrl = adapter->hw_read_wx(adapter,
+-			NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL));
+-
+-	if (netxen_get_dma_watchdog_enabled(ctrl))
+-		return 1;
+-
+-	/* send the wakeup request */
+-	netxen_set_dma_watchdog_enable_req(ctrl);
+-
+-	NXWR32(adapter, NETXEN_CAM_RAM(NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL), ctrl);
+-
+-	return 0;
+-}
+-
+-
+ static inline u32 netxen_tx_avail(struct nx_host_tx_ring *tx_ring)
  {
- 	struct netxen_adapter *adapter = netdev_priv(dev);
+ 	smp_mb();
+diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
+index 8241036..a732858 100644
+--- a/drivers/net/netxen/netxen_nic_hdr.h
++++ b/drivers/net/netxen/netxen_nic_hdr.h
+@@ -852,7 +852,7 @@ enum {
+ #define NX_PEG_TUNE_MN_PRESENT		0x1
+ #define NX_PEG_TUNE_CAPABILITY		(NETXEN_CAM_RAM(0x02c))
  
-@@ -513,6 +514,46 @@ netxen_nic_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
- 	ring->rx_mini_pending = 0;
+-#define NETXEN_CAM_RAM_DMA_WATCHDOG_CTRL		(0x14)
++#define NETXEN_DMA_WATCHDOG_CTRL	(NETXEN_CAM_RAM(0x14))
+ #define NETXEN_PEG_ALIVE_COUNTER	(NETXEN_CAM_RAM(0xb0))
+ 
+ #define	ISR_MSI_INT_TRIGGER(FUNC) (NETXEN_PCIX_PS_REG(PCIX_MSI_F(FUNC)))
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 5d7a2c4..9135845 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -954,19 +954,20 @@ netxen_release_firmware(struct netxen_adapter *adapter)
+ 		release_firmware(adapter->fw);
  }
  
-+static int
-+netxen_nic_set_ringparam(struct net_device *dev,
-+		struct ethtool_ringparam *ring)
-+{
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	u16 max_rcv_desc = MAX_RCV_DESCRIPTORS_10G;
-+	u16 max_jumbo_desc = MAX_JUMBO_RCV_DESCRIPTORS_10G;
-+	u16 num_rxd, num_jumbo_rxd, num_txd;
-+
-+	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+		return -EOPNOTSUPP;
-+
-+	if (ring->rx_mini_pending)
-+		return -EOPNOTSUPP;
-+
-+	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
-+		max_rcv_desc = MAX_RCV_DESCRIPTORS_1G;
-+		max_jumbo_desc = MAX_JUMBO_RCV_DESCRIPTORS_10G;
-+	}
-+
-+	num_rxd = netxen_validate_ringparam(ring->rx_pending,
-+			MIN_RCV_DESCRIPTORS, max_rcv_desc, "rx");
-+
-+	num_jumbo_rxd = netxen_validate_ringparam(ring->rx_jumbo_pending,
-+			MIN_JUMBO_DESCRIPTORS, max_jumbo_desc, "rx jumbo");
-+
-+	num_txd = netxen_validate_ringparam(ring->tx_pending,
-+			MIN_CMD_DESCRIPTORS, MAX_CMD_DESCRIPTORS, "tx");
-+
-+	if (num_rxd == adapter->num_rxd && num_txd == adapter->num_txd &&
-+			num_jumbo_rxd == adapter->num_jumbo_rxd)
+-int netxen_initialize_adapter_offload(struct netxen_adapter *adapter)
++int netxen_init_dummy_dma(struct netxen_adapter *adapter)
+ {
+-	uint64_t addr;
+-	uint32_t hi;
+-	uint32_t lo;
++	u64 addr;
++	u32 hi, lo;
+ 
+-	adapter->dummy_dma.addr =
+-	    pci_alloc_consistent(adapter->pdev,
++	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id))
 +		return 0;
 +
-+	adapter->num_rxd = num_rxd;
-+	adapter->num_jumbo_rxd = num_jumbo_rxd;
-+	adapter->num_txd = num_txd;
++	adapter->dummy_dma.addr = pci_alloc_consistent(adapter->pdev,
+ 				 NETXEN_HOST_DUMMY_DMA_SIZE,
+ 				 &adapter->dummy_dma.phys_addr);
+ 	if (adapter->dummy_dma.addr == NULL) {
+-		printk("%s: ERROR: Could not allocate dummy DMA memory\n",
+-		       __func__);
++		dev_err(&adapter->pdev->dev,
++			"ERROR: Could not allocate dummy DMA memory\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -977,29 +978,41 @@ int netxen_initialize_adapter_offload(struct netxen_adapter *adapter)
+ 	NXWR32(adapter, CRB_HOST_DUMMY_BUF_ADDR_HI, hi);
+ 	NXWR32(adapter, CRB_HOST_DUMMY_BUF_ADDR_LO, lo);
+ 
+-	if (NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
+-		uint32_t temp = 0;
+-		NXWR32(adapter, CRB_HOST_DUMMY_BUF, temp);
+-	}
+-
+ 	return 0;
+ }
+ 
+-void netxen_free_adapter_offload(struct netxen_adapter *adapter)
++/*
++ * NetXen DMA watchdog control:
++ *
++ *	Bit 0		: enabled => R/O: 1 watchdog active, 0 inactive
++ *	Bit 1		: disable_request => 1 req disable dma watchdog
++ *	Bit 2		: enable_request =>  1 req enable dma watchdog
++ *	Bit 3-31	: unused
++ */
++void netxen_free_dummy_dma(struct netxen_adapter *adapter)
+ {
+ 	int i = 100;
++	u32 ctrl;
 +
-+	return netxen_nic_reset_context(adapter);
-+}
++	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id))
++		return;
+ 
+ 	if (!adapter->dummy_dma.addr)
+ 		return;
+ 
+-	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+-		do {
+-			if (dma_watchdog_shutdown_request(adapter) == 1)
+-				break;
++	ctrl = NXRD32(adapter, NETXEN_DMA_WATCHDOG_CTRL);
++	if ((ctrl & 0x1) != 0) {
++		NXWR32(adapter, NETXEN_DMA_WATCHDOG_CTRL, (ctrl | 0x2));
 +
- static void
- netxen_nic_get_pauseparam(struct net_device *dev,
- 			  struct ethtool_pauseparam *pause)
-@@ -894,6 +935,7 @@ struct ethtool_ops netxen_nic_ethtool_ops = {
- 	.get_eeprom_len = netxen_nic_get_eeprom_len,
- 	.get_eeprom = netxen_nic_get_eeprom,
- 	.get_ringparam = netxen_nic_get_ringparam,
-+	.set_ringparam = netxen_nic_set_ringparam,
- 	.get_pauseparam = netxen_nic_get_pauseparam,
- 	.set_pauseparam = netxen_nic_set_pauseparam,
- 	.set_tx_csum = ethtool_op_set_tx_csum,
++		while ((ctrl & 0x1) != 0) {
++
+ 			msleep(50);
+-			if (dma_watchdog_shutdown_poll_result(adapter) == 1)
++
++			ctrl = NXRD32(adapter, NETXEN_DMA_WATCHDOG_CTRL);
++
++			if (--i == 0)
+ 				break;
+-		} while (--i);
++		};
+ 	}
+ 
+ 	if (i) {
+@@ -1008,10 +1021,8 @@ void netxen_free_adapter_offload(struct netxen_adapter *adapter)
+ 			    adapter->dummy_dma.addr,
+ 			    adapter->dummy_dma.phys_addr);
+ 		adapter->dummy_dma.addr = NULL;
+-	} else {
+-		printk(KERN_ERR "%s: dma_watchdog_shutdown failed\n",
+-				adapter->netdev->name);
+-	}
++	} else
++		dev_err(&adapter->pdev->dev, "dma_watchdog_shutdown failed\n");
+ }
+ 
+ int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val)
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 41ab99d..894b1fd 100644
+index 76bdd5c..fb976cb 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -930,6 +930,9 @@ netxen_nic_attach(struct netxen_adapter *adapter)
- 	struct nx_host_rds_ring *rds_ring;
- 	struct nx_host_tx_ring *tx_ring;
+@@ -745,7 +745,7 @@ netxen_start_firmware(struct netxen_adapter *adapter, int request_fw)
  
-+	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
-+		return 0;
-+
- 	err = netxen_init_firmware(adapter);
- 	if (err != 0) {
- 		printk(KERN_ERR "Failed to init firmware\n");
-@@ -993,6 +996,9 @@ err_out_free_sw:
- static void
- netxen_nic_detach(struct netxen_adapter *adapter)
- {
-+	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
-+		return;
-+
- 	netxen_free_hw_resources(adapter);
- 	netxen_release_rx_buffers(adapter);
- 	netxen_nic_free_irq(adapter);
-@@ -1001,6 +1007,30 @@ netxen_nic_detach(struct netxen_adapter *adapter)
- 	adapter->is_up = 0;
- }
+ 	}
  
-+int
-+netxen_nic_reset_context(struct netxen_adapter *adapter)
-+{
-+	int err = 0;
-+	struct net_device *netdev = adapter->netdev;
-+
-+	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC) {
-+
-+		if (netif_running(netdev))
-+			netxen_nic_down(adapter, netdev);
-+
-+		netxen_nic_detach(adapter);
-+
-+		err = netxen_nic_attach(adapter);
-+		if (err)
-+			goto done;
-+
-+		if (netif_running(netdev))
-+			err = netxen_nic_up(adapter, netdev);
-+	}
-+done:
-+	return err;
-+}
-+
- static int
- netxen_setup_netdev(struct netxen_adapter *adapter,
- 		struct net_device *netdev)
-@@ -1222,9 +1252,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+-	err = netxen_initialize_adapter_offload(adapter);
++	err = netxen_init_dummy_dma(adapter);
+ 	if (err)
+ 		return err;
  
- 	unregister_netdev(netdev);
+@@ -761,7 +761,7 @@ wait_init:
+ 	/* Handshake with the card before we register the devices. */
+ 	err = netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
+ 	if (err) {
+-		netxen_free_adapter_offload(adapter);
++		netxen_free_dummy_dma(adapter);
+ 		return err;
+ 	}
  
--	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC) {
--		netxen_nic_detach(adapter);
--	}
-+	netxen_nic_detach(adapter);
+@@ -1154,7 +1154,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ err_out_disable_msi:
+ 	netxen_teardown_intr(adapter);
+ 
+-	netxen_free_adapter_offload(adapter);
++	netxen_free_dummy_dma(adapter);
+ 
+ err_out_iounmap:
+ 	netxen_cleanup_pci_map(adapter);
+@@ -1189,7 +1189,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+ 	}
  
  	if (adapter->portnum == 0)
- 		netxen_free_dummy_dma(adapter);
-@@ -1256,8 +1284,7 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
- 	if (netif_running(netdev))
- 		netxen_nic_down(adapter, netdev);
+-		netxen_free_adapter_offload(adapter);
++		netxen_free_dummy_dma(adapter);
  
--	if (adapter->is_up == NETXEN_ADAPTER_UP_MAGIC)
--		netxen_nic_detach(adapter);
-+	netxen_nic_detach(adapter);
- 
- 	pci_save_state(pdev);
- 
-@@ -1318,11 +1345,9 @@ static int netxen_nic_open(struct net_device *netdev)
- 	if (adapter->driver_mismatch)
- 		return -EIO;
- 
--	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
--		err = netxen_nic_attach(adapter);
--		if (err)
--			return err;
--	}
-+	err = netxen_nic_attach(adapter);
-+	if (err)
-+		return err;
- 
- 	err = netxen_nic_up(adapter, netdev);
- 	if (err)
+ 	netxen_teardown_intr(adapter);
+ 	netxen_free_sds_rings(&adapter->recv_ctx);
 -- 
 1.6.0.2
 
