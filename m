@@ -1,48 +1,32 @@
-From: Julius Volz <julius.volz@gmail.com>
-Subject: Re: [PATCH] IPVS: Add handling of incoming ICMPV6_PKT_TOOBIG messages
-Date: Mon, 27 Jul 2009 12:19:03 +0200
-Message-ID: <43ca39800907270319r4fd42236v21ade59dc56b02da@mail.gmail.com>
-References: <20090624132232.GA9633@egardia>
-	 <20090724024711.GA13280@verge.net.au> <4A6937B5.3040707@gmail.com>
-	 <20090726.191905.158195470.davem@davemloft.net>
-	 <20090727023754.GC723@verge.net.au>
+From: Hannes Eder <heder@google.com>
+Subject: Re: [PATCH] IPVS: logging sizeof(struct ip_vs_conn) on startup
+Date: Mon, 27 Jul 2009 12:34:42 +0200
+Message-ID: <b5ddba180907270334m4bc4e968m85c16ea4756c3f5d@mail.gmail.com>
+References: <20090727090741.16509.35291.stgit@jazzy.zrh.corp.google.com>
+	 <4A6D7285.9080909@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	robert.gallagher@heanet.ie
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20090727023754.GC723@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lvs-users@linuxvirtualserver.org,
+	malcolm@loadbalancer.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756021AbZG0Ket@vger.kernel.org>
+In-Reply-To: <4A6D7285.9080909@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 27, 2009 at 4:37 AM, Simon Horman<horms@verge.net.au> wrote=
-:
-> On Sun, Jul 26, 2009 at 07:19:05PM -0700, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 24 Jul 2009 06:25:25 +0200
->>
->> > I see no reference to ICMPV6_PKT_TOOBIG in this patch, so ChangeLo=
-g
->> > might be misleading or uncomplete, since other ICMPV6 message type=
-s
->> > (ICMPV6_DEST_UNREACH/ICMPV6_TIME_EXCEED) will also be forwarded/ha=
-ndled
->> > ?
->>
->> Agreed, this commit message could use a tidy. =A0What the patch actu=
-ally is
->> doing is adding the handling of ipv6 icmp messages at all.
->>
->> Simon could you clarify the commit message a bit and resubmit?
+On Mon, Jul 27, 2009 at 11:25, Eric Dumazet<eric.dumazet@gmail.com> wrote:
+> Well, ip_vs_conn_cache uses SLAB_HWCACHE_ALIGN, so this should be rounded up
+> to L1 cache size. Or add "at least" like in line 1080
+> of net/netfilter/ipvs/ip_vs_conn.c :
 >
-> Will do.
+> IP_VS_DBG(0, "Each connection entry needs %Zd bytes at least\n",
+>           sizeof(struct ip_vs_conn));
 
-Oops, yes. For some weird reason, only the specific problem that
-caused the patch was in my head when writing that commit message. Feel
-free to edit it to include ICMPv6 handling for in-out packets in
-general.
+Good point.  Is there an easy way to figure out how much memory is
+wasted for alignment by the slab allocator?  Otherwise I vote for the
+"at least" approach.
 
-Julius
+-Hannes
