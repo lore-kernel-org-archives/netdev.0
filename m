@@ -1,54 +1,151 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] Add Support for Freescale FlexCAN CAN controller
-Date: Mon, 27 Jul 2009 11:43:19 +0200
-Message-ID: <4A6D76B7.8030105@hartkopp.net>
-References: <20090724131933.GL2714@pengutronix.de>	<4A69CB46.1090704@grandegger.com>	<20090727062559.GP2714@pengutronix.de> <4A6D727B.7030304@grandegger.com>
+From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: tty_register_device NULL pointer dereference in 2.6.31-rc4
+Date: Mon, 27 Jul 2009 17:59:05 +0800
+Message-ID: <20090727095904.GA5442@darkstar>
+References: <4A6AD807.6060706@hartkopp.net> <20090725115011.7ddf8d00@lxorguk.ukuu.org.uk> <1248520053.28545.156.camel@violet> <20090725131046.0f076f37@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>,
-	Socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:39031 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755906AbZG0JnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 05:43:21 -0400
-In-Reply-To: <4A6D727B.7030304@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090725131046.0f076f37-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wolfgang Grandegger wrote:
-> Sascha Hauer wrote:
->> On Fri, Jul 24, 2009 at 04:55:02PM +0200, Wolfgang Grandegger wrote:
-
-
-> [...]
->>>> +	kfree_skb(skb);
->>> Support for echo skb using can_put/get_echo_skb() is missing. It should
->>> not be a big deal to add it.
->> In fact it's not missing, but the hardware is configured to receive its
->> own packets, so this isn't needed.
+On Sat, Jul 25, 2009 at 01:10:46PM +0100, Alan Cox wrote:
+> > > tty_register_device appears to have been called with a NULL pointer. Not
+> > > sure why however.
+> > 
+> > if that is the pointer for the struct device, then that used to be fine
+> > in the past. Not all RFCOMM device have a parent when they are created.
 > 
-> But the user may disable IFF_ECHO, which should be handled somehow.
+> The tty layer doesn't care about the struct device really. Nothing there
+> has changed. The NULL passed appears to be the driver argument.
 
-Really?
+Agree with you, because in rfcomm_init, rfcomm thread run before tty initilized, the following patch may fix the problem. oliver, could you verify it it fix your problem?
+---
 
-IMO IFF_ECHO indicates the capability of the network driver to perform the MAC
-layer frame echo on driver level.
+rfcomm tty may be used before rfcomm_tty_driver initilized,
 
-Only when you have a CAN driver that does not have this capability (the 'bad'
-non default case) this flag is cleared.
+reporting in:
+http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
 
-There is no need to provide a mode that can switch this functionality 'on' and
-'off'. IFF_ECHO is just an indication provided by the driver.
+make 3 changes:
+1. remove #ifdef in rfcomm/core.c,
+make it blank function when rfcomm tty not selected in rfcomm.h
 
-When the FlexCAN controller can 'receive' a sent frame, so that it reflects
-the correct message order on the bus, this is perfect.
+2. tune the rfcomm_init error patch to ensure
+tty driver initilized before any usage.
 
-In this case Sascha should set the IFF_ECHO flag and he's done.
+3. remove __exit for rfcomm_cleanup_sockets
+because above change need call it in a __init function. 
 
-Regards,
-Oliver
 
+CC: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+--
+include/net/bluetooth/rfcomm.h |   13 ++++++++++++-
+net/bluetooth/rfcomm/core.c    |   31 +++++++++++++++++++++----------
+net/bluetooth/rfcomm/sock.c    |    2 +-
+3 files changed, 34 insertions(+), 12 deletions(-)
+
+--- linux-2.6.orig/include/net/bluetooth/rfcomm.h	2009-04-09 16:23:03.000000000 +0800
++++ linux-2.6/include/net/bluetooth/rfcomm.h	2009-07-27 17:14:43.000000000 +0800
+@@ -355,7 +355,18 @@ struct rfcomm_dev_list_req {
+ };
+ 
+ int  rfcomm_dev_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
++
++#ifdef CONFIG_BT_RFCOMM_TTY
+ int  rfcomm_init_ttys(void);
+ void rfcomm_cleanup_ttys(void);
+-
++#else
++static inline int rfcomm_init_ttys(void)
++{
++	return 0;
++}
++static inline int rfcomm_cleanup_ttys(void)
++{
++	return 0;
++}
++#endif
+ #endif /* __RFCOMM_H */
+--- linux-2.6.orig/net/bluetooth/rfcomm/core.c	2009-06-16 17:39:32.000000000 +0800
++++ linux-2.6/net/bluetooth/rfcomm/core.c	2009-07-27 17:24:27.000000000 +0800
+@@ -2080,28 +2080,41 @@ static CLASS_ATTR(rfcomm_dlc, S_IRUGO, r
+ /* ---- Initialization ---- */
+ static int __init rfcomm_init(void)
+ {
++	int ret;
++
+ 	l2cap_load();
+ 
++	ret = rfcomm_init_sockets();
++	if (ret)
++		goto out_sock;
++
++	ret = rfcomm_init_ttys();
++	if (ret)
++		goto out_tty;
++
+ 	hci_register_cb(&rfcomm_cb);
+ 
+ 	rfcomm_thread = kthread_run(rfcomm_run, NULL, "krfcommd");
+ 	if (IS_ERR(rfcomm_thread)) {
+-		hci_unregister_cb(&rfcomm_cb);
+-		return PTR_ERR(rfcomm_thread);
++		ret = PTR_ERR(rfcomm_thread);
++		goto out_thread;
+ 	}
+ 
+ 	if (class_create_file(bt_class, &class_attr_rfcomm_dlc) < 0)
+ 		BT_ERR("Failed to create RFCOMM info file");
+ 
+-	rfcomm_init_sockets();
+-
+-#ifdef CONFIG_BT_RFCOMM_TTY
+-	rfcomm_init_ttys();
+-#endif
+-
+ 	BT_INFO("RFCOMM ver %s", VERSION);
+ 
+ 	return 0;
++
++out_thread:
++	hci_unregister_cb(&rfcomm_cb);
++out_tty:
++	rfcomm_cleanup_ttys();
++out_sock:
++	rfcomm_cleanup_sockets();
++
++	return ret;
+ }
+ 
+ static void __exit rfcomm_exit(void)
+@@ -2112,9 +2125,7 @@ static void __exit rfcomm_exit(void)
+ 
+ 	kthread_stop(rfcomm_thread);
+ 
+-#ifdef CONFIG_BT_RFCOMM_TTY
+ 	rfcomm_cleanup_ttys();
+-#endif
+ 
+ 	rfcomm_cleanup_sockets();
+ }
+--- linux-2.6.orig/net/bluetooth/rfcomm/sock.c	2009-04-09 16:23:04.000000000 +0800
++++ linux-2.6/net/bluetooth/rfcomm/sock.c	2009-07-27 17:39:43.000000000 +0800
+@@ -1132,7 +1132,7 @@ error:
+ 	return err;
+ }
+ 
+-void __exit rfcomm_cleanup_sockets(void)
++void rfcomm_cleanup_sockets(void)
+ {
+ 	class_remove_file(bt_class, &class_attr_rfcomm);
+ 
