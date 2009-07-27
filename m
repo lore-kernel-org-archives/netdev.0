@@ -1,86 +1,131 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 09/12] netxen: fix skb alloc size for legacy firmware
-Date: Sun, 26 Jul 2009 23:07:44 -0700
-Message-ID: <1248674867-18821-10-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 07/12] netxen: clean up frimware version checks
+Date: Sun, 26 Jul 2009 23:07:42 -0700
+Message-ID: <1248674867-18821-8-git-send-email-dhananjay@netxen.com>
 References: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nxgate.netxen.com ([38.99.60.130]:33580 "EHLO unm84.unmin.com"
+Received: from nxgate.netxen.com ([38.99.60.130]:33578 "EHLO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751445AbZG0GHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751374AbZG0GHs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 27 Jul 2009 02:07:48 -0400
 In-Reply-To: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Request 1532 bytes skb data size for NX3031. NX2031 firmware
-needs 1760 sized buffers.
+NX2031 firmware version will never be > 4.0.0, so replace
+(adapter->fw_major < 4) checks with pci revision ID check.
 
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |   11 +++--------
- drivers/net/netxen/netxen_nic_init.c |   13 +++++++++----
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    2 +-
+ drivers/net/netxen/netxen_nic_ctx.c  |    6 +++---
+ drivers/net/netxen/netxen_nic_hw.c   |    1 -
+ drivers/net/netxen/netxen_nic_init.c |    2 +-
+ drivers/net/netxen/netxen_nic_main.c |    6 +++---
+ 5 files changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index b58d0b2..e7702f6 100644
+index e017827..b58d0b2 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -143,18 +143,13 @@
- #define NX_ETHERMTU                    1500
- #define NX_MAX_ETHERHDR                32 /* This contains some padding */
+@@ -1299,7 +1299,7 @@ struct netxen_adapter {
  
--#define NX_RX_NORMAL_BUF_MAX_LEN       (NX_MAX_ETHERHDR + NX_ETHERMTU)
-+#define NX_P2_RX_BUF_MAX_LEN           1760
-+#define NX_P3_RX_BUF_MAX_LEN           (NX_MAX_ETHERHDR + NX_ETHERMTU)
- #define NX_P2_RX_JUMBO_BUF_MAX_LEN     (NX_MAX_ETHERHDR + P2_MAX_MTU)
- #define NX_P3_RX_JUMBO_BUF_MAX_LEN     (NX_MAX_ETHERHDR + P3_MAX_MTU)
- #define NX_CT_DEFAULT_RX_BUF_LEN	2048
+ 	nx_nic_intr_coalesce_t coal;
  
--#define MAX_RX_BUFFER_LENGTH		1760
--#define MAX_RX_JUMBO_BUFFER_LENGTH 	8062
--#define MAX_RX_LRO_BUFFER_LENGTH	(8062)
--#define RX_DMA_MAP_LEN			(MAX_RX_BUFFER_LENGTH - 2)
--#define RX_JUMBO_DMA_MAP_LEN	\
--	(MAX_RX_JUMBO_BUFFER_LENGTH - 2)
--#define RX_LRO_DMA_MAP_LEN		(MAX_RX_LRO_BUFFER_LENGTH - 2)
-+#define NX_RX_LRO_BUFFER_LENGTH		(8060)
+-	u32 fw_major;
++	u32 resv5;
+ 	u32 fw_version;
+ 	const struct firmware *fw;
+ };
+diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
+index 9f8ae47..9e04696 100644
+--- a/drivers/net/netxen/netxen_nic_ctx.c
++++ b/drivers/net/netxen/netxen_nic_ctx.c
+@@ -647,7 +647,7 @@ int netxen_alloc_hw_resources(struct netxen_adapter *adapter)
+ 		}
+ 		rds_ring->desc_head = (struct rcv_desc *)addr;
  
- /*
-  * Maximum number of ring contexts
+-		if (adapter->fw_major < 4)
++		if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
+ 			rds_ring->crb_rcv_producer =
+ 				recv_crb_registers[port].crb_rcv_producer[ring];
+ 	}
+@@ -675,7 +675,7 @@ int netxen_alloc_hw_resources(struct netxen_adapter *adapter)
+ 	}
+ 
+ 
+-	if (adapter->fw_major >= 4) {
++	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		err = nx_fw_cmd_create_rx_ctx(adapter);
+ 		if (err)
+ 			goto err_out_free;
+@@ -705,7 +705,7 @@ void netxen_free_hw_resources(struct netxen_adapter *adapter)
+ 
+ 	int port = adapter->portnum;
+ 
+-	if (adapter->fw_major >= 4) {
++	if (!NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		nx_fw_cmd_destroy_rx_ctx(adapter);
+ 		nx_fw_cmd_destroy_tx_ctx(adapter);
+ 	} else {
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 088611b..ddb9deb 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -2045,7 +2045,6 @@ void netxen_nic_get_firmware_info(struct netxen_adapter *adapter)
+ 	fw_minor = NXRD32(adapter, NETXEN_FW_VERSION_MINOR);
+ 	fw_build = NXRD32(adapter, NETXEN_FW_VERSION_SUB);
+ 
+-	adapter->fw_major = fw_major;
+ 	adapter->fw_version = NETXEN_VERSION_CODE(fw_major, fw_minor, fw_build);
+ 
+ 	if (adapter->portnum == 0) {
 diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index ef7f1b1..a6b244a 100644
+index 9135845..ef7f1b1 100644
 --- a/drivers/net/netxen/netxen_nic_init.c
 +++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -247,9 +247,14 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
- 				rds_ring->skb_size =
- 					NX_CT_DEFAULT_RX_BUF_LEN;
- 			} else {
--				rds_ring->dma_size = RX_DMA_MAP_LEN;
-+				if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
-+					rds_ring->dma_size =
-+						NX_P3_RX_BUF_MAX_LEN;
-+				else
-+					rds_ring->dma_size =
-+						NX_P2_RX_BUF_MAX_LEN;
- 				rds_ring->skb_size =
--					MAX_RX_BUFFER_LENGTH;
-+					rds_ring->dma_size + NET_IP_ALIGN;
- 			}
- 			break;
+@@ -1477,7 +1477,7 @@ netxen_post_rx_buffers(struct netxen_adapter *adapter, u32 ringid,
+ 		NXWR32(adapter, rds_ring->crb_rcv_producer,
+ 				(producer-1) & (rds_ring->num_desc-1));
  
-@@ -267,8 +272,8 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+-		if (adapter->fw_major < 4) {
++		if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 			/*
+ 			 * Write a doorbell msg to tell phanmon of change in
+ 			 * receive ring producer
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 3f64a10..8d4c30a 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -952,7 +952,7 @@ netxen_nic_attach(struct netxen_adapter *adapter)
+ 		goto err_out_free_sw;
+ 	}
  
- 		case RCV_RING_LRO:
- 			rds_ring->num_desc = adapter->num_lro_rxd;
--			rds_ring->dma_size = RX_LRO_DMA_MAP_LEN;
--			rds_ring->skb_size = MAX_RX_LRO_BUFFER_LENGTH;
-+			rds_ring->dma_size = NX_RX_LRO_BUFFER_LENGTH;
-+			rds_ring->skb_size = rds_ring->dma_size + NET_IP_ALIGN;
- 			break;
+-	if (adapter->fw_major < 4) {
++	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		tx_ring = adapter->tx_ring;
+ 		tx_ring->crb_cmd_producer = crb_cmd_producer[adapter->portnum];
+ 		tx_ring->crb_cmd_consumer = crb_cmd_consumer[adapter->portnum];
+@@ -1123,7 +1123,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 * See if the firmware gave us a virtual-physical port mapping.
+ 	 */
+ 	adapter->physical_port = adapter->portnum;
+-	if (adapter->fw_major < 4) {
++	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		i = NXRD32(adapter, CRB_V2P(adapter->portnum));
+ 		if (i != 0x55555555)
+ 			adapter->physical_port = i;
+@@ -1747,7 +1747,7 @@ static irqreturn_t netxen_intr(int irq, void *data)
+ 	}
  
- 		}
+ 	/* clear interrupt */
+-	if (adapter->fw_major < 4)
++	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
+ 		netxen_nic_disable_int(sds_ring);
+ 
+ 	adapter->pci_write_immediate(adapter,
 -- 
 1.6.0.2
 
