@@ -1,53 +1,71 @@
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Subject: RE: [PATCH NEXT 12/12] netxen: update version to 4.0.41
-Date: Mon, 27 Jul 2009 12:26:58 -0700
-Message-ID: <7608421F3572AB4292BB2532AE89D56581877E22A4@AVEXMB1.qlogic.org>
-References: <1248674867-18821-1-git-send-email-dhananjay@netxen.com>
-	<1248674867-18821-13-git-send-email-dhananjay@netxen.com>
-	<20090727.103842.52201957.davem@davemloft.net>
- <20090727.105403.202219074.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] xfrm: export xfrm garbage collector thresholds via
+	sysctl
+Date: Mon, 27 Jul 2009 15:36:25 -0400
+Message-ID: <20090727193625.GD15823@hmsreliant.think-freely.org>
+References: <20090727182246.GC15823@hmsreliant.think-freely.org> <20090727.113755.260927092.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, joe@nall.com, herbert@gondor.apana.org.au,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:35292 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbZG0T1D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 15:27:03 -0400
-In-Reply-To: <20090727.105403.202219074.davem@davemloft.net>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50198 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809AbZG0Tgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 15:36:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20090727.113755.260927092.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, the idea for module params was to set global defaults
-(configured in modprobe.conf) vs. per interface ethtool calls.
-The ethtool support is anyway added by # 12 patch.
-
-Is it not good to have both options available? 
-
-I will sync up my tree and see if the merge is functionally
-correct.
-
-Thanks,
-Dhananjay
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Monday, July 27, 2009 10:54
-> To: Dhananjay Phadke
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH NEXT 12/12] netxen: update version to 4.0.41
+On Mon, Jul 27, 2009 at 11:37:55AM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 27 Jul 2009 14:22:46 -0400
 > 
+> > Export garbage collector thresholds for xfrm[4|6]_dst_ops
+> > 
+> > Had a problem reported to me recently in which a high volume of ipsec
+> > connections on a system began reporting ENOBUFS for new connections eventually.
+> > It seemed that after about 2000 connections we started being unable to create
+> > more.  A quick look revealed that the xfrm code used a dst_ops structure that
+> > limited the gc_thresh value to 1024, and alaways dropped route cache entries
+> > after 2x the gc_thresh.  It seems the most direct solution is to export the
+> > gc_thresh values in the xfrm[4|6] dst_ops as sysctls, like the main routing
+> > table does, so that higher volumes of connections can be supported.  This patch
+> > has been tested and allows the reporter to increase their ipsec connection
+> > volume successfully.
+> > 
+> > Reported-by: Joe Nall <joe@nall.com>
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> Ok, in order to make this build I'm going to have to insert
-> some parts of patch #6 which I rejected because that adds
-> ring size defaults/max/etc. defines which get used by later
-> patches.
+> Applied, but this suggests that either:
 > 
-> No virus found in this incoming message.
-> Checked by AVG - www.avg.com 
-> Version: 8.5.392 / Virus Database: 270.13.25/2256 - Release 
-> Date: 07/27/09 05:58:00
+Thanks!
+
+> 1) we pick a horrible default
+> 
+> 2) our IPSEC machinery holds onto dst entries too tightly and that's
+>    the true cause of this problem
+> 
+> I'd like to ask that you investigate this, because with defaults
+> we should be able to handle IPSEC loads as high as the routing
+> loads we could handle.
+> 
+I'll gladly look into this further.  Compared to the main routing table, the
+ipsec default selection is pretty bad.  Its statcially set despite the size of
+the larger routing table.  Looking at the garbage collection algorithm, we do
+keep a pretty tight leash on freeing entries, but I think its warrented.  We
+create 1 dst_entry for each open socket on an ipsec tunnel, and don't release it
+until its __refcnt drops to zero.  I think that makes sense, since it means
+we only keep cache entries for active connections, and clean them up as soon as
+they close (e.g. I don't really see the advantage to unhashing a xfrm cache
+entry only to recreate it on the next packet sent).  I think the most sensible
+first step is to dynamically choose a gc threshold based on the size of memory
+or the main routing table.  I'll write this up and post later this week after I
+do some testing.  Thanks!
+Neil
+
+> Thanks.
 > 
