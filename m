@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: fix for 82599 errata marking UDP
- checksum errors
-Date: Sun, 26 Jul 2009 20:21:54 -0700 (PDT)
-Message-ID: <20090726.202154.00452824.davem@davemloft.net>
-References: <20090724040031.30202.1531.stgit@localhost.localdomain>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [Bug #13838] kernel BUG at include/net/netns/generic.h:41!
+Date: Mon, 27 Jul 2009 13:29:50 +0800
+Message-ID: <2375c9f90907262229t2def934emb9340c31d3efdc21@mail.gmail.com>
+References: <Jya1GruKQpD.A.16.2GObKB@chimera>
+	 <3zAHs5O6maO.A.B5B.IHObKB@chimera>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	donald.c.skidmore@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48566
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755847AbZG0DVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 23:21:47 -0400
-In-Reply-To: <20090724040031.30202.1531.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Luca Tettamanti <kronos.it@gmail.com>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752519AbZG0F3w@vger.kernel.org>
+In-Reply-To: <3zAHs5O6maO.A.B5B.IHObKB@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 23 Jul 2009 21:00:39 -0700
+On Mon, Jul 27, 2009 at 4:28 AM, Rafael J. Wysocki<rjw@sisk.pl> wrote:
+> This message has been generated automatically as a part of a report
+> of recent regressions.
+>
+> The following bug entry is on the current list of known regressions
+> from 2.6.30. =C2=A0Please verify if it still should be listed and let=
+ me know
+> (either way).
+>
+>
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13838
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : kernel BUG at include/net/netns=
+/generic.h:41!
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Luca Tettamanti <kronos.it@gmail.com=
+>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-07-20 15:27 (7 d=
+ays old)
+> References =C2=A0 =C2=A0 =C2=A0: http://lkml.org/lkml/2009/7/20/105
 
-> From: Don Skidmore <donald.c.skidmore@intel.com>
-> 
-> There is an 82599 errata that UDP frames with a zero checksum are
-> incorrectly marked as checksum invalid by the hardware.  This was
-> leading to misleading hw_csum_rx_error counts. This patch adds a
-> test around this counter increase for this condition.
-> 
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Hmm, it looks like that 'pfkey_net_id' is still zero after ipsec_pfkey_=
+init()...
 
-Applied, thanks.
+Add Herbert and net-dev into Cc.
 
-But I wonder.   When you compute a checksum, and it's zero,
-you have to use the complement as the checksum value.  How
-does that relate to the problem being tackled here?
+Luca, would you mind to provide your .config and the steps to reproduce=
+ this?
 
+Thanks.
