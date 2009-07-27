@@ -1,53 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: export xfrm garbage collector thresholds via
- sysctl
-Date: Mon, 27 Jul 2009 11:37:55 -0700 (PDT)
-Message-ID: <20090727.113755.260927092.davem@davemloft.net>
-References: <20090727182246.GC15823@hmsreliant.think-freely.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [RFC][PATCH 5/5] libxt_ipvs: user space lib for netfilter matcher
+ xt_ipvs
+Date: Mon, 27 Jul 2009 20:40:23 +0200 (CEST)
+Message-ID: <alpine.LSU.2.00.0907272037500.20984@fbirervta.pbzchgretzou.qr>
+References: <20090727134457.12897.272.stgit@jazzy.zrh.corp.google.com> <20090727134852.13319.39035.stgit@jazzy.zrh.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@nall.com, herbert@gondor.apana.org.au,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44738
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753653AbZG0Shs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 14:37:48 -0400
-In-Reply-To: <20090727182246.GC15823@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Eder <heder@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20090727134852.13319.39035.stgit@jazzy.zrh.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 27 Jul 2009 14:22:46 -0400
 
-> Export garbage collector thresholds for xfrm[4|6]_dst_ops
-> 
-> Had a problem reported to me recently in which a high volume of ipsec
-> connections on a system began reporting ENOBUFS for new connections eventually.
-> It seemed that after about 2000 connections we started being unable to create
-> more.  A quick look revealed that the xfrm code used a dst_ops structure that
-> limited the gc_thresh value to 1024, and alaways dropped route cache entries
-> after 2x the gc_thresh.  It seems the most direct solution is to export the
-> gc_thresh values in the xfrm[4|6] dst_ops as sysctls, like the main routing
-> table does, so that higher volumes of connections can be supported.  This patch
-> has been tested and allows the reporter to increase their ipsec connection
-> volume successfully.
-> 
-> Reported-by: Joe Nall <joe@nall.com>
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+On Monday 2009-07-27 15:48, Hannes Eder wrote:
+>+
+>+	switch (c) {
+>+	case '0': /* --ipvs */
+>+		/* Nothing to do here. */
 
-Applied, but this suggests that either:
+		Then why add it?
 
-1) we pick a horrible default
+>+	char buf[BUFSIZ];
+>+
+>+	if (family == NFPROTO_IPV4) {
+>+		if (!numeric && addr->ip == 0) {
+>+			printf("anywhere ");
+>+			return;
+>+		}
+>+		if (numeric)
+>+			strcpy(buf, xtables_ipaddr_to_numeric(&addr->in));
+>+		else
+>+			strcpy(buf, xtables_ipaddr_to_anyname(&addr->in));
+>+		strcat(buf, xtables_ipmask_to_numeric(&mask->in));
+>+		printf("%s ", buf);
 
-2) our IPSEC machinery holds onto dst entries too tightly and that's
-   the true cause of this problem
+There is no need to use the strcpy/strcat hacks. Just directly printf it.
 
-I'd like to ask that you investigate this, because with defaults
-we should be able to handle IPSEC loads as high as the routing
-loads we could handle.
+>--- /dev/null
+>+++ b/extensions/libxt_ipvs.man
+>@@ -0,0 +1,7 @@
+>+ipvs tests where the packet was modified by IPVS, i.e. is the
+>+skb_buff->ipvs_property set.
+>+.TP
+>+[\fB!\fP] \fB--ipvs
+>+Does the packet have to IPVS property?
+>+
+>+TODO: Write proper documentation.
 
-Thanks.
+Yes.
