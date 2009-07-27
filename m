@@ -1,49 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] net: Keep interface binding when sending packets with
- ipi_ifindex = 0
-Date: Mon, 27 Jul 2009 14:44:02 -0700
-Message-ID: <20090727144402.513369f1.akpm@linux-foundation.org>
-References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
+From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
+Subject: Re: [PATCH NEXT 12/12] netxen: update version to 4.0.41
+Date: Mon, 27 Jul 2009 14:51:28 -0700
+Message-ID: <4A6E2160.1090704@qlogic.com>
+References: <20090727.103842.52201957.davem@davemloft.net>	<20090727.105403.202219074.davem@davemloft.net>	<7608421F3572AB4292BB2532AE89D56581877E22A4@AVEXMB1.qlogic.org> <20090727.123807.268367807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chia-chi Yeh (=?ISO-8859-1?Q?=5F=5F=5F=5F=5F=5F=5F=5F=5F?=)
-	<chiachi@android.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41888 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755207AbZG0VoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 17:44:05 -0400
-In-Reply-To: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
+Received: from avexch1.qlogic.com ([198.70.193.115]:50188 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612AbZG0Vv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 17:51:28 -0400
+In-Reply-To: <20090727.123807.268367807.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(cc netdev)
+Agreed that it duplicates work in individual drivers,
+and the naming style followed by different vendors.
 
-On Thu, 23 Jul 2009 14:39:28 -0700
-Chia-chi Yeh (_________) <chiachi@android.com> wrote:
+But the problem is ethtool can work only after driver
+has successfully initialized interfaces. Otherwise,
+ethtool gets no chance to tune up/down.
 
-> In IPv4, sending a packet with ipi_ifindex = 0 via an interface-bound
-> socket will unbind the packet to that interface. This behavior is
-> different from IPv6 which treats ipi6_ifindex = 0 as unspecified.
-> Furthermore, IPv6 does not allow sending packets to other interface
-> than the bound one, but I am not sure if it is necessary in IPv4. The
-> following patch keeps the interface binding when ipi_ifindex = 0.
+The driver defaults are for tuned for typical use cases.
+On some frugal systems with lower amount of RAM, the
+driver bails out failing to allocate enough ring space
+or rx buffers [especially for 32-bit kernels]. This is
+also a problem for multi-function (more than one PCI
+function per physical port) mode, where number of
+interfaces and hence the memory consumption gets
+multiplied. For these cases something that can set
+the bar before device initialization, is quite helpful.
+
+Thanks,
+Dhananjay
+
+
+
+David Miller wrote:
+> No, it is not good.
 > 
-> Thanks,
-> Chia-chi
+> With module parameters we:
 > 
-> --- a/net/ipv4/ip_sockglue.c	2009-07-24 04:50:45.000000000 +0800
-> +++ b/net/ipv4/ip_sockglue.c	2009-07-24 04:51:09.000000000 +0800
-> @@ -213,7 +213,8 @@
->  			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo)))
->  				return -EINVAL;
->  			info = (struct in_pktinfo *)CMSG_DATA(cmsg);
-> -			ipc->oif = info->ipi_ifindex;
-> +			if (info->ipi_ifindex)
-> +				ipc->oif = info->ipi_ifindex;
->  			ipc->addr = info->ipi_spec_dst.s_addr;
->  			break;
->  		}
+> 1) duplicate functionality
+> 
+> 2) every device driver will name the module parms differently,
+>    therefore the interface for the user is different for every device
+>    type
+> 
+> We discuss this all the time, and this is a pretty deep rooted
+> belief and requirement for all network drivers.
 
