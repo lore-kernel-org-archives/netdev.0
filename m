@@ -1,53 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: shrink net_device by #ifdef-ing protocol-specific
- members
-Date: Mon, 27 Jul 2009 09:27:12 -0700 (PDT)
-Message-ID: <20090727.092712.84381944.davem@davemloft.net>
-References: <4A6DC314.2010303@ixiacom.com>
-	<20090727.082644.265102452.davem@davemloft.net>
-	<1248711781.10463.108.camel@Joe-Laptop.home>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Mon, 27 Jul 2009 09:30:18 -0700
+Message-ID: <20090727093018.4a830259@nehalam>
+References: <4A65EC3F.4050400@gibraltar.at>
+	<20090723102848.00a56ad1@nehalam>
+	<4A6D8975.4050000@gibraltar.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lgrijincu@ixiacom.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
+To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52161
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752809AbZG0Q1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 12:27:06 -0400
-In-Reply-To: <1248711781.10463.108.camel@Joe-Laptop.home>
+Received: from mail.vyatta.com ([76.74.103.46]:49124 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753612AbZG0QaX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jul 2009 12:30:23 -0400
+In-Reply-To: <4A6D8975.4050000@gibraltar.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 27 Jul 2009 09:23:01 -0700
+On Mon, 27 Jul 2009 13:03:17 +0200
+Rene Mayrhofer <rene.mayrhofer@gibraltar.at> wrote:
 
-> On Mon, 2009-07-27 at 08:26 -0700, David Miller wrote:
->> From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
->> Date: Mon, 27 Jul 2009 18:09:08 +0300
->> > Some members of net_device are used only by some protocols.
->> > If those protocols are not compiled (as modules or linked in) they
->> > should not take up space in the structure.
->> This benefits, at best, %0.000000001 of users of the Linux kernel,
->> because every distribution is going to turn on every single option.
+> Stephen Hemminger schrieb:
+> > You could try commenting out sky2_shutdown which does the Wol
+> > power down stuff. Maybe changing setting of Wake On Lan would
+> > help as well.
+> > 
+> > What happens if you take interface down 'ip link set eth0 down' (or ifconfig)?
+> > 
+> > There are several different register writes in the shutdown path.
+> > You could add code to check if a particular access is disabling
+> > the PCI buss with:
+> > 
+> >     sky2_write(... som register...)
+> >     BUG_ON(sky2_read16(sky2->hw, B0_CTST) == 0xffff);
 > 
-> I think the cost of maintaining this is small and the
-> percentage of users that benefit underestimated.
+> I tried adding that wherever it seemed to make sense, resulting in
 
-Prove it.
-
-Prove that it helps enough to maintain this ifdef abortion in our
-header files.
-
-It only gives the false sense of satisfation that we're making our
-datastructures less bloated.  We're not, and in fact they keep getting
-larger, and if we add these ifdefs the new excuse for bloat will be
-"but it gets compiled out on embedded et al.  builds that don't use
-this or that feature."
-
-Putting this crap in is just a big smoke screen which gives a
-disincentive for making real improvements in this area.
-
-If I thought this was worthwhile I would have done it 10 years ago.
+Does the platform use MSI? Perhaps it generates a bogus interrupt when
+powered off.
