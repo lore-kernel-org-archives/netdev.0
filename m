@@ -1,89 +1,87 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] USB host CDC Phonet network interface driver
-Date: Mon, 27 Jul 2009 13:36:06 -0400
-Message-ID: <1248716166.17189.25.camel@localhost.localdomain>
-References: <1248177515-12712-1-git-send-email-remi.denis-courmont@nokia.com>
-	 <200907241431.08858.oliver@neukum.org>
-	 <20090724134805.0d9496be@lxorguk.ukuu.org.uk>
-	 <200907241612.41871.oliver@neukum.org>  <1248458401.28545.149.camel@violet>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 11/12] net/netlabel: Correct redundant test
+Date: Mon, 27 Jul 2009 13:37:29 -0400
+Message-ID: <200907271337.30401.paul.moore@hp.com>
+References: <Pine.LNX.4.64.0907271815260.2682@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1248458401.28545.149.camel@violet>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:5977 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbZG0RiC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 13:38:02 -0400
+In-Reply-To: <Pine.LNX.4.64.0907271815260.2682@ask.diku.dk>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-07-24 at 20:00 +0200, Marcel Holtmann wrote:
-> Hi Oliver,
-> 
-> > > > No, I was thinking of having two full devices, a data channel and a
-> > > > control channel for devices that really talk AT commands natively.
-> > >
-> > > If the hardware does it great, however for things like a 3G modem you
-> > > have the problem that the PPP is over the AT command channel which may
-> > > itself be multiplexed. And the muxing in question is *ugly* - sort of
-> > > HDLC and LAP-B done wrong.
-> > 
-> > Well, yes, but we would really like a separate control channel, so we
-> > can query parameters like signal strength, while we do PPP over the data
-> > channel.
-> 
-> we don't want PPP at all. It is just plain stupid and a total braindead
-> idea. Non of the GSM/UMTS networks talk PPP over the air interface or
-> actually anywhere in their stack. The PPP is just between the host OS
-> and the card. It is a pointless encapsulation of IP packets that comes
-> from the POTS stuff where PPP over a telephone line made sense.
+On Monday 27 July 2009 12:15:43 pm Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+>
+> entry was tested for NULL near the beginning of the function, followed by a
+> return, and there is no intervening modification of its value.
+>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://www.emn.fr/x-info/coccinelle/)
+>
+> // <smpl>
+> @r exists@
+> local idexpression x;
+> expression E;
+> position p1,p2;
+> @@
+>
+> if (x == NULL || ...) { ... when forall
+>    return ...; }
+> ... when != \(x=E\|x--\|x++\|--x\|++x\|x-=E\|x+=E\|x|=E\|x&=E\|&x\)
+> (
+> *x == NULL
+>
+> *x != NULL
+> )
+> // </smpl>
+>
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Feel free to convince all the hardware vendors to move over to that
-model.  Many of them are, but there are still *boatloads* of devices
-that do PPP.  It'll be at least 3 or 4 years before you can even think
-about ignoring PPP entirely.
+Good catch, thanks.
 
-This is totally a firmware thing and not something under our control at
-all.  Either the vendor implements a non-PPP data channel, or they
-don't.  We have to live with that, or ignore devices that use PPP.  Most
-of the devices out there use PPP.  Maybe 80 or 90%.
+Acked-by: Paul Moore <paul.moore@hp.com>
 
-The only reason vendors ditched PPP was that it was too much overhead to
-achieve full speed on HSDPA 7.2 networks.  Guess how many operators have
-actually deployed HSDPA 7.2?  Count them on your hands.  Yes, over the
-next year or two we'll see a lot more HSDPA 7.2-capable networks, and
-that means more devices will show up that ditch PPP.  But at the moment,
-PPP can't be ignored.
+> ---
+>  net/netlabel/netlabel_kapi.c        |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+> index b0e582f..3ff6f32 100644
+> --- a/net/netlabel/netlabel_kapi.c
+> +++ b/net/netlabel/netlabel_kapi.c
+> @@ -185,8 +185,7 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
+>  	return 0;
+>
+>  cfg_unlbl_map_add_failure:
+> -	if (entry != NULL)
+> -		kfree(entry->domain);
+> +	kfree(entry->domain);
+>  	kfree(entry);
+>  	kfree(addrmap);
+>  	kfree(map4);
+> @@ -385,8 +384,7 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
+>
+>  cfg_cipsov4_map_add_failure:
+>  	cipso_v4_doi_putdef(doi_def);
+> -	if (entry != NULL)
+> -		kfree(entry->domain);
+> +	kfree(entry->domain);
+>  	kfree(entry);
+>  	kfree(addrmap);
+>  	kfree(addrinfo);
 
-The next problem is that not all vendors implement the non-PPP data
-channel using cdc-ether, or provide specs/drivers for that channel.  So
-just because a vendor ditches PPP doesn't automatically mean it's better
-for Linux and a driver is available.
+-- 
+paul moore
+linux @ hp
 
-Dan
-
-> And on top of that we have these magic *99# phone numbers to establish a
-> PDP context, because the OS still sees them as POTS modem. All stupid
-> and braindead. I am so happy that Ericsson and Option moved to proper
-> high speed network devices and that Nokia Phonet had this all along.
-> 
-> So besides the GPRS data access, the other problem with AT command
-> control channels is that they are by no means async. Every single
-> command is essentially blocking and so you need the TTY mux anyway so
-> you can do scanning, text messaging and network monitoring at the same
-> time without having your application look like a total dork.
-> 
-> Regards
-> 
-> Marcel
-> 
-> 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
