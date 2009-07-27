@@ -1,68 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next-2.6 phonet causes build error
-Date: Mon, 27 Jul 2009 09:03:06 +0200
-Message-ID: <4A6D512A.1050504@gmail.com>
-References: <4A6CA3BF.7010709@hartkopp.net> <200907270927.55728.remi.denis-courmont@nokia.com>
+From: Brice Goglin <Brice.Goglin@inria.fr>
+Subject: Re: [RFC] Idea about increasing efficency of skb allocation in network
+ devices
+Date: Mon, 27 Jul 2009 09:10:55 +0200
+Message-ID: <4A6D52FF.2030008@inria.fr>
+References: <20090727003609.GA30438@localhost.localdomain> <20090726.180254.202825489.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?windows-1252?Q?R=E9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35363 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539AbZG0HDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 03:03:20 -0400
-In-Reply-To: <200907270927.55728.remi.denis-courmont@nokia.com>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:32033 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753652AbZG0HUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 03:20:50 -0400
+In-Reply-To: <20090726.180254.202825489.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R=E9mi Denis-Courmont a =E9crit :
-> On Sunday 26 July 2009 21:43:11 ext Oliver Hartkopp wrote:
->> i got this build error from the latest net-next-2.6:
->>
->> net/phonet/pn_dev.c: In function =91phonet_init_net=92:
->> net/phonet/pn_dev.c:221: error: implicit declaration of function
->> =91proc_net_fops_create=92
->> net/phonet/pn_dev.c: In function =91phonet_exit_net=92:
->> net/phonet/pn_dev.c:242: error: implicit declaration of function
->> =91proc_net_remove=92
->=20
-> Oops. This makes me wonder why I did not get that one here on my test=
-=20
-> builds???
->=20
+David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Sun, 26 Jul 2009 20:36:09 -0400
+>
+>   
+>> 	Since Network devices dma their memory into a provided DMA
+>> buffer (which can usually be at an arbitrary location, as they must
+>> cross potentially several pci busses to reach any memory location),
+>> I'm postulating that it would increase our receive path efficiency
+>> to provide a hint to the driver layer as to which node to allocate
+>> an skb data buffer on.  This hint would be determined by a feedback
+>> mechanism.  I was thinking that we could provide a callback function
+>> via the skb, that accepted the skb and the originating net_device.
+>> This callback can track statistics on which numa nodes consume
+>> (read: copy data from) skbs that were produced by specific net
+>> devices.  Then, when in the future that netdevice allocates a new
+>> skb (perhaps via netdev_alloc_skb), we can use that statistical
+>> profile to determine if the data buffer should be allocated on the
+>> local node, or on a remote node instead.
+>>     
+>
+> No matter what, you will do an inter-node memory operation.
+>
+> Unless, the consumer NUMA node is the same as the one the
+> device is on.
+>
+> Because since the device is on a NUMA node, if you DMA remotely
+> you've eaten the NUMA cost already.
+>
+> If you always DMA to the device's NUMA node (what we try to do now) at
+> least the is the possibility of eliminating cross-NUMA traffic.
+>
+> Better to move the application or stack processing towards the NUMA
+> node the network device is on, I think.
+>   
 
-I also have this warning :
+Is there an easy way to get this NUMA node from the application socket
+descriptor?
+Also, one question that was raised at the Linux Symposium is: how do you
+know which processors run the receive queue for a specific connection ?
+It would be nice to have a way to retrieve such information in the
+application to avoid inter-node and inter-core/cache traffic.
 
-net/phonet/pn_dev.c: In function `phonet_device_get':
-net/phonet/pn_dev.c:99: warning: 'dev' might be used uninitialized in t=
-his function
-
-What about following patch ?
-
-[PATCH] phonet: phonet_device_get() fix
-
-net/phonet/pn_dev.c: In function `phonet_device_get':
-net/phonet/pn_dev.c:99: warning: 'dev' might be used uninitialized in t=
-his function
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-
-diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
-index b0d6ddd..c2b77a6 100644
---- a/net/phonet/pn_dev.c
-+++ b/net/phonet/pn_dev.c
-@@ -96,7 +96,7 @@ struct net_device *phonet_device_get(struct net *net)
- {
- 	struct phonet_device_list *pndevs =3D phonet_device_list(net);
- 	struct phonet_device *pnd;
--	struct net_device *dev;
-+	struct net_device *dev =3D NULL;
-=20
- 	spin_lock_bh(&pndevs->lock);
- 	list_for_each_entry(pnd, &pndevs->list, list) {
+Brice
 
