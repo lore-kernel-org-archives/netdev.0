@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ethtool: device independent rx_csum and
- get_flags routines
-Date: Sun, 26 Jul 2009 19:49:57 -0700 (PDT)
-Message-ID: <20090726.194957.162341485.davem@davemloft.net>
-References: <1248305902.1061.84.camel@w-sridhar.beaverton.ibm.com>
+Subject: Re: [PATCH V2] imwc3200: move iwmc3200 SDIO ids to sdio_ids.h
+Date: Sun, 26 Jul 2009 19:50:05 -0700 (PDT)
+Message-ID: <20090726.195005.189598415.davem@davemloft.net>
+References: <1248307616-30631-1-git-send-email-tomas.winkler@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sri@us.ibm.com
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: tomas.winkler@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56709
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56712
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755480AbZG0Ctu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:49:50 -0400
-In-Reply-To: <1248305902.1061.84.camel@w-sridhar.beaverton.ibm.com>
+	by vger.kernel.org with ESMTP id S1755796AbZG0Ct6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jul 2009 22:49:58 -0400
+In-Reply-To: <1248307616-30631-1-git-send-email-tomas.winkler@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 22 Jul 2009 16:38:22 -0700
+From: Tomas Winkler <tomas.winkler@intel.com>
+Date: Thu, 23 Jul 2009 03:06:56 +0300
 
-> [PATCH net-next-2.6] ethtool: add device independent rx_csum and get_flags routines
+> 1. add intel's sdio vendor id to sdio_ids.h
+> 2. move iwmc3200 sdio devices' ids to sdio_ids.h
 > 
-> This helps avoid error messages with ethtool -k on devices that
-> don't provide device specific routines.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Cc:inaky.perez-gonzalez@intel.com
+> Cc:cindy.h.kao@intel.com
+> Cc:yi.zhu@intel.com
+> Cc:drzeus-list@drzeus.cx
+> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
 
-Applied.
+Applied to net-next-2.6
