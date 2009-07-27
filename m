@@ -1,42 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 12/12] netxen: update version to 4.0.41
-Date: Mon, 27 Jul 2009 12:38:07 -0700 (PDT)
-Message-ID: <20090727.123807.268367807.davem@davemloft.net>
-References: <20090727.103842.52201957.davem@davemloft.net>
-	<20090727.105403.202219074.davem@davemloft.net>
-	<7608421F3572AB4292BB2532AE89D56581877E22A4@AVEXMB1.qlogic.org>
+Subject: Re: [PATCH] xfrm: export xfrm garbage collector thresholds via
+ sysctl
+Date: Mon, 27 Jul 2009 12:40:11 -0700 (PDT)
+Message-ID: <20090727.124011.05728493.davem@davemloft.net>
+References: <20090727182246.GC15823@hmsreliant.think-freely.org>
+	<20090727.113755.260927092.davem@davemloft.net>
+	<20090727193625.GD15823@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dhananjay.phadke@qlogic.com
+Cc: netdev@vger.kernel.org, joe@nall.com, herbert@gondor.apana.org.au,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52965
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52968
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753192AbZG0TiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 15:38:01 -0400
-In-Reply-To: <7608421F3572AB4292BB2532AE89D56581877E22A4@AVEXMB1.qlogic.org>
+	by vger.kernel.org with ESMTP id S1754305AbZG0TkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 15:40:04 -0400
+In-Reply-To: <20090727193625.GD15823@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Date: Mon, 27 Jul 2009 12:26:58 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 27 Jul 2009 15:36:25 -0400
 
-> Ok, the idea for module params was to set global defaults
-> (configured in modprobe.conf) vs. per interface ethtool calls.
-> The ethtool support is anyway added by # 12 patch.
-> 
-> Is it not good to have both options available? 
+> I think that makes sense, since it means we only keep cache entries
+> for active connections, and clean them up as soon as they close
+> (e.g. I don't really see the advantage to unhashing a xfrm cache
+> entry only to recreate it on the next packet sent).
 
-No, it is not good.
+How is this related to the user's problem?
 
-With module parameters we:
+My impression was that they were forwarding IPSEC traffic when
+running up against these limits, and that has no socket based
+assosciation at all.
 
-1) duplicate functionality
+Making the XFRM GC limits get computed similarly to how the
+ipv4/ipv6 one's do probably makes sense.
 
-2) every device driver will name the module parms differently,
-   therefore the interface for the user is different for every device
-   type
 
-We discuss this all the time, and this is a pretty deep rooted
-belief and requirement for all network drivers.
