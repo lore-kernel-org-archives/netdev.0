@@ -1,52 +1,123 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 2/2] IPVS: use pr_err and friends instead of
-	IP_VS_ERR and friends
-Date: Wed, 29 Jul 2009 09:33:38 +1000
-Message-ID: <20090728233338.GD4026@verge.net.au>
-References: <20090728203414.7654.73236.stgit@jazzy.zrh.corp.google.com> <20090728203554.7654.29628.stgit@jazzy.zrh.corp.google.com> <1248814615.18284.22.camel@Joe-Laptop.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Eder <heder@google.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Joe Perches <joe@perches.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1248814615.18284.22.camel@Joe-Laptop.home>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 64/71] nf_conntrack: nf_conntrack_alloc() fixes
+Date: Tue, 28 Jul 2009 16:41:33 -0700
+Message-ID: <20090728234201.430401674@mini.kroah.org>
+References: <20090728234029.868717854@mini.kroah.org>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755129AbZG1Xun@vger.kernel.org>
+Content-Disposition: inline; filename=nf_conntrack-nf_conntrack_alloc-fixes.patch
+In-Reply-To: <20090728234756.GA11917@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 28, 2009 at 01:56:55PM -0700, Joe Perches wrote:
-> On Tue, 2009-07-28 at 22:35 +0200, Hannes Eder wrote:
-> > Since pr_err and friends is used instead of printk there is not point
-> > in keeping IP_VS_ERR and friends.
-> > +			pr_err("Schedule: port zero only supported "
-> > +			       "in persistent services, "
-> > +			       "check your ipvs configuration\n");
-> 
-> You might consider ignoring the checkpatch 80 char limit here
-> and consolidate the message into a single string.
+2.6.30-stable review patch.  If anyone has any objections, please let us know.
 
-Personally, I prefer it the way it is.
+------------------
 
-> It helps when grepping.
-> 
-> > @@ -377,8 +377,8 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
-> >  static int ip_vs_svc_unhash(struct ip_vs_service *svc)
-> >  {
-> >  	if (!(svc->flags & IP_VS_SVC_F_HASHED)) {
-> > -		IP_VS_ERR("ip_vs_svc_unhash(): request for unhash flagged, "
-> > -			  "called from %p\n", __builtin_return_address(0));
-> > +		pr_err("ip_vs_svc_unhash(): request for unhash flagged, "
-> > +		       "called from %p\n", __builtin_return_address(0));
-> 
-> Maybe use something like:
-> 	"%s(): <foo> called from %pf",
-> 	 __func__, __builtin_return_address(0)
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+From: Eric Dumazet <eric.dumazet@gmail.com>
+
+commit 941297f443f871b8c3372feccf27a8733f6ce9e9 upstream.
+
+When a slab cache uses SLAB_DESTROY_BY_RCU, we must be careful when allocating
+objects, since slab allocator could give a freed object still used by lockless
+readers.
+
+In particular, nf_conntrack RCU lookups rely on ct->tuplehash[xxx].hnnode.next
+being always valid (ie containing a valid 'nulls' value, or a valid pointer to next
+object in hash chain.)
+
+kmem_cache_zalloc() setups object with NULL values, but a NULL value is not valid
+for ct->tuplehash[xxx].hnnode.next.
+
+Fix is to call kmem_cache_alloc() and do the zeroing ourself.
+
+As spotted by Patrick, we also need to make sure lookup keys are committed to
+memory before setting refcount to 1, or a lockless reader could get a reference
+on the old version of the object. Its key re-check could then pass the barrier.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ Documentation/RCU/rculist_nulls.txt |    7 ++++++-
+ net/netfilter/nf_conntrack_core.c   |   21 ++++++++++++++++++---
+ 2 files changed, 24 insertions(+), 4 deletions(-)
+
+--- a/Documentation/RCU/rculist_nulls.txt
++++ b/Documentation/RCU/rculist_nulls.txt
+@@ -83,11 +83,12 @@ not detect it missed following items in 
+ obj = kmem_cache_alloc(...);
+ lock_chain(); // typically a spin_lock()
+ obj->key = key;
+-atomic_inc(&obj->refcnt);
+ /*
+  * we need to make sure obj->key is updated before obj->next
++ * or obj->refcnt
+  */
+ smp_wmb();
++atomic_set(&obj->refcnt, 1);
+ hlist_add_head_rcu(&obj->obj_node, list);
+ unlock_chain(); // typically a spin_unlock()
+ 
+@@ -159,6 +160,10 @@ out:
+ obj = kmem_cache_alloc(cachep);
+ lock_chain(); // typically a spin_lock()
+ obj->key = key;
++/*
++ * changes to obj->key must be visible before refcnt one
++ */
++smp_wmb();
+ atomic_set(&obj->refcnt, 1);
+ /*
+  * insert obj in RCU way (readers might be traversing chain)
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -525,22 +525,37 @@ struct nf_conn *nf_conntrack_alloc(struc
+ 		}
+ 	}
+ 
+-	ct = kmem_cache_zalloc(nf_conntrack_cachep, gfp);
++	/*
++	 * Do not use kmem_cache_zalloc(), as this cache uses
++	 * SLAB_DESTROY_BY_RCU.
++	 */
++	ct = kmem_cache_alloc(nf_conntrack_cachep, gfp);
+ 	if (ct == NULL) {
+ 		pr_debug("nf_conntrack_alloc: Can't alloc conntrack.\n");
+ 		atomic_dec(&net->ct.count);
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+-
+-	atomic_set(&ct->ct_general.use, 1);
++	/*
++	 * Let ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.next
++	 * and ct->tuplehash[IP_CT_DIR_REPLY].hnnode.next unchanged.
++	 */
++	memset(&ct->tuplehash[IP_CT_DIR_MAX], 0,
++	       sizeof(*ct) - offsetof(struct nf_conn, tuplehash[IP_CT_DIR_MAX]));
+ 	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
++	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
+ 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *repl;
++	ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev = NULL;
+ 	/* Don't set timer yet: wait for confirmation */
+ 	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
+ #ifdef CONFIG_NET_NS
+ 	ct->ct_net = net;
+ #endif
+ 
++	/*
++	 * changes to lookup keys must be done before setting refcnt to 1
++	 */
++	smp_wmb();
++	atomic_set(&ct->ct_general.use, 1);
+ 	return ct;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
