@@ -1,84 +1,56 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH NEXT] netxen: fix CONFIG_INET=n build
-Date: Tue, 28 Jul 2009 12:23:52 -0700
-Message-ID: <20090728122352.6d4a2b05.randy.dunlap@oracle.com>
-References: <1248808203-9578-1-git-send-email-dhananjay@netxen.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH V2] CAN: Add Flexcan CAN controller driver
+Date: Tue, 28 Jul 2009 21:41:30 +0200
+Message-ID: <4A6F546A.4000008@grandegger.com>
+References: <20090728120624.GS2714@pengutronix.de>	<4A6EFB64.8070804@hartkopp.net>	<20090728133719.GU2714@pengutronix.de>	<4A6F0238.6050605@hartkopp.net> <4A6F073A.1050909@hartkopp.net>	<20090728142452.GW2714@pengutronix.de>	<4A6F0FC2.1060605@hartkopp.net> <20090728145354.GX2714@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
-To: Dhananjay Phadke <dhananjay@netxen.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1248808203-9578-1-git-send-email-dhananjay@netxen.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Socketcan-core@lists.berlios.de,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:60573 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753211AbZG1Tlf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 15:41:35 -0400
+In-Reply-To: <20090728145354.GX2714@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Jul 2009 12:10:03 -0700 Dhananjay Phadke wrote:
-
-> Wrap dest IP hashing code with #ifdef CONFIG_INET,
-> this feature makes no sense without INET, but other
-> driver can still work.
+Sascha Hauer wrote:
+> On Tue, Jul 28, 2009 at 04:48:34PM +0200, Oliver Hartkopp wrote:
+>> Sascha Hauer wrote:
+>>> On Tue, Jul 28, 2009 at 04:12:10PM +0200, Oliver Hartkopp wrote:
+>>>> Oliver Hartkopp wrote:
+>>>>> Sascha Hauer wrote:
+>>>>>>>> +
+>>>>>>>> +	if (frame->can_id & CAN_RTR_FLAG)
+>>>>>>>> +		dlc |= MB_CNT_RTR;
+>>>>>>>> +
+>>>>>>>> +	writel(dlc, &regs->cantxfg[TX_BUF_ID].can_dlc);
+>>>>>>>> +	writel(can_id, &regs->cantxfg[TX_BUF_ID].can_id);
+>>>> Are you sure, that this is correct?
+>>> Yes, I am sure, at least on my hardware.
+>> I looked into the writel() macro which does a cpu_to_le32() to the value -
+>> sorry that i did not check this before ...
+>>
+>>>> Indeed i wonder, if it would make sense to skip the entire struct flexcan_mb
+>>>> approach and fiddle byte-by-byte inside the registers ...
+>>> You'll have to to 32 bit accesses to get it right on little and big
+>>> endian.
+>>>
+>>> what we can do is:
+>>>
+>>> writel(can_data[0] << 24 | can_data[1] << 16 | can_data[2] << 8 | can_data[3],
+>>> 	msg_buf + 0x8);
+>> This looks easier to understand and makes things clear, when you look into the
+>> specification.
 > 
-> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+> Ok, I'll change it like this.
 
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+OK, even if I do not really share Oliver's concerns. The second write
+could be suppressed if dlc <= 4.
 
-Thanks.
-
-> ---
->  drivers/net/netxen/netxen_nic_main.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-> index 2bbefa6..40549a0 100644
-> --- a/drivers/net/netxen/netxen_nic_main.c
-> +++ b/drivers/net/netxen/netxen_nic_main.c
-> @@ -1875,6 +1875,8 @@ static void netxen_nic_poll_controller(struct net_device *netdev)
->  }
->  #endif
->  
-> +#ifdef CONFIG_INET
-> +
->  #define is_netxen_netdev(dev) (dev->netdev_ops == &netxen_netdev_ops)
->  
->  static int
-> @@ -1993,6 +1995,7 @@ static struct notifier_block	netxen_netdev_cb = {
->  static struct notifier_block netxen_inetaddr_cb = {
->  	.notifier_call = netxen_inetaddr_event,
->  };
-> +#endif
->  
->  static struct pci_driver netxen_driver = {
->  	.name = netxen_nic_driver_name,
-> @@ -2012,8 +2015,10 @@ static int __init netxen_init_module(void)
->  	if ((netxen_workq = create_singlethread_workqueue("netxen")) == NULL)
->  		return -ENOMEM;
->  
-> +#ifdef CONFIG_INET
->  	register_netdevice_notifier(&netxen_netdev_cb);
->  	register_inetaddr_notifier(&netxen_inetaddr_cb);
-> +#endif
->  
->  	return pci_register_driver(&netxen_driver);
->  }
-> @@ -2024,8 +2029,10 @@ static void __exit netxen_exit_module(void)
->  {
->  	pci_unregister_driver(&netxen_driver);
->  
-> +#ifdef CONFIG_INET
->  	unregister_inetaddr_notifier(&netxen_inetaddr_cb);
->  	unregister_netdevice_notifier(&netxen_netdev_cb);
-> +#endif
->  	destroy_workqueue(netxen_workq);
->  }
->  
-> -- 
-> 1.6.0.2
-> 
-
-
----
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+Wolfgang.
