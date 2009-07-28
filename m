@@ -1,43 +1,97 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Tue, 28 Jul 2009 16:44:51 +0800
-Message-ID: <20090728084451.GA26299@gondor.apana.org.au>
-References: <20090725032436.GA30741@gondor.apana.org.au> <20090727.192844.163233275.davem@davemloft.net> <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728064319.GA5424@ff.dom.local> <20090728080354.GA25953@gondor.apana.org.au> <20090728083713.GB5424@ff.dom.local>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
+ in 	back trace (regression)
+Date: Tue, 28 Jul 2009 10:44:56 +0200
+Message-ID: <4A6EBA88.8030205@cosmosbay.com>
+References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Pavel Emelyanov <xemul@openvz.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:44595 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751927AbZG1Io6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 04:44:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20090728083713.GB5424@ff.dom.local>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57546 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752753AbZG1Iql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 04:46:41 -0400
+In-Reply-To: <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 28, 2009 at 08:37:13AM +0000, Jarek Poplawski wrote:
->
-> Hmm.. would something IMHO_more_readable/less_fixing like:
-> (qdisc->flags & TCQ_F_DEFAULT) be too much? (Btw, IIRC there was an
-> idea long time ago to treat all queues equally.)
+Igor M Podlesny a =C3=A9crit :
+> [...]
+>> Could have been a problem in net core, perhaps.
+>>
+>> Below is a ppp fix from 2.6.31, but it seems unlikely to fix your pr=
+oblem.
+>>
+>> It would help if we could see that trace, please.  A digital photo
+>> would suit.
+>=20
+> 	Here it is:
+>=20
+> 		http://bugzilla.kernel.org/attachment.cgi?id=3D22516
+>=20
+> 	(It's 2.6.30.3)
+> =09
 
-Well the fact that as it stands the only true multiqueue qdisc
-is the default is a mere coincidence.  There is no fundamental
-reason why non-default qdiscs cannot be made multiqueue aware,
-well, for some of them anyway.
+Looking at this, I believe net_assign_generic() is not safe.
 
-For example, sfq can naturally be enhanced as a multiqueue qdisc
-just like the default qdisc.
+Two cpus could try to expand/update the array at same time, one update =
+could be lost.
 
-So I don't think we want to prejudice what a future non-default
-qdisc may support.
+register_pernet_gen_device() has a mutex to guard against concurrent
+calls, but net_assign_generic() has no locking at all.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I doubt this is the reason of the crash, still worth to mention it...
+
+[PATCH] net: net_assign_generic() is not SMP safe
+
+Two cpus could try to expand/update the array at same time, one update
+could be lost during the copy of old array.
+
+Re-using net_mutex is an easy way to fix this, it was used right
+before to allocate the 'id'
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index b7292a2..9c31ad1 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -467,15 +467,17 @@ int net_assign_generic(struct net *net, int id, v=
+oid *data)
+ 	BUG_ON(!mutex_is_locked(&net_mutex));
+ 	BUG_ON(id =3D=3D 0);
+=20
++	mutex_lock(&net_mutex);
+ 	ng =3D old_ng =3D net->gen;
+ 	if (old_ng->len >=3D id)
+ 		goto assign;
+=20
+ 	ng =3D kzalloc(sizeof(struct net_generic) +
+ 			id * sizeof(void *), GFP_KERNEL);
+-	if (ng =3D=3D NULL)
++	if (ng =3D=3D NULL) {
++		mutex_unlock(&net_mutex);
+ 		return -ENOMEM;
+-
++	}
+ 	/*
+ 	 * Some synchronisation notes:
+ 	 *
+@@ -494,6 +496,7 @@ int net_assign_generic(struct net *net, int id, voi=
+d *data)
+ 	call_rcu(&old_ng->rcu, net_generic_release);
+ assign:
+ 	ng->ptr[id - 1] =3D data;
++	mutex_unlock(&net_mutex);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(net_assign_generic);
