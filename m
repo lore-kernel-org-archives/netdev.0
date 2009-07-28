@@ -1,47 +1,76 @@
-From: Steve Glendinning <steve.glendinning@smsc.com>
-Subject: [PATCH] smsc95xx: remove EEPROM loaded check
-Date: Tue, 28 Jul 2009 13:37:58 +0100
-Message-ID: <1248784678-31726-1-git-send-email-steve.glendinning@smsc.com>
-Cc: Ian Saturley <ian.saturley@smsc.com>,
-	David Miller <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug #13838] kernel BUG at include/net/netns/generic.h:41!
+Date: Tue, 28 Jul 2009 14:46:54 +0200
+Message-ID: <4A6EF33E.6080408@gmail.com>
+References: <Jya1GruKQpD.A.16.2GObKB@chimera>	 <3zAHs5O6maO.A.B5B.IHObKB@chimera>	 <2375c9f90907262229t2def934emb9340c31d3efdc21@mail.gmail.com> <68676e00907280130tbbf5672x83182641b0c977b3@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Luca Tettamanti <kronos.it@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drevil.shawell.net ([86.54.240.115]:39250 "EHLO
-	drevil2.shawell.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753233AbZG1Mpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 08:45:51 -0400
+Received: from gw1.cosmosbay.com ([212.99.114.194]:57531 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913AbZG1MrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 08:47:13 -0400
+In-Reply-To: <68676e00907280130tbbf5672x83182641b0c977b3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The eeprom read & write commands currently check the E2P_CMD_LOADED_ bit is
-set before allowing any operations.  This prevents any reading or writing
-unless a correctly programmed EEPROM is installed.
+Luca Tettamanti a =C3=A9crit :
+> On Mon, Jul 27, 2009 at 7:29 AM, Am=C3=A9rico Wang<xiyou.wangcong@gma=
+il.com> wrote:
+>> On Mon, Jul 27, 2009 at 4:28 AM, Rafael J. Wysocki<rjw@sisk.pl> wrot=
+e:
+>>> This message has been generated automatically as a part of a report
+>>> of recent regressions.
+>>>
+>>> The following bug entry is on the current list of known regressions
+>>> from 2.6.30.  Please verify if it still should be listed and let me=
+ know
+>>> (either way).
+>>>
+>>>
+>>> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D1383=
+8
+>>> Subject         : kernel BUG at include/net/netns/generic.h:41!
+>>> Submitter       : Luca Tettamanti <kronos.it@gmail.com>
+>>> Date            : 2009-07-20 15:27 (7 days old)
+>>> References      : http://lkml.org/lkml/2009/7/20/105
+>> Hmm, it looks like that 'pfkey_net_id' is still zero after ipsec_pfk=
+ey_init()...
+>>
+>> Add Herbert and net-dev into Cc.
+>>
+>> Luca, would you mind to provide your .config and the steps to reprod=
+uce this?
+>=20
+> I cannot reproduce it anymore with the current git kernel. The BUG wa=
+s
+> triggered by racoon at startup.
+> Should I go back to an older kernel to investigate or can we consider
+> it "fixed"?
+>=20
 
-This patch removes the check, so it is possible to program blank EEPROMS
-via ethtool.
+This should be fixed by following patch (submitted for bug 13760, but s=
+hould apply)
 
-Signed-off-by: Steve Glendinning <steve.glendinning@smsc.com>
----
- drivers/net/usb/smsc95xx.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index fe04589..09bd635 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -220,11 +220,6 @@ static int smsc95xx_eeprom_confirm_not_busy(struct usbnet *dev)
- 	do {
- 		smsc95xx_read_reg(dev, E2P_CMD, &val);
- 
--		if (!(val & E2P_CMD_LOADED_)) {
--			devwarn(dev, "No EEPROM present");
--			return -EIO;
--		}
--
- 		if (!(val & E2P_CMD_BUSY_))
- 			return 0;
- 
--- 
-1.6.2.5
-
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index b7292a2..1972830 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -488,7 +488,7 @@ int net_assign_generic(struct net *net, int id, voi=
+d *data)
+ 	 */
+=20
+ 	ng->len =3D id;
+-	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len);
++	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len * sizeof(void *));
+=20
+ 	rcu_assign_pointer(net->gen, ng);
+ 	call_rcu(&old_ng->rcu, net_generic_release);
