@@ -1,85 +1,82 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
- in 	back trace (regression)
-Date: Tue, 28 Jul 2009 14:30:33 +0200
-Message-ID: <4A6EEF69.1050001@cosmosbay.com>
-References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org>
+From: Hannes Eder <heder@google.com>
+Subject: Re: [RFC][PATCH 5/5] libxt_ipvs: user space lib for netfilter matcher
+	xt_ipvs
+Date: Tue, 28 Jul 2009 14:34:26 +0200
+Message-ID: <b5ddba180907280534l78eaf951j53048ebfbef4258c@mail.gmail.com>
+References: <20090727134457.12897.272.stgit@jazzy.zrh.corp.google.com>
+	 <20090727134852.13319.39035.stgit@jazzy.zrh.corp.google.com>
+	 <alpine.LSU.2.00.0907272037500.20984@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:36287 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbZG1Ma4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 08:30:56 -0400
-In-Reply-To: <4A6ECA3A.4050309@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0907272037500.20984@fbirervta.pbzchgretzou.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov a =C3=A9crit :
-> Eric Dumazet wrote:
->> Igor M Podlesny a =C3=A9crit :
->>> [...]
->>>> Could have been a problem in net core, perhaps.
->>>>
->>>> Below is a ppp fix from 2.6.31, but it seems unlikely to fix your =
-problem.
->>>>
->>>> It would help if we could see that trace, please.  A digital photo
->>>> would suit.
->>> 	Here it is:
->>>
->>> 		http://bugzilla.kernel.org/attachment.cgi?id=3D22516
->>>
->>> 	(It's 2.6.30.3)
->>> =09
->> Looking at this, I believe net_assign_generic() is not safe.
->>
->> Two cpus could try to expand/update the array at same time, one upda=
-te could be lost.
->>
->> register_pernet_gen_device() has a mutex to guard against concurrent
->> calls, but net_assign_generic() has no locking at all.
->>
->> I doubt this is the reason of the crash, still worth to mention it..=
-=2E
->>
->> [PATCH] net: net_assign_generic() is not SMP safe
->>
->> Two cpus could try to expand/update the array at same time, one upda=
-te
->> could be lost during the copy of old array.
->=20
-> How can this happen? The array is updated only during ->init routines
-> of the pernet_operations, which are called from under the net_mutex.
->=20
-> Do I miss anything?
->=20
+On Mon, Jul 27, 2009 at 20:40, Jan Engelhardt<jengelh@medozas.de> wrote=
+:
+>
+> On Monday 2009-07-27 15:48, Hannes Eder wrote:
+>>+
+>>+ =A0 =A0 =A0switch (c) {
+>>+ =A0 =A0 =A0case '0': /* --ipvs */
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Nothing to do here. */
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Then why add it?
 
-Oops, I missed the obvious "BUG_ON(!mutex_is_locked(&net_mutex));"
+In the 'default' branch is an assert(false);  Call it defensive program=
+ming.
 
-Sorry for the noise and untested patch as well :)
+>>+ =A0 =A0 =A0char buf[BUFSIZ];
+>>+
+>>+ =A0 =A0 =A0if (family =3D=3D NFPROTO_IPV4) {
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0if (!numeric && addr->ip =3D=3D 0) {
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printf("anywhere ");
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0if (numeric)
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0strcpy(buf, xtables_ipad=
+dr_to_numeric(&addr->in));
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0else
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0strcpy(buf, xtables_ipad=
+dr_to_anyname(&addr->in));
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0strcat(buf, xtables_ipmask_to_numeric(&m=
+ask->in));
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0printf("%s ", buf);
+>
+> There is no need to use the strcpy/strcat hacks. Just directly printf=
+ it.
 
->> Re-using net_mutex is an easy way to fix this, it was used right
->> before to allocate the 'id'
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->>
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index b7292a2..9c31ad1 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -467,15 +467,17 @@ int net_assign_generic(struct net *net, int id=
-, void *data)
->>  	BUG_ON(!mutex_is_locked(&net_mutex));
->>  	BUG_ON(id =3D=3D 0);
->> =20
->> +	mutex_lock(&net_mutex);
+As the comment says: "Shamelessly copied from libxt_conntrack.c". ;)
+
+=46urthermore I think it is good that way, because
+xtables_ipaddr_to_numeric writes to a local static buffer, and
+xtables_ipaddr_to_numeric might get called by
+xtables_ipmask_to_numeric.
+
+>>--- /dev/null
+>>+++ b/extensions/libxt_ipvs.man
+>>@@ -0,0 +1,7 @@
+>>+ipvs tests where the packet was modified by IPVS, i.e. is the
+>>+skb_buff->ipvs_property set.
+>>+.TP
+>>+[\fB!\fP] \fB--ipvs
+>>+Does the packet have to IPVS property?
+>>+
+>>+TODO: Write proper documentation.
+>
+> Yes.
+
+Sir, yes, sir ;) I am working on that.
+
+Thanks,
+-Hannes
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
