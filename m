@@ -1,108 +1,173 @@
-From: Ben McKeegan <ben@netservers.co.uk>
-Subject: [PATCH] ppp: fix lost fragments in ppp_mp_explode()
-Date: Tue, 28 Jul 2009 14:35:48 +0100
-Message-ID: <4A6EFEB4.2000500@netservers.co.uk>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH V2] CAN: Add Flexcan CAN controller driver
+Date: Tue, 28 Jul 2009 16:18:55 +0200
+Message-ID: <20090728141855.GV2714@pengutronix.de>
+References: <20090728120624.GS2714@pengutronix.de> <4A6EFB64.8070804@hartkopp.net> <20090728133719.GU2714@pengutronix.de> <4A6F0238.6050605@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gabriele.paoloni@intel.com, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: davem@davemloft.net, paulus@samba.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Socketcan-core@lists.berlios.de,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:41000 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbZG1OS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 10:18:56 -0400
+Content-Disposition: inline
+In-Reply-To: <4A6F0238.6050605@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jul 28, 2009 at 03:50:48PM +0200, Oliver Hartkopp wrote:
+> Sascha Hauer wrote:
+> > Hi Oliver,
+> > 
+> > On Tue, Jul 28, 2009 at 03:21:40PM +0200, Oliver Hartkopp wrote:
+> >> Sascha Hauer wrote:
+> >>> Hi,
+> >>>
+> >>> Here is the second version of the flexcan driver.
+> >> Hi Sascha,
+> >>
+> >> some more points i forgot to mention, sorry ...
+> >>
+> >>
+> >>> +/* Structure of the message buffer */
+> >>> +struct flexcan_mb {
+> >>> +	u32	can_dlc;
+> >>> +	u32	can_id;
+> >>> +	u32	data[2];
+> >>> +};
+> >> This looks really hackish and does not reflect the structure of a flexcan
+> >> message buffer! The data is 'u8' and the name of 'dlc' for the
+> >> description/flag register is bad.
+> >>
+> > 
+> > see below..
+> 
+> Especially can_dlc, can_id and data[] are known from struct can_frame which
+> really can confuse here ...
+> 
+> > 
+> >>> +
+> >>> +static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>> +{
+> >>> +	struct can_frame *frame = (struct can_frame *)skb->data;
+> >>> +	struct flexcan_priv *priv = netdev_priv(dev);
+> >>> +	struct flexcan_regs __iomem *regs = priv->base;
+> >>> +	u32 can_id;
+> >>> +	u32 dlc = MB_CNT_CODE(0xc) | (frame->can_dlc << 16);
+> >> Naming this variable 'dlc' does not hit the point. See below.
+> >>
+> >>> +	u32 *can_data;
+> >> Really this needs to be fixed up by defining a proper mailbox struct.
+> >>
+> >>
+> >>> +
+> >>> +	netif_stop_queue(dev);
+> >>> +
+> >>> +	if (frame->can_id & CAN_EFF_FLAG) {
+> >>> +		can_id = frame->can_id & MB_ID_EXT;
+> >> Please use CAN_EFF_MASK here.
+> > 
+> > I used MX_ID_EXT intentionally because it it flexcan specific and just
+> > happens to be the same as CAN_EFF_MASK. I can change it if you like.
+> 
+> Yes, i've seen that. I would tend to use CAN_EFF_MASK here as you apply it on
+> frame->can_id.
+> 
+> When you get it from the controller MB_ID_EXT_MASK would be the better one.
+> 
+> > 
+> >>
+> >>> +		dlc |= MB_CNT_IDE | MB_CNT_SRR;
+> >>> +	} else {
+> >>> +		can_id = (frame->can_id & CAN_SFF_MASK) << 18;
+> >>> +	}
+> >> Just nitpicking for Kernel coding style:
+> >> remove the last '{' and '}' pair.
+> > 
+> > No, Documentation/CondingStyle suggests that if one branch needs braces
+> > the other branch should use them, too.
+> 
+> Sorry. Didn't know that.
+> 
+> > 
+> >>> +
+> >>> +	if (frame->can_id & CAN_RTR_FLAG)
+> >>> +		dlc |= MB_CNT_RTR;
+> >>> +
+> >>> +	writel(dlc, &regs->cantxfg[TX_BUF_ID].can_dlc);
+> >>> +	writel(can_id, &regs->cantxfg[TX_BUF_ID].can_id);
+> >>> +
+> >>> +	can_data = (u32 *)frame->data;
+> >>> +	writel(cpu_to_be32(*can_data), &regs->cantxfg[TX_BUF_ID].data[0]);
+> >>> +	writel(cpu_to_be32(*(can_data + 1)), &regs->cantxfg[TX_BUF_ID].data[1]);
+> >> IMHO it is not really transparent, that this is a correct handling to copy the
+> >>   can_frame.data[] on all architectures. I bet creating a for-statement
+> >> regarding the dlc is not slower and makes really clear, what's going on here.
+> > 
+> > This is indeed a problem here. The original Coldfire code I used as a
+> > template used a loop around unsigned char * which did the wrong thing
+> > for me.
+> 
+> This could be a good starting point for an investigation ;-)
+> 
+> > So yes, this is not generic here, but I have no idea how the
+> > generic code looks like. As Coldfire is big endian this doesn't seem
+> > that wrong.
+> 
+> I would try to define a proper flexcan_mb struct like
+> 
+> struct flexcan_mb {
+> 	u8 code;
+> 	u8 ctrl;
+> 	u16 timestamp;
+> 	u32 id;
+> 	u8 data[8];
+> }
 
-This patch fixes the corner cases where the sum of MTU of the free 
-channels (adjusted for fragmentation overheads) is less than the MTU of 
-PPP link.  There are at least 3 situations where this case might arise:
+I can't properly define it like this because I have a little endian
+system and u8 code is on offset 3 on my hardware. I just checked it
+because I always get confused with endian problems ;)
 
-- some of the channels are busy
-- the multilink session is running in a degraded state (i.e. with less 
-than its full complement of active channels)
-- by design, where multilink protocol is being used to artificially 
-increase the effective link MTU of a single link.
+I hope you're not suggesting me to do something like
 
-Without this patch, at most 1 fragment is ever sent per free channel for 
-a given PPP frame and any remaining part of the PPP frame that does not 
-fit into those fragments is silently discarded.
+#ifdef __LITTLE_ENDIAN
+struct flexcan_mb {
+	u16 timestamp;
+	u8 ctrl;
+	u8 code;
+	u32 id;
+	u8 data[8];
+}
+#else
+struct flexcan_mb {
+	u8 code;
+	u8 ctrl;
+	u16 timestamp;
+	u32 id;
+	u8 data[8];
+}
+#endif
 
-This patch restores the original behaviour which was broken by commit 
-9c705260feea6ae329bc6b6d5f6d2ef0227eda0a 'ppp:ppp_mp_explode() 
-redesign'.  Once all 'free' channels have been given a fragment, an 
-additional fragment is queued to each available channel in turn, as many 
-times as necessary, until the entire PPP frame has been consumed.
+(which would still require endian specific handling for the actual CAN
+data)
 
-Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
----
-diff -uprN linux-2.6.31-rc4/drivers/net/ppp_generic.c 
-linux-2.6.31-rc4-multilink-fix/drivers/net/ppp_generic.c
---- linux-2.6.31-rc4/drivers/net/ppp_generic.c	2009-07-23 
-03:32:59.000000000 +0100
-+++ linux-2.6.31-rc4-multilink-fix/drivers/net/ppp_generic.c	2009-07-28 
-13:54:49.000000000 +0100
-@@ -1384,7 +1384,7 @@ static int ppp_mp_explode(struct ppp *pp
+> 
+> And then see how it looks like ;-)
 
-  	/* create a	fragment for each channel */
-  	bits = B;
--	while (nfree > 0 &&	len	> 0) {
-+	while (len	> 0) {
-  		list = list->next;
-  		if (list ==	&ppp->channels)	{
-  			i =	0;
-@@ -1431,29 +1431,31 @@ static int ppp_mp_explode(struct ppp *pp
-  		*otherwise divide it according to the speed
-  		*of the channel we are going to transmit on
-  		*/
--		if (pch->speed == 0) {
--			flen = totlen/nfree	;
--			if (nbigger > 0) {
--				flen++;
--				nbigger--;
--			}
--		} else {
--			flen = (((totfree - nzero)*(totlen + hdrlen*totfree)) /
--				((totspeed*totfree)/pch->speed)) - hdrlen;
--			if (nbigger > 0) {
--				flen += ((totfree - nzero)*pch->speed)/totspeed;
--				nbigger -= ((totfree - nzero)*pch->speed)/
-+		if (nfree > 0) {
-+			if (pch->speed == 0) {
-+				flen = totlen/nfree	;
-+				if (nbigger > 0) {
-+					flen++;
-+					nbigger--;
-+				}
-+			} else {
-+				flen = (((totfree - nzero)*(totlen + hdrlen*totfree)) /
-+					((totspeed*totfree)/pch->speed)) - hdrlen;
-+				if (nbigger > 0) {
-+					flen += ((totfree - nzero)*pch->speed)/totspeed;
-+					nbigger -= ((totfree - nzero)*pch->speed)/
-  							totspeed;
-+				}
-  			}
-+			nfree--;
-  		}
--		nfree--;
+Well, I would have to do a le/be conversion manually whereas cpu_to_be32
+*should* do the right thing. I don't have any ColdFire hardware to test
+though.
 
-  		/*
-  		 *check	if we are on the last channel or
-  		 *we exceded the lenght	of the data	to
-  		 *fragment
-  		 */
--		if ((nfree == 0) || (flen > len))
-+		if ((nfree <= 0) || (flen > len))
-  			flen = len;
-  		/*
-  		 *it is not worth to tx on slow channels:
-@@ -1467,7 +1469,7 @@ static int ppp_mp_explode(struct ppp *pp
-  			continue;
-  		}
+The more I think about it the more I think that my original code does
+the right thing(tm)
 
--		mtu	= pch->chan->mtu + 2 - hdrlen;
-+		mtu	= pch->chan->mtu - hdrlen;
-  		if (mtu	< 4)
-  			mtu	= 4;
-  		if (flen > mtu)
+Sascha
 
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
