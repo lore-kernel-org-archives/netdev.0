@@ -1,58 +1,85 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Tue, 28 Jul 2009 17:54:48 +0530
-Message-ID: <OF1266BD39.19AD585C-ON65257601.0042F2E4-65257601.0044308A@in.ibm.com>
-References: <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728064319.GA5424@ff.dom.local> <20090728080354.GA25953@gondor.apana.org.au> <20090728083713.GB5424@ff.dom.local> <20090728084451.GA26299@gondor.apana.org.au> <20090728090229.GA6593@ff.dom.local> <20090728105329.GA27453@gondor.apana.org.au> <20090728112445.GB6593@ff.dom.local> <OFD1BE2D07.6BDFA87B-ON65257601.003F8F24-65257601.00406E62@in.ibm.com> <20090728114803.GA28001@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe
+ in 	back trace (regression)
+Date: Tue, 28 Jul 2009 14:30:33 +0200
+Message-ID: <4A6EEF69.1050001@cosmosbay.com>
+References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp09.in.ibm.com ([59.145.155.9]:35962 "EHLO
-	e28smtp09.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263AbZG1M0t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 08:26:49 -0400
-Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
-	by e28smtp09.in.ibm.com (8.14.3/8.13.1) with ESMTP id n6SCPvB1017165
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 17:55:57 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n6SCQluG880792
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 17:56:48 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.13.1/8.13.3) with ESMTP id n6SCQl9x000605
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 22:26:47 +1000
-In-Reply-To: <20090728114803.GA28001@gondor.apana.org.au>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:36287 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016AbZG1Ma4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 08:30:56 -0400
+In-Reply-To: <4A6ECA3A.4050309@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Pavel Emelyanov a =C3=A9crit :
+> Eric Dumazet wrote:
+>> Igor M Podlesny a =C3=A9crit :
+>>> [...]
+>>>> Could have been a problem in net core, perhaps.
+>>>>
+>>>> Below is a ppp fix from 2.6.31, but it seems unlikely to fix your =
+problem.
+>>>>
+>>>> It would help if we could see that trace, please.  A digital photo
+>>>> would suit.
+>>> 	Here it is:
+>>>
+>>> 		http://bugzilla.kernel.org/attachment.cgi?id=3D22516
+>>>
+>>> 	(It's 2.6.30.3)
+>>> =09
+>> Looking at this, I believe net_assign_generic() is not safe.
+>>
+>> Two cpus could try to expand/update the array at same time, one upda=
+te could be lost.
+>>
+>> register_pernet_gen_device() has a mutex to guard against concurrent
+>> calls, but net_assign_generic() has no locking at all.
+>>
+>> I doubt this is the reason of the crash, still worth to mention it..=
+=2E
+>>
+>> [PATCH] net: net_assign_generic() is not SMP safe
+>>
+>> Two cpus could try to expand/update the array at same time, one upda=
+te
+>> could be lost during the copy of old array.
+>=20
+> How can this happen? The array is updated only during ->init routines
+> of the pernet_operations, which are called from under the net_mutex.
+>=20
+> Do I miss anything?
+>=20
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote on 07/28/2009 05:18:03 PM:
->
-> Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
->
-> On Tue, Jul 28, 2009 at 05:13:45PM +0530, Krishna Kumar2 wrote:
-> > Sure, I will test and give my findings here. I guess setting the
-> > flag in qdisc_create_dflt is the right place - that will cover pfifo,
-> > bfifo and pfifo_fast (instead of attach_one_default_qdisc)?
->
-> No I think you want to put it in attach_one_default_qdisc.
->
-> Despite its name, qdisc_create_dflt is used by non-default qdiscs
-> too.
+Oops, I missed the obvious "BUG_ON(!mutex_is_locked(&net_mutex));"
 
-Right, thanks for pointing this out.
+Sorry for the noise and untested patch as well :)
 
-BTW, I am testing another patch that does "Do not enqueue skb for
-default qdisc if there are no skbs already on the queue" (to avoid
-enqueue followed by immediate dequeue of the same skb for most xmit
-operations on default qdiscs). I am planning to use the same flag
-for both. I hope there is nothing wrong with that idea (excuse me
-if this has already been discussed on the list but I haven't been
-following for almost a year).
-
-Thanks,
-
-- KK
-
+>> Re-using net_mutex is an easy way to fix this, it was used right
+>> before to allocate the 'id'
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> ---
+>>
+>> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+>> index b7292a2..9c31ad1 100644
+>> --- a/net/core/net_namespace.c
+>> +++ b/net/core/net_namespace.c
+>> @@ -467,15 +467,17 @@ int net_assign_generic(struct net *net, int id=
+, void *data)
+>>  	BUG_ON(!mutex_is_locked(&net_mutex));
+>>  	BUG_ON(id =3D=3D 0);
+>> =20
+>> +	mutex_lock(&net_mutex);
