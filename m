@@ -1,65 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Add networking wireless drivers section
-Date: Tue, 28 Jul 2009 11:34:48 -0700 (PDT)
-Message-ID: <20090728.113448.258079823.davem@davemloft.net>
-References: <1248804397.18284.5.camel@Joe-Laptop.home>
-	<20090728111552.528a2c9a.randy.dunlap@oracle.com>
-	<1248805627.18284.11.camel@Joe-Laptop.home>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH] pppoe: fix race at init time
+Date: Tue, 28 Jul 2009 22:48:34 +0400
+Message-ID: <20090728184834.GD4678@lenovo>
+References: <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com> <4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org> <4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com> <4A6F017B.4060909@gmail.com> <4A6F397D.6010606@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, linville@tuxdriver.com, julia@diku.dk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755496AbZG1Sen@vger.kernel.org>
-In-Reply-To: <1248805627.18284.11.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f216.google.com ([209.85.220.216]:46321 "EHLO
+	mail-fx0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755427AbZG1Ssp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 14:48:45 -0400
+Received: by fxm12 with SMTP id 12so232078fxm.37
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 11:48:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4A6F397D.6010606@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 28 Jul 2009 11:27:07 -0700
+[Eric Dumazet - Tue, Jul 28, 2009 at 07:46:37PM +0200]
+... 
+| So Igor still has a panic... lets try a third patch then :)
+| 
+| [PATCH] pppoe: fix race at init time
+| 
+| I believe we have a race in ppoe_init() :
+| 
+| As soon as dev_add_pack(&pppoes_ptype); and/or dev_add_pack(&pppoed_ptype); 
+| are called, we can receive packets while nets not yet fully ready
+| (ie : pppoe_init_net() not yet called)
+| 
+| This means we should be prepared to get a NULL pointer
+| from net_generic(net, pppoe_net_id) call.
+| 
+| We miss this NULL check in get_item() and possibly crash if this nets 
+| has no struct pppoe_net attached yet. Other subroutines
+| are safe.
 
-> On Tue, 2009-07-28 at 11:15 -0700, Randy Dunlap wrote:
->> On Tue, 28 Jul 2009 11:06:37 -0700 Joe Perches wrote:
->> > On Tue, 2009-07-28 at 10:30 -0700, David Miller wrote:
->> > > Wireless patches need to be CC:'d to linux-wireless so that
->> > > John Linville can notice and pick them up
->> > Signed-off-by: Joe Perches <joe@perches.com>
->> > diff --git a/MAINTAINERS b/MAINTAINERS
->> > index ebc2691..0574aad 100644
->> > --- a/MAINTAINERS
->> > +++ b/MAINTAINERS
->> > @@ -4186,6 +4186,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
->> >  S:	Odd Fixes
->> >  F:	drivers/net/
->> >  
->> > +NETWORKING WIRELESS DRIVERS
->> > +L:	linux-wireless@vger.kernel.org
->> > +T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
->> > +S:	Odd Fixes
->> > +F:	drivers/net/wireless/
->> > +
->> 
->> Already have this:
->> 
->> NETWORKING [WIRELESS]
->> P:	John W. Linville
->> M:	linville@tuxdriver.com
->> L:	linux-wireless@vger.kernel.org
->> T:	git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
->> S:	Maintained
->> F:	net/wireless/
->> F:	include/net/ieee80211*
->> F:	include/linux/wireless.h
-> 
-> That section does not include drivers/net/wireless/
+Hmm. It seems the problem is not in pppoe_init_net since it's
+called *before* dev_add_pack via register_pernet_gen_device
+(which is protected by a global net mutex). Or I miss something?
 
-So just add it.
+(sorry guys I have quite a limited internet connection this week)
 
-> I believe John Linville isn't maintaining all the
-> wireless drivers, he's acting as a gatekeeper in
-> a similar role as DavidM for drivers/net/.
-
-It still needs to hit his inbox and linux-wireless
-regardless.
+	-- Cyrill
