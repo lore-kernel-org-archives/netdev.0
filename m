@@ -1,37 +1,54 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [question] bridged tunnel
-Date: Tue, 28 Jul 2009 09:59:29 +0200
-Message-ID: <20090728075928.GB3633@psychotron.englab.brq.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Tue, 28 Jul 2009 16:03:54 +0800
+Message-ID: <20090728080354.GA25953@gondor.apana.org.au>
+References: <20090725032436.GA30741@gondor.apana.org.au> <20090727.192844.163233275.davem@davemloft.net> <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728064319.GA5424@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:37232 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751179AbZG1H71 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jul 2009 03:59:27 -0400
-Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
-	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n6S7xRps011953
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 03:59:27 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:50909 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751179AbZG1IEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 04:04:01 -0400
 Content-Disposition: inline
+In-Reply-To: <20090728064319.GA5424@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all.
+On Tue, Jul 28, 2009 at 06:43:19AM +0000, Jarek Poplawski wrote:
+>
+> I guess the main sacrifice of Herbert's idea is sch_multiq, and we
+> could probably consider some compromise like doing qdisc_run (with
+> qdisc_restart) a callback or only adding a "if default qdisc" check,
+> depending on costs/gains.
 
-Imagine following net scheme:
+Indeed, getting rid of multiple queues for all non-default qdiscs
+is overly drastic.  Here's a different plan.  We add the proposed
+check only for the default qdisc (we still need to fix act_skbedit)
+though) while all non-default qdiscs continue to behave as they
+currently do.
 
-LAN1 --- ROUTER A --- ROUTER B --- LAN2
+This can be done by setting dev_queue for non-default qdiscs to
+NULL and checking that before we do qdisc_run:
 
-I would like to have LAN1 and LAN2 bridged together.
+	if (!dev_queue || !queue_stopped(dev_queue))
+		qdisc_run
 
-I'm wondering if it's possible to made a tunnel and put it in bridge in
-kernel space only? I would do the same with TAP and some dummy userspace
-client/server but this would obviously decrease performance. Is it reasonable to
-try to modify tun driver to be used not only via chardev but also via some
-kernel API? This API would be used for other kernel modules to actually do the
-communication.
+This makes sense as non-default qdiscs do not map bijectively onto
+dev queues so they shouldn't really have a pointer to a dev queue.
 
-Thanks for comments.
+Of course we'll need to fix those places that use dev_queue for
+other purposes such as getting back to the device.  If that is
+too much work we could just add a new field that is identical
+to dev_queue for the default qdisc but is NULL for non-default
+qdiscs.
 
-Jirka
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
