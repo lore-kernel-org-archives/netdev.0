@@ -1,54 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Tue, 28 Jul 2009 16:03:54 +0800
-Message-ID: <20090728080354.GA25953@gondor.apana.org.au>
-References: <20090725032436.GA30741@gondor.apana.org.au> <20090727.192844.163233275.davem@davemloft.net> <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728064319.GA5424@ff.dom.local>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: Re: [net-next-2.6 PATCH 1/3] mlx4_en: Adaptive moderation policy
+ change
+Date: Tue, 28 Jul 2009 11:06:57 +0300
+Message-ID: <4A6EB1A1.2050209@mellanox.co.il>
+References: <4A631A64.50804@mellanox.co.il> <20090721.131046.124136196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rdreier@cisco.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50909 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751179AbZG1IEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 04:04:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20090728064319.GA5424@ff.dom.local>
+Received: from mail.mellanox.co.il ([194.90.237.43]:60720 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750733AbZG1IIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jul 2009 04:08:39 -0400
+In-Reply-To: <20090721.131046.124136196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 28, 2009 at 06:43:19AM +0000, Jarek Poplawski wrote:
->
-> I guess the main sacrifice of Herbert's idea is sch_multiq, and we
-> could probably consider some compromise like doing qdisc_run (with
-> qdisc_restart) a callback or only adding a "if default qdisc" check,
-> depending on costs/gains.
+David Miller wrote:
+> Well Roland, after you flamed me last time for applying mlx4 patches
+> without your review, I'd like to know if you're going to look at these
+> three patches and also the independently submitted "mlx4: Fix double
+> pci unmapping." bug fix from Yevgeny or are these changes going to
+> simply rot on netdev?
+> 
+> They all look fine to me, but hey I remember what happened last time
+> :-)
+> 
+Hi,
+Is there an update on those patches?
+I saw that the "mlx4_en: Fix double pci unmapping." patch is still not applied and it is
+pretty important bug fix that should make it to 2.6.31.
+As for your discussion, I send all the Ethernet related patches (mlx4_en) to Dave, and all the
+low level related patches (mlx4_core) to Roland. I put the netdev list in CC in both cases.
+If you guys want me to change something in the way I send the patches, just let me know,
+so we could avoid situations where both (or none) of you handle those patches.
 
-Indeed, getting rid of multiple queues for all non-default qdiscs
-is overly drastic.  Here's a different plan.  We add the proposed
-check only for the default qdisc (we still need to fix act_skbedit)
-though) while all non-default qdiscs continue to behave as they
-currently do.
-
-This can be done by setting dev_queue for non-default qdiscs to
-NULL and checking that before we do qdisc_run:
-
-	if (!dev_queue || !queue_stopped(dev_queue))
-		qdisc_run
-
-This makes sense as non-default qdiscs do not map bijectively onto
-dev queues so they shouldn't really have a pointer to a dev queue.
-
-Of course we'll need to fix those places that use dev_queue for
-other purposes such as getting back to the device.  If that is
-too much work we could just add a new field that is identical
-to dev_queue for the default qdisc but is NULL for non-default
-qdiscs.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Yevgeny
