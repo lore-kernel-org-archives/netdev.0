@@ -1,37 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next-2.6 phonet causes build error
-Date: Tue, 28 Jul 2009 08:18:40 +0200
-Message-ID: <4A6E9840.7020308@gmail.com>
-References: <4A6D512A.1050504@gmail.com>	<200907271106.02456.remi.denis-courmont@nokia.com>	<4A6D60B4.1070601@cosmosbay.com> <20090727.193157.168527559.davem@davemloft.net>
+From: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>
+Subject: Re: [Bugme-new] [Bug 13760] New: 2.6.30 kernel locks up with pppoe in
+	back trace (regression)
+Date: Tue, 28 Jul 2009 14:40:21 +0800
+Message-ID: <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com>
+References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org>
+	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com>
+	<20090723000100.d74d6b1c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:59649 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbZG1GSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 02:18:51 -0400
-In-Reply-To: <20090727.193157.168527559.davem@davemloft.net>
+Received: from mail-gx0-f213.google.com ([209.85.217.213]:51618 "EHLO
+	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104AbZG1Gkl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 02:40:41 -0400
+Received: by gxk9 with SMTP id 9so6851836gxk.13
+        for <netdev@vger.kernel.org>; Mon, 27 Jul 2009 23:40:41 -0700 (PDT)
+In-Reply-To: <20090723000100.d74d6b1c.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller a =E9crit :
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Mon, 27 Jul 2009 10:09:24 +0200
->=20
->> I currently use gcc-3.4.6, and current net-next-2.6 doesnt compile
->> for me (but linux-2.6 does compile properly so I just know this is
->> already fixed upstream)
->=20
-> Eric, just FYI, I am not going to merge Linus's tree into
-> net-2.6 (and therefore not into net-next-2.6 either) unless
-> there is some conflict to resolve.
->=20
-> So if you need this build fix, please integrate it locally
-> by whatever means works best for you.
+[...]
+> Could have been a problem in net core, perhaps.
+>
+> Below is a ppp fix from 2.6.31, but it seems unlikely to fix your pro=
+blem.
+>
+> It would help if we could see that trace, please. =C2=A0A digital pho=
+to
+> would suit.
 
-Thanks for the info David :)
+	Here it is:
 
-Dont worry, I can deal with it !
+		http://bugzilla.kernel.org/attachment.cgi?id=3D22516
+
+	(It's 2.6.30.3)
+=09
+--=20
+End of message. Next message?
