@@ -1,39 +1,37 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] IPVS: logging sizeof(struct ip_vs_conn) on startup
-Date: Tue, 28 Jul 2009 07:38:53 +0200
-Message-ID: <4A6E8EED.8050600@gmail.com>
-References: <4A6D7285.9080909@gmail.com> <b5ddba180907270334m4bc4e968m85c16ea4756c3f5d@mail.gmail.com> <20090727131357.9561.39720.stgit@jazzy.zrh.corp.google.com> <20090727.114845.177925839.davem@davemloft.net> <20090728001926.GA20230@verge.net.au>
+Subject: Re: net-next-2.6 phonet causes build error
+Date: Tue, 28 Jul 2009 08:18:40 +0200
+Message-ID: <4A6E9840.7020308@gmail.com>
+References: <4A6D512A.1050504@gmail.com>	<200907271106.02456.remi.denis-courmont@nokia.com>	<4A6D60B4.1070601@cosmosbay.com> <20090727.193157.168527559.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, heder@google.com,
-	netdev@vger.kernel.org, lvs-users@linuxvirtualserver.org,
-	malcolm@loadbalancer.org, linux-kernel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:39862 "EHLO
+Received: from gw1.cosmosbay.com ([212.99.114.194]:59649 "EHLO
 	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890AbZG1FjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 01:39:09 -0400
-In-Reply-To: <20090728001926.GA20230@verge.net.au>
+	with ESMTP id S1753150AbZG1GSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 02:18:51 -0400
+In-Reply-To: <20090727.193157.168527559.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simon Horman a =E9crit :
+David Miller a =E9crit :
+> From: Eric Dumazet <dada1@cosmosbay.com>
+> Date: Mon, 27 Jul 2009 10:09:24 +0200
 >=20
-> Surprisingly its a very common question amongst users,
-> because they want to know how much memory they need.
-> It is of course all a bit silly, because the amount of
-> memory used by the connection table is usually very small,
-> but people still ask.
+>> I currently use gcc-3.4.6, and current net-next-2.6 doesnt compile
+>> for me (but linux-2.6 does compile properly so I just know this is
+>> already fixed upstream)
 >=20
+> Eric, just FYI, I am not going to merge Linus's tree into
+> net-2.6 (and therefore not into net-next-2.6 either) unless
+> there is some conflict to resolve.
+>=20
+> So if you need this build fix, please integrate it locally
+> by whatever means works best for you.
 
-If SLUB is used=20
+Thanks for the info David :)
 
-$ cat /sys/kernel/slab/ip_vs_conn/object_size
-
-If SLAB is used, take fourth column of :
-
-$ grep ip_vs_conn /proc/slabinfo
-
-BTW these take into account L1 cache size alignment
+Dont worry, I can deal with it !
