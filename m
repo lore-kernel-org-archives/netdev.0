@@ -1,29 +1,43 @@
-From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: ESP - Differing Lengths Passed from ESP
-Date: Tue, 28 Jul 2009 02:10:59 +0300
-Message-ID: <4A6E3403.8090200@rosedu.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2] IPVS: logging sizeof(struct ip_vs_conn) on startup
+Date: Tue, 28 Jul 2009 10:19:27 +1000
+Message-ID: <20090728001926.GA20230@verge.net.au>
+References: <4A6D7285.9080909@gmail.com> <b5ddba180907270334m4bc4e968m85c16ea4756c3f5d@mail.gmail.com> <20090727131357.9561.39720.stgit@jazzy.zrh.corp.google.com> <20090727.114845.177925839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anaconda.cs.pub.ro ([141.85.37.25]:2418 "EHLO
-	anaconda.cs.pub.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbZG0XZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 19:25:25 -0400
-Received: from [192.168.10.176] (p5.eregie.pub.ro [141.85.0.105])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by anaconda.cs.pub.ro (Postfix) with ESMTP id EE4092E42F0
-	for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 02:06:16 +0300 (EEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: heder@google.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	lvs-users@linuxvirtualserver.org, malcolm@loadbalancer.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752587AbZG1AT3@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090727.114845.177925839.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, Jul 27, 2009 at 11:48:45AM -0700, David Miller wrote:
+> From: Hannes Eder <heder@google.com>
+> Date: Mon, 27 Jul 2009 15:13:57 +0200
+> 
+> > No more guessing, how much memory used by IPVS for a connection.
+> > 
+> > [ The number printed is a lower bound, as ip_vs_conn_cache uses
+> > SLAB_HWCACHE_ALIGN. ]
+> > 
+> > Signed-off-by: Hannes Eder <heder@google.com>
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> Who needs to know this?  A developer?
+> 
+> They can run tools such as 'pahole' et al. to fish out this
+> information even when only a kernel binary is available.
+> 
+> For the user, it's just noise.
+> 
+> I'm not applying this, sorry.
 
-Is there any reason that, in an ablkcipher_request, fields nbytes and 
-src->length differ by 12 bytes? I'm asking this on netdev since the data 
-comes from ESP, apologies if this is inappropriate.
-
-Thanks,
-Vlad
+Surprisingly its a very common question amongst users,
+because they want to know how much memory they need.
+It is of course all a bit silly, because the amount of
+memory used by the connection table is usually very small,
+but people still ask.
