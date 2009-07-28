@@ -1,186 +1,58 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH V2] CAN: Add Flexcan CAN controller driver
-Date: Tue, 28 Jul 2009 15:37:19 +0200
-Message-ID: <20090728133719.GU2714@pengutronix.de>
-References: <20090728120624.GS2714@pengutronix.de> <4A6EFB64.8070804@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] pppol2tp: calls unregister_pernet_gen_device() at unload
+ time
+Date: Tue, 28 Jul 2009 15:47:39 +0200
+Message-ID: <4A6F017B.4060909@gmail.com>
+References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com> <4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org> <4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Cyrill Gorcunov <gorcunov@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46107 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754130AbZG1NhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 09:37:20 -0400
-Content-Disposition: inline
-In-Reply-To: <4A6EFB64.8070804@hartkopp.net>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:54360 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752703AbZG1Nrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 09:47:52 -0400
+In-Reply-To: <4A6EFB81.4090105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
+Eric Dumazet a =C3=A9crit :
+> Seems drivers/net/pppol2tp.c is a suspect...
+>=20
+> It uses register_pernet_gen_device() from pppol2tp_init()
+> but doesnt call unregister_pernet_gen_device()
 
-On Tue, Jul 28, 2009 at 03:21:40PM +0200, Oliver Hartkopp wrote:
-> Sascha Hauer wrote:
-> > Hi,
-> > 
-> > Here is the second version of the flexcan driver.
-> 
-> Hi Sascha,
-> 
-> some more points i forgot to mention, sorry ...
-> 
-> 
-> > +/* Structure of the message buffer */
-> > +struct flexcan_mb {
-> > +	u32	can_dlc;
-> > +	u32	can_id;
-> > +	u32	data[2];
-> > +};
-> 
-> This looks really hackish and does not reflect the structure of a flexcan
-> message buffer! The data is 'u8' and the name of 'dlc' for the
-> description/flag register is bad.
-> 
+OK patch seems really easy...
 
-see below..
+This bug was added in commit 4e9fb8016a351b5b9da7fea32bcfdbc9d836e421
+net: pppol2tp - introduce net-namespace functionality
 
-> 
-> > +
-> > +static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> > +{
-> > +	struct can_frame *frame = (struct can_frame *)skb->data;
-> > +	struct flexcan_priv *priv = netdev_priv(dev);
-> > +	struct flexcan_regs __iomem *regs = priv->base;
-> 
-> > +	u32 can_id;
-> > +	u32 dlc = MB_CNT_CODE(0xc) | (frame->can_dlc << 16);
-> 
-> Naming this variable 'dlc' does not hit the point. See below.
-> 
-> > +	u32 *can_data;
-> 
-> Really this needs to be fixed up by defining a proper mailbox struct.
-> 
-> 
-> > +
-> > +	netif_stop_queue(dev);
-> > +
-> > +	if (frame->can_id & CAN_EFF_FLAG) {
-> > +		can_id = frame->can_id & MB_ID_EXT;
-> 
-> Please use CAN_EFF_MASK here.
+So this is a stable candidate I guess ?
 
-I used MX_ID_EXT intentionally because it it flexcan specific and just
-happens to be the same as CAN_EFF_MASK. I can change it if you like.
+Thank you
 
-> 
-> 
-> > +		dlc |= MB_CNT_IDE | MB_CNT_SRR;
-> > +	} else {
-> > +		can_id = (frame->can_id & CAN_SFF_MASK) << 18;
-> > +	}
-> 
-> Just nitpicking for Kernel coding style:
-> remove the last '{' and '}' pair.
 
-No, Documentation/CondingStyle suggests that if one branch needs braces
-the other branch should use them, too.
+[PATCH] pppol2tp: calls unregister_pernet_gen_device() at unload time
 
-> 
-> > +
-> > +	if (frame->can_id & CAN_RTR_FLAG)
-> > +		dlc |= MB_CNT_RTR;
-> > +
-> > +	writel(dlc, &regs->cantxfg[TX_BUF_ID].can_dlc);
-> > +	writel(can_id, &regs->cantxfg[TX_BUF_ID].can_id);
-> > +
-> > +	can_data = (u32 *)frame->data;
-> > +	writel(cpu_to_be32(*can_data), &regs->cantxfg[TX_BUF_ID].data[0]);
-> > +	writel(cpu_to_be32(*(can_data + 1)), &regs->cantxfg[TX_BUF_ID].data[1]);
-> 
-> IMHO it is not really transparent, that this is a correct handling to copy the
->   can_frame.data[] on all architectures. I bet creating a for-statement
-> regarding the dlc is not slower and makes really clear, what's going on here.
+=46ailure to call unregister_pernet_gen_device() can exhaust memory
+if module is loaded/unloaded many times.
 
-This is indeed a problem here. The original Coldfire code I used as a
-template used a loop around unsigned char * which did the wrong thing
-for me. So yes, this is not generic here, but I have no idea how the
-generic code looks like. As Coldfire is big endian this doesn't seem
-that wrong.
-
-> 
-> > +
-> > +	writel(dlc, &regs->cantxfg[TX_BUF_ID].can_dlc);
-> > +
-> > +	kfree_skb(skb);
-> > +
-> > +	return NETDEV_TX_OK;
-> > +}
-> > +
-> > +static void flexcan_rx_frame(struct net_device *ndev,
-> > +		struct flexcan_mb __iomem *mb)
-> > +{
-> > +	struct net_device_stats *stats = &ndev->stats;
-> > +	struct sk_buff *skb;
-> > +	struct can_frame *frame;
-> > +	int ctrl = readl(&mb->can_dlc);
-> 
-> 'ctrl' is much better than 'dlc' naming above :-)
-
-ok, will change it above.
-
-> 
-> > +	int length = (ctrl >> 16) & 0x0f;
-> 
-> is probably not enough ... use %9 or an additional check.
-
-ok, I'll add a sanity check.
-
-> 
-> > +	u32 id;
-> > +
-> > +	skb = dev_alloc_skb(sizeof(struct can_frame));
-> > +	if (!skb) {
-> > +		stats->rx_dropped++;
-> > +		return;
-> > +	}
-> > +
-> > +	frame = (struct can_frame *)skb_put(skb,
-> > +			sizeof(struct can_frame));
-> > +
-> > +	frame->can_dlc = length;
-> > +	id = readl(&mb->can_id) & MB_ID_EXT;
-> 
-> like above use CAN_EFF_MASK
-> 
-> or at least rename MB_ID_EXT to MB_ID_EXT_MASK
-> 
-> > +
-> > +	if (ctrl & MB_CNT_IDE) {
-> > +		frame->can_id = id & CAN_EFF_MASK;
-> > +		frame->can_id |= CAN_EFF_FLAG;
-> > +		if (ctrl & MB_CNT_RTR)
-> > +			frame->can_id |= CAN_RTR_FLAG;
-> > +	} else {
-> > +		frame->can_id  = id >> 18;
-> > +		if (ctrl & MB_CNT_RTR)
-> > +			frame->can_id |= CAN_RTR_FLAG;
-> > +	}
-> > +
-> > +	*(u32 *)frame->data = be32_to_cpu(readl(&mb->data[0]));
-> > +	*((u32 *)frame->data + 1) = be32_to_cpu(readl(&mb->data[1]));
-> 
-> Same as above.
-> 
-> Please write readable an maintainable code and let the compiler do his job.
-> 
-> Thanks,
-> Oliver
-> 
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index e7935d0..e0f9219 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -2680,6 +2680,7 @@ out_unregister_pppol2tp_proto:
+ static void __exit pppol2tp_exit(void)
+ {
+ 	unregister_pppox_proto(PX_PROTO_OL2TP);
++	unregister_pernet_gen_device(pppol2tp_net_id, &pppol2tp_net_ops);
+ 	proto_unregister(&pppol2tp_sk_proto);
+ }
+=20
