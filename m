@@ -1,52 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] MAINTAINERS: Add networking wireless drivers section
-Date: Tue, 28 Jul 2009 11:48:16 -0700
-Message-ID: <1248806896.18284.14.camel@Joe-Laptop.home>
-References: <Pine.LNX.4.64.0907281753540.28189@ask.diku.dk>
-	 <20090728.103044.179053537.davem@davemloft.net>
-	 <1248804397.18284.5.camel@Joe-Laptop.home>
-	 <20090728.113353.08715297.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, julia@diku.dk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH NEXT] netxen: fix CONFIG_INET=n build
+Date: Tue, 28 Jul 2009 12:10:03 -0700
+Message-ID: <1248808203-9578-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org, randy.dunlap@oracle.com,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:1341 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755440AbZG1StE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 14:49:04 -0400
-In-Reply-To: <20090728.113353.08715297.davem@davemloft.net>
+Received: from nxgate.netxen.com ([38.99.60.130]:58294 "EHLO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750743AbZG1TKG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jul 2009 15:10:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-07-28 at 11:33 -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 28 Jul 2009 11:06:37 -0700
-> 
-> > On Tue, 2009-07-28 at 10:30 -0700, David Miller wrote:
-> >> Wireless patches need to be CC:'d to linux-wireless so that
-> >> John Linville can notice and pick them up
-> > 
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> 
-> Why not just create a plain "WIRELESS" umbrella entry
-> that contains all of drivers/net/wireless, net/mac80211,
-> and net/wireless?
+Wrap dest IP hashing code with #ifdef CONFIG_INET,
+this feature makes no sense without INET, but other
+driver can still work.
 
-Whatever works for John I suppose.
-John, do you have a preference?
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-I was trying to avoid the "S: Maintained" label
-and was copying the form of this section:
-
-NETWORKING DRIVERS
-L:	netdev@vger.kernel.org
-W:	http://www.linuxfoundation.org/en/Net
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-S:	Odd Fixes
-F:	drivers/net/
-
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 2bbefa6..40549a0 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1875,6 +1875,8 @@ static void netxen_nic_poll_controller(struct net_device *netdev)
+ }
+ #endif
+ 
++#ifdef CONFIG_INET
++
+ #define is_netxen_netdev(dev) (dev->netdev_ops == &netxen_netdev_ops)
+ 
+ static int
+@@ -1993,6 +1995,7 @@ static struct notifier_block	netxen_netdev_cb = {
+ static struct notifier_block netxen_inetaddr_cb = {
+ 	.notifier_call = netxen_inetaddr_event,
+ };
++#endif
+ 
+ static struct pci_driver netxen_driver = {
+ 	.name = netxen_nic_driver_name,
+@@ -2012,8 +2015,10 @@ static int __init netxen_init_module(void)
+ 	if ((netxen_workq = create_singlethread_workqueue("netxen")) == NULL)
+ 		return -ENOMEM;
+ 
++#ifdef CONFIG_INET
+ 	register_netdevice_notifier(&netxen_netdev_cb);
+ 	register_inetaddr_notifier(&netxen_inetaddr_cb);
++#endif
+ 
+ 	return pci_register_driver(&netxen_driver);
+ }
+@@ -2024,8 +2029,10 @@ static void __exit netxen_exit_module(void)
+ {
+ 	pci_unregister_driver(&netxen_driver);
+ 
++#ifdef CONFIG_INET
+ 	unregister_inetaddr_notifier(&netxen_inetaddr_cb);
+ 	unregister_netdevice_notifier(&netxen_netdev_cb);
++#endif
+ 	destroy_workqueue(netxen_workq);
+ }
+ 
+-- 
+1.6.0.2
 
