@@ -1,55 +1,32 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [Resent][PATCH 1/1] inet6: functions shadow global variable
-Date: Tue, 28 Jul 2009 21:48:07 +0200
-Message-ID: <20090728194807.GB6277@gerrit.erg.abdn.ac.uk>
-References: <1248028721-24244-1-git-send-email-gerrit@erg.abdn.ac.uk> <1248028721-24244-2-git-send-email-gerrit@erg.abdn.ac.uk> <1248028721-24244-3-git-send-email-gerrit@erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Tue, 28 Jul 2009 12:59:19 -0700 (PDT)
+Message-ID: <20090728.125919.146001472.davem@davemloft.net>
+References: <20090728024813.GA23992@gondor.apana.org.au>
+	<20090727.212107.161491585.davem@davemloft.net>
+	<20090728071247.GA25611@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, jarkao2@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38760 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750695AbZG1TsP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jul 2009 15:48:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1248028721-24244-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55637
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750722AbZG1T7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 15:59:12 -0400
+In-Reply-To: <20090728071247.GA25611@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was no further response on the RFC, I am resending it as a fix.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 28 Jul 2009 15:12:47 +0800
 
->>>>>>>>>>>>>>>>>>>>>>>>> Patch v1 (resent) <<<<<<<<<<<<<<<<<<<<<<<<
-inet6: local functions shadow global pointer
+> However, in that case you'll now have two locks bouncing around
+> instead of one and my guess would be that the cache overhead
+> would offset any gain that is made from the parallel processing.
 
-This renames away a variable clash:
- * ipv6_table[] is declared as a static global table;
- * ipv6_sysctl_net_init() uses ipv6_table to refer/destroy dynamic memory;
- * ipv6_sysctl_net_exit() also uses ipv6_table for the same purpose;
- * both the two last functions call kfree() on ipv6_table.
+The premise is that there'd be only one.  The qdisc lock.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/ipv6/sysctl_net_ipv6.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -40,7 +40,7 @@ static ctl_table ipv6_table_template[] =
- 	{ .ctl_name = 0 }
- };
- 
--static ctl_table ipv6_table[] = {
-+static ctl_table ipv6_rotable[] = {
- 	{
- 		.ctl_name	= NET_IPV6_MLD_MAX_MSF,
- 		.procname	= "mld_max_msf",
-@@ -130,7 +130,7 @@ int ipv6_sysctl_register(void)
- {
- 	int err = -ENOMEM;
- 
--	ip6_header = register_net_sysctl_rotable(net_ipv6_ctl_path, ipv6_table);
-+	ip6_header = register_net_sysctl_rotable(net_ipv6_ctl_path, ipv6_rotable);
- 	if (ip6_header == NULL)
- 		goto out;
- 
+If the traffic is distributed, flow wise, the driver XMIT
+lock would spread due to multiqueue.
