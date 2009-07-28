@@ -1,48 +1,43 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH] pppol2tp: calls unregister_pernet_gen_device() at
-	unload time
-Date: Tue, 28 Jul 2009 18:29:05 +0400
-Message-ID: <20090728142905.GA4678@lenovo>
-References: <20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com> <4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org> <4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com> <4A6F017B.4060909@gmail.com>
+From: Todd Merritt <tmerritt@email.arizona.edu>
+Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
+Date: Tue, 28 Jul 2009 06:37:12 -0700
+Message-ID: <4A6EFF08.2050009@email.arizona.edu>
+References: <1248266678.17215.15.camel@localhost.localdomain>  <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>  <1248338779.17215.23.camel@localhost.localdomain>  <1248362493.17215.45.camel@localhost.localdomain> <1248424910.17215.54.camel@localhost.localdomain> <Pine.WNT.4.64.0907241142370.2084@ppwaskie-MOBL2.amr.corp.intel.com> <loom.20090727T214746-75@post.gmane.org> <Pine.WNT.4.64.0907271530400.5004@ppwaskie-MOBL2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f216.google.com ([209.85.220.216]:38375 "EHLO
-	mail-fx0-f216.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbZG1O3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 10:29:21 -0400
-Received: by fxm12 with SMTP id 12so61972fxm.37
-        for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 07:29:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4A6F017B.4060909@gmail.com>
+Received: from gremlin.email.arizona.edu ([128.196.133.171]:11514 "EHLO
+	mailgator.email.arizona.edu" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751034AbZG1O3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 10:29:44 -0400
+In-Reply-To: <Pine.WNT.4.64.0907271530400.5004@ppwaskie-MOBL2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Eric Dumazet - Tue, Jul 28, 2009 at 03:47:39PM +0200]
-| Eric Dumazet a =E9crit :
-| > Seems drivers/net/pppol2tp.c is a suspect...
-| >=20
-| > It uses register_pernet_gen_device() from pppol2tp_init()
-| > but doesnt call unregister_pernet_gen_device()
-|=20
-| OK patch seems really easy...
-|=20
-| This bug was added in commit 4e9fb8016a351b5b9da7fea32bcfdbc9d836e421
-| net: pppol2tp - introduce net-namespace functionality
-|=20
-| So this is a stable candidate I guess ?
-|=20
-| Thank you
+No, we're running the stock kernel.  We can reliably reproduce it here.  
+Please let me know if there's anything we can do to help you with 
+providing a fix.
 
-Thanks a lot Eric!
+Thanks,
+Todd
 
-Acked-by: Cyrill Gorcunov <gorcunov@openvz.org>
+Waskiewicz Jr, Peter P wrote:
+> On Mon, 27 Jul 2009, Todd Merritt wrote:
+>
+>   
+>> We're getting a panic in the same function with the stable version of the ixgbe
+>> driver 2.0.38.2-1 on redhat 5 kernel-2.6.18-128.1.10.el5.  Is there a dev
+>> release of the driver that might have a fix in it ?
+>>     
+>
+> Are you also running with preemption enabled?  We're having a very tough 
+> time reproducing this bug in our lab, so no, we don't have any fix for it 
+> yet.
+>
+> -PJ
+>
+>   
 
-	-- Cyrill
