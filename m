@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Mon, 27 Jul 2009 19:28:44 -0700 (PDT)
-Message-ID: <20090727.192844.163233275.davem@davemloft.net>
-References: <20090724083749.GA23521@gondor.apana.org.au>
-	<OFFA0E0F2C.B17AF73A-ON652575FD.00372349-652575FD.0039CB03@in.ibm.com>
-	<20090725032436.GA30741@gondor.apana.org.au>
+Subject: Re: net-next-2.6 phonet causes build error
+Date: Mon, 27 Jul 2009 19:31:57 -0700 (PDT)
+Message-ID: <20090727.193157.168527559.davem@davemloft.net>
+References: <4A6D512A.1050504@gmail.com>
+	<200907271106.02456.remi.denis-courmont@nokia.com>
+	<4A6D60B4.1070601@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, jarkao2@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: remi.denis-courmont@nokia.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48589
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42721
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752095AbZG1C2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 22:28:37 -0400
-In-Reply-To: <20090725032436.GA30741@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751229AbZG1Cbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jul 2009 22:31:50 -0400
+In-Reply-To: <4A6D60B4.1070601@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 25 Jul 2009 11:24:36 +0800
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Mon, 27 Jul 2009 10:09:24 +0200
 
-> Dave, remember our discussion about the benefits of using multiqueue
-> TX just for the sake of enarlging the TX queues? How about just
-> going back to using a single queue for non-default qdiscs (at
-> least until such a time when non-default qdiscs start doing
-> multiple queues internally)?
-> 
-> Yes it would mean potentially smaller queues for those non-default
-> qdisc users, but they're usually the same people who want the
-> hardware to queue as little as possible in order to enforce whatever
-> it is that their qdisc is designed to enforce.
+> I currently use gcc-3.4.6, and current net-next-2.6 doesnt compile
+> for me (but linux-2.6 does compile properly so I just know this is
+> already fixed upstream)
 
-There is a locking benefit even for non-default qdiscs.
+Eric, just FYI, I am not going to merge Linus's tree into
+net-2.6 (and therefore not into net-next-2.6 either) unless
+there is some conflict to resolve.
 
-Instead of two choke points (qdisc lock and queue lock) there
-is now only one (qdisc lock) and consdiering the cost of
-things like setting up IOMMU mappings and hitting chip
-registers the qdisc lock is the shortest held of the two.
-
-So going to one queue would be a serious regression.
+So if you need this build fix, please integrate it locally
+by whatever means works best for you.
