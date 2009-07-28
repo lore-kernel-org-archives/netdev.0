@@ -1,43 +1,51 @@
-From: Todd Merritt <tmerritt@email.arizona.edu>
-Subject: Re: ixgbe: panic in ixgbe_clean_rx_irq()
-Date: Tue, 28 Jul 2009 06:37:12 -0700
-Message-ID: <4A6EFF08.2050009@email.arizona.edu>
-References: <1248266678.17215.15.camel@localhost.localdomain>  <Pine.WNT.4.64.0907221110550.9360@ppwaskie-MOBL2.amr.corp.intel.com>  <1248338779.17215.23.camel@localhost.localdomain>  <1248362493.17215.45.camel@localhost.localdomain> <1248424910.17215.54.camel@localhost.localdomain> <Pine.WNT.4.64.0907241142370.2084@ppwaskie-MOBL2.amr.corp.intel.com> <loom.20090727T214746-75@post.gmane.org> <Pine.WNT.4.64.0907271530400.5004@ppwaskie-MOBL2.amr.corp.intel.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] net: shrink net_device by #ifdef-ing protocol-specific members
+Date: Tue, 28 Jul 2009 17:43:27 +0300
+Message-ID: <200907281743.27871.opurdila@ixiacom.com>
+References: <4A6DC314.2010303@ixiacom.com> <20090727.082644.265102452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: lgrijincu@ixiacom.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gremlin.email.arizona.edu ([128.196.133.171]:11514 "EHLO
-	mailgator.email.arizona.edu" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751034AbZG1O3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 10:29:44 -0400
-In-Reply-To: <Pine.WNT.4.64.0907271530400.5004@ppwaskie-MOBL2.amr.corp.intel.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27025 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753141AbZG1Opd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 10:45:33 -0400
+In-Reply-To: <20090727.082644.265102452.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No, we're running the stock kernel.  We can reliably reproduce it here.  
-Please let me know if there's anything we can do to help you with 
-providing a fix.
+On Monday 27 July 2009 18:26:44 David Miller wrote:
 
-Thanks,
-Todd
+> From: Lucian Adrian Grijincu <lgrijincu@ixiacom.com>
+> Date: Mon, 27 Jul 2009 18:09:08 +0300
+>
+> > Some members of net_device are used only by some protocols.
+> >
+> > If those protocols are not compiled (as modules or linked in) they
+> > should not take up space in the structure.
+>
+> This benefits, at best, %0.000000001 of users of the Linux kernel,
+> because every distribution is going to turn on every single option.
+>
 
-Waskiewicz Jr, Peter P wrote:
-> On Mon, 27 Jul 2009, Todd Merritt wrote:
->
->   
->> We're getting a panic in the same function with the stable version of the ixgbe
->> driver 2.0.38.2-1 on redhat 5 kernel-2.6.18-128.1.10.el5.  Is there a dev
->> release of the driver that might have a fix in it ?
->>     
->
-> Are you also running with preemption enabled?  We're having a very tough 
-> time reproducing this bug in our lab, so no, we don't have any fix for it 
-> yet.
->
-> -PJ
->
->   
+Not all Linux users are using regular (desktop/server) distributions. Linux is 
+used in embedded systems as well and in these case it makes sense to turn off 
+ax25/econet/decnet and in some cases even wireless/ipv6.
+
+> If you want to shrink structures, find ways to eliminate or
+> shrink structure members in all cases.
+
+We are looking into that as well since we have a pretty aggressive goal (get 
+net_device to 450 bytes or so), but we thought of starting with the low 
+hanging fruits. 
+
+Any suggestions in this area?
+
+tavi
 
