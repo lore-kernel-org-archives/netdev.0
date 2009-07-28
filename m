@@ -1,34 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Tue, 28 Jul 2009 18:53:29 +0800
-Message-ID: <20090728105329.GA27453@gondor.apana.org.au>
-References: <20090725032436.GA30741@gondor.apana.org.au> <20090727.192844.163233275.davem@davemloft.net> <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728064319.GA5424@ff.dom.local> <20090728080354.GA25953@gondor.apana.org.au> <20090728083713.GB5424@ff.dom.local> <20090728084451.GA26299@gondor.apana.org.au> <20090728090229.GA6593@ff.dom.local>
+From: Hannes Eder <heder@google.com>
+Subject: Re: [RFC][PATCH 1/5] IPVS: prefix EnterFunction and LeaveFunction msg
+	with "IPVS:"
+Date: Tue, 28 Jul 2009 13:15:04 +0200
+Message-ID: <b5ddba180907280415y4a9ef71i5cd90ca409b52965@mail.gmail.com>
+References: <20090727134457.12897.272.stgit@jazzy.zrh.corp.google.com>
+	 <20090727134616.12897.7639.stgit@jazzy.zrh.corp.google.com>
+	 <alpine.LSU.2.00.0907272013070.20984@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35984 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751931AbZG1Kxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 06:53:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20090728090229.GA6593@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.00.0907272013070.20984@fbirervta.pbzchgretzou.qr>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 28, 2009 at 09:02:29AM +0000, Jarek Poplawski wrote:
+On Mon, Jul 27, 2009 at 20:14, Jan Engelhardt<jengelh@medozas.de> wrote=
+:
 >
-> If it's only about the name I'm OK with: (qdisc->flags &
-> TCQ_F_DEFAULT_WITHOUT_PREJUDICE_MAYBE_NON_DEFAULT_IN_THE_FUTURE)
-> or any other, too ;-)
+> On Monday 2009-07-27 15:46, Hannes Eder wrote:
+>>
+>>Now all printk messages from IPVS are prefixed with "IPVS:".
+>>
+>>+#define EnterFunction(level) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+>>+ =A0 =A0 =A0do { =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 \
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0if (level <=3D ip_vs_get_debug_level()) =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0\
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_DEBUG "IPVS:=
+ Enter: %s, %s line %i\n", =A0 =A0 \
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__func__=
+, __FILE__, __LINE__); =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+>>+ =A0 =A0 =A0} while (0)
+>>+#define LeaveFunction(level) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+>>+ =A0 =A0 =A0do { =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 \
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0if (level <=3D ip_vs_get_debug_level()) =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0\
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_DEBUG "IPVS:=
+ Leave: %s, %s line %i\n", =A0 =A0 \
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__func__=
+, __FILE__, __LINE__); =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+>>+ =A0 =A0 =A0} while (0)
+>
+> I think you should rather make use of pr_fmt:
+>
+> <before any #includes>
+> #define pr_fmt(x) "IPVS: " x
+>
+> And then use pr_<level>("Elvis has left the building") in code. This
+> will add IPVS: automatically to all pr_* calls, alleviating the need
+> to manually type it into all printks.
 
-I see.  Yes a flag should work.
+I like this idea.  I'll come up with an extra patch, it does not fit
+into this series anyway.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Of course, if you only want it for the two defines here, scrap
+> my idea :)
+>
+
+Cheers,
+-Hannes
