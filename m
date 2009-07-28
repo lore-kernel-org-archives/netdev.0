@@ -1,110 +1,88 @@
-From: Ben McKeegan <ben@netservers.co.uk>
-Subject: Re: [PATCH] ppp: fix lost fragments in ppp_mp_explode() (resubmit)
-Date: Tue, 28 Jul 2009 18:43:57 +0100 (BST)
-Message-ID: <Pine.LNX.4.58.0907281837030.22542@benxen>
-References: <4A6EFEB4.2000500@netservers.co.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] pppoe: fix race at init time
+Date: Tue, 28 Jul 2009 19:46:37 +0200
+Message-ID: <4A6F397D.6010606@gmail.com>
+References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com> <4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org> <4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com> <4A6F017B.4060909@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: gabriele.paoloni@intel.com, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: davem@davemloft.net, paulus@samba.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Cyrill Gorcunov <gorcunov@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.netservers.co.uk ([80.248.178.71]:32869 "EHLO
-	mail.netservers.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821AbZG1RoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 13:44:10 -0400
-In-Reply-To: <4A6EFEB4.2000500@netservers.co.uk>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48051 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753533AbZG1Rqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 13:46:50 -0400
+In-Reply-To: <4A6F017B.4060909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(resubmitted as MUA mangled original patch)
+Eric Dumazet a =C3=A9crit :
+> Eric Dumazet a =C3=A9crit :
+>> Seems drivers/net/pppol2tp.c is a suspect...
+>>
+>> It uses register_pernet_gen_device() from pppol2tp_init()
+>> but doesnt call unregister_pernet_gen_device()
+>=20
+> OK patch seems really easy...
+>=20
+> This bug was added in commit 4e9fb8016a351b5b9da7fea32bcfdbc9d836e421
+> net: pppol2tp - introduce net-namespace functionality
+>=20
+> So this is a stable candidate I guess ?
+>=20
+> Thank you
 
-This patch fixes the corner cases where the sum of MTU of the free
-channels (adjusted for fragmentation overheads) is less than the MTU of
-PPP link.  There are at least 3 situations where this case might arise:
+So Igor still has a panic... lets try a third patch then :)
 
-- some of the channels are busy
-- the multilink session is running in a degraded state (i.e. with less
-than its full complement of active channels)
-- by design, where multilink protocol is being used to artificially
-increase the effective link MTU of a single link.
+[PATCH] pppoe: fix race at init time
 
-Without this patch, at most 1 fragment is ever sent per free channel for
-a given PPP frame and any remaining part of the PPP frame that does not
-fit into those fragments is silently discarded.
+I believe we have a race in ppoe_init() :
 
-This patch restores the original behaviour which was broken by commit
-9c705260feea6ae329bc6b6d5f6d2ef0227eda0a 'ppp:ppp_mp_explode()
-redesign'.  Once all 'free' channels have been given a fragment, an
-additional fragment is queued to each available channel in turn, as many
-times as necessary, until the entire PPP frame has been consumed.
+As soon as dev_add_pack(&pppoes_ptype); and/or dev_add_pack(&pppoed_pty=
+pe);=20
+are called, we can receive packets while nets not yet fully ready
+(ie : pppoe_init_net() not yet called)
 
-Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
+This means we should be prepared to get a NULL pointer
+from net_generic(net, pppoe_net_id) call.
+
+We miss this NULL check in get_item() and possibly crash if this nets=20
+has no struct pppoe_net attached yet. Other subroutines
+are safe.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-diff -uprN linux-2.6.31-rc4/drivers/net/ppp_generic.c linux-2.6.31-rc4-multilink-fix/drivers/net/ppp_generic.c
---- linux-2.6.31-rc4/drivers/net/ppp_generic.c	2009-07-23 03:32:59.000000000 +0100
-+++ linux-2.6.31-rc4-multilink-fix/drivers/net/ppp_generic.c	2009-07-28 13:54:49.000000000 +0100
-@@ -1384,7 +1384,7 @@ static int ppp_mp_explode(struct ppp *pp
-
- 	/* create a	fragment for each channel */
- 	bits = B;
--	while (nfree > 0 &&	len	> 0) {
-+	while (len	> 0) {
- 		list = list->next;
- 		if (list ==	&ppp->channels)	{
- 			i =	0;
-@@ -1431,29 +1431,31 @@ static int ppp_mp_explode(struct ppp *pp
- 		*otherwise divide it according to the speed
- 		*of the channel we are going to transmit on
- 		*/
--		if (pch->speed == 0) {
--			flen = totlen/nfree	;
--			if (nbigger > 0) {
--				flen++;
--				nbigger--;
--			}
--		} else {
--			flen = (((totfree - nzero)*(totlen + hdrlen*totfree)) /
--				((totspeed*totfree)/pch->speed)) - hdrlen;
--			if (nbigger > 0) {
--				flen += ((totfree - nzero)*pch->speed)/totspeed;
--				nbigger -= ((totfree - nzero)*pch->speed)/
-+		if (nfree > 0) {
-+			if (pch->speed == 0) {
-+				flen = totlen/nfree	;
-+				if (nbigger > 0) {
-+					flen++;
-+					nbigger--;
-+				}
-+			} else {
-+				flen = (((totfree - nzero)*(totlen + hdrlen*totfree)) /
-+					((totspeed*totfree)/pch->speed)) - hdrlen;
-+				if (nbigger > 0) {
-+					flen += ((totfree - nzero)*pch->speed)/totspeed;
-+					nbigger -= ((totfree - nzero)*pch->speed)/
- 							totspeed;
-+				}
- 			}
-+			nfree--;
- 		}
--		nfree--;
-
- 		/*
- 		 *check	if we are on the last channel or
- 		 *we exceded the lenght	of the data	to
- 		 *fragment
- 		 */
--		if ((nfree == 0) || (flen > len))
-+		if ((nfree <= 0) || (flen > len))
- 			flen = len;
- 		/*
- 		 *it is not worth to tx on slow channels:
-@@ -1467,7 +1469,7 @@ static int ppp_mp_explode(struct ppp *pp
- 			continue;
- 		}
-
--		mtu	= pch->chan->mtu + 2 - hdrlen;
-+		mtu	= pch->chan->mtu - hdrlen;
- 		if (mtu	< 4)
- 			mtu	= 4;
- 		if (flen > mtu)
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index f0031f1..e50af8c 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -237,14 +237,15 @@ static struct pppox_sock *__delete_item(struct pp=
+poe_net *pn, __be16 sid,
+ static inline struct pppox_sock *get_item(struct pppoe_net *pn, __be16=
+ sid,
+ 					unsigned char *addr, int ifindex)
+ {
+-	struct pppox_sock *po;
+-
+-	read_lock_bh(&pn->hash_lock);
+-	po =3D __get_item(pn, sid, addr, ifindex);
+-	if (po)
+-		sock_hold(sk_pppox(po));
+-	read_unlock_bh(&pn->hash_lock);
+-
++	struct pppox_sock *po =3D NULL;
++
++	if (pn) {
++		read_lock_bh(&pn->hash_lock);
++		po =3D __get_item(pn, sid, addr, ifindex);
++		if (po)
++			sock_hold(sk_pppox(po));
++		read_unlock_bh(&pn->hash_lock);
++	}
+ 	return po;
+ }
+=20
