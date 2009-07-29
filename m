@@ -1,54 +1,45 @@
-From: "Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH] iscsi: Use GFP_ATOMIC in iscsi_offload_mesg().
-Date: Wed, 29 Jul 2009 11:49:52 -0700
-Message-ID: <1248893392.16148.262.camel@HP1>
-References: <C27F8246C663564A84BB7AB343977242178EE780E1@IRVEXCHCCR01.corp.ad.broadcom.com> <4A70058F.50403@cs.wisc.edu>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: netpoll + xmit_lock == deadlock
+Date: Wed, 29 Jul 2009 14:07:58 -0500
+Message-ID: <1248894478.4545.2822.camel@calx>
+References: <20090729073523.GA4515@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org" <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-To: "Mike Christie" <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
-Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <4A70058F.50403-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from waste.org ([66.93.16.53]:45280 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754081AbZG2TI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2009 15:08:26 -0400
+In-Reply-To: <20090729073523.GA4515@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2009-07-29 at 15:35 +0800, Herbert Xu wrote:
+> Hi:
+> 
+> While working on TX mitigiation, I noticed that while netpoll
+> takes care to avoid recursive dead locks on the NAPI path, it
+> has no protection against the TX path when calling the poll
+> function.
+> 
+> So if a driver is in the TX path, and a printk occurs, then a
+> recursive dead lock can occur if that driver tries to take the
+> xmit lock in its poll function to clean up descriptors.
+> 
+> Fortunately not a lot of drivers do this but at least some are
+> vulnerable to it, e.g., tg3.
+> 
+> So we need to make it very clear that the poll function must
+> not take any locks or they must use try_lock if the driver is
+> to support netpoll.
 
-Changing to GFP_ATOMIC because the only caller in cnic/bnx2i may
-be calling this function while holding spin_lock.
+What do you propose?
 
-This problem was discovered by Mike Christie.
-
-Signed-off-by: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
----
- drivers/scsi/scsi_transport_iscsi.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
-index 783e33c..b47240c 100644
---- a/drivers/scsi/scsi_transport_iscsi.c
-+++ b/drivers/scsi/scsi_transport_iscsi.c
-@@ -990,7 +990,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
- 	struct iscsi_uevent *ev;
- 	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
- 
--	skb = alloc_skb(len, GFP_NOIO);
-+	skb = alloc_skb(len, GFP_ATOMIC);
- 	if (!skb) {
- 		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
- 		return -ENOMEM;
-@@ -1012,7 +1012,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
- 
- 	memcpy((char *)ev + sizeof(*ev), data, data_size);
- 
--	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
-+	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_ATOMIC);
- }
- EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
- 
 -- 
-1.5.6.GIT
+http://selenic.com : development and support for Mercurial and Linux
+
+
