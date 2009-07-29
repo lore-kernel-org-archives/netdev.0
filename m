@@ -1,33 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Wed, 29 Jul 2009 09:25:23 +0800
-Message-ID: <20090729012523.GA1583@gondor.apana.org.au>
-References: <20090728071247.GA25611@gondor.apana.org.au> <20090728.125919.146001472.davem@davemloft.net> <20090729004428.GA765@gondor.apana.org.au> <20090728.180647.241258705.davem@davemloft.net>
+Date: Tue, 28 Jul 2009 18:34:51 -0700 (PDT)
+Message-ID: <20090728.183451.93398827.davem@davemloft.net>
+References: <20090729004428.GA765@gondor.apana.org.au>
+	<20090728.180647.241258705.davem@davemloft.net>
+	<20090729012523.GA1583@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: krkumar2@in.ibm.com, jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:48274 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755182AbZG2BZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 21:25:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20090728.180647.241258705.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40674
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755328AbZG2Beo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 21:34:44 -0400
+In-Reply-To: <20090729012523.GA1583@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 28, 2009 at 06:06:47PM -0700, David Miller wrote:
->
-> More interesting to me is the case where the queue is not
-> filled up, or is very nearly so. :-)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 29 Jul 2009 09:25:23 +0800
 
-Do you mean the hardware queue? In that case perhaps Krishna's
-proposal of bypassing the qdisc would be the best.
+> On Tue, Jul 28, 2009 at 06:06:47PM -0700, David Miller wrote:
+>>
+>> More interesting to me is the case where the queue is not
+>> filled up, or is very nearly so. :-)
+> 
+> Do you mean the hardware queue? In that case perhaps Krishna's
+> proposal of bypassing the qdisc would be the best.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Wouldn't that bypass any rate limiting enforcement done by
+the qdisc too?
