@@ -1,47 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pppoe: fix /proc/net/pppoe
-Date: Wed, 29 Jul 2009 11:43:08 +0200
-Message-ID: <4A7019AC.5000402@gmail.com>
-References: <bug-13760-10286@http.bugzilla.kernel.org/> <20090722134557.2457c5f5.akpm@linux-foundation.org> 	<43d009740907222339n50ebe411ya6453dc5a294b9a0@mail.gmail.com> 	<20090723000100.d74d6b1c.akpm@linux-foundation.org> <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com> <4A6EBA88.8030205@cosmosbay.com> <4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com> <4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org> <4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com> <4A6F017B.4060909@gmail.com> <4A6F397D.6010606@gmail.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [net-next 2/4] bnx2x: Self-test kills management traffic
+Date: Wed, 29 Jul 2009 13:20:08 +0300
+Message-ID: <1248862808.27379.16.camel@lb-tlvb-eilong>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Cyrill Gorcunov <gorcunov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:38256 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753475AbZG2JnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 05:43:24 -0400
-In-Reply-To: <4A6F397D.6010606@gmail.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3608 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750795AbZG2KUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jul 2009 06:20:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Found this one by pppoe code inspection, but this is an old bug.
+Self test used to play with the management FIFO possibly while management was
+running...
 
-Igor, this wont fix your problem, sorry !
-
-[PATCH] pppoe: fix /proc/net/pppoe
-
-If a socket is hashed in last slot of pppoe hash table (PPPOE_HASH_SIZE-1)
-we report it many times (up to filling seq buffer)
-(Only the last socket of last slot)
-
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index f0031f1..5f20902 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -1063,6 +1063,7 @@ static void *pppoe_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	else {
- 		int hash = hash_item(po->pppoe_pa.sid, po->pppoe_pa.remote);
- 
-+		po = NULL;
- 		while (++hash < PPPOE_HASH_SIZE) {
- 			po = pn->hash_table[hash];
- 			if (po)
+ drivers/net/bnx2x_main.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 5273988..b47b531 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -9415,10 +9415,9 @@ static int bnx2x_test_registers(struct bnx2x *bp)
+ 		{ XCM_REG_WU_DA_SET_TMR_CNT_FLG_CMD00, 4, 0x00000001 },
+ 		{ XCM_REG_WU_DA_CNT_CMD00,             4, 0x00000003 },
+ 		{ XCM_REG_GLB_DEL_ACK_MAX_CNT_0,       4, 0x000000ff },
+-		{ NIG_REG_EGRESS_MNG0_FIFO,           20, 0xffffffff },
+ 		{ NIG_REG_LLH0_T_BIT,                  4, 0x00000001 },
+-/* 20 */	{ NIG_REG_EMAC0_IN_EN,                 4, 0x00000001 },
+-		{ NIG_REG_BMAC0_IN_EN,                 4, 0x00000001 },
++		{ NIG_REG_EMAC0_IN_EN,                 4, 0x00000001 },
++/* 20 */	{ NIG_REG_BMAC0_IN_EN,                 4, 0x00000001 },
+ 		{ NIG_REG_XCM0_OUT_EN,                 4, 0x00000001 },
+ 		{ NIG_REG_BRB0_OUT_EN,                 4, 0x00000001 },
+ 		{ NIG_REG_LLH0_XCM_MASK,               4, 0x00000007 },
+@@ -9427,8 +9426,8 @@ static int bnx2x_test_registers(struct bnx2x *bp)
+ 		{ NIG_REG_LLH0_DEST_MAC_0_0,         160, 0xffffffff },
+ 		{ NIG_REG_LLH0_DEST_IP_0_1,          160, 0xffffffff },
+ 		{ NIG_REG_LLH0_IPV4_IPV6_0,          160, 0x00000001 },
+-/* 30 */	{ NIG_REG_LLH0_DEST_UDP_0,           160, 0x0000ffff },
+-		{ NIG_REG_LLH0_DEST_TCP_0,           160, 0x0000ffff },
++		{ NIG_REG_LLH0_DEST_UDP_0,           160, 0x0000ffff },
++/* 30 */	{ NIG_REG_LLH0_DEST_TCP_0,           160, 0x0000ffff },
+ 		{ NIG_REG_LLH0_VLAN_ID_0,            160, 0x00000fff },
+ 		{ NIG_REG_XGXS_SERDES0_MODE_SEL,       4, 0x00000001 },
+ 		{ NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0, 4, 0x00000001 },
+-- 
+1.5.4.3
+
+
+
+
