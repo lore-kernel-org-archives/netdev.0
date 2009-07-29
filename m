@@ -1,66 +1,45 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: question about drivers/net/tg3.c
-Date: Wed, 29 Jul 2009 18:59:01 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0907291858431.22045@ask.diku.dk>
-References: <Pine.LNX.4.64.0907291743300.22045@ask.diku.dk>
- <20090729163943.GC22014@xw6200.broadcom.net> <Pine.LNX.4.64.0907291857430.22045@ask.diku.dk>
+From: Roland Dreier <roland@digitalvampire.org>
+Subject: IPv6 default routes timing out?
+Date: Wed, 29 Jul 2009 10:42:07 -0700
+Message-ID: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:50462 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755899AbZG2RAv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2009 13:00:51 -0400
-In-Reply-To: <Pine.LNX.4.64.0907291857430.22045@ask.diku.dk>
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:35756
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751184AbZG2RsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 13:48:05 -0400
+Received: from shaolin.home.digitalvampire.org (shaolin.home.digitalvampire.org [10.1.0.2])
+	by hellmouth.digitalvampire.org (Postfix) with ESMTP id 2DF99130BD
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 10:42:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 Jul 2009, Julia Lawall wrote:
+I recently set up IPv6 on home home network -- openbsd 4.5 box serving
+as a router with wired and wireless ports, advertising routes via the
+openbsd rtadvd daemon.  I have no problem on boxes on the wired
+network, which gets a default route like:
 
-> On Wed, 29 Jul 2009, Matt Carlson wrote:
-> 
-> > On Wed, Jul 29, 2009 at 08:49:35AM -0700, Julia Lawall wrote:
-> > > The function tg3_reset_hw in the file drivers/net/tg3.c contains the code:
-> > > 
-> > > 	/* If statement applies to 5705 and 5750 PCI devices only */
-> > > 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 &&
-> > >              tp->pci_chip_rev_id != CHIPREV_ID_5705_A0) ||
-> > > 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750) {
-> > >                 if ((tp->tg3_flags & TG3_FLG2_TSO_CAPABLE) &&
-> > >                     (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 ||
-> > > 	             tp->pci_chip_rev_id == CHIPREV_ID_5705_A2)) {
-> > > 	                /* nothing */
-> > > 	        } else if (!(tr32(TG3PCI_PCISTATE) & PCISTATE_BUS_SPEED_HIGH) &&
-> > > 	                   !(tp->tg3_flags2 & TG3_FLG2_IS_5788) &&
-> > > 			   !(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)) {
-> > > 			val |= WDMAC_MODE_RX_ACCEL;
-> > > 	        }
-> > > 	}
-> > > 
-> > > 
-> > > On the fifth line above there is the code:
-> > > 
-> > > tp->tg3_flags & TG3_FLG2_TSO_CAPABLE
-> > > 
-> > > but the tg3_flags field seems to normally have a value whose name contains 
-> > > FLAG, and not FLG2.  Should this code be:
-> > > 
-> > > tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE
-> > > 
-> > > or should the constant be different?
-> > 
-> > On all the copies of tg3.c I have readily available, the line says :
-> > 
-> > tp->tg3_flags2 & TG3_FLG2_TSO_CAPABLE
-> > 
-> > Even the latest net-next tree is like this.  Where did you get your
-> > source from?
-> 
-> linux-next
+    default via fe80::240:63ff:feda:3d15 dev eth0  proto kernel  metric 1024  expires 8630sec mtu 1500 advmss 1440 hoplimit 64
 
->From Friday, so perhaps it is out of date already.
+However on laptops on the wireless network, I've seen the route
+timeout and apparently never reappear.  This happens running both old
+kernels like 2.6.24 and also with 2.6.31-rc4, and on systems with both
+ipw2200 and iwlagn wirelss.  The symptom is that if I leave my laptop
+running, say, overnight, in the morning the ipv6 default route is
+gone.  ipv4 networking still works fine, and if I try explicit
+link-local ipv6 addresses on the laptop, they work fine too.  But the
+ipv6 internet is gone because the kernel has no idea how to route
+packets to it.
 
-julia
+The openbsd rtadvd config is pretty basic, just:
+
+    ral0:\  
+            :addr="2001:470:8379:2::":prefixlen#64:rltime#9000:\
+            :maxinterval#120:mininterval#60:
+
+Any ideas as to what I'm doing wrong, or where the problem might be?
+
+Thanks,
+  Roland
