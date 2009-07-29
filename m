@@ -1,63 +1,66 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Wed, 29 Jul 2009 18:58:33 +0530
-Message-ID: <OFCE4875A4.35085550-ON65257602.0046AC85-65257602.004A0678@in.ibm.com>
-References: <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728071247.GA25611@gondor.apana.org.au> <20090728.125919.146001472.davem@davemloft.net> <20090729004428.GA765@gondor.apana.org.au>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
+Date: Wed, 29 Jul 2009 08:36:06 -0500
+Message-ID: <20090729133606.GB31730@us.ibm.com>
+References: <1248295301-30930-1-git-send-email-danms@us.ibm.com> <1248295301-30930-6-git-send-email-danms@us.ibm.com> <4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com> <4A6F6B19.9010508@librato.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, jarkao2@gmail.com,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Smith <danms@us.ibm.com>, containers@lists.osdl.org,
+	netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>
+To: Oren Laadan <orenl@librato.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([59.145.155.7]:37299 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755483AbZG2N25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 09:28:57 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id n6TDStpS002452
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 18:58:55 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n6TDStZm974852
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 18:58:55 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n6TDStG7010089
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 23:28:55 +1000
-In-Reply-To: <20090729004428.GA765@gondor.apana.org.au>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:50288 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754810AbZG2NgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 09:36:12 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n6TDWjkK020416
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 07:32:46 -0600
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v9.2) with ESMTP id n6TDa7Zn196852
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 07:36:07 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n6TDa6Xx026259
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 07:36:07 -0600
+Content-Disposition: inline
+In-Reply-To: <4A6F6B19.9010508@librato.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Herbert,
+Quoting Oren Laadan (orenl@librato.com):
+> > OL> Does the following bypass security checks for sys_connect() ?
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote on 07/29/2009 06:14:28 AM:
->
-> Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
->
-> On Tue, Jul 28, 2009 at 12:59:19PM -0700, David Miller wrote:
-> >
-> > The premise is that there'd be only one.  The qdisc lock.
-> >
-> > If the traffic is distributed, flow wise, the driver XMIT
-> > lock would spread due to multiqueue.
->
-> Suppose that we have a single large flow going through that has
-> filled up the hardware queue and is now backlogged in the qdisc
-> with qdisc_run on CPU A.   Now some other flow comes along and
-> sends a packet on CPU B.
->
-> So now CPU A and B will both be processing packets for the first
-> flow causing loads of lock contention.
->
-> But worse yet, we have introduced packet reordering.  So are you
-> convinced now :)
+[ on sock_unix_restore()->sock_unix_restore_connected()->sock_unix_join() ]
 
-I am probably misunderstanding you, but ... For different flows, is
-this an issue? The same TCP connection will always use a single TXQ,
-even if it runs on different CPUs since dev_pick_tx will select the
-same txq, so how will reordering happen?
+> > 
+> > I don't think so.  We're basically replicating sys_socketpair() here,
+> > which does not do a security check, presumably because all you're
+> > doing is hooking two sockets together that both belong to you.  That's
+> > not to say that we're as safe as that limited operation, but I don't
+> > think it's totally clear.  Perhaps someone more confident will
+> > comment.
+> 
+> Yes, please ... Serge ?
+> 
+> To me it sounds plausible. If we adopt it, then a comment in the
+> code is worthwhile.
 
-thanks,
+I'm not sure what Oren means "sounds plausible" or should be adopted.
+Using a common helper with sys_connect()?
 
-- KK
+At the moment you miss out on the security_socket_connect() call.  That
+may be not as important for unix sockets, but it does look like selinux +
+netlabel can label unix sockets as well.  So I'm not convinced we can
+just ignore it, as once we start properly LSM-labeling tasks and
+sockets we may need to do that to ensure proper restart under selinux.
 
-(I am off tomorrow, but will be around for the next 3 hours)
+The other thing is that some new fancy doohicky might require another
+hook in sys_connect, which may or may not be needed for this path.
+If coded this way, we may not find out until someone reports some
+subtle failure long after the fact.
 
+Still your code is so customized that perhaps an explicit
+security_socket_connect() call in your sock_unix_join() may be the
+way to go...
+
+-serge
