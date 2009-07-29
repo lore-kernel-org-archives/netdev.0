@@ -1,79 +1,63 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH] cnic: Fix ISCSI_KEVENT_IF_DOWN message handling.
-Date: Wed, 29 Jul 2009 03:17:19 -0500
-Message-ID: <4A70058F.50403@cs.wisc.edu>
-References: <C27F8246C663564A84BB7AB343977242178EE780E1@IRVEXCHCCR01.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <C27F8246C663564A84BB7AB343977242178EE780E1@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] gianfar: fix coalescing setup in ethtool support
+Date: Wed, 29 Jul 2009 16:51:57 +0800
+Message-ID: <1248857517-8270-1-git-send-email-leoli@freescale.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Jiajun Wu <b06378@freescale.com>, Li Yang <leoli@freescale.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:42072 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbZG2ITv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 04:19:51 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by az33egw02.freescale.net (8.14.3/az33egw02) with ESMTP id n6T8JYr0014269
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 01:19:45 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id n6T8JkMZ003494
+	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 03:19:47 -0500 (CDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> Mike Christie wrote:
-> 
->> Michael Chan wrote:
->>> When a net device goes down or when the bnx2i driver is unloaded,
->>> the code was not generating the ISCSI_KEVENT_IF_DOWN message
->>> properly and this could cause the userspace driver to crash.
->>>
->>> This is fixed by sending the message properly in the shutdown path.
->>> cnic_uio_stop() is also added to send the message when bnx2i is
->>> unregistering.
->>>
->>> Signed-off-by: Michael Chan <mchan@broadcom.com>
->>> ---
->>>  drivers/net/cnic.c |   23 +++++++++++++++++++++--
->>>  1 files changed, 21 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
->>> index 4d1515f..4869d77 100644
->>> --- a/drivers/net/cnic.c
->>> +++ b/drivers/net/cnic.c
->>> @@ -227,7 +227,7 @@ static int cnic_send_nlmsg(struct
->> cnic_local *cp, u32 type,
->>>     }
->>>
->>>     rcu_read_lock();
->>> -   ulp_ops = rcu_dereference(cp->ulp_ops[CNIC_ULP_ISCSI]);
->>> +   ulp_ops = rcu_dereference(cnic_ulp_tbl[CNIC_ULP_ISCSI]);
->>>     if (ulp_ops)
->>>             ulp_ops->iscsi_nl_send_msg(cp->dev, msg_type, buf, len);
->>>     rcu_read_unlock();
->>> @@ -319,6 +319,20 @@ static int cnic_abort_prep(struct
->> cnic_sock *csk)
->>>     return 0;
->>>  }
->>>
->>> +static void cnic_uio_stop(void)
->>> +{
->>> +   struct cnic_dev *dev;
->>> +
->>> +   read_lock(&cnic_dev_lock);
->>> +   list_for_each_entry(dev, &cnic_dev_list, list) {
->>> +           struct cnic_local *cp = dev->cnic_priv;
->>> +
->>> +           if (cp->cnic_uinfo)
->>> +                   cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
->> I don't think you can call this with the cnic_dev_lock held.
->> They have
->> the same sleeping restrictions as a spin_lock right? If so,
->> the problem
->> is that iscsi_nl_send_ms calls iscsi_offload_mesg which uses GFP_NOIO
->> and can sleep.
->>
->>
-> In that case, can I send in a patch to change iscsi_offload_mesg() to
-> use GFP_ATOMIC?
-> 
+From: Jiajun Wu <b06378@freescale.com>
 
-Yes, I guess so.
+Parameter order for using mk_ic_value(count, time) was reversed,
+the patch fixes this.
+
+Signed-off-by: Jiajun Wu <b06378@freescale.com>
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ drivers/net/gianfar_ethtool.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 2a7edfa..3109f4b 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -373,9 +373,8 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ 		return -EINVAL;
+ 	}
+ 
+-	priv->rxic = mk_ic_value(
+-		gfar_usecs2ticks(priv, cvals->rx_coalesce_usecs),
+-		cvals->rx_max_coalesced_frames);
++	priv->rxic = mk_ic_value(cvals->rx_max_coalesced_frames,
++		gfar_usecs2ticks(priv, cvals->rx_coalesce_usecs));
+ 
+ 	/* Set up tx coalescing */
+ 	if ((cvals->tx_coalesce_usecs == 0) ||
+@@ -397,9 +396,8 @@ static int gfar_scoalesce(struct net_device *dev, struct ethtool_coalesce *cvals
+ 		return -EINVAL;
+ 	}
+ 
+-	priv->txic = mk_ic_value(
+-		gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs),
+-		cvals->tx_max_coalesced_frames);
++	priv->txic = mk_ic_value(cvals->tx_max_coalesced_frames,
++		gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs));
+ 
+ 	gfar_write(&priv->regs->rxic, 0);
+ 	if (priv->rxcoalescing)
+-- 
+1.5.6.3
+
