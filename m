@@ -1,52 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Wed, 29 Jul 2009 11:15:48 +0800
-Message-ID: <20090729031548.GA2435@gondor.apana.org.au>
-References: <20090729012523.GA1583@gondor.apana.org.au> <20090728.183451.93398827.davem@davemloft.net> <20090729021212.GA1946@gondor.apana.org.au> <20090728.192247.247655474.davem@davemloft.net> <20090729023809.GA2218@gondor.apana.org.au>
+From: Igor M Podlesny <for.poige+bugzilla.kernel.org@gmail.com>
+Subject: Re: [PATCH] pppoe: fix race at init time
+Date: Wed, 29 Jul 2009 11:55:45 +0800
+Message-ID: <43d009740907282055t44bfa2e2md3afa514d4b2d7e6@mail.gmail.com>
+References: <43d009740907272340g7f98ed55lfff38bfedd867a99@mail.gmail.com>
+	<4A6ECA3A.4050309@openvz.org> <4A6EEF69.1050001@cosmosbay.com>
+	<4A6EF0BF.2050801@gmail.com> <4A6EF705.6070403@openvz.org>
+	<4A6EFA35.3060309@gmail.com> <4A6EFB81.4090105@gmail.com>
+	<4A6F017B.4060909@gmail.com> <4A6F397D.6010606@gmail.com>
+	<20090728184834.GD4678@lenovo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: krkumar2@in.ibm.com, jarkao2@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37016 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752703AbZG2DP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 23:15:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20090729023809.GA2218@gondor.apana.org.au>
+Received: from mail-gx0-f213.google.com ([209.85.217.213]:54899 "EHLO
+	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbZG2D4G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jul 2009 23:56:06 -0400
+Received: by gxk9 with SMTP id 9so952460gxk.13
+        for <netdev@vger.kernel.org>; Tue, 28 Jul 2009 20:56:05 -0700 (PDT)
+In-Reply-To: <20090728184834.GD4678@lenovo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2009 at 10:38:09AM +0800, Herbert Xu wrote:
+2009/7/29 Cyrill Gorcunov <gorcunov@gmail.com>:
+> [Eric Dumazet - Tue, Jul 28, 2009 at 07:46:37PM +0200]
+> ...
+> | So Igor still has a panic... lets try a third patch then :)
+[...]
+> Hmm. It seems the problem is not in pppoe_init_net since it's
+> called *before* dev_add_pack via register_pernet_gen_device
+> (which is protected by a global net mutex). Or I miss something?
 >
-> I did say it wasn't a good answer :)
+> (sorry guys I have quite a limited internet connection this week)
 
-Here's another crazy idea:
+	At last the 3rd patch was also unable to fix the bug.
 
-Forget about using multiple hardware TX queues with rate limiting
-qdiscs.  Why? Because these qdiscs are fundamentally serialising
-so once the traffic has gone through it there is nothing to be
-gained from multiplexing them into the hardware only to be merged
-again onto the wire right away.
-
-So does this mean that we give up on CPU scalability on limiting
-qdiscs? No, the bottleneck is in fact in the qdisc, not in the
-NIC.  So we implement multiqueue in the qdisc instead.
-
-This can be done with a lockless ring buffer.  Each CPU would
-deposit its packets in a qdisc ringer buffer assigned to it.
-The qdisc would then run on a single CPU harvesting all the
-ring buffers in some fair manner.
-
-Essentially we can treat rate limiting qdiscs as NICs.  Another
-way of thinking about this is that we're essentially decoupling
-a single system into two.  One that is using a default qdisc to
-achieve maximum throughput.  This is then fed into a second system
-that is dedicated to rate limiting.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+End of message. Next message?
