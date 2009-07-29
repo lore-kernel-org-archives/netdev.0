@@ -1,46 +1,27 @@
-From: Brice Goglin <Brice.Goglin@inria.fr>
-Subject: Re: [RFC] Idea about increasing efficency of skb allocation in	network
- devices
-Date: Wed, 29 Jul 2009 10:20:55 +0200
-Message-ID: <4A700667.5080108@inria.fr>
-References: <20090727003609.GA30438@localhost.localdomain> <20090726.180254.202825489.davem@davemloft.net> <4A6D52FF.2030008@inria.fr> <4A6D5E1E.3090907@gmail.com> <20090727105554.GB15823@hmsreliant.think-freely.org>
+From: manu gautam <manugautam25@hotmail.com>
+Subject: FW: System Hang while trying to send over TCP socket with very less
+ free m/m
+Date: Wed, 29 Jul 2009 13:54:27 +0530
+Message-ID: <BLU141-W7E99313C2CA3BE069EC5DD4120@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:15758 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751920AbZG2IUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 04:20:53 -0400
-In-Reply-To: <20090727105554.GB15823@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752357AbZG2IY3@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman wrote:
->>> Is there an easy way to get this NUMA node from the application socket
->>> descriptor?
->>>       
->> Thats not easy, this information can change for every packet (think of
->> bonding setups, whith aggregation of devices on different NUMA nodes)
->>
->> We could add a getsockopt() call to peek this information from the next
->> data to be read from socket (returns node id where skb data is sitting,
->> hoping that NIC driver hadnt copybreak it (ie : allocate a small skb and
->> copy the device provided data on it before feeding packet to network stack))
->>
->>     
-> Would a proc or debugfs interface perhaps be helpful here?  Something that
-> perhaps showed a statistical distribution of how many packets were received by
-> each process on each irq (operating under the assumption that each rx queue has
-> its own msi irq, giving us an easy identifier).
->   
 
-It could be intereting. But unprivileged user processes cannot read
-/proc/irq/*/smp_affinity, so they would not be able to translate your
-procfs information into a binding hint.
+Hi,
 
-Brice
+I am running 2.6.12 kernel with kernel PREEMPTION being OFF. 
+While sending data over TCP socket I am experiencing system hang. What is happening actually is that the system is low in free memory and the sk_stream_alloc_pskb call in tcp_sendmsg fails and the control goes to "sk_stream_wait_memory" function. Inside this function we are calling schedule_timeout only if "sk_stream_memory_free(sk) && vm_wait" check is false. In my case what happens is that this check is always true and we don't do schedule_timeout which results in the system hang.
+With preemption being OFF it becomes a kind of deadlock where the one thread is waiting for the memory to be freed but it is not getting scheduled out. 
 
+I also checked on the latest kernel but there also I dont see any fix for this issue. 
+
+Please excuse me if I have pasted it to some wrong mailing list.
+Regards,Manu
+_________________________________________________________________
+Missed any of the IPL matches ? Catch a recap of all the action on MSN Videos
+http://msnvideos.in/iplt20/msnvideoplayer.aspx
