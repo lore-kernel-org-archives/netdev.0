@@ -1,73 +1,54 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
-Date: Wed, 29 Jul 2009 11:37:39 -0700
-Message-ID: <87vdlbmj2k.fsf@caffeine.danplanet.com>
-References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
-	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
-	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
-	<4A6F6B19.9010508@librato.com>
+From: "Michael Chan" <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH] iscsi: Use GFP_ATOMIC in iscsi_offload_mesg().
+Date: Wed, 29 Jul 2009 11:49:52 -0700
+Message-ID: <1248893392.16148.262.camel@HP1>
+References: <C27F8246C663564A84BB7AB343977242178EE780E1@IRVEXCHCCR01.corp.ad.broadcom.com> <4A70058F.50403@cs.wisc.edu>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, Alexey Dobriyan <adobriyan@gmail.com>,
-	netdev@vger.kernel.org
-To: Oren Laadan <orenl@librato.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:58175 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752671AbZG2Shn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 14:37:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org" <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org" <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: "Mike Christie" <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <4A70058F.50403-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-OL> Hmmm.. what about splice_direct_to_actor() ?
 
-The comments (and code) for that function define that we can't splice
-between non-regular files.  For now, this would work, but would fail
-if you pass a socket as the checkpoint descriptor, as might be the
-case in a migration.
+Changing to GFP_ATOMIC because the only caller in cnic/bnx2i may
+be calling this function while holding spin_lock.
 
-OL> Still need to keep it in mind for inet when including those
-OL> lingering sockets that don't belong to anyone.
+This problem was discovered by Mike Christie.
 
-Yep.
+Signed-off-by: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+---
+ drivers/scsi/scsi_transport_iscsi.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-OL> This also means that a peer (of a dgram socket) that was closed
-OL> will not be checkpointed, so restoring the rcvbuf of the remaining
-OL> dgram socket wouldn't work.
-
-Actually, the new algorithm creates the pair when finding the first
-socket instead of the second, so I think it will still work.  However,
-I'll test it and apply some thought to what will happen to the socket
-we created to represent the dead one (I think it will die when the
-objhash is freed).
-
-OL> Hmm.. then what happens when you have a circular dependency ?
-OL> For example, three dgram sockets, A, B and C where: A->B, B->C
-OL> and C->A  ('->' means connected).
-
-Hmm, hadn't thought of that.
-
-OL> I suspect that sock_unix_restore_connect() will fail, because
-OL> neither:
-
-OL> +	if (!IS_ERR(this) && !IS_ERR(peer)) {
-
-OL> nor
-
-OL> +	} else if ((PTR_ERR(this) == -EINVAL) && (PTR_ERR(peer) == -EINVAL)) {
-
-OL> will hold true, therefore:
-
-OL> +	} else {
-OL> +		ckpt_debug("Order Error\n");
-OL> +		ret = PTR_ERR(this);
-OL> +		goto out;
-OL> +	}
-
-Yeah, but I don't think it will be too hard to add another case to
-that condition to handle this.  I'll check into it.
-
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+index 783e33c..b47240c 100644
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -990,7 +990,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
+ 	struct iscsi_uevent *ev;
+ 	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
+ 
+-	skb = alloc_skb(len, GFP_NOIO);
++	skb = alloc_skb(len, GFP_ATOMIC);
+ 	if (!skb) {
+ 		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
+ 		return -ENOMEM;
+@@ -1012,7 +1012,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
+ 
+ 	memcpy((char *)ev + sizeof(*ev), data, data_size);
+ 
+-	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
++	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_ATOMIC);
+ }
+ EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
+ 
 -- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+1.5.6.GIT
