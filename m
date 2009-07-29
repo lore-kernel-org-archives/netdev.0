@@ -1,60 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] [IPV4]: Buffer overflow
-Date: Thu, 30 Jul 2009 00:02:39 +0200
-Message-ID: <4A70C6FF.9060302@gmail.com>
-References: <4A702A02.30509@gmail.com>
+From: John Dykstra <john.dykstra1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
+Date: Wed, 29 Jul 2009 17:10:29 -0500
+Message-ID: <1248905429.7129.22.camel@Maple>
+References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
+	<1246994776-1882-3-git-send-email-danms@us.ibm.com>
+	<1248555754.16746.55.camel@merlyn>
+	<874oswer21.fsf@caffeine.danplanet.com>
+	<4A6F306A.40303@librato.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Roel Kluin <roel.kluin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f228.google.com ([209.85.220.228]:61447 "EHLO
-	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252AbZG2WCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 18:02:48 -0400
-Received: by fxm28 with SMTP id 28so277945fxm.17
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 15:02:47 -0700 (PDT)
-In-Reply-To: <4A702A02.30509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Oren Laadan <orenl-RdfvBDnrOixBDgjK7y7TUQ@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4A6F306A.40303-RdfvBDnrOixBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Roel Kluin wrote, On 07/29/2009 12:52 PM:
-
-> If arp_format_neigh_entry() can be called with n->dev->addr_len == 0, then a
-> write to hbuffer[-1] occurs.
+On Tue, 2009-07-28 at 13:07 -0400, Oren Laadan wrote:
+> When you destroy the virtual interface after (or during) the
+> > migration, the TIME_WAIT socket will disappear from the sending
+> host.
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> Found with Parfait, http://research.sun.com/projects/parfait/
-> 
-> It's not clear whether this can happen or not.
-> 
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index c29d75d..252336f 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -1304,7 +1304,8 @@ static void arp_format_neigh_entry(struct seq_file *seq,
->  		hbuffer[k++] = hex_asc_lo(n->ha[j]);
->  		hbuffer[k++] = ':';
->  	}
-> -	hbuffer[--k] = 0;
-> +	if (k != 0)
-> +		hbuffer[--k] = 0;
+> Note that such sockets are unlikely to be referenced by _any_ process
+> because they will have been closed already. So the checkpoint code
+> will need to find such sockets not through file descriptors.
 
+Dan, to maybe save you some searching...  The time-wait chains can be
+accessed via tcp_hashinfo.
 
-I guess for k == 0 we need hbuffer[0] = 0 too.
-
-Jarek P.
-
->  #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
->  	}
->  #endif
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
+  -- John
