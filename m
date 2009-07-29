@@ -1,56 +1,62 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Wed, 29 Jul 2009 21:26:41 +0200
-Message-ID: <20090729192641.GA3058@ami.dom.local>
-References: <20090727.212107.161491585.davem@davemloft.net> <20090728071247.GA25611@gondor.apana.org.au> <20090728.125919.146001472.davem@davemloft.net> <20090729004428.GA765@gondor.apana.org.au> <20090729110436.GA5490@ff.dom.local> <20090729111134.GA6478@gondor.apana.org.au> <20090729112614.GB5490@ff.dom.local> <20090729123041.GA7440@gondor.apana.org.au> <20090729124734.GD5490@ff.dom.local> <OF414D73BF.FAE11563-ON65257602.0047D9A4-65257602.00483330@in.ibm.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: netpoll + xmit_lock == deadlock
+Date: Wed, 29 Jul 2009 15:43:00 -0400
+Message-ID: <20090729194300.GB17410@hmsreliant.think-freely.org>
+References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f228.google.com ([209.85.220.228]:37307 "EHLO
-	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977AbZG2T1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 15:27:14 -0400
-Received: by fxm28 with SMTP id 28so187939fxm.17
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 12:27:13 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57634 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754202AbZG2TnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 15:43:19 -0400
 Content-Disposition: inline
-In-Reply-To: <OF414D73BF.FAE11563-ON65257602.0047D9A4-65257602.00483330@in.ibm.com>
+In-Reply-To: <1248894478.4545.2822.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2009 at 06:38:36PM +0530, Krishna Kumar2 wrote:
-> Hi Jarek,
+On Wed, Jul 29, 2009 at 02:07:58PM -0500, Matt Mackall wrote:
+> On Wed, 2009-07-29 at 15:35 +0800, Herbert Xu wrote:
+> > Hi:
+> > 
+> > While working on TX mitigiation, I noticed that while netpoll
+> > takes care to avoid recursive dead locks on the NAPI path, it
+> > has no protection against the TX path when calling the poll
+> > function.
+> > 
+> > So if a driver is in the TX path, and a printk occurs, then a
+> > recursive dead lock can occur if that driver tries to take the
+> > xmit lock in its poll function to clean up descriptors.
+> > 
+> > Fortunately not a lot of drivers do this but at least some are
+> > vulnerable to it, e.g., tg3.
+> > 
+> > So we need to make it very clear that the poll function must
+> > not take any locks or they must use try_lock if the driver is
+> > to support netpoll.
 > 
-> Jarek Poplawski <jarkao2@gmail.com> wrote on 07/29/2009 06:17:34 PM:
-> 
-> > Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-> >
-> > On Wed, Jul 29, 2009 at 08:30:41PM +0800, Herbert Xu wrote:
-> > > On Wed, Jul 29, 2009 at 11:26:14AM +0000, Jarek Poplawski wrote:
-> > > >
-> > > > If you mean the tx lock there should be no "real" contention: only
-> > > > one waiter max. qdisc lock's contention might be higher, but it's
-> > > > use (during contention) better: enqueue + dequeue together instead
-> > > > of doing it separately.
-> > >
-> > > Hmm, you will have contention if they're both transmitting a
-> > > single flow which must always go into a single physical queue.
-> > >
-> > > So you'll have two CPUs doing the work of a single CPU, with one
-> > > of them always spinning on the TX lock.
-> >
-> > Hmm.. I'd call it a little waiting, but OK let's call it contention;-)
-> > When tx is faster than queue operations there could be no contention
-> > at all. I'm not saying I must be right: IMHO it's only worth trying.
-> 
-> My expectation is that tx would be much longer than a few lines of
-> queue operation....
+> What do you propose?
 
-I meant here the case of non-default qdisc, like HTB, HFSC or CBQ,
-often with many classes and filters, so a few more lines than usual...
+I think there is actually some recursion protection.  If you look in
+netpoll_send_skb (where all netpoll transmits pass through), we do a
+__netif_tx_trylock, and only continue down the tx path if we obtain the lock.
+If not, we call netpoll_poll, wait a while, and try again.  I think that should
+prevent the deadlock condition you are concerned about.
 
-Thanks,
-Jarek P.
+Regards
+Neil (who hates netpoll). :)
+
+> 
+> -- 
+> http://selenic.com : development and support for Mercurial and Linux
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
