@@ -1,60 +1,58 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
-Date: Wed, 29 Jul 2009 18:38:36 +0530
-Message-ID: <OF414D73BF.FAE11563-ON65257602.0047D9A4-65257602.00483330@in.ibm.com>
-References: <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728071247.GA25611@gondor.apana.org.au> <20090728.125919.146001472.davem@davemloft.net> <20090729004428.GA765@gondor.apana.org.au> <20090729110436.GA5490@ff.dom.local> <20090729111134.GA6478@gondor.apana.org.au> <20090729112614.GB5490@ff.dom.local> <20090729123041.GA7440@gondor.apana.org.au> <20090729124734.GD5490@ff.dom.local>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] eexpress: Read buffer overflow
+Date: Wed, 29 Jul 2009 15:18:56 +0200
+Message-ID: <4A704C40.1070606@gmail.com>
+References: <20090729122953.GC5490@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
 To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([59.145.155.8]:51110 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754650AbZG2NJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 09:09:38 -0400
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by e28smtp08.in.ibm.com (8.14.3/8.13.1) with ESMTP id n6TD6Yiu015676
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 18:36:34 +0530
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n6TD9Zuf970776
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 18:39:35 +0530
-Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n6TD9YlS024749
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 23:09:35 +1000
-In-Reply-To: <20090729124734.GD5490@ff.dom.local>
+Received: from mail-ew0-f226.google.com ([209.85.219.226]:40253 "EHLO
+	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755015AbZG2NQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 09:16:04 -0400
+Received: by ewy26 with SMTP id 26so811977ewy.37
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 06:16:03 -0700 (PDT)
+In-Reply-To: <20090729122953.GC5490@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jarek,
+start_code is 69 words, but the code always writes a multiple of 16 words,
+so the last 11 words written are outside the array.
 
-Jarek Poplawski <jarkao2@gmail.com> wrote on 07/29/2009 06:17:34 PM:
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+> Now you seem to make my previous math working :-)
+> 
+>>> (max) i = 64, (max) j = 14, (64+14+16)/2 = 47 < 69, so it seems to copy
+>>> less than its size?
+> 
+> Jarek P.
+> 
 
-> Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
->
-> On Wed, Jul 29, 2009 at 08:30:41PM +0800, Herbert Xu wrote:
-> > On Wed, Jul 29, 2009 at 11:26:14AM +0000, Jarek Poplawski wrote:
-> > >
-> > > If you mean the tx lock there should be no "real" contention: only
-> > > one waiter max. qdisc lock's contention might be higher, but it's
-> > > use (during contention) better: enqueue + dequeue together instead
-> > > of doing it separately.
-> >
-> > Hmm, you will have contention if they're both transmitting a
-> > single flow which must always go into a single physical queue.
-> >
-> > So you'll have two CPUs doing the work of a single CPU, with one
-> > of them always spinning on the TX lock.
->
-> Hmm.. I'd call it a little waiting, but OK let's call it contention;-)
-> When tx is faster than queue operations there could be no contention
-> at all. I'm not saying I must be right: IMHO it's only worth trying.
+You're right, thanks for reviewing, this one should be correct.
 
-My expectation is that tx would be much longer than a few lines of
-queue operation....
-
-thanks,
-
-- KK
-
+diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
+index 1686dca..1f016d6 100644
+--- a/drivers/net/eexpress.c
++++ b/drivers/net/eexpress.c
+@@ -1474,13 +1474,13 @@ static void eexp_hw_init586(struct net_device *dev)
+ 	outw(0x0000, ioaddr + 0x800c);
+ 	outw(0x0000, ioaddr + 0x800e);
+ 
+-	for (i = 0; i < (sizeof(start_code)); i+=32) {
++	for (i = 0; i < ARRAY_SIZE(start_code) * 2; i+=32) {
+ 		int j;
+ 		outw(i, ioaddr + SM_PTR);
+-		for (j = 0; j < 16; j+=2)
++		for (j = 0; j < 16 && (i+j)/2 < ARRAY_SIZE(start_code); j+=2)
+ 			outw(start_code[(i+j)/2],
+ 			     ioaddr+0x4000+j);
+-		for (j = 0; j < 16; j+=2)
++		for (j = 0; j < 16 && (i+j+16)/2 < ARRAY_SIZE(start_code); j+=2)
+ 			outw(start_code[(i+j+16)/2],
+ 			     ioaddr+0x8000+j);
+ 	}
