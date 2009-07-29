@@ -1,65 +1,84 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] eexpress: Read buffer overflow
-Date: Wed, 29 Jul 2009 22:05:17 +0200
-Message-ID: <20090729200517.GB3058@ami.dom.local>
-References: <20090729122953.GC5490@ff.dom.local> <4A704C40.1070606@gmail.com>
+Subject: Re: [PATCH] 3c515: Write outside array bounds
+Date: Wed, 29 Jul 2009 22:43:00 +0200
+Message-ID: <20090729204300.GC3058@ami.dom.local>
+References: <4A6B88B1.9000907@gmail.com> <4A6CC7BD.9020602@gmail.com> <4A705904.4020505@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 To: Roel Kluin <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:38652 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755326AbZG2UFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 16:05:35 -0400
-Received: by bwz19 with SMTP id 19so193246bwz.37
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 13:05:34 -0700 (PDT)
+Received: from mail-fx0-f228.google.com ([209.85.220.228]:64877 "EHLO
+	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755616AbZG2Unl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 16:43:41 -0400
+Received: by fxm28 with SMTP id 28so232202fxm.17
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 13:43:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <4A704C40.1070606@gmail.com>
+In-Reply-To: <4A705904.4020505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 29, 2009 at 03:18:56PM +0200, Roel Kluin wrote:
-> start_code is 69 words, but the code always writes a multiple of 16 words,
-> so the last 11 words written are outside the array.
-> 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
-> > Now you seem to make my previous math working :-)
+On Wed, Jul 29, 2009 at 04:13:24PM +0200, Roel Kluin wrote:
+> Op 26-07-09 23:16, Jarek Poplawski schreef:
+> > Roel Kluin wrote, On 07/26/2009 12:35 AM:
 > > 
-> >>> (max) i = 64, (max) j = 14, (64+14+16)/2 = 47 < 69, so it seems to copy
-> >>> less than its size?
+> >> if dev_alloc_skb() fails on the first iteration, a write to
+> >> cp->rx_ring[-1] occurs.
+> >>
+> >> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> >> ---
+> >> Please review: can we error return like this?
+> > 
+> > 
+> > I doubt we can return here: there is a lot of cleaning missing.
 > > 
 > > Jarek P.
-> > 
+> I took drivers/net/3c59x.c as an example
 > 
-> You're right, thanks for reviewing, this one should be correct.
+> Is this going in the right direction?
 
-Looks OK to me.
+The direction is right but a long and winding road... I guess it's for
+somebody with drivers knowhow. It seems most of the corkscrew_close()
+might be needed, including del_timer(). So, since this -1 case looks
+quite unlikely, it might be reasonable to only limit the most obvious
+damage with 'if (i != 0)' before [i - 1] write, like David advised
+in lmc case?
 
-Thanks,
+Cheers,
 Jarek P.
 
 > 
-> diff --git a/drivers/net/eexpress.c b/drivers/net/eexpress.c
-> index 1686dca..1f016d6 100644
-> --- a/drivers/net/eexpress.c
-> +++ b/drivers/net/eexpress.c
-> @@ -1474,13 +1474,13 @@ static void eexp_hw_init586(struct net_device *dev)
->  	outw(0x0000, ioaddr + 0x800c);
->  	outw(0x0000, ioaddr + 0x800e);
+> diff --git a/drivers/net/3c515.c b/drivers/net/3c515.c
+> index 3e00fa8..e94867d 100644
+> --- a/drivers/net/3c515.c
+> +++ b/drivers/net/3c515.c
+> @@ -827,7 +827,7 @@ static int corkscrew_open(struct net_device *dev)
+>  			skb = dev_alloc_skb(PKT_BUF_SZ);
+>  			vp->rx_skbuff[i] = skb;
+>  			if (skb == NULL)
+> -				break;	/* Bad news!  */
+> +				goto error;	/* Bad news!  */
+>  			skb->dev = dev;	/* Mark as being used by this device. */
+>  			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+>  			vp->rx_ring[i].addr = isa_virt_to_bus(skb->data);
+> @@ -864,6 +864,17 @@ static int corkscrew_open(struct net_device *dev)
+>  	     ioaddr + EL3_CMD);
 >  
-> -	for (i = 0; i < (sizeof(start_code)); i+=32) {
-> +	for (i = 0; i < ARRAY_SIZE(start_code) * 2; i+=32) {
->  		int j;
->  		outw(i, ioaddr + SM_PTR);
-> -		for (j = 0; j < 16; j+=2)
-> +		for (j = 0; j < 16 && (i+j)/2 < ARRAY_SIZE(start_code); j+=2)
->  			outw(start_code[(i+j)/2],
->  			     ioaddr+0x4000+j);
-> -		for (j = 0; j < 16; j+=2)
-> +		for (j = 0; j < 16 && (i+j+16)/2 < ARRAY_SIZE(start_code); j+=2)
->  			outw(start_code[(i+j+16)/2],
->  			     ioaddr+0x8000+j);
->  	}
+>  	return 0;
+> +error:
+> +	pr_emerg("%s: no memory for rx ring\n", dev->name);
+> +	int j;
+> +	for (j = 0; j < i; j++) {
+> +		if (vp->rx_skbuff[j]) {
+> +			dev_kfree_skb(vp->rx_skbuff[j]);
+> +			vp->rx_skbuff[j] = NULL;
+> +		}
+> +	}
+> +	free_irq(dev->irq, dev);
+> +	return -ENOMEM;
+>  }
+>  
+>  static void corkscrew_timer(unsigned long data)
