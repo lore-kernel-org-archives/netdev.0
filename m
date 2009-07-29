@@ -1,42 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netpoll + xmit_lock == deadlock
-Date: Wed, 29 Jul 2009 15:35:23 +0800
-Message-ID: <20090729073523.GA4515@gondor.apana.org.au>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH] cnic: Fix ISCSI_KEVENT_IF_DOWN message handling.
+Date: Wed, 29 Jul 2009 02:50:31 -0500
+Message-ID: <4A6FFF47.1040107@cs.wisc.edu>
+References: <1248318115-14214-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Carlson <mcarlson@broadcom.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46098 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752357AbZG2Hfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 03:35:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, James.Bottomley@HansenPartnership.com,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1248318115-14214-1-git-send-email-mchan@broadcom.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+Michael Chan wrote:
+> When a net device goes down or when the bnx2i driver is unloaded,
+> the code was not generating the ISCSI_KEVENT_IF_DOWN message
+> properly and this could cause the userspace driver to crash.
+> 
+> This is fixed by sending the message properly in the shutdown path.
+> cnic_uio_stop() is also added to send the message when bnx2i is
+> unregistering.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/cnic.c |   23 +++++++++++++++++++++--
+>  1 files changed, 21 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+> index 4d1515f..4869d77 100644
+> --- a/drivers/net/cnic.c
+> +++ b/drivers/net/cnic.c
+> @@ -227,7 +227,7 @@ static int cnic_send_nlmsg(struct cnic_local *cp, u32 type,
+>  	}
+>  
+>  	rcu_read_lock();
+> -	ulp_ops = rcu_dereference(cp->ulp_ops[CNIC_ULP_ISCSI]);
+> +	ulp_ops = rcu_dereference(cnic_ulp_tbl[CNIC_ULP_ISCSI]);
+>  	if (ulp_ops)
+>  		ulp_ops->iscsi_nl_send_msg(cp->dev, msg_type, buf, len);
+>  	rcu_read_unlock();
+> @@ -319,6 +319,20 @@ static int cnic_abort_prep(struct cnic_sock *csk)
+>  	return 0;
+>  }
+>  
+> +static void cnic_uio_stop(void)
+> +{
+> +	struct cnic_dev *dev;
+> +
+> +	read_lock(&cnic_dev_lock);
+> +	list_for_each_entry(dev, &cnic_dev_list, list) {
+> +		struct cnic_local *cp = dev->cnic_priv;
+> +
+> +		if (cp->cnic_uinfo)
+> +			cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
 
-While working on TX mitigiation, I noticed that while netpoll
-takes care to avoid recursive dead locks on the NAPI path, it
-has no protection against the TX path when calling the poll
-function.
-
-So if a driver is in the TX path, and a printk occurs, then a
-recursive dead lock can occur if that driver tries to take the
-xmit lock in its poll function to clean up descriptors.
-
-Fortunately not a lot of drivers do this but at least some are
-vulnerable to it, e.g., tg3.
-
-So we need to make it very clear that the poll function must
-not take any locks or they must use try_lock if the driver is
-to support netpoll.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I don't think you can call this with the cnic_dev_lock held. They have 
+the same sleeping restrictions as a spin_lock right? If so, the problem 
+is that iscsi_nl_send_ms calls iscsi_offload_mesg which uses GFP_NOIO 
+and can sleep.
