@@ -1,69 +1,64 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13856] New: sk_bound_dev_if should be set for
- a socket when using IP_MULITCAST_IF or IP_ADD_MEMBERSHIO
-Date: Wed, 29 Jul 2009 12:52:03 -0700
-Message-ID: <20090729125203.efbcb7ef.akpm@linux-foundation.org>
-References: <bug-13856-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, manlidj@hotmail.com
-To: netdev@vger.kernel.org
+From: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+Subject: [RESEND 2/2] net/9p: Insulate the client against an invalid error code sent by a 9p server.
+Date: Wed, 29 Jul 2009 13:49:02 -0600
+Message-ID: <1248896942-13027-2-git-send-email-adkulkar@umail.iu.edu>
+References: <1248896942-13027-1-git-send-email-adkulkar@umail.iu.edu>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: v9fs-developer@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45887 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754316AbZG2TwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 15:52:05 -0400
-In-Reply-To: <bug-13856-10286@http.bugzilla.kernel.org/>
+Received: from rv-out-0506.google.com ([209.85.198.238]:15357 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754362AbZG2Tyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 15:54:36 -0400
+In-Reply-To: <1248896942-13027-1-git-send-email-adkulkar@umail.iu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A looney tunes server sending an invalid error code (which is !IS_ERR_VALUE)
+can result in a client oops. So fix it by adding a check and converting unknown
+or invalid error codes to -ESERVERFAULT.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Signed-off-by: Abhishek Kulkarni <adkulkar@umail.iu.edu>
+---
+:100644 100644 7bbd2d5... 5bf5f22... M	net/9p/client.c
+:100644 100644 fdebe43... 5251851... M	net/9p/error.c
+ net/9p/client.c |    7 +------
+ net/9p/error.c  |    2 +-
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-On Tue, 28 Jul 2009 03:42:38 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=13856
-> 
->            Summary: sk_bound_dev_if should be set for a socket when using
->                     IP_MULITCAST_IF or IP_ADD_MEMBERSHIO
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.27.7
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: manlidj@hotmail.com
->         Regression: No
-> 
-> 
-> Currently there is no way to tell which interface a multicast packet arrived on
-> except by using a raw socket and issuing the SO_BINDTODEVICE option which
-> forces the sk_bound_dev_if for the socket to be set.  
-> 
-> Consider a multi-homed system where a service needs to listen for multicast
-> SSDP messages on a number of interfaces.  The system needs to know which
-> interface a search message came in on in order to respond with the correct URL. 
-> 
-> The service needs to join the multicast group on all interfaces.  It must bind
-> on INADDR_ANY and then issue the IP_ADD_MEMBERSHIP call.  
-> 
-> 1. If it uses one socket and joins on all interfaces it will receive mulitcast
-> from all interfaces but cannot tell which interface the message came in on
-> 
-> 2. It it uses a socket per interface each bound on INADDR_ANY and issues
-> IP_MULTICAST_IF.  In this case any mulitcast socket, no matter what interface,
-> will be forwarded to each socket because sk_bound_dev_if was not set (i.e. 0) -
-> see net/ipv4/udp.c [ udp_v4_mcast_next ]
-> 
-> Suggested solution is to set sk_bound_dev_if when IP_MULTICAST_IF is issued.
-> 
+diff --git a/net/9p/client.c b/net/9p/client.c
+index 7bbd2d5..5bf5f22 100644
+--- a/net/9p/client.c
++++ b/net/9p/client.c
+@@ -411,14 +411,9 @@ static int p9_check_errors(struct p9_client *c, struct p9_req_t *req)
+ 		if (c->dotu)
+ 			err = -ecode;
+ 
+-		if (!err) {
++		if (!err || !IS_ERR_VALUE(err))
+ 			err = p9_errstr2errno(ename, strlen(ename));
+ 
+-			/* string match failed */
+-			if (!err)
+-				err = -ESERVERFAULT;
+-		}
+-
+ 		P9_DPRINTK(P9_DEBUG_9P, "<<< RERROR (%d) %s\n", -ecode, ename);
+ 
+ 		kfree(ename);
+diff --git a/net/9p/error.c b/net/9p/error.c
+index fdebe43..5251851 100644
+--- a/net/9p/error.c
++++ b/net/9p/error.c
+@@ -239,7 +239,7 @@ int p9_errstr2errno(char *errstr, int len)
+ 		errstr[len] = 0;
+ 		printk(KERN_ERR "%s: server reported unknown error %s\n",
+ 			__func__, errstr);
+-		errno = 1;
++		errno = ESERVERFAULT;
+ 	}
+ 
+ 	return -errno;
+-- 
+1.6.3.3
 
