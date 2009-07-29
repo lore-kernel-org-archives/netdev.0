@@ -1,60 +1,47 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 3/4] bnx2x: WoL only with current MAC address
-Date: Wed, 29 Jul 2009 13:20:10 +0300
-Message-ID: <1248862810.27379.17.camel@lb-tlvb-eilong>
-Reply-To: eilong@broadcom.com
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] net: shrink net_device by #ifdef-ing protocol-specific members
+Date: Wed, 29 Jul 2009 13:31:21 +0300
+Message-ID: <200907291331.22265.opurdila@ixiacom.com>
+References: <4A6DC314.2010303@ixiacom.com> <200907281743.27871.opurdila@ixiacom.com> <20090728.102808.228535949.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Cc: lgrijincu@ixiacom.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3701 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753924AbZG2KUi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jul 2009 06:20:38 -0400
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27055 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751123AbZG2Kd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 06:33:26 -0400
+In-Reply-To: <20090728.102808.228535949.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some cases with 57711E, depending on the functions unload sequence, other
-functions MAC address could have been used to wake the system as well. Make sure
-to block all but the current function if WoL is required by changing the mode
-to single function WoL.
+On Tuesday 28 July 2009 20:28:08 David Miller wrote:
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+> From: Octavian Purdila <opurdila@ixiacom.com>
+> Date: Tue, 28 Jul 2009 17:43:27 +0300
+>
+> > On Monday 27 July 2009 18:26:44 David Miller wrote:
+> >> This benefits, at best, %0.000000001 of users of the Linux kernel,
+> >> because every distribution is going to turn on every single option.
+> >
+> > Not all Linux users are using regular (desktop/server) distributions.
+>
+> I didn't say all, I said "nearly all" which for many considerations
+> is roughly equivalent.
+>
+> That %0.0000000001 was meant to represent non-distribution users.
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index b47b531..4245412 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -7354,17 +7354,17 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 
- 		for (i = 0; i < MC_HASH_SIZE; i++)
- 			REG_WR(bp, MC_HASH_OFFSET(bp, i), 0);
-+
-+		REG_WR(bp, MISC_REG_E1HMF_MODE, 0);
- 	}
- 
- 	if (unload_mode == UNLOAD_NORMAL)
- 		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
- 
--	else if (bp->flags & NO_WOL_FLAG) {
-+	else if (bp->flags & NO_WOL_FLAG)
- 		reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_MCP;
--		if (CHIP_IS_E1H(bp))
--			REG_WR(bp, MISC_REG_E1HMF_MODE, 0);
- 
--	} else if (bp->wol) {
-+	else if (bp->wol) {
- 		u32 emac_base = port ? GRCBASE_EMAC1 : GRCBASE_EMAC0;
- 		u8 *mac_addr = bp->dev->dev_addr;
- 		u32 val;
--- 
-1.5.4.3
+There are many embedded / dedicated devices out there which use a customized 
+Linux kernel (wireless routers and other network appliances, set-top boxes, 
+TVs, etc.). 
 
+I have no idea about what the actual percent of the Linux users these account 
+for, but to dismiss it as  %0.0000000001 seems like a rush statement to me.
 
-
+tavi
 
