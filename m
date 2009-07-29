@@ -1,77 +1,45 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
-Date: Wed, 29 Jul 2009 15:16:25 +0400
-Message-ID: <a4423d670907290416h4a0796c2s665d3f8ca0755e67@mail.gmail.com>
-References: <200907240257.10906.marek.vasut@gmail.com>
-	 <4A6E69FA.9010903@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Wed, 29 Jul 2009 11:26:14 +0000
+Message-ID: <20090729112614.GB5490@ff.dom.local>
+References: <20090728024813.GA23992@gondor.apana.org.au> <20090727.212107.161491585.davem@davemloft.net> <20090728071247.GA25611@gondor.apana.org.au> <20090728.125919.146001472.davem@davemloft.net> <20090729004428.GA765@gondor.apana.org.au> <20090729110436.GA5490@ff.dom.local> <20090729111134.GA6478@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marek Vasut <marek.vasut@gmail.com>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	samuel@sortiz.org, netdev@vger.kernel.org
-To: Eric Miao <eric.y.miao@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f226.google.com ([209.85.219.226]:64974 "EHLO
-	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753519AbZG2LQ0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 07:16:26 -0400
-Received: by ewy26 with SMTP id 26so732887ewy.37
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 04:16:25 -0700 (PDT)
-In-Reply-To: <4A6E69FA.9010903@gmail.com>
+Received: from mail-fx0-f218.google.com ([209.85.220.218]:52118 "EHLO
+	mail-fx0-f218.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753519AbZG2L0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 07:26:19 -0400
+Received: by fxm18 with SMTP id 18so319798fxm.37
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 04:26:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090729111134.GA6478@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/7/28 Eric Miao <eric.y.miao@gmail.com>:
-> Marek Vasut wrote:
->> Hi!
->>
->> This patch fixes broken pxaficp-ir. The problem was in incorrect
->> net_device_ops being specified which prevented the driver from
->> operating. The symptoms were:
->> =C2=A0- failing ifconfig for IrLAN, resulting in
->> =C2=A0 =C2=A0 =C2=A0 SIOCSIFFLAGS: Cannot assign requested address
->> =C2=A0- irattach working for IrCOMM, but the port stayed disabled
->>
->> Moreover this patch corrects missing sysfs device link.
->>
->> btw. guys, be honest, when did you last tested pxaficp-ir on real ha=
-rdware? ;-)
->>
->
-> Well, this seems to be brought by the net_device_ops change, which se=
-ems
-> to happen silently without any of us being notified.
->
-> OK, netdev and Alex are copied, so that we can look into this issue a=
- bit
-> deeper:
->
-> 1. it looks to me that SIOCSIFFLAGS actually returned -EADDRNOTAVAIL,=
- which
-> =C2=A0 is likely caused by eth_validate_addr, the default eth_addr co=
-mes with
-> =C2=A0 irda should be "00:00:00:00:00:00" if not explicitly specified=
- (kzalloc),
-> =C2=A0 and this should be the problem, solution ? =C2=A0Either give a=
- valid address
-> =C2=A0 to the irda net_device or remove this 'ndo_validate_addr'. And=
- which is
-> =C2=A0 a correct fix will impact on the .ndo_set_mac_address
->
-> 2. '.ndo_change_mtu' ? It looks to me that Irda device doesn't care t=
-oo much
-> =C2=A0 about the MTU, eth_change_mtu is supposed to work just fine an=
-d not to
-> =C2=A0 cause any side effects, and may just benefit later irda device=
- drivers if
-> =C2=A0 there is a weird device happens to care about MTU
->
-> - eric
->
-> Marek's original patch in attachment.
->
+On Wed, Jul 29, 2009 at 07:11:34PM +0800, Herbert Xu wrote:
+> On Wed, Jul 29, 2009 at 11:04:36AM +0000, Jarek Poplawski wrote:
+> >
+> > How about this: instead of the _RUNNING flag we take tx lock while
+> > holding qdisc lock and release qdisc lock just after (before xmit).
+> > This should prevent reordering, and probably could improve cache use:
+> > CPU B which takes qdisc lock only for enqueuing now, would use it for
+> > dequeuing too, plus if accidentally the next xmit goes to a different
+> > tx queue, it could start before CPU A finishes. Otherwise it would
+> > simply wait for CPU A (without tx lock contention). Of course it
+> > needs testing... 
+> 
+> Well reordering isn't the only problem, the lock contention brought
+> upon by two CPUs both trying to transmit the same flow from the
+> qdisc is just as bad.
 
-Sorry about that and thanks.
-Then we should fix the rest of irda drivers in the same way.
+If you mean the tx lock there should be no "real" contention: only
+one waiter max. qdisc lock's contention might be higher, but it's
+use (during contention) better: enqueue + dequeue together instead
+of doing it separately.
+
+Cheers,
+Jarek P.
