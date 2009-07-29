@@ -1,45 +1,73 @@
-From: Roland Dreier <roland@digitalvampire.org>
-Subject: IPv6 default routes timing out?
-Date: Wed, 29 Jul 2009 10:42:07 -0700
-Message-ID: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
+Date: Wed, 29 Jul 2009 11:37:39 -0700
+Message-ID: <87vdlbmj2k.fsf@caffeine.danplanet.com>
+References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
+	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
+	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
+	<4A6F6B19.9010508@librato.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: containers@lists.osdl.org, Alexey Dobriyan <adobriyan@gmail.com>,
+	netdev@vger.kernel.org
+To: Oren Laadan <orenl@librato.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:35756
-	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751184AbZG2RsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 13:48:05 -0400
-Received: from shaolin.home.digitalvampire.org (shaolin.home.digitalvampire.org [10.1.0.2])
-	by hellmouth.digitalvampire.org (Postfix) with ESMTP id 2DF99130BD
-	for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 10:42:08 -0700 (PDT)
+Received: from gw0.danplanet.com ([71.245.107.82]:58175 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752671AbZG2Shn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 14:37:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I recently set up IPv6 on home home network -- openbsd 4.5 box serving
-as a router with wired and wireless ports, advertising routes via the
-openbsd rtadvd daemon.  I have no problem on boxes on the wired
-network, which gets a default route like:
+OL> Hmmm.. what about splice_direct_to_actor() ?
 
-    default via fe80::240:63ff:feda:3d15 dev eth0  proto kernel  metric 1024  expires 8630sec mtu 1500 advmss 1440 hoplimit 64
+The comments (and code) for that function define that we can't splice
+between non-regular files.  For now, this would work, but would fail
+if you pass a socket as the checkpoint descriptor, as might be the
+case in a migration.
 
-However on laptops on the wireless network, I've seen the route
-timeout and apparently never reappear.  This happens running both old
-kernels like 2.6.24 and also with 2.6.31-rc4, and on systems with both
-ipw2200 and iwlagn wirelss.  The symptom is that if I leave my laptop
-running, say, overnight, in the morning the ipv6 default route is
-gone.  ipv4 networking still works fine, and if I try explicit
-link-local ipv6 addresses on the laptop, they work fine too.  But the
-ipv6 internet is gone because the kernel has no idea how to route
-packets to it.
+OL> Still need to keep it in mind for inet when including those
+OL> lingering sockets that don't belong to anyone.
 
-The openbsd rtadvd config is pretty basic, just:
+Yep.
 
-    ral0:\  
-            :addr="2001:470:8379:2::":prefixlen#64:rltime#9000:\
-            :maxinterval#120:mininterval#60:
+OL> This also means that a peer (of a dgram socket) that was closed
+OL> will not be checkpointed, so restoring the rcvbuf of the remaining
+OL> dgram socket wouldn't work.
 
-Any ideas as to what I'm doing wrong, or where the problem might be?
+Actually, the new algorithm creates the pair when finding the first
+socket instead of the second, so I think it will still work.  However,
+I'll test it and apply some thought to what will happen to the socket
+we created to represent the dead one (I think it will die when the
+objhash is freed).
 
-Thanks,
-  Roland
+OL> Hmm.. then what happens when you have a circular dependency ?
+OL> For example, three dgram sockets, A, B and C where: A->B, B->C
+OL> and C->A  ('->' means connected).
+
+Hmm, hadn't thought of that.
+
+OL> I suspect that sock_unix_restore_connect() will fail, because
+OL> neither:
+
+OL> +	if (!IS_ERR(this) && !IS_ERR(peer)) {
+
+OL> nor
+
+OL> +	} else if ((PTR_ERR(this) == -EINVAL) && (PTR_ERR(peer) == -EINVAL)) {
+
+OL> will hold true, therefore:
+
+OL> +	} else {
+OL> +		ckpt_debug("Order Error\n");
+OL> +		ret = PTR_ERR(this);
+OL> +		goto out;
+OL> +	}
+
+Yeah, but I don't think it will be too hard to add another case to
+that condition to handle this.  I'll check into it.
+
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
