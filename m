@@ -1,72 +1,58 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] 3c515: Write outside array bounds
-Date: Wed, 29 Jul 2009 16:13:24 +0200
-Message-ID: <4A705904.4020505@gmail.com>
-References: <4A6B88B1.9000907@gmail.com> <4A6CC7BD.9020602@gmail.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] net: shrink net_device by #ifdef-ing protocol-specific members
+Date: Wed, 29 Jul 2009 17:20:09 +0300
+Message-ID: <200907291720.09704.opurdila@ixiacom.com>
+References: <4A6DC314.2010303@ixiacom.com> <200907281743.27871.opurdila@ixiacom.com> <1248799755.6163.70.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: David Miller <davem@davemloft.net>, lgrijincu@ixiacom.com,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f226.google.com ([209.85.219.226]:59289 "EHLO
-	mail-ew0-f226.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111AbZG2OKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 10:10:34 -0400
-Received: by ewy26 with SMTP id 26so856360ewy.37
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 07:10:32 -0700 (PDT)
-In-Reply-To: <4A6CC7BD.9020602@gmail.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:14749 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752137AbZG2OWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 10:22:14 -0400
+In-Reply-To: <1248799755.6163.70.camel@Joe-Laptop.home>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Op 26-07-09 23:16, Jarek Poplawski schreef:
-> Roel Kluin wrote, On 07/26/2009 12:35 AM:
-> 
->> if dev_alloc_skb() fails on the first iteration, a write to
->> cp->rx_ring[-1] occurs.
->>
->> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
->> ---
->> Please review: can we error return like this?
-> 
-> 
-> I doubt we can return here: there is a lot of cleaning missing.
-> 
-> Jarek P.
-I took drivers/net/3c59x.c as an example
+On Tuesday 28 July 2009 19:49:15 Joe Perches wrote:
 
-Is this going in the right direction?
+> > We are looking into that as well since we have a pretty aggressive goal
+> > (get net_device to 450 bytes or so), but we thought of starting with the
+> > low hanging fruits.
+> > Any suggestions in this area?
+>
+> Some maybe not so good ones:
+>
+> Perhaps:
+> 	struct timer_list	watchdog_timer;
+> might become a
+> 	struct timer_list	*watchdog_timer;
+>
+> Maybe all the protocol/mac/bridge/vlan/garp/wireless specific
+> pointers might become a pointer to a list or array of pointers
+> allocated on demand.
+>
+> Maybe combine perm_addr/broadcast/mc_list/uc addresses into a
+> single list with type information.  Maybe include dev_addrs,
+> but it's iterated with an rcu lock held.
+>
+> Gaining less than 0, except maybe for weird network testing devices,
+> use a pointer to struct net_device_stats.
 
-diff --git a/drivers/net/3c515.c b/drivers/net/3c515.c
-index 3e00fa8..e94867d 100644
---- a/drivers/net/3c515.c
-+++ b/drivers/net/3c515.c
-@@ -827,7 +827,7 @@ static int corkscrew_open(struct net_device *dev)
- 			skb = dev_alloc_skb(PKT_BUF_SZ);
- 			vp->rx_skbuff[i] = skb;
- 			if (skb == NULL)
--				break;	/* Bad news!  */
-+				goto error;	/* Bad news!  */
- 			skb->dev = dev;	/* Mark as being used by this device. */
- 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
- 			vp->rx_ring[i].addr = isa_virt_to_bus(skb->data);
-@@ -864,6 +864,17 @@ static int corkscrew_open(struct net_device *dev)
- 	     ioaddr + EL3_CMD);
- 
- 	return 0;
-+error:
-+	pr_emerg("%s: no memory for rx ring\n", dev->name);
-+	int j;
-+	for (j = 0; j < i; j++) {
-+		if (vp->rx_skbuff[j]) {
-+			dev_kfree_skb(vp->rx_skbuff[j]);
-+			vp->rx_skbuff[j] = NULL;
-+		}
-+	}
-+	free_irq(dev->irq, dev);
-+	return -ENOMEM;
- }
- 
- static void corkscrew_timer(unsigned long data)
+Thanks for the suggestions.
+
+BTW, we've noticed that the biggest net_device consumer is struct device with 
+176 bytes consumed on our arch (powerpc) and the only things that are used 
+from it seems to be the numa node id and the driver name. Some drivers also 
+use it but most of the usage seems to be related to sysfs.
+
+Do you think its worth trying to make dev dependent on CONFIG_SYSFS?
+
+tavi
+
