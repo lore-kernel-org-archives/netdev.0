@@ -1,63 +1,65 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH] cnic: Fix ISCSI_KEVENT_IF_DOWN message handling.
-Date: Wed, 29 Jul 2009 02:50:31 -0500
-Message-ID: <4A6FFF47.1040107@cs.wisc.edu>
-References: <1248318115-14214-1-git-send-email-mchan@broadcom.com>
+From: Manuel Lauss <manuel.lauss@googlemail.com>
+Subject: Re: [PATCH 1/3] au1000_eth: use write accessors
+Date: Wed, 29 Jul 2009 09:51:57 +0200
+Message-ID: <f861ec6f0907290051v48ce0561tb74a84341485de74@mail.gmail.com>
+References: <200907282306.27738.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, James.Bottomley@HansenPartnership.com,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1248318115-14214-1-git-send-email-mchan@broadcom.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f221.google.com ([209.85.218.221]:44223 "EHLO
+	mail-bw0-f221.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbZG2Hv6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 03:51:58 -0400
+Received: by bwz21 with SMTP id 21so520432bwz.37
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 00:51:57 -0700 (PDT)
+In-Reply-To: <200907282306.27738.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
-> When a net device goes down or when the bnx2i driver is unloaded,
-> the code was not generating the ISCSI_KEVENT_IF_DOWN message
-> properly and this could cause the userspace driver to crash.
-> 
-> This is fixed by sending the message properly in the shutdown path.
-> cnic_uio_stop() is also added to send the message when bnx2i is
-> unregistering.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+Hi Florian,
+
+On Tue, Jul 28, 2009 at 11:06 PM, Florian Fainelli<florian@openwrt.org>=
+ wrote:
+> Hi David,
+>
+> The next 3 patches apply to on top of the patch series that I
+> sent earlier converting au1000_eth to become a platform_driver.
+> Thanks !
+> --
+> From: Florian Fainelli <florian@openwrt.org>
+> This patch replaces all occurences of *aup->enable =3D val
+> by writel(val, &aup->enable)
+>
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 > ---
->  drivers/net/cnic.c |   23 +++++++++++++++++++++--
->  1 files changed, 21 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-> index 4d1515f..4869d77 100644
-> --- a/drivers/net/cnic.c
-> +++ b/drivers/net/cnic.c
-> @@ -227,7 +227,7 @@ static int cnic_send_nlmsg(struct cnic_local *cp, u32 type,
->  	}
->  
->  	rcu_read_lock();
-> -	ulp_ops = rcu_dereference(cp->ulp_ops[CNIC_ULP_ISCSI]);
-> +	ulp_ops = rcu_dereference(cnic_ulp_tbl[CNIC_ULP_ISCSI]);
->  	if (ulp_ops)
->  		ulp_ops->iscsi_nl_send_msg(cp->dev, msg_type, buf, len);
->  	rcu_read_unlock();
-> @@ -319,6 +319,20 @@ static int cnic_abort_prep(struct cnic_sock *csk)
->  	return 0;
->  }
->  
-> +static void cnic_uio_stop(void)
-> +{
-> +	struct cnic_dev *dev;
-> +
-> +	read_lock(&cnic_dev_lock);
-> +	list_for_each_entry(dev, &cnic_dev_list, list) {
-> +		struct cnic_local *cp = dev->cnic_priv;
-> +
-> +		if (cp->cnic_uinfo)
-> +			cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
+> diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+> index 57cc4f6..1f724da 100644
+> --- a/drivers/net/au1000_eth.c
+> +++ b/drivers/net/au1000_eth.c
+> @@ -155,10 +155,10 @@ static void enable_mac(struct net_device *dev, =
+int force_reset)
+> =A0 =A0 =A0 =A0spin_lock_irqsave(&aup->lock, flags);
+>
+> =A0 =A0 =A0 =A0if(force_reset || (!aup->mac_enabled)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 *aup->enable =3D MAC_EN_CLOCK_ENABLE;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 writel(MAC_EN_CLOCK_ENABLE, &aup->enabl=
+e);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0au_sync_delay(2);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 *aup->enable =3D (MAC_EN_RESET0 | MAC_E=
+N_RESET1 | MAC_EN_RESET2
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | MAC_E=
+N_CLOCK_ENABLE);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 writel((MAC_EN_RESET0 | MAC_EN_RESET1 |=
+ MAC_EN_RESET2
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | MAC_EN_CLOCK_ENABLE),=
+ &aup->enable);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0au_sync_delay(2);
 
-I don't think you can call this with the cnic_dev_lock held. They have 
-the same sleeping restrictions as a spin_lock right? If so, the problem 
-is that iscsi_nl_send_ms calls iscsi_offload_mesg which uses GFP_NOIO 
-and can sleep.
+While you're at it, please also replace all "au_sync_delay()" with
+mmiowb() + msleep()
+
+Thanks!
+      Manuel Lauss
