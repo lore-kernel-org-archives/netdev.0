@@ -1,59 +1,52 @@
 From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: [PATCH] net: Keep interface binding when sending packets with
-	ipi_ifindex = 0
-Date: Wed, 29 Jul 2009 19:10:21 -0500
-Message-ID: <1248912621.13447.12.camel@merlyn>
-References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
-	 <20090727144402.513369f1.akpm@linux-foundation.org>
+Subject: Re: IPv6 default routes timing out?
+Date: Wed, 29 Jul 2009 19:33:58 -0500
+Message-ID: <1248914038.13447.17.camel@merlyn>
+References: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Chia-chi Yeh <chiachi@android.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755781AbZG3AKg@vger.kernel.org>
-In-Reply-To: <20090727144402.513369f1.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Roland Dreier <roland@digitalvampire.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f188.google.com ([209.85.210.188]:50815 "EHLO
+	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752821AbZG3AeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 20:34:01 -0400
+Received: by yxe26 with SMTP id 26so2001692yxe.4
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 17:34:01 -0700 (PDT)
+In-Reply-To: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-07-27 at 14:44 -0700, Andrew Morton wrote:
-> (cc netdev)
+On Wed, 2009-07-29 at 10:42 -0700, Roland Dreier wrote:
+> I recently set up IPv6 on home home network -- openbsd 4.5 box serving
+> as a router with wired and wireless ports, advertising routes via the
+> openbsd rtadvd daemon.  I have no problem on boxes on the wired
+> network, which gets a default route like:
 > 
-> On Thu, 23 Jul 2009 14:39:28 -0700
-> Chia-chi Yeh (_________) <chiachi@android.com> wrote:
+>     default via fe80::240:63ff:feda:3d15 dev eth0  proto kernel  metric 1024  expires 8630sec mtu 1500 advmss 1440 hoplimit 64
 > 
-> > In IPv4, sending a packet with ipi_ifindex = 0 via an interface-bound
-> > socket will unbind the packet to that interface. This behavior is
-> > different from IPv6 which treats ipi6_ifindex = 0 as unspecified.
-> > Furthermore, IPv6 does not allow sending packets to other interface
-> > than the bound one, but I am not sure if it is necessary in IPv4. The
-> > following patch keeps the interface binding when ipi_ifindex = 0.
-> > 
-> > Thanks,
-> > Chia-chi
-> > 
-> > --- a/net/ipv4/ip_sockglue.c	2009-07-24 04:50:45.000000000 +0800
-> > +++ b/net/ipv4/ip_sockglue.c	2009-07-24 04:51:09.000000000 +0800
-> > @@ -213,7 +213,8 @@
-> >  			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo)))
-> >  				return -EINVAL;
-> >  			info = (struct in_pktinfo *)CMSG_DATA(cmsg);
-> > -			ipc->oif = info->ipi_ifindex;
-> > +			if (info->ipi_ifindex)
-> > +				ipc->oif = info->ipi_ifindex;
-> >  			ipc->addr = info->ipi_spec_dst.s_addr;
-> >  			break;
-> >  		}
+> However on laptops on the wireless network, I've seen the route
+> timeout and apparently never reappear.  This happens running both old
+> kernels like 2.6.24 and also with 2.6.31-rc4, and on systems with both
+> ipw2200 and iwlagn wirelss.  The symptom is that if I leave my laptop
+> running, say, overnight, in the morning the ipv6 default route is
+> gone.  ipv4 networking still works fine, and if I try explicit
+> link-local ipv6 addresses on the laptop, they work fine too.  But the
+> ipv6 internet is gone because the kernel has no idea how to route
+> packets to it.
+> 
+> The openbsd rtadvd config is pretty basic, just:
+> 
+>     ral0:\  
+>             :addr="2001:470:8379:2::":prefixlen#64:rltime#9000:\
+>             :maxinterval#120:mininterval#60:
+> 
+> Any ideas as to what I'm doing wrong, or where the problem might be?
 
-A convenient copy of the man page says "When ipi_ifindex is not zero the
-primary local address of the interface specified by the index overwrites
-ipi_spec_dst for the routing table lookup."
-
-But this is changing API behavior that's been this way since at least
-the beginning of git history.
-
-I guess Dave's letting this stand.  I'm posting this just to make sure
-this is an explicit decision.
-
+First thing I'd do is leave wireshark running overnight on the laptop
+and see if the multicast router ads are making it to there.
 --
 John
+
