@@ -1,31 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/4] bnx2x: Receive traffic that maches management
- filtering rules
-Date: Thu, 30 Jul 2009 12:20:29 -0700 (PDT)
-Message-ID: <20090730.122029.84313460.davem@davemloft.net>
-References: <1248862804.27379.15.camel@lb-tlvb-eilong>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] docbook: fix printk of ip address
+Date: Thu, 30 Jul 2009 12:25:18 -0700
+Message-ID: <20090730122518.995a83ba.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com
+Cc: davem@davemloft.net, Tobias Klauser <tklauser@distanz.ch>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40115
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750759AbZG3TUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:20:22 -0400
-In-Reply-To: <1248862804.27379.15.camel@lb-tlvb-eilong>
+Received: from acsinet12.oracle.com ([141.146.126.234]:61837 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984AbZG3TZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:25:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 29 Jul 2009 13:20:04 +0300
+Does this need to be changed to __be32?
 
-> Due to lack of configuration, if the BMC configures the chip to pass all
-> broadcast/multicast traffic to it, the host will not receive it. On top of
-> fixing it, also make sure that in promiscuous mode, the host will receive the
-> management traffic as well.
-> 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+From: Tobias Klauser <tklauser@distanz.ch>
 
-Applied.
+Use the %pI4 format string instead of %d.%d.%d.%d and NIPQUAD.
+
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ Documentation/DocBook/kernel-hacking.tmpl |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2.6.31-rc4-git3.orig/Documentation/DocBook/kernel-hacking.tmpl
++++ linux-2.6.31-rc4-git3/Documentation/DocBook/kernel-hacking.tmpl
+@@ -450,7 +450,7 @@ printk(KERN_INFO "i = %u\n", i);
+ 
+    <programlisting>
+ __u32 ipaddress;
+-printk(KERN_INFO "my ip: %d.%d.%d.%d\n", NIPQUAD(ipaddress));
++printk(KERN_INFO "my ip: %pI4\n", &amp;ipaddress);
+    </programlisting>
+ 
+    <para>
+
+
+
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
