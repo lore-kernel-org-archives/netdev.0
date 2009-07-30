@@ -1,48 +1,28 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH 0/4] au1000_eth platform device/driver conversion
-Date: Thu, 30 Jul 2009 23:48:13 +0400
-Message-ID: <4A71F8FD.3060002@ru.mvista.com>
-References: <200907282300.07144.florian@openwrt.org> <20090730.123450.224830320.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Bonding ALB sends bogus packets
+Date: Thu, 30 Jul 2009 13:06:56 -0700
+Message-ID: <20090730130656.680e9152@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: florian@openwrt.org, ralf@linux-mips.org,
-	manuel.lauss@googlemail.com, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: bonding-devel@lists.sf.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:65400 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752484AbZG3TsW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jul 2009 15:48:22 -0400
-In-Reply-To: <20090730.123450.224830320.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:40223 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751480AbZG3UHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2009 16:07:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The bonding ALB mode builds packets with type, ETH_P_LOOP.
 
-David Miller wrote:
+Well ETH_P_LOOP is defined as 0x0060 which looks completely bogus.
+All Ethernet types less than 1536 are interpreted as 802.2 frames.
+The result is that the resulting packet looks like a bogus 802.2
+frame to the other host (or switch).  I have no idea what the 
+initial design was or what the purpose of this code is, but it
+should either send a real packet or nothing at all.
 
-> From: Florian Fainelli <florian@openwrt.org>
-> Date: Tue, 28 Jul 2009 23:00:04 +0200
->   
->> Hi Ralf, David, Manuel,
->>
->> The following patches convert the AMD Alchemy au1000_eth driver
->> to become a platform device/driver. The patches are splitted that way:
->>     
->
-> I was only able to see patch #2 and #4 in this series and
-> checking the netdev patch postings that made it to:
->
-> 	http://patchwork.ozlabs.org/project/netdev/list/
->
-> confirms that patches #1 and #3 didn't make it to the list
-> either.
-
-   Because they were only posted to linux-mips. And we didn't see #2 and 
-#4 in linux-mips either.
-
-WBR, Sergei
-
-
+-- 
