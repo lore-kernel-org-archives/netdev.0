@@ -1,54 +1,125 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: neigh_periodic_timer expires too often
-Date: Thu, 30 Jul 2009 13:44:21 +0300
-Message-ID: <4A717985.7060909@nokia.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-2.6] net: restore the original spinlock to protect
+	unicast list
+Date: Thu, 30 Jul 2009 13:06:12 +0200
+Message-ID: <20090730110612.GD3686@psychotron.englab.brq.redhat.com>
+References: <Pine.SOC.4.64.0907301114150.10041@math.ut.ee> <4A71630A.9080105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tero.kristo@nokia.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Meelis Roos <mroos@linux.ee>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:24165 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810AbZG3Kob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 06:44:31 -0400
-Received: from esebh105.NOE.Nokia.com (esebh105.ntc.nokia.com [172.21.138.211])
-	by mgw-mx09.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n6UAha0H000317
-	for <netdev@vger.kernel.org>; Thu, 30 Jul 2009 05:44:16 -0500
+Received: from mx2.redhat.com ([66.187.237.31]:43379 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751246AbZG3LGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2009 07:06:24 -0400
+Content-Disposition: inline
+In-Reply-To: <4A71630A.9080105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+There is a path when an assetion in dev_unicast_sync() appears. 
 
-We were making some measurements and trying to figure out which timers 
-in the kernel can be made deferrable so that our device doesn't have to 
-wake up too often.
+igmp6_group_added -> dev_mc_add -> __dev_set_rx_mode ->
+-> vlan_dev_set_rx_mode -> dev_unicast_sync
 
-During this investigation, we found out that the neigh_periodic_timer is 
-expiring approximately every 8 seconds, even when we don't have a 
-network connection established.  After the connection is established, 
-the timer starts expiring every 2 seconds and continues to expire at 
-this interval after the connection is closed.
+Therefore we cannot protect this list with rtnl. This patch restores the
+original protecting this list with spinlock.
 
-We have been converting many of the kernel times to deferrable timers.  
-Checking the netdev mailing list archives, I found out that this issue 
-has been discussed in December 2007 [1], but the thread seems to have 
-died out and the proposed patch has never been applied AFAICS.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Another proposed solution, which has never been applied either, was to 
-convert this timer from softirq-based to workqueue-based [2].  Would 
-that be any better?
-
-So, my question is, does it make sense to make this timer deferrable or 
-use the workqueue instead? Or is there any other better solution to 
-avoid unnecessarily frequent wakeups caused by neigh_periodic_timer?
-
-We are using a kernel based on 2.6.28.
-
-[1] http://article.gmane.org/gmane.linux.network/81361
-[2] http://article.gmane.org/gmane.linux.network/81140
-
--- 
-Cheers,
-Luca.
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 70c27e0..43e61ba 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3865,10 +3865,12 @@ int dev_unicast_delete(struct net_device *dev, void *addr)
+ 
+ 	ASSERT_RTNL();
+ 
++	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_del(&dev->uc, addr, dev->addr_len,
+ 			    NETDEV_HW_ADDR_T_UNICAST);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
++	netif_addr_unlock_bh(dev);
+ 	return err;
+ }
+ EXPORT_SYMBOL(dev_unicast_delete);
+@@ -3889,10 +3891,12 @@ int dev_unicast_add(struct net_device *dev, void *addr)
+ 
+ 	ASSERT_RTNL();
+ 
++	netif_addr_lock_bh(dev);
+ 	err = __hw_addr_add(&dev->uc, addr, dev->addr_len,
+ 			    NETDEV_HW_ADDR_T_UNICAST);
+ 	if (!err)
+ 		__dev_set_rx_mode(dev);
++	netif_addr_unlock_bh(dev);
+ 	return err;
+ }
+ EXPORT_SYMBOL(dev_unicast_add);
+@@ -3949,7 +3953,8 @@ void __dev_addr_unsync(struct dev_addr_list **to, int *to_count,
+  *	@from: source device
+  *
+  *	Add newly added addresses to the destination device and release
+- *	addresses that have no users left.
++ *	addresses that have no users left. The source device must be
++ *	locked by netif_tx_lock_bh.
+  *
+  *	This function is intended to be called from the dev->set_rx_mode
+  *	function of layered software devices.
+@@ -3958,14 +3963,14 @@ int dev_unicast_sync(struct net_device *to, struct net_device *from)
+ {
+ 	int err = 0;
+ 
+-	ASSERT_RTNL();
+-
+ 	if (to->addr_len != from->addr_len)
+ 		return -EINVAL;
+ 
++	netif_addr_lock_bh(to);
+ 	err = __hw_addr_sync(&to->uc, &from->uc, to->addr_len);
+ 	if (!err)
+ 		__dev_set_rx_mode(to);
++	netif_addr_unlock_bh(to);
+ 	return err;
+ }
+ EXPORT_SYMBOL(dev_unicast_sync);
+@@ -3981,28 +3986,30 @@ EXPORT_SYMBOL(dev_unicast_sync);
+  */
+ void dev_unicast_unsync(struct net_device *to, struct net_device *from)
+ {
+-	ASSERT_RTNL();
+-
+ 	if (to->addr_len != from->addr_len)
+ 		return;
+ 
++	netif_addr_lock_bh(from);
++	netif_addr_lock(to);
+ 	__hw_addr_unsync(&to->uc, &from->uc, to->addr_len);
+ 	__dev_set_rx_mode(to);
++	netif_addr_unlock(to);
++	netif_addr_unlock_bh(from);
+ }
+ EXPORT_SYMBOL(dev_unicast_unsync);
+ 
+ static void dev_unicast_flush(struct net_device *dev)
+ {
+-	/* rtnl_mutex must be held here */
+-
++	netif_addr_lock_bh(dev);
+ 	__hw_addr_flush(&dev->uc);
++	netif_addr_unlock_bh(dev);
+ }
+ 
+ static void dev_unicast_init(struct net_device *dev)
+ {
+-	/* rtnl_mutex must be held here */
+-
++	netif_addr_lock_bh(dev);
+ 	__hw_addr_init(&dev->uc);
++	netif_addr_unlock_bh(dev);
+ }
+ 
+ 
