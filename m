@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-07-29
-Date: Thu, 30 Jul 2009 10:36:22 -0700 (PDT)
-Message-ID: <20090730.103622.35100964.davem@davemloft.net>
-References: <20090729203007.GB10056@tuxdriver.com>
+Subject: Re: [PATCH 4/5] net/netlabel: Add kmalloc NULL tests
+Date: Thu, 30 Jul 2009 10:59:00 -0700 (PDT)
+Message-ID: <20090730.105900.232424702.davem@davemloft.net>
+References: <200907301032.20318.paul.moore@hp.com>
+	<Pine.LNX.4.64.0907301637570.8734@ask.diku.dk>
+	<200907301053.37416.paul.moore@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55728
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750994AbZG3RgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 13:36:15 -0400
-In-Reply-To: <20090729203007.GB10056@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: julia@diku.dk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: paul.moore@hp.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752099AbZG3R6z@vger.kernel.org>
+In-Reply-To: <200907301053.37416.paul.moore@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 29 Jul 2009 16:30:07 -0400
+From: Paul Moore <paul.moore@hp.com>
+Date: Thu, 30 Jul 2009 10:53:37 -0400
 
-> Here is a small collection of fixes intended for 2.6.31.  Several of
-> them are small fixes dug-out by the usual static analysis suspects.
-> There are also a couple of iwlwifi fixes that the Intel team thinks are
-> important -- they look reasonably safe to me and they should only effect
-> their drivers.  Their are also some small fixes from Luis and Johannes.
+> On Thursday 30 July 2009 10:38:19 am Julia Lawall wrote:
+>> From: Julia Lawall <julia@diku.dk>
+>>
+>> The test on map4 should be a test on map6.
+>>
+>> The semantic match that finds this problem is as follows:
+>> (http://www.emn.fr/x-info/coccinelle/)
+ ...
+>> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> Much better, thank you.
+> 
+> Acked-by: Paul Moore <paul.moore@hp.com>
 
-Pulled, thanks John.
+Applied, thanks.
