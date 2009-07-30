@@ -1,80 +1,78 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: [PATCH] pcnet32: VLB support fixes
-Date: Fri, 31 Jul 2009 00:25:44 +0200
-Message-ID: <200907310025.44576.bzolnier@gmail.com>
-References: <200907302317.52648.bzolnier@gmail.com> <200907302346.26017.bzolnier@gmail.com> <4A721768.2060102@garzik.org>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Re: Bonding ALB sends bogus packets
+Date: Fri, 31 Jul 2009 09:06:58 +0930
+Message-ID: <20090731090658.db36b555.lk-netdev@lk-netdev.nosense.org>
+References: <20090730130656.680e9152@nehalam>
+	<22132.1248985699@death.nxdomain.ibm.com>
+	<20090730133545.77e5a76a@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Don Fry <pcnet32@verizon.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dan Carpenter <error27@gmail.com>,
-	corbet@lwn.net, eteo@redhat.com, Julia Lawall <julia@diku.dk>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	bonding-devel@lists.sf.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:52274 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbZG3W0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 18:26:51 -0400
-In-Reply-To: <4A721768.2060102@garzik.org>
-Content-Disposition: inline
+Received: from smtp4.adam.net.au ([202.136.110.247]:43199 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbZG3XhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 19:37:12 -0400
+In-Reply-To: <20090730133545.77e5a76a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 30 July 2009 23:58:00 Jeff Garzik wrote:
-> Bartlomiej Zolnierkiewicz wrote:
-> > On Thursday 30 July 2009 23:32:19 Jeff Garzik wrote:
-> >> Bartlomiej Zolnierkiewicz wrote:
-> >>> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> >>> Subject: [PATCH] pcnet32: VLB support fixes
-> >>>
-> >>> VLB support has been broken since at least 2004-2005 period as some
-> >>> changes introduced back then assumed that ->pci_dev is always valid,
-> >>> lets try to fix it:
-> >>>
-> >>> - remove duplicated SET_NETDEV_DEV() call
-> >>>
-> >>> - call SET_NETDEV_DEV() only for PCI devices
-> >>>
-> >>> - check for ->pci_dev validity in pcnet32_open()
-> >>>
-> >>> [ Alternatively we may consider removing VLB support but there would not
-> >>>   be much gain in it since an extra driver code needed for VLB support is
-> >>>   minimal and quite simple. ]
-> >>>
-> >>> This takes care of the following entry from Dan's list:
-> >>>
-> >>> drivers/net/pcnet32.c +1889 pcnet32_probe1(298) warning: variable derefenced before check 'pdev'
-> >>>
-> >>> Reported-by: Dan Carpenter <error27@gmail.com>
-> >>> Cc: corbet@lwn.net
-> >>> Cc: eteo@redhat.com
-> >>> Cc: Julia Lawall <julia@diku.dk>
-> >>> Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> >>> ---
-> >>> PS I still keep the original cc: list from the smatch thread -- please let
-> >>> me know if you don't want to be spammed.. ;-)
-> >>>
-> >>>  drivers/net/pcnet32.c |   12 +++++++-----
-> >>>  1 file changed, 7 insertions(+), 5 deletions(-)
-> >> ACK -- the patch is correct AFAICS -- but would it not be better to have 
-> >> a struct device for the VLB device?
-> > 
-> > Sure, such addition would be needed for sysfs support on VLB devices..
-> 
-> 
-> >> We have capability to create struct device for isa and eisa, so VLB is 
-> >> quite doable.
-> >>
-> >> 	Jeff, who converted old-ISDN ISA+EISA+PCI drivers to
-> >> 	      hotplug model, once upon a time
-> > 
-> > ..and it seems that you've the needed experience! :)
-> 
-> <grin>  In my esteemed experience, I point you to the 39-line 
-> include/linux/isa.h as a starting point for grep...  :)
+On Thu, 30 Jul 2009 13:35:45 -0700
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-Send patches.
+> On Thu, 30 Jul 2009 13:28:19 -0700
+> Jay Vosburgh <fubar@us.ibm.com> wrote:
+> 
+> > Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > 
+> > >The bonding ALB mode builds packets with type, ETH_P_LOOP.
+> > >
+> > >Well ETH_P_LOOP is defined as 0x0060 which looks completely bogus.
+> > >All Ethernet types less than 1536 are interpreted as 802.2 frames.
+> > >The result is that the resulting packet looks like a bogus 802.2
+> > >frame to the other host (or switch).  I have no idea what the 
+> > >initial design was or what the purpose of this code is, but it
+> > >should either send a real packet or nothing at all.
+> > 
+> > 	I've looked at that code before, too, although I hadn't noticed
+> > that ETH_P_LOOP is under the limit for interpretation as a length
+> > instead of a type.
+> > 
+> > 	I believe the purpose of the code is to update the switch's MAC
+> > address table for the port and insure it's correct, since the alb mode
+> > can move MAC addresses around amongst the set of slaves.
+> > 
+> > 	-J
+> 
+> Then it ought to send an ARP or at least a real-looking 802.2 packet.
+> Also, if the purpose was to update switch MAC table, why does it need
+> to do it so often, rather than only when MAC address is swapped.
 
-I don't have a time/motivation for enhancing VLB support, not even
-mentioning the access to hardware needed to test such changes..
+Generally to overcome the 300 second address timeout. You can't be sure
+that any actual traffic is going to come from that address within the
+timeout period. Netflow collectors are a good example of something that
+receives traffic but doesn't send any. It's a common problem to have
+their MAC address timeout of the upstream switch and then start seeing
+the UDP Netflow traffic being flooded to all switch ports. You then
+have to set up something like a persistent periodic ping to refresh the
+MAC address table.
+
+ETH_P_LOOP should probably have been avoided, as "LOOP" or "loopback"
+is commonly used to refer to the Ethernet Configuration Testing
+Protocol (google search for "Ethernet Loop protocol"). 
+
+I'd suggest not using any form of ARP for this purpose. It'd place an
+IPv4 requirement on the bonded interface, and various "empty" ARP
+frames have meaning e.g. duplicate address detection. 802.2 test frames
+or the original Ethernet V2.0 Configuration Testing Protocol have been
+used for this bridge table address refresh purpose in the past.
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
