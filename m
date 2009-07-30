@@ -1,60 +1,37 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13862] New: PROBLEM: SiS 191 mtu bug
-Date: Thu, 30 Jul 2009 13:56:50 -0700
-Message-ID: <20090730135650.0b6aa972.akpm@linux-foundation.org>
-References: <bug-13862-10286@http.bugzilla.kernel.org/>
+From: Roland Dreier <roland@digitalvampire.org>
+Subject: Re: IPv6 default routes timing out?
+Date: Thu, 30 Jul 2009 13:58:25 -0700
+Message-ID: <87d47h7ury.fsf@shaolin.home.digitalvampire.org>
+References: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
+	<1248914038.13447.17.camel@merlyn>
+	<87k51q6raq.fsf@shaolin.home.digitalvampire.org>
+	<1248975058.7167.28.camel@Maple> <aday6q6qatu.fsf@cisco.com>
+	<1248984555.8639.4.camel@Maple>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, wipat.s@psu.ac.th,
-	Riccardo Ghetta <birrachiara@tin.it>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: John Dykstra <john.dykstra1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:47944 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751629AbZG3U5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 16:57:30 -0400
-In-Reply-To: <bug-13862-10286@http.bugzilla.kernel.org/>
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:54542 "EHLO
+	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751935AbZG3U6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 16:58:37 -0400
+In-Reply-To: <1248984555.8639.4.camel@Maple> (John Dykstra's message of "Thu, 30 Jul 2009 20:09:15 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ > Note that these are actually multicasts, not broadcasts.  There's not
+ > much difference on the sending end, but on the receiving end there's
+ > usually filtering at the NIC level that doesn't apply to broadcasts.
+ > 
+ > That's why I'm a little bit suspicious of the laptop end of your
+ > connection.  It's not uncommon for multicast to be broken in various
+ > ways without people noticing, because they don't use it very much on
+ > IPv4.  However, it's fundamental to IPv6.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Wed, 29 Jul 2009 08:02:32 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> http://bugzilla.kernel.org/show_bug.cgi?id=13862
-> 
->            Summary: PROBLEM: SiS 191 mtu bug
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.28-14, 2.6.29-06
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: wipat.s@psu.ac.th
->         Regression: Yes
-> 
-> 
-> Problem Description:
-> incorrect MTU size. Command 'ifconfig eth0' show MTU:1500,
-> but network failed with packet large more than 1024.
-> Modifying the mtu of the ethernet interface to 1024 
-> with command 'ifconfig eth0 mtu 1024' make it to work.
-> 
-> Keyword: networking
-> Kernel version Linux ubuntu 2.6.28-14-server, Linux 2.6.29.06-std122
-> 
-
-drivers/net/sis190.c
-
-It's a regression, but we're not sure since when.
+Fair enough ... however, given that two independent laptops (using two
+different wireless drivers / kernel versions) stop getting the router
+advertisements (which are, as you said, multicast to the all nodes
+address, not truly broadcast) at the same time, and given that
+bouncing the driver on the sender (openbsd router) fixes things, I'm
+much more likely to blame the sender in this case.
