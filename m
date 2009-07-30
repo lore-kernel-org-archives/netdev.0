@@ -1,168 +1,111 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH V3] CAN: Add Flexcan CAN controller driver
-Date: Thu, 30 Jul 2009 10:51:26 +0200
-Message-ID: <4A715F0E.2070605@grandegger.com>
-References: <20090729082010.GZ2714@pengutronix.de>	<4A7011BA.7040906@grandegger.com> <20090730083729.GC2714@pengutronix.de>
+From: Meelis Roos <mroos@linux.ee>
+Subject: RTNL: assertion failed at net/core/dev.c (3961)
+Date: Thu, 30 Jul 2009 11:23:48 +0300 (EEST)
+Message-ID: <Pine.SOC.4.64.0907301114150.10041@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:57343 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbZG3Iva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 04:51:30 -0400
-In-Reply-To: <20090730083729.GC2714@pengutronix.de>
+Received: from smtp1.it.da.ut.ee ([193.40.5.66]:37550 "EHLO smtp1.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751870AbZG3IyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jul 2009 04:54:01 -0400
+Received: from math.ut.ee (math.ut.ee [193.40.36.2])
+	by smtp1.it.da.ut.ee (Postfix) with ESMTP id 189B76E4A15
+	for <netdev@vger.kernel.org>; Thu, 30 Jul 2009 11:23:49 +0300 (EEST)
+Received: from localhost (localhost [127.0.0.1])
+	by math.ut.ee (Postfix) with ESMTP id D3535FD79B
+	for <netdev@vger.kernel.org>; Thu, 30 Jul 2009 11:23:48 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sascha Hauer wrote:
-> On Wed, Jul 29, 2009 at 11:09:14AM +0200, Wolfgang Grandegger wrote:
->> Sascha Hauer wrote:
->>> And another go...
->>>
->>> Sascha
->>>
->>>
->>> >From 9f6f6fb67d57d082e056dec8121f1423c1b4fa0b Mon Sep 17 00:00:00 2001
->>> From: Sascha Hauer <s.hauer@pengutronix.de>
->>> Date: Tue, 21 Jul 2009 10:47:19 +0200
->>> Subject: [PATCH] CAN: Add Flexcan CAN driver
->>>
->>> This core is found on some Freescale SoCs and also some Coldfire
->>> SoCs. Support for Coldfire is missing though at the moment as
->>> they have an older revision of the core which does not have RX FIFO
->>> support.
->>>
->>> V3: integrated comments from Oliver Hartkopp
->>> V2: integrated comments from Wolfgang Grandegger
->>>
->>> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
->>> ---
->>>  drivers/net/can/Kconfig   |    6 +
->>>  drivers/net/can/Makefile  |    1 +
->>>  drivers/net/can/flexcan.c |  719 +++++++++++++++++++++++++++++++++++++++++++++
->>>  3 files changed, 726 insertions(+), 0 deletions(-)
->>>  create mode 100644 drivers/net/can/flexcan.c
->>>
->>> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
->>> index 33821a8..99c6da4 100644
->>> --- a/drivers/net/can/Kconfig
->>> +++ b/drivers/net/can/Kconfig
->>> @@ -74,6 +74,12 @@ config CAN_KVASER_PCI
->>>  	  This driver is for the the PCIcanx and PCIcan cards (1, 2 or
->>>  	  4 channel) from Kvaser (http://www.kvaser.com).
->>>  
->>> +config CAN_FLEXCAN
->>> +	tristate "Support for Freescale FLEXCAN based chips"
->>> +	depends on CAN_DEV
->>> +	---help---
->>> +	  Say Y here if you want to support for Freescale FlexCAN.
->>> +
->>>  config CAN_DEBUG_DEVICES
->>>  	bool "CAN devices debugging messages"
->>>  	depends on CAN
->>> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
->>> index 523a941..25f2032 100644
->>> --- a/drivers/net/can/Makefile
->>> +++ b/drivers/net/can/Makefile
->>> @@ -8,5 +8,6 @@ obj-$(CONFIG_CAN_DEV)		+= can-dev.o
->>>  can-dev-y			:= dev.o
->>>  
->>>  obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
->>> +obj-$(CONFIG_CAN_FLEXCAN)	+= flexcan.o
->>>  
->>>  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
->>> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
->>> new file mode 100644
->>> index 0000000..77661b3
->>> --- /dev/null
->>> +++ b/drivers/net/can/flexcan.c
->> [...]
->>> +static void flexcan_error(struct net_device *ndev, u32 stat)
->>> +{
->>> +	struct can_frame *cf;
->>> +	struct sk_buff *skb;
->>> +	struct flexcan_priv *priv = netdev_priv(ndev);
->>> +	struct net_device_stats *stats = &ndev->stats;
->>> +	enum can_state state = priv->can.state;
->>> +	int error_warning = 0, rx_errors = 0, tx_errors = 0;
->>> +
->>> +	skb = dev_alloc_skb(sizeof(struct can_frame));
->>> +	if (!skb)
->>> +		return;
->>> +
->>> +	skb->dev = ndev;
->>> +	skb->protocol = __constant_htons(ETH_P_CAN);
->>> +	skb->ip_summed = CHECKSUM_UNNECESSARY;
->>> +
->>> +	cf = (struct can_frame *)skb_put(skb, sizeof(*cf));
->>> +	memset(cf, 0, sizeof(*cf));
->>> +
->>> +	cf->can_id = CAN_ERR_FLAG;
->>> +	cf->can_dlc = CAN_ERR_DLC;
->>> +
->>> +	if (stat & ERRSTAT_RWRNINT) {
->>> +		error_warning = 1;
->>> +		cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
->>> +	}
->>> +
->>> +	if (stat & ERRSTAT_TWRNINT) {
->>> +		error_warning = 1;
->>> +		cf->data[1] |= CAN_ERR_CRTL_TX_WARNING;
->>> +	}
->> What is the meaning of this error warning interrupt? It does *not*
->> change the state.
-> 
-> This TWRNINT means that the Tx error counter has transitioned from < 96
-> to >= 96 (analog the RWRNINT for the Rx error counter). Unfortunately
-> the state bits handled below do not reflect this error warning state.
-> 
-> So this interrupt signals us that we have been in error warning state
-> once but we have no possibility to detect if we are still in error
-> warning state. I don't know how to handle this correctly. I could
-> disable this interrupt and ignore it completely.
-> 
->>> +	switch ((stat >> 4) & 0x3) {
->>> +	case 0:
->>> +		state = CAN_STATE_ERROR_ACTIVE;
->>> +		break;
->>> +	case 1:
->>> +		state = CAN_STATE_ERROR_PASSIVE;
->>> +		break;
->>> +	default:
->>> +		state = CAN_STATE_BUS_OFF;
->>> +		break;
->>> +	}
->> I'm still not happy with the error message generation. If a state change
->> to error passive happens, it should be signaled to the user. Here my ideas:
->>
->> 	if (state != priv->can.state) {
->> 		if (state == CAN_STATE_ERROR_WARNING) {
->> 			cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
->> 			priv->can.can_stats.error_warning++;
->> 		} else if (state == CAN_STATE_ERROR_PASSIVE) {
->> 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
->> 			priv->can.can_stats.error_passive++;
->> 		}
->>
->> It might have missed something, though.
-> 
-> Sorry, I missed that from your previous mail. As we can't properly
-> detect ERROR_WARNING state this would reduce to:
-> 
-> 	if (state != priv->can.state && state == CAN_STATE_ERROR_WARNING) {
-> 		cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
-> 		priv->can.can_stats.error_warning++;
-> 	}
+I'm running 2.6.31-rc4 on an i386 pc and got these two similar 
+but different in cause assertion failures  on boot. Seems to be 
+repeatable. I saw similar messages on a kernel around -rc3 but it had 
+SIT troubles so I did not test more earlier rc-s.
 
-Why you can't detect error warning? When the [RT]WRNINT comes, the error
-waning state has entered. By looking to the manual, the state changes to
-error warning and bus-off are directly signaled via interrupt. A change
-to error passive might be visible when bus error ints occurs. You could
-add some dev_dbg's to the "if (stat & ERRSTAT_[RT]WRNINT)" and "switch"
-blocks above and check with sending a message with no cable connected.
+This seems to be VLAN+IPv6 related, so some more info on the 
+configurartion:
 
-Wolfgang.
+eth0 is plain ethernet, internal LAN, IPv6 address autoconfigured from 
+external 6to4 address.
+
+eth1 is ethernet, external interface. Dynamic IPv4, 6to4 tunnel is 
+created automatically from it. Only link-local IPv6 on this 
+interface. This is untagged, but it also carries VLAN 4 tagged.
+
+eth1.4 is the VLAN on eth1 that carries iptv. Dynamic IPv4, only 
+link-local IPv6.
+
+eth2 is plain internal LAN, like eth0 - static IPv4, IPv6 from 6to4.
+
+tun6to4 is sti tunnel for 6to4, cofigured from eth1's IP.
+
+eth0 and eth1 are 8139too, eth2 is uli526x.
+
+RTNL: assertion failed at net/core/dev.c (3961)
+Pid: 0, comm: swapper Not tainted 2.6.31-rc4 #327
+Call Trace:
+ [<c127fd2b>] ? printk+0x1d/0x32
+ [<c120c43c>] dev_unicast_sync+0x3b/0xfe
+ [<f8a0b19d>] vlan_dev_set_rx_mode+0x2f/0x45 [8021q]
+ [<c120bab5>] __dev_set_rx_mode+0x88/0x9e
+ [<c1211c48>] dev_mc_add+0x52/0x7c
+ [<f890d5d1>] igmp6_group_added+0x5e/0x160 [ipv6]
+ [<f8900923>] ? fib6_clean_node+0x0/0x9f [ipv6]
+ [<f890d9e6>] ipv6_dev_mc_inc+0x2b9/0x2dc [ipv6]
+ [<f88f6745>] addrconf_join_solict+0x43/0x56 [ipv6]
+ [<f88f197d>] ipv6_dev_ac_inc+0x15c/0x1ab [ipv6]
+ [<f88f5f55>] addrconf_join_anycast+0x82/0x9b [ipv6]
+ [<f88f75b4>] __ipv6_ifa_notify+0xd6/0x153 [ipv6]
+ [<f88f8584>] ? addrconf_dad_timer+0x0/0x120 [ipv6]
+ [<f88f7662>] ipv6_ifa_notify+0x31/0x4c [ipv6]
+ [<f88f76a3>] addrconf_dad_completed+0x26/0xb7 [ipv6]
+ [<f88f8607>] addrconf_dad_timer+0x83/0x120 [ipv6]
+ [<f89fd942>] ? garp_join_timer+0x0/0x79 [garp]
+ [<f89fd9a5>] ? garp_join_timer+0x63/0x79 [garp]
+ [<c102dbff>] run_timer_softirq+0x152/0x1ca
+ [<c1029b9b>] __do_softirq+0x69/0xe6
+ [<c1029b32>] ? __do_softirq+0x0/0xe6
+ <IRQ>  [<c10298a2>] ? irq_exit+0x36/0x7b
+ [<c1012a71>] ? smp_apic_timer_interrupt+0x70/0x8c
+ [<c10032a1>] ? apic_timer_interrupt+0x31/0x38
+ [<c1008b67>] ? default_idle+0x36/0x5c
+ [<c1001cbb>] ? cpu_idle+0x72/0x9f
+ [<c1278d08>] ? rest_init+0x74/0x87
+ [<c13c9af9>] ? start_kernel+0x278/0x28e
+ [<c13c9312>] ? i386_start_kernel+0x40/0x56
+ADDRCONF(NETDEV_UP): eth2: link is not ready
+powernow-k8: Found 1 AMD Athlon(tm) 64 Processor 3000+ processors (1 cpu 
+cores) (version 2.20.00)
+powernow-k8:    0 : fid 0xa (1800 MHz), vid 0x6
+powernow-k8:    1 : fid 0x2 (1000 MHz), vid 0x12
+Marking TSC unstable due to cpufreq changes
+RTNL: assertion failed at net/core/dev.c (3961)
+Pid: 2744, comm: avahi-daemon Not tainted 2.6.31-rc4 #327
+Call Trace:
+ [<c127fd2b>] ? printk+0x1d/0x32
+ [<c120c43c>] dev_unicast_sync+0x3b/0xfe
+ [<f8a0b19d>] vlan_dev_set_rx_mode+0x2f/0x45 [8021q]
+ [<c120bab5>] __dev_set_rx_mode+0x88/0x9e
+ [<c1211c48>] dev_mc_add+0x52/0x7c
+ [<f890d5d1>] igmp6_group_added+0x5e/0x160 [ipv6]
+ [<c1202560>] ? sock_alloc_send_pskb+0x9c/0x267
+ [<f890d9e6>] ipv6_dev_mc_inc+0x2b9/0x2dc [ipv6]
+ [<f890eb15>] ipv6_sock_mc_join+0x15d/0x1ce [ipv6]
+ [<f8902565>] do_ipv6_setsockopt+0x8a7/0xc2e [ipv6]
+ [<c11ff715>] ? sock_recvmsg+0xdf/0x108
+ [<c11ff877>] ? sock_sendmsg+0xd8/0x100
+ [<c10384fe>] ? autoremove_wake_function+0x0/0x54
+ [<c108eb47>] ? file_update_time+0x9e/0xd0
+ [<c11ffba2>] ? sys_sendto+0x10d/0x146
+ [<f890293f>] ipv6_setsockopt+0x53/0xb0 [ipv6]
+ [<f8905951>] udpv6_setsockopt+0x4c/0x67 [ipv6]
+ [<c1201262>] sock_common_setsockopt+0x22/0x38
+ [<c11ff150>] sys_setsockopt+0x79/0xa8
+ [<c1200cd1>] sys_socketcall+0x129/0x18a
+ [<c1002bbb>] sysenter_do_call+0x12/0x26
+
+
+-- 
+Meelis Roos (mroos@linux.ee)
