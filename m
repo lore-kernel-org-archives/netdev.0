@@ -1,33 +1,30 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: IPv6 default routes timing out?
-Date: Thu, 30 Jul 2009 12:30:58 -0500
-Message-ID: <1248975058.7167.28.camel@Maple>
-References: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
-	 <1248914038.13447.17.camel@merlyn>
-	 <87k51q6raq.fsf@shaolin.home.digitalvampire.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2009-07-29
+Date: Thu, 30 Jul 2009 10:36:22 -0700 (PDT)
+Message-ID: <20090730.103622.35100964.davem@davemloft.net>
+References: <20090729203007.GB10056@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roland Dreier <roland@digitalvampire.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f203.google.com ([209.85.216.203]:49300 "EHLO
-	mail-px0-f203.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642AbZG3RbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 13:31:01 -0400
-Received: by pxi41 with SMTP id 41so450756pxi.33
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2009 10:31:02 -0700 (PDT)
-In-Reply-To: <87k51q6raq.fsf@shaolin.home.digitalvampire.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55728
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750994AbZG3RgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 13:36:15 -0400
+In-Reply-To: <20090729203007.GB10056@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-07-30 at 09:58 -0700, Roland Dreier wrote:
-> Thanks, I did some more debugging it seems the issue is in the
-> router's (openbsd) wireless driver -- it thinks it is broadcasting
-> router advertisements but they aren't making it to the laptop.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 29 Jul 2009 16:30:07 -0400
 
-Could it be that there's something buggy in the laptop wireless driver
-or hardware re filtering of multicast packets at the L2 level? 
+> Here is a small collection of fixes intended for 2.6.31.  Several of
+> them are small fixes dug-out by the usual static analysis suspects.
+> There are also a couple of iwlwifi fixes that the Intel team thinks are
+> important -- they look reasonably safe to me and they should only effect
+> their drivers.  Their are also some small fixes from Luis and Johannes.
 
-  --  John
-
+Pulled, thanks John.
