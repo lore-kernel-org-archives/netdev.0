@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] au1000_eth platform device/driver conversion
-Date: Thu, 30 Jul 2009 12:34:50 -0700 (PDT)
-Message-ID: <20090730.123450.224830320.davem@davemloft.net>
-References: <200907282300.07144.florian@openwrt.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH v2] docbook: fix printk of ip address
+Date: Thu, 30 Jul 2009 12:37:46 -0700
+Message-ID: <20090730123746.1fe58340.randy.dunlap@oracle.com>
+References: <20090730122518.995a83ba.randy.dunlap@oracle.com>
+	<20090730.123151.191002348.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, manuel.lauss@googlemail.com,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: florian@openwrt.org
+Cc: netdev@vger.kernel.org, tklauser@distanz.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58424
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751120AbZG3Tem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:34:42 -0400
-In-Reply-To: <200907282300.07144.florian@openwrt.org>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:51759 "EHLO
+	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbZG3TiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:38:07 -0400
+In-Reply-To: <20090730.123151.191002348.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Tue, 28 Jul 2009 23:00:04 +0200
+From: Tobias Klauser <tklauser@distanz.ch>
 
-> Hi Ralf, David, Manuel,
-> 
-> The following patches convert the AMD Alchemy au1000_eth driver
-> to become a platform device/driver. The patches are splitted that way:
+Use the %pI4 format string instead of %d.%d.%d.%d and NIPQUAD.
 
-I was only able to see patch #2 and #4 in this series and
-checking the netdev patch postings that made it to:
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ Documentation/DocBook/kernel-hacking.tmpl |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	http://patchwork.ozlabs.org/project/netdev/list/
+--- linux-2.6.31-rc4-git3.orig/Documentation/DocBook/kernel-hacking.tmpl
++++ linux-2.6.31-rc4-git3/Documentation/DocBook/kernel-hacking.tmpl
+@@ -449,8 +449,8 @@ printk(KERN_INFO "i = %u\n", i);
+    </para>
+ 
+    <programlisting>
+-__u32 ipaddress;
+-printk(KERN_INFO "my ip: %d.%d.%d.%d\n", NIPQUAD(ipaddress));
++__be32 ipaddress;
++printk(KERN_INFO "my ip: %pI4\n", &amp;ipaddress);
+    </programlisting>
+ 
+    <para>
 
-confirms that patches #1 and #3 didn't make it to the list
-either.
+
+
+---
+~Randy
+LPC 2009, Sept. 23-25, Portland, Oregon
+http://linuxplumbersconf.org/2009/
