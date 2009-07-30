@@ -1,31 +1,59 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
-Date: Thu, 30 Jul 2009 15:14:04 -0700
-Message-ID: <87ws5pyg2b.fsf@caffeine.danplanet.com>
-References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
-	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
-	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
-	<4A6F6B19.9010508@librato.com> <878wi6yxui.fsf@caffeine.danplanet.com>
-	<1248991853.8639.8.camel@Maple> <1248991967.8639.10.camel@Maple>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/3] ixgbe: Fix netpoll to be properly multiqueue aware
+Date: Thu, 30 Jul 2009 15:25:09 -0700
+Message-ID: <20090730222501.26121.2952.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oren Laadan <orenl@librato.com>, containers@lists.osdl.org,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:60271 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751431AbZG3WOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 18:14:17 -0400
-In-Reply-To: <1248991967.8639.10.camel@Maple> (John Dykstra's message of "Thu\, 30 Jul 2009 22\:12\:47 +0000")
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:38691 "EHLO
+	QMTA04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752163AbZG3WZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 18:25:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-JD> Never mind.  You're talking about AF_UNIX.
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 
-...right :)
+Our ndo_poll_controller callback is broken for anything but non-multiqueue
+setups.  This fixes that issue.
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/ixgbe/ixgbe_main.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 200454f..60c4a8b 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5360,12 +5360,19 @@ static int ixgbe_del_sanmac_netdev(struct net_device *dev)
+ static void ixgbe_netpoll(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	int i;
+ 
+-	disable_irq(adapter->pdev->irq);
+ 	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
+-	ixgbe_intr(adapter->pdev->irq, netdev);
++	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
++		int num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
++		for (i = 0; i < num_q_vectors; i++) {
++			struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
++			ixgbe_msix_clean_many(0, q_vector);
++		}
++	} else {
++		ixgbe_intr(adapter->pdev->irq, netdev);
++	}
+ 	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
+-	enable_irq(adapter->pdev->irq);
+ }
+ #endif
+ 
+
