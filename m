@@ -1,63 +1,36 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] 3c515: Write outside array bounds
-Date: Thu, 30 Jul 2009 12:26:32 +0200
-Message-ID: <4A717558.2050407@gmail.com>
-References: <4A6B88B1.9000907@gmail.com> <4A6CC7BD.9020602@gmail.com> <4A705904.4020505@gmail.com> <20090729204300.GC3058@ami.dom.local>
+From: Stoyan Gaydarov <sgayda2@uiuc.edu>
+Subject: [PATCH 1/4] [atm] fixed faulty check
+Date: Thu, 30 Jul 2009 05:24:51 -0500
+Message-ID: <1248949491-20796-1-git-send-email-sgayda2@uiuc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:27143 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183AbZG3KXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 06:23:36 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so356031eyd.37
-        for <netdev@vger.kernel.org>; Thu, 30 Jul 2009 03:23:36 -0700 (PDT)
-In-Reply-To: <20090729204300.GC3058@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Stoyan Gaydarov <sgayda2@uiuc.edu>, chas@cmf.nrl.navy.mil,
+	David.Woodhouse@intel.com, nathan@traverse.com.au,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752638AbZG3KZF@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-if dev_alloc_skb() fails on the first iteration, a write to
-cp->rx_ring[-1] occurs.
+This patche fixes a spelling error that has resulted from copy and pasting. The location of the error was found using a semantic patch but the semantic patch was not trying to find these errors. After looking things over it seemed logical that this change was needed. Please review it and then include the patch if it is in fact the correct change.
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Signed-off-by: Stoyan Gaydarov <sgayda2@uiuc.edu>
 ---
->>>> can we error return like this?
->>>
->>> I doubt we can return here: there is a lot of cleaning missing.
+ drivers/atm/solos-pci.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->> I took drivers/net/3c59x.c as an example
->>
->> Is this going in the right direction?
-> 
-> The direction is right but a long and winding road... I guess it's for
-> somebody with drivers knowhow. It seems most of the corkscrew_close()
-> might be needed, including del_timer(). So, since this -1 case looks
-> quite unlikely, it might be reasonable to only limit the most obvious
-> damage with 'if (i != 0)' before [i - 1] write, like David advised
-> in lmc case?
-> 
-> Cheers,
-> Jarek P.
-
-Thanks, here it is:
-
-diff --git a/drivers/net/3c515.c b/drivers/net/3c515.c
-index 3e00fa8..4a7c328 100644
---- a/drivers/net/3c515.c
-+++ b/drivers/net/3c515.c
-@@ -832,7 +832,9 @@ static int corkscrew_open(struct net_device *dev)
- 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
- 			vp->rx_ring[i].addr = isa_virt_to_bus(skb->data);
- 		}
--		vp->rx_ring[i - 1].next = isa_virt_to_bus(&vp->rx_ring[0]);	/* Wrap the ring. */
-+		if (i != 0)
-+			vp->rx_ring[i - 1].next =
-+				isa_virt_to_bus(&vp->rx_ring[0]);	/* Wrap the ring. */
- 		outl(isa_virt_to_bus(&vp->rx_ring[0]), ioaddr + UpListPtr);
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 9359613..307321b 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -372,7 +372,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
  	}
- 	if (vp->full_bus_master_tx) {	/* Boomerang bus master Tx. */
+ 
+ 	snr = next_string(skb);
+-	if (!str)
++	if (!snr)
+ 		return -EIO;
+ 	attn = next_string(skb);
+ 	if (!attn)
+-- 
+1.6.3.3
