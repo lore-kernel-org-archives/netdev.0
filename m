@@ -1,75 +1,47 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 4/5] net/netlabel: Add kmalloc NULL tests
-Date: Thu, 30 Jul 2009 10:53:37 -0400
-Message-ID: <200907301053.37416.paul.moore@hp.com>
-References: <Pine.LNX.4.64.0907301610230.8734@ask.diku.dk> <200907301032.20318.paul.moore@hp.com> <Pine.LNX.4.64.0907301637570.8734@ask.diku.dk>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
+Date: Thu, 30 Jul 2009 08:49:57 -0700
+Message-ID: <878wi6yxui.fsf@caffeine.danplanet.com>
+References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
+	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
+	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
+	<4A6F6B19.9010508@librato.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751587AbZG3Oxm@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0907301637570.8734@ask.diku.dk>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, Alexey Dobriyan <adobriyan@gmail.com>,
+	netdev@vger.kernel.org
+To: Oren Laadan <orenl@librato.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:59623 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751459AbZG3PuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 11:50:11 -0400
+In-Reply-To: <4A6F6B19.9010508@librato.com> (Oren Laadan's message of "Tue\, 28 Jul 2009 17\:18\:17 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 30 July 2009 10:38:19 am Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
->
-> The test on map4 should be a test on map6.
->
-> The semantic match that finds this problem is as follows:
-> (http://www.emn.fr/x-info/coccinelle/)
->
-> // <smpl>
-> @@
-> expression *x;
-> identifier f;
-> constant char *C;
-> @@
->
-> x = \(kmalloc\|kcalloc\|kzalloc\)(...);
-> ... when != x == NULL
->     when != x != NULL
->     when != (x || ...)
-> (
-> kfree(x)
->
-> f(...,C,...,x,...)
->
-> *f(...,x,...)
->
-> *x->f
-> )
-> // </smpl>
->
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+OL> Hmm.. then what happens when you have a circular dependency ?  For
+OL> example, three dgram sockets, A, B and C where: A->B, B->C and
+OL> C->A ('->' means connected).
 
-Much better, thank you.
+So, I've been cooking up changes to the patch and a test for this
+case.  However, it seems like it's not valid, unless I'm missing
+something.  The man page for connect() says:
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+  If the socket sockfd is of type SOCK_DGRAM then serv_addr is the
+  address to which datagrams are sent by default, and the only address
+  from which datagrams are received.
 
-> ---
->  net/netlabel/netlabel_kapi.c        |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-> index 3ff6f32..6ce0020 100644
-> --- a/net/netlabel/netlabel_kapi.c
-> +++ b/net/netlabel/netlabel_kapi.c
-> @@ -151,7 +151,7 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
->  			addr6 = addr;
->  			mask6 = mask;
->  			map6 = kzalloc(sizeof(*map6), GFP_ATOMIC);
-> -			if (map4 == NULL)
-> +			if (map6 == NULL)
->  				goto cfg_unlbl_map_add_failure;
->  			map6->type = NETLBL_NLTYPE_UNLABELED;
->  			ipv6_addr_copy(&map6->list.addr, addr6);
+So, even though you can connect() a DGRAM socket and then sendto()
+datagrams to a different location, it doesn't appear that the
+relationship between A and B is really valid, at least the connection
+between A and B is not functional.  In fact, in my testing, if you try
+to connect() C back to A, you get "Operation not permitted" because A
+is already connected elsewhere.
+
+Thoughts?
 
 -- 
-paul moore
-linux @ hp
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
