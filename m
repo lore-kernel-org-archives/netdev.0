@@ -1,45 +1,31 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: IPv6 default routes timing out?
-Date: Thu, 30 Jul 2009 11:34:21 -0700
-Message-ID: <aday6q6qatu.fsf@cisco.com>
-References: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
-	<1248914038.13447.17.camel@merlyn>
-	<87k51q6raq.fsf@shaolin.home.digitalvampire.org>
-	<1248975058.7167.28.camel@Maple>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 1/4] bnx2x: Receive traffic that maches management
+ filtering rules
+Date: Thu, 30 Jul 2009 12:20:29 -0700 (PDT)
+Message-ID: <20090730.122029.84313460.davem@davemloft.net>
+References: <1248862804.27379.15.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <roland@digitalvampire.org>, netdev@vger.kernel.org
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:53371 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804AbZG3SeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 14:34:22 -0400
-In-Reply-To: <1248975058.7167.28.camel@Maple> (John Dykstra's message of "Thu,
-	30 Jul 2009 12:30:58 -0500")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40115
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750759AbZG3TUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:20:22 -0400
+In-Reply-To: <1248862804.27379.15.camel@lb-tlvb-eilong>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 29 Jul 2009 13:20:04 +0300
 
- > > Thanks, I did some more debugging it seems the issue is in the
- > > router's (openbsd) wireless driver -- it thinks it is broadcasting
- > > router advertisements but they aren't making it to the laptop.
+> Due to lack of configuration, if the BMC configures the chip to pass all
+> broadcast/multicast traffic to it, the host will not receive it. On top of
+> fixing it, also make sure that in promiscuous mode, the host will receive the
+> management traffic as well.
+> 
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
- > Could it be that there's something buggy in the laptop wireless driver
- > or hardware re filtering of multicast packets at the L2 level? 
-
-Well, I see router advertisements (and pings to ff02::1) from the router
-on both of the two laptops I have handy, and then after a while the
-openbsd system seems to stop broadcasting -- I no longer see the
-broadcast ipv6 packets on either laptop, but if I just do "ifconfig ral0
-down; ifconfig ral0 up" on the openbsd system then everything seems to
-come back.  So it seems unlikely that the problem is anywhere except on
-the openbsd system sending.
-
-It's interesting to note that the only broadcasts that the openbsd
-router is going to send that matter in my setup are ipv6 router
-advertisements -- before I started using ipv4, all the broadcasts would
-have been arps from the laptops to the router, so I would have never
-noticed that the router stopped being able to broadcast.
-
- - R.
+Applied.
