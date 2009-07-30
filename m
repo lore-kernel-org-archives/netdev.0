@@ -1,35 +1,40 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: [Bugme-new] [Bug 13856] New: sk_bound_dev_if should be set for
-	a socket when using IP_MULITCAST_IF or IP_ADD_MEMBERSHIO
-Date: Wed, 29 Jul 2009 19:46:12 -0500
-Message-ID: <1248914772.13447.20.camel@merlyn>
-References: <bug-13856-10286@http.bugzilla.kernel.org/>
-	 <20090729125203.efbcb7ef.akpm@linux-foundation.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: netpoll + xmit_lock == deadlock
+Date: Wed, 29 Jul 2009 21:02:22 -0400
+Message-ID: <20090730010222.GA4169@localhost.localdomain>
+References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx> <20090729194300.GB17410@hmsreliant.think-freely.org> <1248904097.4545.2934.camel@calx> <20090729231517.GA32670@hmsreliant.think-freely.org> <20090729231735.GB14066@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, manlidj@hotmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Mackall <mpm@selenic.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f188.google.com ([209.85.210.188]:58057 "EHLO
-	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754875AbZG3AqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 20:46:15 -0400
-Received: by yxe26 with SMTP id 26so2011452yxe.4
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 17:46:15 -0700 (PDT)
-In-Reply-To: <20090729125203.efbcb7ef.akpm@linux-foundation.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33509 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755575AbZG3BCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 21:02:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20090729231735.GB14066@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->         ReportedBy: manlidj@hotmail.com
+On Thu, Jul 30, 2009 at 07:17:35AM +0800, Herbert Xu wrote:
+> On Wed, Jul 29, 2009 at 07:15:17PM -0400, Neil Horman wrote:
+> >
+> > Not quite.  I agree private locking in a driver is a pain when you consider
+> > netpoll clients, its not the tx/tx recursion you need to worry about though, its
+> > shared locking between the tx and rx path that you need to be worried about.
+> > We should be protected against deadlock on the _xmit_lock from what we discussed
+> > above, but if you take a lock in the driver, then call printk, its possible that
+> > you'll go down the ->poll routine path in the driver.  If there you try to take
+> > the same private lock, the result is then deadlock.
+> 
+> xmit_lock suffers from exactly the same problem in ->poll.
+> 
+Under what conditions do you try to take the xmit_lock from within a drivers
+->poll routine?  Do you have an example?
 
-> > Currently there is no way to tell which interface a multicast packet arrived on
-> > except by using a raw socket and issuing the SO_BINDTODEVICE option which
-> > forces the sk_bound_dev_if for the socket to be set.  
+Neil
 
-I thought the IP_PKTINFO cmsg was the usual way to do this.
-
---
-John
 
