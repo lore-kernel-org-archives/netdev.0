@@ -1,48 +1,28 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] docbook: fix printk of ip address
-Date: Thu, 30 Jul 2009 12:25:18 -0700
-Message-ID: <20090730122518.995a83ba.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 2/4] bnx2x: Self-test kills management traffic
+Date: Thu, 30 Jul 2009 12:29:05 -0700 (PDT)
+Message-ID: <20090730.122905.247851953.davem@davemloft.net>
+References: <1248862808.27379.16.camel@lb-tlvb-eilong>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Tobias Klauser <tklauser@distanz.ch>
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet12.oracle.com ([141.146.126.234]:61837 "EHLO
-	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbZG3TZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:25:43 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39827
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751783AbZG3T25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 15:28:57 -0400
+In-Reply-To: <1248862808.27379.16.camel@lb-tlvb-eilong>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Does this need to be changed to __be32?
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 29 Jul 2009 13:20:08 +0300
 
----
-From: Tobias Klauser <tklauser@distanz.ch>
+> Self test used to play with the management FIFO possibly while management was
+> running...
+> 
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Use the %pI4 format string instead of %d.%d.%d.%d and NIPQUAD.
-
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- Documentation/DocBook/kernel-hacking.tmpl |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.31-rc4-git3.orig/Documentation/DocBook/kernel-hacking.tmpl
-+++ linux-2.6.31-rc4-git3/Documentation/DocBook/kernel-hacking.tmpl
-@@ -450,7 +450,7 @@ printk(KERN_INFO "i = %u\n", i);
- 
-    <programlisting>
- __u32 ipaddress;
--printk(KERN_INFO "my ip: %d.%d.%d.%d\n", NIPQUAD(ipaddress));
-+printk(KERN_INFO "my ip: %pI4\n", &amp;ipaddress);
-    </programlisting>
- 
-    <para>
-
-
-
----
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+Applied.
