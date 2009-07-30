@@ -1,52 +1,35 @@
 From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: IPv6 default routes timing out?
-Date: Wed, 29 Jul 2009 19:33:58 -0500
-Message-ID: <1248914038.13447.17.camel@merlyn>
-References: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
+Subject: Re: [Bugme-new] [Bug 13856] New: sk_bound_dev_if should be set for
+	a socket when using IP_MULITCAST_IF or IP_ADD_MEMBERSHIO
+Date: Wed, 29 Jul 2009 19:46:12 -0500
+Message-ID: <1248914772.13447.20.camel@merlyn>
+References: <bug-13856-10286@http.bugzilla.kernel.org/>
+	 <20090729125203.efbcb7ef.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roland Dreier <roland@digitalvampire.org>
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, manlidj@hotmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f188.google.com ([209.85.210.188]:50815 "EHLO
+Received: from mail-yx0-f188.google.com ([209.85.210.188]:58057 "EHLO
 	mail-yx0-f188.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752821AbZG3AeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 20:34:01 -0400
-Received: by yxe26 with SMTP id 26so2001692yxe.4
-        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 17:34:01 -0700 (PDT)
-In-Reply-To: <874osv8jyo.fsf@shaolin.home.digitalvampire.org>
+	with ESMTP id S1754875AbZG3AqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 20:46:15 -0400
+Received: by yxe26 with SMTP id 26so2011452yxe.4
+        for <netdev@vger.kernel.org>; Wed, 29 Jul 2009 17:46:15 -0700 (PDT)
+In-Reply-To: <20090729125203.efbcb7ef.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-07-29 at 10:42 -0700, Roland Dreier wrote:
-> I recently set up IPv6 on home home network -- openbsd 4.5 box serving
-> as a router with wired and wireless ports, advertising routes via the
-> openbsd rtadvd daemon.  I have no problem on boxes on the wired
-> network, which gets a default route like:
-> 
->     default via fe80::240:63ff:feda:3d15 dev eth0  proto kernel  metric 1024  expires 8630sec mtu 1500 advmss 1440 hoplimit 64
-> 
-> However on laptops on the wireless network, I've seen the route
-> timeout and apparently never reappear.  This happens running both old
-> kernels like 2.6.24 and also with 2.6.31-rc4, and on systems with both
-> ipw2200 and iwlagn wirelss.  The symptom is that if I leave my laptop
-> running, say, overnight, in the morning the ipv6 default route is
-> gone.  ipv4 networking still works fine, and if I try explicit
-> link-local ipv6 addresses on the laptop, they work fine too.  But the
-> ipv6 internet is gone because the kernel has no idea how to route
-> packets to it.
-> 
-> The openbsd rtadvd config is pretty basic, just:
-> 
->     ral0:\  
->             :addr="2001:470:8379:2::":prefixlen#64:rltime#9000:\
->             :maxinterval#120:mininterval#60:
-> 
-> Any ideas as to what I'm doing wrong, or where the problem might be?
+>         ReportedBy: manlidj@hotmail.com
 
-First thing I'd do is leave wireshark running overnight on the laptop
-and see if the multicast router ads are making it to there.
+> > Currently there is no way to tell which interface a multicast packet arrived on
+> > except by using a raw socket and issuing the SO_BINDTODEVICE option which
+> > forces the sk_bound_dev_if for the socket to be set.  
+
+I thought the IP_PKTINFO cmsg was the usual way to do this.
+
 --
 John
 
