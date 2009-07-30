@@ -1,53 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Wed, 29 Jul 2009 21:06:39 -0400
-Message-ID: <20090730010639.GB4169@localhost.localdomain>
-References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx> <20090729194300.GB17410@hmsreliant.think-freely.org> <20090729223831.GA14066@gondor.apana.org.au>
+From: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+Subject: Re: [PATCH] iscsi: Use GFP_ATOMIC in iscsi_offload_mesg().
+Date: Wed, 29 Jul 2009 20:40:50 -0500
+Message-ID: <4A70FA22.7010706@cs.wisc.edu>
+References: <C27F8246C663564A84BB7AB343977242178EE780E1@IRVEXCHCCR01.corp.ad.broadcom.com> <4A70058F.50403@cs.wisc.edu> <1248893392.16148.262.camel@HP1>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:34156 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756118AbZG3BGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 21:06:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090729223831.GA14066@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org" <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <grbounce-FC1hwAUAAAA0O9VQcsxVj1UPjHD9r3x_=glio-open-iscsi=m.gmane.org-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1248893392.16148.262.camel@HP1>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://googlegroups.com/group/open-iscsi/subscribe>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 30, 2009 at 06:38:32AM +0800, Herbert Xu wrote:
-> On Wed, Jul 29, 2009 at 03:43:00PM -0400, Neil Horman wrote:
-> > 
-> > I think there is actually some recursion protection.  If you look in
-> > netpoll_send_skb (where all netpoll transmits pass through), we do a
-> > __netif_tx_trylock, and only continue down the tx path if we obtain the lock.
-> > If not, we call netpoll_poll, wait a while, and try again.  I think that should
-> > prevent the deadlock condition you are concerned about.
-> 
-> When netpoll_poll calls dev->poll which then takes the TX lock 
-> you have no protection whatsoever.  Some drivers do this in order
-> to ensure that TX descriptor cleanups do not race against the
-> transmitting side.  See tg3 for an example.
 
-but nothing in that path takes the xmit_lock.  The poll_lock is taken in that
-patch, but thats for recieve_side syncronization, not transmit side.  Nothing in
-the tg3 driver (to use your example), that I can see takes the xmit_lock in the
-rx path either, so I'm not really sure where you comming from here.
-Neil
+On 07/29/2009 01:49 PM, Michael Chan wrote:
+> Changing to GFP_ATOMIC because the only caller in cnic/bnx2i may
+> be calling this function while holding spin_lock.
+>
+> This problem was discovered by Mike Christie.
+>
+> Signed-off-by: Michael Chan<mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> ---
+>   drivers/scsi/scsi_transport_iscsi.c |    4 ++--
+>   1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+> index 783e33c..b47240c 100644
+> --- a/drivers/scsi/scsi_transport_iscsi.c
+> +++ b/drivers/scsi/scsi_transport_iscsi.c
+> @@ -990,7 +990,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
+>   	struct iscsi_uevent *ev;
+>   	int len = NLMSG_SPACE(sizeof(*ev) + data_size);
+>
+> -	skb = alloc_skb(len, GFP_NOIO);
+> +	skb = alloc_skb(len, GFP_ATOMIC);
+>   	if (!skb) {
+>   		printk(KERN_ERR "can not deliver iscsi offload message:OOM\n");
+>   		return -ENOMEM;
+> @@ -1012,7 +1012,7 @@ int iscsi_offload_mesg(struct Scsi_Host *shost,
+>
+>   	memcpy((char *)ev + sizeof(*ev), data, data_size);
+>
+> -	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_NOIO);
+> +	return iscsi_multicast_skb(skb, ISCSI_NL_GRP_UIP, GFP_ATOMIC);
+>   }
+>   EXPORT_SYMBOL_GPL(iscsi_offload_mesg);
+>
 
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Using GFP_NOIO and changing the locking is my preference normally,  but 
+if the locking changes are going to be a problem, then this is ok with 
+me since we can fail allocations in other parts of the code.
+
+Acked-by: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+
+Dave Miller probably wants to take this in his tree since it fixes a bug 
+with this patch
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=6d7760a88c25057c2c2243e5dfe2d731064bd31d
