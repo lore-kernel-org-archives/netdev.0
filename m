@@ -1,52 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Thu, 30 Jul 2009 07:17:35 +0800
-Message-ID: <20090729231735.GB14066@gondor.apana.org.au>
-References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx> <20090729194300.GB17410@hmsreliant.think-freely.org> <1248904097.4545.2934.camel@calx> <20090729231517.GA32670@hmsreliant.think-freely.org>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: [PATCH] net: Keep interface binding when sending packets with
+	ipi_ifindex = 0
+Date: Wed, 29 Jul 2009 19:10:21 -0500
+Message-ID: <1248912621.13447.12.camel@merlyn>
+References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
+	 <20090727144402.513369f1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39016 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753965AbZG2XRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jul 2009 19:17:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20090729231517.GA32670@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Chia-chi Yeh <chiachi@android.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755781AbZG3AKg@vger.kernel.org>
+In-Reply-To: <20090727144402.513369f1.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 29, 2009 at 07:15:17PM -0400, Neil Horman wrote:
->
-> Not quite.  I agree private locking in a driver is a pain when you consider
-> netpoll clients, its not the tx/tx recursion you need to worry about though, its
-> shared locking between the tx and rx path that you need to be worried about.
-> We should be protected against deadlock on the _xmit_lock from what we discussed
-> above, but if you take a lock in the driver, then call printk, its possible that
-> you'll go down the ->poll routine path in the driver.  If there you try to take
-> the same private lock, the result is then deadlock.
-
-xmit_lock suffers from exactly the same problem in ->poll.
-
-> I was thinking that perhaps what we should do is simply not call netpoll_poll
-> from within netpoll_send_skb.  That breaks the only spot that I see in which we
-> call a receive code from within the tx path, breaking the deadlock possibilty.
-> Perhaps instead we can call netif_rx_schedule on the network interfaces napi
-> struct.  We already queue the frames and set a timer to try sending again later.
-> By calling netif_rx_schedule, we move the receive work to the net_rx_action
-> softirq (where it really should be).
+On Mon, 2009-07-27 at 14:44 -0700, Andrew Morton wrote:
+> (cc netdev)
 > 
-> Thoughts?
+> On Thu, 23 Jul 2009 14:39:28 -0700
+> Chia-chi Yeh (_________) <chiachi@android.com> wrote:
+> 
+> > In IPv4, sending a packet with ipi_ifindex = 0 via an interface-bound
+> > socket will unbind the packet to that interface. This behavior is
+> > different from IPv6 which treats ipi6_ifindex = 0 as unspecified.
+> > Furthermore, IPv6 does not allow sending packets to other interface
+> > than the bound one, but I am not sure if it is necessary in IPv4. The
+> > following patch keeps the interface binding when ipi_ifindex = 0.
+> > 
+> > Thanks,
+> > Chia-chi
+> > 
+> > --- a/net/ipv4/ip_sockglue.c	2009-07-24 04:50:45.000000000 +0800
+> > +++ b/net/ipv4/ip_sockglue.c	2009-07-24 04:51:09.000000000 +0800
+> > @@ -213,7 +213,8 @@
+> >  			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo)))
+> >  				return -EINVAL;
+> >  			info = (struct in_pktinfo *)CMSG_DATA(cmsg);
+> > -			ipc->oif = info->ipi_ifindex;
+> > +			if (info->ipi_ifindex)
+> > +				ipc->oif = info->ipi_ifindex;
+> >  			ipc->addr = info->ipi_spec_dst.s_addr;
+> >  			break;
+> >  		}
 
-Alternatively we can modify the drivers to use try lock or other
-mechanisms that do not result in a dead-lock.
+A convenient copy of the man page says "When ipi_ifindex is not zero the
+primary local address of the interface specified by the index overwrites
+ipi_spec_dst for the routing table lookup."
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+But this is changing API behavior that's been this way since at least
+the beginning of git history.
+
+I guess Dave's letting this stand.  I'm posting this just to make sure
+this is an explicit decision.
+
+--
+John
