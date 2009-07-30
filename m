@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] net/netlabel: Add kmalloc NULL tests
-Date: Thu, 30 Jul 2009 10:59:00 -0700 (PDT)
-Message-ID: <20090730.105900.232424702.davem@davemloft.net>
-References: <200907301032.20318.paul.moore@hp.com>
-	<Pine.LNX.4.64.0907301637570.8734@ask.diku.dk>
-	<200907301053.37416.paul.moore@hp.com>
+Subject: Re: [PATCH] iscsi: Use GFP_ATOMIC in iscsi_offload_mesg().
+Date: Thu, 30 Jul 2009 11:04:18 -0700 (PDT)
+Message-ID: <20090730.110418.14002042.davem@davemloft.net>
+References: <4A70058F.50403@cs.wisc.edu>
+	<1248893392.16148.262.camel@HP1>
+	<4A70FA22.7010706@cs.wisc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia@diku.dk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: paul.moore@hp.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752099AbZG3R6z@vger.kernel.org>
-In-Reply-To: <200907301053.37416.paul.moore@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: open-iscsi@googlegroups.com, James.Bottomley@HansenPartnership.com,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+To: michaelc@cs.wisc.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45745
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751946AbZG3SEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 14:04:10 -0400
+In-Reply-To: <4A70FA22.7010706@cs.wisc.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Thu, 30 Jul 2009 10:53:37 -0400
+From: Mike Christie <michaelc@cs.wisc.edu>
+Date: Wed, 29 Jul 2009 20:40:50 -0500
 
-> On Thursday 30 July 2009 10:38:19 am Julia Lawall wrote:
->> From: Julia Lawall <julia@diku.dk>
+> On 07/29/2009 01:49 PM, Michael Chan wrote:
+>> Changing to GFP_ATOMIC because the only caller in cnic/bnx2i may
+>> be calling this function while holding spin_lock.
 >>
->> The test on map4 should be a test on map6.
+>> This problem was discovered by Mike Christie.
 >>
->> The semantic match that finds this problem is as follows:
->> (http://www.emn.fr/x-info/coccinelle/)
+>> Signed-off-by: Michael Chan<mchan@broadcom.com>
  ...
->> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Acked-by: Mike Christie <michaelc@cs.wisc.edu>
 > 
-> Much better, thank you.
-> 
-> Acked-by: Paul Moore <paul.moore@hp.com>
+> Dave Miller probably wants to take this in his tree since it fixes a
+> bug with this patch
+> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=6d7760a88c25057c2c2243e5dfe2d731064bd31d
 
-Applied, thanks.
+Yep I'll take it, thanks everyone.
