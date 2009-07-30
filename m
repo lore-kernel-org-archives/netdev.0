@@ -1,38 +1,45 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH V3] CAN: Add Flexcan CAN controller driver
-Date: Thu, 30 Jul 2009 22:22:11 +0200
-Message-ID: <4A7200F3.3010608@grandegger.com>
-References: <20090729082010.GZ2714@pengutronix.de>	<4A7011BA.7040906@grandegger.com>	<20090730083729.GC2714@pengutronix.de>	<4A715F0E.2070605@grandegger.com>	<20090730092730.GD2714@pengutronix.de> <4A719463.2060201@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] eexpress: Read buffer overflow
+Date: Thu, 30 Jul 2009 13:28:25 -0700 (PDT)
+Message-ID: <20090730.132825.03094033.davem@davemloft.net>
+References: <20090729122953.GC5490@ff.dom.local>
+	<4A704C40.1070606@gmail.com>
+	<20090729200517.GB3058@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core@lists.berlios.de,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: roel.kluin@gmail.com, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:34704 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752036AbZG3UWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 16:22:14 -0400
-In-Reply-To: <4A719463.2060201@grandegger.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45249
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752709AbZG3U2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 16:28:17 -0400
+In-Reply-To: <20090729200517.GB3058@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang Grandegger wrote:
-> Sascha Hauer wrote:
-[...]
->> 	errcnt = readl(&regs->errcnt);
->> 	rxerr = (errcnt >> 8) & 0xff;
->> 	txerr = errcnt & 0xff;
->> 	if ((rxerr >= 96 || txerr >= 96) && state == CAN_STATE_ERROR_ACTIVE)
->> 		state = CAN_STATE_ERROR_WARNING;
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 29 Jul 2009 22:05:17 +0200
+
+> On Wed, Jul 29, 2009 at 03:18:56PM +0200, Roel Kluin wrote:
+>> start_code is 69 words, but the code always writes a multiple of 16 words,
+>> so the last 11 words written are outside the array.
+>> 
+>> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+>> ---
+>> > Now you seem to make my previous math working :-)
+>> > 
+>> >>> (max) i = 64, (max) j = 14, (64+14+16)/2 = 47 < 69, so it seems to copy
+>> >>> less than its size?
+>> > 
+>> > Jarek P.
+>> > 
+>> 
+>> You're right, thanks for reviewing, this one should be correct.
 > 
-> Yes, or do not handle the state in the "case 0" above appropriately. The
-> CAN spec only specifies the bus error states error active, error passive
-> and bus off. The warning is somehow optional but available on most CAN
-> controllers. Nevertheless, we should create a message if the ISR
-> realizes a state changes.
+> Looks OK to me.
 
-FYI, I will be on holiday for the next 1.5 weeks.
+Applied.
 
-Wolfgang.
