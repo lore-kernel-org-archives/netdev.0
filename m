@@ -1,94 +1,28 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: [PATCH] pcnet32: VLB support fixes
-Date: Thu, 30 Jul 2009 23:17:52 +0200
-Message-ID: <200907302317.52648.bzolnier@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: select sane defaults for xfrm[4|6] gc_thresh
+Date: Thu, 30 Jul 2009 14:23:45 -0700 (PDT)
+Message-ID: <20090730.142345.148651785.davem@davemloft.net>
+References: <20090729003433.GA3414@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dan Carpenter <error27@gmail.com>, corbet@lwn.net,
-	eteo@redhat.com, Julia Lawall <julia@diku.dk>
-To: Don Fry <pcnet32@verizon.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752779AbZG3VWx@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47415
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752527AbZG3VXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 17:23:38 -0400
+In-Reply-To: <20090729003433.GA3414@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: [PATCH] pcnet32: VLB support fixes
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 28 Jul 2009 20:34:33 -0400
 
-VLB support has been broken since at least 2004-2005 period as some
-changes introduced back then assumed that ->pci_dev is always valid,
-lets try to fix it:
+> Choose saner defaults for xfrm[4|6] gc_thresh values on init
 
-- remove duplicated SET_NETDEV_DEV() call
+Looks great, applied to net-next-2.6
 
-- call SET_NETDEV_DEV() only for PCI devices
-
-- check for ->pci_dev validity in pcnet32_open()
-
-[ Alternatively we may consider removing VLB support but there would not
-  be much gain in it since an extra driver code needed for VLB support is
-  minimal and quite simple. ]
-
-This takes care of the following entry from Dan's list:
-
-drivers/net/pcnet32.c +1889 pcnet32_probe1(298) warning: variable derefenced before check 'pdev'
-
-Reported-by: Dan Carpenter <error27@gmail.com>
-Cc: corbet@lwn.net
-Cc: eteo@redhat.com
-Cc: Julia Lawall <julia@diku.dk>
-Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
----
-PS I still keep the original cc: list from the smatch thread -- please let
-me know if you don't want to be spammed.. ;-)
-
- drivers/net/pcnet32.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-Index: b/drivers/net/pcnet32.c
-===================================================================
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -1719,7 +1719,9 @@ pcnet32_probe1(unsigned long ioaddr, int
- 		ret = -ENOMEM;
- 		goto err_release_region;
- 	}
--	SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+	if (pdev)
-+		SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	if (pcnet32_debug & NETIF_MSG_PROBE)
- 		printk(KERN_INFO PFX "%s at %#3lx,", chipname, ioaddr);
-@@ -1818,7 +1820,6 @@ pcnet32_probe1(unsigned long ioaddr, int
- 
- 	spin_lock_init(&lp->lock);
- 
--	SET_NETDEV_DEV(dev, &pdev->dev);
- 	lp->name = chipname;
- 	lp->shared_irq = shared;
- 	lp->tx_ring_size = TX_RING_SIZE;	/* default tx ring size */
-@@ -2089,6 +2090,7 @@ static void pcnet32_free_ring(struct net
- static int pcnet32_open(struct net_device *dev)
- {
- 	struct pcnet32_private *lp = netdev_priv(dev);
-+	struct pci_dev *pdev = lp->pci_dev;
- 	unsigned long ioaddr = dev->base_addr;
- 	u16 val;
- 	int i;
-@@ -2149,9 +2151,9 @@ static int pcnet32_open(struct net_devic
- 	lp->a.write_csr(ioaddr, 124, val);
- 
- 	/* Allied Telesyn AT 2700/2701 FX are 100Mbit only and do not negotiate */
--	if (lp->pci_dev->subsystem_vendor == PCI_VENDOR_ID_AT &&
--	    (lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FX ||
--	     lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FX)) {
-+	if (pdev && pdev->subsystem_vendor == PCI_VENDOR_ID_AT &&
-+	    (pdev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FX ||
-+	     pdev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FX)) {
- 		if (lp->options & PCNET32_PORT_ASEL) {
- 			lp->options = PCNET32_PORT_FD | PCNET32_PORT_100;
- 			if (netif_msg_link(lp))
+Thanks!
