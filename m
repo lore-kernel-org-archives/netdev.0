@@ -1,44 +1,47 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Bonding ALB sends bogus packets
-Date: Thu, 30 Jul 2009 16:48:28 -0700
-Message-ID: <4A72314C.9080007@hp.com>
-References: <20090730130656.680e9152@nehalam>	<22132.1248985699@death.nxdomain.ibm.com>	<20090730133545.77e5a76a@nehalam> <20090731090658.db36b555.lk-netdev@lk-netdev.nosense.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] xfrm: select sane defaults for xfrm[4|6] gc_thresh
+Date: Thu, 30 Jul 2009 20:11:02 -0400
+Message-ID: <20090731001102.GA6068@localhost.localdomain>
+References: <20090729003433.GA3414@localhost.localdomain> <20090730.142345.148651785.davem@davemloft.net> <20090730.142554.103113174.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	bonding-devel@lists.sf.net, netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:30098 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbZG3Xsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 19:48:30 -0400
-In-Reply-To: <20090731090658.db36b555.lk-netdev@lk-netdev.nosense.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44405 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938AbZGaALP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 20:11:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20090730.142554.103113174.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Smith wrote:
+On Thu, Jul 30, 2009 at 02:25:54PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 30 Jul 2009 14:23:45 -0700 (PDT)
 > 
-> ETH_P_LOOP should probably have been avoided, as "LOOP" or "loopback"
-> is commonly used to refer to the Ethernet Configuration Testing
-> Protocol (google search for "Ethernet Loop protocol"). 
-
-I wonder how that relates to linkloop:
-
-http://sourceforge.net/projects/linkloop/
-
-http://fr2.rpmfind.net/linux/RPM/opensuse/factory/x86_64/usr_share_doc_packages_linkloop_Tree.html
-
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Tue, 28 Jul 2009 20:34:33 -0400
+> > 
+> >> Choose saner defaults for xfrm[4|6] gc_thresh values on init
+> > 
+> > Looks great, applied to net-next-2.6
 > 
-> I'd suggest not using any form of ARP for this purpose. It'd place an
-> IPv4 requirement on the bonded interface, and various "empty" ARP
-> frames have meaning e.g. duplicate address detection. 802.2 test frames
-> or the original Ethernet V2.0 Configuration Testing Protocol have been
-> used for this bridge table address refresh purpose in the past.
+> Actually I had to revert, how the heck did you build test
+> this? :-/
+> 
+> In file included from include/net/xfrm.h:21,
+>                  from net/ipv4/af_inet.c:113:
+> include/net/ip6_fib.h:28:1: warning: "FIB_TABLE_HASHSZ" redefined
+> In file included from net/ipv4/af_inet.c:102:
+> include/net/ip_fib.h:134:1: warning: this is the location of the previous definition
+> 
 
-I can never remember if linkloop uses XID or Test frames :(
+Thats bizzare, I've got it running on a system here at Red Hat if you want to
+take a look, it definatley built for me.  Sorry about that, let me figure out
+what went south and I'll repost.
 
-rick jones
+Neil
+
