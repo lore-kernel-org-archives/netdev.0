@@ -1,47 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] xfrm: select sane defaults for xfrm[4|6] gc_thresh
-Date: Thu, 30 Jul 2009 20:11:02 -0400
-Message-ID: <20090731001102.GA6068@localhost.localdomain>
-References: <20090729003433.GA3414@localhost.localdomain> <20090730.142345.148651785.davem@davemloft.net> <20090730.142554.103113174.davem@davemloft.net>
+From: Nathan Williams <nathan@traverse.com.au>
+Subject: Re: [PATCH 1/4] [atm] fixed faulty check
+Date: Fri, 31 Jul 2009 10:22:48 +1000
+Message-ID: <4A723958.3030807@traverse.com.au>
+References: <1248949491-20796-1-git-send-email-sgayda2@uiuc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	David.Woodhouse@intel.com, netdev@vger.kernel.org
+To: Stoyan Gaydarov <sgayda2@uiuc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44405 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938AbZGaALP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 20:11:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20090730.142554.103113174.davem@davemloft.net>
+Received: from ipmail05.adl2.internode.on.net ([203.16.214.145]:42187 "EHLO
+	ipmail05.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751938AbZGaAWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 20:22:48 -0400
+In-Reply-To: <1248949491-20796-1-git-send-email-sgayda2@uiuc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 30, 2009 at 02:25:54PM -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 30 Jul 2009 14:23:45 -0700 (PDT)
+Stoyan Gaydarov wrote:
+> This patche fixes a spelling error that has resulted from copy and pasting. The location of the error was found using a semantic patch but the semantic patch was not trying to find these errors. After looking things over it seemed logical that this change was needed. Please review it and then include the patch if it is in fact the correct change.
 > 
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Tue, 28 Jul 2009 20:34:33 -0400
-> > 
-> >> Choose saner defaults for xfrm[4|6] gc_thresh values on init
-> > 
-> > Looks great, applied to net-next-2.6
+> Signed-off-by: Stoyan Gaydarov <sgayda2@uiuc.edu>
+> ---
+>  drivers/atm/solos-pci.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Actually I had to revert, how the heck did you build test
-> this? :-/
-> 
-> In file included from include/net/xfrm.h:21,
->                  from net/ipv4/af_inet.c:113:
-> include/net/ip6_fib.h:28:1: warning: "FIB_TABLE_HASHSZ" redefined
-> In file included from net/ipv4/af_inet.c:102:
-> include/net/ip_fib.h:134:1: warning: this is the location of the previous definition
-> 
+> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+> index 9359613..307321b 100644
+> --- a/drivers/atm/solos-pci.c
+> +++ b/drivers/atm/solos-pci.c
+> @@ -372,7 +372,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+>  	}
+>  
+>  	snr = next_string(skb);
+> -	if (!str)
+> +	if (!snr)
+>  		return -EIO;
+>  	attn = next_string(skb);
+>  	if (!attn)
 
-Thats bizzare, I've got it running on a system here at Red Hat if you want to
-take a look, it definatley built for me.  Sorry about that, let me figure out
-what went south and I'll repost.
-
-Neil
-
+Thanks Stoyan.  Julia Lawall found this error a few days ago, which has been applied to net-next-2.6.
