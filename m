@@ -1,83 +1,46 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Re: Bonding ALB sends bogus packets
-Date: Fri, 31 Jul 2009 11:00:58 +0930
-Message-ID: <20090731110058.0e4216ee.lk-netdev@lk-netdev.nosense.org>
-References: <20090730130656.680e9152@nehalam>
-	<22132.1248985699@death.nxdomain.ibm.com>
-	<20090730133545.77e5a76a@nehalam>
-	<20090731090658.db36b555.lk-netdev@lk-netdev.nosense.org>
-	<4A72314C.9080007@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: select sane defaults for xfrm[4|6] gc_thresh
+Date: Thu, 30 Jul 2009 18:34:30 -0700 (PDT)
+Message-ID: <20090730.183430.122005044.davem@davemloft.net>
+References: <20090730.142345.148651785.davem@davemloft.net>
+	<20090730.142554.103113174.davem@davemloft.net>
+	<20090731001102.GA6068@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	bonding-devel@lists.sf.net, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.adam.net.au ([202.136.110.253]:43025 "EHLO
-	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199AbZGaBbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 21:31:20 -0400
-In-Reply-To: <4A72314C.9080007@hp.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51245
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751068AbZGaBeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 21:34:22 -0400
+In-Reply-To: <20090731001102.GA6068@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Rick,
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 30 Jul 2009 20:11:02 -0400
 
-On Thu, 30 Jul 2009 16:48:28 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
-
-> Mark Smith wrote:
-> > 
-> > ETH_P_LOOP should probably have been avoided, as "LOOP" or "loopback"
-> > is commonly used to refer to the Ethernet Configuration Testing
-> > Protocol (google search for "Ethernet Loop protocol"). 
+> On Thu, Jul 30, 2009 at 02:25:54PM -0700, David Miller wrote:
+>> From: David Miller <davem@davemloft.net>
+>> Date: Thu, 30 Jul 2009 14:23:45 -0700 (PDT)
+>> 
+>> Actually I had to revert, how the heck did you build test
+>> this? :-/
+>> 
+>> In file included from include/net/xfrm.h:21,
+>>                  from net/ipv4/af_inet.c:113:
+>> include/net/ip6_fib.h:28:1: warning: "FIB_TABLE_HASHSZ" redefined
+>> In file included from net/ipv4/af_inet.c:102:
+>> include/net/ip_fib.h:134:1: warning: this is the location of the previous definition
+>> 
 > 
-> I wonder how that relates to linkloop:
-> 
-> http://sourceforge.net/projects/linkloop/
-> 
-> http://fr2.rpmfind.net/linux/RPM/opensuse/factory/x86_64/usr_share_doc_packages_linkloop_Tree.html
-> 
+> Thats bizzare, I've got it running on a system here at Red Hat if you want to
+> take a look, it definatley built for me.  Sorry about that, let me figure out
+> what went south and I'll repost.
 
-> > 
-> > I'd suggest not using any form of ARP for this purpose. It'd place an
-> > IPv4 requirement on the bonded interface, and various "empty" ARP
-> > frames have meaning e.g. duplicate address detection. 802.2 test frames
-> > or the original Ethernet V2.0 Configuration Testing Protocol have been
-> > used for this bridge table address refresh purpose in the past.
-> 
-> I can never remember if linkloop uses XID or Test frames :(
-> 
-
->From memory when I looked into it a year or so ago, linkloop
-used 802.2 test frames.
-
-When I decided to have a go at implementing ECTP for the Linux kernel
-a couple of years ago, one thing I didn't want to was to duplicate
-already existing layer 2 testing functionality in the kernel, which
-meant comparing 802.2 test frames capability verses ECTP. 802.2 test
-frames only do single hop unicast request/reply testing, obviously
-requiring you to already know the test unicast address. ECTP, in
-addition, provides broadcast and optionally multicast ECTP capable node
-discovery, and the ability test a path of nodes, by providing a list of
-unicast addresses to visit i.e. a strict source route. As I've found
-IPv4 'broadcast pings' occasionally useful, I thought a layer 2
-equivalent, not requiring IPv4 to be functioning, would also be quite
-useful.
-
-ECTP could also probably be used over any 802.2 capable network, by
-using the SNAP encoding with an OUI of 0x000000 and then a protocol ID
-of 0x9000. 
-
-(When you start looking into it, it's interesting how many layer 2
-keepalive/testing protocols have been developed over the years,
-including most recently the Ethernet OAM protocols. What is also
-suprising is that the original Ethernet V2.0 Configuration Testing
-Protocol tends to be more capable than any of them - they're usually
-just single-hop request/reply testing)
-
-Regards,
-Mark.
+Sorry, bad phrasing on my part.  It built, it just spits out those
+warnings because ipv4 and ipv6 use the same macro name and it
+gets redefined.
