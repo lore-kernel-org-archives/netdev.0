@@ -1,37 +1,68 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 2/2] c/r: Add AF_INET support (v3)
-Date: Fri, 31 Jul 2009 12:40:55 -0700
-Message-ID: <87hbwsy720.fsf@caffeine.danplanet.com>
-References: <1246994776-1882-1-git-send-email-danms@us.ibm.com>
-	<1246994776-1882-3-git-send-email-danms@us.ibm.com>
-	<1249068948.1104.0.camel@Maple>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [net-next-2.6 PATCH 6/9] ixgb: return PCI_ERS_RESULT_DISCONNECT
+ on permanent failure
+Date: Fri, 31 Jul 2009 12:44:03 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.0907311236400.9560@ppwaskie-MOBL2.amr.corp.intel.com>
+References: <20090731191254.5470.99642.send-patch@aqua>
+ <20090731191340.5470.79342.send-patch@aqua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Oren Laaden <orenl@cs.columbia.edu>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: John Dykstra <john.dykstra1@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Dean Nelson <dnelson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:33423 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751008AbZGaTlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2009 15:41:06 -0400
-In-Reply-To: <1249068948.1104.0.camel@Maple> (John Dykstra's message of "Fri\, 31 Jul 2009 19\:35\:48 +0000")
+Received: from mga09.intel.com ([134.134.136.24]:1919 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751376AbZGaToE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Jul 2009 15:44:04 -0400
+In-Reply-To: <20090731191340.5470.79342.send-patch@aqua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +       CKPT_COPY(op, hh->tcp.last_synq_overflow, sk->last_synq_overflow);
+On Fri, 31 Jul 2009, Dean Nelson wrote:
 
-JD> This sock field was removed from the mainline kernel by commit
-JD> a0f82f64e26929776c58a5c93c2ecb38e3d82815.
+> PCI drivers that implement the struct pci_error_handlers' error_detected
+> callback should return PCI_ERS_RESULT_DISCONNECT if the state passed in is
+> pci_channel_io_perm_failure. This patch fixes the issue for ixgb.
+> 
+> Signed-off-by: Dean Nelson <dnelson@redhat.com>
+> 
+> ---
+> 
+> This patch has not been tested, since I don't have the hardware to test it.
+> It is based on a few recent patches. See the following commits:
+> 
+> http://git.kernel.org/linus/c93b5a76d58656158d195a7df507ebc660010969
+> http://git.kernel.org/linus/eab633021c26025b34f36f79f0311d3d99f40ceb
+> http://git.kernel.org/linus/ef681ce1e8b3e63317cd724c200b2fd39286c005
+> http://git.kernel.org/linus/59ed6eecff4aa00c5c5d18ffd180acac108d596e
+> http://git.kernel.org/linus/3044b8d1ff8c05237652a692fb572a34e4d70146
+> 
+>  drivers/net/ixgb/ixgb_main.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+> index eb917f1..fad08ce 100644
+> --- a/drivers/net/ixgb/ixgb_main.c
+> +++ b/drivers/net/ixgb/ixgb_main.c
+> @@ -2227,6 +2227,11 @@ static pci_ers_result_t ixgb_io_error_detected(struct pci_dev *pdev,
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct ixgb_adapter *adapter = netdev_priv(netdev);
+>  
+> +	netif_device_detach(netdev);
+> +
+> +	if (state == pci_channel_io_perm_failure)
+> +		return PCI_ERS_RESULT_DISCONNECT;
+> +
+>  	if (netif_running(netdev))
+>  		ixgb_down(adapter, true);
 
-Ah, thanks for this.  I'm trying to get the UNIX patch updated with
-the latest round of feedback and then I'll take this and the other
-comments forward with the INET patch.
+Seems reasonable, especially since the same logic works fine on our other 
+drivers.  The hardware for this driver is somewhat difficult to get our 
+hands on, but we'll definately give this a spot test once we can locate 
+one of these NICs.
 
-Thanks!
-
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+Cheers,
+-PJ Waskiewicz
