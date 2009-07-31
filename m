@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: select sane defaults for xfrm[4|6] gc_thresh
-Date: Thu, 30 Jul 2009 18:53:16 -0700 (PDT)
-Message-ID: <20090730.185316.110755605.davem@davemloft.net>
-References: <20090730.142345.148651785.davem@davemloft.net>
-	<20090730.142554.103113174.davem@davemloft.net>
-	<20090731011130.GA16769@localhost.localdomain>
+Subject: Re: [net-2.6 PATCH 1/3] ixgbe: Fix netpoll to be properly
+ multiqueue aware
+Date: Thu, 30 Jul 2009 19:28:57 -0700 (PDT)
+Message-ID: <20090730.192857.148595537.davem@davemloft.net>
+References: <20090730222501.26121.2952.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40134
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37765
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752337AbZGaBxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 21:53:09 -0400
-In-Reply-To: <20090731011130.GA16769@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751342AbZGaC2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jul 2009 22:28:49 -0400
+In-Reply-To: <20090730222501.26121.2952.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 30 Jul 2009 21:11:30 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 30 Jul 2009 15:25:09 -0700
 
-> Ok, version 2. I'm not sure exactly what went wrong, but I definately had it
-> built and running.
+> Our ndo_poll_controller callback is broken for anything but non-multiqueue
+> setups.  This fixes that issue.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-As I said in my other email, the original patch does build and it
-probably runs too, it's just the warnings that you definitely didn't
-notice in the build at all.
-
-I've apply this new version, thanks.
+Applied.
