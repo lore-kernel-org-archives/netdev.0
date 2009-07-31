@@ -1,59 +1,106 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Fri, 31 Jul 2009 14:09:21 -0400
-Message-ID: <20090731180921.GA24491@hmsreliant.think-freely.org>
-References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx> <20090729194300.GB17410@hmsreliant.think-freely.org> <20090729223831.GA14066@gondor.apana.org.au> <20090730010639.GB4169@localhost.localdomain> <20090731013017.GB25895@gondor.apana.org.au> <20090731125654.GB18303@hmsreliant.think-freely.org> <20090731130243.GA31058@gondor.apana.org.au>
+From: Don Fry <pcnet32@verizon.net>
+Subject: Re: [PATCH] pcnet32: remove superfluous NULL pointer check in
+ pcnet32_probe1()
+Date: Fri, 31 Jul 2009 11:40:06 -0700
+Message-ID: <1249065606.4229.1.camel@localhost.localdomain>
+References: <200907302319.18150.bzolnier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan Carpenter <error27@gmail.com>, corbet@lwn.net,
+	eteo@redhat.com, Julia Lawall <julia@diku.dk>
+To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57936 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063AbZGaSJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2009 14:09:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090731130243.GA31058@gondor.apana.org.au>
+Received: from vms173003pub.verizon.net ([206.46.173.3]:39061 "EHLO
+	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752793AbZGaSkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2009 14:40:07 -0400
+In-reply-to: <200907302319.18150.bzolnier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 31, 2009 at 09:02:43PM +0800, Herbert Xu wrote:
-> On Fri, Jul 31, 2009 at 08:56:54AM -0400, Neil Horman wrote:
-> >
-> > > tg3_poll => tg3_poll_work => tg3_tx => netif_tx_lock
-> > 
-> > Oh, goodness, thats just asking for disaster.  Setting asside the netpoll issue
-> > for the moment, what if we take an rx interrupt on a cpu while in the middle of
-> > sending a frame?  Whats to stop the NET_RX_SOFTIRQ after the hard interrupt and
-> > recursively taking the _xmit_lock?  With or without netpoll, that seems prone to
-> > deadlock.
-> 
-> No that can't happen because BH is disabled in the xmit function.
-> 
-> This problem is specific to netpoll because it does things that
-> normally can't happen with BH off.
-> 
-Ugh, you're right, my bad.  
+Acked-by:  Don Fry <pcnet32@verizon.net>
 
-In fact, looking back, we had a similar problem (but not identical) in RHEL, in
-which the netpoll path was removing the device from the poll_list from a
-different cpu, leading to a double free.  I fixed it by adding a state bit to
-the napi flags that let helper functions know that we were in a netpoll context,
-which let us avoid doing stupid things.  Perhaps such a solution might be
-usefull here.  Set the flag when calling the poll routine from a netpoll
-context, so napi_tx_lock, would know to do a trylock and always return success
-or something of that nature.
+-----Original Message-----
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+To: Don Fry <pcnet32@verizon.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Dan Carpenter
+<error27@gmail.com>, corbet@lwn.net, eteo@redhat.com, Julia Lawall
+<julia@diku.dk>
+Subject: [PATCH] pcnet32: remove superfluous NULL pointer check in
+pcnet32_probe1()
+Date: Thu, 30 Jul 2009 23:19:17 +0200
 
-I'd also be up for simply ripping out netpoll entirely..... ;)
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Subject: [PATCH] pcnet32: remove superfluous NULL pointer check in pcnet32_probe1()
 
-Neil
+Move the debug printk() into the proper place and remove superfluous
+NULL pointer check in pcnet32_probe1().
 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> 
+This takes care of the following entry from Dan's list:
+
+drivers/net/pcnet32.c +1889 pcnet32_probe1(298) warning: variable derefenced before check 'pdev'
+
+Reported-by: Dan Carpenter <error27@gmail.com>
+Cc: corbet@lwn.net
+Cc: eteo@redhat.com
+Cc: Julia Lawall <julia@diku.dk>
+Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+---
+ drivers/net/pcnet32.c |   18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
+
+Index: b/drivers/net/pcnet32.c
+===================================================================
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -1611,8 +1611,11 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		if (pcnet32_dwio_read_csr(ioaddr, 0) == 4
+ 		    && pcnet32_dwio_check(ioaddr)) {
+ 			a = &pcnet32_dwio;
+-		} else
++		} else {
++			if (pcnet32_debug & NETIF_MSG_PROBE)
++				printk(KERN_ERR PFX "No access methods\n");
+ 			goto err_release_region;
++		}
+ 	}
+ 
+ 	chip_version =
+@@ -1853,12 +1856,6 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 	    ((cards_found >= MAX_UNITS) || full_duplex[cards_found]))
+ 		lp->options |= PCNET32_PORT_FD;
+ 
+-	if (!a) {
+-		if (pcnet32_debug & NETIF_MSG_PROBE)
+-			printk(KERN_ERR PFX "No access methods\n");
+-		ret = -ENODEV;
+-		goto err_free_consistent;
+-	}
+ 	lp->a = *a;
+ 
+ 	/* prior to register_netdev, dev->name is not yet correct */
+@@ -1974,14 +1971,13 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 
+ 	return 0;
+ 
+-      err_free_ring:
++err_free_ring:
+ 	pcnet32_free_ring(dev);
+-      err_free_consistent:
+ 	pci_free_consistent(lp->pci_dev, sizeof(*lp->init_block),
+ 			    lp->init_block, lp->init_dma_addr);
+-      err_free_netdev:
++err_free_netdev:
+ 	free_netdev(dev);
+-      err_release_region:
++err_release_region:
+ 	release_region(ioaddr, PCNET32_TOTAL_SIZE);
+ 	return ret;
+ }
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
