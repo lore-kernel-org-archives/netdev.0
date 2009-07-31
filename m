@@ -1,42 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Fri, 31 Jul 2009 21:02:43 +0800
-Message-ID: <20090731130243.GA31058@gondor.apana.org.au>
-References: <20090729073523.GA4515@gondor.apana.org.au> <1248894478.4545.2822.camel@calx> <20090729194300.GB17410@hmsreliant.think-freely.org> <20090729223831.GA14066@gondor.apana.org.au> <20090730010639.GB4169@localhost.localdomain> <20090731013017.GB25895@gondor.apana.org.au> <20090731125654.GB18303@hmsreliant.think-freely.org>
+From: Sumedha Gupta <2sumedha@gmail.com>
+Subject: Bandwidth of NIC bonding/trunking
+Date: Fri, 31 Jul 2009 09:40:51 -0400
+Message-ID: <869c36e20907310640m41163a2j57198d8ea5e91ba0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Matt Carlson <mcarlson@broadcom.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:37759 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752201AbZGaNCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2009 09:02:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20090731125654.GB18303@hmsreliant.think-freely.org>
+Received: from qw-out-2122.google.com ([74.125.92.24]:26523 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbZGaNkv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Jul 2009 09:40:51 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so1109535qwh.37
+        for <netdev@vger.kernel.org>; Fri, 31 Jul 2009 06:40:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 31, 2009 at 08:56:54AM -0400, Neil Horman wrote:
->
-> > tg3_poll => tg3_poll_work => tg3_tx => netif_tx_lock
-> 
-> Oh, goodness, thats just asking for disaster.  Setting asside the netpoll issue
-> for the moment, what if we take an rx interrupt on a cpu while in the middle of
-> sending a frame?  Whats to stop the NET_RX_SOFTIRQ after the hard interrupt and
-> recursively taking the _xmit_lock?  With or without netpoll, that seems prone to
-> deadlock.
+I configured bonding/trunking on a Netgear GS724TR switch. I am using
+a 4-port NIC card using=A0Intel Corporation 82571EB ethernet controller
+on machine X with all four ports connected to the switch. There are
+four client machines (A, B, C, D) also connected to the switch.
+iperf is running on machine X as a server and machines A, B, C, D are
+running as iperf clients:
+With round robin, I consistently get:
+=A0Interval =A0 =A0 =A0 =A0 =A0 =A0Transfer =A0 =A0 =A0 =A0 Bandwidth
+=A00.0-10.0 sec =A0 =A0992 MBytes =A0 =A0831 Mbits/sec
+=A00.0-10.0 sec =A0 =A0989 MBytes =A0 =A0828 Mbits/sec
+=A00.0-10.0 sec =A01019 MBytes =A0 =A0854 Mbits/sec
+=A00.0-10.0 sec =A0 =A0965 MBytes =A0 =A0808 Mbits/sec
+However with XOR, I am not getting enough bandwidth:
+=A00.0-10.0 sec =A0 =A0619 MBytes =A0 =A0519 Mbits/sec
+=A00.0-10.0 sec =A0 =A0398 MBytes =A0 =A0333 Mbits/sec
+=A00.0-10.0 sec =A0 =A0338 MBytes =A0 =A0283 Mbits/sec
+=A00.0-10.0 sec =A0 =A0612 MBytes =A0 =A0513 Mbits/sec
+Similar results with transmit load balancing (tlb), 802.3ad, active
+backup and broadcast:
+=A00.0-10.5 sec =A0 =A0421 MBytes =A0 =A0336 Mbits/sec
+=A00.0-10.1 sec =A0 =A0323 MBytes =A0 =A0269 Mbits/sec
+=A00.0-10.0 sec =A0 =A0301 MBytes =A0 =A0252 Mbits/sec
+=A00.0-10.0 sec =A0 =A0405 MBytes =A0 =A0339 Mbits/sec
+Although, with adaptive load balancing I was constantly getting
+perfect bandwidth:
+=A00.0-10.0 sec =A01.09 GBytes =A0 =A0937 Mbits/sec
+=A00.0-10.0 sec =A01.09 GBytes =A0 =A0937 Mbits/sec
+=A00.0-10.0 sec =A01.09 GBytes =A0 =A0937 Mbits/sec
+=A00.0-10.0 sec =A01.09 GBytes =A0 =A0937 Mbits/sec
+I wanted to know if so much change with mode change in bonding is
+expected or did I configure something wrong in the switch which is
+causing xor, tlb, 802.3ad etc. to not work properly?
 
-No that can't happen because BH is disabled in the xmit function.
-
-This problem is specific to netpoll because it does things that
-normally can't happen with BH off.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+Sumedha
