@@ -1,18 +1,17 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: [PATCH 6/10] drivers/net/wireless/iwlwifi: introduce missing kfree
-Date: Sat, 1 Aug 2009 10:54:21 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0908011054010.23408@ask.diku.dk>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 10/10] drivers/net/wireless: introduce missing kfree
+Date: Sat, 1 Aug 2009 10:55:53 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0908011055250.23408@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752769AbZHAI6c@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Julia Lawall <julia@diku.dk>
 
 Error handling code following a kzalloc should free the allocated data.
 
@@ -56,24 +55,20 @@ p2 << r.p2;
 print "* file: %s kmalloc %s return %s" % (p1[0].file,p1[0].line,p2[0].line)
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Signed-off-by: Julia Lawall <julia@diku.dk>
 ---
- drivers/net/wireless/iwlwifi/iwl-debugfs.c     |    1 +
+ drivers/net/wireless/iwmc3200wifi/commands.c   |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-debugfs.c b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-index 7707a26..c2106d0 100644
---- a/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-@@ -320,6 +320,7 @@ static ssize_t iwl_dbgfs_nvm_read(struct file *file,
- 	ptr = priv->eeprom;
- 	if (!ptr) {
- 		IWL_ERR(priv, "Invalid EEPROM/OTP memory\n");
-+		kfree(buf);
- 		return -ENOMEM;
+diff --git a/drivers/net/wireless/iwmc3200wifi/commands.c b/drivers/net/wireless/iwmc3200wifi/commands.c
+index 0d66370..2bf9ef9 100644
+--- a/drivers/net/wireless/iwmc3200wifi/commands.c
++++ b/drivers/net/wireless/iwmc3200wifi/commands.c
+@@ -233,6 +233,7 @@ int iwm_store_rxiq_calib_result(struct iwm_priv *iwm)
+ 	eeprom_rxiq = iwm_eeprom_access(iwm, IWM_EEPROM_CALIB_RXIQ);
+ 	if (IS_ERR(eeprom_rxiq)) {
+ 		IWM_ERR(iwm, "Couldn't access EEPROM RX IQ entry\n");
++		kfree(rxiq);
+ 		return PTR_ERR(eeprom_rxiq);
  	}
- 	pos += scnprintf(buf + pos, buf_size - pos, "NVM Type: %s\n",
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
