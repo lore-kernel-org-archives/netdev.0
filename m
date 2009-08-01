@@ -1,35 +1,64 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 2.6.31-rc4] gigaset: really fix chars_in_buffer
-Date: Sat, 1 Aug 2009 17:11:41 +0100
-Message-ID: <20090801171141.7a463347@lxorguk.ukuu.org.uk>
-References: <20090801-patch-01.tilman@imap.cc>
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Subject: [PATCH 4/5] drivers/net/wireless: Use DIV_ROUND_CLOSEST
+Date: Sat, 1 Aug 2009 21:50:31 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0908012149570.25693@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@linux.intel.com>,
-	Hansjoerg Lipp <hjlipp@web.de>
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:36787 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751649AbZHAQKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Aug 2009 12:10:45 -0400
-In-Reply-To: <20090801-patch-01.tilman@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat,  1 Aug 2009 14:18:51 +0200 (CEST)
-Tilman Schmidt <tilman@imap.cc> wrote:
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
-> This patch corrects the problem noted but left unfixed by commit
-> 23198fda7182969b619613a555f8645fdc3dc334 "tty: fix chars_in_buffers".
-> The tty_operation chars_in_buffer() should return zero, not a
-> negative value, in the error case.
+The kernel.h macro DIV_ROUND_CLOSEST performs the computation (x + d/2)/d
+but is perhaps more readable.
 
-Is that correct. If you take a signal so the mutex_lock_interruptible
-takes the error path we'll exit any waits for characters to be flushed
-from buffers and lose the bytes in some cases ? Thats why I didn't
-convert it - I didn't understand why it was using _interruptible at all ?
+The semantic patch that makes this change is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
 
-Alan
+// <smpl>
+@haskernel@
+@@
+
+#include <linux/kernel.h>
+
+@depends on haskernel@
+expression x,__divisor;
+@@
+
+- (((x) + ((__divisor) / 2)) / (__divisor))
++ DIV_ROUND_CLOSEST(x,__divisor)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+
+---
+ drivers/net/wireless/strip.c        |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/strip.c b/drivers/net/wireless/strip.c
+index 73300c2..8eabb56 100644
+--- a/drivers/net/wireless/strip.c
++++ b/drivers/net/wireless/strip.c
+@@ -1550,9 +1550,12 @@ static int strip_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (time_after(jiffies, strip_info->pps_timer + HZ)) {
+ 		unsigned long t = jiffies - strip_info->pps_timer;
+-		unsigned long rx_pps_count = (strip_info->rx_pps_count * HZ * 8 + t / 2) / t;
+-		unsigned long tx_pps_count = (strip_info->tx_pps_count * HZ * 8 + t / 2) / t;
+-		unsigned long sx_pps_count = (strip_info->sx_pps_count * HZ * 8 + t / 2) / t;
++		unsigned long rx_pps_count =
++			DIV_ROUND_CLOSEST(strip_info->rx_pps_count*HZ*8, t);
++		unsigned long tx_pps_count =
++			DIV_ROUND_CLOSEST(strip_info->tx_pps_count*HZ*8, t);
++		unsigned long sx_pps_count =
++			DIV_ROUND_CLOSEST(strip_info->sx_pps_count*HZ*8, t);
+ 
+ 		strip_info->pps_timer = jiffies;
+ 		strip_info->rx_pps_count = 0;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
