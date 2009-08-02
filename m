@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 0/9] return PCI_ERS_RESULT_DISCONNECT on
- permanent failure
-Date: Sat, 01 Aug 2009 23:13:29 -0700 (PDT)
-Message-ID: <20090801.231329.53805783.davem@davemloft.net>
-References: <20090731191254.5470.99642.send-patch@aqua>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: [PATCH] s6gmac: Read buffer overflow
+Date: Sun, 02 Aug 2009 08:20:13 +0200
+Message-ID: <4A75301D.5070802@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dnelson@redhat.com
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35063
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751183AbZHBGNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 02:13:21 -0400
-In-Reply-To: <20090731191254.5470.99642.send-patch@aqua>
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:64364 "EHLO
+	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbZHBGRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 02:17:06 -0400
+Received: by ewy10 with SMTP id 10so2352309ewy.37
+        for <netdev@vger.kernel.org>; Sat, 01 Aug 2009 23:17:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
-Date: Fri, 31 Jul 2009 15:12:55 -0400
+Check whether index is within bounds before testing the element.
+In the last iteration i is PHY_MAX_ADDR. the condition
+`!(p = pd->mii.bus->phy_map[PHY_MAX_ADDR])' is undefined and may
+evaluate to false, which leads to a dereference of this invalid
+phy_map in the phy_connect() below.
 
-> PCI drivers that implement the struct pci_error_handlers' error_detected
-> callback should return PCI_ERS_RESULT_DISCONNECT if the state passed in is
-> pci_channel_io_perm_failure.
- ...
-> This patchset is an attempt to address the remaining net drivers of this type.
-> None of the patches in this patchset have been tested, since I don't have the
-> hardware to test any of them. I'm simply making these patches available for
-> whomever is interested and able to test them, to do so. Perhaps the individual
-> patches can be committed as they get tested, reviewed and ACK'd.
-
-I think these are safe to apply, they look so straightforward
-to me.  I've thus added them all to net-next-2.6, thanks!
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/drivers/net/s6gmac.c b/drivers/net/s6gmac.c
+index 5345e47..4525cbe 100644
+--- a/drivers/net/s6gmac.c
++++ b/drivers/net/s6gmac.c
+@@ -793,7 +793,7 @@ static inline int s6gmac_phy_start(struct net_device *dev)
+ 	struct s6gmac *pd = netdev_priv(dev);
+ 	int i = 0;
+ 	struct phy_device *p = NULL;
+-	while ((!(p = pd->mii.bus->phy_map[i])) && (i < PHY_MAX_ADDR))
++	while ((i < PHY_MAX_ADDR) && (!(p = pd->mii.bus->phy_map[i])))
+ 		i++;
+ 	p = phy_connect(dev, dev_name(&p->dev), &s6gmac_adjust_link, 0,
+ 			PHY_INTERFACE_MODE_RGMII);
