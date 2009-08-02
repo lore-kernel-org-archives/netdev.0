@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Avoid transmits during sky2_down()
-Date: Sun, 02 Aug 2009 13:09:12 -0700 (PDT)
-Message-ID: <20090802.130912.180264634.davem@davemloft.net>
-References: <392fb48f0907310457t15d8f9bbmdf77f062c423a475@mail.gmail.com>
+Subject: Re: [PATCH] pcnet32: remove superfluous NULL pointer check in
+ pcnet32_probe1()
+Date: Sun, 02 Aug 2009 13:12:56 -0700 (PDT)
+Message-ID: <20090802.131256.210461366.davem@davemloft.net>
+References: <200907302319.18150.bzolnier@gmail.com>
+	<20090802.123022.148176905.davem@davemloft.net>
+	<200908022207.29942.bzolnier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: mikem@ring3k.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50963
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753632AbZHBUJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 16:09:04 -0400
-In-Reply-To: <392fb48f0907310457t15d8f9bbmdf77f062c423a475@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, error27@gmail.com, corbet@lwn.net,
+	eteo@redhat.com, julia@diku.dk
+To: bzolnier@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753648AbZHBUMt@vger.kernel.org>
+In-Reply-To: <200908022207.29942.bzolnier@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike McCormack <mikem@ring3k.org>
-Date: Fri, 31 Jul 2009 20:57:42 +0900
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Date: Sun, 2 Aug 2009 22:07:29 +0200
 
-> I am aware you object to storing extra state, but I can't see a way
-> around this. Without remembering that we're restarting,
-> netif_wake_queue() is called in the ISR from sky2_tx_complete(), and
-> netif_tx_lock() is used in sky2_tx_done().  If anybody can see a way
-> around this, please let me know.
+> netdev@vger.kernel.org was on cc: for all patches...
+> 
+> http://marc.info/?l=linux-netdev&m=124898901714229&w=2
+> http://marc.info/?l=linux-netdev&m=124898901714236&w=2
+> 
+> maybe there is some problem with a patchwork setup..
 
-Stephen please do something about this, soon.
-
-Michael has been trying to get this fixed for more than a month, and
-if you don't have a better fix like right now then we should put his
-fix in for the time being.
-
-Sky2 patches are ones that consistently rot in patchwork and I'd
-appreciate if it that trend would cease, thanks.
+My bad, I misread the CC: list, sorry.
