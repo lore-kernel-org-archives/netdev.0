@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next-2.6] cxgb3: fix EDC filename string
-Date: Sun, 02 Aug 2009 12:30:42 -0700 (PDT)
-Message-ID: <20090802.123042.82594682.davem@davemloft.net>
-References: <20090731072334.4325.34323.stgit@speedy5>
+Subject: Re: [PATCH] mISDN: Read buffer overflow
+Date: Sun, 02 Aug 2009 12:31:04 -0700 (PDT)
+Message-ID: <20090802.123104.86253382.davem@davemloft.net>
+References: <4A72F51F.3000503@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49062
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49070
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753475AbZHBTae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 15:30:34 -0400
-In-Reply-To: <20090731072334.4325.34323.stgit@speedy5>
+	by vger.kernel.org with ESMTP id S1753462AbZHBTaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 15:30:55 -0400
+In-Reply-To: <4A72F51F.3000503@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Fri, 31 Jul 2009 00:23:34 -0700
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Fri, 31 Jul 2009 15:43:59 +0200
 
-> From: Divy Le Ray <divy@chelsio.com>
+> Check whether index is within bounds before testing the element.
 > 
-> Fix a cut'n paste error in the AEL2020 twinax EDC file name
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
 Applied.
