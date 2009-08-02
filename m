@@ -1,32 +1,28 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [PATCH] tulip: Read buffer overflow
-Date: Sun, 2 Aug 2009 15:45:13 -0400
-Message-ID: <20090802194513.GD28572@bombadil.infradead.org>
-References: <4A7531AC.4090400@gmail.com> <20090802.123141.91834055.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 2/2] IPVS: use pr_err and friends instead of
+ IP_VS_ERR and friends
+Date: Sun, 02 Aug 2009 12:55:35 -0700 (PDT)
+Message-ID: <20090802.125535.13404927.davem@davemloft.net>
+References: <20090731113155.22420.59863.stgit@jazzy.zrh.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roel.kluin@gmail.com, grundler@parisc-linux.org, kyle@mcmartin.ca,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:37127 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524AbZHBTpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 15:45:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20090802.123141.91834055.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, joe@perches.com, jengelh@medozas.de,
+	horms@verge.net.au
+To: heder@google.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20090731113155.22420.59863.stgit@jazzy.zrh.corp.google.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 02, 2009 at 12:31:41PM -0700, David Miller wrote:
-> From: Roel Kluin <roel.kluin@gmail.com>
-> Date: Sun, 02 Aug 2009 08:26:52 +0200
-> 
-> > Check whether index is within bounds before testing the element.
-> > 
-> > Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> 
-> Applied.
-> 
+From: Hannes Eder <heder@google.com>
+Date: Fri, 31 Jul 2009 13:31:55 +0200
 
-Thanks Dave, Roel.
+> Since pr_err and friends are used instead of printk there is not point
+> in keeping IP_VS_ERR and friends.  Furthermore make use of '__func__'
+> instead of hard coded function names.
+> 
+> Signed-off-by: Hannes Eder <heder@google.com>
+
+This patch does not apply to net-next-2.6.
