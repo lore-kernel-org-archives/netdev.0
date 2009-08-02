@@ -1,63 +1,83 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 12/15] drivers/atm: Use DIV_ROUND_CLOSEST
-Date: Sun, 2 Aug 2009 10:48:45 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0908021048280.15557@ask.diku.dk>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
+Date: Sun, 2 Aug 2009 14:21:30 +0530
+Message-ID: <OF4A7A6701.1BD183E8-ON65257604.0024A9E1-65257606.0030A90D@in.ibm.com>
+References: <20090728155055.2266.41649.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752324AbZHBIud@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+To: davem@davemloft.net, herbert@gondor.apana.org.au,
+	jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp04.in.ibm.com ([59.145.155.4]:40030 "EHLO
+	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752125AbZHBJPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 05:15:25 -0400
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp04.in.ibm.com (8.14.3/8.13.1) with ESMTP id n729FMHs030335
+	for <netdev@vger.kernel.org>; Sun, 2 Aug 2009 14:45:22 +0530
+Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n729FM5v786516
+	for <netdev@vger.kernel.org>; Sun, 2 Aug 2009 14:45:22 +0530
+Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
+	by d28av01.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n729FMLF025639
+	for <netdev@vger.kernel.org>; Sun, 2 Aug 2009 14:45:22 +0530
+In-Reply-To: <20090728155055.2266.41649.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Krishna Kumar2/India/IBM@IBMIN wrote on 07/28/2009 09:20:55 PM:
 
-The kernel.h macro DIV_ROUND_CLOSEST performs the computation (x + d/2)/d
-but is perhaps more readable.
+> Subject [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
+>
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+>
+> dev_queue_xmit enqueue's a skb and calls qdisc_run which
+> dequeue's the skb and xmits it. In most cases (after
+> instrumenting the code), the skb that is enqueue'd is the
+> same one that is dequeue'd (unless the queue gets stopped
+> or multiple cpu's write to the same queue and ends in a
+> race with qdisc_run). For default qdiscs, we can remove
+> this path and simply xmit the skb since this is a work
+> conserving queue.
 
-The semantic patch that makes this change is as follows:
-(http://www.emn.fr/x-info/coccinelle/)
+Any comments on this patch?
 
-// <smpl>
-@haskernel@
-@@
+Thanks,
 
-#include <linux/kernel.h>
+- KK
 
-@depends on haskernel@
-expression x,__divisor;
-@@
+> The patch uses a new flag - TCQ_F_CAN_BYPASS to identify
+> the default fast queue. I plan to use this flag for the
+> previous patch also (rename if required).  The controversial
+> part of the patch is incrementing qlen when a skb is
+> requeued, this is to avoid checks like the second line below:
+>
+> +    } else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q) &&
+> >> THIS LINE:   !q->gso_skb &&
+> +               !test_and_set_bit(__QDISC_STATE_RUNNING, &q->state)) {
+>
+> Results of a 4 hour testing for multiple netperf sessions
+> (1, 2, 4, 8, 12 sessions on a 4 cpu system-X and 1, 2, 4,
+> 8, 16, 32 sessions on a 16 cpu P6). Aggregate Mb/s across
+> the iterations:
+>
+> -----------------------------------------------------------------
+>      |         System-X          |               P6
+> -----------------------------------------------------------------
+> Size |  ORG BW          NEW BW   |      ORG BW          NEW BW
+> -----|---------------------------|-------------------------------
+> 16K  |  154264          156234   |      155350          157569
+> 64K  |  154364          154825   |      155790          158845
+> 128K |  154644          154803   |      153418          155572
+> 256K |  153882          152007   |      154784          154596
+> -----------------------------------------------------------------
+>
+> Netperf reported Service demand reduced by 15% on the P6 but
+> no noticeable difference on the system-X box.
+>
+> Please review.
+>
+> Thanks,
+>
+> - KK
 
-- (((x) + ((__divisor) / 2)) / (__divisor))
-+ DIV_ROUND_CLOSEST(x,__divisor)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/atm/horizon.c               |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
-index 6b969f8..01ce241 100644
---- a/drivers/atm/horizon.c
-+++ b/drivers/atm/horizon.c
-@@ -641,7 +641,7 @@ static int make_rate (const hrz_dev * dev, u32 c, rounding r,
- 					pre = 1;
- 				break;
- 			case round_nearest:
--				pre = (br+(c<<div)/2)/(c<<div);
-+				pre = DIV_ROUND_CLOSEST(br, c<<div);
- 				// but p must be non-zero
- 				if (!pre)
- 					pre = 1;
-@@ -671,7 +671,7 @@ static int make_rate (const hrz_dev * dev, u32 c, rounding r,
- 					pre = DIV_ROUND_UP(br, c<<div);
- 					break;
- 				case round_nearest:
--					pre = (br+(c<<div)/2)/(c<<div);
-+					pre = DIV_ROUND_CLOSEST(br, c<<div);
- 					break;
- 				default: /* round_up */
- 					pre = br/(c<<div);
