@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Resent][PATCH 1/1] inet6: functions shadow global variable
-Date: Sun, 02 Aug 2009 12:56:17 -0700 (PDT)
-Message-ID: <20090802.125617.08000271.davem@davemloft.net>
-References: <1248028721-24244-2-git-send-email-gerrit@erg.abdn.ac.uk>
-	<1248028721-24244-3-git-send-email-gerrit@erg.abdn.ac.uk>
-	<20090728194807.GB6277@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH 12/15] drivers/atm: Use DIV_ROUND_CLOSEST
+Date: Sun, 02 Aug 2009 12:55:52 -0700 (PDT)
+Message-ID: <20090802.125552.192054201.davem@davemloft.net>
+References: <Pine.LNX.4.64.0908021048280.15557@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59209
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752833AbZHBT4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 15:56:09 -0400
-In-Reply-To: <20090728194807.GB6277@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753567AbZHBTzs@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0908021048280.15557@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Tue, 28 Jul 2009 21:48:07 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 2 Aug 2009 10:48:45 +0200 (CEST)
 
-> inet6: local functions shadow global pointer
+> From: Julia Lawall <julia@diku.dk>
 > 
-> This renames away a variable clash:
->  * ipv6_table[] is declared as a static global table;
->  * ipv6_sysctl_net_init() uses ipv6_table to refer/destroy dynamic memory;
->  * ipv6_sysctl_net_exit() also uses ipv6_table for the same purpose;
->  * both the two last functions call kfree() on ipv6_table.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> The kernel.h macro DIV_ROUND_CLOSEST performs the computation (x + d/2)/d
+> but is perhaps more readable.
 
 Applied.
