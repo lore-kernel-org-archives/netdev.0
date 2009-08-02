@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] mISDN: Fix handling of receive buffer size in L1oIP
-Date: Sun, 02 Aug 2009 13:02:38 -0700 (PDT)
-Message-ID: <20090802.130238.264137595.davem@davemloft.net>
-References: <cover.1248781021.git.keil@b1-systems.de>
-	<467d0b871314c60818f541024fcacca686f3e354.1248781021.git.keil@b1-systems.de>
+Subject: Re: netpoll + xmit_lock == deadlock
+Date: Sun, 02 Aug 2009 13:07:04 -0700 (PDT)
+Message-ID: <20090802.130704.133993421.davem@davemloft.net>
+References: <20090729073523.GA4515@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
-	andreas@eversberg.eu, acme@redhat.com
-To: keil@b1-systems.de
+Cc: mpm@selenic.com, netdev@vger.kernel.org, mcarlson@broadcom.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46864
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50956
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753047AbZHBUCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 16:02:30 -0400
-In-Reply-To: <467d0b871314c60818f541024fcacca686f3e354.1248781021.git.keil@b1-systems.de>
+	by vger.kernel.org with ESMTP id S1753247AbZHBUG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 16:06:56 -0400
+In-Reply-To: <20090729073523.GA4515@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <keil@b1-systems.de>
-Date: Mon, 27 Jul 2009 19:24:04 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 29 Jul 2009 15:35:23 +0800
 
-> From: Andreas Eversberg <andreas@eversberg.eu>
-> 
-> The size of receive buffer pointer was used to get size of
-> receive buffer instead of recvbuf_size itself, so only 4/8
-> bytes could be transfered.
-> 
-> This is a regression to 2.6.30 introduced by commit 8c90e11e3543d7de612194a042a148caeaab5f1d
-> mISDN: Use kernel_{send,recv}msg instead of open coding
-> 
-> Signed-off-by: Andreas Eversberg <andreas@eversberg.eu>
-> Signed-off-by: Karsten Keil <keil@b1-systems.de>
+> So if a driver is in the TX path, and a printk occurs, then a
+> recursive dead lock can occur if that driver tries to take the
+> xmit lock in its poll function to clean up descriptors.
 
-Applied to net-2.6, thanks.
+My position has always been that such printk's are simply
+not allowed.  (check archives if you don't believe me :-)
 
+The locking is going to get rediculious if we start having
+to account for this.
