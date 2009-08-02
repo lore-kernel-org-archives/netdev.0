@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] net: restore the original spinlock to protect
- unicast list
-Date: Sun, 02 Aug 2009 12:29:27 -0700 (PDT)
-Message-ID: <20090802.122927.17579898.davem@davemloft.net>
-References: <Pine.SOC.4.64.0907301114150.10041@math.ut.ee>
-	<4A71630A.9080105@gmail.com>
-	<20090730110612.GD3686@psychotron.englab.brq.redhat.com>
+Subject: Re: [PATCH] pcnet32: remove superfluous NULL pointer check in
+ pcnet32_probe1()
+Date: Sun, 02 Aug 2009 12:30:22 -0700 (PDT)
+Message-ID: <20090802.123022.148176905.davem@davemloft.net>
+References: <200907302319.18150.bzolnier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mroos@linux.ee, eric.dumazet@gmail.com
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44875
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753391AbZHBT3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 15:29:19 -0400
-In-Reply-To: <20090730110612.GD3686@psychotron.englab.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, error27@gmail.com, corbet@lwn.net,
+	eteo@redhat.com, julia@diku.dk
+To: bzolnier@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753446AbZHBTaQ@vger.kernel.org>
+In-Reply-To: <200907302319.18150.bzolnier@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Thu, 30 Jul 2009 13:06:12 +0200
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Date: Thu, 30 Jul 2009 23:19:17 +0200
 
-> There is a path when an assetion in dev_unicast_sync() appears. 
+> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+> Subject: [PATCH] pcnet32: remove superfluous NULL pointer check in pcnet32_probe1()
 > 
-> igmp6_group_added -> dev_mc_add -> __dev_set_rx_mode ->
-> -> vlan_dev_set_rx_mode -> dev_unicast_sync
+> Move the debug printk() into the proper place and remove superfluous
+> NULL pointer check in pcnet32_probe1().
 > 
-> Therefore we cannot protect this list with rtnl. This patch restores the
-> original protecting this list with spinlock.
+> This takes care of the following entry from Dan's list:
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> drivers/net/pcnet32.c +1889 pcnet32_probe1(298) warning: variable derefenced before check 'pdev'
+> 
+> Reported-by: Dan Carpenter <error27@gmail.com>
+> Signed-off-by: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
 
-Applied, thanks.
+Applied, but please CC: netdev@vger.kernel.org for all future
+network driver patches so that it gets properly tracked in
+patchwork.  Thanks!
