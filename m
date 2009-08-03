@@ -1,42 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: neigh_periodic_timer expires too often
-Date: Sun, 02 Aug 2009 18:35:53 -0700 (PDT)
-Message-ID: <20090802.183553.257296569.davem@davemloft.net>
-References: <4A717985.7060909@nokia.com>
-	<4A719CDB.3060004@gmail.com>
+Subject: Re: [PATCH] sch_teql: should not dereference skb after
+ ndo_start_xmit
+Date: Sun, 02 Aug 2009 18:59:41 -0700 (PDT)
+Message-ID: <20090802.185941.120840905.davem@davemloft.net>
+References: <4A11391D.8060503@cosmosbay.com>
+	<20090518.151256.217066131.davem@davemloft.net>
+	<4A120C8B.80108@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: luciano.coelho@nokia.com, netdev@vger.kernel.org,
-	tero.kristo@nokia.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jussi.kivilinna@mbnet.fi
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45457
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46145
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754059AbZHCBfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 21:35:45 -0400
-In-Reply-To: <4A719CDB.3060004@gmail.com>
+	by vger.kernel.org with ESMTP id S1754044AbZHCB7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 21:59:33 -0400
+In-Reply-To: <4A120C8B.80108@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 30 Jul 2009 15:15:07 +0200
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Tue, 19 May 2009 03:34:03 +0200
 
-> [PATCH net-next-2.6] neigh: Convert garbage collection from softirq to workqueue
+> Looking again at teql_master_xmit(), I wonder if there is another
+> problem in it.
 > 
-> Current neigh_periodic_timer() function is fired by timer IRQ, and
-> scans one hash bucket each round (very litle work in fact)
+>     int subq = skb_get_queue_mapping(skb);
 > 
-> As we are supposed to scan whole hash table in 15 seconds, this means
-> neigh_periodic_timer() can be fired very often. (depending on the number
-> of concurrent hash entries we stored in this table)
-> 
-> Converting this to a workqueue permits scanning whole table, minimizing
-> icache pollution, and firing this work every 15 seconds, independantly
-> of hash table size.
-> 
-> This 15 seconds delay is not a hard number, as work is a deferrable one.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> But as a matter of fact, following code assumes subq is 0
 
-Applied to net-next-2.6, thanks!
+I looked into this again, and damn this is tough to deal with.
+The code works as-is, since teql devices have only 1 queue we
+can assume queue 0 and we only end up using one of the slave
+devices queues too.
+
+I tried to export dev_pick_tx() (renaming it to netdev_pick_tx()
+to avoid global namespace pollution) but then I realized that
+we can't just whack the subq here.
+
+If this gets punted back to the caller and we don't actually
+send out the packet, we can't leave the new skb->queue_index
+in there as teql's multiqueue parameters are what will be
+checked and used against this SKB again.
+
+I suppose we could restore the old queue index value when we
+exhaust the slaves and can't transmit, but is getting messy for
+sure.
+
+Since the code works properly, and this is merely a performance
+issue, I'm deferring this again.
