@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/2] IPVS: use pr_err and friends instead of
- IP_VS_ERR and friends
-Date: Sun, 02 Aug 2009 18:29:56 -0700 (PDT)
-Message-ID: <20090802.182956.263159793.davem@davemloft.net>
-References: <20090802210530.14843.62378.stgit@jazzy.zrh.corp.google.com>
-	<20090803003658.GQ6177@verge.net.au>
+Subject: Re: neigh_periodic_timer expires too often
+Date: Sun, 02 Aug 2009 18:35:53 -0700 (PDT)
+Message-ID: <20090802.183553.257296569.davem@davemloft.net>
+References: <4A717985.7060909@nokia.com>
+	<4A719CDB.3060004@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: heder@google.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	joe@perches.com, jengelh@medozas.de
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20090803003658.GQ6177@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: luciano.coelho@nokia.com, netdev@vger.kernel.org,
+	tero.kristo@nokia.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45457
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754059AbZHCBfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 21:35:45 -0400
+In-Reply-To: <4A719CDB.3060004@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 3 Aug 2009 10:36:59 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 30 Jul 2009 15:15:07 +0200
 
-> On Sun, Aug 02, 2009 at 11:05:41PM +0200, Hannes Eder wrote:
->> Since pr_err and friends are used instead of printk there is no point
->> in keeping IP_VS_ERR and friends.  Furthermore make use of '__func__'
->> instead of hard coded function names.
->> 
->> Signed-off-by: Hannes Eder <heder@google.com>
+> [PATCH net-next-2.6] neigh: Convert garbage collection from softirq to workqueue
 > 
-> Acked-by: Simon Horman <horms@verge.net.au>
+> Current neigh_periodic_timer() function is fired by timer IRQ, and
+> scans one hash bucket each round (very litle work in fact)
+> 
+> As we are supposed to scan whole hash table in 15 seconds, this means
+> neigh_periodic_timer() can be fired very often. (depending on the number
+> of concurrent hash entries we stored in this table)
+> 
+> Converting this to a workqueue permits scanning whole table, minimizing
+> icache pollution, and firing this work every 15 seconds, independantly
+> of hash table size.
+> 
+> This 15 seconds delay is not a hard number, as work is a deferrable one.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
-
+Applied to net-next-2.6, thanks!
