@@ -1,20 +1,19 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Subject: [PATCH 2/5] af_ieee802154: fix ioctl processing
-Date: Tue,  4 Aug 2009 02:51:39 +0400
-Message-ID: <1249339902-10613-3-git-send-email-dbaryshkov@gmail.com>
-References: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
- <1249339902-10613-2-git-send-email-dbaryshkov@gmail.com>
+Date: Tue,  4 Aug 2009 03:11:38 +0400
+Message-ID: <1249341101-11593-1-git-send-email-dbaryshkov@gmail.com>
+References: <1249339902-10613-2-git-send-email-dbaryshkov@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergey Lapin <slapin@ossfans.org>,
 	linux-zigbee-devel@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:37153 "EHLO
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:58098 "EHLO
 	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753329AbZHCWwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 18:52:14 -0400
-Received: by fxm17 with SMTP id 17so2939405fxm.37
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 15:52:14 -0700 (PDT)
+	with ESMTP id S1753745AbZHCXMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 19:12:06 -0400
+Received: by fxm17 with SMTP id 17so2946973fxm.37
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 16:12:06 -0700 (PDT)
 In-Reply-To: <1249339902-10613-2-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
