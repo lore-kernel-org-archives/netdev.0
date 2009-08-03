@@ -1,72 +1,69 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Mon, 03 Aug 2009 14:59:41 -0500
-Message-ID: <1249329581.3703.122.camel@calx>
-References: <20090729073523.GA4515@gondor.apana.org.au>
-	 <20090802.130704.133993421.davem@davemloft.net>
-	 <1249301157.2893.11.camel@achroite>
-	 <20090803.121512.75779533.davem@davemloft.net>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [PATCH 6/7] net: Add vbus_enet driver
+Date: Mon, 03 Aug 2009 16:10:37 -0400
+Message-ID: <4A77443D.9020105@novell.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>	<20090803171801.17268.93846.stgit@dev.haskins.net> <20090803113030.3092d5b0@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, mcarlson@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:52519 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755117AbZHCUAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Aug 2009 16:00:11 -0400
-In-Reply-To: <20090803.121512.75779533.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigD52A438717C62368A4E11228"
+Cc: linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751831AbZHCUK5@vger.kernel.org>
+In-Reply-To: <20090803113030.3092d5b0@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-08-03 at 12:15 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 03 Aug 2009 13:05:57 +0100
-> 
-> > On Sun, 2009-08-02 at 13:07 -0700, David Miller wrote:
-> >> My position has always been that such printk's are simply
-> >> not allowed.  (check archives if you don't believe me :-)
-> >>
-> >> The locking is going to get rediculious if we start having
-> >> to account for this.
-> > 
-> > I agree with that, but this does seem quite restrictive.  How can we be
-> > sure that none of the kernel functions used by a driver's TX path (e.g.
-> > kmalloc or DMA-mapping) will print debug or warning messages?  If such
-> > guarantees exist, they do not seem to be documented.
-> 
-> Indeed, that's a good counter-argument.
-> 
-> Ho hum... so someone show me how ugly the locking is going
-> to get :-)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigD52A438717C62368A4E11228
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-First, I don't think we can solve the problem of 'reliably deliver
-printks inside the TX path'. If the driver needs to printk here, odds
-are good that sending isn't possible.
+Stephen Hemminger wrote:
+> On Mon, 03 Aug 2009 13:18:02 -0400
+> Gregory Haskins <ghaskins@novell.com> wrote:
+>=20
+>> +
+>> +static const struct net_device_ops vbus_enet_netdev_ops =3D {
+>> +	.ndo_open          =3D vbus_enet_open,
+>> +	.ndo_stop          =3D vbus_enet_stop,
+>> +	.ndo_set_config    =3D vbus_enet_config,
+>> +	.ndo_start_xmit    =3D vbus_enet_tx_start,
+>> +	.ndo_change_mtu	   =3D vbus_enet_change_mtu,
+>> +	.ndo_tx_timeout    =3D vbus_enet_timeout,
+>> +};
+>=20
+>=20
+> Missing=20
+> 	.ndo_set_mac_address =3D eth_mac_addr,
+> 	.ndo_validate_addr   =3D eth_validate_addr,
+>=20
 
-So I think we should be clear up front that the solution we're looking
-for is 'don't crash the box when trying to printk from the tx path'.
+Ack.
 
-I think the most straightforward, driver-agnostic way to do this
-is to have netpoll wrap a driver's TX entrypoint such that recursion is
-disabled while in that path. This might actually simplify netpoll's
-internal locking ugliness. Something like:
+> Also, should have change_mtu.
 
-int netpoll_xmit_wrapper(struct sk_buff *skb, struct net_device *dev)
-{
-	struct netpoll_info *npinfo = dev->npinfo;
-	int ret;
+note that I do have .ndo_change_mtu.  I assume this is what you are
+referring to and just missed it.  If there is something else I need
+there, let me know.
 
-	npinfo->recurse += 1; /* add appropriate locking */
-	ret = npinfo->orig_tx(skb, dev);
-	npinfo->recurse -= 1;
-	
-	return ret;
-}
-
--- 
-http://selenic.com : development and support for Mercurial and Linux
+Kind Regards,
+-Greg
 
 
+--------------enigD52A438717C62368A4E11228
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkp3RD0ACgkQP5K2CMvXmqEUpwCeJedJMaWHWrCUO54/C6GyXnJM
+/oQAnA7Xs8b+QoqC3AmirBbNa5PnIyMq
+=1thO
+-----END PGP SIGNATURE-----
+
+--------------enigD52A438717C62368A4E11228--
