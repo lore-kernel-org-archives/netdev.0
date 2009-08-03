@@ -1,7 +1,7 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
-Date: Mon, 03 Aug 2009 13:17:51 -0400
-Message-ID: <20090803171751.17268.48169.stgit@dev.haskins.net>
+Subject: [PATCH 7/7] venet: add scatter-gather/GSO support
+Date: Mon, 03 Aug 2009 13:18:07 -0400
+Message-ID: <20090803171807.17268.49836.stgit@dev.haskins.net>
 References: <20090803171030.17268.26962.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,1031 +9,400 @@ Content-Transfer-Encoding: 7bit
 Cc: alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:39610 "EHLO
+Received: from victor.provo.novell.com ([137.65.250.26]:40696 "EHLO
 	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035AbZHCRR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 13:17:57 -0400
+	with ESMTP id S1752616AbZHCRSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 13:18:17 -0400
 In-Reply-To: <20090803171030.17268.26962.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a pci-based driver to interface between the a host VBUS
-and the guest's vbus-proxy bus model.
+SG/GSO significantly enhance the performance of network traffic under
+certain circumstances.  We implement this feature as a separate patch
+to avoid intially complicating the baseline venet driver.  This will
+presumably make the review process slightly easier, since we can
+focus on the basic interface first.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- drivers/vbus/Kconfig      |   10 +
- drivers/vbus/Makefile     |    3 
- drivers/vbus/pci-bridge.c |  824 +++++++++++++++++++++++++++++++++++++++++++++
- include/linux/Kbuild      |    1 
- include/linux/vbus_pci.h  |  127 +++++++
- 5 files changed, 965 insertions(+), 0 deletions(-)
- create mode 100644 drivers/vbus/pci-bridge.c
- create mode 100644 include/linux/vbus_pci.h
+ drivers/net/vbus-enet.c |  249 +++++++++++++++++++++++++++++++++++++++++++++--
+ include/linux/venet.h   |   39 +++++++
+ 2 files changed, 275 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/vbus/Kconfig b/drivers/vbus/Kconfig
-index e1939f5..87c545d 100644
---- a/drivers/vbus/Kconfig
-+++ b/drivers/vbus/Kconfig
-@@ -12,3 +12,13 @@ config VBUS_PROXY
- 	in a virtualization solution which implements virtual-bus devices
- 	on the backend, say Y.  If unsure, say N.
+diff --git a/drivers/net/vbus-enet.c b/drivers/net/vbus-enet.c
+index 8fcc2d6..5aa56ff 100644
+--- a/drivers/net/vbus-enet.c
++++ b/drivers/net/vbus-enet.c
+@@ -42,6 +42,8 @@ static int rx_ringlen = 256;
+ module_param(rx_ringlen, int, 0444);
+ static int tx_ringlen = 256;
+ module_param(tx_ringlen, int, 0444);
++static int sg_enabled = 1;
++module_param(sg_enabled, int, 0444);
  
-+config VBUS_PCIBRIDGE
-+       tristate "PCI to Virtual-Bus bridge"
-+       depends on PCI
-+       depends on VBUS_PROXY
-+       select IOQ
-+       default n
-+       help
-+        Provides a way to bridge host side vbus devices via a PCI-BRIDGE
-+        object.  If you are running virtualization with vbus devices on the
-+	host, and the vbus is exposed via PCI, say Y.  Otherwise, say N.
-diff --git a/drivers/vbus/Makefile b/drivers/vbus/Makefile
-index a29a1e0..944b7f1 100644
---- a/drivers/vbus/Makefile
-+++ b/drivers/vbus/Makefile
-@@ -1,3 +1,6 @@
+ #define PDEBUG(_dev, fmt, args...) dev_dbg(&(_dev)->dev, fmt, ## args)
  
- vbus-proxy-objs += bus-proxy.o
- obj-$(CONFIG_VBUS_PROXY) += vbus-proxy.o
+@@ -58,8 +60,17 @@ struct vbus_enet_priv {
+ 	struct vbus_enet_queue     rxq;
+ 	struct vbus_enet_queue     txq;
+ 	struct tasklet_struct      txtask;
++	struct {
++		int                sg:1;
++		int                tso:1;
++		int                ufo:1;
++		int                tso6:1;
++		int                ecn:1;
++	} flags;
+ };
+ 
++static void vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force);
 +
-+vbus-pcibridge-objs += pci-bridge.o
-+obj-$(CONFIG_VBUS_PCIBRIDGE) += vbus-pcibridge.o
-diff --git a/drivers/vbus/pci-bridge.c b/drivers/vbus/pci-bridge.c
-new file mode 100644
-index 0000000..b21a9a3
---- /dev/null
-+++ b/drivers/vbus/pci-bridge.c
-@@ -0,0 +1,824 @@
-+/*
-+ * Copyright (C) 2009 Novell.  All Rights Reserved.
-+ *
-+ * Author:
-+ *	Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/mm.h>
-+#include <linux/workqueue.h>
-+#include <linux/ioq.h>
-+#include <linux/interrupt.h>
-+#include <linux/vbus_driver.h>
-+#include <linux/vbus_pci.h>
-+
-+MODULE_AUTHOR("Gregory Haskins");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION("1");
-+
-+#define VBUS_PCI_NAME "pci-to-vbus-bridge"
-+
-+struct vbus_pci {
-+	spinlock_t                lock;
-+	struct pci_dev           *dev;
-+	struct ioq                eventq;
-+	struct vbus_pci_event    *ring;
-+	struct vbus_pci_regs     *regs;
-+	void                     *piosignal;
-+	int                       irq;
-+	int                       enabled:1;
-+};
-+
-+static struct vbus_pci vbus_pci;
-+
-+struct vbus_pci_device {
-+	char                     type[VBUS_MAX_DEVTYPE_LEN];
-+	u64                      handle;
-+	struct list_head         shms;
-+	struct vbus_device_proxy vdev;
-+	struct work_struct       add;
-+	struct work_struct       drop;
-+};
-+
-+/*
-+ * -------------------
-+ * common routines
-+ * -------------------
-+ */
-+
+ static struct vbus_enet_priv *
+ napi_to_priv(struct napi_struct *napi)
+ {
+@@ -193,6 +204,93 @@ rx_teardown(struct vbus_enet_priv *priv)
+ 	}
+ }
+ 
 +static int
-+vbus_pci_hypercall(unsigned long nr, void *data, unsigned long len)
++tx_setup(struct vbus_enet_priv *priv)
 +{
-+	struct vbus_pci_hypercall params = {
-+		.vector = nr,
-+		.len    = len,
-+		.datap  = __pa(data),
-+	};
-+	unsigned long flags;
++	struct ioq *ioq = priv->txq.queue;
++	struct ioq_iterator iter;
++	int i;
 +	int ret;
 +
-+	spin_lock_irqsave(&vbus_pci.lock, flags);
++	if (!priv->flags.sg)
++		/*
++		 * There is nothing to do for a ring that is not using
++		 * scatter-gather
++		 */
++		return 0;
 +
-+	memcpy_toio(&vbus_pci.regs->hypercall.data, &params, sizeof(params));
-+	ret = ioread32(&vbus_pci.regs->hypercall.result);
++	ret = ioq_iter_init(ioq, &iter, ioq_idxtype_valid, 0);
++	BUG_ON(ret < 0);
 +
-+	spin_unlock_irqrestore(&vbus_pci.lock, flags);
-+
-+	return ret;
-+}
-+
-+struct vbus_pci_device *
-+to_dev(struct vbus_device_proxy *vdev)
-+{
-+	return container_of(vdev, struct vbus_pci_device, vdev);
-+}
-+
-+static void
-+_signal_init(struct shm_signal *signal, struct shm_signal_desc *desc,
-+	     struct shm_signal_ops *ops)
-+{
-+	desc->magic = SHM_SIGNAL_MAGIC;
-+	desc->ver   = SHM_SIGNAL_VER;
-+
-+	shm_signal_init(signal, shm_locality_north, ops, desc);
-+}
-+
-+/*
-+ * -------------------
-+ * _signal
-+ * -------------------
-+ */
-+
-+struct _signal {
-+	struct vbus_pci   *pcivbus;
-+	struct shm_signal  signal;
-+	u32                handle;
-+	struct rb_node     node;
-+	struct list_head   list;
-+};
-+
-+static struct _signal *
-+to_signal(struct shm_signal *signal)
-+{
-+       return container_of(signal, struct _signal, signal);
-+}
-+
-+static int
-+_signal_inject(struct shm_signal *signal)
-+{
-+	struct _signal *_signal = to_signal(signal);
-+
-+	iowrite32(_signal->handle, vbus_pci.piosignal);
-+
-+	return 0;
-+}
-+
-+static void
-+_signal_release(struct shm_signal *signal)
-+{
-+	struct _signal *_signal = to_signal(signal);
-+
-+	kfree(_signal);
-+}
-+
-+static struct shm_signal_ops _signal_ops = {
-+	.inject  = _signal_inject,
-+	.release = _signal_release,
-+};
-+
-+/*
-+ * -------------------
-+ * vbus_device_proxy routines
-+ * -------------------
-+ */
-+
-+static int
-+vbus_pci_device_open(struct vbus_device_proxy *vdev, int version, int flags)
-+{
-+	struct vbus_pci_device *dev = to_dev(vdev);
-+	struct vbus_pci_deviceopen params;
-+	int ret;
-+
-+	if (dev->handle)
-+		return -EINVAL;
-+
-+	params.devid   = vdev->id;
-+	params.version = version;
-+
-+	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVOPEN,
-+				 &params, sizeof(params));
-+	if (ret < 0)
-+		return ret;
-+
-+	dev->handle = params.handle;
-+
-+	return 0;
-+}
-+
-+static int
-+vbus_pci_device_close(struct vbus_device_proxy *vdev, int flags)
-+{
-+	struct vbus_pci_device *dev = to_dev(vdev);
-+	unsigned long iflags;
-+	int ret;
-+
-+	if (!dev->handle)
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&vbus_pci.lock, iflags);
-+
-+	while (!list_empty(&dev->shms)) {
-+		struct _signal *_signal;
-+
-+		_signal = list_first_entry(&dev->shms, struct _signal, list);
-+
-+		list_del(&_signal->list);
-+
-+		spin_unlock_irqrestore(&vbus_pci.lock, iflags);
-+		shm_signal_put(&_signal->signal);
-+		spin_lock_irqsave(&vbus_pci.lock, iflags);
-+	}
-+
-+	spin_unlock_irqrestore(&vbus_pci.lock, iflags);
++	ret = ioq_iter_seek(&iter, ioq_seek_set, 0, 0);
++	BUG_ON(ret < 0);
 +
 +	/*
-+	 * The DEVICECLOSE will implicitly close all of the shm on the
-+	 * host-side, so there is no need to do an explicit per-shm
-+	 * hypercall
++	 * Now populate each descriptor with an empty SG descriptor
 +	 */
-+	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVCLOSE,
-+				 &dev->handle, sizeof(dev->handle));
++	for (i = 0; i < tx_ringlen; i++) {
++		struct venet_sg *vsg;
++		size_t iovlen = sizeof(struct venet_iov) * (MAX_SKB_FRAGS-1);
++		size_t len = sizeof(*vsg) + iovlen;
 +
-+	if (ret < 0)
-+		printk(KERN_ERR "VBUS-PCI: Error closing device %s/%lld: %d\n",
-+		       vdev->type, vdev->id, ret);
-+
-+	dev->handle = 0;
-+
-+	return 0;
-+}
-+
-+static int
-+vbus_pci_device_shm(struct vbus_device_proxy *vdev, int id, int prio,
-+		    void *ptr, size_t len,
-+		    struct shm_signal_desc *sdesc, struct shm_signal **signal,
-+		    int flags)
-+{
-+	struct vbus_pci_device *dev = to_dev(vdev);
-+	struct _signal *_signal = NULL;
-+	struct vbus_pci_deviceshm params;
-+	unsigned long iflags;
-+	int ret;
-+
-+	if (!dev->handle)
-+		return -EINVAL;
-+
-+	params.devh   = dev->handle;
-+	params.id     = id;
-+	params.flags  = flags;
-+	params.datap  = (u64)__pa(ptr);
-+	params.len    = len;
-+
-+	if (signal) {
-+		/*
-+		 * The signal descriptor must be embedded within the
-+		 * provided ptr
-+		 */
-+		if (!sdesc
-+		    || (len < sizeof(*sdesc))
-+		    || ((void *)sdesc < ptr)
-+		    || ((void *)sdesc > (ptr + len - sizeof(*sdesc))))
-+			return -EINVAL;
-+
-+		_signal = kzalloc(sizeof(*_signal), GFP_KERNEL);
-+		if (!_signal)
++		vsg = kzalloc(len, GFP_KERNEL);
++		if (!vsg)
 +			return -ENOMEM;
 +
-+		_signal_init(&_signal->signal, sdesc, &_signal_ops);
++		iter.desc->cookie = (u64)vsg;
++		iter.desc->len    = len;
++		iter.desc->ptr    = (u64)__pa(vsg);
 +
++		ret = ioq_iter_seek(&iter, ioq_seek_next, 0, 0);
++		BUG_ON(ret < 0);
++	}
++
++	return 0;
++}
++
++static void
++tx_teardown(struct vbus_enet_priv *priv)
++{
++	struct ioq *ioq = priv->txq.queue;
++	struct ioq_iterator iter;
++	int ret;
++
++	/* forcefully free all outstanding transmissions */
++	vbus_enet_tx_reap(priv, 1);
++
++	if (!priv->flags.sg)
 +		/*
-+		 * take another reference for the host.  This is dropped
-+		 * by a SHMCLOSE event
++		 * There is nothing else to do for a ring that is not using
++		 * scatter-gather
 +		 */
-+		shm_signal_get(&_signal->signal);
++		return;
 +
-+		params.signal.offset = (u64)sdesc - (u64)ptr;
-+		params.signal.prio   = prio;
-+		params.signal.cookie = (u64)_signal;
++	ret = ioq_iter_init(ioq, &iter, ioq_idxtype_valid, 0);
++	BUG_ON(ret < 0);
 +
-+	} else
-+		params.signal.offset = -1; /* yes, this is a u32, but its ok */
++	/* seek to position 0 */
++	ret = ioq_iter_seek(&iter, ioq_seek_set, 0, 0);
++	BUG_ON(ret < 0);
 +
-+	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVSHM,
-+				 &params, sizeof(params));
-+	if (ret < 0) {
-+		if (_signal) {
-+			/*
-+			 * We held two references above, so we need to drop
-+			 * both of them
-+			 */
-+			shm_signal_put(&_signal->signal);
-+			shm_signal_put(&_signal->signal);
++	/*
++	 * free each valid descriptor
++	 */
++	while (iter.desc->cookie) {
++		struct venet_sg *vsg = (struct venet_sg *)iter.desc->cookie;
++
++		iter.desc->valid = 0;
++		wmb();
++
++		iter.desc->ptr = 0;
++		iter.desc->cookie = 0;
++
++		ret = ioq_iter_seek(&iter, ioq_seek_next, 0, 0);
++		BUG_ON(ret < 0);
++
++		kfree(vsg);
++	}
++}
++
+ /*
+  * Open and close
+  */
+@@ -396,14 +494,67 @@ vbus_enet_tx_start(struct sk_buff *skb, struct net_device *dev)
+ 	BUG_ON(ret < 0);
+ 	BUG_ON(iter.desc->sown);
+ 
+-	/*
+-	 * We simply put the skb right onto the ring.  We will get an interrupt
+-	 * later when the data has been consumed and we can reap the pointers
+-	 * at that time
+-	 */
+-	iter.desc->cookie = (u64)skb;
+-	iter.desc->len = (u64)skb->len;
+-	iter.desc->ptr = (u64)__pa(skb->data);
++	if (priv->flags.sg) {
++		struct venet_sg *vsg = (struct venet_sg *)iter.desc->cookie;
++		struct scatterlist sgl[MAX_SKB_FRAGS+1];
++		struct scatterlist *sg;
++		int count, maxcount = ARRAY_SIZE(sgl);
++
++		sg_init_table(sgl, maxcount);
++
++		memset(vsg, 0, sizeof(*vsg));
++
++		vsg->cookie = (u64)skb;
++		vsg->len    = skb->len;
++
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			vsg->flags      |= VENET_SG_FLAG_NEEDS_CSUM;
++			vsg->csum.start  = skb->csum_start - skb_headroom(skb);
++			vsg->csum.offset = skb->csum_offset;
 +		}
 +
-+		return ret;
-+	}
++		if (skb_is_gso(skb)) {
++			struct skb_shared_info *sinfo = skb_shinfo(skb);
 +
-+	if (signal) {
-+		_signal->handle = ret;
++			vsg->flags |= VENET_SG_FLAG_GSO;
 +
-+		spin_lock_irqsave(&vbus_pci.lock, iflags);
++			vsg->gso.hdrlen = skb_transport_header(skb) - skb->data;
++			vsg->gso.size = sinfo->gso_size;
++			if (sinfo->gso_type & SKB_GSO_TCPV4)
++				vsg->gso.type = VENET_GSO_TYPE_TCPV4;
++			else if (sinfo->gso_type & SKB_GSO_TCPV6)
++				vsg->gso.type = VENET_GSO_TYPE_TCPV6;
++			else if (sinfo->gso_type & SKB_GSO_UDP)
++				vsg->gso.type = VENET_GSO_TYPE_UDP;
++			else
++				panic("Virtual-Ethernet: unknown GSO type " \
++				      "0x%x\n", sinfo->gso_type);
 +
-+		list_add_tail(&_signal->list, &dev->shms);
++			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
++				vsg->flags |= VENET_SG_FLAG_ECN;
++		}
 +
-+		spin_unlock_irqrestore(&vbus_pci.lock, iflags);
++		count = skb_to_sgvec(skb, sgl, 0, skb->len);
 +
-+		shm_signal_get(&_signal->signal);
-+		*signal = &_signal->signal;
-+	}
++		BUG_ON(count > maxcount);
 +
-+	return 0;
-+}
++		for (sg = &sgl[0]; sg; sg = sg_next(sg)) {
++			struct venet_iov *iov = &vsg->iov[vsg->count++];
 +
-+static int
-+vbus_pci_device_call(struct vbus_device_proxy *vdev, u32 func, void *data,
-+		     size_t len, int flags)
-+{
-+	struct vbus_pci_device *dev = to_dev(vdev);
-+	struct vbus_pci_devicecall params = {
-+		.devh  = dev->handle,
-+		.func  = func,
-+		.datap = (u64)__pa(data),
-+		.len   = len,
-+		.flags = flags,
-+	};
++			iov->len = sg->length;
++			iov->ptr = (u64)sg_phys(sg);
++		}
 +
-+	if (!dev->handle)
-+		return -EINVAL;
-+
-+	return vbus_pci_hypercall(VBUS_PCI_HC_DEVCALL, &params, sizeof(params));
-+}
-+
-+static void
-+vbus_pci_device_release(struct vbus_device_proxy *vdev)
-+{
-+	struct vbus_pci_device *_dev = to_dev(vdev);
-+
-+	vbus_pci_device_close(vdev, 0);
-+
-+	kfree(_dev);
-+}
-+
-+struct vbus_device_proxy_ops vbus_pci_device_ops = {
-+	.open    = vbus_pci_device_open,
-+	.close   = vbus_pci_device_close,
-+	.shm     = vbus_pci_device_shm,
-+	.call    = vbus_pci_device_call,
-+	.release = vbus_pci_device_release,
-+};
-+
-+/*
-+ * -------------------
-+ * vbus events
-+ * -------------------
-+ */
-+
-+static void
-+deferred_devadd(struct work_struct *work)
-+{
-+	struct vbus_pci_device *new;
-+	int ret;
-+
-+	new = container_of(work, struct vbus_pci_device, add);
-+
-+	ret = vbus_device_proxy_register(&new->vdev);
-+	if (ret < 0)
-+		panic("failed to register device %lld(%s): %d\n",
-+		      new->vdev.id, new->type, ret);
-+}
-+
-+static void
-+deferred_devdrop(struct work_struct *work)
-+{
-+	struct vbus_pci_device *dev;
-+
-+	dev = container_of(work, struct vbus_pci_device, drop);
-+	vbus_device_proxy_unregister(&dev->vdev);
-+}
-+
-+static void
-+event_devadd(struct vbus_pci_add_event *event)
-+{
-+	struct vbus_pci_device *new = kzalloc(sizeof(*new), GFP_KERNEL);
-+	if (!new) {
-+		printk(KERN_ERR "VBUS_PCI: Out of memory on add_event\n");
-+		return;
-+	}
-+
-+	INIT_LIST_HEAD(&new->shms);
-+
-+	memcpy(new->type, event->type, VBUS_MAX_DEVTYPE_LEN);
-+	new->vdev.type        = new->type;
-+	new->vdev.id          = event->id;
-+	new->vdev.ops         = &vbus_pci_device_ops;
-+
-+	dev_set_name(&new->vdev.dev, "%lld", event->id);
-+
-+	INIT_WORK(&new->add, deferred_devadd);
-+	INIT_WORK(&new->drop, deferred_devdrop);
-+
-+	schedule_work(&new->add);
-+}
-+
-+static void
-+event_devdrop(struct vbus_pci_handle_event *event)
-+{
-+	struct vbus_device_proxy *dev = vbus_device_proxy_find(event->handle);
-+
-+	if (!dev) {
-+		printk(KERN_WARNING "VBUS-PCI: devdrop failed: %lld\n",
-+		       event->handle);
-+		return;
-+	}
-+
-+	schedule_work(&to_dev(dev)->drop);
-+}
-+
-+static void
-+event_shmsignal(struct vbus_pci_handle_event *event)
-+{
-+	struct _signal *_signal = (struct _signal *)event->handle;
-+
-+	_shm_signal_wakeup(&_signal->signal);
-+}
-+
-+static void
-+event_shmclose(struct vbus_pci_handle_event *event)
-+{
-+	struct _signal *_signal = (struct _signal *)event->handle;
-+
-+	/*
-+	 * This reference was taken during the DEVICESHM call
-+	 */
-+	shm_signal_put(&_signal->signal);
-+}
-+
-+/*
-+ * -------------------
-+ * eventq routines
-+ * -------------------
-+ */
-+
-+static struct ioq_notifier eventq_notifier;
-+
-+static int __init
-+eventq_init(int qlen)
-+{
-+	struct ioq_iterator iter;
-+	int ret;
-+	int i;
-+
-+	vbus_pci.ring = kzalloc(sizeof(struct vbus_pci_event) * qlen,
-+				GFP_KERNEL);
-+	if (!vbus_pci.ring)
-+		return -ENOMEM;
-+
-+	/*
-+	 * We want to iterate on the "valid" index.  By default the iterator
-+	 * will not "autoupdate" which means it will not hypercall the host
-+	 * with our changes.  This is good, because we are really just
-+	 * initializing stuff here anyway.  Note that you can always manually
-+	 * signal the host with ioq_signal() if the autoupdate feature is not
-+	 * used.
-+	 */
-+	ret = ioq_iter_init(&vbus_pci.eventq, &iter, ioq_idxtype_valid, 0);
-+	BUG_ON(ret < 0);
-+
-+	/*
-+	 * Seek to the tail of the valid index (which should be our first
-+	 * item since the queue is brand-new)
-+	 */
-+	ret = ioq_iter_seek(&iter, ioq_seek_tail, 0, 0);
-+	BUG_ON(ret < 0);
-+
-+	/*
-+	 * Now populate each descriptor with an empty vbus_event and mark it
-+	 * valid
-+	 */
-+	for (i = 0; i < qlen; i++) {
-+		struct vbus_pci_event *event = &vbus_pci.ring[i];
-+		size_t                 len   = sizeof(*event);
-+		struct ioq_ring_desc  *desc  = iter.desc;
-+
-+		BUG_ON(iter.desc->valid);
-+
-+		desc->cookie = (u64)event;
-+		desc->ptr    = (u64)__pa(event);
-+		desc->len    = len; /* total length  */
-+		desc->valid  = 1;
-+
++	} else {
 +		/*
-+		 * This push operation will simultaneously advance the
-+		 * valid-tail index and increment our position in the queue
-+		 * by one.
++		 * non scatter-gather mode: simply put the skb right onto the
++		 * ring.
 +		 */
-+		ret = ioq_iter_push(&iter, 0);
-+		BUG_ON(ret < 0);
++		iter.desc->cookie = (u64)skb;
++		iter.desc->len = (u64)skb->len;
++		iter.desc->ptr = (u64)__pa(skb->data);
 +	}
 +
-+	vbus_pci.eventq.notifier = &eventq_notifier;
+ 	iter.desc->valid  = 1;
+ 
+ 	priv->dev->stats.tx_packets++;
+@@ -459,7 +610,17 @@ vbus_enet_tx_reap(struct vbus_enet_priv *priv, int force)
+ 	 * owned by the south-side
+ 	 */
+ 	while (iter.desc->valid && (!iter.desc->sown || force)) {
+-		struct sk_buff *skb = (struct sk_buff *)iter.desc->cookie;
++		struct sk_buff *skb;
 +
-+	/*
-+	 * And finally, ensure that we can receive notification
-+	 */
-+	ioq_notify_enable(&vbus_pci.eventq, 0);
++		if (priv->flags.sg) {
++			struct venet_sg *vsg;
 +
-+	return 0;
-+}
++			vsg = (struct venet_sg *)iter.desc->cookie;
++			skb = (struct sk_buff *)vsg->cookie;
 +
-+/* Invoked whenever the hypervisor ioq_signal()s our eventq */
-+static void
-+eventq_wakeup(struct ioq_notifier *notifier)
-+{
-+	struct ioq_iterator iter;
-+	int ret;
-+
-+	/* We want to iterate on the head of the in-use index */
-+	ret = ioq_iter_init(&vbus_pci.eventq, &iter, ioq_idxtype_inuse, 0);
-+	BUG_ON(ret < 0);
-+
-+	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
-+	BUG_ON(ret < 0);
-+
-+	/*
-+	 * The EOM is indicated by finding a packet that is still owned by
-+	 * the south side.
-+	 *
-+	 * FIXME: This in theory could run indefinitely if the host keeps
-+	 * feeding us events since there is nothing like a NAPI budget.  We
-+	 * might need to address that
-+	 */
-+	while (!iter.desc->sown) {
-+		struct ioq_ring_desc *desc  = iter.desc;
-+		struct vbus_pci_event *event;
-+
-+		event = (struct vbus_pci_event *)desc->cookie;
-+
-+		switch (event->eventid) {
-+		case VBUS_PCI_EVENT_DEVADD:
-+			event_devadd(&event->data.add);
-+			break;
-+		case VBUS_PCI_EVENT_DEVDROP:
-+			event_devdrop(&event->data.handle);
-+			break;
-+		case VBUS_PCI_EVENT_SHMSIGNAL:
-+			event_shmsignal(&event->data.handle);
-+			break;
-+		case VBUS_PCI_EVENT_SHMCLOSE:
-+			event_shmclose(&event->data.handle);
-+			break;
-+		default:
-+			printk(KERN_WARNING "VBUS_PCI: Unexpected event %d\n",
-+			       event->eventid);
-+			break;
-+		};
-+
-+		memset(event, 0, sizeof(*event));
-+
-+		/* Advance the in-use head */
-+		ret = ioq_iter_pop(&iter, 0);
-+		BUG_ON(ret < 0);
-+	}
-+
-+	/* And let the south side know that we changed the queue */
-+	ioq_signal(&vbus_pci.eventq, 0);
-+}
-+
-+static struct ioq_notifier eventq_notifier = {
-+	.signal = &eventq_wakeup,
-+};
-+
-+/* Injected whenever the host issues an ioq_signal() on the eventq */
-+irqreturn_t
-+eventq_intr(int irq, void *dev)
-+{
-+	_shm_signal_wakeup(vbus_pci.eventq.signal);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+/*
-+ * -------------------
-+ */
-+
++		} else {
++			skb = (struct sk_buff *)iter.desc->cookie;
++		}
+ 
+ 		PDEBUG(priv->dev, "completed sending %d bytes\n", skb->len);
+ 
+@@ -538,6 +699,47 @@ tx_isr(struct ioq_notifier *notifier)
+        tasklet_schedule(&priv->txtask);
+ }
+ 
 +static int
-+eventq_signal_inject(struct shm_signal *signal)
-+{
-+	/* The eventq uses the special-case handle=0 */
-+	iowrite32(0, vbus_pci.piosignal);
-+
-+	return 0;
-+}
-+
-+static void
-+eventq_signal_release(struct shm_signal *signal)
-+{
-+	kfree(signal);
-+}
-+
-+static struct shm_signal_ops eventq_signal_ops = {
-+	.inject  = eventq_signal_inject,
-+	.release = eventq_signal_release,
-+};
-+
-+/*
-+ * -------------------
-+ */
-+
-+static void
-+eventq_ioq_release(struct ioq *ioq)
-+{
-+	/* released as part of the vbus_pci object */
-+}
-+
-+static struct ioq_ops eventq_ioq_ops = {
-+	.release = eventq_ioq_release,
-+};
-+
-+/*
-+ * -------------------
-+ */
-+
-+static void
-+vbus_pci_release(void)
-+{
-+	if (vbus_pci.irq > 0)
-+		free_irq(vbus_pci.irq, NULL);
-+
-+	if (vbus_pci.piosignal)
-+		pci_iounmap(vbus_pci.dev, (void *)vbus_pci.piosignal);
-+
-+	if (vbus_pci.regs)
-+		pci_iounmap(vbus_pci.dev, (void *)vbus_pci.regs);
-+
-+	pci_release_regions(vbus_pci.dev);
-+	pci_disable_device(vbus_pci.dev);
-+
-+	kfree(vbus_pci.eventq.head_desc);
-+	kfree(vbus_pci.ring);
-+
-+	vbus_pci.enabled = false;
-+}
-+
-+static int __init
-+vbus_pci_open(void)
-+{
-+	struct vbus_pci_negotiate params = {
-+		.magic        = VBUS_PCI_ABI_MAGIC,
-+		.version      = VBUS_PCI_HC_VERSION,
-+		.capabilities = 0,
-+	};
-+
-+	return vbus_pci_hypercall(VBUS_PCI_HC_NEGOTIATE,
-+				  &params, sizeof(params));
-+}
-+
-+#define QLEN 1024
-+
-+static int __init
-+vbus_pci_register(void)
-+{
-+	struct vbus_pci_busreg params = {
-+		.count = 1,
-+		.eventq = {
-+			{
-+				.count = QLEN,
-+				.ring  = (u64)__pa(vbus_pci.eventq.head_desc),
-+				.data  = (u64)__pa(vbus_pci.ring),
-+			},
-+		},
-+	};
-+
-+	return vbus_pci_hypercall(VBUS_PCI_HC_BUSREG, &params, sizeof(params));
-+}
-+
-+static int __init
-+_ioq_init(size_t ringsize, struct ioq *ioq, struct ioq_ops *ops)
-+{
-+	struct shm_signal    *signal = NULL;
-+	struct ioq_ring_head *head = NULL;
-+	size_t                len  = IOQ_HEAD_DESC_SIZE(ringsize);
-+
-+	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
-+	if (!head)
-+		return -ENOMEM;
-+
-+	signal = kzalloc(sizeof(*signal), GFP_KERNEL);
-+	if (!signal) {
-+		kfree(head);
-+		return -ENOMEM;
-+	}
-+
-+	head->magic     = IOQ_RING_MAGIC;
-+	head->ver	= IOQ_RING_VER;
-+	head->count     = ringsize;
-+
-+	_signal_init(signal, &head->signal, &eventq_signal_ops);
-+
-+	ioq_init(ioq, ops, ioq_locality_north, head, signal, ringsize);
-+
-+	return 0;
-+}
-+
-+static int __devinit
-+vbus_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++vbus_enet_negcap(struct vbus_enet_priv *priv)
 +{
 +	int ret;
++	struct venet_capabilities caps;
 +
-+	if (vbus_pci.enabled)
-+		return -EEXIST; /* we only support one bridge per kernel */
++	memset(&caps, 0, sizeof(caps));
 +
-+	if (pdev->revision != VBUS_PCI_ABI_VERSION) {
-+		printk(KERN_DEBUG "VBUS_PCI: expected ABI version %d, got %d\n",
-+		       VBUS_PCI_ABI_VERSION,
-+		       pdev->revision);
-+		return -ENODEV;
++	if (sg_enabled) {
++		caps.gid = VENET_CAP_GROUP_SG;
++		caps.bits |= (VENET_CAP_SG|VENET_CAP_TSO4|VENET_CAP_TSO6
++			      |VENET_CAP_ECN);
++		/* note: exclude UFO for now due to stack bug */
 +	}
 +
-+	vbus_pci.dev = pdev;
-+
-+	ret = pci_enable_device(pdev);
++	ret = devcall(priv, VENET_FUNC_NEGCAP, &caps, sizeof(caps));
 +	if (ret < 0)
 +		return ret;
 +
-+	ret = pci_request_regions(pdev, VBUS_PCI_NAME);
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Could not init BARs: %d\n", ret);
-+		goto out_fail;
++	if (caps.bits & VENET_CAP_SG) {
++		priv->flags.sg = true;
++
++		if (caps.bits & VENET_CAP_TSO4)
++			priv->flags.tso = true;
++		if (caps.bits & VENET_CAP_TSO6)
++			priv->flags.tso6 = true;
++		if (caps.bits & VENET_CAP_UFO)
++			priv->flags.ufo = true;
++		if (caps.bits & VENET_CAP_ECN)
++			priv->flags.ecn = true;
++
++		dev_info(&priv->dev->dev, "Detected GSO features %s%s%s%s\n",
++			 priv->flags.tso  ? "t" : "-",
++			 priv->flags.tso6 ? "T" : "-",
++			 priv->flags.ufo  ? "u" : "-",
++			 priv->flags.ecn  ? "e" : "-");
 +	}
-+
-+	vbus_pci.regs = pci_iomap(pdev, 0, sizeof(struct vbus_pci_regs));
-+	if (!vbus_pci.regs) {
-+		printk(KERN_ERR "VBUS_PCI: Could not map BARs\n");
-+		goto out_fail;
-+	}
-+
-+	vbus_pci.piosignal = pci_iomap(pdev, 1, sizeof(u32));
-+	if (!vbus_pci.piosignal) {
-+		printk(KERN_ERR "VBUS_PCI: Could not map BARs\n");
-+		goto out_fail;
-+	}
-+
-+	ret = vbus_pci_open();
-+	if (ret < 0) {
-+		printk(KERN_DEBUG "VBUS_PCI: Could not register with host: %d\n",
-+		       ret);
-+		goto out_fail;
-+	}
-+
-+	/*
-+	 * Allocate an IOQ to use for host-2-guest event notification
-+	 */
-+	ret = _ioq_init(QLEN, &vbus_pci.eventq, &eventq_ioq_ops);
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Cound not init eventq: %d\n", ret);
-+		goto out_fail;
-+	}
-+
-+	ret = eventq_init(QLEN);
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Cound not setup ring: %d\n", ret);
-+		goto out_fail;
-+	}
-+
-+	ret = pci_enable_msi(pdev);
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Cound not enable MSI: %d\n", ret);
-+		goto out_fail;
-+	}
-+
-+	vbus_pci.irq = pdev->irq;
-+
-+	ret = request_irq(pdev->irq, eventq_intr, 0, "vbus", NULL);
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Failed to register IRQ %d\n: %d",
-+		       pdev->irq, ret);
-+		goto out_fail;
-+	}
-+
-+	/*
-+	 * Finally register our queue on the host to start receiving events
-+	 */
-+	ret = vbus_pci_register();
-+	if (ret < 0) {
-+		printk(KERN_ERR "VBUS_PCI: Could not register with host: %d\n",
-+		       ret);
-+		goto out_fail;
-+	}
-+
-+	vbus_pci.enabled = true;
-+
-+	printk(KERN_INFO "Virtual-Bus: Copyright (c) 2009, " \
-+	       "Gregory Haskins <ghaskins@novell.com>\n");
 +
 +	return 0;
-+
-+ out_fail:
-+	vbus_pci_release();
-+
-+	return ret;
 +}
 +
-+static void __devexit
-+vbus_pci_remove(struct pci_dev *pdev)
-+{
-+	vbus_pci_release();
-+}
+ static const struct net_device_ops vbus_enet_netdev_ops = {
+ 	.ndo_open          = vbus_enet_open,
+ 	.ndo_stop          = vbus_enet_stop,
+@@ -574,12 +776,21 @@ vbus_enet_probe(struct vbus_device_proxy *vdev)
+ 	priv->dev  = dev;
+ 	priv->vdev = vdev;
+ 
++	ret = vbus_enet_negcap(priv);
++	if (ret < 0) {
++		printk(KERN_INFO "VENET: Error negotiating capabilities for " \
++		       "%lld\n",
++		       priv->vdev->id);
++		goto out_free;
++	}
 +
-+static DEFINE_PCI_DEVICE_TABLE(vbus_pci_tbl) = {
-+	{ PCI_DEVICE(0x11da, 0x2000) },
-+	{ 0 },
-+};
+ 	tasklet_init(&priv->txtask, deferred_tx_isr, (unsigned long)priv);
+ 
+ 	queue_init(priv, &priv->rxq, VENET_QUEUE_RX, rx_ringlen, rx_isr);
+ 	queue_init(priv, &priv->txq, VENET_QUEUE_TX, tx_ringlen, tx_isr);
+ 
+ 	rx_setup(priv);
++	tx_setup(priv);
+ 
+ 	ioq_notify_enable(priv->rxq.queue, 0);  /* enable interrupts */
+ 	ioq_notify_enable(priv->txq.queue, 0);
+@@ -599,6 +810,22 @@ vbus_enet_probe(struct vbus_device_proxy *vdev)
+ 
+ 	dev->features |= NETIF_F_HIGHDMA;
+ 
++	if (priv->flags.sg) {
++		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM|NETIF_F_FRAGLIST;
 +
-+MODULE_DEVICE_TABLE(pci, vbus_pci_tbl);
++		if (priv->flags.tso)
++			dev->features |= NETIF_F_TSO;
 +
-+static struct pci_driver vbus_pci_driver = {
-+	.name     = VBUS_PCI_NAME,
-+	.id_table = vbus_pci_tbl,
-+	.probe    = vbus_pci_probe,
-+	.remove   = vbus_pci_remove,
-+};
++		if (priv->flags.ufo)
++			dev->features |= NETIF_F_UFO;
 +
-+int __init
-+vbus_pci_init(void)
-+{
-+	memset(&vbus_pci, 0, sizeof(vbus_pci));
-+	spin_lock_init(&vbus_pci.lock);
++		if (priv->flags.tso6)
++			dev->features |= NETIF_F_TSO6;
 +
-+	return pci_register_driver(&vbus_pci_driver);
-+}
++		if (priv->flags.ecn)
++			dev->features |= NETIF_F_TSO_ECN;
++	}
 +
-+static void __exit
-+vbus_pci_exit(void)
-+{
-+	pci_unregister_driver(&vbus_pci_driver);
-+}
+ 	ret = register_netdev(dev);
+ 	if (ret < 0) {
+ 		printk(KERN_INFO "VENET: error %i registering device \"%s\"\n",
+@@ -626,9 +853,9 @@ vbus_enet_remove(struct vbus_device_proxy *vdev)
+ 	napi_disable(&priv->napi);
+ 
+ 	rx_teardown(priv);
+-	vbus_enet_tx_reap(priv, 1);
+-
+ 	ioq_put(priv->rxq.queue);
 +
-+module_init(vbus_pci_init);
-+module_exit(vbus_pci_exit);
++	tx_teardown(priv);
+ 	ioq_put(priv->txq.queue);
+ 
+ 	dev->ops->close(dev, 0);
+diff --git a/include/linux/venet.h b/include/linux/venet.h
+index 586be40..47ed37d 100644
+--- a/include/linux/venet.h
++++ b/include/linux/venet.h
+@@ -37,8 +37,43 @@ struct venet_capabilities {
+ 	__u32 bits;
+ };
+ 
+-/* CAPABILITIES-GROUP 0 */
+-/* #define VENET_CAP_FOO    0   (No capabilities defined yet, for now) */
++#define VENET_CAP_GROUP_SG 0
 +
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index 32b3eb8..fa15bbf 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -358,6 +358,7 @@ unifdef-y += uio.h
- unifdef-y += unistd.h
- unifdef-y += usbdevice_fs.h
- unifdef-y += utsname.h
-+unifdef-y += vbus_pci.h
- unifdef-y += videodev2.h
- unifdef-y += videodev.h
- unifdef-y += virtio_config.h
-diff --git a/include/linux/vbus_pci.h b/include/linux/vbus_pci.h
-new file mode 100644
-index 0000000..e18ff59
---- /dev/null
-+++ b/include/linux/vbus_pci.h
-@@ -0,0 +1,127 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * PCI to Virtual-Bus Bridge
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
++/* CAPABILITIES-GROUP SG */
++#define VENET_CAP_SG     (1 << 0)
++#define VENET_CAP_TSO4   (1 << 1)
++#define VENET_CAP_TSO6   (1 << 2)
++#define VENET_CAP_ECN    (1 << 3)
++#define VENET_CAP_UFO    (1 << 4)
 +
-+#ifndef _LINUX_VBUS_PCI_H
-+#define _LINUX_VBUS_PCI_H
-+
-+#include <linux/ioctl.h>
-+#include <linux/types.h>
-+
-+#define VBUS_PCI_ABI_MAGIC 0xbf53eef5
-+#define VBUS_PCI_ABI_VERSION 1
-+#define VBUS_PCI_HC_VERSION 1
-+
-+enum {
-+	VBUS_PCI_HC_NEGOTIATE,
-+	VBUS_PCI_HC_BUSREG,
-+	VBUS_PCI_HC_DEVOPEN,
-+	VBUS_PCI_HC_DEVCLOSE,
-+	VBUS_PCI_HC_DEVCALL,
-+	VBUS_PCI_HC_DEVSHM,
-+
-+	VBUS_PCI_HC_MAX,      /* must be last */
-+};
-+
-+struct vbus_pci_negotiate {
-+	__u32 magic;
-+	__u32 version;
-+	__u64 capabilities;
-+};
-+
-+struct vbus_pci_deviceopen {
-+	__u32 devid;
-+	__u32 version; /* device ABI version */
-+	__u64 handle; /* return value for devh */
-+};
-+
-+struct vbus_pci_devicecall {
-+	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
-+	__u32 func;
++struct venet_iov {
 +	__u32 len;
-+	__u32 flags;
-+	__u64 datap;
++	__u64 ptr;
 +};
 +
-+struct vbus_pci_deviceshm {
-+	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
-+	__u32 id;
-+	__u32 len;
-+	__u32 flags;
++#define VENET_SG_FLAG_NEEDS_CSUM (1 << 0)
++#define VENET_SG_FLAG_GSO        (1 << 1)
++#define VENET_SG_FLAG_ECN        (1 << 2)
++
++struct venet_sg {
++	__u64            cookie;
++	__u32            flags;
++	__u32            len;     /* total length of all iovs */
 +	struct {
-+		__u32 offset;
-+		__u32 prio;
-+		__u64 cookie; /* token to pass back when signaling client */
-+	} signal;
-+	__u64 datap;
-+};
-+
-+struct vbus_pci_hypercall {
-+	__u32 vector;
-+	__u32 len;
-+	__u64 datap;
-+};
-+
-+struct vbus_pci_regs {
++		__u16    start;	  /* csum starting position */
++		__u16    offset;  /* offset to place csum */
++	} csum;
 +	struct {
-+		struct vbus_pci_hypercall data;
-+		__u32                     result;
-+	} hypercall;
++#define VENET_GSO_TYPE_TCPV4	0	/* IPv4 TCP (TSO) */
++#define VENET_GSO_TYPE_UDP	1	/* IPv4 UDP (UFO) */
++#define VENET_GSO_TYPE_TCPV6	2	/* IPv6 TCP */
++		__u8     type;
++		__u16    hdrlen;
++		__u16    size;
++	} gso;
++	__u32            count;   /* nr of iovs */
++	struct venet_iov iov[1];
 +};
-+
-+struct vbus_pci_eventqreg {
-+	__u32 count;
-+	__u64 ring;
-+	__u64 data;
-+};
-+
-+struct vbus_pci_busreg {
-+	__u32 count;  /* supporting multiple queues allows for prio, etc */
-+	struct vbus_pci_eventqreg eventq[1];
-+};
-+
-+enum vbus_pci_eventid {
-+	VBUS_PCI_EVENT_DEVADD,
-+	VBUS_PCI_EVENT_DEVDROP,
-+	VBUS_PCI_EVENT_SHMSIGNAL,
-+	VBUS_PCI_EVENT_SHMCLOSE,
-+};
-+
-+#define VBUS_MAX_DEVTYPE_LEN 128
-+
-+struct vbus_pci_add_event {
-+	__u64 id;
-+	char  type[VBUS_MAX_DEVTYPE_LEN];
-+};
-+
-+struct vbus_pci_handle_event {
-+	__u64 handle;
-+};
-+
-+struct vbus_pci_event {
-+	__u32 eventid;
-+	union {
-+		struct vbus_pci_add_event    add;
-+		struct vbus_pci_handle_event handle;
-+	} data;
-+};
-+
-+#endif /* _LINUX_VBUS_PCI_H */
+ 
+ #define VENET_FUNC_LINKUP   0
+ #define VENET_FUNC_LINKDOWN 1
 
