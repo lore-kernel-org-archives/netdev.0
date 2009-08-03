@@ -1,33 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next]atl11:set MAX_TX_OFFLOAD_THRESH to 6k from 9k
- and fix spelling error
-Date: Mon, 03 Aug 2009 13:21:30 -0700 (PDT)
-Message-ID: <20090803.132130.43462719.davem@davemloft.net>
-References: <1249278232896-git-send-email-jie.yang@atheros.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
+Date: Mon, 3 Aug 2009 22:22:24 +0200
+Message-ID: <20090803202224.GB3471@ami.dom.local>
+References: <OF1689973C.61968A07-ON65257607.003168D7-65257607.0033083B@in.ibm.com> <20090803193847.GA3471@ami.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au, kaber@trash.net,
+	netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43891
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751852AbZHCUVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 16:21:21 -0400
-In-Reply-To: <1249278232896-git-send-email-jie.yang@atheros.com>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:38474 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753475AbZHCUWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 16:22:44 -0400
+Received: by fxm17 with SMTP id 17so2867241fxm.37
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 13:22:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090803193847.GA3471@ami.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Mon, 3 Aug 2009 13:43:52 +0800
-
-> 1. Set MAX_TX_OFFLOAD_THRESH to 6k from 9k, when mtu large then MAX_TX_OFFLOAD_THRESH
->    just disable NETIF_F_TSO6, NETIF_F_TSO, NETIF_F_HW_CSUM.
+On Mon, Aug 03, 2009 at 09:38:47PM +0200, Jarek Poplawski wrote:
+> Krishna Kumar2 wrote, On 08/03/2009 11:17 AM:
+> > Krishna Kumar2/India/IBM@IBMIN wrote on 08/03/2009 01:40:16 PM:
+> > 
+> >> Krishna Kumar2/India/IBM@IBMIN
+> >> 08/03/2009 01:40 PM
+...
+> >> [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
+> >>
+> >> From: Krishna Kumar <krkumar2@in.ibm.com>
+...
+> >> @@ -547,8 +561,11 @@ void qdisc_reset(struct Qdisc *qdisc)
+> >>     if (ops->reset)
+> >>        ops->reset(qdisc);
+> >>
+> >> -   kfree_skb(qdisc->gso_skb);
+> >> -   qdisc->gso_skb = NULL;
+> >> +   if (qdisc->gso_skb) {
+> >> +      kfree_skb(qdisc->gso_skb);
+> >> +      qdisc->gso_skb = NULL;
+> >> +      qdisc->q.qlen--;
 > 
-> 2. Fix spelling error, change REG_TWSI_CTRL to REG_TXQ_CTRL.
+> You don't need this here: qdiscs should zero it in ops->reset().
+
+Actually, there're some exceptions, so until it's fixed maybe you
+should better zero it here too.
+
+Jarek P.
+
 > 
-> Signed-off-by: jie yang <jie.yang>@atheros.com
-
-Please repost these two patches with your signoff fixed.
-
-Thanks.
+> >> +   }
+> >>  }
+> >>  EXPORT_SYMBOL(qdisc_reset);
