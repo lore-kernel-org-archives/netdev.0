@@ -1,55 +1,83 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
-Date: Mon, 3 Aug 2009 22:22:24 +0200
-Message-ID: <20090803202224.GB3471@ami.dom.local>
-References: <OF1689973C.61968A07-ON65257607.003168D7-65257607.0033083B@in.ibm.com> <20090803193847.GA3471@ami.dom.local>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCH 6/7] net: Add vbus_enet driver
+Date: Mon, 03 Aug 2009 16:24:10 -0400
+Message-ID: <4A77476A.1030001@gmail.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>	<20090803171801.17268.93846.stgit@dev.haskins.net>	<20090803113030.3092d5b0@nehalam>	<4A77443D.9020105@novell.com> <20090803131927.6f653556@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:38474 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753475AbZHCUWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 16:22:44 -0400
-Received: by fxm17 with SMTP id 17so2867241fxm.37
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 13:22:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090803193847.GA3471@ami.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig0B70D64D9F73FB923974D8FD"
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753423AbZHCUYQ@vger.kernel.org>
+In-Reply-To: <20090803131927.6f653556@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 03, 2009 at 09:38:47PM +0200, Jarek Poplawski wrote:
-> Krishna Kumar2 wrote, On 08/03/2009 11:17 AM:
-> > Krishna Kumar2/India/IBM@IBMIN wrote on 08/03/2009 01:40:16 PM:
-> > 
-> >> Krishna Kumar2/India/IBM@IBMIN
-> >> 08/03/2009 01:40 PM
-...
-> >> [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
-> >>
-> >> From: Krishna Kumar <krkumar2@in.ibm.com>
-...
-> >> @@ -547,8 +561,11 @@ void qdisc_reset(struct Qdisc *qdisc)
-> >>     if (ops->reset)
-> >>        ops->reset(qdisc);
-> >>
-> >> -   kfree_skb(qdisc->gso_skb);
-> >> -   qdisc->gso_skb = NULL;
-> >> +   if (qdisc->gso_skb) {
-> >> +      kfree_skb(qdisc->gso_skb);
-> >> +      qdisc->gso_skb = NULL;
-> >> +      qdisc->q.qlen--;
-> 
-> You don't need this here: qdiscs should zero it in ops->reset().
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0B70D64D9F73FB923974D8FD
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Actually, there're some exceptions, so until it's fixed maybe you
-should better zero it here too.
+Stephen Hemminger wrote:
+> On Mon, 03 Aug 2009 16:10:37 -0400
+> Gregory Haskins <ghaskins@novell.com> wrote:
+>=20
+>> Stephen Hemminger wrote:
+>>> On Mon, 03 Aug 2009 13:18:02 -0400
+>>> Gregory Haskins <ghaskins@novell.com> wrote:
+>>>
+>>>> +
+>>>> +static const struct net_device_ops vbus_enet_netdev_ops =3D {
+>>>> +	.ndo_open          =3D vbus_enet_open,
+>>>> +	.ndo_stop          =3D vbus_enet_stop,
+>>>> +	.ndo_set_config    =3D vbus_enet_config,
+>>>> +	.ndo_start_xmit    =3D vbus_enet_tx_start,
+>>>> +	.ndo_change_mtu	   =3D vbus_enet_change_mtu,
+>>>> +	.ndo_tx_timeout    =3D vbus_enet_timeout,
+>>>> +};
+>>>
+>>> Missing=20
+>>> 	.ndo_set_mac_address =3D eth_mac_addr,
+>>> 	.ndo_validate_addr   =3D eth_validate_addr,
+>>>
+>> Ack.
+>>
+>>> Also, should have change_mtu.
+>> note that I do have .ndo_change_mtu.  I assume this is what you are
+>> referring to and just missed it.  If there is something else I need
+>> there, let me know.
+>=20
+> If you don't have a change_mtu, then MTU is unlimited.
 
-Jarek P.
+Is "change_mtu" different from .ndo_change_mtu" on the ndo struct?
+That's whats confusing me, as I have the .ndo one already.  Is there
+something else I need in addition, or should I be ok as is?
 
-> 
-> >> +   }
-> >>  }
-> >>  EXPORT_SYMBOL(qdisc_reset);
+> Can the device handle 64K or larger transfers?
+
+Well, its been tested with 64K GSO packets at least.  I think it could
+handle arbitrarily large packets as long as they are paged, but I have
+never tried this beyond 64k due to the simple L4 limitations of 64k.
+
+Thanks Stephen,
+-Greg
+
+
+--------------enig0B70D64D9F73FB923974D8FD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkp3R2oACgkQP5K2CMvXmqHn1ACgjI5YhuvED29ZpAcviHHIiwo6
+mg8An38icNKfF9CELsCqPy4DLYEzGEgh
+=3ROs
+-----END PGP SIGNATURE-----
+
+--------------enig0B70D64D9F73FB923974D8FD--
