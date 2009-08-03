@@ -1,14 +1,16 @@
 From: <jie.yang@atheros.com>
-Subject: atl1c: Do not call cancel_work_sync from the work itself
-Date: Mon, 3 Aug 2009 13:32:19 +0800
-Message-ID: <12492775393830-git-send-email-jie.yang@atheros.com>
+Subject: [Patch net-next]atl1c: Do not call cancel_work_sync from the work itself
+Date: Mon, 3 Aug 2009 13:37:58 +0800
+Message-ID: <12492778781951-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753355AbZHCFcS@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751672AbZHCFh5@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Do not call cancel_work_sync from the work itself
 
 Signed-off-by: jie yang <jie.yang>@atheros.com
 ---
