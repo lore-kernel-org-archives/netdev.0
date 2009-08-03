@@ -1,32 +1,65 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH]bluetooth: rfcomm_init bug fix
-Date: Mon, 03 Aug 2009 13:29:24 -0700 (PDT)
-Message-ID: <20090803.132924.151782729.davem@davemloft.net>
-References: <20090803142616.GA1973@darkstar>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 6/7] net: Add vbus_enet driver
+Date: Mon, 3 Aug 2009 13:29:27 -0700
+Message-ID: <20090803132927.2818fee2@nehalam>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>
+	<20090803171801.17268.93846.stgit@dev.haskins.net>
+	<20090803113030.3092d5b0@nehalam>
+	<4A77443D.9020105@novell.com>
+	<20090803131927.6f653556@nehalam>
+	<4A77476A.1030001@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090803142616.GA1973@darkstar>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52589 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753964AbZHCU3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2009 16:29:32 -0400
+In-Reply-To: <4A77476A.1030001@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 3 Aug 2009 22:26:16 +0800
+On Mon, 03 Aug 2009 16:24:10 -0400
+Gregory Haskins <gregory.haskins@gmail.com> wrote:
 
-> rfcomm tty may be used before rfcomm_tty_driver initilized,
-> The problem is that now socket layer init before tty layer, if userspace
-> program do socket callback right here then oops will happen.
+> Stephen Hemminger wrote:
+> > On Mon, 03 Aug 2009 16:10:37 -0400
+> > Gregory Haskins <ghaskins@novell.com> wrote:
+> > 
+> >> Stephen Hemminger wrote:
+> >>> On Mon, 03 Aug 2009 13:18:02 -0400
+> >>> Gregory Haskins <ghaskins@novell.com> wrote:
+> >>>
+> >>>> +
+> >>>> +static const struct net_device_ops vbus_enet_netdev_ops = {
+> >>>> +	.ndo_open          = vbus_enet_open,
+> >>>> +	.ndo_stop          = vbus_enet_stop,
+> >>>> +	.ndo_set_config    = vbus_enet_config,
+> >>>> +	.ndo_start_xmit    = vbus_enet_tx_start,
+> >>>> +	.ndo_change_mtu	   = vbus_enet_change_mtu,
+> >>>> +	.ndo_tx_timeout    = vbus_enet_timeout,
+> >>>> +};
+> >>>
+> >>> Missing 
+> >>> 	.ndo_set_mac_address = eth_mac_addr,
+> >>> 	.ndo_validate_addr   = eth_validate_addr,
+> >>>
+> >> Ack.
+> >>
+> >>> Also, should have change_mtu.
+> >> note that I do have .ndo_change_mtu.  I assume this is what you are
+> >> referring to and just missed it.  If there is something else I need
+> >> there, let me know.
+> > 
+> > If you don't have a change_mtu, then MTU is unlimited.
 > 
-> reporting in:
-> http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
- ...
-> Reported-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Tested-by: Oliver Hartkopp <oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Signed-off-by: Dave Young <hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Is "change_mtu" different from .ndo_change_mtu" on the ndo struct?
+> That's whats confusing me, as I have the .ndo one already.  Is there
+> something else I need in addition, or should I be ok as is?
 
-Applied, thanks.
+Never mind, it is same as .ndo_change_mtu
