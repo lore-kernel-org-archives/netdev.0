@@ -1,37 +1,144 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: Patch to modify 82598 PCIe completion
- timeout values
-Date: Mon, 03 Aug 2009 13:29:44 -0700 (PDT)
-Message-ID: <20090803.132944.55626714.davem@davemloft.net>
-References: <20090803172037.21652.98159.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	mallikarjuna.chilakala@intel.com
-To: jeffrey.t.kirsher@intel.com
+From: Dan Smith <danms@us.ibm.com>
+Subject: [PATCH 3/5] Add common socket helpers to unify the security hooks
+Date: Mon,  3 Aug 2009 13:31:01 -0700
+Message-ID: <1249331463-11887-4-git-send-email-danms@us.ibm.com>
+References: <1249331463-11887-1-git-send-email-danms@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: containers@lists.osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33620
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754582AbZHCU3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 16:29:35 -0400
-In-Reply-To: <20090803172037.21652.98159.stgit@localhost.localdomain>
+Received: from gw0.danplanet.com ([71.245.107.82]:37675 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932107AbZHCU34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 16:29:56 -0400
+In-Reply-To: <1249331463-11887-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 03 Aug 2009 10:20:38 -0700
+This moves the meat out of the bind(), getsockname(), and getpeername() syscalls
+into helper functions that performs security_socket_bind() and then the
+sock->ops->call().  This allows a unification of this behavior between the
+syscalls and the pending socket restart logic.
 
-> From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> 
-> The default completion timeout values for 82598 should be in the
-> range of 50us to 50ms, however the hardware default for these
-> parts is 500us to 1ms which is less than the 10ms recommended by
-> the pcie spec. To address this we need to increase the value to
-> either 10ms to 250ms for capability version 1 configuration, or
-> 16ms to 55ms for version 2.
-> 
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Dan Smith <danms@us.ibm.com>
+Cc: netdev@vger.kernel.org
+---
+ include/net/sock.h |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/socket.c       |   29 ++++++-----------------------
+ 2 files changed, 54 insertions(+), 23 deletions(-)
 
-Applied, thanks.
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 2c0da92..43b9599 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1572,6 +1572,54 @@ extern void sock_enable_timestamp(struct sock *sk, int flag);
+ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
+ extern int sock_get_timestampns(struct sock *, struct timespec __user *);
+ 
++/* bind() helper shared between any callers needing to perform a bind on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_bind(struct socket *sock,
++			    struct sockaddr *addr,
++			    int addr_len)
++{
++	int err;
++
++	err = security_socket_bind(sock, addr, addr_len);
++	if (err)
++		return err;
++	else
++		return sock->ops->bind(sock, addr, addr_len);
++}
++
++/* getname() helper shared between any callers needing to perform a getname on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_getname(struct socket *sock,
++			       struct sockaddr *addr,
++			       int *addr_len)
++{
++	int err;
++
++	err = security_socket_getsockname(sock);
++	if (err)
++		return err;
++	else
++		return sock->ops->getname(sock, addr, addr_len, 0);
++}
++
++/* getpeer() helper shared between any callers needing to perform a getpeer on
++ * behalf of userspace (syscall and restart) with the security hooks.
++ */
++static inline int sock_getpeer(struct socket *sock,
++			       struct sockaddr *addr,
++			       int *addr_len)
++{
++	int err;
++
++	err = security_socket_getpeername(sock);
++	if (err)
++		return err;
++	else
++		return sock->ops->getname(sock, addr, addr_len, 1);
++}
++
+ /* 
+  *	Enable debug/info messages 
+  */
+diff --git a/net/socket.c b/net/socket.c
+index 791d71a..65e7698 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1414,15 +1414,10 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (sock) {
+ 		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
+-		if (err >= 0) {
+-			err = security_socket_bind(sock,
+-						   (struct sockaddr *)&address,
+-						   addrlen);
+-			if (!err)
+-				err = sock->ops->bind(sock,
+-						      (struct sockaddr *)
+-						      &address, addrlen);
+-		}
++		if (err >= 0)
++			err = sock_bind(sock,
++					(struct sockaddr *)&address,
++					addrlen);
+ 		fput_light(sock->file, fput_needed);
+ 	}
+ 	return err;
+@@ -1610,11 +1605,7 @@ SYSCALL_DEFINE3(getsockname, int, fd, struct sockaddr __user *, usockaddr,
+ 	if (!sock)
+ 		goto out;
+ 
+-	err = security_socket_getsockname(sock);
+-	if (err)
+-		goto out_put;
+-
+-	err = sock->ops->getname(sock, (struct sockaddr *)&address, &len, 0);
++	err = sock_getname(sock, (struct sockaddr *)&address, &len);
+ 	if (err)
+ 		goto out_put;
+ 	err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr, usockaddr_len);
+@@ -1639,15 +1630,7 @@ SYSCALL_DEFINE3(getpeername, int, fd, struct sockaddr __user *, usockaddr,
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (sock != NULL) {
+-		err = security_socket_getpeername(sock);
+-		if (err) {
+-			fput_light(sock->file, fput_needed);
+-			return err;
+-		}
+-
+-		err =
+-		    sock->ops->getname(sock, (struct sockaddr *)&address, &len,
+-				       1);
++		err = sock_getpeer(sock, (struct sockaddr *)&address, &len);
+ 		if (!err)
+ 			err = move_addr_to_user((struct sockaddr *)&address, len, usockaddr,
+ 						usockaddr_len);
+-- 
+1.6.2.5
+
