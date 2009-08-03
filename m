@@ -1,39 +1,51 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] mlx4_en: Fix double pci unmapping.
-Date: Sun, 02 Aug 2009 22:10:30 -0700
-Message-ID: <adaocqxo52x.fsf@cisco.com>
-References: <4A62C9DD.8040506@mellanox.co.il>
-	<20090802.202305.119004003.davem@davemloft.net>
+From: <jie.yang@atheros.com>
+Subject: atl1c: Do not call cancel_work_sync from the work itself
+Date: Mon, 3 Aug 2009 13:32:19 +0800
+Message-ID: <12492775393830-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:42348 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbZHCFK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 01:10:29 -0400
-In-Reply-To: <20090802.202305.119004003.davem@davemloft.net> (David Miller's
-	message of "Sun, 02 Aug 2009 20:23:05 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753355AbZHCFcS@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: jie yang <jie.yang>@atheros.com
+---
 
- > Ok, I'm just going to apply this.  Waiting more than a week to get
- > feedback from Roland for a bug fix like this is not reasonable.
-
-Dave, for the mlx4 ethernet (mlx4_en) driver patches you can go ahead
-and apply them without worrying about me -- Yevgeny was the original
-author of that code and I consider him more than qualified to handle
-that.  It's the mlx4_core changes that I prefer to handle, since I wrote
-the original driver there, and mlx4_core changes potentially hit the
-mlx4_ib InfiniBand driver too.
-
-I realize that it's one more annoying thing to keep track of (although
-Yevgeny has been great about sending mlx4_en patches to you and
-mlx4_core patches to me -- but I understand your workflow makes looking
-at the "To:" line hard).  That's why I suggested moving the mlx4_core
-driver out of drivers/net/mlx4.  So that the two drivers are physically
-separate, to make things clearer.
-
- - R.
+diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
+index 2a1120a..53242dc 100644
+--- a/drivers/net/atl1c/atl1c.h
++++ b/drivers/net/atl1c/atl1c.h
+@@ -427,6 +427,7 @@ struct atl1c_hw {
+ #define ATL1C_ASPM_CTRL_MON        0x0200
+ #define ATL1C_HIB_DISABLE      0x0400
+ #define ATL1C_LINK_CAP_1000M       0x0800
++#define ATL1C_RESET_IN_WORK        0x1000
+ #define ATL1C_FPGA_VERSION     0x8000
+    u16 cmb_tpd;
+    u16 cmb_rrd;
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
+index 1d601ce..dec88fa 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -321,7 +321,10 @@ static void atl1c_del_timer(struct atl1c_adapter *adapter)
+ 
+ static void atl1c_cancel_work(struct atl1c_adapter *adapter)
+ {
+-   cancel_work_sync(&adapter->reset_task);
++   if (adapter->hw.ctrl_flags & ATL1C_RESET_IN_WORK)
++       adapter->hw.ctrl_flags &= ~ATL1C_RESET_IN_WORK;/* clear the flag */
++   else
++       cancel_work_sync(&adapter->reset_task);
+    cancel_work_sync(&adapter->link_chg_task);
+ }
+ 
+@@ -1544,6 +1547,7 @@ static irqreturn_t atl1c_intr(int irq, void *data)
+            /* reset MAC */
+            hw->intr_mask &= ~ISR_ERROR;
+            AT_WRITE_REG(hw, REG_IMR, hw->intr_mask);
++           adapter->hw.ctrl_flags |= ATL1C_RESET_IN_WORK;
+            schedule_work(&adapter->reset_task);
+            break;
+        }
