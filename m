@@ -1,65 +1,72 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [PATCH 7/7] venet: add scatter-gather/GSO support
-Date: Mon, 03 Aug 2009 15:57:59 -0400
-Message-ID: <4A774147.8090207@novell.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net>	<20090803171807.17268.49836.stgit@dev.haskins.net> <20090803113355.734e69b6@nehalam>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: netpoll + xmit_lock == deadlock
+Date: Mon, 03 Aug 2009 14:59:41 -0500
+Message-ID: <1249329581.3703.122.camel@calx>
+References: <20090729073523.GA4515@gondor.apana.org.au>
+	 <20090802.130704.133993421.davem@davemloft.net>
+	 <1249301157.2893.11.camel@achroite>
+	 <20090803.121512.75779533.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig729E2AC306E0E4CAC25F29DB"
-Cc: linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754955AbZHCT6H@vger.kernel.org>
-In-Reply-To: <20090803113355.734e69b6@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, mcarlson@broadcom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from waste.org ([66.93.16.53]:52519 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755117AbZHCUAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2009 16:00:11 -0400
+In-Reply-To: <20090803.121512.75779533.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig729E2AC306E0E4CAC25F29DB
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2009-08-03 at 12:15 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 03 Aug 2009 13:05:57 +0100
+> 
+> > On Sun, 2009-08-02 at 13:07 -0700, David Miller wrote:
+> >> My position has always been that such printk's are simply
+> >> not allowed.  (check archives if you don't believe me :-)
+> >>
+> >> The locking is going to get rediculious if we start having
+> >> to account for this.
+> > 
+> > I agree with that, but this does seem quite restrictive.  How can we be
+> > sure that none of the kernel functions used by a driver's TX path (e.g.
+> > kmalloc or DMA-mapping) will print debug or warning messages?  If such
+> > guarantees exist, they do not seem to be documented.
+> 
+> Indeed, that's a good counter-argument.
+> 
+> Ho hum... so someone show me how ugly the locking is going
+> to get :-)
 
-Stephen Hemminger wrote:
-> On Mon, 03 Aug 2009 13:18:07 -0400
-> Gregory Haskins <ghaskins@novell.com> wrote:
->=20
->> +	struct {
->> +		int                sg:1;
->> +		int                tso:1;
->> +		int                ufo:1;
->> +		int                tso6:1;
->> +		int                ecn:1;
->> +	} flags;
->=20
-> Why do you have to shadow flags that are already available in net_devic=
-e?
-> It is bad design to replicate state in a device driver. The problem
-> with replicated state is that it has to be updated in both places.
->=20
+First, I don't think we can solve the problem of 'reliably deliver
+printks inside the TX path'. If the driver needs to printk here, odds
+are good that sending isn't possible.
 
-Ya, you are right.  I think the rationale was that the flags were "hw"
-state, whereas dev->features was software state.  But thinking about it
-after you comments, I don't think it makes much difference either way.
+So I think we should be clear up front that the solution we're looking
+for is 'don't crash the box when trying to printk from the tx path'.
 
-I will just have the negcap() function set the features directly in v2.
+I think the most straightforward, driver-agnostic way to do this
+is to have netpoll wrap a driver's TX entrypoint such that recursion is
+disabled while in that path. This might actually simplify netpoll's
+internal locking ugliness. Something like:
 
-Kind Regards,
--Greg
+int netpoll_xmit_wrapper(struct sk_buff *skb, struct net_device *dev)
+{
+	struct netpoll_info *npinfo = dev->npinfo;
+	int ret;
+
+	npinfo->recurse += 1; /* add appropriate locking */
+	ret = npinfo->orig_tx(skb, dev);
+	npinfo->recurse -= 1;
+	
+	return ret;
+}
+
+-- 
+http://selenic.com : development and support for Mercurial and Linux
 
 
---------------enig729E2AC306E0E4CAC25F29DB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkp3QUcACgkQP5K2CMvXmqFApwCfWvniqvhjljwRK06ZywYww8TL
-HeIAn12tmTF1vrt/U2eqFygxMuqhhTE/
-=TQZc
------END PGP SIGNATURE-----
-
---------------enig729E2AC306E0E4CAC25F29DB--
