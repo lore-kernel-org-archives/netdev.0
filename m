@@ -1,140 +1,65 @@
-From: Dave Young <hidave.darkstar@gmail.com>
-Subject: [PATCH]bluetooth: rfcomm_init bug fix
-Date: Mon, 3 Aug 2009 22:26:16 +0800
-Message-ID: <20090803142616.GA1973@darkstar>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: Re: 2.6.31-rc5: Reported regressions from 2.6.30
+Date: Mon, 3 Aug 2009 16:31:08 +0200
+Message-ID: <20090803143108.GA12041@cmpxchg.org>
+References: <Su1q3S6JjyO.A.jeB.hcgdKB@chimera> <alpine.LFD.2.01.0908021456430.3352@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <oliver@hartkopp.net>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, netdev@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org
-To: marcel@holtmann.org
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>,
+	Mikael Pettersson <mikpe@it.uu.se>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:36328 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932138AbZHCO0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 10:26:32 -0400
+Received: from cmpxchg.org ([85.214.51.133]:39633 "EHLO cmpxchg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932150AbZHCOdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2009 10:33:46 -0400
 Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.01.0908021456430.3352@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rfcomm tty may be used before rfcomm_tty_driver initilized,
-The problem is that now socket layer init before tty layer, if userspace
-program do socket callback right here then oops will happen.
+On Sun, Aug 02, 2009 at 03:22:01PM -0700, Linus Torvalds wrote:
 
-reporting in:
-http://marc.info/?l=linux-bluetooth&m=124404919324542&w=2
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13815
+> > Subject		: emacs -nw compilation doesn't show the error message
+> > Submitter	: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
+> > Date		: 2009-07-23 06:22 (11 days old)
+> > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=d945cb9cce20ac7143c2de8d88b187f62db99bdc
+> 
+> Same old pty bug, same fix: commit e043e42bdb.
+> 
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13813
+> > Subject		: Hangups in n_tty_read()
+> > Submitter	: Johannes Weiner <hannes@cmpxchg.org>
+> > Date		: 2009-07-16 18:48 (18 days old)
+> > References	: http://marc.info/?l=linux-kernel&m=124777019920579&w=4
+> 
+> Hmm. Worth testing that same fix, although the symptoms here are not 
+> exactly the same.
 
-make 3 changes:
-1. remove #ifdef in rfcomm/core.c,
-make it blank function when rfcomm tty not selected in rfcomm.h
+Hm, I had no debugging enabled, but I think a silent hang in
 
-2. tune the rfcomm_init error patch to ensure
-tty driver initilized before rfcomm socket usage.
+	pty_write()
+	  tty_flip_buffer_push()
+	    flush_to_ldisc()
 
-3. remove __exit for rfcomm_cleanup_sockets
-because above change need call it in a __init function. 
+can cause the receiving side
 
+	tty_read()
+	  n_tty_read()
 
-CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Reported-by: Oliver Hartkopp <oliver@hartkopp.net>
-Tested-by: Oliver Hartkopp <oliver@hartkopp.net>
-Signed-off-by: Dave Young <hidave.darkstar@gmail.com>
---
-include/net/bluetooth/rfcomm.h |   12 +++++++++++-
-net/bluetooth/rfcomm/core.c    |   29 ++++++++++++++++++++---------
-net/bluetooth/rfcomm/sock.c    |    2 +-
-3 files changed, 32 insertions(+), 11 deletions(-)
+to wait forever for updates.  I haven't looked closely.  It seems to
+be gone with your latest master in any case.
 
---- linux-2.6.orig/include/net/bluetooth/rfcomm.h	2009-08-01 13:56:53.000000000 +0800
-+++ linux-2.6/include/net/bluetooth/rfcomm.h	2009-08-01 17:24:59.000000000 +0800
-@@ -355,7 +355,17 @@ struct rfcomm_dev_list_req {
- };
- 
- int  rfcomm_dev_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
-+
-+#ifdef CONFIG_BT_RFCOMM_TTY
- int  rfcomm_init_ttys(void);
- void rfcomm_cleanup_ttys(void);
--
-+#else
-+static inline int rfcomm_init_ttys(void)
-+{
-+	return 0;
-+}
-+static inline void rfcomm_cleanup_ttys(void)
-+{
-+}
-+#endif
- #endif /* __RFCOMM_H */
---- linux-2.6.orig/net/bluetooth/rfcomm/core.c	2009-08-01 13:56:53.000000000 +0800
-+++ linux-2.6/net/bluetooth/rfcomm/core.c	2009-08-01 13:57:18.000000000 +0800
-@@ -2080,28 +2080,41 @@ static CLASS_ATTR(rfcomm_dlc, S_IRUGO, r
- /* ---- Initialization ---- */
- static int __init rfcomm_init(void)
- {
-+	int ret;
-+
- 	l2cap_load();
- 
- 	hci_register_cb(&rfcomm_cb);
- 
- 	rfcomm_thread = kthread_run(rfcomm_run, NULL, "krfcommd");
- 	if (IS_ERR(rfcomm_thread)) {
--		hci_unregister_cb(&rfcomm_cb);
--		return PTR_ERR(rfcomm_thread);
-+		ret = PTR_ERR(rfcomm_thread);
-+		goto out_thread;
- 	}
- 
- 	if (class_create_file(bt_class, &class_attr_rfcomm_dlc) < 0)
- 		BT_ERR("Failed to create RFCOMM info file");
- 
--	rfcomm_init_sockets();
--
--#ifdef CONFIG_BT_RFCOMM_TTY
--	rfcomm_init_ttys();
--#endif
-+	ret = rfcomm_init_ttys();
-+	if (ret)
-+		goto out_tty;
-+
-+	ret = rfcomm_init_sockets();
-+	if (ret)
-+		goto out_sock;
- 
- 	BT_INFO("RFCOMM ver %s", VERSION);
- 
- 	return 0;
-+
-+out_sock:
-+	rfcomm_cleanup_ttys();
-+out_tty:
-+	kthread_stop(rfcomm_thread);
-+out_thread:
-+	hci_unregister_cb(&rfcomm_cb);
-+
-+	return ret;
- }
- 
- static void __exit rfcomm_exit(void)
-@@ -2112,9 +2125,7 @@ static void __exit rfcomm_exit(void)
- 
- 	kthread_stop(rfcomm_thread);
- 
--#ifdef CONFIG_BT_RFCOMM_TTY
- 	rfcomm_cleanup_ttys();
--#endif
- 
- 	rfcomm_cleanup_sockets();
- }
---- linux-2.6.orig/net/bluetooth/rfcomm/sock.c	2009-08-01 13:56:53.000000000 +0800
-+++ linux-2.6/net/bluetooth/rfcomm/sock.c	2009-08-01 13:57:18.000000000 +0800
-@@ -1132,7 +1132,7 @@ error:
- 	return err;
- }
- 
--void __exit rfcomm_cleanup_sockets(void)
-+void rfcomm_cleanup_sockets(void)
- {
- 	class_remove_file(bt_class, &class_attr_rfcomm);
- 
+	Hannes
