@@ -1,34 +1,39 @@
-From: David Miller <davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH] mlx4_en: Fix double pci unmapping.
-Date: Sun, 02 Aug 2009 20:23:05 -0700 (PDT)
-Message-ID: <20090802.202305.119004003.davem@davemloft.net>
+Date: Sun, 02 Aug 2009 22:10:30 -0700
+Message-ID: <adaocqxo52x.fsf@cisco.com>
 References: <4A62C9DD.8040506@mellanox.co.il>
+	<20090802.202305.119004003.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
+Content-Type: text/plain; charset=us-ascii
+Cc: yevgenyp@mellanox.co.il, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60146
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752019AbZHCDW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Aug 2009 23:22:57 -0400
-In-Reply-To: <4A62C9DD.8040506@mellanox.co.il>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:42348 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355AbZHCFK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 01:10:29 -0400
+In-Reply-To: <20090802.202305.119004003.davem@davemloft.net> (David Miller's
+	message of "Sun, 02 Aug 2009 20:23:05 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Sun, 19 Jul 2009 10:23:09 +0300
 
-> 
-> In cases of fragmented skb, with the data pointers being wrapped around
-> the TX buffer, the completion handling code would not forward the data
-> pointer and the firs fragment was unmapped several times, while others
-> were not unmapped at all.
-> 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+ > Ok, I'm just going to apply this.  Waiting more than a week to get
+ > feedback from Roland for a bug fix like this is not reasonable.
 
-Ok, I'm just going to apply this.  Waiting more than a week to get
-feedback from Roland for a bug fix like this is not reasonable.
+Dave, for the mlx4 ethernet (mlx4_en) driver patches you can go ahead
+and apply them without worrying about me -- Yevgeny was the original
+author of that code and I consider him more than qualified to handle
+that.  It's the mlx4_core changes that I prefer to handle, since I wrote
+the original driver there, and mlx4_core changes potentially hit the
+mlx4_ib InfiniBand driver too.
 
-Thanks Yevgeny.
+I realize that it's one more annoying thing to keep track of (although
+Yevgeny has been great about sending mlx4_en patches to you and
+mlx4_core patches to me -- but I understand your workflow makes looking
+at the "To:" line hard).  That's why I suggested moving the mlx4_core
+driver out of drivers/net/mlx4.  So that the two drivers are physically
+separate, to make things clearer.
+
+ - R.
