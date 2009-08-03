@@ -1,89 +1,33 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH 6/10] drivers/net/wireless/iwlwifi: introduce missing
- kfree
-Date: Mon, 03 Aug 2009 08:44:06 +0800
-Message-ID: <1249260246.4069.26.camel@debian>
-References: <Pine.LNX.4.64.0908011054010.23408@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 2/2] IPVS: use pr_err and friends instead of
+ IP_VS_ERR and friends
+Date: Sun, 02 Aug 2009 18:29:56 -0700 (PDT)
+Message-ID: <20090802.182956.263159793.davem@davemloft.net>
+References: <20090802210530.14843.62378.stgit@jazzy.zrh.corp.google.com>
+	<20090803003658.GQ6177@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Chatre, Reinette" <reinette.chatre@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ipw3945-devel@lists.sourceforge.net"
-	<ipw3945-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Julia Lawall <julia@diku.dk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753113AbZHCAoK@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0908011054010.23408@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: heder@google.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, jengelh@medozas.de
+To: horms@verge.net.au
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20090803003658.GQ6177@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2009-08-01 at 16:54 +0800, Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
-> 
-> Error handling code following a kzalloc should free the allocated data.
-> 
-> The semantic match that finds the problem is as follows:
-> (http://www.emn.fr/x-info/coccinelle/)
-> 
-> // <smpl>
-> @r exists@
-> local idexpression x;
-> statement S;
-> expression E;
-> identifier f,f1,l;
-> position p1,p2;
-> expression *ptr != NULL;
-> @@
-> 
-> x@p1 = \(kmalloc\|kzalloc\|kcalloc\)(...);
-> ...
-> if (x == NULL) S
-> <... when != x
->      when != if (...) { <+...x...+> }
-> (
-> x->f1 = E
-> |
->  (x->f1 == NULL || ...)
-> |
->  f(...,x->f1,...)
-> )
-> ...>
-> (
->  return \(0\|<+...x...+>\|ptr\);
-> |
->  return@p2 ...;
-> )
-> 
-> @script:python@
-> p1 << r.p1;
-> p2 << r.p2;
-> @@
-> 
-> print "* file: %s kmalloc %s return %s" % (p1[0].file,p1[0].line,p2[0].line)
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> ---
->  drivers/net/wireless/iwlwifi/iwl-debugfs.c     |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-debugfs.c b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-> index 7707a26..c2106d0 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-> @@ -320,6 +320,7 @@ static ssize_t iwl_dbgfs_nvm_read(struct file *file,
->  	ptr = priv->eeprom;
->  	if (!ptr) {
->  		IWL_ERR(priv, "Invalid EEPROM/OTP memory\n");
-> +		kfree(buf);
->  		return -ENOMEM;
->  	}
->  	pos += scnprintf(buf + pos, buf_size - pos, "NVM Type: %s\n",
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 3 Aug 2009 10:36:59 +1000
 
-Probably moving !priv->eeprom check prior to buf kzalloc is better.
+> On Sun, Aug 02, 2009 at 11:05:41PM +0200, Hannes Eder wrote:
+>> Since pr_err and friends are used instead of printk there is no point
+>> in keeping IP_VS_ERR and friends.  Furthermore make use of '__func__'
+>> instead of hard coded function names.
+>> 
+>> Signed-off-by: Hannes Eder <heder@google.com>
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-Thanks,
--yi
+Applied, thanks.
+
