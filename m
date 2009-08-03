@@ -1,65 +1,77 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [PATCH 1/7] shm-signal: shared-memory signals
-Date: Mon, 03 Aug 2009 13:17:35 -0400
-Message-ID: <20090803171735.17268.37490.stgit@dev.haskins.net>
+Subject: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
+Date: Mon, 03 Aug 2009 13:17:51 -0400
+Message-ID: <20090803171751.17268.48169.stgit@dev.haskins.net>
 References: <20090803171030.17268.26962.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752357AbZHCRSG@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from victor.provo.novell.com ([137.65.250.26]:39610 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035AbZHCRR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 13:17:57 -0400
 In-Reply-To: <20090803171030.17268.26962.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-shm-signal provides a generic shared-memory based bidirectional
-signaling mechanism.  It is used in conjunction with an existing
-signal transport (such as posix-signals, interrupts, pipes, etc) to
-increase the efficiency of the transport since the state information
-is directly accessible to both sides of the link.  The shared-memory
-design provides very cheap access to features such as event-masking
-and spurious delivery mititgation, and is useful implementing higher
-level shared-memory constructs such as rings.
-
-We will use this mechanism as the basis for a shared-memory interface
-later in the series.
+This patch adds a pci-based driver to interface between the a host VBUS
+and the guest's vbus-proxy bus model.
 
 Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
- include/linux/Kbuild       |    1 
- include/linux/shm_signal.h |  189 +++++++++++++++++++++++++++++++++++++++++++
- lib/Kconfig                |    9 ++
- lib/Makefile               |    1 
- lib/shm_signal.c           |  192 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 392 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/shm_signal.h
- create mode 100644 lib/shm_signal.c
+ drivers/vbus/Kconfig      |   10 +
+ drivers/vbus/Makefile     |    3 
+ drivers/vbus/pci-bridge.c |  824 +++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/Kbuild      |    1 
+ include/linux/vbus_pci.h  |  127 +++++++
+ 5 files changed, 965 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/vbus/pci-bridge.c
+ create mode 100644 include/linux/vbus_pci.h
 
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index 334a359..01d67b6 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -331,6 +331,7 @@ unifdef-y += serial_core.h
- unifdef-y += serial.h
- unifdef-y += serio.h
- unifdef-y += shm.h
-+unifdef-y += shm_signal.h
- unifdef-y += signal.h
- unifdef-y += smb_fs.h
- unifdef-y += smb.h
-diff --git a/include/linux/shm_signal.h b/include/linux/shm_signal.h
+diff --git a/drivers/vbus/Kconfig b/drivers/vbus/Kconfig
+index e1939f5..87c545d 100644
+--- a/drivers/vbus/Kconfig
++++ b/drivers/vbus/Kconfig
+@@ -12,3 +12,13 @@ config VBUS_PROXY
+ 	in a virtualization solution which implements virtual-bus devices
+ 	on the backend, say Y.  If unsure, say N.
+ 
++config VBUS_PCIBRIDGE
++       tristate "PCI to Virtual-Bus bridge"
++       depends on PCI
++       depends on VBUS_PROXY
++       select IOQ
++       default n
++       help
++        Provides a way to bridge host side vbus devices via a PCI-BRIDGE
++        object.  If you are running virtualization with vbus devices on the
++	host, and the vbus is exposed via PCI, say Y.  Otherwise, say N.
+diff --git a/drivers/vbus/Makefile b/drivers/vbus/Makefile
+index a29a1e0..944b7f1 100644
+--- a/drivers/vbus/Makefile
++++ b/drivers/vbus/Makefile
+@@ -1,3 +1,6 @@
+ 
+ vbus-proxy-objs += bus-proxy.o
+ obj-$(CONFIG_VBUS_PROXY) += vbus-proxy.o
++
++vbus-pcibridge-objs += pci-bridge.o
++obj-$(CONFIG_VBUS_PCIBRIDGE) += vbus-pcibridge.o
+diff --git a/drivers/vbus/pci-bridge.c b/drivers/vbus/pci-bridge.c
 new file mode 100644
-index 0000000..21cf750
+index 0000000..b21a9a3
 --- /dev/null
-+++ b/include/linux/shm_signal.h
-@@ -0,0 +1,189 @@
++++ b/drivers/vbus/pci-bridge.c
+@@ -0,0 +1,824 @@
 +/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
++ * Copyright (C) 2009 Novell.  All Rights Reserved.
 + *
 + * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
++ *	Gregory Haskins <ghaskins@novell.com>
 + *
 + * This file is free software; you can redistribute it and/or modify
 + * it under the terms of version 2 of the GNU General Public License
@@ -67,234 +79,7 @@ index 0000000..21cf750
 + *
 + * This program is distributed in the hope that it will be useful,
 + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-+ */
-+
-+#ifndef _LINUX_SHM_SIGNAL_H
-+#define _LINUX_SHM_SIGNAL_H
-+
-+#include <linux/types.h>
-+
-+/*
-+ *---------
-+ * The following structures represent data that is shared across boundaries
-+ * which may be quite disparate from one another (e.g. Windows vs Linux,
-+ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
-+ * present data in a manner that is independent of the environment.
-+ *-----------
-+ */
-+
-+#define SHM_SIGNAL_MAGIC 0x58fa39df
-+#define SHM_SIGNAL_VER   1
-+
-+struct shm_signal_irq {
-+	__u8                  enabled;
-+	__u8                  pending;
-+	__u8                  dirty;
-+};
-+
-+enum shm_signal_locality {
-+	shm_locality_north,
-+	shm_locality_south,
-+};
-+
-+struct shm_signal_desc {
-+	__u32                 magic;
-+	__u32                 ver;
-+	struct shm_signal_irq irq[2];
-+};
-+
-+/* --- END SHARED STRUCTURES --- */
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/kref.h>
-+#include <linux/interrupt.h>
-+
-+struct shm_signal_notifier {
-+	void (*signal)(struct shm_signal_notifier *);
-+};
-+
-+struct shm_signal;
-+
-+struct shm_signal_ops {
-+	int      (*inject)(struct shm_signal *s);
-+	void     (*fault)(struct shm_signal *s, const char *fmt, ...);
-+	void     (*release)(struct shm_signal *s);
-+};
-+
-+enum {
-+	shm_signal_in_wakeup,
-+};
-+
-+struct shm_signal {
-+	struct kref                 kref;
-+	spinlock_t                  lock;
-+	enum shm_signal_locality    locale;
-+	unsigned long               flags;
-+	struct shm_signal_ops      *ops;
-+	struct shm_signal_desc     *desc;
-+	struct shm_signal_notifier *notifier;
-+	struct tasklet_struct       deferred_notify;
-+};
-+
-+#define SHM_SIGNAL_FAULT(s, fmt, args...)  \
-+  ((s)->ops->fault ? (s)->ops->fault((s), fmt, ## args) : panic(fmt, ## args))
-+
-+ /*
-+  * These functions should only be used internally
-+  */
-+void _shm_signal_release(struct kref *kref);
-+void _shm_signal_wakeup(struct shm_signal *s);
-+
-+/**
-+ * shm_signal_init() - initialize an SHM_SIGNAL
-+ * @s:        SHM_SIGNAL context
-+ *
-+ * Initializes SHM_SIGNAL context before first use
-+ *
-+ **/
-+void shm_signal_init(struct shm_signal *s, enum shm_signal_locality locale,
-+		     struct shm_signal_ops *ops, struct shm_signal_desc *desc);
-+
-+/**
-+ * shm_signal_get() - acquire an SHM_SIGNAL context reference
-+ * @s:        SHM_SIGNAL context
-+ *
-+ **/
-+static inline struct shm_signal *shm_signal_get(struct shm_signal *s)
-+{
-+	kref_get(&s->kref);
-+
-+	return s;
-+}
-+
-+/**
-+ * shm_signal_put() - release an SHM_SIGNAL context reference
-+ * @s:        SHM_SIGNAL context
-+ *
-+ **/
-+static inline void shm_signal_put(struct shm_signal *s)
-+{
-+	kref_put(&s->kref, _shm_signal_release);
-+}
-+
-+/**
-+ * shm_signal_enable() - enables local notifications on an SHM_SIGNAL
-+ * @s:        SHM_SIGNAL context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Enables/unmasks the registered notifier (if applicable) to receive wakeups
-+ * whenever the remote side performs an shm_signal() operation. A notification
-+ * will be dispatched immediately if any pending signals have already been
-+ * issued prior to invoking this call.
-+ *
-+ * This is synonymous with unmasking an interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int shm_signal_enable(struct shm_signal *s, int flags);
-+
-+/**
-+ * shm_signal_disable() - disable local notifications on an SHM_SIGNAL
-+ * @s:        SHM_SIGNAL context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Disables/masks the registered shm_signal_notifier (if applicable) from
-+ * receiving any further notifications.  Any subsequent calls to shm_signal()
-+ * by the remote side will update the shm as dirty, but will not traverse the
-+ * locale boundary and will not invoke the notifier callback.  Signals
-+ * delivered while masked will be deferred until shm_signal_enable() is
-+ * invoked.
-+ *
-+ * This is synonymous with masking an interrupt
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int shm_signal_disable(struct shm_signal *s, int flags);
-+
-+/**
-+ * shm_signal_inject() - notify the remote side about shm changes
-+ * @s:        SHM_SIGNAL context
-+ * @flags:      Reserved for future use, must be 0
-+ *
-+ * Marks the shm state as "dirty" and, if enabled, will traverse
-+ * a locale boundary to inject a remote notification.  The remote
-+ * side controls whether the notification should be delivered via
-+ * the shm_signal_enable/disable() interface.
-+ *
-+ * The specifics of how to traverse a locale boundary are abstracted
-+ * by the shm_signal_ops->signal() interface and provided by a particular
-+ * implementation.  However, typically going north to south would be
-+ * something like a syscall/hypercall, and going south to north would be
-+ * something like a posix-signal/guest-interrupt.
-+ *
-+ * Returns: success = 0, <0 = ERRNO
-+ *
-+ **/
-+int shm_signal_inject(struct shm_signal *s, int flags);
-+
-+#endif /* __KERNEL__ */
-+
-+#endif /* _LINUX_SHM_SIGNAL_H */
-diff --git a/lib/Kconfig b/lib/Kconfig
-index bb1326d..136da19 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -200,4 +200,13 @@ config NLATTR
- config GENERIC_ATOMIC64
-        bool
- 
-+config SHM_SIGNAL
-+	tristate "SHM Signal - Generic shared-memory signaling mechanism"
-+	default n
-+	help
-+	 Provides a shared-memory based signaling mechansim to indicate
-+         memory-dirty notifications between two end-points.
-+
-+	 If unsure, say N
-+
- endmenu
-diff --git a/lib/Makefile b/lib/Makefile
-index 2e78277..503bf7b 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -76,6 +76,7 @@ obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
- obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
- obj-$(CONFIG_SMP) += percpu_counter.o
- obj-$(CONFIG_AUDIT_GENERIC) += audit.o
-+obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
- 
- obj-$(CONFIG_SWIOTLB) += swiotlb.o
- obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
-diff --git a/lib/shm_signal.c b/lib/shm_signal.c
-new file mode 100644
-index 0000000..fbba74f
---- /dev/null
-+++ b/lib/shm_signal.c
-@@ -0,0 +1,192 @@
-+/*
-+ * Copyright 2009 Novell.  All Rights Reserved.
-+ *
-+ * See include/linux/shm_signal.h for documentation
-+ *
-+ * Author:
-+ *      Gregory Haskins <ghaskins@novell.com>
-+ *
-+ * This file is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
 + * GNU General Public License for more details.
 + *
 + * You should have received a copy of the GNU General Public License
@@ -303,172 +88,952 @@ index 0000000..fbba74f
 + */
 +
 +#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/mm.h>
++#include <linux/workqueue.h>
++#include <linux/ioq.h>
 +#include <linux/interrupt.h>
-+#include <linux/shm_signal.h>
++#include <linux/vbus_driver.h>
++#include <linux/vbus_pci.h>
 +
-+int shm_signal_enable(struct shm_signal *s, int flags)
-+{
-+	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
-+	unsigned long iflags;
++MODULE_AUTHOR("Gregory Haskins");
++MODULE_LICENSE("GPL");
++MODULE_VERSION("1");
 +
-+	spin_lock_irqsave(&s->lock, iflags);
++#define VBUS_PCI_NAME "pci-to-vbus-bridge"
 +
-+	irq->enabled = 1;
-+	wmb();
++struct vbus_pci {
++	spinlock_t                lock;
++	struct pci_dev           *dev;
++	struct ioq                eventq;
++	struct vbus_pci_event    *ring;
++	struct vbus_pci_regs     *regs;
++	void                     *piosignal;
++	int                       irq;
++	int                       enabled:1;
++};
 +
-+	if ((irq->dirty || irq->pending)
-+	    && !test_bit(shm_signal_in_wakeup, &s->flags)) {
-+		rmb();
-+		tasklet_schedule(&s->deferred_notify);
-+	}
++static struct vbus_pci vbus_pci;
 +
-+	spin_unlock_irqrestore(&s->lock, iflags);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(shm_signal_enable);
-+
-+int shm_signal_disable(struct shm_signal *s, int flags)
-+{
-+	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
-+
-+	irq->enabled = 0;
-+	wmb();
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(shm_signal_disable);
++struct vbus_pci_device {
++	char                     type[VBUS_MAX_DEVTYPE_LEN];
++	u64                      handle;
++	struct list_head         shms;
++	struct vbus_device_proxy vdev;
++	struct work_struct       add;
++	struct work_struct       drop;
++};
 +
 +/*
-+ * signaling protocol:
-+ *
-+ * each side of the shm_signal has an "irq" structure with the following
-+ * fields:
-+ *
-+ *    - enabled: controlled by shm_signal_enable/disable() to mask/unmask
-+ *               the notification locally
-+ *    - dirty:   indicates if the shared-memory is dirty or clean.  This
-+ *               is updated regardless of the enabled/pending state so that
-+ *               the state is always accurately tracked.
-+ *    - pending: indicates if a signal is pending to the remote locale.
-+ *               This allows us to determine if a remote-notification is
-+ *               already in flight to optimize spurious notifications away.
++ * -------------------
++ * common routines
++ * -------------------
 + */
-+int shm_signal_inject(struct shm_signal *s, int flags)
++
++static int
++vbus_pci_hypercall(unsigned long nr, void *data, unsigned long len)
 +{
-+	/* Load the irq structure from the other locale */
-+	struct shm_signal_irq *irq = &s->desc->irq[!s->locale];
++	struct vbus_pci_hypercall params = {
++		.vector = nr,
++		.len    = len,
++		.datap  = __pa(data),
++	};
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&vbus_pci.lock, flags);
++
++	memcpy_toio(&vbus_pci.regs->hypercall.data, &params, sizeof(params));
++	ret = ioread32(&vbus_pci.regs->hypercall.result);
++
++	spin_unlock_irqrestore(&vbus_pci.lock, flags);
++
++	return ret;
++}
++
++struct vbus_pci_device *
++to_dev(struct vbus_device_proxy *vdev)
++{
++	return container_of(vdev, struct vbus_pci_device, vdev);
++}
++
++static void
++_signal_init(struct shm_signal *signal, struct shm_signal_desc *desc,
++	     struct shm_signal_ops *ops)
++{
++	desc->magic = SHM_SIGNAL_MAGIC;
++	desc->ver   = SHM_SIGNAL_VER;
++
++	shm_signal_init(signal, shm_locality_north, ops, desc);
++}
++
++/*
++ * -------------------
++ * _signal
++ * -------------------
++ */
++
++struct _signal {
++	struct vbus_pci   *pcivbus;
++	struct shm_signal  signal;
++	u32                handle;
++	struct rb_node     node;
++	struct list_head   list;
++};
++
++static struct _signal *
++to_signal(struct shm_signal *signal)
++{
++       return container_of(signal, struct _signal, signal);
++}
++
++static int
++_signal_inject(struct shm_signal *signal)
++{
++	struct _signal *_signal = to_signal(signal);
++
++	iowrite32(_signal->handle, vbus_pci.piosignal);
++
++	return 0;
++}
++
++static void
++_signal_release(struct shm_signal *signal)
++{
++	struct _signal *_signal = to_signal(signal);
++
++	kfree(_signal);
++}
++
++static struct shm_signal_ops _signal_ops = {
++	.inject  = _signal_inject,
++	.release = _signal_release,
++};
++
++/*
++ * -------------------
++ * vbus_device_proxy routines
++ * -------------------
++ */
++
++static int
++vbus_pci_device_open(struct vbus_device_proxy *vdev, int version, int flags)
++{
++	struct vbus_pci_device *dev = to_dev(vdev);
++	struct vbus_pci_deviceopen params;
++	int ret;
++
++	if (dev->handle)
++		return -EINVAL;
++
++	params.devid   = vdev->id;
++	params.version = version;
++
++	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVOPEN,
++				 &params, sizeof(params));
++	if (ret < 0)
++		return ret;
++
++	dev->handle = params.handle;
++
++	return 0;
++}
++
++static int
++vbus_pci_device_close(struct vbus_device_proxy *vdev, int flags)
++{
++	struct vbus_pci_device *dev = to_dev(vdev);
++	unsigned long iflags;
++	int ret;
++
++	if (!dev->handle)
++		return -EINVAL;
++
++	spin_lock_irqsave(&vbus_pci.lock, iflags);
++
++	while (!list_empty(&dev->shms)) {
++		struct _signal *_signal;
++
++		_signal = list_first_entry(&dev->shms, struct _signal, list);
++
++		list_del(&_signal->list);
++
++		spin_unlock_irqrestore(&vbus_pci.lock, iflags);
++		shm_signal_put(&_signal->signal);
++		spin_lock_irqsave(&vbus_pci.lock, iflags);
++	}
++
++	spin_unlock_irqrestore(&vbus_pci.lock, iflags);
 +
 +	/*
-+	 * We always mark the remote side as dirty regardless of whether
-+	 * they need to be notified.
++	 * The DEVICECLOSE will implicitly close all of the shm on the
++	 * host-side, so there is no need to do an explicit per-shm
++	 * hypercall
 +	 */
-+	irq->dirty = 1;
-+	wmb();   /* dirty must be visible before we test the pending state */
++	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVCLOSE,
++				 &dev->handle, sizeof(dev->handle));
 +
-+	if (irq->enabled && !irq->pending) {
-+		rmb();
++	if (ret < 0)
++		printk(KERN_ERR "VBUS-PCI: Error closing device %s/%lld: %d\n",
++		       vdev->type, vdev->id, ret);
++
++	dev->handle = 0;
++
++	return 0;
++}
++
++static int
++vbus_pci_device_shm(struct vbus_device_proxy *vdev, int id, int prio,
++		    void *ptr, size_t len,
++		    struct shm_signal_desc *sdesc, struct shm_signal **signal,
++		    int flags)
++{
++	struct vbus_pci_device *dev = to_dev(vdev);
++	struct _signal *_signal = NULL;
++	struct vbus_pci_deviceshm params;
++	unsigned long iflags;
++	int ret;
++
++	if (!dev->handle)
++		return -EINVAL;
++
++	params.devh   = dev->handle;
++	params.id     = id;
++	params.flags  = flags;
++	params.datap  = (u64)__pa(ptr);
++	params.len    = len;
++
++	if (signal) {
++		/*
++		 * The signal descriptor must be embedded within the
++		 * provided ptr
++		 */
++		if (!sdesc
++		    || (len < sizeof(*sdesc))
++		    || ((void *)sdesc < ptr)
++		    || ((void *)sdesc > (ptr + len - sizeof(*sdesc))))
++			return -EINVAL;
++
++		_signal = kzalloc(sizeof(*_signal), GFP_KERNEL);
++		if (!_signal)
++			return -ENOMEM;
++
++		_signal_init(&_signal->signal, sdesc, &_signal_ops);
 +
 +		/*
-+		 * If the remote side has enabled notifications, and we do
-+		 * not see a notification pending, we must inject a new one.
++		 * take another reference for the host.  This is dropped
++		 * by a SHMCLOSE event
 +		 */
-+		irq->pending = 1;
-+		wmb(); /* make it visible before we do the injection */
++		shm_signal_get(&_signal->signal);
 +
-+		s->ops->inject(s);
++		params.signal.offset = (u64)sdesc - (u64)ptr;
++		params.signal.prio   = prio;
++		params.signal.cookie = (u64)_signal;
++
++	} else
++		params.signal.offset = -1; /* yes, this is a u32, but its ok */
++
++	ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVSHM,
++				 &params, sizeof(params));
++	if (ret < 0) {
++		if (_signal) {
++			/*
++			 * We held two references above, so we need to drop
++			 * both of them
++			 */
++			shm_signal_put(&_signal->signal);
++			shm_signal_put(&_signal->signal);
++		}
++
++		return ret;
++	}
++
++	if (signal) {
++		_signal->handle = ret;
++
++		spin_lock_irqsave(&vbus_pci.lock, iflags);
++
++		list_add_tail(&_signal->list, &dev->shms);
++
++		spin_unlock_irqrestore(&vbus_pci.lock, iflags);
++
++		shm_signal_get(&_signal->signal);
++		*signal = &_signal->signal;
 +	}
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(shm_signal_inject);
 +
-+void _shm_signal_wakeup(struct shm_signal *s)
++static int
++vbus_pci_device_call(struct vbus_device_proxy *vdev, u32 func, void *data,
++		     size_t len, int flags)
 +{
-+	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
-+	int dirty;
-+	unsigned long flags;
++	struct vbus_pci_device *dev = to_dev(vdev);
++	struct vbus_pci_devicecall params = {
++		.devh  = dev->handle,
++		.func  = func,
++		.datap = (u64)__pa(data),
++		.len   = len,
++		.flags = flags,
++	};
 +
-+	spin_lock_irqsave(&s->lock, flags);
++	if (!dev->handle)
++		return -EINVAL;
 +
-+	__set_bit(shm_signal_in_wakeup, &s->flags);
-+
-+	/*
-+	 * The outer loop protects against race conditions between
-+	 * irq->dirty and irq->pending updates
-+	 */
-+	while (irq->enabled && (irq->dirty || irq->pending)) {
-+
-+		/*
-+		 * Run until we completely exhaust irq->dirty (it may
-+		 * be re-dirtied by the remote side while we are in the
-+		 * callback).  We let "pending" remain untouched until we have
-+		 * processed them all so that the remote side knows we do not
-+		 * need a new notification (yet).
-+		 */
-+		do {
-+			irq->dirty = 0;
-+			/* the unlock is an implicit wmb() for dirty = 0 */
-+			spin_unlock_irqrestore(&s->lock, flags);
-+
-+			if (s->notifier)
-+				s->notifier->signal(s->notifier);
-+
-+			spin_lock_irqsave(&s->lock, flags);
-+			dirty = irq->dirty;
-+			rmb();
-+
-+		} while (irq->enabled && dirty);
-+
-+		barrier();
-+
-+		/*
-+		 * We can finally acknowledge the notification by clearing
-+		 * "pending" after all of the dirty memory has been processed
-+		 * Races against this clearing are handled by the outer loop.
-+		 * Subsequent iterations of this loop will execute with
-+		 * pending=0 potentially leading to future spurious
-+		 * notifications, but this is an acceptable tradeoff as this
-+		 * will be rare and harmless.
-+		 */
-+		irq->pending = 0;
-+		wmb();
-+
-+	}
-+
-+	__clear_bit(shm_signal_in_wakeup, &s->flags);
-+	spin_unlock_irqrestore(&s->lock, flags);
-+
++	return vbus_pci_hypercall(VBUS_PCI_HC_DEVCALL, &params, sizeof(params));
 +}
-+EXPORT_SYMBOL_GPL(_shm_signal_wakeup);
-+
-+void _shm_signal_release(struct kref *kref)
-+{
-+	struct shm_signal *s = container_of(kref, struct shm_signal, kref);
-+
-+	s->ops->release(s);
-+}
-+EXPORT_SYMBOL_GPL(_shm_signal_release);
 +
 +static void
-+deferred_notify(unsigned long data)
++vbus_pci_device_release(struct vbus_device_proxy *vdev)
 +{
-+	struct shm_signal *s = (struct shm_signal *)data;
++	struct vbus_pci_device *_dev = to_dev(vdev);
 +
-+	_shm_signal_wakeup(s);
++	vbus_pci_device_close(vdev, 0);
++
++	kfree(_dev);
 +}
 +
-+void shm_signal_init(struct shm_signal *s, enum shm_signal_locality locale,
-+		     struct shm_signal_ops *ops, struct shm_signal_desc *desc)
++struct vbus_device_proxy_ops vbus_pci_device_ops = {
++	.open    = vbus_pci_device_open,
++	.close   = vbus_pci_device_close,
++	.shm     = vbus_pci_device_shm,
++	.call    = vbus_pci_device_call,
++	.release = vbus_pci_device_release,
++};
++
++/*
++ * -------------------
++ * vbus events
++ * -------------------
++ */
++
++static void
++deferred_devadd(struct work_struct *work)
 +{
-+	memset(s, 0, sizeof(*s));
-+	kref_init(&s->kref);
-+	spin_lock_init(&s->lock);
-+	tasklet_init(&s->deferred_notify,
-+		     deferred_notify,
-+		     (unsigned long)s);
-+	s->locale   = locale;
-+	s->ops      = ops;
-+	s->desc     = desc;
++	struct vbus_pci_device *new;
++	int ret;
++
++	new = container_of(work, struct vbus_pci_device, add);
++
++	ret = vbus_device_proxy_register(&new->vdev);
++	if (ret < 0)
++		panic("failed to register device %lld(%s): %d\n",
++		      new->vdev.id, new->type, ret);
 +}
-+EXPORT_SYMBOL_GPL(shm_signal_init);
++
++static void
++deferred_devdrop(struct work_struct *work)
++{
++	struct vbus_pci_device *dev;
++
++	dev = container_of(work, struct vbus_pci_device, drop);
++	vbus_device_proxy_unregister(&dev->vdev);
++}
++
++static void
++event_devadd(struct vbus_pci_add_event *event)
++{
++	struct vbus_pci_device *new = kzalloc(sizeof(*new), GFP_KERNEL);
++	if (!new) {
++		printk(KERN_ERR "VBUS_PCI: Out of memory on add_event\n");
++		return;
++	}
++
++	INIT_LIST_HEAD(&new->shms);
++
++	memcpy(new->type, event->type, VBUS_MAX_DEVTYPE_LEN);
++	new->vdev.type        = new->type;
++	new->vdev.id          = event->id;
++	new->vdev.ops         = &vbus_pci_device_ops;
++
++	dev_set_name(&new->vdev.dev, "%lld", event->id);
++
++	INIT_WORK(&new->add, deferred_devadd);
++	INIT_WORK(&new->drop, deferred_devdrop);
++
++	schedule_work(&new->add);
++}
++
++static void
++event_devdrop(struct vbus_pci_handle_event *event)
++{
++	struct vbus_device_proxy *dev = vbus_device_proxy_find(event->handle);
++
++	if (!dev) {
++		printk(KERN_WARNING "VBUS-PCI: devdrop failed: %lld\n",
++		       event->handle);
++		return;
++	}
++
++	schedule_work(&to_dev(dev)->drop);
++}
++
++static void
++event_shmsignal(struct vbus_pci_handle_event *event)
++{
++	struct _signal *_signal = (struct _signal *)event->handle;
++
++	_shm_signal_wakeup(&_signal->signal);
++}
++
++static void
++event_shmclose(struct vbus_pci_handle_event *event)
++{
++	struct _signal *_signal = (struct _signal *)event->handle;
++
++	/*
++	 * This reference was taken during the DEVICESHM call
++	 */
++	shm_signal_put(&_signal->signal);
++}
++
++/*
++ * -------------------
++ * eventq routines
++ * -------------------
++ */
++
++static struct ioq_notifier eventq_notifier;
++
++static int __init
++eventq_init(int qlen)
++{
++	struct ioq_iterator iter;
++	int ret;
++	int i;
++
++	vbus_pci.ring = kzalloc(sizeof(struct vbus_pci_event) * qlen,
++				GFP_KERNEL);
++	if (!vbus_pci.ring)
++		return -ENOMEM;
++
++	/*
++	 * We want to iterate on the "valid" index.  By default the iterator
++	 * will not "autoupdate" which means it will not hypercall the host
++	 * with our changes.  This is good, because we are really just
++	 * initializing stuff here anyway.  Note that you can always manually
++	 * signal the host with ioq_signal() if the autoupdate feature is not
++	 * used.
++	 */
++	ret = ioq_iter_init(&vbus_pci.eventq, &iter, ioq_idxtype_valid, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * Seek to the tail of the valid index (which should be our first
++	 * item since the queue is brand-new)
++	 */
++	ret = ioq_iter_seek(&iter, ioq_seek_tail, 0, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * Now populate each descriptor with an empty vbus_event and mark it
++	 * valid
++	 */
++	for (i = 0; i < qlen; i++) {
++		struct vbus_pci_event *event = &vbus_pci.ring[i];
++		size_t                 len   = sizeof(*event);
++		struct ioq_ring_desc  *desc  = iter.desc;
++
++		BUG_ON(iter.desc->valid);
++
++		desc->cookie = (u64)event;
++		desc->ptr    = (u64)__pa(event);
++		desc->len    = len; /* total length  */
++		desc->valid  = 1;
++
++		/*
++		 * This push operation will simultaneously advance the
++		 * valid-tail index and increment our position in the queue
++		 * by one.
++		 */
++		ret = ioq_iter_push(&iter, 0);
++		BUG_ON(ret < 0);
++	}
++
++	vbus_pci.eventq.notifier = &eventq_notifier;
++
++	/*
++	 * And finally, ensure that we can receive notification
++	 */
++	ioq_notify_enable(&vbus_pci.eventq, 0);
++
++	return 0;
++}
++
++/* Invoked whenever the hypervisor ioq_signal()s our eventq */
++static void
++eventq_wakeup(struct ioq_notifier *notifier)
++{
++	struct ioq_iterator iter;
++	int ret;
++
++	/* We want to iterate on the head of the in-use index */
++	ret = ioq_iter_init(&vbus_pci.eventq, &iter, ioq_idxtype_inuse, 0);
++	BUG_ON(ret < 0);
++
++	ret = ioq_iter_seek(&iter, ioq_seek_head, 0, 0);
++	BUG_ON(ret < 0);
++
++	/*
++	 * The EOM is indicated by finding a packet that is still owned by
++	 * the south side.
++	 *
++	 * FIXME: This in theory could run indefinitely if the host keeps
++	 * feeding us events since there is nothing like a NAPI budget.  We
++	 * might need to address that
++	 */
++	while (!iter.desc->sown) {
++		struct ioq_ring_desc *desc  = iter.desc;
++		struct vbus_pci_event *event;
++
++		event = (struct vbus_pci_event *)desc->cookie;
++
++		switch (event->eventid) {
++		case VBUS_PCI_EVENT_DEVADD:
++			event_devadd(&event->data.add);
++			break;
++		case VBUS_PCI_EVENT_DEVDROP:
++			event_devdrop(&event->data.handle);
++			break;
++		case VBUS_PCI_EVENT_SHMSIGNAL:
++			event_shmsignal(&event->data.handle);
++			break;
++		case VBUS_PCI_EVENT_SHMCLOSE:
++			event_shmclose(&event->data.handle);
++			break;
++		default:
++			printk(KERN_WARNING "VBUS_PCI: Unexpected event %d\n",
++			       event->eventid);
++			break;
++		};
++
++		memset(event, 0, sizeof(*event));
++
++		/* Advance the in-use head */
++		ret = ioq_iter_pop(&iter, 0);
++		BUG_ON(ret < 0);
++	}
++
++	/* And let the south side know that we changed the queue */
++	ioq_signal(&vbus_pci.eventq, 0);
++}
++
++static struct ioq_notifier eventq_notifier = {
++	.signal = &eventq_wakeup,
++};
++
++/* Injected whenever the host issues an ioq_signal() on the eventq */
++irqreturn_t
++eventq_intr(int irq, void *dev)
++{
++	_shm_signal_wakeup(vbus_pci.eventq.signal);
++
++	return IRQ_HANDLED;
++}
++
++/*
++ * -------------------
++ */
++
++static int
++eventq_signal_inject(struct shm_signal *signal)
++{
++	/* The eventq uses the special-case handle=0 */
++	iowrite32(0, vbus_pci.piosignal);
++
++	return 0;
++}
++
++static void
++eventq_signal_release(struct shm_signal *signal)
++{
++	kfree(signal);
++}
++
++static struct shm_signal_ops eventq_signal_ops = {
++	.inject  = eventq_signal_inject,
++	.release = eventq_signal_release,
++};
++
++/*
++ * -------------------
++ */
++
++static void
++eventq_ioq_release(struct ioq *ioq)
++{
++	/* released as part of the vbus_pci object */
++}
++
++static struct ioq_ops eventq_ioq_ops = {
++	.release = eventq_ioq_release,
++};
++
++/*
++ * -------------------
++ */
++
++static void
++vbus_pci_release(void)
++{
++	if (vbus_pci.irq > 0)
++		free_irq(vbus_pci.irq, NULL);
++
++	if (vbus_pci.piosignal)
++		pci_iounmap(vbus_pci.dev, (void *)vbus_pci.piosignal);
++
++	if (vbus_pci.regs)
++		pci_iounmap(vbus_pci.dev, (void *)vbus_pci.regs);
++
++	pci_release_regions(vbus_pci.dev);
++	pci_disable_device(vbus_pci.dev);
++
++	kfree(vbus_pci.eventq.head_desc);
++	kfree(vbus_pci.ring);
++
++	vbus_pci.enabled = false;
++}
++
++static int __init
++vbus_pci_open(void)
++{
++	struct vbus_pci_negotiate params = {
++		.magic        = VBUS_PCI_ABI_MAGIC,
++		.version      = VBUS_PCI_HC_VERSION,
++		.capabilities = 0,
++	};
++
++	return vbus_pci_hypercall(VBUS_PCI_HC_NEGOTIATE,
++				  &params, sizeof(params));
++}
++
++#define QLEN 1024
++
++static int __init
++vbus_pci_register(void)
++{
++	struct vbus_pci_busreg params = {
++		.count = 1,
++		.eventq = {
++			{
++				.count = QLEN,
++				.ring  = (u64)__pa(vbus_pci.eventq.head_desc),
++				.data  = (u64)__pa(vbus_pci.ring),
++			},
++		},
++	};
++
++	return vbus_pci_hypercall(VBUS_PCI_HC_BUSREG, &params, sizeof(params));
++}
++
++static int __init
++_ioq_init(size_t ringsize, struct ioq *ioq, struct ioq_ops *ops)
++{
++	struct shm_signal    *signal = NULL;
++	struct ioq_ring_head *head = NULL;
++	size_t                len  = IOQ_HEAD_DESC_SIZE(ringsize);
++
++	head = kzalloc(len, GFP_KERNEL | GFP_DMA);
++	if (!head)
++		return -ENOMEM;
++
++	signal = kzalloc(sizeof(*signal), GFP_KERNEL);
++	if (!signal) {
++		kfree(head);
++		return -ENOMEM;
++	}
++
++	head->magic     = IOQ_RING_MAGIC;
++	head->ver	= IOQ_RING_VER;
++	head->count     = ringsize;
++
++	_signal_init(signal, &head->signal, &eventq_signal_ops);
++
++	ioq_init(ioq, ops, ioq_locality_north, head, signal, ringsize);
++
++	return 0;
++}
++
++static int __devinit
++vbus_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++{
++	int ret;
++
++	if (vbus_pci.enabled)
++		return -EEXIST; /* we only support one bridge per kernel */
++
++	if (pdev->revision != VBUS_PCI_ABI_VERSION) {
++		printk(KERN_DEBUG "VBUS_PCI: expected ABI version %d, got %d\n",
++		       VBUS_PCI_ABI_VERSION,
++		       pdev->revision);
++		return -ENODEV;
++	}
++
++	vbus_pci.dev = pdev;
++
++	ret = pci_enable_device(pdev);
++	if (ret < 0)
++		return ret;
++
++	ret = pci_request_regions(pdev, VBUS_PCI_NAME);
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Could not init BARs: %d\n", ret);
++		goto out_fail;
++	}
++
++	vbus_pci.regs = pci_iomap(pdev, 0, sizeof(struct vbus_pci_regs));
++	if (!vbus_pci.regs) {
++		printk(KERN_ERR "VBUS_PCI: Could not map BARs\n");
++		goto out_fail;
++	}
++
++	vbus_pci.piosignal = pci_iomap(pdev, 1, sizeof(u32));
++	if (!vbus_pci.piosignal) {
++		printk(KERN_ERR "VBUS_PCI: Could not map BARs\n");
++		goto out_fail;
++	}
++
++	ret = vbus_pci_open();
++	if (ret < 0) {
++		printk(KERN_DEBUG "VBUS_PCI: Could not register with host: %d\n",
++		       ret);
++		goto out_fail;
++	}
++
++	/*
++	 * Allocate an IOQ to use for host-2-guest event notification
++	 */
++	ret = _ioq_init(QLEN, &vbus_pci.eventq, &eventq_ioq_ops);
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Cound not init eventq: %d\n", ret);
++		goto out_fail;
++	}
++
++	ret = eventq_init(QLEN);
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Cound not setup ring: %d\n", ret);
++		goto out_fail;
++	}
++
++	ret = pci_enable_msi(pdev);
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Cound not enable MSI: %d\n", ret);
++		goto out_fail;
++	}
++
++	vbus_pci.irq = pdev->irq;
++
++	ret = request_irq(pdev->irq, eventq_intr, 0, "vbus", NULL);
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Failed to register IRQ %d\n: %d",
++		       pdev->irq, ret);
++		goto out_fail;
++	}
++
++	/*
++	 * Finally register our queue on the host to start receiving events
++	 */
++	ret = vbus_pci_register();
++	if (ret < 0) {
++		printk(KERN_ERR "VBUS_PCI: Could not register with host: %d\n",
++		       ret);
++		goto out_fail;
++	}
++
++	vbus_pci.enabled = true;
++
++	printk(KERN_INFO "Virtual-Bus: Copyright (c) 2009, " \
++	       "Gregory Haskins <ghaskins@novell.com>\n");
++
++	return 0;
++
++ out_fail:
++	vbus_pci_release();
++
++	return ret;
++}
++
++static void __devexit
++vbus_pci_remove(struct pci_dev *pdev)
++{
++	vbus_pci_release();
++}
++
++static DEFINE_PCI_DEVICE_TABLE(vbus_pci_tbl) = {
++	{ PCI_DEVICE(0x11da, 0x2000) },
++	{ 0 },
++};
++
++MODULE_DEVICE_TABLE(pci, vbus_pci_tbl);
++
++static struct pci_driver vbus_pci_driver = {
++	.name     = VBUS_PCI_NAME,
++	.id_table = vbus_pci_tbl,
++	.probe    = vbus_pci_probe,
++	.remove   = vbus_pci_remove,
++};
++
++int __init
++vbus_pci_init(void)
++{
++	memset(&vbus_pci, 0, sizeof(vbus_pci));
++	spin_lock_init(&vbus_pci.lock);
++
++	return pci_register_driver(&vbus_pci_driver);
++}
++
++static void __exit
++vbus_pci_exit(void)
++{
++	pci_unregister_driver(&vbus_pci_driver);
++}
++
++module_init(vbus_pci_init);
++module_exit(vbus_pci_exit);
++
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index 32b3eb8..fa15bbf 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -358,6 +358,7 @@ unifdef-y += uio.h
+ unifdef-y += unistd.h
+ unifdef-y += usbdevice_fs.h
+ unifdef-y += utsname.h
++unifdef-y += vbus_pci.h
+ unifdef-y += videodev2.h
+ unifdef-y += videodev.h
+ unifdef-y += virtio_config.h
+diff --git a/include/linux/vbus_pci.h b/include/linux/vbus_pci.h
+new file mode 100644
+index 0000000..e18ff59
+--- /dev/null
++++ b/include/linux/vbus_pci.h
+@@ -0,0 +1,127 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * PCI to Virtual-Bus Bridge
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#ifndef _LINUX_VBUS_PCI_H
++#define _LINUX_VBUS_PCI_H
++
++#include <linux/ioctl.h>
++#include <linux/types.h>
++
++#define VBUS_PCI_ABI_MAGIC 0xbf53eef5
++#define VBUS_PCI_ABI_VERSION 1
++#define VBUS_PCI_HC_VERSION 1
++
++enum {
++	VBUS_PCI_HC_NEGOTIATE,
++	VBUS_PCI_HC_BUSREG,
++	VBUS_PCI_HC_DEVOPEN,
++	VBUS_PCI_HC_DEVCLOSE,
++	VBUS_PCI_HC_DEVCALL,
++	VBUS_PCI_HC_DEVSHM,
++
++	VBUS_PCI_HC_MAX,      /* must be last */
++};
++
++struct vbus_pci_negotiate {
++	__u32 magic;
++	__u32 version;
++	__u64 capabilities;
++};
++
++struct vbus_pci_deviceopen {
++	__u32 devid;
++	__u32 version; /* device ABI version */
++	__u64 handle; /* return value for devh */
++};
++
++struct vbus_pci_devicecall {
++	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
++	__u32 func;
++	__u32 len;
++	__u32 flags;
++	__u64 datap;
++};
++
++struct vbus_pci_deviceshm {
++	__u64 devh;   /* device-handle (returned from DEVICEOPEN */
++	__u32 id;
++	__u32 len;
++	__u32 flags;
++	struct {
++		__u32 offset;
++		__u32 prio;
++		__u64 cookie; /* token to pass back when signaling client */
++	} signal;
++	__u64 datap;
++};
++
++struct vbus_pci_hypercall {
++	__u32 vector;
++	__u32 len;
++	__u64 datap;
++};
++
++struct vbus_pci_regs {
++	struct {
++		struct vbus_pci_hypercall data;
++		__u32                     result;
++	} hypercall;
++};
++
++struct vbus_pci_eventqreg {
++	__u32 count;
++	__u64 ring;
++	__u64 data;
++};
++
++struct vbus_pci_busreg {
++	__u32 count;  /* supporting multiple queues allows for prio, etc */
++	struct vbus_pci_eventqreg eventq[1];
++};
++
++enum vbus_pci_eventid {
++	VBUS_PCI_EVENT_DEVADD,
++	VBUS_PCI_EVENT_DEVDROP,
++	VBUS_PCI_EVENT_SHMSIGNAL,
++	VBUS_PCI_EVENT_SHMCLOSE,
++};
++
++#define VBUS_MAX_DEVTYPE_LEN 128
++
++struct vbus_pci_add_event {
++	__u64 id;
++	char  type[VBUS_MAX_DEVTYPE_LEN];
++};
++
++struct vbus_pci_handle_event {
++	__u64 handle;
++};
++
++struct vbus_pci_event {
++	__u32 eventid;
++	union {
++		struct vbus_pci_add_event    add;
++		struct vbus_pci_handle_event handle;
++	} data;
++};
++
++#endif /* _LINUX_VBUS_PCI_H */
+
