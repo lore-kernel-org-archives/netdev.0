@@ -1,168 +1,90 @@
 From: Mike McCormack <mikem@ring3k.org>
-Subject: [PATCH 1/5] sky2: Avoid rewinding sky2->tx_prod
-Date: Mon, 3 Aug 2009 20:07:58 +0900
-Message-ID: <392fb48f0908030407j69f32c6qed9529f1219ee474@mail.gmail.com>
+Subject: [PATCH 2/5] sky2: Move tx reset functionality to sky2_tx_reset()
+Date: Mon, 3 Aug 2009 20:08:10 +0900
+Message-ID: <392fb48f0908030408o71ad6af4i26c0ba90e963ffd@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from fg-out-1718.google.com ([72.14.220.155]:64469 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753438AbZHCLH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 07:07:58 -0400
+	with ESMTP id S1753516AbZHCLIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 07:08:09 -0400
 Received: by fg-out-1718.google.com with SMTP id e21so985886fga.17
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 04:07:58 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 04:08:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
 ---
- drivers/net/sky2.c |   34 ++++++++++++++++++----------------
- 1 files changed, 18 insertions(+), 16 deletions(-)
+ drivers/net/sky2.c |   44 ++++++++++++++++++++++++++------------------
+ 1 files changed, 26 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 661abd0..16a359d 100644
+index 16a359d..a9bb3fa 100644
 --- a/drivers/net/sky2.c
 +++ b/drivers/net/sky2.c
-@@ -989,11 +989,11 @@ static void sky2_prefetch_init(struct sky2_hw
-*hw, u32 qaddr,
- 	sky2_read32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL));
+@@ -1804,6 +1804,31 @@ static void sky2_tx_clean(struct net_device *dev)
+ 	netif_tx_unlock_bh(dev);
  }
 
--static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2)
-+static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
- {
--	struct sky2_tx_le *le = sky2->tx_le + sky2->tx_prod;
-+	struct sky2_tx_le *le = sky2->tx_le + *slot;
-
--	sky2->tx_prod = RING_NEXT(sky2->tx_prod, TX_RING_SIZE);
-+	*slot = RING_NEXT(*slot, TX_RING_SIZE);
- 	le->ctrl = 0;
- 	return le;
- }
-@@ -1006,7 +1006,7 @@ static void tx_init(struct sky2_port *sky2)
- 	sky2->tx_tcpsum = 0;
- 	sky2->tx_last_mss = 0;
-
--	le = get_tx_le(sky2);
-+	le = get_tx_le(sky2, &sky2->tx_prod);
- 	le->addr = 0;
- 	le->opcode = OP_ADDR64 | HW_OWNER;
- }
-@@ -1565,7 +1565,8 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 	struct sky2_hw *hw = sky2->hw;
- 	struct sky2_tx_le *le = NULL;
- 	struct tx_ring_info *re;
--	unsigned i, len, first_slot;
-+	unsigned i, len;
-+	u16 slot;
- 	dma_addr_t mapping;
- 	u16 mss;
- 	u8 ctrl;
-@@ -1579,14 +1580,14 @@ static int sky2_xmit_frame(struct sk_buff
-*skb, struct net_device *dev)
- 	if (pci_dma_mapping_error(hw->pdev, mapping))
- 		goto mapping_error;
-
--	first_slot = sky2->tx_prod;
-+	slot = sky2->tx_prod;
- 	if (unlikely(netif_msg_tx_queued(sky2)))
- 		printk(KERN_DEBUG "%s: tx queued, slot %u, len %d\n",
--		       dev->name, first_slot, skb->len);
-+		       dev->name, slot, skb->len);
-
- 	/* Send high bits if needed */
- 	if (sizeof(dma_addr_t) > sizeof(u32)) {
--		le = get_tx_le(sky2);
-+		le = get_tx_le(sky2, &slot);
- 		le->addr = cpu_to_le32(upper_32_bits(mapping));
- 		le->opcode = OP_ADDR64 | HW_OWNER;
- 	}
-@@ -1599,7 +1600,7 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 			mss += ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
-
-   		if (mss != sky2->tx_last_mss) {
--  			le = get_tx_le(sky2);
-+			le = get_tx_le(sky2, &slot);
-   			le->addr = cpu_to_le32(mss);
-
- 			if (hw->flags & SKY2_HW_NEW_LE)
-@@ -1615,7 +1616,7 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 	/* Add VLAN tag, can piggyback on LRGLEN or ADDR64 */
- 	if (sky2->vlgrp && vlan_tx_tag_present(skb)) {
- 		if (!le) {
--			le = get_tx_le(sky2);
-+			le = get_tx_le(sky2, &slot);
- 			le->addr = 0;
- 			le->opcode = OP_VLAN|HW_OWNER;
- 		} else
-@@ -1644,7 +1645,7 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 			if (tcpsum != sky2->tx_tcpsum) {
- 				sky2->tx_tcpsum = tcpsum;
-
--				le = get_tx_le(sky2);
-+				le = get_tx_le(sky2, &slot);
- 				le->addr = cpu_to_le32(tcpsum);
- 				le->length = 0;	/* initial checksum value */
- 				le->ctrl = 1;	/* one packet */
-@@ -1653,7 +1654,7 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 		}
- 	}
-
--	le = get_tx_le(sky2);
-+	le = get_tx_le(sky2, &slot);
- 	le->addr = cpu_to_le32((u32) mapping);
- 	le->length = cpu_to_le16(len);
- 	le->ctrl = ctrl;
-@@ -1674,13 +1675,13 @@ static int sky2_xmit_frame(struct sk_buff
-*skb, struct net_device *dev)
- 			goto mapping_unwind;
-
- 		if (sizeof(dma_addr_t) > sizeof(u32)) {
--			le = get_tx_le(sky2);
-+			le = get_tx_le(sky2, &slot);
- 			le->addr = cpu_to_le32(upper_32_bits(mapping));
- 			le->ctrl = 0;
- 			le->opcode = OP_ADDR64 | HW_OWNER;
- 		}
-
--		le = get_tx_le(sky2);
-+		le = get_tx_le(sky2, &slot);
- 		le->addr = cpu_to_le32((u32) mapping);
- 		le->length = cpu_to_le16(frag->size);
- 		le->ctrl = ctrl;
-@@ -1694,6 +1695,8 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
-
- 	le->ctrl |= EOP;
-
-+	sky2->tx_prod = slot;
++static void sky2_tx_reset(struct sky2_port* sky2)
++{
++	unsigned port = sky2->port;
++	struct sky2_hw *hw = sky2->hw;
 +
- 	if (tx_avail(sky2) <= MAX_SKB_TX_LE)
- 		netif_stop_queue(dev);
++	/* Disable Force Sync bit and Enable Alloc bit */
++	sky2_write8(hw, SK_REG(port, TXA_CTRL),
++		    TXA_DIS_FSYNC | TXA_DIS_ALLOC | TXA_STOP_RC);
++
++	/* Stop Interval Timer and Limit Counter of Tx Arbiter */
++	sky2_write32(hw, SK_REG(port, TXA_ITI_INI), 0L);
++	sky2_write32(hw, SK_REG(port, TXA_LIM_INI), 0L);
++
++	/* Reset the PCI FIFO of the async Tx queue */
++	sky2_write32(hw, Q_ADDR(txqaddr[port], Q_CSR),
++		     BMU_RST_SET | BMU_FIFO_RST);
++
++	/* Reset the Tx prefetch units */
++	sky2_write32(hw, Y2_QADDR(txqaddr[port], PREF_UNIT_CTRL),
++		     PREF_UNIT_RST_SET);
++
++	sky2_write32(hw, RB_ADDR(txqaddr[port], RB_CTRL), RB_RST_SET);
++	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
++}
++
+ /* Network shutdown */
+ static int sky2_down(struct net_device *dev)
+ {
+@@ -1841,26 +1866,9 @@ static int sky2_down(struct net_device *dev)
+ 	      && port == 0 && hw->dev[1] && netif_running(hw->dev[1])))
+ 		sky2_write8(hw, SK_REG(port, GMAC_CTRL), GMC_RST_SET);
 
-@@ -1702,7 +1705,7 @@ static int sky2_xmit_frame(struct sk_buff *skb,
-struct net_device *dev)
- 	return NETDEV_TX_OK;
+-	/* Disable Force Sync bit and Enable Alloc bit */
+-	sky2_write8(hw, SK_REG(port, TXA_CTRL),
+-		    TXA_DIS_FSYNC | TXA_DIS_ALLOC | TXA_STOP_RC);
+-
+-	/* Stop Interval Timer and Limit Counter of Tx Arbiter */
+-	sky2_write32(hw, SK_REG(port, TXA_ITI_INI), 0L);
+-	sky2_write32(hw, SK_REG(port, TXA_LIM_INI), 0L);
+-
+-	/* Reset the PCI FIFO of the async Tx queue */
+-	sky2_write32(hw, Q_ADDR(txqaddr[port], Q_CSR),
+-		     BMU_RST_SET | BMU_FIFO_RST);
+-
+-	/* Reset the Tx prefetch units */
+-	sky2_write32(hw, Y2_QADDR(txqaddr[port], PREF_UNIT_CTRL),
+-		     PREF_UNIT_RST_SET);
+-
+-	sky2_write32(hw, RB_ADDR(txqaddr[port], RB_CTRL), RB_RST_SET);
++	sky2_tx_reset(sky2);
 
- mapping_unwind:
--	for (i = first_slot; i != sky2->tx_prod; i = RING_NEXT(i, TX_RING_SIZE)) {
-+	for (i = sky2->tx_prod; i != slot; i = RING_NEXT(i, TX_RING_SIZE)) {
- 		le = sky2->tx_le + i;
- 		re = sky2->tx_ring + i;
+ 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
+-	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_SET);
 
-@@ -1722,7 +1725,6 @@ mapping_unwind:
- 		}
- 	}
-
--	sky2->tx_prod = first_slot;
- mapping_error:
- 	if (net_ratelimit())
- 		dev_warn(&hw->pdev->dev, "%s: tx mapping error\n", dev->name);
+ 	/* Force any delayed status interrrupt and NAPI */
+ 	sky2_write32(hw, STAT_LEV_TIMER_CNT, 0);
 -- 
 1.5.6.5
