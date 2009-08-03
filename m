@@ -1,55 +1,44 @@
-From: Rene Mayrhofer <rene@mayrhofer.eu.org>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Mon, 03 Aug 2009 20:19:09 +0200
-Message-ID: <4A772A1D.1030904@mayrhofer.eu.org>
-References: <4A65EC3F.4050400@gibraltar.at>	<20090723102848.00a56ad1@nehalam>	<4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam> <4A76D036.6090705@gibraltar.at>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 6/7] net: Add vbus_enet driver
+Date: Mon, 3 Aug 2009 11:30:30 -0700
+Message-ID: <20090803113030.3092d5b0@nehalam>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>
+	<20090803171801.17268.93846.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
-	mikem@ring3k.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jupiter1.gibraltar.at ([80.120.3.98]:43370 "EHLO
-	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbZHCS3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 14:29:37 -0400
-In-Reply-To: <4A76D036.6090705@gibraltar.at>
+Received: from mail.vyatta.com ([76.74.103.46]:46131 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753727AbZHCSaf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2009 14:30:35 -0400
+In-Reply-To: <20090803171801.17268.93846.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Mon, 03 Aug 2009 13:18:02 -0400
+Gregory Haskins <ghaskins@novell.com> wrote:
 
-Rene Mayrhofer wrote:
-> I have now tried again with the newest stable kernel (2.6.30.4), without
-> PaX and squashfs-lzma support. Still the same problem:
-Sorry for replying to myself, but I tried a few more things to do with MSI:
+> +
+> +static const struct net_device_ops vbus_enet_netdev_ops = {
+> +	.ndo_open          = vbus_enet_open,
+> +	.ndo_stop          = vbus_enet_stop,
+> +	.ndo_set_config    = vbus_enet_config,
+> +	.ndo_start_xmit    = vbus_enet_tx_start,
+> +	.ndo_change_mtu	   = vbus_enet_change_mtu,
+> +	.ndo_tx_timeout    = vbus_enet_timeout,
+> +};
 
-Neither
-  find /sys -name "msi_bus" | while read f; do echo 0 > $f; done
-nor booting with
-  pci=nomsi
-changed anything. The oops still happens when setting the last sky2
-interface down.
 
-> To allow easier debugging, I have now put our whole kernel tree up in a
-> public (read-only) git repository at
-> https://www.gibraltar.at/git/linux-2.6-gibraltar.git. The branch for
-> this kernel is origin/gibraltar-3.0, although the above dump was
-> produced by a version slightly "older" then HEAD, which did not yet have
-> the latest PaX patch applied (no PaX and no lzma-squashfs in this kernel).
-I have now updated the branch with both patches (the one from Stephen
-and the other one Mike). Still trying if it changes anything with
-2.6.30.4 (they didn't help with 2.6.28.10, though...).
+Missing 
+	.ndo_set_mac_address = eth_mac_addr,
+	.ndo_validate_addr   = eth_validate_addr,
 
-best regards,
-Rene
+Also, should have change_mtu.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Suggest adding ethtool to report link and settings.
 
-iEYEARECAAYFAkp3Kh0ACgkQq7SPDcPCS97QHgCgwdpi7RBPZNV1Of85/8qg5DsE
-DWoAnjlT8U5wqN9ywxUyUpLyivH/Ex1h
-=DCdB
------END PGP SIGNATURE-----
+For performance this device should do scatter/gather, tso, gso, etc.
