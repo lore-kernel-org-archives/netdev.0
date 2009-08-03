@@ -1,65 +1,114 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Subject: Re: 2.6.31-rc5: Reported regressions from 2.6.30
-Date: Mon, 3 Aug 2009 16:31:08 +0200
-Message-ID: <20090803143108.GA12041@cmpxchg.org>
-References: <Su1q3S6JjyO.A.jeB.hcgdKB@chimera> <alpine.LFD.2.01.0908021456430.3352@localhost.localdomain>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.31-rc5: Reported regressions 2.6.29 -> 2.6.30
+Date: Mon, 3 Aug 2009 08:16:39 -0700
+Message-ID: <43e72e890908030816n187cda20keda2c9ba1b15a89c@mail.gmail.com>
+References: <upey9ZSfnaF.A.-oE.rpgdKB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>,
-	Mikael Pettersson <mikpe@it.uu.se>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmpxchg.org ([85.214.51.133]:39633 "EHLO cmpxchg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932150AbZHCOdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Aug 2009 10:33:46 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.01.0908021456430.3352@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Natalie Protasevich <protasnb-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, rootkit85-whZMOeQn8C0@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <upey9ZSfnaF.A.-oE.rpgdKB@chimera>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 02, 2009 at 03:22:01PM -0700, Linus Torvalds wrote:
+Here are the wireless ones:
 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13815
-> > Subject		: emacs -nw compilation doesn't show the error message
-> > Submitter	: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
-> > Date		: 2009-07-23 06:22 (11 days old)
-> > First-Bad-Commit: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=d945cb9cce20ac7143c2de8d88b187f62db99bdc
-> 
-> Same old pty bug, same fix: commit e043e42bdb.
-> 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13813
-> > Subject		: Hangups in n_tty_read()
-> > Submitter	: Johannes Weiner <hannes@cmpxchg.org>
-> > Date		: 2009-07-16 18:48 (18 days old)
-> > References	: http://marc.info/?l=linux-kernel&m=124777019920579&w=4
-> 
-> Hmm. Worth testing that same fix, although the symptoms here are not 
-> exactly the same.
+On Sun, Aug 2, 2009 at 12:06 PM, Rafael J. Wysocki<rjw-KKrjLPT3xs0@public.gmane.org> wrote:
 
-Hm, I had no debugging enabled, but I think a silent hang in
+> Unresolved regressions
+> ----------------------
+>
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13898
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Intel 3945ABG - problems on 2.6=
+=2E30.X
+> Submitter =C2=A0 =C2=A0 =C2=A0 : dienet <dienet-IjDXvh/HVVUAvxtiuMwx3w@public.gmane.org>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-07-31 15:17 (3 d=
+ays old)
+> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
+=3D124905346729959&w=3D4
 
-	pty_write()
-	  tty_flip_buffer_push()
-	    flush_to_ldisc()
 
-can cause the receiving side
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13638
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : rt2870 driver is broken for (so=
+me) cards
+> Submitter =C2=A0 =C2=A0 =C2=A0 : jakob gruber <jakob.gruber@kabelnet.=
+at>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-06-27 17:33 (37 =
+days old)
 
-	tty_read()
-	  n_tty_read()
 
-to wait forever for updates.  I haven't looked closely.  It seems to
-be gone with your latest master in any case.
 
-	Hannes
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13581
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : ath9k doesn't work with newer k=
+ernels
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Matteo <rootkit85-whZMOeQn8C0@public.gmane.org>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-06-19 12:04 (45 =
+days old)
+
+Issue looks more like a the user has rfkill enabled rather than a
+driver issue. Waiting on user feedback since 2009-07-27.
+
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13362
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : rt2x00: slow wifi with correct =
+basic rate bitmap
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Alejandro Riveira <ariveira-Re5JQEeQqe8@public.gmane.org=
+m>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-05-22 13:32 (73 =
+days old)
+
+
+
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13337
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : [post 2.6.29 regression] hang d=
+uring suspend of b44/b43 modules
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Tomas Janousek <tomi-YoqI/XImC7s@public.gmane.org>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-05-18 10:59 (77 =
+days old)
+> Handled-By =C2=A0 =C2=A0 =C2=A0: Johannes Berg <johannes@sipsolutions=
+=2Enet>
+> Patch =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 : http://patchwork.kernel.or=
+g/patch/37837/
+
+
+> Bug-Entry =C2=A0 =C2=A0 =C2=A0 : http://bugzilla.kernel.org/show_bug.=
+cgi?id=3D13319
+> Subject =C2=A0 =C2=A0 =C2=A0 =C2=A0 : Page allocation failures with b=
+43 and p54usb
+> Submitter =C2=A0 =C2=A0 =C2=A0 : Larry Finger <Larry.Finger@lwfinger.=
+net>
+> Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0: 2009-04-29 21:01 (96 =
+days old)
+> References =C2=A0 =C2=A0 =C2=A0: http://marc.info/?l=3Dlinux-kernel&m=
+=3D124103897101088&w=3D4
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0http://=
+lkml.org/lkml/2009/6/7/136
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0http://=
+lkml.org/lkml/2009/7/26/213
+> Handled-By =C2=A0 =C2=A0 =C2=A0: Johannes Berg <johannes@sipsolutions=
+=2Enet>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0David R=
+ientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Patch =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 : http://patchwork.kernel.or=
+g/patch/37655/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
