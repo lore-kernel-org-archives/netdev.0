@@ -1,92 +1,96 @@
-From: Tomasz Chmielewski <mangoo@wpkg.org>
-Subject: WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
-Date: Mon, 03 Aug 2009 10:30:01 +0200
-Message-ID: <4A76A009.40605@wpkg.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH 6/10] drivers/net/wireless/iwlwifi: introduce missing
+ kfree
+Date: Mon, 3 Aug 2009 11:09:14 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0908031109020.8435@pc-004.diku.dk>
+References: <Pine.LNX.4.64.0908011054010.23408@ask.diku.dk>
+ <1249260246.4069.26.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Chatre, Reinette" <reinette.chatre@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ipw3945-devel@lists.sourceforge.net"
+	<ipw3945-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.syneticon.net ([78.111.66.105]:41981 "EHLO
-	mx03.syneticon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753311AbZHCIac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 04:30:32 -0400
-Received: from localhost (filter1.syneticon.net [192.168.113.83])
-	by mx03.syneticon.net (Postfix) with ESMTP id 143F33601F
-	for <netdev@vger.kernel.org>; Mon,  3 Aug 2009 10:30:33 +0200 (CEST)
-Received: from mx03.syneticon.net ([192.168.113.84])
-	by localhost (mx03.syneticon.net [192.168.113.83]) (amavisd-new, port 10025)
-	with ESMTP id yoM-zAuyuQIR for <netdev@vger.kernel.org>;
-	Mon,  3 Aug 2009 10:30:30 +0200 (CEST)
-Received: from [192.168.10.145] (koln-4db4878a.pool.einsundeins.de [77.180.135.138])
-	by mx03.syneticon.net (Postfix) with ESMTPSA
-	for <netdev@vger.kernel.org>; Mon,  3 Aug 2009 10:30:30 +0200 (CEST)
+Received: from mgw2.diku.dk ([130.225.96.92]:45590 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751658AbZHCJJT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Aug 2009 05:09:19 -0400
+In-Reply-To: <1249260246.4069.26.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After upgrading from 2.6.29.1 to 2.6.30.4, I'm getting these warnings in dmesg.
+On Mon, 3 Aug 2009, Zhu Yi wrote:
 
-Let me know if you need more info.
+> On Sat, 2009-08-01 at 16:54 +0800, Julia Lawall wrote:
+> > From: Julia Lawall <julia@diku.dk>
+> > 
+> > Error handling code following a kzalloc should free the allocated data.
+> > 
+> > The semantic match that finds the problem is as follows:
+> > (http://www.emn.fr/x-info/coccinelle/)
+> > 
+> > // <smpl>
+> > @r exists@
+> > local idexpression x;
+> > statement S;
+> > expression E;
+> > identifier f,f1,l;
+> > position p1,p2;
+> > expression *ptr != NULL;
+> > @@
+> > 
+> > x@p1 = \(kmalloc\|kzalloc\|kcalloc\)(...);
+> > ...
+> > if (x == NULL) S
+> > <... when != x
+> >      when != if (...) { <+...x...+> }
+> > (
+> > x->f1 = E
+> > |
+> >  (x->f1 == NULL || ...)
+> > |
+> >  f(...,x->f1,...)
+> > )
+> > ...>
+> > (
+> >  return \(0\|<+...x...+>\|ptr\);
+> > |
+> >  return@p2 ...;
+> > )
+> > 
+> > @script:python@
+> > p1 << r.p1;
+> > p2 << r.p2;
+> > @@
+> > 
+> > print "* file: %s kmalloc %s return %s" % (p1[0].file,p1[0].line,p2[0].line)
+> > // </smpl>
+> > 
+> > Signed-off-by: Julia Lawall <julia@diku.dk>
+> > ---
+> >  drivers/net/wireless/iwlwifi/iwl-debugfs.c     |    1 +
+> >  1 files changed, 1 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/iwlwifi/iwl-debugfs.c b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
+> > index 7707a26..c2106d0 100644
+> > --- a/drivers/net/wireless/iwlwifi/iwl-debugfs.c
+> > +++ b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
+> > @@ -320,6 +320,7 @@ static ssize_t iwl_dbgfs_nvm_read(struct file *file,
+> >  	ptr = priv->eeprom;
+> >  	if (!ptr) {
+> >  		IWL_ERR(priv, "Invalid EEPROM/OTP memory\n");
+> > +		kfree(buf);
+> >  		return -ENOMEM;
+> >  	}
+> >  	pos += scnprintf(buf + pos, buf_size - pos, "NVM Type: %s\n",
+> 
+> Probably moving !priv->eeprom check prior to buf kzalloc is better.
 
-Other than that, the device seems to work stable.
+OK, I will do that instead.
 
-------------[ cut here ]------------
-WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
-Hardware name: Altos G510
-Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
-Pid: 2222, comm: openvpn Not tainted 2.6.30.4-1 #4
-Call Trace:
- [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
- [<4011f04e>] ? warn_slowpath_null+0xa/0xc
- [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
- [<402796a4>] ? sk_free+0x10/0xa7
- [<402b5964>] ? inet_release+0x3f/0x44
- [<4027751b>] ? sock_release+0x11/0x52
- [<40277575>] ? sock_close+0x19/0x1c
- [<40164026>] ? __fput+0xa6/0x149
- [<40161989>] ? filp_close+0x4e/0x54
- [<401619f5>] ? sys_close+0x66/0x9c
- [<401027c8>] ? sysenter_do_call+0x12/0x26
----[ end trace bdfe445acbab5307 ]---
-------------[ cut here ]------------
-WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
-Hardware name: Altos G510
-Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
-Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
-Call Trace:
- [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
- [<4011f04e>] ? warn_slowpath_null+0xa/0xc
- [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
- [<402796a4>] ? sk_free+0x10/0xa7
- [<402b5964>] ? inet_release+0x3f/0x44
- [<4027751b>] ? sock_release+0x11/0x52
- [<40277575>] ? sock_close+0x19/0x1c
- [<40164026>] ? __fput+0xa6/0x149
- [<40161989>] ? filp_close+0x4e/0x54
- [<401619f5>] ? sys_close+0x66/0x9c
- [<401027c8>] ? sysenter_do_call+0x12/0x26
----[ end trace bdfe445acbab5308 ]---
-------------[ cut here ]------------
-WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
-Hardware name: Altos G510
-Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
-Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
-Call Trace:
- [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
- [<4011f04e>] ? warn_slowpath_null+0xa/0xc
- [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
- [<402796a4>] ? sk_free+0x10/0xa7
- [<402b5964>] ? inet_release+0x3f/0x44
- [<4027751b>] ? sock_release+0x11/0x52
- [<40277575>] ? sock_close+0x19/0x1c
- [<40164026>] ? __fput+0xa6/0x149
- [<40161989>] ? filp_close+0x4e/0x54
- [<401619f5>] ? sys_close+0x66/0x9c
- [<401027c8>] ? sysenter_do_call+0x12/0x26
----[ end trace bdfe445acbab5309 ]---
-
-
-
--- 
-Tomasz Chmielewski
-http://wpkg.org
+julia
