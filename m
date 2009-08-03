@@ -1,65 +1,92 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC] [PATCH] Avoid enqueuing skb for default qdiscs
-Date: Mon, 3 Aug 2009 13:39:34 +0530
-Message-ID: <OF2E76F055.B5779000-ON65257607.002C6EAC-65257607.002CD28F@in.ibm.com>
-References: <20090728155055.2266.41649.sendpatchset@localhost.localdomain> <OF4A7A6701.1BD183E8-ON65257604.0024A9E1-65257606.0030A90D@in.ibm.com> <20090803071539.GA5506@ff.dom.local>
+From: Tomasz Chmielewski <mangoo@wpkg.org>
+Subject: WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+Date: Mon, 03 Aug 2009 10:30:01 +0200
+Message-ID: <4A76A009.40605@wpkg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, kaber@trash.net,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([59.145.155.4]:57122 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678AbZHCIKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 04:10:22 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp04.in.ibm.com (8.14.3/8.13.1) with ESMTP id n738AJ0h024971
-	for <netdev@vger.kernel.org>; Mon, 3 Aug 2009 13:40:19 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n738AJeA307266
-	for <netdev@vger.kernel.org>; Mon, 3 Aug 2009 13:40:19 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n738AI29006408
-	for <netdev@vger.kernel.org>; Mon, 3 Aug 2009 18:10:19 +1000
-In-Reply-To: <20090803071539.GA5506@ff.dom.local>
+Received: from mx03.syneticon.net ([78.111.66.105]:41981 "EHLO
+	mx03.syneticon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311AbZHCIac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 04:30:32 -0400
+Received: from localhost (filter1.syneticon.net [192.168.113.83])
+	by mx03.syneticon.net (Postfix) with ESMTP id 143F33601F
+	for <netdev@vger.kernel.org>; Mon,  3 Aug 2009 10:30:33 +0200 (CEST)
+Received: from mx03.syneticon.net ([192.168.113.84])
+	by localhost (mx03.syneticon.net [192.168.113.83]) (amavisd-new, port 10025)
+	with ESMTP id yoM-zAuyuQIR for <netdev@vger.kernel.org>;
+	Mon,  3 Aug 2009 10:30:30 +0200 (CEST)
+Received: from [192.168.10.145] (koln-4db4878a.pool.einsundeins.de [77.180.135.138])
+	by mx03.syneticon.net (Postfix) with ESMTPSA
+	for <netdev@vger.kernel.org>; Mon,  3 Aug 2009 10:30:30 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski <jarkao2@gmail.com> wrote on 08/03/2009 12:45:39 PM:
-> > Any comments on this patch?
->
-> Maybe I missed something, but I didn't get this patch, and can't see
-> it e.g. in the patchwork.
->
-> Jarek P.
+After upgrading from 2.6.29.1 to 2.6.30.4, I'm getting these warnings in dmesg.
 
-That is strange, I too do not find it :) But after I sent the patch, I
-got a copy of the mail which says:
-                                                                           
-             Krishna                                                       
-             Kumar2/India/IBM@                                             
-             IBMIN                                                      To 
-                                       davem@davemloft.net                 
-             07/28/2009 09:20                                           cc 
-             PM                        Krishna Kumar2/India/IBM@IBMIN,     
-                                       herbert@gondor.apana.org.au,        
-                                       kaber@trash.net, jarkao2@gmail.com, 
-                                       netdev@vger.kernel.org              
-                                                                   Subject 
-                                       [RFC] [PATCH] Avoid enqueuing skb   
-                                       for default qdiscs                  
-                                                                           
-                                                                           
-                                                                           
-                                                                           
-                                                                           
-                                                                           
+Let me know if you need more info.
+
+Other than that, the device seems to work stable.
+
+------------[ cut here ]------------
+WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+Hardware name: Altos G510
+Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+Pid: 2222, comm: openvpn Not tainted 2.6.30.4-1 #4
+Call Trace:
+ [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+ [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+ [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+ [<402796a4>] ? sk_free+0x10/0xa7
+ [<402b5964>] ? inet_release+0x3f/0x44
+ [<4027751b>] ? sock_release+0x11/0x52
+ [<40277575>] ? sock_close+0x19/0x1c
+ [<40164026>] ? __fput+0xa6/0x149
+ [<40161989>] ? filp_close+0x4e/0x54
+ [<401619f5>] ? sys_close+0x66/0x9c
+ [<401027c8>] ? sysenter_do_call+0x12/0x26
+---[ end trace bdfe445acbab5307 ]---
+------------[ cut here ]------------
+WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+Hardware name: Altos G510
+Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
+Call Trace:
+ [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+ [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+ [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+ [<402796a4>] ? sk_free+0x10/0xa7
+ [<402b5964>] ? inet_release+0x3f/0x44
+ [<4027751b>] ? sock_release+0x11/0x52
+ [<40277575>] ? sock_close+0x19/0x1c
+ [<40164026>] ? __fput+0xa6/0x149
+ [<40161989>] ? filp_close+0x4e/0x54
+ [<401619f5>] ? sys_close+0x66/0x9c
+ [<401027c8>] ? sysenter_do_call+0x12/0x26
+---[ end trace bdfe445acbab5308 ]---
+------------[ cut here ]------------
+WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+Hardware name: Altos G510
+Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
+Call Trace:
+ [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+ [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+ [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+ [<402796a4>] ? sk_free+0x10/0xa7
+ [<402b5964>] ? inet_release+0x3f/0x44
+ [<4027751b>] ? sock_release+0x11/0x52
+ [<40277575>] ? sock_close+0x19/0x1c
+ [<40164026>] ? __fput+0xa6/0x149
+ [<40161989>] ? filp_close+0x4e/0x54
+ [<401619f5>] ? sys_close+0x66/0x9c
+ [<401027c8>] ? sysenter_do_call+0x12/0x26
+---[ end trace bdfe445acbab5309 ]---
 
 
-I will try to send it out once again. Thanks for letting me know.
 
-thanks,
-
-- KK
-
+-- 
+Tomasz Chmielewski
+http://wpkg.org
