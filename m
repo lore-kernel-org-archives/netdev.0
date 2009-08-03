@@ -1,68 +1,61 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 4/5] documentation: fix wrt. headers rename
-Date: Tue,  4 Aug 2009 03:11:40 +0400
-Message-ID: <1249341101-11593-3-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 3/5] nl802154: make ieee802154_policy constant
+Date: Tue,  4 Aug 2009 03:11:39 +0400
+Message-ID: <1249341101-11593-2-git-send-email-dbaryshkov@gmail.com>
 References: <1249339902-10613-2-git-send-email-dbaryshkov@gmail.com>
  <1249341101-11593-1-git-send-email-dbaryshkov@gmail.com>
- <1249341101-11593-2-git-send-email-dbaryshkov@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Sergey Lapin <slapin@ossfans.org>,
 	linux-zigbee-devel@lists.sourceforge.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:58098 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753779AbZHCXMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 19:12:08 -0400
-Received: by mail-fx0-f217.google.com with SMTP id 17so2946973fxm.37
-        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 16:12:09 -0700 (PDT)
-In-Reply-To: <1249341101-11593-2-git-send-email-dbaryshkov@gmail.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:65265 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695AbZHCXMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 19:12:07 -0400
+Received: by bwz19 with SMTP id 19so2748734bwz.37
+        for <netdev@vger.kernel.org>; Mon, 03 Aug 2009 16:12:07 -0700 (PDT)
+In-Reply-To: <1249341101-11593-1-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 ---
- Documentation/networking/ieee802154.txt |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ include/linux/nl802154.h   |    2 +-
+ net/ieee802154/nl_policy.c |    3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index 1d4ed66..1c0c82c 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -22,7 +22,7 @@ int sd = socket(PF_IEEE802154, SOCK_DGRAM, 0);
- .....
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+index 2cda00c..266dd96 100644
+--- a/include/linux/nl802154.h
++++ b/include/linux/nl802154.h
+@@ -69,7 +69,7 @@ enum {
  
- The address family, socket addresses etc. are defined in the
--include/net/ieee802154/af_ieee802154.h header or in the special header
-+include/net/af_ieee802154.h header or in the special header
- in our userspace package (see either linux-zigbee sourceforge download page
- or git tree at git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee).
+ #define IEEE802154_ATTR_MAX (__IEEE802154_ATTR_MAX - 1)
  
-@@ -33,7 +33,7 @@ MLME - MAC Level Management
- ============================
+-extern struct nla_policy ieee802154_policy[];
++extern const struct nla_policy ieee802154_policy[];
  
- Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
--See the include/net/ieee802154/nl802154.h header. Our userspace tools package
-+See the include/net/nl802154.h header. Our userspace tools package
- (see above) provides CLI configuration utility for radio interfaces and simple
- coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
+ /* commands */
+ /* REQ should be responded with CONF
+diff --git a/net/ieee802154/nl_policy.c b/net/ieee802154/nl_policy.c
+index c7d71d1..83cb4cc 100644
+--- a/net/ieee802154/nl_policy.c
++++ b/net/ieee802154/nl_policy.c
+@@ -24,7 +24,7 @@
  
-@@ -54,7 +54,7 @@ Those types of devices require different approach to be hooked into Linux kernel
- HardMAC
- =======
+ #define NLA_HW_ADDR NLA_U64
  
--See the header include/net/ieee802154/netdevice.h. You have to implement Linux
-+See the header include/net/ieee802154_netdev.h. You have to implement Linux
- net_device, with .type = ARPHRD_IEEE802154. Data is exchanged with socket family
- code via plain sk_buffs. The control block of sk_buffs will contain additional
- info as described in the struct ieee802154_mac_cb.
-@@ -72,5 +72,4 @@ SoftMAC
- We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
- in software. This is currently WIP.
+-struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
++const struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 	[IEEE802154_ATTR_DEV_NAME] = { .type = NLA_STRING, },
+ 	[IEEE802154_ATTR_DEV_INDEX] = { .type = NLA_U32, },
  
--See header include/net/ieee802154/mac802154.h and several drivers in
--drivers/ieee802154/
-+See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
+@@ -50,3 +50,4 @@ struct nla_policy ieee802154_policy[IEEE802154_ATTR_MAX + 1] = {
+ 	[IEEE802154_ATTR_DURATION] = { .type = NLA_U8, },
+ 	[IEEE802154_ATTR_ED_LIST] = { .len = 27 },
+ };
++
 -- 
 1.6.3.3
 
