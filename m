@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Keep interface binding when sending packets with
- ipi_ifindex = 0
-Date: Mon, 03 Aug 2009 21:23:23 -0700 (PDT)
-Message-ID: <20090803.212323.256579233.davem@davemloft.net>
-References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
-	<20090727144402.513369f1.akpm@linux-foundation.org>
-	<1248912621.13447.12.camel@merlyn>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+Date: Tue, 04 Aug 2009 08:18:34 +0200
+Message-ID: <4A77D2BA.3040304@gmail.com>
+References: <4A76A009.40605@wpkg.org>	<1249346282.6479.5.camel@merlyn> <20090803.212007.253928711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, chiachi@android.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: john.dykstra1@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: john.dykstra1@gmail.com, mangoo@wpkg.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38493
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751903AbZHDEXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:23:14 -0400
-In-Reply-To: <1248912621.13447.12.camel@merlyn>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:37876 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932428AbZHDGSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 02:18:43 -0400
+In-Reply-To: <20090803.212007.253928711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Dykstra <john.dykstra1@gmail.com>
-Date: Wed, 29 Jul 2009 19:10:21 -0500
+David Miller a =E9crit :
+> From: John Dykstra <john.dykstra1@gmail.com>
+> Date: Mon, 03 Aug 2009 19:38:01 -0500
+>=20
+>> There's a good chance e51a67a9c8a2ea5c563f8c2ba6613fe2100ffe67 from =
+the
+>> current mainline will fix this problem.
+>>
+>> Dave, Eric's fix might be a candidate for -stable.  The symptom is
+>> usually a WARN, but the impact is significant.
+>=20
+> Hmmm, I'll double-check.  I thought I had submitted this one.
+>=20
+> Thanks for the heads up.
 
-> I guess Dave's letting this stand.  I'm posting this just to make sure
-> this is an explicit decision.
+Hmm, I dont see how this patch could solve Tomasz case...
+Since commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
+(net: No more expensive sock_hold()/sock_put() on each tx)
+was not part of 2.6.30.4 AFAIK
 
-I'm still thinking about this.
+This is the WARN_ON(sk->sk_forward_alloc) that triggers...
+
+Sounds like a truesize mismatch rather than a sk_refcount one ?
