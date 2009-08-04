@@ -1,43 +1,58 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH]bluetooth: rfcomm_init bug fix
-Date: Tue, 04 Aug 2009 10:01:46 -0700
-Message-ID: <1249405306.3094.18.camel@localhost.localdomain>
-References: <20090803.132924.151782729.davem@davemloft.net>
-	 <1249343666.3094.12.camel@localhost.localdomain>
-	 <20090803.191916.75688176.davem@davemloft.net>
-	 <20090803.211136.00343745.davem@davemloft.net>
+From: Oren Laadan <orenl@librato.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
+Date: Tue, 04 Aug 2009 13:05:51 -0400
+Message-ID: <4A786A6F.10902@librato.com>
+References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>	<1248295301-30930-6-git-send-email-danms@us.ibm.com>	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>	<4A6F6B19.9010508@librato.com> <878wi6yxui.fsf@caffeine.danplanet.com>	<4A77F0EF.9090602@librato.com> <87ws5jlidl.fsf@caffeine.danplanet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
-	alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090803.211136.00343745.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp241.iad.emailsrvr.com ([207.97.245.241]:36618 "EHLO
+	smtp241.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932882AbZHDRFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 13:05:54 -0400
+In-Reply-To: <87ws5jlidl.fsf@caffeine.danplanet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
 
-> >> do you mind at least waiting for an ACK from my side. I haven't even
-> >> looked at the final patch.
-> > 
-> > Sure, I haven't pushed it out yet, so now's your chance :)
+
+Dan Smith wrote:
+> OL> Does this mean that a situation of A->B and B->C is valid only as
+> OL> long as A->B is done first, otherwise A->B will fail because B
+> OL> will already be connected to C ?
 > 
-> Grumble, I accidently pushed my net-2.6 queue out before you
-> had a chance to reply, sorry :-(
+> Correct.
 
-not a big deal. Just have to send a cleanup patch. The patch itself is
-fine, but from a style perspective it is different than everything else
-in the Bluetooth subsystem and I would have liked to fix that before
-pushing it. I wait with that for 2.6.32 since it is not important.
+Hmm.. this also means that if A->C already, then an attempt to also
+do B->C will fail :(
 
-The other Dave, please send patches to linux-bluetooth only and lets
-follow the normal path to get them merged into Linus' tree. Skipping
-bluetooth-2.6 is not an option. You have to use the same process than
-everybody else.
+> 
+> OL> Then, the other problem is to restore correctly you need to mimic
+> OL> the behavior of sendto() because of the way the skb references the
+> OL> original socket for the write-buf accounting :(
+> 
+> OL> In turn, this means that during checkpoint you need to record the
+> OL> _origin_ of each buffer in the queue of afunix dgram sockets :((
+> 
+> Or return EBUSY when there are skb's that are outstanding from before
+> the re-connect, right?
 
-Regards
+Hmm.. I think that when you reconnect a dgram socket, it discards all
+unread pending data previous received, whether through connection or
+via sendto().
 
-Marcel
+What I meant is that restore (and therefore checkpoint) need to know
+how to handle skb's sent with sendto() but without proper connection,
+where the target socket is still unconnected.
+
+I'm ok with declaring this case unsupported for now and put it in the
+'todo' list, and meanwhile work towards getting the current afunix
+patches into the cr-dev tree. (As long as it doesn't it will be buried
+there forever...)
+
+Oren.
+
