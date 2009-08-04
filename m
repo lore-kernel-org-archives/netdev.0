@@ -1,63 +1,30 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Tue, 04 Aug 2009 20:18:36 +0900
-Message-ID: <4A78190C.1080909@ring3k.org>
-References: <4A65EC3F.4050400@gibraltar.at> <20090723102848.00a56ad1@nehalam>	 <4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam>	 <4A76D036.6090705@gibraltar.at> <4A772A1D.1030904@mayrhofer.eu.org>	 <4A77E56B.9030804@gibraltar.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute fixes.
+Date: Tue, 04 Aug 2009 05:58:10 -0700 (PDT)
+Message-ID: <20090804.055810.201482741.davem@davemloft.net>
+References: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
+	<20090803.193546.102476162.davem@davemloft.net>
+	<20090804085147.GA6724@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Cc: netdev@vger.kernel.org, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: dbaryshkov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.235]:36530 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220AbZHDLV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 07:21:29 -0400
-Received: by rv-out-0506.google.com with SMTP id f6so1214426rvb.1
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 04:21:30 -0700 (PDT)
-In-Reply-To: <4A77E56B.9030804@gibraltar.at>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33912
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751213AbZHDM6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 08:58:02 -0400
+In-Reply-To: <20090804085147.GA6724@doriath.ww600.siemens.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Tue, 4 Aug 2009 12:51:48 +0400
 
-2009/8/4 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
+> Will you pull the serie if I'll remove those two patches? Documentation
+> fix isn't that important, however I'd really ask to pull the remaining
+> two patches.
 
-> Does anybody have an idea on what might be wrong in sky2_down?
-
-I had a look into this, and noticed that we don't hold phy_lock when calling 
-sky2_phy_power_down() in sky2_down(). sky2_phy_power_down() does some PCI
-manipulation, so it's possible this could cause bad things to happen...
-
-Does the following patch help?
-
-Mike
-
-
-
-Subject: [PATCH] sky2: Hold phy_lock when powering down phy
-
-Make sure to hold phy_lock when calling sky2_phy_power_down(),
- as is done when calling sky2_phy_power_up(),
-
-Signed-off-by: Mike McCormack <mikem@ring3k.org>
----
- drivers/net/sky2.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index e9cb1e7..47e5bae 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1894,7 +1894,9 @@ static int sky2_down(struct net_device *dev)
-        synchronize_irq(hw->pdev->irq);
-        napi_synchronize(&hw->napi);
- 
-+       spin_lock_bh(&sky2->phy_lock);
-        sky2_phy_power_down(hw, port);
-+       spin_unlock_bh(&sky2->phy_lock);
- 
-        /* turn off LED's */
-        sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
--- 
-1.5.6.5
+Yes.
