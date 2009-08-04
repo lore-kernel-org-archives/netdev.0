@@ -1,55 +1,63 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Subject: Re: [PATCH] pcnet32: remove superfluous NULL pointer check in pcnet32_probe1()
-Date: Tue, 4 Aug 2009 12:32:56 +0200
-Message-ID: <200908041233.02016.bzolnier@gmail.com>
-References: <200907302319.18150.bzolnier@gmail.com> <200908022207.29942.bzolnier@gmail.com> <20090802.131256.210461366.davem@davemloft.net>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Tue, 04 Aug 2009 20:18:36 +0900
+Message-ID: <4A78190C.1080909@ring3k.org>
+References: <4A65EC3F.4050400@gibraltar.at> <20090723102848.00a56ad1@nehalam>	 <4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam>	 <4A76D036.6090705@gibraltar.at> <4A772A1D.1030904@mayrhofer.eu.org>	 <4A77E56B.9030804@gibraltar.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, error27@gmail.com, corbet@lwn.net,
-	eteo@redhat.com, julia@diku.dk
-To: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:65202 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932792AbZHDKe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 06:34:27 -0400
-In-Reply-To: <20090802.131256.210461366.davem@davemloft.net>
-Content-Disposition: inline
+Received: from rv-out-0506.google.com ([209.85.198.235]:36530 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220AbZHDLV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 07:21:29 -0400
+Received: by rv-out-0506.google.com with SMTP id f6so1214426rvb.1
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 04:21:30 -0700 (PDT)
+In-Reply-To: <4A77E56B.9030804@gibraltar.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 02 August 2009 22:12:56 David Miller wrote:
-> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-> Date: Sun, 2 Aug 2009 22:07:29 +0200
-> 
-> > netdev@vger.kernel.org was on cc: for all patches...
-> > 
-> > http://marc.info/?l=linux-netdev&m=124898901714229&w=2
-> > http://marc.info/?l=linux-netdev&m=124898901714236&w=2
-> > 
-> > maybe there is some problem with a patchwork setup..
-> 
-> My bad, I misread the CC: list, sorry.
 
-There still may be some netdev patchwork problem..
+2009/8/4 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
 
-These patches were applied with Don as an author:
+> Does anybody have an idea on what might be wrong in sky2_down?
 
-commit 63097b3ad85788a64c75091bff351ecc850761b2
-Author: Don Fry <pcnet32@verizon.net>
-Date:   Fri Jul 31 08:45:29 2009 +0000
+I had a look into this, and noticed that we don't hold phy_lock when calling 
+sky2_phy_power_down() in sky2_down(). sky2_phy_power_down() does some PCI
+manipulation, so it's possible this could cause bad things to happen...
 
-    pcnet32: VLB support fixes
+Does the following patch help?
 
-...
+Mike
 
-commit df4e7f72f5156ef16a918da8a575ba90ec27ab77
-Author: Don Fry <pcnet32@verizon.net>
-Date:   Fri Jul 31 08:40:06 2009 +0000
 
-    pcnet32: remove superfluous NULL pointer check in pcnet32_probe1()
 
-...
+Subject: [PATCH] sky2: Hold phy_lock when powering down phy
+
+Make sure to hold phy_lock when calling sky2_phy_power_down(),
+ as is done when calling sky2_phy_power_up(),
+
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index e9cb1e7..47e5bae 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1894,7 +1894,9 @@ static int sky2_down(struct net_device *dev)
+        synchronize_irq(hw->pdev->irq);
+        napi_synchronize(&hw->napi);
+ 
++       spin_lock_bh(&sky2->phy_lock);
+        sky2_phy_power_down(hw, port);
++       spin_unlock_bh(&sky2->phy_lock);
+ 
+        /* turn off LED's */
+        sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
+-- 
+1.5.6.5
