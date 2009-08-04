@@ -1,53 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netpoll + xmit_lock == deadlock
-Date: Mon, 03 Aug 2009 21:19:05 -0700 (PDT)
-Message-ID: <20090803.211905.100178246.davem@davemloft.net>
-References: <1249301157.2893.11.camel@achroite>
-	<20090803.121512.75779533.davem@davemloft.net>
-	<1249329581.3703.122.camel@calx>
+Subject: Re: WARNING: at net/ipv4/af_inet.c:155
+ inet_sock_destruct+0x122/0x13a()
+Date: Mon, 03 Aug 2009 21:20:07 -0700 (PDT)
+Message-ID: <20090803.212007.253928711.davem@davemloft.net>
+References: <4A76A009.40605@wpkg.org>
+	<1249346282.6479.5.camel@merlyn>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, mcarlson@broadcom.com
-To: mpm@selenic.com
+Cc: mangoo@wpkg.org, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: john.dykstra1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37612
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37618
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751508AbZHDES4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:18:56 -0400
-In-Reply-To: <1249329581.3703.122.camel@calx>
+	by vger.kernel.org with ESMTP id S1751508AbZHDET6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:19:58 -0400
+In-Reply-To: <1249346282.6479.5.camel@merlyn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Mon, 03 Aug 2009 14:59:41 -0500
+From: John Dykstra <john.dykstra1@gmail.com>
+Date: Mon, 03 Aug 2009 19:38:01 -0500
 
-> First, I don't think we can solve the problem of 'reliably deliver
-> printks inside the TX path'. If the driver needs to printk here, odds
-> are good that sending isn't possible.
-
-Agreed.
-
-> So I think we should be clear up front that the solution we're looking
-> for is 'don't crash the box when trying to printk from the tx path'.
+> There's a good chance e51a67a9c8a2ea5c563f8c2ba6613fe2100ffe67 from the
+> current mainline will fix this problem.
 > 
-> I think the most straightforward, driver-agnostic way to do this
-> is to have netpoll wrap a driver's TX entrypoint such that recursion is
-> disabled while in that path. This might actually simplify netpoll's
-> internal locking ugliness. Something like:
-> 
-> int netpoll_xmit_wrapper(struct sk_buff *skb, struct net_device *dev)
-> {
-> 	struct netpoll_info *npinfo = dev->npinfo;
-> 	int ret;
-> 
-> 	npinfo->recurse += 1; /* add appropriate locking */
-> 	ret = npinfo->orig_tx(skb, dev);
-> 	npinfo->recurse -= 1;
-> 	
-> 	return ret;
-> }
+> Dave, Eric's fix might be a candidate for -stable.  The symptom is
+> usually a WARN, but the impact is significant.
 
-Looks workable.  Probably we even hold the netpoll lock here so
-no additional protection would even be needed.
+Hmmm, I'll double-check.  I thought I had submitted this one.
+
+Thanks for the heads up.
