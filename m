@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:155
- inet_sock_destruct+0x122/0x13a()
-Date: Mon, 03 Aug 2009 21:20:07 -0700 (PDT)
-Message-ID: <20090803.212007.253928711.davem@davemloft.net>
-References: <4A76A009.40605@wpkg.org>
-	<1249346282.6479.5.camel@merlyn>
+Subject: Re: [PATCH] net: Keep interface binding when sending packets with
+ ipi_ifindex = 0
+Date: Mon, 03 Aug 2009 21:23:23 -0700 (PDT)
+Message-ID: <20090803.212323.256579233.davem@davemloft.net>
+References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>
+	<20090727144402.513369f1.akpm@linux-foundation.org>
+	<1248912621.13447.12.camel@merlyn>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mangoo@wpkg.org, netdev@vger.kernel.org, eric.dumazet@gmail.com
+Cc: akpm@linux-foundation.org, chiachi@android.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: john.dykstra1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37618
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38493
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751508AbZHDET6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:19:58 -0400
-In-Reply-To: <1249346282.6479.5.camel@merlyn>
+	by vger.kernel.org with ESMTP id S1751903AbZHDEXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:23:14 -0400
+In-Reply-To: <1248912621.13447.12.camel@merlyn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Dykstra <john.dykstra1@gmail.com>
-Date: Mon, 03 Aug 2009 19:38:01 -0500
+Date: Wed, 29 Jul 2009 19:10:21 -0500
 
-> There's a good chance e51a67a9c8a2ea5c563f8c2ba6613fe2100ffe67 from the
-> current mainline will fix this problem.
-> 
-> Dave, Eric's fix might be a candidate for -stable.  The symptom is
-> usually a WARN, but the impact is significant.
+> I guess Dave's letting this stand.  I'm posting this just to make sure
+> this is an explicit decision.
 
-Hmmm, I'll double-check.  I thought I had submitted this one.
-
-Thanks for the heads up.
+I'm still thinking about this.
