@@ -1,8 +1,7 @@
 From: David VomLehn <dvomlehn@cisco.com>
-Subject: [PATCH 2/7 v3] initdev:kernel:USB init device discovery
-	notification
-Date: Tue, 4 Aug 2009 15:15:06 -0700
-Message-ID: <20090804221506.GA9256@cuplxvomd02.corp.sa.net>
+Subject: [PATCH 3/7 v6] initdev:kernel:Await console discovery
+Date: Tue, 4 Aug 2009 15:15:09 -0700
+Message-ID: <20090804221509.GA9283@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
@@ -10,87 +9,95 @@ Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
 	arjan@infradead.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:39391 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755266AbZHDWPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 18:15:05 -0400
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:37716 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755327AbZHDWPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 18:15:08 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Stern <stern@rowland.harvard.edu>
+Wait for the console device to become available or for it to be determined
+that no console is attached a boot time.
 
-Use init device discovery infrastructure to provide notification of
-availability of USB devices.
-
-Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
 Signed-off-by: David VomLehn <dvomlehn@cisco.com>
 ---
- drivers/usb/core/hub.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+ drivers/accessibility/braille/braille_console.c |    2 +
+ kernel/printk.c                                 |   29 ++++++++++++++++++++++-
+ 2 files changed, 30 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index be86ae3..08baee0 100644
---- a/drivers/usb/core/hub.c
-+++ b/drivers/usb/core/hub.c
-@@ -37,6 +37,20 @@
- #endif
- #endif
- 
-+/* The mask of possible USB boot devices depends on what drivers and
-+ * options have been configured into the kernel.  There are too many
-+ * USB network config options to list here, so just assume it is always
-+ * possible to have a USB network device.
-+ */
-+static int usb_initdev_mask = 0
-+#ifdef CONFIG_USB_SERIAL_CONSOLE
-+				| INITDEV_CONSOLE_MASK
-+#endif
-+#if defined(CONFIG_USB_STORAGE) || defined(CONFIG_BLK_DEV_UB)
-+				| INITDEV_BLOCK_MASK
-+#endif
-+				| INITDEV_NETDEV_MASK;
+diff --git a/drivers/accessibility/braille/braille_console.c b/drivers/accessibility/braille/braille_console.c
+index d672cfe..6d1693f 100644
+--- a/drivers/accessibility/braille/braille_console.c
++++ b/drivers/accessibility/braille/braille_console.c
+@@ -378,6 +378,8 @@ int braille_register_console(struct console *console, int index,
+ 	braille_co = console;
+ 	register_keyboard_notifier(&keyboard_notifier_block);
+ 	register_vt_notifier(&vt_notifier_block);
 +
- struct usb_hub {
- 	struct device		*intfdev;	/* the "interface" device */
- 	struct usb_device	*hdev;
-@@ -73,6 +87,7 @@ struct usb_hub {
- 	unsigned		limited_power:1;
- 	unsigned		quiescing:1;
- 	unsigned		disconnected:1;
-+	unsigned		probing:1;
- 
- 	unsigned		has_indicators:1;
- 	u8			indicator[USB_MAXCHILDREN];
-@@ -1079,6 +1094,9 @@ static int hub_configure(struct usb_hub *hub,
- 	if (hub->has_indicators && blinkenlights)
- 		hub->indicator [0] = INDICATOR_CYCLE;
- 
-+	hub->probing = 1;
-+	initdev_found(usb_initdev_mask);
-+
- 	hub_activate(hub, HUB_INIT);
++	initdev_registered(INITDEV_CONSOLE_TYPE);
  	return 0;
- 
-@@ -1124,6 +1142,9 @@ static void hub_disconnect(struct usb_interface *intf)
- 	usb_buffer_free(hub->hdev, sizeof(*hub->buffer), hub->buffer,
- 			hub->buffer_dma);
- 
-+	if (hub->probing)
-+		initdev_probe_done(usb_initdev_mask);
-+
- 	kref_put(&hub->kref, hub_release);
  }
  
-@@ -3135,6 +3156,11 @@ static void hub_events(void)
- 						portstatus, portchange);
- 		} /* end for i */
+diff --git a/kernel/printk.c b/kernel/printk.c
+index 5052b54..7cdc91c 100644
+--- a/kernel/printk.c
++++ b/kernel/printk.c
+@@ -33,6 +33,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/syscalls.h>
+ #include <linux/kexec.h>
++#include <linux/device.h>
  
-+		if (hub->probing) {
-+			hub->probing = 0;
-+			initdev_probe_done(usb_initdev_mask);
-+		}
+ #include <asm/uaccess.h>
+ 
+@@ -1075,8 +1076,10 @@ void console_unblank(void)
+ 
+ /*
+  * Return the console tty driver structure and its associated index
++ * @index:	Pointer to the device index
++ * Returns NULL if no driver available, otherwise a pointer to the TTY driver.
+  */
+-struct tty_driver *console_device(int *index)
++struct tty_driver *_console_device(int *index)
+ {
+ 	struct console *c;
+ 	struct tty_driver *driver = NULL;
+@@ -1094,6 +1097,29 @@ struct tty_driver *console_device(int *index)
+ }
+ 
+ /*
++ * Returns true if all specific consoles are registered, false otherwise
++ */
++static bool have_all_consoles(void)
++{
++	struct tty_driver *driver;
++	int		index;
 +
- 		/* deal with hub status changes */
- 		if (test_and_clear_bit(0, hub->event_bits) == 0)
- 			;	/* do nothing */
++	driver = _console_device(&index);
++
++	return driver != NULL;
++}
++
++struct tty_driver *console_device(int *index)
++{
++	struct tty_driver *driver;
++	initdev_wait(INITDEV_CONSOLE_TYPE, have_all_consoles);
++
++	driver = _console_device(index);
++
++	return driver;
++}
++
++/*
+  * Prevent further output on the passed console device so that (for example)
+  * serial drivers can disable console output before suspending a port, and can
+  * re-enable output afterwards.
+@@ -1230,6 +1256,7 @@ void register_console(struct console *console)
+ 		spin_unlock_irqrestore(&logbuf_lock, flags);
+ 	}
+ 	release_console_sem();
++	initdev_registered(INITDEV_CONSOLE_TYPE);
+ }
+ EXPORT_SYMBOL(register_console);
+ 
