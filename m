@@ -1,41 +1,58 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
-Date: Tue, 04 Aug 2009 10:13:09 -0700
-Message-ID: <87ocqvlcyi.fsf@caffeine.danplanet.com>
-References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
-	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
-	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
-	<4A6F6B19.9010508@librato.com> <878wi6yxui.fsf@caffeine.danplanet.com>
-	<4A77F0EF.9090602@librato.com> <87ws5jlidl.fsf@caffeine.danplanet.com>
-	<4A786A6F.10902@librato.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] igbvf: Allow VF driver to correctly recognize failure
+	to set mac
+Date: Tue, 04 Aug 2009 10:21:04 -0700
+Message-ID: <20090804172103.23659.5847.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Oren Laadan <orenl@librato.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:39279 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932953AbZHDRNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 13:13:23 -0400
-In-Reply-To: <4A786A6F.10902@librato.com> (Oren Laadan's message of "Tue\, 04 Aug 2009 13\:05\:51 -0400")
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:58420
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932811AbZHDRVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 13:21:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OL> What I meant is that restore (and therefore checkpoint) need to
-OL> know how to handle skb's sent with sendto() but without proper
-OL> connection, where the target socket is still unconnected.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-I see.  I'll have to think on that a bit.
+The VF driver was not correctly recognizing that it did not correctly set
+it's mac address.  As a result the VF driver was unable to receive network
+traffic until being unloaded and reloaded.  The issue was root caused to
+the fact that the CTS bit was not taken into account when checking for the
+request being NAKed.
 
-OL> I'm ok with declaring this case unsupported for now and put it in
-OL> the 'todo' list, and meanwhile work towards getting the current
-OL> afunix patches into the cr-dev tree. (As long as it doesn't it
-OL> will be buried there forever...)
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Okay, I think that would be most productive :)
+ drivers/net/igbvf/vf.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+diff --git a/drivers/net/igbvf/vf.c b/drivers/net/igbvf/vf.c
+index 2a4faf9..a9a61ef 100644
+--- a/drivers/net/igbvf/vf.c
++++ b/drivers/net/igbvf/vf.c
+@@ -274,6 +274,8 @@ static s32 e1000_set_vfta_vf(struct e1000_hw *hw, u16 vid, bool set)
+ 
+ 	err = mbx->ops.read_posted(hw, msgbuf, 2);
+ 
++	msgbuf[0] &= ~E1000_VT_MSGTYPE_CTS;
++
+ 	/* if nacked the vlan was rejected */
+ 	if (!err && (msgbuf[0] == (E1000_VF_SET_VLAN | E1000_VT_MSGTYPE_NACK)))
+ 		err = -E1000_ERR_MAC_INIT;
+@@ -317,6 +319,8 @@ static void e1000_rar_set_vf(struct e1000_hw *hw, u8 * addr, u32 index)
+ 	if (!ret_val)
+ 		ret_val = mbx->ops.read_posted(hw, msgbuf, 3);
+ 
++	msgbuf[0] &= ~E1000_VT_MSGTYPE_CTS;
++
+ 	/* if nacked the address was rejected, use "perm_addr" */
+ 	if (!ret_val &&
+ 	    (msgbuf[0] == (E1000_VF_SET_MAC_ADDR | E1000_VT_MSGTYPE_NACK)))
+
