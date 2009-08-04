@@ -1,37 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: Fix build failure with gcc 3.2
-Date: Mon, 03 Aug 2009 21:10:16 -0700 (PDT)
-Message-ID: <20090803.211016.21222287.davem@davemloft.net>
-References: <20090803134803.3c8a0159@hyperion.delvare>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH]bluetooth: rfcomm_init bug fix
+Date: Mon, 03 Aug 2009 21:11:36 -0700 (PDT)
+Message-ID: <20090803.211136.00343745.davem@davemloft.net>
+References: <20090803.132924.151782729.davem@davemloft.net>
+	<1249343666.3094.12.camel@localhost.localdomain>
+	<20090803.191916.75688176.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: klassert@mathematik.tu-chemnitz.de, netdev@vger.kernel.org,
-	a.beregalov@gmail.com
-To: khali@linux-fr.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46437
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750860AbZHDEKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 00:10:08 -0400
-In-Reply-To: <20090803134803.3c8a0159@hyperion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hidave.darkstar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, oliver-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org,
+	alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20090803.191916.75688176.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <khali@linux-fr.org>
-Date: Mon, 3 Aug 2009 13:48:03 +0200
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Mon, 03 Aug 2009 19:19:16 -0700 (PDT)
 
-> Fix the following build failure with gcc 3.2:
+> From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Date: Mon, 03 Aug 2009 16:54:26 -0700
 > 
->   CC [M]  drivers/net/3c59x.o
-> drivers/net/3c59x.c:2726:1: directives may not be used inside a macro argument
-> drivers/net/3c59x.c:2725:59: unterminated argument list invoking macro "pr_err"
-> drivers/net/3c59x.c: In function `dump_tx_ring':
-> drivers/net/3c59x.c:2727: implicit declaration of function `pr_err'
-> drivers/net/3c59x.c:2731: syntax error before ')' token
+>> do you mind at least waiting for an ACK from my side. I haven't even
+>> looked at the final patch.
 > 
-> Apparently gcc 3.2 doesn't like #if interleaved with a macro call.
-> 
-> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Sure, I haven't pushed it out yet, so now's your chance :)
 
-Applied, thanks.
+Grumble, I accidently pushed my net-2.6 queue out before you
+had a chance to reply, sorry :-(
