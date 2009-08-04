@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]atl1c:Do not call cancel_work_sync from the work itself
-Date: Mon, 03 Aug 2009 19:32:33 -0700 (PDT)
-Message-ID: <20090803.193233.170901476.davem@davemloft.net>
-References: <12493523461127-git-send-email-jie.yang@atheros.com>
+Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute fixes.
+Date: Mon, 03 Aug 2009 19:35:46 -0700 (PDT)
+Message-ID: <20090803.193546.102476162.davem@davemloft.net>
+References: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jie.yang@atheros.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755184AbZHDCcZ@vger.kernel.org>
-In-Reply-To: <12493523461127-git-send-email-jie.yang@atheros.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: dbaryshkov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49589
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751229AbZHDCfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 22:35:37 -0400
+In-Reply-To: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <jie.yang@atheros.com>
-Date: Tue, 4 Aug 2009 10:19:06 +0800
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Tue,  4 Aug 2009 02:51:37 +0400
 
-> Do not call cancel_work_sync from the work itself, for it my cause 
-> recursive locking.
+> Please pull several minor fixes for the IEEE 802.15.4 stack.
 
-Sorry, this won't work.
+No.
 
-Your patches, all of them, are corrupted by your email client.  It
-turns tab characters into spaces as well as making other textual
-modifications to the patch, such that it will not apply.
+Removing an unused macro IS NOT A BUG FIX!
 
-Please fix this up and resubmit all of your patches when the problem
-is corrected.
+Marking a variable 'const' IS NOT A BUG FIX!
 
-If you have to, email the patches to yourself and try to apply them
-just to make sure.
+And therefore it is absolutely, positively, not appropriate for
+2.6.31-rcX at this time.
+
+Do not send any more patches to me until you can sort your
+changes properly.
+
+I'm tossing this entire series.
