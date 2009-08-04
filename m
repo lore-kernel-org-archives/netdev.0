@@ -1,114 +1,88 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH]atl1c:Do not call cancel_work_sync from the work itself
-Date: Tue, 4 Aug 2009 00:52:56 -0700
-Message-ID: <20090804005256.8e03f1ba.akpm@linux-foundation.org>
-References: <12493523461127-git-send-email-jie.yang@atheros.com>
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: [PATCH] net: Keep interface binding when sending packets with
+ 	ipi_ifindex = 0
+Date: Tue, 04 Aug 2009 11:57:46 +0400
+Message-ID: <4A77E9FA.7030503@bigtelecom.ru>
+References: <6c039e090907231439t1def08a4n10978733bee55bec@mail.gmail.com>	 <20090727144402.513369f1.akpm@linux-foundation.org>	 <1248912621.13447.12.camel@merlyn>	 <20090803.212323.256579233.davem@davemloft.net> <6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <jie.yang@atheros.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, john.dykstra1@gmail.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: =?UTF-8?B?IkNoaWEtY2hpIFllaCAo6JGJ5a626b2KKSI=?=
+	<chiachi@android.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33005 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932493AbZHDHxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 03:53:01 -0400
-In-Reply-To: <12493523461127-git-send-email-jie.yang@atheros.com>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:42472 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753171AbZHDH5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 03:57:48 -0400
+In-Reply-To: <6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 Aug 2009 10:19:06 +0800 <jie.yang@atheros.com> wrote:
+Chia-chi Yeh (=E8=91=89=E5=AE=B6=E9=BD=8A) =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+> After thinking more deeply, I believe that IPv6 does the right thing
+> and IPv4 does not. SO_BINDTODEVICE requires CAP_NET_RAW, so it is a
+> privileged operation. Therefore, it looks weird to me if one can
+> specify other interface than the bound one without the same
+> capability. The following patch makes the behavior in IPv4 and IPv6
+> identical. Thanks for your help.
+>=20
+> Chia-chi
+>=20
+> --- a/net/ipv4/ip_sockglue.c    2009-08-04 15:11:39.000000000 +0800
+> +++ b/net/ipv4/ip_sockglue.c    2009-08-04 15:17:05.000000000 +0800
+> @@ -213,7 +213,11 @@
+>                         if (cmsg->cmsg_len !=3D CMSG_LEN(sizeof(struc=
+t
+> in_pktinfo)))
+>                                 return -EINVAL;
+>                         info =3D (struct in_pktinfo *)CMSG_DATA(cmsg)=
+;
+> -                       ipc->oif =3D info->ipi_ifindex;
+> +                       if (info->ipi_ifindex) {
+> +                               if (ipc->oif && info->ipi_ifindex !=3D=
+ ipc->oif)
+> +                                       return -EINVAL;
+> +                               ipc->oif =3D info->ipi_ifindex;
 
-> Do not call cancel_work_sync from the work itself, for it my cause 
-> recursive locking.
-> detail info:
-> events/1/10 is trying to acquire lock:
-> (&adapter->reset_task){+.+...}, at: [<c043e384>] __cancel_work_timer+0x80/0x187
-> 
-> but task is already holding lock:
-> (&adapter->reset_task){+.+...}, at: [<c043ed6f>] worker_thread+0x127/0x234
-> other info that might help us debug this:
-> 
-> 2 locks held by events/1/10:
-> #0:  (events){+.+.+.}, at: [<c043ed6f>] worker_thread+0x127/0x234
-> #1:  (&adapter->reset_task){+.+...}, at: [<c043ed6f>] worker_thread+0x127/0x234
-> 
-> stack backtrace:
-> Pid: 10, comm: events/1 Not tainted 2.6.31-rc2 #12
-> Call Trace:
-> [<c04519c9>] validate_chain+0x4ae/0xb26
-> [<c0451e8d>] ? validate_chain+0x972/0xb26
-> [<c0437f4b>] ? lock_timer_base+0x1f/0x3e
-> [<c04526f8>] __lock_acquire+0x6b7/0x745
-> [<c0452816>] lock_acquire+0x90/0xad
-> [<c043e384>] ? __cancel_work_timer+0x80/0x187
-> [<c043e3b1>] __cancel_work_timer+0xad/0x187
-> [<c043e384>] ? __cancel_work_timer+0x80/0x187
-> [<c044f6b3>] ? mark_held_locks+0x3d/0x58
-> [<c0690855>] ? _spin_unlock_irqrestore+0x36/0x3c
-> [<c044f7d5>] ? trace_hardirqs_on_caller+0x107/0x12f
-> [<c044f808>] ? trace_hardirqs_on+0xb/0xd
-> [<c0437fb2>] ? try_to_del_timer_sync+0x48/0x4f
-> [<c043e4a2>] cancel_work_sync+0xa/0xc
-> [<f8955f95>] atl1c_down+0x1f/0xde [atl1c]
-> [<f8956955>] atl1c_reset_task+0x1f/0x31 [atl1c]
-> [<c043edae>] worker_thread+0x166/0x234
-> [<c043ed6f>] ? worker_thread+0x127/0x234
-> [<f8956936>] ? atl1c_reset_task+0x0/0x31 [atl1c]
-> [<c0441ac5>] ? autoremove_wake_function+0x0/0x33
-> [<c043ec48>] ? worker_thread+0x0/0x234
-> [<c0441a25>] kthread+0x69/0x70
-> [<c04419bc>] ? kthread+0x0/0x70
-> [<c04034b7>] kernel_thread_helper+0x7/0x10
-> 
-> So when atl1c_reset_task be scheduled just set a flag in ctrl_flag, 
-> to demonstrate it is in reset_task, when atl1c_down is call it will not call 
-> cancel_work_sync(&adapter->reset_task) if it sees the flag.
-> 
-> Signed-off-by: jie yang <jie.yang@atheros.com>
-> ---
-> diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
-> index 2a1120a..53242dc 100644
-> --- a/drivers/net/atl1c/atl1c.h
-> +++ b/drivers/net/atl1c/atl1c.h
-> @@ -427,6 +427,7 @@ struct atl1c_hw {
->  #define ATL1C_ASPM_CTRL_MON        0x0200
->  #define ATL1C_HIB_DISABLE      0x0400
->  #define ATL1C_LINK_CAP_1000M       0x0800
-> +#define ATL1C_RESET_IN_WORK        0x1000
->  #define ATL1C_FPGA_VERSION     0x8000
->     u16 cmb_tpd;
->     u16 cmb_rrd;
-> diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-> index 1d601ce..dec88fa 100644
-> --- a/drivers/net/atl1c/atl1c_main.c
-> +++ b/drivers/net/atl1c/atl1c_main.c
-> @@ -321,7 +321,10 @@ static void atl1c_del_timer(struct atl1c_adapter *adapter)
->  
->  static void atl1c_cancel_work(struct atl1c_adapter *adapter)
->  {
-> -   cancel_work_sync(&adapter->reset_task);
-> +   if (adapter->hw.ctrl_flags & ATL1C_RESET_IN_WORK)
-> +       adapter->hw.ctrl_flags &= ~ATL1C_RESET_IN_WORK;/* clear the flag */
-> +   else
-> +       cancel_work_sync(&adapter->reset_task);
->     cancel_work_sync(&adapter->link_chg_task);
->  }
->  
-> @@ -1544,6 +1547,7 @@ static irqreturn_t atl1c_intr(int irq, void *data)
->             /* reset MAC */
->             hw->intr_mask &= ~ISR_ERROR;
->             AT_WRITE_REG(hw, REG_IMR, hw->intr_mask);
-> +           adapter->hw.ctrl_flags |= ATL1C_RESET_IN_WORK;
->             schedule_work(&adapter->reset_task);
->             break;
->         }
+Hello
+Sorry if its my mistake or i someone not understand :)
 
-The use of non-atomic bit operations upon ctrl_flags looks unsafe.  If
-a CPU is running atl1c_cancel_work() and then an interrupt happens (on
-this CPU or a different one), then the interrupt will set
-ATL1C_RESET_IN_WORK.  But the non-atomic operation in
-atl1c_cancel_work() can just overwrite that change.  
+if (ipc->oif && info->ipi_ifindex !=3D ipc->oif)
+	// if match: info->ipi_ifindex !=3D ipc->oif
+	return ...
+else
+	// else match: info->ipi_ifindex =3D=3D ipc->oif
+	// but you do=20
+	ipc->oif =3D info->ipi_ifindex;=20
+	// why if you else match allready check for it?
 
+Thanks
+
+
+
+> +                       }
+>                         ipc->addr =3D info->ipi_spec_dst.s_addr;
+>                         break;
+>                 }
+>=20
+> On Tue, Aug 4, 2009 at 12:23 PM, David Miller<davem@davemloft.net> wr=
+ote:
+>> From: John Dykstra <john.dykstra1@gmail.com>
+>> Date: Wed, 29 Jul 2009 19:10:21 -0500
+>>
+>>> I guess Dave's letting this stand.  I'm posting this just to make s=
+ure
+>>> this is an explicit decision.
+>> I'm still thinking about this.
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
 
