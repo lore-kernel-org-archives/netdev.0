@@ -1,125 +1,129 @@
-From: cndougla@linux.vnet.ibm.com
-Subject: SUSv3 recvmsg, sendmsg compliance
-Date: Tue,  4 Aug 2009 10:14:11 -0400
-Message-ID: <20090804101411.y5fmtgh2skwkw4gc@imap.linux.ibm.com>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: 2.6.31-rc5-git2 crash [net/core/flow.c:flow_cache_new_hashrnd]
+Date: Wed, 05 Aug 2009 00:15:50 +1000
+Message-ID: <1249395350.8016.5.camel@concordia>
+References: <4A78292A.5000607@in.ibm.com>  <4A783B1F.7000602@in.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:59763 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490AbZHDOO2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 10:14:28 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n74EAvjo027714
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 08:10:57 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n74EEIkh216952
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 08:14:20 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n74EEHXP003813
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 08:14:17 -0600
-Received: from linux.ibm.com (imap.raleigh.ibm.com [9.37.253.145])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n74EEGho003658
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 08:14:16 -0600
+Content-Type: multipart/mixed; boundary="===============5678333960662027060=="
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	linuxppc-dev@ozlabs.org
+To: Sachin Sant <sachinp@in.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <4A783B1F.7000602@in.ibm.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============5678333960662027060==
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-c/6DjyA9naNp3wCGmgoS"
+
+
+--=-c/6DjyA9naNp3wCGmgoS
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2009-08-04 at 19:13 +0530, Sachin Sant wrote:
+> Forgot to copy netdev in my original message. Forwarding ..
+>=20
+> I have a power6 blade [IBM,7998-61X] running 2.6.31-rc5-git2
+> kernel (a33a052f19a21d727847391c8c1aff3fb221c472). After some
+> period of inactivity the machine drops into xmon with following
+> traces.
+>=20
+> cpu 0x0: Vector: 700 (Program Check) at [c00000000ffffa90]
+>    pc: c000000000600000: .flow_cache_new_hashrnd+0x3c/0xcc
+>    lr: c0000000000c6038: .run_timer_softirq+0x20c/0x2f4
+>    sp: c00000000ffffd10
+>   msr: 8000000000089032
+>  current =3D 0xc000000000f58b70
+>  paca    =3D 0xc0000000010b2400
+>    pid   =3D 0, comm =3D swapper
+> enter ? for help
+> [c00000000ffffda0] c0000000000c6038 .run_timer_softirq+0x20c/0x2f4
+> [c00000000ffffea0] c0000000000be8a0 .__do_softirq+0x174/0x2c8
+> [c00000000fffff90] c0000000000307b0 .call_do_softirq+0x14/0x24
+> [c000000001013870] c00000000000ecf8 .do_softirq+0xa0/0x104
+> [c000000001013910] c0000000000be1d0 .irq_exit+0x74/0xd4
+> [c000000001013990] c00000000002ce20 .timer_interrupt+0x1cc/0x200
+> [c000000001013a30] c000000000003728 decrementer_common+0x128/0x180
+> --- Exception: 901 (Decrementer) at c00000000000ec3c .raw_local_irq_resto=
+re+0xc0/0xdc
+> [c000000001013dc0] c000000000015824 .cpu_idle+0x13c/0x1e0
+> [c000000001013e60] c000000000009fe8 .rest_init+0x94/0xcc
+> [c000000001013ee0] c000000000990cf4 .start_kernel+0x484/0x4a8
+> [c000000001013f90] c000000000008408 .start_here_common+0x2c/0xa4
+> 0:mon> di $.flow_cache_new_hashrnd
+> c0000000005fffc4  7c0802a6      mflr    r0
+> c0000000005fffc8  f8010010      std     r0,16(r1)
+> c0000000005fffcc  fb81ffe0      std     r28,-32(r1)
+> c0000000005fffd0  fba1ffe8      std     r29,-24(r1)
+> c0000000005fffd4  fbc1fff0      std     r30,-16(r1)
+> c0000000005fffd8  fbe1fff8      std     r31,-8(r1)
+> c0000000005fffdc  f821ff71      stdu    r1,-144(r1)
+> c0000000005fffe0  7c3f0b78      mr      r31,r1
+> c0000000005fffe4  ebc2dc90      ld      r30,-9072(r2)
+> c0000000005fffe8  3b800001      li      r28,1
+> c0000000005fffec  60000000      nop
+> ...
+> c0000000005ffff4  e93e8048      ld      r9,-32696(r30)
+> c0000000005ffff8  38a0ffff      li      r5,-1
+> c0000000005ffffc  eba90000      ld      r29,0(r9)
+> c000000000600000  00001010      .long 0x1010
+> 0:mon>
+> c000000000600004  00000008      .long 0x8
+> c000000000600008  00001013      .long 0x1013
+> c00000000060000c  0000000f      .long 0xf
+> c000000000600010  7961626f      rldimi. r1,r11,44,41
+> c000000000600014  6f740000      xoris   r20,r27,0
+> c000000000600018  00101600      .long 0x101600
+> c00000000060001c  00000c00      .long 0xc00
+> c000000000600020  00000400      .long 0x400
+> c000000000600024  00101100      .long 0x101100
+> c000000000600028  000008e9      .long 0x8e9
+
+What's going on here? How does the above disassembly compare with an
+objdump -d of your vmlinux?
+
+It looks like either:
+      * gcc is generating some weird code sequences
+      * xmon doesn't know how to disassemble those instructions
+      * someone crapped on your kernel text
+
+cheers
+
+
+--=-c/6DjyA9naNp3wCGmgoS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkp4QpIACgkQdSjSd0sB4dKbJQCgxLmN1soiVk76X3gG07D06zC0
+2g8AmgPkbKRWvfwRjItJns6GQqXUpLb8
+=3aqg
+-----END PGP SIGNATURE-----
+
+--=-c/6DjyA9naNp3wCGmgoS--
+
+
+--===============5678333960662027060==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-While running the LSB testsuite I noticed that on ppc 32-bit  
-userland/64-bit kernel recvmsg returned EPERM (-1) instead of EMSGSIZE  
-in errno when the sole iovec's iov_len was set to -1. According to the  
-SUSv3 standard, iov_len must be positive and less than IOV_MAX:
-
-http://www.opengroup.org/onlinepubs/000095399/functions/recvmsg.html
-
-In Linux, iov_len is defined as an unsigned value. This does not seem  
-to be forbidden by the standard, so that means we can't trip EMSGSIZE  
-just by setting iov_len to -1. However, Linux also doesn't have  
-IOV_MAX. In fact, Linux doesn't care how big you set iov_len since in  
-memcpy_toiovec() the size is bounded by the size of the packet being  
-copied:
-
-                if (iov->iov_len) {
-                        int copy = min_t(unsigned int, iov->iov_len, len);
-                        if (copy_to_user(iov->iov_base, kdata, copy))
-                                return -EFAULT;
-                        kdata += copy;
-                        len -= copy;
-                        iov->iov_len -= copy;
-                        iov->iov_base += copy;
-                }
-                iov++;
-
-So far, it looks like Linux is compliant to SUSv3 because it handles  
-all iov_len passed in. However, before we get to memcpy_toiovec(),  
-verify_iovec() or verify_compat_iovec() are called. These functions  
-don't really do any verification of arguments from user-space.  
-Instead, they merely copy them to kernel-space and determine the total  
-length requested by adding up all the iovec iov_len sizes.  
-Unfortunately, the return value is used both for error checking and  
-for returning the total length. Thus, if the total length overflows a  
-signed integer the functions will return an error. This is where  
-verify_iovec() and verify_compat_iovec() differ. In verify_iovec(), if  
-the total length is negative at any point, the function returns  
--EMSGSIZE:
-
-        int err;
-<snip>
-        for (ct = 0; ct < m->msg_iovlen; ct++) {
-                err += iov[ct].iov_len;
-                /*
-                 * Goal is not to verify user data, but to prevent returning
-                 * negative value, which is interpreted as errno.
-                 * Overflow is still possible, but it is harmless.
-                 */
-                if (err < 0)
-                        return -EMSGSIZE;
-        }
-
-In verify_compat_iovec(), the total size is returned no matter what,  
-and it doesn't return -EMSGSIZE if the total size is negative:
-
-        int tot_len = 0;
-
-        while (niov > 0) {
-                compat_uptr_t buf;
-                compat_size_t len;
-
-                if (get_user(len, &uiov32->iov_len) ||
-                   get_user(buf, &uiov32->iov_base)) {
-                        tot_len = -EFAULT;
-                        break;
-                }
-                tot_len += len;
-                kiov->iov_base = compat_ptr(buf);
-                kiov->iov_len = (__kernel_size_t) len;
-                uiov32++;
-                kiov++;
-                niov--;
-        }
-        return tot_len;
-
-The returned value from verify_compat_iovec() is then passed back to  
-userspace. This explains why I received EPERM (-1) when I set iov_len  
-to -1. This breaks SUSv3 compliance. Any issues with iov_len should  
-set errno to EMSGSIZE.
-
-Also, verify_iovec() can be defeated by using iov_lens of 2 and -1,  
-and verify_iovec_compat() can be defeated by using the same values or  
-the same values swapped in order.
-
-A correct solution to this issue would be to save the total length in  
-a variable passed by reference into verify*iovec(), and return 0 on  
-success or an errno if the total length overflows. The total length  
-could then be saved as a size_t, which doubles the total amount able  
-to be received due to its unsigned nature.
-
-Before I work up a patch and test it, I would like some feedback as to  
-whether this approach is acceptable for upstream.
-
-Thanks,
-Chase Douglas
-
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============5678333960662027060==--
