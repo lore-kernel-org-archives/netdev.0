@@ -1,30 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute fixes.
-Date: Tue, 04 Aug 2009 05:58:10 -0700 (PDT)
-Message-ID: <20090804.055810.201482741.davem@davemloft.net>
-References: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
-	<20090803.193546.102476162.davem@davemloft.net>
-	<20090804085147.GA6724@doriath.ww600.siemens.net>
+Subject: Re: [PATCH] pcnet32: remove superfluous NULL pointer check in
+ pcnet32_probe1()
+Date: Tue, 04 Aug 2009 06:03:54 -0700 (PDT)
+Message-ID: <20090804.060354.66058154.davem@davemloft.net>
+References: <200908022207.29942.bzolnier@gmail.com>
+	<20090802.131256.210461366.davem@davemloft.net>
+	<200908041233.02016.bzolnier@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: dbaryshkov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33912
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751213AbZHDM6C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 08:58:02 -0400
-In-Reply-To: <20090804085147.GA6724@doriath.ww600.siemens.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, error27@gmail.com, corbet@lwn.net,
+	eteo@redhat.com, julia@diku.dk
+To: bzolnier@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755507AbZHDNDr@vger.kernel.org>
+In-Reply-To: <200908041233.02016.bzolnier@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Tue, 4 Aug 2009 12:51:48 +0400
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Date: Tue, 4 Aug 2009 12:32:56 +0200
 
-> Will you pull the serie if I'll remove those two patches? Documentation
-> fix isn't that important, however I'd really ask to pull the remaining
-> two patches.
+> On Sunday 02 August 2009 22:12:56 David Miller wrote:
+>> From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+>> Date: Sun, 2 Aug 2009 22:07:29 +0200
+>> 
+>> > netdev@vger.kernel.org was on cc: for all patches...
+>> > 
+>> > http://marc.info/?l=linux-netdev&m=124898901714229&w=2
+>> > http://marc.info/?l=linux-netdev&m=124898901714236&w=2
+>> > 
+>> > maybe there is some problem with a patchwork setup..
+>> 
+>> My bad, I misread the CC: list, sorry.
+> 
+> There still may be some netdev patchwork problem..
+> 
+> These patches were applied with Don as an author:
 
-Yes.
+It's because he forwarded them to netdev when he ACK'd them, and those
+are the ones the postings that actually showed up properly in
+patchwork, and thus the From: lines that got used for authorship.
+
+Sorry, I should have caught that.
