@@ -1,68 +1,43 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute
-	fixes.
-Date: Tue, 4 Aug 2009 18:48:10 +0400
-Message-ID: <20090804144810.GA23722@doriath.ww600.siemens.net>
-References: <1249339902-10613-1-git-send-email-dbaryshkov@gmail.com>
-	<20090803.193546.102476162.davem@davemloft.net>
-	<20090804085147.GA6724@doriath.ww600.siemens.net>
-	<20090804.055810.201482741.davem@davemloft.net>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v6)
+Date: Tue, 04 Aug 2009 08:16:06 -0700
+Message-ID: <87ws5jlidl.fsf@caffeine.danplanet.com>
+References: <1248295301-30930-1-git-send-email-danms@us.ibm.com>
+	<1248295301-30930-6-git-send-email-danms@us.ibm.com>
+	<4A6F2D62.9040005@librato.com> <87ljm8czsf.fsf@caffeine.danplanet.com>
+	<4A6F6B19.9010508@librato.com> <878wi6yxui.fsf@caffeine.danplanet.com>
+	<4A77F0EF.9090602@librato.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090804.055810.201482741.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Oren Laadan <orenl@librato.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:39002 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932624AbZHDPQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 11:16:08 -0400
+In-Reply-To: <4A77F0EF.9090602@librato.com> (Oren Laadan's message of "Tue\, 04 Aug 2009 04\:27\:27 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 04, 2009 at 05:58:10AM -0700, David Miller wrote:
-> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Tue, 4 Aug 2009 12:51:48 +0400
-> 
-> > Will you pull the serie if I'll remove those two patches? Documentation
-> > fix isn't that important, however I'd really ask to pull the remaining
-> > two patches.
-> 
-> Yes.
+OL> Does this mean that a situation of A->B and B->C is valid only as
+OL> long as A->B is done first, otherwise A->B will fail because B
+OL> will already be connected to C ?
 
-Pushed the updated branch. Please pull.
+Correct.
 
-The following changes since commit e4c4e448cf557921ffbbbd6d6ddac81fdceacb4f:
-  Eric Dumazet (1):
-        neigh: Convert garbage collection from softirq to workqueue
+OL> Then, the other problem is to restore correctly you need to mimic
+OL> the behavior of sendto() because of the way the skb references the
+OL> original socket for the write-buf accounting :(
 
-are available in the git repository at:
+OL> In turn, this means that during checkpoint you need to record the
+OL> _origin_ of each buffer in the queue of afunix dgram sockets :((
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
-
-Dmitry Eremin-Solenikov (3):
-      af_ieee802154: fix ioctl processing
-      af_ieee802154: provide dummy get/setsockopt
-      documentation: fix wrt. headers rename
-
- Documentation/networking/ieee802154.txt |    9 ++++-----
- net/ieee802154/af_ieee802154.c          |    8 +++++---
- net/ieee802154/dgram.c                  |   14 ++++++++++++++
- net/ieee802154/raw.c                    |   14 ++++++++++++++
- 4 files changed, 37 insertions(+), 8 deletions(-)
+Or return EBUSY when there are skb's that are outstanding from before
+the re-connect, right?
 
 -- 
-With best wishes
-Dmitry
-
-
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with 
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
