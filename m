@@ -1,47 +1,60 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH] netxen: fix dma mask update calculation
-Date: Tue,  4 Aug 2009 13:39:03 -0700
-Message-ID: <1249418343-15741-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.com
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/5] cpmac: fix wrong MDIO bus identifier
+Date: Tue, 4 Aug 2009 22:52:41 +0200
+Message-ID: <200908042252.42254.florian@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-1.pathscale.com ([198.186.3.73]:16116 "HELO unm84.unmin.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753255AbZHDUsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Aug 2009 16:48:41 -0400
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:50430 "EHLO
+	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753255AbZHDUwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 16:52:44 -0400
+Received: by ewy10 with SMTP id 10so654827ewy.37
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 13:52:44 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix dma mask calculation that caps at 63-bit addressing even
-when firmware advertises full 64-bit support.
+This patch fixes the wrong MDIO bus identifier which was
+set to 0 unconditionaly, suitable for external switches while
+it is actually 1 for PHYs different than external switches
+which are autodetected.
 
-Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
- drivers/net/netxen/netxen_nic_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 3cd8cfc..70c05c4 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -260,7 +260,7 @@ nx_update_dma_mask(struct netxen_adapter *adapter)
- 	change = 0;
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index fd5e32c..c951dd4 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -1109,7 +1109,7 @@ static int external_switch;
+ static int __devinit cpmac_probe(struct platform_device *pdev)
+ {
+ 	int rc, phy_id;
+-	char *mdio_bus_id = "0";
++	char mdio_bus_id[BUS_ID_SIZE];
+ 	struct resource *mem;
+ 	struct cpmac_priv *priv;
+ 	struct net_device *dev;
+@@ -1127,7 +1127,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
  
- 	shift = NXRD32(adapter, CRB_DMA_SHIFT);
--	if (shift >= 32)
-+	if (shift > 32)
- 		return 0;
+ 	if (phy_id == PHY_MAX_ADDR) {
+ 		if (external_switch || dumb_switch) {
+-			mdio_bus_id = 0; /* fixed phys bus */
++			strncpy(mdio_bus_id, "0", BUS_ID_SIZE); /* fixed phys bus */
+ 			phy_id = pdev->id;
+ 		} else {
+ 			dev_err(&pdev->dev, "no PHY present\n");
+@@ -1254,7 +1254,7 @@ int __devinit cpmac_init(void)
+ 	}
  
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id) && (shift > 9))
-@@ -272,7 +272,7 @@ nx_update_dma_mask(struct netxen_adapter *adapter)
- 		old_mask = pdev->dma_mask;
- 		old_cmask = pdev->dev.coherent_dma_mask;
+ 	cpmac_mii->phy_mask = ~(mask | 0x80000000);
+-	snprintf(cpmac_mii->id, MII_BUS_ID_SIZE, "0");
++	snprintf(cpmac_mii->id, MII_BUS_ID_SIZE, "1");
  
--		mask = (1ULL<<(32+shift)) - 1;
-+		mask = DMA_BIT_MASK(32+shift);
- 
- 		err = pci_set_dma_mask(pdev, mask);
- 		if (err)
--- 
-1.6.0.2
-
+ 	res = mdiobus_register(cpmac_mii);
+ 	if (res)
