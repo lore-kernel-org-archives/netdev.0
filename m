@@ -1,43 +1,50 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v7)
-Date: Tue, 04 Aug 2009 15:47:34 -0700
-Message-ID: <8763d3dwmx.fsf@caffeine.danplanet.com>
-References: <1249331463-11887-1-git-send-email-danms@us.ibm.com>
-	<1249331463-11887-6-git-send-email-danms@us.ibm.com>
-	<20090804223141.GA14254@us.ibm.com>
+From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Wed, 05 Aug 2009 00:55:04 +0200
+Message-ID: <4A78BC48.4060200@gibraltar.at>
+References: <4A65EC3F.4050400@gibraltar.at> <20090723102848.00a56ad1@nehalam>	 <4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam>	 <4A76D036.6090705@gibraltar.at> <4A772A1D.1030904@mayrhofer.eu.org>	 <4A77E56B.9030804@gibraltar.at> <392fb48f0908040445pc21105bo3182773b76d49596@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, Alexey Dobriyan <adobriyan@gmail.com>,
-	netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serue@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:40032 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933440AbZHDWre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 18:47:34 -0400
-In-Reply-To: <20090804223141.GA14254@us.ibm.com> (Serge E. Hallyn's message of "Tue\, 4 Aug 2009 17\:31\:41 -0500")
+Received: from jupiter1.gibraltar.at ([80.120.3.98]:49394 "EHLO
+	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933363AbZHDWzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 18:55:15 -0400
+In-Reply-To: <392fb48f0908040445pc21105bo3182773b76d49596@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SH> why only free iov_base if ret!=0?
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Because I was diagnosing a crash that only seemed to happen when I
-free()'d the buffer after it was used by sendmsg() and I forgot to
-remove this :(
+Mike McCormack wrote:
+> 2009/8/4 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
+> 
+>> Does anybody have an idea on what might be wrong in sky2_down?
+> 
+> btw. for 2.6.30, I found I could copy sky2.c from the netdev git into
+> my 2.6.30 tree if I added the following line at the end of
+> sky2_xmit_frame() :
+> 
+>         dev->trans_start = jiffies;     /* prevent tx timeout */
 
->> +	a->sk_peercred.pid = task_tgid_vnr(current);
->> +	a->sk_peercred.uid = ctx->realcred->uid;
+This seems to be already included in the current netdev git.
 
-SH> I don't know how much it matters, but of course root could be
-SH> restarting a set of tasks owned by several non-root uids, and the
-SH> peercred.uid's might need to be something other than
-ctx-> realcred->uid.  Or not?
+Nonetheless, the current unmodified version from netdev git solves the
+oops in sky2. I have not diffed my old vs. this version, but whoever is
+interested in which change fixed the oops, it should be somewhere in
+commit 0a1449c in our Gibraltar kernel git repository.
 
-Oh, so you're suggesting I use ctx->ecred instead?  I didn't actually
-notice the double declaration in the ckpt_ctx, but I guess that would
-be better.
+Thanks a lot for that hint!
+Rene
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+iEYEARECAAYFAkp4vEQACgkQq7SPDcPCS97BtgCfZy1QTeQOL340hD0HIgTC1c3O
+Gy0An1u8zdh4wyU4DchLfxNWzqlJExV+
+=0+E4
+-----END PGP SIGNATURE-----
