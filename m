@@ -1,142 +1,388 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/7 v3] initdev:kernel:Await network init device discovery
-Date: Tue, 4 Aug 2009 15:15:12 -0700
-Message-ID: <20090804221512.GA9308@cuplxvomd02.corp.sa.net>
+From: David VomLehn <dvomlehn@cisco.com>
+Subject: [PATCH 1/7 v6.1] initdev:kernel:initdev synchronization framework
+Date: Tue, 4 Aug 2009 15:15:02 -0700
+Message-ID: <20090804221502.GA9231@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
+	greg@kroah.com, linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Delay IP autoconfiguration until network boot devices have been initialized.
-This depends on the boot device discovery code and on the asynchronous
-function call infrastructure.
+This patch adds the initdev infrastructure used by the rest of the patches. See
+Documentation/driver-model/initdev.txt for details on these functions.
 
-Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: David VomLehn <dvomlehn@cisco.com>
 ---
- net/core/dev.c      |    2 +
- net/ipv4/ipconfig.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 56 insertions(+), 1 deletions(-)
+ Documentation/driver-model/initdev.txt |   91 +++++++++++++++++
+ drivers/base/Makefile                  |    3 +-
+ drivers/base/base.h                    |    1 +
+ drivers/base/initdev.c                 |  170 ++++++++++++++++++++++++++++++++
+ include/linux/device.h                 |   51 ++++++++++
+ 5 files changed, 315 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 308a7d0..2796764 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -93,6 +93,7 @@
- #include <linux/ethtool.h>
- #include <linux/notifier.h>
- #include <linux/skbuff.h>
-+#include <linux/device.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <linux/rtnetlink.h>
-@@ -4497,6 +4498,7 @@ int register_netdevice(struct net_device *dev)
- 		dev->reg_state = NETREG_UNREGISTERED;
- 	}
+diff --git a/Documentation/driver-model/initdev.txt b/Documentation/driver-model/initdev.txt
+new file mode 100644
+index 0000000..0bb4bc0
+--- /dev/null
++++ b/Documentation/driver-model/initdev.txt
+@@ -0,0 +1,91 @@
++Init Device Discovery Synchronization
++=====================================
++Init devices are those devices that must be used or configured before
++starting up the /bin/init process.  They may be explicitly specified as
++kernel command line parameters, such as console=ttyUSB0,115200, or
++implicitly specified, such as ip=dhcp.
++
++Earlier versions of the Linux kernel used a single-threaded approach to
++boot initialization. This took a number of seconds, which meant that
++devices were generally set up before being used or configured. Modern
++kernels use a multithreaded approach, which requires synchronization between
++code that probes and initializes init devices, and code that uses and
++configures them.  Support of fine-grained boot concurrency requires
++distinguishing between types of init devices, so that devices can be used as
++soon as they are initialized.
++
++There are several types of init devices:
++-	consoles
++-	network devices
++-	block devices
++
++There is a distinction between the hardware type and the init device type.
++From the hardware view, most any serial device can be used as a console,
++but console support is generally configured separately. For example, USB
++serial devices should be considered console init devices only if the
++kernel is configured to support this usage. This is done by enabling the
++CONFIG_USB_SERIAL_CONSOLE option. If this option is disabled, the USB bus
++driver should not report that it has found any console devices.
++
++The sequence for buses with asynchronously-discoverable init devices is:
++1.	As each possible init devices is discovered, call initdev_found.
++2.	As initialization is complete for each device, call
++	initdev_probe_done.
++
++Per-Device Functions
++--------------------
++Functions used to indicate the status of asynchronous device discovery on
++a device-by-device basis are:
++
++initdev_found(int initdev_mask)
++	This function must be called each time a possible init device device
++	is found.  It is passed a bit mask created by ORing any of the
++	following flags that apply to the device found:
++		INITDEV_CONSOLE_MASK
++		INITDEV_NETDEV_MASK
++		INITDEV_BLOCK_MASK
++	There is no need to call this function for a given device if it is
++	known that it cannot be used as a init device. If it is not
++	possible to determine whether a device is usable as a init device,
++	or the specific type of a init device, the argument INITDEV_ANY_MASK
++	should be passed.  This should be used only when necessary, as it
++	reduces the level of boot-time concurrency.
++
++initdev_probe_done(int initdev_mask)
++	This function indicates that initialization is complete for a device
++	which may be one of the init device types indicated by initdev_mask.
++	Note that calling this function does not imply that device
++	initialization has been successful; if initdev_found is called for a
++	device, initdev_probe_done must be called even if an error occurred.
++
++Some rules about correct usage:
++o	Each call to initdev_found *must* be matched by a call to
++	initdev_probe_done.
++o	The value of initdev_mask passed to initdev_found and
++	initdev_probe_done for a given device must be identical.
++
++Subsystem Functions
++-------------------
++Boot devices are registered with the appropriate subsystem as they are found
++Each subsystem determines when the init devices is manages are ready for use.
++
++initdev_wait(enum initdev_type type, bool (*done)(void))
++	Wait until one of two conditions is met:
++	o	All possible init devices of the given type have been probed
++	o	The "done" function returns true
++
++	The type is one of:
++		INITDEV_CONSOLE_TYPE
++		INITDEV_NETDEV_TYPE
++		INITDEV_BLOCK_TYPE
++	The "done" function is subsystem-dependent and returns true if all
++	init devices required for that subsystem to continue booting have
++	been registered. Registration is indicated through use of the
++	initdev_registered function. If done always returns false,
++	initdev_wait will not return until all possible init devices of the
++	given type have been probed.
++
++initdev_registered(enum initdev_type type)
++	Called by each software subsystem that handles init devices of a given
++	type. For example, register_console would call this function with
++	a type of INITDEV_CONSOLE_TYPE.
+diff --git a/drivers/base/Makefile b/drivers/base/Makefile
+index b5b8ba5..a288a46 100644
+--- a/drivers/base/Makefile
++++ b/drivers/base/Makefile
+@@ -3,7 +3,8 @@
+ obj-y			:= core.o sys.o bus.o dd.o \
+ 			   driver.o class.o platform.o \
+ 			   cpu.o firmware.o init.o map.o devres.o \
+-			   attribute_container.o transport_class.o
++			   attribute_container.o transport_class.o \
++			   initdev.o
+ obj-y			+= power/
+ obj-$(CONFIG_HAS_DMA)	+= dma-mapping.o
+ obj-$(CONFIG_ISA)	+= isa.o
+diff --git a/drivers/base/base.h b/drivers/base/base.h
+index b528145..90dede0 100644
+--- a/drivers/base/base.h
++++ b/drivers/base/base.h
+@@ -90,6 +90,7 @@ struct device_private {
+ 	container_of(obj, struct device_private, knode_bus)
  
-+	initdev_registered(INITDEV_NETDEV_TYPE);
- out:
- 	return ret;
- 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 90d22ae..3b1a381 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -53,6 +53,7 @@
- #include <linux/root_dev.h>
- #include <linux/delay.h>
- #include <linux/nfs_fs.h>
-+#include <linux/async.h>
- #include <net/net_namespace.h>
- #include <net/arp.h>
- #include <net/ip.h>
-@@ -182,12 +183,48 @@ struct ic_device {
- static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
- static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
- 
+ /* initialisation functions */
++extern int initdevs_init(void);
+ extern int devices_init(void);
+ extern int buses_init(void);
+ extern int classes_init(void);
+diff --git a/drivers/base/initdev.c b/drivers/base/initdev.c
+new file mode 100644
+index 0000000..ae08adc
+--- /dev/null
++++ b/drivers/base/initdev.c
+@@ -0,0 +1,170 @@
 +/*
-+ * Wait for required network devices to come up
-+ * If the networking device name was specified on the kernel command line
-+ * and that device is now registered, we have the device we want to configure
-+ * and we return true. Otherwise, we return false. So, if no device was
-+ * specified on the command line, we wait for all possible network devices to
-+ * be initialized.
++ *			initdev.c
++ *
++ * Primitives to synchronize boot device discovery and initialization with
++ * their boot-time use.
++ *
++ * Copyright (C) 2009  Scientific-Atlanta, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ * Author: David VomLehn
 + */
-+static bool have_all_netdevs(void)
++
++#include <linux/types.h>
++#include <linux/wait.h>
++#include <linux/device.h>
++#include <linux/sched.h>
++#include <linux/async.h>
++
++/*
++ * Information about how many boot devices have been found, but for which
++ * probing activity is not yet complete, by type, along with wait queues on
++ * which a wake up will be done as the probing completes.
++ */
++static struct {
++	atomic_t		pending;
++	wait_queue_head_t	wq;
++} initdev_info[INITDEV_TYPE_NUM] = {
++	[INITDEV_CONSOLE_TYPE] = {
++		ATOMIC_INIT(0),
++		__WAIT_QUEUE_HEAD_INITIALIZER(initdev_info
++			[INITDEV_CONSOLE_TYPE].wq)
++	},
++	[INITDEV_NETDEV_TYPE] = {
++		ATOMIC_INIT(0),
++		__WAIT_QUEUE_HEAD_INITIALIZER(initdev_info
++			[INITDEV_NETDEV_TYPE].wq)
++	},
++	[INITDEV_BLOCK_TYPE] = {
++		ATOMIC_INIT(0),
++		__WAIT_QUEUE_HEAD_INITIALIZER(initdev_info
++			[INITDEV_BLOCK_TYPE].wq)
++	},
++};
++
++/*
++ * Adds a console bit to the mask of boot devices if network consoles are used
++ * @mask:	Starting mask
++ *
++ * Returns mask with the %INITDEV_CONSOLE_TYPE bit set if network consoles are
++ * configured into the system, since, from the boot device standpoint,
++ * a network device might be used as a console.
++ */
++#ifdef CONFIG_NETCONSOLE
++static int initdev_add_netconsole(int initdev_mask)
 +{
-+	struct net_device *dev;
-+	bool	result = false;
++	return (initdev_mask & INITDEV_NETDEV_MASK) ?
++		(initdev_mask | INITDEV_CONSOLE_MASK) : initdev_mask;
++}
++#else
++static int initdev_add_netconsole(int initdev_mask)
++{
++	return initdev_mask;
++}
++#endif
 +
-+	rtnl_lock();
++/**
++ * initdev_found - called when a new device is discovered on a bus.
++ * @initdev_mask:	Mask for possible devices
++ *
++ * The initdev_mask allows a caller to specify a restricted set of boot
++ * devices that might be probed. For example, if the bus is USB, it may be
++ * the case that %CONFIG_USB_SERIAL_CONSOLE is not defined. The call to this
++ * function might then omit %INITDEV_CONSOLE_MASK from the mask. When we go to
++ * wait for console devices, we won't wait for USB probing to complete. If
++ * a given bus type has no way to determine the type of device being probed,
++ * it can simply pass %INITDEV_ALL_MASK, but finer granularity will generally
++ * result in faster boot times.
++ *
++ * Note that each call to initdev_found must be paired with a call to
++ * initdev_probe_done().
++ */
++void initdev_found(int initdev_mask)
++{
++	int	i;
 +
-+	for_each_netdev(&init_net, dev) {
-+		if (dev->flags & IFF_LOOPBACK)
-+			continue;
++	initdev_mask = initdev_add_netconsole(initdev_mask);
 +
-+		/* If a specific device name was specified and that name is
-+		 * registered, we have the device we need. */
-+		if (user_dev_name[0] && !strcmp(dev->name, user_dev_name)) {
-+			result = true;
-+			break;
++	for (i = 0; i < ARRAY_SIZE(initdev_info); i++) {
++		if (initdev_mask & (1 << i))
++			atomic_inc(&initdev_info[i].pending);
++	}
++}
++
++/**
++ * initdev_probe_done - indicate probing is complete for a device on a bus
++ * @initdev_mask:	Mask for possible devices
++ *
++ * The definition of probing complete for a given device is that the driver
++ * for that device must have been able to register its presence with its
++ * associated subsystem. So, devices supporting consoles must have called
++ * register_console(), networking device must have called register_netdevice(),
++ * etc.
++ *
++ * Note that each call to initdev_probe_done() must be paired with a call to
++ * initdev_found().
++ */
++void initdev_probe_done(int initdev_mask)
++{
++	int	i;
++
++	initdev_mask = initdev_add_netconsole(initdev_mask);
++
++	for (i = 0; i < ARRAY_SIZE(initdev_info); i++) {
++		/* Decrement the count of pending probes and, if we reach
++		 * zero, wake up all waiters. */
++		if (initdev_mask & (1 << i)) {
++			if (atomic_dec_and_test(&initdev_info[i].pending))
++				wake_up_all(&initdev_info[i].wq);
 +		}
 +	}
-+
-+	rtnl_unlock();
-+
-+	return result;
-+
 +}
 +
- static int __init ic_open_devs(void)
- {
- 	struct ic_device *d, **last;
- 	struct net_device *dev;
- 	unsigned short oflags;
- 
-+	/* Wait for networking devices */
-+	initdev_wait(INITDEV_NETDEV_TYPE, have_all_netdevs);
-+
- 	last = &ic_first_dev;
- 	rtnl_lock();
- 
-@@ -1263,6 +1300,7 @@ __be32 __init root_nfs_parse_addr(char *name)
- 
- /*
-  *	IP Autoconfig dispatcher.
-+ *	Return zero on success, negative one on failure
-  */
- 
- static int __init ip_auto_config(void)
-@@ -1397,7 +1435,22 @@ static int __init ip_auto_config(void)
- 	return 0;
- }
- 
--late_initcall(ip_auto_config);
-+static void __init ip_auto_config_async(void *data, async_cookie_t cookie)
++/**
++ * initdev_wait - wait until desired boot devices are registered or probing done
++ * @type:	Type of boot device to wait for
++ * @done:	Pointer to function that determines whether all boot devices
++ *		have been acquired.
++ *
++ * This function exits if all devices of the given @type have been probed or
++ * the passed function indicates that all the expected boot devices have been
++ * acquired. Say, for example the kernel command line specifies the name of
++ * a boot device to use. The @done function can check to see whether that
++ * device has been registered and, if so, return true. This function will
++ * return even though probing has not completed on some devices, which allows
++ * faster boot times.
++ */
++void initdev_wait(enum initdev_type type, bool (*done)(void))
 +{
-+	ip_auto_config();
++	/* Wait until initdev_probe_done has been called for all of the devices
++	 * of the type for which we are waiting, or for some minimal set of
++	 * those devices to be ready. This last condition is defined by the
++	 * caller through the implementation of the callback function. */
++	wait_event(initdev_info[type].wq,
++		done() || atomic_read(&initdev_info[type].pending) == 0);
 +}
++
++/**
++ * initdev_registered - indicate boot device registration by its subsystem
++ * @type:	Type of boot device
++ *
++ * This will wake up all threads waiting on a given boot device @type so that
++ * they can see if they are ready to continue.
++ */
++void initdev_registered(enum initdev_type type)
++{
++	wake_up_all(&initdev_info[type].wq);
++}
+diff --git a/include/linux/device.h b/include/linux/device.h
+index aebb810..cd3f394 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -90,6 +90,57 @@ int __must_check bus_for_each_drv(struct bus_type *bus,
+ void bus_sort_breadthfirst(struct bus_type *bus,
+ 			   int (*compare)(const struct device *a,
+ 					  const struct device *b));
 +
 +/*
-+ * Start a thread to do IP autoconfiguration
++ * Definitions for synchronizing discovery of asynchronously-discoverable
++ * devices with their use as boot devices.
 + */
-+static int __init ip_auto_configurator(void)
-+{
-+	async_schedule(ip_auto_config_async, NULL);
++/*
++ * Define boot device types. These are not the same as the device classes
++ * supported by various buses, but are tied to support of specific Linux kernel
++ * devices. For example, USB knows about serial devices, but a serial device
++ * is only a %INITDEV_CONSOLE_TYPE if %CONFIG_USB_SERIAL_CONSOLE is defined.
++ */
++#define	INITDEV_CONSOLE_MASK	(1 << INITDEV_CONSOLE_TYPE)
++#define	INITDEV_NETDEV_MASK	(1 << INITDEV_NETDEV_TYPE)
++#define INITDEV_BLOCK_MASK	(1 << INITDEV_BLOCK_TYPE)
++#define	INITDEV_ANY_MASK	((1 << INITDEV_TYPE_NUM) - 1)
 +
-+	return 0;
++enum initdev_type {
++	INITDEV_CONSOLE_TYPE,		/* Device usable as a console */
++	INITDEV_NETDEV_TYPE,		/* Autoconfigurable network device */
++	INITDEV_BLOCK_TYPE,		/* Block device for boot filesystem */
++	INITDEV_TYPE_NUM		/* Number of boot devices */
++};
++
++#ifndef MODULE
++extern void initdev_found(int initdev_mask);
++extern void initdev_type_found(int initdev_mask, enum initdev_type type);
++extern void initdev_probe_done(int initdev_mask);
++extern void initdev_registered(enum initdev_type type);
++extern void initdev_wait(enum initdev_type type, bool (*done)(void));
++#else
++static inline void initdev_found(int initdev_mask)
++{
 +}
 +
-+late_initcall(ip_auto_configurator);
- 
- 
++static inline void initdev_type_found(int initdev_mask, enum initdev_type type)
++{
++}
++
++static inline void initdev_probe_done(int initdev_mask)
++{
++}
++
++static inline void initdev_registered(enum initdev_type type)
++{
++}
++
++static inline void initdev_wait(enum initdev_type type, bool (*done)(void))
++{
++}
++#endif
++
  /*
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  * Bus notifiers: Get notified of addition/removal of devices
+  * and binding/unbinding of drivers to devices.
