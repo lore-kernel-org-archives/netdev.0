@@ -1,46 +1,60 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 4/5] cpmac: wait longer after MDIO reset
-Date: Tue, 4 Aug 2009 22:52:57 +0200
-Message-ID: <200908042252.57848.florian@openwrt.org>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v7)
+Date: Tue, 04 Aug 2009 14:02:11 -0700
+Message-ID: <878whzl2cs.fsf@caffeine.danplanet.com>
+References: <1249331463-11887-1-git-send-email-danms@us.ibm.com>
+	<1249331463-11887-6-git-send-email-danms@us.ibm.com>
+	<20090804205241.GF10275@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, Alexey Dobriyan <adobriyan@gmail.com>,
+	netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.27]:59459 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932579AbZHDUxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 16:53:02 -0400
-Received: by ey-out-2122.google.com with SMTP id 9so46714eyd.37
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 13:53:01 -0700 (PDT)
-Content-Disposition: inline
+Received: from gw0.danplanet.com ([71.245.107.82]:39844 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754725AbZHDVCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 17:02:13 -0400
+In-Reply-To: <20090804205241.GF10275@us.ibm.com> (Serge E. Hallyn's message of "Tue\, 4 Aug 2009 15\:52\:41 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch slows down the MDIO_ALIVE busy waiting to let
-switches and PHY come up after reset. Previous loop was
-too quick for IC+175C and ADM6996C/L switches to come up.
+SH> Does this re-use of tmp make sense?  (It only would if
+SH> dev_alloc_skb() did a generic prealloc for any subsequent
+SH> skb_clone() which i don't think is the case)
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index f2fc722..12a521e 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -1245,11 +1245,11 @@ int __devinit cpmac_init(void)
- 
- 	cpmac_mii->reset(cpmac_mii);
- 
--	for (i = 0; i < 300000; i++)
-+	for (i = 0; i < 300; i++)
- 		if ((mask = cpmac_read(cpmac_mii->priv, CPMAC_MDIO_ALIVE)))
- 			break;
- 		else
--			cpu_relax();
-+			msleep(10);
- 
- 	mask &= 0x7fffffff;
- 	if (mask & (mask - 1)) {
+No, this is cruft.
+
+SH> Also, do you need any kind of lock on the queue to make this walk
+SH> safe, or do ensure below (sorry i'm slow and haven't gotten there)
+SH> that all tasks with an open fd for either end of this sock are
+SH> frozen?
+
+Hmm, it seems that holding the lock while processing the queue isn't
+really the way to go.  Perhaps comparing the pid of the other end of
+the socket against the list in the context is best?
+
+SH> what about UNIXCB(skb).creds and .secid?
+
+Yep, okay.
+
+SH> It looks like the above provides a way around needing
+SH> CAP_NET_ADMIN to set SOCK_DBG in sock->sk_flags?  You can probably
+SH> fix that by masking it out here, and if a flag in the checkpoint
+SH> image says it was on originally, then set it below through
+SH> setsockopt.
+
+Yep, okay.
+
+SH> Sanity checking on sk_type, sk_state, backlog etc should probably
+SH> also be added.
+
+I check type and state on restart globally and per-protocol.  Backlog
+could use it though too, yeah.
+
+Thanks!
+
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
