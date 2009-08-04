@@ -1,25 +1,32 @@
-From: Rob Hewson <R.W.Hewson@leeds.ac.uk>
-Subject: Webmail Verification Update !!!
-Date: Tue, 4 Aug 2009 01:25:50 +0100
-Message-ID: <6E5023A4E157EB4FAF1E75DB634EDE1652FB62569B@HERMES8.ds.leeds.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] [PATCH] Don't run __qdisc_run() on a stopped TX queue
+Date: Mon, 03 Aug 2009 20:15:04 -0700 (PDT)
+Message-ID: <20090803.201504.213691148.davem@davemloft.net>
+References: <20090728.192247.247655474.davem@davemloft.net>
+	<20090729023809.GA2218@gondor.apana.org.au>
+	<20090729031548.GA2435@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "info@webmail.com" <info@webmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, jarkao2@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mhost01h.leeds.ac.uk ([129.11.77.238]:41019 "EHLO
-	mhost01h.leeds.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809AbZHDCzA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 22:55:00 -0400
-Content-Language: en-GB
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39376
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932285AbZHDDO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Aug 2009 23:14:56 -0400
+In-Reply-To: <20090729031548.GA2435@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox quota has been exceeded the storage limit which is 20GB
-as set by your administrator, you are currently running on 20.9GB.
-You may not be able to send or receive new mails until you re-validate
-your mailbox.
-To re-activate your account please click the link below:
-http://app.formassembly.com/forms/view/106842
-Thanks and we are sorry for the inconviniences
-Localhost.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 29 Jul 2009 11:15:48 +0800
+
+> This can be done with a lockless ring buffer.  Each CPU would
+> deposit its packets in a qdisc ringer buffer assigned to it.
+> The qdisc would then run on a single CPU harvesting all the
+> ring buffers in some fair manner.
+
+There was a recent posting (I think today) on lkml of a memory barrier
+based lockless queue, I think it was named kfifo, that could
+facilitate this.
