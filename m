@@ -1,44 +1,47 @@
-From: Benjamin LaHaise <ben.lahaise@neterion.com>
-Subject: [0/6] vxge: a few bug fixes and performance tweaks for vxge
-Date: Tue, 4 Aug 2009 16:20:13 -0400
-Message-ID: <20090804202013.GA9924@neterion.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH] netxen: fix dma mask update calculation
+Date: Tue,  4 Aug 2009 13:39:03 -0700
+Message-ID: <1249418343-15741-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:33061 "EHLO
-	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932502AbZHDUj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 16:39:57 -0400
-Received: from guinness.s2io.com (localhost [127.0.0.1])
-	by barracuda.s2io.com (Spam Firewall) with ESMTP id C8DA42066019
-	for <netdev@vger.kernel.org>; Tue,  4 Aug 2009 16:20:17 -0400 (EDT)
-Received: from guinness.s2io.com (142-46-210.147.tel-ott.com [142.46.210.147]) by barracuda.s2io.com with ESMTP id I8HwhjIn6BARDu8o for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 16:20:17 -0400 (EDT)
-Received: from neterion.com ([10.16.18.36])
-	by guinness.s2io.com (8.12.6/8.12.6) with ESMTP id n74KKEmd013236
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 16:20:15 -0400 (EDT)
-Content-Disposition: inline
+Received: from nat-1.pathscale.com ([198.186.3.73]:16116 "HELO unm84.unmin.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753255AbZHDUsl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Aug 2009 16:48:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Fix dma mask calculation that caps at 63-bit addressing even
+when firmware advertises full 64-bit support.
 
-This patch series consists of several bug fixes and performance enhancements 
-for the vxge driver.  They have passed internal QA.  Please apply.
-
-	[1/6] vxge: don't drop frame on tx queue full
-	[2/6] vxge: fix pktgen hangs (don't abuse skb->cb[])
-	[3/6] vxge: improve tx performance by using mmiowb() instead of wmb()
-	[4/6] vxge: prefetch RxD descriptors
-	[5/6] vxge: prefetch skb->data
-	[6/6] vxge: Version update
-
-Signed-off-by: Benjamin LaHaise <ben.lahaise@neterion.com>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- vxge-config.h  |    7 ++++--
- vxge-main.c    |   66 ++++++++++++++++++++++++++++++++++-----------------------
- vxge-main.h    |    4 ++-
- vxge-traffic.c |   12 ++++++----
- vxge-traffic.h |    2 -
- vxge-version.h |    4 +--
- 6 files changed, 58 insertions(+), 37 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 3cd8cfc..70c05c4 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -260,7 +260,7 @@ nx_update_dma_mask(struct netxen_adapter *adapter)
+ 	change = 0;
+ 
+ 	shift = NXRD32(adapter, CRB_DMA_SHIFT);
+-	if (shift >= 32)
++	if (shift > 32)
+ 		return 0;
+ 
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id) && (shift > 9))
+@@ -272,7 +272,7 @@ nx_update_dma_mask(struct netxen_adapter *adapter)
+ 		old_mask = pdev->dma_mask;
+ 		old_cmask = pdev->dev.coherent_dma_mask;
+ 
+-		mask = (1ULL<<(32+shift)) - 1;
++		mask = DMA_BIT_MASK(32+shift);
+ 
+ 		err = pci_set_dma_mask(pdev, mask);
+ 		if (err)
+-- 
+1.6.0.2
+
