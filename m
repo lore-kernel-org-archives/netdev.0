@@ -1,76 +1,142 @@
-From: David VomLehn <dvomlehn@cisco.com>
-Subject: [PATCH 5/7 v4] initdev:kernel:USB and SCSI block init device
-	notification
-Date: Tue, 4 Aug 2009 15:15:15 -0700
-Message-ID: <20090804221515.GA9335@cuplxvomd02.corp.sa.net>
+From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 4/7 v3] initdev:kernel:Await network init device discovery
+Date: Tue, 4 Aug 2009 15:15:12 -0700
+Message-ID: <20090804221512.GA9308@cuplxvomd02.corp.sa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, linux-usb@vger.kernel.org,
-	greg@kroah.com, linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@infradead.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:37821 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755266AbZHDWPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 18:15:14 -0400
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alan Stern <stern@rowland.harvard.edu>
+Delay IP autoconfiguration until network boot devices have been initialized.
+This depends on the boot device discovery code and on the asynchronous
+function call infrastructure.
 
-Add notification of device discovery for USB and SCSI block devices.
-
-Signed-off-by: Alan Stern <stern@rowland.harvard.edu
-Signed-off-by: David VomLehn <dvomlehn@cisco.com>
+Signed-off-by: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/scsi/scsi_scan.c  |    2 ++
- drivers/usb/storage/usb.c |    3 +++
- 2 files changed, 5 insertions(+), 0 deletions(-)
+ net/core/dev.c      |    2 +
+ net/ipv4/ipconfig.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 56 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/scsi_scan.c b/drivers/scsi/scsi_scan.c
-index 6f51ca4..cb7b450 100644
---- a/drivers/scsi/scsi_scan.c
-+++ b/drivers/scsi/scsi_scan.c
-@@ -1834,6 +1834,7 @@ static int do_scan_async(void *_data)
- 	struct async_scan_data *data = _data;
- 	do_scsi_scan_host(data->shost);
- 	scsi_finish_async_scan(data);
-+	initdev_probe_done(INITDEV_BLOCK_MASK);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 308a7d0..2796764 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -93,6 +93,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/notifier.h>
+ #include <linux/skbuff.h>
++#include <linux/device.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <linux/rtnetlink.h>
+@@ -4497,6 +4498,7 @@ int register_netdevice(struct net_device *dev)
+ 		dev->reg_state = NETREG_UNREGISTERED;
+ 	}
+ 
++	initdev_registered(INITDEV_NETDEV_TYPE);
+ out:
+ 	return ret;
+ 
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 90d22ae..3b1a381 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -53,6 +53,7 @@
+ #include <linux/root_dev.h>
+ #include <linux/delay.h>
+ #include <linux/nfs_fs.h>
++#include <linux/async.h>
+ #include <net/net_namespace.h>
+ #include <net/arp.h>
+ #include <net/ip.h>
+@@ -182,12 +183,48 @@ struct ic_device {
+ static struct ic_device *ic_first_dev __initdata = NULL;/* List of open device */
+ static struct net_device *ic_dev __initdata = NULL;	/* Selected device */
+ 
++/*
++ * Wait for required network devices to come up
++ * If the networking device name was specified on the kernel command line
++ * and that device is now registered, we have the device we want to configure
++ * and we return true. Otherwise, we return false. So, if no device was
++ * specified on the command line, we wait for all possible network devices to
++ * be initialized.
++ */
++static bool have_all_netdevs(void)
++{
++	struct net_device *dev;
++	bool	result = false;
++
++	rtnl_lock();
++
++	for_each_netdev(&init_net, dev) {
++		if (dev->flags & IFF_LOOPBACK)
++			continue;
++
++		/* If a specific device name was specified and that name is
++		 * registered, we have the device we need. */
++		if (user_dev_name[0] && !strcmp(dev->name, user_dev_name)) {
++			result = true;
++			break;
++		}
++	}
++
++	rtnl_unlock();
++
++	return result;
++
++}
++
+ static int __init ic_open_devs(void)
+ {
+ 	struct ic_device *d, **last;
+ 	struct net_device *dev;
+ 	unsigned short oflags;
+ 
++	/* Wait for networking devices */
++	initdev_wait(INITDEV_NETDEV_TYPE, have_all_netdevs);
++
+ 	last = &ic_first_dev;
+ 	rtnl_lock();
+ 
+@@ -1263,6 +1300,7 @@ __be32 __init root_nfs_parse_addr(char *name)
+ 
+ /*
+  *	IP Autoconfig dispatcher.
++ *	Return zero on success, negative one on failure
+  */
+ 
+ static int __init ip_auto_config(void)
+@@ -1397,7 +1435,22 @@ static int __init ip_auto_config(void)
  	return 0;
  }
  
-@@ -1855,6 +1856,7 @@ void scsi_scan_host(struct Scsi_Host *shost)
- 		return;
- 	}
+-late_initcall(ip_auto_config);
++static void __init ip_auto_config_async(void *data, async_cookie_t cookie)
++{
++	ip_auto_config();
++}
++
++/*
++ * Start a thread to do IP autoconfiguration
++ */
++static int __init ip_auto_configurator(void)
++{
++	async_schedule(ip_auto_config_async, NULL);
++
++	return 0;
++}
++
++late_initcall(ip_auto_configurator);
  
-+	initdev_found(INITDEV_BLOCK_MASK);
- 	p = kthread_run(do_scan_async, data, "scsi_scan_%d", shost->host_no);
- 	if (IS_ERR(p))
- 		do_scan_async(data);
-diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
-index 8060b85..6a78278 100644
---- a/drivers/usb/storage/usb.c
-+++ b/drivers/usb/storage/usb.c
-@@ -837,6 +837,7 @@ static int usb_stor_scan_thread(void * __us)
- 		/* Should we unbind if no devices were detected? */
- 	}
  
-+	initdev_probe_done(INITDEV_BLOCK_MASK);
- 	complete_and_exit(&us->scanning_done, 0);
- }
- 
-@@ -937,10 +938,12 @@ int usb_stor_probe2(struct us_data *us)
- 	}
- 
- 	/* Start up the thread for delayed SCSI-device scanning */
-+	initdev_found(INITDEV_BLOCK_MASK);
- 	th = kthread_create(usb_stor_scan_thread, us, "usb-stor-scan");
- 	if (IS_ERR(th)) {
- 		printk(KERN_WARNING USB_STORAGE 
- 		       "Unable to start the device-scanning thread\n");
-+		initdev_probe_done(INITDEV_BLOCK_MASK);
- 		complete(&us->scanning_done);
- 		quiesce_and_remove_host(us);
- 		result = PTR_ERR(th);
+ /*
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
