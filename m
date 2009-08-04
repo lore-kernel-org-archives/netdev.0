@@ -1,39 +1,98 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 3/5] Add common socket helpers to unify the security
-	hooks
-Date: Tue, 4 Aug 2009 14:58:50 -0500
-Message-ID: <20090804195850.GA11746@us.ibm.com>
-References: <1249331463-11887-1-git-send-email-danms@us.ibm.com> <1249331463-11887-4-git-send-email-danms@us.ibm.com> <20090804192036.GC10275@us.ibm.com> <87d47bl60r.fsf@caffeine.danplanet.com>
+From: John Dykstra <john.dykstra1@gmail.com>
+Subject: Re: WARNING: at net/ipv4/af_inet.c:155
+	inet_sock_destruct+0x122/0x13a()
+Date: Tue, 04 Aug 2009 20:04:57 +0000
+Message-ID: <1249416297.7174.10.camel@Maple>
+References: <4A76A009.40605@wpkg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Tomasz Chmielewski <mangoo@wpkg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:39598 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754628AbZHDT6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 15:58:49 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n74JuxkT024227
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 13:56:59 -0600
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n74JwmaZ244216
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 13:58:48 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n74JwmgQ027524
-	for <netdev@vger.kernel.org>; Tue, 4 Aug 2009 13:58:48 -0600
-Content-Disposition: inline
-In-Reply-To: <87d47bl60r.fsf@caffeine.danplanet.com>
+Received: from mail-pz0-f179.google.com ([209.85.222.179]:53605 "EHLO
+	mail-pz0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470AbZHDUF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 16:05:57 -0400
+Received: by pzk9 with SMTP id 9so3372282pzk.21
+        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 13:05:45 -0700 (PDT)
+In-Reply-To: <4A76A009.40605@wpkg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Dan Smith (danms@us.ibm.com):
-> SH> My only concern here is whether 0 should be passed in by the
-> SH> caller?  (Not sure, just wondering)
+On Mon, 2009-08-03 at 10:30 +0200, Tomasz Chmielewski wrote:
+> After upgrading from 2.6.29.1 to 2.6.30.4, I'm getting these warnings in dmesg.
 > 
-> I just figured I'd split up the 0/1 case into getname and getpeer,
-> mirroring the libc calls.  I don't care either way.
+> Let me know if you need more info.
+> 
+> Other than that, the device seems to work stable.
+> 
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+> Hardware name: Altos G510
+> Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+> Pid: 2222, comm: openvpn Not tainted 2.6.30.4-1 #4
+> Call Trace:
+>  [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+>  [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+>  [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+>  [<402796a4>] ? sk_free+0x10/0xa7
+>  [<402b5964>] ? inet_release+0x3f/0x44
+>  [<4027751b>] ? sock_release+0x11/0x52
+>  [<40277575>] ? sock_close+0x19/0x1c
+>  [<40164026>] ? __fput+0xa6/0x149
+>  [<40161989>] ? filp_close+0x4e/0x54
+>  [<401619f5>] ? sys_close+0x66/0x9c
+>  [<401027c8>] ? sysenter_do_call+0x12/0x26
+> ---[ end trace bdfe445acbab5307 ]---
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+> Hardware name: Altos G510
+> Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+> Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
+> Call Trace:
+>  [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+>  [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+>  [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+>  [<402796a4>] ? sk_free+0x10/0xa7
+>  [<402b5964>] ? inet_release+0x3f/0x44
+>  [<4027751b>] ? sock_release+0x11/0x52
+>  [<40277575>] ? sock_close+0x19/0x1c
+>  [<40164026>] ? __fput+0xa6/0x149
+>  [<40161989>] ? filp_close+0x4e/0x54
+>  [<401619f5>] ? sys_close+0x66/0x9c
+>  [<401027c8>] ? sysenter_do_call+0x12/0x26
+> ---[ end trace bdfe445acbab5308 ]---
+> ------------[ cut here ]------------
+> WARNING: at net/ipv4/af_inet.c:155 inet_sock_destruct+0x122/0x13a()
+> Hardware name: Altos G510
+> Modules linked in: nfs nfsd lockd nfs_acl auth_rpcgss sunrpc exportfs tun bitrev crc32 bonding lm75 adm9240 adm1026 hwmon_vid hwmon i2c_piix4 i2c_core dm_crypt dm_mirror dm_region_hash dm_log dm_snapshot dm_mod e1000 tg3 libphy
+> Pid: 2222, comm: openvpn Tainted: G        W  2.6.30.4-1 #4
+> Call Trace:
+>  [<4011f018>] ? warn_slowpath_common+0x5e/0x8a
+>  [<4011f04e>] ? warn_slowpath_null+0xa/0xc
+>  [<402b5d64>] ? inet_sock_destruct+0x122/0x13a
+>  [<402796a4>] ? sk_free+0x10/0xa7
+>  [<402b5964>] ? inet_release+0x3f/0x44
+>  [<4027751b>] ? sock_release+0x11/0x52
+>  [<40277575>] ? sock_close+0x19/0x1c
+>  [<40164026>] ? __fput+0xa6/0x149
+>  [<40161989>] ? filp_close+0x4e/0x54
+>  [<401619f5>] ? sys_close+0x66/0x9c
+>  [<401027c8>] ? sysenter_do_call+0x12/0x26
+> ---[ end trace bdfe445acbab5309 ]---
 
-Oh, sounds sensible.
+Is this an openvpn server or client?  
 
--serge
+Does the warning fire on each authentication, or while the tunnel is
+up?  
+
+Are you tunneling over UDP or TCP?
+
+Your kernel config, network configuration details and openvpn
+configuration might be useful.
+
+Thanks!
+
+  -- John
+
