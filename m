@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.31] ehea: Fix napi list corruption on ifconfig down
-Date: Tue, 04 Aug 2009 11:48:49 -0700 (PDT)
-Message-ID: <20090804.114849.263290756.davem@davemloft.net>
-References: <200908041620.16542.hannes.hering@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: Keep interface binding when sending packets with
+ ipi_ifindex = 0
+Date: Tue, 04 Aug 2009 11:57:01 -0700 (PDT)
+Message-ID: <20090804.115701.250978139.davem@davemloft.net>
+References: <1248912621.13447.12.camel@merlyn>
+	<20090803.212323.256579233.davem@davemloft.net>
+	<6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, ossrosch@linux.vnet.ibm.com,
-	ossthema@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
-	osstklei@de.ibm.com
-To: hannes.hering@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38261
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933261AbZHDSsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 14:48:40 -0400
-In-Reply-To: <200908041620.16542.hannes.hering@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.dykstra1@gmail.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: chiachi@android.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933321AbZHDS4y@vger.kernel.org>
+In-Reply-To: <6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Hering <hannes.hering@linux.vnet.ibm.com>
-Date: Tue, 4 Aug 2009 16:20:15 +0200
+From: Chia-chi Yeh (葉家齊) <chiachi@android.com>
+Date: Tue, 4 Aug 2009 15:36:46 +0800
 
-> This patch fixes the napi list handling when an ehea interface is shut down to
-> avoid corruption of the napi list.
-> 
-> Signed-off-by: Hannes Hering <hering2@de.ibm.com>
+> After thinking more deeply, I believe that IPv6 does the right thing
+> and IPv4 does not. SO_BINDTODEVICE requires CAP_NET_RAW, so it is a
+> privileged operation. Therefore, it looks weird to me if one can
+> specify other interface than the bound one without the same
+> capability. The following patch makes the behavior in IPv4 and IPv6
+> identical. Thanks for your help.
 
-Applied, thanks.
+I think we really cannot change behavior here.  If the user specifies
+"0" in ipi_ifindex we must respect that in ipc->oif.  This is an
+override, and the ability to override is the very purpose of this
+control message.
+
+Even GLIBC makes use of that case of specifying "0" in ipi_ifindex.
+We must respect it.
+
+I'm not applying any of these patches, sorry.
