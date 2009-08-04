@@ -1,314 +1,291 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: [PATCH 2/2] net: implement a SO_DOMAIN getsockoption
-Date: Tue,  4 Aug 2009 19:28:29 +0200
-Message-ID: <1249406909-24161-2-git-send-email-jengelh@medozas.de>
-References: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH 1/2] net: implement a SO_PROTOCOL getsockoption
+Date: Tue,  4 Aug 2009 19:28:28 +0200
+Message-ID: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:53440 "EHLO
+Received: from sovereign.computergmbh.de ([85.214.69.204]:53437 "EHLO
 	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932928AbZHDR2a (ORCPT
+	with ESMTP id S932873AbZHDR2a (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 13:28:30 -0400
-In-Reply-To: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This sockopt goes in line with SO_TYPE and SO_PROTOCOL. It makes it
-possible for userspace programs to pass around file descriptors=C2=A0=E2=
-=80=94 I
-am referring to arguments-to-functions, but it may even work for the
-fd passing over UNIX sockets=C2=A0=E2=80=94 without needing to also pas=
-s the
-auxiliary information (PF_INET6/IPPROTO_TCP).
+Similar to SO_TYPE returning the socket type, SO_PROTOCOL allows to
+retrieve the protocol used with a given socket.
+
+I am not quite sure why we have that-many copies of socket.h, and why
+the values are not the same on all arches either, but for where hex
+numbers dominate, I use 0x1029 for SO_PROTOCOL as that seems to be
+the next free unused number across a bunch of operating systems, or
+so Google results make me want to believe. SO_PROTOCOL for others
+just uses the next free Linux number, 38.
 
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
  arch/alpha/include/asm/socket.h      |    1 +
- arch/arm/include/asm/socket.h        |    1 +
- arch/avr32/include/asm/socket.h      |    1 +
- arch/cris/include/asm/socket.h       |    1 +
- arch/frv/include/asm/socket.h        |    1 +
- arch/h8300/include/asm/socket.h      |    1 +
- arch/ia64/include/asm/socket.h       |    1 +
- arch/m32r/include/asm/socket.h       |    1 +
- arch/m68k/include/asm/socket.h       |    1 +
- arch/microblaze/include/asm/socket.h |    1 +
+ arch/arm/include/asm/socket.h        |    2 ++
+ arch/avr32/include/asm/socket.h      |    2 ++
+ arch/cris/include/asm/socket.h       |    2 ++
+ arch/frv/include/asm/socket.h        |    2 ++
+ arch/h8300/include/asm/socket.h      |    2 ++
+ arch/ia64/include/asm/socket.h       |    2 ++
+ arch/m32r/include/asm/socket.h       |    2 ++
+ arch/m68k/include/asm/socket.h       |    2 ++
+ arch/microblaze/include/asm/socket.h |    2 ++
  arch/mips/include/asm/socket.h       |    1 +
- arch/mn10300/include/asm/socket.h    |    1 +
+ arch/mn10300/include/asm/socket.h    |    2 ++
  arch/parisc/include/asm/socket.h     |    1 +
- arch/powerpc/include/asm/socket.h    |    1 +
- arch/s390/include/asm/socket.h       |    1 +
- arch/sparc/include/asm/socket.h      |    1 +
- arch/x86/include/asm/socket.h        |    1 +
- arch/xtensa/include/asm/socket.h     |    1 +
- include/asm-generic/socket.h         |    1 +
+ arch/powerpc/include/asm/socket.h    |    2 ++
+ arch/s390/include/asm/socket.h       |    2 ++
+ arch/sparc/include/asm/socket.h      |    2 ++
+ arch/x86/include/asm/socket.h        |    2 ++
+ arch/xtensa/include/asm/socket.h     |    2 ++
+ include/asm-generic/socket.h         |    2 ++
  net/core/sock.c                      |    5 +++++
- 20 files changed, 24 insertions(+), 0 deletions(-)
+ 20 files changed, 40 insertions(+), 0 deletions(-)
 
-diff --git a/arch/alpha/include/asm/socket.h b/arch/alpha/include/asm/s=
-ocket.h
-index 2f8b4d3..26773e3 100644
+diff --git a/arch/alpha/include/asm/socket.h b/arch/alpha/include/asm/socket.h
+index 3641ec1..2f8b4d3 100644
 --- a/arch/alpha/include/asm/socket.h
 +++ b/arch/alpha/include/asm/socket.h
-@@ -33,6 +33,7 @@
+@@ -32,6 +32,7 @@
+ #define	SO_RCVTIMEO	0x1012
  #define	SO_SNDTIMEO	0x1013
  #define SO_ACCEPTCONN	0x1014
- #define SO_PROTOCOL	0x1028
-+#define SO_DOMAIN	0x1029
-=20
++#define SO_PROTOCOL	0x1028
+ 
  /* linux-specific, might as well be the same as on i386 */
  #define SO_NO_CHECK	11
-diff --git a/arch/arm/include/asm/socket.h b/arch/arm/include/asm/socke=
-t.h
-index 7f47454..92ac61d 100644
+diff --git a/arch/arm/include/asm/socket.h b/arch/arm/include/asm/socket.h
+index 537de4e..7f47454 100644
 --- a/arch/arm/include/asm/socket.h
 +++ b/arch/arm/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-diff --git a/arch/avr32/include/asm/socket.h b/arch/avr32/include/asm/s=
-ocket.h
-index 6af2866..fe863f9 100644
+diff --git a/arch/avr32/include/asm/socket.h b/arch/avr32/include/asm/socket.h
+index 04c8606..6af2866 100644
 --- a/arch/avr32/include/asm/socket.h
 +++ b/arch/avr32/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* __ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/asm/socket.h b/arch/cris/include/asm/soc=
-ket.h
-index f3859fb..45ec49b 100644
+diff --git a/arch/cris/include/asm/socket.h b/arch/cris/include/asm/socket.h
+index d5cf740..f3859fb 100644
 --- a/arch/cris/include/asm/socket.h
 +++ b/arch/cris/include/asm/socket.h
-@@ -60,6 +60,7 @@
+@@ -59,6 +59,8 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-=20
-diff --git a/arch/frv/include/asm/socket.h b/arch/frv/include/asm/socke=
-t.h
-index 8dab348..2dea726 100644
+ 
+ 
+diff --git a/arch/frv/include/asm/socket.h b/arch/frv/include/asm/socket.h
+index 57c3d40..8dab348 100644
 --- a/arch/frv/include/asm/socket.h
 +++ b/arch/frv/include/asm/socket.h
-@@ -58,6 +58,7 @@
+@@ -57,5 +57,7 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-=20
-diff --git a/arch/h8300/include/asm/socket.h b/arch/h8300/include/asm/s=
-ocket.h
-index ba770d0..1547f01 100644
+ 
+diff --git a/arch/h8300/include/asm/socket.h b/arch/h8300/include/asm/socket.h
+index 602518a..ba770d0 100644
 --- a/arch/h8300/include/asm/socket.h
 +++ b/arch/h8300/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-diff --git a/arch/ia64/include/asm/socket.h b/arch/ia64/include/asm/soc=
-ket.h
-index 091cd9d..0b0d5ff 100644
+diff --git a/arch/ia64/include/asm/socket.h b/arch/ia64/include/asm/socket.h
+index 7454212..091cd9d 100644
 --- a/arch/ia64/include/asm/socket.h
 +++ b/arch/ia64/include/asm/socket.h
-@@ -67,5 +67,6 @@
+@@ -66,4 +66,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/asm/socket.h b/arch/m32r/include/asm/soc=
-ket.h
-index d36f592..3390a86 100644
+diff --git a/arch/m32r/include/asm/socket.h b/arch/m32r/include/asm/socket.h
+index be7ed58..d36f592 100644
 --- a/arch/m32r/include/asm/socket.h
 +++ b/arch/m32r/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/m68k/include/asm/socket.h b/arch/m68k/include/asm/soc=
-ket.h
-index 060cb7e..eee01cc 100644
+diff --git a/arch/m68k/include/asm/socket.h b/arch/m68k/include/asm/socket.h
+index ca87f93..060cb7e 100644
 --- a/arch/m68k/include/asm/socket.h
 +++ b/arch/m68k/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-diff --git a/arch/microblaze/include/asm/socket.h b/arch/microblaze/inc=
-lude/asm/socket.h
-index 96bf8bf..7361ae7 100644
+diff --git a/arch/microblaze/include/asm/socket.h b/arch/microblaze/include/asm/socket.h
+index 8259368..96bf8bf 100644
 --- a/arch/microblaze/include/asm/socket.h
 +++ b/arch/microblaze/include/asm/socket.h
-@@ -67,5 +67,6 @@
+@@ -66,4 +66,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_MICROBLAZE_SOCKET_H */
-diff --git a/arch/mips/include/asm/socket.h b/arch/mips/include/asm/soc=
-ket.h
-index 289ce5f..ae05acc 100644
+diff --git a/arch/mips/include/asm/socket.h b/arch/mips/include/asm/socket.h
+index 2abca17..289ce5f 100644
 --- a/arch/mips/include/asm/socket.h
 +++ b/arch/mips/include/asm/socket.h
-@@ -43,6 +43,7 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local ad=
-dress and port reuse.  */
+@@ -42,6 +42,7 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
+ #define SO_SNDTIMEO	0x1005	/* send timeout */
  #define SO_RCVTIMEO 	0x1006	/* receive timeout */
  #define SO_ACCEPTCONN	0x1009
- #define SO_PROTOCOL	0x1028	/* protocol type */
-+#define SO_DOMAIN	0x1029	/* domain/socket family */
-=20
++#define SO_PROTOCOL	0x1028	/* protocol type */
+ 
  /* linux-specific, might as well be the same as on i386 */
  #define SO_NO_CHECK	11
-diff --git a/arch/mn10300/include/asm/socket.h b/arch/mn10300/include/a=
-sm/socket.h
-index 19d7cf7..4df75af 100644
+diff --git a/arch/mn10300/include/asm/socket.h b/arch/mn10300/include/asm/socket.h
+index fb5daf4..19d7cf7 100644
 --- a/arch/mn10300/include/asm/socket.h
 +++ b/arch/mn10300/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/asm/socket.h b/arch/parisc/include/asm=
-/socket.h
-index a658b09..960b1e5 100644
+diff --git a/arch/parisc/include/asm/socket.h b/arch/parisc/include/asm/socket.h
+index 885472b..a658b09 100644
 --- a/arch/parisc/include/asm/socket.h
 +++ b/arch/parisc/include/asm/socket.h
-@@ -25,6 +25,7 @@
+@@ -24,6 +24,7 @@
+ #define SO_RCVTIMEO	0x1006
  #define SO_ERROR	0x1007
  #define SO_TYPE		0x1008
- #define SO_PROTOCOL	0x1028
-+#define SO_DOMAIN	0x1029
++#define SO_PROTOCOL	0x1028
  #define SO_PEERNAME	0x2000
-=20
+ 
  #define SO_NO_CHECK	0x400b
-diff --git a/arch/powerpc/include/asm/socket.h b/arch/powerpc/include/a=
-sm/socket.h
-index 609049d..3ab8b3e 100644
+diff --git a/arch/powerpc/include/asm/socket.h b/arch/powerpc/include/asm/socket.h
+index 1e5cfad..609049d 100644
 --- a/arch/powerpc/include/asm/socket.h
 +++ b/arch/powerpc/include/asm/socket.h
-@@ -65,5 +65,6 @@
+@@ -64,4 +64,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/asm/socket.h b/arch/s390/include/asm/soc=
-ket.h
-index 65baa9a..e42df89 100644
+diff --git a/arch/s390/include/asm/socket.h b/arch/s390/include/asm/socket.h
+index 02330c5..65baa9a 100644
 --- a/arch/s390/include/asm/socket.h
 +++ b/arch/s390/include/asm/socket.h
-@@ -66,5 +66,6 @@
+@@ -65,4 +65,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/asm/socket.h b/arch/sparc/include/asm/s=
-ocket.h
-index 9cbbfaf..3a5ae3d 100644
+diff --git a/arch/sparc/include/asm/socket.h b/arch/sparc/include/asm/socket.h
+index 982a12f..9cbbfaf 100644
 --- a/arch/sparc/include/asm/socket.h
 +++ b/arch/sparc/include/asm/socket.h
-@@ -30,6 +30,7 @@
+@@ -29,6 +29,8 @@
+ #define SO_RCVBUFFORCE	0x100b
  #define SO_ERROR	0x1007
  #define SO_TYPE		0x1008
- #define SO_PROTOCOL	0x1028
-+#define SO_DOMAIN	0x1029
-=20
-=20
++#define SO_PROTOCOL	0x1028
++
+ 
  /* Linux specific, keep the same. */
-diff --git a/arch/x86/include/asm/socket.h b/arch/x86/include/asm/socke=
-t.h
-index 1077d25..b2a8c74 100644
+ #define SO_NO_CHECK	0x000b
+diff --git a/arch/x86/include/asm/socket.h b/arch/x86/include/asm/socket.h
+index ca8bf2c..1077d25 100644
 --- a/arch/x86/include/asm/socket.h
 +++ b/arch/x86/include/asm/socket.h
-@@ -58,5 +58,6 @@
+@@ -57,4 +57,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* _ASM_X86_SOCKET_H */
-diff --git a/arch/xtensa/include/asm/socket.h b/arch/xtensa/include/asm=
-/socket.h
-index e47f172..beb3a6b 100644
+diff --git a/arch/xtensa/include/asm/socket.h b/arch/xtensa/include/asm/socket.h
+index dd1a7a4..e47f172 100644
 --- a/arch/xtensa/include/asm/socket.h
 +++ b/arch/xtensa/include/asm/socket.h
-@@ -69,5 +69,6 @@
+@@ -68,4 +68,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.=
-h
-index 7e24d18..538991c 100644
+diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
+index 5d79e40..7e24d18 100644
 --- a/include/asm-generic/socket.h
 +++ b/include/asm-generic/socket.h
-@@ -61,5 +61,6 @@
+@@ -60,4 +60,6 @@
+ #define SO_TIMESTAMPING		37
  #define SCM_TIMESTAMPING	SO_TIMESTAMPING
-=20
- #define SO_PROTOCOL		38
-+#define SO_DOMAIN		39
-=20
+ 
++#define SO_PROTOCOL		38
++
  #endif /* __ASM_GENERIC_SOCKET_H */
 diff --git a/net/core/sock.c b/net/core/sock.c
-index fb71d9e..025317f 100644
+index b0ba569..fb71d9e 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
-@@ -483,6 +483,7 @@ int sock_setsockopt(struct socket *sock, int level,=
- int optname,
+@@ -482,6 +482,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 		sk->sk_reuse = valbool;
  		break;
  	case SO_TYPE:
- 	case SO_PROTOCOL:
-+	case SO_DOMAIN:
++	case SO_PROTOCOL:
  	case SO_ERROR:
- 		ret =3D -ENOPROTOOPT;
+ 		ret = -ENOPROTOOPT;
  		break;
-@@ -769,6 +770,10 @@ int sock_getsockopt(struct socket *sock, int level=
-, int optname,
- 		v.val =3D sk->sk_protocol;
+@@ -764,6 +765,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sk->sk_type;
  		break;
-=20
-+	case SO_DOMAIN:
-+		v.val =3D sk->sk_family;
+ 
++	case SO_PROTOCOL:
++		v.val = sk->sk_protocol;
 +		break;
 +
  	case SO_ERROR:
- 		v.val =3D -sock_error(sk);
- 		if (v.val =3D=3D 0)
---=20
+ 		v.val = -sock_error(sk);
+ 		if (v.val == 0)
+-- 
 1.6.3.3
 
