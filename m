@@ -1,113 +1,82 @@
 From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH] ethtool: Add "-f" option to flash firmware image to a
-	network device.
-Date: Wed, 5 Aug 2009 18:01:45 +0530
-Message-ID: <20090805123143.GA6592@serverengines.com>
+Subject: [PATCH net-next-2.6] net: Changes to support the "-f" option of
+	ethtool.
+Date: Wed, 5 Aug 2009 18:02:13 +0530
+Message-ID: <20090805123211.GB6592@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:7914 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:8046 "EHLO
 	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932841AbZHEMbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 08:31:46 -0400
+	by vger.kernel.org with ESMTP id S933564AbZHEMcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 08:32:13 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Attached  is a patch for ethtool utility to add a new "-f" option.
-This will enable flashing a firmware image to a network interface.
-
-Usage:
-ethtool -f <interface name>
+This patch adds kernel support for the new "-f" option in ethtool,
+This will allow a firmware image to be flashed to a network device.
 
 Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
- ethtool-copy.h |    1 +
- ethtool.c      |   22 +++++++++++++++++++++-
- 2 files changed, 22 insertions(+), 1 deletions(-)
+ include/linux/ethtool.h |    3 +++
+ net/core/ethtool.c      |   13 +++++++++++++
+ 2 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 3ca4e2c..49b741b 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -338,6 +338,7 @@ struct ethtool_rxnfc {
- #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
- #define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
- #define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
-+#define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware (ethtool_value) */
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 90c4a36..9b92f44 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -489,6 +489,7 @@ struct ethtool_ops {
+ 	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
+ 	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
+ 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
++	int     (*flash_device)(struct net_device *);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -545,6 +546,8 @@ struct ethtool_ops {
+ #define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
+ #define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
+ #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
++#define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device
++					    * (ethtool_value). */
  
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/ethtool.c b/ethtool.c
-index 0110682..fedb3a2 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -77,6 +77,7 @@ static char *unparse_rxfhashopts(u64 opts);
- static int dump_rxfhash(int fhash, u64 val);
- static int do_srxclass(int fd, struct ifreq *ifr);
- static int do_grxclass(int fd, struct ifreq *ifr);
-+static int do_flash(int fd, struct ifreq *ifr);
- static int send_ioctl(int fd, struct ifreq *ifr);
- 
- static enum {
-@@ -101,6 +102,7 @@ static enum {
- 	MODE_GSTATS,
- 	MODE_GNFC,
- 	MODE_SNFC,
-+	MODE_FLASHDEV,
- } mode = MODE_GSET;
- 
- static struct option {
-@@ -192,6 +194,7 @@ static struct option {
- 		"classification options",
- 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
- 		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
-+    { "-f", "--flash", MODE_FLASHDEV, "Flash firmware to device" },
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     {}
- };
-@@ -496,7 +499,8 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_GSTATS) ||
- 			    (mode == MODE_GNFC) ||
- 			    (mode == MODE_SNFC) ||
--			    (mode == MODE_PHYS_ID)) {
-+			    (mode == MODE_PHYS_ID) ||
-+			    (mode == MODE_FLASHDEV)) {
- 				devname = argp[i];
- 				break;
- 			}
-@@ -1504,6 +1508,8 @@ static int doit(void)
- 		return do_grxclass(fd, &ifr);
- 	} else if (mode == MODE_SNFC) {
- 		return do_srxclass(fd, &ifr);
-+	} else if (mode == MODE_FLASHDEV) {
-+		return do_flash(fd, &ifr);
- 	}
- 
- 	return 69;
-@@ -2398,6 +2404,20 @@ static int do_grxclass(int fd, struct ifreq *ifr)
- 	return 0;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 44e5711..0524201 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -898,6 +898,16 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
+ 	return actor(dev, edata.data);
  }
  
-+static int do_flash(int fd, struct ifreq *ifr)
++static int ethtool_flash_device(struct net_device *dev)
 +{
 +	int err;
-+	struct ethtool_value ecmd;
 +
-+	ecmd.cmd = ETHTOOL_FLASHDEV;
-+	ifr->ifr_data = (caddr_t)&ecmd;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0)
-+		perror("Flashing failed");
++	if (!dev->ethtool_ops->flash_device)
++		return -EOPNOTSUPP;
 +
-+	return err;
++	return dev->ethtool_ops->flash_device(dev);
 +}
 +
- static int send_ioctl(int fd, struct ifreq *ifr)
- {
- 	return ioctl(fd, SIOCETHTOOL, ifr);
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1111,6 +1121,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SGRO:
+ 		rc = ethtool_set_gro(dev, useraddr);
+ 		break;
++	case ETHTOOL_FLASHDEV:
++		rc = ethtool_flash_device(dev);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.6.0.4
 
