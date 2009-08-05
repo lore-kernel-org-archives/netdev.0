@@ -1,51 +1,29 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH net-next-2.6] cxgb3: fix 2 ports 1G regression
-Date: Wed, 05 Aug 2009 14:59:23 -0700
-Message-ID: <20090805215923.21467.99484.stgit@speedy5>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/1] veth: don't free priv->status until dev->destructor (v2)
+Date: Wed, 05 Aug 2009 15:43:34 -0700
+Message-ID: <m1vdl1x4o9.fsf@fess.ebiederm.org>
+References: <20090626162418.GA24828@us.ibm.com>
+	<20090724124614.6acc5054@nehalam> <m1zlaeu5jk.fsf@fess.ebiederm.org>
+	<20090805101005.6a02f0ae@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752951AbZHEV73@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Sachin Sant <sachinp@in.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, matthltc@us.ibm.com,
+	lkml <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753448AbZHEWnp@vger.kernel.org>
+In-Reply-To: <20090805101005.6a02f0ae@nehalam> (Stephen Hemminger's message of "Wed\, 5 Aug 2009 10\:10\:05 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+Stephen Hemminger <shemminger@vyatta.com> writes:
+>
+> Sysfs must be safer than it used to be. 
 
-commit 88045b3cf0f8981129cb489c7b6bc36c21dd33a7
-	cxgb3: fix mac index mapping
+Definitely.  A lot of this dates to Tejun's cleanups which merged
+2-3 years agos now.  Just before I started working on sysfs.
 
-	Override the mac index computation for the gen2 adapter,
-	as each port is expected to use index 0.
-
-introduces a regression on 2 port 1G adapter
-as its xauicfg vpd value is null.
-Add a check on the device id.
-
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
-
- drivers/net/cxgb3/t3_hw.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 526e144..032cfe0 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3692,8 +3692,12 @@ static void mc7_prep(struct adapter *adapter, struct mc7 *mc7,
- 
- void mac_prep(struct cmac *mac, struct adapter *adapter, int index)
- {
-+	u16 devid;
-+
- 	mac->adapter = adapter;
--	if (!adapter->params.vpd.xauicfg[1])
-+	pci_read_config_word(adapter->pdev, 0x2, &devid);
-+
-+	if (devid == 0x37 && !adapter->params.vpd.xauicfg[1])
- 		index = 0;
- 	mac->offset = (XGMAC0_1_BASE_ADDR - XGMAC0_0_BASE_ADDR) * index;
- 	mac->nucast = 1;
+Eric
