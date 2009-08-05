@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: allow vlan egress priority mapping in
- DCB mode
-Date: Tue, 04 Aug 2009 19:44:27 -0700 (PDT)
-Message-ID: <20090804.194427.180755602.davem@davemloft.net>
-References: <20090805012726.24350.63928.stgit@localhost.localdomain>
+Subject: Re: [PATCH -mmotm] xfrm4: fix build when SYSCTLs are disabled
+Date: Tue, 04 Aug 2009 20:20:29 -0700 (PDT)
+Message-ID: <20090804.202029.71546749.davem@davemloft.net>
+References: <200908042125.n74LP9qY018119@imap1.linux-foundation.org>
+	<20090804185430.fb8e8561.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, lucy.liu@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41206
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50342
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933209AbZHECoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 22:44:19 -0400
-In-Reply-To: <20090805012726.24350.63928.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S933408AbZHEDUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 23:20:21 -0400
+In-Reply-To: <20090804185430.fb8e8561.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 04 Aug 2009 18:27:28 -0700
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Tue, 4 Aug 2009 18:54:30 -0700
 
-> The skb priority to vlan-qos egress mapping that can be configured using
-> set_egress_map with vconfig is overriden by the DCB code in the driver.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> This patch allows this existing mechanism to work and will increase the
-> configuration flexibility of DCB mode on Linux.
+> Fix build errors when SYSCTLs are not enabled:
+> (.init.text+0x5154): undefined reference to `net_ipv4_ctl_path'
+> (.init.text+0x5176): undefined reference to `register_net_sysctl_table'
+> xfrm4_policy.c:(.exit.text+0x573): undefined reference to `unregister_net_sysctl_table
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-This is not the kind of bug fix which is appropriate at this
-stage of -rcX development, so I'm only willing to put this
-into net-next-2.6
+Applied, thanks Randy.
 
-Keep this in mind for future submissions for net-2.6
+The ipv6 side has the same issue, I'll fix that part up myself.
