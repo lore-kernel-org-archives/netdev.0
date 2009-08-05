@@ -1,38 +1,152 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Thu, 06 Aug 2009 07:50:38 +0900
-Message-ID: <4A7A0CBE.4020304@ring3k.org>
-References: <4A65EC3F.4050400@gibraltar.at> <20090723102848.00a56ad1@nehalam>	 <4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam>	 <4A76D036.6090705@gibraltar.at> <4A772A1D.1030904@mayrhofer.eu.org>	 <4A77E56B.9030804@gibraltar.at> <392fb48f0908040445pc21105bo3182773b76d49596@mail.gmail.com> <4A78BC48.4060200@gibraltar.at> <4A78BD5F.2030901@mayrhofer.eu.org> <4A78CA13.6040409@ring3k.org> <4A7977A0.7070807@mayrhofer.eu.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
+Date: Wed, 05 Aug 2009 16:14:06 -0700
+Message-ID: <m1ws5hua4h.fsf@fess.ebiederm.org>
+References: <20090803161242.12947.14620.stgit@flek.lan>
+	<m1ljlyvn9a.fsf@fess.ebiederm.org>
+	<200908051738.43134.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Rene Mayrhofer <rene@mayrhofer.eu.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.228]:62813 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbZHEWxg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 18:53:36 -0400
-Received: by rv-out-0506.google.com with SMTP id f6so132394rvb.1
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 15:53:37 -0700 (PDT)
-In-Reply-To: <4A7977A0.7070807@mayrhofer.eu.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:60911 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225AbZHEXOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 19:14:11 -0400
+In-Reply-To: <200908051738.43134.paul.moore@hp.com> (Paul Moore's message of "Wed\, 5 Aug 2009 17\:38\:42 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rene Mayrhofer wrote:
+Paul Moore <paul.moore@hp.com> writes:
 
-> What would be the simplest change to stop disabling phy when the last
-> device goes down?
+> On Wednesday 05 August 2009 01:32:49 am Eric W. Biederman wrote:
+>> Paul Moore <paul.moore@hp.com> writes:
+>> > Convert some pointless gotos into returns and ensure tun_attach() errors
+>> > are handled correctly.
+>> >
+>> > Signed-off-by: Paul Moore <paul.moore@hp.com>
+>>
+>> This patch appears slightly wrong.  Comments inline.
+>
+> Thanks for taking a look ...
+>
+>> > I'm sending this as an RFC patch because I'm not entirely certain that
+>> > the changes to the tun_attach() error handling code are 100% correct,
+>> > although I strongly suspect that the current behavor of simply returning
+>> > an error code without any cleanup is broken.  Can anyone comment on this?
+>> > ---
+>> >
+>> >  drivers/net/tun.c |   19 ++++++++++---------
+>> >  1 files changed, 10 insertions(+), 9 deletions(-)
+>> >
+>> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> > index 4a0db7a..b6d06fd 100644
+>> > --- a/drivers/net/tun.c
+>> > +++ b/drivers/net/tun.c
+>> > @@ -976,10 +973,11 @@ static int tun_set_iff(struct net *net, struct file
+>> > *file, struct ifreq *ifr) tun->flags = flags;
+>> >  		tun->txflt.count = 0;
+>> >
+>> > -		err = -ENOMEM;
+>> >  		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
+>> > -		if (!sk)
+>> > +		if (!sk) {
+>> > +			err = -ENOMEM;
+>> >  			goto err_free_dev;
+>> > +		}
+>>
+>> Trivially correct but I would argue uglier.
+>
+> My reasoning behind the change was that code related to the error handling 
+> should be moved outside the common path as much as possible similar to what we 
+> do now with the gotos.
 
-Commenting out the following line should stop all the phys from powering off:
+I don't understand.  Generating less readable and less efficient code is
+preferable?
 
-sky2_phy_power_down(hw, port);
+>> > @@ -1010,7 +1008,7 @@ static int tun_set_iff(struct net *net, struct file
+>> > *file, struct ifreq *ifr)
+>> >
+>> >  		err = tun_attach(tun, file);
+>> >  		if (err < 0)
+>> > -			goto failed;
+>> > +			goto err_unreg_dev;
+>> >  	}
+>>
+>> This is the interesting one.  And several problems with it.  When
+>> Herbert reworked the reference counting here he introduced the goto
+>> failed; Instead of err_free_dev.
+>>
+>> I think there were more possible races when I introduced the check
+>> of the return code of tun_attach, the only case I can see currently
+>> is if the file was attached to another tun device before we grabbed the
+>> rtnl_lock.
+>
+> ...
+>
+>> > @@ -1039,11 +1037,14 @@ static int tun_set_iff(struct net *net, struct
+>> > file *file, struct ifreq *ifr) strcpy(ifr->ifr_name, tun->dev->name);
+>> >  	return 0;
+>> >
+>> > + err_unreg_dev:
+>> > +	rtnl_lock();
+>> > +	unregister_netdevice(tun->dev);
+>> > +	rtnl_unlock();
+>>
+>> This is a guaranteed deadlock.  We already hold the rtnl_lock here.
+>> Furthermore all I should need to do in this case is to call
+>> unregister_netdevice(...).    As all of the rest of the pieces should
+>> happen in the cleanup routines called from unregister_netdevice.
+>
+> Okay, so at the very least the rtnl_[un]lock() calls need to be removed and we 
+> can safely return after calling unregister_netdevice() without having to 
+> free/release anything else.  The thing that concerns me the most are the 
+> potential races you talked about.
+>
+> I'll admit there are many dark places here that I still don't understand but 
+> looking at the code it appears that the only way to get into tun_set_iff() is 
+> if the file is not currently attached to a TUN device which is further checked 
+> in tun_attach().  
 
-If you have a chance, please test "sky2: Add a mutex around ethtools operations" also.
-it probably won't fix the problem you're seeing, but you never know...
+Yes.  But how many times can you come into tun_set_iff on the same file?
+Think multiple threads trying to do the same thing at the same time.
 
-thanks,
+> Also, I'm not sure what refcounting you are talking about - 
+> do you mean the tun_file->count refcount?  I think we should be okay in this 
+> regard as the only way we would end up changing tun_file->count is if 
+> tun_attach() completed successfully; if tun_attach() fails there is not change 
+> in the refcount.  I could be way off here but it _seems_ safe ... :)
 
-Mike
+I totally agree that things are not as obvious as they should be.  I made
+things more complex when I added support for ip link del.  Then Herbert's
+patches collided and broke things when he added the socket support.
+Herbert change the refcount scheme that made things simpler and easier
+to get correct.
 
+Things are mostly good now, but think the tun code could use good audit,
+cleanup, simplification.  Which takes advantage of everything that Herbert
+did.  All of which requires someone to spend enough time looking at the
+code to understand what is going on.  Not hard but a bit time consuming.
+
+>> The current behavior of returning an error code is a little bit off
+>> as it creates a persistent tun device without setting tun->flags |
+>> TUN_PERSIST. And it leaves a tun device for someone else to clean up.
+>>
+>> At the same time it should be perfectly legitimate for someone else to
+>> come along and attach to the tun device and delete it or to call
+>> ip link del <tun>
+>
+> My concern is that I believe that if the kernel fails at an operation it 
+> should do all it can to unwind any actions it took in the course of attempting 
+> to perform the requested operation.  Leaving a TUN device around in the case 
+> of a tun_attach() failure seems like the kernel is being lazy, sure a user can 
+> cleanup the device but why should they have to?
+
+Sure.  I am all for that and that is how I originally coded it.
+My point is that this is not harmful and that it can really only be triggered
+by a buggy or hostile user.   So it isn't critical to get fixed.  It is an
+imperfect so a fix is desirable.
+
+Eric
