@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -mmotm] xfrm4: fix build when SYSCTLs are disabled
-Date: Tue, 04 Aug 2009 20:20:29 -0700 (PDT)
-Message-ID: <20090804.202029.71546749.davem@davemloft.net>
-References: <200908042125.n74LP9qY018119@imap1.linux-foundation.org>
-	<20090804185430.fb8e8561.randy.dunlap@oracle.com>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: some veth related issues
+Date: Wed, 05 Aug 2009 07:40:04 +0300
+Message-ID: <4A790D24.9000008@voltaire.com>
+References: <Pine.LNX.4.64.0908041650560.13803@zuben.voltaire.com> <4A785824.2030500@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: randy.dunlap@oracle.com
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50342
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933408AbZHEDUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 23:20:21 -0400
-In-Reply-To: <20090804185430.fb8e8561.randy.dunlap@oracle.com>
+Received: from fwil.voltaire.com ([193.47.165.2]:58835 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753076AbZHEEkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2009 00:40:12 -0400
+In-Reply-To: <4A785824.2030500@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 4 Aug 2009 18:54:30 -0700
+Ben Greear wrote:
+> Try setting clone to 0. Might be that sending cloned pkts over veth is 
+> a bad idea.
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Fix build errors when SYSCTLs are not enabled:
-> (.init.text+0x5154): undefined reference to `net_ipv4_ctl_path'
-> (.init.text+0x5176): undefined reference to `register_net_sysctl_table'
-> xfrm4_policy.c:(.exit.text+0x573): undefined reference to `unregister_net_sysctl_table
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+okay, thanks, this fixed the problem, however it seems there's some 
+performance loss, with cloning I saw numbers of 500K packets-per-second 
+and above where without cloning I get about 400K PPS.
 
-Applied, thanks Randy.
+Or.
 
-The ipv6 side has the same issue, I'll fix that part up myself.
