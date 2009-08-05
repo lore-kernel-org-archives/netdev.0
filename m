@@ -1,30 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix spinlock use in alloc_netdev_mq()
-Date: Wed, 05 Aug 2009 08:37:33 -0700 (PDT)
-Message-ID: <20090805.083733.81430600.davem@davemloft.net>
-References: <20090805071411.GA9217@elte.hu>
-	<20090805071658.GA14073@elte.hu>
-	<20090805084746.GA3897@psychotron.englab.brq.redhat.com>
+From: INFO <pdacjoyce@bellnet.ca>
+Subject: Confirmation +447035970367
+Date: Wed, 5 Aug 2009 11:44:39 -0400
+Message-ID: <20090805154443.HHRL29191.tomts29-srv.bellnexxia.net__41289.3525710844$1249487157$gmane$org@toip38-bus.srvr.bell.ca>
+Reply-To: cgnlpaycenter@9.cn
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, a.p.zijlstra@chello.nl,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jpirko@redhat.com
+To: <ukl@uknl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39334
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755809AbZHEPhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 11:37:24 -0400
-In-Reply-To: <20090805084746.GA3897@psychotron.englab.brq.redhat.com>
+Received: from tomts29.bellnexxia.net ([209.226.175.103]:42577 "EHLO
+	tomts29-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933485AbZHEPoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 11:44:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 5 Aug 2009 10:47:47 +0200
+You have WON.Confirm this receipt by replying the due process unit officer:Fill the details: FullName,Address,Tel,Occupation,etc,Reply to cgnlpaycenter@9.cn
 
->>Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> Acked-by: Jiri Pirko <jpirko@redhat.com>
-
-Applied, thanks everyone.
