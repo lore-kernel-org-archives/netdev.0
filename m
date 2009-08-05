@@ -1,81 +1,58 @@
-From: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>
-Subject: RE: [net-next-2.6 PATCH 9/9] vxge: return PCI_ERS_RESULT_DISCONNECT on permanent failure
-Date: Tue, 4 Aug 2009 20:48:35 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77058E5B77@nekter>
-References: <20090731191254.5470.99642.send-patch@aqua> <20090731191403.5470.68576.send-patch@aqua>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: allow vlan egress priority mapping in DCB mode
+Date: Tue, 04 Aug 2009 18:27:28 -0700
+Message-ID: <20090805012726.24350.63928.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>,
-	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>,
-	"Sreenivasa Honnur" <Sreenivasa.Honnur@neterion.com>,
-	"Rastapur Santosh" <santosh.rastapur@neterion.com>,
-	"Anil Murthy" <Anil.Murthy@neterion.com>
-To: "Dean Nelson" <dnelson@redhat.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Lucy Liu <lucy.liu@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:35638 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932354AbZHEAsf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 20:48:35 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20090731191403.5470.68576.send-patch@aqua>
+Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:49821
+	"EHLO QMTA02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932863AbZHEB1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 21:27:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Lucy Liu <lucy.liu@intel.com>
 
-Reviewed the patch for vxge driver. Please accept it.
+The skb priority to vlan-qos egress mapping that can be configured using
+set_egress_map with vconfig is overriden by the DCB code in the driver.
 
-Thanks,
-~Siva
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Dean Nelson
-Sent: Saturday, August 01, 2009 12:44 AM
-To: netdev@vger.kernel.org
-Cc: Ramkrishna Vepa
-Subject: [net-next-2.6 PATCH 9/9] vxge: return PCI_ERS_RESULT_DISCONNECT
-on permanent failure
+This patch allows this existing mechanism to work and will increase the
+configuration flexibility of DCB mode on Linux.
 
-PCI drivers that implement the struct pci_error_handlers' error_detected
-callback should return PCI_ERS_RESULT_DISCONNECT if the state passed in
-is
-pci_channel_io_perm_failure. This patch fixes the issue for vxge.
+A hierarchy of configuration is:
 
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
+1. Modifies the ixgbe_select_queue() routine for DCB mode to return the
+priority value from the VLAN tag. It will normally be zero, unless the egress
+priority map has modified it. This will get packets into the correct queue and
+result in the queue_mapping field being set correctly.
 
+2. Any tc filter which modifies queue_mapping will be honored, as the filters
+are handled after the vlan egress map is handled.
+
+Signed-off-by: Lucy Liu <lucy.liu@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
-This patch has not been tested, since I don't have the hardware to test
-it.
-It is based on a few recent patches. See the following commits:
+ drivers/net/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-http://git.kernel.org/linus/c93b5a76d58656158d195a7df507ebc660010969
-http://git.kernel.org/linus/eab633021c26025b34f36f79f0311d3d99f40ceb
-http://git.kernel.org/linus/ef681ce1e8b3e63317cd724c200b2fd39286c005
-http://git.kernel.org/linus/59ed6eecff4aa00c5c5d18ffd180acac108d596e
-http://git.kernel.org/linus/3044b8d1ff8c05237652a692fb572a34e4d70146
-
- drivers/net/vxge/vxge-main.c   |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 7b5402b..335140d 100644
---- a/drivers/net/vxge/vxge-main.c
-+++ b/drivers/net/vxge/vxge-main.c
-@@ -3956,6 +3956,9 @@ static pci_ers_result_t
-vxge_io_error_detected(struct pci_dev *pdev,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 110c65a..0586774 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5124,7 +5124,7 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 		return smp_processor_id();
  
- 	netif_device_detach(netdev);
+ 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
+-		return 0;  /* All traffic should default to class 0 */
++		return (skb->vlan_tci & IXGBE_TX_FLAGS_VLAN_PRIO_MASK) >> 13;
  
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
- 	if (netif_running(netdev)) {
- 		/* Bring down the card, while avoiding PCI I/O */
- 		do_vxge_close(netdev, 0);
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	return skb_tx_hash(dev, skb);
+ }
+
