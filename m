@@ -1,70 +1,218 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute
-	fixes.
-Date: Wed, 5 Aug 2009 11:31:07 +0400
-Message-ID: <20090805073107.GA7545@doriath.ww600.siemens.net>
-References: <20090804085147.GA6724@doriath.ww600.siemens.net>
-	<20090804.055810.201482741.davem@davemloft.net>
-	<20090804144810.GA23722@doriath.ww600.siemens.net>
-	<20090804.090921.198630830.davem@davemloft.net>
+From: =?UTF-8?Q?Jussi_M=C3=A4ki?= <joamaki@gmail.com>
+Subject: [PATCH] xfrm: xfrm hash to use Jenkins' hash
+Date: Wed, 5 Aug 2009 10:41:42 +0300
+Message-ID: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20090804.090921.198630830.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qw-out-2122.google.com ([74.125.92.24]:6545 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932890AbZHEHlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:41:42 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so2297295qwh.37
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 00:41:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 04, 2009 at 09:09:21AM -0700, David Miller wrote:
-> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Tue, 4 Aug 2009 18:48:10 +0400
-> 
-> > On Tue, Aug 04, 2009 at 05:58:10AM -0700, David Miller wrote:
-> >> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> Date: Tue, 4 Aug 2009 12:51:48 +0400
-> >> 
-> >> > Will you pull the serie if I'll remove those two patches? Documentation
-> >> > fix isn't that important, however I'd really ask to pull the remaining
-> >> > two patches.
-> >> 
-> >> Yes.
-> > 
-> > Pushed the updated branch. Please pull.
-> 
-> Please don't resubmit changes like this.  It screws up all the
-> nice tracking of every patch we do on patchwork for networking
-> changes.
-> 
-> Please make a formal, full, reposting of the patch series you want me
-> to apply.  That way they can be tracked in patchwork, and the patches
-> can be replied to and commented upon (and such comments tracked in
-> patchwork as well).
-> 
-> When I say I'm tossing someone's changes, that means if they resubmit
-> they have to really resubmit everything, the patch postings at all.
-> Don't short-cut it with just a GIT tree refresh and pull request.
+Hi,
 
-Sorry for the troubles from our side. We are still learning how to do
-things correctly. The patchserie (cut to 3 patches) is resubmitted
-in a clean way.
+The current xfrm hash functions perform very poorly when a number of
+policies have the same
+last byte in source and destination addresses.
 
--- 
-With best wishes
-Dmitry
+For example with __xfrm_dst_hash, hmask of 0xfff:
 
+192.168.0.1-172.16.0.1 hashes to 3258
+192.168.0.2-172.16.0.2 hashes to 3258
+... and so on.
 
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with 
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+This patch addresses the issue by rewriting the xfrm
+hash functions to use the Jenkins' hash function.
+
+Signed-off-by: Jussi Maki <joamaki@gmail.com>
+---
+ net/xfrm/xfrm_hash.h |   90 ++++++++++++++++++++++++++-----------------------
+ 1 files changed, 48 insertions(+), 42 deletions(-)
+
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index d401dc8..59d4cb6 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -3,6 +3,7 @@
+
+ #include <linux/xfrm.h>
+ #include <linux/socket.h>
++#include <linux/jhash.h>
+
+ static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
+ {
+@@ -14,31 +15,27 @@ static inline unsigned int
+__xfrm6_addr_hash(xfrm_address_t *addr)
+ 	return ntohl(addr->a6[2] ^ addr->a6[3]);
+ }
+
+-static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t
+*daddr, xfrm_address_t *saddr)
+-{
+-	return ntohl(daddr->a4 ^ saddr->a4);
+-}
+-
+-static inline unsigned int __xfrm6_daddr_saddr_hash(xfrm_address_t
+*daddr, xfrm_address_t *saddr)
+-{
+-	return ntohl(daddr->a6[2] ^ daddr->a6[3] ^
+-		     saddr->a6[2] ^ saddr->a6[3]);
+-}
+-
+-static inline unsigned int __xfrm_dst_hash(xfrm_address_t *daddr,
+xfrm_address_t *saddr,
+-					   u32 reqid, unsigned short family,
++static inline unsigned int __xfrm_dst_hash(xfrm_address_t *daddr,
++					   xfrm_address_t *saddr,
++					   u32 reqid,
++					   unsigned short family,
+ 					   unsigned int hmask)
+ {
+-	unsigned int h = family ^ reqid;
++	unsigned int shash = 0;
++	unsigned int dhash = 0;
++
+ 	switch (family) {
+ 	case AF_INET:
+-		h ^= __xfrm4_daddr_saddr_hash(daddr, saddr);
++		shash = __xfrm4_addr_hash(saddr);
++		dhash = __xfrm4_addr_hash(daddr);
+ 		break;
+ 	case AF_INET6:
+-		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
+-		break;
++		shash = __xfrm6_addr_hash(saddr);
++		dhash = __xfrm6_addr_hash(daddr);
+ 	}
+-	return (h ^ (h >> 16)) & hmask;
++
++	return jhash_3words(shash, dhash,
++			    reqid, family) & hmask;
+ }
+
+ static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
+@@ -46,32 +43,37 @@ static inline unsigned
+__xfrm_src_hash(xfrm_address_t *daddr,
+ 				       unsigned short family,
+ 				       unsigned int hmask)
+ {
+-	unsigned int h = family;
++	unsigned int shash = 0;
++	unsigned int dhash = 0;
+ 	switch (family) {
+ 	case AF_INET:
+-		h ^= __xfrm4_daddr_saddr_hash(daddr, saddr);
++		shash = __xfrm4_addr_hash(saddr);
++		dhash = __xfrm4_addr_hash(daddr);
+ 		break;
+ 	case AF_INET6:
+-		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
+-		break;
+-	};
+-	return (h ^ (h >> 16)) & hmask;
++		shash = __xfrm6_addr_hash(saddr);
++		dhash = __xfrm6_addr_hash(daddr);
++	}
++	return jhash_2words(shash, dhash, family) & hmask;
+ }
+
+ static inline unsigned int
+-__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned
+short family,
++__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto,
++		unsigned short family,
+ 		unsigned int hmask)
+ {
+-	unsigned int h = (__force u32)spi ^ proto;
++	unsigned int h = 0;
++
+ 	switch (family) {
+ 	case AF_INET:
+-		h ^= __xfrm4_addr_hash(daddr);
++		h = __xfrm4_addr_hash(daddr);
+ 		break;
+ 	case AF_INET6:
+-		h ^= __xfrm6_addr_hash(daddr);
++		h = __xfrm6_addr_hash(daddr);
+ 		break;
+ 	}
+-	return (h ^ (h >> 10) ^ (h >> 20)) & hmask;
++
++	return jhash_3words(h, spi, proto, family) & hmask;
+ }
+
+ static inline unsigned int __idx_hash(u32 index, unsigned int hmask)
+@@ -83,7 +85,8 @@ static inline unsigned int __sel_hash(struct
+xfrm_selector *sel, unsigned short
+ {
+ 	xfrm_address_t *daddr = &sel->daddr;
+ 	xfrm_address_t *saddr = &sel->saddr;
+-	unsigned int h = 0;
++	unsigned int shash = 0;
++	unsigned int dhash = 0;
+
+ 	switch (family) {
+ 	case AF_INET:
+@@ -91,7 +94,8 @@ static inline unsigned int __sel_hash(struct
+xfrm_selector *sel, unsigned short
+ 		    sel->prefixlen_s != 32)
+ 			return hmask + 1;
+
+-		h = __xfrm4_daddr_saddr_hash(daddr, saddr);
++		shash = __xfrm4_addr_hash(saddr);
++		dhash = __xfrm4_addr_hash(daddr);
+ 		break;
+
+ 	case AF_INET6:
+@@ -99,28 +103,30 @@ static inline unsigned int __sel_hash(struct
+xfrm_selector *sel, unsigned short
+ 		    sel->prefixlen_s != 128)
+ 			return hmask + 1;
+
+-		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
++		shash = __xfrm6_addr_hash(saddr);
++		dhash = __xfrm6_addr_hash(daddr);
+ 		break;
+ 	};
+-	h ^= (h >> 16);
+-	return h & hmask;
++
++	return jhash_2words(shash, dhash, family) & hmask;
+ }
+
+ static inline unsigned int __addr_hash(xfrm_address_t *daddr,
+xfrm_address_t *saddr, unsigned short family, unsigned int hmask)
+ {
+-	unsigned int h = 0;
++	unsigned int shash = 0;
++	unsigned int dhash = 0;
+
+ 	switch (family) {
+ 	case AF_INET:
+-		h = __xfrm4_daddr_saddr_hash(daddr, saddr);
++		shash = __xfrm4_addr_hash(saddr);
++		dhash = __xfrm4_addr_hash(daddr);
+ 		break;
+-
+ 	case AF_INET6:
+-		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
+-		break;
+-	};
+-	h ^= (h >> 16);
+-	return h & hmask;
++		shash = __xfrm6_addr_hash(saddr);
++		dhash = __xfrm6_addr_hash(daddr);
++	}
++
++	return jhash_2words(shash, dhash, family) & hmask;
+ }
+
+ extern struct hlist_head *xfrm_hash_alloc(unsigned int sz);
+--
