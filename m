@@ -1,71 +1,54 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
-Date: Wed, 5 Aug 2009 09:13:50 -0500
-Message-ID: <20090805141350.GA353@us.ibm.com>
-References: <20090804211304.10798.65601.stgit@flek.lan> <20090804212158.10798.34592.stgit@flek.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090804212158.10798.34592.stgit@flek.lan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pascal Terjan <pterjan@mandriva.com>
+Subject: [PATCH] Add IDs for 3C905B-TX Fast Etherlink XL PCI
+Date: Wed,  5 Aug 2009 16:11:39 +0200
+Message-ID: <1249481499-9560-1-git-send-email-pterjan@mandriva.com>
+Cc: netdev@vger.kernel.org, Pascal Terjan <pterjan@mandriva.com>
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.mandrax.org ([212.85.147.169]:46549 "EHLO n4.mandriva.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S934290AbZHEOU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2009 10:20:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Paul Moore (paul.moore@hp.com):
-...
->  static int tun_attach(struct tun_struct *tun, struct file *file)
->  {
->  	struct tun_file *tfile = file->private_data;
-> -	const struct cred *cred = current_cred();
-> -	int err;
-> +	int err = 0;
-> 
->  	ASSERT_RTNL();
-> 
-> -	/* Check permissions */
-> -	if (((tun->owner != -1 && cred->euid != tun->owner) ||
-> -	     (tun->group != -1 && !in_egroup_p(tun->group))) &&
-> -		!capable(CAP_NET_ADMIN))
-> -		return -EPERM;
-...
+We found this old card which was not supported, and physically
+looks similar to the other 3C905B we have (9055).
 
-> @@ -935,6 +930,13 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  		else
->  			return -EINVAL;
-> 
-> +		if ((tun->owner != -1 && cred->euid != tun->owner) ||
-> +		    (tun->group != -1 && !in_egroup_p(tun->group)))
-> +			return -EPERM;
-> +		err = security_tun_dev_attach(tun->sk);
-> +		if (err < 0)
-> +			return err;
-> +
+After adding the IDs it seems to work fine (MII report, dhcp, scp, ...)
+---
+ drivers/net/3c59x.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-...
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index c204168..4567588 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -235,6 +235,7 @@ enum vortex_chips {
+ 	CH_3C900B_FL,
+ 	CH_3C905_1,
+ 	CH_3C905_2,
++	CH_3C905B_TX,
+ 	CH_3C905B_1,
+ 
+ 	CH_3C905B_2,
+@@ -307,6 +308,8 @@ static struct vortex_chip_info {
+ 	 PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+ 	{"3c905 Boomerang 100baseT4",
+ 	 PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
++	{"3C905B-TX Fast Etherlink XL PCI",
++	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 	{"3c905B Cyclone 100baseTx",
+ 	 PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 
+@@ -389,6 +392,7 @@ static struct pci_device_id vortex_pci_tbl[] = {
+ 	{ 0x10B7, 0x900A, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C900B_FL },
+ 	{ 0x10B7, 0x9050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905_1 },
+ 	{ 0x10B7, 0x9051, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905_2 },
++	{ 0x10B7, 0x9054, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_TX },
+ 	{ 0x10B7, 0x9055, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_1 },
+ 
+ 	{ 0x10B7, 0x9058, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_2 },
+-- 
+1.6.4
 
-> +/**
-> + * cap_tun_dev_attach - Determine if attaching to an TUN device is allowed
-> + *
-> + * Determine if the user is allowed to attach to an existing persistent TUN
-> + * device, historically this has always required the CAP_NET_ADMIN permission.
-> + */
-> +int cap_tun_dev_attach(void)
-> +{
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +	return 0;
-> +}
-
-The checks before and after this patch are not equivalent.  Post-patch,
-one must always have CAP_NET_ADMIN to do the attach, whereas pre-patch
-you only needed those if current_cred() did not own the tun device.  Is
-that intentional?
-
-Also as Eric said this patch needs to set the cap_ hooks.  This patch
-isn't yet introducing the selinux hooks, so iiuc actually this patch should
-always oops if CONFIG_SECURITY=y.
-
--serge
