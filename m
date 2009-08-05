@@ -1,26 +1,27 @@
-From: Jiri Pirko <jpirko@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: BUG: spinlock bad magic on CPU#1, swapper/1
-Date: Wed, 5 Aug 2009 12:03:29 +0200
-Message-ID: <20090805100329.GB3897@psychotron.englab.brq.redhat.com>
+Date: Wed, 05 Aug 2009 12:02:59 +0200
+Message-ID: <4A7958D3.40206@gmail.com>
 References: <200908051136.44908.elendil@planet.nl> <200908051150.53301.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>
 To: Frans Pop <elendil@planet.nl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934153AbZHEKDh@vger.kernel.org>
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934137AbZHEKD1@vger.kernel.org>
 In-Reply-To: <200908051150.53301.elendil@planet.nl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wed, Aug 05, 2009 at 11:50:52AM CEST, elendil@planet.nl wrote:
->On Wednesday 05 August 2009, Frans Pop wrote:
+=46rans Pop a =C3=A9crit :
+> On Wednesday 05 August 2009, Frans Pop wrote:
 >> Current v2.6.31-rc5-246-g90bc1a6 gives me:
 >>
 >> BUG: spinlock bad magic on CPU#1, swapper/1
->>  lock: ffff88007e1889c8, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
->> Pid: 1, comm: swapper Not tainted 2.6.31-rc5 #4 
+>>  lock: ffff88007e1889c8, .magic: 00000000, .owner: <none>/-1, .owner=
+_cpu: 0
+>> Pid: 1, comm: swapper Not tainted 2.6.31-rc5 #4=20
 >> Call Trace:
 >>  [<ffffffff811345e8>] spin_bug+0xa2/0xaa
 >>  [<ffffffff8113469e>] _raw_spin_lock+0x23/0x135
@@ -41,28 +42,29 @@ Wed, Aug 05, 2009 at 11:50:52AM CEST, elendil@planet.nl wrote:
 >>  [<ffffffff8100ca70>] ? child_rip+0x0/0x20
 >>
 >> Error occurs during early boot (between PCI/ACPI init and PnP init).
->
->Reverting the following commit fixes it:
+>=20
+> Reverting the following commit fixes it:
+> commit a6ac65db2329e7685299666f5f7b6093c7b0f3a0
+> Author: Jiri Pirko <jpirko@redhat.com>
+> Date:   Thu Jul 30 01:06:12 2009 +0000
+>=20
+>     net: restore the original spinlock to protect unicast list
+>=20
+>     There is a path when an assetion in dev_unicast_sync() appears.
+>=20
+>     igmp6_group_added -> dev_mc_add -> __dev_set_rx_mode ->
+>     -> vlan_dev_set_rx_mode -> dev_unicast_sync
+>=20
+>     Therefore we cannot protect this list with rtnl. This patch resto=
+res the
+>     original protecting this list with spinlock.
+>=20
+>     Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>     Tested-by: Meelis Roos <mroos@linux.ee>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> --
 
-Sure it fixes it but it also exposes the previous bug. I would rather suggest
-to go with Ingo's patch.
 
-Jirka
+Ingo posted a fix=20
 
->commit a6ac65db2329e7685299666f5f7b6093c7b0f3a0
->Author: Jiri Pirko <jpirko@redhat.com>
->Date:   Thu Jul 30 01:06:12 2009 +0000
->
->    net: restore the original spinlock to protect unicast list
->
->    There is a path when an assetion in dev_unicast_sync() appears.
->
->    igmp6_group_added -> dev_mc_add -> __dev_set_rx_mode ->
->    -> vlan_dev_set_rx_mode -> dev_unicast_sync
->
->    Therefore we cannot protect this list with rtnl. This patch restores the
->    original protecting this list with spinlock.
->
->    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->    Tested-by: Meelis Roos <mroos@linux.ee>
->    Signed-off-by: David S. Miller <davem@davemloft.net>
+http://marc.info/?l=3Dlinux-kernel&m=3D124945666109347&w=3D2
