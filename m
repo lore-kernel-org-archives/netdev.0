@@ -1,35 +1,63 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH 1/2] net: implement a SO_PROTOCOL getsockoption
-Date: Wed, 5 Aug 2009 09:35:03 +0300
-Message-ID: <200908050935.03272.remi.denis-courmont@nokia.com>
-References: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/1] veth: don't free priv->status until dev->destructor (v2)
+Date: Tue, 04 Aug 2009 23:40:47 -0700
+Message-ID: <m1zlaeu5jk.fsf@fess.ebiederm.org>
+References: <20090626162418.GA24828@us.ibm.com>
+	<20090724124614.6acc5054@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:32709 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755538AbZHEGgL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 02:36:11 -0400
-In-Reply-To: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Sachin Sant <sachinp@in.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, matthltc@us.ibm.com,
+	lkml <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933543AbZHEGlF@vger.kernel.org>
+In-Reply-To: <20090724124614.6acc5054@nehalam> (Stephen Hemminger's message of "Fri\, 24 Jul 2009 12\:46\:14 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 04 August 2009 20:28:28 ext Jan Engelhardt wrote:
-> Similar to SO_TYPE returning the socket type, SO_PROTOCOL allows to
-> retrieve the protocol used with a given socket.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-You can easily infer the protocol family from the address family from=20
-getsockname().
+> On Fri, 26 Jun 2009 11:24:18 -0500
+> "Serge E. Hallyn" <serue@us.ibm.com> wrote:
+>
+>> Based on the commit msg on ae0e8e82205c903978a79ebf5e31c670b61fa5b4, it looks
+>
+>>  	ether_setup(dev);
+>> @@ -306,7 +320,7 @@ static void veth_setup(struct net_device *dev)
+>>  	dev->netdev_ops = &veth_netdev_ops;
+>>  	dev->ethtool_ops = &veth_ethtool_ops;
+>>  	dev->features |= NETIF_F_LLTX;
+>> -	dev->destructor = free_netdev;
+>> +	dev->destructor = veth_dev_free;
+>>
+>
+> This is still going to oops if sysfs statistics referenced
+> after module unload because module is unloaded (code is gone)
+> and veth_dev_free no longer exists.
 
-As for the protocol, at least for raw IP sockets, you can get it from=20
-sin_port/sin6_port, but I agree that SO_PROTOCOL is more generic.
+Has anyone actually seen that cause an oops?
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+The reason I am asking is that as I read the code we cannot have
+this problem.  At worst the destructor callback is delayed until:
 
+veth_exit
+  rtnl_link_unregister
+    rtnl_unlock
+      netdev_run_todo
+        dev->destructor
+
+
+Similarly even if the sysfs filehandle is open we have called:
+
+netdev_unregister_kobject
+  ...
+    sysfs_addrm_finish
+      sysfs_deactivate
+
+Which guarantees that sysfs_get_active_two will fail and all
+subsequent actions on that file will fail.
+
+Eric
