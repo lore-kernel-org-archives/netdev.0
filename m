@@ -1,38 +1,41 @@
-From: Mike McCormack <mikem@ring3k.org>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Wed, 05 Aug 2009 08:53:55 +0900
-Message-ID: <4A78CA13.6040409@ring3k.org>
-References: <4A65EC3F.4050400@gibraltar.at> <20090723102848.00a56ad1@nehalam>	 <4A6D8975.4050000@gibraltar.at> <20090727153548.7c0d9f85@nehalam>	 <4A76D036.6090705@gibraltar.at> <4A772A1D.1030904@mayrhofer.eu.org>	 <4A77E56B.9030804@gibraltar.at> <392fb48f0908040445pc21105bo3182773b76d49596@mail.gmail.com> <4A78BC48.4060200@gibraltar.at> <4A78BD5F.2030901@mayrhofer.eu.org>
+From: =?UTF-8?B?Q2hpYS1jaGkgWWVoICjokYnlrrbpvYop?= <chiachi@android.com>
+Subject: Re: [PATCH] net: Keep interface binding when sending packets with
+	ipi_ifindex = 0
+Date: Wed, 5 Aug 2009 08:06:25 +0800
+Message-ID: <6c039e090908041706p6f06ac55ja796ac53855e829a@mail.gmail.com>
+References: <1248912621.13447.12.camel@merlyn>
+	 <20090803.212323.256579233.davem@davemloft.net>
+	 <6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
+	 <20090804.115701.250978139.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Rene Mayrhofer <rene@mayrhofer.eu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0506.google.com ([209.85.198.226]:10077 "EHLO
-	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933030AbZHDX4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 19:56:50 -0400
-Received: by rv-out-0506.google.com with SMTP id k40so820628rvb.5
-        for <netdev@vger.kernel.org>; Tue, 04 Aug 2009 16:56:51 -0700 (PDT)
-In-Reply-To: <4A78BD5F.2030901@mayrhofer.eu.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: john.dykstra1@gmail.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933835AbZHEAG0@vger.kernel.org>
+In-Reply-To: <20090804.115701.250978139.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rene Mayrhofer wrote:
+2009/8/5 David Miller <davem@davemloft.net>:
+> I think we really cannot change behavior here. =A0If the user specifi=
+es
+> "0" in ipi_ifindex we must respect that in ipc->oif. =A0This is an
+> override, and the ability to override is the very purpose of this
+> control message.
+>
+> Even GLIBC makes use of that case of specifying "0" in ipi_ifindex.
+> We must respect it.
+>
+> I'm not applying any of these patches, sorry.
+>
 
-> Again, any hints would be greatly appreciated (and sorry for being
-> persistent about this annoying little bug...).
+If you treat ipi_ifindex as an override, do you want to do that in
+ipi6_ifindex as well? Also, CAP_NET_RAW check for SO_BINDTODEVICE
+becomes meaningless in this case.
 
-Hi Rene,
+I did not find the usage of ipi_ifindex in glibc. It would be great if
+you can give me some pointers. Thanks for your help.
 
-Thanks for being persistent in testing :-)  Looks like you've got a 
-fairly unusual piece of hardware, as Stephen indicated.
-
-Would you mind adding the phy_lock fix on top of the latest net-2.6
-git version of sky2 and testing that?
-
-thanks,
-
-Mike
+Chia-chi
