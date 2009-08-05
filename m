@@ -1,44 +1,49 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH 1/2] net: implement a SO_PROTOCOL getsockoption
-Date: Wed, 5 Aug 2009 12:28:49 +0300
-Message-ID: <200908051228.50082.remi.denis-courmont@nokia.com>
-References: <1249406909-24161-1-git-send-email-jengelh@medozas.de> <200908050935.03272.remi.denis-courmont@nokia.com> <alpine.LSU.2.00.0908051042180.28374@fbirervta.pbzchgretzou.qr>
+From: Frans Pop <elendil@planet.nl>
+Subject: BUG: spinlock bad magic on CPU#1, swapper/1
+Date: Wed, 5 Aug 2009 11:36:44 +0200
+Message-ID: <200908051136.44908.elendil@planet.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: ext Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:23674 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933678AbZHEJ33 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 05:29:29 -0400
-In-Reply-To: <alpine.LSU.2.00.0908051042180.28374@fbirervta.pbzchgretzou.qr>
+Received: from cpsmtpm-eml110.kpnxchange.com ([195.121.3.14]:55918 "EHLO
+	CPSMTPM-EML110.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934010AbZHEJgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 05:36:45 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 05 August 2009 11:45:29 ext Jan Engelhardt wrote:
-> On Wednesday 2009-08-05 08:35, R=C3=A9mi Denis-Courmont wrote:
-> >On Tuesday 04 August 2009 20:28:28 ext Jan Engelhardt wrote:
-> >> Similar to SO_TYPE returning the socket type, SO_PROTOCOL allows t=
-o
-> >> retrieve the protocol used with a given socket.
-> >
-> >You can easily infer the protocol family from the address family fro=
-m
-> >getsockname().
->
-> As far as I remember, what you can get from getsockname is the
-> domain type (AF_*/PF_*) through struct sockaddr->sa_family.
-> Did you mean that?
+Current v2.6.31-rc5-246-g90bc1a6 gives me:
 
-Yes. It's almost like SO_DOMAIN but more portable and uglier.
+BUG: spinlock bad magic on CPU#1, swapper/1
+ lock: ffff88007e1889c8, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+Pid: 1, comm: swapper Not tainted 2.6.31-rc5 #4
+Call Trace:
+ [<ffffffff811345e8>] spin_bug+0xa2/0xaa
+ [<ffffffff8113469e>] _raw_spin_lock+0x23/0x135
+ [<ffffffff8125664e>] _spin_lock_bh+0x19/0x1e
+ [<ffffffff811e3702>] alloc_netdev_mq+0x127/0x211
+ [<ffffffff81433487>] ? netdev_init+0x6a/0xac
+ [<ffffffff811a81eb>] ? loopback_setup+0x0/0x7b
+ [<ffffffff8142e718>] loopback_net_init+0x30/0x7a
+ [<ffffffff811dd62e>] register_pernet_device+0x2b/0x58
+ [<ffffffff814336bd>] net_dev_init+0x13d/0x19b
+ [<ffffffff81433580>] ? net_dev_init+0x0/0x19b
+ [<ffffffff8100905c>] do_one_initcall+0x56/0x12b
+ [<ffffffff8106f55b>] ? register_irq_proc+0xb0/0xcc
+ [<ffffffff810e0000>] ? proc_pid_cmdline+0x5a/0xf9
+ [<ffffffff8140f65d>] kernel_init+0x14d/0x1a3
+ [<ffffffff8100ca7a>] child_rip+0xa/0x20
+ [<ffffffff8140f510>] ? kernel_init+0x0/0x1a3
+ [<ffffffff8100ca70>] ? child_rip+0x0/0x20
 
-> Though SO_PROTOCOL and SO_DOMAIN go nicely along with SO_TYPE.
+Error occurs during early boot (between PCI/ACPI init and PnP init).
 
---=20
-R=C3=A9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+.31-rc5 itself did not give that error.
 
+Cheers,
+FJP
