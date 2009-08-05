@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Keep interface binding when sending packets with
- ipi_ifindex = 0
-Date: Tue, 04 Aug 2009 19:33:44 -0700 (PDT)
-Message-ID: <20090804.193344.71849943.davem@davemloft.net>
-References: <6c039e090908040036j38666152y2db1d4c55529eaff@mail.gmail.com>
-	<20090804.115701.250978139.davem@davemloft.net>
-	<6c039e090908041706p6f06ac55ja796ac53855e829a@mail.gmail.com>
+Subject: Re: [net-2.6 PATCH] ixgbe: allow vlan egress priority mapping in
+ DCB mode
+Date: Tue, 04 Aug 2009 19:44:27 -0700 (PDT)
+Message-ID: <20090804.194427.180755602.davem@davemloft.net>
+References: <20090805012726.24350.63928.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: john.dykstra1@gmail.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: chiachi@android.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933497AbZHECdh@vger.kernel.org>
-In-Reply-To: <6c039e090908041706p6f06ac55ja796ac53855e829a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, lucy.liu@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41206
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933209AbZHECoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Aug 2009 22:44:19 -0400
+In-Reply-To: <20090805012726.24350.63928.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQ2hpYS1jaGkgWWVoICjokYnlrrbpvYopIDxjaGlhY2hpQGFuZHJvaWQuY29tPg0KRGF0
-ZTogV2VkLCA1IEF1ZyAyMDA5IDA4OjA2OjI1ICswODAwDQoNCj4gMjAwOS84LzUgRGF2aWQgTWls
-bGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PjoNCj4+IEkgdGhpbmsgd2UgcmVhbGx5IGNhbm5vdCBj
-aGFuZ2UgYmVoYXZpb3IgaGVyZS4gwqBJZiB0aGUgdXNlciBzcGVjaWZpZXMNCj4+ICIwIiBpbiBp
-cGlfaWZpbmRleCB3ZSBtdXN0IHJlc3BlY3QgdGhhdCBpbiBpcGMtPm9pZi4gwqBUaGlzIGlzIGFu
-DQo+PiBvdmVycmlkZSwgYW5kIHRoZSBhYmlsaXR5IHRvIG92ZXJyaWRlIGlzIHRoZSB2ZXJ5IHB1
-cnBvc2Ugb2YgdGhpcw0KPj4gY29udHJvbCBtZXNzYWdlLg0KPj4NCj4+IEV2ZW4gR0xJQkMgbWFr
-ZXMgdXNlIG9mIHRoYXQgY2FzZSBvZiBzcGVjaWZ5aW5nICIwIiBpbiBpcGlfaWZpbmRleC4NCj4+
-IFdlIG11c3QgcmVzcGVjdCBpdC4NCj4+DQo+PiBJJ20gbm90IGFwcGx5aW5nIGFueSBvZiB0aGVz
-ZSBwYXRjaGVzLCBzb3JyeS4NCj4+DQo+IA0KPiBJZiB5b3UgdHJlYXQgaXBpX2lmaW5kZXggYXMg
-YW4gb3ZlcnJpZGUsIGRvIHlvdSB3YW50IHRvIGRvIHRoYXQgaW4NCj4gaXBpNl9pZmluZGV4IGFz
-IHdlbGw/IEFsc28sIENBUF9ORVRfUkFXIGNoZWNrIGZvciBTT19CSU5EVE9ERVZJQ0UNCj4gYmVj
-b21lcyBtZWFuaW5nbGVzcyBpbiB0aGlzIGNhc2UuDQoNCmlwaV9pZmluZGV4IGluZmx1ZW5jZXMg
-cm91dGluZyBkZWNpc2lvbnMsIGl0IGRvZXNuJ3QgYWxzbyBpbmZsdWVuY2UNCnNvY2tldCBtYXRj
-aGluZyBsaWtlIFNPX0JJTkRUT0RFVklDRSBkb2VzLg0KDQpUaGF0J3MgdGhlIGNydWNpYWwgZGlm
-ZmVyZW5jZS4NCg0KVGhpcyBpbnRlcmZhY2UgaW5kZXggZ2V0cyBwYXNzZWQgaW50byB0aGUgcm91
-dGluZyBsb29rdXAgYW5kIHRoYXQgaXMNCmNvbXBsZXRlbHkgaGFybWxlc3MgdG8gYWxsb3cgdXNl
-cnMgdG8gZG8uDQoNCkFib3V0IGlwdjYgaXQgaXMgaW5kZWVkIGFuIGltcG9ydGFudCBpc3N1ZSwg
-YmVjYXVzZSBhcHBzIHRoYXQgd29yayBub3cNCndpdGggaXB2NCdzIGJlaGF2aW9yIGFyZSBnb2lu
-ZyB0byBicmVhayBpZiB0aGV5IGNhcmUgYWJvdXQgdGhpcyBjYXNlDQp3aGVuIHRoZXkgc3RhcnQg
-dXNpbmcgaXB2Ni4gIFByb2JhYmx5IHRoZSB0aGluZyB0byBkbyBpcyBtYWtlIGlwdjYNCndvcmsg
-dGhlIHNhbWUgYXMgaXB2NC4NCg0KPiBJIGRpZCBub3QgZmluZCB0aGUgdXNhZ2Ugb2YgaXBpX2lm
-aW5kZXggaW4gZ2xpYmMuIEl0IHdvdWxkIGJlIGdyZWF0IGlmDQo+IHlvdSBjYW4gZ2l2ZSBtZSBz
-b21lIHBvaW50ZXJzLiBUaGFua3MgZm9yIHlvdXIgaGVscC4NCg0KSWYgZ3JlcCBpcyBicm9rZW4g
-b24geW91ciBzeXN0ZW0sIEknbSBzb3JyeSB0byBoZWFyIHRoYXQ6DQoNCglmaW5kIC4gLXR5cGUg
-ZiB8IHhhcmdzIGVncmVwIElQX1BLVElORk8NCg0KR2l2ZSB0aGF0IGEgdHJ5IG9uIHlvdXIgZ2xp
-YmMgdHJlZS4NCg==
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 04 Aug 2009 18:27:28 -0700
+
+> The skb priority to vlan-qos egress mapping that can be configured using
+> set_egress_map with vconfig is overriden by the DCB code in the driver.
+> 
+> This patch allows this existing mechanism to work and will increase the
+> configuration flexibility of DCB mode on Linux.
+
+This is not the kind of bug fix which is appropriate at this
+stage of -rcX development, so I'm only willing to put this
+into net-next-2.6
+
+Keep this in mind for future submissions for net-2.6
