@@ -1,54 +1,51 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
-Date: Wed, 5 Aug 2009 17:58:38 -0400
-Message-ID: <200908051758.39051.paul.moore@hp.com>
-References: <20090804211304.10798.65601.stgit@flek.lan> <20090804212158.10798.34592.stgit@flek.lan> <20090805141350.GA353@us.ibm.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-next-2.6] cxgb3: fix 2 ports 1G regression
+Date: Wed, 05 Aug 2009 14:59:23 -0700
+Message-ID: <20090805215923.21467.99484.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: "Serge E. Hallyn" <serue@us.ibm.com>, eparis@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:4875 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109AbZHEV6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 17:58:44 -0400
-In-Reply-To: <20090805141350.GA353@us.ibm.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752951AbZHEV73@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 August 2009 10:13:50 am Serge E. Hallyn wrote:
-> Quoting Paul Moore (paul.moore@hp.com):
+From: Divy Le Ray <divy@chelsio.com>
 
-[NOTE: my email has been out all day due to some mysterious FS issue so my 
-apologies for not replying sooner]
+commit 88045b3cf0f8981129cb489c7b6bc36c21dd33a7
+	cxgb3: fix mac index mapping
 
-...
+	Override the mac index computation for the gen2 adapter,
+	as each port is expected to use index 0.
 
-> The checks before and after this patch are not equivalent.  Post-patch,
-> one must always have CAP_NET_ADMIN to do the attach, whereas pre-patch
-> you only needed those if current_cred() did not own the tun device.  Is
-> that intentional?
+introduces a regression on 2 port 1G adapter
+as its xauicfg vpd value is null.
+Add a check on the device id.
 
-Nope, just a goof on my part; I misread the booleans and haven't fully tested 
-the patch yet so it slipped out, thanks for catching it.  This brings up a 
-good point, would we rather move the TUN owner/group checks into the cap_tun_* 
-functions or move the capable() call back into the TUN driver?  The answer 
-wasn't clear to me when I was looking at the code before and the uniqueness of 
-the TUN driver doesn't help much in this regard.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-> Also as Eric said this patch needs to set the cap_ hooks.  This patch
-> isn't yet introducing the selinux hooks, so iiuc actually this patch should
-> always oops if CONFIG_SECURITY=y.
+ drivers/net/cxgb3/t3_hw.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-Yep, another symptom of not enough testing as I mentioned out in the original 
-posting, thanks to both of you for pointing this out ... now somebody just 
-needs to fix Rawhide so I can actually get a KVM instance running :)
 
--- 
-paul moore
-linux @ hp
-
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 526e144..032cfe0 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -3692,8 +3692,12 @@ static void mc7_prep(struct adapter *adapter, struct mc7 *mc7,
+ 
+ void mac_prep(struct cmac *mac, struct adapter *adapter, int index)
+ {
++	u16 devid;
++
+ 	mac->adapter = adapter;
+-	if (!adapter->params.vpd.xauicfg[1])
++	pci_read_config_word(adapter->pdev, 0x2, &devid);
++
++	if (devid == 0x37 && !adapter->params.vpd.xauicfg[1])
+ 		index = 0;
+ 	mac->offset = (XGMAC0_1_BASE_ADDR - XGMAC0_0_BASE_ADDR) * index;
+ 	mac->nucast = 1;
