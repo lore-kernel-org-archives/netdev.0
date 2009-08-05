@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: implement a SO_DOMAIN getsockoption
-Date: Wed, 05 Aug 2009 13:04:14 -0700 (PDT)
-Message-ID: <20090805.130414.33974623.davem@davemloft.net>
-References: <1249406909-24161-1-git-send-email-jengelh@medozas.de>
-	<1249406909-24161-2-git-send-email-jengelh@medozas.de>
+Subject: Re: [net-next-2.6 PATCH] be2net:Patch to perform function reset at
+ initialization
+Date: Wed, 05 Aug 2009 13:05:35 -0700 (PDT)
+Message-ID: <20090805.130535.239816373.davem@davemloft.net>
+References: <20090805113923.GA15874@serverengines.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: jengelh@medozas.de
+To: sarveshwarb@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45386
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45389
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751623AbZHEUEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 16:04:05 -0400
-In-Reply-To: <1249406909-24161-2-git-send-email-jengelh@medozas.de>
+	by vger.kernel.org with ESMTP id S1752346AbZHEUF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 16:05:26 -0400
+In-Reply-To: <20090805113923.GA15874@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmFuIEVuZ2VsaGFyZHQgPGplbmdlbGhAbWVkb3phcy5kZT4NCkRhdGU6IFR1ZSwgIDQg
-QXVnIDIwMDkgMTk6Mjg6MjkgKzAyMDANCg0KPiBUaGlzIHNvY2tvcHQgZ29lcyBpbiBsaW5lIHdp
-dGggU09fVFlQRSBhbmQgU09fUFJPVE9DT0wuIEl0IG1ha2VzIGl0DQo+IHBvc3NpYmxlIGZvciB1
-c2Vyc3BhY2UgcHJvZ3JhbXMgdG8gcGFzcyBhcm91bmQgZmlsZSBkZXNjcmlwdG9yc8Kg4oCUIEkN
-Cj4gYW0gcmVmZXJyaW5nIHRvIGFyZ3VtZW50cy10by1mdW5jdGlvbnMsIGJ1dCBpdCBtYXkgZXZl
-biB3b3JrIGZvciB0aGUNCj4gZmQgcGFzc2luZyBvdmVyIFVOSVggc29ja2V0c8Kg4oCUIHdpdGhv
-dXQgbmVlZGluZyB0byBhbHNvIHBhc3MgdGhlDQo+IGF1eGlsaWFyeSBpbmZvcm1hdGlvbiAoUEZf
-SU5FVDYvSVBQUk9UT19UQ1ApLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogSmFuIEVuZ2VsaGFyZHQg
-PGplbmdlbGhAbWVkb3phcy5kZT4NCg0KQWxzbyBhcHBsaWVkIHRvIG5ldC1uZXh0LTIuNg0KDQpU
-aGFua3MNCg==
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Date: Wed, 5 Aug 2009 17:09:32 +0530
+
+> This patch is a bug fix to avoid system going into a bad state when driver
+> is loaded in context of kdump kernel. The patch fixes the issue by performing
+> a soft reset of pci function at probe time.
+> 
+> Signed-off-by: sarveshwarb <sarveshwarb@serverengines.com>
+
+Applied, thanks.
