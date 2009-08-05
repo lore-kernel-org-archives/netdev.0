@@ -1,110 +1,53 @@
-From: Eric Paris <netdev@parisplace.org>
-Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
-Date: Wed, 5 Aug 2009 09:03:12 -0400
-Message-ID: <7e0fb38c0908050603k57d59b76l30a46aacd15d38f3@mail.gmail.com>
-References: <20090804211304.10798.65601.stgit@flek.lan>
-	 <20090804212158.10798.34592.stgit@flek.lan>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] net: Changes to support the "-f" option
+	of ethtool.
+Date: Wed, 05 Aug 2009 14:06:07 +0100
+Message-ID: <1249477567.2781.21.camel@achroite>
+References: <20090805123211.GB6592@serverengines.com>
+	 <20090805123704.GC6592@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+To: Ajit Khaparde <ajitk@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f172.google.com ([209.85.212.172]:59856 "EHLO
-	mail-vw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933326AbZHENDN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 09:03:13 -0400
-In-Reply-To: <20090804212158.10798.34592.stgit@flek.lan>
+Received: from smarthost03.mail.zen.net.uk ([212.23.3.142]:35116 "EHLO
+	smarthost03.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933713AbZHENGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 09:06:15 -0400
+In-Reply-To: <20090805123704.GC6592@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 4, 2009 at 5:21 PM, Paul Moore<paul.moore@hp.com> wrote:
-> The TUN driver lacks any LSM hooks which makes it difficult for LSM m=
-odules,
-> such as SELinux, to enforce access controls on network traffic genera=
-ted by
-> TUN users; this is particularly problematic for virtualization apps s=
-uch as
-> QEMU and KVM. =A0This patch adds three new LSM hooks designed to cont=
-rol the
-> creation and attachment of TUN devices, the hooks are:
->
+On Wed, 2009-08-05 at 18:07 +0530, Ajit Khaparde wrote:
+> The patch intends to use the request_firmware() interface to pick the
+> firmware image file. 
+> I had missed this in the original post. Thanks.
+[...]
 
-> diff --git a/security/commoncap.c b/security/commoncap.c
-> index 48b7e02..07125a6 100644
-> --- a/security/commoncap.c
-> +++ b/security/commoncap.c
-> @@ -984,3 +984,29 @@ int cap_vm_enough_memory(struct mm_struct *mm, l=
-ong pages)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0cap_sys_admin =3D 1;
-> =A0 =A0 =A0 =A0return __vm_enough_memory(mm, pages, cap_sys_admin);
-> =A0}
-> +
-> +/**
-> + * cap_tun_dev_create - Determine if creation of a new TUN device is=
- allowed
-> + *
-> + * Determine if the user is allowed to create a new TUN device, hist=
-orically
-> + * this has always required the CAP_NET_ADMIN permission.
-> + */
-> +int cap_tun_dev_create(void)
-> +{
-> + =A0 =A0 =A0 if (!capable(CAP_NET_ADMIN))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EPERM;
-> + =A0 =A0 =A0 return 0;
-> +}
-> +
-> +/**
-> + * cap_tun_dev_attach - Determine if attaching to an TUN device is a=
-llowed
-> + *
-> + * Determine if the user is allowed to attach to an existing persist=
-ent TUN
-> + * device, historically this has always required the CAP_NET_ADMIN p=
-ermission.
-> + */
-> +int cap_tun_dev_attach(void)
-> +{
-> + =A0 =A0 =A0 if (!capable(CAP_NET_ADMIN))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EPERM;
-> + =A0 =A0 =A0 return 0;
-> +}
-> diff --git a/security/security.c b/security/security.c
-> index dc7674f..14ebf82 100644
-> --- a/security/security.c
-> +++ b/security/security.c
-> @@ -1112,6 +1112,24 @@ void security_inet_conn_established(struct soc=
-k *sk,
-> =A0 =A0 =A0 =A0security_ops->inet_conn_established(sk, skb);
-> =A0}
->
-> +int security_tun_dev_create(void)
-> +{
-> + =A0 =A0 =A0 return security_ops->tun_dev_create();
-> +}
-> +EXPORT_SYMBOL(security_tun_dev_create);
-> +
-> +void security_tun_dev_post_create(struct sock *tun_sk)
-> +{
-> + =A0 =A0 =A0 return security_ops->tun_dev_post_create(tun_sk);
-> +}
-> +EXPORT_SYMBOL(security_tun_dev_post_create);
-> +
-> +int security_tun_dev_attach(struct sock *tun_sk)
-> +{
-> + =A0 =A0 =A0 return security_ops->tun_dev_attach(tun_sk);
-> +}
-> +EXPORT_SYMBOL(security_tun_dev_attach);
-> +
-> =A0#endif /* CONFIG_SECURITY_NETWORK */
->
-> =A0#ifdef CONFIG_SECURITY_NETWORK_XFRM
+Thanks for the clarification.
 
-You also must add cap_tun_dev_post_create in security/capability.c and
-you need to call set_to_cap_if_null() for all 3 of these new
-functions.  I believe you'll see a wonderful null pointer panic if you
-tried with selinux=3D0.....
+request_firmware() is meant for loading firmware that is stored in
+volatile memory (RAM) on the device and therefore needs to be installed
+on the host.
 
--Eric
+When the firmware is stored in flash on the device, updates only need to
+be used once, and there should be no need to install them on the host.
+So request_firmware() does not seem suitable.
+
+I believe the ethtool EEPROM commands were meant for updating firmware
+on NICs.  Although they assume random access and so are unsuitable for
+flash-based firmware, they might be a better model for adding flash
+update commands.  However, this command set is already available through
+the MTD device class, which is what we use for firmware update as far as
+possible.  Not only does this allow for an arbitrary number of separate
+firmware partitions per network device, but it can be used in an
+out-of-tree driver for older kernel versions.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
