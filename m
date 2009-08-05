@@ -1,95 +1,70 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/3] af_ieee802154: provide dummy get/setsockopt
-Date: Wed,  5 Aug 2009 11:28:16 +0400
-Message-ID: <1249457297-8355-3-git-send-email-dbaryshkov@gmail.com>
-References: <1249457297-8355-1-git-send-email-dbaryshkov@gmail.com>
- <1249457297-8355-2-git-send-email-dbaryshkov@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergey Lapin <slapin@ossfans.org>,
-	linux-zigbee-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:39992 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933668AbZHEH2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:28:52 -0400
-Received: by fg-out-1718.google.com with SMTP id e12so819624fga.17
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 00:28:52 -0700 (PDT)
-In-Reply-To: <1249457297-8355-2-git-send-email-dbaryshkov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 last-minute
+	fixes.
+Date: Wed, 5 Aug 2009 11:31:07 +0400
+Message-ID: <20090805073107.GA7545@doriath.ww600.siemens.net>
+References: <20090804085147.GA6724@doriath.ww600.siemens.net>
+	<20090804.055810.201482741.davem@davemloft.net>
+	<20090804144810.GA23722@doriath.ww600.siemens.net>
+	<20090804.090921.198630830.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20090804.090921.198630830.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Provide dummt get/setsockopt implementations to stop these
-syscalls from oopsing on our sockets.
+On Tue, Aug 04, 2009 at 09:09:21AM -0700, David Miller wrote:
+> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue, 4 Aug 2009 18:48:10 +0400
+> 
+> > On Tue, Aug 04, 2009 at 05:58:10AM -0700, David Miller wrote:
+> >> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> Date: Tue, 4 Aug 2009 12:51:48 +0400
+> >> 
+> >> > Will you pull the serie if I'll remove those two patches? Documentation
+> >> > fix isn't that important, however I'd really ask to pull the remaining
+> >> > two patches.
+> >> 
+> >> Yes.
+> > 
+> > Pushed the updated branch. Please pull.
+> 
+> Please don't resubmit changes like this.  It screws up all the
+> nice tracking of every patch we do on patchwork for networking
+> changes.
+> 
+> Please make a formal, full, reposting of the patch series you want me
+> to apply.  That way they can be tracked in patchwork, and the patches
+> can be replied to and commented upon (and such comments tracked in
+> patchwork as well).
+> 
+> When I say I'm tossing someone's changes, that means if they resubmit
+> they have to really resubmit everything, the patch postings at all.
+> Don't short-cut it with just a GIT tree refresh and pull request.
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- net/ieee802154/dgram.c |   14 ++++++++++++++
- net/ieee802154/raw.c   |   14 ++++++++++++++
- 2 files changed, 28 insertions(+), 0 deletions(-)
+Sorry for the troubles from our side. We are still learning how to do
+things correctly. The patchserie (cut to 3 patches) is resubmitted
+in a clean way.
 
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 53dd912..d1da6c6 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -377,6 +377,18 @@ int ieee802154_dgram_deliver(struct net_device *dev, struct sk_buff *skb)
- 	return ret;
- }
- 
-+static int dgram_getsockopt(struct sock *sk, int level, int optname,
-+		    char __user *optval, int __user *optlen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int dgram_setsockopt(struct sock *sk, int level, int optname,
-+		    char __user *optval, int __user optlen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- struct proto ieee802154_dgram_prot = {
- 	.name		= "IEEE-802.15.4-MAC",
- 	.owner		= THIS_MODULE,
-@@ -391,5 +403,7 @@ struct proto ieee802154_dgram_prot = {
- 	.connect	= dgram_connect,
- 	.disconnect	= dgram_disconnect,
- 	.ioctl		= dgram_ioctl,
-+	.getsockopt	= dgram_getsockopt,
-+	.setsockopt	= dgram_setsockopt,
- };
- 
-diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
-index ea8d1f1..60dee69 100644
---- a/net/ieee802154/raw.c
-+++ b/net/ieee802154/raw.c
-@@ -238,6 +238,18 @@ void ieee802154_raw_deliver(struct net_device *dev, struct sk_buff *skb)
- 	read_unlock(&raw_lock);
- }
- 
-+static int raw_getsockopt(struct sock *sk, int level, int optname,
-+		    char __user *optval, int __user *optlen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int raw_setsockopt(struct sock *sk, int level, int optname,
-+		    char __user *optval, int __user optlen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- struct proto ieee802154_raw_prot = {
- 	.name		= "IEEE-802.15.4-RAW",
- 	.owner		= THIS_MODULE,
-@@ -250,5 +262,7 @@ struct proto ieee802154_raw_prot = {
- 	.unhash		= raw_unhash,
- 	.connect	= raw_connect,
- 	.disconnect	= raw_disconnect,
-+	.getsockopt	= raw_getsockopt,
-+	.setsockopt	= raw_setsockopt,
- };
- 
 -- 
-1.6.3.3
+With best wishes
+Dmitry
 
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
