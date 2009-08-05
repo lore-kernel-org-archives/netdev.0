@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dccp: missing destroy of percpu counter variable while
- unload module
-Date: Wed, 05 Aug 2009 10:22:47 -0700 (PDT)
-Message-ID: <20090805.102247.268018375.davem@davemloft.net>
-References: <4A793867.3030104@cn.fujitsu.com>
-	<4A793BE8.1060101@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=gb2312
-Content-Transfer-Encoding: base64
-Cc: yjwei@cn.fujitsu.com, gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH NEXT 1/3] netxen: fix vlan tso case
+Date: Wed,  5 Aug 2009 10:34:07 -0700
+Message-ID: <1249493649-26336-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37309
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934721AbZHERWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 13:22:40 -0400
-In-Reply-To: <4A793BE8.1060101@gmail.com>
+Received: from nat-1.pathscale.com ([198.186.3.73]:31975 "HELO unm84.unmin.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750706AbZHEReL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2009 13:34:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogV2VkLCAw
-NSBBdWcgMjAwOSAwOTo1OTozNiArMDIwMA0KDQo+IFdlaSBZb25nanVuIGEgqKZjcml0IDoNCj4+
-IFNpZ25lZC1vZmYtYnk6IFdlaSBZb25nanVuIDx5andlaUBjbi5mdWppdHN1LmNvbT4NCiAuLi4N
-Cj4gQWNrZWQtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gDQo+
-IFRoaXMgd2FzIGFkZGVkIGJ5IGNvbW1pdCBkZDI0YzAwMSAobmV0OiBVc2UgYSBwZXJjcHVfY291
-bnRlciBmb3Igb3JwaGFuX2NvdW50KQ0KPiAoVHVlIE5vdiAyNSAyMToxNzoxNCAyMDA4KSwgc28g
-dGhpcyBjb3VsZCBiZSBhIHN0YWJsZSBjYW5kaWRhdGUgKDIuNi4yOSAmIDIuNi4zMCkNCg0KQXBw
-bGllZCBhbmQgcXVldWVkIHVwIGZvciAtc3RhYmxlLCB0aGFua3MuDQo=
+Fix the calculation of remaining header length in TSO
+over vlan device case. This was inadvertently missed
+out in patch 028afe719855a157e32450c ("netxen: add vlan
+tx acceleration support").
+
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 40549a0..c91e022 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -1450,7 +1450,7 @@ netxen_tso_check(struct net_device *netdev,
+ 		skb_copy_from_linear_data_offset(skb, 12,
+ 				(char *)vh + 16, copy_len - 16);
+ 
+-		copied = copy_len;
++		copied = copy_len - VLAN_HLEN;
+ 		offset = 0;
+ 
+ 		producer = get_next_index(producer, tx_ring->num_desc);
+-- 
+1.6.0.2
+
