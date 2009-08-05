@@ -1,152 +1,67 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Wed, 05 Aug 2009 16:14:06 -0700
-Message-ID: <m1ws5hua4h.fsf@fess.ebiederm.org>
-References: <20090803161242.12947.14620.stgit@flek.lan>
-	<m1ljlyvn9a.fsf@fess.ebiederm.org>
-	<200908051738.43134.paul.moore@hp.com>
+From: Michele BOLOGNA <michele.bologna@gmail.com>
+Subject: strange behaviour in ping when specifying timeout in msec
+Date: Wed, 5 Aug 2009 16:27:14 -0700
+Message-ID: <13b17b8a0908051627n32ce7461j75e8459a2c54909c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Paul Moore <paul.moore@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60911 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbZHEXOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 19:14:11 -0400
-In-Reply-To: <200908051738.43134.paul.moore@hp.com> (Paul Moore's message of "Wed\, 5 Aug 2009 17\:38\:42 -0400")
+Received: from qw-out-2122.google.com ([74.125.92.26]:63919 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbZHEX1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 19:27:15 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so198167qwh.37
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 16:27:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore <paul.moore@hp.com> writes:
+Dear Mr. Yoshifuji,
+I recently noticed a strange behaviour in ping from iputils.
 
-> On Wednesday 05 August 2009 01:32:49 am Eric W. Biederman wrote:
->> Paul Moore <paul.moore@hp.com> writes:
->> > Convert some pointless gotos into returns and ensure tun_attach() errors
->> > are handled correctly.
->> >
->> > Signed-off-by: Paul Moore <paul.moore@hp.com>
->>
->> This patch appears slightly wrong.  Comments inline.
->
-> Thanks for taking a look ...
->
->> > I'm sending this as an RFC patch because I'm not entirely certain that
->> > the changes to the tun_attach() error handling code are 100% correct,
->> > although I strongly suspect that the current behavor of simply returning
->> > an error code without any cleanup is broken.  Can anyone comment on this?
->> > ---
->> >
->> >  drivers/net/tun.c |   19 ++++++++++---------
->> >  1 files changed, 10 insertions(+), 9 deletions(-)
->> >
->> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> > index 4a0db7a..b6d06fd 100644
->> > --- a/drivers/net/tun.c
->> > +++ b/drivers/net/tun.c
->> > @@ -976,10 +973,11 @@ static int tun_set_iff(struct net *net, struct file
->> > *file, struct ifreq *ifr) tun->flags = flags;
->> >  		tun->txflt.count = 0;
->> >
->> > -		err = -ENOMEM;
->> >  		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
->> > -		if (!sk)
->> > +		if (!sk) {
->> > +			err = -ENOMEM;
->> >  			goto err_free_dev;
->> > +		}
->>
->> Trivially correct but I would argue uglier.
->
-> My reasoning behind the change was that code related to the error handling 
-> should be moved outside the common path as much as possible similar to what we 
-> do now with the gotos.
+First of all some information:
+mbologna@neptune:~$ ping -V
+ping utility, iputils-sss20071127
 
-I don't understand.  Generating less readable and less efficient code is
-preferable?
+Now, I want to specify a timeout and after it expires I would like
+that ping exits, regardless of the packets received, so I use the -W
+option:
 
->> > @@ -1010,7 +1008,7 @@ static int tun_set_iff(struct net *net, struct file
->> > *file, struct ifreq *ifr)
->> >
->> >  		err = tun_attach(tun, file);
->> >  		if (err < 0)
->> > -			goto failed;
->> > +			goto err_unreg_dev;
->> >  	}
->>
->> This is the interesting one.  And several problems with it.  When
->> Herbert reworked the reference counting here he introduced the goto
->> failed; Instead of err_free_dev.
->>
->> I think there were more possible races when I introduced the check
->> of the return code of tun_attach, the only case I can see currently
->> is if the file was attached to another tun device before we grabbed the
->> rtnl_lock.
->
-> ...
->
->> > @@ -1039,11 +1037,14 @@ static int tun_set_iff(struct net *net, struct
->> > file *file, struct ifreq *ifr) strcpy(ifr->ifr_name, tun->dev->name);
->> >  	return 0;
->> >
->> > + err_unreg_dev:
->> > +	rtnl_lock();
->> > +	unregister_netdevice(tun->dev);
->> > +	rtnl_unlock();
->>
->> This is a guaranteed deadlock.  We already hold the rtnl_lock here.
->> Furthermore all I should need to do in this case is to call
->> unregister_netdevice(...).    As all of the rest of the pieces should
->> happen in the cleanup routines called from unregister_netdevice.
->
-> Okay, so at the very least the rtnl_[un]lock() calls need to be removed and we 
-> can safely return after calling unregister_netdevice() without having to 
-> free/release anything else.  The thing that concerns me the most are the 
-> potential races you talked about.
->
-> I'll admit there are many dark places here that I still don't understand but 
-> looking at the code it appears that the only way to get into tun_set_iff() is 
-> if the file is not currently attached to a TUN device which is further checked 
-> in tun_attach().  
+      -W timeout
+              Time to wait for a response, in seconds. The option affects only
+              timeout in absense of any responses, otherwise  ping  waits  for
+              two RTTs.
 
-Yes.  But how many times can you come into tun_set_iff on the same file?
-Think multiple threads trying to do the same thing at the same time.
+So, if I decide to wait 1s for 5 packets, the ping works fine and
+exits after 5s:
 
-> Also, I'm not sure what refcounting you are talking about - 
-> do you mean the tun_file->count refcount?  I think we should be okay in this 
-> regard as the only way we would end up changing tun_file->count is if 
-> tun_attach() completed successfully; if tun_attach() fails there is not change 
-> in the refcount.  I could be way off here but it _seems_ safe ... :)
+mbologna@neptune:~$ ping -c 5 -W 1 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
 
-I totally agree that things are not as obvious as they should be.  I made
-things more complex when I added support for ip link del.  Then Herbert's
-patches collided and broke things when he added the socket support.
-Herbert change the refcount scheme that made things simpler and easier
-to get correct.
+--- 1.1.1.1 ping statistics ---
+5 packets transmitted, 0 received, 100% packet loss, time 3999ms
 
-Things are mostly good now, but think the tun code could use good audit,
-cleanup, simplification.  Which takes advantage of everything that Herbert
-did.  All of which requires someone to spend enough time looking at the
-code to understand what is going on.  Not hard but a bit time consuming.
+However, if I want to specify a timeout that is less than 1s, the ping
+does not exit after 5*0.5 s and keeps staying active (notice the ^C):
 
->> The current behavior of returning an error code is a little bit off
->> as it creates a persistent tun device without setting tun->flags |
->> TUN_PERSIST. And it leaves a tun device for someone else to clean up.
->>
->> At the same time it should be perfectly legitimate for someone else to
->> come along and attach to the tun device and delete it or to call
->> ip link del <tun>
->
-> My concern is that I believe that if the kernel fails at an operation it 
-> should do all it can to unwind any actions it took in the course of attempting 
-> to perform the requested operation.  Leaving a TUN device around in the case 
-> of a tun_attach() failure seems like the kernel is being lazy, sure a user can 
-> cleanup the device but why should they have to?
+mbologna@neptune:~$ ping -c 5 -W 0.5 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+^C
+--- 1.1.1.1 ping statistics ---
+5 packets transmitted, 0 received, 100% packet loss, time 3999ms
 
-Sure.  I am all for that and that is how I originally coded it.
-My point is that this is not harmful and that it can really only be triggered
-by a buggy or hostile user.   So it isn't critical to get fixed.  It is an
-imperfect so a fix is desirable.
+I also tried escaping the timeout with \ '' "" and so on, with no luck.
+In a few words, is possible to specify a timeout that is less than 1 s?
+Where am I wrong?
 
-Eric
+Thank you very much for your answer.
+Best regards,
+  Michele Bologna
+
+-- 
+Michele BOLOGNA
+Email/GTalk: michele.bologna@gmail.com
+Skype: michele-mb
+PGP: 0x0BA55536
+Web: www.mb.netsons.org
