@@ -1,60 +1,61 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: r8169 (+others ?) and note_interrupt performance hit on 2.6.30.x
-Date: Wed, 05 Aug 2009 20:54:47 +0200
-Message-ID: <4A79D577.30305@ziu.info>
-References: <4A6BA3CE.9000607@ziu.info> <20090726091803.GA28374@electric-eye.fr.zoreil.com> <4A6CA3EF.7080909@ziu.info> <4A6E21B4.7090103@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: xfrm hash to use Jenkins' hash
+Date: Wed, 05 Aug 2009 12:08:31 -0700 (PDT)
+Message-ID: <20090805.120831.66033097.davem@davemloft.net>
+References: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: joamaki@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:1207 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751177AbZHESyf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2009 14:54:35 -0400
-In-Reply-To: <4A6E21B4.7090103@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59242
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750964AbZHETIW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2009 15:08:22 -0400
+In-Reply-To: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek Poplawski wrote:
-> Michal Soltys wrote, On 07/26/2009 08:43 PM:
-> 
-> ...
->> Anwyay, not sure if this is useful, so if there is anything better
->> I could do, just push me in the right direction.
-> 
-> Short test of 2.6.29? (Unless you prefer a bisection...)
-> 
-> Jarek P.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+=46rom: Jussi M=E4ki <joamaki@gmail.com>
+Date: Wed, 5 Aug 2009 10:41:42 +0300
 
-I did first bisection, and the whole cpu load increases seem a bit more 
-complicated than I originally thought.
+> Hi,
+>=20
+> The current xfrm hash functions perform very poorly when a number of
+> policies have the same
+> last byte in source and destination addresses.
+>=20
+> For example with __xfrm_dst_hash, hmask of 0xfff:
+>=20
+> 192.168.0.1-172.16.0.1 hashes to 3258
+> 192.168.0.2-172.16.0.2 hashes to 3258
+> ... and so on.
+>=20
+> This patch addresses the issue by rewriting the xfrm
+> hash functions to use the Jenkins' hash function.
+>=20
+> Signed-off-by: Jussi Maki <joamaki@gmail.com>
 
-I noticed at least 2 (possibly 3) moments where it increased (from 
-original full 1 gbit at 20% - 50% load of one core)
+jhash expands to a lot of code, and given your description of the
+problem, you could have fixed it by adding 2 instructions (see below)
+instead of 20 or 30 (jhash instruction count) at every hash
+calculation site.
 
-(1) jump from 20% - 50% to 80% - 90%
+Simply change every instance of:
 
-(2) commit f11a377b3f4e897d11f0e8d1fc688667e2f19708
-     r8169: avoid losing MSI interrupts
+	(h >> 16)
 
-After the above commit, one core is not enough to handle 1 gbit speed 
-with 1k packets, it ends with with ~760mbit and one core drained at 100% 
-. The situation right before this commit is as in (1)
+with
 
-All tests were done, as mentioned earlier - with nc process and eth 
-interrupts pinned to the same core, and besides nc process - idle 
-machine. Tested with udp only, standard pfifo_fast.
+	((h >> 16) ^ (h >> 24))
 
-The changes happened between 2.6.29 and 2.6.30-rc6 .
+As much as I love jhash, it's overkill for fixing this problem.
 
-I'll try to pinpoint when (1) happens now. Lookint at mpstat output, 
-those may actually be two different commits.
+And if we do end up using jhash, it should get inlined into a
+seperate non-inline function instead of expanding that monster
+4 or 5 times throughout the XFRM code.
 
+I'm not applying this, either make the simple one-liner fix I
+suggested above work or move the jhash into a non-inline expansion.
