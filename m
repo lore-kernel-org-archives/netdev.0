@@ -1,72 +1,70 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] dccp: missing destroy of percpu counter variable while unload
- module
-Date: Wed, 05 Aug 2009 15:44:39 +0800
-Message-ID: <4A793867.3030104@cn.fujitsu.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: neigh_periodic_timer expires too often
+Date: Wed, 05 Aug 2009 10:48:30 +0300
+Message-ID: <4A79394E.1030001@nokia.com>
+References: <4A717985.7060909@nokia.com> <4A719CDB.3060004@gmail.com> <4A71AF1D.9020000@nokia.com> <4A72E204.3050704@nokia.com> <4A72E8A1.2070705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kristo Tero (Nokia-D/Tampere)" <Tero.Kristo@nokia.com>
+To: ext Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58508 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932890AbZHEHqo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2009 03:46:44 -0400
+Received: from smtp.nokia.com ([192.100.122.230]:16826 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933355AbZHEHsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:48:41 -0400
+In-Reply-To: <4A72E8A1.2070705@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-percpu counter dccp_orphan_count is init in dccp_init() by
-percpu_counter_init() while dccp module is loaded, but the
-destroy of it is missing while dccp module is unloaded. We
-can get the kernel WARNING about this. Reproduct by the
-following commands:
+ext Eric Dumazet wrote:
+> Luciano Coelho a =E9crit :
+>  =20
+>> Coelho Luciano (Nokia-D/Helsinki) wrote:
+>>    =20
+>>> ext Eric Dumazet wrote:
+>>> =20
+>>>      =20
+>>>> So please test it and tell me/us you like it :)
+>>>>      =20
+>>>>        =20
+>>> I applied your patch on top of the 2.6.28 I'm using and will start
+>>> testing it now.  I can also try to test it on top of 2.6.31-rc4 plu=
+s
+>>> wireless-testing stuff, if needed.
+>>>
+>>> I'll tell you that I liked your patch in a moment (I actually alrea=
+dy
+>>> liked it, but I'll wait until I know it works before I tell you ;)
+>>>  =20
+>>>      =20
+>> Just a small update.  We have run some very basic tests with 2.6.28.=
+=20
+>> The patch seems to work fine and we don't see excessive wake-ups fro=
+m
+>> neigh anymore (thanks Tero for helping with the tests).  We will sti=
+ll
+>> run one of our full release test rounds in order to make sure that t=
+here
+>> are no regressions.  I'll let you know when we have some more result=
+s.
+>>
+>>    =20
+>
+> Thanks for the update, I am running this patch on net-next-2.6 with n=
+o problem.
+>  =20
 
-  $ modprobe dccp
-  $ rmmod dccp
-  $ modprobe dccp
+We have now run our release round tests and everything is working fine.=
+ =20
+I'll report back if we find any issues with this change in the future=20
+(which I really don't expect to happen ;).
 
-WARNING: at lib/list_debug.c:26 __list_add+0x27/0x5c()
-Hardware name: VMware Virtual Platform
-list_add corruption. next->prev should be prev (c080c0c4), but was (null). (next
-=ca7188cc).
-Modules linked in: dccp(+) nfsd lockd nfs_acl auth_rpcgss exportfs sunrpc
-Pid: 1956, comm: modprobe Not tainted 2.6.31-rc5 #55
-Call Trace:
- [<c042f8fa>] warn_slowpath_common+0x6a/0x81
- [<c053a6cb>] ? __list_add+0x27/0x5c
- [<c042f94f>] warn_slowpath_fmt+0x29/0x2c
- [<c053a6cb>] __list_add+0x27/0x5c
- [<c053c9b3>] __percpu_counter_init+0x4d/0x5d
- [<ca9c90c7>] dccp_init+0x19/0x2ed [dccp]
- [<c0401141>] do_one_initcall+0x4f/0x111
- [<ca9c90ae>] ? dccp_init+0x0/0x2ed [dccp]
- [<c06971b5>] ? notifier_call_chain+0x26/0x48
- [<c0444943>] ? __blocking_notifier_call_chain+0x45/0x51
- [<c04516f7>] sys_init_module+0xac/0x1bd
- [<c04028e4>] sysenter_do_call+0x12/0x22
+Thank you very much for fixing this.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/dccp/proto.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 3281013..1bca920 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -1159,6 +1159,7 @@ static void __exit dccp_fini(void)
- 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
- 	dccp_ackvec_exit();
- 	dccp_sysctl_exit();
-+	percpu_counter_destroy(&dccp_orphan_count);
- }
- 
- module_init(dccp_init);
--- 
-1.6.2.2
-
-
-
+--=20
+Cheers,
+Luca.
 
