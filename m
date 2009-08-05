@@ -1,83 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] dccp: missing destroy of percpu counter variable while
- unload module
-Date: Wed, 05 Aug 2009 09:59:36 +0200
-Message-ID: <4A793BE8.1060101@gmail.com>
-References: <4A793867.3030104@cn.fujitsu.com>
+From: Jussi Maki <joamaki@gmail.com>
+Subject: Re: [PATCH] xfrm: xfrm hash to use Jenkins' hash
+Date: Wed, 5 Aug 2009 11:39:44 +0300
+Message-ID: <ce10d01f0908050139g4c152d91r9a02e1fdd0e4943d@mail.gmail.com>
+References: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: multipart/mixed; boundary=001636832528fe356b047060f1a4
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:34261 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933578AbZHEH7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:59:49 -0400
-In-Reply-To: <4A793867.3030104@cn.fujitsu.com>
+Received: from qw-out-2122.google.com ([74.125.92.26]:45704 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933342AbZHEIjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 04:39:45 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so2304355qwh.37
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 01:39:46 -0700 (PDT)
+In-Reply-To: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wei Yongjun a =A8=A6crit :
-> percpu counter dccp_orphan_count is init in dccp_init() by
-> percpu_counter_init() while dccp module is loaded, but the
-> destroy of it is missing while dccp module is unloaded. We
-> can get the kernel WARNING about this. Reproduct by the
-> following commands:
->=20
->   $ modprobe dccp
->   $ rmmod dccp
->   $ modprobe dccp
->=20
-> WARNING: at lib/list_debug.c:26 __list_add+0x27/0x5c()
-> Hardware name: VMware Virtual Platform
-> list_add corruption. next->prev should be prev (c080c0c4), but was (n=
-ull). (next
-> =3Dca7188cc).
-> Modules linked in: dccp(+) nfsd lockd nfs_acl auth_rpcgss exportfs su=
-nrpc
-> Pid: 1956, comm: modprobe Not tainted 2.6.31-rc5 #55
-> Call Trace:
->  [<c042f8fa>] warn_slowpath_common+0x6a/0x81
->  [<c053a6cb>] ? __list_add+0x27/0x5c
->  [<c042f94f>] warn_slowpath_fmt+0x29/0x2c
->  [<c053a6cb>] __list_add+0x27/0x5c
->  [<c053c9b3>] __percpu_counter_init+0x4d/0x5d
->  [<ca9c90c7>] dccp_init+0x19/0x2ed [dccp]
->  [<c0401141>] do_one_initcall+0x4f/0x111
->  [<ca9c90ae>] ? dccp_init+0x0/0x2ed [dccp]
->  [<c06971b5>] ? notifier_call_chain+0x26/0x48
->  [<c0444943>] ? __blocking_notifier_call_chain+0x45/0x51
->  [<c04516f7>] sys_init_module+0xac/0x1bd
->  [<c04028e4>] sysenter_do_call+0x12/0x22
->=20
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> ---
->  net/dccp/proto.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-> index 3281013..1bca920 100644
-> --- a/net/dccp/proto.c
-> +++ b/net/dccp/proto.c
-> @@ -1159,6 +1159,7 @@ static void __exit dccp_fini(void)
->  	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
->  	dccp_ackvec_exit();
->  	dccp_sysctl_exit();
-> +	percpu_counter_destroy(&dccp_orphan_count);
->  }
-> =20
->  module_init(dccp_init);
+--001636832528fe356b047060f1a4
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Whoops, line wrapping broke the patch, here's it again.
 
-This was added by commit dd24c001 (net: Use a percpu_counter for orphan=
-_count)
-(Tue Nov 25 21:17:14 2008), so this could be a stable candidate (2.6.29=
- & 2.6.30)
+On Wed, Aug 5, 2009 at 10:41 AM, Jussi M=C3=A4ki<joamaki@gmail.com> wrote:
+> Hi,
+>
+> The current xfrm hash functions perform very poorly when a number of
+> policies have the same
+> last byte in source and destination addresses.
+>
+> For example with __xfrm_dst_hash, hmask of 0xfff:
+>
+> 192.168.0.1-172.16.0.1 hashes to 3258
+> 192.168.0.2-172.16.0.2 hashes to 3258
+> ... and so on.
+>
+> This patch addresses the issue by rewriting the xfrm
+> hash functions to use the Jenkins' hash function.
 
+--001636832528fe356b047060f1a4
+Content-Type: application/octet-stream; name="xfrmhash.patch"
+Content-Disposition: attachment; filename="xfrmhash.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fxzt7mqj0
 
-Thanks Wei
-
+U2lnbmVkLW9mZi1ieTogSnVzc2kgTWFraSA8am9hbWFraUBnbWFpbC5jb20+Ci0tLQogbmV0L3hm
+cm0veGZybV9oYXNoLmggfCAgIDkwICsrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0KIDEgZmlsZXMgY2hhbmdlZCwgNDggaW5zZXJ0aW9ucygrKSwgNDIgZGVs
+ZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvbmV0L3hmcm0veGZybV9oYXNoLmggYi9uZXQveGZybS94
+ZnJtX2hhc2guaAppbmRleCBkNDAxZGM4Li41OWQ0Y2I2IDEwMDY0NAotLS0gYS9uZXQveGZybS94
+ZnJtX2hhc2guaAorKysgYi9uZXQveGZybS94ZnJtX2hhc2guaApAQCAtMyw2ICszLDcgQEAKIAog
+I2luY2x1ZGUgPGxpbnV4L3hmcm0uaD4KICNpbmNsdWRlIDxsaW51eC9zb2NrZXQuaD4KKyNpbmNs
+dWRlIDxsaW51eC9qaGFzaC5oPgogCiBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCBfX3hmcm00
+X2FkZHJfaGFzaCh4ZnJtX2FkZHJlc3NfdCAqYWRkcikKIHsKQEAgLTE0LDMxICsxNSwyNyBAQCBz
+dGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCBfX3hmcm02X2FkZHJfaGFzaCh4ZnJtX2FkZHJlc3Nf
+dCAqYWRkcikKIAlyZXR1cm4gbnRvaGwoYWRkci0+YTZbMl0gXiBhZGRyLT5hNlszXSk7CiB9CiAK
+LXN0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IF9feGZybTRfZGFkZHJfc2FkZHJfaGFzaCh4ZnJt
+X2FkZHJlc3NfdCAqZGFkZHIsIHhmcm1fYWRkcmVzc190ICpzYWRkcikKLXsKLQlyZXR1cm4gbnRv
+aGwoZGFkZHItPmE0IF4gc2FkZHItPmE0KTsKLX0KLQotc3RhdGljIGlubGluZSB1bnNpZ25lZCBp
+bnQgX194ZnJtNl9kYWRkcl9zYWRkcl9oYXNoKHhmcm1fYWRkcmVzc190ICpkYWRkciwgeGZybV9h
+ZGRyZXNzX3QgKnNhZGRyKQotewotCXJldHVybiBudG9obChkYWRkci0+YTZbMl0gXiBkYWRkci0+
+YTZbM10gXgotCQkgICAgIHNhZGRyLT5hNlsyXSBeIHNhZGRyLT5hNlszXSk7Ci19Ci0KLXN0YXRp
+YyBpbmxpbmUgdW5zaWduZWQgaW50IF9feGZybV9kc3RfaGFzaCh4ZnJtX2FkZHJlc3NfdCAqZGFk
+ZHIsIHhmcm1fYWRkcmVzc190ICpzYWRkciwKLQkJCQkJICAgdTMyIHJlcWlkLCB1bnNpZ25lZCBz
+aG9ydCBmYW1pbHksCitzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCBfX3hmcm1fZHN0X2hhc2go
+eGZybV9hZGRyZXNzX3QgKmRhZGRyLAorCQkJCQkgICB4ZnJtX2FkZHJlc3NfdCAqc2FkZHIsCisJ
+CQkJCSAgIHUzMiByZXFpZCwKKwkJCQkJICAgdW5zaWduZWQgc2hvcnQgZmFtaWx5LAogCQkJCQkg
+ICB1bnNpZ25lZCBpbnQgaG1hc2spCiB7Ci0JdW5zaWduZWQgaW50IGggPSBmYW1pbHkgXiByZXFp
+ZDsKKwl1bnNpZ25lZCBpbnQgc2hhc2ggPSAwOworCXVuc2lnbmVkIGludCBkaGFzaCA9IDA7CisK
+IAlzd2l0Y2ggKGZhbWlseSkgewogCWNhc2UgQUZfSU5FVDoKLQkJaCBePSBfX3hmcm00X2RhZGRy
+X3NhZGRyX2hhc2goZGFkZHIsIHNhZGRyKTsKKwkJc2hhc2ggPSBfX3hmcm00X2FkZHJfaGFzaChz
+YWRkcik7CisJCWRoYXNoID0gX194ZnJtNF9hZGRyX2hhc2goZGFkZHIpOwogCQlicmVhazsKIAlj
+YXNlIEFGX0lORVQ2OgotCQloIF49IF9feGZybTZfZGFkZHJfc2FkZHJfaGFzaChkYWRkciwgc2Fk
+ZHIpOwotCQlicmVhazsKKwkJc2hhc2ggPSBfX3hmcm02X2FkZHJfaGFzaChzYWRkcik7CisJCWRo
+YXNoID0gX194ZnJtNl9hZGRyX2hhc2goZGFkZHIpOwogCX0KLQlyZXR1cm4gKGggXiAoaCA+PiAx
+NikpICYgaG1hc2s7CisKKwlyZXR1cm4gamhhc2hfM3dvcmRzKHNoYXNoLCBkaGFzaCwKKwkJCSAg
+ICByZXFpZCwgZmFtaWx5KSAmIGhtYXNrOwogfQogCiBzdGF0aWMgaW5saW5lIHVuc2lnbmVkIF9f
+eGZybV9zcmNfaGFzaCh4ZnJtX2FkZHJlc3NfdCAqZGFkZHIsCkBAIC00NiwzMiArNDMsMzcgQEAg
+c3RhdGljIGlubGluZSB1bnNpZ25lZCBfX3hmcm1fc3JjX2hhc2goeGZybV9hZGRyZXNzX3QgKmRh
+ZGRyLAogCQkJCSAgICAgICB1bnNpZ25lZCBzaG9ydCBmYW1pbHksCiAJCQkJICAgICAgIHVuc2ln
+bmVkIGludCBobWFzaykKIHsKLQl1bnNpZ25lZCBpbnQgaCA9IGZhbWlseTsKKwl1bnNpZ25lZCBp
+bnQgc2hhc2ggPSAwOworCXVuc2lnbmVkIGludCBkaGFzaCA9IDA7CiAJc3dpdGNoIChmYW1pbHkp
+IHsKIAljYXNlIEFGX0lORVQ6Ci0JCWggXj0gX194ZnJtNF9kYWRkcl9zYWRkcl9oYXNoKGRhZGRy
+LCBzYWRkcik7CisJCXNoYXNoID0gX194ZnJtNF9hZGRyX2hhc2goc2FkZHIpOworCQlkaGFzaCA9
+IF9feGZybTRfYWRkcl9oYXNoKGRhZGRyKTsKIAkJYnJlYWs7CiAJY2FzZSBBRl9JTkVUNjoKLQkJ
+aCBePSBfX3hmcm02X2RhZGRyX3NhZGRyX2hhc2goZGFkZHIsIHNhZGRyKTsKLQkJYnJlYWs7Ci0J
+fTsKLQlyZXR1cm4gKGggXiAoaCA+PiAxNikpICYgaG1hc2s7CisJCXNoYXNoID0gX194ZnJtNl9h
+ZGRyX2hhc2goc2FkZHIpOworCQlkaGFzaCA9IF9feGZybTZfYWRkcl9oYXNoKGRhZGRyKTsKKwl9
+CisJcmV0dXJuIGpoYXNoXzJ3b3JkcyhzaGFzaCwgZGhhc2gsIGZhbWlseSkgJiBobWFzazsKIH0K
+IAogc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQKLV9feGZybV9zcGlfaGFzaCh4ZnJtX2FkZHJl
+c3NfdCAqZGFkZHIsIF9fYmUzMiBzcGksIHU4IHByb3RvLCB1bnNpZ25lZCBzaG9ydCBmYW1pbHks
+CitfX3hmcm1fc3BpX2hhc2goeGZybV9hZGRyZXNzX3QgKmRhZGRyLCBfX2JlMzIgc3BpLCB1OCBw
+cm90bywKKwkJdW5zaWduZWQgc2hvcnQgZmFtaWx5LAogCQl1bnNpZ25lZCBpbnQgaG1hc2spCiB7
+Ci0JdW5zaWduZWQgaW50IGggPSAoX19mb3JjZSB1MzIpc3BpIF4gcHJvdG87CisJdW5zaWduZWQg
+aW50IGg7CisKIAlzd2l0Y2ggKGZhbWlseSkgewogCWNhc2UgQUZfSU5FVDoKLQkJaCBePSBfX3hm
+cm00X2FkZHJfaGFzaChkYWRkcik7CisJCWggPSBfX3hmcm00X2FkZHJfaGFzaChkYWRkcik7CiAJ
+CWJyZWFrOwogCWNhc2UgQUZfSU5FVDY6Ci0JCWggXj0gX194ZnJtNl9hZGRyX2hhc2goZGFkZHIp
+OworCQloID0gX194ZnJtNl9hZGRyX2hhc2goZGFkZHIpOwogCQlicmVhazsKIAl9Ci0JcmV0dXJu
+IChoIF4gKGggPj4gMTApIF4gKGggPj4gMjApKSAmIGhtYXNrOworCisJcmV0dXJuIGpoYXNoXzN3
+b3JkcyhoLCBzcGksIHByb3RvLCBmYW1pbHkpICYgaG1hc2s7CiB9CiAKIHN0YXRpYyBpbmxpbmUg
+dW5zaWduZWQgaW50IF9faWR4X2hhc2godTMyIGluZGV4LCB1bnNpZ25lZCBpbnQgaG1hc2spCkBA
+IC04Myw3ICs4NSw4IEBAIHN0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IF9fc2VsX2hhc2goc3Ry
+dWN0IHhmcm1fc2VsZWN0b3IgKnNlbCwgdW5zaWduZWQgc2hvcnQKIHsKIAl4ZnJtX2FkZHJlc3Nf
+dCAqZGFkZHIgPSAmc2VsLT5kYWRkcjsKIAl4ZnJtX2FkZHJlc3NfdCAqc2FkZHIgPSAmc2VsLT5z
+YWRkcjsKLQl1bnNpZ25lZCBpbnQgaCA9IDA7CisJdW5zaWduZWQgaW50IHNoYXNoID0gMDsKKwl1
+bnNpZ25lZCBpbnQgZGhhc2ggPSAwOwogCiAJc3dpdGNoIChmYW1pbHkpIHsKIAljYXNlIEFGX0lO
+RVQ6CkBAIC05MSw3ICs5NCw4IEBAIHN0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IF9fc2VsX2hh
+c2goc3RydWN0IHhmcm1fc2VsZWN0b3IgKnNlbCwgdW5zaWduZWQgc2hvcnQKIAkJICAgIHNlbC0+
+cHJlZml4bGVuX3MgIT0gMzIpCiAJCQlyZXR1cm4gaG1hc2sgKyAxOwogCi0JCWggPSBfX3hmcm00
+X2RhZGRyX3NhZGRyX2hhc2goZGFkZHIsIHNhZGRyKTsKKwkJc2hhc2ggPSBfX3hmcm00X2FkZHJf
+aGFzaChzYWRkcik7CisJCWRoYXNoID0gX194ZnJtNF9hZGRyX2hhc2goZGFkZHIpOwogCQlicmVh
+azsKIAogCWNhc2UgQUZfSU5FVDY6CkBAIC05OSwyOCArMTAzLDMwIEBAIHN0YXRpYyBpbmxpbmUg
+dW5zaWduZWQgaW50IF9fc2VsX2hhc2goc3RydWN0IHhmcm1fc2VsZWN0b3IgKnNlbCwgdW5zaWdu
+ZWQgc2hvcnQKIAkJICAgIHNlbC0+cHJlZml4bGVuX3MgIT0gMTI4KQogCQkJcmV0dXJuIGhtYXNr
+ICsgMTsKIAotCQloID0gX194ZnJtNl9kYWRkcl9zYWRkcl9oYXNoKGRhZGRyLCBzYWRkcik7CisJ
+CXNoYXNoID0gX194ZnJtNl9hZGRyX2hhc2goc2FkZHIpOworCQlkaGFzaCA9IF9feGZybTZfYWRk
+cl9oYXNoKGRhZGRyKTsKIAkJYnJlYWs7CiAJfTsKLQloIF49IChoID4+IDE2KTsKLQlyZXR1cm4g
+aCAmIGhtYXNrOworCisJcmV0dXJuIGpoYXNoXzJ3b3JkcyhzaGFzaCwgZGhhc2gsIGZhbWlseSkg
+JiBobWFzazsKIH0KIAogc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQgX19hZGRyX2hhc2goeGZy
+bV9hZGRyZXNzX3QgKmRhZGRyLCB4ZnJtX2FkZHJlc3NfdCAqc2FkZHIsIHVuc2lnbmVkIHNob3J0
+IGZhbWlseSwgdW5zaWduZWQgaW50IGhtYXNrKQogewotCXVuc2lnbmVkIGludCBoID0gMDsKKwl1
+bnNpZ25lZCBpbnQgc2hhc2ggPSAwOworCXVuc2lnbmVkIGludCBkaGFzaCA9IDA7CiAKIAlzd2l0
+Y2ggKGZhbWlseSkgewogCWNhc2UgQUZfSU5FVDoKLQkJaCA9IF9feGZybTRfZGFkZHJfc2FkZHJf
+aGFzaChkYWRkciwgc2FkZHIpOworCQlzaGFzaCA9IF9feGZybTRfYWRkcl9oYXNoKHNhZGRyKTsK
+KwkJZGhhc2ggPSBfX3hmcm00X2FkZHJfaGFzaChkYWRkcik7CiAJCWJyZWFrOwotCiAJY2FzZSBB
+Rl9JTkVUNjoKLQkJaCA9IF9feGZybTZfZGFkZHJfc2FkZHJfaGFzaChkYWRkciwgc2FkZHIpOwot
+CQlicmVhazsKLQl9OwotCWggXj0gKGggPj4gMTYpOwotCXJldHVybiBoICYgaG1hc2s7CisJCXNo
+YXNoID0gX194ZnJtNl9hZGRyX2hhc2goc2FkZHIpOworCQlkaGFzaCA9IF9feGZybTZfYWRkcl9o
+YXNoKGRhZGRyKTsKKwl9CisKKwlyZXR1cm4gamhhc2hfMndvcmRzKHNoYXNoLCBkaGFzaCwgZmFt
+aWx5KSAmIGhtYXNrOwogfQogCiBleHRlcm4gc3RydWN0IGhsaXN0X2hlYWQgKnhmcm1faGFzaF9h
+bGxvYyh1bnNpZ25lZCBpbnQgc3opOwotLSAKMS41LjYuNQoK
+--001636832528fe356b047060f1a4--
