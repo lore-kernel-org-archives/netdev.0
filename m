@@ -1,123 +1,111 @@
-From: Or Gerlitz <ogerlitz@Voltaire.com>
-Subject: Re: bridge vs macvlan performance
-Date: Wed, 05 Aug 2009 10:02:22 +0300
-Message-ID: <4A792E7E.10007@Voltaire.com>
-References: <Pine.LNX.4.64.0908041650560.13803@zuben.voltaire.com>	<4A785824.2030500@candelatech.com> <4A790D24.9000008@voltaire.com>	<4A790F35.60204@candelatech.com> <4A791BA2.1040503@voltaire.com> <4A791DA5.3090202@candelatech.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: mmotm 2009-08-04-14-22 uploaded
+Date: Wed, 5 Aug 2009 00:06:11 -0700
+Message-ID: <20090805000611.e8183608.akpm@linux-foundation.org>
+References: <200908042125.n74LP9qY018119@imap1.linux-foundation.org>
+	<20090805063946.GA1934@darkstar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Vytautas Valancius <vytautas.valancius@gmail.com>,
-	Sapan Bhatia <sapanb@cs.princeton.edu>,
-	virtualization@lists.linux-foundation.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:48271 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933504AbZHEHCd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2009 03:02:33 -0400
-In-Reply-To: <4A791DA5.3090202@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Dave Young <hidave.darkstar@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933631AbZHEHHF@vger.kernel.org>
+In-Reply-To: <20090805063946.GA1934@darkstar>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Or Gerlitz wrote:
+On Wed, 5 Aug 2009 14:39:46 +0800 Dave Young <hidave.darkstar@gmail.com> wrote:
 
->> Using the same pktgen script (i.e with clone=0) I see that a
->> veth-->bridge-->veth configuration gives about 400K PPS forwarding
->> performance where macvlan-->veth-->macvlan gives 680K PPS (again, I
->> made sure that the bridge has applied learning before I start the test).
+> Hi andrew,
+> 
+> I see following lockdep warning with this release:
+> 
+> [    0.474144] INFO: trying to register non-static key.
+> [    0.474144] the code is fine but needs lockdep annotation.
+> [    0.474144] turning off the locking correctness validator.
+> [    0.474144] Pid: 1, comm: swapper Not tainted 2.6.31-rc5-mm1 #7
+> [    0.474144] Call Trace:
+> [    0.474144]  [<c1047f1e>] register_lock_class+0x58/0x241
+> [    0.474144]  [<c1049ab1>] __lock_acquire+0xac/0xb73
+> [    0.474144]  [<c1076eb5>] ? __alloc_pages_nodemask+0xe2/0x483
+> [    0.474144]  [<c1048b64>] ? mark_lock+0x1e/0x1c7
+> [    0.474144]  [<c1048b64>] ? mark_lock+0x1e/0x1c7
+> [    0.474144]  [<c1048d50>] ? mark_held_locks+0x43/0x5b
+> [    0.474144]  [<c10940a6>] ? kmem_cache_alloc+0xac/0x11b
+> [    0.474144]  [<c104a615>] lock_acquire+0x9d/0xc0
+> [    0.474144]  [<c12b8b96>] ? netif_addr_lock_bh+0xd/0xf
+> [    0.474144]  [<c1330feb>] _spin_lock_bh+0x20/0x2f
+> [    0.474144]  [<c12b8b96>] ? netif_addr_lock_bh+0xd/0xf
+> [    0.474144]  [<c12b8b96>] netif_addr_lock_bh+0xd/0xf
+> [    0.474144]  [<c12bc3c3>] alloc_netdev_mq+0xf9/0x1a5
+> [    0.474144]  [<c121f016>] ? loopback_setup+0x0/0x74
+> [    0.474144]  [<c1578d49>] loopback_net_init+0x20/0x5d
+> [    0.474144]  [<c12b7907>] register_pernet_operations+0x13/0x15
+> [    0.474144]  [<c12b7970>] register_pernet_device+0x1f/0x47
+> [    0.474144]  [<c157ee8d>] net_dev_init+0xfe/0x14d
+> [    0.474144]  [<c1001137>] do_one_initcall+0x4a/0x11a
+> [    0.474144]  [<c157ed8f>] ? net_dev_init+0x0/0x14d
+> [    0.474144]  [<c1067e00>] ? register_irq_proc+0x64/0xa8
+> [    0.474144]  [<c1067e97>] ? init_irq_proc+0x53/0x60
+> [    0.474144]  [<c1557535>] kernel_init+0x129/0x17a
+> [    0.474144]  [<c155740c>] ? kernel_init+0x0/0x17a
+> [    0.474144]  [<c1003d47>] kernel_thread_helper+0x7/0x10
 
-(its interesting how many times the same mistake can be done...) setting net.bridge.bridge-nf-call-iptables=0 made the veth-->bridge-->veth test to deliver 600K PPS thus reducing the gain achieved by the macvlan-->veth-->macvlan test from 70% to 20% which is way less but still notable.
+At a guess I'd say that alloc_netdev_mq()->dev_unicast_init() is doing
+netif_addr_lock_bh()->spin_lock_bh(&dev->addr_list_lock) prior to
+initialising add_list_lock.
 
-> A VETH has to send to it's peer, so your descriptions are a bit vague.
-> What are you really configuring?  Maybe show us your script or commands
-> that set up each of these tests?
+Something like this might shut it up:
 
-Yes, VETH has to send to its peer, so the veth/bridge/veth test has actually two more hops vs the macvlan/veth/macvlan test, maybe this can explain the difference, as for you question see below my configuration.
+--- a/net/core/dev.c~a
++++ a/net/core/dev.c
+@@ -5111,7 +5111,7 @@ struct net_device *alloc_netdev_mq(int s
+ 	if (dev_addr_init(dev))
+ 		goto free_tx;
+ 
+-	dev_unicast_init(dev);
++	__hw_addr_init(&dev->uc);
+ 
+ 	dev_net_set(dev, &init_net);
+ 
 
-I am looking for the simplest setup to test the Linux bridge forwarding performance, I could do a tap-->bridge-->tap test with two processes sitting in user space, but I tend to think that user/kernel switches and the tap code may become the bottleneck in that case, where the kernel pktgen is much more efficient. 
+but it'd be better to intialise this thing earlier like:
 
-Or.
+--- a/net/core/dev.c~a
++++ a/net/core/dev.c
+@@ -4730,8 +4730,6 @@ int register_netdevice(struct net_device
+ 	BUG_ON(dev->reg_state != NETREG_UNINITIALIZED);
+ 	BUG_ON(!net);
+ 
+-	spin_lock_init(&dev->addr_list_lock);
+-	netdev_set_addr_lockdep_class(dev);
+ 	netdev_init_queue_locks(dev);
+ 
+ 	dev->iflink = -1;
+@@ -5107,6 +5105,8 @@ struct net_device *alloc_netdev_mq(int s
+ 
+ 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded = (char *)dev - (char *)p;
++	spin_lock_init(&dev->addr_list_lock);
++	netdev_set_addr_lockdep_class(dev);
+ 
+ 	if (dev_addr_init(dev))
+ 		goto free_tx;
+_
 
-------> for veth/bridge/veth test I do the below such that my config is
-------> pktgen --> veth1 --> veth0 --> br0 --> veth2 --> veth3
+but that might break register_netdevice() for netdevs which were
+allocated via other means, dunno.
 
-BRIDGE=br0
+I would be pointing fingers at
 
-brctl addbr $BRIDGE
-ifconfig $BRIDGE up
-
-# set the bridge such that it does NOT call iptables 
-sysctl -w net.bridge.bridge-nf-call-iptables=0
-
-DEV_A=veth0
-DEV_B=veth1
-MAC_A=72:EC:8E:4F:89:00
-MAC_B=72:EC:8E:4F:89:01
-
-DEV_B_IP=20.20.49.11
-MASK=16
-
-# create the 1st veth device pair
-ip link add name $DEV_A address $MAC_A type veth peer name $DEV_B address $MAC_B
-
-# bring up and connect one veth device to the bridge
-ifconfig $DEV_A up
-brctl addif $BRIDGE $DEV_A
-
-# configure the other veth device as NIC
-ifconfig $DEV_B $DEV_B_IP/$MASK up
-
-DEV_C=veth2
-DEV_D=veth3
-MAC_C=72:EC:8E:4F:89:02
-MAC_D=72:EC:8E:4F:89:03
-
-DEV_D_IP=20.20.49.13
-
-# create the 2nd veth device pair
-ip link add name $DEV_C address $MAC_C type veth peer name $DEV_D address $MAC_D
-
-# bring up and connect the other veth device to the bridge
-ifconfig $DEV_C up
-brctl addif $BRIDGE $DEV_C
-
-# configure the other veth device as NIC
-ifconfig $DEV_D $DEV_D_IP/$MASK up
-
-# make local Linux bridge learning come into play, populate the bridge FDB 
-REMOTE=1.1.1.1
-ping -I $DEV_B $REMOTE -i 0.05 -c 10 -q
-ping -I $DEV_D $REMOTE -i 0.05 -c 10 -q
-
-# examine the bridge FDB to make sure learning happened
-brctl showmacs $BRIDGE
-
-------> for macvlan/veth/macvlan test I do the below such that my config is
-------> pktgen --> mv0 --> veth1 --> veth0 --> mv1
-
-DEV_A=veth0
-DEV_B=veth1
-MAC_A=72:EC:8E:4F:89:00
-MAC_B=72:EC:8E:4F:89:01
-
-# create the 1st veth device pair
-ip link add name $DEV_A address $MAC_A type veth peer name $DEV_B address $MAC_B
-
-# bring up and connect one veth device to the bridge
-ifconfig $DEV_A up
-ifconfig $DEV_B up
-
-UPLINK_DEV_A=veth1
-UPLINK_DEV_B=veth0
-
-DEV_A=mv1
-DEV_B=mv0
-
-MAC_A=00:19:d1:29:d2:01
-MAC_B=00:19:d1:29:d2:00
-
-ip link add link $UPLINK_DEV_A address $MAC_A $DEV_A type macvlan
-ip link add link $UPLINK_DEV_B address $MAC_B $DEV_B type macvlan
+: commit 31278e71471399beaff9280737e52b47db4dc345
+: Author:     Jiri Pirko <jpirko@redhat.com>
+: AuthorDate: Wed Jun 17 01:12:19 2009 +0000
+: Commit:     David S. Miller <davem@davemloft.net>
+: CommitDate: Thu Jun 18 00:29:08 2009 -0700
+: 
+:     net: group address list and its count
+    
+and politely suggesting that net developers enable lockdep when testing :)
