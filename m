@@ -1,218 +1,72 @@
-From: =?UTF-8?Q?Jussi_M=C3=A4ki?= <joamaki@gmail.com>
-Subject: [PATCH] xfrm: xfrm hash to use Jenkins' hash
-Date: Wed, 5 Aug 2009 10:41:42 +0300
-Message-ID: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] dccp: missing destroy of percpu counter variable while unload
+ module
+Date: Wed, 05 Aug 2009 15:44:39 +0800
+Message-ID: <4A793867.3030104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.24]:6545 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932890AbZHEHlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:41:42 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so2297295qwh.37
-        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 00:41:42 -0700 (PDT)
+Received: from cn.fujitsu.com ([222.73.24.84]:58508 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932890AbZHEHqo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Aug 2009 03:46:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+percpu counter dccp_orphan_count is init in dccp_init() by
+percpu_counter_init() while dccp module is loaded, but the
+destroy of it is missing while dccp module is unloaded. We
+can get the kernel WARNING about this. Reproduct by the
+following commands:
 
-The current xfrm hash functions perform very poorly when a number of
-policies have the same
-last byte in source and destination addresses.
+  $ modprobe dccp
+  $ rmmod dccp
+  $ modprobe dccp
 
-For example with __xfrm_dst_hash, hmask of 0xfff:
+WARNING: at lib/list_debug.c:26 __list_add+0x27/0x5c()
+Hardware name: VMware Virtual Platform
+list_add corruption. next->prev should be prev (c080c0c4), but was (null). (next
+=ca7188cc).
+Modules linked in: dccp(+) nfsd lockd nfs_acl auth_rpcgss exportfs sunrpc
+Pid: 1956, comm: modprobe Not tainted 2.6.31-rc5 #55
+Call Trace:
+ [<c042f8fa>] warn_slowpath_common+0x6a/0x81
+ [<c053a6cb>] ? __list_add+0x27/0x5c
+ [<c042f94f>] warn_slowpath_fmt+0x29/0x2c
+ [<c053a6cb>] __list_add+0x27/0x5c
+ [<c053c9b3>] __percpu_counter_init+0x4d/0x5d
+ [<ca9c90c7>] dccp_init+0x19/0x2ed [dccp]
+ [<c0401141>] do_one_initcall+0x4f/0x111
+ [<ca9c90ae>] ? dccp_init+0x0/0x2ed [dccp]
+ [<c06971b5>] ? notifier_call_chain+0x26/0x48
+ [<c0444943>] ? __blocking_notifier_call_chain+0x45/0x51
+ [<c04516f7>] sys_init_module+0xac/0x1bd
+ [<c04028e4>] sysenter_do_call+0x12/0x22
 
-192.168.0.1-172.16.0.1 hashes to 3258
-192.168.0.2-172.16.0.2 hashes to 3258
-... and so on.
-
-This patch addresses the issue by rewriting the xfrm
-hash functions to use the Jenkins' hash function.
-
-Signed-off-by: Jussi Maki <joamaki@gmail.com>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 ---
- net/xfrm/xfrm_hash.h |   90 ++++++++++++++++++++++++++-----------------------
- 1 files changed, 48 insertions(+), 42 deletions(-)
+ net/dccp/proto.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index d401dc8..59d4cb6 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -3,6 +3,7 @@
-
- #include <linux/xfrm.h>
- #include <linux/socket.h>
-+#include <linux/jhash.h>
-
- static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
- {
-@@ -14,31 +15,27 @@ static inline unsigned int
-__xfrm6_addr_hash(xfrm_address_t *addr)
- 	return ntohl(addr->a6[2] ^ addr->a6[3]);
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 3281013..1bca920 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1159,6 +1159,7 @@ static void __exit dccp_fini(void)
+ 	kmem_cache_destroy(dccp_hashinfo.bind_bucket_cachep);
+ 	dccp_ackvec_exit();
+ 	dccp_sysctl_exit();
++	percpu_counter_destroy(&dccp_orphan_count);
  }
+ 
+ module_init(dccp_init);
+-- 
+1.6.2.2
 
--static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t
-*daddr, xfrm_address_t *saddr)
--{
--	return ntohl(daddr->a4 ^ saddr->a4);
--}
--
--static inline unsigned int __xfrm6_daddr_saddr_hash(xfrm_address_t
-*daddr, xfrm_address_t *saddr)
--{
--	return ntohl(daddr->a6[2] ^ daddr->a6[3] ^
--		     saddr->a6[2] ^ saddr->a6[3]);
--}
--
--static inline unsigned int __xfrm_dst_hash(xfrm_address_t *daddr,
-xfrm_address_t *saddr,
--					   u32 reqid, unsigned short family,
-+static inline unsigned int __xfrm_dst_hash(xfrm_address_t *daddr,
-+					   xfrm_address_t *saddr,
-+					   u32 reqid,
-+					   unsigned short family,
- 					   unsigned int hmask)
- {
--	unsigned int h = family ^ reqid;
-+	unsigned int shash = 0;
-+	unsigned int dhash = 0;
-+
- 	switch (family) {
- 	case AF_INET:
--		h ^= __xfrm4_daddr_saddr_hash(daddr, saddr);
-+		shash = __xfrm4_addr_hash(saddr);
-+		dhash = __xfrm4_addr_hash(daddr);
- 		break;
- 	case AF_INET6:
--		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
--		break;
-+		shash = __xfrm6_addr_hash(saddr);
-+		dhash = __xfrm6_addr_hash(daddr);
- 	}
--	return (h ^ (h >> 16)) & hmask;
-+
-+	return jhash_3words(shash, dhash,
-+			    reqid, family) & hmask;
- }
 
- static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
-@@ -46,32 +43,37 @@ static inline unsigned
-__xfrm_src_hash(xfrm_address_t *daddr,
- 				       unsigned short family,
- 				       unsigned int hmask)
- {
--	unsigned int h = family;
-+	unsigned int shash = 0;
-+	unsigned int dhash = 0;
- 	switch (family) {
- 	case AF_INET:
--		h ^= __xfrm4_daddr_saddr_hash(daddr, saddr);
-+		shash = __xfrm4_addr_hash(saddr);
-+		dhash = __xfrm4_addr_hash(daddr);
- 		break;
- 	case AF_INET6:
--		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
--		break;
--	};
--	return (h ^ (h >> 16)) & hmask;
-+		shash = __xfrm6_addr_hash(saddr);
-+		dhash = __xfrm6_addr_hash(daddr);
-+	}
-+	return jhash_2words(shash, dhash, family) & hmask;
- }
 
- static inline unsigned int
--__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto, unsigned
-short family,
-+__xfrm_spi_hash(xfrm_address_t *daddr, __be32 spi, u8 proto,
-+		unsigned short family,
- 		unsigned int hmask)
- {
--	unsigned int h = (__force u32)spi ^ proto;
-+	unsigned int h = 0;
-+
- 	switch (family) {
- 	case AF_INET:
--		h ^= __xfrm4_addr_hash(daddr);
-+		h = __xfrm4_addr_hash(daddr);
- 		break;
- 	case AF_INET6:
--		h ^= __xfrm6_addr_hash(daddr);
-+		h = __xfrm6_addr_hash(daddr);
- 		break;
- 	}
--	return (h ^ (h >> 10) ^ (h >> 20)) & hmask;
-+
-+	return jhash_3words(h, spi, proto, family) & hmask;
- }
 
- static inline unsigned int __idx_hash(u32 index, unsigned int hmask)
-@@ -83,7 +85,8 @@ static inline unsigned int __sel_hash(struct
-xfrm_selector *sel, unsigned short
- {
- 	xfrm_address_t *daddr = &sel->daddr;
- 	xfrm_address_t *saddr = &sel->saddr;
--	unsigned int h = 0;
-+	unsigned int shash = 0;
-+	unsigned int dhash = 0;
-
- 	switch (family) {
- 	case AF_INET:
-@@ -91,7 +94,8 @@ static inline unsigned int __sel_hash(struct
-xfrm_selector *sel, unsigned short
- 		    sel->prefixlen_s != 32)
- 			return hmask + 1;
-
--		h = __xfrm4_daddr_saddr_hash(daddr, saddr);
-+		shash = __xfrm4_addr_hash(saddr);
-+		dhash = __xfrm4_addr_hash(daddr);
- 		break;
-
- 	case AF_INET6:
-@@ -99,28 +103,30 @@ static inline unsigned int __sel_hash(struct
-xfrm_selector *sel, unsigned short
- 		    sel->prefixlen_s != 128)
- 			return hmask + 1;
-
--		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
-+		shash = __xfrm6_addr_hash(saddr);
-+		dhash = __xfrm6_addr_hash(daddr);
- 		break;
- 	};
--	h ^= (h >> 16);
--	return h & hmask;
-+
-+	return jhash_2words(shash, dhash, family) & hmask;
- }
-
- static inline unsigned int __addr_hash(xfrm_address_t *daddr,
-xfrm_address_t *saddr, unsigned short family, unsigned int hmask)
- {
--	unsigned int h = 0;
-+	unsigned int shash = 0;
-+	unsigned int dhash = 0;
-
- 	switch (family) {
- 	case AF_INET:
--		h = __xfrm4_daddr_saddr_hash(daddr, saddr);
-+		shash = __xfrm4_addr_hash(saddr);
-+		dhash = __xfrm4_addr_hash(daddr);
- 		break;
--
- 	case AF_INET6:
--		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
--		break;
--	};
--	h ^= (h >> 16);
--	return h & hmask;
-+		shash = __xfrm6_addr_hash(saddr);
-+		dhash = __xfrm6_addr_hash(daddr);
-+	}
-+
-+	return jhash_2words(shash, dhash, family) & hmask;
- }
-
- extern struct hlist_head *xfrm_hash_alloc(unsigned int sz);
---
