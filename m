@@ -1,93 +1,55 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [PATCH net-next-2.6] net: Changes to support the "-f" option
-	of ethtool.
-Date: Wed, 5 Aug 2009 18:07:05 +0530
-Message-ID: <20090805123704.GC6592@serverengines.com>
-References: <20090805123211.GB6592@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: Add "-f" option to flash firmware image to a
+	network device.
+Date: Wed, 05 Aug 2009 13:48:23 +0100
+Message-ID: <1249476503.2781.3.camel@achroite>
+References: <20090805123143.GA6592@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+To: Ajit Khaparde <ajitk@serverengines.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:10033 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933340AbZHEMhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 08:37:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20090805123211.GB6592@serverengines.com>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:57211 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933416AbZHEMs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 08:48:29 -0400
+In-Reply-To: <20090805123143.GA6592@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch intends to use the request_firmware() interface to pick the
-firmware image file. 
-I had missed this in the original post. Thanks.
+On Wed, 2009-08-05 at 18:01 +0530, Ajit Khaparde wrote:
+> Attached  is a patch for ethtool utility to add a new "-f" option.
+> This will enable flashing a firmware image to a network interface.
 
-On 05/08/09 18:02 +0530, Ajit Khaparde wrote:
-> This patch adds kernel support for the new "-f" option in ethtool,
-> This will allow a firmware image to be flashed to a network device.
-> 
-> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-> ---
->  include/linux/ethtool.h |    3 +++
->  net/core/ethtool.c      |   13 +++++++++++++
->  2 files changed, 16 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 90c4a36..9b92f44 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -489,6 +489,7 @@ struct ethtool_ops {
->  	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
->  	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
->  	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
-> +	int     (*flash_device)(struct net_device *);
->  };
->  #endif /* __KERNEL__ */
->  
-> @@ -545,6 +546,8 @@ struct ethtool_ops {
->  #define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
->  #define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
->  #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
-> +#define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device
-> +					    * (ethtool_value). */
->  
->  /* compatibility with older code */
->  #define SPARC_ETH_GSET		ETHTOOL_GSET
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 44e5711..0524201 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -898,6 +898,16 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
->  	return actor(dev, edata.data);
+Which firmware?  There can be several firmware images for controller,
+PHY, host boot "ROM" and others.
+
+[...]
+> @@ -2398,6 +2404,20 @@ static int do_grxclass(int fd, struct ifreq
+> *ifr)
+>  	return 0;
 >  }
 >  
-> +static int ethtool_flash_device(struct net_device *dev)
+> +static int do_flash(int fd, struct ifreq *ifr)
 > +{
 > +	int err;
+> +	struct ethtool_value ecmd;
 > +
-> +	if (!dev->ethtool_ops->flash_device)
-> +		return -EOPNOTSUPP;
-> +
-> +	return dev->ethtool_ops->flash_device(dev);
-> +}
-> +
->  /* The main entry point in this file.  Called from net/core/dev.c */
->  
->  int dev_ethtool(struct net *net, struct ifreq *ifr)
-> @@ -1111,6 +1121,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
->  	case ETHTOOL_SGRO:
->  		rc = ethtool_set_gro(dev, useraddr);
->  		break;
-> +	case ETHTOOL_FLASHDEV:
-> +		rc = ethtool_flash_device(dev);
-> +		break;
->  	default:
->  		rc = -EOPNOTSUPP;
->  	}
-> -- 
-> 1.6.0.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +	ecmd.cmd = ETHTOOL_FLASHDEV;
+> +	ifr->ifr_data = (caddr_t)&ecmd;
+> +	err = send_ioctl(fd, ifr);
+> +	if (err < 0)
+> +		perror("Flashing failed");
+[..]
+
+Where does the image come from?  The running code?  What about static
+variables that have changed since startup?
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
