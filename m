@@ -1,75 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT]: Networking
-Date: Wed, 05 Aug 2009 09:19:32 +0200
-Message-ID: <4A793284.8000401@gmail.com>
-References: <20090804.125742.32009006.davem@davemloft.net> <20090805070205.GA8741@elte.hu> <20090805071411.GA9217@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Jiri Pirko <jpirko@redhat.com>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PATCH 1/3] af_ieee802154: fix ioctl processing
+Date: Wed,  5 Aug 2009 11:28:15 +0400
+Message-ID: <1249457297-8355-2-git-send-email-dbaryshkov@gmail.com>
+References: <1249457297-8355-1-git-send-email-dbaryshkov@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sergey Lapin <slapin@ossfans.org>,
+	linux-zigbee-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:33079 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933684AbZHEHUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:20:52 -0400
-In-Reply-To: <20090805071411.GA9217@elte.hu>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:42303 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933597AbZHEH2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 03:28:50 -0400
+Received: by fxm17 with SMTP id 17so3713984fxm.37
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 00:28:50 -0700 (PDT)
+In-Reply-To: <1249457297-8355-1-git-send-email-dbaryshkov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ingo Molnar a =E9crit :
-> * Ingo Molnar <mingo@elte.hu> wrote:
->=20
->> FYI, -tip testing found that these bits trigger a missing lockdep=20
->> annotation warning:
->=20
-> it's apparently using an zero-initialized spinlock. This is a=20
-> side-effect of:
->=20
->         dev_unicast_init(dev);
->=20
-> in alloc_netdev_mq() making use of dev->addr_list_lock.
->=20
-> Wouldnt the patch below be the right fix? The device has just been=20
-> allocated freshly, it's not accessible anywhere yet so no locking is=20
-> needed at all - in fact it's wrong to lock it here (the lock isnt=20
-> initialized yet).
->=20
-> This bug was apparently introduced via:
->=20
-> | commit a6ac65db2329e7685299666f5f7b6093c7b0f3a0
-> | Author: Jiri Pirko <jpirko@redhat.com>
-> | Date:   Thu Jul 30 01:06:12 2009 +0000
-> |
-> |     net: restore the original spinlock to protect unicast list
->=20
-> it needlessly added new locking and apparently nobody ran this patch=20
-> with lockdep.
->=20
-> 	Ingo
->=20
-> Index: linux2/net/core/dev.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- linux2.orig/net/core/dev.c
-> +++ linux2/net/core/dev.c
-> @@ -4007,9 +4007,7 @@ static void dev_unicast_flush(struct net
-> =20
->  static void dev_unicast_init(struct net_device *dev)
->  {
-> -	netif_addr_lock_bh(dev);
->  	__hw_addr_init(&dev->uc);
-> -	netif_addr_unlock_bh(dev);
->  }
-> =20
-> =20
+fix two errors in ioctl processing:
+1) if the ioctl isn't supported one should return -ENOIOCTLCMD
+2) don't call ndo_do_ioctl if the device doesn't provide it
 
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+---
+ net/ieee802154/af_ieee802154.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Indeed, this function is static and thus only called from alloc_netdev_=
-mq()
+diff --git a/net/ieee802154/af_ieee802154.c b/net/ieee802154/af_ieee802154.c
+index 69c8d92..d504c34 100644
+--- a/net/ieee802154/af_ieee802154.c
++++ b/net/ieee802154/af_ieee802154.c
+@@ -136,7 +136,7 @@ static int ieee802154_dev_ioctl(struct sock *sk, struct ifreq __user *arg,
+ 		unsigned int cmd)
+ {
+ 	struct ifreq ifr;
+-	int ret = -EINVAL;
++	int ret = -ENOIOCTLCMD;
+ 	struct net_device *dev;
+ 
+ 	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
+@@ -146,8 +146,10 @@ static int ieee802154_dev_ioctl(struct sock *sk, struct ifreq __user *arg,
+ 
+ 	dev_load(sock_net(sk), ifr.ifr_name);
+ 	dev = dev_get_by_name(sock_net(sk), ifr.ifr_name);
+-	if (dev->type == ARPHRD_IEEE802154 ||
+-	    dev->type == ARPHRD_IEEE802154_PHY)
++
++	if ((dev->type == ARPHRD_IEEE802154 ||
++	     dev->type == ARPHRD_IEEE802154_PHY) &&
++	    dev->netdev_ops->ndo_do_ioctl)
+ 		ret = dev->netdev_ops->ndo_do_ioctl(dev, &ifr, cmd);
+ 
+ 	if (!ret && copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+-- 
+1.6.3.3
 
