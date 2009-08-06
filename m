@@ -1,71 +1,124 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Thu, 06 Aug 2009 08:02:22 -0700
-Message-ID: <m1zladhtoh.fsf@fess.ebiederm.org>
-References: <20090803161242.12947.14620.stgit@flek.lan>
-	<m1ljlyvn9a.fsf@fess.ebiederm.org>
-	<200908051738.43134.paul.moore@hp.com>
-	<20090806101044.GA26589@gondor.apana.org.au>
-	<m1hbwlkzt6.fsf@fess.ebiederm.org>
-	<20090806133746.GA28557@gondor.apana.org.au>
-	<m1ljlxj9vi.fsf@fess.ebiederm.org>
-	<20090806143959.GA29323@gondor.apana.org.au>
+From: "Gregory Haskins" <ghaskins@novell.com>
+Subject: Re: [PATCH 1/7] shm-signal: shared-memory signals
+Date: Thu, 06 Aug 2009 09:11:15 -0600
+Message-ID: <4A7ABA530200005A00051C18@sinclair.provo.novell.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>
+ <20090803171735.17268.37490.stgit@dev.haskins.net>
+ <200908061556.55390.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <paulmck@linux.vnet.ibm.com>,
+	<alacrityvm-devel@lists.sourceforge.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Arnd Bergmann" <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:37239 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755581AbZHFPCZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 11:02:25 -0400
-In-Reply-To: <20090806143959.GA29323@gondor.apana.org.au> (Herbert Xu's message of "Fri\, 7 Aug 2009 00\:39\:59 +1000")
+In-Reply-To: <200908061556.55390.arnd@arndb.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> writes:
+Hi Arnd,
 
-> On Thu, Aug 06, 2009 at 07:27:13AM -0700, Eric W. Biederman wrote:
->>
->> Summarizing:
->> 
->> tun = __tun_get(tfile);
->> if (!tun) { // No tun we are not attached.
->> 	 < -------------------- race opportunity
->> 	rtnl_lock();
->>         tun_set_iff();
->>         rtnl_unlock();
->> }
->> ...
->> 
->> We don't test if we are attached under the rtnl
->> until we get to tun_attach();
->> 
->> So two threads can both do:
->> 
->> tun = __tun_get(tfile);
->> if (!tun) {
->> 	rtnl_lock();
->>         tun_set_iff();
->>             dev = __dev_get_by_name(net, "not_an_interface_name");
->>             if (!dev) {
->>                dev = alloc_netdev(....);
->>                ...;
->>                register_netdev(dev);
->>                ...;
->>                err = tun_attach(..);
->>             }
->> 
->> 
->> Only one thread is in tun_set_iff() at a time, but the other thread
->> could have attached the file to a device before the one in tun_attach().
->
-> Right, I see what you mean.  However I don't think this is possible
-> because the ioctl runs under the big kernel lock.
+>>> On 8/6/2009 at  9:56 AM, in message <200908061556.55390.arnd@arndb.de>, Arnd
+Bergmann <arnd@arndb.de> wrote: 
+> On Monday 03 August 2009, Gregory Haskins wrote:
+>> shm-signal provides a generic shared-memory based bidirectional
+>> signaling mechanism.  It is used in conjunction with an existing
+>> signal transport (such as posix-signals, interrupts, pipes, etc) to
+>> increase the efficiency of the transport since the state information
+>> is directly accessible to both sides of the link.  The shared-memory
+>> design provides very cheap access to features such as event-masking
+>> and spurious delivery mititgation, and is useful implementing higher
+>> level shared-memory constructs such as rings.
+> 
+> Looks like a very useful feature in general.
 
-Why not?  We can sleep on that code path.
-Although now that you mention it we should use unlocked_ioctl unless
-we actually need the BKL.
+Thanks, I was hoping that would be the case.
 
-Eric
+> 
+>> +struct shm_signal_irq {
+>> +       __u8                  enabled;
+>> +       __u8                  pending;
+>> +       __u8                  dirty;
+>> +};
+> 
+> Won't this layout cause cache line ping pong? Other schemes I have
+> seen try to separate the bits so that each cache line is written to
+> by only one side.
+
+It could possibly use some optimization in that regard.  I generally consider myself an expert at concurrent programming, but this lockless stuff is, um, hard ;)  I was going for correctness first.
+
+Long story short, any suggestions on ways to split this up are welcome (particularly now, before the ABI is sealed ;)
+
+> This gets much more interesting if the two sides
+> are on remote ends of an I/O link, e.g. using a nontransparent
+> PCI bridge, where you only want to send stores over the wire, but
+> never fetches or even read-modify-write cycles.
+
+/me head explodes ;)
+
+> 
+> Your code is probably optimal if you only communicate between host
+> and guest code on the same CPU, but not so good if it crosses NUMA
+> nodes or worse.
+
+Yeah, I wont lie and say it wasn't designed primarily for the former case in mind (since it was my particular itch).  I would certainly appreciate any insight on ways to make it more generally applicable for things like the transparent bridge model, and/or NUMA, though.
+
+> 
+>> +struct shm_signal_desc {
+>> +       __u32                 magic;
+>> +       __u32                 ver;
+>> +       struct shm_signal_irq irq[2];
+>> +};
+> 
+> This data structure has implicit padding of two bytes at the end.
+> How about adding another '__u16 reserved' to make it explicit?
+
+Good idea.  Will fix.
+
+> 
+>> +	/*
+>> +	 * We always mark the remote side as dirty regardless of whether
+>> +	 * they need to be notified.
+>> +	 */
+>> +	irq->dirty = 1;
+>> +	wmb();   /* dirty must be visible before we test the pending state */
+>> +
+>> +	if (irq->enabled && !irq->pending) {
+>> +		rmb();
+>> +
+>> +		/*
+>> +		 * If the remote side has enabled notifications, and we do
+>> +		 * not see a notification pending, we must inject a new one.
+>> +		 */
+>> +		irq->pending = 1;
+>> +		wmb(); /* make it visible before we do the injection */
+>> +
+>> +		s->ops->inject(s);
+>> +	}
+> 
+> Barriers always confuse me, but the rmb() looks slightly wrong. AFAIU
+> it only prevents reads after the barrier from being done before the
+> barrier, but you don't do any reads after it.
+
+Its probably overzealous barrier'ing on my part.  I had a conversation with Paul McKenney (CC'd) where I was wondering if a conditional was an implicit barrier.  His response was something to the effect of "on most arches, yes, but not all".  And we concluded that, to be conservative, there should be a rmb() after the if().
+
+That said, tbh I am not sure if its actually needed.  Paul?
+
+> 
+> The (irq->enabled && !irq->pending) check could be done before the
+> irq->dirty = 1 arrives at the bus, but that does not seem to hurt, it
+> would at most cause a duplicate ->inject().
+> 
+> Regarding the scope of the barrier, did you intentionally use the
+> global versions (rmb()/wmb()) and not the lighter single-system
+> (smp_rmb()/smp_wmb()) versions? Your version should cope with remote
+> links over PCI but looks otherwise optimized for local use, as I
+> wrote above.
+
+Yes, it was intentional.  Both for the remote case, as you point out.  Also for the case where local might be mismatched (for instance, a guest compiled as UP).
+
+Thanks Arnd,
+-Greg
+
