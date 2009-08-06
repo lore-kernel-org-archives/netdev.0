@@ -1,41 +1,46 @@
-From: "Gregory Haskins" <ghaskins@novell.com>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
-Date: Thu, 06 Aug 2009 08:07:13 -0600
-Message-ID: <4A7AAB510200005A00051BF3@sinclair.provo.novell.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net>
- <20090806081955.GA9752@redhat.com>
- <4A7A8F7B0200005A00051B84@sinclair.provo.novell.com>
- <4A7AD29E.50800@redhat.com>
- <4A7A9C6B0200005A00051BB9@sinclair.provo.novell.com>
- <4A7ADE23.5010208@redhat.com>
- <4A7AA63A0200005A00051BE2@sinclair.provo.novell.com>
- <20090806135903.GA11530@redhat.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Low latency diagnostic tools
+Date: Thu, 6 Aug 2009 10:19:53 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908061017001.5507@gentwo.org>
+References: <alpine.DEB.1.10.0908051706050.30180@gentwo.org> <20090806094736.591b7086.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <alacrityvm-devel@lists.sourceforge.net>,
-	"Avi Kivity" <avi@redhat.com>, <kvm@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <20090806135903.GA11530@redhat.com>
-Content-Disposition: inline
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:54094 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752183AbZHFOUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 10:20:10 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 59C8382CEA8
+	for <netdev@vger.kernel.org>; Thu,  6 Aug 2009 10:41:32 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id MezquXZcGixq for <netdev@vger.kernel.org>;
+	Thu,  6 Aug 2009 10:41:28 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id CDA1C82CEA7
+	for <netdev@vger.kernel.org>; Thu,  6 Aug 2009 10:41:25 -0400 (EDT)
+In-Reply-To: <20090806094736.591b7086.lk-netdev@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 8/6/2009 at  9:59 AM, in message <20090806135903.GA11530@redhat.com>,
-"Michael S. Tsirkin" <mst@redhat.com> wrote: 
-> On Thu, Aug 06, 2009 at 07:45:30AM -0600, Gregory Haskins wrote:
->> > (though still rooting for virtio).
->> 
->> Heh...not to belabor the point to death, but virtio is orthogonal (you keep 
-> forgetting that ;).
-> 
-> venet and virtio aren't orthogonal, are they?
+On Thu, 6 Aug 2009, Mark Smith wrote:
 
-See my last reply to Avi.
+> This implementation of One Way Active Measurement Protocol might be of
+> interest:
+>
+> http://www.internet2.edu/performance/owamp/
 
-Regards,
--Greg
+It needs an accurate timesource. So it wont be of general use unless
+everyone adopts ptp or so. Latencies today are way below 100 microseconds
+which is not doable with the accuracy provided by ntp.
 
+> Some of the performance tuning parts of the README below would also be
+> useful in the Net area of the Linux Foundation wiki. Possibly the
+> "Testing" section could be changed to "Testing and Measurement"
+>
+> http://www.linuxfoundation.org/en/Net:Main_Page
 
+Ok. I will look at that.
