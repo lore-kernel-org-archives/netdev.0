@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2009-08-06
-Date: Thu, 06 Aug 2009 13:02:45 -0700 (PDT)
-Message-ID: <20090806.130245.89416741.davem@davemloft.net>
-References: <20090806190200.GJ26809@tuxdriver.com>
+Subject: Re: [PATCH] netrom: Fix nr_getname() leak
+Date: Thu, 06 Aug 2009 13:09:21 -0700 (PDT)
+Message-ID: <20090806.130921.153274220.davem@davemloft.net>
+References: <4A7ADB1B.2040401@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50410
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56549
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756210AbZHFUCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 16:02:36 -0400
-In-Reply-To: <20090806190200.GJ26809@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1755950AbZHFUJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 16:09:12 -0400
+In-Reply-To: <4A7ADB1B.2040401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 6 Aug 2009 15:02:00 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Aug 2009 15:31:07 +0200
 
-> Here is another big round of updates intended for 2.6.32...mostly the usual
-> suspects, although it looks like Luis has been exceptionally busy with
-> both ath9k and regulatory enforcement bits.  Jussi has a number of
-> rndis_wlan changes, and of course Johannes has a number of patches as
-> well.
+> nr_getname() can leak kernel memory to user.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Pulled, thanks John.
-
-Will push out to kernel.org after build tests.
+Applied to net-2.6
