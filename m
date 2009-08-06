@@ -1,41 +1,39 @@
-From: Hannes Hering <hannes.hering@gmx.de>
-Subject: Re: system hangs while executing 'rmmod ehea'
-Date: Thu, 6 Aug 2009 10:33:57 +0200
-Message-ID: <200908061033.57696.hannes.hering@gmx.de>
-References: <4A699E70.2090900@linux.vnet.ibm.com>
+From: Sergey Popov <popov_sergey@ukr.net>
+Subject: some bug in iproute2
+Date: Thu, 6 Aug 2009 11:50:35 +0300
+Message-ID: <20090806115035.42a22dfc@azure>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, HERING2@de.ibm.com, THEMANN@de.ibm.com,
-	TKLEIN@de.ibm.com
-To: Pavan Naregundi <pavan@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.uk.ibm.com ([195.212.29.141]:56514 "EHLO
-	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754542AbZHFIep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 04:34:45 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate8.uk.ibm.com (8.14.3/8.13.8) with ESMTP id n768XwBZ739936
-	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 08:33:59 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n768XwBw962714
-	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 09:33:58 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n768Xwqx015432
-	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 09:33:58 +0100
-In-Reply-To: <4A699E70.2090900@linux.vnet.ibm.com>
-Content-Disposition: inline
+Received: from plaza.ukrnafta.kharkov.ua ([193.189.96.114]:39449 "EHLO
+	plaza.ukrnafta.kharkov.ua" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbZHFI54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 04:57:56 -0400
+Received: from azure (208-65-112-92.pool.ukrtel.net [92.112.65.208])
+	(Authenticated sender: azure@azure.org.ua)
+	by plaza.ukrnafta.kharkov.ua (Postfix) with ESMTPA id C2F9022005A
+	for <netdev@vger.kernel.org>; Thu,  6 Aug 2009 11:50:38 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+# tc f add dev eth0 parent 1: proto ip prio 2 u32 match u32 0 0 action ipt -j MARK --set-mark 1
+/usr/lib64/iptables/libipt_mark.so: cannot open shared object file: No such file or directory
+failed to find target MARK
 
-this problem has been fixed by a patch I sent out on tuesday:
-http://lkml.org/lkml/2009/8/4/174
+bad action parsing
+parse_action: bad value (5:ipt)!
+Illegal "action"
 
-Thanks for pointing out this.
 
-Regards
+But mark target is compiled in kernel (not a module)
 
-Hannes
+# iptables -t mangle -A PREROUTING -i eth1 -j MARK --set-mark 1
+# iptables -t mangle -L PREROUTING
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination         
+MARK       all  --  anywhere             anywhere            MARK xset
+0x1/0xffffffff 
+
+This shouldn't be.
