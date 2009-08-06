@@ -1,73 +1,56 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [PATCH 1/7] shm-signal: shared-memory signals
-Date: Thu, 6 Aug 2009 13:51:09 -0700
-Message-ID: <20090806205109.GA1330@ovro.caltech.edu>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090803171735.17268.37490.stgit@dev.haskins.net> <200908061556.55390.arnd@arndb.de> <4A7ABA530200005A00051C18@sinclair.provo.novell.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL 0/2] IEEE 802.15.4 last-minute
+	fixes v3
+Date: Fri, 7 Aug 2009 00:57:05 +0400
+Message-ID: <20090806205705.GA6335@doriath.ww600.siemens.net>
+References: <1249561586-26927-1-git-send-email-dbaryshkov@gmail.com>
+	<20090806.132327.210162548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, paulmck@linux.vnet.ibm.com,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756720AbZHFUvN@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <4A7ABA530200005A00051C18@sinclair.provo.novell.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20090806.132327.210162548.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 06, 2009 at 09:11:15AM -0600, Gregory Haskins wrote:
-> Hi Arnd,
+On Thu, Aug 06, 2009 at 01:23:27PM -0700, David Miller wrote:
+> From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Thu,  6 Aug 2009 16:26:24 +0400
 > 
-> >>> On 8/6/2009 at  9:56 AM, in message <200908061556.55390.arnd@arndb.de>, Arnd
-> Bergmann <arnd@arndb.de> wrote: 
-> > On Monday 03 August 2009, Gregory Haskins wrote:
-> >> shm-signal provides a generic shared-memory based bidirectional
-> >> signaling mechanism.  It is used in conjunction with an existing
-> >> signal transport (such as posix-signals, interrupts, pipes, etc) to
-> >> increase the efficiency of the transport since the state information
-> >> is directly accessible to both sides of the link.  The shared-memory
-> >> design provides very cheap access to features such as event-masking
-> >> and spurious delivery mititgation, and is useful implementing higher
-> >> level shared-memory constructs such as rings.
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
 > > 
-> > Looks like a very useful feature in general.
+> > Dmitry Eremin-Solenikov (2):
+> >       af_ieee802154: fix ioctl processing
+> >       af_ieee802154: provide dummy get/setsockopt
 > 
-> Thanks, I was hoping that would be the case.
+> Pulled, thanks.
 > 
-> > 
-> >> +struct shm_signal_irq {
-> >> +       __u8                  enabled;
-> >> +       __u8                  pending;
-> >> +       __u8                  dirty;
-> >> +};
-> > 
-> > Won't this layout cause cache line ping pong? Other schemes I have
-> > seen try to separate the bits so that each cache line is written to
-> > by only one side.
+> I'm currently waiting for Linus to pull in a locking fix from
+> Ingo Molnar from my tree, and I don't want things to "magically"
+> appear in a tree I've already asked him to pull from.
 > 
-> It could possibly use some optimization in that regard.  I generally consider myself an expert at concurrent programming, but this lockless stuff is, um, hard ;)  I was going for correctness first.
-> 
-> Long story short, any suggestions on ways to split this up are welcome (particularly now, before the ABI is sealed ;)
-> 
-> > This gets much more interesting if the two sides
-> > are on remote ends of an I/O link, e.g. using a nontransparent
-> > PCI bridge, where you only want to send stores over the wire, but
-> > never fetches or even read-modify-write cycles.
-> 
-> /me head explodes ;)
-> 
+> So I'll push these changes back out once he's taken that fix from
+> Ingo.
 
-I've actually implemented this idea for virtio. Read the virtio-over-PCI
-patches I posted, and you'll see that the entire virtqueue
-implementation NEVER uses reads across the PCI bus, only writes. The
-slowpath configuration space uses reads, but the virtqueues themselves
-are write-only.
+Fine with me, thank you! Sorry for all the problems with this request :)
 
-Some trivial benchmarking against an earlier driver that did
-writes+reads across the PCI bus showed that the write-only driver was
-about 2x as fast. (Throughput increased from ~30MB/sec to ~65MB/sec).
+-- 
+With best wishes
+Dmitry
 
-I'm sure the write-only design was not the only change responsible for
-the speedup, but it was definitely a contributing factor.
 
-Ira
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
