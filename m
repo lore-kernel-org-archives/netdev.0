@@ -1,34 +1,45 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: Add a mutex around ethtools operations
-Date: Wed, 5 Aug 2009 17:41:58 -0700
-Message-ID: <20090805174158.383dcc03@nehalam>
-References: <4A7A0BAA.7020104@ring3k.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
+Date: Wed, 5 Aug 2009 21:15:58 -0500
+Message-ID: <20090806021558.GA17998@us.ibm.com>
+References: <20090804211304.10798.65601.stgit@flek.lan> <20090804212158.10798.34592.stgit@flek.lan> <20090805141350.GA353@us.ibm.com> <200908051758.39051.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rene Mayrhofer <rene@mayrhofer.eu.org>,
-	Richard Leitner <leitner@esys.at>
-To: Mike McCormack <mikem@ring3k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55280 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752724AbZHFAnZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 20:43:25 -0400
-In-Reply-To: <4A7A0BAA.7020104@ring3k.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eparis@redhat.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200908051758.39051.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 06 Aug 2009 07:46:02 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
-
-> As multiple sky2 devices share some of the same hardware, and ethtool
-> operations are per device, access to transmit timers, eeprom access,
->  coalesce, etc. should be serialized.
+Quoting Paul Moore (paul.moore@hp.com):
+> On Wednesday 05 August 2009 10:13:50 am Serge E. Hallyn wrote:
+> > Quoting Paul Moore (paul.moore@hp.com):
 > 
-> Only tested on a single port card, as my sky2 doesn't have dual ports.
+> [NOTE: my email has been out all day due to some mysterious FS issue so my 
+> apologies for not replying sooner]
 > 
-> Signed-off-by: Mike McCormack <mikem@ring3k.org>
+> ...
+> 
+> > The checks before and after this patch are not equivalent.  Post-patch,
+> > one must always have CAP_NET_ADMIN to do the attach, whereas pre-patch
+> > you only needed those if current_cred() did not own the tun device.  Is
+> > that intentional?
+> 
+> Nope, just a goof on my part; I misread the booleans and haven't fully tested 
+> the patch yet so it slipped out, thanks for catching it.  This brings up a 
+> good point, would we rather move the TUN owner/group checks into the cap_tun_* 
+> functions or move the capable() call back into the TUN driver?  The answer 
+> wasn't clear to me when I was looking at the code before and the uniqueness of 
+> the TUN driver doesn't help much in this regard.
 
-NAK.
-The ethtool operations are already serialized by rtnl mutex at
-higher level.  See net/core/dev.c 
+I see the question being asked as:  Does this device belong to
+the caller and, if not, is the caller privileged to act
+anyway?'  So I think the capable call should be moved back
+into the tun driver, followed by a separate security_tun_dev_attach()
+check, since that is a separate, restrictive question.
+
+thanks,
+-serge
