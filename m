@@ -1,94 +1,101 @@
-From: John Paul Foster <jaypee@jaypee.org.uk>
-Subject: mii ioctls and copy_to_user
-Date: Thu, 06 Aug 2009 08:42:19 +0100
-Message-ID: <1249544539.14839.199.camel@jp-pc>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
+Date: Thu, 6 Aug 2009 11:19:56 +0300
+Message-ID: <20090806081955.GA9752@redhat.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-fRLc9lZU0dbiXL768hN0"
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:49424 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbZHFHmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 03:42:22 -0400
-Received: by ewy10 with SMTP id 10so573346ewy.37
-        for <netdev@vger.kernel.org>; Thu, 06 Aug 2009 00:42:22 -0700 (PDT)
+Received: from mx2.redhat.com ([66.187.237.31]:56750 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754302AbZHFIVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Aug 2009 04:21:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20090803171030.17268.26962.stgit@dev.haskins.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Aug 03, 2009 at 01:17:30PM -0400, Gregory Haskins wrote:
+> (Applies to v2.6.31-rc5, proposed for linux-next after review is complete)
 
---=-fRLc9lZU0dbiXL768hN0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+These are guest drivers, right? Merging the guest first means relying on
+kernel interface from an out of tree driver, which well might change
+before it goes in.  Would it make more sense to start merging with the
+host side of the project?
 
-Hello all,
+> This series implements the guest-side drivers for accelerated IO
+> when running on top of the AlacrityVM hypervisor, the details of
+> which you can find here:
+> 
+> http://developer.novell.com/wiki/index.php/AlacrityVM
 
-I've written a program that uses SIOCGMIIREG to query
-various mii interfaces on my board. We have a switch chip
-with multiple PHYs MACs and switch fabrics on the mii bus.
+Since AlacrityVM is kvm based, Cc kvm@vger.kernel.org.
 
-I'm using kernel 2.6.23
+> This series includes the basic plumbing, as well as the driver for
+> accelerated 802.x (ethernet) networking.
 
-I set the ifru_data up like this in user space
+The graphs comparing virtio with vbus look interesting.
+However, they do not compare apples to apples, do they?
+These compare userspace virtio with kernel vbus, where for
+apples to apples comparison one would need to compare
+kernel virtio with kernel vbus. Right?
 
-#include <linux/mii.h> // The user side if.h
-struct mii_ioctl_data mii;
-mii.phy_addr=3Dmyphy;
-mii.reg_num=3Dmyreg;
-ifr.ifr_data=3D(__caddr_t)&mii;
 
-as according to my libc (uclibc) <net/if.h> that is what ifr_data is a
-pointer not a structure.
-
-This doesn't work. I get garbage in the ifr_data used by the network
-driver. (kernel space)
-
-If I add a copy_from/to_user around the call to generic_mii_ioctl(),
-then it works. My driver isn't in the main kernel it is the stmmac
-driver at stlinux.org but the ioctl function is the same as many in main
-tree, pcnet32_ioctl() for example.
-
-mii-tool works without me patching the driver.
-
-mii-tool sets the ioctl up like this.
-
-#include "mii.h" // it's own mmi structure
-struct mii_data *mii =3D (struct mii_data *)&ifr.ifr_data;
-mii->reg_num =3D location;
-
-in mii-tool ifr_data is a pointer not allocated storage so you shouldn't
-do that. However ifr_data is part of a union and the biggest thing in it
-is bigger than struct mii_data, so we are not going to crap on our
-stack/heap. Not safe though if the structure of mii_data grows, or the
-union changes size.
-
-looking at <linux/if.h> (the kernel side if.h)
-ifru_data is a=20
-void __user *ifru_data;
-
-i.e. it needs copy_to/from_user.
-
-Are the drivers AND mii-tool wrong? I'm feeling like either I've
-uncovered a long standing bug (in both mii ioctls and mmi-tool) or I'm
-missing something.
-
-Apologies for the verbose message but I'm trying to tell it
-as thoroughly as I can.
-
-Cross posted on the linux-net list but it looks a pretty dead list.
-
-JP
-
---=-fRLc9lZU0dbiXL768hN0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkp6iVsACgkQnb3tnJfc2VB7DQCcD2g12o6vqQ2Lm410D9JnubeL
-ZxQAniVxpjX0PZLY4QxLZUzsuhFTXDRK
-=WxOn
------END PGP SIGNATURE-----
-
---=-fRLc9lZU0dbiXL768hN0--
-
+> Regards,
+> -Greg
+> 
+> ---
+> 
+> Gregory Haskins (7):
+>       venet: add scatter-gather/GSO support
+>       net: Add vbus_enet driver
+>       ioq: add driver-side vbus helpers
+>       vbus-proxy: add a pci-to-vbus bridge
+>       vbus: add a "vbus-proxy" bus model for vbus_driver objects
+>       ioq: Add basic definitions for a shared-memory, lockless queue
+>       shm-signal: shared-memory signals
+> 
+> 
+>  arch/x86/Kconfig            |    2 
+>  drivers/Makefile            |    1 
+>  drivers/net/Kconfig         |   14 +
+>  drivers/net/Makefile        |    1 
+>  drivers/net/vbus-enet.c     |  899 +++++++++++++++++++++++++++++++++++++++++++
+>  drivers/vbus/Kconfig        |   24 +
+>  drivers/vbus/Makefile       |    6 
+>  drivers/vbus/bus-proxy.c    |  216 ++++++++++
+>  drivers/vbus/pci-bridge.c   |  824 +++++++++++++++++++++++++++++++++++++++
+>  include/linux/Kbuild        |    4 
+>  include/linux/ioq.h         |  415 ++++++++++++++++++++
+>  include/linux/shm_signal.h  |  189 +++++++++
+>  include/linux/vbus_driver.h |   80 ++++
+>  include/linux/vbus_pci.h    |  127 ++++++
+>  include/linux/venet.h       |   84 ++++
+>  lib/Kconfig                 |   21 +
+>  lib/Makefile                |    2 
+>  lib/ioq.c                   |  294 ++++++++++++++
+>  lib/shm_signal.c            |  192 +++++++++
+>  19 files changed, 3395 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/vbus-enet.c
+>  create mode 100644 drivers/vbus/Kconfig
+>  create mode 100644 drivers/vbus/Makefile
+>  create mode 100644 drivers/vbus/bus-proxy.c
+>  create mode 100644 drivers/vbus/pci-bridge.c
+>  create mode 100644 include/linux/ioq.h
+>  create mode 100644 include/linux/shm_signal.h
+>  create mode 100644 include/linux/vbus_driver.h
+>  create mode 100644 include/linux/vbus_pci.h
+>  create mode 100644 include/linux/venet.h
+>  create mode 100644 lib/ioq.c
+>  create mode 100644 lib/shm_signal.c
+> 
+> -- 
+> Signature
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
