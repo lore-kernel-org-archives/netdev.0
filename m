@@ -1,112 +1,41 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] net: Fix spinlock use in alloc_netdev_mq()
-Date: Thu, 6 Aug 2009 10:31:02 +0200
-Message-ID: <20090806083102.GA3737@psychotron.englab.brq.redhat.com>
-References: <20090804.125742.32009006.davem@davemloft.net> <20090805070205.GA8741@elte.hu> <20090805071411.GA9217@elte.hu> <20090805071658.GA14073@elte.hu> <20090805084746.GA3897@psychotron.englab.brq.redhat.com> <20090805101327.2c49cc62.akpm@linux-foundation.org>
+From: Hannes Hering <hannes.hering@gmx.de>
+Subject: Re: system hangs while executing 'rmmod ehea'
+Date: Thu, 6 Aug 2009 10:33:57 +0200
+Message-ID: <200908061033.57696.hannes.hering@gmx.de>
+References: <4A699E70.2090900@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754450AbZHFIbh@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, HERING2@de.ibm.com, THEMANN@de.ibm.com,
+	TKLEIN@de.ibm.com
+To: Pavan Naregundi <pavan@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:56514 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754542AbZHFIep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 04:34:45 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate8.uk.ibm.com (8.14.3/8.13.8) with ESMTP id n768XwBZ739936
+	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 08:33:59 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n768XwBw962714
+	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 09:33:58 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n768Xwqx015432
+	for <netdev@vger.kernel.org>; Thu, 6 Aug 2009 09:33:58 +0100
+In-Reply-To: <4A699E70.2090900@linux.vnet.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20090805101327.2c49cc62.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 05, 2009 at 07:13:27PM CEST, akpm@linux-foundation.org wrote:
->On Wed, 5 Aug 2009 10:47:47 +0200 Jiri Pirko <jpirko@redhat.com> wrote:
->
->> >it's using an zero-initialized spinlock. This is a side-effect of:
->> >
->> >        dev_unicast_init(dev);
->> >
->> >in alloc_netdev_mq() making use of dev->addr_list_lock.
->> >
->> >The device has just been allocated freshly, it's not accessible
->> >anywhere yet so no locking is needed at all - in fact it's wrong
->> >to lock it here (the lock isnt initialized yet).
->> 
->> Yes this looks like the right approach. Sorry for this bug :(
->
->Really?
->
->> >--- a/net/core/dev.c
->> >+++ b/net/core/dev.c
->> >@@ -4007,9 +4007,7 @@ static void dev_unicast_flush(struct net_device *dev)
->> > 
->> > static void dev_unicast_init(struct net_device *dev)
->> > {
->> >-	netif_addr_lock_bh(dev);
->> > 	__hw_addr_init(&dev->uc);
->> >-	netif_addr_unlock_bh(dev);
->> > }
->
->This means that the net_device is still floating around for quite a
->long time with an uninitialised spinlock, so it will be quite easy for
->the same problem to reoccur as the code evolves.
->
->It would be more robust were we to initialise that lock close to the
->netdev's allocation site.
+Hello,
 
-Hmm, I see your point here. Eric previously posted patch which moved spin lock
-init into alloc_netdev_mq(). But he was worried about having it here and
-netdev_set_addr_lockdep_class() in register_netdevice() (because before
-dev_unicast_init() dev->type is not set). So how about the following patch?
+this problem has been fixed by a patch I sent out on tuesday:
+http://lkml.org/lkml/2009/8/4/174
 
-[PATCH net-2.6] net: move address lists spinlock closer to alloc and do unicast_init locking
+Thanks for pointing out this.
 
-Move spin_lock_init(), netdev_set_addr_lockdep_class() and dev_unicast_init()
-right after setup is called from alloc_netdev_mq(). In that moment dev->type is
-initialized. List is not needed to be initialized earlier. Also restore
-previously removed locking in dev_unicast_init().
+Regards
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6a94475..916a6d0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4007,7 +4007,9 @@ static void dev_unicast_flush(struct net_device *dev)
- 
- static void dev_unicast_init(struct net_device *dev)
- {
-+	netif_addr_lock_bh(dev);
- 	__hw_addr_init(&dev->uc);
-+	netif_addr_unlock_bh(dev);
- }
- 
- 
-@@ -4726,8 +4728,6 @@ int register_netdevice(struct net_device *dev)
- 	BUG_ON(dev->reg_state != NETREG_UNINITIALIZED);
- 	BUG_ON(!net);
- 
--	spin_lock_init(&dev->addr_list_lock);
--	netdev_set_addr_lockdep_class(dev);
- 	netdev_init_queue_locks(dev);
- 
- 	dev->iflink = -1;
-@@ -5107,8 +5107,6 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	if (dev_addr_init(dev))
- 		goto free_tx;
- 
--	dev_unicast_init(dev);
--
- 	dev_net_set(dev, &init_net);
- 
- 	dev->_tx = tx;
-@@ -5123,6 +5121,11 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	dev->priv_flags = IFF_XMIT_DST_RELEASE;
- 	setup(dev);
- 	strcpy(dev->name, name);
-+
-+	spin_lock_init(&dev->addr_list_lock);
-+	netdev_set_addr_lockdep_class(dev);
-+	dev_unicast_init(dev);
-+
- 	return dev;
- 
- free_tx:
->
+Hannes
