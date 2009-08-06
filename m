@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add IDs for 3C905B-TX Fast Etherlink XL PCI
-Date: Wed, 05 Aug 2009 20:24:32 -0700 (PDT)
-Message-ID: <20090805.202432.19234688.davem@davemloft.net>
-References: <1249481499-9560-1-git-send-email-pterjan@mandriva.com>
-	<20090805144100.GA9346@skl-net.de>
+Subject: Re: [PATCH net-next-2.6] cxgb3: fix 2 ports 1G regression
+Date: Wed, 05 Aug 2009 20:28:39 -0700 (PDT)
+Message-ID: <20090805.202839.79597369.davem@davemloft.net>
+References: <20090805215923.21467.99484.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pterjan@mandriva.com, netdev@vger.kernel.org
-To: klassert@mathematik.tu-chemnitz.de
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60290
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57283
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751162AbZHFDYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 23:24:23 -0400
-In-Reply-To: <20090805144100.GA9346@skl-net.de>
+	by vger.kernel.org with ESMTP id S1751162AbZHFD2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 23:28:30 -0400
+In-Reply-To: <20090805215923.21467.99484.stgit@speedy5>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Date: Wed, 5 Aug 2009 16:41:00 +0200
+From: Divy Le Ray <divy@chelsio.com>
+Date: Wed, 05 Aug 2009 14:59:23 -0700
 
-> On Wed, Aug 05, 2009 at 04:11:39PM +0200, Pascal Terjan wrote:
->> We found this old card which was not supported, and physically
->> looks similar to the other 3C905B we have (9055).
->> 
->> After adding the IDs it seems to work fine (MII report, dhcp, scp, ...)
+> commit 88045b3cf0f8981129cb489c7b6bc36c21dd33a7
+> 	cxgb3: fix mac index mapping
 > 
-> The patch looks sane.
-> Btw. you should add a Signed-off-by line to your patches.
+> 	Override the mac index computation for the gen2 adapter,
+> 	as each port is expected to use index 0.
 > 
-> Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+> introduces a regression on 2 port 1G adapter
+> as its xauicfg vpd value is null.
+> Add a check on the device id.
+> 
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-Applied, and yes please provide a proper Signed-off-by tag
-in your commit message next time.
+Applied, thanks.
