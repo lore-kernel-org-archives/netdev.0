@@ -1,74 +1,80 @@
 From: Paul Moore <paul.moore@hp.com>
 Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Thu, 6 Aug 2009 14:09:19 -0400
-Message-ID: <200908061409.19924.paul.moore@hp.com>
-References: <20090803161242.12947.14620.stgit@flek.lan> <20090806143959.GA29323@gondor.apana.org.au> <m1zladhtoh.fsf@fess.ebiederm.org>
+Date: Thu, 6 Aug 2009 14:20:20 -0400
+Message-ID: <200908061420.20983.paul.moore@hp.com>
+References: <20090803161242.12947.14620.stgit@flek.lan> <200908051738.43134.paul.moore@hp.com> <m1ws5hua4h.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:15123 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750802AbZHFSJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 14:09:21 -0400
-In-Reply-To: <m1zladhtoh.fsf@fess.ebiederm.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:48849 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbZHFSU1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 14:20:27 -0400
+In-Reply-To: <m1ws5hua4h.fsf@fess.ebiederm.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 06 August 2009 11:02:22 am Eric W. Biederman wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> writes:
-> > On Thu, Aug 06, 2009 at 07:27:13AM -0700, Eric W. Biederman wrote:
-> >> Summarizing:
+On Wednesday 05 August 2009 07:14:06 pm Eric W. Biederman wrote:
+> Paul Moore <paul.moore@hp.com> writes:
+> > On Wednesday 05 August 2009 01:32:49 am Eric W. Biederman wrote:
+> >> Paul Moore <paul.moore@hp.com> writes:
+> >> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >> > index 4a0db7a..b6d06fd 100644
+> >> > --- a/drivers/net/tun.c
+> >> > +++ b/drivers/net/tun.c
+> >> > @@ -976,10 +973,11 @@ static int tun_set_iff(struct net *net, struct
+> >> > file *file, struct ifreq *ifr) tun->flags = flags;
+> >> >  		tun->txflt.count = 0;
+> >> >
+> >> > -		err = -ENOMEM;
+> >> >  		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
+> >> > -		if (!sk)
+> >> > +		if (!sk) {
+> >> > +			err = -ENOMEM;
+> >> >  			goto err_free_dev;
+> >> > +		}
 > >>
-> >> tun = __tun_get(tfile);
-> >> if (!tun) { // No tun we are not attached.
-> >> 	 < -------------------- race opportunity
-> >> 	rtnl_lock();
-> >>         tun_set_iff();
-> >>         rtnl_unlock();
-> >> }
-> >> ...
-> >>
-> >> We don't test if we are attached under the rtnl
-> >> until we get to tun_attach();
-> >>
-> >> So two threads can both do:
-> >>
-> >> tun = __tun_get(tfile);
-> >> if (!tun) {
-> >> 	rtnl_lock();
-> >>         tun_set_iff();
-> >>             dev = __dev_get_by_name(net, "not_an_interface_name");
-> >>             if (!dev) {
-> >>                dev = alloc_netdev(....);
-> >>                ...;
-> >>                register_netdev(dev);
-> >>                ...;
-> >>                err = tun_attach(..);
-> >>             }
-> >>
-> >>
-> >> Only one thread is in tun_set_iff() at a time, but the other thread
-> >> could have attached the file to a device before the one in tun_attach().
+> >> Trivially correct but I would argue uglier.
 > >
-> > Right, I see what you mean.  However I don't think this is possible
-> > because the ioctl runs under the big kernel lock.
+> > My reasoning behind the change was that code related to the error
+> > handling should be moved outside the common path as much as possible
+> > similar to what we do now with the gotos.
 >
-> Why not?  We can sleep on that code path.
-> Although now that you mention it we should use unlocked_ioctl unless
-> we actually need the BKL.
+> I don't understand.  Generating less readable and less efficient code is
+> preferable?
 
-Dave, if you haven't already, it is probably a good idea to just forget about 
-this patch.  Prior to this discussion I suspected that the TUN driver could 
-use a closer look, after reading the comments from Eric and Herbert there 
-isn't much suspicion left.  I'll put this on my rainy day todo list to try and 
-tackle but I won't be upset if somebody beats me to it.
+While we can probably debate the "readability" of code all day long and get no 
+where (anyone care to argue about the color of the bikeshed?) the concept of 
+code efficiency should be a bit easier to quantify.  I'll admit that I'm far 
+from a performance expert but here is my reasoning ...
+
+The code currently looks something like this:
+
+	err = -ENOMEM;
+	buf = alloc(...);
+	if (!buf)
+		goto label;
+
+This means that in the common case where 'alloc()' completes without error we 
+are doing an extra, unnecessary assignment where we set the value in 'err'.  
+Now, if we change this slightly to match what I proposed in the patch:
+
+	buf = alloc(...);
+	if (!buf) {
+		err = -ENOMEM;
+		goto label;
+	}
+
+We eliminate that extra assignment in the case where 'alloc()' completes 
+without error, which should result in more efficient code (less instructions 
+in the common case).  Am I wrong?  If that is the case I would appreciate an 
+explanation ...
 
 -- 
 paul moore
