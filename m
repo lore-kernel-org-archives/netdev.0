@@ -1,43 +1,72 @@
 From: akpm@linux-foundation.org
-Subject: [patch for 2.6.31? 1/2] MAINTAINERS: update atlx contact info
-Date: Thu, 06 Aug 2009 15:19:31 -0700
-Message-ID: <200908062219.n76MJV8L024490@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	chris.snook@gmail.com, jcliburn@gmail.com, jie.yang@atheros.com
+Subject: [patch for 2.6.31? 2/2] gigaset: really fix chars_in_buffer
+Date: Thu, 06 Aug 2009 15:19:32 -0700
+Message-ID: <200908062219.n76MJXhY024495@imap1.linux-foundation.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, tilman@imap.cc
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38123 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40489 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754167AbZHFWUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 18:20:04 -0400
+	by vger.kernel.org with ESMTP id S1754340AbZHFWUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 18:20:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Snook <chris.snook@gmail.com>
+From: Tilman Schmidt <tilman@imap.cc>
 
-Update MAINTAINERS to reflect my current (non-)affiliation.  Anyone
-hiring?
+The tty_operation chars_in_buffer() is not allowed to return a negative
+value to signal an error.  Corrects the problem flagged by commit
+23198fda7182969b619613a555f8645fdc3dc334, "tty: fix chars_in_buffers".
 
-Signed-off-by: Chris Snook <chris.snook@gmail.com>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Jie Yang <jie.yang@atheros.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- MAINTAINERS |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/isdn/gigaset/interface.c |   19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
 
-diff -puN MAINTAINERS~maintainers-update-atlx-contact-info MAINTAINERS
---- a/MAINTAINERS~maintainers-update-atlx-contact-info
-+++ a/MAINTAINERS
-@@ -915,7 +915,7 @@ F:	drivers/input/misc/ati_remote2.c
+diff -puN drivers/isdn/gigaset/interface.c~gigaset-really-fix-chars_in_buffer drivers/isdn/gigaset/interface.c
+--- a/drivers/isdn/gigaset/interface.c~gigaset-really-fix-chars_in_buffer
++++ a/drivers/isdn/gigaset/interface.c
+@@ -408,33 +408,28 @@ static int if_write_room(struct tty_stru
+ 	return retval;
+ }
  
- ATLX ETHERNET DRIVERS
- M:	Jay Cliburn <jcliburn@gmail.com>
--M:	Chris Snook <csnook@redhat.com>
-+M:	Chris Snook <chris.snook@gmail.com>
- M:	Jie Yang <jie.yang@atheros.com>
- L:	atl1-devel@lists.sourceforge.net
- W:	http://sourceforge.net/projects/atl1
+-/* FIXME: This function does not have error returns */
+-
+ static int if_chars_in_buffer(struct tty_struct *tty)
+ {
+ 	struct cardstate *cs;
+-	int retval = -ENODEV;
++	int retval = 0;
+ 
+ 	cs = (struct cardstate *) tty->driver_data;
+ 	if (!cs) {
+ 		pr_err("%s: no cardstate\n", __func__);
+-		return -ENODEV;
++		return 0;
+ 	}
+ 
+ 	gig_dbg(DEBUG_IF, "%u: %s()", cs->minor_index, __func__);
+ 
+-	if (mutex_lock_interruptible(&cs->mutex))
+-		return -ERESTARTSYS; // FIXME -EINTR?
++	mutex_lock(&cs->mutex);
+ 
+-	if (!cs->connected) {
++	if (!cs->connected)
+ 		gig_dbg(DEBUG_IF, "not connected");
+-		retval = -ENODEV;
+-	} else if (!cs->open_count)
++	else if (!cs->open_count)
+ 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+-	else if (cs->mstate != MS_LOCKED) {
++	else if (cs->mstate != MS_LOCKED)
+ 		dev_warn(cs->dev, "can't write to unlocked device\n");
+-		retval = -EBUSY;
+-	} else
++	else
+ 		retval = cs->ops->chars_in_buffer(cs);
+ 
+ 	mutex_unlock(&cs->mutex);
 _
