@@ -1,229 +1,600 @@
-From: "Gregory Haskins" <ghaskins@novell.com>
-Subject: Re: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
-Date: Thu, 06 Aug 2009 15:04:09 -0600
-Message-ID: <4A7B0D090200005A00051D2E@sinclair.provo.novell.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net>
- <200908061642.40614.arnd@arndb.de>
- <4A7AC5BC0200005A00051C2A@sinclair.provo.novell.com>
- <200908061903.05083.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <alacrityvm-devel@lists.sourceforge.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Arnd Bergmann" <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-In-Reply-To: <200908061903.05083.arnd@arndb.de>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] macvlan: add tap device backend
+Date: Thu,  6 Aug 2009 21:50:28 +0000
+Message-ID: <1249595428-21594-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller\"" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Edge Virtual Bridging <evb@yahoogroups.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754276AbZHFVxG@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> On 8/6/2009 at  1:03 PM, in message <200908061903.05083.arnd@arndb.de>, Arnd
-Bergmann <arnd@arndb.de> wrote: 
-> On Thursday 06 August 2009, you wrote:
->> >>> On 8/6/2009 at 10:42 AM, in message <200908061642.40614.arnd@arndb.de>, Arnd
->> Bergmann <arnd@arndb.de> wrote: 
->> > On Monday 03 August 2009, Gregory Haskins wrote:
->> >> This patch adds a pci-based driver to interface between the a host VBUS
->> >> and the guest's vbus-proxy bus model.
->> >> 
->> >> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
->> > 
->> > This seems to be duplicating parts of virtio-pci that could be kept
->> > common by extending the virtio code. Layering on top of virtio
->> > would also make it possible to use the same features you add
->> > on top of other transports (e.g. the s390 virtio code) without
->> > adding yet another backend for each of them.
->> 
->> This doesn't make sense to me, but I suspect we are both looking at what 
-> this
->> code does differently.  I am under the impression that you may believe that
->> there is one of these objects per vbus device.  Note that this is just a 
-> bridge
->> to vbus, so there is only one of these per system with potentially many vbus
->> devices behind it.
-> 
-> Right, this did not become clear from the posting. For virtio, we discussed
-> a model like this in the beginning and then rejected it in favour of a
-> "one PCI device per virtio device" model, which I now think is a better
-> approach than your pci-to-vbus bridge.
+This is a first prototype of a new interface into the network
+stack, to eventually replace tun/tap and the bridge driver
+in certain virtual machine setups.
 
-I agree that the 1:1 model may have made sense for QEMU based virtio.  I think you will find it has diminished value here, however.
+Background
+----------
+The 'Edge Virtual Bridging' working group is discussing ways to overcome
+the limitation of virtual bridges in hypervisors.  One important part
+of this is the Virtual Ethernet Port Aggregator (VEPA), as described in
+http://www.ieee802.org/1/files/public/docs2009/new-evb-congdon-vepa-modular-0709-v01.pdf
 
-Here are some of my arguments against it:
+In short, the idea of VEPA is that virtual machines do not communicate
+with each other through direct bridging in the hypervisor but only via
+an external managed switch that is already well integrated into the data
+center, including network filtering, accounting and monitoring. While
+we can do most of that efficiently in the Linux bridge code, doing it
+externally simplifies the overall setup.
 
-1) there is an ample PCI model that is easy to work with when you are in QEMU and using its device model (and you get it for free).  Its the path of least resistance.  For something in kernel, it is more awkward to try to coordinate the in-kernel state with the PCI state.  Afaict, you either need to have it live partially in both places, or you need some PCI emulation in the kernel.
+Related work
+------------
+Patches to implement VEPA in the Linux bridge driver have been posted by
+Anna Fischer in June, see http://patchwork.ozlabs.org/patch/28702/. Those
+patches are good and hopefully get merged in 2.6.32, but I think we can
+take some shortcuts with an alternative approach:
 
-2) The signal model for the 1:1 design is not very flexible IMO.
-    2a) I want to be able to allocate dynamic signal paths, not pre-allocate msi-x vectors at dev-add.
-    2b) I also want to collapse multiple interrupts together so as to minimize the context switch rate (inject + EIO overhead).  My design effectively has "NAPI" for interrupt handling.  This helps when the system needs it the most: heavy IO.
+The macvlan driver already has the property of forwarding all traffic
+between guests and an external interface but not between the guests, just
+as VEPA needs it. Also, VEPA does explicitly not want or need advanced
+filtering in the way that netfilter-bridge provides, so we can use macvlan
+to replace the bridge code in this setup, reducing the code path through
+the kernel.  This works fine with containers and network namespaces,
+but not easily with kvm/qemu because we only have a network device.
 
-3) The 1:1 model is not buying us much in terms of hotplug.  We don't really "use" PCI very much even in virtio.  Its a thin-shim of uniform dev-ids to resurface to the virtio-bus as something else.  With LDM, hotplug is ridiculously easy anyway, so who cares.  I already need an event channel anyway for (2b) anyway, so the devadd/devdrop events are trivial to handle.
+Or Gerlitz posted a "raw" packet socket backend for qemu to deal with this,
+at http://marc.info/?l=qemu-devel&m=124653801212767 and at least three
+other people have done a similar functionality independently.
 
-4) communicating with something efficiently in-kernel requires more finesse than basic PIO/MMIO.  There are tricks you can do to get around this, but with 1:1 you would have to do this trick repeatedly for each device.  Even with a library solution to help, you still have per-cpu .data overhead and cpu hotplug overhead to get maximum performance.  With my "bridge" model, I do it once, which I believe is ideal.
+This driver
+-----------
+While the other approaches should work as well, doing it using a tap
+interface should give additional benefits:
 
-5) 1:1 is going to quickly populate the available MMIO/PIO and IDT slots for any kind of medium to large configuration.  The bridge model scales better in this regard.
+* We can keep using the optimizations for jumbo frames that we have put
+into the tun/tap driver.
 
-So based on that, I think the bridge model works better for vbus.  Perhaps you can convince me otherwise ;)
+* No need for root permissions that packet sockets need, just use 'ip
+link add link type macvtap' to create a new device and give it the right
+permissions using udev (using one tap per macvlan netdev).
 
->  
->> In essence, this driver's job is to populate the "vbus-proxy" LDM bus with
->> objects that it finds across the PCI-OTHER bridge.  This would actually sit
->> below the virtio components in the stack, so it doesnt make sense (to me) to
->> turn around and build this on top of virtio.  But perhaps I am missing
->> something you are seeing.
->> 
->> Can you elaborate?
-> 
-> Your PCI device does not serve any real purpose as far as I can tell
+* support for multiqueue network adapters by opening the tap device
+multiple times, using one file descriptor per guest CPU/network
+queue/interrupt (if the adapter supports multiple queues on a single
+MAC address).
 
-That is certainly debatable.  Its purpose is as follows:
+* support for zero-copy receive/transmit using async I/O on the tap device
+(if the adapter supports per MAC rx queues).
 
-1) Allows a guest to discover the vbus feature (fwiw: I used to do this with cpuid)
-2) Allows the guest to establish proper context to communicate with the feature (mmio, pio, and msi) (fwiw: i used to use hypercalls)
-3) Access the virtual-devices that have been configured for the feature
+* The same framework in macvlan can be used to add a third backend
+into a future kernel based virtio-net implementation.
 
-Correct me if I am wrong:  Isn't this more of less the exact intent of something like an LDM bus (vbus-proxy) and a PCI-BRIDGE?  Other than the possibility that there might be some mergable overlap (still debatable), I don't think its fair to say that this does not serve a purpose.
+This version of the driver does not support any of those features,
+but they all appear possible to add ;).
+The driver is currently called 'macvtap', but I'd be more than happy
+to change that if anyone could suggest a better name. The code is
+still in an early stage and I wish I had found more time to polish
+it, but at this time, I'd first like to know if people agree with the
+basic concept at all.
 
->, you could just as well have a root device as a parent for all the vbus devices
-> if you do your device probing like this.
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: David S. Miller" <davem@davemloft.net>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Or Gerlitz <ogerlitz@voltaire.com>
+Cc: "Fischer, Anna" <anna.fischer@hp.com>
+Cc: netdev@vger.kernel.org
+Cc: bridge@lists.linux-foundation.org
+Cc: linux-kernel@vger.kernel.org
+Cc: Edge Virtual Bridging <evb@yahoogroups.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Yes, I suppose the "bridge" could have been advertised as a virtio-based root device.  In this way, the virtio probe() would replace my pci probe() for feature discovery, and a virtqueue could replace my msi+ioq for the eventq channel.
+---
 
-I see a few issues with that, however:
+The evb mailing list eats Cc headers, please make sure to keep everybody
+in your Cc list when replying there.
+---
+ drivers/net/Kconfig   |   12 ++
+ drivers/net/Makefile  |    1 +
+ drivers/net/macvlan.c |   39 +++-----
+ drivers/net/macvlan.h |   37 +++++++
+ drivers/net/macvtap.c |  276 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 341 insertions(+), 24 deletions(-)
+ create mode 100644 drivers/net/macvlan.h
+ create mode 100644 drivers/net/macvtap.c
 
-1) The virtqueue library, while a perfectly nice ring design at the metadata level, does not have an API that is friendly to kernel-to-kernel communication.  It was designed more for frontend use to some remote backend.  The IOQ library on the other hand, was specifically designed to support use as kernel-to-kernel (see north/south designations).  So this made life easier for me.  To do what you propose, the eventq channel would need to terminate in kernel, and I would thus be forced to deal that the potential API problems.
-
-2) I would need to have Avi et. al. allocate a virtio vector to use from their namespace, which I am sure they wont be willing to do until they accept my design.  Today, I have a nice conflict free PCI ID to use as I see fit.
-
-Im sure both of these hurdles are not insurmountable, but I am left scratching my head as to why its worth the effort.  It seems to me its a "six of one, half-dozen of the other" kind of scenario.  Either I write a qemu PCI device and pci-bridge driver, or I write a qemu virtio-devicve and virtio root driver.
-
-In short: What does this buy us, or did you mean something else?  
-
-> 
-> However, assuming that you do the IMHO right thing to do probing like
-> virtio with a PCI device for each slave, the code will be almost the same
-> as virtio-pci and the two can be the same.
-
-Can you elaborate?
-
-> 
->> > This seems to add an artificial abstraction that does not make sense
->> > if you stick to the PCI abstraction.
->> 
->> I think there may be confusion about what is going on here.  The 
-> "device-open"
->> pertains to a vbus device *beyond* the bridge, not the PCI device (the 
-> bridge)
->> itself.  Nor is the vbus device a PCI device.
->> 
->> Whats happening here is somewhat analogous to a PCI config-cycle.  Its
->> a way to open a channel to a device beyond the bridge in _response_ to
->> a probe.
->> 
->> We have a way to enumerate devices present beyond the bridge (this yields
->> a "device-id")  but in order to actually talk to the device, you must first
->> call DEVOPEN(id).  When a device-id is enumerated, it generates a probe()
->> event on vbus-proxy.  The responding driver in question would then turn
->> around and issue the handle = dev->open(VERSION) to see if it is compatible
->> with the device, and to establish a context for further communication.
->> 
->> The reason why DEVOPEN returns a unique handle is to help ensure that the
->> driver has established proper context before allowing other calls.
-> 
-> So assuming this kind of bus is the right idea (which I think it's not),
-> why can't the host assume they are open to start with
-
-Read on..
-
->and you go and enumerate the devices on the bridge, creating a vbus_device for each
-> one as you go.
-
-Thats exactly what it does.
-
-> Then you just need to match the vbus drivers with the
-> devices by some string or vendor/device ID tuple.
-> 
-
-Yep, thats right too.  Then, when the driver gets a ->probe(), it does an dev->open() to check various state:
-
-a) can the device be opened?  if it has an max-open policy (most will have a max-open = 1 policy) and something else already has the device open, it will fail (this will not be common).
-b) is the driver ABI revision compatible with the device ABI revision?  This is like checking the pci config-space revision number.
-
-For an example, see drivers/net/vbus-enet.c, line 764:
-
-http://git.kernel.org/?p=linux/kernel/git/ghaskins/alacrityvm/linux-2.6.git;a=blob;f=drivers/net/vbus-enet.c;h=7220f43723adc5b0bece1bc37974fae1b034cd9e;hb=b3b2339efbd4e754b1c85f8bc8f85f21a1a1f509#l764
-
-Its simple a check to see if the driver and device are compatible, and therefore the probe should succeed.  Nothing more.  I think what I have done is similar to how most buses (like PCI) work today (ala revision number checks with a config-cycle).
-
-Regarding the id->handle indirection:
-
-Internally, the DEVOPEN call translates an "id" to a "handle".  The handle is just a token to help ensure that the caller actually opened the device successfully.  Note that the "id" namespace is 0 based.  Therefore, something like an errant DEVCALL(0) would be indistinguishable from a legit request.  Using the handle abstraction gives me a slightly more robust mechanism to ensure the caller actually meant to call the host, and was in the proper context to do so.  For one thing, if the device had never been opened, this would have failed before it ever reached the model.  Its one more check I can do at the infrastructure level, and one less thing each model has to look out for.
-
-Is the id->handle translation critical?  No, i'm sure we could live without it, but I also don't think it hurts anything.  It allows the overall code to be slightly more robust, and the individual model code to be slightly less complicated.  Therefore, I don't see a problem.
-
->> > 
->> > This could be implemented by virtio devices as well, right?
->> 
->> The big difference with dev->shm() is that it is not bound to
->> a particular ABI within the shared-memory (as opposed to
->> virtio, which assumes a virtio ABI).  This just creates a
->> n empty shared-memory region (with a bidirectional signaling
->> path) which you can overlay a variety of structures (virtio
->> included).  You can of course also use non-ring based
->> structures, such as, say, an array of idempotent state.
->>
->> The point is that, once this is done, you have a shared-memory
->> region and a way (via the shm-signal) to bidirectionally signal
->> changes to that memory region.  You can then build bigger
->> things with it, like virtqueues.
-> 
-> Let me try to rephrase my point: I believe you can implement
-> the shm/ioq data transport on top of the virtio bus level, by
-> adding shm and signal functions to struct virtio_config_ops
-> alongside find_vqs() so that a virtio_device can have either
-> any combination of virtqueues, shm and ioq.
-
-Yes, I believe this might be doable, but I don't know virtio well enough to say for sure.
-
-> 
->> > static int
->> > vbus_pci_device_call(struct vbus_device_proxy *vdev, u32 func, void *data,
->> > 		     size_t len, int flags)
->> > {
->> > 	struct vbus_pci_device *dev = to_dev(vdev);
->> > 	struct vbus_pci_hypercall params = {
->> > 		.vector = func,
->> > 		.len    = len,
->> > 		.datap  = __pa(data),
->> > 	};
->> > 	spin_lock_irqsave(&dev.lock, flags);
->> > 	memcpy_toio(&dev.regs->hypercall.data, &params, sizeof(params));
->> > 	ret = ioread32(&dev.regs->hypercall.result);
->> > 	spin_unlock_irqrestore(&dev.lock, flags);
->> > 
->> > 	return ret;
->> > }
->> > 
->> > This gets rid of your 'handle' and the unwinding through an extra pointer
->> > indirection. You just need to make sure that the device specific call 
->> > numbers
->> > don't conflict with any global ones.
->> 
->> Ah, now I see the confusion...
->> 
->> DEVCALL is sending a synchronous call to a specific device beyond the 
-> bridge.  The MMIO going on here against dev.regs->hypercall.data is sending a 
-> synchronous call to the bridge itself.  They are distinctly different ;)
-> 
-> well, my point earlier was that they probably should not be different  ;-)
-
-Ok :)
-
-I still do not see how they could be merged in a way that is both a) worth the effort, and b) doesn't compromise my design.  But I will keep an open mind if you want to continue the conversation.
-
-Thanks for all the feedback.  I do appreciate it.
-
-Kind Regards,
--Greg
-
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 5f6509a..0b9ac6a 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -90,6 +90,18 @@ config MACVLAN
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macvlan.
+ 
++config MACVTAP
++	tristate "MAC-VLAN based tap driver (EXPERIMENTAL)"
++	depends on MACVLAN
++	help
++	  This adds a specialized tap character device driver that is based
++	  on the MAC-VLAN network interface, called macvtap. A macvtap device
++	  can be added in the same way as a macvlan device, using 'type
++	  macvlan', and then be accessed through the tap user space interface.
++	
++	  To compile this driver as a module, choose M here: the module
++	  will be called macvtap.
++
+ config EQUALIZER
+ 	tristate "EQL (serial line load balancing) support"
+ 	---help---
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ead8cab..8a2d2d7 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -162,6 +162,7 @@ obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
+ obj-$(CONFIG_DUMMY) += dummy.o
+ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
++obj-$(CONFIG_MACVTAP) += macvtap.o
+ obj-$(CONFIG_DE600) += de600.o
+ obj-$(CONFIG_DE620) += de620.o
+ obj-$(CONFIG_LANCE) += lance.o
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 99eed9f..9f7dc6a 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -30,22 +30,7 @@
+ #include <linux/if_macvlan.h>
+ #include <net/rtnetlink.h>
+ 
+-#define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
+-
+-struct macvlan_port {
+-	struct net_device	*dev;
+-	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
+-	struct list_head	vlans;
+-};
+-
+-struct macvlan_dev {
+-	struct net_device	*dev;
+-	struct list_head	list;
+-	struct hlist_node	hlist;
+-	struct macvlan_port	*port;
+-	struct net_device	*lowerdev;
+-};
+-
++#include "macvlan.h"
+ 
+ static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
+ 					       const unsigned char *addr)
+@@ -135,7 +120,7 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ 			else
+ 				nskb->pkt_type = PACKET_MULTICAST;
+ 
+-			netif_rx(nskb);
++			vlan->receive(nskb);
+ 		}
+ 	}
+ }
+@@ -180,11 +165,11 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ 	skb->dev = dev;
+ 	skb->pkt_type = PACKET_HOST;
+ 
+-	netif_rx(skb);
++	vlan->receive(skb);
+ 	return NULL;
+ }
+ 
+-static int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
++int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+ 	unsigned int len = skb->len;
+@@ -202,6 +187,7 @@ static int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 	return NETDEV_TX_OK;
+ }
++EXPORT_SYMBOL_GPL(macvlan_start_xmit);
+ 
+ static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 			       unsigned short type, const void *daddr,
+@@ -412,7 +398,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 
+-static void macvlan_setup(struct net_device *dev)
++void macvlan_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+ 
+@@ -423,6 +409,7 @@ static void macvlan_setup(struct net_device *dev)
+ 	dev->ethtool_ops	= &macvlan_ethtool_ops;
+ 	dev->tx_queue_len	= 0;
+ }
++EXPORT_SYMBOL_GPL(macvlan_setup);
+ 
+ static int macvlan_port_create(struct net_device *dev)
+ {
+@@ -472,7 +459,7 @@ static void macvlan_transfer_operstate(struct net_device *dev)
+ 	}
+ }
+ 
+-static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
++int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	if (tb[IFLA_ADDRESS]) {
+ 		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
+@@ -482,9 +469,10 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	}
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(macvlan_validate);
+ 
+-static int macvlan_newlink(struct net_device *dev,
+-			   struct nlattr *tb[], struct nlattr *data[])
++int macvlan_newlink(struct net_device *dev,
++		    struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 	struct macvlan_port *port;
+@@ -524,6 +512,7 @@ static int macvlan_newlink(struct net_device *dev,
+ 	vlan->lowerdev = lowerdev;
+ 	vlan->dev      = dev;
+ 	vlan->port     = port;
++	vlan->receive  = netif_rx;
+ 
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+@@ -533,8 +522,9 @@ static int macvlan_newlink(struct net_device *dev,
+ 	macvlan_transfer_operstate(dev);
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(macvlan_newlink);
+ 
+-static void macvlan_dellink(struct net_device *dev)
++void macvlan_dellink(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 	struct macvlan_port *port = vlan->port;
+@@ -545,6 +535,7 @@ static void macvlan_dellink(struct net_device *dev)
+ 	if (list_empty(&port->vlans))
+ 		macvlan_port_destroy(port->dev);
+ }
++EXPORT_SYMBOL_GPL(macvlan_dellink);
+ 
+ static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
+ 	.kind		= "macvlan",
+diff --git a/drivers/net/macvlan.h b/drivers/net/macvlan.h
+new file mode 100644
+index 0000000..3f3c6c3
+--- /dev/null
++++ b/drivers/net/macvlan.h
+@@ -0,0 +1,37 @@
++#ifndef _MACVLAN_H
++#define _MACVLAN_H
++
++#include <linux/netdevice.h>
++#include <linux/netlink.h>
++#include <linux/list.h>
++
++#define MACVLAN_HASH_SIZE	(1 << BITS_PER_BYTE)
++
++struct macvlan_port {
++	struct net_device	*dev;
++	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
++	struct list_head	vlans;
++};
++
++struct macvlan_dev {
++	struct net_device	*dev;
++	struct list_head	list;
++	struct hlist_node	hlist;
++	struct macvlan_port	*port;
++	struct net_device	*lowerdev;
++
++	int (*receive)(struct sk_buff *skb);
++};
++
++extern int macvlan_start_xmit(struct sk_buff *skb, struct net_device *dev);
++
++extern void macvlan_setup(struct net_device *dev);
++
++extern int macvlan_validate(struct nlattr *tb[], struct nlattr *data[]);
++
++extern int macvlan_newlink(struct net_device *dev,
++		struct nlattr *tb[], struct nlattr *data[]);
++
++extern void macvlan_dellink(struct net_device *dev);
++
++#endif /* _MACVLAN_H */
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+new file mode 100644
+index 0000000..d99bfc0
+--- /dev/null
++++ b/drivers/net/macvtap.c
+@@ -0,0 +1,276 @@
++#include <linux/etherdevice.h>
++#include <linux/nsproxy.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/cache.h>
++#include <linux/sched.h>
++#include <linux/types.h>
++#include <linux/init.h>
++#include <linux/wait.h>
++#include <linux/cdev.h>
++#include <linux/fs.h>
++
++#include <net/net_namespace.h>
++#include <net/rtnetlink.h>
++
++#include "macvlan.h"
++
++struct macvtap_dev {
++	struct macvlan_dev m;
++	struct cdev cdev;
++	struct sk_buff_head readq;
++	wait_queue_head_t wait;
++};
++
++/*
++ * Minor number matches netdev->ifindex, so need a large value
++ */
++static int macvtap_major;
++#define MACVTAP_NUM_DEVS 65536
++
++static int macvtap_receive(struct sk_buff *skb)
++{
++	struct macvtap_dev *vtap = netdev_priv(skb->dev);
++
++	skb_queue_tail(&vtap->readq, skb);
++	wake_up(&vtap->wait);
++	return 0;
++}
++
++static int macvtap_open(struct inode *inode, struct file *file)
++{
++	struct net *net = current->nsproxy->net_ns;
++	int ifindex = iminor(inode);
++	struct net_device *dev = dev_get_by_index(net, ifindex);
++	int err;
++
++	err = -ENODEV;
++	if (!dev)
++		goto out1;
++
++	file->private_data = netdev_priv(dev);
++	err = 0;
++out1:
++	return err;
++}
++
++static int macvtap_release(struct inode *inode, struct file *file)
++{
++	struct macvtap_dev *vtap = file->private_data;
++
++	if (!vtap)
++		return 0;
++
++	dev_put(vtap->m.dev);
++	return 0;
++}
++
++/* Get packet from user space buffer */
++static ssize_t macvtap_get_user(struct macvtap_dev *vtap,
++			       const struct iovec *iv, size_t count,
++			       int noblock)
++{
++	struct sk_buff *skb;
++	size_t len = count;
++
++	if (unlikely(len < ETH_HLEN))
++		return -EINVAL;
++
++	skb = alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
++
++	if (!skb) {
++		vtap->m.dev->stats.rx_dropped++;
++		return -ENOMEM;
++	}
++
++	skb_reserve(skb, NET_IP_ALIGN);
++	skb_put(skb, count);
++
++	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
++		vtap->m.dev->stats.rx_dropped++;
++		kfree_skb(skb);
++		return -EFAULT;
++	}
++
++	skb_set_network_header(skb, ETH_HLEN);
++	skb->dev = vtap->m.lowerdev;
++
++	macvlan_start_xmit(skb, vtap->m.dev);
++
++	return count;
++}
++
++static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
++			      unsigned long count, loff_t pos)
++{
++	struct file *file = iocb->ki_filp;
++	ssize_t result;
++	struct macvtap_dev *vtap = file->private_data;
++
++	result = macvtap_get_user(vtap, iv, iov_length(iv, count),
++			      file->f_flags & O_NONBLOCK);
++
++	return result;
++}
++
++/* Put packet to the user space buffer */
++static ssize_t macvtap_put_user(struct macvtap_dev *vtap,
++				       struct sk_buff *skb,
++				       struct iovec *iv, int len)
++{
++	int ret;
++
++	skb_push(skb, ETH_HLEN);
++	len = min_t(int, skb->len, len);
++
++	ret = skb_copy_datagram_iovec(skb, 0, iv, len);
++
++	vtap->m.dev->stats.rx_packets++;
++	vtap->m.dev->stats.rx_bytes += len;
++
++	return ret ? ret : len;
++}
++
++static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
++			    unsigned long count, loff_t pos)
++{
++	struct file *file = iocb->ki_filp;
++	struct macvtap_dev *vtap = file->private_data;
++	DECLARE_WAITQUEUE(wait, current);
++	struct sk_buff *skb;
++	ssize_t len, ret = 0;
++
++	if (!vtap)
++		return -EBADFD;
++
++	len = iov_length(iv, count);
++	if (len < 0) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	add_wait_queue(&vtap->wait, &wait);
++	while (len) {
++		current->state = TASK_INTERRUPTIBLE;
++
++		/* Read frames from the queue */
++		if (!(skb=skb_dequeue(&vtap->readq))) {
++			if (file->f_flags & O_NONBLOCK) {
++				ret = -EAGAIN;
++				break;
++			}
++			if (signal_pending(current)) {
++				ret = -ERESTARTSYS;
++				break;
++			}
++			/* Nothing to read, let's sleep */
++			schedule();
++			continue;
++		}
++		ret = macvtap_put_user(vtap, skb, (struct iovec *) iv, len);
++		kfree_skb(skb);
++		break;
++	}
++
++	current->state = TASK_RUNNING;
++	remove_wait_queue(&vtap->wait, &wait);
++
++out:
++	return ret;
++}
++
++struct file_operations macvtap_fops = {
++	.owner = THIS_MODULE,
++	.open = macvtap_open,
++	.release = macvtap_release,
++	.aio_read = macvtap_aio_read,
++	.aio_write = macvtap_aio_write,
++	.llseek = no_llseek,
++};
++
++static int macvtap_newlink(struct net_device *dev,
++	struct nlattr *tb[], struct nlattr *data[])
++{
++	struct macvtap_dev *vtap = netdev_priv(dev);
++	int err;
++
++	err = macvlan_newlink(dev, tb, data);
++	if (err)
++		goto out1;
++
++	cdev_init(&vtap->cdev, &macvtap_fops);
++	vtap->cdev.owner = THIS_MODULE;
++	err = cdev_add(&vtap->cdev, MKDEV(MAJOR(macvtap_major), dev->ifindex), 1);
++
++	if (err)
++		goto out2;
++
++	/*
++	 * TODO: add class dev so device node gets created automatically
++	 * by udev.
++	 */
++	pr_debug("%s:%d: added cdev %d:%d for dev %s\n",
++		__func__, __LINE__, MAJOR(macvtap_major),
++		dev->ifindex, dev->name);
++
++	skb_queue_head_init(&vtap->readq);
++	init_waitqueue_head(&vtap->wait);
++	vtap->m.receive = macvtap_receive;
++
++	return 0;
++
++out2:
++	macvlan_dellink(dev);
++out1:
++	return err;
++}
++
++static void macvtap_dellink(struct net_device *dev)
++{
++	struct macvtap_dev *vtap = netdev_priv(dev);
++	cdev_del(&vtap->cdev);
++	/* TODO: kill open file descriptors */
++	macvlan_dellink(dev);
++}
++
++static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
++	.kind = "macvtap",
++	.priv_size = sizeof(struct macvtap_dev),
++	.setup = macvlan_setup,
++	.validate = macvlan_validate,
++	.newlink = macvtap_newlink,
++	.dellink = macvtap_dellink,
++};
++
++static int macvtap_init(void)
++{
++	int err;
++
++	err = alloc_chrdev_region(&macvtap_major, 0,
++				MACVTAP_NUM_DEVS, "macvtap");
++	if (err)
++		goto out1;
++
++	err = rtnl_link_register(&macvtap_link_ops);
++	if (err)
++		goto out2;
++
++	return 0;
++
++out2:
++	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
++out1:
++	return err;
++}
++module_init(macvtap_init);
++
++static void macvtap_exit(void)
++{
++	rtnl_link_unregister(&macvtap_link_ops);
++	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
++}
++module_exit(macvtap_exit);
++
++MODULE_ALIAS_RTNL_LINK("macvtap");
++MODULE_AUTHOR("Arnd Bergmann <arnd@arndb.de>");
++MODULE_LICENSE("GPL");
+-- 
+1.6.0.4
