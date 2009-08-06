@@ -1,58 +1,78 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
-Date: Thu, 6 Aug 2009 10:24:54 -0400
-Message-ID: <200908061024.54786.paul.moore@hp.com>
-References: <20090804211304.10798.65601.stgit@flek.lan> <200908051758.39051.paul.moore@hp.com> <20090806021558.GA17998@us.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
+Date: Thu, 06 Aug 2009 07:27:13 -0700
+Message-ID: <m1ljlxj9vi.fsf@fess.ebiederm.org>
+References: <20090803161242.12947.14620.stgit@flek.lan>
+	<m1ljlyvn9a.fsf@fess.ebiederm.org>
+	<200908051738.43134.paul.moore@hp.com>
+	<20090806101044.GA26589@gondor.apana.org.au>
+	<m1hbwlkzt6.fsf@fess.ebiederm.org>
+	<20090806133746.GA28557@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: eparis@redhat.com, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090806021558.GA17998@us.ibm.com>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul.moore@hp.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:46554 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbZHFO1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 10:27:17 -0400
+In-Reply-To: <20090806133746.GA28557@gondor.apana.org.au> (Herbert Xu's message of "Thu\, 6 Aug 2009 23\:37\:46 +1000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 05 August 2009 10:15:58 pm Serge E. Hallyn wrote:
-> Quoting Paul Moore (paul.moore@hp.com):
-> > On Wednesday 05 August 2009 10:13:50 am Serge E. Hallyn wrote:
-> > > Quoting Paul Moore (paul.moore@hp.com):
-> >
-> > [NOTE: my email has been out all day due to some mysterious FS issue so
-> > my apologies for not replying sooner]
-> >
-> > ...
-> >
-> > > The checks before and after this patch are not equivalent.  Post-patch,
-> > > one must always have CAP_NET_ADMIN to do the attach, whereas pre-patch
-> > > you only needed those if current_cred() did not own the tun device.  Is
-> > > that intentional?
-> >
-> > Nope, just a goof on my part; I misread the booleans and haven't fully
-> > tested the patch yet so it slipped out, thanks for catching it.  This
-> > brings up a good point, would we rather move the TUN owner/group checks
-> > into the cap_tun_* functions or move the capable() call back into the TUN
-> > driver?  The answer wasn't clear to me when I was looking at the code
-> > before and the uniqueness of the TUN driver doesn't help much in this
-> > regard.
+Herbert Xu <herbert@gondor.apana.org.au> writes:
+
+> On Thu, Aug 06, 2009 at 03:21:41AM -0700, Eric W. Biederman wrote:
+>>
+>> Two threads one file descriptor.  Both simultaneously attempt to 
+>> attach to a tun device.  One will fail, the other succeed.
+>> 
+>> At least that is how I read the locking.
 >
-> I see the question being asked as:  Does this device belong to
-> the caller and, if not, is the caller privileged to act
-> anyway?'  So I think the capable call should be moved back
-> into the tun driver, followed by a separate security_tun_dev_attach()
-> check, since that is a separate, restrictive question.
+> Yes but the "race" fixed by this patch is centred on the tun_attach
+> call for a newly created network device.  As tun_set_iff occurs
+> under RTNL, the second thread cannot start attaching until the
+> creation thread has completed.  IOW the thread that creates the
+> net device should always succeed in attaching.
 
-Works for me, I'll make the change.
+>
+> If two threads try to attach to the same device that was already
+> created then yes one will fail and the other succeed.  However,
+> AFAICS that case has nothing to do with this patch.
 
-BTW, the main reason for posting the patches in such an early state was to 
-solicit feedback on the location and types of hooks added; I've read lots of 
-good feedback but nothing regarding the fundamental aspects of the hooks ... 
-any comments before I push out v2?
+Summarizing:
 
--- 
-paul moore
-linux @ hp
+tun = __tun_get(tfile);
+if (!tun) { // No tun we are not attached.
+	 < -------------------- race opportunity
+	rtnl_lock();
+        tun_set_iff();
+        rtnl_unlock();
+}
+...
 
+We don't test if we are attached under the rtnl
+until we get to tun_attach();
+
+So two threads can both do:
+
+tun = __tun_get(tfile);
+if (!tun) {
+	rtnl_lock();
+        tun_set_iff();
+            dev = __dev_get_by_name(net, "not_an_interface_name");
+            if (!dev) {
+               dev = alloc_netdev(....);
+               ...;
+               register_netdev(dev);
+               ...;
+               err = tun_attach(..);
+            }
+
+
+Only one thread is in tun_set_iff() at a time, but the other thread
+could have attached the file to a device before the one in tun_attach().
+
+Eric
