@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: smsc911x: switch to new dev_pm_ops
-Date: Wed, 05 Aug 2009 20:29:22 -0700 (PDT)
-Message-ID: <20090805.202922.241102337.davem@davemloft.net>
-References: <1249496971-9019-3-git-send-email-daniel@caiaq.de>
-	<1249496971-9019-4-git-send-email-daniel@caiaq.de>
-	<1249496971-9019-5-git-send-email-daniel@caiaq.de>
+Subject: Re: [PATCH 1/2] net/rds: Use AF_INET for sin_family field
+Date: Wed, 05 Aug 2009 20:30:43 -0700 (PDT)
+Message-ID: <20090805.203043.70203213.davem@davemloft.net>
+References: <Pine.LNX.4.64.0908051434110.20453@pc-004.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-pm@lists.linux-foundation.org,
-	steve.glendinning@smsc.com, netdev@vger.kernel.org
-To: daniel@caiaq.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753982AbZHFD3O@vger.kernel.org>
-In-Reply-To: <1249496971-9019-5-git-send-email-daniel@caiaq.de>
+Cc: andy.grover@oracle.com, netdev@vger.kernel.org,
+	rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754026AbZHFDag@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0908051434110.20453@pc-004.diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Mack <daniel@caiaq.de>
-Date: Wed,  5 Aug 2009 20:29:31 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Wed, 5 Aug 2009 14:34:34 +0200 (CEST)
 
-> Hibernation is unsupported for now, which meets the actual
-> implementation in the driver. For free/thaw, the chip's D2 state should
-> be entered.
+> Elsewhere the sin_family field holds a value with a name of the form
+> AF_..., so it seems reasonable to do so here as well.  Also the values of
+> PF_INET and AF_INET are the same.
 > 
-> Signed-off-by: Daniel Mack <daniel@caiaq.de>
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+ ..
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Steve, if it looks good to you I can toss this into net-next-2.6
+This is obvious enough that I've just tossed it into net-next-2.6
 
-Just let me know.
+Thanks!
