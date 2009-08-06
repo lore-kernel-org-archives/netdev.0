@@ -1,29 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Thu, 06 Aug 2009 11:41:22 -0700 (PDT)
-Message-ID: <20090806.114122.98911756.davem@davemloft.net>
-References: <20090806143959.GA29323@gondor.apana.org.au>
-	<m1zladhtoh.fsf@fess.ebiederm.org>
-	<200908061409.19924.paul.moore@hp.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: WARNING: at net/mac80211/mlme.c:2292
+	ieee80211_sta_work+0x97/0xd2d [mac80211]()
+Date: Thu, 6 Aug 2009 14:32:48 -0400
+Message-ID: <20090806183247.GI26809@tuxdriver.com>
+References: <b637ec0b0908061130w399eb1c6oc3a31640a76398c5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: paul.moore@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53157
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753545AbZHFSlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 14:41:13 -0400
-In-Reply-To: <200908061409.19924.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Fabio Comolli <fabio.comolli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <b637ec0b0908061130w399eb1c6oc3a31640a76398c5-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Thu, 6 Aug 2009 14:09:19 -0400
+What driver are you using?
 
-> Dave, if you haven't already, it is probably a good idea to just
-> forget about this patch.
+On Thu, Aug 06, 2009 at 08:30:23PM +0200, Fabio Comolli wrote:
+> Just got this after a resume from suspend-to-ram. Wifi needed to be
+> disabled and reenabled (with hardware Fn+F2 key - this is an eeePC900)
+> to function  again.
+> 
+> 
+> [  919.858759] ------------[ cut here ]------------
+> [  919.858787] WARNING: at net/mac80211/mlme.c:2292
+> ieee80211_sta_work+0x97/0xd2d [mac80211]()
+> [  919.858791] Hardware name: 900
+> [  919.858793] Modules linked in: uvcvideo videodev v4l1_compat arc4
+> ecb ath5k mac80211 ath cfg80211
+> [  919.860022] Pid: 793, comm: phy0 Tainted: G   M       2.6.31-rc5 #11
+> [  919.860025] Call Trace:
+> [  919.860035]  [<c10209cf>] warn_slowpath_common+0x65/0x7c
+> [  919.860058]  [<f83d621e>] ? ieee80211_sta_work+0x97/0xd2d [mac80211]
+> [  919.860064]  [<c10209f3>] warn_slowpath_null+0xd/0x10
+> [  919.860086]  [<f83d621e>] ieee80211_sta_work+0x97/0xd2d [mac80211]
+> [  919.860092]  [<c101bb2b>] ? __wake_up+0x2f/0x56
+> [  919.860097]  [<c101bb39>] ? __wake_up+0x3d/0x56
+> [  919.860103]  [<c102eb04>] ? insert_work+0x96/0x9f
+> [  919.860108]  [<c102ed63>] ? __queue_work+0x32/0x49
+> [  919.860113]  [<c102eda1>] ? queue_work_on+0x27/0x2f
+> [  919.860119]  [<c102f52f>] ? queue_work+0x2d/0x45
+> [  919.860140]  [<f83d3324>] ?
+> ieee80211_ibss_notify_scan_completed+0x63/0x68 [mac80211]
+> [  919.860162]  [<f83d1059>] ? ieee80211_scan_completed+0x320/0x328 [mac80211]
+> [  919.860184]  [<f83d1160>] ? ieee80211_scan_work+0xb5/0x171 [mac80211]
+> [  919.860190]  [<c102f075>] worker_thread+0x15d/0x204
+> [  919.860211]  [<f83d6187>] ? ieee80211_sta_work+0x0/0xd2d [mac80211]
+> [  919.860218]  [<c1032217>] ? autoremove_wake_function+0x0/0x2f
+> [  919.860223]  [<c102ef18>] ? worker_thread+0x0/0x204
+> [  919.860229]  [<c1031fab>] kthread+0x63/0x68
+> [  919.860234]  [<c1031f48>] ? kthread+0x0/0x68
+> [  919.860240]  [<c1002f93>] kernel_thread_helper+0x7/0x10
+> [  919.860244] ---[ end trace 7a3a8d08c5a7bedf ]---
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
 
-ok.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
