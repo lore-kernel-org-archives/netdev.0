@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] cxgb3: fix 2 ports 1G regression
-Date: Wed, 05 Aug 2009 20:28:39 -0700 (PDT)
-Message-ID: <20090805.202839.79597369.davem@davemloft.net>
-References: <20090805215923.21467.99484.stgit@speedy5>
+Subject: Re: [PATCH 5/5] net: smsc911x: switch to new dev_pm_ops
+Date: Wed, 05 Aug 2009 20:29:22 -0700 (PDT)
+Message-ID: <20090805.202922.241102337.davem@davemloft.net>
+References: <1249496971-9019-3-git-send-email-daniel@caiaq.de>
+	<1249496971-9019-4-git-send-email-daniel@caiaq.de>
+	<1249496971-9019-5-git-send-email-daniel@caiaq.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: divy@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57283
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751162AbZHFD2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 23:28:30 -0400
-In-Reply-To: <20090805215923.21467.99484.stgit@speedy5>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	steve.glendinning@smsc.com, netdev@vger.kernel.org
+To: daniel@caiaq.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753982AbZHFD3O@vger.kernel.org>
+In-Reply-To: <1249496971-9019-5-git-send-email-daniel@caiaq.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
-Date: Wed, 05 Aug 2009 14:59:23 -0700
+From: Daniel Mack <daniel@caiaq.de>
+Date: Wed,  5 Aug 2009 20:29:31 +0200
 
-> commit 88045b3cf0f8981129cb489c7b6bc36c21dd33a7
-> 	cxgb3: fix mac index mapping
+> Hibernation is unsupported for now, which meets the actual
+> implementation in the driver. For free/thaw, the chip's D2 state should
+> be entered.
 > 
-> 	Override the mac index computation for the gen2 adapter,
-> 	as each port is expected to use index 0.
-> 
-> introduces a regression on 2 port 1G adapter
-> as its xauicfg vpd value is null.
-> Add a check on the device id.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+> Signed-off-by: Daniel Mack <daniel@caiaq.de>
 
-Applied, thanks.
+Steve, if it looks good to you I can toss this into net-next-2.6
+
+Just let me know.
