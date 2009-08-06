@@ -1,28 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] tc35815: Fix rx_missed_errors count
-Date: Thu, 06 Aug 2009 13:16:59 -0700 (PDT)
-Message-ID: <20090806.131659.158544306.davem@davemloft.net>
-References: <1249569709-21403-4-git-send-email-anemo@mba.ocn.ne.jp>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [GIT PULL 0/2] IEEE 802.15.4 last-minute
+	fixes v3
+Date: Thu, 06 Aug 2009 13:23:27 -0700 (PDT)
+Message-ID: <20090806.132327.210162548.davem@davemloft.net>
+References: <1249561586-26927-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf.roesch@rw-gmbh.de
-To: anemo@mba.ocn.ne.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42442
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753343AbZHFUQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 16:16:50 -0400
-In-Reply-To: <1249569709-21403-4-git-send-email-anemo@mba.ocn.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1249561586-26927-1-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Date: Thu,  6 Aug 2009 23:41:48 +0900
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu,  6 Aug 2009 16:26:24 +0400
 
-> The Miss_Cnt register is cleared by reading.  Accumulate its value to
-> rx_missed_errors count.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
 > 
-> Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+> Dmitry Eremin-Solenikov (2):
+>       af_ieee802154: fix ioctl processing
+>       af_ieee802154: provide dummy get/setsockopt
 
-Applied to net-next-2.6
+Pulled, thanks.
+
+I'm currently waiting for Linus to pull in a locking fix from
+Ingo Molnar from my tree, and I don't want things to "magically"
+appear in a tree I've already asked him to pull from.
+
+So I'll push these changes back out once he's taken that fix from
+Ingo.
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
