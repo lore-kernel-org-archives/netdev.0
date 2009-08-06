@@ -1,39 +1,58 @@
-From: Sergey Popov <popov_sergey@ukr.net>
-Subject: some bug in iproute2
-Date: Thu, 6 Aug 2009 11:50:35 +0300
-Message-ID: <20090806115035.42a22dfc@azure>
+From: Jussi Maki <jmaki@sisapiiri.net.net>
+Subject: Re: [PATCH] xfrm: xfrm hash to use Jenkins' hash
+Date: Thu, 6 Aug 2009 11:58:55 +0300 (EEST)
+Message-ID: <alpine.DEB.1.10.0908061147060.3426@sisapiiri.net.net>
+References: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com> <20090805.120831.66033097.davem@davemloft.net> <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jussi Maki <joamaki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plaza.ukrnafta.kharkov.ua ([193.189.96.114]:39449 "EHLO
-	plaza.ukrnafta.kharkov.ua" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbZHFI54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 04:57:56 -0400
-Received: from azure (208-65-112-92.pool.ukrtel.net [92.112.65.208])
-	(Authenticated sender: azure@azure.org.ua)
-	by plaza.ukrnafta.kharkov.ua (Postfix) with ESMTPA id C2F9022005A
-	for <netdev@vger.kernel.org>; Thu,  6 Aug 2009 11:50:38 +0300 (EEST)
+Received: from sisapiiri.net ([62.142.224.56]:36679 "EHLO sisapiiri.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752859AbZHFJIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Aug 2009 05:08:05 -0400
+In-Reply-To: <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-# tc f add dev eth0 parent 1: proto ip prio 2 u32 match u32 0 0 action ipt -j MARK --set-mark 1
-/usr/lib64/iptables/libipt_mark.so: cannot open shared object file: No such file or directory
-failed to find target MARK
 
-bad action parsing
-parse_action: bad value (5:ipt)!
-Illegal "action"
+Hi,
 
+Did some testing and one possible fix to this problem
+would be to change the xor to addition. Would this be OK?
 
-But mark target is compiled in kernel (not a module)
+---
+ net/xfrm/xfrm_hash.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-# iptables -t mangle -A PREROUTING -i eth1 -j MARK --set-mark 1
-# iptables -t mangle -L PREROUTING
-Chain PREROUTING (policy ACCEPT)
-target     prot opt source               destination         
-MARK       all  --  anywhere             anywhere            MARK xset
-0x1/0xffffffff 
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index d401dc8..e5195c9 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -16,7 +16,7 @@ static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+ 
+ static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+ {
+-	return ntohl(daddr->a4 ^ saddr->a4);
++	return ntohl(daddr->a4 + saddr->a4);
+ }
+ 
+ static inline unsigned int __xfrm6_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+-- 
+1.5.6.5
 
-This shouldn't be.
+On Thu, 6 Aug 2009, Jussi Maki wrote:
+
+> Hi David,
+> 
+> Changing the (h >> 16) to ((h >> 16) ^ (h >> 24)) still has the same
+> problem as given in the example,
+> that is if you have a set of transports with incrementing addresses
+> (192.168.0.1-172.16.0.1, 192.168.0.2-172.16.0.2,..) they
+> still hash to the same value. The reason to this is that it's doing
+> src^dst in __xfrm4_daddr_saddr_hash.
+> 
+> Should I pursue with fixing the inlining issue in my patch or would
+> you have any suggestions how I could
+> fix this by perhaps modifying __xfrm4_daddr_saddr_hash?
