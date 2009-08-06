@@ -1,57 +1,34 @@
-From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
-Subject: [PATCH 3/5] tc35815: Increase timeout for mdio
-Date: Thu,  6 Aug 2009 23:41:47 +0900
-Message-ID: <1249569709-21403-3-git-send-email-anemo@mba.ocn.ne.jp>
-Cc: David Miller <davem@davemloft.net>,
-	Ralf Roesch <ralf.roesch@rw-gmbh.de>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: Serialize access to PCI config space
+Date: Thu, 6 Aug 2009 08:34:36 -0700
+Message-ID: <20090806083436.2879bf7b@nehalam>
+References: <4A7ABA23.6060201@ring3k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Rene Mayrhofer <rene@mayrhofer.eu.org>,
+	Richard Leitner <leitner@esys.at>
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mba.ocn.ne.jp ([122.28.14.163]:56606 "EHLO smtp.mba.ocn.ne.jp"
+Received: from mail.vyatta.com ([76.74.103.46]:35640 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753756AbZHFPbT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Aug 2009 11:31:19 -0400
+	id S1755890AbZHFPel (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Aug 2009 11:34:41 -0400
+In-Reply-To: <4A7ABA23.6060201@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current timeout value is too short for very high-load condition
-which jiffies might jump up in busy-loop.
-Also add minimum delay before checking completion of MDIO.
+On Thu, 06 Aug 2009 20:10:27 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
 
-Signed-off-by: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
----
- drivers/net/tc35815.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+> PCI config space may be shared across two device instances,
+>  or accessed from an interrupt
+>  , so serialize access so
+>  read-update-write operations do not interfere with each other.
+> 
+> Only tested on a single port card, as my sky2 doesn't have dual ports.
+> 
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 801d201..1adb150 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -594,9 +594,10 @@ static int tc_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	struct net_device *dev = bus->priv;
- 	struct tc35815_regs __iomem *tr =
- 		(struct tc35815_regs __iomem *)dev->base_addr;
--	unsigned long timeout = jiffies + 10;
-+	unsigned long timeout = jiffies + HZ;
- 
- 	tc_writel(MD_CA_Busy | (mii_id << 5) | (regnum & 0x1f), &tr->MD_CA);
-+	udelay(12); /* it takes 32 x 400ns at least */
- 	while (tc_readl(&tr->MD_CA) & MD_CA_Busy) {
- 		if (time_after(jiffies, timeout))
- 			return -EIO;
-@@ -610,11 +611,12 @@ static int tc_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 val)
- 	struct net_device *dev = bus->priv;
- 	struct tc35815_regs __iomem *tr =
- 		(struct tc35815_regs __iomem *)dev->base_addr;
--	unsigned long timeout = jiffies + 10;
-+	unsigned long timeout = jiffies + HZ;
- 
- 	tc_writel(val, &tr->MD_Data);
- 	tc_writel(MD_CA_Busy | MD_CA_Wr | (mii_id << 5) | (regnum & 0x1f),
- 		  &tr->MD_CA);
-+	udelay(12); /* it takes 32 x 400ns at least */
- 	while (tc_readl(&tr->MD_CA) & MD_CA_Busy) {
- 		if (time_after(jiffies, timeout))
- 			return -EIO;
--- 
-1.5.6.5
-
+No, more locks is not better design.  Better to just use existing
+RTNL mutex consistently.
