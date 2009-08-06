@@ -1,32 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/rds: Use AF_INET for sin_family field
-Date: Wed, 05 Aug 2009 20:30:43 -0700 (PDT)
-Message-ID: <20090805.203043.70203213.davem@davemloft.net>
-References: <Pine.LNX.4.64.0908051434110.20453@pc-004.diku.dk>
+From: Jussi Maki <joamaki@gmail.com>
+Subject: Re: [PATCH] xfrm: xfrm hash to use Jenkins' hash
+Date: Thu, 6 Aug 2009 09:32:37 +0300
+Message-ID: <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com>
+References: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
+	 <20090805.120831.66033097.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: julia@diku.dk
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754026AbZHFDag@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0908051434110.20453@pc-004.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f196.google.com ([209.85.221.196]:48623 "EHLO
+	mail-qy0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506AbZHFGch convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 02:32:37 -0400
+Received: by qyk34 with SMTP id 34so630751qyk.33
+        for <netdev@vger.kernel.org>; Wed, 05 Aug 2009 23:32:37 -0700 (PDT)
+In-Reply-To: <20090805.120831.66033097.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Wed, 5 Aug 2009 14:34:34 +0200 (CEST)
+Hi David,
 
-> Elsewhere the sin_family field holds a value with a name of the form
-> AF_..., so it seems reasonable to do so here as well.  Also the values of
-> PF_INET and AF_INET are the same.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
- ..
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+Changing the (h >> 16) to ((h >> 16) ^ (h >> 24)) still has the same
+problem as given in the example,
+that is if you have a set of transports with incrementing addresses
+(192.168.0.1-172.16.0.1, 192.168.0.2-172.16.0.2,..) they
+still hash to the same value. The reason to this is that it's doing
+src^dst in __xfrm4_daddr_saddr_hash.
 
-This is obvious enough that I've just tossed it into net-next-2.6
+Should I pursue with fixing the inlining issue in my patch or would
+you have any suggestions how I could
+fix this by perhaps modifying __xfrm4_daddr_saddr_hash?
 
-Thanks!
+On Wed, Aug 5, 2009 at 10:08 PM, David Miller<davem@davemloft.net> wrot=
+e:
+> From: Jussi M=C3=A4ki <joamaki@gmail.com>
+> Date: Wed, 5 Aug 2009 10:41:42 +0300
+>
+>> Hi,
+>>
+>> The current xfrm hash functions perform very poorly when a number of
+>> policies have the same
+>> last byte in source and destination addresses.
+>>
+>> For example with __xfrm_dst_hash, hmask of 0xfff:
+>>
+>> 192.168.0.1-172.16.0.1 hashes to 3258
+>> 192.168.0.2-172.16.0.2 hashes to 3258
+>> ... and so on.
+>>
+>> This patch addresses the issue by rewriting the xfrm
+>> hash functions to use the Jenkins' hash function.
+>>
+>> Signed-off-by: Jussi Maki <joamaki@gmail.com>
+>
+> jhash expands to a lot of code, and given your description of the
+> problem, you could have fixed it by adding 2 instructions (see below)
+> instead of 20 or 30 (jhash instruction count) at every hash
+> calculation site.
+>
+> Simply change every instance of:
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0(h >> 16)
+>
+> with
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0((h >> 16) ^ (h >> 24))
+>
+> As much as I love jhash, it's overkill for fixing this problem.
+>
+> And if we do end up using jhash, it should get inlined into a
+> seperate non-inline function instead of expanding that monster
+> 4 or 5 times throughout the XFRM code.
+>
+> I'm not applying this, either make the simple one-liner fix I
+> suggested above work or move the jhash into a non-inline expansion.
+>
