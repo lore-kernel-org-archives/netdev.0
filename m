@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] xfrm: xfrm hash to use Jenkins' hash
-Date: Thu, 06 Aug 2009 10:40:20 -0700 (PDT)
-Message-ID: <20090806.104020.231624975.davem@davemloft.net>
-References: <ce10d01f0908050041p43c308fav72ac640f665e161f@mail.gmail.com>
-	<20090805.120831.66033097.davem@davemloft.net>
+Date: Thu, 06 Aug 2009 10:40:34 -0700 (PDT)
+Message-ID: <20090806.104034.186857842.davem@davemloft.net>
+References: <20090805.120831.66033097.davem@davemloft.net>
 	<ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com>
+	<alpine.DEB.1.10.0908061147060.3426@sisapiiri.net.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joamaki@gmail.com
+Cc: joamaki@gmail.com, netdev@vger.kernel.org
+To: jmaki@sisapiiri.net.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59566
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59569
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756412AbZHFRkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 13:40:10 -0400
-In-Reply-To: <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756428AbZHFRkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 13:40:24 -0400
+In-Reply-To: <alpine.DEB.1.10.0908061147060.3426@sisapiiri.net.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jussi Maki <joamaki@gmail.com>
-Date: Thu, 6 Aug 2009 09:32:37 +0300
+From: Jussi Maki <jmaki@sisapiiri.net.net>
+Date: Thu, 6 Aug 2009 11:58:55 +0300 (EEST)
 
-> Should I pursue with fixing the inlining issue in my patch or would
-> you have any suggestions how I could
-> fix this by perhaps modifying __xfrm4_daddr_saddr_hash?
+> Did some testing and one possible fix to this problem
+> would be to change the xor to addition. Would this be OK?
 
-Do some different mixing in __xfrm4_daddr_saddr_hash(), it's still
-going to be cheaper than jhash.
+Yes.
+
+Please make a formal submission.
