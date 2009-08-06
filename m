@@ -1,45 +1,62 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH 5/5] net: smsc911x: switch to new dev_pm_ops
-Date: Thu, 6 Aug 2009 12:53:45 +0100
-Message-ID: <OF06D1E485.71250FEA-ON8025760A.003F9572-8025760A.00415798@smsc.com>
-References: <20090805.202922.241102337.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
+Date: Thu, 6 Aug 2009 15:24:49 +0300
+Message-ID: <20090806122449.GC11038@redhat.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7A8F7B0200005A00051B84@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: daniel@caiaq.de, linux-kernel@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, Ian.Saturley@smsc.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755322AbZHFMJO@vger.kernel.org>
-In-Reply-To: <20090805.202922.241102337.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: alacrityvm-devel@lists.sourceforge.net, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755354AbZHFM0A@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4A7A8F7B0200005A00051B84@sinclair.provo.novell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote on 06/08/2009 04:29:22:
-
-> From: Daniel Mack <daniel@caiaq.de>
-> Date: Wed,  5 Aug 2009 20:29:31 +0200
+On Thu, Aug 06, 2009 at 06:08:27AM -0600, Gregory Haskins wrote:
+> Hi Michael,
 > 
-> > Hibernation is unsupported for now, which meets the actual
-> > implementation in the driver. For free/thaw, the chip's D2 state 
-should
-> > be entered.
+> >>> On 8/6/2009 at  4:19 AM, in message <20090806081955.GA9752@redhat.com>,
+> "Michael S. Tsirkin" <mst@redhat.com> wrote: 
+> > On Mon, Aug 03, 2009 at 01:17:30PM -0400, Gregory Haskins wrote:
+> >> (Applies to v2.6.31-rc5, proposed for linux-next after review is complete)
 > > 
-> > Signed-off-by: Daniel Mack <daniel@caiaq.de>
+> > These are guest drivers, right?
 > 
-> Steve, if it looks good to you I can toss this into net-next-2.6
+> Yep.
 > 
-> Just let me know.
+> > Merging the guest first means relying on
+> > kernel interface from an out of tree driver, which well might change
+> > before it goes in.
+> 
+> ABI compatibility is already addressed/handled, so even if that is true its not a problem.
 
-Looks fine.  Compiles ok and doesn't actually change any PM 
-implementation.
+It is? With versioning? Presumably this:
 
-Acked-by: <steve.glendinning@smsc.com>
++       params.devid   = vdev->id;
++       params.version = version;
++
++       ret = vbus_pci_hypercall(VBUS_PCI_HC_DEVOPEN,
++                                &params, sizeof(params));
++       if (ret < 0)
++               return ret;
 
-Unfortunately I can't test it.  The only dev platform I have in front of 
-me
-is SH7709S, which doesn't boot since 
-4ff29ff8e8723a41e7defd8bc78a7b16cbf940a2
-(the sh maintainers are aware and working on it:
-http://marc.info/?l=linux-sh&m=124891631203530&w=2)
+Even assuming host even knows how to decode this structure (e.g.  some
+other host module doesn't use VBUS_PCI_HC_DEVOPEN), checks the version
+and denies older guests, this might help guest not to crash, but guest
+still won't work.
 
-Steve
+> > Would it make more sense to start merging with the host side of the project?
+> 
+> Not necessarily, no.  These are drivers for a "device", so its no
+> different than merging any other driver really.  This is especially
+> true since the hypervisor is also already published and freely
+> available today, so anyone can start using it.
+
+The difference is clear to me: devices do not get to set kernel/userspace
+interfaces. This "device" depends on a specific interface between
+kernel and (guest) userspace.
+
+-- 
+MST
