@@ -1,46 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [GIT PULL 0/2] IEEE 802.15.4 last-minute
-	fixes v3
-Date: Thu, 06 Aug 2009 13:23:27 -0700 (PDT)
-Message-ID: <20090806.132327.210162548.davem@davemloft.net>
-References: <1249561586-26927-1-git-send-email-dbaryshkov@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/5] net: smsc911x: switch to new dev_pm_ops
+Date: Thu, 06 Aug 2009 13:26:04 -0700 (PDT)
+Message-ID: <20090806.132604.241009415.davem@davemloft.net>
+References: <20090805.202922.241102337.davem@davemloft.net>
+	<OF06D1E485.71250FEA-ON8025760A.003F9572-8025760A.00415798@smsc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1249561586-26927-1-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: daniel@caiaq.de, linux-kernel@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, Ian.Saturley@smsc.com
+To: Steve.Glendinning@smsc.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <OF06D1E485.71250FEA-ON8025760A.003F9572-8025760A.00415798@smsc.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu,  6 Aug 2009 16:26:24 +0400
+From: Steve.Glendinning@smsc.com
+Date: Thu, 6 Aug 2009 12:53:45 +0100
 
->   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-linus
+> David Miller <davem@davemloft.net> wrote on 06/08/2009 04:29:22:
 > 
-> Dmitry Eremin-Solenikov (2):
->       af_ieee802154: fix ioctl processing
->       af_ieee802154: provide dummy get/setsockopt
+>> From: Daniel Mack <daniel@caiaq.de>
+>> Date: Wed,  5 Aug 2009 20:29:31 +0200
+>> 
+>> > Hibernation is unsupported for now, which meets the actual
+>> > implementation in the driver. For free/thaw, the chip's D2 state 
+> should
+>> > be entered.
+>> > 
+>> > Signed-off-by: Daniel Mack <daniel@caiaq.de>
+>> 
+>> Steve, if it looks good to you I can toss this into net-next-2.6
+>> 
+>> Just let me know.
+> 
+> Looks fine.  Compiles ok and doesn't actually change any PM 
+> implementation.
+> 
+> Acked-by: <steve.glendinning@smsc.com>
 
-Pulled, thanks.
-
-I'm currently waiting for Linus to pull in a locking fix from
-Ingo Molnar from my tree, and I don't want things to "magically"
-appear in a tree I've already asked him to pull from.
-
-So I'll push these changes back out once he's taken that fix from
-Ingo.
-
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with 
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
+Applied, thanks everyone.
