@@ -1,50 +1,97 @@
-From: Fabio Comolli <fabio.comolli@gmail.com>
-Subject: WARNING: at net/mac80211/mlme.c:2292 ieee80211_sta_work+0x97/0xd2d
-	[mac80211]()
-Date: Thu, 6 Aug 2009 20:30:23 +0200
-Message-ID: <b637ec0b0908061130w399eb1c6oc3a31640a76398c5@mail.gmail.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [RFC PATCH v1 1/2] lsm: Add hooks to the TUN driver
+Date: Thu, 6 Aug 2009 13:38:05 -0500
+Message-ID: <20090806183805.GB4280@us.ibm.com>
+References: <20090804211304.10798.65601.stgit@flek.lan> <200908061024.54786.paul.moore@hp.com> <20090806155257.GA32427@us.ibm.com> <200908061225.47404.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754007AbZHFSaZ@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eparis@redhat.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200908061225.47404.paul.moore@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just got this after a resume from suspend-to-ram. Wifi needed to be
-disabled and reenabled (with hardware Fn+F2 key - this is an eeePC900)
-to function  again.
+Quoting Paul Moore (paul.moore@hp.com):
+> On Thursday 06 August 2009 11:52:58 am Serge E. Hallyn wrote:
+> > Quoting Paul Moore (paul.moore@hp.com):
+> > > BTW, the main reason for posting the patches in such an early state was
+> > > to solicit feedback on the location and types of hooks added; I've read
+> > > lots of good feedback but nothing regarding the fundamental aspects of
+> > > the hooks ... any comments before I push out v2?
+> >
+> > Oh now that you mention it, yes - I think the security_tun_dev_attach()
+> > should be called again separately after the post_create() hook.
+> 
+> Why?  Granted the TUN driver calls tun_attach() in both cases but that doesn't 
+> necessarily mean the operation from a security point of view is the same.  
+> Using the SELinux hooks as an example, attaching to an existing TUN device is 
+> currently treated as a relabel operation; the calling task relabels the 
+> persistent TUN device to match its own label so that traffic sent over the TUN 
+> device is labeled using the newly attached calling task's label.  Creating a 
+> new TUN device is like creating any other object (yes, there are exceptions to 
+> this but I'm speaking generally here), it inherits the label of the task which 
+> creates it, performing access control for a relabel operation here just 
+> doesn't make sense.
+> 
+> Or are you expecting some other form of access control for the attach hook 
+> which would change this argument?
 
+You're right, since there is no way to create without attaching that doesn't
+make sense, regardless of the LSM or policy :)  Nm.
 
-[  919.858759] ------------[ cut here ]------------
-[  919.858787] WARNING: at net/mac80211/mlme.c:2292
-ieee80211_sta_work+0x97/0xd2d [mac80211]()
-[  919.858791] Hardware name: 900
-[  919.858793] Modules linked in: uvcvideo videodev v4l1_compat arc4
-ecb ath5k mac80211 ath cfg80211
-[  919.860022] Pid: 793, comm: phy0 Tainted: G   M       2.6.31-rc5 #11
-[  919.860025] Call Trace:
-[  919.860035]  [<c10209cf>] warn_slowpath_common+0x65/0x7c
-[  919.860058]  [<f83d621e>] ? ieee80211_sta_work+0x97/0xd2d [mac80211]
-[  919.860064]  [<c10209f3>] warn_slowpath_null+0xd/0x10
-[  919.860086]  [<f83d621e>] ieee80211_sta_work+0x97/0xd2d [mac80211]
-[  919.860092]  [<c101bb2b>] ? __wake_up+0x2f/0x56
-[  919.860097]  [<c101bb39>] ? __wake_up+0x3d/0x56
-[  919.860103]  [<c102eb04>] ? insert_work+0x96/0x9f
-[  919.860108]  [<c102ed63>] ? __queue_work+0x32/0x49
-[  919.860113]  [<c102eda1>] ? queue_work_on+0x27/0x2f
-[  919.860119]  [<c102f52f>] ? queue_work+0x2d/0x45
-[  919.860140]  [<f83d3324>] ?
-ieee80211_ibss_notify_scan_completed+0x63/0x68 [mac80211]
-[  919.860162]  [<f83d1059>] ? ieee80211_scan_completed+0x320/0x328 [mac80211]
-[  919.860184]  [<f83d1160>] ? ieee80211_scan_work+0xb5/0x171 [mac80211]
-[  919.860190]  [<c102f075>] worker_thread+0x15d/0x204
-[  919.860211]  [<f83d6187>] ? ieee80211_sta_work+0x0/0xd2d [mac80211]
-[  919.860218]  [<c1032217>] ? autoremove_wake_function+0x0/0x2f
-[  919.860223]  [<c102ef18>] ? worker_thread+0x0/0x204
-[  919.860229]  [<c1031fab>] kthread+0x63/0x68
-[  919.860234]  [<c1031f48>] ? kthread+0x0/0x68
-[  919.860240]  [<c1002f93>] kernel_thread_helper+0x7/0x10
-[  919.860244] ---[ end trace 7a3a8d08c5a7bedf ]---
+> > As for more general comments on whether or which tuntap-specific hooks
+> > need to exist, two things.  First, if you have specific requirements
+> > in mind please do share those, otherwise I'm working based on what I
+> > see in Documentation/networking/tuntap.txt and drivers/net/tun.c.
+> 
+> Not that haven't already been mentioned.  If something doesn't make sense, let 
+> me know.
+> 
+> > Second, based on my understanding i think the hooks you have make sense,
+> > but is there any way to relabel a tun socket?  Since they are always labeled
+> > with current_sid(), that seems restrictive... 
+> 
+> Not at present, the TUN driver only supports changing the user/group IDs.  I 
+> am debating adding support to change/view the label of the device/socket 
+> (TUN{SET,GET}SECCTX perhaps?) but that can happen later and is in no way 
+> prevented by these patches.  My thinking is that these patches are a 
+> requirement for us to apply the existing LSM network access controls to 
+> traffic originating from the TUN driver; depending on how use cases evolve 
+> with the TUN driver we may want to add additional functionality but this 
+> should serve as a good base.
+> 
+> > I see that you don't want to use sockcreate_sid, but (to use a made-up
+> > example not reflecting reality) a kvm_setup_t task couldn't create a tun
+> > sock for a kvm_run_t task to use, right?
+> 
+> Well, the only time this will really be an issue is when you have one task 
+> create a new, persistent TUN device and a second task that attaches to the 
+> existing TUN device and uses it to send traffic.  Sticking with your example, 
+> if the first task is labeled kvm_setup_t and the second task is labeled 
+> kvm_run_t then the policy would look something like this:
+> 
+> 	# allow kvm_setup_t to create a new TUN device
+> 	allow kvm_setup_t self:tun_socket { create };
+> 
+> 	# allow kvm_run_t to use TUN devices created by kvm_setup_t
+> 	allow kvm_run_t kvm_setup_t:tun_socket { relabelfrom };
+> 	allow kvm_run_t self:tun_socket { relabelto };
+> 
+> The policy above has the nice effect of only allowing kvm_run_t to attach to 
+> existing TUN devices created by kvm_setup_t; it can not create a new TUN 
+> device or use persistent TUN devices created by other domains.  This should 
+> also help explain why I think calling the attach() hook after the 
+> post_create() hook makes little sense given the access controls currently 
+> proposed.
+
+And really allowing flexibility in the default label can always be done
+without affecting the tun code so never mind.
+
+So I think your hooks make sense as is, given the TUN usage model described
+in the docs.
+
+thanks,
+-serge
