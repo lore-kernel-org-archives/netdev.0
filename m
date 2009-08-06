@@ -1,7 +1,7 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: [PATCH] sky2: Add a mutex around ethtools operations
-Date: Wed, 5 Aug 2009 17:42:41 -0700
-Message-ID: <20090805174241.6c8be715@nehalam>
+Date: Wed, 5 Aug 2009 17:41:58 -0700
+Message-ID: <20090805174158.383dcc03@nehalam>
 References: <4A7A0BAA.7020104@ring3k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -10,10 +10,10 @@ Cc: netdev@vger.kernel.org, Rene Mayrhofer <rene@mayrhofer.eu.org>,
 	Richard Leitner <leitner@esys.at>
 To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55319 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751806AbZHFAmq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Aug 2009 20:42:46 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55280 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752724AbZHFAnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Aug 2009 20:43:25 -0400
 In-Reply-To: <4A7A0BAA.7020104@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -32,4 +32,3 @@ Mike McCormack <mikem@ring3k.org> wrote:
 NAK.
 The ethtool operations are already serialized by rtnl mutex at
 higher level.  See net/core/dev.c 
--- 
