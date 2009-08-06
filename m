@@ -1,82 +1,50 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Thu, 6 Aug 2009 14:20:20 -0400
-Message-ID: <200908061420.20983.paul.moore@hp.com>
-References: <20090803161242.12947.14620.stgit@flek.lan> <200908051738.43134.paul.moore@hp.com> <m1ws5hua4h.fsf@fess.ebiederm.org>
+From: Fabio Comolli <fabio.comolli@gmail.com>
+Subject: WARNING: at net/mac80211/mlme.c:2292 ieee80211_sta_work+0x97/0xd2d
+	[mac80211]()
+Date: Thu, 6 Aug 2009 20:30:23 +0200
+Message-ID: <b637ec0b0908061130w399eb1c6oc3a31640a76398c5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:48849 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbZHFSU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 14:20:27 -0400
-In-Reply-To: <m1ws5hua4h.fsf@fess.ebiederm.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754007AbZHFSaZ@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 August 2009 07:14:06 pm Eric W. Biederman wrote:
-> Paul Moore <paul.moore@hp.com> writes:
-> > On Wednesday 05 August 2009 01:32:49 am Eric W. Biederman wrote:
-> >> Paul Moore <paul.moore@hp.com> writes:
-> >> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >> > index 4a0db7a..b6d06fd 100644
-> >> > --- a/drivers/net/tun.c
-> >> > +++ b/drivers/net/tun.c
-> >> > @@ -976,10 +973,11 @@ static int tun_set_iff(struct net *net, struct
-> >> > file *file, struct ifreq *ifr) tun->flags = flags;
-> >> >  		tun->txflt.count = 0;
-> >> >
-> >> > -		err = -ENOMEM;
-> >> >  		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-> >> > -		if (!sk)
-> >> > +		if (!sk) {
-> >> > +			err = -ENOMEM;
-> >> >  			goto err_free_dev;
-> >> > +		}
-> >>
-> >> Trivially correct but I would argue uglier.
-> >
-> > My reasoning behind the change was that code related to the error
-> > handling should be moved outside the common path as much as possible
-> > similar to what we do now with the gotos.
->
-> I don't understand.  Generating less readable and less efficient code is
-> preferable?
+Just got this after a resume from suspend-to-ram. Wifi needed to be
+disabled and reenabled (with hardware Fn+F2 key - this is an eeePC900)
+to function  again.
 
-While we can probably debate the "readability" of code all day long and get no 
-where (anyone care to argue about the color of the bikeshed?) the concept of 
-code efficiency should be a bit easier to quantify.  I'll admit that I'm far 
-from a performance expert but here is my reasoning ...
 
-The code currently looks something like this:
-
-	err = -ENOMEM;
-	buf = alloc(...);
-	if (!buf)
-		goto label;
-
-This means that in the common case where 'alloc()' completes without error we 
-are doing an extra, unnecessary assignment where we set the value in 'err'.  
-Now, if we change this slightly to match what I proposed in the patch:
-
-	buf = alloc(...);
-	if (!buf) {
-		err = -ENOMEM;
-		goto label;
-	}
-
-We eliminate that extra assignment in the case where 'alloc()' completes 
-without error, which should result in more efficient code (less instructions 
-in the common case).  Am I wrong?  If that is the case I would appreciate an 
-explanation ...
-
--- 
-paul moore
-linux @ hp
-
+[  919.858759] ------------[ cut here ]------------
+[  919.858787] WARNING: at net/mac80211/mlme.c:2292
+ieee80211_sta_work+0x97/0xd2d [mac80211]()
+[  919.858791] Hardware name: 900
+[  919.858793] Modules linked in: uvcvideo videodev v4l1_compat arc4
+ecb ath5k mac80211 ath cfg80211
+[  919.860022] Pid: 793, comm: phy0 Tainted: G   M       2.6.31-rc5 #11
+[  919.860025] Call Trace:
+[  919.860035]  [<c10209cf>] warn_slowpath_common+0x65/0x7c
+[  919.860058]  [<f83d621e>] ? ieee80211_sta_work+0x97/0xd2d [mac80211]
+[  919.860064]  [<c10209f3>] warn_slowpath_null+0xd/0x10
+[  919.860086]  [<f83d621e>] ieee80211_sta_work+0x97/0xd2d [mac80211]
+[  919.860092]  [<c101bb2b>] ? __wake_up+0x2f/0x56
+[  919.860097]  [<c101bb39>] ? __wake_up+0x3d/0x56
+[  919.860103]  [<c102eb04>] ? insert_work+0x96/0x9f
+[  919.860108]  [<c102ed63>] ? __queue_work+0x32/0x49
+[  919.860113]  [<c102eda1>] ? queue_work_on+0x27/0x2f
+[  919.860119]  [<c102f52f>] ? queue_work+0x2d/0x45
+[  919.860140]  [<f83d3324>] ?
+ieee80211_ibss_notify_scan_completed+0x63/0x68 [mac80211]
+[  919.860162]  [<f83d1059>] ? ieee80211_scan_completed+0x320/0x328 [mac80211]
+[  919.860184]  [<f83d1160>] ? ieee80211_scan_work+0xb5/0x171 [mac80211]
+[  919.860190]  [<c102f075>] worker_thread+0x15d/0x204
+[  919.860211]  [<f83d6187>] ? ieee80211_sta_work+0x0/0xd2d [mac80211]
+[  919.860218]  [<c1032217>] ? autoremove_wake_function+0x0/0x2f
+[  919.860223]  [<c102ef18>] ? worker_thread+0x0/0x204
+[  919.860229]  [<c1031fab>] kthread+0x63/0x68
+[  919.860234]  [<c1031f48>] ? kthread+0x0/0x68
+[  919.860240]  [<c1002f93>] kernel_thread_helper+0x7/0x10
+[  919.860244] ---[ end trace 7a3a8d08c5a7bedf ]---
