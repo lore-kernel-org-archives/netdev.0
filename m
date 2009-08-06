@@ -1,38 +1,33 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
-Date: Thu, 06 Aug 2009 16:57:36 +0300
-Message-ID: <4A7AE150.7040009@redhat.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7A8F7B0200005A00051B84@sinclair.provo.novell.com> <4A7AD29E.50800@redhat.com> <4A7A9C6B0200005A00051BB9@sinclair.provo.novell.com> <4A7ADE23.5010208@redhat.com> <4A7AA63A0200005A00051BE2@sinclair.provo.novell.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] irda: Fix irda_getname() leak
+Date: Thu, 06 Aug 2009 15:55:04 +0200
+Message-ID: <4A7AE0B8.8010600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: alacrityvm-devel@lists.sourceforge.net,
-	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A7AA63A0200005A00051BE2@sinclair.provo.novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:52790 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267AbZHFNzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 09:55:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/06/2009 04:45 PM, Gregory Haskins wrote:
->
->> (though still rooting for virtio).
->>      
->
-> Heh...not to belabor the point to death, but virtio is orthogonal (you keep forgetting that ;).
->
-> Its really the vbus device-model vs the qemu device-model (and possibly vs the "in-kernel pci emulation" model that I believe Michael is working on).
->
-> You can run virtio on any of those three.
->    
+irda_getname() can leak kernel memory to user.
 
-It's not orthogonal.  virtio is one set of ABI+guest drivers+host 
-support to get networking on kvm guests.  AlacrityVM's vbus-based 
-drivers are another set of ABI+guest drivers+host support to get 
-networking on kvm guests.  That makes them competitors (two different 
-ways to do one thing), not orthogonal.
-
--- 
-error compiling committee.c: too many arguments to function
-
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index cb762c8..3ec2b43 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -714,6 +714,7 @@ static int irda_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	struct sock *sk = sock->sk;
+ 	struct irda_sock *self = irda_sk(sk);
+ 
++	memset(&saddr, 0, sizeof(saddr));
+ 	if (peer) {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+ 			return -ENOTCONN;
