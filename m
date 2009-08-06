@@ -1,33 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH, RFC] bonding: prevent outgoing packets on inactive slaves
-Date: Thu, 06 Aug 2009 14:28:39 +0200
-Message-ID: <4A7ACC77.5050702@gmail.com>
-References: <20090805162429.GD16093@midget.suse.cz> <4A79BA01.502@gmail.com> <20090806104356.GA8024@midget.suse.cz>
+From: "Gregory Haskins" <ghaskins@novell.com>
+Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
+Date: Thu, 06 Aug 2009 06:09:33 -0600
+Message-ID: <4A7A8FBD0200005A00051B8A@sinclair.provo.novell.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net>
+ <20090806081955.GA9752@redhat.com> <20090806101702.GA10605@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:35337 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbZHFM2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 08:28:50 -0400
-In-Reply-To: <20090806104356.GA8024@midget.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <alacrityvm-devel@lists.sourceforge.net>, <kvm@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090806101702.GA10605@redhat.com>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Bohac a =E9crit :
-> On Wed, Aug 05, 2009 at 06:57:37PM +0200, Eric Dumazet wrote:
->> Jiri Bohac a =E9crit :
->>> This patch makes sure the TX queues on inactive slaves are
->>> deactivated.
->>>
->> Wont this break ARP link monitoring ?
->=20
-> No, ARP monitoring sends the ARP requests from the active slave.
->=20
+>>> On 8/6/2009 at  6:17 AM, in message <20090806101702.GA10605@redhat.com>,
+"Michael S. Tsirkin" <mst@redhat.com> wrote: 
+> On Thu, Aug 06, 2009 at 11:19:56AM +0300, Michael S. Tsirkin wrote:
+>> On Mon, Aug 03, 2009 at 01:17:30PM -0400, Gregory Haskins wrote:
+>> > (Applies to v2.6.31-rc5, proposed for linux-next after review is complete)
+>> 
+>> These are guest drivers, right? Merging the guest first means relying on
+>> kernel interface from an out of tree driver, which well might change
+>> before it goes in.  Would it make more sense to start merging with the
+>> host side of the project?
+>> 
+>> > This series implements the guest-side drivers for accelerated IO
+>> > when running on top of the AlacrityVM hypervisor, the details of
+>> > which you can find here:
+>> > 
+>> > http://developer.novell.com/wiki/index.php/AlacrityVM
+>> 
+>> Since AlacrityVM is kvm based, Cc kvm@vger.kernel.org.
+>> 
+>> > This series includes the basic plumbing, as well as the driver for
+>> > accelerated 802.x (ethernet) networking.
+>> 
+>> The graphs comparing virtio with vbus look interesting.
+>> However, they do not compare apples to apples, do they?
+>> These compare userspace virtio with kernel vbus, where for
+>> apples to apples comparison one would need to compare
+>> kernel virtio with kernel vbus. Right?
+> 
+> Or userspace virtio with userspace vbus.
 
-Yes, this makes sense now you say it :)
+Note: That would be pointless.
 
-Thanks
+-Greg
+
+
