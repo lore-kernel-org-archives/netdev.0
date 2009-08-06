@@ -1,67 +1,37 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH 3/3] documentation: fix wrt. headers rename
-Date: Thu, 6 Aug 2009 13:26:17 +0400
-Message-ID: <20090806092617.GA9209@doriath.ww600.siemens.net>
-References: <1249457297-8355-2-git-send-email-dbaryshkov@gmail.com>
- <1249457297-8355-3-git-send-email-dbaryshkov@gmail.com>
- <1249457297-8355-4-git-send-email-dbaryshkov@gmail.com>
- <20090805.202226.24204308.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
+Date: Thu, 6 Aug 2009 20:10:44 +1000
+Message-ID: <20090806101044.GA26589@gondor.apana.org.au>
+References: <20090803161242.12947.14620.stgit@flek.lan> <m1ljlyvn9a.fsf@fess.ebiederm.org> <200908051738.43134.paul.moore@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:63597 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246AbZHFJ0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 05:26:43 -0400
-Received: by ewy10 with SMTP id 10so626734ewy.37
-        for <netdev@vger.kernel.org>; Thu, 06 Aug 2009 02:26:42 -0700 (PDT)
+Received: from rhun.apana.org.au ([64.62.148.172]:53271 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751232AbZHFKKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 06:10:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20090805.202226.24204308.davem@davemloft.net>
+In-Reply-To: <200908051738.43134.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 05, 2009 at 08:22:26PM -0700, David Miller wrote:
-> From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Date: Wed,  5 Aug 2009 11:28:17 +0400
-> 
-> > Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> 
-> What are you generating these patches against?
-> 
-> > @@ -72,5 +72,4 @@ SoftMAC
-> >  We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
-> >  in software. This is currently WIP.
-> >  
-> > -See header include/net/ieee802154/mac802154.h and several drivers in
-> > -drivers/ieee802154/
-> > +See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
-> 
-> In net-2.6, and in Linus's tree as well, that first sentence quoted has
-> a typo, "implementing" is misspelled, but in whatever you're patching
-> against the misspelling is fixed.
-> 
-> Looking at your pull request:
-> 
-> --------------------
-> The following changes since commit db71789c01ae7b641f83c5aa64e7df25122f4b28:
->   David S. Miller (1):
->         xfrm6: Fix xfrm6_policy.c build when SYSCTL disabled.
-> --------------------
-> 
-> You're submitting these for net-next-2.6?  Didn't we just go back and
-> forth about trimming this patch series down to only pure bug fixes so
-> that they could go into net-2.6?  Given that, why are you generating
-> this stuff against net-next-2.6?
+On Wed, Aug 05, 2009 at 05:38:42PM -0400, Paul Moore wrote:
+>
+> My concern is that I believe that if the kernel fails at an operation it 
+> should do all it can to unwind any actions it took in the course of attempting 
+> to perform the requested operation.  Leaving a TUN device around in the case 
+> of a tun_attach() failure seems like the kernel is being lazy, sure a user can 
+> cleanup the device but why should they have to?
 
-Damn. It seems I missed the difference between net-next-2.6 and net-2.6.
+That particular tun_attach should never fail.  Perhaps you can
+just add a WARN_ON.
 
-BTW: how should I differentiate my poll requests for net-next-2.6 and
-for net-2.6 ?
-
+Cheers,
 -- 
-With best wishes
-Dmitry
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
