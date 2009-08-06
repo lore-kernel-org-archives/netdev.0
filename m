@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/2] ixgbe: Pass rx_ring directly in
-	ixgbe_configure_srrctl()
-Date: Thu, 06 Aug 2009 16:05:23 -0700
-Message-ID: <20090806230514.28347.51172.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/2] ixgbe: Disable packet split only on FCoE queues
+	in 82599
+Date: Thu, 06 Aug 2009 16:05:44 -0700
+Message-ID: <20090806230544.28347.97373.stgit@localhost.localdomain>
+References: <20090806230514.28347.51172.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,130 +13,146 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:49515
-	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756495AbZHFXFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 19:05:43 -0400
+Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:52433
+	"EHLO QMTA08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752978AbZHFXGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 19:06:04 -0400
+In-Reply-To: <20090806230514.28347.51172.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-Instead of passing the register index of the corresponding rx_ring and find
-the way back to get to corresponding rx_ring in ixgbe_configure_srrctl(),
-simplify the function ixgbe_configure_srrctl() by passing the rx_ring into
-it. Then the register index for that rx_ring is already available from
-rx_ring->reg_idx.
+For 82599, packet split has to be disabled for FCoE direct data placement.
+However, this is only required on received queues allocated for FCoE. This
+patch adds a per ring flags to indicate if packet split is disabled on a
+per queue basis, particularly for FCoE, as packet split must be disabled
+for large receive using direct data placement (DDP).
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
 Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   55 +++++++++++-----------------------------
- 1 files changed, 15 insertions(+), 40 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    2 ++
+ drivers/net/ixgbe/ixgbe_main.c |   33 +++++++++++++++++----------------
+ 2 files changed, 19 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index e11d83d..2c4dc82 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -136,6 +136,8 @@ struct ixgbe_ring {
+ 
+ 	u8 queue_index; /* needed for multiqueue queue management */
+ 
++#define IXGBE_RING_RX_PS_ENABLED                (u8)(1)
++	u8 flags;			/* per ring feature flags */
+ 	u16 head;
+ 	u16 tail;
+ 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 110c65a..e361b7f 100644
+index e361b7f..e3cb949 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1898,46 +1898,19 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+@@ -585,7 +585,7 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 		rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
  
- #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT 2
+ 		if (!bi->page_dma &&
+-		    (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)) {
++		    (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)) {
+ 			if (!bi->page) {
+ 				bi->page = alloc_page(GFP_ATOMIC);
+ 				if (!bi->page) {
+@@ -629,7 +629,7 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 		}
+ 		/* Refresh the desc even if buffer_addrs didn't change because
+ 		 * each write-back erases this info. */
+-		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
++		if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED) {
+ 			rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
+ 			rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
+ 		} else {
+@@ -726,7 +726,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			break;
+ 		(*work_done)++;
  
--static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter, int index)
-+static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
-+                                   struct ixgbe_ring *rx_ring)
- {
--	struct ixgbe_ring *rx_ring;
- 	u32 srrctl;
--	int queue0 = 0;
--	unsigned long mask;
-+	int index;
- 	struct ixgbe_ring_feature *feature = adapter->ring_feature;
+-		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
++		if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED) {
+ 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
+ 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
+ 			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
+@@ -798,7 +798,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			rx_ring->stats.packets++;
+ 			rx_ring->stats.bytes += skb->len;
+ 		} else {
+-			if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
++			if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED) {
+ 				rx_buffer_info->skb = next_buffer->skb;
+ 				rx_buffer_info->dma = next_buffer->dma;
+ 				next_buffer->skb = skb;
+@@ -1919,7 +1919,7 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+ 	srrctl |= (IXGBE_RX_HDR_SIZE << IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT) &
+ 		  IXGBE_SRRCTL_BSIZEHDR_MASK;
  
--	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
--		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
--			int dcb_i = feature[RING_F_DCB].indices;
--			if (dcb_i == 8)
--				queue0 = index >> 4;
--			else if (dcb_i == 4)
--				queue0 = index >> 5;
--			else
--				dev_err(&adapter->pdev->dev, "Invalid DCB "
--				        "configuration\n");
+-	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
++	if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED) {
+ #if (PAGE_SIZE / 2) > IXGBE_MAX_RXBUFFER
+ 		srrctl |= IXGBE_MAX_RXBUFFER >> IXGBE_SRRCTL_BSIZEPKT_SHIFT;
+ #else
+@@ -1992,11 +1992,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	/* Decide whether to use packet split mode or not */
+ 	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+ 
 -#ifdef IXGBE_FCOE
--			if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
--				struct ixgbe_ring_feature *f;
--
--				rx_ring = &adapter->rx_ring[queue0];
--				f = &adapter->ring_feature[RING_F_FCOE];
--				if ((queue0 == 0) && (index > rx_ring->reg_idx))
--					queue0 = f->mask + index -
--					         rx_ring->reg_idx - 1;
--			}
+-	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+-		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
 -#endif /* IXGBE_FCOE */
--		} else {
--			queue0 = index;
--		}
--	} else {
-+	index = rx_ring->reg_idx;
-+	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
-+		unsigned long mask;
- 		mask = (unsigned long) feature[RING_F_RSS].mask;
--		queue0 = index & mask;
- 		index = index & mask;
- 	}
 -
--	rx_ring = &adapter->rx_ring[queue0];
--
- 	srrctl = IXGBE_READ_REG(&adapter->hw, IXGBE_SRRCTL(index));
+ 	/* Set the RX buffer length according to the mode */
+ 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+ 		rx_buf_len = IXGBE_RX_HDR_SIZE;
+@@ -2056,14 +2051,19 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 		rx_ring->tail = IXGBE_RDT(j);
+ 		rx_ring->rx_buf_len = rx_buf_len;
  
- 	srrctl &= ~IXGBE_SRRCTL_BSIZEHDR_MASK;
-@@ -2002,6 +1975,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- {
- 	u64 rdba;
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	struct ixgbe_ring *rx_ring;
- 	struct net_device *netdev = adapter->netdev;
- 	int max_frame = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	int i, j;
-@@ -2070,16 +2044,17 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	 * the Base and Length of the Rx Descriptor Ring
- 	 */
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
--		rdba = adapter->rx_ring[i].dma;
--		j = adapter->rx_ring[i].reg_idx;
-+		rx_ring = &adapter->rx_ring[i];
-+		rdba = rx_ring->dma;
-+		j = rx_ring->reg_idx;
- 		IXGBE_WRITE_REG(hw, IXGBE_RDBAL(j), (rdba & DMA_BIT_MASK(32)));
- 		IXGBE_WRITE_REG(hw, IXGBE_RDBAH(j), (rdba >> 32));
- 		IXGBE_WRITE_REG(hw, IXGBE_RDLEN(j), rdlen);
- 		IXGBE_WRITE_REG(hw, IXGBE_RDH(j), 0);
- 		IXGBE_WRITE_REG(hw, IXGBE_RDT(j), 0);
--		adapter->rx_ring[i].head = IXGBE_RDH(j);
--		adapter->rx_ring[i].tail = IXGBE_RDT(j);
--		adapter->rx_ring[i].rx_buf_len = rx_buf_len;
-+		rx_ring->head = IXGBE_RDH(j);
-+		rx_ring->tail = IXGBE_RDT(j);
-+		rx_ring->rx_buf_len = rx_buf_len;
- 
++		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)
++			rx_ring->flags |= IXGBE_RING_RX_PS_ENABLED;
++
  #ifdef IXGBE_FCOE
  		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-@@ -2087,12 +2062,12 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 			struct ixgbe_ring_feature *f;
  			f = &adapter->ring_feature[RING_F_FCOE];
- 			if ((rx_buf_len < IXGBE_FCOE_JUMBO_FRAME_SIZE) &&
- 			    (i >= f->mask) && (i < f->mask + f->indices))
--				adapter->rx_ring[i].rx_buf_len =
-+				rx_ring->rx_buf_len =
- 				        IXGBE_FCOE_JUMBO_FRAME_SIZE;
+-			if ((rx_buf_len < IXGBE_FCOE_JUMBO_FRAME_SIZE) &&
+-			    (i >= f->mask) && (i < f->mask + f->indices))
+-				rx_ring->rx_buf_len =
+-				        IXGBE_FCOE_JUMBO_FRAME_SIZE;
++			if ((i >= f->mask) && (i < f->mask + f->indices)) {
++				rx_ring->flags &= ~IXGBE_RING_RX_PS_ENABLED;
++				if (rx_buf_len < IXGBE_FCOE_JUMBO_FRAME_SIZE)
++					rx_ring->rx_buf_len =
++					        IXGBE_FCOE_JUMBO_FRAME_SIZE;
++			}
  		}
  
  #endif /* IXGBE_FCOE */
--		ixgbe_configure_srrctl(adapter, j);
-+		ixgbe_configure_srrctl(adapter, rx_ring);
- 	}
- 
- 	if (hw->mac.type == ixgbe_mac_82598EB) {
+@@ -2143,7 +2143,8 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
+ 		/* Enable 82599 HW-RSC */
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			j = adapter->rx_ring[i].reg_idx;
++			rx_ring = &adapter->rx_ring[i];
++			j = rx_ring->reg_idx;
+ 			rscctrl = IXGBE_READ_REG(hw, IXGBE_RSCCTL(j));
+ 			rscctrl |= IXGBE_RSCCTL_RSCEN;
+ 			/*
+@@ -2151,7 +2152,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 			 * total size of max desc * buf_len is not greater
+ 			 * than 65535
+ 			 */
+-			if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
++			if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED) {
+ #if (MAX_SKB_FRAGS > 16)
+ 				rscctrl |= IXGBE_RSCCTL_MAXDESC_16;
+ #elif (MAX_SKB_FRAGS > 8)
 
