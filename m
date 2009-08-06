@@ -1,42 +1,31 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: WARNING: at net/mac80211/mlme.c:2292 ieee80211_sta_work+0x97/0xd2d
-	[mac80211]()
-Date: Thu, 6 Aug 2009 12:32:00 -0700
-Message-ID: <43e72e890908061232k467ba1f7iece5d0aa9bece811@mail.gmail.com>
-References: <b637ec0b0908061130w399eb1c6oc3a31640a76398c5@mail.gmail.com>
-	<20090806183247.GI26809@tuxdriver.com> <b637ec0b0908061226m33203bco7ac38cecb939b382@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next-2.6 2009-08-06
+Date: Thu, 06 Aug 2009 13:02:45 -0700 (PDT)
+Message-ID: <20090806.130245.89416741.davem@davemloft.net>
+References: <20090806190200.GJ26809@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-wireless@vger.kernel.org
-To: Fabio Comolli <fabio.comolli@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756560AbZHFTcW@vger.kernel.org>
-In-Reply-To: <b637ec0b0908061226m33203bco7ac38cecb939b382@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50410
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756210AbZHFUCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 16:02:36 -0400
+In-Reply-To: <20090806190200.GJ26809@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 6, 2009 at 12:26 PM, Fabio Comolli<fabio.comolli@gmail.com> wrote:
-> Hi John. I'm using ath5k .
->
-> The card is a:
->
-> 01:00.0 Ethernet controller: Atheros Communications Inc. AR5001
-> Wireless Network Adapter (rev 01)
->
-> with PCI ID:
->
-> 01:00.0 0200: 168c:001c (rev 01)
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 6 Aug 2009 15:02:00 -0400
 
-What kernel?
+> Here is another big round of updates intended for 2.6.32...mostly the usual
+> suspects, although it looks like Luis has been exceptionally busy with
+> both ath9k and regulatory enforcement bits.  Jussi has a number of
+> rndis_wlan changes, and of course Johannes has a number of patches as
+> well.
 
-This is probably a driver/mac80211 adding work into the mac80211
-workqueue during the susend --> resume cycle. We recently changed the
-warning to be moved onto the actual caller who does the queue_work()
-so we don't have to guess at this and do a painful debugging.
+Pulled, thanks John.
 
-I suspect you are not using the latest wireless-testing.
-
-  Luis
+Will push out to kernel.org after build tests.
