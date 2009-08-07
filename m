@@ -1,52 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 2/3] net: Add ftracer to help optimize process
-	scheduling based on incomming frame allocations
-Date: Fri, 7 Aug 2009 16:30:15 -0400
-Message-ID: <20090807203015.GC26677@hmsreliant.think-freely.org>
-References: <20090807202130.GA26677@hmsreliant.think-freely.org>
+From: =?utf-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 5/6] [NET] ixp2000/enp2611: don't set non-existent member get_stats
+Date: Fri,  7 Aug 2009 22:42:40 +0200
+Message-ID: <1249677761-19470-5-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <20090807203939.GA19374@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rostedt@goodmis.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:34813 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932741AbZHGUaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 16:30:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20090807202130.GA26677@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	rt-users <linux-rt-users@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Dmitry Baryshkov <dbaryshkov@gmail.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933984AbZHGUnR@vger.kernel.org>
+In-Reply-To: <20090807203939.GA19374@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb allocation / consumption corelator - Add config option
+This fixes a build failure for 2.6.31-rc5 (ARCH=3Darm, ixp2000_defconfi=
+g):
 
-This patch adds a Kconfig option to enable the addtition of the skb source
-tracer.
+	  CC      drivers/net/ixp2000/enp2611.o
+	drivers/net/ixp2000/enp2611.c: In function 'enp2611_init_module':
+	drivers/net/ixp2000/enp2611.c:213: error: 'struct net_device' has no m=
+ember named 'get_stats'
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Cc: Russell King <linux@arm.linux.org.uk>
+Cc: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Cc: Lennert Buytenhek <kernel@wantstofly.org>
+Cc: netdev@vger.kernel.org
+---
+Hello,
 
+obviously this has the downside that the stats won't work, I let the fi=
+x
+for someone else :-)
 
- Kconfig |   10 ++++++++++
- 1 file changed, 10 insertions(+)
+Best regards
+Uwe
+---
+ drivers/net/ixp2000/enp2611.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
-index 1551f47..1aeec05 100644
---- a/kernel/trace/Kconfig
-+++ b/kernel/trace/Kconfig
-@@ -234,6 +234,16 @@ config BOOT_TRACER
- 	  You must pass in ftrace=initcall to the kernel command line
- 	  to enable this on bootup.
- 
-+config SKB_SOURCES_TRACER
-+	bool "Trace skb source information
-+	select GENERIC_TRACER
-+	help
-+	   This tracer helps developers/sysadmins correlate skb allocation and
-+	   consumption.  The idea being that some processes will primarily consume data
-+	   that was allocated on certain numa nodes.  By being able to visualize which
-+	   nodes the data was allocated on, a sysadmin or developer can optimize the
-+	   scheduling of those processes to cut back on cross node chatter.
-+
- config TRACE_BRANCH_PROFILING
- 	bool
- 	select GENERIC_TRACER
+diff --git a/drivers/net/ixp2000/enp2611.c b/drivers/net/ixp2000/enp261=
+1.c
+index b02a981..d6ef176 100644
+--- a/drivers/net/ixp2000/enp2611.c
++++ b/drivers/net/ixp2000/enp2611.c
+@@ -210,7 +210,7 @@ static int __init enp2611_init_module(void)
+ 			return -ENOMEM;
+ 		}
+=20
+-		nds[i]->get_stats =3D enp2611_get_stats;
++		/* nds[i]->get_stats =3D enp2611_get_stats; */
+ 		pm3386_init_port(i);
+ 		pm3386_get_mac(i, nds[i]->dev_addr);
+ 	}
+--=20
+1.6.3.3
