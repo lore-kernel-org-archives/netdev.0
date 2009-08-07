@@ -1,37 +1,50 @@
-From: "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>
-Subject: RE: [Bridge] [PATCH] macvlan: add tap device backend
-Date: Fri, 7 Aug 2009 12:47:38 -0700
-Message-ID: <005601ca1797$ef5dc180$ce194480$@edu>
-References: <0199E0D51A61344794750DC57738F58E6D6A6CD7F6@GVW1118EXC.americas.hpqcorp.net>	<004f01ca1792$b24a7a90$16df6fb0$@edu> <20090807123554.7c2bc27c@nehalam>
+From: Alan Jenkins <sourcejedi.lkml@googlemail.com>
+Subject: Re: [PATCH 2/7 v3] initdev:kernel:USB init device discovery notification
+Date: Fri, 07 Aug 2009 21:09:40 +0100
+Message-ID: <4A7C8A04.3060005@googlemail.com>
+References: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com> <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org> <9b2b86520908071017h606e595fr4488d6ff61cb337c@mail.gmail.com> <20090807174209.GB30450@cuplxvomd02.corp.sa.net>
+Reply-To: alan-jenkins@tuffmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <drobbins@funtoo.org>, "'Fischer, Anna'" <anna.fischer@hp.com>,
-	"'Arnd Bergmann'" <arnd@arndb.de>, <herbert@gondor.apana.org.au>,
-	<mst@redhat.com>, <netdev@vger.kernel.org>,
-	<bridge@lists.linux-foundation.org>,
-	<linux-kernel@vger.kernel.org>, <ogerlitz@voltaire.com>,
-	<evb@yahoogroups.com>, <davem@davemloft.net>
-To: "'Stephen Hemminger'" <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933248AbZHGTrp@vger.kernel.org>
-In-Reply-To: <20090807123554.7c2bc27c@nehalam>
-Content-Language: en-us
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	linux-usb@vger.kernel.org, greg@kroah.com,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: David VomLehn <dvomlehn@cisco.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090807174209.GB30450@cuplxvomd02.corp.sa.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> I do have to raise the point that Linux is perfectly capable of keeping
-> up without
-> the need of an external switch.  Whether you want policy external or
-> internal is
-> a architecture decision that should not be driven by mis-information
-> about performance.
+David VomLehn wrote:
+> On Fri, Aug 07, 2009 at 06:17:51PM +0100, Alan Jenkins wrote:
+>   
+>> On 8/7/09, Alan Stern <stern@rowland.harvard.edu> wrote:
+>>     
+>>> On Fri, 7 Aug 2009, Alan Jenkins wrote:
+>>>
+>>>       
+>>>>> +/* The mask of possible USB boot devices depends on what drivers and
+>>>>> + * options have been configured into the kernel.  There are too many
+>>>>> + * USB network config options to list here, so just assume it is always
+>>>>> + * possible to have a USB network device.
+>>>>> + */
+>>>>>           
+>>>> That could be fixed though.  Make the "USB Network Adaptors" menu into
+>>>> an option.
 
-No argument here.  I agree that you can do a lot in Linux.  It is, as you
-say, an architecture decision, that can be enabled with this addition mode
-of operation.  Without the mode of forcing things external, however, you
-would always need to put this function internal or play games with VLANs
-overlapping to get traffic to forward the way you want it.
+> I remember thinking about this and seem to recall that Alan Stern and I
+> tossed this idea around, but didn't act on it. Such a thing holds potential
+> for avoiding an unnecessary delay during boot. Whether it actually makes
+> things faster in a given configuration will depend on that configuration's
+> critical path, but I would welcome such a patch on the basis that it's
+> unlikely to hurt and could improve boot times in some circumstances.
+>   
 
-Paul
+Bother, I see why this doesn't work now.  There are all the USB
+*wireless* network drivers outside the menu.
+
+Thanks anyway
+Alan
