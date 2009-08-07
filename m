@@ -1,38 +1,62 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH 2/7 v3] initdev:kernel:USB init device discovery
- notification
-Date: Fri, 7 Aug 2009 11:44:50 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org>
-References: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH 0/7] AlacrityVM guest drivers
+Date: Fri, 07 Aug 2009 10:46:24 -0500
+Message-ID: <4A7C4C50.5040503@codemonkey.ws>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7C37E5.4040302@codemonkey.ws> <4A7C42C8.5050608@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David VomLehn <dvomlehn@cisco.com>, <linux-kernel@vger.kernel.org>,
-	<akpm@linux-foundation.org>, <linux-usb@vger.kernel.org>,
-	<greg@kroah.com>, <linux-scsi@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <arjan@infradead.org>
-To: Alan Jenkins <sourcejedi.lkml@googlemail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Gregory Haskins <ghaskins@novell.com>,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753524AbZHGPq2@vger.kernel.org>
+In-Reply-To: <4A7C42C8.5050608@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Aug 2009, Alan Jenkins wrote:
+Gregory Haskins wrote:
+> That said, note that the graphs were from earlier kernel runs (2.6.28,
+> 29-rc8).  The most recent data I can find that I published is for
+> 2.6.29, announced with the vbus-v3 release back in April:
+>
+> http://lkml.org/lkml/2009/4/21/408
+>
+> In it, the virtio-net throughput numbers are substantially higher and
+> possibly more in line with your expectations (4.5gb/s) (though notably
+> still lagging venet, which weighed in at 5.6gb/s).
+>   
 
-> > +/* The mask of possible USB boot devices depends on what drivers and
-> > + * options have been configured into the kernel.  There are too many
-> > + * USB network config options to list here, so just assume it is always
-> > + * possible to have a USB network device.
-> > + */
-> 
-> That could be fixed though.  Make the "USB Network Adaptors" menu into
-> an option.  Then you just have e.g. "CONFIG_NETDEV_USB", plus the two
-> class devices outside the menu (CONFIG_USB_ACM and CONFIG_USB_WDM).
+Okay, that makes more sense.  Would be nice to update the graphs as they 
+make virtio look really, really bad :-)
 
-That could be done.  It might even meet with the approval of the
-networking maintainer, independent of this patch series.
+> Generally, I find that the virtio-net exhibits non-deterministic results
+> from release to release.  I suspect (as we have discussed) the
+> tx-mitigation scheme.  Some releases buffer the daylights out of the
+> stream, and virtio gets close(r) throughput (e.g. 4.5g vs 5.8g, but
+> absolutely terrible latency (4000us vs 65us).  Other releases it seems
+> to operate with more of a compromise (1.3gb/s vs 3.8gb/s, but 350us vs
+> 85us).
+>   
 
-But what if somebody adds yet another networking class driver outside
-the menu?
+Are you using kvm modules or a new kernel?  There was some timer 
+infrastructure changes around 28/29 and it's possible that the system 
+your on is now detecting an hpet which will result in a better time 
+source.  That could have an affect on mitigation.
 
-Alan Stern
+> If there is another patch-series/tree I should be using for comparison,
+> please point me at it.
+>   
 
+No, I think it's fair to look at upstream Linux.  Looking at the latest 
+bits would be nice though because there are some virtio friendly changes 
+recently like MSI-x and GRO.
+
+Since you're using the latest vbus bits, it makes sense to compare 
+against the latest virtio bits.
+
+Regards,
+
+Anthony Liguori
