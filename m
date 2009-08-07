@@ -1,81 +1,77 @@
-From: Luotao Fu <l.fu@pengutronix.de>
-Subject: Re: [Socketcan-users] [PATCH] CAN: make checking in can_rcv less
- restrictive
-Date: Fri, 7 Aug 2009 13:46:25 +0200
-Message-ID: <20090807114625.GA6838@pengutronix.de>
-References: <1249572295-7801-1-git-send-email-l.fu@pengutronix.de>
- <4A7B0957.5020808@hartkopp.net>
- <200908070952.56922.remi.denis-courmont@nokia.com>
- <4A7C117E.5010005@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="45Z9DzgjV8m4Oswq"
-Cc: R?mi Denis-Courmont <remi.denis-courmont@nokia.com>,
-	Luotao Fu <l.fu@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"socketcan-users@lists.berlios.de" <socketcan-users@lists.berlios.de>,
-	Michael Olbrich <m.olbrich@pengutronix.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: [PATCH] fec: fix FEC driver packet transmission breakage
+Date: Fri, 7 Aug 2009 13:58:18 +1000
+Message-ID: <200908070358.n773wIxB015388@localhost.localdomain>
+Cc: gerg@uclinux.org, s.hauer@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:41269 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751925AbZHGLq0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:46:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4A7C117E.5010005@hartkopp.net>
+Received: from rex.securecomputing.com ([203.24.151.4]:37259 "EHLO
+	cyberguard.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932359AbZHGLvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:51:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+fec: fix FEC driver packet transmission breakage
 
---45Z9DzgjV8m4Oswq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Commit f0b3fbeae11a526c3d308b691684589ee37c359b breaks transmission of
+packets where the skb data buffer is not memory aligned according to
+FEC_ALIGNMENT. It incorrectly passes to dma_sync_single() the buffer
+address directly from the skb, instead of the address calculated for
+use (which may be the skb address or one of the bounce buffers).
 
-Hi Oliver,
+It seems there is no use converting the cpu address of the buffer to
+a physical either, since dma_map_single() expects the cpu address and
+will return the dma address to use in the descriptor. So remove the use
+of __pa() on the buffer address as well.
 
-On Fri, Aug 07, 2009 at 01:35:26PM +0200, Oliver Hartkopp wrote:
-> R?mi Denis-Courmont wrote:
-=2E...
->=20
-> @Luotao: I talked to Urs and we discussed to prepare a patch that only cr=
-eates
-> a warning and drops the skb afterwards, as the problem is not critical fo=
-r a
-> proper ongoing kernel operation. I think, that was you original intention:
->=20
->        if (!net_eq(dev_net(dev), &init_net) ||
->            WARN_ON(dev->type !=3D ARPHRD_CAN) ||
->            WARN_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dlc =
-> 8)) {
->                kfree_skb(skb);
->                return NET_RX_BAD;
->        }
->=20
-> Would this be ok for you?
+This patch is against 2.6.30-rc5. This breakage is a regression over
+2.6.30, which does not have this problem.
 
-I'm absolutely fine with this.
+Signed-off-by: Greg Ungerer <gerg@uclinux.org>
+---
 
-thx
-cheers
-Fu
---=20
-Pengutronix e.K.                           | Dipl.-Ing. Luotao Fu        |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-
---45Z9DzgjV8m4Oswq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkp8FBEACgkQiruQY+UyUmGUYACfSALUfEhT/SA2PI/qE5LUf3ky
-/yMAoKqJ+Q+qXnZ9Tl0tXNkZz83gbu2i
-=mffO
------END PGP SIGNATURE-----
-
---45Z9DzgjV8m4Oswq--
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 0d2ab43..a32230b 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -285,6 +285,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+ 	struct bufdesc *bdp;
++	void *bufaddr;
+ 	unsigned short	status;
+ 	unsigned long flags;
+ 
+@@ -312,7 +313,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	status &= ~BD_ENET_TX_STATS;
+ 
+ 	/* Set buffer length and buffer pointer */
+-	bdp->cbd_bufaddr = __pa(skb->data);
++	bufaddr = skb->data;
+ 	bdp->cbd_datlen = skb->len;
+ 
+ 	/*
+@@ -320,11 +321,11 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * 4-byte boundaries. Use bounce buffers to copy data
+ 	 * and get it aligned. Ugh.
+ 	 */
+-	if (bdp->cbd_bufaddr & FEC_ALIGNMENT) {
++	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+ 		unsigned int index;
+ 		index = bdp - fep->tx_bd_base;
+ 		memcpy(fep->tx_bounce[index], (void *)skb->data, skb->len);
+-		bdp->cbd_bufaddr = __pa(fep->tx_bounce[index]);
++		bufaddr = fep->tx_bounce[index];
+ 	}
+ 
+ 	/* Save skb pointer */
+@@ -336,7 +337,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Push the data cache so the CPM does not get stale memory
+ 	 * data.
+ 	 */
+-	bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
++	bdp->cbd_bufaddr = dma_map_single(&dev->dev, bufaddr,
+ 			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
+ 
+ 	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
