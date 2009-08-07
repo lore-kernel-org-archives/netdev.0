@@ -1,72 +1,67 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 10/10] fakehard: use START-CONFIRM
-	primitive to report START failure
-Date: Fri,  7 Aug 2009 16:58:45 +0400
-Message-ID: <1249649925-11996-11-git-send-email-dbaryshkov@gmail.com>
-References: <1249649925-11996-1-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-2-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-3-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-4-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-5-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-6-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-7-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-8-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-9-git-send-email-dbaryshkov@gmail.com>
-	<1249649925-11996-10-git-send-email-dbaryshkov@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
+Date: Fri, 07 Aug 2009 14:20:13 +0100
+Message-ID: <1249651213.2781.0.camel@achroite>
+References: <20090702111820.GA21085@serverengines.com>
+	 <1246566808.9821.2.camel@deadeye> <20090705121637.GA3627@serverengines.com>
+	 <1246803604.3898.6.camel@deadeye>  <1249636833.6477.812.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1249649925-11996-10-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sarveshwar Bandi <sarveshwarb@serverengines.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: linuxram@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:36256 "EHLO
+	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752019AbZHGNUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 09:20:23 -0400
+In-Reply-To: <1249636833.6477.812.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/ieee802154/fakehard.c |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+On Fri, 2009-08-07 at 02:20 -0700, Ram Pai wrote:
+> On Sun, 2009-07-05 at 15:20 +0100, Ben Hutchings wrote:
+> > On Sun, 2009-07-05 at 17:46 +0530, Sarveshwar Bandi wrote:
+> > > I understand that most drivers  use request_firmware() to load  volatile
+> > > firmware. I do see that there are other nic drivers that use this inferface to
+> > > flash persistent firmware.
+> > > 
+> > >  We have other tools for offline flashing; but there is requirement
+> > > to flash f/w through driver without having to use other proprietary  tools.
+> > 
+> > The firmware blob is proprietary and has to be distributed separately
+> > from the kernel.  So does it really matter that you have to distribute a
+> > special tool as well?
+> > 
+> > (Based on requirements specified by major OEMs, I have implemented
+> > firmware update through the sfc driver (MDIO and MTD interfaces) but
+> > under the control of a separate tool.)
+> > 
+> > > Since the firmware load happens only when there is a version mismatch with
+> > > f/w in /lib/firmware, Users who want to avoid automatic flashing at boot time
+> > > can choose not to copy the f/w file under /lib/firmware.
+> > [...]
+> > 
+> > Is there a way of loading the firmware into the controller's RAM but not
+> > writing it to flash?  That ought to be the default behaviour.
+> > 
+> 
+> Given that the volatile and non-volatile firmware reside in the same
+> file, it is not possible for the driver to selectively load the intended
+> firmware.
 
-diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
-index 8a52e6e..2bc6c0c 100644
---- a/drivers/ieee802154/fakehard.c
-+++ b/drivers/ieee802154/fakehard.c
-@@ -177,18 +177,14 @@ static int fake_disassoc_req(struct net_device *dev,
-  *
-  * Note: This is in section 7.5.2.3 of the IEEE 802.15.4-2006
-  * document, with 7.3.8 describing coordinator realignment.
-- *
-- * Note: There is currently no way to notify the coordinator userland
-- * program of whether or not the PAN has started successfully. As
-- * such, the coordinator program cannot know when the MAC has
-- * completed starting the network and will simply have to assume
-- * completeness based on some form of time delay.
-  */
- static int fake_start_req(struct net_device *dev, struct ieee802154_addr *addr,
- 				u8 channel,
- 				u8 bcn_ord, u8 sf_ord, u8 pan_coord, u8 blx,
- 				u8 coord_realign)
- {
-+	/* We don't emulate beacons here at all, so START should fail */
-+	ieee802154_nl_start_confirm(dev, IEEE802154_INVALID_PARAMETER);
- 	return 0;
- }
+Your design error is your problem.
+
+> However, is this behavior a gating factor for this patch from being
+> accepted?
+
+I'm not a gatekeeper; ask David Miller.
+
+Ben.
  
 -- 
-1.6.3.3
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-
-------------------------------------------------------------------------------
-Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
-trial. Simplify your report design, integration and deployment - and focus on 
-what you do best, core application coding. Discover what's new with 
-Crystal Reports now.  http://p.sf.net/sfu/bobj-july
