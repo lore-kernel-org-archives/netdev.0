@@ -1,91 +1,69 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] lmc: Read outside array bounds
-Date: Fri, 07 Aug 2009 16:54:19 +0200
-Message-ID: <4A7C401B.7090301@gmail.com>
-References: <4A6B84A9.7020506@gmail.com> <20090728144307.c189810b.akpm@linux-foundation.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
+Date: Fri, 7 Aug 2009 16:57:32 +0200
+Message-ID: <200908071657.32858.arnd@arndb.de>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <200908070057.54795.arnd@arndb.de> <4A7B78580200005A00051D50@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, khc@pm.waw.pl,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:33687 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbZHGOut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 10:50:49 -0400
-Received: by ewy10 with SMTP id 10so1588910ewy.37
-        for <netdev@vger.kernel.org>; Fri, 07 Aug 2009 07:50:48 -0700 (PDT)
-In-Reply-To: <20090728144307.c189810b.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alacrityvm-devel@lists.sourceforge.net,
+	"Ira W. Snyder" <iws@ovro.caltech.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Gregory Haskins" <ghaskins@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932674AbZHGO54@vger.kernel.org>
+In-Reply-To: <4A7B78580200005A00051D50@sinclair.provo.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If dev_alloc_skb() fails on the first iteration of the allocation loop, and we
-break out of the loop, then we end up writing before the start of the array.
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-> First of all, if we allocated at least one buffer we should
-> mark the last one in the code right after this loop.
+On Friday 07 August 2009, Gregory Haskins wrote:
+> >>> Arnd Bergmann <arnd@arndb.de> wrote: 
+> > On Thursday 06 August 2009, Gregory Haskins wrote:
+> > 
+> > >     2b) I also want to collapse multiple interrupts together so as to 
+> > > minimize the context switch rate (inject + EIO overhead).  My design 
+> > > effectively has "NAPI" for interrupt handling.  This helps when the system 
+> > > needs it the most: heavy IO.
+> > 
+> > That sounds like a very useful concept in general, but this seems to be a
+> > detail of the interrupt controller implementation. If the IO-APIC cannot
+> > do what you want here, maybe we just need a paravirtual IRQ controller
+> > driver, like e.g. the PS3 has.
 > 
-> Second of all, we should purge the TX skbs in the next
-> loop even if we could not allocate even one RX buffer.
->
-> The thing to do is probably to guard the set of "[i-1]" RX ring
-> accesses with a "if (i != 0)" check.
+> Yeah, I agree this could be a function of the APIC code.  Do note that I
+> mentioned this in passing to Avi a few months ago but FWIW he indicated
+> at that time that he is not interested in making the APIC PV.
+> 
+> Also, I almost forgot an important one.  Add:
+> 
+>    2c) Interrupt prioritization.  I want to be able to assign priority
+>    to interrupts and handle them in priority order.
 
-Forgot a bit about this one, but I hope this is what you meant?
+I think this part of the interface has developed into the wrong direction
+because you confused two questions:
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index 45b1822..b26fabb 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -1838,7 +1838,7 @@ void lmc_mii_writereg (lmc_softc_t * const sc, unsigned devaddr, unsigned regno,
- 
- static void lmc_softreset (lmc_softc_t * const sc) /*fold00*/
- {
--    int i;
-+    int i, j;
- 
-     lmc_trace(sc->lmc_device, "lmc_softreset in");
- 
-@@ -1897,24 +1897,27 @@ static void lmc_softreset (lmc_softc_t * const sc) /*fold00*/
-     /*
-      * Sets end of ring
-      */
--    sc->lmc_rxring[i - 1].length |= 0x02000000; /* Set end of buffers flag */
--    sc->lmc_rxring[i - 1].buffer2 = virt_to_bus (&sc->lmc_rxring[0]); /* Point back to the start */
--    LMC_CSR_WRITE (sc, csr_rxlist, virt_to_bus (sc->lmc_rxring)); /* write base address */
-+    if (i > 0) {
-+        sc->lmc_rxring[i - 1].length |= 0x02000000; /* Set end of buffers flag */
-+        sc->lmc_rxring[i - 1].buffer2 = virt_to_bus(&sc->lmc_rxring[0]); /* Point back to the start */
-+        LMC_CSR_WRITE(sc, csr_rxlist, virt_to_bus(sc->lmc_rxring)); /* write base address */
-+    }
- 
- 
-     /* Initialize the transmit rings and buffers */
--    for (i = 0; i < LMC_TXDESCS; i++)
--    {
--        if (sc->lmc_txq[i] != NULL){		/* have buffer */
--            dev_kfree_skb(sc->lmc_txq[i]);	/* free it */
-+    for (j = 0; j < i; j++) {
-+        if (sc->lmc_txq[j] != NULL) {		/* have buffer */
-+            dev_kfree_skb(sc->lmc_txq[j]);	/* free it */
- 	    sc->lmc_device->stats.tx_dropped++;	/* We just dropped a packet */
-         }
--        sc->lmc_txq[i] = NULL;
--        sc->lmc_txring[i].status = 0x00000000;
--        sc->lmc_txring[i].buffer2 = virt_to_bus (&sc->lmc_txring[i + 1]);
-+        sc->lmc_txq[j] = NULL;
-+        sc->lmc_txring[j].status = 0x00000000;
-+        sc->lmc_txring[j].buffer2 = virt_to_bus(&sc->lmc_txring[j + 1]);
-+    }
-+    if (j > 0) {
-+        sc->lmc_txring[j - 1].buffer2 = virt_to_bus(&sc->lmc_txring[0]);
-+        LMC_CSR_WRITE(sc, csr_txlist, virt_to_bus(sc->lmc_txring));
-     }
--    sc->lmc_txring[i - 1].buffer2 = virt_to_bus (&sc->lmc_txring[0]);
--    LMC_CSR_WRITE (sc, csr_txlist, virt_to_bus (sc->lmc_txring));
- 
-     lmc_trace(sc->lmc_device, "lmc_softreset out");
- }
+1. should you build an advanced interrupt mechanism for virtual drivers?
+2. how should you build an advanced interrupt mechanism for virtual drivers?
+
+My guess is that when Avi said he did not want a paravirtual IO-APIC,
+he implied that the existing one is good enough (maybe Avi can clarify that
+point himself) answering question 1, while you took that as an indication
+that the code should live elsewhere instead, answering question 2.
+
+What you built with the shm-signal code is essentially a paravirtual nested
+interrupt controller by another name, and deeply integrated into a new
+bigger subsystem. I believe that this has significant disadvantages
+over the approach of making it a standard interrupt controller driver:
+
+* It completely avoids the infrastructure that we have built into Linux
+  to deal with interrupts, e.g. /proc/interrupts statistics, IRQ
+  balancing and CPU affinity.
+
+* It makes it impossible to quantify the value of the feature to start with,
+  which could be used to answer question 1 above.
+
+* Less importantly, it does not work with any other drivers that might
+  also benefit from a new interrupt controller -- if it is indeed better
+  than the one we already have.
+
+	Arnd <><
