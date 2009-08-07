@@ -1,58 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Bridge] [PATCH] macvlan: add tap device backend
-Date: Fri, 7 Aug 2009 23:38:57 +0200
-Message-ID: <200908072338.57895.arnd@arndb.de>
-References: <0199E0D51A61344794750DC57738F58E6D6A6CD7F6@GVW1118EXC.americas.hpqcorp.net> <004f01ca1792$b24a7a90$16df6fb0$@edu> <20090807123554.7c2bc27c@nehalam>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Fri, 7 Aug 2009 17:51:12 -0400
+Message-ID: <20090807175112.a1f57407.billfink@mindspring.com>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com>
+	<4A7C9A14.7070600@inria.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>,
-	drobbins@funtoo.org, "'Fischer, Anna'" <anna.fischer@hp.com>,
-	herbert@gondor.apana.org.au, mst@redhat.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, ogerlitz@voltaire.com,
-	evb@yahoogroups.com, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756041AbZHGVlu@vger.kernel.org>
-In-Reply-To: <20090807123554.7c2bc27c@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Network Developers <netdev@vger.kernel.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>, gallatin@myri.com
+To: Brice Goglin <Brice.Goglin@inria.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:47277
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753272AbZHGVvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 17:51:12 -0400
+In-Reply-To: <4A7C9A14.7070600@inria.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 August 2009, Stephen Hemminger wrote:
-> On Fri, 7 Aug 2009 12:10:07 -0700
-> "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu> wrote:
+On Fri, 07 Aug 2009, Brice Goglin wrote:
+
+> Bill Fink wrote:
+> > This could be because I discovered that if I did:
+> >
+> > 	find /sys -name numa_node -exec grep . {} /dev/null \;
+> >
+> > that the numa_node associated with all the PCI devices was always 0,
+> > and if IIUC then I believe some of the PCI devices should have been
+> > associated with NUMA node 2.  Perhaps this is what is causing all
+> > the memory pages allocated by the myri10ge driver to be on NUMA
+> > node 0, and thus causing the major performance issue.
+> >   
 > 
-> > Responding to Daniel's questions...
-> > 
-> > > I have some general questions about the intended use and benefits of 
-> > > VEPA, from an IT perspective:
-> > > 
-> > > In which virtual machine setups and technologies do you forsee this 
-> > > interface being used?
-> > 
-> > The benefit of VEPA is the coordination and unification with the
-> > external network switch.  So, in environments where you are
-> > needing/wanting your feature rich, wire speed, external network
-> > device (firewall/switch/IPS/content-filter) to provide consistent
-> > policy enforcement, and you want your VMs traffic to be subject to
-> > that enforcement, you will want their traffic directed externally.
-> > Perhaps you have some VMs that are on a DMZ or clustering an 
-> > application or implementing a multi-tier application where you
-> > would normally place a firewall in-between the tiers.
-> 
-> I do have to raise the point that Linux is perfectly capable of keeping up without
-> the need of an external switch.  Whether you want policy external or internal is
-> a architecture decision that should not be driven by mis-information about performance.
+> I've seen some cases in the past where numa_node was always 0 on
+> quad-Opteron machines with a PCI bus on node 1. IIRC it got fixed in
+> later kernels thanks to patches from Yinghai Lu (CC'ed).
 
-In general, I agree that Linux on a decent virtual machine host will be
-able to handle forwarding of network data fast enough, often faster than
-the external connectivity allows if it needs to transmit every frame twice.
+By later kernels do you mean 2.6.30 or 2.6.31?
 
-However, there is a tradeoff between CPU cycles and I/O bandwidth. If your
-application needs lots of CPU but you have spare capacity on the PCI bus, the
-network wire and the external switch, VEPA can also be a win on the performance
-side. As always, performance depends on the application, even if it's not the
-main driving factor here.
+> Is the corresponding local_cpus sysfs file wrong as well ?
 
-	Arnd <><
+All sysfs local_cpus values are the same (00000000,000000ff),
+so yes they are also wrong.
+
+> Maybe your kernel doesn't properly handle the NUMA location of PCI
+> devices on Nehalem machines yet?
+
+I assume so, unless there's some secret NUMA system setting that
+I'm unaware of that would affect this and needs changing for my
+setup.
+
+						-Thanks
+
+						-Bill
