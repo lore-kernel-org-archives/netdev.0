@@ -1,40 +1,56 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [patch for 2.6.31? 2/2] gigaset: really fix chars_in_buffer
-Date: Thu, 6 Aug 2009 20:50:30 -0700
-Message-ID: <20090807035030.GA23938@kroah.com>
-References: <200908062219.n76MJXhY024495@imap1.linux-foundation.org>
- <20090806.202227.224933454.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
+Date: Thu, 06 Aug 2009 21:22:42 -0700
+Message-ID: <m1k51gqmlp.fsf@fess.ebiederm.org>
+References: <20090806143959.GA29323@gondor.apana.org.au>
+	<m1zladhtoh.fsf@fess.ebiederm.org>
+	<20090807002243.GB1566@gondor.apana.org.au>
+	<20090806.204032.39020854.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org, tilman@imap.cc
+Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:45019 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751395AbZHGEHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2009 00:07:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20090806.202227.224933454.davem@davemloft.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:52969 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713AbZHGEWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 00:22:46 -0400
+In-Reply-To: <20090806.204032.39020854.davem@davemloft.net> (David Miller's message of "Thu\, 06 Aug 2009 20\:40\:32 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 06, 2009 at 08:22:27PM -0700, David Miller wrote:
-> From: akpm@linux-foundation.org
-> Date: Thu, 06 Aug 2009 15:19:32 -0700
-> 
-> > From: Tilman Schmidt <tilman@imap.cc>
-> > 
-> > The tty_operation chars_in_buffer() is not allowed to return a negative
-> > value to signal an error.  Corrects the problem flagged by commit
-> > 23198fda7182969b619613a555f8645fdc3dc334, "tty: fix chars_in_buffers".
-> > 
-> > Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> I was letting Alan Cox handle changes in this area since it's
-> TTY stuff, and thus it probably should go to the new TTY
-> mad man, CC:'d :-)
+David Miller <davem@davemloft.net> writes:
 
-Thanks, I'll queue it up.
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 7 Aug 2009 10:22:44 +1000
+>
+>> tun: Extend RTNL lock coverage over whole ioctl
+>> 
+>> As it is, parts of the ioctl runs under the RTNL and parts of
+>> it do not.  The unlocked section is still protected by the BKL,
+>> but there can be subtle races.  For example, Eric Biederman and
+>> Paul Moore observed that if two threads tried to create two tun
+>> devices on the same file descriptor, then unexpected results
+>> may occur.
+>> 
+>> As there isn't anything in the ioctl that is expected to sleep
+>> indefinitely, we can prevent this from occurring by extending
+>> the RTNL lock coverage.
+>> 
+>> This also allows to get rid of the BKL.
+>> 
+>> Finally, I changed tun_get_iff to take a tun device in order to
+>> avoid calling tun_put which would dead-lockt as it also tries to
+>> take the RTNL lock.
+>> 
+>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> This looks good after a quick audit, Eric what say you?
 
-greg k-h
+Looks good to me.
+
+Eric
+
+
+
