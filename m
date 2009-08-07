@@ -1,66 +1,108 @@
-From: David VomLehn <dvomlehn-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/7 v3] initdev:kernel:USB init device discovery
-	notification
-Date: Fri, 7 Aug 2009 10:42:09 -0700
-Message-ID: <20090807174209.GB30450@cuplxvomd02.corp.sa.net>
-References: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com> <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org> <9b2b86520908071017h606e595fr4488d6ff61cb337c@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH 1/2] e1000e: fix acquisition of SW/FW/HW semaphore for
+	ICHx parts
+Date: Fri, 07 Aug 2009 10:41:37 -0700
+Message-ID: <20090807174136.31114.96240.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: Alan Jenkins <sourcejedi.lkml-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <9b2b86520908071017h606e595fr4488d6ff61cb337c-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:38099 "EHLO
+	QMTA10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754063AbZHGRly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 13:41:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 07, 2009 at 06:17:51PM +0100, Alan Jenkins wrote:
-> On 8/7/09, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org> wrote:
-> > On Fri, 7 Aug 2009, Alan Jenkins wrote:
-> >
-> >> > +/* The mask of possible USB boot devices depends on what drivers and
-> >> > + * options have been configured into the kernel.  There are too many
-> >> > + * USB network config options to list here, so just assume it is always
-> >> > + * possible to have a USB network device.
-> >> > + */
-> >>
-> >> That could be fixed though.  Make the "USB Network Adaptors" menu into
-> >> an option.  Then you just have e.g. "CONFIG_NETDEV_USB", plus the two
-> >> class devices outside the menu (CONFIG_USB_ACM and CONFIG_USB_WDM).
-> 
-> Oops, scratch WDM.  It doesn't actually provide a network device
-> (otherwise it would depend on NET).
-> 
-> > That could be done.  It might even meet with the approval of the
-> > networking maintainer, independent of this patch series.
-> >
-> > But what if somebody adds yet another networking class driver outside
-> > the menu?
-> 
-> Hmm.
-> 
-> Ok, how about a single (hidden) USB_HAS_NETDEV.  NETDEV_USB and
-> USB_ACM select USB_HAS_NETDEV.
-> 
-> Textual juxtaposition or simple copy+paste inside class/Kconfig should
-> help it get picked up.  And I'd add a comment pointing the bewildered
-> to the definition of usb_initdev_mask.
-> 
-> I'll write a patch for your inspection this evening.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-I remember thinking about this and seem to recall that Alan Stern and I
-tossed this idea around, but didn't act on it. Such a thing holds potential
-for avoiding an unnecessary delay during boot. Whether it actually makes
-things faster in a given configuration will depend on that configuration's
-critical path, but I would welcome such a patch on the basis that it's
-unlikely to hurt and could improve boot times in some circumstances.
+For ICHx parts, write the EXTCNF_CTRL.SWFLAG bit once when trying to
+acquire the SW/FW/HW semaphore instead of multiple times to prevent the
+hardware from having problems (especially for systems with manageability
+enabled), and extend the timeout for the hardware to set the SWFLAG bit.
 
-> Alan
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/ich8lan.c |   44 ++++++++++++++++++++++++++++++------------
+ 1 files changed, 31 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index d56c747..dd61e7e 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -594,8 +594,8 @@ static DEFINE_MUTEX(nvm_mutex);
+  **/
+ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+ {
+-	u32 extcnf_ctrl;
+-	u32 timeout = PHY_CFG_TIMEOUT;
++	u32 extcnf_ctrl, timeout = PHY_CFG_TIMEOUT;
++	s32 ret_val = 0;
+ 
+ 	might_sleep();
+ 
+@@ -603,28 +603,46 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
+ 
+ 	while (timeout) {
+ 		extcnf_ctrl = er32(EXTCNF_CTRL);
++		if (!(extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG))
++			break;
+ 
+-		if (!(extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG)) {
+-			extcnf_ctrl |= E1000_EXTCNF_CTRL_SWFLAG;
+-			ew32(EXTCNF_CTRL, extcnf_ctrl);
++		mdelay(1);
++		timeout--;
++	}
++
++	if (!timeout) {
++		hw_dbg(hw, "SW/FW/HW has locked the resource for too long.\n");
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
++	}
++
++	timeout = PHY_CFG_TIMEOUT * 2;
++
++	extcnf_ctrl |= E1000_EXTCNF_CTRL_SWFLAG;
++	ew32(EXTCNF_CTRL, extcnf_ctrl);
++
++	while (timeout) {
++		extcnf_ctrl = er32(EXTCNF_CTRL);
++		if (extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG)
++			break;
+ 
+-			extcnf_ctrl = er32(EXTCNF_CTRL);
+-			if (extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG)
+-				break;
+-		}
+ 		mdelay(1);
+ 		timeout--;
+ 	}
+ 
+ 	if (!timeout) {
+-		hw_dbg(hw, "FW or HW has locked the resource for too long.\n");
++		hw_dbg(hw, "Failed to acquire the semaphore.\n");
+ 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
+ 		ew32(EXTCNF_CTRL, extcnf_ctrl);
+-		mutex_unlock(&nvm_mutex);
+-		return -E1000_ERR_CONFIG;
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
+ 	}
+ 
+-	return 0;
++out:
++	if (ret_val)
++		mutex_unlock(&nvm_mutex);
++
++	return ret_val;
+ }
+ 
+ /**
+
