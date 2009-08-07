@@ -1,48 +1,28 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: some bug in iproute2
-Date: Fri, 7 Aug 2009 10:12:50 +0000
-Message-ID: <20090807101250.GA14064@ff.dom.local>
-References: <20090806115035.42a22dfc@azure>
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Forgot "[PATCH]" - Re: Use correct NET_RX_* returns for atalk_rcv()
+Date: Fri, 7 Aug 2009 20:04:34 +0930
+Message-ID: <20090807200434.818e8159.lk-netdev@lk-netdev.nosense.org>
+References: <20090807185122.30f022de.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>
-To: Sergey Popov <popov_sergey@ukr.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.211.177]:52391 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755981AbZHGKM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 06:12:57 -0400
-Received: by ywh7 with SMTP id 7so1995418ywh.21
-        for <netdev@vger.kernel.org>; Fri, 07 Aug 2009 03:12:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090806115035.42a22dfc@azure>
+Received: from smtp1.adam.net.au ([202.136.110.253]:55882 "EHLO
+	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757417AbZHGKeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 06:34:36 -0400
+In-Reply-To: <20090807185122.30f022de.lk-netdev@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06-08-2009 10:50, Sergey Popov wrote:
-> # tc f add dev eth0 parent 1: proto ip prio 2 u32 match u32 0 0 action ipt -j MARK --set-mark 1
-> /usr/lib64/iptables/libipt_mark.so: cannot open shared object file: No such file or directory
-> failed to find target MARK
-> 
-> bad action parsing
-> parse_action: bad value (5:ipt)!
-> Illegal "action"
-> 
-> 
-> But mark target is compiled in kernel (not a module)
-> 
-> # iptables -t mangle -A PREROUTING -i eth1 -j MARK --set-mark 1
-> # iptables -t mangle -L PREROUTING
-> Chain PREROUTING (policy ACCEPT)
-> target     prot opt source               destination         
-> MARK       all  --  anywhere             anywhere            MARK xset
-> 0x1/0xffffffff 
-> 
-> This shouldn't be.
+On Fri, 7 Aug 2009 18:51:22 +0930
+Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote:
 
-If you're using iptables > 1.4.2 then it's a known problem.
-You can read more in a netdev thread:
-Subject: iproute2 action/policer question
-starting date: Tue, 09 Jun 2009 22:10:46 +0200
+> 
+>     In all rx'd SKB cases, atalk_rcv() either eventually jumps to or falls through
+>     to the label out:, which  returns numeric 0. Numeric 0 corresponds to
+>     NET_RX_SUCCESS, which is incorrect in failed SKB cases.
 
-Jarek P.
+<snip>
