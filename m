@@ -1,28 +1,48 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Forgot "[PATCH]" - Re: Use correct NET_RX_* returns for atalk_rcv()
-Date: Fri, 7 Aug 2009 20:04:34 +0930
-Message-ID: <20090807200434.818e8159.lk-netdev@lk-netdev.nosense.org>
-References: <20090807185122.30f022de.lk-netdev@lk-netdev.nosense.org>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: Re: 3x59x-fix-pci-resource-management.patch
+Date: Fri, 07 Aug 2009 14:53:17 +0400
+Message-ID: <4A7C079D.8010505@ru.mvista.com>
+References: <20090806154223.b9b9759e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.adam.net.au ([202.136.110.253]:55882 "EHLO
-	smtp1.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757417AbZHGKeg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 06:34:36 -0400
-In-Reply-To: <20090807185122.30f022de.lk-netdev@lk-netdev.nosense.org>
+Received: from h155.mvista.com ([63.81.120.155]:49423 "EHLO imap.sh.mvista.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755830AbZHGKwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Aug 2009 06:52:14 -0400
+In-Reply-To: <20090806154223.b9b9759e.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Aug 2009 18:51:22 +0930
-Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote:
+Hello.
 
-> 
->     In all rx'd SKB cases, atalk_rcv() either eventually jumps to or falls through
->     to the label out:, which  returns numeric 0. Numeric 0 corresponds to
->     NET_RX_SUCCESS, which is incorrect in failed SKB cases.
+Andrew Morton wrote:
 
-<snip>
+> Guys, I seem to have been sitting on the below patch for, err, three years.
+
+> I generally do this because there's some issue which needs to be
+> addressed, but the patch didn't address it right.
+
+    In this case it was different: you just wanted the patch to be verifed 
+on an EISA card...
+
+On Mon, 14 Aug 2006 14:31:46 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+ >> ACK, shall I apply this to netdev#upstream ?
+
+Spose so, but let's not go mainline until I've had a chance to test an
+EISA card and a cardbus card.
+
+    There was several more comments from you but they all got resolved 
+between you and Jeff at the time...
+
+> Can we please have a revisit and work out what we should do with this?
+
+> Thanks.
+
+WBR, Sergei
