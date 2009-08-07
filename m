@@ -1,116 +1,97 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers
-Date: Fri, 07 Aug 2009 11:05:44 -0400
-Message-ID: <4A7C42C8.5050608@gmail.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7C37E5.4040302@codemonkey.ws>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigDD6D7DE8A19889E7EA51257E"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <ghaskins@novell.com>,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A7C37E5.4040302@codemonkey.ws>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH] sctp: fix missing destroy of percpu counter variable in sctp_proc_exit()
+Date: Fri,  7 Aug 2009 11:17:17 -0400
+Message-ID: <1249658237-9031-1-git-send-email-vladislav.yasevich@hp.com>
+Cc: davem@davemloft.net, Rafael Laufer <rlaufer@cisco.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:18753 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757537AbZHGPRS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 11:17:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigDD6D7DE8A19889E7EA51257E
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Rafael Laufer <rlaufer@cisco.com>
 
-Anthony Liguori wrote:
-> Michael S. Tsirkin wrote:
->>
->>> This series includes the basic plumbing, as well as the driver for
->>> accelerated 802.x (ethernet) networking.
->>>    =20
->>
->> The graphs comparing virtio with vbus look interesting.
->>  =20
->=20
-> 1gbit throughput on a 10gbit link?  I have a hard time believing that.
->=20
-> I've seen much higher myself.  Can you describe your test setup in more=
+Commit 1748376b6626acf59c24e9592ac67b3fe2a0e026,
+	net: Use a percpu_counter for sockets_allocated
 
-> detail?
+added percpu_counter function calls to sctp_proc_init code path, but
+forgot to add them to sctp_proc_exit().  This resulted in a following
+Ooops when performing this test
+	# modprobe sctp
+	# rmmod -f sctp
+	# modprobe sctp
 
-Sure,
+[  573.862512] BUG: unable to handle kernel paging request at f8214a24
+[  573.862518] IP: [<c0308b8f>] __percpu_counter_init+0x3f/0x70
+[  573.862530] *pde = 37010067 *pte = 00000000
+[  573.862534] Oops: 0002 [#1] SMP
+[  573.862537] last sysfs file: /sys/module/libcrc32c/initstate
+[  573.862540] Modules linked in: sctp(+) crc32c libcrc32c binfmt_misc bridge
+stp bnep lp snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwdep
+snd_pcm_oss snd_mixer_oss arc4 joydev snd_pcm ecb pcmcia snd_seq_dummy
+snd_seq_oss iwlagn iwlcore snd_seq_midi snd_rawmidi snd_seq_midi_event
+yenta_socket rsrc_nonstatic thinkpad_acpi snd_seq snd_timer snd_seq_device
+mac80211 psmouse sdhci_pci sdhci nvidia(P) ppdev video snd soundcore serio_raw
+pcspkr iTCO_wdt iTCO_vendor_support led_class ricoh_mmc pcmcia_core intel_agp
+nvram agpgart usbhid parport_pc parport output snd_page_alloc cfg80211 btusb
+ohci1394 ieee1394 e1000e [last unloaded: sctp]
+[  573.862589]
+[  573.862593] Pid: 5373, comm: modprobe Tainted: P  R        (2.6.31-rc3 #6)
+7663B15
+[  573.862596] EIP: 0060:[<c0308b8f>] EFLAGS: 00010286 CPU: 1
+[  573.862599] EIP is at __percpu_counter_init+0x3f/0x70
+[  573.862602] EAX: f8214a20 EBX: f80faa14 ECX: c48c0000 EDX: f80faa20
+[  573.862604] ESI: f80a7000 EDI: 00000000 EBP: f69d5ef0 ESP: f69d5eec
+[  573.862606]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+[  573.862610] Process modprobe (pid: 5373, ti=f69d4000 task=c2130c70
+task.ti=f69d4000)
+[  573.862612] Stack:
+[  573.862613]  00000000 f69d5f18 f80a70a8 f80fa9fc 00000000 fffffffc f69d5f30
+c018e2d4
+[  573.862619] <0> 00000000 f80a7000 00000000 f69d5f88 c010112b 00000000
+c07029c0 fffffffb
+[  573.862626] <0> 00000000 f69d5f38 c018f83f f69d5f54 c0557cad f80fa860
+00000001 c07010c0
+[  573.862634] Call Trace:
+[  573.862644]  [<f80a70a8>] ? sctp_init+0xa8/0x7d4 [sctp]
+[  573.862650]  [<c018e2d4>] ? marker_update_probe_range+0x184/0x260
+[  573.862659]  [<f80a7000>] ? sctp_init+0x0/0x7d4 [sctp]
+[  573.862662]  [<c010112b>] ? do_one_initcall+0x2b/0x160
+[  573.862666]  [<c018f83f>] ? tracepoint_module_notify+0x2f/0x40
+[  573.862671]  [<c0557cad>] ? notifier_call_chain+0x2d/0x70
+[  573.862678]  [<c01588fd>] ? __blocking_notifier_call_chain+0x4d/0x60
+[  573.862682]  [<c016b2f1>] ? sys_init_module+0xb1/0x1f0
+[  573.862686]  [<c0102ffc>] ? sysenter_do_call+0x12/0x28
+[  573.862688] Code: 89 48 08 b8 04 00 00 00 e8 df aa ec ff ba f4 ff ff ff 85
+c0 89 43 14 74 31 b8 b0 18 71 c0 e8 19 b9 24 00 a1 c4 18 71 c0 8d 53 0c <89> 50
+04 89 43 0c b8 b0 18 71 c0 c7 43 10 c4 18 71 c0 89 15 c4
+[  573.862725] EIP: [<c0308b8f>] __percpu_counter_init+0x3f/0x70 SS:ESP
+0068:f69d5eec
+[  573.862730] CR2: 00000000f8214a24
+[  573.862734] ---[ end trace 39c4e0b55e7cf54d ]---
 
-For those graphs, two 8-core x86_64 boxes with Chelsio T3 10GE connected
-back to back via cross over with 1500mtu.  The kernel version was as
-posted.  The qemu version was generally something very close to
-qemu-kvm.git HEAD at the time the data was gathered, but unfortunately I
-didn't seem to log this info.
+Signed-off-by: Rafael Laufer <rlaufer@cisco.com>
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/protocol.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-For KVM, we take one of those boxes and run a bridge+tap configuration
-on top of that.  We always run the server on the bare-metal machine on
-the remote side of the link regardless of whether we run the client in a
-VM or baremetal.
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 79cbd47..a76da65 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -160,6 +160,7 @@ static void sctp_proc_exit(void)
+ 		remove_proc_entry("sctp", init_net.proc_net);
+ 	}
+ #endif
++	percpu_counter_destroy(&sctp_sockets_allocated);
+ }
+ 
+ /* Private helper to extract ipv4 address and stash them in
+-- 
+1.5.4.3
 
-For guests, virtio-net and venet connect to the same linux bridge
-instance, I just "ifdown eth0 / ifup eth1" (or vice versa) and repeat
-the same test.  I do this multiple times (usually about 10) and average
-the result.  I use several different programs, such as netperf, rsync,
-and ping to take measurements.
-
-That said, note that the graphs were from earlier kernel runs (2.6.28,
-29-rc8).  The most recent data I can find that I published is for
-2.6.29, announced with the vbus-v3 release back in April:
-
-http://lkml.org/lkml/2009/4/21/408
-
-In it, the virtio-net throughput numbers are substantially higher and
-possibly more in line with your expectations (4.5gb/s) (though notably
-still lagging venet, which weighed in at 5.6gb/s).
-
-Generally, I find that the virtio-net exhibits non-deterministic results
-from release to release.  I suspect (as we have discussed) the
-tx-mitigation scheme.  Some releases buffer the daylights out of the
-stream, and virtio gets close(r) throughput (e.g. 4.5g vs 5.8g, but
-absolutely terrible latency (4000us vs 65us).  Other releases it seems
-to operate with more of a compromise (1.3gb/s vs 3.8gb/s, but 350us vs
-85us).
-
-I do not understand what causes the virtio performance fluctuation, as I
-use the same kernel config across builds, and I do not typically change
-the qemu userspace.  Note that some general fluctuation is evident
-across the board just from kernel to kernel.  I am referring to more of
-the disparity in throughput vs latency than the ultimate numbers, as all
-targets seem to scale max throughput about the same per kernel.
-
-That said, I know I need to redo the graphs against HEAD (31-rc5, and
-perhaps 30, and kvm.git).  I've been heads down with the eventfd
-interfaces since vbus-v3 so I havent been as active with generating the
-results. I did confirm that vbus-v4 (alacrityvm-v0.1) still produces a
-similar graph, but I didn't gather the data as scientifically as I would
-feel comfortable publishing a graph for.  This is on the TODO list.
-
-If there is another patch-series/tree I should be using for comparison,
-please point me at it.
-
-HTH
-
-Kind Regards,
--Greg
-
-
---------------enigDD6D7DE8A19889E7EA51257E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkp8QsgACgkQP5K2CMvXmqFUDgCcCtEq2PSKDkISw0/H2jQTDhKG
-3PMAnjSZ7zETv4xR52xzlNJVAZOojVrI
-=QpOe
------END PGP SIGNATURE-----
-
---------------enigDD6D7DE8A19889E7EA51257E--
