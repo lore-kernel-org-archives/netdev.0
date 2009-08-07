@@ -1,37 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] REPORTING-BUGS: Add get_maintainer.pl blurb
-Date: Fri, 07 Aug 2009 10:01:55 -0700
-Message-ID: <1249664515.3467.83.camel@Joe-Laptop.home>
-References: <20090618183738.662f7ef1@emcraft.com>
-	 <20090807153106.335b1b8f@emcraft.com>
-	 <20090807.090353.191304972.davem@davemloft.net>
+From: Alan Jenkins <sourcejedi.lkml@googlemail.com>
+Subject: Re: [PATCH 2/7 v3] initdev:kernel:USB init device discovery
+	notification
+Date: Fri, 7 Aug 2009 18:17:51 +0100
+Message-ID: <9b2b86520908071017h606e595fr4488d6ff61cb337c@mail.gmail.com>
+References: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com>
+	 <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: sposelenov@emcraft.com, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754402AbZHGRCI@vger.kernel.org>
-In-Reply-To: <20090807.090353.191304972.davem@davemloft.net>
+Cc: David VomLehn <dvomlehn@cisco.com>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, linux-usb@vger.kernel.org,
+	greg@kroah.com, linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	arjan@infradead.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754455AbZHGRRy@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
+On 8/7/09, Alan Stern <stern@rowland.harvard.edu> wrote:
+> On Fri, 7 Aug 2009, Alan Jenkins wrote:
+>
+>> > +/* The mask of possible USB boot devices depends on what drivers and
+>> > + * options have been configured into the kernel.  There are too many
+>> > + * USB network config options to list here, so just assume it is always
+>> > + * possible to have a USB network device.
+>> > + */
+>>
+>> That could be fixed though.  Make the "USB Network Adaptors" menu into
+>> an option.  Then you just have e.g. "CONFIG_NETDEV_USB", plus the two
+>> class devices outside the menu (CONFIG_USB_ACM and CONFIG_USB_WDM).
 
-diff --git a/REPORTING-BUGS b/REPORTING-BUGS
-index ab0c566..55a6074 100644
---- a/REPORTING-BUGS
-+++ b/REPORTING-BUGS
-@@ -15,7 +15,10 @@ worry too much about getting the wrong person. If you are unsure send it
- to the person responsible for the code relevant to what you were doing.
- If it occurs repeatably try and describe how to recreate it. That is
- worth even more than the oops itself.  The list of maintainers and
--mailing lists is in the MAINTAINERS file in this directory.
-+mailing lists is in the MAINTAINERS file in this directory.  If you
-+know the file name that causes the problem you can use the following
-+command in this directory to find some of the maintainers of that file:
-+     perl scripts/get_maintainer.pl -f <filename>
- 
-       If it is a security bug, please copy the Security Contact listed
- in the MAINTAINERS file.  They can help coordinate bugfix and disclosure.
+Oops, scratch WDM.  It doesn't actually provide a network device
+(otherwise it would depend on NET).
+
+> That could be done.  It might even meet with the approval of the
+> networking maintainer, independent of this patch series.
+>
+> But what if somebody adds yet another networking class driver outside
+> the menu?
+
+Hmm.
+
+Ok, how about a single (hidden) USB_HAS_NETDEV.  NETDEV_USB and
+USB_ACM select USB_HAS_NETDEV.
+
+Textual juxtaposition or simple copy+paste inside class/Kconfig should
+help it get picked up.  And I'd add a comment pointing the bewildered
+to the definition of usb_initdev_mask.
+
+I'll write a patch for your inspection this evening.
+
+Alan
