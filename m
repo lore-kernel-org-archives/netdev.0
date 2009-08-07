@@ -1,279 +1,145 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 3/3] net: Add ftracer to help optimize process
-	scheduling based on incomming frame allocations
-Date: Fri, 7 Aug 2009 16:44:16 -0400
-Message-ID: <20090807204416.GD26677@hmsreliant.think-freely.org>
-References: <20090807202130.GA26677@hmsreliant.think-freely.org>
+From: "Fischer, Anna" <anna.fischer@hp.com>
+Subject: RE: [evb] RE: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Fri, 7 Aug 2009 21:00:54 +0000
+Message-ID: <0199E0D51A61344794750DC57738F58E6D6A6CD803@GVW1118EXC.americas.hpqcorp.net>
+References: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rostedt@goodmis.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"adobriyan@gmail.com" <adobriyan@gmail.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>
+To: Yaron Haviv <yaronh@voltaire.com>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45286 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933871AbZHGUoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 16:44:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20090807202130.GA26677@hmsreliant.think-freely.org>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:21831 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbZHGVBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 17:01:32 -0400
+In-Reply-To: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb allocation / consumption correlator
-
-Add ftracer module to kernel to print out a list that correlates a process id,
-an skb it read, and the numa nodes on wich the process was running when it was
-read along with the numa node the skbuff was allocated on.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- kernel/trace/Makefile            |    1 
- kernel/trace/trace.h             |   19 ++++
- kernel/trace/trace_skb_sources.c |  154 +++++++++++++++++++++++++++++++++++++++
- net/core/datagram.c              |    3 
- 4 files changed, 177 insertions(+)
-
-diff --git a/kernel/trace/Makefile b/kernel/trace/Makefile
-index 844164d..ee5e5b1 100644
---- a/kernel/trace/Makefile
-+++ b/kernel/trace/Makefile
-@@ -49,6 +49,7 @@ obj-$(CONFIG_BLK_DEV_IO_TRACE) += blktrace.o
- ifeq ($(CONFIG_BLOCK),y)
- obj-$(CONFIG_EVENT_TRACING) += blktrace.o
- endif
-+obj-$(CONFIG_SKB_SOURCES_TRACER) += trace_skb_sources.o
- obj-$(CONFIG_EVENT_TRACING) += trace_events.o
- obj-$(CONFIG_EVENT_TRACING) += trace_export.o
- obj-$(CONFIG_FTRACE_SYSCALLS) += trace_syscalls.o
-diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
-index 3548ae5..8c1d458 100644
---- a/kernel/trace/trace.h
-+++ b/kernel/trace/trace.h
-@@ -11,6 +11,7 @@
- #include <trace/boot.h>
- #include <linux/kmemtrace.h>
- #include <trace/power.h>
-+#include <trace/events/skb.h>
- 
- #include <linux/trace_seq.h>
- #include <linux/ftrace_event.h>
-@@ -40,6 +41,7 @@ enum trace_type {
- 	TRACE_KMEM_FREE,
- 	TRACE_POWER,
- 	TRACE_BLK,
-+	TRACE_SKB_SOURCE,
- 
- 	__TRACE_LAST_TYPE,
- };
-@@ -171,6 +173,21 @@ struct trace_power {
- 	struct power_trace	state_data;
- };
- 
-+struct skb_record {
-+	pid_t pid;		/* pid of the copying process */
-+	int anid;		/* node where skb was allocated */
-+	int cnid;		/* node to which skb was copied in userspace */
-+	char ifname[IFNAMSIZ];	/* Name of the receiving interface */
-+	int rx_queue;		/* The rx queue the skb was received on */
-+	int ccpu;		/* Cpu the application got this frame from */
-+	int len;		/* length of the data copied */
-+};
-+
-+struct trace_skb_event {
-+	struct trace_entry	ent;
-+	struct skb_record	event_data;
-+};
-+
- enum kmemtrace_type_id {
- 	KMEMTRACE_TYPE_KMALLOC = 0,	/* kmalloc() or kfree(). */
- 	KMEMTRACE_TYPE_CACHE,		/* kmem_cache_*(). */
-@@ -323,6 +340,8 @@ extern void __ftrace_bad_type(void);
- 			  TRACE_SYSCALL_ENTER);				\
- 		IF_ASSIGN(var, ent, struct syscall_trace_exit,		\
- 			  TRACE_SYSCALL_EXIT);				\
-+		IF_ASSIGN(var, ent, struct trace_skb_event,		\
-+			  TRACE_SKB_SOURCE);				\
- 		__ftrace_bad_type();					\
- 	} while (0)
- 
-diff --git a/kernel/trace/trace_skb_sources.c b/kernel/trace/trace_skb_sources.c
-new file mode 100644
-index 0000000..4ba3671
---- /dev/null
-+++ b/kernel/trace/trace_skb_sources.c
-@@ -0,0 +1,154 @@
-+/*
-+ * ring buffer based tracer for analyzing per-socket skb sources
-+ *
-+ * Neil Horman <nhorman@tuxdriver.com> 
-+ * Copyright (C) 2009
-+ *
-+ *
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/debugfs.h>
-+#include <trace/events/skb.h>
-+#include <linux/kallsyms.h>
-+#include <linux/module.h>
-+#include <linux/hardirq.h>
-+#include <linux/netdevice.h>
-+#include <net/sock.h>
-+
-+#include "trace.h"
-+#include "trace_output.h"
-+
-+EXPORT_TRACEPOINT_SYMBOL_GPL(skb_copy_datagram_iovec);
-+
-+static struct trace_array *skb_trace;
-+static int __read_mostly trace_skb_source_enabled;
-+
-+static void probe_skb_dequeue(const struct sk_buff *skb, int len)
-+{
-+	struct ring_buffer_event *event;
-+	struct trace_skb_event *entry;
-+	struct trace_array *tr = skb_trace;
-+	struct net_device *dev;
-+
-+	if (!trace_skb_source_enabled)
-+		return;
-+
-+	if (in_interrupt())
-+		return;
-+
-+	event = trace_buffer_lock_reserve(tr, TRACE_SKB_SOURCE,
-+					  sizeof(*entry), 0, 0);
-+	if (!event)
-+		return;
-+	entry = ring_buffer_event_data(event);
-+
-+	entry->event_data.pid = current->pid;
-+	entry->event_data.anid = page_to_nid(virt_to_page(skb->data));
-+	entry->event_data.cnid = cpu_to_node(smp_processor_id());
-+	entry->event_data.len = len;
-+	entry->event_data.rx_queue = skb->queue_mapping;
-+	entry->event_data.ccpu = smp_processor_id();
-+
-+	dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-+	if (dev) {
-+		memcpy(entry->event_data.ifname, dev->name, IFNAMSIZ);
-+		dev_put(dev);
-+	} else {
-+		strcpy(entry->event_data.ifname, "Unknown");
-+	}
-+
-+	trace_buffer_unlock_commit(tr, event, 0, 0);
-+}
-+
-+static int tracing_skb_source_register(void)
-+{
-+	int ret;
-+
-+	ret = register_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-+	if (ret)
-+		pr_info("skb source trace: Couldn't activate dequeue tracepoint");
-+	
-+	return ret;
-+}
-+
-+static void start_skb_source_trace(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 1;
-+}
-+
-+static void stop_skb_source_trace(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 0;
-+}
-+
-+static void skb_source_trace_reset(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 0;
-+	unregister_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-+}
-+
-+
-+static int skb_source_trace_init(struct trace_array *tr)
-+{
-+	int cpu;
-+	skb_trace = tr;
-+
-+	trace_skb_source_enabled = 1;
-+	tracing_skb_source_register();
-+
-+	for_each_cpu(cpu, cpu_possible_mask)
-+		tracing_reset(tr, cpu);
-+	return 0;
-+}
-+
-+static enum print_line_t skb_source_print_line(struct trace_iterator *iter)
-+{
-+	int ret = 0;
-+	struct trace_entry *entry = iter->ent;
-+	struct trace_skb_event *event;
-+	struct skb_record *record;
-+	struct trace_seq *s = &iter->seq;
-+
-+	trace_assign_type(event, entry);
-+	record = &event->event_data;
-+	if (entry->type != TRACE_SKB_SOURCE)
-+		return TRACE_TYPE_UNHANDLED;
-+
-+	ret = trace_seq_printf(s, "	%d	%d	%d	%s	%d	%d	%d\n",
-+			record->pid,
-+			record->anid,
-+			record->cnid,
-+			record->ifname,
-+			record->rx_queue,
-+			record->ccpu,
-+			record->len);
-+
-+	if (!ret)
-+		return TRACE_TYPE_PARTIAL_LINE;
-+
-+	return TRACE_TYPE_HANDLED;
-+}
-+
-+static void skb_source_print_header(struct seq_file *s)
-+{
-+	seq_puts(s, "#	PID	ANID	CNID	IFC	RXQ	CCPU	LEN\n");
-+	seq_puts(s, "#	 |	 |	 |	 |	 |	 |	 |\n");
-+}
-+
-+static struct tracer skb_source_tracer __read_mostly =
-+{
-+	.name		= "skb_sources",
-+	.init		= skb_source_trace_init,
-+	.start		= start_skb_source_trace,
-+	.stop		= stop_skb_source_trace,
-+	.reset		= skb_source_trace_reset,
-+	.print_line	= skb_source_print_line,
-+	.print_header	= skb_source_print_header,
-+};
-+
-+static int init_skb_source_trace(void)
-+{
-+	return register_tracer(&skb_source_tracer);
-+}
-+device_initcall(init_skb_source_trace);
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index b0fe692..1c6cf3a 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -55,6 +55,7 @@
- #include <net/checksum.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
-+#include <trace/events/skb.h>
- 
- /*
-  *	Is a socket 'connection oriented' ?
-@@ -284,6 +285,8 @@ int skb_copy_datagram_iovec(const struct sk_buff *skb, int offset,
- 	int i, copy = start - offset;
- 	struct sk_buff *frag_iter;
- 
-+	trace_skb_copy_datagram_iovec(skb, len);
-+
- 	/* Copy header. */
- 	if (copy > 0) {
- 		if (copy > len)
+SGkgWWFyb24sDQoNClllcywgSSBhbHNvIGJlbGlldmUgdGhhdCBWRVBBICsgU1JJT1YgY2FuIHBv
+dGVudGlhbGx5LCBpbiBzb21lIGRlcGxveW1lbnRzLCBhY2hpZXZlIGJldHRlciBwZXJmb3JtYW5j
+ZSB0aGFuIGEgYnJpZGdlL3RhcCBjb25maWd1cmF0aW9uLCBlc3BlY2lhbGx5IHdoZW4geW91IHJ1
+biBtdWx0aXBsZSBWTXMgYW5kIGlmIHlvdSB3YW50IHRvIGVuYWJsZSBtb3JlIHNvcGhpc3RpY2F0
+ZWQgbmV0d29yayBwcm9jZXNzaW5nIGluIHRoZSBkYXRhIHBhdGguDQoNCklmIHlvdSBkbyBoYXZl
+IGEgU1JJT1YgTklDIHRoYXQgc3VwcG9ydHMgVkVQQSwgdGhlbiBJIHdvdWxkIHRoaW5rIHRoYXQg
+eW91IGRvIG5vdCBoYXZlIFFFTVUgb3IgbWFjdnRhcCBpbiB0aGUgc2V0dXAgYW55IG1vcmUgdGhv
+dWdoLiBTaW1wbHkgYmVjYXVzZSBpbiB0aGF0IGNhc2UgdGhlIFZNIGNhbiBkaXJlY3RseSBhY2Nl
+c3MgdGhlIFZGIG9uIHRoZSBwaHlzaWNhbCBkZXZpY2UuIFRoYXQgd291bGQgYmUgaWRlYWwuDQoN
+CkkgZG8gdGhpbmsgdGhhdCB0aGUgbWFjdnRhcCBkcml2ZXIgaXMgYSBnb29kIGFkZGl0aW9uIGFz
+IGEgc2ltcGxlIGFuZCBmYXN0IHZpcnR1YWwgbmV0d29yayBJL08gaW50ZXJmYWNlLCBpbiBjYXNl
+IHlvdSBkbyBub3QgbmVlZCBmdWxsIGJyaWRnZSBmdW5jdGlvbmFsaXR5LiBJdCBkb2VzIHNlZW0g
+dG8gYXNzdW1lIHRob3VnaCB0aGF0IHRoZSB2aXJ0dWFsaXphdGlvbiBzb2Z0d2FyZSB1c2VzIFFF
+TVUvdGFwIGludGVyZmFjZXMuIEhvdyB3b3VsZCB0aGlzIHdvcmsgd2l0aCBhIFhlbiBwYXJhLXZp
+cnR1YWxpemVkIG5ldHdvcmsgaW50ZXJmYWNlPyBJIGd1ZXNzIHRoZXJlIHdvdWxkIG5lZWQgdG8g
+YmUgeWV0IGFub3RoZXIgZHJpdmVyPw0KDQpBbm5hDQoNCi0tDQoNCkZyb206IFlhcm9uIEhhdml2
+IFttYWlsdG86eWFyb25oQHZvbHRhaXJlLmNvbV0gDQpTZW50OiAwNyBBdWd1c3QgMjAwOSAyMToz
+Ng0KVG86IGV2YkB5YWhvb2dyb3Vwcy5jb207IHNoZW1taW5nZXJAbGludXgtZm91bmRhdGlvbi5v
+cmc7IEZpc2NoZXIsIEFubmENCkNjOiBicmlkZ2VAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmc7
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5k
+YXRpb24ub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBrYWJlckB0cmFzaC5uZXQ7IGFkb2JyaXlh
+bkBnbWFpbC5jb207IGFybmRAYXJuZGIuZGUNClN1YmplY3Q6IFJlOiBbZXZiXSBSRTogW1BBVENI
+XVtSRkNdIG5ldC9icmlkZ2U6IGFkZCBiYXNpYyBWRVBBIHN1cHBvcnQNCg0KUGF1bCwNCg0KSSBh
+bHNvIHRoaW5rIHRoYXQgYnJpZGdlIG1heSBub3QgYmUgdGhlIHJpZ2h0IHBsYWNlIGZvciBWRVBB
+LCBidXQgcmF0aGVyIGEgc2ltcGxlciBzdy9odyBtdXggDQpBbHRob3VnaCB0aGUgVkVQQSBzdXBw
+b3J0IG1heSByZXNpZGUgaW4gbXVsdGlwbGUgcGxhY2VzIChJLmUuIGFsc28gaW4gdGhlIGJyaWRn
+ZSkNCg0KQXMgQXJuZCBwb2ludGVkIG91dCBPciBhbHJlYWR5IGFkZGVkIGFuIGV4dGVuc2lvbiB0
+byBxZW11IHRoYXQgYWxsb3cgZGlyZWN0IGd1ZXN0IHZpcnR1YWwgTklDIG1hcHBpbmcgdG8gYW4g
+aW50ZXJmYWNlIGRldmljZSAodnMgdXNpbmcgdGFwKSwgdGhpcyB3YXMgZG9uZSBzcGVjaWZpY2Fs
+bHkgdG8gYWRkcmVzcyBWRVBBLCBhbmQgcmVzdWx0IGluIG11Y2ggZmFzdGVyIHBlcmZvcm1hbmNl
+IGFuZCBsb3dlciBjcHUgb3ZlcmhlYWQgKE9yIGFuZCBzb21lIG90aGVycyBhcmUgcGxhbm5pbmcg
+YWRkaXRpb25hbCBtZWFuaW5nZnVsIHBlcmZvcm1hbmNlIG9wdGltaXphdGlvbnMpIA0KDQpUaGUg
+aW50ZXJmYWNlIG11bHRpcGxleGluZyBjYW4gYmUgYWNoaWV2ZWQgdXNpbmcgbWFjdmxhbiBkcml2
+ZXIgb3IgdXNpbmcgYW4gU1ItSU9WIGNhcGFibGUgTklDICh0aGUgcHJlZmVycmVkIG9wdGlvbiks
+IG1hY3ZsYW4gbWF5IG5lZWQgdG8gYmUgZXh0ZW5kZWQgdG8gc3VwcG9ydCBWRVBBIG11bHRpY2Fz
+dCBoYW5kbGluZywgdGhpcyBsb29rcyBsaWtlIGEgcmF0aGVyIHNpbXBsZSB0YXNrIA0KDQpJdCBt
+YXkgYmUgY291bnRlciBpbnR1aXRpdmUgZm9yIHNvbWUsIGJ1dCB3ZSBleHBlY3QgdGhlIChjb21w
+bGV0ZWQpIHFlbXUgVkVQQSBtb2RlICsgU1ItSU9WICsgY2VydGFpbiBzd2l0Y2hlcyB3aXRoIGhh
+aXJwaW4gKHZlcGEpIG1vZGUgdG8gcGVyZm9ybSBmYXN0ZXIgdGhhbiB1c2luZyBicmlkZ2UrdGFw
+IGV2ZW4gZm9yIGNvbm5lY3RpbmcgMiBWTXMgb24gdGhlIHNhbWUgaG9zdA0KDQoNCllhcm9uIA0K
+DQpTZW50IGZyb20gQmxhY2tCZXJyeQ0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXw0KRnJvbTogZXZiQHlhaG9vZ3JvdXBzLmNvbSANClRvOiAnU3RlcGhlbiBIZW1taW5n
+ZXInIDsgJ0Zpc2NoZXIsIEFubmEnIA0KQ2M6IGJyaWRnZUBsaXN0cy5saW51eC1mb3VuZGF0aW9u
+Lm9yZyA7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcgOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnIDsgdmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcgOyBldmJAeWFo
+b29ncm91cHMuY29tIDsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldCA7IGthYmVyQHRyYXNoLm5ldCA7IGFk
+b2JyaXlhbkBnbWFpbC5jb20gOyAnQXJuZCBCZXJnbWFubicgDQpTZW50OiBGcmkgQXVnIDA3IDIx
+OjU4OjAwIDIwMDkNClN1YmplY3Q6IFtldmJdIFJFOiBbUEFUQ0hdW1JGQ10gbmV0L2JyaWRnZTog
+YWRkIGJhc2ljIFZFUEEgc3VwcG9ydCANCsKgIA0KPiANCj4gQWZ0ZXIgcmVhZGluZyBtb3JlIGFi
+b3V0IHRoaXMsIEkgYW0gbm90IGNvbnZpbmNlZCB0aGlzIHNob3VsZCBiZSBwYXJ0IA0KPiBvZiB0
+aGUgYnJpZGdlIGNvZGUuIFRoZSBicmlkZ2UgY29kZSByZWFsbHkgY29uc2lzdHMgb2YgdHdvIHBh
+cnRzOg0KPiBmb3J3YXJkaW5nIHRhYmxlIGFuZCBvcHRpb25hbCBzcGFubmluZyB0cmVlLiBXZWxs
+IHRoZSBWRVBBIGNvZGUgc2hvcnQgDQo+IGNpcmN1aXRzIGJvdGggb2YgdGhlc2U7IGl0IGNhbid0
+IGltYWdpbmUgaXQgd29ya2luZyB3aXRoIFNUUCB0dXJuZWQgDQo+IG9uLiBUaGUgb25seSBwYXJ0
+IG9mIGJyaWRnZSBjb2RlIHRoYXQgcmVhbGx5IGdldHMgdXNlZCBieSB0aGlzIGFyZSB0aGUgDQo+
+IHJlY2VpdmUgcGFja2V0IGhvb2tzIGFuZCB0aGUgY3J1ZnR5IG9sZCBBUEkuDQo+IA0KPiBTbyBp
+bnN0ZWFkIG9mIGFkZGluZyBtb3JlIHN0dWZmIHRvIGV4aXN0aW5nIGJyaWRnZSBjb2RlLCB3aHkg
+bm90IGhhdmUgDQo+IGEgbmV3IGRyaXZlciBmb3IganVzdCBWRVBBLiBZb3UgY291bGQgZG8gaXQg
+d2l0aCBhIHNpbXBsZSB2ZXJzaW9uIG9mIA0KPiBtYWN2bGFuIHR5cGUgZHJpdmVyLg0KDQpTdGVw
+aGVuLA0KDQpUaGFua3MgZm9yIHlvdXIgY29tbWVudHMgYW5kIHF1ZXN0aW9ucy4gV2UgZG8gYmVs
+aWV2ZSB0aGUgYnJpZGdlIGNvZGUgaXMNCnRoZSByaWdodCBwbGFjZSBmb3IgdGhpcywgc28gSSdk
+IGxpa2UgdG8gZW1iZWxsaXNoIG9uIHRoYXQgYSBiaXQgbW9yZSB0bw0KaGVscCBwZXJzdWFkZSB5
+b3UuIFNvcnJ5IGZvciB0aGUgbG9uZyB3aW5kZWQgcmVzcG9uc2UsIGJ1dCBoZXJlIGFyZSBzb21l
+DQp0aG91Z2h0czoNCg0KLSBGaXJzdCBhbmQgZm9yZW1vc3QsIFZFUEEgaXMgZ29pbmcgdG8gYmUg
+YSBzdGFuZGFyZCBhZGRpdGlvbiB0byB0aGUgSUVFRQ0KODAyLjFRIHNwZWNpZmljYXRpb24uIFRo
+ZSB3b3JraW5nIGdyb3VwIGFncmVlZCBhdCB0aGUgbGFzdCBtZWV0aW5nIHRvDQpwdXJzdWUgYSBw
+cm9qZWN0IHRvIGF1Z21lbnQgdGhlIGJyaWRnZSBzdGFuZGFyZCB3aXRoIGhhaXJwaW4gbW9kZSAo
+YWthDQpyZWZsZWN0aXZlIHJlbGF5KSBhbmQgYSByZW1vdGUgZmlsdGVyaW5nIHNlcnZpY2UgKFZF
+UEEpLiBTZWUgZm9yIGRldGFpbHM6DQpodHRwOi8vd3d3LmllZWU4MDIub3JnLzEvZmlsZXMvcHVi
+bGljL2RvY3MyMDA5L25ldy1ldmItY29uZ2Rvbi1ldmJQYXI1Qy0wNzA5DQotdjAxLnBkZg0KDQot
+IFRoZSBWRVBBIGZ1bmN0aW9uYWxpdHkgd2FzIHJlYWxseSBhIHByZXR0eSBzbWFsbCBjaGFuZ2Ug
+dG8gdGhlIGNvZGUgd2l0aA0KbG93IHJpc2sgYW5kIHdvdWxkbid0IHNlZW0gdG8gd2FycmFudCBh
+biBlbnRpcmUgbmV3IGRyaXZlciBvciBtb2R1bGUuDQoNCi0gVGhlcmUgYXJlIGdvb2QgdXNlIGNh
+c2VzIHdoZXJlIFZNcyB3aWxsIHdhbnQgdG8gaGF2ZSBzb21lIG9mIHRoZWlyDQppbnRlcmZhY2Vz
+IGF0dGFjaGVkIHRvIGJyaWRnZXMgYW5kIG90aGVycyB0byBicmlkZ2VzIG9wZXJhdGluZyBpbiBW
+RVBBIG1vZGUuDQpJbiBvdGhlciB3b3Jkcywgd2Ugc2VlIHNpbXVsdGFuZW91cyBvcGVyYXRpb24g
+b2YgdGhlIGJyaWRnZSBjb2RlIGFuZCBWRVBBDQpvY2N1cnJpbmcsIHNvIGhhdmluZyBhcyBtdWNo
+IG9mIHRoZSB1bmRlcmx5aW5nIGNvZGUgYXMgY29tbW9uIGFzIHBvc3NpYmxlDQp3b3VsZCBzZWVt
+IHRvIGJlIGJlbmVmaWNpYWwuIA0KDQotIEJ5IGF1Z21lbnRpbmcgdGhlIGJyaWRnZSBjb2RlIHdp
+dGggVkVQQSB0aGVyZSBpcyBhIGdyZWF0IGFtb3VudCBvZiByZS11c2UNCmFjaGlldmVkLiBJdCB3
+b3JrcyB3aGVyZXZlciB0aGUgYnJpZGdlIGNvZGUgd29ya3MgYW5kIGRvZXNuJ3QgbmVlZCBhbnl0
+aGluZw0Kc3BlY2lhbCB0byBzdXBwb3J0IEtWTSwgWEVOLCBhbmQgYWxsIHRoZSBob29rcywgZXRj
+Li4uDQoNCi0gVGhlIGhhcmR3YXJlIHZlbmRvcnMgYnVpbGRpbmcgU1ItSU9WIE5JQ3Mgd2l0aCBl
+bWJlZGRlZCBzd2l0Y2hlcyB3aWxsIGJlDQphZGRpbmcgVkVQQSBtb2RlLCBzbyBieSBrZWVwaW5n
+IHRoZSBicmlkZ2UgbW9kdWxlIGluIHN5bmMgd291bGQgYmUNCmNvbnNpc3RlbnQgd2l0aCB0aGlz
+IHRyZW5kIGFuZCBkaXJlY3Rpb24uIEl0IHdpbGwgYmUgcG9zc2libGUgdG8gZXh0ZW5kIHRoZQ0K
+aGFyZHdhcmUgaW1wbGVtZW50YXRpb25zIGJ5IGNhc2NhZGluZyBhIHNvZnR3YXJlIGJyaWRnZSBh
+bmQvb3IgVkVQQSwgc28NCmJlaW5nIGluIHN5bmMgd2l0aCB0aGUgYXJjaGl0ZWN0dXJlIHdvdWxk
+IG1ha2UgdGhpcyBtb3JlIGNvbnNpc3RlbnQuDQoNCi0gVGhlIGZvcndhcmRpbmcgdGFibGUgaXMg
+c3RpbGwgbmVlZGVkIGFuZCB1c2VkIG9uIGluYm91bmQgdHJhZmZpYyB0bw0KZGVsaXZlciBmcmFt
+ZXMgdG8gdGhlIGNvcnJlY3QgdmlydHVhbCBpbnRlcmZhY2VzIGFuZCB0byBmaWx0ZXIgYW55IHJl
+ZmxlY3RlZA0KZnJhbWVzLiBBIG5ldyBkcml2ZXIgd291bGQgaGF2ZSB0byBiYXNpY2FsbHkgaW1w
+bGVtZW50IGFuIGVxdWl2YWxlbnQNCmZvcndhcmRpbmcgdGFibGUgYW55d2F5LiBBcyBJIHVuZGVy
+c3RhbmQgdGhlIGN1cnJlbnQgbWFjdmxhbiB0eXBlIGRyaXZlciwNCml0IHdvdWxkbid0IGZpbHRl
+ciBtdWx0aWNhc3QgZnJhbWVzIHByb3Blcmx5IHdpdGhvdXQgc3VjaCBhIHRhYmxlLg0KDQotIEl0
+IHNlZW1zIHRoZSBoYWlycGluIG1vZGUgd291bGQgYmUgbmVlZGVkIGluIHRoZSBicmlkZ2UgbW9k
+dWxlIHdoZXRoZXINClZFUEEgd2FzIGFkZGVkIHRvIHRoZSBicmlkZ2UgbW9kdWxlIG9yIGEgbmV3
+IGRyaXZlci4gSGF2aW5nIHRoZSBhc3NvY2lhdGVkDQpjaGFuZ2VzIHRvZ2V0aGVyIGluIHRoZSBz
+YW1lIGNvZGUgY291bGQgYWlkIGluIHVuZGVyc3RhbmRpbmcgYW5kIGRlcGxveW1lbnQuDQoNCkFz
+IEkgdW5kZXJzdGFuZCB0aGUgbWFjdmxhbiBjb2RlLCBpdCBjdXJyZW50bHkgZG9lc24ndCBhbGxv
+dyB0d28gVk1zIG9uIHRoZQ0Kc2FtZSBtYWNoaW5lIHRvIGNvbW11bmljYXRlIHdpdGggb25lIGFu
+b3RoZXIuIEkgY291bGQgaW1hZ2luZSBhIGhhaXJwaW4NCm1vZGUgb24gdGhlIGFkamFjZW50IGJy
+aWRnZSBtYWtpbmcgdGhpcyBwb3NzaWJsZSwgYnV0IHRoZSBtYWN2bGFuIGNvZGUgd291bGQNCm5l
+ZWQgdG8gYmUgdXBkYXRlZCB0byBmaWx0ZXIgcmVmbGVjdGVkIGZyYW1lcyBzbyBhIHNvdXJjZSBk
+aWQgbm90IHJlY2VpdmUNCmhpcyBvd24gcGFja2V0LiBJIGNvdWxkIGltYWdpbmUgdGhpcyBiZWlu
+ZyBkb25lIGFzIHdlbGwsIGJ1dCB0byBhbHNvDQpzdXBwb3J0IHNlbGVjdGl2ZSBtdWx0aWNhc3Qg
+dXNhZ2UsIHNvbWV0aGluZyBzaW1pbGFyIHRvIHRoZSBicmlkZ2UNCmZvcndhcmRpbmcgdGFibGUg
+d291bGQgYmUgbmVlZGVkLiBJIHRoaW5rIHB1dHRpbmcgVkVQQSBpbnRvIGEgbmV3IGRyaXZlcg0K
+d291bGQgY2F1c2UgeW91IHRvIGltcGxlbWVudCBtYW55IHRoaW5ncyB0aGUgYnJpZGdlIGNvZGUg
+YWxyZWFkeSBzdXBwb3J0cy4NCkdpdmVuIHRoYXQgd2UgZXhwZWN0IHRoZSBicmlkZ2Ugc3RhbmRh
+cmQgdG8gdWx0aW1hdGVseSBpbmNsdWRlIFZFUEEsIGFuZCB0aGUNCm5ldyBmdW5jdGlvbnMgYXJl
+IGJhc2ljIGZvcndhcmRpbmcgb3BlcmF0aW9ucywgaXQgc2VlbXMgdG8gbWFrZSBtb3N0IHNlbnNl
+DQp0byBrZWVwIHRoaXMgY29uc2lzdGVudCB3aXRoIHRoZSBicmlkZ2UgbW9kdWxlLg0KDQpQYXVs
+DQo=
