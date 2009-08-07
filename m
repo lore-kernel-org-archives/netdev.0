@@ -1,50 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 3x59x-fix-pci-resource-management.patch
-Date: Fri, 7 Aug 2009 09:14:15 -0700
-Message-ID: <20090807091415.6a78af4d.akpm@linux-foundation.org>
-References: <20090806154223.b9b9759e.akpm@linux-foundation.org>
-	<4A7C079D.8010505@ru.mvista.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] MAINTAINERS: additional NETWORKING [GENERAL] and
+ NETWORKING DRIVERS patterns
+Date: Fri, 07 Aug 2009 09:43:01 -0700
+Message-ID: <1249663381.3467.80.camel@Joe-Laptop.home>
+References: <20090618183738.662f7ef1@emcraft.com>
+	 <20090807153106.335b1b8f@emcraft.com>
+	 <20090807.090353.191304972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:44483 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753808AbZHGQPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 12:15:15 -0400
-In-Reply-To: <4A7C079D.8010505@ru.mvista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sposelenov@emcraft.com, linux-kernel@vger.kernel.org, wd@denx.de,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754148AbZHGQnQ@vger.kernel.org>
+In-Reply-To: <20090807.090353.191304972.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Aug 2009 14:53:17 +0400 Sergei Shtylyov <sshtylyov@ru.mvista.com> wrote:
+On Fri, 2009-08-07 at 09:03 -0700, David Miller wrote:
+> From: Sergei Poselenov <sposelenov@emcraft.com>
+> > Unfortunately, received no replies, but the problem still persists.
+> I guarantee you'll get more responses if you send networking bug
+> reports at least CC:'d to netdev@vger.kernel.org
 
-> Hello.
-> 
-> Andrew Morton wrote:
-> 
-> > Guys, I seem to have been sitting on the below patch for, err, three years.
-> 
-> > I generally do this because there's some issue which needs to be
-> > addressed, but the patch didn't address it right.
-> 
->     In this case it was different: you just wanted the patch to be verifed 
-> on an EISA card...
-> 
-> On Mon, 14 Aug 2006 14:31:46 -0400
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
->  >> ACK, shall I apply this to netdev#upstream ?
-> 
-> Spose so, but let's not go mainline until I've had a chance to test an
-> EISA card and a cardbus card.
-> 
->     There was several more comments from you but they all got resolved 
-> between you and Jeff at the time...
-> 
+Perhaps this will help get cc's to the right places.
 
-Doh, OK, thanks.  My fault.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-I have a cardbus card somewhere..
+diff --git a/MAINTAINERS b/MAINTAINERS
+index b1114cf..0b697a1 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3555,6 +3555,9 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+ S:	Maintained
+ F:	net/
+ F:	include/net/
++F:	include/linux/in.h
++F:	include/linux/net.h
++F:	include/linux/netdevice.h
+ 
+ NETWORKING [IPv4/IPv6]
+ M:	"David S. Miller" <davem@davemloft.net>
+@@ -3590,6 +3593,8 @@ W:	http://www.linuxfoundation.org/en/Net
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+ S:	Odd Fixes
+ F:	drivers/net/
++F:	include/linux/if_*
++F:	include/linux/*device.h
+ 
+ NETXEN (1/10) GbE SUPPORT
+ M:	Dhananjay Phadke <dhananjay@netxen.com>
