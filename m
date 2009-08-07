@@ -1,44 +1,78 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 3x59x-fix-pci-resource-management.patch
-Date: Fri, 7 Aug 2009 01:33:10 -0700
-Message-ID: <20090807013310.0cb4e51f.akpm@linux-foundation.org>
-References: <20090806154223.b9b9759e.akpm@linux-foundation.org>
-	<20090807081928.GA12932@skl-net.de>
+From: Ram Pai <linuxram@us.ibm.com>
+Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
+Date: Fri, 07 Aug 2009 02:20:33 -0700
+Message-ID: <1249636833.6477.812.camel@localhost>
+References: <20090702111820.GA21085@serverengines.com>
+	 <1246566808.9821.2.camel@deadeye> <20090705121637.GA3627@serverengines.com>
+	 <1246803604.3898.6.camel@deadeye>
+Reply-To: linuxram@us.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org
-To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Cc: Sarveshwar Bandi <sarveshwarb@serverengines.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45865 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757093AbZHGIdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 04:33:46 -0400
-In-Reply-To: <20090807081928.GA12932@skl-net.de>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:57259 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918AbZHGJUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 05:20:36 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n779Fl2q020890
+	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:15:47 -0600
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n779KbqV214376
+	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:20:37 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n779Ka43002643
+	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:20:37 -0600
+In-Reply-To: <1246803604.3898.6.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Aug 2009 10:19:28 +0200 Steffen Klassert <klassert@mathematik.tu-chemnitz.de> wrote:
-
-> On Thu, Aug 06, 2009 at 03:42:23PM -0700, Andrew Morton wrote:
+On Sun, 2009-07-05 at 15:20 +0100, Ben Hutchings wrote:
+> On Sun, 2009-07-05 at 17:46 +0530, Sarveshwar Bandi wrote:
+> > I understand that most drivers  use request_firmware() to load  volatile
+> > firmware. I do see that there are other nic drivers that use this inferface to
+> > flash persistent firmware.
 > > 
-> > Guys, I seem to have been sitting on the below patch for, err, three years.
-> > 
-> > I generally do this because there's some issue which needs to be
-> > addressed, but the patch didn't address it right.
-> > 
-> > Can we please have a revisit and work out what we should do with this?
-> > 
+> >  We have other tools for offline flashing; but there is requirement
+> > to flash f/w through driver without having to use other proprietary  tools.
 > 
-> I don't know the story from the beginning.
+> The firmware blob is proprietary and has to be distributed separately
+> from the kernel.  So does it really matter that you have to distribute a
+> special tool as well?
+> 
+> (Based on requirements specified by major OEMs, I have implemented
+> firmware update through the sfc driver (MDIO and MTD interfaces) but
+> under the control of a separate tool.)
+> 
+> > Since the firmware load happens only when there is a version mismatch with
+> > f/w in /lib/firmware, Users who want to avoid automatic flashing at boot time
+> > can choose not to copy the f/w file under /lib/firmware.
+> [...]
+> 
+> Is there a way of loading the firmware into the controller's RAM but not
+> writing it to flash?  That ought to be the default behaviour.
+> 
 
-I've forgotten.  I don't recall seeing any bug reports which this patch
-might fix.
+Given that the volatile and non-volatile firmware reside in the same
+file, it is not possible for the driver to selectively load the intended
+firmware.
 
-> Are there any issues with
-> this patch aside the compile error that was caused if CONFIG_PCI is not
-> enabled? The compile error should be fixed and the rest looks ok on the
-> first view.
+However, is this behavior a gating factor for this patch from being
+accepted?
 
-I just did a PCI=n, EISA=y build and it compiled OK.
+RP
+
+
+> Ben.
+> 
+-- 
+Ram Pai
+System X Device-Driver Enablement Lead
+Linux Technology Center
+Beaverton OR-97006
+503-5783752 t/l 7753752
+linuxram@us.ibm.com
 
