@@ -1,48 +1,64 @@
-From: Jussi Maki <joamaki@gmail.com>
-Subject: [PATCH] Fix xfrm hash collisions by changing __xfrm4_daddr_saddr_hash
- to hash addresses with addition
-Date: Fri, 7 Aug 2009 10:38:14 +0300 (EEST)
-Message-ID: <alpine.DEB.1.10.0908071032171.3426@sisapiiri.net.net>
-References: <20090805.120831.66033097.davem@davemloft.net> <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com> <alpine.DEB.1.10.0908061147060.3426@sisapiiri.net.net> <20090806.104034.186857842.davem@davemloft.net>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH] f_phonet: lock-less MTU change
+Date: Fri,  7 Aug 2009 10:56:43 +0300
+Message-ID: <1249631804-7438-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f213.google.com ([209.85.218.213]:50989 "EHLO
-	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757022AbZHGHiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 03:38:50 -0400
-Received: by bwz9 with SMTP id 9so1212608bwz.41
-        for <netdev@vger.kernel.org>; Fri, 07 Aug 2009 00:38:50 -0700 (PDT)
-In-Reply-To: <20090806.104034.186857842.davem@davemloft.net>
+Received: from smtp.nokia.com ([192.100.122.230]:45623 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757167AbZHGH4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 03:56:50 -0400
+Received: from vaebh105.NOE.Nokia.com (vaebh105.europe.nokia.com [10.160.244.31])
+	by mgw-mx03.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n777uUxO025462
+	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 10:56:43 +0300
+Received: from localhost.localdomain (esdhcp038135.research.nokia.com [172.21.38.135])
+	by mgw-da02.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id n777uWfd000603
+	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 10:56:33 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-This patch fixes hash collisions in cases where number
-of entries have incrementing IP source and destination addresses
-from single respective subnets (i.e. 192.168.0.1-172.16.0.1, 
-192.168.0.2-172.16.0.2, and so on.).
+With the current driver, the MTU is purely indicative, so there is no
+need to synchronize with the receive path.
 
-Signed-off-by: Jussi Maki <joamaki@gmail.com>
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- net/xfrm/xfrm_hash.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/usb/gadget/f_phonet.c |   14 ++------------
+ 1 files changed, 2 insertions(+), 12 deletions(-)
 
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index d401dc8..e5195c9 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -16,7 +16,7 @@ static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
- 
- static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phone=
+t.c
+index d17f108..f4eff7c 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -261,20 +261,10 @@ out:
+=20
+ static int pn_net_mtu(struct net_device *dev, int new_mtu)
  {
--	return ntohl(daddr->a4 ^ saddr->a4);
-+	return ntohl(daddr->a4 + saddr->a4);
+-	struct phonet_port *port =3D netdev_priv(dev);
+-	unsigned long flags;
+-	int err =3D -EBUSY;
+-
+ 	if ((new_mtu < PHONET_MIN_MTU) || (new_mtu > PHONET_MAX_MTU))
+ 		return -EINVAL;
+-
+-	spin_lock_irqsave(&port->lock, flags);
+-	if (!netif_carrier_ok(dev)) {
+-		dev->mtu =3D new_mtu;
+-		err =3D 0;
+-	}
+-	spin_unlock_irqrestore(&port->lock, flags);
+-	return err;
++	dev->mtu =3D new_mtu;
++	return 0;
  }
- 
- static inline unsigned int __xfrm6_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
--- 
-1.5.6.5
+=20
+ static const struct net_device_ops pn_netdev_ops =3D {
+--=20
+1.6.0.4
 
