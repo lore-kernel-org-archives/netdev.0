@@ -1,48 +1,70 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: 3x59x-fix-pci-resource-management.patch
-Date: Fri, 07 Aug 2009 14:53:17 +0400
-Message-ID: <4A7C079D.8010505@ru.mvista.com>
-References: <20090806154223.b9b9759e.akpm@linux-foundation.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Fri, 7 Aug 2009 13:29:44 +0200
+Message-ID: <200908071329.44437.arnd@arndb.de>
+References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <20090806210002.75beb7c6@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: "Fischer, Anna" <anna.fischer@hp.com>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"adobriyan@gmail.com" <adobriyan@gmail.com>,
+	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
+	Or Gerlitz <ogerlitz@voltaire.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h155.mvista.com ([63.81.120.155]:49423 "EHLO imap.sh.mvista.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755830AbZHGKwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2009 06:52:14 -0400
-In-Reply-To: <20090806154223.b9b9759e.akpm@linux-foundation.org>
+Received: from moutng.kundenserver.de ([212.227.126.188]:58125 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371AbZHGLbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:31:31 -0400
+In-Reply-To: <20090806210002.75beb7c6@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Friday 07 August 2009, Stephen Hemminger wrote:
+> So instead of adding more stuff to existing bridge code, why not
+> have a new driver for just VEPA. You could
+> do it with a simple version of macvlan type driver.
 
-Andrew Morton wrote:
+The current macvlan driver already does the downstream side of
+VEPA and only needs a connection to KVM et al, either using
+Or's qemu packet socket interface, or using the macvtap driver
+I posted.
 
-> Guys, I seem to have been sitting on the below patch for, err, three years.
+Now Anna's patch also addresses the upstream side of VEPA, by
+making it possible for the bridge code to send frames back
+in the bridge code that they were received from, if that port
+is marked as a hairpin mode port.
 
-> I generally do this because there's some issue which needs to be
-> addressed, but the patch didn't address it right.
+Is your suggestion to do that part also with a macvlan type driver?
+I've thought about this before, and I guess that would mean
+basically the same as the macvlan driver, except hashing the
+source MAC address instead of the destination MAC address for
+inbound frames. That way you should be able to do something
+like:
 
-    In this case it was different: you just wanted the patch to be verifed 
-on an EISA card...
+            Host A                             Host B
 
-On Mon, 14 Aug 2006 14:31:46 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+      /- nalvcam0 -\                   /- macvlan0 - 192.168.1.1
+br0 -|              |- ethA === ethB -|
+      \- nalvcam1 -/                   \- macvlan1 - 192.168.1.2
+  
+Now assuming that macvlan0 and macvlan1 are in different
+network namespaces or belong to different KVM guests, these
+guests would be able to communicate with each other through
+the bridge on host A, which can set the policy (using ebtables)
+for this communication and get interface statistics on its
+nalvcam interfaces. Also, instead of having the br0, Host A could
+assign an IP addresses to the two nalvcam interfaces that host
+B has, and use IP forwarding between the guests of host B.
 
- >> ACK, shall I apply this to netdev#upstream ?
-
-Spose so, but let's not go mainline until I've had a chance to test an
-EISA card and a cardbus card.
-
-    There was several more comments from you but they all got resolved 
-between you and Jeff at the time...
-
-> Can we please have a revisit and work out what we should do with this?
-
-> Thanks.
-
-WBR, Sergei
+	Arnd <><
