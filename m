@@ -1,99 +1,81 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Luotao Fu <l.fu@pengutronix.de>
 Subject: Re: [Socketcan-users] [PATCH] CAN: make checking in can_rcv less
  restrictive
-Date: Fri, 07 Aug 2009 13:35:26 +0200
-Message-ID: <4A7C117E.5010005@hartkopp.net>
-References: <1249572295-7801-1-git-send-email-l.fu@pengutronix.de> <4A7B0957.5020808@hartkopp.net> <200908070952.56922.remi.denis-courmont@nokia.com>
+Date: Fri, 7 Aug 2009 13:46:25 +0200
+Message-ID: <20090807114625.GA6838@pengutronix.de>
+References: <1249572295-7801-1-git-send-email-l.fu@pengutronix.de>
+ <4A7B0957.5020808@hartkopp.net>
+ <200908070952.56922.remi.denis-courmont@nokia.com>
+ <4A7C117E.5010005@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="45Z9DzgjV8m4Oswq"
+Cc: R?mi Denis-Courmont <remi.denis-courmont@nokia.com>,
+	Luotao Fu <l.fu@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"socketcan-users@lists.berlios.de" <socketcan-users@lists.berlios.de>,
 	Michael Olbrich <m.olbrich@pengutronix.de>
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>, Luotao Fu <l.fu@pengutronix.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:43768 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757561AbZHGLfh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:35:37 -0400
-In-Reply-To: <200908070952.56922.remi.denis-courmont@nokia.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:41269 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751925AbZHGLq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:46:26 -0400
+Content-Disposition: inline
+In-Reply-To: <4A7C117E.5010005@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R=E9mi Denis-Courmont wrote:
-> Moving to netdev....
+
+--45Z9DzgjV8m4Oswq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Oliver,
+
+On Fri, Aug 07, 2009 at 01:35:26PM +0200, Oliver Hartkopp wrote:
+> R?mi Denis-Courmont wrote:
+=2E...
 >=20
-> On Thursday 06 August 2009 19:48:23 ext Oliver Hartkopp wrote:
->> The CAN applications can rely on getting proper CAN frames with this=
- check.
->> It was introduced some time ago together with several other sanity c=
-hecks -
->> even on the TX path.
->>
->> The CAN core *only* consumes skbuffs originated from a CAN netdevice
->> (ARPHRD_CAN).
->>
->> When this BUG() triggers, someone provided a definitely broken *CAN*
->> network driver, and this needs to be fixed on that level. It is real=
-ly not
->> that problematic to ensure proper CAN frames on driver level ... thi=
-s
->> sanity check should not be needed to be performed by every single
->> application.
+> @Luotao: I talked to Urs and we discussed to prepare a patch that only cr=
+eates
+> a warning and drops the skb afterwards, as the problem is not critical fo=
+r a
+> proper ongoing kernel operation. I think, that was you original intention:
 >=20
-> AFAIK, the TUN driver can inject layer-2 frames of any type, any size=
- and any=20
-> content from userspace into the packet type handler. Sure enough, you=
- need=20
-> CAP_NET_ADMIN and r/w access to /dev/net/tun but is it sufficient to =
-bring the=20
-> system down?
+>        if (!net_eq(dev_net(dev), &init_net) ||
+>            WARN_ON(dev->type !=3D ARPHRD_CAN) ||
+>            WARN_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dlc =
+> 8)) {
+>                kfree_skb(skb);
+>                return NET_RX_BAD;
+>        }
 >=20
+> Would this be ok for you?
 
-The complete code section currently looks like this:
+I'm absolutely fine with this.
 
+thx
+cheers
+Fu
+--=20
+Pengutronix e.K.                           | Dipl.-Ing. Luotao Fu        |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
 
-static int can_rcv(struct sk_buff *skb, struct net_device *dev,
-                   struct packet_type *pt, struct net_device *orig_dev)
-{
-        struct dev_rcv_lists *d;
-        struct can_frame *cf =3D (struct can_frame *)skb->data;
-        int matches;
+--45Z9DzgjV8m4Oswq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-        if (dev->type !=3D ARPHRD_CAN || !net_eq(dev_net(dev), &init_ne=
-t)) {
-                kfree_skb(skb);
-                return 0;
-        }
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
-        BUG_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dlc > =
-8);
+iEYEARECAAYFAkp8FBEACgkQiruQY+UyUmGUYACfSALUfEhT/SA2PI/qE5LUf3ky
+/yMAoKqJ+Q+qXnZ9Tl0tXNkZz83gbu2i
+=mffO
+-----END PGP SIGNATURE-----
 
-(..)
-
-So you would need to have an originating interface with ARPHRD_CAN ...
-
-Do you think, it's still possible with the TUN driver?
-
-
-@Luotao: I talked to Urs and we discussed to prepare a patch that only =
-creates
-a warning and drops the skb afterwards, as the problem is not critical =
-for a
-proper ongoing kernel operation. I think, that was you original intenti=
-on:
-
-       if (!net_eq(dev_net(dev), &init_net) ||
-           WARN_ON(dev->type !=3D ARPHRD_CAN) ||
-           WARN_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dl=
-c > 8)) {
-               kfree_skb(skb);
-               return NET_RX_BAD;
-       }
-
-Would this be ok for you?
-
-Regards,
-Oliver
-
+--45Z9DzgjV8m4Oswq--
