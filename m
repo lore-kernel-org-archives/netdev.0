@@ -1,39 +1,64 @@
-From: Tony Breeds <tony@bakeyournoodle.com>
-Subject: Re: 2.6.31-rc5-git2 crash [net/core/flow.c:flow_cache_new_hashrnd]
-Date: Fri, 7 Aug 2009 13:49:21 +1000
-Message-ID: <20090807034921.GA13713@bilbo.ozlabs.org>
-References: <4A78292A.5000607@in.ibm.com> <4A783B1F.7000602@in.ibm.com>
-	<1249395350.8016.5.camel@concordia>
-	<1249597385.24311.10.camel@pasglop>
-	<20090807025454.GL3095@hansolo.jdub.homelinux.org>
-	<1249614835.24311.11.camel@pasglop>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Thu, 6 Aug 2009 21:00:02 -0700
+Message-ID: <20090806210002.75beb7c6@nehalam>
+References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	linuxppc-dev@ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <1249614835.24311.11.camel@pasglop>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Cc: "bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"adobriyan@gmail.com" <adobriyan@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>
+To: "Fischer, Anna" <anna.fischer@hp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750911AbZHGEAt@vger.kernel.org>
+In-Reply-To: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 07, 2009 at 01:13:54PM +1000, Benjamin Herrenschmidt wrote:
- 
-> I think Tony did yes. Not sure what's the status with the "enterprise"
-> distros.
+On Mon, 15 Jun 2009 17:33:10 +0000
+"Fischer, Anna" <anna.fischer@hp.com> wrote:
 
-It's fixed in F11 and F12  (thanks to dwmw2), it's in my for-1.3.15 branch for
-yaboot. We're working on updateing the version in the enterprise, we'll see
-what the next release holds.
+> This patch adds basic Virtual Ethernet Port Aggregator (VEPA)
+> capabilities to the Linux kernel Ethernet bridging code.
+> 
+> A Virtual Ethernet Port Aggregator (VEPA) is a capability within
+> a physical end station that collaborates with an adjacent, external
+> bridge to provide distributed bridging support between multiple
+> virtual end stations and external networks. The VEPA collaborates
+> by forwarding all station-originated frames to the adjacent bridge
+> for frame processing and frame relay (including so-called 'hairpin'
+> forwarding) and by steering and replicating frames received from
+> the VEPA uplink to the appropriate destinations. A VEPA may be
+> implemented in software or in conjunction with embedded hardware.
+> 
+> In particular, the patch extends the Linux Ethernet bridge to act as
+> (1) a VEPA - for this we have added VEPA forwarding functionality and
+>     added a configuration option for a VEPA uplink port, or as
+> (2) a bridge supporting 'hairpin' forwarding - for this we have added a
+>     bridge port 'hairpin' mode which allows sending frames back out
+>     through the port the frame was received on.
+> 
+> Configuration of VEPA capabilities through Linux userspace bridge
+> utilities is provided by an additional patch 'bridge-utils: add
+> basic VEPA support'.
 
-Yours Tony
+After reading more about this, I am not convinced this should be part
+of the bridge code. The bridge code really consists of two parts:
+forwarding table and optional spanning tree. Well the VEPA code
+short circuits both of these; it can't imagine it working
+with STP turned on. The only part of bridge code that really gets
+used by this are the receive packet hooks and the crufty old
+API.
+
+So instead of adding more stuff to existing bridge code, why not
+have a new driver for just VEPA. You could
+do it with a simple version of macvlan type driver.
