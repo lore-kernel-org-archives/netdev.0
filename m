@@ -1,47 +1,94 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 0/3] net: Add ftracer to help optimize process scheduling
-	based on incomming frame allocations
-Date: Fri, 7 Aug 2009 16:21:30 -0400
-Message-ID: <20090807202130.GA26677@hmsreliant.think-freely.org>
+Subject: Re: [PATCH 1/3] net: Add ftracer to help optimize process
+	scheduling based on incomming frame allocations
+Date: Fri, 7 Aug 2009 16:28:18 -0400
+Message-ID: <20090807202818.GB26677@hmsreliant.think-freely.org>
+References: <20090807202130.GA26677@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rostedt@goodmis.org, nhorman@tuxdriver.com
+Cc: davem@davemloft.net, rostedt@goodmis.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38408 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57469 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933686AbZHGUVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 16:21:32 -0400
+	with ESMTP id S932567AbZHGU2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 16:28:18 -0400
 Content-Disposition: inline
+In-Reply-To: <20090807202130.GA26677@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey all-
-	I put out an RFC about this awhile ago and didn't get any loud screams,
-so I've gone ahead and implemented it
+skb allocation / cosumption tracer - Add consumption tracepoint
 
-	Currently, our network infrastructure allows net device drivers to
-allocate skbs based on the the numa node the device itself is local to.  This of
-course cuts down on cross numa chatter when the device is DMA-ing network
-traffic to the driver.  Unfortuantely no such corresponding infrastrucuture
-exists at the process level.  The scheduler has no insight into the numa
-locality of incomming data packets for a given process (and arguably it
-shouldn't), and so there is every chance that a process will run on a different
-numa node than the packets that its receiving lives on, creating cross numa node
-traffic.
-
-	This patch aims to provide userspace with the opportunity to optimize
-that scheduling.  It consists of a tracepoint and an ftrace module which exports
-a history of the packets each process receives, along with the numa node each
-packet was received on, as well as the numa node the process was running on when
-it copied the buffer to user space.  With this information, exported via the
-ftrace infrastructure to user space, a sysadim can identify high prirority
-processes, and optimize their scheduling so that they are more likely to run on
-the same node that they are primarily receiving data on, thereby cutting down
-cross numa node traffic.
-
-Tested by me, working well, applies against the head of the net-next tree
+This patch adds a tracepoint to skb_copy_datagram_iovec, which is called each
+time a userspace process copies a frame from a socket receive queue to a user
+space buffer.  It allows us to hook in and examine each sk_buff that the system
+receives on a per-socket bases, and can be use to compile a list of which skb's
+were received by which processes.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
+ include/trace/events/skb.h |   20 ++++++++++++++++++++
+ net/core/datagram.c        |    3 +++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+index 1e8fabb..bdc5c1c 100644
+--- a/include/trace/events/skb.h
++++ b/include/trace/events/skb.h
+@@ -2,6 +2,7 @@
+ #define _TRACE_SKB_H
+ 
+ #include <linux/skbuff.h>
++#include <linux/netdevice.h>
+ #include <linux/tracepoint.h>
+ 
+ #undef TRACE_SYSTEM
+@@ -34,6 +35,25 @@ TRACE_EVENT(kfree_skb,
+ 		__entry->skbaddr, __entry->protocol, __entry->location)
+ );
+ 
++TRACE_EVENT(skb_copy_datagram_iovec,
++
++	TP_PROTO(const struct sk_buff *skb, int len),
++
++	TP_ARGS(skb, len),
++
++	TP_STRUCT__entry(
++		__field(	const void *,		skbaddr		)
++		__field(	int,			len		)
++	),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = len;
++	),
++
++	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
++);
++
+ #endif /* _TRACE_SKB_H */
+ 
+ /* This part must be outside protection */
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b0fe692..1c6cf3a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -55,6 +55,7 @@
+ #include <net/checksum.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <trace/events/skb.h>
+ 
+ /*
+  *	Is a socket 'connection oriented' ?
+@@ -284,6 +285,8 @@ int skb_copy_datagram_iovec(const struct sk_buff *skb, int offset,
+ 	int i, copy = start - offset;
+ 	struct sk_buff *frag_iter;
+ 
++	trace_skb_copy_datagram_iovec(skb, len);
++
+ 	/* Copy header. */
+ 	if (copy > 0) {
+ 		if (copy > len)
