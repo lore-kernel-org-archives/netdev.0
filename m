@@ -1,78 +1,109 @@
-From: Ram Pai <linuxram@us.ibm.com>
-Subject: Re: [PATCH] be2net: Implementation of request_firmware interface.
-Date: Fri, 07 Aug 2009 02:20:33 -0700
-Message-ID: <1249636833.6477.812.camel@localhost>
-References: <20090702111820.GA21085@serverengines.com>
-	 <1246566808.9821.2.camel@deadeye> <20090705121637.GA3627@serverengines.com>
-	 <1246803604.3898.6.camel@deadeye>
-Reply-To: linuxram@us.ibm.com
+From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
+Subject: Use correct NET_RX_* returns for atalk_rcv()
+Date: Fri, 7 Aug 2009 18:51:22 +0930
+Message-ID: <20090807185122.30f022de.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sarveshwar Bandi <sarveshwarb@serverengines.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:57259 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbZHGJUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 05:20:36 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n779Fl2q020890
-	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:15:47 -0600
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n779KbqV214376
-	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:20:37 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n779Ka43002643
-	for <netdev@vger.kernel.org>; Fri, 7 Aug 2009 03:20:37 -0600
-In-Reply-To: <1246803604.3898.6.camel@deadeye>
+Received: from smtp4.adam.net.au ([202.136.110.247]:43291 "EHLO
+	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753079AbZHGJV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 05:21:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2009-07-05 at 15:20 +0100, Ben Hutchings wrote:
-> On Sun, 2009-07-05 at 17:46 +0530, Sarveshwar Bandi wrote:
-> > I understand that most drivers  use request_firmware() to load  volatile
-> > firmware. I do see that there are other nic drivers that use this inferface to
-> > flash persistent firmware.
-> > 
-> >  We have other tools for offline flashing; but there is requirement
-> > to flash f/w through driver without having to use other proprietary  tools.
-> 
-> The firmware blob is proprietary and has to be distributed separately
-> from the kernel.  So does it really matter that you have to distribute a
-> special tool as well?
-> 
-> (Based on requirements specified by major OEMs, I have implemented
-> firmware update through the sfc driver (MDIO and MTD interfaces) but
-> under the control of a separate tool.)
-> 
-> > Since the firmware load happens only when there is a version mismatch with
-> > f/w in /lib/firmware, Users who want to avoid automatic flashing at boot time
-> > can choose not to copy the f/w file under /lib/firmware.
-> [...]
-> 
-> Is there a way of loading the firmware into the controller's RAM but not
-> writing it to flash?  That ought to be the default behaviour.
-> 
 
-Given that the volatile and non-volatile firmware reside in the same
-file, it is not possible for the driver to selectively load the intended
-firmware.
+    In all rx'd SKB cases, atalk_rcv() either eventually jumps to or falls through
+    to the label out:, which  returns numeric 0. Numeric 0 corresponds to
+    NET_RX_SUCCESS, which is incorrect in failed SKB cases.
+    
+    This patch makes atalk_rcv() provide the correct returns by:
+    
+    o  explicitly returning NET_RX_SUCCESS in the two success cases
+    o  having the out: label return NET_RX_DROP, instead of numeric 0
+    o  making the failed SKB labels and processing more consistent with other
+       _rcv() routines in the kernel, simplifying validation and removing a
+       backwards goto
 
-However, is this behavior a gating factor for this patch from being
-accepted?
+Signed-off-by: Mark Smith <markzzzsmith@yahoo.com.au>
 
-RP
-
-
-> Ben.
-> 
--- 
-Ram Pai
-System X Device-Driver Enablement Lead
-Linux Technology Center
-Beaverton OR-97006
-503-5783752 t/l 7753752
-linuxram@us.ibm.com
-
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 590b839..2377ebe 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1398,7 +1398,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	__u16 len_hops;
+ 
+ 	if (!net_eq(dev_net(dev), &init_net))
+-		goto freeit;
++		goto drop;
+ 
+ 	/* Don't mangle buffer if shared */
+ 	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
+@@ -1406,7 +1406,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	/* Size check and make sure header is contiguous */
+ 	if (!pskb_may_pull(skb, sizeof(*ddp)))
+-		goto freeit;
++		goto drop;
+ 
+ 	ddp = ddp_hdr(skb);
+ 
+@@ -1424,7 +1424,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (skb->len < sizeof(*ddp) || skb->len < (len_hops & 1023)) {
+ 		pr_debug("AppleTalk: dropping corrupted frame (deh_len=%u, "
+ 			 "skb->len=%u)\n", len_hops & 1023, skb->len);
+-		goto freeit;
++		goto drop;
+ 	}
+ 
+ 	/*
+@@ -1434,7 +1434,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (ddp->deh_sum &&
+ 	    atalk_checksum(skb, len_hops & 1023) != ddp->deh_sum)
+ 		/* Not a valid AppleTalk frame - dustbin time */
+-		goto freeit;
++		goto drop;
+ 
+ 	/* Check the packet is aimed at us */
+ 	if (!ddp->deh_dnet)	/* Net 0 is 'this network' */
+@@ -1447,7 +1447,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		 * AppleTalk iface
+ 		 */
+ 		atalk_route_packet(skb, dev, ddp, len_hops, origlen);
+-		goto out;
++		return NET_RX_SUCCESS;
+ 	}
+ 
+ 	/* if IP over DDP is not selected this code will be optimized out */
+@@ -1463,18 +1463,21 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	sock = atalk_search_socket(&tosat, atif);
+ 	if (!sock) /* But not one of our sockets */
+-		goto freeit;
++		goto drop;
+ 
+ 	/* Queue packet (standard) */
+ 	skb->sk = sock;
+ 
+ 	if (sock_queue_rcv_skb(sock, skb) < 0)
+-		goto freeit;
+-out:
+-	return 0;
+-freeit:
++		goto drop;
++
++	return NET_RX_SUCCESS;
++
++drop:
+ 	kfree_skb(skb);
+-	goto out;
++out:
++	return NET_RX_DROP;
++
+ }
+ 
+ /*
