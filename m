@@ -1,70 +1,99 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Fri, 7 Aug 2009 13:29:44 +0200
-Message-ID: <200908071329.44437.arnd@arndb.de>
-References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <20090806210002.75beb7c6@nehalam>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [Socketcan-users] [PATCH] CAN: make checking in can_rcv less
+ restrictive
+Date: Fri, 07 Aug 2009 13:35:26 +0200
+Message-ID: <4A7C117E.5010005@hartkopp.net>
+References: <1249572295-7801-1-git-send-email-l.fu@pengutronix.de> <4A7B0957.5020808@hartkopp.net> <200908070952.56922.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Fischer, Anna" <anna.fischer@hp.com>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"evb@yahoogroups.com" <evb@yahoogroups.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"adobriyan@gmail.com" <adobriyan@gmail.com>,
-	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
-	Or Gerlitz <ogerlitz@voltaire.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"socketcan-users@lists.berlios.de" <socketcan-users@lists.berlios.de>,
+	Michael Olbrich <m.olbrich@pengutronix.de>
+To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>, Luotao Fu <l.fu@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:58125 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752371AbZHGLbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:31:31 -0400
-In-Reply-To: <20090806210002.75beb7c6@nehalam>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:43768 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757561AbZHGLfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 07:35:37 -0400
+In-Reply-To: <200908070952.56922.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 August 2009, Stephen Hemminger wrote:
-> So instead of adding more stuff to existing bridge code, why not
-> have a new driver for just VEPA. You could
-> do it with a simple version of macvlan type driver.
+R=E9mi Denis-Courmont wrote:
+> Moving to netdev....
+>=20
+> On Thursday 06 August 2009 19:48:23 ext Oliver Hartkopp wrote:
+>> The CAN applications can rely on getting proper CAN frames with this=
+ check.
+>> It was introduced some time ago together with several other sanity c=
+hecks -
+>> even on the TX path.
+>>
+>> The CAN core *only* consumes skbuffs originated from a CAN netdevice
+>> (ARPHRD_CAN).
+>>
+>> When this BUG() triggers, someone provided a definitely broken *CAN*
+>> network driver, and this needs to be fixed on that level. It is real=
+ly not
+>> that problematic to ensure proper CAN frames on driver level ... thi=
+s
+>> sanity check should not be needed to be performed by every single
+>> application.
+>=20
+> AFAIK, the TUN driver can inject layer-2 frames of any type, any size=
+ and any=20
+> content from userspace into the packet type handler. Sure enough, you=
+ need=20
+> CAP_NET_ADMIN and r/w access to /dev/net/tun but is it sufficient to =
+bring the=20
+> system down?
+>=20
 
-The current macvlan driver already does the downstream side of
-VEPA and only needs a connection to KVM et al, either using
-Or's qemu packet socket interface, or using the macvtap driver
-I posted.
+The complete code section currently looks like this:
 
-Now Anna's patch also addresses the upstream side of VEPA, by
-making it possible for the bridge code to send frames back
-in the bridge code that they were received from, if that port
-is marked as a hairpin mode port.
 
-Is your suggestion to do that part also with a macvlan type driver?
-I've thought about this before, and I guess that would mean
-basically the same as the macvlan driver, except hashing the
-source MAC address instead of the destination MAC address for
-inbound frames. That way you should be able to do something
-like:
+static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+                   struct packet_type *pt, struct net_device *orig_dev)
+{
+        struct dev_rcv_lists *d;
+        struct can_frame *cf =3D (struct can_frame *)skb->data;
+        int matches;
 
-            Host A                             Host B
+        if (dev->type !=3D ARPHRD_CAN || !net_eq(dev_net(dev), &init_ne=
+t)) {
+                kfree_skb(skb);
+                return 0;
+        }
 
-      /- nalvcam0 -\                   /- macvlan0 - 192.168.1.1
-br0 -|              |- ethA === ethB -|
-      \- nalvcam1 -/                   \- macvlan1 - 192.168.1.2
-  
-Now assuming that macvlan0 and macvlan1 are in different
-network namespaces or belong to different KVM guests, these
-guests would be able to communicate with each other through
-the bridge on host A, which can set the policy (using ebtables)
-for this communication and get interface statistics on its
-nalvcam interfaces. Also, instead of having the br0, Host A could
-assign an IP addresses to the two nalvcam interfaces that host
-B has, and use IP forwarding between the guests of host B.
+        BUG_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dlc > =
+8);
 
-	Arnd <><
+(..)
+
+So you would need to have an originating interface with ARPHRD_CAN ...
+
+Do you think, it's still possible with the TUN driver?
+
+
+@Luotao: I talked to Urs and we discussed to prepare a patch that only =
+creates
+a warning and drops the skb afterwards, as the problem is not critical =
+for a
+proper ongoing kernel operation. I think, that was you original intenti=
+on:
+
+       if (!net_eq(dev_net(dev), &init_net) ||
+           WARN_ON(dev->type !=3D ARPHRD_CAN) ||
+           WARN_ON(skb->len !=3D sizeof(struct can_frame) || cf->can_dl=
+c > 8)) {
+               kfree_skb(skb);
+               return NET_RX_BAD;
+       }
+
+Would this be ok for you?
+
+Regards,
+Oliver
+
