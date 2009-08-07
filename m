@@ -1,55 +1,48 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [Socketcan-users] [PATCH] CAN: make checking in can_rcv less restrictive
-Date: Fri, 7 Aug 2009 09:52:56 +0300
-Message-ID: <200908070952.56922.remi.denis-courmont@nokia.com>
-References: <1249572295-7801-1-git-send-email-l.fu@pengutronix.de> <4A7B0957.5020808@hartkopp.net>
+From: Jussi Maki <joamaki@gmail.com>
+Subject: [PATCH] Fix xfrm hash collisions by changing __xfrm4_daddr_saddr_hash
+ to hash addresses with addition
+Date: Fri, 7 Aug 2009 10:38:14 +0300 (EEST)
+Message-ID: <alpine.DEB.1.10.0908071032171.3426@sisapiiri.net.net>
+References: <20090805.120831.66033097.davem@davemloft.net> <ce10d01f0908052332o1db16460k58ed47849670c6de@mail.gmail.com> <alpine.DEB.1.10.0908061147060.3426@sisapiiri.net.net> <20090806.104034.186857842.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luotao Fu <l.fu@pengutronix.de>,
-	"socketcan-users@lists.berlios.de" <socketcan-users@lists.berlios.de>,
-	Michael Olbrich <m.olbrich@pengutronix.de>
-To: ext Oliver Hartkopp <oliver@hartkopp.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:34667 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752476AbZHGGxN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 02:53:13 -0400
-In-Reply-To: <4A7B0957.5020808@hartkopp.net>
-Content-Disposition: inline
+Received: from mail-bw0-f213.google.com ([209.85.218.213]:50989 "EHLO
+	mail-bw0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757022AbZHGHiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 03:38:50 -0400
+Received: by bwz9 with SMTP id 9so1212608bwz.41
+        for <netdev@vger.kernel.org>; Fri, 07 Aug 2009 00:38:50 -0700 (PDT)
+In-Reply-To: <20090806.104034.186857842.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moving to netdev....
 
-On Thursday 06 August 2009 19:48:23 ext Oliver Hartkopp wrote:
-> The CAN applications can rely on getting proper CAN frames with this =
-check.
-> It was introduced some time ago together with several other sanity ch=
-ecks -
-> even on the TX path.
->
-> The CAN core *only* consumes skbuffs originated from a CAN netdevice
-> (ARPHRD_CAN).
->
-> When this BUG() triggers, someone provided a definitely broken *CAN*
-> network driver, and this needs to be fixed on that level. It is reall=
-y not
-> that problematic to ensure proper CAN frames on driver level ... this
-> sanity check should not be needed to be performed by every single
-> application.
+This patch fixes hash collisions in cases where number
+of entries have incrementing IP source and destination addresses
+from single respective subnets (i.e. 192.168.0.1-172.16.0.1, 
+192.168.0.2-172.16.0.2, and so on.).
 
-AFAIK, the TUN driver can inject layer-2 frames of any type, any size a=
-nd any=20
-content from userspace into the packet type handler. Sure enough, you n=
-eed=20
-CAP_NET_ADMIN and r/w access to /dev/net/tun but is it sufficient to br=
-ing the=20
-system down?
+Signed-off-by: Jussi Maki <joamaki@gmail.com>
+---
+ net/xfrm/xfrm_hash.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index d401dc8..e5195c9 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -16,7 +16,7 @@ static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+ 
+ static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+ {
+-	return ntohl(daddr->a4 ^ saddr->a4);
++	return ntohl(daddr->a4 + saddr->a4);
+ }
+ 
+ static inline unsigned int __xfrm6_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+-- 
+1.5.6.5
 
