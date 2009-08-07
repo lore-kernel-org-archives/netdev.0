@@ -1,62 +1,128 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers
-Date: Fri, 07 Aug 2009 10:46:24 -0500
-Message-ID: <4A7C4C50.5040503@codemonkey.ws>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7C37E5.4040302@codemonkey.ws> <4A7C42C8.5050608@gmail.com>
+From: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Subject: Re: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
+Date: Fri, 7 Aug 2009 08:55:00 -0700
+Message-ID: <20090807155500.GB12561@ovro.caltech.edu>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <200908061903.05083.arnd@arndb.de> <4A7B0D090200005A00051D2E@sinclair.provo.novell.com> <200908070057.54795.arnd@arndb.de> <4A7B78580200005A00051D50@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <ghaskins@novell.com>,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753524AbZHGPq2@vger.kernel.org>
-In-Reply-To: <4A7C42C8.5050608@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753707AbZHGPzI@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4A7B78580200005A00051D50@sinclair.provo.novell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gregory Haskins wrote:
-> That said, note that the graphs were from earlier kernel runs (2.6.28,
-> 29-rc8).  The most recent data I can find that I published is for
-> 2.6.29, announced with the vbus-v3 release back in April:
->
-> http://lkml.org/lkml/2009/4/21/408
->
-> In it, the virtio-net throughput numbers are substantially higher and
-> possibly more in line with your expectations (4.5gb/s) (though notably
-> still lagging venet, which weighed in at 5.6gb/s).
->   
+On Thu, Aug 06, 2009 at 10:42:00PM -0600, Gregory Haskins wrote:
+> >>> On 8/6/2009 at  6:57 PM, in message <200908070057.54795.arnd@arndb.de>, Arnd
+> Bergmann <arnd@arndb.de> wrote: 
 
-Okay, that makes more sense.  Would be nice to update the graphs as they 
-make virtio look really, really bad :-)
+[ big snip ]
 
-> Generally, I find that the virtio-net exhibits non-deterministic results
-> from release to release.  I suspect (as we have discussed) the
-> tx-mitigation scheme.  Some releases buffer the daylights out of the
-> stream, and virtio gets close(r) throughput (e.g. 4.5g vs 5.8g, but
-> absolutely terrible latency (4000us vs 65us).  Other releases it seems
-> to operate with more of a compromise (1.3gb/s vs 3.8gb/s, but 350us vs
-> 85us).
->   
+> >> I see a few issues with that, however:
+> >> 
+> >> 1) The virtqueue library, while a perfectly nice ring design at the metadata 
+> > level, does not have an API that is friendly to kernel-to-kernel communication. 
+> >  It was designed more for frontend use to some remote backend.  The IOQ 
+> > library on the other hand, was specifically designed to support use as 
+> > kernel-to-kernel (see north/south designations).  So this made life easier 
+> > for me.  To do what you propose, the eventq channel would need to terminate 
+> > in kernel, and I would thus be forced to deal that the potential API 
+> > problems.
+> > 
+> > Well, virtqueues are not that bad for kernel-to-kernel communication, as Ira 
+> > mentioned
+> > referring to his virtio-over-PCI driver. You can have virtqueues on both 
+> > sides, having
+> > the host kernel create a pair of virtqueues (one in user aka guest space, 
+> > one in the host
+> > kernel), with the host virtqueue_ops doing copy_{to,from}_user to move data 
+> > between them.
+> 
+> Its been a while since I looked, so perhaps I am wrong here.  I will look again.
+> 
+> > 
+> > If you have that, you can actually use the same virtio_net driver in both 
+> > guest and
+> > host kernel, just communicating over different virtio implementations. 
+> > Interestingly,
+> > that would mean that you no longer need a separation between guest and host 
+> > device
+> > drivers (vbus and vbus-proxy in your case) but could use the same device 
+> > abstraction
+> > with just different transports to back the shm-signal or virtqueue.
+> 
+> Actually, I think there are some problems with that model (such as management of the interface).  virtio-net really wants to connect to a virtio-net-backend (such as the one in qemu or vbus).  It wasn't designed to connect back to back like that.  I think you will quickly run into problems similar to what Ira faced with virtio-over-PCI with that model.
+> 
 
-Are you using kvm modules or a new kernel?  There was some timer 
-infrastructure changes around 28/29 and it's possible that the system 
-your on is now detecting an hpet which will result in a better time 
-source.  That could have an affect on mitigation.
+Getting the virtio-net devices talking to each other over PCI was not
+terribly difficult. However, the capabilities negotiation works in a
+VERY awkward way. The capabilities negotiation was really designed with
+a virtio-net-backend in mind. Unless I'm missing something obvious, it
+is essentially broken for the case where two virtio-net's are talking to
+each other.
 
-> If there is another patch-series/tree I should be using for comparison,
-> please point me at it.
->   
+For example, imagine the situation where you'd like the guest to get a
+specific MAC address, but you do not care what MAC address the host
+recieves.
 
-No, I think it's fair to look at upstream Linux.  Looking at the latest 
-bits would be nice though because there are some virtio friendly changes 
-recently like MSI-x and GRO.
+Normally, you'd set struct virtio_net_config's mac[] field, and set the
+VIRTIO_NET_F_MAC feature. However, when you have two virtio-net's
+communicating directly, this doesn't work.
 
-Since you're using the latest vbus bits, it makes sense to compare 
-against the latest virtio bits.
+Let me explain with a quick diagram. The results described are the
+values RETURNED from virtio_config_ops->get() and
+virtio_config_ops->get_features() when called by the system in question.
 
-Regards,
+Guest System
+1) struct virtio_net_config->mac[]: 00:11:22:33:44:55
+2) features: VIRTIO_NET_F_MAC
 
-Anthony Liguori
+Host System
+1) struct virtio_net_config->mac[]: unset
+2) features: VIRTIO_NET_F_MAC unset
+
+In this case, the feature negotiation code will not accept the
+VIRTIO_NET_F_MAC feature, and both systems will generate random mac
+addresses. Not the behavior we want at all.
+
+I "fixed" the problem by ALWAYS setting a random MAC address, and ALWAYS
+setting the VIRTIO_NET_F_MAC feature. By doing this, both sides always
+negotiate the VIRTIO_NET_F_MAC feature.
+
+In conclusion, the feature negotiation works fine for driver features,
+such as VIRTIO_NET_MRG_RXBUF or VIRTIO_NET_F_GSO, but completely breaks
+down for user-controlled features, like VIRTIO_NET_F_MAC.
+
+I think the vbus configfs interface works great for this situation,
+because it has an obvious and seperate backend. It is obvious where the
+configuration information is coming from.
+
+With my powerpc hardware, it should be easily possible to have at least
+6 devices, each with two virtqueues, one for tx and one for rx. (The
+limit is caused by the amount of distinct kick() events I can generate.)
+This could allow many combinations of devices, such as:
+
+* 1 virtio-net, 1 virtio-console
+* 3 virtio-net, 2 virtio-console
+* 6 virtio-net
+* etc.
+
+In all honesty, I don't really care so much about the management
+interface for my purposes. A static configuration of devices works for
+me. However, I doubt that would ever be accepted into the upstream
+kernel, which is what I'm really concerned about. I hate seeing drivers
+live out-of-tree.
+
+Getting two virtio-net's talking to each other had one other major
+problem: the fields in struct virtio_net_hdr are not defined with a
+constant endianness. When connecting two virtio-net's running on
+different machines, they may have different endianness, as in my case
+between a big-endian powerpc guest and a little-endian x86 host. I'm not
+confident that qemu-system-ppc, running on x86, using virtio for the
+network interface, even works at all. (I have not tested it.)
+
+Sorry that this got somewhat long winded and went a little off topic.
+Ira
