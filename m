@@ -1,54 +1,62 @@
-From: Alan Jenkins <sourcejedi.lkml@googlemail.com>
-Subject: Re: [PATCH 2/7 v3] initdev:kernel:USB init device discovery
-	notification
-Date: Fri, 7 Aug 2009 18:17:51 +0100
-Message-ID: <9b2b86520908071017h606e595fr4488d6ff61cb337c@mail.gmail.com>
-References: <9b2b86520908070832p2d1658b0t8b1d89d1a034bb9a@mail.gmail.com>
-	 <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org>
+From: Daniel Robbins <drobbins@funtoo.org>
+Subject: Re: [Bridge] [PATCH] macvlan: add tap device backend
+Date: Fri, 7 Aug 2009 11:35:48 -0600
+Message-ID: <de7adc5e0908071035m4898dc5chaf9515d4a70465d@mail.gmail.com>
+References: <1249595428-21594-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David VomLehn <dvomlehn@cisco.com>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, linux-usb@vger.kernel.org,
-	greg@kroah.com, linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@infradead.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754455AbZHGRRy@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.0908071142260.3063-100000@iolanthe.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	"David S. Miller\"" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	Edge Virtual Bridging <evb@yahoogroups.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f196.google.com ([209.85.222.196]:48718 "EHLO
+	mail-pz0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608AbZHGRfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 13:35:48 -0400
+In-Reply-To: <1249595428-21594-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/7/09, Alan Stern <stern@rowland.harvard.edu> wrote:
-> On Fri, 7 Aug 2009, Alan Jenkins wrote:
->
->> > +/* The mask of possible USB boot devices depends on what drivers and
->> > + * options have been configured into the kernel.  There are too many
->> > + * USB network config options to list here, so just assume it is always
->> > + * possible to have a USB network device.
->> > + */
->>
->> That could be fixed though.  Make the "USB Network Adaptors" menu into
->> an option.  Then you just have e.g. "CONFIG_NETDEV_USB", plus the two
->> class devices outside the menu (CONFIG_USB_ACM and CONFIG_USB_WDM).
+On Thu, Aug 6, 2009 at 3:50 PM, Arnd Bergmann<arnd@arndb.de> wrote:
+> This is a first prototype of a new interface into the network
+> stack, to eventually replace tun/tap and the bridge driver
+> in certain virtual machine setups.
 
-Oops, scratch WDM.  It doesn't actually provide a network device
-(otherwise it would depend on NET).
+I have some general questions about the intended use and benefits of
+VEPA, from an IT perspective:
 
-> That could be done.  It might even meet with the approval of the
-> networking maintainer, independent of this patch series.
->
-> But what if somebody adds yet another networking class driver outside
-> the menu?
+In which virtual machine setups and technologies do you forsee this
+interface being used?
+Is this new interface to be used within a virtual machine or
+container, on the master node, or both?
+What interface(s) would need to be configured for a single virtual
+machine to use VEPA to access the network?
+What are the current flexibility, security or performance limitations
+of tun/tap and bridge that make this new interface necessary or
+beneficial?
+Is this new interface useful at all for VPN solutions or is it
+*specifically* targeted for connecting virtual machines to the
+network?
+Is this essentially a bridge with layer-2 isolation for the virtual
+machine interfaces built-in? If isolation is provided, what mechanism
+is used to accomplish this, and how secure is it?
+Does VEPA look like a regular ethernet interface (eth0) on the virtual
+machine side?
+Are there any associated user-space tools required for configuring a VEPA?
 
-Hmm.
+Do you have any HOWTO-style documentation that would demonstrate how
+this interface would be used in production? Or a FAQ?
 
-Ok, how about a single (hidden) USB_HAS_NETDEV.  NETDEV_USB and
-USB_ACM select USB_HAS_NETDEV.
+This seems like a very interesting effort but I don't quite have a
+good grasp of VEPA's benefits and limitations -- I imagine that others
+are in the same boat too.
 
-Textual juxtaposition or simple copy+paste inside class/Kconfig should
-help it get picked up.  And I'd add a comment pointing the bewildered
-to the definition of usb_initdev_mask.
+Best Regards,
 
-I'll write a patch for your inspection this evening.
-
-Alan
+Daniel
