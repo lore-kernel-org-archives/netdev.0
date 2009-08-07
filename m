@@ -1,46 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Thu, 06 Aug 2009 20:40:32 -0700 (PDT)
-Message-ID: <20090806.204032.39020854.davem@davemloft.net>
-References: <20090806143959.GA29323@gondor.apana.org.au>
-	<m1zladhtoh.fsf@fess.ebiederm.org>
-	<20090807002243.GB1566@gondor.apana.org.au>
+From: Tony Breeds <tony@bakeyournoodle.com>
+Subject: Re: 2.6.31-rc5-git2 crash [net/core/flow.c:flow_cache_new_hashrnd]
+Date: Fri, 7 Aug 2009 13:49:21 +1000
+Message-ID: <20090807034921.GA13713@bilbo.ozlabs.org>
+References: <4A78292A.5000607@in.ibm.com> <4A783B1F.7000602@in.ibm.com>
+	<1249395350.8016.5.camel@concordia>
+	<1249597385.24311.10.camel@pasglop>
+	<20090807025454.GL3095@hansolo.jdub.homelinux.org>
+	<1249614835.24311.11.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, paul.moore@hp.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59218
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751384AbZHGDkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 23:40:23 -0400
-In-Reply-To: <20090807002243.GB1566@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	linuxppc-dev@ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1249614835.24311.11.camel@pasglop>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 7 Aug 2009 10:22:44 +1000
+On Fri, Aug 07, 2009 at 01:13:54PM +1000, Benjamin Herrenschmidt wrote:
+ 
+> I think Tony did yes. Not sure what's the status with the "enterprise"
+> distros.
 
-> tun: Extend RTNL lock coverage over whole ioctl
-> 
-> As it is, parts of the ioctl runs under the RTNL and parts of
-> it do not.  The unlocked section is still protected by the BKL,
-> but there can be subtle races.  For example, Eric Biederman and
-> Paul Moore observed that if two threads tried to create two tun
-> devices on the same file descriptor, then unexpected results
-> may occur.
-> 
-> As there isn't anything in the ioctl that is expected to sleep
-> indefinitely, we can prevent this from occurring by extending
-> the RTNL lock coverage.
-> 
-> This also allows to get rid of the BKL.
-> 
-> Finally, I changed tun_get_iff to take a tun device in order to
-> avoid calling tun_put which would dead-lockt as it also tries to
-> take the RTNL lock.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+It's fixed in F11 and F12  (thanks to dwmw2), it's in my for-1.3.15 branch for
+yaboot. We're working on updateing the version in the enterprise, we'll see
+what the next release holds.
 
-This looks good after a quick audit, Eric what say you?
+Yours Tony
