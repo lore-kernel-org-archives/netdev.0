@@ -1,97 +1,65 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers
-Date: Fri, 07 Aug 2009 14:04:05 -0400
-Message-ID: <4A7C6C95.7020008@gmail.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <20090806081955.GA9752@redhat.com> <4A7C37E5.4040302@codemonkey.ws> <4A7C42C8.5050608@gmail.com> <4A7C4C50.5040503@codemonkey.ws>
+From: Gregory Haskins <ghaskins@novell.com>
+Subject: Re: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
+Date: Fri, 07 Aug 2009 14:25:50 -0400
+Message-ID: <4A7C71AE.7040208@novell.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <200908061903.05083.arnd@arndb.de> <4A7B0D090200005A00051D2E@sinclair.provo.novell.com> <200908070057.54795.arnd@arndb.de> <4A7B78580200005A00051D50@sinclair.provo.novell.com> <20090807155500.GB12561@ovro.caltech.edu>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
  protocol="application/pgp-signature";
- boundary="------------enigF78B3F0A78DC3F64F403EF27"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <ghaskins@novell.com>,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A7C4C50.5040503@codemonkey.ws>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+ boundary="------------enig4AE6142523011E2E1369726E"
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from victor.provo.novell.com ([137.65.250.26]:48865 "EHLO
+	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755000AbZHGSZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 14:25:56 -0400
+In-Reply-To: <20090807155500.GB12561@ovro.caltech.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF78B3F0A78DC3F64F403EF27
+--------------enig4AE6142523011E2E1369726E
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Anthony Liguori wrote:
-> Gregory Haskins wrote:
->> That said, note that the graphs were from earlier kernel runs (2.6.28,=
+Ira W. Snyder wrote:
 
->> 29-rc8).  The most recent data I can find that I published is for
->> 2.6.29, announced with the vbus-v3 release back in April:
->>
->> http://lkml.org/lkml/2009/4/21/408
->>
->> In it, the virtio-net throughput numbers are substantially higher and
->> possibly more in line with your expectations (4.5gb/s) (though notably=
+<big snip>
 
->> still lagging venet, which weighed in at 5.6gb/s).
->>  =20
+> With my powerpc hardware, it should be easily possible to have at least=
+
+> 6 devices, each with two virtqueues, one for tx and one for rx. (The
+> limit is caused by the amount of distinct kick() events I can generate.=
+)
+> This could allow many combinations of devices, such as:
 >=20
-> Okay, that makes more sense.  Would be nice to update the graphs as the=
-y
-> make virtio look really, really bad :-)
+> * 1 virtio-net, 1 virtio-console
+> * 3 virtio-net, 2 virtio-console
+> * 6 virtio-net
+> * etc.
 
-Yeah, they are certainly ripe for an update.  (Note that I was
-unilaterally stale on venet numbers, too) ;)
+Note that the vbus "connector" design abstract details such as kick
+events, so you are not limited by the number of physical interrupts of
+your hardware, per se.
 
->=20
->> Generally, I find that the virtio-net exhibits non-deterministic resul=
-ts
->> from release to release.  I suspect (as we have discussed) the
->> tx-mitigation scheme.  Some releases buffer the daylights out of the
->> stream, and virtio gets close(r) throughput (e.g. 4.5g vs 5.8g, but
->> absolutely terrible latency (4000us vs 65us).  Other releases it seems=
+You can actually have an arbitrary width namespace for your virtqueues
+running over a single interrupt, if you were so inclined.  (Note you can
+also have a 1:1 with interrupts if you like, too)
 
->> to operate with more of a compromise (1.3gb/s vs 3.8gb/s, but 350us vs=
+If you look at the design of the vbus-pcibridge connector, it actually
+aggregates the entire namespace into between 1 and 8 interrupts
+(depending on availability, and separated by priority level).  If
+multiple vectors are not available, the entire protocol can fallback to
+run over a single vector when necessary.
 
->> 85us).
->>  =20
->=20
-> Are you using kvm modules or a new kernel?
-
-I just build the entire kernel from git.
-
-> There was some timer
-> infrastructure changes around 28/29 and it's possible that the system
-> your on is now detecting an hpet which will result in a better time
-> source.  That could have an affect on mitigation.
-
-Yeah, I suspect you are right.  I always kept the .config and machine
-constant, but I *do* bounce around kernel versions so perhaps I got
-hosed by a make-oldconfig cycle somewhere along the way.
-
->=20
->> If there is another patch-series/tree I should be using for comparison=
-,
->> please point me at it.
->>  =20
->=20
-> No, I think it's fair to look at upstream Linux.  Looking at the latest=
-
-> bits would be nice though because there are some virtio friendly change=
-s
-> recently like MSI-x and GRO.
-
-Yeah, I will definitely include kvm.git in addition to whatever is
-current from Linus.  I already have adopted using the latest
-qemu-kvm.git into my workflow.
-
-Regards,
+Kind Regards,
 -Greg
 
 
---------------enigF78B3F0A78DC3F64F403EF27
+--------------enig4AE6142523011E2E1369726E
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -100,9 +68,9 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
 Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-iEYEARECAAYFAkp8bJUACgkQP5K2CMvXmqHs+gCfRyYqGSgtnS8hkuH/K4N8SyEA
-Ez8Anj/LAO66fxdRYI3elp6czuQYokpf
-=m3aa
+iEYEARECAAYFAkp8ca4ACgkQP5K2CMvXmqGNJgCfZ0jVCQv68+DLT4Z1aHUeSRtz
+B50AnAhC/m+CJb6+cR7OUHiHUrSbAHg8
+=0kNg
 -----END PGP SIGNATURE-----
 
---------------enigF78B3F0A78DC3F64F403EF27--
+--------------enig4AE6142523011E2E1369726E--
