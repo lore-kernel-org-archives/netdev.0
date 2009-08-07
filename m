@@ -1,76 +1,200 @@
-From: Gregory Haskins <ghaskins@novell.com>
-Subject: Re: [PATCH 4/7] vbus-proxy: add a pci-to-vbus bridge
-Date: Fri, 07 Aug 2009 14:25:50 -0400
-Message-ID: <4A7C71AE.7040208@novell.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <200908061903.05083.arnd@arndb.de> <4A7B0D090200005A00051D2E@sinclair.provo.novell.com> <200908070057.54795.arnd@arndb.de> <4A7B78580200005A00051D50@sinclair.provo.novell.com> <20090807155500.GB12561@ovro.caltech.edu>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2009-08-07
+Date: Fri, 7 Aug 2009 14:39:17 -0400
+Message-ID: <20090807183916.GI7545@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4AE6142523011E2E1369726E"
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:48865 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755000AbZHGSZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 14:25:56 -0400
-In-Reply-To: <20090807155500.GB12561@ovro.caltech.edu>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35037 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932718AbZHGSqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 14:46:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4AE6142523011E2E1369726E
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Dave,
 
-Ira W. Snyder wrote:
+Here are a few more late-comers intended for 2.6.31.  They are basically
+simple one-liners (or might-as-well-be-one-liners), most fixing potential
+security or crash issues or avoiding potentially obscure bugs.
 
-<big snip>
+Please let me know if there are problems!
 
-> With my powerpc hardware, it should be easily possible to have at least=
+Thanks,
 
-> 6 devices, each with two virtqueues, one for tx and one for rx. (The
-> limit is caused by the amount of distinct kick() events I can generate.=
-)
-> This could allow many combinations of devices, such as:
->=20
-> * 1 virtio-net, 1 virtio-console
-> * 3 virtio-net, 2 virtio-console
-> * 6 virtio-net
-> * etc.
+John
 
-Note that the vbus "connector" design abstract details such as kick
-events, so you are not limited by the number of physical interrupts of
-your hardware, per se.
+---
 
-You can actually have an arbitrary width namespace for your virtqueues
-running over a single interrupt, if you were so inclined.  (Note you can
-also have a 1:1 with interrupts if you like, too)
+Individual patches are available here:
 
-If you look at the design of the vbus-pcibridge connector, it actually
-aggregates the entire namespace into between 1 and 8 interrupts
-(depending on availability, and separated by priority level).  If
-multiple vectors are not available, the entire protocol can fallback to
-run over a single vector when necessary.
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
 
-Kind Regards,
--Greg
+---
 
+The following changes since commit 0bf52b981770cbf006323bab5177f2858a196766:
+  Ingo Molnar (1):
+        net: Fix spinlock use in alloc_netdev_mq()
 
---------------enig4AE6142523011E2E1369726E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+are available in the git repository at:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-iEYEARECAAYFAkp8ca4ACgkQP5K2CMvXmqGNJgCfZ0jVCQv68+DLT4Z1aHUeSRtz
-B50AnAhC/m+CJb6+cR7OUHiHUrSbAHg8
-=0kNg
------END PGP SIGNATURE-----
+Bob Dunlop (1):
+      libertas: correct packing of rxpd structure
 
---------------enig4AE6142523011E2E1369726E--
+Lennert Buytenhek (5):
+      mwl8k: fix NULL pointer dereference on receive out-of-memory
+      mwl8k: add various missing GET_HW_SPEC endian conversions
+      mwl8k: call pci_unmap_single() before accessing command structure again
+      mwl8k: prevent crash in ->configure_filter() if no interface was added
+      mwl8k: prevent module unload hang
+
+Zhu Yi (1):
+      ipw2x00: Write outside array bounds
+
+ drivers/net/wireless/ipw2x00/ipw2200.c  |    2 +-
+ drivers/net/wireless/libertas/hostcmd.h |    4 ++--
+ drivers/net/wireless/mwl8k.c            |   31 +++++++++++++++++++------------
+ 3 files changed, 22 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 44c29b3..6dcac73 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -6226,7 +6226,7 @@ static void ipw_add_scan_channels(struct ipw_priv *priv,
+ 			};
+ 
+ 			u8 channel;
+-			while (channel_index < IPW_SCAN_CHANNELS) {
++			while (channel_index < IPW_SCAN_CHANNELS - 1) {
+ 				channel =
+ 				    priv->speed_scan[priv->speed_scan_pos];
+ 				if (channel == 0) {
+diff --git a/drivers/net/wireless/libertas/hostcmd.h b/drivers/net/wireless/libertas/hostcmd.h
+index 0a2e291..c8a1998 100644
+--- a/drivers/net/wireless/libertas/hostcmd.h
++++ b/drivers/net/wireless/libertas/hostcmd.h
+@@ -56,8 +56,8 @@ struct rxpd {
+ 			u8 bss_type;
+ 			/* BSS number */
+ 			u8 bss_num;
+-		} bss;
+-	} u;
++		} __attribute__ ((packed)) bss;
++	} __attribute__ ((packed)) u;
+ 
+ 	/* SNR */
+ 	u8 snr;
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index a263d5c..83967af 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -261,7 +261,7 @@ struct mwl8k_vif {
+ 	 */
+ };
+ 
+-#define MWL8K_VIF(_vif) (struct mwl8k_vif *)(&((_vif)->drv_priv))
++#define MWL8K_VIF(_vif) ((struct mwl8k_vif *)&((_vif)->drv_priv))
+ 
+ static const struct ieee80211_channel mwl8k_channels[] = {
+ 	{ .center_freq = 2412, .hw_value = 1, },
+@@ -1012,6 +1012,8 @@ static int rxq_process(struct ieee80211_hw *hw, int index, int limit)
+ 		rmb();
+ 
+ 		skb = rxq->rx_skb[rxq->rx_head];
++		if (skb == NULL)
++			break;
+ 		rxq->rx_skb[rxq->rx_head] = NULL;
+ 
+ 		rxq->rx_head = (rxq->rx_head + 1) % MWL8K_RX_DESCS;
+@@ -1591,6 +1593,9 @@ static int mwl8k_post_cmd(struct ieee80211_hw *hw, struct mwl8k_cmd_pkt *cmd)
+ 	timeout = wait_for_completion_timeout(&cmd_wait,
+ 				msecs_to_jiffies(MWL8K_CMD_TIMEOUT_MS));
+ 
++	pci_unmap_single(priv->pdev, dma_addr, dma_size,
++					PCI_DMA_BIDIRECTIONAL);
++
+ 	result = &cmd->result;
+ 	if (!timeout) {
+ 		spin_lock_irq(&priv->fw_lock);
+@@ -1610,8 +1615,6 @@ static int mwl8k_post_cmd(struct ieee80211_hw *hw, struct mwl8k_cmd_pkt *cmd)
+ 			       *result);
+ 	}
+ 
+-	pci_unmap_single(priv->pdev, dma_addr, dma_size,
+-					PCI_DMA_BIDIRECTIONAL);
+ 	return rc;
+ }
+ 
+@@ -1654,18 +1657,18 @@ static int mwl8k_cmd_get_hw_spec(struct ieee80211_hw *hw)
+ 	memset(cmd->perm_addr, 0xff, sizeof(cmd->perm_addr));
+ 	cmd->ps_cookie = cpu_to_le32(priv->cookie_dma);
+ 	cmd->rx_queue_ptr = cpu_to_le32(priv->rxq[0].rx_desc_dma);
+-	cmd->num_tx_queues = MWL8K_TX_QUEUES;
++	cmd->num_tx_queues = cpu_to_le32(MWL8K_TX_QUEUES);
+ 	for (i = 0; i < MWL8K_TX_QUEUES; i++)
+ 		cmd->tx_queue_ptrs[i] = cpu_to_le32(priv->txq[i].tx_desc_dma);
+-	cmd->num_tx_desc_per_queue = MWL8K_TX_DESCS;
+-	cmd->total_rx_desc = MWL8K_RX_DESCS;
++	cmd->num_tx_desc_per_queue = cpu_to_le32(MWL8K_TX_DESCS);
++	cmd->total_rx_desc = cpu_to_le32(MWL8K_RX_DESCS);
+ 
+ 	rc = mwl8k_post_cmd(hw, &cmd->header);
+ 
+ 	if (!rc) {
+ 		SET_IEEE80211_PERM_ADDR(hw, cmd->perm_addr);
+ 		priv->num_mcaddrs = le16_to_cpu(cmd->num_mcaddrs);
+-		priv->fw_rev = cmd->fw_rev;
++		priv->fw_rev = le32_to_cpu(cmd->fw_rev);
+ 		priv->hw_rev = cmd->hw_rev;
+ 		priv->region_code = le16_to_cpu(cmd->region_code);
+ 	}
+@@ -3216,15 +3219,19 @@ static int mwl8k_configure_filter_wt(struct work_struct *wt)
+ 	struct dev_addr_list *mclist = worker->mclist;
+ 
+ 	struct mwl8k_priv *priv = hw->priv;
+-	struct mwl8k_vif *mv_vif;
+ 	int rc = 0;
+ 
+ 	if (changed_flags & FIF_BCN_PRBRESP_PROMISC) {
+ 		if (*total_flags & FIF_BCN_PRBRESP_PROMISC)
+ 			rc = mwl8k_cmd_set_pre_scan(hw);
+ 		else {
+-			mv_vif = MWL8K_VIF(priv->vif);
+-			rc = mwl8k_cmd_set_post_scan(hw, mv_vif->bssid);
++			u8 *bssid;
++
++			bssid = "\x00\x00\x00\x00\x00\x00";
++			if (priv->vif != NULL)
++				bssid = MWL8K_VIF(priv->vif)->bssid;
++
++			rc = mwl8k_cmd_set_post_scan(hw, bssid);
+ 		}
+ 	}
+ 
+@@ -3726,6 +3733,8 @@ static void __devexit mwl8k_remove(struct pci_dev *pdev)
+ 
+ 	ieee80211_stop_queues(hw);
+ 
++	ieee80211_unregister_hw(hw);
++
+ 	/* Remove tx reclaim tasklet */
+ 	tasklet_kill(&priv->tx_reclaim_task);
+ 
+@@ -3739,8 +3748,6 @@ static void __devexit mwl8k_remove(struct pci_dev *pdev)
+ 	for (i = 0; i < MWL8K_TX_QUEUES; i++)
+ 		mwl8k_txq_reclaim(hw, i, 1);
+ 
+-	ieee80211_unregister_hw(hw);
+-
+ 	for (i = 0; i < MWL8K_TX_QUEUES; i++)
+ 		mwl8k_txq_deinit(hw, i);
+ 
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
