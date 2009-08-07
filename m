@@ -1,40 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ver2] Avoid enqueuing skb for default qdiscs
-Date: Thu, 06 Aug 2009 20:08:57 -0700 (PDT)
-Message-ID: <20090806.200857.172982468.davem@davemloft.net>
-References: <20090806114421.19208.39374.sendpatchset@localhost.localdomain>
-	<20090806.134126.58668200.davem@davemloft.net>
-	<OF41857EFE.FD813620-ON6525760B.000F5D7C-6525760B.00101EC7@in.ibm.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: 2.6.31-rc5-git2 crash [net/core/flow.c:flow_cache_new_hashrnd]
+Date: Fri, 07 Aug 2009 13:13:54 +1000
+Message-ID: <1249614835.24311.11.camel@pasglop>
+References: <4A78292A.5000607@in.ibm.com> <4A783B1F.7000602@in.ibm.com>
+	<1249395350.8016.5.camel@concordia> <1249597385.24311.10.camel@pasglop>
+	<20090807025454.GL3095@hansolo.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jarkao2@gmail.com, kaber@trash.net,
-	netdev@vger.kernel.org
-To: krkumar2@in.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50523
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755665AbZHGDIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Aug 2009 23:08:48 -0400
-In-Reply-To: <OF41857EFE.FD813620-ON6525760B.000F5D7C-6525760B.00101EC7@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	linuxppc-dev@ozlabs.org
+To: Josh Boyer <jwboyer@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090807025454.GL3095@hansolo.jdub.homelinux.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Fri, 7 Aug 2009 08:26:04 +0530
-
-> David Miller <davem@davemloft.net> wrote on 08/07/2009 02:11:26 AM:
+On Thu, 2009-08-06 at 22:54 -0400, Josh Boyer wrote:
+> On Fri, Aug 07, 2009 at 08:23:05AM +1000, Benjamin Herrenschmidt wrote:
+> >On Wed, 2009-08-05 at 00:15 +1000, Michael Ellerman wrote:
+> >
+> >> > c000000000600000  00001010      .long 0x1010
+> >> > 0:mon>
+> >> > c000000000600004  00000008      .long 0x8
+> >> > c000000000600008  00001013      .long 0x1013
+> >> > c00000000060000c  0000000f      .long 0xf
+> >> > c000000000600010  7961626f      rldimi. r1,r11,44,41
+> >> > c000000000600014  6f740000      xoris   r20,r27,0
+> >> > c000000000600018  00101600      .long 0x101600
+> >> > c00000000060001c  00000c00      .long 0xc00
+> >> > c000000000600020  00000400      .long 0x400
+> >> > c000000000600024  00101100      .long 0x101100
+> >> > c000000000600028  000008e9      .long 0x8e9
+> >
+> >BTW. Corruption looks like bi_recs... ie, broken yaboot. This was fixed
+> >recently, yaboot would eventually crap over the kernel for certain sizes
+> >of the kernel image.
+> >
+> >0x1010 = BI_FIRST
+> >0x1013 = BI_BOOTLOADER_ID followed by 0x7961626f6f74 which is
+> >"yaboot" :-)
+> >0x1016 = BI_MACHTYPE
 > 
->> I'm dubious about this new qlen accounting scheme, does it handle
->> the non-bypass case properly?  Can you explain how it works
->> exactly?
-> 
-> Adding one to qlen will handle non-bypass correctly. On the next
-> non-bypass (or a bypass) xmit, dequeue_skb will remove gso_skb and
-> decrement the counter. If no more xmits are done, qdisc_reset will
-> also fix it. I got this idea by extending one of Jarek's patches:
+> I know we fixed it in Fedora for F11/F12.  Did it get fixed upstream?
 
-Aha, I see.  Thanks for the explanation.
+I think Tony did yes. Not sure what's the status with the "enterprise"
+distros.
 
-Ok, I'll let this rip... let's see what falls out of it :-)
-Will apply this to net-next-2.6 right now.
+Cheers,
+Ben.
