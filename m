@@ -1,145 +1,142 @@
-From: "Fischer, Anna" <anna.fischer@hp.com>
-Subject: RE: [evb] RE: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Fri, 7 Aug 2009 21:00:54 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E6D6A6CD803@GVW1118EXC.americas.hpqcorp.net>
-References: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Receive side performance issue with multi-10-GigE and NUMA
+Date: Fri, 7 Aug 2009 17:06:00 -0400
+Message-ID: <20090807170600.9a2eff2e.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"adobriyan@gmail.com" <adobriyan@gmail.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>
-To: Yaron Haviv <yaronh@voltaire.com>,
-	"evb@yahoogroups.com" <evb@yahoogroups.com>,
-	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brice@myri.com, gallatin@myri.com
+To: Linux Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:21831 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbZHGVBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 17:01:32 -0400
-In-Reply-To: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com>
-Content-Language: en-US
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:58657 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755384AbZHGVGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 17:06:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgWWFyb24sDQoNClllcywgSSBhbHNvIGJlbGlldmUgdGhhdCBWRVBBICsgU1JJT1YgY2FuIHBv
-dGVudGlhbGx5LCBpbiBzb21lIGRlcGxveW1lbnRzLCBhY2hpZXZlIGJldHRlciBwZXJmb3JtYW5j
-ZSB0aGFuIGEgYnJpZGdlL3RhcCBjb25maWd1cmF0aW9uLCBlc3BlY2lhbGx5IHdoZW4geW91IHJ1
-biBtdWx0aXBsZSBWTXMgYW5kIGlmIHlvdSB3YW50IHRvIGVuYWJsZSBtb3JlIHNvcGhpc3RpY2F0
-ZWQgbmV0d29yayBwcm9jZXNzaW5nIGluIHRoZSBkYXRhIHBhdGguDQoNCklmIHlvdSBkbyBoYXZl
-IGEgU1JJT1YgTklDIHRoYXQgc3VwcG9ydHMgVkVQQSwgdGhlbiBJIHdvdWxkIHRoaW5rIHRoYXQg
-eW91IGRvIG5vdCBoYXZlIFFFTVUgb3IgbWFjdnRhcCBpbiB0aGUgc2V0dXAgYW55IG1vcmUgdGhv
-dWdoLiBTaW1wbHkgYmVjYXVzZSBpbiB0aGF0IGNhc2UgdGhlIFZNIGNhbiBkaXJlY3RseSBhY2Nl
-c3MgdGhlIFZGIG9uIHRoZSBwaHlzaWNhbCBkZXZpY2UuIFRoYXQgd291bGQgYmUgaWRlYWwuDQoN
-CkkgZG8gdGhpbmsgdGhhdCB0aGUgbWFjdnRhcCBkcml2ZXIgaXMgYSBnb29kIGFkZGl0aW9uIGFz
-IGEgc2ltcGxlIGFuZCBmYXN0IHZpcnR1YWwgbmV0d29yayBJL08gaW50ZXJmYWNlLCBpbiBjYXNl
-IHlvdSBkbyBub3QgbmVlZCBmdWxsIGJyaWRnZSBmdW5jdGlvbmFsaXR5LiBJdCBkb2VzIHNlZW0g
-dG8gYXNzdW1lIHRob3VnaCB0aGF0IHRoZSB2aXJ0dWFsaXphdGlvbiBzb2Z0d2FyZSB1c2VzIFFF
-TVUvdGFwIGludGVyZmFjZXMuIEhvdyB3b3VsZCB0aGlzIHdvcmsgd2l0aCBhIFhlbiBwYXJhLXZp
-cnR1YWxpemVkIG5ldHdvcmsgaW50ZXJmYWNlPyBJIGd1ZXNzIHRoZXJlIHdvdWxkIG5lZWQgdG8g
-YmUgeWV0IGFub3RoZXIgZHJpdmVyPw0KDQpBbm5hDQoNCi0tDQoNCkZyb206IFlhcm9uIEhhdml2
-IFttYWlsdG86eWFyb25oQHZvbHRhaXJlLmNvbV0gDQpTZW50OiAwNyBBdWd1c3QgMjAwOSAyMToz
-Ng0KVG86IGV2YkB5YWhvb2dyb3Vwcy5jb207IHNoZW1taW5nZXJAbGludXgtZm91bmRhdGlvbi5v
-cmc7IEZpc2NoZXIsIEFubmENCkNjOiBicmlkZ2VAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmc7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5k
-YXRpb24ub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBrYWJlckB0cmFzaC5uZXQ7IGFkb2JyaXlh
-bkBnbWFpbC5jb207IGFybmRAYXJuZGIuZGUNClN1YmplY3Q6IFJlOiBbZXZiXSBSRTogW1BBVENI
-XVtSRkNdIG5ldC9icmlkZ2U6IGFkZCBiYXNpYyBWRVBBIHN1cHBvcnQNCg0KUGF1bCwNCg0KSSBh
-bHNvIHRoaW5rIHRoYXQgYnJpZGdlIG1heSBub3QgYmUgdGhlIHJpZ2h0IHBsYWNlIGZvciBWRVBB
-LCBidXQgcmF0aGVyIGEgc2ltcGxlciBzdy9odyBtdXggDQpBbHRob3VnaCB0aGUgVkVQQSBzdXBw
-b3J0IG1heSByZXNpZGUgaW4gbXVsdGlwbGUgcGxhY2VzIChJLmUuIGFsc28gaW4gdGhlIGJyaWRn
-ZSkNCg0KQXMgQXJuZCBwb2ludGVkIG91dCBPciBhbHJlYWR5IGFkZGVkIGFuIGV4dGVuc2lvbiB0
-byBxZW11IHRoYXQgYWxsb3cgZGlyZWN0IGd1ZXN0IHZpcnR1YWwgTklDIG1hcHBpbmcgdG8gYW4g
-aW50ZXJmYWNlIGRldmljZSAodnMgdXNpbmcgdGFwKSwgdGhpcyB3YXMgZG9uZSBzcGVjaWZpY2Fs
-bHkgdG8gYWRkcmVzcyBWRVBBLCBhbmQgcmVzdWx0IGluIG11Y2ggZmFzdGVyIHBlcmZvcm1hbmNl
-IGFuZCBsb3dlciBjcHUgb3ZlcmhlYWQgKE9yIGFuZCBzb21lIG90aGVycyBhcmUgcGxhbm5pbmcg
-YWRkaXRpb25hbCBtZWFuaW5nZnVsIHBlcmZvcm1hbmNlIG9wdGltaXphdGlvbnMpIA0KDQpUaGUg
-aW50ZXJmYWNlIG11bHRpcGxleGluZyBjYW4gYmUgYWNoaWV2ZWQgdXNpbmcgbWFjdmxhbiBkcml2
-ZXIgb3IgdXNpbmcgYW4gU1ItSU9WIGNhcGFibGUgTklDICh0aGUgcHJlZmVycmVkIG9wdGlvbiks
-IG1hY3ZsYW4gbWF5IG5lZWQgdG8gYmUgZXh0ZW5kZWQgdG8gc3VwcG9ydCBWRVBBIG11bHRpY2Fz
-dCBoYW5kbGluZywgdGhpcyBsb29rcyBsaWtlIGEgcmF0aGVyIHNpbXBsZSB0YXNrIA0KDQpJdCBt
-YXkgYmUgY291bnRlciBpbnR1aXRpdmUgZm9yIHNvbWUsIGJ1dCB3ZSBleHBlY3QgdGhlIChjb21w
-bGV0ZWQpIHFlbXUgVkVQQSBtb2RlICsgU1ItSU9WICsgY2VydGFpbiBzd2l0Y2hlcyB3aXRoIGhh
-aXJwaW4gKHZlcGEpIG1vZGUgdG8gcGVyZm9ybSBmYXN0ZXIgdGhhbiB1c2luZyBicmlkZ2UrdGFw
-IGV2ZW4gZm9yIGNvbm5lY3RpbmcgMiBWTXMgb24gdGhlIHNhbWUgaG9zdA0KDQoNCllhcm9uIA0K
-DQpTZW50IGZyb20gQmxhY2tCZXJyeQ0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXw0KRnJvbTogZXZiQHlhaG9vZ3JvdXBzLmNvbSANClRvOiAnU3RlcGhlbiBIZW1taW5n
-ZXInIDsgJ0Zpc2NoZXIsIEFubmEnIA0KQ2M6IGJyaWRnZUBsaXN0cy5saW51eC1mb3VuZGF0aW9u
-Lm9yZyA7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcgOyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnIDsgdmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcgOyBldmJAeWFo
-b29ncm91cHMuY29tIDsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldCA7IGthYmVyQHRyYXNoLm5ldCA7IGFk
-b2JyaXlhbkBnbWFpbC5jb20gOyAnQXJuZCBCZXJnbWFubicgDQpTZW50OiBGcmkgQXVnIDA3IDIx
-OjU4OjAwIDIwMDkNClN1YmplY3Q6IFtldmJdIFJFOiBbUEFUQ0hdW1JGQ10gbmV0L2JyaWRnZTog
-YWRkIGJhc2ljIFZFUEEgc3VwcG9ydCANCsKgIA0KPiANCj4gQWZ0ZXIgcmVhZGluZyBtb3JlIGFi
-b3V0IHRoaXMsIEkgYW0gbm90IGNvbnZpbmNlZCB0aGlzIHNob3VsZCBiZSBwYXJ0IA0KPiBvZiB0
-aGUgYnJpZGdlIGNvZGUuIFRoZSBicmlkZ2UgY29kZSByZWFsbHkgY29uc2lzdHMgb2YgdHdvIHBh
-cnRzOg0KPiBmb3J3YXJkaW5nIHRhYmxlIGFuZCBvcHRpb25hbCBzcGFubmluZyB0cmVlLiBXZWxs
-IHRoZSBWRVBBIGNvZGUgc2hvcnQgDQo+IGNpcmN1aXRzIGJvdGggb2YgdGhlc2U7IGl0IGNhbid0
-IGltYWdpbmUgaXQgd29ya2luZyB3aXRoIFNUUCB0dXJuZWQgDQo+IG9uLiBUaGUgb25seSBwYXJ0
-IG9mIGJyaWRnZSBjb2RlIHRoYXQgcmVhbGx5IGdldHMgdXNlZCBieSB0aGlzIGFyZSB0aGUgDQo+
-IHJlY2VpdmUgcGFja2V0IGhvb2tzIGFuZCB0aGUgY3J1ZnR5IG9sZCBBUEkuDQo+IA0KPiBTbyBp
-bnN0ZWFkIG9mIGFkZGluZyBtb3JlIHN0dWZmIHRvIGV4aXN0aW5nIGJyaWRnZSBjb2RlLCB3aHkg
-bm90IGhhdmUgDQo+IGEgbmV3IGRyaXZlciBmb3IganVzdCBWRVBBLiBZb3UgY291bGQgZG8gaXQg
-d2l0aCBhIHNpbXBsZSB2ZXJzaW9uIG9mIA0KPiBtYWN2bGFuIHR5cGUgZHJpdmVyLg0KDQpTdGVw
-aGVuLA0KDQpUaGFua3MgZm9yIHlvdXIgY29tbWVudHMgYW5kIHF1ZXN0aW9ucy4gV2UgZG8gYmVs
-aWV2ZSB0aGUgYnJpZGdlIGNvZGUgaXMNCnRoZSByaWdodCBwbGFjZSBmb3IgdGhpcywgc28gSSdk
-IGxpa2UgdG8gZW1iZWxsaXNoIG9uIHRoYXQgYSBiaXQgbW9yZSB0bw0KaGVscCBwZXJzdWFkZSB5
-b3UuIFNvcnJ5IGZvciB0aGUgbG9uZyB3aW5kZWQgcmVzcG9uc2UsIGJ1dCBoZXJlIGFyZSBzb21l
-DQp0aG91Z2h0czoNCg0KLSBGaXJzdCBhbmQgZm9yZW1vc3QsIFZFUEEgaXMgZ29pbmcgdG8gYmUg
-YSBzdGFuZGFyZCBhZGRpdGlvbiB0byB0aGUgSUVFRQ0KODAyLjFRIHNwZWNpZmljYXRpb24uIFRo
-ZSB3b3JraW5nIGdyb3VwIGFncmVlZCBhdCB0aGUgbGFzdCBtZWV0aW5nIHRvDQpwdXJzdWUgYSBw
-cm9qZWN0IHRvIGF1Z21lbnQgdGhlIGJyaWRnZSBzdGFuZGFyZCB3aXRoIGhhaXJwaW4gbW9kZSAo
-YWthDQpyZWZsZWN0aXZlIHJlbGF5KSBhbmQgYSByZW1vdGUgZmlsdGVyaW5nIHNlcnZpY2UgKFZF
-UEEpLiBTZWUgZm9yIGRldGFpbHM6DQpodHRwOi8vd3d3LmllZWU4MDIub3JnLzEvZmlsZXMvcHVi
-bGljL2RvY3MyMDA5L25ldy1ldmItY29uZ2Rvbi1ldmJQYXI1Qy0wNzA5DQotdjAxLnBkZg0KDQot
-IFRoZSBWRVBBIGZ1bmN0aW9uYWxpdHkgd2FzIHJlYWxseSBhIHByZXR0eSBzbWFsbCBjaGFuZ2Ug
-dG8gdGhlIGNvZGUgd2l0aA0KbG93IHJpc2sgYW5kIHdvdWxkbid0IHNlZW0gdG8gd2FycmFudCBh
-biBlbnRpcmUgbmV3IGRyaXZlciBvciBtb2R1bGUuDQoNCi0gVGhlcmUgYXJlIGdvb2QgdXNlIGNh
-c2VzIHdoZXJlIFZNcyB3aWxsIHdhbnQgdG8gaGF2ZSBzb21lIG9mIHRoZWlyDQppbnRlcmZhY2Vz
-IGF0dGFjaGVkIHRvIGJyaWRnZXMgYW5kIG90aGVycyB0byBicmlkZ2VzIG9wZXJhdGluZyBpbiBW
-RVBBIG1vZGUuDQpJbiBvdGhlciB3b3Jkcywgd2Ugc2VlIHNpbXVsdGFuZW91cyBvcGVyYXRpb24g
-b2YgdGhlIGJyaWRnZSBjb2RlIGFuZCBWRVBBDQpvY2N1cnJpbmcsIHNvIGhhdmluZyBhcyBtdWNo
-IG9mIHRoZSB1bmRlcmx5aW5nIGNvZGUgYXMgY29tbW9uIGFzIHBvc3NpYmxlDQp3b3VsZCBzZWVt
-IHRvIGJlIGJlbmVmaWNpYWwuIA0KDQotIEJ5IGF1Z21lbnRpbmcgdGhlIGJyaWRnZSBjb2RlIHdp
-dGggVkVQQSB0aGVyZSBpcyBhIGdyZWF0IGFtb3VudCBvZiByZS11c2UNCmFjaGlldmVkLiBJdCB3
-b3JrcyB3aGVyZXZlciB0aGUgYnJpZGdlIGNvZGUgd29ya3MgYW5kIGRvZXNuJ3QgbmVlZCBhbnl0
-aGluZw0Kc3BlY2lhbCB0byBzdXBwb3J0IEtWTSwgWEVOLCBhbmQgYWxsIHRoZSBob29rcywgZXRj
-Li4uDQoNCi0gVGhlIGhhcmR3YXJlIHZlbmRvcnMgYnVpbGRpbmcgU1ItSU9WIE5JQ3Mgd2l0aCBl
-bWJlZGRlZCBzd2l0Y2hlcyB3aWxsIGJlDQphZGRpbmcgVkVQQSBtb2RlLCBzbyBieSBrZWVwaW5n
-IHRoZSBicmlkZ2UgbW9kdWxlIGluIHN5bmMgd291bGQgYmUNCmNvbnNpc3RlbnQgd2l0aCB0aGlz
-IHRyZW5kIGFuZCBkaXJlY3Rpb24uIEl0IHdpbGwgYmUgcG9zc2libGUgdG8gZXh0ZW5kIHRoZQ0K
-aGFyZHdhcmUgaW1wbGVtZW50YXRpb25zIGJ5IGNhc2NhZGluZyBhIHNvZnR3YXJlIGJyaWRnZSBh
-bmQvb3IgVkVQQSwgc28NCmJlaW5nIGluIHN5bmMgd2l0aCB0aGUgYXJjaGl0ZWN0dXJlIHdvdWxk
-IG1ha2UgdGhpcyBtb3JlIGNvbnNpc3RlbnQuDQoNCi0gVGhlIGZvcndhcmRpbmcgdGFibGUgaXMg
-c3RpbGwgbmVlZGVkIGFuZCB1c2VkIG9uIGluYm91bmQgdHJhZmZpYyB0bw0KZGVsaXZlciBmcmFt
-ZXMgdG8gdGhlIGNvcnJlY3QgdmlydHVhbCBpbnRlcmZhY2VzIGFuZCB0byBmaWx0ZXIgYW55IHJl
-ZmxlY3RlZA0KZnJhbWVzLiBBIG5ldyBkcml2ZXIgd291bGQgaGF2ZSB0byBiYXNpY2FsbHkgaW1w
-bGVtZW50IGFuIGVxdWl2YWxlbnQNCmZvcndhcmRpbmcgdGFibGUgYW55d2F5LiBBcyBJIHVuZGVy
-c3RhbmQgdGhlIGN1cnJlbnQgbWFjdmxhbiB0eXBlIGRyaXZlciwNCml0IHdvdWxkbid0IGZpbHRl
-ciBtdWx0aWNhc3QgZnJhbWVzIHByb3Blcmx5IHdpdGhvdXQgc3VjaCBhIHRhYmxlLg0KDQotIEl0
-IHNlZW1zIHRoZSBoYWlycGluIG1vZGUgd291bGQgYmUgbmVlZGVkIGluIHRoZSBicmlkZ2UgbW9k
-dWxlIHdoZXRoZXINClZFUEEgd2FzIGFkZGVkIHRvIHRoZSBicmlkZ2UgbW9kdWxlIG9yIGEgbmV3
-IGRyaXZlci4gSGF2aW5nIHRoZSBhc3NvY2lhdGVkDQpjaGFuZ2VzIHRvZ2V0aGVyIGluIHRoZSBz
-YW1lIGNvZGUgY291bGQgYWlkIGluIHVuZGVyc3RhbmRpbmcgYW5kIGRlcGxveW1lbnQuDQoNCkFz
-IEkgdW5kZXJzdGFuZCB0aGUgbWFjdmxhbiBjb2RlLCBpdCBjdXJyZW50bHkgZG9lc24ndCBhbGxv
-dyB0d28gVk1zIG9uIHRoZQ0Kc2FtZSBtYWNoaW5lIHRvIGNvbW11bmljYXRlIHdpdGggb25lIGFu
-b3RoZXIuIEkgY291bGQgaW1hZ2luZSBhIGhhaXJwaW4NCm1vZGUgb24gdGhlIGFkamFjZW50IGJy
-aWRnZSBtYWtpbmcgdGhpcyBwb3NzaWJsZSwgYnV0IHRoZSBtYWN2bGFuIGNvZGUgd291bGQNCm5l
-ZWQgdG8gYmUgdXBkYXRlZCB0byBmaWx0ZXIgcmVmbGVjdGVkIGZyYW1lcyBzbyBhIHNvdXJjZSBk
-aWQgbm90IHJlY2VpdmUNCmhpcyBvd24gcGFja2V0LiBJIGNvdWxkIGltYWdpbmUgdGhpcyBiZWlu
-ZyBkb25lIGFzIHdlbGwsIGJ1dCB0byBhbHNvDQpzdXBwb3J0IHNlbGVjdGl2ZSBtdWx0aWNhc3Qg
-dXNhZ2UsIHNvbWV0aGluZyBzaW1pbGFyIHRvIHRoZSBicmlkZ2UNCmZvcndhcmRpbmcgdGFibGUg
-d291bGQgYmUgbmVlZGVkLiBJIHRoaW5rIHB1dHRpbmcgVkVQQSBpbnRvIGEgbmV3IGRyaXZlcg0K
-d291bGQgY2F1c2UgeW91IHRvIGltcGxlbWVudCBtYW55IHRoaW5ncyB0aGUgYnJpZGdlIGNvZGUg
-YWxyZWFkeSBzdXBwb3J0cy4NCkdpdmVuIHRoYXQgd2UgZXhwZWN0IHRoZSBicmlkZ2Ugc3RhbmRh
-cmQgdG8gdWx0aW1hdGVseSBpbmNsdWRlIFZFUEEsIGFuZCB0aGUNCm5ldyBmdW5jdGlvbnMgYXJl
-IGJhc2ljIGZvcndhcmRpbmcgb3BlcmF0aW9ucywgaXQgc2VlbXMgdG8gbWFrZSBtb3N0IHNlbnNl
-DQp0byBrZWVwIHRoaXMgY29uc2lzdGVudCB3aXRoIHRoZSBicmlkZ2UgbW9kdWxlLg0KDQpQYXVs
-DQo=
+I've run into a major receive side performance issue with multi-10-GigE
+on a NUMA system.  The system is using a SuperMicro X8DAH+-F motherboard
+with 2 3.2 GHz quad-core Intel Xeon 5580 processors and 12 GB of
+1333 MHz DDR3 memory.  It is a Fedora 10 system but using the latest
+2.6.29.6 kernel from Fedora 11 (originally tried the 2.6.27.29 kernel
+from Fedora 10).
+
+The test setup is:
+
+	i7test1----(6)----xeontest1----(6)----i7test2
+	         10-GigE             10-GigE
+
+So xeontest1 has 6 dual-port Myricom 10-GigE NICs for a total
+of 12 10-GigE interfaces.  eth2 through eth7 (which are on the
+second Intel 5520 I/O Hub) are connected to i7test1 while
+eth8 through eth13 (which are on the first Intel 5520 I/O Hub)
+are connected to i7test2.
+
+Previous direct testing between i7test1 and i7test2 (which use an
+Asus P6T6 WS Revolution motherboard) demonstrated that they could
+achieve ~70 Gbps performance for either transmit or receive using
+8 10-GigE interfaces.
+
+The transmit side performance of xeontest1 is fantastic:
+
+[root@xeontest1 ~]# numactl --membind=2 nuttcp -In2 -xc1/0 -p5001 192.168.1.10 & numactl --membind=2 nuttcp -In3 -xc3/0 -p5002 192.168.2.10 & numactl --membind=2 nuttcp -In4 -xc5/1 -p5003 192.168.3.10 & numactl --membind=2 nuttcp -In5 -xc7/1 -p5004 192.168.4.10 & nuttcp -In8 -xc0/0 -p5007 192.168.7.11 & nuttcp -In9 -xc2/0 -p5008 192.168.8.11 & nuttcp -In10 -xc4/1 -p5009 192.168.9.11 & nuttcp -In11 -xc6/1 -p5010 192.168.10.11 & numactl --membind=2 nuttcp -In6 -xc5/2 -p5005 192.168.5.10 & numactl --membind=2 nuttcp -In7 -xc7/3 -p5006 192.168.6.10 & nuttcp -In12 -xc4/2 -p5011 192.168.11.11 & nuttcp -In13 -xc6/3 -p5012 192.168.12.11 &
+n12:  9648.0522 MB /  10.00 sec = 8091.4066 Mbps 49 %TX 26 %RX 0 retrans 0.18 msRTT
+n9: 11130.5320 MB /  10.01 sec = 9328.3224 Mbps 47 %TX 37 %RX 0 retrans 0.19 msRTT
+n11:  9418.1250 MB /  10.00 sec = 7897.5848 Mbps 50 %TX 30 %RX 0 retrans 0.18 msRTT
+n10:  9279.4758 MB /  10.01 sec = 7778.7146 Mbps 49 %TX 28 %RX 0 retrans 0.12 msRTT
+n8: 11142.6574 MB /  10.01 sec = 9340.3789 Mbps 47 %TX 35 %RX 0 retrans 0.18 msRTT
+n13:  9422.1492 MB /  10.01 sec = 7897.4115 Mbps 49 %TX 25 %RX 0 retrans 0.17 msRTT
+n3: 11471.2500 MB /  10.01 sec = 9613.9477 Mbps 49 %TX 32 %RX 0 retrans 0.15 msRTT
+n6:  9339.6354 MB /  10.01 sec = 7828.5345 Mbps 50 %TX 25 %RX 0 retrans 0.19 msRTT
+n4:  9093.2500 MB /  10.01 sec = 7624.1589 Mbps 49 %TX 28 %RX 0 retrans 0.15 msRTT
+n5:  9121.8367 MB /  10.01 sec = 7646.8646 Mbps 50 %TX 29 %RX 0 retrans 0.17 msRTT
+n7:  9292.2500 MB /  10.01 sec = 7789.1574 Mbps 49 %TX 26 %RX 0 retrans 0.17 msRTT
+n2: 11487.1150 MB /  10.01 sec = 9627.2690 Mbps 49 %TX 46 %RX 0 retrans 0.19 msRTT
+
+Aggregate performance:			100.4637 Gbps
+
+The problem is with the receive side performance.
+
+[root@xeontest1 ~]# numactl --membind=2 nuttcp -In2 -r -xc1/0 -p5001 192.168.1.10 & numactl --membind=2 nuttcp -In3 -r -xc3/0 -p5002 192.168.2.10 & numactl --membind=2 nuttcp -In4 -r -xc5/1 -p5003 192.168.3.10 & numactl --membind=2 nuttcp -In5 -r -xc7/1 -p5004 192.168.4.10 & nuttcp -In8 -r -xc0/0 -p5007 192.168.7.11 & nuttcp -In9 -r -xc2/0 -p5008 192.168.8.11 & nuttcp -In10 -r -xc4/1 -p5009 192.168.9.11 & nuttcp -In11 -r -xc6/1 -p5010 192.168.10.11 & numactl --membind=2 nuttcp -In6 -r -xc5/2 -p5005 192.168.5.10 & numactl --membind=2 nuttcp -In7 -r -xc7/3 -p5006 192.168.6.10 & nuttcp -In12 -r -xc4/2 -p5011 192.168.11.11 & nuttcp -In13 -r -xc6/3 -p5012 192.168.12.11 &
+n11:  6983.6359 MB /  10.09 sec = 5803.2293 Mbps 13 %TX 26 %RX 0 retrans 0.11 msRTT
+n10:  7000.1557 MB /  10.11 sec = 5807.5978 Mbps 13 %TX 26 %RX 0 retrans 0.12 msRTT
+n9:  2451.7206 MB /  10.21 sec = 2014.8397 Mbps 4 %TX 13 %RX 0 retrans 0.11 msRTT
+n13:  2453.0887 MB /  10.20 sec = 2016.8751 Mbps 3 %TX 11 %RX 0 retrans 0.10 msRTT
+n12:  2446.5303 MB /  10.24 sec = 2004.4638 Mbps 4 %TX 11 %RX 0 retrans 0.10 msRTT
+n8:  2462.5890 MB /  10.26 sec = 2014.0272 Mbps 3 %TX 11 %RX 0 retrans 0.12 msRTT
+n4:  2763.5091 MB /  10.26 sec = 2258.4871 Mbps 4 %TX 14 %RX 0 retrans 0.10 msRTT
+n5:  2770.0887 MB /  10.28 sec = 2261.2562 Mbps 4 %TX 15 %RX 0 retrans 0.10 msRTT
+n2:  1777.7277 MB /  10.32 sec = 1444.9054 Mbps 2 %TX 11 %RX 0 retrans 0.11 msRTT
+n6:  1772.7962 MB /  10.31 sec = 1442.0346 Mbps 3 %TX 10 %RX 0 retrans 0.11 msRTT
+n3:  1779.4535 MB /  10.32 sec = 1446.0090 Mbps 2 %TX 11 %RX 0 retrans 0.15 msRTT
+n7:  1770.8359 MB /  10.35 sec = 1435.4757 Mbps 2 %TX 11 %RX 0 retrans 0.12 msRTT
+
+Aggregate performance:			29.9492 Gbps
+
+I suspected that this was because the memory being allocated by the
+myri10ge driver was not being allocated on the optimum NUMA node.
+BTW the NUMA nodes on the system are 0 and 2 instead of 0 and 1 which
+is what I would have expected, but this is my first experience with
+a NUMA system.
+
+Based upon a patch by Peter Zijlstra that I discovered through Google
+searching, I tried patching the myri10ge driver to change its memory
+allocation of memory pages from alloc_pages() to alloc_pages_node()
+and specifying the NUMA node of the parent device of the Myricom 10-GigE
+device, which IIUC should be the PCIe switch.  This didn't help.
+
+This could be because I discovered that if I did:
+
+	find /sys -name numa_node -exec grep . {} /dev/null \;
+
+that the numa_node associated with all the PCI devices was always 0,
+and if IIUC then I believe some of the PCI devices should have been
+associated with NUMA node 2.  Perhaps this is what is causing all
+the memory pages allocated by the myri10ge driver to be on NUMA
+node 0, and thus causing the major performance issue.
+
+To kludge around this, I made a different patch to the myri10ge driver.
+This time I hardcoded the NUMA node in the call to alloc_pages_node()
+to 2 for devices with an IRQ between 113 and 118 (eth2 through eth7)
+and to 0 for devices with an IRQ between 119 and 124 (eth8 through eth13).
+This is of course very specific to our specific system (NUMA node ids
+and Myricom 10-GigE device IRQs), and is not something that would be
+generically applicable.  But it was useful as a test, and it did
+improve the receive side performance substantially!
+
+[root@xeontest1 ~]# numactl --membind=2 nuttcp -In2 -r -xc1/0 -p5001 192.168.1.10 & numactl --membind=2 nuttcp -In3 -r -xc3/0 -p5002 192.168.2.10 & numactl --membind=2 nuttcp -In4 -r -xc5/1 -p5003 192.168.3.10 & numactl --membind=2 nuttcp -In5 -r -xc7/1 -p5004 192.168.4.10 & nuttcp -In8 -r -xc0/0 -p5007 192.168.7.11 & nuttcp -In9 -r -xc2/0 -p5008 192.168.8.11 & nuttcp -In10 -r -xc4/1 -p5009 192.168.9.11 & nuttcp -In11 -r -xc6/1 -p5010 192.168.10.11 & numactl --membind=2 nuttcp -In6 -r -xc5/2 -p5005 192.168.5.10 & numactl --membind=2 nuttcp -In7 -r -xc7/3 -p5006 192.168.6.10 & nuttcp -In12 -r -xc4/2 -p5011 192.168.11.11 & nuttcp -In13 -r -xc6/3 -p5012 192.168.12.11 &
+n5:  8221.2911 MB /  10.09 sec = 6836.0343 Mbps 17 %TX 31 %RX 0 retrans 0.12 msRTT
+n4:  8237.9524 MB /  10.10 sec = 6840.2379 Mbps 16 %TX 31 %RX 0 retrans 0.11 msRTT
+n11:  7935.3750 MB /  10.11 sec = 6586.2476 Mbps 15 %TX 29 %RX 0 retrans 0.16 msRTT
+n2:  4543.1621 MB /  10.13 sec = 3763.0669 Mbps 9 %TX 21 %RX 0 retrans 0.12 msRTT
+n10:  7916.3925 MB /  10.13 sec = 6555.5210 Mbps 15 %TX 28 %RX 0 retrans 0.13 msRTT
+n7:  4558.4817 MB /  10.14 sec = 3771.6557 Mbps 7 %TX 22 %RX 0 retrans 0.10 msRTT
+n13:  4390.1875 MB /  10.14 sec = 3633.6421 Mbps 6 %TX 21 %RX 0 retrans 0.12 msRTT
+n3:  4572.6478 MB /  10.15 sec = 3778.2596 Mbps 9 %TX 21 %RX 0 retrans 0.14 msRTT
+n6:  4564.4776 MB /  10.14 sec = 3774.4373 Mbps 9 %TX 21 %RX 0 retrans 0.11 msRTT
+n8:  4409.8551 MB /  10.16 sec = 3642.1920 Mbps 8 %TX 19 %RX 0 retrans 0.12 msRTT
+n9:  4412.7836 MB /  10.16 sec = 3643.7788 Mbps 8 %TX 20 %RX 0 retrans 0.14 msRTT
+n12:  4413.4061 MB /  10.16 sec = 3645.2544 Mbps 8 %TX 21 %RX 0 retrans 0.11 msRTT
+
+Aggregate performance:			56.4703 Gbps
+
+This was basically double the previous receive side performance
+without the patch.
+
+I don't know if this is fundamentally a myri10ge driver issue or
+some underlying Linux kernel issue, so it's not clear to me what
+a proper fix would be.
+
+Finally, while definitely a major improvement, I think it should be
+possible to do even better, since we achieved 70 Gbps in the i7 to i7
+tests, and probably could have done 80 Gbps except for an Asus
+motherboard restriction with the interconnect between the Intel X58
+and Nvidia NF200 chips.  It's definitely a big step in the right
+direction though if this issue can be resolved.
+
+Any help greatly appreicated in advance.
+
+						-Thanks
+
+						-Bill
