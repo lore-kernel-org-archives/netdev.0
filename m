@@ -1,32 +1,48 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: 3x59x-fix-pci-resource-management.patch
-Date: Fri, 7 Aug 2009 12:01:36 +0200
-Message-ID: <20090807100136.GB12932@skl-net.de>
-References: <20090806154223.b9b9759e.akpm@linux-foundation.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: some bug in iproute2
+Date: Fri, 7 Aug 2009 10:12:50 +0000
+Message-ID: <20090807101250.GA14064@ff.dom.local>
+References: <20090806115035.42a22dfc@azure>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>
+To: Sergey Popov <popov_sergey@ukr.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from systemlinux.org ([83.151.29.59]:55755 "EHLO m18s25.vlinux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751831AbZHGKCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Aug 2009 06:02:40 -0400
+Received: from mail-yw0-f177.google.com ([209.85.211.177]:52391 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755981AbZHGKM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 06:12:57 -0400
+Received: by ywh7 with SMTP id 7so1995418ywh.21
+        for <netdev@vger.kernel.org>; Fri, 07 Aug 2009 03:12:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20090806154223.b9b9759e.akpm@linux-foundation.org>
+In-Reply-To: <20090806115035.42a22dfc@azure>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 06, 2009 at 03:42:23PM -0700, Andrew Morton wrote:
->  	/* PCI-only startup logic */
->  	if (pdev) {
-> -		/* EISA resources already marked, so only PCI needs to do this here */
-> -		/* Ignore return value, because Cardbus drivers already allocate for us */
-> -		if (request_region(dev->base_addr, vci->io_size, print_name) != NULL)
-> -			vp->must_free_region = 1;
-> -
+On 06-08-2009 10:50, Sergey Popov wrote:
+> # tc f add dev eth0 parent 1: proto ip prio 2 u32 match u32 0 0 action ipt -j MARK --set-mark 1
+> /usr/lib64/iptables/libipt_mark.so: cannot open shared object file: No such file or directory
+> failed to find target MARK
+> 
+> bad action parsing
+> parse_action: bad value (5:ipt)!
+> Illegal "action"
+> 
+> 
+> But mark target is compiled in kernel (not a module)
+> 
+> # iptables -t mangle -A PREROUTING -i eth1 -j MARK --set-mark 1
+> # iptables -t mangle -L PREROUTING
+> Chain PREROUTING (policy ACCEPT)
+> target     prot opt source               destination         
+> MARK       all  --  anywhere             anywhere            MARK xset
+> 0x1/0xffffffff 
+> 
+> This shouldn't be.
 
-I don't know what cardbus does, but __request_region() returns NULL on
-memory allocation failure for struct resource too. So this did not work
-in all cases anyway. If cardbus allocates for us, we should handle it in
-some way, if not I'm fine with the patch as it is.
+If you're using iptables > 1.4.2 then it's a known problem.
+You can read more in a netdev thread:
+Subject: iproute2 action/policer question
+starting date: Tue, 09 Jun 2009 22:10:46 +0200
+
+Jarek P.
