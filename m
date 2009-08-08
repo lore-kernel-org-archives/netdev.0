@@ -1,85 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Fri, 7 Aug 2009 21:56:12 -0400
-Message-ID: <20090808015612.GA17710@localhost.localdomain>
-References: <20090807170600.9a2eff2e.billfink@mindspring.com> <20090807221211.GA16874@localhost.localdomain> <20090807205442.32918186.billfink@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Network Developers <netdev@vger.kernel.org>, brice@myri.com,
-	gallatin@myri.com
-To: Bill Fink <billfink@mindspring.com>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: [RESEND PATCH] gianfar: keep vlan related state when restart
+Date: Sat,  8 Aug 2009 10:36:52 +0800
+Message-ID: <1249699012-26379-1-git-send-email-yong.zhang0@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, afleming@freescale.com,
+	dai.haruki@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59661 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754694AbZHHB4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 21:56:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20090807205442.32918186.billfink@mindspring.com>
+Received: from rv-out-0506.google.com ([209.85.198.230]:29464 "EHLO
+	rv-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755286AbZHHChB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Aug 2009 22:37:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 07, 2009 at 08:54:42PM -0400, Bill Fink wrote:
-> On Fri, 7 Aug 2009, Neil Horman wrote:
-> 
-> > You're timing is impeccable!  I just posted a patch for an ftrace module to help
-> > detect just these kind of conditions:
-> > http://marc.info/?l=linux-netdev&m=124967650218846&w=2
-> > 
-> > Hope that helps you out
-> > Neil
-> 
-> Thanks!  It could be helpful.  Do you have a pointer to documentation
-> on how to use it?  And does it require the latest GIT kernel or could
-> it possibly be used with a 2.6.29.6 kernel?
-> 
-> 						-Bill
-> 
+If vlan has been enabled. ifdown followed by ifup will lost hardware
+related state.
 
-It should apply to 2.6.29.6 no problem (might take a little massaging, but not
-much).
+Also remove duplicated operation in gfar_vlan_rx_register().
 
-No docs I'm afraid (sorry, I'm horrible about that)
+Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
+---
+ drivers/net/gianfar.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-Using it is easy though:
-
-1) Patch, build and boot the kernel (make sure to have
-CONFIG_SKB_SOURCES_TRACER, along with the other FTRACE requisite options)
-
-2) mount -t debugfs nodev /sys/kernel/debug
-
-3) cd /sys/kernel/debug/tracing
-
-4) echo skb_sources > ./current_tracer
-
-5) echo 1 > trace
-
-6) cat ./trace
-
-Step 5 clears the trace buffer.  Step 6 provides you a list list this
-
-
-PID	ANID	CNID	RXQ	CCPU	LEN
-
-
-Where:
-PID - The process receiving an skb
-ANID - The node which the skb being received was allocated on
-CNID - The node which the process is running when it read this skb
-RQQ - The NIC receive queue that received this skb
-CCPU - The cpu the process was running on when it read the skb in question
-LEN - The length of the skb being received
-
-Each entry in the list denotes a unique skb (obviously), and with a clever awk
-script you can identify which nodes each process in your system is receiving
-frames from, so that you can use numactl or taskset to bias that process to run
-on the same nodes cpus.
-
-Note that step (6) wil show a larger list each time you cat that file (as trace
-records aren't removed during a read.  Step 5 is what actually clears the trace
-buffer and resets the list length to zero.
-
-Hope that helps. Please feel free to email me if you have any questions.
-
-Regards
-Neil
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index f8ffcbf..e212f2c 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -936,6 +936,7 @@ int startup_gfar(struct net_device *dev)
+ 	struct gfar __iomem *regs = priv->regs;
+ 	int err = 0;
+ 	u32 rctrl = 0;
++	u32 tctrl = 0;
+ 	u32 attrs = 0;
+ 
+ 	gfar_write(&regs->imask, IMASK_INIT_CLEAR);
+@@ -1111,11 +1112,19 @@ int startup_gfar(struct net_device *dev)
+ 		rctrl |= RCTRL_PADDING(priv->padding);
+ 	}
+ 
++	/* keep vlan related bits if it's enabled */
++	if (priv->vlgrp) {
++		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
++		tctrl |= TCTRL_VLINS;
++	}
++
+ 	/* Init rctrl based on our settings */
+ 	gfar_write(&priv->regs->rctrl, rctrl);
+ 
+ 	if (dev->features & NETIF_F_IP_CSUM)
+-		gfar_write(&priv->regs->tctrl, TCTRL_INIT_CSUM);
++		tctrl |= TCTRL_INIT_CSUM;
++
++	gfar_write(&priv->regs->tctrl, tctrl);
+ 
+ 	/* Set the extraction length and index */
+ 	attrs = ATTRELI_EL(priv->rx_stash_size) |
+@@ -1450,7 +1459,6 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 
+ 		/* Enable VLAN tag extraction */
+ 		tempval = gfar_read(&priv->regs->rctrl);
+-		tempval |= RCTRL_VLEX;
+ 		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
+ 		gfar_write(&priv->regs->rctrl, tempval);
+ 	} else {
+-- 
+1.6.0.4
 
