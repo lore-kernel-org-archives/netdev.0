@@ -1,61 +1,73 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: [PATCH] drivers/net/wireless/ath/ath5k: Change
-	constant name
-Date: Sat, 8 Aug 2009 12:20:01 -0400
-Message-ID: <20090808162001.GA18271@hash.localnet>
-References: <Pine.LNX.4.64.0908081521210.27715@ask.diku.dk>
+From: Phil Sutter <n0-1@freewrt.org>
+Subject: Re: [PATCH] korina: Read buffer overflow
+Date: Sat, 8 Aug 2009 18:45:05 +0200
+Message-ID: <20090808164512.02C174CEAA@orbit.nwl.cc>
+References: <4A7C494B.2060204@gmail.com> <20090808004815.F10394CEAA@orbit.nwl.cc> <25e057c00908080614q6d7efa3x46789e51b0b544b3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org
+To: roel kluin <roel.kluin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([91.121.169.95]:52613 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752183AbZHHQpL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Aug 2009 12:45:11 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0908081521210.27715-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
-List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
-List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
-	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
-Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <25e057c00908080614q6d7efa3x46789e51b0b544b3@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 08, 2009 at 03:22:26PM +0200, Julia Lawall wrote:
-> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> 
-> Elsewhere, the tqi_type field is compared to constants having a name
-> beginning with AR5K_TX_QUEUE, rather than AR5K_TX_QUEUE_ID.  I have thus
-> converted AR5K_TX_QUEUE_ID_CAB to AR5K_TX_QUEUE_CAB.  This does, however,
-> change the value, so perhaps something else was wanted.
-> 
-> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Hi,
 
-Nice catch, thanks.  Shouldn't cause any problem with 2.6.31 since we
-don't use the CAB queue yet, but it was definitely wrong.
+On Sat, Aug 08, 2009 at 03:14:57PM +0200, roel kluin wrote:
+> A few comments:
+>=20
+> > | diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+> > | index a2701f5..d1c5276 100644
+> > | --- a/drivers/net/korina.c
+> > | +++ b/drivers/net/korina.c
+>=20
+> > | @@ -772,6 +772,13 @@ static void korina_alloc_ring(struct net_dev=
+ice *dev)
+> > | =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 lp->rd_ring[i].c=
+a =3D CPHYSADDR(skb->data);
+> > | =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 lp->rd_ring[i].l=
+ink =3D CPHYSADDR(&lp->rd_ring[i+1]);
+> > | =C2=A0 =C2=A0 =C2=A0 }
+> > | + =C2=A0 =C2=A0 if (!i) {
+> > | + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 printk(KERN_ERR DRV_N=
+AME "%s: could not allocate a single"
+> > | + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 " receive descriptor\n", dev->name)
+>=20
+>             printk(KERN_ERR "%s: could not allocate a single receive
+> descriptor\n",
+>                             dev->name);
+>=20
+> Don't interrupt strings, they are an exception in the 80 character
+> limit (since they are easier to grep that way).
 
-Acked-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Ah, good to know.
+
+> Also I think the DRV_NAME should be omitted, Doesn't
+> `DRV_NAME "%s:...\n", dev->name)' result in "korinakorina:..."? It
+> occurs at more places in the file. Also a semicolon was missing.
+
+Sounds like a valid point, I will check this. This patch was just a
+quick hack to illustrate what I had in mind, without even
+compile-testing it.
+
+> Otherwise looks fine to me.
+
+Great you like it, and many thanks for reviewing it. I'm still not
+completely sure the NIC will still work with less than 64 receive
+descriptors, but since the documentation wasn't really enlightening I'l=
+l
+add some run-time test to my TODO. Maybe one of the other readers has
+some advice here, I'll prepare a complete patch in the meantime.
+
+Greetings, Phil
 
 
-> diff --git a/drivers/net/wireless/ath/ath5k/qcu.c b/drivers/net/wireless/ath/ath5k/qcu.c
-> index 6d5aaf0..eeebb9a 100644
-> --- a/drivers/net/wireless/ath/ath5k/qcu.c
-> +++ b/drivers/net/wireless/ath/ath5k/qcu.c
-> @@ -362,7 +362,7 @@ int ath5k_hw_reset_tx_queue(struct ath5k_hw *ah, unsigned int queue)
->  		}
->  
->  		if (tq->tqi_ready_time &&
-> -		(tq->tqi_type != AR5K_TX_QUEUE_ID_CAB))
-> +		(tq->tqi_type != AR5K_TX_QUEUE_CAB))
->  			ath5k_hw_reg_write(ah, AR5K_REG_SM(tq->tqi_ready_time,
->  				AR5K_QCU_RDYTIMECFG_INTVAL) |
->  				AR5K_QCU_RDYTIMECFG_ENABLE,
-> 
-
--- 
-Bob Copeland %% www.bobcopeland.com
