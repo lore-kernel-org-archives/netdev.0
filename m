@@ -1,89 +1,106 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: some bug in iproute2
-Date: Sat, 08 Aug 2009 08:49:41 -0400
-Message-ID: <1249735781.7101.53.camel@dogo.mojatatu.com>
-References: <20090807101250.GA14064@ff.dom.local>
-	 <1249655285.7101.6.camel@dogo.mojatatu.com> <20090807202725.784dab6b@azure>
-	 <1249734651.7101.38.camel@dogo.mojatatu.com>
-Reply-To: hadi@cyberus.ca
+From: roel kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] korina: Read buffer overflow
+Date: Sat, 8 Aug 2009 15:14:57 +0200
+Message-ID: <25e057c00908080614q6d7efa3x46789e51b0b544b3@mail.gmail.com>
+References: <4A7C494B.2060204@gmail.com>
+	 <20090808004815.F10394CEAA@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Sergey Popov <popov_sergey@ukr.net>
+To: Roel Kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qw-out-2122.google.com ([74.125.92.25]:4096 "EHLO
-	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934107AbZHHMvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 08:51:41 -0400
-Received: by qw-out-2122.google.com with SMTP id 8so840878qwh.37
-        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 05:51:41 -0700 (PDT)
-In-Reply-To: <1249734651.7101.38.camel@dogo.mojatatu.com>
+Received: from mail-fx0-f228.google.com ([209.85.220.228]:44031 "EHLO
+	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934127AbZHHNO5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 09:14:57 -0400
+Received: by fxm28 with SMTP id 28so229786fxm.17
+        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 06:14:57 -0700 (PDT)
+In-Reply-To: <20090808004815.F10394CEAA@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sergey,
+>> If the loop breaks with an i of 0, then we read lp->rd_ring[-1].
 
-Hope you dont mind if i cc some other people so we can
-resolve this issue because i am looking at the git logs
-and seeing tons of activities which affect what you are
-trying to do.
+>> @@ -771,7 +771,7 @@ static void korina_alloc_ring(struct net_device =
+*dev)
+>> =A0 =A0 =A0 for (i =3D 0; i < KORINA_NUM_RDS; i++) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D dev_alloc_skb(KORINA_RBSIZE + 2)=
+;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!skb)
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_free;
+>
+> This implies that all KORINA_NUM_TDS receive descriptors need to be
+> available for the driver to work.
 
-On Sat, 2009-08-08 at 08:30 -0400, jamal wrote:
-> Hi,
->=20
-> On Fri, 2009-08-07 at 20:27 +0300, Sergey Popov wrote:
-> > =D0=92 Fri, 07 Aug 2009 10:28:05 -0400
+> Also I guess there should be some error handling, as the driver proba=
+bly
+> wont be useful without a single receive descriptor. What do you think
+> about the following:
 
+A few comments:
 
-> > Now i want to police the incoming traffic and drop all the packets
-> > that exceeds the 1000 kbit and redirect packets
-> > to ifb, but next line doesn't work as expected [by me]:
-> >=20
->=20
-> What distro are you running?
->=20
-> > # tc f add dev $INETIF parent ffff: proto ip prio 1 u32 match u32 0=
- 0 \
-> > action police rate 1000kbit burst 1k drop \
-> > action mirred egress redirect dev $IFBIF
-> >=20
-> > Illegal "action"
-> > bad action parsing
-> > parse_action: bad value (12:police)!
-> > Illegal "action"
->=20
-> Let me try simple version:
-> dogo:~# tc q add dev lo ingress
-> dogo:~# tc f add dev lo parent ffff: proto ip prio 1 u32 match u32 0 =
-0
-> action police rate 1000kbit burst 1k drop action mirred egress redire=
-ct
-> dev eth0
-> Illegal "action"
-> bad action parsing
-> parse_action: bad value (12:police)!
-> Illegal "action"
-> dogo:~#=20
->=20
-> Ok, this seems to be a bug with policer...
-> Although your syntax above seems wrong since you didnt specify flowid=
-=2E
-> You must specify flowid always or strange things will happen even if
-> the syntax is accepted.
+> | diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+> | index a2701f5..d1c5276 100644
+> | --- a/drivers/net/korina.c
+> | +++ b/drivers/net/korina.c
 
-Your usage and syntax is perfectly legal and very useful.
-The problem is in the old policer syntax the keyword "action" had some
-speacial meaning. Some old scripts used it and broke if new syntax was
-used.
-The only clean option i see forward (which doesnt break any legacy stuf=
-f
-or play acrobatics) is to introduce new action "npolice". Patrick,
-thoughts?
+> | @@ -772,6 +772,13 @@ static void korina_alloc_ring(struct net_devic=
+e *dev)
+> | =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rd_ring[i].ca =3D CPHYSADDR(skb->da=
+ta);
+> | =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rd_ring[i].link =3D CPHYSADDR(&lp->=
+rd_ring[i+1]);
+> | =A0 =A0 =A0 }
+> | + =A0 =A0 if (!i) {
+> | + =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR DRV_NAME "%s: could not a=
+llocate a single"
+> | + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 " receive=
+ descriptor\n", dev->name)
 
-cheers,
-jamal
+            printk(KERN_ERR "%s: could not allocate a single receive
+descriptor\n",
+                            dev->name);
 
+Don't interrupt strings, they are an exception in the 80 character
+limit (since they are
+easier to grep that way). Also I think the DRV_NAME should be omitted, =
+Doesn't
+`DRV_NAME "%s:...\n", dev->name)' result in "korinakorina:..."? It
+occurs at more
+places in the file. Also a semicolon was missing.
 
+> | + =A0 =A0 =A0 =A0 =A0 =A0 return 1;
+
+I think -ENOMEM is more appropriate.
+
+> | + =A0 =A0 }
+> | + =A0 =A0 printk(KERN_DEBUG DRV_NAME "%s: allocated %d receive desc=
+riptors\n",
+> | + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->name, i);
+
+same `DRV_NAME "%s:...\n", dev->name)' issue.
+
+> | @@ -824,7 +833,8 @@ static int korina_init(struct net_device *dev)
+> | =A0 =A0 =A0 writel(ETH_INT_FC_EN, &lp->eth_regs->ethintfc);
+> |
+> | =A0 =A0 =A0 /* Allocate rings */
+> | - =A0 =A0 korina_alloc_ring(dev);
+> | + =A0 =A0 if (korina_alloc_ring(dev))
+> | + =A0 =A0 =A0 =A0 =A0 =A0 return 1;
+
+-ENOMEM
+
+> |
+> | =A0 =A0 =A0 writel(0, &lp->rx_dma_regs->dmas);
+> | =A0 =A0 =A0 /* Start Rx DMA */
+>
+> Greetings, Phil
+
+Otherwise looks fine to me.
+
+Thanks,
+
+Roel
