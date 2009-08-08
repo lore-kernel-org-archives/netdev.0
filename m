@@ -1,74 +1,89 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Sat, 8 Aug 2009 07:26:36 -0400
-Message-ID: <20090808112636.GB18518@localhost.localdomain>
-References: <20090807170600.9a2eff2e.billfink@mindspring.com> <4A7C9A14.7070600@inria.fr> <20090807175112.a1f57407.billfink@mindspring.com> <4A7CCEFC.7020308@myri.com> <20090807213557.d0faec23.billfink@mindspring.com> <4A7D5CA4.3030307@myri.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: some bug in iproute2
+Date: Sat, 08 Aug 2009 08:49:41 -0400
+Message-ID: <1249735781.7101.53.camel@dogo.mojatatu.com>
+References: <20090807101250.GA14064@ff.dom.local>
+	 <1249655285.7101.6.camel@dogo.mojatatu.com> <20090807202725.784dab6b@azure>
+	 <1249734651.7101.38.camel@dogo.mojatatu.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bill Fink <billfink@mindspring.com>,
-	Brice Goglin <Brice.Goglin@inria.fr>,
-	Linux Network Developers <netdev@vger.kernel.org>,
-	Yinghai Lu <yhlu.kernel@gmail.com>
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Sergey Popov <popov_sergey@ukr.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42956 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932737AbZHHL0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 07:26:52 -0400
-Content-Disposition: inline
-In-Reply-To: <4A7D5CA4.3030307@myri.com>
+Received: from qw-out-2122.google.com ([74.125.92.25]:4096 "EHLO
+	qw-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934107AbZHHMvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 08:51:41 -0400
+Received: by qw-out-2122.google.com with SMTP id 8so840878qwh.37
+        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 05:51:41 -0700 (PDT)
+In-Reply-To: <1249734651.7101.38.camel@dogo.mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 08, 2009 at 07:08:20AM -0400, Andrew Gallatin wrote:
-> Bill Fink wrote:
-> > On Fri, 07 Aug 2009, Andrew Gallatin wrote:
-> >
-> >> Bill Fink wrote:
-> >>
-> >>> All sysfs local_cpus values are the same (00000000,000000ff),
-> >>> so yes they are also wrong.
-> >> How were you handling IRQ binding?  If local_cpus is wrong,
-> >> the irqbalance will not be able to make good decisions about
-> >> where to bind the NICs' IRQs.  Did you try manually binding
-> >> each NICs's interrupt to a separate CPU on the correct node?
-> >
-> > Yes, all the NIC IRQs were bound to a CPU on the local NUMA node,
-> > and the nuttcp application had its CPU affinity set to the same
-> > CPU with its memory affinity bound to the same local NUMA node.
-> > And the irqbalance daemon wasn't running.
->
-> I must be misunderstanding something.  I had thought that
-> alloc_pages() on NUMA would wind up doing alloc_pages_current(), which
-> would allocate based on default policy which (if not interleaved)
-> should allocate from the current NUMA node.  And since restocking the
-> RX ring happens from a the driver's NAPI softirq context, then it
-> should always be restocking on the same node the memory is destined to
-> be consumed on.
->
-> Do I just not understand how alloc_pages() works on NUMA?
->
+Sergey,
 
-Thats how alloc_works, but most drivers use netdev_alloc_skb to refill their rx
-ring in their napi context.  netdev_alloc_skb specifically allocates an skb from
-memory in the node that the actually NIC is local to (rather than the cpu that
-the interrupt is running on).  That cuts out cross numa node chatter when the
-device is dma-ing a frame from the hardware to the allocated skb.  The offshoot
-of that however (especially in 10G cards with lots of rx queues whos interrupts
-are spread out through the system) is that the irq affinity for a given irq has
-an increased risk of not being on the same node as the skb memory.  The ftrace
-module I referenced earlier will help illustrate this, as well as cases where
-its causing applications to run on processors that create lots of cross-node
-chatter.
+Hope you dont mind if i cc some other people so we can
+resolve this issue because i am looking at the git logs
+and seeing tons of activities which affect what you are
+trying to do.
 
-Neil
+On Sat, 2009-08-08 at 08:30 -0400, jamal wrote:
+> Hi,
+>=20
+> On Fri, 2009-08-07 at 20:27 +0300, Sergey Popov wrote:
+> > =D0=92 Fri, 07 Aug 2009 10:28:05 -0400
 
-> Thanks,
->
-> Drew
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+
+> > Now i want to police the incoming traffic and drop all the packets
+> > that exceeds the 1000 kbit and redirect packets
+> > to ifb, but next line doesn't work as expected [by me]:
+> >=20
+>=20
+> What distro are you running?
+>=20
+> > # tc f add dev $INETIF parent ffff: proto ip prio 1 u32 match u32 0=
+ 0 \
+> > action police rate 1000kbit burst 1k drop \
+> > action mirred egress redirect dev $IFBIF
+> >=20
+> > Illegal "action"
+> > bad action parsing
+> > parse_action: bad value (12:police)!
+> > Illegal "action"
+>=20
+> Let me try simple version:
+> dogo:~# tc q add dev lo ingress
+> dogo:~# tc f add dev lo parent ffff: proto ip prio 1 u32 match u32 0 =
+0
+> action police rate 1000kbit burst 1k drop action mirred egress redire=
+ct
+> dev eth0
+> Illegal "action"
+> bad action parsing
+> parse_action: bad value (12:police)!
+> Illegal "action"
+> dogo:~#=20
+>=20
+> Ok, this seems to be a bug with policer...
+> Although your syntax above seems wrong since you didnt specify flowid=
+=2E
+> You must specify flowid always or strange things will happen even if
+> the syntax is accepted.
+
+Your usage and syntax is perfectly legal and very useful.
+The problem is in the old policer syntax the keyword "action" had some
+speacial meaning. Some old scripts used it and broke if new syntax was
+used.
+The only clean option i see forward (which doesnt break any legacy stuf=
+f
+or play acrobatics) is to introduce new action "npolice". Patrick,
+thoughts?
+
+cheers,
+jamal
+
+
