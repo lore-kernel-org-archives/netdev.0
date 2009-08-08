@@ -1,106 +1,61 @@
-From: roel kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] korina: Read buffer overflow
-Date: Sat, 8 Aug 2009 15:14:57 +0200
-Message-ID: <25e057c00908080614q6d7efa3x46789e51b0b544b3@mail.gmail.com>
-References: <4A7C494B.2060204@gmail.com>
-	 <20090808004815.F10394CEAA@orbit.nwl.cc>
+From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
+Subject: Re: [PATCH] drivers/net/wireless/ath/ath5k: Change
+	constant name
+Date: Sat, 8 Aug 2009 12:20:01 -0400
+Message-ID: <20090808162001.GA18271@hash.localnet>
+References: <Pine.LNX.4.64.0908081521210.27715@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Roel Kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f228.google.com ([209.85.220.228]:44031 "EHLO
-	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934127AbZHHNO5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 09:14:57 -0400
-Received: by fxm28 with SMTP id 28so229786fxm.17
-        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 06:14:57 -0700 (PDT)
-In-Reply-To: <20090808004815.F10394CEAA@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Return-path: <ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0908081521210.27715-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ath5k.org/pipermail/ath5k-devel>
+List-Post: <mailto:ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org>
+List-Help: <mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ath5k.org/mailman/listinfo/ath5k-devel>,
+	<mailto:ath5k-devel-request-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org?subject=subscribe>
+Sender: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+Errors-To: ath5k-devel-bounces-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> If the loop breaks with an i of 0, then we read lp->rd_ring[-1].
+On Sat, Aug 08, 2009 at 03:22:26PM +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+> 
+> Elsewhere, the tqi_type field is compared to constants having a name
+> beginning with AR5K_TX_QUEUE, rather than AR5K_TX_QUEUE_ID.  I have thus
+> converted AR5K_TX_QUEUE_ID_CAB to AR5K_TX_QUEUE_CAB.  This does, however,
+> change the value, so perhaps something else was wanted.
+> 
+> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
->> @@ -771,7 +771,7 @@ static void korina_alloc_ring(struct net_device =
-*dev)
->> =A0 =A0 =A0 for (i =3D 0; i < KORINA_NUM_RDS; i++) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D dev_alloc_skb(KORINA_RBSIZE + 2)=
-;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!skb)
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_free;
->
-> This implies that all KORINA_NUM_TDS receive descriptors need to be
-> available for the driver to work.
+Nice catch, thanks.  Shouldn't cause any problem with 2.6.31 since we
+don't use the CAB queue yet, but it was definitely wrong.
 
-> Also I guess there should be some error handling, as the driver proba=
-bly
-> wont be useful without a single receive descriptor. What do you think
-> about the following:
+Acked-by: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
 
-A few comments:
 
-> | diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-> | index a2701f5..d1c5276 100644
-> | --- a/drivers/net/korina.c
-> | +++ b/drivers/net/korina.c
+> diff --git a/drivers/net/wireless/ath/ath5k/qcu.c b/drivers/net/wireless/ath/ath5k/qcu.c
+> index 6d5aaf0..eeebb9a 100644
+> --- a/drivers/net/wireless/ath/ath5k/qcu.c
+> +++ b/drivers/net/wireless/ath/ath5k/qcu.c
+> @@ -362,7 +362,7 @@ int ath5k_hw_reset_tx_queue(struct ath5k_hw *ah, unsigned int queue)
+>  		}
+>  
+>  		if (tq->tqi_ready_time &&
+> -		(tq->tqi_type != AR5K_TX_QUEUE_ID_CAB))
+> +		(tq->tqi_type != AR5K_TX_QUEUE_CAB))
+>  			ath5k_hw_reg_write(ah, AR5K_REG_SM(tq->tqi_ready_time,
+>  				AR5K_QCU_RDYTIMECFG_INTVAL) |
+>  				AR5K_QCU_RDYTIMECFG_ENABLE,
+> 
 
-> | @@ -772,6 +772,13 @@ static void korina_alloc_ring(struct net_devic=
-e *dev)
-> | =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rd_ring[i].ca =3D CPHYSADDR(skb->da=
-ta);
-> | =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rd_ring[i].link =3D CPHYSADDR(&lp->=
-rd_ring[i+1]);
-> | =A0 =A0 =A0 }
-> | + =A0 =A0 if (!i) {
-> | + =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR DRV_NAME "%s: could not a=
-llocate a single"
-> | + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 " receive=
- descriptor\n", dev->name)
-
-            printk(KERN_ERR "%s: could not allocate a single receive
-descriptor\n",
-                            dev->name);
-
-Don't interrupt strings, they are an exception in the 80 character
-limit (since they are
-easier to grep that way). Also I think the DRV_NAME should be omitted, =
-Doesn't
-`DRV_NAME "%s:...\n", dev->name)' result in "korinakorina:..."? It
-occurs at more
-places in the file. Also a semicolon was missing.
-
-> | + =A0 =A0 =A0 =A0 =A0 =A0 return 1;
-
-I think -ENOMEM is more appropriate.
-
-> | + =A0 =A0 }
-> | + =A0 =A0 printk(KERN_DEBUG DRV_NAME "%s: allocated %d receive desc=
-riptors\n",
-> | + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->name, i);
-
-same `DRV_NAME "%s:...\n", dev->name)' issue.
-
-> | @@ -824,7 +833,8 @@ static int korina_init(struct net_device *dev)
-> | =A0 =A0 =A0 writel(ETH_INT_FC_EN, &lp->eth_regs->ethintfc);
-> |
-> | =A0 =A0 =A0 /* Allocate rings */
-> | - =A0 =A0 korina_alloc_ring(dev);
-> | + =A0 =A0 if (korina_alloc_ring(dev))
-> | + =A0 =A0 =A0 =A0 =A0 =A0 return 1;
-
--ENOMEM
-
-> |
-> | =A0 =A0 =A0 writel(0, &lp->rx_dma_regs->dmas);
-> | =A0 =A0 =A0 /* Start Rx DMA */
->
-> Greetings, Phil
-
-Otherwise looks fine to me.
-
-Thanks,
-
-Roel
+-- 
+Bob Copeland %% www.bobcopeland.com
