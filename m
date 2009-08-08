@@ -1,48 +1,50 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: 6lowpan: IPv6 encapsulation question
-Date: Sat, 8 Aug 2009 12:23:17 +0400
-Message-ID: <20090808082317.GA10925@doriath.ww600.siemens.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: [evb] RE: [PATCH][RFC] net/bridge: add basic VEPA
+	support
+Date: Sat, 08 Aug 2009 10:50:10 +0200
+Message-ID: <m3d476hepp.fsf@ursa.amorsen.dk>
+References: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com>
+	<0199E0D51A61344794750DC57738F58E6D6A6CD803__29862.6656564467$1249679159$gmane$org@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pekkas@netcore.fi
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.211.193]:33650 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbZHHIbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 04:31:36 -0400
-Received: by ywh31 with SMTP id 31so2681089ywh.4
-        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 01:31:36 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "arnd@arndb.de" <arnd@arndb.de>, Yaron Haviv <yaronh@voltaire.com>,
+        "bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+        "virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+        "adobriyan@gmail.com" <adobriyan@gmail.com>,
+        "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "evb@yahoogroups.com" <evb@yahoogroups.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "Fischer\, Anna" <anna.fischer@hp.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6A6CD803__29862.6656564467$1249679159$gmane$org@GVW1118EXC.americas.hpqcorp.net>
+	(Anna Fischer's message of "Fri\, 7 Aug 2009 21\:00\:54 +0000")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+"Fischer, Anna" <anna.fischer@hp.com> writes:
 
-We are going to work on the implementation of 6lowpan: the encapsulation
-for IPv6 packets for IEEE 802.15.4 networks. RFC 4944 and several
-following drafts from 6lowpan WG define several types of IPv6/UDP
-headers compression, special fragmentation, ND, etc.
+> If you do have a SRIOV NIC that supports VEPA, then I would think that
+> you do not have QEMU or macvtap in the setup any more though. Simply
+> because in that case the VM can directly access the VF on the physical
+> device. That would be ideal.
 
-The question is: what is the most clean way to implement 6lowpan and to
-hook it into the Linux kernel.
+I'm just trying to understand how this all works, so I'm probably asking
+a stupid question:
 
-We've identified the following possible ways:
+Would a SRIOV NIC with VEPA support show up as multiple devices? I.e.
+would I get e.g. eth0-eth7 for a NIC with support for 8 virtual
+interfaces? Would they have different MAC addresses?
 
-* Implement it just as a special net_device, accepting only IPv6 trafic,
-  and splitting/merging it on the top of our IEEE 802.15.4 net_devices
 
-* Implement transmission/fragmentation by hooking into neighbouring output
-  routines
-
-* Implement transmission/fragmentation by hooking into dst->output
-  routines
-
-* Just hook into IPv6 stack by checking for ARPHRD_IEEE802154 devices
-
-* ???
-
--- 
-With best wishes
-Dmitry
-
+/Benny
