@@ -1,97 +1,55 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/3] net: Add ftracer to help optimize process
+Subject: Re: [PATCH 2/3] net: Add ftracer to help optimize process
 	scheduling based on incomming frame allocations (v2)
-Date: Sat, 8 Aug 2009 19:14:34 -0400
-Message-ID: <20090808231434.GB24414@localhost.localdomain>
+Date: Sat, 8 Aug 2009 19:15:00 -0400
+Message-ID: <20090808231500.GC24414@localhost.localdomain>
 References: <20090807202130.GA26677@hmsreliant.think-freely.org> <20090808231322.GA24414@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, rostedt@goodmis.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49947 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49954 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185AbZHHXOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 19:14:39 -0400
+	with ESMTP id S1753186AbZHHXPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 19:15:05 -0400
 Content-Disposition: inline
 In-Reply-To: <20090808231322.GA24414@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb allocation / cosumption tracer - Add consumption tracepoint
+skb allocation / consumption corelator - Add config option
 
-This patch adds a tracepoint to skb_copy_datagram_iovec, which is called each
-time a userspace process copies a frame from a socket receive queue to a user
-space buffer.  It allows us to hook in and examine each sk_buff that the system
-receives on a per-socket bases, and can be use to compile a list of which skb's
-were received by which processes.
+This patch adds a Kconfig option to enable the addtition of the skb source
+tracer.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 
- include/trace/events/skb.h |   20 ++++++++++++++++++++
- net/core/datagram.c        |    3 +++
- 2 files changed, 23 insertions(+)
+ Kconfig |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-index 1e8fabb..bdc5c1c 100644
---- a/include/trace/events/skb.h
-+++ b/include/trace/events/skb.h
-@@ -2,6 +2,7 @@
- #define _TRACE_SKB_H
+diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+index 1551f47..1aeec05 100644
+--- a/kernel/trace/Kconfig
++++ b/kernel/trace/Kconfig
+@@ -234,6 +234,16 @@ config BOOT_TRACER
+ 	  You must pass in ftrace=initcall to the kernel command line
+ 	  to enable this on bootup.
  
- #include <linux/skbuff.h>
-+#include <linux/netdevice.h>
- #include <linux/tracepoint.h>
- 
- #undef TRACE_SYSTEM
-@@ -34,6 +35,25 @@ TRACE_EVENT(kfree_skb,
- 		__entry->skbaddr, __entry->protocol, __entry->location)
- );
- 
-+TRACE_EVENT(skb_copy_datagram_iovec,
++config SKB_SOURCES_TRACER
++	bool "Trace skb source information
++	select GENERIC_TRACER
++	help
++	   This tracer helps developers/sysadmins correlate skb allocation and
++	   consumption.  The idea being that some processes will primarily consume data
++	   that was allocated on certain numa nodes.  By being able to visualize which
++	   nodes the data was allocated on, a sysadmin or developer can optimize the
++	   scheduling of those processes to cut back on cross node chatter.
 +
-+	TP_PROTO(const struct sk_buff *skb, int len),
-+
-+	TP_ARGS(skb, len),
-+
-+	TP_STRUCT__entry(
-+		__field(	const void *,		skbaddr		)
-+		__field(	int,			len		)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->skbaddr = skb;
-+		__entry->len = len;
-+	),
-+
-+	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
-+);
-+
- #endif /* _TRACE_SKB_H */
- 
- /* This part must be outside protection */
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index b0fe692..1c6cf3a 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -55,6 +55,7 @@
- #include <net/checksum.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
-+#include <trace/events/skb.h>
- 
- /*
-  *	Is a socket 'connection oriented' ?
-@@ -284,6 +285,8 @@ int skb_copy_datagram_iovec(const struct sk_buff *skb, int offset,
- 	int i, copy = start - offset;
- 	struct sk_buff *frag_iter;
- 
-+	trace_skb_copy_datagram_iovec(skb, len);
-+
- 	/* Copy header. */
- 	if (copy > 0) {
- 		if (copy > len)
+ config TRACE_BRANCH_PROFILING
+ 	bool
+ 	select GENERIC_TRACER
 --
 To unsubscribe from this list: send the line "unsubscribe netdev" in
 the body of a message to majordomo@vger.kernel.org
