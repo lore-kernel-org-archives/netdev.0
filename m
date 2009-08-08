@@ -1,49 +1,54 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [evb] RE: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Sat, 8 Aug 2009 11:44:39 +0200
-Message-ID: <200908081144.39501.arnd@arndb.de>
-References: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com> <0199E0D51A61344794750DC57738F58E6D6A6CD803__29862.6656564467$1249679159$gmane$org@GVW1118EXC.americas.hpqcorp.net> <m3d476hepp.fsf@ursa.amorsen.dk>
+Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Sat, 8 Aug 2009 11:49:27 +0200
+Message-ID: <200908081149.27409.arnd@arndb.de>
+References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <20090806210002.75beb7c6@nehalam> <004e01ca1790$fec36c30$fc4a4490$@edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Fischer\, Anna" <anna.fischer@hp.com>,
-	Yaron Haviv <yaronh@voltaire.com>, evb@yahoogroups.com,
-	shemminger@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	adobriyan@gmail.com,
-	"Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>,
-	virtualization@lists.linux-foundation.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:54608 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933690AbZHHJpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 05:45:13 -0400
-In-Reply-To: <m3d476hepp.fsf@ursa.amorsen.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
+	"'Fischer, Anna'" <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	evb@yahoogroups.com, davem@davemloft.net, kaber@trash.net,
+	adobriyan@gmail.com
+To: "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933884AbZHHJte@vger.kernel.org>
+In-Reply-To: <004e01ca1790$fec36c30$fc4a4490$@edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 08 August 2009, Benny Amorsen wrote:
-> Would a SRIOV NIC with VEPA support show up as multiple devices? I.e.
-> would I get e.g. eth0-eth7 for a NIC with support for 8 virtual
-> interfaces? Would they have different MAC addresses?
+On Friday 07 August 2009, Paul Congdon (UC Davis) wrote:
+> As I understand the macvlan code, it currently doesn't allow two VMs on the
+> same machine to communicate with one another. 
 
-It could, but the idea of SR-IOV is that it shows up as 8 PCI
-devices. One of them is owned by the host and is seen as eth0
-there. The other seven PCI devices (virtual functions) are meant
-to be assigned to the guest using PCI passthrough and will show
-up as the guests eth0, each one with its own MAC address.
+There are patches to do that. I think if we add that, there should be
+a way to choose the behavior between either bridging between the
+guests or VEPA.
 
-An other mode of operation is VMDq, where the host owns all
-interfaces and you might see eth0-eth7 there. You can then attach
-a qemu process with a raw packet socket or a single macvtap port
-for each of those interfaces. This is not yet implemented in Linux,
-so how it will be done is still open. It might all be integrated
-into macvlan or some new subsystem alternatively.
+> I could imagine a hairpin mode on the adjacent bridge making this
+> possible, but the macvlan code would need to be updated to filter
+> reflected frames so a source did not receive his own packet.
 
-AFAIK, every SR-IOV adapter can also be operated as a VMDq adapter,
-but there are VMDq adapters that do not support SR-IOV.
+Right, I missed this point so far. I'll follow up with a patch
+to do that.
+
+> I could imagine this being done as well, but to also
+> support selective multicast usage, something similar to the bridge
+> forwarding table would be needed.  I think putting VEPA into a new driver
+> would cause you to implement many things the bridge code already supports.
+> Given that we expect the bridge standard to ultimately include VEPA, and the
+> new functions are basic forwarding operations, it seems to make most sense
+> to keep this consistent with the bridge module.
+
+This is the interesting part of the discussion. The bridge and macvlan
+drivers certainly have an overlap in functionality and you can argue
+that you only need one. Then again, the bridge code is a little crufty
+and we might not want to add much more to it for functionality that can
+be implemented in a much simpler way elsewhere. My preferred way would
+be to use bridge when you really need 802.1d MAC learning, netfilter-bridge
+and STP, while we put the optimizations for stuff like VMDq, zero-copy
+and multiqueue guest adapters only into the macvlan code.
 
 	Arnd <><
-
