@@ -1,37 +1,48 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] drivres/net: Change constant name
-Date: Sat, 8 Aug 2009 09:53:41 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0908080953090.25176@ask.diku.dk>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: 6lowpan: IPv6 encapsulation question
+Date: Sat, 8 Aug 2009 12:23:17 +0400
+Message-ID: <20090808082317.GA10925@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933690AbZHHHxo@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pekkas@netcore.fi
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f193.google.com ([209.85.211.193]:33650 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752778AbZHHIbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 04:31:36 -0400
+Received: by ywh31 with SMTP id 31so2681089ywh.4
+        for <netdev@vger.kernel.org>; Sat, 08 Aug 2009 01:31:36 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hi,
 
-In this series of tests the constants have the form XRXMAC_STATUS, except
-in this one case.  The values of XRXMAC_STAT_MSK_RXOCTET_CNT_EXP and
-XRXMAC_STATUS_RXOCTET_CNT_EXP are furthermore the same.
+We are going to work on the implementation of 6lowpan: the encapsulation
+for IPv6 packets for IEEE 802.15.4 networks. RFC 4944 and several
+following drafts from 6lowpan WG define several types of IPv6/UDP
+headers compression, special fragmentation, ND, etc.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+The question is: what is the most clean way to implement 6lowpan and to
+hook it into the Linux kernel.
 
----
- drivers/net/niu.c                   |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+We've identified the following possible ways:
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index d2146d4..3ada7ea 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -4015,7 +4015,7 @@ static void niu_xmac_interrupt(struct niu *np)
- 		mp->rx_hist_cnt6 += RXMAC_HIST_CNT6_COUNT;
- 	if (val & XRXMAC_STATUS_RXHIST7_CNT_EXP)
- 		mp->rx_hist_cnt7 += RXMAC_HIST_CNT7_COUNT;
--	if (val & XRXMAC_STAT_MSK_RXOCTET_CNT_EXP)
-+	if (val & XRXMAC_STATUS_RXOCTET_CNT_EXP)
- 		mp->rx_octets += RXMAC_BT_CNT_COUNT;
- 	if (val & XRXMAC_STATUS_CVIOLERR_CNT_EXP)
- 		mp->rx_code_violations += RXMAC_CD_VIO_CNT_COUNT;
+* Implement it just as a special net_device, accepting only IPv6 trafic,
+  and splitting/merging it on the top of our IEEE 802.15.4 net_devices
+
+* Implement transmission/fragmentation by hooking into neighbouring output
+  routines
+
+* Implement transmission/fragmentation by hooking into dst->output
+  routines
+
+* Just hook into IPv6 stack by checking for ARPHRD_IEEE802154 devices
+
+* ???
+
+-- 
+With best wishes
+Dmitry
+
