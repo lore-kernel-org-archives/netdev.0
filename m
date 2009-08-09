@@ -1,120 +1,150 @@
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Subject: [PATCH 14/14] net: use printk_once
-Date: Sun,  9 Aug 2009 21:54:09 +0200
-Message-ID: <1249847649-11631-15-git-send-email-marcin.slusarz@gmail.com>
-References: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753200AbZHITzT@vger.kernel.org>
-In-Reply-To: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] macvlan: add tap device backend
+Date: Sun, 9 Aug 2009 20:42:24 +0000
+Message-ID: <200908092042.24686.arnd@arndb.de>
+References: <1249595428-21594-1-git-send-email-arnd@arndb.de> <20090809080215.GA17200@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@voltaire.com>,
+	"Fischer, Anna" <anna.fischer@hp.com>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Edge Virtual Bridging <evb@yahoogroups.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753473AbZHIUmh@vger.kernel.org>
+In-Reply-To: <20090809080215.GA17200@redhat.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- net/ax25/af_ax25.c        |    6 +-----
- net/dsa/dsa.c             |    4 +---
- net/ipv4/raw.c            |    6 ++----
- net/netfilter/xt_recent.c |   10 +++-------
- net/socket.c              |    8 ++------
- 5 files changed, 9 insertions(+), 25 deletions(-)
+On Sunday 09 August 2009 08:02:16 Michael S. Tsirkin wrote:
+> On Thu, Aug 06, 2009 at 09:50:28PM +0000, Arnd Bergmann wrote:
+> > * The same framework in macvlan can be used to add a third backend
+> > into a future kernel based virtio-net implementation.
+> 
+> Could you split the patches up, to make this last easier?
+> patch 1 - export framework
+> patch 2 - code using it
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index da0f64f..39c895b 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1792,12 +1792,8 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 
- 		/* old structure? */
- 		if (cmd == SIOCAX25GETINFOOLD) {
--			static int warned = 0;
--			if (!warned) {
--				printk(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
-+			printk_once(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
- 					current->comm);
--				warned=1;
--			}
- 
- 			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct_deprecated))) {
- 				res = -EFAULT;
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 71489f6..ecd2dfb 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -302,14 +302,12 @@ static struct net_device *dev_to_net_device(struct device *dev)
- 
- static int dsa_probe(struct platform_device *pdev)
- {
--	static int dsa_version_printed;
- 	struct dsa_platform_data *pd = pdev->dev.platform_data;
- 	struct net_device *dev;
- 	struct dsa_switch_tree *dst;
- 	int i;
- 
--	if (!dsa_version_printed++)
--		printk(KERN_NOTICE "Distributed Switch Architecture "
-+	printk_once(KERN_NOTICE "Distributed Switch Architecture "
- 			"driver version %s\n", dsa_driver_version);
- 
- 	if (pd == NULL || pd->netdev == NULL)
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2979f14..f919925 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -470,10 +470,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if (msg->msg_namelen < sizeof(*usin))
- 			goto out;
- 		if (usin->sin_family != AF_INET) {
--			static int complained;
--			if (!complained++)
--				printk(KERN_INFO "%s forgot to set AF_INET in "
--						 "raw sendmsg. Fix it!\n",
-+			printk_once(KERN_INFO "%s forgot to set AF_INET in "
-+						"raw sendmsg. Fix it!\n",
- 						 current->comm);
- 			err = -EAFNOSUPPORT;
- 			if (usin->sin_family)
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index eb0ceb8..d60d317 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -456,13 +456,9 @@ static int recent_seq_open(struct inode *inode, struct file *file)
- #ifdef CONFIG_NETFILTER_XT_MATCH_RECENT_PROC_COMPAT
- static int recent_old_seq_open(struct inode *inode, struct file *filp)
- {
--	static bool warned_of_old;
--
--	if (unlikely(!warned_of_old)) {
--		printk(KERN_INFO KBUILD_MODNAME ": Use of /proc/net/ipt_recent"
--		       " is deprecated; use /proc/net/xt_recent.\n");
--		warned_of_old = true;
--	}
-+	printk_once(KERN_INFO KBUILD_MODNAME ": "
-+		"Use of /proc/net/ipt_recent is deprecated; "
-+		"use /proc/net/xt_recent.\n");
- 	return recent_seq_open(inode, filp);
- }
- 
-diff --git a/net/socket.c b/net/socket.c
-index 791d71a..1d07f69 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1161,12 +1161,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
- 	   deadlock in module load.
- 	 */
- 	if (family == PF_INET && type == SOCK_PACKET) {
--		static int warned;
--		if (!warned) {
--			warned = 1;
--			printk(KERN_INFO "%s uses obsolete (PF_INET,SOCK_PACKET)\n",
--			       current->comm);
--		}
-+		printk_once(KERN_INFO "%s uses obsolete (PF_INET,SOCK_PACKET)\n",
-+			    current->comm);
- 		family = PF_PACKET;
- 	}
- 
--- 
-1.6.3.3
+Sure, will do.
+
+> > +/* Get packet from user space buffer */
+> > +static ssize_t macvtap_get_user(struct macvtap_dev *vtap,
+> > +			       const struct iovec *iv, size_t count,
+> > +			       int noblock)
+> > +{
+> > +	struct sk_buff *skb;
+> > +	size_t len = count;
+> > +
+> > +	if (unlikely(len < ETH_HLEN))
+> > +		return -EINVAL;
+> > +
+> > +	skb = alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
+> > +
+> > +	if (!skb) {
+> > +		vtap->m.dev->stats.rx_dropped++;
+> > +		return -ENOMEM;
+> > +	}
+> > +
+> > +	skb_reserve(skb, NET_IP_ALIGN);
+> > +	skb_put(skb, count);
+> > +
+> > +	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
+> > +		vtap->m.dev->stats.rx_dropped++;
+> > +		kfree_skb(skb);
+> > +		return -EFAULT;
+> > +	}
+> > +
+> > +	skb_set_network_header(skb, ETH_HLEN);
+> > +	skb->dev = vtap->m.lowerdev;
+> > +
+> > +	macvlan_start_xmit(skb, vtap->m.dev);
+> > +
+> > +	return count;
+> > +}
+> 
+> With tap, we discovered that not limiting the number of outstanding
+> skbs hurts UDP performance. And the solution was to limit
+> the number of outstanding packets - with hacks to work around
+> the fact that userspace .
+
+Something seems to be missing in your last sentence here.
+
+My driver OTOH is also missing any sort of flow control in both
+RX and TX direction ;) For RX, there should probably just be
+a limit of frames that get buffered in the ring.
+
+For TX, I guess there should be a way to let the packet
+scheduler handle this and give us a chance to block and
+unblock at the right time. I haven't found out yet how to
+do that.
+
+Would it be enough to check the dev_queue_xmit() return
+code for NETDEV_TX_BUSY?
+
+How would I get notified when it gets free again?
+
+> > +	ret = skb_copy_datagram_iovec(skb, 0, iv, len);
+> > +
+> > +	vtap->m.dev->stats.rx_packets++;
+> > +	vtap->m.dev->stats.rx_bytes += len;
+> 
+> where does atomicity guarantee for these counters come from?
+
+AFAIK, we never do for any driver. They are statistics only and
+need not be 100% correct, so the networking stack goes for
+lower overhead and 99.9% correct.
+
+> > +static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+> > +			    unsigned long count, loff_t pos)
+> > +{
+> > +	struct file *file = iocb->ki_filp;
+> > +	struct macvtap_dev *vtap = file->private_data;
+> > +	DECLARE_WAITQUEUE(wait, current);
+> > +	struct sk_buff *skb;
+> > +	ssize_t len, ret = 0;
+> > +
+> > +	if (!vtap)
+> > +		return -EBADFD;
+> > +
+> > +	len = iov_length(iv, count);
+> > +	if (len < 0) {
+> > +		ret = -EINVAL;
+> > +		goto out;
+> > +	}
+> > +
+> > +	add_wait_queue(&vtap->wait, &wait);
+> > +	while (len) {
+> > +		current->state = TASK_INTERRUPTIBLE;
+> > +
+> > +		/* Read frames from the queue */
+> > +		if (!(skb=skb_dequeue(&vtap->readq))) {
+> > +			if (file->f_flags & O_NONBLOCK) {
+> > +				ret = -EAGAIN;
+> > +				break;
+> > +			}
+> > +			if (signal_pending(current)) {
+> > +				ret = -ERESTARTSYS;
+> > +				break;
+> > +			}
+> > +			/* Nothing to read, let's sleep */
+> > +			schedule();
+> > +			continue;
+> > +		}
+> > +		ret = macvtap_put_user(vtap, skb, (struct iovec *) iv, len);
+> 
+> Don't cast away the constness. Instead, fix macvtap_put_user
+> to used skb_copy_datagram_const_iovec which does not modify the iovec.
+
+Ah, good catch. I had copied that from the tun driver before you
+fixed it there and failed to fix it the right way when I adapted
+it for the new interface.
+
+Thanks for the review,
+
+	Arnd <><
