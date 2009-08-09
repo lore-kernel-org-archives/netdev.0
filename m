@@ -1,135 +1,64 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [PATCH 10/10] Userspace support for reading ECN bits
-Date: Sun,  9 Aug 2009 21:48:47 +0200
-Message-ID: <1249847327-6792-11-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: dccp-test-tree [PATCH 4/10] net: Hack to enable IPv6 ECN support
+Date: Sun,  9 Aug 2009 21:48:41 +0200
+Message-ID: <1249847327-6792-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_test_tree_sending_ecn_for_review>
  <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1249847327-6792-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1249847327-6792-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-6-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-7-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-8-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-9-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-10-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54859 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54864 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752750AbZHITsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752779AbZHITsu (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 9 Aug 2009 15:48:50 -0400
-In-Reply-To: <1249847327-6792-10-git-send-email-gerrit@erg.abdn.ac.uk>
+In-Reply-To: <1249847327-6792-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support to read the ECN bits of incoming DCCP packets.
+ECN is not currently supported on inet6 sockets.
 
-RFC: This is an AF-independent alternative to IP_RECVTOS/IPV6_RECVTCLASS.
+This is a hack to copy over the ECN bits when ECN-capable transport
+has been enabled on the inet_sk socket.
+
+This allows to support DCCPv6 ECN support, but needs to be revised:
+ * the inet_sock already has an u8 `tos' field for the DSCP/ECN bits;
+ * the same field is present as u8 `tclass' field in ipv6_pinfo;
+ * the DS field (RFC 2474) and the ECN bits (RFC 3168) are AF-independent,
+   so TOS/Traffic Class could be made AF-independent;
+ * sockets that include ipv6_pinfo also include struct inet_sock.
+
+Ideally there should be one field, e.g. `inet->dsfield', but doing
+this requires some more careful analysis, since inet_sk(sk)->tos and
+inet6_sk(sk)->tclass are referenced all over the source code.
+
+Leaving this for the moment, to be completed later.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- Documentation/networking/dccp.txt |    6 ++++++
- include/linux/dccp.h              |    5 ++++-
- net/dccp/proto.c                  |   15 +++++++++++++++
- 3 files changed, 25 insertions(+), 1 deletions(-)
+ include/net/inet_ecn.h |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -41,6 +41,8 @@ than 3 are not accepted. Values need to be wrapped into a cmsg(3) header:
- 	cmsg->cmsg_level = SOL_DCCP;
- 	cmsg->cmsg_type	 = DCCP_SCM_ECN_BITS;
- 	cmsg->cmsg_len	 = CMSG_LEN(sizeof(uint8_t));	/* or CMSG_LEN(1) */
-+The process can be reversed for recvmsg(2) when the DCCP_SOCKOPT_GET_ECN_BITS
-+socket option is enabled (see below), using the same cmsg encapsulation.
+--- a/include/net/inet_ecn.h
++++ b/include/net/inet_ecn.h
+@@ -46,9 +46,13 @@ static inline __u8 INET_ECN_encapsulate(__u8 outer, __u8 inner)
+       (label) &= ~htonl(INET_ECN_MASK << 20);	\
+     } while (0)
  
++/*
++ * XXX Hack: copy over the ECN bits from inet_sk to inet6_sk.
++ *           This should be replaced by a single `dsfield' in inet
++ */
+ #define	IP6_ECN_flow_xmit(sk, label) do {				\
+-	if (INET_ECN_is_capable(inet6_sk(sk)->tclass))			\
+-		(label) |= htonl(INET_ECN_ECT_0 << 20);			\
++	IP6_ECN_flow_init(label);					\
++	(label) |= htonl((inet_sk(sk)->tos & INET_ECN_MASK) << 20);	\
+     } while (0)
  
- Missing features
-@@ -131,6 +133,10 @@ DCCP_SOCKOPT_RECV_CSCOV is for the receiver and has a different meaning: it
- 	restrictive this setting (see [RFC 4340, sec. 9.2.1]). Partial coverage
- 	settings are inherited to the child socket after accept().
- 
-+DCCP_SOCKOPT_GET_ECN_BITS takes a boolean int value and enables the delivery
-+	of ECN bits as ancillary data to recvmsg(2). The data is received as
-+	uint8_t value at SOL_DCCP level and cmsg_type of DCCP_SCM_ECN_BITS.
-+
- The following two options apply to CCID 3 exclusively and are getsockopt()-only.
- In either case, a TFRC info struct (defined in <linux/tfrc.h>) is returned.
- DCCP_SOCKOPT_CCID_RX_INFO
---- a/include/linux/dccp.h
-+++ b/include/linux/dccp.h
-@@ -228,6 +228,7 @@ enum dccp_packet_dequeueing_policy {
- #define DCCP_SOCKOPT_RX_CCID		15
- #define DCCP_SOCKOPT_QPOLICY_ID		16
- #define DCCP_SOCKOPT_QPOLICY_TXQLEN	17
-+#define DCCP_SOCKOPT_GET_ECN_BITS	18
- #define DCCP_SOCKOPT_CCID_RX_INFO	128
- #define DCCP_SOCKOPT_CCID_TX_INFO	192
- 
-@@ -470,6 +471,7 @@ struct dccp_ackvec;
-  * @dccps_r_seq_win - remote Sequence Window (influences seq number validity)
-  * @dccps_l_ecn_ok - this host understands ECN bits (RFC 4340, 12.1)
-  * @dccps_r_ecn_ok - the remote end understands ECN bits
-+ * @dccps_get_ecn_bits - this host requests ECN bits as recvmsg() ancillary data
-  * @dccps_pcslen - sender   partial checksum coverage (via sockopt)
-  * @dccps_pcrlen - receiver partial checksum coverage (via sockopt)
-  * @dccps_send_ndp_count - local Send NDP Count feature (7.7.2)
-@@ -516,7 +518,8 @@ struct dccp_sock {
- 	__u64				dccps_l_seq_win:48;
- 	__u64				dccps_r_seq_win:48;
- 	bool				dccps_l_ecn_ok:1,
--					dccps_r_ecn_ok:1;
-+					dccps_r_ecn_ok:1,
-+					dccps_get_ecn_bits:1;
- 	__u8				dccps_pcslen:4;
- 	__u8				dccps_pcrlen:4;
- 	__u8				dccps_send_ndp_count:1;
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -550,6 +550,9 @@ static int do_dccp_setsockopt(struct sock *sk, int level, int optname,
- 		else
- 			dp->dccps_tx_qlen = val;
- 		break;
-+	case DCCP_SOCKOPT_GET_ECN_BITS:
-+		dp->dccps_get_ecn_bits = (val != 0);
-+		break;
- 	default:
- 		err = -ENOPROTOOPT;
- 		break;
-@@ -663,6 +666,9 @@ static int do_dccp_getsockopt(struct sock *sk, int level, int optname,
- 	case DCCP_SOCKOPT_QPOLICY_TXQLEN:
- 		val = dp->dccps_tx_qlen;
- 		break;
-+	case DCCP_SOCKOPT_GET_ECN_BITS:
-+		val = dp->dccps_get_ecn_bits;
-+		break;
- 	case 128 ... 191:
- 		return ccid_hc_rx_getsockopt(dp->dccps_hc_rx_ccid, sk, optname,
- 					     len, (u32 __user *)optval, optlen);
-@@ -825,6 +831,13 @@ out_discard:
- 
- EXPORT_SYMBOL_GPL(dccp_sendmsg);
- 
-+static void dccp_cmsg_recv_ecn_bits(struct msghdr *msg, struct sk_buff *skb)
-+{
-+	u8 val = DCCP_SKB_CB(skb)->dccpd_ecn;
-+
-+	put_cmsg(msg, SOL_DCCP, DCCP_SCM_ECN_BITS, sizeof(val), &val);
-+}
-+
- int dccp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		 size_t len, int nonblock, int flags, int *addr_len)
- {
-@@ -919,6 +932,8 @@ verify_sock_status:
- 			len = -EFAULT;
- 			break;
- 		}
-+		if (dccp_sk(sk)->dccps_get_ecn_bits)
-+			dccp_cmsg_recv_ecn_bits(msg, skb);
- 	found_fin_ok:
- 		if (!(flags & MSG_PEEK))
- 			sk_eat_skb(sk, skb, 0);
+ static inline int IP_ECN_set_ce(struct iphdr *iph)
 -- 
 1.6.0.rc2
 
