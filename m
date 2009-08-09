@@ -1,44 +1,42 @@
 From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: [PATCH] net: pcmcia/axnet_cs: includecheck fix axnet_cs.c
-Date: Sun, 09 Aug 2009 18:35:25 +0530
-Message-ID: <1249823125.2957.6.camel@ht.satnam>
+Subject: [PATCH] net: smc911x: includecheck fix for smc911x.h
+Date: Sun, 09 Aug 2009 18:42:38 +0530
+Message-ID: <1249823558.2957.8.camel@ht.satnam>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	David Hinds <dahinds@users.sourceforge.net>
+To: David Miller <davem@davemloft.net>, nico@cam.org,
+	netdev <netdev@vger.kernel.org>, dustin@sensoria.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:41992 "EHLO hera.kernel.org"
+Received: from hera.kernel.org ([140.211.167.34]:34670 "EHLO hera.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753723AbZHINHM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2009 09:07:12 -0400
+	id S1751794AbZHINOY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 09:14:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 fix the following 'make includecheck' warning:
 
-  drivers/net/pcmcia/axnet_cs.c: linux/etherdevice.h is included more than once.
+  drivers/net/smc911x.h: mach/dma.h is included more than once.
 
 Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
 ---
- drivers/net/pcmcia/axnet_cs.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/smc911x.h |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index b5cfac7..1e87d63 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -893,8 +893,6 @@ static const char version_8390[] = KERN_INFO \
- #include <linux/in.h>
- #include <linux/interrupt.h>
+diff --git a/drivers/net/smc911x.h b/drivers/net/smc911x.h
+index 8140f7c..05adb6a 100644
+--- a/drivers/net/smc911x.h
++++ b/drivers/net/smc911x.h
+@@ -236,7 +236,6 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
+  * Use a DMA for RX and TX packets.
+  */
+ #include <linux/dma-mapping.h>
+-#include <mach/dma.h>
  
--#include <linux/etherdevice.h>
--
- #define BUG_83C690
- 
- /* These are the operational function interfaces to board-specific
+ static dma_addr_t rx_dmabuf, tx_dmabuf;
+ static int rx_dmalen, tx_dmalen;
 -- 
 1.6.0.6
 
