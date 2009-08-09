@@ -1,72 +1,35 @@
-From: Phil Sutter <n0-1@freewrt.org>
-Subject: [PATCH 3/3] korina: convert to net_device_ops
-Date: Sun,  9 Aug 2009 02:06:28 +0200
-Message-ID: <20090809000650.2495F4CEAA@orbit.nwl.cc>
-References: <20090808164512.02C174CEAA@orbit.nwl.cc>
- <1249776388-4626-1-git-send-email-n0-1@freewrt.org>
- <1249776388-4626-2-git-send-email-n0-1@freewrt.org>
- <1249776388-4626-3-git-send-email-n0-1@freewrt.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org,
-	Roel Kluin <roel.kluin@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:49794 "EHLO orbit.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753365AbZHIAGt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Aug 2009 20:06:49 -0400
-In-Reply-To: <1249776388-4626-3-git-send-email-n0-1@freewrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
+Date: Sun, 09 Aug 2009 10:48:34 +0300
+Message-ID: <4A7E7F52.7020100@redhat.com>
+References: <20090803171030.17268.26962.stgit@dev.haskins.net> <4A7AE150.7040009@redhat.com> <4A7AAB1A0200005A00051BED@sinclair.provo.novell.com> <200908061740.04276.arnd@arndb.de> <4A7AFBE3.5080200@redhat.com> <4A7AD2D20200005A00051C83@sinclair.provo.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	alacrityvm-devel@lists.sourceforge.net,
+	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4A7AD2D20200005A00051C83@sinclair.provo.novell.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Phil Sutter <n0-1@freewrt.org>
----
- drivers/net/korina.c |   23 ++++++++++++++---------
- 1 files changed, 14 insertions(+), 9 deletions(-)
+On 08/06/2009 07:55 PM, Gregory Haskins wrote:
+> Based on this, I will continue my efforts surrounding to use of vbus including its use to accelerate KVM for AlacrityVM.  If I can find a way to do this in such a way that KVM upstream finds acceptable, I would be very happy and will work towards whatever that compromise might be.   OTOH, if the KVM community is set against the concept of a generalized/shared backend, and thus wants to use some other approach that does not involve vbus, that is fine too.  Choice is one of the great assets of open source, eh?   :)
+>    
 
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index d256022..894f686 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -1088,6 +1088,18 @@ static int korina_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static const struct net_device_ops korina_netdev_ops = {
-+	.ndo_open               = korina_open,
-+	.ndo_stop               = korina_close,
-+	.ndo_start_xmit         = korina_send_packet,
-+	.ndo_set_multicast_list = korina_multicast_list,
-+	.ndo_tx_timeout         = korina_tx_timeout,
-+	.ndo_do_ioctl           = korina_ioctl,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller    = korina_poll_controller,
-+#endif
-+};
-+
- static int korina_probe(struct platform_device *pdev)
- {
- 	struct korina_device *bif = platform_get_drvdata(pdev);
-@@ -1156,17 +1168,10 @@ static int korina_probe(struct platform_device *pdev)
- 	dev->irq = lp->rx_irq;
- 	lp->dev = dev;
- 
--	dev->open = korina_open;
--	dev->stop = korina_close;
--	dev->hard_start_xmit = korina_send_packet;
--	dev->set_multicast_list = &korina_multicast_list;
-+	dev->netdev_ops = &korina_netdev_ops;
- 	dev->ethtool_ops = &netdev_ethtool_ops;
--	dev->tx_timeout = korina_tx_timeout;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	dev->do_ioctl = &korina_ioctl;
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	dev->poll_controller = korina_poll_controller;
--#endif
-+
- 	netif_napi_add(dev, &lp->napi, korina_poll, 64);
- 
- 	lp->phy_addr = (((lp->rx_irq == 0x2c? 1:0) << 8) | 0x05);
+KVM upstream (me) doesn't have much say regarding vbus.  I am not a 
+networking expert and I'm not the virtio or networking stack maintainer, 
+so I'm not qualified to accept or reject the code.  What I am able to do 
+is make sure that kvm can efficiently work with any driver/device stack; 
+this is why ioeventfd/irqfd were merged.
+
+I still think vbus is a duplication of effort; I understand vbus has 
+larger scope than virtio, but I still think these problems could have 
+been solved within the existing virtio stack.
+
 -- 
-1.6.0.6
+error compiling committee.c: too many arguments to function
 
