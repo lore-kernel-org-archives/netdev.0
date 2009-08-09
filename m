@@ -1,54 +1,52 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: [RFC PATCH v2 19/19] virtio: add a vbus transport
-Date: Sun, 09 Aug 2009 11:40:08 -0500
-Message-ID: <4A7EFBE8.7050409@codemonkey.ws>
-References: <20090409155200.32740.19358.stgit@dev.haskins.net> <20090409163221.32740.38373.stgit@dev.haskins.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
-	pmorreale@novell.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, kvm@vger.kernel.org, avi@redhat.com,
-	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
-	herber@gondor.apana.org.au, chrisw@sous-sol.org,
-	shemminger@vyatta.com, "Michael S. Tsirkin" <mst@redhat.com>
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752159AbZHIQkN@vger.kernel.org>
-In-Reply-To: <20090409163221.32740.38373.stgit@dev.haskins.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/2] inet6: Set default traffic class
+Date: Sun,  9 Aug 2009 20:12:49 +0200
+Message-ID: <1249841569-23706-3-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <resolve_IPV6_TCLASS>
+ <1249841569-23706-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249841569-23706-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51966 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752441AbZHISNE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 14:13:04 -0400
+In-Reply-To: <1249841569-23706-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gregory Haskins wrote:
-> We add a new virtio transport for accessing backends located on vbus.  This
-> complements the existing transports for virtio-pci, virtio-s390, and
-> virtio-lguest that already exist.
->
-> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+This patch addresses:
+ * assigning -1 to np->tclass as it is currently done is not very meaningful,
+   since it turns into 0xff;
+ * RFC 3542, 6.5 allows -1 for clearing the sticky IPV6_TCLASS option
+   and specifies -1 to mean "use kernel default":
+   - RFC 2460, 7. requires that the default traffic class must be zero for
+     all 8 bits,
+   - this is consistent with RFC 2474, 4.1 which recommends a default PHB of 0,
+     in combination with a value of the ECN field of "non-ECT" (RFC 3168, 5.).
 
-Very interesting...
+This patch changes the meaning of -1 from assigning 255 to mean the RFC 2460
+default, which at the same time allows to satisfy clearing the sticky TCLASS
+option as per RFC 3542, 6.5.
 
-I'm somewhat confused by what you're advocating vbus as.  I'm trying to 
-figure out how we converge vbus and virtio and become one big happy 
-family :-)
+(When passing -1 as ancillary data, the fallback remains np->tclass, which
+ has either been set via socket options, or contains the default value.)
 
-What parts of it do you think are better than virtio?  Should we forget 
-about venet and just focus on virtio-net on top of virtio-vbus assuming 
-that we can prove venet-tap/virtio-vbus/virtio-net is just as good as 
-venet-tap/vbus/venet?
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/ipv6/ipv6_sockglue.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-If we can prove that an in-kernel virtio-net 
-backend/virtio-pci/virtio-net does just as well as 
-venet-tap/virtio-vbus/virtio-net does that mean that vbus is no longer 
-needed?
-
-If you concede that the transport mechanisms can be identical, are you 
-really advocating the discovering and configuration mechanisms in vbus?  
-Is that what we should be focusing on? Do you care only about the host 
-mechanisms or do you also require the guest infrastructure to be present?
-
-I think two paravirtual I/O frameworks for KVM is a bad thing.  It 
-duplicates a ton of code and will very likely lead to user unhappiness.
-
-Regards,
-
-Anthony Liguori
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -315,6 +315,9 @@ static int do_ipv6_setsockopt(struct soc
+ 			goto e_inval;
+ 		if (val < -1 || val > 0xff)
+ 			goto e_inval;
++		/* RFC 3542, 6.5: default traffic class of 0x0 */
++		if (val == -1)
++			val = 0;
+ 		np->tclass = val;
+ 		retv = 0;
+ 		break;
