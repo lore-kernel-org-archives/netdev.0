@@ -1,44 +1,20 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Subject: [PATCH] net: include/linux/icmpv6: includecheck fix for icmpv6.h
-Date: Sun, 09 Aug 2009 18:57:18 +0530
-Message-ID: <1249824438.2957.10.camel@ht.satnam>
+From: Pavan Tumati <pavan.tumati@gmail.com>
+Subject: (unknown)
+Date: Sun, 9 Aug 2009 09:29:26 -0400
+Message-ID: <61cae9570908090629h45745b09m2a3654a2ad55f9b6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:47628 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751794AbZHIN15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2009 09:27:57 -0400
+Received: from mail-qy0-f196.google.com ([209.85.221.196]:54330 "EHLO
+	mail-qy0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753467AbZHIN3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Aug 2009 09:29:25 -0400
+Received: by qyk34 with SMTP id 34so2246245qyk.33
+        for <netdev@vger.kernel.org>; Sun, 09 Aug 2009 06:29:26 -0700 (PDT)
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-fix the following 'make includecheck' warning:
-
-  include/linux/icmpv6.h: linux/skbuff.h is included more than once.
-
-Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
----
- include/linux/icmpv6.h |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
-index b6a8518..c0d8357 100644
---- a/include/linux/icmpv6.h
-+++ b/include/linux/icmpv6.h
-@@ -171,8 +171,6 @@ struct icmp6_filter {
- #ifdef __KERNEL__
- 
- #include <linux/netdevice.h>
--#include <linux/skbuff.h>
--
- 
- extern void				icmpv6_send(struct sk_buff *skb,
- 						    u8 type, u8 code,
--- 
-1.6.0.6
-
-
-
+subscribe netdev
