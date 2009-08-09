@@ -1,35 +1,82 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH 0/7] AlacrityVM guest drivers Reply-To:
-Date: Sun, 09 Aug 2009 10:48:34 +0300
-Message-ID: <4A7E7F52.7020100@redhat.com>
-References: <20090803171030.17268.26962.stgit@dev.haskins.net> <4A7AE150.7040009@redhat.com> <4A7AAB1A0200005A00051BED@sinclair.provo.novell.com> <200908061740.04276.arnd@arndb.de> <4A7AFBE3.5080200@redhat.com> <4A7AD2D20200005A00051C83@sinclair.provo.novell.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/3] drivers/net: Correct use of request_region/request_mem_region
+Date: Sun, 9 Aug 2009 09:43:42 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0908090943210.13271@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	alacrityvm-devel@lists.sourceforge.net,
-	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A7AD2D20200005A00051C83@sinclair.provo.novell.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:54878 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751277AbZHIHno (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 03:43:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/06/2009 07:55 PM, Gregory Haskins wrote:
-> Based on this, I will continue my efforts surrounding to use of vbus including its use to accelerate KVM for AlacrityVM.  If I can find a way to do this in such a way that KVM upstream finds acceptable, I would be very happy and will work towards whatever that compromise might be.   OTOH, if the KVM community is set against the concept of a generalized/shared backend, and thus wants to use some other approach that does not involve vbus, that is fine too.  Choice is one of the great assets of open source, eh?   :)
->    
+From: Julia Lawall <julia@diku.dk>
 
-KVM upstream (me) doesn't have much say regarding vbus.  I am not a 
-networking expert and I'm not the virtio or networking stack maintainer, 
-so I'm not qualified to accept or reject the code.  What I am able to do 
-is make sure that kvm can efficiently work with any driver/device stack; 
-this is why ioeventfd/irqfd were merged.
+request_mem_region should be used with release_mem_region, not request_region.
 
-I still think vbus is a duplication of effort; I understand vbus has 
-larger scope than virtio, but I still think these problems could have 
-been solved within the existing virtio stack.
+The semantic patch that fixes this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
--- 
-error compiling committee.c: too many arguments to function
+// <smpl>
+@r2@
+expression start;
+@@
 
+request_mem_region(start,...)
+
+@b2@
+expression r2.start;
+@@
+
+request_region(start,...)
+
+@depends on !b2@
+expression r2.start;
+expression E;
+@@
+
+- release_region
++ release_mem_region
+  (start,E)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/jazzsonic.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff -u -p a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
+--- a/drivers/net/jazzsonic.c
++++ b/drivers/net/jazzsonic.c
+@@ -203,7 +203,7 @@ static int __devinit sonic_probe1(struct
+ 
+ 	return 0;
+ out:
+-	release_region(dev->base_addr, SONIC_MEM_SIZE);
++	release_mem_region(dev->base_addr, SONIC_MEM_SIZE);
+ 	return err;
+ }
+ 
+@@ -247,7 +247,7 @@ static int __devinit jazz_sonic_probe(st
+ 	return 0;
+ 
+ out1:
+-	release_region(dev->base_addr, SONIC_MEM_SIZE);
++	release_mem_region(dev->base_addr, SONIC_MEM_SIZE);
+ out:
+ 	free_netdev(dev);
+ 
+@@ -269,7 +269,7 @@ static int __devexit jazz_sonic_device_r
+ 	unregister_netdev(dev);
+ 	dma_free_coherent(lp->device, SIZEOF_SONIC_DESC * SONIC_BUS_SCALE(lp->dma_bitmode),
+ 	                  lp->descriptors, lp->descriptors_laddr);
+-	release_region (dev->base_addr, SONIC_MEM_SIZE);
++	release_mem_region(dev->base_addr, SONIC_MEM_SIZE);
+ 	free_netdev(dev);
+ 
+ 	return 0;
