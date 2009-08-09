@@ -1,149 +1,62 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [PATCH 2/10] Add sysctl to toggle the local support for ECN
-Date: Sun,  9 Aug 2009 21:48:39 +0200
-Message-ID: <1249847327-6792-3-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_test_tree_sending_ecn_for_review>
- <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: dccp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54988 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753092AbZHITxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2009 15:53:53 -0400
-In-Reply-To: <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Subject: [PATCH 11/14] drivers/net: use printk_once
+Date: Sun,  9 Aug 2009 21:54:06 +0200
+Message-ID: <1249847649-11631-12-git-send-email-marcin.slusarz@gmail.com>
+References: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
+Cc: netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753815AbZHITzG@vger.kernel.org>
+In-Reply-To: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This sysctl disables local ECN support for interpreting ECN bits.
-
-When set to 0, the host behaves as if it were ECN-incapable: ECN bits are
-ignored and the mandatory "Change L(ECN Incapable, 1)" (RFC 4340, 12.1) is
-sent during feature negotiation to signal to the other endpoint to signal
-that ECN bits will not be interpreted.
-
-The behaviour is slightly different from the tcp_ecn sysctl, since DCCP
-connections are ECN-enabled per default.
-
-Setting ECT codepoints in outgoing packets can not be controlled by this sysctl,
-but is possible by setting the sysctl to 0 at the remote (receiving) end. This
-signals that the remote end can not read ECN bits. Due to RFC 4340, 12.2, all
-outgoing packets are then sent as ECN-incapable.
-
-Inter-operability issues: the host does not set a preference for the remote ECN
-Incapable feature. Within the existing feature-negotiation infrastructure, this
-ensures that all valid values (ECN Incapable = 0 or 1) are acceptable.
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+Cc: netdev@vger.kernel.org
 ---
- Documentation/networking/dccp.txt |   12 ++++++++++++
- net/dccp/feat.c                   |   23 ++++++++++++++++-------
- net/dccp/feat.h                   |    1 +
- net/dccp/sysctl.c                 |    8 ++++++++
- 4 files changed, 37 insertions(+), 7 deletions(-)
+ drivers/net/mlx4/en_main.c |    6 +-----
+ drivers/net/mv643xx_eth.c  |    4 +---
+ 2 files changed, 2 insertions(+), 8 deletions(-)
 
---- a/Documentation/networking/dccp.txt
-+++ b/Documentation/networking/dccp.txt
-@@ -29,6 +29,12 @@ It has a base protocol and pluggable congestion control IDs (CCIDs).
- DCCP is a Proposed Standard (RFC 2026), and the homepage for DCCP as a protocol
- is at http://www.ietf.org/html.charters/dccp-charter.html
+diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/mlx4/en_main.c
+index 9ed4a15..18e9e4f 100644
+--- a/drivers/net/mlx4/en_main.c
++++ b/drivers/net/mlx4/en_main.c
+@@ -151,15 +151,11 @@ static void mlx4_en_remove(struct mlx4_dev *dev, void *endev_ptr)
  
-+ECN Support
-+===========
-+By default, all outgoing packets are sent with ECT(0) as per RFC 3168, sec. 5.
-+This can be disabled by setting the `ecn_local' sysctl to 0 (see below). The
-+ECN Nonce (RFC 3540) is not supported.
-+
- Missing features
- ================
+ static void *mlx4_en_add(struct mlx4_dev *dev)
+ {
+-	static int mlx4_en_version_printed;
+ 	struct mlx4_en_dev *mdev;
+ 	int i;
+ 	int err;
  
-@@ -163,6 +169,12 @@ seq_window = 100
- 	The initial sequence window (sec. 7.5.2) of the sender. This influences
- 	the local ackno validity and the remote seqno validity windows (7.5.1).
+-	if (!mlx4_en_version_printed) {
+-		printk(KERN_INFO "%s", mlx4_en_version);
+-		mlx4_en_version_printed++;
+-	}
++	printk_once(KERN_INFO "%s", mlx4_en_version);
  
-+ecn_local = 1
-+	This toggles local ECN support: when set to 0, ECN Incapable (sec. 12.1)
-+	is sent and ECN bits of incoming packets are ignored. Note that this is
-+	different from tcp_ecn: to disable sending of ECT codepoints, the remote
-+	peer needs to set this sysctl to zero.
-+
- tx_qlen = 5
- 	The size of the transmit buffer in packets. A value of 0 corresponds
- 	to an unbounded transmit buffer.
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -29,7 +29,8 @@
- /* feature-specific sysctls - initialised to the defaults from RFC 4340, 6.4 */
- unsigned long	sysctl_dccp_sequence_window __read_mostly = 100;
- int		sysctl_dccp_rx_ccid	    __read_mostly = 2,
--		sysctl_dccp_tx_ccid	    __read_mostly = 2;
-+		sysctl_dccp_tx_ccid	    __read_mostly = 2,
-+		sysctl_dccp_ecn_local	    __read_mostly = true;
+ 	mdev = kzalloc(sizeof *mdev, GFP_KERNEL);
+ 	if (!mdev) {
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 0f32db3..dbb1d9c 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2622,14 +2622,12 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
  
- /*
-  * Feature activation handlers.
-@@ -1111,7 +1112,8 @@ static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
- 		 * No particular preferences have been registered. We deal with
- 		 * this situation by assuming that all valid values are equally
- 		 * acceptable, and apply the following checks:
--		 * - if the peer's list is a singleton, we accept a valid value;
-+		 * - if the peer's list is a singleton, we accept a valid value
-+		 *   (allows to cope gracefully with e.g. remote ECN Incapable);
- 		 * - if we are the server, we first try to see if the peer (the
- 		 *   client) advertises the default value. If yes, we use it,
- 		 *   otherwise we accept the preferred value;
-@@ -1430,11 +1432,18 @@ int dccp_feat_init(struct sock *sk)
- 	rc = __feat_register_sp(fn, DCCPF_SHORT_SEQNOS, true, true, &off, 1);
- 	if (rc)
- 		return rc;
--
--	/* RFC 4340 12.1: "If a DCCP is not ECN capable, ..." */
--	rc = __feat_register_sp(fn, DCCPF_ECN_INCAPABLE, true, true, &on, 1);
--	if (rc)
--		return rc;
-+	/*
-+	 * ECN Incapable Feature (RFC 4340, 12.1)
-+	 *
-+	 * We do not register preferences for the feature-remote value, so that
-+	 * the preference list is empty and either value is locally acceptable.
-+	 */
-+	if (!sysctl_dccp_ecn_local) {
-+		rc = __feat_register_sp(fn, DCCPF_ECN_INCAPABLE,
-+					    true, true, &on, 1);
-+		if (rc)
-+			return rc;
-+	}
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ {
+-	static int mv643xx_eth_version_printed;
+ 	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
+ 	struct mv643xx_eth_shared_private *msp;
+ 	struct resource *res;
+ 	int ret;
  
- 	/*
- 	 * We advertise the available list of CCIDs and reorder according to
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -106,6 +106,7 @@ struct ccid_dependency {
- extern unsigned long sysctl_dccp_sequence_window;
- extern int	     sysctl_dccp_rx_ccid;
- extern int	     sysctl_dccp_tx_ccid;
-+extern int	     sysctl_dccp_ecn_local;
+-	if (!mv643xx_eth_version_printed++)
+-		printk(KERN_NOTICE "MV-643xx 10/100/1000 ethernet "
++	printk_once(KERN_NOTICE "MV-643xx 10/100/1000 ethernet "
+ 			"driver version %s\n", mv643xx_eth_driver_version);
  
- extern int  dccp_feat_init(struct sock *sk);
- extern void dccp_feat_initialise_sysctls(void);
---- a/net/dccp/sysctl.c
-+++ b/net/dccp/sysctl.c
-@@ -78,6 +78,14 @@ static struct ctl_table dccp_default_table[] = {
- 		.extra2		= &u8_max,
- 	},
- 	{
-+		.procname	= "ecn_local",
-+		.data		= &sysctl_dccp_ecn_local,
-+		.maxlen		= sizeof(sysctl_dccp_ecn_local),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+	},
-+	{
- 		.procname	= "tx_qlen",
- 		.data		= &sysctl_dccp_tx_qlen,
- 		.maxlen		= sizeof(sysctl_dccp_tx_qlen),
+ 	ret = -EINVAL;
 -- 
-1.6.0.rc2
-
+1.6.3.3
