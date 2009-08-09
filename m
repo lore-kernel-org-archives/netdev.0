@@ -1,252 +1,164 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 3/3] net: Add ftracer to help optimize process
-	scheduling based on incomming frame allocations (v2)
-Date: Sat, 8 Aug 2009 19:15:38 -0400
-Message-ID: <20090808231538.GD24414@localhost.localdomain>
-References: <20090807202130.GA26677@hmsreliant.think-freely.org> <20090808231322.GA24414@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rostedt@goodmis.org
+From: Phil Sutter <n0-1@freewrt.org>
+Subject: [PATCH 1/3] korina: fix printk formatting, add final info line
+Date: Sun,  9 Aug 2009 02:06:26 +0200
+Message-ID: <20090809000635.636254CEAA@orbit.nwl.cc>
+References: <20090808164512.02C174CEAA@orbit.nwl.cc>
+ <1249776388-4626-1-git-send-email-n0-1@freewrt.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org,
+	Roel Kluin <roel.kluin@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49959 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753242AbZHHXPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Aug 2009 19:15:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20090808231322.GA24414@localhost.localdomain>
+Received: from orbit.nwl.cc ([91.121.169.95]:48611 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753296AbZHIAGf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Aug 2009 20:06:35 -0400
+In-Reply-To: <1249776388-4626-1-git-send-email-n0-1@freewrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb allocation / consumption correlator
+The macro DRV_NAME contains "korina", the field dev->name points to the
+actual interface name. So messages were formerly prefixed with
+'korinaeth2:' (on my system).
 
-Add ftracer module to kernel to print out a list that correlates a process id,
-an skb it read, and the numa nodes on wich the process was running when it was
-read along with the numa node the skbuff was allocated on.
+Signed-off-by: Phil Sutter <n0-1@freewrt.org>
+---
+ drivers/net/korina.c |   31 ++++++++++++++++---------------
+ 1 files changed, 16 insertions(+), 15 deletions(-)
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+index a2701f5..c09e2ce 100644
+--- a/drivers/net/korina.c
++++ b/drivers/net/korina.c
+@@ -337,7 +337,7 @@ static irqreturn_t korina_rx_dma_interrupt(int irq, void *dev_id)
+ 		napi_schedule(&lp->napi);
+ 
+ 		if (dmas & DMA_STAT_ERR)
+-			printk(KERN_ERR DRV_NAME "%s: DMA error\n", dev->name);
++			printk(KERN_ERR "%s: DMA error\n", dev->name);
+ 
+ 		retval = IRQ_HANDLED;
+ 	} else
+@@ -555,7 +555,7 @@ static void korina_tx(struct net_device *dev)
+ 			dev->stats.tx_dropped++;
+ 
+ 			/* Should never happen */
+-			printk(KERN_ERR DRV_NAME "%s: split tx ignored\n",
++			printk(KERN_ERR "%s: split tx ignored\n",
+ 							dev->name);
+ 		} else if (devcs & ETH_TX_TOK) {
+ 			dev->stats.tx_packets++;
+@@ -641,7 +641,7 @@ korina_tx_dma_interrupt(int irq, void *dev_id)
+ 			dev->trans_start = jiffies;
+ 		}
+ 		if (dmas & DMA_STAT_ERR)
+-			printk(KERN_ERR DRV_NAME "%s: DMA error\n", dev->name);
++			printk(KERN_ERR "%s: DMA error\n", dev->name);
+ 
+ 		retval = IRQ_HANDLED;
+ 	} else
+@@ -909,8 +909,7 @@ static int korina_restart(struct net_device *dev)
+ 
+ 	ret = korina_init(dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME "%s: cannot restart device\n",
+-								dev->name);
++		printk(KERN_ERR "%s: cannot restart device\n", dev->name);
+ 		return ret;
+ 	}
+ 	korina_multicast_list(dev);
+@@ -997,7 +996,7 @@ static int korina_open(struct net_device *dev)
+ 	/* Initialize */
+ 	ret = korina_init(dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME "%s: cannot open device\n", dev->name);
++		printk(KERN_ERR "%s: cannot open device\n", dev->name);
+ 		goto out;
+ 	}
+ 
+@@ -1007,14 +1006,14 @@ static int korina_open(struct net_device *dev)
+ 	ret = request_irq(lp->rx_irq, &korina_rx_dma_interrupt,
+ 			IRQF_DISABLED, "Korina ethernet Rx", dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME "%s: unable to get Rx DMA IRQ %d\n",
++		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
+ 		    dev->name, lp->rx_irq);
+ 		goto err_release;
+ 	}
+ 	ret = request_irq(lp->tx_irq, &korina_tx_dma_interrupt,
+ 			IRQF_DISABLED, "Korina ethernet Tx", dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME "%s: unable to get Tx DMA IRQ %d\n",
++		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
+ 		    dev->name, lp->tx_irq);
+ 		goto err_free_rx_irq;
+ 	}
+@@ -1023,7 +1022,7 @@ static int korina_open(struct net_device *dev)
+ 	ret = request_irq(lp->ovr_irq, &korina_ovr_interrupt,
+ 			IRQF_DISABLED, "Ethernet Overflow", dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME"%s: unable to get OVR IRQ %d\n",
++		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
+ 		    dev->name, lp->ovr_irq);
+ 		goto err_free_tx_irq;
+ 	}
+@@ -1032,7 +1031,7 @@ static int korina_open(struct net_device *dev)
+ 	ret = request_irq(lp->und_irq, &korina_und_interrupt,
+ 			IRQF_DISABLED, "Ethernet Underflow", dev);
+ 	if (ret < 0) {
+-		printk(KERN_ERR DRV_NAME "%s: unable to get UND IRQ %d\n",
++		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
+ 		    dev->name, lp->und_irq);
+ 		goto err_free_ovr_irq;
+ 	}
+@@ -1111,7 +1110,7 @@ static int korina_probe(struct platform_device *pdev)
+ 	dev->base_addr = r->start;
+ 	lp->eth_regs = ioremap_nocache(r->start, r->end - r->start);
+ 	if (!lp->eth_regs) {
+-		printk(KERN_ERR DRV_NAME "cannot remap registers\n");
++		printk(KERN_ERR DRV_NAME ": cannot remap registers\n");
+ 		rc = -ENXIO;
+ 		goto probe_err_out;
+ 	}
+@@ -1119,7 +1118,7 @@ static int korina_probe(struct platform_device *pdev)
+ 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_dma_rx");
+ 	lp->rx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
+ 	if (!lp->rx_dma_regs) {
+-		printk(KERN_ERR DRV_NAME "cannot remap Rx DMA registers\n");
++		printk(KERN_ERR DRV_NAME ": cannot remap Rx DMA registers\n");
+ 		rc = -ENXIO;
+ 		goto probe_err_dma_rx;
+ 	}
+@@ -1127,14 +1126,14 @@ static int korina_probe(struct platform_device *pdev)
+ 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_dma_tx");
+ 	lp->tx_dma_regs = ioremap_nocache(r->start, r->end - r->start);
+ 	if (!lp->tx_dma_regs) {
+-		printk(KERN_ERR DRV_NAME "cannot remap Tx DMA registers\n");
++		printk(KERN_ERR DRV_NAME ": cannot remap Tx DMA registers\n");
+ 		rc = -ENXIO;
+ 		goto probe_err_dma_tx;
+ 	}
+ 
+ 	lp->td_ring = kmalloc(TD_RING_SIZE + RD_RING_SIZE, GFP_KERNEL);
+ 	if (!lp->td_ring) {
+-		printk(KERN_ERR DRV_NAME "cannot allocate descriptors\n");
++		printk(KERN_ERR DRV_NAME ": cannot allocate descriptors\n");
+ 		rc = -ENXIO;
+ 		goto probe_err_td_ring;
+ 	}
+@@ -1175,9 +1174,11 @@ static int korina_probe(struct platform_device *pdev)
+ 	rc = register_netdev(dev);
+ 	if (rc < 0) {
+ 		printk(KERN_ERR DRV_NAME
+-			": cannot register net device %d\n", rc);
++			": cannot register net device: %d\n", rc);
+ 		goto probe_err_register;
+ 	}
++	printk(KERN_INFO "%s: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n",
++			dev->name);
+ out:
+ 	return rc;
+ 
+-- 
+1.6.0.6
 
-
-diff --git a/kernel/trace/Makefile b/kernel/trace/Makefile
-index 844164d..ee5e5b1 100644
---- a/kernel/trace/Makefile
-+++ b/kernel/trace/Makefile
-@@ -49,6 +49,7 @@ obj-$(CONFIG_BLK_DEV_IO_TRACE) += blktrace.o
- ifeq ($(CONFIG_BLOCK),y)
- obj-$(CONFIG_EVENT_TRACING) += blktrace.o
- endif
-+obj-$(CONFIG_SKB_SOURCES_TRACER) += trace_skb_sources.o
- obj-$(CONFIG_EVENT_TRACING) += trace_events.o
- obj-$(CONFIG_EVENT_TRACING) += trace_export.o
- obj-$(CONFIG_FTRACE_SYSCALLS) += trace_syscalls.o
-diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
-index 3548ae5..8c1d458 100644
---- a/kernel/trace/trace.h
-+++ b/kernel/trace/trace.h
-@@ -11,6 +11,7 @@
- #include <trace/boot.h>
- #include <linux/kmemtrace.h>
- #include <trace/power.h>
-+#include <trace/events/skb.h>
- 
- #include <linux/trace_seq.h>
- #include <linux/ftrace_event.h>
-@@ -40,6 +41,7 @@ enum trace_type {
- 	TRACE_KMEM_FREE,
- 	TRACE_POWER,
- 	TRACE_BLK,
-+	TRACE_SKB_SOURCE,
- 
- 	__TRACE_LAST_TYPE,
- };
-@@ -171,6 +173,21 @@ struct trace_power {
- 	struct power_trace	state_data;
- };
- 
-+struct skb_record {
-+	pid_t pid;		/* pid of the copying process */
-+	int anid;		/* node where skb was allocated */
-+	int cnid;		/* node to which skb was copied in userspace */
-+	char ifname[IFNAMSIZ];	/* Name of the receiving interface */
-+	int rx_queue;		/* The rx queue the skb was received on */
-+	int ccpu;		/* Cpu the application got this frame from */
-+	int len;		/* length of the data copied */
-+};
-+
-+struct trace_skb_event {
-+	struct trace_entry	ent;
-+	struct skb_record	event_data;
-+};
-+
- enum kmemtrace_type_id {
- 	KMEMTRACE_TYPE_KMALLOC = 0,	/* kmalloc() or kfree(). */
- 	KMEMTRACE_TYPE_CACHE,		/* kmem_cache_*(). */
-@@ -323,6 +340,8 @@ extern void __ftrace_bad_type(void);
- 			  TRACE_SYSCALL_ENTER);				\
- 		IF_ASSIGN(var, ent, struct syscall_trace_exit,		\
- 			  TRACE_SYSCALL_EXIT);				\
-+		IF_ASSIGN(var, ent, struct trace_skb_event,		\
-+			  TRACE_SKB_SOURCE);				\
- 		__ftrace_bad_type();					\
- 	} while (0)
- 
-diff --git a/kernel/trace/trace_skb_sources.c b/kernel/trace/trace_skb_sources.c
-new file mode 100644
-index 0000000..4ba3671
---- /dev/null
-+++ b/kernel/trace/trace_skb_sources.c
-@@ -0,0 +1,154 @@
-+/*
-+ * ring buffer based tracer for analyzing per-socket skb sources
-+ *
-+ * Neil Horman <nhorman@tuxdriver.com> 
-+ * Copyright (C) 2009
-+ *
-+ *
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/debugfs.h>
-+#include <trace/events/skb.h>
-+#include <linux/kallsyms.h>
-+#include <linux/module.h>
-+#include <linux/hardirq.h>
-+#include <linux/netdevice.h>
-+#include <net/sock.h>
-+
-+#include "trace.h"
-+#include "trace_output.h"
-+
-+EXPORT_TRACEPOINT_SYMBOL_GPL(skb_copy_datagram_iovec);
-+
-+static struct trace_array *skb_trace;
-+static int __read_mostly trace_skb_source_enabled;
-+
-+static void probe_skb_dequeue(const struct sk_buff *skb, int len)
-+{
-+	struct ring_buffer_event *event;
-+	struct trace_skb_event *entry;
-+	struct trace_array *tr = skb_trace;
-+	struct net_device *dev;
-+
-+	if (!trace_skb_source_enabled)
-+		return;
-+
-+	if (in_interrupt())
-+		return;
-+
-+	event = trace_buffer_lock_reserve(tr, TRACE_SKB_SOURCE,
-+					  sizeof(*entry), 0, 0);
-+	if (!event)
-+		return;
-+	entry = ring_buffer_event_data(event);
-+
-+	entry->event_data.pid = current->pid;
-+	entry->event_data.anid = page_to_nid(virt_to_page(skb->data));
-+	entry->event_data.cnid = cpu_to_node(smp_processor_id());
-+	entry->event_data.len = len;
-+	entry->event_data.rx_queue = skb->queue_mapping;
-+	entry->event_data.ccpu = smp_processor_id();
-+
-+	dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-+	if (dev) {
-+		memcpy(entry->event_data.ifname, dev->name, IFNAMSIZ);
-+		dev_put(dev);
-+	} else {
-+		strcpy(entry->event_data.ifname, "Unknown");
-+	}
-+
-+	trace_buffer_unlock_commit(tr, event, 0, 0);
-+}
-+
-+static int tracing_skb_source_register(void)
-+{
-+	int ret;
-+
-+	ret = register_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-+	if (ret)
-+		pr_info("skb source trace: Couldn't activate dequeue tracepoint");
-+	
-+	return ret;
-+}
-+
-+static void start_skb_source_trace(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 1;
-+}
-+
-+static void stop_skb_source_trace(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 0;
-+}
-+
-+static void skb_source_trace_reset(struct trace_array *tr)
-+{
-+	trace_skb_source_enabled = 0;
-+	unregister_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-+}
-+
-+
-+static int skb_source_trace_init(struct trace_array *tr)
-+{
-+	int cpu;
-+	skb_trace = tr;
-+
-+	trace_skb_source_enabled = 1;
-+	tracing_skb_source_register();
-+
-+	for_each_cpu(cpu, cpu_possible_mask)
-+		tracing_reset(tr, cpu);
-+	return 0;
-+}
-+
-+static enum print_line_t skb_source_print_line(struct trace_iterator *iter)
-+{
-+	int ret = 0;
-+	struct trace_entry *entry = iter->ent;
-+	struct trace_skb_event *event;
-+	struct skb_record *record;
-+	struct trace_seq *s = &iter->seq;
-+
-+	trace_assign_type(event, entry);
-+	record = &event->event_data;
-+	if (entry->type != TRACE_SKB_SOURCE)
-+		return TRACE_TYPE_UNHANDLED;
-+
-+	ret = trace_seq_printf(s, "	%d	%d	%d	%s	%d	%d	%d\n",
-+			record->pid,
-+			record->anid,
-+			record->cnid,
-+			record->ifname,
-+			record->rx_queue,
-+			record->ccpu,
-+			record->len);
-+
-+	if (!ret)
-+		return TRACE_TYPE_PARTIAL_LINE;
-+
-+	return TRACE_TYPE_HANDLED;
-+}
-+
-+static void skb_source_print_header(struct seq_file *s)
-+{
-+	seq_puts(s, "#	PID	ANID	CNID	IFC	RXQ	CCPU	LEN\n");
-+	seq_puts(s, "#	 |	 |	 |	 |	 |	 |	 |\n");
-+}
-+
-+static struct tracer skb_source_tracer __read_mostly =
-+{
-+	.name		= "skb_sources",
-+	.init		= skb_source_trace_init,
-+	.start		= start_skb_source_trace,
-+	.stop		= stop_skb_source_trace,
-+	.reset		= skb_source_trace_reset,
-+	.print_line	= skb_source_print_line,
-+	.print_header	= skb_source_print_header,
-+};
-+
-+static int init_skb_source_trace(void)
-+{
-+	return register_tracer(&skb_source_tracer);
-+}
-+device_initcall(init_skb_source_trace);
