@@ -1,39 +1,54 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: [PATCH] zorro8390: Fix read buffer overflow in zorro8390_init_one()
-Date: Sun, 09 Aug 2009 16:00:25 +0200
-Message-ID: <4A7ED679.3020503@gmail.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH v2 19/19] virtio: add a vbus transport
+Date: Sun, 09 Aug 2009 11:40:08 -0500
+Message-ID: <4A7EFBE8.7050409@codemonkey.ws>
+References: <20090409155200.32740.19358.stgit@dev.haskins.net> <20090409163221.32740.38373.stgit@dev.haskins.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:53811 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbZHIN4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Aug 2009 09:56:40 -0400
-Received: by ewy10 with SMTP id 10so2496777ewy.37
-        for <netdev@vger.kernel.org>; Sun, 09 Aug 2009 06:56:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, agraf@suse.de, pmullaney@novell.com,
+	pmorreale@novell.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org, kvm@vger.kernel.org, avi@redhat.com,
+	bhutchings@solarflare.com, andi@firstfloor.org, gregkh@suse.de,
+	herber@gondor.apana.org.au, chrisw@sous-sol.org,
+	shemminger@vyatta.com, "Michael S. Tsirkin" <mst@redhat.com>
+To: Gregory Haskins <ghaskins@novell.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752159AbZHIQkN@vger.kernel.org>
+In-Reply-To: <20090409163221.32740.38373.stgit@dev.haskins.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prevent read from cards[-1] when no card was found.
+Gregory Haskins wrote:
+> We add a new virtio transport for accessing backends located on vbus.  This
+> complements the existing transports for virtio-pci, virtio-s390, and
+> virtio-lguest that already exist.
+>
+> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-is ENODEV appropriate here?
+Very interesting...
 
-diff --git a/drivers/net/zorro8390.c b/drivers/net/zorro8390.c
-index 37c84e3..55502e1 100644
---- a/drivers/net/zorro8390.c
-+++ b/drivers/net/zorro8390.c
-@@ -120,6 +120,9 @@ static int __devinit zorro8390_init_one(struct zorro_dev *z,
-     for (i = ARRAY_SIZE(cards)-1; i >= 0; i--)
- 	if (z->id == cards[i].id)
- 	    break;
-+    if (i < 0)
-+        return -ENODEV;
-+    
-     board = z->resource.start;
-     ioaddr = board+cards[i].offset;
-     dev = alloc_ei_netdev();
+I'm somewhat confused by what you're advocating vbus as.  I'm trying to 
+figure out how we converge vbus and virtio and become one big happy 
+family :-)
+
+What parts of it do you think are better than virtio?  Should we forget 
+about venet and just focus on virtio-net on top of virtio-vbus assuming 
+that we can prove venet-tap/virtio-vbus/virtio-net is just as good as 
+venet-tap/vbus/venet?
+
+If we can prove that an in-kernel virtio-net 
+backend/virtio-pci/virtio-net does just as well as 
+venet-tap/virtio-vbus/virtio-net does that mean that vbus is no longer 
+needed?
+
+If you concede that the transport mechanisms can be identical, are you 
+really advocating the discovering and configuration mechanisms in vbus?  
+Is that what we should be focusing on? Do you care only about the host 
+mechanisms or do you also require the guest infrastructure to be present?
+
+I think two paravirtual I/O frameworks for KVM is a bad thing.  It 
+duplicates a ton of code and will very likely lead to user unhappiness.
+
+Regards,
+
+Anthony Liguori
