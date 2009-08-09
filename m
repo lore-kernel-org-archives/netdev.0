@@ -1,144 +1,149 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [PATCH 6/10] Extend the loss interval code to support ECN events
-Date: Sun,  9 Aug 2009 21:48:43 +0200
-Message-ID: <1249847327-6792-7-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: dccp-test-tree [PATCH 2/10] Add sysctl to toggle the local support for ECN
+Date: Sun,  9 Aug 2009 21:48:39 +0200
+Message-ID: <1249847327-6792-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_test_tree_sending_ecn_for_review>
  <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-5-git-send-email-gerrit@erg.abdn.ac.uk>
- <1249847327-6792-6-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54988 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753007AbZHITxw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2009 15:53:52 -0400
-In-Reply-To: <1249847327-6792-6-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753092AbZHITxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 15:53:53 -0400
+In-Reply-To: <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This updates the TFRC loss intervals code, which so far could only support
-lost packets, to also handle the case of ECN-marked-CE packets:
- * the begin and length of the loss interval are different;
- * there are combinations of loss + ECN-marked-CE which the code does not
-   currently consider (it is not worth the complexity), comments have been
-   added to point this out.
+This sysctl disables local ECN support for interpreting ECN bits.
 
-Further changes:
-----------------
-The implementation of the "is the loss interval already closed?" check as per
-RFC 4342, 10.2 has been improved to test the condition more efficiently.
+When set to 0, the host behaves as if it were ECN-incapable: ECN bits are
+ignored and the mandatory "Change L(ECN Incapable, 1)" (RFC 4340, 12.1) is
+sent during feature negotiation to signal to the other endpoint to signal
+that ECN bits will not be interpreted.
+
+The behaviour is slightly different from the tcp_ecn sysctl, since DCCP
+connections are ECN-enabled per default.
+
+Setting ECT codepoints in outgoing packets can not be controlled by this sysctl,
+but is possible by setting the sysctl to 0 at the remote (receiving) end. This
+signals that the remote end can not read ECN bits. Due to RFC 4340, 12.2, all
+outgoing packets are then sent as ECN-incapable.
+
+Inter-operability issues: the host does not set a preference for the remote ECN
+Incapable feature. Within the existing feature-negotiation infrastructure, this
+ensures that all valid values (ECN Incapable = 0 or 1) are acceptable.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/lib/loss_interval.c |   76 ++++++++++++++++++++++++++++--------
- 1 files changed, 59 insertions(+), 17 deletions(-)
+ Documentation/networking/dccp.txt |   12 ++++++++++++
+ net/dccp/feat.c                   |   23 ++++++++++++++++-------
+ net/dccp/feat.h                   |    1 +
+ net/dccp/sysctl.c                 |    8 ++++++++
+ 4 files changed, 37 insertions(+), 7 deletions(-)
 
---- a/net/dccp/ccids/lib/loss_interval.c
-+++ b/net/dccp/ccids/lib/loss_interval.c
-@@ -124,12 +124,12 @@ void tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *skb)
- 	tfrc_lh_calc_i_mean(lh);
- }
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -29,6 +29,12 @@ It has a base protocol and pluggable congestion control IDs (CCIDs).
+ DCCP is a Proposed Standard (RFC 2026), and the homepage for DCCP as a protocol
+ is at http://www.ietf.org/html.charters/dccp-charter.html
  
--/* Determine if `new_loss' does begin a new loss interval [RFC 4342, 10.2] */
--static inline u8 tfrc_lh_is_new_loss(struct tfrc_loss_interval *cur,
--				     struct tfrc_rx_hist_entry *new_loss)
-+/* RFC 4342, 10.2: test for the existence of packet with sequence number S */
-+static bool tfrc_lh_closed_check(struct tfrc_loss_interval *cur, const u8 ccval)
- {
--	return	dccp_delta_seqno(cur->li_seqno, new_loss->tfrchrx_seqno) > 0 &&
--		(cur->li_is_closed || SUB16(new_loss->tfrchrx_ccval, cur->li_ccval) > 4);
-+	if (SUB16(ccval, cur->li_ccval) > 4)
-+		cur->li_is_closed = true;
-+	return cur->li_is_closed;
- }
- 
- /** tfrc_lh_interval_add  -  Insert new record into the Loss Interval database
-@@ -142,27 +142,69 @@ static inline u8 tfrc_lh_is_new_loss(struct tfrc_loss_interval *cur,
- bool tfrc_lh_interval_add(struct tfrc_loss_hist *lh, struct tfrc_rx_hist *rh,
- 			  u32 (*calc_first_li)(struct sock *), struct sock *sk)
- {
--	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh), *new;
-+	struct tfrc_loss_interval *cur = tfrc_lh_peek(lh);
-+	struct tfrc_rx_hist_entry *cong_evt;
-+	u64 cong_evt_seqno;
++ECN Support
++===========
++By default, all outgoing packets are sent with ECT(0) as per RFC 3168, sec. 5.
++This can be disabled by setting the `ecn_local' sysctl to 0 (see below). The
++ECN Nonce (RFC 3540) is not supported.
 +
+ Missing features
+ ================
+ 
+@@ -163,6 +169,12 @@ seq_window = 100
+ 	The initial sequence window (sec. 7.5.2) of the sender. This influences
+ 	the local ackno validity and the remote seqno validity windows (7.5.1).
+ 
++ecn_local = 1
++	This toggles local ECN support: when set to 0, ECN Incapable (sec. 12.1)
++	is sent and ECN bits of incoming packets are ignored. Note that this is
++	different from tcp_ecn: to disable sending of ECT codepoints, the remote
++	peer needs to set this sysctl to zero.
++
+ tx_qlen = 5
+ 	The size of the transmit buffer in packets. A value of 0 corresponds
+ 	to an unbounded transmit buffer.
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -29,7 +29,8 @@
+ /* feature-specific sysctls - initialised to the defaults from RFC 4340, 6.4 */
+ unsigned long	sysctl_dccp_sequence_window __read_mostly = 100;
+ int		sysctl_dccp_rx_ccid	    __read_mostly = 2,
+-		sysctl_dccp_tx_ccid	    __read_mostly = 2;
++		sysctl_dccp_tx_ccid	    __read_mostly = 2,
++		sysctl_dccp_ecn_local	    __read_mostly = true;
+ 
+ /*
+  * Feature activation handlers.
+@@ -1111,7 +1112,8 @@ static u8 dccp_feat_change_recv(struct list_head *fn, u8 is_mandatory, u8 opt,
+ 		 * No particular preferences have been registered. We deal with
+ 		 * this situation by assuming that all valid values are equally
+ 		 * acceptable, and apply the following checks:
+-		 * - if the peer's list is a singleton, we accept a valid value;
++		 * - if the peer's list is a singleton, we accept a valid value
++		 *   (allows to cope gracefully with e.g. remote ECN Incapable);
+ 		 * - if we are the server, we first try to see if the peer (the
+ 		 *   client) advertises the default value. If yes, we use it,
+ 		 *   otherwise we accept the preferred value;
+@@ -1430,11 +1432,18 @@ int dccp_feat_init(struct sock *sk)
+ 	rc = __feat_register_sp(fn, DCCPF_SHORT_SEQNOS, true, true, &off, 1);
+ 	if (rc)
+ 		return rc;
+-
+-	/* RFC 4340 12.1: "If a DCCP is not ECN capable, ..." */
+-	rc = __feat_register_sp(fn, DCCPF_ECN_INCAPABLE, true, true, &on, 1);
+-	if (rc)
+-		return rc;
 +	/*
-+	 * Determine if the new event is caused by a lost or ECN-marked packet.
-+	 * Both events can coincide (e.g. if the third packet after a loss is
-+	 * marked as CE). We avoid the complexity caused by such mixed cases:
-+	 *   1) if the cause is a lost packet, we do not check whether it is
-+	 *      also an ECN-marked packet (not necessary);
-+	 *   2) calling this routine with a loss_count of 0..NDUPACK-1 implies
-+	 *      that the cause is an ECN-marked-CE packet.
-+	 *      FIXME: if in this case the loss_count is not 0, loss tracking is
-+	 *      reset. This is a complex corner case (see packet_history.c) and
-+	 *      hence currently not supported.
++	 * ECN Incapable Feature (RFC 4340, 12.1)
++	 *
++	 * We do not register preferences for the feature-remote value, so that
++	 * the preference list is empty and either value is locally acceptable.
 +	 */
-+	if (rh->loss_count == TFRC_NDUPACK) {
-+		/*
-+		 * The sequence number of the first packet known to be lost is
-+		 * the successor of the last packet received before the gap.
-+		 */
-+		cong_evt = tfrc_rx_hist_loss_prev(rh);
-+		cong_evt_seqno = ADD48(cong_evt->tfrchrx_seqno, 1);
-+	} else {
-+		/*
-+		 * ECN-marked packet. Since ECN-marks are reported as soon as a
-+		 * packet is delivered, it is stored in the last-received entry.
-+		 */
-+		cong_evt = tfrc_rx_hist_last_rcv(rh);
-+		cong_evt_seqno = cong_evt->tfrchrx_seqno;
++	if (!sysctl_dccp_ecn_local) {
++		rc = __feat_register_sp(fn, DCCPF_ECN_INCAPABLE,
++					    true, true, &on, 1);
++		if (rc)
++			return rc;
 +	}
  
--	if (cur != NULL && !tfrc_lh_is_new_loss(cur, tfrc_rx_hist_loss_prev(rh)))
--		return false;
-+	/* Test if this event starts a new loss interval */
-+	if (cur != NULL) {
-+		s64 len = dccp_delta_seqno(cur->li_seqno, cong_evt_seqno);
-+		if (len <= 0)
-+			return false;
-+
-+		if (!tfrc_lh_closed_check(cur, cong_evt->tfrchrx_ccval))
-+			return false;
+ 	/*
+ 	 * We advertise the available list of CCIDs and reorder according to
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -106,6 +106,7 @@ struct ccid_dependency {
+ extern unsigned long sysctl_dccp_sequence_window;
+ extern int	     sysctl_dccp_rx_ccid;
+ extern int	     sysctl_dccp_tx_ccid;
++extern int	     sysctl_dccp_ecn_local;
  
--	new = tfrc_lh_demand_next(lh);
--	if (unlikely(new == NULL)) {
-+		/* RFC 5348, 5.3: length between subsequent intervals */
-+		cur->li_length = len;
-+	}
-+
-+	/* Make the new interval the current one */
-+	cur = tfrc_lh_demand_next(lh);
-+	if (unlikely(cur == NULL)) {
- 		DCCP_CRIT("Cannot allocate/add loss record.");
- 		return false;
- 	}
- 
--	new->li_seqno	  = tfrc_rx_hist_loss_prev(rh)->tfrchrx_seqno;
--	new->li_ccval	  = tfrc_rx_hist_loss_prev(rh)->tfrchrx_ccval;
--	new->li_is_closed = 0;
-+	cur->li_seqno	  = cong_evt_seqno;
-+	cur->li_ccval	  = cong_evt->tfrchrx_ccval;
-+	cur->li_is_closed = false;
- 
- 	if (++lh->counter == 1)
--		lh->i_mean = new->li_length = (*calc_first_li)(sk);
-+		lh->i_mean = cur->li_length = (*calc_first_li)(sk);
- 	else {
--		cur->li_length = dccp_delta_seqno(cur->li_seqno, new->li_seqno);
--		new->li_length = dccp_delta_seqno(new->li_seqno,
--				  tfrc_rx_hist_last_rcv(rh)->tfrchrx_seqno) + 1;
-+		/* RFC 5348, 5.3: length of the open loss interval I_0 */
-+		cur->li_length = dccp_delta_seqno(cur->li_seqno,
-+				 tfrc_rx_hist_last_rcv(rh)->tfrchrx_seqno) + 1;
-+
- 		if (lh->counter > (2*LIH_SIZE))
- 			lh->counter -= LIH_SIZE;
- 
+ extern int  dccp_feat_init(struct sock *sk);
+ extern void dccp_feat_initialise_sysctls(void);
+--- a/net/dccp/sysctl.c
++++ b/net/dccp/sysctl.c
+@@ -78,6 +78,14 @@ static struct ctl_table dccp_default_table[] = {
+ 		.extra2		= &u8_max,
+ 	},
+ 	{
++		.procname	= "ecn_local",
++		.data		= &sysctl_dccp_ecn_local,
++		.maxlen		= sizeof(sysctl_dccp_ecn_local),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++	},
++	{
+ 		.procname	= "tx_qlen",
+ 		.data		= &sysctl_dccp_tx_qlen,
+ 		.maxlen		= sizeof(sysctl_dccp_tx_qlen),
 -- 
 1.6.0.rc2
 
