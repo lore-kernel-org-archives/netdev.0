@@ -1,38 +1,53 @@
-From: Tim Schneider <schneid5@cs.uni-bonn.de>
-Subject: Reading Route-Metric
-Date: Sun, 9 Aug 2009 21:14:30 +0200
-Message-ID: <33C861E5-B3AD-4983-8325-23D830A53265@cs.uni-bonn.de>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 0/10]: DCCPv4/6 support for ECN/ECT(0)
+Date: Sun,  9 Aug 2009 21:48:37 +0200
+Message-ID: <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <dccp_test_tree_sending_ecn_for_review>
+Cc: netdev@vger.kernel.org
+To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postfix.iai.uni-bonn.de ([131.220.8.4]:45021 "EHLO
-	postfix.iai.uni-bonn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752779AbZHITOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Aug 2009 15:14:31 -0400
-Received: from [10.0.1.10] (dslb-084-063-086-251.pools.arcor-ip.net [84.63.86.251])
-	by postfix.iai.uni-bonn.de (Postfix) with ESMTP id 21ECB5C818
-	for <netdev@vger.kernel.org>; Sun,  9 Aug 2009 21:14:31 +0200 (MEST)
-	(envelope-from schneid5@cs.uni-bonn.de)
-	(envelope-to netdev@vger.kernel.org) (1)
-	(internal use: ta=1, tu=1, te=1, am=P, au=schneid5)
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54849 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752637AbZHITst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 15:48:49 -0400
+In-Reply-To: <dccp_test_tree_sending_ecn_for_review>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This extends DCCP with ECN/ECT(0) capability, requesting review and comments.
 
-I've been trying for some time now to find a solution to my problem.  
-Since I a new to the kernel I was hoping that someone with more  
-experience could help me by giving me a hint on how to solve my problem.
-I am writing a Kernel Module and I need to read out the Route-Metric- 
-Value of a socket. I want to do this from within TCP, so I can access  
-the structs "socket" and "sock" of the socket. As of now, I haven't  
-found a way to find out the wanted value with the data I have given. I  
-would be grateful, if somebody could give me a hint on how to  
-accomplish that task.
+In particular,
+ * following RFC 2474 and RFC 3168, the set takes an AF-independent approach,
+ * the kernel still takes an AF-dependent approach (inet->tos, inet6->tclass),
+   so it would be good to have input what the general trend is,
+ * some of the patches touch on general issues and hence need discussion.
 
-Thank you for you Help
 
-Tim Schneider
+Patch  #1: Adds the ECN bits into the CB, for processing by DCCP and its CCIDs.
+Patch  #2: Adds a sysctl to for dccpv4/6 ECN support (similar to tcp_ecn sysctl).
+Patch  #3: Adds feature-negotiation handler for DCCP ECN support.
+Patch  #4: Is a hack to add ECN support. It is _not_ meant for consideration. I'd
+           appreciate any suggestions of doing this better. Currently there is no
+           full IPv6 ECN support: only TCPv4 uses ECN, SCTPv6 uses a workaround.
+           If you are reviewing this, please also check the next one.
+Patch  #5: Disables userspace modification of ECN bits via IP_TOS/IPV6_TCLASS,
+           since this will corrupt the internal ECN values. It is needed by this
+           approach for DCCP, but also by SCTPv6, since it is otherwise possible
+           to modify the ECN bits of np->tclass in userspace.
+Patch  #6: Extends the TFRC loss interval code of DCCP to support ECN.
+Patch  #7: Complements patch #6 by adding support for ECN-CE congestion events.
+Patch  #8: Adds Ack Vector ECN support to CCID-2.
+Patch  #9: AF-independent modification of DCCP ECN bits (compare #5).
+Patch #10: AF-independent reading of DCCP-ECN bits; complements #9.
+
+All patches (apart from #5) have been tested for approximately one year and
+are now integrated into the DCCP test tree available at
+
+	git://eden-feed.erg.abdn.ac.uk/dccp_exp  [subtree 'dccp']
+	
+	http://eden-feed.erg.abdn.ac.uk	         [web view]
+	http://eden-feed.erg.abdn.ac.uk/latest-dccp-test-tree.tar.bz2
+
+Before doing this, I compile-tested the tree again and ran a quick iperf test to
+ensure that ECT(0) is now working (DCCPv6 tested via ::1 loopback).
 
