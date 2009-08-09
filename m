@@ -1,163 +1,146 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp-test-tree [PATCH 1/10]: Put the ECN bits into the dccp_skb_cb
-Date: Sun,  9 Aug 2009 21:48:38 +0200
-Message-ID: <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: dccp-test-tree [PATCH 9/10] Userspace support for modifying the ECN bits of Data/DataAck packets
+Date: Sun,  9 Aug 2009 21:48:46 +0200
+Message-ID: <1249847327-6792-10-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_test_tree_sending_ecn_for_review>
  <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-5-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-6-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-7-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-8-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1249847327-6792-9-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: netdev@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: dccp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54967 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54988 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752945AbZHITwu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Aug 2009 15:52:50 -0400
-In-Reply-To: <1249847327-6792-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753007AbZHITxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Aug 2009 15:53:50 -0400
+In-Reply-To: <1249847327-6792-9-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the two bits from the IPv4 TOS or IPv6 Traffic Class field into the
-dccp_skb_cb.
+This allows to pass ECN bits as cmsg ancillary data with a cmsg_type of
+DCCP_SCM_ECN_BITS for Data/DataAck packets.
 
-To make the required room, dccp_opt_len is curtailed to 10 bits, since the
-DCCP option length can not exceed 1020 < 2^10-1.
+The scope of this patch is for developing user-space applications that work
+with, modify, or control the use of ECN bits on data packets.
 
-Further changes:
-----------------
- * added code to copy the TOS/traffic class field contents,
- * supplied a utility function that checks for CE,
- * deleted duplicate inclusion of headers.
+RFC: This is an AF-independent alternative to using IP_TOS/IPV6_TCLASS for
+     modifying the ECN bits.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/dccp.h |   10 +++++++++-
- net/dccp/ipv4.c |    5 ++---
- net/dccp/ipv6.c |   15 ++++++++-------
- 3 files changed, 19 insertions(+), 11 deletions(-)
+ Documentation/networking/dccp.txt |   12 ++++++++++--
+ include/linux/dccp.h              |    1 +
+ net/dccp/output.c                 |   10 +++++++---
+ net/dccp/proto.c                  |   20 ++++++++++++++++++++
+ 4 files changed, 38 insertions(+), 5 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -14,6 +14,7 @@
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -32,8 +32,16 @@ is at http://www.ietf.org/html.charters/dccp-charter.html
+ ECN Support
+ ===========
+ By default, all outgoing packets are sent with ECT(0) as per RFC 3168, sec. 5.
+-This can be disabled by setting the `ecn_local' sysctl to 0 (see below). The
+-ECN Nonce (RFC 3540) is not supported.
++This can be disabled by setting the `ecn_local' sysctl to 0 (see below).
++
++For Data/DataAck packets, the ECN bits can be modified by passing an appropriate
++cmsg(3) value as ancillary data to sendmsg(2). The argument is an uint8_t value
++between 0..3 (corresponding to Not-ECT, ECT(1), ECT(0), and CE). Values greater
++than 3 are not accepted. Values need to be wrapped into a cmsg(3) header:
++	cmsg->cmsg_level = SOL_DCCP;
++	cmsg->cmsg_type	 = DCCP_SCM_ECN_BITS;
++	cmsg->cmsg_len	 = CMSG_LEN(sizeof(uint8_t));	/* or CMSG_LEN(1) */
++
  
- #include <linux/dccp.h>
- #include <linux/ktime.h>
-+#include <net/inet_ecn.h>
- #include <net/snmp.h>
- #include <net/sock.h>
- #include <net/tcp.h>
-@@ -355,6 +356,7 @@ static inline int dccp_bad_service_code(const struct sock *sk,
-  * dccp_skb_cb  -  DCCP per-packet control information
-  * @dccpd_type: one of %dccp_pkt_type (or unknown)
-  * @dccpd_ccval: CCVal field (5.1), see e.g. RFC 4342, 8.1
-+ * @dccpd_ecn: ECN bits read from the IPv4 TOS / IPv6 Traffic Class field
-  * @dccpd_reset_code: one of %dccp_reset_codes
-  * @dccpd_reset_data: Data1..3 fields (depend on @dccpd_reset_code)
-  * @dccpd_opt_len: total length of all options (5.8) in the packet
-@@ -371,15 +373,21 @@ struct dccp_skb_cb {
- 	} header;
- 	__u8  dccpd_type:4;
- 	__u8  dccpd_ccval:4;
-+	__u8  dccpd_ecn:2;
- 	__u8  dccpd_reset_code,
- 	      dccpd_reset_data[3];
--	__u16 dccpd_opt_len;
-+	__u16 dccpd_opt_len:10;
- 	__u64 dccpd_seq;
- 	__u64 dccpd_ack_seq;
+ Missing features
+ ================
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -202,6 +202,7 @@ enum dccp_cmsg_type {
+ 	DCCP_SCM_PRIORITY = 1,
+ 	DCCP_SCM_QPOLICY_MAX = 0xFFFF,
+ 	/* ^-- Up to here reserved exclusively for qpolicy parameters */
++	DCCP_SCM_ECN_BITS,
+ 	DCCP_SCM_MAX
  };
  
- #define DCCP_SKB_CB(__skb) ((struct dccp_skb_cb *)&((__skb)->cb[0]))
+--- a/net/dccp/output.c
++++ b/net/dccp/output.c
+@@ -53,7 +53,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		const u32 dccp_header_size = sizeof(*dh) +
+ 					     sizeof(struct dccp_hdr_ext) +
+ 					  dccp_packet_hdr_len(dcb->dccpd_type);
+-		int err, set_ack = 1;
++		int err, set_ack = 1, ecn_bits = INET_ECN_ECT_0;
+ 		u64 ackno = dp->dccps_gsr;
+ 		/*
+ 		 * Increment GSS here already in case the option code needs it.
+@@ -66,6 +66,8 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 			set_ack = 0;
+ 			/* fall through */
+ 		case DCCP_PKT_DATAACK:
++			/* ECN bits of Data/DataAck are set in dccp_sendmsg() */
++			ecn_bits = DCCP_SKB_CB(skb)->dccpd_ecn;
+ 		case DCCP_PKT_RESET:
+ 			break;
  
-+static inline bool dccp_skb_is_ecn_ce(const struct sk_buff *skb)
-+{
-+	return (DCCP_SKB_CB(skb)->dccpd_ecn & INET_ECN_MASK) == INET_ECN_CE;
-+}
-+
- /* RFC 4340, sec. 7.7 */
- static inline int dccp_non_data_packet(const struct sk_buff *skb)
+@@ -130,8 +132,10 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+ 			break;
+ 		}
+ 
+-		if (dp->dccps_r_ecn_ok)
+-			INET_ECN_xmit(sk);
++		if (dp->dccps_r_ecn_ok) {
++			inet_sk(sk)->tos &= ~INET_ECN_MASK;
++			inet_sk(sk)->tos |= ecn_bits & INET_ECN_MASK;
++		}
+ 
+ 		icsk->icsk_af_ops->send_check(sk, 0, skb);
+ 
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -707,7 +707,17 @@ EXPORT_SYMBOL_GPL(compat_dccp_getsockopt);
+ 
+ static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
  {
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -10,16 +10,13 @@
-  *	2 of the License, or (at your option) any later version.
-  */
- 
--#include <linux/dccp.h>
- #include <linux/icmp.h>
- #include <linux/module.h>
--#include <linux/skbuff.h>
- #include <linux/random.h>
- 
- #include <net/icmp.h>
- #include <net/inet_common.h>
- #include <net/inet_hashtables.h>
--#include <net/inet_sock.h>
- #include <net/protocol.h>
- #include <net/sock.h>
- #include <net/timewait_sock.h>
-@@ -783,6 +780,8 @@ static int dccp_v4_rcv(struct sk_buff *skb)
- 		goto discard_it;
- 
- 	iph = ip_hdr(skb);
-+	DCCP_SKB_CB(skb)->dccpd_ecn = iph->tos & INET_ECN_MASK;
++	const struct dccp_sock *dp = dccp_sk(skb->sk);
+ 	struct cmsghdr *cmsg = CMSG_FIRSTHDR(msg);
++	u8 val;
 +
- 	/* Step 1: If header checksum is incorrect, drop packet and return */
- 	if (dccp_v4_csum_finish(skb, iph->saddr, iph->daddr)) {
- 		DCCP_WARN("dropped packet with invalid checksum\n");
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -19,7 +19,6 @@
- #include <net/addrconf.h>
- #include <net/inet_common.h>
- #include <net/inet_hashtables.h>
--#include <net/inet_sock.h>
- #include <net/inet6_connection_sock.h>
- #include <net/inet6_hashtables.h>
- #include <net/ip6_route.h>
-@@ -783,6 +782,7 @@ discard:
++	/*
++	 * Setting ECN bits via DCCP_SCM_ECN_BITS: Data/DataAck only.
++	 * See dccp_transmit_skb() where further processing takes place.
++	 * By default, when no cmsg bits are supplied and when ECN is not
++	 * disabled, ECT(0) is used for all outgoing packets (RFC 3168, 5.).
++	 */
++	DCCP_SKB_CB(skb)->dccpd_ecn = INET_ECN_ECT_0;
  
- static int dccp_v6_rcv(struct sk_buff *skb)
- {
-+	struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
- 	const struct dccp_hdr *dh;
- 	struct sock *sk;
- 	int min_cov;
-@@ -792,6 +792,8 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 	if (dccp_invalid_packet(skb))
- 		goto discard_it;
- 
-+	dcb->dccpd_ecn = ipv6_get_dsfield(ipv6_hdr(skb)) & INET_ECN_MASK;
-+
- 	/* Step 1: If header checksum is incorrect, drop packet and return. */
- 	if (dccp_v6_csum_finish(skb, &ipv6_hdr(skb)->saddr,
- 				     &ipv6_hdr(skb)->daddr)) {
-@@ -801,13 +803,13 @@ static int dccp_v6_rcv(struct sk_buff *skb)
- 
- 	dh = dccp_hdr(skb);
- 
--	DCCP_SKB_CB(skb)->dccpd_seq  = dccp_hdr_seq(dh);
--	DCCP_SKB_CB(skb)->dccpd_type = dh->dccph_type;
-+	dcb->dccpd_seq  = dccp_hdr_seq(dh);
-+	dcb->dccpd_type = dh->dccph_type;
- 
- 	if (dccp_packet_without_ack(skb))
--		DCCP_SKB_CB(skb)->dccpd_ack_seq = DCCP_PKT_WITHOUT_ACK_SEQ;
-+		dcb->dccpd_ack_seq = DCCP_PKT_WITHOUT_ACK_SEQ;
- 	else
--		DCCP_SKB_CB(skb)->dccpd_ack_seq = dccp_hdr_ack_seq(skb);
-+		dcb->dccpd_ack_seq = dccp_hdr_ack_seq(skb);
- 
- 	/* Step 2:
- 	 *	Look up flow ID in table and get corresponding socket */
-@@ -863,8 +865,7 @@ no_dccp_socket:
- 	 *		Drop packet and return
- 	 */
- 	if (dh->dccph_type != DCCP_PKT_RESET) {
--		DCCP_SKB_CB(skb)->dccpd_reset_code =
--					DCCP_RESET_CODE_NO_CONNECTION;
-+		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
- 		dccp_v6_ctl_send_reset(sk, skb);
- 	}
- 
+ 	/*
+ 	 * Assign an (opaque) qpolicy priority value to skb->priority.
+@@ -739,6 +749,16 @@ static int dccp_msghdr_parse(struct msghdr *msg, struct sk_buff *skb)
+ 				return -EINVAL;
+ 			skb->priority = *(__u32 *)CMSG_DATA(cmsg);
+ 			break;
++		case DCCP_SCM_ECN_BITS:
++			if (!dp->dccps_r_ecn_ok)
++				return -EINVAL;
++			if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u8)))
++				return -EINVAL;
++			val = *(__u8 *)CMSG_DATA(cmsg);
++			if (val > INET_ECN_MASK)
++				return -EINVAL;
++			DCCP_SKB_CB(skb)->dccpd_ecn = val;
++			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
 -- 
 1.6.0.rc2
 
