@@ -1,47 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] macvlan: add tap device backend
-Date: Mon, 10 Aug 2009 16:42:29 +0300
-Message-ID: <20090810134229.GA10036@redhat.com>
-References: <1249595428-21594-1-git-send-email-arnd@arndb.de> <200908092042.24686.arnd@arndb.de> <20090810085003.GA3654@redhat.com> <200908101529.46285.arnd@arndb.de>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFC 0/2] Software implementation of IEEE
+	802.15.4
+Date: Mon, 10 Aug 2009 18:16:38 +0400
+Message-ID: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@voltaire.com>,
-	"Fischer, Anna" <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Edge Virtual Bridging <evb@yahoogroups.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:37647 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754451AbZHJNox (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2009 09:44:53 -0400
-Content-Disposition: inline
-In-Reply-To: <200908101529.46285.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 10, 2009 at 03:29:46PM +0200, Arnd Bergmann wrote:
-> On Monday 10 August 2009, Michael S. Tsirkin wrote:
-> > 
-> > > Would it be enough to check the dev_queue_xmit() return
-> > > code for NETDEV_TX_BUSY?
-> > > 
-> > > How would I get notified when it gets free again?
-> > 
-> > You can do this by creating a socket. Look at how tun does
-> > this now.
-> 
-> Hmm, I was hoping to be able to avoid this, because I can
-> interact more directly with the outbound physical interface
-> using dev_queue_xmit() instead of netif_rx_ni().
 
-Yea, that's what tun does. socket just notifies you when
-packets are freed.
+Hi,
 
-> I'll have a look. Thanks,
-> 
-> 	Arnd <><
+In this (small) patchset we'd like to present the grounds of our software
+IEEE 802.15.4 MAC implementation. Especially this patchset contains only
+packet dissection and data path (in generic parts) and virtual loopback
+driver (as an example user).
+
+Please review.
+
+Dmitry Eremin-Solenikov (2):
+      mac802154: add a software MAC 802.15.4 implementation
+      ieee802154: add virtual loopback driver
+
+ MAINTAINERS                 |    1 +
+ drivers/ieee802154/Kconfig  |   13 +
+ drivers/ieee802154/Makefile |    1 +
+ drivers/ieee802154/fakelb.c |  255 ++++++++++++
+ include/linux/mac802154.h   |   35 ++
+ include/net/mac802154.h     |  106 +++++
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/mac802154/Kconfig       |   17 +
+ net/mac802154/Makefile      |    4 +
+ net/mac802154/dev.c         |  924 +++++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h   |   85 ++++
+ net/mac802154/mac_cmd.c     |   99 +++++
+ net/mac802154/mdev.c        |  295 ++++++++++++++
+ net/mac802154/mib.h         |   32 ++
+ net/mac802154/rx.c          |   98 +++++
+ 16 files changed, 1967 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ieee802154/fakelb.c
+ create mode 100644 include/linux/mac802154.h
+ create mode 100644 include/net/mac802154.h
+ create mode 100644 net/mac802154/Kconfig
+ create mode 100644 net/mac802154/Makefile
+ create mode 100644 net/mac802154/dev.c
+ create mode 100644 net/mac802154/mac802154.h
+ create mode 100644 net/mac802154/mac_cmd.c
+ create mode 100644 net/mac802154/mdev.c
+ create mode 100644 net/mac802154/mib.h
+ create mode 100644 net/mac802154/rx.c
+
+
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
