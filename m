@@ -1,49 +1,65 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
+From: Dan Smith <danms@us.ibm.com>
 Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v8)
-Date: Mon, 10 Aug 2009 16:02:35 -0500
-Message-ID: <20090810210235.GB24373@us.ibm.com>
-References: <1249918379-29414-1-git-send-email-danms@us.ibm.com> <1249918379-29414-6-git-send-email-danms@us.ibm.com>
+Date: Mon, 10 Aug 2009 14:06:47 -0700
+Message-ID: <87fxbz5qfs.fsf@caffeine.danplanet.com>
+References: <1249918379-29414-1-git-send-email-danms@us.ibm.com>
+	<1249918379-29414-6-git-send-email-danms@us.ibm.com>
+	<20090810210235.GB24373@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
 	Alexey Dobriyan <adobriyan@gmail.com>
-To: Dan Smith <danms@us.ibm.com>
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:46175 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753615AbZHJVCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 17:02:46 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7AL1q7p013989
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:01:52 -0600
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7AL2dK5252004
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:02:42 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7AL2bJ9014705
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:02:38 -0600
-Content-Disposition: inline
-In-Reply-To: <1249918379-29414-6-git-send-email-danms@us.ibm.com>
+Received: from gw0.danplanet.com ([71.245.107.82]:49167 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753712AbZHJVG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 17:06:57 -0400
+In-Reply-To: <20090810210235.GB24373@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 10 Aug 2009 16\:02\:35 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Dan Smith (danms@us.ibm.com):
-> This patch adds basic checkpoint/restart support for AF_UNIX sockets.  It
-> has been tested with a single and multiple processes, and with data inflight
-> at the time of checkpoint.  It supports socketpair()s, path-based, and
-> abstract sockets.
+SH> Thanks, Dan.  Apart from the double-free on error case in
+SH> sock_copy_buffers(), this looks very good to me.  So with that
+SH> change, please feel free to add:
 
-Thanks, Dan.  Apart from the double-free on error case in
-sock_copy_buffers(), this looks very good to me.  So with that
-change, please feel free to add:
+Okay, thanks, I've got that fixed up now.
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+SH> Dan, do you have any testcases (even just descriptions of how to
+SH> test, which i'll then try to script) i can add to cr_tests?
 
-Oren, pls do consider pulling this into v18.
+Yeah, I've got a big ugly test program that I've rolled automatic
+tests for most scenarios into.  Here's the usage output of the test.
+I'll get it cleaned up and posted too:
 
-Dan, do you have any testcases (even just descriptions of
-how to test, which i'll then try to script) i can add to
-cr_tests?
+  Usage: ./testprog [-t (s|d)] [-wn] TEST
+  Where:
+    -t s, -t d:             Select STREAM or DGRAM sockets
+    -w:                     Wait for a response before restarting
+    -n:                     Don't terminate the test on successful restart
+  
+  Where TEST is one of:
+    --unix_pair:            Pair of sockets using socketpair()
+    --unix_unlinked:        Listen socket with an unlinked path
+    --unix_pair_path:       Pair of sockets using paths
+    --unix_pair_abstract:   Pair of sockets using abstract names
+    --unix_inflight:        Pair of sockets with data in flight
+    --unix_inflight_closed: Pair of sockets, one side closed after preflight
+    --unix_midaccept:       Listen socket with unaccepted peer
+    --unix_fdpass:          Attempt to pass an FD
+    --unix_passcred:        Attempt to pass credentials
+    --unix_path:            Post-restart path-based connect to listen socket
+    --unix_abstract:        Post-restart abstract connect to listen socket
+    --unix_path_unlink:     Like pair_path, but unlink socket before restart
+    --unix_deadpeer:        Close peer socket with data in flight
+    --unix_testopt:         Unix socket setting and testing for a sockopt
+    --unix_anoninflight:    Inflight data with unconnected DGRAM sockets
+    --inet_connected:       Pair of localhost INET4 sockets
+    --inet6_connected:      Pair of localhost INET6 sockets
+    --nonet:                No network, just a simple loop
+    --sendmail:             Try to start up sendmail and checkpoint it
 
-thanks,
--serge
+-- 
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
