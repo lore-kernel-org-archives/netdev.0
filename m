@@ -1,57 +1,59 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [PATCH net-next-2.6] net: Changes to support the "-f" option
-	of ethtool.
-Date: Mon, 10 Aug 2009 14:34:05 +0530
-Message-ID: <20090810090404.GA16575@serverengines.com>
-References: <20090805123211.GB6592@serverengines.com> <20090805123704.GC6592@serverengines.com> <1249477567.2781.21.camel@achroite> <20090805.131723.120803503.davem@davemloft.net>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 5/6] [NET] ixp2000/enp2611: don't set non-existent
+	member get_stats
+Date: Mon, 10 Aug 2009 11:40:27 +0200
+Message-ID: <20090810094027.GA22200@pengutronix.de>
+References: <20090807203939.GA19374@pengutronix.de> <1249677761-19470-5-git-send-email-u.kleine-koenig@pengutronix.de> <20090809.214906.143672876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tglx@linutronix.de, linux-kernel@vger.kernel.org,
+	linux-rt-users@vger.kernel.org, linux@arm.linux.org.uk,
+	dbaryshkov@gmail.com, kernel@wantstofly.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:41316 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752678AbZHJJEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 05:04:06 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40616 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753366AbZHJJko (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 05:40:44 -0400
 Content-Disposition: inline
-In-Reply-To: <20090805.131723.120803503.davem@davemloft.net>
+In-Reply-To: <20090809.214906.143672876.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/08/09 13:17 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 05 Aug 2009 14:06:07 +0100
-> 
-> > request_firmware() is meant for loading firmware that is stored in
-> > volatile memory (RAM) on the device and therefore needs to be installed
-> > on the host.
-> > 
-> > When the firmware is stored in flash on the device, updates only need to
-> > be used once, and there should be no need to install them on the host.
-> > So request_firmware() does not seem suitable.
-> > 
-> > I believe the ethtool EEPROM commands were meant for updating firmware
-> > on NICs.  Although they assume random access and so are unsuitable for
-> > flash-based firmware, they might be a better model for adding flash
-> > update commands.  However, this command set is already available through
-> > the MTD device class, which is what we use for firmware update as far as
-> > possible.  Not only does this allow for an arbitrary number of separate
-> > firmware partitions per network device, but it can be used in an
-> > out-of-tree driver for older kernel versions.
-> 
-> I mostly agree with this.  Either use MTD or create an ethtool
-> operation that explicitly specifies the file to flash onto the
-> chip.  If you want, I suppose you can take no explicit file
-> specification to mean "whatever firmware was loaded into the
-> chip by the driver and is running right now"
-Thanks. I will go with the ethtool option which would also take the 
-filename and flash it onto the chip using the request_firmware() path.
+Hello,
 
--Ajit
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Sun, Aug 09, 2009 at 09:49:06PM -0700, David Miller wrote:
+> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> Date: Fri,  7 Aug 2009 22:42:40 +0200
+>=20
+> > This fixes a build failure for 2.6.31-rc5 (ARCH=3Darm, ixp2000_defc=
+onfig):
+> >=20
+> > 	  CC      drivers/net/ixp2000/enp2611.o
+> > 	drivers/net/ixp2000/enp2611.c: In function 'enp2611_init_module':
+> > 	drivers/net/ixp2000/enp2611.c:213: error: 'struct net_device' has =
+no member named 'get_stats'
+> >=20
+> > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>=20
+> This is far from the way to fix this, unfortunately.
+>=20
+> We need to find a way to propagate this assignment into
+> the netdev_ops method vector instead.
+Yes, I tried that, but stopped when I saw it's declared const.  I don't
+know if this is required.  If yes then the only way to fix it is to add
+a platform callback that is called if non-NULL.
+
+I don't want to invest time here without a word by the maintainers
+though.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                              | Uwe Kleine-K=F6nig     =
+       |
+Industrial Linux Solutions                    | http://www.pengutronix.=
+de/  |
