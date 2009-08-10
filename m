@@ -1,122 +1,67 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] mac802154: add a software MAC 802.15.4
- implementation
-Date: Mon, 10 Aug 2009 16:27:46 +0200
-Message-ID: <1249914466.32614.13.camel@johannes.local>
+Subject: Re: [PATCH 2/2] ieee802154: add virtual loopback driver
+Date: Mon, 10 Aug 2009 16:29:16 +0200
+Message-ID: <1249914556.32614.14.camel@johannes.local>
 References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
 	 <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
+	 <1249913800-10176-3-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-KsYkkV96P1gPmlwoM3O1"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OL0+UHPAPoGPd5SY+Ubc"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
 To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1249913800-10176-2-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1249913800-10176-3-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-KsYkkV96P1gPmlwoM3O1
+--=-OL0+UHPAPoGPd5SY+Ubc
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2009-08-10 at 18:16 +0400, Dmitry Eremin-Solenikov wrote:
-> Some of available devices are just dump radios implementing IEEE 802.15.4
 
-dump -> dumb
+> +if IEEE802154_DRIVERS && MAC802154
+> +config IEEE802154_FAKELB
 
-> Note this implementaion is neither certified, nor feature complete!
+depends on
 
-implementation
+> +	tristate "Fake LR-WPAN driver with several interconnected devices"
+> +	---help---
+> +	  Say Y here to enable the fake driver that can emulate a net
+> +          of several interconnected radio devices.
+> +
+> +          This driver can also be built as a module. To do so say M here=
+.
+> +	  The module will be called 'fakelb'.
 
-> + * @tx: Handler that 802.15.4 module calls for each transmitted frame.
-> + *      skb cntains the buffer starting from the IEEE 802.15.4 header.
-> + *      The low-level driver should send the frame based on available
-> + *      configuration.
-> + *      This function should return zero or negative errno.
-
-That return value is strange.
-
-> +++ b/net/Makefile
-> @@ -61,6 +61,7 @@ ifneq ($(CONFIG_DCB),)
->  obj-y				+=3D dcb/
->  endif
->  obj-y				+=3D ieee802154/
-> +obj-y				+=3D mac802154/
-
-I think you should use obj-$(CONFIG_MAC802154) as there's no need to
-recurse into the dir unless that's selected.
-
-But does it make sense to actually have this little code as a separate
-dir/module?
-
-> +	  Note: this implementation is neither certified, nor feature
-> +	  complete! We do not garantee that it is compatible w/ other
-> +	  implementations, etc.
-
-guarantee
-
-But generally, you don't have to write that anyway due to the license.
-
-> +	  If you plan to use HardMAC IEEE 802.15.4 devices, you can
-> +          say N here. Alternatievly you can say M to compile it as
-> +	  module.
-
-white space gone wrong
-
-> +	struct net_device *netdev; /* mwpanX device */
-> +	int open_count;
-> +	/* As in mac80211 slaves list is modified:
-> +	 * 1) under the RTNL
-> +	 * 2) protected by slaves_mtx;
-> +	 * 3) in an RCU manner
-> +	 *
-> +	 * So atomic readers can use any of this protection methods
-> +	 */
-> +	struct list_head	slaves;
-
-heh.
-
-> +static int ieee802154_master_open(struct net_device *dev)
-> +{
-
-We've had no end to trouble with the master netdev, I suggest you look
-into the current mac80211 code and see if you can get rid of it.
-
-> +struct ieee802154_dev *ieee802154_alloc_device(size_t priv_size,
-> +		struct ieee802154_ops *ops)
-> +{
-
-> +	if (!try_module_get(ops->owner)) {
-
-That isn't necessary since the module is just calling your function. In
-fact, doing this removes the ability to rmmod any module using this
-which is bogus.
+whitespace damage
 
 johannes
 
---=-KsYkkV96P1gPmlwoM3O1
+--=-OL0+UHPAPoGPd5SY+Ubc
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAABAgAGBQJKgC5fAAoJEODzc/N7+QmaSWMP/3s6Mpb1g0XXrIGJPUJ4acNA
-sdT8jOQGGTyVQOnb2qm9sDJ/PCEtXFrEuXAWzF4Xw/q4JW18B4rFhc0jOD109QGI
-ahe62VwJGXzErcWnomm4QE1tXilJ3rpgT8K+H66rP5p7/mo60Rg1JwPsUoGYMBoX
-g0tu9avvKt9f0ACKu0GmrvMiW5yOeAwdP3MzhoeSRAeflbXZ2Zc9F55AX9DxxwDR
-a1D2+42ZG0eI7/tDIU/8Df6pswU5n2CezcUpxUxq+hKcXb+MsRO6wtum2cd3cNm2
-h0e7JOpBCEgM+2rE6N2uaKzMbjjeg6EhITTvvFok5ASkOrjzbJlrpYYOFrB26AgZ
-BeLt3u06aLFvXT+6EqpKkOpGjbFwJwowvu63gw5iOBQWcz2HysBpdcjAy8BmVrQI
-8WUFhDB4A18X6fbedlfCuhyevVhbq9PmU3kCcPFW2pAAlQLwcSvygs9DSLW4k5Gv
-ZQuvisTAHRVD6WyqNzO8Ma7DL6k/31rGLHFRFl1zocIQFvEqiFFpoS4GOt5JSWC3
-FMBfMf+DZYFIrH+rY16fH7QvSCTUbbCJ3gRUwp5J/KhTLawtr520vhVE5bWPfhaV
-k+ALH5ygGhOEgQ1JCxuSMNbLVD9Lbj0BXS2rVAWHxx5u0zain80m8EBgsPGyaeWZ
-x8dWHyNo2P7fGYqaesHR
-=gpG+
+iQIcBAABAgAGBQJKgC64AAoJEODzc/N7+Qmam6gP/A0gySK31z1qE/cMaqZvI1aR
+zCT4OcHTKJiIdBeoxRTnmF8+zK7/0Irv02xLA/93IoLYJnEScuacC8ZbwZKJkJCQ
+24vBK2d1DF3Aox/XAI9bvQ3g2snc7ZieoAHjDh2lwSuxaUA3CHFgV1oufrn5AktF
+5Pdadsq/lsO1taVhFhSxQqFMWdVN7aBPIfYDEi5mOEn1YUh6fsJwYuzZMJzLqB/w
+d8OGcA8/4HV/dksEN0g8x00IYcEFE6cfMtntheEeJlRD5kGrUb3TpeeJ1rxw0GKO
+m/Jqeuom4JxeMCg0jJKv3JMkCsbIZFQM/1OBZZIKfw2t/TuH8RP5nXnC7NWjL4jg
+bULl+eK8tTyC7rQkyItIuMD69RlYFnpp+Y+aIdsOWWdSB8t4RNczz7vD1HjP0Su4
+YS5/BQrsNoJ6ibWqY4LKCa3kR2tgpoF7b69+HiBoGsUBoFzEh8jqJDKx2uJHJcG6
+JMi5G9FwKdR1lUWptW9gtuRbRfsHrooZflncsoEOuGkMUZYoC6DtPne6fTY52hWU
+xwcvvh6h7wkqDBS4fbt2IfD0Rzrh2ICyfqs8cqq2QmWOLieq8LAZ0ZpXbAFqkRJj
+efuKuKfdXb7jyvTdld9DeIvPn38uj9bh0lwSvFqB7Q3iOxlxC3dbjHSHHA9kksPh
+JwFr5Q8dieuoSxM++uM6
+=X2EH
 -----END PGP SIGNATURE-----
 
---=-KsYkkV96P1gPmlwoM3O1--
+--=-OL0+UHPAPoGPd5SY+Ubc--
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
