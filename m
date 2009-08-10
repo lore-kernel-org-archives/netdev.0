@@ -1,69 +1,41 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] ieee802154: add virtual loopback driver
-Date: Mon, 10 Aug 2009 16:29:16 +0200
-Message-ID: <1249914556.32614.14.camel@johannes.local>
-References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
-	 <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
-	 <1249913800-10176-3-git-send-email-dbaryshkov@gmail.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: 2.6.31-rc5-git5: Reported regressions from 2.6.30
+Date: Mon, 10 Aug 2009 09:30:43 -0500
+Message-ID: <1249914643.4089.3.camel@mulgrave.site>
+References: <AuPdDySr74O.A.5LC.Pj1fKB@chimera>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-OL0+UHPAPoGPd5SY+Ubc"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1249913800-10176-3-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <AuPdDySr74O.A.5LC.Pj1fKB@chimera>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2009-08-09 at 22:36 +0200, Rafael J. Wysocki wrote:
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13716
+> Subject         : The AIC-7892P controller does not work any more
+> Submitter       : Andrej Podzimek <andrej@podzimek.org>
+> Date            : 2009-07-05 19:23 (36 days old)
 
---=-OL0+UHPAPoGPd5SY+Ubc
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This one sounds like an IRQ routing error, so probably ACPI, but we've
+been totally unsuccessful at getting any further information out of the
+submitter.  Use your own time judgement on this, but if he hasn't been
+responding to you either for 36 days, I'd suggest closing this as
+unresponsive.
 
-On Mon, 2009-08-10 at 18:16 +0400, Dmitry Eremin-Solenikov wrote:
+James
 
-> +if IEEE802154_DRIVERS && MAC802154
-> +config IEEE802154_FAKELB
 
-depends on
-
-> +	tristate "Fake LR-WPAN driver with several interconnected devices"
-> +	---help---
-> +	  Say Y here to enable the fake driver that can emulate a net
-> +          of several interconnected radio devices.
-> +
-> +          This driver can also be built as a module. To do so say M here=
-.
-> +	  The module will be called 'fakelb'.
-
-whitespace damage
-
-johannes
-
---=-OL0+UHPAPoGPd5SY+Ubc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKgC64AAoJEODzc/N7+Qmam6gP/A0gySK31z1qE/cMaqZvI1aR
-zCT4OcHTKJiIdBeoxRTnmF8+zK7/0Irv02xLA/93IoLYJnEScuacC8ZbwZKJkJCQ
-24vBK2d1DF3Aox/XAI9bvQ3g2snc7ZieoAHjDh2lwSuxaUA3CHFgV1oufrn5AktF
-5Pdadsq/lsO1taVhFhSxQqFMWdVN7aBPIfYDEi5mOEn1YUh6fsJwYuzZMJzLqB/w
-d8OGcA8/4HV/dksEN0g8x00IYcEFE6cfMtntheEeJlRD5kGrUb3TpeeJ1rxw0GKO
-m/Jqeuom4JxeMCg0jJKv3JMkCsbIZFQM/1OBZZIKfw2t/TuH8RP5nXnC7NWjL4jg
-bULl+eK8tTyC7rQkyItIuMD69RlYFnpp+Y+aIdsOWWdSB8t4RNczz7vD1HjP0Su4
-YS5/BQrsNoJ6ibWqY4LKCa3kR2tgpoF7b69+HiBoGsUBoFzEh8jqJDKx2uJHJcG6
-JMi5G9FwKdR1lUWptW9gtuRbRfsHrooZflncsoEOuGkMUZYoC6DtPne6fTY52hWU
-xwcvvh6h7wkqDBS4fbt2IfD0Rzrh2ICyfqs8cqq2QmWOLieq8LAZ0ZpXbAFqkRJj
-efuKuKfdXb7jyvTdld9DeIvPn38uj9bh0lwSvFqB7Q3iOxlxC3dbjHSHHA9kksPh
-JwFr5Q8dieuoSxM++uM6
-=X2EH
------END PGP SIGNATURE-----
-
---=-OL0+UHPAPoGPd5SY+Ubc--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
