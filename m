@@ -1,48 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lmc: Read outside array bounds
-Date: Sun, 09 Aug 2009 21:27:25 -0700 (PDT)
-Message-ID: <20090809.212725.218498673.davem@davemloft.net>
-References: <4A6B84A9.7020506@gmail.com>
-	<20090728144307.c189810b.akpm@linux-foundation.org>
-	<4A7C401B.7090301@gmail.com>
+Subject: Re: [patch for 2.6.31? 1/2] MAINTAINERS: update atlx contact info
+Date: Sun, 09 Aug 2009 21:47:28 -0700 (PDT)
+Message-ID: <20090809.214728.221122335.davem@davemloft.net>
+References: <200908062219.n76MJV8L024490@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org, akpm@linux-foundation.org
-To: roel.kluin@gmail.com
+Cc: netdev@vger.kernel.org, chris.snook@gmail.com, jcliburn@gmail.com,
+	jie.yang@atheros.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34065
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59214
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750869AbZHJE1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:27:16 -0400
-In-Reply-To: <4A7C401B.7090301@gmail.com>
+	by vger.kernel.org with ESMTP id S1750892AbZHJErT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:47:19 -0400
+In-Reply-To: <200908062219.n76MJV8L024490@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Fri, 07 Aug 2009 16:54:19 +0200
+From: akpm@linux-foundation.org
+Date: Thu, 06 Aug 2009 15:19:31 -0700
 
-> If dev_alloc_skb() fails on the first iteration of the allocation loop, and we
-> break out of the loop, then we end up writing before the start of the array.
+> From: Chris Snook <chris.snook@gmail.com>
 > 
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
-> ---
->> First of all, if we allocated at least one buffer we should
->> mark the last one in the code right after this loop.
->> 
->> Second of all, we should purge the TX skbs in the next
->> loop even if we could not allocate even one RX buffer.
->>
->> The thing to do is probably to guard the set of "[i-1]" RX ring
->> accesses with a "if (i != 0)" check.
+> Update MAINTAINERS to reflect my current (non-)affiliation.  Anyone
+> hiring?
 > 
-> Forgot a bit about this one, but I hope this is what you meant?
+> Signed-off-by: Chris Snook <chris.snook@gmail.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-It's not correct to limit the TX ring loop by how many RX
-ring buffers we've been able to successfully allocate,
-that doesn't make any sense.
-
-I'm talking about the second loop which you unexplainably
-changed to "for (j = 0; j < i; ..."
-
-I'm not applying this.
+Applied.
