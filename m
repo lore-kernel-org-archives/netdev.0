@@ -1,56 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v1] tun: Cleanup error handling in tun_set_iff()
-Date: Sun, 09 Aug 2009 21:52:46 -0700 (PDT)
-Message-ID: <20090809.215246.48399343.davem@davemloft.net>
-References: <20090807002243.GB1566@gondor.apana.org.au>
-	<20090806.204032.39020854.davem@davemloft.net>
-	<m1k51gqmlp.fsf@fess.ebiederm.org>
+Subject: Re: [patch 1/1] atlx: strncpy does not null terminate string
+Date: Sun, 09 Aug 2009 21:52:58 -0700 (PDT)
+Message-ID: <20090809.215258.03151417.davem@davemloft.net>
+References: <200908062306.n76N6ug6007294@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, paul.moore@hp.com,
-	netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: jcliburn@gmail.com, csnook@redhat.com, jie.yang@atheros.com,
+	netdev@vger.kernel.org, roel.kluin@gmail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50006
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50012
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751119AbZHJEwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:52:36 -0400
-In-Reply-To: <m1k51gqmlp.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1752062AbZHJEws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:52:48 -0400
+In-Reply-To: <200908062306.n76N6ug6007294@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 06 Aug 2009 21:22:42 -0700
+From: akpm@linux-foundation.org
+Date: Thu, 06 Aug 2009 16:06:56 -0700
 
-> David Miller <davem@davemloft.net> writes:
+> From: Roel Kluin <roel.kluin@gmail.com>
 > 
->> From: Herbert Xu <herbert@gondor.apana.org.au>
->> Date: Fri, 7 Aug 2009 10:22:44 +1000
->>
->>> tun: Extend RTNL lock coverage over whole ioctl
->>> 
->>> As it is, parts of the ioctl runs under the RTNL and parts of
->>> it do not.  The unlocked section is still protected by the BKL,
->>> but there can be subtle races.  For example, Eric Biederman and
->>> Paul Moore observed that if two threads tried to create two tun
->>> devices on the same file descriptor, then unexpected results
->>> may occur.
->>> 
->>> As there isn't anything in the ioctl that is expected to sleep
->>> indefinitely, we can prevent this from occurring by extending
->>> the RTNL lock coverage.
->>> 
->>> This also allows to get rid of the BKL.
->>> 
->>> Finally, I changed tun_get_iff to take a tun device in order to
->>> avoid calling tun_put which would dead-lockt as it also tries to
->>> take the RTNL lock.
->>> 
->>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->>
->> This looks good after a quick audit, Eric what say you?
+> strlcpy() will always null terminate the string.
 > 
-> Looks good to me.
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Applied, thanks everyone.
+Applied.
