@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/6] [NET] ixp2000/enp2611: don't set non-existent
- member get_stats
-Date: Sun, 09 Aug 2009 21:49:06 -0700 (PDT)
-Message-ID: <20090809.214906.143672876.davem@davemloft.net>
-References: <20090807203939.GA19374@pengutronix.de>
-	<1249677761-19470-5-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] pcnet32: Read buffer overflow
+Date: Sun, 09 Aug 2009 21:49:37 -0700 (PDT)
+Message-ID: <20090809.214937.257372338.davem@davemloft.net>
+References: <4A7C2B0B.9030508@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tglx@linutronix.de, linux-kernel@vger.kernel.org,
-	linux-rt-users@vger.kernel.org, linux@arm.linux.org.uk,
-	dbaryshkov@gmail.com, kernel@wantstofly.org, netdev@vger.kernel.org
-To: u.kleine-koenig@pengutronix.de
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <1249677761-19470-5-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pcnet32@verizon.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: roel.kluin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59240
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751386AbZHJEt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:49:28 -0400
+In-Reply-To: <4A7C2B0B.9030508@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Fri,  7 Aug 2009 22:42:40 +0200
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Fri, 07 Aug 2009 15:24:27 +0200
 
-> This fixes a build failure for 2.6.31-rc5 (ARCH=3Darm, ixp2000_defcon=
-fig):
->=20
-> 	  CC      drivers/net/ixp2000/enp2611.o
-> 	drivers/net/ixp2000/enp2611.c: In function 'enp2611_init_module':
-> 	drivers/net/ixp2000/enp2611.c:213: error: 'struct net_device' has no=
- member named 'get_stats'
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> An `options[cards_found]' that equals `sizeof(options_mapping)' is already beyond
+> the array.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
-This is far from the way to fix this, unfortunately.
-
-We need to find a way to propagate this assignment into
-the netdev_ops method vector instead.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rt-user=
-s" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
