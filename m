@@ -1,45 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] AF_PACKET: Fix PACKET_MMAP on 64-bit kernel/32-bit user
- systems
-Date: Mon, 10 Aug 2009 19:17:06 +0200
-Message-ID: <4A805612.5080709@trash.net>
-References: <20090810130359.p2hixk2eoow8kwg8@imap.linux.ibm.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: [RFC PATCH v2 0/2] New LSM hooks for the TUN driver
+Date: Mon, 10 Aug 2009 13:28:37 -0400
+Message-ID: <20090810172238.7946.34247.stgit@flek.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cndougla@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38932 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932349AbZHJRRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 13:17:10 -0400
-In-Reply-To: <20090810130359.p2hixk2eoow8kwg8@imap.linux.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-cndougla@linux.vnet.ibm.com wrote:
-> PACKET_MMAP sets up a ring buffer at a memory location so that kernel
-> and user space can read from it without extra overhead. However, the
-> data is written with a header, struct tpacket_hdr, which begins with an
-> unsigned long field, tp_status. This means in a split 64-bit/32-bit
-> environment the kernel- and user-space reads from the mmap'd region will
-> be different, since in kernel-space the field is 64-bit while in
-> user-space the field is 32-bit.
-> 
-> The following patch makes the size of the structure constant by changing
-> the tp_status field to 32-bits. It does not appear to need 64-bits,
-> since only 4-bits are actually used throughout the AF_PACKET code.
-> 
-> Signed-off-by: Chase Douglas <cndougla@linux.vnet.ibm.com>
-> --- a/include/linux/if_packet.h   2009-08-10 16:53:11.000000000 +0000
-> +++ b/include/linux/if_packet.h   2009-08-10 16:53:28.000000000 +0000
-> @@ -65,7 +65,7 @@ struct tpacket_auxdata
-> 
->  struct tpacket_hdr
->  {
-> -       unsigned long   tp_status;
-> +       unsigned int    tp_status;
+Second draft of the new TUN driver LSM hooks, thanks to everyone who sent
+comments, especially Serge Hallyn and Eric Paris.  Nothing substantial has
+changed in this version with respect to the hooks, just lots of little
+changes to cleanup the patches and ensure they build on various different
+configurations.  I still need to do more testing but barring any issues this
+should be the code that I sign-off for inclusion.
 
-This changes the layout on 64 bit and thus breaks compatibility.
-The tpacket2_hdr doesn't suffer from this problem.
+In the meantime I've populated the lblnet-2.6_next tree with these patches so
+feel free to pull from there if you want to play with the code.
+
+ * git://git.infradead.org/users/pcmoore/lblnet-2.6_next
+
+---
+
+Paul Moore (2):
+      selinux: Support for the new TUN LSM hooks
+      lsm: Add hooks to the TUN driver
+
+
+ drivers/net/tun.c                          |   22 +++++++---
+ include/linux/security.h                   |   31 ++++++++++++++
+ security/capability.c                      |   19 +++++++++
+ security/security.c                        |   18 ++++++++
+ security/selinux/hooks.c                   |   60 +++++++++++++++++++++++++++-
+ security/selinux/include/av_inherit.h      |    1 
+ security/selinux/include/av_permissions.h  |   22 ++++++++++
+ security/selinux/include/class_to_string.h |    1 
+ security/selinux/include/flask.h           |    1 
+ 9 files changed, 166 insertions(+), 9 deletions(-)
+
