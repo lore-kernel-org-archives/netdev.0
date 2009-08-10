@@ -1,97 +1,64 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: module loading permissions and request_module permission
- inconsistencies
-Date: Mon, 10 Aug 2009 15:45:13 -0400
-Message-ID: <1249933513.2501.58.camel@dhcp231-106.rdu.redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH] fix memory leak in virtio_net
+Date: Mon, 10 Aug 2009 13:05:08 -0700
+Message-ID: <1249934708.7400.10.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: sds@tycho.nsa.gov, davem@davemloft.net,
-	shemminger@linux-foundation.org, kees@ubuntu.com,
-	morgan@kernel.org, serue@us.ibm.com, casey@schaufler-ca.com,
-	dwlash@redhat.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752680AbZHJTyg@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-Why0umBOxGz2UWiN5Nja"
+To: kvm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'd like to hear thoughts on how we currently do permissions handling on
-request_module() and if it really makes sense?  request_module() is the
-function which will do an upcall to try to get modprobe to load a
-specified module into the kernel.  It is called in a lot of places
-around the kernel (~128).  Of those places only three check to see if
-the REQUESTING process has some sort of module loading permissions
-(CAP_SYS_RAWIO.)  Those three are in net/core/dev.c::dev_load() and in
-the IPv4 tcp congestion code in tcp_set_default_congestion_control() and
-tcp_set_congestion_control().  All 125 other calls to request_module()
-appear to be done without any permissions check against the triggering
-process.  The actual loading of a module is done in another thread which
-always has permissions, so that side of things appears to not be an
-issue.
 
-First question, why does networking do it's own CAP_SYS_MODULE checks?
-(this is VERY old code, pre-git days)  And, does it make sense?  In the
-past this has come up in [1] when /sbin/ip triggered the loading of a
-module to get IPv6 tunnel support.  It's perfectly reasonable
-for /sbin/ip to do this.  But is it reasonable for /sbin/ip to need
-CAP_SYS_MODULE?  CAP_SYS_MODULE says that /sbin/ip has permissions to
-load any arbitrary binary it feels like as a kernel module directly.  Is
-this really what we want?  Should SELinux have to give a hacked /sbin/ip
-permissions to load any arbitrary module?  Recently in [2] we find that
-now bluetoothd needs to be granted permissions to directly load any
-kernel module it pleases, just so it can request the upcall loads bnep.
-The same holds basically true for congestion control hooks.  Note that
-I'm saying we are giving permission for these to load kernel modules
-directly, not just through the upcall.
+--=-Why0umBOxGz2UWiN5Nja
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Nowhere else in the kernel do we do CAP_SYS_MODULE checks on the
-triggering side of request_module() and, as I assume at least one of
-those allows the user to control the module name, it seems to me that
-the current checks are actually lowering the security bar.  We are
-granting wide dangerous permissions to binaries when a more directed
-permission would be much more sensible.  And we are doing it for no
-security gain since I assume we have 10's if not more than 100 other
-ways around it.
+Whild reading virtio code, I found some memory leak in removing
+virtio_net.
 
-The second problem is this lack of control over the rest of the users of
-request_module().  If we looks at [3] we see that this oversight created
-an interesting and useful situation for a xen framebuffer exploit.  They
-created an invalid binary and tried to execute it.  This caused the
-kernel to enter search_binary_handler() which in turn called
-request_module() which triggered the modprobe upcall and the were able
-to load a module which they controlled.  As soon as they got their
-module into the kernel it was game over for everything.  So we really
-should be trying to prevent modules from getting into the kernel.  There
-is no security hook on the triggering side and the security hook on the
-other side always passes (and needs to always pass)
+In virtnet_remove, only skb has been freed not the pages in skb
+frags. Here is the patch to fix this, please review it.
 
-I recommend we make 2 changes to better our situation:
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
 
-1) remove CAP_SYS_MODULE from the networking code and instead check
-CAP_NET_ADMIN.  Maybe CAP_NET_ADMIN is already being checked and I'll
-just remove the capable call altogether but at least I can more
-intelligently limit the powers of these processes and they will still be
-root limited according to DAC permissions like they are today.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 2a6e81d..7e629d9 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -978,6 +978,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 
+ 	/* Free our skbs in send and recv queues, if any. */
+ 	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
++		trim_pages(vi, skb);
+ 		kfree_skb(skb);
+ 		vi->num--;
+ 	}
 
-2) Add a new security hook inside request_module().  On a non-selinux
-system this would be a noop hook and all 128 callers of request_module()
-would perform exactly as they do today.  On SELinux systems I would add
-a new permission to see if a process was allowed to trigger a module
-load.  This permission would need to be added for things like /sbin/ip
-which are supposed to be allowed to trigger module loading, but would
-allow us to prevent [3] from taking place.
 
-Please, comments?  Thoughts?  What did I miss?
 
--Eric
 
-[1] SELinux blocks IPv6 Tunnel
-https://bugzilla.redhat.com/show_bug.cgi?id=241401
 
-[2] SELinux blocks bluetooth
-https://bugzilla.redhat.com/show_bug.cgi?id=481618
+--=-Why0umBOxGz2UWiN5Nja
+Content-Disposition: attachment; filename="memleak.patch"
+Content-Type: text/x-patch; name="memleak.patch"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-[3] xenfb exploit
-http://invisiblethingslab.com/pub/xenfb-adventures-10.pdf
-  page 6 section 3.4
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 2a6e81d..7e629d9 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -978,6 +978,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 
+ 	/* Free our skbs in send and recv queues, if any. */
+ 	while ((skb = __skb_dequeue(&vi->recv)) != NULL) {
++		trim_pages(vi, skb);
+ 		kfree_skb(skb);
+ 		vi->num--;
+ 	}
+
+--=-Why0umBOxGz2UWiN5Nja--
+
