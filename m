@@ -1,54 +1,49 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: module loading permissions and request_module permission
- inconsistencies
-Date: Mon, 10 Aug 2009 16:48:59 -0400
-Message-ID: <1249937339.2501.80.camel@dhcp231-106.rdu.redhat.com>
-References: <1249933513.2501.58.camel@dhcp231-106.rdu.redhat.com>
-	 <20090810202308.GA15390@hmsreliant.think-freely.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v8)
+Date: Mon, 10 Aug 2009 16:02:35 -0500
+Message-ID: <20090810210235.GB24373@us.ibm.com>
+References: <1249918379-29414-1-git-send-email-danms@us.ibm.com> <1249918379-29414-6-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, sds@tycho.nsa.gov,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kees@ubuntu.com, morgan@kernel.org, serue@us.ibm.com,
-	casey@schaufler-ca.com, dwlash@redhat.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753223AbZHJUuR@vger.kernel.org>
-In-Reply-To: <20090810202308.GA15390@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:46175 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753615AbZHJVCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 17:02:46 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7AL1q7p013989
+	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:01:52 -0600
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7AL2dK5252004
+	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:02:42 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7AL2bJ9014705
+	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 15:02:38 -0600
+Content-Disposition: inline
+In-Reply-To: <1249918379-29414-6-git-send-email-danms@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-08-10 at 16:23 -0400, Neil Horman wrote:
-> On Mon, Aug 10, 2009 at 03:45:13PM -0400, Eric Paris wrote:
+Quoting Dan Smith (danms@us.ibm.com):
+> This patch adds basic checkpoint/restart support for AF_UNIX sockets.  It
+> has been tested with a single and multiple processes, and with data inflight
+> at the time of checkpoint.  It supports socketpair()s, path-based, and
+> abstract sockets.
 
-> > 1) remove CAP_SYS_MODULE from the networking code and instead check
-> > CAP_NET_ADMIN.  Maybe CAP_NET_ADMIN is already being checked and I'll
-> > just remove the capable call altogether but at least I can more
-> > intelligently limit the powers of these processes and they will still be
-> > root limited according to DAC permissions like they are today.
-> > 
-> Would this have any adverse effect on how user space sees this working.
-> Intuitively I would think that if you wanted to load a module (directly or
-> indirectly, via an iptables command or whatnot), you would need CAP_SYS_MODULE
-> capabilities on the calling process, not just CAP_NET_ADMIN.  I honestly don't
-> know the answer here, I'm just raising the question.
+Thanks, Dan.  Apart from the double-free on error case in
+sock_copy_buffers(), this looks very good to me.  So with that
+change, please feel free to add:
 
-While that might make intuitive sense, it's actually proving to be a bad
-idea to use the same capability for direct and indirect module loading
-(especially considering we have 125 other places in the kernel where you
-can do indirect module loading without any security check)  And believe
-me, if someone suggests I move a CAP_SYS_MODULE check down into
-__request_module I'll scream about what a horrible idea that is (and
-then laugh at them behind their back).
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-While I think there should be some check in __request_module I don't
-think it should be CAP_SYS_MODULE.
+Oren, pls do consider pulling this into v18.
 
-CAP_NET_ADMIN at least limits us to root and in all reality to the same
-situation everyone is in today.  I just checked every single selinux
-domain that grants CAP_SYS_MODULE already grants CAP_NET_ADMIN, so we
-can somewhat safely say that nothing (on a fedora system at least) would
-break with this change.
+Dan, do you have any testcases (even just descriptions of
+how to test, which i'll then try to script) i can add to
+cr_tests?
 
--Eric
+thanks,
+-serge
