@@ -1,159 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] macvlan: add tap device backend
-Date: Mon, 10 Aug 2009 11:50:03 +0300
-Message-ID: <20090810085003.GA3654@redhat.com>
-References: <1249595428-21594-1-git-send-email-arnd@arndb.de> <20090809080215.GA17200@redhat.com> <200908092042.24686.arnd@arndb.de>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: Re: [PATCH net-next-2.6] net: Changes to support the "-f" option
+	of ethtool.
+Date: Mon, 10 Aug 2009 14:34:05 +0530
+Message-ID: <20090810090404.GA16575@serverengines.com>
+References: <20090805123211.GB6592@serverengines.com> <20090805123704.GC6592@serverengines.com> <1249477567.2781.21.camel@achroite> <20090805.131723.120803503.davem@davemloft.net>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@voltaire.com>,
-	"Fischer, Anna" <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Edge Virtual Bridging <evb@yahoogroups.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: bhutchings@solarflare.com, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:47870 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752362AbZHJIwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Aug 2009 04:52:34 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:41316 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752678AbZHJJEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 05:04:06 -0400
 Content-Disposition: inline
-In-Reply-To: <200908092042.24686.arnd@arndb.de>
+In-Reply-To: <20090805.131723.120803503.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 09, 2009 at 08:42:24PM +0000, Arnd Bergmann wrote:
-> On Sunday 09 August 2009 08:02:16 Michael S. Tsirkin wrote:
-> > On Thu, Aug 06, 2009 at 09:50:28PM +0000, Arnd Bergmann wrote:
-> > > * The same framework in macvlan can be used to add a third backend
-> > > into a future kernel based virtio-net implementation.
+On 05/08/09 13:17 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 05 Aug 2009 14:06:07 +0100
+> 
+> > request_firmware() is meant for loading firmware that is stored in
+> > volatile memory (RAM) on the device and therefore needs to be installed
+> > on the host.
 > > 
-> > Could you split the patches up, to make this last easier?
-> > patch 1 - export framework
-> > patch 2 - code using it
-> 
-> Sure, will do.
-> 
-> > > +/* Get packet from user space buffer */
-> > > +static ssize_t macvtap_get_user(struct macvtap_dev *vtap,
-> > > +			       const struct iovec *iv, size_t count,
-> > > +			       int noblock)
-> > > +{
-> > > +	struct sk_buff *skb;
-> > > +	size_t len = count;
-> > > +
-> > > +	if (unlikely(len < ETH_HLEN))
-> > > +		return -EINVAL;
-> > > +
-> > > +	skb = alloc_skb(NET_IP_ALIGN + len, GFP_KERNEL);
-> > > +
-> > > +	if (!skb) {
-> > > +		vtap->m.dev->stats.rx_dropped++;
-> > > +		return -ENOMEM;
-> > > +	}
-> > > +
-> > > +	skb_reserve(skb, NET_IP_ALIGN);
-> > > +	skb_put(skb, count);
-> > > +
-> > > +	if (skb_copy_datagram_from_iovec(skb, 0, iv, 0, len)) {
-> > > +		vtap->m.dev->stats.rx_dropped++;
-> > > +		kfree_skb(skb);
-> > > +		return -EFAULT;
-> > > +	}
-> > > +
-> > > +	skb_set_network_header(skb, ETH_HLEN);
-> > > +	skb->dev = vtap->m.lowerdev;
-> > > +
-> > > +	macvlan_start_xmit(skb, vtap->m.dev);
-> > > +
-> > > +	return count;
-> > > +}
+> > When the firmware is stored in flash on the device, updates only need to
+> > be used once, and there should be no need to install them on the host.
+> > So request_firmware() does not seem suitable.
 > > 
-> > With tap, we discovered that not limiting the number of outstanding
-> > skbs hurts UDP performance. And the solution was to limit
-> > the number of outstanding packets - with hacks to work around
-> > the fact that userspace .
+> > I believe the ethtool EEPROM commands were meant for updating firmware
+> > on NICs.  Although they assume random access and so are unsuitable for
+> > flash-based firmware, they might be a better model for adding flash
+> > update commands.  However, this command set is already available through
+> > the MTD device class, which is what we use for firmware update as far as
+> > possible.  Not only does this allow for an arbitrary number of separate
+> > firmware partitions per network device, but it can be used in an
+> > out-of-tree driver for older kernel versions.
 > 
-> Something seems to be missing in your last sentence here.
+> I mostly agree with this.  Either use MTD or create an ethtool
+> operation that explicitly specifies the file to flash onto the
+> chip.  If you want, I suppose you can take no explicit file
+> specification to mean "whatever firmware was loaded into the
+> chip by the driver and is running right now"
+Thanks. I will go with the ethtool option which would also take the 
+filename and flash it onto the chip using the request_firmware() path.
 
-Most userspace does not seem to implement software flow control for UDP,
-even though it probably should.
-
-> My driver OTOH is also missing any sort of flow control in both
-> RX and TX direction ;) For RX, there should probably just be
-> a limit of frames that get buffered in the ring.
+-Ajit
 > 
-> For TX, I guess there should be a way to let the packet
-> scheduler handle this and give us a chance to block and
-> unblock at the right time. I haven't found out yet how to
-> do that.
-> 
-> Would it be enough to check the dev_queue_xmit() return
-> code for NETDEV_TX_BUSY?
-> 
-> How would I get notified when it gets free again?
-
-You can do this by creating a socket. Look at how tun does
-this now.
-
-> > > +	ret = skb_copy_datagram_iovec(skb, 0, iv, len);
-> > > +
-> > > +	vtap->m.dev->stats.rx_packets++;
-> > > +	vtap->m.dev->stats.rx_bytes += len;
-> > 
-> > where does atomicity guarantee for these counters come from?
-> 
-> AFAIK, we never do for any driver. They are statistics only and
-> need not be 100% correct, so the networking stack goes for
-> lower overhead and 99.9% correct.
-> 
-> > > +static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
-> > > +			    unsigned long count, loff_t pos)
-> > > +{
-> > > +	struct file *file = iocb->ki_filp;
-> > > +	struct macvtap_dev *vtap = file->private_data;
-> > > +	DECLARE_WAITQUEUE(wait, current);
-> > > +	struct sk_buff *skb;
-> > > +	ssize_t len, ret = 0;
-> > > +
-> > > +	if (!vtap)
-> > > +		return -EBADFD;
-> > > +
-> > > +	len = iov_length(iv, count);
-> > > +	if (len < 0) {
-> > > +		ret = -EINVAL;
-> > > +		goto out;
-> > > +	}
-> > > +
-> > > +	add_wait_queue(&vtap->wait, &wait);
-> > > +	while (len) {
-> > > +		current->state = TASK_INTERRUPTIBLE;
-> > > +
-> > > +		/* Read frames from the queue */
-> > > +		if (!(skb=skb_dequeue(&vtap->readq))) {
-> > > +			if (file->f_flags & O_NONBLOCK) {
-> > > +				ret = -EAGAIN;
-> > > +				break;
-> > > +			}
-> > > +			if (signal_pending(current)) {
-> > > +				ret = -ERESTARTSYS;
-> > > +				break;
-> > > +			}
-> > > +			/* Nothing to read, let's sleep */
-> > > +			schedule();
-> > > +			continue;
-> > > +		}
-> > > +		ret = macvtap_put_user(vtap, skb, (struct iovec *) iv, len);
-> > 
-> > Don't cast away the constness. Instead, fix macvtap_put_user
-> > to used skb_copy_datagram_const_iovec which does not modify the iovec.
-> 
-> Ah, good catch. I had copied that from the tun driver before you
-> fixed it there and failed to fix it the right way when I adapted
-> it for the new interface.
-> 
-> Thanks for the review,
-> 
-> 	Arnd <><
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
