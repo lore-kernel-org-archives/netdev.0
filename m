@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch for 2.6.31? 1/2] MAINTAINERS: update atlx contact info
-Date: Sun, 09 Aug 2009 21:47:28 -0700 (PDT)
-Message-ID: <20090809.214728.221122335.davem@davemloft.net>
-References: <200908062219.n76MJV8L024490@imap1.linux-foundation.org>
+Subject: Re: [PATCH] MAINTAINERS: additional NETWORKING [GENERAL] and
+ NETWORKING DRIVERS patterns
+Date: Sun, 09 Aug 2009 21:47:38 -0700 (PDT)
+Message-ID: <20090809.214738.92330420.davem@davemloft.net>
+References: <20090807153106.335b1b8f@emcraft.com>
+	<20090807.090353.191304972.davem@davemloft.net>
+	<1249663381.3467.80.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chris.snook@gmail.com, jcliburn@gmail.com,
-	jie.yang@atheros.com
-To: akpm@linux-foundation.org
+Cc: sposelenov@emcraft.com, linux-kernel@vger.kernel.org, wd@denx.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59214
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59218
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750892AbZHJErT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:47:19 -0400
-In-Reply-To: <200908062219.n76MJV8L024490@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1750969AbZHJEr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 00:47:28 -0400
+In-Reply-To: <1249663381.3467.80.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Thu, 06 Aug 2009 15:19:31 -0700
+From: Joe Perches <joe@perches.com>
+Date: Fri, 07 Aug 2009 09:43:01 -0700
 
-> From: Chris Snook <chris.snook@gmail.com>
+> On Fri, 2009-08-07 at 09:03 -0700, David Miller wrote:
+>> From: Sergei Poselenov <sposelenov@emcraft.com>
+>> > Unfortunately, received no replies, but the problem still persists.
+>> I guarantee you'll get more responses if you send networking bug
+>> reports at least CC:'d to netdev@vger.kernel.org
 > 
-> Update MAINTAINERS to reflect my current (non-)affiliation.  Anyone
-> hiring?
+> Perhaps this will help get cc's to the right places.
 > 
-> Signed-off-by: Chris Snook <chris.snook@gmail.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
