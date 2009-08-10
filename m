@@ -1,182 +1,97 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Mon, 10 Aug 2009 21:51:18 +0200
-Message-ID: <200908102151.18529.arnd@arndb.de>
-References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com>
+From: Eric Paris <eparis@redhat.com>
+Subject: module loading permissions and request_module permission
+ inconsistencies
+Date: Mon, 10 Aug 2009 15:45:13 -0400
+Message-ID: <1249933513.2501.58.camel@dhcp231-106.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: virtualization@lists.linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752668AbZHJTv0@vger.kernel.org>
-In-Reply-To: <20090810185340.GC13924@redhat.com>
+Cc: sds@tycho.nsa.gov, davem@davemloft.net,
+	shemminger@linux-foundation.org, kees@ubuntu.com,
+	morgan@kernel.org, serue@us.ibm.com, casey@schaufler-ca.com,
+	dwlash@redhat.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752680AbZHJTyg@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 10 August 2009, Michael S. Tsirkin wrote:
-> What it is: vhost net is a character device that can be used to reduce
-> the number of system calls involved in virtio networking.
-> Existing virtio net code is used in the guest without modification.
+I'd like to hear thoughts on how we currently do permissions handling on
+request_module() and if it really makes sense?  request_module() is the
+function which will do an upcall to try to get modprobe to load a
+specified module into the kernel.  It is called in a lot of places
+around the kernel (~128).  Of those places only three check to see if
+the REQUESTING process has some sort of module loading permissions
+(CAP_SYS_RAWIO.)  Those three are in net/core/dev.c::dev_load() and in
+the IPv4 tcp congestion code in tcp_set_default_congestion_control() and
+tcp_set_congestion_control().  All 125 other calls to request_module()
+appear to be done without any permissions check against the triggering
+process.  The actual loading of a module is done in another thread which
+always has permissions, so that side of things appears to not be an
+issue.
 
-Very nice, I loved reading it. It's getting rather late in my time
-zone, so this comments only on the network driver. I'll go through
-the rest tomorrow.
+First question, why does networking do it's own CAP_SYS_MODULE checks?
+(this is VERY old code, pre-git days)  And, does it make sense?  In the
+past this has come up in [1] when /sbin/ip triggered the loading of a
+module to get IPv6 tunnel support.  It's perfectly reasonable
+for /sbin/ip to do this.  But is it reasonable for /sbin/ip to need
+CAP_SYS_MODULE?  CAP_SYS_MODULE says that /sbin/ip has permissions to
+load any arbitrary binary it feels like as a kernel module directly.  Is
+this really what we want?  Should SELinux have to give a hacked /sbin/ip
+permissions to load any arbitrary module?  Recently in [2] we find that
+now bluetoothd needs to be granted permissions to directly load any
+kernel module it pleases, just so it can request the upcall loads bnep.
+The same holds basically true for congestion control hooks.  Note that
+I'm saying we are giving permission for these to load kernel modules
+directly, not just through the upcall.
 
-> @@ -293,6 +293,7 @@ static int __devinit virtblk_probe(struct virtio_device *vdev)
->  		err = PTR_ERR(vblk->vq);
->  		goto out_free_vblk;
->  	}
-> +	printk(KERN_ERR "vblk->vq = %p\n", vblk->vq);
->  
->  	vblk->pool = mempool_create_kmalloc_pool(1,sizeof(struct virtblk_req));
->  	if (!vblk->pool) {
-> @@ -383,6 +384,8 @@ static int __devinit virtblk_probe(struct virtio_device *vdev)
->  	if (!err)
->  		blk_queue_logical_block_size(vblk->disk->queue, blk_size);
->  
-> +	printk(KERN_ERR "virtio_config_val returned %d\n", err);
-> +
->  	add_disk(vblk->disk);
->  	return 0;
+Nowhere else in the kernel do we do CAP_SYS_MODULE checks on the
+triggering side of request_module() and, as I assume at least one of
+those allows the user to control the module name, it seems to me that
+the current checks are actually lowering the security bar.  We are
+granting wide dangerous permissions to binaries when a more directed
+permission would be much more sensible.  And we are doing it for no
+security gain since I assume we have 10's if not more than 100 other
+ways around it.
 
-I guess you meant to remove these before submitting.
+The second problem is this lack of control over the rest of the users of
+request_module().  If we looks at [3] we see that this oversight created
+an interesting and useful situation for a xen framebuffer exploit.  They
+created an invalid binary and tried to execute it.  This caused the
+kernel to enter search_binary_handler() which in turn called
+request_module() which triggered the modprobe upcall and the were able
+to load a module which they controlled.  As soon as they got their
+module into the kernel it was game over for everything.  So we really
+should be trying to prevent modules from getting into the kernel.  There
+is no security hook on the triggering side and the security hook on the
+other side always passes (and needs to always pass)
 
-> +static void handle_tx_kick(struct work_struct *work);
-> +static void handle_rx_kick(struct work_struct *work);
-> +static void handle_tx_net(struct work_struct *work);
-> +static void handle_rx_net(struct work_struct *work);
+I recommend we make 2 changes to better our situation:
 
-[style] I think the code gets more readable if you reorder it
-so that you don't need forward declarations for static functions.
+1) remove CAP_SYS_MODULE from the networking code and instead check
+CAP_NET_ADMIN.  Maybe CAP_NET_ADMIN is already being checked and I'll
+just remove the capable call altogether but at least I can more
+intelligently limit the powers of these processes and they will still be
+root limited according to DAC permissions like they are today.
 
-> +static long vhost_net_reset_owner(struct vhost_net *n)
-> +{
-> +	struct socket *sock = NULL;
-> +	long r;
-> +	mutex_lock(&n->dev.mutex);
-> +	r = vhost_dev_check_owner(&n->dev);
-> +	if (r)
-> +		goto done;
-> +	sock = vhost_net_stop(n);
-> +	r = vhost_dev_reset_owner(&n->dev);
-> +done:
-> +	mutex_unlock(&n->dev.mutex);
-> +	if (sock)
-> +		fput(sock->file);
-> +	return r;
-> +}
+2) Add a new security hook inside request_module().  On a non-selinux
+system this would be a noop hook and all 128 callers of request_module()
+would perform exactly as they do today.  On SELinux systems I would add
+a new permission to see if a process was allowed to trigger a module
+load.  This permission would need to be added for things like /sbin/ip
+which are supposed to be allowed to trigger module loading, but would
+allow us to prevent [3] from taking place.
 
-what is the difference between vhost_net_reset_owner(n)
-and vhost_net_set_socket(n, -1)?
+Please, comments?  Thoughts?  What did I miss?
 
-> +
-> +static struct file_operations vhost_net_fops = {
-> +	.owner          = THIS_MODULE,
-> +	.release        = vhost_net_release,
-> +	.unlocked_ioctl = vhost_net_ioctl,
-> +	.open           = vhost_net_open,
-> +};
+-Eric
 
-This is missing a compat_ioctl pointer. It should simply be
+[1] SELinux blocks IPv6 Tunnel
+https://bugzilla.redhat.com/show_bug.cgi?id=241401
 
-static long vhost_net_compat_ioctl(struct file *f,
-			unsigned int ioctl, unsigned long arg)
-{
-	return f, ioctl, (unsigned long)compat_ptr(arg);
-}
+[2] SELinux blocks bluetooth
+https://bugzilla.redhat.com/show_bug.cgi?id=481618
 
-> +/* Bits from fs/aio.c. TODO: export and use from there? */
-> +/*
-> + * use_mm
-> + *	Makes the calling kernel thread take on the specified
-> + *	mm context.
-> + *	Called by the retry thread execute retries within the
-> + *	iocb issuer's mm context, so that copy_from/to_user
-> + *	operations work seamlessly for aio.
-> + *	(Note: this routine is intended to be called only
-> + *	from a kernel thread context)
-> + */
-> +static void use_mm(struct mm_struct *mm)
-> +{
-> +	struct mm_struct *active_mm;
-> +	struct task_struct *tsk = current;
-> +
-> +	task_lock(tsk);
-> +	active_mm = tsk->active_mm;
-> +	atomic_inc(&mm->mm_count);
-> +	tsk->mm = mm;
-> +	tsk->active_mm = mm;
-> +	switch_mm(active_mm, mm, tsk);
-> +	task_unlock(tsk);
-> +
-> +	mmdrop(active_mm);
-> +}
-
-Why do you need a kernel thread here? If the data transfer functions
-all get called from a guest intercept, shouldn't you already be
-in the right mm?
-
-> +static void handle_tx(struct vhost_net *net)
-> +{
-> +	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
-> +	unsigned head, out, in;
-> +	struct msghdr msg = {
-> +		.msg_name = NULL,
-> +		.msg_namelen = 0,
-> +		.msg_control = NULL,
-> +		.msg_controllen = 0,
-> +		.msg_iov = (struct iovec *)vq->iov + 1,
-> +		.msg_flags = MSG_DONTWAIT,
-> +	};
-> +	size_t len;
-> +	int err;
-> +	struct socket *sock = rcu_dereference(net->sock);
-> +	if (!sock || !sock_writeable(sock->sk))
-> +		return;
-> +
-> +	use_mm(net->dev.mm);
-> +	mutex_lock(&vq->mutex);
-> +	for (;;) {
-> +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in);
-> +		if (head == vq->num)
-> +			break;
-> +		if (out <= 1 || in) {
-> +			vq_err(vq, "Unexpected descriptor format for TX: "
-> +			       "out %d, int %d\n", out, in);
-> +			break;
-> +		}
-> +		/* Sanity check */
-> +		if (vq->iov->iov_len != sizeof(struct virtio_net_hdr)) {
-> +			vq_err(vq, "Unexpected header len for TX: "
-> +			       "%ld expected %zd\n", vq->iov->iov_len,
-> +			       sizeof(struct virtio_net_hdr));
-> +			break;
-> +		}
-> +		/* Skip header. TODO: support TSO. */
-> +		msg.msg_iovlen = out - 1;
-> +		len = iov_length(vq->iov + 1, out - 1);
-> +		/* TODO: Check specific error and bomb out unless ENOBUFS? */
-> +		err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> +		if (err < 0) {
-> +			vhost_discard_vq_desc(vq);
-> +			break;
-> +		}
-> +		if (err != len)
-> +			pr_err("Truncated TX packet: "
-> +			       " len %d != %zd\n", err, len);
-> +		vhost_add_used_and_trigger(vq, head,
-> +				     len + sizeof(struct virtio_net_hdr));
-> +	}
-> +
-> +	mutex_unlock(&vq->mutex);
-> +	unuse_mm(net->dev.mm);
-> +}
-
-I guess that this is where one could plug into macvlan directly, using
-sock_alloc_send_skb/memcpy_fromiovec/dev_queue_xmit directly,
-instead of filling a msghdr for each, if we want to combine this
-with the work I did on that.
-
-	Arnd <><
+[3] xenfb exploit
+http://invisiblethingslab.com/pub/xenfb-adventures-10.pdf
+  page 6 section 3.4
