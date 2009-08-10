@@ -1,121 +1,39 @@
-From: Chase Douglas <cndougla@us.ibm.com>
-Subject: Re: [PATCH] AF_PACKET: Fix PACKET_MMAP on 64-bit kernel/32-bit user systems
-Date: Mon, 10 Aug 2009 14:52:57 -0400
-Message-ID: <A1EB2DFA-4CC3-4B54-8DFE-AC7F9FC7D73D@us.ibm.com>
-References: <20090810130359.p2hixk2eoow8kwg8@imap.linux.ibm.com> <4A805612.5080709@trash.net>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: multipart/signed; boundary=Apple-Mail-1-1040238287; micalg=sha1; protocol="application/pkcs7-signature"
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:56697 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbZHJSxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 14:53:13 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7AImHMZ002330
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 12:48:17 -0600
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7AIqwKB111910
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 12:53:02 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7AIqw7v013420
-	for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 12:52:58 -0600
-In-Reply-To: <4A805612.5080709@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 1/2] export cpu_tlbstate to modules
+Date: Mon, 10 Aug 2009 21:53:02 +0300
+Message-ID: <20090810185302.GB13924@redhat.com>
+References: <cover.1249930169.git.mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1249930169.git.mst@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+vhost net module wants to do copy to/from user from a kernel thread,
+which needs switch_mm (like what fs/aio has).
+export cpu_tlbstate to make this possible
 
---Apple-Mail-1-1040238287
-Content-Type: text/plain;
-	charset=US-ASCII;
-	format=flowed;
-	delsp=yes
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ arch/x86/mm/tlb.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-On Aug 10, 2009, at 1:17 PM, Patrick McHardy wrote:
-> The tpacket2_hdr doesn't suffer from this problem.
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 821e970..e33a5f0 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -13,6 +13,7 @@
+ 
+ DEFINE_PER_CPU_SHARED_ALIGNED(struct tlb_state, cpu_tlbstate)
+ 			= { &init_mm, 0, };
++EXPORT_PER_CPU_SYMBOL_GPL(cpu_tlbstate);
+ 
+ /*
+  *	Smarter SMP flushing macros.
+-- 
+1.6.2.5
 
-I hadn't noticed the new header version. I've grabbed the latest  
-version of libpcap which utilizes tpacket2_hdr where available, and  
-everything is fixed again.
-
-Thanks
---Apple-Mail-1-1040238287
-Content-Disposition: attachment;
-	filename=smime.p7s
-Content-Type: application/pkcs7-signature;
-	name=smime.p7s
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIKkzCCBSww
-ggSVoAMCAQICEDqcN60eyFMWG0XIVQBLNZgwDQYJKoZIhvcNAQEFBQAwgcExCzAJBgNVBAYTAlVT
-MRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjE8MDoGA1UECxMzQ2xhc3MgMiBQdWJsaWMgUHJpbWFy
-eSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eSAtIEcyMTowOAYDVQQLEzEoYykgMTk5OCBWZXJpU2ln
-biwgSW5jLiAtIEZvciBhdXRob3JpemVkIHVzZSBvbmx5MR8wHQYDVQQLExZWZXJpU2lnbiBUcnVz
-dCBOZXR3b3JrMB4XDTAzMDUwNjAwMDAwMFoXDTEzMDUwNTIzNTk1OVowgfkxCzAJBgNVBAYTAlVT
-MTQwMgYDVQQKEytJbnRlcm5hdGlvbmFsIEJ1c2luZXNzIE1hY2hpbmVzIENvcnBvcmF0aW9uMR8w
-HQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQg
-aHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwMzEwMC4GA1UECxMnQ2xhc3MgMiBPblNp
-dGUgSW5kaXZpZHVhbCBTdWJzY3JpYmVyIENBMSQwIgYDVQQDExtJQk0gQ2VydGlmaWNhdGlvbiBB
-dXRob3JpdHkwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBANVnrTXdoH79V2HWnacXy7mjjSNc
-nOi3Z+cXSBh9uSDhCLAUUeuvoHubuA5ImrJI5k/dA+Q0L+WNzR7OZr4TRpw3DOksYS/0o+RZ5+lu
-J7ltXcdVgsHU6qqHDpvF1hAegqpNz670JVVfUs4ThC1AafMIBHwmJbqFG4Iy39OH37oBAgMBAAGj
-ggHpMIIB5TASBgNVHRMBAf8ECDAGAQH/AgEAMEQGA1UdIAQ9MDswOQYLYIZIAYb4RQEHFwIwKjAo
-BggrBgEFBQcCARYcaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYTA0BgNVHR8ELTArMCmgJ6Al
-hiNodHRwOi8vY3JsLnZlcmlzaWduLmNvbS9wY2EyLWcyLmNybDALBgNVHQ8EBAMCAQYwEQYJYIZI
-AYb4QgEBBAQDAgEGMCkGA1UdEQQiMCCkHjAcMRowGAYDVQQDExFQcml2YXRlTGFiZWwyLTEyNzAd
-BgNVHQ4EFgQUkcFzsHPV2ZJ0Z80b8VEUNDG2LFowgegGA1UdIwSB4DCB3aGBx6SBxDCBwTELMAkG
-A1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMTwwOgYDVQQLEzNDbGFzcyAyIFB1Ymxp
-YyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0aG9yaXR5IC0gRzIxOjA4BgNVBAsTMShjKSAxOTk4
-IFZlcmlTaWduLCBJbmMuIC0gRm9yIGF1dGhvcml6ZWQgdXNlIG9ubHkxHzAdBgNVBAsTFlZlcmlT
-aWduIFRydXN0IE5ldHdvcmuCEQC5L2DMiJ+hekYJuFtwbIqvMA0GCSqGSIb3DQEBBQUAA4GBAJcM
-UE/GM7DSGWSfEaUELX8FdU5Ug5WUfJVLTc4s5xDj+d9P/sxo39ofCYcyBrVFpessapDKDJKKCu6z
-bSNwKStMN7smU6TYiyT2FP216Adb5wsu94gxblObFoms2qG/BuGHbFxtbIBAiCNlFcRk69rPUGu/
-EOvQeUAR+Ub1NkjPMIIFXzCCBMigAwIBAgIQR4ft+C+K9zecD9wJL63PaTANBgkqhkiG9w0BAQUF
-ADCB+TELMAkGA1UEBhMCVVMxNDAyBgNVBAoTK0ludGVybmF0aW9uYWwgQnVzaW5lc3MgTWFjaGlu
-ZXMgQ29ycG9yYXRpb24xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdvcmsxOzA5BgNVBAsT
-MlRlcm1zIG9mIHVzZSBhdCBodHRwczovL3d3dy52ZXJpc2lnbi5jb20vcnBhIChjKTAzMTAwLgYD
-VQQLEydDbGFzcyAyIE9uU2l0ZSBJbmRpdmlkdWFsIFN1YnNjcmliZXIgQ0ExJDAiBgNVBAMTG0lC
-TSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTAeFw0wOTA3MTQwMDAwMDBaFw0xMDA3MTQyMzU5NTla
-MIGKMS4wLAYDVQQKFCVJbnRlcm5hdGlvbmFsIEJ1c2luZXNzIE1hY2hpbmVzIENvcnAuMRkwFwYD
-VQQDDBBDSEFTRSBOLiBET1VHTEFTMRkwFwYKCZImiZPyLGQBARQJNEQ1OTgyODk3MSIwIAYJKoZI
-hvcNAQkBFhNjbmRvdWdsYUB1cy5pYm0uY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCp
-+eMXOIkNbdCwpNRsV+clvmsSsQC0uwBo8pO/KcLqRINJpmWJSxkfFtoTCePnp6Ua1sZOw1rePyxz
-R7naOq/EIEM0EET77cKOOFYVmXxPIAtTDJ4hN3/28ERL3oUvBw0fPxfp9p8nuoXy8gJrW9EgLsIX
-0eomDxvyBnjWtdUrLQIDAQABo4ICUzCCAk8wCQYDVR0TBAIwADALBgNVHQ8EBAMCBaAwZgYDVR0f
-BF8wXTBboFmgV4ZVaHR0cDovL29uc2l0ZWNybC52ZXJpc2lnbi5jb20vSW50ZXJuYXRpb25hbEJ1
-c2luZXNzTWFjaGluZXNDb3JwQ29ycG9yYXRlQ0lPL0xhdGVzdENSTDCCASkGA1UdIASCASAwggEc
-MIIBGAYLYIZIAYb4RQEHFwIwggEHMCsGCCsGAQUFBwIBFh9odHRwczovL3d3dy52ZXJpc2lnbi5j
-b20vcnBhLWtyMIHXBggrBgEFBQcCAjCByhqBx05vdGljZSBUZXh0PU5PVElDRTogUHJpdmF0ZSBr
-ZXkgbWF5IGJlIHJlY292ZXJlZCBieSBWZXJpU2lnbidzIGN1c3RvbWVyIHdobyBtYXkgYmUgYWJs
-ZSB0byBkZWNyeXB0IG1lc3NhZ2VzIHlvdSBzZW5kIHRvIGNlcnRpZmljYXRlIGhvbGRlci4gIFVz
-ZSBpcyBzdWJqZWN0IHRvIHRlcm1zIGF0IGh0dHBzOi8vd3d3LnZlcmlzaWduLmNvbS9ycGEta3Iw
-HwYDVR0jBBgwFoAUkcFzsHPV2ZJ0Z80b8VEUNDG2LFowHQYDVR0OBBYEFCDiaU7/AGM22tu78d0C
-iEN4pQk2MC4GA1UdEQQnMCWgIwYKKwYBBAGCNxQCA6AVDBNjbmRvdWdsYUB1cy5pYm0uY29tMB0G
-A1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDARBglghkgBhvhCAQEEBAMCBaAwDQYJKoZIhvcN
-AQEFBQADgYEAgP3TcKDbqU/CMeXVK1NHnRDNw2o3ScXgFh0bPNXqasjeDm1Y8xjl05NgN1gcGU/3
-77uc+QDdsahBmtpGI3UE7Olv6TpajrKZhFsAv51k5ZVUvUgFuiOKsHmYSH+jnVLM5VQocM0NK66m
-1k+sz8E3S0nR3L0Y7VQEiE8uCTBzJ8YxggRjMIIEXwIBATCCAQ4wgfkxCzAJBgNVBAYTAlVTMTQw
-MgYDVQQKEytJbnRlcm5hdGlvbmFsIEJ1c2luZXNzIE1hY2hpbmVzIENvcnBvcmF0aW9uMR8wHQYD
-VQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0
-cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwMzEwMC4GA1UECxMnQ2xhc3MgMiBPblNpdGUg
-SW5kaXZpZHVhbCBTdWJzY3JpYmVyIENBMSQwIgYDVQQDExtJQk0gQ2VydGlmaWNhdGlvbiBBdXRo
-b3JpdHkCEEeH7fgvivc3nA/cCS+tz2kwCQYFKw4DAhoFAKCCAqkwGAYJKoZIhvcNAQkDMQsGCSqG
-SIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMDkwODEwMTg1MjU4WjAjBgkqhkiG9w0BCQQxFgQUpms8
-YWvo10o8SgT/3u5jLYCNLrIwggEhBgkrBgEEAYI3EAQxggESMIIBDjCB+TELMAkGA1UEBhMCVVMx
-NDAyBgNVBAoTK0ludGVybmF0aW9uYWwgQnVzaW5lc3MgTWFjaGluZXMgQ29ycG9yYXRpb24xHzAd
-BgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdvcmsxOzA5BgNVBAsTMlRlcm1zIG9mIHVzZSBhdCBo
-dHRwczovL3d3dy52ZXJpc2lnbi5jb20vcnBhIChjKTAzMTAwLgYDVQQLEydDbGFzcyAyIE9uU2l0
-ZSBJbmRpdmlkdWFsIFN1YnNjcmliZXIgQ0ExJDAiBgNVBAMTG0lCTSBDZXJ0aWZpY2F0aW9uIEF1
-dGhvcml0eQIQR4ft+C+K9zecD9wJL63PaTCCASMGCyqGSIb3DQEJEAILMYIBEqCCAQ4wgfkxCzAJ
-BgNVBAYTAlVTMTQwMgYDVQQKEytJbnRlcm5hdGlvbmFsIEJ1c2luZXNzIE1hY2hpbmVzIENvcnBv
-cmF0aW9uMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBv
-ZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwMzEwMC4GA1UECxMnQ2xh
-c3MgMiBPblNpdGUgSW5kaXZpZHVhbCBTdWJzY3JpYmVyIENBMSQwIgYDVQQDExtJQk0gQ2VydGlm
-aWNhdGlvbiBBdXRob3JpdHkCEEeH7fgvivc3nA/cCS+tz2kwDQYJKoZIhvcNAQEBBQAEgYAxAjss
-lvpmSxeUZya6pqy0jFYa9/AAedKPF50xRCLaJL3ZpzqyV/DwiLIvZp3ebnR6NUI/zf2uGXuKmbi8
-Z7DNAOl3O0bSsHQo5/RsKYT/mNe/B7ILJW1AhZqplQ+pPagi/SB6tQuMCNShkyVvpOLPf1XLMo2U
-OTobOjhaIQHfsQAAAAAAAA==
-
---Apple-Mail-1-1040238287--
