@@ -1,31 +1,22 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Sun,  9 Aug 2009 23:10:20 +0200 (CEST)
-Message-ID: <pRuaDVjxFBG.A.TWG.KG2fKB@chimera>
-References: <YCu3FOC0QrC.A.MaE.RD2fKB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 14/14] net: use printk_once
+Date: Sun, 09 Aug 2009 19:52:13 -0700 (PDT)
+Message-ID: <20090809.195213.193712820.davem@davemloft.net>
+References: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
+	<1249847649-11631-15-git-send-email-marcin.slusarz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <YCu3FOC0QrC.A.MaE.RD2fKB@chimera>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: marcin.slusarz@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754763AbZHJCwL@vger.kernel.org>
+In-Reply-To: <1249847649-11631-15-git-send-email-marcin.slusarz@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.29 and 2.6.30.
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Date: Sun,  9 Aug 2009 21:54:09 +0200
 
-The following bug entry is on the current list of known regressions
-introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-be listed and let me know (either way).
+> Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
 
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-05-03 16:22 (99 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
+Acked-by: David S. Miller <davem@davemloft.net>
