@@ -1,65 +1,48 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v8)
-Date: Mon, 10 Aug 2009 14:06:47 -0700
-Message-ID: <87fxbz5qfs.fsf@caffeine.danplanet.com>
-References: <1249918379-29414-1-git-send-email-danms@us.ibm.com>
-	<1249918379-29414-6-git-send-email-danms@us.ibm.com>
-	<20090810210235.GB24373@us.ibm.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH 1/2] export cpu_tlbstate to modules
+Date: Mon, 10 Aug 2009 14:56:46 -0700
+Message-ID: <4A80979E.3080204@zytor.com>
+References: <cover.1249930169.git.mst@redhat.com> <20090810185302.GB13924@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: "Serge E. Hallyn" <serue@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:49167 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753712AbZHJVG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 17:06:57 -0400
-In-Reply-To: <20090810210235.GB24373@us.ibm.com> (Serge E. Hallyn's message of "Mon\, 10 Aug 2009 16\:02\:35 -0500")
+Received: from terminus.zytor.com ([198.137.202.10]:36764 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753627AbZHJV5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 17:57:08 -0400
+In-Reply-To: <20090810185302.GB13924@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SH> Thanks, Dan.  Apart from the double-free on error case in
-SH> sock_copy_buffers(), this looks very good to me.  So with that
-SH> change, please feel free to add:
+On 08/10/2009 11:53 AM, Michael S. Tsirkin wrote:
+> vhost net module wants to do copy to/from user from a kernel thread,
+> which needs switch_mm (like what fs/aio has).
+> export cpu_tlbstate to make this possible
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  arch/x86/mm/tlb.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+> index 821e970..e33a5f0 100644
+> --- a/arch/x86/mm/tlb.c
+> +++ b/arch/x86/mm/tlb.c
+> @@ -13,6 +13,7 @@
+>  
+>  DEFINE_PER_CPU_SHARED_ALIGNED(struct tlb_state, cpu_tlbstate)
+>  			= { &init_mm, 0, };
+> +EXPORT_PER_CPU_SYMBOL_GPL(cpu_tlbstate);
+>  
+>  /*
+>   *	Smarter SMP flushing macros.
 
-Okay, thanks, I've got that fixed up now.
+Wouldn't it be a *lot* better to move use_mm() from fs/aio.c into common
+code, and export that instead?
 
-SH> Dan, do you have any testcases (even just descriptions of how to
-SH> test, which i'll then try to script) i can add to cr_tests?
+	-hpa
 
-Yeah, I've got a big ugly test program that I've rolled automatic
-tests for most scenarios into.  Here's the usage output of the test.
-I'll get it cleaned up and posted too:
-
-  Usage: ./testprog [-t (s|d)] [-wn] TEST
-  Where:
-    -t s, -t d:             Select STREAM or DGRAM sockets
-    -w:                     Wait for a response before restarting
-    -n:                     Don't terminate the test on successful restart
-  
-  Where TEST is one of:
-    --unix_pair:            Pair of sockets using socketpair()
-    --unix_unlinked:        Listen socket with an unlinked path
-    --unix_pair_path:       Pair of sockets using paths
-    --unix_pair_abstract:   Pair of sockets using abstract names
-    --unix_inflight:        Pair of sockets with data in flight
-    --unix_inflight_closed: Pair of sockets, one side closed after preflight
-    --unix_midaccept:       Listen socket with unaccepted peer
-    --unix_fdpass:          Attempt to pass an FD
-    --unix_passcred:        Attempt to pass credentials
-    --unix_path:            Post-restart path-based connect to listen socket
-    --unix_abstract:        Post-restart abstract connect to listen socket
-    --unix_path_unlink:     Like pair_path, but unlink socket before restart
-    --unix_deadpeer:        Close peer socket with data in flight
-    --unix_testopt:         Unix socket setting and testing for a sockopt
-    --unix_anoninflight:    Inflight data with unconnected DGRAM sockets
-    --inet_connected:       Pair of localhost INET4 sockets
-    --inet6_connected:      Pair of localhost INET6 sockets
-    --nonet:                No network, just a simple loop
-    --sendmail:             Try to start up sendmail and checkpoint it
-
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
