@@ -1,34 +1,28 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [evb] Re: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Mon, 10 Aug 2009 17:23:10 +0200
-Message-ID: <200908101723.10832.arnd@arndb.de>
-References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <200908071329.44437.arnd@arndb.de> <005101ca1797$70dcf5b0$5296e110$@edu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: Serialize access to PCI config space
+Date: Mon, 10 Aug 2009 08:23:15 -0700
+Message-ID: <20090810082315.16b7a0b9@nehalam>
+References: <4A7EB4EF.3030106@ring3k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
-	"'Fischer, Anna'" <anna.fischer@hp.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	davem@davemloft.net, kaber@trash.net, adobriyan@gmail.com,
-	"'Or Gerlitz'" <ogerlitz@voltaire.com>
-To: evb@yahoogroups.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755383AbZHJPXW@vger.kernel.org>
-In-Reply-To: <005101ca1797$70dcf5b0$5296e110$@edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Mike McCormack <mikem@ring3k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35656 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750780AbZHJPXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 11:23:50 -0400
+In-Reply-To: <4A7EB4EF.3030106@ring3k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 August 2009, Paul Congdon (UC Davis) wrote:
+On Sun, 09 Aug 2009 20:37:19 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
+
 > 
-> I don't think your scheme works too well because broadcast packet coming
-> from other interfaces on br0 would get replicated and sent across the wire
-> to ethB multiple times.
+> Disable NAPI when powering up or down the phy, as sky2_err_intr
+>  may also access the PCI config space.
 
-Right, that won't work. So the bridge patch for the hairpin turn
-is still the best solution. Btw, how will that interact with
-the bride-netfilter (ebtables) setup? Can you apply any filters
-that work on current bridges also between two VEPA ports while
-doing the hairpin turn?
-
-	Arnd <><
+Maybe, but any sky2_err interrupt is a serious condition that
+means hardware is being used incorrectly or dead.
