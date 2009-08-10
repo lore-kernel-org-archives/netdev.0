@@ -1,66 +1,94 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] lmc: Read outside array bounds
-Date: Mon, 10 Aug 2009 13:29:52 +0200
-Message-ID: <4A8004B0.5000504@gmail.com>
-References: <4A6B84A9.7020506@gmail.com>	<20090728144307.c189810b.akpm@linux-foundation.org>	<4A7C401B.7090301@gmail.com> <20090809.212725.218498673.davem@davemloft.net>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH net-2.6] can: Use WARN_ONCE() instead of BUG_ON() for sanity
+ check in receive path
+Date: Mon, 10 Aug 2009 13:27:09 +0200
+Message-ID: <4A80040D.3030009@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org, akpm@linux-foundation.org
+Content-Type: multipart/mixed;
+ boundary="------------080804050308040309050206"
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	Luotao Fu <l.fu@pengutronix.de>,
+	Michael Olbrich <m.olbrich@pengutronix.de>,
+	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:63296 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619AbZHJL0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 07:26:04 -0400
-Received: by ewy10 with SMTP id 10so2923208ewy.37
-        for <netdev@vger.kernel.org>; Mon, 10 Aug 2009 04:26:04 -0700 (PDT)
-In-Reply-To: <20090809.212725.218498673.davem@davemloft.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:24251 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752776AbZHJL1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 07:27:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If dev_alloc_skb() fails on the first iteration of the allocation loop,
-then we end up writing before the start of the array.
+This is a multi-part message in MIME format.
+--------------080804050308040309050206
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+To ensure a proper handling of CAN frames transported in skbuffs some checks
+need to be performed at receive time.
+
+As stated by Michael Olbrich and Luotao Fu BUG_ON() might be to restrictive.
+This is right as we can just drop the non conform skbuff and the Kernel can
+continue working.
+
+This patch replaces the BUG_ON() with a WARN_ONCE() so that the system remains
+healthy but we made the problem visible (once).
+
+Additionally it changes the return values to the common NET_RX_xxx constants.
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+Signed-off-by: Urs Thuermann <urs@isnogud.escape.de>
+CC: Michael Olbrich <m.olbrich@pengutronix.de>
+CC: Luotao Fu <l.fu@pengutronix.de>
+
 ---
->>> First of all, if we allocated at least one buffer we should
->>> mark the last one in the code right after this loop.
->>>
->>> Second of all, we should purge the TX skbs in the next
->>> loop even if we could not allocate even one RX buffer.
->>>
->>> The thing to do is probably to guard the set of "[i-1]" RX ring
->>> accesses with a "if (i != 0)" check.
->> Forgot a bit about this one, but I hope this is what you meant?
-> 
-> It's not correct to limit the TX ring loop by how many RX
-> ring buffers we've been able to successfully allocate,
-> that doesn't make any sense.
-> 
-> I'm talking about the second loop which you unexplainably
-> changed to "for (j = 0; j < i; ..."
 
-Ok, I apparently completely misunderstood. One remaining question is whether
-the base address should still be written if i is 0?
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index 45b1822..8b61660 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -1897,11 +1897,12 @@ static void lmc_softreset (lmc_softc_t * const sc) /*fold00*/
-     /*
-      * Sets end of ring
-      */
--    sc->lmc_rxring[i - 1].length |= 0x02000000; /* Set end of buffers flag */
--    sc->lmc_rxring[i - 1].buffer2 = virt_to_bus (&sc->lmc_rxring[0]); /* Point back to the start */
-+    if (i != 0) {
-+        sc->lmc_rxring[i - 1].length |= 0x02000000; /* Set end of buffers flag */
-+        sc->lmc_rxring[i - 1].buffer2 = virt_to_bus(&sc->lmc_rxring[0]); /* Point back to the start */
-+    }
-     LMC_CSR_WRITE (sc, csr_rxlist, virt_to_bus (sc->lmc_rxring)); /* write base address */
+--------------080804050308040309050206
+Content-Type: text/x-patch;
+ name="af_can_convert_bug_to_warn.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="af_can_convert_bug_to_warn.patch"
+
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index e733725..ef1c43a 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -651,12 +651,16 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct can_frame *cf = (struct can_frame *)skb->data;
+ 	int matches;
  
--
-     /* Initialize the transmit rings and buffers */
-     for (i = 0; i < LMC_TXDESCS; i++)
-     {
+-	if (dev->type != ARPHRD_CAN || !net_eq(dev_net(dev), &init_net)) {
+-		kfree_skb(skb);
+-		return 0;
+-	}
++	if (!net_eq(dev_net(dev), &init_net))
++		goto drop;
+ 
+-	BUG_ON(skb->len != sizeof(struct can_frame) || cf->can_dlc > 8);
++	if (WARN_ONCE(dev->type != ARPHRD_CAN ||
++		      skb->len != sizeof(struct can_frame) ||
++		      cf->can_dlc > 8,
++		      "PF_CAN: dropped non conform skbuf: "
++		      "dev type %d, len %d, can_dlc %d\n",
++		      dev->type, skb->len, cf->can_dlc))
++		goto drop;
+ 
+ 	/* update statistics */
+ 	can_stats.rx_frames++;
+@@ -682,7 +686,11 @@ static int can_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		can_stats.matches_delta++;
+ 	}
+ 
+-	return 0;
++	return NET_RX_SUCCESS;
++
++drop:
++	kfree_skb(skb);
++	return NET_RX_DROP;
+ }
+ 
+ /*
+
+--------------080804050308040309050206--
