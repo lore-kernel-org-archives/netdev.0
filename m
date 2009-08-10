@@ -1,55 +1,60 @@
-From: Brent Cook <bcook@bpointsys.com>
-Subject: Re: strange behaviour in ping when specifying timeout in msec
-Date: Mon, 10 Aug 2009 14:09:43 -0500
-Message-ID: <200908101409.44106.bcook@bpointsys.com>
-References: <13b17b8a0908051627n32ce7461j75e8459a2c54909c@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Bridge] [PATCH] macvlan: add tap device backend
+Date: Mon, 10 Aug 2009 22:32:27 +0300
+Message-ID: <20090810193227.GA16820@redhat.com>
+References: <0199E0D51A61344794750DC57738F58E6D6A6CD7F6@GVW1118EXC.americas.hpqcorp.net> <200908080005.32443.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99700@GVW1118EXC.americas.hpqcorp.net> <200908102104.54527.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Michele BOLOGNA <michele.bologna@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 65-36-7-9.static.grandenetworks.net ([65.36.7.9]:21056 "EHLO
-	bpointsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751901AbZHJTYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 15:24:53 -0400
-In-Reply-To: <13b17b8a0908051627n32ce7461j75e8459a2c54909c@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Fischer, Anna" <anna.fischer@hp.com>,
+	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
+	"drobbins@funtoo.org" <drobbins@funtoo.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ogerlitz@voltaire.com" <ogerlitz@voltaire.com>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752291AbZHJTe2@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <200908102104.54527.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 August 2009 06:27:14 pm Michele BOLOGNA wrote:
-> Dear Mr. Yoshifuji,
-> I recently noticed a strange behaviour in ping from iputils.
->
-> First of all some information:
-> mbologna@neptune:~$ ping -V
-> ping utility, iputils-sss20071127
->
-> Now, I want to specify a timeout and after it expires I would like
-> that ping exits, regardless of the packets received, so I use the -W
-> option:
->
->       -W timeout
->               Time to wait for a response, in seconds. The option affects
-> only timeout in absense of any responses, otherwise  ping  waits  for two
-> RTTs.
+On Mon, Aug 10, 2009 at 09:04:54PM +0200, Arnd Bergmann wrote:
+> On Monday 10 August 2009, Fischer, Anna wrote:
+> > If you compare macvtap with traditional QEMU networking interfaces that
+> > are typically used in current bridged setups, then yes, performance will be
+> > different. However, I think that this is not necessarily a fair 
+> > comparison, and the performance difference does not come from the 
+> > bridge being slow, but simply because you have implemented a better
+> > solution to connect a virtual interface to a backend device that
+> > can be assigned to a VM. There is no reason why you could not do this
+> > for a bridge port as well.
+> 
+> It's not necessarily the bridge itself being slow (though some people
+> claim it is) but more the bridge preventing optimizations or making
+> them hard.
+> 
+> You already mentioned hardware filtering by unicast and multicast
+> mac addresses, which macvlan already does (for unicast) but which would be
+> relatively complex with a bridge due to the way it does MAC address
+> learning.
+> 
+> If we want to do zero copy receives, the hardware will on top of
+> this have to choose the receive buffer based on the mac address,
+> with the buffer provided by the guest. I think this is not easy
+> with macvlan but doable, while I have no idea where you would start
+> using the bridge code.
+> 
+> 	Arnd <><
 
-If you check out the source to ping, you will see that the results of non-
-integer arguments to -W is undefined, since atoi cannot detect errors. In your 
-case, its probably being interpreted as 0. You can enter almost any value for 
--W without it showing an error, e.g. 'cat' or 'dog'.
+Similar thing for zero copy sends. You need to know when
+the buffers have been consumed to notify userspace,
+and this is very hard with a generic bridge in the middle.
 
-    case 'W':
-        lingertime = atoi(optarg);
-        if (lingertime < 0 || lingertime > INT_MAX/1000000) {
-            fprintf(stderr, "ping: bad linger time.\n");
-            exit(2);
-        }
-        lingertime *= 1000;
-        break;
 
-Your best bet is perhaps to modify ping to parse time using strtof perhaps.
-
- - Brent
+-- 
+MST
