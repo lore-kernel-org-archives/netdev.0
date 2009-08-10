@@ -1,51 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [evb] RE: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Mon, 10 Aug 2009 21:18:49 +0200
-Message-ID: <200908102118.49253.arnd@arndb.de>
-References: <D2E118A1E7268F449C469EA2F301D92902BC39B2@exil.voltaire.com> <0199E0D51A61344794750DC57738F58E6D6AE99884@GVW1118EXC.americas.hpqcorp.net> <20090810095118.125fe966@nehalam>
+From: Brent Cook <bcook@bpointsys.com>
+Subject: Re: strange behaviour in ping when specifying timeout in msec
+Date: Mon, 10 Aug 2009 14:09:43 -0500
+Message-ID: <200908101409.44106.bcook@bpointsys.com>
+References: <13b17b8a0908051627n32ce7461j75e8459a2c54909c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Fischer, Anna" <anna.fischer@hp.com>,
-	"Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>,
-	"evb@yahoogroups.com" <evb@yahoogroups.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"adobriyan@gmail.com" <adobriyan@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: virtualization@lists.linux-foundation.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Michele BOLOGNA <michele.bologna@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:63223 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797AbZHJTSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 15:18:54 -0400
-In-Reply-To: <20090810095118.125fe966@nehalam>
+Received: from 65-36-7-9.static.grandenetworks.net ([65.36.7.9]:21056 "EHLO
+	bpointsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751901AbZHJTYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Aug 2009 15:24:53 -0400
+In-Reply-To: <13b17b8a0908051627n32ce7461j75e8459a2c54909c@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 10 August 2009, Stephen Hemminger wrote:
-> On Mon, 10 Aug 2009 16:32:01, "Fischer, Anna" <anna.fischer@hp.com> wrote:
-> > How would this work though, if the OS inside the guest wants to register
-> > to a particular multicast address? Is this propagated through the backend
-> > drivers to the macvlan/macvtap interface?
-> 
-> Sure filtering is better, but multicast performance with large number
-> of guests is really a corner case, not the real performance issue.
+On Wednesday 05 August 2009 06:27:14 pm Michele BOLOGNA wrote:
+> Dear Mr. Yoshifuji,
+> I recently noticed a strange behaviour in ping from iputils.
+>
+> First of all some information:
+> mbologna@neptune:~$ ping -V
+> ping utility, iputils-sss20071127
+>
+> Now, I want to specify a timeout and after it expires I would like
+> that ping exits, regardless of the packets received, so I use the -W
+> option:
+>
+>       -W timeout
+>               Time to wait for a response, in seconds. The option affects
+> only timeout in absense of any responses, otherwise  ping  waits  for two
+> RTTs.
 
-Well, right now, qemu does not care at all about this, it essentially
-leaves the tun device in ALLMULTI state. I should check whether macvtap
-at this stage can receive multicast frames at all, but if it does,
-it will get them all ;-).
+If you check out the source to ping, you will see that the results of non-
+integer arguments to -W is undefined, since atoi cannot detect errors. In your 
+case, its probably being interpreted as 0. You can enter almost any value for 
+-W without it showing an error, e.g. 'cat' or 'dog'.
 
-If we want to implement this with kvm, we would have to start with
-the qemu virtio-net implementation, to move the receive filter into
-the tap device. With tun/tap that will mean less copying to user
-space, with macvtap (after implementing TUNSETTXFILTER) we get already
-pretty far because we no longer need to have the external interface
-in ALLMULTI state. Once that is in place, we can start thinking about
-filtering per virtual device.
+    case 'W':
+        lingertime = atoi(optarg);
+        if (lingertime < 0 || lingertime > INT_MAX/1000000) {
+            fprintf(stderr, "ping: bad linger time.\n");
+            exit(2);
+        }
+        lingertime *= 1000;
+        break;
 
-	Arnd <><
+Your best bet is perhaps to modify ping to parse time using strtof perhaps.
+
+ - Brent
