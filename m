@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Mon, 10 Aug 2009 17:07:32 +0200
-Message-ID: <200908101707.32751.arnd@arndb.de>
+Date: Mon, 10 Aug 2009 17:06:58 +0200
+Message-ID: <200908101706.58261.arnd@arndb.de>
 References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <200908081149.27409.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99743@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -21,7 +21,7 @@ Cc: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
 	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
 	Eric Biederman <ebiederm@xmission.com>
 To: "Fischer, Anna" <anna.fischer@hp.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755359AbZHJPI2@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932117AbZHJPKU@vger.kernel.org>
 In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6AE99743@GVW1118EXC.americas.hpqcorp.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
