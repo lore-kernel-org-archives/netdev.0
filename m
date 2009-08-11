@@ -1,61 +1,76 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 13954] New: Oops in rtnetlink code when creating
- can device
-Date: Tue, 11 Aug 2009 10:22:20 +0200
-Message-ID: <4A812A3C.10207@trash.net>
-References: <bug-13954-10286@http.bugzilla.kernel.org/> <20090810215436.0bf47297.akpm@linux-foundation.org> <4A812354.8090704@volkswagen.de>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [PATCH 2.6.31-rc5] can: fix oops caused by wrong rtnl newlink usage
+Date: Tue, 11 Aug 2009 14:41:24 +0200
+Message-ID: <4A8166F4.6040204@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>,
-	Lothar Wassmann <LW@KARO-electronics.de>,
-	netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Content-Type: multipart/mixed;
+ boundary="------------090703060101040109080408"
+Cc: Patrick McHardy <kaber@trash.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64684 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbZHKMgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:36:32 -0400
-In-Reply-To: <4A812354.8090704@volkswagen.de>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:53313 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbZHKMla (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:41:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Hartkopp wrote:
->>> I've got a nice oops when looking around new CAN code in kernel.
->>>
->>> root@qemux86:~# ip link add type can
->>> [  713.113325] BUG: unable to handle kernel NULL pointer dereference
->>> at (null)
->>> [  713.114216] IP: [<c13eecab>] register_netdevice+0xab/0x420
->>> ...
-> The problem is, that
-> 
-> ip link add type can
-> 
-> is not possible as you can not create 'real' CAN devices like can0,
-> can1, ...
-> 
-> To create 'software CAN devices' like vcan0, vcan1, vcan2, ... we use
-> 
-> ip link add type vcan
-> 
-> see drivers/net/can/vcan.c
-> 
-> ---
-> 
-> For real hardware CAN devices the netlink interface is only used for the
-> configuration of already existing interfaces.
-> From a quick view on the rtnl_newlink() function in net/core/rtnetlink.c
-> i was not able to find any method to disallow the creation of 
-> interfaces, will say: How can a netlink user provide the information,
-> that he's not able to create new devices via netlink???
-> 
-> @Patrick: Do you have an idea for this? Is it a new use-case for netlink
-> that needs to be implemented?
+This is a multi-part message in MIME format.
+--------------090703060101040109080408
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-You could add a ->newlink() function that unconditionally returns
-an error.
+For 'real' hardware CAN devices the netlink interface is used to set CAN
+specific communication parameters. Real CAN hardware can not be created with
+the ip tool ...
+
+The invocation of 'ip link add type can' lead to an oops as the standard rtnl
+newlink function was called:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=13954
+
+This patch adds a private newlink function for the CAN device driver interface
+that unconditionally returns -EOPNOTSUPP.
+
+Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
+Reported-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Wolfgang Grandegger <wg@grandegger.com>
+
+---
+
+--------------090703060101040109080408
+Content-Type: text/x-patch;
+ name="can_newlink_oops_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="can_newlink_oops_fix.patch"
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 9e4283a..e1a4f82 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -611,11 +611,18 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
++static int can_newlink(struct net_device *dev,
++		       struct nlattr *tb[], struct nlattr *data[])
++{
++	return -EOPNOTSUPP;
++}
++
+ static struct rtnl_link_ops can_link_ops __read_mostly = {
+ 	.kind		= "can",
+ 	.maxtype	= IFLA_CAN_MAX,
+ 	.policy		= can_policy,
+ 	.setup		= can_setup,
++	.newlink	= can_newlink,
+ 	.changelink	= can_changelink,
+ 	.fill_info	= can_fill_info,
+ 	.fill_xstats	= can_fill_xstats,
+
+--------------090703060101040109080408--
