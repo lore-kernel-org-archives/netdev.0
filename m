@@ -1,120 +1,172 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13954] New: Oops in rtnetlink code when
- creating can device
-Date: Mon, 10 Aug 2009 21:54:36 -0700
-Message-ID: <20090810215436.0bf47297.akpm@linux-foundation.org>
-References: <bug-13954-10286@http.bugzilla.kernel.org/>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: [PATCH] revert TCP retransmission backoff on ICMP destination
+ unreachable
+Date: Tue, 11 Aug 2009 13:27:42 +0200
+Message-ID: <4A8155AE.7000707@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Lothar Wassmann <LW@KARO-electronics.de>,
-	netdev@vger.kernel.org
-To: dbaryshkov@gmail.com
+Content-Type: multipart/mixed; boundary="Boundary_(ID_hmjG3PoxWKQjUNFhHxFK8A)"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:34410 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751851AbZHKLyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 07:54:52 -0400
-In-Reply-To: <bug-13954-10286@http.bugzilla.kernel.org/>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:40720 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752285AbZHKL5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 07:57:43 -0400
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-2.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KO700JBCMI7AX20@mta-2.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Tue, 11 Aug 2009 13:27:43 +0200 (CEST)
+Received: from [137.226.143.131] (nexus.tvk.RWTH-Aachen.DE [137.226.143.131])
+	by relay.rwth-aachen.de (8.13.8+Sun/8.13.8/1) with ESMTP id n7BBRgXs016283	for
+ <netdev@vger.kernel.org>; Tue, 11 Aug 2009 13:27:43 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+--Boundary_(ID_hmjG3PoxWKQjUNFhHxFK8A)
+Content-type: text/plain; charset=ISO-8859-15
+Content-transfer-encoding: 7BIT
 
-On Mon, 10 Aug 2009 11:34:28 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
+This patch is a proof-of-concept related to the draft "Make TCP more
+Robust to Long Connectivity Disruptions"
+(http://tools.ietf.org/html/draft-zimmermann-tcp-lcd-01).
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13954
+Exponential backoff is TCP's standard behaviour during long connectivity
+disruptions, which is a countermeasure against network congestion.
+If congestion can be excluded as the reason for RTO retransmission loss,
+backoff is not desirable, as it yields longer TCP recovery times, when
+the communication path is repaired shortly after an unsuccessful
+retransmission probe.
+Here, an ICMP host/network unreachable message, whose payload fits to
+TCPs SND.UNA, is taken as an indication that the RTO retransmission has
+not been lost due to congestion, but because of a route failure
+somewhere along the path. On receipt of such a message, the timeout is
+halved (in order to revert to doubling after the retransmission).
+With true congestion, a router won't trigger such a message and the
+patched TCP will operate as standard TCP.
 
-Thanks.
+Comments are appreciated, especially regarding eventual side effects
+with the zero window probing mechanism.
+In Linux, the RTO retransmisson mechanism is coupled to the zero window
+probing mechanism, but is not intended to be changed. I hope I have not
+missed something, here.
 
->            Summary: Oops in rtnetlink code when creating can device
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.30-rc5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: dbaryshkov@gmail.com
->         Regression: No
-> 
-> 
-> I've got a nice oops when looking around new CAN code in kernel.
-> 
-> root@qemux86:~# ip link add type can
-> [  713.113325] BUG: unable to handle kernel NULL pointer dereference at (null)
-> [  713.114216] IP: [<c13eecab>] register_netdevice+0xab/0x420
-> [  713.114920] *pdpt = 00000000061bd001 *pde = 0000000000000000 
-> [  713.115627] Oops: 0000 [#1] SMP 
-> [  713.115972] last sysfs file:
-> /sys/devices/virtual/backlight/fujitsu-laptop/brightness
-> [  713.116137] Modules linked in:
-> [  713.116137] 
-> [  713.116137] Pid: 1803, comm: ip Not tainted (2.6.31-rc5 #68) 
-> [  713.116137] EIP: 0060:[<c13eecab>] EFLAGS: 00000246 CPU: 0
-> [  713.116137] EIP is at register_netdevice+0xab/0x420
-> [  713.116137] EAX: 00000000 EBX: 00000000 ECX: 00000001 EDX: 00000001
-> [  713.116137] ESI: c72c6000 EDI: 00000000 EBP: c61abb54 ESP: c61abb34
-> [  713.116137]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> [  713.116137] Process ip (pid: 1803, ti=c61aa000 task=c6f395e0
-> task.ti=c61aa000)
-> [  713.116137] Stack:
-> [  713.116137]  c61abb54 c13f732f 00000001 c61abbb4 894f908a 00000000 c72c6000
-> 00000000
-> [  713.116137] <0> c61abc74 c13f8278 c61abbb4 00000010 c165d494 c1652090
-> c61abc18 c6f3d028
-> [  713.116137] <0> 894f908a 894f908a c61abc18 c13f7da0 c61abc74 c13f7f46
-> 00000008 c1546f80
-> [  713.116137] Call Trace:
-> [  713.116137]  [<c13f732f>] ? rtnl_create_link+0x4f/0x130
-> [  713.116137]  [<c13f8278>] ? rtnl_newlink+0x4d8/0x4e0
-> [  713.116137]  [<c13f7da0>] ? rtnl_newlink+0x0/0x4e0
-> [  713.116137]  [<c13f7f46>] ? rtnl_newlink+0x1a6/0x4e0
-> [  713.116137]  [<c13f7da0>] ? rtnl_newlink+0x0/0x4e0
-> [  713.116137]  [<c13f7d00>] ? rtnetlink_rcv_msg+0x180/0x220
-> [  713.116137]  [<c13f7b80>] ? rtnetlink_rcv_msg+0x0/0x220
-> [  713.116137]  [<c1400e56>] ? netlink_rcv_skb+0x86/0xb0
-> [  713.116137]  [<c13f7b5a>] ? rtnetlink_rcv+0x2a/0x50
-> [  713.116137]  [<c140085b>] ? netlink_unicast+0x29b/0x2b0
-> [  713.116137]  [<c1400a5b>] ? netlink_sendmsg+0x1eb/0x2f0
-> [  713.116137]  [<c13db72b>] ? sock_sendmsg+0xdb/0x110
-> [  713.116137]  [<c10bef17>] ? __d_instantiate+0x57/0xe0
-> [  713.116137]  [<c1053cd0>] ? autoremove_wake_function+0x0/0x60
-> [  713.116137]  [<c110a75f>] ? ext3_lookup+0xaf/0x130
-> [  713.116137]  [<c10bfd24>] ? d_alloc+0x114/0x1a0
-> [  713.116137]  [<c10c5a95>] ? mntput_no_expire+0x25/0xe0
-> [  713.116137]  [<c11b518e>] ? copy_from_user+0x3e/0x150
-> [  713.116137]  [<c11b518e>] ? copy_from_user+0x3e/0x150
-> [  713.116137]  [<c13e55cb>] ? verify_iovec+0x3b/0xc0
-> [  713.116137]  [<c13db8b8>] ? sys_sendmsg+0x158/0x280
-> [  713.116137]  [<c107a22c>] ? unlock_page+0x4c/0x70
-> [  713.116137]  [<c108efb8>] ? __do_fault+0x378/0x470
-> [  713.116137]  [<c10a81d3>] ? lookup_object+0x33/0x80
-> [  713.116137]  [<c107a820>] ? filemap_fault+0x0/0x3c0
-> [  713.116137]  [<c1029ba9>] ? kmemcheck_mark_freed+0x19/0x40
-> [  713.116137]  [<c11b518e>] ? copy_from_user+0x3e/0x150
-> [  713.116137]  [<c13dcd97>] ? sys_socketcall+0xb7/0x290
-> [  713.116137]  [<c10230fa>] ? do_page_fault+0x18a/0x2a0
-> [  713.116137]  [<c100324f>] ? sysenter_do_call+0x12/0x26
-> [  713.116137] Code: ff ff 3b 96 84 02 00 00 72 d6 8b 86 b4 00 00 00 c7 86 00
-> 02 00 00 00 00 00 00 c7 86 04 02 00 00 ff ff ff ff c7 46 4c ff ff ff ff <8b> 10
-> 85 d2 74 2f 89 f0 ff d2 83 f8 00 89 c7 74 24 b8 fb ff ff 
-> [  713.116137] EIP: [<c13eecab>] register_netdevice+0xab/0x420 SS:ESP
-> 0068:c61abb34
-> [  713.116137] CR2: 0000000000000000
-> [  713.142874] ---[ end trace 883d4085b7c1045b ]---
-> 
+---
 
-Boy, the backtrace is a bit hard to follow.  Maybe enabling frame
-pointers would clean it up.
+--Boundary_(ID_hmjG3PoxWKQjUNFhHxFK8A)
+Content-type: text/plain; name=TCP_ICMP_2.6.30.4.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=TCP_ICMP_2.6.30.4.patch
 
+diff -Naur linux-2.6.30.4-vanilla/include/net/tcp.h linux-2.6.30.4-tcp-icmp/include/net/tcp.h
+--- linux-2.6.30.4-vanilla/include/net/tcp.h	2009-07-31 00:34:47.000000000 +0200
++++ linux-2.6.30.4-tcp-icmp/include/net/tcp.h	2009-08-11 11:28:23.162009835 +0200
+@@ -1220,6 +1220,8 @@
+ #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
+ 	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
+ 
++#define retrans_overstepped(sk, boundary) (inet_csk(sk)->icsk_retransmits && (tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >= TCP_RTO_MIN*(2 << boundary))
++
+ static inline struct sk_buff *tcp_send_head(struct sock *sk)
+ {
+ 	return sk->sk_send_head;
+diff -Naur linux-2.6.30.4-vanilla/net/ipv4/tcp_ipv4.c linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_ipv4.c
+--- linux-2.6.30.4-vanilla/net/ipv4/tcp_ipv4.c	2009-07-31 00:34:47.000000000 +0200
++++ linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_ipv4.c	2009-08-11 11:28:33.572009505 +0200
+@@ -332,11 +332,14 @@
+ {
+ 	struct iphdr *iph = (struct iphdr *)skb->data;
+ 	struct tcphdr *th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
++
++	struct inet_connection_sock *icsk;
+ 	struct tcp_sock *tp;
+ 	struct inet_sock *inet;
+ 	const int type = icmp_hdr(skb)->type;
+ 	const int code = icmp_hdr(skb)->code;
+ 	struct sock *sk;
++	struct sk_buff *skb_r;
+ 	__u32 seq;
+ 	int err;
+ 	struct net *net = dev_net(skb->dev);
+@@ -367,6 +370,7 @@
+ 	if (sk->sk_state == TCP_CLOSE)
+ 		goto out;
+ 
++	icsk = inet_csk(sk);
+ 	tp = tcp_sk(sk);
+ 	seq = ntohl(th->seq);
+ 	if (sk->sk_state != TCP_LISTEN &&
+@@ -393,6 +397,34 @@
+ 		}
+ 
+ 		err = icmp_err_convert[code].errno;
++
++		/* check if ICMP unreachable messages allow revert of back-off */
++                if ((code != ICMP_NET_UNREACH && code != ICMP_HOST_UNREACH) || seq != tp->snd_una 
++		|| !icsk->icsk_retransmits || !icsk->icsk_backoff) break;
++
++                icsk->icsk_backoff--;
++                icsk->icsk_rto >>= 1;
++
++                skb_r = skb_peek(&sk->sk_write_queue);
++                BUG_ON(!skb_r);
++
++		if (sock_owned_by_user(sk)) {
++                        // Deferring retransmission clocked by ICMP due to locked socket.
++                        inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
++                                        min(icsk->icsk_rto, TCP_RESOURCE_PROBE_INTERVAL),
++                                        TCP_RTO_MAX);
++                }
++
++                if (tcp_time_stamp - TCP_SKB_CB(skb_r)->when > inet_csk(sk)->icsk_rto) {
++                        // RTO revert clocked out retransmission.
++                        tcp_retransmit_skb(sk, skb_r);
++                        inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
++                } else {
++                        //RTO revert shortened timer.
++                        inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
++                            icsk->icsk_rto - (tcp_time_stamp - TCP_SKB_CB(skb_r)->when), TCP_RTO_MAX);
++                }
++
+ 		break;
+ 	case ICMP_TIME_EXCEEDED:
+ 		err = EHOSTUNREACH;
+diff -Naur linux-2.6.30.4-vanilla/net/ipv4/tcp_timer.c linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_timer.c
+--- linux-2.6.30.4-vanilla/net/ipv4/tcp_timer.c	2009-07-31 00:34:47.000000000 +0200
++++ linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_timer.c	2009-08-11 11:28:33.557009931 +0200
+@@ -143,7 +143,7 @@
+ 			dst_negative_advice(&sk->sk_dst_cache);
+ 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
+ 	} else {
+-		if (icsk->icsk_retransmits >= sysctl_tcp_retries1) {
++		if (retrans_overstepped(sk, sysctl_tcp_retries1)) {
+ 			/* Black hole detection */
+ 			tcp_mtu_probing(icsk, sk);
+ 
+@@ -156,12 +156,12 @@
+ 
+ 			retry_until = tcp_orphan_retries(sk, alive);
+ 
+-			if (tcp_out_of_resources(sk, alive || icsk->icsk_retransmits < retry_until))
++			if (tcp_out_of_resources(sk, alive || !retrans_overstepped(sk, retry_until)))
+ 				return 1;
+ 		}
+ 	}
+ 
+-	if (icsk->icsk_retransmits >= retry_until) {
++	if (retrans_overstepped(sk, retry_until)) {
+ 		/* Has it gone just too far? */
+ 		tcp_write_err(sk);
+ 		return 1;
+@@ -385,7 +385,7 @@
+ out_reset_timer:
+ 	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
+ 	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
+-	if (icsk->icsk_retransmits > sysctl_tcp_retries1)
++	if (retrans_overstepped(sk, sysctl_tcp_retries1))
+ 		__sk_dst_reset(sk);
+ 
+ out:;
+
+--Boundary_(ID_hmjG3PoxWKQjUNFhHxFK8A)--
