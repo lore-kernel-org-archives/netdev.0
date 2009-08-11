@@ -1,33 +1,93 @@
-From: =?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>
-Subject: a question on net_device struct
-Date: Tue, 11 Aug 2009 23:57:31 +0900
-Message-ID: <2014bcab0908110757q5b255dcdm497414d04810c281@mail.gmail.com>
+From: Daniel Mack <daniel@caiaq.de>
+Subject: Re: [PATCH] libertas: name the network device wlan%d
+Date: Tue, 11 Aug 2009 17:33:54 +0200
+Message-ID: <20090811153354.GQ19257@buzzloop.caiaq.de>
+References: <1250000012-25673-1-git-send-email-daniel@caiaq.de> <20090811151051.GA18186@guralp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Roel Kluin <roel.kluin@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+To: libertas-dev@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f175.google.com ([209.85.210.175]:47140 "EHLO
-	mail-yx0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754827AbZHKO5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 10:57:35 -0400
-Received: by yxe5 with SMTP id 5so4744849yxe.33
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 07:57:34 -0700 (PDT)
+Received: from buzzloop.caiaq.de ([212.112.241.133]:41979 "EHLO
+	buzzloop.caiaq.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532AbZHKPeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 11:34:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20090811151051.GA18186@guralp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi. I have a question while I read the codes in net/core of Linux 2.6.30.4.
+On Tue, Aug 11, 2009 at 04:10:51PM +0100, Bob Dunlop wrote:
+> On Tue, Aug 11 at 04:13, Daniel Mack wrote:
+> > Devices created by the libertas driver are currently called eth%d. Which
+> > is wrong, because the device does not at all have anything to do with
+> > Ethernet. And it is also confusing when used on devices with more than
+> > one network device.
+> > 
+> > Fix this by calling it wlan%d.
+> 
+> Just a nit pick but shouldn't the patch also include:
+> 
+> @@ -1176,7 +1176,7 @@
+>  	/* Allocate an Ethernet device and register it */
+>  	dev = alloc_etherdev(sizeof(struct lbs_private));
+>  	if (!dev) {
+> -		lbs_pr_err("init ethX device failed\n");
+> +		lbs_pr_err("init wlanX device failed\n");
+>  		goto done;
+>  	}
+>  	priv = netdev_priv(dev);
+> 
+> 
+> So collars and cuffs match.
 
-'net_device' struct defined in include/linux/netdevice.h has a field
-'operstate'.
-Is a 'operstate' field is protected by 'dev_base_lock'?
+Oh, of course.
 
-At set_operstate() in net/core/rtnetlink.c, it seems that dev->operstate
-is protected by write_lock_bh(&dev_base_lock).
-But, in other codes, the read operations to dev->operstate are not
-consistently protected by read_lock_bh(&dev_base_lock).
+Thanks,
+Daniel
 
-Thank you.
+>From 63ace51c76ef513553f4b30da80603f1f81114d0 Mon Sep 17 00:00:00 2001
+From: Daniel Mack <daniel@caiaq.de>
+Date: Tue, 11 Aug 2009 16:09:34 +0200
+Subject: [PATCH] libertas: name the network device wlan%d
 
-Sincerely
-Shin Hong
+Devices created by the libertas driver are currently called eth%d. Which
+is wrong, because the device does not at all have anything to do with
+Ethernet. And it is also confusing when used on devices with more than
+one network device.
+
+Fix this by calling it wlan%d.
+
+Signed-off-by: Daniel Mack <daniel@caiaq.de>
+Cc: Roel Kluin <roel.kluin@gmail.com>
+Cc: John W. Linville <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wireless/libertas/main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/libertas/main.c b/drivers/net/wireless/libertas/main.c
+index 89575e4..8df1cfd 100644
+--- a/drivers/net/wireless/libertas/main.c
++++ b/drivers/net/wireless/libertas/main.c
+@@ -1176,7 +1176,7 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev)
+ 	/* Allocate an Ethernet device and register it */
+ 	dev = alloc_etherdev(sizeof(struct lbs_private));
+ 	if (!dev) {
+-		lbs_pr_err("init ethX device failed\n");
++		lbs_pr_err("init wlanX device failed\n");
+ 		goto done;
+ 	}
+ 	priv = netdev_priv(dev);
+@@ -1204,6 +1204,7 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev)
+ 	SET_NETDEV_DEV(dev, dmdev);
+ 
+ 	priv->rtap_net_dev = NULL;
++	strcpy(dev->name, "wlan%d");
+ 
+ 	lbs_deb_thread("Starting main thread...\n");
+ 	init_waitqueue_head(&priv->waitq);
+-- 
+1.6.3.3
+
