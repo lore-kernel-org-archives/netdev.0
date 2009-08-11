@@ -1,47 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Add networking wireless drivers section
-Date: Tue, 11 Aug 2009 07:49:53 -0700 (PDT)
-Message-ID: <20090811.074953.130816092.davem@davemloft.net>
-References: <20090728.113353.08715297.davem@davemloft.net>
-	<1248806896.18284.14.camel@Joe-Laptop.home>
-	<alpine.LRH.2.00.0908111555410.11142@twin.jikos.cz>
+From: "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>
+Subject: RE: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Tue, 11 Aug 2009 07:55:04 -0700
+Message-ID: <001001ca1a93$b6e50ee0$24af2ca0$@edu>
+References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <200908081149.27409.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99743@GVW1118EXC.americas.hpqcorp.net> <200908101707.32751.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99C53@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, linville@tuxdriver.com, julia@diku.dk,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org
-To: jkosina@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51482
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752509AbZHKOtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 10:49:43 -0400
-In-Reply-To: <alpine.LRH.2.00.0908111555410.11142@twin.jikos.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
+	<bridge@lists.linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<virtualization@lists.linux-foundation.org>, <evb@yahoogroups.com>,
+	<davem@davemloft.net>, <kaber@trash.net>, <adobriyan@gmail.com>,
+	"'Eric Biederman'" <ebiederm@xmission.com>
+To: "'Fischer, Anna'" <anna.fischer@hp.com>,
+	"'Arnd Bergmann'" <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755182AbZHKOzF@vger.kernel.org>
+In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6AE99C53@GVW1118EXC.americas.hpqcorp.net>
+Content-Language: en-us
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Tue, 11 Aug 2009 15:55:46 +0200 (CEST)
-
-> On Tue, 28 Jul 2009, Joe Perches wrote:
+> >
+> > The patch from Eric Biederman to allow macvlan to bridge between
+> > its slave ports is at
+> >
+> > http://kerneltrap.org/mailarchive/linux-netdev/2009/3/9/5125774
 > 
->> > Why not just create a plain "WIRELESS" umbrella entry that contains 
->> > all of drivers/net/wireless, net/mac80211, and net/wireless?
->> Whatever works for John I suppose. John, do you have a preference?
->> I was trying to avoid the "S: Maintained" label
->> and was copying the form of this section:
->> 
->> NETWORKING DRIVERS
->> L:	netdev@vger.kernel.org
->> W:	http://www.linuxfoundation.org/en/Net
->> T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
->> S:	Odd Fixes
->> F:	drivers/net/
+> Looking through the discussions here, it does not seem as if a decision
+> was made to integrate those patches, because they would make the
+> macvlan
+> interface behave too much like a bridge. Also, it seems as if there was
+> still a problem with doing multicast/broadcast delivery when enabling
+> local VM-to-VM communication. Is that solved by now?
 > 
-> Just out of curiosity, why is drivers/net marked as "Odd fixes" and not 
-> "Maintained"?
 
-Because it depends upon the individual driver maintainers.  For
-example, I don't think one could claim 3c515.c or other ISA ethernet
-drivers to be in any kind of "Maintained" state.
+Also, is there a solution, or plans for a solution, to address macvtap
+interfaces that are set to 'promiscuous' mode?  It would seem fairly easy to
+support this for interfaces that are simply trying to listen to the port
+(e.g. Wireshark).  If the port was being used by something like a firewall
+then the VEPA filtering doesn't work too well.
+
+Paul
