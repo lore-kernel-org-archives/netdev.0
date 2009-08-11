@@ -1,83 +1,38 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] Fix Warnings from net/netlink/genetlink.c
-Date: Tue, 11 Aug 2009 09:36:13 +0200
-Message-ID: <1249976174.5903.16.camel@johannes.local>
-References: <1249975630.2400.7.camel@HunTEr>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH] MAINTAINERS: Add networking wireless drivers section
+Date: Tue, 11 Aug 2009 15:55:46 +0200 (CEST)
+Message-ID: <alpine.LRH.2.00.0908111555410.11142@twin.jikos.cz>
+References: <Pine.LNX.4.64.0907281753540.28189@ask.diku.dk>  <20090728.103044.179053537.davem@davemloft.net>  <1248804397.18284.5.camel@Joe-Laptop.home>  <20090728.113353.08715297.davem@davemloft.net> <1248806896.18284.14.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-R7bSeh6x1oobAnnggjY/"
-Cc: linux-next@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: vibi_sreenivasan@cms.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1249975630.2400.7.camel@HunTEr>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
+	julia@diku.dk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754764AbZHKNzw@vger.kernel.org>
+In-Reply-To: <1248806896.18284.14.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 28 Jul 2009, Joe Perches wrote:
 
---=-R7bSeh6x1oobAnnggjY/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> > Why not just create a plain "WIRELESS" umbrella entry that contains 
+> > all of drivers/net/wireless, net/mac80211, and net/wireless?
+> Whatever works for John I suppose. John, do you have a preference?
+> I was trying to avoid the "S: Maintained" label
+> and was copying the form of this section:
+> 
+> NETWORKING DRIVERS
+> L:	netdev@vger.kernel.org
+> W:	http://www.linuxfoundation.org/en/Net
+> T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+> S:	Odd Fixes
+> F:	drivers/net/
 
-On Tue, 2009-08-11 at 12:57 +0530, vibi sreenivasan wrote:
-> Fix following compiler warnings
->=20
-> net/netlink/genetlink.c: In function `genl_register_mc_group':
-> net/netlink/genetlink.c:139: warning: 'err' might be used uninitialized i=
-n this function
+Just out of curiosity, why is drivers/net marked as "Odd fixes" and not 
+"Maintained"?
 
-Well, only if there's no netns which can't happen.
-
-However, technical problems prohibit your patch from being applied.
-
-a) you sent it to the wrong list, copying netdev
-
-> Signed-off-by: vibi sreenivasan, CMS COMPUTERS LTD, INDIA <vibi_sreenivas=
-an@cms.com>
-
-b) this isn't correctly formatted, have you actually read
-Documentation/SubmittingPatches including the legal text that you're
-agreeing to (section 12 of that document)?
-
-johannes
-
->  net/netlink/genetlink.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index 575c643..66f6ba0 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -136,7 +136,7 @@ int genl_register_mc_group(struct genl_family *family=
-,
->  {
->  	int id;
->  	unsigned long *new_groups;
-> -	int err;
-> +	int err =3D 0;
-> =20
->  	BUG_ON(grp->name[0] =3D=3D '\0');
-> =20
-
-
---=-R7bSeh6x1oobAnnggjY/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABAgAGBQJKgR9qAAoJEODzc/N7+Qmat64P/2IniuUubyV5X9aDOnaWIxpj
-mgMq6Pn3bjoPZUlAwaQAOnQz2CPclKk00G5fUSCoCbgNgAAE+HyJNmWG5Kre05+I
-83zf6nLHgCWuhJk6A7bTigAgM8dEQxs2OWDsaelBBAvfU+rCjPROR2JZeQFYpqBa
-4filsNgfZSVCrjq+UaZHhiASQ3EDmB5lUUwbwPF7bo/pjeFgK2wTcWALqSVGos43
-sD+VqNQJkb/68+8dAHdBbtal286raBDfLA0v8aSW2PkSMU/L45nU6aioaikeusQK
-u0/3hUKOsYg0W+EhkZ102bwk4dU6ewpHkhcsI3XkM5Lri+LeA5BKbpGKGZDbu8dY
-q4eDOaTPLnTtbz727KJjPt0nuo5iFckQyC1zEPePYHXiacKRVlRzQKlpWMIg1tvT
-xhjLhzRoXndGWC1+eQjmC9jy2qYxyaBzUkJ7Td309lT/vFofQzIH+A5in2t7HDFP
-HqO9GjnCKJJEh8JZ4sxtHRgKv7mH2A/n/j8b0pTtwsL5yitvJY6dIs86XVrpqP+h
-bQS17j1HiCs5CEK2PwDVkOFFyqQ4rynDjpMqKo9JBWtJKDtA+oYhOB5Vq8PjijSM
-q9kznL98JQCpO2MaDSt9lThf2dzu3j5H45t+ypn9IVW9p5Tsn+xNtYd2g5dP8kIc
-nzBssS9NKEfRCq/nV+c9
-=iJ1q
------END PGP SIGNATURE-----
-
---=-R7bSeh6x1oobAnnggjY/--
+-- 
+Jiri Kosina
+SUSE Labs
