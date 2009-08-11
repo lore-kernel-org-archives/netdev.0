@@ -1,67 +1,77 @@
-From: vibi sreenivasan <vibi_sreenivasan@cms.com>
-Subject: Re: [PATCH] Fix Warnings from net/netlink/genetlink.c
-Date: Tue, 11 Aug 2009 14:45:10 +0530
-Message-ID: <1249982110.13065.7.camel@HunTEr>
-References: <1249975630.2400.7.camel@HunTEr>
-	 <1249976174.5903.16.camel@johannes.local>
-Reply-To: vibi_sreenivasan@cms.com
+From: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Subject: Re: [Bugme-new] [Bug 13954] New: Oops in rtnetlink code when creating
+ can device
+Date: Tue, 11 Aug 2009 11:26:59 +0200
+Message-ID: <4A813963.10407@volkswagen.de>
+References: <bug-13954-10286@http.bugzilla.kernel.org/> <20090810215436.0bf47297.akpm@linux-foundation.org> <4A812354.8090704@volkswagen.de> <4A812A3C.10207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1249976174.5903.16.camel@johannes.local>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>,
+	Lothar Wassmann <LW@KARO-electronics.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mxout1.volkswagen.de ([194.114.62.41]:28081 "EHLO
+	mxout1.volkswagen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbZHKMeh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:34:37 -0400
+In-Reply-To: <4A812A3C.10207@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Johannes,
-On Tue, 2009-08-11 at 09:36 +0200, Johannes Berg wrote:
-> On Tue, 2009-08-11 at 12:57 +0530, vibi sreenivasan wrote:
-> > Fix following compiler warnings
-> > 
-> > net/netlink/genetlink.c: In function `genl_register_mc_group':
-> > net/netlink/genetlink.c:139: warning: 'err' might be used uninitialized in this function
-> 
-> Well, only if there's no netns which can't happen.
-	So how to silence that warning?
-> 
-> However, technical problems prohibit your patch from being applied.
-> 
-> a) you sent it to the wrong list, copying netdev
-> 
-Sorry i will send it to netdev
+Patrick McHardy wrote:
+> Oliver Hartkopp wrote:
+>   
+>>>> I've got a nice oops when looking around new CAN code in kernel.
+>>>>
+>>>> root@qemux86:~# ip link add type can
+>>>> [  713.113325] BUG: unable to handle kernel NULL pointer dereference
+>>>> at (null)
+>>>> [  713.114216] IP: [<c13eecab>] register_netdevice+0xab/0x420
+>>>> ...
+>>>>         
+>> The problem is, that
+>>
+>> ip link add type can
+>>
+>> is not possible as you can not create 'real' CAN devices like can0,
+>> can1, ...
+>>
+>> To create 'software CAN devices' like vcan0, vcan1, vcan2, ... we use
+>>
+>> ip link add type vcan
+>>
+>> see drivers/net/can/vcan.c
+>>
+>> ---
+>>
+>> For real hardware CAN devices the netlink interface is only used for the
+>> configuration of already existing interfaces.
+>> From a quick view on the rtnl_newlink() function in net/core/rtnetlink.c
+>> i was not able to find any method to disallow the creation of 
+>> interfaces, will say: How can a netlink user provide the information,
+>> that he's not able to create new devices via netlink???
+>>
+>> @Patrick: Do you have an idea for this? Is it a new use-case for netlink
+>> that needs to be implemented?
+>>     
+>
+> You could add a ->newlink() function that unconditionally returns
+> an error.
+>
+>   
 
-> > Signed-off-by: vibi sreenivasan, CMS COMPUTERS LTD, INDIA <vibi_sreenivasan@cms.com>
-> 
-> b) this isn't correctly formatted, have you actually read
-> Documentation/SubmittingPatches including the legal text that you're
-> agreeing to (section 12 of that document)?
-> 
-Sorry again i will remove the tags at the end & resubmit it again.
+Yes, that fixed it.
 
-Thanks for pointing out the issues.
+I created a can_newlink() function just returning -EINVAL ...
 
-Thanks & Regards
-vibi sreenivasan
+I'll cook a patch and send it on netdev (when it gets online again).
 
-> johannes
-> 
-> >  net/netlink/genetlink.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> > index 575c643..66f6ba0 100644
-> > --- a/net/netlink/genetlink.c
-> > +++ b/net/netlink/genetlink.c
-> > @@ -136,7 +136,7 @@ int genl_register_mc_group(struct genl_family *family,
-> >  {
-> >  	int id;
-> >  	unsigned long *new_groups;
-> > -	int err;
-> > +	int err = 0;
-> >  
-> >  	BUG_ON(grp->name[0] == '\0');
-> >  
-> 
+Thanks (to all),
+Oliver
+
