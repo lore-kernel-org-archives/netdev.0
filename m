@@ -1,76 +1,50 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: [PATCH 2.6.31-rc5] can: fix oops caused by wrong rtnl newlink usage
-Date: Tue, 11 Aug 2009 14:41:24 +0200
-Message-ID: <4A8166F4.6040204@hartkopp.net>
+From: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Subject: Re: [Bugme-new] [Bug 13954] New: Oops in rtnetlink code when creating
+ can device
+Date: Tue, 11 Aug 2009 11:36:52 +0200
+Message-ID: <4A813BB4.6070109@volkswagen.de>
+References: <bug-13954-10286@http.bugzilla.kernel.org/> <20090810215436.0bf47297.akpm@linux-foundation.org> <4A812354.8090704@volkswagen.de> <4A812A3C.10207@trash.net> <4A813963.10407@volkswagen.de> <4A813AEF.7000002@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090703060101040109080408"
-Cc: Patrick McHardy <kaber@trash.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>,
+	Lothar Wassmann <LW@KARO-electronics.de>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:53313 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313AbZHKMla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:41:30 -0400
+Received: from mxout1.volkswagen.de ([194.114.62.41]:2282 "EHLO
+	mxout1.volkswagen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbZHKMpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:45:20 -0400
+In-Reply-To: <4A813AEF.7000002@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090703060101040109080408
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Patrick McHardy wrote:
+>
+>>> You could add a ->newlink() function that unconditionally returns
+>>> an error.
+>>>
+>>>   
+>>>       
+>> Yes, that fixed it.
+>>
+>> I created a can_newlink() function just returning -EINVAL ...
+>>
+>> I'll cook a patch and send it on netdev (when it gets online again).
+>>     
+>
+> I'd suggest to use EOPNOTSUPP for consistency.
+>
+>   
 
-For 'real' hardware CAN devices the netlink interface is used to set CAN
-specific communication parameters. Real CAN hardware can not be created with
-the ip tool ...
+Ok. Will do so.
 
-The invocation of 'ip link add type can' lead to an oops as the standard rtnl
-newlink function was called:
+Thanks!
 
-http://bugzilla.kernel.org/show_bug.cgi?id=13954
+Oliver
 
-This patch adds a private newlink function for the CAN device driver interface
-that unconditionally returns -EOPNOTSUPP.
-
-Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-Reported-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Wolfgang Grandegger <wg@grandegger.com>
-
----
-
---------------090703060101040109080408
-Content-Type: text/x-patch;
- name="can_newlink_oops_fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="can_newlink_oops_fix.patch"
-
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 9e4283a..e1a4f82 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -611,11 +611,18 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
-+static int can_newlink(struct net_device *dev,
-+		       struct nlattr *tb[], struct nlattr *data[])
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static struct rtnl_link_ops can_link_ops __read_mostly = {
- 	.kind		= "can",
- 	.maxtype	= IFLA_CAN_MAX,
- 	.policy		= can_policy,
- 	.setup		= can_setup,
-+	.newlink	= can_newlink,
- 	.changelink	= can_changelink,
- 	.fill_info	= can_fill_info,
- 	.fill_xstats	= can_fill_xstats,
-
---------------090703060101040109080408--
