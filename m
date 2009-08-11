@@ -1,98 +1,48 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2009-08-11
-Date: Tue, 11 Aug 2009 14:36:06 -0400
-Message-ID: <20090811183605.GG2634@tuxdriver.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Tue, 11 Aug 2009 15:15:48 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908111514090.27712@gentwo.org>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com> <4A7C9A14.7070600@inria.fr> <20090807175112.a1f57407.billfink@mindspring.com> <4A7CCEFC.7020308@myri.com> <20090807213557.d0faec23.billfink@mindspring.com> <4A7D5CA4.3030307@myri.com>
+ <20090808112636.GB18518@localhost.localdomain> <4A7DC230.6060206@myri.com> <20090808183251.GA23300@localhost.localdomain> <20090811033210.6b422ed1.billfink@mindspring.com> <20090811110254.GA26516@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Bill Fink <billfink@mindspring.com>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <Brice.Goglin@inria.fr>,
+	Linux Network Developers <netdev@vger.kernel.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59027 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753144AbZHKSqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 14:46:10 -0400
-Content-Disposition: inline
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:57864 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751144AbZHKTP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 15:15:59 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 0763F82C91A
+	for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 15:37:52 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id oR7PrOGaNcdk for <netdev@vger.kernel.org>;
+	Tue, 11 Aug 2009 15:37:51 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 3C80D82C91B
+	for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 15:37:47 -0400 (EDT)
+In-Reply-To: <20090811110254.GA26516@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On Tue, 11 Aug 2009, Neil Horman wrote:
 
-Here are a couple more minor fixes intended for 2.6.31.  Hopefully we
-are winding-down!
+> Well, its possible that there is a kernel bug, but those tables that you're
+> reading are parsed IIRC directly from the systems SRAT table in acpi space.  I'm
+> not sure of a way to read those directly from user space, but IIRC if you turn
+> on apic debugging they will get dumped out.  It sounds as though perhaps your
+> SRAT table is incorrectly reporting the location of your devices.  You may also
+> want to look at dumping out your smbios via dmidecode to see where that places
+> all your 10G nic cards.
 
-Please let me know if there are problems!
+Very likely. Talk to the manufacturer of the machine and make sure that
+the ACPI information is correct. NUMA is new to many vendors because of
+the recent introduction of newer processor architectures that support NUMA
+for the first time in small smp machines.
 
-John
-
----
-
-Individual patches are available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 973507cb8610d4c84f090d5f1f0ca54fa0559d27:
-  roel kluin (1):
-        mlx4_en: Fix read buffer overflow in mlx4_en_complete_rx_desc()
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Christian Lamparter (1):
-      ar9170usb: fix spurious firmware related message
-
-Dan Carpenter (1):
-      ar9170: fix read & write outside array bounds
-
- drivers/net/wireless/ath/ar9170/main.c |    5 +++--
- drivers/net/wireless/ath/ar9170/usb.c  |    6 +++++-
- 2 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ar9170/main.c b/drivers/net/wireless/ath/ar9170/main.c
-index 9d38cf6..88c3d85 100644
---- a/drivers/net/wireless/ath/ar9170/main.c
-+++ b/drivers/net/wireless/ath/ar9170/main.c
-@@ -1967,13 +1967,14 @@ static int ar9170_conf_tx(struct ieee80211_hw *hw, u16 queue,
- 	int ret;
- 
- 	mutex_lock(&ar->mutex);
--	if ((param) && !(queue > __AR9170_NUM_TXQ)) {
-+	if (queue < __AR9170_NUM_TXQ) {
- 		memcpy(&ar->edcf[ar9170_qos_hwmap[queue]],
- 		       param, sizeof(*param));
- 
- 		ret = ar9170_set_qos(ar);
--	} else
-+	} else {
- 		ret = -EINVAL;
-+	}
- 
- 	mutex_unlock(&ar->mutex);
- 	return ret;
-diff --git a/drivers/net/wireless/ath/ar9170/usb.c b/drivers/net/wireless/ath/ar9170/usb.c
-index 754b1f8..007eb85 100644
---- a/drivers/net/wireless/ath/ar9170/usb.c
-+++ b/drivers/net/wireless/ath/ar9170/usb.c
-@@ -598,11 +598,15 @@ static int ar9170_usb_request_firmware(struct ar9170_usb *aru)
- 
- 	err = request_firmware(&aru->init_values, "ar9170-1.fw",
- 			       &aru->udev->dev);
-+	if (err) {
-+		dev_err(&aru->udev->dev, "file with init values not found.\n");
-+		return err;
-+	}
- 
- 	err = request_firmware(&aru->firmware, "ar9170-2.fw", &aru->udev->dev);
- 	if (err) {
- 		release_firmware(aru->init_values);
--		dev_err(&aru->udev->dev, "file with init values not found.\n");
-+		dev_err(&aru->udev->dev, "firmware file not found.\n");
- 		return err;
- 	}
- 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
