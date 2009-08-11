@@ -1,50 +1,322 @@
-From: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Subject: Re: [Bugme-new] [Bug 13954] New: Oops in rtnetlink code when creating
- can device
-Date: Tue, 11 Aug 2009 11:36:52 +0200
-Message-ID: <4A813BB4.6070109@volkswagen.de>
-References: <bug-13954-10286@http.bugzilla.kernel.org/> <20090810215436.0bf47297.akpm@linux-foundation.org> <4A812354.8090704@volkswagen.de> <4A812A3C.10207@trash.net> <4A813963.10407@volkswagen.de> <4A813AEF.7000002@trash.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: multicast over nbma gre tunnels
+Date: Tue, 11 Aug 2009 11:07:06 +0300
+Message-ID: <4A8126AA.9050309@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Wolfgang Grandegger <wg@grandegger.com>, dbaryshkov@gmail.com,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	"Thuermann, Urs, Dr. (K-EFFI/I)" <urs.thuermann@volkswagen.de>,
-	Lothar Wassmann <LW@KARO-electronics.de>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxout1.volkswagen.de ([194.114.62.41]:2282 "EHLO
-	mxout1.volkswagen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005AbZHKMpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:45:20 -0400
-In-Reply-To: <4A813AEF.7000002@trash.net>
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:40710 "EHLO
+	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751667AbZHKMrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 08:47:41 -0400
+Received: by ewy10 with SMTP id 10so3740878ewy.37
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 05:47:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy wrote:
->
->>> You could add a ->newlink() function that unconditionally returns
->>> an error.
->>>
->>>   
->>>       
->> Yes, that fixed it.
->>
->> I created a can_newlink() function just returning -EINVAL ...
->>
->> I'll cook a patch and send it on netdev (when it gets online again).
->>     
->
-> I'd suggest to use EOPNOTSUPP for consistency.
->
->   
+Hi,
 
-Ok. Will do so.
+I'm trying to figure out the proper way to do multicast forwarding
+over nbma gre tunnels. Currently, the userland opennhrp daemon just
+listens of packet socket, and calls sendto() for each target it
+wants to forward it. Obviously this is slow.
 
-Thanks!
+I started to look at how to do it kernel. And I'm playing with the
+multicast forwarding code, and tried something like below (see patch
+at end of mail).
 
-Oliver
+However, there's several draw backs to this:
+- ABI breaks: MAXVIFS is changed (used in userland visible struct)
+- it does not forward locally originating link-local multicast
+  traffic (it does not traverse through mcast forwarding code)
+- there can be only one mrouter application, so I can't have
+  opennhrp manage the gre device, and some app managing the
+  forwarding between interfaces
+
+It looks like to me that the multicast forwarding code would need
+a rewrite anyway, using netlink so that it can be managed by
+multiple apps without hard limits such as MAXVIFS.
+
+But then again, I'm thinking if the gre nbma part should be made
+part of ipmr.c (have "vifs" for each nbma entity; and hook
+link-local traffic to ipmr.c too) or ip_gre.c (specific api for
+managing the nbma forwardings within gre code).
+
+The other problem is that, each multicast packet could be
+forwarded to, say hundred nodes, via same physical eth. I'm
+wonder if just copying the skb hundred times and queuing them
+on same device causes problems? Any suggestions how this could
+be done in a smart way?
+
+Incidentally, I noticed that using this, and having multicast
+sender send to gre1, with forwarding gre1->multiple gre1 nbma
+destinations, the sender application had a large soft-irq
+usage. Forwarding from real interface to multiple nbma
+destinations seemed had the expected cpu usage level. I suppose
+I introduced (or there exists) some sort of routing loop that
+the packets got handled TTL times, instead of once per packet.
+
+Thanks,
+  Timo
+
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 0d45b4e..406ef6f 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -33,7 +33,7 @@
+ #define SIOCGETSGCNT	(SIOCPROTOPRIVATE+1)
+ #define SIOCGETRPF	(SIOCPROTOPRIVATE+2)
+ 
+-#define MAXVIFS		32	
++#define MAXVIFS		256
+ typedef unsigned long vifbitmap_t;	/* User mode code depends on this lot */
+ typedef unsigned short vifi_t;
+ #define ALL_VIFS	((vifi_t)(-1))
+@@ -66,6 +66,7 @@ struct vifctl {
+ #define VIFF_TUNNEL	0x1	/* IPIP tunnel */
+ #define VIFF_SRCRT	0x2	/* NI */
+ #define VIFF_REGISTER	0x4	/* register vif	*/
++#define VIFF_NBMA	0x10
+ 
+ /*
+  *	Cache manipulation structures for mrouted and PIMd
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 13e9dd3..43c988b 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -105,6 +105,31 @@ static struct net_protocol pim_protocol;
+ 
+ static struct timer_list ipmr_expire_timer;
+ 
++static __be32 ipmr_get_skb_nbma(struct sk_buff *skb)
++{
++	union {
++		char addr[MAX_ADDR_LEN];
++		__be32 inaddr;
++	} u;
++
++	if (dev_parse_header(skb, u.addr) != 4)
++		return INADDR_ANY;
++
++	return u.inaddr;
++}
++
++static int ip_mr_match_vif_skb(struct vif_device *vif, struct sk_buff *skb)
++{
++	if (vif->dev != skb->dev)
++		return 0;
++
++	if (vif->flags & VIFF_NBMA)
++		return ipmr_get_skb_nbma(skb) == vif->remote;
++
++	return 1;
++}
++
++
+ /* Service routines creating virtual interfaces: DVMRP tunnels and PIMREG */
+ 
+ static void ipmr_del_tunnel(struct net_device *dev, struct vifctl *v)
+@@ -470,6 +495,7 @@ static int vif_add(struct net *net, struct vifctl *vifc, int mrtsock)
+ 			return err;
+ 		}
+ 		break;
++	case VIFF_NBMA:
+ 	case 0:
+ 		dev = ip_dev_find(net, vifc->vifc_lcl_addr.s_addr);
+ 		if (!dev)
+@@ -504,7 +530,7 @@ static int vif_add(struct net *net, struct vifctl *vifc, int mrtsock)
+ 	v->pkt_in = 0;
+ 	v->pkt_out = 0;
+ 	v->link = dev->ifindex;
+-	if (v->flags&(VIFF_TUNNEL|VIFF_REGISTER))
++	if (v->flags&(VIFF_TUNNEL|VIFF_REGISTER|VIFF_NBMA))
+ 		v->link = dev->iflink;
+ 
+ 	/* And finish update writing critical data */
+@@ -1212,12 +1238,15 @@ static inline int ipmr_forward_finish(struct sk_buff *skb)
+ {
+ 	struct ip_options * opt	= &(IPCB(skb)->opt);
+ 
+-	IP_INC_STATS_BH(dev_net(skb->dst->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
++	IP_INC_STATS_BH(dev_net(skb->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
+ 
+ 	if (unlikely(opt->optlen))
+ 		ip_forward_options(skb);
+ 
+-	return dst_output(skb);
++	if (skb->dst != NULL)
++		return dst_output(skb);
++	else
++		return dev_queue_xmit(skb);
+ }
+ 
+ /*
+@@ -1230,7 +1259,8 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct vif_device *vif = &net->ipv4.vif_table[vifi];
+ 	struct net_device *dev;
+-	struct rtable *rt;
++	struct net_device *fromdev = skb->dev;
++	struct rtable *rt = NULL;
+ 	int    encap = 0;
+ 
+ 	if (vif->dev == NULL)
+@@ -1257,6 +1287,19 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
+ 		if (ip_route_output_key(net, &rt, &fl))
+ 			goto out_free;
+ 		encap = sizeof(struct iphdr);
++		dev = rt->u.dst.dev;
++	} else if (vif->flags&VIFF_NBMA) {
++		/* Fixme, we should take tunnel source address from the
++		 * tunnel device binding if it exists */
++		struct flowi fl = { .oif = vif->link,
++				    .nl_u = { .ip4_u =
++					      { .daddr = vif->remote,
++						.tos = RT_TOS(iph->tos) } },
++				    .proto = IPPROTO_GRE };
++		if (ip_route_output_key(&init_net, &rt, &fl))
++			goto out_free;
++		encap = LL_RESERVED_SPACE(rt->u.dst.dev);
++		dev = vif->dev;
+ 	} else {
+ 		struct flowi fl = { .oif = vif->link,
+ 				    .nl_u = { .ip4_u =
+@@ -1265,34 +1308,39 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
+ 				    .proto = IPPROTO_IPIP };
+ 		if (ip_route_output_key(net, &rt, &fl))
+ 			goto out_free;
++		dev = rt->u.dst.dev;
+ 	}
+ 
+-	dev = rt->u.dst.dev;
++	if (!(vif->flags & VIFF_NBMA)) {
++		if (skb->len+encap > dst_mtu(&rt->u.dst) && (ntohs(iph->frag_off) & IP_DF)) {
++			/* Do not fragment multicasts. Alas, IPv4 does not
++			   allow to send ICMP, so that packets will disappear
++			   to blackhole.
++			*/
+ 
+-	if (skb->len+encap > dst_mtu(&rt->u.dst) && (ntohs(iph->frag_off) & IP_DF)) {
+-		/* Do not fragment multicasts. Alas, IPv4 does not
+-		   allow to send ICMP, so that packets will disappear
+-		   to blackhole.
+-		 */
+-
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
+-		ip_rt_put(rt);
+-		goto out_free;
++			IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
++			goto out_free_rt;
++		}
+ 	}
+ 
+ 	encap += LL_RESERVED_SPACE(dev) + rt->u.dst.header_len;
+ 
+-	if (skb_cow(skb, encap)) {
+-		ip_rt_put(rt);
+-		goto out_free;
+-	}
++	if (skb_cow(skb, encap))
++		goto out_free_rt;
+ 
+ 	vif->pkt_out++;
+ 	vif->bytes_out += skb->len;
+ 
+ 	dst_release(skb->dst);
+-	skb->dst = &rt->u.dst;
++	if (vif->flags & VIFF_NBMA) {
++		ip_rt_put(rt);
++		skb->dst = NULL;
++		rt = NULL;
++	} else {
++		skb->dst = &rt->u.dst;
++	}
+ 	ip_decrease_ttl(ip_hdr(skb));
++	skb->dev = dev;
+ 
+ 	/* FIXME: forward and output firewalls used to be called here.
+ 	 * What do we do with netfilter? -- RR */
+@@ -1301,6 +1349,10 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
+ 		/* FIXME: extra output firewall step used to be here. --RR */
+ 		vif->dev->stats.tx_packets++;
+ 		vif->dev->stats.tx_bytes += skb->len;
++	} else if (vif->flags & VIFF_NBMA) {
++		if (dev_hard_header(skb, dev, ntohs(skb->protocol),
++				    &vif->remote, NULL, 4) < 0)
++			goto out_free_rt;
+ 	}
+ 
+ 	IPCB(skb)->flags |= IPSKB_FORWARDED;
+@@ -1316,21 +1368,30 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
+ 	 * not mrouter) cannot join to more than one interface - it will
+ 	 * result in receiving multiple packets.
+ 	 */
+-	NF_HOOK(PF_INET, NF_INET_FORWARD, skb, skb->dev, dev,
++	NF_HOOK(PF_INET, NF_INET_FORWARD, skb, fromdev, dev,
+ 		ipmr_forward_finish);
+ 	return;
+ 
++out_free_rt:
++	if (rt != NULL)
++		ip_rt_put(rt);
+ out_free:
+ 	kfree_skb(skb);
+ 	return;
+ }
+ 
+-static int ipmr_find_vif(struct net_device *dev)
++static int ipmr_find_vif(struct net_device *dev, __be32 nbma_origin)
+ {
+ 	struct net *net = dev_net(dev);
+ 	int ct;
+ 	for (ct = net->ipv4.maxvif-1; ct >= 0; ct--) {
+-		if (net->ipv4.vif_table[ct].dev == dev)
++		if (net->ipv4.vif_table[ct].dev != dev)
++			continue;
++
++		if (net->ipv4.vif_table[ct].flags & VIFF_NBMA) {
++			if (net->ipv4.vif_table[ct].remote == nbma_origin)
++				break;
++		} else if (nbma_origin == INADDR_ANY)
+ 			break;
+ 	}
+ 	return ct;
+@@ -1351,7 +1412,7 @@ static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local
+ 	/*
+ 	 * Wrong interface: drop packet and (maybe) send PIM assert.
+ 	 */
+-	if (net->ipv4.vif_table[vif].dev != skb->dev) {
++	if (!ip_mr_match_vif_skb(&net->ipv4.vif_table[vif], skb)) {
+ 		int true_vifi;
+ 
+ 		if (skb->rtable->fl.iif == 0) {
+@@ -1370,7 +1431,7 @@ static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local
+ 		}
+ 
+ 		cache->mfc_un.res.wrong_if++;
+-		true_vifi = ipmr_find_vif(skb->dev);
++		true_vifi = ipmr_find_vif(skb->dev, ipmr_get_skb_nbma(skb));
+ 
+ 		if (true_vifi >= 0 && net->ipv4.mroute_do_assert &&
+ 		    /* pimsm uses asserts, when switching from RPT to SPT,
+@@ -1479,7 +1540,7 @@ int ip_mr_input(struct sk_buff *skb)
+ 			skb = skb2;
+ 		}
+ 
+-		vif = ipmr_find_vif(skb->dev);
++		vif = ipmr_find_vif(skb->dev, ipmr_get_skb_nbma(skb));
+ 		if (vif >= 0) {
+ 			int err = ipmr_cache_unresolved(net, vif, skb);
+ 			read_unlock(&mrt_lock);
+@@ -1663,7 +1724,7 @@ int ipmr_get_route(struct net *net,
+ 		}
+ 
+ 		dev = skb->dev;
+-		if (dev == NULL || (vif = ipmr_find_vif(dev)) < 0) {
++		if (dev == NULL || (vif = ipmr_find_vif(dev, INADDR_ANY)) < 0) {
+ 			read_unlock(&mrt_lock);
+ 			return -ENODEV;
+ 		}
 
