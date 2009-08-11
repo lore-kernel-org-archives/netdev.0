@@ -1,65 +1,53 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
-Date: Tue, 11 Aug 2009 19:49:37 -0400
-Message-ID: <4A820391.1090404@gmail.com>
-References: <20090811212743.GA26309@redhat.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] Fix Warnings from net/netlink/genetlink.c
+Date: Tue, 11 Aug 2009 16:57:41 -0700
+Message-ID: <1250035061.30166.42.camel@localhost.localdomain>
+References: <1249985224.13065.11.camel@HunTEr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA223C963729B04B1689E60E6"
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
- linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090811212743.GA26309@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	linux-next <linux-next@vger.kernel.org>
+To: vibi_sreenivasan@cms.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:57378 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751509AbZHKX6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 19:58:02 -0400
+In-Reply-To: <1249985224.13065.11.camel@HunTEr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA223C963729B04B1689E60E6
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hi Vibi,
 
-Michael S. Tsirkin wrote:
-> This implements vhost: a kernel-level backend for virtio,
-> The main motivation for this work is to reduce virtualization
-> overhead for virtio by removing system calls on data path,
-> without guest changes. For virtio-net, this removes up to
-> 4 system calls per packet: vm exit for kick, reentry for kick,
-> iothread wakeup for packet, interrupt injection for packet.
->=20
-> Some more detailed description attached to the patch itself.
->=20
-> The patches are against 2.6.31-rc4.  I'd like them to go into linux-nex=
-t
-> and down the road 2.6.32 if possible.  Please comment.
+> net/netlink/genetlink.c: In function `genl_register_mc_group':
+> net/netlink/genetlink.c:139: warning: 'err' might be used uninitialized in this function
+> 
+> Signed-off-by: vibi sreenivasan <vibi_sreenivasan@cms.com>
+> ---
+>  net/netlink/genetlink.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+> index 575c643..66f6ba0 100644
+> --- a/net/netlink/genetlink.c
+> +++ b/net/netlink/genetlink.c
+> @@ -136,7 +136,7 @@ int genl_register_mc_group(struct genl_family *family,
+>  {
+>         int id;
+>         unsigned long *new_groups;
+> -       int err;
+> +       int err = 0;
+>  
+>         BUG_ON(grp->name[0] == '\0');
 
-I will add this series to my benchmark run in the next day or so.  Any
-specific instructions on how to set it up and run?
+this looks fishy. How does gcc thinks this variable is uninitialized. If
+I look at the code in Linus' tree, I don't see it.
 
-Regards,
--Greg
+Regards
+
+Marcel
 
 
---------------enigA223C963729B04B1689E60E6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqCA5EACgkQP5K2CMvXmqHIvQCfYcoxCyKZvGg3C6EAOrpAEwIH
-JmkAnRmvb/eJZIoYNF9JHmDPGvTAdvT/
-=dirP
------END PGP SIGNATURE-----
-
---------------enigA223C963729B04B1689E60E6--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
