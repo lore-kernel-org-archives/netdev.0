@@ -1,44 +1,33 @@
-From: "Paul Congdon \(UC Davis\)" <ptcongdon@ucdavis.edu>
-Subject: RE: [PATCH][RFC] net/bridge: add basic VEPA support
-Date: Tue, 11 Aug 2009 07:55:04 -0700
-Message-ID: <001001ca1a93$b6e50ee0$24af2ca0$@edu>
-References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <200908081149.27409.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99743@GVW1118EXC.americas.hpqcorp.net> <200908101707.32751.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE99C53@GVW1118EXC.americas.hpqcorp.net>
+From: =?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>
+Subject: a question on net_device struct
+Date: Tue, 11 Aug 2009 23:57:31 +0900
+Message-ID: <2014bcab0908110757q5b255dcdm497414d04810c281@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "'Stephen Hemminger'" <shemminger@linux-foundation.org>,
-	<bridge@lists.linux-foundation.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<virtualization@lists.linux-foundation.org>, <evb@yahoogroups.com>,
-	<davem@davemloft.net>, <kaber@trash.net>, <adobriyan@gmail.com>,
-	"'Eric Biederman'" <ebiederm@xmission.com>
-To: "'Fischer, Anna'" <anna.fischer@hp.com>,
-	"'Arnd Bergmann'" <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755182AbZHKOzF@vger.kernel.org>
-In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6AE99C53@GVW1118EXC.americas.hpqcorp.net>
-Content-Language: en-us
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f175.google.com ([209.85.210.175]:47140 "EHLO
+	mail-yx0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754827AbZHKO5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 10:57:35 -0400
+Received: by yxe5 with SMTP id 5so4744849yxe.33
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 07:57:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >
-> > The patch from Eric Biederman to allow macvlan to bridge between
-> > its slave ports is at
-> >
-> > http://kerneltrap.org/mailarchive/linux-netdev/2009/3/9/5125774
-> 
-> Looking through the discussions here, it does not seem as if a decision
-> was made to integrate those patches, because they would make the
-> macvlan
-> interface behave too much like a bridge. Also, it seems as if there was
-> still a problem with doing multicast/broadcast delivery when enabling
-> local VM-to-VM communication. Is that solved by now?
-> 
+Hi. I have a question while I read the codes in net/core of Linux 2.6.30.4.
 
-Also, is there a solution, or plans for a solution, to address macvtap
-interfaces that are set to 'promiscuous' mode?  It would seem fairly easy to
-support this for interfaces that are simply trying to listen to the port
-(e.g. Wireshark).  If the port was being used by something like a firewall
-then the VEPA filtering doesn't work too well.
+'net_device' struct defined in include/linux/netdevice.h has a field
+'operstate'.
+Is a 'operstate' field is protected by 'dev_base_lock'?
 
-Paul
+At set_operstate() in net/core/rtnetlink.c, it seems that dev->operstate
+is protected by write_lock_bh(&dev_base_lock).
+But, in other codes, the read operations to dev->operstate are not
+consistently protected by read_lock_bh(&dev_base_lock).
+
+Thank you.
+
+Sincerely
+Shin Hong
