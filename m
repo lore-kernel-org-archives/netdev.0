@@ -1,103 +1,91 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] mac802154: add a software MAC 802.15.4
- implementation
-Date: Wed, 12 Aug 2009 00:23:04 +0400
-Message-ID: <20090811202304.GA6303@doriath.ww600.siemens.net>
+Subject: Re: [PATCH 1/2] mac802154: add a software MAC
+ 802.15.4 implementation
+Date: Wed, 12 Aug 2009 00:29:29 +0400
+Message-ID: <20090811202929.GB6303@doriath.ww600.siemens.net>
 References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
- <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
- <1249914466.32614.13.camel@johannes.local>
+	<1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
+	<20090810172843.GD6791@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Sergey Lapin <slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1249914466.32614.13.camel-YfaajirXv2244ywRPIzf9A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20090810172843.GD6791-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 10, 2009 at 04:27:46PM +0200, Johannes Berg wrote:
-> On Mon, 2009-08-10 at 18:16 +0400, Dmitry Eremin-Solenikov wrote:
-> > + * @tx: Handler that 802.15.4 module calls for each transmitted frame.
-> > + *      skb cntains the buffer starting from the IEEE 802.15.4 header.
-> > + *      The low-level driver should send the frame based on available
-> > + *      configuration.
-> > + *      This function should return zero or negative errno.
+On Mon, Aug 10, 2009 at 10:28:43AM -0700, Paul E. McKenney wrote:
+> On Mon, Aug 10, 2009 at 06:16:39PM +0400, Dmitry Eremin-Solenikov wrote:
+> > Some of available devices are just dump radios implementing IEEE 802.15.4
+> > PHY layer. This commit adds a common library that acts like an intermediate
+> > layer between our socket family and drivers for those dumb devices.
+> > 
+> > Currently this is data-only part (no commands, no beacons). Control
+> > interfaces will follow up shortly.
+> > 
+> > Note this implementaion is neither certified, nor feature complete!
 > 
-> That return value is strange.
-
-The idea is that tx function can return info about errors during
-transmit (busy channel, no ACK, etc).
-
+> One question below, otherwise looks plausible.  (I am not entirely sure
+> which lists are which...)
 > 
-> > +++ b/net/Makefile
-> > @@ -61,6 +61,7 @@ ifneq ($(CONFIG_DCB),)
-> >  obj-y				+= dcb/
-> >  endif
-> >  obj-y				+= ieee802154/
-> > +obj-y				+= mac802154/
-> 
-> I think you should use obj-$(CONFIG_MAC802154) as there's no need to
-> recurse into the dir unless that's selected.
+> 							Thanx, Paul
 
-fixed.
+[skipped]
 
 > 
-> But does it make sense to actually have this little code as a separate
-> dir/module?
-
-The submitted patch is only a part of written MAC code. And we still
-aren't feature complete. Is there any sence in keeping mac80211
-separate? IMHO yes. Same goes for mac802154.
-
-> > +	struct net_device *netdev; /* mwpanX device */
-> > +	int open_count;
-> > +	/* As in mac80211 slaves list is modified:
-> > +	 * 1) under the RTNL
-> > +	 * 2) protected by slaves_mtx;
-> > +	 * 3) in an RCU manner
-> > +	 *
-> > +	 * So atomic readers can use any of this protection methods
-> > +	 */
-> > +	struct list_head	slaves;
+> > +
+> > +/*
+> > + * This is for hw unregistration only, as it doesn't do RCU locking
 > 
-> heh.
+> So this list is different than the RCU-protected one, and readers
+> always hold locks when traversing it?
+> 
+> I am not familiar with this code, so might be missing something, but
+> it looks to me like the same list that RCU readers traverse.  If so,
+> need list_del_rcu() and synchronize_rcu().
 
-? C&p from mac80211 mostly :)
+On the first glance, yes. On the second glance, list_del instead of
+list_del_rcu should be safe as there should be now other list traversals
+at the same time. I'll think about it however.
 
 > 
-> > +static int ieee802154_master_open(struct net_device *dev)
+> > + */
+> > +void ieee802154_drop_slaves(struct ieee802154_dev *hw)
 > > +{
-> 
-> We've had no end to trouble with the master netdev, I suggest you look
-> into the current mac80211 code and see if you can get rid of it.
-
-What troubles w/ master netdev did you have had? I do still see the
-master devices in mac80211. IIUC, it's planned to replace (from
-management point of view) the mdev with wiphy instance, isn't it?
-
-> > +struct ieee802154_dev *ieee802154_alloc_device(size_t priv_size,
-> > +		struct ieee802154_ops *ops)
-> > +{
-> 
-> > +	if (!try_module_get(ops->owner)) {
-> 
-> That isn't necessary since the module is just calling your function. In
-> fact, doing this removes the ability to rmmod any module using this
-> which is bogus.
-
-Hmm. I thought that one may be able to rmmod the module w/ ops while the
-device is still hanging in the system. On the other hand, ops are
-provided by the driver, so if one rmmods the driver and the device is
-still there, it's a bug...
-Removing now.
+> > +	struct ieee802154_priv *priv = ieee802154_to_priv(hw);
+> > +	struct ieee802154_sub_if_data *sdata, *next;
+> > +
+> > +	ASSERT_RTNL();
+> > +
+> > +	list_for_each_entry_safe(sdata, next, &priv->slaves, list) {
+> > +		mutex_lock(&sdata->hw->slaves_mtx);
+> > +		list_del(&sdata->list);
+> > +		mutex_unlock(&sdata->hw->slaves_mtx);
+> > +
+> > +		dev_put(sdata->hw->netdev);
+> > +
+> > +		unregister_netdevice(sdata->dev);
+> > +	}
+> > +}
 
 -- 
 With best wishes
 Dmitry
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
