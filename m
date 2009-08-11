@@ -1,79 +1,65 @@
-From: "Ilia K." <mail4ilia@gmail.com>
-Subject: multicast routing and multiple interfaces with same IP
-Date: Wed, 12 Aug 2009 02:26:21 +0300
-Message-ID: <1b9338490908111626j55b49177q71b8a373b6e6381b@mail.gmail.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
+Date: Tue, 11 Aug 2009 19:49:37 -0400
+Message-ID: <4A820391.1090404@gmail.com>
+References: <20090811212743.GA26309@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000e0cd24766b691960470e607b4
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:48776 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089AbZHKX0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Aug 2009 19:26:21 -0400
-Received: by fg-out-1718.google.com with SMTP id e12so709143fga.17
-        for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 16:26:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigA223C963729B04B1689E60E6"
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+ linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090811212743.GA26309@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
---000e0cd24766b691960470e607b4
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigA223C963729B04B1689E60E6
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: quoted-printable
 
-Hi All,
-When routing daemon wants to enable forwarding of multicast traffic it
-performs something like:
+Michael S. Tsirkin wrote:
+> This implements vhost: a kernel-level backend for virtio,
+> The main motivation for this work is to reduce virtualization
+> overhead for virtio by removing system calls on data path,
+> without guest changes. For virtio-net, this removes up to
+> 4 system calls per packet: vm exit for kick, reentry for kick,
+> iothread wakeup for packet, interrupt injection for packet.
+>=20
+> Some more detailed description attached to the patch itself.
+>=20
+> The patches are against 2.6.31-rc4.  I'd like them to go into linux-nex=
+t
+> and down the road 2.6.32 if possible.  Please comment.
 
-	struct vifctl vc = {
-		.vifc_vifi  = 1,
-		.vifc_flags = 0,
-		.vifc_threshold = 1,
-		.vifc_rate_limit = 0,
-		.vifc_lcl_addr = ip, /* <--- ip address of physical interface, e.g. eth0 */
-		.vifc_rmt_addr.s_addr = htonl(INADDR_ANY),
-	  };
-	setsockopt(fd, IPPROTO_IP, MRT_ADD_VIF, &vc, sizeof(vc));
-
-This leads (in the kernel) to call to vif_add() function call which
-search the (physical) device using assigned IP address:
-	dev = ip_dev_find(net, vifc->vifc_lcl_addr.s_addr);
-
-It seems like API (struct vifctl) does not allow to specify an
-interface other way than using it's IP, and if there are more than a
-single interface with specified IP only the first one will be found
-(for example it makes problems when tunnel is configured using the
-same IP as underlying interface).
-
-Am I correct in identifying the problem?
-I can propose the attached patch against 2.6.30.4.
+I will add this series to my benchmark run in the next day or so.  Any
+specific instructions on how to set it up and run?
 
 Regards,
-Ilia.
+-Greg
 
---000e0cd24766b691960470e607b4
-Content-Type: text/x-diff; charset=US-ASCII; name="vif_add.patch"
-Content-Disposition: attachment; filename="vif_add.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fy995xwx0
 
-PT09IG1vZGlmaWVkIGZpbGUgJ2luY2x1ZGUvbGludXgvbXJvdXRlLmgnCi0tLSBvbGQvaW5jbHVk
-ZS9saW51eC9tcm91dGUuaAkyMDA5LTA4LTEwIDExOjE3OjMyICswMDAwCisrKyBuZXcvaW5jbHVk
-ZS9saW51eC9tcm91dGUuaAkyMDA5LTA4LTExIDIwOjM5OjE0ICswMDAwCkBAIC02MSwxMSArNjEs
-MTMgQEAKIAl1bnNpZ25lZCBpbnQgdmlmY19yYXRlX2xpbWl0OwkvKiBSYXRlIGxpbWl0ZXIgdmFs
-dWVzIChOSSkgKi8KIAlzdHJ1Y3QgaW5fYWRkciB2aWZjX2xjbF9hZGRyOwkvKiBPdXIgYWRkcmVz
-cyAqLwogCXN0cnVjdCBpbl9hZGRyIHZpZmNfcm10X2FkZHI7CS8qIElQSVAgdHVubmVsIGFkZHIg
-Ki8KKwlpbnQgaWZpbmRleDsJCQkvKiBMb2NhbCBpbnRlcmZhY2UgaW5kZXggKi8KIH07CiAKICNk
-ZWZpbmUgVklGRl9UVU5ORUwJMHgxCS8qIElQSVAgdHVubmVsICovCiAjZGVmaW5lIFZJRkZfU1JD
-UlQJMHgyCS8qIE5JICovCiAjZGVmaW5lIFZJRkZfUkVHSVNURVIJMHg0CS8qIHJlZ2lzdGVyIHZp
-ZgkqLworI2RlZmluZSBWSUZGX1VTRV9JRklOREVYCTB4OAkvKiB1c2UgaWZpbmRleCB0byBmaW5k
-IGFuIGludGVyZmFjZSAqLwogCiAvKgogICoJQ2FjaGUgbWFuaXB1bGF0aW9uIHN0cnVjdHVyZXMg
-Zm9yIG1yb3V0ZWQgYW5kIFBJTWQKCj09PSBtb2RpZmllZCBmaWxlICduZXQvaXB2NC9pcG1yLmMn
-Ci0tLSBvbGQvbmV0L2lwdjQvaXBtci5jCTIwMDktMDgtMTAgMTE6MTc6MzIgKzAwMDAKKysrIG5l
-dy9uZXQvaXB2NC9pcG1yLmMJMjAwOS0wOC0xMSAyMjoxNToyNCArMDAwMApAQCAtNDcwLDYgKzQ3
-MCwxOCBAQAogCQkJcmV0dXJuIGVycjsKIAkJfQogCQlicmVhazsKKwljYXNlIFZJRkZfVVNFX0lG
-SU5ERVg6CisJCWRldiA9IGRldl9nZXRfYnlfaW5kZXgobmV0LCB2aWZjLT5pZmluZGV4KTsKKwkJ
-aWYgKCFkZXYpCisJCQlyZXR1cm4gLUVOT0RFVjsKKwkJaWYgKGRldi0+aXBfcHRyID09IE5VTEwp
-CisJCQlyZXR1cm4gLUVBRERSTk9UQVZBSUw7CisJCWVyciA9IGRldl9zZXRfYWxsbXVsdGkoZGV2
-LCAxKTsKKwkJaWYgKGVycikgeworCQkJZGV2X3B1dChkZXYpOworCQkJcmV0dXJuIGVycjsKKwkJ
-fQorCQlicmVhazsKIAljYXNlIDA6CiAJCWRldiA9IGlwX2Rldl9maW5kKG5ldCwgdmlmYy0+dmlm
-Y19sY2xfYWRkci5zX2FkZHIpOwogCQlpZiAoIWRldikKCg==
---000e0cd24766b691960470e607b4--
+--------------enigA223C963729B04B1689E60E6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqCA5EACgkQP5K2CMvXmqHIvQCfYcoxCyKZvGg3C6EAOrpAEwIH
+JmkAnRmvb/eJZIoYNF9JHmDPGvTAdvT/
+=dirP
+-----END PGP SIGNATURE-----
+
+--------------enigA223C963729B04B1689E60E6--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
