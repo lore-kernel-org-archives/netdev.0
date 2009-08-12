@@ -1,90 +1,104 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCHv2 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 08:26:39 -0700
-Message-ID: <20090812152639.GA6779@linux.vnet.ibm.com>
-References: <cover.1249992497.git.mst@redhat.com> <20090811212802.GC26309@redhat.com> <4A82076A.1060805@gmail.com> <20090812090219.GB26847@redhat.com> <4A82BD2F.7080405@gmail.com> <20090812132539.GD29200@redhat.com> <20090812141107.GD6833@linux.vnet.ibm.com> <20090812141559.GA29387@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Oren Laadan <orenl@librato.com>
+Subject: Re: [PATCH 5/5] c/r: Add AF_UNIX support (v8)
+Date: Wed, 12 Aug 2009 11:29:36 -0400
+Message-ID: <4A82DFE0.4040108@librato.com>
+References: <1249918379-29414-1-git-send-email-danms@us.ibm.com> <1249918379-29414-6-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <gregory.haskins@gmail.com>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Ingo Molnar <mingo@elte.hu>, linux-mm@kvack.org,
-        Andrew Morton <akpm@linux-foundation.org>, hpa@zytor.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20090812141559.GA29387@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp221.iad.emailsrvr.com ([207.97.245.221]:43530 "EHLO
+	smtp221.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753550AbZHLPaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 11:30:00 -0400
+In-Reply-To: <1249918379-29414-6-git-send-email-danms@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 12, 2009 at 05:15:59PM +0300, Michael S. Tsirkin wrote:
-> On Wed, Aug 12, 2009 at 07:11:07AM -0700, Paul E. McKenney wrote:
-> > On Wed, Aug 12, 2009 at 04:25:40PM +0300, Michael S. Tsirkin wrote:
-> > > On Wed, Aug 12, 2009 at 09:01:35AM -0400, Gregory Haskins wrote:
-> > > > I think I understand what your comment above meant:  You don't need to
-> > > > do synchronize_rcu() because you can flush the workqueue instead to
-> > > > ensure that all readers have completed.
-> > > 
-> > > Yes.
-> > > 
-> > > >  But if thats true, to me, the
-> > > > rcu_dereference itself is gratuitous,
-> > > 
-> > > Here's a thesis on what rcu_dereference does (besides documentation):
-> > > 
-> > > reader does this
-> > > 
-> > > 	A: sock = n->sock
-> > > 	B: use *sock
-> > > 
-> > > Say writer does this:
-> > > 
-> > > 	C: newsock = allocate socket
-> > > 	D: initialize(newsock)
-> > > 	E: n->sock = newsock
-> > > 	F: flush
-> > > 
-> > > 
-> > > On Alpha, reads could be reordered.  So, on smp, command A could get
-> > > data from point F, and command B - from point D (uninitialized, from
-> > > cache).  IOW, you get fresh pointer but stale data.
-> > > So we need to stick a barrier in there.
-> > > 
-> > > > and that pointer is *not* actually
-> > > > RCU protected (nor does it need to be).
-> > > 
-> > > Heh, if readers are lockless and writer does init/update/sync,
-> > > this to me spells rcu.
-> > 
-> > If you are using call_rcu(), synchronize_rcu(), or one of the
-> > similar primitives, then you absolutely need rcu_read_lock() and
-> > rcu_read_unlock(), or one of the similar pairs of primitives.
+Dan,
+
+I just noticed that this message wasn't posted last night.
+So hitting "send" now ... sorry about that.
+
+-----
+Before pulling this one, I took a quick look at this patch, and
+I saw that it still uses skb_morph despite the changelog and my
+memory...
+
+Can you please verify that this is the latest ?
+
+Also, while trying to pull it, I'd like to ask for three cosmetic
+changes, if it isn't too much -
+
+1) Move 'struct ckpt_hdr_socket' et-al to checkpoint_hdr.h
+
+2) Move everything that is af_unix specific from net/checkpoint.c
+to (a new) net/unix/checkpoint.c (prototypes probably in af_unix.h ?)
+
+3) Make sure that af_unix code does not compile (and is not called
+from net/checkpoint.c) unless CONFIG_UNIX is defined.
+
+I pulled all the other patches already, will add this one once
+you resend.
+-----
+
+Thanks,
+
+Oren.
+
+
+Dan Smith wrote:
+> This patch adds basic checkpoint/restart support for AF_UNIX sockets.  It
+> has been tested with a single and multiple processes, and with data inflight
+> at the time of checkpoint.  It supports socketpair()s, path-based, and
+> abstract sockets.
 > 
-> Right. I don't use any of these though.
+> Changes in v8:
+>   - Fix stale dev_alloc_skb() from before the conversion to skb_clone()
+>   - Fix a couple of broken error paths
+>   - Fix memory leak of kvec.iov_base on successful return from sendmsg()
+>   - Fix condition for deciding when to run sock_cptrst_verify()
+>   - Fix buffer queue copy algorithm to hold the lock during walk(s)
+>   - Log the errno when either getname() or getpeer() fails
+>   - Add comments about ancillary messages in the UNIX queue
+>   - Add TODO comments for credential restore and flags via setsockopt()
+>   - Add TODO comment about strangely-connected dgram sockets and the use
+>     of sendmsg(peer)
 > 
-> > If you -don't- use rcu_read_lock(), then you are pretty much restricted
-> > to adding data, but never removing it.
-> > 
-> > Make sense?  ;-)
-> 
-> Since I only access data from a workqueue, I replaced synchronize_rcu
-> with workqueue flush. That's why I don't need rcu_read_lock.
+> Changes in v7:
+>   - Fix failure to free iov_base in error path of sock_read_buffer()
+>   - Change sock_read_buffer() to use _ckpt_read_obj_type() to get the
+>     header length and then use ckpt_kread() directly to read the payload
+>   - Change sock_read_buffers() to sock_unix_read_buffers() and break out
+>     some common functionality to better accommodate the subsequent INET
+>     patch
+>   - Generalize sock_unix_getnames() into sock_getnames() so INET can use it
+>   - Change skb_morph() to skb_clone() which uses the more common path and
+>     still avoids the copy
+>   - Add check to validate the socket type before creating socket
+>     on restore
+>   - Comment the CAP_NET_ADMIN override in sock_read_buffer_hdr
+>   - Strengthen the comment about priming the buffer limits
+>   - Change the objhash functions to deny direct checkpoint of sockets and
+>     remove the reference counting function
+>   - Change SOCKET_BUFFERS to SOCKET_QUEUE
+>   - Change this,peer objrefs to signed integers
+>   - Remove names from internal socket structures
+>   - Fix handling of sock_copy_buffers() result
+>   - Use ckpt_fill_fname() instead of d_path() for writing CWD
+>   - Use sock_getname() and sock_getpeer() for proper security hookage
+>   - Return -ENOSYS for unsupported socket families in checkpoint and restart
+>   - Use sock_setsockopt() and sock_getsockopt() where possible to save and
+>     restore socket option values
+>   - Check for SOCK_DESTROY flag in the global verify function because none
+>     of our supported socket types use it
+>   - Check for SOCK_USE_WRITE_QUEUE in AF_UNIX restore function because
+>     that flag should not be used on such a socket
+>   - Check socket state in UNIX restart path to validate the subset of valid
+>     values
 
-Well, you -do- need -something- that takes on the role of rcu_read_lock(),
-and in your case you in fact actually do.  Your equivalent of
-rcu_read_lock() is the beginning of execution of a workqueue item, and
-the equivalent of rcu_read_unlock() is the end of execution of that same
-workqueue item.  Implicit, but no less real.
+[...]
 
-If a couple more uses like this show up, I might need to add this to
-Documentation/RCU.  ;-)
 
-							Thanx, Paul
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
