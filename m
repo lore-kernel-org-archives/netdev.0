@@ -1,124 +1,182 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-2.6 2009-08-11
-Date: Wed, 12 Aug 2009 14:24:03 -0400
-Message-ID: <20090812182403.GF2657@tuxdriver.com>
-References: <20090811183605.GG2634@tuxdriver.com>
+From: Daniel Slot <slot.daniel@gmail.com>
+Subject: [PATCH] net/ipv4, linux-2.6.30.4
+Date: Wed, 12 Aug 2009 20:50:59 +0200
+Message-ID: <bb6e06c00908121150q6d08cdfdp818c26cd8ae4f064@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: multipart/mixed; boundary=0015174bde1ecdb9870470f64c02
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40422 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754751AbZHLSaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 14:30:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20090811183605.GG2634@tuxdriver.com>
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:62288 "EHLO
+	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569AbZHLSvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 14:51:00 -0400
+Received: by ewy10 with SMTP id 10so240971ewy.37
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 11:50:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+--0015174bde1ecdb9870470f64c02
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-When you pull this, could you also revert 57921c31 ("libertas: Read
-buffer overflow").  It has been shown to create a new problem.  There
-is work towards a solution to that one, but it isn't a simple clean-up.
+RFC 4653 specifies Non-Congestion Robustness (NCR) for TCP.
+In the absence of explicit congestion notification from the network,
+TCP uses loss as an indication of congestion.
+One of the ways TCP detects loss is using the arrival of three
+duplicate acknowledgments.
+However, this heuristic is not always correct, notably in the case
+when network paths reorder segments (for whatever reason), resulting
+in degraded performance.
+TCP-NCR is designed to mitigate this degraded performance by
+increasing the number of duplicate acknowledgments required to trigger
+loss recovery,
+based on the current state of the connection, in an effort to better
+disambiguate true segment loss from segment reordering.
+This document specifies the changes to TCP, as well as the costs and
+benefits of these modifications.
 
-If you would prefer, I can include the revert with another pull
-request or even regenerate this one.  Just let me know if that is
-what you prefer.
+This patch adds TCP-NCR as socket option to the Linux kernel (version 2.6.30.4).
+Written by Daniel Slot, Email: slot.daniel(at)gmail.com
 
-Thanks,
+--0015174bde1ecdb9870470f64c02
+Content-Type: text/plain; charset=US-ASCII; name="README.txt"
+Content-Disposition: attachment; filename="README.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fyaf0ss91
 
-John
+VGhpcyBwYXRjaCBhZGRzIFRDUC1OQ1IgYXMgc29ja2V0IG9wdGlvbiB0byB0aGUgTGludXgga2Vy
+bmVsLg0KVG8gdXNlIFRDUC1OQ1IgaW4gY2FyZWZ1bCBtb2RlIChyZXNwLiBhZ2dyZXNzaXZlIG1v
+ZGUpLA0KYW4gYXBwbGljYXRpb24gaGFzIHRvIHNldCB0aGUgVENQLU5DUiBzb2NrZXQgb3B0aW9u
+ICgyMykgdG8gdGhlIHZhbHVlIDEgKHJlc3AuIDIpIHdoZW4gaXQgc3RhcnRzIGEgVENQIGNvbm5l
+Y3Rpb24u
+--0015174bde1ecdb9870470f64c02
+Content-Type: application/octet-stream;
+	name="patch-linuxkernel-2.6.30-tcp_ncr"
+Content-Disposition: attachment; filename="patch-linuxkernel-2.6.30-tcp_ncr"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_fyaf0o7s0
 
-On Tue, Aug 11, 2009 at 02:36:06PM -0400, John W. Linville wrote:
-> Dave,
-> 
-> Here are a couple more minor fixes intended for 2.6.31.  Hopefully we
-> are winding-down!
-> 
-> Please let me know if there are problems!
-> 
-> John
-> 
-> ---
-> 
-> Individual patches are available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-> 
-> ---
-> 
-> The following changes since commit 973507cb8610d4c84f090d5f1f0ca54fa0559d27:
->   roel kluin (1):
->         mlx4_en: Fix read buffer overflow in mlx4_en_complete_rx_desc()
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-> 
-> Christian Lamparter (1):
->       ar9170usb: fix spurious firmware related message
-> 
-> Dan Carpenter (1):
->       ar9170: fix read & write outside array bounds
-> 
->  drivers/net/wireless/ath/ar9170/main.c |    5 +++--
->  drivers/net/wireless/ath/ar9170/usb.c  |    6 +++++-
->  2 files changed, 8 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/ar9170/main.c b/drivers/net/wireless/ath/ar9170/main.c
-> index 9d38cf6..88c3d85 100644
-> --- a/drivers/net/wireless/ath/ar9170/main.c
-> +++ b/drivers/net/wireless/ath/ar9170/main.c
-> @@ -1967,13 +1967,14 @@ static int ar9170_conf_tx(struct ieee80211_hw *hw, u16 queue,
->  	int ret;
->  
->  	mutex_lock(&ar->mutex);
-> -	if ((param) && !(queue > __AR9170_NUM_TXQ)) {
-> +	if (queue < __AR9170_NUM_TXQ) {
->  		memcpy(&ar->edcf[ar9170_qos_hwmap[queue]],
->  		       param, sizeof(*param));
->  
->  		ret = ar9170_set_qos(ar);
-> -	} else
-> +	} else {
->  		ret = -EINVAL;
-> +	}
->  
->  	mutex_unlock(&ar->mutex);
->  	return ret;
-> diff --git a/drivers/net/wireless/ath/ar9170/usb.c b/drivers/net/wireless/ath/ar9170/usb.c
-> index 754b1f8..007eb85 100644
-> --- a/drivers/net/wireless/ath/ar9170/usb.c
-> +++ b/drivers/net/wireless/ath/ar9170/usb.c
-> @@ -598,11 +598,15 @@ static int ar9170_usb_request_firmware(struct ar9170_usb *aru)
->  
->  	err = request_firmware(&aru->init_values, "ar9170-1.fw",
->  			       &aru->udev->dev);
-> +	if (err) {
-> +		dev_err(&aru->udev->dev, "file with init values not found.\n");
-> +		return err;
-> +	}
->  
->  	err = request_firmware(&aru->firmware, "ar9170-2.fw", &aru->udev->dev);
->  	if (err) {
->  		release_firmware(aru->init_values);
-> -		dev_err(&aru->udev->dev, "file with init values not found.\n");
-> +		dev_err(&aru->udev->dev, "firmware file not found.\n");
->  		return err;
->  	}
->  
-> -- 
-> John W. Linville		Someday the world will need a hero, and you
-> linville@tuxdriver.com			might be all we have.  Be ready.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+ZGlmZiAtdXByTiBsaW51eC0yLjYuMzAuNC9pbmNsdWRlL2xpbnV4L3RjcC5oIGxpbnV4LTIuNi4z
+MC40LU5DUi9pbmNsdWRlL2xpbnV4L3RjcC5oCi0tLSAvaW5jbHVkZS9saW51eC90Y3AuaAkyMDA5
+LTA3LTMxIDAwOjM0OjQ3LjAwMDAwMDAwMCArMDIwMAorKysgL2luY2x1ZGUvbGludXgvdGNwLmgJ
+MjAwOS0wOC0xMiAyMDoxNToxOC4wMDAwMDAwMDAgKzAyMDAKQEAgLTk2LDYgKzk2LDcgQEAgZW51
+bSB7IAogI2RlZmluZSBUQ1BfUVVJQ0tBQ0sJCTEyCS8qIEJsb2NrL3JlZW5hYmxlIHF1aWNrIGFj
+a3MgKi8KICNkZWZpbmUgVENQX0NPTkdFU1RJT04JCTEzCS8qIENvbmdlc3Rpb24gY29udHJvbCBh
+bGdvcml0aG0gKi8KICNkZWZpbmUgVENQX01ENVNJRwkJMTQJLyogVENQIE1ENSBTaWduYXR1cmUg
+KFJGQzIzODUpICovCisjZGVmaW5lIFRDUF9OQ1IgICAgICAgICAyMyAgLyogVENQIE5DUiAoUkZD
+NDY1MykgKi8KIAogI2RlZmluZSBUQ1BJX09QVF9USU1FU1RBTVBTCTEKICNkZWZpbmUgVENQSV9P
+UFRfU0FDSwkJMgpAQCAtNDA4LDYgKzQwOSwxMyBAQCBzdHJ1Y3QgdGNwX3NvY2sgewogI2VuZGlm
+CiAKIAlpbnQJCQlsaW5nZXIyOworCisvKiBUQ1AgTkNSIGV4dGVuc2lvbiBpbmZvcm1hdGlvbiAq
+LworICAgIHU4ICB0Y3BfbmNyX2ZsYWc7CisgICAgdTggIGVsdF9mbGFnOworICAgIHU4ICBkdXB0
+aHJlc2g7CisgICAgdTggIExUX0Y7CisgICAgdTMyIHByaW9yRmxpZ2h0U2l6ZTsKIH07CiAKIHN0
+YXRpYyBpbmxpbmUgc3RydWN0IHRjcF9zb2NrICp0Y3Bfc2soY29uc3Qgc3RydWN0IHNvY2sgKnNr
+KQpkaWZmIC11cHJOIGxpbnV4LTIuNi4zMC40L25ldC9pcHY0L3RjcC5jIGxpbnV4LTIuNi4zMC40
+LU5DUi9uZXQvaXB2NC90Y3AuYwotLS0gL25ldC9pcHY0L3RjcC5jCTIwMDktMDctMzEgMDA6MzQ6
+NDcuMDAwMDAwMDAwICswMjAwCisrKyAvbmV0L2lwdjQvdGNwLmMJMjAwOS0wOC0xMiAyMDoxNTox
+OC4wMDAwMDAwMDAgKzAyMDAKQEAgLTIyMDgsNiArMjIwOCwxNyBAQCBzdGF0aWMgaW50IGRvX3Rj
+cF9zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrCiAJCWJyZWFrOwogI2VuZGlmCiAKKyAgICBjYXNlIFRD
+UF9OQ1I6CisgICAgICAgIC8qIFRDUC1OQ1IgOiB2YWwgZXF1YWwgMSBmb3IgY2FyZWZ1bCBtb2Rl
+LCB2YWwgZXF1YWwgMiBmb3IgYWdncmVzc2l2ZSBtb2RlICovCisgICAgICAgIGlmICh2YWwpewor
+ICAgICAgICAgICAgdHAtPnRjcF9uY3JfZmxhZyA9IDE7CisgICAgICAgICAgICBpZiAodmFsPT0x
+KSB0cC0+TFRfRiA9IDM7CisgICAgICAgICAgICBpZiAodmFsPT0yKSB0cC0+TFRfRiA9IDQ7Cisg
+ICAgICAgIH0gZWxzZSB7CisgICAgICAgICAgICB0cC0+dGNwX25jcl9mbGFnID0gMDsKKyAgICAg
+ICAgfQorICAgICAgICBicmVhazsKKwogCWRlZmF1bHQ6CiAJCWVyciA9IC1FTk9QUk9UT09QVDsK
+IAkJYnJlYWs7CmRpZmYgLXVwck4gbGludXgtMi42LjMwLjQvbmV0L2lwdjQvdGNwX2lucHV0LmMg
+bGludXgtMi42LjMwLjQtTkNSL25ldC9pcHY0L3RjcF9pbnB1dC5jCi0tLSAvbmV0L2lwdjQvdGNw
+X2lucHV0LmMJMjAwOS0wNy0zMSAwMDozNDo0Ny4wMDAwMDAwMDAgKzAyMDAKKysrIC9uZXQvaXB2
+NC90Y3BfaW5wdXQuYwkyMDA5LTA4LTEyIDIwOjE1OjE4LjAwMDAwMDAwMCArMDIwMApAQCAtMTAw
+Myw2ICsxMDAzLDQ1IEBAIHN0YXRpYyB2b2lkIHRjcF9za2JfbWFya19sb3N0X3VuY29uZF92ZXIK
+IAl9CiB9CiAKKy8qIFRDUC1OQ1I6IFRlc3QgaWYgVENQLU5DUiBtYXkgYmUgdXNlZAorICogKEZv
+bGxvd2luZyBSRkMgNDY1MyByZWNvbW1lbmRhdGlvbnMpCisgKi8KK3N0YXRpYyBpbnQgdGNwX25j
+cl90ZXN0KHN0cnVjdCB0Y3Bfc29jayAqdHApCit7CisgICAgcmV0dXJuICh0cC0+dGNwX25jcl9m
+bGFnICYmIHRjcF9pc19zYWNrKHRwKSAmJiAhKHRwLT5ub25hZ2xlICYgVENQX05BR0xFX09GRikp
+OworfQorCisvKiBUQ1AtTkNSOiBJbml0aWF0ZSBFeHRlbmRlZCBMaW1pdGVkIFRyYW5zbWl0Cisg
+KiAoUkZDIDQ2NTMgSW5pdGlhbGl6YXRpb24pCisgKiAqLworc3RhdGljIHZvaWQgdGNwX25jcl9l
+bHRfaW5pdChzdHJ1Y3QgdGNwX3NvY2sgKnRwLCBpbnQgaG93KQoreworICAgIGlmICghaG93KSB0
+cC0+cHJpb3JGbGlnaHRTaXplID0gdHAtPnBhY2tldHNfb3V0OworICAgIHRwLT5lbHRfZmxhZyA9
+IDE7CisgICAgdHAtPmR1cHRocmVzaCA9IG1heF90KHUzMiwgKCgyICogdHAtPnBhY2tldHNfb3V0
+KS90cC0+TFRfRiksIDMpOworfQorCisvKiBUQ1AtTkNSIEV4dGVuZGVkIExpbWl0ZWQgVHJhbnNt
+aXQKKyAqIChSRkMgNDY1MyBUZXJtaW5hdGlvbikKKyAqLworc3RhdGljIHZvaWQgdGNwX25jcl9l
+bHRfZW5kKHN0cnVjdCB0Y3Bfc29jayAqdHAsIGludCBmbGFnICwgaW50IGhvdykKK3sKKyAgICBp
+ZiAoaG93KXsKKyAgICAgICAgLyogTmV3IGN1bXVsYXRpdmUgQUNLIGR1cmluZyBFTFQsIGl0IGlz
+IHJlb3JkZXJpbmcuICovCisgICAgICAgIHRwLT5zbmRfc3N0aHJlc2ggPSB0cC0+cHJpb3JGbGln
+aHRTaXplOworICAgICAgICB0cC0+c25kX2N3bmQgPSBtaW4odHAtPnBhY2tldHNfb3V0KzEsIHRw
+LT5wcmlvckZsaWdodFNpemUpOworICAgICAgICB0cC0+c25kX2N3bmRfc3RhbXAgPSB0Y3BfdGlt
+ZV9zdGFtcDsKKyAgICAgICAgaWYgKGZsYWcgJiBGTEFHX0RBVEFfU0FDS0VEKSB0Y3BfbmNyX2Vs
+dF9pbml0KHRwLCAxKTsKKyAgICAgICAgZWxzZSB0cC0+ZWx0X2ZsYWcgPSAwOworICAgIH0gZWxz
+ZSB7CisgICAgICAgIC8qIER1cHRocmVzaCBpcyByZWFjaGVkLCBzdGFydCByZWNvdmVyeSAqLwor
+ICAgICAgICB0cC0+c25kX3NzdGhyZXNoID0gKHRwLT5wcmlvckZsaWdodFNpemUvMik7CisgICAg
+ICAgIHRwLT5zbmRfY3duZCA9IHRwLT5zbmRfc3N0aHJlc2g7CisgICAgICAgIHRwLT5zbmRfY3du
+ZF9zdGFtcCA9IHRjcF90aW1lX3N0YW1wOworICAgICAgICB0cC0+ZWx0X2ZsYWcgPSAwOworICAg
+IH0KK30KKwogLyogVGhpcyBwcm9jZWR1cmUgdGFncyB0aGUgcmV0cmFuc21pc3Npb24gcXVldWUg
+d2hlbiBTQUNLcyBhcnJpdmUuCiAgKgogICogV2UgaGF2ZSB0aHJlZSB0YWcgYml0czogU0FDS0VE
+KFMpLCBSRVRSQU5TKFIpIGFuZCBMT1NUKEwpLgpAQCAtMTM0Niw2ICsxMzg1LDkgQEAgc3RhdGlj
+IHU4IHRjcF9zYWNrdGFnX29uZShzdHJ1Y3Qgc2tfYnVmZgogCQkJfQogCQl9CiAKKyAgICAgICAg
+LyogVENQLU5DUjogSW5pdGlhbGl6YXRpb24gKi8KKyAgICAgICAgaWYgKHRjcF9uY3JfdGVzdCh0
+cCkgJiYgKCF0cC0+ZWx0X2ZsYWcpICYmICh0cC0+c2Fja2VkX291dCA9PSAwKSkgdGNwX25jcl9l
+bHRfaW5pdCh0cCwgMCk7CisKIAkJc2Fja2VkIHw9IFRDUENCX1NBQ0tFRF9BQ0tFRDsKIAkJc3Rh
+dGUtPmZsYWcgfD0gRkxBR19EQVRBX1NBQ0tFRDsKIAkJdHAtPnNhY2tlZF9vdXQgKz0gcGNvdW50
+OwpAQCAtMjQyNSw5ICsyNDY3LDEzIEBAIHN0YXRpYyBpbnQgdGNwX3RpbWVfdG9fcmVjb3Zlcihz
+dHJ1Y3Qgc28KIAlpZiAodHAtPmxvc3Rfb3V0KQogCQlyZXR1cm4gMTsKIAotCS8qIE5vdC1BLVRy
+aWNrIzIgOiBDbGFzc2ljIHJ1bGUuLi4gKi8KLQlpZiAodGNwX2R1cGFja19oZXVyZXN0aWNzKHRw
+KSA+IHRwLT5yZW9yZGVyaW5nKQotCQlyZXR1cm4gMTsKKyAgICAvKiBOb3QtQS1UcmljayMyIDog
+Q2xhc3NpYyBydWxlLi4uCisgICAgICogKE9wdGlvbiB0byB1c2UgVENQLU5DUiBkdXB0aHJlc2gg
+aW5zdGVhZCkKKyAgICAgKi8KKyAgICBpZiAodHAtPmVsdF9mbGFnICYmICh0Y3BfZHVwYWNrX2hl
+dXJlc3RpY3ModHApID4gdHAtPmR1cHRocmVzaCkpCisgICAgICAgIHJldHVybiAxOworICAgIGlm
+ICghdHAtPmVsdF9mbGFnICYmICh0Y3BfZHVwYWNrX2hldXJlc3RpY3ModHApID4gdHAtPnJlb3Jk
+ZXJpbmcpKQorICAgICAgICByZXR1cm4gMTsKIAogCS8qIFRyaWNrIzMgOiB3aGVuIHdlIHVzZSBS
+RkMyOTg4IHRpbWVyIHJlc3RhcnQsIGZhc3QKIAkgKiByZXRyYW5zbWl0IGNhbiBiZSB0cmlnZ2Vy
+ZWQgYnkgdGltZW91dCBvZiBxdWV1ZSBoZWFkLgpAQCAtMjYwMyw2ICsyNjQ5LDE3IEBAIHN0YXRp
+YyB2b2lkIHRjcF9jd25kX2Rvd24oc3RydWN0IHNvY2sgKnMKIAl9CiB9CiAKKy8qIFRDUC1OQ1I6
+IEV4dGVuZGVkIExpbWl0ZWQgVHJhbnNtaXQKKyAqIChSRkMgNDY1MyBNYWluIFBhcnQpCisgKi8K
+K3N0YXRpYyB2b2lkIHRjcF9uY3JfZWx0KHN0cnVjdCBzb2NrICpzaywgaW50IGZsYWcpCit7Cisg
+ICAgc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9zayhzayk7CisKKyAgICBpZiAodHAtPkxUX0Yg
+PT0gMykgdGNwX2N3bmRfZG93bihzaywgZmxhZyk7CisgICAgdHAtPmR1cHRocmVzaCA9IG1heF90
+KHUzMiwgKCgyICogdHAtPnBhY2tldHNfb3V0KS90cC0+TFRfRiksIDMpOworfQorCiAvKiBOb3Ro
+aW5nIHdhcyByZXRyYW5zbWl0dGVkIG9yIHJldHVybmVkIHRpbWVzdGFtcCBpcyBsZXNzCiAgKiB0
+aGFuIHRpbWVzdGFtcCBvZiB0aGUgZmlyc3QgcmV0cmFuc21pc3Npb24uCiAgKi8KQEAgLTI4MTIs
+NyArMjg2OSw3IEBAIHN0YXRpYyB2b2lkIHRjcF90cnlfdG9fb3BlbihzdHJ1Y3Qgc29jayAKIAog
+CWlmIChpbmV0X2NzayhzayktPmljc2tfY2Ffc3RhdGUgIT0gVENQX0NBX0NXUikgewogCQl0Y3Bf
+dHJ5X2tlZXBfb3Blbihzayk7Ci0JCXRjcF9tb2RlcmF0ZV9jd25kKHRwKTsKKyAgICAgICAgaWYg
+KCF0Y3BfbmNyX3Rlc3QodHApKSB0Y3BfbW9kZXJhdGVfY3duZCh0cCk7CiAJfSBlbHNlIHsKIAkJ
+dGNwX2N3bmRfZG93bihzaywgZmxhZyk7CiAJfQpAQCAtMjkyMCw2ICsyOTc3LDkgQEAgc3RhdGlj
+IHZvaWQgdGNwX2Zhc3RyZXRyYW5zX2FsZXJ0KHN0cnVjdAogCWlmIChXQVJOX09OKCF0cC0+c2Fj
+a2VkX291dCAmJiB0cC0+ZmFja2V0c19vdXQpKQogCQl0cC0+ZmFja2V0c19vdXQgPSAwOwogCisg
+ICAgLyogVENQLU5DUjogRXh0ZW5kZWQgTGltaXRlZCBUcmFuc21pdCAqLworICAgIGlmICh0cC0+
+ZWx0X2ZsYWcgJiYgKGZsYWcgJiBGTEFHX0RBVEFfU0FDS0VEKSkgdGNwX25jcl9lbHQoc2ssIGZs
+YWcpOworCiAJLyogTm93IHN0YXRlIG1hY2hpbmUgc3RhcnRzLgogCSAqIEEuIEVDRSwgaGVuY2Ug
+cHJvaGliaXQgY3duZCB1bmRvaW5nLCB0aGUgcmVkdWN0aW9uIGlzIHJlcXVpcmVkLiAqLwogCWlm
+IChmbGFnICYgRkxBR19FQ0UpCkBAIC0zMDUwLDcgKzMxMTAsOCBAQCBzdGF0aWMgdm9pZCB0Y3Bf
+ZmFzdHJldHJhbnNfYWxlcnQoc3RydWN0CiAJCWlmIChpY3NrLT5pY3NrX2NhX3N0YXRlIDwgVENQ
+X0NBX0NXUikgewogCQkJaWYgKCEoZmxhZyAmIEZMQUdfRUNFKSkKIAkJCQl0cC0+cHJpb3Jfc3N0
+aHJlc2ggPSB0Y3BfY3VycmVudF9zc3RocmVzaChzayk7Ci0JCQl0cC0+c25kX3NzdGhyZXNoID0g
+aWNzay0+aWNza19jYV9vcHMtPnNzdGhyZXNoKHNrKTsKKyAgICAgICAgICAgIGlmICh0cC0+ZWx0
+X2ZsYWcpIHRjcF9uY3JfZWx0X2VuZCh0cCwgZmxhZywgMCk7CisgICAgICAgICAgICBlbHNlIHRw
+LT5zbmRfc3N0aHJlc2ggPSBpY3NrLT5pY3NrX2NhX29wcy0+c3N0aHJlc2goc2spOwogCQkJVENQ
+X0VDTl9xdWV1ZV9jd3IodHApOwogCQl9CiAKQEAgLTMwNjIsOCArMzEyMyw4IEBAIHN0YXRpYyB2
+b2lkIHRjcF9mYXN0cmV0cmFuc19hbGVydChzdHJ1Y3QKIAogCWlmIChkb19sb3N0IHx8ICh0Y3Bf
+aXNfZmFjayh0cCkgJiYgdGNwX2hlYWRfdGltZWRvdXQoc2spKSkKIAkJdGNwX3VwZGF0ZV9zY29y
+ZWJvYXJkKHNrLCBmYXN0X3JleG1pdCk7Ci0JdGNwX2N3bmRfZG93bihzaywgZmxhZyk7Ci0JdGNw
+X3htaXRfcmV0cmFuc21pdF9xdWV1ZShzayk7CisgICAgaWYgKCF0Y3BfbmNyX3Rlc3QodHApKXRj
+cF9jd25kX2Rvd24oc2ssIGZsYWcpOworICAgIHRjcF94bWl0X3JldHJhbnNtaXRfcXVldWUoc2sp
+OwogfQogCiBzdGF0aWMgdm9pZCB0Y3BfdmFsaWRfcnR0X21lYXMoc3RydWN0IHNvY2sgKnNrLCB1
+MzIgc2VxX3J0dCkKQEAgLTMyODUsOCArMzM0NiwxMCBAQCBzdGF0aWMgaW50IHRjcF9jbGVhbl9y
+dHhfcXVldWUoc3RydWN0IHNvCiAJCQlpbnQgZGVsdGE7CiAKIAkJCS8qIE5vbi1yZXRyYW5zbWl0
+dGVkIGhvbGUgZ290IGZpbGxlZD8gVGhhdCdzIHJlb3JkZXJpbmcgKi8KLQkJCWlmIChyZW9yZCA8
+IHByaW9yX2ZhY2tldHMpCisJCQlpZiAocmVvcmQgPCBwcmlvcl9mYWNrZXRzKXsKIAkJCQl0Y3Bf
+dXBkYXRlX3Jlb3JkZXJpbmcoc2ssIHRwLT5mYWNrZXRzX291dCAtIHJlb3JkLCAwKTsKKyAgICAg
+ICAgICAgICAgICBpZiAodHAtPmVsdF9mbGFnKSB0Y3BfbmNyX2VsdF9lbmQodHAsIGZsYWcsIDEp
+OworICAgICAgICAgICAgfQogCiAJCQlkZWx0YSA9IHRjcF9pc19mYWNrKHRwKSA/IHBrdHNfYWNr
+ZWQgOgogCQkJCQkJICBwcmlvcl9zYWNrZWQgLSB0cC0+c2Fja2VkX291dDsKZGlmZiAtdXByTiBs
+aW51eC0yLjYuMzAuNC9uZXQvaXB2NC90Y3BfaXB2NC5jIGxpbnV4LTIuNi4zMC40LU5DUi9uZXQv
+aXB2NC90Y3BfaXB2NC5jCi0tLSAvbmV0L2lwdjQvdGNwX2lwdjQuYwkyMDA5LTA3LTMxIDAwOjM0
+OjQ3LjAwMDAwMDAwMCArMDIwMAorKysgL25ldC9pcHY0L3RjcF9pcHY0LmMJMjAwOS0wOC0xMiAy
+MDoxNToxOC4wMDAwMDAwMDAgKzAyMDAKQEAgLTE3NzQsNiArMTc3NCwxMSBAQCBzdGF0aWMgaW50
+IHRjcF92NF9pbml0X3NvY2soc3RydWN0IHNvY2sgCiAJdHAtPm1zc19jYWNoZSA9IDUzNjsKIAog
+CXRwLT5yZW9yZGVyaW5nID0gc3lzY3RsX3RjcF9yZW9yZGVyaW5nOworCisgICAgLyogVENQLU5D
+UjogSW5pdGlhdGUgc29tZSB2YXJpYWJsZXMgKi8KKyAgICB0cC0+ZHVwdGhyZXNoID0gVENQX0ZB
+U1RSRVRSQU5TX1RIUkVTSDsKKyAgICB0cC0+ZWx0X2ZsYWcgPSAwOworCiAJaWNzay0+aWNza19j
+YV9vcHMgPSAmdGNwX2luaXRfY29uZ2VzdGlvbl9vcHM7CiAKIAlzay0+c2tfc3RhdGUgPSBUQ1Bf
+Q0xPU0U7Cg==
+--0015174bde1ecdb9870470f64c02--
