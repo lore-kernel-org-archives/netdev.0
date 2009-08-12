@@ -1,52 +1,36 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: Page allocation failures in guest
-Date: Wed, 12 Aug 2009 08:41:21 +0300
-Message-ID: <4A825601.60000@redhat.com>
-References: <20090713115158.0a4892b0@mjolnir.ossman.eu> <4A811545.5090209@redhat.com> <200908121249.51973.rusty@rustcorp.com.au> <200908121501.53167.rusty@rustcorp.com.au>
+From: =?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>
+Subject: a question on packet_sock struct
+Date: Wed, 12 Aug 2009 15:43:59 +0900
+Message-ID: <2014bcab0908112343x68d758e7x132f86b951093e12@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Pierre Ossman <drzeus-list@drzeus.cx>, Minchan Kim <minchan.kim@gmail.com>,
-        kvm@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        linux-mm@kvack.org, Wu Fengguang <fengguang.wu@intel.com>,
-        KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-        Rik van Riel <riel@redhat.com>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200908121501.53167.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f175.google.com ([209.85.210.175]:40068 "EHLO
+	mail-yx0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393AbZHLGn7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 02:43:59 -0400
+Received: by yxe5 with SMTP id 5so5416681yxe.33
+        for <netdev@vger.kernel.org>; Tue, 11 Aug 2009 23:43:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2009 08:31 AM, Rusty Russell wrote:
-> +static void refill_work(struct work_struct *work)
-> +{
-> +	struct virtnet_info *vi;
-> +	bool still_empty;
-> +
-> +	vi = container_of(work, struct virtnet_info, refill);
-> +	napi_disable(&vi->napi);
-> +	try_fill_recv(vi, GFP_KERNEL);
-> +	still_empty = (vi->num == 0);
-> +	napi_enable(&vi->napi);
-> +
-> +	/* In theory, this can happen: if we don't get any buffers in
-> +	 * we will*never*  try to fill again.  Sleeping in keventd if
-> +	 * bad, but that is worse. */
-> +	if (still_empty) {
-> +		msleep(100);
-> +		schedule_work(&vi->refill);
-> +	}
-> +}
-> +
->    
+Hi. I have a question on packet_sock struct
+defined in net/packet/af_packet.c of Linux 2.6.30.4.
 
-schedule_delayed_work()?
+Is it necessary to hold a packet_sock's bind_lock
+before accessing its ifindex field?
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+According to the definition of packet_sock struct,
+it seems that an access to ifindex field should be
+synchronized by the bind_lock.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+However, according to the its usage in the code,
+ifindex accesses are not consistently protected
+by the bind_lock.
+
+Thank you
+
+Sincerely
+Shin Hong
