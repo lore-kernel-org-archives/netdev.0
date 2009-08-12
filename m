@@ -1,65 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 19:59:47 +0200
-Message-ID: <200908121959.47222.arnd@arndb.de>
-References: <cover.1249930169.git.mst@redhat.com> <200908121903.22325.arnd@arndb.de> <20090812172141.GA29966@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Phonet: sockets list through proc_fs
+Date: Wed, 12 Aug 2009 11:06:14 -0700 (PDT)
+Message-ID: <20090812.110614.250284772.davem@davemloft.net>
+References: <1248177479-12669-1-git-send-email-remi.denis-courmont@nokia.com>
+	<20090721.123449.123442701.davem@davemloft.net>
+	<200908121402.25920.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752864AbZHLR7y@vger.kernel.org>
-In-Reply-To: <20090812172141.GA29966@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33422
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751693AbZHLSGE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:06:04 -0400
+In-Reply-To: <200908121402.25920.remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 12 August 2009, Michael S. Tsirkin wrote:
-> On Wed, Aug 12, 2009 at 07:03:22PM +0200, Arnd Bergmann wrote:
-> > We discussed this before, and I still think this could be directly derived
-> > from struct virtqueue, in the same way that vring_virtqueue is derived from
-> > struct virtqueue.
-> 
-> I prefer keeping it simple. Much of abstraction in virtio is due to the
-> fact that it needs to work on top of different hardware emulations:
-> lguest,kvm, possibly others in the future.  vhost is always working on
-> real hardware, using eventfd as the interface, so it does not need that.
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Wed, 12 Aug 2009 14:02:25 +0300
 
-Well, that was my point: virtio can already work on a number of abstractions,
-so adding one more for vhost should not be too hard.
-
-> > That would make it possible for simple device drivers
-> > to use the same driver in both host and guest,
-> 
-> I don't think so. For example, there's a callback field that gets
-> invoked in guest when buffers are consumed.  It could be overloaded to
-> mean "buffers are available" in host but you never handle both
-> situations in the same way, so what's the point?
+> On Tuesday 21 July 2009 22:34:49 ext David Miller wrote:
+>> But why don't you create a pn_sock_init() function so you don't
+>> have to export so many things from socket.c?
 >
-...
-> 
-> As I pointed out earlier, most code in virtio net is asymmetrical: guest
-> provides buffers, host consumes them.  Possibly, one could use virtio
-> rings in a symmetrical way, but support of existing guest virtio net
-> means there's almost no shared code.
+> I simply did not think of the sole pn_sock_seq_fops as "so many
+> things"... But I can change it if you think it would be better.
 
-The trick is to swap the virtqueues instead. virtio-net is actually
-mostly symmetric in just the same way that the physical wires on a
-twisted pair ethernet are symmetric (I like how that analogy fits).
-
-virtio_net kicks the transmit virtqueue when it has data and
-it kicks the receive queue when it has empty buffers to fill,
-and it has callbacks when the two are done. You can do the
-same in both the guest and the host, but then the guests input
-virtqueue is the hosts output virtqueue and vice versa.
-
-Once a virtqueue got kicked from both sides, the vhost_virtqueue
-implementation between the two only needs to do a copy_from_user
-or copy_to_user (possibly from a thread if it is in atomic context)
-and then call the two callback functions. This is basically the
-same thing you do already, except that you use slightly different
-names for the components.
-
-	Arnd <><
+Maybe I'm exaggerating, but in any event the less you export from
+a file the cleaner it tends to be.
