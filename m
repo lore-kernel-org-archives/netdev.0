@@ -1,34 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Phonet: sockets list through proc_fs
-Date: Wed, 12 Aug 2009 11:06:14 -0700 (PDT)
-Message-ID: <20090812.110614.250284772.davem@davemloft.net>
-References: <1248177479-12669-1-git-send-email-remi.denis-courmont@nokia.com>
-	<20090721.123449.123442701.davem@davemloft.net>
-	<200908121402.25920.remi.denis-courmont@nokia.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [net-next 00/36] bnx2x patch series
+Date: Wed, 12 Aug 2009 21:19:22 +0300
+Message-ID: <1250101162.27379.151.camel@lb-tlvb-eilong>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Yaniv Rosner" <yanivr@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Yitchak Gertner" <gertner@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33422
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751693AbZHLSGE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:06:04 -0400
-In-Reply-To: <200908121402.25920.remi.denis-courmont@nokia.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:2809 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752309AbZHLSUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:20:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-Date: Wed, 12 Aug 2009 14:02:25 +0300
+Hi Dave,
 
-> On Tuesday 21 July 2009 22:34:49 ext David Miller wrote:
->> But why don't you create a pn_sock_init() function so you don't
->> have to export so many things from socket.c?
->
-> I simply did not think of the sole pn_sock_seq_fops as "so many
-> things"... But I can change it if you think it would be better.
+Here is a patch series for the bnx2x. This patch series also replace the
+FW, so
+it contains two big blobs - the new fw and the removal of the old one.
+Those
+patches do not contain anything but the ihex - the actually change to
+the driver
+is in patch number 2 which is small enough to fit the mailing list.
 
-Maybe I'm exaggerating, but in any event the less you export from
-a file the cleaner it tends to be.
+For those who wish to see all the patches, including the ihex, I also
+updated
+http://linux.broadcom.com/eilong/ to contain this patch series.
+
+Please consider applying to net-next.
+
+Thanks,
+Eilon
+
+ drivers/net/Kconfig                 |    1 +
+ drivers/net/bnx2x.h                 |  125 +-
+ drivers/net/bnx2x_dump.h            |  890 ++--
+ drivers/net/bnx2x_fw_defs.h         |  379 +-
+ drivers/net/bnx2x_hsi.h             |  395 +-
+ drivers/net/bnx2x_init.h            |  320 +-
+ drivers/net/bnx2x_init_ops.h        |  419 +-
+ drivers/net/bnx2x_link.c            | 1528 +++--
+ drivers/net/bnx2x_link.h            |   49 +-
+ drivers/net/bnx2x_main.c            | 2058 ++++---
+ drivers/net/bnx2x_reg.h             | 1032 +---
+ firmware/Makefile                   |    2 +-
+ firmware/bnx2x-e1-4.8.53.0.fw.ihex  |10364 ----------------------------
+ firmware/bnx2x-e1-5.0.21.0.fw.ihex  |10184 +++++++++++++++++++++++++++
+ firmware/bnx2x-e1h-4.8.53.0.fw.ihex |12028
+--------------------------------
+ firmware/bnx2x-e1h-5.0.21.0.fw.ihex |12855
++++++++++++++++++++++++++++++++++++
+ 16 files changed, 26764 insertions(+), 25865 deletions(-)
+
+
+
