@@ -1,43 +1,92 @@
-From: Jens Rosenboom <jens@mcbone.net>
-Subject: [PATCH] ipv6: Log the explicit address that triggered DAD failure
-Date: Wed, 12 Aug 2009 16:58:27 +0200
-Message-ID: <1250089107.6641.36.camel@fnki-nb00130>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv2 2/2] vhost_net: a kernel-level virtio server
+Date: Wed, 12 Aug 2009 18:51:54 +0300
+Message-ID: <20090812155154.GA29797@redhat.com>
+References: <cover.1249992497.git.mst@redhat.com> <20090811212802.GC26309@redhat.com> <4A82076A.1060805@gmail.com> <20090812090219.GB26847@redhat.com> <4A82BD2F.7080405@gmail.com> <20090812132539.GD29200@redhat.com> <20090812141107.GD6833@linux.vnet.ibm.com> <20090812141559.GA29387@redhat.com> <20090812152639.GA6779@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: Linux Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from leia.mcbone.net ([194.97.104.42]:55372 "EHLO leia.mcbone.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752367AbZHLPpf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 11:45:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <gregory.haskins@gmail.com>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Ingo Molnar <mingo@elte.hu>, linux-mm@kvack.org,
+        Andrew Morton <akpm@linux-foundation.org>, hpa@zytor.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20090812152639.GA6779@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-If an interface has multiple addresses, the current message for DAD
-failure isn't really helpful, so this patch adds the address itself to
-the printk.
+On Wed, Aug 12, 2009 at 08:26:39AM -0700, Paul E. McKenney wrote:
+> On Wed, Aug 12, 2009 at 05:15:59PM +0300, Michael S. Tsirkin wrote:
+> > On Wed, Aug 12, 2009 at 07:11:07AM -0700, Paul E. McKenney wrote:
+> > > On Wed, Aug 12, 2009 at 04:25:40PM +0300, Michael S. Tsirkin wrote:
+> > > > On Wed, Aug 12, 2009 at 09:01:35AM -0400, Gregory Haskins wrote:
+> > > > > I think I understand what your comment above meant:  You don't need to
+> > > > > do synchronize_rcu() because you can flush the workqueue instead to
+> > > > > ensure that all readers have completed.
+> > > > 
+> > > > Yes.
+> > > > 
+> > > > >  But if thats true, to me, the
+> > > > > rcu_dereference itself is gratuitous,
+> > > > 
+> > > > Here's a thesis on what rcu_dereference does (besides documentation):
+> > > > 
+> > > > reader does this
+> > > > 
+> > > > 	A: sock = n->sock
+> > > > 	B: use *sock
+> > > > 
+> > > > Say writer does this:
+> > > > 
+> > > > 	C: newsock = allocate socket
+> > > > 	D: initialize(newsock)
+> > > > 	E: n->sock = newsock
+> > > > 	F: flush
+> > > > 
+> > > > 
+> > > > On Alpha, reads could be reordered.  So, on smp, command A could get
+> > > > data from point F, and command B - from point D (uninitialized, from
+> > > > cache).  IOW, you get fresh pointer but stale data.
+> > > > So we need to stick a barrier in there.
+> > > > 
+> > > > > and that pointer is *not* actually
+> > > > > RCU protected (nor does it need to be).
+> > > > 
+> > > > Heh, if readers are lockless and writer does init/update/sync,
+> > > > this to me spells rcu.
+> > > 
+> > > If you are using call_rcu(), synchronize_rcu(), or one of the
+> > > similar primitives, then you absolutely need rcu_read_lock() and
+> > > rcu_read_unlock(), or one of the similar pairs of primitives.
+> > 
+> > Right. I don't use any of these though.
+> > 
+> > > If you -don't- use rcu_read_lock(), then you are pretty much restricted
+> > > to adding data, but never removing it.
+> > > 
+> > > Make sense?  ;-)
+> > 
+> > Since I only access data from a workqueue, I replaced synchronize_rcu
+> > with workqueue flush. That's why I don't need rcu_read_lock.
+> 
+> Well, you -do- need -something- that takes on the role of rcu_read_lock(),
+> and in your case you in fact actually do.  Your equivalent of
+> rcu_read_lock() is the beginning of execution of a workqueue item, and
+> the equivalent of rcu_read_unlock() is the end of execution of that same
+> workqueue item.  Implicit, but no less real.
 
-Signed-off-by: Jens Rosenboom <jens@mcbone.net>
+Well put. I'll add this to comments in my code.
 
----
+> If a couple more uses like this show up, I might need to add this to
+> Documentation/RCU.  ;-)
+> 
+> 							Thanx, Paul
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 43b3c9f..01a4b25 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1403,8 +1403,8 @@ void addrconf_dad_failure(struct inet6_ifaddr
-*ifp)
- 	struct inet6_dev *idev = ifp->idev;
- 
- 	if (net_ratelimit())
--		printk(KERN_INFO "%s: IPv6 duplicate address detected!\n",
--			ifp->idev->dev->name);
-+		printk(KERN_INFO "%s: IPv6 duplicate address %pI6 detected!\n",
-+			ifp->idev->dev->name, &ifp->addr);
- 
- 	if (idev->cnf.accept_dad > 1 && !idev->cnf.disable_ipv6) {
- 		struct in6_addr addr;
-
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
