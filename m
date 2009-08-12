@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4, linux-2.6.30.4
-Date: Wed, 12 Aug 2009 14:55:49 -0700 (PDT)
-Message-ID: <20090812.145549.228391386.davem@davemloft.net>
-References: <bb6e06c00908121147h2dab7d0kf5841a40956c5c56@mail.gmail.com>
+From: "Michael S. Zick" <lkml@morethan.org>
+Subject: Re: AlacrityVM numbers updated for 31-rc4
+Date: Wed, 12 Aug 2009 17:05:54 -0500
+Message-ID: <200908121706.32874.lkml@morethan.org>
+References: <4A83296B.3080606@gmail.com> <90eb1dc70908121433u3d5916efg5f0ef5994d6aa42c@mail.gmail.com>
+Reply-To: lkml@MoreThan.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: slot.daniel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34631
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751668AbZHLVzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 17:55:39 -0400
-In-Reply-To: <bb6e06c00908121147h2dab7d0kf5841a40956c5c56@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	alacrityvm-users@lists.sourceforge.net,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Javier Guerra <javier@guerrag.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752123AbZHLWGf@vger.kernel.org>
+In-Reply-To: <90eb1dc70908121433u3d5916efg5f0ef5994d6aa42c@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Slot <slot.daniel@gmail.com>
-Date: Wed, 12 Aug 2009 20:47:44 +0200
+On Wed August 12 2009, Javier Guerra wrote:
+> On Wed, Aug 12, 2009 at 3:43 PM, Gregory
+> Haskins<gregory.haskins@gmail.com> wrote:
+> > In any case, I have updated the graphs on the AlacrityVM wiki to reflect
+> > these latest numbers:
+> 
+> pseudo-3D charts are just wrong
+> (http://www.chuckchakrapani.com/articles/PDF/94070347.pdf)
+> 
 
-> RFC 4653 specifies Non-Congestion Robustness (NCR) for TCP.
-> In the absence of explicit congestion notification from the network, TCP
-> uses loss as an indication of congestion.
-> One of the ways TCP detects loss is using the arrival of three duplicate
-> acknowledgments.
-> However, this heuristic is not always correct,
-> notably in the case when network paths reorder segments (for whatever
-> reason), resulting in degraded performance.
+Nice quote.
 
-Linux's TCP stack already has sophisticated reordering detection.
+Even 15 years after it was published, those first two graphs
+are prime "bad examples".
 
-> TCP-NCR is designed to mitigate this degraded performance by increasing the
-> number of duplicate acknowledgments required to trigger loss recovery,
-> based on the current state of the connection, in an effort to better
-> disambiguate true segment loss from segment reordering.
+The second two could stand some improvement also - like put
+the legend and numbers *on* each solid bar.
 
-We already have code in the stack which tries to detect packet
-reordering with a high level of sophistication.
+@J.G. - I think you are fighting an uphill battle here against
+human nature.  People tend to go with their idea of "pretty".
+
+Mike
