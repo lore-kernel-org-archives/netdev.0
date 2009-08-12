@@ -1,78 +1,120 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 19:03:22 +0200
-Message-ID: <200908121903.22325.arnd@arndb.de>
-References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: 8139cp dma-debug warning.
+Date: Wed, 12 Aug 2009 13:13:33 -0400
+Message-ID: <20090812171333.GD3116@redhat.com>
+References: <20090806215702.GA17555@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: virtualization@lists.linux-foundation.org,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:54229 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbZHLRDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 13:03:36 -0400
-In-Reply-To: <20090810185340.GC13924@redhat.com>
+Received: from mx2.redhat.com ([66.187.237.31]:33552 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751324AbZHLRNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 13:13:34 -0400
+Received: from int-mx2.corp.redhat.com (int-mx2.corp.redhat.com [172.16.27.26])
+	by mx2.redhat.com (8.13.8/8.13.8) with ESMTP id n7CHDZ5O000445
+	for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 13:13:35 -0400
+Received: from ns3.rdu.redhat.com (ns3.rdu.redhat.com [10.11.255.199])
+	by int-mx2.corp.redhat.com (8.13.1/8.13.1) with ESMTP id n7CHDZ8a028590
+	for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 13:13:35 -0400
+Received: from gelk.kernelslacker.org (vpn-12-54.rdu.redhat.com [10.11.12.54])
+	by ns3.rdu.redhat.com (8.13.8/8.13.8) with ESMTP id n7CHDYfP010466
+	for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 13:13:34 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.3/8.14.3) with ESMTP id n7CHDXN3007286
+	for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 13:13:33 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.3/8.14.3/Submit) id n7CHDXN6007285
+	for netdev@vger.kernel.org; Wed, 12 Aug 2009 13:13:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20090806215702.GA17555@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 10 August 2009, Michael S. Tsirkin wrote:
+On Thu, Aug 06, 2009 at 05:57:02PM -0400, Dave Jones wrote:
+ > I'm chasing yet another dma-debug warning where we're unmapping a different
+ > size to what we mapped.
+ > 
+ >  > WARNING: at lib/dma-debug.c:803 check_unmap+0x1f5/0x509() (Not tainted)
+ >  > Hardware name: 
+ >  > 8139cp 0000:00:03.0: DMA-API: device driver frees DMA memory with different
+ >  > size [device address=0x000000001e9f8852] [map size=1536 bytes] [unmap size=1538
+ >  > bytes]
+ >  > Modules linked in: ipv6 dm_multipath uinput joydev 8139too virtio_balloon
+ >  > 8139cp mii i2c_piix4 virtio_pci i2c_core floppy squashfs pata_acpi ata_generic
+ >  > [last unloaded: scsi_wait_scan]
+ >  > Pid: 0, comm: swapper Not tainted 2.6.31-0.125.rc5.git2.fc12.i686 #1
+ >  > Call Trace:
+ >  >  [<c0444408>] warn_slowpath_common+0x7b/0xa3
+ >  >  [<c0606746>] ? check_unmap+0x1f5/0x509
+ >  >  [<c0444499>] warn_slowpath_fmt+0x34/0x48
+ >  >  [<c0606746>] check_unmap+0x1f5/0x509
+ >  >  [<c04ecb43>] ? check_valid_pointer+0x2c/0x6c
+ >  >  [<c0606c00>] debug_dma_unmap_page+0x62/0x7b
+ >  >  [<e0dc80be>] dma_unmap_single_attrs.clone.2+0x5a/0x75 [8139cp]
+ >  >  [<e0dc8220>] cp_rx_poll+0x147/0x301 [8139cp]
+ >  >  [<c077e5d4>] net_rx_action+0xa7/0x1d3
+ >  >  [<c044accf>] __do_softirq+0xc8/0x192
+ >  >  [<c044ade2>] do_softirq+0x49/0x7f
+ >  >  [<c044af36>] irq_exit+0x48/0x8c
+ >  >  [<c041c302>] smp_apic_timer_interrupt+0x7a/0x99
+ >  >  [<c0404416>] apic_timer_interrupt+0x36/0x3c
+ >  >  [<c0425e98>] ? native_safe_halt+0xa/0xc
+ >  >  [<c040ad6f>] default_idle+0x55/0x98
+ >  >  [<c046e44d>] ? trace_hardirqs_off+0x19/0x2c
+ >  >  [<c04029e3>] cpu_idle+0xac/0xcd
+ >  >  [<c08080ee>] rest_init+0x66/0x79
+ >  >  [<c0a72ae0>] start_kernel+0x36f/0x385
+ >  >  [<c0a7207e>] __init_begin+0x7e/0x96
+ >  > ---[ end trace f3c3298e5df24f15 ]---
+ >  > Mapped at:
+ >  >  [<c0606f6b>] debug_dma_map_page+0x6b/0x13b
+ >  >  [<e0dc7c22>] dma_map_single_attrs.clone.1+0x78/0x93 [8139cp]
+ >  >  [<e0dc86d0>] cp_init_rings+0xaa/0x12c [8139cp]
+ >  >  [<e0dc87d6>] cp_open+0x84/0x154 [8139cp]
+ >  >  [<c077ff2b>] dev_open+0x99/0xe4
+ >  
+ > Looking at 8139cp.c I see this code in cp_rx_poll ..
+ > 
+ >  552                 buflen = cp->rx_buf_sz + NET_IP_ALIGN;
+ >  553                 new_skb = netdev_alloc_skb(dev, buflen);
+ >  554                 if (!new_skb) {
+ >  555                         dev->stats.rx_dropped++;
+ >  556                         goto rx_next;
+ >  557                 }
+ >  558 
+ >  559                 skb_reserve(new_skb, NET_IP_ALIGN);
+ > 
+ > 
+ > Aren't we padding the alignment twice here? or am I missing something?
+ > The warning was a difference of two bytes, which is NET_IP_ALIGN,
+ > so I'm wondering if that skb_reserve line needs to be nuked ?
 
-> +struct workqueue_struct *vhost_workqueue;
+There's another instance of the same further in the file.
 
-[nitpicking] This could be static. 
+Does this look right?
 
-> +/* The virtqueue structure describes a queue attached to a device. */
-> +struct vhost_virtqueue {
-> +	struct vhost_dev *dev;
-> +
-> +	/* The actual ring of buffers. */
-> +	struct mutex mutex;
-> +	unsigned int num;
-> +	struct vring_desc __user *desc;
-> +	struct vring_avail __user *avail;
-> +	struct vring_used __user *used;
-> +	struct file *kick;
-> +	struct file *call;
-> +	struct file *error;
-> +	struct eventfd_ctx *call_ctx;
-> +	struct eventfd_ctx *error_ctx;
-> +
-> +	struct vhost_poll poll;
-> +
-> +	/* The routine to call when the Guest pings us, or timeout. */
-> +	work_func_t handle_kick;
-> +
-> +	/* Last available index we saw. */
-> +	u16 last_avail_idx;
-> +
-> +	/* Last index we used. */
-> +	u16 last_used_idx;
-> +
-> +	/* Outstanding buffers */
-> +	unsigned int inflight;
-> +
-> +	/* Is this blocked? */
-> +	bool blocked;
-> +
-> +	struct iovec iov[VHOST_NET_MAX_SG];
-> +
-> +} ____cacheline_aligned;
+	Dave
 
-We discussed this before, and I still think this could be directly derived
-from struct virtqueue, in the same way that vring_virtqueue is derived from
-struct virtqueue. That would make it possible for simple device drivers
-to use the same driver in both host and guest, similar to how Ira Snyder
-used virtqueues to make virtio_net run between two hosts running the
-same code [1].
-
-Ideally, I guess you should be able to even make virtio_net work in the
-host if you do that, but that could bring other complexities.
-
-	Arnd <><
-
-[1] http://lkml.org/lkml/2009/2/23/353
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index 07919d0..065c9c3 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -556,8 +556,6 @@ rx_status_loop:
+ 			goto rx_next;
+ 		}
+ 
+-		skb_reserve(new_skb, NET_IP_ALIGN);
+-
+ 		dma_unmap_single(&cp->pdev->dev, mapping,
+ 				 buflen, PCI_DMA_FROMDEVICE);
+ 
+@@ -1061,8 +1059,6 @@ static int cp_refill_rx(struct cp_private *cp)
+ 		if (!skb)
+ 			goto err_out;
+ 
+-		skb_reserve(skb, NET_IP_ALIGN);
+-
+ 		mapping = dma_map_single(&cp->pdev->dev, skb->data,
+ 					 cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+ 		cp->rx_skb[i] = skb;
