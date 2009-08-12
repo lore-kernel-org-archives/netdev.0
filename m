@@ -1,24 +1,21 @@
 From: Daniel Slot <slot.daniel@gmail.com>
 Subject: [PATCH] net/ipv4, linux-2.6.30.4
-Date: Wed, 12 Aug 2009 20:50:59 +0200
-Message-ID: <bb6e06c00908121150q6d08cdfdp818c26cd8ae4f064@mail.gmail.com>
+Date: Wed, 12 Aug 2009 20:59:49 +0200
+Message-ID: <bb6e06c00908121159m60545632n172305ce206816a1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0015174bde1ecdb9870470f64c02
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:62288 "EHLO
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:45344 "EHLO
 	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbZHLSvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 14:51:00 -0400
-Received: by ewy10 with SMTP id 10so240971ewy.37
-        for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 11:50:59 -0700 (PDT)
+	with ESMTP id S1751447AbZHLS7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 14:59:49 -0400
+Received: by ewy10 with SMTP id 10so246805ewy.37
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 11:59:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
---0015174bde1ecdb9870470f64c02
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
 
 RFC 4653 specifies Non-Congestion Robustness (NCR) for TCP.
 In the absence of explicit congestion notification from the network,
@@ -37,146 +34,226 @@ This document specifies the changes to TCP, as well as the costs and
 benefits of these modifications.
 
 This patch adds TCP-NCR as socket option to the Linux kernel (version 2.6.30.4).
+To use TCP-NCR in careful mode (resp. aggressive mode),
+an application has to set the TCP-NCR socket option (23) to the value
+1 (resp. 2) \
+when it starts a TCP connection.
+
 Written by Daniel Slot, Email: slot.daniel(at)gmail.com
 
---0015174bde1ecdb9870470f64c02
-Content-Type: text/plain; charset=US-ASCII; name="README.txt"
-Content-Disposition: attachment; filename="README.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fyaf0ss91
+---------------------------
 
-VGhpcyBwYXRjaCBhZGRzIFRDUC1OQ1IgYXMgc29ja2V0IG9wdGlvbiB0byB0aGUgTGludXgga2Vy
-bmVsLg0KVG8gdXNlIFRDUC1OQ1IgaW4gY2FyZWZ1bCBtb2RlIChyZXNwLiBhZ2dyZXNzaXZlIG1v
-ZGUpLA0KYW4gYXBwbGljYXRpb24gaGFzIHRvIHNldCB0aGUgVENQLU5DUiBzb2NrZXQgb3B0aW9u
-ICgyMykgdG8gdGhlIHZhbHVlIDEgKHJlc3AuIDIpIHdoZW4gaXQgc3RhcnRzIGEgVENQIGNvbm5l
-Y3Rpb24u
---0015174bde1ecdb9870470f64c02
-Content-Type: application/octet-stream;
-	name="patch-linuxkernel-2.6.30-tcp_ncr"
-Content-Disposition: attachment; filename="patch-linuxkernel-2.6.30-tcp_ncr"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fyaf0o7s0
+diff -uprN linux-2.6.30.4/include/linux/tcp.h
+linux-2.6.30.4-NCR/include/linux/tcp.h
+--- /include/linux/tcp.h	2009-07-31 00:34:47.000000000 +0200
++++ /include/linux/tcp.h	2009-08-12 20:15:18.000000000 +0200
+@@ -96,6 +96,7 @@ enum {
+ #define TCP_QUICKACK		12	/* Block/reenable quick acks */
+ #define TCP_CONGESTION		13	/* Congestion control algorithm */
+ #define TCP_MD5SIG		14	/* TCP MD5 Signature (RFC2385) */
++#define TCP_NCR         23  /* TCP NCR (RFC4653) */
 
-ZGlmZiAtdXByTiBsaW51eC0yLjYuMzAuNC9pbmNsdWRlL2xpbnV4L3RjcC5oIGxpbnV4LTIuNi4z
-MC40LU5DUi9pbmNsdWRlL2xpbnV4L3RjcC5oCi0tLSAvaW5jbHVkZS9saW51eC90Y3AuaAkyMDA5
-LTA3LTMxIDAwOjM0OjQ3LjAwMDAwMDAwMCArMDIwMAorKysgL2luY2x1ZGUvbGludXgvdGNwLmgJ
-MjAwOS0wOC0xMiAyMDoxNToxOC4wMDAwMDAwMDAgKzAyMDAKQEAgLTk2LDYgKzk2LDcgQEAgZW51
-bSB7IAogI2RlZmluZSBUQ1BfUVVJQ0tBQ0sJCTEyCS8qIEJsb2NrL3JlZW5hYmxlIHF1aWNrIGFj
-a3MgKi8KICNkZWZpbmUgVENQX0NPTkdFU1RJT04JCTEzCS8qIENvbmdlc3Rpb24gY29udHJvbCBh
-bGdvcml0aG0gKi8KICNkZWZpbmUgVENQX01ENVNJRwkJMTQJLyogVENQIE1ENSBTaWduYXR1cmUg
-KFJGQzIzODUpICovCisjZGVmaW5lIFRDUF9OQ1IgICAgICAgICAyMyAgLyogVENQIE5DUiAoUkZD
-NDY1MykgKi8KIAogI2RlZmluZSBUQ1BJX09QVF9USU1FU1RBTVBTCTEKICNkZWZpbmUgVENQSV9P
-UFRfU0FDSwkJMgpAQCAtNDA4LDYgKzQwOSwxMyBAQCBzdHJ1Y3QgdGNwX3NvY2sgewogI2VuZGlm
-CiAKIAlpbnQJCQlsaW5nZXIyOworCisvKiBUQ1AgTkNSIGV4dGVuc2lvbiBpbmZvcm1hdGlvbiAq
-LworICAgIHU4ICB0Y3BfbmNyX2ZsYWc7CisgICAgdTggIGVsdF9mbGFnOworICAgIHU4ICBkdXB0
-aHJlc2g7CisgICAgdTggIExUX0Y7CisgICAgdTMyIHByaW9yRmxpZ2h0U2l6ZTsKIH07CiAKIHN0
-YXRpYyBpbmxpbmUgc3RydWN0IHRjcF9zb2NrICp0Y3Bfc2soY29uc3Qgc3RydWN0IHNvY2sgKnNr
-KQpkaWZmIC11cHJOIGxpbnV4LTIuNi4zMC40L25ldC9pcHY0L3RjcC5jIGxpbnV4LTIuNi4zMC40
-LU5DUi9uZXQvaXB2NC90Y3AuYwotLS0gL25ldC9pcHY0L3RjcC5jCTIwMDktMDctMzEgMDA6MzQ6
-NDcuMDAwMDAwMDAwICswMjAwCisrKyAvbmV0L2lwdjQvdGNwLmMJMjAwOS0wOC0xMiAyMDoxNTox
-OC4wMDAwMDAwMDAgKzAyMDAKQEAgLTIyMDgsNiArMjIwOCwxNyBAQCBzdGF0aWMgaW50IGRvX3Rj
-cF9zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrCiAJCWJyZWFrOwogI2VuZGlmCiAKKyAgICBjYXNlIFRD
-UF9OQ1I6CisgICAgICAgIC8qIFRDUC1OQ1IgOiB2YWwgZXF1YWwgMSBmb3IgY2FyZWZ1bCBtb2Rl
-LCB2YWwgZXF1YWwgMiBmb3IgYWdncmVzc2l2ZSBtb2RlICovCisgICAgICAgIGlmICh2YWwpewor
-ICAgICAgICAgICAgdHAtPnRjcF9uY3JfZmxhZyA9IDE7CisgICAgICAgICAgICBpZiAodmFsPT0x
-KSB0cC0+TFRfRiA9IDM7CisgICAgICAgICAgICBpZiAodmFsPT0yKSB0cC0+TFRfRiA9IDQ7Cisg
-ICAgICAgIH0gZWxzZSB7CisgICAgICAgICAgICB0cC0+dGNwX25jcl9mbGFnID0gMDsKKyAgICAg
-ICAgfQorICAgICAgICBicmVhazsKKwogCWRlZmF1bHQ6CiAJCWVyciA9IC1FTk9QUk9UT09QVDsK
-IAkJYnJlYWs7CmRpZmYgLXVwck4gbGludXgtMi42LjMwLjQvbmV0L2lwdjQvdGNwX2lucHV0LmMg
-bGludXgtMi42LjMwLjQtTkNSL25ldC9pcHY0L3RjcF9pbnB1dC5jCi0tLSAvbmV0L2lwdjQvdGNw
-X2lucHV0LmMJMjAwOS0wNy0zMSAwMDozNDo0Ny4wMDAwMDAwMDAgKzAyMDAKKysrIC9uZXQvaXB2
-NC90Y3BfaW5wdXQuYwkyMDA5LTA4LTEyIDIwOjE1OjE4LjAwMDAwMDAwMCArMDIwMApAQCAtMTAw
-Myw2ICsxMDAzLDQ1IEBAIHN0YXRpYyB2b2lkIHRjcF9za2JfbWFya19sb3N0X3VuY29uZF92ZXIK
-IAl9CiB9CiAKKy8qIFRDUC1OQ1I6IFRlc3QgaWYgVENQLU5DUiBtYXkgYmUgdXNlZAorICogKEZv
-bGxvd2luZyBSRkMgNDY1MyByZWNvbW1lbmRhdGlvbnMpCisgKi8KK3N0YXRpYyBpbnQgdGNwX25j
-cl90ZXN0KHN0cnVjdCB0Y3Bfc29jayAqdHApCit7CisgICAgcmV0dXJuICh0cC0+dGNwX25jcl9m
-bGFnICYmIHRjcF9pc19zYWNrKHRwKSAmJiAhKHRwLT5ub25hZ2xlICYgVENQX05BR0xFX09GRikp
-OworfQorCisvKiBUQ1AtTkNSOiBJbml0aWF0ZSBFeHRlbmRlZCBMaW1pdGVkIFRyYW5zbWl0Cisg
-KiAoUkZDIDQ2NTMgSW5pdGlhbGl6YXRpb24pCisgKiAqLworc3RhdGljIHZvaWQgdGNwX25jcl9l
-bHRfaW5pdChzdHJ1Y3QgdGNwX3NvY2sgKnRwLCBpbnQgaG93KQoreworICAgIGlmICghaG93KSB0
-cC0+cHJpb3JGbGlnaHRTaXplID0gdHAtPnBhY2tldHNfb3V0OworICAgIHRwLT5lbHRfZmxhZyA9
-IDE7CisgICAgdHAtPmR1cHRocmVzaCA9IG1heF90KHUzMiwgKCgyICogdHAtPnBhY2tldHNfb3V0
-KS90cC0+TFRfRiksIDMpOworfQorCisvKiBUQ1AtTkNSIEV4dGVuZGVkIExpbWl0ZWQgVHJhbnNt
-aXQKKyAqIChSRkMgNDY1MyBUZXJtaW5hdGlvbikKKyAqLworc3RhdGljIHZvaWQgdGNwX25jcl9l
-bHRfZW5kKHN0cnVjdCB0Y3Bfc29jayAqdHAsIGludCBmbGFnICwgaW50IGhvdykKK3sKKyAgICBp
-ZiAoaG93KXsKKyAgICAgICAgLyogTmV3IGN1bXVsYXRpdmUgQUNLIGR1cmluZyBFTFQsIGl0IGlz
-IHJlb3JkZXJpbmcuICovCisgICAgICAgIHRwLT5zbmRfc3N0aHJlc2ggPSB0cC0+cHJpb3JGbGln
-aHRTaXplOworICAgICAgICB0cC0+c25kX2N3bmQgPSBtaW4odHAtPnBhY2tldHNfb3V0KzEsIHRw
-LT5wcmlvckZsaWdodFNpemUpOworICAgICAgICB0cC0+c25kX2N3bmRfc3RhbXAgPSB0Y3BfdGlt
-ZV9zdGFtcDsKKyAgICAgICAgaWYgKGZsYWcgJiBGTEFHX0RBVEFfU0FDS0VEKSB0Y3BfbmNyX2Vs
-dF9pbml0KHRwLCAxKTsKKyAgICAgICAgZWxzZSB0cC0+ZWx0X2ZsYWcgPSAwOworICAgIH0gZWxz
-ZSB7CisgICAgICAgIC8qIER1cHRocmVzaCBpcyByZWFjaGVkLCBzdGFydCByZWNvdmVyeSAqLwor
-ICAgICAgICB0cC0+c25kX3NzdGhyZXNoID0gKHRwLT5wcmlvckZsaWdodFNpemUvMik7CisgICAg
-ICAgIHRwLT5zbmRfY3duZCA9IHRwLT5zbmRfc3N0aHJlc2g7CisgICAgICAgIHRwLT5zbmRfY3du
-ZF9zdGFtcCA9IHRjcF90aW1lX3N0YW1wOworICAgICAgICB0cC0+ZWx0X2ZsYWcgPSAwOworICAg
-IH0KK30KKwogLyogVGhpcyBwcm9jZWR1cmUgdGFncyB0aGUgcmV0cmFuc21pc3Npb24gcXVldWUg
-d2hlbiBTQUNLcyBhcnJpdmUuCiAgKgogICogV2UgaGF2ZSB0aHJlZSB0YWcgYml0czogU0FDS0VE
-KFMpLCBSRVRSQU5TKFIpIGFuZCBMT1NUKEwpLgpAQCAtMTM0Niw2ICsxMzg1LDkgQEAgc3RhdGlj
-IHU4IHRjcF9zYWNrdGFnX29uZShzdHJ1Y3Qgc2tfYnVmZgogCQkJfQogCQl9CiAKKyAgICAgICAg
-LyogVENQLU5DUjogSW5pdGlhbGl6YXRpb24gKi8KKyAgICAgICAgaWYgKHRjcF9uY3JfdGVzdCh0
-cCkgJiYgKCF0cC0+ZWx0X2ZsYWcpICYmICh0cC0+c2Fja2VkX291dCA9PSAwKSkgdGNwX25jcl9l
-bHRfaW5pdCh0cCwgMCk7CisKIAkJc2Fja2VkIHw9IFRDUENCX1NBQ0tFRF9BQ0tFRDsKIAkJc3Rh
-dGUtPmZsYWcgfD0gRkxBR19EQVRBX1NBQ0tFRDsKIAkJdHAtPnNhY2tlZF9vdXQgKz0gcGNvdW50
-OwpAQCAtMjQyNSw5ICsyNDY3LDEzIEBAIHN0YXRpYyBpbnQgdGNwX3RpbWVfdG9fcmVjb3Zlcihz
-dHJ1Y3Qgc28KIAlpZiAodHAtPmxvc3Rfb3V0KQogCQlyZXR1cm4gMTsKIAotCS8qIE5vdC1BLVRy
-aWNrIzIgOiBDbGFzc2ljIHJ1bGUuLi4gKi8KLQlpZiAodGNwX2R1cGFja19oZXVyZXN0aWNzKHRw
-KSA+IHRwLT5yZW9yZGVyaW5nKQotCQlyZXR1cm4gMTsKKyAgICAvKiBOb3QtQS1UcmljayMyIDog
-Q2xhc3NpYyBydWxlLi4uCisgICAgICogKE9wdGlvbiB0byB1c2UgVENQLU5DUiBkdXB0aHJlc2gg
-aW5zdGVhZCkKKyAgICAgKi8KKyAgICBpZiAodHAtPmVsdF9mbGFnICYmICh0Y3BfZHVwYWNrX2hl
-dXJlc3RpY3ModHApID4gdHAtPmR1cHRocmVzaCkpCisgICAgICAgIHJldHVybiAxOworICAgIGlm
-ICghdHAtPmVsdF9mbGFnICYmICh0Y3BfZHVwYWNrX2hldXJlc3RpY3ModHApID4gdHAtPnJlb3Jk
-ZXJpbmcpKQorICAgICAgICByZXR1cm4gMTsKIAogCS8qIFRyaWNrIzMgOiB3aGVuIHdlIHVzZSBS
-RkMyOTg4IHRpbWVyIHJlc3RhcnQsIGZhc3QKIAkgKiByZXRyYW5zbWl0IGNhbiBiZSB0cmlnZ2Vy
-ZWQgYnkgdGltZW91dCBvZiBxdWV1ZSBoZWFkLgpAQCAtMjYwMyw2ICsyNjQ5LDE3IEBAIHN0YXRp
-YyB2b2lkIHRjcF9jd25kX2Rvd24oc3RydWN0IHNvY2sgKnMKIAl9CiB9CiAKKy8qIFRDUC1OQ1I6
-IEV4dGVuZGVkIExpbWl0ZWQgVHJhbnNtaXQKKyAqIChSRkMgNDY1MyBNYWluIFBhcnQpCisgKi8K
-K3N0YXRpYyB2b2lkIHRjcF9uY3JfZWx0KHN0cnVjdCBzb2NrICpzaywgaW50IGZsYWcpCit7Cisg
-ICAgc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9zayhzayk7CisKKyAgICBpZiAodHAtPkxUX0Yg
-PT0gMykgdGNwX2N3bmRfZG93bihzaywgZmxhZyk7CisgICAgdHAtPmR1cHRocmVzaCA9IG1heF90
-KHUzMiwgKCgyICogdHAtPnBhY2tldHNfb3V0KS90cC0+TFRfRiksIDMpOworfQorCiAvKiBOb3Ro
-aW5nIHdhcyByZXRyYW5zbWl0dGVkIG9yIHJldHVybmVkIHRpbWVzdGFtcCBpcyBsZXNzCiAgKiB0
-aGFuIHRpbWVzdGFtcCBvZiB0aGUgZmlyc3QgcmV0cmFuc21pc3Npb24uCiAgKi8KQEAgLTI4MTIs
-NyArMjg2OSw3IEBAIHN0YXRpYyB2b2lkIHRjcF90cnlfdG9fb3BlbihzdHJ1Y3Qgc29jayAKIAog
-CWlmIChpbmV0X2NzayhzayktPmljc2tfY2Ffc3RhdGUgIT0gVENQX0NBX0NXUikgewogCQl0Y3Bf
-dHJ5X2tlZXBfb3Blbihzayk7Ci0JCXRjcF9tb2RlcmF0ZV9jd25kKHRwKTsKKyAgICAgICAgaWYg
-KCF0Y3BfbmNyX3Rlc3QodHApKSB0Y3BfbW9kZXJhdGVfY3duZCh0cCk7CiAJfSBlbHNlIHsKIAkJ
-dGNwX2N3bmRfZG93bihzaywgZmxhZyk7CiAJfQpAQCAtMjkyMCw2ICsyOTc3LDkgQEAgc3RhdGlj
-IHZvaWQgdGNwX2Zhc3RyZXRyYW5zX2FsZXJ0KHN0cnVjdAogCWlmIChXQVJOX09OKCF0cC0+c2Fj
-a2VkX291dCAmJiB0cC0+ZmFja2V0c19vdXQpKQogCQl0cC0+ZmFja2V0c19vdXQgPSAwOwogCisg
-ICAgLyogVENQLU5DUjogRXh0ZW5kZWQgTGltaXRlZCBUcmFuc21pdCAqLworICAgIGlmICh0cC0+
-ZWx0X2ZsYWcgJiYgKGZsYWcgJiBGTEFHX0RBVEFfU0FDS0VEKSkgdGNwX25jcl9lbHQoc2ssIGZs
-YWcpOworCiAJLyogTm93IHN0YXRlIG1hY2hpbmUgc3RhcnRzLgogCSAqIEEuIEVDRSwgaGVuY2Ug
-cHJvaGliaXQgY3duZCB1bmRvaW5nLCB0aGUgcmVkdWN0aW9uIGlzIHJlcXVpcmVkLiAqLwogCWlm
-IChmbGFnICYgRkxBR19FQ0UpCkBAIC0zMDUwLDcgKzMxMTAsOCBAQCBzdGF0aWMgdm9pZCB0Y3Bf
-ZmFzdHJldHJhbnNfYWxlcnQoc3RydWN0CiAJCWlmIChpY3NrLT5pY3NrX2NhX3N0YXRlIDwgVENQ
-X0NBX0NXUikgewogCQkJaWYgKCEoZmxhZyAmIEZMQUdfRUNFKSkKIAkJCQl0cC0+cHJpb3Jfc3N0
-aHJlc2ggPSB0Y3BfY3VycmVudF9zc3RocmVzaChzayk7Ci0JCQl0cC0+c25kX3NzdGhyZXNoID0g
-aWNzay0+aWNza19jYV9vcHMtPnNzdGhyZXNoKHNrKTsKKyAgICAgICAgICAgIGlmICh0cC0+ZWx0
-X2ZsYWcpIHRjcF9uY3JfZWx0X2VuZCh0cCwgZmxhZywgMCk7CisgICAgICAgICAgICBlbHNlIHRw
-LT5zbmRfc3N0aHJlc2ggPSBpY3NrLT5pY3NrX2NhX29wcy0+c3N0aHJlc2goc2spOwogCQkJVENQ
-X0VDTl9xdWV1ZV9jd3IodHApOwogCQl9CiAKQEAgLTMwNjIsOCArMzEyMyw4IEBAIHN0YXRpYyB2
-b2lkIHRjcF9mYXN0cmV0cmFuc19hbGVydChzdHJ1Y3QKIAogCWlmIChkb19sb3N0IHx8ICh0Y3Bf
-aXNfZmFjayh0cCkgJiYgdGNwX2hlYWRfdGltZWRvdXQoc2spKSkKIAkJdGNwX3VwZGF0ZV9zY29y
-ZWJvYXJkKHNrLCBmYXN0X3JleG1pdCk7Ci0JdGNwX2N3bmRfZG93bihzaywgZmxhZyk7Ci0JdGNw
-X3htaXRfcmV0cmFuc21pdF9xdWV1ZShzayk7CisgICAgaWYgKCF0Y3BfbmNyX3Rlc3QodHApKXRj
-cF9jd25kX2Rvd24oc2ssIGZsYWcpOworICAgIHRjcF94bWl0X3JldHJhbnNtaXRfcXVldWUoc2sp
-OwogfQogCiBzdGF0aWMgdm9pZCB0Y3BfdmFsaWRfcnR0X21lYXMoc3RydWN0IHNvY2sgKnNrLCB1
-MzIgc2VxX3J0dCkKQEAgLTMyODUsOCArMzM0NiwxMCBAQCBzdGF0aWMgaW50IHRjcF9jbGVhbl9y
-dHhfcXVldWUoc3RydWN0IHNvCiAJCQlpbnQgZGVsdGE7CiAKIAkJCS8qIE5vbi1yZXRyYW5zbWl0
-dGVkIGhvbGUgZ290IGZpbGxlZD8gVGhhdCdzIHJlb3JkZXJpbmcgKi8KLQkJCWlmIChyZW9yZCA8
-IHByaW9yX2ZhY2tldHMpCisJCQlpZiAocmVvcmQgPCBwcmlvcl9mYWNrZXRzKXsKIAkJCQl0Y3Bf
-dXBkYXRlX3Jlb3JkZXJpbmcoc2ssIHRwLT5mYWNrZXRzX291dCAtIHJlb3JkLCAwKTsKKyAgICAg
-ICAgICAgICAgICBpZiAodHAtPmVsdF9mbGFnKSB0Y3BfbmNyX2VsdF9lbmQodHAsIGZsYWcsIDEp
-OworICAgICAgICAgICAgfQogCiAJCQlkZWx0YSA9IHRjcF9pc19mYWNrKHRwKSA/IHBrdHNfYWNr
-ZWQgOgogCQkJCQkJICBwcmlvcl9zYWNrZWQgLSB0cC0+c2Fja2VkX291dDsKZGlmZiAtdXByTiBs
-aW51eC0yLjYuMzAuNC9uZXQvaXB2NC90Y3BfaXB2NC5jIGxpbnV4LTIuNi4zMC40LU5DUi9uZXQv
-aXB2NC90Y3BfaXB2NC5jCi0tLSAvbmV0L2lwdjQvdGNwX2lwdjQuYwkyMDA5LTA3LTMxIDAwOjM0
-OjQ3LjAwMDAwMDAwMCArMDIwMAorKysgL25ldC9pcHY0L3RjcF9pcHY0LmMJMjAwOS0wOC0xMiAy
-MDoxNToxOC4wMDAwMDAwMDAgKzAyMDAKQEAgLTE3NzQsNiArMTc3NCwxMSBAQCBzdGF0aWMgaW50
-IHRjcF92NF9pbml0X3NvY2soc3RydWN0IHNvY2sgCiAJdHAtPm1zc19jYWNoZSA9IDUzNjsKIAog
-CXRwLT5yZW9yZGVyaW5nID0gc3lzY3RsX3RjcF9yZW9yZGVyaW5nOworCisgICAgLyogVENQLU5D
-UjogSW5pdGlhdGUgc29tZSB2YXJpYWJsZXMgKi8KKyAgICB0cC0+ZHVwdGhyZXNoID0gVENQX0ZB
-U1RSRVRSQU5TX1RIUkVTSDsKKyAgICB0cC0+ZWx0X2ZsYWcgPSAwOworCiAJaWNzay0+aWNza19j
-YV9vcHMgPSAmdGNwX2luaXRfY29uZ2VzdGlvbl9vcHM7CiAKIAlzay0+c2tfc3RhdGUgPSBUQ1Bf
-Q0xPU0U7Cg==
---0015174bde1ecdb9870470f64c02--
+ #define TCPI_OPT_TIMESTAMPS	1
+ #define TCPI_OPT_SACK		2
+@@ -408,6 +409,13 @@ struct tcp_sock {
+ #endif
+
+ 	int			linger2;
++
++/* TCP NCR extension information */
++    u8  tcp_ncr_flag;
++    u8  elt_flag;
++    u8  dupthresh;
++    u8  LT_F;
++    u32 priorFlightSize;
+ };
+
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff -uprN linux-2.6.30.4/net/ipv4/tcp.c linux-2.6.30.4-NCR/net/ipv4/tcp.c
+--- /net/ipv4/tcp.c	2009-07-31 00:34:47.000000000 +0200
++++ /net/ipv4/tcp.c	2009-08-12 20:15:18.000000000 +0200
+@@ -2208,6 +2208,17 @@ static int do_tcp_setsockopt(struct sock
+ 		break;
+ #endif
+
++    case TCP_NCR:
++        /* TCP-NCR : val equal 1 for careful mode, val equal 2 for
+aggressive mode */
++        if (val){
++            tp->tcp_ncr_flag = 1;
++            if (val==1) tp->LT_F = 3;
++            if (val==2) tp->LT_F = 4;
++        } else {
++            tp->tcp_ncr_flag = 0;
++        }
++        break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 		break;
+diff -uprN linux-2.6.30.4/net/ipv4/tcp_input.c
+linux-2.6.30.4-NCR/net/ipv4/tcp_input.c
+--- /net/ipv4/tcp_input.c	2009-07-31 00:34:47.000000000 +0200
++++ /net/ipv4/tcp_input.c	2009-08-12 20:15:18.000000000 +0200
+@@ -1003,6 +1003,45 @@ static void tcp_skb_mark_lost_uncond_ver
+ 	}
+ }
+
++/* TCP-NCR: Test if TCP-NCR may be used
++ * (Following RFC 4653 recommendations)
++ */
++static int tcp_ncr_test(struct tcp_sock *tp)
++{
++    return (tp->tcp_ncr_flag && tcp_is_sack(tp) && !(tp->nonagle &
+TCP_NAGLE_OFF));
++}
++
++/* TCP-NCR: Initiate Extended Limited Transmit
++ * (RFC 4653 Initialization)
++ * */
++static void tcp_ncr_elt_init(struct tcp_sock *tp, int how)
++{
++    if (!how) tp->priorFlightSize = tp->packets_out;
++    tp->elt_flag = 1;
++    tp->dupthresh = max_t(u32, ((2 * tp->packets_out)/tp->LT_F), 3);
++}
++
++/* TCP-NCR Extended Limited Transmit
++ * (RFC 4653 Termination)
++ */
++static void tcp_ncr_elt_end(struct tcp_sock *tp, int flag , int how)
++{
++    if (how){
++        /* New cumulative ACK during ELT, it is reordering. */
++        tp->snd_ssthresh = tp->priorFlightSize;
++        tp->snd_cwnd = min(tp->packets_out+1, tp->priorFlightSize);
++        tp->snd_cwnd_stamp = tcp_time_stamp;
++        if (flag & FLAG_DATA_SACKED) tcp_ncr_elt_init(tp, 1);
++        else tp->elt_flag = 0;
++    } else {
++        /* Dupthresh is reached, start recovery */
++        tp->snd_ssthresh = (tp->priorFlightSize/2);
++        tp->snd_cwnd = tp->snd_ssthresh;
++        tp->snd_cwnd_stamp = tcp_time_stamp;
++        tp->elt_flag = 0;
++    }
++}
++
+ /* This procedure tags the retransmission queue when SACKs arrive.
+  *
+  * We have three tag bits: SACKED(S), RETRANS(R) and LOST(L).
+@@ -1346,6 +1385,9 @@ static u8 tcp_sacktag_one(struct sk_buff
+ 			}
+ 		}
+
++        /* TCP-NCR: Initialization */
++        if (tcp_ncr_test(tp) && (!tp->elt_flag) && (tp->sacked_out ==
+0)) tcp_ncr_elt_init(tp, 0);
++
+ 		sacked |= TCPCB_SACKED_ACKED;
+ 		state->flag |= FLAG_DATA_SACKED;
+ 		tp->sacked_out += pcount;
+@@ -2425,9 +2467,13 @@ static int tcp_time_to_recover(struct so
+ 	if (tp->lost_out)
+ 		return 1;
+
+-	/* Not-A-Trick#2 : Classic rule... */
+-	if (tcp_dupack_heurestics(tp) > tp->reordering)
+-		return 1;
++    /* Not-A-Trick#2 : Classic rule...
++     * (Option to use TCP-NCR dupthresh instead)
++     */
++    if (tp->elt_flag && (tcp_dupack_heurestics(tp) > tp->dupthresh))
++        return 1;
++    if (!tp->elt_flag && (tcp_dupack_heurestics(tp) > tp->reordering))
++        return 1;
+
+ 	/* Trick#3 : when we use RFC2988 timer restart, fast
+ 	 * retransmit can be triggered by timeout of queue head.
+@@ -2603,6 +2649,17 @@ static void tcp_cwnd_down(struct sock *s
+ 	}
+ }
+
++/* TCP-NCR: Extended Limited Transmit
++ * (RFC 4653 Main Part)
++ */
++static void tcp_ncr_elt(struct sock *sk, int flag)
++{
++    struct tcp_sock *tp = tcp_sk(sk);
++
++    if (tp->LT_F == 3) tcp_cwnd_down(sk, flag);
++    tp->dupthresh = max_t(u32, ((2 * tp->packets_out)/tp->LT_F), 3);
++}
++
+ /* Nothing was retransmitted or returned timestamp is less
+  * than timestamp of the first retransmission.
+  */
+@@ -2812,7 +2869,7 @@ static void tcp_try_to_open(struct sock
+
+ 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
+ 		tcp_try_keep_open(sk);
+-		tcp_moderate_cwnd(tp);
++        if (!tcp_ncr_test(tp)) tcp_moderate_cwnd(tp);
+ 	} else {
+ 		tcp_cwnd_down(sk, flag);
+ 	}
+@@ -2920,6 +2977,9 @@ static void tcp_fastretrans_alert(struct
+ 	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
+ 		tp->fackets_out = 0;
+
++    /* TCP-NCR: Extended Limited Transmit */
++    if (tp->elt_flag && (flag & FLAG_DATA_SACKED)) tcp_ncr_elt(sk, flag);
++
+ 	/* Now state machine starts.
+ 	 * A. ECE, hence prohibit cwnd undoing, the reduction is required. */
+ 	if (flag & FLAG_ECE)
+@@ -3050,7 +3110,8 @@ static void tcp_fastretrans_alert(struct
+ 		if (icsk->icsk_ca_state < TCP_CA_CWR) {
+ 			if (!(flag & FLAG_ECE))
+ 				tp->prior_ssthresh = tcp_current_ssthresh(sk);
+-			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
++            if (tp->elt_flag) tcp_ncr_elt_end(tp, flag, 0);
++            else tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+ 			TCP_ECN_queue_cwr(tp);
+ 		}
+
+@@ -3062,8 +3123,8 @@ static void tcp_fastretrans_alert(struct
+
+ 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
+ 		tcp_update_scoreboard(sk, fast_rexmit);
+-	tcp_cwnd_down(sk, flag);
+-	tcp_xmit_retransmit_queue(sk);
++    if (!tcp_ncr_test(tp))tcp_cwnd_down(sk, flag);
++    tcp_xmit_retransmit_queue(sk);
+ }
+
+ static void tcp_valid_rtt_meas(struct sock *sk, u32 seq_rtt)
+@@ -3285,8 +3346,10 @@ static int tcp_clean_rtx_queue(struct so
+ 			int delta;
+
+ 			/* Non-retransmitted hole got filled? That's reordering */
+-			if (reord < prior_fackets)
++			if (reord < prior_fackets){
+ 				tcp_update_reordering(sk, tp->fackets_out - reord, 0);
++                if (tp->elt_flag) tcp_ncr_elt_end(tp, flag, 1);
++            }
+
+ 			delta = tcp_is_fack(tp) ? pkts_acked :
+ 						  prior_sacked - tp->sacked_out;
+diff -uprN linux-2.6.30.4/net/ipv4/tcp_ipv4.c
+linux-2.6.30.4-NCR/net/ipv4/tcp_ipv4.c
+--- /net/ipv4/tcp_ipv4.c	2009-07-31 00:34:47.000000000 +0200
++++ /net/ipv4/tcp_ipv4.c	2009-08-12 20:15:18.000000000 +0200
+@@ -1774,6 +1774,11 @@ static int tcp_v4_init_sock(struct sock
+ 	tp->mss_cache = 536;
+
+ 	tp->reordering = sysctl_tcp_reordering;
++
++    /* TCP-NCR: Initiate some variables */
++    tp->dupthresh = TCP_FASTRETRANS_THRESH;
++    tp->elt_flag = 0;
++
+ 	icsk->icsk_ca_ops = &tcp_init_congestion_ops;
+
+ 	sk->sk_state = TCP_CLOSE;
+---------------------------
