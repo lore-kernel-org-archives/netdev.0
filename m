@@ -1,55 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 16:06:12 +0300
-Message-ID: <20090812130612.GC29200@redhat.com>
-References: <20090811212743.GA26309@redhat.com> <20090812120541.GA29158@redhat.com> <4A82B87B.4010208@gmail.com> <200908121452.01802.arnd@arndb.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] mac802154: add a software MAC 802.15.4
+ implementation
+Date: Wed, 12 Aug 2009 15:13:57 +0200
+Message-ID: <1250082837.8784.21.camel@johannes.local>
+References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
+	 <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
+	 <1249914466.32614.13.camel@johannes.local>
+	 <20090811202304.GA6303@doriath.ww600.siemens.net>
+	 <1250023198.13529.69.camel@johannes.local>
+	 <20090812130605.GA17169@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <gregory.haskins@gmail.com>, netdev@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
-        Andrew Morton <akpm@linux-foundation.org>, hpa@zytor.com,
-        Patrick Mullaney <pmullaney@novell.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908121452.01802.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-4xkkTI3pjNNfpRSvxoZh"
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Sergey Lapin <slapin@ossfans.org>
+To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xc.sipsolutions.net ([83.246.72.84]:45497 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbZHLNOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 09:14:31 -0400
+In-Reply-To: <20090812130605.GA17169@doriath.ww600.siemens.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 12, 2009 at 02:52:01PM +0200, Arnd Bergmann wrote:
-> On Wednesday 12 August 2009, Gregory Haskins wrote:
-> > >> Are you saying SRIOV is a requirement, and I can either program the
-> > >> SRIOV adapter with a mac or use promis?  Or are you saying I can use
-> > >> SRIOV+programmed mac OR a regular nic + promisc (with a perf penalty).
-> > > 
-> > > SRIOV is not a requirement. And you can also use a dedicated
-> > > nic+programmed mac if you are so inclined.
-> > 
-> > Makes sense.  Got it.
-> > 
-> > I was going to add guest-to-guest to the test matrix, but I assume that
-> > is not supported with vhost unless you have something like a VEPA
-> > enabled bridge?
-> > 
-> 
-> If I understand it correctly, you can at least connect a veth pair
-> to a bridge, right? Something like
-> 
->            veth0 - veth1 - vhost - guest 1 
-> eth0 - br0-|
->            veth2 - veth3 - vhost - guest 2
->           
-> It's a bit more complicated than it need to be, but should work fine.
-> 
-> 	Arnd <><
 
-Heh, you don't need a bridge in this picture:
+--=-4xkkTI3pjNNfpRSvxoZh
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-guest 1 - vhost - veth0 - veth1 - vhost guest 2
+On Wed, 2009-08-12 at 17:06 +0400, Dmitry Eremin-Solenikov wrote:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> > In addition to that, you can't put anything into skb->cb, then push the
+> > frame to the master netdev, and expect things in skb->cb to still be
+> > there when the frame arrives at the master netdev. Not sure you do that
+> > (I hope not because that would be very buggy), but eventually you'll
+> > probably find that you do want that, etc.
+>=20
+> Hmm. It works for us. Could you please tell me more about the problems
+> with skb->cb ?
+
+Uh, well, you don't own the skb->cb between dev_queue_xmit() and
+ndo_start_xmit(). In fact, your phy_cb data will be overwritten by the
+qdisc.
+
+So your code is completely and utterly broken just like mac80211 was for
+a long time.
+
+Also, looking into this a bit more, I see no reason to allocate a work
+struct every time you get a frame -- better just queue them up and stick
+everything else into skb->cb. In fact, you don't need a master netdev
+here anyway, just move all code from ieee802154_master_hard_start_xmit()
+into ieee802154_net_xmit().
+
+johannes
+
+--=-4xkkTI3pjNNfpRSvxoZh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAABAgAGBQJKgsASAAoJEODzc/N7+Qma1iwP/1/hQZ1LeYX5v4mwqN69nqV/
+mTvn2qoyfi3As4hiuf/9OrDsvCj1fAbcGO8tgGlmOs3wvt+zAN0ZVtS99F8weZWI
+6U7EB65orKfqR1aTPFG7oIzBNu/YqngAk479PJcYWNNyNmQJBromn7sKEMEDBzey
+cwALVhWEmQpMOe0gQOk9Ro7o37QEiFVIIWOaSf41sceGwEXSgufr4s/w9CweoIu9
+Jo1Vqz43wO5jfcmCc3Zqe0cUhVUmg+tIdEyXugnV5K7LR0WucEA9Z4hFIYgSzHTW
+PdXDmMfuWFIt0/zTrYkjPEsuHbB/24pdspa/lei6HuXotSiEftBTg1e3pGP5ig84
+DzdH1E675m7PV6uGQY6ooV/Pu4X69vE21rRZjEyZS1rmthWXpI6MaQZFfUKw8CnF
+Fkm+6mMAHDg7crWMbp0K/DHPXbGjyQ1kLI0RFBEket6CjOnsvos87aKmlwZkqbfR
+4qyEw5xpUPC9UEVSTueOLrddSzfpRyBWaTAxa9xHSNeLjPohUCt7PjTh7cSA510Q
+OxNylGGALMspKao8sw+SbKtzGzA68IQHyEGWf5BXhK+x2tf4DP2dMn5AWE3MNw7D
+mmkby78NOgZ5nZRkl3OEzA3lTPhnv/+zkI1qu3Xare++6V7nytpPo6WTtSq1+f3W
+lGWThUeZ4xmDd1HTfwOM
+=Ihhq
+-----END PGP SIGNATURE-----
+
+--=-4xkkTI3pjNNfpRSvxoZh--
+
