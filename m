@@ -1,7 +1,8 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 13/36] bnx2x: Removing old PHY FW upgrade code
-Date: Wed, 12 Aug 2009 21:23:14 +0300
-Message-ID: <1250101394.27379.165.camel@lb-tlvb-eilong>
+Subject: [net-next 14/36] bnx2x: Reporting host statistics to management
+ FW
+Date: Wed, 12 Aug 2009 21:23:17 +0300
+Message-ID: <1250101397.27379.166.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,478 +10,300 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3711 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4884 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753115AbZHLSYF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:24:05 -0400
+	id S1751444AbZHLSYK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:24:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code should not have resided in the driver. Now that we have a new
-interface, this logic can reside in the application that whishes to upgrade the
-PHY FW
+This is required for NCSI statistics
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_link.c |  427 ----------------------------------------------
- drivers/net/bnx2x_link.h |    2 -
- 2 files changed, 0 insertions(+), 429 deletions(-)
+ drivers/net/bnx2x.h      |    1 +
+ drivers/net/bnx2x_main.c |  228 +++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 176 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index 98e3e8f..dc3b69e 100644
---- a/drivers/net/bnx2x_link.c
-+++ b/drivers/net/bnx2x_link.c
-@@ -5471,59 +5471,6 @@ static u8 bnx2x_format_ver(u32 num, u8 *str, u16 len)
- 	return 0;
- }
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index 903c89d..1d0b727 100644
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -777,6 +777,7 @@ struct bnx2x_slowpath {
+ 	struct nig_stats		nig_stats;
+ 	struct host_port_stats		port_stats;
+ 	struct host_func_stats		func_stats;
++	struct host_func_stats		func_stats_base;
  
--
--static void bnx2x_turn_on_ef(struct bnx2x *bp, u8 port, u8 ext_phy_addr,
--			   u32 ext_phy_type)
--{
--	u32 cnt = 0;
--	u16 ctrl = 0;
--	/* Enable EMAC0 in to enable MDIO */
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
--	       (MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE << port));
--	msleep(5);
--
--	/* take ext phy out of reset */
--	bnx2x_set_gpio(bp,
--			  MISC_REGISTERS_GPIO_2,
--			  MISC_REGISTERS_GPIO_HIGH,
--			  port);
--
--	bnx2x_set_gpio(bp,
--			  MISC_REGISTERS_GPIO_1,
--			  MISC_REGISTERS_GPIO_HIGH,
--			  port);
--
--	/* wait for 5ms */
--	msleep(5);
--
--	for (cnt = 0; cnt < 1000; cnt++) {
--		msleep(1);
--		bnx2x_cl45_read(bp, port,
--			      ext_phy_type,
--			      ext_phy_addr,
--			      MDIO_PMA_DEVAD,
--			      MDIO_PMA_REG_CTRL,
--			      &ctrl);
--		if (!(ctrl & (1<<15))) {
--			DP(NETIF_MSG_LINK, "Reset completed\n\n");
--				break;
--		}
--	}
--}
--
--static void bnx2x_turn_off_sf(struct bnx2x *bp, u8 port)
--{
--	/* put sf to reset */
--	bnx2x_set_gpio(bp,
--			  MISC_REGISTERS_GPIO_1,
--			  MISC_REGISTERS_GPIO_LOW,
--			  port);
--	bnx2x_set_gpio(bp,
--			  MISC_REGISTERS_GPIO_2,
--			  MISC_REGISTERS_GPIO_LOW,
--			  port);
--}
--
- u8 bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
- 			      u8 *version, u16 len)
- {
-@@ -6743,377 +6690,3 @@ void bnx2x_sfx7101_sp_sw_reset(struct bnx2x *bp, u8 port, u8 phy_addr)
- 			break;
+ 	u32				wb_comp;
+ 	u32				wb_data[4];
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 06b250b..e6fde5e 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -3364,53 +3364,6 @@ static void bnx2x_storm_stats_post(struct bnx2x *bp)
  	}
  }
--#define RESERVED_SIZE 256
--/* max application is 160K bytes - data at end of RAM */
--#define MAX_APP_SIZE (160*1024 - RESERVED_SIZE)
--
--/* Header is 14 bytes */
--#define HEADER_SIZE 14
--#define DATA_OFFSET HEADER_SIZE
--
--#define SPI_START_TRANSFER(bp, port, ext_phy_addr) \
--	bnx2x_cl45_write(bp, port, PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101, \
--			ext_phy_addr, \
--			MDIO_PCS_DEVAD, \
--			MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 1)
--
--/* Programs an image to DSP's flash via the SPI port*/
--static u8 bnx2x_sfx7101_flash_download(struct bnx2x *bp, u8 port,
--				     u8 ext_phy_addr,
--				     char data[], u32 size)
+ 
+-static void bnx2x_stats_init(struct bnx2x *bp)
 -{
--	const u16 num_trans = size/4; /* 4 bytes can be sent at a time */
--	/* Doesn't include last trans!*/
--	const u16 last_trans_size = size%4; /* Num bytes on last trans */
--	u16 trans_cnt, byte_cnt;
--	u32 data_index;
--	u16 tmp;
--	u16 code_started = 0;
--	u16 image_revision1, image_revision2;
--	u16 cnt;
+-	int port = BP_PORT(bp);
+-	int i;
 -
--	DP(NETIF_MSG_LINK, "bnx2x_sfx7101_flash_download file_size=%d\n", size);
--	/* Going to flash*/
--	if ((size-HEADER_SIZE) > MAX_APP_SIZE) {
--		/* This very often will be the case, because the image is built
--		with 160Kbytes size whereas the total image size must actually
--		be 160Kbytes-RESERVED_SIZE */
--		DP(NETIF_MSG_LINK, "Warning, file size was %d bytes "
--			 "truncated to %d bytes\n", size, MAX_APP_SIZE);
--		size = MAX_APP_SIZE+HEADER_SIZE;
--	}
--	DP(NETIF_MSG_LINK, "File version is %c%c\n", data[0x14e], data[0x14f]);
--	DP(NETIF_MSG_LINK, "  	      %c%c\n", data[0x150], data[0x151]);
--	/* Put the DSP in download mode by setting FLASH_CFG[2] to 1
--	   and issuing a reset.*/
+-	bp->stats_pending = 0;
+-	bp->executer_idx = 0;
+-	bp->stats_counter = 0;
 -
--	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_0,
--			  MISC_REGISTERS_GPIO_HIGH, port);
+-	/* port stats */
+-	if (!BP_NOMCP(bp))
+-		bp->port.port_stx = SHMEM_RD(bp, port_mb[port].port_stx);
+-	else
+-		bp->port.port_stx = 0;
+-	DP(BNX2X_MSG_STATS, "port_stx 0x%x\n", bp->port.port_stx);
 -
--	bnx2x_sfx7101_sp_sw_reset(bp, port, ext_phy_addr);
+-	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
+-	bp->port.old_nig_stats.brb_discard =
+-			REG_RD(bp, NIG_REG_STAT0_BRB_DISCARD + port*0x38);
+-	bp->port.old_nig_stats.brb_truncate =
+-			REG_RD(bp, NIG_REG_STAT0_BRB_TRUNCATE + port*0x38);
+-	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT0 + port*0x50,
+-		    &(bp->port.old_nig_stats.egress_mac_pkt0_lo), 2);
+-	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT1 + port*0x50,
+-		    &(bp->port.old_nig_stats.egress_mac_pkt1_lo), 2);
 -
--	/* wait 0.5 sec */
--	for (cnt = 0; cnt < 100; cnt++)
--		msleep(5);
+-	/* function stats */
+-	for_each_queue(bp, i) {
+-		struct bnx2x_fastpath *fp = &bp->fp[i];
 -
--	/* Make sure we can access the DSP
--	   And it's in the correct mode (waiting for download) */
--
--	bnx2x_cl45_read(bp, port,
--		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		      ext_phy_addr,
--		      MDIO_PCS_DEVAD,
--		      MDIO_PCS_REG_7101_DSP_ACCESS, &tmp);
--
--	if (tmp != 0x000A) {
--		DP(NETIF_MSG_LINK, "DSP is not in waiting on download mode. "
--			 "Expected 0x000A, read 0x%04X\n", tmp);
--		DP(NETIF_MSG_LINK, "Download failed\n");
--		return -EINVAL;
+-		memset(&fp->old_tclient, 0,
+-		       sizeof(struct tstorm_per_client_stats));
+-		memset(&fp->old_uclient, 0,
+-		       sizeof(struct ustorm_per_client_stats));
+-		memset(&fp->old_xclient, 0,
+-		       sizeof(struct xstorm_per_client_stats));
+-		memset(&fp->eth_q_stats, 0, sizeof(struct bnx2x_eth_q_stats));
 -	}
 -
--	/* Mux the SPI interface away from the internal processor */
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_MUX, 1);
+-	memset(&bp->dev->stats, 0, sizeof(struct net_device_stats));
+-	memset(&bp->eth_stats, 0, sizeof(struct bnx2x_eth_stats));
 -
--	/* Reset the SPI port */
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 0);
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR,
--		       (1<<MDIO_PCS_REG_7101_SPI_RESET_BIT));
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 0);
--
--	/* Erase the flash */
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
--
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--		       1);
--
--	SPI_START_TRANSFER(bp, port, ext_phy_addr);
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR_BULK_ERASE_CMD);
--
--	bnx2x_cl45_write(bp, port,
--		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		       ext_phy_addr,
--		       MDIO_PCS_DEVAD,
--		       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--		       1);
--	SPI_START_TRANSFER(bp, port, ext_phy_addr);
--
--	/* Wait 10 seconds, the maximum time for the erase to complete */
--	DP(NETIF_MSG_LINK, "Erasing flash, this takes 10 seconds...\n");
--	for (cnt = 0; cnt < 1000; cnt++)
--		msleep(10);
--
--	DP(NETIF_MSG_LINK, "Downloading flash, please wait...\n");
--	data_index = 0;
--	for (trans_cnt = 0; trans_cnt < num_trans; trans_cnt++) {
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			     ext_phy_addr,
--			     MDIO_PCS_DEVAD,
--			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
--
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--			       1);
--		SPI_START_TRANSFER(bp, port, ext_phy_addr);
--
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_PAGE_PROGRAM_CMD);
--
--		/* Bits 23-16 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       (data_index>>16));
--		/* Bits 15-8 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       (data_index>>8));
--
--		/* Bits 7-0 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       ((u16)data_index));
--
--		byte_cnt = 0;
--		while (byte_cnt < 4 && data_index < size) {
--			bnx2x_cl45_write(bp, port,
--				       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--				       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       data[data_index++]);
--			byte_cnt++;
--		}
--
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--			       byte_cnt+4);
--
--		SPI_START_TRANSFER(bp, port, ext_phy_addr);
--		msleep(5); /* Wait 5 ms minimum between transs */
--
--		/* Let the user know something's going on.*/
--		/* a pacifier ever 4K */
--		if ((data_index % 1023) == 0)
--			DP(NETIF_MSG_LINK, "Download %d%%\n", data_index/size);
--	}
--
--	DP(NETIF_MSG_LINK, "\n");
--	/* Transfer the last block if there is data remaining */
--	if (last_trans_size) {
--		bnx2x_cl45_write(bp, port,
--			PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			ext_phy_addr,
--			MDIO_PCS_DEVAD,
--			MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
--
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--			       1);
--
--		SPI_START_TRANSFER(bp, port, ext_phy_addr);
--
--		bnx2x_cl45_write(bp, port,
--			     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			     ext_phy_addr,
--			     MDIO_PCS_DEVAD,
--			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_PAGE_PROGRAM_CMD);
--
--		/* Bits 23-16 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       (data_index>>16));
--		/* Bits 15-8 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       (data_index>>8));
--
--		/* Bits 7-0 of address */
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--			       ((u16)data_index));
--
--		byte_cnt = 0;
--		while (byte_cnt < last_trans_size && data_index < size) {
--			/* Bits 7-0 of address */
--			bnx2x_cl45_write(bp, port,
--				PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--				ext_phy_addr,
--				MDIO_PCS_DEVAD,
--				MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
--				data[data_index++]);
--			byte_cnt++;
--		}
--
--		bnx2x_cl45_write(bp, port,
--			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--			       ext_phy_addr,
--			       MDIO_PCS_DEVAD,
--			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
--			       byte_cnt+4);
--
--		SPI_START_TRANSFER(bp, port, ext_phy_addr);
--	}
--
--	/* DSP Remove Download Mode */
--	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_0,
--			  MISC_REGISTERS_GPIO_LOW, port);
--
--	bnx2x_sfx7101_sp_sw_reset(bp, port, ext_phy_addr);
--
--	/* wait 0.5 sec to allow it to run */
--	for (cnt = 0; cnt < 100; cnt++)
--		msleep(5);
--
--	bnx2x_ext_phy_hw_reset(bp, port);
--
--	for (cnt = 0; cnt < 100; cnt++)
--		msleep(5);
--
--	/* Check that the code is started. In case the download
--	checksum failed, the code won't be started. */
--	bnx2x_cl45_read(bp, port,
--		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		      ext_phy_addr,
--		      MDIO_PCS_DEVAD,
--		      MDIO_PCS_REG_7101_DSP_ACCESS,
--		      &tmp);
--
--	code_started = (tmp & (1<<4));
--	if (!code_started) {
--		DP(NETIF_MSG_LINK, "Download failed. Please check file.\n");
--		return -EINVAL;
--	}
--
--	/* Verify that the file revision is now equal to the image
--	revision within the DSP */
--	bnx2x_cl45_read(bp, port,
--		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		      ext_phy_addr,
--		      MDIO_PMA_DEVAD,
--		      MDIO_PMA_REG_7101_VER1,
--		      &image_revision1);
--
--	bnx2x_cl45_read(bp, port,
--		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
--		      ext_phy_addr,
--		      MDIO_PMA_DEVAD,
--		      MDIO_PMA_REG_7101_VER2,
--		      &image_revision2);
--
--	if (data[0x14e] != (image_revision2&0xFF) ||
--	    data[0x14f] != ((image_revision2&0xFF00)>>8) ||
--	    data[0x150] != (image_revision1&0xFF) ||
--	    data[0x151] != ((image_revision1&0xFF00)>>8)) {
--		DP(NETIF_MSG_LINK, "Download failed.\n");
--		return -EINVAL;
--	}
--	DP(NETIF_MSG_LINK, "Download %d%%\n", data_index/size);
--	return 0;
+-	bp->stats_state = STATS_STATE_DISABLED;
+-	if (IS_E1HMF(bp) && bp->port.pmf && bp->port.port_stx)
+-		bnx2x_stats_handle(bp, STATS_EVENT_PMF);
 -}
 -
--u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
--		      u8 driver_loaded, char data[], u32 size)
--{
--	u8 rc = 0;
--	u32 ext_phy_type;
--	u8 ext_phy_addr;
--	ext_phy_addr = ((ext_phy_config &
--			PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
--			PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
--
--	ext_phy_type = XGXS_EXT_PHY_TYPE(ext_phy_config);
--
--	switch (ext_phy_type) {
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072:
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073:
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
--		DP(NETIF_MSG_LINK,
--			"Flash download not supported for this ext phy\n");
--		rc = -EINVAL;
--		break;
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
--		/* Take ext phy out of reset */
--		if (!driver_loaded)
--			bnx2x_turn_on_ef(bp, port, ext_phy_addr, ext_phy_type);
--		rc = bnx2x_sfx7101_flash_download(bp, port, ext_phy_addr,
--						data, size);
--		if (!driver_loaded)
--			bnx2x_turn_off_sf(bp, port);
--		break;
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN:
--	default:
--		DP(NETIF_MSG_LINK, "Invalid ext phy type\n");
--		rc = -EINVAL;
--		break;
--	}
--	return rc;
--}
--
-diff --git a/drivers/net/bnx2x_link.h b/drivers/net/bnx2x_link.h
-index 9805d21..6d26d6c 100644
---- a/drivers/net/bnx2x_link.h
-+++ b/drivers/net/bnx2x_link.h
-@@ -174,8 +174,6 @@ u8 bnx2x_set_led(struct bnx2x *bp, u8 port, u8 mode, u32 speed,
+ static void bnx2x_hw_stats_post(struct bnx2x *bp)
+ {
+ 	struct dmae_command *dmae = &bp->stats_dmae;
+@@ -3971,7 +3924,8 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 	struct bnx2x_eth_stats *estats = &bp->eth_stats;
+ 	int i;
  
- u8 bnx2x_override_led_value(struct bnx2x *bp, u8 port, u32 led_idx, u32 value);
+-	memset(&(fstats->total_bytes_received_hi), 0,
++	memcpy(&(fstats->total_bytes_received_hi),
++	       &(bnx2x_sp(bp, func_stats_base)->total_bytes_received_hi),
+ 	       sizeof(struct host_func_stats) - 2*sizeof(u32));
+ 	estats->error_bytes_received_hi = 0;
+ 	estats->error_bytes_received_lo = 0;
+@@ -4450,6 +4404,173 @@ static void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event)
+ 		   state, event, bp->stats_state);
+ }
  
--u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
--		      u8 driver_loaded, char data[], u32 size);
- /* bnx2x_handle_module_detect_int should be called upon module detection
-    interrupt */
- void bnx2x_handle_module_detect_int(struct link_params *params);
++static void bnx2x_port_stats_base_init(struct bnx2x *bp)
++{
++	struct dmae_command *dmae;
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++
++	/* sanity */
++	if (!bp->port.pmf || !bp->port.port_stx) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
++
++	bp->executer_idx = 0;
++
++	dmae = bnx2x_sp(bp, dmae[bp->executer_idx++]);
++	dmae->opcode = (DMAE_CMD_SRC_PCI | DMAE_CMD_DST_GRC |
++			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
++			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
++#ifdef __BIG_ENDIAN
++			DMAE_CMD_ENDIANITY_B_DW_SWAP |
++#else
++			DMAE_CMD_ENDIANITY_DW_SWAP |
++#endif
++			(BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++			(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++	dmae->src_addr_lo = U64_LO(bnx2x_sp_mapping(bp, port_stats));
++	dmae->src_addr_hi = U64_HI(bnx2x_sp_mapping(bp, port_stats));
++	dmae->dst_addr_lo = bp->port.port_stx >> 2;
++	dmae->dst_addr_hi = 0;
++	dmae->len = sizeof(struct host_port_stats) >> 2;
++	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_val = DMAE_COMP_VAL;
++
++	*stats_comp = 0;
++	bnx2x_hw_stats_post(bp);
++	bnx2x_stats_comp(bp);
++}
++
++static void bnx2x_func_stats_base_init(struct bnx2x *bp)
++{
++	int vn, vn_max = IS_E1HMF(bp) ? E1HVN_MAX : E1VN_MAX;
++	int port = BP_PORT(bp);
++	int func;
++	u32 func_stx;
++
++	/* sanity */
++	if (!bp->port.pmf || !bp->func_stx) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
++
++	/* save our func_stx */
++	func_stx = bp->func_stx;
++
++	for (vn = VN_0; vn < vn_max; vn++) {
++		func = 2*vn + port;
++
++		bp->func_stx = SHMEM_RD(bp, func_mb[func].fw_mb_param);
++		bnx2x_func_stats_init(bp);
++		bnx2x_hw_stats_post(bp);
++		bnx2x_stats_comp(bp);
++	}
++
++	/* restore our func_stx */
++	bp->func_stx = func_stx;
++}
++
++static void bnx2x_func_stats_base_update(struct bnx2x *bp)
++{
++	struct dmae_command *dmae = &bp->stats_dmae;
++	u32 *stats_comp = bnx2x_sp(bp, stats_comp);
++
++	/* sanity */
++	if (!bp->func_stx) {
++		BNX2X_ERR("BUG!\n");
++		return;
++	}
++
++	bp->executer_idx = 0;
++	memset(dmae, 0, sizeof(struct dmae_command));
++
++	dmae->opcode = (DMAE_CMD_SRC_GRC | DMAE_CMD_DST_PCI |
++			DMAE_CMD_C_DST_PCI | DMAE_CMD_C_ENABLE |
++			DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET |
++#ifdef __BIG_ENDIAN
++			DMAE_CMD_ENDIANITY_B_DW_SWAP |
++#else
++			DMAE_CMD_ENDIANITY_DW_SWAP |
++#endif
++			(BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0) |
++			(BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT));
++	dmae->src_addr_lo = bp->func_stx >> 2;
++	dmae->src_addr_hi = 0;
++	dmae->dst_addr_lo = U64_LO(bnx2x_sp_mapping(bp, func_stats_base));
++	dmae->dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, func_stats_base));
++	dmae->len = sizeof(struct host_func_stats) >> 2;
++	dmae->comp_addr_lo = U64_LO(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_addr_hi = U64_HI(bnx2x_sp_mapping(bp, stats_comp));
++	dmae->comp_val = DMAE_COMP_VAL;
++
++	*stats_comp = 0;
++	bnx2x_hw_stats_post(bp);
++	bnx2x_stats_comp(bp);
++}
++
++static void bnx2x_stats_init(struct bnx2x *bp)
++{
++	int port = BP_PORT(bp);
++	int func = BP_FUNC(bp);
++	int i;
++
++	bp->stats_pending = 0;
++	bp->executer_idx = 0;
++	bp->stats_counter = 0;
++
++	/* port and func stats for management */
++	if (!BP_NOMCP(bp)) {
++		bp->port.port_stx = SHMEM_RD(bp, port_mb[port].port_stx);
++		bp->func_stx = SHMEM_RD(bp, func_mb[func].fw_mb_param);
++
++	} else {
++		bp->port.port_stx = 0;
++		bp->func_stx = 0;
++	}
++	DP(BNX2X_MSG_STATS, "port_stx 0x%x  func_stx 0x%x\n",
++	   bp->port.port_stx, bp->func_stx);
++
++	/* port stats */
++	memset(&(bp->port.old_nig_stats), 0, sizeof(struct nig_stats));
++	bp->port.old_nig_stats.brb_discard =
++			REG_RD(bp, NIG_REG_STAT0_BRB_DISCARD + port*0x38);
++	bp->port.old_nig_stats.brb_truncate =
++			REG_RD(bp, NIG_REG_STAT0_BRB_TRUNCATE + port*0x38);
++	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT0 + port*0x50,
++		    &(bp->port.old_nig_stats.egress_mac_pkt0_lo), 2);
++	REG_RD_DMAE(bp, NIG_REG_STAT0_EGRESS_MAC_PKT1 + port*0x50,
++		    &(bp->port.old_nig_stats.egress_mac_pkt1_lo), 2);
++
++	/* function stats */
++	for_each_queue(bp, i) {
++		struct bnx2x_fastpath *fp = &bp->fp[i];
++
++		memset(&fp->old_tclient, 0,
++		       sizeof(struct tstorm_per_client_stats));
++		memset(&fp->old_uclient, 0,
++		       sizeof(struct ustorm_per_client_stats));
++		memset(&fp->old_xclient, 0,
++		       sizeof(struct xstorm_per_client_stats));
++		memset(&fp->eth_q_stats, 0, sizeof(struct bnx2x_eth_q_stats));
++	}
++
++	memset(&bp->dev->stats, 0, sizeof(struct net_device_stats));
++	memset(&bp->eth_stats, 0, sizeof(struct bnx2x_eth_stats));
++
++	bp->stats_state = STATS_STATE_DISABLED;
++
++	if (bp->port.pmf) {
++		if (bp->port.port_stx)
++			bnx2x_port_stats_base_init(bp);
++
++		if (bp->func_stx)
++			bnx2x_func_stats_base_init(bp);
++
++	} else if (bp->func_stx)
++		bnx2x_func_stats_base_update(bp);
++}
++
+ static void bnx2x_timer(unsigned long data)
+ {
+ 	struct bnx2x *bp = (struct bnx2x *) data;
+@@ -4932,6 +5053,10 @@ static void bnx2x_init_tx_ring(struct bnx2x *bp)
+ 		fp->tx_cons_sb = BNX2X_TX_SB_INDEX;
+ 		fp->tx_pkt = 0;
+ 	}
++
++	/* clean tx statistics */
++	for_each_rx_queue(bp, i)
++		bnx2x_fp(bp, i, tx_pkt) = 0;
+ }
+ 
+ static void bnx2x_init_sp_ring(struct bnx2x *bp)
+@@ -6411,11 +6536,8 @@ static int bnx2x_init_hw(struct bnx2x *bp, u32 load_code)
+ 		bp->fw_drv_pulse_wr_seq =
+ 				(SHMEM_RD(bp, func_mb[func].drv_pulse_mb) &
+ 				 DRV_PULSE_SEQ_MASK);
+-		bp->func_stx = SHMEM_RD(bp, func_mb[func].fw_mb_param);
+-		DP(BNX2X_MSG_MCP, "drv_pulse 0x%x  func_stx 0x%x\n",
+-		   bp->fw_drv_pulse_wr_seq, bp->func_stx);
+-	} else
+-		bp->func_stx = 0;
++		DP(BNX2X_MSG_MCP, "drv_pulse 0x%x\n", bp->fw_drv_pulse_wr_seq);
++	}
+ 
+ 	/* this needs to be done before gunzip end */
+ 	bnx2x_zero_def_sb(bp);
 -- 
 1.5.4.3
 
