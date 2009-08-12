@@ -1,121 +1,55 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 22/36] bnx2x: Updating regdump_len at drvinfo
-Date: Wed, 12 Aug 2009 21:23:40 +0300
-Message-ID: <1250101420.27379.174.camel@lb-tlvb-eilong>
+Subject: [net-next 25/36] bnx2x: Keep only one HW path active
+Date: Wed, 12 Aug 2009 21:23:51 +0300
+Message-ID: <1250101431.27379.177.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Yaniv Rosner" <yanivr@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:3162 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753610AbZHLSYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:24:41 -0400
+	id S1753619AbZHLSYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:24:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Disable bmac access while working with emac and keep the single lane SerDes in
+reset while working with 4 lanes XGXS
+
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |   69 ++++++++++++++++++++++------------------------
- 1 files changed, 33 insertions(+), 36 deletions(-)
+ drivers/net/bnx2x_link.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 347036f..dd9a77f 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -8946,50 +8946,15 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	return 0;
- }
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index dc3b69e..b81a057 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -397,7 +397,8 @@ static u8 bnx2x_emac_enable(struct link_params *params,
  
--#define PHY_FW_VER_LEN			10
--
--static void bnx2x_get_drvinfo(struct net_device *dev,
--			      struct ethtool_drvinfo *info)
--{
--	struct bnx2x *bp = netdev_priv(dev);
--	u8 phy_fw_ver[PHY_FW_VER_LEN];
--
--	strcpy(info->driver, DRV_MODULE_NAME);
--	strcpy(info->version, DRV_MODULE_VERSION);
--
--	phy_fw_ver[0] = '\0';
--	if (bp->port.pmf) {
--		bnx2x_acquire_phy_lock(bp);
--		bnx2x_get_ext_phy_fw_version(&bp->link_params,
--					     (bp->state != BNX2X_STATE_CLOSED),
--					     phy_fw_ver, PHY_FW_VER_LEN);
--		bnx2x_release_phy_lock(bp);
+ 		/* enable access for bmac registers */
+ 		REG_WR(bp, NIG_REG_BMAC0_REGS_OUT_EN + port*4, 0x1);
 -	}
--
--	snprintf(info->fw_version, 32, "BC:%d.%d.%d%s%s",
--		 (bp->common.bc_ver & 0xff0000) >> 16,
--		 (bp->common.bc_ver & 0xff00) >> 8,
--		 (bp->common.bc_ver & 0xff),
--		 ((phy_fw_ver[0] != '\0') ? " PHY:" : ""), phy_fw_ver);
--	strcpy(info->bus_info, pci_name(bp->pdev));
--	info->n_stats = BNX2X_NUM_STATS;
--	info->testinfo_len = BNX2X_NUM_TESTS;
--	info->eedump_len = bp->common.flash_size;
--	info->regdump_len = 0;
--}
--
- #define IS_E1_ONLINE(info)	(((info) & RI_E1_ONLINE) == RI_E1_ONLINE)
- #define IS_E1H_ONLINE(info)	(((info) & RI_E1H_ONLINE) == RI_E1H_ONLINE)
++	} else
++		REG_WR(bp, NIG_REG_BMAC0_REGS_OUT_EN + port*4, 0x0);
  
- static int bnx2x_get_regs_len(struct net_device *dev)
- {
--	static u32 regdump_len;
- 	struct bnx2x *bp = netdev_priv(dev);
-+	int regdump_len = 0;
- 	int i;
- 
--	if (regdump_len)
--		return regdump_len;
+ 	vars->mac_type = MAC_TYPE_EMAC;
+ 	return 0;
+@@ -1021,8 +1022,8 @@ static u8 bnx2x_reset_unicore(struct link_params *params)
+ 			      MDIO_COMBO_IEEE0_MII_CONTROL,
+ 			      (mii_control |
+ 			       MDIO_COMBO_IEEO_MII_CONTROL_RESET));
 -
- 	if (CHIP_IS_E1(bp)) {
- 		for (i = 0; i < REGS_COUNT; i++)
- 			if (IS_E1_ONLINE(reg_addrs[i].info))
-@@ -9056,6 +9021,38 @@ static void bnx2x_get_regs(struct net_device *dev,
- 	}
- }
+-	bnx2x_set_serdes_access(params);
++	if (params->switch_cfg == SWITCH_CFG_1G)
++		bnx2x_set_serdes_access(params);
  
-+#define PHY_FW_VER_LEN			10
-+
-+static void bnx2x_get_drvinfo(struct net_device *dev,
-+			      struct ethtool_drvinfo *info)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+	u8 phy_fw_ver[PHY_FW_VER_LEN];
-+
-+	strcpy(info->driver, DRV_MODULE_NAME);
-+	strcpy(info->version, DRV_MODULE_VERSION);
-+
-+	phy_fw_ver[0] = '\0';
-+	if (bp->port.pmf) {
-+		bnx2x_acquire_phy_lock(bp);
-+		bnx2x_get_ext_phy_fw_version(&bp->link_params,
-+					     (bp->state != BNX2X_STATE_CLOSED),
-+					     phy_fw_ver, PHY_FW_VER_LEN);
-+		bnx2x_release_phy_lock(bp);
-+	}
-+
-+	snprintf(info->fw_version, 32, "BC:%d.%d.%d%s%s",
-+		 (bp->common.bc_ver & 0xff0000) >> 16,
-+		 (bp->common.bc_ver & 0xff00) >> 8,
-+		 (bp->common.bc_ver & 0xff),
-+		 ((phy_fw_ver[0] != '\0') ? " PHY:" : ""), phy_fw_ver);
-+	strcpy(info->bus_info, pci_name(bp->pdev));
-+	info->n_stats = BNX2X_NUM_STATS;
-+	info->testinfo_len = BNX2X_NUM_TESTS;
-+	info->eedump_len = bp->common.flash_size;
-+	info->regdump_len = bnx2x_get_regs_len(dev);
-+}
-+
- static void bnx2x_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
+ 	/* wait for the reset to self clear */
+ 	for (i = 0; i < MDIO_ACCESS_TIMEOUT; i++) {
 -- 
 1.5.4.3
 
