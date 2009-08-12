@@ -1,90 +1,70 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH 1/2] mac802154: add a software MAC 802.15.4
- implementation
-Date: Wed, 12 Aug 2009 17:06:05 +0400
-Message-ID: <20090812130605.GA17169@doriath.ww600.siemens.net>
-References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
- <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
- <1249914466.32614.13.camel@johannes.local>
- <20090811202304.GA6303@doriath.ww600.siemens.net>
- <1250023198.13529.69.camel@johannes.local>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
+Date: Wed, 12 Aug 2009 16:04:34 +0300
+Message-ID: <20090812130433.GB29200@redhat.com>
+References: <20090811212743.GA26309@redhat.com> <4A820391.1090404@gmail.com> <20090812071636.GA26847@redhat.com> <4A82ADD5.6040909@gmail.com> <20090812120541.GA29158@redhat.com> <4A82B87B.4010208@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Sergey Lapin <slapin@ossfans.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+	linux-mm@kvack.org,
+	"akpm@linux-foundation.org >> Andrew Morton"
+	<akpm@linux-foundation.org>, hpa@zytor.com,
+	Patrick Mullaney <pmullaney@novell.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f214.google.com ([209.85.219.214]:40774 "EHLO
-	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568AbZHLNGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 09:06:47 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:55151 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752213AbZHLNHL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 09:07:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1250023198.13529.69.camel@johannes.local>
+In-Reply-To: <4A82B87B.4010208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 11, 2009 at 10:39:58PM +0200, Johannes Berg wrote:
-> On Wed, 2009-08-12 at 00:23 +0400, Dmitry Eremin-Solenikov wrote:
+On Wed, Aug 12, 2009 at 08:41:31AM -0400, Gregory Haskins wrote:
+> Michael S. Tsirkin wrote:
+> > On Wed, Aug 12, 2009 at 07:56:05AM -0400, Gregory Haskins wrote:
+> >> Michael S. Tsirkin wrote:
 > 
-> > > That return value is strange.
+> <snip>
+> 
+> >>>
+> >>> 1. use a dedicated network interface with SRIOV, program mac to match
+> >>>    that of guest (for testing, you can set promisc mode, but that is
+> >>>    bad for performance)
+> >>
+> >> Are you saying SRIOV is a requirement, and I can either program the
+> >> SRIOV adapter with a mac or use promis?  Or are you saying I can use
+> >> SRIOV+programmed mac OR a regular nic + promisc (with a perf penalty).
 > > 
-> > The idea is that tx function can return info about errors during
-> > transmit (busy channel, no ACK, etc).
+> > SRIOV is not a requirement. And you can also use a dedicated
+> > nic+programmed mac if you are so inclined.
 > 
-> Well, TX functions don't usually wait for anything so busy channel or no
-> ack wouldn't be possible to return there but more like a TX status, and
-> I think people are more used to NETDEV_TX_OK etc. return values. But
-> it's your choice to make, obviously. If you want to return specific
-> information like that though I would recommend making an enum so you get
-> at least some type checking (and things like 'return -1' are more
-> obviously wrong).
-
-Currently we do all the work from special worker threads, so it's
-possible for this callback to sleep. The error isn't yet propagated to
-upper layers (there is a huge TODO there), anyway.
-
+> Makes sense.  Got it.
 > 
-> > > We've had no end to trouble with the master netdev, I suggest you look
-> > > into the current mac80211 code and see if you can get rid of it.
+> I was going to add guest-to-guest to the test matrix, but I assume that
+> is not supported with vhost unless you have something like a VEPA
+> enabled bridge?
+> 
+> <snip>
+
+Presumably you mean on the same host?  There were also some patches to
+enable local guest to guest for macvlan, that would be a nice
+software-only solution.  For back to back, I just tried over veth, seems
+to work fine.
+
+> >>> 3. add vhost=ethX
+> >> You mean via "ip link" I assume?
 > > 
-> > What troubles w/ master netdev did you have had? I do still see the
-> > master devices in mac80211. IIUC, it's planned to replace (from
-> > management point of view) the mdev with wiphy instance, isn't it?
+> > No, that's a new flag for virtio in qemu:
+> > 
+> > -net nic,model=virtio,vhost=veth0
 > 
-> Mostly the userspace API was a mess, and you can't actually _do_
-> anything with the master netdev. It also doesn't see all the frames,
-> only outgoing. It's very strange.
-
-We were using master netdevices for several purposes:
-1) ip link add link mwpanX type wpan, so that we have out-of-box support
-   for radio additions. That's really nice thing to have.
-
-2) for SOCK_RAW implementation that can be used to send raw packets
-   over-the-air/receive raw packets. I think we can use af_packet for
-   this, but I'm still not sure about packet injection.
-
-3) On the RX, we did send a clone of skb to the mdev and clones to slave
-   interfaces, thus overcoming your last argument.
-
-> The biggest problem is that it really clutters up the userspace API
-> since you can't do any netdev things with it, it's just a placeholder.
+> Ah, ok.  Even better.
 > 
-> In addition to that, you can't put anything into skb->cb, then push the
-> frame to the master netdev, and expect things in skb->cb to still be
-> there when the frame arrives at the master netdev. Not sure you do that
-> (I hope not because that would be very buggy), but eventually you'll
-> probably find that you do want that, etc.
+> Thanks!
+> -Greg
+> 
 
-Hmm. It works for us. Could you please tell me more about the problems
-with skb->cb ?
-
-> IMHO it's just better practise to not use it in situations like this
-> where it can't be really used as a netdev.
-
-We did use it as a netdev, however we can probably live without it.
-I'll rethink this interface.
-
--- 
-With best wishes
-Dmitry
 
