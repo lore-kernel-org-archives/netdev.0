@@ -1,39 +1,38 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC PATCH v2 2/2] selinux: Support for the new TUN LSM hooks
-Date: Wed, 12 Aug 2009 10:59:50 -0400
-Message-ID: <200908121059.50167.paul.moore@hp.com>
-References: <20090810172238.7946.34247.stgit@flek.lan> <20090810172850.7946.25175.stgit@flek.lan> <7e0fb38c0908111336uadf57efx7d87be7761c0e138@mail.gmail.com>
+From: =?UTF-8?B?7ZmN7IugIHNoaW4gaG9uZw==?= <hongshin@gmail.com>
+Subject: net/unix : possible race bug at unix_create1()
+Date: Thu, 13 Aug 2009 00:00:22 +0900
+Message-ID: <2014bcab0908120800v77e3a91dy82601ee9f536035d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Eric Paris <eparis@parisplace.org>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <7e0fb38c0908111336uadf57efx7d87be7761c0e138@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f191.google.com ([209.85.211.191]:35776 "EHLO
+	mail-yw0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753372AbZHLPAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 11:00:22 -0400
+Received: by ywh29 with SMTP id 29so87186ywh.33
+        for <netdev@vger.kernel.org>; Wed, 12 Aug 2009 08:00:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 August 2009 04:36:22 pm Eric Paris wrote:
-> On Mon, Aug 10, 2009 at 1:28 PM, Paul Moore<paul.moore@hp.com> wrote:
-> > Add support for the new TUN LSM hooks: security_tun_dev_create(),
-> > security_tun_dev_post_create() and security_tun_dev_attach().  This
-> > includes the addition of a new object class, tun_socket, which represents
-> > the socks associated with TUN devices.  The _tun_dev_create() and
-> > _tun_dev_post_create() hooks are fairly similar to the standard socket
-> > functions but _tun_dev_attach() is a bit special.  The _tun_dev_attach()
-> > is unique because it involves a domain attaching to an existing TUN
-> > device and its associated tun_socket object, an operation which does not
-> > exist with standard sockets and most closely resembles a relabel
-> > operation.
->
-> Looks good to me, feel free to add my Ack
+Hi. I am reporting a possible race bug at unix_create1()
+in net/unix/af_unix.c of Linux 2.6.30.4.
 
-Thanks, I added both acks.
+Concurrent executions of unix_create1() function
+in two different threads may result race condition
+when unix_nr_socks +1 == 2 * get_max_files().
 
--- 
-paul moore
-linux @ hp
+It is possible that no thread can pass the if-condition
+checking if two atomic_inc() operations are executed
+before.
 
+It seems that it would be better to combine two
+atomic operations into one atomic_inc_and_return().
+
+Please examine the code and let me know your opinion.
+
+Thank you
+
+Sincerely
+Shin Hong
