@@ -1,8 +1,7 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 21/36] bnx2x: Move printing of version from probe to
- the init
-Date: Wed, 12 Aug 2009 21:23:37 +0300
-Message-ID: <1250101417.27379.173.camel@lb-tlvb-eilong>
+Subject: [net-next 24/36] bnx2x: Check unzip return code
+Date: Wed, 12 Aug 2009 21:23:48 +0300
+Message-ID: <1250101428.27379.176.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,53 +9,38 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Benjamin Li" <benli@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3470 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3172 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753361AbZHLSYf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:24:35 -0400
+	id S1753619AbZHLSYl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:24:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move printing of version from probe to the init function
-Rather then checking if this is the first module probe call to print
-the version of the driver only once, the statement is moved to the init
-function of the module where init is only called once
+Without this check, when running out of memory, we will see PSOD's in
+bnx2x_init_fill() when doing a memset().  This is because at that time,
+bp->gunzip_buf is not pointing to a valid allocated space.
 
 Signed-off-by: Benjamin Li <benli@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/bnx2x_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 5042109..347036f 100644
+index cfcc4ee..656ee97 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -11871,15 +11871,11 @@ request_firmware_exit:
- static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 				    const struct pci_device_id *ent)
- {
--	static int version_printed;
- 	struct net_device *dev = NULL;
- 	struct bnx2x *bp;
- 	int pcie_width, pcie_speed;
- 	int rc;
+@@ -6511,7 +6511,9 @@ static int bnx2x_init_hw(struct bnx2x *bp, u32 load_code)
  
--	if (version_printed++ == 0)
--		printk(KERN_INFO "%s", version);
--
- 	/* dev zeroed in init_etherdev */
- 	dev = alloc_etherdev_mq(sizeof(*bp), MAX_CONTEXT);
- 	if (!dev) {
-@@ -12217,6 +12213,8 @@ static int __init bnx2x_init(void)
- {
- 	int ret;
+ 	bp->dmae_ready = 0;
+ 	mutex_init(&bp->dmae_mutex);
+-	bnx2x_gunzip_init(bp);
++	rc = bnx2x_gunzip_init(bp);
++	if (rc)
++		return rc;
  
-+	printk(KERN_INFO "%s", version);
-+
- 	bnx2x_wq = create_singlethread_workqueue("bnx2x");
- 	if (bnx2x_wq == NULL) {
- 		printk(KERN_ERR PFX "Cannot create workqueue\n");
+ 	switch (load_code) {
+ 	case FW_MSG_CODE_DRV_LOAD_COMMON:
 -- 
 1.5.4.3
 
