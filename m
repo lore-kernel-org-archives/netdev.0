@@ -1,109 +1,104 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: "Ira W. Snyder" <iws@ovro.caltech.edu>
 Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 20:31:04 +0300
-Message-ID: <20090812173104.GB29966@redhat.com>
-References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com> <200908121903.22325.arnd@arndb.de> <20090812171921.GC24151@ovro.caltech.edu>
+Date: Wed, 12 Aug 2009 10:48:21 -0700
+Message-ID: <20090812174821.GD24151@ovro.caltech.edu>
+References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com> <200908121903.22325.arnd@arndb.de> <20090812171921.GC24151@ovro.caltech.edu> <20090812173104.GB29966@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Arnd Bergmann <arnd@arndb.de>,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754645AbZHLRdJ@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752110AbZHLRsX@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090812171921.GC24151@ovro.caltech.edu>
+In-Reply-To: <20090812173104.GB29966@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 12, 2009 at 10:19:22AM -0700, Ira W. Snyder wrote:
-> On Wed, Aug 12, 2009 at 07:03:22PM +0200, Arnd Bergmann wrote:
-> > On Monday 10 August 2009, Michael S. Tsirkin wrote:
+On Wed, Aug 12, 2009 at 08:31:04PM +0300, Michael S. Tsirkin wrote:
+> On Wed, Aug 12, 2009 at 10:19:22AM -0700, Ira W. Snyder wrote:
+
+[ snip out code ]
+
+> > > 
+> > > We discussed this before, and I still think this could be directly derived
+> > > from struct virtqueue, in the same way that vring_virtqueue is derived from
+> > > struct virtqueue. That would make it possible for simple device drivers
+> > > to use the same driver in both host and guest, similar to how Ira Snyder
+> > > used virtqueues to make virtio_net run between two hosts running the
+> > > same code [1].
+> > > 
+> > > Ideally, I guess you should be able to even make virtio_net work in the
+> > > host if you do that, but that could bring other complexities.
 > > 
-> > > +struct workqueue_struct *vhost_workqueue;
+> > I have no comments about the vhost code itself, I haven't reviewed it.
 > > 
-> > [nitpicking] This could be static. 
-> > 
-> > > +/* The virtqueue structure describes a queue attached to a device. */
-> > > +struct vhost_virtqueue {
-> > > +	struct vhost_dev *dev;
-> > > +
-> > > +	/* The actual ring of buffers. */
-> > > +	struct mutex mutex;
-> > > +	unsigned int num;
-> > > +	struct vring_desc __user *desc;
-> > > +	struct vring_avail __user *avail;
-> > > +	struct vring_used __user *used;
-> > > +	struct file *kick;
-> > > +	struct file *call;
-> > > +	struct file *error;
-> > > +	struct eventfd_ctx *call_ctx;
-> > > +	struct eventfd_ctx *error_ctx;
-> > > +
-> > > +	struct vhost_poll poll;
-> > > +
-> > > +	/* The routine to call when the Guest pings us, or timeout. */
-> > > +	work_func_t handle_kick;
-> > > +
-> > > +	/* Last available index we saw. */
-> > > +	u16 last_avail_idx;
-> > > +
-> > > +	/* Last index we used. */
-> > > +	u16 last_used_idx;
-> > > +
-> > > +	/* Outstanding buffers */
-> > > +	unsigned int inflight;
-> > > +
-> > > +	/* Is this blocked? */
-> > > +	bool blocked;
-> > > +
-> > > +	struct iovec iov[VHOST_NET_MAX_SG];
-> > > +
-> > > +} ____cacheline_aligned;
-> > 
-> > We discussed this before, and I still think this could be directly derived
-> > from struct virtqueue, in the same way that vring_virtqueue is derived from
-> > struct virtqueue. That would make it possible for simple device drivers
-> > to use the same driver in both host and guest, similar to how Ira Snyder
-> > used virtqueues to make virtio_net run between two hosts running the
-> > same code [1].
-> > 
-> > Ideally, I guess you should be able to even make virtio_net work in the
-> > host if you do that, but that could bring other complexities.
+> > It might be interesting to try using a virtio-net in the host kernel to
+> > communicate with the virtio-net running in the guest kernel. The lack of
+> > a management interface is the biggest problem you will face (setting MAC
+> > addresses, negotiating features, etc. doesn't work intuitively).
 > 
-> I have no comments about the vhost code itself, I haven't reviewed it.
+> That was one of the reasons I decided to move most of code out to
+> userspace. My kernel driver only handles datapath,
+> it's much smaller than virtio net.
 > 
-> It might be interesting to try using a virtio-net in the host kernel to
-> communicate with the virtio-net running in the guest kernel. The lack of
-> a management interface is the biggest problem you will face (setting MAC
-> addresses, negotiating features, etc. doesn't work intuitively).
-
-That was one of the reasons I decided to move most of code out to
-userspace. My kernel driver only handles datapath,
-it's much smaller than virtio net.
-
-> Getting
-> the network interfaces talking is relatively easy.
+> > Getting
+> > the network interfaces talking is relatively easy.
+> > 
+> > Ira
 > 
-> Ira
+> Tried this, but
+> - guest memory isn't pinned, so copy_to_user
+>   to access it, errors need to be handled in a sane way
+> - used/available roles are reversed
+> - kick/interrupt roles are reversed
+> 
+> So most of the code then looks like
+> 
+> 	if (host) {
+> 	} else {
+> 	}
+> 	return
+> 
+> 
+> The only common part is walking the descriptor list,
+> but that's like 10 lines of code.
+> 
+> At which point it's better to keep host/guest code separate, IMO.
+> 
 
-Tried this, but
-- guest memory isn't pinned, so copy_to_user
-  to access it, errors need to be handled in a sane way
-- used/available roles are reversed
-- kick/interrupt roles are reversed
+Ok, that makes sense. Let me see if I understand the concept of the
+driver. Here's a picture of what makes sense to me:
 
-So most of the code then looks like
+guest system
+---------------------------------
+| userspace applications        |
+---------------------------------
+| kernel network stack          |
+---------------------------------
+| virtio-net                    |
+---------------------------------
+| transport (virtio-ring, etc.) |
+---------------------------------
+               |
+               |
+---------------------------------
+| transport (virtio-ring, etc.) |
+---------------------------------
+| some driver (maybe vhost?)    | <-- [1]
+---------------------------------
+| kernel network stack          |
+---------------------------------
+host system
 
-	if (host) {
-	} else {
-	}
-	return
+>From the host's network stack, packets can be forwarded out to the
+physical network, or be consumed by a normal userspace application on
+the host. Just as if this were any other network interface.
 
+In my patch, [1] was the virtio-net driver, completely unmodified.
 
-The only common part is walking the descriptor list,
-but that's like 10 lines of code.
+So, does this patch accomplish the above diagram? If so, why the
+copy_to_user(), etc? Maybe I'm confusing this with my system, where the
+"guest" is another physical system, separated by the PCI bus.
 
-At which point it's better to keep host/guest code separate, IMO.
-
--- 
-MST
+Ira
