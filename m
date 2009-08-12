@@ -1,76 +1,83 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC PATCH v2 2/2] selinux: Support for the new TUN LSM hooks
-Date: Wed, 12 Aug 2009 18:07:49 -0500
-Message-ID: <20090812230749.GA11633@us.ibm.com>
-References: <20090810172238.7946.34247.stgit@flek.lan> <20090810172850.7946.25175.stgit@flek.lan> <20090812221440.GA8524@us.ibm.com> <200908121855.24061.paul.moore@hp.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: AlacrityVM numbers updated for 31-rc4
+Date: Wed, 12 Aug 2009 19:21:25 -0400
+Message-ID: <4A834E75.9060204@gmail.com>
+References: <4A83296B.3080606@gmail.com> <4A834ABB.4010801@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul.moore@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:46421 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736AbZHLXHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 19:07:49 -0400
-Content-Disposition: inline
-In-Reply-To: <200908121855.24061.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig7B8F0D8F7169070E376E2530"
+Cc: alacrityvm-devel@lists.sourceforge.net,
+	alacrityvm-users@lists.sourceforge.net,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752997AbZHLX1a@vger.kernel.org>
+In-Reply-To: <4A834ABB.4010801@codemonkey.ws>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quoting Paul Moore (paul.moore@hp.com):
-> On Wednesday 12 August 2009 06:14:40 pm Serge E. Hallyn wrote:
-> > Quoting Paul Moore (paul.moore@hp.com):
-> > > +static int selinux_tun_dev_attach(struct sock *sk)
-> > > +{
-> > > +	struct sk_security_struct *sksec = sk->sk_security;
-> > > +	u32 sid = current_sid();
-> > > +	int err;
-> > > +
-> > > +	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
-> > > +			   TUN_SOCKET__RELABELFROM, NULL);
-> > > +	if (err)
-> > > +		return err;
-> > > +	err = avc_has_perm(sid, sid, SECCLASS_RAWIP_SOCKET,
-> >
-> > Was RAWIP on purpose here?
-> 
-> Nope, a mistake on my part that I hadn't caught yet.  Thanks.
-> 
-> > > +			   TUN_SOCKET__RELABELTO, NULL);
-> > > +	if (err)
-> > > +		return err;
-> > > +
-> > > +	sksec->sid = sid;
-> > > +
-> > > +	return 0;
-> > > +}
-> >
-> > IIUC it is possible for multiple processes to attach to the same
-> > tun device.  Will it get confusing/incorrect to have each attach
-> > potentially (if tasks have different sids) relabel?
-> 
-> I may be reading the code wrong, but in drivers/net/tun.c:tun_attach() the 
-> code checks to see if the TUN device is already in use and if it is then the 
-> attach fails with -EBUSY (check where the tun_device->tfile is examined).  I 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig7B8F0D8F7169070E376E2530
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Ah yes, you're right - I saw the check for (ifr->ifr_flags & IFF_TUN_EXCL) in
-the attach path in tun_set_iff, and missed this one.
+Anthony Liguori wrote:
+> Gregory Haskins wrote:
+>> I re-ran the numbers on 10GE against the actual alacrityvm v0.1 releas=
+e
+>> available in git on kernel.org.
+>>
+>> I tried to include the newly announced "vhost" driver (Michael Tsirkin=
+)
+>> for virtio acceleration, but ran into issues getting the patches to
+>> apply.
+>>
+>> For now, this includes native, virtio-u (virtio-userspace), and venet
+>> all running on 31-rc4.  If I can resolve the issue with Michaels
+>> patches, I will add "virtio-k" (virtio-kernel) to the mix as well.  Fo=
+r
+>> now, here are the results for 1500mtu:
+>>
+>> native:   7388Mb/s,   29.8us rtt (33505 tps udp-rr)
+>> venet:    3654Mb/s,   56.8us rtt (17600 tps udp-rr)
+>> virtio-u: 1955Mb/s, 4016.0us rtt (  249 tps udp-rr)
+>>  =20
+>=20
+> Just FYI, the numbers quoted are wrong for virtio-u.  Greg's machine
+> didn't have high res timers enabled in the kernel.  He'll post newer
+> numbers later but they're much better than these (venet is still ahead
+> though).
+>=20
+> Regards,
+>=20
+> Anthony Liguori
 
-> believe this should ensure that only one process at a time has access to the 
-> TUN device so we shouldn't have to worry about a TUN socket getting relabeled 
-> while it is currently in use.  As far as persistent TUN devices getting 
-> relabeled when a new process attaches to them, that is what we are trying to 
-> accomplish here so that the network traffic being sent via the TUN device is 
-> labeled according to the currently attached process; this is consistent with 
-> how SELinux currently labels locally generated outbound traffic - outbound 
-> packets inherit their security label from the sending process via the 
-> originating socket/sock.
+Anthony is correct.  The new numbers after fixing the HRT clock issue are=
+:
 
-Ok, thanks.  To my untrained eye the class addition looks right too, so
-with the trivial change:
+virtio-u: 2670Mb/s, 266us rtt (3764 tps udp-rr)
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+I will update the charts later tonight.
 
-thanks,
--serge
+Sorry for the confusion.
+
+-Greg
+
+
+--------------enig7B8F0D8F7169070E376E2530
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqDTnUACgkQP5K2CMvXmqGIPgCeODFW1PfGI0l8mxUszord3Jn8
+Of8AnRHOS54KSXmdliDd+XKqcEQZGgSv
+=MU0K
+-----END PGP SIGNATURE-----
+
+--------------enig7B8F0D8F7169070E376E2530--
