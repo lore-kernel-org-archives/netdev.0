@@ -1,236 +1,486 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 11/36] bnx2x: MDC/MDIO CL45 IOCTLs
-Date: Wed, 12 Aug 2009 21:23:08 +0300
-Message-ID: <1250101388.27379.163.camel@lb-tlvb-eilong>
+Subject: [net-next 13/36] bnx2x: Removing old PHY FW upgrade code
+Date: Wed, 12 Aug 2009 21:23:14 +0300
+Message-ID: <1250101394.27379.165.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4884 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3711 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbZHLSYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:24:00 -0400
+	id S1753115AbZHLSYF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:24:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by Ben Hutchings <bhutchings@solarflare.com>, using the MDC/MDIO
-IOCTL
+This code should not have resided in the driver. Now that we have a new
+interface, this logic can reside in the application that whishes to upgrade the
+PHY FW
 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/Kconfig      |    1 +
- drivers/net/bnx2x.h      |    3 +
- drivers/net/bnx2x_main.c |  121 ++++++++++++++++++++++++++++++++--------------
- 3 files changed, 88 insertions(+), 37 deletions(-)
+ drivers/net/bnx2x_link.c |  427 ----------------------------------------------
+ drivers/net/bnx2x_link.h |    2 -
+ 2 files changed, 0 insertions(+), 429 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9948fa2..29935a9 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2722,6 +2722,7 @@ config BNX2X
- 	select FW_LOADER
- 	select ZLIB_INFLATE
- 	select LIBCRC32C
-+	select MDIO
- 	help
- 	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
- 	  To compile this driver as a module, choose M here: the module
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 5864ae2..903c89d 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -30,6 +30,8 @@
- #define BNX2X_NEW_NAPI
- 
- 
-+
-+#include <linux/mdio.h>
- #include "bnx2x_reg.h"
- #include "bnx2x_fw_defs.h"
- #include "bnx2x_hsi.h"
-@@ -895,6 +897,7 @@ struct bnx2x {
- 
- 	struct link_params	link_params;
- 	struct link_vars	link_vars;
-+	struct mdio_if_info	mdio;
- 
- 	struct bnx2x_common	common;
- 	struct bnx2x_port	port;
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 47b687b..1be2da4 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -8330,6 +8330,7 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- 	u32 val, val2;
- 	u32 config;
- 	u16 i;
-+	u32 ext_phy_type;
- 
- 	bp->link_params.bp = bp;
- 	bp->link_params.port = port;
-@@ -8389,6 +8390,21 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- 
- 	bnx2x_link_settings_requested(bp);
- 
-+	/*
-+	 * If connected directly, work with the internal PHY, otherwise, work
-+	 * with the external PHY
-+	 */
-+	ext_phy_type = XGXS_EXT_PHY_TYPE(bp->link_params.ext_phy_config);
-+	if (ext_phy_type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)
-+		bp->mdio.prtad = bp->link_params.phy_addr;
-+
-+	else if ((ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE) &&
-+		 (ext_phy_type != PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN))
-+		bp->mdio.prtad =
-+			(bp->link_params.ext_phy_config &
-+			 PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
-+				PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT;
-+
- 	val2 = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_upper);
- 	val = SHMEM_RD(bp, dev_info.port_hw_config[port].mac_lower);
- 	bp->dev->dev_addr[0] = (u8)(val2 >> 8 & 0xff);
-@@ -8613,7 +8629,7 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	} else
- 		cmd->port = PORT_TP;
- 
--	cmd->phy_address = bp->port.phy_addr;
-+	cmd->phy_address = bp->mdio.prtad;
- 	cmd->transceiver = XCVR_INTERNAL;
- 
- 	if (bp->link_params.req_line_speed == SPEED_AUTO_NEG)
-@@ -11148,54 +11164,77 @@ static int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+index 98e3e8f..dc3b69e 100644
+--- a/drivers/net/bnx2x_link.c
++++ b/drivers/net/bnx2x_link.c
+@@ -5471,59 +5471,6 @@ static u8 bnx2x_format_ver(u32 num, u8 *str, u16 len)
+ 	return 0;
  }
  
- /* called with rtnl_lock */
--static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-+static int bnx2x_mdio_read(struct net_device *netdev, int prtad,
-+			   int devad, u16 addr)
+-
+-static void bnx2x_turn_on_ef(struct bnx2x *bp, u8 port, u8 ext_phy_addr,
+-			   u32 ext_phy_type)
+-{
+-	u32 cnt = 0;
+-	u16 ctrl = 0;
+-	/* Enable EMAC0 in to enable MDIO */
+-	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
+-	       (MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE << port));
+-	msleep(5);
+-
+-	/* take ext phy out of reset */
+-	bnx2x_set_gpio(bp,
+-			  MISC_REGISTERS_GPIO_2,
+-			  MISC_REGISTERS_GPIO_HIGH,
+-			  port);
+-
+-	bnx2x_set_gpio(bp,
+-			  MISC_REGISTERS_GPIO_1,
+-			  MISC_REGISTERS_GPIO_HIGH,
+-			  port);
+-
+-	/* wait for 5ms */
+-	msleep(5);
+-
+-	for (cnt = 0; cnt < 1000; cnt++) {
+-		msleep(1);
+-		bnx2x_cl45_read(bp, port,
+-			      ext_phy_type,
+-			      ext_phy_addr,
+-			      MDIO_PMA_DEVAD,
+-			      MDIO_PMA_REG_CTRL,
+-			      &ctrl);
+-		if (!(ctrl & (1<<15))) {
+-			DP(NETIF_MSG_LINK, "Reset completed\n\n");
+-				break;
+-		}
+-	}
+-}
+-
+-static void bnx2x_turn_off_sf(struct bnx2x *bp, u8 port)
+-{
+-	/* put sf to reset */
+-	bnx2x_set_gpio(bp,
+-			  MISC_REGISTERS_GPIO_1,
+-			  MISC_REGISTERS_GPIO_LOW,
+-			  port);
+-	bnx2x_set_gpio(bp,
+-			  MISC_REGISTERS_GPIO_2,
+-			  MISC_REGISTERS_GPIO_LOW,
+-			  port);
+-}
+-
+ u8 bnx2x_get_ext_phy_fw_version(struct link_params *params, u8 driver_loaded,
+ 			      u8 *version, u16 len)
  {
--	struct mii_ioctl_data *data = if_mii(ifr);
--	struct bnx2x *bp = netdev_priv(dev);
--	int port = BP_PORT(bp);
--	int err;
-+	struct bnx2x *bp = netdev_priv(netdev);
-+	u16 value;
-+	int rc;
-+	u32 phy_type = XGXS_EXT_PHY_TYPE(bp->link_params.ext_phy_config);
- 
--	switch (cmd) {
--	case SIOCGMIIPHY:
--		data->phy_id = bp->port.phy_addr;
-+	DP(NETIF_MSG_LINK, "mdio_read: prtad 0x%x, devad 0x%x, addr 0x%x\n",
-+	   prtad, devad, addr);
- 
--		/* fallthrough */
-+	if (prtad != bp->mdio.prtad) {
-+		DP(NETIF_MSG_LINK, "prtad missmatch (cmd:0x%x != bp:0x%x)\n",
-+		   prtad, bp->mdio.prtad);
-+		return -EINVAL;
-+	}
-+
-+	/* The HW expects different devad if CL22 is used */
-+	devad = (devad == MDIO_DEVAD_NONE) ? DEFAULT_PHY_DEV_ADDR : devad;
- 
--	case SIOCGMIIREG: {
--		u16 mii_regval;
-+	bnx2x_acquire_phy_lock(bp);
-+	rc = bnx2x_cl45_read(bp, BP_PORT(bp), phy_type, prtad,
-+			     devad, addr, &value);
-+	bnx2x_release_phy_lock(bp);
-+	DP(NETIF_MSG_LINK, "mdio_read_val 0x%x rc = 0x%x\n", value, rc);
- 
--		if (!netif_running(dev))
--			return -EAGAIN;
-+	if (!rc)
-+		rc = value;
-+	return rc;
-+}
- 
--		mutex_lock(&bp->port.phy_mutex);
--		err = bnx2x_cl45_read(bp, port, 0, bp->port.phy_addr,
--				      DEFAULT_PHY_DEV_ADDR,
--				      (data->reg_num & 0x1f), &mii_regval);
--		data->val_out = mii_regval;
--		mutex_unlock(&bp->port.phy_mutex);
--		return err;
-+/* called with rtnl_lock */
-+static int bnx2x_mdio_write(struct net_device *netdev, int prtad, int devad,
-+			    u16 addr, u16 value)
-+{
-+	struct bnx2x *bp = netdev_priv(netdev);
-+	u32 ext_phy_type = XGXS_EXT_PHY_TYPE(bp->link_params.ext_phy_config);
-+	int rc;
-+
-+	DP(NETIF_MSG_LINK, "mdio_write: prtad 0x%x, devad 0x%x, addr 0x%x,"
-+			   " value 0x%x\n", prtad, devad, addr, value);
-+
-+	if (prtad != bp->mdio.prtad) {
-+		DP(NETIF_MSG_LINK, "prtad missmatch (cmd:0x%x != bp:0x%x)\n",
-+		   prtad, bp->mdio.prtad);
-+		return -EINVAL;
+@@ -6743,377 +6690,3 @@ void bnx2x_sfx7101_sp_sw_reset(struct bnx2x *bp, u8 port, u8 phy_addr)
+ 			break;
  	}
- 
--	case SIOCSMIIREG:
--		if (!capable(CAP_NET_ADMIN))
--			return -EPERM;
-+	/* The HW expects different devad if CL22 is used */
-+	devad = (devad == MDIO_DEVAD_NONE) ? DEFAULT_PHY_DEV_ADDR : devad;
- 
--		if (!netif_running(dev))
--			return -EAGAIN;
-+	bnx2x_acquire_phy_lock(bp);
-+	rc = bnx2x_cl45_write(bp, BP_PORT(bp), ext_phy_type, prtad,
-+			      devad, addr, value);
-+	bnx2x_release_phy_lock(bp);
-+	return rc;
-+}
- 
--		mutex_lock(&bp->port.phy_mutex);
--		err = bnx2x_cl45_write(bp, port, 0, bp->port.phy_addr,
--				       DEFAULT_PHY_DEV_ADDR,
--				       (data->reg_num & 0x1f), data->val_in);
--		mutex_unlock(&bp->port.phy_mutex);
--		return err;
-+/* called with rtnl_lock */
-+static int bnx2x_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+	struct mii_ioctl_data *mdio = if_mii(ifr);
- 
+ }
+-#define RESERVED_SIZE 256
+-/* max application is 160K bytes - data at end of RAM */
+-#define MAX_APP_SIZE (160*1024 - RESERVED_SIZE)
+-
+-/* Header is 14 bytes */
+-#define HEADER_SIZE 14
+-#define DATA_OFFSET HEADER_SIZE
+-
+-#define SPI_START_TRANSFER(bp, port, ext_phy_addr) \
+-	bnx2x_cl45_write(bp, port, PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101, \
+-			ext_phy_addr, \
+-			MDIO_PCS_DEVAD, \
+-			MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 1)
+-
+-/* Programs an image to DSP's flash via the SPI port*/
+-static u8 bnx2x_sfx7101_flash_download(struct bnx2x *bp, u8 port,
+-				     u8 ext_phy_addr,
+-				     char data[], u32 size)
+-{
+-	const u16 num_trans = size/4; /* 4 bytes can be sent at a time */
+-	/* Doesn't include last trans!*/
+-	const u16 last_trans_size = size%4; /* Num bytes on last trans */
+-	u16 trans_cnt, byte_cnt;
+-	u32 data_index;
+-	u16 tmp;
+-	u16 code_started = 0;
+-	u16 image_revision1, image_revision2;
+-	u16 cnt;
+-
+-	DP(NETIF_MSG_LINK, "bnx2x_sfx7101_flash_download file_size=%d\n", size);
+-	/* Going to flash*/
+-	if ((size-HEADER_SIZE) > MAX_APP_SIZE) {
+-		/* This very often will be the case, because the image is built
+-		with 160Kbytes size whereas the total image size must actually
+-		be 160Kbytes-RESERVED_SIZE */
+-		DP(NETIF_MSG_LINK, "Warning, file size was %d bytes "
+-			 "truncated to %d bytes\n", size, MAX_APP_SIZE);
+-		size = MAX_APP_SIZE+HEADER_SIZE;
+-	}
+-	DP(NETIF_MSG_LINK, "File version is %c%c\n", data[0x14e], data[0x14f]);
+-	DP(NETIF_MSG_LINK, "  	      %c%c\n", data[0x150], data[0x151]);
+-	/* Put the DSP in download mode by setting FLASH_CFG[2] to 1
+-	   and issuing a reset.*/
+-
+-	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_0,
+-			  MISC_REGISTERS_GPIO_HIGH, port);
+-
+-	bnx2x_sfx7101_sp_sw_reset(bp, port, ext_phy_addr);
+-
+-	/* wait 0.5 sec */
+-	for (cnt = 0; cnt < 100; cnt++)
+-		msleep(5);
+-
+-	/* Make sure we can access the DSP
+-	   And it's in the correct mode (waiting for download) */
+-
+-	bnx2x_cl45_read(bp, port,
+-		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		      ext_phy_addr,
+-		      MDIO_PCS_DEVAD,
+-		      MDIO_PCS_REG_7101_DSP_ACCESS, &tmp);
+-
+-	if (tmp != 0x000A) {
+-		DP(NETIF_MSG_LINK, "DSP is not in waiting on download mode. "
+-			 "Expected 0x000A, read 0x%04X\n", tmp);
+-		DP(NETIF_MSG_LINK, "Download failed\n");
+-		return -EINVAL;
+-	}
+-
+-	/* Mux the SPI interface away from the internal processor */
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_MUX, 1);
+-
+-	/* Reset the SPI port */
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 0);
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR,
+-		       (1<<MDIO_PCS_REG_7101_SPI_RESET_BIT));
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_CTRL_ADDR, 0);
+-
+-	/* Erase the flash */
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
+-
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-		       1);
+-
+-	SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-		       MDIO_PCS_REG_7101_SPI_FIFO_ADDR_BULK_ERASE_CMD);
+-
+-	bnx2x_cl45_write(bp, port,
+-		       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		       ext_phy_addr,
+-		       MDIO_PCS_DEVAD,
+-		       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-		       1);
+-	SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-
+-	/* Wait 10 seconds, the maximum time for the erase to complete */
+-	DP(NETIF_MSG_LINK, "Erasing flash, this takes 10 seconds...\n");
+-	for (cnt = 0; cnt < 1000; cnt++)
+-		msleep(10);
+-
+-	DP(NETIF_MSG_LINK, "Downloading flash, please wait...\n");
+-	data_index = 0;
+-	for (trans_cnt = 0; trans_cnt < num_trans; trans_cnt++) {
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			     ext_phy_addr,
+-			     MDIO_PCS_DEVAD,
+-			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
+-
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-			       1);
+-		SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_PAGE_PROGRAM_CMD);
+-
+-		/* Bits 23-16 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       (data_index>>16));
+-		/* Bits 15-8 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       (data_index>>8));
+-
+-		/* Bits 7-0 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       ((u16)data_index));
+-
+-		byte_cnt = 0;
+-		while (byte_cnt < 4 && data_index < size) {
+-			bnx2x_cl45_write(bp, port,
+-				       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-				       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       data[data_index++]);
+-			byte_cnt++;
+-		}
+-
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-			       byte_cnt+4);
+-
+-		SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-		msleep(5); /* Wait 5 ms minimum between transs */
+-
+-		/* Let the user know something's going on.*/
+-		/* a pacifier ever 4K */
+-		if ((data_index % 1023) == 0)
+-			DP(NETIF_MSG_LINK, "Download %d%%\n", data_index/size);
+-	}
+-
+-	DP(NETIF_MSG_LINK, "\n");
+-	/* Transfer the last block if there is data remaining */
+-	if (last_trans_size) {
+-		bnx2x_cl45_write(bp, port,
+-			PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			ext_phy_addr,
+-			MDIO_PCS_DEVAD,
+-			MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			MDIO_PCS_REG_7101_SPI_FIFO_ADDR_WRITE_ENABLE_CMD);
+-
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-			       1);
+-
+-		SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-
+-		bnx2x_cl45_write(bp, port,
+-			     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			     ext_phy_addr,
+-			     MDIO_PCS_DEVAD,
+-			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			     MDIO_PCS_REG_7101_SPI_FIFO_ADDR_PAGE_PROGRAM_CMD);
+-
+-		/* Bits 23-16 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       (data_index>>16));
+-		/* Bits 15-8 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       (data_index>>8));
+-
+-		/* Bits 7-0 of address */
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-			       ((u16)data_index));
+-
+-		byte_cnt = 0;
+-		while (byte_cnt < last_trans_size && data_index < size) {
+-			/* Bits 7-0 of address */
+-			bnx2x_cl45_write(bp, port,
+-				PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-				ext_phy_addr,
+-				MDIO_PCS_DEVAD,
+-				MDIO_PCS_REG_7101_SPI_FIFO_ADDR,
+-				data[data_index++]);
+-			byte_cnt++;
+-		}
+-
+-		bnx2x_cl45_write(bp, port,
+-			       PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-			       ext_phy_addr,
+-			       MDIO_PCS_DEVAD,
+-			       MDIO_PCS_REG_7101_SPI_BYTES_TO_TRANSFER_ADDR,
+-			       byte_cnt+4);
+-
+-		SPI_START_TRANSFER(bp, port, ext_phy_addr);
+-	}
+-
+-	/* DSP Remove Download Mode */
+-	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_0,
+-			  MISC_REGISTERS_GPIO_LOW, port);
+-
+-	bnx2x_sfx7101_sp_sw_reset(bp, port, ext_phy_addr);
+-
+-	/* wait 0.5 sec to allow it to run */
+-	for (cnt = 0; cnt < 100; cnt++)
+-		msleep(5);
+-
+-	bnx2x_ext_phy_hw_reset(bp, port);
+-
+-	for (cnt = 0; cnt < 100; cnt++)
+-		msleep(5);
+-
+-	/* Check that the code is started. In case the download
+-	checksum failed, the code won't be started. */
+-	bnx2x_cl45_read(bp, port,
+-		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		      ext_phy_addr,
+-		      MDIO_PCS_DEVAD,
+-		      MDIO_PCS_REG_7101_DSP_ACCESS,
+-		      &tmp);
+-
+-	code_started = (tmp & (1<<4));
+-	if (!code_started) {
+-		DP(NETIF_MSG_LINK, "Download failed. Please check file.\n");
+-		return -EINVAL;
+-	}
+-
+-	/* Verify that the file revision is now equal to the image
+-	revision within the DSP */
+-	bnx2x_cl45_read(bp, port,
+-		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		      ext_phy_addr,
+-		      MDIO_PMA_DEVAD,
+-		      MDIO_PMA_REG_7101_VER1,
+-		      &image_revision1);
+-
+-	bnx2x_cl45_read(bp, port,
+-		      PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101,
+-		      ext_phy_addr,
+-		      MDIO_PMA_DEVAD,
+-		      MDIO_PMA_REG_7101_VER2,
+-		      &image_revision2);
+-
+-	if (data[0x14e] != (image_revision2&0xFF) ||
+-	    data[0x14f] != ((image_revision2&0xFF00)>>8) ||
+-	    data[0x150] != (image_revision1&0xFF) ||
+-	    data[0x151] != ((image_revision1&0xFF00)>>8)) {
+-		DP(NETIF_MSG_LINK, "Download failed.\n");
+-		return -EINVAL;
+-	}
+-	DP(NETIF_MSG_LINK, "Download %d%%\n", data_index/size);
+-	return 0;
+-}
+-
+-u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
+-		      u8 driver_loaded, char data[], u32 size)
+-{
+-	u8 rc = 0;
+-	u32 ext_phy_type;
+-	u8 ext_phy_addr;
+-	ext_phy_addr = ((ext_phy_config &
+-			PORT_HW_CFG_XGXS_EXT_PHY_ADDR_MASK) >>
+-			PORT_HW_CFG_XGXS_EXT_PHY_ADDR_SHIFT);
+-
+-	ext_phy_type = XGXS_EXT_PHY_TYPE(ext_phy_config);
+-
+-	switch (ext_phy_type) {
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072:
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073:
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8705:
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706:
+-		DP(NETIF_MSG_LINK,
+-			"Flash download not supported for this ext phy\n");
+-		rc = -EINVAL;
+-		break;
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
+-		/* Take ext phy out of reset */
+-		if (!driver_loaded)
+-			bnx2x_turn_on_ef(bp, port, ext_phy_addr, ext_phy_type);
+-		rc = bnx2x_sfx7101_flash_download(bp, port, ext_phy_addr,
+-						data, size);
+-		if (!driver_loaded)
+-			bnx2x_turn_off_sf(bp, port);
+-		break;
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
+-	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN:
 -	default:
--		/* do nothing */
+-		DP(NETIF_MSG_LINK, "Invalid ext phy type\n");
+-		rc = -EINVAL;
 -		break;
 -	}
-+	DP(NETIF_MSG_LINK, "ioctl: phy id 0x%x, reg 0x%x, val_in 0x%x\n",
-+	   mdio->phy_id, mdio->reg_num, mdio->val_in);
+-	return rc;
+-}
+-
+diff --git a/drivers/net/bnx2x_link.h b/drivers/net/bnx2x_link.h
+index 9805d21..6d26d6c 100644
+--- a/drivers/net/bnx2x_link.h
++++ b/drivers/net/bnx2x_link.h
+@@ -174,8 +174,6 @@ u8 bnx2x_set_led(struct bnx2x *bp, u8 port, u8 mode, u32 speed,
  
--	return -EOPNOTSUPP;
-+	if (!netif_running(dev))
-+		return -EAGAIN;
-+
-+	return mdio_mii_ioctl(&bp->mdio, mdio, cmd);
- }
+ u8 bnx2x_override_led_value(struct bnx2x *bp, u8 port, u32 led_idx, u32 value);
  
- /* called with rtnl_lock */
-@@ -11419,6 +11458,14 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
- 	dev->vlan_features |= NETIF_F_TSO6;
- #endif
- 
-+	/* get_port_hwinfo() will set prtad and mmds properly */
-+	bp->mdio.prtad = MDIO_PRTAD_NONE;
-+	bp->mdio.mmds = 0;
-+	bp->mdio.mode_support = MDIO_SUPPORTS_C45 | MDIO_EMULATE_C22;
-+	bp->mdio.dev = dev;
-+	bp->mdio.mdio_read = bnx2x_mdio_read;
-+	bp->mdio.mdio_write = bnx2x_mdio_write;
-+
- 	return 0;
- 
- err_out_unmap:
+-u8 bnx2x_flash_download(struct bnx2x *bp, u8 port, u32 ext_phy_config,
+-		      u8 driver_loaded, char data[], u32 size);
+ /* bnx2x_handle_module_detect_int should be called upon module detection
+    interrupt */
+ void bnx2x_handle_module_detect_int(struct link_params *params);
 -- 
 1.5.4.3
 
