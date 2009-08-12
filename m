@@ -1,86 +1,34 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 08:41:31 -0400
-Message-ID: <4A82B87B.4010208@gmail.com>
-References: <20090811212743.GA26309@redhat.com> <4A820391.1090404@gmail.com> <20090812071636.GA26847@redhat.com> <4A82ADD5.6040909@gmail.com> <20090812120541.GA29158@redhat.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] fix memory leak in virtio_net
+Date: Wed, 12 Aug 2009 22:11:53 +0930
+Message-ID: <200908122211.53890.rusty@rustcorp.com.au>
+References: <1249934708.7400.10.camel@localhost.localdomain> <4A815B9A.3060205@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig174E0DB952567894B5C84450"
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-	linux-mm@kvack.org,
-	"akpm@linux-foundation.org >> Andrew Morton"
-	<akpm@linux-foundation.org>, hpa@zytor.com,
-	Patrick Mullaney <pmullaney@novell.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f213.google.com ([209.85.217.213]:37513 "EHLO
-	mail-gx0-f213.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbZHLMlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 08:41:35 -0400
-In-Reply-To: <20090812120541.GA29158@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Shirley Ma <mashirle@us.ibm.com>, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4A815B9A.3060205@redhat.com>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig174E0DB952567894B5C84450
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Tue, 11 Aug 2009 09:22:58 pm Avi Kivity wrote:
+> (copying Rusty, the virtio maintainer)
+> 
+> On 08/10/2009 11:05 PM, Shirley Ma wrote:
+> > Whild reading virtio code, I found some memory leak in removing
+> > virtio_net.
+> >
+> > In virtnet_remove, only skb has been freed not the pages in skb
+> > frags. Here is the patch to fix this, please review it.
 
-Michael S. Tsirkin wrote:
-> On Wed, Aug 12, 2009 at 07:56:05AM -0400, Gregory Haskins wrote:
->> Michael S. Tsirkin wrote:
+Nope, kfree_skb() frees the frags.
 
-<snip>
+It needs to, otherwise we leak on every received packet!
 
->>>
->>> 1. use a dedicated network interface with SRIOV, program mac to match=
-
->>>    that of guest (for testing, you can set promisc mode, but that is
->>>    bad for performance)
->>
->> Are you saying SRIOV is a requirement, and I can either program the
->> SRIOV adapter with a mac or use promis?  Or are you saying I can use
->> SRIOV+programmed mac OR a regular nic + promisc (with a perf penalty).=
-
->=20
-> SRIOV is not a requirement. And you can also use a dedicated
-> nic+programmed mac if you are so inclined.
-
-Makes sense.  Got it.
-
-I was going to add guest-to-guest to the test matrix, but I assume that
-is not supported with vhost unless you have something like a VEPA
-enabled bridge?
-
-<snip>
-
->>> 3. add vhost=3DethX
->> You mean via "ip link" I assume?
->=20
-> No, that's a new flag for virtio in qemu:
->=20
-> -net nic,model=3Dvirtio,vhost=3Dveth0
-
-Ah, ok.  Even better.
-
-Thanks!
--Greg
-
-
---------------enig174E0DB952567894B5C84450
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqCuHsACgkQP5K2CMvXmqFbSQCfXtpBd2Q0mrhRjwRuIAyyTt5Y
-Ng4An3c7WsysfPVp8bJdLHpPutqgws9L
-=2P8B
------END PGP SIGNATURE-----
-
---------------enig174E0DB952567894B5C84450--
+Cheers,
+Rusty.
