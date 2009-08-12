@@ -1,75 +1,66 @@
-From: Phil Sutter <n0-1@freewrt.org>
-Subject: [PATCH 2/2] korina: add error-handling to korina_alloc_ring
-Date: Thu, 13 Aug 2009 00:52:32 +0200
-Message-ID: <20090812225234.82E6E4CEAA@orbit.nwl.cc>
-References: <20090812222249.39EAB4CEAA@orbit.nwl.cc>
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, florian@openwrt.org,
-	Roel Kluin <roel.kluin@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:38875 "EHLO orbit.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbZHLWwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 18:52:34 -0400
-In-Reply-To: <20090812222249.39EAB4CEAA@orbit.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC PATCH v2 2/2] selinux: Support for the new TUN LSM hooks
+Date: Wed, 12 Aug 2009 18:55:23 -0400
+Message-ID: <200908121855.24061.paul.moore@hp.com>
+References: <20090810172238.7946.34247.stgit@flek.lan> <20090810172850.7946.25175.stgit@flek.lan> <20090812221440.GA8524@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090812221440.GA8524@us.ibm.com>
+Content-Disposition: inline
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This also avoids a potential buffer overflow in case the very first
-receive descriptor fails to allocate, as an index of -1 would be used
-afterwards. Kudos to Roel Kluin for pointing this out and providing an
-initial patch.
+On Wednesday 12 August 2009 06:14:40 pm Serge E. Hallyn wrote:
+> Quoting Paul Moore (paul.moore@hp.com):
+> > +static int selinux_tun_dev_attach(struct sock *sk)
+> > +{
+> > +	struct sk_security_struct *sksec = sk->sk_security;
+> > +	u32 sid = current_sid();
+> > +	int err;
+> > +
+> > +	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
+> > +			   TUN_SOCKET__RELABELFROM, NULL);
+> > +	if (err)
+> > +		return err;
+> > +	err = avc_has_perm(sid, sid, SECCLASS_RAWIP_SOCKET,
+>
+> Was RAWIP on purpose here?
 
-Signed-off-by: Phil Sutter <n0-1@freewrt.org>
----
- drivers/net/korina.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+Nope, a mistake on my part that I hadn't caught yet.  Thanks.
 
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 6df9d25..51ca54c 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -750,7 +750,7 @@ static struct ethtool_ops netdev_ethtool_ops = {
- 	.get_link               = netdev_get_link,
- };
- 
--static void korina_alloc_ring(struct net_device *dev)
-+static int korina_alloc_ring(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
- 	struct sk_buff *skb;
-@@ -771,7 +771,7 @@ static void korina_alloc_ring(struct net_device *dev)
- 	for (i = 0; i < KORINA_NUM_RDS; i++) {
- 		skb = dev_alloc_skb(KORINA_RBSIZE + 2);
- 		if (!skb)
--			break;
-+			return -ENOMEM;
- 		skb_reserve(skb, 2);
- 		lp->rx_skb[i] = skb;
- 		lp->rd_ring[i].control = DMA_DESC_IOD |
-@@ -790,6 +790,8 @@ static void korina_alloc_ring(struct net_device *dev)
- 	lp->rx_chain_head = 0;
- 	lp->rx_chain_tail = 0;
- 	lp->rx_chain_status = desc_empty;
-+
-+	return 0;
- }
- 
- static void korina_free_ring(struct net_device *dev)
-@@ -832,7 +834,11 @@ static int korina_init(struct net_device *dev)
- 	writel(ETH_INT_FC_EN, &lp->eth_regs->ethintfc);
- 
- 	/* Allocate rings */
--	korina_alloc_ring(dev);
-+	if (korina_alloc_ring(dev)) {
-+		printk(KERN_ERR "%s: descriptor allocation failed\n", dev->name);
-+		korina_free_ring(dev);
-+		return -ENOMEM;
-+	}
- 
- 	writel(0, &lp->rx_dma_regs->dmas);
- 	/* Start Rx DMA */
+> > +			   TUN_SOCKET__RELABELTO, NULL);
+> > +	if (err)
+> > +		return err;
+> > +
+> > +	sksec->sid = sid;
+> > +
+> > +	return 0;
+> > +}
+>
+> IIUC it is possible for multiple processes to attach to the same
+> tun device.  Will it get confusing/incorrect to have each attach
+> potentially (if tasks have different sids) relabel?
+
+I may be reading the code wrong, but in drivers/net/tun.c:tun_attach() the 
+code checks to see if the TUN device is already in use and if it is then the 
+attach fails with -EBUSY (check where the tun_device->tfile is examined).  I 
+believe this should ensure that only one process at a time has access to the 
+TUN device so we shouldn't have to worry about a TUN socket getting relabeled 
+while it is currently in use.  As far as persistent TUN devices getting 
+relabeled when a new process attaches to them, that is what we are trying to 
+accomplish here so that the network traffic being sent via the TUN device is 
+labeled according to the currently attached process; this is consistent with 
+how SELinux currently labels locally generated outbound traffic - outbound 
+packets inherit their security label from the sending process via the 
+originating socket/sock.
+
 -- 
-1.6.0.6
+paul moore
+linux @ hp
 
