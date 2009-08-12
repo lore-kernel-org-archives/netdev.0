@@ -1,53 +1,86 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] libertas: name the network device wlan%d
-Date: Wed, 12 Aug 2009 11:31:02 -0500
-Message-ID: <1250094662.31650.24.camel@localhost.localdomain>
-References: <1250000012-25673-1-git-send-email-daniel@caiaq.de>
-	 <20090811143401.GD2684@tuxdriver.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
+Date: Wed, 12 Aug 2009 19:37:37 +0300
+Message-ID: <20090812163737.GA29903@redhat.com>
+References: <20090811212743.GA26309@redhat.com> <200908121452.01802.arnd@arndb.de> <20090812130612.GC29200@redhat.com> <200908121540.44928.arnd@arndb.de> <4A82C8F1.4030703@gmail.com> <20090812140224.GA29345@redhat.com> <4A82EA37.3010902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <daniel@caiaq.de>, libertas-dev@lists.infradead.org,
-	Roel Kluin <roel.kluin@gmail.com>, netdev@vger.kernel.org,
-	dsd@laptop.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49910 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754414AbZHLQb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 12:31:27 -0400
-In-Reply-To: <20090811143401.GD2684@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
+        Andrew Morton <akpm@linux-foundation.org>, hpa@zytor.com,
+        Patrick Mullaney <pmullaney@novell.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4A82EA37.3010902@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2009-08-11 at 10:34 -0400, John W. Linville wrote:
-> On Tue, Aug 11, 2009 at 04:13:32PM +0200, Daniel Mack wrote:
-> > Devices created by the libertas driver are currently called eth%d. Which
-> > is wrong, because the device does not at all have anything to do with
-> > Ethernet. And it is also confusing when used on devices with more than
-> > one network device.
+On Wed, Aug 12, 2009 at 12:13:43PM -0400, Gregory Haskins wrote:
+> Michael S. Tsirkin wrote:
+> > On Wed, Aug 12, 2009 at 09:51:45AM -0400, Gregory Haskins wrote:
+> >> Arnd Bergmann wrote:
+> >>> On Wednesday 12 August 2009, Michael S. Tsirkin wrote:
+> >>>>> If I understand it correctly, you can at least connect a veth pair
+> >>>>> to a bridge, right? Something like
+> >>>>>
+> >>>>>            veth0 - veth1 - vhost - guest 1 
+> >>>>> eth0 - br0-|
+> >>>>>            veth2 - veth3 - vhost - guest 2
+> >>>>>            
+> >>>> Heh, you don't need a bridge in this picture:
+> >>>>
+> >>>> guest 1 - vhost - veth0 - veth1 - vhost guest 2
+> >>> Sure, but the setup I described is the one that I would expect
+> >>> to see in practice because it gives you external connectivity.
+> >>>
+> >>> Measuring two guests communicating over a veth pair is
+> >>> interesting for finding the bottlenecks, but of little
+> >>> practical relevance.
+> >>>
+> >>> 	Arnd <><
+> >> Yeah, this would be the config I would be interested in.
 > > 
-> > Fix this by calling it wlan%d.
+> > Hmm, this wouldn't be the config to use for the benchmark though: there
+> > are just too many variables.  If you want both guest to guest and guest
+> > to host, create 2 nics in the guest.
 > > 
-> > Signed-off-by: Daniel Mack <daniel@caiaq.de>
-> > Cc: Roel Kluin <roel.kluin@gmail.com>
-> > Cc: John W. Linville <linville@tuxdriver.com>
-> > Cc: netdev@vger.kernel.org
+> > Here's one way to do this:
+> > 
+> > 	-net nic,model=virtio,vlan=0 -net user,vlan=0
+> > 	-net nic,vlan=1,model=virtio,vhost=veth0
+> > 	-redir tcp:8022::22
+> > 
+> > 	-net nic,model=virtio,vlan=0 -net user,vlan=0
+> > 	 -net nic,vlan=1,model=virtio,vhost=veth1
+> > 	-redir tcp:8023::22
+> > 
+> > In guests, for simplicity, configure eth1 and eth0
+> > to use separate subnets.
 > 
-> I'm fine with changing it, but it isn't really wrong either -- it's
-> just a name, and afterall in most cases all the user will see is
-> ethernet frames.
+> I can try to do a few variations, but what I am interested is in
+> performance in a real-world L2 configuration.  This would generally mean
+>  all hosts (virtual or physical) in the same L2 domain.
 > 
-> Comments from the libertas driver crew?
+> If I get a chance, though, I will try to also wire them up in isolation
+> as another data point.
+> 
+> Regards,
+> -Greg
+> 
+> 
 
-I don't care either way, it's completely historical.  Most of the
-fullmac drivers used 'eth' back when.  Might want to get buy-in from the
-OLPC crew since they probably have the most deployed units using
-libertas (cc-ed Daniel Drake).
+Or patch macvlan to support guest to guest:
+http://markmail.org/message/sjy74g57qsvdo2wh
+That patch needs to be updated to support guest to guest multiast,
+but it seems functional enough for your purposes.
 
-Daniel, is it a problem for you guys if the libertas wifi interface name
-went from 'eth' -> 'wlan' ?  Mesh name would be unchanged.
+-- 
+MST
 
-Dan
-
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
