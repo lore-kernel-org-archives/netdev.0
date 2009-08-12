@@ -1,972 +1,1254 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [net-next 33/36] bnx2x: Beautify bnx2x_dump.h
-Date: Wed, 12 Aug 2009 21:24:18 +0300
-Message-ID: <1250101458.27379.185.camel@lb-tlvb-eilong>
+Subject: [net-next 32/36] bnx2x: Re-factor the initialization code
+Date: Wed, 12 Aug 2009 21:24:14 +0300
+Message-ID: <1250101454.27379.184.camel@lb-tlvb-eilong>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Yitchak Gertner" <gertner@broadcom.com>
+Cc: netdev@vger.kernel.org, "Vladislav Zolotarov" <vladz@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:3470 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754710AbZHLSZP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Aug 2009 14:25:15 -0400
+	id S1754700AbZHLSZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Aug 2009 14:25:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yitchak Gertner <gertner@broadcom.com>
+Moving the code to a more logical place and beautifying it. No real change in
+behavior.
+
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_dump.h |  890 +++++++++++++++++++++++-----------------------
- 1 files changed, 449 insertions(+), 441 deletions(-)
+ drivers/net/bnx2x.h          |   28 +++-
+ drivers/net/bnx2x_init.h     |  320 ++++++--------------------------
+ drivers/net/bnx2x_init_ops.h |  419 ++++++++++++++++++++++++------------------
+ drivers/net/bnx2x_main.c     |   79 ++++++--
+ drivers/net/bnx2x_reg.h      |  113 +++++++++++
+ 5 files changed, 495 insertions(+), 464 deletions(-)
 
-diff --git a/drivers/net/bnx2x_dump.h b/drivers/net/bnx2x_dump.h
-index 78c6b03..3bb9a91 100644
---- a/drivers/net/bnx2x_dump.h
-+++ b/drivers/net/bnx2x_dump.h
-@@ -13,31 +13,35 @@
-  * The signature is time stamp, diag version and grc_dump version
+diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
+index a231780..97bc5e0 100644
+--- a/drivers/net/bnx2x.h
++++ b/drivers/net/bnx2x.h
+@@ -116,16 +116,22 @@
+ #define REG_RD_DMAE(bp, offset, valp, len32) \
+ 	do { \
+ 		bnx2x_read_dmae(bp, offset, len32);\
+-		memcpy(valp, bnx2x_sp(bp, wb_data[0]), len32 * 4); \
++		memcpy(valp, bnx2x_sp(bp, wb_data[0]), (len32) * 4); \
+ 	} while (0)
+ 
+ #define REG_WR_DMAE(bp, offset, valp, len32) \
+ 	do { \
+-		memcpy(bnx2x_sp(bp, wb_data[0]), valp, len32 * 4); \
++		memcpy(bnx2x_sp(bp, wb_data[0]), valp, (len32) * 4); \
+ 		bnx2x_write_dmae(bp, bnx2x_sp_mapping(bp, wb_data), \
+ 				 offset, len32); \
+ 	} while (0)
+ 
++#define VIRT_WR_DMAE_LEN(bp, data, addr, len32) \
++	do { \
++		memcpy(GUNZIP_BUF(bp), data, (len32) * 4); \
++		bnx2x_write_big_buf_wb(bp, addr, len32); \
++	} while (0)
++
+ #define SHMEM_ADDR(bp, field)		(bp->common.shmem_base + \
+ 					 offsetof(struct shmem_region, field))
+ #define SHMEM_RD(bp, field)		REG_RD(bp, SHMEM_ADDR(bp, field))
+@@ -988,6 +994,9 @@ struct bnx2x {
+ 	dma_addr_t		gunzip_mapping;
+ 	int			gunzip_outlen;
+ #define FW_BUF_SIZE			0x8000
++#define GUNZIP_BUF(bp)			(bp->gunzip_buf)
++#define GUNZIP_PHYS(bp)			(bp->gunzip_mapping)
++#define GUNZIP_OUTLEN(bp)		(bp->gunzip_outlen)
+ 
+ 	struct raw_op          *init_ops;
+ 	/* Init blocks offsets inside init_ops */
+@@ -1003,6 +1012,18 @@ struct bnx2x {
+ 	const u8               *xsem_pram_data;
+ 	const u8               *csem_int_table_data;
+ 	const u8               *csem_pram_data;
++#define INIT_OPS(bp)			(bp->init_ops)
++#define INIT_OPS_OFFSETS(bp)		(bp->init_ops_offsets)
++#define INIT_DATA(bp)			(bp->init_data)
++#define INIT_TSEM_INT_TABLE_DATA(bp)	(bp->tsem_int_table_data)
++#define INIT_TSEM_PRAM_DATA(bp)		(bp->tsem_pram_data)
++#define INIT_USEM_INT_TABLE_DATA(bp)	(bp->usem_int_table_data)
++#define INIT_USEM_PRAM_DATA(bp)		(bp->usem_pram_data)
++#define INIT_XSEM_INT_TABLE_DATA(bp)	(bp->xsem_int_table_data)
++#define INIT_XSEM_PRAM_DATA(bp)		(bp->xsem_pram_data)
++#define INIT_CSEM_INT_TABLE_DATA(bp)	(bp->csem_int_table_data)
++#define INIT_CSEM_PRAM_DATA(bp)		(bp->csem_pram_data)
++
+         const struct firmware  *firmware;
+ };
+ 
+@@ -1030,6 +1051,9 @@ int bnx2x_get_gpio(struct bnx2x *bp, int gpio_num, u8 port);
+ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode, u8 port);
+ int bnx2x_set_gpio_int(struct bnx2x *bp, int gpio_num, u32 mode, u8 port);
+ u32 bnx2x_fw_command(struct bnx2x *bp, u32 command);
++void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val);
++void bnx2x_write_dmae_phys_len(struct bnx2x *bp, dma_addr_t phys_addr,
++			       u32 addr, u32 len);
+ 
+ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ 			   int wait)
+diff --git a/drivers/net/bnx2x_init.h b/drivers/net/bnx2x_init.h
+index 3ba4d88..65b26cb 100644
+--- a/drivers/net/bnx2x_init.h
++++ b/drivers/net/bnx2x_init.h
+@@ -15,24 +15,11 @@
+ #ifndef BNX2X_INIT_H
+ #define BNX2X_INIT_H
+ 
+-#define COMMON				0x1
+-#define PORT0				0x2
+-#define PORT1				0x4
+-
+-#define INIT_EMULATION			0x1
+-#define INIT_FPGA			0x2
+-#define INIT_ASIC			0x4
+-#define INIT_HARDWARE			0x7
+-
+-#define TSTORM_INTMEM_ADDR		TSEM_REG_FAST_MEMORY
+-#define CSTORM_INTMEM_ADDR		CSEM_REG_FAST_MEMORY
+-#define XSTORM_INTMEM_ADDR		XSEM_REG_FAST_MEMORY
+-#define USTORM_INTMEM_ADDR		USEM_REG_FAST_MEMORY
+ /* RAM0 size in bytes */
+ #define STORM_INTMEM_SIZE_E1		0x5800
+ #define STORM_INTMEM_SIZE_E1H		0x10000
+-#define STORM_INTMEM_SIZE(bp)	((CHIP_IS_E1H(bp) ? STORM_INTMEM_SIZE_E1H : \
+-						    STORM_INTMEM_SIZE_E1) / 4)
++#define STORM_INTMEM_SIZE(bp) ((CHIP_IS_E1(bp) ? STORM_INTMEM_SIZE_E1 : \
++						    STORM_INTMEM_SIZE_E1H) / 4)
+ 
+ 
+ /* Init operation types and structures */
+@@ -53,65 +40,68 @@
+ #define OP_WR_ASIC		0xc /* write single register on ASIC */
+ 
+ /* Init stages */
+-#define COMMON_STAGE            0
+-#define PORT0_STAGE     	1
+-#define PORT1_STAGE     	2
+-/* Never reorder FUNCx stages !!! */
+-#define FUNC0_STAGE     	3
+-#define FUNC1_STAGE     	4
+-#define FUNC2_STAGE     	5
+-#define FUNC3_STAGE     	6
+-#define FUNC4_STAGE     	7
+-#define FUNC5_STAGE     	8
+-#define FUNC6_STAGE     	9
+-#define FUNC7_STAGE     	10
+-#define STAGE_IDX_MAX   	11
+-
+-#define STAGE_START     	0
+-#define STAGE_END       	1
++/* Never reorder stages !!! */
++#define COMMON_STAGE		0
++#define PORT0_STAGE		1
++#define PORT1_STAGE		2
++#define FUNC0_STAGE		3
++#define FUNC1_STAGE		4
++#define FUNC2_STAGE		5
++#define FUNC3_STAGE		6
++#define FUNC4_STAGE		7
++#define FUNC5_STAGE		8
++#define FUNC6_STAGE		9
++#define FUNC7_STAGE		10
++#define STAGE_IDX_MAX		11
++
++#define STAGE_START		0
++#define STAGE_END		1
+ 
+ 
+ /* Indices of blocks */
+-#define PRS_BLOCK               0
+-#define SRCH_BLOCK              1
+-#define TSDM_BLOCK              2
+-#define TCM_BLOCK               3
+-#define BRB1_BLOCK              4
+-#define TSEM_BLOCK              5
+-#define PXPCS_BLOCK             6
+-#define EMAC0_BLOCK             7
+-#define EMAC1_BLOCK             8
+-#define DBU_BLOCK               9
+-#define MISC_BLOCK              10
+-#define DBG_BLOCK               11
+-#define NIG_BLOCK               12
+-#define MCP_BLOCK               13
+-#define UPB_BLOCK               14
+-#define CSDM_BLOCK              15
+-#define USDM_BLOCK              16
+-#define CCM_BLOCK               17
+-#define UCM_BLOCK               18
+-#define USEM_BLOCK              19
+-#define CSEM_BLOCK              20
+-#define XPB_BLOCK               21
+-#define DQ_BLOCK                22
+-#define TIMERS_BLOCK            23
+-#define XSDM_BLOCK              24
+-#define QM_BLOCK                25
+-#define PBF_BLOCK               26
+-#define XCM_BLOCK               27
+-#define XSEM_BLOCK              28
+-#define CDU_BLOCK               29
+-#define DMAE_BLOCK              30
+-#define PXP_BLOCK               31
+-#define CFC_BLOCK               32
+-#define HC_BLOCK                33
+-#define PXP2_BLOCK              34
+-#define MISC_AEU_BLOCK          35
++#define PRS_BLOCK		0
++#define SRCH_BLOCK		1
++#define TSDM_BLOCK		2
++#define TCM_BLOCK		3
++#define BRB1_BLOCK		4
++#define TSEM_BLOCK		5
++#define PXPCS_BLOCK		6
++#define EMAC0_BLOCK		7
++#define EMAC1_BLOCK		8
++#define DBU_BLOCK		9
++#define MISC_BLOCK		10
++#define DBG_BLOCK		11
++#define NIG_BLOCK		12
++#define MCP_BLOCK		13
++#define UPB_BLOCK		14
++#define CSDM_BLOCK		15
++#define USDM_BLOCK		16
++#define CCM_BLOCK		17
++#define UCM_BLOCK		18
++#define USEM_BLOCK		19
++#define CSEM_BLOCK		20
++#define XPB_BLOCK		21
++#define DQ_BLOCK		22
++#define TIMERS_BLOCK		23
++#define XSDM_BLOCK		24
++#define QM_BLOCK		25
++#define PBF_BLOCK		26
++#define XCM_BLOCK		27
++#define XSEM_BLOCK		28
++#define CDU_BLOCK		29
++#define DMAE_BLOCK		30
++#define PXP_BLOCK		31
++#define CFC_BLOCK		32
++#define HC_BLOCK		33
++#define PXP2_BLOCK		34
++#define MISC_AEU_BLOCK		35
++#define PGLUE_B_BLOCK		36
++#define IGU_BLOCK		37
++
+ 
+ /* Returns the index of start or end of a specific block stage in ops array*/
+ #define BLOCK_OPS_IDX(block, stage, end) \
+-       (2*(((block)*STAGE_IDX_MAX) + (stage)) + (end))
++			(2*(((block)*STAGE_IDX_MAX) + (stage)) + (end))
+ 
+ 
+ struct raw_op {
+@@ -158,199 +148,5 @@ union init_op {
+ 	struct raw_op		raw;
+ };
+ 
+-/****************************************************************************
+-* PXP
+-****************************************************************************/
+-/*
+- * This code configures the PCI read/write arbiter
+- * which implements a weighted round robin
+- * between the virtual queues in the chip.
+- *
+- * The values were derived for each PCI max payload and max request size.
+- * since max payload and max request size are only known at run time,
+- * this is done as a separate init stage.
+- */
+-
+-#define NUM_WR_Q			13
+-#define NUM_RD_Q			29
+-#define MAX_RD_ORD			3
+-#define MAX_WR_ORD			2
+-
+-/* configuration for one arbiter queue */
+-struct arb_line {
+-	int l;
+-	int add;
+-	int ubound;
+-};
+-
+-/* derived configuration for each read queue for each max request size */
+-static const struct arb_line read_arb_data[NUM_RD_Q][MAX_RD_ORD + 1] = {
+-/* 1 */	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
+-	{ {4, 8,  4},  {4,  8,  4},  {4,  8,  4},  {4,  8,  4}  },
+-	{ {4, 3,  3},  {4,  3,  3},  {4,  3,  3},  {4,  3,  3}  },
+-	{ {8, 3,  6},  {16, 3,  11}, {16, 3,  11}, {16, 3,  11} },
+-	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
+-/* 10 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-/* 20 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
+-	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81}, {64, 64, 120} }
+-};
+-
+-/* derived configuration for each write queue for each max request size */
+-static const struct arb_line write_arb_data[NUM_WR_Q][MAX_WR_ORD + 1] = {
+-/* 1 */	{ {4, 6,  3},  {4,  6,  3},  {4,  6,  3} },
+-	{ {4, 2,  3},  {4,  2,  3},  {4,  2,  3} },
+-	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
+-	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
+-	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
+-	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
+-	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25} },
+-	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
+-	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
+-/* 10 */{ {8, 9,  6},  {16, 9,  11}, {32, 9,  21} },
+-	{ {8, 47, 19}, {16, 47, 19}, {32, 47, 21} },
+-	{ {8, 9,  6},  {16, 9,  11}, {16, 9,  11} },
+-	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81} }
+-};
+-
+-/* register addresses for read queues */
+-static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
+-/* 1 */	{PXP2_REG_RQ_BW_RD_L0, PXP2_REG_RQ_BW_RD_ADD0,
+-		PXP2_REG_RQ_BW_RD_UBOUND0},
+-	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
+-		PXP2_REG_PSWRQ_BW_UB1},
+-	{PXP2_REG_PSWRQ_BW_L2, PXP2_REG_PSWRQ_BW_ADD2,
+-		PXP2_REG_PSWRQ_BW_UB2},
+-	{PXP2_REG_PSWRQ_BW_L3, PXP2_REG_PSWRQ_BW_ADD3,
+-		PXP2_REG_PSWRQ_BW_UB3},
+-	{PXP2_REG_RQ_BW_RD_L4, PXP2_REG_RQ_BW_RD_ADD4,
+-		PXP2_REG_RQ_BW_RD_UBOUND4},
+-	{PXP2_REG_RQ_BW_RD_L5, PXP2_REG_RQ_BW_RD_ADD5,
+-		PXP2_REG_RQ_BW_RD_UBOUND5},
+-	{PXP2_REG_PSWRQ_BW_L6, PXP2_REG_PSWRQ_BW_ADD6,
+-		PXP2_REG_PSWRQ_BW_UB6},
+-	{PXP2_REG_PSWRQ_BW_L7, PXP2_REG_PSWRQ_BW_ADD7,
+-		PXP2_REG_PSWRQ_BW_UB7},
+-	{PXP2_REG_PSWRQ_BW_L8, PXP2_REG_PSWRQ_BW_ADD8,
+-		PXP2_REG_PSWRQ_BW_UB8},
+-/* 10 */{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
+-		PXP2_REG_PSWRQ_BW_UB9},
+-	{PXP2_REG_PSWRQ_BW_L10, PXP2_REG_PSWRQ_BW_ADD10,
+-		PXP2_REG_PSWRQ_BW_UB10},
+-	{PXP2_REG_PSWRQ_BW_L11, PXP2_REG_PSWRQ_BW_ADD11,
+-		PXP2_REG_PSWRQ_BW_UB11},
+-	{PXP2_REG_RQ_BW_RD_L12, PXP2_REG_RQ_BW_RD_ADD12,
+-		PXP2_REG_RQ_BW_RD_UBOUND12},
+-	{PXP2_REG_RQ_BW_RD_L13, PXP2_REG_RQ_BW_RD_ADD13,
+-		PXP2_REG_RQ_BW_RD_UBOUND13},
+-	{PXP2_REG_RQ_BW_RD_L14, PXP2_REG_RQ_BW_RD_ADD14,
+-		PXP2_REG_RQ_BW_RD_UBOUND14},
+-	{PXP2_REG_RQ_BW_RD_L15, PXP2_REG_RQ_BW_RD_ADD15,
+-		PXP2_REG_RQ_BW_RD_UBOUND15},
+-	{PXP2_REG_RQ_BW_RD_L16, PXP2_REG_RQ_BW_RD_ADD16,
+-		PXP2_REG_RQ_BW_RD_UBOUND16},
+-	{PXP2_REG_RQ_BW_RD_L17, PXP2_REG_RQ_BW_RD_ADD17,
+-		PXP2_REG_RQ_BW_RD_UBOUND17},
+-	{PXP2_REG_RQ_BW_RD_L18, PXP2_REG_RQ_BW_RD_ADD18,
+-		PXP2_REG_RQ_BW_RD_UBOUND18},
+-/* 20 */{PXP2_REG_RQ_BW_RD_L19, PXP2_REG_RQ_BW_RD_ADD19,
+-		PXP2_REG_RQ_BW_RD_UBOUND19},
+-	{PXP2_REG_RQ_BW_RD_L20, PXP2_REG_RQ_BW_RD_ADD20,
+-		PXP2_REG_RQ_BW_RD_UBOUND20},
+-	{PXP2_REG_RQ_BW_RD_L22, PXP2_REG_RQ_BW_RD_ADD22,
+-		PXP2_REG_RQ_BW_RD_UBOUND22},
+-	{PXP2_REG_RQ_BW_RD_L23, PXP2_REG_RQ_BW_RD_ADD23,
+-		PXP2_REG_RQ_BW_RD_UBOUND23},
+-	{PXP2_REG_RQ_BW_RD_L24, PXP2_REG_RQ_BW_RD_ADD24,
+-		PXP2_REG_RQ_BW_RD_UBOUND24},
+-	{PXP2_REG_RQ_BW_RD_L25, PXP2_REG_RQ_BW_RD_ADD25,
+-		PXP2_REG_RQ_BW_RD_UBOUND25},
+-	{PXP2_REG_RQ_BW_RD_L26, PXP2_REG_RQ_BW_RD_ADD26,
+-		PXP2_REG_RQ_BW_RD_UBOUND26},
+-	{PXP2_REG_RQ_BW_RD_L27, PXP2_REG_RQ_BW_RD_ADD27,
+-		PXP2_REG_RQ_BW_RD_UBOUND27},
+-	{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
+-		PXP2_REG_PSWRQ_BW_UB28}
+-};
+-
+-/* register addresses for write queues */
+-static const struct arb_line write_arb_addr[NUM_WR_Q-1] = {
+-/* 1 */	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
+-		PXP2_REG_PSWRQ_BW_UB1},
+-	{PXP2_REG_PSWRQ_BW_L2, PXP2_REG_PSWRQ_BW_ADD2,
+-		PXP2_REG_PSWRQ_BW_UB2},
+-	{PXP2_REG_PSWRQ_BW_L3, PXP2_REG_PSWRQ_BW_ADD3,
+-		PXP2_REG_PSWRQ_BW_UB3},
+-	{PXP2_REG_PSWRQ_BW_L6, PXP2_REG_PSWRQ_BW_ADD6,
+-		PXP2_REG_PSWRQ_BW_UB6},
+-	{PXP2_REG_PSWRQ_BW_L7, PXP2_REG_PSWRQ_BW_ADD7,
+-		PXP2_REG_PSWRQ_BW_UB7},
+-	{PXP2_REG_PSWRQ_BW_L8, PXP2_REG_PSWRQ_BW_ADD8,
+-		PXP2_REG_PSWRQ_BW_UB8},
+-	{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
+-		PXP2_REG_PSWRQ_BW_UB9},
+-	{PXP2_REG_PSWRQ_BW_L10, PXP2_REG_PSWRQ_BW_ADD10,
+-		PXP2_REG_PSWRQ_BW_UB10},
+-	{PXP2_REG_PSWRQ_BW_L11, PXP2_REG_PSWRQ_BW_ADD11,
+-		PXP2_REG_PSWRQ_BW_UB11},
+-/* 10 */{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
+-		PXP2_REG_PSWRQ_BW_UB28},
+-	{PXP2_REG_RQ_BW_WR_L29, PXP2_REG_RQ_BW_WR_ADD29,
+-		PXP2_REG_RQ_BW_WR_UBOUND29},
+-	{PXP2_REG_RQ_BW_WR_L30, PXP2_REG_RQ_BW_WR_ADD30,
+-		PXP2_REG_RQ_BW_WR_UBOUND30}
+-};
+-
+-
+-/****************************************************************************
+-* CDU
+-****************************************************************************/
+-
+-#define CDU_REGION_NUMBER_XCM_AG	2
+-#define CDU_REGION_NUMBER_UCM_AG	4
+-
+-/**
+- * String-to-compress [31:8] = CID (all 24 bits)
+- * String-to-compress [7:4] = Region
+- * String-to-compress [3:0] = Type
+- */
+-#define CDU_VALID_DATA(_cid, _region, _type) \
+-		(((_cid) << 8) | (((_region) & 0xf) << 4) | (((_type) & 0xf)))
+-#define CDU_CRC8(_cid, _region, _type) \
+-			calc_crc8(CDU_VALID_DATA(_cid, _region, _type), 0xff)
+-#define CDU_RSRVD_VALUE_TYPE_A(_cid, _region, _type) \
+-			(0x80 | (CDU_CRC8(_cid, _region, _type) & 0x7f))
+-#define CDU_RSRVD_VALUE_TYPE_B(_crc, _type) \
+-	(0x80 | ((_type) & 0xf << 3) | (CDU_CRC8(_cid, _region, _type) & 0x7))
+-#define CDU_RSRVD_INVALIDATE_CONTEXT_VALUE(_val)	((_val) & ~0x80)
+-
+-
+-/* registers addresses are not in order
+-   so these arrays help simplify the code */
+-static const int cm_blocks[9] = {
+-	MISC_BLOCK, TCM_BLOCK,  UCM_BLOCK,  CCM_BLOCK, XCM_BLOCK,
+-	TSEM_BLOCK, USEM_BLOCK, CSEM_BLOCK, XSEM_BLOCK
+-};
+-
+ #endif /* BNX2X_INIT_H */
+ 
+diff --git a/drivers/net/bnx2x_init_ops.h b/drivers/net/bnx2x_init_ops.h
+index 32552b9..38b970a 100644
+--- a/drivers/net/bnx2x_init_ops.h
++++ b/drivers/net/bnx2x_init_ops.h
+@@ -11,85 +11,68 @@
+  * Maintained by: Eilon Greenstein <eilong@broadcom.com>
+  * Written by: Vladislav Zolotarov <vladz@broadcom.com>
   */
- 
-+#ifndef BNX2X_DUMP_H
-+#define BNX2X_DUMP_H
 +
-+
- struct dump_sign {
- 	u32 time_stamp;
- 	u32 diag_ver;
- 	u32 grc_dump_ver;
- };
+ #ifndef BNX2X_INIT_OPS_H
+ #define BNX2X_INIT_OPS_H
  
--#define TSTORM_WAITP_ADDR	0x1b8a80
--#define CSTORM_WAITP_ADDR	0x238a80
--#define XSTORM_WAITP_ADDR	0x2b8a80
--#define USTORM_WAITP_ADDR	0x338a80
--#define TSTORM_CAM_MODE		0x1b1440
-+#define TSTORM_WAITP_ADDR		0x1b8a80
-+#define CSTORM_WAITP_ADDR		0x238a80
-+#define XSTORM_WAITP_ADDR		0x2b8a80
-+#define USTORM_WAITP_ADDR		0x338a80
-+#define TSTORM_CAM_MODE			0x1b1440
- 
--#define RI_E1			0x1
--#define RI_E1H			0x2
--#define RI_ONLINE		0x100
-+#define RI_E1				0x1
-+#define RI_E1H				0x2
-+#define RI_ONLINE			0x100
- 
--#define RI_E1_OFFLINE		(RI_E1)
--#define RI_E1_ONLINE		(RI_E1 | RI_ONLINE)
--#define RI_E1H_OFFLINE		(RI_E1H)
--#define RI_E1H_ONLINE		(RI_E1H | RI_ONLINE)
--#define RI_ALL_OFFLINE		(RI_E1 | RI_E1H)
--#define RI_ALL_ONLINE		(RI_E1 | RI_E1H | RI_ONLINE)
-+#define RI_E1_OFFLINE			(RI_E1)
-+#define RI_E1_ONLINE			(RI_E1 | RI_ONLINE)
-+#define RI_E1H_OFFLINE			(RI_E1H)
-+#define RI_E1H_ONLINE			(RI_E1H | RI_ONLINE)
-+#define RI_ALL_OFFLINE			(RI_E1 | RI_E1H)
-+#define RI_ALL_ONLINE			(RI_E1 | RI_E1H | RI_ONLINE)
- 
--#define MAX_TIMER_PENDING	200
--#define TIMER_SCAN_DONT_CARE	0xFF
-+#define MAX_TIMER_PENDING		200
-+#define TIMER_SCAN_DONT_CARE		0xFF
- 
- 
- struct dump_hdr {
-@@ -67,443 +71,444 @@ struct wreg_addr {
- };
- 
- 
--#define REGS_COUNT		558
-+#define REGS_COUNT			558
- static const struct reg_addr reg_addrs[REGS_COUNT] = {
--	{ 0x2000, 341, RI_ALL_ONLINE}, { 0x2800, 103, RI_ALL_ONLINE},
--	{ 0x3000, 287, RI_ALL_ONLINE}, { 0x3800, 331, RI_ALL_ONLINE},
--	{ 0x8800, 6, RI_E1_ONLINE}, { 0xa000, 223, RI_ALL_ONLINE},
--	{ 0xa388, 1, RI_ALL_ONLINE}, { 0xa398, 1, RI_ALL_ONLINE},
--	{ 0xa39c, 7, RI_E1H_ONLINE}, { 0xa3c0, 3, RI_E1H_ONLINE},
--	{ 0xa3d0, 1, RI_E1H_ONLINE}, { 0xa3d8, 1, RI_E1H_ONLINE},
--	{ 0xa3e0, 1, RI_E1H_ONLINE}, { 0xa3e8, 1, RI_E1H_ONLINE},
--	{ 0xa3f0, 1, RI_E1H_ONLINE}, { 0xa3f8, 1, RI_E1H_ONLINE},
--	{ 0xa400, 69, RI_ALL_ONLINE}, { 0xa518, 1, RI_ALL_ONLINE},
--	{ 0xa520, 1, RI_ALL_ONLINE}, { 0xa528, 1, RI_ALL_ONLINE},
--	{ 0xa530, 1, RI_ALL_ONLINE}, { 0xa538, 1, RI_ALL_ONLINE},
--	{ 0xa540, 1, RI_ALL_ONLINE}, { 0xa548, 1, RI_ALL_ONLINE},
--	{ 0xa550, 1, RI_ALL_ONLINE}, { 0xa558, 1, RI_ALL_ONLINE},
--	{ 0xa560, 1, RI_ALL_ONLINE}, { 0xa568, 1, RI_ALL_ONLINE},
--	{ 0xa570, 1, RI_ALL_ONLINE}, { 0xa580, 1, RI_ALL_ONLINE},
--	{ 0xa590, 1, RI_ALL_ONLINE}, { 0xa5a0, 1, RI_ALL_ONLINE},
--	{ 0xa5c0, 1, RI_ALL_ONLINE}, { 0xa5e0, 1, RI_E1H_ONLINE},
--	{ 0xa5e8, 1, RI_E1H_ONLINE}, { 0xa5f0, 1, RI_E1H_ONLINE},
--	{ 0xa5f8, 10, RI_E1H_ONLINE}, { 0x10000, 236, RI_ALL_ONLINE},
--	{ 0x103bc, 1, RI_ALL_ONLINE}, { 0x103cc, 1, RI_ALL_ONLINE},
--	{ 0x103dc, 1, RI_ALL_ONLINE}, { 0x10400, 57, RI_ALL_ONLINE},
--	{ 0x104e8, 2, RI_ALL_ONLINE}, { 0x104f4, 2, RI_ALL_ONLINE},
--	{ 0x10500, 146, RI_ALL_ONLINE}, { 0x10750, 2, RI_ALL_ONLINE},
--	{ 0x10760, 2, RI_ALL_ONLINE}, { 0x10770, 2, RI_ALL_ONLINE},
--	{ 0x10780, 2, RI_ALL_ONLINE}, { 0x10790, 2, RI_ALL_ONLINE},
--	{ 0x107a0, 2, RI_ALL_ONLINE}, { 0x107b0, 2, RI_ALL_ONLINE},
--	{ 0x107c0, 2, RI_ALL_ONLINE}, { 0x107d0, 2, RI_ALL_ONLINE},
--	{ 0x107e0, 2, RI_ALL_ONLINE}, { 0x10880, 2, RI_ALL_ONLINE},
--	{ 0x10900, 2, RI_ALL_ONLINE}, { 0x12000, 1, RI_ALL_ONLINE},
--	{ 0x14000, 1, RI_ALL_ONLINE}, { 0x16000, 26, RI_E1H_ONLINE},
--	{ 0x16070, 18, RI_E1H_ONLINE}, { 0x160c0, 27, RI_E1H_ONLINE},
--	{ 0x16140, 1, RI_E1H_ONLINE}, { 0x16160, 1, RI_E1H_ONLINE},
--	{ 0x16180, 2, RI_E1H_ONLINE}, { 0x161c0, 2, RI_E1H_ONLINE},
--	{ 0x16204, 5, RI_E1H_ONLINE}, { 0x18000, 1, RI_E1H_ONLINE},
--	{ 0x18008, 1, RI_E1H_ONLINE}, { 0x20000, 24, RI_ALL_ONLINE},
--	{ 0x20060, 8, RI_ALL_ONLINE}, { 0x20080, 138, RI_ALL_ONLINE},
--	{ 0x202b4, 1, RI_ALL_ONLINE}, { 0x202c4, 1, RI_ALL_ONLINE},
--	{ 0x20400, 2, RI_ALL_ONLINE}, { 0x2040c, 8, RI_ALL_ONLINE},
--	{ 0x2042c, 18, RI_E1H_ONLINE}, { 0x20480, 1, RI_ALL_ONLINE},
--	{ 0x20500, 1, RI_ALL_ONLINE}, { 0x20600, 1, RI_ALL_ONLINE},
--	{ 0x28000, 1, RI_ALL_ONLINE}, { 0x28004, 8191, RI_ALL_OFFLINE},
--	{ 0x30000, 1, RI_ALL_ONLINE}, { 0x30004, 16383, RI_ALL_OFFLINE},
--	{ 0x40000, 98, RI_ALL_ONLINE}, { 0x40194, 1, RI_ALL_ONLINE},
--	{ 0x401a4, 1, RI_ALL_ONLINE}, { 0x401a8, 11, RI_E1H_ONLINE},
--	{ 0x40200, 4, RI_ALL_ONLINE}, { 0x40400, 43, RI_ALL_ONLINE},
--	{ 0x404b8, 1, RI_ALL_ONLINE}, { 0x404c8, 1, RI_ALL_ONLINE},
--	{ 0x404cc, 3, RI_E1H_ONLINE}, { 0x40500, 2, RI_ALL_ONLINE},
--	{ 0x40510, 2, RI_ALL_ONLINE}, { 0x40520, 2, RI_ALL_ONLINE},
--	{ 0x40530, 2, RI_ALL_ONLINE}, { 0x40540, 2, RI_ALL_ONLINE},
--	{ 0x42000, 164, RI_ALL_ONLINE}, { 0x4229c, 1, RI_ALL_ONLINE},
--	{ 0x422ac, 1, RI_ALL_ONLINE}, { 0x422bc, 1, RI_ALL_ONLINE},
--	{ 0x422d4, 5, RI_E1H_ONLINE}, { 0x42400, 49, RI_ALL_ONLINE},
--	{ 0x424c8, 38, RI_ALL_ONLINE}, { 0x42568, 2, RI_ALL_ONLINE},
--	{ 0x42800, 1, RI_ALL_ONLINE}, { 0x50000, 20, RI_ALL_ONLINE},
--	{ 0x50050, 8, RI_ALL_ONLINE}, { 0x50070, 88, RI_ALL_ONLINE},
--	{ 0x501dc, 1, RI_ALL_ONLINE}, { 0x501ec, 1, RI_ALL_ONLINE},
--	{ 0x501f0, 4, RI_E1H_ONLINE}, { 0x50200, 2, RI_ALL_ONLINE},
--	{ 0x5020c, 7, RI_ALL_ONLINE}, { 0x50228, 6, RI_E1H_ONLINE},
--	{ 0x50240, 1, RI_ALL_ONLINE}, { 0x50280, 1, RI_ALL_ONLINE},
--	{ 0x52000, 1, RI_ALL_ONLINE}, { 0x54000, 1, RI_ALL_ONLINE},
--	{ 0x54004, 3327, RI_ALL_OFFLINE}, { 0x58000, 1, RI_ALL_ONLINE},
--	{ 0x58004, 8191, RI_ALL_OFFLINE}, { 0x60000, 71, RI_ALL_ONLINE},
--	{ 0x60128, 1, RI_ALL_ONLINE}, { 0x60138, 1, RI_ALL_ONLINE},
--	{ 0x6013c, 24, RI_E1H_ONLINE}, { 0x60200, 1, RI_ALL_ONLINE},
--	{ 0x61000, 1, RI_ALL_ONLINE}, { 0x61004, 511, RI_ALL_OFFLINE},
--	{ 0x70000, 8, RI_ALL_ONLINE}, { 0x70020, 21496, RI_ALL_OFFLINE},
--	{ 0x85000, 3, RI_ALL_ONLINE}, { 0x8500c, 4, RI_ALL_OFFLINE},
--	{ 0x8501c, 7, RI_ALL_ONLINE}, { 0x85038, 4, RI_ALL_OFFLINE},
--	{ 0x85048, 1, RI_ALL_ONLINE}, { 0x8504c, 109, RI_ALL_OFFLINE},
--	{ 0x85200, 32, RI_ALL_ONLINE}, { 0x85280, 11104, RI_ALL_OFFLINE},
--	{ 0xa0000, 16384, RI_ALL_ONLINE}, { 0xb0000, 16384, RI_E1H_ONLINE},
--	{ 0xc1000, 7, RI_ALL_ONLINE}, { 0xc1028, 1, RI_ALL_ONLINE},
--	{ 0xc1038, 1, RI_ALL_ONLINE}, { 0xc1800, 2, RI_ALL_ONLINE},
--	{ 0xc2000, 164, RI_ALL_ONLINE}, { 0xc229c, 1, RI_ALL_ONLINE},
--	{ 0xc22ac, 1, RI_ALL_ONLINE}, { 0xc22bc, 1, RI_ALL_ONLINE},
--	{ 0xc2400, 49, RI_ALL_ONLINE}, { 0xc24c8, 38, RI_ALL_ONLINE},
--	{ 0xc2568, 2, RI_ALL_ONLINE}, { 0xc2600, 1, RI_ALL_ONLINE},
--	{ 0xc4000, 165, RI_ALL_ONLINE}, { 0xc42a0, 1, RI_ALL_ONLINE},
--	{ 0xc42b0, 1, RI_ALL_ONLINE}, { 0xc42c0, 1, RI_ALL_ONLINE},
--	{ 0xc42e0, 7, RI_E1H_ONLINE}, { 0xc4400, 51, RI_ALL_ONLINE},
--	{ 0xc44d0, 38, RI_ALL_ONLINE}, { 0xc4570, 2, RI_ALL_ONLINE},
--	{ 0xc4600, 1, RI_ALL_ONLINE}, { 0xd0000, 19, RI_ALL_ONLINE},
--	{ 0xd004c, 8, RI_ALL_ONLINE}, { 0xd006c, 91, RI_ALL_ONLINE},
--	{ 0xd01e4, 1, RI_ALL_ONLINE}, { 0xd01f4, 1, RI_ALL_ONLINE},
--	{ 0xd0200, 2, RI_ALL_ONLINE}, { 0xd020c, 7, RI_ALL_ONLINE},
--	{ 0xd0228, 18, RI_E1H_ONLINE}, { 0xd0280, 1, RI_ALL_ONLINE},
--	{ 0xd0300, 1, RI_ALL_ONLINE}, { 0xd0400, 1, RI_ALL_ONLINE},
--	{ 0xd4000, 1, RI_ALL_ONLINE}, { 0xd4004, 2559, RI_ALL_OFFLINE},
--	{ 0xd8000, 1, RI_ALL_ONLINE}, { 0xd8004, 8191, RI_ALL_OFFLINE},
--	{ 0xe0000, 21, RI_ALL_ONLINE}, { 0xe0054, 8, RI_ALL_ONLINE},
--	{ 0xe0074, 85, RI_ALL_ONLINE}, { 0xe01d4, 1, RI_ALL_ONLINE},
--	{ 0xe01e4, 1, RI_ALL_ONLINE}, { 0xe0200, 2, RI_ALL_ONLINE},
--	{ 0xe020c, 8, RI_ALL_ONLINE}, { 0xe022c, 18, RI_E1H_ONLINE},
--	{ 0xe0280, 1, RI_ALL_ONLINE}, { 0xe0300, 1, RI_ALL_ONLINE},
--	{ 0xe1000, 1, RI_ALL_ONLINE}, { 0xe2000, 1, RI_ALL_ONLINE},
--	{ 0xe2004, 2047, RI_ALL_OFFLINE}, { 0xf0000, 1, RI_ALL_ONLINE},
--	{ 0xf0004, 16383, RI_ALL_OFFLINE}, { 0x101000, 12, RI_ALL_ONLINE},
--	{ 0x10103c, 1, RI_ALL_ONLINE}, { 0x10104c, 1, RI_ALL_ONLINE},
--	{ 0x101050, 1, RI_E1H_ONLINE}, { 0x101100, 1, RI_ALL_ONLINE},
--	{ 0x101800, 8, RI_ALL_ONLINE}, { 0x102000, 18, RI_ALL_ONLINE},
--	{ 0x102054, 1, RI_ALL_ONLINE}, { 0x102064, 1, RI_ALL_ONLINE},
--	{ 0x102080, 17, RI_ALL_ONLINE}, { 0x1020c8, 8, RI_E1H_ONLINE},
--	{ 0x102400, 1, RI_ALL_ONLINE}, { 0x103000, 26, RI_ALL_ONLINE},
--	{ 0x103074, 1, RI_ALL_ONLINE}, { 0x103084, 1, RI_ALL_ONLINE},
--	{ 0x103094, 1, RI_ALL_ONLINE}, { 0x103098, 5, RI_E1H_ONLINE},
--	{ 0x103800, 8, RI_ALL_ONLINE}, { 0x104000, 63, RI_ALL_ONLINE},
--	{ 0x104108, 1, RI_ALL_ONLINE}, { 0x104118, 1, RI_ALL_ONLINE},
--	{ 0x104200, 17, RI_ALL_ONLINE}, { 0x104400, 64, RI_ALL_ONLINE},
--	{ 0x104500, 192, RI_ALL_OFFLINE}, { 0x104800, 64, RI_ALL_ONLINE},
--	{ 0x104900, 192, RI_ALL_OFFLINE}, { 0x105000, 7, RI_ALL_ONLINE},
--	{ 0x10501c, 1, RI_ALL_OFFLINE}, { 0x105020, 3, RI_ALL_ONLINE},
--	{ 0x10502c, 1, RI_ALL_OFFLINE}, { 0x105030, 3, RI_ALL_ONLINE},
--	{ 0x10503c, 1, RI_ALL_OFFLINE}, { 0x105040, 3, RI_ALL_ONLINE},
--	{ 0x10504c, 1, RI_ALL_OFFLINE}, { 0x105050, 3, RI_ALL_ONLINE},
--	{ 0x10505c, 1, RI_ALL_OFFLINE}, { 0x105060, 3, RI_ALL_ONLINE},
--	{ 0x10506c, 1, RI_ALL_OFFLINE}, { 0x105070, 3, RI_ALL_ONLINE},
--	{ 0x10507c, 1, RI_ALL_OFFLINE}, { 0x105080, 3, RI_ALL_ONLINE},
--	{ 0x10508c, 1, RI_ALL_OFFLINE}, { 0x105090, 3, RI_ALL_ONLINE},
--	{ 0x10509c, 1, RI_ALL_OFFLINE}, { 0x1050a0, 3, RI_ALL_ONLINE},
--	{ 0x1050ac, 1, RI_ALL_OFFLINE}, { 0x1050b0, 3, RI_ALL_ONLINE},
--	{ 0x1050bc, 1, RI_ALL_OFFLINE}, { 0x1050c0, 3, RI_ALL_ONLINE},
--	{ 0x1050cc, 1, RI_ALL_OFFLINE}, { 0x1050d0, 3, RI_ALL_ONLINE},
--	{ 0x1050dc, 1, RI_ALL_OFFLINE}, { 0x1050e0, 3, RI_ALL_ONLINE},
--	{ 0x1050ec, 1, RI_ALL_OFFLINE}, { 0x1050f0, 3, RI_ALL_ONLINE},
--	{ 0x1050fc, 1, RI_ALL_OFFLINE}, { 0x105100, 3, RI_ALL_ONLINE},
--	{ 0x10510c, 1, RI_ALL_OFFLINE}, { 0x105110, 3, RI_ALL_ONLINE},
--	{ 0x10511c, 1, RI_ALL_OFFLINE}, { 0x105120, 3, RI_ALL_ONLINE},
--	{ 0x10512c, 1, RI_ALL_OFFLINE}, { 0x105130, 3, RI_ALL_ONLINE},
--	{ 0x10513c, 1, RI_ALL_OFFLINE}, { 0x105140, 3, RI_ALL_ONLINE},
--	{ 0x10514c, 1, RI_ALL_OFFLINE}, { 0x105150, 3, RI_ALL_ONLINE},
--	{ 0x10515c, 1, RI_ALL_OFFLINE}, { 0x105160, 3, RI_ALL_ONLINE},
--	{ 0x10516c, 1, RI_ALL_OFFLINE}, { 0x105170, 3, RI_ALL_ONLINE},
--	{ 0x10517c, 1, RI_ALL_OFFLINE}, { 0x105180, 3, RI_ALL_ONLINE},
--	{ 0x10518c, 1, RI_ALL_OFFLINE}, { 0x105190, 3, RI_ALL_ONLINE},
--	{ 0x10519c, 1, RI_ALL_OFFLINE}, { 0x1051a0, 3, RI_ALL_ONLINE},
--	{ 0x1051ac, 1, RI_ALL_OFFLINE}, { 0x1051b0, 3, RI_ALL_ONLINE},
--	{ 0x1051bc, 1, RI_ALL_OFFLINE}, { 0x1051c0, 3, RI_ALL_ONLINE},
--	{ 0x1051cc, 1, RI_ALL_OFFLINE}, { 0x1051d0, 3, RI_ALL_ONLINE},
--	{ 0x1051dc, 1, RI_ALL_OFFLINE}, { 0x1051e0, 3, RI_ALL_ONLINE},
--	{ 0x1051ec, 1, RI_ALL_OFFLINE}, { 0x1051f0, 3, RI_ALL_ONLINE},
--	{ 0x1051fc, 1, RI_ALL_OFFLINE}, { 0x105200, 3, RI_ALL_ONLINE},
--	{ 0x10520c, 1, RI_ALL_OFFLINE}, { 0x105210, 3, RI_ALL_ONLINE},
--	{ 0x10521c, 1, RI_ALL_OFFLINE}, { 0x105220, 3, RI_ALL_ONLINE},
--	{ 0x10522c, 1, RI_ALL_OFFLINE}, { 0x105230, 3, RI_ALL_ONLINE},
--	{ 0x10523c, 1, RI_ALL_OFFLINE}, { 0x105240, 3, RI_ALL_ONLINE},
--	{ 0x10524c, 1, RI_ALL_OFFLINE}, { 0x105250, 3, RI_ALL_ONLINE},
--	{ 0x10525c, 1, RI_ALL_OFFLINE}, { 0x105260, 3, RI_ALL_ONLINE},
--	{ 0x10526c, 1, RI_ALL_OFFLINE}, { 0x105270, 3, RI_ALL_ONLINE},
--	{ 0x10527c, 1, RI_ALL_OFFLINE}, { 0x105280, 3, RI_ALL_ONLINE},
--	{ 0x10528c, 1, RI_ALL_OFFLINE}, { 0x105290, 3, RI_ALL_ONLINE},
--	{ 0x10529c, 1, RI_ALL_OFFLINE}, { 0x1052a0, 3, RI_ALL_ONLINE},
--	{ 0x1052ac, 1, RI_ALL_OFFLINE}, { 0x1052b0, 3, RI_ALL_ONLINE},
--	{ 0x1052bc, 1, RI_ALL_OFFLINE}, { 0x1052c0, 3, RI_ALL_ONLINE},
--	{ 0x1052cc, 1, RI_ALL_OFFLINE}, { 0x1052d0, 3, RI_ALL_ONLINE},
--	{ 0x1052dc, 1, RI_ALL_OFFLINE}, { 0x1052e0, 3, RI_ALL_ONLINE},
--	{ 0x1052ec, 1, RI_ALL_OFFLINE}, { 0x1052f0, 3, RI_ALL_ONLINE},
--	{ 0x1052fc, 1, RI_ALL_OFFLINE}, { 0x105300, 3, RI_ALL_ONLINE},
--	{ 0x10530c, 1, RI_ALL_OFFLINE}, { 0x105310, 3, RI_ALL_ONLINE},
--	{ 0x10531c, 1, RI_ALL_OFFLINE}, { 0x105320, 3, RI_ALL_ONLINE},
--	{ 0x10532c, 1, RI_ALL_OFFLINE}, { 0x105330, 3, RI_ALL_ONLINE},
--	{ 0x10533c, 1, RI_ALL_OFFLINE}, { 0x105340, 3, RI_ALL_ONLINE},
--	{ 0x10534c, 1, RI_ALL_OFFLINE}, { 0x105350, 3, RI_ALL_ONLINE},
--	{ 0x10535c, 1, RI_ALL_OFFLINE}, { 0x105360, 3, RI_ALL_ONLINE},
--	{ 0x10536c, 1, RI_ALL_OFFLINE}, { 0x105370, 3, RI_ALL_ONLINE},
--	{ 0x10537c, 1, RI_ALL_OFFLINE}, { 0x105380, 3, RI_ALL_ONLINE},
--	{ 0x10538c, 1, RI_ALL_OFFLINE}, { 0x105390, 3, RI_ALL_ONLINE},
--	{ 0x10539c, 1, RI_ALL_OFFLINE}, { 0x1053a0, 3, RI_ALL_ONLINE},
--	{ 0x1053ac, 1, RI_ALL_OFFLINE}, { 0x1053b0, 3, RI_ALL_ONLINE},
--	{ 0x1053bc, 1, RI_ALL_OFFLINE}, { 0x1053c0, 3, RI_ALL_ONLINE},
--	{ 0x1053cc, 1, RI_ALL_OFFLINE}, { 0x1053d0, 3, RI_ALL_ONLINE},
--	{ 0x1053dc, 1, RI_ALL_OFFLINE}, { 0x1053e0, 3, RI_ALL_ONLINE},
--	{ 0x1053ec, 1, RI_ALL_OFFLINE}, { 0x1053f0, 3, RI_ALL_ONLINE},
--	{ 0x1053fc, 769, RI_ALL_OFFLINE}, { 0x108000, 33, RI_ALL_ONLINE},
--	{ 0x108090, 1, RI_ALL_ONLINE}, { 0x1080a0, 1, RI_ALL_ONLINE},
--	{ 0x1080ac, 5, RI_E1H_ONLINE}, { 0x108100, 5, RI_ALL_ONLINE},
--	{ 0x108120, 5, RI_ALL_ONLINE}, { 0x108200, 74, RI_ALL_ONLINE},
--	{ 0x108400, 74, RI_ALL_ONLINE}, { 0x108800, 152, RI_ALL_ONLINE},
--	{ 0x109000, 1, RI_ALL_ONLINE}, { 0x120000, 347, RI_ALL_ONLINE},
--	{ 0x120578, 1, RI_ALL_ONLINE}, { 0x120588, 1, RI_ALL_ONLINE},
--	{ 0x120598, 1, RI_ALL_ONLINE}, { 0x12059c, 23, RI_E1H_ONLINE},
--	{ 0x120614, 1, RI_E1H_ONLINE}, { 0x12061c, 30, RI_E1H_ONLINE},
--	{ 0x12080c, 65, RI_ALL_ONLINE}, { 0x120a00, 2, RI_ALL_ONLINE},
--	{ 0x122000, 2, RI_ALL_ONLINE}, { 0x128000, 2, RI_E1H_ONLINE},
--	{ 0x140000, 114, RI_ALL_ONLINE}, { 0x1401d4, 1, RI_ALL_ONLINE},
--	{ 0x1401e4, 1, RI_ALL_ONLINE}, { 0x140200, 6, RI_ALL_ONLINE},
--	{ 0x144000, 4, RI_ALL_ONLINE}, { 0x148000, 4, RI_ALL_ONLINE},
--	{ 0x14c000, 4, RI_ALL_ONLINE}, { 0x150000, 4, RI_ALL_ONLINE},
--	{ 0x154000, 4, RI_ALL_ONLINE}, { 0x158000, 4, RI_ALL_ONLINE},
--	{ 0x15c000, 7, RI_E1H_ONLINE}, { 0x161000, 7, RI_ALL_ONLINE},
--	{ 0x161028, 1, RI_ALL_ONLINE}, { 0x161038, 1, RI_ALL_ONLINE},
--	{ 0x161800, 2, RI_ALL_ONLINE}, { 0x164000, 60, RI_ALL_ONLINE},
--	{ 0x1640fc, 1, RI_ALL_ONLINE}, { 0x16410c, 1, RI_ALL_ONLINE},
--	{ 0x164110, 2, RI_E1H_ONLINE}, { 0x164200, 1, RI_ALL_ONLINE},
--	{ 0x164208, 1, RI_ALL_ONLINE}, { 0x164210, 1, RI_ALL_ONLINE},
--	{ 0x164218, 1, RI_ALL_ONLINE}, { 0x164220, 1, RI_ALL_ONLINE},
--	{ 0x164228, 1, RI_ALL_ONLINE}, { 0x164230, 1, RI_ALL_ONLINE},
--	{ 0x164238, 1, RI_ALL_ONLINE}, { 0x164240, 1, RI_ALL_ONLINE},
--	{ 0x164248, 1, RI_ALL_ONLINE}, { 0x164250, 1, RI_ALL_ONLINE},
--	{ 0x164258, 1, RI_ALL_ONLINE}, { 0x164260, 1, RI_ALL_ONLINE},
--	{ 0x164270, 2, RI_ALL_ONLINE}, { 0x164280, 2, RI_ALL_ONLINE},
--	{ 0x164800, 2, RI_ALL_ONLINE}, { 0x165000, 2, RI_ALL_ONLINE},
--	{ 0x166000, 164, RI_ALL_ONLINE}, { 0x16629c, 1, RI_ALL_ONLINE},
--	{ 0x1662ac, 1, RI_ALL_ONLINE}, { 0x1662bc, 1, RI_ALL_ONLINE},
--	{ 0x166400, 49, RI_ALL_ONLINE}, { 0x1664c8, 38, RI_ALL_ONLINE},
--	{ 0x166568, 2, RI_ALL_ONLINE}, { 0x166800, 1, RI_ALL_ONLINE},
--	{ 0x168000, 270, RI_ALL_ONLINE}, { 0x168444, 1, RI_ALL_ONLINE},
--	{ 0x168454, 1, RI_ALL_ONLINE}, { 0x168800, 19, RI_ALL_ONLINE},
--	{ 0x168900, 1, RI_ALL_ONLINE}, { 0x168a00, 128, RI_ALL_ONLINE},
--	{ 0x16a000, 1, RI_ALL_ONLINE}, { 0x16a004, 1535, RI_ALL_OFFLINE},
--	{ 0x16c000, 1, RI_ALL_ONLINE}, { 0x16c004, 1535, RI_ALL_OFFLINE},
--	{ 0x16e000, 16, RI_E1H_ONLINE}, { 0x16e100, 1, RI_E1H_ONLINE},
--	{ 0x16e200, 2, RI_E1H_ONLINE}, { 0x16e400, 183, RI_E1H_ONLINE},
--	{ 0x170000, 93, RI_ALL_ONLINE}, { 0x170180, 1, RI_ALL_ONLINE},
--	{ 0x170190, 1, RI_ALL_ONLINE}, { 0x170200, 4, RI_ALL_ONLINE},
--	{ 0x170214, 1, RI_ALL_ONLINE}, { 0x178000, 1, RI_ALL_ONLINE},
--	{ 0x180000, 61, RI_ALL_ONLINE}, { 0x180100, 1, RI_ALL_ONLINE},
--	{ 0x180110, 1, RI_ALL_ONLINE}, { 0x180120, 1, RI_ALL_ONLINE},
--	{ 0x180130, 1, RI_ALL_ONLINE}, { 0x18013c, 2, RI_E1H_ONLINE},
--	{ 0x180200, 58, RI_ALL_ONLINE}, { 0x180340, 4, RI_ALL_ONLINE},
--	{ 0x180400, 1, RI_ALL_ONLINE}, { 0x180404, 255, RI_ALL_OFFLINE},
--	{ 0x181000, 4, RI_ALL_ONLINE}, { 0x181010, 1020, RI_ALL_OFFLINE},
--	{ 0x1a0000, 1, RI_ALL_ONLINE}, { 0x1a0004, 1023, RI_ALL_OFFLINE},
--	{ 0x1a1000, 1, RI_ALL_ONLINE}, { 0x1a1004, 4607, RI_ALL_OFFLINE},
--	{ 0x1a5800, 2560, RI_E1H_OFFLINE}, { 0x1a8000, 64, RI_ALL_OFFLINE},
--	{ 0x1a8100, 1984, RI_E1H_OFFLINE}, { 0x1aa000, 1, RI_E1H_ONLINE},
--	{ 0x1aa004, 6655, RI_E1H_OFFLINE}, { 0x1b1800, 128, RI_ALL_OFFLINE},
--	{ 0x1b1c00, 128, RI_ALL_OFFLINE}, { 0x1b2000, 1, RI_ALL_OFFLINE},
--	{ 0x1b2400, 64, RI_E1H_OFFLINE}, { 0x1b8200, 1, RI_ALL_ONLINE},
--	{ 0x1b8240, 1, RI_ALL_ONLINE}, { 0x1b8280, 1, RI_ALL_ONLINE},
--	{ 0x1b82c0, 1, RI_ALL_ONLINE}, { 0x1b8a00, 1, RI_ALL_ONLINE},
--	{ 0x1b8a80, 1, RI_ALL_ONLINE}, { 0x1c0000, 2, RI_ALL_ONLINE},
--	{ 0x200000, 65, RI_ALL_ONLINE}, { 0x200110, 1, RI_ALL_ONLINE},
--	{ 0x200120, 1, RI_ALL_ONLINE}, { 0x200130, 1, RI_ALL_ONLINE},
--	{ 0x200140, 1, RI_ALL_ONLINE}, { 0x20014c, 2, RI_E1H_ONLINE},
--	{ 0x200200, 58, RI_ALL_ONLINE}, { 0x200340, 4, RI_ALL_ONLINE},
--	{ 0x200400, 1, RI_ALL_ONLINE}, { 0x200404, 255, RI_ALL_OFFLINE},
--	{ 0x202000, 4, RI_ALL_ONLINE}, { 0x202010, 2044, RI_ALL_OFFLINE},
--	{ 0x220000, 1, RI_ALL_ONLINE}, { 0x220004, 1023, RI_ALL_OFFLINE},
--	{ 0x221000, 1, RI_ALL_ONLINE}, { 0x221004, 4607, RI_ALL_OFFLINE},
--	{ 0x225800, 1536, RI_E1H_OFFLINE}, { 0x227000, 1, RI_E1H_ONLINE},
--	{ 0x227004, 1023, RI_E1H_OFFLINE}, { 0x228000, 64, RI_ALL_OFFLINE},
--	{ 0x228100, 8640, RI_E1H_OFFLINE}, { 0x231800, 128, RI_ALL_OFFLINE},
--	{ 0x231c00, 128, RI_ALL_OFFLINE}, { 0x232000, 1, RI_ALL_OFFLINE},
--	{ 0x232400, 64, RI_E1H_OFFLINE}, { 0x238200, 1, RI_ALL_ONLINE},
--	{ 0x238240, 1, RI_ALL_ONLINE}, { 0x238280, 1, RI_ALL_ONLINE},
--	{ 0x2382c0, 1, RI_ALL_ONLINE}, { 0x238a00, 1, RI_ALL_ONLINE},
--	{ 0x238a80, 1, RI_ALL_ONLINE}, { 0x240000, 2, RI_ALL_ONLINE},
--	{ 0x280000, 65, RI_ALL_ONLINE}, { 0x280110, 1, RI_ALL_ONLINE},
--	{ 0x280120, 1, RI_ALL_ONLINE}, { 0x280130, 1, RI_ALL_ONLINE},
--	{ 0x280140, 1, RI_ALL_ONLINE}, { 0x28014c, 2, RI_E1H_ONLINE},
--	{ 0x280200, 58, RI_ALL_ONLINE}, { 0x280340, 4, RI_ALL_ONLINE},
--	{ 0x280400, 1, RI_ALL_ONLINE}, { 0x280404, 255, RI_ALL_OFFLINE},
--	{ 0x282000, 4, RI_ALL_ONLINE}, { 0x282010, 2044, RI_ALL_OFFLINE},
--	{ 0x2a0000, 1, RI_ALL_ONLINE}, { 0x2a0004, 1023, RI_ALL_OFFLINE},
--	{ 0x2a1000, 1, RI_ALL_ONLINE}, { 0x2a1004, 4607, RI_ALL_OFFLINE},
--	{ 0x2a5800, 2560, RI_E1H_OFFLINE}, { 0x2a8000, 64, RI_ALL_OFFLINE},
--	{ 0x2a8100, 960, RI_E1H_OFFLINE}, { 0x2a9000, 1, RI_E1H_ONLINE},
--	{ 0x2a9004, 7679, RI_E1H_OFFLINE}, { 0x2b1800, 128, RI_ALL_OFFLINE},
--	{ 0x2b1c00, 128, RI_ALL_OFFLINE}, { 0x2b2000, 1, RI_ALL_OFFLINE},
--	{ 0x2b2400, 64, RI_E1H_OFFLINE}, { 0x2b8200, 1, RI_ALL_ONLINE},
--	{ 0x2b8240, 1, RI_ALL_ONLINE}, { 0x2b8280, 1, RI_ALL_ONLINE},
--	{ 0x2b82c0, 1, RI_ALL_ONLINE}, { 0x2b8a00, 1, RI_ALL_ONLINE},
--	{ 0x2b8a80, 1, RI_ALL_ONLINE}, { 0x2c0000, 2, RI_ALL_ONLINE},
--	{ 0x300000, 65, RI_ALL_ONLINE}, { 0x300110, 1, RI_ALL_ONLINE},
--	{ 0x300120, 1, RI_ALL_ONLINE}, { 0x300130, 1, RI_ALL_ONLINE},
--	{ 0x300140, 1, RI_ALL_ONLINE}, { 0x30014c, 2, RI_E1H_ONLINE},
--	{ 0x300200, 58, RI_ALL_ONLINE}, { 0x300340, 4, RI_ALL_ONLINE},
--	{ 0x300400, 1, RI_ALL_ONLINE}, { 0x300404, 255, RI_ALL_OFFLINE},
--	{ 0x302000, 4, RI_ALL_ONLINE}, { 0x302010, 2044, RI_ALL_OFFLINE},
--	{ 0x320000, 1, RI_ALL_ONLINE}, { 0x320004, 1023, RI_ALL_OFFLINE},
--	{ 0x321000, 1, RI_ALL_ONLINE}, { 0x321004, 4607, RI_ALL_OFFLINE},
--	{ 0x325800, 2560, RI_E1H_OFFLINE}, { 0x328000, 64, RI_ALL_OFFLINE},
--	{ 0x328100, 536, RI_E1H_OFFLINE}, { 0x328960, 1, RI_E1H_ONLINE},
--	{ 0x328964, 8103, RI_E1H_OFFLINE}, { 0x331800, 128, RI_ALL_OFFLINE},
--	{ 0x331c00, 128, RI_ALL_OFFLINE}, { 0x332000, 1, RI_ALL_OFFLINE},
--	{ 0x332400, 64, RI_E1H_OFFLINE}, { 0x338200, 1, RI_ALL_ONLINE},
--	{ 0x338240, 1, RI_ALL_ONLINE}, { 0x338280, 1, RI_ALL_ONLINE},
--	{ 0x3382c0, 1, RI_ALL_ONLINE}, { 0x338a00, 1, RI_ALL_ONLINE},
--	{ 0x338a80, 1, RI_ALL_ONLINE}, { 0x340000, 2, RI_ALL_ONLINE}
-+	{ 0x2000, 341, RI_ALL_ONLINE }, { 0x2800, 103, RI_ALL_ONLINE },
-+	{ 0x3000, 287, RI_ALL_ONLINE }, { 0x3800, 331, RI_ALL_ONLINE },
-+	{ 0x8800, 6, RI_E1_ONLINE }, { 0xa000, 223, RI_ALL_ONLINE },
-+	{ 0xa388, 1, RI_ALL_ONLINE }, { 0xa398, 1, RI_ALL_ONLINE },
-+	{ 0xa39c, 7, RI_E1H_ONLINE }, { 0xa3c0, 3, RI_E1H_ONLINE },
-+	{ 0xa3d0, 1, RI_E1H_ONLINE }, { 0xa3d8, 1, RI_E1H_ONLINE },
-+	{ 0xa3e0, 1, RI_E1H_ONLINE }, { 0xa3e8, 1, RI_E1H_ONLINE },
-+	{ 0xa3f0, 1, RI_E1H_ONLINE }, { 0xa3f8, 1, RI_E1H_ONLINE },
-+	{ 0xa400, 69, RI_ALL_ONLINE }, { 0xa518, 1, RI_ALL_ONLINE },
-+	{ 0xa520, 1, RI_ALL_ONLINE }, { 0xa528, 1, RI_ALL_ONLINE },
-+	{ 0xa530, 1, RI_ALL_ONLINE }, { 0xa538, 1, RI_ALL_ONLINE },
-+	{ 0xa540, 1, RI_ALL_ONLINE }, { 0xa548, 1, RI_ALL_ONLINE },
-+	{ 0xa550, 1, RI_ALL_ONLINE }, { 0xa558, 1, RI_ALL_ONLINE },
-+	{ 0xa560, 1, RI_ALL_ONLINE }, { 0xa568, 1, RI_ALL_ONLINE },
-+	{ 0xa570, 1, RI_ALL_ONLINE }, { 0xa580, 1, RI_ALL_ONLINE },
-+	{ 0xa590, 1, RI_ALL_ONLINE }, { 0xa5a0, 1, RI_ALL_ONLINE },
-+	{ 0xa5c0, 1, RI_ALL_ONLINE }, { 0xa5e0, 1, RI_E1H_ONLINE },
-+	{ 0xa5e8, 1, RI_E1H_ONLINE }, { 0xa5f0, 1, RI_E1H_ONLINE },
-+	{ 0xa5f8, 10, RI_E1H_ONLINE }, { 0x10000, 236, RI_ALL_ONLINE },
-+	{ 0x103bc, 1, RI_ALL_ONLINE }, { 0x103cc, 1, RI_ALL_ONLINE },
-+	{ 0x103dc, 1, RI_ALL_ONLINE }, { 0x10400, 57, RI_ALL_ONLINE },
-+	{ 0x104e8, 2, RI_ALL_ONLINE }, { 0x104f4, 2, RI_ALL_ONLINE },
-+	{ 0x10500, 146, RI_ALL_ONLINE }, { 0x10750, 2, RI_ALL_ONLINE },
-+	{ 0x10760, 2, RI_ALL_ONLINE }, { 0x10770, 2, RI_ALL_ONLINE },
-+	{ 0x10780, 2, RI_ALL_ONLINE }, { 0x10790, 2, RI_ALL_ONLINE },
-+	{ 0x107a0, 2, RI_ALL_ONLINE }, { 0x107b0, 2, RI_ALL_ONLINE },
-+	{ 0x107c0, 2, RI_ALL_ONLINE }, { 0x107d0, 2, RI_ALL_ONLINE },
-+	{ 0x107e0, 2, RI_ALL_ONLINE }, { 0x10880, 2, RI_ALL_ONLINE },
-+	{ 0x10900, 2, RI_ALL_ONLINE }, { 0x12000, 1, RI_ALL_ONLINE },
-+	{ 0x14000, 1, RI_ALL_ONLINE }, { 0x16000, 26, RI_E1H_ONLINE },
-+	{ 0x16070, 18, RI_E1H_ONLINE }, { 0x160c0, 27, RI_E1H_ONLINE },
-+	{ 0x16140, 1, RI_E1H_ONLINE }, { 0x16160, 1, RI_E1H_ONLINE },
-+	{ 0x16180, 2, RI_E1H_ONLINE }, { 0x161c0, 2, RI_E1H_ONLINE },
-+	{ 0x16204, 5, RI_E1H_ONLINE }, { 0x18000, 1, RI_E1H_ONLINE },
-+	{ 0x18008, 1, RI_E1H_ONLINE }, { 0x20000, 24, RI_ALL_ONLINE },
-+	{ 0x20060, 8, RI_ALL_ONLINE }, { 0x20080, 138, RI_ALL_ONLINE },
-+	{ 0x202b4, 1, RI_ALL_ONLINE }, { 0x202c4, 1, RI_ALL_ONLINE },
-+	{ 0x20400, 2, RI_ALL_ONLINE }, { 0x2040c, 8, RI_ALL_ONLINE },
-+	{ 0x2042c, 18, RI_E1H_ONLINE }, { 0x20480, 1, RI_ALL_ONLINE },
-+	{ 0x20500, 1, RI_ALL_ONLINE }, { 0x20600, 1, RI_ALL_ONLINE },
-+	{ 0x28000, 1, RI_ALL_ONLINE }, { 0x28004, 8191, RI_ALL_OFFLINE },
-+	{ 0x30000, 1, RI_ALL_ONLINE }, { 0x30004, 16383, RI_ALL_OFFLINE },
-+	{ 0x40000, 98, RI_ALL_ONLINE }, { 0x40194, 1, RI_ALL_ONLINE },
-+	{ 0x401a4, 1, RI_ALL_ONLINE }, { 0x401a8, 11, RI_E1H_ONLINE },
-+	{ 0x40200, 4, RI_ALL_ONLINE }, { 0x40400, 43, RI_ALL_ONLINE },
-+	{ 0x404b8, 1, RI_ALL_ONLINE }, { 0x404c8, 1, RI_ALL_ONLINE },
-+	{ 0x404cc, 3, RI_E1H_ONLINE }, { 0x40500, 2, RI_ALL_ONLINE },
-+	{ 0x40510, 2, RI_ALL_ONLINE }, { 0x40520, 2, RI_ALL_ONLINE },
-+	{ 0x40530, 2, RI_ALL_ONLINE }, { 0x40540, 2, RI_ALL_ONLINE },
-+	{ 0x42000, 164, RI_ALL_ONLINE }, { 0x4229c, 1, RI_ALL_ONLINE },
-+	{ 0x422ac, 1, RI_ALL_ONLINE }, { 0x422bc, 1, RI_ALL_ONLINE },
-+	{ 0x422d4, 5, RI_E1H_ONLINE }, { 0x42400, 49, RI_ALL_ONLINE },
-+	{ 0x424c8, 38, RI_ALL_ONLINE }, { 0x42568, 2, RI_ALL_ONLINE },
-+	{ 0x42800, 1, RI_ALL_ONLINE }, { 0x50000, 20, RI_ALL_ONLINE },
-+	{ 0x50050, 8, RI_ALL_ONLINE }, { 0x50070, 88, RI_ALL_ONLINE },
-+	{ 0x501dc, 1, RI_ALL_ONLINE }, { 0x501ec, 1, RI_ALL_ONLINE },
-+	{ 0x501f0, 4, RI_E1H_ONLINE }, { 0x50200, 2, RI_ALL_ONLINE },
-+	{ 0x5020c, 7, RI_ALL_ONLINE }, { 0x50228, 6, RI_E1H_ONLINE },
-+	{ 0x50240, 1, RI_ALL_ONLINE }, { 0x50280, 1, RI_ALL_ONLINE },
-+	{ 0x52000, 1, RI_ALL_ONLINE }, { 0x54000, 1, RI_ALL_ONLINE },
-+	{ 0x54004, 3327, RI_ALL_OFFLINE }, { 0x58000, 1, RI_ALL_ONLINE },
-+	{ 0x58004, 8191, RI_ALL_OFFLINE }, { 0x60000, 71, RI_ALL_ONLINE },
-+	{ 0x60128, 1, RI_ALL_ONLINE }, { 0x60138, 1, RI_ALL_ONLINE },
-+	{ 0x6013c, 24, RI_E1H_ONLINE }, { 0x60200, 1, RI_ALL_ONLINE },
-+	{ 0x61000, 1, RI_ALL_ONLINE }, { 0x61004, 511, RI_ALL_OFFLINE },
-+	{ 0x70000, 8, RI_ALL_ONLINE }, { 0x70020, 21496, RI_ALL_OFFLINE },
-+	{ 0x85000, 3, RI_ALL_ONLINE }, { 0x8500c, 4, RI_ALL_OFFLINE },
-+	{ 0x8501c, 7, RI_ALL_ONLINE }, { 0x85038, 4, RI_ALL_OFFLINE },
-+	{ 0x85048, 1, RI_ALL_ONLINE }, { 0x8504c, 109, RI_ALL_OFFLINE },
-+	{ 0x85200, 32, RI_ALL_ONLINE }, { 0x85280, 11104, RI_ALL_OFFLINE },
-+	{ 0xa0000, 16384, RI_ALL_ONLINE }, { 0xb0000, 16384, RI_E1H_ONLINE },
-+	{ 0xc1000, 7, RI_ALL_ONLINE }, { 0xc1028, 1, RI_ALL_ONLINE },
-+	{ 0xc1038, 1, RI_ALL_ONLINE }, { 0xc1800, 2, RI_ALL_ONLINE },
-+	{ 0xc2000, 164, RI_ALL_ONLINE }, { 0xc229c, 1, RI_ALL_ONLINE },
-+	{ 0xc22ac, 1, RI_ALL_ONLINE }, { 0xc22bc, 1, RI_ALL_ONLINE },
-+	{ 0xc2400, 49, RI_ALL_ONLINE }, { 0xc24c8, 38, RI_ALL_ONLINE },
-+	{ 0xc2568, 2, RI_ALL_ONLINE }, { 0xc2600, 1, RI_ALL_ONLINE },
-+	{ 0xc4000, 165, RI_ALL_ONLINE }, { 0xc42a0, 1, RI_ALL_ONLINE },
-+	{ 0xc42b0, 1, RI_ALL_ONLINE }, { 0xc42c0, 1, RI_ALL_ONLINE },
-+	{ 0xc42e0, 7, RI_E1H_ONLINE }, { 0xc4400, 51, RI_ALL_ONLINE },
-+	{ 0xc44d0, 38, RI_ALL_ONLINE }, { 0xc4570, 2, RI_ALL_ONLINE },
-+	{ 0xc4600, 1, RI_ALL_ONLINE }, { 0xd0000, 19, RI_ALL_ONLINE },
-+	{ 0xd004c, 8, RI_ALL_ONLINE }, { 0xd006c, 91, RI_ALL_ONLINE },
-+	{ 0xd01e4, 1, RI_ALL_ONLINE }, { 0xd01f4, 1, RI_ALL_ONLINE },
-+	{ 0xd0200, 2, RI_ALL_ONLINE }, { 0xd020c, 7, RI_ALL_ONLINE },
-+	{ 0xd0228, 18, RI_E1H_ONLINE }, { 0xd0280, 1, RI_ALL_ONLINE },
-+	{ 0xd0300, 1, RI_ALL_ONLINE }, { 0xd0400, 1, RI_ALL_ONLINE },
-+	{ 0xd4000, 1, RI_ALL_ONLINE }, { 0xd4004, 2559, RI_ALL_OFFLINE },
-+	{ 0xd8000, 1, RI_ALL_ONLINE }, { 0xd8004, 8191, RI_ALL_OFFLINE },
-+	{ 0xe0000, 21, RI_ALL_ONLINE }, { 0xe0054, 8, RI_ALL_ONLINE },
-+	{ 0xe0074, 85, RI_ALL_ONLINE }, { 0xe01d4, 1, RI_ALL_ONLINE },
-+	{ 0xe01e4, 1, RI_ALL_ONLINE }, { 0xe0200, 2, RI_ALL_ONLINE },
-+	{ 0xe020c, 8, RI_ALL_ONLINE }, { 0xe022c, 18, RI_E1H_ONLINE },
-+	{ 0xe0280, 1, RI_ALL_ONLINE }, { 0xe0300, 1, RI_ALL_ONLINE },
-+	{ 0xe1000, 1, RI_ALL_ONLINE }, { 0xe2000, 1, RI_ALL_ONLINE },
-+	{ 0xe2004, 2047, RI_ALL_OFFLINE }, { 0xf0000, 1, RI_ALL_ONLINE },
-+	{ 0xf0004, 16383, RI_ALL_OFFLINE }, { 0x101000, 12, RI_ALL_ONLINE },
-+	{ 0x10103c, 1, RI_ALL_ONLINE }, { 0x10104c, 1, RI_ALL_ONLINE },
-+	{ 0x101050, 1, RI_E1H_ONLINE }, { 0x101100, 1, RI_ALL_ONLINE },
-+	{ 0x101800, 8, RI_ALL_ONLINE }, { 0x102000, 18, RI_ALL_ONLINE },
-+	{ 0x102054, 1, RI_ALL_ONLINE }, { 0x102064, 1, RI_ALL_ONLINE },
-+	{ 0x102080, 17, RI_ALL_ONLINE }, { 0x1020c8, 8, RI_E1H_ONLINE },
-+	{ 0x102400, 1, RI_ALL_ONLINE }, { 0x103000, 26, RI_ALL_ONLINE },
-+	{ 0x103074, 1, RI_ALL_ONLINE }, { 0x103084, 1, RI_ALL_ONLINE },
-+	{ 0x103094, 1, RI_ALL_ONLINE }, { 0x103098, 5, RI_E1H_ONLINE },
-+	{ 0x103800, 8, RI_ALL_ONLINE }, { 0x104000, 63, RI_ALL_ONLINE },
-+	{ 0x104108, 1, RI_ALL_ONLINE }, { 0x104118, 1, RI_ALL_ONLINE },
-+	{ 0x104200, 17, RI_ALL_ONLINE }, { 0x104400, 64, RI_ALL_ONLINE },
-+	{ 0x104500, 192, RI_ALL_OFFLINE }, { 0x104800, 64, RI_ALL_ONLINE },
-+	{ 0x104900, 192, RI_ALL_OFFLINE }, { 0x105000, 7, RI_ALL_ONLINE },
-+	{ 0x10501c, 1, RI_ALL_OFFLINE }, { 0x105020, 3, RI_ALL_ONLINE },
-+	{ 0x10502c, 1, RI_ALL_OFFLINE }, { 0x105030, 3, RI_ALL_ONLINE },
-+	{ 0x10503c, 1, RI_ALL_OFFLINE }, { 0x105040, 3, RI_ALL_ONLINE },
-+	{ 0x10504c, 1, RI_ALL_OFFLINE }, { 0x105050, 3, RI_ALL_ONLINE },
-+	{ 0x10505c, 1, RI_ALL_OFFLINE }, { 0x105060, 3, RI_ALL_ONLINE },
-+	{ 0x10506c, 1, RI_ALL_OFFLINE }, { 0x105070, 3, RI_ALL_ONLINE },
-+	{ 0x10507c, 1, RI_ALL_OFFLINE }, { 0x105080, 3, RI_ALL_ONLINE },
-+	{ 0x10508c, 1, RI_ALL_OFFLINE }, { 0x105090, 3, RI_ALL_ONLINE },
-+	{ 0x10509c, 1, RI_ALL_OFFLINE }, { 0x1050a0, 3, RI_ALL_ONLINE },
-+	{ 0x1050ac, 1, RI_ALL_OFFLINE }, { 0x1050b0, 3, RI_ALL_ONLINE },
-+	{ 0x1050bc, 1, RI_ALL_OFFLINE }, { 0x1050c0, 3, RI_ALL_ONLINE },
-+	{ 0x1050cc, 1, RI_ALL_OFFLINE }, { 0x1050d0, 3, RI_ALL_ONLINE },
-+	{ 0x1050dc, 1, RI_ALL_OFFLINE }, { 0x1050e0, 3, RI_ALL_ONLINE },
-+	{ 0x1050ec, 1, RI_ALL_OFFLINE }, { 0x1050f0, 3, RI_ALL_ONLINE },
-+	{ 0x1050fc, 1, RI_ALL_OFFLINE }, { 0x105100, 3, RI_ALL_ONLINE },
-+	{ 0x10510c, 1, RI_ALL_OFFLINE }, { 0x105110, 3, RI_ALL_ONLINE },
-+	{ 0x10511c, 1, RI_ALL_OFFLINE }, { 0x105120, 3, RI_ALL_ONLINE },
-+	{ 0x10512c, 1, RI_ALL_OFFLINE }, { 0x105130, 3, RI_ALL_ONLINE },
-+	{ 0x10513c, 1, RI_ALL_OFFLINE }, { 0x105140, 3, RI_ALL_ONLINE },
-+	{ 0x10514c, 1, RI_ALL_OFFLINE }, { 0x105150, 3, RI_ALL_ONLINE },
-+	{ 0x10515c, 1, RI_ALL_OFFLINE }, { 0x105160, 3, RI_ALL_ONLINE },
-+	{ 0x10516c, 1, RI_ALL_OFFLINE }, { 0x105170, 3, RI_ALL_ONLINE },
-+	{ 0x10517c, 1, RI_ALL_OFFLINE }, { 0x105180, 3, RI_ALL_ONLINE },
-+	{ 0x10518c, 1, RI_ALL_OFFLINE }, { 0x105190, 3, RI_ALL_ONLINE },
-+	{ 0x10519c, 1, RI_ALL_OFFLINE }, { 0x1051a0, 3, RI_ALL_ONLINE },
-+	{ 0x1051ac, 1, RI_ALL_OFFLINE }, { 0x1051b0, 3, RI_ALL_ONLINE },
-+	{ 0x1051bc, 1, RI_ALL_OFFLINE }, { 0x1051c0, 3, RI_ALL_ONLINE },
-+	{ 0x1051cc, 1, RI_ALL_OFFLINE }, { 0x1051d0, 3, RI_ALL_ONLINE },
-+	{ 0x1051dc, 1, RI_ALL_OFFLINE }, { 0x1051e0, 3, RI_ALL_ONLINE },
-+	{ 0x1051ec, 1, RI_ALL_OFFLINE }, { 0x1051f0, 3, RI_ALL_ONLINE },
-+	{ 0x1051fc, 1, RI_ALL_OFFLINE }, { 0x105200, 3, RI_ALL_ONLINE },
-+	{ 0x10520c, 1, RI_ALL_OFFLINE }, { 0x105210, 3, RI_ALL_ONLINE },
-+	{ 0x10521c, 1, RI_ALL_OFFLINE }, { 0x105220, 3, RI_ALL_ONLINE },
-+	{ 0x10522c, 1, RI_ALL_OFFLINE }, { 0x105230, 3, RI_ALL_ONLINE },
-+	{ 0x10523c, 1, RI_ALL_OFFLINE }, { 0x105240, 3, RI_ALL_ONLINE },
-+	{ 0x10524c, 1, RI_ALL_OFFLINE }, { 0x105250, 3, RI_ALL_ONLINE },
-+	{ 0x10525c, 1, RI_ALL_OFFLINE }, { 0x105260, 3, RI_ALL_ONLINE },
-+	{ 0x10526c, 1, RI_ALL_OFFLINE }, { 0x105270, 3, RI_ALL_ONLINE },
-+	{ 0x10527c, 1, RI_ALL_OFFLINE }, { 0x105280, 3, RI_ALL_ONLINE },
-+	{ 0x10528c, 1, RI_ALL_OFFLINE }, { 0x105290, 3, RI_ALL_ONLINE },
-+	{ 0x10529c, 1, RI_ALL_OFFLINE }, { 0x1052a0, 3, RI_ALL_ONLINE },
-+	{ 0x1052ac, 1, RI_ALL_OFFLINE }, { 0x1052b0, 3, RI_ALL_ONLINE },
-+	{ 0x1052bc, 1, RI_ALL_OFFLINE }, { 0x1052c0, 3, RI_ALL_ONLINE },
-+	{ 0x1052cc, 1, RI_ALL_OFFLINE }, { 0x1052d0, 3, RI_ALL_ONLINE },
-+	{ 0x1052dc, 1, RI_ALL_OFFLINE }, { 0x1052e0, 3, RI_ALL_ONLINE },
-+	{ 0x1052ec, 1, RI_ALL_OFFLINE }, { 0x1052f0, 3, RI_ALL_ONLINE },
-+	{ 0x1052fc, 1, RI_ALL_OFFLINE }, { 0x105300, 3, RI_ALL_ONLINE },
-+	{ 0x10530c, 1, RI_ALL_OFFLINE }, { 0x105310, 3, RI_ALL_ONLINE },
-+	{ 0x10531c, 1, RI_ALL_OFFLINE }, { 0x105320, 3, RI_ALL_ONLINE },
-+	{ 0x10532c, 1, RI_ALL_OFFLINE }, { 0x105330, 3, RI_ALL_ONLINE },
-+	{ 0x10533c, 1, RI_ALL_OFFLINE }, { 0x105340, 3, RI_ALL_ONLINE },
-+	{ 0x10534c, 1, RI_ALL_OFFLINE }, { 0x105350, 3, RI_ALL_ONLINE },
-+	{ 0x10535c, 1, RI_ALL_OFFLINE }, { 0x105360, 3, RI_ALL_ONLINE },
-+	{ 0x10536c, 1, RI_ALL_OFFLINE }, { 0x105370, 3, RI_ALL_ONLINE },
-+	{ 0x10537c, 1, RI_ALL_OFFLINE }, { 0x105380, 3, RI_ALL_ONLINE },
-+	{ 0x10538c, 1, RI_ALL_OFFLINE }, { 0x105390, 3, RI_ALL_ONLINE },
-+	{ 0x10539c, 1, RI_ALL_OFFLINE }, { 0x1053a0, 3, RI_ALL_ONLINE },
-+	{ 0x1053ac, 1, RI_ALL_OFFLINE }, { 0x1053b0, 3, RI_ALL_ONLINE },
-+	{ 0x1053bc, 1, RI_ALL_OFFLINE }, { 0x1053c0, 3, RI_ALL_ONLINE },
-+	{ 0x1053cc, 1, RI_ALL_OFFLINE }, { 0x1053d0, 3, RI_ALL_ONLINE },
-+	{ 0x1053dc, 1, RI_ALL_OFFLINE }, { 0x1053e0, 3, RI_ALL_ONLINE },
-+	{ 0x1053ec, 1, RI_ALL_OFFLINE }, { 0x1053f0, 3, RI_ALL_ONLINE },
-+	{ 0x1053fc, 769, RI_ALL_OFFLINE }, { 0x108000, 33, RI_ALL_ONLINE },
-+	{ 0x108090, 1, RI_ALL_ONLINE }, { 0x1080a0, 1, RI_ALL_ONLINE },
-+	{ 0x1080ac, 5, RI_E1H_ONLINE }, { 0x108100, 5, RI_ALL_ONLINE },
-+	{ 0x108120, 5, RI_ALL_ONLINE }, { 0x108200, 74, RI_ALL_ONLINE },
-+	{ 0x108400, 74, RI_ALL_ONLINE }, { 0x108800, 152, RI_ALL_ONLINE },
-+	{ 0x109000, 1, RI_ALL_ONLINE }, { 0x120000, 347, RI_ALL_ONLINE },
-+	{ 0x120578, 1, RI_ALL_ONLINE }, { 0x120588, 1, RI_ALL_ONLINE },
-+	{ 0x120598, 1, RI_ALL_ONLINE }, { 0x12059c, 23, RI_E1H_ONLINE },
-+	{ 0x120614, 1, RI_E1H_ONLINE }, { 0x12061c, 30, RI_E1H_ONLINE },
-+	{ 0x12080c, 65, RI_ALL_ONLINE }, { 0x120a00, 2, RI_ALL_ONLINE },
-+	{ 0x122000, 2, RI_ALL_ONLINE }, { 0x128000, 2, RI_E1H_ONLINE },
-+	{ 0x140000, 114, RI_ALL_ONLINE }, { 0x1401d4, 1, RI_ALL_ONLINE },
-+	{ 0x1401e4, 1, RI_ALL_ONLINE }, { 0x140200, 6, RI_ALL_ONLINE },
-+	{ 0x144000, 4, RI_ALL_ONLINE }, { 0x148000, 4, RI_ALL_ONLINE },
-+	{ 0x14c000, 4, RI_ALL_ONLINE }, { 0x150000, 4, RI_ALL_ONLINE },
-+	{ 0x154000, 4, RI_ALL_ONLINE }, { 0x158000, 4, RI_ALL_ONLINE },
-+	{ 0x15c000, 7, RI_E1H_ONLINE }, { 0x161000, 7, RI_ALL_ONLINE },
-+	{ 0x161028, 1, RI_ALL_ONLINE }, { 0x161038, 1, RI_ALL_ONLINE },
-+	{ 0x161800, 2, RI_ALL_ONLINE }, { 0x164000, 60, RI_ALL_ONLINE },
-+	{ 0x1640fc, 1, RI_ALL_ONLINE }, { 0x16410c, 1, RI_ALL_ONLINE },
-+	{ 0x164110, 2, RI_E1H_ONLINE }, { 0x164200, 1, RI_ALL_ONLINE },
-+	{ 0x164208, 1, RI_ALL_ONLINE }, { 0x164210, 1, RI_ALL_ONLINE },
-+	{ 0x164218, 1, RI_ALL_ONLINE }, { 0x164220, 1, RI_ALL_ONLINE },
-+	{ 0x164228, 1, RI_ALL_ONLINE }, { 0x164230, 1, RI_ALL_ONLINE },
-+	{ 0x164238, 1, RI_ALL_ONLINE }, { 0x164240, 1, RI_ALL_ONLINE },
-+	{ 0x164248, 1, RI_ALL_ONLINE }, { 0x164250, 1, RI_ALL_ONLINE },
-+	{ 0x164258, 1, RI_ALL_ONLINE }, { 0x164260, 1, RI_ALL_ONLINE },
-+	{ 0x164270, 2, RI_ALL_ONLINE }, { 0x164280, 2, RI_ALL_ONLINE },
-+	{ 0x164800, 2, RI_ALL_ONLINE }, { 0x165000, 2, RI_ALL_ONLINE },
-+	{ 0x166000, 164, RI_ALL_ONLINE }, { 0x16629c, 1, RI_ALL_ONLINE },
-+	{ 0x1662ac, 1, RI_ALL_ONLINE }, { 0x1662bc, 1, RI_ALL_ONLINE },
-+	{ 0x166400, 49, RI_ALL_ONLINE }, { 0x1664c8, 38, RI_ALL_ONLINE },
-+	{ 0x166568, 2, RI_ALL_ONLINE }, { 0x166800, 1, RI_ALL_ONLINE },
-+	{ 0x168000, 270, RI_ALL_ONLINE }, { 0x168444, 1, RI_ALL_ONLINE },
-+	{ 0x168454, 1, RI_ALL_ONLINE }, { 0x168800, 19, RI_ALL_ONLINE },
-+	{ 0x168900, 1, RI_ALL_ONLINE }, { 0x168a00, 128, RI_ALL_ONLINE },
-+	{ 0x16a000, 1, RI_ALL_ONLINE }, { 0x16a004, 1535, RI_ALL_OFFLINE },
-+	{ 0x16c000, 1, RI_ALL_ONLINE }, { 0x16c004, 1535, RI_ALL_OFFLINE },
-+	{ 0x16e000, 16, RI_E1H_ONLINE }, { 0x16e100, 1, RI_E1H_ONLINE },
-+	{ 0x16e200, 2, RI_E1H_ONLINE }, { 0x16e400, 183, RI_E1H_ONLINE },
-+	{ 0x170000, 93, RI_ALL_ONLINE }, { 0x170180, 1, RI_ALL_ONLINE },
-+	{ 0x170190, 1, RI_ALL_ONLINE }, { 0x170200, 4, RI_ALL_ONLINE },
-+	{ 0x170214, 1, RI_ALL_ONLINE }, { 0x178000, 1, RI_ALL_ONLINE },
-+	{ 0x180000, 61, RI_ALL_ONLINE }, { 0x180100, 1, RI_ALL_ONLINE },
-+	{ 0x180110, 1, RI_ALL_ONLINE }, { 0x180120, 1, RI_ALL_ONLINE },
-+	{ 0x180130, 1, RI_ALL_ONLINE }, { 0x18013c, 2, RI_E1H_ONLINE },
-+	{ 0x180200, 58, RI_ALL_ONLINE }, { 0x180340, 4, RI_ALL_ONLINE },
-+	{ 0x180400, 1, RI_ALL_ONLINE }, { 0x180404, 255, RI_ALL_OFFLINE },
-+	{ 0x181000, 4, RI_ALL_ONLINE }, { 0x181010, 1020, RI_ALL_OFFLINE },
-+	{ 0x1a0000, 1, RI_ALL_ONLINE }, { 0x1a0004, 1023, RI_ALL_OFFLINE },
-+	{ 0x1a1000, 1, RI_ALL_ONLINE }, { 0x1a1004, 4607, RI_ALL_OFFLINE },
-+	{ 0x1a5800, 2560, RI_E1H_OFFLINE }, { 0x1a8000, 64, RI_ALL_OFFLINE },
-+	{ 0x1a8100, 1984, RI_E1H_OFFLINE }, { 0x1aa000, 1, RI_E1H_ONLINE },
-+	{ 0x1aa004, 6655, RI_E1H_OFFLINE }, { 0x1b1800, 128, RI_ALL_OFFLINE },
-+	{ 0x1b1c00, 128, RI_ALL_OFFLINE }, { 0x1b2000, 1, RI_ALL_OFFLINE },
-+	{ 0x1b2400, 64, RI_E1H_OFFLINE }, { 0x1b8200, 1, RI_ALL_ONLINE },
-+	{ 0x1b8240, 1, RI_ALL_ONLINE }, { 0x1b8280, 1, RI_ALL_ONLINE },
-+	{ 0x1b82c0, 1, RI_ALL_ONLINE }, { 0x1b8a00, 1, RI_ALL_ONLINE },
-+	{ 0x1b8a80, 1, RI_ALL_ONLINE }, { 0x1c0000, 2, RI_ALL_ONLINE },
-+	{ 0x200000, 65, RI_ALL_ONLINE }, { 0x200110, 1, RI_ALL_ONLINE },
-+	{ 0x200120, 1, RI_ALL_ONLINE }, { 0x200130, 1, RI_ALL_ONLINE },
-+	{ 0x200140, 1, RI_ALL_ONLINE }, { 0x20014c, 2, RI_E1H_ONLINE },
-+	{ 0x200200, 58, RI_ALL_ONLINE }, { 0x200340, 4, RI_ALL_ONLINE },
-+	{ 0x200400, 1, RI_ALL_ONLINE }, { 0x200404, 255, RI_ALL_OFFLINE },
-+	{ 0x202000, 4, RI_ALL_ONLINE }, { 0x202010, 2044, RI_ALL_OFFLINE },
-+	{ 0x220000, 1, RI_ALL_ONLINE }, { 0x220004, 1023, RI_ALL_OFFLINE },
-+	{ 0x221000, 1, RI_ALL_ONLINE }, { 0x221004, 4607, RI_ALL_OFFLINE },
-+	{ 0x225800, 1536, RI_E1H_OFFLINE }, { 0x227000, 1, RI_E1H_ONLINE },
-+	{ 0x227004, 1023, RI_E1H_OFFLINE }, { 0x228000, 64, RI_ALL_OFFLINE },
-+	{ 0x228100, 8640, RI_E1H_OFFLINE }, { 0x231800, 128, RI_ALL_OFFLINE },
-+	{ 0x231c00, 128, RI_ALL_OFFLINE }, { 0x232000, 1, RI_ALL_OFFLINE },
-+	{ 0x232400, 64, RI_E1H_OFFLINE }, { 0x238200, 1, RI_ALL_ONLINE },
-+	{ 0x238240, 1, RI_ALL_ONLINE }, { 0x238280, 1, RI_ALL_ONLINE },
-+	{ 0x2382c0, 1, RI_ALL_ONLINE }, { 0x238a00, 1, RI_ALL_ONLINE },
-+	{ 0x238a80, 1, RI_ALL_ONLINE }, { 0x240000, 2, RI_ALL_ONLINE },
-+	{ 0x280000, 65, RI_ALL_ONLINE }, { 0x280110, 1, RI_ALL_ONLINE },
-+	{ 0x280120, 1, RI_ALL_ONLINE }, { 0x280130, 1, RI_ALL_ONLINE },
-+	{ 0x280140, 1, RI_ALL_ONLINE }, { 0x28014c, 2, RI_E1H_ONLINE },
-+	{ 0x280200, 58, RI_ALL_ONLINE }, { 0x280340, 4, RI_ALL_ONLINE },
-+	{ 0x280400, 1, RI_ALL_ONLINE }, { 0x280404, 255, RI_ALL_OFFLINE },
-+	{ 0x282000, 4, RI_ALL_ONLINE }, { 0x282010, 2044, RI_ALL_OFFLINE },
-+	{ 0x2a0000, 1, RI_ALL_ONLINE }, { 0x2a0004, 1023, RI_ALL_OFFLINE },
-+	{ 0x2a1000, 1, RI_ALL_ONLINE }, { 0x2a1004, 4607, RI_ALL_OFFLINE },
-+	{ 0x2a5800, 2560, RI_E1H_OFFLINE }, { 0x2a8000, 64, RI_ALL_OFFLINE },
-+	{ 0x2a8100, 960, RI_E1H_OFFLINE }, { 0x2a9000, 1, RI_E1H_ONLINE },
-+	{ 0x2a9004, 7679, RI_E1H_OFFLINE }, { 0x2b1800, 128, RI_ALL_OFFLINE },
-+	{ 0x2b1c00, 128, RI_ALL_OFFLINE }, { 0x2b2000, 1, RI_ALL_OFFLINE },
-+	{ 0x2b2400, 64, RI_E1H_OFFLINE }, { 0x2b8200, 1, RI_ALL_ONLINE },
-+	{ 0x2b8240, 1, RI_ALL_ONLINE }, { 0x2b8280, 1, RI_ALL_ONLINE },
-+	{ 0x2b82c0, 1, RI_ALL_ONLINE }, { 0x2b8a00, 1, RI_ALL_ONLINE },
-+	{ 0x2b8a80, 1, RI_ALL_ONLINE }, { 0x2c0000, 2, RI_ALL_ONLINE },
-+	{ 0x300000, 65, RI_ALL_ONLINE }, { 0x300110, 1, RI_ALL_ONLINE },
-+	{ 0x300120, 1, RI_ALL_ONLINE }, { 0x300130, 1, RI_ALL_ONLINE },
-+	{ 0x300140, 1, RI_ALL_ONLINE }, { 0x30014c, 2, RI_E1H_ONLINE },
-+	{ 0x300200, 58, RI_ALL_ONLINE }, { 0x300340, 4, RI_ALL_ONLINE },
-+	{ 0x300400, 1, RI_ALL_ONLINE }, { 0x300404, 255, RI_ALL_OFFLINE },
-+	{ 0x302000, 4, RI_ALL_ONLINE }, { 0x302010, 2044, RI_ALL_OFFLINE },
-+	{ 0x320000, 1, RI_ALL_ONLINE }, { 0x320004, 1023, RI_ALL_OFFLINE },
-+	{ 0x321000, 1, RI_ALL_ONLINE }, { 0x321004, 4607, RI_ALL_OFFLINE },
-+	{ 0x325800, 2560, RI_E1H_OFFLINE }, { 0x328000, 64, RI_ALL_OFFLINE },
-+	{ 0x328100, 536, RI_E1H_OFFLINE }, { 0x328960, 1, RI_E1H_ONLINE },
-+	{ 0x328964, 8103, RI_E1H_OFFLINE }, { 0x331800, 128, RI_ALL_OFFLINE },
-+	{ 0x331c00, 128, RI_ALL_OFFLINE }, { 0x332000, 1, RI_ALL_OFFLINE },
-+	{ 0x332400, 64, RI_E1H_OFFLINE }, { 0x338200, 1, RI_ALL_ONLINE },
-+	{ 0x338240, 1, RI_ALL_ONLINE }, { 0x338280, 1, RI_ALL_ONLINE },
-+	{ 0x3382c0, 1, RI_ALL_ONLINE }, { 0x338a00, 1, RI_ALL_ONLINE },
-+	{ 0x338a80, 1, RI_ALL_ONLINE }, { 0x340000, 2, RI_ALL_ONLINE }
- };
- 
- 
--#define IDLEREGS_COUNT		277
--static const struct reg_addr idle_addrs[IDLEREGS_COUNT] = {
--	{ 0x2114, 1, RI_ALL_ONLINE}, { 0x2120, 1, RI_ALL_ONLINE},
--	{ 0x212c, 4, RI_ALL_ONLINE}, { 0x2814, 1, RI_ALL_ONLINE},
--	{ 0x281c, 2, RI_ALL_ONLINE}, { 0xa38c, 1, RI_ALL_ONLINE},
--	{ 0xa408, 1, RI_ALL_ONLINE}, { 0xa42c, 12, RI_ALL_ONLINE},
--	{ 0xa600, 5, RI_E1H_ONLINE}, { 0xa618, 1, RI_E1H_ONLINE},
--	{ 0xc09c, 1, RI_ALL_ONLINE}, { 0x103b0, 1, RI_ALL_ONLINE},
--	{ 0x103c0, 1, RI_ALL_ONLINE}, { 0x103d0, 1, RI_E1H_ONLINE},
--	{ 0x2021c, 11, RI_ALL_ONLINE}, { 0x202a8, 1, RI_ALL_ONLINE},
--	{ 0x202b8, 1, RI_ALL_ONLINE}, { 0x20404, 1, RI_ALL_ONLINE},
--	{ 0x2040c, 2, RI_ALL_ONLINE}, { 0x2041c, 2, RI_ALL_ONLINE},
--	{ 0x40154, 14, RI_ALL_ONLINE}, { 0x40198, 1, RI_ALL_ONLINE},
--	{ 0x404ac, 1, RI_ALL_ONLINE}, { 0x404bc, 1, RI_ALL_ONLINE},
--	{ 0x42290, 1, RI_ALL_ONLINE}, { 0x422a0, 1, RI_ALL_ONLINE},
--	{ 0x422b0, 1, RI_ALL_ONLINE}, { 0x42548, 1, RI_ALL_ONLINE},
--	{ 0x42550, 1, RI_ALL_ONLINE}, { 0x42558, 1, RI_ALL_ONLINE},
--	{ 0x50160, 8, RI_ALL_ONLINE}, { 0x501d0, 1, RI_ALL_ONLINE},
--	{ 0x501e0, 1, RI_ALL_ONLINE}, { 0x50204, 1, RI_ALL_ONLINE},
--	{ 0x5020c, 2, RI_ALL_ONLINE}, { 0x5021c, 1, RI_ALL_ONLINE},
--	{ 0x60090, 1, RI_ALL_ONLINE}, { 0x6011c, 1, RI_ALL_ONLINE},
--	{ 0x6012c, 1, RI_ALL_ONLINE}, { 0xc101c, 1, RI_ALL_ONLINE},
--	{ 0xc102c, 1, RI_ALL_ONLINE}, { 0xc2290, 1, RI_ALL_ONLINE},
--	{ 0xc22a0, 1, RI_ALL_ONLINE}, { 0xc22b0, 1, RI_ALL_ONLINE},
--	{ 0xc2548, 1, RI_ALL_ONLINE}, { 0xc2550, 1, RI_ALL_ONLINE},
--	{ 0xc2558, 1, RI_ALL_ONLINE}, { 0xc4294, 1, RI_ALL_ONLINE},
--	{ 0xc42a4, 1, RI_ALL_ONLINE}, { 0xc42b4, 1, RI_ALL_ONLINE},
--	{ 0xc4550, 1, RI_ALL_ONLINE}, { 0xc4558, 1, RI_ALL_ONLINE},
--	{ 0xc4560, 1, RI_ALL_ONLINE}, { 0xd016c, 8, RI_ALL_ONLINE},
--	{ 0xd01d8, 1, RI_ALL_ONLINE}, { 0xd01e8, 1, RI_ALL_ONLINE},
--	{ 0xd0204, 1, RI_ALL_ONLINE}, { 0xd020c, 3, RI_ALL_ONLINE},
--	{ 0xe0154, 8, RI_ALL_ONLINE}, { 0xe01c8, 1, RI_ALL_ONLINE},
--	{ 0xe01d8, 1, RI_ALL_ONLINE}, { 0xe0204, 1, RI_ALL_ONLINE},
--	{ 0xe020c, 2, RI_ALL_ONLINE}, { 0xe021c, 2, RI_ALL_ONLINE},
--	{ 0x101014, 1, RI_ALL_ONLINE}, { 0x101030, 1, RI_ALL_ONLINE},
--	{ 0x101040, 1, RI_ALL_ONLINE}, { 0x102058, 1, RI_ALL_ONLINE},
--	{ 0x102080, 16, RI_ALL_ONLINE}, { 0x103004, 2, RI_ALL_ONLINE},
--	{ 0x103068, 1, RI_ALL_ONLINE}, { 0x103078, 1, RI_ALL_ONLINE},
--	{ 0x103088, 1, RI_ALL_ONLINE}, { 0x10309c, 2, RI_E1H_ONLINE},
--	{ 0x104004, 1, RI_ALL_ONLINE}, { 0x104018, 1, RI_ALL_ONLINE},
--	{ 0x104020, 1, RI_ALL_ONLINE}, { 0x10403c, 1, RI_ALL_ONLINE},
--	{ 0x1040fc, 1, RI_ALL_ONLINE}, { 0x10410c, 1, RI_ALL_ONLINE},
--	{ 0x104400, 64, RI_ALL_ONLINE}, { 0x104800, 64, RI_ALL_ONLINE},
--	{ 0x105000, 3, RI_ALL_ONLINE}, { 0x105010, 3, RI_ALL_ONLINE},
--	{ 0x105020, 3, RI_ALL_ONLINE}, { 0x105030, 3, RI_ALL_ONLINE},
--	{ 0x105040, 3, RI_ALL_ONLINE}, { 0x105050, 3, RI_ALL_ONLINE},
--	{ 0x105060, 3, RI_ALL_ONLINE}, { 0x105070, 3, RI_ALL_ONLINE},
--	{ 0x105080, 3, RI_ALL_ONLINE}, { 0x105090, 3, RI_ALL_ONLINE},
--	{ 0x1050a0, 3, RI_ALL_ONLINE}, { 0x1050b0, 3, RI_ALL_ONLINE},
--	{ 0x1050c0, 3, RI_ALL_ONLINE}, { 0x1050d0, 3, RI_ALL_ONLINE},
--	{ 0x1050e0, 3, RI_ALL_ONLINE}, { 0x1050f0, 3, RI_ALL_ONLINE},
--	{ 0x105100, 3, RI_ALL_ONLINE}, { 0x105110, 3, RI_ALL_ONLINE},
--	{ 0x105120, 3, RI_ALL_ONLINE}, { 0x105130, 3, RI_ALL_ONLINE},
--	{ 0x105140, 3, RI_ALL_ONLINE}, { 0x105150, 3, RI_ALL_ONLINE},
--	{ 0x105160, 3, RI_ALL_ONLINE}, { 0x105170, 3, RI_ALL_ONLINE},
--	{ 0x105180, 3, RI_ALL_ONLINE}, { 0x105190, 3, RI_ALL_ONLINE},
--	{ 0x1051a0, 3, RI_ALL_ONLINE}, { 0x1051b0, 3, RI_ALL_ONLINE},
--	{ 0x1051c0, 3, RI_ALL_ONLINE}, { 0x1051d0, 3, RI_ALL_ONLINE},
--	{ 0x1051e0, 3, RI_ALL_ONLINE}, { 0x1051f0, 3, RI_ALL_ONLINE},
--	{ 0x105200, 3, RI_ALL_ONLINE}, { 0x105210, 3, RI_ALL_ONLINE},
--	{ 0x105220, 3, RI_ALL_ONLINE}, { 0x105230, 3, RI_ALL_ONLINE},
--	{ 0x105240, 3, RI_ALL_ONLINE}, { 0x105250, 3, RI_ALL_ONLINE},
--	{ 0x105260, 3, RI_ALL_ONLINE}, { 0x105270, 3, RI_ALL_ONLINE},
--	{ 0x105280, 3, RI_ALL_ONLINE}, { 0x105290, 3, RI_ALL_ONLINE},
--	{ 0x1052a0, 3, RI_ALL_ONLINE}, { 0x1052b0, 3, RI_ALL_ONLINE},
--	{ 0x1052c0, 3, RI_ALL_ONLINE}, { 0x1052d0, 3, RI_ALL_ONLINE},
--	{ 0x1052e0, 3, RI_ALL_ONLINE}, { 0x1052f0, 3, RI_ALL_ONLINE},
--	{ 0x105300, 3, RI_ALL_ONLINE}, { 0x105310, 3, RI_ALL_ONLINE},
--	{ 0x105320, 3, RI_ALL_ONLINE}, { 0x105330, 3, RI_ALL_ONLINE},
--	{ 0x105340, 3, RI_ALL_ONLINE}, { 0x105350, 3, RI_ALL_ONLINE},
--	{ 0x105360, 3, RI_ALL_ONLINE}, { 0x105370, 3, RI_ALL_ONLINE},
--	{ 0x105380, 3, RI_ALL_ONLINE}, { 0x105390, 3, RI_ALL_ONLINE},
--	{ 0x1053a0, 3, RI_ALL_ONLINE}, { 0x1053b0, 3, RI_ALL_ONLINE},
--	{ 0x1053c0, 3, RI_ALL_ONLINE}, { 0x1053d0, 3, RI_ALL_ONLINE},
--	{ 0x1053e0, 3, RI_ALL_ONLINE}, { 0x1053f0, 3, RI_ALL_ONLINE},
--	{ 0x108094, 1, RI_ALL_ONLINE}, { 0x1201b0, 2, RI_ALL_ONLINE},
--	{ 0x12032c, 1, RI_ALL_ONLINE}, { 0x12036c, 3, RI_ALL_ONLINE},
--	{ 0x120408, 2, RI_ALL_ONLINE}, { 0x120414, 15, RI_ALL_ONLINE},
--	{ 0x120478, 2, RI_ALL_ONLINE}, { 0x12052c, 1, RI_ALL_ONLINE},
--	{ 0x120564, 3, RI_ALL_ONLINE}, { 0x12057c, 1, RI_ALL_ONLINE},
--	{ 0x12058c, 1, RI_ALL_ONLINE}, { 0x120608, 1, RI_E1H_ONLINE},
--	{ 0x120808, 1, RI_E1_ONLINE}, { 0x12080c, 2, RI_ALL_ONLINE},
--	{ 0x120818, 1, RI_ALL_ONLINE}, { 0x120820, 1, RI_ALL_ONLINE},
--	{ 0x120828, 1, RI_ALL_ONLINE}, { 0x120830, 1, RI_ALL_ONLINE},
--	{ 0x120838, 1, RI_ALL_ONLINE}, { 0x120840, 1, RI_ALL_ONLINE},
--	{ 0x120848, 1, RI_ALL_ONLINE}, { 0x120850, 1, RI_ALL_ONLINE},
--	{ 0x120858, 1, RI_ALL_ONLINE}, { 0x120860, 1, RI_ALL_ONLINE},
--	{ 0x120868, 1, RI_ALL_ONLINE}, { 0x120870, 1, RI_ALL_ONLINE},
--	{ 0x120878, 1, RI_ALL_ONLINE}, { 0x120880, 1, RI_ALL_ONLINE},
--	{ 0x120888, 1, RI_ALL_ONLINE}, { 0x120890, 1, RI_ALL_ONLINE},
--	{ 0x120898, 1, RI_ALL_ONLINE}, { 0x1208a0, 1, RI_ALL_ONLINE},
--	{ 0x1208a8, 1, RI_ALL_ONLINE}, { 0x1208b0, 1, RI_ALL_ONLINE},
--	{ 0x1208b8, 1, RI_ALL_ONLINE}, { 0x1208c0, 1, RI_ALL_ONLINE},
--	{ 0x1208c8, 1, RI_ALL_ONLINE}, { 0x1208d0, 1, RI_ALL_ONLINE},
--	{ 0x1208d8, 1, RI_ALL_ONLINE}, { 0x1208e0, 1, RI_ALL_ONLINE},
--	{ 0x1208e8, 1, RI_ALL_ONLINE}, { 0x1208f0, 1, RI_ALL_ONLINE},
--	{ 0x1208f8, 1, RI_ALL_ONLINE}, { 0x120900, 1, RI_ALL_ONLINE},
--	{ 0x120908, 1, RI_ALL_ONLINE}, { 0x14005c, 2, RI_ALL_ONLINE},
--	{ 0x1400d0, 2, RI_ALL_ONLINE}, { 0x1400e0, 1, RI_ALL_ONLINE},
--	{ 0x1401c8, 1, RI_ALL_ONLINE}, { 0x140200, 6, RI_ALL_ONLINE},
--	{ 0x16101c, 1, RI_ALL_ONLINE}, { 0x16102c, 1, RI_ALL_ONLINE},
--	{ 0x164014, 2, RI_ALL_ONLINE}, { 0x1640f0, 1, RI_ALL_ONLINE},
--	{ 0x166290, 1, RI_ALL_ONLINE}, { 0x1662a0, 1, RI_ALL_ONLINE},
--	{ 0x1662b0, 1, RI_ALL_ONLINE}, { 0x166548, 1, RI_ALL_ONLINE},
--	{ 0x166550, 1, RI_ALL_ONLINE}, { 0x166558, 1, RI_ALL_ONLINE},
--	{ 0x168000, 1, RI_ALL_ONLINE}, { 0x168008, 1, RI_ALL_ONLINE},
--	{ 0x168010, 1, RI_ALL_ONLINE}, { 0x168018, 1, RI_ALL_ONLINE},
--	{ 0x168028, 2, RI_ALL_ONLINE}, { 0x168058, 4, RI_ALL_ONLINE},
--	{ 0x168070, 1, RI_ALL_ONLINE}, { 0x168238, 1, RI_ALL_ONLINE},
--	{ 0x1682d0, 2, RI_ALL_ONLINE}, { 0x1682e0, 1, RI_ALL_ONLINE},
--	{ 0x168300, 67, RI_ALL_ONLINE}, { 0x168410, 2, RI_ALL_ONLINE},
--	{ 0x168438, 1, RI_ALL_ONLINE}, { 0x168448, 1, RI_ALL_ONLINE},
--	{ 0x168a00, 128, RI_ALL_ONLINE}, { 0x16e200, 128, RI_E1H_ONLINE},
--	{ 0x16e404, 2, RI_E1H_ONLINE}, { 0x16e584, 70, RI_E1H_ONLINE},
--	{ 0x1700a4, 1, RI_ALL_ONLINE}, { 0x1700ac, 2, RI_ALL_ONLINE},
--	{ 0x1700c0, 1, RI_ALL_ONLINE}, { 0x170174, 1, RI_ALL_ONLINE},
--	{ 0x170184, 1, RI_ALL_ONLINE}, { 0x1800f4, 1, RI_ALL_ONLINE},
--	{ 0x180104, 1, RI_ALL_ONLINE}, { 0x180114, 1, RI_ALL_ONLINE},
--	{ 0x180124, 1, RI_ALL_ONLINE}, { 0x18026c, 1, RI_ALL_ONLINE},
--	{ 0x1802a0, 1, RI_ALL_ONLINE}, { 0x1a1000, 1, RI_ALL_ONLINE},
--	{ 0x1aa000, 1, RI_E1H_ONLINE}, { 0x1b8000, 1, RI_ALL_ONLINE},
--	{ 0x1b8040, 1, RI_ALL_ONLINE}, { 0x1b8080, 1, RI_ALL_ONLINE},
--	{ 0x1b80c0, 1, RI_ALL_ONLINE}, { 0x200104, 1, RI_ALL_ONLINE},
--	{ 0x200114, 1, RI_ALL_ONLINE}, { 0x200124, 1, RI_ALL_ONLINE},
--	{ 0x200134, 1, RI_ALL_ONLINE}, { 0x20026c, 1, RI_ALL_ONLINE},
--	{ 0x2002a0, 1, RI_ALL_ONLINE}, { 0x221000, 1, RI_ALL_ONLINE},
--	{ 0x227000, 1, RI_E1H_ONLINE}, { 0x238000, 1, RI_ALL_ONLINE},
--	{ 0x238040, 1, RI_ALL_ONLINE}, { 0x238080, 1, RI_ALL_ONLINE},
--	{ 0x2380c0, 1, RI_ALL_ONLINE}, { 0x280104, 1, RI_ALL_ONLINE},
--	{ 0x280114, 1, RI_ALL_ONLINE}, { 0x280124, 1, RI_ALL_ONLINE},
--	{ 0x280134, 1, RI_ALL_ONLINE}, { 0x28026c, 1, RI_ALL_ONLINE},
--	{ 0x2802a0, 1, RI_ALL_ONLINE}, { 0x2a1000, 1, RI_ALL_ONLINE},
--	{ 0x2a9000, 1, RI_E1H_ONLINE}, { 0x2b8000, 1, RI_ALL_ONLINE},
--	{ 0x2b8040, 1, RI_ALL_ONLINE}, { 0x2b8080, 1, RI_ALL_ONLINE},
--	{ 0x2b80c0, 1, RI_ALL_ONLINE}, { 0x300104, 1, RI_ALL_ONLINE},
--	{ 0x300114, 1, RI_ALL_ONLINE}, { 0x300124, 1, RI_ALL_ONLINE},
--	{ 0x300134, 1, RI_ALL_ONLINE}, { 0x30026c, 1, RI_ALL_ONLINE},
--	{ 0x3002a0, 1, RI_ALL_ONLINE}, { 0x321000, 1, RI_ALL_ONLINE},
--	{ 0x328960, 1, RI_E1H_ONLINE}, { 0x338000, 1, RI_ALL_ONLINE},
--	{ 0x338040, 1, RI_ALL_ONLINE}, { 0x338080, 1, RI_ALL_ONLINE},
--	{ 0x3380c0, 1, RI_ALL_ONLINE}
-+#define IDLE_REGS_COUNT			277
-+static const struct reg_addr idle_addrs[IDLE_REGS_COUNT] = {
-+	{ 0x2114, 1, RI_ALL_ONLINE }, { 0x2120, 1, RI_ALL_ONLINE },
-+	{ 0x212c, 4, RI_ALL_ONLINE }, { 0x2814, 1, RI_ALL_ONLINE },
-+	{ 0x281c, 2, RI_ALL_ONLINE }, { 0xa38c, 1, RI_ALL_ONLINE },
-+	{ 0xa408, 1, RI_ALL_ONLINE }, { 0xa42c, 12, RI_ALL_ONLINE },
-+	{ 0xa600, 5, RI_E1H_ONLINE }, { 0xa618, 1, RI_E1H_ONLINE },
-+	{ 0xc09c, 1, RI_ALL_ONLINE }, { 0x103b0, 1, RI_ALL_ONLINE },
-+	{ 0x103c0, 1, RI_ALL_ONLINE }, { 0x103d0, 1, RI_E1H_ONLINE },
-+	{ 0x2021c, 11, RI_ALL_ONLINE }, { 0x202a8, 1, RI_ALL_ONLINE },
-+	{ 0x202b8, 1, RI_ALL_ONLINE }, { 0x20404, 1, RI_ALL_ONLINE },
-+	{ 0x2040c, 2, RI_ALL_ONLINE }, { 0x2041c, 2, RI_ALL_ONLINE },
-+	{ 0x40154, 14, RI_ALL_ONLINE }, { 0x40198, 1, RI_ALL_ONLINE },
-+	{ 0x404ac, 1, RI_ALL_ONLINE }, { 0x404bc, 1, RI_ALL_ONLINE },
-+	{ 0x42290, 1, RI_ALL_ONLINE }, { 0x422a0, 1, RI_ALL_ONLINE },
-+	{ 0x422b0, 1, RI_ALL_ONLINE }, { 0x42548, 1, RI_ALL_ONLINE },
-+	{ 0x42550, 1, RI_ALL_ONLINE }, { 0x42558, 1, RI_ALL_ONLINE },
-+	{ 0x50160, 8, RI_ALL_ONLINE }, { 0x501d0, 1, RI_ALL_ONLINE },
-+	{ 0x501e0, 1, RI_ALL_ONLINE }, { 0x50204, 1, RI_ALL_ONLINE },
-+	{ 0x5020c, 2, RI_ALL_ONLINE }, { 0x5021c, 1, RI_ALL_ONLINE },
-+	{ 0x60090, 1, RI_ALL_ONLINE }, { 0x6011c, 1, RI_ALL_ONLINE },
-+	{ 0x6012c, 1, RI_ALL_ONLINE }, { 0xc101c, 1, RI_ALL_ONLINE },
-+	{ 0xc102c, 1, RI_ALL_ONLINE }, { 0xc2290, 1, RI_ALL_ONLINE },
-+	{ 0xc22a0, 1, RI_ALL_ONLINE }, { 0xc22b0, 1, RI_ALL_ONLINE },
-+	{ 0xc2548, 1, RI_ALL_ONLINE }, { 0xc2550, 1, RI_ALL_ONLINE },
-+	{ 0xc2558, 1, RI_ALL_ONLINE }, { 0xc4294, 1, RI_ALL_ONLINE },
-+	{ 0xc42a4, 1, RI_ALL_ONLINE }, { 0xc42b4, 1, RI_ALL_ONLINE },
-+	{ 0xc4550, 1, RI_ALL_ONLINE }, { 0xc4558, 1, RI_ALL_ONLINE },
-+	{ 0xc4560, 1, RI_ALL_ONLINE }, { 0xd016c, 8, RI_ALL_ONLINE },
-+	{ 0xd01d8, 1, RI_ALL_ONLINE }, { 0xd01e8, 1, RI_ALL_ONLINE },
-+	{ 0xd0204, 1, RI_ALL_ONLINE }, { 0xd020c, 3, RI_ALL_ONLINE },
-+	{ 0xe0154, 8, RI_ALL_ONLINE }, { 0xe01c8, 1, RI_ALL_ONLINE },
-+	{ 0xe01d8, 1, RI_ALL_ONLINE }, { 0xe0204, 1, RI_ALL_ONLINE },
-+	{ 0xe020c, 2, RI_ALL_ONLINE }, { 0xe021c, 2, RI_ALL_ONLINE },
-+	{ 0x101014, 1, RI_ALL_ONLINE }, { 0x101030, 1, RI_ALL_ONLINE },
-+	{ 0x101040, 1, RI_ALL_ONLINE }, { 0x102058, 1, RI_ALL_ONLINE },
-+	{ 0x102080, 16, RI_ALL_ONLINE }, { 0x103004, 2, RI_ALL_ONLINE },
-+	{ 0x103068, 1, RI_ALL_ONLINE }, { 0x103078, 1, RI_ALL_ONLINE },
-+	{ 0x103088, 1, RI_ALL_ONLINE }, { 0x10309c, 2, RI_E1H_ONLINE },
-+	{ 0x104004, 1, RI_ALL_ONLINE }, { 0x104018, 1, RI_ALL_ONLINE },
-+	{ 0x104020, 1, RI_ALL_ONLINE }, { 0x10403c, 1, RI_ALL_ONLINE },
-+	{ 0x1040fc, 1, RI_ALL_ONLINE }, { 0x10410c, 1, RI_ALL_ONLINE },
-+	{ 0x104400, 64, RI_ALL_ONLINE }, { 0x104800, 64, RI_ALL_ONLINE },
-+	{ 0x105000, 3, RI_ALL_ONLINE }, { 0x105010, 3, RI_ALL_ONLINE },
-+	{ 0x105020, 3, RI_ALL_ONLINE }, { 0x105030, 3, RI_ALL_ONLINE },
-+	{ 0x105040, 3, RI_ALL_ONLINE }, { 0x105050, 3, RI_ALL_ONLINE },
-+	{ 0x105060, 3, RI_ALL_ONLINE }, { 0x105070, 3, RI_ALL_ONLINE },
-+	{ 0x105080, 3, RI_ALL_ONLINE }, { 0x105090, 3, RI_ALL_ONLINE },
-+	{ 0x1050a0, 3, RI_ALL_ONLINE }, { 0x1050b0, 3, RI_ALL_ONLINE },
-+	{ 0x1050c0, 3, RI_ALL_ONLINE }, { 0x1050d0, 3, RI_ALL_ONLINE },
-+	{ 0x1050e0, 3, RI_ALL_ONLINE }, { 0x1050f0, 3, RI_ALL_ONLINE },
-+	{ 0x105100, 3, RI_ALL_ONLINE }, { 0x105110, 3, RI_ALL_ONLINE },
-+	{ 0x105120, 3, RI_ALL_ONLINE }, { 0x105130, 3, RI_ALL_ONLINE },
-+	{ 0x105140, 3, RI_ALL_ONLINE }, { 0x105150, 3, RI_ALL_ONLINE },
-+	{ 0x105160, 3, RI_ALL_ONLINE }, { 0x105170, 3, RI_ALL_ONLINE },
-+	{ 0x105180, 3, RI_ALL_ONLINE }, { 0x105190, 3, RI_ALL_ONLINE },
-+	{ 0x1051a0, 3, RI_ALL_ONLINE }, { 0x1051b0, 3, RI_ALL_ONLINE },
-+	{ 0x1051c0, 3, RI_ALL_ONLINE }, { 0x1051d0, 3, RI_ALL_ONLINE },
-+	{ 0x1051e0, 3, RI_ALL_ONLINE }, { 0x1051f0, 3, RI_ALL_ONLINE },
-+	{ 0x105200, 3, RI_ALL_ONLINE }, { 0x105210, 3, RI_ALL_ONLINE },
-+	{ 0x105220, 3, RI_ALL_ONLINE }, { 0x105230, 3, RI_ALL_ONLINE },
-+	{ 0x105240, 3, RI_ALL_ONLINE }, { 0x105250, 3, RI_ALL_ONLINE },
-+	{ 0x105260, 3, RI_ALL_ONLINE }, { 0x105270, 3, RI_ALL_ONLINE },
-+	{ 0x105280, 3, RI_ALL_ONLINE }, { 0x105290, 3, RI_ALL_ONLINE },
-+	{ 0x1052a0, 3, RI_ALL_ONLINE }, { 0x1052b0, 3, RI_ALL_ONLINE },
-+	{ 0x1052c0, 3, RI_ALL_ONLINE }, { 0x1052d0, 3, RI_ALL_ONLINE },
-+	{ 0x1052e0, 3, RI_ALL_ONLINE }, { 0x1052f0, 3, RI_ALL_ONLINE },
-+	{ 0x105300, 3, RI_ALL_ONLINE }, { 0x105310, 3, RI_ALL_ONLINE },
-+	{ 0x105320, 3, RI_ALL_ONLINE }, { 0x105330, 3, RI_ALL_ONLINE },
-+	{ 0x105340, 3, RI_ALL_ONLINE }, { 0x105350, 3, RI_ALL_ONLINE },
-+	{ 0x105360, 3, RI_ALL_ONLINE }, { 0x105370, 3, RI_ALL_ONLINE },
-+	{ 0x105380, 3, RI_ALL_ONLINE }, { 0x105390, 3, RI_ALL_ONLINE },
-+	{ 0x1053a0, 3, RI_ALL_ONLINE }, { 0x1053b0, 3, RI_ALL_ONLINE },
-+	{ 0x1053c0, 3, RI_ALL_ONLINE }, { 0x1053d0, 3, RI_ALL_ONLINE },
-+	{ 0x1053e0, 3, RI_ALL_ONLINE }, { 0x1053f0, 3, RI_ALL_ONLINE },
-+	{ 0x108094, 1, RI_ALL_ONLINE }, { 0x1201b0, 2, RI_ALL_ONLINE },
-+	{ 0x12032c, 1, RI_ALL_ONLINE }, { 0x12036c, 3, RI_ALL_ONLINE },
-+	{ 0x120408, 2, RI_ALL_ONLINE }, { 0x120414, 15, RI_ALL_ONLINE },
-+	{ 0x120478, 2, RI_ALL_ONLINE }, { 0x12052c, 1, RI_ALL_ONLINE },
-+	{ 0x120564, 3, RI_ALL_ONLINE }, { 0x12057c, 1, RI_ALL_ONLINE },
-+	{ 0x12058c, 1, RI_ALL_ONLINE }, { 0x120608, 1, RI_E1H_ONLINE },
-+	{ 0x120808, 1, RI_E1_ONLINE }, { 0x12080c, 2, RI_ALL_ONLINE },
-+	{ 0x120818, 1, RI_ALL_ONLINE }, { 0x120820, 1, RI_ALL_ONLINE },
-+	{ 0x120828, 1, RI_ALL_ONLINE }, { 0x120830, 1, RI_ALL_ONLINE },
-+	{ 0x120838, 1, RI_ALL_ONLINE }, { 0x120840, 1, RI_ALL_ONLINE },
-+	{ 0x120848, 1, RI_ALL_ONLINE }, { 0x120850, 1, RI_ALL_ONLINE },
-+	{ 0x120858, 1, RI_ALL_ONLINE }, { 0x120860, 1, RI_ALL_ONLINE },
-+	{ 0x120868, 1, RI_ALL_ONLINE }, { 0x120870, 1, RI_ALL_ONLINE },
-+	{ 0x120878, 1, RI_ALL_ONLINE }, { 0x120880, 1, RI_ALL_ONLINE },
-+	{ 0x120888, 1, RI_ALL_ONLINE }, { 0x120890, 1, RI_ALL_ONLINE },
-+	{ 0x120898, 1, RI_ALL_ONLINE }, { 0x1208a0, 1, RI_ALL_ONLINE },
-+	{ 0x1208a8, 1, RI_ALL_ONLINE }, { 0x1208b0, 1, RI_ALL_ONLINE },
-+	{ 0x1208b8, 1, RI_ALL_ONLINE }, { 0x1208c0, 1, RI_ALL_ONLINE },
-+	{ 0x1208c8, 1, RI_ALL_ONLINE }, { 0x1208d0, 1, RI_ALL_ONLINE },
-+	{ 0x1208d8, 1, RI_ALL_ONLINE }, { 0x1208e0, 1, RI_ALL_ONLINE },
-+	{ 0x1208e8, 1, RI_ALL_ONLINE }, { 0x1208f0, 1, RI_ALL_ONLINE },
-+	{ 0x1208f8, 1, RI_ALL_ONLINE }, { 0x120900, 1, RI_ALL_ONLINE },
-+	{ 0x120908, 1, RI_ALL_ONLINE }, { 0x14005c, 2, RI_ALL_ONLINE },
-+	{ 0x1400d0, 2, RI_ALL_ONLINE }, { 0x1400e0, 1, RI_ALL_ONLINE },
-+	{ 0x1401c8, 1, RI_ALL_ONLINE }, { 0x140200, 6, RI_ALL_ONLINE },
-+	{ 0x16101c, 1, RI_ALL_ONLINE }, { 0x16102c, 1, RI_ALL_ONLINE },
-+	{ 0x164014, 2, RI_ALL_ONLINE }, { 0x1640f0, 1, RI_ALL_ONLINE },
-+	{ 0x166290, 1, RI_ALL_ONLINE }, { 0x1662a0, 1, RI_ALL_ONLINE },
-+	{ 0x1662b0, 1, RI_ALL_ONLINE }, { 0x166548, 1, RI_ALL_ONLINE },
-+	{ 0x166550, 1, RI_ALL_ONLINE }, { 0x166558, 1, RI_ALL_ONLINE },
-+	{ 0x168000, 1, RI_ALL_ONLINE }, { 0x168008, 1, RI_ALL_ONLINE },
-+	{ 0x168010, 1, RI_ALL_ONLINE }, { 0x168018, 1, RI_ALL_ONLINE },
-+	{ 0x168028, 2, RI_ALL_ONLINE }, { 0x168058, 4, RI_ALL_ONLINE },
-+	{ 0x168070, 1, RI_ALL_ONLINE }, { 0x168238, 1, RI_ALL_ONLINE },
-+	{ 0x1682d0, 2, RI_ALL_ONLINE }, { 0x1682e0, 1, RI_ALL_ONLINE },
-+	{ 0x168300, 67, RI_ALL_ONLINE }, { 0x168410, 2, RI_ALL_ONLINE },
-+	{ 0x168438, 1, RI_ALL_ONLINE }, { 0x168448, 1, RI_ALL_ONLINE },
-+	{ 0x168a00, 128, RI_ALL_ONLINE }, { 0x16e200, 128, RI_E1H_ONLINE },
-+	{ 0x16e404, 2, RI_E1H_ONLINE }, { 0x16e584, 70, RI_E1H_ONLINE },
-+	{ 0x1700a4, 1, RI_ALL_ONLINE }, { 0x1700ac, 2, RI_ALL_ONLINE },
-+	{ 0x1700c0, 1, RI_ALL_ONLINE }, { 0x170174, 1, RI_ALL_ONLINE },
-+	{ 0x170184, 1, RI_ALL_ONLINE }, { 0x1800f4, 1, RI_ALL_ONLINE },
-+	{ 0x180104, 1, RI_ALL_ONLINE }, { 0x180114, 1, RI_ALL_ONLINE },
-+	{ 0x180124, 1, RI_ALL_ONLINE }, { 0x18026c, 1, RI_ALL_ONLINE },
-+	{ 0x1802a0, 1, RI_ALL_ONLINE }, { 0x1a1000, 1, RI_ALL_ONLINE },
-+	{ 0x1aa000, 1, RI_E1H_ONLINE }, { 0x1b8000, 1, RI_ALL_ONLINE },
-+	{ 0x1b8040, 1, RI_ALL_ONLINE }, { 0x1b8080, 1, RI_ALL_ONLINE },
-+	{ 0x1b80c0, 1, RI_ALL_ONLINE }, { 0x200104, 1, RI_ALL_ONLINE },
-+	{ 0x200114, 1, RI_ALL_ONLINE }, { 0x200124, 1, RI_ALL_ONLINE },
-+	{ 0x200134, 1, RI_ALL_ONLINE }, { 0x20026c, 1, RI_ALL_ONLINE },
-+	{ 0x2002a0, 1, RI_ALL_ONLINE }, { 0x221000, 1, RI_ALL_ONLINE },
-+	{ 0x227000, 1, RI_E1H_ONLINE }, { 0x238000, 1, RI_ALL_ONLINE },
-+	{ 0x238040, 1, RI_ALL_ONLINE }, { 0x238080, 1, RI_ALL_ONLINE },
-+	{ 0x2380c0, 1, RI_ALL_ONLINE }, { 0x280104, 1, RI_ALL_ONLINE },
-+	{ 0x280114, 1, RI_ALL_ONLINE }, { 0x280124, 1, RI_ALL_ONLINE },
-+	{ 0x280134, 1, RI_ALL_ONLINE }, { 0x28026c, 1, RI_ALL_ONLINE },
-+	{ 0x2802a0, 1, RI_ALL_ONLINE }, { 0x2a1000, 1, RI_ALL_ONLINE },
-+	{ 0x2a9000, 1, RI_E1H_ONLINE }, { 0x2b8000, 1, RI_ALL_ONLINE },
-+	{ 0x2b8040, 1, RI_ALL_ONLINE }, { 0x2b8080, 1, RI_ALL_ONLINE },
-+	{ 0x2b80c0, 1, RI_ALL_ONLINE }, { 0x300104, 1, RI_ALL_ONLINE },
-+	{ 0x300114, 1, RI_ALL_ONLINE }, { 0x300124, 1, RI_ALL_ONLINE },
-+	{ 0x300134, 1, RI_ALL_ONLINE }, { 0x30026c, 1, RI_ALL_ONLINE },
-+	{ 0x3002a0, 1, RI_ALL_ONLINE }, { 0x321000, 1, RI_ALL_ONLINE },
-+	{ 0x328960, 1, RI_E1H_ONLINE }, { 0x338000, 1, RI_ALL_ONLINE },
-+	{ 0x338040, 1, RI_ALL_ONLINE }, { 0x338080, 1, RI_ALL_ONLINE },
-+	{ 0x3380c0, 1, RI_ALL_ONLINE }
- };
- 
-+#define WREGS_COUNT_E1			1
- static const u32 read_reg_e1_0[] = { 0x1b1000 };
- 
--#define WREGS_COUNT_E1		1
- static const struct wreg_addr wreg_addrs_e1[WREGS_COUNT_E1] = {
- 	{ 0x1b0c00, 192, 1, read_reg_e1_0, RI_E1_OFFLINE }
- };
+-static void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val);
+ static int bnx2x_gunzip(struct bnx2x *bp, const u8 *zbuf, int len);
  
 +
-+#define WREGS_COUNT_E1H			1
- static const u32 read_reg_e1h_0[] = { 0x1b1040, 0x1b1000 };
+ static void bnx2x_init_str_wr(struct bnx2x *bp, u32 addr, const u32 *data,
+ 			      u32 len)
+ {
+-	int i;
++	u32 i;
  
--#define WREGS_COUNT_E1H		1
- static const struct wreg_addr wreg_addrs_e1h[WREGS_COUNT_E1H] = {
- 	{ 0x1b0c00, 256, 2, read_reg_e1h_0, RI_E1H_OFFLINE }
- };
-@@ -512,15 +517,18 @@ static const struct wreg_addr wreg_addrs_e1h[WREGS_COUNT_E1H] = {
- static const struct dump_sign dump_sign_all = { 0x49aa93ee, 0x40835, 0x22 };
+-	for (i = 0; i < len; i++) {
++	for (i = 0; i < len; i++)
+ 		REG_WR(bp, addr + i*4, data[i]);
+-		if (!(i % 10000)) {
+-			touch_softlockup_watchdog();
+-			cpu_relax();
+-		}
+-	}
+ }
  
+ static void bnx2x_init_ind_wr(struct bnx2x *bp, u32 addr, const u32 *data,
+-			      u16 len)
++			      u32 len)
+ {
+-	int i;
++	u32 i;
  
--#define TIMER_REGS_COUNT_E1	2
-+#define TIMER_REGS_COUNT_E1		2
- static const u32 timer_status_regs_e1[TIMER_REGS_COUNT_E1] =
- 	{ 0x164014, 0x164018 };
- static const u32 timer_scan_regs_e1[TIMER_REGS_COUNT_E1] =
- 	{ 0x1640d0, 0x1640d4 };
+-	for (i = 0; i < len; i++) {
++	for (i = 0; i < len; i++)
+ 		REG_WR_IND(bp, addr + i*4, data[i]);
+-		if (!(i % 10000)) {
+-			touch_softlockup_watchdog();
+-			cpu_relax();
+-		}
+-	}
+ }
  
--#define TIMER_REGS_COUNT_E1H	2
+ static void bnx2x_write_big_buf(struct bnx2x *bp, u32 addr, u32 len)
+ {
+-	int offset = 0;
+-
+-	if (bp->dmae_ready) {
+-		while (len > DMAE_LEN32_WR_MAX) {
+-			bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
+-					 addr + offset, DMAE_LEN32_WR_MAX);
+-			offset += DMAE_LEN32_WR_MAX * 4;
+-			len -= DMAE_LEN32_WR_MAX;
+-		}
+-		bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
+-				 addr + offset, len);
+-	} else
+-		bnx2x_init_str_wr(bp, addr, bp->gunzip_buf, len);
++	if (bp->dmae_ready)
++		bnx2x_write_dmae_phys_len(bp, GUNZIP_PHYS(bp), addr, len);
++	else
++		bnx2x_init_str_wr(bp, addr, GUNZIP_BUF(bp), len);
+ }
+ 
+ static void bnx2x_init_fill(struct bnx2x *bp, u32 addr, int fill, u32 len)
+ {
+-	u32 buf_len = (((len * 4) > FW_BUF_SIZE) ? FW_BUF_SIZE : (len * 4));
+-	u32 buf_len32 = buf_len / 4;
+-	int i;
++	u32 buf_len = (((len*4) > FW_BUF_SIZE) ? FW_BUF_SIZE : (len*4));
++	u32 buf_len32 = buf_len/4;
++	u32 i;
+ 
+-	memset(bp->gunzip_buf, fill, buf_len);
++	memset(GUNZIP_BUF(bp), (u8)fill, buf_len);
+ 
+ 	for (i = 0; i < len; i += buf_len32) {
+ 		u32 cur_len = min(buf_len32, len - i);
+ 
+-		bnx2x_write_big_buf(bp, addr + i * 4, cur_len);
++		bnx2x_write_big_buf(bp, addr + i*4, cur_len);
+ 	}
+ }
+ 
+ static void bnx2x_init_wr_64(struct bnx2x *bp, u32 addr, const u32 *data,
+ 			     u32 len64)
+ {
+-	u32 buf_len32 = FW_BUF_SIZE / 4;
+-	u32 len = len64 * 2;
++	u32 buf_len32 = FW_BUF_SIZE/4;
++	u32 len = len64*2;
+ 	u64 data64 = 0;
+-	int i;
++	u32 i;
+ 
+ 	/* 64 bit value is in a blob: first low DWORD, then high DWORD */
+ 	data64 = HILO_U64((*(data + 1)), (*data));
 +
-+#define TIMER_REGS_COUNT_E1H		2
- static const u32 timer_status_regs_e1h[TIMER_REGS_COUNT_E1H] =
- 	{ 0x164014, 0x164018 };
- static const u32 timer_scan_regs_e1h[TIMER_REGS_COUNT_E1H] =
- 	{ 0x1640d0, 0x1640d4 };
+ 	len64 = min((u32)(FW_BUF_SIZE/8), len64);
+ 	for (i = 0; i < len64; i++) {
+-		u64 *pdata = ((u64 *)(bp->gunzip_buf)) + i;
++		u64 *pdata = ((u64 *)(GUNZIP_BUF(bp))) + i;
  
+ 		*pdata = data64;
+ 	}
+@@ -97,7 +80,7 @@ static void bnx2x_init_wr_64(struct bnx2x *bp, u32 addr, const u32 *data,
+ 	for (i = 0; i < len; i += buf_len32) {
+ 		u32 cur_len = min(buf_len32, len - i);
+ 
+-		bnx2x_write_big_buf(bp, addr + i * 4, cur_len);
++		bnx2x_write_big_buf(bp, addr + i*4, cur_len);
+ 	}
+ }
+ 
+@@ -118,97 +101,81 @@ static void bnx2x_init_wr_64(struct bnx2x *bp, u32 addr, const u32 *data,
+ static const u8 *bnx2x_sel_blob(struct bnx2x *bp, u32 addr, const u8 *data)
+ {
+ 	IF_IS_INT_TABLE_ADDR(TSEM_REG_INT_TABLE, addr)
+-		data = bp->tsem_int_table_data;
+-	else IF_IS_INT_TABLE_ADDR(CSEM_REG_INT_TABLE, addr)
+-		data = bp->csem_int_table_data;
+-	else IF_IS_INT_TABLE_ADDR(USEM_REG_INT_TABLE, addr)
+-		data = bp->usem_int_table_data;
+-	else IF_IS_INT_TABLE_ADDR(XSEM_REG_INT_TABLE, addr)
+-		data = bp->xsem_int_table_data;
+-	else IF_IS_PRAM_ADDR(TSEM_REG_PRAM, addr)
+-		data = bp->tsem_pram_data;
+-	else IF_IS_PRAM_ADDR(CSEM_REG_PRAM, addr)
+-		data = bp->csem_pram_data;
+-	else IF_IS_PRAM_ADDR(USEM_REG_PRAM, addr)
+-		data = bp->usem_pram_data;
+-	else IF_IS_PRAM_ADDR(XSEM_REG_PRAM, addr)
+-		data = bp->xsem_pram_data;
++		data = INIT_TSEM_INT_TABLE_DATA(bp);
++	else
++		IF_IS_INT_TABLE_ADDR(CSEM_REG_INT_TABLE, addr)
++			data = INIT_CSEM_INT_TABLE_DATA(bp);
++	else
++		IF_IS_INT_TABLE_ADDR(USEM_REG_INT_TABLE, addr)
++			data = INIT_USEM_INT_TABLE_DATA(bp);
++	else
++		IF_IS_INT_TABLE_ADDR(XSEM_REG_INT_TABLE, addr)
++			data = INIT_XSEM_INT_TABLE_DATA(bp);
++	else
++		IF_IS_PRAM_ADDR(TSEM_REG_PRAM, addr)
++			data = INIT_TSEM_PRAM_DATA(bp);
++	else
++		IF_IS_PRAM_ADDR(CSEM_REG_PRAM, addr)
++			data = INIT_CSEM_PRAM_DATA(bp);
++	else
++		IF_IS_PRAM_ADDR(USEM_REG_PRAM, addr)
++			data = INIT_USEM_PRAM_DATA(bp);
++	else
++		IF_IS_PRAM_ADDR(XSEM_REG_PRAM, addr)
++			data = INIT_XSEM_PRAM_DATA(bp);
+ 
+ 	return data;
+ }
+ 
+ static void bnx2x_write_big_buf_wb(struct bnx2x *bp, u32 addr, u32 len)
+ {
+-	int offset = 0;
+-
+-	if (bp->dmae_ready) {
+-		while (len > DMAE_LEN32_WR_MAX) {
+-			bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
+-					 addr + offset, DMAE_LEN32_WR_MAX);
+-			offset += DMAE_LEN32_WR_MAX * 4;
+-			len -= DMAE_LEN32_WR_MAX;
+-		}
+-		bnx2x_write_dmae(bp, bp->gunzip_mapping + offset,
+-				 addr + offset, len);
+-	} else
+-		bnx2x_init_ind_wr(bp, addr, bp->gunzip_buf, len);
++	if (bp->dmae_ready)
++		bnx2x_write_dmae_phys_len(bp, GUNZIP_PHYS(bp), addr, len);
++	else
++		bnx2x_init_ind_wr(bp, addr, GUNZIP_BUF(bp), len);
+ }
+ 
+ static void bnx2x_init_wr_wb(struct bnx2x *bp, u32 addr, const u32 *data,
+ 			     u32 len)
+ {
+-	/* This is needed for NO_ZIP mode, currently supported
+-	   in little endian mode only */
+-	data = (const u32*)bnx2x_sel_blob(bp, addr, (const u8*)data);
++	data = (const u32 *)bnx2x_sel_blob(bp, addr, (const u8 *)data);
+ 
+-	if ((len * 4) > FW_BUF_SIZE) {
+-		BNX2X_ERR("LARGE DMAE OPERATION ! "
+-			  "addr 0x%x  len 0x%x\n", addr, len*4);
+-		return;
+-	}
+-	memcpy(bp->gunzip_buf, data, len * 4);
+-
+-	bnx2x_write_big_buf_wb(bp, addr, len);
++	if (bp->dmae_ready)
++		VIRT_WR_DMAE_LEN(bp, data, addr, len);
++	else
++		bnx2x_init_ind_wr(bp, addr, data, len);
+ }
+ 
+-static void bnx2x_init_wr_zp(struct bnx2x *bp, u32 addr,
+-			     u32 len, u32 blob_off)
++static void bnx2x_init_wr_zp(struct bnx2x *bp, u32 addr, u32 len, u32 blob_off)
+ {
+-	int rc, i;
+-        const u8 *data = NULL;
++	const u8 *data = NULL;
++	int rc;
++	u32 i;
+ 
+-	data = bnx2x_sel_blob(bp, addr, data) + 4*blob_off;
+-
+-	if (data == NULL) {
+-		panic("Blob not found for addr 0x%x\n", addr);
+-		return;
+-	}
++	data = bnx2x_sel_blob(bp, addr, data) + blob_off*4;
+ 
+ 	rc = bnx2x_gunzip(bp, data, len);
+-	if (rc) {
+-		BNX2X_ERR("gunzip failed ! addr 0x%x rc %d\n", addr, rc);
+-		BNX2X_ERR("blob_offset=0x%x\n", blob_off);
++	if (rc)
+ 		return;
+-	}
+ 
+ 	/* gunzip_outlen is in dwords */
+-	len = bp->gunzip_outlen;
++	len = GUNZIP_OUTLEN(bp);
+ 	for (i = 0; i < len; i++)
+-		((u32 *)bp->gunzip_buf)[i] =
+-			cpu_to_le32(((u32 *)bp->gunzip_buf)[i]);
++		((u32 *)GUNZIP_BUF(bp))[i] =
++				cpu_to_le32(((u32 *)GUNZIP_BUF(bp))[i]);
+ 
+ 	bnx2x_write_big_buf_wb(bp, addr, len);
+ }
+ 
+ static void bnx2x_init_block(struct bnx2x *bp, u32 block, u32 stage)
+ {
+-	int hw_wr, i;
+ 	u16 op_start =
+-		bp->init_ops_offsets[BLOCK_OPS_IDX(block,stage,STAGE_START)];
++		INIT_OPS_OFFSETS(bp)[BLOCK_OPS_IDX(block, stage, STAGE_START)];
+ 	u16 op_end =
+-		bp->init_ops_offsets[BLOCK_OPS_IDX(block,stage,STAGE_END)];
++		INIT_OPS_OFFSETS(bp)[BLOCK_OPS_IDX(block, stage, STAGE_END)];
+ 	union init_op *op;
+-	u32 op_type, addr, len;
++	int hw_wr;
++	u32 i, op_type, addr, len;
+ 	const u32 *data, *data_base;
+ 
+ 	/* If empty block */
+@@ -222,11 +189,11 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 block, u32 stage)
+ 	else
+ 		hw_wr = OP_WR_ASIC;
+ 
+-	data_base = bp->init_data;
++	data_base = INIT_DATA(bp);
+ 
+ 	for (i = op_start; i < op_end; i++) {
+ 
+-		op = (union init_op *)&(bp->init_ops[i]);
++		op = (union init_op *)&(INIT_OPS(bp)[i]);
+ 
+ 		op_type = op->str_wr.op;
+ 		addr = op->str_wr.offset;
+@@ -234,7 +201,7 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 block, u32 stage)
+ 		data = data_base + op->str_wr.data_off;
+ 
+ 		/* HW/EMUL specific */
+-		if (unlikely((op_type > OP_WB) && (op_type == hw_wr)))
++		if ((op_type > OP_WB) && (op_type == hw_wr))
+ 			op_type = OP_WR;
+ 
+ 		switch (op_type) {
+@@ -265,35 +232,179 @@ static void bnx2x_init_block(struct bnx2x *bp, u32 block, u32 stage)
+ 			break;
+ 		default:
+ 			/* happens whenever an op is of a diff HW */
+-#if 0
+-			DP(NETIF_MSG_HW, "skipping init operation  "
+-			   "index %d[%d:%d]: type %d  addr 0x%x  "
+-			   "len %d(0x%x)\n",
+-			   i, op_start, op_end, op_type, addr, len, len);
+-#endif
+ 			break;
+ 		}
+ 	}
+ }
+ 
+-/* PXP */
+-static void bnx2x_init_pxp(struct bnx2x *bp)
 +
-+#endif /* BNX2X_DUMP_H */
++/****************************************************************************
++* PXP Arbiter
++****************************************************************************/
++/*
++ * This code configures the PCI read/write arbiter
++ * which implements a weighted round robin
++ * between the virtual queues in the chip.
++ *
++ * The values were derived for each PCI max payload and max request size.
++ * since max payload and max request size are only known at run time,
++ * this is done as a separate init stage.
++ */
++
++#define NUM_WR_Q			13
++#define NUM_RD_Q			29
++#define MAX_RD_ORD			3
++#define MAX_WR_ORD			2
++
++/* configuration for one arbiter queue */
++struct arb_line {
++	int l;
++	int add;
++	int ubound;
++};
++
++/* derived configuration for each read queue for each max request size */
++static const struct arb_line read_arb_data[NUM_RD_Q][MAX_RD_ORD + 1] = {
++/* 1 */	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
++	{ {4, 8,  4},  {4,  8,  4},  {4,  8,  4},  {4,  8,  4}  },
++	{ {4, 3,  3},  {4,  3,  3},  {4,  3,  3},  {4,  3,  3}  },
++	{ {8, 3,  6},  {16, 3,  11}, {16, 3,  11}, {16, 3,  11} },
++	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25}, {64, 64, 41} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {64, 3,  41} },
++/* 10 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 64, 6},  {16, 64, 11}, {32, 64, 21}, {32, 64, 21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++/* 20 */{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 3,  6},  {16, 3,  11}, {32, 3,  21}, {32, 3,  21} },
++	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81}, {64, 64, 120} }
++};
++
++/* derived configuration for each write queue for each max request size */
++static const struct arb_line write_arb_data[NUM_WR_Q][MAX_WR_ORD + 1] = {
++/* 1 */	{ {4, 6,  3},  {4,  6,  3},  {4,  6,  3} },
++	{ {4, 2,  3},  {4,  2,  3},  {4,  2,  3} },
++	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
++	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
++	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
++	{ {8, 2,  6},  {16, 2,  11}, {32, 2,  21} },
++	{ {8, 64, 25}, {16, 64, 25}, {32, 64, 25} },
++	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
++	{ {8, 2,  6},  {16, 2,  11}, {16, 2,  11} },
++/* 10 */{ {8, 9,  6},  {16, 9,  11}, {32, 9,  21} },
++	{ {8, 47, 19}, {16, 47, 19}, {32, 47, 21} },
++	{ {8, 9,  6},  {16, 9,  11}, {16, 9,  11} },
++	{ {8, 64, 25}, {16, 64, 41}, {32, 64, 81} }
++};
++
++/* register addresses for read queues */
++static const struct arb_line read_arb_addr[NUM_RD_Q-1] = {
++/* 1 */	{PXP2_REG_RQ_BW_RD_L0, PXP2_REG_RQ_BW_RD_ADD0,
++		PXP2_REG_RQ_BW_RD_UBOUND0},
++	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
++		PXP2_REG_PSWRQ_BW_UB1},
++	{PXP2_REG_PSWRQ_BW_L2, PXP2_REG_PSWRQ_BW_ADD2,
++		PXP2_REG_PSWRQ_BW_UB2},
++	{PXP2_REG_PSWRQ_BW_L3, PXP2_REG_PSWRQ_BW_ADD3,
++		PXP2_REG_PSWRQ_BW_UB3},
++	{PXP2_REG_RQ_BW_RD_L4, PXP2_REG_RQ_BW_RD_ADD4,
++		PXP2_REG_RQ_BW_RD_UBOUND4},
++	{PXP2_REG_RQ_BW_RD_L5, PXP2_REG_RQ_BW_RD_ADD5,
++		PXP2_REG_RQ_BW_RD_UBOUND5},
++	{PXP2_REG_PSWRQ_BW_L6, PXP2_REG_PSWRQ_BW_ADD6,
++		PXP2_REG_PSWRQ_BW_UB6},
++	{PXP2_REG_PSWRQ_BW_L7, PXP2_REG_PSWRQ_BW_ADD7,
++		PXP2_REG_PSWRQ_BW_UB7},
++	{PXP2_REG_PSWRQ_BW_L8, PXP2_REG_PSWRQ_BW_ADD8,
++		PXP2_REG_PSWRQ_BW_UB8},
++/* 10 */{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
++		PXP2_REG_PSWRQ_BW_UB9},
++	{PXP2_REG_PSWRQ_BW_L10, PXP2_REG_PSWRQ_BW_ADD10,
++		PXP2_REG_PSWRQ_BW_UB10},
++	{PXP2_REG_PSWRQ_BW_L11, PXP2_REG_PSWRQ_BW_ADD11,
++		PXP2_REG_PSWRQ_BW_UB11},
++	{PXP2_REG_RQ_BW_RD_L12, PXP2_REG_RQ_BW_RD_ADD12,
++		PXP2_REG_RQ_BW_RD_UBOUND12},
++	{PXP2_REG_RQ_BW_RD_L13, PXP2_REG_RQ_BW_RD_ADD13,
++		PXP2_REG_RQ_BW_RD_UBOUND13},
++	{PXP2_REG_RQ_BW_RD_L14, PXP2_REG_RQ_BW_RD_ADD14,
++		PXP2_REG_RQ_BW_RD_UBOUND14},
++	{PXP2_REG_RQ_BW_RD_L15, PXP2_REG_RQ_BW_RD_ADD15,
++		PXP2_REG_RQ_BW_RD_UBOUND15},
++	{PXP2_REG_RQ_BW_RD_L16, PXP2_REG_RQ_BW_RD_ADD16,
++		PXP2_REG_RQ_BW_RD_UBOUND16},
++	{PXP2_REG_RQ_BW_RD_L17, PXP2_REG_RQ_BW_RD_ADD17,
++		PXP2_REG_RQ_BW_RD_UBOUND17},
++	{PXP2_REG_RQ_BW_RD_L18, PXP2_REG_RQ_BW_RD_ADD18,
++		PXP2_REG_RQ_BW_RD_UBOUND18},
++/* 20 */{PXP2_REG_RQ_BW_RD_L19, PXP2_REG_RQ_BW_RD_ADD19,
++		PXP2_REG_RQ_BW_RD_UBOUND19},
++	{PXP2_REG_RQ_BW_RD_L20, PXP2_REG_RQ_BW_RD_ADD20,
++		PXP2_REG_RQ_BW_RD_UBOUND20},
++	{PXP2_REG_RQ_BW_RD_L22, PXP2_REG_RQ_BW_RD_ADD22,
++		PXP2_REG_RQ_BW_RD_UBOUND22},
++	{PXP2_REG_RQ_BW_RD_L23, PXP2_REG_RQ_BW_RD_ADD23,
++		PXP2_REG_RQ_BW_RD_UBOUND23},
++	{PXP2_REG_RQ_BW_RD_L24, PXP2_REG_RQ_BW_RD_ADD24,
++		PXP2_REG_RQ_BW_RD_UBOUND24},
++	{PXP2_REG_RQ_BW_RD_L25, PXP2_REG_RQ_BW_RD_ADD25,
++		PXP2_REG_RQ_BW_RD_UBOUND25},
++	{PXP2_REG_RQ_BW_RD_L26, PXP2_REG_RQ_BW_RD_ADD26,
++		PXP2_REG_RQ_BW_RD_UBOUND26},
++	{PXP2_REG_RQ_BW_RD_L27, PXP2_REG_RQ_BW_RD_ADD27,
++		PXP2_REG_RQ_BW_RD_UBOUND27},
++	{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
++		PXP2_REG_PSWRQ_BW_UB28}
++};
++
++/* register addresses for write queues */
++static const struct arb_line write_arb_addr[NUM_WR_Q-1] = {
++/* 1 */	{PXP2_REG_PSWRQ_BW_L1, PXP2_REG_PSWRQ_BW_ADD1,
++		PXP2_REG_PSWRQ_BW_UB1},
++	{PXP2_REG_PSWRQ_BW_L2, PXP2_REG_PSWRQ_BW_ADD2,
++		PXP2_REG_PSWRQ_BW_UB2},
++	{PXP2_REG_PSWRQ_BW_L3, PXP2_REG_PSWRQ_BW_ADD3,
++		PXP2_REG_PSWRQ_BW_UB3},
++	{PXP2_REG_PSWRQ_BW_L6, PXP2_REG_PSWRQ_BW_ADD6,
++		PXP2_REG_PSWRQ_BW_UB6},
++	{PXP2_REG_PSWRQ_BW_L7, PXP2_REG_PSWRQ_BW_ADD7,
++		PXP2_REG_PSWRQ_BW_UB7},
++	{PXP2_REG_PSWRQ_BW_L8, PXP2_REG_PSWRQ_BW_ADD8,
++		PXP2_REG_PSWRQ_BW_UB8},
++	{PXP2_REG_PSWRQ_BW_L9, PXP2_REG_PSWRQ_BW_ADD9,
++		PXP2_REG_PSWRQ_BW_UB9},
++	{PXP2_REG_PSWRQ_BW_L10, PXP2_REG_PSWRQ_BW_ADD10,
++		PXP2_REG_PSWRQ_BW_UB10},
++	{PXP2_REG_PSWRQ_BW_L11, PXP2_REG_PSWRQ_BW_ADD11,
++		PXP2_REG_PSWRQ_BW_UB11},
++/* 10 */{PXP2_REG_PSWRQ_BW_L28, PXP2_REG_PSWRQ_BW_ADD28,
++		PXP2_REG_PSWRQ_BW_UB28},
++	{PXP2_REG_RQ_BW_WR_L29, PXP2_REG_RQ_BW_WR_ADD29,
++		PXP2_REG_RQ_BW_WR_UBOUND29},
++	{PXP2_REG_RQ_BW_WR_L30, PXP2_REG_RQ_BW_WR_ADD30,
++		PXP2_REG_RQ_BW_WR_UBOUND30}
++};
++
++static void bnx2x_init_pxp_arb(struct bnx2x *bp, int r_order, int w_order)
+ {
+-	u16 devctl;
+-	int r_order, w_order;
+ 	u32 val, i;
+ 
+-	pci_read_config_word(bp->pdev,
+-			     bp->pcie_cap + PCI_EXP_DEVCTL, &devctl);
+-	DP(NETIF_MSG_HW, "read 0x%x from devctl\n", devctl);
+-	w_order = ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5);
+-	if (bp->mrrs == -1)
+-		r_order = ((devctl & PCI_EXP_DEVCTL_READRQ) >> 12);
+-	else {
+-		DP(NETIF_MSG_HW, "force read order to %d\n", bp->mrrs);
+-		r_order = bp->mrrs;
+-	}
+-
+ 	if (r_order > MAX_RD_ORD) {
+ 		DP(NETIF_MSG_HW, "read order of %d  order adjusted to %d\n",
+ 		   r_order, MAX_RD_ORD);
+@@ -367,6 +478,11 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
+ 	REG_WR(bp, PXP2_REG_WR_USDMDP_TH, (0x18 << w_order));
+ 
+ 	if (CHIP_IS_E1H(bp)) {
++		/*    MPS      w_order     optimal TH      presently TH
++		 *    128         0             0               2
++		 *    256         1             1               3
++		 *    >=512       2             2               3
++		 */
+ 		val = ((w_order == 0) ? 2 : 3);
+ 		REG_WR(bp, PXP2_REG_WR_HC_MPS, val);
+ 		REG_WR(bp, PXP2_REG_WR_USDM_MPS, val);
+@@ -382,61 +498,4 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
+ 	}
+ }
+ 
+-/*****************************************************************************
+- * Description:
+- *         Calculates crc 8 on a word value: polynomial 0-1-2-8
+- *         Code was translated from Verilog.
+- ****************************************************************************/
+-static u8 calc_crc8(u32 data, u8 crc)
+-{
+-	u8 D[32];
+-	u8 NewCRC[8];
+-	u8 C[8];
+-	u8 crc_res;
+-	u8 i;
+-
+-	/* split the data into 31 bits */
+-	for (i = 0; i < 32; i++) {
+-		D[i] = data & 1;
+-		data = data >> 1;
+-	}
+-
+-	/* split the crc into 8 bits */
+-	for (i = 0; i < 8; i++) {
+-		C[i] = crc & 1;
+-		crc = crc >> 1;
+-	}
+-
+-	NewCRC[0] = D[31] ^ D[30] ^ D[28] ^ D[23] ^ D[21] ^ D[19] ^ D[18] ^
+-		D[16] ^ D[14] ^ D[12] ^ D[8] ^ D[7] ^ D[6] ^ D[0] ^ C[4] ^
+-		C[6] ^ C[7];
+-	NewCRC[1] = D[30] ^ D[29] ^ D[28] ^ D[24] ^ D[23] ^ D[22] ^ D[21] ^
+-		D[20] ^ D[18] ^ D[17] ^ D[16] ^ D[15] ^ D[14] ^ D[13] ^
+-		D[12] ^ D[9] ^ D[6] ^ D[1] ^ D[0] ^ C[0] ^ C[4] ^ C[5] ^ C[6];
+-	NewCRC[2] = D[29] ^ D[28] ^ D[25] ^ D[24] ^ D[22] ^ D[17] ^ D[15] ^
+-		D[13] ^ D[12] ^ D[10] ^ D[8] ^ D[6] ^ D[2] ^ D[1] ^ D[0] ^
+-		C[0] ^ C[1] ^ C[4] ^ C[5];
+-	NewCRC[3] = D[30] ^ D[29] ^ D[26] ^ D[25] ^ D[23] ^ D[18] ^ D[16] ^
+-		D[14] ^ D[13] ^ D[11] ^ D[9] ^ D[7] ^ D[3] ^ D[2] ^ D[1] ^
+-		C[1] ^ C[2] ^ C[5] ^ C[6];
+-	NewCRC[4] = D[31] ^ D[30] ^ D[27] ^ D[26] ^ D[24] ^ D[19] ^ D[17] ^
+-		D[15] ^ D[14] ^ D[12] ^ D[10] ^ D[8] ^ D[4] ^ D[3] ^ D[2] ^
+-		C[0] ^ C[2] ^ C[3] ^ C[6] ^ C[7];
+-	NewCRC[5] = D[31] ^ D[28] ^ D[27] ^ D[25] ^ D[20] ^ D[18] ^ D[16] ^
+-		D[15] ^ D[13] ^ D[11] ^ D[9] ^ D[5] ^ D[4] ^ D[3] ^ C[1] ^
+-		C[3] ^ C[4] ^ C[7];
+-	NewCRC[6] = D[29] ^ D[28] ^ D[26] ^ D[21] ^ D[19] ^ D[17] ^ D[16] ^
+-		D[14] ^ D[12] ^ D[10] ^ D[6] ^ D[5] ^ D[4] ^ C[2] ^ C[4] ^
+-		C[5];
+-	NewCRC[7] = D[30] ^ D[29] ^ D[27] ^ D[22] ^ D[20] ^ D[18] ^ D[17] ^
+-		D[15] ^ D[13] ^ D[11] ^ D[7] ^ D[6] ^ D[5] ^ C[3] ^ C[5] ^
+-		C[6];
+-
+-	crc_res = 0;
+-	for (i = 0; i < 8; i++)
+-		crc_res |= (NewCRC[i] << i);
+-
+-	return crc_res;
+-}
+-
+ #endif /* BNX2X_INIT_OPS_H */
+diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+index 23b9c7d..c4c0f97 100644
+--- a/drivers/net/bnx2x_main.c
++++ b/drivers/net/bnx2x_main.c
+@@ -153,7 +153,7 @@ MODULE_DEVICE_TABLE(pci, bnx2x_pci_tbl);
+ /* used only at init
+  * locking is done by mcp
+  */
+-static void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val)
++void bnx2x_reg_wr_ind(struct bnx2x *bp, u32 addr, u32 val)
+ {
+ 	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS, addr);
+ 	pci_write_config_dword(bp->pdev, PCICFG_GRC_DATA, val);
+@@ -346,6 +346,21 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
+ 	mutex_unlock(&bp->dmae_mutex);
+ }
+ 
++void bnx2x_write_dmae_phys_len(struct bnx2x *bp, dma_addr_t phys_addr,
++			       u32 addr, u32 len)
++{
++	int offset = 0;
++
++	while (len > DMAE_LEN32_WR_MAX) {
++		bnx2x_write_dmae(bp, phys_addr + offset,
++				 addr + offset, DMAE_LEN32_WR_MAX);
++		offset += DMAE_LEN32_WR_MAX * 4;
++		len -= DMAE_LEN32_WR_MAX;
++	}
++
++	bnx2x_write_dmae(bp, phys_addr + offset, addr + offset, len);
++}
++
+ /* used only for slowpath so not inlined */
+ static void bnx2x_wb_wr(struct bnx2x *bp, int reg, u32 val_hi, u32 val_lo)
+ {
+@@ -5916,6 +5931,24 @@ static void bnx2x_reset_common(struct bnx2x *bp)
+ 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR, 0x1403);
+ }
+ 
++static void bnx2x_init_pxp(struct bnx2x *bp)
++{
++	u16 devctl;
++	int r_order, w_order;
++
++	pci_read_config_word(bp->pdev,
++			     bp->pcie_cap + PCI_EXP_DEVCTL, &devctl);
++	DP(NETIF_MSG_HW, "read 0x%x from devctl\n", devctl);
++	w_order = ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5);
++	if (bp->mrrs == -1)
++		r_order = ((devctl & PCI_EXP_DEVCTL_READRQ) >> 12);
++	else {
++		DP(NETIF_MSG_HW, "force read order to %d\n", bp->mrrs);
++		r_order = bp->mrrs;
++	}
++
++	bnx2x_init_pxp_arb(bp, r_order, w_order);
++}
+ 
+ static void bnx2x_setup_fan_failure_detection(struct bnx2x *bp)
+ {
+@@ -6478,9 +6511,15 @@ static int bnx2x_init_func(struct bnx2x *bp)
+ 
+ 
+ 	if (CHIP_IS_E1H(bp)) {
+-		for (i = 0; i < 9; i++)
+-			bnx2x_init_block(bp,
+-					 cm_blocks[i], FUNC0_STAGE + func);
++		bnx2x_init_block(bp, MISC_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, TCM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, UCM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, CCM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, XCM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, TSEM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, USEM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, CSEM_BLOCK, FUNC0_STAGE + func);
++		bnx2x_init_block(bp, XSEM_BLOCK, FUNC0_STAGE + func);
+ 
+ 		REG_WR(bp, NIG_REG_LLH0_FUNC_EN + port*8, 1);
+ 		REG_WR(bp, NIG_REG_LLH0_FUNC_VLAN_ID + port*8, bp->e1hov);
+@@ -11833,22 +11872,22 @@ static int __devinit bnx2x_init_firmware(struct bnx2x *bp, struct device *dev)
+ 	BNX2X_ALLOC_AND_SET(init_ops_offsets, init_offsets_alloc_err, be16_to_cpu_n);
+ 
+ 	/* STORMs firmware */
+-	bp->tsem_int_table_data = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->tsem_int_table_data.offset);
+-	bp->tsem_pram_data      = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->tsem_pram_data.offset);
+-	bp->usem_int_table_data = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->usem_int_table_data.offset);
+-	bp->usem_pram_data      = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->usem_pram_data.offset);
+-	bp->xsem_int_table_data = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->xsem_int_table_data.offset);
+-	bp->xsem_pram_data      = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->xsem_pram_data.offset);
+-	bp->csem_int_table_data = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->csem_int_table_data.offset);
+-	bp->csem_pram_data      = bp->firmware->data +
+-		be32_to_cpu(fw_hdr->csem_pram_data.offset);
++	INIT_TSEM_INT_TABLE_DATA(bp) = bp->firmware->data +
++			be32_to_cpu(fw_hdr->tsem_int_table_data.offset);
++	INIT_TSEM_PRAM_DATA(bp)      = bp->firmware->data +
++			be32_to_cpu(fw_hdr->tsem_pram_data.offset);
++	INIT_USEM_INT_TABLE_DATA(bp) = bp->firmware->data +
++			be32_to_cpu(fw_hdr->usem_int_table_data.offset);
++	INIT_USEM_PRAM_DATA(bp)      = bp->firmware->data +
++			be32_to_cpu(fw_hdr->usem_pram_data.offset);
++	INIT_XSEM_INT_TABLE_DATA(bp) = bp->firmware->data +
++			be32_to_cpu(fw_hdr->xsem_int_table_data.offset);
++	INIT_XSEM_PRAM_DATA(bp)      = bp->firmware->data +
++			be32_to_cpu(fw_hdr->xsem_pram_data.offset);
++	INIT_CSEM_INT_TABLE_DATA(bp) = bp->firmware->data +
++			be32_to_cpu(fw_hdr->csem_int_table_data.offset);
++	INIT_CSEM_PRAM_DATA(bp)      = bp->firmware->data +
++			be32_to_cpu(fw_hdr->csem_pram_data.offset);
+ 
+ 	return 0;
+ init_offsets_alloc_err:
+diff --git a/drivers/net/bnx2x_reg.h b/drivers/net/bnx2x_reg.h
+index 9998386..1e6f5aa 100644
+--- a/drivers/net/bnx2x_reg.h
++++ b/drivers/net/bnx2x_reg.h
+@@ -6019,3 +6019,116 @@ Theotherbitsarereservedandshouldbezero*/
+ #define COMMAND_REG_SIMD_NOMASK     0x1c
+ 
+ 
++#define IGU_MEM_BASE						0x0000
++
++#define IGU_MEM_MSIX_BASE					0x0000
++#define IGU_MEM_MSIX_UPPER					0x007f
++#define IGU_MEM_MSIX_RESERVED_UPPER			0x01ff
++
++#define IGU_MEM_PBA_MSIX_BASE				0x0200
++#define IGU_MEM_PBA_MSIX_UPPER				0x0200
++
++#define IGU_CMD_BACKWARD_COMP_PROD_UPD		0x0201
++#define IGU_MEM_PBA_MSIX_RESERVED_UPPER 	0x03ff
++
++#define IGU_CMD_INT_ACK_BASE				0x0400
++#define IGU_CMD_INT_ACK_UPPER\
++	(IGU_CMD_INT_ACK_BASE + MAX_SB_PER_PORT * NUM_OF_PORTS_PER_PATH - 1)
++#define IGU_CMD_INT_ACK_RESERVED_UPPER		0x04ff
++
++#define IGU_CMD_E2_PROD_UPD_BASE			0x0500
++#define IGU_CMD_E2_PROD_UPD_UPPER\
++	(IGU_CMD_E2_PROD_UPD_BASE + MAX_SB_PER_PORT * NUM_OF_PORTS_PER_PATH - 1)
++#define IGU_CMD_E2_PROD_UPD_RESERVED_UPPER	0x059f
++
++#define IGU_CMD_ATTN_BIT_UPD_UPPER			0x05a0
++#define IGU_CMD_ATTN_BIT_SET_UPPER			0x05a1
++#define IGU_CMD_ATTN_BIT_CLR_UPPER			0x05a2
++
++#define IGU_REG_SISR_MDPC_WMASK_UPPER		0x05a3
++#define IGU_REG_SISR_MDPC_WMASK_LSB_UPPER	0x05a4
++#define IGU_REG_SISR_MDPC_WMASK_MSB_UPPER	0x05a5
++#define IGU_REG_SISR_MDPC_WOMASK_UPPER		0x05a6
++
++#define IGU_REG_RESERVED_UPPER				0x05ff
++
++
++#define CDU_REGION_NUMBER_XCM_AG 2
++#define CDU_REGION_NUMBER_UCM_AG 4
++
++
++/**
++ * String-to-compress [31:8] = CID (all 24 bits)
++ * String-to-compress [7:4] = Region
++ * String-to-compress [3:0] = Type
++ */
++#define CDU_VALID_DATA(_cid, _region, _type)\
++	(((_cid) << 8) | (((_region)&0xf)<<4) | (((_type)&0xf)))
++#define CDU_CRC8(_cid, _region, _type)\
++	(calc_crc8(CDU_VALID_DATA(_cid, _region, _type), 0xff))
++#define CDU_RSRVD_VALUE_TYPE_A(_cid, _region, _type)\
++	(0x80 | ((CDU_CRC8(_cid, _region, _type)) & 0x7f))
++#define CDU_RSRVD_VALUE_TYPE_B(_crc, _type)\
++	(0x80 | ((_type)&0xf << 3) | ((CDU_CRC8(_cid, _region, _type)) & 0x7))
++#define CDU_RSRVD_INVALIDATE_CONTEXT_VALUE(_val) ((_val) & ~0x80)
++
++/******************************************************************************
++ * Description:
++ *	   Calculates crc 8 on a word value: polynomial 0-1-2-8
++ *	   Code was translated from Verilog.
++ * Return:
++ *****************************************************************************/
++static inline u8 calc_crc8(u32 data, u8 crc)
++{
++	u8 D[32];
++	u8 NewCRC[8];
++	u8 C[8];
++	u8 crc_res;
++	u8 i;
++
++	/* split the data into 31 bits */
++	for (i = 0; i < 32; i++) {
++		D[i] = (u8)(data & 1);
++		data = data >> 1;
++	}
++
++	/* split the crc into 8 bits */
++	for (i = 0; i < 8; i++) {
++		C[i] = crc & 1;
++		crc = crc >> 1;
++	}
++
++	NewCRC[0] = D[31] ^ D[30] ^ D[28] ^ D[23] ^ D[21] ^ D[19] ^ D[18] ^
++		    D[16] ^ D[14] ^ D[12] ^ D[8] ^ D[7] ^ D[6] ^ D[0] ^ C[4] ^
++		    C[6] ^ C[7];
++	NewCRC[1] = D[30] ^ D[29] ^ D[28] ^ D[24] ^ D[23] ^ D[22] ^ D[21] ^
++		    D[20] ^ D[18] ^ D[17] ^ D[16] ^ D[15] ^ D[14] ^ D[13] ^
++		    D[12] ^ D[9] ^ D[6] ^ D[1] ^ D[0] ^ C[0] ^ C[4] ^ C[5] ^
++		    C[6];
++	NewCRC[2] = D[29] ^ D[28] ^ D[25] ^ D[24] ^ D[22] ^ D[17] ^ D[15] ^
++		    D[13] ^ D[12] ^ D[10] ^ D[8] ^ D[6] ^ D[2] ^ D[1] ^ D[0] ^
++		    C[0] ^ C[1] ^ C[4] ^ C[5];
++	NewCRC[3] = D[30] ^ D[29] ^ D[26] ^ D[25] ^ D[23] ^ D[18] ^ D[16] ^
++		    D[14] ^ D[13] ^ D[11] ^ D[9] ^ D[7] ^ D[3] ^ D[2] ^ D[1] ^
++		    C[1] ^ C[2] ^ C[5] ^ C[6];
++	NewCRC[4] = D[31] ^ D[30] ^ D[27] ^ D[26] ^ D[24] ^ D[19] ^ D[17] ^
++		    D[15] ^ D[14] ^ D[12] ^ D[10] ^ D[8] ^ D[4] ^ D[3] ^ D[2] ^
++		    C[0] ^ C[2] ^ C[3] ^ C[6] ^ C[7];
++	NewCRC[5] = D[31] ^ D[28] ^ D[27] ^ D[25] ^ D[20] ^ D[18] ^ D[16] ^
++		    D[15] ^ D[13] ^ D[11] ^ D[9] ^ D[5] ^ D[4] ^ D[3] ^ C[1] ^
++		    C[3] ^ C[4] ^ C[7];
++	NewCRC[6] = D[29] ^ D[28] ^ D[26] ^ D[21] ^ D[19] ^ D[17] ^ D[16] ^
++		    D[14] ^ D[12] ^ D[10] ^ D[6] ^ D[5] ^ D[4] ^ C[2] ^ C[4] ^
++		    C[5];
++	NewCRC[7] = D[30] ^ D[29] ^ D[27] ^ D[22] ^ D[20] ^ D[18] ^ D[17] ^
++		    D[15] ^ D[13] ^ D[11] ^ D[7] ^ D[6] ^ D[5] ^ C[3] ^ C[5] ^
++		    C[6];
++
++	crc_res = 0;
++	for (i = 0; i < 8; i++)
++		crc_res |= (NewCRC[i] << i);
++
++	return crc_res;
++}
++
++
 -- 
 1.5.4.3
 
