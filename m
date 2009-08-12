@@ -1,73 +1,60 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: AlacrityVM numbers updated for 31-rc4
-Date: Wed, 12 Aug 2009 16:43:23 -0400
-Message-ID: <4A83296B.3080606@gmail.com>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH 1/2] mac802154: add a software MAC 802.15.4
+ implementation
+Date: Thu, 13 Aug 2009 00:46:04 +0400
+Message-ID: <20090812204604.GA26366@doriath.ww600.siemens.net>
+References: <1249913800-10176-1-git-send-email-dbaryshkov@gmail.com>
+ <1249913800-10176-2-git-send-email-dbaryshkov@gmail.com>
+ <1249914466.32614.13.camel@johannes.local>
+ <20090811202304.GA6303@doriath.ww600.siemens.net>
+ <1250023198.13529.69.camel@johannes.local>
+ <20090812130605.GA17169@doriath.ww600.siemens.net>
+ <1250082837.8784.21.camel@johannes.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig965E8CB54FAEC0A7B24CCFC8"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: alacrityvm-devel@lists.sourceforge.net,
-	alacrityvm-users@lists.sourceforge.net
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Sergey Lapin <slapin@ossfans.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f214.google.com ([209.85.219.214]:33739 "EHLO
+	mail-ew0-f214.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754125AbZHLUqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 16:46:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1250082837.8784.21.camel@johannes.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig965E8CB54FAEC0A7B24CCFC8
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Wed, Aug 12, 2009 at 03:13:57PM +0200, Johannes Berg wrote:
+> On Wed, 2009-08-12 at 17:06 +0400, Dmitry Eremin-Solenikov wrote:
+> 
+> > > In addition to that, you can't put anything into skb->cb, then push the
+> > > frame to the master netdev, and expect things in skb->cb to still be
+> > > there when the frame arrives at the master netdev. Not sure you do that
+> > > (I hope not because that would be very buggy), but eventually you'll
+> > > probably find that you do want that, etc.
+> > 
+> > Hmm. It works for us. Could you please tell me more about the problems
+> > with skb->cb ?
+> 
+> Uh, well, you don't own the skb->cb between dev_queue_xmit() and
+> ndo_start_xmit(). In fact, your phy_cb data will be overwritten by the
+> qdisc.
 
-I re-ran the numbers on 10GE against the actual alacrityvm v0.1 release
-available in git on kernel.org.
+Hmmm. Really weird. Then, if we want to pass data from socket layer to
+MAC layer, we should place data in skb->data and not in skb->cb (like
+radiotap header)?
 
-I tried to include the newly announced "vhost" driver (Michael Tsirkin)
-for virtio acceleration, but ran into issues getting the patches to apply=
-=2E
+> Also, looking into this a bit more, I see no reason to allocate a work
+> struct every time you get a frame -- better just queue them up and stick
+> everything else into skb->cb. In fact, you don't need a master netdev
+> here anyway, just move all code from ieee802154_master_hard_start_xmit()
+> into ieee802154_net_xmit().
+> 
 
-For now, this includes native, virtio-u (virtio-userspace), and venet
-all running on 31-rc4.  If I can resolve the issue with Michaels
-patches, I will add "virtio-k" (virtio-kernel) to the mix as well.  For
-now, here are the results for 1500mtu:
+Nice idea. Thanks a lot!
 
-native:   7388Mb/s,   29.8us rtt (33505 tps udp-rr)
-venet:    3654Mb/s,   56.8us rtt (17600 tps udp-rr)
-virtio-u: 1955Mb/s, 4016.0us rtt (  249 tps udp-rr)
+-- 
+With best wishes
+Dmitry
 
-Note that on one particular boot-session, I actually saw venet run
-consistently 4600Mb/s, and virtio-u run consistently 2800Mb/s.  I am not
-sure why other runs resulted in deterministically lower numbers, but I
-included the average of the low runs to be conservative, ~3600, ~1900
-respectively).
-
-Of interest here is that native made a huge jump (2.6.29 was more like
-4Gb/s), and also that KVM regressed a bit, especially compared to native
-numbers.  The cause for either of these changes is not known at this
-time, but I will investigate the cause over the next few days.
-
-In any case, I have updated the graphs on the AlacrityVM wiki to reflect
-these latest numbers:
-
-http://developer.novell.com/wiki/index.php/AlacrityVM
-
-Kind Regards,
--Greg
-
-
---------------enig965E8CB54FAEC0A7B24CCFC8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqDKWsACgkQP5K2CMvXmqHOhgCfWd6BYp0Waa95XAhrQf1NqhBm
-2EEAnj2/0Fngi3pu7fa3sbRxirTQd/+D
-=7ezu
------END PGP SIGNATURE-----
-
---------------enig965E8CB54FAEC0A7B24CCFC8--
