@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pppoe: fix race at init time
-Date: Wed, 12 Aug 2009 16:40:07 -0700 (PDT)
-Message-ID: <20090812.164007.240124819.davem@davemloft.net>
-References: <20090728184834.GD4678@lenovo>
-	<43d009740907282055t44bfa2e2md3afa514d4b2d7e6@mail.gmail.com>
-	<20090729144642.GA5094@lenovo>
+Subject: Re: [PATCH] net: Fix spinlock use in alloc_netdev_mq()
+Date: Wed, 12 Aug 2009 16:44:12 -0700 (PDT)
+Message-ID: <20090812.164412.266822784.davem@davemloft.net>
+References: <20090805084746.GA3897@psychotron.englab.brq.redhat.com>
+	<20090805101327.2c49cc62.akpm@linux-foundation.org>
+	<20090806083102.GA3737@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: for.poige+bugzilla.kernel.org@gmail.com, eric.dumazet@gmail.com,
-	xemul@openvz.org, akpm@linux-foundation.org, netdev@vger.kernel.org
-To: gorcunov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41384
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750934AbZHLXj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 19:39:57 -0400
-In-Reply-To: <20090729144642.GA5094@lenovo>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, mingo@elte.hu, a.p.zijlstra@chello.nl,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com
+To: jpirko@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751762AbZHLXoF@vger.kernel.org>
+In-Reply-To: <20090806083102.GA3737@psychotron.englab.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Wed, 29 Jul 2009 18:46:42 +0400
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Thu, 6 Aug 2009 10:31:02 +0200
 
-> net,pppoe: fixup module init/exit subsequent calls
-> 
-> pernet data should allocated first and freed last
-> on module init/exit routines otherwise it's possible
-> to have unserialized calls to packet handling routines.
-> 
-> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+> Hmm, I see your point here. Eric previously posted patch which moved spin lock
+> init into alloc_netdev_mq(). But he was worried about having it here and
+> netdev_set_addr_lockdep_class() in register_netdevice() (because before
+> dev_unicast_init() dev->type is not set). So how about the following patch?
 
-Still no feedback on this one, but it looks totally correct to me.
+Well, because of those potential late dev->type settings we
+can't do things this way.  And I believe those in fact do happen.
 
-So I've applied it to net-next-2.6 so that it doesn't get lost and if
-it turns out we need it to actually fix a user reported bug we can
-toss it into net-2.6 too.
+So I'm tossing this patch, I wouldn't have applied it to net-2.6
+anyways, as it's net-next-2.6 material :-)
