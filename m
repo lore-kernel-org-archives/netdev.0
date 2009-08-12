@@ -1,1570 +1,1565 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 12:58:34 -0700
-Message-ID: <20090812195834.GN6779@linux.vnet.ibm.com>
-References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090810185340.GC13924@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dan Smith <danms@us.ibm.com>
+Subject: [PATCH] c/r: Add AF_UNIX support (v10)
+Date: Wed, 12 Aug 2009 13:02:29 -0700
+Message-ID: <1250107349-31960-1-git-send-email-danms@us.ibm.com>
+Cc: containers@lists.osdl.org, Oren Laaden <orenl@cs.columbia.edu>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
+To: orenl@librato.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw0.danplanet.com ([71.245.107.82]:53185 "EHLO
+	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753679AbZHLUAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 16:00:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 10, 2009 at 09:53:40PM +0300, Michael S. Tsirkin wrote:
-> What it is: vhost net is a character device that can be used to reduce
-> the number of system calls involved in virtio networking.
-> Existing virtio net code is used in the guest without modification.
-> 
-> There's similarity with vringfd, with some differences and reduced scope
-> - uses eventfd for signalling
-> - structures can be moved around in memory at any time (good for migration)
-> - support memory table and not just an offset (needed for kvm)
-> 
-> common virtio related code has been put in a separate file vhost.c and
-> can be made into a separate module if/when more backend appear.  I used
-> Rusty's lguest.c as the source for developing this part : this supplied
-> me with witty comments I wouldn't be able to write myself.
-> 
-> What it is not: vhost net is not a bus, and not a generic new system
-> call. No assumptions are made on how guest performs hypercalls.
-> Userspace hypervisors are supported as well as kvm.
-> 
-> How it works: Basically, we connect virtio frontend (configured by
-> userspace) to a backend. The backend could be a network device, or a
-> tun-like device. In this version I only support raw socket as a backend,
-> which can be bound to e.g. SR IOV, or to macvlan device.  Backend is
-> also configured by userspace, including vlan/mac etc.
-> 
-> Status:
-> This works for me, and I haven't see any crashes.
-> I have not run any benchmarks yet, compared to userspace, I expect to
-> see improved latency (as I save up to 4 system calls per packet) but not
-> yet bandwidth/CPU (as TSO and interrupt mitigation are not yet supported).
-> 
-> Features that I plan to look at in the future:
-> - TSO
-> - interrupt mitigation
-> - zero copy
+This patch adds basic checkpoint/restart support for AF_UNIX sockets.  It
+has been tested with a single and multiple processes, and with data inflight
+at the time of checkpoint.  It supports socketpair()s, path-based, and
+abstract sockets.
 
-Much better -- a couple of documentation nits below.
+Changes in v10:
+  - Moved header structure definitions back to checkpoint_hdr.h
+  - Moved AF_UNIX checkpoint/restart code to net/unix/checkpoint.c
+  - Make sock_unix_*() functions only compile if CONFIG_UNIX=y
+  - Add TODO for CONFIG_UNIX=m case
 
-							Thanx, Paul
+Changes in v9:
+  - Fix double-free of skb's in the list and target holding queue in the
+    error path of sock_copy_buffers()
+  - Adjust use of ckpt_read_string() to match new signature
 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> ---
->  MAINTAINERS                |   10 +
->  arch/x86/kvm/Kconfig       |    1 +
->  drivers/Makefile           |    1 +
->  drivers/block/virtio_blk.c |    3 +
->  drivers/vhost/Kconfig      |   11 +
->  drivers/vhost/Makefile     |    2 +
->  drivers/vhost/net.c        |  462 ++++++++++++++++++++++++++++++
->  drivers/vhost/vhost.c      |  663 ++++++++++++++++++++++++++++++++++++++++++++
->  drivers/vhost/vhost.h      |  108 +++++++
->  include/linux/Kbuild       |    1 +
->  include/linux/miscdevice.h |    1 +
->  include/linux/vhost.h      |  100 +++++++
->  12 files changed, 1363 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/vhost/Kconfig
->  create mode 100644 drivers/vhost/Makefile
->  create mode 100644 drivers/vhost/net.c
->  create mode 100644 drivers/vhost/vhost.c
->  create mode 100644 drivers/vhost/vhost.h
->  create mode 100644 include/linux/vhost.h
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index ebc2691..eb0c1da 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -6312,6 +6312,16 @@ S:	Maintained
->  F:	Documentation/filesystems/vfat.txt
->  F:	fs/fat/
-> 
-> +VIRTIO HOST (VHOST)
-> +P:	Michael S. Tsirkin
-> +M:	mst@redhat.com
-> +L:	kvm@vger.kernel.org
-> +L:	virtualization@lists.osdl.org
-> +L:	netdev@vger.kernel.org
-> +S:	Maintained
-> +F:	drivers/vhost/
-> +F:	include/linux/vhost.h
-> +
->  VIA RHINE NETWORK DRIVER
->  P:	Roger Luethi
->  M:	rl@hellgate.ch
-> diff --git a/arch/x86/kvm/Kconfig b/arch/x86/kvm/Kconfig
-> index b84e571..94f44d9 100644
-> --- a/arch/x86/kvm/Kconfig
-> +++ b/arch/x86/kvm/Kconfig
-> @@ -64,6 +64,7 @@ config KVM_AMD
-> 
->  # OK, it's a little counter-intuitive to do this, but it puts it neatly under
->  # the virtualization menu.
-> +source drivers/vhost/Kconfig
->  source drivers/lguest/Kconfig
->  source drivers/virtio/Kconfig
-> 
-> diff --git a/drivers/Makefile b/drivers/Makefile
-> index bc4205d..1551ae1 100644
-> --- a/drivers/Makefile
-> +++ b/drivers/Makefile
-> @@ -105,6 +105,7 @@ obj-$(CONFIG_HID)		+= hid/
->  obj-$(CONFIG_PPC_PS3)		+= ps3/
->  obj-$(CONFIG_OF)		+= of/
->  obj-$(CONFIG_SSB)		+= ssb/
-> +obj-$(CONFIG_VHOST_NET)		+= vhost/
->  obj-$(CONFIG_VIRTIO)		+= virtio/
->  obj-$(CONFIG_VLYNQ)		+= vlynq/
->  obj-$(CONFIG_STAGING)		+= staging/
-> diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
-> index aa1a3d5..42e61b0 100644
-> --- a/drivers/block/virtio_blk.c
-> +++ b/drivers/block/virtio_blk.c
-> @@ -293,6 +293,7 @@ static int __devinit virtblk_probe(struct virtio_device *vdev)
->  		err = PTR_ERR(vblk->vq);
->  		goto out_free_vblk;
->  	}
-> +	printk(KERN_ERR "vblk->vq = %p\n", vblk->vq);
-> 
->  	vblk->pool = mempool_create_kmalloc_pool(1,sizeof(struct virtblk_req));
->  	if (!vblk->pool) {
-> @@ -383,6 +384,8 @@ static int __devinit virtblk_probe(struct virtio_device *vdev)
->  	if (!err)
->  		blk_queue_logical_block_size(vblk->disk->queue, blk_size);
-> 
-> +	printk(KERN_ERR "virtio_config_val returned %d\n", err);
-> +
->  	add_disk(vblk->disk);
->  	return 0;
-> 
-> diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-> new file mode 100644
-> index 0000000..d955406
-> --- /dev/null
-> +++ b/drivers/vhost/Kconfig
-> @@ -0,0 +1,11 @@
-> +config VHOST_NET
-> +	tristate "Host kernel accelerator for virtio net"
-> +	depends on NET && EVENTFD
-> +	---help---
-> +	  This kernel module can be loaded in host kernel to accelerate
-> +	  guest networking with virtio_net. Not to be confused with virtio_net
-> +	  module itself which needs to be loaded in guest kernel.
-> +
-> +	  To compile this driver as a module, choose M here: the module will
-> +	  be called vhost_net.
-> +
-> diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
-> new file mode 100644
-> index 0000000..72dd020
-> --- /dev/null
-> +++ b/drivers/vhost/Makefile
-> @@ -0,0 +1,2 @@
-> +obj-$(CONFIG_VHOST_NET) += vhost_net.o
-> +vhost_net-y := vhost.o net.o
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> new file mode 100644
-> index 0000000..fc3359b
-> --- /dev/null
-> +++ b/drivers/vhost/net.c
-> @@ -0,0 +1,462 @@
-> +/* Copyright (C) 2009 Red Hat, Inc.
-> + * Author: Michael S. Tsirkin <mst@redhat.com>
-> + *
-> + * This work is licensed under the terms of the GNU GPL, version 2.
-> + *
-> + * virtio-net server in host kernel.
-> + */
-> +
-> +#include <linux/eventfd.h>
-> +#include <linux/vhost.h>
-> +#include <linux/virtio_net.h>
-> +#include <linux/mm.h>
-> +#include <linux/miscdevice.h>
-> +#include <linux/module.h>
-> +#include <linux/mutex.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/rcupdate.h>
-> +#include <linux/file.h>
-> +
-> +#include <linux/net.h>
-> +#include <linux/if_packet.h>
-> +#include <linux/if_arp.h>
-> +
-> +#include <net/sock.h>
-> +
-> +#include <asm/mmu_context.h>
-> +
-> +#include "vhost.h"
-> +
-> +enum {
-> +	VHOST_NET_VQ_RX = 0,
-> +	VHOST_NET_VQ_TX = 1,
-> +	VHOST_NET_VQ_MAX = 2,
-> +};
-> +
-> +struct vhost_net {
-> +	struct vhost_dev dev;
-> +	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
-> +	/* We use a kind of RCU to access sock pointer.
-> +	 * All readers access it from workqueue,
-> +	 * which makes it possible to flush the workqueue
-> +	 * instead of synchronize_rcu. Therefore readers
-> +	 * do not need rcu_read_lock/rcu_read_unlock.
+Changes in v8:
+  - Fix stale dev_alloc_skb() from before the conversion to skb_clone()
+  - Fix a couple of broken error paths
+  - Fix memory leak of kvec.iov_base on successful return from sendmsg()
+  - Fix condition for deciding when to run sock_cptrst_verify()
+  - Fix buffer queue copy algorithm to hold the lock during walk(s)
+  - Log the errno when either getname() or getpeer() fails
+  - Add comments about ancillary messages in the UNIX queue
+  - Add TODO comments for credential restore and flags via setsockopt()
+  - Add TODO comment about strangely-connected dgram sockets and the use
+    of sendmsg(peer)
 
-How about something like "Therefore the beginning of workqueue
-execution acts as rcu_read_lock() and the end of workqueue execution
-acts as rcu_read_lock()"?
+Changes in v7:
+  - Fix failure to free iov_base in error path of sock_read_buffer()
+  - Change sock_read_buffer() to use _ckpt_read_obj_type() to get the
+    header length and then use ckpt_kread() directly to read the payload
+  - Change sock_read_buffers() to sock_unix_read_buffers() and break out
+    some common functionality to better accommodate the subsequent INET
+    patch
+  - Generalize sock_unix_getnames() into sock_getnames() so INET can use it
+  - Change skb_morph() to skb_clone() which uses the more common path and
+    still avoids the copy
+  - Add check to validate the socket type before creating socket
+    on restore
+  - Comment the CAP_NET_ADMIN override in sock_read_buffer_hdr
+  - Strengthen the comment about priming the buffer limits
+  - Change the objhash functions to deny direct checkpoint of sockets and
+    remove the reference counting function
+  - Change SOCKET_BUFFERS to SOCKET_QUEUE
+  - Change this,peer objrefs to signed integers
+  - Remove names from internal socket structures
+  - Fix handling of sock_copy_buffers() result
+  - Use ckpt_fill_fname() instead of d_path() for writing CWD
+  - Use sock_getname() and sock_getpeer() for proper security hookage
+  - Return -ENOSYS for unsupported socket families in checkpoint and restart
+  - Use sock_setsockopt() and sock_getsockopt() where possible to save and
+    restore socket option values
+  - Check for SOCK_DESTROY flag in the global verify function because none
+    of our supported socket types use it
+  - Check for SOCK_USE_WRITE_QUEUE in AF_UNIX restore function because
+    that flag should not be used on such a socket
+  - Check socket state in UNIX restart path to validate the subset of valid
+    values
 
-It would also be good to add comments to the workqueue functions
-themselves saying that they act as read-side critical sections for
-your kind of RCU.
+Changes in v6:
+  - Moved the socket addresses to the per-type header
+  - Eliminated the HASCWD flag
+  - Remove use of ckpt_write_err() in restart paths
+  - Change the order in which buffers are read so that we can set the
+    socket's limit equal to the size of the image's buffers (if appropriate)
+    and then restore the original values afterwards.
+  - Use the ckpt_validate_errno() helper
+  - Add a check to make sure that we didn't restore a (UNIX) socket with
+    any skb's in the send buffer
+  - Fix up sock_unix_join() to not leave addr uninitialized for socketpair
+  - Remove inclusion of checkpoint_hdr.h in the socket files
+  - Make sock_unix_write_cwd() use ckpt_write_string() and use the new
+    ckpt_read_string() for reading the cwd
+  - Use the restored realcred credentials in sock_unix_join()
+  - Fix error path of the chdir_and_bind
+  - Change the algorithm for reloading the socket buffers to use sendmsg()
+    on the socket's peer for better accounting
+  - For DGRAM sockets, check the backlog value against the system max
+    to avoid letting a restart bypass the overloaded queue length
+  - Use sock_bind() instead of sock->ops->bind() to gain the security hook
+  - Change "restart" to "restore" in some of the function names
 
-							Thanx, Paul
+Changes in v5:
+  - Change laddr and raddr buffers in socket header to be long enough
+    for INET6 addresses
+  - Place socket.c and sock.h function definitions inside #ifdef
+    CONFIG_CHECKPOINT
+  - Add explicit check in sock_unix_makeaddr() to refuse if the
+    checkpoint image specifies an addr length of 0
+  - Split sock_unix_restart() into a few pieces to facilitate:
+  - Changed behavior of the unix restore code so that unlinked LISTEN
+    sockets don't do a bind()...unlink()
+  - Save the base path of a bound socket's path so that we can chdir()
+    to the base before bind() if it is a relative path
+  - Call bind() for any socket that is not established but has a
+    non-zero-length local address
+  - Enforce the current sysctl limit on socket buffer size during restart
+    unless the user holds CAP_NET_ADMIN
+  - Unlink a path-based socket before calling bind()
 
-> +	 * Writers use device mutex. */
-> +	struct socket *sock;
-> +	struct vhost_poll poll[VHOST_NET_VQ_MAX];
-> +};
-> +
-> +static void handle_tx_kick(struct work_struct *work);
-> +static void handle_rx_kick(struct work_struct *work);
-> +static void handle_tx_net(struct work_struct *work);
-> +static void handle_rx_net(struct work_struct *work);
-> +
-> +static int vhost_net_open(struct inode *inode, struct file *f)
-> +{
-> +	struct vhost_net *n = kzalloc(sizeof *n, GFP_KERNEL);
-> +	int r;
-> +	if (!n)
-> +		return -ENOMEM;
-> +	f->private_data = n;
-> +	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
-> +	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
-> +	r = vhost_dev_init(&n->dev, n->vqs, VHOST_NET_VQ_MAX);
-> +	if (r < 0) {
-> +		kfree(n);
-> +		return r;
-> +	}
-> +
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
-> +	return 0;
-> +}
-> +
-> +static struct socket *vhost_net_stop(struct vhost_net *n)
-> +{
-> +	struct socket *sock = n->sock;
-> +	rcu_assign_pointer(n->sock, NULL);
-> +	if (sock) {
-> +		vhost_poll_flush(n->poll + VHOST_NET_VQ_TX);
-> +		vhost_poll_flush(n->poll + VHOST_NET_VQ_RX);
-> +	}
-> +	return sock;
-> +}
-> +
-> +static int vhost_net_release(struct inode *inode, struct file *f)
-> +{
-> +	struct vhost_net *n = f->private_data;
-> +	struct socket *sock;
-> +
-> +	sock = vhost_net_stop(n);
-> +	vhost_dev_cleanup(&n->dev);
-> +	if (sock)
-> +		fput(sock->file);
-> +	kfree(n);
-> +	return 0;
-> +}
-> +
-> +static long vhost_net_set_socket(struct vhost_net *n, int fd)
-> +{
-> +	struct {
-> +		struct sockaddr_ll sa;
-> +		char  buf[MAX_ADDR_LEN];
-> +	} uaddr;
-> +	struct socket *sock, *oldsock = NULL;
-> +	int uaddr_len = sizeof uaddr, r;
-> +
-> +	mutex_lock(&n->dev.mutex);
-> +	r = vhost_dev_check_owner(&n->dev);
-> +	if (r)
-> +		goto done;
-> +
-> +	if (fd == -1) {
-> +		/* Disconnect from socket and device. */
-> +		oldsock = vhost_net_stop(n);
-> +		goto done;
-> +	}
-> +	
-> +	sock = sockfd_lookup(fd, &r);
-> +	if (!sock) {
-> +		r = -ENOTSOCK;
-> +		goto done;
-> +	}
-> +
-> +	/* Parameter checking */
-> +	if (sock->sk->sk_type != SOCK_RAW) {
-> +		r = -ESOCKTNOSUPPORT;
-> +		goto done;
-> +	}
-> +
-> +	r = sock->ops->getname(sock, (struct sockaddr *)&uaddr.sa,
-> +			       &uaddr_len, 0);
-> +	if (r)
-> +		goto done;
-> +
-> +	if (uaddr.sa.sll_family != AF_PACKET) {
-> +		r = -EPFNOSUPPORT;
-> +		goto done;
-> +	}
-> +
-> +	/* start polling new socket */
-> +	if (sock == oldsock)
-> +		goto done;
-> +
-> +	if (oldsock) {
-> +		vhost_poll_stop(n->poll + VHOST_NET_VQ_TX);
-> +		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
-> +	}
-> +	oldsock = n->sock;
-> +	rcu_assign_pointer(n->sock, sock);
-> +	vhost_poll_start(n->poll + VHOST_NET_VQ_TX, sock->file);
-> +	vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +done:
-> +	mutex_unlock(&n->dev.mutex);
-> +	if (oldsock) {
-> +		vhost_poll_flush(n->poll + VHOST_NET_VQ_TX);
-> +		vhost_poll_flush(n->poll + VHOST_NET_VQ_RX);
-> +		vhost_poll_flush(&n->dev.vqs[VHOST_NET_VQ_TX].poll);
-> +		vhost_poll_flush(&n->dev.vqs[VHOST_NET_VQ_RX].poll);
-> +		fput(oldsock->file);
-> +	}
-> +	return r;
-> +}
-> +
-> +static long vhost_net_reset_owner(struct vhost_net *n)
-> +{
-> +	struct socket *sock = NULL;
-> +	long r;
-> +	mutex_lock(&n->dev.mutex);
-> +	r = vhost_dev_check_owner(&n->dev);
-> +	if (r)
-> +		goto done;
-> +	sock = vhost_net_stop(n);
-> +	r = vhost_dev_reset_owner(&n->dev);
-> +done:
-> +	mutex_unlock(&n->dev.mutex);
-> +	if (sock)
-> +		fput(sock->file);
-> +	return r;
-> +}
-> +
-> +static long vhost_net_ioctl(struct file *f, unsigned int ioctl,
-> +			    unsigned long arg)
-> +{
-> +	struct vhost_net *n = f->private_data;
-> +	void __user *argp = (void __user *)arg;
-> +	u32 __user *featurep = argp;
-> +	int __user *fdp = argp;
-> +	u32 features;
-> +	int fd, r;
-> +	switch (ioctl) {
-> +	case VHOST_NET_SET_SOCKET:
-> +		r = get_user(fd, fdp);
-> +		if (r < 0)
-> +			return r;
-> +		return vhost_net_set_socket(n, fd);
-> +	case VHOST_GET_FEATURES:
-> +		/* No features for now */
-> +		features = 0;
-> +		return put_user(features, featurep);
-> +	case VHOST_ACK_FEATURES:
-> +		r = get_user(features, featurep);
-> +		/* No features for now */
-> +		if (r < 0)
-> +			return r;
-> +		if (features)
-> +			return -EOPNOTSUPP;
-> +		return 0;
-> +	case VHOST_RESET_OWNER:
-> +		return vhost_net_reset_owner(n);
-> +	default:
-> +		return vhost_dev_ioctl(&n->dev, ioctl, arg);
-> +	}
-> +}
-> +
-> +static struct file_operations vhost_net_fops = {
-> +	.owner          = THIS_MODULE,
-> +	.release        = vhost_net_release,
-> +	.unlocked_ioctl = vhost_net_ioctl,
-> +	.open           = vhost_net_open,
-> +};
-> +
-> +static struct miscdevice vhost_net_misc = {
-> +	VHOST_NET_MINOR,
-> +	"vhost-net",
-> +	&vhost_net_fops,
-> +};
-> +
-> +/* Bits from fs/aio.c. TODO: export and use from there? */
-> +/*
-> + * use_mm
-> + *	Makes the calling kernel thread take on the specified
-> + *	mm context.
-> + *	Called by the retry thread execute retries within the
-> + *	iocb issuer's mm context, so that copy_from/to_user
-> + *	operations work seamlessly for aio.
-> + *	(Note: this routine is intended to be called only
-> + *	from a kernel thread context)
-> + */
-> +static void use_mm(struct mm_struct *mm)
-> +{
-> +	struct mm_struct *active_mm;
-> +	struct task_struct *tsk = current;
-> +
-> +	task_lock(tsk);
-> +	active_mm = tsk->active_mm;
-> +	atomic_inc(&mm->mm_count);
-> +	tsk->mm = mm;
-> +	tsk->active_mm = mm;
-> +	switch_mm(active_mm, mm, tsk);
-> +	task_unlock(tsk);
-> +
-> +	mmdrop(active_mm);
-> +}
-> +
-> +/*
-> + * unuse_mm
-> + *	Reverses the effect of use_mm, i.e. releases the
-> + *	specified mm context which was earlier taken on
-> + *	by the calling kernel thread
-> + *	(Note: this routine is intended to be called only
-> + *	from a kernel thread context)
-> + */
-> +static void unuse_mm(struct mm_struct *mm)
-> +{
-> +	struct task_struct *tsk = current;
-> +
-> +	task_lock(tsk);
-> +	tsk->mm = NULL;
-> +	/* active_mm is still 'mm' */
-> +	enter_lazy_tlb(mm, tsk);
-> +	task_unlock(tsk);
-> +}
-> +
-> +static void handle_tx(struct vhost_net *net)
-> +{
-> +	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
-> +	unsigned head, out, in;
-> +	struct msghdr msg = {
-> +		.msg_name = NULL,
-> +		.msg_namelen = 0,
-> +		.msg_control = NULL,
-> +		.msg_controllen = 0,
-> +		.msg_iov = (struct iovec *)vq->iov + 1,
-> +		.msg_flags = MSG_DONTWAIT,
-> +	};
-> +	size_t len;
-> +	int err;
-> +	struct socket *sock = rcu_dereference(net->sock);
-> +	if (!sock || !sock_writeable(sock->sk))
-> +		return;
-> +
-> +	use_mm(net->dev.mm);
-> +	mutex_lock(&vq->mutex);
-> +	for (;;) {
-> +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in);
-> +		if (head == vq->num)
-> +			break;
-> +		if (out <= 1 || in) {
-> +			vq_err(vq, "Unexpected descriptor format for TX: "
-> +			       "out %d, int %d\n", out, in);
-> +			break;
-> +		}
-> +		/* Sanity check */
-> +		if (vq->iov->iov_len != sizeof(struct virtio_net_hdr)) {
-> +			vq_err(vq, "Unexpected header len for TX: "
-> +			       "%ld expected %zd\n", vq->iov->iov_len,
-> +			       sizeof(struct virtio_net_hdr));
-> +			break;
-> +		}
-> +		/* Skip header. TODO: support TSO. */
-> +		msg.msg_iovlen = out - 1;
-> +		len = iov_length(vq->iov + 1, out - 1);
-> +		/* TODO: Check specific error and bomb out unless ENOBUFS? */
-> +		err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> +		if (err < 0) {
-> +			vhost_discard_vq_desc(vq);
-> +			break;
-> +		}
-> +		if (err != len)
-> +			pr_err("Truncated TX packet: "
-> +			       " len %d != %zd\n", err, len);
-> +		vhost_add_used_and_trigger(vq, head,
-> +				     len + sizeof(struct virtio_net_hdr));
-> +	}
-> +
-> +	mutex_unlock(&vq->mutex);
-> +	unuse_mm(net->dev.mm);
-> +}
-> +
-> +static void handle_rx(struct vhost_net *net)
-> +{
-> +	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-> +	unsigned head, out, in;
-> +	struct msghdr msg = {
-> +		.msg_name = NULL,
-> +		.msg_namelen = 0,
-> +		.msg_control = NULL, /* FIXME: get and handle RX aux data. */
-> +		.msg_controllen = 0,
-> +		.msg_iov = vq->iov + 1,
-> +		.msg_flags = MSG_DONTWAIT,
-> +	};
-> +
-> +	struct virtio_net_hdr hdr = {
-> +		.flags = 0,
-> +		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-> +	};
-> +
-> +	size_t len;
-> +	int err;
-> +	struct socket *sock = rcu_dereference(net->sock);
-> +	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-> +		return;
-> +
-> +	use_mm(net->dev.mm);
-> +	mutex_lock(&vq->mutex);
-> +
-> +	for (;;) {
-> +		head = vhost_get_vq_desc(&net->dev, vq, vq->iov, &out, &in);
-> +		if (head == vq->num)
-> +			break;
-> +		if (in <= 1 || out) {
-> +			vq_err(vq, "Unexpected descriptor format for RX: out %d, int %d\n",
-> +			       out, in);
-> +			break;
-> +		}
-> +		/* Sanity check */
-> +		if (vq->iov->iov_len != sizeof(struct virtio_net_hdr)) {
-> +			vq_err(vq, "Unexpected header len for RX: %ld expected %zd\n",
-> +			       vq->iov->iov_len, sizeof(struct virtio_net_hdr));
-> +			break;
-> +		}
-> +		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-> +		msg.msg_iovlen = in - 1;
-> +		len = iov_length(vq->iov + 1, in - 1);
-> +		err = sock->ops->recvmsg(NULL, sock, &msg,
-> +					 len, MSG_DONTWAIT | MSG_TRUNC);
-> +		/* TODO: Check specific error and bomb out unless EAGAIN? */
-> +		if (err < 0) {
-> +			vhost_discard_vq_desc(vq);
-> +			break;
-> +		}
-> +		/* TODO: Should check and handle checksum. */
-> +		if (err > len) {
-> +			pr_err("Discarded truncated rx packet: "
-> +			       " len %d > %zd\n", err, len);
-> +			vhost_discard_vq_desc(vq);
-> +			continue;
-> +		}
-> +		len = err;
-> +		err = copy_to_user(vq->iov->iov_base, &hdr, sizeof hdr);
-> +		if (err) {
-> +			vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
-> +			       vq->iov->iov_base, err);
-> +			break;
-> +		}
-> +		vhost_add_used_and_trigger(vq, head, len + sizeof hdr);
-> +	}
-> +
-> +	mutex_unlock(&vq->mutex);
-> +	unuse_mm(net->dev.mm);
-> +}
-> +
-> +static void handle_tx_kick(struct work_struct *work)
-> +{
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_net *net;
-> +	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> +	net = container_of(vq->dev, struct vhost_net, dev);
-> +	handle_tx(net);
-> +}
-> +
-> +static void handle_rx_kick(struct work_struct *work)
-> +{
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_net *net;
-> +	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> +	net = container_of(vq->dev, struct vhost_net, dev);
-> +	handle_rx(net);
-> +}
-> +
-> +static void handle_tx_net(struct work_struct *work)
-> +{
-> +	struct vhost_net *net;
-> +	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_TX].work);
-> +	handle_tx(net);
-> +}
-> +
-> +static void handle_rx_net(struct work_struct *work)
-> +{
-> +	struct vhost_net *net;
-> +	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_RX].work);
-> +	handle_rx(net);
-> +}
-> +
-> +int vhost_net_init(void)
-> +{
-> +	int r = vhost_init();
-> +	if (r)
-> +		goto err_init;
-> +	r = misc_register(&vhost_net_misc);
-> +	if (r)
-> +		goto err_reg;
-> +	return 0;
-> +err_reg:
-> +	vhost_cleanup();
-> +err_init:
-> +	return r;
-> +
-> +}
-> +module_init(vhost_net_init);
-> +
-> +void vhost_net_exit(void)
-> +{
-> +	misc_deregister(&vhost_net_misc);
-> +	vhost_cleanup();
-> +}
-> +module_exit(vhost_net_exit);
-> +
-> +MODULE_VERSION("0.0.1");
-> +MODULE_LICENSE("GPL v2");
-> +MODULE_AUTHOR("Michael S. Tsirkin");
-> +MODULE_DESCRIPTION("Host kernel accelerator for virtio net");
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> new file mode 100644
-> index 0000000..6178ec1
-> --- /dev/null
-> +++ b/drivers/vhost/vhost.c
-> @@ -0,0 +1,663 @@
-> +/* Copyright (C) 2009 Red Hat, Inc.
-> + * Copyright (C) 2006 Rusty Russell IBM Corporation
-> + *
-> + * Author: Michael S. Tsirkin <mst@redhat.com>
-> + *
-> + * Inspiration, some code, and most witty comments come from
-> + * Documentation/lguest/lguest.c, by Rusty Russell
-> + *
-> + * This work is licensed under the terms of the GNU GPL, version 2.
-> + *
-> + * Generic code for virtio server in host kernel.
-> + */
-> +
-> +#include <linux/eventfd.h>
-> +#include <linux/vhost.h>
-> +#include <linux/virtio_net.h>
-> +#include <linux/mm.h>
-> +#include <linux/miscdevice.h>
-> +#include <linux/mutex.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/rcupdate.h>
-> +#include <linux/poll.h>
-> +#include <linux/file.h>
-> +
-> +#include <linux/net.h>
-> +#include <linux/if_packet.h>
-> +#include <linux/if_arp.h>
-> +
-> +#include <net/sock.h>
-> +
-> +#include <asm/mmu_context.h>
-> +
-> +#include "vhost.h"
-> +
-> +enum {
-> +	VHOST_MEMORY_MAX_NREGIONS = 64,
-> +};
-> +
-> +struct workqueue_struct *vhost_workqueue;
-> +
-> +static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
-> +			    poll_table *pt)
-> +{
-> +	struct vhost_poll *poll;
-> +	poll = container_of(pt, struct vhost_poll, table);
-> +
-> +	poll->wqh = wqh;
-> +	add_wait_queue(wqh, &poll->wait);
-> +}
-> +
-> +static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync, void *key)
-> +{
-> +	struct vhost_poll *poll;
-> +	poll = container_of(wait, struct vhost_poll, wait);
-> +	if (!((unsigned long)key & poll->mask))
-> +		return 0;
-> +
-> +	queue_work(vhost_workqueue, &poll->work);
-> +	return 0;
-> +}
-> +
-> +/* Init poll structure */
-> +void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> +		     unsigned long mask)
-> +{
-> +	INIT_WORK(&poll->work, func);
-> +	init_waitqueue_func_entry(&poll->wait, vhost_poll_wakeup);
-> +	init_poll_funcptr(&poll->table, vhost_poll_func);
-> +	poll->mask = mask;
-> +}
-> +
-> +/* Start polling a file. We add ourselves to file's wait queue. The user must
-> + * keep a reference to a file until after vhost_poll_stop is called. */
-> +void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-> +{
-> +	unsigned long mask;
-> +	mask = file->f_op->poll(file, &poll->table);
-> +	if (mask)
-> +		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-> +}
-> +
-> +/* Stop polling a file. After this function returns, it becomes safe to drop the
-> + * file reference. You must also flush afterwards. */
-> +void vhost_poll_stop(struct vhost_poll *poll)
-> +{
-> +	remove_wait_queue(poll->wqh, &poll->wait);
-> +}
-> +
-> +/* Flush any work that has been scheduled. When calling this, don't hold any
-> + * locks that are also used by the callback. */
-> +void vhost_poll_flush(struct vhost_poll *poll)
-> +{
-> +	flush_work(&poll->work);
-> +}
-> +
-> +long vhost_dev_init(struct vhost_dev *dev, struct vhost_virtqueue *vqs, int nvqs)
-> +{
-> +	int i;
-> +	dev->vqs = vqs;
-> +	dev->nvqs = nvqs;
-> +	mutex_init(&dev->mutex);
-> +
-> +	for(i = 0; i < dev->nvqs; ++i) {
-> +		dev->vqs[i].dev = dev;
-> +		mutex_init(&dev->vqs[i].mutex);
-> +		if (dev->vqs[i].handle_kick)
-> +			vhost_poll_init(&dev->vqs[i].poll,
-> +					dev->vqs[i].handle_kick,
-> +					POLLIN);
-> +	}
-> +	return 0;
-> +}
-> +
-> +/* User should have device mutex */
-> +long vhost_dev_check_owner(struct vhost_dev *dev)
-> +{
-> +	return dev->mm == current->mm ? 0 : -EPERM;
-> +}
-> +
-> +/* User should have device mutex */
-> +static long vhost_dev_set_owner(struct vhost_dev *dev)
-> +{
-> +	if (dev->mm)
-> +		return -EBUSY;
-> +	dev->mm = get_task_mm(current);
-> +	return 0;
-> +}
-> +
-> +/* User should have device mutex */
-> +long vhost_dev_reset_owner(struct vhost_dev *dev)
-> +{
-> +	struct vhost_memory *memory;
-> +
-> +	/* Restore memory to default 1:1 mapping. */
-> +	memory = kmalloc(offsetof(struct vhost_memory, regions) +
-> +			 2 * sizeof *memory->regions, GFP_KERNEL);
-> +	if (!memory)
-> +		return -ENOMEM;
-> +
-> +	vhost_dev_cleanup(dev);
-> +
-> +	memory->nregions = 2;
-> +	memory->regions[0].guest_phys_addr = 1;
-> +	memory->regions[0].userspace_addr = 1;
-> +	memory->regions[0].memory_size = ~0ULL;
-> +	memory->regions[1].guest_phys_addr = 0;
-> +	memory->regions[1].userspace_addr = 0;
-> +	memory->regions[1].memory_size = 1;
-> +	dev->memory = memory;
-> +	return 0;
-> +}
-> +
-> +/* User should have device mutex */
-> +void vhost_dev_cleanup(struct vhost_dev *dev)
-> +{
-> +	int i;
-> +	for(i = 0; i < dev->nvqs; ++i) {
-> +		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
-> +			vhost_poll_stop(&dev->vqs[i].poll);
-> +			vhost_poll_flush(&dev->vqs[i].poll);
-> +		}
-> +		if (dev->vqs[i].error_ctx)
-> +			eventfd_ctx_put(dev->vqs[i].error_ctx);
-> +		if (dev->vqs[i].error)
-> +			fput(dev->vqs[i].error);
-> +		if (dev->vqs[i].kick)
-> +			fput(dev->vqs[i].kick);
-> +		if (dev->vqs[i].call_ctx)
-> +			eventfd_ctx_put(dev->vqs[i].call_ctx);
-> +		if (dev->vqs[i].call)
-> +			fput(dev->vqs[i].call);
-> +		dev->vqs[i].error_ctx = NULL;
-> +		dev->vqs[i].error = NULL;
-> +		dev->vqs[i].kick = NULL;
-> +		dev->vqs[i].call_ctx = NULL;
-> +		dev->vqs[i].call = NULL;
-> +	}
-> +	/* No one will access memory at this point */
-> +	kfree(dev->memory);
-> +	dev->memory = NULL;
-> +	if (dev->mm)
-> +		mmput(dev->mm);
-> +	dev->mm = NULL;
-> +}
-> +
-> +static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
-> +{
-> +	struct vhost_memory mem, *newmem, *oldmem;
-> +	unsigned long size = offsetof(struct vhost_memory, regions);
-> +	long r;
-> +	r = copy_from_user(&mem, m, size);
-> +	if (r)
-> +		return r;
-> +	if (mem.padding)
-> +		return -EOPNOTSUPP;
-> +	if (mem.nregions > VHOST_MEMORY_MAX_NREGIONS)
-> +		return -E2BIG;
-> +	newmem = kmalloc(size + mem.nregions * sizeof *m->regions, GFP_KERNEL);
-> +	if (!newmem)
-> +		return -ENOMEM;
-> +
-> +	memcpy(newmem, &mem, size);
-> +	r = copy_from_user(newmem->regions, m->regions,
-> +			   mem.nregions * sizeof *m->regions);
-> +	if (r) {
-> +		kfree(newmem);
-> +		return r;
-> +	}
-> +	oldmem = d->memory;
-> +	rcu_assign_pointer(d->memory, newmem);
-> +	synchronize_rcu();
-> +	kfree(oldmem);
-> +	return 0;
-> +}
-> +
-> +static int init_used(struct vhost_virtqueue *vq)
-> +{
-> +	u16 flags = 0;
-> +	int r = put_user(flags, &vq->used->flags);
-> +	if (r)
-> +		return r;
-> +	return get_user(vq->last_used_idx, &vq->used->idx);
-> +}
-> +
-> +static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
-> +{
-> +	struct file *eventfp, *filep = NULL, *pollstart = NULL, *pollstop = NULL;
-> +	struct eventfd_ctx *ctx = NULL;
-> +	u32 __user *idxp = argp;
-> +	struct vhost_virtqueue *vq;
-> +	struct vhost_vring_state s;
-> +	struct vhost_vring_file f;
-> +	struct vhost_vring_addr a;
-> +	u32 idx;
-> +	long r;
-> +
-> +	r = get_user(idx, idxp);
-> +	if (r < 0)
-> +		return r;
-> +	if (idx > d->nvqs)
-> +		return -ENOBUFS;
-> +
-> +	vq = d->vqs + idx;
-> +
-> +	mutex_lock(&vq->mutex);
-> +
-> +	switch (ioctl) {
-> +	case VHOST_SET_VRING_NUM:
-> +		r = copy_from_user(&s, argp, sizeof s);
-> +		if (r < 0)
-> +			break;
-> +		if (s.num > 0xffff) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->num = s.num;
-> +		break;
-> +	case VHOST_SET_VRING_BASE:
-> +		r = copy_from_user(&s, argp, sizeof s);
-> +		if (r < 0)
-> +			break;
-> +		if (s.num > 0xffff) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->last_avail_idx = s.num;
-> +		break;
-> +	case VHOST_GET_VRING_BASE:
-> +		s.index = idx;
-> +		s.num = vq->last_avail_idx;
-> +		r = copy_to_user(argp, &s, sizeof s);
-> +		break;
-> +	case VHOST_SET_VRING_DESC:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		vq->desc = (void __user *)(long)a.user_addr;
-> +		break;
-> +	case VHOST_SET_VRING_AVAIL:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		vq->avail = (void __user *)(long)a.user_addr;
-> +		break;
-> +	case VHOST_SET_VRING_USED:
-> +		r = copy_from_user(&a, argp, sizeof a);
-> +		if (r < 0)
-> +			break;
-> +		if (a.padding) {
-> +			r = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if ((u64)(long)a.user_addr != a.user_addr) {
-> +			r = -EFAULT;
-> +			break;
-> +		}
-> +		vq->used = (void __user *)(long)a.user_addr;
-> +		r = init_used(vq);
-> +		if (r)
-> +			break;
-> +		break;
-> +	case VHOST_SET_VRING_KICK:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL: eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->kick) {
-> +			pollstop = filep = vq->kick;
-> +			pollstart = vq->kick = eventfp;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	case VHOST_SET_VRING_CALL:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL: eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->call) {
-> +			filep = vq->call;
-> +			ctx = vq->call_ctx;
-> +			vq->call = eventfp;
-> +			vq->call_ctx = eventfp ?
-> +				eventfd_ctx_fileget(eventfp) : NULL;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	case VHOST_SET_VRING_ERR:
-> +		r = copy_from_user(&f, argp, sizeof f);
-> +		if (r < 0)
-> +			break;
-> +		eventfp = f.fd == -1 ? NULL: eventfd_fget(f.fd);
-> +		if (IS_ERR(eventfp))
-> +			return PTR_ERR(eventfp);
-> +		if (eventfp != vq->error) {
-> +			filep = vq->error;
-> +			vq->error = eventfp;
-> +			ctx = vq->error_ctx;
-> +			vq->error_ctx = eventfp ?
-> +				eventfd_ctx_fileget(eventfp) : NULL;
-> +		} else
-> +			filep = eventfp;
-> +		break;
-> +	default:
-> +		r = -ENOTTY;
-> +	}
-> +
-> +	if (pollstop && vq->handle_kick)
-> +		vhost_poll_stop(&vq->poll);
-> +
-> +	if (ctx)
-> +		eventfd_ctx_put(ctx);
-> +	if (filep)
-> +		fput(filep);
-> +
-> +	if (pollstart && vq->handle_kick)
-> +		vhost_poll_start(&vq->poll, vq->kick);
-> +
-> +	mutex_unlock(&vq->mutex);
-> +
-> +	if (pollstop && vq->handle_kick)
-> +		vhost_poll_flush(&vq->poll);
-> +	return 0;
-> +}
-> +
-> +long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, unsigned long arg)
-> +{
-> +	void __user *argp = (void __user *)arg;
-> +	long r;
-> +
-> +	mutex_lock(&d->mutex);
-> +	if (ioctl == VHOST_SET_OWNER) {
-> +		r = vhost_dev_set_owner(d);
-> +		goto done;
-> +	}
-> +
-> +	r = vhost_dev_check_owner(d);
-> +	if (r)
-> +		goto done;
-> +		
-> +	switch (ioctl) {
-> +	case VHOST_SET_MEM_TABLE:
-> +		r = vhost_set_memory(d, argp);
-> +		break;
-> +	default:
-> +		r = vhost_set_vring(d, ioctl, argp);
-> +		break;
-> +	}
-> +done:
-> +	mutex_unlock(&d->mutex);
-> +	return r;
-> +}
-> +
-> +static const struct vhost_memory_region *find_region(struct vhost_memory *mem,
-> +						     __u64 addr, __u32 len)
-> +{
-> +	struct vhost_memory_region *reg;
-> +	int i;
-> +	/* linear search is not brilliant, but we really have on the order of 6
-> +	 * regions in practice */
-> +	for (i = 0; i < mem->nregions; ++i) {
-> +		reg = mem->regions + i;
-> +		if (reg->guest_phys_addr <= addr &&
-> +		    reg->guest_phys_addr + reg->memory_size - 1 >= addr)
-> +			return reg;
-> +	}
-> +	return NULL;
-> +}
-> +
-> +/* FIXME: this does not handle a region that spans multiple
-> + * address/len pairs */
-> +int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
-> +		   struct iovec iov[], int iov_count, int iov_size,
-> +		   unsigned *num)
-> +{
-> +	const struct vhost_memory_region *reg;
-> +	struct vhost_memory *mem;
-> +	struct iovec *_iov;
-> +	u64 s = 0;
-> +	int ret = 0;
-> +
-> +	rcu_read_lock();
-> +
-> +	mem = rcu_dereference(dev->memory);
-> +	while ((u64)len > s) {
-> +		u64 size;
-> +		if (*num + iov_count >= iov_size) {
-> +			ret = -ENOBUFS;
-> +			break;
-> +		}
-> +		reg = find_region(mem, addr, len);
-> +		if (!reg) {
-> +			ret = -EFAULT;
-> +			break;
-> +		}
-> +		_iov = iov + iov_count + *num;
-> +		size = reg->memory_size - addr + reg->guest_phys_addr;
-> +		_iov->iov_len = min((u64)len, size);
-> +		_iov->iov_base = (void *)
-> +			(reg->userspace_addr + addr - reg->guest_phys_addr);
-> +		s += size;
-> +		addr += size;
-> +		++*num;
-> +	}
-> +	
-> +	rcu_read_unlock();
-> +	return ret;
-> +}
-> +
-> +/* Each buffer in the virtqueues is actually a chain of descriptors.  This
-> + * function returns the next descriptor in the chain, or vq->vring.num if we're
-> + * at the end. */
-> +static unsigned next_desc(struct vhost_virtqueue *vq, struct vring_desc *desc)
-> +{
-> +	unsigned int next;
-> +
-> +	/* If this descriptor says it doesn't chain, we're done. */
-> +	if (!(desc->flags & VRING_DESC_F_NEXT))
-> +		return vq->num;
-> +
-> +	/* Check they're not leading us off end of descriptors. */
-> +	next = desc->next;
-> +	/* Make sure compiler knows to grab that: we don't want it changing! */
-> +	/* We will use the result as an index in an array, so most
-> +	 * architectures only need a compiler barrier here. */
-> +	read_barrier_depends();
-> +
-> +	if (next >= vq->num) {
-> +		vq_err(vq, "Desc next is %u > %u", next, vq->num);
-> +		return vq->num;
-> +	}
-> +
-> +	return next;
-> +}
-> +
-> +/* This looks in the virtqueue and for the first available buffer, and converts
-> + * it to an iovec for convenient access.  Since descriptors consist of some
-> + * number of output then some number of input descriptors, it's actually two
-> + * iovecs, but we pack them into one and note how many of each there were.
-> + *
-> + * This function returns the descriptor number found, or vq->num (which
-> + * is never a valid descriptor number) if none was found. */
-> +unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
-> +			   struct iovec iov[],
-> +			   unsigned int *out_num, unsigned int *in_num)
-> +{
-> +	struct vring_desc desc;
-> +	unsigned int i, head;
-> +	u16 last_avail_idx, idx;
-> +
-> +	/* Check it isn't doing very strange things with descriptor numbers. */
-> +	last_avail_idx = vq->last_avail_idx;
-> +	if (get_user(idx, &vq->avail->idx)) {
-> +		vq_err(vq, "Failed to access avail idx at %p\n",
-> +		       &vq->avail->idx);
-> +		return vq->num;
-> +	}
-> +	
-> +	if ((u16)(idx - last_avail_idx) > vq->num) {
-> +		vq_err(vq, "Guest moved used index from %u to %u",
-> +		       last_avail_idx, idx);
-> +		return vq->num;
-> +	}
-> +
-> +	/* If there's nothing new since last we looked, return invalid. */
-> +	if (idx == last_avail_idx)
-> +		return vq->num;
-> +
-> +	/* Grab the next descriptor number they're advertising, and increment
-> +	 * the index we've seen. */
-> +	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
-> +		vq_err(vq, "Failed to read head: idx %d address %p\n",
-> +		       idx, &vq->avail->ring[last_avail_idx % vq->num]);
-> +		return vq->num;
-> +	}
-> +
-> +	/* If their number is silly, that's a fatal mistake. */
-> +	if (head >= vq->num) {
-> +		vq_err(vq, "Guest says index %u > %u is available",
-> +		       head, vq->num);
-> +		return vq->num;
-> +	}
-> +
-> +	vq->last_avail_idx++;
-> +
-> +	/* When we start there are none of either input nor output. */
-> +	*out_num = *in_num = 0;
-> +
-> +	i = head;
-> +	do {
-> +		unsigned *num;
-> +		unsigned iov_count;
-> +		if (copy_from_user(&desc, vq->desc + i, sizeof desc)) {
-> +			vq_err(vq, "Failed to get descriptor: idx %d addr %p\n",
-> +			       i, vq->desc + i);
-> +			return vq->num;
-> +		}
-> +		/* If this is an input descriptor, increment that count. */
-> +		if (desc.flags & VRING_DESC_F_WRITE) {
-> +			num = in_num;
-> +			iov_count = *out_num;
-> +		} else {
-> +			/* If it's an output descriptor, they're all supposed
-> +			 * to come before any input descriptors. */
-> +			if (*in_num) {
-> +				vq_err(vq, "Descriptor has out after in: "
-> +				       "idx %d\n", i);
-> +				return vq->num;
-> +			}
-> +			num = out_num;
-> +			iov_count = *in_num;
-> +		}
-> +		if (translate_desc(dev, desc.addr, desc.len, iov, iov_count,
-> +				   VHOST_NET_MAX_SG, num)) {
-> +			vq_err(vq, "Failed to translate descriptor: idx %d\n",
-> +			       i);
-> +			return vq->num;
-> +		}
-> +
-> +		/* If we've got too many, that implies a descriptor loop. */
-> +		if (*out_num + *in_num > vq->num) {
-> +			vq_err(vq, "Looped descriptor: idx %d\n", i);
-> +			return vq->num;
-> +		}
-> +	} while ((i = next_desc(vq, &desc)) != vq->num);
-> +
-> +	vq->inflight++;
-> +	return head;
-> +}
-> +
-> +/* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
-> +void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-> +{
-> +	vq->last_avail_idx--;
-> +	vq->inflight--;
-> +}
-> +
-> +/* After we've used one of their buffers, we tell them about it.  We'll then
-> + * want to send them an interrupt, using vq->call. */
-> +int vhost_add_used(struct vhost_virtqueue *vq,
-> +			  unsigned int head, int len)
-> +{
-> +	struct vring_used_elem *used;
-> +
-> +	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
-> +	 * next entry in that used ring. */
-> +	used = &vq->used->ring[vq->last_used_idx % vq->num];
-> +	if (put_user(head, &used->id)) {
-> +		vq_err(vq, "Failed to write used id");
-> +		return -EFAULT;
-> +	}
-> +	if (put_user(len, &used->len)) {
-> +		vq_err(vq, "Failed to write used len");
-> +		return -EFAULT;
-> +	}
-> +	/* Make sure buffer is written before we update index. */
-> +	wmb();
-> +	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-> +		vq_err(vq, "Failed to increment used idx");
-> +		return -EFAULT;
-> +	}
-> +	vq->last_used_idx++;
-> +	vq->inflight--;
-> +	return 0;
-> +}
-> +
-> +/* This actually sends the interrupt for this virtqueue */
-> +void vhost_trigger_irq(struct vhost_virtqueue *vq)
-> +{
-> +	__u16 flags = 0;
-> +	if (get_user(flags, &vq->avail->flags)) {
-> +		vq_err(vq, "Failed to get flags");
-> +		return;
-> +	}
-> +
-> +	/* If they don't want an interrupt, don't send one, unless empty. */
-> +	if ((flags & VRING_AVAIL_F_NO_INTERRUPT) && vq->inflight)
-> +		return;
-> +
-> +	/* Send the Guest an interrupt tell them we used something up. */
-> +	if (vq->call_ctx)
-> +		eventfd_signal(vq->call_ctx, 1);
-> +}
-> +
-> +/* And here's the combo meal deal.  Supersize me! */
-> +void vhost_add_used_and_trigger(struct vhost_virtqueue *vq,
-> +				unsigned int head, int len)
-> +{
-> +	vhost_add_used(vq, head, len);
-> +	vhost_trigger_irq(vq);
-> +}
-> +
-> +int vhost_init(void)
-> +{
-> +	vhost_workqueue = create_workqueue("vhost");
-> +	if (!vhost_workqueue)
-> +		return -ENOMEM;
-> +	return 0;
-> +}
-> +
-> +void vhost_cleanup(void)
-> +{
-> +	destroy_workqueue(vhost_workqueue);
-> +}
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> new file mode 100644
-> index 0000000..7f7ffcd
-> --- /dev/null
-> +++ b/drivers/vhost/vhost.h
-> @@ -0,0 +1,108 @@
-> +#ifndef _VHOST_H
-> +#define _VHOST_H
-> +
-> +#include <linux/eventfd.h>
-> +#include <linux/vhost.h>
-> +#include <linux/mm.h>
-> +#include <linux/mutex.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/poll.h>
-> +#include <linux/file.h>
-> +#include <linux/skbuff.h>
-> +
-> +struct vhost_device;
-> +
-> +enum {
-> +	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
-> +};
-> +
-> +/* Poll a file (eventfd or socket) */
-> +/* Note: there's nothing vhost specific about this structure. */
-> +struct vhost_poll {
-> +	poll_table                table;
-> +	wait_queue_head_t        *wqh;
-> +	wait_queue_t              wait;
-> +	/* struct which will handle all actual work. */
-> +	struct work_struct        work;
-> +	unsigned long		  mask;
-> +};
-> +
-> +void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> +		     unsigned long mask);
-> +void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-> +void vhost_poll_stop(struct vhost_poll *poll);
-> +void vhost_poll_flush(struct vhost_poll *poll);
-> +
-> +/* The virtqueue structure describes a queue attached to a device. */
-> +struct vhost_virtqueue {
-> +	struct vhost_dev *dev;
-> +
-> +	/* The actual ring of buffers. */
-> +	struct mutex mutex;
-> +	unsigned int num;
-> +	struct vring_desc __user *desc;
-> +	struct vring_avail __user *avail;
-> +	struct vring_used __user *used;
-> +	struct file *kick;
-> +	struct file *call;
-> +	struct file *error;
-> +	struct eventfd_ctx *call_ctx;
-> +	struct eventfd_ctx *error_ctx;
-> +
-> +	struct vhost_poll poll;
-> +
-> +	/* The routine to call when the Guest pings us, or timeout. */
-> +	work_func_t handle_kick;
-> +
-> +	/* Last available index we saw. */
-> +	u16 last_avail_idx;
-> +
-> +	/* Last index we used. */
-> +	u16 last_used_idx;
-> +
-> +	/* Outstanding buffers */
-> +	unsigned int inflight;
-> +
-> +	/* Is this blocked? */
-> +	bool blocked;
-> +
-> +	struct iovec iov[VHOST_NET_MAX_SG];
-> +
-> +} ____cacheline_aligned;
-> +
-> +struct vhost_dev {
-> +	/* Readers use RCU to access memory table pointer.
-> +	 * Writers use mutex below.*/
-> +	struct vhost_memory *memory;
-> +	struct mm_struct *mm;
-> +	struct vhost_virtqueue *vqs;
-> +	int nvqs;
-> +	struct mutex mutex;
-> +};
-> +
-> +long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
-> +long vhost_dev_check_owner(struct vhost_dev *);
-> +long vhost_dev_reset_owner(struct vhost_dev *);
-> +void vhost_dev_cleanup(struct vhost_dev *);
-> +long vhost_dev_ioctl(struct vhost_dev *, unsigned int ioctl, unsigned long arg);
-> +
-> +unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
-> +			   struct iovec iov[],
-> +			   unsigned int *out_num, unsigned int *in_num);
-> +void vhost_discard_vq_desc(struct vhost_virtqueue *);
-> +
-> +int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
-> +void vhost_trigger_irq(struct vhost_virtqueue *);
-> +void vhost_add_used_and_trigger(struct vhost_virtqueue *,
-> +				unsigned int head, int len);
-> +
-> +int vhost_init(void);
-> +void vhost_cleanup(void);
-> +
-> +#define vq_err(vq, fmt, ...) do {                                  \
-> +		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__);       \
-> +		if ((vq)->error_ctx)                               \
-> +				eventfd_signal((vq)->error_ctx, 1);\
-> +	} while (0)
-> +
-> +#endif
-> diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-> index dec2f18..975df9a 100644
-> --- a/include/linux/Kbuild
-> +++ b/include/linux/Kbuild
-> @@ -360,6 +360,7 @@ unifdef-y += uio.h
->  unifdef-y += unistd.h
->  unifdef-y += usbdevice_fs.h
->  unifdef-y += utsname.h
-> +unifdef-y += vhost.h
->  unifdef-y += videodev2.h
->  unifdef-y += videodev.h
->  unifdef-y += virtio_config.h
-> diff --git a/include/linux/miscdevice.h b/include/linux/miscdevice.h
-> index 0521177..781a8bb 100644
-> --- a/include/linux/miscdevice.h
-> +++ b/include/linux/miscdevice.h
-> @@ -30,6 +30,7 @@
->  #define HPET_MINOR		228
->  #define FUSE_MINOR		229
->  #define KVM_MINOR		232
-> +#define VHOST_NET_MINOR		233
->  #define MISC_DYNAMIC_MINOR	255
-> 
->  struct device;
-> diff --git a/include/linux/vhost.h b/include/linux/vhost.h
-> new file mode 100644
-> index 0000000..9ec6d5f
-> --- /dev/null
-> +++ b/include/linux/vhost.h
-> @@ -0,0 +1,100 @@
-> +#ifndef _LINUX_VHOST_H
-> +#define _LINUX_VHOST_H
-> +/* Userspace interface for in-kernel virtio accelerators. */
-> +
-> +/* vhost is used to reduce the number of system calls involved in virtio.
-> + *
-> + * Existing virtio net code is used in the guest without modification.
-> + *
-> + * This header includes interface used by userspace hypervisor for
-> + * device configuration.
-> + */
-> +
-> +#include <linux/types.h>
-> +#include <linux/compiler.h>
-> +#include <linux/ioctl.h>
-> +#include <linux/virtio_config.h>
-> +#include <linux/virtio_ring.h>
-> +
-> +struct vhost_vring_state {
-> +	unsigned int index;
-> +	unsigned int num;
-> +};
-> +
-> +struct vhost_vring_file {
-> +	unsigned int index;
-> +	int fd;
-> +};
-> +
-> +struct vhost_vring_addr {
-> +	unsigned int index;
-> +	unsigned int padding;
-> +	__u64 user_addr;
-> +};
-> +
-> +struct vhost_memory_region {
-> +	__u64 guest_phys_addr;
-> +	__u64 memory_size; /* bytes */
-> +	__u64 userspace_addr;
-> +	__u64 padding; /* read/write protection? */
-> +};
-> +
-> +struct vhost_memory {
-> +	__u32 nregions;
-> +	__u32 padding;
-> +	struct vhost_memory_region regions[0];
-> +};
-> +
-> +/* ioctls */
-> +
-> +#define VHOST_VIRTIO 0xAF
-> +
-> +/* Features bitmask for forward compatibility. Transport bits must be zero. */
-> +#define VHOST_GET_FEATURES	_IOR(VHOST_VIRTIO, 0x00, __u32)
-> +#define VHOST_ACK_FEATURES	_IOW(VHOST_VIRTIO, 0x00, __u32)
-> +
-> +/* Set current process as the (exclusive) owner of this file descriptor.  This
-> + * must be called before any other vhost command.  Further calls to
-> + * VHOST_OWNER_SET fail until VHOST_OWNER_RESET is called. */
-> +#define VHOST_SET_OWNER _IO(VHOST_VIRTIO, 0x01)
-> +/* Give up ownership, and reset the device to default values.
-> + * Allows subsequent call to VHOST_OWNER_SET to succeed. */
-> +#define VHOST_RESET_OWNER _IO(VHOST_VIRTIO, 0x02)
-> +
-> +/* Set up/modify memory layout */
-> +#define VHOST_SET_MEM_TABLE	_IOW(VHOST_VIRTIO, 0x03, struct vhost_memory)
-> +
-> +/* Ring setup. These parameters can not be modified while ring is running
-> + * (bound to a device). */
-> +/* Set number of descriptors in ring */
-> +#define VHOST_SET_VRING_NUM _IOW(VHOST_VIRTIO, 0x10, struct vhost_vring_state)
-> +/* Start of array of descriptors (virtually contiguous) */
-> +#define VHOST_SET_VRING_DESC _IOW(VHOST_VIRTIO, 0x11, struct vhost_vring_addr)
-> +/* Used structure address */
-> +#define VHOST_SET_VRING_USED _IOW(VHOST_VIRTIO, 0x12, struct vhost_vring_addr)
-> +/* Available structure address */
-> +#define VHOST_SET_VRING_AVAIL _IOW(VHOST_VIRTIO, 0x13, struct vhost_vring_addr)
-> +/* Base value where queue looks for available descriptors */
-> +#define VHOST_SET_VRING_BASE _IOW(VHOST_VIRTIO, 0x14, struct vhost_vring_state)
-> +/* Get accessor: reads index, writes value in num */
-> +#define VHOST_GET_VRING_BASE _IOWR(VHOST_VIRTIO, 0x14, struct vhost_vring_state)
-> +
-> +/* The following ioctls use eventfd file descriptors to signal and poll
-> + * for events. */
-> +
-> +/* Set eventfd to poll for added buffers */
-> +#define VHOST_SET_VRING_KICK _IOW(VHOST_VIRTIO, 0x20, struct vhost_vring_file)
-> +/* Set eventfd to signal when buffers have beed used */
-> +#define VHOST_SET_VRING_CALL _IOW(VHOST_VIRTIO, 0x21, struct vhost_vring_file)
-> +/* Set eventfd to signal an error */
-> +#define VHOST_SET_VRING_ERR _IOW(VHOST_VIRTIO, 0x22, struct vhost_vring_file)
-> +
-> +/* VHOST_NET specific defines */
-> +
-> +/* Attach virtio net device to a raw socket. The socket must be already
-> + * bound to an ethernet device, this device will be used for transmit.
-> + * Pass -1 to unbind from the socket and the transmit device.
-> + * This can be used to stop the device (e.g. for migration). */
-> +#define VHOST_NET_SET_SOCKET _IOW(VHOST_VIRTIO, 0x30, int)
-> +
-> +#endif
-> -- 
-> 1.6.2.5
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Changes in v4:
+  - Changed the signdness of rcvlowat, rcvtimeo, sndtimeo, and backlog
+    to match their struct sock definitions.  This should avoid issues
+    with sign extension.
+  - Add a sock_cptrst_verify() function to be run at restore time to
+    validate several of the values in the checkpoint image against
+    limits, flag masks, etc.
+  - Write an error string with ctk_write_err() in the obscure cases
+  - Don't write socket buffers for listen sockets
+  - Sanity check address lengths before we agree to allocate memory
+  - Check the result of inserting the peer object in the objhash on
+    restart
+  - Check return value of sock_cptrst() on restart
+  - Change logic in remote getname() phase of checkpoint to not fail for
+    closed (et al) sockets
+  - Eliminate the memory copy while reading socket buffers on restart
+
+Changes in v3:
+  - Move sock_file_checkpoint() above sock_file_restore()
+  - Change __sock_file_*() functions to do_sock_file_*()
+  - Adjust some of the struct cr_hdr_socket alignment
+  - Improve the sock_copy_buffers() algorithm to avoid locking the source
+    queue for the entire operation
+  - Fix alignment in the socket header struct(s)
+  - Move the per-protocol structure (ckpt_hdr_socket_un) out of the
+    common socket header and read/write it separately
+  - Fix missing call to sock_cptrst() in restore path
+  - Break out the socket joining into another function
+  - Fix failure to restore the socket address thus fixing getname()
+  - Check the state values on restart
+  - Fix case of state being TCP_CLOSE, which allows dgram sockets to be
+    properly connected (if appropriate) to their peer and maintain the
+    sockaddr for getname() operation
+  - Fix restoring a listening socket that has been unlink()'d
+  - Fix checkpointing sockets with an in-flight FD-passing SKB.  Fail
+    with EBUSY.
+  - Fix checkpointing listening sockets with an unaccepted connection.
+    Fail with EBUSY.
+  - Changed 'un' to 'unix' in function and structure names
+
+Changes in v2:
+  - Change GFP_KERNEL to GFP_ATOMIC in sock_copy_buffers() (this seems
+    to be rather common in other uses of skb_copy())
+  - Move the ckpt_hdr_socket structure definition to linux/socket.h
+  - Fix whitespace issue
+  - Move sock_file_checkpoint() to net/socket.c for symmetry
+
+Cc: Oren Laaden <orenl@cs.columbia.edu>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Dan Smith <danms@us.ibm.com>
+---
+ checkpoint/files.c             |    7 +
+ checkpoint/objhash.c           |   19 ++
+ include/linux/checkpoint.h     |   10 +
+ include/linux/checkpoint_hdr.h |   72 ++++++
+ include/net/af_unix.h          |   32 +++
+ include/net/sock.h             |   11 +
+ net/Makefile                   |    2 +
+ net/checkpoint.c               |  438 +++++++++++++++++++++++++++++++++
+ net/socket.c                   |   85 +++++++
+ net/unix/Makefile              |    1 +
+ net/unix/checkpoint.c          |  524 ++++++++++++++++++++++++++++++++++++++++
+ 11 files changed, 1201 insertions(+), 0 deletions(-)
+ create mode 100644 net/checkpoint.c
+ create mode 100644 net/unix/checkpoint.c
+
+diff --git a/checkpoint/files.c b/checkpoint/files.c
+index 7aecac9..8729e00 100644
+--- a/checkpoint/files.c
++++ b/checkpoint/files.c
+@@ -21,6 +21,7 @@
+ #include <linux/syscalls.h>
+ #include <linux/checkpoint.h>
+ #include <linux/checkpoint_hdr.h>
++#include <net/sock.h>
+ 
+ 
+ /**************************************************************************
+@@ -565,6 +566,12 @@ static struct restore_file_ops restore_file_ops[] = {
+ 		.file_type = CKPT_FILE_FIFO,
+ 		.restore = fifo_file_restore,
+ 	},
++	/* socket */
++	{
++		.file_name = "SOCKET",
++		.file_type = CKPT_FILE_SOCKET,
++		.restore = sock_file_restore,
++	},
+ };
+ 
+ static struct file *do_restore_file(struct ckpt_ctx *ctx)
+diff --git a/checkpoint/objhash.c b/checkpoint/objhash.c
+index a2fb278..4bfa1d8 100644
+--- a/checkpoint/objhash.c
++++ b/checkpoint/objhash.c
+@@ -20,6 +20,7 @@
+ #include <linux/user_namespace.h>
+ #include <linux/checkpoint.h>
+ #include <linux/checkpoint_hdr.h>
++#include <net/sock.h>
+ 
+ struct ckpt_obj;
+ struct ckpt_obj_ops;
+@@ -234,6 +235,17 @@ static void obj_groupinfo_drop(void *ptr)
+ 	put_group_info((struct group_info *) ptr);
+ }
+ 
++static int obj_sock_grab(void *ptr)
++{
++	sock_hold((struct sock *) ptr);
++	return 0;
++}
++
++static void obj_sock_drop(void *ptr)
++{
++	sock_put((struct sock *) ptr);
++}
++
+ static struct ckpt_obj_ops ckpt_obj_ops[] = {
+ 	/* ignored object */
+ 	{
+@@ -356,6 +368,13 @@ static struct ckpt_obj_ops ckpt_obj_ops[] = {
+ 		.checkpoint = checkpoint_groupinfo,
+ 		.restore = restore_groupinfo,
+ 	},
++	/* sock object */
++	{
++		.obj_name = "SOCKET",
++		.obj_type = CKPT_OBJ_SOCK,
++		.ref_drop = obj_sock_drop,
++		.ref_grab = obj_sock_grab,
++	},
+ };
+ 
+ 
+diff --git a/include/linux/checkpoint.h b/include/linux/checkpoint.h
+index 60b230e..8a492e4 100644
+--- a/include/linux/checkpoint.h
++++ b/include/linux/checkpoint.h
+@@ -29,6 +29,7 @@
+ #include <linux/checkpoint_types.h>
+ #include <linux/checkpoint_hdr.h>
+ #include <linux/err.h>
++#include <net/sock.h>
+ 
+ /* ckpt_ctx: kflags */
+ #define CKPT_CTX_CHECKPOINT_BIT		0
+@@ -78,6 +79,15 @@ extern int ckpt_read_consume(struct ckpt_ctx *ctx, int len, int type);
+ extern char *ckpt_fill_fname(struct path *path, struct path *root,
+ 			     char *buf, int *len);
+ 
++/* socket functions */
++extern int ckpt_sock_getnames(struct ckpt_ctx *ctx,
++			      struct socket *socket,
++			      struct sockaddr *loc, unsigned *loc_len,
++			      struct sockaddr *rem, unsigned *rem_len);
++extern struct ckpt_hdr_socket_queue *
++ckpt_sock_read_buffer_hdr(struct ckpt_ctx *ctx,
++			  uint32_t *bufsize);
++
+ /* ckpt kflags */
+ #define ckpt_set_ctx_kflag(__ctx, __kflag)  \
+ 	set_bit(__kflag##_BIT, &(__ctx)->kflags)
+diff --git a/include/linux/checkpoint_hdr.h b/include/linux/checkpoint_hdr.h
+index 4b85956..829ff2d 100644
+--- a/include/linux/checkpoint_hdr.h
++++ b/include/linux/checkpoint_hdr.h
+@@ -12,6 +12,8 @@
+ 
+ #include <linux/types.h>
+ #include <linux/utsname.h>
++#include <linux/socket.h>
++#include <linux/un.h>
+ 
+ /*
+  * To maintain compatibility between 32-bit and 64-bit architecture flavors,
+@@ -88,6 +90,12 @@ enum {
+ 
+ 	CKPT_HDR_SIGHAND = 601,
+ 
++	CKPT_HDR_FD_SOCKET = 701,
++	CKPT_HDR_SOCKET,
++	CKPT_HDR_SOCKET_QUEUE,
++	CKPT_HDR_SOCKET_BUFFER,
++	CKPT_HDR_SOCKET_UNIX,
++
+ 	CKPT_HDR_TAIL = 9001,
+ 
+ 	CKPT_HDR_ERROR = 9999,
+@@ -122,6 +130,7 @@ enum obj_type {
+ 	CKPT_OBJ_CRED,
+ 	CKPT_OBJ_USER,
+ 	CKPT_OBJ_GROUPINFO,
++	CKPT_OBJ_SOCK,
+ 	CKPT_OBJ_MAX
+ };
+ 
+@@ -327,6 +336,7 @@ enum file_type {
+ 	CKPT_FILE_GENERIC,
+ 	CKPT_FILE_PIPE,
+ 	CKPT_FILE_FIFO,
++	CKPT_FILE_SOCKET,
+ 	CKPT_FILE_MAX
+ };
+ 
+@@ -350,6 +360,10 @@ struct ckpt_hdr_file_pipe {
+ 	__s32 pipe_objref;
+ } __attribute__((aligned(8)));
+ 
++struct ckpt_hdr_file_socket {
++	struct ckpt_hdr_file common;
++} __attribute__((aligned(8)));
++
+ struct ckpt_hdr_utsns {
+ 	struct ckpt_hdr h;
+ 	char sysname[__NEW_UTS_LEN + 1];
+@@ -504,6 +518,64 @@ struct ckpt_hdr_ipc_sem {
+ 	__u32 sem_nsems;
+ } __attribute__((aligned(8)));
+ 
++#define CKPT_UNIX_LINKED 1
++struct ckpt_hdr_socket_unix {
++	struct ckpt_hdr h;
++	__s32 this;
++	__s32 peer;
++	__u32 flags;
++	__u32 laddr_len;
++	__u32 raddr_len;
++	struct sockaddr_un laddr;
++	struct sockaddr_un raddr;
++} __attribute__ ((aligned(8)));
++
++struct ckpt_hdr_socket {
++	struct ckpt_hdr h;
++
++	struct { /* struct socket */
++		__u64 flags;
++		__u8 state;
++	} socket __attribute__ ((aligned(8)));
++
++	struct { /* struct sock_common */
++		__u32 bound_dev_if;
++		__u32 reuse;
++		__u16 family;
++		__u8 state;
++	} sock_common __attribute__ ((aligned(8)));
++
++	struct { /* struct sock */
++		__s64 rcvlowat;
++		__u64 flags;
++
++		__u32 err;
++		__u32 err_soft;
++		__u32 priority;
++		__s32 rcvbuf;
++		__s32 sndbuf;
++		__u16 type;
++		__s16 backlog;
++
++		__u8 protocol;
++		__u8 state;
++		__u8 shutdown;
++		__u8 userlocks;
++		__u8 no_check;
++
++		struct linger linger;
++		struct timeval rcvtimeo;
++		struct timeval sndtimeo;
++
++	} sock __attribute__ ((aligned(8)));
++
++} __attribute__ ((aligned(8)));
++
++struct ckpt_hdr_socket_queue {
++	struct ckpt_hdr h;
++	__u32 skb_count;
++	__u32 total_bytes;
++} __attribute__ ((aligned(8)));
+ 
+ #define CKPT_TST_OVERFLOW_16(a, b) \
+ 	((sizeof(a) > sizeof(b)) && ((a) > SHORT_MAX))
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 1614d78..7aef51b 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -68,4 +68,36 @@ static inline int unix_sysctl_register(struct net *net) { return 0; }
+ static inline void unix_sysctl_unregister(struct net *net) {}
+ #endif
+ #endif
++
++#ifdef CONFIG_CHECKPOINT
++
++#ifdef CONFIG_UNIX_MODULE
++/* FIXME: Our current scheme won't work with CONFIG_UNIX=m */
++#error "CONFIG_UNIX=m not currently supported by CONFIG_CHECKPOINT"
++#endif
++
++#ifdef CONFIG_UNIX
++extern int sock_unix_checkpoint(struct ckpt_ctx *ctx,
++				struct socket *socket,
++				struct ckpt_hdr_socket *h);
++extern int sock_unix_restore(struct ckpt_ctx *ctx,
++			     struct ckpt_hdr_socket *h,
++			     struct socket *socket);
++#else
++static inline int sock_unix_checkpoint(struct ckpt_ctx *ctx,
++				       struct socket *socket,
++				       struct ckpt_hdr_socket *h)
++{
++	return -ENOSYS;
++}
++
++static inline int sock_unix_restore(struct ckpt_ctx *ctx,
++				    struct ckpt_hdr_socket *h,
++				    struct socket *socket)
++{
++	return -ENOSYS;
++}
++#endif /* CONFIG_UNIX */
++#endif /* CONFIG_CHECKPOINT */
++
+ #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 43b9599..da75f2f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1640,4 +1640,15 @@ extern int sysctl_optmem_max;
+ extern __u32 sysctl_wmem_default;
+ extern __u32 sysctl_rmem_default;
+ 
++#ifdef CONFIG_CHECKPOINT
++/* Checkpoint/Restart Functions */
++struct ckpt_ctx;
++struct ckpt_hdr_socket;
++extern int sock_file_checkpoint(struct ckpt_ctx *, void *);
++extern void *sock_file_restore(struct ckpt_ctx *);
++extern struct socket *do_sock_file_restore(struct ckpt_ctx *,
++					   struct ckpt_hdr_socket *);
++extern int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file);
++#endif
++
+ #endif	/* _SOCK_H */
+diff --git a/net/Makefile b/net/Makefile
+index ba324ae..91d12fe 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -66,3 +66,5 @@ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+ endif
+ obj-$(CONFIG_WIMAX)		+= wimax/
++
++obj-$(CONFIG_CHECKPOINT)	+= checkpoint.o
+diff --git a/net/checkpoint.c b/net/checkpoint.c
+new file mode 100644
+index 0000000..ebbd68a
+--- /dev/null
++++ b/net/checkpoint.c
+@@ -0,0 +1,438 @@
++/*
++ *  Copyright 2009 IBM Corporation
++ *
++ *  Author: Dan Smith <danms@us.ibm.com>
++ *
++ *  This program is free software; you can redistribute it and/or
++ *  modify it under the terms of the GNU General Public License as
++ *  published by the Free Software Foundation, version 2 of the
++ *  License.
++ */
++
++#include <linux/socket.h>
++#include <linux/mount.h>
++#include <linux/file.h>
++#include <linux/namei.h>
++#include <linux/syscalls.h>
++#include <linux/sched.h>
++#include <linux/fs_struct.h>
++
++#include <net/af_unix.h>
++#include <net/tcp_states.h>
++
++#include <linux/checkpoint.h>
++#include <linux/checkpoint_hdr.h>
++
++static int sock_copy_buffers(struct sk_buff_head *from,
++			     struct sk_buff_head *to,
++			     uint32_t *total_bytes)
++{
++	int count1 = 0;
++	int count2 = 0;
++	int i;
++	struct sk_buff *skb;
++	struct sk_buff **skbs;
++
++	*total_bytes = 0;
++
++	spin_lock(&from->lock);
++	skb_queue_walk(from, skb)
++		count1++;
++	spin_unlock(&from->lock);
++
++	skbs = kzalloc(sizeof(*skbs) * count1, GFP_KERNEL);
++	if (!skbs)
++		return -ENOMEM;
++
++	for (i = 0; i < count1;  i++) {
++		skbs[i] = dev_alloc_skb(0);
++		if (!skbs[i])
++			goto err;
++	}
++
++	i = 0;
++	spin_lock(&from->lock);
++	skb_queue_walk(from, skb) {
++		if (++count2 > count1)
++			break; /* The queue changed as we read it */
++
++		skb_morph(skbs[i], skb);
++		skb_queue_tail(to, skbs[i]);
++
++		*total_bytes += skb->len;
++		i++;
++	}
++	spin_unlock(&from->lock);
++
++	if (count1 != count2)
++		goto err;
++
++	kfree(skbs);
++
++	return count1;
++ err:
++	while (skb_dequeue(to))
++		; /* Pull all the buffers out of the queue */
++	for (i = 0; i < count1; i++)
++		kfree_skb(skbs[i]);
++	kfree(skbs);
++
++	return -EAGAIN;
++}
++
++static int __sock_write_buffers(struct ckpt_ctx *ctx,
++				struct sk_buff_head *queue)
++{
++	struct sk_buff *skb;
++	int ret = 0;
++
++	skb_queue_walk(queue, skb) {
++		/* FIXME: This could be a false positive for non-unix
++		 *        buffers, so add a type check here in the
++		 *        future
++		 */
++		if (UNIXCB(skb).fp) {
++			ckpt_write_err(ctx, "fd-passing is not supported");
++			return -EBUSY;
++		}
++
++		/* The other ancillary messages are always present
++		 * unlike descriptors.  Even though we can't detect
++		 * them and fail the checkpoint, we're not at risk
++		 * because we don't save out (or restore) the control
++		 * information contained in the skb.
++		 */
++
++		ret = ckpt_write_obj_type(ctx, skb->data, skb->len,
++					  CKPT_HDR_SOCKET_BUFFER);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int sock_write_buffers(struct ckpt_ctx *ctx, struct sk_buff_head *queue)
++{
++	struct ckpt_hdr_socket_queue *h;
++	struct sk_buff_head tmpq;
++	int ret = -ENOMEM;
++
++	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_QUEUE);
++	if (!h)
++		return -ENOMEM;
++
++	skb_queue_head_init(&tmpq);
++
++	ret = sock_copy_buffers(queue, &tmpq, &h->total_bytes);
++	if (ret < 0)
++		goto out;
++
++	h->skb_count = ret;
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
++	if (!ret)
++		ret = __sock_write_buffers(ctx, &tmpq);
++
++ out:
++	ckpt_hdr_put(ctx, h);
++	__skb_queue_purge(&tmpq);
++
++	return ret;
++}
++
++int ckpt_sock_getnames(struct ckpt_ctx *ctx,
++		       struct socket *socket,
++		       struct sockaddr *loc, unsigned *loc_len,
++		       struct sockaddr *rem, unsigned *rem_len)
++{
++	int ret;
++
++	ret = sock_getname(socket, loc, loc_len);
++	if (ret) {
++		ckpt_write_err(ctx, "Unable to getname of local: %i", ret);
++		return -EINVAL;
++	}
++
++	ret = sock_getpeer(socket, rem, rem_len);
++	if (ret) {
++		if ((socket->sk->sk_type != SOCK_DGRAM) &&
++		    (socket->sk->sk_state == TCP_ESTABLISHED)) {
++			ckpt_write_err(ctx, "Unable to getname of remote: %i",
++				       ret);
++			return -EINVAL;
++		}
++		*rem_len = 0;
++	}
++
++	return 0;
++}
++
++static int sock_cptrst_verify(struct ckpt_hdr_socket *h)
++{
++	uint8_t userlocks_mask = SOCK_SNDBUF_LOCK | SOCK_RCVBUF_LOCK |
++		                 SOCK_BINDADDR_LOCK | SOCK_BINDPORT_LOCK;
++
++	if (h->sock.shutdown & ~SHUTDOWN_MASK)
++		return -EINVAL;
++	if (h->sock.userlocks & ~userlocks_mask)
++		return -EINVAL;
++	if (!ckpt_validate_errno(h->sock.err))
++		return -EINVAL;
++
++	/* None of our supported types use this flag */
++	if (h->sock.flags & SOCK_DESTROY)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int sock_cptrst_opt(int op, struct socket *socket,
++			   int optname, char *opt, int len)
++{
++	mm_segment_t fs;
++	int ret;
++
++	fs = get_fs();
++	set_fs(KERNEL_DS);
++
++	if (op == CKPT_CPT)
++		ret = sock_getsockopt(socket, SOL_SOCKET, optname, opt, &len);
++	else
++		ret = sock_setsockopt(socket, SOL_SOCKET, optname, opt, len);
++
++	set_fs(fs);
++
++	return ret;
++}
++
++#define CKPT_COPY_SOPT(op, sock, name, opt) \
++	sock_cptrst_opt(op, sock->sk_socket, name, (char *)opt, sizeof(*opt))
++
++static int sock_cptrst_bufopts(int op, struct sock *sock,
++			       struct ckpt_hdr_socket *h)
++
++{
++	if (CKPT_COPY_SOPT(op, sock, SO_RCVBUF, &h->sock.rcvbuf))
++		if ((op == CKPT_RST) &&
++		    CKPT_COPY_SOPT(op, sock, SO_RCVBUFFORCE, &h->sock.rcvbuf)) {
++			ckpt_debug("Failed to set SO_RCVBUF");
++			return -EINVAL;
++		}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_SNDBUF, &h->sock.sndbuf))
++		if ((op == CKPT_RST) &&
++		    CKPT_COPY_SOPT(op, sock, SO_SNDBUFFORCE, &h->sock.sndbuf)) {
++			ckpt_debug("Failed to set SO_SNDBUF");
++			return -EINVAL;
++		}
++
++	/* It's silly that we have to fight ourselves here, but
++	 * sock_setsockopt() doubles the initial value, so divide here
++	 * to store the user's value and avoid doubling on restart
++	 */
++	if ((op == CKPT_CPT) && (h->sock.rcvbuf != SOCK_MIN_RCVBUF))
++		h->sock.rcvbuf >>= 1;
++
++	if ((op == CKPT_CPT) && (h->sock.sndbuf != SOCK_MIN_SNDBUF))
++		h->sock.sndbuf >>= 1;
++
++	return 0;
++}
++
++static int sock_cptrst(struct ckpt_ctx *ctx,
++		       struct sock *sock,
++		       struct ckpt_hdr_socket *h,
++		       int op)
++{
++	if (sock->sk_socket) {
++		CKPT_COPY(op, h->socket.flags, sock->sk_socket->flags);
++		CKPT_COPY(op, h->socket.state, sock->sk_socket->state);
++	}
++
++	CKPT_COPY(op, h->sock_common.bound_dev_if, sock->sk_bound_dev_if);
++	CKPT_COPY(op, h->sock_common.family, sock->sk_family);
++
++	CKPT_COPY(op, h->sock.shutdown, sock->sk_shutdown);
++	CKPT_COPY(op, h->sock.userlocks, sock->sk_userlocks);
++	CKPT_COPY(op, h->sock.no_check, sock->sk_no_check);
++	CKPT_COPY(op, h->sock.protocol, sock->sk_protocol);
++	CKPT_COPY(op, h->sock.err, sock->sk_err);
++	CKPT_COPY(op, h->sock.err_soft, sock->sk_err_soft);
++	CKPT_COPY(op, h->sock.type, sock->sk_type);
++	CKPT_COPY(op, h->sock.state, sock->sk_state);
++	CKPT_COPY(op, h->sock.backlog, sock->sk_max_ack_backlog);
++
++	/* TODO:
++	 * Break out setting each of the flags to use setsockopt() or
++	 * perform proper security check
++	 */
++	CKPT_COPY(op, h->sock.flags, sock->sk_flags);
++
++	if (sock_cptrst_bufopts(op, sock, h))
++		return -EINVAL;
++
++	if (CKPT_COPY_SOPT(op, sock, SO_REUSEADDR, &h->sock_common.reuse)) {
++		ckpt_debug("Failed to set SO_REUSEADDR");
++		return -EINVAL;
++	}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_PRIORITY, &h->sock.priority)) {
++		ckpt_debug("Failed to set SO_PRIORITY");
++		return -EINVAL;
++	}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_RCVLOWAT, &h->sock.rcvlowat)) {
++		ckpt_debug("Failed to set SO_RCVLOWAT");
++		return -EINVAL;
++	}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_LINGER, &h->sock.linger)) {
++		ckpt_debug("Failed to set SO_LINGER");
++		return -EINVAL;
++	}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_SNDTIMEO, &h->sock.sndtimeo)) {
++		ckpt_debug("Failed to set SO_SNDTIMEO");
++		return -EINVAL;
++	}
++
++	if (CKPT_COPY_SOPT(op, sock, SO_RCVTIMEO, &h->sock.rcvtimeo)) {
++		ckpt_debug("Failed to set SO_RCVTIMEO");
++		return -EINVAL;
++	}
++
++	if ((h->socket.state == SS_CONNECTED) &&
++	    (h->sock.state != TCP_ESTABLISHED)) {
++		ckpt_debug("socket/sock in inconsistent state: %i/%i",
++			   h->socket.state, h->sock.state);
++		return -EINVAL;
++	} else if ((h->sock.state < TCP_ESTABLISHED) ||
++		   (h->sock.state >= TCP_MAX_STATES)) {
++		ckpt_debug("sock in invalid state: %i", h->sock.state);
++		return -EINVAL;
++	} else if ((h->socket.state < SS_FREE) ||
++		   (h->socket.state > SS_DISCONNECTING)) {
++		ckpt_debug("socket in invalid state: %i",
++			   h->socket.state);
++		return -EINVAL;
++	}
++
++	if (op == CKPT_RST)
++		return sock_cptrst_verify(h);
++	else
++		return 0;
++}
++
++int do_sock_file_checkpoint(struct ckpt_ctx *ctx, struct file *file)
++{
++	struct socket *socket = file->private_data;
++	struct sock *sock = socket->sk;
++	struct ckpt_hdr_socket *h;
++	int ret = 0;
++
++	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_SOCKET);
++	if (!h)
++		return -ENOMEM;
++
++	ret = sock_cptrst(ctx, sock, h, CKPT_CPT);
++	if (ret)
++		goto out;
++
++	if (sock->sk_family == AF_UNIX) {
++		ret = sock_unix_checkpoint(ctx, socket, h);
++		if (ret)
++			goto out;
++	} else {
++		ckpt_write_err(ctx, "unsupported socket family %i",
++			       sock->sk_family);
++		ret = -ENOSYS;
++		goto out;
++	}
++
++	if (sock->sk_state != TCP_LISTEN) {
++		ret = sock_write_buffers(ctx, &sock->sk_receive_queue);
++		if (ret)
++			goto out;
++
++		ret = sock_write_buffers(ctx, &sock->sk_write_queue);
++		if (ret)
++			goto out;
++	}
++ out:
++	ckpt_hdr_put(ctx, h);
++
++	return ret;
++}
++
++struct ckpt_hdr_socket_queue *ckpt_sock_read_buffer_hdr(struct ckpt_ctx *ctx,
++							uint32_t *bufsize)
++{
++	struct ckpt_hdr_socket_queue *h;
++	int err = 0;
++
++	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET_QUEUE);
++	if (IS_ERR(h))
++		return h;
++
++	if (!bufsize) {
++		if (h->total_bytes != 0) {
++			ckpt_debug("Expected empty buffer, got %u\n",
++				   h->total_bytes);
++			err = -EINVAL;
++		}
++	} else if (h->total_bytes > *bufsize) {
++		/* NB: We let CAP_NET_ADMIN override the system buffer limit
++		 *     as setsockopt() does
++		 */
++		if (capable(CAP_NET_ADMIN))
++			*bufsize = h->total_bytes;
++		else {
++			ckpt_debug("Buffer total %u exceeds limit %u\n",
++			   h->total_bytes, *bufsize);
++			err = -EINVAL;
++		}
++	}
++
++	if (err) {
++		ckpt_hdr_put(ctx, h);
++		return ERR_PTR(err);
++	} else
++		return h;
++}
++
++struct socket *do_sock_file_restore(struct ckpt_ctx *ctx,
++				    struct ckpt_hdr_socket *h)
++{
++	struct socket *socket;
++	int ret;
++
++	if ((h->sock.type != SOCK_DGRAM) && (h->sock.type != SOCK_STREAM)) {
++		ckpt_debug("Socket type %i not supported", h->sock.type);
++		return ERR_PTR(-EINVAL);
++	}
++
++	ret = sock_create(h->sock_common.family, h->sock.type, 0, &socket);
++	if (ret < 0)
++		return ERR_PTR(ret);
++
++	if (h->sock_common.family == AF_UNIX) {
++		ret = sock_unix_restore(ctx, h, socket);
++		ckpt_debug("sock_unix_restore: %i\n", ret);
++	} else {
++		ckpt_debug("unsupported family %i\n", h->sock_common.family);
++		ret = -ENOSYS;
++	}
++
++	if (ret)
++		goto out;
++
++	ret = sock_cptrst(ctx, socket->sk, h, CKPT_RST);
++ out:
++	if (ret) {
++		sock_release(socket);
++		socket = ERR_PTR(ret);
++	}
++
++	return socket;
++}
++
+diff --git a/net/socket.c b/net/socket.c
+index 65e7698..8732fe2 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -96,6 +96,8 @@
+ #include <net/sock.h>
+ #include <linux/netfilter.h>
+ 
++#include <linux/checkpoint.h>
++
+ static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
+ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
+ 			 unsigned long nr_segs, loff_t pos);
+@@ -140,6 +142,9 @@ static const struct file_operations socket_file_ops = {
+ 	.sendpage =	sock_sendpage,
+ 	.splice_write = generic_splice_sendpage,
+ 	.splice_read =	sock_splice_read,
++#ifdef CONFIG_CHECKPOINT
++	.checkpoint =   sock_file_checkpoint,
++#endif
+ };
+ 
+ /*
+@@ -415,6 +420,86 @@ int sock_map_fd(struct socket *sock, int flags)
+ 	return fd;
+ }
+ 
++#ifdef CONFIG_CHECKPOINT
++int sock_file_checkpoint(struct ckpt_ctx *ctx, void *ptr)
++{
++	struct ckpt_hdr_file_socket *h;
++	int ret;
++	struct file *file = ptr;
++
++	h = ckpt_hdr_get_type(ctx, sizeof(*h), CKPT_HDR_FILE);
++	if (!h)
++		return -ENOMEM;
++
++	h->common.f_type = CKPT_FILE_SOCKET;
++
++	ret = checkpoint_file_common(ctx, file, &h->common);
++	if (ret < 0)
++		goto out;
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
++	if (ret < 0)
++		goto out;
++
++	ret = do_sock_file_checkpoint(ctx, file);
++ out:
++	ckpt_hdr_put(ctx, h);
++	return ret;
++}
++
++static struct file *sock_alloc_attach_fd(struct socket *socket)
++{
++	struct file *file;
++	int err;
++
++	file = get_empty_filp();
++	if (!file)
++		return ERR_PTR(ENOMEM);
++
++	err = sock_attach_fd(socket, file, 0);
++	if (err < 0) {
++		put_filp(file);
++		file = ERR_PTR(err);
++	}
++
++	return file;
++}
++
++void *sock_file_restore(struct ckpt_ctx *ctx)
++{
++	struct ckpt_hdr_socket *h = NULL;
++	struct socket *socket = NULL;
++	struct file *file = NULL;
++	int err;
++
++	h = ckpt_read_obj_type(ctx, sizeof(*h), CKPT_HDR_SOCKET);
++	if (IS_ERR(h))
++		return h;
++
++	socket = do_sock_file_restore(ctx, h);
++	if (IS_ERR(socket)) {
++		err = PTR_ERR(socket);
++		goto err_put;
++	}
++
++	file = sock_alloc_attach_fd(socket);
++	if (IS_ERR(file)) {
++		err = PTR_ERR(file);
++		goto err_release;
++	}
++
++	ckpt_hdr_put(ctx, h);
++
++	return file;
++
++ err_release:
++	sock_release(socket);
++ err_put:
++	ckpt_hdr_put(ctx, h);
++
++	return ERR_PTR(err);
++}
++#endif /* CONFIG_CHECKPOINT */
++
+ static struct socket *sock_from_file(struct file *file, int *err)
+ {
+ 	if (file->f_op == &socket_file_ops)
+diff --git a/net/unix/Makefile b/net/unix/Makefile
+index b852a2b..fbff1e6 100644
+--- a/net/unix/Makefile
++++ b/net/unix/Makefile
+@@ -6,3 +6,4 @@ obj-$(CONFIG_UNIX)	+= unix.o
+ 
+ unix-y			:= af_unix.o garbage.o
+ unix-$(CONFIG_SYSCTL)	+= sysctl_net_unix.o
++unix-$(CONFIG_CHECKPOINT) += checkpoint.o
+diff --git a/net/unix/checkpoint.c b/net/unix/checkpoint.c
+new file mode 100644
+index 0000000..007899b
+--- /dev/null
++++ b/net/unix/checkpoint.c
+@@ -0,0 +1,524 @@
++#include <linux/namei.h>
++#include <linux/file.h>
++#include <linux/fs_struct.h>
++#include <linux/checkpoint.h>
++#include <linux/checkpoint_hdr.h>
++#include <net/af_unix.h>
++#include <net/tcp_states.h>
++
++#define UNIX_ADDR_EMPTY(a) (a <= sizeof(short))
++
++static inline int sock_unix_need_cwd(struct sockaddr_un *addr,
++				     unsigned long len)
++{
++	return (!UNIX_ADDR_EMPTY(len)) &&
++		addr->sun_path[0] &&
++		(addr->sun_path[0] != '/');
++}
++
++static int sock_unix_write_cwd(struct ckpt_ctx *ctx,
++			       struct sock *sock,
++			       const char *sockpath)
++{
++	struct path path;
++	char *buf;
++	char *fqpath;
++	int offset;
++	int len = PATH_MAX;
++	int ret = -ENOENT;
++
++	buf = kmalloc(len, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++	path.dentry = unix_sk(sock)->dentry;
++	path.mnt = unix_sk(sock)->mnt;
++
++	fqpath = ckpt_fill_fname(&path, &ctx->fs_mnt, buf, &len);
++	if (IS_ERR(fqpath)) {
++		ret = PTR_ERR(fqpath);
++		goto out;
++	}
++
++	offset = strlen(fqpath) - strlen(sockpath);
++	if (offset <= 0) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	fqpath[offset] = '\0';
++
++	ckpt_debug("writing socket directory: %s\n", fqpath);
++	ret = ckpt_write_string(ctx, fqpath, strlen(fqpath));
++ out:
++	kfree(buf);
++	return ret;
++}
++
++int sock_unix_checkpoint(struct ckpt_ctx *ctx,
++			 struct socket *socket,
++			 struct ckpt_hdr_socket *h)
++{
++	struct unix_sock *sk = unix_sk(socket->sk);
++	struct unix_sock *pr = unix_sk(sk->peer);
++	struct ckpt_hdr_socket_unix *un;
++	int new;
++	int ret = -ENOMEM;
++
++	if ((socket->sk->sk_state == TCP_LISTEN) &&
++	    !skb_queue_empty(&socket->sk->sk_receive_queue)) {
++		ckpt_write_err(ctx, "listening socket has unaccepted peers");
++		return -EBUSY;
++	}
++
++	un = ckpt_hdr_get_type(ctx, sizeof(*un), CKPT_HDR_SOCKET_UNIX);
++	if (!un)
++		return -EINVAL;
++
++	ret = ckpt_sock_getnames(ctx, socket,
++				 (struct sockaddr *)&un->laddr, &un->laddr_len,
++				 (struct sockaddr *)&un->raddr, &un->raddr_len);
++	if (ret)
++		goto out;
++
++	if (sk->dentry && (sk->dentry->d_inode->i_nlink > 0))
++		un->flags |= CKPT_UNIX_LINKED;
++
++	un->this = ckpt_obj_lookup_add(ctx, sk, CKPT_OBJ_SOCK, &new);
++	if (un->this < 0)
++		goto out;
++
++	if (sk->peer)
++		un->peer = ckpt_obj_lookup_add(ctx, pr, CKPT_OBJ_SOCK, &new);
++	else
++		un->peer = 0;
++
++	if (un->peer < 0) {
++		ret = un->peer;
++		goto out;
++	}
++
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
++	if (ret < 0)
++		goto out;
++
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) un);
++	if (ret < 0)
++		goto out;
++
++	if (sock_unix_need_cwd(&un->laddr, un->laddr_len))
++		ret = sock_unix_write_cwd(ctx, socket->sk, un->laddr.sun_path);
++ out:
++	ckpt_hdr_put(ctx, un);
++
++	return ret;
++}
++
++static int sock_read_buffer_sendmsg(struct ckpt_ctx *ctx, struct sock *sock)
++{
++	struct msghdr msg;
++	struct kvec kvec;
++	int ret = 0;
++	int len;
++
++	memset(&msg, 0, sizeof(msg));
++
++	len = _ckpt_read_obj_type(ctx, NULL, 0, CKPT_HDR_SOCKET_BUFFER);
++	if (len < 0)
++		return len;
++
++	if (len > SKB_MAX_ALLOC) {
++		ckpt_debug("Socket buffer too big (%i > %lu)",
++			   len, SKB_MAX_ALLOC);
++		return -ENOSPC;
++	}
++
++	kvec.iov_len = len;
++	kvec.iov_base = kmalloc(len, GFP_KERNEL);
++	if (!kvec.iov_base)
++		return -ENOMEM;
++
++	ret = ckpt_kread(ctx, kvec.iov_base, len);
++	if (ret < 0)
++		goto out;
++
++	ret = kernel_sendmsg(sock->sk_socket, &msg, &kvec, 1, len);
++	ckpt_debug("kernel_sendmsg(%i): %i\n", len, ret);
++	if ((ret > 0) && (ret != len))
++		ret = -ENOMEM;
++ out:
++	kfree(kvec.iov_base);
++
++	return ret;
++}
++
++static int sock_unix_read_buffers(struct ckpt_ctx *ctx,
++				  struct sock *sock,
++				  uint32_t *bufsize)
++{
++	uint8_t sock_shutdown;
++	struct ckpt_hdr_socket_queue *h;
++ 	int ret = 0;
++	int i;
++
++	h = ckpt_sock_read_buffer_hdr(ctx, bufsize);
++	if (IS_ERR(h))
++		return PTR_ERR(h);
++
++	/* If peer is shutdown, unshutdown it for this process */
++	sock_shutdown = sock->sk_shutdown;
++	sock->sk_shutdown &= ~SHUTDOWN_MASK;
++
++	for (i = 0; i < h->skb_count; i++) {
++		ret = sock_read_buffer_sendmsg(ctx, sock);
++		ckpt_debug("read_buffer_sendmsg(%i): %i\n", i, ret);
++		if (ret < 0)
++			break;
++
++		if (ret > h->total_bytes) {
++			ckpt_debug("Buffers exceeded claim");
++			ret = -EINVAL;
++			break;
++		}
++
++		h->total_bytes -= ret;
++		ret = 0;
++	}
++
++	sock->sk_shutdown = sock_shutdown;
++	ckpt_hdr_put(ctx, h);
++
++	return ret;
++}
++
++static struct unix_address *sock_unix_makeaddr(struct sockaddr_un *sun_addr,
++					       unsigned len)
++{
++	struct unix_address *addr;
++
++	if (len > sizeof(struct sockaddr_un))
++		return ERR_PTR(-EINVAL);
++
++	addr = kmalloc(sizeof(*addr) + len, GFP_KERNEL);
++	if (!addr)
++		return ERR_PTR(-ENOMEM);
++
++	memcpy(addr->name, sun_addr, len);
++	addr->len = len;
++	atomic_set(&addr->refcnt, 1);
++
++	return addr;
++}
++
++static int sock_unix_join(struct ckpt_ctx *ctx,
++			  struct sock *a,
++			  struct sock *b,
++			  struct ckpt_hdr_socket_unix *un)
++{
++	struct unix_address *addr = NULL;
++
++	/* FIXME: Do we need to call some security hooks here? */
++
++	sock_hold(a);
++	sock_hold(b);
++
++	unix_sk(a)->peer = b;
++	unix_sk(b)->peer = a;
++
++	/* TODO:
++	 * Checkpoint the credentials, restore them here if the values match
++	 * the restored creds or we may_setuid()
++	 */
++
++	a->sk_peercred.pid = task_tgid_vnr(current);
++	a->sk_peercred.uid = ctx->realcred->uid;
++	a->sk_peercred.gid = ctx->realcred->gid;
++
++	b->sk_peercred.pid = a->sk_peercred.pid;
++	b->sk_peercred.uid = a->sk_peercred.uid;
++	b->sk_peercred.gid = a->sk_peercred.gid;
++
++	if (!UNIX_ADDR_EMPTY(un->raddr_len))
++		addr = sock_unix_makeaddr(&un->raddr, un->raddr_len);
++	else if (!UNIX_ADDR_EMPTY(un->laddr_len))
++		addr = sock_unix_makeaddr(&un->laddr, un->laddr_len);
++
++	if (IS_ERR(addr))
++		return PTR_ERR(addr);
++	else if (addr) {
++		atomic_inc(&addr->refcnt); /* Held by both ends */
++		unix_sk(a)->addr = unix_sk(b)->addr = addr;
++	}
++
++	return 0;
++}
++
++static int sock_unix_restore_connected(struct ckpt_ctx *ctx,
++				       struct ckpt_hdr_socket *h,
++				       struct ckpt_hdr_socket_unix *un,
++				       struct socket *socket)
++{
++	struct sock *this = ckpt_obj_fetch(ctx, un->this, CKPT_OBJ_SOCK);
++	struct sock *peer = ckpt_obj_fetch(ctx, un->peer, CKPT_OBJ_SOCK);
++	struct socket *tmp = NULL;
++	int ret;
++
++	if (!IS_ERR(this) && !IS_ERR(peer)) {
++		/* We're last */
++		struct socket *old = this->sk_socket;
++
++		old->sk = NULL;
++		sock_release(old);
++		sock_graft(this, socket);
++
++	} else if ((PTR_ERR(this) == -EINVAL) && (PTR_ERR(peer) == -EINVAL)) {
++		/* We're first */
++		int family = socket->sk->sk_family;
++		int type = socket->sk->sk_type;
++
++		ret = sock_create(family, type, 0, &tmp);
++		ckpt_debug("sock_create: %i\n", ret);
++		if (ret)
++			goto out;
++
++		this = socket->sk;
++		peer = tmp->sk;
++
++		ret = ckpt_obj_insert(ctx, this, un->this, CKPT_OBJ_SOCK);
++		if (ret < 0)
++			goto out;
++
++		ret = ckpt_obj_insert(ctx, peer, un->peer, CKPT_OBJ_SOCK);
++		if (ret < 0)
++			goto out;
++
++		ret = sock_unix_join(ctx, this, peer, un);
++		ckpt_debug("sock_unix_join: %i\n", ret);
++		if (ret)
++			goto out;
++
++	} else {
++		ckpt_debug("Order Error\n");
++		ret = PTR_ERR(this);
++		goto out;
++	}
++
++	/* Prime the socket's buffer limit with the maximum.  These will be
++	 * overwritten with the values in the checkpoint stream in a later
++	 * phase.
++	 */
++	peer->sk_userlocks |= SOCK_SNDBUF_LOCK;
++	peer->sk_sndbuf = sysctl_wmem_max;
++
++	/* Read my buffers and sendmsg() them back to me via my peer */
++
++	/* TODO: handle the unconnected case, as well, as the case
++	 *       where sendto() has been used on some of the buffers
++	 */
++
++	ret = sock_unix_read_buffers(ctx, peer, &peer->sk_sndbuf);
++	ckpt_debug("sock_unix_read_buffers: %i\n", ret);
++	if (ret)
++		goto out;
++
++	/* Read peer's buffers and expect 0 */
++	ret = sock_unix_read_buffers(ctx, peer, NULL);
++ out:
++	if (tmp && ret)
++		sock_release(tmp);
++
++	return ret;
++}
++
++static int sock_unix_unlink(const char *name)
++{
++	struct path spath;
++	struct path ppath;
++	int ret;
++
++	ret = kern_path(name, 0, &spath);
++	if (ret)
++		return ret;
++
++	ret = kern_path(name, LOOKUP_PARENT, &ppath);
++	if (ret)
++		goto out_s;
++
++	if (!spath.dentry) {
++		ckpt_debug("No dentry found for %s\n", name);
++		ret = -ENOENT;
++		goto out_p;
++	}
++
++	if (!ppath.dentry || !ppath.dentry->d_inode) {
++		ckpt_debug("No inode for parent of %s\n", name);
++		ret = -ENOENT;
++		goto out_p;
++	}
++
++	ret = vfs_unlink(ppath.dentry->d_inode, spath.dentry);
++ out_p:
++	path_put(&ppath);
++ out_s:
++	path_put(&spath);
++
++	return ret;
++}
++
++/* Call bind() for socket, optionally changing (temporarily) to @path first
++ * if non-NULL
++ */
++static int sock_unix_chdir_and_bind(struct socket *socket,
++				    const char *path,
++				    struct sockaddr *addr,
++				    unsigned long addrlen)
++{
++	struct sockaddr_un *un = (struct sockaddr_un *)addr;
++	int ret;
++	struct path cur;
++	struct path dir;
++
++	if (path) {
++		ckpt_debug("switching to cwd %s for unix bind", path);
++
++		ret = kern_path(path, 0, &dir);
++		if (ret)
++			return ret;
++
++		ret = inode_permission(dir.dentry->d_inode,
++				       MAY_EXEC | MAY_ACCESS);
++		if (ret)
++			goto out;
++
++		write_lock(&current->fs->lock);
++		cur = current->fs->pwd;
++		current->fs->pwd = dir;
++		write_unlock(&current->fs->lock);
++	}
++
++	ret = sock_unix_unlink(un->sun_path);
++	ckpt_debug("unlink(%s): %i\n", un->sun_path, ret);
++	if ((ret == 0) || (ret == -ENOENT))
++		ret = sock_bind(socket, addr, addrlen);
++
++	if (path) {
++		write_lock(&current->fs->lock);
++		current->fs->pwd = cur;
++		write_unlock(&current->fs->lock);
++	}
++ out:
++	if (path)
++		path_put(&dir);
++
++	return ret;
++}
++
++static int sock_unix_fakebind(struct socket *socket,
++			      struct sockaddr_un *addr,
++			      unsigned long len)
++{
++	struct unix_address *uaddr;
++
++	uaddr = sock_unix_makeaddr(addr, len);
++	if (IS_ERR(uaddr))
++		return PTR_ERR(uaddr);
++
++	unix_sk(socket->sk)->addr = uaddr;
++
++	return 0;
++}
++
++static int sock_unix_bind(struct ckpt_hdr_socket *h,
++			  struct ckpt_hdr_socket_unix *un,
++			  struct socket *socket,
++			  const char *path)
++{
++	struct sockaddr *addr = (struct sockaddr *)&un->laddr;
++	unsigned long len = un->laddr_len;
++
++	if (!un->laddr.sun_path[0])
++		return sock_bind(socket, addr, len);
++	else if (!(un->flags & CKPT_UNIX_LINKED))
++		return sock_unix_fakebind(socket, &un->laddr, len);
++	else
++		return sock_unix_chdir_and_bind(socket, path, addr, len);
++}
++
++/* Some easy pre-flight checks before we get underway */
++static int sock_unix_precheck(struct socket *socket,
++			      struct ckpt_hdr_socket *h)
++{
++	struct net *net = sock_net(socket->sk);
++
++	if ((h->socket.state == SS_CONNECTING) ||
++	    (h->socket.state == SS_DISCONNECTING) ||
++	    (h->socket.state == SS_FREE)) {
++		ckpt_debug("AF_UNIX socket can't be SS_(DIS)CONNECTING");
++		return -EINVAL;
++	}
++
++	/* AF_UNIX overloads the backlog setting to define the maximum
++	 * queue length for DGRAM sockets.  Make sure we don't let the
++	 * caller exceed that value on restart.
++	 */
++	if ((h->sock.type == SOCK_DGRAM) &&
++	    (h->sock.backlog > net->unx.sysctl_max_dgram_qlen)) {
++		ckpt_debug("DGRAM backlog of %i exceeds system max of %i\n",
++			   h->sock.backlog, net->unx.sysctl_max_dgram_qlen);
++		return -EINVAL;
++	}
++
++	if (h->sock.flags & SOCK_USE_WRITE_QUEUE) {
++		ckpt_debug("AF_UNIX socket has SOCK_USE_WRITE_QUEUE set");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++int sock_unix_restore(struct ckpt_ctx *ctx,
++		      struct ckpt_hdr_socket *h,
++		      struct socket *socket)
++{
++	struct ckpt_hdr_socket_unix *un;
++	int ret = -EINVAL;
++	char *cwd = NULL;
++
++	ret = sock_unix_precheck(socket, h);
++	if (ret)
++		return ret;
++
++	un = ckpt_read_obj_type(ctx, sizeof(*un), CKPT_HDR_SOCKET_UNIX);
++	if (IS_ERR(un))
++		return PTR_ERR(un);
++
++	if (un->peer < 0)
++		goto out;
++
++	if (sock_unix_need_cwd(&un->laddr, un->laddr_len)) {
++		cwd = ckpt_read_string(ctx, PATH_MAX);
++		if (IS_ERR(cwd)) {
++			ret = PTR_ERR(cwd);
++			goto out;
++		}
++	}
++
++	if ((h->sock.state != TCP_ESTABLISHED) &&
++	    !UNIX_ADDR_EMPTY(un->laddr_len)) {
++		ret = sock_unix_bind(h, un, socket, cwd);
++		if (ret)
++			goto out;
++	}
++
++	if ((h->sock.state == TCP_ESTABLISHED) || (h->sock.state == TCP_CLOSE))
++		ret = sock_unix_restore_connected(ctx, h, un, socket);
++	else if (h->sock.state == TCP_LISTEN)
++		ret = socket->ops->listen(socket, h->sock.backlog);
++	else
++		ckpt_debug("unsupported UNIX socket state %i\n", h->sock.state);
++ out:
++	ckpt_hdr_put(ctx, un);
++	kfree(cwd);
++	return ret;
++}
++
+-- 
+1.6.2.5
+
