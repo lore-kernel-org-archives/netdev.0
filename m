@@ -1,101 +1,98 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCHv2 0/2] vhost: a kernel-level virtio server
-Date: Wed, 12 Aug 2009 12:13:43 -0400
-Message-ID: <4A82EA37.3010902@gmail.com>
-References: <20090811212743.GA26309@redhat.com> <200908121452.01802.arnd@arndb.de> <20090812130612.GC29200@redhat.com> <200908121540.44928.arnd@arndb.de> <4A82C8F1.4030703@gmail.com> <20090812140224.GA29345@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH][RFC] net/bridge: add basic VEPA support
+Date: Wed, 12 Aug 2009 18:27:28 +0200
+Message-ID: <200908121827.28905.arnd@arndb.de>
+References: <0199E0D51A61344794750DC57738F58E67D2DCECBB@GVW1118EXC.americas.hpqcorp.net> <200908121519.36808.arnd@arndb.de> <0199E0D51A61344794750DC57738F58E6D6AE9A0C1@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4E37A2FAF65F7E8AF474EC70"
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org, mingo@elte.hu, linux-mm@kvack.org,
- Andrew Morton <akpm@linux-foundation.org>,
- hpa@zytor.com, Patrick Mullaney <pmullaney@novell.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090812140224.GA29345@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
+	"'Stephen Hemminger'" <shemminger@linux-foundation.org>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"adobriyan@gmail.com" <adobriyan@gmail.com>,
+	"'Eric Biederman'" <ebiederm@xmission.com>
+To: "Fischer, Anna" <anna.fischer@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:50017 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754278AbZHLQ2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 12:28:01 -0400
+In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6AE9A0C1@GVW1118EXC.americas.hpqcorp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4E37A2FAF65F7E8AF474EC70
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Wednesday 12 August 2009, Fischer, Anna wrote:
+> Yes, for the basic VEPA this is not important. For MultiChannel VEPA, it 
+> would be nice if a macvlan device could operate as VEPA and as a typical
+> VEB (VEB = traditional bridge but no learning).
 
-Michael S. Tsirkin wrote:
-> On Wed, Aug 12, 2009 at 09:51:45AM -0400, Gregory Haskins wrote:
->> Arnd Bergmann wrote:
->>> On Wednesday 12 August 2009, Michael S. Tsirkin wrote:
->>>>> If I understand it correctly, you can at least connect a veth pair
->>>>> to a bridge, right? Something like
->>>>>
->>>>>            veth0 - veth1 - vhost - guest 1=20
->>>>> eth0 - br0-|
->>>>>            veth2 - veth3 - vhost - guest 2
->>>>>           =20
->>>> Heh, you don't need a bridge in this picture:
->>>>
->>>> guest 1 - vhost - veth0 - veth1 - vhost guest 2
->>> Sure, but the setup I described is the one that I would expect
->>> to see in practice because it gives you external connectivity.
->>>
->>> Measuring two guests communicating over a veth pair is
->>> interesting for finding the bottlenecks, but of little
->>> practical relevance.
->>>
->>> 	Arnd <><
->> Yeah, this would be the config I would be interested in.
->=20
-> Hmm, this wouldn't be the config to use for the benchmark though: there=
+Right, this would be a logical extension in that scenario. I would imagine
+that in many scenarios running a VEB also means that you want to use
+the advanced ebtables/iptables filtering of the bridge subsystem, but
+if all guests trust each other, using macvlan to bridge between them
+sounds useful as well, if only for simplicity.
 
-> are just too many variables.  If you want both guest to guest and guest=
+> Basically, what we would need to be able to support is running a VEB and
+> a VEPA simultaneously on the same uplink port (e.g. the physical device). 
+> A new component (called the S-Component) would then multiplex frames
+> to the VEB or the VEPA based on a tagging scheme.
 
-> to host, create 2 nics in the guest.
->=20
-> Here's one way to do this:
->=20
-> 	-net nic,model=3Dvirtio,vlan=3D0 -net user,vlan=3D0
-> 	-net nic,vlan=3D1,model=3Dvirtio,vhost=3Dveth0
-> 	-redir tcp:8022::22
->=20
-> 	-net nic,model=3Dvirtio,vlan=3D0 -net user,vlan=3D0
-> 	 -net nic,vlan=3D1,model=3Dvirtio,vhost=3Dveth1
-> 	-redir tcp:8023::22
->=20
-> In guests, for simplicity, configure eth1 and eth0
-> to use separate subnets.
+You can of course do that by adding one port of the S-component to
+a port of a bridge, and using another port of the S-component to
+create macvlan devices, or you could have multiple ports of the
+S-component each with a macvlan multiplexor.
 
-I can try to do a few variations, but what I am interested is in
-performance in a real-world L2 configuration.  This would generally mean
- all hosts (virtual or physical) in the same L2 domain.
+Just to make sure I get the chain right, would it look like this?
+(adapted from Paul's PDF)
 
-If I get a chance, though, I will try to also wire them up in isolation
-as another data point.
+eth0 (external) ---scomponent0 --- vlan2 --- macvlan0 
+                 |              |         \- macvlan1
+                 |               \-vlan3 --- macvlan2
+                 |-scomponent1 --- vlan2 --- br0 --- tap0
+                 |                             \ --- tap1
+                 |-scomponent2 --- vlan3 --- macvlan3
+                 \-scomponent3 ---  ---  --- macvlan4
 
-Regards,
--Greg
+In this scenario, tap0 and tap1 could communicate over the bridge without
+tagging, while any data going out through the S-Component gets tagged
+with both a 802.1q Q-Tag and an S-Tag. 
 
+macvlan4 would be a guest that does its own tagging, and the external
+switch would need to check the VLAN IDs, but it could communicate with
+any other guest by tagging the frames as 2 or 3.
 
+macvlan2 and macvlan3 could communicate with each other and with external
+guests in vlan3.
 
---------------enig4E37A2FAF65F7E8AF474EC70
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Guests on scomponent1 and scomponent3 could in theory have
+subdivisions of the network with macvlan running in the guest
+to run containers.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+> I think the question here was whether there is a way for a macvlan interface
+> to be set to promiscuous mode. At the moment, I believe a macvlan interface
+> only receives packets based on its destination address (this is for unicast
+> packets now). What if a macvlan interface wanted to get all packets that
+> are being received (either on the physical device, or on a particular
+> VLAN if using macvlan nested in vlan). Would this work easily? Imagine
+> you have a virtual machine attached to that macvlan / macvtap device and
+> this VM wants to do packet inspection or network traffic monitoring on 
+> all packets flowing through the virtualized server.
 
-iEYEARECAAYFAkqC6jcACgkQP5K2CMvXmqG0FQCfVhCkLU4jF4NKuVMP5GrYh+cH
-NF4AoIqK9SqEu0RYq/LqHoplHQBbErgz
-=ydLy
------END PGP SIGNATURE-----
+Ok, I see. As I said, the host could easily get access to all frames
+on macvlan downstream ports by opening a raw socket on the upstream
+port (with some extra work if we want to support this in bridge mode).
 
---------------enig4E37A2FAF65F7E8AF474EC70--
+If you want the inspection to be done in a guest rather than the host,
+the easiest way to achieve that would be to connect that raw socket
+to the guest using Or's raw frontend for qemu.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	Arnd <><
