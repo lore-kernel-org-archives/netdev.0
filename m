@@ -1,29 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2009-08-11
-Date: Wed, 12 Aug 2009 17:38:42 -0700 (PDT)
-Message-ID: <20090812.173842.227384033.davem@davemloft.net>
-References: <20090811183605.GG2634@tuxdriver.com>
-	<20090812182403.GF2657@tuxdriver.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 1/1] proc connector: add event for process becoming
+ session leader
+Date: Wed, 12 Aug 2009 18:02:31 -0700
+Message-ID: <20090812180231.1bdebc03.akpm@linux-foundation.org>
+References: <200908062305.n76N5lZj005259@imap1.linux-foundation.org>
+	<20090812.173203.35197832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, scott@ubuntu.com, johnpol@2ka.mipt.ru,
+	matthltc@us.ibm.com, oleg@tv-sign.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47981
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750866AbZHMAic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 20:38:32 -0400
-In-Reply-To: <20090812182403.GF2657@tuxdriver.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55504 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751054AbZHMBC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 21:02:59 -0400
+In-Reply-To: <20090812.173203.35197832.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 12 Aug 2009 14:24:03 -0400
+On Wed, 12 Aug 2009 17:32:03 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-> When you pull this, could you also revert 57921c31 ("libertas: Read
-> buffer overflow").  It has been shown to create a new problem.  There
-> is work towards a solution to that one, but it isn't a simple clean-up.
+> From: akpm@linux-foundation.org
+> Date: Thu, 06 Aug 2009 16:05:47 -0700
+> 
+> > From: Scott James Remnant <scott@ubuntu.com>
+> > 
+> > The act of a process becoming a session leader is a useful signal to a
+> > supervising init daemon such as Upstart.
+> > 
+> > While a daemon will normally do this as part of the process of becoming a
+> > daemon, it is rare for its children to do so.  When the children do, it is
+> > nearly always a sign that the child should be considered detached from the
+> > parent and not supervised along with it.
+> > 
+> > The poster-child example is OpenSSH; the per-login children call setsid()
+> > so that they may control the pty connected to them.  If the primary daemon
+> > dies or is restarted, we do not want to consider the per-login children
+> > and want to respawn the primary daemon without killing the children.
+> > 
+> > This patch adds a new PROC_SID_EVENT and associated structure to the
+> > proc_event event_data union, it arranges for this to be emitted when the
+> > special PIDTYPE_SID pid is set.
+> > 
+> > [akpm@linux-foundation.org: coding-style fixes]
+> > Signed-off-by: Scott James Remnant <scott@ubuntu.com>
+> > Acked-by: Matt Helsley <matthltc@us.ibm.com>
+> > Cc: Oleg Nesterov <oleg@tv-sign.ru>
+> > Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-Done.
+Ta.
+
+> This is more process handling level stuff than actual networking
+> or connector bits, so it should probably be merged via akpm's
+> usual patch bombs or some other relevant tree.
+> 
+> Andrew, if you really want, I can take this into net-next-2.6
+
+No probs, I'll send it for 2.6.32-rc1.
