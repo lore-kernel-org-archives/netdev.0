@@ -1,8 +1,8 @@
 From: Eric Paris <eparis@redhat.com>
-Subject: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to call
-	request_module
-Date: Thu, 13 Aug 2009 09:44:51 -0400
-Message-ID: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
+Subject: [PATCH 2/3] security: introducing security_request_module
+Date: Thu, 13 Aug 2009 09:44:57 -0400
+Message-ID: <20090813134457.29186.7182.stgit@paris.rdu.redhat.com>
+References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,91 +11,121 @@ Cc: sds@tycho.nsa.gov, davem@davemloft.net,
 	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
 To: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
 	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754579AbZHMNp6@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754604AbZHMNqI@vger.kernel.org>
+In-Reply-To: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The networking code checks CAP_SYS_MODULE before using request_module() to
-try to load a kernel module.  While this seems reasonable it's actually
-weakening system security since we have to allow CAP_SYS_MODULE for things
-like /sbin/ip and bluetoothd which need to be able to trigger module loads.
-CAP_SYS_MODULE actually grants those binaries the ability to directly load
-any code into the kernel.  We should instead be protecting modprobe and the
-modules on disk, rather than granting random programs the ability to load code
-directly into the kernel.  Instead we are going to gate those networking checks
-on CAP_NET_ADMIN which still limits them to root but which does not grant
-those processes the ability to load arbitrary code into the kernel.
+Calling request_module() will trigger a userspace upcall which will load a
+new module into the kernel.  This can be a dangerous event if the process
+able to trigger request_module() is able to control either the modprobe
+binary or the module binary.  This patch adds a new security hook to
+request_module() which can be used by an LSM to control a processes ability
+to call request_module().
 
 Signed-off-by: Eric Paris <eparis@redhat.com>
 ---
 
- drivers/staging/comedi/comedi_fops.c |    8 ++++----
- net/core/dev.c                       |    2 +-
- net/ipv4/tcp_cong.c                  |    4 ++--
- 3 files changed, 7 insertions(+), 7 deletions(-)
+ include/linux/security.h |   10 ++++++++++
+ kernel/kmod.c            |    4 ++++
+ security/capability.c    |    6 ++++++
+ security/security.c      |    5 +++++
+ 4 files changed, 25 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/staging/comedi/comedi_fops.c b/drivers/staging/comedi/comedi_fops.c
-index 42e4bc4..f54bb9b 100644
---- a/drivers/staging/comedi/comedi_fops.c
-+++ b/drivers/staging/comedi/comedi_fops.c
-@@ -1772,12 +1772,12 @@ static int comedi_open(struct inode *inode, struct file *file)
- 	mutex_lock(&dev->mutex);
- 	if (dev->attached)
- 		goto ok;
--	if (!capable(CAP_SYS_MODULE) && dev->in_request_module) {
-+	if (!capable(CAP_NET_ADMIN) && dev->in_request_module) {
- 		DPRINTK("in request module\n");
- 		mutex_unlock(&dev->mutex);
- 		return -ENODEV;
- 	}
--	if (capable(CAP_SYS_MODULE) && dev->in_request_module)
-+	if (capable(CAP_NET_ADMIN) && dev->in_request_module)
- 		goto ok;
- 
- 	dev->in_request_module = 1;
-@@ -1790,8 +1790,8 @@ static int comedi_open(struct inode *inode, struct file *file)
- 
- 	dev->in_request_module = 0;
- 
--	if (!dev->attached && !capable(CAP_SYS_MODULE)) {
--		DPRINTK("not attached and not CAP_SYS_MODULE\n");
-+	if (!dev->attached && !capable(CAP_NET_ADMIN)) {
-+		DPRINTK("not attached and not CAP_NET_ADMIN\n");
- 		mutex_unlock(&dev->mutex);
- 		return -ENODEV;
- 	}
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 09fb03f..2604db9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1031,7 +1031,7 @@ void dev_load(struct net *net, const char *name)
- 	dev = __dev_get_by_name(net, name);
- 	read_unlock(&dev_base_lock);
- 
--	if (!dev && capable(CAP_SYS_MODULE))
-+	if (!dev && capable(CAP_NET_ADMIN))
- 		request_module("%s", name);
+diff --git a/include/linux/security.h b/include/linux/security.h
+index d5f6578..34c5465 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -678,6 +678,9 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@inode points to the inode to use as a reference.
+  *	The current task must be the one that nominated @inode.
+  *	Return 0 if successful.
++ * @kernel_module_request:
++ *	Ability to trigger the kernel to automatically upcall to userspace for
++ *	userspace to load a kernel module with the given name.
+  * @task_setuid:
+  *	Check permission before setting one or more of the user identity
+  *	attributes of the current process.  The @flags parameter indicates
+@@ -1500,6 +1503,7 @@ struct security_operations {
+ 	void (*cred_commit)(struct cred *new, const struct cred *old);
+ 	int (*kernel_act_as)(struct cred *new, u32 secid);
+ 	int (*kernel_create_files_as)(struct cred *new, struct inode *inode);
++	int (*kernel_module_request)(void);
+ 	int (*task_setuid) (uid_t id0, uid_t id1, uid_t id2, int flags);
+ 	int (*task_fix_setuid) (struct cred *new, const struct cred *old,
+ 				int flags);
+@@ -1755,6 +1759,7 @@ int security_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
+ void security_commit_creds(struct cred *new, const struct cred *old);
+ int security_kernel_act_as(struct cred *new, u32 secid);
+ int security_kernel_create_files_as(struct cred *new, struct inode *inode);
++int security_kernel_module_request(void);
+ int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags);
+ int security_task_fix_setuid(struct cred *new, const struct cred *old,
+ 			     int flags);
+@@ -2306,6 +2311,11 @@ static inline int security_kernel_create_files_as(struct cred *cred,
+ 	return 0;
  }
  
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index e92beb9..6428b34 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -116,7 +116,7 @@ int tcp_set_default_congestion_control(const char *name)
- 	spin_lock(&tcp_cong_list_lock);
- 	ca = tcp_ca_find(name);
- #ifdef CONFIG_MODULES
--	if (!ca && capable(CAP_SYS_MODULE)) {
-+	if (!ca && capable(CAP_NET_ADMIN)) {
- 		spin_unlock(&tcp_cong_list_lock);
++static inline int security_kernel_module_request(void)
++{
++	return 0;
++}
++
+ static inline int security_task_setuid(uid_t id0, uid_t id1, uid_t id2,
+ 				       int flags)
+ {
+diff --git a/kernel/kmod.c b/kernel/kmod.c
+index 385c31a..5a7ae57 100644
+--- a/kernel/kmod.c
++++ b/kernel/kmod.c
+@@ -78,6 +78,10 @@ int __request_module(bool wait, const char *fmt, ...)
+ #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
+ 	static int kmod_loop_msg;
  
- 		request_module("tcp_%s", name);
-@@ -246,7 +246,7 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
++	ret = security_kernel_module_request();
++	if (ret)
++		return ret;
++
+ 	va_start(args, fmt);
+ 	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, args);
+ 	va_end(args);
+diff --git a/security/capability.c b/security/capability.c
+index 4f23f4f..06400cf 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -396,6 +396,11 @@ static int cap_kernel_create_files_as(struct cred *new, struct inode *inode)
+ 	return 0;
+ }
  
- #ifdef CONFIG_MODULES
- 	/* not found attempt to autoload module */
--	if (!ca && capable(CAP_SYS_MODULE)) {
-+	if (!ca && capable(CAP_NET_ADMIN)) {
- 		rcu_read_unlock();
- 		request_module("tcp_%s", name);
- 		rcu_read_lock();
++static int cap_kernel_module_request(void)
++{
++	return 0;
++}
++
+ static int cap_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
+ {
+ 	return 0;
+@@ -961,6 +966,7 @@ void security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, cred_commit);
+ 	set_to_cap_if_null(ops, kernel_act_as);
+ 	set_to_cap_if_null(ops, kernel_create_files_as);
++	set_to_cap_if_null(ops, kernel_module_request);
+ 	set_to_cap_if_null(ops, task_setuid);
+ 	set_to_cap_if_null(ops, task_fix_setuid);
+ 	set_to_cap_if_null(ops, task_setgid);
+diff --git a/security/security.c b/security/security.c
+index b98c684..f88eaf6 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -709,6 +709,11 @@ int security_kernel_create_files_as(struct cred *new, struct inode *inode)
+ 	return security_ops->kernel_create_files_as(new, inode);
+ }
+ 
++int security_kernel_module_request(void)
++{
++	return security_ops->kernel_module_request();
++}
++
+ int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
+ {
+ 	return security_ops->task_setuid(id0, id1, id2, flags);
