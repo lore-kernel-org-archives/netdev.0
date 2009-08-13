@@ -1,42 +1,54 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: 8139cp dma-debug warning.
-Date: Thu, 13 Aug 2009 15:28:40 -0400
-Message-ID: <20090813192840.GA12838@redhat.com>
-References: <20090806215702.GA17555@redhat.com> <20090812171333.GD3116@redhat.com> <20090812.222046.60033759.davem@davemloft.net> <20090813134549.GA2845@redhat.com> <20090813192326.GA32435@electric-eye.fr.zoreil.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce	primary_lazy
+ option
+Date: Thu, 13 Aug 2009 21:41:02 +0200
+Message-ID: <4A846C4E.8030509@free.fr>
+References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:40399 "EHLO mx2.redhat.com"
+Received: from smtp6-g21.free.fr ([212.27.42.6]:54583 "EHLO smtp6-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753916AbZHMT2o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2009 15:28:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20090813192326.GA32435@electric-eye.fr.zoreil.com>
+	id S1752111AbZHMTlM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2009 15:41:12 -0400
+In-Reply-To: <20090813150513.GB10449@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2009 at 09:23:26PM +0200, Francois Romieu wrote:
- 
- > > Below this, we're still doing an skb_reserve(NET_IP_ALIGN) on new_skb.
- > > Although the mapping is now constantly sized, aren't we still wastefully
- > > bumping the data/tail of the skb twice ?
- > 
- > $ grep -n NET_IP_ALIGN drivers/net/8139cp.c
- > 552:		new_skb = netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
- > 558:		skb_reserve(new_skb, NET_IP_ALIGN);
- > 1059:		skb = netdev_alloc_skb(dev, cp->rx_buf_sz + NET_IP_ALIGN);
- > 1063:		skb_reserve(skb, NET_IP_ALIGN);
- > 
- > I do not get it : netdev_alloc_skb allocates but it does not "bump" as
- > skb_reserve does (and skb_reserve does not allocate). Where would the
- > double bump come from ?
- > 
- > The mapping is constantly sized but we want the ethernet header following
- > IP data to be evenly aligned and thus the mapping to be oddly aligned.
+Jiri Pirko wrote:
+> In some cases there is not desirable to switch back to primary interface when
+> it's link recovers and rather stay wiith currently active one. We need to avoid
+> packetloss as much as we can in some cases. This is solved by introducing
+> primary_lazy option. Note that enslaved primary slave is set as current
+> active no matter what.
 
-Ah, now I get it. Thanks for the explanation :)
+May I suggest that instead of creating a new option to better define how
+the "primary" option is expected to behave for active-backup mode, we 
+try the "weight" slave  option I proposed in the thread "alternative to 
+primary" earlier this year ?
 
-	Dave
+http://sourceforge.net/mailarchive/forum.php?thread_name=49D5357E.4020201%40free.fr&forum_name=bonding-devel
+
+Giving the same "weight" to two different slaves means "chose at random
+on startup and keep the active one until it fails". And if the "at
+random" behavior is not appropriate, one can force the active slave
+using what Jay suggested  (/sys/class/net/bond0/bonding/active).
+
+The proposed "weight" slave's option is able to prevent the slaves from
+flip-flopping, by stating the fact that two slaves share the same 
+"primary" level, and may provide several other enhancements as described 
+in the thread.
+
+Hence, it is a more general configuration interface than what you 
+proposed. I must admit that despite the fact that I suggested this in 
+april, I didn't posted any patch for it until now. Unfortunately, 
+I'didn't had time for it and probably not the proper skills anyway :-).
+
+	Nicolas.
+
+
 
