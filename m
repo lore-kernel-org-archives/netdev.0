@@ -1,77 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 12:05:46 -0700
-Message-ID: <1250190346.28285.120.camel@Joe-Laptop.home>
-References: <1250091560.6641.48.camel@fnki-nb00130>
-	 <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130>
-	 <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home>
-	 <48AAB7CB-8EEC-4E30-B821-3E0D84531AAA@oracle.com>
-	 <1250187662.28285.97.camel@Joe-Laptop.home>
-	 <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 8139cp dma-debug warning.
+Date: Thu, 13 Aug 2009 21:23:26 +0200
+Message-ID: <20090813192326.GA32435@electric-eye.fr.zoreil.com>
+References: <20090806215702.GA17555@redhat.com> <20090812171333.GD3116@redhat.com> <20090812.222046.60033759.davem@davemloft.net> <20090813134549.GA2845@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, Jens Rosenboom <jens@mcbone.net>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4111 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755383AbZHMTF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 15:05:58 -0400
-In-Reply-To: <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:41031 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755354AbZHMTTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 15:19:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20090813134549.GA2845@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-08-13 at 14:39 -0400, Chuck Lever wrote:
-> On Aug 13, 2009, at 2:21 PM, Joe Perches wrote:
-> > On Thu, 2009-08-13 at 14:15 -0400, Chuck Lever wrote:
-> >> On Aug 13, 2009, at 2:10 PM, Joe Perches wrote:
-> >>> The patch allows "%p6ic" for compressed and "%p6ic4" for compressed
-> >>> with ipv4 last u32.
-> >> Why do these need to be separate?
-> > Just an option.
-> > I think it possible somebody will want "1::" instead of "1::0.0.0.0"
-> Hrm.
-> With %p6ic4, each call site now has to see that it's an IPv6 address,  
-> and then decide if the address is a mapped v4 address or not.  It's  
-> the same logic everywhere.
+Dave Jones <davej@redhat.com> :
+[...]
+>  > @@ -549,8 +549,7 @@ rx_status_loop:
+>  >  			pr_debug("%s: rx slot %d status 0x%x len %d\n",
+>  >  			       dev->name, rx_tail, status, len);
+>  >  
+>  > -		buflen = cp->rx_buf_sz + NET_IP_ALIGN;
+>  > -		new_skb = netdev_alloc_skb(dev, buflen);
+>  > +		new_skb = netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
+>  >  		if (!new_skb) {
+>  >  			dev->stats.rx_dropped++;
+>  >  			goto rx_next;
+> 
+> Below this, we're still doing an skb_reserve(NET_IP_ALIGN) on new_skb.
+> Although the mapping is now constantly sized, aren't we still wastefully
+> bumping the data/tail of the skb twice ?
 
-I suppose ipv6_addr_v4mapped(addr) could be tested instead
+$ grep -n NET_IP_ALIGN drivers/net/8139cp.c
+552:		new_skb = netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
+558:		skb_reserve(new_skb, NET_IP_ALIGN);
+1059:		skb = netdev_alloc_skb(dev, cp->rx_buf_sz + NET_IP_ALIGN);
+1063:		skb_reserve(skb, NET_IP_ALIGN);
 
-Perhaps this on top of last:
+I do not get it : netdev_alloc_skb allocates but it does not "bump" as
+skb_reserve does (and skb_reserve does not allocate). Where would the
+double bump come from ?
 
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index dd02842..7ce34a7 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -25,6 +25,7 @@
- #include <linux/kallsyms.h>
- #include <linux/uaccess.h>
- #include <linux/ioport.h>
-+#include <net/ipv6.h>
- 
- #include <asm/page.h>		/* for PAGE_SIZE */
- #include <asm/div64.h>
-@@ -701,7 +702,7 @@ static char *ip6_compressed_string(char *buf, char *end, u8 *addr,
- 	u16 *addr16 = (u16 *)addr;
- 	ip6_colon_t colon = DC_START;
- 
--	if (fmt[3] == '4') {		/* use :: and ipv4 */
-+	if (ipv6_addr_v4mapped((const struct in6_addr *)addr)) {
- 		for (i = 0; i < 6; i++) {
- 			p = ip6_compress_u16(p, addr16[i], addr16[i+1],
- 					     &colon, &needcolon);
-@@ -832,8 +833,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
- 					 * Formatted IP supported
- 					 * 4:	001.002.003.004
- 					 * 6:	0001:0203:...:0708
--					 * 6c:	1::708
--					 * 6c4:	1::1.2.3.4
-+					 * 6c:	1::708 or 1::1.2.3.4
- 					 */
- 	case 'I':			/* Contiguous: */
- 		if (fmt[1] == '4' || fmt[1] == '6')
+The mapping is constantly sized but we want the ethernet header following
+IP data to be evenly aligned and thus the mapping to be oddly aligned.
 
-
-
+-- 
+Ueimor
