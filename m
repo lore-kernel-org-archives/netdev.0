@@ -1,60 +1,60 @@
-From: Brian Haley <brian.haley@hp.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 16:28:21 -0400
-Message-ID: <4A847765.3080102@hp.com>
-References: <1250091560.6641.48.camel@fnki-nb00130> <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130> <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home> <48AAB7CB-8EEC-4E30-B821-3E0D84531AAA@oracle.com> <1250187662.28285.97.camel@Joe-Laptop.home> <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
+Date: Thu, 13 Aug 2009 13:34:35 -0700
+Message-ID: <1250195675.28285.128.camel@Joe-Laptop.home>
+References: <1250091560.6641.48.camel@fnki-nb00130>
+	 <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130>
+	 <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home>
+	 <4A847669.7050508@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, Jens Rosenboom <jens@mcbone.net>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
+Cc: Jens Rosenboom <jens@mcbone.net>,
+	Linux Network Developers <netdev@vger.kernel.org>,
+	Chuck Lever <chuck.lever@oracle.com>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:22830 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754738AbZHMU2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 16:28:22 -0400
-In-Reply-To: <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4224 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932474AbZHMUek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 16:34:40 -0400
+In-Reply-To: <4A847669.7050508@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chuck Lever wrote:
-> On Aug 13, 2009, at 2:21 PM, Joe Perches wrote:
->> On Thu, 2009-08-13 at 14:15 -0400, Chuck Lever wrote:
->>> On Aug 13, 2009, at 2:10 PM, Joe Perches wrote:
->>>> The patch allows "%p6ic" for compressed and "%p6ic4" for compressed
->>>> with ipv4 last u32.
->>>
->>> Why do these need to be separate?
->>
->> Just an option.
->> I think it possible somebody will want "1::" instead of "1::0.0.0.0"
-> 
-> Hrm.
-> 
-> Do you have a use case?  Really, it's pretty easy to tell when the
-> mapped v4 presentation format should be used.  See
-> ipv6_addr_v4mapped().  Otherwise the mapped v4 presentation format
-> should never be used.
-> 
-> A problem with the existing %p[iI] implementation is that each call site
-> has to have logic that figures out the address family of the address
-> before calling sprintf().  This makes it difficult to use this facility
-> with, for example, debugging messages, since you have to add address
-> family detection logic at every debugging message call site.  Lots of
-> clutter and duplicated code.
-> 
-> With %p6ic4, each call site now has to see that it's an IPv6 address,
-> and then decide if the address is a mapped v4 address or not.  It's the
-> same logic everywhere.
-> 
-> It seems to me it would be a lot more useful if we had a new %p6
-> formatter that handled all types of IPv6 addresses properly, the way
-> inet_ntop(3) does in user space.  (Or even a new formatter that could
-> handle both address families).
+On Thu, 2009-08-13 at 16:24 -0400, Brian Haley wrote:
+> Is your arch "um"?  Seems like those are only defined there, I'm building
+> a straight x86 kernel.
 
-I would agree that this could be better, maybe after playing with this
-some more it will be obvious what that something is.  I'd be willing
-to review any thoughts you have :)
+Nope.
 
--Brian
+I did make allyesconfig ; make lib/vsprintf.o lib ctype.o
+allnoconfig works though.
+
+> This core dumps when running "test", I'm still trying to track down why.
+
+missing return on ip_addr_string
+
+> I think we're thinking too hard about this, I would think we'd always
+> want to print the shortened IPv6 address in debugging messages with %pI6.
+
+True, but you can't tell in sprintf as it's used in seq.
+
+for instance:
+net/sunrpc/svcauth_unix.c:		seq_printf(m, "%s %pI6 %s\n", im->m_class, &addr, dom);
+
+> The %pi6 places need to stay since they're an API to userspace.  I don't
+> think we need the extra "c" and "c4" support.
+
+I'm pretty sure it can't change and a new form is needed
+so %pi6c should be OK.
+
+I'd rather not use another %p<foo> letter.
+
+> One comment on a quick scan of the code:
+> ip6_addr[8 * 5] is fine here, we won't ever have all eight plus an IPv4 address.
+
+I'm fixing it up and will resubmit something working in a little while.
+
+cheers, Joe
+
