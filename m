@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] be2net:Creating/destroying queues
- regardless of netif_running() in suspend/resume path
-Date: Thu, 13 Aug 2009 16:26:53 -0700 (PDT)
-Message-ID: <20090813.162653.57589690.davem@davemloft.net>
-References: <20090813070119.GA28043@serverengines.com>
+Subject: Re: [PATCH] lmc: Read outside array bounds
+Date: Thu, 13 Aug 2009 16:27:04 -0700 (PDT)
+Message-ID: <20090813.162704.229609927.davem@davemloft.net>
+References: <4A7C401B.7090301@gmail.com>
+	<20090809.212725.218498673.davem@davemloft.net>
+	<4A8004B0.5000504@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sarveshwarb@serverengines.com
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, akpm@linux-foundation.org
+To: roel.kluin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56531
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56535
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754889AbZHMX0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:26:42 -0400
-In-Reply-To: <20090813070119.GA28043@serverengines.com>
+	by vger.kernel.org with ESMTP id S1753226AbZHMX0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:26:53 -0400
+In-Reply-To: <4A8004B0.5000504@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Date: Thu, 13 Aug 2009 12:31:29 +0530
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Mon, 10 Aug 2009 13:29:52 +0200
 
-> Signed-off-by: sarveshwarb <sarveshwarb@serverengines.com>
+> If dev_alloc_skb() fails on the first iteration of the allocation loop,
+> then we end up writing before the start of the array.
+> 
+> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 
 Applied to net-next-2.6
