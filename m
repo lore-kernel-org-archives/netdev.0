@@ -1,125 +1,77 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to call request_module
-Date: Thu, 13 Aug 2009 14:45:37 -0400
-Message-ID: <200908131445.37263.paul.moore@hp.com>
-References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
+Date: Thu, 13 Aug 2009 12:05:46 -0700
+Message-ID: <1250190346.28285.120.camel@Joe-Laptop.home>
+References: <1250091560.6641.48.camel@fnki-nb00130>
+	 <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130>
+	 <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home>
+	 <48AAB7CB-8EEC-4E30-B821-3E0D84531AAA@oracle.com>
+	 <1250187662.28285.97.camel@Joe-Laptop.home>
+	 <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	sds@tycho.nsa.gov, davem@davemloft.net,
-	shemminger@linux-foundation.org, kees@ubuntu.com,
-	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
-Content-Disposition: inline
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Brian Haley <brian.haley@hp.com>, Jens Rosenboom <jens@mcbone.net>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Chuck Lever <chuck.lever@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4111 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755383AbZHMTF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 15:05:58 -0400
+In-Reply-To: <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 13 August 2009 09:44:51 am Eric Paris wrote:
-> The networking code checks CAP_SYS_MODULE before using request_module() to
-> try to load a kernel module.  While this seems reasonable it's actually
-> weakening system security since we have to allow CAP_SYS_MODULE for things
-> like /sbin/ip and bluetoothd which need to be able to trigger module loads.
-> CAP_SYS_MODULE actually grants those binaries the ability to directly load
-> any code into the kernel.  We should instead be protecting modprobe and the
-> modules on disk, rather than granting random programs the ability to load
-> code directly into the kernel.  Instead we are going to gate those
-> networking checks on CAP_NET_ADMIN which still limits them to root but
-> which does not grant those processes the ability to load arbitrary code
-> into the kernel.
->
-> Signed-off-by: Eric Paris <eparis@redhat.com>
+On Thu, 2009-08-13 at 14:39 -0400, Chuck Lever wrote:
+> On Aug 13, 2009, at 2:21 PM, Joe Perches wrote:
+> > On Thu, 2009-08-13 at 14:15 -0400, Chuck Lever wrote:
+> >> On Aug 13, 2009, at 2:10 PM, Joe Perches wrote:
+> >>> The patch allows "%p6ic" for compressed and "%p6ic4" for compressed
+> >>> with ipv4 last u32.
+> >> Why do these need to be separate?
+> > Just an option.
+> > I think it possible somebody will want "1::" instead of "1::0.0.0.0"
+> Hrm.
+> With %p6ic4, each call site now has to see that it's an IPv6 address,  
+> and then decide if the address is a mapped v4 address or not.  It's  
+> the same logic everywhere.
 
-Sounds and looks reasonable to me.
+I suppose ipv6_addr_v4mapped(addr) could be tested instead
 
-Acked-by: Paul Moore <paul.moore@hp.com>
+Perhaps this on top of last:
 
-> ---
->
->  drivers/staging/comedi/comedi_fops.c |    8 ++++----
->  net/core/dev.c                       |    2 +-
->  net/ipv4/tcp_cong.c                  |    4 ++--
->  3 files changed, 7 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/staging/comedi/comedi_fops.c
-> b/drivers/staging/comedi/comedi_fops.c index 42e4bc4..f54bb9b 100644
-> --- a/drivers/staging/comedi/comedi_fops.c
-> +++ b/drivers/staging/comedi/comedi_fops.c
-> @@ -1772,12 +1772,12 @@ static int comedi_open(struct inode *inode, struct
-> file *file) mutex_lock(&dev->mutex);
->  	if (dev->attached)
->  		goto ok;
-> -	if (!capable(CAP_SYS_MODULE) && dev->in_request_module) {
-> +	if (!capable(CAP_NET_ADMIN) && dev->in_request_module) {
->  		DPRINTK("in request module\n");
->  		mutex_unlock(&dev->mutex);
->  		return -ENODEV;
->  	}
-> -	if (capable(CAP_SYS_MODULE) && dev->in_request_module)
-> +	if (capable(CAP_NET_ADMIN) && dev->in_request_module)
->  		goto ok;
->
->  	dev->in_request_module = 1;
-> @@ -1790,8 +1790,8 @@ static int comedi_open(struct inode *inode, struct
-> file *file)
->
->  	dev->in_request_module = 0;
->
-> -	if (!dev->attached && !capable(CAP_SYS_MODULE)) {
-> -		DPRINTK("not attached and not CAP_SYS_MODULE\n");
-> +	if (!dev->attached && !capable(CAP_NET_ADMIN)) {
-> +		DPRINTK("not attached and not CAP_NET_ADMIN\n");
->  		mutex_unlock(&dev->mutex);
->  		return -ENODEV;
->  	}
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 09fb03f..2604db9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1031,7 +1031,7 @@ void dev_load(struct net *net, const char *name)
->  	dev = __dev_get_by_name(net, name);
->  	read_unlock(&dev_base_lock);
->
-> -	if (!dev && capable(CAP_SYS_MODULE))
-> +	if (!dev && capable(CAP_NET_ADMIN))
->  		request_module("%s", name);
->  }
->
-> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> index e92beb9..6428b34 100644
-> --- a/net/ipv4/tcp_cong.c
-> +++ b/net/ipv4/tcp_cong.c
-> @@ -116,7 +116,7 @@ int tcp_set_default_congestion_control(const char
-> *name) spin_lock(&tcp_cong_list_lock);
->  	ca = tcp_ca_find(name);
->  #ifdef CONFIG_MODULES
-> -	if (!ca && capable(CAP_SYS_MODULE)) {
-> +	if (!ca && capable(CAP_NET_ADMIN)) {
->  		spin_unlock(&tcp_cong_list_lock);
->
->  		request_module("tcp_%s", name);
-> @@ -246,7 +246,7 @@ int tcp_set_congestion_control(struct sock *sk, const
-> char *name)
->
->  #ifdef CONFIG_MODULES
->  	/* not found attempt to autoload module */
-> -	if (!ca && capable(CAP_SYS_MODULE)) {
-> +	if (!ca && capable(CAP_NET_ADMIN)) {
->  		rcu_read_unlock();
->  		request_module("tcp_%s", name);
->  		rcu_read_lock();
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe
-> linux-security-module" in the body of a message to
-> majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index dd02842..7ce34a7 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -25,6 +25,7 @@
+ #include <linux/kallsyms.h>
+ #include <linux/uaccess.h>
+ #include <linux/ioport.h>
++#include <net/ipv6.h>
+ 
+ #include <asm/page.h>		/* for PAGE_SIZE */
+ #include <asm/div64.h>
+@@ -701,7 +702,7 @@ static char *ip6_compressed_string(char *buf, char *end, u8 *addr,
+ 	u16 *addr16 = (u16 *)addr;
+ 	ip6_colon_t colon = DC_START;
+ 
+-	if (fmt[3] == '4') {		/* use :: and ipv4 */
++	if (ipv6_addr_v4mapped((const struct in6_addr *)addr)) {
+ 		for (i = 0; i < 6; i++) {
+ 			p = ip6_compress_u16(p, addr16[i], addr16[i+1],
+ 					     &colon, &needcolon);
+@@ -832,8 +833,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 					 * Formatted IP supported
+ 					 * 4:	001.002.003.004
+ 					 * 6:	0001:0203:...:0708
+-					 * 6c:	1::708
+-					 * 6c4:	1::1.2.3.4
++					 * 6c:	1::708 or 1::1.2.3.4
+ 					 */
+ 	case 'I':			/* Contiguous: */
+ 		if (fmt[1] == '4' || fmt[1] == '6')
 
--- 
-paul moore
-linux @ hp
+
 
