@@ -1,43 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: Add 'hairpin' port forwarding mode
-Date: Thu, 13 Aug 2009 16:27:16 -0700 (PDT)
-Message-ID: <20090813.162716.207478915.davem@davemloft.net>
-References: <0199E0D51A61344794750DC57738F58E6D6B0C70D9@GVW1118EXC.americas.hpqcorp.net>
+Subject: Re: [PATCH 1/2] korina: fix printk formatting, add final info line
+Date: Thu, 13 Aug 2009 16:27:38 -0700 (PDT)
+Message-ID: <20090813.162738.18086398.davem@davemloft.net>
+References: <20090812221509.725F74CEAA@orbit.nwl.cc>
+	<20090812222249.39EAB4CEAA@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, ptcongdon@ucdavis.edu,
-	evb@yahoogroups.com, bridge@lists.linux-foundation.org,
-	virtualization@lists.linux-foundation.org, kaber@trash.net,
-	arnd@arndb.de, mike.dickson@hp.com, adobriyan@gmail.com,
-	bridge@osdl.org
-To: anna.fischer@hp.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756451AbZHMX1I@vger.kernel.org>
-In-Reply-To: <0199E0D51A61344794750DC57738F58E6D6B0C70D9@GVW1118EXC.americas.hpqcorp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	florian@openwrt.org, roel.kluin@gmail.com
+To: n0-1@freewrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56552
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756468AbZHMX11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:27:27 -0400
+In-Reply-To: <20090812222249.39EAB4CEAA@orbit.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Fischer, Anna" <anna.fischer@hp.com>
-Date: Thu, 13 Aug 2009 16:55:16 +0000
+From: Phil Sutter <n0-1@freewrt.org>
+Date: Thu, 13 Aug 2009 00:22:46 +0200
 
-> This patch adds a 'hairpin' (also called 'reflective relay') mode
-> port configuration to the Linux Ethernet bridge kernel module.
-> A bridge supporting hairpin forwarding mode can send frames back
-> out through the port the frame was received on.
+> The macro DRV_NAME contains "korina", the field dev->name points to the
+> actual interface name. So messages were formerly prefixed with
+> 'korinaeth2:' (on my system).
 > 
-> Hairpin mode is required to support basic VEPA (Virtual
-> Ethernet Port Aggregator) capabilities.
-> 
-> You can find additional information on VEPA here:
-> http://tech.groups.yahoo.com/group/evb/
-> http://www.ieee802.org/1/files/public/docs2009/new-hudson-vepa_seminar-20090514d.pdf
-> http://www.internet2.edu/presentations/jt2009jul/20090719-congdon.pdf
-> 
-> An additional patch 'bridge-utils: Add 'hairpin' port forwarding mode'
-> is provided to allow configuring hairpin mode from userspace tools.
-> 
-> Signed-off-by: Paul Congdon <paul.congdon@hp.com>
-> Signed-off-by: Anna Fischer <anna.fischer@hp.com>
+> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
 
 Applied to net-next-2.6
