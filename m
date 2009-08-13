@@ -1,41 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 03:39:21 -0700
-Message-ID: <1250159961.28285.35.camel@Joe-Laptop.home>
-References: <1250091560.6641.48.camel@fnki-nb00130>
-	 <4A836D6D.1040400@hp.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
+Date: Thu, 13 Aug 2009 16:11:57 +0530
+Message-ID: <OFD762AF41.E7A6EE8D-ON65257611.00389F3C-65257611.003AC5BB@in.ibm.com>
+References: <20090813072818.7541.77365.sendpatchset@localhost.localdomain> <20090813100826.GA6042@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jens Rosenboom <jens@mcbone.net>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au, kaber@trash.net,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3320 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750852AbZHMKj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 06:39:27 -0400
-In-Reply-To: <4A836D6D.1040400@hp.com>
+Received: from e28smtp07.in.ibm.com ([59.145.155.7]:36228 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752701AbZHMKmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 06:42:05 -0400
+In-Reply-To: <20090813100826.GA6042@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-12 at 21:33 -0400, Brian Haley wrote:
-> Jens Rosenboom wrote:
-> > Currently the output looks like 2001:0db8:0000:0000:0000:0000:0000:0001
-> > which might be compacted to 2001:db8::1. The code to do this could be
-> > adapted from inet_ntop in glibc, which would add about 80 lines to
-> > lib/vsprintf.c. How do you guys value the tradeoff between more readable
-> > logging and increased kernel size?
-> > 
-> > This was already mentioned in
-> > http://kerneltrap.org/mailarchive/linux-netdev/2008/11/25/4231684 but
-> > noone seems to have taken up on it.
-> 
-> Anyways, can you try this patch, it's less than 40 new lines :)
-> It might be good enough, but could probably use some help.
+> Jarek Poplawski <jarkao2@gmail.com>
+>
+> > but the test numbers came a little less, since it takes a few more
+> > memory references on enqueue/dequeue.
+>
+> If it's exactly "a little less" I'd consider keeping it private yet...
 
-You'll need to invent a new %p qualifier type to allow
-compressed representation.  Your patch will change current uses
-with seq_<foo> output in net, which could break userspace.
+Sounds reasonable. To quantify that, I will test again for a longer
+run and report the difference.
 
+> Btw, I wonder how much gain of your previous (_CAN_BYPASS) patch is
+> saved after this change...
+
+The tests are on the latest tree which contains CAN_BYPASS. So a
+single netperf process running this change will get no advantage
+since this enqueue/dequeue never happens unless the NIC is slow.
+But for multiple processes, it should help.
+
+>  - * Convert a bitmap to the first band number where an skb is queue'd,
+where:
+>  + * Convert a bitmap to the first band number where an skb is queued,
+where:
+>
+> > + *    bitmap=0 means there are no skbs for any bands
+> > + *    bitmap=1 means there is a skb on band 0
+>
+>  - *    bitmap=1 means there is a skb on band 0
+>  + *    bitmap=1 means there is an skb on band 0
+>
+> > + *   bitmap=7 means there are skbs on all 3 bands, etc.
+> > + */
+> > +static const int bitmap2band[] =
+> > +   {-1, 0, 1, 0, 2, 0, 1, 0};
+>
+> Why wrapped?
+
+cut-n-paste of prio2band, I will fix this and the above comments.
+
+>
+> ...
+>  ... pfifo_fast_reset(...)
+>  {
+>    ...
+> +   qdisc->bitmap = 0; ?
+>  }
+
+Correct. Thanks for pointing this out.
+
+Regards,
+
+- KK
 
