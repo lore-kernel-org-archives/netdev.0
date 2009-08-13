@@ -1,7 +1,7 @@
 From: Davide Rizzo <elpa.rizzo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Pegasus: Bug / Correction (?)
-Date: Thu, 13 Aug 2009 12:11:24 +0200
-Message-ID: <8447d6730908130311vd6984e8t1dd5c1e32efbeb2c@mail.gmail.com>
+Subject: [PATCH] Pegasus: Add MAC programmability
+Date: Thu, 13 Aug 2009 12:10:26 +0200
+Message-ID: <8447d6730908130310n27f94e9agdfaf688c50fa90b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -11,9 +11,7 @@ Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Bug Correction
-ADM8515 fails to read central 2 bytes of MAC address
-This patch solves the problem, but I didn't understand it.
+Added capability to set mac address and to program it into EEPROM
 
 Signed-off-by: Davide Rizzo <elpa.rizzo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
@@ -22,34 +20,64 @@ linux-2.6.30.4.elpa/drivers/net/usb/pegasus.c
 --- linux-2.6.30.4/drivers/net/usb/pegasus.c	2009-08-13 07:14:57.000000000 +0200
 +++ linux-2.6.30.4.elpa/drivers/net/usb/pegasus.c	2009-08-13
 08:39:01.000000000 +0200
-@@ -425,7 +425,6 @@ fail:
- static inline void enable_eprom_write(pegasus_t * pegasus)
- {
- 	__u8 tmp;
--	int ret;
+@@ -469,8 +467,49 @@ fail:
+ 		dev_warn(&pegasus->intf->dev, "%s failed\n", __func__);
+ 	return -ETIMEDOUT;
+ }
++
++/* Got from adm 8515 starter kit */
++static const __u16 def_eeprom[] = {
++			  0x8515, 0x0170, 0x0082, 0x0409, 0x0000,
++	0x07a6, 0x8515, 0x100e, 0x202a, 0x380a, 0x0000, 0x0000, 0x0000,
++	0x030e, 0x0041, 0x0044, 0x004d, 0x0074, 0x0065, 0x006b, 0x0000,
++	0x001e, 0x0055, 0x0053, 0x0042, 0x0020, 0x0031, 0x0030, 0x002f,
++	0x032a, 0x0055, 0x0053, 0x0042, 0x0020, 0x0054, 0x006f, 0x0020,
++	0x004c, 0x0041, 0x004e, 0x0020, 0x0043, 0x006f, 0x006e, 0x0076,
++	0x0065, 0x0072, 0x0074, 0x0065, 0x0072, 0x0000, 0x0000, 0x0000,
++	0x030a, 0x0030, 0x0030, 0x0030, 0x0031, 0x0000, 0x0000, 0x0000,
++};
+ #endif				/* PEGASUS_WRITE_EEPROM */
 
- 	get_registers(pegasus, EthCtrl2, 1, &tmp);
- 	set_register(pegasus, EthCtrl2, tmp | EPROM_WR_ENABLE);
-@@ -434,7 +433,6 @@ static inline void enable_eprom_write(pe
- static inline void disable_eprom_write(pegasus_t * pegasus)
++static int pegasus_set_mac_address(struct net_device *netdev, void *p)
++{
++	struct sockaddr *addr = p;
++	pegasus_t *pegasus = (pegasus_t *) netdev_priv(netdev);
++	int i;
++
++	if (netif_running(netdev))
++		return -EBUSY;
++	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++	dbg("%s: Setting MAC address to ", netdev->name);
++	for (i = 0; i < 5; i++)
++		dbg("%02X:", netdev->dev_addr[i]);
++	dbg("%02X\n", netdev->dev_addr[i]);
++	/* Set the IDR registers. */
++	set_registers(pegasus, EthID, 6, netdev->dev_addr);
++#ifdef PEGASUS_WRITE_EEPROM
++	write_eprom_word(pegasus, 0,
++		(netdev->dev_addr[1] << 8) + netdev->dev_addr[0]);
++	write_eprom_word(pegasus, 1,
++		(netdev->dev_addr[3] << 8) + netdev->dev_addr[2]);
++	write_eprom_word(pegasus, 2,
++		(netdev->dev_addr[5] << 8) + netdev->dev_addr[4]);
++	for (i = 0; i < ARRAY_SIZE(def_eeprom); i++)
++		write_eprom_word(pegasus, i + 3, def_eeprom[i]);
++
++#endif                         /* PEGASUS_WRITE_EEPROM */
++	return 0;
++}
++
+ static inline void get_node_id(pegasus_t * pegasus, __u8 * id)
  {
- 	__u8 tmp;
--	int ret;
-
- 	get_registers(pegasus, EthCtrl2, 1, &tmp);
- 	set_register(pegasus, EpromCtrl, 0);
-@@ -486,9 +525,9 @@ static void set_ethernet_addr(pegasus_t
- {
- 	__u8 node_id[6];
-
--	if (pegasus->features & PEGASUS_II) {
-+/*if (pegasus->features & PEGASUS_II) {
- 		get_registers(pegasus, 0x10, sizeof(node_id), node_id);
--	} else {
-+	} else*/ {
- 		get_node_id(pegasus, node_id);
- 		set_registers(pegasus, EthID, sizeof (node_id), node_id);
- 	}
+ 	int i;
+@@ -1492,6 +1531,7 @@ static const struct net_device_ops pegas
+ 	.ndo_start_xmit =		pegasus_start_xmit,
+ 	.ndo_set_multicast_list =	pegasus_set_multicast,
+ 	.ndo_get_stats =		pegasus_netdev_stats,
++	.ndo_set_mac_address =	pegasus_set_mac_address,
+ 	.ndo_tx_timeout =		pegasus_tx_timeout,
+ 	.ndo_change_mtu =		eth_change_mtu,
+ 	.ndo_set_mac_address =		eth_mac_addr,
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
