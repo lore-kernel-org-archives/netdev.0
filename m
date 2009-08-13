@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: skb ftracer - add tracepoint to
- skb_copy_datagram_iovec (v3)
-Date: Thu, 13 Aug 2009 16:28:14 -0700 (PDT)
-Message-ID: <20090813.162814.06934096.davem@davemloft.net>
-References: <20090807202130.GA26677@hmsreliant.think-freely.org>
-	<20090813145917.GA16521@hmsreliant.think-freely.org>
-	<20090813151944.GA16682@hmsreliant.think-freely.org>
+Subject: Re: [PATCH 2/2] korina: add error-handling to korina_alloc_ring
+Date: Thu, 13 Aug 2009 16:27:43 -0700 (PDT)
+Message-ID: <20090813.162743.29979567.davem@davemloft.net>
+References: <20090812222249.39EAB4CEAA@orbit.nwl.cc>
+	<20090812225234.82E6E4CEAA@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rostedt@goodmis.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	florian@openwrt.org, roel.kluin@gmail.com
+To: n0-1@freewrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56568
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56557
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755933AbZHMX2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:28:03 -0400
-In-Reply-To: <20090813151944.GA16682@hmsreliant.think-freely.org>
+	by vger.kernel.org with ESMTP id S1756477AbZHMX1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:27:33 -0400
+In-Reply-To: <20090812225234.82E6E4CEAA@orbit.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 13 Aug 2009 11:19:44 -0400
+From: Phil Sutter <n0-1@freewrt.org>
+Date: Thu, 13 Aug 2009 00:52:32 +0200
 
-> skb allocation / cosumption tracer - Add consumption tracepoint
+> This also avoids a potential buffer overflow in case the very first
+> receive descriptor fails to allocate, as an index of -1 would be used
+> afterwards. Kudos to Roel Kluin for pointing this out and providing an
+> initial patch.
 > 
-> This patch adds a tracepoint to skb_copy_datagram_iovec, which is called each
-> time a userspace process copies a frame from a socket receive queue to a user
-> space buffer.  It allows us to hook in and examine each sk_buff that the system
-> receives on a per-socket bases, and can be use to compile a list of which skb's
-> were received by which processes.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
+> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
 
 Applied to net-next-2.6
