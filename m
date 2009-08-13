@@ -1,56 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 14:13:42 -0700
-Message-ID: <1250198022.28285.133.camel@Joe-Laptop.home>
-References: <1250091560.6641.48.camel@fnki-nb00130>
-	 <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130>
-	 <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home>
-	 <4A847669.7050508@hp.com> <1250195675.28285.128.camel@Joe-Laptop.home>
-	 <457D0D34-041E-43AE-BE31-241A19AA08B4@oracle.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Iproute2]: failed replacing internal netem qdisc with pfifo
+Date: Thu, 13 Aug 2009 23:32:19 +0200
+Message-ID: <4A848663.4020304@gmail.com>
+References: <2036847082.914731250159200857.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com> <20090813120330.GB7010@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, Jens Rosenboom <jens@mcbone.net>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	Patrick McHardy <kaber@trash.net>
+To: Marcela Maslanova <mmaslano@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:4290 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755161AbZHMVNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 17:13:51 -0400
-In-Reply-To: <457D0D34-041E-43AE-BE31-241A19AA08B4@oracle.com>
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:42083 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756405AbZHMVc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 17:32:29 -0400
+Received: by bwz22 with SMTP id 22so840727bwz.18
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2009 14:32:29 -0700 (PDT)
+In-Reply-To: <20090813120330.GB7010@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-08-13 at 17:02 -0400, Chuck Lever wrote:
-> On Aug 13, 2009, at 4:34 PM, Joe Perches wrote:
-> > net/sunrpc/svcauth_unix.c:		seq_printf(m, "%s %pI6 %s\n", im- 
-> > >m_class, &addr, dom);
+Jarek Poplawski wrote, On 08/13/2009 02:03 PM:
+
+> On 13-08-2009 12:26, Marcela Maslanova wrote:
+>> Hello,
+>> I've received bug report about not being replaced netem with pfifo
+>> anymore: https://bugzilla.redhat.com/show_bug.cgi?id=515522
+>> This should be possible according to documentation [1].
+>> Is this intentional change or is it a bug?
 > 
-> This one might be a bad example.
+> It's intentional:
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=02201464119334690fe209849843881b8e9cfa9f
+> 
+>> It worked with kernel-2.6.27.5-117.fc10 and iproute-2.6.27. The problem
+>> is still present with current iproute and kernel-2.6.29.6-217.2.3.fc11.
+> 
+> Yes, netem is classless since 2.6.29, so this documentation needs
+> updating.
 
-There are 9 of them in net
 
-$ grep -rP --include=*.[ch] "%pI6" net | grep seq_ 
-net/sctp/ipv6.c:	seq_printf(seq, "%pI6 ", &addr->v6.sin6_addr);
-net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c:	return seq_printf(s, "src=%pI6 dst=%pI6 ",
-net/ipv6/ip6mr.c:		seq_printf(seq, "%pI6 %pI6 %-3hd",
-net/netfilter/xt_hashlimit.c:		return seq_printf(s, "%ld %pI6:%u->%pI6:%u %u %u %u\n",
-net/netfilter/xt_recent.c:		seq_printf(seq, "src=%pI6 ttl: %u last_seen: %lu oldest_pkt: %u",
-net/netfilter/ipvs/ip_vs_ctl.c:				seq_printf(seq, "%s  [%pI6]:%04X %s ",
-net/netfilter/ipvs/ip_vs_conn.c:			seq_printf(seq, "%-3s %pI6 %04X %pI6 %04X %pI6 %04X %-11s %7lu\n",
-net/netfilter/ipvs/ip_vs_conn.c:			seq_printf(seq, "%-3s %pI6 %04X %pI6 %04X %pI6 %04X %-11s %-6s %7lu\n",
-net/sunrpc/svcauth_unix.c:		seq_printf(m, "%s %pI6 %s\n", im->m_class, &addr, dom);
+Hmm... I see this is passed to the user as "notabug". On the other hand,
+since this functionality looks like useful (and used), I wonder if "we"
+weren't too strict, and maybe it should be at least partially restored.
+The clasfullness isn't actually a big problem if we skip reordering
+(done by putting packets to the head of the queue) for such external
+qdiscs. Alternatively we could modify netem's tfifo behavior (to pfifo)
+with some option. Any suggestions?
 
-> [ I would think user space in general should be using inet_pton(3)  
-> everywhere for such interfaces, so the format of these addresses  
-> wouldn't matter so much.  Probably impossible at this point. ]
-
-David Miller is authoritative here.
-
-> I'm not arguing one way or the other, but it would be useful if  
-> someone could check exactly what the dependencies are right now.  It  
-> seems like we're speculating a bit.
-
-cheers, Joe
-
+Jarek P.
