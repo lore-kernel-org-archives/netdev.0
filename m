@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] korina: fix printk formatting, add final info line
-Date: Thu, 13 Aug 2009 16:27:38 -0700 (PDT)
-Message-ID: <20090813.162738.18086398.davem@davemloft.net>
-References: <20090812221509.725F74CEAA@orbit.nwl.cc>
-	<20090812222249.39EAB4CEAA@orbit.nwl.cc>
+Subject: Re: [PATCH 2/3] net: skb ftracer - Add config option to enable new
+ ftracer (v3)
+Date: Thu, 13 Aug 2009 16:28:20 -0700 (PDT)
+Message-ID: <20090813.162820.161312524.davem@davemloft.net>
+References: <20090807202130.GA26677@hmsreliant.think-freely.org>
+	<20090813145917.GA16521@hmsreliant.think-freely.org>
+	<20090813152045.GB16682@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	florian@openwrt.org, roel.kluin@gmail.com
-To: n0-1@freewrt.org
+Cc: netdev@vger.kernel.org, rostedt@goodmis.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56552
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56572
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756468AbZHMX11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:27:27 -0400
-In-Reply-To: <20090812222249.39EAB4CEAA@orbit.nwl.cc>
+	by vger.kernel.org with ESMTP id S1756461AbZHMX2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:28:10 -0400
+In-Reply-To: <20090813152045.GB16682@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <n0-1@freewrt.org>
-Date: Thu, 13 Aug 2009 00:22:46 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 13 Aug 2009 11:20:45 -0400
 
-> The macro DRV_NAME contains "korina", the field dev->name points to the
-> actual interface name. So messages were formerly prefixed with
-> 'korinaeth2:' (on my system).
+> skb allocation / consumption corelator - Add config option
 > 
-> Signed-off-by: Phil Sutter <n0-1@freewrt.org>
+> This patch adds a Kconfig option to enable the addtition of the skb source
+> tracer.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
 Applied to net-next-2.6
