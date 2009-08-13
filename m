@@ -1,8 +1,8 @@
 From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/3] security: introducing security_request_module
-Date: Thu, 13 Aug 2009 13:40:09 -0500
-Message-ID: <20090813184009.GA8391@us.ibm.com>
-References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com> <20090813134457.29186.7182.stgit@paris.rdu.redhat.com>
+Subject: Re: [PATCH 3/3] SELinux: add selinux_kernel_module_request
+Date: Thu, 13 Aug 2009 13:43:59 -0500
+Message-ID: <20090813184359.GB8391@us.ibm.com>
+References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com> <20090813134502.29186.7938.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
@@ -13,132 +13,75 @@ Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
 To: Eric Paris <eparis@redhat.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20090813134457.29186.7182.stgit@paris.rdu.redhat.com>
+In-Reply-To: <20090813134502.29186.7938.stgit@paris.rdu.redhat.com>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Quoting Eric Paris (eparis@redhat.com):
-> Calling request_module() will trigger a userspace upcall which will load a
-> new module into the kernel.  This can be a dangerous event if the process
-> able to trigger request_module() is able to control either the modprobe
-> binary or the module binary.  This patch adds a new security hook to
-> request_module() which can be used by an LSM to control a processes ability
-> to call request_module().
+> This patch adds a new selinux hook so SELinux can arbitrate if a given
+> process should be allowed to trigger a request for the kernel to try to
+> load a module.  This is a different operation than a process trying to load
+> a module itself, which is already protected by CAP_SYS_MODULE.
 > 
 > Signed-off-by: Eric Paris <eparis@redhat.com>
-
-Looks fine code-wise.
-
-Just to match the rest of the documentation, the description in
-security.h should probably mention 'Return 0 if allowed'.
 
 Acked-by: Serge Hallyn <serue@us.ibm.com>
 
 > ---
 > 
->  include/linux/security.h |   10 ++++++++++
->  kernel/kmod.c            |    4 ++++
->  security/capability.c    |    6 ++++++
->  security/security.c      |    5 +++++
->  4 files changed, 25 insertions(+), 0 deletions(-)
+>  security/selinux/hooks.c                     |    6 ++++++
+>  security/selinux/include/av_perm_to_string.h |    1 +
+>  security/selinux/include/av_permissions.h    |    1 +
+>  3 files changed, 8 insertions(+), 0 deletions(-)
 > 
-> diff --git a/include/linux/security.h b/include/linux/security.h
-> index d5f6578..34c5465 100644
-> --- a/include/linux/security.h
-> +++ b/include/linux/security.h
-> @@ -678,6 +678,9 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
->   *	@inode points to the inode to use as a reference.
->   *	The current task must be the one that nominated @inode.
->   *	Return 0 if successful.
-> + * @kernel_module_request:
-> + *	Ability to trigger the kernel to automatically upcall to userspace for
-> + *	userspace to load a kernel module with the given name.
->   * @task_setuid:
->   *	Check permission before setting one or more of the user identity
->   *	attributes of the current process.  The @flags parameter indicates
-> @@ -1500,6 +1503,7 @@ struct security_operations {
->  	void (*cred_commit)(struct cred *new, const struct cred *old);
->  	int (*kernel_act_as)(struct cred *new, u32 secid);
->  	int (*kernel_create_files_as)(struct cred *new, struct inode *inode);
-> +	int (*kernel_module_request)(void);
->  	int (*task_setuid) (uid_t id0, uid_t id1, uid_t id2, int flags);
->  	int (*task_fix_setuid) (struct cred *new, const struct cred *old,
->  				int flags);
-> @@ -1755,6 +1759,7 @@ int security_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
->  void security_commit_creds(struct cred *new, const struct cred *old);
->  int security_kernel_act_as(struct cred *new, u32 secid);
->  int security_kernel_create_files_as(struct cred *new, struct inode *inode);
-> +int security_kernel_module_request(void);
->  int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags);
->  int security_task_fix_setuid(struct cred *new, const struct cred *old,
->  			     int flags);
-> @@ -2306,6 +2311,11 @@ static inline int security_kernel_create_files_as(struct cred *cred,
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 38afca9..b0d72f1 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -3296,6 +3296,11 @@ static int selinux_kernel_create_files_as(struct cred *new, struct inode *inode)
 >  	return 0;
 >  }
 > 
-> +static inline int security_kernel_module_request(void)
+> +static int selinux_kernel_module_request(void)
 > +{
-> +	return 0;
+> +	return task_has_system(current, SYSTEM__MODULE_REQUEST);
 > +}
 > +
->  static inline int security_task_setuid(uid_t id0, uid_t id1, uid_t id2,
->  				       int flags)
+>  static int selinux_task_setpgid(struct task_struct *p, pid_t pgid)
 >  {
-> diff --git a/kernel/kmod.c b/kernel/kmod.c
-> index 385c31a..5a7ae57 100644
-> --- a/kernel/kmod.c
-> +++ b/kernel/kmod.c
-> @@ -78,6 +78,10 @@ int __request_module(bool wait, const char *fmt, ...)
->  #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
->  	static int kmod_loop_msg;
-> 
-> +	ret = security_kernel_module_request();
-> +	if (ret)
-> +		return ret;
-> +
->  	va_start(args, fmt);
->  	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, args);
->  	va_end(args);
-> diff --git a/security/capability.c b/security/capability.c
-> index 4f23f4f..06400cf 100644
-> --- a/security/capability.c
-> +++ b/security/capability.c
-> @@ -396,6 +396,11 @@ static int cap_kernel_create_files_as(struct cred *new, struct inode *inode)
->  	return 0;
->  }
-> 
-> +static int cap_kernel_module_request(void)
-> +{
-> +	return 0;
-> +}
-> +
->  static int cap_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
->  {
->  	return 0;
-> @@ -961,6 +966,7 @@ void security_fixup_ops(struct security_operations *ops)
->  	set_to_cap_if_null(ops, cred_commit);
->  	set_to_cap_if_null(ops, kernel_act_as);
->  	set_to_cap_if_null(ops, kernel_create_files_as);
-> +	set_to_cap_if_null(ops, kernel_module_request);
->  	set_to_cap_if_null(ops, task_setuid);
->  	set_to_cap_if_null(ops, task_fix_setuid);
->  	set_to_cap_if_null(ops, task_setgid);
-> diff --git a/security/security.c b/security/security.c
-> index b98c684..f88eaf6 100644
-> --- a/security/security.c
-> +++ b/security/security.c
-> @@ -709,6 +709,11 @@ int security_kernel_create_files_as(struct cred *new, struct inode *inode)
->  	return security_ops->kernel_create_files_as(new, inode);
->  }
-> 
-> +int security_kernel_module_request(void)
-> +{
-> +	return security_ops->kernel_module_request();
-> +}
-> +
->  int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
->  {
->  	return security_ops->task_setuid(id0, id1, id2, flags);
+>  	return current_has_perm(p, PROCESS__SETPGID);
+> @@ -5457,6 +5462,7 @@ static struct security_operations selinux_ops = {
+>  	.cred_prepare =			selinux_cred_prepare,
+>  	.kernel_act_as =		selinux_kernel_act_as,
+>  	.kernel_create_files_as =	selinux_kernel_create_files_as,
+> +	.kernel_module_request =	selinux_kernel_module_request,
+>  	.task_setpgid =			selinux_task_setpgid,
+>  	.task_getpgid =			selinux_task_getpgid,
+>  	.task_getsid =			selinux_task_getsid,
+> diff --git a/security/selinux/include/av_perm_to_string.h b/security/selinux/include/av_perm_to_string.h
+> index 31df1d7..2b683ad 100644
+> --- a/security/selinux/include/av_perm_to_string.h
+> +++ b/security/selinux/include/av_perm_to_string.h
+> @@ -107,6 +107,7 @@
+>     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_READ, "syslog_read")
+>     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_MOD, "syslog_mod")
+>     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_CONSOLE, "syslog_console")
+> +   S_(SECCLASS_SYSTEM, SYSTEM__MODULE_REQUEST, "module_request")
+>     S_(SECCLASS_CAPABILITY, CAPABILITY__CHOWN, "chown")
+>     S_(SECCLASS_CAPABILITY, CAPABILITY__DAC_OVERRIDE, "dac_override")
+>     S_(SECCLASS_CAPABILITY, CAPABILITY__DAC_READ_SEARCH, "dac_read_search")
+> diff --git a/security/selinux/include/av_permissions.h b/security/selinux/include/av_permissions.h
+> index 0b41ad5..0546d61 100644
+> --- a/security/selinux/include/av_permissions.h
+> +++ b/security/selinux/include/av_permissions.h
+> @@ -530,6 +530,7 @@
+>  #define SYSTEM__SYSLOG_READ                       0x00000002UL
+>  #define SYSTEM__SYSLOG_MOD                        0x00000004UL
+>  #define SYSTEM__SYSLOG_CONSOLE                    0x00000008UL
+> +#define SYSTEM__MODULE_REQUEST                    0x00000010UL
+>  #define CAPABILITY__CHOWN                         0x00000001UL
+>  #define CAPABILITY__DAC_OVERRIDE                  0x00000002UL
+>  #define CAPABILITY__DAC_READ_SEARCH               0x00000004UL
 > 
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
