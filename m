@@ -1,17 +1,17 @@
 From: "KGSBV.NL" <t0ne@claninev.com>
 Subject: Reminder Notification!!
-Date: Fri, 14 Aug 2009 00:40:38 +0000
-Message-ID: <07dc541474a54356a6449261c6cca704@claninev.com>
+Date: Thu, 13 Aug 2009 23:21:53 +0000
+Message-ID: <ad74c4e90e6340dc884b20587ca62ca7@claninev.com>
 Reply-To: robert.tilbert@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: <frk0061@hetnet.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 4-adams.m6.net ([70.86.114.130]:1057 "EHLO 4-Adams.m6.net"
+Received: from 4-adams.m6.net ([70.86.114.130]:3280 "EHLO 4-Adams.m6.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753275AbZHNBMi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 21:12:38 -0400
+	id S1753991AbZHNBpO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 21:45:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
