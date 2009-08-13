@@ -1,10 +1,12 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 3/3] SELinux: add selinux_kernel_module_request
-Date: Thu, 13 Aug 2009 13:43:59 -0500
-Message-ID: <20090813184359.GB8391@us.ibm.com>
-References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com> <20090813134502.29186.7938.stgit@paris.rdu.redhat.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to call request_module
+Date: Thu, 13 Aug 2009 14:45:37 -0400
+Message-ID: <200908131445.37263.paul.moore@hp.com>
+References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
 	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	sds@tycho.nsa.gov, davem@davemloft.net,
@@ -12,78 +14,112 @@ Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
 	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
 To: Eric Paris <eparis@redhat.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20090813134502.29186.7938.stgit@paris.rdu.redhat.com>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric Paris (eparis@redhat.com):
-> This patch adds a new selinux hook so SELinux can arbitrate if a given
-> process should be allowed to trigger a request for the kernel to try to
-> load a module.  This is a different operation than a process trying to load
-> a module itself, which is already protected by CAP_SYS_MODULE.
-> 
+On Thursday 13 August 2009 09:44:51 am Eric Paris wrote:
+> The networking code checks CAP_SYS_MODULE before using request_module() to
+> try to load a kernel module.  While this seems reasonable it's actually
+> weakening system security since we have to allow CAP_SYS_MODULE for things
+> like /sbin/ip and bluetoothd which need to be able to trigger module loads.
+> CAP_SYS_MODULE actually grants those binaries the ability to directly load
+> any code into the kernel.  We should instead be protecting modprobe and the
+> modules on disk, rather than granting random programs the ability to load
+> code directly into the kernel.  Instead we are going to gate those
+> networking checks on CAP_NET_ADMIN which still limits them to root but
+> which does not grant those processes the ability to load arbitrary code
+> into the kernel.
+>
 > Signed-off-by: Eric Paris <eparis@redhat.com>
 
-Acked-by: Serge Hallyn <serue@us.ibm.com>
+Sounds and looks reasonable to me.
+
+Acked-by: Paul Moore <paul.moore@hp.com>
 
 > ---
-> 
->  security/selinux/hooks.c                     |    6 ++++++
->  security/selinux/include/av_perm_to_string.h |    1 +
->  security/selinux/include/av_permissions.h    |    1 +
->  3 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index 38afca9..b0d72f1 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-> @@ -3296,6 +3296,11 @@ static int selinux_kernel_create_files_as(struct cred *new, struct inode *inode)
->  	return 0;
+>
+>  drivers/staging/comedi/comedi_fops.c |    8 ++++----
+>  net/core/dev.c                       |    2 +-
+>  net/ipv4/tcp_cong.c                  |    4 ++--
+>  3 files changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/staging/comedi/comedi_fops.c
+> b/drivers/staging/comedi/comedi_fops.c index 42e4bc4..f54bb9b 100644
+> --- a/drivers/staging/comedi/comedi_fops.c
+> +++ b/drivers/staging/comedi/comedi_fops.c
+> @@ -1772,12 +1772,12 @@ static int comedi_open(struct inode *inode, struct
+> file *file) mutex_lock(&dev->mutex);
+>  	if (dev->attached)
+>  		goto ok;
+> -	if (!capable(CAP_SYS_MODULE) && dev->in_request_module) {
+> +	if (!capable(CAP_NET_ADMIN) && dev->in_request_module) {
+>  		DPRINTK("in request module\n");
+>  		mutex_unlock(&dev->mutex);
+>  		return -ENODEV;
+>  	}
+> -	if (capable(CAP_SYS_MODULE) && dev->in_request_module)
+> +	if (capable(CAP_NET_ADMIN) && dev->in_request_module)
+>  		goto ok;
+>
+>  	dev->in_request_module = 1;
+> @@ -1790,8 +1790,8 @@ static int comedi_open(struct inode *inode, struct
+> file *file)
+>
+>  	dev->in_request_module = 0;
+>
+> -	if (!dev->attached && !capable(CAP_SYS_MODULE)) {
+> -		DPRINTK("not attached and not CAP_SYS_MODULE\n");
+> +	if (!dev->attached && !capable(CAP_NET_ADMIN)) {
+> +		DPRINTK("not attached and not CAP_NET_ADMIN\n");
+>  		mutex_unlock(&dev->mutex);
+>  		return -ENODEV;
+>  	}
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 09fb03f..2604db9 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1031,7 +1031,7 @@ void dev_load(struct net *net, const char *name)
+>  	dev = __dev_get_by_name(net, name);
+>  	read_unlock(&dev_base_lock);
+>
+> -	if (!dev && capable(CAP_SYS_MODULE))
+> +	if (!dev && capable(CAP_NET_ADMIN))
+>  		request_module("%s", name);
 >  }
-> 
-> +static int selinux_kernel_module_request(void)
-> +{
-> +	return task_has_system(current, SYSTEM__MODULE_REQUEST);
-> +}
-> +
->  static int selinux_task_setpgid(struct task_struct *p, pid_t pgid)
->  {
->  	return current_has_perm(p, PROCESS__SETPGID);
-> @@ -5457,6 +5462,7 @@ static struct security_operations selinux_ops = {
->  	.cred_prepare =			selinux_cred_prepare,
->  	.kernel_act_as =		selinux_kernel_act_as,
->  	.kernel_create_files_as =	selinux_kernel_create_files_as,
-> +	.kernel_module_request =	selinux_kernel_module_request,
->  	.task_setpgid =			selinux_task_setpgid,
->  	.task_getpgid =			selinux_task_getpgid,
->  	.task_getsid =			selinux_task_getsid,
-> diff --git a/security/selinux/include/av_perm_to_string.h b/security/selinux/include/av_perm_to_string.h
-> index 31df1d7..2b683ad 100644
-> --- a/security/selinux/include/av_perm_to_string.h
-> +++ b/security/selinux/include/av_perm_to_string.h
-> @@ -107,6 +107,7 @@
->     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_READ, "syslog_read")
->     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_MOD, "syslog_mod")
->     S_(SECCLASS_SYSTEM, SYSTEM__SYSLOG_CONSOLE, "syslog_console")
-> +   S_(SECCLASS_SYSTEM, SYSTEM__MODULE_REQUEST, "module_request")
->     S_(SECCLASS_CAPABILITY, CAPABILITY__CHOWN, "chown")
->     S_(SECCLASS_CAPABILITY, CAPABILITY__DAC_OVERRIDE, "dac_override")
->     S_(SECCLASS_CAPABILITY, CAPABILITY__DAC_READ_SEARCH, "dac_read_search")
-> diff --git a/security/selinux/include/av_permissions.h b/security/selinux/include/av_permissions.h
-> index 0b41ad5..0546d61 100644
-> --- a/security/selinux/include/av_permissions.h
-> +++ b/security/selinux/include/av_permissions.h
-> @@ -530,6 +530,7 @@
->  #define SYSTEM__SYSLOG_READ                       0x00000002UL
->  #define SYSTEM__SYSLOG_MOD                        0x00000004UL
->  #define SYSTEM__SYSLOG_CONSOLE                    0x00000008UL
-> +#define SYSTEM__MODULE_REQUEST                    0x00000010UL
->  #define CAPABILITY__CHOWN                         0x00000001UL
->  #define CAPABILITY__DAC_OVERRIDE                  0x00000002UL
->  #define CAPABILITY__DAC_READ_SEARCH               0x00000004UL
-> 
+>
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index e92beb9..6428b34 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -116,7 +116,7 @@ int tcp_set_default_congestion_control(const char
+> *name) spin_lock(&tcp_cong_list_lock);
+>  	ca = tcp_ca_find(name);
+>  #ifdef CONFIG_MODULES
+> -	if (!ca && capable(CAP_SYS_MODULE)) {
+> +	if (!ca && capable(CAP_NET_ADMIN)) {
+>  		spin_unlock(&tcp_cong_list_lock);
+>
+>  		request_module("tcp_%s", name);
+> @@ -246,7 +246,7 @@ int tcp_set_congestion_control(struct sock *sk, const
+> char *name)
+>
+>  #ifdef CONFIG_MODULES
+>  	/* not found attempt to autoload module */
+> -	if (!ca && capable(CAP_SYS_MODULE)) {
+> +	if (!ca && capable(CAP_NET_ADMIN)) {
+>  		rcu_read_unlock();
+>  		request_module("tcp_%s", name);
+>  		rcu_read_lock();
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
+> To unsubscribe from this list: send the line "unsubscribe
+> linux-security-module" in the body of a message to
+> majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+-- 
+paul moore
+linux @ hp
+
