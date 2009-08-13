@@ -1,47 +1,40 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
-Date: Thu, 13 Aug 2009 11:27:16 +0000
-Message-ID: <20090813112715.GA7010@ff.dom.local>
-References: <20090813072818.7541.77365.sendpatchset@localhost.localdomain> <20090813100826.GA6042@ff.dom.local> <OFD762AF41.E7A6EE8D-ON65257611.00389F3C-65257611.003AC5BB@in.ibm.com>
+Subject: Re: [Iproute2]: failed replacing internal netem qdisc with pfifo
+Date: Thu, 13 Aug 2009 12:03:30 +0000
+Message-ID: <20090813120330.GB7010@ff.dom.local>
+References: <2036847082.914731250159200857.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, kaber@trash.net,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: Marcela Maslanova <mmaslano@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f228.google.com ([209.85.220.228]:32791 "EHLO
-	mail-fx0-f228.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082AbZHML1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 07:27:21 -0400
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:48532 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbZHMMDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 08:03:35 -0400
+Received: by bwz22 with SMTP id 22so536437bwz.18
+        for <netdev@vger.kernel.org>; Thu, 13 Aug 2009 05:03:35 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <OFD762AF41.E7A6EE8D-ON65257611.00389F3C-65257611.003AC5BB@in.ibm.com>
+In-Reply-To: <2036847082.914731250159200857.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2009 at 04:11:57PM +0530, Krishna Kumar2 wrote:
-> > Jarek Poplawski <jarkao2@gmail.com>
-> >
-> > > but the test numbers came a little less, since it takes a few more
-> > > memory references on enqueue/dequeue.
-> >
-> > If it's exactly "a little less" I'd consider keeping it private yet...
-> 
-> Sounds reasonable. To quantify that, I will test again for a longer
-> run and report the difference.
+On 13-08-2009 12:26, Marcela Maslanova wrote:
+> Hello,
+> I've received bug report about not being replaced netem with pfifo
+> anymore: https://bugzilla.redhat.com/show_bug.cgi?id=515522
+> This should be possible according to documentation [1].
+> Is this intentional change or is it a bug?
 
-Yes, more numbers would be appreciated.
+It's intentional:
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=02201464119334690fe209849843881b8e9cfa9f
 
 > 
-> > Btw, I wonder how much gain of your previous (_CAN_BYPASS) patch is
-> > saved after this change...
-> 
-> The tests are on the latest tree which contains CAN_BYPASS. So a
-> single netperf process running this change will get no advantage
-> since this enqueue/dequeue never happens unless the NIC is slow.
-> But for multiple processes, it should help.
+> It worked with kernel-2.6.27.5-117.fc10 and iproute-2.6.27. The problem
+> is still present with current iproute and kernel-2.6.29.6-217.2.3.fc11.
 
-I mean: since the previous patch saved ~2% on omitting enqueue/dequeue,
-and now enqueue/dequeue is ~2% faster, is it still worth to omit this?
+Yes, netem is classless since 2.6.29, so this documentation needs
+updating.
 
-Regards,
+Best regards,
 Jarek P.
