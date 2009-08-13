@@ -1,118 +1,67 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to
-	call request_module
-Date: Thu, 13 Aug 2009 09:01:58 -0500
-Message-ID: <20090813140158.GB30731@us.ibm.com>
-References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] ipv6: Log the explicit address that triggered DAD failure
+Date: Thu, 13 Aug 2009 10:03:15 -0400
+Message-ID: <4A841D23.8020703@hp.com>
+References: <1250089107.6641.36.camel@fnki-nb00130>	 <4A836D70.1040702@hp.com> <1250151364.6641.75.camel@fnki-nb00130>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	sds@tycho.nsa.gov, davem@davemloft.net,
-	shemminger@linux-foundation.org, kees@ubuntu.com,
-	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jens Rosenboom <jens@mcbone.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:12047 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974AbZHMODQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 10:03:16 -0400
+In-Reply-To: <1250151364.6641.75.camel@fnki-nb00130>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric Paris (eparis@redhat.com):
-> The networking code checks CAP_SYS_MODULE before using request_module() to
-> try to load a kernel module.  While this seems reasonable it's actually
-> weakening system security since we have to allow CAP_SYS_MODULE for things
-> like /sbin/ip and bluetoothd which need to be able to trigger module loads.
-> CAP_SYS_MODULE actually grants those binaries the ability to directly load
-> any code into the kernel.  We should instead be protecting modprobe and the
-> modules on disk, rather than granting random programs the ability to load code
-> directly into the kernel.  Instead we are going to gate those networking checks
-> on CAP_NET_ADMIN which still limits them to root but which does not grant
-> those processes the ability to load arbitrary code into the kernel.
-
-Right, so we want to check that the caller has the rights to perform the
-action which (in the end) requires the module load, not the module load
-itself.  CAP_SYS_MODULE should be reserved for callers which specify a
-module (full pathname) to load.
-
-> Signed-off-by: Eric Paris <eparis@redhat.com>
-
-Acked-by: Serge Hallyn <serue@us.ibm.com>
-
-> ---
+Jens Rosenboom wrote:
+> On Wed, 2009-08-12 at 21:33 -0400, Brian Haley wrote:
+> [...]
+>> The other thing I've come across that is similar to this is the
+>> issue that when DAD fails, /sbin/ip doesn't show that it did,
+>> the address just stays in a tentative state forever:
+>>
+>>     inet6 dead:beef::1/64 scope global tentative 
+>>        valid_lft forever preferred_lft forever
+>>
+>> Does anyone have an issue of adding a "dadfailed" flag to make
+>> this more obvious:
+>>
+>>     inet6 dead:beef::1/64 scope global tentative dadfailed
+>>        valid_lft forever preferred_lft forever
 > 
->  drivers/staging/comedi/comedi_fops.c |    8 ++++----
->  net/core/dev.c                       |    2 +-
->  net/ipv4/tcp_cong.c                  |    4 ++--
->  3 files changed, 7 insertions(+), 7 deletions(-)
+> It looks like you would have to spend the last available bit in
+> ifa_flags for that, not sure if that is worth it, how about setting it
+> to tentative|deprecated instead?
+
+Yes, I saw that it would be the last flag so I didn't know how that would
+go over.  My other thought was to define a new flags structure that can
+be passed in/out like IFA_CACHEINFO is.  It's a much larger patch...
+
+> Some action should maybe also happen in the case that the address wasn't
+> tentative anymore in ndisc_recv_na(). At least it should also log the
+> address itself:
 > 
-> diff --git a/drivers/staging/comedi/comedi_fops.c b/drivers/staging/comedi/comedi_fops.c
-> index 42e4bc4..f54bb9b 100644
-> --- a/drivers/staging/comedi/comedi_fops.c
-> +++ b/drivers/staging/comedi/comedi_fops.c
-> @@ -1772,12 +1772,12 @@ static int comedi_open(struct inode *inode, struct file *file)
->  	mutex_lock(&dev->mutex);
->  	if (dev->attached)
->  		goto ok;
-> -	if (!capable(CAP_SYS_MODULE) && dev->in_request_module) {
-> +	if (!capable(CAP_NET_ADMIN) && dev->in_request_module) {
->  		DPRINTK("in request module\n");
->  		mutex_unlock(&dev->mutex);
->  		return -ENODEV;
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 9eb68e9..1ba42bd 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -955,8 +955,8 @@ static void ndisc_recv_na(struct sk_buff *skb)
+>  		 */
+>  		if (skb->pkt_type != PACKET_LOOPBACK)
+>  			ND_PRINTK1(KERN_WARNING
+> -			   "ICMPv6 NA: someone advertises our address on %s!\n",
+> -			   ifp->idev->dev->name);
+> +			   "ICMPv6 NA: someone advertises our address %pI6 on %s!\n",
+> +			   &ifp->addr, ifp->idev->dev->name);
+>  		in6_ifa_put(ifp);
+>  		return;
 >  	}
-> -	if (capable(CAP_SYS_MODULE) && dev->in_request_module)
-> +	if (capable(CAP_NET_ADMIN) && dev->in_request_module)
->  		goto ok;
-> 
->  	dev->in_request_module = 1;
-> @@ -1790,8 +1790,8 @@ static int comedi_open(struct inode *inode, struct file *file)
-> 
->  	dev->in_request_module = 0;
-> 
-> -	if (!dev->attached && !capable(CAP_SYS_MODULE)) {
-> -		DPRINTK("not attached and not CAP_SYS_MODULE\n");
-> +	if (!dev->attached && !capable(CAP_NET_ADMIN)) {
-> +		DPRINTK("not attached and not CAP_NET_ADMIN\n");
->  		mutex_unlock(&dev->mutex);
->  		return -ENODEV;
->  	}
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 09fb03f..2604db9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1031,7 +1031,7 @@ void dev_load(struct net *net, const char *name)
->  	dev = __dev_get_by_name(net, name);
->  	read_unlock(&dev_base_lock);
-> 
-> -	if (!dev && capable(CAP_SYS_MODULE))
-> +	if (!dev && capable(CAP_NET_ADMIN))
->  		request_module("%s", name);
->  }
-> 
-> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> index e92beb9..6428b34 100644
-> --- a/net/ipv4/tcp_cong.c
-> +++ b/net/ipv4/tcp_cong.c
-> @@ -116,7 +116,7 @@ int tcp_set_default_congestion_control(const char *name)
->  	spin_lock(&tcp_cong_list_lock);
->  	ca = tcp_ca_find(name);
->  #ifdef CONFIG_MODULES
-> -	if (!ca && capable(CAP_SYS_MODULE)) {
-> +	if (!ca && capable(CAP_NET_ADMIN)) {
->  		spin_unlock(&tcp_cong_list_lock);
-> 
->  		request_module("tcp_%s", name);
-> @@ -246,7 +246,7 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
-> 
->  #ifdef CONFIG_MODULES
->  	/* not found attempt to autoload module */
-> -	if (!ca && capable(CAP_SYS_MODULE)) {
-> +	if (!ca && capable(CAP_NET_ADMIN)) {
->  		rcu_read_unlock();
->  		request_module("tcp_%s", name);
->  		rcu_read_lock();
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+That looks good to me too, thanks.
+
+-Brian
