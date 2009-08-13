@@ -1,187 +1,127 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 12:27:35 -0400
-Message-ID: <4A843EF7.4010700@hp.com>
-References: <1250091560.6641.48.camel@fnki-nb00130>	 <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130>
+From: "Fischer, Anna" <anna.fischer@hp.com>
+Subject: [PATCH] net/bridge: Add 'hairpin' port forwarding mode
+Date: Thu, 13 Aug 2009 16:55:16 +0000
+Message-ID: <0199E0D51A61344794750DC57738F58E6D6B0C70D9@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Developers <netdev@vger.kernel.org>
-To: Jens Rosenboom <jens@mcbone.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:22873 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbZHMQ1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 12:27:47 -0400
-In-Reply-To: <1250174390.6641.89.camel@fnki-nb00130>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Paul Congdon (UC Davis)" <ptcongdon@ucdavis.edu>,
+	"evb@yahoogroups.com" <evb@yahoogroups.com>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"kaber@trash.net" <kaber@trash.net>, Arnd Bergmann <arnd@arndb.de>,
+	"Dickson, Mike (ISS Software)" <mike.dickson@hp.com>,
+	"adobriyan@gmail.com" <adobriyan@gmail.com>,
+	"bridge@osdl.org" <bridge@osdl.org>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755006AbZHMQzb@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jens Rosenboom wrote:
->> Anyways, can you try this patch, it's less than 40 new lines :)
->> It might be good enough, but could probably use some help.
-> 
-> For a start, it didn't even compile. ;-)
+This patch adds a 'hairpin' (also called 'reflective relay') mode
+port configuration to the Linux Ethernet bridge kernel module.
+A bridge supporting hairpin forwarding mode can send frames back
+out through the port the frame was received on.
 
-It did on net-next-2.6 last night, weird.
+Hairpin mode is required to support basic VEPA (Virtual
+Ethernet Port Aggregator) capabilities.
 
-> Here is a new version that also
-> fixes
-> 
-> - Leave %pi6 alone
-> - Don't compress a single :0:
-> - Do output 0
-> 
-> The results and also the remaining issues can be seen with the attached
-> test program, that also exposes a bug in glibc for v4-mapped addresses
-> from 0/16.
-> 
-> To fully conform to the cited draft, we would still have to implement
-> v4-mapped and also check whether a second run of zeros would be longer
-> than the first one, although the draft also suggests that operators
-> should avoid using this kind of addresses, so maybe this second issue
-> can be neglected.
+You can find additional information on VEPA here:
+http://tech.groups.yahoo.com/group/evb/
+http://www.ieee802.org/1/files/public/docs2009/new-hudson-vepa_seminar-20090514d.pdf
+http://www.internet2.edu/presentations/jt2009jul/20090719-congdon.pdf
 
-Yes, the "compress the most zeros" would be harder, and require two
-passes over the address.  I had to cut corners somewhere :)
+An additional patch 'bridge-utils: Add 'hairpin' port forwarding mode'
+is provided to allow configuring hairpin mode from userspace tools.
 
-And regarding v4-mapped, the easy fix to that is just detect it and
-call the IPv4 routine.  The attached patch does that, but without the
-::ffff:
+Signed-off-by: Paul Congdon <paul.congdon@hp.com>
+Signed-off-by: Anna Fischer <anna.fischer@hp.com>
 
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> index 756ccaf..5710c65 100644
-> --- a/lib/vsprintf.c
-> +++ b/lib/vsprintf.c
-> @@ -652,13 +652,53 @@ static char *ip6_addr_string(char *buf, char *end,
-> u8 *addr,
->  {
->  	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing
-> zero */
->  	char *p = ip6_addr;
-> -	int i;
-> +	int i, needcolon = 0, printhi;
-> +	u16 *addr16 = (u16 *)addr;
-> +	enum { DC_START, DC_MIDDLE, DC_DONE } colon = DC_START;
-> +
-> +	/* omit leading zeros and shorten using "::" */
->  
-> -	for (i = 0; i < 8; i++) {
-> -		p = pack_hex_byte(p, addr[2 * i]);
-> -		p = pack_hex_byte(p, addr[2 * i + 1]);
-> -		if (!(spec.flags & SPECIAL) && i != 7)
-> +	if (!(spec.flags & SPECIAL)) {
-> +		for (i = 0; i < 8; i++) {
-> +			if (addr16[i] == 0 && addr16[i+1] == 0 && colon == DC_START) {
+---
 
-This will access the array out-of-bounds when i=7.
+ net/bridge/br_forward.c  |    3 ++-
+ net/bridge/br_if.c       |    1 +
+ net/bridge/br_private.h  |    3 +++
+ net/bridge/br_sysfs_if.c |   17 +++++++++++++++++
+ 4 files changed, 23 insertions(+), 1 deletions(-)
 
-Another hack below.
-
--Brian
-
-
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index 756ccaf..ba70f2a 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -647,25 +647,6 @@ static char *mac_address_string(char *buf, char *end, u8 *addr,
- 	return string(buf, end, mac_addr, spec);
- }
- 
--static char *ip6_addr_string(char *buf, char *end, u8 *addr,
--				struct printf_spec spec)
--{
--	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing zero */
--	char *p = ip6_addr;
--	int i;
--
--	for (i = 0; i < 8; i++) {
--		p = pack_hex_byte(p, addr[2 * i]);
--		p = pack_hex_byte(p, addr[2 * i + 1]);
--		if (!(spec.flags & SPECIAL) && i != 7)
--			*p++ = ':';
--	}
--	*p = '\0';
--	spec.flags &= ~SPECIAL;
--
--	return string(buf, end, ip6_addr, spec);
--}
--
- static char *ip4_addr_string(char *buf, char *end, u8 *addr,
- 				struct printf_spec spec)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index d2c27c8..bc1704a 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -22,7 +22,8 @@
+ static inline int should_deliver(const struct net_bridge_port *p,
+ 				 const struct sk_buff *skb)
  {
-@@ -688,6 +669,73 @@ static char *ip4_addr_string(char *buf, char *end, u8 *addr,
- 	return string(buf, end, ip4_addr, spec);
+-	return (skb->dev != p->dev && p->state == BR_STATE_FORWARDING);
++	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
++		p->state == BR_STATE_FORWARDING);
  }
  
-+static char *ip6_addr_string(char *buf, char *end, u8 *addr,
-+				struct printf_spec spec)
+ static inline unsigned packet_length(const struct sk_buff *skb)
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index eb404dc..e486f1f 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -256,6 +256,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+ 	p->path_cost = port_cost(dev);
+ 	p->priority = 0x8000 >> BR_PORT_BITS;
+ 	p->port_no = index;
++	p->flags = 0;
+ 	br_init_port(p);
+ 	p->state = BR_STATE_DISABLED;
+ 	br_stp_port_timer_init(p);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index d5b5537..8319247 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -81,6 +81,9 @@ struct net_bridge_port
+ 	struct timer_list		message_age_timer;
+ 	struct kobject			kobj;
+ 	struct rcu_head			rcu;
++
++	unsigned long 			flags;
++#define BR_HAIRPIN_MODE		0x00000001
+ };
+ 
+ struct net_bridge
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index 4a3cdf8..820643a 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -143,6 +143,22 @@ static ssize_t store_flush(struct net_bridge_port *p, unsigned long v)
+ }
+ static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
+ 
++static ssize_t show_hairpin_mode(struct net_bridge_port *p, char *buf)
 +{
-+	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing zero */
-+	char *p = ip6_addr;
-+	int i, needcolon, printhi;
-+	u16 *addr16 = (u16 *)addr;
-+	u32 *addr32 = (u32 *)addr;
-+	enum { DC_START, DC_MIDDLE, DC_DONE } colon = DC_START;
-+
-+	if (!(spec.flags & SPECIAL)) {
-+		/* omit leading zeros and shorten using "::" */
-+
-+		/* v4mapped */
-+		if ((addr32[0] | addr32[1] |
-+		    (addr32[2] ^ htonl(0x0000ffff))) == 0)
-+			return ip4_addr_string(buf, end, &addr[12], spec);
-+
-+		needcolon = 0;
-+		for (i = 0; i < 8; i++) {
-+			if (addr16[i] == 0 && i < 7 && addr16[i+1] == 0 &&
-+			    colon == DC_START) {
-+				colon = DC_MIDDLE;
-+				continue;
-+			}
-+			if (colon == DC_MIDDLE) {
-+				if (addr16[i] == 0)
-+					continue;
-+				colon = DC_DONE;
-+				*p++ = ':';
-+				*p++ = ':';
-+			}  else if (needcolon)
-+				*p++ = ':';
-+			printhi = 0;
-+			if (addr[2 * i]) {
-+				if (addr[2 * i] > 0x0f)
-+					p = pack_hex_byte(p, addr[2 * i]);
-+				else
-+					*p++ = hex_asc_lo(addr[2 * i]);
-+				printhi++;
-+			}
-+			/*
-+		 	* If we printed the high-order bits we must print the
-+		 	* low-order ones, even if they're all zeros.
-+		 	*/
-+			if (printhi || addr[2 * i + 1] > 0x0f)
-+				p = pack_hex_byte(p, addr[2 * i + 1]);
-+			else 
-+				*p++ = hex_asc_lo(addr[2 * i + 1]);
-+			needcolon++;
-+		}
-+		if (colon == DC_MIDDLE) {
-+			*p++ = ':';
-+			*p++ = ':';
-+		}
-+	} else {
-+		for (i = 0; i < 8; i++) {
-+			p = pack_hex_byte(p, addr[2 * i]);
-+			p = pack_hex_byte(p, addr[2 * i + 1]);
-+		}
-+	}
-+	*p = '\0';
-+	spec.flags &= ~SPECIAL;
-+
-+	return string(buf, end, ip6_addr, spec);
++	int hairpin_mode = (p->flags & BR_HAIRPIN_MODE) ? 1 : 0;
++	return sprintf(buf, "%d\n", hairpin_mode);
 +}
++static ssize_t store_hairpin_mode(struct net_bridge_port *p, unsigned long v)
++{
++	if (v)
++		p->flags |= BR_HAIRPIN_MODE;
++	else
++		p->flags &= ~BR_HAIRPIN_MODE;
++	return 0;
++}
++static BRPORT_ATTR(hairpin_mode, S_IRUGO | S_IWUSR,
++		   show_hairpin_mode, store_hairpin_mode);
 +
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-  * by an extra set of alphanumeric characters that are extended format
+ static struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_path_cost,
+ 	&brport_attr_priority,
+@@ -159,6 +175,7 @@ static struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_forward_delay_timer,
+ 	&brport_attr_hold_timer,
+ 	&brport_attr_flush,
++	&brport_attr_hairpin_mode,
+ 	NULL
+ };
