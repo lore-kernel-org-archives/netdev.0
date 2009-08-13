@@ -1,77 +1,101 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: 8139cp dma-debug warning.
-Date: Thu, 13 Aug 2009 09:45:49 -0400
-Message-ID: <20090813134549.GA2845@redhat.com>
-References: <20090806215702.GA17555@redhat.com> <20090812171333.GD3116@redhat.com> <20090812.222046.60033759.davem@davemloft.net>
+From: Eric Paris <eparis@redhat.com>
+Subject: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to call
+	request_module
+Date: Thu, 13 Aug 2009 09:44:51 -0400
+Message-ID: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:49712 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754535AbZHMNpx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2009 09:45:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20090812.222046.60033759.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: sds@tycho.nsa.gov, davem@davemloft.net,
+	shemminger@linux-foundation.org, kees@ubuntu.com,
+	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
+To: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754579AbZHMNp6@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 12, 2009 at 10:20:46PM -0700, David Miller wrote:
- > From: Dave Jones <davej@redhat.com>
- > Date: Wed, 12 Aug 2009 13:13:33 -0400
- > 
- > > There's another instance of the same further in the file.
- > > 
- > > Does this look right?
- > 
- > Dave, Francois posted the following fix to lkml (he forgot
- > to CC: netdev and the people reporting this bug, oh well)
+The networking code checks CAP_SYS_MODULE before using request_module() to
+try to load a kernel module.  While this seems reasonable it's actually
+weakening system security since we have to allow CAP_SYS_MODULE for things
+like /sbin/ip and bluetoothd which need to be able to trigger module loads.
+CAP_SYS_MODULE actually grants those binaries the ability to directly load
+any code into the kernel.  We should instead be protecting modprobe and the
+modules on disk, rather than granting random programs the ability to load code
+directly into the kernel.  Instead we are going to gate those networking checks
+on CAP_NET_ADMIN which still limits them to root but which does not grant
+those processes the ability to load arbitrary code into the kernel.
 
-Ah, I missed it (disk crashed on friday, so I've been backlogged
-since then). Thanks for the forward.
+Signed-off-by: Eric Paris <eparis@redhat.com>
+---
 
- > Did you see it?  It should fix the bug.
- > 
- > 8139cp: balance dma_map_single vs dma_unmap_single pair
- > 
- > The driver always:
- > 1. allocate cp->rx_buf_sz + NET_IP_ALIGN
- > 2. map cp->rx_buf_sz
- > 
- > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
- > Signed-off-by: David S. Miller <davem@davemloft.net>
- > ---
- >  drivers/net/8139cp.c |    5 ++---
- >  1 files changed, 2 insertions(+), 3 deletions(-)
- > 
- > diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
- > index 50efde1..d0dbbf3 100644
- > --- a/drivers/net/8139cp.c
- > +++ b/drivers/net/8139cp.c
- > @@ -515,7 +515,7 @@ rx_status_loop:
- >  		dma_addr_t mapping;
- >  		struct sk_buff *skb, *new_skb;
- >  		struct cp_desc *desc;
- > -		unsigned buflen;
- > +		const unsigned buflen = cp->rx_buf_sz;
- >  
- >  		skb = cp->rx_skb[rx_tail];
- >  		BUG_ON(!skb);
- > @@ -549,8 +549,7 @@ rx_status_loop:
- >  			pr_debug("%s: rx slot %d status 0x%x len %d\n",
- >  			       dev->name, rx_tail, status, len);
- >  
- > -		buflen = cp->rx_buf_sz + NET_IP_ALIGN;
- > -		new_skb = netdev_alloc_skb(dev, buflen);
- > +		new_skb = netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
- >  		if (!new_skb) {
- >  			dev->stats.rx_dropped++;
- >  			goto rx_next;
+ drivers/staging/comedi/comedi_fops.c |    8 ++++----
+ net/core/dev.c                       |    2 +-
+ net/ipv4/tcp_cong.c                  |    4 ++--
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-Below this, we're still doing an skb_reserve(NET_IP_ALIGN) on new_skb.
-Although the mapping is now constantly sized, aren't we still wastefully
-bumping the data/tail of the skb twice ?
-
-	Dave
-
+diff --git a/drivers/staging/comedi/comedi_fops.c b/drivers/staging/comedi/comedi_fops.c
+index 42e4bc4..f54bb9b 100644
+--- a/drivers/staging/comedi/comedi_fops.c
++++ b/drivers/staging/comedi/comedi_fops.c
+@@ -1772,12 +1772,12 @@ static int comedi_open(struct inode *inode, struct file *file)
+ 	mutex_lock(&dev->mutex);
+ 	if (dev->attached)
+ 		goto ok;
+-	if (!capable(CAP_SYS_MODULE) && dev->in_request_module) {
++	if (!capable(CAP_NET_ADMIN) && dev->in_request_module) {
+ 		DPRINTK("in request module\n");
+ 		mutex_unlock(&dev->mutex);
+ 		return -ENODEV;
+ 	}
+-	if (capable(CAP_SYS_MODULE) && dev->in_request_module)
++	if (capable(CAP_NET_ADMIN) && dev->in_request_module)
+ 		goto ok;
+ 
+ 	dev->in_request_module = 1;
+@@ -1790,8 +1790,8 @@ static int comedi_open(struct inode *inode, struct file *file)
+ 
+ 	dev->in_request_module = 0;
+ 
+-	if (!dev->attached && !capable(CAP_SYS_MODULE)) {
+-		DPRINTK("not attached and not CAP_SYS_MODULE\n");
++	if (!dev->attached && !capable(CAP_NET_ADMIN)) {
++		DPRINTK("not attached and not CAP_NET_ADMIN\n");
+ 		mutex_unlock(&dev->mutex);
+ 		return -ENODEV;
+ 	}
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 09fb03f..2604db9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1031,7 +1031,7 @@ void dev_load(struct net *net, const char *name)
+ 	dev = __dev_get_by_name(net, name);
+ 	read_unlock(&dev_base_lock);
+ 
+-	if (!dev && capable(CAP_SYS_MODULE))
++	if (!dev && capable(CAP_NET_ADMIN))
+ 		request_module("%s", name);
+ }
+ 
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index e92beb9..6428b34 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -116,7 +116,7 @@ int tcp_set_default_congestion_control(const char *name)
+ 	spin_lock(&tcp_cong_list_lock);
+ 	ca = tcp_ca_find(name);
+ #ifdef CONFIG_MODULES
+-	if (!ca && capable(CAP_SYS_MODULE)) {
++	if (!ca && capable(CAP_NET_ADMIN)) {
+ 		spin_unlock(&tcp_cong_list_lock);
+ 
+ 		request_module("tcp_%s", name);
+@@ -246,7 +246,7 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ 
+ #ifdef CONFIG_MODULES
+ 	/* not found attempt to autoload module */
+-	if (!ca && capable(CAP_SYS_MODULE)) {
++	if (!ca && capable(CAP_NET_ADMIN)) {
+ 		rcu_read_unlock();
+ 		request_module("tcp_%s", name);
+ 		rcu_read_lock();
