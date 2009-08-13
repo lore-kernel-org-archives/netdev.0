@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] myri10ge: improve parity error detection and
- recovery
-Date: Wed, 12 Aug 2009 21:18:47 -0700 (PDT)
-Message-ID: <20090812.211847.203325604.davem@davemloft.net>
-References: <4A7C9226.80401@myri.com>
+Subject: Re: [PATCH] drivers/net/tokenring: Use status field rather than
+ state field
+Date: Wed, 12 Aug 2009 21:19:07 -0700 (PDT)
+Message-ID: <20090812.211907.124112530.davem@davemloft.net>
+References: <Pine.LNX.4.64.0908080846000.25176@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: brice@myri.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43271
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750729AbZHMESh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 00:18:37 -0400
-In-Reply-To: <4A7C9226.80401@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751439AbZHMES6@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0908080846000.25176@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brice Goglin <brice@myri.com>
-Date: Fri, 07 Aug 2009 22:44:22 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Sat, 8 Aug 2009 08:47:33 +0200 (CEST)
 
-> Improve myri10ge parity error detection and recovery:
-> 1) Don't restore PCI config space to a rebooted NIC until AFTER the
->    host is quiescent.
-> 2) Let myri10ge_close() know the NIC is dead, so it won't waste time
->    waiting for a dead nic to respond to MXGEFW_CMD_ETHERNET_DOWN
-> 3) When the NIC is quiet (link down, or otherwise idle link) use
->    a pci config space read to detect a rebooted NIC.  Otherwise
->    we might never notice that a NIC rebooted
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> In general in this file, it is the status field, not the state field, that
+> contains values like OPEN and CLOSED.  Indeed, in the first error case, it
+> is the field status that is initialized.  I have thus assumed that all of
+> the error handling code should be the same, and moved it to the end of the
+> function to emphasize its commonality.
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Applied to net-next-2.6
+Applied.
