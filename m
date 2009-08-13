@@ -1,54 +1,49 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 12 Aug 2009 22:35:50 -0400
-Message-ID: <20090812223550.377a09c5.billfink@mindspring.com>
-References: <20090807170600.9a2eff2e.billfink@mindspring.com>
-	<20090812.162921.244358554.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix xfrm hash collisions by changing
+ __xfrm4_daddr_saddr_hash to hash addresses with addition
+Date: Wed, 12 Aug 2009 20:42:47 -0700 (PDT)
+Message-ID: <20090812.204247.183387787.davem@davemloft.net>
+References: <alpine.DEB.1.10.0908071032171.3426@sisapiiri.net.net>
+	<20090813020606.GA18205@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
-To: David Miller <davem@davemloft.net>
+Cc: joamaki@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:44207 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226AbZHMCfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 22:35:53 -0400
-In-Reply-To: <20090812.162921.244358554.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41817
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751252AbZHMDmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Aug 2009 23:42:37 -0400
+In-Reply-To: <20090813020606.GA18205@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Aug 2009, David Miller wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 13 Aug 2009 12:06:06 +1000
 
-> From: Bill Fink <billfink@mindspring.com>
-> Date: Fri, 7 Aug 2009 17:06:00 -0400
+> Jussi Maki <joamaki@gmail.com> wrote:
+>>
+>> diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+>> index d401dc8..e5195c9 100644
+>> --- a/net/xfrm/xfrm_hash.h
+>> +++ b/net/xfrm/xfrm_hash.h
+>> @@ -16,7 +16,7 @@ static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+>> 
+>> static inline unsigned int __xfrm4_daddr_saddr_hash(xfrm_address_t *daddr, xfrm_address_t *saddr)
+>> {
+>> -       return ntohl(daddr->a4 ^ saddr->a4);
+>> +       return ntohl(daddr->a4 + saddr->a4);
+>> }
 > 
-> > To kludge around this, I made a different patch to the myri10ge driver.
-> > This time I hardcoded the NUMA node in the call to alloc_pages_node()
-> > to 2 for devices with an IRQ between 113 and 118 (eth2 through eth7)
-> > and to 0 for devices with an IRQ between 119 and 124 (eth8 through eth13).
-> > This is of course very specific to our specific system (NUMA node ids
-> > and Myricom 10-GigE device IRQs), and is not something that would be
-> > generically applicable.  But it was useful as a test, and it did
-> > improve the receive side performance substantially!
-> 
-> This, unfortunately, won't be comprehensive.  You'd also need to
-> kludge the NUMA node used for allocation of the skb->data buffer via
-> the netdev_alloc_skb() calls in myri10ge_rx_done() and friends.
-> 
-> This could possibly account for why, with your kludge, you still
-> were only getting 56.4703 Gbps
+> What if the other side intentionally picks a destination addresses
+> to create collisions? Actually it's even easier than that.  We
+> don't include the SPI in the hash so regardless of how we hash
+> it, our peer can simply continue to create SAs with the same
+> descriptors and they'll all hash to the same bucket.
 
-I actually did try this.  I changed the netdev_alloc_skb() call in
-the myri10ge driver to an __alloc_skb() call and explicitly specified
-the correct NUMA node (plus all the necessary extra code that gets
-done under the covers by netdev_alloc_skb()).  It didn't help.
+Isn't it fruitless to talk about exploiting SA IDs when such things
+are setup using an encrypted negotiation sequence and some level of
+trust?
 
-Not being a kernel developer, one thing I didn't know though was if
-the skb was initially allocated on NUMA node A, as the skb got expanded
-during its processing, would it always stay on NUMA node A, or could
-it possibly be migrated subsequently to a different NUMA node B.
-
-						-Thanks
-
-						-Bill
+Just wondering :-)
