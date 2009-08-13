@@ -1,33 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 13 Aug 2009 16:58:06 +0200
-Message-ID: <200908131658.06522.arnd@arndb.de>
-References: <cover.1249930169.git.mst@redhat.com> <200908131538.44465.arnd@arndb.de> <20090813143922.GA5080@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 0/3] net: Add ftracer to help optimize process
+	scheduling based on incomming frame allocations (v3)
+Date: Thu, 13 Aug 2009 10:59:17 -0400
+Message-ID: <20090813145917.GA16521@hmsreliant.think-freely.org>
+References: <20090807202130.GA26677@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090813143922.GA5080@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, rostedt@goodmis.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38909 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752175AbZHMO7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 10:59:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20090807202130.GA26677@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 13 August 2009, Michael S. Tsirkin wrote:
-> > Right now, the number of copy operations in your code is the same.
-> > You are doing the copy a little bit later in skb_copy_datagram_iovec(),
-> > which is indeed a very nice hack. Changing to a virtqueue based method
-> > would imply that the host needs to add each skb_frag_t to its outbound
-> > virtqueue, which then gets copied into the guests inbound virtqueue.
-> 
-> Which is a lot more code than just calling skb_copy_datagram_iovec.
+Hey all-
+        I put out an RFC about this awhile ago and didn't get any loud screams,
+so I've gone ahead and implemented it
 
-Well, I don't see this part as much of a problem, because the code
-already exists in virtio_net. If we really wanted to go down that road,
-just using virtio_net would solve the problem of frame handling
-entirely, but create new problems elsewhere, as we have mentioned.
+        Currently, our network infrastructure allows net device drivers to
+allocate skbs based on the the numa node the device itself is local to.  This of
+course cuts down on cross numa chatter when the device is DMA-ing network
+traffic to the driver.  Unfortuantely no such corresponding infrastrucuture
+exists at the process level.  The scheduler has no insight into the numa
+locality of incomming data packets for a given process (and arguably it
+shouldn't), and so there is every chance that a process will run on a different
+numa node than the packets that its receiving lives on, creating cross numa node
+traffic.
 
-	Arnd <><
+        This patch aims to provide userspace with the opportunity to optimize
+that scheduling.  It consists of a tracepoint and an ftrace module which exports
+a history of the packets each process receives, along with the numa node each
+packet was received on, as well as the numa node the process was running on when
+it copied the buffer to user space.  With this information, exported via the
+ftrace infrastructure to user space, a sysadim can identify high prirority
+processes, and optimize their scheduling so that they are more likely to run on
+the same node that they are primarily receiving data on, thereby cutting down
+cross numa node traffic.
+
+Tested by me, working well, applies against the head of the net-next tree
+
+
+Version 3 change notes:
+
+Respun on davems request to apply to the head of the net-next tree.  No other
+changes
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
