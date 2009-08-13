@@ -1,44 +1,257 @@
-From: John Dykstra <john.dykstra1@gmail.com>
-Subject: Re: WARNING: at net/ipv4/af_inet.c:155
-	inet_sock_destruct+0x122/0x13a()
-Date: Thu, 13 Aug 2009 15:21:45 +0000
-Message-ID: <1250176905.7289.7.camel@Maple>
-References: <4A76A009.40605@wpkg.org>	<1249346282.6479.5.camel@merlyn>
-	 <20090803.212007.253928711.davem@davemloft.net>
-	 <4A77D2BA.3040304@gmail.com>  <4A831F69.1080703@hp.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 3/3] net: skb ftracer - Add actual ftrace code to
+	kernel (v3)
+Date: Thu, 13 Aug 2009 11:23:56 -0400
+Message-ID: <20090813152356.GC16682@hmsreliant.think-freely.org>
+References: <20090807202130.GA26677@hmsreliant.think-freely.org> <20090813145917.GA16521@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, mangoo@wpkg.org,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, rostedt@goodmis.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f196.google.com ([209.85.216.196]:38944 "EHLO
-	mail-px0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbZHMPVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 11:21:48 -0400
-Received: by pxi34 with SMTP id 34so51839pxi.4
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2009 08:21:49 -0700 (PDT)
-In-Reply-To: <4A831F69.1080703@hp.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58570 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbZHMPX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 11:23:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20090813145917.GA16521@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-12 at 16:00 -0400, Vlad Yasevich wrote:
-> BTW, I've seen the same issue in 2.6.28 and 2.6.29 while doing a bunch
-> of NFS-over-UDP testing.  I've seen the issue reported in 2.6.27 as well,
-> but it went by ignored.  It's not easy to reproduce as it seems like it
-> requires quite a bit traffic over over multiple interfaces.
+skb allocation / consumption correlator
 
-I've been unable to reproduce it so far.  Has bonding always been
-present in the cases you've seen, or are multiple independent interfaces
-sufficient?
+Add ftracer module to kernel to print out a list that correlates a process id,
+an skb it read, and the numa nodes on wich the process was running when it was
+read along with the numa node the skbuff was allocated on.
 
-In the case you reported initially, openvpn was using UDP, but the peer
-was dead, so there presumably wasn't much traffic from that app.  Was
-there lots of NFS-over-UDP traffic also going on?
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Where was the independent report on 2.6.27?
 
-  --  John
+ Makefile            |    1 
+ trace.h             |   19 ++++++
+ trace_skb_sources.c |  154 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 174 insertions(+)
 
+diff --git a/kernel/trace/Makefile b/kernel/trace/Makefile
+index 844164d..ee5e5b1 100644
+--- a/kernel/trace/Makefile
++++ b/kernel/trace/Makefile
+@@ -49,6 +49,7 @@ obj-$(CONFIG_BLK_DEV_IO_TRACE) += blktrace.o
+ ifeq ($(CONFIG_BLOCK),y)
+ obj-$(CONFIG_EVENT_TRACING) += blktrace.o
+ endif
++obj-$(CONFIG_SKB_SOURCES_TRACER) += trace_skb_sources.o
+ obj-$(CONFIG_EVENT_TRACING) += trace_events.o
+ obj-$(CONFIG_EVENT_TRACING) += trace_export.o
+ obj-$(CONFIG_FTRACE_SYSCALLS) += trace_syscalls.o
+diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
+index 8b9f4f6..8a6281b 100644
+--- a/kernel/trace/trace.h
++++ b/kernel/trace/trace.h
+@@ -11,6 +11,7 @@
+ #include <trace/boot.h>
+ #include <linux/kmemtrace.h>
+ #include <trace/power.h>
++#include <trace/events/skb.h>
+ 
+ #include <linux/trace_seq.h>
+ #include <linux/ftrace_event.h>
+@@ -40,6 +41,7 @@ enum trace_type {
+ 	TRACE_KMEM_FREE,
+ 	TRACE_POWER,
+ 	TRACE_BLK,
++	TRACE_SKB_SOURCE,
+ 
+ 	__TRACE_LAST_TYPE,
+ };
+@@ -171,6 +173,21 @@ struct trace_power {
+ 	struct power_trace	state_data;
+ };
+ 
++struct skb_record {
++	pid_t pid;		/* pid of the copying process */
++	int anid;		/* node where skb was allocated */
++	int cnid;		/* node to which skb was copied in userspace */
++	char ifname[IFNAMSIZ];	/* Name of the receiving interface */
++	int rx_queue;		/* The rx queue the skb was received on */
++	int ccpu;		/* Cpu the application got this frame from */
++	int len;		/* length of the data copied */
++};
++
++struct trace_skb_event {
++	struct trace_entry	ent;
++	struct skb_record	event_data;
++};
++
+ enum kmemtrace_type_id {
+ 	KMEMTRACE_TYPE_KMALLOC = 0,	/* kmalloc() or kfree(). */
+ 	KMEMTRACE_TYPE_CACHE,		/* kmem_cache_*(). */
+@@ -323,6 +340,8 @@ extern void __ftrace_bad_type(void);
+ 			  TRACE_SYSCALL_ENTER);				\
+ 		IF_ASSIGN(var, ent, struct syscall_trace_exit,		\
+ 			  TRACE_SYSCALL_EXIT);				\
++		IF_ASSIGN(var, ent, struct trace_skb_event,		\
++			  TRACE_SKB_SOURCE);				\
+ 		__ftrace_bad_type();					\
+ 	} while (0)
+ 
+diff --git a/kernel/trace/trace_skb_sources.c b/kernel/trace/trace_skb_sources.c
+new file mode 100644
+index 0000000..4ba3671
+--- /dev/null
++++ b/kernel/trace/trace_skb_sources.c
+@@ -0,0 +1,154 @@
++/*
++ * ring buffer based tracer for analyzing per-socket skb sources
++ *
++ * Neil Horman <nhorman@tuxdriver.com> 
++ * Copyright (C) 2009
++ *
++ *
++ */
++
++#include <linux/init.h>
++#include <linux/debugfs.h>
++#include <trace/events/skb.h>
++#include <linux/kallsyms.h>
++#include <linux/module.h>
++#include <linux/hardirq.h>
++#include <linux/netdevice.h>
++#include <net/sock.h>
++
++#include "trace.h"
++#include "trace_output.h"
++
++EXPORT_TRACEPOINT_SYMBOL_GPL(skb_copy_datagram_iovec);
++
++static struct trace_array *skb_trace;
++static int __read_mostly trace_skb_source_enabled;
++
++static void probe_skb_dequeue(const struct sk_buff *skb, int len)
++{
++	struct ring_buffer_event *event;
++	struct trace_skb_event *entry;
++	struct trace_array *tr = skb_trace;
++	struct net_device *dev;
++
++	if (!trace_skb_source_enabled)
++		return;
++
++	if (in_interrupt())
++		return;
++
++	event = trace_buffer_lock_reserve(tr, TRACE_SKB_SOURCE,
++					  sizeof(*entry), 0, 0);
++	if (!event)
++		return;
++	entry = ring_buffer_event_data(event);
++
++	entry->event_data.pid = current->pid;
++	entry->event_data.anid = page_to_nid(virt_to_page(skb->data));
++	entry->event_data.cnid = cpu_to_node(smp_processor_id());
++	entry->event_data.len = len;
++	entry->event_data.rx_queue = skb->queue_mapping;
++	entry->event_data.ccpu = smp_processor_id();
++
++	dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
++	if (dev) {
++		memcpy(entry->event_data.ifname, dev->name, IFNAMSIZ);
++		dev_put(dev);
++	} else {
++		strcpy(entry->event_data.ifname, "Unknown");
++	}
++
++	trace_buffer_unlock_commit(tr, event, 0, 0);
++}
++
++static int tracing_skb_source_register(void)
++{
++	int ret;
++
++	ret = register_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
++	if (ret)
++		pr_info("skb source trace: Couldn't activate dequeue tracepoint");
++	
++	return ret;
++}
++
++static void start_skb_source_trace(struct trace_array *tr)
++{
++	trace_skb_source_enabled = 1;
++}
++
++static void stop_skb_source_trace(struct trace_array *tr)
++{
++	trace_skb_source_enabled = 0;
++}
++
++static void skb_source_trace_reset(struct trace_array *tr)
++{
++	trace_skb_source_enabled = 0;
++	unregister_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
++}
++
++
++static int skb_source_trace_init(struct trace_array *tr)
++{
++	int cpu;
++	skb_trace = tr;
++
++	trace_skb_source_enabled = 1;
++	tracing_skb_source_register();
++
++	for_each_cpu(cpu, cpu_possible_mask)
++		tracing_reset(tr, cpu);
++	return 0;
++}
++
++static enum print_line_t skb_source_print_line(struct trace_iterator *iter)
++{
++	int ret = 0;
++	struct trace_entry *entry = iter->ent;
++	struct trace_skb_event *event;
++	struct skb_record *record;
++	struct trace_seq *s = &iter->seq;
++
++	trace_assign_type(event, entry);
++	record = &event->event_data;
++	if (entry->type != TRACE_SKB_SOURCE)
++		return TRACE_TYPE_UNHANDLED;
++
++	ret = trace_seq_printf(s, "	%d	%d	%d	%s	%d	%d	%d\n",
++			record->pid,
++			record->anid,
++			record->cnid,
++			record->ifname,
++			record->rx_queue,
++			record->ccpu,
++			record->len);
++
++	if (!ret)
++		return TRACE_TYPE_PARTIAL_LINE;
++
++	return TRACE_TYPE_HANDLED;
++}
++
++static void skb_source_print_header(struct seq_file *s)
++{
++	seq_puts(s, "#	PID	ANID	CNID	IFC	RXQ	CCPU	LEN\n");
++	seq_puts(s, "#	 |	 |	 |	 |	 |	 |	 |\n");
++}
++
++static struct tracer skb_source_tracer __read_mostly =
++{
++	.name		= "skb_sources",
++	.init		= skb_source_trace_init,
++	.start		= start_skb_source_trace,
++	.stop		= stop_skb_source_trace,
++	.reset		= skb_source_trace_reset,
++	.print_line	= skb_source_print_line,
++	.print_header	= skb_source_print_header,
++};
++
++static int init_skb_source_trace(void)
++{
++	return register_tracer(&skb_source_tracer);
++}
++device_initcall(init_skb_source_trace);
