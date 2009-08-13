@@ -1,134 +1,81 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 13975] New: BUG: unable to handle kernel
- paging request at 000d7a0b
-Date: Thu, 13 Aug 2009 13:51:56 -0700
-Message-ID: <20090813135156.07e020a5.akpm@linux-foundation.org>
-References: <bug-13975-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
+Date: Thu, 13 Aug 2009 17:02:53 -0400
+Message-ID: <457D0D34-041E-43AE-BE31-241A19AA08B4@oracle.com>
+References: <1250091560.6641.48.camel@fnki-nb00130> <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130> <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home> <4A847669.7050508@hp.com> <1250195675.28285.128.camel@Joe-Laptop.home>
+Mime-Version: 1.0 (Apple Message framework v936)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: tonywhite100@googlemail.com
+Cc: Brian Haley <brian.haley@hp.com>, Jens Rosenboom <jens@mcbone.net>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36533 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754940AbZHMUwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 16:52:22 -0400
-In-Reply-To: <bug-13975-10286@http.bugzilla.kernel.org/>
+Received: from acsinet12.oracle.com ([141.146.126.234]:40303 "EHLO
+	acsinet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756290AbZHMVDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 17:03:35 -0400
+In-Reply-To: <1250195675.28285.128.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Aug 13, 2009, at 4:34 PM, Joe Perches wrote:
+> On Thu, 2009-08-13 at 16:24 -0400, Brian Haley wrote:
+>> Is your arch "um"?  Seems like those are only defined there, I'm  
+>> building
+>> a straight x86 kernel.
+>
+> Nope.
+>
+> I did make allyesconfig ; make lib/vsprintf.o lib ctype.o
+> allnoconfig works though.
+>
+>> This core dumps when running "test", I'm still trying to track down  
+>> why.
+>
+> missing return on ip_addr_string
+>
+>> I think we're thinking too hard about this, I would think we'd always
+>> want to print the shortened IPv6 address in debugging messages with  
+>> %pI6.
+>
+> True, but you can't tell in sprintf as it's used in seq.
+>
+> for instance:
+> net/sunrpc/svcauth_unix.c:		seq_printf(m, "%s %pI6 %s\n", im- 
+> >m_class, &addr, dom);
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+This one might be a bad example.  RPC IPv6 support, especially server  
+side, isn't written in stone yet.  User space may not even be ready  
+for an IPv6 address here; I can check.  If user space happens to be  
+flexible here, then it won't matter if this particular instance is  
+shorthanded or not.
 
-On Thu, 13 Aug 2009 14:02:01 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+[ I would think user space in general should be using inet_pton(3)  
+everywhere for such interfaces, so the format of these addresses  
+wouldn't matter so much.  Probably impossible at this point. ]
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13975
-> 
->            Summary: BUG: unable to handle kernel paging request at
->                     000d7a0b
->            Product: Memory Management
->            Version: 2.5
->     Kernel Version: 2.6.30.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Page Allocator
->         AssignedTo: akpm@linux-foundation.org
->         ReportedBy: tonywhite100@googlemail.com
->         Regression: Yes
-> 
+>> The %pi6 places need to stay since they're an API to userspace.  I  
+>> don't
+>> think we need the extra "c" and "c4" support.
+>
+> I'm pretty sure it can't change and a new form is needed
+> so %pi6c should be OK.
+>
+> I'd rather not use another %p<foo> letter.
 
-Interesting.
+I'm not arguing one way or the other, but it would be useful if  
+someone could check exactly what the dependencies are right now.  It  
+seems like we're speculating a bit.
 
-> Last kernel version tried was 2.6.30.1 and I did not experience this bug using
-> that kernel.
-> 
-> The crash happens randomly at boot and requires an fsck to fix. The kernel
-> locks up.
-> 
-> Here's the interesting part of the log :
-> 
-> Aug 13 07:54:02 pentium-three kernel: BUG: unable to handle kernel paging
-> request at 000d7a0b
-> Aug 13 07:54:02 pentium-three kernel: IP: [<c01596d4>] m_show+0x94/0x190
-> Aug 13 07:54:02 pentium-three kernel: *pde = 00000000 
-> Aug 13 07:54:02 pentium-three kernel: Oops: 0000 [#1] PREEMPT SMP 
-> Aug 13 07:54:02 pentium-three kernel: last sysfs file:
-> /sys/module/nf_conntrack_ftp/initstate
-> Aug 13 07:54:02 pentium-three kernel: Modules linked in: fuse af_packet
-> xt_tcpudp xt_limit nf_conntrack_ipv4 nf_defrag_ipv4 xt_state ipt_LOG ipt_REJECT
-> nf_conntrack_ftp nf_conntrack iptable_filter ip_tables x_tables dm_crypt
-> rt2500usb arc4 snd_cmipci ecb gameport snd_pcm_oss snd_mixer_oss snd_pcm
-> snd_page_alloc snd_opl3_lib rt73usb snd_hwdep crc_itu_t snd_mpu401_uart
-> snd_seq_dummy snd_seq_oss rt2x00usb snd_seq_midi rt2x00lib snd_rawmidi
-> led_class input_polldev snd_seq_midi_event snd_seq mac80211 snd_timer
-> snd_seq_device cfg80211 snd evdev parport_pc rtc_cmos soundcore pcspkr rtc_core
-> parport i2c_piix4 rtc_lib i2c_core shpchp pci_hotplug ext4 mbcache jbd2 crc16
-> dm_mirror dm_region_hash dm_log dm_snapshot dm_mod usbhid hid sg sr_mod cdrom
-> sd_mod pata_acpi ata_generic ata_piix uhci_hcd libata 8139too ehci_hcd floppy
-> 8139cp scsi_mod usbcore mii intel_agp
-> Aug 13 07:54:02 pentium-three kernel:
-> Aug 13 07:54:02 pentium-three kernel: Pid: 2489, comm: lsmod Not tainted
-> (2.6.30-4.slh.2-sidux-686 #1) To   be   Filled
-> Aug 13 07:54:02 pentium-three kernel: EIP: 0060:[<c01596d4>] EFLAGS: 00010246
-> CPU: 0
-> Aug 13 07:54:02 pentium-three kernel: EIP is at m_show+0x94/0x190
-> Aug 13 07:54:02 pentium-three kernel: EAX: 00000000 EBX: 000d7a0b ECX: de10fef4
-> EDX: 00000000
-> Aug 13 07:54:02 pentium-three kernel: ESI: e100fc98 EDI: df169660 EBP: e100fb60
-> ESP: de10fee8
-> Aug 13 07:54:02 pentium-three kernel: DS: 007b ES: 007b FS: 00d8 GS: 0033 SS:
-> 0068
-> Aug 13 07:54:02 pentium-three kernel: Process lsmod (pid: 2489, ti=de10e000
-> task=ddd0c840 task.ti=de10e000)
-> Aug 13 07:54:02 pentium-three kernel: Stack:
-> Aug 13 07:54:02 pentium-three kernel: df169660 c041097e e11ebc4c 0000e764
-> e100fb64 c102a2e0 00010246 00000000
-> Aug 13 07:54:02 pentium-three kernel: df169660 e100fb64 00000035 c01d3d56
-> 00000200 00000000 000003fa b7f95006
-> Aug 13 07:54:02 pentium-three kernel: df1aca80 df169688 00000006 00000061
-> 0000002b 00000000 0000002a 00000000
-> Aug 13 07:54:02 pentium-three kernel: Call Trace:
-> Aug 13 07:54:02 pentium-three kernel: [<c01d3d56>] ? seq_read+0x206/0x3d0
-> Aug 13 07:54:02 pentium-three kernel: [<c01d3b50>] ? seq_read+0x0/0x3d0
-> Aug 13 07:54:02 pentium-three kernel: [<c01f84e4>] ? proc_reg_read+0x64/0xa0
-> Aug 13 07:54:02 pentium-three kernel: [<c01f8480>] ? proc_reg_read+0x0/0xa0
-> Aug 13 07:54:02 pentium-three kernel: [<c01bb59d>] ? vfs_read+0x9d/0x160
-> Aug 13 07:54:02 pentium-three kernel: [<c01bb731>] ? sys_read+0x41/0x80
-> Aug 13 07:54:02 pentium-three kernel: [<c010394c>] ? sysenter_do_call+0x12/0x28
-> Aug 13 07:54:02 pentium-three kernel: Code: c6 34 01 00 00 39 f3 74 31 8d b6 00
-> 00 00 00 8b 43 08 89 3c 24 c7 44 24 04 7e 09 41 c0 83 c0 0c 89 44 24 08 e8 ce
-> a2 07 00 8b 1b <8b> 03 0f 18 00 90 39 f3 75 da b8 01 00 00 00 8b 8d d4 00 00 00 
-> Aug 13 07:54:02 pentium-three kernel: EIP: [<c01596d4>] m_show+0x94/0x190
-> SS:ESP 0068:de10fee8
-> Aug 13 07:54:02 pentium-three kernel: CR2: 00000000000d7a0b
-> Aug 13 07:54:02 pentium-three kernel: ---[ end trace 1e50990a393b4447 ]---
-> 
-> I'll attach lspci and if there is any other information required please just
-> ask and I'll post it.
-> 
+>> One comment on a quick scan of the code:
+>> ip6_addr[8 * 5] is fine here, we won't ever have all eight plus an  
+>> IPv4 address.
+>
+> I'm fixing it up and will resubmit something working in a little  
+> while.
+>
+> cheers, Joe
 
-We died running `lsmod'.
-
-We died in kernel/module.c:m_show().
-
-The last sysfs file which userspace accessed was
-/sys/module/nf_conntrack_ftp/initstate.
-
->From which I surmise that nf_conntrack_ftp has somehow done something
-bad to the module-related metadata which kernel/module.c presents to
-userspace via /sys/module/nf_conntrack_ftp/initstate.  Or something like that.
-
-Tell me: had you done any `rmmod's on that machine?  Perhaps of
-netfilter modules?  If so, perhaps netfilter didn't properly clean up
-after itself or something.
-
-Oh.  "The crash happens randomly at boot".  That makes it hard.
+--
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
