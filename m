@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.31-rc5] can: fix oops caused by wrong rtnl newlink
- usage
-Date: Thu, 13 Aug 2009 16:33:17 -0700 (PDT)
-Message-ID: <20090813.163317.254848808.davem@davemloft.net>
-References: <4A8166F4.6040204@hartkopp.net>
+Subject: Re: [net-2.6 PATCH] ixgbe: fix issues setting rx-usecs with legacy
+ interrupts
+Date: Thu, 13 Aug 2009 16:33:26 -0700 (PDT)
+Message-ID: <20090813.163326.143691783.davem@davemloft.net>
+References: <20090811231805.13967.1829.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, wg@grandegger.com, netdev@vger.kernel.org,
-	dbaryshkov@gmail.com
-To: oliver@hartkopp.net
+Cc: netdev@vger.kernel.org, gospo@redhat.com, donald.skidmore@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58776
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58782
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752386AbZHMXdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:33:06 -0400
-In-Reply-To: <4A8166F4.6040204@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1753519AbZHMXdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 19:33:16 -0400
+In-Reply-To: <20090811231805.13967.1829.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Tue, 11 Aug 2009 14:41:24 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 11 Aug 2009 16:18:14 -0700
 
-> For 'real' hardware CAN devices the netlink interface is used to set CAN
-> specific communication parameters. Real CAN hardware can not be created with
-> the ip tool ...
+> From: Don Skidmore <donald.c.skidmore@intel.com>
 > 
-> The invocation of 'ip link add type can' lead to an oops as the standard rtnl
-> newlink function was called:
+> Currently setting rx-usecs when the interface is in legacy interrupt
+> mode it is not immediate.  We were only setting EITR for each MSIx
+> vector and since this count would be zero for legacy mode it wasn't
+> set until after a reset.  This patch corrects that by checking what
+> mode we are in and then setting EITR accordingly.
 > 
-> http://bugzilla.kernel.org/show_bug.cgi?id=13954
-> 
-> This patch adds a private newlink function for the CAN device driver interface
-> that unconditionally returns -EOPNOTSUPP.
-> 
-> Signed-off-by: Oliver Hartkopp <oliver@hartkopp.net>
-> Reported-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+> Signed-off-by: Don Skidmore <donald.skidmore@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied to net-2.6
