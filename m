@@ -1,57 +1,146 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Thu, 13 Aug 2009 14:39:22 -0400
-Message-ID: <5D6A7C11-B300-4E39-BBDF-EF18C4BAE419@oracle.com>
-References: <1250091560.6641.48.camel@fnki-nb00130> <4A836D6D.1040400@hp.com> <1250174390.6641.89.camel@fnki-nb00130> <4A843EF7.4010700@hp.com> <1250187034.28285.93.camel@Joe-Laptop.home> <48AAB7CB-8EEC-4E30-B821-3E0D84531AAA@oracle.com> <1250187662.28285.97.camel@Joe-Laptop.home>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, Jens Rosenboom <jens@mcbone.net>,
-	Linux Network Developers <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet11.oracle.com ([148.87.113.123]:16465 "EHLO
-	rgminet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194AbZHMSkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 14:40:00 -0400
-In-Reply-To: <1250187662.28285.97.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/3] security: introducing security_request_module
+Date: Thu, 13 Aug 2009 13:40:09 -0500
+Message-ID: <20090813184009.GA8391@us.ibm.com>
+References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com> <20090813134457.29186.7182.stgit@paris.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	sds@tycho.nsa.gov, davem@davemloft.net,
+	shemminger@linux-foundation.org, kees@ubuntu.com,
+	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090813134457.29186.7182.stgit@paris.rdu.redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Aug 13, 2009, at 2:21 PM, Joe Perches wrote:
-> On Thu, 2009-08-13 at 14:15 -0400, Chuck Lever wrote:
->> On Aug 13, 2009, at 2:10 PM, Joe Perches wrote:
->>> The patch allows "%p6ic" for compressed and "%p6ic4" for compressed
->>> with ipv4 last u32.
->>
->> Why do these need to be separate?
->
-> Just an option.
-> I think it possible somebody will want "1::" instead of "1::0.0.0.0"
+Quoting Eric Paris (eparis@redhat.com):
+> Calling request_module() will trigger a userspace upcall which will load a
+> new module into the kernel.  This can be a dangerous event if the process
+> able to trigger request_module() is able to control either the modprobe
+> binary or the module binary.  This patch adds a new security hook to
+> request_module() which can be used by an LSM to control a processes ability
+> to call request_module().
+> 
+> Signed-off-by: Eric Paris <eparis@redhat.com>
 
-Hrm.
+Looks fine code-wise.
 
-Do you have a use case?  Really, it's pretty easy to tell when the  
-mapped v4 presentation format should be used.  See  
-ipv6_addr_v4mapped().  Otherwise the mapped v4 presentation format  
-should never be used.
+Just to match the rest of the documentation, the description in
+security.h should probably mention 'Return 0 if allowed'.
 
-A problem with the existing %p[iI] implementation is that each call  
-site has to have logic that figures out the address family of the  
-address before calling sprintf().  This makes it difficult to use this  
-facility with, for example, debugging messages, since you have to add  
-address family detection logic at every debugging message call site.   
-Lots of clutter and duplicated code.
+Acked-by: Serge Hallyn <serue@us.ibm.com>
 
-With %p6ic4, each call site now has to see that it's an IPv6 address,  
-and then decide if the address is a mapped v4 address or not.  It's  
-the same logic everywhere.
-
-It seems to me it would be a lot more useful if we had a new %p6  
-formatter that handled all types of IPv6 addresses properly, the way  
-inet_ntop(3) does in user space.  (Or even a new formatter that could  
-handle both address families).
-
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+> ---
+> 
+>  include/linux/security.h |   10 ++++++++++
+>  kernel/kmod.c            |    4 ++++
+>  security/capability.c    |    6 ++++++
+>  security/security.c      |    5 +++++
+>  4 files changed, 25 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/security.h b/include/linux/security.h
+> index d5f6578..34c5465 100644
+> --- a/include/linux/security.h
+> +++ b/include/linux/security.h
+> @@ -678,6 +678,9 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+>   *	@inode points to the inode to use as a reference.
+>   *	The current task must be the one that nominated @inode.
+>   *	Return 0 if successful.
+> + * @kernel_module_request:
+> + *	Ability to trigger the kernel to automatically upcall to userspace for
+> + *	userspace to load a kernel module with the given name.
+>   * @task_setuid:
+>   *	Check permission before setting one or more of the user identity
+>   *	attributes of the current process.  The @flags parameter indicates
+> @@ -1500,6 +1503,7 @@ struct security_operations {
+>  	void (*cred_commit)(struct cred *new, const struct cred *old);
+>  	int (*kernel_act_as)(struct cred *new, u32 secid);
+>  	int (*kernel_create_files_as)(struct cred *new, struct inode *inode);
+> +	int (*kernel_module_request)(void);
+>  	int (*task_setuid) (uid_t id0, uid_t id1, uid_t id2, int flags);
+>  	int (*task_fix_setuid) (struct cred *new, const struct cred *old,
+>  				int flags);
+> @@ -1755,6 +1759,7 @@ int security_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
+>  void security_commit_creds(struct cred *new, const struct cred *old);
+>  int security_kernel_act_as(struct cred *new, u32 secid);
+>  int security_kernel_create_files_as(struct cred *new, struct inode *inode);
+> +int security_kernel_module_request(void);
+>  int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags);
+>  int security_task_fix_setuid(struct cred *new, const struct cred *old,
+>  			     int flags);
+> @@ -2306,6 +2311,11 @@ static inline int security_kernel_create_files_as(struct cred *cred,
+>  	return 0;
+>  }
+> 
+> +static inline int security_kernel_module_request(void)
+> +{
+> +	return 0;
+> +}
+> +
+>  static inline int security_task_setuid(uid_t id0, uid_t id1, uid_t id2,
+>  				       int flags)
+>  {
+> diff --git a/kernel/kmod.c b/kernel/kmod.c
+> index 385c31a..5a7ae57 100644
+> --- a/kernel/kmod.c
+> +++ b/kernel/kmod.c
+> @@ -78,6 +78,10 @@ int __request_module(bool wait, const char *fmt, ...)
+>  #define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
+>  	static int kmod_loop_msg;
+> 
+> +	ret = security_kernel_module_request();
+> +	if (ret)
+> +		return ret;
+> +
+>  	va_start(args, fmt);
+>  	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, args);
+>  	va_end(args);
+> diff --git a/security/capability.c b/security/capability.c
+> index 4f23f4f..06400cf 100644
+> --- a/security/capability.c
+> +++ b/security/capability.c
+> @@ -396,6 +396,11 @@ static int cap_kernel_create_files_as(struct cred *new, struct inode *inode)
+>  	return 0;
+>  }
+> 
+> +static int cap_kernel_module_request(void)
+> +{
+> +	return 0;
+> +}
+> +
+>  static int cap_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
+>  {
+>  	return 0;
+> @@ -961,6 +966,7 @@ void security_fixup_ops(struct security_operations *ops)
+>  	set_to_cap_if_null(ops, cred_commit);
+>  	set_to_cap_if_null(ops, kernel_act_as);
+>  	set_to_cap_if_null(ops, kernel_create_files_as);
+> +	set_to_cap_if_null(ops, kernel_module_request);
+>  	set_to_cap_if_null(ops, task_setuid);
+>  	set_to_cap_if_null(ops, task_fix_setuid);
+>  	set_to_cap_if_null(ops, task_setgid);
+> diff --git a/security/security.c b/security/security.c
+> index b98c684..f88eaf6 100644
+> --- a/security/security.c
+> +++ b/security/security.c
+> @@ -709,6 +709,11 @@ int security_kernel_create_files_as(struct cred *new, struct inode *inode)
+>  	return security_ops->kernel_create_files_as(new, inode);
+>  }
+> 
+> +int security_kernel_module_request(void)
+> +{
+> +	return security_ops->kernel_module_request();
+> +}
+> +
+>  int security_task_setuid(uid_t id0, uid_t id1, uid_t id2, int flags)
+>  {
+>  	return security_ops->task_setuid(id0, id1, id2, flags);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
