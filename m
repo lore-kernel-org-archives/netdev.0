@@ -1,40 +1,64 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Iproute2]: failed replacing internal netem qdisc with pfifo
-Date: Thu, 13 Aug 2009 12:03:30 +0000
-Message-ID: <20090813120330.GB7010@ff.dom.local>
-References: <2036847082.914731250159200857.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: AlacrityVM numbers updated for 31-rc4
+Date: Thu, 13 Aug 2009 08:05:06 -0400
+Message-ID: <4A840172.8020707@gmail.com>
+References: <4A83296B.3080606@gmail.com> <4A834ABB.4010801@codemonkey.ws> <4A834E75.9060204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: Marcela Maslanova <mmaslano@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:48532 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbZHMMDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 08:03:35 -0400
-Received: by bwz22 with SMTP id 22so536437bwz.18
-        for <netdev@vger.kernel.org>; Thu, 13 Aug 2009 05:03:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <2036847082.914731250159200857.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig21D5013D96877AA48AB44C19"
+Cc: alacrityvm-devel@lists.sourceforge.net,
+	alacrityvm-users@lists.sourceforge.net,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754095AbZHMMFP@vger.kernel.org>
+In-Reply-To: <4A834E75.9060204@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13-08-2009 12:26, Marcela Maslanova wrote:
-> Hello,
-> I've received bug report about not being replaced netem with pfifo
-> anymore: https://bugzilla.redhat.com/show_bug.cgi?id=515522
-> This should be possible according to documentation [1].
-> Is this intentional change or is it a bug?
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig21D5013D96877AA48AB44C19
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-It's intentional:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=02201464119334690fe209849843881b8e9cfa9f
+Gregory Haskins wrote:
+> Anthony Liguori wrote:
 
-> 
-> It worked with kernel-2.6.27.5-117.fc10 and iproute-2.6.27. The problem
-> is still present with current iproute and kernel-2.6.29.6-217.2.3.fc11.
+>> Just FYI, the numbers quoted are wrong for virtio-u.  Greg's machine
+>> didn't have high res timers enabled in the kernel.  He'll post newer
+>> numbers later but they're much better than these (venet is still ahead=
 
-Yes, netem is classless since 2.6.29, so this documentation needs
-updating.
+>> though).
+>>
+>> Regards,
+>>
+>> Anthony Liguori
+>=20
+> Anthony is correct.  The new numbers after fixing the HRT clock issue a=
+re:
+>=20
+> virtio-u: 2670Mb/s, 266us rtt (3764 tps udp-rr)
+>=20
+> I will update the charts later tonight.
+>=20
 
-Best regards,
-Jarek P.
+done
+
+
+--------------enig21D5013D96877AA48AB44C19
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqEAXIACgkQP5K2CMvXmqEhtwCfcSwKKYWysNLQmF7VISNrNPwl
+CkIAniQ8z8sQcIkd/hdeXQhfHuxx1TIa
+=jRLu
+-----END PGP SIGNATURE-----
+
+--------------enig21D5013D96877AA48AB44C19--
