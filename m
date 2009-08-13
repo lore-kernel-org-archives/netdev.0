@@ -1,37 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 13 Aug 2009 18:03:44 +0300
-Message-ID: <20090813150344.GC5080@redhat.com>
-References: <cover.1249930169.git.mst@redhat.com> <200908131538.44465.arnd@arndb.de> <20090813143922.GA5080@redhat.com> <200908131658.06522.arnd@arndb.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
+Date: Thu, 13 Aug 2009 08:07:36 -0700
+Message-ID: <1250176056.28285.77.camel@Joe-Laptop.home>
+References: <1250091560.6641.48.camel@fnki-nb00130>
+	 <4A836D6D.1040400@hp.com>  <1250159961.28285.35.camel@Joe-Laptop.home>
+	 <1250171543.6641.78.camel@fnki-nb00130>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754731AbZHMPFf@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200908131658.06522.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Jens Rosenboom <jens@mcbone.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3743 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbZHMPHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 11:07:40 -0400
+In-Reply-To: <1250171543.6641.78.camel@fnki-nb00130>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 13, 2009 at 04:58:06PM +0200, Arnd Bergmann wrote:
-> On Thursday 13 August 2009, Michael S. Tsirkin wrote:
-> > > Right now, the number of copy operations in your code is the same.
-> > > You are doing the copy a little bit later in skb_copy_datagram_iovec(),
-> > > which is indeed a very nice hack. Changing to a virtqueue based method
-> > > would imply that the host needs to add each skb_frag_t to its outbound
-> > > virtqueue, which then gets copied into the guests inbound virtqueue.
-> > 
-> > Which is a lot more code than just calling skb_copy_datagram_iovec.
+On Thu, 2009-08-13 at 15:52 +0200, Jens Rosenboom wrote:
+> On Thu, 2009-08-13 at 03:39 -0700, Joe Perches wrote:
+> > You'll need to invent a new %p qualifier type to allow
+> > compressed representation.  Your patch will change current uses
+> > with seq_<foo> output in net, which could break userspace.
 > 
-> Well, I don't see this part as much of a problem, because the code
-> already exists in virtio_net.
+> Would it be possible to transform this to using %pi6, as most of teh
+> seq_* stuff already does?
 
-I am talking about the copying done in low level transport, here.
+No.
 
-> If we really wanted to go down that road,
-> just using virtio_net would solve the problem of frame handling
-> entirely, but create new problems elsewhere, as we have mentioned.
-> 
-> 	Arnd <><
+There are applications that depend on the
+current output representation.
+
+I think it should be done with something like "%pi6c" 
+rather than using another %p character because there
+are a limited number of single characters available.
+
