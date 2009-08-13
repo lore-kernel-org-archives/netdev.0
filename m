@@ -1,35 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Fix xfrm hash collisions by changing
-	__xfrm4_daddr_saddr_hash to hash addresses with addition
-Date: Thu, 13 Aug 2009 14:19:50 +1000
-Message-ID: <20090813041950.GA19592@gondor.apana.org.au>
-References: <20090813020606.GA18205@gondor.apana.org.au> <20090812.204247.183387787.davem@davemloft.net> <20090813035310.GA19182@gondor.apana.org.au> <20090812.205635.244644770.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] drivers/net: Correct use of
+ request_region/request_mem_region
+Date: Wed, 12 Aug 2009 21:19:29 -0700 (PDT)
+Message-ID: <20090812.211929.101928561.davem@davemloft.net>
+References: <Pine.LNX.4.64.0908090943210.13271@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: joamaki@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46336 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751184AbZHMETy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 00:19:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20090812.205635.244644770.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43280
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751060AbZHMETS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 00:19:18 -0400
+In-Reply-To: <Pine.LNX.4.64.0908090943210.13271@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 12, 2009 at 08:56:35PM -0700, David Miller wrote:
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 9 Aug 2009 09:43:42 +0200 (CEST)
+
+> From: Julia Lawall <julia@diku.dk>
 > 
-> 2) Whoever creates such a hash collision explosion can be
->    precisely identified.
+> request_mem_region should be used with release_mem_region, not request_region.
+> 
+> The semantic patch that fixes this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-BTW the trust issue goes the other way too.  I wouldn't want
-to connect to any IPsec peer if I knew that they could render
-my gateway unuseable whenever they liked :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied.
