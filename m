@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] r8169 updates
-Date: Wed, 12 Aug 2009 22:17:04 -0700 (PDT)
-Message-ID: <20090812.221704.42907115.davem@davemloft.net>
-References: <20090811054039.GA16446@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next] Phonet: fix /proc/net/phonet with network
+ namespaces
+Date: Wed, 12 Aug 2009 22:17:18 -0700 (PDT)
+Message-ID: <20090812.221718.61833757.davem@davemloft.net>
+References: <1249996327-8460-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edward_hsu@realtek.com.tw, netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47611
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47616
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753149AbZHMFQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 01:16:54 -0400
-In-Reply-To: <20090811054039.GA16446@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1753156AbZHMFRI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2009 01:17:08 -0400
+In-Reply-To: <1249996327-8460-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 11 Aug 2009 07:40:39 +0200
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Tue, 11 Aug 2009 16:12:07 +0300
 
-> Hi,
-> 
->   this series contains a minor fix (#1), an helper update (#2) as well as
-> a set of phy related changes taken from Realtek's own driver (#3 .. #6).
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> seq_open_net() and seq_release() are needed for seq_file_net().
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-All applied, thanks a lot Francois!
+Applied.
