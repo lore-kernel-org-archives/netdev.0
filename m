@@ -1,70 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 8139cp dma-debug warning.
-Date: Wed, 12 Aug 2009 22:20:46 -0700 (PDT)
-Message-ID: <20090812.222046.60033759.davem@davemloft.net>
-References: <20090806215702.GA17555@redhat.com>
-	<20090812171333.GD3116@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
+Date: Thu, 13 Aug 2009 08:55:50 +0300
+Message-ID: <20090813055550.GA3029@redhat.com>
+References: <cover.1249930169.git.mst@redhat.com> <20090810185340.GC13924@redhat.com> <200908121903.22325.arnd@arndb.de> <20090812171921.GC24151@ovro.caltech.edu> <20090812173104.GB29966@redhat.com> <20090812174821.GD24151@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davej@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40591
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751216AbZHMFUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 01:20:36 -0400
-In-Reply-To: <20090812171333.GD3116@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090812174821.GD24151@ovro.caltech.edu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Wed, 12 Aug 2009 13:13:33 -0400
-
-> There's another instance of the same further in the file.
+On Wed, Aug 12, 2009 at 10:48:21AM -0700, Ira W. Snyder wrote:
+> On Wed, Aug 12, 2009 at 08:31:04PM +0300, Michael S. Tsirkin wrote:
+> > On Wed, Aug 12, 2009 at 10:19:22AM -0700, Ira W. Snyder wrote:
 > 
-> Does this look right?
+> [ snip out code ]
+> 
+> > > > 
+> > > > We discussed this before, and I still think this could be directly derived
+> > > > from struct virtqueue, in the same way that vring_virtqueue is derived from
+> > > > struct virtqueue. That would make it possible for simple device drivers
+> > > > to use the same driver in both host and guest, similar to how Ira Snyder
+> > > > used virtqueues to make virtio_net run between two hosts running the
+> > > > same code [1].
+> > > > 
+> > > > Ideally, I guess you should be able to even make virtio_net work in the
+> > > > host if you do that, but that could bring other complexities.
+> > > 
+> > > I have no comments about the vhost code itself, I haven't reviewed it.
+> > > 
+> > > It might be interesting to try using a virtio-net in the host kernel to
+> > > communicate with the virtio-net running in the guest kernel. The lack of
+> > > a management interface is the biggest problem you will face (setting MAC
+> > > addresses, negotiating features, etc. doesn't work intuitively).
+> > 
+> > That was one of the reasons I decided to move most of code out to
+> > userspace. My kernel driver only handles datapath,
+> > it's much smaller than virtio net.
+> > 
+> > > Getting
+> > > the network interfaces talking is relatively easy.
+> > > 
+> > > Ira
+> > 
+> > Tried this, but
+> > - guest memory isn't pinned, so copy_to_user
+> >   to access it, errors need to be handled in a sane way
+> > - used/available roles are reversed
+> > - kick/interrupt roles are reversed
+> > 
+> > So most of the code then looks like
+> > 
+> > 	if (host) {
+> > 	} else {
+> > 	}
+> > 	return
+> > 
+> > 
+> > The only common part is walking the descriptor list,
+> > but that's like 10 lines of code.
+> > 
+> > At which point it's better to keep host/guest code separate, IMO.
+> > 
+> 
+> Ok, that makes sense. Let me see if I understand the concept of the
+> driver. Here's a picture of what makes sense to me:
+> 
+> guest system
+> ---------------------------------
+> | userspace applications        |
+> ---------------------------------
+> | kernel network stack          |
+> ---------------------------------
+> | virtio-net                    |
+> ---------------------------------
+> | transport (virtio-ring, etc.) |
+> ---------------------------------
+>                |
+>                |
+> ---------------------------------
+> | transport (virtio-ring, etc.) |
+> ---------------------------------
+> | some driver (maybe vhost?)    | <-- [1]
+> ---------------------------------
+> | kernel network stack          |
+> ---------------------------------
+> host system
+> 
+> >From the host's network stack, packets can be forwarded out to the
+> physical network, or be consumed by a normal userspace application on
+> the host. Just as if this were any other network interface.
+> 
+> In my patch, [1] was the virtio-net driver, completely unmodified.
+> 
+> So, does this patch accomplish the above diagram?
 
-Dave, Francois posted the following fix to lkml (he forgot
-to CC: netdev and the people reporting this bug, oh well)
+Not exactly. vhost passes packets to a physical device,
+through a raw socket, not into host network stack.
 
-Did you see it?  It should fix the bug.
+> If so, why the copy_to_user(), etc?
 
-8139cp: balance dma_map_single vs dma_unmap_single pair
+Guest memory is not pinned. Memory access needs to go through
+translation process, could cause page faults, etc.
 
-The driver always:
-1. allocate cp->rx_buf_sz + NET_IP_ALIGN
-2. map cp->rx_buf_sz
+> Maybe I'm confusing this with my system, where the
+> "guest" is another physical system, separated by the PCI bus.
+> 
+> Ira
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/8139cp.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index 50efde1..d0dbbf3 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -515,7 +515,7 @@ rx_status_loop:
- 		dma_addr_t mapping;
- 		struct sk_buff *skb, *new_skb;
- 		struct cp_desc *desc;
--		unsigned buflen;
-+		const unsigned buflen = cp->rx_buf_sz;
- 
- 		skb = cp->rx_skb[rx_tail];
- 		BUG_ON(!skb);
-@@ -549,8 +549,7 @@ rx_status_loop:
- 			pr_debug("%s: rx slot %d status 0x%x len %d\n",
- 			       dev->name, rx_tail, status, len);
- 
--		buflen = cp->rx_buf_sz + NET_IP_ALIGN;
--		new_skb = netdev_alloc_skb(dev, buflen);
-+		new_skb = netdev_alloc_skb(dev, buflen + NET_IP_ALIGN);
- 		if (!new_skb) {
- 			dev->stats.rx_dropped++;
- 			goto rx_next;
--- 
-1.6.3.4
-
+Yes, that's different.
