@@ -1,33 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] vhost_net: a kernel-level virtio server
-Date: Thu, 13 Aug 2009 15:48:35 +0200
-Message-ID: <200908131548.35199.arnd@arndb.de>
-References: <cover.1249930169.git.mst@redhat.com> <20090813060615.GC3029@redhat.com> <200908131538.44465.arnd@arndb.de>
+From: Jens Rosenboom <jens@mcbone.net>
+Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
+Date: Thu, 13 Aug 2009 15:52:23 +0200
+Message-ID: <1250171543.6641.78.camel@fnki-nb00130>
+References: <1250091560.6641.48.camel@fnki-nb00130>
+	 <4A836D6D.1040400@hp.com>  <1250159961.28285.35.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: virtualization@lists.linux-foundation.org
+Cc: Brian Haley <brian.haley@hp.com>,
+	Linux Network Developers <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:58624 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753904AbZHMNtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 09:49:49 -0400
-In-Reply-To: <200908131538.44465.arnd@arndb.de>
+Received: from leia.mcbone.net ([194.97.104.42]:57857 "EHLO leia.mcbone.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751974AbZHMNwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2009 09:52:33 -0400
+In-Reply-To: <1250159961.28285.35.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 13 August 2009, Arnd Bergmann wrote:
-> Unfortunately, this also implies that you could no longer simply use the
-> packet socket interface as you do currently, as I realized only now.
-> This obviously has a significant impact on your user space interface.
+On Thu, 2009-08-13 at 03:39 -0700, Joe Perches wrote:
+> On Wed, 2009-08-12 at 21:33 -0400, Brian Haley wrote:
+> > Jens Rosenboom wrote:
+> > > Currently the output looks like 2001:0db8:0000:0000:0000:0000:0000:0001
+> > > which might be compacted to 2001:db8::1. The code to do this could be
+> > > adapted from inet_ntop in glibc, which would add about 80 lines to
+> > > lib/vsprintf.c. How do you guys value the tradeoff between more readable
+> > > logging and increased kernel size?
+> > > 
+> > > This was already mentioned in
+> > > http://kerneltrap.org/mailarchive/linux-netdev/2008/11/25/4231684 but
+> > > noone seems to have taken up on it.
+> > 
+> > Anyways, can you try this patch, it's less than 40 new lines :)
+> > It might be good enough, but could probably use some help.
+> 
+> You'll need to invent a new %p qualifier type to allow
+> compressed representation.  Your patch will change current uses
+> with seq_<foo> output in net, which could break userspace.
 
-Also, if we do the copy in the transport, it definitely means that we
-can't get to zero-copy RX/TX from guest space any more. The current
-vhost_net driver doesn't do that yet, but could be extended in the
-same way that I'm hoping to do it for macvtap.
+Would it be possible to transform this to using %pi6, as most of teh
+seq_* stuff already does? It doesn't make sense to shorten the
+un-colon-ed version anyway, I'll send an updated version of Brian's
+patch soon.
 
-	Arnd <><
