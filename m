@@ -1,54 +1,48 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
-Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce	primary_lazy
- option
-Date: Thu, 13 Aug 2009 21:41:02 +0200
-Message-ID: <4A846C4E.8030509@free.fr>
-References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/ipv4, linux-2.6.30.4
+Date: Thu, 13 Aug 2009 13:13:28 -0700 (PDT)
+Message-ID: <20090813.131328.70892070.davem@davemloft.net>
+References: <bb6e06c00908121147h2dab7d0kf5841a40956c5c56@mail.gmail.com>
+	<20090812.145549.228391386.davem@davemloft.net>
+	<4A8409CA.70200@nets.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: slot.daniel@gmail.com, netdev@vger.kernel.org
+To: hannemann@nets.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:54583 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752111AbZHMTlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Aug 2009 15:41:12 -0400
-In-Reply-To: <20090813150513.GB10449@psychotron.englab.brq.redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38226
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755895AbZHMUNS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Aug 2009 16:13:18 -0400
+In-Reply-To: <4A8409CA.70200@nets.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko wrote:
-> In some cases there is not desirable to switch back to primary interface when
-> it's link recovers and rather stay wiith currently active one. We need to avoid
-> packetloss as much as we can in some cases. This is solved by introducing
-> primary_lazy option. Note that enslaved primary slave is set as current
-> active no matter what.
+=46rom: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Date: Thu, 13 Aug 2009 14:40:42 +0200
 
-May I suggest that instead of creating a new option to better define how
-the "primary" option is expected to behave for active-backup mode, we 
-try the "weight" slave  option I proposed in the thread "alternative to 
-primary" earlier this year ?
+> David Miller schrieb:
+>> From: Daniel Slot <slot.daniel@gmail.com>
+>> Date: Wed, 12 Aug 2009 20:47:44 +0200
+>>=20
+>>> RFC 4653 specifies Non-Congestion Robustness (NCR) for TCP.
+>>> In the absence of explicit congestion notification from the network=
+, TCP
+>>> uses loss as an indication of congestion.
+>>> One of the ways TCP detects loss is using the arrival of three dupl=
+icate
+>>> acknowledgments.
+>>> However, this heuristic is not always correct,
+>>> notably in the case when network paths reorder segments (for whatev=
+er
+>>> reason), resulting in degraded performance.
+>>=20
+>> Linux's TCP stack already has sophisticated reordering detection.=E4
+>=20
+>=20
+> Hmm, sophisticated? Sorry, it seemed pretty rudimental/random to me.
 
-http://sourceforge.net/mailarchive/forum.php?thread_name=49D5357E.4020201%40free.fr&forum_name=bonding-devel
-
-Giving the same "weight" to two different slaves means "chose at random
-on startup and keep the active one until it fails". And if the "at
-random" behavior is not appropriate, one can force the active slave
-using what Jay suggested  (/sys/class/net/bond0/bonding/active).
-
-The proposed "weight" slave's option is able to prevent the slaves from
-flip-flopping, by stating the fact that two slaves share the same 
-"primary" level, and may provide several other enhancements as described 
-in the thread.
-
-Hence, it is a more general configuration interface than what you 
-proposed. I must admit that despite the fact that I suggested this in 
-april, I didn't posted any patch for it until now. Unfortunately, 
-I'didn't had time for it and probably not the proper skills anyway :-).
-
-	Nicolas.
-
-
-
+It's more sophisticated than what you're proposing, which is a hammer
+which requires intervention on the part of the application.
