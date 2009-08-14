@@ -1,107 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] sky2: version 1.24
-Date: Fri, 14 Aug 2009 15:41:54 -0700 (PDT)
-Message-ID: <20090814.154154.53636130.davem@davemloft.net>
-References: <20090814151511.992669598@vyatta.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 02/12] ixgbe: updates vlan feature flags to enable
+	FCoE offloads on vlan interface
+Date: Fri, 14 Aug 2009 15:41:28 -0700
+Message-ID: <20090814224127.1640.84665.stgit@localhost.localdomain>
+References: <20090814223857.1640.26881.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47739
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755492AbZHNWln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 18:41:43 -0400
-In-Reply-To: <20090814151511.992669598@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	gospo@redhat.com, Vasu Dev <vasu.dev@intel.com>,
+	Yi Zou <yi.zou@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20090814223857.1640.26881.stgit@localhost.localdomain>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 14 Aug 2009 08:15:11 -0700
+From: Vasu Dev <vasu.dev@intel.com>
 
-> This is rework of some of Mike's patches, and additional
-> improvement in the restart logic.
+Updates netdev->vlan_features for NETIF_F_FCOE_CRC and NETIF_F_FSO, so that
+FCoE CRC and GSO offloads will get used for FCoE over ixgbe based vlan
+interface.
 
-Patches themselves look good.
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Signed-off-by: Yi Zou <yi.zou@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-> Patch against current net-next-2.6.
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Ummm... no, it isn't.
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 1c72657..116f12c 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -148,7 +148,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 				IXGBE_FCRETA_SIZE;
+ 			netdev->features |= NETIF_F_FCOE_CRC;
+ 			netdev->features |= NETIF_F_FSO;
++			netdev->vlan_features |= NETIF_F_FCOE_CRC;
++			netdev->vlan_features |= NETIF_F_FSO;
+ 			netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
++			netdev_features_change(netdev);
+ 		}
+ #endif /* IXGBE_FCOE */
+ 		ixgbe_init_interrupt_scheme(adapter);
+@@ -177,7 +180,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 				adapter->ring_feature[RING_F_FCOE].indices = 0;
+ 				netdev->features &= ~NETIF_F_FCOE_CRC;
+ 				netdev->features &= ~NETIF_F_FSO;
++				netdev->vlan_features &= ~NETIF_F_FCOE_CRC;
++				netdev->vlan_features &= ~NETIF_F_FSO;
+ 				netdev->fcoe_ddp_xid = 0;
++				netdev_features_change(netdev);
+ 			}
+ #endif /* IXGBE_FCOE */
+ 			ixgbe_init_interrupt_scheme(adapter);
 
-I merged net-2.6 into net-next-2.6 yesterday, which brought in various
-sky2 fixes.  This caused conflicts which I had to hand merge starting
-in patch #6.
-
-For example, in patch #6:
-
-@@ -1498,10 +1498,9 @@ static int sky2_up(struct net_device *de
- 	sky2_write32(hw, B0_IMSK, imask);
- 	sky2_read32(hw, B0_IMSK);
- 
--	sky2_set_multicast(dev);
--
- 	if (netif_msg_ifup(sky2))
- 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
-+
- 	return 0;
- 
- err_out:
-
-There is a netif_wake_queue() call right before the if (netif_msg_ifup)
-
-Then, in patch #7:
-
-@@ -2367,11 +2363,8 @@ static inline void sky2_tx_done(struct n
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 
--	if (netif_running(dev)) {
--		netif_tx_lock(dev);
-+	if (netif_running(dev))
- 		sky2_tx_complete(sky2, last);
--		netif_tx_unlock(dev);
--	}
- }
- 
- static inline void sky2_skb_rx(const struct sky2_port *sky2,
-
-
-That if () test has an extra condition "&& !sky2->restarting",
-I retained in when applying that patch.
-
-Then, in patch #8:
-
-@@ -2042,15 +2041,18 @@ struct sky2_port {
- 		u8	fifo_lev;
- 	} check;
- 
--
- 	dma_addr_t	     rx_le_map;
- 	dma_addr_t	     tx_le_map;
-+
- 	u16		     advertising;	/* ADVERTISED_ bits */
--	u16		     speed;	/* SPEED_1000, SPEED_100, ... */
--	u8		     autoneg;	/* AUTONEG_ENABLE, AUTONEG_DISABLE */
--	u8		     duplex;	/* DUPLEX_HALF, DUPLEX_FULL */
--	u8		     rx_csum;
--	u8		     wol;
-+	u16		     speed;		/* SPEED_1000, SPEED_100, ... */
-+	u8		     wol;		/* WAKE_ bits */
-+	u8		     duplex;		/* DUPLEX_HALF, DUPLEX_FULL */
-+	u16		     flags;
-+#define SKY2_FLAG_RX_CHECKSUM		0x0001
-+#define SKY2_FLAG_AUTO_SPEED		0x0002
-+#define SKY2_FLAG_AUTO_PAUSE		0x0004
-+
-  	enum flow_control    flow_mode;
-  	enum flow_control    flow_status;
-
-This is missing the "->restarting" member, I retained it while
-applying this patch.
-
-Even if whatever net-next-2.6 tree you patches against didn't have
-those fixes, you should have anticipated them and known that I'd
-have to end up sorting out the merge mess afterwards.
-
-Anyways I pushed it all out, send me fixup patches if necessary.
