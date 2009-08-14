@@ -1,100 +1,109 @@
 From: Bill Fink <billfink@mindspring.com>
 Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Fri, 14 Aug 2009 16:31:55 -0400
-Message-ID: <20090814163155.968872fe.billfink@mindspring.com>
+Date: Fri, 14 Aug 2009 16:44:12 -0400
+Message-ID: <20090814164412.be5daa74.billfink@mindspring.com>
 References: <20090807170600.9a2eff2e.billfink@mindspring.com>
-	<4A7C9A14.7070600@inria.fr>
-	<20090807175112.a1f57407.billfink@mindspring.com>
-	<4A7CCEFC.7020308@myri.com>
-	<20090807213557.d0faec23.billfink@mindspring.com>
-	<4A7D5CA4.3030307@myri.com>
-	<20090808112636.GB18518@localhost.localdomain>
-	<4A7DC230.6060206@myri.com>
-	<20090808183251.GA23300@localhost.localdomain>
-	<20090811033210.6b422ed1.billfink@mindspring.com>
-	<F169D4F5E1F1974DBFAFABF47F60C10A36523146@orsmsx507.amr.corp.intel.com>
-	<20090812003824.26c9c8fb.billfink@mindspring.com>
+	<20090807221211.GA16874@localhost.localdomain>
+	<20090807205442.32918186.billfink@mindspring.com>
+	<20090808015612.GA17710@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andrew Gallatin <gallatin@myri.com>,
-	Brice Goglin <Brice.Goglin@inria.fr>,
-	Linux Network Developers <netdev@vger.kernel.org>,
-	Yinghai Lu <yhlu.kernel@gmail.com>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>
-To: Bill Fink <billfink@mindspring.com>
+Cc: Linux Network Developers <netdev@vger.kernel.org>, brice@myri.com,
+	gallatin@myri.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:46187 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932855AbZHNUcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 16:32:06 -0400
-In-Reply-To: <20090812003824.26c9c8fb.billfink@mindspring.com>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:60828 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751516AbZHNUoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 16:44:14 -0400
+In-Reply-To: <20090808015612.GA17710@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Aug 2009, Bill Fink wrote:
+On Fri, 7 Aug 2009, Neil Horman wrote:
 
-> On Tue, 11 Aug 2009, Brandeburg, Jesse wrote:
-> 
-> > Bill Fink wrote:
-> > > On Sat, 8 Aug 2009, Neil Horman wrote:
+> On Fri, Aug 07, 2009 at 08:54:42PM -0400, Bill Fink wrote:
+> > On Fri, 7 Aug 2009, Neil Horman wrote:
+> > 
+> > > You're timing is impeccable!  I just posted a patch for an ftrace module to help
+> > > detect just these kind of conditions:
+> > > http://marc.info/?l=linux-netdev&m=124967650218846&w=2
 > > > 
-> > >> On Sat, Aug 08, 2009 at 02:21:36PM -0400, Andrew Gallatin wrote:
-> > >>> Neil Horman wrote:
-> > >>>> On Sat, Aug 08, 2009 at 07:08:20AM -0400, Andrew Gallatin wrote:
-> > >>>>> Bill Fink wrote:
-> > >>>>>> On Fri, 07 Aug 2009, Andrew Gallatin wrote:
-> > >>>>>> 
-> > >>>>>>> Bill Fink wrote:
-> > >>>>>>> 
-> > >>>>>>>> All sysfs local_cpus values are the same (00000000,000000ff),
-> > >>>>>>>> so yes they are also wrong.
+> > > Hope that helps you out
+> > > Neil
 > > 
-> > bill, I recently helped Jesse Barnes push a patch that addresses this kind
-> > of issue on CoreI7, the root cause was the numa_node variable was
-> > initialized based on slot on AMD systems, but needed to be set to -1 by
-> > default on systems with a uniform IOH to slot architecture.
+> > Thanks!  It could be helpful.  Do you have a pointer to documentation
+> > on how to use it?  And does it require the latest GIT kernel or could
+> > it possibly be used with a 2.6.29.6 kernel?
 > > 
-> > here is the commit ID:
-> > http://git.kernel.org/?p=linux/kernel/git/sfr/linux-next.git;a=commit;h=3c38
-> > d674be519109696746192943a6d524019f7f
-> > 
-> > I'm not sure it is in linus' tree yet, this link is to net-next
-> > 
-> > Maybe see if it helps?
+> > 						-Bill
 > 
-> It's worth a shot.
-> 
-> Hopefully I can get a chance to build a new kernel tomorrow to check
-> out some of the suggestions, like this one, the setting of ACPI_DEBUG,
-> and the new ftrace module for checking NUMA affinity of skbs.
+> It should apply to 2.6.29.6 no problem (might take a little massaging, but not
+> much).
 
-I applied this patch to my 2.6.29.6 kernel (from Fedora 11).
+It doesn't look like I can apply your patches to my 2.6.29.6 kernel.
 
-Now when I do:
+For starters, there's no include/trace/events directory, so there's
+no include/trace/events/skb.h.  There is an include/trace/skb.h file,
+but there's no TRACE_EVENT defined anywhere in the kernel.
 
-	find /sys -name numa_node -exec grep . {} /dev/null \;
+I don't suppose it's as simple as defining (from include/linux/tracepoint.h
+from Linus's GIT tree):
 
-the numa_node for _all_ PCI devices is -1.
+#define PARAMS(args...) args
 
-When I do:
+#define TRACE_EVENT(name, proto, args, struct, assign, print)   \
+	DECLARE_TRACE(name, PARAMS(proto), PARAMS(args))
 
-	find /sys -name local_cpus -exec grep . {} /dev/null \;
-
-I find that local_cpus is always 00000000,00000000.
-
-Is that OK or should it be 00000000,000000ff (for my dual quad-core
-Xeon 5580 system with no hyperthreading)?
-
-Also, is it just not possible on this type of Intel Xeon system to
-properly associate the PCI devices with the nearest NUMA node?
-
-In any event, the patch didn't help (or hurt).  The transmit
-performance remained at ~100 Gbps while the receive performance
-remained at 55 Gbps.
+So do you still think it's reasonable to try applying your patches
+to my 2.6.29.6 kernel, or should I get a newer kernel like 2.6.30.4
+or 2.6.31-rc6?
 
 						-Thanks
 
 						-Bill
+
+
+
+> No docs I'm afraid (sorry, I'm horrible about that)
+> 
+> Using it is easy though:
+> 
+> 1) Patch, build and boot the kernel (make sure to have
+> CONFIG_SKB_SOURCES_TRACER, along with the other FTRACE requisite options)
+> 
+> 2) mount -t debugfs nodev /sys/kernel/debug
+> 
+> 3) cd /sys/kernel/debug/tracing
+> 
+> 4) echo skb_sources > ./current_tracer
+> 
+> 5) echo 1 > trace
+> 
+> 6) cat ./trace
+> 
+> Step 5 clears the trace buffer.  Step 6 provides you a list list this
+> 
+> 
+> PID	ANID	CNID	RXQ	CCPU	LEN
+> 
+> 
+> Where:
+> PID - The process receiving an skb
+> ANID - The node which the skb being received was allocated on
+> CNID - The node which the process is running when it read this skb
+> RQQ - The NIC receive queue that received this skb
+> CCPU - The cpu the process was running on when it read the skb in question
+> LEN - The length of the skb being received
+> 
+> Each entry in the list denotes a unique skb (obviously), and with a clever awk
+> script you can identify which nodes each process in your system is receiving
+> frames from, so that you can use numactl or taskset to bias that process to run
+> on the same nodes cpus.
+> 
+> Note that step (6) wil show a larger list each time you cat that file (as trace
+> records aren't removed during a read.  Step 5 is what actually clears the trace
+> buffer and resets the list length to zero.
+> 
+> Hope that helps. Please feel free to email me if you have any questions.
