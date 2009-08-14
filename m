@@ -1,35 +1,53 @@
-From: Aviv Greenberg <avivgnet@gmail.com>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Sat, 15 Aug 2009 00:13:12 +0300
-Message-ID: <3000d2e90908141413h3e3eae1dm796f4bf788319561@mail.gmail.com>
-References: <20090807170600.9a2eff2e.billfink@mindspring.com>
-	 <20090808112636.GB18518@localhost.localdomain>
-	 <4A7DC230.6060206@myri.com>
-	 <20090808183251.GA23300@localhost.localdomain>
-	 <20090811033210.6b422ed1.billfink@mindspring.com>
-	 <87ws5af0km.fsf@basil.nowhere.org>
-	 <20090812003049.185cd52a.billfink@mindspring.com>
-	 <4A856781.2080301@myri.com>
-	 <20090814123832.a7a27a9d.billfink@mindspring.com>
-	 <4A859716.7040904@myri.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
+Date: Fri, 14 Aug 2009 23:36:43 +0200
+Message-ID: <20090814213643.GA3179@ami.dom.local>
+References: <20090814132458.27518.65144.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.apana.org.au
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:47981 "EHLO
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:32909 "EHLO
 	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755238AbZHNVNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 17:13:12 -0400
-Received: by bwz22 with SMTP id 22so1361528bwz.18
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 14:13:13 -0700 (PDT)
-In-Reply-To: <4A859716.7040904@myri.com>
+	with ESMTP id S1756076AbZHNVhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 17:37:04 -0400
+Received: by bwz22 with SMTP id 22so1369772bwz.18
+        for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 14:37:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090814132458.27518.65144.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  There may be something in the chipset
+On Fri, Aug 14, 2009 at 06:54:58PM +0530, Krishna Kumar wrote:
+> =EF=BB=BFHi Jarek,
+>=20
+> Jarek Poplawski <jarkao2@gmail.com> wrote on 08/14/2009 04:31:27 PM:
+>=20
+> > Alas, private or public, these values are lower on average than
+> > before, so I'm not sure the complexity (especially in reading) adde=
+d
+> > by this patch is worth it. So, I can only say it looks formally OK,
+> > except the changelog and maybe 2 cosmetical suggestions below.
+>=20
+> Maybe the different test parameters result in smaller improvements.
+> I agree with you - the first approach is very readable and probably
+> preferable, while the second introduces a new structure and more
+> complexity.
 
-shooting in the dark: when you lspci -vvv and check the MaxPayload and
-MaxReadReq values for the myri devices - what are the values and are
-they equal? Are they the same on all your platforms?
+Actually, I meant the complexity added by any of these versions. If
+you declare: "This helps in faster lookup for a skb when there are no
+high priority skbs.", there is a question if less than 1% is enough.
+
+> I am sending both these versions a last time, after fixing your
+> comments in case someone can help decide if one or the other is
+> better (sorry I forgot to run checkpatch couple of times, will try
+> to remember next time).
+
+I definitely can't see a reason to make this variable public, and
+prefer the private (v2) version (which still lacks a changelog, btw).
+
+Thanks,
+Jarek P.
