@@ -1,99 +1,51 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [net-next-2.6 PATCH] net/ethtool: Add support to the ethtool
-	feature to flash firmware image from a specified file.
-Date: Fri, 14 Aug 2009 23:03:25 +0530
-Message-ID: <20090814173314.GA26218@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Tom Goff <thomas.goff@boeing.com>
+Subject: [PATCH] gre: Fix MTU calculation for bound GRE tunnels
+Date: Fri, 14 Aug 2009 11:37:58 -0700
+Message-ID: <20090814183758.GA21197@boeing.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:20243 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756148AbZHNRdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 13:33:14 -0400
+Received: from blv-smtpout-01.boeing.com ([130.76.32.69]:59563 "EHLO
+	blv-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbZHNSw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 14:52:27 -0400
+Received: from slb-av-01.boeing.com (slb-av-01.boeing.com [129.172.13.4])
+	by blv-smtpout-01.ns.cs.boeing.com (8.14.0/8.14.0/8.14.0/SMTPOUT) with ESMTP id n7EIbxQ4021293
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 11:38:00 -0700 (PDT)
+Received: from slb-av-01.boeing.com (localhost [127.0.0.1])
+	by slb-av-01.boeing.com (8.14.0/8.14.0/DOWNSTREAM_RELAY) with ESMTP id n7EIbx5t029850
+	for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 11:37:59 -0700 (PDT)
+Received: from packet.blv.boeing.com (packet.blv.boeing.com [130.42.97.136])
+	by slb-av-01.boeing.com (8.14.0/8.14.0/UPSTREAM_RELAY) with SMTP id n7EIbwAd029832
+	for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 11:37:58 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to flash a firmware image to a device using ethtool.
-The driver gets the filename of the firmware image and flashes this image
-using the request_firmware() path.
+The GRE header length should be subtracted when the tunnel MTU is
+calculated.  This just corrects for the associativity change
+introduced by commit 42aa916265d740d66ac1f17290366e9494c884c2.
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+Signed-off-by: Tom Goff <thomas.goff@boeing.com>
 ---
- include/linux/ethtool.h |    8 ++++++++
- net/core/ethtool.c      |   17 +++++++++++++++++
- 2 files changed, 25 insertions(+), 0 deletions(-)
+ net/ipv4/ip_gre.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 90c4a36..243cdce 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -362,6 +362,12 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
- 
-+/* for passing firmware flashing related parameters */
-+struct ethtool_flash {
-+	__u32	cmd;
-+	__u8	*data;
-+};
-+
- #ifdef __KERNEL__
- 
- struct net_device;
-@@ -489,6 +495,7 @@ struct ethtool_ops {
- 	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
- 	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
- 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
-+	int     (*flash_device)(struct net_device *, u8 *);
- };
- #endif /* __KERNEL__ */
- 
-@@ -545,6 +552,7 @@ struct ethtool_ops {
- #define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
- #define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
- #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
-+#define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 44e5711..bb94b3d 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -898,6 +898,20 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
- 	return actor(dev, edata.data);
- }
- 
-+static int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
-+{
-+	int err;
-+	struct ethtool_flash efl;
-+
-+	if (copy_from_user(&efl, useraddr, sizeof(efl)))
-+		return -EFAULT;
-+
-+	if (!dev->ethtool_ops->flash_device)
-+		return -EOPNOTSUPP;
-+
-+	return dev->ethtool_ops->flash_device(dev, efl.data);
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1111,6 +1125,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SGRO:
- 		rc = ethtool_set_gro(dev, useraddr);
- 		break;
-+	case ETHTOOL_FLASHDEV:
-+		rc = ethtool_flash_device(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index cb4a0f4..82c11dd 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -951,7 +951,7 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+ 			addend += 4;
  	}
+ 	dev->needed_headroom = addend + hlen;
+-	mtu -= dev->hard_header_len - addend;
++	mtu -= dev->hard_header_len + addend;
+ 
+ 	if (mtu < 68)
+ 		mtu = 68;
 -- 
-1.6.0.4
+1.6.0.6
 
