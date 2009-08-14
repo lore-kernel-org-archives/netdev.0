@@ -1,40 +1,33 @@
-From: "KGSBV.NL" <t0ne@claninev.com>
-Subject: Reminder Notification!!
-Date: Thu, 13 Aug 2009 23:21:53 +0000
-Message-ID: <ad74c4e90e6340dc884b20587ca62ca7@claninev.com>
-Reply-To: robert.tilbert@gmail.com
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/3] Networking: use CAP_NET_ADMIN when deciding to call
+ request_module
+Date: Fri, 14 Aug 2009 11:56:23 +1000 (EST)
+Message-ID: <alpine.LRH.2.00.0908141155290.12192@tundra.namei.org>
+References: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <frk0061@hetnet.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 4-adams.m6.net ([70.86.114.130]:3280 "EHLO 4-Adams.m6.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753991AbZHNBpO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 21:45:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	sds@tycho.nsa.gov, davem@davemloft.net,
+	shemminger@linux-foundation.org, kees@ubuntu.com,
+	morgan@kernel.org, casey@schaufler-ca.com, dwalsh@redhat.com
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20090813134451.29186.41664.stgit@paris.rdu.redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, 13 Aug 2009, Eric Paris wrote:
+
+> The networking code checks CAP_SYS_MODULE before using request_module() to
 
 
+I applied all three patches to
+git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/security-testing-2.6#next
+
+and fixed up the documentation per Serge's suggestion.
 
 
-
-2009 Prize Award!!
-
-Winning/Confirm!! 
-
-
-
-This email is to notify you that you have won an Award Sum of ?500,000.00 (Five Hundred Thousand Euros)in an E-mail program held in Den Haag, The Netherlands.
-
-Please contact the claim officer with your winning info. REF NUM.(NL80246) BATCH NUM.(EU-0375908NL) TICKET NUM.(460205)Name;Mr.Paul Hanson,TEL.+31-643608961,E-mail:spbg09@aol.nl.
-
-
-
-Yours Sincerely, 
-
-Mr. Robert Tibert, 
-
-Public Relation Officer. 
-
-
+-- 
+James Morris
+<jmorris@namei.org>
