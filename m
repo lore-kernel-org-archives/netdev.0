@@ -1,102 +1,118 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
-Date: Fri, 14 Aug 2009 11:01:27 +0000
-Message-ID: <20090814110127.GA17563@ff.dom.local>
-References: <20090814081907.18169.10600.sendpatchset@localhost.localdomain>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
+Date: Fri, 14 Aug 2009 13:40:36 +0200
+Message-ID: <200908141340.36176.arnd@arndb.de>
+References: <cover.1250187913.git.mst@redhat.com> <20090813182931.GC6585@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@vger.kernel.org, davem@davemloft.net,
-	herbert@gondor.apana.org.au
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:38797 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753589AbZHNLBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 07:01:33 -0400
-Received: by bwz22 with SMTP id 22so1074984bwz.18
-        for <netdev@vger.kernel.org>; Fri, 14 Aug 2009 04:01:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090814081907.18169.10600.sendpatchset@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+ netdev@vger.kernel.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com
+To: virtualization@lists.linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090813182931.GC6585@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 14, 2009 at 01:49:07PM +0530, Krishna Kumar wrote:
-> Jarek Poplawski <jarkao2@gmail.com> wrote on 08/13/2009 04:57:16 PM:
-> 
-> > > Sounds reasonable. To quantify that, I will test again for a longer
-> > > run and report the difference.
-> >
-> > Yes, more numbers would be appreciated.
-> 
-> I did a longer 7-hour testing of original code, public bitmap (the
-> code submitted earlier) and a private bitmap (patch below). Each
-> result line is aggregate of 5 iterations of individual 1, 2, 4, 8,
-> 32 netperf sessions, each running for 55 seconds:
-> 
-> -------------------------------------------------------
-> IO Size     Org        Public          Private
-> -------------------------------------------------------
-> 4K          122571     126821          125913
-> 16K         135715     135642          135530 
-> 128K        131324     131862          131668
-> 256K        130060     130107          130378
-> -------------------------------------------------------
-> Total:      519670     524433 (0.92%)  523491 (0.74%)
-> -------------------------------------------------------
-> 
-> The difference between keeping the bitmap private and public is
-> not much.
+On Thursday 13 August 2009, Michael S. Tsirkin wrote:
+> What it is: vhost net is a character device that can be used to reduce
+> the number of system calls involved in virtio networking.
+> Existing virtio net code is used in the guest without modification.
 
-Alas, private or public, these values are lower on average than
-before, so I'm not sure the complexity (especially in reading) added
-by this patch is worth it. So, I can only say it looks formally OK,
-except the changelog and maybe 2 cosmetical suggestions below.
+AFAICT, you have addressed all my comments, mostly by convincing me
+that you got it right anyway ;-).
 
-> > > The tests are on the latest tree which contains CAN_BYPASS. So a
-> > > single netperf process running this change will get no advantage
-> > > since this enqueue/dequeue never happens unless the NIC is slow.
-> > > But for multiple processes, it should help.
-> > 
-> > I mean: since the previous patch saved ~2% on omitting enqueue/dequeue,
-> > and now enqueue/dequeue is ~2% faster, is it still worth to omit this?
-> 
-> I haven't tested the bitmap patch without the bypass code.
-> Theoretically I assume that patch should help as we still save
-> an enqueue/dequeue.
-> 
-> Thanks,
-> 
-> - KK
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> ---
-> 
->  net/sched/sch_generic.c |   70 ++++++++++++++++++++++++++------------
->  1 file changed, 48 insertions(+), 22 deletions(-)
-> 
-> diff -ruNp org/net/sched/sch_generic.c new2/net/sched/sch_generic.c
-> --- org/net/sched/sch_generic.c	2009-08-07 12:05:43.000000000 +0530
-> +++ new2/net/sched/sch_generic.c	2009-08-14 12:48:37.000000000 +0530
-> @@ -406,18 +406,38 @@ static const u8 prio2band[TC_PRIO_MAX+1]
-...
-> +static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *priv,
-> +					     int band)
->  {
-> -	struct sk_buff_head *list = qdisc_priv(qdisc);
-> -	return list + prio2band[skb->priority & TC_PRIO_MAX];
-> +	return &priv->q[0] + band;
+I hope this gets into 2.6.32, good work!
 
-	return priv->q + band;
-seems more readable.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-...
->  static struct Qdisc_ops pfifo_fast_ops __read_mostly = {
->  	.id		=	"pfifo_fast",
-> -	.priv_size	=	PFIFO_FAST_BANDS * sizeof(struct sk_buff_head),
-> +	.priv_size	=	sizeof (struct pfifo_fast_priv),
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 
-checkpatch warns here, and it seems consistent with Documentation/
-CodingStyle.
+One idea though:
 
-Thanks,
-Jarek P.
+> +	/* Parameter checking */
+> +	if (sock->sk->sk_type != SOCK_RAW) {
+> +		r = -ESOCKTNOSUPPORT;
+> +		goto done;
+> +	}
+> +
+> +	r = sock->ops->getname(sock, (struct sockaddr *)&uaddr.sa,
+> +			       &uaddr_len, 0);
+> +	if (r)
+> +		goto done;
+> +
+> +	if (uaddr.sa.sll_family != AF_PACKET) {
+> +		r = -EPFNOSUPPORT;
+> +		goto done;
+> +	}
+
+You currently limit the scope of the driver by only allowing raw packet
+sockets to be passed into the network driver. In qemu, we currently support
+some very similar transports:
+
+* raw packet (not in a release yet)
+* tcp connection
+* UDP multicast
+* tap character device
+* VDE with Unix local sockets
+
+My primary interest right now is the tap support, but I think it would
+be interesting in general to allow different file descriptor types
+in vhost_net_set_socket. AFAICT, there are two major differences
+that we need to handle for this:
+
+* most of the transports are sockets, tap uses a character device.
+  This could be dealt with by having both a struct socket * in
+  struct vhost_net *and* a struct file *, or by always keeping the
+  struct file and calling vfs_readv/vfs_writev for the data transport
+  in both cases.
+
+* Each transport has a slightly different header, we have
+  - raw ethernet frames (raw, udp multicast, tap)
+  - 32-bit length + raw frames, possibly fragmented (tcp)
+  - 80-bit header + raw frames, possibly fragmented (tap with vnet_hdr)
+  To handle these three cases, we need either different ioctl numbers
+  so that vhost_net can choose the right one, or a flags field in
+  VHOST_NET_SET_SOCKET, like
+
+  #define VHOST_NET_RAW		1
+  #define VHOST_NET_LEN_HDR	2
+  #define VHOST_NET_VNET_HDR	4
+
+  struct vhost_net_socket {
+	unsigned int flags;
+	int fd;
+  };
+  #define VHOST_NET_SET_SOCKET _IOW(VHOST_VIRTIO, 0x30, struct vhost_net_socket)
+
+If both of those are addressed, we can treat vhost_net as a generic
+way to do network handling in the kernel independent of the qemu
+model (raw, tap, ...) for it. 
+
+Your qemu patch would have to work differently, so instead of 
+
+qemu -net nic,vhost=eth0
+
+you would do the same as today with the raw packet socket extension
+
+qemu -net nic -net raw,ifname=eth0 
+
+Qemu could then automatically try to use vhost_net, if it's available
+in the kernel, or just fall back on software vlan otherwise.
+Does that make sense?
+
+	Arnd <>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
