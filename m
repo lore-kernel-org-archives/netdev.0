@@ -1,41 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [linux-next PATCH] pci: add update 82576 device ids to SR-IOV quirks
-	list
-Date: Thu, 13 Aug 2009 16:57:49 -0700
-Message-ID: <20090813235748.20633.15920.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 1/2] ixgbe: Fix receive on real device when VLANs are
+	configured
+Date: Thu, 13 Aug 2009 17:09:38 -0700
+Message-ID: <20090814000929.20911.77027.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Lucy Liu <lucy.liu@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: jbarnes@virtuousgeek.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta01.westchester.pa.mail.comcast.net ([76.96.62.16]:51868
+	"EHLO QMTA01.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753268AbZHNAJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 20:09:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Lucy Liu <lucy.liu@intel.com>
 
-This patch adds the most recent additions to the list of 82576 device IDs
-to the list of devices needing the SR-IOV quirk.
+Traffic received with a priority tag (VID = 0) and non-zero priority value was
+incorrectly handled by the VLAN packet code path due to a check on zero for
+the whole VLAN tag instead of just the VID.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+This patch masked out the priority field when checking the vlan tag for
+received VLAN packets.
+
+Signed-off-by: Lucy Liu <lucy.liu@intel.com>
+Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/pci/quirks.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 06b9656..8d25670 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -2492,6 +2492,7 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10e6, quirk_i82576_sriov);
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10e7, quirk_i82576_sriov);
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x10e8, quirk_i82576_sriov);
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x150a, quirk_i82576_sriov);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x150d, quirk_i82576_sriov);
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index e3cb949..77b0381 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -492,12 +492,12 @@ static void ixgbe_receive_skb(struct ixgbe_q_vector *q_vector,
  
- #endif	/* CONFIG_PCI_IOV */
- 
+ 	skb_record_rx_queue(skb, ring->queue_index);
+ 	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL)) {
+-		if (adapter->vlgrp && is_vlan && (tag != 0))
++		if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
+ 			vlan_gro_receive(napi, adapter->vlgrp, tag, skb);
+ 		else
+ 			napi_gro_receive(napi, skb);
+ 	} else {
+-		if (adapter->vlgrp && is_vlan && (tag != 0))
++		if (adapter->vlgrp && is_vlan && (tag & VLAN_VID_MASK))
+ 			vlan_hwaccel_rx(skb, adapter->vlgrp, tag);
+ 		else
+ 			netif_rx(skb);
+
