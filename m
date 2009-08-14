@@ -1,8 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 04/12] ixgbe: Add support for NETIF_F_FCOE_MTU to
-	82599 devices
-Date: Fri, 14 Aug 2009 15:42:17 -0700
-Message-ID: <20090814224217.1640.49274.stgit@localhost.localdomain>
+Subject: [net-next PATCH 05/12] net: Add ndo_fcoe_control to net_device_ops
+Date: Fri, 14 Aug 2009 15:42:39 -0700
+Message-ID: <20090814224239.1640.74924.stgit@localhost.localdomain>
 References: <20090814223857.1640.26881.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,83 +10,46 @@ Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	gospo@redhat.com, Yi Zou <yi.zou@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:55865
-	"EHLO QMTA11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756881AbZHNWmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 18:42:39 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20090814223857.1640.26881.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Yi Zou <yi.zou@intel.com>
 
-Enable netdev feature flag bit NETIF_F_FCOE_MTU for 82599 devices and enable
-jumbo frame correspondingly when NETIF_F_FCOE_MTU is set.
+Add ndo_fcoe_control to net_device_ops so the corresponding HW can initialize
+itself for FCoE traffic or clean up after FCoE traffic is done. This is
+expected to be called by the kernel FCoE stack upon receiving a request for
+creating an FCoE instance on the corresponding netdev interface. When
+implemented by the actual HW, the HW driver check the op code to perform
+corresponding initialization or clean up for FCoE. The initialization normally
+includes allocating extra queues for FCoE, setting corresponding HW registers
+for FCoE, indicating FCoE offload features via netdev, etc. The clean-up would
+include releasing the resources allocated for FCoE.
+
+Currently, there are two defined op codes as NETDEV_FCOE_DISABLE and _ENABLE,
+for initialization and cleanup accordingly.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_dcb_nl.c |    4 ++++
- drivers/net/ixgbe/ixgbe_main.c   |    6 +++---
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ include/linux/netdevice.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 116f12c..34bca45 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -148,8 +148,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 				IXGBE_FCRETA_SIZE;
- 			netdev->features |= NETIF_F_FCOE_CRC;
- 			netdev->features |= NETIF_F_FSO;
-+			netdev->features |= NETIF_F_FCOE_MTU;
- 			netdev->vlan_features |= NETIF_F_FCOE_CRC;
- 			netdev->vlan_features |= NETIF_F_FSO;
-+			netdev->vlan_features |= NETIF_F_FCOE_MTU;
- 			netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
- 			netdev_features_change(netdev);
- 		}
-@@ -180,8 +182,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 				adapter->ring_feature[RING_F_FCOE].indices = 0;
- 				netdev->features &= ~NETIF_F_FCOE_CRC;
- 				netdev->features &= ~NETIF_F_FSO;
-+				netdev->features &= ~NETIF_F_FCOE_MTU;
- 				netdev->vlan_features &= ~NETIF_F_FCOE_CRC;
- 				netdev->vlan_features &= ~NETIF_F_FSO;
-+				netdev->vlan_features &= ~NETIF_F_FCOE_MTU;
- 				netdev->fcoe_ddp_xid = 0;
- 				netdev_features_change(netdev);
- 			}
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 8a8518d..d69d277 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2026,7 +2026,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	else
- 		hlreg0 |= IXGBE_HLREG0_JUMBOEN;
- #ifdef IXGBE_FCOE
--	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
-+	if (netdev->features & NETIF_F_FCOE_MTU)
- 		hlreg0 |= IXGBE_HLREG0_JUMBOEN;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9192cdf..84c110b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -623,6 +623,10 @@ struct net_device_ops {
+ 	void                    (*ndo_poll_controller)(struct net_device *dev);
  #endif
- 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
-@@ -2057,7 +2057,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 			rx_ring->flags |= IXGBE_RING_RX_PS_ENABLED;
- 
- #ifdef IXGBE_FCOE
--		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-+		if (netdev->features & NETIF_F_FCOE_MTU) {
- 			struct ixgbe_ring_feature *f;
- 			f = &adapter->ring_feature[RING_F_FCOE];
- 			if ((i >= f->mask) && (i < f->mask + f->indices)) {
-@@ -2609,7 +2609,7 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 
- #ifdef IXGBE_FCOE
- 	/* adjust max frame to be able to do baby jumbo for FCoE */
--	if ((adapter->flags & IXGBE_FLAG_FCOE_ENABLED) &&
-+	if ((netdev->features & NETIF_F_FCOE_MTU) &&
- 	    (max_frame < IXGBE_FCOE_JUMBO_FRAME_SIZE))
- 		max_frame = IXGBE_FCOE_JUMBO_FRAME_SIZE;
- 
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
++#define NETDEV_FCOE_DISABLE		0x0
++#define NETDEV_FCOE_ENABLE		0x1
++	int			(*ndo_fcoe_control)(struct net_device *dev,
++	                                            u32 op);
+ 	int			(*ndo_fcoe_ddp_setup)(struct net_device *dev,
+ 						      u16 xid,
+ 						      struct scatterlist *sgl,
 
