@@ -1,93 +1,492 @@
 From: Gregory Haskins <ghaskins@novell.com>
-Subject: [PATCH v3 0/6] AlacrityVM guest drivers
-Date: Fri, 14 Aug 2009 11:42:52 -0400
-Message-ID: <20090814154125.26116.70709.stgit@dev.haskins.net>
+Subject: [PATCH v3 1/6] shm-signal: shared-memory signals
+Date: Fri, 14 Aug 2009 11:42:57 -0400
+Message-ID: <20090814154257.26116.64434.stgit@dev.haskins.net>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: alacrityvm-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932600AbZHNPnG@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932614AbZHNPnI@vger.kernel.org>
+In-Reply-To: <20090814154125.26116.70709.stgit@dev.haskins.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Applies to v2.6.31-rc6)
+shm-signal provides a generic shared-memory based bidirectional
+signaling mechanism.  It is used in conjunction with an existing
+signal transport (such as posix-signals, interrupts, pipes, etc) to
+increase the efficiency of the transport since the state information
+is directly accessible to both sides of the link.  The shared-memory
+design provides very cheap access to features such as event-masking
+and spurious delivery mititgation, and is useful implementing higher
+level shared-memory constructs such as rings.
 
-This series implements the guest-side drivers for accelerated IO
-when running on top of the AlacrityVM hypervisor, the details of
-which you can find here:
+We will use this mechanism as the basis for a shared-memory interface
+later in the series.
 
-http://developer.novell.com/wiki/index.php/AlacrityVM
-
-This series includes the basic plumbing, as well as the driver for
-accelerated 802.x (ethernet) networking.
-
-[ Changelog:
-
-  v3:
-     *) pci-bridge changes:
-          *) updated ABI to support FASTCALL
-          *) got rid of confusing "hypercall" nomenclature
-
-  v2:
-     *) venet changes: Updated venet driver based on Stephen Hemminger's
-        feedback
-	  *) folded patches 6/7 and 7/7 together
-	  *) get rid of shadow flags
-	  *) add missing baseline .ndo callbacks
-	  *) add support for ethtool
-
-  v1:
-     *) initial release
-}
-
-Regards,
--Greg
-
+Signed-off-by: Gregory Haskins <ghaskins@novell.com>
 ---
 
-Gregory Haskins (6):
-      net: Add vbus_enet driver
-      ioq: add driver-side vbus helpers
-      vbus-proxy: add a pci-to-vbus bridge
-      vbus: add a "vbus-proxy" bus model for vbus_driver objects
-      ioq: Add basic definitions for a shared-memory, lockless queue
-      shm-signal: shared-memory signals
-
-
- MAINTAINERS                 |   25 +
- arch/x86/Kconfig            |    2 
- drivers/Makefile            |    1 
- drivers/net/Kconfig         |   14 +
- drivers/net/Makefile        |    1 
- drivers/net/vbus-enet.c     |  895 +++++++++++++++++++++++++++++++++++++++++++
- drivers/vbus/Kconfig        |   24 +
- drivers/vbus/Makefile       |    6 
- drivers/vbus/bus-proxy.c    |  216 ++++++++++
- drivers/vbus/pci-bridge.c   |  877 ++++++++++++++++++++++++++++++++++++++++++
- include/linux/Kbuild        |    4 
- include/linux/ioq.h         |  415 ++++++++++++++++++++
- include/linux/shm_signal.h  |  189 +++++++++
- include/linux/vbus_driver.h |   80 ++++
- include/linux/vbus_pci.h    |  145 +++++++
- include/linux/venet.h       |   84 ++++
- lib/Kconfig                 |   21 +
- lib/Makefile                |    2 
- lib/ioq.c                   |  294 ++++++++++++++
- lib/shm_signal.c            |  192 +++++++++
- 20 files changed, 3487 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/vbus-enet.c
- create mode 100644 drivers/vbus/Kconfig
- create mode 100644 drivers/vbus/Makefile
- create mode 100644 drivers/vbus/bus-proxy.c
- create mode 100644 drivers/vbus/pci-bridge.c
- create mode 100644 include/linux/ioq.h
+ MAINTAINERS                |    6 +
+ include/linux/Kbuild       |    1 
+ include/linux/shm_signal.h |  189 +++++++++++++++++++++++++++++++++++++++++++
+ lib/Kconfig                |    9 ++
+ lib/Makefile               |    1 
+ lib/shm_signal.c           |  192 ++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 398 insertions(+), 0 deletions(-)
  create mode 100644 include/linux/shm_signal.h
- create mode 100644 include/linux/vbus_driver.h
- create mode 100644 include/linux/vbus_pci.h
- create mode 100644 include/linux/venet.h
- create mode 100644 lib/ioq.c
  create mode 100644 lib/shm_signal.c
 
--- 
-Signature
+diff --git a/MAINTAINERS b/MAINTAINERS
+index b1114cf..3e736fe 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4555,6 +4555,12 @@ F:	drivers/serial/serial_lh7a40x.c
+ F:	drivers/usb/gadget/lh7a40*
+ F:	drivers/usb/host/ohci-lh7a40*
+ 
++SHM-SIGNAL LIBRARY
++M:	Gregory Haskins <ghaskins@novell.com>
++S:	Maintained
++F:	include/linux/shm_signal.h
++F:	lib/shm_signal.c
++
+ SHPC HOTPLUG DRIVER
+ M:	Kristen Carlson Accardi <kristen.c.accardi@intel.com>
+ L:	linux-pci@vger.kernel.org
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index 334a359..01d67b6 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -331,6 +331,7 @@ unifdef-y += serial_core.h
+ unifdef-y += serial.h
+ unifdef-y += serio.h
+ unifdef-y += shm.h
++unifdef-y += shm_signal.h
+ unifdef-y += signal.h
+ unifdef-y += smb_fs.h
+ unifdef-y += smb.h
+diff --git a/include/linux/shm_signal.h b/include/linux/shm_signal.h
+new file mode 100644
+index 0000000..21cf750
+--- /dev/null
++++ b/include/linux/shm_signal.h
+@@ -0,0 +1,189 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#ifndef _LINUX_SHM_SIGNAL_H
++#define _LINUX_SHM_SIGNAL_H
++
++#include <linux/types.h>
++
++/*
++ *---------
++ * The following structures represent data that is shared across boundaries
++ * which may be quite disparate from one another (e.g. Windows vs Linux,
++ * 32 vs 64 bit, etc).  Therefore, care has been taken to make sure they
++ * present data in a manner that is independent of the environment.
++ *-----------
++ */
++
++#define SHM_SIGNAL_MAGIC 0x58fa39df
++#define SHM_SIGNAL_VER   1
++
++struct shm_signal_irq {
++	__u8                  enabled;
++	__u8                  pending;
++	__u8                  dirty;
++};
++
++enum shm_signal_locality {
++	shm_locality_north,
++	shm_locality_south,
++};
++
++struct shm_signal_desc {
++	__u32                 magic;
++	__u32                 ver;
++	struct shm_signal_irq irq[2];
++};
++
++/* --- END SHARED STRUCTURES --- */
++
++#ifdef __KERNEL__
++
++#include <linux/kref.h>
++#include <linux/interrupt.h>
++
++struct shm_signal_notifier {
++	void (*signal)(struct shm_signal_notifier *);
++};
++
++struct shm_signal;
++
++struct shm_signal_ops {
++	int      (*inject)(struct shm_signal *s);
++	void     (*fault)(struct shm_signal *s, const char *fmt, ...);
++	void     (*release)(struct shm_signal *s);
++};
++
++enum {
++	shm_signal_in_wakeup,
++};
++
++struct shm_signal {
++	struct kref                 kref;
++	spinlock_t                  lock;
++	enum shm_signal_locality    locale;
++	unsigned long               flags;
++	struct shm_signal_ops      *ops;
++	struct shm_signal_desc     *desc;
++	struct shm_signal_notifier *notifier;
++	struct tasklet_struct       deferred_notify;
++};
++
++#define SHM_SIGNAL_FAULT(s, fmt, args...)  \
++  ((s)->ops->fault ? (s)->ops->fault((s), fmt, ## args) : panic(fmt, ## args))
++
++ /*
++  * These functions should only be used internally
++  */
++void _shm_signal_release(struct kref *kref);
++void _shm_signal_wakeup(struct shm_signal *s);
++
++/**
++ * shm_signal_init() - initialize an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ *
++ * Initializes SHM_SIGNAL context before first use
++ *
++ **/
++void shm_signal_init(struct shm_signal *s, enum shm_signal_locality locale,
++		     struct shm_signal_ops *ops, struct shm_signal_desc *desc);
++
++/**
++ * shm_signal_get() - acquire an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
++ *
++ **/
++static inline struct shm_signal *shm_signal_get(struct shm_signal *s)
++{
++	kref_get(&s->kref);
++
++	return s;
++}
++
++/**
++ * shm_signal_put() - release an SHM_SIGNAL context reference
++ * @s:        SHM_SIGNAL context
++ *
++ **/
++static inline void shm_signal_put(struct shm_signal *s)
++{
++	kref_put(&s->kref, _shm_signal_release);
++}
++
++/**
++ * shm_signal_enable() - enables local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Enables/unmasks the registered notifier (if applicable) to receive wakeups
++ * whenever the remote side performs an shm_signal() operation. A notification
++ * will be dispatched immediately if any pending signals have already been
++ * issued prior to invoking this call.
++ *
++ * This is synonymous with unmasking an interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_enable(struct shm_signal *s, int flags);
++
++/**
++ * shm_signal_disable() - disable local notifications on an SHM_SIGNAL
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Disables/masks the registered shm_signal_notifier (if applicable) from
++ * receiving any further notifications.  Any subsequent calls to shm_signal()
++ * by the remote side will update the shm as dirty, but will not traverse the
++ * locale boundary and will not invoke the notifier callback.  Signals
++ * delivered while masked will be deferred until shm_signal_enable() is
++ * invoked.
++ *
++ * This is synonymous with masking an interrupt
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_disable(struct shm_signal *s, int flags);
++
++/**
++ * shm_signal_inject() - notify the remote side about shm changes
++ * @s:        SHM_SIGNAL context
++ * @flags:      Reserved for future use, must be 0
++ *
++ * Marks the shm state as "dirty" and, if enabled, will traverse
++ * a locale boundary to inject a remote notification.  The remote
++ * side controls whether the notification should be delivered via
++ * the shm_signal_enable/disable() interface.
++ *
++ * The specifics of how to traverse a locale boundary are abstracted
++ * by the shm_signal_ops->signal() interface and provided by a particular
++ * implementation.  However, typically going north to south would be
++ * something like a syscall/hypercall, and going south to north would be
++ * something like a posix-signal/guest-interrupt.
++ *
++ * Returns: success = 0, <0 = ERRNO
++ *
++ **/
++int shm_signal_inject(struct shm_signal *s, int flags);
++
++#endif /* __KERNEL__ */
++
++#endif /* _LINUX_SHM_SIGNAL_H */
+diff --git a/lib/Kconfig b/lib/Kconfig
+index bb1326d..136da19 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -200,4 +200,13 @@ config NLATTR
+ config GENERIC_ATOMIC64
+        bool
+ 
++config SHM_SIGNAL
++	tristate "SHM Signal - Generic shared-memory signaling mechanism"
++	default n
++	help
++	 Provides a shared-memory based signaling mechansim to indicate
++         memory-dirty notifications between two end-points.
++
++	 If unsure, say N
++
+ endmenu
+diff --git a/lib/Makefile b/lib/Makefile
+index 2e78277..503bf7b 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -76,6 +76,7 @@ obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
+ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
+ obj-$(CONFIG_SMP) += percpu_counter.o
+ obj-$(CONFIG_AUDIT_GENERIC) += audit.o
++obj-$(CONFIG_SHM_SIGNAL) += shm_signal.o
+ 
+ obj-$(CONFIG_SWIOTLB) += swiotlb.o
+ obj-$(CONFIG_IOMMU_HELPER) += iommu-helper.o
+diff --git a/lib/shm_signal.c b/lib/shm_signal.c
+new file mode 100644
+index 0000000..fbba74f
+--- /dev/null
++++ b/lib/shm_signal.c
+@@ -0,0 +1,192 @@
++/*
++ * Copyright 2009 Novell.  All Rights Reserved.
++ *
++ * See include/linux/shm_signal.h for documentation
++ *
++ * Author:
++ *      Gregory Haskins <ghaskins@novell.com>
++ *
++ * This file is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
++ */
++
++#include <linux/module.h>
++#include <linux/interrupt.h>
++#include <linux/shm_signal.h>
++
++int shm_signal_enable(struct shm_signal *s, int flags)
++{
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	unsigned long iflags;
++
++	spin_lock_irqsave(&s->lock, iflags);
++
++	irq->enabled = 1;
++	wmb();
++
++	if ((irq->dirty || irq->pending)
++	    && !test_bit(shm_signal_in_wakeup, &s->flags)) {
++		rmb();
++		tasklet_schedule(&s->deferred_notify);
++	}
++
++	spin_unlock_irqrestore(&s->lock, iflags);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(shm_signal_enable);
++
++int shm_signal_disable(struct shm_signal *s, int flags)
++{
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++
++	irq->enabled = 0;
++	wmb();
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(shm_signal_disable);
++
++/*
++ * signaling protocol:
++ *
++ * each side of the shm_signal has an "irq" structure with the following
++ * fields:
++ *
++ *    - enabled: controlled by shm_signal_enable/disable() to mask/unmask
++ *               the notification locally
++ *    - dirty:   indicates if the shared-memory is dirty or clean.  This
++ *               is updated regardless of the enabled/pending state so that
++ *               the state is always accurately tracked.
++ *    - pending: indicates if a signal is pending to the remote locale.
++ *               This allows us to determine if a remote-notification is
++ *               already in flight to optimize spurious notifications away.
++ */
++int shm_signal_inject(struct shm_signal *s, int flags)
++{
++	/* Load the irq structure from the other locale */
++	struct shm_signal_irq *irq = &s->desc->irq[!s->locale];
++
++	/*
++	 * We always mark the remote side as dirty regardless of whether
++	 * they need to be notified.
++	 */
++	irq->dirty = 1;
++	wmb();   /* dirty must be visible before we test the pending state */
++
++	if (irq->enabled && !irq->pending) {
++		rmb();
++
++		/*
++		 * If the remote side has enabled notifications, and we do
++		 * not see a notification pending, we must inject a new one.
++		 */
++		irq->pending = 1;
++		wmb(); /* make it visible before we do the injection */
++
++		s->ops->inject(s);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(shm_signal_inject);
++
++void _shm_signal_wakeup(struct shm_signal *s)
++{
++	struct shm_signal_irq *irq = &s->desc->irq[s->locale];
++	int dirty;
++	unsigned long flags;
++
++	spin_lock_irqsave(&s->lock, flags);
++
++	__set_bit(shm_signal_in_wakeup, &s->flags);
++
++	/*
++	 * The outer loop protects against race conditions between
++	 * irq->dirty and irq->pending updates
++	 */
++	while (irq->enabled && (irq->dirty || irq->pending)) {
++
++		/*
++		 * Run until we completely exhaust irq->dirty (it may
++		 * be re-dirtied by the remote side while we are in the
++		 * callback).  We let "pending" remain untouched until we have
++		 * processed them all so that the remote side knows we do not
++		 * need a new notification (yet).
++		 */
++		do {
++			irq->dirty = 0;
++			/* the unlock is an implicit wmb() for dirty = 0 */
++			spin_unlock_irqrestore(&s->lock, flags);
++
++			if (s->notifier)
++				s->notifier->signal(s->notifier);
++
++			spin_lock_irqsave(&s->lock, flags);
++			dirty = irq->dirty;
++			rmb();
++
++		} while (irq->enabled && dirty);
++
++		barrier();
++
++		/*
++		 * We can finally acknowledge the notification by clearing
++		 * "pending" after all of the dirty memory has been processed
++		 * Races against this clearing are handled by the outer loop.
++		 * Subsequent iterations of this loop will execute with
++		 * pending=0 potentially leading to future spurious
++		 * notifications, but this is an acceptable tradeoff as this
++		 * will be rare and harmless.
++		 */
++		irq->pending = 0;
++		wmb();
++
++	}
++
++	__clear_bit(shm_signal_in_wakeup, &s->flags);
++	spin_unlock_irqrestore(&s->lock, flags);
++
++}
++EXPORT_SYMBOL_GPL(_shm_signal_wakeup);
++
++void _shm_signal_release(struct kref *kref)
++{
++	struct shm_signal *s = container_of(kref, struct shm_signal, kref);
++
++	s->ops->release(s);
++}
++EXPORT_SYMBOL_GPL(_shm_signal_release);
++
++static void
++deferred_notify(unsigned long data)
++{
++	struct shm_signal *s = (struct shm_signal *)data;
++
++	_shm_signal_wakeup(s);
++}
++
++void shm_signal_init(struct shm_signal *s, enum shm_signal_locality locale,
++		     struct shm_signal_ops *ops, struct shm_signal_desc *desc)
++{
++	memset(s, 0, sizeof(*s));
++	kref_init(&s->kref);
++	spin_lock_init(&s->lock);
++	tasklet_init(&s->deferred_notify,
++		     deferred_notify,
++		     (unsigned long)s);
++	s->locale   = locale;
++	s->ops      = ops;
++	s->desc     = desc;
++}
++EXPORT_SYMBOL_GPL(shm_signal_init);
