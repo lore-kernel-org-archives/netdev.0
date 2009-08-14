@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 01/12] vlan: adds fcoe offload related
- net_device_ops and updates fcoe_ddp_xid field
-Date: Fri, 14 Aug 2009 16:12:36 -0700 (PDT)
-Message-ID: <20090814.161236.86686048.davem@davemloft.net>
+Subject: Re: [net-next PATCH 02/12] ixgbe: updates vlan feature flags to
+ enable FCoE offloads on vlan interface
+Date: Fri, 14 Aug 2009 16:12:42 -0700 (PDT)
+Message-ID: <20090814.161242.187642099.davem@davemloft.net>
 References: <20090814223857.1640.26881.stgit@localhost.localdomain>
-	<20090814224106.1640.6910.stgit@localhost.localdomain>
+	<20090814224127.1640.84665.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	gospo@redhat.com, vasu.dev@intel.com
+	gospo@redhat.com, vasu.dev@intel.com, yi.zou@intel.com,
+	peter.p.waskiewicz.jr@intel.com
 To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20090814224106.1640.6910.stgit@localhost.localdomain>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47138
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932102AbZHNXMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 19:12:31 -0400
+In-Reply-To: <20090814224127.1640.84665.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 14 Aug 2009 15:41:07 -0700
+Date: Fri, 14 Aug 2009 15:41:28 -0700
 
 > From: Vasu Dev <vasu.dev@intel.com>
 > 
-> Adds fcoe offload related net_device_ops functions vlan_dev_fcoe_ddp_setup
-> and vlan_dev_fcoe_ddp_done, their implementation simply calls real eth device
-> net_device_ops for FCoE DDP setup and done operations.
-> 
-> Updates VLAN netdev field value for fcoe_ddp_xid from real eth device netdev.
-> 
-> Above changes are required for fcoe DDP offload working on a VLAN interface.
+> Updates netdev->vlan_features for NETIF_F_FCOE_CRC and NETIF_F_FSO, so that
+> FCoE CRC and GSO offloads will get used for FCoE over ixgbe based vlan
+> interface.
 > 
 > Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
