@@ -1,90 +1,163 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 7/9] sky2: lock less transmit completion
-Date: Fri, 14 Aug 2009 08:15:18 -0700
-Message-ID: <20090814151608.441363342@vyatta.com>
+Subject: [PATCH 1/9] sky2: Avoid rewinding sky2->tx_prod
+Date: Fri, 14 Aug 2009 08:15:12 -0700
+Message-ID: <20090814151607.951053035@vyatta.com>
 References: <20090814151511.992669598@vyatta.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Mike McCormack <mikem@ring3k.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:44116 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:44125 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932514AbZHNPTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Aug 2009 11:19:51 -0400
-Content-Disposition: inline; filename=sky2-tx4b.patch
+	id S932564AbZHNPUG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Aug 2009 11:20:06 -0400
+Content-Disposition: inline; filename=sky2-tx1.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Transmit completion can safely run lockless against transmit start.
-In the normal case, completion is done from NAPI and only looks
-at elements that are at the tail of the ring.  When doing shutdown
-or reset, the transmiter should be completely block by NAPI disable
-and blocking of transmit queue. 
+From:	Mike McCormack <mikem@ring3k.org>
 
-Based on earlier work by Mike McCormack.
+Keep sky2->tx_prod consistent since int might be examined by
+an softirq poll or restart.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
- drivers/net/sky2.c |  120 +++++++++++++++++++++++++----------------------------
- 1 file changed, 57 insertions(+), 63 deletions(-)
+ drivers/net/sky2.c |   34 ++++++++++++++++++----------------
+ 1 files changed, 18 insertions(+), 16 deletions(-)
 
---- a/drivers/net/sky2.c	2009-08-14 07:58:48.448220547 -0700
-+++ b/drivers/net/sky2.c	2009-08-14 07:58:49.410251274 -0700
-@@ -1734,8 +1734,12 @@ mapping_error:
- /*
-  * Free ring elements from starting at tx_cons until "done"
-  *
-- * NB: the hardware will tell us about partial completion of multi-part
-+ * NB:
-+ *  1. The hardware will tell us about partial completion of multi-part
-  *     buffers so make sure not to free skb to early.
-+ *  2. This may run in parallel start_xmit because the it only
-+ *     looks at the tail of the queue of FIFO (tx_cons), not
-+ *     the head (tx_prod)
-  */
- static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
- {
-@@ -1793,16 +1797,6 @@ static void sky2_tx_complete(struct sky2
- 		netif_wake_queue(dev);
+--- a/drivers/net/sky2.c	2009-08-14 07:58:07.644188726 -0700
++++ b/drivers/net/sky2.c	2009-08-14 07:58:43.806126697 -0700
+@@ -989,11 +989,11 @@ static void sky2_prefetch_init(struct sk
+ 	sky2_read32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL));
  }
  
--/* Cleanup all untransmitted buffers, assume transmitter not running */
--static void sky2_tx_clean(struct net_device *dev)
--{
--	struct sky2_port *sky2 = netdev_priv(dev);
--
--	netif_tx_lock_bh(dev);
--	sky2_tx_complete(sky2, sky2->tx_prod);
--	netif_tx_unlock_bh(dev);
--}
--
- static void sky2_tx_reset(struct sky2_hw *hw, unsigned port)
+-static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2)
++static inline struct sky2_tx_le *get_tx_le(struct sky2_port *sky2, u16 *slot)
  {
- 	/* Disable Force Sync bit and Enable Alloc bit */
-@@ -1890,7 +1884,9 @@ static int sky2_down(struct net_device *
+-	struct sky2_tx_le *le = sky2->tx_le + sky2->tx_prod;
++	struct sky2_tx_le *le = sky2->tx_le + *slot;
  
- 	sky2_tx_reset(hw, port);
+-	sky2->tx_prod = RING_NEXT(sky2->tx_prod, TX_RING_SIZE);
++	*slot = RING_NEXT(*slot, TX_RING_SIZE);
+ 	le->ctrl = 0;
+ 	return le;
+ }
+@@ -1006,7 +1006,7 @@ static void tx_init(struct sky2_port *sk
+ 	sky2->tx_tcpsum = 0;
+ 	sky2->tx_last_mss = 0;
  
--	sky2_tx_clean(dev);
-+	/* Free any pending frames stuck in HW queue */
-+	sky2_tx_complete(sky2, sky2->tx_prod);
+-	le = get_tx_le(sky2);
++	le = get_tx_le(sky2, &sky2->tx_prod);
+ 	le->addr = 0;
+ 	le->opcode = OP_ADDR64 | HW_OWNER;
+ }
+@@ -1565,7 +1565,8 @@ static int sky2_xmit_frame(struct sk_buf
+ 	struct sky2_hw *hw = sky2->hw;
+ 	struct sky2_tx_le *le = NULL;
+ 	struct tx_ring_info *re;
+-	unsigned i, len, first_slot;
++	unsigned i, len;
++	u16 slot;
+ 	dma_addr_t mapping;
+ 	u16 mss;
+ 	u8 ctrl;
+@@ -1579,14 +1580,14 @@ static int sky2_xmit_frame(struct sk_buf
+ 	if (pci_dma_mapping_error(hw->pdev, mapping))
+ 		goto mapping_error;
+ 
+-	first_slot = sky2->tx_prod;
++	slot = sky2->tx_prod;
+ 	if (unlikely(netif_msg_tx_queued(sky2)))
+ 		printk(KERN_DEBUG "%s: tx queued, slot %u, len %d\n",
+-		       dev->name, first_slot, skb->len);
++		       dev->name, slot, skb->len);
+ 
+ 	/* Send high bits if needed */
+ 	if (sizeof(dma_addr_t) > sizeof(u32)) {
+-		le = get_tx_le(sky2);
++		le = get_tx_le(sky2, &slot);
+ 		le->addr = cpu_to_le32(upper_32_bits(mapping));
+ 		le->opcode = OP_ADDR64 | HW_OWNER;
+ 	}
+@@ -1599,7 +1600,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 			mss += ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
+ 
+   		if (mss != sky2->tx_last_mss) {
+-  			le = get_tx_le(sky2);
++			le = get_tx_le(sky2, &slot);
+   			le->addr = cpu_to_le32(mss);
+ 
+ 			if (hw->flags & SKY2_HW_NEW_LE)
+@@ -1615,7 +1616,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 	/* Add VLAN tag, can piggyback on LRGLEN or ADDR64 */
+ 	if (sky2->vlgrp && vlan_tx_tag_present(skb)) {
+ 		if (!le) {
+-			le = get_tx_le(sky2);
++			le = get_tx_le(sky2, &slot);
+ 			le->addr = 0;
+ 			le->opcode = OP_VLAN|HW_OWNER;
+ 		} else
+@@ -1644,7 +1645,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 			if (tcpsum != sky2->tx_tcpsum) {
+ 				sky2->tx_tcpsum = tcpsum;
+ 
+-				le = get_tx_le(sky2);
++				le = get_tx_le(sky2, &slot);
+ 				le->addr = cpu_to_le32(tcpsum);
+ 				le->length = 0;	/* initial checksum value */
+ 				le->ctrl = 1;	/* one packet */
+@@ -1653,7 +1654,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 		}
+ 	}
+ 
+-	le = get_tx_le(sky2);
++	le = get_tx_le(sky2, &slot);
+ 	le->addr = cpu_to_le32((u32) mapping);
+ 	le->length = cpu_to_le16(len);
+ 	le->ctrl = ctrl;
+@@ -1674,13 +1675,13 @@ static int sky2_xmit_frame(struct sk_buf
+ 			goto mapping_unwind;
+ 
+ 		if (sizeof(dma_addr_t) > sizeof(u32)) {
+-			le = get_tx_le(sky2);
++			le = get_tx_le(sky2, &slot);
+ 			le->addr = cpu_to_le32(upper_32_bits(mapping));
+ 			le->ctrl = 0;
+ 			le->opcode = OP_ADDR64 | HW_OWNER;
+ 		}
+ 
+-		le = get_tx_le(sky2);
++		le = get_tx_le(sky2, &slot);
+ 		le->addr = cpu_to_le32((u32) mapping);
+ 		le->length = cpu_to_le16(frag->size);
+ 		le->ctrl = ctrl;
+@@ -1694,6 +1695,8 @@ static int sky2_xmit_frame(struct sk_buf
+ 
+ 	le->ctrl |= EOP;
+ 
++	sky2->tx_prod = slot;
 +
- 	sky2_rx_clean(sky2);
+ 	if (tx_avail(sky2) <= MAX_SKB_TX_LE)
+ 		netif_stop_queue(dev);
  
- 	pci_free_consistent(hw->pdev, RX_LE_BYTES,
-@@ -2367,11 +2363,8 @@ static inline void sky2_tx_done(struct n
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
+@@ -1702,7 +1705,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 	return NETDEV_TX_OK;
  
--	if (netif_running(dev)) {
--		netif_tx_lock(dev);
-+	if (netif_running(dev))
- 		sky2_tx_complete(sky2, last);
--		netif_tx_unlock(dev);
--	}
- }
+ mapping_unwind:
+-	for (i = first_slot; i != sky2->tx_prod; i = RING_NEXT(i, TX_RING_SIZE)) {
++	for (i = sky2->tx_prod; i != slot; i = RING_NEXT(i, TX_RING_SIZE)) {
+ 		le = sky2->tx_le + i;
+ 		re = sky2->tx_ring + i;
  
- static inline void sky2_skb_rx(const struct sky2_port *sky2,
+@@ -1722,7 +1725,6 @@ mapping_unwind:
+ 		}
+ 	}
+ 
+-	sky2->tx_prod = first_slot;
+ mapping_error:
+ 	if (net_ratelimit())
+ 		dev_warn(&hw->pdev->dev, "%s: tx mapping error\n", dev->name);
 
 -- 
 
