@@ -1,52 +1,38 @@
-From: Davidlohr Bueso <dave@gnu.org>
-Subject: [PATCH] s2io: Remove unnecessary casts
-Date: Thu, 13 Aug 2009 22:03:28 -0400
-Message-ID: <20090814020328.GA21588@fencepost.gnu.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6 PATCH 1/2] ixgbe: Fix receive on real device when
+ VLANs are configured
+Date: Thu, 13 Aug 2009 20:14:19 -0700 (PDT)
+Message-ID: <20090813.201419.02548406.davem@davemloft.net>
+References: <20090814000929.20911.77027.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: ram.vepa@neterion.com, santosh.rastapur@neterion.com,
-	sivakumar.subramani@neterion.com, sreenivasa.honnur@neterion.com,
-	anil.murthy@neterion.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, lucy.liu@intel.com,
+	peter.p.waskiewicz.jr@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([140.186.70.10]:34049 "EHLO
-	fencepost.gnu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754185AbZHNCDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 22:03:30 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34458
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754450AbZHNDOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Aug 2009 23:14:09 -0400
+In-Reply-To: <20090814000929.20911.77027.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 13 Aug 2009 17:09:38 -0700
 
-No need to cast kmalloc.
+> From: Lucy Liu <lucy.liu@intel.com>
+> 
+> Traffic received with a priority tag (VID = 0) and non-zero priority value was
+> incorrectly handled by the VLAN packet code path due to a check on zero for
+> the whole VLAN tag instead of just the VID.
+> 
+> This patch masked out the priority field when checking the vlan tag for
+> received VLAN packets.
+> 
+> Signed-off-by: Lucy Liu <lucy.liu@intel.com>
+> Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: Davidlohr Bueso <dave@gnu.org>
-
----
- drivers/net/s2io.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 458daa0..43a5abf 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -870,8 +870,7 @@ static int init_shared_mem(struct s2io_nic *nic)
-                                while (k != rxd_count[nic->rxd_mode]) {
-                                        ba = &mac_control->rings[i].ba[j][k];
- 
--                                       ba->ba_0_org = (void *) kmalloc
--                                           (BUF0_LEN + ALIGN_SIZE, GFP_KERNEL);
-+                                       ba->ba_0_org = kmalloc(BUF0_LEN + ALIGN_SIZE, GFP_KERNEL);
-                                        if (!ba->ba_0_org)
-                                                return -ENOMEM;
-                                        mem_allocated +=
-@@ -881,8 +880,7 @@ static int init_shared_mem(struct s2io_nic *nic)
-                                        tmp &= ~((unsigned long) ALIGN_SIZE);
-                                        ba->ba_0 = (void *) tmp;
- 
--                                       ba->ba_1_org = (void *) kmalloc
--                                           (BUF1_LEN + ALIGN_SIZE, GFP_KERNEL);
-+                                       ba->ba_1_org = kmalloc(BUF1_LEN + ALIGN_SIZE, GFP_KERNEL);
-                                        if (!ba->ba_1_org)
-                                                return -ENOMEM;
-                                        mem_allocated
+Applied.
