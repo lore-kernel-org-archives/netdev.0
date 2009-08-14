@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 05/12] net: Add ndo_fcoe_control to net_device_ops
-Date: Fri, 14 Aug 2009 15:42:39 -0700
-Message-ID: <20090814224239.1640.74924.stgit@localhost.localdomain>
+Subject: [net-next PATCH 06/12] vlan: Add support for
+	net_devices_ops.ndo_fcoe_control to VLAN
+Date: Fri, 14 Aug 2009 15:43:03 -0700
+Message-ID: <20090814224303.1640.94218.stgit@localhost.localdomain>
 References: <20090814223857.1640.26881.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,46 +11,64 @@ Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	gospo@redhat.com, Yi Zou <yi.zou@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:46796 "EHLO
+	QMTA05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754049AbZHNWnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 18:43:20 -0400
 In-Reply-To: <20090814223857.1640.26881.stgit@localhost.localdomain>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-Add ndo_fcoe_control to net_device_ops so the corresponding HW can initialize
-itself for FCoE traffic or clean up after FCoE traffic is done. This is
-expected to be called by the kernel FCoE stack upon receiving a request for
-creating an FCoE instance on the corresponding netdev interface. When
-implemented by the actual HW, the HW driver check the op code to perform
-corresponding initialization or clean up for FCoE. The initialization normally
-includes allocating extra queues for FCoE, setting corresponding HW registers
-for FCoE, indicating FCoE offload features via netdev, etc. The clean-up would
-include releasing the resources allocated for FCoE.
-
-Currently, there are two defined op codes as NETDEV_FCOE_DISABLE and _ENABLE,
-for initialization and cleanup accordingly.
+This adds implementation of the net_devices_ops.ndo_fcoe_control to the VLAN
+driver. It checks if the real_dev has support for ndo_fcoe_control and pass on
+to call the associated real_dev->netdevice_ops->ndo_fcoe_control.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/netdevice.h |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/8021q/vlan_dev.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9192cdf..84c110b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -623,6 +623,10 @@ struct net_device_ops {
- 	void                    (*ndo_poll_controller)(struct net_device *dev);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 6e695ac..9a4ddf5 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -586,6 +586,17 @@ static int vlan_dev_fcoe_ddp_done(struct net_device *dev, u16 xid)
+ 
+ 	return len;
+ }
++
++static int vlan_dev_fcoe_control(struct net_device *dev, u32 op)
++{
++	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
++	const struct net_device_ops *ops = real_dev->netdev_ops;
++	int rc = -EINVAL;
++
++	if (ops->ndo_fcoe_control)
++		rc = ops->ndo_fcoe_control(real_dev, op);
++	return rc;
++}
  #endif
+ 
+ static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
+@@ -749,6 +760,7 @@ static const struct net_device_ops vlan_netdev_ops = {
  #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#define NETDEV_FCOE_DISABLE		0x0
-+#define NETDEV_FCOE_ENABLE		0x1
-+	int			(*ndo_fcoe_control)(struct net_device *dev,
-+	                                            u32 op);
- 	int			(*ndo_fcoe_ddp_setup)(struct net_device *dev,
- 						      u16 xid,
- 						      struct scatterlist *sgl,
+ 	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
+ 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
++	.ndo_fcoe_control	= vlan_dev_fcoe_control,
+ #endif
+ };
+ 
+@@ -769,6 +781,7 @@ static const struct net_device_ops vlan_netdev_accel_ops = {
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
+ 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
++	.ndo_fcoe_control	= vlan_dev_fcoe_control,
+ #endif
+ };
+ 
 
