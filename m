@@ -1,51 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ipv6: Change %pI6 format to output compacted addresses?
-Date: Fri, 14 Aug 2009 00:15:19 -0700 (PDT)
-Message-ID: <20090814.001519.40499255.davem@davemloft.net>
-References: <1250198022.28285.133.camel@Joe-Laptop.home>
-	<20090813.163133.199571497.davem@davemloft.net>
-	<1250230925.6641.92.camel@fnki-nb00130>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH net-2.6] can: Use WARN_ONCE() instead of BUG_ON() for
+ sanity check in receive path
+Date: Fri, 14 Aug 2009 10:11:56 +0200
+Message-ID: <4A851C4C.8060704@hartkopp.net>
+References: <4A80040D.3030009@hartkopp.net>	<20090812.220123.234730484.davem@davemloft.net>	<4A84FCAE.10309@hartkopp.net> <20090814.001322.146991956.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, chuck.lever@oracle.com, brian.haley@hp.com,
-	netdev@vger.kernel.org
-To: jens@mcbone.net
+Cc: urs@isnogud.escape.de, l.fu@pengutronix.de,
+	m.olbrich@pengutronix.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36416
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755259AbZHNHPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 03:15:08 -0400
-In-Reply-To: <1250230925.6641.92.camel@fnki-nb00130>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:12527 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753048AbZHNIME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 04:12:04 -0400
+In-Reply-To: <20090814.001322.146991956.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jens Rosenboom <jens@mcbone.net>
-Date: Fri, 14 Aug 2009 08:22:05 +0200
-
-> On Thu, 2009-08-13 at 16:31 -0700, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Thu, 13 Aug 2009 14:13:42 -0700
->> 
->> > On Thu, 2009-08-13 at 17:02 -0400, Chuck Lever wrote:
->> >> [ I would think user space in general should be using inet_pton(3)  
->> >> everywhere for such interfaces, so the format of these addresses  
->> >> wouldn't matter so much.  Probably impossible at this point. ]
->> > 
->> > David Miller is authoritative here.
->> 
->> In the final analysis, the risk is just too high to break
->> userspace.  So let's play conservative here and not change
->> the output for currently user visible stuff.
+David Miller wrote:
+> From: Oliver Hartkopp <oliver@hartkopp.net>
+> Date: Fri, 14 Aug 2009 07:57:02 +0200
 > 
-> So just to clarify, do you want us to drop the whole thread and stay
-> with the clumsy output, or would you be o.k. with adding a new 
-> %p{something} and use that for kernel messages and maybe do some slow
-> migration of other stuff where possible?
+>> David Miller wrote:
+>>> From: Oliver Hartkopp <oliver@hartkopp.net>
+>>> Date: Mon, 10 Aug 2009 13:27:09 +0200
+>>>
+>>>> Additionally it changes the return values to the common NET_RX_xxx constants.
+>>> Don't munge unrelated changes together like this, split it up.
+>>>
+>>> Also, this is not net-2.6 material, I will only apply these changes
+>>> to net-next-2.6 at this point.
+>> No problem.
+>>
+>> Btw. this patch was removed from patchwork and i was not able to find it in
+>> your latest net-next-2.6 push this morning.
+> 
+> It's not in net-next-2.6 because I didn't apply it, which is pretty
+> clealy implied when I'm asking you to split the change up into
+> multiple patches.
 
-You tell me what part of this you don't understand:
+Sorry - i assumed this to be a hint for the next time. My fault.
 
-	So let's play conservative here and not change
-	the output for currently user visible stuff.
+> 
+> When I ask for changes, I mark the patch in patchwork with the
+> "changes requested" state and expect you to send me new updated stuff.
+> 
+> You can look for patches in various "done" states by simply modifying
+> the "Filters" setting in the patch list.
 
-I can't figure out a way to express that more clearly than I did.
+Ah! I only had the filters on 'action required' and therefore is was not able
+to see what happened after the patches were removed from the 'action required'
+view ...
+
+I'll re-send two separate patches for net-next-2.6 .
+
+Thanks,
+Oliver
