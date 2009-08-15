@@ -1,72 +1,81 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] WAN: bit and/or confusion
-Date: Sat, 15 Aug 2009 20:46:24 +0200
-Message-ID: <m3iqgovrsv.fsf@intrepid.localdomain>
-References: <4A855DE2.2000907@gmail.com>
-	<20090814163644.0cc8974f.akpm@linux-foundation.org>
-	<20090814.164123.36875657.davem@davemloft.net>
-	<20090814165852.7338461e.akpm@linux-foundation.org>
-	<4A86BAF3.5060609@gmail.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
+ objects
+Date: Sat, 15 Aug 2009 14:15:48 -0500
+Message-ID: <4A870964.9090408@codemonkey.ws>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org
-To: Roel Kluin <roel.kluin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:42025 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751800AbZHOSqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Aug 2009 14:46:25 -0400
-In-Reply-To: <4A86BAF3.5060609@gmail.com> (Roel Kluin's message of "Sat\, 15 Aug 2009 15\:41\:07 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090815103243.GA26749@elte.hu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Roel Kluin <roel.kluin@gmail.com> writes:
+Ingo Molnar wrote:
+> * Gregory Haskins <ghaskins@novell.com> wrote:
+>
+>   
+>> This will generally be used for hypervisors to publish any host-side
+>> virtual devices up to a guest.  The guest will have the opportunity
+>> to consume any devices present on the vbus-proxy as if they were
+>> platform devices, similar to existing buses like PCI.
+>>
+>> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+>> ---
+>>
+>>  MAINTAINERS                 |    6 ++
+>>  arch/x86/Kconfig            |    2 +
+>>  drivers/Makefile            |    1 
+>>  drivers/vbus/Kconfig        |   14 ++++
+>>  drivers/vbus/Makefile       |    3 +
+>>  drivers/vbus/bus-proxy.c    |  152 +++++++++++++++++++++++++++++++++++++++++++
+>>  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
+>>  7 files changed, 251 insertions(+), 0 deletions(-)
+>>  create mode 100644 drivers/vbus/Kconfig
+>>  create mode 100644 drivers/vbus/Makefile
+>>  create mode 100644 drivers/vbus/bus-proxy.c
+>>  create mode 100644 include/linux/vbus_driver.h
+>>     
+>
+> Is there a consensus on this with the KVM folks? (i've added the KVM 
+> list to the Cc:)
+>   
 
-> +++ b/drivers/net/wan/dscc4.c
-> @@ -663,9 +663,9 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
->  	} else {
->  		if (skb->data[pkt_len] & FrameRdo)
->  			dev->stats.rx_fifo_errors++;
-> -		else if (!(skb->data[pkt_len] | ~FrameCrc))
-> +		else if (!(skb->data[pkt_len] & FrameCrc))
->  			dev->stats.rx_crc_errors++;
+I'll let Avi comment about it from a KVM perspective but from a QEMU 
+perspective, I don't think we want to support two paravirtual IO 
+frameworks.  I'd like to see them converge.  Since there's an install 
+base of guests today with virtio drivers, there really ought to be a 
+compelling reason to change the virtio ABI in a non-backwards compatible 
+way.  This means convergence really ought to be adding features to virtio.
 
-This looks like a correct fix.
+On paper, I don't think vbus really has any features over virtio.  vbus 
+does things in different ways (paravirtual bus vs. pci for discovery) 
+but I think we're happy with how virtio does things today.
 
-> -		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
-> +		else if (!(skb->data[pkt_len] & (FrameVfr | FrameRab)))
->  			dev->stats.rx_length_errors++;
+I think the reason vbus gets better performance for networking today is 
+that vbus' backends are in the kernel while virtio's backends are 
+currently in userspace.  Since Michael has a functioning in-kernel 
+backend for virtio-net now, I suspect we're weeks (maybe days) away from 
+performance results.  My expectation is that vhost + virtio-net will be 
+as good as venet + vbus.  If that's the case, then I don't see any 
+reason to adopt vbus unless Greg things there are other compelling 
+features over virtio.
 
-This test requires both FrameVfr and FrameRab to be true (zero). Perhaps
-it should be:
+Regards,
 
-> +		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) != FrameVfr | FrameRab)
+Anthony Liguori
 
->  		else
->  			dev->stats.rx_errors++;
+> 	Ingo
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
 
-rx_errors is incremented only on remaining errors. I think most drivers
-increment rx_errors on all RX errors, and simultaneously rx_*_errors
-when needed.
-
-
-Perhaps something like the following should be better?
-
-		u8 status = ~skb->data[pkt_len];
-
-		if (status == 0)
-			looks_good...;
-		else {
-			if (status & FrameRab)
-				...
-			if (status & FrameVfr)
-				...
-			etc.
-			rx_errors++;
-		}
-
-I don't have the hardware and can't test (donations of such hw welcome).
--- 
-Krzysztof Halasa
