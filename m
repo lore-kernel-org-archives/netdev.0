@@ -1,99 +1,141 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH] tcp: fix premature termination of FIN_WAIT2 time-wait sockets
-Date: Sat, 15 Aug 2009 03:39:12 +0300
-Message-ID: <200908150339.12730.opurdila@ixiacom.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2/5] cnic: Refine registration with bnx2.
+Date: Fri, 14 Aug 2009 18:49:44 -0700
+Message-ID: <1250300987-18407-3-git-send-email-mchan@broadcom.com>
+References: <1250300987-18407-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_wOghK/PcY9lIoCU"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:16936 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750805AbZHOAlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Aug 2009 20:41:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---Boundary-00=_wOghK/PcY9lIoCU
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+To: davem@davemloft.net, James.Bottomley@HansenPartnership.com,
+	michaelc@cs.wisc.edu
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1250300987-18407-1-git-send-email-mchan@broadcom.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Register and unregister with bnx2 during NETDEV_UP and NETDEV_DOWN
+events.  This simplifies the sequence of events and allows locking
+fixes in the next patch.
 
-NOTE: this issue has been found, fixed and tested on an ancient 2.6.7 kernel. 
-This patch is a blind port of that fix, since unfortunately there is no easy 
-way for me to reproduce the original issue with a newer kernel. But the issue 
-still seems to be there.
-
-tavi
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
+ drivers/net/cnic.c |   49 ++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 36 insertions(+), 13 deletions(-)
 
-There is a race condition in the time-wait sockets code that can lead
-to premature termination of FIN_WAIT2 and, subsequently, to RST
-generation when the FIN,ACK from the peer finally arrives:
-
-Time     TCP header
-0.000000 30755 > http [SYN] Seq=0 Win=2920 Len=0 MSS=1460 TSV=282912 TSER=0
-0.000008 http > 30755 aSYN, ACK] Seq=0 Ack=1 Win=2896 Len=0 MSS=1460 TSV=...
-0.136899 HEAD /1b.html?n1Lg=v1 HTTP/1.0 [Packet size limited during capture]
-0.136934 HTTP/1.0 200 OK [Packet size limited during capture]
-0.136945 http > 30755 [FIN, ACK] Seq=187 Ack=207 Win=2690 Len=0 TSV=270521...
-0.136974 30755 > http [ACK] Seq=207 Ack=187 Win=2734 Len=0 TSV=283049 TSER=...
-0.177983 30755 > http [ACK] Seq=207 Ack=188 Win=2733 Len=0 TSV=283089 TSER=...
-0.238618 30755 > http [FIN, ACK] Seq=207 Ack=188 Win=2733 Len=0 TSV=283151...
-0.238625 http > 30755 [RST] Seq=188 Win=0 Len=0
-
-Say twdr->slot = 1 and we are running inet_twdr_hangman and in this
-instance inet_twdr_do_twkill_work returns 1. At that point we will
-mark slot 1 and schedule inet_twdr_twkill_work. We will also make
-twdr->slot = 2.
-
-Next, a connection is closed and tcp_time_wait(TCP_FIN_WAIT2, timeo)
-is called which will create a new FIN_WAIT2 time-wait socket and will
-place it in the last to be reached slot, i.e. twdr->slot = 1.
-
-At this point say inet_twdr_twkill_work will run which will start
-destroying the time-wait sockets in slot 1, including the just added
-TCP_FIN_WAIT2 one.
-
-To avoid this issue we increment the slot only if all entries in the
-slot have been purged.
-
-This change may delay the slots cleanup by a time-wait death row
-period but only if the worker thread didn't had the time to run/purge
-the current slot in the next period (6 seconds with default sysctl
-settings). However, on such a busy system even without this change we
-would probably see delays...
-
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
- net/ipv4/inet_timewait_sock.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
---Boundary-00=_wOghK/PcY9lIoCU
-Content-Type: text/x-patch;
-  charset="utf-8";
-  name="b36bc8257b528fc8ce5d6e1eb988459f5c2be10d.diff"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: inline;
-	filename="b36bc8257b528fc8ce5d6e1eb988459f5c2be10d.diff"
-
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index 61283f9..13f0781 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -218,8 +218,8 @@ void inet_twdr_hangman(unsigned long data)
- 		/* We purged the entire slot, anything left?  */
- 		if (twdr->tw_count)
- 			need_timer = 1;
-+		twdr->slot = ((twdr->slot + 1) & (INET_TWDR_TWKILL_SLOTS - 1));
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index ecde186..2db81f0 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -2393,21 +2393,45 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
+ 	return 0;
+ }
+ 
+-static int cnic_start_hw(struct cnic_dev *dev)
++static int cnic_register_netdev(struct cnic_dev *dev)
+ {
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct cnic_eth_dev *ethdev = cp->ethdev;
+ 	int err;
+ 
+-	if (test_bit(CNIC_F_CNIC_UP, &dev->flags))
+-		return -EALREADY;
++	if (!ethdev)
++		return -ENODEV;
++
++	if (ethdev->drv_state & CNIC_DRV_STATE_REGD)
++		return 0;
+ 
+ 	err = ethdev->drv_register_cnic(dev->netdev, cp->cnic_ops, dev);
+-	if (err) {
++	if (err)
+ 		printk(KERN_ERR PFX "%s: register_cnic failed\n",
+ 		       dev->netdev->name);
+-		goto err2;
+-	}
++
++	return err;
++}
++
++static void cnic_unregister_netdev(struct cnic_dev *dev)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	struct cnic_eth_dev *ethdev = cp->ethdev;
++
++	if (!ethdev)
++		return;
++
++	ethdev->drv_unregister_cnic(dev->netdev);
++}
++
++static int cnic_start_hw(struct cnic_dev *dev)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	struct cnic_eth_dev *ethdev = cp->ethdev;
++	int err;
++
++	if (test_bit(CNIC_F_CNIC_UP, &dev->flags))
++		return -EALREADY;
+ 
+ 	dev->regview = ethdev->io_base;
+ 	cp->chip_id = ethdev->chip_id;
+@@ -2438,18 +2462,13 @@ static int cnic_start_hw(struct cnic_dev *dev)
+ 	return 0;
+ 
+ err1:
+-	ethdev->drv_unregister_cnic(dev->netdev);
+ 	cp->free_resc(dev);
+ 	pci_dev_put(dev->pcidev);
+-err2:
+ 	return err;
+ }
+ 
+ static void cnic_stop_bnx2_hw(struct cnic_dev *dev)
+ {
+-	struct cnic_local *cp = dev->cnic_priv;
+-	struct cnic_eth_dev *ethdev = cp->ethdev;
+-
+ 	cnic_disable_bnx2_int_sync(dev);
+ 
+ 	cnic_reg_wr_ind(dev, BNX2_CP_SCRATCH + 0x20, 0);
+@@ -2461,8 +2480,6 @@ static void cnic_stop_bnx2_hw(struct cnic_dev *dev)
+ 	cnic_setup_5709_context(dev, 0);
+ 	cnic_free_irq(dev);
+ 
+-	ethdev->drv_unregister_cnic(dev->netdev);
+-
+ 	cnic_free_resc(dev);
+ }
+ 
+@@ -2646,6 +2663,10 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
+ 		else if (event == NETDEV_UNREGISTER)
+ 			cnic_ulp_exit(dev);
+ 		else if (event == NETDEV_UP) {
++			if (cnic_register_netdev(dev) != 0) {
++				cnic_put(dev);
++				goto done;
++			}
+ 			mutex_lock(&cnic_lock);
+ 			if (!cnic_start_hw(dev))
+ 				cnic_ulp_start(dev);
+@@ -2672,6 +2693,7 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
+ 			cnic_ulp_stop(dev);
+ 			cnic_stop_hw(dev);
+ 			mutex_unlock(&cnic_lock);
++			cnic_unregister_netdev(dev);
+ 		} else if (event == NETDEV_UNREGISTER) {
+ 			write_lock(&cnic_dev_lock);
+ 			list_del_init(&dev->list);
+@@ -2703,6 +2725,7 @@ static void cnic_release(void)
+ 		}
+ 
+ 		cnic_ulp_exit(dev);
++		cnic_unregister_netdev(dev);
+ 		list_del_init(&dev->list);
+ 		cnic_free_dev(dev);
  	}
--	twdr->slot = ((twdr->slot + 1) & (INET_TWDR_TWKILL_SLOTS - 1));
- 	if (need_timer)
- 		mod_timer(&twdr->tw_timer, jiffies + twdr->period);
- out:
-
---Boundary-00=_wOghK/PcY9lIoCU--
+-- 
+1.5.6.GIT
 
 
