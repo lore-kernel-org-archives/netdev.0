@@ -1,46 +1,54 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Sat, 15 Aug 2009 12:32:43 +0200
-Message-ID: <20090815103243.GA26749@elte.hu>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] WAN: bit and/or confusion
+Date: Sat, 15 Aug 2009 15:41:07 +0200
+Message-ID: <4A86BAF3.5060609@gmail.com>
+References: <4A855DE2.2000907@gmail.com>	<20090814163644.0cc8974f.akpm@linux-foundation.org>	<20090814.164123.36875657.davem@davemloft.net> <20090814165852.7338461e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090814154308.26116.46980.stgit@dev.haskins.net>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.27]:13891 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbZHONgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Aug 2009 09:36:54 -0400
+Received: by ey-out-2122.google.com with SMTP id 22so451600eye.37
+        for <netdev@vger.kernel.org>; Sat, 15 Aug 2009 06:36:54 -0700 (PDT)
+In-Reply-To: <20090814165852.7338461e.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Fix the tests that check whether Frame* bits are not set
 
-* Gregory Haskins <ghaskins@novell.com> wrote:
-
-> This will generally be used for hypervisors to publish any host-side
-> virtual devices up to a guest.  The guest will have the opportunity
-> to consume any devices present on the vbus-proxy as if they were
-> platform devices, similar to existing buses like PCI.
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+> we need
 > 
-> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
-> ---
+> 	else if (!(skb->data[pkt_len] & FrameCrc))
+
+> vfr is "valid frame".  0 is invalid.
 > 
->  MAINTAINERS                 |    6 ++
->  arch/x86/Kconfig            |    2 +
->  drivers/Makefile            |    1 
->  drivers/vbus/Kconfig        |   14 ++++
->  drivers/vbus/Makefile       |    3 +
->  drivers/vbus/bus-proxy.c    |  152 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
->  7 files changed, 251 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/vbus/Kconfig
->  create mode 100644 drivers/vbus/Makefile
->  create mode 100644 drivers/vbus/bus-proxy.c
->  create mode 100644 include/linux/vbus_driver.h
+> rab is "receive message aborted".  The data sheet doesn't actually say
+> if the bit is active-high or active-low (grr).  
 
-Is there a consensus on this with the KVM folks? (i've added the KVM 
-list to the Cc:)
+Maybe someone could test this?
 
-	Ingo
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index 8face5d..b686050 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -663,9 +663,9 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
+ 	} else {
+ 		if (skb->data[pkt_len] & FrameRdo)
+ 			dev->stats.rx_fifo_errors++;
+-		else if (!(skb->data[pkt_len] | ~FrameCrc))
++		else if (!(skb->data[pkt_len] & FrameCrc))
+ 			dev->stats.rx_crc_errors++;
+-		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
++		else if (!(skb->data[pkt_len] & (FrameVfr | FrameRab)))
+ 			dev->stats.rx_length_errors++;
+ 		else
+ 			dev->stats.rx_errors++;
+
