@@ -1,128 +1,92 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
-Date: Sun, 16 Aug 2009 09:51:10 +0300
-Message-ID: <20090816065110.GA3008@redhat.com>
-References: <cover.1250187913.git.mst@redhat.com> <20090813182931.GC6585@redhat.com> <200908141340.36176.arnd@arndb.de>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
+	vbus_driver objects
+Date: Sun, 16 Aug 2009 09:16:07 +0200
+Message-ID: <20090816071607.GB29537@elte.hu>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Anthony Liguori <anthony@codemonkey.ws>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753088AbZHPHQ2@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <200908141340.36176.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <4A870964.9090408@codemonkey.ws>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 14, 2009 at 01:40:36PM +0200, Arnd Bergmann wrote:
-> On Thursday 13 August 2009, Michael S. Tsirkin wrote:
-> > What it is: vhost net is a character device that can be used to reduce
-> > the number of system calls involved in virtio networking.
-> > Existing virtio net code is used in the guest without modification.
-> 
-> AFAICT, you have addressed all my comments, mostly by convincing me
-> that you got it right anyway ;-).
-> 
-> I hope this gets into 2.6.32, good work!
-> 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> One idea though:
-> 
-> > +	/* Parameter checking */
-> > +	if (sock->sk->sk_type != SOCK_RAW) {
-> > +		r = -ESOCKTNOSUPPORT;
-> > +		goto done;
-> > +	}
-> > +
-> > +	r = sock->ops->getname(sock, (struct sockaddr *)&uaddr.sa,
-> > +			       &uaddr_len, 0);
-> > +	if (r)
-> > +		goto done;
-> > +
-> > +	if (uaddr.sa.sll_family != AF_PACKET) {
-> > +		r = -EPFNOSUPPORT;
-> > +		goto done;
-> > +	}
-> 
-> You currently limit the scope of the driver by only allowing raw packet
-> sockets to be passed into the network driver. In qemu, we currently support
-> some very similar transports:
-> 
-> * raw packet (not in a release yet)
-> * tcp connection
-> * UDP multicast
-> * tap character device
-> * VDE with Unix local sockets
-> 
-> My primary interest right now is the tap support, but I think it would
-> be interesting in general to allow different file descriptor types
-> in vhost_net_set_socket. AFAICT, there are two major differences
-> that we need to handle for this:
-> 
-> * most of the transports are sockets, tap uses a character device.
->   This could be dealt with by having both a struct socket * in
->   struct vhost_net *and* a struct file *, or by always keeping the
->   struct file and calling vfs_readv/vfs_writev for the data transport
->   in both cases.
 
-I am concerned that character devices might have weird side effects with
-read/write operations and that calling them from kernel thread the way I
-do might have security implications. Can't point at anything specific
-though at the moment.
-I wonder - can we expose the underlying socket used by tap, or will that
-create complex lifetime issues?
+* Anthony Liguori <anthony@codemonkey.ws> wrote:
 
-> * Each transport has a slightly different header, we have
->   - raw ethernet frames (raw, udp multicast, tap)
->   - 32-bit length + raw frames, possibly fragmented (tcp)
->   - 80-bit header + raw frames, possibly fragmented (tap with vnet_hdr)
->   To handle these three cases, we need either different ioctl numbers
->   so that vhost_net can choose the right one, or a flags field in
->   VHOST_NET_SET_SOCKET, like
-> 
->   #define VHOST_NET_RAW		1
->   #define VHOST_NET_LEN_HDR	2
->   #define VHOST_NET_VNET_HDR	4
-> 
->   struct vhost_net_socket {
-> 	unsigned int flags;
-> 	int fd;
->   };
->   #define VHOST_NET_SET_SOCKET _IOW(VHOST_VIRTIO, 0x30, struct vhost_net_socket)
+> Ingo Molnar wrote:
+>> * Gregory Haskins <ghaskins@novell.com> wrote:
+>>
+>>   
+>>> This will generally be used for hypervisors to publish any host-side
+>>> virtual devices up to a guest.  The guest will have the opportunity
+>>> to consume any devices present on the vbus-proxy as if they were
+>>> platform devices, similar to existing buses like PCI.
+>>>
+>>> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+>>> ---
+>>>
+>>>  MAINTAINERS                 |    6 ++
+>>>  arch/x86/Kconfig            |    2 +
+>>>  drivers/Makefile            |    1  drivers/vbus/Kconfig        |   
+>>> 14 ++++
+>>>  drivers/vbus/Makefile       |    3 +
+>>>  drivers/vbus/bus-proxy.c    |  152 +++++++++++++++++++++++++++++++++++++++++++
+>>>  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
+>>>  7 files changed, 251 insertions(+), 0 deletions(-)
+>>>  create mode 100644 drivers/vbus/Kconfig
+>>>  create mode 100644 drivers/vbus/Makefile
+>>>  create mode 100644 drivers/vbus/bus-proxy.c
+>>>  create mode 100644 include/linux/vbus_driver.h
+>>>     
+>>
+>> Is there a consensus on this with the KVM folks? (i've added the KVM  
+>> list to the Cc:)
+>   
+> I'll let Avi comment about it from a KVM perspective but from a 
+> QEMU perspective, I don't think we want to support two paravirtual 
+> IO frameworks.  I'd like to see them converge.  Since there's an 
+> install base of guests today with virtio drivers, there really 
+> ought to be a compelling reason to change the virtio ABI in a 
+> non-backwards compatible way.  This means convergence really ought 
+> to be adding features to virtio.
 
-It seems we can query the socket to find out the type, or use the
-features ioctl.
+I agree.
 
-> If both of those are addressed, we can treat vhost_net as a generic
-> way to do network handling in the kernel independent of the qemu
-> model (raw, tap, ...) for it. 
-> 
-> Your qemu patch would have to work differently, so instead of 
-> 
-> qemu -net nic,vhost=eth0
-> 
-> you would do the same as today with the raw packet socket extension
-> 
-> qemu -net nic -net raw,ifname=eth0 
-> 
-> Qemu could then automatically try to use vhost_net, if it's available
-> in the kernel, or just fall back on software vlan otherwise.
-> Does that make sense?
-> 
-> 	Arnd <>
+While different paravirt drivers are inevitable for things that are 
+externally constrained (say support different hypervisors), doing 
+different _Linux internal_ paravirt drivers looks plain stupid and 
+counter-productive. It splits testing and development.
 
-I agree, long term it should be enabled automatically when possible.
+So either the vbus code replaces virtio (for technical merits such 
+as performance and other details), or virtio is enhanced with the 
+vbus performance enhancements.
 
--- 
-MST
+> On paper, I don't think vbus really has any features over virtio.  
+> vbus does things in different ways (paravirtual bus vs. pci for 
+> discovery) but I think we're happy with how virtio does things 
+> today.
+>
+> I think the reason vbus gets better performance for networking 
+> today is that vbus' backends are in the kernel while virtio's 
+> backends are currently in userspace.  Since Michael has a 
+> functioning in-kernel backend for virtio-net now, I suspect we're 
+> weeks (maybe days) away from performance results.  My expectation 
+> is that vhost + virtio-net will be as good as venet + vbus.  If 
+> that's the case, then I don't see any reason to adopt vbus unless 
+> Greg things there are other compelling features over virtio.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Keeping virtio's backend in user-space was rather stupid IMHO. 
+
+Having the _option_ to piggyback to user-space (for flexibility, 
+extensibility, etc.) is OK, but not having kernel acceleration is 
+bad.
+
+	Ingo
