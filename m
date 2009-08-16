@@ -1,70 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Revert netlink ABI change to gnet_stats_basic
-Date: Sun, 16 Aug 2009 14:33:48 +0200
-Message-ID: <4A87FCAC.5070705@gmail.com>
-References: <1250002683-28554-1-git-send-email-mspang@csclub.uwaterloo.ca>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC] defer skb allocation in virtio_net -- mergable buff part
+Date: Sun, 16 Aug 2009 16:47:42 +0300
+Message-ID: <4A880DFE.2040507@redhat.com>
+References: <1250145231.6653.29.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Michael Spang <mspang@csclub.uwaterloo.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752079AbZHPMeG@vger.kernel.org>
-In-Reply-To: <1250002683-28554-1-git-send-email-mspang@csclub.uwaterloo.ca>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751928AbZHPNrz@vger.kernel.org>
+In-Reply-To: <1250145231.6653.29.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Spang a =E9crit :
-> In 5e140dfc1fe87eae27846f193086724806b33c7d "net: reorder struct Qdis=
-c
-> for better SMP performance" the definition of struct gnet_stats_basic
-> changed incompatibly, and as copies of this struct may be shipped to
-> userland via netlink. This reverts back to the old ABI.
-
-So userland expects to get exactly 16 bytes instead of 12 ?
-
-iproute2 has no problem :
-
-void print_tcstats2_attr(FILE *fp, struct rtattr *rta, char *prefix, st=
-ruct rtattr **xstats)
-{
-        SPRINT_BUF(b1);
-        struct rtattr *tbs[TCA_STATS_MAX + 1];
-
-        parse_rtattr_nested(tbs, TCA_STATS_MAX, rta);
-
-        if (tbs[TCA_STATS_BASIC]) {
-                struct gnet_stats_basic bs =3D {0};
-                memcpy(&bs, RTA_DATA(tbs[TCA_STATS_BASIC]), MIN(RTA_PAY=
-LOAD(tbs[TCA_STATS_BASIC]), sizeof(bs)));
-                fprintf(fp, "%sSent %llu bytes %u pkt",
-                        prefix, (unsigned long long) bs.bytes, bs.packe=
-ts);
-        }
-
-
-What exactly broke after patch was pushed ?
-
-It would be better to fix gnet_stats_copy_basic() if necessary...
-
-
->=20
-> Signed-off-by: Michael Spang <mspang@csclub.uwaterloo.ca>
+On 08/13/2009 09:33 AM, Shirley Ma wrote:
+> Guest virtio_net receives packets from its pre-allocated vring
+> buffers, then it delivers these packets to upper layer protocols
+> as skb buffs. So it's not necessary to pre-allocate skb for each
+> mergable buffer, then frees it when it's useless.
+>
+> This patch has deferred skb allocation to when receiving packets,
+> it reduces skb pre-allocations and skb_frees. And it induces two
+> page list: freed_pages and used_page list, used_pages is used to
+> track pages pre-allocated, it is only useful when removing virtio_net.
+>
+> This patch has tested and measured against 2.6.31-rc4 git,
+> I thought this patch will improve large packet performance, but I saw
+> netperf TCP_STREAM performance improved for small packet for both
+> local guest to host and host to local guest cases. It also reduces
+> UDP packets drop rate from host to local guest. I am not fully understand
+> why.
+>
+> The netperf results from my laptop are:
+>
+> mtu=1500
+> netperf -H xxx -l 120
+>
+> 		w/o patch	w/i patch (two runs)	
+> guest to host:  3336.84Mb/s   3730.14Mb/s ~ 3582.88Mb/s
+>
+> host to guest:  3165.10Mb/s   3370.39Mb/s ~ 3407.96Mb/s
+>
+> Here is the patch for your review. The same approach can apply to non-mergable
+> buffs too, so we can use code in common. If there is no objection, I will
+> submit the non-mergable buffs patch later.
+>
+>
+> Signed-off-by: Shirley Ma<xma@us.ibm.com>
 > ---
->  include/linux/gen_stats.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/gen_stats.h b/include/linux/gen_stats.h
-> index 0ffa41d..13f4e74 100644
-> --- a/include/linux/gen_stats.h
-> +++ b/include/linux/gen_stats.h
-> @@ -22,7 +22,7 @@ struct gnet_stats_basic
->  {
->  	__u64	bytes;
->  	__u32	packets;
-> -} __attribute__ ((packed));
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 2a6e81d..e31ebc9 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -17,6 +17,7 @@
+>    * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+>    */
+>   //#define DEBUG
+> +#include<linux/list.h>
+>   #include<linux/netdevice.h>
+>   #include<linux/etherdevice.h>
+>   #include<linux/ethtool.h>
+> @@ -39,6 +40,12 @@ module_param(gso, bool, 0444);
+>
+>   #define VIRTNET_SEND_COMMAND_SG_MAX    2
+>
+> +struct page_list
+> +{
+> +	struct page *page;
+> +	struct list_head list;
 > +};
-> =20
->  /**
->   * struct gnet_stats_rate_est - rate estimator
+>    
+
+This is an inefficient way to store a list of pages.  Each page requires 
+an allocation and a cache line.
+
+Alternatives include:
+- store the link in the page itself
+- have an array of pages per list element instead of just one pointer
+- combine the two, store an array of page pointers in one of the free pages
+- use the struct page::lru member
+
+The last is the most traditional and easiest so I'd recommend it (though 
+it still takes the cacheline hit).
+
+> +static struct page_list *get_a_free_page(struct virtnet_info *vi, gfp_t gfp_mask)
+> +{
+> +	struct page_list *plist;
+> +
+> +	if (list_empty(&vi->freed_pages)) {
+> +		plist = kmalloc(sizeof(struct page_list), gfp_mask);
+> +		if (!plist)
+> +			return NULL;
+> +		list_add_tail(&plist->list,&vi->freed_pages);
+> +		plist->page = alloc_page(gfp_mask);
+>    
+
+What if the allocation fails here?
+
+-- 
+error compiling committee.c: too many arguments to function
