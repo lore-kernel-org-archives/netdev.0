@@ -1,290 +1,128 @@
-From: Andrew Lutomirski <luto@mit.edu>
-Subject: TX on r8169 causes latency and messes up real-time apps, on some
-	boards
-Date: Sun, 16 Aug 2009 06:39:37 -0400
-Message-ID: <cb0375e10908160339i4526b957nf73b0576f19da2bd@mail.gmail.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] Pegasus: Add MAC programmability
+Date: Sun, 16 Aug 2009 15:04:21 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.0908161454480.3318@fry.nucleusys.com>
+References: <8447d6730908130310n27f94e9agdfaf688c50fa90b@mail.gmail.com>  <e75fcab5ff0b69446555a633bdb1907d.squirrel@nucleusys.com> <8447d6730908142318i2a3b8b2fx828e9601f4faea15@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0023545bdc1ce3286d04713fe6dc
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	petkan@users.sourceforge.net
+To: Davide Rizzo <elpa.rizzo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:53047 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753290AbZHPKjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2009 06:39:37 -0400
-Received: by bwz22 with SMTP id 22so1824391bwz.18
-        for <netdev@vger.kernel.org>; Sun, 16 Aug 2009 03:39:37 -0700 (PDT)
+Received: from lan.nucleusys.com ([78.83.248.164]:43547 "EHLO
+	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754098AbZHPMEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2009 08:04:36 -0400
+In-Reply-To: <8447d6730908142318i2a3b8b2fx828e9601f4faea15@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0023545bdc1ce3286d04713fe6dc
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Nope, i don't recall having the eeprom data.  It is not that important 
+anyway.  Apart from permanently storing the MAC address in the eeprom, 
+write to it should be avoided.
 
-Hi-
+There's no API i know of.  The easiest way to change driver's behavior is 
+using driver parameters via modprobe.
 
-I'm having a bit of a mystery problem.  I have a bunch of identical
-machines (Intel D201GLY2A + Trendnet TEG-PCITXR) which all work
-wonderfully.
 
-I have four brand-new machines that should be basically identical,
-except that they are Intel D201GLY2 boards to which I have attached
-fans myself (that's supposed to be the only difference), and for which
-I bought the Trendnet TEG-PCITXR cards much later.  On those four new
-machines, transmitting with the Trendnet card breaks my real-time app.
+ 		Petko
 
-These are 2.6.30.1, although I've reproduced the behavior on
-2.6.29.something.  All machines in question are running bitwise
-identical kernels and userspace.
 
-I've diffed the dmesg results.  The good machines differ only in
-BogoMIPS (tiny difference), MAC addresses (obviously), and RTC time.
-The difference from good to bad is attached and also shows which r8169
-device I have.  (The USB stuff at the bottom is the real-time device
-in question.)
+On Sat, 15 Aug 2009, Davide Rizzo wrote:
 
-The working machines do have a newer BIOS, and the only difference I
-see that might make a difference is that the PWM fan control changed,
-which might affect SMI latency, but I don't see why this should only
-matter when sending data over the network.
-
-Any ideas?  I'm happy to test things.
-
-Thanks,
-Andy
-
---0023545bdc1ce3286d04713fe6dc
-Content-Type: text/plain; charset=US-ASCII; name="dmesg_diff.txt"
-Content-Disposition: attachment; filename="dmesg_diff.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fyfn4qml1
-
-LS0tIC90bXAvYzEJMjAwOS0wOC0xNiAwNjoyODoyMi4wMDAwMDAwMDAgLTA0MDAKKysrIC90bXAv
-YzE2CTIwMDktMDgtMTYgMDY6MzM6NTYuMDAwMDAwMDAwIC0wNDAwCkBAIC02LDkgKzYsOSBAQAog
-IEJJT1MtZTgyMDogMDAwMDAwMDAwMDAwMDAwMCAtIDAwMDAwMDAwMDAwOWZjMDAgKHVzYWJsZSkK
-ICBCSU9TLWU4MjA6IDAwMDAwMDAwMDAwOWZjMDAgLSAwMDAwMDAwMDAwMGEwMDAwIChyZXNlcnZl
-ZCkKICBCSU9TLWU4MjA6IDAwMDAwMDAwMDAwZTAwMDAgLSAwMDAwMDAwMDAwMTAwMDAwIChyZXNl
-cnZlZCkKLSBCSU9TLWU4MjA6IDAwMDAwMDAwMDAxMDAwMDAgLSAwMDAwMDAwMDNjZTM0MDAwICh1
-c2FibGUpCi0gQklPUy1lODIwOiAwMDAwMDAwMDNjZTM0MDAwIC0gMDAwMDAwMDAzZDIzNTAwMCAo
-QUNQSSBOVlMpCi0gQklPUy1lODIwOiAwMDAwMDAwMDNkMjM1MDAwIC0gMDAwMDAwMDAzZGRmMjAw
-MCAodXNhYmxlKQorIEJJT1MtZTgyMDogMDAwMDAwMDAwMDEwMDAwMCAtIDAwMDAwMDAwM2QxMzUw
-MDAgKHVzYWJsZSkKKyBCSU9TLWU4MjA6IDAwMDAwMDAwM2QxMzUwMDAgLSAwMDAwMDAwMDNkMjM2
-MDAwIChBQ1BJIE5WUykKKyBCSU9TLWU4MjA6IDAwMDAwMDAwM2QyMzYwMDAgLSAwMDAwMDAwMDNk
-ZGYyMDAwICh1c2FibGUpCiAgQklPUy1lODIwOiAwMDAwMDAwMDNkZGYyMDAwIC0gMDAwMDAwMDAz
-ZGRmNDAwMCAocmVzZXJ2ZWQpCiAgQklPUy1lODIwOiAwMDAwMDAwMDNkZGY0MDAwIC0gMDAwMDAw
-MDAzZGU3MTAwMCAodXNhYmxlKQogIEJJT1MtZTgyMDogMDAwMDAwMDAzZGU3MTAwMCAtIDAwMDAw
-MDAwM2RlZjcwMDAgKEFDUEkgTlZTKQpAQCAtMzYsMTggKzM2LDE4IEBACiAgMDAwMDAwMDAwMCAt
-IDAwM2RlMDAwMDAgcGFnZSAyTQogIDAwM2RlMDAwMDAgLSAwMDNkZjAwMDAwIHBhZ2UgNGsKIGtl
-cm5lbCBkaXJlY3QgbWFwcGluZyB0YWJsZXMgdXAgdG8gM2RmMDAwMDAgQCA4MDAwLWIwMDAKLVJB
-TURJU0s6IDNjMDA5MDAwIC0gM2NlMTNhMmQKK1JBTURJU0s6IDNjMzBhMDAwIC0gM2QxMTRhMmQK
-IEFDUEk6IFJTRFAgMDAwMDAwMDAwMDBmZTAyMCAwMDAxNCAodjAwIElOVEVMICkKLUFDUEk6IFJT
-RFQgMDAwMDAwMDAzZGVmZTAzOCAwMDAyQyAodjAxIElOVEVMICBERzk2NUNPICAwMDAwMDA4NiAg
-ICAgIDAxMDAwMDEzKQotQUNQSTogRkFDUCAwMDAwMDAwMDNkZWZkMDAwIDAwMDc0ICh2MDEgSU5U
-RUwgIERHOTY1Q08gIDAwMDAwMDg2IE1TRlQgMDEwMDAwMTMpCi1BQ1BJOiBEU0RUIDAwMDAwMDAw
-M2RlZjkwMDAgMDMwRjYgKHYwMSBJTlRFTCAgREc5NjVDTyAgMDAwMDAwODYgTVNGVCAwMTAwMDAx
-MykKK0FDUEk6IFJTRFQgMDAwMDAwMDAzZGVmZTAzOCAwMDAyQyAodjAxIElOVEVMICBERzk2NUNP
-ICAwMDAwMDA3QSAgICAgIDAxMDAwMDEzKQorQUNQSTogRkFDUCAwMDAwMDAwMDNkZWZkMDAwIDAw
-MDc0ICh2MDEgSU5URUwgIERHOTY1Q08gIDAwMDAwMDdBIE1TRlQgMDEwMDAwMTMpCitBQ1BJOiBE
-U0RUIDAwMDAwMDAwM2RlZjkwMDAgMDMwRjYgKHYwMSBJTlRFTCAgREc5NjVDTyAgMDAwMDAwN0Eg
-TVNGVCAwMTAwMDAxMykKIEFDUEk6IEZBQ1MgMDAwMDAwMDAzZGViYzAwMCAwMDA0MAotQUNQSTog
-QVBJQyAwMDAwMDAwMDNkZWY4MDAwIDAwMDZDICh2MDEgSU5URUwgIERHOTY1Q08gIDAwMDAwMDg2
-IE1TRlQgMDEwMDAwMTMpCitBQ1BJOiBBUElDIDAwMDAwMDAwM2RlZjgwMDAgMDAwNkMgKHYwMSBJ
-TlRFTCAgREc5NjVDTyAgMDAwMDAwN0EgTVNGVCAwMTAwMDAxMykKIEFDUEk6IExvY2FsIEFQSUMg
-YWRkcmVzcyAweGZlZTAwMDAwCiAoNiBlYXJseSByZXNlcnZhdGlvbnMpID09PiBib290bWVtIFsw
-MDAwMDAwMDAwIC0gMDAzZGYwMDAwMF0KICAgIzAgWzAwMDAwMDAwMDAgLSAwMDAwMDAxMDAwXSAg
-IEJJT1MgZGF0YSBwYWdlID09PiBbMDAwMDAwMDAwMCAtIDAwMDAwMDEwMDBdCiAgICMxIFswMDAw
-MjAwMDAwIC0gMDAwMDYwOTgwOF0gICAgVEVYVCBEQVRBIEJTUyA9PT4gWzAwMDAyMDAwMDAgLSAw
-MDAwNjA5ODA4XQotICAjMiBbMDAzYzAwOTAwMCAtIDAwM2NlMTNhMmRdICAgICAgICAgIFJBTURJ
-U0sgPT0+IFswMDNjMDA5MDAwIC0gMDAzY2UxM2EyZF0KKyAgIzIgWzAwM2MzMGEwMDAgLSAwMDNk
-MTE0YTJkXSAgICAgICAgICBSQU1ESVNLID09PiBbMDAzYzMwYTAwMCAtIDAwM2QxMTRhMmRdCiAg
-ICMzIFswMDAwMDlmODAwIC0gMDAwMDEwMDAwMF0gICAgQklPUyByZXNlcnZlZCA9PT4gWzAwMDAw
-OWY4MDAgLSAwMDAwMTAwMDAwXQogICAjNCBbMDAwMDYwYTAwMCAtIDAwMDA2MGExNDBdICAgICAg
-ICAgICAgICBCUksgPT0+IFswMDAwNjBhMDAwIC0gMDAwMDYwYTE0MF0KICAgIzUgWzAwMDAwMDgw
-MDAgLSAwMDAwMDA5MDAwXSAgICAgICAgICBQR1RBQkxFID09PiBbMDAwMDAwODAwMCAtIDAwMDAw
-MDkwMDBdCkBAIC02MCwxNyArNjAsMTcgQEAKIE1vdmFibGUgem9uZSBzdGFydCBQRk4gZm9yIGVh
-Y2ggbm9kZQogZWFybHlfbm9kZV9tYXBbNl0gYWN0aXZlIFBGTiByYW5nZXMKICAgICAwOiAweDAw
-MDAwMDAwIC0+IDB4MDAwMDAwOWYKLSAgICAwOiAweDAwMDAwMTAwIC0+IDB4MDAwM2NlMzQKLSAg
-ICAwOiAweDAwMDNkMjM1IC0+IDB4MDAwM2RkZjIKKyAgICAwOiAweDAwMDAwMTAwIC0+IDB4MDAw
-M2QxMzUKKyAgICAwOiAweDAwMDNkMjM2IC0+IDB4MDAwM2RkZjIKICAgICAwOiAweDAwMDNkZGY0
-IC0+IDB4MDAwM2RlNzEKICAgICAwOiAweDAwMDNkZWY3IC0+IDB4MDAwM2RlZjgKICAgICAwOiAw
-eDAwMDNkZWZmIC0+IDB4MDAwM2RmMDAKLU9uIG5vZGUgMCB0b3RhbHBhZ2VzOiAyNTI0MzEKK09u
-IG5vZGUgMCB0b3RhbHBhZ2VzOiAyNTMxOTkKICAgRE1BIHpvbmU6IDU2IHBhZ2VzIHVzZWQgZm9y
-IG1lbW1hcAogICBETUEgem9uZTogMTEzMSBwYWdlcyByZXNlcnZlZAogICBETUEgem9uZTogMjgx
-MiBwYWdlcywgTElGTyBiYXRjaDowCiAgIERNQTMyIHpvbmU6IDM0MTMgcGFnZXMgdXNlZCBmb3Ig
-bWVtbWFwCi0gIERNQTMyIHpvbmU6IDI0NTAxOSBwYWdlcywgTElGTyBiYXRjaDozMQorICBETUEz
-MiB6b25lOiAyNDU3ODcgcGFnZXMsIExJRk8gYmF0Y2g6MzEKIEFDUEk6IFBNLVRpbWVyIElPIFBv
-cnQ6IDB4ODA4CiBBQ1BJOiBMb2NhbCBBUElDIGFkZHJlc3MgMHhmZWUwMDAwMAogQUNQSTogTEFQ
-SUMgKGFjcGlfaWRbMHgwMV0gbGFwaWNfaWRbMHgwMF0gZW5hYmxlZCkKQEAgLTg3LDEzICs4Nywx
-MyBAQAogVXNpbmcgQUNQSSAoTUFEVCkgZm9yIFNNUCBjb25maWd1cmF0aW9uIGluZm9ybWF0aW9u
-CiBucl9pcnFzX2dzaTogMjQKIEFsbG9jYXRpbmcgUENJIHJlc291cmNlcyBzdGFydGluZyBhdCA0
-MDAwMDAwMCAoZ2FwOiAzZGYwMDAwMDpjMjA4MDAwMCkKLUJ1aWx0IDEgem9uZWxpc3RzIGluIFpv
-bmUgb3JkZXIsIG1vYmlsaXR5IGdyb3VwaW5nIG9uLiAgVG90YWwgcGFnZXM6IDI0NzgzMQorQnVp
-bHQgMSB6b25lbGlzdHMgaW4gWm9uZSBvcmRlciwgbW9iaWxpdHkgZ3JvdXBpbmcgb24uICBUb3Rh
-bCBwYWdlczogMjQ4NTk5CiBLZXJuZWwgY29tbWFuZCBsaW5lOiBub2FjcGkgaW5pdHJkPWNsdXN0
-ZXItaW1nLmd6IEJPT1RfSU1BR0U9Y2x1c3Rlci1rZXJuZWwgCiBJbml0aWFsaXppbmcgQ1BVIzAK
-IE5SX0lSUVM6Mjg4CiBQSUQgaGFzaCB0YWJsZSBlbnRyaWVzOiA0MDk2IChvcmRlcjogMTIsIDMy
-NzY4IGJ5dGVzKQogRmFzdCBUU0MgY2FsaWJyYXRpb24gdXNpbmcgUElUCi1EZXRlY3RlZCAxMjAw
-LjE4MyBNSHogcHJvY2Vzc29yLgorRGV0ZWN0ZWQgMTIwMC4wMDYgTUh6IHByb2Nlc3Nvci4KIENv
-bnNvbGU6IGNvbG91ciBWR0ErIDgweDI1CiBjb25zb2xlIFt0dHkwXSBlbmFibGVkCiBEZW50cnkg
-Y2FjaGUgaGFzaCB0YWJsZSBlbnRyaWVzOiAxMzEwNzIgKG9yZGVyOiA4LCAxMDQ4NTc2IGJ5dGVz
-KQpAQCAtMTAyLDkgKzEwMiw5IEBACiBBR1AgYnJpZGdlIGF0IDAwOjAwOjAwCiBBcGVydHVyZSBm
-cm9tIEFHUCBAIDQ4MDAwMDAwIG9sZCBzaXplIDMyIE1CCiBBcGVydHVyZSBmcm9tIEFHUCBAIDQ4
-MDAwMDAwIHNpemUgMzIgTUIgKEFQU0laRSBmMzgpCi1NZW1vcnk6IDk3NDUyNGsvMTAxNDc4NGsg
-YXZhaWxhYmxlICgyMjUxayBrZXJuZWwgY29kZSwgNTA2MGsgYWJzZW50LCAzNDQ4MGsgcmVzZXJ2
-ZWQsIDEwMjZrIGRhdGEsIDI3NmsgaW5pdCkKK01lbW9yeTogOTc3NTk2ay8xMDE0Nzg0ayBhdmFp
-bGFibGUgKDIyNTFrIGtlcm5lbCBjb2RlLCAxOTg4ayBhYnNlbnQsIDM0NDgwayByZXNlcnZlZCwg
-MTAyNmsgZGF0YSwgMjc2ayBpbml0KQogU0xVQjogR2Vuc2xhYnM9MTMsIEhXYWxpZ249NjQsIE9y
-ZGVyPTAtMywgTWluT2JqZWN0cz0wLCBDUFVzPTEsIE5vZGVzPTEKLUNhbGlicmF0aW5nIGRlbGF5
-IGxvb3AgKHNraXBwZWQpLCB2YWx1ZSBjYWxjdWxhdGVkIHVzaW5nIHRpbWVyIGZyZXF1ZW5jeS4u
-IDI0MDAuMzYgQm9nb01JUFMgKGxwaj00ODAwNzMyKQorQ2FsaWJyYXRpbmcgZGVsYXkgbG9vcCAo
-c2tpcHBlZCksIHZhbHVlIGNhbGN1bGF0ZWQgdXNpbmcgdGltZXIgZnJlcXVlbmN5Li4gMjQwMC4w
-MSBCb2dvTUlQUyAobHBqPTQ4MDAwMjQpCiBNb3VudC1jYWNoZSBoYXNoIHRhYmxlIGVudHJpZXM6
-IDI1NgogQ1BVOiBMMSBJIGNhY2hlOiAzMkssIEwxIEQgY2FjaGU6IDMySwogQ1BVOiBMMiBjYWNo
-ZTogNTEySwpAQCAtMTI1LDYgKzEyNSwxMSBAQAogQUNQSTogTm8gZG9jayBkZXZpY2VzIGZvdW5k
-LgogQUNQSTogUENJIFJvb3QgQnJpZGdlIFtQQ0kwXSAoMDAwMDowMCkKIHBjaSAwMDAwOjAwOjAw
-LjA6IHJlZyAxMCAzMmJpdCBtbWlvOiBbMHg0ODAwMDAwMC0weDQ5ZmZmZmZmXQorcGNpIDAwMDA6
-MDA6MDIuNzogcmVnIDEwIGlvIHBvcnQ6IFsweDIyMDAtMHgyMmZmXQorcGNpIDAwMDA6MDA6MDIu
-NzogcmVnIDE0IGlvIHBvcnQ6IFsweDIzMDAtMHgyMzdmXQorcGNpIDAwMDA6MDA6MDIuNzogc3Vw
-cG9ydHMgRDEgRDIKK3BjaSAwMDAwOjAwOjAyLjc6IFBNRSMgc3VwcG9ydGVkIGZyb20gRDNob3Qg
-RDNjb2xkCitwY2kgMDAwMDowMDowMi43OiBQTUUjIGRpc2FibGVkCiBwY2kgMDAwMDowMDowMy4w
-OiByZWcgMTAgMzJiaXQgbW1pbzogWzB4NGExMDQwMDAtMHg0YTEwNGZmZl0KIHBjaSAwMDAwOjAw
-OjAzLjE6IHJlZyAxMCAzMmJpdCBtbWlvOiBbMHg0YTEwMzAwMC0weDRhMTAzZmZmXQogcGNpIDAw
-MDA6MDA6MDMuMjogcmVnIDEwIDMyYml0IG1taW86IFsweDRhMTAyMDAwLTB4NGExMDJmZmZdCkBA
-IC0xNTcsMzQgKzE2MiwzNCBAQAogQUNQSTogUENJIEludGVycnVwdCBSb3V0aW5nIFRhYmxlIFtc
-X1NCXy5QQ0kwLl9QUlRdCiBBQ1BJOiBQQ0kgSW50ZXJydXB0IFJvdXRpbmcgVGFibGUgW1xfU0Jf
-LlBDSTAuUDBQMS5fUFJUXQogQUNQSTogUENJIEludGVycnVwdCBMaW5rIFtMTktBXSAoSVJRcyAz
-IDQgNSA3ICoxMCAxMSAxMiAxNCAxNSkKLUFDUEk6IFBDSSBJbnRlcnJ1cHQgTGluayBbTE5LQl0g
-KElSUXMgMyA0IDUgNyAxMCAqMTEgMTIgMTQgMTUpCi1BQ1BJOiBQQ0kgSW50ZXJydXB0IExpbmsg
-W0xOS0NdIChJUlFzIDMgNCA1IDcgMTAgMTEgMTIgMTQgMTUpICowLCBkaXNhYmxlZC4KLUFDUEk6
-IFBDSSBJbnRlcnJ1cHQgTGluayBbTE5LRF0gKElSUXMgMyA0IDUgNyAqMTAgMTEgMTIgMTQgMTUp
-CitBQ1BJOiBQQ0kgSW50ZXJydXB0IExpbmsgW0xOS0JdIChJUlFzIDMgNCA1IDcgKjEwIDExIDEy
-IDE0IDE1KQorQUNQSTogUENJIEludGVycnVwdCBMaW5rIFtMTktDXSAoSVJRcyAzIDQgNSA3IDEw
-ICoxMSAxMiAxNCAxNSkKK0FDUEk6IFBDSSBJbnRlcnJ1cHQgTGluayBbTE5LRF0gKElSUXMgMyA0
-IDUgNyAxMCAqMTEgMTIgMTQgMTUpCiBBQ1BJOiBQQ0kgSW50ZXJydXB0IExpbmsgW0xOS0VdIChJ
-UlFzIDMgNCA1IDcgMTAgKjExIDEyIDE0IDE1KQotQUNQSTogUENJIEludGVycnVwdCBMaW5rIFtM
-TktGXSAoSVJRcyAzIDQgNSA3IDEwICoxMSAxMiAxNCAxNSkKLUFDUEk6IFBDSSBJbnRlcnJ1cHQg
-TGluayBbTE5LR10gKElSUXMgMyA0IDUgNyAqMTAgMTEgMTIgMTQgMTUpCi1BQ1BJOiBQQ0kgSW50
-ZXJydXB0IExpbmsgW0xOS0hdIChJUlFzIDMgNCA1IDcgMTAgKjExIDEyIDE0IDE1KQorQUNQSTog
-UENJIEludGVycnVwdCBMaW5rIFtMTktGXSAoSVJRcyAzIDQgNSA3ICoxMCAxMSAxMiAxNCAxNSkK
-K0FDUEk6IFBDSSBJbnRlcnJ1cHQgTGluayBbTE5LR10gKElSUXMgMyA0IDUgNyAxMCAqMTEgMTIg
-MTQgMTUpCitBQ1BJOiBQQ0kgSW50ZXJydXB0IExpbmsgW0xOS0hdIChJUlFzIDMgNCA1IDcgKjEw
-IDExIDEyIDE0IDE1KQogdXNiY29yZTogcmVnaXN0ZXJlZCBuZXcgaW50ZXJmYWNlIGRyaXZlciB1
-c2JmcwogdXNiY29yZTogcmVnaXN0ZXJlZCBuZXcgaW50ZXJmYWNlIGRyaXZlciBodWIKIHVzYmNv
-cmU6IHJlZ2lzdGVyZWQgbmV3IGRldmljZSBkcml2ZXIgdXNiCiBQQ0k6IFVzaW5nIEFDUEkgZm9y
-IElSUSByb3V0aW5nCiBwbnA6IFBuUCBBQ1BJIGluaXQKIEFDUEk6IGJ1cyB0eXBlIHBucCByZWdp
-c3RlcmVkCi1wbnA6IFBuUCBBQ1BJOiBmb3VuZCAxMCBkZXZpY2VzCitwbnA6IFBuUCBBQ1BJOiBm
-b3VuZCAxMSBkZXZpY2VzCiBBQ1BJOiBBQ1BJIGJ1cyB0eXBlIHBucCB1bnJlZ2lzdGVyZWQKLXN5
-c3RlbSAwMDowNzogaW9wb3J0IHJhbmdlIDB4ODAwLTB4OGZlIGhhcyBiZWVuIHJlc2VydmVkCi1z
-eXN0ZW0gMDA6MDc6IGlvcG9ydCByYW5nZSAweDhmZi0weDhmZiBoYXMgYmVlbiByZXNlcnZlZAot
-c3lzdGVtIDAwOjA3OiBpb3BvcnQgcmFuZ2UgMHg0ZDAtMHg0ZDEgaGFzIGJlZW4gcmVzZXJ2ZWQK
-LXN5c3RlbSAwMDowNzogaW9wb3J0IHJhbmdlIDB4NGQ2LTB4NGQ2IGhhcyBiZWVuIHJlc2VydmVk
-Ci1zeXN0ZW0gMDA6MDc6IGlvcG9ydCByYW5nZSAweDI5NS0weDI5ZSBoYXMgYmVlbiByZXNlcnZl
-ZAotc3lzdGVtIDAwOjA3OiBpb3BvcnQgcmFuZ2UgMHgyZTgtMHgyZWYgaGFzIGJlZW4gcmVzZXJ2
-ZWQKLXN5c3RlbSAwMDowNzogaW9wb3J0IHJhbmdlIDB4NDgxLTB4NDhmIGhhcyBiZWVuIHJlc2Vy
-dmVkCi1zeXN0ZW0gMDA6MDg6IGlvbWVtIHJhbmdlIDB4MC0weDlmZmZmIGNvdWxkIG5vdCBiZSBy
-ZXNlcnZlZAotc3lzdGVtIDAwOjA4OiBpb21lbSByYW5nZSAweGVjMDAwLTB4ZmZmZmYgY291bGQg
-bm90IGJlIHJlc2VydmVkCi1zeXN0ZW0gMDA6MDg6IGlvbWVtIHJhbmdlIDB4MTAwMDAwLTB4M2Rm
-ZmZmZmYgY291bGQgbm90IGJlIHJlc2VydmVkCi1zeXN0ZW0gMDA6MDg6IGlvbWVtIHJhbmdlIDB4
-ZTAwMDAwMDAtMHhlZmZmZmZmZiBoYXMgYmVlbiByZXNlcnZlZAotc3lzdGVtIDAwOjA4OiBpb21l
-bSByYW5nZSAweGZlYzAwMDAwLTB4ZmVjMDBmZmYgaGFzIGJlZW4gcmVzZXJ2ZWQKLXN5c3RlbSAw
-MDowODogaW9tZW0gcmFuZ2UgMHhmZWUwMDAwMC0weGZlZTAwZmZmIGhhcyBiZWVuIHJlc2VydmVk
-CitzeXN0ZW0gMDA6MDg6IGlvcG9ydCByYW5nZSAweDgwMC0weDhmZSBoYXMgYmVlbiByZXNlcnZl
-ZAorc3lzdGVtIDAwOjA4OiBpb3BvcnQgcmFuZ2UgMHg4ZmYtMHg4ZmYgaGFzIGJlZW4gcmVzZXJ2
-ZWQKK3N5c3RlbSAwMDowODogaW9wb3J0IHJhbmdlIDB4NGQwLTB4NGQxIGhhcyBiZWVuIHJlc2Vy
-dmVkCitzeXN0ZW0gMDA6MDg6IGlvcG9ydCByYW5nZSAweDRkNi0weDRkNiBoYXMgYmVlbiByZXNl
-cnZlZAorc3lzdGVtIDAwOjA4OiBpb3BvcnQgcmFuZ2UgMHgyOTUtMHgyOWUgaGFzIGJlZW4gcmVz
-ZXJ2ZWQKK3N5c3RlbSAwMDowODogaW9wb3J0IHJhbmdlIDB4MmU4LTB4MmVmIGhhcyBiZWVuIHJl
-c2VydmVkCitzeXN0ZW0gMDA6MDg6IGlvcG9ydCByYW5nZSAweDQ4MS0weDQ4ZiBoYXMgYmVlbiBy
-ZXNlcnZlZAorc3lzdGVtIDAwOjA5OiBpb21lbSByYW5nZSAweDAtMHg5ZmZmZiBjb3VsZCBub3Qg
-YmUgcmVzZXJ2ZWQKK3N5c3RlbSAwMDowOTogaW9tZW0gcmFuZ2UgMHhlYzAwMC0weGZmZmZmIGNv
-dWxkIG5vdCBiZSByZXNlcnZlZAorc3lzdGVtIDAwOjA5OiBpb21lbSByYW5nZSAweDEwMDAwMC0w
-eDNkZmZmZmZmIGNvdWxkIG5vdCBiZSByZXNlcnZlZAorc3lzdGVtIDAwOjA5OiBpb21lbSByYW5n
-ZSAweGUwMDAwMDAwLTB4ZWZmZmZmZmYgaGFzIGJlZW4gcmVzZXJ2ZWQKK3N5c3RlbSAwMDowOTog
-aW9tZW0gcmFuZ2UgMHhmZWMwMDAwMC0weGZlYzAwZmZmIGhhcyBiZWVuIHJlc2VydmVkCitzeXN0
-ZW0gMDA6MDk6IGlvbWVtIHJhbmdlIDB4ZmVlMDAwMDAtMHhmZWUwMGZmZiBoYXMgYmVlbiByZXNl
-cnZlZAogcGNpIDAwMDA6MDA6MDEuMDogUENJIGJyaWRnZSwgc2Vjb25kYXJ5IGJ1cyAwMDAwOjAx
-CiBwY2kgMDAwMDowMDowMS4wOiAgIElPIHdpbmRvdzogMHgxMDAwLTB4MWZmZgogcGNpIDAwMDA6
-MDA6MDEuMDogICBNRU0gd2luZG93OiAweDRhMDAwMDAwLTB4NGEwZmZmZmYKQEAgLTIxMyw3ICsy
-MTgsNyBAQAogU3dpdGNoZWQgdG8gaGlnaCByZXNvbHV0aW9uIG1vZGUgb24gQ1BVIDAKIEZyZWVp
-bmcgaW5pdHJkIG1lbW9yeTogMTQzNzhrIGZyZWVkCiBIdWdlVExCIHJlZ2lzdGVyZWQgMiBNQiBw
-YWdlIHNpemUsIHByZS1hbGxvY2F0ZWQgMCBwYWdlcwotbXNnbW5pIGhhcyBiZWVuIHNldCB0byAx
-OTMyCittc2dtbmkgaGFzIGJlZW4gc2V0IHRvIDE5MzgKIHBjaSAwMDAwOjAxOjAwLjA6IEJvb3Qg
-dmlkZW8gZGV2aWNlCiBwY2llcG9ydC1kcml2ZXIgMDAwMDowMDoxZi4wOiBpcnEgMjQgZm9yIE1T
-SS9NU0ktWAogcGNpZXBvcnQtZHJpdmVyIDAwMDA6MDA6MWYuMDogc2V0dGluZyBsYXRlbmN5IHRp
-bWVyIHRvIDY0CkBAIC0yMzAsMTkgKzIzNSwxOSBAQAogSGFuZ2NoZWNrOiBVc2luZyBnZXRfY3lj
-bGVzKCkuCiBTZXJpYWw6IDgyNTAvMTY1NTAgZHJpdmVyLCA0IHBvcnRzLCBJUlEgc2hhcmluZyBl
-bmFibGVkCiBzZXJpYWw4MjUwOiB0dHlTMCBhdCBJL08gMHgzZjggKGlycSA9IDQpIGlzIGEgMTY1
-NTBBCi0wMDowOTogdHR5UzAgYXQgSS9PIDB4M2Y4IChpcnEgPSA0KSBpcyBhIDE2NTUwQQorMDA6
-MGE6IHR0eVMwIGF0IEkvTyAweDNmOCAoaXJxID0gNCkgaXMgYSAxNjU1MEEKIGh3bGF0X2RldGVj
-dG9yOiB2ZXJzaW9uIDEuMC4wCiBzaXM5MDAuYzogdjEuMDguMTAgQXByLiAyIDIwMDYKIHNpczkw
-MCAwMDAwOjAwOjA0LjA6IFBDSSBJTlQgQSAtPiBHU0kgMTkgKGxldmVsLCBsb3cpIC0+IElSUSAx
-OQogMDAwMDowMDowNC4wOiBTaVMgOTAwIG9uIEZveGNvbm4gNjYxIDdNSSB0cmFuc2NlaXZlciBm
-b3VuZCBhdCBhZGRyZXNzIDEuCiAwMDAwOjAwOjA0LjA6IFVzaW5nIHRyYW5zY2VpdmVyIGZvdW5k
-IGF0IGFkZHJlc3MgMSBhcyBkZWZhdWx0Ci1ldGgwOiBTaVMgOTAwIFBDSSBGYXN0IEV0aGVybmV0
-IGF0IDB4MjEwMCwgSVJRIDE5LCAwMDoxYzpjMDo0Yjo1ZTo4OAorZXRoMDogU2lTIDkwMCBQQ0kg
-RmFzdCBFdGhlcm5ldCBhdCAweDIxMDAsIElSUSAxOSwgMDA6MWM6YzA6NmU6MTE6MzQKIHI4MTY5
-IEdpZ2FiaXQgRXRoZXJuZXQgZHJpdmVyIDIuM0xLLU5BUEkgbG9hZGVkCiByODE2OSAwMDAwOjAw
-OjA2LjA6IFBDSSBJTlQgQSAtPiBHU0kgMTcgKGxldmVsLCBsb3cpIC0+IElSUSAxNwogcjgxNjkg
-MDAwMDowMDowNi4wOiBubyBQQ0kgRXhwcmVzcyBjYXBhYmlsaXR5Ci1ldGgxOiBSVEw4MTY5c2Iv
-ODExMHNiIGF0IDB4ZmZmZmMyMDAwMDAxYTAwMCwgMDA6MTQ6ZDE6MTU6NDM6MzcsIFhJRCAxMDAw
-MDAwMCBJUlEgMTcKK2V0aDE6IFJUTDgxNjlzYi84MTEwc2IgYXQgMHhmZmZmYzIwMDAwMDFhMDAw
-LCAwMDoxNDpkMToxNzoyNTplNSwgWElEIDEwMDAwMDAwIElSUSAxNwogZWhjaV9oY2Q6IFVTQiAy
-LjAgJ0VuaGFuY2VkJyBIb3N0IENvbnRyb2xsZXIgKEVIQ0kpIERyaXZlcgotZWhjaV9oY2QgMDAw
-MDowMDowMy4zOiBlbmFibGluZyBkZXZpY2UgKDAxMDAgLT4gMDEwMikKK2VoY2lfaGNkIDAwMDA6
-MDA6MDMuMzogZW5hYmxpbmcgZGV2aWNlICgwMDAwIC0+IDAwMDIpCiBlaGNpX2hjZCAwMDAwOjAw
-OjAzLjM6IFBDSSBJTlQgRCAtPiBHU0kgMjMgKGxldmVsLCBsb3cpIC0+IElSUSAyMwogZWhjaV9o
-Y2QgMDAwMDowMDowMy4zOiBFSENJIEhvc3QgQ29udHJvbGxlcgogZWhjaV9oY2QgMDAwMDowMDow
-My4zOiBuZXcgVVNCIGJ1cyByZWdpc3RlcmVkLCBhc3NpZ25lZCBidXMgbnVtYmVyIDEKQEAgLTI1
-Nyw3ICsyNjIsNyBAQAogaHViIDEtMDoxLjA6IFVTQiBodWIgZm91bmQKIGh1YiAxLTA6MS4wOiA4
-IHBvcnRzIGRldGVjdGVkCiBvaGNpX2hjZDogVVNCIDEuMSAnT3BlbicgSG9zdCBDb250cm9sbGVy
-IChPSENJKSBEcml2ZXIKLW9oY2lfaGNkIDAwMDA6MDA6MDMuMDogZW5hYmxpbmcgZGV2aWNlICgw
-MTAwIC0+IDAxMDIpCitvaGNpX2hjZCAwMDAwOjAwOjAzLjA6IGVuYWJsaW5nIGRldmljZSAoMDAw
-MCAtPiAwMDAyKQogb2hjaV9oY2QgMDAwMDowMDowMy4wOiBQQ0kgSU5UIEEgLT4gR1NJIDIwIChs
-ZXZlbCwgbG93KSAtPiBJUlEgMjAKIG9oY2lfaGNkIDAwMDA6MDA6MDMuMDogT0hDSSBIb3N0IENv
-bnRyb2xsZXIKIG9oY2lfaGNkIDAwMDA6MDA6MDMuMDogbmV3IFVTQiBidXMgcmVnaXN0ZXJlZCwg
-YXNzaWduZWQgYnVzIG51bWJlciAyCkBAIC0yNzAsNyArMjc1LDcgQEAKIHVzYiB1c2IyOiBjb25m
-aWd1cmF0aW9uICMxIGNob3NlbiBmcm9tIDEgY2hvaWNlCiBodWIgMi0wOjEuMDogVVNCIGh1YiBm
-b3VuZAogaHViIDItMDoxLjA6IDMgcG9ydHMgZGV0ZWN0ZWQKLW9oY2lfaGNkIDAwMDA6MDA6MDMu
-MTogZW5hYmxpbmcgZGV2aWNlICgwMTAwIC0+IDAxMDIpCitvaGNpX2hjZCAwMDAwOjAwOjAzLjE6
-IGVuYWJsaW5nIGRldmljZSAoMDAwMCAtPiAwMDAyKQogb2hjaV9oY2QgMDAwMDowMDowMy4xOiBQ
-Q0kgSU5UIEIgLT4gR1NJIDIxIChsZXZlbCwgbG93KSAtPiBJUlEgMjEKIG9oY2lfaGNkIDAwMDA6
-MDA6MDMuMTogT0hDSSBIb3N0IENvbnRyb2xsZXIKIG9oY2lfaGNkIDAwMDA6MDA6MDMuMTogbmV3
-IFVTQiBidXMgcmVnaXN0ZXJlZCwgYXNzaWduZWQgYnVzIG51bWJlciAzCkBAIC0yODMsNyArMjg4
-LDcgQEAKIHVzYiB1c2IzOiBjb25maWd1cmF0aW9uICMxIGNob3NlbiBmcm9tIDEgY2hvaWNlCiBo
-dWIgMy0wOjEuMDogVVNCIGh1YiBmb3VuZAogaHViIDMtMDoxLjA6IDMgcG9ydHMgZGV0ZWN0ZWQK
-LW9oY2lfaGNkIDAwMDA6MDA6MDMuMjogZW5hYmxpbmcgZGV2aWNlICgwMTAwIC0+IDAxMDIpCitv
-aGNpX2hjZCAwMDAwOjAwOjAzLjI6IGVuYWJsaW5nIGRldmljZSAoMDAwMCAtPiAwMDAyKQogb2hj
-aV9oY2QgMDAwMDowMDowMy4yOiBQQ0kgSU5UIEMgLT4gR1NJIDIyIChsZXZlbCwgbG93KSAtPiBJ
-UlEgMjIKIG9oY2lfaGNkIDAwMDA6MDA6MDMuMjogT0hDSSBIb3N0IENvbnRyb2xsZXIKIG9oY2lf
-aGNkIDAwMDA6MDA6MDMuMjogbmV3IFVTQiBidXMgcmVnaXN0ZXJlZCwgYXNzaWduZWQgYnVzIG51
-bWJlciA0CkBAIC0zMzAsMjAgKzMzNSwyMSBAQAogTkVUOiBSZWdpc3RlcmVkIHByb3RvY29sIGZh
-bWlseSAxNwogUlBDOiBSZWdpc3RlcmVkIHVkcCB0cmFuc3BvcnQgbW9kdWxlLgogUlBDOiBSZWdp
-c3RlcmVkIHRjcCB0cmFuc3BvcnQgbW9kdWxlLgotcnRjX2Ntb3MgMDA6MDI6IHNldHRpbmcgc3lz
-dGVtIGNsb2NrIHRvIDIwMDktMDgtMTYgMTA6MTQ6NTkgVVRDICgxMjUwNDE3Njk5KQorcnRjX2Nt
-b3MgMDA6MDI6IHNldHRpbmcgc3lzdGVtIGNsb2NrIHRvIDIwMDktMDgtMTYgMTg6MDg6MzMgVVRD
-ICgxMjUwNDQ2MTEzKQogRnJlZWluZyB1bnVzZWQga2VybmVsIG1lbW9yeTogMjc2ayBmcmVlZAot
-dXNiIDEtNTogbmV3IGhpZ2ggc3BlZWQgVVNCIGRldmljZSB1c2luZyBlaGNpX2hjZCBhbmQgYWRk
-cmVzcyAyCi11c2IgMS01OiBOZXcgVVNCIGRldmljZSBmb3VuZCwgaWRWZW5kb3I9ZmZmZSwgaWRQ
-cm9kdWN0PTAwMDIKLXVzYiAxLTU6IE5ldyBVU0IgZGV2aWNlIHN0cmluZ3M6IE1mcj0wLCBQcm9k
-dWN0PTAsIFNlcmlhbE51bWJlcj0wCi11c2IgMS01OiBjb25maWd1cmF0aW9uICMxIGNob3NlbiBm
-cm9tIDEgY2hvaWNlCit1c2IgMS02OiBuZXcgaGlnaCBzcGVlZCBVU0IgZGV2aWNlIHVzaW5nIGVo
-Y2lfaGNkIGFuZCBhZGRyZXNzIDIKK3VzYiAxLTY6IE5ldyBVU0IgZGV2aWNlIGZvdW5kLCBpZFZl
-bmRvcj1mZmZlLCBpZFByb2R1Y3Q9MDAwMgordXNiIDEtNjogTmV3IFVTQiBkZXZpY2Ugc3RyaW5n
-czogTWZyPTAsIFByb2R1Y3Q9MCwgU2VyaWFsTnVtYmVyPTAKK3VzYiAxLTY6IGNvbmZpZ3VyYXRp
-b24gIzEgY2hvc2VuIGZyb20gMSBjaG9pY2UKIHI4MTY5OiBldGgxOiBsaW5rIGRvd24KIHI4MTY5
-OiBldGgxOiBsaW5rIHVwCiBldGgwOiBNZWRpYSBMaW5rIE9uIDEwMG1icHMgZnVsbC1kdXBsZXgg
-Ci11c2IgMS01OiBVU0IgZGlzY29ubmVjdCwgYWRkcmVzcyAyCi11c2IgMS01OiBuZXcgaGlnaCBz
-cGVlZCBVU0IgZGV2aWNlIHVzaW5nIGVoY2lfaGNkIGFuZCBhZGRyZXNzIDMKLXVzYiAxLTU6IE5l
-dyBVU0IgZGV2aWNlIGZvdW5kLCBpZFZlbmRvcj1mZmZlLCBpZFByb2R1Y3Q9MDAwMgotdXNiIDEt
-NTogTmV3IFVTQiBkZXZpY2Ugc3RyaW5nczogTWZyPTEsIFByb2R1Y3Q9MiwgU2VyaWFsTnVtYmVy
-PTYKLXVzYiAxLTU6IFByb2R1Y3Q6IFVTUlAgUmV2IDQKLXVzYiAxLTU6IE1hbnVmYWN0dXJlcjog
-RnJlZSBTb2Z0d2FyZSBGb2xrcwotdXNiIDEtNTogU2VyaWFsTnVtYmVyOiA0OGI5OTk1YQotdXNi
-IDEtNTogY29uZmlndXJhdGlvbiAjMSBjaG9zZW4gZnJvbSAxIGNob2ljZQordXNiIDEtNjogVVNC
-IGRpc2Nvbm5lY3QsIGFkZHJlc3MgMgordXNiIDEtNjogbmV3IGhpZ2ggc3BlZWQgVVNCIGRldmlj
-ZSB1c2luZyBlaGNpX2hjZCBhbmQgYWRkcmVzcyAzCit1c2IgMS02OiBOZXcgVVNCIGRldmljZSBm
-b3VuZCwgaWRWZW5kb3I9ZmZmZSwgaWRQcm9kdWN0PTAwMDIKK3VzYiAxLTY6IE5ldyBVU0IgZGV2
-aWNlIHN0cmluZ3M6IE1mcj0xLCBQcm9kdWN0PTIsIFNlcmlhbE51bWJlcj02Cit1c2IgMS02OiBQ
-cm9kdWN0OiBVU1JQIFJldiA0Cit1c2IgMS02OiBNYW51ZmFjdHVyZXI6IEZyZWUgU29mdHdhcmUg
-Rm9sa3MKK3VzYiAxLTY6IFNlcmlhbE51bWJlcjogNDhiOTk1ODgKK3VzYiAxLTY6IGNvbmZpZ3Vy
-YXRpb24gIzEgY2hvc2VuIGZyb20gMSBjaG9pY2UKK3I4MTY5OiBldGgxOiBsaW5rIHVwCg==
---0023545bdc1ce3286d04713fe6dc--
+> You're correct.
+> Because I produce embedded boards with ADM8515 controller, my purpose
+> was to program eeprom in full, without need to pre-program it before
+> assemblying the boards.
+> Writing MAC in eeprom is already protectected by a #ifdef
+> PEGASUS_WRITE_EEPROM (that should be normally disabled, I agree).
+> What about protecting the writing of other data with a nested #ifdef
+> PEGASUS_WRITE_EEPROM_HEADER ? Do you have eeprom datas for other
+> Pegasus chipsets to include in the source ? Or is there any dedicated
+> API I don't know about to make this job ?
+>
+> 2009/8/14  <petkan@nucleusys.com>:
+>> Why do you have to write def_eeprom[] to the eeprom along with the new MAC
+>> address?  This may work for 8515 based controllers, but will most likely
+>> break everything else that antedates it.
+>>
+>> The set address function should be much smaller/simpler and not writing to
+>> the eeprom in general.
+>>
+>>
+>>                  Petko
+>>
+>>
+>>> Added capability to set mac address and to program it into EEPROM
+>>>
+>>> Signed-off-by: Davide Rizzo <elpa.rizzo@gmail.com>
+>>> ---
+>>> diff -urNp linux-2.6.30.4/drivers/net/usb/pegasus.c
+>>> linux-2.6.30.4.elpa/drivers/net/usb/pegasus.c
+>>> --- linux-2.6.30.4/drivers/net/usb/pegasus.c  2009-08-13 07:14:57.000000000
+>>> +0200
+>>> +++ linux-2.6.30.4.elpa/drivers/net/usb/pegasus.c     2009-08-13
+>>> 08:39:01.000000000 +0200
+>>> @@ -469,8 +467,49 @@ fail:
+>>>               dev_warn(&pegasus->intf->dev, "%s failed\n", __func__);
+>>>       return -ETIMEDOUT;
+>>>  }
+>>> +
+>>> +/* Got from adm 8515 starter kit */
+>>> +static const __u16 def_eeprom[] = {
+>>> +                       0x8515, 0x0170, 0x0082, 0x0409, 0x0000,
+>>> +     0x07a6, 0x8515, 0x100e, 0x202a, 0x380a, 0x0000, 0x0000, 0x0000,
+>>> +     0x030e, 0x0041, 0x0044, 0x004d, 0x0074, 0x0065, 0x006b, 0x0000,
+>>> +     0x001e, 0x0055, 0x0053, 0x0042, 0x0020, 0x0031, 0x0030, 0x002f,
+>>> +     0x032a, 0x0055, 0x0053, 0x0042, 0x0020, 0x0054, 0x006f, 0x0020,
+>>> +     0x004c, 0x0041, 0x004e, 0x0020, 0x0043, 0x006f, 0x006e, 0x0076,
+>>> +     0x0065, 0x0072, 0x0074, 0x0065, 0x0072, 0x0000, 0x0000, 0x0000,
+>>> +     0x030a, 0x0030, 0x0030, 0x0030, 0x0031, 0x0000, 0x0000, 0x0000,
+>>> +};
+>>>  #endif                               /* PEGASUS_WRITE_EEPROM */
+>>>
+>>> +static int pegasus_set_mac_address(struct net_device *netdev, void *p)
+>>> +{
+>>> +     struct sockaddr *addr = p;
+>>> +     pegasus_t *pegasus = (pegasus_t *) netdev_priv(netdev);
+>>> +     int i;
+>>> +
+>>> +     if (netif_running(netdev))
+>>> +             return -EBUSY;
+>>> +     memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+>>> +     dbg("%s: Setting MAC address to ", netdev->name);
+>>> +     for (i = 0; i < 5; i++)
+>>> +             dbg("%02X:", netdev->dev_addr[i]);
+>>> +     dbg("%02X\n", netdev->dev_addr[i]);
+>>> +     /* Set the IDR registers. */
+>>> +     set_registers(pegasus, EthID, 6, netdev->dev_addr);
+>>> +#ifdef PEGASUS_WRITE_EEPROM
+>>> +     write_eprom_word(pegasus, 0,
+>>> +             (netdev->dev_addr[1] << 8) + netdev->dev_addr[0]);
+>>> +     write_eprom_word(pegasus, 1,
+>>> +             (netdev->dev_addr[3] << 8) + netdev->dev_addr[2]);
+>>> +     write_eprom_word(pegasus, 2,
+>>> +             (netdev->dev_addr[5] << 8) + netdev->dev_addr[4]);
+>>> +     for (i = 0; i < ARRAY_SIZE(def_eeprom); i++)
+>>> +             write_eprom_word(pegasus, i + 3, def_eeprom[i]);
+>>> +
+>>> +#endif                         /* PEGASUS_WRITE_EEPROM */
+>>> +     return 0;
+>>> +}
+>>> +
+>>>  static inline void get_node_id(pegasus_t * pegasus, __u8 * id)
+>>>  {
+>>>       int i;
+>>> @@ -1492,6 +1531,7 @@ static const struct net_device_ops pegas
+>>>       .ndo_start_xmit =               pegasus_start_xmit,
+>>>       .ndo_set_multicast_list =       pegasus_set_multicast,
+>>>       .ndo_get_stats =                pegasus_netdev_stats,
+>>> +     .ndo_set_mac_address =  pegasus_set_mac_address,
+>>>       .ndo_tx_timeout =               pegasus_tx_timeout,
+>>>       .ndo_change_mtu =               eth_change_mtu,
+>>>       .ndo_set_mac_address =          eth_mac_addr,
+>>>
+>>
+>>
+>>
+>
