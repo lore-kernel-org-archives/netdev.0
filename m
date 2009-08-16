@@ -1,92 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Sun, 16 Aug 2009 09:16:07 +0200
-Message-ID: <20090816071607.GB29537@elte.hu>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver
+ objects
+Date: Sun, 16 Aug 2009 11:30:49 +0300
+Message-ID: <4A87C3B9.2040206@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>,
 	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Anthony Liguori <anthony@codemonkey.ws>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753088AbZHPHQ2@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A870964.9090408@codemonkey.ws>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:48212 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750722AbZHPIbO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Aug 2009 04:31:14 -0400
+In-Reply-To: <20090815103243.GA26749@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-* Anthony Liguori <anthony@codemonkey.ws> wrote:
-
-> Ingo Molnar wrote:
->> * Gregory Haskins <ghaskins@novell.com> wrote:
+On 08/15/2009 01:32 PM, Ingo Molnar wrote:
+>> This will generally be used for hypervisors to publish any host-side
+>> virtual devices up to a guest.  The guest will have the opportunity
+>> to consume any devices present on the vbus-proxy as if they were
+>> platform devices, similar to existing buses like PCI.
 >>
->>   
->>> This will generally be used for hypervisors to publish any host-side
->>> virtual devices up to a guest.  The guest will have the opportunity
->>> to consume any devices present on the vbus-proxy as if they were
->>> platform devices, similar to existing buses like PCI.
->>>
->>> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
->>> ---
->>>
->>>  MAINTAINERS                 |    6 ++
->>>  arch/x86/Kconfig            |    2 +
->>>  drivers/Makefile            |    1  drivers/vbus/Kconfig        |   
->>> 14 ++++
->>>  drivers/vbus/Makefile       |    3 +
->>>  drivers/vbus/bus-proxy.c    |  152 +++++++++++++++++++++++++++++++++++++++++++
->>>  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
->>>  7 files changed, 251 insertions(+), 0 deletions(-)
->>>  create mode 100644 drivers/vbus/Kconfig
->>>  create mode 100644 drivers/vbus/Makefile
->>>  create mode 100644 drivers/vbus/bus-proxy.c
->>>  create mode 100644 include/linux/vbus_driver.h
->>>     
->>
->> Is there a consensus on this with the KVM folks? (i've added the KVM  
->> list to the Cc:)
->   
-> I'll let Avi comment about it from a KVM perspective but from a 
-> QEMU perspective, I don't think we want to support two paravirtual 
-> IO frameworks.  I'd like to see them converge.  Since there's an 
-> install base of guests today with virtio drivers, there really 
-> ought to be a compelling reason to change the virtio ABI in a 
-> non-backwards compatible way.  This means convergence really ought 
-> to be adding features to virtio.
+>>      
+> Is there a consensus on this with the KVM folks? (i've added the KVM
+> list to the Cc:)
+>    
 
-I agree.
+My opinion is that this is a duplication of effort and we'd be better 
+off if everyone contributed to enhancing virtio, which already has 
+widely deployed guest drivers and non-Linux guest support.
 
-While different paravirt drivers are inevitable for things that are 
-externally constrained (say support different hypervisors), doing 
-different _Linux internal_ paravirt drivers looks plain stupid and 
-counter-productive. It splits testing and development.
+It may have merit if it is proven that it is technically superior to 
+virtio (and I don't mean some benchmark in some point in time; I mean 
+design wise).  So far I haven't seen any indications that it is.
 
-So either the vbus code replaces virtio (for technical merits such 
-as performance and other details), or virtio is enhanced with the 
-vbus performance enhancements.
+-- 
+error compiling committee.c: too many arguments to function
 
-> On paper, I don't think vbus really has any features over virtio.  
-> vbus does things in different ways (paravirtual bus vs. pci for 
-> discovery) but I think we're happy with how virtio does things 
-> today.
->
-> I think the reason vbus gets better performance for networking 
-> today is that vbus' backends are in the kernel while virtio's 
-> backends are currently in userspace.  Since Michael has a 
-> functioning in-kernel backend for virtio-net now, I suspect we're 
-> weeks (maybe days) away from performance results.  My expectation 
-> is that vhost + virtio-net will be as good as venet + vbus.  If 
-> that's the case, then I don't see any reason to adopt vbus unless 
-> Greg things there are other compelling features over virtio.
-
-Keeping virtio's backend in user-space was rather stupid IMHO. 
-
-Having the _option_ to piggyback to user-space (for flexibility, 
-extensibility, etc.) is OK, but not having kernel acceleration is 
-bad.
-
-	Ingo
