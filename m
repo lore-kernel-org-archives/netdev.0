@@ -1,132 +1,128 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: Re: [PATCH] Update Neighbor Cache when IPv6 RA is received on a router
-Date: Sun, 16 Aug 2009 01:47:09 -0400
-Message-ID: <4A879D5D.1010202@ll.mit.edu>
-References: <1250381994-21329-1-git-send-email-david.ward@ll.mit.edu> <20090816120027.3d510139.lk-netdev@lk-netdev.nosense.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
+Date: Sun, 16 Aug 2009 09:51:10 +0300
+Message-ID: <20090816065110.GA3008@redhat.com>
+References: <cover.1250187913.git.mst@redhat.com> <20090813182931.GC6585@redhat.com> <200908141340.36176.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from deliverator11.gatech.edu ([130.207.165.83]:48510 "EHLO
-	deliverator11.gatech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239AbZHPGQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2009 02:16:41 -0400
-Received: from deliverator6.gatech.edu (deliverator6.gatech.edu [130.207.160.71])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(Client did not present a certificate)
-	by deliverator11.gatech.edu (Postfix) with ESMTP id BF7BD17FE6F
-	for <netdev@vger.kernel.org>; Sun, 16 Aug 2009 01:47:48 -0400 (EDT)
-In-Reply-To: <20090816120027.3d510139.lk-netdev@lk-netdev.nosense.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <200908141340.36176.arnd@arndb.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Mark, thank you very much for your response.
+On Fri, Aug 14, 2009 at 01:40:36PM +0200, Arnd Bergmann wrote:
+> On Thursday 13 August 2009, Michael S. Tsirkin wrote:
+> > What it is: vhost net is a character device that can be used to reduce
+> > the number of system calls involved in virtio networking.
+> > Existing virtio net code is used in the guest without modification.
+> 
+> AFAICT, you have addressed all my comments, mostly by convincing me
+> that you got it right anyway ;-).
+> 
+> I hope this gets into 2.6.32, good work!
+> 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> One idea though:
+> 
+> > +	/* Parameter checking */
+> > +	if (sock->sk->sk_type != SOCK_RAW) {
+> > +		r = -ESOCKTNOSUPPORT;
+> > +		goto done;
+> > +	}
+> > +
+> > +	r = sock->ops->getname(sock, (struct sockaddr *)&uaddr.sa,
+> > +			       &uaddr_len, 0);
+> > +	if (r)
+> > +		goto done;
+> > +
+> > +	if (uaddr.sa.sll_family != AF_PACKET) {
+> > +		r = -EPFNOSUPPORT;
+> > +		goto done;
+> > +	}
+> 
+> You currently limit the scope of the driver by only allowing raw packet
+> sockets to be passed into the network driver. In qemu, we currently support
+> some very similar transports:
+> 
+> * raw packet (not in a release yet)
+> * tcp connection
+> * UDP multicast
+> * tap character device
+> * VDE with Unix local sockets
+> 
+> My primary interest right now is the tap support, but I think it would
+> be interesting in general to allow different file descriptor types
+> in vhost_net_set_socket. AFAICT, there are two major differences
+> that we need to handle for this:
+> 
+> * most of the transports are sockets, tap uses a character device.
+>   This could be dealt with by having both a struct socket * in
+>   struct vhost_net *and* a struct file *, or by always keeping the
+>   struct file and calling vfs_readv/vfs_writev for the data transport
+>   in both cases.
 
-On 08/15/2009 10:30 PM, Mark Smith wrote:
-> Hi David,
->
-> On Sat, 15 Aug 2009 20:19:54 -0400
-> David Ward <david.ward@ll.mit.edu> wrote:
->
->> When processing a received IPv6 Router Advertisement, the kernel
->> creates or updates an IPv6 Neighbor Cache entry for the sender --
->> but presently this does not occur if IPv6 forwarding is enabled
->> (net.ipv6.conf.*.forwarding = 1), or if IPv6 Router Advertisements
->> are not accepted (net.ipv6.conf.*.accept_ra = 0), because in these
->> cases processing of the Router Advertisement has already halted.
->>
->> This patch allows the Neighbor Cache to be updated in these cases,
->> while still avoiding any modification to routes or link parameters.
->>
->
-> I'm a bit confused what benefit this has.
+I am concerned that character devices might have weird side effects with
+read/write operations and that calling them from kernel thread the way I
+do might have security implications. Can't point at anything specific
+though at the moment.
+I wonder - can we expose the underlying socket used by tap, or will that
+create complex lifetime issues?
 
-I apologize for not making that clear. It allows routers to utilize the 
-Neighbor Cache to keep track of neighboring routers, which are learned 
-about through the periodic Router Advertisements. By doing so, 
-applications communicating through upper layers can make use of the 
-Neighbor Cache, for example, as a basis for initiating dynamic peering 
-between neighboring routers. Non-routers are already able to keep track 
-of their neighboring routers in the Neighbor Cache; this simply allows 
-routers to do the same.
+> * Each transport has a slightly different header, we have
+>   - raw ethernet frames (raw, udp multicast, tap)
+>   - 32-bit length + raw frames, possibly fragmented (tcp)
+>   - 80-bit header + raw frames, possibly fragmented (tap with vnet_hdr)
+>   To handle these three cases, we need either different ioctl numbers
+>   so that vhost_net can choose the right one, or a flags field in
+>   VHOST_NET_SET_SOCKET, like
+> 
+>   #define VHOST_NET_RAW		1
+>   #define VHOST_NET_LEN_HDR	2
+>   #define VHOST_NET_VNET_HDR	4
+> 
+>   struct vhost_net_socket {
+> 	unsigned int flags;
+> 	int fd;
+>   };
+>   #define VHOST_NET_SET_SOCKET _IOW(VHOST_VIRTIO, 0x30, struct vhost_net_socket)
 
-This cannot be achieved through Neighbor Advertisements, because they 
-are usually sent in response to a direct Neighbor Solicitation, while 
-Router Advertisements are periodically multicast to the all-nodes group.
+It seems we can query the socket to find out the type, or use the
+features ioctl.
 
-> Is the intent to avoid a Neighbor Solicitation being triggered when a
-> recent RA has already provided the router's link local address,
-> therefore reducing by a small mount ND traffic?
+> If both of those are addressed, we can treat vhost_net as a generic
+> way to do network handling in the kernel independent of the qemu
+> model (raw, tap, ...) for it. 
+> 
+> Your qemu patch would have to work differently, so instead of 
+> 
+> qemu -net nic,vhost=eth0
+> 
+> you would do the same as today with the raw packet socket extension
+> 
+> qemu -net nic -net raw,ifname=eth0 
+> 
+> Qemu could then automatically try to use vhost_net, if it's available
+> in the kernel, or just fall back on software vlan otherwise.
+> Does that make sense?
+> 
+> 	Arnd <>
 
-No. This patch does not preclude the need to send a Neighbor 
-Solicitation to another router to determine reachability. That would 
-violate RFC 4861, which states that a Router Advertisement "MUST NOT be 
-treated as a reachability confirmation".
+I agree, long term it should be enabled automatically when possible.
 
-In the dynamic router peering scenario, the Neighbor Cache entry could 
-be used to learn that the neighboring router exists and is a potential 
-peer -- but reachability must still be determined before a peering 
-session could actually be attempted.
+-- 
+MST
 
->> This continues to satisfy RFC 4861, since any entry created in the
->> Neighbor Cache as the result of a received Router Advertisement is
->> still placed in the STALE state.
->>
->> Signed-off-by: David Ward <david.ward@ll.mit.edu>
->> ---
->>  net/ipv6/ndisc.c |   14 ++++++++------
->>  1 files changed, 8 insertions(+), 6 deletions(-)
->>
->> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
->> index 1ba42bd..44b4c87 100644
->> --- a/net/ipv6/ndisc.c
->> +++ b/net/ipv6/ndisc.c
->> @@ -1151,10 +1151,6 @@ static void ndisc_router_discovery(struct
->> sk_buff *skb)
->>                 skb->dev->name);
->>          return;
->>      }
->> -    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra) {
->> -        in6_dev_put(in6_dev);
->> -        return;
->> -    }
->>
->>      if (!ndisc_parse_options(opt, optlen, &ndopts)) {
->>          in6_dev_put(in6_dev);
->> @@ -1163,6 +1159,10 @@ static void ndisc_router_discovery(struct
->> sk_buff *skb)
->>          return;
->>      }
->>
->> +    /* skip route and link configuration on routers */
->> +    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
->> +        goto skip_linkparms;
->> +
->>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
->>      /* skip link-specific parameters from interior routers */
->>      if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT)
->> @@ -1283,9 +1283,7 @@ skip_defrtr:
->>          }
->>      }
->>
->> -#ifdef CONFIG_IPV6_NDISC_NODETYPE
->>  skip_linkparms:
->> -#endif
->>
->>      /*
->>       *    Process options.
->> @@ -1312,6 +1310,10 @@ skip_linkparms:
->>                   NEIGH_UPDATE_F_ISROUTER);
->>      }
->>
->> +    /* skip route and link configuration on routers */
->> +    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
->> +        goto out;
->> +
->>  #ifdef CONFIG_IPV6_ROUTE_INFO
->>      if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
->>          struct nd_opt_hdr *p;
->> --
->> 1.6.0.4
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
