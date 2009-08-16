@@ -1,177 +1,132 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH] lib/vsprintf.c: Add struct sockaddr * "%pN<foo>" output
-Date: Sat, 15 Aug 2009 21:10:18 -0700
-Message-ID: <1250395818.4625.15.camel@Joe-Laptop.home>
-References: <1250230925.6641.92.camel@fnki-nb00130>
-	 <20090814.001519.40499255.davem@davemloft.net>
-	 <1250237739.16632.12.camel@fnki-nb00130>
-	 <20090814.131218.139318801.davem@davemloft.net>
-	 <1250349894.4620.5.camel@Joe-Laptop.home>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: Re: [PATCH] Update Neighbor Cache when IPv6 RA is received on a router
+Date: Sun, 16 Aug 2009 01:47:09 -0400
+Message-ID: <4A879D5D.1010202@ll.mit.edu>
+References: <1250381994-21329-1-git-send-email-david.ward@ll.mit.edu> <20090816120027.3d510139.lk-netdev@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jens@mcbone.net, brian.haley@hp.com,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: chuck.lever@oracle.com
+Cc: netdev@vger.kernel.org
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:3561 "EHLO
-	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbZHPEKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2009 00:10:30 -0400
-In-Reply-To: <1250349894.4620.5.camel@Joe-Laptop.home>
+Received: from deliverator11.gatech.edu ([130.207.165.83]:48510 "EHLO
+	deliverator11.gatech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753239AbZHPGQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Aug 2009 02:16:41 -0400
+Received: from deliverator6.gatech.edu (deliverator6.gatech.edu [130.207.160.71])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by deliverator11.gatech.edu (Postfix) with ESMTP id BF7BD17FE6F
+	for <netdev@vger.kernel.org>; Sun, 16 Aug 2009 01:47:48 -0400 (EDT)
+In-Reply-To: <20090816120027.3d510139.lk-netdev@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Chuck.
+Mark, thank you very much for your response.
 
-Here's a tentative patch that adds that facility you wanted in
-this thread.
-http://kerneltrap.org/mailarchive/linux-netdev/2008/11/25/4231684
+On 08/15/2009 10:30 PM, Mark Smith wrote:
+> Hi David,
+>
+> On Sat, 15 Aug 2009 20:19:54 -0400
+> David Ward <david.ward@ll.mit.edu> wrote:
+>
+>> When processing a received IPv6 Router Advertisement, the kernel
+>> creates or updates an IPv6 Neighbor Cache entry for the sender --
+>> but presently this does not occur if IPv6 forwarding is enabled
+>> (net.ipv6.conf.*.forwarding = 1), or if IPv6 Router Advertisements
+>> are not accepted (net.ipv6.conf.*.accept_ra = 0), because in these
+>> cases processing of the Router Advertisement has already halted.
+>>
+>> This patch allows the Neighbor Cache to be updated in these cases,
+>> while still avoiding any modification to routes or link parameters.
+>>
+>
+> I'm a bit confused what benefit this has.
 
-This patch is on top of this patch:
-http://marc.info/?l=linux-netdev&m=125034992003220&w=2
+I apologize for not making that clear. It allows routers to utilize the 
+Neighbor Cache to keep track of neighboring routers, which are learned 
+about through the periodic Router Advertisements. By doing so, 
+applications communicating through upper layers can make use of the 
+Neighbor Cache, for example, as a basis for initiating dynamic peering 
+between neighboring routers. Non-routers are already able to keep track 
+of their neighboring routers in the Neighbor Cache; this simply allows 
+routers to do the same.
 
-I'm not sure it's great or even useful, but just for discussion.
+This cannot be achieved through Neighbor Advertisements, because they 
+are usually sent in response to a direct Neighbor Solicitation, while 
+Router Advertisements are periodically multicast to the all-nodes group.
 
-Use style:
-* - 'N' For network socket (sockaddr) pointers
-*       if sa_family is IPv4, output is %pI4; if IPv6, output is %pI6c
-*       May be used with any combination of additional specifiers below
-*       'p' decimal socket port number for IPv[46]: ":12345"
-*       'f' decimal flowinfo for IPv6: "/123456789"
-*       's' decimal scope_id number for IPv6: "%1234567890"
-*       so %pNp will print if IPv4 "1.2.3.4:1234", if IPv6: "1::c0a8:a:1234"
+> Is the intent to avoid a Neighbor Solicitation being triggered when a
+> recent RA has already provided the router's link local address,
+> therefore reducing by a small mount ND traffic?
 
-I think using ":" as the separator for the port number, while common,
-and already frequently used in kernel source (see bullet 2 in):
-http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
-"Section 6: Notes on Combining IPv6 Addresses with Port Numbers".
-is not good for readability.
+No. This patch does not preclude the need to send a Neighbor 
+Solicitation to another router to determine reachability. That would 
+violate RFC 4861, which states that a Router Advertisement "MUST NOT be 
+treated as a reachability confirmation".
 
-Perhaps this style should be changed to the "[ipv6]:port" described
-in the draft above.
+In the dynamic router peering scenario, the Neighbor Cache entry could 
+be used to learn that the neighboring router exists and is a potential 
+peer -- but reachability must still be determined before a peering 
+session could actually be attempted.
 
-cheers, Joe
-
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index 9b79536..b3cbc38 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -791,6 +791,90 @@ static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
- 	return string(buf, end, ip4_addr, spec);
- }
- 
-+static char *u32_dec_val(char *p, u32 val)
-+{
-+	char temp[9];
-+	int digits;
-+	u32 hi_val = val / 100000;
-+	char *pos;
-+	pos = put_dec_trunc(temp, val%100000);
-+	if (hi_val)
-+		pos = put_dec_trunc(pos, hi_val);
-+	digits = pos - temp;
-+	/* reverse the digits in temp */
-+	while (digits--)
-+		*p++ = temp[digits];
-+	return p;
-+}
-+
-+static char *socket_addr_string(char *buf, char *end,
-+				const struct sockaddr *sa,
-+				struct printf_spec spec, const char *fmt)
-+{
-+	char addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255") +
-+		  sizeof(":12345") +
-+		  sizeof("%1234567890") +
-+		  sizeof("/123456789")];
-+	char *p;
-+	struct sockaddr_in *sa4 = (struct sockaddr_in *)sa;
-+	struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)sa;
-+
-+	switch (sa->sa_family) {
-+	case AF_INET:
-+		p = ip4_string(addr, (const u8 *)&sa4->sin_addr.s_addr, false);
-+		break;
-+	case AF_INET6:
-+		p = ip6_compressed_string(addr, &sa6->sin6_addr);
-+		break;
-+	default: {
-+		struct printf_spec num_spec = {
-+			.base = 16,
-+			.precision = -1,
-+			.field_width = 2 * sizeof(void *),
-+			.flags = SPECIAL | SMALL | ZEROPAD,
-+		};
-+
-+		p = strcpy(addr, "Bad socket address: ")
-+			+ sizeof("Bad socket address: ");
-+		p = number(p, addr + sizeof(addr), (unsigned long)sa, num_spec);
-+		break;
-+	}
-+	}
-+
-+	while (isalpha(*++fmt)) {
-+		switch (*fmt) {
-+		case 'p':
-+			*p++ = ':';
-+			switch (sa->sa_family) {
-+			case AF_INET:
-+				p = u32_dec_val(p,ntohs(sa4->sin_port));
-+				break;
-+			case AF_INET6:
-+				p = u32_dec_val(p,ntohs(sa6->sin6_port));
-+				break;
-+			}
-+			break;
-+		case 's':
-+			*p++ = '%';
-+			switch (sa->sa_family) {
-+			case AF_INET6:
-+				p = u32_dec_val(p, sa6->sin6_scope_id);
-+			}
-+			break;
-+		case 'f':
-+			*p++ = '/';
-+			switch (sa->sa_family) {
-+			case AF_INET6:
-+				p = u32_dec_val(p, ntohl(sa6->sin6_flowinfo &
-+							 IPV6_FLOWINFO_MASK));
-+			}
-+			break;
-+		}
-+	}
-+	*p = '\0';
-+	return string(buf, end, addr, spec);
-+}
-+
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-  * by an extra set of alphanumeric characters that are extended format
-@@ -814,6 +898,13 @@ static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
-  *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
-  * - 'I6c' for IPv6 addresses printed as specified by
-  *       http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
-+ * - 'N' For network socket (sockaddr) pointers
-+ *       if sa_family is IPv4, output is %pI4; if IPv6, output is %pI6c
-+ *       May be used with any combination of additional specifiers below
-+ *       'p' decimal socket port number for IPv[46]: ":12345"
-+ *       'f' decimal flowinfo for IPv6: "/123456789"
-+ *       's' decimal scope_id number for IPv6: "%1234567890"
-+ *       so %pNp will print if IPv4 "1.2.3.4:1234", if IPv6: "1::c0a8:a:1234"
-  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
-  * function pointers are really function descriptors, which contain a
-  * pointer to the real address.
-@@ -852,7 +943,10 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
- 			return ip4_addr_string(buf, end, ptr, spec, fmt);
- 		}
- 		break;
-+	case 'N':
-+		return socket_addr_string(buf, end, ptr, spec, fmt);
- 	}
-+
- 	spec.flags |= SMALL;
- 	if (spec.field_width == -1) {
- 		spec.field_width = 2*sizeof(void *);
-
-
+>> This continues to satisfy RFC 4861, since any entry created in the
+>> Neighbor Cache as the result of a received Router Advertisement is
+>> still placed in the STALE state.
+>>
+>> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+>> ---
+>>  net/ipv6/ndisc.c |   14 ++++++++------
+>>  1 files changed, 8 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+>> index 1ba42bd..44b4c87 100644
+>> --- a/net/ipv6/ndisc.c
+>> +++ b/net/ipv6/ndisc.c
+>> @@ -1151,10 +1151,6 @@ static void ndisc_router_discovery(struct
+>> sk_buff *skb)
+>>                 skb->dev->name);
+>>          return;
+>>      }
+>> -    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra) {
+>> -        in6_dev_put(in6_dev);
+>> -        return;
+>> -    }
+>>
+>>      if (!ndisc_parse_options(opt, optlen, &ndopts)) {
+>>          in6_dev_put(in6_dev);
+>> @@ -1163,6 +1159,10 @@ static void ndisc_router_discovery(struct
+>> sk_buff *skb)
+>>          return;
+>>      }
+>>
+>> +    /* skip route and link configuration on routers */
+>> +    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+>> +        goto skip_linkparms;
+>> +
+>>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
+>>      /* skip link-specific parameters from interior routers */
+>>      if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT)
+>> @@ -1283,9 +1283,7 @@ skip_defrtr:
+>>          }
+>>      }
+>>
+>> -#ifdef CONFIG_IPV6_NDISC_NODETYPE
+>>  skip_linkparms:
+>> -#endif
+>>
+>>      /*
+>>       *    Process options.
+>> @@ -1312,6 +1310,10 @@ skip_linkparms:
+>>                   NEIGH_UPDATE_F_ISROUTER);
+>>      }
+>>
+>> +    /* skip route and link configuration on routers */
+>> +    if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+>> +        goto out;
+>> +
+>>  #ifdef CONFIG_IPV6_ROUTE_INFO
+>>      if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
+>>          struct nd_opt_hdr *p;
+>> --
+>> 1.6.0.4
