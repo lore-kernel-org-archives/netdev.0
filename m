@@ -1,71 +1,40 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Very strange issues with ethernet wake on lan
-Date: Mon, 17 Aug 2009 20:30:54 +0200
-Message-ID: <200908172030.54505.rjw@sisk.pl>
-References: <1250394174.32268.13.camel@localhost.localdomain> <1250500588.4301.5.camel@localhost.localdomain>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: mlx4 2.6.31-rc5: SW2HW_EQ failed.
+Date: Mon, 17 Aug 2009 15:26:02 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908171523330.20399@gentwo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pm@lists.linux-foundation.org"
-	<linux-pm@lists.linux-foundation.org>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:49752 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757957AbZHQSaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2009 14:30:07 -0400
-In-Reply-To: <1250500588.4301.5.camel@localhost.localdomain>
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:34513 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751738AbZHQT0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 15:26:10 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id A07A282C847
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 15:26:15 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id TpysSwb8Oxuw for <netdev@vger.kernel.org>;
+	Mon, 17 Aug 2009 15:26:11 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 9F25C82C83B
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 15:26:08 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 17 August 2009, Maxim Levitsky wrote:
-> On Sun, 2009-08-16 at 06:42 +0300, Maxim Levitsky wrote:
-> > Hi,
-> > 
-> > I have recently put back the davicom dm9009 ethernet card into my
-> > computer.
-> > 
-> > Some long time ago, I have written its suspend/resume routines.
-> > Now I see that few things have changed, like I need to enable wake in
-> > sysfs or better patch the code to do so, some nice helpers like
-> > pci_prepare_to_sleep have arrived, etc.
-> > 
-> > 
-> > I narrowed the strange issue down to following situation:
-> > 
-> > I reload dmfe.ko (and networkmanager is disabled)
-> > I don't ifup the device, thus pretty much no hardware initialization
-> > takes place (but this appears not to matter anyway)
-> > 
-> > I then suspend the system, and WOL doesn't work (I have patched the
-> > driver to enable WOL automaticly)
-> > 
-> > I then, suspend again. WOL works, and continues to work as long as I
-> > don't reload the driver. If I do, same situation repeats.
-> > 
-> > Also, after a boot, WOL works, so a reload cycle triggers that issue.
-> > 
-> > And most importantly, if I don't do a
-> > 
-> > pci_set_power_state(pci_dev, pci_choose_state (pci_dev, state));
-> > 
-> > in .suspend, then WOL always works.
-> > 
-> > and I have even tried to set state manually to PCI_D3hot or PCI_D3cold, 
-> > 
-> > I also tried to use pci_save_state
-> > 
-> > 
-> > I also have 2 copies of this card, and both have this issue.
-> > I also tried 2 pci slots.
-> > 
-> > Kernel is vanilla 2.6.31-rc5
+mlx4 fails to initialize here:
 
-I need a dmesg output containing at least one suspend-resume cycle
-(preferably two cycles, the first one where WoL worked and another one
-where it didn't).
 
-Best,
-Rafael
+[    9.973940] mlx4_core 0000:04:00.0: irq 93 for MSI/MSI-X
+[    9.983108] sr 1:0:0:0: Attached scsi CD-ROM sr0
+[    9.988209] ses 0:0:32:0: Attached scsi generic sg0 type 13
+[    9.999376] sd 0:2:0:0: Attached scsi generic sg1 type 0
+[   10.010024] sr 1:0:0:0: Attached scsi generic sg2 type 5
+[   10.256371] mlx4_core 0000:04:00.0: SW2HW_EQ failed (-5)
+[   10.270103] mlx4_core 0000:04:00.0: Failed to initialize event queue
+table, aborting.
+[   10.288768] mlx4_core 0000:04:00.0: PCI INT A disabled
+[   10.299057] mlx4_core: probe of 0000:04:00.0 failed with error -5
+
