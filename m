@@ -1,45 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Mon, 17 Aug 2009 20:41:42 +0300
-Message-ID: <20090817174142.GA11140@redhat.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Very strange issues with ethernet wake on lan
+Date: Mon, 17 Aug 2009 20:30:54 +0200
+Message-ID: <200908172030.54505.rjw@sisk.pl>
+References: <1250394174.32268.13.camel@localhost.localdomain> <1250500588.4301.5.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <gregory.haskins@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pm@lists.linux-foundation.org"
+	<linux-pm@lists.linux-foundation.org>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:52669 "EHLO mx2.redhat.com"
+Received: from ogre.sisk.pl ([217.79.144.158]:49752 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754028AbZHQRna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2009 13:43:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4A8965E0.8050608@gmail.com>
+	id S1757957AbZHQSaH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Aug 2009 14:30:07 -0400
+In-Reply-To: <1250500588.4301.5.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 17, 2009 at 10:14:56AM -0400, Gregory Haskins wrote:
-> Case in point: Take an upstream kernel and you can modprobe the
-> vbus-pcibridge in and virtio devices will work over that transport
-> unmodified.
-> 
-> See http://lkml.org/lkml/2009/8/6/244 for details.
+On Monday 17 August 2009, Maxim Levitsky wrote:
+> On Sun, 2009-08-16 at 06:42 +0300, Maxim Levitsky wrote:
+> > Hi,
+> > 
+> > I have recently put back the davicom dm9009 ethernet card into my
+> > computer.
+> > 
+> > Some long time ago, I have written its suspend/resume routines.
+> > Now I see that few things have changed, like I need to enable wake in
+> > sysfs or better patch the code to do so, some nice helpers like
+> > pci_prepare_to_sleep have arrived, etc.
+> > 
+> > 
+> > I narrowed the strange issue down to following situation:
+> > 
+> > I reload dmfe.ko (and networkmanager is disabled)
+> > I don't ifup the device, thus pretty much no hardware initialization
+> > takes place (but this appears not to matter anyway)
+> > 
+> > I then suspend the system, and WOL doesn't work (I have patched the
+> > driver to enable WOL automaticly)
+> > 
+> > I then, suspend again. WOL works, and continues to work as long as I
+> > don't reload the driver. If I do, same situation repeats.
+> > 
+> > Also, after a boot, WOL works, so a reload cycle triggers that issue.
+> > 
+> > And most importantly, if I don't do a
+> > 
+> > pci_set_power_state(pci_dev, pci_choose_state (pci_dev, state));
+> > 
+> > in .suspend, then WOL always works.
+> > 
+> > and I have even tried to set state manually to PCI_D3hot or PCI_D3cold, 
+> > 
+> > I also tried to use pci_save_state
+> > 
+> > 
+> > I also have 2 copies of this card, and both have this issue.
+> > I also tried 2 pci slots.
+> > 
+> > Kernel is vanilla 2.6.31-rc5
 
-The modprobe you are talking about would need
-to be done in guest kernel, correct?
+I need a dmesg output containing at least one suspend-resume cycle
+(preferably two cycles, the first one where WoL worked and another one
+where it didn't).
 
-> OTOH, Michael's patch is purely targeted at improving virtio-net on kvm,
-> and its likewise constrained by various limitations of that decision
-> (such as its reliance of the PCI model, and the kvm memory scheme).
-
-vhost is actually not related to PCI in any way. It simply leaves all
-setup for userspace to do.  And the memory scheme was intentionally
-separated from kvm so that it can easily support e.g. lguest.
-
--- 
-MST
+Best,
+Rafael
