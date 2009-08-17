@@ -1,90 +1,53 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
 Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
  objects
-Date: Mon, 17 Aug 2009 09:02:40 -0400
-Message-ID: <4A8954F0.3040402@gmail.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu>
+Date: Mon, 17 Aug 2009 08:54:26 -0500
+Message-ID: <4A896112.9030407@codemonkey.ws>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <20090816071607.GB29537@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig51FCF08CCE8E65DE010D1EC3"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
 	Avi Kivity <avi@redhat.com>,
 	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
 To: Ingo Molnar <mingo@elte.hu>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090815103243.GA26749@elte.hu>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig51FCF08CCE8E65DE010D1EC3
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f173.google.com ([209.85.211.173]:41023 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752473AbZHQNy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 09:54:27 -0400
+In-Reply-To: <20090816071607.GB29537@elte.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Ingo Molnar wrote:
-> * Gregory Haskins <ghaskins@novell.com> wrote:
->=20
->> This will generally be used for hypervisors to publish any host-side
->> virtual devices up to a guest.  The guest will have the opportunity
->> to consume any devices present on the vbus-proxy as if they were
->> platform devices, similar to existing buses like PCI.
->>
->> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
->> ---
->>
->>  MAINTAINERS                 |    6 ++
->>  arch/x86/Kconfig            |    2 +
->>  drivers/Makefile            |    1=20
->>  drivers/vbus/Kconfig        |   14 ++++
->>  drivers/vbus/Makefile       |    3 +
->>  drivers/vbus/bus-proxy.c    |  152 ++++++++++++++++++++++++++++++++++=
-+++++++++
->>  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
->>  7 files changed, 251 insertions(+), 0 deletions(-)
->>  create mode 100644 drivers/vbus/Kconfig
->>  create mode 100644 drivers/vbus/Makefile
->>  create mode 100644 drivers/vbus/bus-proxy.c
->>  create mode 100644 include/linux/vbus_driver.h
->=20
-> Is there a consensus on this with the KVM folks? (i've added the KVM=20
-> list to the Cc:)
->=20
->=20
+>> I think the reason vbus gets better performance for networking 
+>> today is that vbus' backends are in the kernel while virtio's 
+>> backends are currently in userspace.  Since Michael has a 
+>> functioning in-kernel backend for virtio-net now, I suspect we're 
+>> weeks (maybe days) away from performance results.  My expectation 
+>> is that vhost + virtio-net will be as good as venet + vbus.  If 
+>> that's the case, then I don't see any reason to adopt vbus unless 
+>> Greg things there are other compelling features over virtio.
+>>     
+>
+> Keeping virtio's backend in user-space was rather stupid IMHO. 
+>   
 
-Hi Ingo,
+I don't think it's quite so clear.
 
-Avi can correct me if I am wrong, but the agreement that he and I came
-to a few months ago was something to the effect of:
+There's nothing about vhost_net that would prevent a userspace 
+application from using it as a higher performance replacement for tun/tap.
 
-kvm will be neutral towards various external IO subsystems, and instead
-provide various hooks (see irqfd, ioeventfd) to permit these IO
-subsystems to interface with kvm.
+The fact that we can avoid userspace for most of the fast paths is nice 
+but that's really an issue of vhost_net vs. tun/tap.
 
-AlacrityVM is one of the first projects to take advantage of that
-interface.  AlacrityVM is kvm-core + vbus-core + vbus-kvm-connector +
-vbus-enhanced qemu + guest drivers.  This thread is part of the
-guest-drivers portion.  Note that it is specific to alacrityvm, not kvm,
-which is why the kvm list was not included in the conversation (also an
-agreement with Avi: http://lkml.org/lkml/2009/8/6/231).
+ From the kernel's perspective, a KVM guest is just a userspace 
+process.  Having new userspace interfaces that are only useful to KVM 
+guests would be a bad thing.
 
-Kind Regards,
--Greg
+Regards,
 
-
---------------enig51FCF08CCE8E65DE010D1EC3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqJVPEACgkQP5K2CMvXmqHhIACePG05qVQu/pdlu1Gh0/YSgvgb
-4ZsAn3tT2aw3ki6Uq90+Y/ZHjd/4lQEZ
-=7cSS
------END PGP SIGNATURE-----
-
---------------enig51FCF08CCE8E65DE010D1EC3--
+Anthony Liguori
