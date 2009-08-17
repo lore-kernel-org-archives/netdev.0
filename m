@@ -1,68 +1,46 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver
- objects
-Date: Mon, 17 Aug 2009 10:16:40 -0400
-Message-ID: <4A896648.9040707@gmail.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A87C3B9.2040206@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
+	vbus_driver objects
+Date: Mon, 17 Aug 2009 16:23:10 +0200
+Message-ID: <20090817142310.GA3602@elte.hu>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <20090816071607.GB29537@elte.hu> <4A896112.9030407@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigCE5F7E838B1ACC645A3192FF"
-Cc: Ingo Molnar <mingo@elte.hu>, Gregory Haskins <ghaskins@novell.com>,
-	kvm@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A87C3B9.2040206@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <4A896112.9030407@codemonkey.ws>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCE5F7E838B1ACC645A3192FF
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-Avi Kivity wrote:
-> On 08/15/2009 01:32 PM, Ingo Molnar wrote:
->>> This will generally be used for hypervisors to publish any host-side
->>> virtual devices up to a guest.  The guest will have the opportunity
->>> to consume any devices present on the vbus-proxy as if they were
->>> platform devices, similar to existing buses like PCI.
->>>
->>>     =20
->> Is there a consensus on this with the KVM folks? (i've added the KVM
->> list to the Cc:)
->>   =20
->=20
-> My opinion is that this is a duplication of effort and we'd be better
-> off if everyone contributed to enhancing virtio, which already has
-> widely deployed guest drivers and non-Linux guest support.
->=20
-> It may have merit if it is proven that it is technically superior to
-> virtio (and I don't mean some benchmark in some point in time; I mean
-> design wise).  So far I haven't seen any indications that it is.
->=20
+* Anthony Liguori <anthony@codemonkey.ws> wrote:
 
+> Ingo Molnar wrote:
+>>> I think the reason vbus gets better performance for networking today 
+>>> is that vbus' backends are in the kernel while virtio's backends are 
+>>> currently in userspace.  Since Michael has a functioning in-kernel 
+>>> backend for virtio-net now, I suspect we're weeks (maybe days) away 
+>>> from performance results.  My expectation is that vhost + virtio-net 
+>>> will be as good as venet + vbus.  If that's the case, then I don't 
+>>> see any reason to adopt vbus unless Greg things there are other 
+>>> compelling features over virtio.
+>>>     
+>>
+>> Keeping virtio's backend in user-space was rather stupid IMHO.
+>
+> I don't think it's quite so clear.
 
-The design is very different, so hopefully I can start to convince you
-why it might be interesting.
+in such a narrow quote it's not so clear indeed - that's why i 
+qualified it with:
 
-Kind Regards,
--Greg
+>> Having the _option_ to piggyback to user-space (for flexibility, 
+>> extensibility, etc.) is OK, but not having kernel acceleration is 
+>> bad.
 
-
---------------enigCE5F7E838B1ACC645A3192FF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqJZkgACgkQP5K2CMvXmqF9/QCfYH+FyJBxUb791cYylsF99ofb
-zi4AnRZCzfj/XOTknrJUq5nZkMDdJ5VD
-=635N
------END PGP SIGNATURE-----
-
---------------enigCE5F7E838B1ACC645A3192FF--
+	Ingo
