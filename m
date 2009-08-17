@@ -1,45 +1,37 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Mon, 17 Aug 2009 16:46:29 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908171642500.20399@gentwo.org>
-References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org> <4A89C026.4030402@us.ibm.com>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH -next] phonet: fix build when PROC_FS is disabled
+Date: Mon, 17 Aug 2009 23:43:43 +0300
+Message-ID: <200908172343.44744.remi@remlab.net>
+References: <4A89BF25.9010404@oracle.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:41547 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752594AbZHQUqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 16:46:51 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 53C9E82C51C
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:46:57 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id tyOhirbski+2 for <netdev@vger.kernel.org>;
-	Mon, 17 Aug 2009 16:46:51 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 3EB4B82C4B3
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:46:51 -0400 (EDT)
-In-Reply-To: <4A89C026.4030402@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-next" <linux-next@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4A89BF25.9010404@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Aug 2009, Nivedita Singhvi wrote:
+Le lundi 17 ao=FBt 2009 23:35:49 Randy Dunlap, vous avez =E9crit :
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+>
+> Fix phonet build when PROC_FS is not enabled:
+>
+> net/built-in.o: In function `pn_sock_open':
+> socket.c:(.text+0x23c649): undefined reference to `seq_open_net'
+> net/built-in.o:(.rodata+0x21018): undefined reference to `seq_release=
+_net'
+>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-> Is there any chance this is getting dropped at qdisc?
-> Can you check with tc?
-
-I checked and the counter there is zero.
-
-:/home/clameter# tc -s qdisc show
-
-qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1
-1 1 1 1 1
- Sent 3042712708 bytes 8896862 pkt (dropped 0, overlimits 0 requeues 56303)
- rate 0bit 0pps backlog 0b 0p requeues 56303
+Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
 
-
-
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
