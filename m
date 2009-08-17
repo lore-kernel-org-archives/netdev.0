@@ -1,51 +1,44 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] phonet: fix build when PROC_FS is disabled
-Date: Mon, 17 Aug 2009 13:35:49 -0700
-Message-ID: <4A89BF25.9010404@oracle.com>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Mon, 17 Aug 2009 13:40:06 -0700
+Message-ID: <4A89C026.4030402@us.ibm.com>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:44716 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754767AbZHQUkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 16:40:21 -0400
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e36.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7HKca8v020421
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:38:36 -0600
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7HKe8T2125814
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:40:09 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7HKe7ZH003534
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:40:08 -0600
+In-Reply-To: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+Christoph Lameter wrote:
+> If I use a large send queue
+> 
+> (echo 2000000 >/proc/sys/net/core/wmem_default)
+> 
+> then lots of packet loss results if I try to send more packets than
+> the bandwidth of the wire (300 bytes the maximum rate is 341k pps). With a
+> size of 2M for the output buffer the TX ring is overrun.
+> 
+> But this loss is nowhere seen in any counter increments:
 
-Fix phonet build when PROC_FS is not enabled:
+Is there any chance this is getting dropped at qdisc?
+Can you check with tc?
 
-net/built-in.o: In function `pn_sock_open':
-socket.c:(.text+0x23c649): undefined reference to `seq_open_net'
-net/built-in.o:(.rodata+0x21018): undefined reference to `seq_release_net'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/phonet/socket.c |    2 ++
- 1 file changed, 2 insertions(+)
-
---- linux-next-20090817.orig/net/phonet/socket.c
-+++ linux-next-20090817/net/phonet/socket.c
-@@ -413,6 +413,7 @@ found:
- }
- EXPORT_SYMBOL(pn_sock_get_port);
- 
-+#ifdef CONFIG_PROC_FS
- static struct sock *pn_sock_get_idx(struct seq_file *seq, loff_t pos)
- {
- 	struct net *net = seq_file_net(seq);
-@@ -509,3 +510,4 @@ const struct file_operations pn_sock_seq
- 	.llseek = seq_lseek,
- 	.release = seq_release_net,
- };
-+#endif
-
-
-
--- 
-~Randy
-LPC 2009, Sept. 23-25, Portland, Oregon
-http://linuxplumbersconf.org/2009/
+thanks,
+Nivedita
