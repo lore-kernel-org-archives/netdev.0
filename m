@@ -1,286 +1,146 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: AlacrityVM numbers updated for 31-rc4
-Date: Mon, 17 Aug 2009 14:06:59 +0300
-Message-ID: <20090817110659.GA10128@redhat.com>
-References: <4A83296B.3080606@gmail.com> <4A834ABB.4010801@codemonkey.ws> <4A834E75.9060204@gmail.com> <4A85BFF8.4050001@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce
+	primary_lazy option
+Date: Mon, 17 Aug 2009 13:49:39 +0200
+Message-ID: <20090817114938.GA3416@psychotron.englab.brq.redhat.com>
+References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com> <4A846C4E.8030509@free.fr> <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anthony Liguori <anthony@codemonkey.ws>,
-	alacrityvm-devel@lists.sourceforge.net,
-	alacrityvm-users@lists.sourceforge.net,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757730AbZHQLIh@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.redhat.com ([66.187.237.31]:39784 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751754AbZHQLt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Aug 2009 07:49:59 -0400
 Content-Disposition: inline
-In-Reply-To: <4A85BFF8.4050001@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A859057.3020606@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 14, 2009 at 03:50:16PM -0400, Gregory Haskins wrote:
-> Gregory Haskins wrote:
-> > Anthony Liguori wrote:
-> >> Gregory Haskins wrote:
-> >>> I re-ran the numbers on 10GE against the actual alacrityvm v0.1 release
-> >>> available in git on kernel.org.
-> >>>
-> >>> I tried to include the newly announced "vhost" driver (Michael Tsirkin)
-> >>> for virtio acceleration, but ran into issues getting the patches to
-> >>> apply.
-> >>>
-> >>> For now, this includes native, virtio-u (virtio-userspace), and venet
-> >>> all running on 31-rc4.  If I can resolve the issue with Michaels
-> >>> patches, I will add "virtio-k" (virtio-kernel) to the mix as well.  For
-> >>> now, here are the results for 1500mtu:
-> >>>
-> >>> native:   7388Mb/s,   29.8us rtt (33505 tps udp-rr)
-> >>> venet:    3654Mb/s,   56.8us rtt (17600 tps udp-rr)
-> >>> virtio-u: 1955Mb/s, 4016.0us rtt (  249 tps udp-rr)
-> >>>   
-> 
-> I re-ran the numbers now that I have the HRT issue straighted out.
-> Native and virtio stayed level, venet recovered from the 3.6Gb/s
-> quagmire it was in, back up to ~4.5Gb/s.
-> 
-> native (hw):        7388Mb/s,  29.8us rtt (33500 tps udp-rr)
-> venet (alacrityvm): 4560Mb/s,  56.8us rtt (17600 tps udp-rr)
-> virtio-u (kvm):	    2670Mb/s, 265.7us rtt ( 3764 tps udp-rr)
-> virtio-k (kvm):     d-n-f
-> 
-> (still having problems getting vhost to run).  Will try again next week.)
-> 
-> I have updated the graphs on the wiki:
-> 
-> http://developer.novell.com/wiki/index.php/AlacrityVM
-> 
-> Have a nice weekend, all.
-> 
-> -Greg
-> 
-> 
+Fri, Aug 14, 2009 at 06:27:03PM CEST, nicolas.2p.debian@free.fr wrote:
+> Jiri Pirko wrote:
+>> Thu, Aug 13, 2009 at 09:41:02PM CEST, nicolas.2p.debian@free.fr wrote:
+>>> Jiri Pirko wrote:
+>>>> In some cases there is not desirable to switch back to primary interface when
+>>>> it's link recovers and rather stay wiith currently active one. We need to avoid
+>>>> packetloss as much as we can in some cases. This is solved by introducing
+>>>> primary_lazy option. Note that enslaved primary slave is set as current
+>>>> active no matter what.
+>>> May I suggest that instead of creating a new option to better define how
+>>> the "primary" option is expected to behave for active-backup mode, we 
+>>>  try the "weight" slave  option I proposed in the thread "alternative 
+>>> to  primary" earlier this year ?
+>>>
+>>> http://sourceforge.net/mailarchive/forum.php?thread_name=49D5357E.4020201%40free.fr&forum_name=bonding-devel
+>>
+>> This link does not work for me :(
+>
+> Nor for me... Sourceforge apparently decided to drop the bonding-devel  
+> list archive just now. 'hope the list archive will be back soon.
+>
+> Originally, the proposed "weight" option for slaves was designed just to  
+> provide a way to better define which slave should become active when the  
+> active one just went down. As you know, the current "primary" option  
+> does not allow for a predictable selection of the new active slave when  
+> the primary loose connectivity. The new active slave is chosen "at  
+> random" between the remaining slaves.
+>
+> After a short thread, involving Jay Vosburg and Andy Gospodarek, we end  
+> up with a general configuration interface, that provide a way to tune  
+> many things in slave management :
+>
+> - Active slave selection in active/backup mode, even in the presence of  
+> more than two slaves.
+> - Active aggregator selection in 802.3ad mode.
+> - Load balancing tuning for most load balancing modes.
+>
+> The sysfs interface would be /sys/class/net/eth0/bonding/weight. Writing  
+> a number there would give a "user supplied weight" to a slave. The speed  
+> and link state of the slave would give a "natural weight" for the slave.  
+> And the "effective weight" would be computed every time one of user  
+> supplied or natural weight change (upon speed or link state changes) and  
+> would be used everywhere we need a slave weight.
+>
+> I suggest that :
+> - slave's natural weight = speed of the slave if link UP, else 0.
+> - slave's effective weight = slave's natural weight * slave's user  
+> supplied weight.
+> - aggregator's effective weight = sum of the effective weights of the  
+> slaves inside the aggregator.
+>
+> For the active/backup mode, the exact behavior would be :
+>
+> - When the active slave disappear, the new active slave is the one whose  
+> effective weight is the highest.
+> - When a slave comes back, it only becomes active if its effective  
+> weight is strictly higher than the one of the current active slave.  
+> (This stop the flip-flop risk you stated).
+> - To keep the old "primary" option, we simply give a very high user  
+> supplied weight to the primary slave. Jay suggested :
+> #define BOND_PRIMARY_PRIO 0x80000000
+> user_supplied_weight &= BOND_PRIMARY_PRIO /* to set the primary */
+> user_supplied_weight &= ~BOND_PRIMAY_PRIO  /* to clear the primary */
+>
+> The same apply to aggregator : Every time a slave enter (link UP) or  
+> leave (link DOWN) an aggregator, the aggregator effective weight is  
+> recomputed. Then, if an aggregator exist with an strictly higher  
+> effective weight than the current active one, the new best aggregator  
+> becomes active.
+>
+> For others modes, the weight might be used later to tune the load  
+> balancing logic in some way.
+>
+> A default value of 1 for slave weight would cause slave speed to be used  
+> alone, hence the "natural weight".
+>
 
-Hi Greg,
-could you check what does disabling tx timer completely do to virtio-u
-performance?  Here's a patch from Mark McLoughlin do this this:
-it works and seems to improve latency for me.
+I read your text and also the original list thread and I must say I see no
+solution in this "weight" parameter for this issue. Because it's desired for one
+link to stay active even if second come up, these 2 must have the same weight.
+But imagine 3 links of the same weight. In that case you cannot insure that the
+"primary one" will be chosen as active (see my picture in the reply to Jay's
+post). Correct me if I'm wrong but for that what I want to fix by primary_lazy
+option, your proposed weight option has no effect.
 
+Therefor I still think the primary_lazy is the only solution now.
 
-From: Mark McLoughlin <markmc@redhat.com>
-Subject: virtio_net: remove the tx mitigation timer
-    
-The tx mitigation timer is designed to reduce the rate of guest exits
-thereby improving throughput. However, we have identified a number of
-cases where mitigation hurts throughput and benchmarking has shown that
-it only helps throughput in a very limited number of cases.
+Jirka
 
-This patch firstly removes the timer and replaces it with a bottom half.
-When the host is notified of a packet on the tx queue, it schedules a
-bottom half in the I/O thread in order to flush the queue.
-
-Next, it disables enabling notifications until it has flushed the queue.
-In order to avoid a race condition with this, it flushes the queue a
-second time when notifications are re-enabled.
-
-Finally, if it successfully flushed a number of packets in the bottom
-half, it disables notifications re-schedules the bottom half to quickly
-flush the queue again.
-
-Migration is handled by equating the tx_timer_active savevm field to
-tx_bh_scheduled.
-
-Signed-off-by: Mark McLoughlin <markmc@redhat.com>
-
----
-
-diff --git a/hw/virtio-net.c b/hw/virtio-net.c
-index 95d9f93..835f4e1 100644
---- a/hw/virtio-net.c
-+++ b/hw/virtio-net.c
-@@ -37,8 +37,8 @@ typedef struct VirtIONet
-     VirtQueue *tx_vq;
-     VirtQueue *ctrl_vq;
-     VLANClientState *vc;
--    QEMUTimer *tx_timer;
--    int tx_timer_active;
-+    QEMUBH *tx_bh;
-+    int tx_bh_scheduled;
-     struct {
-         VirtQueueElement elem;
-         ssize_t len;
-@@ -591,7 +591,7 @@ static ssize_t virtio_net_receive2(VLANClientState *vc, const uint8_t *buf, size
-     return size;
- }
- 
--static void virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq);
-+static int virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq, int enable_notify);
- 
- static void virtio_net_tx_complete(VLANClientState *vc, ssize_t len)
- {
-@@ -603,7 +603,7 @@ static void virtio_net_tx_complete(VLANClientState *vc, ssize_t len)
-     n->async_tx.elem.out_num = n->async_tx.len = 0;
- 
-     virtio_queue_set_notification(n->tx_vq, 1);
--    virtio_net_flush_tx(n, n->tx_vq);
-+    virtio_net_flush_tx(n, n->tx_vq, 0);
- }
- 
- static ssize_t virtio_net_receive(VLANClientState *vc, const uint8_t *buf, size_t size)
-@@ -617,9 +617,10 @@ static ssize_t virtio_net_receive_raw(VLANClientState *vc, const uint8_t *buf, s
- }
- 
- /* TX */
--static void virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq)
-+static int virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq, int enable_notify)
- {
-     VirtQueueElement elem;
-+    int num_packets = 0;
- #ifdef TAP_VNET_HDR
-     int has_vnet_hdr = tap_has_vnet_hdr(n->vc->vlan->first_client);
- #else
-@@ -629,11 +630,11 @@ static void virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq)
- 	    return;
- 
-     if (!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK))
--        return;
-+        return num_packets;
- 
-     if (n->async_tx.elem.out_num) {
-         virtio_queue_set_notification(n->tx_vq, 0);
--        return;
-+        return num_packets;
-     }
- 
-     while (virtqueue_pop(vq, &elem)) {
-@@ -670,45 +671,48 @@ static void virtio_net_flush_tx(VirtIONet *n, VirtQueue *vq)
-             virtio_queue_set_notification(n->tx_vq, 0);
-             n->async_tx.elem = elem;
-             n->async_tx.len  = len;
--            return;
-+            return num_packets;
-         }
- 
-         len += ret;
- 
-         virtqueue_push(vq, &elem, len);
-         virtio_notify(&n->vdev, vq);
-+
-+        num_packets++;
-+    }
-+
-+    if (enable_notify) {
-+        virtio_queue_set_notification(vq, 1);
-+        num_packets += virtio_net_flush_tx(n, vq, 0);
-     }
-+
-+    return num_packets;
- }
- 
- static void virtio_net_handle_tx(VirtIODevice *vdev, VirtQueue *vq)
- {
-     VirtIONet *n = to_virtio_net(vdev);
- 
--    if (n->tx_timer_active) {
--        virtio_queue_set_notification(vq, 1);
--        qemu_del_timer(n->tx_timer);
--        n->tx_timer_active = 0;
--        virtio_net_flush_tx(n, vq);
--    } else {
--        qemu_mod_timer(n->tx_timer,
--                       qemu_get_clock(vm_clock) + TX_TIMER_INTERVAL);
--        n->tx_timer_active = 1;
--        virtio_queue_set_notification(vq, 0);
--    }
-+    if (n->tx_bh_scheduled)
-+        return;
-+
-+    virtio_queue_set_notification(n->tx_vq, 0);
-+    qemu_bh_schedule(n->tx_bh);
-+    n->tx_bh_scheduled = 1;
- }
- 
--static void virtio_net_tx_timer(void *opaque)
-+static void virtio_net_tx_bh(void *opaque)
- {
-     VirtIONet *n = opaque;
- 
--    n->tx_timer_active = 0;
--
--    /* Just in case the driver is not ready on more */
--    if (!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK))
--        return;
-+    n->tx_bh_scheduled = 0;
- 
--    virtio_queue_set_notification(n->tx_vq, 1);
--    virtio_net_flush_tx(n, n->tx_vq);
-+    if (virtio_net_flush_tx(n, n->tx_vq, 1)) {
-+        virtio_queue_set_notification(n->tx_vq, 0);
-+        qemu_bh_schedule(n->tx_bh);
-+        n->tx_bh_scheduled = 1;
-+    }
- }
- 
- static void virtio_net_save(QEMUFile *f, void *opaque)
-@@ -718,7 +722,7 @@ static void virtio_net_save(QEMUFile *f, void *opaque)
-     virtio_save(&n->vdev, f);
- 
-     qemu_put_buffer(f, n->mac, ETH_ALEN);
--    qemu_put_be32(f, n->tx_timer_active);
-+    qemu_put_be32(f, n->tx_bh_scheduled);
-     qemu_put_be32(f, n->mergeable_rx_bufs);
-     qemu_put_be16(f, n->status);
-     qemu_put_byte(f, n->promisc);
-@@ -752,7 +756,7 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
-     virtio_load(&n->vdev, f);
- 
-     qemu_get_buffer(f, n->mac, ETH_ALEN);
--    n->tx_timer_active = qemu_get_be32(f);
-+    n->tx_bh_scheduled = qemu_get_be32(f);
-     n->mergeable_rx_bufs = qemu_get_be32(f);
- 
-     if (version_id >= 3)
-@@ -814,9 +818,8 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
-     }
-     n->mac_table.first_multi = i;
- 
--    if (n->tx_timer_active) {
--        qemu_mod_timer(n->tx_timer,
--                       qemu_get_clock(vm_clock) + TX_TIMER_INTERVAL);
-+    if (n->tx_bh_scheduled) {
-+        qemu_bh_schedule(n->tx_bh);
-     }
- 
-     return 0;
-@@ -833,9 +836,6 @@ static void virtio_net_cleanup(VLANClientState *vc)
-     qemu_free(n->mac_table.macs);
-     qemu_free(n->vlans);
- 
--    qemu_del_timer(n->tx_timer);
--    qemu_free_timer(n->tx_timer);
--
-     virtio_cleanup(&n->vdev);
- }
- 
-@@ -881,8 +881,8 @@ VirtIODevice *virtio_net_init(DeviceState *dev)
- 
-     qemu_format_nic_info_str(n->vc, n->mac);
- 
--    n->tx_timer = qemu_new_timer(vm_clock, virtio_net_tx_timer, n);
--    n->tx_timer_active = 0;
-+    n->tx_bh = qemu_bh_new(virtio_net_tx_bh, n);
-+    n->tx_bh_scheduled = 0;
-     n->mergeable_rx_bufs = 0;
-     n->promisc = 1; /* for compatibility */
- 
-diff --git a/hw/virtio-net.h b/hw/virtio-net.h
-index 2085181..add7815 100644
---- a/hw/virtio-net.h
-+++ b/hw/virtio-net.h
-@@ -47,8 +47,6 @@
- 
- #define VIRTIO_NET_S_LINK_UP    1       /* Link is up */
- 
--#define TX_TIMER_INTERVAL 150000 /* 150 us */
--
- /* Maximum packet size we can receive from tap device: header + 64k */
- #define VIRTIO_NET_MAX_BUFSIZE (sizeof(struct virtio_net_hdr) + (64 << 10))
- 
+>>> Giving the same "weight" to two different slaves means "chose at random
+>>> on startup and keep the active one until it fails". And if the "at
+>>> random" behavior is not appropriate, one can force the active slave
+>>> using what Jay suggested  (/sys/class/net/bond0/bonding/active).
+>>>
+>>> The proposed "weight" slave's option is able to prevent the slaves from
+>>> flip-flopping, by stating the fact that two slaves share the same   
+>>> "primary" level, and may provide several other enhancements as 
+>>> described  in the thread.
+>>>
+>>
+>> Although I cannot reach the thread, this looks interesting. But I'm not sure it
+>> has real benefits over primary_lazy option (and it doesn't solve initial curr
+>> active slave setup)
+>
+> You are right, it doesn't solve the initial active slave selection. But  
+> why would it be so important to properly select the initial active  
+> slave, if you feel comfortable with staying with a new active slave,  
+> after a failure and return of the original active slave ? This kind of  
+> failures may last for only a few seconds (just unplugging and plugging  
+> back the wire), and you configuration may then stay with the new active  
+> slave "forever". If "forever" is acceptable, may be "at startup" is  
+> acceptable too. :-)
+>
+> From my point of view (and Andy Gospodarek apparently agreed), the real  
+> benefits of the weight slave option is that is it more generic and allow  
+> for later usage in other modes, that we don't anticipate for now.
+>
+> Quoted from a mail from Andy Gospodarek in the original thread :
+>
+> "I really have no objection to that.  Adding this as a base part of
+> bonding for a few modes with known features would be a nice start.
+> I'm sure others will be kind enough to send suggestions or patches for
+> ways this could benefit other modes."
+>
+> 	Nicolas.
