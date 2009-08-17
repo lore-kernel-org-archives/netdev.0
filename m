@@ -1,231 +1,321 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
-Date: Mon, 17 Aug 2009 18:17:57 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908171814210.15956@gentwo.org>
-References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org> <ada7hx22j3g.fsf@cisco.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2] lib/vsprintf.c: Add "%pI6c" - print pointer as
+ compressed ipv6 address
+Date: Mon, 17 Aug 2009 15:29:44 -0700
+Message-ID: <1250548184.4488.6.camel@Joe-Laptop.home>
+References: <1250230925.6641.92.camel@fnki-nb00130>
+	 <20090814.001519.40499255.davem@davemloft.net>
+	 <1250237739.16632.12.camel@fnki-nb00130>
+	 <20090814.131218.139318801.davem@davemloft.net>
+	 <1250349894.4620.5.camel@Joe-Laptop.home>
+	 <1250522309.16632.45.camel@fnki-nb00130>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, chuck.lever@oracle.com,
+	brian.haley@hp.com, netdev@vger.kernel.org
+To: Jens Rosenboom <jens@mcbone.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:56833 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752480AbZHQWSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 18:18:04 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 9EF7E82C674
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 18:18:10 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id nG4kPSydNVFl for <netdev@vger.kernel.org>;
-	Mon, 17 Aug 2009 18:18:06 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id F28D782C66E
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 18:18:05 -0400 (EDT)
-In-Reply-To: <ada7hx22j3g.fsf@cisco.com>
+Received: from 136-022.dsl.LABridge.com ([206.117.136.22]:2211 "EHLO
+	mail.perches.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182AbZHQW37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 18:29:59 -0400
+In-Reply-To: <1250522309.16632.45.camel@fnki-nb00130>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Aug 2009, Roland Dreier wrote:
+On Mon, 2009-08-17 at 17:18 +0200, Jens Rosenboom wrote: 
+> Two small optimizations:
 
->
->  > mlx4 fails to initialize here:
->  >
->  >
->  > [    9.973940] mlx4_core 0000:04:00.0: irq 93 for MSI/MSI-X
->  > [    9.983108] sr 1:0:0:0: Attached scsi CD-ROM sr0
->  > [    9.988209] ses 0:0:32:0: Attached scsi generic sg0 type 13
->  > [    9.999376] sd 0:2:0:0: Attached scsi generic sg1 type 0
->  > [   10.010024] sr 1:0:0:0: Attached scsi generic sg2 type 5
->  > [   10.256371] mlx4_core 0000:04:00.0: SW2HW_EQ failed (-5)
->  > [   10.270103] mlx4_core 0000:04:00.0: Failed to initialize event queue
->  > table, aborting.
->  > [   10.288768] mlx4_core 0000:04:00.0: PCI INT A disabled
->  > [   10.299057] mlx4_core: probe of 0000:04:00.0 failed with error -5
->
-> Thanks for the report... could you try loading mlx4_core with
-> debug_level=1 to see if anything interesting comes out?  The kernel log
-> here indicates that the device FW is giving us "internal error" when we
-> try to initialize event queues.
+Thanks.  Another is to use the calculated "longest" to
+increment i after the :: instead of counting 0's again.
 
-Device FW??? The log you wanted follows at the end of this message.
+Another possibility might be to make all the ip formatting
+in vsprintf #ifdef'd on CONFIG_NET.
 
-> Also what kernel is this with?  Anything unusual about the system (arch
-> != x86, lots of CPUs or RAM, etc)?
+> Also I'm wondering whether it makes sense to pull the format code
+> checking into all the sub-routines. 
 
-Dell R620 two quad nehalems. Build with standard debian kernel config.
+It isn't clear to me what you're asking for.
 
-> One stab in the dark would be to try a423b8a0 ("mlx4_core: Allocate and
-> map sufficient ICM memory for EQ context") from the for-next branch of
-> my infiniband.git kernel.org tree.  I would only think that matters if
-> you have 32 or more CPUs, but maybe you do...
+> It might be easier to maintain if it 
+> is all kept together in pointer().
 
-We have 16 processors.
+Can you explain more thoroughly please?
 
-[ 7423.298136] mlx4_core: Mellanox ConnectX core driver v0.01 (May 1,
-2007)
-[ 7423.298137] mlx4_core: Initializing 0000:04:00.0
-[ 7423.298147] mlx4_core 0000:04:00.0: PCI INT A -> GSI 38 (level, low) ->
-IRQ 38
-[ 7423.298165] mlx4_core 0000:04:00.0: setting latency timer to 64
-[ 7424.298240] mlx4_core 0000:04:00.0: FW version 2.6.000 (cmd intf rev
-3), max commands 16
-[ 7424.298242] mlx4_core 0000:04:00.0: Catastrophic error buffer at
-0x1f020, size 0x10, BAR 0
-[ 7424.298243] mlx4_core 0000:04:00.0: FW size 385 KB
-[ 7424.298245] mlx4_core 0000:04:00.0: Clear int @ f0058, BAR 0
-[ 7424.299848] mlx4_core 0000:04:00.0: Mapped 26 chunks/6168 KB for FW.
-[ 7424.921833] mlx4_core 0000:04:00.0: BlueFlame available (reg size 512,
-regs/page 256)
-[ 7424.921952] mlx4_core 0000:04:00.0: Base MM extensions: flags 00000cc0,
-rsvd L_Key 00000500
-[ 7424.921954] mlx4_core 0000:04:00.0: Max ICM size 4294967296 MB
-[ 7424.921955] mlx4_core 0000:04:00.0: Max QPs: 16777216, reserved QPs:
-64, entry size: 256
-[ 7424.921957] mlx4_core 0000:04:00.0: Max SRQs: 16777216, reserved SRQs:
-64, entry size: 128
-[ 7424.921959] mlx4_core 0000:04:00.0: Max CQs: 16777216, reserved CQs:
-128, entry size: 128
-[ 7424.921960] mlx4_core 0000:04:00.0: Max EQs: 512, reserved EQs: 4,
-entry size: 128
-[ 7424.921961] mlx4_core 0000:04:00.0: reserved MPTs: 16, reserved MTTs:
-16
-[ 7424.921963] mlx4_core 0000:04:00.0: Max PDs: 8388608, reserved PDs: 4,
-reserved UARs: 1
-[ 7424.921964] mlx4_core 0000:04:00.0: Max QP/MCG: 8388608, reserved MGMs:
-0
-[ 7424.921966] mlx4_core 0000:04:00.0: Max CQEs: 4194304, max WQEs: 16384,
-max SRQ WQEs: 16384
-[ 7424.921967] mlx4_core 0000:04:00.0: Local CA ACK delay: 15, max MTU:
-4096, port width cap: 3
-[ 7424.921969] mlx4_core 0000:04:00.0: Max SQ desc size: 1008, max SQ S/G:
-62
-[ 7424.921970] mlx4_core 0000:04:00.0: Max RQ desc size: 512, max RQ S/G:
-32
-[ 7424.921971] mlx4_core 0000:04:00.0: Max GSO size: 131072
-[ 7424.921972] mlx4_core 0000:04:00.0: DEV_CAP flags:
-[ 7424.921974] mlx4_core 0000:04:00.0:     RC transport
-[ 7424.921975] mlx4_core 0000:04:00.0:     UC transport
-[ 7424.921976] mlx4_core 0000:04:00.0:     UD transport
-[ 7424.921977] mlx4_core 0000:04:00.0:     XRC transport
-[ 7424.921978] mlx4_core 0000:04:00.0:     FCoIB support
-[ 7424.921979] mlx4_core 0000:04:00.0:     SRQ support
-[ 7424.921980] mlx4_core 0000:04:00.0:     IPoIB checksum offload
-[ 7424.921981] mlx4_core 0000:04:00.0:     P_Key violation counter
-[ 7424.921982] mlx4_core 0000:04:00.0:     Q_Key violation counter
-[ 7424.921983] mlx4_core 0000:04:00.0:     DPDP
-[ 7424.921984] mlx4_core 0000:04:00.0:     APM support
-[ 7424.921985] mlx4_core 0000:04:00.0:     Atomic ops support
-[ 7424.921986] mlx4_core 0000:04:00.0:     Address vector port checking
-support
-[ 7424.921988] mlx4_core 0000:04:00.0:     UD multicast support
-[ 7424.921989] mlx4_core 0000:04:00.0:     Router support
-[ 7424.921993] mlx4_core 0000:04:00.0:   profile[ 0] (  CMPT): 2^26
-entries @ 0x         0, size 0x 100000000
-[ 7424.921995] mlx4_core 0000:04:00.0:   profile[ 1] (RDMARC): 2^21
-entries @ 0x 100000000, size 0x   4000000
-[ 7424.921997] mlx4_core 0000:04:00.0:   profile[ 2] (   MTT): 2^20
-entries @ 0x 104000000, size 0x   4000000
-[ 7424.921999] mlx4_core 0000:04:00.0:   profile[ 3] (    QP): 2^17
-entries @ 0x 108000000, size 0x   2000000
-[ 7424.922001] mlx4_core 0000:04:00.0:   profile[ 4] (  ALTC): 2^17
-entries @ 0x 10a000000, size 0x    800000
-[ 7424.922003] mlx4_core 0000:04:00.0:   profile[ 5] (   SRQ): 2^16
-entries @ 0x 10a800000, size 0x    800000
-[ 7424.922005] mlx4_core 0000:04:00.0:   profile[ 6] (    CQ): 2^16
-entries @ 0x 10b000000, size 0x    800000
-[ 7424.922007] mlx4_core 0000:04:00.0:   profile[ 7] (  DMPT): 2^17
-entries @ 0x 10b800000, size 0x    800000
-[ 7424.922009] mlx4_core 0000:04:00.0:   profile[ 8] (   MCG): 2^13
-entries @ 0x 10c000000, size 0x    200000
-[ 7424.922011] mlx4_core 0000:04:00.0:   profile[ 9] (  AUXC): 2^17
-entries @ 0x 10c200000, size 0x     20000
-[ 7424.922013] mlx4_core 0000:04:00.0:   profile[10] (    EQ): 2^06
-entries @ 0x 10c220000, size 0x      2000
-[ 7424.922014] mlx4_core 0000:04:00.0: HCA context memory: reserving
-4393096 KB
-[ 7424.922034] mlx4_core 0000:04:00.0: 4393096 KB of HCA context requires
-8620 KB aux memory.
-[ 7424.942888] mlx4_core 0000:04:00.0: Mapped 37 chunks/8620 KB for ICM
-aux.
-[ 7424.943998] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 0 for
-ICM.
-[ 7424.945080] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 40000000
-for ICM.
-[ 7424.946162] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 80000000
-for ICM.
-[ 7424.946192] mlx4_core 0000:04:00.0: Mapped 1 chunks/4 KB at c0000000
-for ICM.
-[ 7424.946221] mlx4_core 0000:04:00.0: Mapped page at 1a79c4000 to
-10c220000 for ICM.
-[ 7424.947283] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 104000000
-for ICM.
-[ 7424.948380] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10b800000
-for ICM.
-[ 7424.949441] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 108000000
-for ICM.
-[ 7424.949976] mlx4_core 0000:04:00.0: Mapped 1 chunks/128 KB at 10c200000
-for ICM.
-[ 7424.951037] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10a000000
-for ICM.
-[ 7424.952098] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 100000000
-for ICM.
-[ 7424.953159] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10b000000
-for ICM.
-[ 7424.954219] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10a800000
-for ICM.
-[ 7424.955279] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c000000
-for ICM.
-[ 7424.956339] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c040000
-for ICM.
-[ 7424.957399] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c080000
-for ICM.
-[ 7424.958458] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c0c0000
-for ICM.
-[ 7424.959519] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c100000
-for ICM.
-[ 7424.960581] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c140000
-for ICM.
-[ 7424.961641] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c180000
-for ICM.
-[ 7424.962702] mlx4_core 0000:04:00.0: Mapped 1 chunks/256 KB at 10c1c0000
-for ICM.
-[ 7425.199430] mlx4_core 0000:04:00.0: irq 70 for MSI/MSI-X
-[ 7425.199432] mlx4_core 0000:04:00.0: irq 71 for MSI/MSI-X
-[ 7425.199434] mlx4_core 0000:04:00.0: irq 72 for MSI/MSI-X
-[ 7425.199436] mlx4_core 0000:04:00.0: irq 73 for MSI/MSI-X
-[ 7425.199437] mlx4_core 0000:04:00.0: irq 74 for MSI/MSI-X
-[ 7425.199439] mlx4_core 0000:04:00.0: irq 75 for MSI/MSI-X
-[ 7425.199441] mlx4_core 0000:04:00.0: irq 76 for MSI/MSI-X
-[ 7425.199443] mlx4_core 0000:04:00.0: irq 77 for MSI/MSI-X
-[ 7425.199445] mlx4_core 0000:04:00.0: irq 78 for MSI/MSI-X
-[ 7425.199446] mlx4_core 0000:04:00.0: irq 79 for MSI/MSI-X
-[ 7425.199448] mlx4_core 0000:04:00.0: irq 80 for MSI/MSI-X
-[ 7425.199450] mlx4_core 0000:04:00.0: irq 81 for MSI/MSI-X
-[ 7425.199452] mlx4_core 0000:04:00.0: irq 82 for MSI/MSI-X
-[ 7425.199454] mlx4_core 0000:04:00.0: irq 83 for MSI/MSI-X
-[ 7425.199456] mlx4_core 0000:04:00.0: irq 84 for MSI/MSI-X
-[ 7425.199457] mlx4_core 0000:04:00.0: irq 85 for MSI/MSI-X
-[ 7425.199459] mlx4_core 0000:04:00.0: irq 86 for MSI/MSI-X
-[ 7425.199461] mlx4_core 0000:04:00.0: irq 87 for MSI/MSI-X
-[ 7425.199463] mlx4_core 0000:04:00.0: irq 88 for MSI/MSI-X
-[ 7425.199464] mlx4_core 0000:04:00.0: irq 89 for MSI/MSI-X
-[ 7425.199466] mlx4_core 0000:04:00.0: irq 90 for MSI/MSI-X
-[ 7425.199468] mlx4_core 0000:04:00.0: irq 91 for MSI/MSI-X
-[ 7425.199470] mlx4_core 0000:04:00.0: irq 92 for MSI/MSI-X
-[ 7425.199472] mlx4_core 0000:04:00.0: irq 93 for MSI/MSI-X
-[ 7425.199474] mlx4_core 0000:04:00.0: irq 94 for MSI/MSI-X
-[ 7425.199475] mlx4_core 0000:04:00.0: irq 95 for MSI/MSI-X
-[ 7425.199477] mlx4_core 0000:04:00.0: irq 96 for MSI/MSI-X
-[ 7425.199479] mlx4_core 0000:04:00.0: irq 97 for MSI/MSI-X
-[ 7425.199481] mlx4_core 0000:04:00.0: irq 98 for MSI/MSI-X
-[ 7425.199483] mlx4_core 0000:04:00.0: irq 99 for MSI/MSI-X
-[ 7425.199485] mlx4_core 0000:04:00.0: irq 100 for MSI/MSI-X
-[ 7425.199487] mlx4_core 0000:04:00.0: irq 101 for MSI/MSI-X
-[ 7425.199488] mlx4_core 0000:04:00.0: irq 102 for MSI/MSI-X
-[ 7425.472921] mlx4_core 0000:04:00.0: SW2HW_EQ failed (-5)
-[ 7425.476030] mlx4_core 0000:04:00.0: Failed to initialize event queue
-table, aborting.
-[ 7425.494648] mlx4_core 0000:04:00.0: PCI INT A disabled
-[ 7425.494660] mlx4_core: probe of 0000:04:00.0 failed with error -5
+If you mean not passing const char *fmt to the sub-routines,
+I think not doing so makes it harder to maintain and extend.
+
+I think it will be useful to extend the 'S' resource_string
+capability to use fmt to allow specific bits to be selected
+of the resource identifier to be printed.
+
+See the idea in:  http://lkml.org/lkml/2009/4/17/105
+
+Here's the modified patch with your suggestions:
+
+cheers,
+
+Signed-off-by: Joe Perches <joe@perches.com>
+
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 756ccaf..cb8a112 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -25,6 +25,7 @@
+ #include <linux/kallsyms.h>
+ #include <linux/uaccess.h>
+ #include <linux/ioport.h>
++#include <net/addrconf.h>
+ 
+ #include <asm/page.h>		/* for PAGE_SIZE */
+ #include <asm/div64.h>
+@@ -630,60 +631,156 @@ static char *resource_string(char *buf, char *end, struct resource *res,
+ }
+ 
+ static char *mac_address_string(char *buf, char *end, u8 *addr,
+-				struct printf_spec spec)
++				struct printf_spec spec, const char *fmt)
+ {
+-	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
++	char mac_addr[sizeof("xx:xx:xx:xx:xx:xx")];
+ 	char *p = mac_addr;
+ 	int i;
+ 
+ 	for (i = 0; i < 6; i++) {
+ 		p = pack_hex_byte(p, addr[i]);
+-		if (!(spec.flags & SPECIAL) && i != 5)
++		if (fmt[0] == 'M' && i != 5)
+ 			*p++ = ':';
+ 	}
+ 	*p = '\0';
+-	spec.flags &= ~SPECIAL;
+ 
+ 	return string(buf, end, mac_addr, spec);
+ }
+ 
+-static char *ip6_addr_string(char *buf, char *end, u8 *addr,
+-				struct printf_spec spec)
++static char *ip4_string(char *p, const u8 *addr, bool leading_zeros)
++{
++	int i;
++
++	for (i = 0; i < 4; i++) {
++		char temp[3];	/* hold each IP quad in reverse order */
++		int digits = put_dec_trunc(temp, addr[i]) - temp;
++		if (leading_zeros) {
++			if (digits < 3)
++				*p++ = '0';
++			if (digits < 2)
++				*p++ = '0';
++		}
++		/* reverse the digits in the quad */
++		while (digits--)
++			*p++ = temp[digits];
++		if (i < 3)
++			*p++ = '.';
++	}
++
++	*p = '\0';
++	return p;
++}
++
++static char *ip6_compressed_string(char *p, const struct in6_addr *addr)
+ {
+-	char ip6_addr[8 * 5]; /* (8 * 4 hex digits), 7 colons and trailing zero */
+-	char *p = ip6_addr;
+ 	int i;
++	int j;
++	int range;
++	unsigned char zerolength[8];
++	int longest = 1;
++	int colonpos = -1;
++	u16 word;
++	u8 hi;
++	u8 lo;
++	bool needcolon = false;
++	bool useIPv4 = ipv6_addr_v4mapped(addr) || ipv6_addr_is_isatap(addr);
++
++	memset(zerolength, 0, sizeof(zerolength));
++
++	if (useIPv4)
++		range = 6;
++	else
++		range = 8;
++
++	/* find position of longest 0 run */
++	for (i = 0; i < range; i++) {
++		for (j = i; j < range; j++) {
++			if (addr->s6_addr16[j] != 0)
++				break;
++			zerolength[i]++;
++		}
++	}
++	for (i = 0; i < range; i++) {
++		if (zerolength[i] > longest) {
++			longest = zerolength[i];
++			colonpos = i;
++		}
++	}
++
++	/* emit address */
++	for (i = 0; i < range; i++) {
++		if (i == colonpos) {
++			if (needcolon || i == 0)
++				*p++ = ':';
++			*p++ = ':';
++			needcolon = false;
++			i += longest - 1;
++			continue;
++		}
++		if (needcolon) {
++			*p++ = ':';
++			needcolon = false;
++		}
++		/* hex u16 without leading 0s */
++		word = ntohs(addr->s6_addr16[i]);
++		hi = word >> 8;
++		lo = word & 0xff;
++		if (hi) {
++			if (hi > 0x0f)
++				p = pack_hex_byte(p, hi);
++			else
++				*p++ = hex_asc_lo(hi);
++		}
++		if (hi || lo > 0x0f)
++			p = pack_hex_byte(p, lo);
++		else
++			*p++ = hex_asc_lo(lo);
++		needcolon = true;
++	}
++
++	if (useIPv4) {
++		if (needcolon)
++			*p++ = ':';
++		p = ip4_string(p, &addr->s6_addr[12], false);
++	}
+ 
++	*p = '\0';
++	return p;
++}
++
++static char *ip6_string(char *p, const struct in6_addr *addr, const char *fmt)
++{
++	int i;
+ 	for (i = 0; i < 8; i++) {
+-		p = pack_hex_byte(p, addr[2 * i]);
+-		p = pack_hex_byte(p, addr[2 * i + 1]);
+-		if (!(spec.flags & SPECIAL) && i != 7)
++		p = pack_hex_byte(p, addr->s6_addr[2 * i]);
++		p = pack_hex_byte(p, addr->s6_addr[2 * i + 1]);
++		if (fmt[0] == 'I' && i != 7)
+ 			*p++ = ':';
+ 	}
++
+ 	*p = '\0';
+-	spec.flags &= ~SPECIAL;
++	return p;
++}
++
++static char *ip6_addr_string(char *buf, char *end, const u8 *addr,
++			     struct printf_spec spec, const char *fmt)
++{
++	char ip6_addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255")];
++
++	if (fmt[0] == 'I' && fmt[2] == 'c')
++		ip6_compressed_string(ip6_addr, (const struct in6_addr *)addr);
++	else
++		ip6_string(ip6_addr, (const struct in6_addr *)addr, fmt);
+ 
+ 	return string(buf, end, ip6_addr, spec);
+ }
+ 
+-static char *ip4_addr_string(char *buf, char *end, u8 *addr,
+-				struct printf_spec spec)
++static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
++			     struct printf_spec spec, const char *fmt)
+ {
+-	char ip4_addr[4 * 4]; /* (4 * 3 decimal digits), 3 dots and trailing zero */
+-	char temp[3];	/* hold each IP quad in reverse order */
+-	char *p = ip4_addr;
+-	int i, digits;
++	char ip4_addr[sizeof("255.255.255.255")];
+ 
+-	for (i = 0; i < 4; i++) {
+-		digits = put_dec_trunc(temp, addr[i]) - temp;
+-		/* reverse the digits in the quad */
+-		while (digits--)
+-			*p++ = temp[digits];
+-		if (i != 3)
+-			*p++ = '.';
+-	}
+-	*p = '\0';
+-	spec.flags &= ~SPECIAL;
++	ip4_string(ip4_addr, addr, fmt[0] == 'i');
+ 
+ 	return string(buf, end, ip4_addr, spec);
+ }
+@@ -702,11 +799,15 @@ static char *ip4_addr_string(char *buf, char *end, u8 *addr,
+  *       addresses (not the name nor the flags)
+  * - 'M' For a 6-byte MAC address, it prints the address in the
+  *       usual colon-separated hex notation
+- * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way (dot-separated
+- *       decimal for v4 and colon separated network-order 16 bit hex for v6)
+- * - 'i' [46] for 'raw' IPv4/IPv6 addresses, IPv6 omits the colons, IPv4 is
+- *       currently the same
+- *
++ * - 'm' For a 6-byte MAC address, it prints the hex address without colons
++ * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way
++ *       IPv4 uses dot-separated decimal without leading 0's (1.2.3.4)
++ *       IPv6 uses colon separated network-order 16 bit hex with leading 0's
++ * - 'i' [46] for 'raw' IPv4/IPv6 addresses
++ *       IPv6 omits the colons (01020304...0f)
++ *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
++ * - 'I6c' for IPv6 addresses printed as specified by
++ *       http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+  * pointer to the real address.
+@@ -726,20 +827,24 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 		return symbol_string(buf, end, ptr, spec, *fmt);
+ 	case 'R':
+ 		return resource_string(buf, end, ptr, spec);
+-	case 'm':
+-		spec.flags |= SPECIAL;
+-		/* Fallthrough */
+-	case 'M':
+-		return mac_address_string(buf, end, ptr, spec);
+-	case 'i':
+-		spec.flags |= SPECIAL;
+-		/* Fallthrough */
+-	case 'I':
+-		if (fmt[1] == '6')
+-			return ip6_addr_string(buf, end, ptr, spec);
+-		if (fmt[1] == '4')
+-			return ip4_addr_string(buf, end, ptr, spec);
+-		spec.flags &= ~SPECIAL;
++	case 'M':			/* Colon separated: 00:01:02:03:04:05 */
++	case 'm':			/* Contiguous: 000102030405 */
++		return mac_address_string(buf, end, ptr, spec, fmt);
++	case 'I':			/* Formatted IP supported
++					 * 4:	1.2.3.4
++					 * 6:	0001:0203:...:0708
++					 * 6c:	1::708 or 1::1.2.3.4
++					 */
++	case 'i':			/* Contiguous:
++					 * 4:	001.002.003.004
++					 * 6:   000102...0f
++					 */
++		switch (fmt[1]) {
++		case '6':
++			return ip6_addr_string(buf, end, ptr, spec, fmt);
++		case '4':
++			return ip4_addr_string(buf, end, ptr, spec, fmt);
++		}
+ 		break;
+ 	}
+ 	spec.flags |= SMALL;
+
+
+cheers, Joe
 
