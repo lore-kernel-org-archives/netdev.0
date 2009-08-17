@@ -1,97 +1,90 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Very strange issues with ethernet wake on lan
-Date: Mon, 17 Aug 2009 14:02:35 +0200
-Message-ID: <200908171402.35519.rjw@sisk.pl>
-References: <1250394174.32268.13.camel@localhost.localdomain> <1250500588.4301.5.camel@localhost.localdomain>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
+ objects
+Date: Mon, 17 Aug 2009 09:02:40 -0400
+Message-ID: <4A8954F0.3040402@gmail.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pm@lists.linux-foundation.org"
-	<linux-pm@lists.linux-foundation.org>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:48185 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272AbZHQMBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Aug 2009 08:01:49 -0400
-In-Reply-To: <1250500588.4301.5.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig51FCF08CCE8E65DE010D1EC3"
+Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20090815103243.GA26749@elte.hu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 17 August 2009, Maxim Levitsky wrote:
-> On Sun, 2009-08-16 at 06:42 +0300, Maxim Levitsky wrote:
-> > Hi,
-> > 
-> > I have recently put back the davicom dm9009 ethernet card into my
-> > computer.
-> > 
-> > Some long time ago, I have written its suspend/resume routines.
-> > Now I see that few things have changed, like I need to enable wake in
-> > sysfs or better patch the code to do so, some nice helpers like
-> > pci_prepare_to_sleep have arrived, etc.
-> > 
-> > 
-> > I narrowed the strange issue down to following situation:
-> > 
-> > I reload dmfe.ko (and networkmanager is disabled)
-> > I don't ifup the device, thus pretty much no hardware initialization
-> > takes place (but this appears not to matter anyway)
-> > 
-> > I then suspend the system, and WOL doesn't work (I have patched the
-> > driver to enable WOL automaticly)
-> > 
-> > I then, suspend again. WOL works, and continues to work as long as I
-> > don't reload the driver. If I do, same situation repeats.
-> > 
-> > Also, after a boot, WOL works, so a reload cycle triggers that issue.
-> > 
-> > And most importantly, if I don't do a
-> > 
-> > pci_set_power_state(pci_dev, pci_choose_state (pci_dev, state));
-> > 
-> > in .suspend, then WOL always works.
-> > 
-> > and I have even tried to set state manually to PCI_D3hot or PCI_D3cold, 
-> > 
-> > I also tried to use pci_save_state
-> > 
-> > 
-> > I also have 2 copies of this card, and both have this issue.
-> > I also tried 2 pci slots.
-> > 
-> > Kernel is vanilla 2.6.31-rc5
-> 
-> 
-> Bisect reveals:
-> 
-> 44e4e66eeae5338b3ca0b28f8352e60bf18d5ba8 is first bad commit
-> commit 44e4e66eeae5338b3ca0b28f8352e60bf18d5ba8
-> Author: Rafael J. Wysocki <rjw@sisk.pl>
-> Date:   Mon Jul 7 03:32:52 2008 +0200
-> 
->     PCI: rework pci_set_power_state function to call platform first
->     
->     Rework pci_set_power_state() so that the platform callback is
->     invoked before the native mechanism, if necessary.  Also, make
->     the function check if the device is power manageable by the
->     platform before invoking the platform callback.
->     
->     This may matter if the device dependent on additional power
->     resources controlled by the platform is being put into D0, in which
->     case those power resources must be turned on before we attempt to
->     handle the device itself.
->     
->     Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
->     Acked-by: Pavel Machek <pavel@suse.cz>
->     Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
-> 
-> 
-> Note that probably this device has no acpi entries, because it is an
-> addon card, bios knows nothing about it
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig51FCF08CCE8E65DE010D1EC3
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Well, thanks, but I was going to have a look at this issue anyway. :-)
+Ingo Molnar wrote:
+> * Gregory Haskins <ghaskins@novell.com> wrote:
+>=20
+>> This will generally be used for hypervisors to publish any host-side
+>> virtual devices up to a guest.  The guest will have the opportunity
+>> to consume any devices present on the vbus-proxy as if they were
+>> platform devices, similar to existing buses like PCI.
+>>
+>> Signed-off-by: Gregory Haskins <ghaskins@novell.com>
+>> ---
+>>
+>>  MAINTAINERS                 |    6 ++
+>>  arch/x86/Kconfig            |    2 +
+>>  drivers/Makefile            |    1=20
+>>  drivers/vbus/Kconfig        |   14 ++++
+>>  drivers/vbus/Makefile       |    3 +
+>>  drivers/vbus/bus-proxy.c    |  152 ++++++++++++++++++++++++++++++++++=
++++++++++
+>>  include/linux/vbus_driver.h |   73 +++++++++++++++++++++
+>>  7 files changed, 251 insertions(+), 0 deletions(-)
+>>  create mode 100644 drivers/vbus/Kconfig
+>>  create mode 100644 drivers/vbus/Makefile
+>>  create mode 100644 drivers/vbus/bus-proxy.c
+>>  create mode 100644 include/linux/vbus_driver.h
+>=20
+> Is there a consensus on this with the KVM folks? (i've added the KVM=20
+> list to the Cc:)
+>=20
+>=20
 
-Best,
-Rafael
+Hi Ingo,
+
+Avi can correct me if I am wrong, but the agreement that he and I came
+to a few months ago was something to the effect of:
+
+kvm will be neutral towards various external IO subsystems, and instead
+provide various hooks (see irqfd, ioeventfd) to permit these IO
+subsystems to interface with kvm.
+
+AlacrityVM is one of the first projects to take advantage of that
+interface.  AlacrityVM is kvm-core + vbus-core + vbus-kvm-connector +
+vbus-enhanced qemu + guest drivers.  This thread is part of the
+guest-drivers portion.  Note that it is specific to alacrityvm, not kvm,
+which is why the kvm list was not included in the conversation (also an
+agreement with Avi: http://lkml.org/lkml/2009/8/6/231).
+
+Kind Regards,
+-Greg
+
+
+--------------enig51FCF08CCE8E65DE010D1EC3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqJVPEACgkQP5K2CMvXmqHhIACePG05qVQu/pdlu1Gh0/YSgvgb
+4ZsAn3tT2aw3ki6Uq90+Y/ZHjd/4lQEZ
+=7cSS
+-----END PGP SIGNATURE-----
+
+--------------enig51FCF08CCE8E65DE010D1EC3--
