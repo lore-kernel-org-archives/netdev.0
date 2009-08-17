@@ -1,92 +1,109 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: UDP multicast packet loss not reported if TX ring overrun?
-Date: Mon, 17 Aug 2009 16:01:16 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
+ objects
+Date: Mon, 17 Aug 2009 16:17:09 -0400
+Message-ID: <4A89BAC5.9040400@gmail.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <dada1@cosmosbay.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:56399 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752086AbZHQUBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 16:01:31 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 07D3082C851
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:01:37 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 8ihuDVx4JAYC for <netdev@vger.kernel.org>;
-	Mon, 17 Aug 2009 16:01:32 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 6F6B182C85D
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:01:21 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig352F2FD877EE76757DB0C2B7"
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757658AbZHQURP@vger.kernel.org>
+In-Reply-To: <20090817174142.GA11140@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If I use a large send queue
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig352F2FD877EE76757DB0C2B7
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-(echo 2000000 >/proc/sys/net/core/wmem_default)
+Michael S. Tsirkin wrote:
+> On Mon, Aug 17, 2009 at 10:14:56AM -0400, Gregory Haskins wrote:
+>> Case in point: Take an upstream kernel and you can modprobe the
+>> vbus-pcibridge in and virtio devices will work over that transport
+>> unmodified.
+>>
+>> See http://lkml.org/lkml/2009/8/6/244 for details.
+>=20
+> The modprobe you are talking about would need
+> to be done in guest kernel, correct?
 
-then lots of packet loss results if I try to send more packets than
-the bandwidth of the wire (300 bytes the maximum rate is 341k pps). With a
-size of 2M for the output buffer the TX ring is overrun.
+Yes, and your point is?  "unmodified" (pardon the psuedo pun) modifies
+"virtio", not "guest".  It means you can take an off-the-shelf kernel
+with off-the-shelf virtio (ala distro-kernel) and modprobe
+vbus-pcibridge and get alacrityvm acceleration.  It is not a design goal
+of mine to forbid the loading of a new driver, so I am ok with that
+requirement.
 
-But this loss is nowhere seen in any counter increments:
+>=20
+>> OTOH, Michael's patch is purely targeted at improving virtio-net on kv=
+m,
+>> and its likewise constrained by various limitations of that decision
+>> (such as its reliance of the PCI model, and the kvm memory scheme).
+>=20
+> vhost is actually not related to PCI in any way. It simply leaves all
+> setup for userspace to do.  And the memory scheme was intentionally
+> separated from kvm so that it can easily support e.g. lguest.
+>=20
 
-Receiver: Listening to control channel 239.0.192.1
-Receiver: Subscribing to 1 MC addresses 239.0.192-254.2-254 offset 0
-origin 10.2.36.111
+I think you have missed my point. I mean that vhost requires a separate
+bus-model (ala qemu-pci).  And no, your memory scheme is not separated,
+at least, not very well.  It still assumes memory-regions and
+copy_to_user(), which is very kvm-esque.  Vbus has people using things
+like userspace containers (no regions), and physical hardware (dma
+controllers, so no regions or copy_to_user) so your scheme quickly falls
+apart once you get away from KVM.
 
-TotalMsg   Lost SeqErr Msg/Sec   Min/us  Avg/us  Max/us StdDev  Kbytes Idle  Samples
- 3118667 532979  25341  308774 1734.96 1784.72 1904.04   44.11     0.0   0       10
- 3415674 585146  27642  341569 1788.90 1858.40 1905.43   34.32 102470.4    0       10
- 3449840 591012  27844  341568 1941.12 1987.45 2040.16   32.73 102470.4    0        9
- 3449819 591093  27993  341567 2024.34 2036.00 2044.24    6.48 102470.0    0        5
- 3415693 585268  27633  341568 2010.57 2017.84 2025.10    7.27 102470.4    0        2
+Don't get me wrong:  That design may have its place.  Perhaps you only
+care about fixing KVM, which is a perfectly acceptable strategy.  Its
+just not a strategy that I think is the best approach.  Essentially you
+are promoting the proliferation of competing backends, and I am trying
+to unify them (which is ironic that this thread started with concerns I
+was fragmenting things ;).
 
-ifconfig
-eth0      Link encap:Ethernet  HWaddr 00:21:9b:8f:a1:40
-          inet addr:10.2.36.110  Bcast:10.2.36.255  Mask:255.255.255.0
-          inet6 addr: fe80::221:9bff:fe8f:a140/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:174716487 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:1379 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:60451720777 (56.3 GiB)  TX bytes:225841 (220.5 KiB)
-          Interrupt:36 Memory:d6000000-d6012800
+The bottom line is, you have a simpler solution that is more finely
+targeted at KVM and virtio-networking.  It fixes probably a lot of
+problems with the existing implementation, but it still has limitations.
 
+OTOH, what I am promoting is more complex, but more flexible.  That is
+the tradeoff.  You can't have both ;) So do not for one second think
+that what you implemented is equivalent, because they are not.
 
-If I then reduce the queue size to 20k
+In fact, I believe I warned you about this potential problem when you
+decided to implement your own version.  I think I said something to the
+effect of "you will either have a subset of functionality, or you will
+ultimately reinvent what I did".  Right now you are in the subset phase.
+ Perhaps someday you will be in the complete-reinvent phase.  Why you
+wanted to go that route when I had already worked though the issues is
+something perhaps only you will ever know, but I'm sure you had your
+reasons.  But do note you could have saved yourself grief by reusing my
+already implemented and tested variant, as I politely offered to work
+with you on making it meet your needs.
 
-(echo 20000 >/proc/sys/net/core/wmem_default)
-
-the loss does either not occur or I see corresponding loss in the switch
-stats:
-
-clameter@rd-strategy3:~$ bin/mcast
-Receiver: Listening to control channel 239.0.192.1
-Receiver: Subscribing to 1 MC addresses 239.0.192-254.2-254 offset 0
-origin 10.2.36.111
-
-TotalMsg   Lost SeqErr Msg/Sec   Min/us  Avg/us  Max/us StdDev  Kbytes
-Idle  Samples
- 3126997      0      0  309598  109.57  191.69  404.73   79.55     0.0    0       10
- 3449790      5      5  341566  238.60  324.98  407.74   57.31 102469.6    0        9
- 3449843     94     94  341569  412.31  412.32  412.33    0.01 102470.4    0        2
- 3449859     76     76  341569  379.78  399.74  419.65   16.28 102470.6    0        3
- 3415644     92     92  341569  408.63  414.63  417.93    4.25 102470.5    0        3
- 3413885      3      3  341386   93.53  145.58  207.28   36.85 102415.8    0       10
- 3449832      0      0  341568  207.06  282.44  348.13   45.80 102470.4    0       10
-
-
-The TX ring is not overrun in that case since the queue size reduces the
-maximum objects in flight to below 255 (TX ring size of broadcom). So the
-application is throttled.
-
-
-It seems that Linux does not report the UDP packet loss above that is due
-to overrunning the TX ring? Why is that?
+Kind Regards
+-Greg
 
 
+--------------enig352F2FD877EE76757DB0C2B7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqJusUACgkQP5K2CMvXmqHR/gCdH1DtZW+LdYrLbNbxiqfEKu0Z
+oGcAnjOqFooeUsEzq8lo3+YjzmOs22H0
+=+s+U
+-----END PGP SIGNATURE-----
+
+--------------enig352F2FD877EE76757DB0C2B7--
