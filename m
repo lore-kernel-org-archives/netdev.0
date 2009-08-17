@@ -1,53 +1,72 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Mon, 17 Aug 2009 17:08:44 +0200
-Message-ID: <20090817150844.GA3307@elte.hu>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A8954F0.3040402@gmail.com> <20090817142506.GB3602@elte.hu> <4A8971A8.2040102@gmail.com>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver
+ objects
+Date: Mon, 17 Aug 2009 11:09:55 -0400
+Message-ID: <4A8972C3.30202@gmail.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A87C3B9.2040206@redhat.com> <4A896648.9040707@gmail.com> <4A897057.2050504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	Avi Kivity <avi@redhat.com>,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Gregory Haskins <gregory.haskins@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig5D1C9FC22B74CCB11FD17802"
+Cc: Ingo Molnar <mingo@elte.hu>, Gregory Haskins <ghaskins@novell.com>,
+	kvm@vger.kernel.org, alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
 Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A8971A8.2040102@gmail.com>
+In-Reply-To: <4A897057.2050504@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig5D1C9FC22B74CCB11FD17802
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-* Gregory Haskins <gregory.haskins@gmail.com> wrote:
+Avi Kivity wrote:
+> On 08/17/2009 05:16 PM, Gregory Haskins wrote:
+>>> My opinion is that this is a duplication of effort and we'd be better=
 
-> Hi Ingo,
-> 
-> 1) First off, let me state that I have made every effort to 
-> propose this as a solution to integrate with KVM, the most recent 
-> of which is April:
-> 
->    http://lkml.org/lkml/2009/4/21/408
-> 
-> If you read through the various vbus related threads on LKML/KVM 
-> posted this year, I think you will see that I made numerous polite 
-> offerings to work with people on finding a common solution here, 
-> including Michael.
-> 
-> In the end, Michael decided that go a different route using some 
-> of the ideas proposed in vbus + venet-tap to create vhost-net.  
-> This is fine, and I respect his decision.  But do not try to pin 
-> "fracturing" on me, because I tried everything to avoid it. :)
+>>> off if everyone contributed to enhancing virtio, which already has
+>>> widely deployed guest drivers and non-Linux guest support.
+>>>
+>>> It may have merit if it is proven that it is technically superior to
+>>> virtio (and I don't mean some benchmark in some point in time; I mean=
 
-That's good.
+>>> design wise).  So far I haven't seen any indications that it is.
+>>>
+>>>     =20
+>>
+>> The design is very different, so hopefully I can start to convince you=
 
-So if virtio is fixed to be as fast as vbus, and if there's no other 
-techical advantages of vbus over virtio you'll be glad to drop vbus 
-and stand behind virtio?
+>> why it might be interesting.
+>>   =20
+>=20
+> We've been through this before I believe.  If you can point out specifi=
+c
+> differences that make venet outperform virtio-net I'll be glad to hear
+> (and steal) them though.
+>=20
 
-Also, are you willing to help virtio to become faster? Or do you 
-have arguments why that is impossible to do so and why the only 
-possible solution is vbus? Avi says no such arguments were offered 
-so far.
+You sure know how to convince someone to collaborate with you, eh?
 
-	Ingo
+Unforunately, i've answered that question numerous times, but it
+apparently falls on deaf ears.
+
+-Greg
+
+
+--------------enig5D1C9FC22B74CCB11FD17802
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkqJcsMACgkQP5K2CMvXmqH2BgCdHRUTnVSa1G+FASCawIMlfhTh
+YYkAoInFhI1++cCJkdg5I0ylK5AAKTcG
+=nsqJ
+-----END PGP SIGNATURE-----
+
+--------------enig5D1C9FC22B74CCB11FD17802--
