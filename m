@@ -1,44 +1,45 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Mon, 17 Aug 2009 13:40:06 -0700
-Message-ID: <4A89C026.4030402@us.ibm.com>
-References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>
+Date: Mon, 17 Aug 2009 16:46:29 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908171642500.20399@gentwo.org>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org> <4A89C026.4030402@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, Eric Dumazet <dada1@cosmosbay.com>
-To: Christoph Lameter <cl@linux-foundation.org>
+To: Nivedita Singhvi <niv@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:44716 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754767AbZHQUkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 16:40:21 -0400
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e36.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7HKca8v020421
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:38:36 -0600
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7HKe8T2125814
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:40:09 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7HKe7ZH003534
-	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 14:40:08 -0600
-In-Reply-To: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>
+Received: from smtp3.ultrahosting.com ([74.213.175.254]:41547 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752594AbZHQUqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 16:46:51 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 53C9E82C51C
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:46:57 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.254])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id tyOhirbski+2 for <netdev@vger.kernel.org>;
+	Mon, 17 Aug 2009 16:46:51 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 3EB4B82C4B3
+	for <netdev@vger.kernel.org>; Mon, 17 Aug 2009 16:46:51 -0400 (EDT)
+In-Reply-To: <4A89C026.4030402@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter wrote:
-> If I use a large send queue
-> 
-> (echo 2000000 >/proc/sys/net/core/wmem_default)
-> 
-> then lots of packet loss results if I try to send more packets than
-> the bandwidth of the wire (300 bytes the maximum rate is 341k pps). With a
-> size of 2M for the output buffer the TX ring is overrun.
-> 
-> But this loss is nowhere seen in any counter increments:
+On Mon, 17 Aug 2009, Nivedita Singhvi wrote:
 
-Is there any chance this is getting dropped at qdisc?
-Can you check with tc?
+> Is there any chance this is getting dropped at qdisc?
+> Can you check with tc?
 
-thanks,
-Nivedita
+I checked and the counter there is zero.
+
+:/home/clameter# tc -s qdisc show
+
+qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1
+1 1 1 1 1
+ Sent 3042712708 bytes 8896862 pkt (dropped 0, overlimits 0 requeues 56303)
+ rate 0bit 0pps backlog 0b 0p requeues 56303
+
+
+
+
