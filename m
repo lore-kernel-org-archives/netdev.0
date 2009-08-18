@@ -1,108 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Tue, 18 Aug 2009 14:49:14 +0300
-Message-ID: <20090818114914.GA17721@redhat.com>
-References: <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com> <20090818095313.GC13878@redhat.com> <4A8A7BB9.2020906@redhat.com> <20090818100945.GD13878@redhat.com> <4A8A7EE5.6090209@redhat.com> <20090818102840.GF13878@redhat.com> <4A8A8631.1040006@redhat.com> <20090818110708.GG13878@redhat.com> <4A8A8D6D.9040909@redhat.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Tue, 18 Aug 2009 07:54:25 -0400
+Message-ID: <4A8A9671.8060002@myri.com>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com>	<4A7C9A14.7070600@inria.fr>	<20090807175112.a1f57407.billfink@mindspring.com>	<4A7CCEFC.7020308@myri.com>	<20090807213557.d0faec23.billfink@mindspring.com>	<4A7D5CA4.3030307@myri.com>	<20090808112636.GB18518@localhost.localdomain>	<4A7DC230.6060206@myri.com>	<20090808183251.GA23300@localhost.localdomain>	<20090811033210.6b422ed1.billfink@mindspring.com>	<F169D4F5E1F1974DBFAFABF47F60C10A36523146@orsmsx507.amr.corp.intel.com>	<20090812003824.26c9c8fb.billfink@mindspring.com>	<20090814163155.968872fe.billfink@mindspring.com>	<20090817095302.0c41ef68@jbarnes-g45> <20090818030718.aef199f4.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Brice Goglin <Brice.Goglin@inria.fr>,
+	Linux Network Developers <netdev@vger.kernel.org>,
+	Yinghai Lu <yhlu.kernel@gmail.com>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:53321 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753179AbZHRLvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2009 07:51:04 -0400
-Content-Disposition: inline
-In-Reply-To: <4A8A8D6D.9040909@redhat.com>
+Received: from mailbox2.myri.com ([64.172.73.26]:1913 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751167AbZHRLyr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2009 07:54:47 -0400
+In-Reply-To: <20090818030718.aef199f4.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 18, 2009 at 02:15:57PM +0300, Avi Kivity wrote:
-> On 08/18/2009 02:07 PM, Michael S. Tsirkin wrote:
->> On Tue, Aug 18, 2009 at 01:45:05PM +0300, Avi Kivity wrote:
->>    
->>> On 08/18/2009 01:28 PM, Michael S. Tsirkin wrote:
->>>      
->>>>        
->>>>> Suppose a nested guest has two devices.  One a virtual device backed by
->>>>> its host (our guest), and one a virtual device backed by us (the real
->>>>> host), and assigned by the guest to the nested guest.  If both devices
->>>>> use hypercalls, there is no way to distinguish between them.
->>>>>
->>>>>          
->>>> Not sure I understand. What I had in mind is that devices would have to
->>>> either use different hypercalls and map hypercall to address during
->>>> setup, or pass address with each hypercall.  We get the hypercall,
->>>> translate the address as if it was pio access, and know the destination?
->>>>
->>>>        
->>> There are no different hypercalls.  There's just one hypercall
->>> instruction, and there's no standard on how it's used.  If a nested call
->>> issues a hypercall instruction, you have no idea if it's calling a
->>> Hyper-V hypercall or a vbus/virtio kick.
->>>      
->> userspace will know which it is, because hypercall capability
->> in the device has been activated, and can tell kernel, using
->> something similar to iosignalfd. No?
->>    
->
-> The host kernel sees a hypercall vmexit.  How does it know if it's a  
-> nested-guest-to-guest hypercall or a nested-guest-to-host hypercall?   
-> The two are equally valid at the same time.
+Bill Fink wrote:
 
-Here is how this can work - it is similar to MSI if you like:
-- by default, the device uses pio kicks
-- nested guest driver can enable hypercall capability in the device,
-  probably with pci config cycle
-- guest userspace (hypervisor running in guest) will see this request
-  and perform pci config cycle on the "real" device, telling it to which
-  nested guest this device is assigned
-- host userspace (hypervisor running in host) will see this.
-  it now knows both which guest the hypercalls will be for,
-  and that the device in question is an emulated one,
-  and can set up kvm appropriately
+> <         Latency: 0, Cache Line Size: 64 bytes
+
+<...>
+
+>>       Latency: 0, Cache Line Size: 256 bytes
 
 
->>> You could have a protocol where you register the hypercall instruction's
->>> address with its recipient, but it quickly becomes a tangled mess.
->>>      
->> I really thought we could pass the io address in register as an input
->> parameter. Is there a way to do this in a secure manner?
->>
->> Hmm. Doesn't kvm use hypercalls now? How does this work with nesting?
->> For example, in this code in arch/x86/kvm/x86.c:
->>
->>          switch (nr) {
->>          case KVM_HC_VAPIC_POLL_IRQ:
->>                  ret = 0;
->>                  break;
->>          case KVM_HC_MMU_OP:
->>                  r = kvm_pv_mmu_op(vcpu, a0, hc_gpa(vcpu, a1, a2),&ret);
->>                  break;
->>          default:
->>                  ret = -KVM_ENOSYS;
->>                  break;
->>          }
->>
->> how do we know that it's the guest and not the nested guest performing
->> the hypercall?
->>    
->
-> The host knows whether the guest or nested guest are running.  If the  
-> guest is running, it's a guest-to-host hypercall.  If the nested guest  
-> is running, it's a nested-guest-to-guest hypercall.  We don't have  
-> nested-guest-to-host hypercalls (and couldn't unless we get agreement on  
-> a protocol from all hypervisor vendors).
+A cache line size of 256 clearly seems wrong for a Xeon.  I assume all
+devices on the SuperMicro show the same value?
 
-Not necessarily. What I am saying is we could make this protocol part of
-guest paravirt driver. the guest that loads the driver and enables the
-capability, has to agree to the protocol. If it doesn't want to, it does
-not have to use that driver.
+> Interestingly, the "WC Enabled" is only indicated on the first two
 
-> -- 
-> error compiling committee.c: too many arguments to function
+The WC is probably a red herring.
+
+What does ethtool -S show for the DMA write bandwidth of the
+NICs on the SuperMicro?
+
+These values are obtained serially, as the driver resets
+the NIC (reset happens at load time, and ifconfig up),
+so they could easily sum to more than the memory bandwidth
+of the system.  But it would be good to check for any anomalies.
+
+I can send you a pointer to a tool we use internally, which loads
+some custom firmware on the NIC, and can exercise the DMA engines
+on all the NICs in parallel.  This would give an idea of the
+aggregate DMA bandwidth available on the system.  Let me know
+if you're interested.
+
+Drew
