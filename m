@@ -1,134 +1,177 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: bad nat connection tracking performance with ip_gre
-Date: Tue, 18 Aug 2009 16:58:40 +0200
-Message-ID: <4A8AC1A0.6000602@trash.net>
-References: <4A8A7F14.3010103@iki.fi> <4A8A84AF.7050901@trash.net> <4A8AA253.8090300@iki.fi> <4A8AA63D.4000702@trash.net> <4A8AB25A.4000105@iki.fi>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2009-08-18
+Date: Tue, 18 Aug 2009 11:14:37 -0400
+Message-ID: <20090818151436.GA2768@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60165 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758641AbZHRO6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 10:58:42 -0400
-In-Reply-To: <4A8AB25A.4000105@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Timo Ter=E4s wrote:
-> Patrick McHardy wrote:
->> Timo Ter=E4s wrote:
->>> LOCALLY GENERATED PACKET, hogs CPU
->>> ----------------------------------
->>>
->>> IN=3D OUT=3Deth1 SRC=3D10.252.5.1 DST=3D239.255.12.42 LEN=3D1344
->>> TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D41664 DF PROTO=3DUDP SPT=3D4792=
-0
->>> DPT=3D1234 LEN=3D1324 UID=3D1007 GID=3D1007
->>>     1. raw:OUTPUT
->>>     2. mangle:OUTPUT
->>>     3. filter:OUTPUT
->>>     4. mangle:POSTROUTING
->>>
->>
->> Please include the complete output, I need to see the devices logged
->> at each hook.
->=20
-> The devices are identical for each hook grouped under same line.
->=20
-> Here are the interesting lines from one packet:
->=20
-> Generation:
->=20
-> raw:OUTPUT:policy:2 IN=3D OUT=3Deth1 SRC=3D10.252.5.1 DST=3D239.255.1=
-2.42
-> LEN=3D1344 TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D36594 DF PROTO=3DUDP S=
-PT=3D33977
-> DPT=3D1234 LEN=3D1324 UID=3D1007 GID=3D1007 mangle:OUTPUT:policy:1 IN=
-=3D OUT=3Deth1
-> SRC=3D10.252.5.1 DST=3D239.255.12.42 LEN=3D1344 TOS=3D0x00 PREC=3D0x0=
-0 TTL=3D8
-> ID=3D36594 DF PROTO=3DUDP SPT=3D33977 DPT=3D1234 LEN=3D1324 UID=3D100=
-7 GID=3D1007
-> (the nat hook is called for initial packet only):
-> nat:OUTPUT:policy:1 IN=3D OUT=3Deth1 SRC=3D10.252.5.1 DST=3D239.255.1=
-2.42
-> LEN=3D1344 TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D36593 DF PROTO=3DUDP S=
-PT=3D33977
-> DPT=3D1234 LEN=3D1324 UID=3D1007 GID=3D1007
-> filter:OUTPUT:policy:1 IN=3D OUT=3Deth1 SRC=3D10.252.5.1 DST=3D239.25=
-5.12.42
-> LEN=3D1344 TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D36594 DF PROTO=3DUDP S=
-PT=3D33977
-> DPT=3D1234 LEN=3D1324 UID=3D1007 GID=3D1007 mangle:POSTROUTING:policy=
-:1 IN=3D
-> OUT=3Deth1 SRC=3D10.252.5.1 DST=3D239.255.12.42 LEN=3D1344 TOS=3D0x00=
- PREC=3D0x00
-> TTL=3D8 ID=3D36594 DF PROTO=3DUDP SPT=3D33977 DPT=3D1234 LEN=3D1324
-> mangle:POSTROUTING:policy:1 IN=3D OUT=3Deth1 SRC=3D10.252.5.1
-> DST=3D239.255.12.42 LEN=3D1344 TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D36=
-594 DF
-> PROTO=3DUDP SPT=3D33977 DPT=3D1234 LEN=3D1324 UID=3D1007 GID=3D1007
-> Looped back by multicast routing:
->=20
-> raw:PREROUTING:policy:1 IN=3Deth1 OUT=3D MAC=3D SRC=3D10.252.5.1
-> DST=3D239.255.12.42 LEN=3D1344 TOS=3D0x00 PREC=3D0x00 TTL=3D8 ID=3D36=
-594 DF
-> PROTO=3DUDP SPT=3D33977 DPT=3D1234 LEN=3D1324 mangle:PREROUTING:polic=
-y:1 IN=3Deth1
-> OUT=3D MAC=3D SRC=3D10.252.5.1 DST=3D239.255.12.42 LEN=3D1344 TOS=3D0=
-x00 PREC=3D0x00
-> TTL=3D8 ID=3D36594 DF PROTO=3DUDP SPT=3D33977 DPT=3D1234 LEN=3D1324
-> The cpu hogging happens somewhere below this, since the more
-> multicast destinations I have the more CPU it takes.
+Dave,
 
-So you're sending to multiple destinations? That obviously increases
-the time spent in netfilter and the remaining networking stack.
+Two more for 2.6.31...
 
-> Multicast forwarded (I hacked this into the code; but similar
-> dump happens on local sendto()):
->=20
-> Actually, now that I think, here we should have the inner IP
-> contents, and not the incomplete outer yet. So apparently
-> the ipgre_header() messes the network_header position.
+The one from Johannes is actually already in net-next-2.6, but it has
+since been reported to cause a possible irq lock inversion dependency in
+2.6.31-rc6, as described here:
 
-It shouldn't even have been called at this point. Please retry this
-without your changes.
+	http://marc.info/?l=linux-wireless&m=125052198303537&w=2
 
-> mangle:FORWARD:policy:1 IN=3Deth1 OUT=3Dgre1 SRC=3D0.0.0.0 DST=3Dre.m=
-o.te.ip
-> LEN=3D0 TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3D47 filter:F=
-ORWARD:rule:2
-> IN=3Deth1 OUT=3Dgre1 SRC=3D0.0.0.0 DST=3Dre.mo.te.ip LEN=3D0 TOS=3D0x=
-00 PREC=3D0x00
-> TTL=3D64 ID=3D0 DF PROTO=3D47
+The one from me fixes a minor bounds checking problem in orinoco, as
+reported by Dan Carpenter.  It is simple and obvious.
 
-This looks really broken. Why is the protocol already 47 before it even
-reaches the gre tunnel?
+Please let me know if there are problems!
 
-> ip_gre xmit sends out:
+John
 
-There should be a POSTROUTING hook here.
+---
 
-> raw:OUTPUT:rule:1 IN=3D OUT=3Deth0 SRC=3Dlo.ca.l.ip DST=3Dre.mo.te.ip=
- LEN=3D1372
-> TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3D47 raw:OUTPUT:polic=
-y:2 IN=3D
-> OUT=3Deth0 SRC=3Dlo.ca.l.ip DST=3Dre.mo.te.ip LEN=3D1372 TOS=3D0x00 P=
-REC=3D0x00
-> TTL=3D64 ID=3D0 DF PROTO=3D47 mangle:OUTPUT:policy:1 IN=3D OUT=3Deth0
-> SRC=3Dlo.ca.l.ip DST=3Dre.mo.te.ip LEN=3D1372 TOS=3D0x00 PREC=3D0x00 =
-TTL=3D64 ID=3D0
-> DF PROTO=3D47
-> (nat hook for initial packets)
-> nat:OUTPUT:policy:1 IN=3D OUT=3Deth0 SRC=3Dlo.ca.l.ip DST=3Dre.mo.te.=
-ip LEN=3D1372
-> TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3D47
-> filter:OUTPUT:policy:1 IN=3D OUT=3Deth0 SRC=3Dlo.ca.l.ip DST=3Dre.mo.=
-te.ip
-> LEN=3D1372 TOS=3D0x00 PREC=3D0x00 TTL=3D64 ID=3D0 DF PROTO=3D47
-> - Timo
->=20
+Individual patches are available here:
 
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
+
+---
+
+The following changes since commit 8cdb045632e5ee22854538619ac6f150eb0a4894:
+  Tom Goff (1):
+        gre: Fix MTU calculation for bound GRE tunnels
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Johannes Berg (1):
+      mac80211: fix todo lock
+
+John W. Linville (1):
+      orinoco: correct key bounds check in orinoco_hw_get_tkip_iv
+
+ drivers/net/wireless/orinoco/hw.c |    2 +-
+ net/mac80211/key.c                |   28 +++++++++++++++-------------
+ 2 files changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/orinoco/hw.c b/drivers/net/wireless/orinoco/hw.c
+index 632fac8..b394627 100644
+--- a/drivers/net/wireless/orinoco/hw.c
++++ b/drivers/net/wireless/orinoco/hw.c
+@@ -70,7 +70,7 @@ int orinoco_hw_get_tkip_iv(struct orinoco_private *priv, int key, u8 *tsc)
+ 	int err = 0;
+ 	u8 tsc_arr[4][IW_ENCODE_SEQ_MAX_SIZE];
+ 
+-	if ((key < 0) || (key > 4))
++	if ((key < 0) || (key >= 4))
+ 		return -EINVAL;
+ 
+ 	err = hermes_read_ltv(hw, USER_BAP, HERMES_RID_CURRENT_TKIP_IV,
+diff --git a/net/mac80211/key.c b/net/mac80211/key.c
+index ce26756..659a42d 100644
+--- a/net/mac80211/key.c
++++ b/net/mac80211/key.c
+@@ -67,6 +67,8 @@ static DECLARE_WORK(todo_work, key_todo);
+  *
+  * @key: key to add to do item for
+  * @flag: todo flag(s)
++ *
++ * Must be called with IRQs or softirqs disabled.
+  */
+ static void add_todo(struct ieee80211_key *key, u32 flag)
+ {
+@@ -140,9 +142,9 @@ static void ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
+ 	ret = drv_set_key(key->local, SET_KEY, &sdata->vif, sta, &key->conf);
+ 
+ 	if (!ret) {
+-		spin_lock(&todo_lock);
++		spin_lock_bh(&todo_lock);
+ 		key->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
+-		spin_unlock(&todo_lock);
++		spin_unlock_bh(&todo_lock);
+ 	}
+ 
+ 	if (ret && ret != -ENOSPC && ret != -EOPNOTSUPP)
+@@ -164,12 +166,12 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
+ 	if (!key || !key->local->ops->set_key)
+ 		return;
+ 
+-	spin_lock(&todo_lock);
++	spin_lock_bh(&todo_lock);
+ 	if (!(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		spin_unlock(&todo_lock);
++		spin_unlock_bh(&todo_lock);
+ 		return;
+ 	}
+-	spin_unlock(&todo_lock);
++	spin_unlock_bh(&todo_lock);
+ 
+ 	sta = get_sta_for_key(key);
+ 	sdata = key->sdata;
+@@ -188,9 +190,9 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
+ 		       wiphy_name(key->local->hw.wiphy),
+ 		       key->conf.keyidx, sta ? sta->addr : bcast_addr, ret);
+ 
+-	spin_lock(&todo_lock);
++	spin_lock_bh(&todo_lock);
+ 	key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+-	spin_unlock(&todo_lock);
++	spin_unlock_bh(&todo_lock);
+ }
+ 
+ static void __ieee80211_set_default_key(struct ieee80211_sub_if_data *sdata,
+@@ -437,14 +439,14 @@ void ieee80211_key_link(struct ieee80211_key *key,
+ 
+ 	__ieee80211_key_replace(sdata, sta, old_key, key);
+ 
+-	spin_unlock_irqrestore(&sdata->local->key_lock, flags);
+-
+ 	/* free old key later */
+ 	add_todo(old_key, KEY_FLAG_TODO_DELETE);
+ 
+ 	add_todo(key, KEY_FLAG_TODO_ADD_DEBUGFS);
+ 	if (netif_running(sdata->dev))
+ 		add_todo(key, KEY_FLAG_TODO_HWACCEL_ADD);
++
++	spin_unlock_irqrestore(&sdata->local->key_lock, flags);
+ }
+ 
+ static void __ieee80211_key_free(struct ieee80211_key *key)
+@@ -547,7 +549,7 @@ static void __ieee80211_key_todo(void)
+ 	 */
+ 	synchronize_rcu();
+ 
+-	spin_lock(&todo_lock);
++	spin_lock_bh(&todo_lock);
+ 	while (!list_empty(&todo_list)) {
+ 		key = list_first_entry(&todo_list, struct ieee80211_key, todo);
+ 		list_del_init(&key->todo);
+@@ -558,7 +560,7 @@ static void __ieee80211_key_todo(void)
+ 					  KEY_FLAG_TODO_HWACCEL_REMOVE |
+ 					  KEY_FLAG_TODO_DELETE);
+ 		key->flags &= ~todoflags;
+-		spin_unlock(&todo_lock);
++		spin_unlock_bh(&todo_lock);
+ 
+ 		work_done = false;
+ 
+@@ -591,9 +593,9 @@ static void __ieee80211_key_todo(void)
+ 
+ 		WARN_ON(!work_done);
+ 
+-		spin_lock(&todo_lock);
++		spin_lock_bh(&todo_lock);
+ 	}
+-	spin_unlock(&todo_lock);
++	spin_unlock_bh(&todo_lock);
+ }
+ 
+ void ieee80211_key_todo(void)
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
