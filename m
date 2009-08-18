@@ -1,183 +1,77 @@
-From: Damian Lukowski <damian@tvk.rwth-aachen.de>
-Subject: Re: [PATCH] revert TCP retransmission backoff on ICMP destination
- unreachable
-Date: Tue, 18 Aug 2009 19:40:01 +0200
-Message-ID: <4A8AE771.1070308@tvk.rwth-aachen.de>
-References: <4A8155AE.7000707@tvk.rwth-aachen.de>
- <20090813.160839.127192632.davem@davemloft.net>
- <4A8553AD.2000601@tvk.rwth-aachen.de>
- <alpine.DEB.2.00.0908181514560.10654@wel-95.cs.helsinki.fi>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
+ model for vbus_driver objects
+Date: Tue, 18 Aug 2009 20:47:04 +0300
+Message-ID: <4A8AE918.5000109@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com> <4A89BAC5.9040400@gmail.com> <20090818084606.GA13878@redhat.com> <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:62733 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759409AbZHRRkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 13:40:02 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0KOL00HG32EQEMB0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Tue, 18 Aug 2009 19:40:02 +0200 (CEST)
-In-reply-to: <alpine.DEB.2.00.0908181514560.10654@wel-95.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759535AbZHRRq7@vger.kernel.org>
+In-Reply-To: <20090818172752.GC17631@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On Fri, 14 Aug 2009, Damian Lukowski wrote:
-> 
->>> Longer than 80 columns, and use an inline function instead
->>> of a macro in order to get proper type checking.
->>> [...]
->>> Do not break up the function local variables with spurious new lines
->>> like this, please.
->>> [...]
->>> The indentation and tabbing is messed up in all of the code you are
->>> adding, please fix it up to be consistent with the surrounding code
->>> and the rest of the TCP stack.
->>>
->>> Do not use C++ style // comments.
+On 08/18/2009 08:27 PM, Ira W. Snyder wrote:
+>> In fact, modern x86s do have dma engines these days (google for Intel
+>> I/OAT), and one of our plans for vhost-net is to allow their use for
+>> packets above a certain size.  So a patch allowing vhost-net to
+>> optionally use a dma engine is a good thing.
+>>      
+> Yes, I'm aware that very modern x86 PCs have general purpose DMA
+> engines, even though I don't have any capable hardware. However, I think
+> it is better to support using any PC (with or without DMA engine, any
+> architecture) as the PCI master, and just handle the DMA all from the
+> PCI agent, which is known to have DMA?
+>    
+
+Certainly; but if your PCI agent will support the DMA API, then the same 
+vhost code will work with both I/OAT and your specialized hardware.
+
+>> Exposing a knob to userspace is not an insurmountable problem; vhost-net
+>> already allows changing the memory layout, for example.
 >>
->> Better?
-> 
-> Please, include the changelog message on resubmits too next time.
+>>      
+> Let me explain the most obvious problem I ran into: setting the MAC
+> addresses used in virtio.
+>
+> On the host (PCI master), I want eth0 (virtio-net) to get a random MAC
+> address.
+>
+> On the guest (PCI agent), I want eth0 (virtio-net) to get a specific MAC
+> address, aa:bb:cc:dd:ee:ff.
+>
+> The virtio feature negotiation code handles this, by seeing the
+> VIRTIO_NET_F_MAC feature in it's configuration space. If BOTH drivers do
+> not have VIRTIO_NET_F_MAC set, then NEITHER will use the specified MAC
+> address. This is because the feature negotiation code only accepts a
+> feature if it is offered by both sides of the connection.
+>
+> In this case, I must have the guest generate a random MAC address and
+> have the host put aa:bb:cc:dd:ee:ff into the guest's configuration
+> space. This basically means hardcoding the MAC addresses in the Linux
+> drivers, which is a big no-no.
+>
+> What would I expose to userspace to make this situation manageable?
+>
+>    
 
-I'm sorry, which message do you mean? I used plain diff without GIT or
-anything.
+I think in this case you want one side to be virtio-net (I'm guessing 
+the x86) and the other side vhost-net (the ppc boards with the dma 
+engine).  virtio-net on x86 would communicate with userspace on the ppc 
+board to negotiate features and get a mac address, the fast path would 
+be between virtio-net and vhost-net (which would use the dma engine to 
+push and pull data).
 
->> +        if ((code != ICMP_NET_UNREACH && code != ICMP_HOST_UNREACH) ||
->> +            seq != tp->snd_una  || !icsk->icsk_retransmits ||
->> +            !icsk->icsk_backoff)
-> 
-> I'd recommend you break this into two if()\nbreak's, one for filtering
-> other icmps and other for filtering mismatching against the socket's state.
-
-Ok.
-
->> +        icsk->icsk_backoff--;
->> +        icsk->icsk_rto >>= 1;
-> 
-> Are you absolute sure that we don't go to zero here when phase of the
-> moon is just right? I'd put a max(..., 1) guard there.
-
-Well, the retransmission timer doubles icsk_rto whenever it increases
-icsk_backoff, so we should reach the original icsk_rto, when
-icsk_backoff becomes zero.
-
->> +        skb_r = skb_peek(&sk->sk_write_queue);
-> 
-> tcp_write_queue_head(sk)
-
-Ok.
-> 
->> +        BUG_ON(!skb_r);
->> +
->> +        if (sock_owned_by_user(sk)) {
->> +            /* Deferring retransmission clocked by ICMP
->> +             * due to locked socket. */
->> +            inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
->> +            min(icsk->icsk_rto, TCP_RESOURCE_PROBE_INTERVAL),
-> 
-> ??? (besides having indent wrong). What makes you think HZ/2 is right
-> value if icsk_rto is large?
-
-To be honest, I have taken over the code from my predecessor and didn't
-question this part. When thinking about it, I would remove this block
-completely. Will bad things happen, if I mess with the timer, when the
-socket is locked?
-
->> +            TCP_RTO_MAX);
-> 
-> Perhaps you lack here something to exit?
-> 
->> +        }
->> +
->> +        if (tcp_time_stamp - TCP_SKB_CB(skb_r)->when >
->> +            inet_csk(sk)->icsk_rto) {
-> 
-> icsk->icsk_rto !?!
-> 
->> +            /* RTO revert clocked out retransmission. */
->> +            tcp_retransmit_skb(sk, skb_r);
-> 
-> This is plain wrong, tcp_sock counters will get messed up if
-> TCPCB_SACKED_RETRANS is already set while calling tcp_retransmit_skb. As
-> a sidenote, it would be probably useful to move the check + clear of
-> that bit before doing the retransmission to some common place one day.
-
-What, if I call tcp_retransmit_timer() manually instead? Will there
-still be problems with SACK?
-
->> +            inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
->> +                          icsk->icsk_rto, TCP_RTO_MAX);
-> 
-> RFC 2988, step 5.5 missing? Have you verified this patch for real?
-
-Thats the whole point of the draft. If consecutive retransmissions
-trigger fitting ICMPs, the RTO value is not doubled, but remains
-constant. So you can have a retransmission schedule of
-t, t+r, t+2r, t+3r, t+4r,  t+5r  ...
-instead of
-t, t+r, t+3r, t+7r, t+15r, t+31r ...
-
-I can show you trace plots of patched an unpatched TCP, if you like.
-Should I attach files in the mails, or better post hyperlinks to them?
-
->> +        } else {
->> +            /* RTO revert shortened timer. */
->> +            inet_csk_reset_xmit_timer(
->> +                sk, ICSK_TIME_RETRANS,
->> +                icsk->icsk_rto-
->> +                (tcp_time_stamp-TCP_SKB_CB(skb_r)->when),
-> 
-> Spacing.
-> 
->> +                TCP_RTO_MAX);
->> +        }
->> +
-> 
-> How about:
-> 
->         u32 remaining;
-> 
->         remaining = icsk->icsk_rto - min(icsk->icsk_rto,
->                          tcp_time_stamp - TCP_SKB_CB(skb_r)->when));
->         if (!remaining) {
->             tcp_retransmit_skb(...);
->             remaining = icsk->icsk_rto;
->         }
->         inet_csk_reset_xmit_timer(..., remaining);
-
-Seems to be ok, but isn't tcp_retransmit_timer(...) better?
-
->> -        if (icsk->icsk_retransmits >= sysctl_tcp_retries1) {
->> +        if (retrans_overstepped(sk, sysctl_tcp_retries1)) {
-> 
-> ??? Could you justify these changes and explain their relation to the
-> draft and icmp messages? If not, please drop them and try with proper
-> description and description for them in a separate patch. I fail to see
-> what you're trying to achieve here. You just ended up redefining the
-> sysctl meaning too I think...
-
-Well, you're quite right. RFCs specify timeouts in dimensions of time
-(seconds, minutes, etc.), but Linux specifies timeouts in form of
-numbers of retransmissions. One can do this, as long as the
-retransmission schedule (exponential backoff in RFC case) is known. But
-with this patch, the schedule can be completely different. In the
-"worst" case, the time intervals between consecutive retransmission
-probes are constant, leading to a TCP timeout after few seconds, instead
-of several minutes.
-What I did here, is to calculate the TCP timeout as if the schedule were
-still an exponential backoff, given the allowed number of
-retransmissions. It is possible, that TCP will now retransmit many more
-times than tcp_retries indicates, but the duration until the TCP
-connection times out, is more or less equivalent to unpatched TCP with
-same tcp_retries values.
-So, whenever some control block uses count values, but means time
-values, I have to replace the control block appropriately; and that's
-what retrans_overstepped() is supposed to do.
-
-Thanks for your help, so far
- Damian
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
