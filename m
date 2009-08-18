@@ -1,120 +1,241 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
-	model for vbus_driver objects
-Date: Tue, 18 Aug 2009 08:53:29 -0700
-Message-ID: <20090818155329.GD31060@ovro.caltech.edu>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com> <4A89BAC5.9040400@gmail.com> <20090818084606.GA13878@redhat.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
+Date: Tue, 18 Aug 2009 18:01:40 +0200
+Message-ID: <200908181801.41602.florian@openwrt.org>
+References: <200908170105.38154.florian@openwrt.org> <4A8AC125.3020602@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory Haskins <gregory.haskins@gmail.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Avi Kivity <avi@redhat.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:49307 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752543AbZHRPxa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 11:53:30 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
+	Manuel Lauss <manuel.lauss@googlemail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <4A8AC125.3020602@ru.mvista.com>
 Content-Disposition: inline
-In-Reply-To: <20090818084606.GA13878@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 18, 2009 at 11:46:06AM +0300, Michael S. Tsirkin wrote:
-> On Mon, Aug 17, 2009 at 04:17:09PM -0400, Gregory Haskins wrote:
-> > Michael S. Tsirkin wrote:
-> > > On Mon, Aug 17, 2009 at 10:14:56AM -0400, Gregory Haskins wrote:
-> > >> Case in point: Take an upstream kernel and you can modprobe the
-> > >> vbus-pcibridge in and virtio devices will work over that transport
-> > >> unmodified.
-> > >>
-> > >> See http://lkml.org/lkml/2009/8/6/244 for details.
-> > > 
-> > > The modprobe you are talking about would need
-> > > to be done in guest kernel, correct?
-> > 
-> > Yes, and your point is? "unmodified" (pardon the psuedo pun) modifies
-> > "virtio", not "guest".
-> >  It means you can take an off-the-shelf kernel
-> > with off-the-shelf virtio (ala distro-kernel) and modprobe
-> > vbus-pcibridge and get alacrityvm acceleration.
-> 
-> Heh, by that logic ksplice does not modify running kernel either :)
-> 
-> > It is not a design goal of mine to forbid the loading of a new driver,
-> > so I am ok with that requirement.
-> > 
-> > >> OTOH, Michael's patch is purely targeted at improving virtio-net on kvm,
-> > >> and its likewise constrained by various limitations of that decision
-> > >> (such as its reliance of the PCI model, and the kvm memory scheme).
-> > > 
-> > > vhost is actually not related to PCI in any way. It simply leaves all
-> > > setup for userspace to do.  And the memory scheme was intentionally
-> > > separated from kvm so that it can easily support e.g. lguest.
-> > > 
-> > 
-> > I think you have missed my point. I mean that vhost requires a separate
-> > bus-model (ala qemu-pci).
-> 
-> So? That can be in userspace, and can be anything including vbus.
-> 
-> > And no, your memory scheme is not separated,
-> > at least, not very well.  It still assumes memory-regions and
-> > copy_to_user(), which is very kvm-esque.
-> 
-> I don't think so: works for lguest, kvm, UML and containers
-> 
-> > Vbus has people using things
-> > like userspace containers (no regions),
-> 
-> vhost by default works without regions
-> 
-> > and physical hardware (dma
-> > controllers, so no regions or copy_to_user) so your scheme quickly falls
-> > apart once you get away from KVM.
-> 
-> Someone took a driver and is building hardware for it ... so what?
-> 
+Le Tuesday 18 August 2009 16:56:37 Sergei Shtylyov, vous avez =E9crit=A0=
+:
+> Hello.
+>
+> Florian Fainelli wrote:
+> > This patch adds the board code to register a per-board au1000-eth
+> > platform device to be used wit the au1000-eth platform driver in a
+> > subsequent patch. Note that the au1000-eth driver knows about the
+> > default driver settings such that we do not need to pass any
+> > platform_data informations in most cases except db1x00.
+>
+>     Sigh, NAK...
+>     Please don't register the SoC device per board, do it in
+> alchemy/common/platfrom.c and find a way to pass the board specific
+> platform data from the board file there instead -- something like
+> arch/arm/mach-davinci/usb.c does.
 
-I think Greg is referring to something like my virtio-over-PCI patch.
-I'm pretty sure that vhost is completely useless for my situation. I'd
-like to see vhost work for my use, so I'll try to explain what I'm
-doing.
+Ok, like I promised, this was the per-board device registration. Do you=
+ prefer something like this:
+--
+=46rom fd75b7c7fa3c05c21122c43e43260d2785475a79 Mon Sep 17 00:00:00 200=
+1
+=46rom: Florian Fainelli <florian@openwrt.org>
+Date: Tue, 18 Aug 2009 17:53:21 +0200
+Subject: [PATCH] alchemy: add au1000-eth platform device (v2)
 
-I've got a system where I have about 20 computers connected via PCI. The
-PCI master is a normal x86 system, and the PCI agents are PowerPC
-systems. The PCI agents act just like any other PCI card, except they
-are running Linux, and have their own RAM and peripherals.
+This patch makes the board code register the au1000-eth
+platform device. The au1000-eth platform data can be
+overriden with the au1xxx_override_eth0_cfg function
+like it has to be done for the Bosporus board.
 
-I wrote a custom driver which imitated a network interface and a serial
-port. I tried to push it towards mainline, and DavidM rejected it, with
-the argument, "use virtio, don't add another virtualization layer to the
-kernel." I think he has a decent argument, so I wrote virtio-over-PCI.
+Changes from v1:
+- remove per-board platform.c file
+- add an override function to pass custom eth0 platform_data PHY settin=
+gs
 
-Now, there are some things about virtio that don't work over PCI.
-Mainly, memory is not truly shared. It is extremely slow to access
-memory that is "far away", meaning "across the PCI bus." This can be
-worked around by using a DMA controller to transfer all data, along with
-an intelligent scheme to perform only writes across the bus. If you're
-careful, reads are never needed.
-
-So, in my system, copy_(to|from)_user() is completely wrong. There is no
-userspace, only a physical system. In fact, because normal x86 computers
-do not have DMA controllers, the host system doesn't actually handle any
-data transfer!
-
-I used virtio-net in both the guest and host systems in my example
-virtio-over-PCI patch, and succeeded in getting them to communicate.
-However, the lack of any setup interface means that the devices must be
-hardcoded into both drivers, when the decision could be up to userspace.
-I think this is a problem that vbus could solve.
-
-For my own selfish reasons (I don't want to maintain an out-of-tree
-driver) I'd like to see *something* useful in mainline Linux. I'm happy
-to answer questions about my setup, just ask.
-
-Ira
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+diff --git a/arch/mips/alchemy/common/platform.c b/arch/mips/alchemy/co=
+mmon/platform.c
+index 117f99f..559294a 100644
+--- a/arch/mips/alchemy/common/platform.c
++++ b/arch/mips/alchemy/common/platform.c
+@@ -19,6 +19,7 @@
+ #include <asm/mach-au1x00/au1xxx.h>
+ #include <asm/mach-au1x00/au1xxx_dbdma.h>
+ #include <asm/mach-au1x00/au1100_mmc.h>
++#include <asm/mach-au1x00/au1xxx_eth.h>
+=20
+ #define PORT(_base, _irq)				\
+ 	{						\
+@@ -331,6 +332,76 @@ static struct platform_device pbdb_smbus_device =3D=
+ {
+ };
+ #endif
+=20
++/* Macro to help defining the Ethernet MAC resources */
++#define MAC_RES(_base, _enable, _irq)			\
++	{						\
++		.start	=3D CPHYSADDR(_base),		\
++		.end	=3D CPHYSADDR(_base + 0xffff),	\
++		.flags	=3D IORESOURCE_MEM,		\
++	},						\
++	{						\
++		.start	=3D CPHYSADDR(_enable),		\
++		.end	=3D CPHYSADDR(_enable + 0x3),	\
++		.flags	=3D IORESOURCE_MEM,		\
++	},						\
++	{						\
++		.start	=3D _irq,				\
++		.end	=3D _irq,				\
++		.flags	=3D IORESOURCE_IRQ		\
++	}
++
++static struct resource au1xxx_eth0_resources[] =3D {
++#if defined(CONFIG_SOC_AU1000)
++	MAC_RES(AU1000_ETH0_BASE, AU1000_MAC0_ENABLE, AU1000_MAC0_DMA_INT),
++#elif defined(CONFIG_SOC_AU1100)
++	MAC_RES(AU1100_ETH0_BASE, AU1100_MAC0_ENABLE, AU1100_MAC0_DMA_INT),
++#elif defined(CONFIG_SOC_AU1550)
++	MAC_RES(AU1550_ETH0_BASE, AU1550_MAC0_ENABLE, AU1550_MAC0_DMA_INT),
++#elif defined(CONFIG_SOC_AU1500)
++	MAC_RES(AU1500_ETH0_BASE, AU1500_MAC0_ENABLE, AU1500_MAC0_DMA_INT),
++#endif
++};
++
++static struct resource au1xxx_eth1_resources[] =3D {
++#if defined(CONFIG_SOC_AU1000)
++	MAC_RES(AU1000_ETH1_BASE, AU1000_MAC1_ENABLE, AU1000_MAC1_DMA_INT),
++#elif defined(CONFIG_SOC_AU1550)
++	MAC_RES(AU1550_ETH1_BASE, AU1550_MAC1_ENABLE, AU1550_MAC1_DMA_INT),
++#elif defined(CONFIG_SOC_AU1500)
++	MAC_RES(AU1500_ETH1_BASE, AU1500_MAC1_ENABLE, AU1500_MAC1_DMA_INT),
++#endif
++};
++
++static struct au1000_eth_platform_data au1xxx_eth0_platform_data =3D {
++	.phy1_search_mac0 =3D 1,
++};
++
++static struct platform_device au1xxx_eth0_device =3D {
++	.name		=3D "au1000-eth",
++	.id		=3D 0,
++	.num_resources	=3D ARRAY_SIZE(au1xxx_eth0_resources),
++	.resource	=3D au1xxx_eth0_resources,
++	.dev.platform_data =3D &au1xxx_eth0_platform_data,
++};
++
++#ifndef CONFIG_SOC_AU1100
++static struct platform_device au1xxx_eth1_device =3D {
++	.name		=3D "au1000-eth",
++	.id		=3D 1,
++	.num_resources	=3D ARRAY_SIZE(au1xxx_eth1_resources),
++	.resource	=3D au1xxx_eth1_resources,
++};
++#endif
++
++void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_data *=
+eth_data)
++{
++	if (!eth_data)
++		return;
++
++	memcpy(&au1xxx_eth0_platform_data, eth_data,
++		sizeof(struct au1000_eth_platform_data));
++}
++
+ static struct platform_device *au1xxx_platform_devices[] __initdata =3D=
+ {
+ 	&au1xx0_uart_device,
+ 	&au1xxx_usb_ohci_device,
+@@ -351,17 +422,25 @@ static struct platform_device *au1xxx_platform_de=
+vices[] __initdata =3D {
+ #ifdef SMBUS_PSC_BASE
+ 	&pbdb_smbus_device,
+ #endif
++	&au1xxx_eth0_device,
+ };
+=20
+ static int __init au1xxx_platform_init(void)
+ {
+ 	unsigned int uartclk =3D get_au1x00_uart_baud_base() * 16;
+-	int i;
++	int i, ni;
+=20
+ 	/* Fill up uartclk. */
+ 	for (i =3D 0; au1x00_uart_data[i].flags; i++)
+ 		au1x00_uart_data[i].uartclk =3D uartclk;
+=20
++	/* Register second MAC if enabled in pinfunc */
++#ifndef CONFIG_SOC_AU1100
++	ni =3D (int)((au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4);
++	if (!(ni + 1))
++		platform_device_register(&au1xxx_eth1_device);
++#endif
++
+ 	return platform_add_devices(au1xxx_platform_devices,
+ 				    ARRAY_SIZE(au1xxx_platform_devices));
+ }
+diff --git a/arch/mips/alchemy/devboards/db1x00/board_setup.c b/arch/mi=
+ps/alchemy/devboards/db1x00/board_setup.c
+index de30d8e..4d2d32c 100644
+--- a/arch/mips/alchemy/devboards/db1x00/board_setup.c
++++ b/arch/mips/alchemy/devboards/db1x00/board_setup.c
+@@ -32,6 +32,7 @@
+=20
+ #include <asm/mach-au1x00/au1000.h>
+ #include <asm/mach-db1x00/db1x00.h>
++#include <asm/mach-au1x00/au1xxx_eth.h>
+=20
+ #include <prom.h>
+=20
+@@ -134,6 +135,22 @@ void __init board_setup(void)
+ 	printk(KERN_INFO "AMD Alchemy Au1100/Db1100 Board\n");
+ #endif
+ #ifdef CONFIG_MIPS_BOSPORUS
++	struct au1000_eth_platform_data eth0_pdata;
++
++	/*
++	 * Micrel/Kendin 5 port switch attached to MAC0,
++	 * MAC0 is associated with PHY address 5 (=3D=3D WAN port)
++	 * MAC1 is not associated with any PHY, since it's connected directly
++	 * to the switch.
++	 * no interrupts are used
++	 */
++	eth0_pdata.phy1_search_mac0 =3D 0;
++	eth0_pdata.phy_static_config =3D 1;
++	eth0_pdata.phy_addr =3D 5;
++	eth0_pdata.phy_busid =3D 0;
++
++	au1xxx_override_eth0_cfg(&eth0_pdata);
++
+ 	printk(KERN_INFO "AMD Alchemy Bosporus Board\n");
+ #endif
+ #ifdef CONFIG_MIPS_MIRAGE
+diff --git a/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h b/arch/mips=
+/include/asm/mach-au1x00/au1xxx_eth.h
+new file mode 100644
+index 0000000..876187e
+--- /dev/null
++++ b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
+@@ -0,0 +1,17 @@
++#ifndef __AU1X00_ETH_DATA_H
++#define __AU1X00_ETH_DATA_H
++
++/* Platform specific PHY configuration passed to the MAC driver */
++struct au1000_eth_platform_data {
++	int phy_static_config;
++	int phy_search_highest_addr;
++	int phy1_search_mac0;
++	int phy_addr;
++	int phy_busid;
++	int phy_irq;
++};
++
++void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_data *=
+eth_data);
++
++#endif /* __AU1X00_ETH_DATA_H */
++
+--=20
+1.6.3.rc3
