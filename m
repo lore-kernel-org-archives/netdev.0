@@ -1,79 +1,53 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: [PATCH 2/3] Expose may_setuid() in user.h and add may_setgid() (v2)
-Date: Tue, 18 Aug 2009 12:57:14 -0700
-Message-ID: <1250625435-16299-3-git-send-email-danms@us.ibm.com>
-References: <1250625435-16299-1-git-send-email-danms@us.ibm.com>
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Serge Hallyn <serue@us.ibm.com>
-To: orenl@librato.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:34984 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751122AbZHRTyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 15:54:44 -0400
-In-Reply-To: <1250625435-16299-1-git-send-email-danms@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
+	model for vbus_driver objects
+Date: Tue, 18 Aug 2009 23:35:22 +0300
+Message-ID: <20090818203522.GA20393@redhat.com>
+References: <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com> <4A89BAC5.9040400@gmail.com> <20090818084606.GA13878@redhat.com> <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Avi Kivity <avi@redhat.com>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090818182735.GD17631@ovro.caltech.edu>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make these helpers available to others.
+On Tue, Aug 18, 2009 at 11:27:35AM -0700, Ira W. Snyder wrote:
+> I haven't studied vhost-net very carefully yet. As soon as I saw the
+> copy_(to|from)_user() I stopped reading, because it seemed useless for
+> my case. I'll look again and try to find where vhost-net supports
+> setting MAC addresses and other features.
 
-Changes in v2:
- - Avoid checking the groupinfo in ctx->realcred against the current in
-   may_setgid()
+vhost net doesn't do this at all. You bind raw socket to a network
+device, and program that with usual userspace interfaces.
 
-Cc: Serge Hallyn <serue@us.ibm.com>
-Signed-off-by: Dan Smith <danms@us.ibm.com>
----
- include/linux/user.h |    9 +++++++++
- kernel/user.c        |   13 ++++++++++++-
- 2 files changed, 21 insertions(+), 1 deletions(-)
+> Also, in my case I'd like to boot Linux with my rootfs over NFS. Is
+> vhost-net capable of this?
+> 
+> I've had Arnd, BenH, and Grant Likely (and others, privately) contact me
+> about devices they are working with that would benefit from something
+> like virtio-over-PCI. I'd like to see vhost-net be merged with the
+> capability to support my use case. There are plenty of others that would
+> benefit, not just myself.
+> 
+> I'm not sure vhost-net is being written with this kind of future use in
+> mind. I'd hate to see it get merged, and then have to change the ABI to
+> support physical-device-to-device usage. It would be better to keep
+> future use in mind now, rather than try and hack it in later.
 
-diff --git a/include/linux/user.h b/include/linux/user.h
-index 68daf84..c231e9c 100644
---- a/include/linux/user.h
-+++ b/include/linux/user.h
-@@ -1 +1,10 @@
-+#ifndef _LINUX_USER_H
-+#define _LINUX_USER_H
-+
- #include <asm/user.h>
-+#include <linux/sched.h>
-+
-+extern int may_setuid(struct user_namespace *ns, uid_t uid);
-+extern int may_setgid(gid_t gid);
-+
-+#endif
-diff --git a/kernel/user.c b/kernel/user.c
-index a535ed6..a78fde7 100644
---- a/kernel/user.c
-+++ b/kernel/user.c
-@@ -604,7 +604,7 @@ int checkpoint_user(struct ckpt_ctx *ctx, void *ptr)
- 	return do_checkpoint_user(ctx, (struct user_struct *) ptr);
- }
- 
--static int may_setuid(struct user_namespace *ns, uid_t uid)
-+int may_setuid(struct user_namespace *ns, uid_t uid)
- {
- 	/*
- 	 * this next check will one day become
-@@ -631,6 +631,17 @@ static int may_setuid(struct user_namespace *ns, uid_t uid)
- 	return 0;
- }
- 
-+int may_setgid(gid_t gid)
-+{
-+	if (capable(CAP_SETGID))
-+		return 1;
-+
-+	if (in_egroup_p(gid))
-+		return 1;
-+
-+	return 0;
-+}
-+
- static struct user_struct *do_restore_user(struct ckpt_ctx *ctx)
- {
- 	struct user_struct *u;
--- 
-1.6.2.5
+I still need to think your usage over. I am not so sure this fits what
+vhost is trying to do. If not, possibly it's better to just have a
+separate driver for your device.
 
+
+> Thanks for the comments.
+> Ira
