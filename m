@@ -1,91 +1,213 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver
- objects
-Date: Tue, 18 Aug 2009 14:15:57 +0300
-Message-ID: <4A8A8D6D.9040909@redhat.com>
-References: <20090817142506.GB3602@elte.hu> <4A8971A8.2040102@gmail.com> <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com> <20090818095313.GC13878@redhat.com> <4A8A7BB9.2020906@redhat.com> <20090818100945.GD13878@redhat.com> <4A8A7EE5.6090209@redhat.com> <20090818102840.GF13878@redhat.com> <4A8A8631.1040006@redhat.com> <20090818110708.GG13878@redhat.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH] ethtool: Add "-f" option to flash a firmware image from
+	the specified file to a device.
+Date: Tue, 18 Aug 2009 16:55:34 +0530
+Message-ID: <20090818112522.GA22134@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:45803 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758805AbZHRLQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2009 07:16:18 -0400
-In-Reply-To: <20090818110708.GG13878@redhat.com>
+Received: from segment-124-30.sify.net ([124.30.166.146]:13337 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752854AbZHRLZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 07:25:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/18/2009 02:07 PM, Michael S. Tsirkin wrote:
-> On Tue, Aug 18, 2009 at 01:45:05PM +0300, Avi Kivity wrote:
->    
->> On 08/18/2009 01:28 PM, Michael S. Tsirkin wrote:
->>      
->>>        
->>>> Suppose a nested guest has two devices.  One a virtual device backed by
->>>> its host (our guest), and one a virtual device backed by us (the real
->>>> host), and assigned by the guest to the nested guest.  If both devices
->>>> use hypercalls, there is no way to distinguish between them.
->>>>
->>>>          
->>> Not sure I understand. What I had in mind is that devices would have to
->>> either use different hypercalls and map hypercall to address during
->>> setup, or pass address with each hypercall.  We get the hypercall,
->>> translate the address as if it was pio access, and know the destination?
->>>
->>>        
->> There are no different hypercalls.  There's just one hypercall
->> instruction, and there's no standard on how it's used.  If a nested call
->> issues a hypercall instruction, you have no idea if it's calling a
->> Hyper-V hypercall or a vbus/virtio kick.
->>      
-> userspace will know which it is, because hypercall capability
-> in the device has been activated, and can tell kernel, using
-> something similar to iosignalfd. No?
->    
+This patch adds a new "-f" option to the ethtool utility
+to flash a firmware image specified by a file, to a network device.
+The filename is passed to the network driver which will flash the image
+on the chip using the request_firmware path.
+The region to be flashed - like redboot, phy can be specified as an argument,
+which will be passed to the driver.
+More options for other flash regions can be added in future.
+The default behavior is to flash all the regions on the chip.
 
-The host kernel sees a hypercall vmexit.  How does it know if it's a 
-nested-guest-to-guest hypercall or a nested-guest-to-host hypercall?  
-The two are equally valid at the same time.
+Usage:
+ethtool -f <interface name> <filename of firmware image>
 
+ethtool -f <interface name> <filename of firmware image> [ all|redboot|phy ]
 
->> You could have a protocol where you register the hypercall instruction's
->> address with its recipient, but it quickly becomes a tangled mess.
->>      
-> I really thought we could pass the io address in register as an input
-> parameter. Is there a way to do this in a secure manner?
->
-> Hmm. Doesn't kvm use hypercalls now? How does this work with nesting?
-> For example, in this code in arch/x86/kvm/x86.c:
->
->          switch (nr) {
->          case KVM_HC_VAPIC_POLL_IRQ:
->                  ret = 0;
->                  break;
->          case KVM_HC_MMU_OP:
->                  r = kvm_pv_mmu_op(vcpu, a0, hc_gpa(vcpu, a1, a2),&ret);
->                  break;
->          default:
->                  ret = -KVM_ENOSYS;
->                  break;
->          }
->
-> how do we know that it's the guest and not the nested guest performing
-> the hypercall?
->    
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ ethtool-copy.h |   16 ++++++++++++
+ ethtool.c      |   71 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 86 insertions(+), 1 deletions(-)
 
-The host knows whether the guest or nested guest are running.  If the 
-guest is running, it's a guest-to-host hypercall.  If the nested guest 
-is running, it's a nested-guest-to-guest hypercall.  We don't have 
-nested-guest-to-host hypercalls (and couldn't unless we get agreement on 
-a protocol from all hypervisor vendors).
-
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3ca4e2c..a7d11fb 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -272,6 +272,21 @@ struct ethtool_perm_addr {
+ 	__u8	data[0];
+ };
+ 
++#define ETHTOOL_FLASH_MAX_FILENAME	128
++#define ETHTOOL_FLASH_OP_TYPE_SIZE	32
++enum ethtool_flash_op_type {
++	ETHTOOL_FLASH_ALL		= 0,
++	ETHTOOL_FLASH_PHY,
++	ETHTOOL_FLASH_REDBOOT,
++};
++
++/* for passing firmware flashing related parameters */
++struct ethtool_flash {
++	__u32	cmd;
++	__u32	op_type;
++	char	data[256];
++};
++
+ /* boolean flags controlling per-interface behavior characteristics.
+  * When reading, the flag indicates whether or not a certain behavior
+  * is enabled/present.  When writing, the flag indicates whether
+@@ -338,6 +353,7 @@ struct ethtool_rxnfc {
+ #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
+ #define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
+ #define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
++#define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index 0110682..d73ddc4 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -77,6 +77,7 @@ static char *unparse_rxfhashopts(u64 opts);
+ static int dump_rxfhash(int fhash, u64 val);
+ static int do_srxclass(int fd, struct ifreq *ifr);
+ static int do_grxclass(int fd, struct ifreq *ifr);
++static int do_flash(int fd, struct ifreq *ifr);
+ static int send_ioctl(int fd, struct ifreq *ifr);
+ 
+ static enum {
+@@ -101,6 +102,7 @@ static enum {
+ 	MODE_GSTATS,
+ 	MODE_GNFC,
+ 	MODE_SNFC,
++	MODE_FLASHDEV,
+ } mode = MODE_GSET;
+ 
+ static struct option {
+@@ -192,6 +194,9 @@ static struct option {
+ 		"classification options",
+ 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
+ 		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
++    { "-f", "--flash", MODE_FLASHDEV, "FILENAME " "Flash firmware image "
++		"from the specified file to device",
++		"		[ all|redboot|phy ]\n" },
+     { "-h", "--help", MODE_HELP, "Show this help" },
+     {}
+ };
+@@ -304,6 +309,9 @@ static int rx_fhash_get = 0;
+ static int rx_fhash_set = 0;
+ static u32 rx_fhash_val = 0;
+ static int rx_fhash_changed = 0;
++static char flash_file[ETHTOOL_FLASH_MAX_FILENAME];
++static int flash = -1;
++static int flash_op = -1;
+ static enum {
+ 	ONLINE=0,
+ 	OFFLINE,
+@@ -496,7 +504,8 @@ static void parse_cmdline(int argc, char **argp)
+ 			    (mode == MODE_GSTATS) ||
+ 			    (mode == MODE_GNFC) ||
+ 			    (mode == MODE_SNFC) ||
+-			    (mode == MODE_PHYS_ID)) {
++			    (mode == MODE_PHYS_ID) ||
++			    (mode == MODE_FLASHDEV)) {
+ 				devname = argp[i];
+ 				break;
+ 			}
+@@ -516,6 +525,10 @@ static void parse_cmdline(int argc, char **argp)
+ 				if (phys_id_time < 0)
+ 					show_usage(1);
+ 				break;
++			} else if (mode == MODE_FLASHDEV) {
++				sprintf(flash_file, "%s", argp[i]);
++				flash = 1;
++				break;
+ 			}
+ 			/* fallthrough */
+ 		default:
+@@ -590,6 +603,17 @@ static void parse_cmdline(int argc, char **argp)
+ 					show_usage(1);
+ 				break;
+ 			}
++			if (mode == MODE_FLASHDEV) {
++				if (!strcmp(argp[i], "redboot"))
++					flash_op = ETHTOOL_FLASH_REDBOOT;
++				else if (!strcmp(argp[i], "phy"))
++					flash_op = ETHTOOL_FLASH_PHY;
++				else if (!strcmp(argp[i], "all"))
++					flash_op = ETHTOOL_FLASH_ALL;
++				else
++					show_usage(1);
++				break;
++			}
+ 			if (mode == MODE_SNFC) {
+ 				if (!strcmp(argp[i], "rx-flow-hash")) {
+ 					i += 1;
+@@ -1504,6 +1528,8 @@ static int doit(void)
+ 		return do_grxclass(fd, &ifr);
+ 	} else if (mode == MODE_SNFC) {
+ 		return do_srxclass(fd, &ifr);
++	} else if (mode == MODE_FLASHDEV) {
++		return do_flash(fd, &ifr);
+ 	}
+ 
+ 	return 69;
+@@ -2398,6 +2424,49 @@ static int do_grxclass(int fd, struct ifreq *ifr)
+ 	return 0;
+ }
+ 
++static int do_flash(int fd, struct ifreq *ifr)
++{
++	struct ethtool_flash efl;
++	int err;
++	char path[ETHTOOL_FLASH_MAX_FILENAME * 2] = "/lib/firmware/";
++	FILE *f;
++
++	if (flash < 0) {
++		fprintf(stdout, "Missing filename argument\n");
++		show_usage(1);
++		return -EPERM;
++	}
++
++	strcat(path, flash_file);
++
++	if (strlen(flash_file) > ETHTOOL_FLASH_MAX_FILENAME) {
++		fprintf(stdout, "Filename too long\n");
++		return -EINVAL;
++	}
++
++	f = fopen(path, "r");
++	if (!f) {
++		perror(path);
++		return -ENOENT;
++	}
++	fclose(f);
++
++	efl.cmd = ETHTOOL_FLASHDEV;
++	sprintf(efl.data, "%s", flash_file);
++
++	if (flash_op < 0)
++		efl.op_type = ETHTOOL_FLASH_ALL;
++	else
++		efl.op_type = flash_op;
++
++	ifr->ifr_data = (caddr_t)&efl;
++	err = send_ioctl(fd, ifr);
++	if (err < 0)
++		perror("Flashing failed");
++
++	return err;
++}
++
+ static int send_ioctl(int fd, struct ifreq *ifr)
+ {
+ 	return ioctl(fd, SIOCETHTOOL, ifr);
 -- 
-error compiling committee.c: too many arguments to function
+1.6.0.4
 
