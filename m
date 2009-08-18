@@ -1,110 +1,108 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [net-next-2.6 PATCH] net/ethtool: Add support for the ethtool
-	feature to flash firmware image from a specified file.
-Date: Tue, 18 Aug 2009 16:55:49 +0530
-Message-ID: <20090818112526.GA22088@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
+	vbus_driver objects
+Date: Tue, 18 Aug 2009 14:49:14 +0300
+Message-ID: <20090818114914.GA17721@redhat.com>
+References: <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com> <20090818095313.GC13878@redhat.com> <4A8A7BB9.2020906@redhat.com> <20090818100945.GD13878@redhat.com> <4A8A7EE5.6090209@redhat.com> <20090818102840.GF13878@redhat.com> <4A8A8631.1040006@redhat.com> <20090818110708.GG13878@redhat.com> <4A8A8D6D.9040909@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: Gregory Haskins <gregory.haskins@gmail.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:13377 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758059AbZHRLZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 07:25:47 -0400
+Received: from mx2.redhat.com ([66.187.237.31]:53321 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753179AbZHRLvE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2009 07:51:04 -0400
 Content-Disposition: inline
+In-Reply-To: <4A8A8D6D.9040909@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to flash a firmware image to a device using ethtool.
-The driver gets the filename of the firmware image and flashes the image
-using the request firmware path.
+On Tue, Aug 18, 2009 at 02:15:57PM +0300, Avi Kivity wrote:
+> On 08/18/2009 02:07 PM, Michael S. Tsirkin wrote:
+>> On Tue, Aug 18, 2009 at 01:45:05PM +0300, Avi Kivity wrote:
+>>    
+>>> On 08/18/2009 01:28 PM, Michael S. Tsirkin wrote:
+>>>      
+>>>>        
+>>>>> Suppose a nested guest has two devices.  One a virtual device backed by
+>>>>> its host (our guest), and one a virtual device backed by us (the real
+>>>>> host), and assigned by the guest to the nested guest.  If both devices
+>>>>> use hypercalls, there is no way to distinguish between them.
+>>>>>
+>>>>>          
+>>>> Not sure I understand. What I had in mind is that devices would have to
+>>>> either use different hypercalls and map hypercall to address during
+>>>> setup, or pass address with each hypercall.  We get the hypercall,
+>>>> translate the address as if it was pio access, and know the destination?
+>>>>
+>>>>        
+>>> There are no different hypercalls.  There's just one hypercall
+>>> instruction, and there's no standard on how it's used.  If a nested call
+>>> issues a hypercall instruction, you have no idea if it's calling a
+>>> Hyper-V hypercall or a vbus/virtio kick.
+>>>      
+>> userspace will know which it is, because hypercall capability
+>> in the device has been activated, and can tell kernel, using
+>> something similar to iosignalfd. No?
+>>    
+>
+> The host kernel sees a hypercall vmexit.  How does it know if it's a  
+> nested-guest-to-guest hypercall or a nested-guest-to-host hypercall?   
+> The two are equally valid at the same time.
 
-The region to be flashed - like redboot, phy will also be passed to the driver.
-More options for other flash regions can be added in future.
-The default behavior is to flash all the regions on the chip.
+Here is how this can work - it is similar to MSI if you like:
+- by default, the device uses pio kicks
+- nested guest driver can enable hypercall capability in the device,
+  probably with pci config cycle
+- guest userspace (hypervisor running in guest) will see this request
+  and perform pci config cycle on the "real" device, telling it to which
+  nested guest this device is assigned
+- host userspace (hypervisor running in host) will see this.
+  it now knows both which guest the hypercalls will be for,
+  and that the device in question is an emulated one,
+  and can set up kvm appropriately
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- include/linux/ethtool.h |   15 +++++++++++++++
- net/core/ethtool.c      |   17 +++++++++++++++++
- 2 files changed, 32 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 90c4a36..7a5800e 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -362,6 +362,19 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
- 
-+enum ethtool_flash_op_type {
-+	ETHTOOL_FLASH_ALL		= 0,
-+	ETHTOOL_FLASH_PHY,
-+	ETHTOOL_FLASH_REDBOOT,
-+};
-+
-+/* for passing firmware flashing related parameters */
-+struct ethtool_flash {
-+	__u32	cmd;
-+	__u32	op_type;
-+	char	data[256];
-+};
-+
- #ifdef __KERNEL__
- 
- struct net_device;
-@@ -489,6 +502,7 @@ struct ethtool_ops {
- 	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
- 	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
- 	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
-+	int     (*flash_device)(struct net_device *, u8 *, u32);
- };
- #endif /* __KERNEL__ */
- 
-@@ -545,6 +559,7 @@ struct ethtool_ops {
- #define	ETHTOOL_GRXCLSRLALL	0x00000030 /* Get all RX classification rule */
- #define	ETHTOOL_SRXCLSRLDEL	0x00000031 /* Delete RX classification rule */
- #define	ETHTOOL_SRXCLSRLINS	0x00000032 /* Insert RX classification rule */
-+#define	ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 44e5711..fbdaade 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -898,6 +898,20 @@ static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
- 	return actor(dev, edata.data);
- }
- 
-+static int ethtool_flash_device(struct net_device *dev, char __user *useraddr)
-+{
-+	int err;
-+	struct ethtool_flash efl;
-+
-+	if (copy_from_user(&efl, useraddr, sizeof(efl)))
-+		return -EFAULT;
-+
-+	if (!dev->ethtool_ops->flash_device)
-+		return -EOPNOTSUPP;
-+
-+	return dev->ethtool_ops->flash_device(dev, &efl.data, efl.op_type);
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1111,6 +1125,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SGRO:
- 		rc = ethtool_set_gro(dev, useraddr);
- 		break;
-+	case ETHTOOL_FLASHDEV:
-+		rc = ethtool_flash_device(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
--- 
-1.6.0.4
+>>> You could have a protocol where you register the hypercall instruction's
+>>> address with its recipient, but it quickly becomes a tangled mess.
+>>>      
+>> I really thought we could pass the io address in register as an input
+>> parameter. Is there a way to do this in a secure manner?
+>>
+>> Hmm. Doesn't kvm use hypercalls now? How does this work with nesting?
+>> For example, in this code in arch/x86/kvm/x86.c:
+>>
+>>          switch (nr) {
+>>          case KVM_HC_VAPIC_POLL_IRQ:
+>>                  ret = 0;
+>>                  break;
+>>          case KVM_HC_MMU_OP:
+>>                  r = kvm_pv_mmu_op(vcpu, a0, hc_gpa(vcpu, a1, a2),&ret);
+>>                  break;
+>>          default:
+>>                  ret = -KVM_ENOSYS;
+>>                  break;
+>>          }
+>>
+>> how do we know that it's the guest and not the nested guest performing
+>> the hypercall?
+>>    
+>
+> The host knows whether the guest or nested guest are running.  If the  
+> guest is running, it's a guest-to-host hypercall.  If the nested guest  
+> is running, it's a nested-guest-to-guest hypercall.  We don't have  
+> nested-guest-to-host hypercalls (and couldn't unless we get agreement on  
+> a protocol from all hypervisor vendors).
 
+Not necessarily. What I am saying is we could make this protocol part of
+guest paravirt driver. the guest that loads the driver and enables the
+capability, has to agree to the protocol. If it doesn't want to, it does
+not have to use that driver.
+
+> -- 
+> error compiling committee.c: too many arguments to function
