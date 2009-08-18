@@ -1,237 +1,80 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] revert TCP retransmission backoff on ICMP destination
- unreachable
-Date: Tue, 18 Aug 2009 16:45:02 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.0908181514560.10654@wel-95.cs.helsinki.fi>
-References: <4A8155AE.7000707@tvk.rwth-aachen.de> <20090813.160839.127192632.davem@davemloft.net> <4A8553AD.2000601@tvk.rwth-aachen.de>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
+ objects
+Date: Tue, 18 Aug 2009 16:45:26 +0300
+Message-ID: <4A8AB076.6080906@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws> <4A8AA9BD.2070909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33501 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087AbZHRNpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 09:45:05 -0400
-In-Reply-To: <4A8553AD.2000601@tvk.rwth-aachen.de>
+Received: from mx2.redhat.com ([66.187.237.31]:59891 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753568AbZHRNpn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2009 09:45:43 -0400
+In-Reply-To: <4A8AA9BD.2070909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Aug 2009, Damian Lukowski wrote:
+On 08/18/2009 04:16 PM, Gregory Haskins wrote:
+> The issue here is that vbus is designed to be a generic solution to
+> in-kernel virtual-IO.  It will support (via abstraction of key
+> subsystems) a variety of environments that may or may not be similar in
+> facilities to KVM, and therefore it represents the
+> least-common-denominator as far as what external dependencies it requires.
+>    
 
->> Longer than 80 columns, and use an inline function instead
->> of a macro in order to get proper type checking.
->> [...]
->> Do not break up the function local variables with spurious new lines
->> like this, please.
->> [...]
->> The indentation and tabbing is messed up in all of the code you are
->> adding, please fix it up to be consistent with the surrounding code
->> and the rest of the TCP stack.
->>
->> Do not use C++ style // comments.
->
-> Better?
+Maybe it will be easier to evaluate it in the context of these other 
+environments.  It's difficult to assess this without an example.
 
-Please, include the changelog message on resubmits too next time.
+> The bottom line is this: despite the tendency for people to jump at
+> "don't put much in the kernel!", the fact is that a "bus" designed for
+> software to software (such as vbus) is almost laughably trivial.  Its
+> essentially a list of objects that have an int (dev-id) and char*
+> (dev-type) attribute.  All the extra goo that you see me setting up in
+> something like the kvm-connector needs to be done for fast-path
+> _anyway_, so transporting the verbs to query this simple list is not
+> really a big deal.
+>    
 
-> Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+It's not laughably trivial when you try to support the full feature set 
+of kvm (for example, live migration will require dirty memory tracking, 
+and exporting all state stored in the kernel to userspace).
 
+> Note that I didn't really want to go that route.  As you know, I tried
+> pushing this straight through kvm first since earlier this year, but I
+> was met with reluctance to even bother truly understanding what I was
+> proposing, comments like "tell me your ideas so I can steal them", and
+>    
 
-> diff -Naur linux-2.6.30.4/include/net/tcp.h linux-2.6.30.4-tcp-icmp/include/net/tcp.h
-> --- linux-2.6.30.4/include/net/tcp.h	2009-07-31 00:34:47.000000000 +0200
-> +++ linux-2.6.30.4-tcp-icmp/include/net/tcp.h	2009-08-14 12:18:30.846060685 +0200
-> @@ -1220,6 +1220,14 @@
->  #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
->  	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
-> 
-> +static inline bool retrans_overstepped(const struct sock *sk,
-> +					unsigned int boundary)
-> +{
-> +	return 	inet_csk(sk)->icsk_retransmits &&
-> +		(tcp_time_stamp - tcp_sk(sk)->retrans_stamp) >=
-> +			TCP_RTO_MIN*(2 << boundary);
-> +}
-> +
->  static inline struct sk_buff *tcp_send_head(struct sock *sk)
->  {
->  	return sk->sk_send_head;
-> diff -Naur linux-2.6.30.4/net/ipv4/tcp_ipv4.c linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_ipv4.c
-> --- linux-2.6.30.4/net/ipv4/tcp_ipv4.c	2009-07-31 00:34:47.000000000 +0200
-> +++ linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_ipv4.c	2009-08-14 13:19:48.841598908 +0200
-> @@ -332,11 +332,13 @@
->  {
->  	struct iphdr *iph = (struct iphdr *)skb->data;
->  	struct tcphdr *th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
-> +	struct inet_connection_sock *icsk;
->  	struct tcp_sock *tp;
->  	struct inet_sock *inet;
->  	const int type = icmp_hdr(skb)->type;
->  	const int code = icmp_hdr(skb)->code;
->  	struct sock *sk;
-> +	struct sk_buff *skb_r;
+Oh come on, I wrote "steal" as a convenient shorthand for 
+"cross-pollinate your ideas into our code according to the letter and 
+spirit of the GNU General Public License".  Since we're all trying to 
+improve Linux we may as well cooperate.
 
-I'd make this called "skb", and change the old skb to icmp_skb.
+> "sorry, we are going to reinvent our own instead".
 
->  	__u32 seq;
->  	int err;
->  	struct net *net = dev_net(skb->dev);
-> @@ -367,6 +369,7 @@
->  	if (sk->sk_state == TCP_CLOSE)
->  		goto out;
-> 
-> +	icsk = inet_csk(sk);
->  	tp = tcp_sk(sk);
->  	seq = ntohl(th->seq);
->  	if (sk->sk_state != TCP_LISTEN &&
-> @@ -393,6 +396,41 @@
->  		}
->
->  		err = icmp_err_convert[code].errno;
-> +		/* check if ICMP unreachable messages allow revert of backoff */
-> +		if ((code != ICMP_NET_UNREACH && code != ICMP_HOST_UNREACH) ||
-> +		    seq != tp->snd_una  || !icsk->icsk_retransmits ||
-> +		    !icsk->icsk_backoff)
+No.  Adopting venet/vbus would mean reinventing something that already 
+existed.  Continuing to support virtio/pci is not reinventing anything.
 
-I'd recommend you break this into two if()\nbreak's, one for filtering
-other icmps and other for filtering mismatching against the socket's 
-state.
+> This isn't exactly
+> going to motivate someone to continue pushing these ideas within that
+> community.  I was made to feel (purposely?) unwelcome at times.  So I
+> can either roll over and die, or start my own project.
+>    
 
-> +			break;
-> +
-> +		icsk->icsk_backoff--;
-> +		icsk->icsk_rto >>= 1;
-
-Are you absolute sure that we don't go to zero here when phase of the 
-moon is just right? I'd put a max(..., 1) guard there.
-
-> +
-> +		skb_r = skb_peek(&sk->sk_write_queue);
-
-tcp_write_queue_head(sk)
-
-> +		BUG_ON(!skb_r);
-> +
-> +		if (sock_owned_by_user(sk)) {
-> +			/* Deferring retransmission clocked by ICMP
-> +			 * due to locked socket. */
-> +			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-> +			min(icsk->icsk_rto, TCP_RESOURCE_PROBE_INTERVAL),
-
-??? (besides having indent wrong). What makes you think HZ/2 is right 
-value if icsk_rto is large?
-
-> +			TCP_RTO_MAX);
-
-Perhaps you lack here something to exit?
-
-> +		}
-> +
-> +		if (tcp_time_stamp - TCP_SKB_CB(skb_r)->when >
-> +		    inet_csk(sk)->icsk_rto) {
-
-icsk->icsk_rto !?!
-
-> +			/* RTO revert clocked out retransmission. */
-> +			tcp_retransmit_skb(sk, skb_r);
-
-This is plain wrong, tcp_sock counters will get messed up if 
-TCPCB_SACKED_RETRANS is already set while calling tcp_retransmit_skb. As a 
-sidenote, it would be probably useful to move the check + clear of that 
-bit before doing the retransmission to some common place one day.
-
-> +			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
-> +						  icsk->icsk_rto, TCP_RTO_MAX);
-
-RFC 2988, step 5.5 missing? Have you verified this patch for real?
-
-> +		} else {
-> +			/* RTO revert shortened timer. */
-> +			inet_csk_reset_xmit_timer(
-> +				sk, ICSK_TIME_RETRANS,
-> +				icsk->icsk_rto-
-> +				(tcp_time_stamp-TCP_SKB_CB(skb_r)->when),
-
-Spacing.
-
-> +				TCP_RTO_MAX);
-> +		}
-> +
-
-How about:
-
- 		u32 remaining;
-
- 		remaining = icsk->icsk_rto - min(icsk->icsk_rto,
- 						 tcp_time_stamp - TCP_SKB_CB(skb_r)->when));
- 		if (!remaining) {
- 			tcp_retransmit_skb(...);
- 			remaining = icsk->icsk_rto;
- 		}
- 		inet_csk_reset_xmit_timer(..., remaining);
-
-But check my note about step 5.5 (see above) to get remaining set right in 
-the if branch.
-
->  		break;
->  	case ICMP_TIME_EXCEEDED:
->  		err = EHOSTUNREACH;
-> diff -Naur linux-2.6.30.4/net/ipv4/tcp_timer.c linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_timer.c
-> --- linux-2.6.30.4/net/ipv4/tcp_timer.c	2009-07-31 00:34:47.000000000 +0200
-> +++ linux-2.6.30.4-tcp-icmp/net/ipv4/tcp_timer.c	2009-08-14 13:22:18.068666329 +0200
-> @@ -143,7 +143,7 @@
->  			dst_negative_advice(&sk->sk_dst_cache);
->  		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
->  	} else {
-> -		if (icsk->icsk_retransmits >= sysctl_tcp_retries1) {
-> +		if (retrans_overstepped(sk, sysctl_tcp_retries1)) {
-
-??? Could you justify these changes and explain their relation to the 
-draft and icmp messages? If not, please drop them and try with proper 
-description and description for them in a separate patch. I fail to see 
-what you're trying to achieve here. You just ended up redefining the 
-sysctl meaning too I think...
-
->  			/* Black hole detection */
->  			tcp_mtu_probing(icsk, sk);
-> 
-> @@ -156,12 +156,14 @@
->
->  			retry_until = tcp_orphan_retries(sk, alive);
-> 
-> -			if (tcp_out_of_resources(sk, alive || icsk->icsk_retransmits < retry_until))
-> +			if (tcp_out_of_resources(
-> +				sk, alive ||
-> +				    !retrans_overstepped(sk, retry_until)))
-
-???
-
->  				return 1;
->  		}
->  	}
-> 
-> -	if (icsk->icsk_retransmits >= retry_until) {
-> +	if (retrans_overstepped(sk, retry_until)) {
-
-...
-
->  		/* Has it gone just too far? */
->  		tcp_write_err(sk);
->  		return 1;
-> @@ -385,7 +387,7 @@
->  out_reset_timer:
->  	icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);
->  	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, icsk->icsk_rto, TCP_RTO_MAX);
-> -	if (icsk->icsk_retransmits > sysctl_tcp_retries1)
-> +	if (retrans_overstepped(sk, sysctl_tcp_retries1))
-
-...I guess none of these retrans_overstepped are related to the icmp stuff 
-at all?
-
->  		__sk_dst_reset(sk);
->
->  out:;
+You haven't convinced me that your ideas are worth the effort of 
+abandoning virtio/pci or maintaining both venet/vbus and virtio/pci.  
+I'm sorry if that made you feel unwelcome.  There's no reason to 
+interpret disagreement as malice though.
 
 -- 
-  i.
+error compiling committee.c: too many arguments to function
+
