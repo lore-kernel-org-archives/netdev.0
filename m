@@ -1,241 +1,87 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
-Date: Tue, 18 Aug 2009 18:01:40 +0200
-Message-ID: <200908181801.41602.florian@openwrt.org>
-References: <200908170105.38154.florian@openwrt.org> <4A8AC125.3020602@ru.mvista.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
+	vbus_driver objects
+Date: Tue, 18 Aug 2009 18:14:34 +0200
+Message-ID: <20090818161434.GA15884@elte.hu>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws> <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com> <4A8ACE1F.6020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	Manuel Lauss <manuel.lauss@googlemail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <4A8AC125.3020602@ru.mvista.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Avi Kivity <avi@redhat.com>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:54246 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752233AbZHRQPH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Aug 2009 12:15:07 -0400
 Content-Disposition: inline
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4A8ACE1F.6020402@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le Tuesday 18 August 2009 16:56:37 Sergei Shtylyov, vous avez =E9crit=A0=
-:
-> Hello.
->
-> Florian Fainelli wrote:
-> > This patch adds the board code to register a per-board au1000-eth
-> > platform device to be used wit the au1000-eth platform driver in a
-> > subsequent patch. Note that the au1000-eth driver knows about the
-> > default driver settings such that we do not need to pass any
-> > platform_data informations in most cases except db1x00.
->
->     Sigh, NAK...
->     Please don't register the SoC device per board, do it in
-> alchemy/common/platfrom.c and find a way to pass the board specific
-> platform data from the board file there instead -- something like
-> arch/arm/mach-davinci/usb.c does.
 
-Ok, like I promised, this was the per-board device registration. Do you=
- prefer something like this:
---
-=46rom fd75b7c7fa3c05c21122c43e43260d2785475a79 Mon Sep 17 00:00:00 200=
-1
-=46rom: Florian Fainelli <florian@openwrt.org>
-Date: Tue, 18 Aug 2009 17:53:21 +0200
-Subject: [PATCH] alchemy: add au1000-eth platform device (v2)
+* Gregory Haskins <gregory.haskins@gmail.com> wrote:
 
-This patch makes the board code register the au1000-eth
-platform device. The au1000-eth platform data can be
-overriden with the au1xxx_override_eth0_cfg function
-like it has to be done for the Bosporus board.
+> > You haven't convinced me that your ideas are worth the effort 
+> > of abandoning virtio/pci or maintaining both venet/vbus and 
+> > virtio/pci.
+> 
+> With all due respect, I didnt ask you do to anything, especially 
+> not abandon something you are happy with.
+> 
+> All I did was push guest drivers to LKML.  The code in question 
+> is independent of KVM, and its proven to improve the experience 
+> of using Linux as a platform.  There are people interested in 
+> using them (by virtue of the number of people that have signed up 
+> for the AlacrityVM list, and have mailed me privately about this 
+> work).
 
-Changes from v1:
-- remove per-board platform.c file
-- add an override function to pass custom eth0 platform_data PHY settin=
-gs
+This thread started because i asked you about your technical 
+arguments why we'd want vbus instead of virtio. Your answer above 
+now basically boils down to: "because I want it so, why dont you 
+leave me alone".
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/arch/mips/alchemy/common/platform.c b/arch/mips/alchemy/co=
-mmon/platform.c
-index 117f99f..559294a 100644
---- a/arch/mips/alchemy/common/platform.c
-+++ b/arch/mips/alchemy/common/platform.c
-@@ -19,6 +19,7 @@
- #include <asm/mach-au1x00/au1xxx.h>
- #include <asm/mach-au1x00/au1xxx_dbdma.h>
- #include <asm/mach-au1x00/au1100_mmc.h>
-+#include <asm/mach-au1x00/au1xxx_eth.h>
-=20
- #define PORT(_base, _irq)				\
- 	{						\
-@@ -331,6 +332,76 @@ static struct platform_device pbdb_smbus_device =3D=
- {
- };
- #endif
-=20
-+/* Macro to help defining the Ethernet MAC resources */
-+#define MAC_RES(_base, _enable, _irq)			\
-+	{						\
-+		.start	=3D CPHYSADDR(_base),		\
-+		.end	=3D CPHYSADDR(_base + 0xffff),	\
-+		.flags	=3D IORESOURCE_MEM,		\
-+	},						\
-+	{						\
-+		.start	=3D CPHYSADDR(_enable),		\
-+		.end	=3D CPHYSADDR(_enable + 0x3),	\
-+		.flags	=3D IORESOURCE_MEM,		\
-+	},						\
-+	{						\
-+		.start	=3D _irq,				\
-+		.end	=3D _irq,				\
-+		.flags	=3D IORESOURCE_IRQ		\
-+	}
-+
-+static struct resource au1xxx_eth0_resources[] =3D {
-+#if defined(CONFIG_SOC_AU1000)
-+	MAC_RES(AU1000_ETH0_BASE, AU1000_MAC0_ENABLE, AU1000_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1100)
-+	MAC_RES(AU1100_ETH0_BASE, AU1100_MAC0_ENABLE, AU1100_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1550)
-+	MAC_RES(AU1550_ETH0_BASE, AU1550_MAC0_ENABLE, AU1550_MAC0_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1500)
-+	MAC_RES(AU1500_ETH0_BASE, AU1500_MAC0_ENABLE, AU1500_MAC0_DMA_INT),
-+#endif
-+};
-+
-+static struct resource au1xxx_eth1_resources[] =3D {
-+#if defined(CONFIG_SOC_AU1000)
-+	MAC_RES(AU1000_ETH1_BASE, AU1000_MAC1_ENABLE, AU1000_MAC1_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1550)
-+	MAC_RES(AU1550_ETH1_BASE, AU1550_MAC1_ENABLE, AU1550_MAC1_DMA_INT),
-+#elif defined(CONFIG_SOC_AU1500)
-+	MAC_RES(AU1500_ETH1_BASE, AU1500_MAC1_ENABLE, AU1500_MAC1_DMA_INT),
-+#endif
-+};
-+
-+static struct au1000_eth_platform_data au1xxx_eth0_platform_data =3D {
-+	.phy1_search_mac0 =3D 1,
-+};
-+
-+static struct platform_device au1xxx_eth0_device =3D {
-+	.name		=3D "au1000-eth",
-+	.id		=3D 0,
-+	.num_resources	=3D ARRAY_SIZE(au1xxx_eth0_resources),
-+	.resource	=3D au1xxx_eth0_resources,
-+	.dev.platform_data =3D &au1xxx_eth0_platform_data,
-+};
-+
-+#ifndef CONFIG_SOC_AU1100
-+static struct platform_device au1xxx_eth1_device =3D {
-+	.name		=3D "au1000-eth",
-+	.id		=3D 1,
-+	.num_resources	=3D ARRAY_SIZE(au1xxx_eth1_resources),
-+	.resource	=3D au1xxx_eth1_resources,
-+};
-+#endif
-+
-+void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_data *=
-eth_data)
-+{
-+	if (!eth_data)
-+		return;
-+
-+	memcpy(&au1xxx_eth0_platform_data, eth_data,
-+		sizeof(struct au1000_eth_platform_data));
-+}
-+
- static struct platform_device *au1xxx_platform_devices[] __initdata =3D=
- {
- 	&au1xx0_uart_device,
- 	&au1xxx_usb_ohci_device,
-@@ -351,17 +422,25 @@ static struct platform_device *au1xxx_platform_de=
-vices[] __initdata =3D {
- #ifdef SMBUS_PSC_BASE
- 	&pbdb_smbus_device,
- #endif
-+	&au1xxx_eth0_device,
- };
-=20
- static int __init au1xxx_platform_init(void)
- {
- 	unsigned int uartclk =3D get_au1x00_uart_baud_base() * 16;
--	int i;
-+	int i, ni;
-=20
- 	/* Fill up uartclk. */
- 	for (i =3D 0; au1x00_uart_data[i].flags; i++)
- 		au1x00_uart_data[i].uartclk =3D uartclk;
-=20
-+	/* Register second MAC if enabled in pinfunc */
-+#ifndef CONFIG_SOC_AU1100
-+	ni =3D (int)((au_readl(SYS_PINFUNC) & (u32)(SYS_PF_NI2)) >> 4);
-+	if (!(ni + 1))
-+		platform_device_register(&au1xxx_eth1_device);
-+#endif
-+
- 	return platform_add_devices(au1xxx_platform_devices,
- 				    ARRAY_SIZE(au1xxx_platform_devices));
- }
-diff --git a/arch/mips/alchemy/devboards/db1x00/board_setup.c b/arch/mi=
-ps/alchemy/devboards/db1x00/board_setup.c
-index de30d8e..4d2d32c 100644
---- a/arch/mips/alchemy/devboards/db1x00/board_setup.c
-+++ b/arch/mips/alchemy/devboards/db1x00/board_setup.c
-@@ -32,6 +32,7 @@
-=20
- #include <asm/mach-au1x00/au1000.h>
- #include <asm/mach-db1x00/db1x00.h>
-+#include <asm/mach-au1x00/au1xxx_eth.h>
-=20
- #include <prom.h>
-=20
-@@ -134,6 +135,22 @@ void __init board_setup(void)
- 	printk(KERN_INFO "AMD Alchemy Au1100/Db1100 Board\n");
- #endif
- #ifdef CONFIG_MIPS_BOSPORUS
-+	struct au1000_eth_platform_data eth0_pdata;
-+
-+	/*
-+	 * Micrel/Kendin 5 port switch attached to MAC0,
-+	 * MAC0 is associated with PHY address 5 (=3D=3D WAN port)
-+	 * MAC1 is not associated with any PHY, since it's connected directly
-+	 * to the switch.
-+	 * no interrupts are used
-+	 */
-+	eth0_pdata.phy1_search_mac0 =3D 0;
-+	eth0_pdata.phy_static_config =3D 1;
-+	eth0_pdata.phy_addr =3D 5;
-+	eth0_pdata.phy_busid =3D 0;
-+
-+	au1xxx_override_eth0_cfg(&eth0_pdata);
-+
- 	printk(KERN_INFO "AMD Alchemy Bosporus Board\n");
- #endif
- #ifdef CONFIG_MIPS_MIRAGE
-diff --git a/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h b/arch/mips=
-/include/asm/mach-au1x00/au1xxx_eth.h
-new file mode 100644
-index 0000000..876187e
---- /dev/null
-+++ b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-@@ -0,0 +1,17 @@
-+#ifndef __AU1X00_ETH_DATA_H
-+#define __AU1X00_ETH_DATA_H
-+
-+/* Platform specific PHY configuration passed to the MAC driver */
-+struct au1000_eth_platform_data {
-+	int phy_static_config;
-+	int phy_search_highest_addr;
-+	int phy1_search_mac0;
-+	int phy_addr;
-+	int phy_busid;
-+	int phy_irq;
-+};
-+
-+void __init au1xxx_override_eth0_cfg(struct au1000_eth_platform_data *=
-eth_data);
-+
-+#endif /* __AU1X00_ETH_DATA_H */
-+
---=20
-1.6.3.rc3
+What you are doing here is to in essence to fork KVM, regardless of 
+the technical counter arguments given against such a fork and 
+regardless of the ample opportunity given to you to demostrate the 
+technical advantages of your code. (in which case KVM would happily 
+migrate to your code)
+
+We all love faster code and better management interfaces and tons 
+of your prior patches got accepted by Avi. This time you didnt even 
+_try_ to improve virtio. It's not like you posted a lot of virtio 
+patches which were not applied. You didnt even try and you need to 
+try _much_ harder than that before forking a project.
+
+And fragmentation matters quite a bit. To Linux users, developers, 
+administrators, packagers it's a big deal whether two overlapping 
+pieces of functionality for the same thing exist within the same 
+kernel. The kernel is not an anarchy where everyone can have their 
+own sys_fork() version or their own sys_write() version. Would you 
+want to have two dozen read() variants, sys_read_oracle() and a 
+sys_read_db2()?
+
+I certainly dont want that. Instead we (at great expense and work) 
+try to reach the best technical solution. That means we throw away 
+inferior code and adopt the better one. (with a reasonable 
+migration period)
+
+You are ignoring that principle with hand-waving about 'the 
+community wants this'. I can assure you, users _DONT WANT_ split 
+interfaces and incompatible drivers for the same thing. They want 
+stuff that works well.
+
+If the community wants this then why cannot you convince one of the 
+most prominent representatives of that community, the KVM 
+developers?
+
+Furthermore, 99% of your work is KVM, why dont you respect that 
+work by not forking it? Why dont you respect the KVM community and 
+Linux in general by improving existing pieces of infrastructure 
+instead of forcefully forking it?
+
+	Ingo
