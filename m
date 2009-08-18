@@ -1,39 +1,40 @@
-From: Willy Tarreau <w@1wt.eu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: new ipdelay= option for faster netboot
-Date: Tue, 18 Aug 2009 06:56:03 +0200
-Message-ID: <20090818045603.GD11624@1wt.eu>
-References: <20090814204305.GA31727@pengutronix.de> <4A89AC40.2040109@am.sony.com> <4A89DB15.6060101@am.sony.com> <20090817.180323.253692704.davem@davemloft.net> <4A8A0454.8000902@hp.com> <alpine.DEB.2.00.0908171942430.30426@asgard.lang.hm>
+Date: Mon, 17 Aug 2009 22:00:08 -0700 (PDT)
+Message-ID: <20090817.220008.26173943.davem@davemloft.net>
+References: <4A8A02CA.7040305@am.sony.com>
+	<20090817.182754.50348941.davem@davemloft.net>
+	<200908180656.54011.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, tim.bird@am.sony.com,
-	r.schwebel@pengutronix.de, vda.linux@googlemail.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tim.bird@am.sony.com, r.schwebel@pengutronix.de,
 	linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
 	arjan@linux.intel.com, kernel@pengutronix.de,
 	netdev@vger.kernel.org
-To: david@lang.hm
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751433AbZHRE42@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.0908171942430.30426@asgard.lang.hm>
+To: vda.linux@googlemail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751485AbZHRE76@vger.kernel.org>
+In-Reply-To: <200908180656.54011.vda.linux@googlemail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 17, 2009 at 07:45:33PM -0700, david@lang.hm wrote:
-> On Mon, 17 Aug 2009, Rick Jones wrote:
-> 
-> >David Miller wrote:
-> >>I have card/switch combinations that take up to 10 seconds to
-> >>negotiate a proper link.
-> >
-> >Gotta love it when things adhere to specs...
-> 
-> the default on Cisco switches is to wait 30 seconds before fully enabling 
-> the port so that it can listen for spanning tree broadcasts.
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Tue, 18 Aug 2009 06:56:53 +0200
 
-And this causes a lot of trouble in high availability environments,
-because the link is up but unusable. So if you're using it as a primary
-bond link you can lose connectivity for that time. Fortunately, you can
-configure the port in "switchport mode access", "portfast" mode to avoid
-this annoying delay.
+> Since DHCP and any other networking activity like TCP connects
+> accomodate packet loss, things should work even without any delay
+> in kernel IP config code. The delay will be just shifted to the
+> moment when first DHCP/TCP/whatever negotiation happens.
 
-Willy
+Until the link is up, the packet scheduler just holds onto packets
+and queued them up.
+
+When the link comes up, this queue is released and the packets
+sent out.
+
+That's why it's beneficial to wait some time until the link
+comes up before we start sending stuff out.  Because otherwise
+any timeouts used will be inaccurate.
+
+This could code be spiffed up to wait for the link up indication
+on devices it cares about.  Feel free to code that up :-)
