@@ -1,60 +1,63 @@
-From: Tim Bird <tim.bird@am.sony.com>
-Subject: Re: new ipdelay= option for faster netboot
-Date: Mon, 17 Aug 2009 18:40:48 -0700
-Message-ID: <4A8A06A0.2070402@am.sony.com>
-References: <4A89DB15.6060101@am.sony.com>	<20090817.180323.253692704.davem@davemloft.net>	<4A8A02CA.7040305@am.sony.com> <20090817.182754.50348941.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] net: skb_orphan on dev_hard_start_xmit
+Date: Mon, 17 Aug 2009 18:47:12 -0700 (PDT)
+Message-ID: <20090817.184712.180559154.davem@davemloft.net>
+References: <20090704090910.GA2185@gondor.apana.org.au>
+	<20090705032658.GA7430@gondor.apana.org.au>
+	<20090705033408.GB7430@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: r.schwebel@pengutronix.de, vda.linux@googlemail.com,
-	linux-kernel@vger.kernel.org, linux-embedded@vger.kernel.org,
-	arjan@linux.intel.com, kernel@pengutronix.de,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20090817.182754.50348941.davem@davemloft.net>
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rusty@rustcorp.com.au, patrick.ohly@intel.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	divy@chelsio.com, rolandd@cisco.com, xemul@openvz.org,
+	dcbw@redhat.com, libertas-dev@lists.infradead.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56493
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758582AbZHRBrB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Aug 2009 21:47:01 -0400
+In-Reply-To: <20090705033408.GB7430@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Tim Bird <tim.bird@am.sony.com>
-> Date: Mon, 17 Aug 2009 18:24:26 -0700
->
->> David Miller wrote:
->>> I have card/switch combinations that take up to 10 seconds to
->>> negotiate a proper link.
->> What types of delays are these timeouts supposed to
->> cover?
->
-> The problem is that if you don't first give at least some time for the
-> link to come up, the remaining time it takes the link to come up will
-> end up chewing into the actual bootp/dhcp protocol timeouts.  And
-> that's what we're trying to avoid.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 5 Jul 2009 11:34:08 +0800
 
-What link?  I'm not that familiar with networking.
+> Here's an even crazier idea that doesn't use dummy descriptors.
+> 
+> xmit(skb)
+> 
+> 	if (TX queue contains no interrupting descriptor &&
+> 	    qdisc is empty)
+> 		mark TX descriptor as interrupting
+> 
+> 	if (TX queue now contains an interrupting descriptor &&
+> 	    qdisc len < 2)
+> 		stop queue
+> 
+> 	if (TX ring full)
+> 		stop queue
+> 
+> clean()
+> 
+>  	do work
+> 	wake queue as per usual
 
-Assuming I'm using ethernet, what link needs to come up?
-Is this something to do with power propagation to the
-physical wire?  Is there some MAC layer negotiation
-between the card and the switch?  Is it the time for
-the switch to do speed detection?
+I'm pretty sure that for normal TCP and UDP workloads, this is just
+going to set the interrupt bit on the first packet that gets into the
+queue, and then not in the rest.
 
-And, can any of this be more accurately determined
-or guessed-at with knowledge of the onboard hardware?
-Or is it dependent on external conditions?
+TCP just loops over packets in the send queue, and at initial state
+the qdisc will be empty.
 
-Where would be a good place to find out more about
-startup delays for networking chips and/or protocols?
+It's very hard to get this to work as well as if we had a real
+queue empty interrupt status event.
 
-Our usual solution is to kick the can down the road
-and let user-space initialize anything that takes a long
-time,  while we do other stuff like focus the camera or display
-the TV picture.  It would be good to learn more about
-this.
- -- Tim
+Even if you get upstream status from the protocols saying "there's
+more packets coming" via some flag in the SKB, that only says what one
+client feeding the TX ring is about to do.
 
-=============================
-Tim Bird
-Architecture Group Chair, CE Linux Forum
-Senior Staff Engineer, Sony Corporation of America
-=============================
+It says nothing about other threads of control which are about to start
+feeding packets to the same device.
