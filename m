@@ -1,62 +1,53 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver objects
-Date: Tue, 18 Aug 2009 21:04:30 +0000
-Message-ID: <200908182104.30500.arnd@arndb.de>
-References: <4A870964.9090408@codemonkey.ws> <20090818182735.GD17631@ovro.caltech.edu> <20090818203522.GA20393@redhat.com>
+Subject: Re: [PATCH] Revert netlink ABI change to gnet_stats_basic
+Date: Tue, 18 Aug 2009 21:21:24 +0000
+Message-ID: <200908182121.24726.arnd@arndb.de>
+References: <1250002683-28554-1-git-send-email-mspang@csclub.uwaterloo.ca> <118a63b80908160642j73568637n2f3fa97fc33d8e57@mail.gmail.com> <4A885FD1.4030105@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Ira W. Snyder" <iws@ovro.caltech.edu>,
-	Avi Kivity <avi@redhat.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752178AbZHRVEh@vger.kernel.org>
-In-Reply-To: <20090818203522.GA20393@redhat.com>
+Cc: Michael Spang <mspang@csclub.uwaterloo.ca>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.177]:61810 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750792AbZHRVV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 17:21:28 -0400
+In-Reply-To: <4A885FD1.4030105@gmail.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 18 August 2009 20:35:22 Michael S. Tsirkin wrote:
-> On Tue, Aug 18, 2009 at 10:27:52AM -0700, Ira W. Snyder wrote:
-> > Also, in my case I'd like to boot Linux with my rootfs over NFS. Is
-> > vhost-net capable of this?
-> > 
-> > I've had Arnd, BenH, and Grant Likely (and others, privately) contact me
-> > about devices they are working with that would benefit from something
-> > like virtio-over-PCI. I'd like to see vhost-net be merged with the
-> > capability to support my use case. There are plenty of others that would
-> > benefit, not just myself.
-
-yes.
-
-> > I'm not sure vhost-net is being written with this kind of future use in
-> > mind. I'd hate to see it get merged, and then have to change the ABI to
-> > support physical-device-to-device usage. It would be better to keep
-> > future use in mind now, rather than try and hack it in later.
+On Sunday 16 August 2009 19:36:49 Eric Dumazet wrote:
+> In 5e140dfc1fe87eae27846f193086724806b33c7d "net: reorder struct Qdisc
+> for better SMP performance" the definition of struct gnet_stats_basic
+> changed incompatibly, as copies of this struct are shipped to
+> userland via netlink.
 > 
-> I still need to think your usage over. I am not so sure this fits what
-> vhost is trying to do. If not, possibly it's better to just have a
-> separate driver for your device.
+> Restoring old behavior is not welcome, for performance reason.
+> 
+> Fix is to use a private structure for kernel, and
+> teach gnet_stats_copy_basic() to convert from kernel to user land,
+> using legacy structure (struct gnet_stats_basic)
 
-I now think we need both. virtio-over-PCI does it the right way for its
-purpose and can be rather generic. It could certainly be extended to
-support virtio-net on both sides (host and guest) of KVM, but I think
-it better fits the use where a kernel wants to communicate with some
-other machine where you normally wouldn't think of using qemu.
+Are you sure that the packed structure is actually an advantage
+for performance? On architectures that do not have unaligned stores
+in hardware, the compiler will generate highly inefficient code
+for accessing packed variables, in order to avoid alignment exceptions.
 
-Vhost-net OTOH is great in the way that it serves as an easy way to
-move the virtio-net code from qemu into the kernel, without changing
-its behaviour. It should even straightforward to do live-migration between
-hosts with and without it, something that would be much harder with
-the virtio-over-PCI logic. Also, its internal state is local to the
-process owning its file descriptor, which makes it much easier to
-manage permissions and cleanup of its resources.
+It would need some more measurements, but I'd guess that 
+
+struct gnet_stats_basic_packed
+{
+       __u64   bytes __attribute__ ((packed, aligned(4)));
+       __u32   packets;
+};
+
+would give significantly better code on those architectures than
+your version, while still giving you the 12-byte size.
 
 	Arnd <><
