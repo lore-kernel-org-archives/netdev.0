@@ -1,23 +1,44 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model	 for	vbus_drive
-Date: Tue, 18 Aug 2009 15:19:53 +0300
-Message-ID: <4A8A9C69.6060900@redhat.com>
-References: <4A8A622E0200005A000528DC@sinclair.provo.novell.com> <4A8A62370200005A000528DF@sinclair.provo.novell.com> <4A8A62370200005A000528DF@sinclair.provo.novell.com>
+From: "Gregory Haskins" <GHaskins@novell.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model	 for
+Date: Tue, 18 Aug 2009 06:24:52 -0600
+Message-ID: <4A8A65540200005A000528EA@sinclair.provo.novell.com>
+References: <4A8A654A0200005A000528E7@sinclair.provo.novell.com>
+ <4A8A65540200005A000528EA@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, mingo@elte.hu, gregory.haskins@gmail.com,
-	alacrityvm-devel@lists.sourceforge.net, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gregory Haskins <GHaskins@novell.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <mingo@elte.hu>, <gregory.haskins@gmail.com>,
+	<alacrityvm-devel@lists.sourceforge.net>, <mst@redhat.com>,
+	<kvm@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: <avi@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:55359 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751358AbZHRMUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2009 08:20:01 -0400
-In-Reply-To: <4A8A62370200005A000528DF@sinclair.provo.novell.com>
+In-Reply-To: <4A8A65540200005A000528EA@sinclair.provo.novell.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+(Again on the top post)
+
+No, Avi, nothing has changed to my knowledge.  I just saw that you and Michael were heading down the same path, so I thought I might interject that we've already covered that ground.
+
+As of right now, I am of the opinion that its not worth any change in the short term, and may be worth IOoHC in the long term (primarily so that mmios get a boost)
+
+-greg.
+ 
+-----Original Message-----
+From: Avi Kivity <avi@redhat.com>
+To: Gregory Haskins <GHaskins@novell.com>
+Cc:  <mingo@elte.hu>
+Cc:  <gregory.haskins@gmail.com>
+Cc:  <alacrityvm-devel@lists.sourceforge.net>
+Cc:  <mst@redhat.com>
+Cc:  <kvm@vger.kernel.org>
+Cc:  <linux-kernel@vger.kernel.org>
+Cc:  <netdev@vger.kernel.org>
+
+Sent: 8/18/2009 6:19:53 AM
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model	 for	vbus_drive
 
 On 08/18/2009 03:11 PM, Gregory Haskins wrote:
 > Sorry for the toppost.  Still not at the office.
@@ -42,4 +63,5 @@ mmio on non-x86.
 
 -- 
 error compiling committee.c: too many arguments to function
+
 
