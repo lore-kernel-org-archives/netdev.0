@@ -1,45 +1,49 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
- objects
-Date: Tue, 18 Aug 2009 22:08:27 +0300
-Message-ID: <4A8AFC2B.8020406@redhat.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <4A8A674E.8070200@redhat.com> <4A8ABEC9.6090006@gmail.com> <200908182020.11126.arnd@arndb.de>
+From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: bad nat connection tracking performance with ip_gre
+Date: Tue, 18 Aug 2009 22:36:50 +0300
+Message-ID: <4A8B02D2.2090400@iki.fi>
+References: <4A8A7F14.3010103@iki.fi> <4A8A84AF.7050901@trash.net> <4A8AA253.8090300@iki.fi> <4A8AA63D.4000702@trash.net> <4A8AB25A.4000105@iki.fi> <4A8AC1A0.6000602@trash.net> <4A8AE76D.7040707@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751509AbZHRTIT@vger.kernel.org>
-In-Reply-To: <200908182020.11126.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:58515 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbZHRTgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 15:36:50 -0400
+In-Reply-To: <4A8AE76D.7040707@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/18/2009 09:20 PM, Arnd Bergmann wrote:
->> Well, the interrupt model to name one.
->>      
-> The performance aspects of your interrupt model are independent
-> of the vbus proxy, or at least they should be. Let's assume for
-> now that your event notification mechanism gives significant
-> performance improvements (which we can't measure independently
-> right now). I don't see a reason why we could not get the
-> same performance out of a paravirtual interrupt controller
-> that uses the same method, and it would be straightforward
-> to implement one and use that together with all the existing
-> emulated PCI devices and virtio devices including vhost_net.
->    
+Timo Ter=E4s wrote:
+> Yes. But my observation was that for the same amount of packets
+> sent locally the CPU usage is significantly higher than if they
+> are forwarded from physical interface. That's what made me
+> curious.
+>=20
+> If I had remember that icmp conn track entries get pruned right
+> when they get icmp reply back, I would not have probably bothered
+> to bug you. But that made me think it was more of generic problem
+> than my patch.
+>=20
+> I'll also double check with oprofile the local sendto() approach=20
+> where it dies.
 
-Interesting.  You could even configure those vectors using the standard 
-MSI configuration mechanism; simply replace the address/data pair with 
-something meaningful to the paravirt interrupt controller.
+Ok, finally figured out the difference. Looks like depending
+on the sendto() / local route / forward route / my patched mrt
+the skb that gets passed to ipgre_tunnel_xmit() seems to have
+nfctinfo either 0 or 2. This value is not modified; nf_reset()
+is called just before ip_local_out(). Looks like nf_reset()
+clears nfct to NULL, but does not touch nfctinfo.
 
-I'd have to see really hard numbers to be tempted to merge something 
-like this though.  We've merged paravirt mmu, for example, and now it 
-underperforms both hardware two-level paging and software shadow paging.
+So when LOCAL_OUT hook for the GRE packet is hit, depending
+where the packet came: it has nfct=3DNULL and nfctinfo=3DESTABLISHED
+or NEW. This also seems to affect if that specific skb gets
+the nat/OUTPUT hook called.
 
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
+Is this behaviour for nf_reset() intentional?
+
+- Timo
