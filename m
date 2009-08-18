@@ -1,87 +1,163 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
 	vbus_driver objects
-Date: Tue, 18 Aug 2009 18:14:34 +0200
-Message-ID: <20090818161434.GA15884@elte.hu>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws> <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com> <4A8ACE1F.6020402@gmail.com>
+Date: Tue, 18 Aug 2009 19:25:14 +0300
+Message-ID: <20090818162514.GA19846@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com> <4A89BAC5.9040400@gmail.com> <20090818084606.GA13878@redhat.com> <4A8AC68C.6040308@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@redhat.com>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>, kvm@vger.kernel.org,
+	Avi Kivity <avi@redhat.com>,
 	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:54246 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752233AbZHRQPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2009 12:15:07 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759262AbZHRQ1G@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4A8ACE1F.6020402@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4A8AC68C.6040308@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-* Gregory Haskins <gregory.haskins@gmail.com> wrote:
-
-> > You haven't convinced me that your ideas are worth the effort 
-> > of abandoning virtio/pci or maintaining both venet/vbus and 
-> > virtio/pci.
+On Tue, Aug 18, 2009 at 11:19:40AM -0400, Gregory Haskins wrote:
+> >>>> OTOH, Michael's patch is purely targeted at improving virtio-net on kvm,
+> >>>> and its likewise constrained by various limitations of that decision
+> >>>> (such as its reliance of the PCI model, and the kvm memory scheme).
+> >>> vhost is actually not related to PCI in any way. It simply leaves all
+> >>> setup for userspace to do.  And the memory scheme was intentionally
+> >>> separated from kvm so that it can easily support e.g. lguest.
+> >>>
+> >> I think you have missed my point. I mean that vhost requires a separate
+> >> bus-model (ala qemu-pci).
+> > 
+> > So? That can be in userspace, and can be anything including vbus.
 > 
-> With all due respect, I didnt ask you do to anything, especially 
-> not abandon something you are happy with.
+> -ENOPARSE
 > 
-> All I did was push guest drivers to LKML.  The code in question 
-> is independent of KVM, and its proven to improve the experience 
-> of using Linux as a platform.  There are people interested in 
-> using them (by virtue of the number of people that have signed up 
-> for the AlacrityVM list, and have mailed me privately about this 
-> work).
+> Can you elaborate?
 
-This thread started because i asked you about your technical 
-arguments why we'd want vbus instead of virtio. Your answer above 
-now basically boils down to: "because I want it so, why dont you 
-leave me alone".
+Write a device that signals an eventfd on virtio kick, and poll eventfd
+for notifications, and you can use vhost-net.  vbus, surely, can do
+this?
 
-What you are doing here is to in essence to fork KVM, regardless of 
-the technical counter arguments given against such a fork and 
-regardless of the ample opportunity given to you to demostrate the 
-technical advantages of your code. (in which case KVM would happily 
-migrate to your code)
+> > 
+> >> And no, your memory scheme is not separated,
+> >> at least, not very well.  It still assumes memory-regions and
+> >> copy_to_user(), which is very kvm-esque.
+> > 
+> > I don't think so: works for lguest, kvm, UML and containers
+> 
+> kvm _esque_ , meaning anything that follows the region+copy_to_user
+> model.  Not all things do.
 
-We all love faster code and better management interfaces and tons 
-of your prior patches got accepted by Avi. This time you didnt even 
-_try_ to improve virtio. It's not like you posted a lot of virtio 
-patches which were not applied. You didnt even try and you need to 
-try _much_ harder than that before forking a project.
+Pretty much all things where it makes sense to share code with
+vhost-net.  If there's hardware that wants direct access to descriptor
+rings, it just needs a driver.
 
-And fragmentation matters quite a bit. To Linux users, developers, 
-administrators, packagers it's a big deal whether two overlapping 
-pieces of functionality for the same thing exist within the same 
-kernel. The kernel is not an anarchy where everyone can have their 
-own sys_fork() version or their own sys_write() version. Would you 
-want to have two dozen read() variants, sys_read_oracle() and a 
-sys_read_db2()?
+> >> Vbus has people using things
+> >> like userspace containers (no regions),
+> > 
+> > vhost by default works without regions
+> 
+> Thats a start, but not good enough if you were trying to achieve the
+> same thing as vbus.  As I said before, I've never said you had to
+> achieve the same thing, but do note they are distinctly different with
+> different goals.  You are solving a directed problem.  I am solving a
+> general problem, and trying to solve it once.
 
-I certainly dont want that. Instead we (at great expense and work) 
-try to reach the best technical solution. That means we throw away 
-inferior code and adopt the better one. (with a reasonable 
-migration period)
+Heh. A good demonstration of vbus generality would be a solution that
+speeds up virtio in guests.  What venet seems to illustrate instead is
+that one has to rework all of host, guest and hypervisor to use vbus.
+Maybe it does not need to be that way - it just seems so.
 
-You are ignoring that principle with hand-waving about 'the 
-community wants this'. I can assure you, users _DONT WANT_ split 
-interfaces and incompatible drivers for the same thing. They want 
-stuff that works well.
+> >> and physical hardware (dma
+> >> controllers, so no regions or copy_to_user) so your scheme quickly falls
+> >> apart once you get away from KVM.
+> > 
+> > Someone took a driver and is building hardware for it ... so what?
+> 
+> What is your point?
 
-If the community wants this then why cannot you convince one of the 
-most prominent representatives of that community, the KVM 
-developers?
+OK, can we forget about that physical hardware then?
 
-Furthermore, 99% of your work is KVM, why dont you respect that 
-work by not forking it? Why dont you respect the KVM community and 
-Linux in general by improving existing pieces of infrastructure 
-instead of forcefully forking it?
+> >> Don't get me wrong:  That design may have its place.  Perhaps you only
+> >> care about fixing KVM, which is a perfectly acceptable strategy.
+> >> Its just not a strategy that I think is the best approach.  Essentially you
+> >> are promoting the proliferation of competing backends, and I am trying
+> >> to unify them (which is ironic that this thread started with concerns I
+> >> was fragmenting things ;).
+> > 
+> > So, you don't see how venet fragments things? It's pretty obvious ...
+> 
+> I never said it doesn't.  venet started as a test harness, but now it is
+> inadvertently fragmenting the virtio-net effort.  I admit it.  It wasn't
+> intentional, but just worked out that way.  Until your vhost idea is
+> vetted and benchmarked, its not even in the running.
+>
+> Venet is currently
+> the highest performing 802.x acceleration for KVM that I am aware of, so
+> it will continue to garner interest from users concerned with performance.
+> 
+> But likewise, vhost has the potential to fragment the back-end model.
+> That was my point.
 
-	Ingo
+You don't see the difference? Long term vhost-net can just be enabled by
+default whenever it is present, and there is a single guest driver to
+support. OTOH, venet means that we have to support 2 guest drivers:
+virtio and venet, for a long time.
+
+> > 
+> >> The bottom line is, you have a simpler solution that is more finely
+> >> targeted at KVM and virtio-networking.  It fixes probably a lot of
+> >> problems with the existing implementation, but it still has limitations.
+> >>
+> >> OTOH, what I am promoting is more complex, but more flexible.  That is
+> >> the tradeoff.  You can't have both ;)
+> > 
+> > We can. connect eventfds to hypercalls, and vhost will work with vbus.
+> 
+> -ENOPARSE
+> 
+> vbus doesnt use hypercalls, and I do not see why or how you would
+> connect two backend models together like this.  Can you elaborate.
+
+I think some older version did. But whatever. signal eventfd on guest
+kick, poll eventfd to notify guest, and you can use vhost-net with vbus.
+
+> > 
+> >> So do not for one second think
+> >> that what you implemented is equivalent, because they are not.
+> >>
+> >> In fact, I believe I warned you about this potential problem when you
+> >> decided to implement your own version.  I think I said something to the
+> >> effect of "you will either have a subset of functionality, or you will
+> >> ultimately reinvent what I did".  Right now you are in the subset phase.
+> > 
+> > No. Unlike vbus, vhost supports unmodified guests and live migration.
+> 
+> By "subset", I am referring to your interfaces and the scope of its
+> applicability.  The things you need to do to make vhost work and a vbus
+> device work from a memory and signaling abstration POV are going to be
+> extremely similar.
+> 
+> The difference in how the guest sees them these backends is all
+> contained in the vbus-connector.  Therefore, what you *could* have done
+> is simply written a connector that  does something like only support
+> "virtio" backends, and surfaced them as regular PCI devices to the
+> guest.  Then you could have reused all the abstraction features in vbus,
+> instead of reinventing them (case in point, your region+copy_to_user
+> code).  And likewise, anyone using vbus could use your virtio-net backend.
+> 
+> Instead, I am still left with no virtio-net backend implemented, and you
+> were left designing, writing, and testing facilities that I've already
+> completed.  So it was duplicative effort.
+> 
+> Kind Regards,
+> -Greg
+> 
+
+As I said, I couldn't reuse your code the way it's written.  But happily
+you can reuse vhost - it's just a library, link with it - or even vhost
+net as I explained above.
+
+-- 
+MST
