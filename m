@@ -1,118 +1,81 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
- model for vbus_driver objects
-Date: Wed, 19 Aug 2009 00:26:23 +0300
-Message-ID: <4A8B1C7F.4060008@redhat.com>
-References: <4A8965E0.8050608@gmail.com> <20090817174142.GA11140@redhat.com> <4A89BAC5.9040400@gmail.com> <20090818084606.GA13878@redhat.com> <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu> <4A8AF880.6080704@redhat.com> <20090818205919.GA1168@ovro.caltech.edu>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [RFC net-next PATCH 0/4] qlge: Performance changes for qlge.
+Date: Tue, 18 Aug 2009 14:26:20 -0700
+Message-ID: <20090818212620.GA17853@linux-ox1b.qlogic.org>
+References: <1250543329-15123-1-git-send-email-ron.mercer@qlogic.com> <20090817.175700.207432952.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751049AbZHRV00@vger.kernel.org>
-In-Reply-To: <20090818205919.GA1168@ovro.caltech.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:57816 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbZHRVb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 17:31:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20090817.175700.207432952.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/18/2009 11:59 PM, Ira W. Snyder wrote:
-> On a non shared-memory system (where the guest's RAM is not just a chunk
-> of userspace RAM in the host system), virtio's management model seems to
-> fall apart. Feature negotiation doesn't work as one would expect.
->    
+Dave,
+Thanks for the quick feedback.  I will re-spin per my comments below.
 
-In your case, virtio-net on the main board accesses PCI config space 
-registers to perform the feature negotiation; software on your PCI cards 
-needs to trap these config space accesses and respond to them according 
-to virtio ABI.
+> 
+> > 1) Do TX completions in send path (with cleaner timer).
+> 
+> You should really do them in NAPI context.
+> 
+> When you do them from hardware interrupt context, they all
+> get rescheduled into a softirq for the real SKB freeing
+> work anyways.
+> 
+> So by doing it in NAPI poll, you're avoiding some needless
+> overhead.
+> 
+> BTW, it's insanely confusing that there is a function called
+> qlge_msix_tx_isr() that of all things does RX work :-/
+> 
 
-(There's no real guest on your setup, right?  just a kernel running on 
-and x86 system and other kernels running on the PCI cards?)
+I tried to do the patch series as a logical progression but might have
+made it more confusing.  Patch 1 moves TX completion processing to the
+hardware interrupt context (as you pointed out).  Patch 2 moves it from
+interrupt context to the send path as many drivers do.
+It wasn't my intention to do the processinging in the ISR.  Sorry about
+the confusion.
 
-> This does appear to be solved by vbus, though I haven't written a
-> vbus-over-PCI implementation, so I cannot be completely sure.
->    
 
-Even if virtio-pci doesn't work out for some reason (though it should), 
-you can write your own virtio transport and implement its config space 
-however you like.
+> > 2) Change RSS queue count to match MSIx vector count instead
+> >    of CPU count.  Some platforms didn't offer enough vectors
+> >    for our previous approach.
+> 
+> Ideally you want "max(num_msix_vectors, num_cpus)" because
+> if you hook up more MSIX vectors than you have cpus it's just
+> extra overhead and depending upon the descrepency between the
+> two counts it might unevenly distribute traffic work amongst
+> the cpus.
 
-> I'm not at all clear on how to get feature negotiation to work on a
-> system like mine. From my study of lguest and kvm (see below) it looks
-> like userspace will need to be involved, via a miscdevice.
->    
+I think you mean "min(num_msix_vectors, num_cpus)".  That is what I'm
+trying to do in the patch.  I will clean it up and improve comments before I
+resubmit.
 
-I don't see why.  Is the kernel on the PCI cards in full control of all 
-accesses?
+> 
+> > 3) Change large RX buffer logic to use either multiple pages
+> >    or chunks of pages based on MTU and system page size.
+> > 
+> >    Examples:
+> > 
+> >    64k Pages with 1500 MTU.  The RX buffers size would be
+> >    2048 bytes and there would be 32 per page.
+> > 
+> >    4k pages with 9000 MTU.  The RX buffer size would be 16k,
+> >    or 4 pages per buffer.
+> 
+> This is wasteful, does the card have a mechnism by which it
+> can dynamically carve up pages depending upon the actual
+> frame size?
+> 
+> If anything, make sure that skb->truesize gets set to something
+> reasonable, or else TCP is going to reallocate SKBs when the
+> receive queue limits are hit.
 
-> Ok. I thought I should at least express my concerns while we're
-> discussing this, rather than being too late after finding the time to
-> study the driver.
->
-> Off the top of my head, I would think that transporting userspace
-> addresses in the ring (for copy_(to|from)_user()) vs. physical addresses
-> (for DMAEngine) might be a problem. Pinning userspace pages into memory
-> for DMA is a bit of a pain, though it is possible.
->    
 
-Oh, the ring doesn't transport userspace addresses.  It transports guest 
-addresses, and it's up to vhost to do something with them.
-
-Currently vhost supports two translation modes:
-
-1. virtio address == host virtual address (using copy_to_user)
-2. virtio address == offsetted host virtual address (using copy_to_user)
-
-The latter mode is used for kvm guests (with multiple offsets, skipping 
-some details).
-
-I think you need to add a third mode, virtio address == host physical 
-address (using dma engine).  Once you do that, and wire up the 
-signalling, things should work.
-
-> There is also the problem of different endianness between host and guest
-> in virtio-net. The struct virtio_net_hdr (include/linux/virtio_net.h)
-> defines fields in host byte order. Which totally breaks if the guest has
-> a different endianness. This is a virtio-net problem though, and is not
-> transport specific.
->    
-
-Yeah.  You'll need to add byteswaps.
-
-> I've browsed over both the kvm and lguest code, and it looks like they
-> each re-invent a mechanism for transporting interrupts between the host
-> and guest, using eventfd. They both do this by implementing a
-> miscdevice, which is basically their management interface.
->
-> See drivers/lguest/lguest_user.c (see write() and LHREQ_EVENTFD) and
-> kvm-kmod-devel-88/x86/kvm_main.c (see kvm_vm_ioctl(), called via
-> kvm_dev_ioctl()) for how they hook up eventfd's.
->
-> I can now imagine how two userspace programs (host and guest) could work
-> together to implement a management interface, including hotplug of
-> devices, etc. Of course, this would basically reinvent the vbus
-> management interface into a specific driver.
->    
-
-You don't need anything in the guest userspace (virtio-net) side.
-
-> I think this is partly what Greg is trying to abstract out into generic
-> code. I haven't studied the actual data transport mechanisms in vbus,
-> though I have studied virtio's transport mechanism. I think a generic
-> management interface for virtio might be a good thing to consider,
-> because it seems there are at least two implementations already: kvm and
-> lguest.
->    
-
-Management code in the kernel doesn't really help unless you plan to 
-manage things with echo and cat.
-
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
