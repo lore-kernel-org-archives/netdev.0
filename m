@@ -1,41 +1,48 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
-Date: Tue, 18 Aug 2009 09:56:06 -0700
-Message-ID: <adar5v912op.fsf@cisco.com>
-References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org>
-	<ada7hx22j3g.fsf@cisco.com>
-	<alpine.DEB.1.10.0908171814210.15956@gentwo.org>
-	<ada3a7p3o6f.fsf@cisco.com>
-	<alpine.DEB.1.10.0908181148460.3840@gentwo.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] mdio: mdio_if_info::mmds should not be __bitwise
+Date: Tue, 18 Aug 2009 17:59:38 +0100
+Message-ID: <1250614778.2782.14.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:45268 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759406AbZHRQ4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 12:56:07 -0400
-In-Reply-To: <alpine.DEB.1.10.0908181148460.3840@gentwo.org> (Christoph
-	Lameter's message of "Tue, 18 Aug 2009 11:50:00 -0400 (EDT)")
+Received: from smarthost01.mail.zen.net.uk ([212.23.3.140]:53467 "EHLO
+	smarthost01.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759407AbZHRQ7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 12:59:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I misunderstood the meaning of __bitwise.  In practice it makes sparse
+warn about every use of mmds which is certainly not what we want.
 
- > Never heard of device FW.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This should be safe to include in 2.6.31 but it's hardly critical.
 
-I just meant firmware running on the device (in this case the connectx adapter).
+Ben.
 
- > The Mellanox NIC has two ports. Could that be it?
+ include/linux/mdio.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-No, the device is basically doing
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index cfdf1df..c779b49 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -304,7 +304,7 @@ static inline __u16 mdio_phy_id_devad(int phy_id)
+  */
+ struct mdio_if_info {
+ 	int prtad;
+-	u32 __bitwise mmds;
++	u32 mmds;
+ 	unsigned mode_support;
+ 
+ 	struct net_device *dev;
 
-	nreq = num_possible_cpus() + 1;
-	pci_enable_msix(dev->pdev, entries, nreq);
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-(edited a bit but that's the code).  And nreq is ending up as 33 on your
-box.
-
- > Will get back to you shortly when we have tested this patch.
-
-Thanks.
