@@ -1,22 +1,47 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver
- objects
-Date: Tue, 18 Aug 2009 14:54:46 +0300
-Message-ID: <4A8A9686.1070401@redhat.com>
-References: <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com> <20090818095313.GC13878@redhat.com> <4A8A7BB9.2020906@redhat.com> <20090818100945.GD13878@redhat.com> <4A8A7EE5.6090209@redhat.com> <20090818102840.GF13878@redhat.com> <4A8A8631.1040006@redhat.com> <20090818110708.GG13878@redhat.com> <4A8A8D6D.9040909@redhat.com> <20090818114914.GA17721@redhat.com>
+From: "Gregory Haskins" <GHaskins@novell.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model
+	 for	vbus_drive
+Date: Tue, 18 Aug 2009 06:11:35 -0600
+Message-ID: <4A8A62370200005A000528DF@sinclair.provo.novell.com>
+References: <4A8A622E0200005A000528DC@sinclair.provo.novell.com>
+ <4A8A62370200005A000528DF@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gregory Haskins <gregory.haskins@gmail.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20090818114914.GA17721@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <mingo@elte.hu>, <gregory.haskins@gmail.com>,
+	<alacrityvm-devel@lists.sourceforge.net>, <kvm@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <avi@redhat.com>, <mst@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758791AbZHRMLi@vger.kernel.org>
+In-Reply-To: <4A8A62370200005A000528DF@sinclair.provo.novell.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Sorry for the toppost.  Still not at the office.
+
+I just wanted to add that we've already been through this disussion once.  (Search "haskins hypercall lkml" on google and I'm sure you are bound to see hits.
+
+The fact is: the original vbus was designed with hypercalls, and it drew much of these same critisims.  In the end, hypercalls are only marginally faster than PIO (iirc, 450ns faster, and shrinking), so we decided that it was not worth further discussion at the time.
+
+A better solution is probably PIOoHC, so that you retain the best properties of both.  The only problem with the entire PIOx approach is that its x86 specific, but that is an entirely different thread.
+
+Hth
+-greg 
+ 
+-----Original Message-----
+From: Avi Kivity <avi@redhat.com>
+Cc: Gregory Haskins <GHaskins@novell.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Gregory Haskins <gregory.haskins@gmail.com>
+Cc:  <alacrityvm-devel@lists.sourceforge.net>
+To: Michael S. Tsirkin <mst@redhat.com>
+Cc:  <kvm@vger.kernel.org>
+Cc:  <linux-kernel@vger.kernel.org>
+Cc:  <netdev@vger.kernel.org>
+
+Sent: 8/18/2009 5:54:46 AM
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	vbus_driver objects
 
 On 08/18/2009 02:49 PM, Michael S. Tsirkin wrote:
 >
@@ -62,4 +87,3 @@ It would only work for kvm-on-kvm.
 
 -- 
 error compiling committee.c: too many arguments to function
-
