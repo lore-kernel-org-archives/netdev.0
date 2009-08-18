@@ -1,63 +1,118 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
-Date: Tue, 18 Aug 2009 22:16:45 +0530
-Message-ID: <OF805DA786.CBBC0216-ON65257616.005BE42E-65257616.005C2BB4@in.ibm.com>
-References: <20090814132458.27518.65144.sendpatchset@localhost.localdomain>	<20090814213643.GA3179@ami.dom.local> <20090817.190343.49229178.davem@davemloft.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
+ objects
+Date: Tue, 18 Aug 2009 19:47:57 +0300
+Message-ID: <4A8ADB3D.2080606@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws> <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com> <4A8ACE1F.6020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([59.145.155.7]:43709 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759329AbZHRQqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Aug 2009 12:46:37 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id n7IGkbAD029636
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2009 22:16:37 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7IGkbcm2519188
-	for <netdev@vger.kernel.org>; Tue, 18 Aug 2009 22:16:37 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n7IGkaO9002058
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 02:46:36 +1000
-Received: from d23ml172.in.ibm.com (d23ml172.in.ibm.com [9.124.105.37])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVin) with ESMTP id n7IGkaeF002054
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 02:46:36 +1000
-In-Reply-To: <20090817.190343.49229178.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>, kvm@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Gregory Haskins <gregory.haskins@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4A8ACE1F.6020402@gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry about the delay, I am sick with the flu for the last few days.
-I will send the patch tomorrow.
+On 08/18/2009 06:51 PM, Gregory Haskins wrote:
+>
+>> It's not laughably trivial when you try to support the full feature set
+>> of kvm (for example, live migration will require dirty memory tracking,
+>> and exporting all state stored in the kernel to userspace).
+>>      
+> Doesn't vhost suffer from the same issue?  If not, could I also apply
+> the same technique to support live-migration in vbus?
+>    
 
-thanks,
+It does.  There are two possible solutions to that: dropping the entire 
+protocol to userspace, or the one I prefer, proxying the ring and 
+eventfds in userspace but otherwise letting vhost-net run normally.  
+This way userspace gets to see descriptors and mark the pages as dirty.  
+Both these approaches rely on vhost-net being an accelerator to a 
+userspace based component, but maybe you can adapt venet to use 
+something similar.
 
-- KK
+>> Oh come on, I wrote "steal" as a convenient shorthand for
+>> "cross-pollinate your ideas into our code according to the letter and
+>> spirit of the GNU General Public License".
+>>      
+> Is that supposed to make me feel better about working with you?  I mean,
+> writing, testing, polishing patches for LKML-type submission is time
+> consuming.  If all you are going to do is take those ideas and rewrite
+> it yourself, why should I go through that effort?
+>    
 
-David Miller <davem@davemloft.net> wrote on 08/18/2009 07:33:43 AM:
+If you're posting your ideas for everyone to read in the form of code, 
+why not post them in the form of design ideas as well?  In any case 
+you've given up any secrets.  In the worst case you've lost nothing, in 
+the best case you may get some hopefully constructive criticism and 
+maybe improvements.
 
-> David Miller <davem@davemloft.net>
-> 08/18/2009 07:33 AM
+I'm perfectly happy picking up ideas from competing projects (and I 
+have) and seeing my ideas picked up in competing projects (which I also 
+have).
+
+Really, isn't that the point of open source?  Share code, but also share 
+ideas?
+
+> And its not like that was the first time you have said that to me.
+>    
+
+And I meant it every time.
+
+Haven't you just asked how vhost-net plans to do live migration?
+
+>> Since we're all trying to improve Linux we may as well cooperate.
+>>      
+> Well, I don't think anyone can say that I haven't been trying.
+>    
+
+I'd be obliged if you reveal some of your secret sauce then (only the 
+parts you plan to GPL anyway of course).
+
+>>> "sorry, we are going to reinvent our own instead".
+>>>        
+>> No.  Adopting venet/vbus would mean reinventing something that already
+>> existed.
+>>      
+> But yet, it doesn't.
+>    
+
+We'll need to do the agree to disagree thing again here.
+
+>>   Continuing to support virtio/pci is not reinventing anything.
+>>      
+> No one asked you to do otherwise.
+>    
+
+Right, and I'm not keen on supporting both.  See why I want to stick to 
+virtio/pci as long as I possibly can?
+
+>> You haven't convinced me that your ideas are worth the effort of
+>> abandoning virtio/pci or maintaining both venet/vbus and virtio/pci.
+>>      
+> With all due respect, I didnt ask you do to anything, especially not
+> abandon something you are happy with.
 >
-> To
+> All I did was push guest drivers to LKML.  The code in question is
+> independent of KVM, and its proven to improve the experience of using
+> Linux as a platform.  There are people interested in using them (by
+> virtue of the number of people that have signed up for the AlacrityVM
+> list, and have mailed me privately about this work).
 >
-> jarkao2@gmail.com
->
-> cc
->
-> Krishna Kumar2/India/IBM@IBMIN, kaber@trash.net, netdev@vger.kernel.org,
-> herbert@gondor.apana.org.au
->
-> Subject
->
-> Re: [PATCH] Speed-up pfifo_fast lookup using a bitmap
->
-> From: Jarek Poplawski <jarkao2@gmail.com>
-> Date: Fri, 14 Aug 2009 23:36:43 +0200
->
-> > I definitely can't see a reason to make this variable public, and
-> > prefer the private (v2) version (which still lacks a changelog, btw).
->
-> I'm fine with patch v2, but yes it needs to be properly submitted
-> with a real changelog before I can apply it :-)
+> So where is the problem here?
+>    
+
+I'm unhappy with the duplication of effort and potential fragmentation 
+of the developer and user communities, that's all.  I'd rather see the 
+work going into vbus/venet going into virtio.  I think it's a legitimate 
+concern.
+
+-- 
+error compiling committee.c: too many arguments to function
 
