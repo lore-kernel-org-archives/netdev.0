@@ -1,104 +1,45 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
- model for vbus_driver objects
-Date: Wed, 19 Aug 2009 18:37:06 +0300
-Message-ID: <4A8C1C22.3010101@redhat.com>
-References: <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu> <4A8AF880.6080704@redhat.com> <20090818205919.GA1168@ovro.caltech.edu> <4A8B1C7F.4060008@redhat.com> <20090819003812.GA11168@ovro.caltech.edu> <4A8B9051.3020505@redhat.com> <20090819152811.GA22294@ovro.caltech.edu>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
+Date: Wed, 19 Aug 2009 08:29:10 -0700
+Message-ID: <adaeir7256h.fsf@cisco.com>
+References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org>
+	<ada7hx22j3g.fsf@cisco.com>
+	<alpine.DEB.1.10.0908171814210.15956@gentwo.org>
+	<ada3a7p3o6f.fsf@cisco.com> <adaljlg1e0x.fsf@cisco.com>
+	<alpine.DEB.1.10.0908190743410.5621@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752678AbZHSPhh@vger.kernel.org>
-In-Reply-To: <20090819152811.GA22294@ovro.caltech.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ams-iport-1.cisco.com ([144.254.224.140]:49036 "EHLO
+	ams-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333AbZHSPit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 11:38:49 -0400
+In-Reply-To: <alpine.DEB.1.10.0908190743410.5621@gentwo.org> (Christoph
+	Lameter's message of "Wed, 19 Aug 2009 07:46:26 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/19/2009 06:28 PM, Ira W. Snyder wrote:
->
->> Well, if you can't do that, you can't use virtio-pci on the host.
->> You'll need another virtio transport (equivalent to "fake pci" you
->> mentioned above).
->>
->>      
-> Ok.
->
-> Is there something similar that I can study as an example? Should I look
-> at virtio-pci?
->
->    
 
-There's virtio-lguest, virtio-s390, and virtio-vbus.
+ > Correct. My Dell R620 may have some weird ACPI info.
+ > 
+ > SMP: Allowing 32 CPUs, 16 hotplug CPUs
+ > 
+ > although the box does not have any slots for "hotplugging".
 
->> I think you tried to take two virtio-nets and make them talk together?
->> That won't work.  You need the code from qemu to talk to virtio-net
->> config space, and vhost-net to pump the rings.
->>
->>      
-> It *is* possible to make two unmodified virtio-net's talk together. I've
-> done it, and it is exactly what the virtio-over-PCI patch does. Study it
-> and you'll see how I connected the rx/tx queues together.
->    
+I guess you could try booting with "possible_cpus=16" and see how that
+affects things...
 
-Right, crossing the cables works, but feature negotiation is screwed up, 
-and both sides think the data is in their RAM.
+ > The patch does not fix the issue so far. We are having various hangs and
+ > are trying to figure out what is gong on.
 
-vhost-net doesn't do negotiation and doesn't assume the data lives in 
-its address space.
+Sounds like the patch lets you get farther?  What kind of hangs do you
+get?  Still mlx4-related?
 
->> Please find a name other than virtio-over-PCI since it conflicts with
->> virtio-pci.  You're tunnelling virtio config cycles (which are usually
->> done on pci config cycles) on a new protocol which is itself tunnelled
->> over PCI shared memory.
->>
->>      
-> Sorry about that. Do you have suggestions for a better name?
->
->    
+ > We ran an old 2.6.26 debian kernel on this and it worked fine.
 
-virtio-$yourhardware or maybe virtio-dma
+The change to mlx4 to use multiple completion interrupts went in around
+2.6.29 I think.  So that sort of explains why things would work with 2.6.26.
 
-> I called it virtio-over-PCI in my previous postings to LKML, so until a
-> new patch is written and posted, I'll keep referring to it by the name
-> used in the past, so people can search for it.
->
-> When I post virtio patches, should I CC another mailing list in addition
-> to LKML?
->    
-
-virtualization@lists.linux-foundation.org is virtio's home.
-
-> That said, I'm not sure how qemu-system-ppc running on x86 could
-> possibly communicate using virtio-net. This would mean the guest is an
-> emulated big-endian PPC, while the host is a little-endian x86. I
-> haven't actually tested this situation, so perhaps I am wrong.
->    
-
-I'm confused now.  You don't actually have any guest, do you, so why 
-would you run qemu at all?
-
->> The x86 side only needs to run virtio-net, which is present in RHEL 5.3.
->> You'd only need to run virtio-tunnel or however it's called.  All the
->> eventfd magic takes place on the PCI agents.
->>
->>      
-> I can upgrade the kernel to anything I want on both the x86 and ppc's.
-> I'd like to avoid changing the x86 (RHEL5) userspace, though. On the
-> ppc's, I have full control over the userspace environment.
->    
-
-You don't need any userspace on virtio-net's side.
-
-Your ppc boards emulate a virtio-net device, so all you need is the 
-virtio-net module (and virtio bindings).  If you chose to emulate, say, 
-an e1000 card all you'd need is the e1000 driver.
-
--- 
-error compiling committee.c: too many arguments to function
+ - R.
