@@ -1,69 +1,60 @@
-From: "Gregory Haskins" <ghaskins@novell.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	 vbus_driver objects
-Date: Wed, 19 Aug 2009 00:40:40 -0600
-Message-ID: <4A8B66280200005A00052A54@sinclair.provo.novell.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net>
- <20090814154308.26116.46980.stgit@dev.haskins.net>
- <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws>
- <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws>
- <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com>
- <4A8ACE1F.6020402@gmail.com> <20090818165139.GC19846@redhat.com>
- <4A8B8F4E.80207@gmail.com> <4A8B9241.20300@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "Anthony Liguori" <anthony@codemonkey.ws>,
-	"Ingo Molnar" <mingo@elte.hu>,
-	<alacrityvm-devel@lists.sourceforge.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>, <kvm@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Gregory Haskins" <gregory.haskins@gmail.com>,
-	"Avi Kivity" <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4A8B9241.20300@redhat.com>
-Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chunbo Luo <chunbo.luo@windriver.com>
+Subject: [PATCH 1/2] sctp: fix heartbeat count of association failure
+Date: Wed, 19 Aug 2009 15:01:07 +0800
+Message-ID: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	chunbo.luo@windriver.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:36894 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285AbZHSHBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 03:01:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> On 8/19/2009 at  1:48 AM, in message <4A8B9241.20300@redhat.com>, Avi Kivity
-<avi@redhat.com> wrote: 
-> On 08/19/2009 08:36 AM, Gregory Haskins wrote:
->>> If virtio net in guest could be improved instead, everyone would
->>> benefit.
->>>      
->> So if I whip up a virtio-net backend for vbus with a PCI compliant
->> connector, you are happy?
->>    
-> 
-> This doesn't improve virtio-net in any way.
+RFC4960 Section 8.1 defined that the association should enter CLOSE
+state when the value of association error counter exceeds the limit 
+indicated in the protocol parameter 'Association.Max.Retrans'. This
+means that the association should enter CLOSE state after max_retrans+1 
+heartbeats are not acknowledged.
 
-Any why not?  (Did you notice I said "PCI compliant", i.e. over virtio-pci)
+Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+---
+ net/sctp/sm_statefuns.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-
-> 
->>> I am doing this, and I wish more people would join.  Instead,
->>> you change ABI in a incompatible way.
->>>      
->> Only by choice of my particular connector.  The ABI is a function of the
->> connector design.  So one such model is to terminate the connector in
->> qemu, and surface the resulting objects as PCI devices.  I choose not to
->> use this particular design for my connector that I am pushing upstream
->> because I am of the opinion that I can do better by terminating it in
->> the guest directly as a PV optimized bus.  However, both connectors can
->> theoretically coexist peacefully.
->>    
-> 
-> virtio already supports this model; see lguest and s390.  Transporting 
-> virtio over vbus and vbus over something else doesn't gain anything over 
-> directly transporting virtio over that something else.
-
-This is not what I am advocating.
-
-Kind Regards,
--Greg
-
-
-
-
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 7288192..90e4f06 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -5190,7 +5190,7 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(const struct sctp_endpoint *ep,
+ 
+ 	SCTP_INC_STATS(SCTP_MIB_T3_RTX_EXPIREDS);
+ 
+-	if (asoc->overall_error_count >= asoc->max_retrans) {
++	if (asoc->overall_error_count > asoc->max_retrans) {
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 				SCTP_ERROR(ETIMEDOUT));
+ 		/* CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
+@@ -5404,7 +5404,7 @@ sctp_disposition_t sctp_sf_t2_timer_expire(const struct sctp_endpoint *ep,
+ 
+ 	((struct sctp_association *)asoc)->shutdown_retries++;
+ 
+-	if (asoc->overall_error_count >= asoc->max_retrans) {
++	if (asoc->overall_error_count > asoc->max_retrans) {
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 				SCTP_ERROR(ETIMEDOUT));
+ 		/* Note:  CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
+@@ -5487,7 +5487,7 @@ sctp_disposition_t sctp_sf_t4_timer_expire(
+ 	 * RFC2960 [5] section 8.1 and 8.2.
+ 	 * association error counter is incremented in SCTP_CMD_STRIKE.
+ 	 */
+-	if (asoc->overall_error_count >= asoc->max_retrans) {
++	if (asoc->overall_error_count > asoc->max_retrans) {
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+ 				SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+-- 
+1.6.4
 
