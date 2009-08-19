@@ -1,49 +1,70 @@
-From: Sudhakar Rajashekhara <sudhakar.raj@ti.com>
-Subject: [PATCH] TI DaVinci EMAC: delay DaVinci EMAC initialization
-Date: Wed, 19 Aug 2009 16:39:55 -0400
-Message-ID: <1250714395-9588-1-git-send-email-sudhakar.raj@ti.com>
-Cc: davem@davemloft.net, chaithrika@ti.com, anantgole@ti.com,
-	davinci-linux-open-source@linux.davincidsp.com,
-	Sudhakar Rajashekhara <sudhakar.raj@ti.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:50651 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054AbZHSLNF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 07:13:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gregory Haskins" <ghaskins@novell.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for	
+	 vbus_driver objects
+Date: Wed, 19 Aug 2009 05:40:37 -0600
+Message-ID: <4A8BAC750200005A00052A83@sinclair.provo.novell.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net>
+ <20090814154308.26116.46980.stgit@dev.haskins.net>
+ <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws>
+ <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws>
+ <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com>
+ <4A8ACE1F.6020402@gmail.com> <20090818165139.GC19846@redhat.com>
+ <4A8B8F4E.80207@gmail.com> <4A8B9241.20300@redhat.com>
+ <4A8B66280200005A00052A54@sinclair.provo.novell.com>
+ <4A8BA635.9010902@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Anthony Liguori" <anthony@codemonkey.ws>,
+	"Ingo Molnar" <mingo@elte.hu>,
+	"Gregory Haskins" <gregory.haskins@gmail.com>,
+	<alacrityvm-devel@lists.sourceforge.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, <kvm@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Avi Kivity" <avi@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751822AbZHSLko@vger.kernel.org>
+In-Reply-To: <4A8BA635.9010902@redhat.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On TI's DA850/OMAP-L138 EVM, MAC address is stored in SPI
-flash which is accessed using MTD interface.
+>>> On 8/19/2009 at  3:13 AM, in message <4A8BA635.9010902@redhat.com>, Avi Kivity
+<avi@redhat.com> wrote: 
+> On 08/19/2009 09:40 AM, Gregory Haskins wrote:
+>>
+>>    
+>>>> So if I whip up a virtio-net backend for vbus with a PCI compliant
+>>>> connector, you are happy?
+>>>>
+>>>>        
+>>> This doesn't improve virtio-net in any way.
+>>>      
+>> Any why not?  (Did you notice I said "PCI compliant", i.e. over virtio-pci)
+>>    
+> 
+> Because virtio-net will have gained nothing that it didn't have before.
 
-This patch delays the initialization of DaVinci EMAC driver
-by changing module_init to late_initcall. This helps SPI and
-MTD drivers to get initialized before EMAC thereby enabling
-EMAC driver to read the MAC address while booting and use it.
+??
 
-Tested with NFS on DM644x, DM6467, DA830/OMAP-L137 and
-DA850/OMAP-L138 EVMs.
+*) ABI is virtio-pci compatible, as you like
+*) fast-path is in-kernel, as we all like
+*) model is in vbus so it would work in all environments that vbus supports.
 
-Signed-off-by: Sudhakar Rajashekhara <sudhakar.raj@ti.com>
-Reviewed-by: Chaithrika U S <chaithrika@ti.com>
----
- drivers/net/davinci_emac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> 
+> 
+> 
+>>> virtio already supports this model; see lguest and s390.  Transporting
+>>> virtio over vbus and vbus over something else doesn't gain anything over
+>>> directly transporting virtio over that something else.
+>>>      
+>> This is not what I am advocating.
+>>
+>>    
+> 
+> What are you advocating?  As far as I can tell your virtio-vbus 
+> connector plus the vbus-kvm connector is just that.
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 12fd446..5e6652b 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2817,7 +2817,7 @@ static int __init davinci_emac_init(void)
- {
- 	return platform_driver_register(&davinci_emac_driver);
- }
--module_init(davinci_emac_init);
-+late_initcall(davinci_emac_init);
- 
- /**
-  * davinci_emac_exit: EMAC driver module exit
--- 
-1.5.6
+I wouldn't classify it anything like that, no.  Its just virtio over vbus.
 
+-Greg
