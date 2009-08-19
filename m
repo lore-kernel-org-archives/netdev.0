@@ -1,104 +1,38 @@
-From: <Jordan_Hargrave@Dell.com>
-Subject: RE: PATCH: Network Device Naming mechanism and policy
-Date: Wed, 19 Aug 2009 14:40:21 -0500
-Message-ID: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD96A@ausx3mpc102.aus.amer.dell.com>
-References: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD92D@ausx3mpc102.aus.amer.dell.com><5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD964@ausx3mpc102.aus.amer.dell.com> <1250709985.2874.41.camel@achroite>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
+Date: Wed, 19 Aug 2009 12:46:48 -0700
+Message-ID: <adaab1v1t93.fsf@cisco.com>
+References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org>
+	<ada7hx22j3g.fsf@cisco.com>
+	<alpine.DEB.1.10.0908171814210.15956@gentwo.org>
+	<ada3a7p3o6f.fsf@cisco.com> <adaljlg1e0x.fsf@cisco.com>
+	<alpine.DEB.1.10.0908190743410.5621@gentwo.org>
+	<adaeir7256h.fsf@cisco.com>
+	<alpine.DEB.1.10.0908191135110.32015@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>
-To: <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:51975 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752846AbZHSTkW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 15:40:22 -0400
-Content-class: urn:content-classes:message
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:6372 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430AbZHSTqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 15:46:47 -0400
+In-Reply-To: <alpine.DEB.1.10.0908191135110.32015@gentwo.org> (Christoph
+	Lameter's message of "Wed, 19 Aug 2009 11:47:36 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------Original Message-----
-From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-Sent: Wed 8/19/2009 14:26
-To: Hargrave, Jordan
-Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org
-Subject: Re: PATCH: Network Device Naming mechanism and policy
- 
-On Wed, 2009-08-19 at 13:56 -0500, Jordan_Hargrave@Dell.com wrote:
-> This is from an old discussion several months ago:
-> http://lkml.org/lkml/2009/3/24/357
-> http://lkml.org/lkml/2009/3/24/380
-> 
-> Basically the issue is that between a race in udev and PCI scan order the ethX IDs may not
-> be consistent between reboots.  The idea is to use a mechanism similar to how disks now can
-> be accessed by their LABEL/PATH/UUID instead of raw /dev/sdX ids.
-> 
-> example udev config:
-> SUBSYSTEM=="net", SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
-> SUBSYSTEM=="net", PROGRAM="/sbin/biosdevname -i %k --policy=all_names", SYMLINK+="net/by-chassis-id/%c"
-> 
-> The following patch will create a device node for network devices based off their ifindex;
-> udev can then use this device node for creating symlinks in /dev/net/xxxx similar to the
-> way that disks now use by-label and by-path symlinks.
-> 
-> Combining this with the biosdevname utility and patches to common network utilities,
-> it could be possible to access ethernet devices by their PCI path or BIOS Label.
-> 
-> eg. ifconfig Embedded_NIC_1
 
-Nice idea, but wouldn't it be "ifconfig LABEL=Embedded_NIC_1"?
+ > System hangs when unloading the mlx4 driver f.e.
 
-** Still debating that.. if ifconfig and other tools were smart enough to figure it out
-** Right now we have a library that lets you specify it by device node:
-** ifconfig /dev/net/by-chassis-id/eth0_s0 for example
+I guess that means things work for a while if you get to the point of
+unloading?  Or do you still get an error on load?  Any way to get a
+trace or anything?
 
-> --- include/linux/major.h~	2009-07-30 18:34:47.000000000 -0400
-> +++ include/linux/major.h	2009-08-05 14:52:10.000000000 -0400
-> @@ -169,6 +169,7 @@
->  #define IBM_FS3270_MAJOR	228
->  
->  #define VIOTAPE_MAJOR		230
-> +#define NETDEV_MAJOR		234
->  
->  #define BLOCK_EXT_MAJOR		259
->  #define SCSI_OSD_MAJOR		260	/* open-osd's OSD scsi device */
-> --- net/core/net-sysfs.cx	2009-08-05 15:00:13.000000000 -0400
-> +++ net/core/net-sysfs.c	2009-08-05 15:01:20.000000000 -0400
-> @@ -11,6 +11,7 @@
->  
->  #include <linux/capability.h>
->  #include <linux/kernel.h>
-> +#include <linux/major.h>
->  #include <linux/netdevice.h>
->  #include <linux/if_arp.h>
->  #include <net/sock.h>
-> @@ -496,6 +497,7 @@ int netdev_register_kobject(struct net_d
->  	dev->class = &net_class;
->  	dev->platform_data = net;
->  	dev->groups = groups;
-> +	dev->devt = MKDEV(NETDEV_MAJOR, net->ifindex);
-[...]
+BTW, are you using mlx4_en or mlx4_ib?
 
-Since this major number is unregistered, the device inode can only be
-stat'd and not open'd, which seems like a bit of a hack.  Is there
-anything that would stop register_chrdev(0, ...) from allocating this
-major number, causing network devices to be confused with some other
-device type?
+I'll try to reproduce here by booting with "possible_cpus=32" and see
+what happens...
 
-** yeah a bit of a hack.. I suppose the netdev code could allocate a 
-** dynamic major node at startup with register_chrdev.. since nothing
-** would use the hardcoded major:minor #s anyway (yet).
-
-Maybe there *should* be character devices for network device
-manipulation.  It seems like that would avoid the race conditions that
-device renaming and removal causes for name-based socket ioctls.  But
-maybe everyone should be using netlink for that instead.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
+ - R.
