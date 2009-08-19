@@ -1,38 +1,64 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
-Date: Wed, 19 Aug 2009 12:29:50 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908191229280.32015@gentwo.org>
-References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org> <ada7hx22j3g.fsf@cisco.com> <alpine.DEB.1.10.0908171814210.15956@gentwo.org> <ada3a7p3o6f.fsf@cisco.com> <adaljlg1e0x.fsf@cisco.com> <alpine.DEB.1.10.0908190743410.5621@gentwo.org>
- <adaeir7256h.fsf@cisco.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
+ model for vbus_driver objects
+Date: Wed, 19 Aug 2009 19:38:31 +0300
+Message-ID: <4A8C2A87.5060305@redhat.com>
+References: <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu> <4A8AF880.6080704@redhat.com> <20090818205919.GA1168@ovro.caltech.edu> <4A8B1C7F.4060008@redhat.com> <20090819003812.GA11168@ovro.caltech.edu> <4A8B9051.3020505@redhat.com> <20090819152811.GA22294@ovro.caltech.edu> <4A8C1C22.3010101@redhat.com> <20090819162902.GB22294@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:44356 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753193AbZHSQ3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 12:29:55 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 7911F82C605
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 12:30:13 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 2E8wjZW2rrd9 for <netdev@vger.kernel.org>;
-	Wed, 19 Aug 2009 12:30:08 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 5BEBA82C5D7
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 12:30:07 -0400 (EDT)
-In-Reply-To: <adaeir7256h.fsf@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>,
+	Hollis Blanchard <hollisb@us.ibm.com>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753252AbZHSQis@vger.kernel.org>
+In-Reply-To: <20090819162902.GB22294@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Aug 2009, Roland Dreier wrote:
-
->  > We ran an old 2.6.26 debian kernel on this and it worked fine.
+On 08/19/2009 07:29 PM, Ira W. Snyder wrote:
 >
-> The change to mlx4 to use multiple completion interrupts went in around
-> 2.6.29 I think.  So that sort of explains why things would work with 2.6.26.
+>    
+>> virtio-$yourhardware or maybe virtio-dma
+>>
+>>      
+> How about virtio-phys?
+>    
 
-I also see a 2 usecs latency increase with 2.6.31 vs 2.6.30.
+Could work.
 
+> Arnd and BenH are both looking at PPC systems (similar to mine). Grant
+> Likely is looking at talking to an processor core running on an FPGA,
+> IIRC. Most of the code can be shared, very little should need to be
+> board-specific, I hope.
+>    
+
+Excellent.
+
+>>> That said, I'm not sure how qemu-system-ppc running on x86 could
+>>> possibly communicate using virtio-net. This would mean the guest is an
+>>> emulated big-endian PPC, while the host is a little-endian x86. I
+>>> haven't actually tested this situation, so perhaps I am wrong.
+>>>
+>>>        
+>> I'm confused now.  You don't actually have any guest, do you, so why
+>> would you run qemu at all?
+>>
+>>      
+> I do not run qemu. I am just stating a problem with virtio-net that I
+> noticed. This is just so someone more knowledgeable can be aware of the
+> problem.
+>
+>    
+
+Ah, it certainly doesn't byteswap.  Maybe nobody tried it.  Hollis?
+
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
