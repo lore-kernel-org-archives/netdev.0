@@ -1,63 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: 100Mbit ethernet performance on embedded devices
-Date: Wed, 19 Aug 2009 16:05:17 +0100
-Message-ID: <1250694317.2874.4.camel@achroite>
-References: <20090819145057.GA25400@sig21.net>
+From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Wed, 19 Aug 2009 17:11:23 +0200
+Message-ID: <200908191711.24085.rene.mayrhofer@gibraltar.at>
+References: <4A65EC3F.4050400@gibraltar.at> <200908190902.02854.rene.mayrhofer@gibraltar.at> <392fb48f0908190800j508456d6h9c520e82bc7f51e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart4676411.Yhhk7fr241";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: linux-embedded@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Stezenbach <js@sig21.net>
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smarthost02.mail.zen.net.uk ([212.23.3.141]:45651 "EHLO
-	smarthost02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752011AbZHSPFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 11:05:18 -0400
-In-Reply-To: <20090819145057.GA25400@sig21.net>
+Received: from jupiter1.gibraltar.at ([80.120.3.98]:56012 "EHLO
+	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902AbZHSPLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 11:11:32 -0400
+In-Reply-To: <392fb48f0908190800j508456d6h9c520e82bc7f51e0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-19 at 16:50 +0200, Johannes Stezenbach wrote:
-> Hi,
-> 
-> a while ago I was working on a SoC with 200MHz ARM926EJ-S CPU
-> and integrated 100Mbit ethernet core, connected on internal
-> (fast) memory bus, with DMA.  With iperf I measured:
-> 
->   TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
->   TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
-> 
-> The CPU load during the iperf test is around
-> 1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
-> 
-> The kernel used in these measurements does not have iptables
-> support, I think packet filtering will slow it down noticably,
-> but I didn't actually try.  The ethernet driver uses NAPI,
-> but it doesn't seem to be a win judging from the irq/sec number.
-> The kernel was an ancient 2.6.20.
+--nextPart4676411.Yhhk7fr241
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
 
-Which driver is this?  Is it possible that it does not use NAPI
-correctly?
+Hi Mike,
 
-> I tried hard, but I couldn't find any performance figures for
-> comparison.  (All performance figures I found refer to 1Gbit
-> or 10Gbit server type systems.)
-> 
-> What I'm interested in are some numbers for similar hardware,
-> to find out if my hardware and/or ethernet driver can be improved,
-> or if the CPU will always be the limiting factor.
-> I'd also be interested to know if hardware checksumming
-> support would improve throughput noticably in such a system,
-> or if it is only useful for 1Gbit and above.
+On Wednesday 19 August 2009 05:00:31 pm Mike McCormack wrote:
+> There's a couple of things to try:
+>
+> * try the latest sky2 code from net-next-2.6
+> * try adding an msleep(1) after sky2_rx_stop() in sky2_down()
+> * try adding a check for rx_ring and tx_ring being NULL in
+> sky2_status_intr(), and disable napi while freeing the buffers in
+> sky2_down()
+>
+> I've got an untested, ad-hoc patch against net-next-2.6 for the last
+> two bits ...
 
-I have no recent experience with this sort of system, but checksum
-offload and scatter/gather DMA support should significantly reduce both
-CPU and memory bus load.
+I will try all these (hopefully in the next 24h), starting with the patch y=
+ou=20
+sent me in PM, then the patch attached to this email, and finally pulling=20
+sky2.c from net-next-2.6 and applying this patch.=20
 
-Ben.
+best regards,
+Rene
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+=2D-=20
+=2D------------------------------------------------
+Gibraltar firewall       http://www.gibraltar.at/
 
+--nextPart4676411.Yhhk7fr241
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkqMFhwACgkQq7SPDcPCS95x0gCfaBY4NcAB+g00akibjjR8o1pn
+sv4AoM+it/MxemQmDIajwl6bMw2BPUFi
+=FOU+
+-----END PGP SIGNATURE-----
+
+--nextPart4676411.Yhhk7fr241--
