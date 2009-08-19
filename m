@@ -1,185 +1,123 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for vbus_driver
- objects
-Date: Wed, 19 Aug 2009 14:39:59 -0400
-Message-ID: <4A8C46FF.1070107@gmail.com>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net>	 <20090814154308.26116.46980.stgit@dev.haskins.net>	 <20090815103243.GA26749@elte.hu> <4A8954F0.3040402@gmail.com>	 <20090817142506.GB3602@elte.hu> <4A8971A8.2040102@gmail.com>	 <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com>	 <4A8A674E.8070200@redhat.com> <4A8ABEC9.6090006@gmail.com>	 <4A8AD678.7050609@redhat.com> <4A8B9B79.9050004@gmail.com>	 <4A8BA5AE.3030308@redhat.com> <1250706227.27590.156.camel@haakon2.linux-iscsi.org>
+From: =?iso-8859-15?Q?Beno=EEt?= Vaillant <benoit.vaillant@no-log.org>
+Subject: sd8686 linux system hang: not always
+Date: Wed, 19 Aug 2009 20:56:05 +0200
+Message-ID: <20090819185605.GA19345@kaos.fbx.proxad.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1EC63A1CC4E8B5D19A0BDEE6"
-Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>,
-	Joel Becker <joel.becker@oracle.com>
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1250706227.27590.156.camel@haakon2.linux-iscsi.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:39590 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752481AbZHSSzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2009 14:55:46 -0400
+Received: from smtp6-g21.free.fr (localhost [127.0.0.1])
+	by smtp6-g21.free.fr (Postfix) with ESMTP id 9A6F8E080D1
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 20:55:42 +0200 (CEST)
+Received: from kaos (vau75-7-82-234-249-22.fbx.proxad.net [82.234.249.22])
+	by smtp6-g21.free.fr (Postfix) with ESMTP id AF90DE08087
+	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 20:55:39 +0200 (CEST)
+Received: from ragnarok by kaos with local (Exim 4.69)
+	(envelope-from <ragnarok@kaos.fbx.proxad.net>)
+	id 1MdqKL-00053S-5J
+	for netdev@vger.kernel.org; Wed, 19 Aug 2009 20:56:05 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1EC63A1CC4E8B5D19A0BDEE6
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hi list,
 
-Hi Nicholas
+It seems my previous message for libertas-dev didn't make its ways
+through, so resending it... Appologies if it did in any way and for
+multiple receptions if any :/
 
-Nicholas A. Bellinger wrote:
-> On Wed, 2009-08-19 at 10:11 +0300, Avi Kivity wrote:
->> On 08/19/2009 09:28 AM, Gregory Haskins wrote:
->>> Avi Kivity wrote:
->=20
-> <SNIP>
->=20
->>> Basically, what it comes down to is both vbus and vhost need
->>> configuration/management.  Vbus does it with sysfs/configfs, and vhos=
-t
->>> does it with ioctls.  I ultimately decided to go with sysfs/configfs
->>> because, at least that the time I looked, it seemed like the "blessed=
-"
->>> way to do user->kernel interfaces.
->>>   =20
->> I really dislike that trend but that's an unrelated discussion.
->>
->>>> They need to be connected to the real world somehow.  What about
->>>> security?  can any user create a container and devices and link them=
- to
->>>> real interfaces?  If not, do you need to run the VM as root?
->>>>     =20
->>> Today it has to be root as a result of weak mode support in configfs,=
- so
->>> you have me there.  I am looking for help patching this limitation, t=
-hough.
->>>
->>>   =20
->> Well, do you plan to address this before submission for inclusion?
->>
->=20
-> Greetings Avi and Co,
->=20
-> I have been following this thread, and although I cannot say that I am
-> intimately fimilar with all of the virtualization considerations
-> involved to really add anything use to that side of the discussion, I
-> think you guys are doing a good job of explaining the technical issues
-> for the non virtualization wizards following this thread.  :-)
->=20
-> Anyways, I was wondering if you might be interesting in sharing your
-> concerns wrt to configfs (conigfs maintainer CC'ed), at some point..?
+Here are a few notes, to try to isolate the issue(s?) regarding this
+problem.
 
-So for those tuning in, the reference here is the use of configfs for
-the management of this component of AlacrityVM, called "virtual-bus"
+/*
+Just a bit of context information:
+I'm using an MID (quite close to an Aigo, although bios differs,
+probably some hardware too, yet I've not checked much on that). I'm
+trying to use my Marvell card to get wifi access on a debian
+installation. The other OS installed (midinux) successfully gets a
+connection using the 8686_v9 mobilin driver, so I'd not go for any
+hardware issue. This driver failing to compile 'out of the box' on
+fresh kernels, I thought getting the libertas module working would be
+a better way to get through.
+*/
 
-http://developer.novell.com/wiki/index.php/Virtual-bus
+I had the same kernel hang issue as reported earlier on this list[1]
+and can also confirm the reload issue[2] still seems to be here,
+although I'm not really bothered by that for the moment and didn't
+take any time at assessing it.
 
-> As you may recall, I have been using configfs extensively for the 3.x
-> generic target core infrastructure and iSCSI fabric modules living in
-> lio-core-2.6.git/drivers/target/target_core_configfs.c and
-> lio-core-2.6.git/drivers/lio-core/iscsi_target_config.c, and have found=
+I did a few attempts at getting associated with an AP, initially
+unsuccessfully getting a hang, my latest attempts leading to a better
+result (no association, yet no hang! :) ).
 
-> it to be extraordinarly useful for the purposes of a implementing a
-> complex kernel level target mode stack that is expected to manage
-> massive amounts of metadata, allow for real-time configuration, share
-> data structures (eg: SCSI Target Ports) between other kernel fabric
-> modules and manage the entire set of fabrics using only intrepetered
-> userspace code.
+I've tried both 8.73.7.p3 and 9.70.3.p24 versions of the firmware (and
+the one provided by midinux, which I highly suspect to be a mere
+8.73.7.p3). In my latest attempts, I focused only on the 8.73.7.p3
+since it gave good results using iwlist scannig: I could list the
+available APs fine.
 
-I concur.  Configfs provided me a very natural model to express
-resource-containers and their respective virtual-device objects.
+Now, with the attempts I did, using a kernel 2.6.31-rc5, I used to
+hang. Using some manually inserted printk()s, it lead me from the
+libertas driver to mmc, esp. in drivers/mmc/core.c the
+mmc_wait_for_req(...) function. It was done without mmc debugging
+messages, with libertas debugging symbols activated but not printed
+out.
 
->=20
-> Using the 10000 1:1 mapped TCM Virtual HBA+FILEIO LUNs <-> iSCSI Target=
+=46rom there on, I switched to the wireless git[3] in order to be able
+to provide more convinient patches if needed. I immediately patched it
+against the attached proposal from last thread[4], adapting it due to
+compile issues (see below). I also gave a quick try at Philip's
+proposal[5], which didn't seem to work, unfortunately.
 
-> Endpoints inside of a KVM Guest (from the results in May posted with
-> IOMMU aware 10 Gb on modern Nahelem hardware, see
-> http://linux-iscsi.org/index.php/KVM-LIO-Target), we have been able to
-> dump the entire running target fabric configfs hierarchy to a single
-> struct file on a KVM Guest root device using python code on the order o=
-f
-> ~30 seconds for those 10000 active iSCSI endpoints.  In configfs terms,=
+about the patch: I didn't adapt it as proposed latter on in the thread
+by setting 0 values, but by reinserting the "old"
+cmd_ds_802_11_get_log log structure. Wrong thing?
 
-> this means:
->=20
-> *) 7 configfs groups (directories), ~50 configfs attributes (files) per=
+The good news using this kernel was that I wasn't always stuck in a
+hang: listing the APs works, connecting to an AP using WPA & french
+bands failed, yet without hanging (here, I had MMC & libertas
+debugging messages).
 
-> Virtual HBA+FILEIO LUN
-> *) 15 configfs groups (directories), ~60 configfs attributes (files per=
+The bad news is I can reproduce the hang using these sources quite
+easily if I do, say: an association request, followed by an iwconfig
+to check if the association was done *before* all the attempts were
+done. The attempts I did using iwconfig once the previous one
+timed-out were successfull.
 
-> iSCSI fabric Endpoint
->=20
-> Which comes out to a total of ~220000 groups and ~1100000 attributes
-> active configfs objects living in the configfs_dir_cache that are being=
+This leads me to think there are in fact two issues:
+ - an association issue (at least in France). Maybe not much of a
+   problem? I might even be the one doing the wrong thing, not the
+   kernel :)
+ - an issue when accessing the card (race condition?), which could be
+   more subtle to handle.
 
-> dumped inside of the single KVM guest instances, including symlinks
-> between the fabric modules to establish the SCSI ports containing
-> complete set of SPC-4 and RFC-3720 features, et al.
->=20
-> Also on the kernel <-> user API interaction compatibility side, I have
-> found the 3.x configfs enabled code adventagous over the LIO 2.9 code
-> (that used an ioctl for everything) because it allows us to do backward=
-s
-> compat for future versions without using any userspace C code, which in=
+Using the fresh 2.6.31-rc6 kernel.org release, with MMC & libertas
+debugging messages on, I still can do an association request without
+getting neither a hang, nor an association. So maybe one of the race
+issues that are patched in it do solve part of this problem. Yet,
+running several AP association requests does hang.
 
-> IMHO makes maintaining userspace packages for complex kernel stacks wit=
-h
-> massive amounts of metadata + real-time configuration considerations.
-> No longer having ioctl compatibility issues between LIO versions as the=
+I'd be glad to do more testing and provide usefull information. Any
+idea(s) on which track(s) I should now follow and how I can help you
+solve this issue?
 
-> structures passed via ioctl change, and being able to do backwards
-> compat with small amounts of interpreted code against configfs layout
-> changes makes maintaining the kernel <-> user API really have made this=
+Thanks,
 
-> that much easier for me.
->=20
-> Anyways, I though these might be useful to the discussion as it releate=
-s
-> to potental uses of configfs on the KVM Host or other projects that
-> really make sense, and/or to improve the upstream implementation so tha=
-t
-> other users (like myself) can benefit from improvements to configfs.
->=20
-> Many thanks for your most valuable of time,
+--=20
+Beno=EEt
 
-Thank you for the explanation of your setup.
-
-Configfs mostly works for the vbus project "as is".  As Avi pointed out,
-I currently have a limitation w.r.t. perms.  Forgive me if what I am
-about to say is overly simplistic.  Its been quite a few months since I
-worked on the configfs portion of the code, so my details may be fuzzy.
-
-What it boiled down to is I need is a way to better manage perms (and to
-be able to do it cross sysfs and configfs would be ideal).
-
-For instance, I would like to be able to assign groups to configfs
-directories, like /config/vbus/devices, such that
-
-mkdir /config/vbus/devices/foo
-
-would not require root if that GID was permitted.
-
-Are there ways to do this (now, or in upcoming releases)?  If not, I may
-be interested in helping to add this feature, so please advise how best
-to achieve this.
-
-Kind Regards,
--Greg
-
-
---------------enig1EC63A1CC4E8B5D19A0BDEE6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqMRv8ACgkQP5K2CMvXmqHeRQCeJY81bGWt1LtAHKIiJHQKxZGP
-nmkAnjDHQkMKWDFt6L/C1SotbO4x4Ozr
-=fraX
------END PGP SIGNATURE-----
-
---------------enig1EC63A1CC4E8B5D19A0BDEE6--
+[1] http://lists.infradead.org/pipermail/libertas-dev/2009-June/002487.=
+html
+[2] http://lists.infradead.org/pipermail/libertas-dev/2009-June/002510.=
+html
+[3] git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-tes=
+ting.git
+[4] http://lists.infradead.org/pipermail/libertas-dev/2009-June/002496.=
+html
+[5] http://lists.infradead.org/pipermail/libertas-dev/2009-June/002494.=
+html
