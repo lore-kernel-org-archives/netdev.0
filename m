@@ -1,214 +1,59 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
-	model for vbus_driver objects
-Date: Wed, 19 Aug 2009 08:28:11 -0700
-Message-ID: <20090819152811.GA22294@ovro.caltech.edu>
-References: <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu> <4A8AF880.6080704@redhat.com> <20090818205919.GA1168@ovro.caltech.edu> <4A8B1C7F.4060008@redhat.com> <20090819003812.GA11168@ovro.caltech.edu> <4A8B9051.3020505@redhat.com>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: 100Mbit ethernet performance on embedded devices
+Date: Wed, 19 Aug 2009 16:35:34 +0100
+Message-ID: <20090819153534.GC30013@shareable.org>
+References: <20090819145057.GA25400@sig21.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ovro.ovro.caltech.edu ([192.100.16.2]:59040 "EHLO
-	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752011AbZHSP2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 11:28:11 -0400
+Cc: linux-embedded@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Stezenbach <js@sig21.net>
+Return-path: <linux-embedded-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4A8B9051.3020505@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20090819145057.GA25400@sig21.net>
+Sender: linux-embedded-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 19, 2009 at 08:40:33AM +0300, Avi Kivity wrote:
-> On 08/19/2009 03:38 AM, Ira W. Snyder wrote:
->> On Wed, Aug 19, 2009 at 12:26:23AM +0300, Avi Kivity wrote:
->>    
->>> On 08/18/2009 11:59 PM, Ira W. Snyder wrote:
->>>      
->>>> On a non shared-memory system (where the guest's RAM is not just a chunk
->>>> of userspace RAM in the host system), virtio's management model seems to
->>>> fall apart. Feature negotiation doesn't work as one would expect.
->>>>
->>>>        
->>> In your case, virtio-net on the main board accesses PCI config space
->>> registers to perform the feature negotiation; software on your PCI cards
->>> needs to trap these config space accesses and respond to them according
->>> to virtio ABI.
->>>
->>>      
->> Is this "real PCI" (physical hardware) or "fake PCI" (software PCI
->> emulation) that you are describing?
->>
->>    
->
-> Real PCI.
->
->> The host (x86, PCI master) must use "real PCI" to actually configure the
->> boards, enable bus mastering, etc. Just like any other PCI device, such
->> as a network card.
->>
->> On the guests (ppc, PCI agents) I cannot add/change PCI functions (the
->> last .[0-9] in the PCI address) nor can I change PCI BAR's once the
->> board has started. I'm pretty sure that would violate the PCI spec,
->> since the PCI master would need to re-scan the bus, and re-assign
->> addresses, which is a task for the BIOS.
->>    
->
-> Yes.  Can the boards respond to PCI config space cycles coming from the  
-> host, or is the config space implemented in silicon and immutable?   
-> (reading on, I see the answer is no).  virtio-pci uses the PCI config  
-> space to configure the hardware.
->
+Johannes Stezenbach wrote:
+> a while ago I was working on a SoC with 200MHz ARM926EJ-S CPU
+> and integrated 100Mbit ethernet core, connected on internal
+> (fast) memory bus, with DMA.  With iperf I measured:
+> 
+>   TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
+>   TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
+> 
+> The CPU load during the iperf test is around
+> 1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
+> 
+> The kernel used in these measurements does not have iptables
+> support, I think packet filtering will slow it down noticably,
+> but I didn't actually try.  The ethernet driver uses NAPI,
+> but it doesn't seem to be a win judging from the irq/sec number.
 
-Yes, the PCI config space is implemented in silicon. I can change a few
-things (mostly PCI BAR attributes), but not much.
+You should see far fewer interrupts if NAPI was working properly.
+Rather than NAPI not being a win, it looks like it's not active at
+all.
 
->>> (There's no real guest on your setup, right?  just a kernel running on
->>> and x86 system and other kernels running on the PCI cards?)
->>>
->>>      
->> Yes, the x86 (PCI master) runs Linux (booted via PXELinux). The ppc's
->> (PCI agents) also run Linux (booted via U-Boot). They are independent
->> Linux systems, with a physical PCI interconnect.
->>
->> The x86 has CONFIG_PCI=y, however the ppc's have CONFIG_PCI=n. Linux's
->> PCI stack does bad things as a PCI agent. It always assumes it is a PCI
->> master.
->>
->> It is possible for me to enable CONFIG_PCI=y on the ppc's by removing
->> the PCI bus from their list of devices provided by OpenFirmware. They
->> can not access PCI via normal methods. PCI drivers cannot work on the
->> ppc's, because Linux assumes it is a PCI master.
->>
->> To the best of my knowledge, I cannot trap configuration space accesses
->> on the PCI agents. I haven't needed that for anything I've done thus
->> far.
->>
->>    
->
-> Well, if you can't do that, you can't use virtio-pci on the host.   
-> You'll need another virtio transport (equivalent to "fake pci" you  
-> mentioned above).
->
+7500/sec is close to the packet rate, for sending TCP with
+full-size ethernet packages over a 100Mbit ethernet link.
 
-Ok.
+> What I'm interested in are some numbers for similar hardware,
+> to find out if my hardware and/or ethernet driver can be improved,
+> or if the CPU will always be the limiting factor.
 
-Is there something similar that I can study as an example? Should I look
-at virtio-pci?
+I have a SoC with a 166MHz ARMv4 (ARM7TDMI I think, but I'm not sure),
+and an external RTL8139 100Mbit ethernet chip over the SoC's PCI bus.
 
->>>> This does appear to be solved by vbus, though I haven't written a
->>>> vbus-over-PCI implementation, so I cannot be completely sure.
->>>>
->>>>        
->>> Even if virtio-pci doesn't work out for some reason (though it should),
->>> you can write your own virtio transport and implement its config space
->>> however you like.
->>>
->>>      
->> This is what I did with virtio-over-PCI. The way virtio-net negotiates
->> features makes this work non-intuitively.
->>    
->
-> I think you tried to take two virtio-nets and make them talk together?   
-> That won't work.  You need the code from qemu to talk to virtio-net  
-> config space, and vhost-net to pump the rings.
->
+It gets a little over 80Mbit/s actual data throughput in both
+directions, running a simple FTP client.
 
-It *is* possible to make two unmodified virtio-net's talk together. I've
-done it, and it is exactly what the virtio-over-PCI patch does. Study it
-and you'll see how I connected the rx/tx queues together.
+> I'd also be interested to know if hardware checksumming
+> support would improve throughput noticably in such a system,
+> or if it is only useful for 1Gbit and above.
+> 
+> Did anyone actually manage to get close to 100Mbit/sec
+> with similar CPU resources?
 
-The feature negotiation code also works, but in a very unintuitive
-manner. I made it work in the virtio-over-PCI patch, but the devices are
-hardcoded into the driver. It would be quite a bit of work to swap
-virtio-net and virtio-console, for example.
+Remember, the TCP throughput cannot reach 100Mbit/sec due to the
+overhead of packet framing.  But it should be much closer to 100 than 70.
 
->>>> I'm not at all clear on how to get feature negotiation to work on a
->>>> system like mine. From my study of lguest and kvm (see below) it looks
->>>> like userspace will need to be involved, via a miscdevice.
->>>>
->>>>        
->>> I don't see why.  Is the kernel on the PCI cards in full control of all
->>> accesses?
->>>
->>>      
->> I'm not sure what you mean by this. Could you be more specific? This is
->> a normal, unmodified vanilla Linux kernel running on the PCI agents.
->>    
->
-> I meant, does board software implement the config space accesses issued  
-> from the host, and it seems the answer is no.
->
->
->> In my virtio-over-PCI patch, I hooked two virtio-net's together. I wrote
->> an algorithm to pair the tx/rx queues together. Since virtio-net
->> pre-fills its rx queues with buffers, I was able to use the DMA engine
->> to copy from the tx queue into the pre-allocated memory in the rx queue.
->>
->>    
->
-> Please find a name other than virtio-over-PCI since it conflicts with  
-> virtio-pci.  You're tunnelling virtio config cycles (which are usually  
-> done on pci config cycles) on a new protocol which is itself tunnelled  
-> over PCI shared memory.
->
-
-Sorry about that. Do you have suggestions for a better name?
-
-I called it virtio-over-PCI in my previous postings to LKML, so until a
-new patch is written and posted, I'll keep referring to it by the name
-used in the past, so people can search for it.
-
-When I post virtio patches, should I CC another mailing list in addition
-to LKML?
-
->>>>
->>>>        
->>> Yeah.  You'll need to add byteswaps.
->>>
->>>      
->> I wonder if Rusty would accept a new feature:
->> VIRTIO_F_NET_LITTLE_ENDIAN, which would allow the virtio-net driver to
->> use LE for all of it's multi-byte fields.
->>
->> I don't think the transport should have to care about the endianness.
->>    
->
-> Given this is not mainstream use, it would have to have zero impact when  
-> configured out.
->
-
-Yes, of course.
-
-That said, I'm not sure how qemu-system-ppc running on x86 could
-possibly communicate using virtio-net. This would mean the guest is an
-emulated big-endian PPC, while the host is a little-endian x86. I
-haven't actually tested this situation, so perhaps I am wrong.
-
->> True. It's slowpath setup, so I don't care how fast it is. For reasons
->> outside my control, the x86 (PCI master) is running a RHEL5 system. This
->> means glibc-2.5, which doesn't have eventfd support, AFAIK. I could try
->> and push for an upgrade. This obviously makes cat/echo really nice, it
->> doesn't depend on glibc, only the kernel version.
->>
->> I don't give much weight to the above, because I can use the eventfd
->> syscalls directly, without glibc support. It is just more painful.
->>    
->
-> The x86 side only needs to run virtio-net, which is present in RHEL 5.3.  
-> You'd only need to run virtio-tunnel or however it's called.  All the 
-> eventfd magic takes place on the PCI agents.
->
-
-I can upgrade the kernel to anything I want on both the x86 and ppc's.
-I'd like to avoid changing the x86 (RHEL5) userspace, though. On the
-ppc's, I have full control over the userspace environment.
-
-Thanks,
-Ira
+-- Jamie
