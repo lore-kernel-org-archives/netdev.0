@@ -1,166 +1,104 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for
-	vbus_driver objects
-Date: Wed, 19 Aug 2009 12:34:13 -0700
-Message-ID: <1250710453.27590.192.camel@haakon2.linux-iscsi.org>
-References: <20090814154125.26116.70709.stgit@dev.haskins.net>
-	 <20090814154308.26116.46980.stgit@dev.haskins.net>
-	 <20090815103243.GA26749@elte.hu> <4A8954F0.3040402@gmail.com>
-	 <20090817142506.GB3602@elte.hu> <4A8971A8.2040102@gmail.com>
-	 <20090817150844.GA3307@elte.hu> <4A89B08A.4010103@gmail.com>
-	 <4A8A674E.8070200@redhat.com> <4A8ABEC9.6090006@gmail.com>
-	 <4A8AD678.7050609@redhat.com> <4A8B9B79.9050004@gmail.com>
-	 <4A8BA5AE.3030308@redhat.com>
-	 <1250706227.27590.156.camel@haakon2.linux-iscsi.org>
-	 <4A8C46FF.1070107@gmail.com>
-	 <1250709574.27590.178.camel@haakon2.linux-iscsi.org>
+From: <Jordan_Hargrave@Dell.com>
+Subject: RE: PATCH: Network Device Naming mechanism and policy
+Date: Wed, 19 Aug 2009 14:40:21 -0500
+Message-ID: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD96A@ausx3mpc102.aus.amer.dell.com>
+References: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD92D@ausx3mpc102.aus.amer.dell.com><5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD964@ausx3mpc102.aus.amer.dell.com> <1250709985.2874.41.camel@achroite>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	Anthony Liguori <anthony@codemonkey.ws>, kvm@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>,
-	Joel Becker <joel.becker@oracle.com>
-To: Gregory Haskins <gregory.haskins@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1250709574.27590.178.camel@haakon2.linux-iscsi.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>
+To: <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:51975 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752846AbZHSTkW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 15:40:22 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-19 at 12:19 -0700, Nicholas A. Bellinger wrote:
-> On Wed, 2009-08-19 at 14:39 -0400, Gregory Haskins wrote:
-> > Hi Nicholas
-> > 
-> > Nicholas A. Bellinger wrote:
-> > > On Wed, 2009-08-19 at 10:11 +0300, Avi Kivity wrote:
-> > >> On 08/19/2009 09:28 AM, Gregory Haskins wrote:
-> > >>> Avi Kivity wrote:
-> > > 
-> > > <SNIP>
-> > > 
-> > >>> Basically, what it comes down to is both vbus and vhost need
-> > >>> configuration/management.  Vbus does it with sysfs/configfs, and vhost
-> > >>> does it with ioctls.  I ultimately decided to go with sysfs/configfs
-> > >>> because, at least that the time I looked, it seemed like the "blessed"
-> > >>> way to do user->kernel interfaces.
-> > >>>    
-> > >> I really dislike that trend but that's an unrelated discussion.
-> > >>
-> > >>>> They need to be connected to the real world somehow.  What about
-> > >>>> security?  can any user create a container and devices and link them to
-> > >>>> real interfaces?  If not, do you need to run the VM as root?
-> > >>>>      
-> > >>> Today it has to be root as a result of weak mode support in configfs, so
-> > >>> you have me there.  I am looking for help patching this limitation, though.
-> > >>>
-> > >>>    
-> > >> Well, do you plan to address this before submission for inclusion?
-> > >>
-> > > 
-> > > Greetings Avi and Co,
-> > > 
-> > > I have been following this thread, and although I cannot say that I am
-> > > intimately fimilar with all of the virtualization considerations
-> > > involved to really add anything use to that side of the discussion, I
-> > > think you guys are doing a good job of explaining the technical issues
-> > > for the non virtualization wizards following this thread.  :-)
-> > > 
-> > > Anyways, I was wondering if you might be interesting in sharing your
-> > > concerns wrt to configfs (conigfs maintainer CC'ed), at some point..?
-> > 
-> > So for those tuning in, the reference here is the use of configfs for
-> > the management of this component of AlacrityVM, called "virtual-bus"
-> > 
-> > http://developer.novell.com/wiki/index.php/Virtual-bus
-> > 
-> > > As you may recall, I have been using configfs extensively for the 3.x
-> > > generic target core infrastructure and iSCSI fabric modules living in
-> > > lio-core-2.6.git/drivers/target/target_core_configfs.c and
-> > > lio-core-2.6.git/drivers/lio-core/iscsi_target_config.c, and have found
-> > > it to be extraordinarly useful for the purposes of a implementing a
-> > > complex kernel level target mode stack that is expected to manage
-> > > massive amounts of metadata, allow for real-time configuration, share
-> > > data structures (eg: SCSI Target Ports) between other kernel fabric
-> > > modules and manage the entire set of fabrics using only intrepetered
-> > > userspace code.
-> > 
-> > I concur.  Configfs provided me a very natural model to express
-> > resource-containers and their respective virtual-device objects.
-> > 
-> > > 
-> > > Using the 10000 1:1 mapped TCM Virtual HBA+FILEIO LUNs <-> iSCSI Target
-> > > Endpoints inside of a KVM Guest (from the results in May posted with
-> > > IOMMU aware 10 Gb on modern Nahelem hardware, see
-> > > http://linux-iscsi.org/index.php/KVM-LIO-Target), we have been able to
-> > > dump the entire running target fabric configfs hierarchy to a single
-> > > struct file on a KVM Guest root device using python code on the order of
-> > > ~30 seconds for those 10000 active iSCSI endpoints.  In configfs terms,
-> > > this means:
-> > > 
-> > > *) 7 configfs groups (directories), ~50 configfs attributes (files) per
-> > > Virtual HBA+FILEIO LUN
-> > > *) 15 configfs groups (directories), ~60 configfs attributes (files per
-> > > iSCSI fabric Endpoint
-> > > 
-> > > Which comes out to a total of ~220000 groups and ~1100000 attributes
-> > > active configfs objects living in the configfs_dir_cache that are being
-> > > dumped inside of the single KVM guest instances, including symlinks
-> > > between the fabric modules to establish the SCSI ports containing
-> > > complete set of SPC-4 and RFC-3720 features, et al.
-> > > 
-> > > Also on the kernel <-> user API interaction compatibility side, I have
-> > > found the 3.x configfs enabled code adventagous over the LIO 2.9 code
-> > > (that used an ioctl for everything) because it allows us to do backwards
-> > > compat for future versions without using any userspace C code, which in
-> > > IMHO makes maintaining userspace packages for complex kernel stacks with
-> > > massive amounts of metadata + real-time configuration considerations.
-> > > No longer having ioctl compatibility issues between LIO versions as the
-> > > structures passed via ioctl change, and being able to do backwards
-> > > compat with small amounts of interpreted code against configfs layout
-> > > changes makes maintaining the kernel <-> user API really have made this
-> > > that much easier for me.
-> > > 
-> > > Anyways, I though these might be useful to the discussion as it releates
-> > > to potental uses of configfs on the KVM Host or other projects that
-> > > really make sense, and/or to improve the upstream implementation so that
-> > > other users (like myself) can benefit from improvements to configfs.
-> > > 
-> > > Many thanks for your most valuable of time,
-> > 
-> > Thank you for the explanation of your setup.
-> > 
-> > Configfs mostly works for the vbus project "as is".  As Avi pointed out,
-> > I currently have a limitation w.r.t. perms.  Forgive me if what I am
-> > about to say is overly simplistic.  Its been quite a few months since I
-> > worked on the configfs portion of the code, so my details may be fuzzy.
-> > 
-> > What it boiled down to is I need is a way to better manage perms
+-----Original Message-----
+From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+Sent: Wed 8/19/2009 14:26
+To: Hargrave, Jordan
+Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org
+Subject: Re: PATCH: Network Device Naming mechanism and policy
+ 
+On Wed, 2009-08-19 at 13:56 -0500, Jordan_Hargrave@Dell.com wrote:
+> This is from an old discussion several months ago:
+> http://lkml.org/lkml/2009/3/24/357
+> http://lkml.org/lkml/2009/3/24/380
 > 
-> I have not looked at implementing this personally, so I am not sure how
-> this would look in fs/configfs/ off the top of my head..  Joel, have you
-> had any thoughts on this..?
+> Basically the issue is that between a race in udev and PCI scan order the ethX IDs may not
+> be consistent between reboots.  The idea is to use a mechanism similar to how disks now can
+> be accessed by their LABEL/PATH/UUID instead of raw /dev/sdX ids.
 > 
+> example udev config:
+> SUBSYSTEM=="net", SYMLINK+="net/by-mac/$sysfs{ifindex}.$sysfs{address}"
+> SUBSYSTEM=="net", PROGRAM="/sbin/biosdevname -i %k --policy=all_names", SYMLINK+="net/by-chassis-id/%c"
+> 
+> The following patch will create a device node for network devices based off their ifindex;
+> udev can then use this device node for creating symlinks in /dev/net/xxxx similar to the
+> way that disks now use by-label and by-path symlinks.
+> 
+> Combining this with the biosdevname utility and patches to common network utilities,
+> it could be possible to access ethernet devices by their PCI path or BIOS Label.
+> 
+> eg. ifconfig Embedded_NIC_1
 
-Actually, something that I have been using is for simple stuff is:
+Nice idea, but wouldn't it be "ifconfig LABEL=Embedded_NIC_1"?
 
-	if (!capable(CAP_SYS_ADMIN))
+** Still debating that.. if ifconfig and other tools were smart enough to figure it out
+** Right now we have a library that lets you specify it by device node:
+** ifconfig /dev/net/by-chassis-id/eth0_s0 for example
 
-for controlling I/O to configfs attributes from non priviledged users
-for iSCSI authentication information living in struct
-config_item_operations lio_target_nacl_auth_cit, the code is here:
+> --- include/linux/major.h~	2009-07-30 18:34:47.000000000 -0400
+> +++ include/linux/major.h	2009-08-05 14:52:10.000000000 -0400
+> @@ -169,6 +169,7 @@
+>  #define IBM_FS3270_MAJOR	228
+>  
+>  #define VIOTAPE_MAJOR		230
+> +#define NETDEV_MAJOR		234
+>  
+>  #define BLOCK_EXT_MAJOR		259
+>  #define SCSI_OSD_MAJOR		260	/* open-osd's OSD scsi device */
+> --- net/core/net-sysfs.cx	2009-08-05 15:00:13.000000000 -0400
+> +++ net/core/net-sysfs.c	2009-08-05 15:01:20.000000000 -0400
+> @@ -11,6 +11,7 @@
+>  
+>  #include <linux/capability.h>
+>  #include <linux/kernel.h>
+> +#include <linux/major.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/if_arp.h>
+>  #include <net/sock.h>
+> @@ -496,6 +497,7 @@ int netdev_register_kobject(struct net_d
+>  	dev->class = &net_class;
+>  	dev->platform_data = net;
+>  	dev->groups = groups;
+> +	dev->devt = MKDEV(NETDEV_MAJOR, net->ifindex);
+[...]
 
-http://git.kernel.org/?p=linux/kernel/git/nab/lio-core-2.6.git;a=blob;f=drivers/lio-core/iscsi_target_configfs.c;h=1230b74577076a184b756b3883fb56c6050c7d87;hb=HEAD#l803
+Since this major number is unregistered, the device inode can only be
+stat'd and not open'd, which seems like a bit of a hack.  Is there
+anything that would stop register_chrdev(0, ...) from allocating this
+major number, causing network devices to be confused with some other
+device type?
 
-I am also using the CONFIGFS Extended Macros, CONFIGS_EATTR() which I
-created to allow me to use more than one struct config_groups per parent
-structure, and use less lines of code when defining configfs attributes
-using generic store() and show() functions:
+** yeah a bit of a hack.. I suppose the netdev code could allocate a 
+** dynamic major node at startup with register_chrdev.. since nothing
+** would use the hardcoded major:minor #s anyway (yet).
 
-http://git.kernel.org/?p=linux/kernel/git/nab/lio-core-2.6.git;a=blob;f=include/target/configfs_macros.h
+Maybe there *should* be character devices for network device
+manipulation.  It seems like that would avoid the race conditions that
+device renaming and removal causes for name-based socket ioctls.  But
+maybe everyone should be using netlink for that instead.
 
---nab
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
