@@ -1,69 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/7] sky2: use upper/lower 32 bits
-Date: Tue, 18 Aug 2009 18:17:05 -0700
-Message-ID: <20090819011738.604718520@vyatta.com>
-References: <20090819011704.685802801@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:50667 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750960AbZHSBWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Aug 2009 21:22:45 -0400
-Content-Disposition: inline; filename=sky2-upper32.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] net: fix ks8851 build errors
+Date: Tue, 18 Aug 2009 20:12:00 -0700 (PDT)
+Message-ID: <20090818.201200.69809801.davem@davemloft.net>
+References: <20090818184215.fdf1c7ae.sfr@canb.auug.org.au>
+	<20090818152705.64557a0b.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090818152705.64557a0b.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the existing macros to show where DMA address is being broken
-apart. This is cosmetic only.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Tue, 18 Aug 2009 15:27:05 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> --- linux-next-20090818.orig/drivers/net/Kconfig
+> +++ linux-next-20090818/drivers/net/Kconfig
+> @@ -1733,6 +1733,8 @@ config KS8851
+>         tristate "Micrel KS8851 SPI"
+>         depends on SPI
+>         select MII
+> +	select CRC32
+> +	select BITREVERSE
+>         help
+>           SPI driver for Micrel KS8851 SPI attached network chip.
+>  
 
---- a/drivers/net/sky2.c	2009-08-18 09:30:17.292586888 -0700
-+++ b/drivers/net/sky2.c	2009-08-18 09:32:29.143195273 -0700
-@@ -984,12 +984,12 @@ static void sky2_qset(struct sky2_hw *hw
-  * hardware and driver list elements
-  */
- static void sky2_prefetch_init(struct sky2_hw *hw, u32 qaddr,
--				      u64 addr, u32 last)
-+			       dma_addr_t addr, u32 last)
- {
- 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_RST_SET);
- 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_RST_CLR);
--	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_HI), addr >> 32);
--	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_LO), (u32) addr);
-+	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_HI), upper_32_bits(addr));
-+	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_LO), lower_32_bits(addr));
- 	sky2_write16(hw, Y2_QADDR(qaddr, PREF_UNIT_LAST_IDX), last);
- 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_OP_ON);
- 
-@@ -1057,7 +1057,7 @@ static void sky2_rx_add(struct sky2_port
- 	}
- 
- 	le = sky2_next_rx(sky2);
--	le->addr = cpu_to_le32((u32) map);
-+	le->addr = cpu_to_le32(lower_32_bits(map));
- 	le->length = cpu_to_le16(len);
- 	le->opcode = op | HW_OWNER;
- }
-@@ -1662,7 +1662,7 @@ static int sky2_xmit_frame(struct sk_buf
- 	}
- 
- 	le = get_tx_le(sky2, &slot);
--	le->addr = cpu_to_le32((u32) mapping);
-+	le->addr = cpu_to_le32(lower_32_bits(mapping));
- 	le->length = cpu_to_le16(len);
- 	le->ctrl = ctrl;
- 	le->opcode = mss ? (OP_LARGESEND | HW_OWNER) : (OP_PACKET | HW_OWNER);
-@@ -1689,7 +1689,7 @@ static int sky2_xmit_frame(struct sk_buf
- 		}
- 
- 		le = get_tx_le(sky2, &slot);
--		le->addr = cpu_to_le32((u32) mapping);
-+		le->addr = cpu_to_le32(lower_32_bits(mapping));
- 		le->length = cpu_to_le16(frag->size);
- 		le->ctrl = ctrl;
- 		le->opcode = OP_BUFFER | HW_OWNER;
+CRC32 alone is sufficient, because it, in turn, selects BITREVERSE
 
--- 
-
+When you resubmit with this simplification, I'll apply the
+patch to net-2.6 since the problem exists in Linus's tree
+too, not just -next.
