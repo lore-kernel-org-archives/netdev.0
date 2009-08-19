@@ -1,134 +1,206 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 19 Aug 2009 17:20:38 +0300
-Message-ID: <20090819142038.GA3862@redhat.com>
-References: <cover.1250187913.git.mst@redhat.com> <200908191104.50672.arnd@arndb.de> <20090819130417.GB3080@redhat.com> <200908191546.44193.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com, Or Gerlitz <ogerlitz@voltaire.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908191546.44193.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: Re: [RFC PATCH] lib/vsprintf.c: Add struct sockaddr * "%pN<foo>" output
+Date: Wed, 19 Aug 2009 10:26:49 -0400
+Message-ID: <2D3306C4-4DF4-4E3E-BBC2-2032058FA673@oracle.com>
+References: <1250230925.6641.92.camel@fnki-nb00130> <20090814.001519.40499255.davem@davemloft.net> <1250237739.16632.12.camel@fnki-nb00130> <20090814.131218.139318801.davem@davemloft.net> <1250349894.4620.5.camel@Joe-Laptop.home> <1250395818.4625.15.camel@Joe-Laptop.home>
+Mime-Version: 1.0 (Apple Message framework v936)
+Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: jens@mcbone.net, brian.haley@hp.com,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet12.oracle.com ([148.87.113.124]:50949 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529AbZHSO1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 10:27:36 -0400
+In-Reply-To: <1250395818.4625.15.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 19, 2009 at 03:46:44PM +0200, Arnd Bergmann wrote:
-> On Wednesday 19 August 2009, Michael S. Tsirkin wrote:
-> > > Maybe we could instead extend the 'splice' system call to work on a
-> > > vhost_net file descriptor.  If we do that, we can put the access back
-> > > into a user thread (or two) that stays in splice indefinetely
-> > 
-> > An issue with exposing internal threading model to userspace
-> > in this way is that we lose control of e.g. CPU locality -
-> > and it is very hard for userspace to get it right.
-> 
-> Good point, I hadn't thought about that in this context.
-> 
-> For macvtap, my idea was to open the same tap char device multiple
-> times and use each fd exclusively on one *guest* CPU. I'm not sure
-> if virtio-net can already handle SMP guests efficiently. We might
-> actually need to extend it to have more pairs of virtqueues, one
-> for each guest CPU, which can then be bound to a host queue (or queue
-> pair) in the physical nic.
-> 
-> Leaving that aside for now, you could replace VHOST_NET_SET_SOCKET,
-> VHOST_SET_OWNER, VHOST_RESET_OWNER
+On Aug 16, 2009, at 12:10 AM, Joe Perches wrote:
+> Hi Chuck.
+>
+> Here's a tentative patch that adds that facility you wanted in
+> this thread.
+> http://kerneltrap.org/mailarchive/linux-netdev/2008/11/25/4231684
+>
+> This patch is on top of this patch:
+> http://marc.info/?l=linux-netdev&m=125034992003220&w=2
+>
+> I'm not sure it's great or even useful, but just for discussion.
 
-SET/RESET OWNER is still needed: otherwise if you share a descriptor
-with another process, it can corrupt your memory.
+I think having at least a generic socket address formatter would be  
+very helpful.  The kernel RPC code can use that immediately for  
+generating debugging messages, generating "universal  
+addresses" (patches already accepted for 2.6.32) and for generating  
+presentation addresses to pass to user space (lockd does this now).
 
-> and your kernel thread with a new
-> VHOST_NET_SPLICE blocking ioctl that does all the transfers in the
-> context of the calling thread.
+> Use style:
+> * - 'N' For network socket (sockaddr) pointers
+> *       if sa_family is IPv4, output is %pI4; if IPv6, output is %pI6c
+> *       May be used with any combination of additional specifiers  
+> below
+> *       'p' decimal socket port number for IPv[46]: ":12345"
+> *       'f' decimal flowinfo for IPv6: "/123456789"
+> *       's' decimal scope_id number for IPv6: "%1234567890"
+> *       so %pNp will print if IPv4 "1.2.3.4:1234", if IPv6:  
+> "1::c0a8:a:1234"
+>
+> I think using ":" as the separator for the port number, while common,
+> and already frequently used in kernel source (see bullet 2 in):
+> http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
+> "Section 6: Notes on Combining IPv6 Addresses with Port Numbers".
+> is not good for readability.
+>
+> Perhaps this style should be changed to the "[ipv6]:port" described
+> in the draft above.
 
-For one, you'd want a thread per virtqueue.  Second, an incoming traffic
-might arrive on another CPU, we want to keep it local.  I guess you
-would also want ioctls to wake up the threads spuriously ...
+I agree that the port number convention is tricky, and some kernel  
+areas handle it differently than others. Perhaps having a separate  
+family-agnostic formatter for printing the port number (or scope ID,  
+etc.) might allow greatest flexibility.
 
-> This would improve the driver on various fronts:
-> 
-> - no need for playing tricks with use_mm/unuse_mm
-> - possibly fewer global TLB flushes from switch_mm, which
->   may improve performance.
+The RPC code, for example, displays port numbers in decimal and in  
+"hi.lo" format (the high byte is printed in decimal, then the low byte  
+is printed in decimal.  The two values are separated by a dot.  For  
+example, port 2049 is displayed as "8.1").
 
-Why would there be less flushes?
-
-> - ability to pass down error codes from socket or guest to
->   user space by returning from ioctl
-
-virtio can not pass error codes. translation errors are
-simple enough to just have a counter.
-
-> - based on that, the ability to use any kind of file
->   descriptor that can do writev/readv or sendmsg/recvmsg
->   without the nastiness you mentioned.
-
-Yes, it's an interesting approach. As I said, need to tread very
-carefully though, I don't think all issues are figured out. For example:
-what happens if we pass our own fd here? Will refcount on file ever get
-to 0 on exit?  There may be others ...
-
-> The disadvantage of course is that you need to add a user
-> thread for each guest device to make up for the workqueue
-> that you save.
-
-More importantly, you lose control of CPU locality.  Simply put, a
-natural threading model in virtualization is one thread per guest vcpu.
-Asking applications to add multiple helper threads just so they can
-block forever is wrong, IMO, as userspace has no idea which CPU
-they should be on, what priority to use, etc.
-
-
-> > > to
-> > > avoid some of the implications of kernel threads like the missing
-> > > ability to handle transfer errors in user space.
-> > 
-> > Are you talking about TCP here?
-> > Transfer errors are typically asynchronous - possibly eventfd
-> > as I expose for vhost net is sufficient there.
-> 
-> I mean errors in general if we allow random file descriptors to be used.
-> E.g. tun_chr_aio_read could return EBADFD, EINVAL, EFAULT, ERESTARTSYS,
-> EIO, EAGAIN and possibly others. We can handle some in kernel, others
-> should never happen with vhost_net, but if something unexpected happens
-> it would be nice to just bail out to user space.
-
-And note that there might be more than one error.  I guess, that's
-another problem with trying to layer on top of vfs.
-
-> > > > I wonder - can we expose the underlying socket used by tap, or will that
-> > > > create complex lifetime issues?
-> > > 
-> > > I think this could get more messy in the long run than calling vfs_readv
-> > > on a random fd. It would mean deep internal knowledge of the tap driver
-> > > in vhost_net, which I really would prefer to avoid.
-> > 
-> > No, what I had in mind is adding a GET_SOCKET ioctl to tap.
-> > vhost would then just use the socket.
-> 
-> Right, that would work with tun/tap at least. It sounds a bit fishy
-> but I can't see a reason why it would be hard to do.
-> I'd have to think about how to get it working with macvtap, or if
-> there is much value left in macvtap after that anyway.
-> 
-> > > So how about making the qemu command line interface an extension to
-> > > what Or Gerlitz has done for the raw packet sockets?
-> >
-> > Not sure I see the connection, but I have not thought about qemu
-> > side of things too much yet - trying to get kernel bits in place
-> > first so that there's a stable ABI to work with.
-> 
-> Ok, fair enough. The kernel bits are obviously more time critical
-> right now, since they should get into 2.6.32.
-> 
-> 	Arnd <><
+> cheers, Joe
+>
+> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+> index 9b79536..b3cbc38 100644
+> --- a/lib/vsprintf.c
+> +++ b/lib/vsprintf.c
+> @@ -791,6 +791,90 @@ static char *ip4_addr_string(char *buf, char  
+> *end, const u8 *addr,
+> 	return string(buf, end, ip4_addr, spec);
+> }
+>
+> +static char *u32_dec_val(char *p, u32 val)
+> +{
+> +	char temp[9];
+> +	int digits;
+> +	u32 hi_val = val / 100000;
+> +	char *pos;
+> +	pos = put_dec_trunc(temp, val%100000);
+> +	if (hi_val)
+> +		pos = put_dec_trunc(pos, hi_val);
+> +	digits = pos - temp;
+> +	/* reverse the digits in temp */
+> +	while (digits--)
+> +		*p++ = temp[digits];
+> +	return p;
+> +}
+> +
+> +static char *socket_addr_string(char *buf, char *end,
+> +				const struct sockaddr *sa,
+> +				struct printf_spec spec, const char *fmt)
+> +{
+> +	char addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255") +
+> +		  sizeof(":12345") +
+> +		  sizeof("%1234567890") +
+> +		  sizeof("/123456789")];
+> +	char *p;
+> +	struct sockaddr_in *sa4 = (struct sockaddr_in *)sa;
+> +	struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)sa;
+> +
+> +	switch (sa->sa_family) {
+> +	case AF_INET:
+> +		p = ip4_string(addr, (const u8 *)&sa4->sin_addr.s_addr, false);
+> +		break;
+> +	case AF_INET6:
+> +		p = ip6_compressed_string(addr, &sa6->sin6_addr);
+> +		break;
+> +	default: {
+> +		struct printf_spec num_spec = {
+> +			.base = 16,
+> +			.precision = -1,
+> +			.field_width = 2 * sizeof(void *),
+> +			.flags = SPECIAL | SMALL | ZEROPAD,
+> +		};
+> +
+> +		p = strcpy(addr, "Bad socket address: ")
+> +			+ sizeof("Bad socket address: ");
+> +		p = number(p, addr + sizeof(addr), (unsigned long)sa, num_spec);
+> +		break;
+> +	}
+> +	}
+> +
+> +	while (isalpha(*++fmt)) {
+> +		switch (*fmt) {
+> +		case 'p':
+> +			*p++ = ':';
+> +			switch (sa->sa_family) {
+> +			case AF_INET:
+> +				p = u32_dec_val(p,ntohs(sa4->sin_port));
+> +				break;
+> +			case AF_INET6:
+> +				p = u32_dec_val(p,ntohs(sa6->sin6_port));
+> +				break;
+> +			}
+> +			break;
+> +		case 's':
+> +			*p++ = '%';
+> +			switch (sa->sa_family) {
+> +			case AF_INET6:
+> +				p = u32_dec_val(p, sa6->sin6_scope_id);
+> +			}
+> +			break;
+> +		case 'f':
+> +			*p++ = '/';
+> +			switch (sa->sa_family) {
+> +			case AF_INET6:
+> +				p = u32_dec_val(p, ntohl(sa6->sin6_flowinfo &
+> +							 IPV6_FLOWINFO_MASK));
+> +			}
+> +			break;
+> +		}
+> +	}
+> +	*p = '\0';
+> +	return string(buf, end, addr, spec);
+> +}
+> +
+> /*
+>  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+>  * by an extra set of alphanumeric characters that are extended format
+> @@ -814,6 +898,13 @@ static char *ip4_addr_string(char *buf, char  
+> *end, const u8 *addr,
+>  *       IPv4 uses dot-separated decimal with leading 0's  
+> (010.123.045.006)
+>  * - 'I6c' for IPv6 addresses printed as specified by
+>  *       http://www.ietf.org/id/draft-kawamura-ipv6-text-representation-03.txt
+> + * - 'N' For network socket (sockaddr) pointers
+> + *       if sa_family is IPv4, output is %pI4; if IPv6, output is  
+> %pI6c
+> + *       May be used with any combination of additional specifiers  
+> below
+> + *       'p' decimal socket port number for IPv[46]: ":12345"
+> + *       'f' decimal flowinfo for IPv6: "/123456789"
+> + *       's' decimal scope_id number for IPv6: "%1234567890"
+> + *       so %pNp will print if IPv4 "1.2.3.4:1234", if IPv6:  
+> "1::c0a8:a:1234"
+>  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+>  * function pointers are really function descriptors, which contain a
+>  * pointer to the real address.
+> @@ -852,7 +943,10 @@ static char *pointer(const char *fmt, char  
+> *buf, char *end, void *ptr,
+> 			return ip4_addr_string(buf, end, ptr, spec, fmt);
+> 		}
+> 		break;
+> +	case 'N':
+> +		return socket_addr_string(buf, end, ptr, spec, fmt);
+> 	}
+> +
+> 	spec.flags |= SMALL;
+> 	if (spec.field_width == -1) {
+> 		spec.field_width = 2*sizeof(void *);
+>
+>
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
+
+
+
