@@ -1,56 +1,84 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: mlx4 2.6.31-rc5: SW2HW_EQ failed.
-Date: Wed, 19 Aug 2009 07:46:26 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908190743410.5621@gentwo.org>
-References: <alpine.DEB.1.10.0908171523330.20399@gentwo.org> <ada7hx22j3g.fsf@cisco.com> <alpine.DEB.1.10.0908171814210.15956@gentwo.org> <ada3a7p3o6f.fsf@cisco.com> <adaljlg1e0x.fsf@cisco.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH v3 3/6] vbus: add a "vbus-proxy" bus model for		 vbus_driver
+ objects
+Date: Wed, 19 Aug 2009 14:49:38 +0300
+Message-ID: <4A8BE6D2.3090107@redhat.com>
+References: <20090814154125.26116.70709.stgit@dev.haskins.net> <20090814154308.26116.46980.stgit@dev.haskins.net> <20090815103243.GA26749@elte.hu> <4A870964.9090408@codemonkey.ws> <4A8965E0.8050608@gmail.com> <4A89FF08.30509@codemonkey.ws> <4A8AA9BD.2070909@gmail.com> <4A8AB076.6080906@redhat.com> <4A8ACE1F.6020402@gmail.com> <20090818165139.GC19846@redhat.com> <4A8B8F4E.80207@gmail.com> <4A8B9241.20300@redhat.com> <4A8B66280200005A00052A54@sinclair.provo.novell.com> <4A8BA635.9010902@redhat.com> <4A8BAC750200005A00052A83@sinclair.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	alacrityvm-devel@lists.sourceforge.net,
+	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Gregory Haskins <ghaskins@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ultrahosting.com ([74.213.175.254]:35953 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751494AbZHSLqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 07:46:31 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id D498682C864
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 07:46:47 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.254])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id XYsOsAGDK6-v for <netdev@vger.kernel.org>;
-	Wed, 19 Aug 2009 07:46:43 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 235DA82C624
-	for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 07:46:43 -0400 (EDT)
-In-Reply-To: <adaljlg1e0x.fsf@cisco.com>
+Received: from mx2.redhat.com ([66.187.237.31]:34343 "EHLO mx2.redhat.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751494AbZHSLuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2009 07:50:09 -0400
+In-Reply-To: <4A8BAC750200005A00052A83@sinclair.provo.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Aug 2009, Roland Dreier wrote:
-
-> By the way, my dual-socket nehalem EP system says:
+On 08/19/2009 02:40 PM, Gregory Haskins wrote:
 >
->     SMP: Allowing 16 CPUs, 0 hotplug CPUs
+>>>>> So if I whip up a virtio-net backend for vbus with a PCI compliant
+>>>>> connector, you are happy?
+>>>>>
+>>>>>
+>>>>>            
+>>>> This doesn't improve virtio-net in any way.
+>>>>
+>>>>          
+>>> Any why not?  (Did you notice I said "PCI compliant", i.e. over virtio-pci)
+>>>
+>>>        
+>> Because virtio-net will have gained nothing that it didn't have before.
+>>      
+> ??
 >
-> which I think (haven't checked but the code sure looks that way) means
-> that num_possible_cpus() is 16.  This is a supermicro workstation board,
-> forget the exact model.
+> *) ABI is virtio-pci compatible, as you like
+>    
 
-Correct. My Dell R620 may have some weird ACPI info.
+That's not a gain, that's staying in the same place.
 
-SMP: Allowing 32 CPUs, 16 hotplug CPUs
+> *) fast-path is in-kernel, as we all like
+>    
 
-although the box does not have any slots for "hotplugging".
+That's not a gain as we have vhost-net (sure, in development, but your 
+proposed backend isn't even there yet).
 
+> *) model is in vbus so it would work in all environments that vbus supports.
+>    
 
-> And the fact that your system is different is not really a bug -- it
-> just points to slightly incorrect data somewhere, most likely ACPI
-> tables; having 32 possible CPUs on a system that can only ever really
-> have 16 CPUs just leads to some overallocations, and tickles the mlx4
-> bug where it can't handle more than 32 interrupts).
+The ABI can be virtio-pci compatible or it can be vbus-comaptible.  How 
+can it be both?  The ABIs are different.
 
-The patch does not fix the issue so far. We are having various hangs and
-are trying to figure out what is gong on.
+Note that if you had submitted a virtio-net backend I'd have asked you 
+to strip away all the management / bus layers and we'd have ended up 
+with vhost-net.
 
-We ran an old 2.6.26 debian kernel on this and it worked fine.
+>>>> virtio already supports this model; see lguest and s390.  Transporting
+>>>> virtio over vbus and vbus over something else doesn't gain anything over
+>>>> directly transporting virtio over that something else.
+>>>>
+>>>>          
+>>> This is not what I am advocating.
+>>>
+>>>
+>>>        
+>> What are you advocating?  As far as I can tell your virtio-vbus
+>> connector plus the vbus-kvm connector is just that.
+>>      
+> I wouldn't classify it anything like that, no.  Its just virtio over vbus.
+>    
+
+We're in a loop.  Doesn't virtio over vbus need a virtio-vbus 
+connector?  and doesn't vbus need a connector to talk to the hypervisor?
+
+-- 
+error compiling committee.c: too many arguments to function
 
