@@ -1,31 +1,40 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Wed, 19 Aug 2009 22:40:40 +0200 (CEST)
-Message-ID: <Era7U-todKF.A.-rD.DoIjKB@chimera>
-References: <xDf-7eSwYsC.A.-6B.klIjKB@chimera>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ibm_newemac: emac_close() needs to call
+ netif_carrier_off()
+Date: Wed, 19 Aug 2009 16:48:56 -0700
+Message-ID: <20090819164856.2ed8b666@s6510>
+References: <20090819210000.D56AB254211@localhost>
+	<20090819141136.74f5c266@s6510>
+	<20090819.143403.27319428.davem@davemloft.net>
+	<fc21faff0908191440p5db84f79h8bb8a73501facae1@mail.gmail.com>
+	<fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <xDf-7eSwYsC.A.-6B.klIjKB@chimera>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, benh@kernel.crashing.org,
+	netdev@vger.kernel.org
+To: Petri Gynther <pgynther@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:40029 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752564AbZHSXtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2009 19:49:01 -0400
+In-Reply-To: <fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.29 and 2.6.30.
+On Wed, 19 Aug 2009 15:32:41 -0700
+Petri Gynther <pgynther@google.com> wrote:
 
-The following bug entry is on the current list of known regressions
-introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-be listed and let me know (either way).
+> Stephen,
+> 
+> I think your suggestion of adding netif_running() check to
+> bond_check_dev_link() is valid and a good fix to the bonding driver.
+> We can do this in a separate patch.
+> 
+> However, I think that the change to ibm_newemac: emac_close() is
+> needed as well. ibm_newemac netdevs should not return
+> netif_carrier_ok() == TRUE when they have been shut down.
 
+I concur. Fixing the possible problems in both places is best.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-05-03 16:22 (109 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
