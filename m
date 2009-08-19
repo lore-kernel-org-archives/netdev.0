@@ -1,59 +1,104 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: 100Mbit ethernet performance on embedded devices
-Date: Wed, 19 Aug 2009 16:35:34 +0100
-Message-ID: <20090819153534.GC30013@shareable.org>
-References: <20090819145057.GA25400@sig21.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
+ model for vbus_driver objects
+Date: Wed, 19 Aug 2009 18:37:06 +0300
+Message-ID: <4A8C1C22.3010101@redhat.com>
+References: <20090818155329.GD31060@ovro.caltech.edu> <4A8ADC09.3030205@redhat.com> <20090818172752.GC17631@ovro.caltech.edu> <4A8AE918.5000109@redhat.com> <20090818182735.GD17631@ovro.caltech.edu> <4A8AF880.6080704@redhat.com> <20090818205919.GA1168@ovro.caltech.edu> <4A8B1C7F.4060008@redhat.com> <20090819003812.GA11168@ovro.caltech.edu> <4A8B9051.3020505@redhat.com> <20090819152811.GA22294@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-embedded@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Stezenbach <js@sig21.net>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20090819145057.GA25400@sig21.net>
-Sender: linux-embedded-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Gregory Haskins <gregory.haskins@gmail.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	alacrityvm-devel@lists.sourceforge.net,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ingo Molnar <mingo@elte.hu>,
+	Gregory Haskins <ghaskins@novell.com>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752678AbZHSPhh@vger.kernel.org>
+In-Reply-To: <20090819152811.GA22294@ovro.caltech.edu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Stezenbach wrote:
-> a while ago I was working on a SoC with 200MHz ARM926EJ-S CPU
-> and integrated 100Mbit ethernet core, connected on internal
-> (fast) memory bus, with DMA.  With iperf I measured:
-> 
->   TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
->   TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
-> 
-> The CPU load during the iperf test is around
-> 1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
-> 
-> The kernel used in these measurements does not have iptables
-> support, I think packet filtering will slow it down noticably,
-> but I didn't actually try.  The ethernet driver uses NAPI,
-> but it doesn't seem to be a win judging from the irq/sec number.
+On 08/19/2009 06:28 PM, Ira W. Snyder wrote:
+>
+>> Well, if you can't do that, you can't use virtio-pci on the host.
+>> You'll need another virtio transport (equivalent to "fake pci" you
+>> mentioned above).
+>>
+>>      
+> Ok.
+>
+> Is there something similar that I can study as an example? Should I look
+> at virtio-pci?
+>
+>    
 
-You should see far fewer interrupts if NAPI was working properly.
-Rather than NAPI not being a win, it looks like it's not active at
-all.
+There's virtio-lguest, virtio-s390, and virtio-vbus.
 
-7500/sec is close to the packet rate, for sending TCP with
-full-size ethernet packages over a 100Mbit ethernet link.
+>> I think you tried to take two virtio-nets and make them talk together?
+>> That won't work.  You need the code from qemu to talk to virtio-net
+>> config space, and vhost-net to pump the rings.
+>>
+>>      
+> It *is* possible to make two unmodified virtio-net's talk together. I've
+> done it, and it is exactly what the virtio-over-PCI patch does. Study it
+> and you'll see how I connected the rx/tx queues together.
+>    
 
-> What I'm interested in are some numbers for similar hardware,
-> to find out if my hardware and/or ethernet driver can be improved,
-> or if the CPU will always be the limiting factor.
+Right, crossing the cables works, but feature negotiation is screwed up, 
+and both sides think the data is in their RAM.
 
-I have a SoC with a 166MHz ARMv4 (ARM7TDMI I think, but I'm not sure),
-and an external RTL8139 100Mbit ethernet chip over the SoC's PCI bus.
+vhost-net doesn't do negotiation and doesn't assume the data lives in 
+its address space.
 
-It gets a little over 80Mbit/s actual data throughput in both
-directions, running a simple FTP client.
+>> Please find a name other than virtio-over-PCI since it conflicts with
+>> virtio-pci.  You're tunnelling virtio config cycles (which are usually
+>> done on pci config cycles) on a new protocol which is itself tunnelled
+>> over PCI shared memory.
+>>
+>>      
+> Sorry about that. Do you have suggestions for a better name?
+>
+>    
 
-> I'd also be interested to know if hardware checksumming
-> support would improve throughput noticably in such a system,
-> or if it is only useful for 1Gbit and above.
-> 
-> Did anyone actually manage to get close to 100Mbit/sec
-> with similar CPU resources?
+virtio-$yourhardware or maybe virtio-dma
 
-Remember, the TCP throughput cannot reach 100Mbit/sec due to the
-overhead of packet framing.  But it should be much closer to 100 than 70.
+> I called it virtio-over-PCI in my previous postings to LKML, so until a
+> new patch is written and posted, I'll keep referring to it by the name
+> used in the past, so people can search for it.
+>
+> When I post virtio patches, should I CC another mailing list in addition
+> to LKML?
+>    
 
--- Jamie
+virtualization@lists.linux-foundation.org is virtio's home.
+
+> That said, I'm not sure how qemu-system-ppc running on x86 could
+> possibly communicate using virtio-net. This would mean the guest is an
+> emulated big-endian PPC, while the host is a little-endian x86. I
+> haven't actually tested this situation, so perhaps I am wrong.
+>    
+
+I'm confused now.  You don't actually have any guest, do you, so why 
+would you run qemu at all?
+
+>> The x86 side only needs to run virtio-net, which is present in RHEL 5.3.
+>> You'd only need to run virtio-tunnel or however it's called.  All the
+>> eventfd magic takes place on the PCI agents.
+>>
+>>      
+> I can upgrade the kernel to anything I want on both the x86 and ppc's.
+> I'd like to avoid changing the x86 (RHEL5) userspace, though. On the
+> ppc's, I have full control over the userspace environment.
+>    
+
+You don't need any userspace on virtio-net's side.
+
+Your ppc boards emulate a virtio-net device, so all you need is the 
+virtio-net module (and virtio bindings).  If you chose to emulate, say, 
+an e1000 card all you'd need is the e1000 driver.
+
+-- 
+error compiling committee.c: too many arguments to function
