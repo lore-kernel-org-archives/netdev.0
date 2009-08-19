@@ -1,60 +1,45 @@
 From: Chunbo Luo <chunbo.luo@windriver.com>
-Subject: [PATCH 1/2] sctp: fix heartbeat count of association failure
-Date: Wed, 19 Aug 2009 15:01:07 +0800
-Message-ID: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
+Subject: [PATCH 2/2] sctp: fix heartbeat count of path failure
+Date: Wed, 19 Aug 2009 15:01:08 +0800
+Message-ID: <1250665268-29770-2-git-send-email-chunbo.luo@windriver.com>
+References: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
 	chunbo.luo@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36894 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:36897 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285AbZHSHBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 03:01:11 -0400
+	with ESMTP id S1751375AbZHSHBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 03:01:13 -0400
+In-Reply-To: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC4960 Section 8.1 defined that the association should enter CLOSE
-state when the value of association error counter exceeds the limit 
-indicated in the protocol parameter 'Association.Max.Retrans'. This
-means that the association should enter CLOSE state after max_retrans+1 
+RFC4960 Section 8.2 defined that the transport should enter INACTIVE
+state only when the value in the error counter exceeds the protocol 
+parameter 'Path.Max.Retrans' of that destination address. This means 
+that the transport should enter INACTIVE state after pathmaxrxt+1
 heartbeats are not acknowledged.
+
 
 Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
 ---
- net/sctp/sm_statefuns.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ net/sctp/sm_sideeffect.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 7288192..90e4f06 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -5190,7 +5190,7 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(const struct sctp_endpoint *ep,
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 86426aa..0e2e269 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+ 		asoc->overall_error_count++;
  
- 	SCTP_INC_STATS(SCTP_MIB_T3_RTX_EXPIREDS);
- 
--	if (asoc->overall_error_count >= asoc->max_retrans) {
-+	if (asoc->overall_error_count > asoc->max_retrans) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
- 				SCTP_ERROR(ETIMEDOUT));
- 		/* CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
-@@ -5404,7 +5404,7 @@ sctp_disposition_t sctp_sf_t2_timer_expire(const struct sctp_endpoint *ep,
- 
- 	((struct sctp_association *)asoc)->shutdown_retries++;
- 
--	if (asoc->overall_error_count >= asoc->max_retrans) {
-+	if (asoc->overall_error_count > asoc->max_retrans) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
- 				SCTP_ERROR(ETIMEDOUT));
- 		/* Note:  CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
-@@ -5487,7 +5487,7 @@ sctp_disposition_t sctp_sf_t4_timer_expire(
- 	 * RFC2960 [5] section 8.1 and 8.2.
- 	 * association error counter is incremented in SCTP_CMD_STRIKE.
- 	 */
--	if (asoc->overall_error_count >= asoc->max_retrans) {
-+	if (asoc->overall_error_count > asoc->max_retrans) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
- 				SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
- 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 	if (transport->state != SCTP_INACTIVE &&
+-	    (transport->error_count++ >= transport->pathmaxrxt)) {
++	    (transport->error_count++ > transport->pathmaxrxt)) {
+ 		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+ 					 " transport IP: port:%d failed.\n",
+ 					 asoc,
 -- 
 1.6.4
 
