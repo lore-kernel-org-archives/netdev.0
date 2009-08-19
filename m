@@ -1,84 +1,69 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 6/7] sky2: no recycling
-Date: Tue, 18 Aug 2009 18:17:10 -0700
-Message-ID: <20090819011738.993523293@vyatta.com>
+Subject: [PATCH 1/7] sky2: use upper/lower 32 bits
+Date: Tue, 18 Aug 2009 18:17:05 -0700
+Message-ID: <20090819011738.604718520@vyatta.com>
 References: <20090819011704.685802801@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:50672 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:50667 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751014AbZHSBWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750960AbZHSBWp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Aug 2009 21:22:45 -0400
-Content-Disposition: inline; filename=sky2-no-recycle.patch
+Content-Disposition: inline; filename=sky2-upper32.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recycling turns out to be a bad idea!  For most use cases, the
-packet can not be reused: TCP packets are cloned. Even for the ideal
-case of forwarding, it hurts performance because of CPU ping/pong.
-On a multi-core system forwarding of 64 byte packets is worse
-much worse: recycling = 24% forwarded vs no recycling = 42% forwarded
+Use the existing macros to show where DMA address is being broken
+apart. This is cosmetic only.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/sky2.c	2009-08-18 17:50:31.591887510 -0700
-+++ b/drivers/net/sky2.c	2009-08-18 17:53:04.506927814 -0700
-@@ -1177,7 +1177,6 @@ static void sky2_rx_clean(struct sky2_po
- 			re->skb = NULL;
- 		}
+--- a/drivers/net/sky2.c	2009-08-18 09:30:17.292586888 -0700
++++ b/drivers/net/sky2.c	2009-08-18 09:32:29.143195273 -0700
+@@ -984,12 +984,12 @@ static void sky2_qset(struct sky2_hw *hw
+  * hardware and driver list elements
+  */
+ static void sky2_prefetch_init(struct sky2_hw *hw, u32 qaddr,
+-				      u64 addr, u32 last)
++			       dma_addr_t addr, u32 last)
+ {
+ 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_RST_SET);
+ 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_RST_CLR);
+-	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_HI), addr >> 32);
+-	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_LO), (u32) addr);
++	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_HI), upper_32_bits(addr));
++	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_ADDR_LO), lower_32_bits(addr));
+ 	sky2_write16(hw, Y2_QADDR(qaddr, PREF_UNIT_LAST_IDX), last);
+ 	sky2_write32(hw, Y2_QADDR(qaddr, PREF_UNIT_CTRL), PREF_UNIT_OP_ON);
+ 
+@@ -1057,7 +1057,7 @@ static void sky2_rx_add(struct sky2_port
  	}
--	skb_queue_purge(&sky2->rx_recycle);
+ 
+ 	le = sky2_next_rx(sky2);
+-	le->addr = cpu_to_le32((u32) map);
++	le->addr = cpu_to_le32(lower_32_bits(map));
+ 	le->length = cpu_to_le16(len);
+ 	le->opcode = op | HW_OWNER;
  }
+@@ -1662,7 +1662,7 @@ static int sky2_xmit_frame(struct sk_buf
+ 	}
  
- /* Basic MII support */
-@@ -1269,10 +1268,8 @@ static struct sk_buff *sky2_rx_alloc(str
- 	struct sk_buff *skb;
- 	int i;
- 
--	skb = __skb_dequeue(&sky2->rx_recycle);
--	if (!skb)
--		skb = netdev_alloc_skb(sky2->netdev, sky2->rx_data_size
--				       + sky2_rx_pad(sky2->hw));
-+	skb = netdev_alloc_skb(sky2->netdev,
-+			       sky2->rx_data_size + sky2_rx_pad(sky2->hw));
- 	if (!skb)
- 		goto nomem;
- 
-@@ -1364,8 +1361,6 @@ static int sky2_rx_start(struct sky2_por
- 
- 	sky2->rx_data_size = size;
- 
--	skb_queue_head_init(&sky2->rx_recycle);
--
- 	/* Fill Rx ring */
- 	for (i = 0; i < sky2->rx_pending; i++) {
- 		re = sky2->rx_ring + i;
-@@ -1776,12 +1771,7 @@ static void sky2_tx_complete(struct sky2
- 			dev->stats.tx_packets++;
- 			dev->stats.tx_bytes += skb->len;
- 
--			if (skb_queue_len(&sky2->rx_recycle) < sky2->rx_pending
--			    && skb_recycle_check(skb, sky2->rx_data_size
--						 + sky2_rx_pad(sky2->hw)))
--				__skb_queue_head(&sky2->rx_recycle, skb);
--			else
--				dev_kfree_skb_any(skb);
-+			dev_kfree_skb_any(skb);
- 
- 			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
+ 	le = get_tx_le(sky2, &slot);
+-	le->addr = cpu_to_le32((u32) mapping);
++	le->addr = cpu_to_le32(lower_32_bits(mapping));
+ 	le->length = cpu_to_le16(len);
+ 	le->ctrl = ctrl;
+ 	le->opcode = mss ? (OP_LARGESEND | HW_OWNER) : (OP_PACKET | HW_OWNER);
+@@ -1689,7 +1689,7 @@ static int sky2_xmit_frame(struct sk_buf
  		}
---- a/drivers/net/sky2.h	2009-08-18 17:50:34.706665948 -0700
-+++ b/drivers/net/sky2.h	2009-08-18 17:51:02.596652122 -0700
-@@ -2032,7 +2032,6 @@ struct sky2_port {
- 	u16		     rx_pending;
- 	u16		     rx_data_size;
- 	u16		     rx_nfrags;
--	struct sk_buff_head  rx_recycle;
  
- #ifdef SKY2_VLAN_TAG_USED
- 	u16		     rx_tag;
+ 		le = get_tx_le(sky2, &slot);
+-		le->addr = cpu_to_le32((u32) mapping);
++		le->addr = cpu_to_le32(lower_32_bits(mapping));
+ 		le->length = cpu_to_le16(frag->size);
+ 		le->ctrl = ctrl;
+ 		le->opcode = OP_BUFFER | HW_OWNER;
 
 -- 
 
