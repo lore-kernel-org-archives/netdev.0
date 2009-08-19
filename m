@@ -1,58 +1,37 @@
-From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Wed, 19 Aug 2009 23:07:21 +0200
-Message-ID: <200908192307.22112.rene.mayrhofer@gibraltar.at>
-References: <4A65EC3F.4050400@gibraltar.at> <200908190902.02854.rene.mayrhofer@gibraltar.at> <392fb48f0908190800j508456d6h9c520e82bc7f51e0@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ibm_newemac: emac_close() needs to call
+ netif_carrier_off()
+Date: Wed, 19 Aug 2009 14:11:36 -0700
+Message-ID: <20090819141136.74f5c266@s6510>
+References: <20090819210000.D56AB254211@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: Mike McCormack <mikem@ring3k.org>
+Cc: benh@kernel.crashing.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jupiter.gibraltar.at ([80.120.3.98]:50323 "EHLO
-	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbZHSVH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 17:07:29 -0400
-In-Reply-To: <392fb48f0908190800j508456d6h9c520e82bc7f51e0@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:60984 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751378AbZHSVLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Aug 2009 17:11:41 -0400
+In-Reply-To: <20090819210000.D56AB254211@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mike,
+On Wed, 19 Aug 2009 14:00:00 -0700 (PDT)
+Petri Gynther <pgynther@google.com> wrote:
 
-Am Mittwoch, 19. August 2009 17:00:31 schrieb Mike McCormack:
-> * try the latest sky2 code from net-next-2.6
-> * try adding an msleep(1) after sky2_rx_stop() in sky2_down()
-> * try adding a check for rx_ring and tx_ring being NULL in
-> sky2_status_intr(), and disable napi while freeing the buffers in
-> sky2_down()
->
-> I've got an untested, ad-hoc patch against net-next-2.6 for the last
-> two bits ...
+> When ibm_newemac netdev instance is shutdown with "ifconfig down",
+> the netdev interface does not go properly down. netif_carrier_ok()
+> keeps returning TRUE even after "ifconfig down".
+> 
+> The problem can be seen when ibm_newemac instances are slaves of
+> a bonding interface. The bonding interface code uses netif_carrier_ok()
+> to determine the link status of its slaves. When ibm_newemac slave is
+> shutdown with "ifconfig down", the bonding interface won't detect any
+> link status change because netif_carrier_ok() keeps returning TRUE.
 
-Pulling the latest sky2.c and sky2.h from net-next-2.6 and applying the patch 
-rids me of the oops - it is unreproducible right now. However, a networking 
-restart (i.e. all interfaces attached to sky2) leaves the devices in a state 
-where they no longer receive any network packets (at least nothing visible in 
-tcpdump). In this state, rmmod sky2 / modprobe sky2 gives:
+Bonding should be testing for netif_running() && netif_carrier_ok().
 
-[  718.502717] sky2 0000:01:00.0: unsupported chip type 0xff                    
-[  718.510517] sky2: probe of 0000:01:00.0 failed with error -95                
-[  718.517900] sky2 0000:02:00.0: unsupported chip type 0xff                    
-[  718.524408] sky2: probe of 0000:02:00.0 failed with error -95                
-[  718.531617] sky2 0000:03:00.0: unsupported chip type 0xff                    
-[  718.538104] sky2: probe of 0000:03:00.0 failed with error -95                
-[  718.545344] sky2 0000:04:00.0: unsupported chip type 0xff                    
-[  718.551818] sky2: probe of 0000:04:00.0 failed with error -95 
-
-I will now try the net-next-2.6 version without your patch again but was under 
-the impression that it still oopsed when I tried it initially. Better to 
-double-check before I give erroneous debugging results, though...
-
-best regards,
-Rene
-
--- 
--------------------------------------------------
-Gibraltar firewall       http://www.gibraltar.at/
+In many devices state of carrier is undefined when device is down.
