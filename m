@@ -1,49 +1,103 @@
-From: =?ISO-8859-15?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: bad nat connection tracking performance with ip_gre
-Date: Wed, 19 Aug 2009 11:40:09 +0300
-Message-ID: <4A8BBA69.4060500@iki.fi>
-References: <4A8A7F14.3010103@iki.fi> <4A8A84AF.7050901@trash.net> <4A8AA253.8090300@iki.fi> <4A8AA63D.4000702@trash.net> <4A8AB25A.4000105@iki.fi> <4A8AC1A0.6000602@trash.net> <4A8AE76D.7040707@iki.fi> <4A8B02D2.2090400@iki.fi>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
+Date: Wed, 19 Aug 2009 11:04:50 +0200
+Message-ID: <200908191104.50672.arnd@arndb.de>
+References: <cover.1250187913.git.mst@redhat.com> <200908141340.36176.arnd@arndb.de> <20090816065110.GA3008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:56434 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbZHSIkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 04:40:09 -0400
-In-Reply-To: <4A8B02D2.2090400@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org,
+ netdev@vger.kernel.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ Or Gerlitz <ogerlitz@voltaire.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090816065110.GA3008@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Timo Ter=E4s wrote:
-> Ok, finally figured out the difference. Looks like depending
-> on the sendto() / local route / forward route / my patched mrt
-> the skb that gets passed to ipgre_tunnel_xmit() seems to have
-> nfctinfo either 0 or 2. This value is not modified; nf_reset()
-> is called just before ip_local_out(). Looks like nf_reset()
-> clears nfct to NULL, but does not touch nfctinfo.
->=20
-> So when LOCAL_OUT hook for the GRE packet is hit, depending
-> where the packet came: it has nfct=3DNULL and nfctinfo=3DESTABLISHED
-> or NEW. This also seems to affect if that specific skb gets
-> the nat/OUTPUT hook called.
->=20
-> Is this behaviour for nf_reset() intentional?
+On Sunday 16 August 2009, Michael S. Tsirkin wrote:
+> On Fri, Aug 14, 2009 at 01:40:36PM +0200, Arnd Bergmann wrote:
+> > 
+> > * most of the transports are sockets, tap uses a character device.
+> >   This could be dealt with by having both a struct socket * in
+> >   struct vhost_net *and* a struct file *, or by always keeping the
+> >   struct file and calling vfs_readv/vfs_writev for the data transport
+> >   in both cases.
+> 
+> I am concerned that character devices might have weird side effects with
+> read/write operations and that calling them from kernel thread the way I
+> do might have security implications. Can't point at anything specific
+> though at the moment.
 
-Apparently it does not matter.
+I understand your feelings about passing a chardev fd into your driver
+and I agree that we need to be very careful if we want to allow it.
 
-The real problem seems to be bug that did not account for
-irq times properly. It was fixed by "sched: account system time
-properly" f5f293a4e3d0a0c52cec31de6762c95050156516 and that
-caused biased CPU usage measurements.
+Maybe we could instead extend the 'splice' system call to work on a
+vhost_net file descriptor. If we do that, we can put the access back
+into a user thread (or two) that stays in splice indefinetely to
+avoid some of the implications of kernel threads like the missing
+ability to handle transfer errors in user space.
 
-Testing with kernel having that, I'm getting the same CPU
-readings. And oprofile in timer mode didn't help noticing this.
+> I wonder - can we expose the underlying socket used by tap, or will that
+> create complex lifetime issues?
 
-Sorry for the noise.
+I think this could get more messy in the long run than calling vfs_readv
+on a random fd. It would mean deep internal knowledge of the tap driver
+in vhost_net, which I really would prefer to avoid.
 
-- Timo
+> > * Each transport has a slightly different header, we have
+> >   - raw ethernet frames (raw, udp multicast, tap)
+> >   - 32-bit length + raw frames, possibly fragmented (tcp)
+> >   - 80-bit header + raw frames, possibly fragmented (tap with vnet_hdr)
+> >   To handle these three cases, we need either different ioctl numbers
+> >   so that vhost_net can choose the right one, or a flags field in
+> >   VHOST_NET_SET_SOCKET, like
+> > 
+> >   #define VHOST_NET_RAW		1
+> >   #define VHOST_NET_LEN_HDR	2
+> >   #define VHOST_NET_VNET_HDR	4
+> > 
+> >   struct vhost_net_socket {
+> > 	unsigned int flags;
+> > 	int fd;
+> >   };
+> >   #define VHOST_NET_SET_SOCKET _IOW(VHOST_VIRTIO, 0x30, struct vhost_net_socket)
+> 
+> It seems we can query the socket to find out the type, 
 
+yes, I understand that you can do that, but I still think that decision
+should be left to user space. Adding a length header for TCP streams but
+not for UDP is something that we would normally want to do, but IMHO
+vhost_net should not need to know about this.
+
+> or use the features ioctl.
+
+Right, I had forgotten about that one. It's probably equivalent
+to the flags I suggested, except that one allows you to set features
+after starting the communication, while the other one prevents
+you from doing that.
+
+> > Qemu could then automatically try to use vhost_net, if it's available
+> > in the kernel, or just fall back on software vlan otherwise.
+> > Does that make sense?
+> 
+> I agree, long term it should be enabled automatically when possible.
+
+So how about making the qemu command line interface an extension to
+what Or Gerlitz has done for the raw packet sockets?
+
+	Arnd <><
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
