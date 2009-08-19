@@ -1,45 +1,56 @@
-From: Chunbo Luo <chunbo.luo@windriver.com>
-Subject: [PATCH 2/2] sctp: fix heartbeat count of path failure
-Date: Wed, 19 Aug 2009 15:01:08 +0800
-Message-ID: <1250665268-29770-2-git-send-email-chunbo.luo@windriver.com>
-References: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	chunbo.luo@windriver.com
-To: davem@davemloft.net
+From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Wed, 19 Aug 2009 09:01:57 +0200
+Message-ID: <200908190902.02854.rene.mayrhofer@gibraltar.at>
+References: <4A65EC3F.4050400@gibraltar.at> <4A7FF66A.1090506@mayrhofer.eu.org> <4A8131DD.7010700@mayrhofer.eu.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart3104447.ZcRWYgRCqi";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36897 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbZHSHBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 03:01:13 -0400
-In-Reply-To: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
+Received: from jupiter1.gibraltar.at ([80.120.3.98]:53835 "EHLO
+	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751408AbZHSHCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 03:02:12 -0400
+In-Reply-To: <4A8131DD.7010700@mayrhofer.eu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC4960 Section 8.2 defined that the transport should enter INACTIVE
-state only when the value in the error counter exceeds the protocol 
-parameter 'Path.Max.Retrans' of that destination address. This means 
-that the transport should enter INACTIVE state after pathmaxrxt+1
-heartbeats are not acknowledged.
+--nextPart3104447.ZcRWYgRCqi
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
+Hi everybody,
 
-Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
----
- net/sctp/sm_sideeffect.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Tuesday 11 August 2009 10:54:53 am Rene Mayrhofer wrote:
+> Thus, there really seems to be an uncaught case in sky2.c. When
+> sky2_phy_power_down is not called, chip should not go down, right? But
+> still sky2_poll seems to be called (maybe by an interrupt belonging to
+> another network interface but the same chip)?
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 86426aa..0e2e269 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
- 		asoc->overall_error_count++;
- 
- 	if (transport->state != SCTP_INACTIVE &&
--	    (transport->error_count++ >= transport->pathmaxrxt)) {
-+	    (transport->error_count++ > transport->pathmaxrxt)) {
- 		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
- 					 " transport IP: port:%d failed.\n",
- 					 asoc,
--- 
-1.6.4
+Is there anything else I could try? We still have this issue, making one ra=
+nge=20
+of hardware appliances unusable with 2.6 kernels...
 
+best regards,
+Rene
+
+--nextPart3104447.ZcRWYgRCqi
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEABECAAYFAkqLo2YACgkQq7SPDcPCS95sJgCfacvz8ZIaU2qY3XadjmVX4cm2
+9qgAn2aPwOp/hKaR68phtYBKqRbSRo0O
+=AQAq
+-----END PGP SIGNATURE-----
+
+--nextPart3104447.ZcRWYgRCqi--
