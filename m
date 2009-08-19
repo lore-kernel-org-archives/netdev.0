@@ -1,48 +1,31 @@
-From: Johannes Stezenbach <js@sig21.net>
-Subject: 100Mbit ethernet performance on embedded devices
-Date: Wed, 19 Aug 2009 16:50:57 +0200
-Message-ID: <20090819145057.GA25400@sig21.net>
+From: Sumedha Gupta <2sumedha@gmail.com>
+Subject: (unknown)
+Date: Wed, 19 Aug 2009 10:59:56 -0400
+Message-ID: <869c36e20908190759p604d9a92pcd96e198a787eeec@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-embedded@vger.kernel.org
-Return-path: <linux-embedded-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-embedded-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f172.google.com ([209.85.212.172]:59528 "EHLO
+	mail-vw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048AbZHSO74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 10:59:56 -0400
+Received: by vws2 with SMTP id 2so3772651vws.4
+        for <netdev@vger.kernel.org>; Wed, 19 Aug 2009 07:59:57 -0700 (PDT)
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-a while ago I was working on a SoC with 200MHz ARM926EJ-S CPU
-and integrated 100Mbit ethernet core, connected on internal
-(fast) memory bus, with DMA.  With iperf I measured:
-
-  TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
-  TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
-
-The CPU load during the iperf test is around
-1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
-
-The kernel used in these measurements does not have iptables
-support, I think packet filtering will slow it down noticably,
-but I didn't actually try.  The ethernet driver uses NAPI,
-but it doesn't seem to be a win judging from the irq/sec number.
-The kernel was an ancient 2.6.20.
-
-I tried hard, but I couldn't find any performance figures for
-comparison.  (All performance figures I found refer to 1Gbit
-or 10Gbit server type systems.)
-
-What I'm interested in are some numbers for similar hardware,
-to find out if my hardware and/or ethernet driver can be improved,
-or if the CPU will always be the limiting factor.
-I'd also be interested to know if hardware checksumming
-support would improve throughput noticably in such a system,
-or if it is only useful for 1Gbit and above.
-
-Did anyone actually manage to get close to 100Mbit/sec
-with similar CPU resources?
-
-
-TIA,
-Johannes
+I have set up NIC bonding on a computer. NIC has four ports each with
+a capacity of 1 Gbps. After configuring the switch, I am able to get
+approximately 3.5 Gbps with round-robin, TLB and ALB and 3Gbps with
+XOR. However when I remove bonding and give each port (eth0, eth1,
+eth2, eth3) a different IP address and mac address and send data from
+4 different client machines to different ports e.g first machine --->
+eth0, second machine --->eth1, third machine ---->eth2 and fourth
+machine---->eth3. With this configuration, how much bandwith should I
+get? I think I should get 4 Gbps because I am using 4 different IP
+address they should respond individually. However I am getting 1Gbps
+total. Please correct if I am wrong and if I should get 4 Gbps then I
+do I need to change something in configuration?
