@@ -1,82 +1,65 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] WAN: bit and/or confusion
-Date: Thu, 20 Aug 2009 16:25:13 +0200
-Message-ID: <m3eir6k1fa.fsf@intrepid.localdomain>
-References: <4A855DE2.2000907@gmail.com>
-	<20090814163644.0cc8974f.akpm@linux-foundation.org>
-	<20090814.164123.36875657.davem@davemloft.net>
-	<20090814165852.7338461e.akpm@linux-foundation.org>
-	<4A86BAF3.5060609@gmail.com> <m3iqgovrsv.fsf@intrepid.localdomain>
-	<4A8D57F8.1050106@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv3 2/2] vhost_net: a kernel-level virtio server
+Date: Thu, 20 Aug 2009 16:31:36 +0200
+Message-ID: <200908201631.37285.arnd@arndb.de>
+References: <cover.1250187913.git.mst@redhat.com> <200908201510.54482.arnd@arndb.de> <20090820133817.GA7834@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org
-To: Roel Kluin <roel.kluin@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+	gregory.haskins@gmail.com, Or Gerlitz <ogerlitz@voltaire.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:39229 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754249AbZHTOZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2009 10:25:14 -0400
-In-Reply-To: <4A8D57F8.1050106@gmail.com> (Roel Kluin's message of "Thu\, 20 Aug 2009 16\:04\:40 +0200")
+Received: from moutng.kundenserver.de ([212.227.17.8]:53502 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754272AbZHTObr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 10:31:47 -0400
+In-Reply-To: <20090820133817.GA7834@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roel Kluin <roel.kluin@gmail.com> writes:
-
->> Perhaps something like the following should be better?
->> 
->> 		u8 status = ~skb->data[pkt_len];
->> 
->> 		if (status == 0)
->> 			looks_good...;
->> 		else {
->> 			if (status & FrameRab)
->> 				...
->> 			if (status & FrameVfr)
->> 				...
->> 			etc.
->> 			rx_errors++;
->> 		}
+On Thursday 20 August 2009, Michael S. Tsirkin wrote:
+> On Thu, Aug 20, 2009 at 03:10:54PM +0200, Arnd Bergmann wrote:
+> > On Thursday 20 August 2009, Michael S. Tsirkin wrote:
 >
-> I don't understand your suggestion - why status == 0? doesn't the patch
-> below do what you want instead?
+> It doesn't matter that I don't want this: allowing 1 process corrupt
+> another's memory is a security issue.  Once you get an fd, you want to
+> be able to use it without worrying that a bug in another process will
+> crash yours.
 
-Because I think (didn't read the manual) that these (inverted) bits
-represent specific errors. So I suggested inverting them, then treating
-as separate error bits, it should be easier to read.
+Ok, got it. Yes, that would be inacceptable.
 
-That's only a suggestion of course (unless someone sends me the/a card -
-non-returnable "donations" only please - and I can work on it
-personally).
+> > > If you assume losing the code for the second error condition is OK, why
+> > > is the first one so important?  That's why I used a counter (eventfd)
+> > > per virtqueue, on error userspace can scan the ring and poll the socket
+> > > and discover what's wrong, and counter ensures we can detect that error
+> > > happened while we were not looking.
+> > 
+> > I guess we were talking about different kinds of errors here, and I'm
+> > still not sure which one you are talking about.
+> > 
+> Non fatal errors. E.g. translation errors probably should be
+> non-fatal. I can also imagine working around guest bugs in
+> userspace.
 
-IOW all (inverted) bits = 1 => all bits zero after inversion => no
-errors. This changes functionality a bit, and would need to be checked.
-Otherwise, you could test: if ((status & FrameOk) == 0) then looks_good().
+Ah, so I guess the confusion was that I was worried about
+errors coming from the socket file descriptor, while you
+were thinking of errors from the guest side, which I did not
+expect to happen.
 
-> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-> index 8face5d..88534b6 100644
-> --- a/drivers/net/wan/dscc4.c
-> +++ b/drivers/net/wan/dscc4.c
-> @@ -663,12 +663,12 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
->  	} else {
->  		if (skb->data[pkt_len] & FrameRdo)
->  			dev->stats.rx_fifo_errors++;
-> -		else if (!(skb->data[pkt_len] | ~FrameCrc))
-> +		else if (!(skb->data[pkt_len] & FrameCrc))
->  			dev->stats.rx_crc_errors++;
-> -		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
-> +		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) !=
-> +				FrameVfr | FrameRab)
->  			dev->stats.rx_length_errors++;
-> -		else
-> -			dev->stats.rx_errors++;
-> +		dev->stats.rx_errors++;
->  		dev_kfree_skb_irq(skb);
->  	}
->  refill:
+The errors from the socket (or chardev, as that was the
+start of the argument) should still fit into the categories
+that I mentioned, either they can be handled by the host
+kernel, or they are fatal.
 
-Guess it would do.
--- 
-Krzysztof Halasa
+I'll read up in your code to see how you handle asynchronous
+non-fatal errors from the guest. Intuitively, I'd still
+assume that returning the first error should be enough
+because it will typically mean that you cannot continue
+without fixing it up first, and you might get the next
+error immediately after that.
+
+	Arnd <><
