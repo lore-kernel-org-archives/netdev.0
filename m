@@ -1,54 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Strange network timeouts w/ 2.6.30.5
-Date: Thu, 20 Aug 2009 12:28:50 -0700 (PDT)
-Message-ID: <20090820.122850.37712606.davem@davemloft.net>
-References: <985009134.71250769263099.JavaMail.root@mail.holmansrus.com>
-	<m3skfmk39q.fsf@intrepid.localdomain>
+From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Subject: Re: Kernel oops on setting sky2 interfaces down
+Date: Thu, 20 Aug 2009 21:42:30 +0200
+Message-ID: <200908202142.30264.rene.mayrhofer@gibraltar.at>
+References: <4A65EC3F.4050400@gibraltar.at> <200908192307.22112.rene.mayrhofer@gibraltar.at> <392fb48f0908191505v47f99d1cvef18d40bcf4c08d1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: walt@holmansrus.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: khc@pm.waw.pl
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Richard Leitner <leitner@esys.at>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36352
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755253AbZHTT2i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2009 15:28:38 -0400
-In-Reply-To: <m3skfmk39q.fsf@intrepid.localdomain>
+Received: from jupiter1.gibraltar.at ([80.120.3.98]:38076 "EHLO
+	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751984AbZHTTmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 15:42:37 -0400
+In-Reply-To: <392fb48f0908191505v47f99d1cvef18d40bcf4c08d1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Thu, 20 Aug 2009 15:45:21 +0200
+Am Donnerstag, 20. August 2009 00:05:03 schrieb Mike McCormack:
+> 2009/8/20 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
+> > Pulling the latest sky2.c and sky2.h from net-next-2.6 and applying the
+> > patch rids me of the oops - it is unreproducible right now. However, a
+> > networking restart (i.e. all interfaces attached to sky2) leaves the
+> > devices in a state where they no longer receive any network packets (at
+> > least nothing visible in tcpdump). In this state, rmmod sky2 / modprobe
+> > sky2 gives:
+>
+> After you've got it into that state, does "rmmod sky2; modprobe sky2"
+> change anything?
 
-> Something like maybe:
->=20
-> Signed-off-by: Krzysztof Ha=B3asa <khc@pm.waw.pl>
->=20
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 014dfb6..b610088 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1762,9 +1762,12 @@ static int e100_rx_indicate(struct nic *nic, s=
-truct rx *rx,
-> =20
->  			if (ioread8(&nic->csr->scb.status) & rus_no_res)
->  				nic->ru_running =3D RU_SUSPENDED;
-> +#ifndef CONFIG_X86
-> +		/* FIXME interferes with swiotlb. */
->  		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
->  					       sizeof(struct rfd),
->  					       PCI_DMA_BIDIRECTIONAL);
-> +#endif
->  		return -ENODATA;
->  	}
-> =20
+Nope, tried that multiple times...
 
-I'm not willing to apply something like this.
+Rene
 
-swiotlb emulates what hardware does, so if it can go wrong with
-swiotlb it can go wrong with hardware to.
-
-=46igure out what the exact bug is.
+-- 
+-------------------------------------------------
+Gibraltar firewall       http://www.gibraltar.at/
