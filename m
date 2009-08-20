@@ -1,50 +1,36 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] ibm_newemac: emac_close() needs to call
  netif_carrier_off()
-Date: Thu, 20 Aug 2009 02:20:58 -0700 (PDT)
-Message-ID: <20090820.022058.160961745.davem@davemloft.net>
-References: <fc21faff0908191440p5db84f79h8bb8a73501facae1@mail.gmail.com>
-	<fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
-	<1250748142.10937.4.camel@pasglop>
+Date: Thu, 20 Aug 2009 02:21:38 -0700 (PDT)
+Message-ID: <20090820.022138.221328122.davem@davemloft.net>
+References: <20090819210000.D56AB254211@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pgynther@google.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: benh@kernel.crashing.org
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41484
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41489
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753383AbZHTJUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:20:46 -0400
-In-Reply-To: <1250748142.10937.4.camel@pasglop>
+	by vger.kernel.org with ESMTP id S1753419AbZHTJV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:21:26 -0400
+In-Reply-To: <20090819210000.D56AB254211@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Thu, 20 Aug 2009 16:02:22 +1000
+From: Petri Gynther <pgynther@google.com>
+Date: Wed, 19 Aug 2009 14:00:00 -0700 (PDT)
 
-> On Wed, 2009-08-19 at 15:32 -0700, Petri Gynther wrote:
->> Stephen,
->> 
->> I think your suggestion of adding netif_running() check to
->> bond_check_dev_link() is valid and a good fix to the bonding driver.
->> We can do this in a separate patch.
->> 
->> However, I think that the change to ibm_newemac: emac_close() is
->> needed as well. ibm_newemac netdevs should not return
->> netif_carrier_ok() == TRUE when they have been shut down.
+> When ibm_newemac netdev instance is shutdown with "ifconfig down",
+> the netdev interface does not go properly down. netif_carrier_ok()
+> keeps returning TRUE even after "ifconfig down".
 > 
-> Well, we definitely don't do that in sungem either, since we continue
-> the link polling while the interface is down... IE. interface up/down is
-> the data path and is orthogonal to the PHY polling in sungem. I suppose
-> we -could- stop the polling while the interface is down, though I think
-> my initial implementation did only poll the link while the interface was
-> up and that was causing endless problems with various laptop-net style
-> tools (however that was years and years ago).
+> The problem can be seen when ibm_newemac instances are slaves of
+> a bonding interface. The bonding interface code uses netif_carrier_ok()
+> to determine the link status of its slaves. When ibm_newemac slave is
+> shutdown with "ifconfig down", the bonding interface won't detect any
+> link status change because netif_carrier_ok() keeps returning TRUE.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-It just shows how few people use sungem with bonding :-)
-
-Short term I'm going to add the ibm_newemac change.
-
-Longer term we should probably add the netif_running() check to
-bond_check_dev_link().
+Applied, thanks.
