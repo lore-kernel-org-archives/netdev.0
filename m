@@ -1,74 +1,56 @@
-From: "Torgny Johansson" <torgny.johansson@ericsson.com>
-Subject: [PATCH -next] cdc_ether: additional PID's to the whitelist
-Date: Thu, 20 Aug 2009 11:16:13 +0200
-Message-ID: <E86B0C24322D8648AC7F41E7CDA658E903DDD2B5@esealmw114.eemea.ericsson.se>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH] [V2] net: add Xilinx emac lite device driver
+Date: Thu, 20 Aug 2009 03:32:32 -0600
+Message-ID: <20090820093235.6009BD7804E@mail8-dub.bigfish.com>
+References: <20090819122920.37EE21728051@mail110-dub.bigfish.com><20090820.022536.264747725.davem@davemloft.net><4A8D1750.4000804@petalogix.com> <20090820.023047.86718643.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <david-b@pacbell.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<jgarzik@pobox.com>, <grant.likely@secretlab.ca>,
+	<jwboyer@linux.vnet.ibm.com>, <john.williams@petalogix.com>,
+	"Sadanand Mutyala" <sadanan@xilinx.com>
+To: "David Miller" <davem@davemloft.net>, <michal.simek@petalogix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw3.ericsson.se ([193.180.251.60]:65204 "EHLO
-	mailgw3.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016AbZHTJcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:32:22 -0400
-Content-class: urn:content-classes:message
+Received: from outbound-dub.frontbridge.com ([213.199.154.16]:62780 "EHLO
+	IE1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225AbZHTJcf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:32:35 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <20090820.023047.86718643.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBwYXRjaCBhZGRzIHNldmVuIFBJRCdzIHRvIHRoZSB3aGl0ZWxpc3Qgc2V0IG9mIGRldmlj
-ZXMuDQoNCkRldmljZXMgYWRkZWQgdG8gdGhlIHdoaXRlbGlzdDoNCg0KRXJpY3Nzb24gTW9iaWxl
-IEJyb2FkYmFuZCBNb2R1bGUgdmFyaWFudHMgKEYzNjA3Z3cgYW5kIEYzMzA3KQ0KRGVsbCBGMzYw
-N2d3IHZhcmlhbnRzDQpUb3NoaWJhIEYzNjA3Z3cgdmFyaWFudHMNCg0KU2lnbmVkLW9mZi1ieTog
-VG9yZ255IEpvaGFuc3NvbiA8dG9yZ255LmpvaGFuc3NvbkBlcmljc3Nvbi5jb20+DQoNCmRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC91c2IvS2NvbmZpZyBiL2RyaXZlcnMvbmV0L3VzYi9LY29uZmln
-DQppbmRleCBjNDcyMzdjLi4zMmQ5MzU2IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvdXNiL0tj
-b25maWcNCisrKyBiL2RyaXZlcnMvbmV0L3VzYi9LY29uZmlnDQpAQCAtMTc0LDcgKzE3NCw3IEBA
-IGNvbmZpZyBVU0JfTkVUX0NEQ0VUSEVSDQogCSAgICAqIEVyaWNzc29uIE1vYmlsZSBCcm9hZGJh
-bmQgTW9kdWxlIChhbGwgdmFyaWFudHMpDQogIAkgICAgKiBNb3Rvcm9sYSAoRE0xMDAgYW5kIFNC
-NDEwMCkNCiAgCSAgICAqIEJyb2FkY29tIENhYmxlIE1vZGVtIChyZWZlcmVuY2UgZGVzaWduKQ0K
-LQkgICAgKiBUb3NoaWJhIChQQ1gxMTAwVSBhbmQgRjM1MDdnKQ0KKwkgICAgKiBUb3NoaWJhIChQ
-Q1gxMTAwVSBhbmQgRjM1MDdnL0YzNjA3Z3cpDQogCSAgICAqIC4uLg0KIA0KIAkgIFRoaXMgZHJp
-dmVyIGNyZWF0ZXMgYW4gaW50ZXJmYWNlIG5hbWVkICJldGhYIiwgd2hlcmUgWCBkZXBlbmRzIG9u
-DQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jIGIvZHJpdmVycy9uZXQv
-dXNiL2NkY19ldGhlci5jDQppbmRleCA0YTZhZmY1Li41ZDk5MTA2IDEwMDY0NA0KLS0tIGEvZHJp
-dmVycy9uZXQvdXNiL2NkY19ldGhlci5jDQorKysgYi9kcml2ZXJzL25ldC91c2IvY2RjX2V0aGVy
-LmMNCkBAIC01NDQsMjAgKzU0NCw1NSBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHVzYl9kZXZpY2Vf
-aWQJcHJvZHVjdHMgW10gPSB7DQogCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BS
-T1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0K
-IH0sIHsNCi0JLyogRXJpY3Nzb24gRjMzMDcgKi8NCisJLyogRXJpY3Nzb24gRjM2MDdndyB2ZXIg
-MiAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5GTygweDBiZGIsIDB4MTkwNSwgVVNC
-X0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05P
-TkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KK30sIHsN
-CisJLyogRXJpY3Nzb24gRjM2MDdndyB2ZXIgMyAqLw0KIAlVU0JfREVWSUNFX0FORF9JTlRFUkZB
-Q0VfSU5GTygweDBiZGIsIDB4MTkwNiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NEQ19TVUJD
-TEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAodW5zaWdu
-ZWQgbG9uZykgJmNkY19pbmZvLA0KIH0sIHsNCisJLyogRXJpY3Nzb24gRjMzMDcgKi8NCisJVVNC
-X0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHgwYmRiLCAweDE5MGEsIFVTQl9DTEFTU19DT01N
-LA0KKwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRy
-aXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQorCS8qIEVyaWNz
-c29uIEYzMzA3IHZlciAyICovDQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MGJk
-YiwgMHgxOTA5LCBVU0JfQ0xBU1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVT
-Ql9DRENfUFJPVE9fTk9ORSksDQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2Rj
-X2luZm8sDQorfSwgew0KIAkvKiBUb3NoaWJhIEYzNTA3ZyAqLw0KIAlVU0JfREVWSUNFX0FORF9J
-TlRFUkZBQ0VfSU5GTygweDA5MzAsIDB4MTMwYiwgVVNCX0NMQVNTX0NPTU0sDQogCQkJVVNCX0NE
-Q19TVUJDTEFTU19NRExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KIAkuZHJpdmVyX2luZm8gPSAo
-dW5zaWduZWQgbG9uZykgJmNkY19pbmZvLA0KIH0sIHsNCisJLyogVG9zaGliYSBGMzYwN2d3ICov
-DQorCVVTQl9ERVZJQ0VfQU5EX0lOVEVSRkFDRV9JTkZPKDB4MDkzMCwgMHgxMzBjLCBVU0JfQ0xB
-U1NfQ09NTSwNCisJCQlVU0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSks
-DQorCS5kcml2ZXJfaW5mbyA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkv
-KiBUb3NoaWJhIEYzNjA3Z3cgdmVyIDIgKi8NCisJVVNCX0RFVklDRV9BTkRfSU5URVJGQUNFX0lO
-Rk8oMHgwOTMwLCAweDEzMTEsIFVTQl9DTEFTU19DT01NLA0KKwkJCVVTQl9DRENfU1VCQ0xBU1Nf
-TURMTSwgVVNCX0NEQ19QUk9UT19OT05FKSwNCisJLmRyaXZlcl9pbmZvID0gKHVuc2lnbmVkIGxv
-bmcpICZjZGNfaW5mbywNCit9LCB7DQogCS8qIERlbGwgRjM1MDdnICovDQogCVVTQl9ERVZJQ0Vf
-QU5EX0lOVEVSRkFDRV9JTkZPKDB4NDEzYywgMHg4MTQ3LCBVU0JfQ0xBU1NfQ09NTSwNCiAJCQlV
-U0JfQ0RDX1NVQkNMQVNTX01ETE0sIFVTQl9DRENfUFJPVE9fTk9ORSksDQogCS5kcml2ZXJfaW5m
-byA9ICh1bnNpZ25lZCBsb25nKSAmY2RjX2luZm8sDQorfSwgew0KKwkvKiBEZWxsIEYzNjA3Z3cg
-Ki8NCisJVVNCX0RFVklDRV9BTkRfSU5URVJGQUNFX0lORk8oMHg0MTNjLCAweDgxODMsIFVTQl9D
-TEFTU19DT01NLA0KKwkJCVVTQl9DRENfU1VCQ0xBU1NfTURMTSwgVVNCX0NEQ19QUk9UT19OT05F
-KSwNCisJLmRyaXZlcl9pbmZvID0gKHVuc2lnbmVkIGxvbmcpICZjZGNfaW5mbywNCit9LCB7DQor
-CS8qIERlbGwgRjM2MDdndyB2ZXIgMiAqLw0KKwlVU0JfREVWSUNFX0FORF9JTlRFUkZBQ0VfSU5G
-TygweDQxM2MsIDB4ODE4NCwgVVNCX0NMQVNTX0NPTU0sDQorCQkJVVNCX0NEQ19TVUJDTEFTU19N
-RExNLCBVU0JfQ0RDX1BST1RPX05PTkUpLA0KKwkuZHJpdmVyX2luZm8gPSAodW5zaWduZWQgbG9u
-ZykgJmNkY19pbmZvLA0KIH0sDQogCXsgfSwJCS8vIEVORA0KIH07DQoNCg0K
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, August 20, 2009 10:31 AM
+> To: michal.simek@petalogix.com
+> Cc: John Linn; netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
+jgarzik@pobox.com;
+> grant.likely@secretlab.ca; jwboyer@linux.vnet.ibm.com;
+john.williams@petalogix.com; Sadanand Mutyala
+> Subject: Re: [PATCH] [V2] net: add Xilinx emac lite device driver
+> 
+> From: Michal Simek <michal.simek@petalogix.com>
+> Date: Thu, 20 Aug 2009 11:28:48 +0200
+> 
+> > There were one bug with spinlock which John L fixed but not send to
+> > mainling list. :-(
+> > He wanted to create new v3 version. :-(.
+> > When he wake up, he send you that bug fix or v3 version with it.
+> 
+> Send a new version, I'll revert V2 from my tree as I didn't push it
+> out yet.
+
+I'll send a V3 version very soon, thanks. 
+
+Sorry for the hassle as I thought there would be more comments and I'd
+incorporate the bug fix into those.
+
+Appreciate your help.
+
+-- John
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+
+
