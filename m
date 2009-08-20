@@ -1,45 +1,85 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [Alacrityvm-devel] [PATCH v3 3/6] vbus: add a "vbus-proxy" bus
- 	model for vbus_driver objects
-Date: Thu, 20 Aug 2009 13:08:59 +0300
-Message-ID: <4A8D20BB.7020008@redhat.com>
-References: <20090818172752.GC17631@ovro.caltech.edu>	 <20090818205919.GA1168@ovro.caltech.edu> <4A8B1C7F.4060008@redhat.com>	 <20090819003812.GA11168@ovro.caltech.edu>	 <4A8B9051.3020505@redhat.com>	 <20090819152811.GA22294@ovro.caltech.edu>	 <4A8C1C22.3010101@redhat.com>	 <20090819162902.GB22294@ovro.caltech.edu>	 <4A8C2A87.5060305@redhat.com>	 <1250715920.4237.26.camel@slab.beaverton.ibm.com> <fbd9d3990908200257ge4e13ceh32f28601bc0f762f@mail.gmail.com>
+From: DDD <Dongdong.deng@windriver.com>
+Subject: Re: [PATCH] netpoll: WARN_ONCE for start_xmit returns with
+	interrupts enabled
+Date: Thu, 20 Aug 2009 18:44:00 +0800
+Message-ID: <1250765040.17891.91.camel@dengdd-desktop>
+References: <1250678607.17891.26.camel@dengdd-desktop>
+	 <1250678596.3937.182.camel@calx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Hollis Blanchard <hollisb@us.ibm.com>,
-	"Ira W. Snyder" <iws@ovro.caltech.edu>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Gregory Haskins <gregory.haskins@gmail.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	alacrityvm-devel@lists.sourceforge.net,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ingo Molnar <mingo@elte.hu>,
-	Gregory Haskins <ghaskins@novell.com>
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753871AbZHTKJd@vger.kernel.org>
-In-Reply-To: <fbd9d3990908200257ge4e13ceh32f28601bc0f762f@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:53561 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753191AbZHTKbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 06:31:51 -0400
+In-Reply-To: <1250678596.3937.182.camel@calx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/20/2009 12:57 PM, Stefan Hajnoczi wrote:
-> Cross-platform virtio works when endianness is known in advance.  For
-> a hypervisor and a guest:
-> 1. virtio-pci I/O registers use PCI endianness
-> 2. vring uses guest endianness (hypervisor must byteswap)
-> 3. guest memory buffers use guest endianness (hypervisor must byteswap)
->
-> I know of no existing way when endianness is not known in advance.
-> Perhaps a transport bit could be added to mark the endianness of the
-> guest/driver side.  This can be negotiated because virtio-pci has a
-> known endianness.  After negotiation, the host knows whether or not
-> byteswapping is necessary for structures in guest memory.
->
->    
+On Wed, 2009-08-19 at 05:43 -0500, Matt Mackall wrote: 
+> On Wed, 2009-08-19 at 18:43 +0800, DDD wrote:
+> > The NETPOLL API requires that interrupts remain disabled in
+> > netpoll_send_skb().
+> > 
+> > Add a WARN_ONCE when ndo_start_xmit returns with interrupts enabled
+> > in netpoll_send_skb().
+> > 
+> > Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
+> > ---
+> >  net/core/netpoll.c |    6 ++++++
+> >  1 files changed, 6 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> > index df30feb..d38103f 100644
+> > --- a/net/core/netpoll.c
+> > +++ b/net/core/netpoll.c
+> > @@ -319,6 +319,12 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+> >  
+> >  			udelay(USEC_PER_POLL);
+> >  		}
+> > +
+> > +		WARN_ONCE(!irqs_disabled(),
+> > +			KERN_WARNING "netpoll_send_skb(): [net driver %s]"
+> > +			"ndo_start_xmit() shouldn't return with interrupts"
+> > +			"enabled!", dev->name);
+> 
+> Hmm, perhaps:
+> 
+> "netpoll_send_skb(): %s enabled interrupts in poll (%pF)\n",
+> dev->name, ops->ndo_start_xmit
+> 
+> That'll give us a real function name and maybe even a module name.
 
-Some processors are capable of switching their gender at runtime, so you 
-cannot tell the guest endianness in advance.
+Thanks, I will modify it as your suggestions.
 
--- 
-error compiling committee.c: too many arguments to function
+When I test the WRAN_ONCE, I find that some net drivers still have this problem,
+such as using local_irq_disable/local_irq_enable in ndo_start_xmit() or other cases.
+
+
+I will do an new patch and hope it could fix this problem completely in all the net drivers that support NETPOLL.
+
+
+I check the drivers that support NETPOLL one by one again(almost 100 drivers),
+and following drivers's fix will be included by my patch:
+
+1: ixp2000/ixpdev.c : 66 local_irq_disable
+
+2: fec_mpc52xx.c : 319 spin_unlock_irq
+
+3: macb.c:602 : 638 spin_unlock_irq
+
+4: mlx4/en_netdev.c : 448 
+mlx4_en_xmit() -> mlx4_en_xmit_poll() -> spin_trylock_irq
+
+5: smc91x.c 
+It seems that there is a lots work to let smc91x work well with netpoll.
+
+
+Thanks,
+Dongdong
+
+> 
