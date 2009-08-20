@@ -1,88 +1,80 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Subject: Re: [PATCH] WAN: bit and/or confusion
-Date: Thu, 20 Aug 2009 16:04:40 +0200
-Message-ID: <4A8D57F8.1050106@gmail.com>
-References: <4A855DE2.2000907@gmail.com>	<20090814163644.0cc8974f.akpm@linux-foundation.org>	<20090814.164123.36875657.davem@davemloft.net>	<20090814165852.7338461e.akpm@linux-foundation.org>	<4A86BAF3.5060609@gmail.com> <m3iqgovrsv.fsf@intrepid.localdomain>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 2/2] sctp: fix heartbeat count of path failure
+Date: Thu, 20 Aug 2009 10:10:17 -0400
+Message-ID: <4A8D5949.7000105@hp.com>
+References: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>	 <1250665268-29770-2-git-send-email-chunbo.luo@windriver.com>	 <4A8C10BB.2040804@hp.com> <1250732164.6436.9.camel@pek-cluo-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Luo Chunbo <chunbo.luo@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:51891 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754244AbZHTOAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 10:00:03 -0400
-Received: by ewy3 with SMTP id 3so2899812ewy.18
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 07:00:03 -0700 (PDT)
-In-Reply-To: <m3iqgovrsv.fsf@intrepid.localdomain>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:14427 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754338AbZHTOKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 10:10:17 -0400
+In-Reply-To: <1250732164.6436.9.camel@pek-cluo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the tests that check whether Frame* bits are not set
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-
->> -		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
->> +		else if (!(skb->data[pkt_len] & (FrameVfr | FrameRab)))
->>  			dev->stats.rx_length_errors++;
+Luo Chunbo wrote:
+> On Wed, 2009-08-19 at 10:48 -0400, Vlad Yasevich wrote:
+>> Chunbo Luo wrote:
+>>> RFC4960 Section 8.2 defined that the transport should enter INACTIVE
+>>> state only when the value in the error counter exceeds the protocol 
+>>> parameter 'Path.Max.Retrans' of that destination address. This means 
+>>> that the transport should enter INACTIVE state after pathmaxrxt+1
+>>> heartbeats are not acknowledged.
+>>>
+>>>
+>>> Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+>> NAK.  This patch seems to resurface periodically and I have to keep
+>> explaining that it's wrong.
+>>
+>> Every time we send a HB, we tick up the error count and clear it when
+>> the HB-ACK is received.  Each HB is separate and not a retransmission,
+>> so we once we reach the pathmaxrxt, we've already sent max+1 HB, so we
+>> have time out.  Walk through the code with some values and you'll see
+>> what I mean.
 > 
-> This test requires both FrameVfr and FrameRab to be true (zero). Perhaps
-> it should be:
-> 
->> +		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) != FrameVfr | FrameRab)
+> Although we've already sent max+1 HB, but the code set the transport to
+> INACTIVE state immediately, which is equal to not sending the max+1 HB
+> at all.  We should wait for a next period and make sure the max+1 HB was
+> not acknowledged.
 
-Ok, Francois Romieu, could you test this?
+Ok, I just re-read the section, and although we don't quite wait long
+enough to mark the transport DOWN, this patch will cause us to send an
+extra HB chunk, thus exceeding pathmaxrxt by 2.
 
->>  		else
->>  			dev->stats.rx_errors++;
-> 
-> rx_errors is incremented only on remaining errors. I think most drivers
-> increment rx_errors on all RX errors, and simultaneously rx_*_errors
-> when needed.
-> 
-> 
-> Perhaps something like the following should be better?
-> 
-> 		u8 status = ~skb->data[pkt_len];
-> 
-> 		if (status == 0)
-> 			looks_good...;
-> 		else {
-> 			if (status & FrameRab)
-> 				...
-> 			if (status & FrameVfr)
-> 				...
-> 			etc.
-> 			rx_errors++;
-> 		}
+What the spec really says is that an error is incremented when an
+outstanding HB is not acknowledged.
 
-I don't understand your suggestion - why status == 0? doesn't the patch
-below do what you want instead?
+So this code needs a bit of a rework.  This patch is still NAKed.
 
-Roel
+-vlad
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 8face5d..88534b6 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -663,12 +663,12 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
- 	} else {
- 		if (skb->data[pkt_len] & FrameRdo)
- 			dev->stats.rx_fifo_errors++;
--		else if (!(skb->data[pkt_len] | ~FrameCrc))
-+		else if (!(skb->data[pkt_len] & FrameCrc))
- 			dev->stats.rx_crc_errors++;
--		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
-+		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) !=
-+				FrameVfr | FrameRab)
- 			dev->stats.rx_length_errors++;
--		else
--			dev->stats.rx_errors++;
-+		dev->stats.rx_errors++;
- 		dev_kfree_skb_irq(skb);
- 	}
- refill:
+> 
+> Chunbo 
+> 
+>> -vlad
+>>
+>>> ---
+>>>  net/sctp/sm_sideeffect.c |    2 +-
+>>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>>> index 86426aa..0e2e269 100644
+>>> --- a/net/sctp/sm_sideeffect.c
+>>> +++ b/net/sctp/sm_sideeffect.c
+>>> @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+>>>  		asoc->overall_error_count++;
+>>>  
+>>>  	if (transport->state != SCTP_INACTIVE &&
+>>> -	    (transport->error_count++ >= transport->pathmaxrxt)) {
+>>> +	    (transport->error_count++ > transport->pathmaxrxt)) {
+>>>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+>>>  					 " transport IP: port:%d failed.\n",
+>>>  					 asoc,
+> 
+
