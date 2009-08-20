@@ -1,62 +1,77 @@
-From: Bryan Kadzban <bryan@kadzban.is-a-geek.net>
-Subject: Re: PATCH: Network Device Naming mechanism and policy
-Date: Wed, 19 Aug 2009 21:41:14 -0700
-Message-ID: <4A8CD3EA.5080005@kadzban.is-a-geek.net>
-References: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD92D@ausx3mpc102.aus.amer.dell.com> <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD964@ausx3mpc102.aus.amer.dell.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] ibm_newemac: emac_close() needs to call
+ netif_carrier_off()
+Date: Thu, 20 Aug 2009 16:02:22 +1000
+Message-ID: <1250748142.10937.4.camel@pasglop>
+References: <20090819210000.D56AB254211@localhost>
+	 <20090819141136.74f5c266@s6510>
+	 <20090819.143403.27319428.davem@davemloft.net>
+	 <fc21faff0908191440p5db84f79h8bb8a73501facae1@mail.gmail.com>
+	 <fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-ripemd160;
- protocol="application/pgp-signature";
- boundary="------------enig7D84CB79D414C4079BD22054"
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org
-To: Jordan_Hargrave@Dell.com
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <5DDAB7BA7BDB58439DD0EED0B8E9A3AE011CD964@ausx3mpc102.aus.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Petri Gynther <pgynther@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:34672 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752799AbZHTGC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2009 02:02:29 -0400
+In-Reply-To: <fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7D84CB79D414C4079BD22054
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2009-08-19 at 15:32 -0700, Petri Gynther wrote:
+> Stephen,
+> 
+> I think your suggestion of adding netif_running() check to
+> bond_check_dev_link() is valid and a good fix to the bonding driver.
+> We can do this in a separate patch.
+> 
+> However, I think that the change to ibm_newemac: emac_close() is
+> needed as well. ibm_newemac netdevs should not return
+> netif_carrier_ok() == TRUE when they have been shut down.
 
-Jordan_Hargrave@Dell.com wrote:
-> example udev config:
-> SUBSYSTEM=3D=3D"net", SYMLINK+=3D"net/by-mac/$sysfs{ifindex}.$sysfs{add=
-ress}"
+Well, we definitely don't do that in sungem either, since we continue
+the link polling while the interface is down... IE. interface up/down is
+the data path and is orthogonal to the PHY polling in sungem. I suppose
+we -could- stop the polling while the interface is down, though I think
+my initial implementation did only poll the link while the interface was
+up and that was causing endless problems with various laptop-net style
+tools (however that was years and years ago).
 
-So say I have two NICs, currently named eth0/eth1, and I keep them using
-those names via the current udev MAC address rules.  Furthermore, say
-that this patch is applied, and so I start using 0.<addr0> and 1.<addr1>
-in my network configuration, instead of eth0/eth1.
+Cheers,
+Ben.
 
-Now, say that on some given boot, these two NICs show up to the kernel
-in a different order.  I might move them around in the machine (this is,
-after all, the point behind using the MAC as the identifier ;-) ), or
-one of them might be USB, or something else random changes the order.
-With this rule, they're now at 0.<addr1> and 1.<addr0>.
+> On Wed, Aug 19, 2009 at 2:40 PM, Petri Gynther<pgynther@google.com> wrote:
+> > I agree with David. And, that's why I propose this diff for
+> > ibm_newemac driver as well.
+> >
+> > On Wed, Aug 19, 2009 at 2:34 PM, David Miller<davem@davemloft.net> wrote:
+> >> From: Stephen Hemminger <shemminger@vyatta.com>
+> >> Date: Wed, 19 Aug 2009 14:11:36 -0700
+> >>
+> >>> On Wed, 19 Aug 2009 14:00:00 -0700 (PDT)
+> >>> Petri Gynther <pgynther@google.com> wrote:
+> >>>
+> >>>> When ibm_newemac netdev instance is shutdown with "ifconfig down",
+> >>>> the netdev interface does not go properly down. netif_carrier_ok()
+> >>>> keeps returning TRUE even after "ifconfig down".
+> >>>>
+> >>>> The problem can be seen when ibm_newemac instances are slaves of
+> >>>> a bonding interface. The bonding interface code uses netif_carrier_ok()
+> >>>> to determine the link status of its slaves. When ibm_newemac slave is
+> >>>> shutdown with "ifconfig down", the bonding interface won't detect any
+> >>>> link status change because netif_carrier_ok() keeps returning TRUE.
+> >>>
+> >>> Bonding should be testing for netif_running() && netif_carrier_ok().
+> >>>
+> >>> In many devices state of carrier is undefined when device is down.
+> >>
+> >> But if you check all of the drivers, ethernet in particular, the
+> >> convention is to call netif_carrier_off() in foo_close().
+> >>
+> >
 
-In other words, these names are not actually persistent.
-
-If you get rid of the $sysfs{ifindex}, then this should work.  If that
-doesn't work for what you're trying to do for some reason, then you can
-make another directory of symlinks by-ifindex, and use that; that should
-work as well.  But coupling the ifindex to the MAC address like this
-doesn't work.  (In general, coupling any two unrelated attributes when
-trying to do persistent names doesn't work.)
-
-
---------------enig7D84CB79D414C4079BD22054
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEAREDAAYFAkqM0/MACgkQYasYN+YI5W5f3QCfZYnGlj1iA7zPkhc6SGUxF4TW
-+t4An0AzJnI4u1W5kKYvyhemBR3fFfkk
-=knXl
------END PGP SIGNATURE-----
-
---------------enig7D84CB79D414C4079BD22054--
