@@ -1,41 +1,40 @@
 From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Subject: Re: IPV6_RTHDR with a type-0 routing header
-Date: Thu, 20 Aug 2009 14:18:20 +0200
-Message-ID: <20090820121820.GA21354@uio.no>
+Date: Thu, 20 Aug 2009 14:39:26 +0200
+Message-ID: <20090820123926.GA21858@uio.no>
 References: <20090820111152.GA20295@uio.no>
  <7d4abbaea1f1e17050a0e8ffe4917cb8@chewa.net>
+ <20090820121820.GA21354@uio.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: =?utf-8?B?UsOpbWk=?= Denis-Courmont <remi@remlab.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([129.241.93.19]:60121 "EHLO
+Received: from cassarossa.samfundet.no ([129.241.93.19]:45714 "EHLO
 	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753909AbZHTMSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 08:18:21 -0400
+	with ESMTP id S1754173AbZHTMj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 08:39:27 -0400
 Content-Disposition: inline
-In-Reply-To: <7d4abbaea1f1e17050a0e8ffe4917cb8@chewa.net>
+In-Reply-To: <20090820121820.GA21354@uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 20, 2009 at 01:29:09PM +0200, R=C3=A9mi Denis-Courmont wrot=
-e:
->> I've tried attaching a type-0 routing header to my IPv6 packets with
->> setsockopt(..., IPV6_RTHDR, ...), but the kernel just returns EINVAL=
-=2E
->> looking at the source, it seems it simply refuses anything that's no=
-t
->> type-2;
->> should that really be right? I found the following commit:
-> RT0 headers have been deprecated by IETF. The kernel refuses to use t=
-hen on
-> purpose.
+On Thu, Aug 20, 2009 at 02:18:20PM +0200, Steinar H. Gunderson wrote:
+> Hm, OK. And no replacement has been proposed, the deprecation RFC just refers
+> to "future routing headers"...
 
-Hm, OK. And no replacement has been proposed, the deprecation RFC just =
-refers
-to "future routing headers"...
+It looks like I can use destination options instead, but those don't seem to
+be too easy to use either. The kernel seems to demand that I put eight bytes
+of padding at the end?
 
+  #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
+
+Why the +1? 
+
+FWIW, the program I try to run is at http://home.samfundet.no/~sesse/v6fun.c .
+If I replace "len" in the setsockopt call by "len + 8", the program runs and
+the packets get the right option attached -- but also eight padding bytes.
+ 
 /* Steinar */
---=20
+-- 
 Homepage: http://www.sesse.net/
