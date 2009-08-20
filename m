@@ -1,86 +1,196 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] [V3] net: add Xilinx emac lite device driver
-Date: Thu, 20 Aug 2009 09:49:14 -0700
-Message-ID: <20090820094914.46f1db9c@nehalam>
-References: <20090820094956.02DFC45004F@mail96-dub.bigfish.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [RFC][PATCH][v4] ethtool: Add a new ethtool option to flash a
+	firmware image from the specified file to a device.
+Date: Thu, 20 Aug 2009 22:46:45 +0530
+Message-ID: <20090820171635.GA20213@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	davem@davemloft.net, jgarzik@pobox.com,
-	John Linn <john.linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
-	John Williams <john.williams@petalogix.com>,
-	Michal Simek <michal.simek@petalogix.com>,
-	Sadanand M <sadanan@xilinx.com>
-To: John Linn <john.linn@xilinx.com>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54125 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754494AbZHTQtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2009 12:49:18 -0400
-In-Reply-To: <20090820094956.02DFC45004F@mail96-dub.bigfish.com>
+Received: from segment-124-30.sify.net ([124.30.166.146]:8886 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754880AbZHTRQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 13:16:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Aug 2009 03:49:51 -0600
-John Linn <john.linn@xilinx.com> wrote:
+This patch adds a new "-f" option to the ethtool utility
+to flash a firmware image specified by a file, to a network device.
+The filename is passed to the network driver which will flash the image
+on the chip using the request_firmware path.
 
-> +/**
-> + * xemaclite_ioctl - Perform IO Control operations on the network device
-> + * @dev:	Pointer to the network device
-> + * @rq:		Pointer to the interface request structure
-> + * @cmd:	IOCTL command
-> + *
-> + * The only IOCTL operation supported by this function is setting the MAC
-> + * address. An error is reported if any other operations are requested.
-> + *
-> + * Return:	0 to indicate success, or a negative error for failure.
-> + */
-> +static int xemaclite_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-> +{
-> +	struct net_local *lp = (struct net_local *) netdev_priv(dev);
-> +	struct hw_addr_data *hw_addr = (struct hw_addr_data *) &rq->ifr_hwaddr;
-> +
-> +	switch (cmd) {
-> +	case SIOCETHTOOL:
-> +		return -EIO;
-> +
-> +	case SIOCSIFHWADDR:
-> +		dev_err(&lp->ndev->dev, "SIOCSIFHWADDR\n");
-> +
-> +		/* Copy MAC address in from user space */
-> +		copy_from_user((void __force *) dev->dev_addr,
-> +			       (void __user __force *) hw_addr,
-> +			       IFHWADDRLEN);
-> +		xemaclite_set_mac_address(lp, dev->dev_addr);
-> +		break;
-> +	default:
-> +		return -EOPNOTSUPP;
-> +	}
-> +
-> +	return 0;
-> +}
+The region "on the chip" to be flashed can be specified by an option.
+It is upto the device driver to enumerate the region number passed by ethtool,
+to the region to be flashed.
 
-Do you really need this? I doubt the SIOCSIFHWADDR even reaches driver!
+The default behavior is to flash all the regions on the chip.
 
-The normal call path for setting hardware address is:
-  dev_ifsioc
-         dev_set_mac_address
-             ops->ndo_set_mac_address --> 
+Usage:
+ethtool -f <interface name> <filename of firmware image>
 
-The driver should be:
-   1. defining new code to do ndo_set_mac_address
-   2. remove existing xmaclite_ioctl - all ioctl's handled by upper layers
+ethtool -f <interface name> <filename of firmware image> [ REGION-NUMBER-TO-FLASH ]
 
-FYI - the only ioctl's that make it to network device ndo_ioctl
- are listed in dev_ifsioc
-   SIOCDEVPRIVATE ... SIOCDEVPRIVATE + 15
-   SIOCBOND*
-   SIOCMII*
-   SIOCBR*
-   SIOCHWTSTAMP
-   SIOCWANDEV
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ ethtool-copy.h |   13 +++++++++++++
+ ethtool.c      |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 67 insertions(+), 1 deletions(-)
 
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3ca4e2c..66429e5 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -272,6 +272,18 @@ struct ethtool_perm_addr {
+ 	__u8	data[0];
+ };
+ 
++#define ETHTOOL_FLASH_MAX_FILENAME	128
++enum ethtool_flash_op_type {
++	ETHTOOL_FLASH_ALL_REGIONS	= 0,
++};
++
++/* for passing firmware flashing related parameters */
++struct ethtool_flash {
++	__u32	cmd;
++	__u32	region;
++	char	data[ETHTOOL_FLASH_MAX_FILENAME];
++};
++
+ /* boolean flags controlling per-interface behavior characteristics.
+  * When reading, the flag indicates whether or not a certain behavior
+  * is enabled/present.  When writing, the flag indicates whether
+@@ -338,6 +350,7 @@ struct ethtool_rxnfc {
+ #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
+ #define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
+ #define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
++#define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.c b/ethtool.c
+index 0110682..e905948 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -77,6 +77,7 @@ static char *unparse_rxfhashopts(u64 opts);
+ static int dump_rxfhash(int fhash, u64 val);
+ static int do_srxclass(int fd, struct ifreq *ifr);
+ static int do_grxclass(int fd, struct ifreq *ifr);
++static int do_flash(int fd, struct ifreq *ifr);
+ static int send_ioctl(int fd, struct ifreq *ifr);
+ 
+ static enum {
+@@ -101,6 +102,7 @@ static enum {
+ 	MODE_GSTATS,
+ 	MODE_GNFC,
+ 	MODE_SNFC,
++	MODE_FLASHDEV,
+ } mode = MODE_GSET;
+ 
+ static struct option {
+@@ -192,6 +194,9 @@ static struct option {
+ 		"classification options",
+ 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
+ 		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
++    { "-f", "--flash", MODE_FLASHDEV, "FILENAME " "Flash firmware image "
++		"from the specified file to a region on the device",
++		"		[ REGION-NUMBER-TO-FLASH ]\n" },
+     { "-h", "--help", MODE_HELP, "Show this help" },
+     {}
+ };
+@@ -304,6 +309,9 @@ static int rx_fhash_get = 0;
+ static int rx_fhash_set = 0;
+ static u32 rx_fhash_val = 0;
+ static int rx_fhash_changed = 0;
++static char flash_file[ETHTOOL_FLASH_MAX_FILENAME];
++static int flash = -1;
++static int flash_region = 0;
+ static enum {
+ 	ONLINE=0,
+ 	OFFLINE,
+@@ -496,7 +504,8 @@ static void parse_cmdline(int argc, char **argp)
+ 			    (mode == MODE_GSTATS) ||
+ 			    (mode == MODE_GNFC) ||
+ 			    (mode == MODE_SNFC) ||
+-			    (mode == MODE_PHYS_ID)) {
++			    (mode == MODE_PHYS_ID) ||
++			    (mode == MODE_FLASHDEV)) {
+ 				devname = argp[i];
+ 				break;
+ 			}
+@@ -516,6 +525,10 @@ static void parse_cmdline(int argc, char **argp)
+ 				if (phys_id_time < 0)
+ 					show_usage(1);
+ 				break;
++			} else if (mode == MODE_FLASHDEV) {
++				sprintf(flash_file, "%s", argp[i]);
++				flash = 1;
++				break;
+ 			}
+ 			/* fallthrough */
+ 		default:
+@@ -590,6 +603,12 @@ static void parse_cmdline(int argc, char **argp)
+ 					show_usage(1);
+ 				break;
+ 			}
++			if (mode == MODE_FLASHDEV) {
++				flash_region = strtol(argp[i], NULL, 0);
++				if (flash_region < 0)
++					show_usage(1);
++				break;
++			}
+ 			if (mode == MODE_SNFC) {
+ 				if (!strcmp(argp[i], "rx-flow-hash")) {
+ 					i += 1;
+@@ -1504,6 +1523,8 @@ static int doit(void)
+ 		return do_grxclass(fd, &ifr);
+ 	} else if (mode == MODE_SNFC) {
+ 		return do_srxclass(fd, &ifr);
++	} else if (mode == MODE_FLASHDEV) {
++		return do_flash(fd, &ifr);
+ 	}
+ 
+ 	return 69;
+@@ -2398,6 +2419,38 @@ static int do_grxclass(int fd, struct ifreq *ifr)
+ 	return 0;
+ }
+ 
++static int do_flash(int fd, struct ifreq *ifr)
++{
++	struct ethtool_flash efl;
++	int err;
++
++	if (flash < 0) {
++		fprintf(stdout, "Missing filename argument\n");
++		show_usage(1);
++		return 98;
++	}
++
++	if (strlen(flash_file) > ETHTOOL_FLASH_MAX_FILENAME - 1) {
++		fprintf(stdout, "Filename too long\n");
++		return 99;
++	}
++
++	efl.cmd = ETHTOOL_FLASHDEV;
++	strcpy(efl.data, flash_file);
++
++	if (flash_region < 0)
++		efl.region = ETHTOOL_FLASH_ALL_REGIONS;
++	else
++		efl.region = flash_region;
++
++	ifr->ifr_data = (caddr_t)&efl;
++	err = send_ioctl(fd, ifr);
++	if (err < 0)
++		perror("Flashing failed");
++
++	return err;
++}
++
+ static int send_ioctl(int fd, struct ifreq *ifr)
+ {
+ 	return ioctl(fd, SIOCETHTOOL, ifr);
+-- 
+1.6.0.4
 
