@@ -1,49 +1,70 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Wed, 19 Aug 2009 17:46:29 -0700
-Message-ID: <20090819174629.649f837f@nehalam>
-References: <4A65EC3F.4050400@gibraltar.at>
-	<200908190902.02854.rene.mayrhofer@gibraltar.at>
-	<392fb48f0908190800j508456d6h9c520e82bc7f51e0@mail.gmail.com>
-	<200908192307.22112.rene.mayrhofer@gibraltar.at>
-	<392fb48f0908191505v47f99d1cvef18d40bcf4c08d1@mail.gmail.com>
+From: Luo Chunbo <chunbo.luo@windriver.com>
+Subject: Re: [PATCH 2/2] sctp: fix heartbeat count of path failure
+Date: Thu, 20 Aug 2009 09:36:04 +0800
+Message-ID: <1250732164.6436.9.camel@pek-cluo-desktop>
+References: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>
+	 <1250665268-29770-2-git-send-email-chunbo.luo@windriver.com>
+	 <4A8C10BB.2040804@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mike McCormack <mikem@ring3k.org>, netdev@vger.kernel.org,
-	Richard Leitner <leitner@esys.at>
-To: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54735 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753420AbZHTAr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 20:47:28 -0400
-In-Reply-To: <392fb48f0908191505v47f99d1cvef18d40bcf4c08d1@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:42294 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753201AbZHTBgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Aug 2009 21:36:47 -0400
+In-Reply-To: <4A8C10BB.2040804@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Aug 2009 07:05:03 +0900
-Mike McCormack <mikem@ring3k.org> wrote:
+On Wed, 2009-08-19 at 10:48 -0400, Vlad Yasevich wrote:
+> Chunbo Luo wrote:
+> > RFC4960 Section 8.2 defined that the transport should enter INACTIVE
+> > state only when the value in the error counter exceeds the protocol 
+> > parameter 'Path.Max.Retrans' of that destination address. This means 
+> > that the transport should enter INACTIVE state after pathmaxrxt+1
+> > heartbeats are not acknowledged.
+> > 
+> > 
+> > Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+> 
+> NAK.  This patch seems to resurface periodically and I have to keep
+> explaining that it's wrong.
+> 
+> Every time we send a HB, we tick up the error count and clear it when
+> the HB-ACK is received.  Each HB is separate and not a retransmission,
+> so we once we reach the pathmaxrxt, we've already sent max+1 HB, so we
+> have time out.  Walk through the code with some values and you'll see
+> what I mean.
 
-> 2009/8/20 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
-> 
-> > Pulling the latest sky2.c and sky2.h from net-next-2.6 and applying the patch
-> > rids me of the oops - it is unreproducible right now. However, a networking
-> > restart (i.e. all interfaces attached to sky2) leaves the devices in a state
-> > where they no longer receive any network packets (at least nothing visible in
-> > tcpdump). In this state, rmmod sky2 / modprobe sky2 gives:
-> 
-> After you've got it into that state, does "rmmod sky2; modprobe sky2"
-> change anything?
-> 
-> thanks,
-> 
-> Mike
+Although we've already sent max+1 HB, but the code set the transport to
+INACTIVE state immediately, which is equal to not sending the max+1 HB
+at all.  We should wait for a next period and make sure the max+1 HB was
+not acknowledged.
 
-Please send (I forget) the hardware info (lspci) and the register values
-from ethtool -d ethX.
+Chunbo 
 
-Some part of the power control doesn't work on Rene's system, so
-device falls off the bus. Probably no auxilary +5 supplied, the register
-values will tell whether driver is at fault (turning on aux when not
-available), or hardware is lying about vaux.
+> 
+> -vlad
+> 
+> > ---
+> >  net/sctp/sm_sideeffect.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> > index 86426aa..0e2e269 100644
+> > --- a/net/sctp/sm_sideeffect.c
+> > +++ b/net/sctp/sm_sideeffect.c
+> > @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+> >  		asoc->overall_error_count++;
+> >  
+> >  	if (transport->state != SCTP_INACTIVE &&
+> > -	    (transport->error_count++ >= transport->pathmaxrxt)) {
+> > +	    (transport->error_count++ > transport->pathmaxrxt)) {
+> >  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+> >  					 " transport IP: port:%d failed.\n",
+> >  					 asoc,
+> 
