@@ -1,52 +1,48 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [RFC][PATCH][v4] net/ethtool: Add support for the ethtool
-	feature to flash firmware image from a specified file.
-Date: Thu, 20 Aug 2009 23:14:37 +0530
-Message-ID: <20090820174436.GA21040@serverengines.com>
-References: <20090820171631.GA19783@serverengines.com> <1250789072.2779.1.camel@achroite>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] [V3] net: add Xilinx emac lite device driver
+Date: Thu, 20 Aug 2009 11:44:32 -0600
+Message-ID: <fa686aa40908201044y17acb4c1lacf09fafc2647fa4@mail.gmail.com>
+References: <20090820094956.02DFC45004F@mail96-dub.bigfish.com>
+	<20090820160356.F1A03340054@mail79-sin.bigfish.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:12769 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755118AbZHTRoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 13:44:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1250789072.2779.1.camel@achroite>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Sadanand Mutyala <sadanan@xilinx.com>, netdev@vger.kernel.org,
+	John Linn <john.linn@xilinx.com>, linuxppc-dev@ozlabs.org,
+	John Linn <linnj@xilinx.com>,
+	Michal Simek <michal.simek@petalogix.com>, jgarzik@pobox.com,
+	davem@davemloft.net, John Williams <john.williams@petalogix.com>
+To: Stephen Neuendorffer <stephen.neuendorffer@xilinx.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20090820160356.F1A03340054@mail79-sin.bigfish.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-On 20/08/09 18:24 +0100, Ben Hutchings wrote:
-> On Thu, 2009-08-20 at 22:46 +0530, Ajit Khaparde wrote:
-> [...]
-> > @@ -489,6 +501,7 @@ struct ethtool_ops {
-> >  	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
-> >  	int	(*get_rxnfc)(struct net_device *, struct ethtool_rxnfc *, void *);
-> >  	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
-> > +	int     (*flash_device)(struct net_device *, u8 *);
-> [...]
-> 
-> The second parameter type should be struct ethtool_flash * not u8 *.
-> The compiler warning should make this easy to spot...
-Thanks for the catch. My bad. To get over my slow net connection today, I did
-a make with the -j option, before I cut the patch. I missed  the
-warning between the other messages. 
+On Thu, Aug 20, 2009 at 10:02 AM, Stephen
+Neuendorffer<stephen.neuendorffer@xilinx.com> wrote:
+>
+> John,
+>
+> I just got a chance to browse this... =A0Do you want to put in the
+> stripped device names?
+>
+> .compatible =3D "xlnx,xps-ethernetlite-2", etc...
 
-Thanks
--Ajit
+We've covered this territory before.  Compatible values need to be
+exact for the IP cores.  No wildcards. No abbreviations or stripping.
+Newer cores can claim compatibility with older when appropriate.
 
-> 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+g.
+
+-- =
+
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
