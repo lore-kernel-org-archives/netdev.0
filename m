@@ -1,51 +1,70 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.31-rc6-git5: Reported regressions from 2.6.30
-Date: Thu, 20 Aug 2009 23:28:24 +0200
-Message-ID: <200908202328.24252.rjw@sisk.pl>
-References: <jCYznkTxcLB.A.EPH.eNIjKB@chimera> <1250801571.7176.10.camel@Maple>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 14007] New: iproute2: socket lookup after
+ policy-based local route returns "connect: Invalid argument"
+Date: Thu, 20 Aug 2009 14:36:18 -0700
+Message-ID: <20090820143618.fae0d200.akpm@linux-foundation.org>
+References: <bug-14007-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-2"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: John Dykstra <john.dykstra1@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755478AbZHTV1f@vger.kernel.org>
-In-Reply-To: <1250801571.7176.10.camel@Maple>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, markus@selfnet.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:36746 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751156AbZHTVgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 17:36:52 -0400
+In-Reply-To: <bug-14007-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 20 August 2009, John Dykstra wrote:
-> On Wed, 2009-08-19 at 22:20 +0200, Rafael J. Wysocki wrote:
-> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=14002
-> > Subject         : WARNING: at net/ipv4/af_inet.c:154
-> > inet_sock_destruct+0x164/0x1c0()
-> > Submitter       : Ralf Hildebrandt <ralf.hildebrandt@charite.de>
-> > Date            : 2009-08-18 12:37 (2 days old)
-> 
-> That looks similar to the WARNING discussed in [1].
-> 
-> There was no resolution to that thread.  However, [2] points out
-> possible other occurrences of the problem in 2.6.27, 28 and 29.
-> 
-> --  John
-> 
-> [1]  http://www.spinics.net/lists/netdev/msg103267.html
-> [2]  http://www.spinics.net/lists/netdev/msg104120.html
 
-Thanks for the information.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-So I'll drop this from the list, since it most probably is not a recent thing.
+On Wed, 19 Aug 2009 08:55:44 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Best,
-Rafael
+> http://bugzilla.kernel.org/show_bug.cgi?id=14007
+> 
+>            Summary: iproute2: socket lookup after policy-based local route
+>                     returns "connect: Invalid argument"
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.31
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: markus@selfnet.de
+>         Regression: No
+> 
+> 
+> I want to add policy based routes to my local machine similar to the iptables
+> redirect command. With this it is possible to redirect connections without
+> losing the destination ip.
+> So i tried to add an route of type local to another routing table then table
+> local:
+> 
+> sudo ip route add local 192.168.33.0/24 dev eth0 table local
+> ping 192.168.33.1 -c 1
+> #working
+> 
+> sudo ip route add local 192.168.34.0/24 dev eth0 table main
+> ping 192.168.34.1 -c 1
+> #connect: Invalid argument
+> 
+> The first one is working, the secound one not. The only difference is another
+> routing table. icmp is only an example, tcp and udp doesnt work neither.
+> 
+> I guess somewhere in the socketlookup linux checks the destination ip with the
+> local routes only in the local table. perhaps the other tables are missed.
+> 
+> btw: i tried it on every linux with iproute2 i found. with no succeed
+> 
+
