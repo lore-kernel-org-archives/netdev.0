@@ -1,94 +1,88 @@
-From: Toru UCHIYAMA <uchiyama.toru@jp.fujitsu.com>
-Subject: [PATCH]gianfar: gfar_remove needs to call unregister_netdev()
-Date: Thu, 20 Aug 2009 22:54:35 +0900
-Message-ID: <4A8D559B.3030108@jp.fujitsu.com>
+From: Roel Kluin <roel.kluin@gmail.com>
+Subject: Re: [PATCH] WAN: bit and/or confusion
+Date: Thu, 20 Aug 2009 16:04:40 +0200
+Message-ID: <4A8D57F8.1050106@gmail.com>
+References: <4A855DE2.2000907@gmail.com>	<20090814163644.0cc8974f.akpm@linux-foundation.org>	<20090814.164123.36875657.davem@davemloft.net>	<20090814165852.7338461e.akpm@linux-foundation.org>	<4A86BAF3.5060609@gmail.com> <m3iqgovrsv.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:35916 "EHLO
-	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754168AbZHTNzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 09:55:20 -0400
-Received: from m5.gw.fujitsu.co.jp ([10.0.50.75])
-	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id n7KDtLc3026551
-	for <netdev@vger.kernel.org> (envelope-from uchiyama.toru@jp.fujitsu.com);
-	Thu, 20 Aug 2009 22:55:21 +0900
-Received: from smail (m5 [127.0.0.1])
-	by outgoing.m5.gw.fujitsu.co.jp (Postfix) with ESMTP id 0C25A45DE4F
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:21 +0900 (JST)
-Received: from s5.gw.fujitsu.co.jp (s5.gw.fujitsu.co.jp [10.0.50.95])
-	by m5.gw.fujitsu.co.jp (Postfix) with ESMTP id DF72C45DE4E
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:20 +0900 (JST)
-Received: from s5.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id C55B11DB8038
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:20 +0900 (JST)
-Received: from m021.s.css.fujitsu.com (m021.s.css.fujitsu.com [10.0.81.61])
-	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id 7CD001DB8043
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:17 +0900 (JST)
-Received: from m021.css.fujitsu.com (m021 [127.0.0.1])
-	by m021.s.css.fujitsu.com (Postfix) with ESMTP id 6A692180C1
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:17 +0900 (JST)
-Received: from [127.0.0.1] (uchiyama.utsfd.cs.fujitsu.co.jp [10.24.19.76])
-	by m021.s.css.fujitsu.com (Postfix) with ESMTP id 5187B180B9
-	for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 22:55:17 +0900 (JST)
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:51891 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754244AbZHTOAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 10:00:03 -0400
+Received: by ewy3 with SMTP id 3so2899812ewy.18
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 07:00:03 -0700 (PDT)
+In-Reply-To: <m3iqgovrsv.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch solves the problem that the Oops(BUG_ON) occurs by rmmod.
+Fix the tests that check whether Frame* bits are not set
 
-	# rmmod gianfar_driver
-	------------[ cut here ]------------
-	Kernel BUG at c01fec48 [verbose debug info unavailable]
-	Oops: Exception in kernel mode, sig: 5 [#1]
-	MPC837x MDS
-	Modules linked in: gianfar_driver(-) usb_storage scsi_wait_scan
-	NIP: c01fec48 LR: c01febf4 CTR: c01feba8
-	REGS: dec5bd60 TRAP: 0700   Tainted: G        W   (2.6.31-rc2)
-	MSR: 00029032 <EE,ME,CE,IR,DR>  CR: 22000424  XER: 20000000
-	TASK = dec4cac0[1135] 'rmmod' THREAD: dec5a000
-	GPR00: 00000002 dec5be10 dec4cac0 dfba1820 c035d444 c035d478 ffffffff 00000000
-	GPR08: 0000002b 00000001 dfba193c 00000001 22000424 10019b34 1ffcb000 00000000
-	GPR16: 10012008 00000000 bf82ebe0 100017ec bf82ebec bf82ebe8 bf82ebd0 00000880
-	GPR24: 00000000 bf82ebf0 c03532f0 c03532e4 c036b594 dfba183c dfba1800 dfba1820
-	NIP [c01fec48] free_netdev+0xa0/0xb8
-	LR [c01febf4] free_netdev+0x4c/0xb8
-	Call Trace:
-	[dec5be10] [c01febf4] free_netdev+0x4c/0xb8 (unreliable)
-	[dec5be30] [e105f290] gfar_remove+0x50/0x68 [gianfar_driver]
-	[dec5be40] [c01ec534] of_platform_device_remove+0x30/0x44
-	[dec5be50] [c0181760] __device_release_driver+0x68/0xc8
-	[dec5be60] [c0181868] driver_detach+0xa8/0xac
-	[dec5be80] [c0180814] bus_remove_driver+0x9c/0xd8
-	[dec5bea0] [c0181efc] driver_unregister+0x60/0x98
-	[dec5beb0] [c01ec650] of_unregister_driver+0x14/0x24
-	[dec5bec0] [e10631bc] gfar_exit+0x18/0x4bc [gianfar_driver]
-	[dec5bed0] [c0047584] sys_delete_module+0x16c/0x228
-	[dec5bf40] [c00116bc] ret_from_syscall+0x0/0x38
-	--- Exception: c01 at 0xff3669c
-	    LR = 0x10000f34
-	Instruction dump:
-	409e0024 a07e00c0 7c63f050 4be74429 80010024 bba10014 38210020 7c0803a6
-	4e800020 68000003 3160ffff 7d2b0110 <0f090000> 38000004 387e01f0 901e01d4
-	---[ end trace 8c595bcd37230a0f ]---
-	 localhost kernel: ------------[ cut here ]------------
-
-Signed-off-by: uchiyama.toru@jp.fujitsu.com
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
- drivers/net/gianfar.c |    1 +
- 1 files changed, 1 insertion(+)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index f8ffcbf..25f1ca4 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -491,6 +491,7 @@ static int gfar_remove(struct of_device *ofdev)
+>> -		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
+>> +		else if (!(skb->data[pkt_len] & (FrameVfr | FrameRab)))
+>>  			dev->stats.rx_length_errors++;
+> 
+> This test requires both FrameVfr and FrameRab to be true (zero). Perhaps
+> it should be:
+> 
+>> +		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) != FrameVfr | FrameRab)
 
- 	dev_set_drvdata(&ofdev->dev, NULL);
+Ok, Francois Romieu, could you test this?
 
-+	unregister_netdev(dev);
- 	iounmap(priv->regs);
- 	free_netdev(priv->ndev);
+>>  		else
+>>  			dev->stats.rx_errors++;
+> 
+> rx_errors is incremented only on remaining errors. I think most drivers
+> increment rx_errors on all RX errors, and simultaneously rx_*_errors
+> when needed.
+> 
+> 
+> Perhaps something like the following should be better?
+> 
+> 		u8 status = ~skb->data[pkt_len];
+> 
+> 		if (status == 0)
+> 			looks_good...;
+> 		else {
+> 			if (status & FrameRab)
+> 				...
+> 			if (status & FrameVfr)
+> 				...
+> 			etc.
+> 			rx_errors++;
+> 		}
 
---
+I don't understand your suggestion - why status == 0? doesn't the patch
+below do what you want instead?
+
+Roel
+
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index 8face5d..88534b6 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -663,12 +663,12 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
+ 	} else {
+ 		if (skb->data[pkt_len] & FrameRdo)
+ 			dev->stats.rx_fifo_errors++;
+-		else if (!(skb->data[pkt_len] | ~FrameCrc))
++		else if (!(skb->data[pkt_len] & FrameCrc))
+ 			dev->stats.rx_crc_errors++;
+-		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
++		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) !=
++				FrameVfr | FrameRab)
+ 			dev->stats.rx_length_errors++;
+-		else
+-			dev->stats.rx_errors++;
++		dev->stats.rx_errors++;
+ 		dev_kfree_skb_irq(skb);
+ 	}
+ refill:
