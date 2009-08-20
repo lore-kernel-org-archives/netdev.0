@@ -1,18 +1,19 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/5] fakehard: add binding to wpan-phy
-	device
-Date: Thu, 20 Aug 2009 20:13:05 +0400
-Message-ID: <1250784787-30590-4-git-send-email-dbaryshkov@gmail.com>
+Subject: [PATCH 5/5] Drop ARPHRD_IEEE802154_PHY
+Date: Thu, 20 Aug 2009 20:13:07 +0400
+Message-ID: <1250784787-30590-6-git-send-email-dbaryshkov@gmail.com>
 References: <1250784787-30590-1-git-send-email-dbaryshkov@gmail.com>
 	<1250784787-30590-2-git-send-email-dbaryshkov@gmail.com>
 	<1250784787-30590-3-git-send-email-dbaryshkov@gmail.com>
+	<1250784787-30590-4-git-send-email-dbaryshkov@gmail.com>
+	<1250784787-30590-5-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1250784787-30590-3-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1250784787-30590-5-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -23,139 +24,80 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Make fakehard create and maintain wpan-phy node, thus representing
-it's phy in the sysfs.
+There are not maste devices in mac802154 anymore, so drop
+ARPHRD_IEEE802154_PHY definition.
 
 Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/ieee802154/fakehard.c |   52 ++++++++++++++++++++++++++++++++++++----
- 1 files changed, 46 insertions(+), 6 deletions(-)
+ include/linux/if_arp.h         |    1 -
+ net/core/dev.c                 |    4 ++--
+ net/ieee802154/af_ieee802154.c |    4 +---
+ net/ieee802154/raw.c           |    3 +--
+ 4 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/ieee802154/fakehard.c b/drivers/ieee802154/fakehard.c
-index 262536f..22a93bc 100644
---- a/drivers/ieee802154/fakehard.c
-+++ b/drivers/ieee802154/fakehard.c
-@@ -30,6 +30,12 @@
- #include <net/ieee802154_netdev.h>
- #include <net/ieee802154.h>
- #include <net/nl802154.h>
-+#include <net/wpan-phy.h>
-+
-+struct wpan_phy *net_to_phy(struct net_device *dev)
-+{
-+	return container_of(dev->dev.parent, struct wpan_phy, dev);
-+}
+diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
+index b554300..282eb37 100644
+--- a/include/linux/if_arp.h
++++ b/include/linux/if_arp.h
+@@ -87,7 +87,6 @@
+ #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
+ #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+ #define ARPHRD_IEEE802154	  804
+-#define ARPHRD_IEEE802154_PHY	  805
  
- /**
-  * fake_get_pan_id - Retrieve the PAN ID of the device.
-@@ -115,6 +121,12 @@ static u8 fake_get_bsn(struct net_device *dev)
- static int fake_assoc_req(struct net_device *dev,
- 		struct ieee802154_addr *addr, u8 channel, u8 cap)
- {
-+	struct wpan_phy *phy = net_to_phy(dev);
-+
-+	mutex_lock(&phy->pib_lock);
-+	phy->current_channel = channel;
-+	mutex_unlock(&phy->pib_lock);
-+
- 	/* We simply emulate it here */
- 	return ieee802154_nl_assoc_confirm(dev, fake_get_short_addr(dev),
- 			IEEE802154_SUCCESS);
-@@ -183,6 +195,12 @@ static int fake_start_req(struct net_device *dev, struct ieee802154_addr *addr,
- 				u8 bcn_ord, u8 sf_ord, u8 pan_coord, u8 blx,
- 				u8 coord_realign)
- {
-+	struct wpan_phy *phy = net_to_phy(dev);
-+
-+	mutex_lock(&phy->pib_lock);
-+	phy->current_channel = channel;
-+	mutex_unlock(&phy->pib_lock);
-+
- 	/* We don't emulate beacons here at all, so START should fail */
- 	ieee802154_nl_start_confirm(dev, IEEE802154_INVALID_PARAMETER);
- 	return 0;
-@@ -290,6 +308,14 @@ static const struct net_device_ops fake_ops = {
- 	.ndo_set_mac_address	= ieee802154_fake_mac_addr,
- };
+ #define ARPHRD_PHONET	820		/* PhoNet media type		*/
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 09fb03f..4b83789 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -269,7 +269,7 @@ static const unsigned short netdev_lock_type[] =
+ 	 ARPHRD_IRDA, ARPHRD_FCPP, ARPHRD_FCAL, ARPHRD_FCPL,
+ 	 ARPHRD_FCFABRIC, ARPHRD_IEEE802_TR, ARPHRD_IEEE80211,
+ 	 ARPHRD_IEEE80211_PRISM, ARPHRD_IEEE80211_RADIOTAP, ARPHRD_PHONET,
+-	 ARPHRD_PHONET_PIPE, ARPHRD_IEEE802154, ARPHRD_IEEE802154_PHY,
++	 ARPHRD_PHONET_PIPE, ARPHRD_IEEE802154,
+ 	 ARPHRD_VOID, ARPHRD_NONE};
  
-+static void ieee802154_fake_destruct(struct net_device *dev)
-+{
-+	struct wpan_phy *phy = net_to_phy(dev);
-+
-+	wpan_phy_unregister(phy);
-+	free_netdev(dev);
-+	wpan_phy_free(phy);
-+}
+ static const char *const netdev_lock_name[] =
+@@ -287,7 +287,7 @@ static const char *const netdev_lock_name[] =
+ 	 "_xmit_IRDA", "_xmit_FCPP", "_xmit_FCAL", "_xmit_FCPL",
+ 	 "_xmit_FCFABRIC", "_xmit_IEEE802_TR", "_xmit_IEEE80211",
+ 	 "_xmit_IEEE80211_PRISM", "_xmit_IEEE80211_RADIOTAP", "_xmit_PHONET",
+-	 "_xmit_PHONET_PIPE", "_xmit_IEEE802154", "_xmit_IEEE802154_PHY",
++	 "_xmit_PHONET_PIPE", "_xmit_IEEE802154",
+ 	 "_xmit_VOID", "_xmit_NONE"};
  
- static void ieee802154_fake_setup(struct net_device *dev)
- {
-@@ -302,22 +328,34 @@ static void ieee802154_fake_setup(struct net_device *dev)
- 	dev->type		= ARPHRD_IEEE802154;
- 	dev->flags		= IFF_NOARP | IFF_BROADCAST;
- 	dev->watchdog_timeo	= 0;
-+	dev->destructor		= ieee802154_fake_destruct;
- }
+ static struct lock_class_key netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)];
+diff --git a/net/ieee802154/af_ieee802154.c b/net/ieee802154/af_ieee802154.c
+index d504c34..cd949d5 100644
+--- a/net/ieee802154/af_ieee802154.c
++++ b/net/ieee802154/af_ieee802154.c
+@@ -147,9 +147,7 @@ static int ieee802154_dev_ioctl(struct sock *sk, struct ifreq __user *arg,
+ 	dev_load(sock_net(sk), ifr.ifr_name);
+ 	dev = dev_get_by_name(sock_net(sk), ifr.ifr_name);
  
+-	if ((dev->type == ARPHRD_IEEE802154 ||
+-	     dev->type == ARPHRD_IEEE802154_PHY) &&
+-	    dev->netdev_ops->ndo_do_ioctl)
++	if (dev->type == ARPHRD_IEEE802154 && dev->netdev_ops->ndo_do_ioctl)
+ 		ret = dev->netdev_ops->ndo_do_ioctl(dev, &ifr, cmd);
  
- static int __devinit ieee802154fake_probe(struct platform_device *pdev)
- {
--	struct net_device *dev =
--		alloc_netdev(0, "hardwpan%d", ieee802154_fake_setup);
-+	struct net_device *dev;
-+	struct wpan_phy *phy = wpan_phy_alloc(0);
- 	int err;
- 
--	if (!dev)
-+	if (!phy)
-+		return -ENOMEM;
-+
-+	dev = alloc_netdev(0, "hardwpan%d", ieee802154_fake_setup);
-+	if (!dev) {
-+		wpan_phy_free(phy);
- 		return -ENOMEM;
-+	}
-+
-+	phy->dev.platform_data = dev;
- 
- 	memcpy(dev->dev_addr, "\xba\xbe\xca\xfe\xde\xad\xbe\xef",
- 			dev->addr_len);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
-+	phy->channels_supported = (1 << 27) - 1;
-+	phy->transmit_power = 0xbf;
-+
- 	dev->netdev_ops = &fake_ops;
- 	dev->ml_priv = &fake_mlme;
- 
-@@ -331,15 +369,18 @@ static int __devinit ieee802154fake_probe(struct platform_device *pdev)
- 			goto out;
+ 	if (!ret && copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
+index 60dee69..4681501 100644
+--- a/net/ieee802154/raw.c
++++ b/net/ieee802154/raw.c
+@@ -74,8 +74,7 @@ static int raw_bind(struct sock *sk, struct sockaddr *uaddr, int len)
+ 		goto out;
  	}
  
--	SET_NETDEV_DEV(dev, &pdev->dev);
-+	SET_NETDEV_DEV(dev, &phy->dev);
- 
- 	platform_set_drvdata(pdev, dev);
- 
-+	err = wpan_phy_register(&pdev->dev, phy);
-+	if (err)
-+		goto out;
-+
- 	err = register_netdev(dev);
- 	if (err < 0)
- 		goto out;
- 
--
- 	dev_info(&pdev->dev, "Added ieee802154 HardMAC hardware\n");
- 	return 0;
- 
-@@ -352,7 +393,6 @@ static int __devexit ieee802154fake_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 	unregister_netdev(dev);
--	free_netdev(dev);
- 	return 0;
- }
- 
+-	if (dev->type != ARPHRD_IEEE802154_PHY &&
+-	    dev->type != ARPHRD_IEEE802154) {
++	if (dev->type != ARPHRD_IEEE802154) {
+ 		err = -ENODEV;
+ 		goto out_put;
+ 	}
 -- 
 1.6.3.3
 
