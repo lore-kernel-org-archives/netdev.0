@@ -1,80 +1,82 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 2/2] sctp: fix heartbeat count of path failure
-Date: Thu, 20 Aug 2009 10:10:17 -0400
-Message-ID: <4A8D5949.7000105@hp.com>
-References: <1250665268-29770-1-git-send-email-chunbo.luo@windriver.com>	 <1250665268-29770-2-git-send-email-chunbo.luo@windriver.com>	 <4A8C10BB.2040804@hp.com> <1250732164.6436.9.camel@pek-cluo-desktop>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] WAN: bit and/or confusion
+Date: Thu, 20 Aug 2009 16:25:13 +0200
+Message-ID: <m3eir6k1fa.fsf@intrepid.localdomain>
+References: <4A855DE2.2000907@gmail.com>
+	<20090814163644.0cc8974f.akpm@linux-foundation.org>
+	<20090814.164123.36875657.davem@davemloft.net>
+	<20090814165852.7338461e.akpm@linux-foundation.org>
+	<4A86BAF3.5060609@gmail.com> <m3iqgovrsv.fsf@intrepid.localdomain>
+	<4A8D57F8.1050106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Luo Chunbo <chunbo.luo@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: Roel Kluin <roel.kluin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:14427 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754338AbZHTOKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 10:10:17 -0400
-In-Reply-To: <1250732164.6436.9.camel@pek-cluo-desktop>
+Received: from khc.piap.pl ([195.187.100.11]:39229 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754249AbZHTOZO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2009 10:25:14 -0400
+In-Reply-To: <4A8D57F8.1050106@gmail.com> (Roel Kluin's message of "Thu\, 20 Aug 2009 16\:04\:40 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Luo Chunbo wrote:
-> On Wed, 2009-08-19 at 10:48 -0400, Vlad Yasevich wrote:
->> Chunbo Luo wrote:
->>> RFC4960 Section 8.2 defined that the transport should enter INACTIVE
->>> state only when the value in the error counter exceeds the protocol 
->>> parameter 'Path.Max.Retrans' of that destination address. This means 
->>> that the transport should enter INACTIVE state after pathmaxrxt+1
->>> heartbeats are not acknowledged.
->>>
->>>
->>> Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
->> NAK.  This patch seems to resurface periodically and I have to keep
->> explaining that it's wrong.
->>
->> Every time we send a HB, we tick up the error count and clear it when
->> the HB-ACK is received.  Each HB is separate and not a retransmission,
->> so we once we reach the pathmaxrxt, we've already sent max+1 HB, so we
->> have time out.  Walk through the code with some values and you'll see
->> what I mean.
-> 
-> Although we've already sent max+1 HB, but the code set the transport to
-> INACTIVE state immediately, which is equal to not sending the max+1 HB
-> at all.  We should wait for a next period and make sure the max+1 HB was
-> not acknowledged.
+Roel Kluin <roel.kluin@gmail.com> writes:
 
-Ok, I just re-read the section, and although we don't quite wait long
-enough to mark the transport DOWN, this patch will cause us to send an
-extra HB chunk, thus exceeding pathmaxrxt by 2.
+>> Perhaps something like the following should be better?
+>> 
+>> 		u8 status = ~skb->data[pkt_len];
+>> 
+>> 		if (status == 0)
+>> 			looks_good...;
+>> 		else {
+>> 			if (status & FrameRab)
+>> 				...
+>> 			if (status & FrameVfr)
+>> 				...
+>> 			etc.
+>> 			rx_errors++;
+>> 		}
+>
+> I don't understand your suggestion - why status == 0? doesn't the patch
+> below do what you want instead?
 
-What the spec really says is that an error is incremented when an
-outstanding HB is not acknowledged.
+Because I think (didn't read the manual) that these (inverted) bits
+represent specific errors. So I suggested inverting them, then treating
+as separate error bits, it should be easier to read.
 
-So this code needs a bit of a rework.  This patch is still NAKed.
+That's only a suggestion of course (unless someone sends me the/a card -
+non-returnable "donations" only please - and I can work on it
+personally).
 
--vlad
+IOW all (inverted) bits = 1 => all bits zero after inversion => no
+errors. This changes functionality a bit, and would need to be checked.
+Otherwise, you could test: if ((status & FrameOk) == 0) then looks_good().
 
-> 
-> Chunbo 
-> 
->> -vlad
->>
->>> ---
->>>  net/sctp/sm_sideeffect.c |    2 +-
->>>  1 files changed, 1 insertions(+), 1 deletions(-)
->>>
->>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->>> index 86426aa..0e2e269 100644
->>> --- a/net/sctp/sm_sideeffect.c
->>> +++ b/net/sctp/sm_sideeffect.c
->>> @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->>>  		asoc->overall_error_count++;
->>>  
->>>  	if (transport->state != SCTP_INACTIVE &&
->>> -	    (transport->error_count++ >= transport->pathmaxrxt)) {
->>> +	    (transport->error_count++ > transport->pathmaxrxt)) {
->>>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
->>>  					 " transport IP: port:%d failed.\n",
->>>  					 asoc,
-> 
+> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+> index 8face5d..88534b6 100644
+> --- a/drivers/net/wan/dscc4.c
+> +++ b/drivers/net/wan/dscc4.c
+> @@ -663,12 +663,12 @@ static inline void dscc4_rx_skb(struct dscc4_dev_priv *dpriv,
+>  	} else {
+>  		if (skb->data[pkt_len] & FrameRdo)
+>  			dev->stats.rx_fifo_errors++;
+> -		else if (!(skb->data[pkt_len] | ~FrameCrc))
+> +		else if (!(skb->data[pkt_len] & FrameCrc))
+>  			dev->stats.rx_crc_errors++;
+> -		else if (!(skb->data[pkt_len] | ~(FrameVfr | FrameRab)))
+> +		else if ((skb->data[pkt_len] & (FrameVfr | FrameRab)) !=
+> +				FrameVfr | FrameRab)
+>  			dev->stats.rx_length_errors++;
+> -		else
+> -			dev->stats.rx_errors++;
+> +		dev->stats.rx_errors++;
+>  		dev_kfree_skb_irq(skb);
+>  	}
+>  refill:
 
+Guess it would do.
+-- 
+Krzysztof Halasa
