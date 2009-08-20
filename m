@@ -1,70 +1,62 @@
-From: Walt Holman <walt@holmansrus.com>
-Subject: Re: Strange network timeouts w/ 2.6.30.5
-Date: Thu, 20 Aug 2009 17:21:23 -0500 (CDT)
-Message-ID: <322550336.131250806883202.JavaMail.root@mail.holmansrus.com>
-References: <m3skfmk39q.fsf@intrepid.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Thu, 20 Aug 2009 14:14:16 +0100
+Message-ID: <1250774056.16001.157.camel@localhost>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com>
+	 <20090808112636.GB18518@localhost.localdomain> <4A7DC230.6060206@myri.com>
+	 <20090808183251.GA23300@localhost.localdomain>
+	 <20090811033210.6b422ed1.billfink@mindspring.com>
+	 <87ws5af0km.fsf@basil.nowhere.org>
+	 <20090812003049.185cd52a.billfink@mindspring.com>
+	 <4A856781.2080301@myri.com>
+	 <20090814123832.a7a27a9d.billfink@mindspring.com>
+	 <4A859716.7040904@myri.com>
+	 <3000d2e90908141413h3e3eae1dm796f4bf788319561@mail.gmail.com>
+	 <20090820032601.03a628cf.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932096AbZHTWV1@vger.kernel.org>
-In-Reply-To: <m3skfmk39q.fsf@intrepid.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Aviv Greenberg <avivgnet@gmail.com>,
+	Andrew Gallatin <gallatin@myri.com>, netdev@vger.kernel.org
+To: Bill Fink <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43911 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755016AbZHTWrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 18:47:55 -0400
+In-Reply-To: <20090820032601.03a628cf.billfink@mindspring.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2009-08-20 at 03:26 -0400, Bill Fink wrote:
+> On Sat, 15 Aug 2009, Aviv Greenberg wrote:
+> 
+> > >  There may be something in the chipset
+> > 
+> > shooting in the dark: when you lspci -vvv and check the MaxPayload and
+> > MaxReadReq values for the myri devices - what are the values and are
+> > they equal? Are they the same on all your platforms?
+> 
+> IIRC, under DevCap they indicated MaxPayload 4096 bytes, and under
+> DevCtl they indicated MaxPayload 128 bytes and MaxReadReq 4096 bytes,
+> and was the same on both the Asus and SuperMicro systems.  I will
+> doublecheck tomorrow at work.  I am not clear on the meanings of
+> the different parameters.  And is DevCtl for PCI control messages
+> and DevCap for actual data transfers or something else?
 
------ "Krzysztof Halasa" <khc@pm.waw.pl> wrote:
+DevCap is the capability register, which is read-only; DevCtl is the
+control register which holds the actual settings.
 
-> Walt Holman <walt@holmansrus.com> writes:
->=20
-> > dmesg is attached. This box does have >2GB Ram (6GB total).  The
-> dmesg
-> > will show e100 init'd 3 times since the first is the stock
-> modprobe,
-> > 2nd was forced with use_io and the 3rd modprobe was after reverting
-> > the patch.
->=20
-> You most probably can't test without swiotlb (RAM has to be limited
-> to
-> 2 GB or so), can you? That would (dis)prove my theory. Alternatively
-> (or
-> better), a test on IOMMU-equipped system would do.
+MaxPayload is the MTU and MRU for PCIe packets.  Each sub-tree of
+devices connected to a single PCIe root port needs to have MaxPayload
+set consistently.  MaxReadReq is the maximum size of any DMA read
+request.  It is a per-device setting (or possibly per-function; I
+forget).  It can be much larger than MaxPayload since read completions
+can be fragmented.
 
-Would something like passing a mem=3Dxx cmdline on x86_64 be sufficient=
- to test this?
+Ben.
 
--Walt
-
-
-
->=20
-> Since swiotlb is x86-only thing (though other 64-bit archs may have
-> something similar), I think the correct work around is to enable the
-> "for_device" handoff on !X86.
->=20
-> Something like maybe:
->=20
-> Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
->=20
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 014dfb6..b610088 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -1762,9 +1762,12 @@ static int e100_rx_indicate(struct nic *nic,
-> struct rx *rx,
-> =20
->  			if (ioread8(&nic->csr->scb.status) & rus_no_res)
->  				nic->ru_running =3D RU_SUSPENDED;
-> +#ifndef CONFIG_X86
-> +		/* FIXME interferes with swiotlb. */
->  		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
->  					       sizeof(struct rfd),
->  					       PCI_DMA_BIDIRECTIONAL);
-> +#endif
->  		return -ENODATA;
->  	}
-> =20
-> --=20
-> Krzysztof Halasa
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
