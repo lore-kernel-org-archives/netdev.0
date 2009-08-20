@@ -1,45 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] qlge: Move TX completion processing to
- send path.
-Date: Thu, 20 Aug 2009 02:18:54 -0700 (PDT)
-Message-ID: <20090820.021854.254431313.davem@davemloft.net>
-References: <1250725991-7155-1-git-send-email-ron.mercer@qlogic.com>
-	<1250725991-7155-2-git-send-email-ron.mercer@qlogic.com>
+Subject: Re: [PATCH] ibm_newemac: emac_close() needs to call
+ netif_carrier_off()
+Date: Thu, 20 Aug 2009 02:20:58 -0700 (PDT)
+Message-ID: <20090820.022058.160961745.davem@davemloft.net>
+References: <fc21faff0908191440p5db84f79h8bb8a73501facae1@mail.gmail.com>
+	<fc21faff0908191532i2de570a1g1a6674bf5fe64a05@mail.gmail.com>
+	<1250748142.10937.4.camel@pasglop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com
+Cc: pgynther@google.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34752
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41484
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752799AbZHTJSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:18:42 -0400
-In-Reply-To: <1250725991-7155-2-git-send-email-ron.mercer@qlogic.com>
+	by vger.kernel.org with ESMTP id S1753383AbZHTJUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 05:20:46 -0400
+In-Reply-To: <1250748142.10937.4.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Wed, 19 Aug 2009 16:53:09 -0700
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 20 Aug 2009 16:02:22 +1000
 
-> @@ -1205,6 +1205,7 @@ struct bq_desc {
->  };
->  
->  #define QL_TXQ_IDX(qdev, skb) (smp_processor_id()%(qdev->tx_ring_count))
-> +#define TXQ_CLEAN_TIME (HZ/4)
->  
->  struct tx_ring {
->  	/*
+> On Wed, 2009-08-19 at 15:32 -0700, Petri Gynther wrote:
+>> Stephen,
+>> 
+>> I think your suggestion of adding netif_running() check to
+>> bond_check_dev_link() is valid and a good fix to the bonding driver.
+>> We can do this in a separate patch.
+>> 
+>> However, I think that the change to ibm_newemac: emac_close() is
+>> needed as well. ibm_newemac netdevs should not return
+>> netif_carrier_ok() == TRUE when they have been shut down.
+> 
+> Well, we definitely don't do that in sungem either, since we continue
+> the link polling while the interface is down... IE. interface up/down is
+> the data path and is orthogonal to the PHY polling in sungem. I suppose
+> we -could- stop the polling while the interface is down, though I think
+> my initial implementation did only poll the link while the interface was
+> up and that was causing endless problems with various laptop-net style
+> tools (however that was years and years ago).
 
-Running this every 1/4 of a second, even when no TX activity is
-happening, is very bad for power management.
+It just shows how few people use sungem with bonding :-)
 
-And starting the timer in response to whether there are TX queue
-entries active or not will add overhead and races.
+Short term I'm going to add the ibm_newemac change.
 
-This really isn't workable.
-
-I really and truly believe that the best place for this is in NAPI
-context.  So bring back the MSI-X vector for TX completions, and
-make it schedule a NAPI poll.
-
+Longer term we should probably add the netif_running() check to
+bond_check_dev_link().
