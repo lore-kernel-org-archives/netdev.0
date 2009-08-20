@@ -1,70 +1,70 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 14007] New: iproute2: socket lookup after
- policy-based local route returns "connect: Invalid argument"
-Date: Thu, 20 Aug 2009 14:36:18 -0700
-Message-ID: <20090820143618.fae0d200.akpm@linux-foundation.org>
-References: <bug-14007-10286@http.bugzilla.kernel.org/>
+From: Walt Holman <walt@holmansrus.com>
+Subject: Re: Strange network timeouts w/ 2.6.30.5
+Date: Thu, 20 Aug 2009 17:21:23 -0500 (CDT)
+Message-ID: <322550336.131250806883202.JavaMail.root@mail.holmansrus.com>
+References: <m3skfmk39q.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, markus@selfnet.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:36746 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751156AbZHTVgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 17:36:52 -0400
-In-Reply-To: <bug-14007-10286@http.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932096AbZHTWV1@vger.kernel.org>
+In-Reply-To: <m3skfmk39q.fsf@intrepid.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+----- "Krzysztof Halasa" <khc@pm.waw.pl> wrote:
 
-On Wed, 19 Aug 2009 08:55:44 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+> Walt Holman <walt@holmansrus.com> writes:
+>=20
+> > dmesg is attached. This box does have >2GB Ram (6GB total).  The
+> dmesg
+> > will show e100 init'd 3 times since the first is the stock
+> modprobe,
+> > 2nd was forced with use_io and the 3rd modprobe was after reverting
+> > the patch.
+>=20
+> You most probably can't test without swiotlb (RAM has to be limited
+> to
+> 2 GB or so), can you? That would (dis)prove my theory. Alternatively
+> (or
+> better), a test on IOMMU-equipped system would do.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=14007
-> 
->            Summary: iproute2: socket lookup after policy-based local route
->                     returns "connect: Invalid argument"
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.31
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: markus@selfnet.de
->         Regression: No
-> 
-> 
-> I want to add policy based routes to my local machine similar to the iptables
-> redirect command. With this it is possible to redirect connections without
-> losing the destination ip.
-> So i tried to add an route of type local to another routing table then table
-> local:
-> 
-> sudo ip route add local 192.168.33.0/24 dev eth0 table local
-> ping 192.168.33.1 -c 1
-> #working
-> 
-> sudo ip route add local 192.168.34.0/24 dev eth0 table main
-> ping 192.168.34.1 -c 1
-> #connect: Invalid argument
-> 
-> The first one is working, the secound one not. The only difference is another
-> routing table. icmp is only an example, tcp and udp doesnt work neither.
-> 
-> I guess somewhere in the socketlookup linux checks the destination ip with the
-> local routes only in the local table. perhaps the other tables are missed.
-> 
-> btw: i tried it on every linux with iproute2 i found. with no succeed
-> 
+Would something like passing a mem=3Dxx cmdline on x86_64 be sufficient=
+ to test this?
 
+-Walt
+
+
+
+>=20
+> Since swiotlb is x86-only thing (though other 64-bit archs may have
+> something similar), I think the correct work around is to enable the
+> "for_device" handoff on !X86.
+>=20
+> Something like maybe:
+>=20
+> Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+>=20
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index 014dfb6..b610088 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -1762,9 +1762,12 @@ static int e100_rx_indicate(struct nic *nic,
+> struct rx *rx,
+> =20
+>  			if (ioread8(&nic->csr->scb.status) & rus_no_res)
+>  				nic->ru_running =3D RU_SUSPENDED;
+> +#ifndef CONFIG_X86
+> +		/* FIXME interferes with swiotlb. */
+>  		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
+>  					       sizeof(struct rfd),
+>  					       PCI_DMA_BIDIRECTIONAL);
+> +#endif
+>  		return -ENODATA;
+>  	}
+> =20
+> --=20
+> Krzysztof Halasa
