@@ -1,43 +1,74 @@
-From: Jens Rosenboom <jens@mcbone.net>
-Subject: Re: IPV6_RTHDR with a type-0 routing header
-Date: Thu, 20 Aug 2009 14:53:44 +0200
-Message-ID: <1250772824.9489.3.camel@fnki-nb00130>
-References: <20090820111152.GA20295@uio.no>
-	 <7d4abbaea1f1e17050a0e8ffe4917cb8@chewa.net>
-	 <20090820121820.GA21354@uio.no>  <20090820123926.GA21858@uio.no>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: 100Mbit ethernet performance on embedded devices
+Date: Thu, 20 Aug 2009 14:56:49 +0200
+Message-ID: <20090820125649.GA29029@sig21.net>
+References: <20090819145057.GA25400@sig21.net>
+ <20090819153534.GC30013@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>,
-	netdev@vger.kernel.org
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-embedded@vger.kernel.org, netdev@vger.kernel.org
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from leia.mcbone.net ([194.97.104.42]:45054 "EHLO leia.mcbone.net"
+Received: from bar.sig21.net ([80.81.252.164]:40308 "EHLO bar.sig21.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754197AbZHTMxw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2009 08:53:52 -0400
-In-Reply-To: <20090820123926.GA21858@uio.no>
+	id S1754169AbZHTM4v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2009 08:56:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20090819153534.GC30013@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-08-20 at 14:39 +0200, Steinar H. Gunderson wrote:
-> On Thu, Aug 20, 2009 at 02:18:20PM +0200, Steinar H. Gunderson wrote:
-> > Hm, OK. And no replacement has been proposed, the deprecation RFC just refers
-> > to "future routing headers"...
+On Wed, Aug 19, 2009 at 04:35:34PM +0100, Jamie Lokier wrote:
+> Johannes Stezenbach wrote:
+> > 
+> >   TCP RX ~70Mbit/sec  (iperf -s on SoC, iperf -c on destop PC)
+> >   TCP TX ~56Mbit/sec  (iperf -s on destop PC, iperf -c o SoC)
+> > 
+> > The CPU load during the iperf test is around
+> > 1% user, 44% system, 4% irq, 48% softirq, with 7500 irqs/sec.
+> > 
+> > The kernel used in these measurements does not have iptables
+> > support, I think packet filtering will slow it down noticably,
+> > but I didn't actually try.  The ethernet driver uses NAPI,
+> > but it doesn't seem to be a win judging from the irq/sec number.
 > 
-> It looks like I can use destination options instead, but those don't seem to
-> be too easy to use either. The kernel seems to demand that I put eight bytes
-> of padding at the end?
+> You should see far fewer interrupts if NAPI was working properly.
+> Rather than NAPI not being a win, it looks like it's not active at
+> all.
 > 
->   #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
+> 7500/sec is close to the packet rate, for sending TCP with
+> full-size ethernet packages over a 100Mbit ethernet link.
+
+>From debug output I can see that NAPI works in principle, however
+the timing seems to be such that ->poll() almost always completes
+before the next packet is received.  I followed the NAPI_HOWTO.txt
+which came with the 2.6.20 kernel.  The delay between irq ->
+netif_rx_schedule() -> NET_RX_SOFTIRQ ->  ->poll()  doesn't seem
+to be long enough.  But of course my understanding of NAPI is
+very limited, probably I missed something...
+
+> > What I'm interested in are some numbers for similar hardware,
+> > to find out if my hardware and/or ethernet driver can be improved,
+> > or if the CPU will always be the limiting factor.
 > 
-> Why the +1? 
+> I have a SoC with a 166MHz ARMv4 (ARM7TDMI I think, but I'm not sure),
+> and an external RTL8139 100Mbit ethernet chip over the SoC's PCI bus.
+> 
+> It gets a little over 80Mbit/s actual data throughput in both
+> directions, running a simple FTP client.
 
-Because that matches the definition of the hdrlen field in RFC2460.
+I found one interesting page which defines network driver performance
+in terms of "CPU MHz per Mbit".
+http://www.stlinux.com/drupal/node/439
 
-> FWIW, the program I try to run is at http://home.samfundet.no/~sesse/v6fun.c .
-> If I replace "len" in the setsockopt call by "len + 8", the program runs and
-> the packets get the right option attached -- but also eight padding bytes.
+I can't really tell from their table how big a win HW csum is, but
+what they call "interrupt mitigation optimisations" (IOW: working NAPI)
+seems important.  (compare the values for STx7105)
 
-ERROR 404: Not Found.
+If some has an embedded platform with 100Mbit ethernet where they can switch
+HW checksum via ethtool and benchmark both under equal conditions, that
+would be very interesting.
 
+
+Thanks
+Johannes
