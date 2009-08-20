@@ -1,156 +1,224 @@
-From: Rene Mayrhofer <rene.mayrhofer@gibraltar.at>
-Subject: Re: Kernel oops on setting sky2 interfaces down
-Date: Thu, 20 Aug 2009 22:37:43 +0200
-Message-ID: <200908202237.43776.rene.mayrhofer@gibraltar.at>
-References: <4A65EC3F.4050400@gibraltar.at> <392fb48f0908191505v47f99d1cvef18d40bcf4c08d1@mail.gmail.com> <20090819174629.649f837f@nehalam>
+From: =?iso-8859-15?Q?Beno=EEt?= Vaillant <benoit.vaillant@no-log.org>
+Subject: Re: sd8686 linux system hang: not always
+Date: Thu, 20 Aug 2009 22:40:51 +0200
+Message-ID: <20090820204051.GA24491@kaos.fbx.proxad.net>
+References: <20090819185605.GA19345@kaos.fbx.proxad.net>
+ <1250710797.5351.89.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_XQbjK5SHD0OvPeI"
-Cc: Mike McCormack <mikem@ring3k.org>, netdev@vger.kernel.org,
-	Richard Leitner <leitner@esys.at>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="0eh6TmSyL6TZE2Uz"
+Cc: netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jupiter1.gibraltar.at ([80.120.3.98]:52054 "EHLO
-	mail1.gibraltar.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904AbZHTUhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 16:37:51 -0400
-In-Reply-To: <20090819174629.649f837f@nehalam>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:58081 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754504AbZHTUkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Aug 2009 16:40:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1250710797.5351.89.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_XQbjK5SHD0OvPeI
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
 
-Hi Stephen,
-
-Am Donnerstag, 20. August 2009 02:46:29 schrieb Stephen Hemminger:
-> On Thu, 20 Aug 2009 07:05:03 +0900
->
-> Mike McCormack <mikem@ring3k.org> wrote:
-> > 2009/8/20 Rene Mayrhofer <rene.mayrhofer@gibraltar.at>:
-> > > Pulling the latest sky2.c and sky2.h from net-next-2.6 and applying the
-> > > patch rids me of the oops - it is unreproducible right now. However, a
-> > > networking restart (i.e. all interfaces attached to sky2) leaves the
-> > > devices in a state where they no longer receive any network packets (at
-> > > least nothing visible in tcpdump). In this state, rmmod sky2 / modprobe
-> > > sky2 gives:
-> >
-> > After you've got it into that state, does "rmmod sky2; modprobe sky2"
-> > change anything?
-
-Nope, tried it multiple times.
+--0eh6TmSyL6TZE2Uz
+Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
+Content-Disposition: inline
 
 
-I've also tried the net-next-2.6 version of sky2.[ch] as of yesterday without 
-Mike's "bandaid" patches. With that version (the last one in branch 
-gibraltar-3.0 at https://www.gibraltar.at/git/linux-2.6-gibraltar.git), I 
-managed to successfully do a networking restart (with "light" traffic on one 
-interface), leaving the interfaces functional after the restart. This worked 
-even twice in a row, so mabye we are onto something here. This is certainly an 
-improvement over the version with Mike's last patch (from yesterday) applied, 
-which left the interfaces broken after a restart (and with the quoted errors 
-on a rmmod/modprobe sky2). 
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-However, after doing a ping -f on one of the (GBit) interfaces to another host 
-on the same switch for a few seconds and then executing networking restart, 
-the result was an immediate reboot of the box without any oops being printed 
-to the (serial) console beforehand. 
+On Wed, Aug 19, 2009 at 02:39:57PM -0500, Dan Williams wrote:
+> On Wed, 2009-08-19 at 20:56 +0200, Beno=EEt Vaillant wrote:
+> > /*
+> > Just a bit of context information:
+> > I'm using an MID (quite close to an Aigo, although bios differs,
+> > probably some hardware too, yet I've not checked much on that). I'm
+> > trying to use my Marvell card to get wifi access on a debian
+> > installation. The other OS installed (midinux) successfully gets a
+> > connection using the 8686_v9 mobilin driver, so I'd not go for any
+> > hardware issue. This driver failing to compile 'out of the box' on
+> > fresh kernels, I thought getting the libertas module working would be
+> > a better way to get through.
+> > */
+> > <snip>
+>=20
+> Just for context, what SDIO controller are you using on this platform?
 
-The same thing happened without particularly heavy traffic after executing 
-networking restart twice and then just letting the box sit idle (with some 
-traffic on the interfaces) for a few minutes.
+Sure, i can provide that!
 
-> Please send (I forget) the hardware info (lspci) and the register values
-> from ethtool -d ethX.
+lspci claims i's an:
+00:e1.0 SD Host controler: Intel Corporation System Controller Hub (SCH Pou=
+lsbo) SDIO Controller #1 (rev 06)
+00:e1.1 SD Host controler: Intel Corporation System Controller Hub (SCH Pou=
+lsbo) SDIO Controller #2 (rev 06)
 
-Attached (lspci -v).
+Complete `lspci -vvv` is attached.
 
-> Some part of the power control doesn't work on Rene's system, so
-> device falls off the bus. Probably no auxilary +5 supplied, the register
-> values will tell whether driver is at fault (turning on aux when not
-> available), or hardware is lying about vaux.
+Could this lead to anything already known which i have might missed?
 
-Is it possible to disable (kernel-level) power control for particular PCI 
-devices to check if this is indeed the issue? Or do you suspect hardware-level 
-power-off when the chip state goes down?
+Thanks,
 
-best regards,
-Rene
+--=20
+Beno=EEt
 
--- 
--------------------------------------------------
-Gibraltar firewall       http://www.gibraltar.at/
 
---Boundary-00=_XQbjK5SHD0OvPeI
-Content-Type: application/x-gzip;
-  name="lspci.out.gz"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="lspci.out.gz"
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: attachment; filename="lspci-vvv.txt"
 
-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
-gSoAAA==
+00:00.0 Host bridge: Intel Corporation Device 8101 (rev 06)
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
 
---Boundary-00=_XQbjK5SHD0OvPeI
-Content-Type: application/x-gzip;
-  name="ethtool.out.gz"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="ethtool.out.gz"
+00:02.0 VGA compatible controller: Intel Corporation Device 8109 (rev 06) (prog-if 00 [VGA controller])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 7
+	Region 0: Memory at c8080000 (32-bit, non-prefetchable) [size=512K]
+	Region 1: I/O ports at 1800 [size=8]
+	Region 2: Memory at d0000000 (32-bit, non-prefetchable) [size=128M]
+	Region 3: Memory at c8000000 (32-bit, non-prefetchable) [size=128K]
+	Expansion ROM at <unassigned> [disabled]
+	Capabilities: [d0] Power Management version 2
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [b0] Vendor Specific Information <?>
+	Capabilities: [90] MSI: Enable- Count=1/1 Maskable- 64bit-
+		Address: 00000000  Data: 0000
 
-H4sICDiyjUoCA2V0aHRvb2wub3V0AMVYWXPiOBB+jn5FPyYPU5HkA3vezJVhl0xYQmZ2Hh0jgitg
-sz5y/Ptp+QABMnh2NzUuV8pIn1rd6q8PhUx6IwjiaBE+kU/bh1D6GfxHYAxsDqYBtAPUBEaBUmCu
-/CtfDtSpvylhuAZB+MPgMKfbieJlEByMFGu4XEPPv6YjdTHxwyDGwRrTaVj2KLct9zG3axa0GnUo
-+OU3A6swZiHkOC+NNIgl1xhgBRVaNWbv2wKBAEPuY8s1ARhUDpXytm+ABjDNGXQq3cxWJ1GuIb04
-ypJ4BVPxFKaZSFLFe7UT6znwgkCkKUziJAP1oW8oajzoQyXt+j7zszwFOEB5NjWYbXpkFKG4JN9k
-cB/nSSAAjrC0ehTsrZ8+A2iwvQLJ+gr2i5/MX/1EwCBJ4mS7jVbuAbbehr7xAaXG0Bgq2Pq8Wukb
-z0XiZ2Ec7amuYLc7N0BVrAKZhWuRkItRFGYKAr75q1yoSy5mIi0QvBJXay+HyI2IUOAKJnmyiVM8
-nNH1nc4ojw4I6aI7b/3IfxJrEWXwgFsfMwW50rufIpcCEb4I+CsXqA/TnBQr1JPY+/co0AML7LB6
-CqyXngArZpNbrwfefJ4gWcURoYmc2V+PZ+diOHSBumBZYFolhrfAGAcYTXxFIsiQVtn7RhzpbHpw
-+ccVmdz2dfM1ymBwyRD15ccplIMnugw3MJpDA6Jrw4/8OY4+cRj04DIRL8CvyNRfQzdfLDDAdYto
-j5AqnieJWIgsWBJ9FBQu4JxTj4x9JN4omos3FcCp2ZGyMH1U7tG4z7AdP5BunP3NIBGbg2TDbQtn
-uGZGroBsiWKX8Uo5A0bJJNdoAy5zCKnJylpZJ81rso5RbrSwzi1JeiN0KhlOk7IWmkFmiR+la4z6
-/66txVgbV7hOs7LSFXpl5UxNmuFoeEcuvidhJrByhDI77iuKKl5MhT/XzVbTY/EiVnpOyzT33cdl
-az95Pp7GU7sYYe7QQorpSs2V3GIvpxq0b+7lVDmwy6mmLqciA9NCniqJDRzsLRRJxcAZSaj0foZ3
-e/vayIEzMsiNzISBhiBShGWTG5lSmuZRwHj09c+m+Vo8I9pqv0N2KDMbWLrzgyMDvmZ3A0YysQ7X
-BsyAqnIWq/j1UP2ypuwwGz/x12KfdvSt38HDvRdJiPVxjYVXtxfnbEDKH1V74ZeR9FlXLSRssnxP
-wwBFngKS6RtUBzuI5kfRqS16nSHxVusYqTDMVyuYFUmwCUtrZ1wX5GmQ68rs4XhEhi8MVznK0/df
-pVzmdLoqdnach9XU0kUH5FFQtTOnsKzjkYfNBv0z8XPsUrRgpfiP49d2WIeRb2PvK8z8JwA4fb6W
-U9rWmMX2dVCw+sx1iG1Mf03YhoSo6EtmH0sj1o5GrGoIWtJoZ2YrGtHWNJLY304j/gs02seeohEz
-8JL5ITTiSn9Utd1H3XTVOQaN+R2FWUNKuu9oRi/OdboVj+ma1CF9kQZJuJENs56ySndi2l3L4fR0
-/anXuB156yDy6oQVer055yvEdm8fzt1oJc5mnkf6cSQAzuhQ1K9/8qZwabKvl+br6r5yt1ik2IvZ
-lmVY6Ok0LJgPssAiiJ8DkeK6ta199VXqch6m/uNKzK8IKS9Zh5B/5XY88zZutwz7F93OsCvl7dxe
-p4lWbmdt3S6bYvZxbkf7XLfwKJQtupzljvRlga2SAt1F59S7fSw9cuwqfZevP6e2pWKApeJUFlOx
-FlajU5npEFum6W3SvS6T8MQPnkWWKti+U6fp81jDo0dyv4RPS7xGhTHa8a7+v2NwLLcJ2zHxvlbs
-doLkallpushosCdbZvW+zbzDwFbocCq4/w/WDJzWrGGdYWvWMJu3Zk2B/e1ewHvqTynJwdIFFwAA
+00:1a.0 USB Controller: Intel Corporation System Controller Hub (SCH Poulsbo) USB Client Controller (rev 06) (prog-if 80 [Unspecified])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O- Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 255
+	Region 0: Memory at c8020000 (32-bit, non-prefetchable) [disabled] [size=4K]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
 
---Boundary-00=_XQbjK5SHD0OvPeI--
+00:1b.0 Audio device: Intel Corporation System Controller Hub (SCH Poulsbo) HD Audio Controller (rev 06)
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 255
+	Region 0: Memory at c8024000 (64-bit, non-prefetchable) [size=16K]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [70] Express (v1) Root Complex Integrated Endpoint, MSI 00
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+			ExtTag- RBE- FLReset-
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop+
+			MaxPayload 128 bytes, MaxReadReq 128 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- TransPend-
+		LnkCap:	Port #0, Speed unknown, Width x0, ASPM unknown, Latency L0 <64ns, L1 <1us
+			ClockPM- Surprise- LLActRep- BwNot-
+		LnkCtl:	ASPM L0s Enabled; Disabled- Retrain- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed unknown, Width x0, TrErr- Train- SlotClk- DLActive- BWMgmt- ABWMgmt-
+	Capabilities: [100] Virtual Channel <?>
+	Capabilities: [130] Root Complex Link <?>
+
+00:1d.0 USB Controller: Intel Corporation System Controller Hub (SCH Poulsbo) USB UHCI #1 (rev 06) (prog-if 00 [UHCI])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 23
+	Region 4: I/O ports at 1820 [size=32]
+	Kernel driver in use: uhci_hcd
+
+00:1d.1 USB Controller: Intel Corporation System Controller Hub (SCH Poulsbo) USB UHCI #2 (rev 06) (prog-if 00 [UHCI])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin B routed to IRQ 19
+	Region 4: I/O ports at 1840 [size=32]
+	Kernel driver in use: uhci_hcd
+
+00:1d.2 USB Controller: Intel Corporation System Controller Hub (SCH Poulsbo) USB UHCI #3 (rev 06) (prog-if 00 [UHCI])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin C routed to IRQ 18
+	Region 4: I/O ports at 1860 [size=32]
+	Kernel driver in use: uhci_hcd
+
+00:1d.7 USB Controller: Intel Corporation System Controller Hub (SCH Poulsbo) USB EHCI #1 (rev 06) (prog-if 20 [EHCI])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin D routed to IRQ 21
+	Region 0: Memory at c8021000 (32-bit, non-prefetchable) [size=1K]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [58] Debug port: BAR=1 offset=00a0
+	Kernel driver in use: ehci_hcd
+
+00:1e.0 SD Host controller: Intel Corporation System Controller Hub (SCH Poulsbo) SDIO Controller #1 (rev 06) (prog-if 01)
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 22
+	Region 0: Memory at c8021400 (32-bit, non-prefetchable) [size=256]
+	Kernel driver in use: sdhci-pci
+
+00:1e.1 SD Host controller: Intel Corporation System Controller Hub (SCH Poulsbo) SDIO Controller #2 (rev 06) (prog-if 01)
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin B routed to IRQ 20
+	Region 0: Memory at c8021800 (32-bit, non-prefetchable) [size=256]
+	Kernel driver in use: sdhci-pci
+
+00:1f.0 ISA bridge: Intel Corporation System Controller Hub (SCH Poulsbo) LPC Bridge (rev 06)
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Kernel driver in use: isch_smbus
+
+00:1f.1 IDE interface: Intel Corporation System Controller Hub (SCH Poulsbo) IDE Controller (rev 06) (prog-if 80 [Master])
+	Subsystem: COMPAL Electronics Inc Device 002e
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Region 0: [virtual] Memory at 000001f0 (32-bit, non-prefetchable) [size=8]
+	Region 1: [virtual] Memory at 000003f0 (type 3, non-prefetchable) [size=1]
+	Region 2: [virtual] Memory at 00000170 (32-bit, non-prefetchable) [size=8]
+	Region 3: [virtual] Memory at 00000370 (type 3, non-prefetchable) [size=1]
+	Region 4: I/O ports at 1810 [size=16]
+	Kernel driver in use: pata_sch
+
+
+--fdj2RfSjLxBAspz7--
+
+--0eh6TmSyL6TZE2Uz
+Content-Type: application/pgp-signature; name="~/.gnupg/public_key.txt"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkqNtNMACgkQqNn0jQsEC2ZfUQCgjOLzjeGydL89K96oWrwavT4k
+lf8An2GKjHjxbFSnhXwTOeLQ1mVV5BGs
+=cL2a
+-----END PGP SIGNATURE-----
+
+--0eh6TmSyL6TZE2Uz--
