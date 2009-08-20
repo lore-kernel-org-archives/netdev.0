@@ -1,35 +1,49 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: IPV6_RTHDR with a type-0 routing header
-Date: Thu, 20 Aug 2009 13:11:52 +0200
-Message-ID: <20090820111152.GA20295@uio.no>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/3] r6040: remove unused pioaddr variable
+Date: Thu, 20 Aug 2009 13:26:12 +0200
+Message-ID: <200908201326.14630.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, shanwei@cn.fujitsu.com
-To: brian.haley@hp.com, davem@davemloft.net
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mark@bifferos.com,
+	bifferos <bifferos@yahoo.co.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([129.241.93.19]:41090 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752723AbZHTLL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 07:11:58 -0400
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:39465 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753846AbZHTL0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 07:26:17 -0400
+Received: by fxm17 with SMTP id 17so380883fxm.37
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 04:26:18 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Mark Kelly <mark@bifferos.com>
 
-I've tried attaching a type-0 routing header to my IPv6 packets with
-setsockopt(..., IPV6_RTHDR, ...), but the kernel just returns EINVAL.
-looking at the source, it seems it simply refuses anything that's not type-2;
-should that really be right? I found the following commit:
+This patch removes the unused pioaddr variable.
 
-  http://kerneltrap.org/mailarchive/linux-netdev/2008/11/11/4064594
-
-However, it only seems to change EPERM into EINVAL. I don't see any
-reasonable explanation why it should not be simply success; in fact, RFC 3452
-only seems to talk about using type-0 headers with this option.
-
-Any ideas?
-
-/* Steinar */
--- 
-Homepage: http://www.sesse.net/
+Signed-off-by: Mark Kelly <mark@bifferos.com>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 840677f..60bd010 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -1091,7 +1091,6 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	int err, io_size = R6040_IO_SIZE;
+ 	static int card_idx = -1;
+ 	int bar = 0;
+-	long pioaddr;
+ 	u16 *adrp;
+ 
+ 	printk(KERN_INFO "%s\n", version);
+@@ -1121,7 +1120,6 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 		goto err_out;
+ 	}
+ 
+-	pioaddr = pci_resource_start(pdev, bar);	/* IO map base address */
+ 	pci_set_master(pdev);
+ 
+ 	dev = alloc_etherdev(sizeof(struct r6040_private));
