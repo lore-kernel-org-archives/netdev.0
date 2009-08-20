@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: DF Bit set on UDP traffic -- bug or feature?
-Date: Wed, 19 Aug 2009 21:16:31 -0700 (PDT)
-Message-ID: <20090819.211631.197791532.davem@davemloft.net>
-References: <4A8C8945.70602@gdt.id.au>
+Subject: Re: Strange network timeouts w/ 2.6.30.5
+Date: Wed, 19 Aug 2009 21:17:36 -0700 (PDT)
+Message-ID: <20090819.211736.222582824.davem@davemloft.net>
+References: <1762204735.01250727555803.JavaMail.root@mail.holmansrus.com>
+	<2087985663.21250727676944.JavaMail.root@mail.holmansrus.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gdt@gdt.id.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60547
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750787AbZHTEQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 00:16:19 -0400
-In-Reply-To: <4A8C8945.70602@gdt.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, khc@pm.waw.pl
+To: walt@holmansrus.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751912AbZHTERZ@vger.kernel.org>
+In-Reply-To: <2087985663.21250727676944.JavaMail.root@mail.holmansrus.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Glen Turner <gdt@gdt.id.au>
-Date: Thu, 20 Aug 2009 09:22:45 +1000
+From: Walt Holman <walt@holmansrus.com>
+Date: Wed, 19 Aug 2009 19:21:16 -0500 (CDT)
 
-> Can I humbly suggest that when the kernel does not implement
-> its own fragmentation strategy (as it does with TCP Path MTU
-> Discovery) that the DF bit not be set by the kernel?
+Fixing the broken CC: list, it's "netdev" not "linux-netdev".
 
-It's UDP path MTU discovery, it's legal, and Linux has been
-doing it for almost 10 years.
-
-I don't think it's changing, sorry.
-
+> Since patching to 2.6.30.5 I'm experiencing periodic timeouts on my e100 which is used as my WAN interface on a server/router box. Nothing is reported in any logs and eventually the traffic resumes. It seems to happen at fairly regular intervals, although I've not timed them. The timeouts last for approx. 60-120 seconds and then traffic resumes normally with no hint of what happened. 
+> 
+> Reverting commit 303d67c288319768b19ed8dbed429fef7eb7c275 allows traffic to flow freely again. Attaching .config & lspci, anything else you need? 
+> 
+> -Walt
