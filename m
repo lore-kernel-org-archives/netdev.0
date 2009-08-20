@@ -1,55 +1,61 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [GIT PULL 0/5] IEEE 802.15.4 updates
-Date: Thu, 20 Aug 2009 20:13:02 +0400
-Message-ID: <1250784787-30590-1-git-send-email-dbaryshkov@gmail.com>
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
-	Sergey Lapin <slapin@ossfans.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f207.google.com ([209.85.219.207]:63200 "EHLO
-	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751790AbZHTQOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 12:14:04 -0400
-Received: by ewy3 with SMTP id 3so5527ewy.18
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 09:14:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/5] ieee802154: document the skb->cb
+	usage clearly.
+Date: Thu, 20 Aug 2009 20:13:03 +0400
+Message-ID: <1250784787-30590-2-git-send-email-dbaryshkov@gmail.com>
+References: <1250784787-30590-1-git-send-email-dbaryshkov@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1250784787-30590-1-git-send-email-dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ Documentation/networking/ieee802154.txt |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-The following changes since commit 886f9fe68310168358f55028a03553ae154dfeb6:
-  David S. Miller (1):
-        ppp_generic: Help GCC see that 'flen' is always initialized.
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
-
-Dmitry Eremin-Solenikov (5):
-      ieee802154: document the skb->cb usage clearly.
-      ieee802154: add a sysfs representation of WPAN master devices
-      fakehard: add binding to wpan-phy device
-      ieee802154: add support for channel pages from IEEE 802.15.4-2006
-      Drop ARPHRD_IEEE802154_PHY
-
- Documentation/networking/ieee802154.txt |    9 ++-
- drivers/ieee802154/fakehard.c           |   62 ++++++++++--
- include/linux/if_arp.h                  |    1 -
- include/linux/nl802154.h                |    2 +
- include/net/ieee802154_netdev.h         |    6 +-
- include/net/nl802154.h                  |    2 +-
- include/net/wpan-phy.h                  |   63 ++++++++++++
- net/core/dev.c                          |    4 +-
- net/ieee802154/Makefile                 |    2 +-
- net/ieee802154/af_ieee802154.c          |    4 +-
- net/ieee802154/netlink.c                |   28 +++++-
- net/ieee802154/nl_policy.c              |    1 +
- net/ieee802154/raw.c                    |    3 +-
- net/ieee802154/wpan-class.c             |  159 +++++++++++++++++++++++++++++++
- 14 files changed, 318 insertions(+), 28 deletions(-)
- create mode 100644 include/net/wpan-phy.h
- create mode 100644 net/ieee802154/wpan-class.c
-
+diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
+index 1c0c82c..23c995e 100644
+--- a/Documentation/networking/ieee802154.txt
++++ b/Documentation/networking/ieee802154.txt
+@@ -56,8 +56,12 @@ HardMAC
+ 
+ See the header include/net/ieee802154_netdev.h. You have to implement Linux
+ net_device, with .type = ARPHRD_IEEE802154. Data is exchanged with socket family
+-code via plain sk_buffs. The control block of sk_buffs will contain additional
+-info as described in the struct ieee802154_mac_cb.
++code via plain sk_buffs. On skb reception skb->cb must contain additional
++info as described in the struct ieee802154_mac_cb. During packet transmission
++the skb->cb is used to provide additional data to device's header_ops->create
++function. Be aware, that this data can be overriden later (when socket code
++submits skb to qdisc), so if you need something from that cb later, you should
++store info in the skb->data on your own.
+ 
+ To hook the MLME interface you have to populate the ml_priv field of your
+ net_device with a pointer to struct ieee802154_mlme_ops instance. All fields are
+@@ -73,3 +77,4 @@ We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
+ in software. This is currently WIP.
+ 
+ See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
++
 -- 
-With best wishes
-Dmitry
+1.6.3.3
 
+
+------------------------------------------------------------------------------
+Let Crystal Reports handle the reporting - Free Crystal Reports 2008 30-Day 
+trial. Simplify your report design, integration and deployment - and focus on 
+what you do best, core application coding. Discover what's new with 
+Crystal Reports now.  http://p.sf.net/sfu/bobj-july
