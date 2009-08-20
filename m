@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 2/3] r6040: move down second PHY detection to r6040_init_one
-Date: Thu, 20 Aug 2009 13:26:20 +0200
-Message-ID: <200908201326.21438.florian@openwrt.org>
+Subject: [PATCH 3/3] r6040: bump to version 0.25 and 20 August 2009 release date
+Date: Thu, 20 Aug 2009 13:26:23 +0200
+Message-ID: <200908201326.23859.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="utf-8"
@@ -12,53 +12,29 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f217.google.com ([209.85.220.217]:39465 "EHLO
 	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbZHTL0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 07:26:23 -0400
+	with ESMTP id S1753380AbZHTL0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Aug 2009 07:26:25 -0400
 Received: by mail-fx0-f217.google.com with SMTP id 17so380883fxm.37
-        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 04:26:24 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 20 Aug 2009 04:26:27 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Kelly <mark@bifferos.com>
 
-Instead of fully initializing an unusable second r6040
-device, perform the PHY detection earlier and bail out
-in r6040_init_one when we could not read the PHY identifier.
-
-Signed-off-by: Mark Kelly <mark@bifferos.com>
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
 diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 60bd010..7238a6f 100644
+index 7238a6f..8068a07 100644
 --- a/drivers/net/r6040.c
 +++ b/drivers/net/r6040.c
-@@ -750,14 +750,6 @@ static int r6040_up(struct net_device *dev)
- 	struct r6040_private *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->base;
- 	int ret;
--	u16 val;
--
--	/* Check presence of a second PHY */
--	val = r6040_phy_read(ioaddr, lp->phy_addr, 2);
--	if (val == 0xFFFF) {
--		printk(KERN_ERR DRV_NAME " no second PHY attached\n");
--		return -EIO;
--	}
+@@ -49,8 +49,8 @@
+ #include <asm/processor.h>
  
- 	/* Initialise and alloc RX/TX buffers */
- 	r6040_init_txbufs(dev);
-@@ -1194,6 +1186,13 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	lp->mii_if.phy_id_mask = 0x1f;
- 	lp->mii_if.reg_num_mask = 0x1f;
+ #define DRV_NAME	"r6040"
+-#define DRV_VERSION	"0.24"
+-#define DRV_RELDATE	"08Jul2009"
++#define DRV_VERSION	"0.25"
++#define DRV_RELDATE	"20Aug2009"
  
-+	/* Check the vendor ID on the PHY, if 0xffff assume none attached */
-+	if (r6040_phy_read(ioaddr, lp->phy_addr, 2) == 0xffff) {
-+		printk(KERN_ERR DRV_NAME ": Failed to detect an attached PHY\n");
-+		err = -ENODEV;
-+		goto err_out_unmap;
-+	}
-+
- 	/* Register net device. After this dev->name assign */
- 	err = register_netdev(dev);
- 	if (err) {
+ /* PHY CHIP Address */
+ #define PHY1_ADDR	1	/* For MAC1 */
