@@ -1,86 +1,73 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2009-08-21
-Date: Fri, 21 Aug 2009 13:03:25 -0400
-Message-ID: <20090821170324.GC8532@tuxdriver.com>
+From: Manuel Lauss <manuel.lauss@googlemail.com>
+Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
+Date: Fri, 21 Aug 2009 19:23:39 +0200
+Message-ID: <f861ec6f0908211023t3eb7ff1p12b6160feb94efb4@mail.gmail.com>
+References: <200908170105.38154.florian@openwrt.org>
+	 <4A8AC125.3020602@ru.mvista.com>
+	 <200908181801.41602.florian@openwrt.org>
+	 <200908211853.07969.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932577AbZHURPU@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>,
+	Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <200908211853.07969.florian@openwrt.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi Florian,
 
-One more straggler for 2.6.31...without this rtl8187b devices simply
-don't work. :-(
+On Fri, Aug 21, 2009 at 6:53 PM, Florian Fainelli<florian@openwrt.org> =
+wrote:
+> Le Tuesday 18 August 2009 18:01:40 Florian Fainelli, vous avez =E9cri=
+t=A0:
+>> Le Tuesday 18 August 2009 16:56:37 Sergei Shtylyov, vous avez =E9cri=
+t=A0:
+>> > Hello.
+>> >
+>> > Florian Fainelli wrote:
+>> > > This patch adds the board code to register a per-board au1000-et=
+h
+>> > > platform device to be used wit the au1000-eth platform driver in=
+ a
+>> > > subsequent patch. Note that the au1000-eth driver knows about th=
+e
+>> > > default driver settings such that we do not need to pass any
+>> > > platform_data informations in most cases except db1x00.
+>> >
+>> > =A0 =A0 Sigh, NAK...
+>> > =A0 =A0 Please don't register the SoC device per board, do it in
+>> > alchemy/common/platfrom.c and find a way to pass the board specifi=
+c
+>> > platform data from the board file there instead -- something like
+>> > arch/arm/mach-davinci/usb.c does.
+>>
+>> Ok, like I promised, this was the per-board device registration. Do =
+you
+>> prefer something like this: --
+>> From fd75b7c7fa3c05c21122c43e43260d2785475a79 Mon Sep 17 00:00:00 20=
+01
+>> From: Florian Fainelli <florian@openwrt.org>
+>> Date: Tue, 18 Aug 2009 17:53:21 +0200
+>> Subject: [PATCH] alchemy: add au1000-eth platform device (v2)
+>>
+>> This patch makes the board code register the au1000-eth
+>> platform device. The au1000-eth platform data can be
+>> overriden with the au1xxx_override_eth0_cfg function
+>> like it has to be done for the Bosporus board.
+>
+> Sergei, any comments on that version? What about you Manuel?
 
-The patch is small and isolated to rtl8187.  I think we should take
-it for 2.6.31.
+Obviously I *much* prefer your first version, but I'm okay with this
+second version too.
 
-Please let me know if there are problems!
+(I usually only comment if I don't like things, so take my silence as
+approval).
 
-John
+Thanks for your work!
 
----
-
-Patch available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/
-
----
-
-The following changes since commit 08fdef99342955a62884fb5c49ab43431a1cafbf:
-  David S. Miller (1):
-        Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Herton Ronaldo Krzesinski (1):
-      rtl8187: always set MSR_LINK_ENEDCA flag with RTL8187B
-
- drivers/net/wireless/rtl818x/rtl8187_dev.c |   14 ++++++++++----
- 1 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/rtl818x/rtl8187_dev.c b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-index 294250e..87a9558 100644
---- a/drivers/net/wireless/rtl818x/rtl8187_dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8187_dev.c
-@@ -869,6 +869,9 @@ static int rtl8187b_init_hw(struct ieee80211_hw *dev)
- 	priv->aifsn[3] = 3; /* AIFSN[AC_BE] */
- 	rtl818x_iowrite8(priv, &priv->map->ACM_CONTROL, 0);
- 
-+	/* ENEDCA flag must always be set, transmit issues? */
-+	rtl818x_iowrite8(priv, &priv->map->MSR, RTL818X_MSR_ENEDCA);
-+
- 	return 0;
- }
- 
-@@ -1173,13 +1176,16 @@ static void rtl8187_bss_info_changed(struct ieee80211_hw *dev,
- 			rtl818x_iowrite8(priv, &priv->map->BSSID[i],
- 					 info->bssid[i]);
- 
-+		if (priv->is_rtl8187b)
-+			reg = RTL818X_MSR_ENEDCA;
-+		else
-+			reg = 0;
-+
- 		if (is_valid_ether_addr(info->bssid)) {
--			reg = RTL818X_MSR_INFRA;
--			if (priv->is_rtl8187b)
--				reg |= RTL818X_MSR_ENEDCA;
-+			reg |= RTL818X_MSR_INFRA;
- 			rtl818x_iowrite8(priv, &priv->map->MSR, reg);
- 		} else {
--			reg = RTL818X_MSR_NO_LINK;
-+			reg |= RTL818X_MSR_NO_LINK;
- 			rtl818x_iowrite8(priv, &priv->map->MSR, reg);
- 		}
- 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Manuel Lauss
