@@ -1,46 +1,56 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH 2/2] drivers/net: fixed drivers that support netpoll
- use ndo_start_xmit()
-Date: Fri, 21 Aug 2009 10:26:19 -0500
-Message-ID: <1250868379.3937.279.camel@calx>
-References: <1250861616.24178.20.camel@dengdd-desktop>
-	 <1250861693.24178.22.camel@dengdd-desktop>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Fri, 21 Aug 2009 11:36:00 -0400
+Message-ID: <4A8EBEE0.6010901@myri.com>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com> <20090807221211.GA16874@localhost.localdomain> <20090807205442.32918186.billfink@mindspring.com> <20090808015612.GA17710@localhost.localdomain> <20090814164412.be5daa74.billfink@mindspring.com> <20090814232543.GA28599@hmsreliant.think-freely.org> <20090820035044.9b70fca6.billfink@mindspring.com> <20090820201919.GA20750@localhost.localdomain> <20090821001421.214a560b.billfink@mindspring.com> <20090821152341.GA2998@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Nicolas Pitre <nico@cam.org>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Jason Wessel <jason.wessel@windriver.com>
-To: DDD <Dongdong.deng@windriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755497AbZHUP1H@vger.kernel.org>
-In-Reply-To: <1250861693.24178.22.camel@dengdd-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Bill Fink <billfink@mindspring.com>,
+	Linux Network Developers <netdev@vger.kernel.org>,
+	brice@myri.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailbox2.myri.com ([64.172.73.26]:1820 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932358AbZHUPgN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 11:36:13 -0400
+In-Reply-To: <20090821152341.GA2998@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-08-21 at 21:34 +0800, DDD wrote:
-> The NETPOLL API requires that interrupts remain disabled in
-> netpoll_send_skb(). The use of "A functions set" in the NETPOLL API
-> callbacks causes the interrupts to get enabled and can lead to kernel
-> instability.
-> 
-> The solution is to use "B functions set" to prevent the irqs from
-> getting enabled while in netpoll_send_skb().
-> 
-> A functions set:
-> local_irq_disable()/local_irq_enable()
-> spin_lock_irq()/spin_unlock_irq()
-> spin_trylock_irq()/spin_unlock_irq()
-> 
-> B functions set:
-> local_irq_save()/local_irq_restore()
-> spin_lock_irqsave()/spin_unlock_irqrestore()
-> spin_trylock_irqsave()/spin_unlock_irqrestore()
-> 
-> Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
+Neil Horman wrote:
+> On Fri, Aug 21, 2009 at 12:14:21AM -0400, Bill Fink wrote:
+>> On Thu, 20 Aug 2009, Neil Horman wrote:
+>>
+>>> On Thu, Aug 20, 2009 at 03:50:44AM -0400, Bill Fink wrote:
+>>>
+>>>> When I tried an actual nuttcp performance test, even when rate limiting
+>>>> to just 1 Mbps, I immediately got a kernel oops.  I tried to get a
+>>>> crashdump via kexec/kdump, but the kexec kernel, instead of just
+>>>> generating a crashdump, fully booted the new kernel, which was
+>>>> extremely sluggish until I rebooted it through a BIOS re-init,
+>>>> and never produced a crashdump.  I tried this several times and
+>>>> an immediate kernel oops was always the result (with either a TCP
+>>>> or UDP test).  A ping test of 1000 9000-byte packets with an interval
+>>>> of 0.001 seconds (which is 72 Mbps for 1 second) on the other hand
+>>>> worked just fine.
+>>> The sluggishness is expected, since the kdump kernel operates out of such
+>>> limited memory.  don't know why you booted to a full system rather than did a
+>>> crash recovery.  Don't suppose you got a backtrace did you?
+>> There was a backtrace on the screen but I didn't have a chance to
+>> record it.  BTW did anyone ever think to print the backtrace in
+>> reverse (first to some reserved memory and then output to the display)
+>> so the more interesting parts wouldn't have scrolled off the top of
+>> the screen?
+>>
+> The real solution is to use a console to which the output doesn't scroll off the
+> screen.  Normally people use a serial console they can log, or a RAC card that
+> they can record. Even on a regular vga monitor in text mode, you can set up the
+> vt iirc to allow for scrolling.
 
-Both of these look good to me, thanks.
+Indeed. Another option when setting up a serial console is not practical
+is netconsole.  I've captured a few panics this way on machines like
+macs, with no serial port support (at the time).
 
-Acked-by: Matt Mackall <mpm@selenic.com>
-
--- 
-http://selenic.com : development and support for Mercurial and Linux
+Drew
