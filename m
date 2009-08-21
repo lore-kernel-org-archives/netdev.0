@@ -1,33 +1,47 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Strange network timeouts w/ 2.6.30.5
-Date: Fri, 21 Aug 2009 11:44:35 +0200
-Message-ID: <m3d46plcvw.fsf@intrepid.localdomain>
-References: <322550336.131250806883202.JavaMail.root@mail.holmansrus.com>
+From: Andreas Mohr <andi@lisas.de>
+Subject: [PATCH] Fix Micrel KSZ8842 Kconfig description
+Date: Fri, 21 Aug 2009 12:20:34 +0200
+Message-ID: <20090821102033.GA26577@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+Cc: Richard Rojfors <richard.rojfors.ext@mocean-labs.com>,
 	netdev@vger.kernel.org
-To: Walt Holman <walt@holmansrus.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:55736 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755081AbZHUJog (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2009 05:44:36 -0400
-In-Reply-To: <322550336.131250806883202.JavaMail.root@mail.holmansrus.com> (Walt Holman's message of "Thu\, 20 Aug 2009 17\:21\:23 -0500 \(CDT\)")
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:57192 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754521AbZHUKUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 06:20:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Walt Holman <walt@holmansrus.com> writes:
+Hi,
 
-> Would something like passing a mem=xx cmdline on x86_64 be sufficient to test this?
+when doing a "make oldconfig" recently, non-descriptive item "Micrel KSZ8842"
+came up, and when I hit "?" to get more info, all I got was a tight-lipped
+"This platform driver is for Micrel KSZ8842 chip.".
+I don't need to know whether this is a platform driver or not, I want to
+know _what_ the h*ll this thing does, to quickly decide
+(and then get on with handling the other 150 upcoming config items)
+whether the machine I'm running oldconfig on might actually have this
+particular metal-pinned beast soldered somewhere or not.
 
-I think so, though I admit I don't remember using this personally since
-the introduction of e820 RAM mapping support.
-Dmesg will show if the memory is limited. For the swiotlb to effectively
-disable no RAM > 0x100000000 may be used.
+Thanks,
 
-But this test isn't IMHO terribly important at this point - the driver
-makes invalid use of the DMA API and it has to change. The test could
-only explain _how_ exactly does it fail, we already know _why_ it does.
--- 
-Krzysztof Halasa
+Andreas Mohr
+
+Signed-off-by: Andreas Mohr <andi@lisas.de>
+
+--- linux-2.6.31-rc6/drivers/net/Kconfig.orig	2009-08-21 12:00:31.000000000 +0200
++++ linux-2.6.31-rc6/drivers/net/Kconfig	2009-08-21 12:09:13.000000000 +0200
+@@ -1727,7 +1727,8 @@ config KS8842
+ 	tristate "Micrel KSZ8842"
+ 	depends on HAS_IOMEM
+ 	help
+-	  This platform driver is for Micrel KSZ8842 chip.
++	  This platform driver is for Micrel KSZ8842 / KS8842
++	  2-port ethernet switch chip (managed, VLAN, QoS, PCI-based).
+ 
+ config KS8851
+        tristate "Micrel KS8851 SPI"
