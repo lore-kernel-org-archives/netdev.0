@@ -1,160 +1,87 @@
-From: Andy Grover <andy.grover@oracle.com>
-Subject: [PATCH 3/5] RDS: Modularize RDMA and TCP transports
-Date: Fri, 21 Aug 2009 15:28:33 -0700
-Message-ID: <1250893715-21939-4-git-send-email-andy.grover@oracle.com>
-References: <1250893715-21939-1-git-send-email-andy.grover@oracle.com>
-Cc: rds-devel@oss.oracle.com
-To: netdev@vger.kernel.org
+From: Marek Vasut <marek.vasut@gmail.com>
+Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
+Date: Sat, 22 Aug 2009 00:54:31 +0200
+Message-ID: <200908220054.31438.marek.vasut@gmail.com>
+References: <200907240257.10906.marek.vasut@gmail.com> <a4423d670907290416h4a0796c2s665d3f8ca0755e67@mail.gmail.com> <200908051602.34501.marek.vasut@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Miao <eric.y.miao@gmail.com>,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
+	samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Alexander Beregalov <a.beregalov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet11.oracle.com ([141.146.126.233]:32902 "EHLO
-	acsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932396AbZHUW2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 18:28:49 -0400
-Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
-	by acsinet11.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n7LMTWJL028743
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 22:29:33 GMT
-In-Reply-To: <1250893715-21939-1-git-send-email-andy.grover@oracle.com>
+Received: from mail-fx0-f217.google.com ([209.85.220.217]:33018 "EHLO
+	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932390AbZHUWyx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 18:54:53 -0400
+Received: by fxm17 with SMTP id 17so688928fxm.37
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 15:54:54 -0700 (PDT)
+In-Reply-To: <200908051602.34501.marek.vasut@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the building of transports as modules.
+Dne St 5. srpna 2009 16:02:34 Marek Vasut napsal(a):
+> Dne St 29. =C4=8Dervence 2009 13:16:25 Alexander Beregalov napsal(a):
+> > 2009/7/28 Eric Miao <eric.y.miao@gmail.com>:
+> > > Marek Vasut wrote:
+> > >> Hi!
+> > >>
+> > >> This patch fixes broken pxaficp-ir. The problem was in incorrect
+> > >> net_device_ops being specified which prevented the driver from
+> > >> operating. The symptoms were:
+> > >>  - failing ifconfig for IrLAN, resulting in
+> > >>       SIOCSIFFLAGS: Cannot assign requested address
+> > >>  - irattach working for IrCOMM, but the port stayed disabled
+> > >>
+> > >> Moreover this patch corrects missing sysfs device link.
+> > >>
+> > >> btw. guys, be honest, when did you last tested pxaficp-ir on rea=
+l
+> > >> hardware? ;-)
+> > >
+> > > Well, this seems to be brought by the net_device_ops change, whic=
+h
+> > > seems to happen silently without any of us being notified.
+> > >
+> > > OK, netdev and Alex are copied, so that we can look into this iss=
+ue a
+> > > bit deeper:
+> > >
+> > > 1. it looks to me that SIOCSIFFLAGS actually returned -EADDRNOTAV=
+AIL,
+> > > which is likely caused by eth_validate_addr, the default eth_addr=
+ comes
+> > > with irda should be "00:00:00:00:00:00" if not explicitly specifi=
+ed
+> > > (kzalloc), and this should be the problem, solution ?  Either giv=
+e a
+> > > valid address to the irda net_device or remove this
+> > > 'ndo_validate_addr'. And which is a correct fix will impact on th=
+e
+> > > .ndo_set_mac_address
+> > >
+> > > 2. '.ndo_change_mtu' ? It looks to me that Irda device doesn't ca=
+re too
+> > > much about the MTU, eth_change_mtu is supposed to work just fine =
+and
+> > > not to cause any side effects, and may just benefit later irda de=
+vice
+> > > drivers if there is a weird device happens to care about MTU
+> > >
+> > > - eric
+> > >
+> > > Marek's original patch in attachment.
+> >
+> > Sorry about that and thanks.
+> > Then we should fix the rest of irda drivers in the same way.
+>
+> Hi!
+> Was my patch applied or what's the current status? Thanks
 
-Also, improve consistency of Kconfig messages in relation to other
-protocols, and move build dependency on IB from the RDS core code
-to the rds_rdma module.
+Hi!
+any updates ? Are we letting this into .32 in current broken state?
 
-Signed-off-by: Andy Grover <andy.grover@oracle.com>
----
- net/rds/Kconfig          |   26 ++++++++++++++++++++------
- net/rds/Makefile         |   11 +++++++++--
- net/rds/af_rds.c         |    8 --------
- net/rds/rdma_transport.c |    6 ++++++
- 4 files changed, 35 insertions(+), 16 deletions(-)
-
-diff --git a/net/rds/Kconfig b/net/rds/Kconfig
-index 796773b..ec753b3 100644
---- a/net/rds/Kconfig
-+++ b/net/rds/Kconfig
-@@ -1,14 +1,28 @@
- 
- config RDS
--	tristate "Reliable Datagram Sockets (RDS) (EXPERIMENTAL)"
--	depends on INET && INFINIBAND_IPOIB && EXPERIMENTAL
--	depends on INFINIBAND && INFINIBAND_ADDR_TRANS
-+	tristate "The RDS Protocol (EXPERIMENTAL)"
-+	depends on INET && EXPERIMENTAL
- 	---help---
--	  RDS provides reliable, sequenced delivery of datagrams
--	  over Infiniband.
-+	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
-+	  sequenced delivery of datagrams over Infiniband, iWARP,
-+	  or TCP.
-+
-+config RDS_RDMA
-+	tristate "RDS over Infiniband and iWARP"
-+	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
-+	---help---
-+	  Allow RDS to use Infiniband and iWARP as a transport.
-+	  This transport supports RDMA operations.
-+
-+config RDS_TCP
-+	tristate "RDS over TCP"
-+	depends on RDS
-+	---help---
-+	  Allow RDS to use TCP as a transport.
-+	  This transport does not support RDMA operations.
- 
- config RDS_DEBUG
--        bool "Debugging messages"
-+        bool "RDS debugging messages"
- 	depends on RDS
-         default n
- 
-diff --git a/net/rds/Makefile b/net/rds/Makefile
-index 51f2758..b46eca1 100644
---- a/net/rds/Makefile
-+++ b/net/rds/Makefile
-@@ -1,13 +1,20 @@
- obj-$(CONFIG_RDS) += rds.o
- rds-y :=	af_rds.o bind.o cong.o connection.o info.o message.o   \
- 			recv.o send.o stats.o sysctl.o threads.o transport.o \
--			loop.o page.o rdma.o \
--			rdma_transport.o \
-+			loop.o page.o rdma.o
-+
-+obj-$(CONFIG_RDS_RDMA) += rds_rdma.o
-+rds_rdma-objs :=	rdma_transport.o \
- 			ib.o ib_cm.o ib_recv.o ib_ring.o ib_send.o ib_stats.o \
- 			ib_sysctl.o ib_rdma.o \
- 			iw.o iw_cm.o iw_recv.o iw_ring.o iw_send.o iw_stats.o \
- 			iw_sysctl.o iw_rdma.o
- 
-+
-+obj-$(CONFIG_RDS_TCP) += rds_tcp.o
-+rds_tcp-objs :=		tcp.o tcp_connect.o tcp_listen.o tcp_recv.o \
-+			tcp_send.o tcp_stats.o
-+
- ifeq ($(CONFIG_RDS_DEBUG), y)
- EXTRA_CFLAGS += -DDEBUG
- endif
-diff --git a/net/rds/af_rds.c b/net/rds/af_rds.c
-index b11e7e5..108ed2e 100644
---- a/net/rds/af_rds.c
-+++ b/net/rds/af_rds.c
-@@ -39,7 +39,6 @@
- 
- #include "rds.h"
- #include "rdma.h"
--#include "rdma_transport.h"
- 
- /* this is just used for stats gathering :/ */
- static DEFINE_SPINLOCK(rds_sock_lock);
-@@ -509,7 +508,6 @@ out:
- 
- static void __exit rds_exit(void)
- {
--	rds_rdma_exit();
- 	sock_unregister(rds_family_ops.family);
- 	proto_unregister(&rds_proto);
- 	rds_conn_exit();
-@@ -549,14 +547,8 @@ static int __init rds_init(void)
- 	rds_info_register_func(RDS_INFO_SOCKETS, rds_sock_info);
- 	rds_info_register_func(RDS_INFO_RECV_MESSAGES, rds_sock_inc_info);
- 
--	/* ib/iwarp transports currently compiled-in */
--	ret = rds_rdma_init();
--	if (ret)
--		goto out_sock;
- 	goto out;
- 
--out_sock:
--	sock_unregister(rds_family_ops.family);
- out_proto:
- 	proto_unregister(&rds_proto);
- out_stats:
-diff --git a/net/rds/rdma_transport.c b/net/rds/rdma_transport.c
-index 7a6c748..9ece910 100644
---- a/net/rds/rdma_transport.c
-+++ b/net/rds/rdma_transport.c
-@@ -203,6 +203,7 @@ err_iw_init:
- out:
- 	return ret;
- }
-+module_init(rds_rdma_init);
- 
- void rds_rdma_exit(void)
- {
-@@ -211,4 +212,9 @@ void rds_rdma_exit(void)
- 	rds_ib_exit();
- 	rds_iw_exit();
- }
-+module_exit(rds_rdma_exit);
-+
-+MODULE_AUTHOR("Oracle Corporation <rds-devel@oss.oracle.com>");
-+MODULE_DESCRIPTION("RDS: IB/iWARP transport");
-+MODULE_LICENSE("Dual BSD/GPL");
- 
--- 
-1.6.0.4
-
+Thanks!
