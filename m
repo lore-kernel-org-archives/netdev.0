@@ -1,43 +1,43 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Abour linux driver supports BCM4325
-Date: Fri, 21 Aug 2009 08:13:01 -0500
-Message-ID: <1250860381.2876.19.camel@localhost.localdomain>
-References: <f42a38140908202319y5c352aa3s37fec67e5cb8d7a3@mail.gmail.com>
-	 <f42a38140908202322ua3d4486meae6653044465583@mail.gmail.com>
+From: DDD <Dongdong.deng@windriver.com>
+Subject: [PATCH 1/2] netpoll: warning for ndo_start_xmit returns with
+	interrupts enabled
+Date: Fri, 21 Aug 2009 21:33:36 +0800
+Message-ID: <1250861616.24178.20.camel@dengdd-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: feng tian <feng.of.tian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6469 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932087AbZHUNM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2009 09:12:57 -0400
-In-Reply-To: <f42a38140908202322ua3d4486meae6653044465583@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Jason Wessel <jason.wessel@windriver.com>
+To: Matt Mackall <mpm@selenic.com>, David Miller <davem@davemloft.net>,
+	Nicolas Pitre <nico@cam.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755167AbZHUNVf@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2009-08-21 at 14:22 +0800, feng tian wrote:
-> Dear All,
-> 
-> We are working on a project which supports the BCM4325 linux wireless
-> driver. The interface between the BCM chip and SOC(pxa310) is SDIO.
-> I did some searches online and found that there is no available driver
-> for this chip. Do I have to implement this myself? Is there anyone can
-> provide us some related materials?  Thanks very much.
+WARN_ONCE for ndo_start_xmit() enable interrupts in netpoll_send_skb(),
+because the NETPOLL API requires that interrupts remain disabled in
+netpoll_send_skb().
 
-You'll probably want to ask on the linux-wireless list where the
-wireless people hang out.  Partial answer: there is already a driver
-(b43) for many of broadcom 802.11 devices, including some of the
-"LP-PHY" devices.  This driver may or may not be suitable for the 4325
-depending on the 4325's firmware interface.  The b43 driver is not yet
-capable of using SDIO to communicate with the wifi chip, but that
-appears to be what you are working on.  So I'd suggest posting to the
-linux-wireless mailing list and seeing what the b43 driver people say.
+Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
+---
+ net/core/netpoll.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-http://linuxwireless.org/en/developers/MailingLists
-
-Dan
-
-
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index df30feb..1b76eb1 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -319,6 +319,11 @@ static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 
+ 			udelay(USEC_PER_POLL);
+ 		}
++
++		WARN_ONCE(!irqs_disabled(),
++			"netpoll_send_skb(): %s enabled interrupts in poll (%pF)\n",
++			dev->name, ops->ndo_start_xmit);
++
+ 		local_irq_restore(flags);
+ 	}
+ 
+-- 
+1.6.0.4
