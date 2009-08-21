@@ -1,46 +1,35 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.31-rc6-git5: Reported regressions from 2.6.30
-Date: Sat, 22 Aug 2009 00:02:03 +0200
-Message-ID: <200908220002.03707.rjw@sisk.pl>
-References: <jCYznkTxcLB.A.EPH.eNIjKB@chimera> <4A8F12CE.9090601@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Natalie Protasevich <protasnb@gmail.com>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <4A8F12CE.9090601@lwfinger.net>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Grover <andy.grover@oracle.com>
+Subject: [PATCH net-next 0/5] RDS: TCP transport support
+Date: Fri, 21 Aug 2009 15:28:30 -0700
+Message-ID: <1250893715-21939-1-git-send-email-andy.grover@oracle.com>
+Cc: rds-devel@oss.oracle.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet12.oracle.com ([148.87.113.124]:24406 "EHLO
+	rgminet12.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755291AbZHUW2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 18:28:41 -0400
+Received: from rgminet15.oracle.com (rcsinet15.oracle.com [148.87.113.117])
+	by rgminet12.oracle.com (Switch-3.3.1/Switch-3.3.1) with ESMTP id n7LMSYnO016112
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 22:28:35 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 21 August 2009, Larry Finger wrote:
-> Rafael J. Wysocki wrote:
-> 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13960
-> > Subject		: rtl8187 not connect to wifi
-> > Submitter	: okias <d.okias@gmail.com>
-> > Date		: 2009-08-10 19:16 (10 days old)
-> 
-> The patch for this one was sent from Linville to DaveM earlier today,
-> and should be sent to mainline in the near future.
-> 
-> AFAIK, the OP has not yet tested the patch, but I think I was able to
-> reproduce the problem, and the patch did fit it for me.
+Hello netdev,
 
-Thanks for the update.
+This patch series adds a TCP transport for RDS. Instead of requiring
+an IB queue pair for communication between two nodes, it may instead 
+tunnel traffic over a TCP connection. This makes RDS usable by
+people without IB hardware, or in a VM.
 
-Can you please close the bug when the patch is merged?
+In addition, this patchset modularizes RDS into an rds core module,
+an rds_rdma module (for Infiniband and iWARP) and rds_tcp module. RDS
+itself no longer has a dependency on IB (the rds_rdma module does).
 
-Rafael
+This code has been tested and verified to work and perform acceptably, 
+but has not yet had intensive performance analysis.
+
+Thanks -- Regards -- Andy
+
+
