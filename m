@@ -1,230 +1,194 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [RFC][PATCH][v5] ethtool: Add a new ethtool option to flash a
-	firmware image from the specified file to a device.
-Date: Fri, 21 Aug 2009 22:24:30 +0530
-Message-ID: <20090821165418.GA19156@serverengines.com>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: [RFC][PATCH] smc91x: let smc91x work well with netpoll
+Date: Fri, 21 Aug 2009 13:13:32 -0400 (EDT)
+Message-ID: <alpine.LFD.2.00.0908211304000.6044@xanadu.home>
+References: <1250861616.24178.20.camel@dengdd-desktop>
+ <1250862005.24178.28.camel@dengdd-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:22280 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755613AbZHUQy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 12:54:27 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Matt Mackall <mpm@selenic.com>, David Miller <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Jason Wessel <jason.wessel@windriver.com>
+To: DDD <Dongdong.deng@windriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932549AbZHURNi@vger.kernel.org>
+In-reply-to: <1250862005.24178.28.camel@dengdd-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a new "-f" option to the ethtool utility
-to flash a firmware image specified by a file, to a network device.
-The filename is passed to the network driver which will flash the image
-on the chip using the request_firmware path.
+On Fri, 21 Aug 2009, DDD wrote:
 
-The region "on the chip" to be flashed can be specified by an option.
-It is upto the device driver to enumerate the region number passed by ethtool,
-to the region to be flashed.
+> This patch changes too much and I didn't have the environment to test, so it is unverified patch.
+> That's why I separate it from my previous patch, and send it solely as a RFC patch.
+> 
+> 
+> Hi Nicolas, 
+> Given that you are the maintainer of "smc91x" driver since 2004. Could you say somethings about this
+> patch? Your input on this patch is greatly appreciated. :-)
 
-The default behavior is to flash all the regions on the chip.
+Looks fine to me.  The most significant changes affect usage of this 
+driver on a SMP system.  I'm afraid those might be hard to find now 
+(this network chip is already a strange piece of hardware, and I knew 
+about only one platform with it being SMP), so the best I can do is 
+review your patch only.
 
-Usage:
-ethtool -f <interface name> <filename of firmware image>
+Which I now did and you can add my:
 
-ethtool -f <interface name> <filename of firmware image> [ REGION-NUMBER-TO-FLASH ]
+Acked-by: Nicolas Pitre <nico@cam.org>
 
-Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
----
- ethtool-copy.h |   13 +++++++++++++
- ethtool.8      |   15 +++++++++++++++
- ethtool.c      |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 82 insertions(+), 1 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 3ca4e2c..66429e5 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -272,6 +272,18 @@ struct ethtool_perm_addr {
- 	__u8	data[0];
- };
- 
-+#define ETHTOOL_FLASH_MAX_FILENAME	128
-+enum ethtool_flash_op_type {
-+	ETHTOOL_FLASH_ALL_REGIONS	= 0,
-+};
-+
-+/* for passing firmware flashing related parameters */
-+struct ethtool_flash {
-+	__u32	cmd;
-+	__u32	region;
-+	char	data[ETHTOOL_FLASH_MAX_FILENAME];
-+};
-+
- /* boolean flags controlling per-interface behavior characteristics.
-  * When reading, the flag indicates whether or not a certain behavior
-  * is enabled/present.  When writing, the flag indicates whether
-@@ -338,6 +350,7 @@ struct ethtool_rxnfc {
- #define	ETHTOOL_SRXFH		0x0000002a /* Set RX flow hash configuration */
- #define ETHTOOL_GGRO		0x0000002b /* Get GRO enable (ethtool_value) */
- #define ETHTOOL_SGRO		0x0000002c /* Set GRO enable (ethtool_value) */
-+#define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/ethtool.8 b/ethtool.8
-index 178f6ea..e42da55 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -207,6 +207,11 @@ ethtool \- Display or change ethernet card settings
- .I ethX
- .RB [ rx-flow-hash \ \*(FL
- .RB \ \*(HO]
-+
-+.B ethtool \-f|\-\-flash
-+.I ethX
-+.RI FILE
-+.RI [ N ]
- .SH DESCRIPTION
- .BI ethtool
- is used for querying settings of an ethernet device and changing them.
-@@ -501,6 +506,16 @@ Hash on bytes 2 and 3 of the Layer 4 header of the rx packet.
- Discard all packets of this flow type. When this option is set, all other options are ignored.
- .PD
- .RE
-+.TP
-+.B \-f \-\-flash \ FILE
-+Flash firmware image from the specified file to a region on the adapter.
-+By default this will flash all the regions on the adapter.
-+.TP
-+.B N
-+A number to identify flash region where the image should be flashed.
-+Default region is 0 which denotes all regions in the flash.
-+.PD
-+.RE
- .SH BUGS
- Not supported (in part or whole) on all ethernet drivers.
- .SH AUTHOR
-diff --git a/ethtool.c b/ethtool.c
-index 0110682..6b21bf2 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -77,6 +77,7 @@ static char *unparse_rxfhashopts(u64 opts);
- static int dump_rxfhash(int fhash, u64 val);
- static int do_srxclass(int fd, struct ifreq *ifr);
- static int do_grxclass(int fd, struct ifreq *ifr);
-+static int do_flash(int fd, struct ifreq *ifr);
- static int send_ioctl(int fd, struct ifreq *ifr);
- 
- static enum {
-@@ -101,6 +102,7 @@ static enum {
- 	MODE_GSTATS,
- 	MODE_GNFC,
- 	MODE_SNFC,
-+	MODE_FLASHDEV,
- } mode = MODE_GSET;
- 
- static struct option {
-@@ -192,6 +194,9 @@ static struct option {
- 		"classification options",
- 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
- 		"tcp6|udp6|ah6|sctp6 p|m|v|t|s|d|f|n|r... ]\n" },
-+    { "-f", "--flash", MODE_FLASHDEV, "FILENAME " "Flash firmware image "
-+		"from the specified file to a region on the device",
-+		"		[ REGION-NUMBER-TO-FLASH ]\n" },
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     {}
- };
-@@ -304,6 +309,9 @@ static int rx_fhash_get = 0;
- static int rx_fhash_set = 0;
- static u32 rx_fhash_val = 0;
- static int rx_fhash_changed = 0;
-+static char *flash_file = NULL;
-+static int flash = -1;
-+static int flash_region = -1;
- static enum {
- 	ONLINE=0,
- 	OFFLINE,
-@@ -496,7 +504,8 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_GSTATS) ||
- 			    (mode == MODE_GNFC) ||
- 			    (mode == MODE_SNFC) ||
--			    (mode == MODE_PHYS_ID)) {
-+			    (mode == MODE_PHYS_ID) ||
-+			    (mode == MODE_FLASHDEV)) {
- 				devname = argp[i];
- 				break;
- 			}
-@@ -516,6 +525,10 @@ static void parse_cmdline(int argc, char **argp)
- 				if (phys_id_time < 0)
- 					show_usage(1);
- 				break;
-+			} else if (mode == MODE_FLASHDEV) {
-+				flash_file = argp[i];
-+				flash = 1;
-+				break;
- 			}
- 			/* fallthrough */
- 		default:
-@@ -590,6 +603,12 @@ static void parse_cmdline(int argc, char **argp)
- 					show_usage(1);
- 				break;
- 			}
-+			if (mode == MODE_FLASHDEV) {
-+				flash_region = strtol(argp[i], NULL, 0);
-+				if ((flash_region < 0))
-+					show_usage(1);
-+				break;
-+			}
- 			if (mode == MODE_SNFC) {
- 				if (!strcmp(argp[i], "rx-flow-hash")) {
- 					i += 1;
-@@ -1504,6 +1523,8 @@ static int doit(void)
- 		return do_grxclass(fd, &ifr);
- 	} else if (mode == MODE_SNFC) {
- 		return do_srxclass(fd, &ifr);
-+	} else if (mode == MODE_FLASHDEV) {
-+		return do_flash(fd, &ifr);
- 	}
- 
- 	return 69;
-@@ -2398,6 +2419,38 @@ static int do_grxclass(int fd, struct ifreq *ifr)
- 	return 0;
- }
- 
-+static int do_flash(int fd, struct ifreq *ifr)
-+{
-+	struct ethtool_flash efl;
-+	int err;
-+
-+	if (flash < 0) {
-+		fprintf(stdout, "Missing filename argument\n");
-+		show_usage(1);
-+		return 98;
-+	}
-+
-+	if (strlen(flash_file) > ETHTOOL_FLASH_MAX_FILENAME - 1) {
-+		fprintf(stdout, "Filename too long\n");
-+		return 99;
-+	}
-+
-+	efl.cmd = ETHTOOL_FLASHDEV;
-+	strcpy(efl.data, flash_file);
-+
-+	if (flash_region < 0)
-+		efl.region = ETHTOOL_FLASH_ALL_REGIONS;
-+	else
-+		efl.region = flash_region;
-+
-+	ifr->ifr_data = (caddr_t)&efl;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0)
-+		perror("Flashing failed");
-+
-+	return err;
-+}
-+
- static int send_ioctl(int fd, struct ifreq *ifr)
- {
- 	return ioctl(fd, SIOCETHTOOL, ifr);
--- 
-1.6.0.4
-
+> Thank you very much,
+> Dongdong
+> 
+> 
+> Patch Note:
+> @@ -520,21 +522,21
+> -       local_irq_disable();                                        \
+> +       local_irq_save(flags);                                      \
+>         __ret = spin_trylock(lock);                                 \
+>         if (!__ret)                                                 \
+> -               local_irq_enable();                                 \
+> +               local_irq_restore(flags);                           \
+> 
+> Here, for "__ret = spin_trylock(lock)", I didn't use
+> spin_trylock_irqsave() to replace spin_trylock(), because
+> the current irq state have got by local_irq_save(flags).
+> 
+> 
+> 
+> ---
+>  drivers/net/smc91x.c |   40 ++++++++++++++++++++++------------------
+>  1 files changed, 22 insertions(+), 18 deletions(-)
+> 
+> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+> index 1c70e99..7cabea1 100644
+> --- a/drivers/net/smc91x.c
+> +++ b/drivers/net/smc91x.c
+> @@ -196,21 +196,23 @@ static void PRINT_PKT(u_char *buf, int length)
+>  /* this enables an interrupt in the interrupt mask register */
+>  #define SMC_ENABLE_INT(lp, x) do {					\
+>  	unsigned char mask;						\
+> -	spin_lock_irq(&lp->lock);					\
+> +	unsigned long smc_enable_flags;					\
+> +	spin_lock_irqsave(&lp->lock, smc_int_flags);			\
+>  	mask = SMC_GET_INT_MASK(lp);					\
+>  	mask |= (x);							\
+>  	SMC_SET_INT_MASK(lp, mask);					\
+> -	spin_unlock_irq(&lp->lock);					\
+> +	spin_unlock_irqrestore(&lp->lock, smc_int_flags);		\
+>  } while (0)
+>  
+>  /* this disables an interrupt from the interrupt mask register */
+>  #define SMC_DISABLE_INT(lp, x) do {					\
+>  	unsigned char mask;						\
+> -	spin_lock_irq(&lp->lock);					\
+> +	unsigned long smc_disable_flags;				\
+> +	spin_lock_irqsave(&lp->lock, smc_disable_flags);		\
+>  	mask = SMC_GET_INT_MASK(lp);					\
+>  	mask &= ~(x);							\
+>  	SMC_SET_INT_MASK(lp, mask);					\
+> -	spin_unlock_irq(&lp->lock);					\
+> +	spin_unlock_irqrestore(&lp->lock, smc_disable_flags);		\
+>  } while (0)
+>  
+>  /*
+> @@ -520,21 +522,21 @@ static inline void  smc_rcv(struct net_device *dev)
+>   * any other concurrent access and C would always interrupt B. But life
+>   * isn't that easy in a SMP world...
+>   */
+> -#define smc_special_trylock(lock)					\
+> +#define smc_special_trylock(lock, flags)				\
+>  ({									\
+>  	int __ret;							\
+> -	local_irq_disable();						\
+> +	local_irq_save(flags);						\
+>  	__ret = spin_trylock(lock);					\
+>  	if (!__ret)							\
+> -		local_irq_enable();					\
+> +		local_irq_restore(flags);				\
+>  	__ret;								\
+>  })
+> -#define smc_special_lock(lock)		spin_lock_irq(lock)
+> -#define smc_special_unlock(lock)	spin_unlock_irq(lock)
+> +#define smc_special_lock(lock, flags)		spin_lock_irq(lock, flags)
+> +#define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
+>  #else
+> -#define smc_special_trylock(lock)	(1)
+> -#define smc_special_lock(lock)		do { } while (0)
+> -#define smc_special_unlock(lock)	do { } while (0)
+> +#define smc_special_trylock(lock, flags)	(1)
+> +#define smc_special_lock(lock, flags)   	do { } while (0)
+> +#define smc_special_unlock(lock, flags)	do { } while (0)
+>  #endif
+>  
+>  /*
+> @@ -548,10 +550,11 @@ static void smc_hardware_send_pkt(unsigned long data)
+>  	struct sk_buff *skb;
+>  	unsigned int packet_no, len;
+>  	unsigned char *buf;
+> +	unsigned long flags;
+>  
+>  	DBG(3, "%s: %s\n", dev->name, __func__);
+>  
+> -	if (!smc_special_trylock(&lp->lock)) {
+> +	if (!smc_special_trylock(&lp->lock, flags)) {
+>  		netif_stop_queue(dev);
+>  		tasklet_schedule(&lp->tx_task);
+>  		return;
+> @@ -559,7 +562,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+>  
+>  	skb = lp->pending_tx_skb;
+>  	if (unlikely(!skb)) {
+> -		smc_special_unlock(&lp->lock);
+> +		smc_special_unlock(&lp->lock, flags);
+>  		return;
+>  	}
+>  	lp->pending_tx_skb = NULL;
+> @@ -569,7 +572,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+>  		printk("%s: Memory allocation failed.\n", dev->name);
+>  		dev->stats.tx_errors++;
+>  		dev->stats.tx_fifo_errors++;
+> -		smc_special_unlock(&lp->lock);
+> +		smc_special_unlock(&lp->lock, flags);
+>  		goto done;
+>  	}
+>  
+> @@ -608,7 +611,7 @@ static void smc_hardware_send_pkt(unsigned long data)
+>  
+>  	/* queue the packet for TX */
+>  	SMC_SET_MMU_CMD(lp, MC_ENQUEUE);
+> -	smc_special_unlock(&lp->lock);
+> +	smc_special_unlock(&lp->lock, flags);
+>  
+>  	dev->trans_start = jiffies;
+>  	dev->stats.tx_packets++;
+> @@ -633,6 +636,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	struct smc_local *lp = netdev_priv(dev);
+>  	void __iomem *ioaddr = lp->base;
+>  	unsigned int numPages, poll_count, status;
+> +	unsigned long flags;
+>  
+>  	DBG(3, "%s: %s\n", dev->name, __func__);
+>  
+> @@ -658,7 +662,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		return 0;
+>  	}
+>  
+> -	smc_special_lock(&lp->lock);
+> +	smc_special_lock(&lp->lock, flags);
+>  
+>  	/* now, try to allocate the memory */
+>  	SMC_SET_MMU_CMD(lp, MC_ALLOC | numPages);
+> @@ -676,7 +680,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		}
+>     	} while (--poll_count);
+>  
+> -	smc_special_unlock(&lp->lock);
+> +	smc_special_unlock(&lp->lock, flags);
+>  
+>  	lp->pending_tx_skb = skb;
+>     	if (!poll_count) {
+> -- 
+> 1.6.0.4
+> 
+> 
