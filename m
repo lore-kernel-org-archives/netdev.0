@@ -1,73 +1,151 @@
-From: Manuel Lauss <manuel.lauss@googlemail.com>
-Subject: Re: [PATCH 1/2] alchemy: add au1000-eth platform device
-Date: Fri, 21 Aug 2009 19:23:39 +0200
-Message-ID: <f861ec6f0908211023t3eb7ff1p12b6160feb94efb4@mail.gmail.com>
-References: <200908170105.38154.florian@openwrt.org>
-	 <4A8AC125.3020602@ru.mvista.com>
-	 <200908181801.41602.florian@openwrt.org>
-	 <200908211853.07969.florian@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>,
-	Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <200908211853.07969.florian@openwrt.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH RFC 5/6] gigaset: allow building without I4L
+Date: Fri, 21 Aug 2009 19:21:34 +0200 (CEST)
+Message-ID: <20090821-patch-05.tilman@imap.cc>
+References: <20090821-patch-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>
+To: i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gimli.pxnet.com ([195.227.45.7]:50979 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932644AbZHURVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 13:21:46 -0400
+In-Reply-To: <20090821-patch-00.tilman@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Add a dummy LL interface to the Gigaset driver so that it can be
+built and, in a limited way, used without the ISDN4Linux subsystem.
 
-On Fri, Aug 21, 2009 at 6:53 PM, Florian Fainelli<florian@openwrt.org> =
-wrote:
-> Le Tuesday 18 August 2009 18:01:40 Florian Fainelli, vous avez =E9cri=
-t=A0:
->> Le Tuesday 18 August 2009 16:56:37 Sergei Shtylyov, vous avez =E9cri=
-t=A0:
->> > Hello.
->> >
->> > Florian Fainelli wrote:
->> > > This patch adds the board code to register a per-board au1000-et=
-h
->> > > platform device to be used wit the au1000-eth platform driver in=
- a
->> > > subsequent patch. Note that the au1000-eth driver knows about th=
-e
->> > > default driver settings such that we do not need to pass any
->> > > platform_data informations in most cases except db1x00.
->> >
->> > =A0 =A0 Sigh, NAK...
->> > =A0 =A0 Please don't register the SoC device per board, do it in
->> > alchemy/common/platfrom.c and find a way to pass the board specifi=
-c
->> > platform data from the board file there instead -- something like
->> > arch/arm/mach-davinci/usb.c does.
->>
->> Ok, like I promised, this was the per-board device registration. Do =
-you
->> prefer something like this: --
->> From fd75b7c7fa3c05c21122c43e43260d2785475a79 Mon Sep 17 00:00:00 20=
-01
->> From: Florian Fainelli <florian@openwrt.org>
->> Date: Tue, 18 Aug 2009 17:53:21 +0200
->> Subject: [PATCH] alchemy: add au1000-eth platform device (v2)
->>
->> This patch makes the board code register the au1000-eth
->> platform device. The au1000-eth platform data can be
->> overriden with the au1xxx_override_eth0_cfg function
->> like it has to be done for the Bosporus board.
->
-> Sergei, any comments on that version? What about you Manuel?
+Impact: new configuration alternative
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/Kconfig   |   13 +++++++-
+ drivers/isdn/gigaset/Makefile  |    4 ++-
+ drivers/isdn/gigaset/dummyll.c |   68 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/isdn/gigaset/dummyll.c
 
-Obviously I *much* prefer your first version, but I'm okay with this
-second version too.
+diff --git a/drivers/isdn/gigaset/Kconfig b/drivers/isdn/gigaset/Kconfig
+index 18ab865..6fd2dc1 100644
+--- a/drivers/isdn/gigaset/Kconfig
++++ b/drivers/isdn/gigaset/Kconfig
+@@ -1,6 +1,5 @@
+ menuconfig ISDN_DRV_GIGASET
+ 	tristate "Siemens Gigaset support"
+-	depends on ISDN_I4L
+ 	select CRC_CCITT
+ 	select BITREVERSE
+ 	help
+@@ -11,9 +10,21 @@ menuconfig ISDN_DRV_GIGASET
+ 	  If you have one of these devices, say M here and for at least
+ 	  one of the connection specific parts that follow.
+ 	  This will build a module called "gigaset".
++	  Note: If you build the ISDN4Linux subsystem (ISDN_I4L)
++	  as a module, you have to build this driver as a module too,
++	  otherwise the Gigaset device won't show up as an ISDN device.
+ 
+ if ISDN_DRV_GIGASET
+ 
++config GIGASET_I4L
++	bool
++	depends on ISDN_I4L='y'||(ISDN_I4L='m'&&ISDN_DRV_GIGASET='m')
++	default y
++
++config GIGASET_DUMMYLL
++	bool
++	default !GIGASET_I4L
++
+ config GIGASET_BASE
+ 	tristate "Gigaset base station support"
+ 	depends on USB
+diff --git a/drivers/isdn/gigaset/Makefile b/drivers/isdn/gigaset/Makefile
+index e9d3189..d429202 100644
+--- a/drivers/isdn/gigaset/Makefile
++++ b/drivers/isdn/gigaset/Makefile
+@@ -1,4 +1,6 @@
+-gigaset-y := common.o interface.o proc.o ev-layer.o i4l.o asyncdata.o
++gigaset-y := common.o interface.o proc.o ev-layer.o asyncdata.o
++gigaset-$(CONFIG_GIGASET_I4L) += i4l.o
++gigaset-$(CONFIG_GIGASET_DUMMYLL) += dummyll.o
+ usb_gigaset-y := usb-gigaset.o
+ ser_gigaset-y := ser-gigaset.o
+ bas_gigaset-y := bas-gigaset.o isocdata.o
+diff --git a/drivers/isdn/gigaset/dummyll.c b/drivers/isdn/gigaset/dummyll.c
+new file mode 100644
+index 0000000..5b27c99
+--- /dev/null
++++ b/drivers/isdn/gigaset/dummyll.c
+@@ -0,0 +1,68 @@
++/*
++ * Dummy LL interface for the Gigaset driver
++ *
++ * Copyright (c) 2009 by Tilman Schmidt <tilman@imap.cc>.
++ *
++ * =====================================================================
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License as
++ *	published by the Free Software Foundation; either version 2 of
++ *	the License, or (at your option) any later version.
++ * =====================================================================
++ */
++
++#include "gigaset.h"
++
++void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *skb)
++{
++}
++EXPORT_SYMBOL_GPL(gigaset_skb_sent);
++
++void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
++{
++}
++EXPORT_SYMBOL_GPL(gigaset_skb_rcvd);
++
++void gigaset_isdn_rcv_err(struct bc_state *bcs)
++{
++}
++EXPORT_SYMBOL_GPL(gigaset_isdn_rcv_err);
++
++int gigaset_isdn_icall(struct at_state_t *at_state)
++{
++	return ICALL_IGNORE;
++}
++
++void gigaset_isdn_connD(struct bc_state *bcs)
++{
++}
++
++void gigaset_isdn_hupD(struct bc_state *bcs)
++{
++}
++
++void gigaset_isdn_connB(struct bc_state *bcs)
++{
++}
++
++void gigaset_isdn_hupB(struct bc_state *bcs)
++{
++}
++
++void gigaset_isdn_start(struct cardstate *cs)
++{
++}
++
++void gigaset_isdn_stop(struct cardstate *cs)
++{
++}
++
++int gigaset_isdn_register(struct cardstate *cs, const char *isdnid)
++{
++	pr_info("no ISDN subsystem interface\n");
++	return 1;
++}
++
++void gigaset_isdn_unregister(struct cardstate *cs)
++{
++}
+-- 
+1.6.2.1.214.ge986c
 
-(I usually only comment if I don't like things, so take my silence as
-approval).
-
-Thanks for your work!
-
-Manuel Lauss
