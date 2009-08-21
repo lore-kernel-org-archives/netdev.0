@@ -1,77 +1,42 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: Re: sd8686 linux system hang: not always
-Date: Fri, 21 Aug 2009 08:04:16 -0500
-Message-ID: <1250859856.2876.11.camel@localhost.localdomain>
-References: <20090819185605.GA19345@kaos.fbx.proxad.net>
-	 <1250710797.5351.89.camel@localhost.localdomain>
-	 <20090820204051.GA24491@kaos.fbx.proxad.net>
+Subject: Re: Abour linux driver supports BCM4325
+Date: Fri, 21 Aug 2009 08:13:01 -0500
+Message-ID: <1250860381.2876.19.camel@localhost.localdomain>
+References: <f42a38140908202319y5c352aa3s37fec67e5cb8d7a3@mail.gmail.com>
+	 <f42a38140908202322ua3d4486meae6653044465583@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Beno=EEt?= Vaillant <benoit.vaillant@no-log.org>
+To: feng tian <feng.of.tian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42413 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:6469 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755618AbZHUNEH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2009 09:04:07 -0400
-In-Reply-To: <20090820204051.GA24491@kaos.fbx.proxad.net>
+	id S932087AbZHUNM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 09:12:57 -0400
+In-Reply-To: <f42a38140908202322ua3d4486meae6653044465583@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2009-08-20 at 22:40 +0200, Beno=C3=AEt Vaillant wrote:
-> On Wed, Aug 19, 2009 at 02:39:57PM -0500, Dan Williams wrote:
-> > On Wed, 2009-08-19 at 20:56 +0200, Beno=C3=AEt Vaillant wrote:
-> > > /*
-> > > Just a bit of context information:
-> > > I'm using an MID (quite close to an Aigo, although bios differs,
-> > > probably some hardware too, yet I've not checked much on that). I=
-'m
-> > > trying to use my Marvell card to get wifi access on a debian
-> > > installation. The other OS installed (midinux) successfully gets =
-a
-> > > connection using the 8686_v9 mobilin driver, so I'd not go for an=
-y
-> > > hardware issue. This driver failing to compile 'out of the box' o=
-n
-> > > fresh kernels, I thought getting the libertas module working woul=
-d be
-> > > a better way to get through.
-> > > */
-> > > <snip>
-> >=20
-> > Just for context, what SDIO controller are you using on this platfo=
-rm?
->=20
-> Sure, i can provide that!
->=20
-> lspci claims i's an:
-> 00:e1.0 SD Host controler: Intel Corporation System Controller Hub (S=
-CH Poulsbo) SDIO Controller #1 (rev 06)
-> 00:e1.1 SD Host controler: Intel Corporation System Controller Hub (S=
-CH Poulsbo) SDIO Controller #2 (rev 06)
->=20
-> Complete `lspci -vvv` is attached.
->=20
-> Could this lead to anything already known which i have might missed?
+On Fri, 2009-08-21 at 14:22 +0800, feng tian wrote:
+> Dear All,
+> 
+> We are working on a project which supports the BCM4325 linux wireless
+> driver. The interface between the BCM chip and SOC(pxa310) is SDIO.
+> I did some searches online and found that there is no available driver
+> for this chip. Do I have to implement this myself? Is there anyone can
+> provide us some related materials?  Thanks very much.
 
-Well, besides the fact that the Poulsbo SDHC driver hasn't actually
-passed review for the kernel yet...  That doesn't mean the Poulsbo
-driver isn't a fine driver, but if Pierre hasn't acked it, I don't
-really trust it.  The largest # of problems people have had with
-Libertas SDIO have been with the host controller with things like
-transfer widths, clocking, interrupt vs. polled mode, chunk size, etc.
-When the SDHC driver and hardware they are using actually starts workin=
-g
-well, then libertas actually starts working well.
+You'll probably want to ask on the linux-wireless list where the
+wireless people hang out.  Partial answer: there is already a driver
+(b43) for many of broadcom 802.11 devices, including some of the
+"LP-PHY" devices.  This driver may or may not be suitable for the 4325
+depending on the 4325's firmware interface.  The b43 driver is not yet
+capable of using SDIO to communicate with the wifi chip, but that
+appears to be what you are working on.  So I'd suggest posting to the
+linux-wireless mailing list and seeing what the b43 driver people say.
 
-So I don't mean to brush you off, but we know the chip works pretty wel=
-l
-with the Ricoh line (which I'm typing this on right now with an sd8686)
-and a few other embedded-type controllers.  So I'd start diving down
-into the SDHC driver code for Poulsbo and try to figure out what's goin=
-g
-on there and in the MMC layer.
+http://linuxwireless.org/en/developers/MailingLists
 
 Dan
 
