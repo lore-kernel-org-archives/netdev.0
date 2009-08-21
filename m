@@ -1,33 +1,59 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2009-08-21
-Date: Fri, 21 Aug 2009 12:25:46 -0500
-Message-ID: <4A8ED89A.7090609@lwfinger.net>
-References: <20090821170324.GC8532@tuxdriver.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [net-next PATCH 1/3] qlge: Move TX completion processing to
+	send path.
+Date: Fri, 21 Aug 2009 10:23:01 -0700
+Message-ID: <20090821172301.GB12770@linux-ox1b.qlogic.org>
+References: <1250725991-7155-1-git-send-email-ron.mercer@qlogic.com> <1250725991-7155-2-git-send-email-ron.mercer@qlogic.com> <20090820.021854.254431313.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20090821170324.GC8532-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	shashank.pandhare@qlogic.com, jagannatha.narayanaswami@qlogic.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:28985 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932813AbZHUR2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 13:28:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20090820.021854.254431313.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John W. Linville wrote:
-> Dave,
+On Thu, Aug 20, 2009 at 02:18:54AM -0700, David Miller wrote:
+> From: Ron Mercer <ron.mercer@qlogic.com>
+> Date: Wed, 19 Aug 2009 16:53:09 -0700
 > 
-> One more straggler for 2.6.31...without this rtl8187b devices simply
-> don't work. :-(
+> > @@ -1205,6 +1205,7 @@ struct bq_desc {
+> >  };
+> >  
+> >  #define QL_TXQ_IDX(qdev, skb) (smp_processor_id()%(qdev->tx_ring_count))
+> > +#define TXQ_CLEAN_TIME (HZ/4)
+> >  
+> >  struct tx_ring {
+> >  	/*
 > 
-> The patch is small and isolated to rtl8187.  I think we should take
-> it for 2.6.31.
+> Running this every 1/4 of a second, even when no TX activity is
+> happening, is very bad for power management.
+> 
+> And starting the timer in response to whether there are TX queue
+> entries active or not will add overhead and races.
+> 
+> This really isn't workable.
+> 
+> I really and truly believe that the best place for this is in NAPI
+> context.  So bring back the MSI-X vector for TX completions, and
+> make it schedule a NAPI poll.
 
-Note: This patch should fix Bugzilla #13960, which is a regression
-since 2.6.30. The OP has not yet reported back, but it fixed the same
-condition on my computer.
+I can see your point about not wanting all the drivers popping a timer
+for each TX queue.  Though I don't see the race condition since the
+handler would be protected by netdev_queue->_xmit_lock.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll move TX completions into NAPI as you indicated.  I still need to
+dedicate the MSIX vectors to RSS, but I will give each vector a number
+of TX rings to service in NAPI as well.
+Our card is a 4 function card and on
+powerpc there are only 8 vectors per device which get divided up among the
+functions, netting us 2 vectors total. That is what precipitated moving
+the TX completion handling to send path and timer.
+
+
