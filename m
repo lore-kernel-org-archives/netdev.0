@@ -1,87 +1,86 @@
-From: Marek Vasut <marek.vasut@gmail.com>
-Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
-Date: Sat, 22 Aug 2009 00:54:31 +0200
-Message-ID: <200908220054.31438.marek.vasut@gmail.com>
-References: <200907240257.10906.marek.vasut@gmail.com> <a4423d670907290416h4a0796c2s665d3f8ca0755e67@mail.gmail.com> <200908051602.34501.marek.vasut@gmail.com>
+From: =?iso-8859-15?Q?Beno=EEt?= Vaillant <benoit.vaillant@no-log.org>
+Subject: Re: sd8686 linux system hang: not always
+Date: Sat, 22 Aug 2009 00:55:50 +0200
+Message-ID: <20090821225550.GA1634@kaos.fbx.proxad.net>
+References: <20090819185605.GA19345@kaos.fbx.proxad.net>
+ <1250710797.5351.89.camel@localhost.localdomain>
+ <20090820204051.GA24491@kaos.fbx.proxad.net>
+ <1250859856.2876.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Miao <eric.y.miao@gmail.com>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
-	samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Alexander Beregalov <a.beregalov@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="a8Wt8u1KmwUX3Y2C"
+Cc: =?iso-8859-15?Q?Beno=EEt?= Vaillant <benoit.vaillant@no-log.org>,
+	netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:33018 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932390AbZHUWyx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 18:54:53 -0400
-Received: by fxm17 with SMTP id 17so688928fxm.37
-        for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 15:54:54 -0700 (PDT)
-In-Reply-To: <200908051602.34501.marek.vasut@gmail.com>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:55436 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932617AbZHUWz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 18:55:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1250859856.2876.11.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dne St 5. srpna 2009 16:02:34 Marek Vasut napsal(a):
-> Dne St 29. =C4=8Dervence 2009 13:16:25 Alexander Beregalov napsal(a):
-> > 2009/7/28 Eric Miao <eric.y.miao@gmail.com>:
-> > > Marek Vasut wrote:
-> > >> Hi!
-> > >>
-> > >> This patch fixes broken pxaficp-ir. The problem was in incorrect
-> > >> net_device_ops being specified which prevented the driver from
-> > >> operating. The symptoms were:
-> > >>  - failing ifconfig for IrLAN, resulting in
-> > >>       SIOCSIFFLAGS: Cannot assign requested address
-> > >>  - irattach working for IrCOMM, but the port stayed disabled
-> > >>
-> > >> Moreover this patch corrects missing sysfs device link.
-> > >>
-> > >> btw. guys, be honest, when did you last tested pxaficp-ir on rea=
-l
-> > >> hardware? ;-)
-> > >
-> > > Well, this seems to be brought by the net_device_ops change, whic=
-h
-> > > seems to happen silently without any of us being notified.
-> > >
-> > > OK, netdev and Alex are copied, so that we can look into this iss=
-ue a
-> > > bit deeper:
-> > >
-> > > 1. it looks to me that SIOCSIFFLAGS actually returned -EADDRNOTAV=
-AIL,
-> > > which is likely caused by eth_validate_addr, the default eth_addr=
- comes
-> > > with irda should be "00:00:00:00:00:00" if not explicitly specifi=
-ed
-> > > (kzalloc), and this should be the problem, solution ?  Either giv=
-e a
-> > > valid address to the irda net_device or remove this
-> > > 'ndo_validate_addr'. And which is a correct fix will impact on th=
-e
-> > > .ndo_set_mac_address
-> > >
-> > > 2. '.ndo_change_mtu' ? It looks to me that Irda device doesn't ca=
-re too
-> > > much about the MTU, eth_change_mtu is supposed to work just fine =
-and
-> > > not to cause any side effects, and may just benefit later irda de=
-vice
-> > > drivers if there is a weird device happens to care about MTU
-> > >
-> > > - eric
-> > >
-> > > Marek's original patch in attachment.
-> >
-> > Sorry about that and thanks.
-> > Then we should fix the rest of irda drivers in the same way.
->
-> Hi!
-> Was my patch applied or what's the current status? Thanks
 
-Hi!
-any updates ? Are we letting this into .32 in current broken state?
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks!
+Hi,
+
+On Fri, Aug 21, 2009 at 08:04:16AM -0500, Dan Williams wrote:
+> Well, besides the fact that the Poulsbo SDHC driver hasn't actually
+> passed review for the kernel yet...=20
+
+And other parts of Poulsbo drivers were removed from -at least-
+debian, for the xorg part of it. I had that in mind.
+
+> That doesn't mean the Poulsbo driver isn't a fine driver, but if
+> Pierre hasn't acked it, I don't really trust it.  The largest # of
+> problems people have had with Libertas SDIO have been with the host
+> controller with things like transfer widths, clocking, interrupt
+> vs. polled mode, chunk size, etc.  When the SDHC driver and hardware
+> they are using actually starts working well, then libertas actually
+> starts working well.
+
+Ok. I'll check on parameters when I get spare time. I did consider
+such things could be part (all? :) ) of the issue.
+
+Pointers welcomed, if any other than browsing the web!
+
+> So I don't mean to brush you off, but we know the chip works pretty well
+> with the Ricoh line (which I'm typing this on right now with an sd8686)
+> and a few other embedded-type controllers.  So I'd start diving down
+> into the SDHC driver code for Poulsbo and try to figure out what's going
+> on there and in the MMC layer.
+
+Hehe, no worry, I know the chip works fine under midinux. Yet
+compiling such working drivers would either lead me to revert to an
+older kernel version (and not provide testing with newer ones, thus)
+or adapt the marvell driver to newer kernel, task which I'm rather not
+sure to be able to carry by some quite good amount of time :)
+
+You didn't brush me off, I wasn't expecting a straight working
+solution :)
+
+TFYA,
+
+--=20
+Beno=EEt
+
+--a8Wt8u1KmwUX3Y2C
+Content-Type: application/pgp-signature; name="~/.gnupg/public_key.txt"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkqPJfYACgkQqNn0jQsEC2bwCgCeOWNfnCQD0lXVEyFeAk868pem
+aLEAn1cB5ujfeBwp/AzVqiVZMF0pXDqa
+=yM+X
+-----END PGP SIGNATURE-----
+
+--a8Wt8u1KmwUX3Y2C--
