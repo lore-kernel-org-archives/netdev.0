@@ -1,87 +1,93 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Fri, 21 Aug 2009 19:34:17 -0400
-Message-ID: <1250897657.23419.5.camel@obelisk.thedillows.org>
-References: <200903041828.49972.m.bueker@berlin.de>
-	 <1242001754.4093.12.camel@obelisk.thedillows.org>
-	 <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>
-	 <1242077392.3716.15.camel@lap75545.ornl.gov>
-	 <4A09DC3E.2080807@googlemail.com>
-	 <1242268709.4979.7.camel@obelisk.thedillows.org>
-	 <4A0C6504.8000704@googlemail.com>
-	 <1242328457.32579.12.camel@lap75545.ornl.gov>
-	 <4A0C7443.1010000@googlemail.com>
-	 <1243042174.3580.23.camel@obelisk.thedillows.org>
-	 <m1skfkrik2.fsf@fess.ebiederm.org>
-	 <1250895567.23419.1.camel@obelisk.thedillows.org>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: [Patch] Fix commit 63d9950b08184e6531adceb65f64b429909cc101
+ (ipv6: Make v4-mapped bindings consistent with IPv4)
+Date: Sat, 22 Aug 2009 01:45:23 +0200
+Message-ID: <20090822014523.3ec2f591@neptune.home>
+References: <20090822011541.7b95dbcc@neptune.home>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932871AbZHUXeT@vger.kernel.org>
-In-Reply-To: <1250895567.23419.1.camel@obelisk.thedillows.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "Vlad Yasevich" <vladislav.yasevich@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ppp-153-131.adsl.restena.lu ([158.64.153.131]:33000 "EHLO
+	bonbons.gotdns.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753729AbZHUXpq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 19:45:46 -0400
+In-Reply-To: <20090822011541.7b95dbcc@neptune.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2009-08-21 at 18:59 -0400, David Dillow wrote:
-> On Fri, 2009-08-21 at 13:57 -0700, Eric W. Biederman wrote:
-> > David Dillow <dave@thedillows.org> writes:
-> > I have what at first glance looks like a problem caused by this
-> > patch.  For the last month since upgrading one of my machines from
-> > 2.6.28 to 2.6.30 it has been becomming inaccessible from the
-> > network and I have a few:
-> > 
-> > NETDEV WATCHDOG: eth0 (r8169): transmit timed out
-> > 
-> > in my logs and a lot soft lockups that always have rtl8169_interrupt
-> > as the thing that is running.   I suspect your patch has introduced
-> > a near infinite loop in the interrupt handler and is causing these
-> > soft lockups.
-> > 
-> > Any ideas?
-> 
-> I would be surprised, but I suppose it is not out of the realm of
-> possibility. Can you send me a full dmesg, please?
+Commit 63d9950b08184e6531adceb65f64b429909cc101
+  (ipv6: Make v4-mapped bindings consistent with IPv4)
+changes behavior of inet6_bind() for v4-mapped addresses so it should
+behave the same way as inet_bind().
 
-Re-looking at the code, I'd guess that some IRQ status line is getting
-stuck high, but I don't see why -- we should acknowledge all outstanding
-interrupts each time through the loop, whether we care about them or
-not.
+During this change setting of err to -EADDRNOTAVAIL got lost:
 
-Could reproduce a problem with the following patch applied, and send the
-full dmesg, please?
+af_inet.c:469 inet_bind()
+	err =3D -EADDRNOTAVAIL;
+	if (!sysctl_ip_nonlocal_bind &&
+	    !(inet->freebind || inet->transparent) &&
+	    addr->sin_addr.s_addr !=3D htonl(INADDR_ANY) &&
+	    chk_addr_ret !=3D RTN_LOCAL &&
+	    chk_addr_ret !=3D RTN_MULTICAST &&
+	    chk_addr_ret !=3D RTN_BROADCAST)
+		goto out;
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b82780d..46cb05a 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3556,6 +3556,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	int handled = 0;
- 	int status;
-+	int count = 0;
- 
- 	/* loop handling interrupts until we have no new ones or
- 	 * we hit a invalid/hotplug case.
-@@ -3564,6 +3565,15 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	while (status && status != 0xffff) {
- 		handled = 1;
- 
-+		if (count++ > 100) {
-+			printk_once("r8169 screaming irq status %08x "
-+				"mask %08x event %08x napi %08x\n",
-+				status, tp->intr_mask, tp->intr_event,
-+				tp->napi_event);
-+			break;
+
+af_inet6.c:463 inet6_bind()
+	if (addr_type =3D=3D IPV6_ADDR_MAPPED) {
+		int chk_addr_ret;
+
+		/* Binding to v4-mapped address on a v6-only socket                  =
+      =20
+		 * makes no sense                                                    =
+      =20
+		 */
+		if (np->ipv6only) {
+			err =3D -EINVAL;
+			goto out;=20
+		}
+
+		/* Reproduce AF_INET checks to make the bindings consitant */        =
+      =20
+		v4addr =3D addr->sin6_addr.s6_addr32[3];                             =
+        =20
+		chk_addr_ret =3D inet_addr_type(net, v4addr);                        =
+        =20
+		if (!sysctl_ip_nonlocal_bind &&                                      =
+      =20
+		    !(inet->freebind || inet->transparent) &&                        =
+      =20
+		    v4addr !=3D htonl(INADDR_ANY) &&
+		    chk_addr_ret !=3D RTN_LOCAL &&                                   =
+        =20
+		    chk_addr_ret !=3D RTN_MULTICAST &&                               =
+        =20
+		    chk_addr_ret !=3D RTN_BROADCAST)
+			goto out;
+	} else {
+
+
+Signed-off-by Bruno Pr=C3=A9mont <bonbons@linux-vserver.org>
+---
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index caa0278..45f9a2a 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -306,8 +306,10 @@ int inet6_bind(struct socket *sock, struct sockadd=
+r *uaddr, int addr_len)
+ 		    v4addr !=3D htonl(INADDR_ANY) &&
+ 		    chk_addr_ret !=3D RTN_LOCAL &&
+ 		    chk_addr_ret !=3D RTN_MULTICAST &&
+-		    chk_addr_ret !=3D RTN_BROADCAST)
++		    chk_addr_ret !=3D RTN_BROADCAST) {
++			err =3D -EADDRNOTAVAIL;
+ 			goto out;
 +		}
-+
-+
- 		/* Handle all of the error cases first. These will reset
- 		 * the chip, so just exit the loop.
- 		 */
+ 	} else {
+ 		if (addr_type !=3D IPV6_ADDR_ANY) {
+ 			struct net_device *dev =3D NULL;
+
