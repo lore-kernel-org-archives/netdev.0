@@ -1,84 +1,67 @@
-From: Danny Feng <dfeng@redhat.com>
-Subject: Re: e1000e: why does pci_enable_pcie_error_reporting() fail on my
- hp2510p?
-Date: Fri, 21 Aug 2009 10:08:46 +0800
-Message-ID: <4A8E01AE.5070900@redhat.com>
-References: <200908201714.30638.elendil@planet.nl>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Fri, 21 Aug 2009 00:00:54 -0400
+Message-ID: <20090821000054.3aea8bf6.billfink@mindspring.com>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com>
+	<20090808112636.GB18518@localhost.localdomain>
+	<4A7DC230.6060206@myri.com>
+	<20090808183251.GA23300@localhost.localdomain>
+	<20090811033210.6b422ed1.billfink@mindspring.com>
+	<87ws5af0km.fsf@basil.nowhere.org>
+	<20090812003049.185cd52a.billfink@mindspring.com>
+	<4A856781.2080301@myri.com>
+	<20090814123832.a7a27a9d.billfink@mindspring.com>
+	<4A859716.7040904@myri.com>
+	<3000d2e90908141413h3e3eae1dm796f4bf788319561@mail.gmail.com>
+	<20090820032601.03a628cf.billfink@mindspring.com>
+	<1250774056.16001.157.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Frans Pop <elendil@planet.nl>
+Cc: Aviv Greenberg <avivgnet@gmail.com>,
+	Andrew Gallatin <gallatin@myri.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61750 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222AbZHUCIl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Aug 2009 22:08:41 -0400
-In-Reply-To: <200908201714.30638.elendil@planet.nl>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:51945 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750739AbZHUEAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 00:00:55 -0400
+In-Reply-To: <1250774056.16001.157.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/20/2009 11:14 PM, Frans Pop wrote:
-> With the current kernel I suddenly get the following error displayed
-> during boot:
->    e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
->    e1000e: Copyright (c) 1999-2008 Intel Corporation.
->    e1000e 0000:00:19.0: PCI INT A ->  GSI 22 (level, low) ->  IRQ 22
-> ! e1000e 0000:00:19.0: pci_enable_pcie_error_reporting failed 0xfffffffb
->    e1000e 0000:00:19.0: setting latency timer to 64
->    e1000e 0000:00:19.0: irq 26 for MSI/MSI-X
->
-> This looks to be the consequence of:
-> commit 68eac4602b9104cdaa6c18b3edd914cececa6a1e
-> Author: Xiaotian Feng<dfeng@redhat.com>
-> Date:   Fri Aug 14 14:35:52 2009 +0000
->      e1000e: fix use of pci_enable_pcie_error_reporting
->
-> Looking at the change it seems logical that this error, that I previously
-> only saw during resumes from suppend to RAM, now also shows up during
-> system boot. So I don't think it can be qualified as a regression, but it
-> is certainly rather annoying.
->
-> Questions:
-> - is it possible that the error occurs due to a kernel bug, or is this
->    certain to be due to broken hardware?
-I think this messages comes from hardware does not support pcie aer.
-In fact the messages is not fatal and can be ignored. Some drivers
-is silence with pci_enable_pcie_error_reporting ....
+On Thu, 20 Aug 2009, Ben Hutchings wrote:
 
-My patch is just to fix the logic of pcie aer usage ...
-> - as the error is non-fatal, should it maybe be changed from dev_err
->    to dev_info, so that at least it does not show up during a boot
->    with 'quiet'?
-I agree with this.... Maybe some of other drivers needs this too 
-(igb,ixgbe)...
-> - if broken hardware is common, should the kernel complain at all,
->    or at least maybe show a slightly "friendlier" message?
->
-> System: hp2510p (ICH8, Core2 Duo) running x86_64, Debian stable ("Lenny")
->
-> 00:19.0 Ethernet controller [0200]: Intel Corporation 82566MM
->          Gigabit Network Connection [8086:1049] (rev 03)
->      Subsystem: Hewlett-Packard Company Device 30c9
->      Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
->      Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast>TAbort-<TAbort-<MAbort->SERR-<PERR- INTx-
->      Latency: 0
->      Interrupt: pin A routed to IRQ 26
->      Region 0: Memory at e0620000 (32-bit, non-prefetchable) [size=128K]
->      Region 1: Memory at e0640000 (32-bit, non-prefetchable) [size=4K]
->      Region 2: I/O ports at 2060 [size=32]
->      Capabilities: [c8] Power Management version 2
->              Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
->              Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->      Capabilities: [d0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable+
->              Address: 00000000fee0300c  Data: 41b1
->      Kernel driver in use: e1000e
->      Kernel modules: e1000e
->
-> I can provide full dmesg and kernel config if desired.
->
-> Cheers,
-> FJP
->
+> On Thu, 2009-08-20 at 03:26 -0400, Bill Fink wrote:
+> > On Sat, 15 Aug 2009, Aviv Greenberg wrote:
+> > 
+> > > >  There may be something in the chipset
+> > > 
+> > > shooting in the dark: when you lspci -vvv and check the MaxPayload and
+> > > MaxReadReq values for the myri devices - what are the values and are
+> > > they equal? Are they the same on all your platforms?
+> > 
+> > IIRC, under DevCap they indicated MaxPayload 4096 bytes, and under
+> > DevCtl they indicated MaxPayload 128 bytes and MaxReadReq 4096 bytes,
+> > and was the same on both the Asus and SuperMicro systems.  I will
+> > doublecheck tomorrow at work.  I am not clear on the meanings of
+> > the different parameters.  And is DevCtl for PCI control messages
+> > and DevCap for actual data transfers or something else?
+> 
+> DevCap is the capability register, which is read-only; DevCtl is the
+> control register which holds the actual settings.
+> 
+> MaxPayload is the MTU and MRU for PCIe packets.  Each sub-tree of
+> devices connected to a single PCIe root port needs to have MaxPayload
+> set consistently.  MaxReadReq is the maximum size of any DMA read
+> request.  It is a per-device setting (or possibly per-function; I
+> forget).  It can be much larger than MaxPayload since read completions
+> can be fragmented.
 
+Thanks for the explanation.  I saw a BIOS setting that allowed
+increasing the MaxPayload from 128 bytes to 256 bytes, and then
+verified that an "lspci -vvv" then showed the DevCtl MaxPayload
+to be 256 bytes.  But unfortunately it didn't help improve the
+read side performance any.
+
+						-Bill
