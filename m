@@ -1,158 +1,37 @@
-From: Chunbo Luo <chunbo.luo@windriver.com>
-Subject: [PATCH] sctp: fix the check for path failure detection
-Date: Fri, 21 Aug 2009 15:04:35 +0800
-Message-ID: <1250838275-7444-1-git-send-email-chunbo.luo@windriver.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chunbo.luo@windiriver.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:33779 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbZHUHEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 03:04:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jens Rosenboom <jens@mcbone.net>
+Subject: Re: [PATCH,v2] Re: e1000e: why does
+ pci_enable_pcie_error_reporting() fail on my hp2510p?
+Date: Fri, 21 Aug 2009 09:06:12 +0200
+Message-ID: <1250838372.9489.8.camel@fnki-nb00130>
+References: <200908201714.30638.elendil@planet.nl>
+	 <200908210829.10471.elendil@planet.nl> <4A8E3FC1.50201@redhat.com>
+	 <200908210848.39377.elendil@planet.nl>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Danny Feng <dfeng@redhat.com>, Netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Frans Pop <elendil@planet.nl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754970AbZHUHGW@vger.kernel.org>
+In-Reply-To: <200908210848.39377.elendil@planet.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The transport is marked DOWN immediately after sending the max+1 HB,
-which is equal to not sending the max+1 HB at all. We should wait
-a next period and make sure the last HB is not acknowledged.
+On Fri, 2009-08-21 at 08:48 +0200, Frans Pop wrote:
+[...]
+> @@ -5301,9 +5296,6 @@ static void __devexit e1000_remove(struct pci_dev *pdev)
+>  
+>  	/* AER disable */
+>  	err = pci_disable_pcie_error_reporting(pdev);
+> -	if (err)
+> -		dev_err(&pdev->dev,
+> -		        "pci_disable_pcie_error_reporting failed 0x%x\n", err);
+>  
+>  	pci_disable_device(pdev);
+>  }
 
-Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
----
- include/net/sctp/command.h |    1 +
- net/sctp/sm_sideeffect.c   |   39 ++++++++++++++++++++++++++++-----------
- net/sctp/sm_statefuns.c    |   16 ++++++++++++++--
- 3 files changed, 43 insertions(+), 13 deletions(-)
-
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 3b96680..256effd 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -77,6 +77,7 @@ typedef enum {
- 	SCTP_CMD_HB_TIMERS_START,    /* Start the heartbeat timers. */
- 	SCTP_CMD_HB_TIMER_UPDATE,    /* Update a heartbeat timers.  */
- 	SCTP_CMD_HB_TIMERS_STOP,     /* Stop the heartbeat timers.  */
-+	SCTP_CMD_PATH_FAILURE_DETECTION,/* Path failure detection. */
- 	SCTP_CMD_TRANSPORT_HB_SENT,  /* Reset the status of a transport. */
- 	SCTP_CMD_TRANSPORT_IDLE,     /* Do manipulations on idle transport */
- 	SCTP_CMD_TRANSPORT_ON,       /* Mark the transport as active. */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 86426aa..db299c6 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -432,7 +432,25 @@ sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
-  * mark the destination transport address as inactive, and a
-  * notification SHOULD be sent to the upper layer.
-  *
-+ * transport error counter is incremented in sctp_do_8_2_transport_strike
-  */
-+static void sctp_cmd_path_failure_detection(struct sctp_association *asoc,
-+					   struct sctp_transport *transport)
-+{
-+	if (transport->error_count > transport->pathmaxrxt) {
-+		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
-+					 " transport IP: port:%d failed.\n",
-+					 asoc,
-+					 (&transport->ipaddr),
-+					 ntohs(transport->ipaddr.v4.sin_port));
-+		sctp_assoc_control_transport(asoc, transport,
-+					     SCTP_TRANSPORT_DOWN,
-+					     SCTP_FAILED_THRESHOLD);
-+	}
-+}
-+
-+
-+ /*  Mark a strike against a transport */
- static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
- 					 struct sctp_transport *transport,
- 					 int is_hb)
-@@ -446,17 +464,11 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
- 	if (transport->state != SCTP_UNCONFIRMED)
- 		asoc->overall_error_count++;
- 
--	if (transport->state != SCTP_INACTIVE &&
--	    (transport->error_count++ >= transport->pathmaxrxt)) {
--		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
--					 " transport IP: port:%d failed.\n",
--					 asoc,
--					 (&transport->ipaddr),
--					 ntohs(transport->ipaddr.v4.sin_port));
--		sctp_assoc_control_transport(asoc, transport,
--					     SCTP_TRANSPORT_DOWN,
--					     SCTP_FAILED_THRESHOLD);
--	}
-+	/* The check for transport's error counter exceeding the threshold
-+	 * is done in the state function.
-+	 */
-+	if (transport->state != SCTP_INACTIVE)
-+		transport->error_count++;
- 
- 	/* E2) For the destination address for which the timer
- 	 * expires, set RTO <- RTO * 2 ("back off the timer").  The
-@@ -1464,6 +1476,11 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 						    0);
- 			break;
- 
-+		case SCTP_CMD_PATH_FAILURE_DETECTION:
-+			t = cmd->obj.transport;
-+			sctp_cmd_path_failure_detection(asoc, t);
-+			break;
-+
- 		case SCTP_CMD_TRANSPORT_IDLE:
- 			t = cmd->obj.transport;
- 			sctp_transport_lower_cwnd(t, SCTP_LOWER_CWND_INACTIVE);
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 7288192..f4c05fd 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -981,6 +981,9 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
- 	 */
- 
- 	if (transport->param_flags & SPP_HB_ENABLE) {
-+		/* Do the path failure detection before send beat */
-+		sctp_add_cmd_sf(commands, SCTP_CMD_PATH_FAILURE_DETECTION,
-+				SCTP_TRANSPORT(transport));
- 		if (SCTP_DISPOSITION_NOMEM ==
- 				sctp_sf_heartbeat(ep, asoc, type, arg,
- 						  commands))
-@@ -5229,6 +5232,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(const struct sctp_endpoint *ep,
- 	 */
- 
- 	/* Do some failure management (Section 8.2). */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_PATH_FAILURE_DETECTION,
-+			SCTP_TRANSPORT(transport));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
- 
- 	/* NB: Rules E4 and F1 are implicit in R1.  */
-@@ -5436,9 +5441,13 @@ sctp_disposition_t sctp_sf_t2_timer_expire(const struct sctp_endpoint *ep,
- 	 * If we remove the transport an SHUTDOWN was last sent to, don't
- 	 * do failure management.
- 	 */
--	if (asoc->shutdown_last_sent_to)
-+	if (asoc->shutdown_last_sent_to) {
-+		sctp_add_cmd_sf(commands, SCTP_CMD_PATH_FAILURE_DETECTION,
-+				SCTP_TRANSPORT(asoc->shutdown_last_sent_to));
-+
- 		sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE,
- 				SCTP_TRANSPORT(asoc->shutdown_last_sent_to));
-+	}
- 
- 	/* Set the transport for the SHUTDOWN/ACK chunk and the timeout for
- 	 * the T2-shutdown timer.
-@@ -5475,9 +5484,12 @@ sctp_disposition_t sctp_sf_t4_timer_expire(
- 	 * detection on the appropriate destination address as defined in
- 	 * RFC2960 [5] section 8.1 and 8.2.
- 	 */
--	if (transport)
-+	if (transport) {
-+		sctp_add_cmd_sf(commands, SCTP_CMD_PATH_FAILURE_DETECTION,
-+				SCTP_TRANSPORT(transport));
- 		sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE,
- 				SCTP_TRANSPORT(transport));
-+	}
- 
- 	/* Reconfig T4 timer and transport. */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_SETUP_T4, SCTP_CHUNK(chunk));
--- 
-1.6.0.3
-
+While you're at it, why don't you also remove the "err =" here, which
+allows you to drop the variable from that function completely? This
+applies to all three *_remove() functions.
