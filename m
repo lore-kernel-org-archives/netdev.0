@@ -1,179 +1,78 @@
-From: DDD <Dongdong.deng@windriver.com>
-Subject: [RFC][PATCH] smc91x: let smc91x work well with netpoll
-Date: Fri, 21 Aug 2009 21:40:05 +0800
-Message-ID: <1250862005.24178.28.camel@dengdd-desktop>
-References: <1250861616.24178.20.camel@dengdd-desktop>
+From: =?ISO-8859-1?Q?Richard_R=F6jfors?=
+	<richard.rojfors.ext@mocean-labs.com>
+Subject: Re: [PATCH] Fix Micrel KSZ8842 Kconfig description
+Date: Fri, 21 Aug 2009 15:06:27 +0200
+Message-ID: <4A8E9BD3.1040107@mocean-labs.com>
+References: <20090821102033.GA26577@rhlx01.hs-esslingen.de> <4A8E78C1.20409@mocean-labs.com> <20090821104606.GA13440@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Jason Wessel <jason.wessel@windriver.com>
-To: Nicolas Pitre <nico@cam.org>, Matt Mackall <mpm@selenic.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755462AbZHUN1t@vger.kernel.org>
-In-Reply-To: <1250861616.24178.20.camel@dengdd-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andreas Mohr <andi@lisas.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from av10-2-sn2.hy.skanova.net ([81.228.8.182]:41505 "EHLO
+	av10-2-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754373AbZHUNeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 09:34:22 -0400
+In-Reply-To: <20090821104606.GA13440@rhlx01.hs-esslingen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch changes too much and I didn't have the environment to test, so it is unverified patch.
-That's why I separate it from my previous patch, and send it solely as a RFC patch.
+Andreas Mohr wrote:
+> Hi,
+>=20
+> On Fri, Aug 21, 2009 at 12:36:49PM +0200, Richard R=F6jfors wrote:
+>> Andreas Mohr wrote:
+>>> Hi,
+>>>
+>>> when doing a "make oldconfig" recently, non-descriptive item "Micre=
+l KSZ8842"
+>>> came up, and when I hit "?" to get more info, all I got was a tight=
+-lipped
+>>> "This platform driver is for Micrel KSZ8842 chip.".
+>> I see your pain
+>=20
+> Thanks, and very fast reply too :)
+>=20
+>> Remove "PCI-based"
+>>
+>> This is a platform device, it is not PCI based.
+>> The KS8842 can sit behind PCI, ISA or VLB, this driver basically =20
+>> supports the ISA mappings.
+>>
+>> --Richard
+>=20
+> OK, I had added that because manufacturer specifications seemed to su=
+ggest
+> PCI use only. "platform device" should have been a warning sign I gue=
+ss...
+>=20
+>=20
+> Signed-off-by: Andreas Mohr <andi@lisas.de>
+
+Looks good to me
+
+Acked-by: Richard R=F6jfors <richard.rojfors.ext@mocean-labs.com>
 
 
-Hi Nicolas, 
-Given that you are the maintainer of "smc91x" driver since 2004. Could you say somethings about this
-patch? Your input on this patch is greatly appreciated. :-)
+>=20
+> --- linux-2.6.31-rc6/drivers/net/Kconfig.orig	2009-08-21 12:00:31.000=
+000000 +0200
+> +++ linux-2.6.31-rc6/drivers/net/Kconfig	2009-08-21 12:41:48.00000000=
+0 +0200
+> @@ -1727,7 +1727,8 @@ config KS8842
+>  	tristate "Micrel KSZ8842"
+>  	depends on HAS_IOMEM
+>  	help
+> -	  This platform driver is for Micrel KSZ8842 chip.
+> +	  This platform driver is for Micrel KSZ8842 / KS8842
+> +	  2-port ethernet switch chip (managed, VLAN, QoS).
+> =20
+>  config KS8851
+>         tristate "Micrel KS8851 SPI"
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-
-Thank you very much,
-Dongdong
-
-
-Patch Note:
-@@ -520,21 +522,21
--       local_irq_disable();                                        \
-+       local_irq_save(flags);                                      \
-        __ret = spin_trylock(lock);                                 \
-        if (!__ret)                                                 \
--               local_irq_enable();                                 \
-+               local_irq_restore(flags);                           \
-
-Here, for "__ret = spin_trylock(lock)", I didn't use
-spin_trylock_irqsave() to replace spin_trylock(), because
-the current irq state have got by local_irq_save(flags).
-
-
-
----
- drivers/net/smc91x.c |   40 ++++++++++++++++++++++------------------
- 1 files changed, 22 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index 1c70e99..7cabea1 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -196,21 +196,23 @@ static void PRINT_PKT(u_char *buf, int length)
- /* this enables an interrupt in the interrupt mask register */
- #define SMC_ENABLE_INT(lp, x) do {					\
- 	unsigned char mask;						\
--	spin_lock_irq(&lp->lock);					\
-+	unsigned long smc_enable_flags;					\
-+	spin_lock_irqsave(&lp->lock, smc_int_flags);			\
- 	mask = SMC_GET_INT_MASK(lp);					\
- 	mask |= (x);							\
- 	SMC_SET_INT_MASK(lp, mask);					\
--	spin_unlock_irq(&lp->lock);					\
-+	spin_unlock_irqrestore(&lp->lock, smc_int_flags);		\
- } while (0)
- 
- /* this disables an interrupt from the interrupt mask register */
- #define SMC_DISABLE_INT(lp, x) do {					\
- 	unsigned char mask;						\
--	spin_lock_irq(&lp->lock);					\
-+	unsigned long smc_disable_flags;				\
-+	spin_lock_irqsave(&lp->lock, smc_disable_flags);		\
- 	mask = SMC_GET_INT_MASK(lp);					\
- 	mask &= ~(x);							\
- 	SMC_SET_INT_MASK(lp, mask);					\
--	spin_unlock_irq(&lp->lock);					\
-+	spin_unlock_irqrestore(&lp->lock, smc_disable_flags);		\
- } while (0)
- 
- /*
-@@ -520,21 +522,21 @@ static inline void  smc_rcv(struct net_device *dev)
-  * any other concurrent access and C would always interrupt B. But life
-  * isn't that easy in a SMP world...
-  */
--#define smc_special_trylock(lock)					\
-+#define smc_special_trylock(lock, flags)				\
- ({									\
- 	int __ret;							\
--	local_irq_disable();						\
-+	local_irq_save(flags);						\
- 	__ret = spin_trylock(lock);					\
- 	if (!__ret)							\
--		local_irq_enable();					\
-+		local_irq_restore(flags);				\
- 	__ret;								\
- })
--#define smc_special_lock(lock)		spin_lock_irq(lock)
--#define smc_special_unlock(lock)	spin_unlock_irq(lock)
-+#define smc_special_lock(lock, flags)		spin_lock_irq(lock, flags)
-+#define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
- #else
--#define smc_special_trylock(lock)	(1)
--#define smc_special_lock(lock)		do { } while (0)
--#define smc_special_unlock(lock)	do { } while (0)
-+#define smc_special_trylock(lock, flags)	(1)
-+#define smc_special_lock(lock, flags)   	do { } while (0)
-+#define smc_special_unlock(lock, flags)	do { } while (0)
- #endif
- 
- /*
-@@ -548,10 +550,11 @@ static void smc_hardware_send_pkt(unsigned long data)
- 	struct sk_buff *skb;
- 	unsigned int packet_no, len;
- 	unsigned char *buf;
-+	unsigned long flags;
- 
- 	DBG(3, "%s: %s\n", dev->name, __func__);
- 
--	if (!smc_special_trylock(&lp->lock)) {
-+	if (!smc_special_trylock(&lp->lock, flags)) {
- 		netif_stop_queue(dev);
- 		tasklet_schedule(&lp->tx_task);
- 		return;
-@@ -559,7 +562,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 
- 	skb = lp->pending_tx_skb;
- 	if (unlikely(!skb)) {
--		smc_special_unlock(&lp->lock);
-+		smc_special_unlock(&lp->lock, flags);
- 		return;
- 	}
- 	lp->pending_tx_skb = NULL;
-@@ -569,7 +572,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 		printk("%s: Memory allocation failed.\n", dev->name);
- 		dev->stats.tx_errors++;
- 		dev->stats.tx_fifo_errors++;
--		smc_special_unlock(&lp->lock);
-+		smc_special_unlock(&lp->lock, flags);
- 		goto done;
- 	}
- 
-@@ -608,7 +611,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 
- 	/* queue the packet for TX */
- 	SMC_SET_MMU_CMD(lp, MC_ENQUEUE);
--	smc_special_unlock(&lp->lock);
-+	smc_special_unlock(&lp->lock, flags);
- 
- 	dev->trans_start = jiffies;
- 	dev->stats.tx_packets++;
-@@ -633,6 +636,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct smc_local *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->base;
- 	unsigned int numPages, poll_count, status;
-+	unsigned long flags;
- 
- 	DBG(3, "%s: %s\n", dev->name, __func__);
- 
-@@ -658,7 +662,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return 0;
- 	}
- 
--	smc_special_lock(&lp->lock);
-+	smc_special_lock(&lp->lock, flags);
- 
- 	/* now, try to allocate the memory */
- 	SMC_SET_MMU_CMD(lp, MC_ALLOC | numPages);
-@@ -676,7 +680,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
-    	} while (--poll_count);
- 
--	smc_special_unlock(&lp->lock);
-+	smc_special_unlock(&lp->lock, flags);
- 
- 	lp->pending_tx_skb = skb;
-    	if (!poll_count) {
--- 
-1.6.0.4
