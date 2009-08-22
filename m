@@ -1,76 +1,58 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH -next 7/8] bnx2: Use const on flash_table structure.
-Date: Fri, 21 Aug 2009 19:20:49 -0700
-Message-ID: <1250907650-24672-7-git-send-email-mchan@broadcom.com>
-References: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
+From: feng tian <feng.of.tian@gmail.com>
+Subject: Re: Abour linux driver supports BCM4325
+Date: Sat, 22 Aug 2009 13:11:29 +0800
+Message-ID: <f42a38140908212211m5faeae7ajba133a3d2535d2c0@mail.gmail.com>
+References: <f42a38140908202319y5c352aa3s37fec67e5cb8d7a3@mail.gmail.com>
+	 <f42a38140908202322ua3d4486meae6653044465583@mail.gmail.com>
+	 <1250860381.2876.19.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2874 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933154AbZHVCNr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2009 22:13:47 -0400
-In-Reply-To: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:36832 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932377AbZHVFL2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Aug 2009 01:11:28 -0400
+Received: by bwz19 with SMTP id 19so742585bwz.37
+        for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 22:11:29 -0700 (PDT)
+In-Reply-To: <1250860381.2876.19.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The structure, once initialized, never changes.
+Thanks very much, I'll post this to linux-wireless mailing list.
 
-Signed-off-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    6 +++---
- drivers/net/bnx2.h |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index ea6e6b7..58ab3f4 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -145,7 +145,7 @@ static DEFINE_PCI_DEVICE_TABLE(bnx2_pci_tbl) = {
- 	{ 0, }
- };
- 
--static struct flash_spec flash_table[] =
-+static const struct flash_spec flash_table[] =
- {
- #define BUFFERED_FLAGS		(BNX2_NV_BUFFERED | BNX2_NV_TRANSLATE)
- #define NONBUFFERED_FLAGS	(BNX2_NV_WREN)
-@@ -234,7 +234,7 @@ static struct flash_spec flash_table[] =
- 	 "Buffered flash (256kB)"},
- };
- 
--static struct flash_spec flash_5709 = {
-+static const struct flash_spec flash_5709 = {
- 	.flags		= BNX2_NV_BUFFERED,
- 	.page_bits	= BCM5709_FLASH_PAGE_BITS,
- 	.page_size	= BCM5709_FLASH_PAGE_SIZE,
-@@ -4227,7 +4227,7 @@ bnx2_init_nvram(struct bnx2 *bp)
- {
- 	u32 val;
- 	int j, entry_count, rc = 0;
--	struct flash_spec *flash;
-+	const struct flash_spec *flash;
- 
- 	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
- 		bp->flash_info = &flash_5709;
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 3c004b4..7544188 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6889,7 +6889,7 @@ struct bnx2 {
- 	int			pm_cap;
- 	int			pcix_cap;
- 
--	struct flash_spec	*flash_info;
-+	const struct flash_spec	*flash_info;
- 	u32			flash_size;
- 
- 	int			status_stats_size;
--- 
-1.5.6.GIT
-
-
+2009/8/21 Dan Williams <dcbw@redhat.com>:
+> On Fri, 2009-08-21 at 14:22 +0800, feng tian wrote:
+>> Dear All,
+>>
+>> We are working on a project which supports the BCM4325 linux wireles=
+s
+>> driver. The interface between the BCM chip and SOC(pxa310) is SDIO.
+>> I did some searches online and found that there is no available driv=
+er
+>> for this chip. Do I have to implement this myself? Is there anyone c=
+an
+>> provide us some related materials? =A0Thanks very much.
+>
+> You'll probably want to ask on the linux-wireless list where the
+> wireless people hang out. =A0Partial answer: there is already a drive=
+r
+> (b43) for many of broadcom 802.11 devices, including some of the
+> "LP-PHY" devices. =A0This driver may or may not be suitable for the 4=
+325
+> depending on the 4325's firmware interface. =A0The b43 driver is not =
+yet
+> capable of using SDIO to communicate with the wifi chip, but that
+> appears to be what you are working on. =A0So I'd suggest posting to t=
+he
+> linux-wireless mailing list and seeing what the b43 driver people say=
+=2E
+>
+> http://linuxwireless.org/en/developers/MailingLists
+>
+> Dan
+>
+>
+>
