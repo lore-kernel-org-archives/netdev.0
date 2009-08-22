@@ -1,38 +1,65 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: E100 RX ring buffers continued...
-Date: Sat, 22 Aug 2009 17:32:35 +0200
-Message-ID: <m34orzj23w.fsf@intrepid.localdomain>
-References: <m38whchrer.fsf@intrepid.localdomain>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [Bridge] VLANs and bridge
+Date: Sat, 22 Aug 2009 17:36:54 +0200
+Message-ID: <OF2C06F138.1BC279AE-ONC125761A.0054117B-C125761A.0055C6F1@transmode.se>
+References: <OFC5BA9A4A.DCCE8D0D-ONC125761A.004A7620-C125761A.004BEA17@transmode.se> <4A9001E3.6060506@superduper.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Simon Barber <simon@superduper.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:50734 "EHLO khc.piap.pl"
+Received: from gw1.transmode.se ([213.115.205.20]:50507 "EHLO gw1.transmode.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754943AbZHVPcf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Aug 2009 11:32:35 -0400
-In-Reply-To: <m38whchrer.fsf@intrepid.localdomain> (Krzysztof Halasa's message of "Sat\, 22 Aug 2009 16\:09\:00 +0200")
+	id S932679AbZHVPi2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Aug 2009 11:38:28 -0400
+In-Reply-To: <4A9001E3.6060506@superduper.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Halasa <khc@pm.waw.pl> writes:
+Simon Barber <simon@superduper.net> wrote on 22/08/2009 16:34:11:
+>
+> Hi Joakim,
+>
+> Look back a month or so in the archives - you'll find an email from me
+> referencing a patch to make the bridge VLAN aware. It's a little old,
+> and needs updating for 2.6 (it was written for 2.4) - but should not be
+> much work to get it done. There is a matching patch for the brctl utility.
+>
+> Simon
+>
 
-> There is also apparently unsupported and mostly undocumented "flexible
-> mode". The question to Intel's experts: can the flexible mode be used
-> anyway? I can write the code, but need info about eg. the data
-> structures (RFD, how does it work in flexible mode) and a confirmation
-> the silicon (or maybe which silicon) will work with it.
+Thanks Simon
 
-I can see there is some "erratum" in 82559 related to flexible RX mode.
-It seems we're not affected, though - it requires more than 1 RBD (per
-RFD I hope) for the problem to happen.
+Do you mean the "bridge vlan integration" patch?
+It is not clear to me if this would support the case
+described in B.1.3(802.1Q-2005), does it?
 
-Do I get it right?
--- 
-Krzysztof Halasa
+Seems like there is little interest to post this to 2.6 and
+I am not sure how welcome this would be either, perhaps
+the bridge maintainer could comment?
+
+  Jocke
+
+>
+> Joakim Tjernlund wrote:
+> > This is probably no news to experienced bridge and VLAN users but I just learned the
+> > hard way that Shared VLAN learning(SVL) isn't supported
+> > by the linux bridge making it impossible to support configurations described in B.1.3
+> > Basically the bride needs to be made VLAN aware and the VLAN code needs to be adopted
+> > to allow this.
+> >
+> > I figured I should mention it in case it is just an oversight. It does not
+> look like a simple
+> > job though.
+> >
+> >  Jocke
+> >
+> > _______________________________________________
+> > Bridge mailing list
+> > Bridge@lists.linux-foundation.org
+> > https://lists.linux-foundation.org/mailman/listinfo/bridge
+> >
+>
+>
+>
+
