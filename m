@@ -1,8 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH -next 2/8] bnx2: Check if_running() before touching chip
- registers.
-Date: Fri, 21 Aug 2009 19:20:44 -0700
-Message-ID: <1250907650-24672-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH -next 6/8] bnx2: Refine coalescing parameters.
+Date: Fri, 21 Aug 2009 19:20:48 -0700
+Message-ID: <1250907650-24672-6-git-send-email-mchan@broadcom.com>
 References: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,52 +9,58 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4813 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4824 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933149AbZHVCNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933151AbZHVCNr (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 21 Aug 2009 22:13:47 -0400
 In-Reply-To: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add this check to bnx2_netif_stop() and bnx2_vlan_rx_register() to
-prevent bus lockups on some systems when the chip is in low power state.
+- Set the USE_INT_PARAM bit so the rx-frames-irq and tx-frames-irq will take
+  effect on 5709.
+- Increase the default rx-frames to reduce interrupt count.
+- Decrease the default rx-frames-irq and tx-frames-irq to catch more events
+  during NAPI poll.
+
+All these will reduce interrupts without affecting latency.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/bnx2.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/bnx2.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index e75b6e9..9cfd460 100644
+index e025833..ea6e6b7 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -619,6 +619,9 @@ bnx2_disable_int_sync(struct bnx2 *bp)
- 	int i;
+@@ -4921,7 +4921,7 @@ bnx2_init_chip(struct bnx2 *bp)
+ 	}
  
- 	atomic_inc(&bp->intr_sem);
-+	if (!netif_running(bp->dev))
-+		return;
-+
- 	bnx2_disable_int(bp);
- 	for (i = 0; i < bp->irq_nvecs; i++)
- 		synchronize_irq(bp->irq_tbl[i].vector);
-@@ -6254,9 +6257,14 @@ bnx2_vlan_rx_register(struct net_device *dev, struct vlan_group *vlgrp)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
+ 	if (bp->flags & BNX2_FLAG_ONE_SHOT_MSI)
+-		val |= BNX2_HC_CONFIG_ONE_SHOT;
++		val |= BNX2_HC_CONFIG_ONE_SHOT | BNX2_HC_CONFIG_USE_INT_PARAM;
  
--	bnx2_netif_stop(bp);
-+	if (netif_running(dev))
-+		bnx2_netif_stop(bp);
+ 	REG_WR(bp, BNX2_HC_CONFIG, val);
  
- 	bp->vlgrp = vlgrp;
-+
-+	if (!netif_running(dev))
-+		return;
-+
- 	bnx2_set_rx_mode(dev);
- 	if (bp->flags & BNX2_FLAG_CAN_KEEP_VLAN)
- 		bnx2_fw_sync(bp, BNX2_DRV_MSG_CODE_KEEP_VLAN_UPDATE, 0, 1);
+@@ -7858,13 +7858,13 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 
+ 	bp->rx_csum = 1;
+ 
+-	bp->tx_quick_cons_trip_int = 20;
++	bp->tx_quick_cons_trip_int = 2;
+ 	bp->tx_quick_cons_trip = 20;
+-	bp->tx_ticks_int = 80;
++	bp->tx_ticks_int = 18;
+ 	bp->tx_ticks = 80;
+ 
+-	bp->rx_quick_cons_trip_int = 6;
+-	bp->rx_quick_cons_trip = 6;
++	bp->rx_quick_cons_trip_int = 2;
++	bp->rx_quick_cons_trip = 12;
+ 	bp->rx_ticks_int = 18;
+ 	bp->rx_ticks = 18;
+ 
 -- 
 1.5.6.GIT
 
