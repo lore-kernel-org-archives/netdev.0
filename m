@@ -1,8 +1,7 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH -next 4/8] bnx2: Apply BROKEN_STATS workaround to 5706
- and 5708.
-Date: Fri, 21 Aug 2009 19:20:46 -0700
-Message-ID: <1250907650-24672-4-git-send-email-mchan@broadcom.com>
+Subject: [PATCH -next 5/8] bnx2: Report FTQ discard counter.
+Date: Fri, 21 Aug 2009 19:20:47 -0700
+Message-ID: <1250907650-24672-5-git-send-email-mchan@broadcom.com>
 References: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,73 +9,100 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3672 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4820 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933141AbZHVCNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Aug 2009 22:13:46 -0400
+	id S933144AbZHVCNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 22:13:47 -0400
 In-Reply-To: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add flag to expand the workaround to both chips.
+Report this counter to ethtool -S and include it in netstat.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/bnx2.c |    7 ++++---
- drivers/net/bnx2.h |    1 +
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/bnx2.c |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 1d502e6..085c2dd 100644
+index 085c2dd..e025833 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -4900,7 +4900,7 @@ bnx2_init_chip(struct bnx2 *bp)
- 	REG_WR(bp, BNX2_HC_CMD_TICKS,
- 	       (bp->cmd_ticks_int << 16) | bp->cmd_ticks);
+@@ -6485,7 +6485,8 @@ bnx2_get_stats(struct net_device *dev)
+ 		stats_blk->stat_EtherStatsOverrsizePkts);
  
--	if (CHIP_NUM(bp) == CHIP_NUM_5708)
-+	if (bp->flags & BNX2_FLAG_BROKEN_STATS)
- 		REG_WR(bp, BNX2_HC_STATS_TICKS, 0);
- 	else
- 		REG_WR(bp, BNX2_HC_STATS_TICKS, bp->stats_ticks);
-@@ -6025,7 +6025,7 @@ bnx2_timer(unsigned long data)
- 		bnx2_reg_rd_ind(bp, BNX2_FW_RX_DROP_COUNT);
+ 	net_stats->rx_over_errors =
+-		(unsigned long) stats_blk->stat_IfInMBUFDiscards;
++		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
++		stats_blk->stat_IfInMBUFDiscards);
  
- 	/* workaround occasional corrupted counters */
--	if (CHIP_NUM(bp) == CHIP_NUM_5708 && bp->stats_ticks)
-+	if ((bp->flags & BNX2_FLAG_BROKEN_STATS) && bp->stats_ticks)
- 		REG_WR(bp, BNX2_HC_COMMAND, bp->hc_cmd |
- 					    BNX2_HC_COMMAND_STATS_NOW);
+ 	net_stats->rx_frame_errors =
+ 		(unsigned long) stats_blk->stat_Dot3StatsAlignmentErrors;
+@@ -6518,8 +6519,8 @@ bnx2_get_stats(struct net_device *dev)
+ 		net_stats->tx_carrier_errors;
  
-@@ -6941,7 +6941,7 @@ bnx2_set_coalesce(struct net_device *dev, struct ethtool_coalesce *coal)
- 		0xff;
+ 	net_stats->rx_missed_errors =
+-		(unsigned long) (stats_blk->stat_IfInMBUFDiscards +
+-		stats_blk->stat_FwRxDrop);
++		(unsigned long) (stats_blk->stat_IfInFTQDiscards +
++		stats_blk->stat_IfInMBUFDiscards + stats_blk->stat_FwRxDrop);
  
- 	bp->stats_ticks = coal->stats_block_coalesce_usecs;
--	if (CHIP_NUM(bp) == CHIP_NUM_5708) {
-+	if (bp->flags & BNX2_FLAG_BROKEN_STATS) {
- 		if (bp->stats_ticks != 0 && bp->stats_ticks != USEC_PER_SEC)
- 			bp->stats_ticks = USEC_PER_SEC;
- 	}
-@@ -7722,6 +7722,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 			rc = -EIO;
- 			goto err_out_unmap;
- 		}
-+		bp->flags |= BNX2_FLAG_BROKEN_STATS;
- 	}
+ 	return net_stats;
+ }
+@@ -7090,11 +7091,9 @@ bnx2_set_tso(struct net_device *dev, u32 data)
+ 	return 0;
+ }
  
- 	if (CHIP_NUM(bp) == CHIP_NUM_5709 && CHIP_REV(bp) != CHIP_REV_Ax) {
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index f1edfaa..3c004b4 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -6718,6 +6718,7 @@ struct bnx2 {
- 					 BNX2_FLAG_USING_MSIX)
- #define BNX2_FLAG_JUMBO_BROKEN		0x00000800
- #define BNX2_FLAG_CAN_KEEP_VLAN		0x00001000
-+#define BNX2_FLAG_BROKEN_STATS		0x00002000
+-#define BNX2_NUM_STATS 46
+-
+ static struct {
+ 	char string[ETH_GSTRING_LEN];
+-} bnx2_stats_str_arr[BNX2_NUM_STATS] = {
++} bnx2_stats_str_arr[] = {
+ 	{ "rx_bytes" },
+ 	{ "rx_error_bytes" },
+ 	{ "tx_bytes" },
+@@ -7139,10 +7138,14 @@ static struct {
+ 	{ "tx_xoff_frames" },
+ 	{ "rx_mac_ctrl_frames" },
+ 	{ "rx_filtered_packets" },
++	{ "rx_ftq_discards" },
+ 	{ "rx_discards" },
+ 	{ "rx_fw_discards" },
+ };
  
- 	struct bnx2_napi	bnx2_napi[BNX2_MAX_MSIX_VEC];
++#define BNX2_NUM_STATS (sizeof(bnx2_stats_str_arr)/\
++			sizeof(bnx2_stats_str_arr[0]))
++
+ #define STATS_OFFSET32(offset_name) (offsetof(struct statistics_block, offset_name) / 4)
  
+ static const unsigned long bnx2_stats_offset_arr[BNX2_NUM_STATS] = {
+@@ -7190,6 +7193,7 @@ static const unsigned long bnx2_stats_offset_arr[BNX2_NUM_STATS] = {
+     STATS_OFFSET32(stat_OutXoffSent),
+     STATS_OFFSET32(stat_MacControlFramesReceived),
+     STATS_OFFSET32(stat_IfInFramesL2FilterDiscards),
++    STATS_OFFSET32(stat_IfInFTQDiscards),
+     STATS_OFFSET32(stat_IfInMBUFDiscards),
+     STATS_OFFSET32(stat_FwRxDrop),
+ };
+@@ -7202,7 +7206,7 @@ static u8 bnx2_5706_stats_len_arr[BNX2_NUM_STATS] = {
+ 	4,0,4,4,4,4,4,4,4,4,
+ 	4,4,4,4,4,4,4,4,4,4,
+ 	4,4,4,4,4,4,4,4,4,4,
+-	4,4,4,4,4,4,
++	4,4,4,4,4,4,4,
+ };
+ 
+ static u8 bnx2_5708_stats_len_arr[BNX2_NUM_STATS] = {
+@@ -7210,7 +7214,7 @@ static u8 bnx2_5708_stats_len_arr[BNX2_NUM_STATS] = {
+ 	4,4,4,4,4,4,4,4,4,4,
+ 	4,4,4,4,4,4,4,4,4,4,
+ 	4,4,4,4,4,4,4,4,4,4,
+-	4,4,4,4,4,4,
++	4,4,4,4,4,4,4,
+ };
+ 
+ #define BNX2_NUM_TESTS 6
 -- 
 1.5.6.GIT
 
