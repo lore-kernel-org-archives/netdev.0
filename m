@@ -1,28 +1,53 @@
-From: steve baker <arqyxp@gmail.com>
-Subject: RFC 5386
-Date: Fri, 21 Aug 2009 21:09:55 -0400
-Message-ID: <6358db820908211809s11f4dd5ai4a1b5eefca10575@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH -next 3/8] bnx2: Close device if MTU change or ring size
+ change fails.
+Date: Fri, 21 Aug 2009 19:20:45 -0700
+Message-ID: <1250907650-24672-3-git-send-email-mchan@broadcom.com>
+References: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f204.google.com ([209.85.223.204]:41249 "EHLO
-	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932981AbZHVBJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Aug 2009 21:09:53 -0400
-Received: by iwn42 with SMTP id 42so482803iwn.33
-        for <netdev@vger.kernel.org>; Fri, 21 Aug 2009 18:09:55 -0700 (PDT)
+Received: from mms2.broadcom.com ([216.31.210.18]:3672 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933141AbZHVCNm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Aug 2009 22:13:42 -0400
+In-Reply-To: <1250907650-24672-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+When unable to allocate memory for new MTU or new ring size, we need
+to close the device to prevent it from crashing.
 
-   I was wondering if there are any plans in the works to implement RFC
-5386 (better than nothing security), and who might have the lead on
-it?
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 9cfd460..1d502e6 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6992,9 +6992,14 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 		int rc;
+ 
+ 		rc = bnx2_alloc_mem(bp);
+-		if (rc)
++		if (!rc)
++			rc = bnx2_init_nic(bp, 0);
++
++		if (rc) {
++			bnx2_napi_enable(bp);
++			dev_close(bp->dev);
+ 			return rc;
+-		bnx2_init_nic(bp, 0);
++		}
+ 		bnx2_netif_start(bp);
+ 	}
+ 	return 0;
+-- 
+1.5.6.GIT
 
 
-
-Thanks,
-Steve
