@@ -1,36 +1,23 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: [PATCH 1/1] NET: llc, zero sockaddr_llc struct
-Date: Sat, 22 Aug 2009 20:58:55 +0200
-Message-ID: <1250967535-30692-1-git-send-email-jirislaby@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933302AbZHVS6z@vger.kernel.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: Strange network timeouts w/ 2.6.30.5
+Date: Sat, 22 Aug 2009 22:26:41 +0200
+Message-ID: <m3vdkfh9xa.fsf@intrepid.localdomain>
+References: <987943678.21250869504786.JavaMail.root@mail.holmansrus.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Walt Holman <walt@holmansrus.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933232AbZHVU0n@vger.kernel.org>
+In-Reply-To: <987943678.21250869504786.JavaMail.root@mail.holmansrus.com> (Walt Holman's message of "Fri\, 21 Aug 2009 10\:45\:04 -0500 \(CDT\)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sllc_arphrd member of sockaddr_llc might not be set. Zero sllc
-before copying it to the above layers.
+Walt Holman <walt@holmansrus.com> writes:
 
-Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
----
- net/llc/af_llc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Just got a chance to test this for confirmation.  When limiting the
+> RAM to 2GB, the patched driver appears to work OK.
 
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index 9208cf5..22629fc 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -909,7 +909,7 @@ release:
- static int llc_ui_getname(struct socket *sock, struct sockaddr *uaddr,
- 			  int *uaddrlen, int peer)
- {
--	struct sockaddr_llc sllc;
-+	struct sockaddr_llc sllc = {};
- 	struct sock *sk = sock->sk;
- 	struct llc_sock *llc = llc_sk(sk);
- 	int rc = 0;
+Thanks for confirming this.
 -- 
-1.6.3.3
+Krzysztof Halasa
