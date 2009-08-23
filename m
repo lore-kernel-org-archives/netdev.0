@@ -1,87 +1,97 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Sun, 23 Aug 2009 19:54:48 +0200
-Message-ID: <20090823175448.GA4111@ami.dom.local>
-References: <4A0C7443.1010000@googlemail.com> <1243042174.3580.23.camel@obelisk.thedillows.org> <m1skfkrik2.fsf@fess.ebiederm.org> <1250895567.23419.1.camel@obelisk.thedillows.org> <1250897657.23419.5.camel@obelisk.thedillows.org> <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org> <1250973787.3582.14.camel@obelisk.thedillows.org> <4A91799D.7090802@gmail.com> <4A917FD8.6030201@ziu.info>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
+Date: Sun, 23 Aug 2009 21:55:45 +0400
+Message-ID: <a4423d670908231055o2bb65fe0le2c33fe94b660b38@mail.gmail.com>
+References: <200907240257.10906.marek.vasut@gmail.com>
+	 <a4423d670907290416h4a0796c2s665d3f8ca0755e67@mail.gmail.com>
+	 <200908051602.34501.marek.vasut@gmail.com>
+	 <200908220054.31438.marek.vasut@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?iso-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Michal Soltys <soltys@ziu.info>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934077AbZHWRzQ@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4A917FD8.6030201@ziu.info>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Miao <eric.y.miao@gmail.com>,
+	linux-arm-kernel@lists.arm.linux.org.uk,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Marek Vasut <marek.vasut@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ey-out-2122.google.com ([74.125.78.26]:5572 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932457AbZHWRzo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 13:55:44 -0400
+Received: by ey-out-2122.google.com with SMTP id 22so479647eye.37
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2009 10:55:45 -0700 (PDT)
+In-Reply-To: <200908220054.31438.marek.vasut@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 23, 2009 at 07:43:52PM +0200, Michal Soltys wrote:
-> Jarek Poplawski wrote:
->> David Dillow wrote, On 08/22/2009 10:43 PM:
+2009/8/22 Marek Vasut <marek.vasut@gmail.com>:
+> Dne St 5. srpna 2009 16:02:34 Marek Vasut napsal(a):
+>> Dne St 29. =C4=8Dervence 2009 13:16:25 Alexander Beregalov napsal(a)=
+:
+>> > 2009/7/28 Eric Miao <eric.y.miao@gmail.com>:
+>> > > Marek Vasut wrote:
+>> > >> Hi!
+>> > >>
+>> > >> This patch fixes broken pxaficp-ir. The problem was in incorrec=
+t
+>> > >> net_device_ops being specified which prevented the driver from
+>> > >> operating. The symptoms were:
+>> > >> =C2=A0- failing ifconfig for IrLAN, resulting in
+>> > >> =C2=A0 =C2=A0 =C2=A0 SIOCSIFFLAGS: Cannot assign requested addr=
+ess
+>> > >> =C2=A0- irattach working for IrCOMM, but the port stayed disabl=
+ed
+>> > >>
+>> > >> Moreover this patch corrects missing sysfs device link.
+>> > >>
+>> > >> btw. guys, be honest, when did you last tested pxaficp-ir on re=
+al
+>> > >> hardware? ;-)
+>> > >
+>> > > Well, this seems to be brought by the net_device_ops change, whi=
+ch
+>> > > seems to happen silently without any of us being notified.
+>> > >
+>> > > OK, netdev and Alex are copied, so that we can look into this is=
+sue a
+>> > > bit deeper:
+>> > >
+>> > > 1. it looks to me that SIOCSIFFLAGS actually returned -EADDRNOTA=
+VAIL,
+>> > > which is likely caused by eth_validate_addr, the default eth_add=
+r comes
+>> > > with irda should be "00:00:00:00:00:00" if not explicitly specif=
+ied
+>> > > (kzalloc), and this should be the problem, solution ? =C2=A0Eith=
+er give a
+>> > > valid address to the irda net_device or remove this
+>> > > 'ndo_validate_addr'. And which is a correct fix will impact on t=
+he
+>> > > .ndo_set_mac_address
+>> > >
+>> > > 2. '.ndo_change_mtu' ? It looks to me that Irda device doesn't c=
+are too
+>> > > much about the MTU, eth_change_mtu is supposed to work just fine=
+ and
+>> > > not to cause any side effects, and may just benefit later irda d=
+evice
+>> > > drivers if there is a weird device happens to care about MTU
+>> > >
+>> > > - eric
+>> > >
+>> > > Marek's original patch in attachment.
+>> >
+>> > Sorry about that and thanks.
+>> > Then we should fix the rest of irda drivers in the same way.
 >>
->>> On Sat, 2009-08-22 at 05:07 -0700, Eric W. Biederman wrote:
->>>> ebiederm@xmission.com (Eric W. Biederman) writes:
->>>>
->>>>> David Dillow <dave@thedillows.org> writes:
->>>>>
->>>>>> Re-looking at the code, I'd guess that some IRQ status line is getting
->>>>>> stuck high, but I don't see why -- we should acknowledge all outstanding
->>>>>> interrupts each time through the loop, whether we care about them or
->>>>>> not.
->>>>>>
->>>>>> Could reproduce a problem with the following patch applied, and send the
->>>>>> full dmesg, please?
->>>>> Here is what I get.
->>>>>
->>>>> r8169 screaming irq status 00000085 mask 0000ffff event 0000803f napi 0000001d
->>>> And now that the machine has come out of it, that was followed by:
->>>> Looks like the soft lockup did not manage to trigger in this case.
->>>
->>> I need some more context, please. What is the network load through this
->>> NIC when you have the issues? Light, heavy? Can you give me more details
->>> about the machine? A full dmesg from boot until this happens would help
->>> quite a bit. At a minimum it would help answer which version of the chip
->>> we're dealing with and what the machine it is in looks like.
->>>
->>> Can you reproduce this with pci=nomsi? I'm assuming it the chip running
->>> in MSI mode.
->>>
->>> Also, can you reproduce it when booting UP (or maxcpus=1)? I'm thinking
->>> about a race between rtl8169_interrupt() and rtl8169_poll(), but it
->>> isn't jumping out at me.
->>>
->>> Also, I'm having connectivity troubles this weekend, so my response may
->>> be spotty. :(
->>>
->>
->>
->> BTW, FYI, it seems Michal stopped tracking this problem, but he
->> found this commit problematic as well.
->>
->> From: Michal Soltys <soltys@ziu.info>
->> Subject: Re: r8169 (+others ?) and note_interrupt performance hit on 2.6.30.x
->> Date: Wed, 05 Aug 2009 20:54:47 +0200
->> http://marc.info/?l=linux-netdev&m=124949848110710&w=2
->>
+>> Hi!
+>> Was my patch applied or what's the current status? Thanks
 >
-> Well - not really stopped, but not sure what to look at before that  
-> particular commit (as cpu load for the tests I've done increased rather  
-> significantly as well before that, and after 2.6.29 - but it doesn't  
-> seem to be related to the driver). And I was away for over a week...
+> Hi!
+> any updates ? Are we letting this into .32 in current broken state?
 >
-> As fot the changes that commit introduced, here's is link to the mail  
-> with the oprofile I did back then:
->
-> http://www.spinics.net/lists/netdev/msg102709.html
->
-> I'm happy to assist any way I can.
 
-Very nice :-) I guess David might be interested in your dmesg etc.
-(as above) too.
-
-Jarek P.
+David, please have a look. Will you apply it?
