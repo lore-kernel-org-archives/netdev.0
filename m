@@ -1,84 +1,69 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: E100 RX ring buffers continued...
-Date: Sun, 23 Aug 2009 17:30:37 +0200
-Message-ID: <m3tyzytun6.fsf@intrepid.localdomain>
-References: <m38whchrer.fsf@intrepid.localdomain>
-	<20090822.181552.152398363.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
+Date: Sun, 23 Aug 2009 19:17:17 +0200
+Message-ID: <4A91799D.7090802@gmail.com>
+References: <200903041828.49972.m.bueker@berlin.de>	 <1242001754.4093.12.camel@obelisk.thedillows.org>	 <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>	 <1242077392.3716.15.camel@lap75545.ornl.gov>	 <4A09DC3E.2080807@googlemail.com>	 <1242268709.4979.7.camel@obelisk.thedillows.org>	 <4A0C6504.8000704@googlemail.com>	 <1242328457.32579.12.camel@lap75545.ornl.gov>	 <4A0C7443.1010000@googlemail.com>	 <1243042174.3580.23.camel@obelisk.thedillows.org>	 <m1skfkrik2.fsf@fess.ebiederm.org>	 <1250895567.23419.1.camel@obelisk.thedillows.org>	 <1250897657.23419.5.camel@obelisk.thedillows.org>	 <m1iqggf4rf.fsf@fess.ebiederm.org>  <m18whcf3w2.fsf@fess.ebiederm.org> <1250973787.3582.14.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
-To: David Miller <davem@davemloft.net>,
-	Walt Holman <walt@holmansrus.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:48503 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933839AbZHWPai (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Aug 2009 11:30:38 -0400
-In-Reply-To: <20090822.181552.152398363.davem@davemloft.net> (David Miller's message of "Sat\, 22 Aug 2009 18\:15\:52 -0700 \(PDT\)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Michael Riepe <michael.riepe@googlemail.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Rui Santos <rsantos@grupopie.com>,
+	=?ISO-8859-15?Q?Michael_B=FCker?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michal Soltys <soltys@ziu.info>
+To: David Dillow <dave@thedillows.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934037AbZHWRRX@vger.kernel.org>
+In-Reply-To: <1250973787.3582.14.camel@obelisk.thedillows.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+David Dillow wrote, On 08/22/2009 10:43 PM:
 
-> I think going down the road of trying to use the flexible mode is a
-> dead end.  I doubt any other OS driver is using it, and that means
-> that there are likely many other errata hiding in the bushes which you
-> will unearth by trying to use this new descriptor mode.  And it won't
-> show up when you test it, it will show up when some random person in
-> some remote data center somewhere updates their kernel, and they won't
-> send us a bug report, they'll replace their card or downgrade their
-> kernel instead.
+> On Sat, 2009-08-22 at 05:07 -0700, Eric W. Biederman wrote:
+>> ebiederm@xmission.com (Eric W. Biederman) writes:
+>>
+>>> David Dillow <dave@thedillows.org> writes:
+>>>
+>>>> Re-looking at the code, I'd guess that some IRQ status line is getting
+>>>> stuck high, but I don't see why -- we should acknowledge all outstanding
+>>>> interrupts each time through the loop, whether we care about them or
+>>>> not.
+>>>>
+>>>> Could reproduce a problem with the following patch applied, and send the
+>>>> full dmesg, please?
+>>> Here is what I get.
+>>>
+>>> r8169 screaming irq status 00000085 mask 0000ffff event 0000803f napi 0000001d
+>> And now that the machine has come out of it, that was followed by:
+>> Looks like the soft lockup did not manage to trigger in this case.
+> 
+> I need some more context, please. What is the network load through this
+> NIC when you have the issues? Light, heavy? Can you give me more details
+> about the machine? A full dmesg from boot until this happens would help
+> quite a bit. At a minimum it would help answer which version of the chip
+> we're dealing with and what the machine it is in looks like.
+> 
+> Can you reproduce this with pci=nomsi? I'm assuming it the chip running
+> in MSI mode.
+> 
+> Also, can you reproduce it when booting UP (or maxcpus=1)? I'm thinking
+> about a race between rtl8169_interrupt() and rtl8169_poll(), but it
+> isn't jumping out at me.
+> 
+> Also, I'm having connectivity troubles this weekend, so my response may
+> be spotty. :(
+> 
 
-Well, I'm afraid it's a possible scenario. I won't touch the flexible
-mode unless Intel folks tell me it's safe.
-OTOH it seems it was used by less common software, at least in the
-82557-9 times. Not sure about Windows driver.
-(It seems the simplified mode was meant for Linux-alike "1 buffer per
-packet" approach while the flexible mode was to support systems using
-mbuf-like structures).
 
-> Just make the driver use consistent buffers for RX, and when packets
-> arrive an SKB is allocated and the packet data is copied into the SKB
->>From the consistent buffer.
+BTW, FYI, it seems Michal stopped tracking this problem, but he
+found this commit problematic as well.
 
-That would be a performance hit, wouldn't it? Especially in older
-machines, where e100 was typically installed. I think it should be the
-last resort.
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: r8169 (+others ?) and note_interrupt performance hit on 2.6.30.x
+Date: Wed, 05 Aug 2009 20:54:47 +0200
+http://marc.info/?l=linux-netdev&m=124949848110710&w=2
 
-> And for 2.6.31-rcX we probably have to simply revert your change.
-
-Unfortunately it seems that reverting will not fix operation completely
-on a system with swiotlb (checking the descriptor status isn't the only
-racy operation which depends on the cache behaviour, though it's the
-most frequent). And it will break all non-coherent archs again, they
-will either need to use the patch or still stick to (already removed)
-eepro100.c
-
-I looked at the eepro100.c sources. It uses BIDIR mapping the same way
-as e100.c does, but then syncs using FROM_DEVICE/TO_DEVICE instead of
-e100's always-BIDIR. I think the same in e100.c would work on all
-platforms (though still violating the DMA API a bit). Perhaps we should
-do that instead?
-
-Walt, can you check if 2.6.30.5 with the following patch applied still
-breaks e100 with the 6 GB of RAM, please? TIA.
-(This patch makes swiotlb aware that the CPU didn't alter the buffer,
-though I don't know if swiotlb will use this info).
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 014dfb6..53e8252 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -1764,7 +1764,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 				nic->ru_running = RU_SUSPENDED;
- 		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
- 					       sizeof(struct rfd),
--					       PCI_DMA_BIDIRECTIONAL);
-+					       PCI_DMA_FROMDEVICE);
- 		return -ENODATA;
- 	}
- 
--- 
-Krzysztof Halasa
+Jarek P.
