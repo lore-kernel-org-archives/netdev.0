@@ -1,97 +1,110 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
-Date: Sun, 23 Aug 2009 21:55:45 +0400
-Message-ID: <a4423d670908231055o2bb65fe0le2c33fe94b660b38@mail.gmail.com>
-References: <200907240257.10906.marek.vasut@gmail.com>
-	 <a4423d670907290416h4a0796c2s665d3f8ca0755e67@mail.gmail.com>
-	 <200908051602.34501.marek.vasut@gmail.com>
-	 <200908220054.31438.marek.vasut@gmail.com>
+From: Walt Holman <walt@holmansrus.com>
+Subject: Re: E100 RX ring buffers continued...
+Date: Sun, 23 Aug 2009 13:20:29 -0500 (CDT)
+Message-ID: <1288246454.81251051629969.JavaMail.root@mail.holmansrus.com>
+References: <m3tyzytun6.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Miao <eric.y.miao@gmail.com>,
-	linux-arm-kernel@lists.arm.linux.org.uk,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Marek Vasut <marek.vasut@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	jeffrey t kirsher <jeffrey.t.kirsher@intel.com>,
+	jesse brandeburg <jesse.brandeburg@intel.com>,
+	bruce w allan <bruce.w.allan@intel.com>,
+	peter p waskiewicz jr <peter.p.waskiewicz.jr@intel.com>,
+	john ronciak <john.ronciak@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:5572 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932457AbZHWRzo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 13:55:44 -0400
-Received: by ey-out-2122.google.com with SMTP id 22so479647eye.37
-        for <netdev@vger.kernel.org>; Sun, 23 Aug 2009 10:55:45 -0700 (PDT)
-In-Reply-To: <200908220054.31438.marek.vasut@gmail.com>
+Received: from static-76-164-182-57.apid.com ([76.164.182.57]:37266 "EHLO
+	waltsputer.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933441AbZHWSUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 14:20:33 -0400
+In-Reply-To: <m3tyzytun6.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2009/8/22 Marek Vasut <marek.vasut@gmail.com>:
-> Dne St 5. srpna 2009 16:02:34 Marek Vasut napsal(a):
->> Dne St 29. =C4=8Dervence 2009 13:16:25 Alexander Beregalov napsal(a)=
-:
->> > 2009/7/28 Eric Miao <eric.y.miao@gmail.com>:
->> > > Marek Vasut wrote:
->> > >> Hi!
->> > >>
->> > >> This patch fixes broken pxaficp-ir. The problem was in incorrec=
-t
->> > >> net_device_ops being specified which prevented the driver from
->> > >> operating. The symptoms were:
->> > >> =C2=A0- failing ifconfig for IrLAN, resulting in
->> > >> =C2=A0 =C2=A0 =C2=A0 SIOCSIFFLAGS: Cannot assign requested addr=
-ess
->> > >> =C2=A0- irattach working for IrCOMM, but the port stayed disabl=
-ed
->> > >>
->> > >> Moreover this patch corrects missing sysfs device link.
->> > >>
->> > >> btw. guys, be honest, when did you last tested pxaficp-ir on re=
-al
->> > >> hardware? ;-)
->> > >
->> > > Well, this seems to be brought by the net_device_ops change, whi=
-ch
->> > > seems to happen silently without any of us being notified.
->> > >
->> > > OK, netdev and Alex are copied, so that we can look into this is=
-sue a
->> > > bit deeper:
->> > >
->> > > 1. it looks to me that SIOCSIFFLAGS actually returned -EADDRNOTA=
-VAIL,
->> > > which is likely caused by eth_validate_addr, the default eth_add=
-r comes
->> > > with irda should be "00:00:00:00:00:00" if not explicitly specif=
-ied
->> > > (kzalloc), and this should be the problem, solution ? =C2=A0Eith=
-er give a
->> > > valid address to the irda net_device or remove this
->> > > 'ndo_validate_addr'. And which is a correct fix will impact on t=
-he
->> > > .ndo_set_mac_address
->> > >
->> > > 2. '.ndo_change_mtu' ? It looks to me that Irda device doesn't c=
-are too
->> > > much about the MTU, eth_change_mtu is supposed to work just fine=
- and
->> > > not to cause any side effects, and may just benefit later irda d=
-evice
->> > > drivers if there is a weird device happens to care about MTU
->> > >
->> > > - eric
->> > >
->> > > Marek's original patch in attachment.
->> >
->> > Sorry about that and thanks.
->> > Then we should fix the rest of irda drivers in the same way.
->>
->> Hi!
->> Was my patch applied or what's the current status? Thanks
->
-> Hi!
-> any updates ? Are we letting this into .32 in current broken state?
->
 
-David, please have a look. Will you apply it?
+----- "Krzysztof Halasa" <khc@pm.waw.pl> wrote:
+
+> David Miller <davem@davemloft.net> writes:
+> 
+> > I think going down the road of trying to use the flexible mode is a
+> > dead end.  I doubt any other OS driver is using it, and that means
+> > that there are likely many other errata hiding in the bushes which
+> you
+> > will unearth by trying to use this new descriptor mode.  And it
+> won't
+> > show up when you test it, it will show up when some random person
+> in
+> > some remote data center somewhere updates their kernel, and they
+> won't
+> > send us a bug report, they'll replace their card or downgrade their
+> > kernel instead.
+> 
+> Well, I'm afraid it's a possible scenario. I won't touch the flexible
+> mode unless Intel folks tell me it's safe.
+> OTOH it seems it was used by less common software, at least in the
+> 82557-9 times. Not sure about Windows driver.
+> (It seems the simplified mode was meant for Linux-alike "1 buffer per
+> packet" approach while the flexible mode was to support systems using
+> mbuf-like structures).
+> 
+> > Just make the driver use consistent buffers for RX, and when
+> packets
+> > arrive an SKB is allocated and the packet data is copied into the
+> SKB
+> >>From the consistent buffer.
+> 
+> That would be a performance hit, wouldn't it? Especially in older
+> machines, where e100 was typically installed. I think it should be
+> the
+> last resort.
+> 
+> > And for 2.6.31-rcX we probably have to simply revert your change.
+> 
+> Unfortunately it seems that reverting will not fix operation
+> completely
+> on a system with swiotlb (checking the descriptor status isn't the
+> only
+> racy operation which depends on the cache behaviour, though it's the
+> most frequent). And it will break all non-coherent archs again, they
+> will either need to use the patch or still stick to (already removed)
+> eepro100.c
+> 
+> I looked at the eepro100.c sources. It uses BIDIR mapping the same
+> way
+> as e100.c does, but then syncs using FROM_DEVICE/TO_DEVICE instead of
+> e100's always-BIDIR. I think the same in e100.c would work on all
+> platforms (though still violating the DMA API a bit). Perhaps we
+> should
+> do that instead?
+> 
+> Walt, can you check if 2.6.30.5 with the following patch applied
+> still
+> breaks e100 with the 6 GB of RAM, please? TIA.
+> (This patch makes swiotlb aware that the CPU didn't alter the buffer,
+> though I don't know if swiotlb will use this info).
+> 
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index 014dfb6..53e8252 100644
+> --- a/drivers/net/e100.c
+> +++ b/drivers/net/e100.c
+> @@ -1764,7 +1764,7 @@ static int e100_rx_indicate(struct nic *nic,
+> struct rx *rx,
+>  				nic->ru_running = RU_SUSPENDED;
+>  		pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
+>  					       sizeof(struct rfd),
+> -					       PCI_DMA_BIDIRECTIONAL);
+> +					       PCI_DMA_FROMDEVICE);
+>  		return -ENODATA;
+>  	}
+>  
+> -- 
+> Krzysztof Halasa
+
+Krzystof,
+
+I've tested this under 2.6.31-rc7 (which was also broken to begin with) and this appears to have fixed it.  It's a fairly limited test at this point, as I've just been downloading a large file for the past 15 mins. or so, but this was normally enough to have multiple stoppages.  Do you still need 2.6.30.5 tested as well?
+
+-Walt
+
