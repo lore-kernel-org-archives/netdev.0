@@ -1,8 +1,8 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 03/13] TProxy: move dst_cookie to the first cacheline in
- ipv6_pinfo
-Date: Sun, 30 Aug 2009 08:52:01 +0200
-Message-ID: <1253548005.12519.3.camel@bzorp.balabit>
+Subject: [PATCH 05/13] TProxy: added const specifiers to udp lookup
+ functions
+Date: Sun, 23 Aug 2009 11:16:17 +0200
+Message-ID: <1253548005.12519.5.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
@@ -10,38 +10,41 @@ Return-path: <netfilter-devel-owner@vger.kernel.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While looking for a place to add a new bitfield in ipv6_pinfo,
-I've found a 32 bit hole (in 64 bit mode) at the beginning of the struct.
-Since dst_cookie is used in the output fastpath, I've moved this field to
-fill the hole. The original place of dst_cookie is now empty, but
-can become a place to add further fields to the struct.
+The parameters for various UDP lookup functions were non-const, even though
+they could be const. TProxy has some const references and instead of
+downcasting it, I added const specifiers along the path.
 
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 ---
- include/linux/ipv6.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/ipv6/udp.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index c662efa..be4c9c6 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -285,6 +285,7 @@ struct ipv6_pinfo {
- 	struct in6_addr 	saddr;
- 	struct in6_addr 	rcv_saddr;
- 	struct in6_addr		daddr;
-+	__u32			dst_cookie;
- 	struct in6_pktinfo	sticky_pktinfo;
- 	struct in6_addr		*daddr_cache;
- #ifdef CONFIG_IPV6_SUBTREES
-@@ -348,7 +349,7 @@ struct ipv6_pinfo {
- 						 */
- 	__u8			tclass;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 33b59bd..9c9b24b 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -88,8 +88,8 @@ int udp_v6_get_port(struct sock *sk, unsigned short snum)
  
--	__u32			dst_cookie;
-+	/* 32 bits hole on 64 bit platforms */
+ static inline int compute_score(struct sock *sk, struct net *net,
+ 				unsigned short hnum,
+-				struct in6_addr *saddr, __be16 sport,
+-				struct in6_addr *daddr, __be16 dport,
++				const struct in6_addr *saddr, __be16 sport,
++				const struct in6_addr *daddr, __be16 dport,
+ 				int dif)
+ {
+ 	int score = -1;
+@@ -125,8 +125,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ }
  
- 	struct ipv6_mc_socklist	*ipv6_mc_list;
- 	struct ipv6_ac_socklist	*ipv6_ac_list;
+ static struct sock *__udp6_lib_lookup(struct net *net,
+-				      struct in6_addr *saddr, __be16 sport,
+-				      struct in6_addr *daddr, __be16 dport,
++				      const struct in6_addr *saddr, __be16 sport,
++				      const struct in6_addr *daddr, __be16 dport,
+ 				      int dif, struct udp_table *udptable)
+ {
+ 	struct sock *sk, *result;
 -- 
 1.6.0.4
 
