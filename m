@@ -1,115 +1,114 @@
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Subject: [PATCH resend] net: use printk_once
-Date: Sun, 23 Aug 2009 20:29:45 +0200
-Message-ID: <4A918A99.4080909@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933771AbZHWS3s@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Subject: [PATCH NEXT 4/5] netxen: implement pci driver shutdown
+Date: Sun, 23 Aug 2009 11:35:12 -0700
+Message-ID: <1251052513-27618-4-git-send-email-dhananjay@netxen.com>
+References: <1251052513-27618-1-git-send-email-dhananjay@netxen.com>
+Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@qlogic.com>
+To: davem@davemloft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat-1.pathscale.com ([198.186.3.73]:19506 "HELO unm84.unmin.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S933710AbZHWSfN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Aug 2009 14:35:13 -0400
+In-Reply-To: <1251052513-27618-1-git-send-email-dhananjay@netxen.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Subject: net: use printk_once
+From: Amit Kumar Salecha <amit@qlogic.com>
 
-Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index da0f64f..39c895b 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -1792,12 +1792,8 @@ static int ax25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+Implement pci driver shutdown functionality, this helps
+quiescing all PCI transaction before chipset is reset.
+
+Amit Kumar Salecha <amit@qlogic.com>
+Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |   38 ++++++++++++++++++++++++++-------
+ 1 files changed, 30 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index f618e7c..794c19b 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -922,6 +922,8 @@ netxen_nic_down(struct netxen_adapter *adapter, struct net_device *netdev)
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		netxen_p3_free_mac_list(adapter);
  
- 		/* old structure? */
- 		if (cmd == SIOCAX25GETINFOOLD) {
--			static int warned = 0;
--			if (!warned) {
--				printk(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
-+			printk_once(KERN_INFO "%s uses old SIOCAX25GETINFO\n",
- 					current->comm);
--				warned=1;
--			}
++	adapter->set_promisc(adapter, NETXEN_NIU_NON_PROMISC_MODE);
++
+ 	netxen_napi_disable(adapter);
  
- 			if (copy_to_user(argp, &ax25_info, sizeof(struct ax25_info_struct_deprecated))) {
- 				res = -EFAULT;
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 71489f6..ecd2dfb 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -302,14 +302,12 @@ static struct net_device *dev_to_net_device(struct device *dev)
+ 	netxen_release_tx_buffers(adapter);
+@@ -1288,14 +1290,11 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
  
- static int dsa_probe(struct platform_device *pdev)
- {
--	static int dsa_version_printed;
- 	struct dsa_platform_data *pd = pdev->dev.platform_data;
- 	struct net_device *dev;
- 	struct dsa_switch_tree *dst;
- 	int i;
- 
--	if (!dsa_version_printed++)
--		printk(KERN_NOTICE "Distributed Switch Architecture "
-+	printk_once(KERN_NOTICE "Distributed Switch Architecture "
- 			"driver version %s\n", dsa_driver_version);
- 
- 	if (pd == NULL || pd->netdev == NULL)
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2979f14..f919925 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -470,10 +470,8 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if (msg->msg_namelen < sizeof(*usin))
- 			goto out;
- 		if (usin->sin_family != AF_INET) {
--			static int complained;
--			if (!complained++)
--				printk(KERN_INFO "%s forgot to set AF_INET in "
--						 "raw sendmsg. Fix it!\n",
-+			printk_once(KERN_INFO "%s forgot to set AF_INET in "
-+						"raw sendmsg. Fix it!\n",
- 						 current->comm);
- 			err = -EAFNOSUPPORT;
- 			if (usin->sin_family)
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index eb0ceb8..d60d317 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -456,13 +456,9 @@ static int recent_seq_open(struct inode *inode, struct file *file)
- #ifdef CONFIG_NETFILTER_XT_MATCH_RECENT_PROC_COMPAT
- static int recent_old_seq_open(struct inode *inode, struct file *filp)
- {
--	static bool warned_of_old;
--
--	if (unlikely(!warned_of_old)) {
--		printk(KERN_INFO KBUILD_MODNAME ": Use of /proc/net/ipt_recent"
--		       " is deprecated; use /proc/net/xt_recent.\n");
--		warned_of_old = true;
--	}
-+	printk_once(KERN_INFO KBUILD_MODNAME ": "
-+		"Use of /proc/net/ipt_recent is deprecated; "
-+		"use /proc/net/xt_recent.\n");
- 	return recent_seq_open(inode, filp);
+ 	free_netdev(netdev);
  }
+-
+-#ifdef CONFIG_PM
+-static int
+-netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
++static int __netxen_nic_shutdown(struct pci_dev *pdev)
+ {
+-
+ 	struct netxen_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev = adapter->netdev;
++	int retval;
  
-diff --git a/net/socket.c b/net/socket.c
-index 791d71a..1d07f69 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1161,12 +1161,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
- 	   deadlock in module load.
- 	 */
- 	if (family == PF_INET && type == SOCK_PACKET) {
--		static int warned;
--		if (!warned) {
--			warned = 1;
--			printk(KERN_INFO "%s uses obsolete (PF_INET,SOCK_PACKET)\n",
--			       current->comm);
--		}
-+		printk_once(KERN_INFO "%s uses obsolete (PF_INET,SOCK_PACKET)\n",
-+			    current->comm);
- 		family = PF_PACKET;
+ 	netif_device_detach(netdev);
+ 
+@@ -1307,7 +1306,12 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
+ 
+ 	netxen_nic_detach(adapter);
+ 
+-	pci_save_state(pdev);
++	if (adapter->portnum == 0)
++		netxen_free_dummy_dma(adapter);
++
++	retval = pci_save_state(pdev);
++	if (retval)
++		return retval;
+ 
+ 	if (netxen_nic_wol_supported(adapter)) {
+ 		pci_enable_wake(pdev, PCI_D3cold, 1);
+@@ -1315,10 +1319,27 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
  	}
  
+ 	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 
+ 	return 0;
+ }
++static void netxen_nic_shutdown(struct pci_dev *pdev)
++{
++	if (__netxen_nic_shutdown(pdev))
++		return;
++}
++#ifdef CONFIG_PM
++static int
++netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	int retval;
++
++	retval = __netxen_nic_shutdown(pdev);
++	if (retval)
++		return retval;
++
++	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++	return 0;
++}
+ 
+ static int
+ netxen_nic_resume(struct pci_dev *pdev)
+@@ -2068,8 +2089,9 @@ static struct pci_driver netxen_driver = {
+ 	.remove = __devexit_p(netxen_nic_remove),
+ #ifdef CONFIG_PM
+ 	.suspend = netxen_nic_suspend,
+-	.resume = netxen_nic_resume
++	.resume = netxen_nic_resume,
+ #endif
++	.shutdown = netxen_nic_shutdown
+ };
+ 
+ static int __init netxen_init_module(void)
+-- 
+1.6.0.2
+
