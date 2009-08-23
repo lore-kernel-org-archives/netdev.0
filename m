@@ -1,114 +1,204 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 4/5] netxen: implement pci driver shutdown
-Date: Sun, 23 Aug 2009 11:35:12 -0700
-Message-ID: <1251052513-27618-4-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 3/5] netxen: refactor tx dma mapping code
+Date: Sun, 23 Aug 2009 11:35:11 -0700
+Message-ID: <1251052513-27618-3-git-send-email-dhananjay@netxen.com>
 References: <1251052513-27618-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org, Amit Kumar Salecha <amit@qlogic.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-1.pathscale.com ([198.186.3.73]:19506 "HELO unm84.unmin.com"
+Received: from nat-1.pathscale.com ([198.186.3.73]:19503 "HELO unm84.unmin.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S933710AbZHWSfN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933658AbZHWSfN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 23 Aug 2009 14:35:13 -0400
 In-Reply-To: <1251052513-27618-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit@qlogic.com>
+Move all tx skb mapping code into netxen_map_tx_skb().
 
-Implement pci driver shutdown functionality, this helps
-quiescing all PCI transaction before chipset is reset.
-
-Amit Kumar Salecha <amit@qlogic.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic_main.c |   38 ++++++++++++++++++++++++++-------
- 1 files changed, 30 insertions(+), 8 deletions(-)
+ drivers/net/netxen/netxen_nic_main.c |  112 ++++++++++++++++++----------------
+ 1 files changed, 60 insertions(+), 52 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index f618e7c..794c19b 100644
+index 0086574..f618e7c 100644
 --- a/drivers/net/netxen/netxen_nic_main.c
 +++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -922,6 +922,8 @@ netxen_nic_down(struct netxen_adapter *adapter, struct net_device *netdev)
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
- 		netxen_p3_free_mac_list(adapter);
- 
-+	adapter->set_promisc(adapter, NETXEN_NIU_NON_PROMISC_MODE);
-+
- 	netxen_napi_disable(adapter);
- 
- 	netxen_release_tx_buffers(adapter);
-@@ -1288,14 +1290,11 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
- 
- 	free_netdev(netdev);
+@@ -1518,22 +1518,52 @@ netxen_tso_check(struct net_device *netdev,
+ 	barrier();
  }
--
--#ifdef CONFIG_PM
--static int
--netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int __netxen_nic_shutdown(struct pci_dev *pdev)
+ 
+-static void
+-netxen_clean_tx_dma_mapping(struct pci_dev *pdev,
+-		struct netxen_cmd_buffer *pbuf, int last)
++static int
++netxen_map_tx_skb(struct pci_dev *pdev,
++		struct sk_buff *skb, struct netxen_cmd_buffer *pbuf)
  {
--
- 	struct netxen_adapter *adapter = pci_get_drvdata(pdev);
- 	struct net_device *netdev = adapter->netdev;
-+	int retval;
- 
- 	netif_device_detach(netdev);
- 
-@@ -1307,7 +1306,12 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- 	netxen_nic_detach(adapter);
- 
--	pci_save_state(pdev);
-+	if (adapter->portnum == 0)
-+		netxen_free_dummy_dma(adapter);
+-	int k;
+-	struct netxen_skb_frag *buffrag;
++	struct netxen_skb_frag *nf;
++	struct skb_frag_struct *frag;
++	int i, nr_frags;
++	dma_addr_t map;
 +
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
++	nr_frags = skb_shinfo(skb)->nr_frags;
++	nf = &pbuf->frag_array[0];
++
++	map = pci_map_single(pdev, skb->data,
++			skb_headlen(skb), PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(pdev, map))
++		goto out_err;
  
- 	if (netxen_nic_wol_supported(adapter)) {
- 		pci_enable_wake(pdev, PCI_D3cold, 1);
-@@ -1315,10 +1319,27 @@ netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
+-	buffrag = &pbuf->frag_array[0];
+-	pci_unmap_single(pdev, buffrag->dma,
+-			buffrag->length, PCI_DMA_TODEVICE);
++	nf->dma = map;
++	nf->length = skb_headlen(skb);
++
++	for (i = 0; i < nr_frags; i++) {
++		frag = &skb_shinfo(skb)->frags[i];
++		nf = &pbuf->frag_array[i+1];
++
++		map = pci_map_page(pdev, frag->page, frag->page_offset,
++				frag->size, PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(pdev, map))
++			goto unwind;
++
++		nf->dma = map;
++		nf->length = frag->size;
++	}
++
++	return 0;
+ 
+-	for (k = 1; k < last; k++) {
+-		buffrag = &pbuf->frag_array[k];
+-		pci_unmap_page(pdev, buffrag->dma,
+-			buffrag->length, PCI_DMA_TODEVICE);
++unwind:
++	while (i > 0) {
++		nf = &pbuf->frag_array[i];
++		pci_unmap_page(pdev, nf->dma, nf->length, PCI_DMA_TODEVICE);
+ 	}
++
++	nf = &pbuf->frag_array[0];
++	pci_unmap_single(pdev, nf->dma, skb_headlen(skb), PCI_DMA_TODEVICE);
++
++out_err:
++	return -ENOMEM;
+ }
+ 
+ static inline void
+@@ -1548,17 +1578,14 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct netxen_adapter *adapter = netdev_priv(netdev);
+ 	struct nx_host_tx_ring *tx_ring = adapter->tx_ring;
+-	struct skb_frag_struct *frag;
+ 	struct netxen_cmd_buffer *pbuf;
+ 	struct netxen_skb_frag *buffrag;
+ 	struct cmd_desc_type0 *hwdesc, *first_desc;
+ 	struct pci_dev *pdev;
+-	dma_addr_t temp_dma;
+ 	int i, k;
+-	unsigned long offset;
+ 
+ 	u32 producer;
+-	int len, frag_count, no_of_desc;
++	int frag_count, no_of_desc;
+ 	u32 num_txd = tx_ring->num_desc;
+ 
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
+@@ -1572,72 +1599,53 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
  	}
  
- 	pci_disable_device(pdev);
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 	producer = tx_ring->producer;
++	pbuf = &tx_ring->cmd_buf_arr[producer];
  
- 	return 0;
- }
-+static void netxen_nic_shutdown(struct pci_dev *pdev)
-+{
-+	if (__netxen_nic_shutdown(pdev))
-+		return;
-+}
-+#ifdef CONFIG_PM
-+static int
-+netxen_nic_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	int retval;
+ 	pdev = adapter->pdev;
+-	len = skb->len - skb->data_len;
+ 
+-	temp_dma = pci_map_single(pdev, skb->data, len, PCI_DMA_TODEVICE);
+-	if (pci_dma_mapping_error(pdev, temp_dma))
++	if (netxen_map_tx_skb(pdev, skb, pbuf))
+ 		goto drop_packet;
+ 
+-	pbuf = &tx_ring->cmd_buf_arr[producer];
+ 	pbuf->skb = skb;
+ 	pbuf->frag_count = frag_count;
+ 
+-	buffrag = &pbuf->frag_array[0];
+-	buffrag->dma = temp_dma;
+-	buffrag->length = len;
+-
+ 	first_desc = hwdesc = &tx_ring->desc_head[producer];
+ 	netxen_clear_cmddesc((u64 *)hwdesc);
+-	netxen_set_tx_frags_len(hwdesc, frag_count, skb->len);
+-	netxen_set_tx_port(hwdesc, adapter->portnum);
+ 
+-	hwdesc->buffer_length[0] = cpu_to_le16(len);
+-	hwdesc->addr_buffer1 = cpu_to_le64(temp_dma);
++	netxen_set_tx_frags_len(first_desc, frag_count, skb->len);
++	netxen_set_tx_port(first_desc, adapter->portnum);
+ 
+-	for (i = 1, k = 1; i < frag_count; i++, k++) {
++	for (i = 0; i < frag_count; i++) {
+ 
+-		/* move to next desc. if there is a need */
+-		if ((i & 0x3) == 0) {
+-			k = 0;
++		k = i % 4;
 +
-+	retval = __netxen_nic_shutdown(pdev);
-+	if (retval)
-+		return retval;
++		if ((k == 0) && (i > 0)) {
++			/* move to next desc.*/
+ 			producer = get_next_index(producer, num_txd);
+ 			hwdesc = &tx_ring->desc_head[producer];
+ 			netxen_clear_cmddesc((u64 *)hwdesc);
+-			pbuf = &tx_ring->cmd_buf_arr[producer];
+-			pbuf->skb = NULL;
+-		}
+-		buffrag = &pbuf->frag_array[i];
+-		frag = &skb_shinfo(skb)->frags[i - 1];
+-		len = frag->size;
+-		offset = frag->page_offset;
+-
+-		temp_dma = pci_map_page(pdev, frag->page, offset,
+-					len, PCI_DMA_TODEVICE);
+-		if (pci_dma_mapping_error(pdev, temp_dma)) {
+-			netxen_clean_tx_dma_mapping(pdev, pbuf, i);
+-			goto drop_packet;
++			tx_ring->cmd_buf_arr[producer].skb = NULL;
+ 		}
+ 
+-		buffrag->dma = temp_dma;
+-		buffrag->length = len;
++		buffrag = &pbuf->frag_array[i];
+ 
+-		hwdesc->buffer_length[k] = cpu_to_le16(len);
++		hwdesc->buffer_length[k] = cpu_to_le16(buffrag->length);
+ 		switch (k) {
+ 		case 0:
+-			hwdesc->addr_buffer1 = cpu_to_le64(temp_dma);
++			hwdesc->addr_buffer1 = cpu_to_le64(buffrag->dma);
+ 			break;
+ 		case 1:
+-			hwdesc->addr_buffer2 = cpu_to_le64(temp_dma);
++			hwdesc->addr_buffer2 = cpu_to_le64(buffrag->dma);
+ 			break;
+ 		case 2:
+-			hwdesc->addr_buffer3 = cpu_to_le64(temp_dma);
++			hwdesc->addr_buffer3 = cpu_to_le64(buffrag->dma);
+ 			break;
+ 		case 3:
+-			hwdesc->addr_buffer4 = cpu_to_le64(temp_dma);
++			hwdesc->addr_buffer4 = cpu_to_le64(buffrag->dma);
+ 			break;
+ 		}
+ 	}
 +
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	return 0;
-+}
+ 	tx_ring->producer = get_next_index(producer, num_txd);
  
- static int
- netxen_nic_resume(struct pci_dev *pdev)
-@@ -2068,8 +2089,9 @@ static struct pci_driver netxen_driver = {
- 	.remove = __devexit_p(netxen_nic_remove),
- #ifdef CONFIG_PM
- 	.suspend = netxen_nic_suspend,
--	.resume = netxen_nic_resume
-+	.resume = netxen_nic_resume,
- #endif
-+	.shutdown = netxen_nic_shutdown
- };
- 
- static int __init netxen_init_module(void)
+ 	netxen_tso_check(netdev, tx_ring, first_desc, skb);
 -- 
 1.6.0.2
 
