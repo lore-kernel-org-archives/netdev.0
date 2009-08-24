@@ -1,34 +1,41 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/1] iwmc3200: add more SDIO device ids
-Date: Mon, 24 Aug 2009 14:36:35 -0700
-Message-ID: <43e72e890908241436o5f30cfe6xa7bdda8b25ac082@mail.gmail.com>
-References: <1251149659-32212-1-git-send-email-tomas.winkler@intel.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] bt: fix l2cap build error
+Date: Mon, 24 Aug 2009 14:41:53 -0700
+Message-ID: <4A930921.5050700@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-To: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1251149659-32212-1-git-send-email-tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	akpm <akpm@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 24, 2009 at 2:34 PM, Tomas Winkler<tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> add WiFi BGN SKU and WiMAX 2.4GHz SKU device ids
->
-> Cc:inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-> Cc:cindy.h.kao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-> Cc:yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-> Signed-off-by: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Since it seems we are preferring to not do this for PCI for cases
-where the ID will only be used for 1 device perhaps its best to remove
-all those ids and stuff them directly into the intel driver itself
-that will use it.
+Fix net/bluetooth/l2cap.c build errors:
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+l2cap.c:(.text+0x126035): undefined reference to `crc16'
+l2cap.c:(.text+0x126323): undefined reference to `crc16'
+l2cap.c:(.text+0x12668e): undefined reference to `crc16'
+l2cap.c:(.text+0x12683b): undefined reference to `crc16'
+l2cap.c:(.text+0x126956): undefined reference to `crc16'
+net/built-in.o:l2cap.c:(.text+0x129041): more undefined references to `crc16' follow
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+---
+ net/bluetooth/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-next-20090824.orig/net/bluetooth/Kconfig
++++ linux-next-20090824/net/bluetooth/Kconfig
+@@ -34,6 +34,7 @@ menuconfig BT
+ config BT_L2CAP
+ 	tristate "L2CAP protocol support"
+ 	depends on BT
++	select CRC16
+ 	help
+ 	  L2CAP (Logical Link Control and Adaptation Protocol) provides
+ 	  connection oriented and connection-less data transport.  L2CAP
