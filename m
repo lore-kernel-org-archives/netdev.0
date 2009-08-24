@@ -1,114 +1,117 @@
-From: Dave Hansen <dave@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/3] Set socket flags on restore using
- sock_setsockopt() where possible (v2)
-Date: Mon, 24 Aug 2009 10:48:10 -0700
-Message-ID: <1251136090.22398.7523.camel@nimitz>
-References: <1251134884-24491-1-git-send-email-danms@us.ibm.com>
-	 <1251134884-24491-2-git-send-email-danms@us.ibm.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Mon, 24 Aug 2009 13:40:17 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908241334230.30487@gentwo.org>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org>
+ <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <1250554332.25939.46.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org,
+	Eric Dumazet <dada1@cosmosbay.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:39768 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752826AbZHXRsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2009 13:48:11 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e9.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7OHkn0U005814
-	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:46:49 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7OHmCkx255288
-	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:48:12 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7OHmCEa018026
-	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:48:12 -0400
-In-Reply-To: <1251134884-24491-2-git-send-email-danms@us.ibm.com>
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:59998 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752640AbZHXRtB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 13:49:01 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id F173982CB99
+	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:41:24 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id YEzVm28R6fkW for <netdev@vger.kernel.org>;
+	Mon, 24 Aug 2009 13:41:20 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 531DA82CB46
+	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:41:20 -0400 (EDT)
+In-Reply-To: <1250554332.25939.46.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2009-08-24 at 10:28 -0700, Dan Smith wrote:
-> 
-> +static int sock_restore_flags(struct socket *sock,
-> +                             struct ckpt_hdr_socket *h)
-> +{
-> +       int ret;
-> +       int v = 1;
-> +       unsigned long sk_flags = h->sock.flags;
-> +       unsigned long sock_flags = h->socket.flags;
-> +
-> +       if (test_and_clear_bit(SOCK_URGINLINE, &sk_flags)) {
-> +               ret = sock_setsockopt(sock, SOL_SOCKET, SO_OOBINLINE,
-> +                                     (char *)&v, sizeof(v));
-> +               if (ret)
-> +                       return ret;
-> +       }
-> +
-> +       if (test_and_clear_bit(SOCK_KEEPOPEN, &sk_flags)) {
-> +               ret = sock_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE,
-> +                                     (char *)&v, sizeof(v));
-> +               if (ret)
-> +                       return ret;
-> +       }
+On Mon, 17 Aug 2009, Sridhar Samudrala wrote:
 
-Would it make more sense to do this programatically?
+> So it is possible that there is some other place in the stack where the packets
+> are gettting dropped but not counted.
 
-cr_sock_restore_flag(struct socket *sock, unsigned long sck_flag,
-		     struct ckpt_hdr_socket *h, unsigned long sock_flag)
-{
-	unsigned long sk_flags = h->sock.flags;
-	unsigned long sock_flags = h->socket.flags;
+Such a deed occurs in ip_push_pending_frames():
 
-	
-	if (!test_and_clear_bit(sk, &sk_flags))
-		return 0;
+        /* Netfilter gets whole the not fragmented skb. */
+        err = ip_local_out(skb);
+        if (err) {
+                if (err > 0)
+                        err = inet->recverr ? net_xmit_errno(err) : 0;
+			^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                if (err)
+                        goto error;
+        }
 
-	return sock_setsockopt(sock, sock_flag, SO_OOBINLINE,
- 			       (char *)&v, sizeof(v));
-}
+out:
+        ip_cork_release(inet);
+        return err;
 
-Then, each call becomes:
+error:
+        IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+        goto out;
 
-	ret = cr_sock_restore_flag(sock, cr_sock, SOCK_URGINLINE, SO_OOBINLINE);
-	if (ret)
-		return ret;
 
-	ret = cr_sock_restore_flag(sock, cr_sock, SOCK_KEEPOPEN, SO_KEEPALIVE);
-	if (ret)
-		return ret;
+So if ip_local_out returns NET_XMIT_DROP then its simply going to be
+replaced by 0. Then we check err again and there is no error!!!!
 
-Or, you could spell the flags out in a (better named) structure:
+The statistics are only generated if IP_RECVERR is set.
 
-struct sock_flagpair
-{
-	unsigned long sock_flag;
-	unsigned long sk_flag;
-}	
+Could we move the increment of IPSTATS_MIB_OUTDISCARDS up so that it
+is incremented regardless of the setting of IP_RECVERR?
 
-struct sock_flagpair sock_flagpairs[] = {
-	{ SOCK_URGINLINE, SO_OOBINLINE },
-	{ SOCK_KEEPOPEN, SO_KEEPALIVE},
-	...
-};
+F.e?
 
-And just walk through the array to do the restore:
 
-static int sock_restore_flags(struct socket *sock,
-                             struct ckpt_hdr_socket *h)
-{
-	int i;
+Subject: Report TX drops
 
-	for (i = 0; i < ARRAY_SIZE(sock_flagpairs); i++) {
-		int ret;
-		unsigned long sock_flag = sock_flagpairs[i].sock_flag;
-		unsigned long sk_flag = sock_flagpairs[i].sk_flag;
-		ret = cr_sock_restore_flag(sock, cr_sock, sock_flag, sk_flag);
-		if (ret)
-			break;
-	}
-	...
-}
+Incrementing of TX drop counters currently does not work if errors from the
+network stack are suppressed (IP_RECVERR off). Increment the statistics
+independently of the setting of IP_RECVERR.
 
--- Dave
+Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+
+---
+ net/ipv4/ip_output.c |   19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+Index: linux-2.6/net/ipv4/ip_output.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/ip_output.c	2009-08-24 17:04:27.000000000 +0000
++++ linux-2.6/net/ipv4/ip_output.c	2009-08-24 17:32:05.000000000 +0000
+@@ -1300,20 +1300,21 @@ int ip_push_pending_frames(struct sock *
+
+ 	/* Netfilter gets whole the not fragmented skb. */
+ 	err = ip_local_out(skb);
+-	if (err) {
+-		if (err > 0)
+-			err = inet->recverr ? net_xmit_errno(err) : 0;
+-		if (err)
+-			goto error;
++	if (err > 0) {
++		/* The packet was dropped by the network subsystem */
++		IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
++
++		/*
++		 * Errors are not passed on if the socket
++		 * does not process errors (see IP_RECVERR).
++		 * net_xmit_errno filters NET_XMIT_CN.
++		 */
++		err = inet->recverr ? net_xmit_errno(err) : 0;
+ 	}
+
+ out:
+ 	ip_cork_release(inet);
+ 	return err;
+-
+-error:
+-	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+-	goto out;
+ }
+
+ /*
+
+
 
