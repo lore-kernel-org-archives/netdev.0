@@ -1,41 +1,33 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] bt: fix l2cap build error
-Date: Mon, 24 Aug 2009 14:41:53 -0700
-Message-ID: <4A930921.5050700@oracle.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: TSecr != 0 check in inet_lro.c
+Date: Tue, 25 Aug 2009 00:54:50 +0300
+Message-ID: <200908250054.50664.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	akpm <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Christoph Raisch <raisch@de.ibm.com>
+To: "Jan-Bernd Themann" <themann@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:12081 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753082AbZHXV5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 17:57:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Fix net/bluetooth/l2cap.c build errors:
+Hi,
 
-l2cap.c:(.text+0x126035): undefined reference to `crc16'
-l2cap.c:(.text+0x126323): undefined reference to `crc16'
-l2cap.c:(.text+0x12668e): undefined reference to `crc16'
-l2cap.c:(.text+0x12683b): undefined reference to `crc16'
-l2cap.c:(.text+0x126956): undefined reference to `crc16'
-net/built-in.o:l2cap.c:(.text+0x129041): more undefined references to `crc16' follow
+We are seeing a performance issue with TSO/LRO which we tracked down to the 
+TSecr !=0 check in lro_tcp_ip_check.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- net/bluetooth/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+It happens when the LRO side's TSval wraps around and gets to 0. That triggers 
+the TSO side to send packets with TSecr set to 0, which means that such 
+packets won't be aggregated - and that will put a lot of burden on the stack 
+which will result in lots of drops.
 
---- linux-next-20090824.orig/net/bluetooth/Kconfig
-+++ linux-next-20090824/net/bluetooth/Kconfig
-@@ -34,6 +34,7 @@ menuconfig BT
- config BT_L2CAP
- 	tristate "L2CAP protocol support"
- 	depends on BT
-+	select CRC16
- 	help
- 	  L2CAP (Logical Link Control and Adaptation Protocol) provides
- 	  connection oriented and connection-less data transport.  L2CAP
+I'm failing to understand the purpose of this check. Any hints? :)
+
+Thanks,
+tavi
