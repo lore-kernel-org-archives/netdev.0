@@ -1,83 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: bridge: refcount fix
-Date: Mon, 24 Aug 2009 19:32:20 +0200
-Message-ID: <4A92CEA4.6020604@gmail.com>
-References: <4A92CB67.1080401@gmail.com> <4A92CC71.2000300@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Bart De Schuymer <bdschuym@pandora.be>
-To: Patrick McHardy <kaber@trash.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce primary_lazy option
+Date: Mon, 24 Aug 2009 10:35:17 -0700
+Message-ID: <697.1251135317@death.nxdomain.ibm.com>
+References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com> <4A846C4E.8030509@free.fr> <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr> <20090824111619.GC4018@psychotron.englab.brq.redhat.com> <4A92ACA6.7070600@free.fr> <20090824152002.GD4018@psychotron.englab.brq.redhat.com>
+Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
+	davem@davemloft.net, bonding-devel@lists.sourceforge.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:48813 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989AbZHXRcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 13:32:21 -0400
-In-Reply-To: <4A92CC71.2000300@trash.net>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:57620 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752959AbZHXRfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2009 13:35:17 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7OHTEuI022029
+	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:29:14 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7OHZJgo252120
+	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:35:19 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7OHZI8g031994
+	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:35:19 -0400
+In-reply-to: <20090824152002.GD4018@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy a =E9crit :
-> Eric Dumazet wrote:
->> Hi David
->>
->> I found following by code review only, I am not sure it is critical =
-enough for net-2.6
->>
->> This is a stable candidate, bug is more than 2 years old.
->>
->> Thanks
->>
->> commit f216f082b2b37c4943f1e7c393e2786648d48f6f
->> ([NETFILTER]: bridge netfilter: deal with martians correctly)
->> added a refcount leak on in_dev.
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> ---
->> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
->> index 4fde742..c62eca3 100644
->> --- a/net/bridge/br_netfilter.c
->> +++ b/net/bridge/br_netfilter.c
->> @@ -386,6 +386,7 @@ static int br_nf_pre_routing_finish(struct sk_bu=
-ff *skb)
->>  				dst_release((struct dst_entry *)rt);
->>  			}
->>  free_skb:
->> +			in_dev_put(in_dev);
->>  			kfree_skb(skb);
->>  			return 0;
->=20
-> I guess we could simply use __in_dev_get_rcu() here since all
-> netfilter hooks are running under rcu_read_lock() anyways.
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-Ah very good point, Thanks Patrick.
+>Mon, Aug 24, 2009 at 05:07:18PM CEST, nicolas.2p.debian@free.fr wrote:
+>> Jiri Pirko wrote:
+>>> Thu, Aug 20, 2009 at 02:40:07PM CEST, nicolas.2p.debian@free.fr wrote:
+>> [--cut--]
+>>>> I suggest that instead of having a per bond "primary_lazy" option, we
+>>>> define a per slave option, describing whether this particular slave is
+>>>> "sticky when active" or not.
+>>>>
+>>>> The above setup would become :
+>>>>
+>>>> echo 1 > /sys/class/net/eth0/bonding/sticky_active
+>>>> echo 1 > /sys/class/net/eth1/bonding/sticky_active
+>>>> echo 0 > /sys/class/net/eth2/bonding/sticky_active
+>>>> echo eth0 > /sys/class/net/bond0/bonding/primary
+>>>>
+>>>> Or may be better, keeping the "weight" idea in mind, a per slave option
+>>>> "active_weight" that gives the weight of the slave, *when active*.
+>>>>
+>>>> The effective weight of a slave would become :
+>>>>
+>>>> effective_slave =
+>>>> (is_active ? user_supplied_active_weight ? user_supplied_weight) *
+>>>> natural_weight
+>>>>
+>>>> # Prefer eth0, then one of eth1 or eth2, then eth3.
+>>>> echo 1000 > /sys/class/net/eth0/bonding/weight
+>>>> echo 999 > /sys/class/net/eth1/bonding/weight
+>>>> echo 999 > /sys/class/net/eth2/bonding/weight
+>>>> echo 10 > /sys/class/net/eth3/bonding/weight
+>>>>
+>>>> # Do not switch back to primary eth0 if eth1 or eth2 is active.
+>>>> echo 1000 > /sys/class/net/eth1/bonding/active_weight
+>>>> echo 1000 > /sys/class/net/eth2/bonding/active_weight
+>>>>
+>>>> Every time one changes the user_supplied_weight, then
+>>>> user_supplied_active_weight must be reset to the same value. This 
+>>>> way,  if no special setup is done on active_weight, then the current 
+>>>> normal
+>>>> behavior is achieved.
+>>>
+>>> I must say I like this approach. But it would be not trivial to implement this.
+>>> Therefore I would stick with your propose of extending primary lazy to 3 values
+>>> until the weight option is implemented.
+>>
+>> It sounds good for me. Later, if I eventually implement the weight 
+>> option, it shouldn't be that hard to convert internally the primary_lazy 
+>> setup to active_weight, the same way we plan to convert internally 
+>> primary setup to weight setup.
+>>
+>> primary and primary_lazy are convenient for simple - two slaves only -  
+>> configurations. weight and active_weight are for more advanced 
+>> configurations. Keeping both configuration interface does sound user 
+>> friendly.
+>
+>Ok, I agree.
+>
+>>
+>>> I'm going to implement your propose below.
+>>
+>> By the way, even if I'm not a native English speaker, I think that 
+>> primary_lazy option should be named lazy_primary instead.
+>
+>Well I've intentionally put "primary" as a first word to amplify it's linked
+>with primary option... But...
 
-[PATCH] netfilter: bridge: refcount fix
+	I'm still unclear as to why it's better to add another special
+case option to bonding instead of changing this in user space, other
+than it'd be a change to user space (initscripts / sysconfig).
 
-commit f216f082b2b37c4943f1e7c393e2786648d48f6f
-([NETFILTER]: bridge netfilter: deal with martians correctly)
-added a refcount leak on in_dev.
+	The way I see it, this patch is adding a mechanism that says,
+effectively, "make slave X the active slave, but do it only once."
+There is already a way to do that in bonding (sysfs, as above, or
+ifenslave -c); I am reluctant to add another without good reason.
 
-Instead of using in_dev_get(), we can use __in_dev_get_rcu(),
-as netfilter hooks are running under rcu_read_lock(), as pointed
-by Patrick.
+	I'm not necessarily against the "weight" business in general.
+For the purposes of this discussion, however, it's a big complex
+solution to a pretty simple problem, and the "weight" system still has
+to have special sauce added it to to handle this special case.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+	Last, presuming for the moment that this goes forward as an
+option to bonding, I think this should be named something along the
+lines of "make_active" (or perhaps "make_active_once", but that's a bit
+long).  The option has the effect of making the specified slave the
+active slave one time, then the option setting is cleared.
+
+	-J
+
 ---
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 4fde742..907a82e 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -359,7 +359,7 @@ static int br_nf_pre_routing_finish(struct sk_buff =
-*skb)
- 				},
- 				.proto =3D 0,
- 			};
--			struct in_device *in_dev =3D in_dev_get(dev);
-+			struct in_device *in_dev =3D __in_dev_get_rcu(dev);
-=20
- 			/* If err equals -EHOSTUNREACH the error is due to a
- 			 * martian destination or due to the fact that
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
