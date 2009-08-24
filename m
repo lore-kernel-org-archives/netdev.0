@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL 0/5] IEEE 802.15.4 updates
-Date: Sun, 23 Aug 2009 19:19:46 -0700 (PDT)
-Message-ID: <20090823.191946.66923222.davem@davemloft.net>
-References: <1250784787-30590-1-git-send-email-dbaryshkov@gmail.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH 1/1] NET: llc, zero sockaddr_llc struct
+Date: Sun, 23 Aug 2009 23:20:28 -0300
+Message-ID: <20090824022028.GE6709@ghostprotocols.net>
+References: <1250967535-30692-1-git-send-email-jirislaby@gmail.com> <20090823.185617.36449822.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
-	slapin@ossfans.org
-To: dbaryshkov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34544
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751019AbZHXCTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 22:19:33 -0400
-In-Reply-To: <1250784787-30590-1-git-send-email-dbaryshkov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jirislaby@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751296AbZHXCUe@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20090823.185617.36449822.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Thu, 20 Aug 2009 20:13:02 +0400
+Em Sun, Aug 23, 2009 at 06:56:17PM -0700, David Miller escreveu:
+> From: Jiri Slaby <jirislaby@gmail.com>
+> Date: Sat, 22 Aug 2009 20:58:55 +0200
+> 
+> > sllc_arphrd member of sockaddr_llc might not be set. Zero sllc
+> > before copying it to the above layers.
+> > 
+> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> > Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> 
+> I know it seems arbitrary, but could you please memset() on the
+> structure instead of using an empty initializer so that it's
+> consistent with how all other ->getname() implementations deal with
+> this issue?
+> 
+> It's easier to audit that way.
 
-> 
-> The following changes since commit 886f9fe68310168358f55028a03553ae154dfeb6:
->   David S. Miller (1):
->         ppp_generic: Help GCC see that 'flen' is always initialized.
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
-> 
-> Dmitry Eremin-Solenikov (5):
->       ieee802154: document the skb->cb usage clearly.
->       ieee802154: add a sysfs representation of WPAN master devices
->       fakehard: add binding to wpan-phy device
->       ieee802154: add support for channel pages from IEEE 802.15.4-2006
->       Drop ARPHRD_IEEE802154_PHY
+Or just set the uninitialized field to zero. But yeah, if what other
+implementations are doing is to memset it to zero... maybe its more
+clear from a quick glance :-)
 
-Pulled, thanks a lot Dmitry.
+- Arnaldo
