@@ -1,37 +1,68 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: [PATCH 1/1] iwmc3200: add more SDIO device ids
-Date: Mon, 24 Aug 2009 18:37:47 -0400
-Message-ID: <b6c5339f0908241537r5e531c8bi2c560ed68f4f04a3@mail.gmail.com>
-References: <1251149659-32212-1-git-send-email-tomas.winkler@intel.com>
-	 <43e72e890908241436o5f30cfe6xa7bdda8b25ac082@mail.gmail.com>
-	 <1ba2fa240908241520q5be2060co145ec0745954dcf0@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 01:14:27 +0200
+Message-ID: <4A931ED3.1090206@gmail.com>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org> <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908171848370.15956@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-To: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1ba2fa240908241520q5be2060co145ec0745954dcf0-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:43868 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753494AbZHXXOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 19:14:32 -0400
+In-Reply-To: <alpine.DEB.1.10.0908171848370.15956@gentwo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 24, 2009 at 6:20 PM, Tomas Winkler<tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> I don't have strong opinion about it but this is the current habit
-> IIRC there was a mail thread that explicitly asked to move SDIO IDs
-> there, =A0of course I cannot locate it right now :(
+Christoph Lameter a =E9crit :
+> On Mon, 17 Aug 2009, Sridhar Samudrala wrote:
+>=20
+>> On Mon, 2009-08-17 at 18:13 -0400, Christoph Lameter wrote:
+>>> On Mon, 17 Aug 2009, Sridhar Samudrala wrote:
+>>>
+>>>> What about ethtool -S ? Does it report any errors?
+>>> Neither. This is is a broadcom bnx2 NIC.
+>> Are you sure the packets are dropped at the sender?
+>=20
+> Yes I am sending 400k messages from the app and the receiver only get=
+s
+> 341k @300 byte (which is the line rate). There is no way that the 400=
+k get
+> over the line. Also if I reduce SO_SNDBUF then both receiver and
+> sender get down to 341k.
+>=20
+> I added the output of ethtool -S at the end.
+>=20
+> The mcast tool can be had from http://gentwo.org/ll or from my direct=
+ory
+> on www.kernel.org.
+>=20
 
-This one:
-http://marc.info/?l=3Dlinux-wireless&m=3D124489211911222&w=3D2
+# gcc -v
+Using built-in specs.
+Target: i686-pc-linux-gnu
+Configured with: ../gcc-4.4.1/configure --enable-languages=3Dc,c++ --pr=
+efix=3D/usr
+Thread model: posix
+gcc version 4.4.1 (GCC)
+# pwd
+/opt/src/lldiag-0.14
+# make
+gcc -Wall -omcast mcast.c -lrt -lm
+mcast.c: In function =91set_ip=92:
+mcast.c:121: warning: implicit declaration of function =91htons=92
+mcast.c: In function =91build_pattern_array=92:
+mcast.c:168: warning: implicit declaration of function =91htonl=92
+/tmp/cc4sYCDr.o: In function `lock':
+mcast.c:(.text+0xcad): undefined reference to `__sync_fetch_and_add_4'
+collect2: ld returned 1 exit status
+make: *** [mcast] Error 1
 
-Of course, Pierre is no longer maintainer and there are only a few
-IDs there, so I don't think anyone will shout either way.
 
---=20
-Bob Copeland %% www.bobcopeland.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have no idea where is defined sync_fetch_and_add
+
+Thanks
