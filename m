@@ -1,87 +1,101 @@
-From: Maximilian Engelhardt <maxi@daemonizer.de>
-Subject: Logic for SNAT persistent handling introduced in 2.6.30 is inverted
-Date: Mon, 24 Aug 2009 15:16:12 +0200
-Message-ID: <200908241516.16544.maxi@daemonizer.de>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce	primary_lazy
+ option
+Date: Mon, 24 Aug 2009 17:07:18 +0200
+Message-ID: <4A92ACA6.7070600@free.fr>
+References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com> <4A846C4E.8030509@free.fr> <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr> <20090824111619.GC4018@psychotron.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart8693016.B4IW8bsRdp";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from daemonizer.de ([87.230.16.230]:49325 "EHLO daemonizer.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752451AbZHXOBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2009 10:01:25 -0400
+Received: from smtp23.services.sfr.fr ([93.17.128.21]:53383 "EHLO
+	smtp23.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487AbZHXPHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 11:07:20 -0400
+In-Reply-To: <20090824111619.GC4018@psychotron.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart8693016.B4IW8bsRdp
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Jiri Pirko wrote:
+> Thu, Aug 20, 2009 at 02:40:07PM CEST, nicolas.2p.debian@free.fr wrote:
+[--cut--]
+>> I suggest that instead of having a per bond "primary_lazy" option, we
+>> define a per slave option, describing whether this particular slave is
+>> "sticky when active" or not.
+>>
+>> The above setup would become :
+>>
+>> echo 1 > /sys/class/net/eth0/bonding/sticky_active
+>> echo 1 > /sys/class/net/eth1/bonding/sticky_active
+>> echo 0 > /sys/class/net/eth2/bonding/sticky_active
+>> echo eth0 > /sys/class/net/bond0/bonding/primary
+>>
+>> Or may be better, keeping the "weight" idea in mind, a per slave option
+>> "active_weight" that gives the weight of the slave, *when active*.
+>>
+>> The effective weight of a slave would become :
+>>
+>> effective_slave =
+>> (is_active ? user_supplied_active_weight ? user_supplied_weight) *
+>> natural_weight
+>>
+>> # Prefer eth0, then one of eth1 or eth2, then eth3.
+>> echo 1000 > /sys/class/net/eth0/bonding/weight
+>> echo 999 > /sys/class/net/eth1/bonding/weight
+>> echo 999 > /sys/class/net/eth2/bonding/weight
+>> echo 10 > /sys/class/net/eth3/bonding/weight
+>>
+>> # Do not switch back to primary eth0 if eth1 or eth2 is active.
+>> echo 1000 > /sys/class/net/eth1/bonding/active_weight
+>> echo 1000 > /sys/class/net/eth2/bonding/active_weight
+>>
+>> Every time one changes the user_supplied_weight, then
+>> user_supplied_active_weight must be reset to the same value. This way,  
+>> if no special setup is done on active_weight, then the current normal
+>> behavior is achieved.
+> 
+> I must say I like this approach. But it would be not trivial to implement this.
+> Therefore I would stick with your propose of extending primary lazy to 3 values
+> until the weight option is implemented.
 
-Kernel 2.6.30 introduced a patch [1] for the persistent option in the=20
-netfilter SNAT target. This is exactly what we need here so I had a quick l=
-ook=20
-at the code and noticed that the patch is wrong. The logic is simply invert=
-ed.
-The patch below fixes this.
-Also note that because of this the default behavior of the SNAT target has=
-=20
-changed since kernel 2.6.30 as it now ignores the destination IP in choosin=
-g=20
-the source IP for nating (which should only be the case if the persistent=20
-option is set).
+It sounds good for me. Later, if I eventually implement the weight option, it 
+shouldn't be that hard to convert internally the primary_lazy setup to 
+active_weight, the same way we plan to convert internally primary setup to 
+weight setup.
 
-=2D-- net/ipv4/netfilter/nf_nat_core.c.orig       2009-08-24 14:44:00.00000=
-0000=20
-+0200
-+++ net/ipv4/netfilter/nf_nat_core.c    2009-08-24 14:44:43.000000000 +0200
-@@ -212,7 +212,7 @@ find_best_ips_proto(struct nf_conntrack_
-        maxip =3D ntohl(range->max_ip);
-        j =3D jhash_2words((__force u32)tuple->src.u3.ip,
-                         range->flags & IP_NAT_RANGE_PERSISTENT ?
-=2D                               (__force u32)tuple->dst.u3.ip : 0, 0);
-+                               0 : (__force u32)tuple->dst.u3.ip, 0);
-        j =3D ((u64)j * (maxip - minip + 1)) >> 32;
-        *var_ipp =3D htonl(minip + j);
- }
+primary and primary_lazy are convenient for simple - two slaves only - 
+configurations. weight and active_weight are for more advanced configurations. 
+Keeping both configuration interface does sound user friendly.
 
-Signed-off-by: Maximilian Engelhardt <maxi@daemonizer.de>
+> I'm going to implement your propose below.
+
+By the way, even if I'm not a native English speaker, I think that primary_lazy 
+option should be named lazy_primary instead.
+
+	Nicolas.
+
+>> If none of those options seem acceptable to you, I suggest a third one:
+>>
+>> You keep primary_lazy, but with the following values :
+>>
+>> # Switch back to primary slaves when it comes back.
+>> echo 0 > /sys/class/net/bond0/bonding/primary_lazy
+>>
+>> # Switch back to primary when it comes back, only if the speed of the
+>> # primary slave is higher than the speed of the current active slave.
+>> echo 1 > /sys/class/net/bond0/bonding/primary_lazy
+>>
+>> # Stick to the current active slave when the primary slave comes back,
+>> # even if the primary slave speed is higher than the speed of the
+>> # current active slave.
+>> echo 2 > /sys/class/net/bond0/bonding/primary_lazy
+>>
+>> You can consider the value as being the level of laziness of the primary.
+>>
+>> 	Nicolas.
+>>
 
 
-Greetings,
-Maximilian Engelhardt
-
-[1]=20
-http://git.eu.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dc=
-ommitdiff;h=3D98d500d66cb7940747b424b245fc6a51ecfbf005
-
-
---nextPart8693016.B4IW8bsRdp
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iQIcBAABCgAGBQJKkpKcAAoJEIHqZH0kK9IVvL0QALs8a2z4o9DBhqVX7M+3GcaP
-Grt9b9u5c2iypxl1U2KZjfqlCxWtwEzU4WqWlaIo69SsUpA17Ymy657Ib3JQ5Ml0
-Gpvt12dvRnpNTLzWQjL79ihUEQ3tlYOT+FBabk+D2df5AlGeu3pnvGmR1V8RlcdW
-AGZTswx7/kpn/y1vtYW7FriaA4/WiHJZR3ooYIkTbrWSG0lrHbYHx95dAOs9sSdt
-8Sy+cSM0LDY1wARYlC7BIEcY/UnVlQPOuRyPBVelHCdv7Wm+0K5wwGy+yLyF43fF
-N53tgpfTA+BhtWIWB6uUQoJS+FumudMBl8G+4Sk4A5rnd0DM2qPud7eyQCNwhehD
-287C1ZMDO9N0H7FTx2qc337CIDL1kSMoimmgfhNJxA8SrVToRNH+OjOQuNx3/Esa
-ejYGW2jjY6AFG3d/5GAhBmryWpJAjZlaqCtOMOzMD/fMhpJvD26i/xhx0cStDz/a
-3JiDfLJ3G4TbE7xEHjS6TVFuh/zzMXz0zRLkvWckOwWo8QNRFoTL+q5m9EAt//Kl
-ZC+gTcz5/AoUQaROeuL7SM7CIyhxgXdit9RLG2CZ0I7x+RbPzzYyq5N75TuFec0o
-rA/lwia3ed/ENEMNP0wxX8k8ULCuY07fGybg5HHAZhJnXuUiadNibyGMrbMp4if1
-vOQuGLMM8+cCdgoQGs/f
-=jr5j
------END PGP SIGNATURE-----
-
---nextPart8693016.B4IW8bsRdp--
