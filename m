@@ -1,49 +1,74 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Mon, 24 Aug 2009 20:30:14 +0200
-Message-ID: <200908242030.14414.rjw@sisk.pl>
-References: <xDf-7eSwYsC.A.-6B.klIjKB@chimera> <200908201652.23574.rjw@sisk.pl> <38b2ab8a0908240041s7d9707eftb6e8078d7b6ad553@mail.gmail.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: [Bridge] VLANs and bridge
+Date: Mon, 24 Aug 2009 20:51:29 +0200
+Message-ID: <OF7400A5E8.F4AC001F-ONC125761C.00674A25-C125761C.00679758@transmode.se>
+References: <OFC5BA9A4A.DCCE8D0D-ONC125761A.004A7620-C125761A.004BEA17@transmode.se> <4A9001E3.6060506@superduper.net> <OF2C06F138.1BC279AE-ONC125761A.0054117B-C125761A.0055C6F1@LocalDomain> <OF9BD07CB5.A2197AEA-ONC125761A.005AE004-C125761A.005B662E@transmode.se> <4A9026EA.9020404@superduper.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <38b2ab8a0908240041s7d9707eftb6e8078d7b6ad553-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: Simon Barber <simon@superduper.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([213.115.205.20]:37733 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753235AbZHXSze (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2009 14:55:34 -0400
+In-Reply-To: <4A9026EA.9020404@superduper.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 24 August 2009, Francis Moreau wrote:
-> On Thu, Aug 20, 2009 at 4:52 PM, Rafael J. Wysocki<rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> > On Thursday 20 August 2009, Francis Moreau wrote:
-> >> Hello,
-> >>
-> >> On Wed, Aug 19, 2009 at 10:40 PM, Rafael J. Wysocki<rjw-KKrjLPT3xs0@public.gmane.org> wrote:
-> >> > This message has been generated automatically as a part of a report
-> >> > of regressions introduced between 2.6.29 and 2.6.30.
-> >> >
-> >> > The following bug entry is on the current list of known regressions
-> >> > introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-> >> > be listed and let me know (either way).
-> >> >
-> >> >
-> >> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=13328
-> >> > Subject         : b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-> >> > Submitter       : Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> > Date            : 2009-05-03 16:22 (109 days old)
-> >> > References      : http://marc.info/?l=linux-kernel&m=124136778012280&w=4
-> >> >
-> >>
-> >> It hasn't triggered on 2.6.31-rc5 after a couple of days.
+Simon Barber <simon@superduper.net> wrote on 22/08/2009 19:12:10:
+>
+> Looking through B.1.3 it looks like the patch would need some
+> enhancement. It provides a good basis - handling tagging/untagging and
+> filtering, but would need a way to specify the untagged vlan separately
+> for in and out.
+
+I see. Perhaps the VLAN maintainer(CC:ed) can comment too. Especially about extending
+the VLAN code to allowed several VLANs in one interface?
+
+>
+> Simon
+>
+>
+> Joakim Tjernlund wrote:
+> > Joakim Tjernlund/Transmode wrote on 22/08/2009 17:36:54:
 > >
-> > Great, let's assume it's fixed, then.
-> 
-> Sorry but it did happen this weekend.
+> >> Simon Barber <simon@superduper.net> wrote on 22/08/2009 16:34:11:
+> >>
+> >>> Hi Joakim,
+> >>>
+> >>> Look back a month or so in the archives - you'll find an email from me
+> >>> referencing a patch to make the bridge VLAN aware. It's a little old,
+> >>> and needs updating for 2.6 (it was written for 2.4) - but should not be
+> >>> much work to get it done. There is a matching patch for the brctl utility.
+> >>>
+> >>> Simon
+> >>>
+> >>>
+> >> Thanks Simon
+> >>
+> >> Do you mean the "bridge vlan integration" patch?
+> >> It is not clear to me if this would support the case
+> >> described in B.1.3(802.1Q-2005), does it?
+> >>
+> >> Seems like there is little interest to post this to 2.6 and
+> >> I am not sure how welcome this would be either, perhaps
+> >> the bridge maintainer could comment?
+> >>
+> >>   Jocke
+> >>
+> >
+> > Thinking a bit more about this I could envision some changes to the
+> > vlan code too. I image one could create one vlan interface which will listen
+> > to several VLANs. One VLAN is the primary VLAN and is used in the tx path
+> > by default. The bridge would be able to filter on individual VLANs received
+> > from such interface and be able to chose outgoing VLAN too.
+> >
+> >  Jocke
+> >
+> >
+>
+>
+>
 
-That's OK, I'll reopen the bug.
-
-Thanks,
-Rafael
