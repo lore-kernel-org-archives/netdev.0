@@ -1,64 +1,45 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: iproute2 / tbf with large burst seems broken again
-Date: Mon, 24 Aug 2009 15:07:13 +0300
-Message-ID: <200908241507.13504.denys@visp.net.lb>
+From: Marek Vasut <marek.vasut@gmail.com>
+Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
+Date: Mon, 24 Aug 2009 14:47:03 +0200
+Message-ID: <200908241447.03117.marek.vasut@gmail.com>
+References: <a4423d670908231055o2bb65fe0le2c33fe94b660b38@mail.gmail.com> <20090824043831.GA2473@orion> <20090823.225743.135339409.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: a.beregalov@gmail.com, eric.y.miao@gmail.com,
+	linux-arm-kernel@lists.arm.linux.org.uk, linux@arm.linux.org.uk,
+	samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:45566 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbZHXMQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 08:16:53 -0400
-Received: from adminos.visp.net.lb (unknown [195.69.208.252])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: denys@visp.net.lb)
-	by hosting.visp.net.lb (Postfix) with ESMTPSA id ABD2A1A448C
-	for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 15:09:43 +0300 (EEST)
-Content-Disposition: inline
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:54804 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752299AbZHXMr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 08:47:26 -0400
+Received: by bwz19 with SMTP id 19so1425239bwz.37
+        for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 05:47:27 -0700 (PDT)
+In-Reply-To: <20090823.225743.135339409.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Seems something related to the changes with resolution. I remember something 
-like this happened before, and i report about it, but i am not able to find 
-in mail archives. It seems packets queueing and not passing shaper, if burst 
-is set to large value.
+Dne Po 24. srpna 2009 07:57:43 David Miller napsal(a):
+> From: Alexander Beregalov <a.beregalov@gmail.com>
+> Date: Mon, 24 Aug 2009 08:38:31 +0400
+>
+> > Subject: [PATCH] pxaficp-ir - remove incorrect net_device_ops
+> >
+> > This patch fixes broken pxaficp-ir. The problem was in incorrect
+> > net_device_ops being specified which prevented the driver from
+> > operating. The symptoms were:
+> >  - failing ifconfig for IrLAN, resulting in
+> > 	SIOCSIFFLAGS: Cannot assign requested address
+> >  - irattach working for IrCOMM, but the port stayed disabled
+> >
+> > Moreover this patch corrects missing sysfs device link.
+> >
+> > Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
+>
+> Applied, thanks.
 
-Kernel 2.6.30.4 was ok.
-
-uname -a
-Linux PPPoE_146 2.6.31-rc7-build-0046-32bit #6 SMP Sun Aug 23 03:51:14 EEST 
-2009 i686 GNU/Linux
-
-PPPoE_146 ~ # tc -s -d qdisc show dev ppp87;sleep 10;tc -s -d qdisc show dev 
-ppp87
-qdisc prio 1: root bands 3 priomap  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- Sent 47980 bytes 367 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 357p requeues 0
-qdisc tbf 2: parent 1:1 rate 96000bit burst 2000Kb/8 mpu 0b lat 500.0ms
- Sent 47580 bytes 357 pkt (dropped 0, overlimits 376 requeues 0)
- rate 384bit 1pps backlog 0b 357p requeues 0
-qdisc tbf 3: parent 1:2 rate 1024Kbit burst 2000Kb/8 mpu 0b lat 500.0ms
- Sent 400 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc ingress ffff: parent ffff:fff1 ----------------
- Sent 21342 bytes 347 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc prio 1: root bands 3 priomap  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
- Sent 48410 bytes 372 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 362p requeues 0
-qdisc tbf 2: parent 1:1 rate 96000bit burst 2000Kb/8 mpu 0b lat 500.0ms
- Sent 48010 bytes 362 pkt (dropped 0, overlimits 381 requeues 0)
- rate 448bit 1pps backlog 0b 362p requeues 0
-qdisc tbf 3: parent 1:2 rate 1024Kbit burst 2000Kb/8 mpu 0b lat 500.0ms
- Sent 400 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-qdisc ingress ffff: parent ffff:fff1 ----------------
- Sent 21692 bytes 352 pkt (dropped 0, overlimits 0 requeues 0)
- rate 0bit 0pps backlog 0b 0p requeues 0
-
-PPPoE_146 ~ # cat /proc/net/psched
-000003e8 00000040 000f4240 3b9aca00
+Thank you.
