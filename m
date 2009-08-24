@@ -1,35 +1,37 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 0/2] TProxy IPv6 support, 2nd round, iptables portion
-Date: Mon, 21 Sep 2009 17:43:06 +0200
-Message-ID: <1253548039.12519.14.camel@bzorp.balabit>
+Subject: [PATCH 09/13] TProxy: allow non-local binds of IPv6 sockets if
+ IP_TRANSPARENT is enabled
+Date: Mon, 24 Aug 2009 14:48:28 +0200
+Message-ID: <1253548005.12519.9.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:58465 "EHLO lists.balabit.hu"
+Received: from support.balabit.hu ([195.70.41.86]:58466 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752464AbZIUQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752445AbZIUQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 21 Sep 2009 12:25:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series accompanies the TProxy IPv6 2nd round patches and adds userspace
-support for the TPROXY target and the socket match.  
+Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
+---
+ net/ipv6/af_inet6.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Since the last post, I've fixed the xt_socket.h header file which contained
-an obsolete struct declaration for the xt_socket matchinfo, but this is not
-incompatible with the previous patch, thus you don't need to recompile
-iptables if you already have the old binaries.
-
-Balazs Scheidler (2):
-  TProxy: added IPv6 support for socket match
-  TProxy: added IPv6 support to the TPROXY target
-
- extensions/libxt_TPROXY.c           |  213 +++++++++++++++++++++++++++++------
- extensions/libxt_socket.c           |  103 ++++++++++++++++--
- extensions/libxt_socket.man         |    6 +-
- include/linux/netfilter/xt_TPROXY.h |   15 ++-
- include/linux/netfilter/xt_socket.h |   12 ++
- 5 files changed, 299 insertions(+), 50 deletions(-)
- create mode 100644 include/linux/netfilter/xt_socket.h
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index caa0278..5fa0f44 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -338,7 +338,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 			 */
+ 			v4addr = LOOPBACK4_IPV6;
+ 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+-				if (!ipv6_chk_addr(net, &addr->sin6_addr,
++				if (!inet->transparent && !ipv6_chk_addr(net, &addr->sin6_addr,
+ 						   dev, 0)) {
+ 					if (dev)
+ 						dev_put(dev);
+-- 
+1.6.0.4
 
