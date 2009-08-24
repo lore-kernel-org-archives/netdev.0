@@ -1,168 +1,77 @@
-From: DDD <Dongdong.deng@windriver.com>
-Subject: [PATCH] [net] smc91x: let smc91x work well under netpoll
-Date: Mon, 24 Aug 2009 11:42:31 +0800
-Message-ID: <1251085351.6588.21.camel@dengdd-desktop>
-References: <1250861616.24178.20.camel@dengdd-desktop>
-	 <1250862005.24178.28.camel@dengdd-desktop>
-	 <alpine.LFD.2.00.0908211304000.6044@xanadu.home>
+From: Alexander Beregalov <a.beregalov@gmail.com>
+Subject: Re: [PATCH] pxaficp-ir - remove incorrect net_device_ops
+Date: Mon, 24 Aug 2009 08:38:31 +0400
+Message-ID: <20090824043831.GA2473@orion>
+References: <200908051602.34501.marek.vasut@gmail.com> <200908220054.31438.marek.vasut@gmail.com> <a4423d670908231055o2bb65fe0le2c33fe94b660b38@mail.gmail.com> <20090823.184924.26788268.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Jason Wessel <jason.wessel@windriver.com>
-To: Nicolas Pitre <nico@cam.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.y.miao@gmail.com, linux-arm-kernel@lists.arm.linux.org.uk,
+	linux@arm.linux.org.uk, samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, marek.vasut@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40816 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173AbZHXDaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 23:30:17 -0400
-In-Reply-To: <alpine.LFD.2.00.0908211304000.6044@xanadu.home>
+Received: from mail-ew0-f207.google.com ([209.85.219.207]:49275 "EHLO
+	mail-ew0-f207.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751447AbZHXEie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 00:38:34 -0400
+Received: by ewy3 with SMTP id 3so2050239ewy.18
+        for <netdev@vger.kernel.org>; Sun, 23 Aug 2009 21:38:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20090823.184924.26788268.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NETPOLL requires that interrupts remain disabled in its callbacks.
+On Sun, Aug 23, 2009 at 06:49:24PM -0700, David Miller wrote:
+> From: Alexander Beregalov <a.beregalov@gmail.com>
+> Date: Sun, 23 Aug 2009 21:55:45 +0400
+> 
+> > David, please have a look. Will you apply it?
+> 
+> Can someone please repost the patch to netdev?  I don't have a copy
+> handy and I'd like to see it tracked properly patchwork too.  If it's
+> in patchwork, it won't get lost.
 
-Using *_irq_save()/irq_restore() to replace *_irq_disable()/irq_enable()
-functions in NETPOLL's callbacks of smc91x, so that it doesn't enable
-interrupts when already disabled, and kgdboe/netconsole would work
-properly over smc91x.
+>From 28b229f0f3f807d775a7e70b96c018eef935a24a Mon Sep 17 00:00:00 2001
+From: Marek Vasut <marek.vasut@gmail.com>
+Date: Fri, 24 Jul 2009 02:44:02 +0200
+Subject: [PATCH] pxaficp-ir - remove incorrect net_device_ops
 
-Signed-off-by: Dongdong Deng <dongdong.deng@windriver.com>
-Acked-by: Nicolas Pitre <nico@cam.org>
+This patch fixes broken pxaficp-ir. The problem was in incorrect
+net_device_ops being specified which prevented the driver from
+operating. The symptoms were:
+ - failing ifconfig for IrLAN, resulting in
+	SIOCSIFFLAGS: Cannot assign requested address
+ - irattach working for IrCOMM, but the port stayed disabled
+
+Moreover this patch corrects missing sysfs device link.
+
+Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
 ---
- drivers/net/smc91x.c |   40 ++++++++++++++++++++++------------------
- 1 files changed, 22 insertions(+), 18 deletions(-)
+ drivers/net/irda/pxaficp_ir.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-index 1c70e99..9da1fa1 100644
---- a/drivers/net/smc91x.c
-+++ b/drivers/net/smc91x.c
-@@ -196,21 +196,23 @@ static void PRINT_PKT(u_char *buf, int length)
- /* this enables an interrupt in the interrupt mask register */
- #define SMC_ENABLE_INT(lp, x) do {					\
- 	unsigned char mask;						\
--	spin_lock_irq(&lp->lock);					\
-+	unsigned long smc_enable_flags;					\
-+	spin_lock_irqsave(&lp->lock, smc_enable_flags);			\
- 	mask = SMC_GET_INT_MASK(lp);					\
- 	mask |= (x);							\
- 	SMC_SET_INT_MASK(lp, mask);					\
--	spin_unlock_irq(&lp->lock);					\
-+	spin_unlock_irqrestore(&lp->lock, smc_enable_flags);		\
- } while (0)
+diff --git a/drivers/net/irda/pxaficp_ir.c b/drivers/net/irda/pxaficp_ir.c
+index 4edbdbe..f5b7d83 100644
+--- a/drivers/net/irda/pxaficp_ir.c
++++ b/drivers/net/irda/pxaficp_ir.c
+@@ -820,9 +820,6 @@ static const struct net_device_ops pxa_irda_netdev_ops = {
+ 	.ndo_stop		= pxa_irda_stop,
+ 	.ndo_start_xmit		= pxa_irda_hard_xmit,
+ 	.ndo_do_ioctl		= pxa_irda_ioctl,
+-	.ndo_change_mtu		= eth_change_mtu,
+-	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address	= eth_mac_addr,
+ };
  
- /* this disables an interrupt from the interrupt mask register */
- #define SMC_DISABLE_INT(lp, x) do {					\
- 	unsigned char mask;						\
--	spin_lock_irq(&lp->lock);					\
-+	unsigned long smc_disable_flags;				\
-+	spin_lock_irqsave(&lp->lock, smc_disable_flags);		\
- 	mask = SMC_GET_INT_MASK(lp);					\
- 	mask &= ~(x);							\
- 	SMC_SET_INT_MASK(lp, mask);					\
--	spin_unlock_irq(&lp->lock);					\
-+	spin_unlock_irqrestore(&lp->lock, smc_disable_flags);		\
- } while (0)
+ static int pxa_irda_probe(struct platform_device *pdev)
+@@ -847,6 +844,7 @@ static int pxa_irda_probe(struct platform_device *pdev)
+ 	if (!dev)
+ 		goto err_mem_3;
  
- /*
-@@ -520,21 +522,21 @@ static inline void  smc_rcv(struct net_device *dev)
-  * any other concurrent access and C would always interrupt B. But life
-  * isn't that easy in a SMP world...
-  */
--#define smc_special_trylock(lock)					\
-+#define smc_special_trylock(lock, flags)				\
- ({									\
- 	int __ret;							\
--	local_irq_disable();						\
-+	local_irq_save(flags);						\
- 	__ret = spin_trylock(lock);					\
- 	if (!__ret)							\
--		local_irq_enable();					\
-+		local_irq_restore(flags);				\
- 	__ret;								\
- })
--#define smc_special_lock(lock)		spin_lock_irq(lock)
--#define smc_special_unlock(lock)	spin_unlock_irq(lock)
-+#define smc_special_lock(lock, flags)		spin_lock_irq(lock, flags)
-+#define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
- #else
--#define smc_special_trylock(lock)	(1)
--#define smc_special_lock(lock)		do { } while (0)
--#define smc_special_unlock(lock)	do { } while (0)
-+#define smc_special_trylock(lock, flags)	(1)
-+#define smc_special_lock(lock, flags)   	do { } while (0)
-+#define smc_special_unlock(lock, flags)	do { } while (0)
- #endif
- 
- /*
-@@ -548,10 +550,11 @@ static void smc_hardware_send_pkt(unsigned long data)
- 	struct sk_buff *skb;
- 	unsigned int packet_no, len;
- 	unsigned char *buf;
-+	unsigned long flags;
- 
- 	DBG(3, "%s: %s\n", dev->name, __func__);
- 
--	if (!smc_special_trylock(&lp->lock)) {
-+	if (!smc_special_trylock(&lp->lock, flags)) {
- 		netif_stop_queue(dev);
- 		tasklet_schedule(&lp->tx_task);
- 		return;
-@@ -559,7 +562,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 
- 	skb = lp->pending_tx_skb;
- 	if (unlikely(!skb)) {
--		smc_special_unlock(&lp->lock);
-+		smc_special_unlock(&lp->lock, flags);
- 		return;
- 	}
- 	lp->pending_tx_skb = NULL;
-@@ -569,7 +572,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 		printk("%s: Memory allocation failed.\n", dev->name);
- 		dev->stats.tx_errors++;
- 		dev->stats.tx_fifo_errors++;
--		smc_special_unlock(&lp->lock);
-+		smc_special_unlock(&lp->lock, flags);
- 		goto done;
- 	}
- 
-@@ -608,7 +611,7 @@ static void smc_hardware_send_pkt(unsigned long data)
- 
- 	/* queue the packet for TX */
- 	SMC_SET_MMU_CMD(lp, MC_ENQUEUE);
--	smc_special_unlock(&lp->lock);
-+	smc_special_unlock(&lp->lock, flags);
- 
- 	dev->trans_start = jiffies;
- 	dev->stats.tx_packets++;
-@@ -633,6 +636,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct smc_local *lp = netdev_priv(dev);
- 	void __iomem *ioaddr = lp->base;
- 	unsigned int numPages, poll_count, status;
-+	unsigned long flags;
- 
- 	DBG(3, "%s: %s\n", dev->name, __func__);
- 
-@@ -658,7 +662,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return 0;
- 	}
- 
--	smc_special_lock(&lp->lock);
-+	smc_special_lock(&lp->lock, flags);
- 
- 	/* now, try to allocate the memory */
- 	SMC_SET_MMU_CMD(lp, MC_ALLOC | numPages);
-@@ -676,7 +680,7 @@ static int smc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
-    	} while (--poll_count);
- 
--	smc_special_unlock(&lp->lock);
-+	smc_special_unlock(&lp->lock, flags);
- 
- 	lp->pending_tx_skb = skb;
-    	if (!poll_count) {
++	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	si = netdev_priv(dev);
+ 	si->dev = &pdev->dev;
+ 	si->pdata = pdev->dev.platform_data;
 -- 
-1.6.0.4
-
+1.6.3.3
 
