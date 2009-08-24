@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Fix commit 63d9950b08184e6531adceb65f64b429909cc101
- (ipv6: Make v4-mapped bindings consistent with IPv4)
-Date: Sun, 23 Aug 2009 19:07:15 -0700 (PDT)
-Message-ID: <20090823.190715.124304781.davem@davemloft.net>
-References: <20090822011541.7b95dbcc@neptune.home>
-	<20090822014523.3ec2f591@neptune.home>
+Subject: Re: [PATCH net-next 0/5] RDS: TCP transport support
+Date: Sun, 23 Aug 2009 19:13:42 -0700 (PDT)
+Message-ID: <20090823.191342.86319826.davem@davemloft.net>
+References: <1250893715-21939-1-git-send-email-andy.grover@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org
-To: bonbons@linux-vserver.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com
+To: andy.grover@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59072
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51737
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751200AbZHXCHF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Aug 2009 22:07:05 -0400
-In-Reply-To: <20090822014523.3ec2f591@neptune.home>
+	by vger.kernel.org with ESMTP id S1751083AbZHXCN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 22:13:29 -0400
+In-Reply-To: <1250893715-21939-1-git-send-email-andy.grover@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bruno Pr=E9mont <bonbons@linux-vserver.org>
-Date: Sat, 22 Aug 2009 01:45:23 +0200
+From: Andy Grover <andy.grover@oracle.com>
+Date: Fri, 21 Aug 2009 15:28:30 -0700
 
-> Commit 63d9950b08184e6531adceb65f64b429909cc101
->   (ipv6: Make v4-mapped bindings consistent with IPv4)
-> changes behavior of inet6_bind() for v4-mapped addresses so it should
-> behave the same way as inet_bind().
->=20
-> During this change setting of err to -EADDRNOTAVAIL got lost:
- ...
-> Signed-off-by Bruno Pr=E9mont <bonbons@linux-vserver.org>
+> This patch series adds a TCP transport for RDS. Instead of requiring
+> an IB queue pair for communication between two nodes, it may instead 
+> tunnel traffic over a TCP connection. This makes RDS usable by
+> people without IB hardware, or in a VM.
+> 
+> In addition, this patchset modularizes RDS into an rds core module,
+> an rds_rdma module (for Infiniband and iWARP) and rds_tcp module. RDS
+> itself no longer has a dependency on IB (the rds_rdma module does).
+> 
+> This code has been tested and verified to work and perform acceptably, 
+> but has not yet had intensive performance analysis.
 
-Thanks for finding and fixing this bug, applied, thanks!
+All applied to net-next-2.6, thanks.
+
+I'll push it out to kernel.org after some build tests.
