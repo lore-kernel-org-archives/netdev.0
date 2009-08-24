@@ -1,299 +1,195 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce
-	primary_lazy option
-Date: Mon, 24 Aug 2009 13:16:19 +0200
-Message-ID: <20090824111619.GC4018@psychotron.englab.brq.redhat.com>
-References: <20090813150513.GB10449@psychotron.englab.brq.redhat.com> <4A846C4E.8030509@free.fr> <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr>
+From: Damian Lukowski <damian@tvk.rwth-aachen.de>
+Subject: [PATCHv2] Revert TCP retransmission backoff on ICMP destination
+ unreachable
+Date: Mon, 24 Aug 2009 13:57:10 +0200
+Message-ID: <4A928016.8090804@tvk.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?= <nicolas.2p.debian@free.fr>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8729 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752256AbZHXLQa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Aug 2009 07:16:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4A8D4427.8080004@free.fr>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:64207 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751052AbZHXL5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Aug 2009 07:57:10 -0400
+Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
+ by mta-1.ms.rz.RWTH-Aachen.de
+ (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
+ with ESMTP id <0KOV0099JQJB8H90@mta-1.ms.rz.RWTH-Aachen.de> for
+ netdev@vger.kernel.org; Mon, 24 Aug 2009 13:57:11 +0200 (CEST)
+Received: from [137.226.143.131] (nexus.tvk.RWTH-Aachen.DE [137.226.143.131])
+	by relay.rwth-aachen.de (8.13.8+Sun/8.13.8/1) with ESMTP id n7OBvA08000444	for
+ <netdev@vger.kernel.org>; Mon, 24 Aug 2009 13:57:10 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Aug 20, 2009 at 02:40:07PM CEST, nicolas.2p.debian@free.fr wrote:
-> Jiri Pirko awrote:
->> Mon, Aug 17, 2009 at 10:55:13PM CEST, nicolas.2p.debian@free.fr wrote:
->>> Jiri Pirko wrote:
->>>> Fri, Aug 14, 2009 at 06:27:03PM CEST, nicolas.2p.debian@free.fr wrote:
->>>>> Jiri Pirko wrote:
->>>>>> Thu, Aug 13, 2009 at 09:41:02PM CEST, nicolas.2p.debian@free.fr wrote:
->>>>>>> Jiri Pirko wrote:
->>>>>>>> In some cases there is not desirable to switch back to primary interface when
->>>>>>>> it's link recovers and rather stay wiith currently active one. We need to avoid
->>>>>>>> packetloss as much as we can in some cases. This is solved by introducing
->>>>>>>> primary_lazy option. Note that enslaved primary slave is set as current
->>>>>>>> active no matter what.
->>>>>>> May I suggest that instead of creating a new option to better define how
->>>>>>> the "primary" option is expected to behave for active-backup  
->>>>>>> mode, we  try the "weight" slave  option I proposed in the 
->>>>>>> thread "alternative to  primary" earlier this year ?
->>>>>>>
->>>>>>> http://sourceforge.net/mailarchive/forum.php?thread_name=49D5357E.4020201%40free.fr&forum_name=bonding-devel
->>>>>> This link does not work for me :(
->>>>> Nor for me... Sourceforge apparently decided to drop the  
->>>>> bonding-devel  list archive just now. 'hope the list archive will 
->>>>> be back soon.
->>>>>
->>>>> Originally, the proposed "weight" option for slaves was designed 
->>>>> just to  provide a way to better define which slave should become 
->>>>> active when the  active one just went down. As you know, the 
->>>>> current "primary" option  does not allow for a predictable 
->>>>> selection of the new active slave when  the primary loose 
->>>>> connectivity. The new active slave is chosen "at  random" between 
->>>>> the remaining slaves.
->>>>>
->>>>> After a short thread, involving Jay Vosburg and Andy Gospodarek, 
->>>>> we end  up with a general configuration interface, that provide a 
->>>>> way to tune  many things in slave management :
->>>>>
->>>>> - Active slave selection in active/backup mode, even in the 
->>>>> presence of  more than two slaves.
->>>>> - Active aggregator selection in 802.3ad mode.
->>>>> - Load balancing tuning for most load balancing modes.
->>>>>
->>>>> The sysfs interface would be /sys/class/net/eth0/bonding/weight.  
->>>>> Writing  a number there would give a "user supplied weight" to a  
->>>>> slave. The speed  and link state of the slave would give a 
->>>>> "natural weight" for the slave.  And the "effective weight" would 
->>>>> be computed every time one of user  supplied or natural weight 
->>>>> change (upon speed or link state changes) and  would be used 
->>>>> everywhere we need a slave weight.
->>>>>
->>>>> I suggest that :
->>>>> - slave's natural weight = speed of the slave if link UP, else 0.
->>>>> - slave's effective weight = slave's natural weight * slave's 
->>>>> user   supplied weight.
->>>>> - aggregator's effective weight = sum of the effective weights of 
->>>>> the  slaves inside the aggregator.
->>>>>
->>>>> For the active/backup mode, the exact behavior would be :
->>>>>
->>>>> - When the active slave disappear, the new active slave is the 
->>>>> one whose  effective weight is the highest.
->>>>> - When a slave comes back, it only becomes active if its 
->>>>> effective   weight is strictly higher than the one of the current 
->>>>> active slave.   (This stop the flip-flop risk you stated).
->>>>> - To keep the old "primary" option, we simply give a very high 
->>>>> user   supplied weight to the primary slave. Jay suggested :
->>>>> #define BOND_PRIMARY_PRIO 0x80000000
->>>>> user_supplied_weight &= BOND_PRIMARY_PRIO /* to set the primary */
->>>>> user_supplied_weight &= ~BOND_PRIMAY_PRIO  /* to clear the primary */
->>>>>
->>>>> The same apply to aggregator : Every time a slave enter (link UP) 
->>>>> or  leave (link DOWN) an aggregator, the aggregator effective 
->>>>> weight is   recomputed. Then, if an aggregator exist with an 
->>>>> strictly higher   effective weight than the current active one, 
->>>>> the new best aggregator  becomes active.
->>>>>
->>>>> For others modes, the weight might be used later to tune the load 
->>>>>   balancing logic in some way.
->>>>>
->>>>> A default value of 1 for slave weight would cause slave speed to 
->>>>> be used  alone, hence the "natural weight".
->>>>>
->>>> I read your text and also the original list thread and I must say I see no
->>>> solution in this "weight" parameter for this issue. Because it's desired for one
->>>> link to stay active even if second come up, these 2 must have the same weight.
->>>> But imagine 3 links of the same weight. In that case you cannot insure that the
->>>> "primary one" will be chosen as active (see my picture in the reply to Jay's
->>>> post). Correct me if I'm wrong but for that what I want to fix by primary_lazy
->>>> option, your proposed weight option has no effect.
->>>>
->>>> Therefor I still think the primary_lazy is the only solution now.
->>>>
->>>> Jirka
->>> Hi Jirka,
->>>
->>> From your previous posts (first one and reply to Jay), I understand 
->>> that your want to achieve  the following behavior :
->>>
->>> eth0 is primary and active.
->>> eth1 is allowed to be active is eth0 is down.
->>> Also, eth1 should stay active, even if eth0 comes back up.
->>> Switch active to eth0 if eth1 eventually fall down.
->>> Switch active to eth2 only if both eth0 and eth1 are down.
->>>
->>> eth0		eth1		eth2
->>> UP(curr)	UP		UP
->>> DOWN		UP(curr)	UP
->>> UP		UP(curr)	UP
->>> UP(curr)	DOWN		UP
->>> DOWN		DOWN		UP(curr)
->>>
->>> Using weight, the following setup should give this result :
->>>
->>> echo 1000 > /sys/class/net/eth0/bonding/weight
->>> echo 1000 > /sys/class/net/eth1/bonding/weight
->>> echo 1 > /sys/class/net/eth2/bonding/weight
->>> echo eth0 > /sys/class/net/bond0/bonding/active_slave
->>>
->>> I hope this is clear now.
->>
->> Hmm... I ment the eth1 and eth2 to be the equivalent...
->> If eth1 is down (let's say for good) and eth0 comes down, eth2 is
->> selected as current active. But when eth0 comes up then eth0 is selected. That
->> is not desired.
->
-> OK, now I think I really understand your exact requirement.
->
-> You want the ability to keep the current active slave active, even if a
-> better slave comes back up, so the only reason for the active slave to
-> change would be that the current active slave falls down:
->
-> eth0		eth1		eth2
-> UP(curr)	UP		UP
-> DOWN		UP(curr)	UP
-> UP		UP(curr)	UP
-> UP(curr)	DOWN		UP
-> DOWN		DOWN		UP(curr)
-> UP		DOWN		UP(curr)  <-
->
-> But at the same time, you still need the ability to properly select the
-> best new active slave when the current one falls down, hence your answer
-> in reply to Jay's proposal:
->
-> 	> But imagine you have bond with 3 slaves:
-> 	> eth0		eth1		eth2
-> 	> UP(curr)	UP		UP
-> 	> DOWN		UP(curr)	UP
-> 	> UP		UP(curr)	UP
-> 	> UP		DOWN		UP(curr)
->
-> 	> eth2 ends up being current active but we prefer eth0 (as
-> 	> primary interface).
-> 	> This is not desirable and is solved by primary_lazy option.
->
-> I think your proposed "primary_lazy" option suffer some limits and
-> should not be a per bond option but a per slave option.
->
-> You are right that some slave should be able to be "sticky" when active,
-> in order to reduce packets loose when switching. But due to performance
-> reason, it might be desirable to say that some other slaves are not
-> "sticky" when active, in the same configuration.
->
-> Let's imagine the following configuration :
->
-> eth0: 1 Gb/s - primary
-> eth1: 1 Gb/s
-> eth2: 100 Mb/s
->
-> With "primary_lazy=1, eth2 has a chance to stay active, after eth0
-> and eth1 both failed at the same time. The risk of loosing a few packets
-> while switching back from eth2 to eth0 or eth1 might be seen acceptable,
-> compared to sticking to a 100 Mb/s interface when a 1 Gb/s interface
-> is available.
->
-> Due to eth2 speed, one might want to have the following behavior:
->
-> If eth1 is active, keep it active, even if eth0 comes back up. But if
-> eth2 is active, switch to any better slave right at the time one comes
-> back up.
->
-> I suggest that instead of having a per bond "primary_lazy" option, we
-> define a per slave option, describing whether this particular slave is
-> "sticky when active" or not.
->
-> The above setup would become :
->
-> echo 1 > /sys/class/net/eth0/bonding/sticky_active
-> echo 1 > /sys/class/net/eth1/bonding/sticky_active
-> echo 0 > /sys/class/net/eth2/bonding/sticky_active
-> echo eth0 > /sys/class/net/bond0/bonding/primary
->
-> Or may be better, keeping the "weight" idea in mind, a per slave option
-> "active_weight" that gives the weight of the slave, *when active*.
->
-> The effective weight of a slave would become :
->
-> effective_slave =
-> (is_active ? user_supplied_active_weight ? user_supplied_weight) *
-> natural_weight
->
-> # Prefer eth0, then one of eth1 or eth2, then eth3.
-> echo 1000 > /sys/class/net/eth0/bonding/weight
-> echo 999 > /sys/class/net/eth1/bonding/weight
-> echo 999 > /sys/class/net/eth2/bonding/weight
-> echo 10 > /sys/class/net/eth3/bonding/weight
->
-> # Do not switch back to primary eth0 if eth1 or eth2 is active.
-> echo 1000 > /sys/class/net/eth1/bonding/active_weight
-> echo 1000 > /sys/class/net/eth2/bonding/active_weight
->
-> Every time one changes the user_supplied_weight, then
-> user_supplied_active_weight must be reset to the same value. This way,  
-> if no special setup is done on active_weight, then the current normal
-> behavior is achieved.
+This patch implements the TCP improvement of the Internet Draft
+"Make TCP more Robust to Long Connectivity Disruptions"
+(http://tools.ietf.org/html/draft-zimmermann-tcp-lcd-01).
 
-I must say I like this approach. But it would be not trivial to implement this.
-Therefore I would stick with your propose of extending primary lazy to 3 values
-until the weight option is implemented.
+Exponential backoff is TCP's standard behaviour during long connectivit=
+y
+disruptions, which is a countermeasure against network congestion.
+If congestion can be excluded as the reason for RTO retransmission loss=
+,
+backoff is not desirable, as it yields longer TCP recovery times, when
+the communication path is repaired shortly after an unsuccessful
+retransmission probe.
+Here, an ICMP host/network unreachable message, whose payload fits to
+TCP's SND.UNA, is taken as an indication that the RTO retransmission ha=
+s
+not been lost due to congestion, but because of a route failure
+somewhere along the path. On receipt of such a message, the timeout is
+halved (in order to revert the doubling after the retransmission).
+With true congestion, a router won't trigger such a message and the
+patched TCP will operate as standard TCP.
 
-I'm going to implement your propose below.
+Changes from v1:
+1) Calling tcp_retransmit_timer() instead tcp_retransmit_skb().
+   This fixes problems with SACK and a inconsistency with the draft.
+2) If the socket is locked, retransmission is deferred by using the
+   formula as in tcp_write_timer().
+3) Removed the sysctl_tcp_retries modifications, which will be
+   sent in a different patch request.
+4) Recalculating the RTO from rtt, rttvar and icsk_backoff,
+   not simply halving. This prevents, that an RTO of RTO_MAX-epsilon
+   is "doubled" to RTO_MAX and then "reverted" to RTO_MAX/2 instead of
+   RTO_MAX-epsilon. Currently, this is not what the draft specifies,
+   but the draft will be changed accordingly.
+5) Renamed skb to icmp_skb in tcp_v4_err in codebase code.
+6) Different coding-style and indentation changes, as suggested
+   by Ilpo J=E4rvinen.
+7) Using net-next-2.6 git-branch as codebase.
 
->
-> If none of those options seem acceptable to you, I suggest a third one:
->
-> You keep primary_lazy, but with the following values :
->
-> # Switch back to primary slaves when it comes back.
-> echo 0 > /sys/class/net/bond0/bonding/primary_lazy
->
-> # Switch back to primary when it comes back, only if the speed of the
-> # primary slave is higher than the speed of the current active slave.
-> echo 1 > /sys/class/net/bond0/bonding/primary_lazy
->
-> # Stick to the current active slave when the primary slave comes back,
-> # even if the primary slave speed is higher than the speed of the
-> # current active slave.
-> echo 2 > /sys/class/net/bond0/bonding/primary_lazy
->
-> You can consider the value as being the level of laziness of the primary.
->
-> 	Nicolas.
->
->>>>>>> Giving the same "weight" to two different slaves means "chose at random
->>>>>>> on startup and keep the active one until it fails". And if the "at
->>>>>>> random" behavior is not appropriate, one can force the active slave
->>>>>>> using what Jay suggested  (/sys/class/net/bond0/bonding/active).
->>>>>>>
->>>>>>> The proposed "weight" slave's option is able to prevent the slaves from
->>>>>>> flip-flopping, by stating the fact that two slaves share the 
->>>>>>> same   "primary" level, and may provide several other 
->>>>>>> enhancements as  described  in the thread.
->>>>>>>
->>>>>> Although I cannot reach the thread, this looks interesting. But I'm not sure it
->>>>>> has real benefits over primary_lazy option (and it doesn't solve initial curr
->>>>>> active slave setup)
->>>>> You are right, it doesn't solve the initial active slave 
->>>>> selection. But  why would it be so important to properly select 
->>>>> the initial active  slave, if you feel comfortable with staying 
->>>>> with a new active slave,  after a failure and return of the 
->>>>> original active slave ? This kind of  failures may last for only 
->>>>> a few seconds (just unplugging and plugging  back the wire), and 
->>>>> you configuration may then stay with the new active  slave 
->>>>> "forever". If "forever" is acceptable, may be "at startup" is  
->>>>> acceptable too. :-)
->>>>>
->>>>> From my point of view (and Andy Gospodarek apparently agreed), 
->>>>> the real  benefits of the weight slave option is that is it more 
->>>>> generic and allow  for later usage in other modes, that we don't 
->>>>> anticipate for now.
->>>>>
->>>>> Quoted from a mail from Andy Gospodarek in the original thread :
->>>>>
->>>>> "I really have no objection to that.  Adding this as a base part of
->>>>> bonding for a few modes with known features would be a nice start.
->>>>> I'm sure others will be kind enough to send suggestions or patches for
->>>>> ways this could benefit other modes."
->
->
->
+Thanks for the review, so far.
+
+Signed-off-by: Damian Lukowski <damian@tvk.rwth-aachen.de>
+---
+ include/net/tcp.h    |    1 +
+ net/ipv4/tcp_ipv4.c  |   54 ++++++++++++++++++++++++++++++++++++++++++=
+-------
+ net/ipv4/tcp_timer.c |    2 +-
+ 3 files changed, 48 insertions(+), 9 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 88af843..58c5b39 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -469,6 +469,7 @@ extern void __tcp_push_pending_frames(struct sock *=
+sk, unsigned int cur_mss,
+ 				      int nonagle);
+ extern int tcp_may_send_now(struct sock *sk);
+ extern int tcp_retransmit_skb(struct sock *, struct sk_buff *);
++extern void tcp_retransmit_timer(struct sock *sk);
+ extern void tcp_xmit_retransmit_queue(struct sock *);
+ extern void tcp_simple_retransmit(struct sock *);
+ extern int tcp_trim_head(struct sock *, struct sk_buff *, u32);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 6d88219..d1d73ac 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -328,26 +328,29 @@ static void do_pmtu_discovery(struct sock *sk, st=
+ruct iphdr *iph, u32 mtu)
+  *
+  */
+=20
+-void tcp_v4_err(struct sk_buff *skb, u32 info)
++void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+ {
+-	struct iphdr *iph =3D (struct iphdr *)skb->data;
+-	struct tcphdr *th =3D (struct tcphdr *)(skb->data + (iph->ihl << 2));
++	struct iphdr *iph =3D (struct iphdr *)icmp_skb->data;
++	struct tcphdr *th =3D (struct tcphdr *)(icmp_skb->data + (iph->ihl <<=
+ 2));
++	struct inet_connection_sock *icsk;
+ 	struct tcp_sock *tp;
+ 	struct inet_sock *inet;
+-	const int type =3D icmp_hdr(skb)->type;
+-	const int code =3D icmp_hdr(skb)->code;
++	const int type =3D icmp_hdr(icmp_skb)->type;
++	const int code =3D icmp_hdr(icmp_skb)->code;
+ 	struct sock *sk;
++	struct sk_buff *skb;
+ 	__u32 seq;
++	__u32 remaining;
+ 	int err;
+-	struct net *net =3D dev_net(skb->dev);
++	struct net *net =3D dev_net(icmp_skb->dev);
+=20
+-	if (skb->len < (iph->ihl << 2) + 8) {
++	if (icmp_skb->len < (iph->ihl << 2) + 8) {
+ 		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 		return;
+ 	}
+=20
+ 	sk =3D inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
+-			iph->saddr, th->source, inet_iif(skb));
++			iph->saddr, th->source, inet_iif(icmp_skb));
+ 	if (!sk) {
+ 		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 		return;
+@@ -367,6 +370,7 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
+ 	if (sk->sk_state =3D=3D TCP_CLOSE)
+ 		goto out;
+=20
++	icsk =3D inet_csk(sk);
+ 	tp =3D tcp_sk(sk);
+ 	seq =3D ntohl(th->seq);
+ 	if (sk->sk_state !=3D TCP_LISTEN &&
+@@ -393,6 +397,40 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
+ 		}
+=20
+ 		err =3D icmp_err_convert[code].errno;
++		/* check if ICMP unreach message allows revert of backoff */
++		if (code !=3D ICMP_NET_UNREACH && code !=3D ICMP_HOST_UNREACH)
++			break;
++		if (seq !=3D tp->snd_una  || !icsk->icsk_retransmits ||
++		    !icsk->icsk_backoff)
++			break;
++
++		icsk->icsk_backoff--;
++		inet_csk(sk)->icsk_rto =3D ((tp->srtt >> 3) + tp->rttvar) <<
++					 icsk->icsk_backoff;
++		if (inet_csk(sk)->icsk_rto > TCP_RTO_MAX)
++			inet_csk(sk)->icsk_rto =3D TCP_RTO_MAX;
++
++		skb =3D tcp_write_queue_head(sk);
++		BUG_ON(!skb);
++
++		remaining =3D icsk->icsk_rto - min(icsk->icsk_rto,
++				tcp_time_stamp - TCP_SKB_CB(skb)->when);
++
++		if (remaining) {
++			/* RTO revert shortened timer. */
++			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
++						  remaining, TCP_RTO_MAX);
++		} else if (sock_owned_by_user(sk)) {
++			/* RTO revert clocked out retransmission,
++			 * but socket is locked. Will defer. */
++			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
++						  HZ/20, TCP_RTO_MAX);
++		} else {
++			/* RTO revert clocked out retransmission.
++			 * Will retransmit now */
++			tcp_retransmit_timer(sk);
++		}
++
+ 		break;
+ 	case ICMP_TIME_EXCEEDED:
+ 		err =3D EHOSTUNREACH;
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index b144a26..a3ba494 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -279,7 +279,7 @@ static void tcp_probe_timer(struct sock *sk)
+  *	The TCP retransmit timer.
+  */
+=20
+-static void tcp_retransmit_timer(struct sock *sk)
++void tcp_retransmit_timer(struct sock *sk)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	struct inet_connection_sock *icsk =3D inet_csk(sk);
+--=20
+1.6.3.3
+
