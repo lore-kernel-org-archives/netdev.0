@@ -1,56 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2]: pkt_sched: Convert CBQ to tasklet_hrtimer.
-Date: Sun, 23 Aug 2009 18:54:56 -0700 (PDT)
-Message-ID: <20090823.185456.25552109.davem@davemloft.net>
-References: <alpine.LFD.2.00.0908221041290.1769@localhost.localdomain>
-	<20090822.180836.34851176.davem@davemloft.net>
-	<alpine.LFD.2.00.0908230919420.1769@localhost.localdomain>
+Subject: Re: [PATCH 1/1] NET: llc, zero sockaddr_llc struct
+Date: Sun, 23 Aug 2009 18:56:17 -0700 (PDT)
+Message-ID: <20090823.185617.36449822.davem@davemloft.net>
+References: <1250967535-30692-1-git-send-email-jirislaby@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tglx@linutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60867
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750830AbZHXByn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 21:54:43 -0400
-In-Reply-To: <alpine.LFD.2.00.0908230919420.1769@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	acme@ghostprotocols.net
+To: jirislaby@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751252AbZHXB4J@vger.kernel.org>
+In-Reply-To: <1250967535-30692-1-git-send-email-jirislaby@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sun, 23 Aug 2009 09:22:48 +0200 (CEST)
+From: Jiri Slaby <jirislaby@gmail.com>
+Date: Sat, 22 Aug 2009 20:58:55 +0200
 
-> B1;2005;0cOn Sat, 22 Aug 2009, David Miller wrote:
->> I'm not convinced either way, the code logic here has been like
->> this since at least 2.2.x, where it reads:
->> 
->> 	if (!cl->delayed) {
->> 		unsigned long sched = jiffies;
->>  ...
->> 		if (delay > 0) {
->> 			sched += PSCHED_US2JIFFIE(delay) + cl->penalty;
->>  ...
->> 			if (del_timer(&q->delay_timer) &&
->> 			    (long)(q->delay_timer.expires - sched) > 0)
->> 				q->delay_timer.expires = sched;
->> 			add_timer(&q->delay_timer);
+> sllc_arphrd member of sockaddr_llc might not be set. Zero sllc
+> before copying it to the above layers.
 > 
-> That does not make more sense than the hrtimer version :)
+> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 
-Sure it does, at least to me.
+I know it seems arbitrary, but could you please memset() on the
+structure instead of using an empty initializer so that it's
+consistent with how all other ->getname() implementations deal with
+this issue?
 
-It says: When 'delay > 0', either the timer fires immediately
-('jiffies') or at some point in the future ('jiffies + delay +
-penalty' or existing expiration, whichever is sooner).
-
-The intention of the code seems very clear.
-
->> So please review my patch in the context of a straight conversion to
->> tasklet_hrtimer, and let's deal with the timer offset logic here
->> seperately (and in -next, not 2.6.31-rcX)
-> 
-> The straight conversion looks fine. Add my Acked-by.
+It's easier to audit that way.
 
 Thanks.
