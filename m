@@ -1,61 +1,114 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
-Subject: [PATCH 06/13] TProxy: added udp6_lib_lookup function
-Date: Sun, 23 Aug 2009 11:19:43 +0200
-Message-ID: <1253548005.12519.6.camel@bzorp.balabit>
+Subject: [PATCH 10/13] TProxy: added IPv6 socket lookup function to
+ nf_tproxy_core
+Date: Mon, 24 Aug 2009 14:51:02 +0200
+Message-ID: <1253548005.12519.10.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from support.balabit.hu ([195.70.41.86]:58469 "EHLO lists.balabit.hu"
+Received: from support.balabit.hu ([195.70.41.86]:58363 "EHLO lists.balabit.hu"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752468AbZIUQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Sep 2009 12:25:00 -0400
+	id S1751580AbZIUQY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Sep 2009 12:24:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just like with IPv4, we need access to the UDP hash table to look up local
-sockets, but instead of exporting the global udp_table, export a lookup
-function.
-
 Signed-off-by: Balazs Scheidler <bazsi@balabit.hu>
 ---
- include/net/udp.h |    3 +++
- net/ipv6/udp.c    |    8 ++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ include/net/netfilter/nf_tproxy_core.h |   72 +++++++++++++++++++++++++++++++-
+ 1 files changed, 71 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 90e6ce5..5b45f5b 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -150,6 +150,9 @@ extern int 	udp_lib_setsockopt(struct sock *sk, int level, int optname,
- extern struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- 				    __be32 daddr, __be16 dport,
- 				    int dif);
-+extern struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
-+				    const struct in6_addr *daddr, __be16 dport,
-+				    int dif);
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
+index 4064f35..101cc34 100644
+--- a/include/net/netfilter/nf_tproxy_core.h
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -5,7 +5,8 @@
+ #include <linux/in.h>
+ #include <linux/skbuff.h>
+ #include <net/sock.h>
+-#include <net/inet_sock.h>
++#include <net/inet_hashtables.h>
++#include <net/inet6_hashtables.h>
+ #include <net/tcp.h>
  
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 9c9b24b..eee936c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -182,6 +182,14 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
- 				 udptable);
+ #define NFT_LOOKUP_ANY         0
+@@ -130,6 +131,75 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+ 	return sk;
  }
  
-+struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be16 sport,
-+                             const struct in6_addr *daddr, __be16 dport, int dif)
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static inline struct sock *
++nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
++		      const struct in6_addr *saddr, const struct in6_addr *daddr,
++		      const __be16 sport, const __be16 dport,
++		      const struct net_device *in, int lookup_type)
 +{
-+        return __udp6_lib_lookup(net, saddr, sport, daddr, dport, dif, &udp_table);
++	struct sock *sk;
++
++	/* look up socket */
++	switch (protocol) {
++	case IPPROTO_TCP:
++		switch (lookup_type) {
++		case NFT_LOOKUP_ANY:
++			sk = inet6_lookup(net, &tcp_hashinfo,
++                                          saddr, sport, daddr, dport,
++                                          in->ifindex);
++			break;
++		case NFT_LOOKUP_LISTENER:
++			sk = inet6_lookup_listener(net, &tcp_hashinfo,
++                                                   daddr, ntohs(dport),
++                                                   in->ifindex);
++
++                        /* NOTE: we return listeners even if bound to
++                         * 0.0.0.0, those are filtered out in
++                         * xt_socket, since xt_TPROXY needs 0 bound
++                         * listeners too */
++
++			break;
++		case NFT_LOOKUP_ESTABLISHED:
++			sk = __inet6_lookup_established(net, &tcp_hashinfo,
++                                                        saddr, sport, daddr, ntohs(dport),
++                                                        in->ifindex);
++			break;
++		default:
++			WARN_ON(1);
++			sk = NULL;
++			break;
++		}
++		break;
++	case IPPROTO_UDP:
++		sk = udp6_lib_lookup(net, saddr, sport, daddr, dport,
++				     in->ifindex);
++                if (sk && lookup_type != NFT_LOOKUP_ANY) {
++                        int connected = (sk->sk_state == TCP_ESTABLISHED);
++                        int wildcard = ipv6_addr_any(&inet6_sk(sk)->rcv_saddr);
++                        
++                        /* NOTE: we return listeners even if bound to
++                         * 0.0.0.0, those are filtered out in
++                         * xt_socket, since xt_TPROXY needs 0 bound
++                         * listeners too */
++                        if ((lookup_type == NFT_LOOKUP_ESTABLISHED && (!connected || wildcard)) ||
++			    (lookup_type == NFT_LOOKUP_LISTENER && connected)) {
++				sock_put(sk);
++				sk = NULL;
++                        }
++		}
++		break;
++	default:
++		WARN_ON(1);
++		sk = NULL;
++	}
++
++	pr_debug("tproxy socket lookup: proto %u %pI6:%u -> %pI6:%u, lookup type: %d, sock %p\n",
++		 protocol, saddr, ntohs(sport), daddr, ntohs(dport), lookup_type, sk);
++
++	return sk;
 +}
-+EXPORT_SYMBOL_GPL(udp6_lib_lookup);
-+
-+
- /*
-  * 	This should be easy, if there is something there we
-  * 	return it, otherwise we block.
++#endif
+ 
+ static inline void
+ nf_tproxy_put_sock(struct sock *sk)
 -- 
 1.6.0.4
 
