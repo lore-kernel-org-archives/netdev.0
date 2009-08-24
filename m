@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: E100 RX ring buffers continued...
-Date: Sun, 23 Aug 2009 19:03:05 -0700 (PDT)
-Message-ID: <20090823.190305.68618999.davem@davemloft.net>
-References: <1288246454.81251051629969.JavaMail.root@mail.holmansrus.com>
-	<m3k50utg5q.fsf@intrepid.localdomain>
+Subject: Re: [PATCH] sit: 6to4: honour routing table
+Date: Sun, 23 Aug 2009 19:05:21 -0700 (PDT)
+Message-ID: <20090823.190521.44468784.davem@davemloft.net>
+References: <1250938072-5577-1-git-send-email-contact@saschahlusiak.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: walt@holmansrus.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com
-To: khc@pm.waw.pl
+Cc: netdev@vger.kernel.org
+To: contact@saschahlusiak.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50089
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59066
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751171AbZHXCCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 22:02:52 -0400
-In-Reply-To: <m3k50utg5q.fsf@intrepid.localdomain>
+	by vger.kernel.org with ESMTP id S1751168AbZHXCFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Aug 2009 22:05:08 -0400
+In-Reply-To: <1250938072-5577-1-git-send-email-contact@saschahlusiak.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sun, 23 Aug 2009 22:43:29 +0200
+From: Sascha Hlusiak <contact@saschahlusiak.de>
+Date: Sat, 22 Aug 2009 12:47:52 +0200
 
-> David, I think it's safe to apply this.
+> This patch makes try_6to4 use the address of the Next-Hop instead, respecting
+> the routing table. Users are encouraged to have a route 2002::/16 to the
+> tunnel device anyway, making all other 6to4 hosts direct neighbours.
 
-Yep, I've applied this to net-2.6, thanks!
+This doesn't seem right to me at all, but I'm not a complete expert
+in this area.
 
-> Probably to "stable" series, too.
-
-That would depend upon applying your original patch to -stable,
-which I had no intentions of doing.
+Can someone who is review this patch?  Thanks.
