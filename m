@@ -1,72 +1,632 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 11/26] et131x: eliminate write only registry fields
-Date: Tue, 25 Aug 2009 15:59:20 +0100
-Message-ID: <20090825145918.16176.73765.stgit@localhost.localdomain>
+Subject: [PATCH 09/26] et131x: CSRAddress to regs
+Date: Tue, 25 Aug 2009 15:58:56 +0100
+Message-ID: <20090825145852.16176.6018.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42605 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42597 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755329AbZHYPEm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:04:42 -0400
+	with ESMTP id S1755293AbZHYPES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:04:18 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Switch this to a Linux like naming as it occurs all over.
+
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et131x_adapter.h |    4 ----
- drivers/staging/et131x/et131x_config.c  |    4 ----
- 2 files changed, 0 insertions(+), 8 deletions(-)
+ drivers/staging/et131x/et1310_jagcore.c |    8 ++++----
+ drivers/staging/et131x/et1310_mac.c     |   32 ++++++++++++++++---------------
+ drivers/staging/et131x/et1310_phy.c     |    4 ++--
+ drivers/staging/et131x/et1310_pm.c      |   10 +++++-----
+ drivers/staging/et131x/et1310_rx.c      |   26 +++++++++++++------------
+ drivers/staging/et131x/et1310_tx.c      |   20 ++++++++++---------
+ drivers/staging/et131x/et131x_adapter.h |    2 +-
+ drivers/staging/et131x/et131x_debug.c   |    8 ++++----
+ drivers/staging/et131x/et131x_initpci.c |   20 ++++++++++---------
+ drivers/staging/et131x/et131x_isr.c     |    6 +++---
+ drivers/staging/et131x/et131x_netdev.c  |    8 ++++----
+ 11 files changed, 72 insertions(+), 72 deletions(-)
 
 
+diff --git a/drivers/staging/et131x/et1310_jagcore.c b/drivers/staging/et131x/et1310_jagcore.c
+index 3b4b273..4032589 100644
+--- a/drivers/staging/et131x/et1310_jagcore.c
++++ b/drivers/staging/et131x/et1310_jagcore.c
+@@ -101,7 +101,7 @@ extern dbg_info_t *et131x_dbginfo;
+  */
+ void ConfigGlobalRegs(struct et131x_adapter *etdev)
+ {
+-	struct _GLOBAL_t __iomem *pGbl = &etdev->CSRAddress->global;
++	struct _GLOBAL_t __iomem *pGbl = &etdev->regs->global;
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+@@ -188,7 +188,7 @@ void ConfigMMCRegs(struct et131x_adapter *etdev)
+ 	mmc_ctrl.bits.arb_disable = 0x0;
+ 	mmc_ctrl.bits.mmc_enable = 0x1;
+ 
+-	writel(mmc_ctrl.value, &etdev->CSRAddress->mmc.mmc_ctrl.value);
++	writel(mmc_ctrl.value, &etdev->regs->mmc.mmc_ctrl.value);
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+ }
+@@ -207,12 +207,12 @@ void et131x_enable_interrupts(struct et131x_adapter *adapter)
+ 		MaskValue |= 0x10000;
+ 
+ 	adapter->CachedMaskValue.value = MaskValue;
+-	writel(MaskValue, &adapter->CSRAddress->global.int_mask.value);
++	writel(MaskValue, &adapter->regs->global.int_mask.value);
+ }
+ 
+ void et131x_disable_interrupts(struct et131x_adapter *adapter)
+ {
+ 	/* Disable all global interrupts */
+ 	adapter->CachedMaskValue.value = INT_MASK_DISABLE;
+-	writel(INT_MASK_DISABLE, &adapter->CSRAddress->global.int_mask.value);
++	writel(INT_MASK_DISABLE, &adapter->regs->global.int_mask.value);
+ }
+diff --git a/drivers/staging/et131x/et1310_mac.c b/drivers/staging/et131x/et1310_mac.c
+index 4cb4cfc..9461a2d 100644
+--- a/drivers/staging/et131x/et1310_mac.c
++++ b/drivers/staging/et131x/et1310_mac.c
+@@ -103,7 +103,7 @@ extern dbg_info_t *et131x_dbginfo;
+  */
+ void ConfigMACRegs1(struct et131x_adapter *etdev)
+ {
+-	struct _MAC_t __iomem *pMac = &etdev->CSRAddress->mac;
++	struct _MAC_t __iomem *pMac = &etdev->regs->mac;
+ 	MAC_STATION_ADDR1_t station1;
+ 	MAC_STATION_ADDR2_t station2;
+ 	MAC_IPG_t ipg;
+@@ -182,7 +182,7 @@ void ConfigMACRegs1(struct et131x_adapter *etdev)
+ void ConfigMACRegs2(struct et131x_adapter *etdev)
+ {
+ 	int32_t delay = 0;
+-	struct _MAC_t __iomem *pMac = &etdev->CSRAddress->mac;
++	struct _MAC_t __iomem *pMac = &etdev->regs->mac;
+ 	MAC_CFG1_t cfg1;
+ 	MAC_CFG2_t cfg2;
+ 	MAC_IF_CTRL_t ifctrl;
+@@ -190,7 +190,7 @@ void ConfigMACRegs2(struct et131x_adapter *etdev)
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+-	ctl.value = readl(&etdev->CSRAddress->txmac.ctl.value);
++	ctl.value = readl(&etdev->regs->txmac.ctl.value);
+ 	cfg1.value = readl(&pMac->cfg1.value);
+ 	cfg2.value = readl(&pMac->cfg2.value);
+ 	ifctrl.value = readl(&pMac->if_ctrl.value);
+@@ -269,7 +269,7 @@ void ConfigMACRegs2(struct et131x_adapter *etdev)
+ 	/* Enable TXMAC */
+ 	ctl.bits.txmac_en = 0x1;
+ 	ctl.bits.fc_disable = 0x1;
+-	writel(ctl.value, &etdev->CSRAddress->txmac.ctl.value);
++	writel(ctl.value, &etdev->regs->txmac.ctl.value);
+ 
+ 	/* Ready to start the RXDMA/TXDMA engine */
+ 	if (!MP_TEST_FLAG(etdev, fMP_ADAPTER_LOWER_POWER)) {
+@@ -285,7 +285,7 @@ void ConfigMACRegs2(struct et131x_adapter *etdev)
+ 
+ void ConfigRxMacRegs(struct et131x_adapter *etdev)
+ {
+-	struct _RXMAC_t __iomem *pRxMac = &etdev->CSRAddress->rxmac;
++	struct _RXMAC_t __iomem *pRxMac = &etdev->regs->rxmac;
+ 	RXMAC_WOL_SA_LO_t sa_lo;
+ 	RXMAC_WOL_SA_HI_t sa_hi;
+ 	RXMAC_PF_CTRL_t pf_ctrl = { 0 };
+@@ -427,7 +427,7 @@ void ConfigRxMacRegs(struct et131x_adapter *etdev)
+ 
+ void ConfigTxMacRegs(struct et131x_adapter *etdev)
+ {
+-	struct _TXMAC_t __iomem *pTxMac = &etdev->CSRAddress->txmac;
++	struct _TXMAC_t __iomem *pTxMac = &etdev->regs->txmac;
+ 	TXMAC_CF_PARAM_t Local;
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+@@ -450,7 +450,7 @@ void ConfigTxMacRegs(struct et131x_adapter *etdev)
+ void ConfigMacStatRegs(struct et131x_adapter *etdev)
+ {
+ 	struct _MAC_STAT_t __iomem *pDevMacStat =
+-		&etdev->CSRAddress->macStat;
++		&etdev->regs->macStat;
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+@@ -581,7 +581,7 @@ void UpdateMacStatHostCounters(struct et131x_adapter *etdev)
+ {
+ 	struct _ce_stats_t *stats = &etdev->Stats;
+ 	struct _MAC_STAT_t __iomem *pDevMacStat =
+-		&etdev->CSRAddress->macStat;
++		&etdev->regs->macStat;
+ 
+ 	stats->collisions += readl(&pDevMacStat->TNcl);
+ 	stats->first_collision += readl(&pDevMacStat->TScl);
+@@ -619,11 +619,11 @@ void HandleMacStatInterrupt(struct et131x_adapter *etdev)
+ 	/* Read the interrupt bits from the register(s).  These are Clear On
+ 	 * Write.
+ 	 */
+-	Carry1.value = readl(&etdev->CSRAddress->macStat.Carry1.value);
+-	Carry2.value = readl(&etdev->CSRAddress->macStat.Carry2.value);
++	Carry1.value = readl(&etdev->regs->macStat.Carry1.value);
++	Carry2.value = readl(&etdev->regs->macStat.Carry2.value);
+ 
+-	writel(Carry1.value, &etdev->CSRAddress->macStat.Carry1.value);
+-	writel(Carry2.value, &etdev->CSRAddress->macStat.Carry2.value);
++	writel(Carry1.value, &etdev->regs->macStat.Carry1.value);
++	writel(Carry2.value, &etdev->regs->macStat.Carry2.value);
+ 
+ 	/* We need to do update the host copy of all the MAC_STAT counters.
+ 	 * For each counter, check it's overflow bit.  If the overflow bit is
+@@ -665,7 +665,7 @@ void HandleMacStatInterrupt(struct et131x_adapter *etdev)
+ 
+ void SetupDeviceForMulticast(struct et131x_adapter *etdev)
+ {
+-	struct _RXMAC_t __iomem *rxmac = &etdev->CSRAddress->rxmac;
++	struct _RXMAC_t __iomem *rxmac = &etdev->regs->rxmac;
+ 	uint32_t nIndex;
+ 	uint32_t result;
+ 	uint32_t hash1 = 0;
+@@ -718,7 +718,7 @@ void SetupDeviceForMulticast(struct et131x_adapter *etdev)
+ 	}
+ 
+ 	/* Write out the new hash to the device */
+-	pm_csr.value = readl(&etdev->CSRAddress->global.pm_csr.value);
++	pm_csr.value = readl(&etdev->regs->global.pm_csr.value);
+ 	if (pm_csr.bits.pm_phy_sw_coma == 0) {
+ 		writel(hash1, &rxmac->multi_hash1);
+ 		writel(hash2, &rxmac->multi_hash2);
+@@ -731,7 +731,7 @@ void SetupDeviceForMulticast(struct et131x_adapter *etdev)
+ 
+ void SetupDeviceForUnicast(struct et131x_adapter *etdev)
+ {
+-	struct _RXMAC_t __iomem *rxmac = &etdev->CSRAddress->rxmac;
++	struct _RXMAC_t __iomem *rxmac = &etdev->regs->rxmac;
+ 	RXMAC_UNI_PF_ADDR1_t uni_pf1;
+ 	RXMAC_UNI_PF_ADDR2_t uni_pf2;
+ 	RXMAC_UNI_PF_ADDR3_t uni_pf3;
+@@ -763,7 +763,7 @@ void SetupDeviceForUnicast(struct et131x_adapter *etdev)
+ 	uni_pf1.bits.addr1_5 = etdev->CurrentAddress[4];
+ 	uni_pf1.bits.addr1_6 = etdev->CurrentAddress[5];
+ 
+-	pm_csr.value = readl(&etdev->CSRAddress->global.pm_csr.value);
++	pm_csr.value = readl(&etdev->regs->global.pm_csr.value);
+ 	if (pm_csr.bits.pm_phy_sw_coma == 0) {
+ 		writel(uni_pf1.value, &rxmac->uni_pf_addr1.value);
+ 		writel(uni_pf2.value, &rxmac->uni_pf_addr2.value);
+diff --git a/drivers/staging/et131x/et1310_phy.c b/drivers/staging/et131x/et1310_phy.c
+index 63a23b9..d0a3c83 100644
+--- a/drivers/staging/et131x/et1310_phy.c
++++ b/drivers/staging/et131x/et1310_phy.c
+@@ -118,7 +118,7 @@ static int et131x_xcvr_init(struct et131x_adapter *adapter);
+ int PhyMiRead(struct et131x_adapter *adapter, uint8_t xcvrAddr,
+ 	      uint8_t xcvrReg, uint16_t *value)
+ {
+-	struct _MAC_t __iomem *mac = &adapter->CSRAddress->mac;
++	struct _MAC_t __iomem *mac = &adapter->regs->mac;
+ 	int status = 0;
+ 	uint32_t delay;
+ 	MII_MGMT_ADDR_t miiAddr;
+@@ -202,7 +202,7 @@ int PhyMiRead(struct et131x_adapter *adapter, uint8_t xcvrAddr,
+  */
+ int MiWrite(struct et131x_adapter *adapter, uint8_t xcvrReg, uint16_t value)
+ {
+-	struct _MAC_t __iomem *mac = &adapter->CSRAddress->mac;
++	struct _MAC_t __iomem *mac = &adapter->regs->mac;
+ 	int status = 0;
+ 	uint8_t xcvrAddr = adapter->Stats.xcvr_addr;
+ 	uint32_t delay;
+diff --git a/drivers/staging/et131x/et1310_pm.c b/drivers/staging/et131x/et1310_pm.c
+index 848d6b0..846c80b 100644
+--- a/drivers/staging/et131x/et1310_pm.c
++++ b/drivers/staging/et131x/et1310_pm.c
+@@ -125,7 +125,7 @@ void EnablePhyComa(struct et131x_adapter *etdev)
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+-	GlobalPmCSR.value = readl(&etdev->CSRAddress->global.pm_csr.value);
++	GlobalPmCSR.value = readl(&etdev->regs->global.pm_csr.value);
+ 
+ 	/* Save the GbE PHY speed and duplex modes. Need to restore this
+ 	 * when cable is plugged back in
+@@ -144,11 +144,11 @@ void EnablePhyComa(struct et131x_adapter *etdev)
+ 	GlobalPmCSR.bits.pm_sysclk_gate = 0;
+ 	GlobalPmCSR.bits.pm_txclk_gate = 0;
+ 	GlobalPmCSR.bits.pm_rxclk_gate = 0;
+-	writel(GlobalPmCSR.value, &etdev->CSRAddress->global.pm_csr.value);
++	writel(GlobalPmCSR.value, &etdev->regs->global.pm_csr.value);
+ 
+ 	/* Program gigE PHY in to Coma mode */
+ 	GlobalPmCSR.bits.pm_phy_sw_coma = 1;
+-	writel(GlobalPmCSR.value, &etdev->CSRAddress->global.pm_csr.value);
++	writel(GlobalPmCSR.value, &etdev->regs->global.pm_csr.value);
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+ }
+@@ -163,14 +163,14 @@ void DisablePhyComa(struct et131x_adapter *etdev)
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+-	GlobalPmCSR.value = readl(&etdev->CSRAddress->global.pm_csr.value);
++	GlobalPmCSR.value = readl(&etdev->regs->global.pm_csr.value);
+ 
+ 	/* Disable phy_sw_coma register and re-enable JAGCore clocks */
+ 	GlobalPmCSR.bits.pm_sysclk_gate = 1;
+ 	GlobalPmCSR.bits.pm_txclk_gate = 1;
+ 	GlobalPmCSR.bits.pm_rxclk_gate = 1;
+ 	GlobalPmCSR.bits.pm_phy_sw_coma = 0;
+-	writel(GlobalPmCSR.value, &etdev->CSRAddress->global.pm_csr.value);
++	writel(GlobalPmCSR.value, &etdev->regs->global.pm_csr.value);
+ 
+ 	/* Restore the GbE PHY speed and duplex modes;
+ 	 * Reset JAGCore; re-configure and initialize JAGCore and gigE PHY
+diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
+index 6423552..c60e05e 100644
+--- a/drivers/staging/et131x/et1310_rx.c
++++ b/drivers/staging/et131x/et1310_rx.c
+@@ -680,7 +680,7 @@ void et131x_rfd_resources_free(struct et131x_adapter *adapter, MP_RFD *pMpRfd)
+  */
+ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
+ {
+-	struct _RXDMA_t __iomem *pRxDma = &etdev->CSRAddress->rxdma;
++	struct _RXDMA_t __iomem *pRxDma = &etdev->regs->rxdma;
+ 	struct _rx_ring_t *pRxLocal = &etdev->RxRing;
+ 	PFBR_DESC_t pFbrEntry;
+ 	uint32_t iEntry;
+@@ -817,8 +817,8 @@ void SetRxDmaTimer(struct et131x_adapter *etdev)
+ 	 */
+ 	if ((etdev->uiLinkSpeed == TRUEPHY_SPEED_100MBPS) ||
+ 	    (etdev->uiLinkSpeed == TRUEPHY_SPEED_10MBPS)) {
+-		writel(0, &etdev->CSRAddress->rxdma.max_pkt_time.value);
+-		writel(1, &etdev->CSRAddress->rxdma.num_pkt_done.value);
++		writel(0, &etdev->regs->rxdma.max_pkt_time.value);
++		writel(1, &etdev->regs->rxdma.num_pkt_done.value);
+ 	}
+ }
+ 
+@@ -833,11 +833,11 @@ void et131x_rx_dma_disable(struct et131x_adapter *etdev)
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+ 	/* Setup the receive dma configuration register */
+-	writel(0x00002001, &etdev->CSRAddress->rxdma.csr.value);
+-	csr.value = readl(&etdev->CSRAddress->rxdma.csr.value);
++	writel(0x00002001, &etdev->regs->rxdma.csr.value);
++	csr.value = readl(&etdev->regs->rxdma.csr.value);
+ 	if (csr.bits.halt_status != 1) {
+ 		udelay(5);
+-		csr.value = readl(&etdev->CSRAddress->rxdma.csr.value);
++		csr.value = readl(&etdev->regs->rxdma.csr.value);
+ 		if (csr.bits.halt_status != 1)
+ 			DBG_ERROR(et131x_dbginfo,
+ 				"RX Dma failed to enter halt state. CSR 0x%08x\n",
+@@ -857,7 +857,7 @@ void et131x_rx_dma_enable(struct et131x_adapter *etdev)
+ 
+ 	if (etdev->RegistryPhyLoopbk)
+ 		/* RxDMA is disabled for loopback operation. */
+-		writel(0x1, &etdev->CSRAddress->rxdma.csr.value);
++		writel(0x1, &etdev->regs->rxdma.csr.value);
+ 	else {
+ 	/* Setup the receive dma configuration register for normal operation */
+ 		RXDMA_CSR_t csr = { 0 };
+@@ -878,12 +878,12 @@ void et131x_rx_dma_enable(struct et131x_adapter *etdev)
+ 		else if (etdev->RxRing.Fbr0BufferSize == 1024)
+ 			csr.bits.fbr0_size = 3;
+ #endif
+-		writel(csr.value, &etdev->CSRAddress->rxdma.csr.value);
++		writel(csr.value, &etdev->regs->rxdma.csr.value);
+ 
+-		csr.value = readl(&etdev->CSRAddress->rxdma.csr.value);
++		csr.value = readl(&etdev->regs->rxdma.csr.value);
+ 		if (csr.bits.halt_status != 0) {
+ 			udelay(5);
+-			csr.value = readl(&etdev->CSRAddress->rxdma.csr.value);
++			csr.value = readl(&etdev->regs->rxdma.csr.value);
+ 			if (csr.bits.halt_status != 0) {
+ 				DBG_ERROR(et131x_dbginfo,
+ 					"RX Dma failed to exit halt state.  CSR 0x%08x\n",
+@@ -978,7 +978,7 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
+ 	}
+ 
+ 	writel(pRxLocal->local_psr_full.value,
+-	       &etdev->CSRAddress->rxdma.psr_full_offset.value);
++	       &etdev->regs->rxdma.psr_full_offset.value);
+ 
+ #ifndef USE_FBR0
+ 	if (ringIndex != 1) {
+@@ -1273,7 +1273,7 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
+ 	if ((PacketArrayCount == NUM_PACKETS_HANDLED) || TempUnfinishedRec) {
+ 		etdev->RxRing.UnfinishedReceives = true;
+ 		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
+-		       &etdev->CSRAddress->global.watchdog_timer);
++		       &etdev->regs->global.watchdog_timer);
+ 	} else {
+ 		/* Watchdog timer will disable itself if appropriate. */
+ 		etdev->RxRing.UnfinishedReceives = false;
+@@ -1290,7 +1290,7 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
+ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
+ {
+ 	struct _rx_ring_t *pRxLocal = &etdev->RxRing;
+-	struct _RXDMA_t __iomem *pRxDma = &etdev->CSRAddress->rxdma;
++	struct _RXDMA_t __iomem *pRxDma = &etdev->regs->rxdma;
+ 	uint16_t bi = pMpRfd->iBufferIndex;
+ 	uint8_t ri = pMpRfd->iRingIndex;
+ 	unsigned long flags;
+diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
+index 43f5b62..0dbb824 100644
+--- a/drivers/staging/et131x/et1310_tx.c
++++ b/drivers/staging/et131x/et1310_tx.c
+@@ -249,7 +249,7 @@ void et131x_tx_dma_memory_free(struct et131x_adapter *adapter)
+  */
+ void ConfigTxDmaRegs(struct et131x_adapter *etdev)
+ {
+-	struct _TXDMA_t __iomem *pTxDma = &etdev->CSRAddress->txdma;
++	struct _TXDMA_t __iomem *pTxDma = &etdev->regs->txdma;
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+@@ -289,7 +289,7 @@ void et131x_tx_dma_disable(struct et131x_adapter *etdev)
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+ 	/* Setup the tramsmit dma configuration register */
+-	writel(0x101, &etdev->CSRAddress->txdma.csr.value);
++	writel(0x101, &etdev->regs->txdma.csr.value);
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+ }
+@@ -306,7 +306,7 @@ void et131x_tx_dma_enable(struct et131x_adapter *etdev)
+ 
+ 	if (etdev->RegistryPhyLoopbk) {
+ 		/* TxDMA is disabled for loopback operation. */
+-		writel(0x101, &etdev->CSRAddress->txdma.csr.value);
++		writel(0x101, &etdev->regs->txdma.csr.value);
+ 	} else {
+ 		TXDMA_CSR_t csr = { 0 };
+ 
+@@ -316,7 +316,7 @@ void et131x_tx_dma_enable(struct et131x_adapter *etdev)
+ 		csr.bits.sngl_epkt_mode = 1;
+ 		csr.bits.halt = 0;
+ 		csr.bits.cache_thrshld = etdev->RegistryDMACache;
+-		writel(csr.value, &etdev->CSRAddress->txdma.csr.value);
++		writel(csr.value, &etdev->regs->txdma.csr.value);
+ 	}
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+@@ -788,14 +788,14 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
+ 
+ 	/* Write the new write pointer back to the device. */
+ 	writel(etdev->TxRing.txDmaReadyToSend.value,
+-	       &etdev->CSRAddress->txdma.service_request.value);
++	       &etdev->regs->txdma.service_request.value);
+ 
+ 	/* For Gig only, we use Tx Interrupt coalescing.  Enable the software
+ 	 * timer to wake us up if this packet isn't followed by N more.
+ 	 */
+ 	if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
+ 		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
+-		       &etdev->CSRAddress->global.watchdog_timer);
++		       &etdev->regs->global.watchdog_timer);
+ 	}
+ 
+ 	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
+@@ -837,7 +837,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
+ 	DBG_TX_ENTER(et131x_dbginfo);
+ 
+ 	ServiceComplete.value =
+-		readl(&etdev->CSRAddress->txdma.NewServiceComplete.value);
++		readl(&etdev->regs->txdma.NewServiceComplete.value);
+ 
+ 	/*
+ 	 * Attempt to fix TWO hardware bugs:
+@@ -1202,7 +1202,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
+ 
+ 	/* Write the new write pointer back to the device. */
+ 	writel(etdev->TxRing.txDmaReadyToSend.value,
+-	       &etdev->CSRAddress->txdma.service_request.value);
++	       &etdev->regs->txdma.service_request.value);
+ 
+ #ifdef CONFIG_ET131X_DEBUG
+ 	DumpDeviceBlock(DBG_TX_ON, etdev, 1);
+@@ -1213,7 +1213,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
+ 	 */
+ 	if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
+ 		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
+-		       &etdev->CSRAddress->global.watchdog_timer);
++		       &etdev->regs->global.watchdog_timer);
+ 	}
+ 
+ 	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
+@@ -1434,7 +1434,7 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
+ 	PMP_TCB pMpTcb;
+ 
+ 	ServiceComplete.value =
+-	    readl(&etdev->CSRAddress->txdma.NewServiceComplete.value);
++	    readl(&etdev->regs->txdma.NewServiceComplete.value);
+ 
+ 	/* Has the ring wrapped?  Process any descriptors that do not have
+ 	 * the same "wrap" indicator as the current completion indicator
 diff --git a/drivers/staging/et131x/et131x_adapter.h b/drivers/staging/et131x/et131x_adapter.h
-index 8e811af..a7402a3 100644
+index 69509d7..70a90b8 100644
 --- a/drivers/staging/et131x/et131x_adapter.h
 +++ b/drivers/staging/et131x/et131x_adapter.h
-@@ -253,8 +253,6 @@ struct et131x_adapter {
+@@ -248,7 +248,7 @@ struct et131x_adapter {
+ 	TXMAC_TXTEST_t TxMacTest;
+ 
+ 	/* Pointer to the device's PCI register space */
+-	ADDRESS_MAP_t __iomem *CSRAddress;
++	ADDRESS_MAP_t __iomem *regs;
+ 
  	/* Registry parameters */
  	u8 SpeedDuplex;		/* speed/duplex */
- 	eFLOW_CONTROL_t RegistryFlowControl;	/* for 802.3x flow control */
--	u8 RegistryWOLMatch;	/* Enable WOL pattern-matching */
--	u8 RegistryWOLLink;	/* Link state change is independant */
- 	u8 RegistryPhyComa;	/* Phy Coma mode enable/disable */
+diff --git a/drivers/staging/et131x/et131x_debug.c b/drivers/staging/et131x/et131x_debug.c
+index 2730b9c..4346c82 100644
+--- a/drivers/staging/et131x/et131x_debug.c
++++ b/drivers/staging/et131x/et131x_debug.c
+@@ -110,7 +110,7 @@ extern dbg_info_t *et131x_dbginfo;
+  */
+ void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
+ {
+-	MMC_t __iomem *mmc = &etdev->CSRAddress->mmc;
++	MMC_t __iomem *mmc = &etdev->regs->mmc;
+ 	uint32_t TxQueueAddr;
  
- 	u32 RegistryRxMemEnd;	/* Size of internal rx memory */
-@@ -269,9 +267,7 @@ struct et131x_adapter {
- 	u32 RegistryRxTimeInterval;
+ 	if (DBG_FLAGS(et131x_dbginfo) & dbgLvl) {
+@@ -134,7 +134,7 @@ void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
+ 		}
  
- 	/* Validation helpers */
--	u8 RegistryPMWOL;
- 	u8 RegistryNMIDisable;
--	u32 RegistrySCGain;
- 	u8 RegistryPhyLoopbk;	/* Enable Phy loopback */
+ 		DBG_PRINT("Shadow Pointers 0x%08x\n",
+-			  readl(&etdev->CSRAddress->txmac.shadow_ptr.value));
++			  readl(&etdev->regs->txmac.shadow_ptr.value));
+ 	}
+ }
  
- 	/* Derived from the registry: */
-diff --git a/drivers/staging/et131x/et131x_config.c b/drivers/staging/et131x/et131x_config.c
-index 628d6ad..f8273d1 100644
---- a/drivers/staging/et131x/et131x_config.c
-+++ b/drivers/staging/et131x/et131x_config.c
-@@ -247,8 +247,6 @@ void et131x_config_parse(struct et131x_adapter *etdev)
+@@ -151,7 +151,7 @@ void DumpDeviceBlock(int dbgLvl, struct et131x_adapter *etdev,
+ {
+ 	uint32_t Address1, Address2;
+ 	uint32_t __iomem *BigDevicePointer =
+-		(uint32_t __iomem *) etdev->CSRAddress;
++		(uint32_t __iomem *) etdev->regs;
+ 	const char *BlockNames[NUM_BLOCKS] = {
+ 		"Global", "Tx DMA", "Rx DMA", "Tx MAC",
+ 		"Rx MAC", "MAC", "MAC Stat", "MMC"
+@@ -189,7 +189,7 @@ void DumpDeviceReg(int dbgLvl, struct et131x_adapter *etdev)
+ 	uint32_t Address1, Address2;
+ 	uint32_t Block;
+ 	uint32_t __iomem *BigDevicePointer =
+-		(uint32_t __iomem *) etdev->CSRAddress;
++		(uint32_t __iomem *) etdev->regs;
+ 	uint32_t __iomem *Pointer;
+ 	const char *BlockNames[NUM_BLOCKS] = {
+ 		"Global", "Tx DMA", "Rx DMA", "Tx MAC",
+diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
+index 5485dd7..4d45941 100644
+--- a/drivers/staging/et131x/et131x_initpci.c
++++ b/drivers/staging/et131x/et131x_initpci.c
+@@ -440,7 +440,7 @@ void et131x_error_timer_handler(unsigned long data)
+ 	struct et131x_adapter *etdev = (struct et131x_adapter *) data;
+ 	PM_CSR_t pm_csr;
  
- 	etdev->RegistryVlanTag = PARM_VLAN_TAG_DEF;
- 	etdev->RegistryFlowControl = PARM_FLOW_CTL_DEF;
--	etdev->RegistryWOLLink = PARM_WOL_LINK_DEF;
--	etdev->RegistryWOLMatch = PARM_WOL_MATCH_DEF;
- 	etdev->RegistryJumboPacket = PARM_JUMBO_PKT_DEF;
- 	etdev->RegistryPhyComa = PARM_PHY_COMA_DEF;
- 	etdev->RegistryRxNumBuffers = PARM_RX_NUM_BUFS_DEF;
-@@ -257,8 +255,6 @@ void et131x_config_parse(struct et131x_adapter *etdev)
- 	etdev->RegistryTxTimeInterval = PARM_TX_TIME_INT_DEF;
- 	etdev->RegistryRxMemEnd = PARM_RX_MEM_END_DEF;
- 	etdev->RegistryMACStat = PARM_MAC_STAT_DEF;
--	etdev->RegistrySCGain = PARM_SC_GAIN_DEF;
--	etdev->RegistryPMWOL = PARM_PM_WOL_DEF;
+-	pm_csr.value = readl(&etdev->CSRAddress->global.pm_csr.value);
++	pm_csr.value = readl(&etdev->regs->global.pm_csr.value);
  
- 	if (et131x_nmi_disable != PARM_NMI_DISABLE_DEF)
- 		etdev->RegistryNMIDisable = et131x_nmi_disable;
+ 	if (pm_csr.bits.pm_phy_sw_coma == 0) {
+ 		if (etdev->RegistryMACStat)
+@@ -615,12 +615,12 @@ void et131x_soft_reset(struct et131x_adapter *adapter)
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+ 	/* Disable MAC Core */
+-	writel(0xc00f0000, &adapter->CSRAddress->mac.cfg1.value);
++	writel(0xc00f0000, &adapter->regs->mac.cfg1.value);
+ 
+ 	/* Set everything to a reset value */
+-	writel(0x7F, &adapter->CSRAddress->global.sw_reset.value);
+-	writel(0x000f0000, &adapter->CSRAddress->mac.cfg1.value);
+-	writel(0x00000000, &adapter->CSRAddress->mac.cfg1.value);
++	writel(0x7F, &adapter->regs->global.sw_reset.value);
++	writel(0x000f0000, &adapter->regs->mac.cfg1.value);
++	writel(0x00000000, &adapter->regs->mac.cfg1.value);
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+ }
+@@ -741,7 +741,7 @@ void __devexit et131x_pci_remove(struct pci_dev *pdev)
+ 	/* Perform device cleanup */
+ 	unregister_netdev(netdev);
+ 	et131x_adapter_memory_free(adapter);
+-	iounmap(adapter->CSRAddress);
++	iounmap(adapter->regs);
+ 	pci_dev_put(adapter->pdev);
+ 	free_netdev(netdev);
+ 	pci_release_regions(pdev);
+@@ -915,9 +915,9 @@ int __devinit et131x_pci_setup(struct pci_dev *pdev,
+ 	DBG_TRACE(et131x_dbginfo,
+ 		  "Mapping bus-relative registers to virtual memory...\n");
+ 
+-	adapter->CSRAddress = ioremap_nocache(pci_resource_start(pdev, 0),
++	adapter->regs = ioremap_nocache(pci_resource_start(pdev, 0),
+ 					      pci_resource_len(pdev, 0));
+-	if (adapter->CSRAddress == NULL) {
++	if (adapter->regs == NULL) {
+ 		DBG_ERROR(et131x_dbginfo, "Cannot map device registers\n");
+ 		result = -ENOMEM;
+ 		goto err_free_dev;
+@@ -933,7 +933,7 @@ int __devinit et131x_pci_setup(struct pci_dev *pdev,
+ 		GlobalPmCSR.bits.pm_txclk_gate = 1;
+ 		GlobalPmCSR.bits.pm_rxclk_gate = 1;
+ 		writel(GlobalPmCSR.value,
+-		       &adapter->CSRAddress->global.pm_csr.value);
++		       &adapter->regs->global.pm_csr.value);
+ 	}
+ 
+ 	/* Issue a global reset to the et1310 */
+@@ -1021,7 +1021,7 @@ out:
+ err_mem_free:
+ 	et131x_adapter_memory_free(adapter);
+ err_iounmap:
+-	iounmap(adapter->CSRAddress);
++	iounmap(adapter->regs);
+ err_free_dev:
+ 	pci_dev_put(pdev);
+ 	free_netdev(netdev);
+diff --git a/drivers/staging/et131x/et131x_isr.c b/drivers/staging/et131x/et131x_isr.c
+index f9687b3..478569f 100644
+--- a/drivers/staging/et131x/et131x_isr.c
++++ b/drivers/staging/et131x/et131x_isr.c
+@@ -129,7 +129,7 @@ irqreturn_t et131x_isr(int irq, void *dev_id)
+ 	/* Get a copy of the value in the interrupt status register
+ 	 * so we can process the interrupting section
+ 	 */
+-	status.value = readl(&adapter->CSRAddress->global.int_status.value);
++	status.value = readl(&adapter->regs->global.int_status.value);
+ 
+ 	if (adapter->FlowControl == TxOnly ||
+ 	    adapter->FlowControl == Both) {
+@@ -168,7 +168,7 @@ irqreturn_t et131x_isr(int irq, void *dev_id)
+ 		if (adapter->RxRing.UnfinishedReceives)
+ 			status.bits.rxdma_xfr_done = 1;
+ 		else if (pMpTcb == NULL)
+-			writel(0, &adapter->CSRAddress->global.watchdog_timer);
++			writel(0, &adapter->regs->global.watchdog_timer);
+ 
+ 		status.bits.watchdog_interrupt = 0;
+ #ifdef CONFIG_ET131X_DEBUG
+@@ -214,7 +214,7 @@ void et131x_isr_handler(struct work_struct *work)
+ 	struct et131x_adapter *etdev =
+ 		container_of(work, struct et131x_adapter, task);
+ 	INTERRUPT_t GlobStatus = etdev->Stats.InterruptStatus;
+-	ADDRESS_MAP_t __iomem *iomem = etdev->CSRAddress;
++	ADDRESS_MAP_t __iomem *iomem = etdev->regs;
+ 
+ 	/*
+ 	 * These first two are by far the most common.  Once handled, we clear
+diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
+index 74ba177..fec3f86 100644
+--- a/drivers/staging/et131x/et131x_netdev.c
++++ b/drivers/staging/et131x/et131x_netdev.c
+@@ -393,8 +393,8 @@ int et131x_set_packet_filter(struct et131x_adapter *adapter)
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+-	ctrl.value = readl(&adapter->CSRAddress->rxmac.ctrl.value);
+-	pf_ctrl.value = readl(&adapter->CSRAddress->rxmac.pf_ctrl.value);
++	ctrl.value = readl(&adapter->regs->rxmac.ctrl.value);
++	pf_ctrl.value = readl(&adapter->regs->rxmac.pf_ctrl.value);
+ 
+ 	/* Default to disabled packet filtering.  Enable it in the individual
+ 	 * case statements that require the device to filter something
+@@ -450,8 +450,8 @@ int et131x_set_packet_filter(struct et131x_adapter *adapter)
+ 		 * in the control reg.
+ 		 */
+ 		writel(pf_ctrl.value,
+-		       &adapter->CSRAddress->rxmac.pf_ctrl.value);
+-		writel(ctrl.value, &adapter->CSRAddress->rxmac.ctrl.value);
++		       &adapter->regs->rxmac.pf_ctrl.value);
++		writel(ctrl.value, &adapter->regs->rxmac.ctrl.value);
+ 	}
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
 
