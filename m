@@ -1,78 +1,36 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Tue, 25 Aug 2009 14:49:03 +0800
-Message-ID: <4A93895F.4010708@cn.fujitsu.com>
-References: <4A937EF5.4040505@cn.fujitsu.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Dave Miller's NYLUG paper on Multiqueue
+Date: Tue, 25 Aug 2009 13:02:40 +0530
+Message-ID: <OF183FE24E.2D1BB479-ON6525761D.0029177A-6525761D.0029719F@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754618AbZHYGtf@vger.kernel.org>
-In-Reply-To: <4A937EF5.4040505@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp07.in.ibm.com ([59.145.155.7]:38298 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752342AbZHYHeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 03:34:03 -0400
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id n7P7Y30d026362
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:04:03 +0530
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7P7Y36g381096
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:04:03 +0530
+Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
+	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n7P7Y3gI014543
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:34:03 +1000
+Received: from d23ml172.in.ibm.com (d23ml172.in.ibm.com [9.124.105.37])
+	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVin) with ESMTP id n7P7Y3uo014537
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:34:03 +1000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, the napi's tracepoint works will is depend on
-"DECLARE_TRACE" definiens in include/trace/define_trace.h,
-like below:
 
-#include <trace/events/skb.h>    // include define_trace.h
-#include <trace/events/napi.h>
+I read some time back that this presentation paper would be available
+online, but I haven't been able to locate it till now. Does someone have
+a copy (or link) they can post?
 
-there have error, if we remove "#include <trace/events/skb.h>"
-or include napi.h in the front of include skb.h, It should
-depend on the definiens in include/linux/tracepoint.h and we
-can remove the "DECLARE_TRACE" definiens in
-include/trace/define_trace.h, because "TRACE_EVENT" not use it
+thanks,
 
-Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
----
- include/trace/define_trace.h |    4 ----
- net/core/net-traces.c        |    4 +++-
- 2 files changed, 3 insertions(+), 5 deletions(-)
+- KK
 
-diff --git a/include/trace/define_trace.h b/include/trace/define_trace.h
-index f7a7ae1..76e93bf 100644
---- a/include/trace/define_trace.h
-+++ b/include/trace/define_trace.h
-@@ -26,10 +26,6 @@
- #define TRACE_EVENT(name, proto, args, tstruct, assign, print)	\
- 	DEFINE_TRACE(name)
- 
--#undef DECLARE_TRACE
--#define DECLARE_TRACE(name, proto, args)	\
--	DEFINE_TRACE(name)
--
- #undef TRACE_INCLUDE
- #undef __TRACE_INCLUDE
- 
-diff --git a/net/core/net-traces.c b/net/core/net-traces.c
-index f1e982c..42bda72 100644
---- a/net/core/net-traces.c
-+++ b/net/core/net-traces.c
-@@ -19,13 +19,15 @@
- #include <linux/workqueue.h>
- #include <linux/netlink.h>
- #include <linux/net_dropmon.h>
-+#include <linux/tracepoint.h>
- 
- #include <asm/unaligned.h>
- #include <asm/bitops.h>
- 
- #define CREATE_TRACE_POINTS
- #include <trace/events/skb.h>
--#include <trace/events/napi.h>
-+
-+DEFINE_TRACE(napi_poll);
- 
- EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
- 
--- 
-1.6.1.2
