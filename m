@@ -1,53 +1,78 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: iproute2 / tbf with large burst seems broken again
-Date: Tue, 25 Aug 2009 09:00:35 +0000
-Message-ID: <20090825090035.GB7879@ff.dom.local>
-References: <20090825062203.GA5381@ff.dom.local> <200908251034.09581.denys@visp.net.lb> <20090825084306.GA7879@ff.dom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+From: Chunbo Luo <chunbo.luo@windriver.com>
+Subject: [PATCH v3] sctp: fix the check for path failure detection
+Date: Tue, 25 Aug 2009 17:07:59 +0800
+Message-ID: <1251191279-1764-1-git-send-email-chunbo.luo@windriver.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chunbo.luo@windriver.com,
+	yjwei@cn.fujitsu.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:58436 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751682AbZHYJAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 05:00:39 -0400
-Received: by bwz19 with SMTP id 19so1922300bwz.37
-        for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 02:00:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20090825084306.GA7879@ff.dom.local>
+Received: from mail.windriver.com ([147.11.1.11]:51229 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751156AbZHYJIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 05:08:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2009 at 08:43:06AM +0000, Jarek Poplawski wrote:
-...
-> since these 64 bits will be needed soon for higher rates anyway, I
-> guess we could try some change like the patch below, if you find it
-> works for you (I didn't test it yet.)
+The transport error count should be incremented when the the T3-rtx
+timer expires or an outstanding HB is not acknowledged. In order to
+avoid sending out an extra HB before marking the transport DOWN, the
+path failure detection should be done before sending out HB.
 
-Hmm... Don't bother testing it! There is needed something more...
+Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/sctp/sm_sideeffect.c |    3 ++-
+ net/sctp/sm_statefuns.c  |    8 ++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-Jarek P.
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 86426aa..fb723dd 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+ 		asoc->overall_error_count++;
+ 
+ 	if (transport->state != SCTP_INACTIVE &&
+-	    (transport->error_count++ >= transport->pathmaxrxt)) {
++	    (transport->error_count >= transport->pathmaxrxt)) {
+ 		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+ 					 " transport IP: port:%d failed.\n",
+ 					 asoc,
+@@ -468,6 +468,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+ 	 * that indicates that we have an outstanding HB.
+ 	 */
+ 	if (!is_hb || transport->hb_sent) {
++		transport->error_count++;
+ 		transport->last_rto = transport->rto;
+ 		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
+ 	}
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 7288192..7f77099 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -981,10 +981,6 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+ 	 */
+ 
+ 	if (transport->param_flags & SPP_HB_ENABLE) {
+-		if (SCTP_DISPOSITION_NOMEM ==
+-				sctp_sf_heartbeat(ep, asoc, type, arg,
+-						  commands))
+-			return SCTP_DISPOSITION_NOMEM;
+ 		/* Set transport error counter and association error counter
+ 		 * when sending heartbeat.
+ 		 */
+@@ -992,6 +988,10 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+ 				SCTP_TRANSPORT(transport));
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_HB_SENT,
+ 				SCTP_TRANSPORT(transport));
++		if (SCTP_DISPOSITION_NOMEM ==
++				sctp_sf_heartbeat(ep, asoc, type, arg,
++						  commands))
++			return SCTP_DISPOSITION_NOMEM;
+ 	}
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMER_UPDATE,
+ 			SCTP_TRANSPORT(transport));
+-- 
+1.6.4
 
-> ---
-> 
->  net/sched/sch_tbf.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index e22dfe8..2c74450 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -160,8 +160,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
->  
->  	if (skb) {
->  		psched_time_t now;
-> -		long toks;
-> -		long ptoks = 0;
-> +		long long toks;
-> +		long long ptoks = 0;
->  		unsigned int len = qdisc_pkt_len(skb);
->  
->  		now = psched_get_time();
-> 
-> 
