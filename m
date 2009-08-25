@@ -1,40 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bridge] VLANs and bridge
-Date: Tue, 25 Aug 2009 16:00:44 +0200
-Message-ID: <4A93EE8C.6040008@trash.net>
-References: <OFC5BA9A4A.DCCE8D0D-ONC125761A.004A7620-C125761A.004BEA17@transmode.se> <4A9001E3.6060506@superduper.net> <OF2C06F138.1BC279AE-ONC125761A.0054117B-C125761A.0055C6F1@LocalDomain> <OF9BD07CB5.A2197AEA-ONC125761A.005AE004-C125761A.005B662E@transmode.se> <4A9026EA.9020404@superduper.net> <OF7400A5E8.F4AC001F-ONC125761C.00674A25-C125761C.00679758@transmode.se>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: TCP keepalive timer problem
+Date: Tue, 25 Aug 2009 16:04:54 +0200
+Message-ID: <87fxbgf0qh.fsf@basil.nowhere.org>
+References: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Simon Barber <simon@superduper.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: <Li_Xin2@emc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46840 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752906AbZHYOAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 10:00:45 -0400
-In-Reply-To: <OF7400A5E8.F4AC001F-ONC125761C.00674A25-C125761C.00679758@transmode.se>
+Received: from one.firstfloor.org ([213.235.205.2]:59651 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754869AbZHYOEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 10:04:54 -0400
+In-Reply-To: <0939B589FC103041945B9F13274963E303B1A9D4@CORPUSMX90A.corp.emc.com> (Li Xin2's message of "Tue, 25 Aug 2009 04:32:45 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund wrote:
-> Simon Barber <simon@superduper.net> wrote on 22/08/2009 19:12:10:
->> Looking through B.1.3 it looks like the patch would need some
->> enhancement. It provides a good basis - handling tagging/untagging and
->> filtering, but would need a way to specify the untagged vlan separately
->> for in and out.
-> 
-> I see. Perhaps the VLAN maintainer(CC:ed) can comment too. Especially about extending
-> the VLAN code to allowed several VLANs in one interface?
+<Li_Xin2@emc.com> writes:
 
-Just accepting additional VIDs on one VLAN device should be
-a relatively trivial change, all you need to do is call
-vlan_group_set_device() with the additional VIDs.
+[cc netdev]
 
-I'd suggest to add something similar to the QoS-mapping lists
-in vlan_netlink.c for the additional VIDs.
+> Greetings,
+>
+> I found one problem in Linux TCP keepalive timer processing, after
+> searching on google, I found Daniel Stempel reported the same problem in
+> 2007 (http://lkml.indiana.edu/hypermail/linux/kernel/0702.2/1136.html),
+> but got no answer. So I have to reraise it.
+>
+> Can anyone help answer this two-years long question?
 
+I think the idea behind the tcp_keepalive_timer check referrenced in the 
+other mail is: when there are outstanding non acked packets then 
+the normal retransmit timer will do keep alive because it will
+retransmit and retransmit in exponential backoff and eventually notice 
+something is wrong.
 
+The obvious hole is that if the keepalive is shorter than the worst
+case retransmit timeout then you'll have to wait for the longer
+timeout.  I presume that's what is happening for you? You set the 
+keep alive timeout very low and expect the timeout to be very low,
+but it's 30+mins (default retransmit timeout)?
 
-
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
