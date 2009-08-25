@@ -1,51 +1,34 @@
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Subject: Re: Fw: Build failure on linux-next master branch
-Date: Tue, 25 Aug 2009 10:57:11 +1000
-Message-ID: <20090825105711.b9d85e89.sfr@canb.auug.org.au>
-References: <20090825093707.13bf8c49.sfr@canb.auug.org.au>
-	<1251157115.2950.85.camel@localhost.localdomain>
+From: Jesse Barnes <jesse.barnes@intel.com>
+Subject: Re: [linux-next PATCH] pci: add update 82576 device ids to SR-IOV
+ quirks list
+Date: Mon, 24 Aug 2009 18:10:04 -0700
+Message-ID: <20090824181004.7ab46db5@jbarnes-g45>
+References: <20090813235748.20633.15920.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__25_Aug_2009_10_57_11_+1000_KwZTcKVfDjr623ED"
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1251157115.2950.85.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20090813235748.20633.15920.stgit@localhost.localdomain>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__25_Aug_2009_10_57_11_+1000_KwZTcKVfDjr623ED
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, 13 Aug 2009 16:57:49 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-Hi Marcel,
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch adds the most recent additions to the list of 82576 device
+> IDs to the list of devices needing the SR-IOV quirk.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-On Mon, 24 Aug 2009 16:38:35 -0700 Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wr=
-ote:
->
-> just pushed a fix from Randy to bluetooth-next-2.6 tree. The
-> CONFIG_L2CAP was missing a select CRC16.
+Applied to my linux-next branch, thanks.
 
-Thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__25_Aug_2009_10_57_11_+1000_KwZTcKVfDjr623ED
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkqTNucACgkQjjKRsyhoI8y+PQCfQKsHY2vAnRMLyZNfY8d1qOE/
-ZgcAn10sj6wuhACXwyIctocxkjFSAJ/G
-=xdXg
------END PGP SIGNATURE-----
-
---Signature=_Tue__25_Aug_2009_10_57_11_+1000_KwZTcKVfDjr623ED--
+-- 
+Jesse Barnes, Intel Open Source Technology Center
