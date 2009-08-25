@@ -1,53 +1,132 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: iproute2 / tbf with large burst seems broken again
-Date: Tue, 25 Aug 2009 06:22:03 +0000
-Message-ID: <20090825062203.GA5381@ff.dom.local>
-References: <200908250237.05017.denys@visp.net.lb>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce
+	primary_lazy option
+Date: Tue, 25 Aug 2009 08:43:52 +0200
+Message-ID: <20090825064351.GA3426@psychotron.englab.brq.redhat.com>
+References: <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr> <20090824111619.GC4018@psychotron.englab.brq.redhat.com> <4A92ACA6.7070600@free.fr> <20090824152002.GD4018@psychotron.englab.brq.redhat.com> <697.1251135317@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
+	davem@davemloft.net, bonding-devel@lists.sourceforge.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f217.google.com ([209.85.220.217]:55276 "EHLO
-	mail-fx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754292AbZHYGWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 02:22:07 -0400
-Received: by fxm17 with SMTP id 17so1859882fxm.37
-        for <netdev@vger.kernel.org>; Mon, 24 Aug 2009 23:22:08 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:25009 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754216AbZHYGoL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2009 02:44:11 -0400
 Content-Disposition: inline
-In-Reply-To: <200908250237.05017.denys@visp.net.lb>
+In-Reply-To: <697.1251135317@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25-08-2009 01:37, Denys Fedoryschenko wrote:
-> Found issue, it seems tc_core_time2tick will overflow with increased 
-> resolution on large bucket values. But no idea how to fix it :-(
-> 
-> I add a warning, something like
->  unsigned tc_core_time2tick(unsigned time)
->  {
-> +       long long temp = time*tick_in_usec;
-> +       if (temp > INT_MAX)
-> +           printf("tc_core_time2tick() overflow!\n");
->         return time*tick_in_usec;
->  }
-> 
-> Maybe it is good to add in iproute2 mainstream, so user will be warned if 
-> buffer set too large? (and it will not set incorrect values, that lead to 
-> unpredictable results.
+Mon, Aug 24, 2009 at 07:35:17PM CEST, fubar@us.ibm.com wrote:
+>Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>>Mon, Aug 24, 2009 at 05:07:18PM CEST, nicolas.2p.debian@free.fr wrote:
+>>> Jiri Pirko wrote:
+>>>> Thu, Aug 20, 2009 at 02:40:07PM CEST, nicolas.2p.debian@free.fr wrote:
+>>> [--cut--]
+>>>>> I suggest that instead of having a per bond "primary_lazy" option, we
+>>>>> define a per slave option, describing whether this particular slave is
+>>>>> "sticky when active" or not.
+>>>>>
+>>>>> The above setup would become :
+>>>>>
+>>>>> echo 1 > /sys/class/net/eth0/bonding/sticky_active
+>>>>> echo 1 > /sys/class/net/eth1/bonding/sticky_active
+>>>>> echo 0 > /sys/class/net/eth2/bonding/sticky_active
+>>>>> echo eth0 > /sys/class/net/bond0/bonding/primary
+>>>>>
+>>>>> Or may be better, keeping the "weight" idea in mind, a per slave option
+>>>>> "active_weight" that gives the weight of the slave, *when active*.
+>>>>>
+>>>>> The effective weight of a slave would become :
+>>>>>
+>>>>> effective_slave =
+>>>>> (is_active ? user_supplied_active_weight ? user_supplied_weight) *
+>>>>> natural_weight
+>>>>>
+>>>>> # Prefer eth0, then one of eth1 or eth2, then eth3.
+>>>>> echo 1000 > /sys/class/net/eth0/bonding/weight
+>>>>> echo 999 > /sys/class/net/eth1/bonding/weight
+>>>>> echo 999 > /sys/class/net/eth2/bonding/weight
+>>>>> echo 10 > /sys/class/net/eth3/bonding/weight
+>>>>>
+>>>>> # Do not switch back to primary eth0 if eth1 or eth2 is active.
+>>>>> echo 1000 > /sys/class/net/eth1/bonding/active_weight
+>>>>> echo 1000 > /sys/class/net/eth2/bonding/active_weight
+>>>>>
+>>>>> Every time one changes the user_supplied_weight, then
+>>>>> user_supplied_active_weight must be reset to the same value. This 
+>>>>> way,  if no special setup is done on active_weight, then the current 
+>>>>> normal
+>>>>> behavior is achieved.
+>>>>
+>>>> I must say I like this approach. But it would be not trivial to implement this.
+>>>> Therefore I would stick with your propose of extending primary lazy to 3 values
+>>>> until the weight option is implemented.
+>>>
+>>> It sounds good for me. Later, if I eventually implement the weight 
+>>> option, it shouldn't be that hard to convert internally the primary_lazy 
+>>> setup to active_weight, the same way we plan to convert internally 
+>>> primary setup to weight setup.
+>>>
+>>> primary and primary_lazy are convenient for simple - two slaves only -  
+>>> configurations. weight and active_weight are for more advanced 
+>>> configurations. Keeping both configuration interface does sound user 
+>>> friendly.
+>>
+>>Ok, I agree.
+>>
+>>>
+>>>> I'm going to implement your propose below.
+>>>
+>>> By the way, even if I'm not a native English speaker, I think that 
+>>> primary_lazy option should be named lazy_primary instead.
+>>
+>>Well I've intentionally put "primary" as a first word to amplify it's linked
+>>with primary option... But...
+>
+>	I'm still unclear as to why it's better to add another special
+>case option to bonding instead of changing this in user space, other
+>than it'd be a change to user space (initscripts / sysconfig).
+>
+>	The way I see it, this patch is adding a mechanism that says,
+>effectively, "make slave X the active slave, but do it only once."
+>There is already a way to do that in bonding (sysfs, as above, or
+>ifenslave -c); I am reluctant to add another without good reason.
 
-Right, it's about an overflow and it was expected (theoretically) for
-very low rates (as for current times) while doing this resolution
-change. Probably this kind of warning should be useful if we expect
-there're more people who can actually use something like this yet ;-)
+Hello Jay.
 
-Alas INT_MAX could still be not enough to prevent similar issues
-because in tbf_dequeue such a value (buffer) is increased with tokens.
-I guess we could try to change some variables to 64 bits there, but
-the main question is why anybody needs such strange settings today?
-Did you try e.g. to browse Internet with that rate and the buffer
-e.g. 1500kb or you punish some users only? ;-) Btw, why do you think
-'buffer 2000kb' is better "for you" with that rate than e.g. 20kb?
+As I already replied you once it's not only about selecting a slave at the
+start. It's also about following:
 
-Thanks,
-Jarek P.
+Imagine you have bond with 3 slaves:
+eth0            eth1            eth2
+UP(curr)        UP              UP
+DOWN            UP(curr)        UP
+UP              UP(curr)        UP
+UP              DOWN            UP(curr)
+
+eth2 ends up being current active but we prefer eth0 (as primary interface).
+This is not desirable and is solved by primary_lazy option.
+
+Jirka
+
+>
+>	I'm not necessarily against the "weight" business in general.
+>For the purposes of this discussion, however, it's a big complex
+>solution to a pretty simple problem, and the "weight" system still has
+>to have special sauce added it to to handle this special case.
+>
+>	Last, presuming for the moment that this goes forward as an
+>option to bonding, I think this should be named something along the
+>lines of "make_active" (or perhaps "make_active_once", but that's a bit
+>long).  The option has the effect of making the specified slave the
+>active slave one time, then the option setting is cleared.
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
