@@ -1,123 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSecr != 0 check in inet_lro.c
-Date: Tue, 25 Aug 2009 07:42:33 +0200
-Message-ID: <4A9379C9.6050108@gmail.com>
-References: <200908250054.50664.opurdila@ixiacom.com>
+From: Oren Laadan <orenl@librato.com>
+Subject: Re: [PATCH 2/3] Expose may_setuid() in user.h and add may_setgid()
+ (v2)
+Date: Tue, 25 Aug 2009 01:53:58 -0400
+Message-ID: <4A937C76.9080503@librato.com>
+References: <1251134884-24491-1-git-send-email-danms@us.ibm.com> <1251134884-24491-3-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan-Bernd Themann <themann@de.ibm.com>, netdev@vger.kernel.org,
-	Christoph Raisch <raisch@de.ibm.com>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Transfer-Encoding: 7bit
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
+	Serge Hallyn <serue@us.ibm.com>
+To: Dan Smith <danms@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([212.99.114.194]:37479 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754479AbZHYFmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 01:42:36 -0400
-In-Reply-To: <200908250054.50664.opurdila@ixiacom.com>
+Received: from smtp111.iad.emailsrvr.com ([207.97.245.111]:48770 "EHLO
+	smtp111.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754481AbZHYFyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 01:54:37 -0400
+In-Reply-To: <1251134884-24491-3-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Octavian Purdila a =E9crit :
-> Hi,
->=20
-> We are seeing a performance issue with TSO/LRO which we tracked down =
-to the=20
-> TSecr !=3D0 check in lro_tcp_ip_check.
 
-ouch...
+Added, thanks.
 
->=20
-> It happens when the LRO side's TSval wraps around and gets to 0. That=
- triggers=20
-> the TSO side to send packets with TSecr set to 0, which means that su=
-ch=20
-> packets won't be aggregated - and that will put a lot of burden on th=
-e stack=20
-> which will result in lots of drops.
-
-Probability of such event is 1 / 2^32 or so ?
-
->=20
-> I'm failing to understand the purpose of this check. Any hints? :)
->=20
-
-rfc1323 badly interpreted ?
-
-I remember tsecr=3D0 was forbidden by Linux, while apparently rfc is no=
-t
-so clear.
-
-rfc1323 : 3.2
-         The Timestamp Echo Reply field (TSecr) is only valid if the AC=
-K
-         bit is set in the TCP header; if it is valid, it echos a times=
--
-         tamp value that was sent by the remote TCP in the TSval field
-         of a Timestamps option.  When TSecr is not valid, its value
-         must be zero.  The TSecr value will generally be from the most
-         recent Timestamp option that was received; however, there are
-         exceptions that are explained below.
-
-Note how this is not saying "a zero Tsecr value is not valid"
-
-I could not find why : "When TSecr is not valid, its value
-must be zero", and why we consider a zero value to be not meaningfull..=
-=2E
-
-static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
-                                      const s32 seq_rtt)
-{
-        const struct tcp_sock *tp =3D tcp_sk(sk);
-        /* Note that peer MAY send zero echo. In this case it is ignore=
-d. (rfc1323) */
-        if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
-                tcp_ack_saw_tstamp(sk, flag);
-        else if (seq_rtt >=3D 0)
-                tcp_ack_no_tstamp(sk, seq_rtt, flag);
-}
-
-static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buf=
-f *skb,
-                                         struct tcphdr *th, unsigned le=
-n)
-{
-        struct tcp_sock *tp =3D tcp_sk(sk);
-        struct inet_connection_sock *icsk =3D inet_csk(sk);
-        int saved_clamp =3D tp->rx_opt.mss_clamp;
-
-        tcp_parse_options(skb, &tp->rx_opt, 0);
-
-        if (th->ack) {
-=2E..
-                if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
-                    !between(tp->rx_opt.rcv_tsecr, tp->retrans_stamp,
-                             tcp_time_stamp)) {
-                        NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSAC=
-TIVEREJECTED);
-                        goto reset_and_undo;
-                }
-=2E..
-
-static inline void tcp_rcv_rtt_measure_ts(struct sock *sk,
-                                          const struct sk_buff *skb)
-{
-        struct tcp_sock *tp =3D tcp_sk(sk);
-        if (tp->rx_opt.rcv_tsecr &&
-            (TCP_SKB_CB(skb)->end_seq -
-             TCP_SKB_CB(skb)->seq >=3D inet_csk(sk)->icsk_ack.rcv_mss))
-                tcp_rcv_rtt_update(tp, tcp_time_stamp - tp->rx_opt.rcv_=
-tsecr, 0);
-}
-=2E..
-static inline int tcp_packet_delayed(struct tcp_sock *tp)
-{
-        return !tp->retrans_stamp ||
-                (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
-                 before(tp->rx_opt.rcv_tsecr, tp->retrans_stamp));
-}
-=2E..
-
-So we dont have a bit saying we received a tsecr, we use the=20
-'if saw_tstamp AND tsecr is not null' convention...
-
+Dan Smith wrote:
+> Make these helpers available to others.
+> 
+> Changes in v2:
+>  - Avoid checking the groupinfo in ctx->realcred against the current in
+>    may_setgid()
+> 
+> Cc: Serge Hallyn <serue@us.ibm.com>
+> Signed-off-by: Dan Smith <danms@us.ibm.com>
+> ---
+>  include/linux/user.h |    9 +++++++++
+>  kernel/user.c        |   13 ++++++++++++-
+>  2 files changed, 21 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/user.h b/include/linux/user.h
+> index 68daf84..c231e9c 100644
+> --- a/include/linux/user.h
+> +++ b/include/linux/user.h
+> @@ -1 +1,10 @@
+> +#ifndef _LINUX_USER_H
+> +#define _LINUX_USER_H
+> +
+>  #include <asm/user.h>
+> +#include <linux/sched.h>
+> +
+> +extern int may_setuid(struct user_namespace *ns, uid_t uid);
+> +extern int may_setgid(gid_t gid);
+> +
+> +#endif
+> diff --git a/kernel/user.c b/kernel/user.c
+> index a535ed6..a78fde7 100644
+> --- a/kernel/user.c
+> +++ b/kernel/user.c
+> @@ -604,7 +604,7 @@ int checkpoint_user(struct ckpt_ctx *ctx, void *ptr)
+>  	return do_checkpoint_user(ctx, (struct user_struct *) ptr);
+>  }
+>  
+> -static int may_setuid(struct user_namespace *ns, uid_t uid)
+> +int may_setuid(struct user_namespace *ns, uid_t uid)
+>  {
+>  	/*
+>  	 * this next check will one day become
+> @@ -631,6 +631,17 @@ static int may_setuid(struct user_namespace *ns, uid_t uid)
+>  	return 0;
+>  }
+>  
+> +int may_setgid(gid_t gid)
+> +{
+> +	if (capable(CAP_SETGID))
+> +		return 1;
+> +
+> +	if (in_egroup_p(gid))
+> +		return 1;
+> +
+> +	return 0;
+> +}
+> +
+>  static struct user_struct *do_restore_user(struct ckpt_ctx *ctx)
+>  {
+>  	struct user_struct *u;
