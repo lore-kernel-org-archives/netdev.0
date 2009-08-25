@@ -1,68 +1,93 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 05/12] tg3: Add 57788, remove 57720
-Date: Tue, 25 Aug 2009 13:08:42 -0700
-Message-ID: <1251232429.25407@xw6200>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
+Date: Tue, 25 Aug 2009 16:40:48 -0400
+Message-ID: <1251232848.9607.15.camel@lap75545.ornl.gov>
+References: <200903041828.49972.m.bueker@berlin.de>
+ <1242001754.4093.12.camel@obelisk.thedillows.org>
+ <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>
+ <1242077392.3716.15.camel@lap75545.ornl.gov> <4A09DC3E.2080807@googlemail.com>
+ <1242268709.4979.7.camel@obelisk.thedillows.org>
+ <4A0C6504.8000704@googlemail.com>
+ <1242328457.32579.12.camel@lap75545.ornl.gov>
+ <4A0C7443.1010000@googlemail.com>
+ <1243042174.3580.23.camel@obelisk.thedillows.org>
+ <m1skfkrik2.fsf@fess.ebiederm.org>
+ <1250895567.23419.1.camel@obelisk.thedillows.org>
+ <1250897657.23419.5.camel@obelisk.thedillows.org>
+ <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org>
+ <1250973787.3582.14.camel@obelisk.thedillows.org>
+ <m1r5v0ogvw.fsf@fess.ebiederm.org>
+ <1251169150.4023.11.camel@obelisk.thedillows.org>
+ <m1prajabk8.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1683 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756167AbZHYUgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2009 16:36:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Riepe <michael.riepe@googlemail.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756185AbZHYUkw@vger.kernel.org>
+In-reply-to: <m1prajabk8.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for the 57788 and removes support for the 57720
-which was never released.
+On Tue, 2009-08-25 at 13:22 -0700, Eric W. Biederman wrote:
+> David Dillow <dave@thedillows.org> writes:
+> > I'm not real happy with the interrupt handling in the driver; it makes a
+> > certain amount of sense to split the MSI vs non-MSI interrupt cases out.
+> > It also means another pass through re-auditing things against the vendor
+> > driver. That's more work than I'm able to commit to at the moment.
+> >
+> > I've not been able to reproduce it locally on my r8169d, running for ~30
+> > minutes straight at full speed. I've not tried running it in UP, though.
+> > Perhaps I can do that tomorrow.
+> >
+> > Here's a possible patch to mask the NAPI events while we're running in
+> > NAPI mode. I'm not sure it is going to help, since the intr_mask was
+> > 0xffff when you hit the loop guard, so I left it in for now.
+> 
+> Interesting.
+> 
+> If I understand this correctly the situation is that we have on the
+> chip there is correct logic for a level triggered interrupt and that
+> the msi logic sits on it and sends an event when the interrupt signal
+> goes high, but when we acknowledge some bits but not all it does not
+> send another interrupt.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
-Reviewed-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/tg3.c |    5 ++++-
- drivers/net/tg3.h |    2 +-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+Correct, we have to acknowledge all current outstanding event sources
+before we get another MSI interrupt. It looks like the MSI interrupt is
+triggered on the edge transition of a logical OR of all irq sources.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 356b5d0..9ae3320 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -223,7 +223,7 @@ static struct pci_device_id tg3_pci_tbl[] = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57780)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57760)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57790)},
--	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57720)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57788)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000)},
-@@ -11525,6 +11525,9 @@ out_not_found:
- 	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
- 		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57790)
- 		strcpy(tp->board_part_number, "BCM57790");
-+	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
-+		 tp->pdev->device == TG3PCI_DEVICE_TIGON3_57788)
-+		strcpy(tp->board_part_number, "BCM57788");
- 	else
- 		strcpy(tp->board_part_number, "none");
- }
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index bb8591e..636008c 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -43,7 +43,7 @@
- #define  TG3PCI_DEVICE_TIGON3_57780	 0x1692
- #define  TG3PCI_DEVICE_TIGON3_57760	 0x1690
- #define  TG3PCI_DEVICE_TIGON3_57790	 0x1694
--#define  TG3PCI_DEVICE_TIGON3_57720	 0x168c
-+#define  TG3PCI_DEVICE_TIGON3_57788	 0x1691
- /* 0x04 --> 0x64 unused */
- #define TG3PCI_MSI_DATA			0x00000064
- /* 0x66 --> 0x68 unused */
--- 
-1.6.3.3
+> Baring playing games with what version of the card has working logic
+> and which does not we seem to have to simple choices (if we don't want
+> to loop possibly forever).
+> - Don't use the msi logic on this card.
+> - Move all of the logic into rtl8169_poll and only come out of NAPI
+>   mode when we have caught up with all of the interrupt work.
+> 
+> Is that how you understand the hardware issue you are trying to work
+> around?
 
+That's how I understood the issue I was working around with the
+problematic patch, but I thought I had covered both issues fairly well
+without having to split the handling any further -- we ACK all existing
+sources each pass through the loop, so we'll get a new interrupt on the
+unmasked events, but not on ones we've masked out for NAPI until NAPI
+completes and unmasks them.
 
+I'm curious how you managed to receive an packet between us clearing the
+all current sources and reading the current source list continuously for
+60+ seconds -- the loop is basically
+
+status = get IRQ events from chip
+while (status) {
+	/* process events, start NAPI if needed */
+	clear current events from chip
+	status = get IRQ events from chip
+}
+
+That seems like a very small race window to consistently hit --
+especially for long enough to trigger soft lockups.
