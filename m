@@ -1,267 +1,35 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 26/26] et131x: clean up MP_FLAG macros
-Date: Tue, 25 Aug 2009 16:01:39 +0100
-Message-ID: <20090825150136.16176.96990.stgit@localhost.localdomain>
-References: <20090825145619.16176.68780.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 17:32:00 +0200
+Message-ID: <4A9403F0.2060301@gmail.com>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org>  <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <1250554332.25939.46.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908241334230.30487@gentwo.org> <4A930DEF.5000008@gmail.com> <alpine.DEB.1.10.0908250945460.5972@gentwo.org> <4A93EB9B.5020600@gmail.com> <alpine.DEB.1.10.0908250958540.28552@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: greg@kroah.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47844 "EHLO
-	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755416AbZHYPHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:07:00 -0400
-In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:48015 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751690AbZHYPcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:32:47 -0400
+In-Reply-To: <alpine.DEB.1.10.0908250958540.28552@gentwo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alan Cox <alan@linux.intel.com>
----
+Christoph Lameter a =E9crit :
+> On Tue, 25 Aug 2009, Eric Dumazet wrote:
+>=20
+>> Please hold on, I would like to fully understand what's happening,
+>> and test the patch :)
+>=20
+> Ok. It would be good if the drops would also be somehow noted by the =
+UDP
+> subsystem (one should see something with netstat -su) and may be even=
+ the
+> socket. I see a drops column in /proc/net/udp. rx_drops, tx_drops?
 
- drivers/staging/et131x/et1310_mac.c     |    2 +-
- drivers/staging/et131x/et1310_phy.c     |    8 +++-----
- drivers/staging/et131x/et1310_pm.c      |    4 ++--
- drivers/staging/et131x/et1310_rx.c      |   12 ++++++------
- drivers/staging/et131x/et1310_tx.c      |    8 ++++----
- drivers/staging/et131x/et131x_adapter.h |   13 -------------
- drivers/staging/et131x/et131x_initpci.c |    2 +-
- drivers/staging/et131x/et131x_netdev.c  |   14 +++++++-------
- 8 files changed, 24 insertions(+), 39 deletions(-)
-
-
-diff --git a/drivers/staging/et131x/et1310_mac.c b/drivers/staging/et131x/et1310_mac.c
-index a27d815..c94d661 100644
---- a/drivers/staging/et131x/et1310_mac.c
-+++ b/drivers/staging/et131x/et1310_mac.c
-@@ -272,7 +272,7 @@ void ConfigMACRegs2(struct et131x_adapter *etdev)
- 	writel(ctl.value, &etdev->regs->txmac.ctl.value);
- 
- 	/* Ready to start the RXDMA/TXDMA engine */
--	if (!MP_TEST_FLAG(etdev, fMP_ADAPTER_LOWER_POWER)) {
-+	if (etdev->Flags & fMP_ADAPTER_LOWER_POWER) {
- 		et131x_rx_dma_enable(etdev);
- 		et131x_tx_dma_enable(etdev);
- 	} else {
-diff --git a/drivers/staging/et131x/et1310_phy.c b/drivers/staging/et131x/et1310_phy.c
-index 19ffb65..f856381 100644
---- a/drivers/staging/et131x/et1310_phy.c
-+++ b/drivers/staging/et131x/et1310_phy.c
-@@ -498,7 +498,7 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
- 			spin_lock_irqsave(&etdev->Lock, flags);
- 
- 			etdev->MediaState = NETIF_STATUS_MEDIA_CONNECT;
--			MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
-+			etdev->Flags &= ~fMP_ADAPTER_LINK_DETECTION);
- 
- 			spin_unlock_irqrestore(&etdev->Lock, flags);
- 
-@@ -529,10 +529,8 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
- 			 * Timer expires, we can report disconnected (handled
- 			 * in the LinkDetectionDPC).
- 			 */
--			if ((MP_IS_FLAG_CLEAR
--			     (etdev, fMP_ADAPTER_LINK_DETECTION))
--			    || (etdev->MediaState ==
--				NETIF_STATUS_MEDIA_DISCONNECT)) {
-+			if (!(etdev->Flags & fMP_ADAPTER_LINK_DETECTION) ||
-+			  (etdev->MediaState == NETIF_STATUS_MEDIA_DISCONNECT)) {
- 				spin_lock_irqsave(&etdev->Lock, flags);
- 				etdev->MediaState =
- 				    NETIF_STATUS_MEDIA_DISCONNECT;
-diff --git a/drivers/staging/et131x/et1310_pm.c b/drivers/staging/et131x/et1310_pm.c
-index ea186a8..f4c942c 100644
---- a/drivers/staging/et131x/et1310_pm.c
-+++ b/drivers/staging/et131x/et1310_pm.c
-@@ -134,7 +134,7 @@ void EnablePhyComa(struct et131x_adapter *etdev)
- 
- 	/* Stop sending packets. */
- 	spin_lock_irqsave(&etdev->SendHWLock, flags);
--	MP_SET_FLAG(etdev, fMP_ADAPTER_LOWER_POWER);
-+	etdev->Flags |= fMP_ADAPTER_LOWER_POWER;
- 	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
- 
- 	/* Wait for outstanding Receive packets */
-@@ -189,7 +189,7 @@ void DisablePhyComa(struct et131x_adapter *etdev)
- 	et131x_adapter_setup(etdev);
- 
- 	/* Allow Tx to restart */
--	MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LOWER_POWER);
-+	etdev->Flags &= ~fMP_ADAPTER_LOWER_POWER;
- 
- 	/* Need to re-enable Rx. */
- 	et131x_rx_dma_enable(etdev);
-diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
-index 757a8cd..54a7ecf 100644
---- a/drivers/staging/et131x/et1310_rx.c
-+++ b/drivers/staging/et131x/et1310_rx.c
-@@ -415,7 +415,7 @@ int et131x_rx_dma_memory_alloc(struct et131x_adapter *adapter)
- 						   SLAB_HWCACHE_ALIGN,
- 						   NULL);
- 
--	MP_SET_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE);
-+	adapter->Flags |= fMP_ADAPTER_RECV_LOOKASIDE;
- 
- 	/* The RFDs are going to be put on lists later on, so initialize the
- 	 * lists now.
-@@ -569,9 +569,9 @@ void et131x_rx_dma_memory_free(struct et131x_adapter *adapter)
- 	/* Free receive packet pool */
- 
- 	/* Destroy the lookaside (RFD) pool */
--	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE)) {
-+	if (adapter->Flags & fMP_ADAPTER_RECV_LOOKASIDE) {
- 		kmem_cache_destroy(rx_ring->RecvLookaside);
--		MP_CLEAR_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE);
-+		adapter->Flags &= ~fMP_ADAPTER_RECV_LOOKASIDE;
- 	}
- 
- 	/* Free the FBR Lookup Table */
-@@ -1223,9 +1223,9 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
- 		 * If length is zero, return the RFD in order to advance the
- 		 * Free buffer ring.
- 		 */
--		if ((!etdev->PacketFilter) ||
--		    (!MP_LINK_DETECTED(etdev)) ||
--		    (pMpRfd->PacketSize == 0)) {
-+		if (!etdev->PacketFilter ||
-+		    !(etdev->Flags & fMP_ADAPTER_LINK_DETECTION) ||
-+		    pMpRfd->PacketSize == 0) {
- 			continue;
- 		}
- 
-diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
-index dd79975..4a0108f 100644
---- a/drivers/staging/et131x/et1310_tx.c
-+++ b/drivers/staging/et131x/et1310_tx.c
-@@ -510,9 +510,9 @@ static int et131x_send_packet(struct sk_buff *skb,
- 
- 		if ((shbufva[0] == 0xffff) &&
- 		    (shbufva[1] == 0xffff) && (shbufva[2] == 0xffff)) {
--			MP_SET_FLAG(pMpTcb, fMP_DEST_BROAD);
-+			pMpTcb->Flags |= fMP_DEST_BROAD;
- 		} else if ((shbufva[0] & 0x3) == 0x0001) {
--			MP_SET_FLAG(pMpTcb, fMP_DEST_MULTI);
-+			pMpTcb->Flags |=  fMP_DEST_MULTI;
- 		}
- 	}
- 
-@@ -1232,9 +1232,9 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 	TX_DESC_ENTRY_t *desc = NULL;
- 	struct net_device_stats *stats = &etdev->net_stats;
- 
--	if (MP_TEST_FLAG(pMpTcb, fMP_DEST_BROAD))
-+	if (pMpTcb->Flags & fMP_DEST_BROAD))
- 		atomic_inc(&etdev->Stats.brdcstxmt);
--	else if (MP_TEST_FLAG(pMpTcb, fMP_DEST_MULTI))
-+	else if (pMpTcb->Flags & fMP_DEST_MULTI))
- 		atomic_inc(&etdev->Stats.multixmt);
- 	else
- 		atomic_inc(&etdev->Stats.unixmt);
-diff --git a/drivers/staging/et131x/et131x_adapter.h b/drivers/staging/et131x/et131x_adapter.h
-index 04bb603..05388eb 100644
---- a/drivers/staging/et131x/et131x_adapter.h
-+++ b/drivers/staging/et131x/et131x_adapter.h
-@@ -100,24 +100,11 @@
- #define LO_MARK_PERCENT_FOR_PSR     15
- #define LO_MARK_PERCENT_FOR_RX      15
- 
--/* Macros for flag and ref count operations        */
--#define MP_SET_FLAG(_M, _F)         ((_M)->Flags |= (_F))
--#define MP_CLEAR_FLAG(_M, _F)       ((_M)->Flags &= ~(_F))
--#define MP_CLEAR_FLAGS(_M)          ((_M)->Flags = 0)
--#define MP_TEST_FLAG(_M, _F)        (((_M)->Flags & (_F)) != 0)
--#define MP_TEST_FLAGS(_M, _F)       (((_M)->Flags & (_F)) == (_F))
--#define MP_IS_FLAG_CLEAR(_M, _F)    (((_M)->Flags & (_F)) == 0)
--
- /* Macros specific to the private adapter structure */
- #define MP_TCB_RESOURCES_AVAILABLE(_M) ((_M)->TxRing.nBusySend < NUM_TCB)
- #define MP_TCB_RESOURCES_NOT_AVAILABLE(_M) ((_M)->TxRing.nBusySend >= NUM_TCB)
- 
- #define MP_SHOULD_FAIL_SEND(_M)   ((_M)->Flags & fMP_ADAPTER_FAIL_SEND_MASK)
--#define MP_IS_NOT_READY(_M)       ((_M)->Flags & fMP_ADAPTER_NOT_READY_MASK)
--#define MP_IS_READY(_M)           (!((_M)->Flags & fMP_ADAPTER_NOT_READY_MASK))
--
--#define MP_HAS_CABLE(_M)           (!((_M)->Flags & fMP_ADAPTER_NO_CABLE))
--#define MP_LINK_DETECTED(_M)       (!((_M)->Flags & fMP_ADAPTER_LINK_DETECTION))
- 
- /* Counters for error rate monitoring */
- typedef struct _MP_ERR_COUNTERS {
-diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
-index d7a1b34..0a3464a 100644
---- a/drivers/staging/et131x/et131x_initpci.c
-+++ b/drivers/staging/et131x/et131x_initpci.c
-@@ -523,7 +523,7 @@ void et131x_link_detection_handler(unsigned long data)
- 		spin_lock_irqsave(&etdev->Lock, flags);
- 
- 		etdev->MediaState = NETIF_STATUS_MEDIA_DISCONNECT;
--		MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
-+		etdev->Flags &= ~fMP_ADAPTER_LINK_DETECTION;
- 
- 		spin_unlock_irqrestore(&etdev->Lock, flags);
- 
-diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
-index 62febe9..2a4b9ac 100644
---- a/drivers/staging/et131x/et131x_netdev.c
-+++ b/drivers/staging/et131x/et131x_netdev.c
-@@ -253,7 +253,7 @@ int et131x_open(struct net_device *netdev)
- 	/* Enable device interrupts */
- 	et131x_enable_interrupts(adapter);
- 
--	MP_SET_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE);
-+	adapter->Flags |= fMP_ADAPTER_INTERRUPT_IN_USE;
- 
- 	/* We're ready to move some data, so start the queue */
- 	netif_start_queue(netdev);
-@@ -285,7 +285,7 @@ int et131x_close(struct net_device *netdev)
- 	et131x_disable_interrupts(adapter);
- 
- 	/* Deregistering ISR */
--	MP_CLEAR_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE);
-+	adapter->Flags &= ~fMP_ADAPTER_INTERRUPT_IN_USE;
- 
- 	DBG_TRACE(et131x_dbginfo, "Deregistering ISR...\n");
- 	free_irq(netdev->irq, netdev);
-@@ -615,7 +615,7 @@ void et131x_tx_timeout(struct net_device *netdev)
- 	DBG_WARNING(et131x_dbginfo, "TX TIMEOUT\n");
- 
- 	/* Just skip this part if the adapter is doing link detection */
--	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION)) {
-+	if (etdev->Flags & fMP_ADAPTER_LINK_DETECTION) {
- 		DBG_ERROR(et131x_dbginfo, "Still doing link detection\n");
- 		return;
- 	}
-@@ -623,13 +623,13 @@ void et131x_tx_timeout(struct net_device *netdev)
- 	/* Any nonrecoverable hardware error?
- 	 * Checks adapter->flags for any failure in phy reading
- 	 */
--	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_NON_RECOVER_ERROR)) {
-+	if (etdev->Flags & fMP_ADAPTER_NON_RECOVER_ERROR) {
- 		DBG_WARNING(et131x_dbginfo, "Non recoverable error - remove\n");
- 		return;
- 	}
- 
- 	/* Hardware failure? */
--	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_HARDWARE_ERROR)) {
-+	if (etdev->Flags & fMP_ADAPTER_HARDWARE_ERROR) {
- 		DBG_WARNING(et131x_dbginfo, "hardware error - reset\n");
- 		return;
- 	}
-@@ -751,7 +751,7 @@ int et131x_change_mtu(struct net_device *netdev, int new_mtu)
- 	et131x_adapter_setup(adapter);
- 
- 	/* Enable interrupts */
--	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE))
-+	if (adapter->Flags & fMP_ADAPTER_INTERRUPT_IN_USE)
- 		et131x_enable_interrupts(adapter);
- 
- 	/* Restart the Tx and Rx DMA engines */
-@@ -847,7 +847,7 @@ int et131x_set_mac_addr(struct net_device *netdev, void *new_mac)
- 	et131x_adapter_setup(adapter);
- 
- 	/* Enable interrupts */
--	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE))
-+	if (adapter->Flags & fMP_ADAPTER_INTERRUPT_IN_USE)
- 		et131x_enable_interrupts(adapter);
- 
- 	/* Restart the Tx and Rx DMA engines */
-
+This /proc/net/udp column is for rx_drops currently and was recently ad=
+ded...
