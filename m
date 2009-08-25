@@ -1,17 +1,17 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 21/26] et131x: clean up MMC_SRAM_
-Date: Tue, 25 Aug 2009 16:00:53 +0100
-Message-ID: <20090825150047.16176.42488.stgit@localhost.localdomain>
+Subject: [PATCH 18/26] et131x: remove unused PCI identifiers
+Date: Tue, 25 Aug 2009 16:00:23 +0100
+Message-ID: <20090825150021.16176.64405.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47823 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47811 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755401AbZHYPGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:06:15 -0400
+	with ESMTP id S1755383AbZHYPFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:05:45 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,97 +19,145 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et1310_address_map.h |   34 ++++++---------------------
- drivers/staging/et131x/et131x_debug.c       |   12 ++++------
- 2 files changed, 13 insertions(+), 33 deletions(-)
+ drivers/staging/et131x/et1310_phy.h  |   25 -------------------------
+ drivers/staging/et131x/et1310_pm.h   |   30 ------------------------------
+ drivers/staging/et131x/et131x_defs.h |    8 --------
+ 3 files changed, 0 insertions(+), 63 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et1310_address_map.h b/drivers/staging/et131x/et1310_address_map.h
-index d2ac26c..01c990c 100644
---- a/drivers/staging/et131x/et1310_address_map.h
-+++ b/drivers/staging/et131x/et1310_address_map.h
-@@ -2264,7 +2264,7 @@ typedef struct _MAC_STAT_t {		/* Location: */
- /* START OF MMC REGISTER ADDRESS MAP */
+diff --git a/drivers/staging/et131x/et1310_phy.h b/drivers/staging/et131x/et1310_phy.h
+index aec0a7b..080656c 100644
+--- a/drivers/staging/et131x/et1310_phy.h
++++ b/drivers/staging/et131x/et1310_phy.h
+@@ -63,9 +63,6 @@
  
- /*
-- * structure for Main Memory Controller Control reg in mmc address map.
-+ * Main Memory Controller Control reg in mmc address map.
-  * located at address 0x7000
-  */
-  
-@@ -2277,31 +2277,13 @@ typedef struct _MAC_STAT_t {		/* Location: */
- #define ET_MMC_FORCE_CE		64
+ #define TRUEPHY_SUCCESS 0
+ #define TRUEPHY_FAILURE 1
+-typedef void *TRUEPHY_HANDLE;
+-typedef void *TRUEPHY_PLATFORM_HANDLE;
+-typedef void *TRUEPHY_OSAL_HANDLE;
  
- /*
-- * structure for Main Memory Controller Host Memory Access Address reg in mmc
-- * address map.  Located at address 0x7004
-+ * Main Memory Controller Host Memory Access Address reg in mmc
-+ * address map.  Located at address 0x7004. Top 16 bits hold the address bits
-  */
--typedef union _MMC_SRAM_ACCESS_t {
--	u32 value;
--	struct {
--#ifdef _BIT_FIELDS_HTOL
--		u32 byte_enable:16;	/* bits 16-31 */
--		u32 reserved2:2;		/* bits 14-15 */
--		u32 req_addr:10;		/* bits 4-13 */
--		u32 reserved1:1;		/* bit 3 */
--		u32 is_ctrl_word:1;	/* bit 2 */
--		u32 wr_access:1;		/* bit 1 */
--		u32 req_access:1;		/* bit 0 */
--#else
--		u32 req_access:1;		/* bit 0 */
--		u32 wr_access:1;		/* bit 1 */
--		u32 is_ctrl_word:1;	/* bit 2 */
--		u32 reserved1:1;		/* bit 3 */
--		u32 req_addr:10;		/* bits 4-13 */
--		u32 reserved2:2;		/* bits 14-15 */
--		u32 byte_enable:16;	/* bits 16-31 */
--#endif
--	} bits;
--} MMC_SRAM_ACCESS_t, *PMMC_SRAM_ACCESS_t;
-+
-+#define ET_SRAM_REQ_ACCESS	1
-+#define ET_SRAM_WR_ACCESS	2
-+#define ET_SRAM_IS_CTRL		4
+ /* MI Register Addresses */
+ #define MI_CONTROL_REG                      0
+@@ -742,28 +739,6 @@ typedef union _MI_LCR2_t {
  
- /*
-  * structure for Main Memory Controller Host Memory Access Data reg in mmc
-@@ -2314,7 +2296,7 @@ typedef union _MMC_SRAM_ACCESS_t {
-  */
- typedef struct _MMC_t {			/* Location: */
- 	u32 mmc_ctrl;		/*  0x7000 */
--	MMC_SRAM_ACCESS_t sram_access;	/*  0x7004 */
-+	u32 sram_access;	/*  0x7004 */
- 	u32 sram_word1;		/*  0x7008 */
- 	u32 sram_word2;		/*  0x700C */
- 	u32 sram_word3;		/*  0x7010 */
-diff --git a/drivers/staging/et131x/et131x_debug.c b/drivers/staging/et131x/et131x_debug.c
-index 4346c82..61203c1 100644
---- a/drivers/staging/et131x/et131x_debug.c
-+++ b/drivers/staging/et131x/et131x_debug.c
-@@ -115,18 +115,16 @@ void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
+ /* MI Register 29 - 31: Reserved Reg(0x1D - 0x1E) */
  
- 	if (DBG_FLAGS(et131x_dbginfo) & dbgLvl) {
- 		for (TxQueueAddr = 0x200; TxQueueAddr < 0x3ff; TxQueueAddr++) {
--			MMC_SRAM_ACCESS_t sram_access;
+-/* TruePHY headers */
+-typedef struct _TRUEPHY_ACCESS_MI_REGS_ {
+-	TRUEPHY_HANDLE hTruePhy;
+-	int32_t nPhyId;
+-	u8 bReadWrite;
+-	u8 *pbyRegs;
+-	u8 *pwData;
+-	int32_t nRegCount;
+-} TRUEPHY_ACCESS_MI_REGS, *PTRUEPHY_ACCESS_MI_REGS;
 -
--			sram_access.value = readl(&mmc->sram_access.value);
--			sram_access.bits.req_addr = TxQueueAddr;
--			sram_access.bits.req_access = 1;
--			writel(sram_access.value, &mmc->sram_access.value);
-+			u32 sram_access = readl(&mmc->sram_access);
-+			sram_access &= 0xFFFF;
-+			sram_access |= (TxQueueAddr << 16) | ET_SRAM_REQ_ACCESS;
-+			writel(sram_access, &mmc->sram_access);
+-/* TruePHY headers */
+-typedef struct _TAG_TPAL_ACCESS_MI_REGS_ {
+-	u32 nPhyId;
+-	u8 bReadWrite;
+-	u32 nRegCount;
+-	u16 Data[4096];
+-	u8 Regs[4096];
+-} TPAL_ACCESS_MI_REGS, *PTPAL_ACCESS_MI_REGS;
+-
+-
+-typedef TRUEPHY_HANDLE TPAL_HANDLE;
+-
+ /* Forward declaration of the private adapter structure */
+ struct et131x_adapter;
  
- 			DBG_PRINT("Addr 0x%x, Access 0x%08x\t"
- 				  "Value 1 0x%08x, Value 2 0x%08x, "
- 				  "Value 3 0x%08x, Value 4 0x%08x, \n",
- 				  TxQueueAddr,
--				  readl(&mmc->sram_access.value),
-+				  readl(&mmc->sram_access),
- 				  readl(&mmc->sram_word1),
- 				  readl(&mmc->sram_word2),
- 				  readl(&mmc->sram_word3),
+diff --git a/drivers/staging/et131x/et1310_pm.h b/drivers/staging/et131x/et1310_pm.h
+index 8e06039..295f3ab 100644
+--- a/drivers/staging/et131x/et1310_pm.h
++++ b/drivers/staging/et131x/et1310_pm.h
+@@ -61,54 +61,24 @@
+ 
+ #include "et1310_address_map.h"
+ 
+-#define MAX_WOL_PACKET_SIZE    0x80
+-#define MAX_WOL_MASK_SIZE      (MAX_WOL_PACKET_SIZE / 8)
+-#define NUM_WOL_PATTERNS       0x5
+-#define CRC16_POLY             0x1021
+-
+ typedef struct _MP_POWER_MGMT {
+ 	/* variable putting the phy into coma mode when boot up with no cable
+ 	 * plugged in after 5 seconds
+ 	 */
+ 	u8 TransPhyComaModeOnBoot;
+ 
+-	/* Array holding the five CRC values that the device is currently
+-	 * using for WOL.  This will be queried when a pattern is to be
+-	 * removed.
+-	 */
+-	u32 localWolAndCrc0;
+-	u16 WOLPatternList[NUM_WOL_PATTERNS];
+-	u8 WOLMaskList[NUM_WOL_PATTERNS][MAX_WOL_MASK_SIZE];
+-	u32 WOLMaskSize[NUM_WOL_PATTERNS];
+-
+-	/* IP address */
+-	union {
+-		u32 u32;
+-		u8 u8[4];
+-	} IPAddress;
+-
+-	/* Current Power state of the adapter. */
+-	bool WOLState;
+-	bool WOLEnabled;
+-	bool Failed10Half;
+-	bool bFailedStateTransition;
+-
+ 	/* Next two used to save power information at power down. This
+ 	 * information will be used during power up to set up parts of Power
+ 	 * Management in JAGCore
+ 	 */
+-	u32 tx_en;
+-	u32 rx_en;
+ 	u16 PowerDownSpeed;
+ 	u8 PowerDownDuplex;
+ } MP_POWER_MGMT, *PMP_POWER_MGMT;
+ 
+ /* Forward declaration of the private adapter structure
+- * ( IS THERE A WAY TO DO THIS WITH A TYPEDEF??? )
+  */
+ struct et131x_adapter;
+ 
+-u16 CalculateCCITCRC16(u8 *Pattern, u8 *Mask, u32 MaskSize);
+ void EnablePhyComa(struct et131x_adapter *adapter);
+ void DisablePhyComa(struct et131x_adapter *adapter);
+ 
+diff --git a/drivers/staging/et131x/et131x_defs.h b/drivers/staging/et131x/et131x_defs.h
+index 5665c6a..f98dca5 100644
+--- a/drivers/staging/et131x/et131x_defs.h
++++ b/drivers/staging/et131x/et131x_defs.h
+@@ -61,7 +61,6 @@
+ 
+ /* Packet and header sizes */
+ #define NIC_MIN_PACKET_SIZE	60
+-#define NIC_HEADER_SIZE		ETH_HLEN	/* 14 */
+ 
+ /* Multicast list size */
+ #define NIC_MAX_MCAST_LIST	128
+@@ -102,20 +101,13 @@
+ #define fMP_ADAPTER_NOT_READY_MASK	0x3ff00000
+ 
+ /* Some offsets in PCI config space that are actually used. */
+-#define ET1310_PCI_PM_CAPABILITY	0x40
+-#define ET1310_PCI_PM_CSR		0x44
+ #define ET1310_PCI_MAX_PYLD		0x4C
+-#define ET1310_PCI_DEV_CTRL		0x50
+-#define ET1310_PCI_DEV_STAT		0x52
+ #define ET1310_NMI_DISABLE		0x61
+ #define ET1310_PCI_MAC_ADDRESS		0xA4
+ #define ET1310_PCI_EEPROM_STATUS	0xB2
+-#define ET1310_PCI_PHY_INDEX_REG	0xB4
+ #define ET1310_PCI_ACK_NACK		0xC0
+ #define ET1310_PCI_REPLAY		0xC2
+ #define ET1310_PCI_L0L1LATENCY		0xCF
+-#define ET1310_PCI_SEL_PHY_CTRL		0xE4
+-#define ET1310_PCI_ADVANCED_ERR		0x100
+ 
+ /* PCI Vendor/Product IDs */
+ #define ET131X_PCI_VENDOR_ID		0x11C1	/* Agere Systems */
 
