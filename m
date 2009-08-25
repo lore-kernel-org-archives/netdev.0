@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 4/9] s2io.c: use kzalloc
-Date: Mon, 24 Aug 2009 20:29:43 -0700
-Message-ID: <416bba94359006196d099960489036e9c97c9ed7.1251170438.git.joe@perches.com>
+Subject: [PATCH 1/9] s2io.c: Use const for strings
+Date: Mon, 24 Aug 2009 20:29:40 -0700
+Message-ID: <ae3194c10741ca46f510031718b70ea40e7a76ff.1251170438.git.joe@perches.com>
 References: <cover.1251170438.git.joe@perches.com>
 Cc: Anil Murthy <anil.murthy@neterion.com>,
 	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
@@ -12,48 +12,60 @@ Cc: Anil Murthy <anil.murthy@neterion.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	linux-next@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1355 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754341AbZHYDjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Aug 2009 23:39:04 -0400
 In-Reply-To: <cover.1251170438.git.joe@perches.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/s2io.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/s2io.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 75f2209..134cdb3 100644
+index bd6d713..07e95e9 100644
 --- a/drivers/net/s2io.c
 +++ b/drivers/net/s2io.c
-@@ -3834,7 +3834,7 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
- 	int size;
+@@ -125,7 +125,7 @@ static inline int is_s2io_card_up(const struct s2io_nic * sp)
+ }
  
- 	size = nic->num_entries * sizeof(struct msix_entry);
--	nic->entries = kmalloc(size, GFP_KERNEL);
-+	nic->entries = kzalloc(size, GFP_KERNEL);
- 	if (!nic->entries) {
- 		DBG_PRINT(INFO_DBG, "%s: Memory allocation failed\n", \
- 			__func__);
-@@ -3843,10 +3843,8 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
- 	}
- 	nic->mac_control.stats_info->sw_stat.mem_allocated += size;
+ /* Ethtool related variables and Macros. */
+-static char s2io_gstrings[][ETH_GSTRING_LEN] = {
++static const char s2io_gstrings[][ETH_GSTRING_LEN] = {
+ 	"Register test\t(offline)",
+ 	"Eeprom test\t(offline)",
+ 	"Link test\t(online)",
+@@ -133,7 +133,7 @@ static char s2io_gstrings[][ETH_GSTRING_LEN] = {
+ 	"BIST Test\t(offline)"
+ };
  
--	memset(nic->entries, 0, size);
--
- 	size = nic->num_entries * sizeof(struct s2io_msix_entry);
--	nic->s2io_entries = kmalloc(size, GFP_KERNEL);
-+	nic->s2io_entries = kzalloc(size, GFP_KERNEL);
- 	if (!nic->s2io_entries) {
- 		DBG_PRINT(INFO_DBG, "%s: Memory allocation failed\n",
- 			__func__);
-@@ -3857,7 +3855,6 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
- 		return -ENOMEM;
- 	}
- 	nic->mac_control.stats_info->sw_stat.mem_allocated += size;
--	memset(nic->s2io_entries, 0, size);
+-static char ethtool_xena_stats_keys[][ETH_GSTRING_LEN] = {
++static const char ethtool_xena_stats_keys[][ETH_GSTRING_LEN] = {
+ 	{"tmac_frms"},
+ 	{"tmac_data_octets"},
+ 	{"tmac_drop_frms"},
+@@ -230,7 +230,7 @@ static char ethtool_xena_stats_keys[][ETH_GSTRING_LEN] = {
+ 	{"rxf_wr_cnt"}
+ };
  
- 	nic->entries[0].entry = 0;
- 	nic->s2io_entries[0].entry = 0;
+-static char ethtool_enhanced_stats_keys[][ETH_GSTRING_LEN] = {
++static const char ethtool_enhanced_stats_keys[][ETH_GSTRING_LEN] = {
+ 	{"rmac_ttl_1519_4095_frms"},
+ 	{"rmac_ttl_4096_8191_frms"},
+ 	{"rmac_ttl_8192_max_frms"},
+@@ -249,7 +249,7 @@ static char ethtool_enhanced_stats_keys[][ETH_GSTRING_LEN] = {
+ 	{"link_fault_cnt"}
+ };
+ 
+-static char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
++static const char ethtool_driver_stats_keys[][ETH_GSTRING_LEN] = {
+ 	{"\n DRIVER STATISTICS"},
+ 	{"single_bit_ecc_errs"},
+ 	{"double_bit_ecc_errs"},
 -- 
 1.6.3.1.10.g659a0.dirty
+
