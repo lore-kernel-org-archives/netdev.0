@@ -1,17 +1,17 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 18/26] et131x: remove unused PCI identifiers
-Date: Tue, 25 Aug 2009 16:00:23 +0100
-Message-ID: <20090825150021.16176.64405.stgit@localhost.localdomain>
+Subject: [PATCH 22/26] et131x: quick tidy of the debug code
+Date: Tue, 25 Aug 2009 16:01:01 +0100
+Message-ID: <20090825150058.16176.87981.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47811 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47828 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755383AbZHYPFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:05:45 -0400
+	with ESMTP id S1755398AbZHYPGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:06:23 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,145 +19,146 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et1310_phy.h  |   25 -------------------------
- drivers/staging/et131x/et1310_pm.h   |   30 ------------------------------
- drivers/staging/et131x/et131x_defs.h |    8 --------
- 3 files changed, 0 insertions(+), 63 deletions(-)
+ drivers/staging/et131x/et131x_debug.c |   85 +++++++++++++++------------------
+ 1 files changed, 38 insertions(+), 47 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et1310_phy.h b/drivers/staging/et131x/et1310_phy.h
-index aec0a7b..080656c 100644
---- a/drivers/staging/et131x/et1310_phy.h
-+++ b/drivers/staging/et131x/et1310_phy.h
-@@ -63,9 +63,6 @@
- 
- #define TRUEPHY_SUCCESS 0
- #define TRUEPHY_FAILURE 1
--typedef void *TRUEPHY_HANDLE;
--typedef void *TRUEPHY_PLATFORM_HANDLE;
--typedef void *TRUEPHY_OSAL_HANDLE;
- 
- /* MI Register Addresses */
- #define MI_CONTROL_REG                      0
-@@ -742,28 +739,6 @@ typedef union _MI_LCR2_t {
- 
- /* MI Register 29 - 31: Reserved Reg(0x1D - 0x1E) */
- 
--/* TruePHY headers */
--typedef struct _TRUEPHY_ACCESS_MI_REGS_ {
--	TRUEPHY_HANDLE hTruePhy;
--	int32_t nPhyId;
--	u8 bReadWrite;
--	u8 *pbyRegs;
--	u8 *pwData;
--	int32_t nRegCount;
--} TRUEPHY_ACCESS_MI_REGS, *PTRUEPHY_ACCESS_MI_REGS;
--
--/* TruePHY headers */
--typedef struct _TAG_TPAL_ACCESS_MI_REGS_ {
--	u32 nPhyId;
--	u8 bReadWrite;
--	u32 nRegCount;
--	u16 Data[4096];
--	u8 Regs[4096];
--} TPAL_ACCESS_MI_REGS, *PTPAL_ACCESS_MI_REGS;
--
--
--typedef TRUEPHY_HANDLE TPAL_HANDLE;
--
- /* Forward declaration of the private adapter structure */
- struct et131x_adapter;
- 
-diff --git a/drivers/staging/et131x/et1310_pm.h b/drivers/staging/et131x/et1310_pm.h
-index 8e06039..295f3ab 100644
---- a/drivers/staging/et131x/et1310_pm.h
-+++ b/drivers/staging/et131x/et1310_pm.h
-@@ -61,54 +61,24 @@
- 
- #include "et1310_address_map.h"
- 
--#define MAX_WOL_PACKET_SIZE    0x80
--#define MAX_WOL_MASK_SIZE      (MAX_WOL_PACKET_SIZE / 8)
--#define NUM_WOL_PATTERNS       0x5
--#define CRC16_POLY             0x1021
--
- typedef struct _MP_POWER_MGMT {
- 	/* variable putting the phy into coma mode when boot up with no cable
- 	 * plugged in after 5 seconds
- 	 */
- 	u8 TransPhyComaModeOnBoot;
- 
--	/* Array holding the five CRC values that the device is currently
--	 * using for WOL.  This will be queried when a pattern is to be
--	 * removed.
--	 */
--	u32 localWolAndCrc0;
--	u16 WOLPatternList[NUM_WOL_PATTERNS];
--	u8 WOLMaskList[NUM_WOL_PATTERNS][MAX_WOL_MASK_SIZE];
--	u32 WOLMaskSize[NUM_WOL_PATTERNS];
--
--	/* IP address */
--	union {
--		u32 u32;
--		u8 u8[4];
--	} IPAddress;
--
--	/* Current Power state of the adapter. */
--	bool WOLState;
--	bool WOLEnabled;
--	bool Failed10Half;
--	bool bFailedStateTransition;
--
- 	/* Next two used to save power information at power down. This
- 	 * information will be used during power up to set up parts of Power
- 	 * Management in JAGCore
- 	 */
--	u32 tx_en;
--	u32 rx_en;
- 	u16 PowerDownSpeed;
- 	u8 PowerDownDuplex;
- } MP_POWER_MGMT, *PMP_POWER_MGMT;
- 
- /* Forward declaration of the private adapter structure
-- * ( IS THERE A WAY TO DO THIS WITH A TYPEDEF??? )
+diff --git a/drivers/staging/et131x/et131x_debug.c b/drivers/staging/et131x/et131x_debug.c
+index 61203c1..779130b 100644
+--- a/drivers/staging/et131x/et131x_debug.c
++++ b/drivers/staging/et131x/et131x_debug.c
+@@ -1,4 +1,3 @@
+-/*
+  * Agere Systems Inc.
+  * 10/100/1000 Base-T Ethernet Driver for the ET1301 and ET131x series MACs
+  *
+@@ -108,22 +107,22 @@ extern dbg_info_t *et131x_dbginfo;
+  * DumpTxQueueContents - Dump out the tx queue and the shadow pointers
+  * @etdev: pointer to our adapter structure
   */
- struct et131x_adapter;
+-void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
++void DumpTxQueueContents(int debug, struct et131x_adapter *etdev)
+ {
+ 	MMC_t __iomem *mmc = &etdev->regs->mmc;
+-	uint32_t TxQueueAddr;
++	u32 txq_addr;
  
--u16 CalculateCCITCRC16(u8 *Pattern, u8 *Mask, u32 MaskSize);
- void EnablePhyComa(struct et131x_adapter *adapter);
- void DisablePhyComa(struct et131x_adapter *adapter);
+-	if (DBG_FLAGS(et131x_dbginfo) & dbgLvl) {
+-		for (TxQueueAddr = 0x200; TxQueueAddr < 0x3ff; TxQueueAddr++) {
++	if (DBG_FLAGS(et131x_dbginfo) & debug) {
++		for (txq_addr = 0x200; txq_addr < 0x3ff; txq_addr++) {
+ 			u32 sram_access = readl(&mmc->sram_access);
+ 			sram_access &= 0xFFFF;
+-			sram_access |= (TxQueueAddr << 16) | ET_SRAM_REQ_ACCESS;
++			sram_access |= (txq_addr << 16) | ET_SRAM_REQ_ACCESS;
+ 			writel(sram_access, &mmc->sram_access);
  
-diff --git a/drivers/staging/et131x/et131x_defs.h b/drivers/staging/et131x/et131x_defs.h
-index 5665c6a..f98dca5 100644
---- a/drivers/staging/et131x/et131x_defs.h
-+++ b/drivers/staging/et131x/et131x_defs.h
-@@ -61,7 +61,6 @@
+ 			DBG_PRINT("Addr 0x%x, Access 0x%08x\t"
+ 				  "Value 1 0x%08x, Value 2 0x%08x, "
+ 				  "Value 3 0x%08x, Value 4 0x%08x, \n",
+-				  TxQueueAddr,
++				  txq_addr,
+ 				  readl(&mmc->sram_access),
+ 				  readl(&mmc->sram_word1),
+ 				  readl(&mmc->sram_word2),
+@@ -136,6 +135,12 @@ void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
+ 	}
+ }
  
- /* Packet and header sizes */
- #define NIC_MIN_PACKET_SIZE	60
--#define NIC_HEADER_SIZE		ETH_HLEN	/* 14 */
++static const char *BlockNames[NUM_BLOCKS] = {
++	"Global", "Tx DMA", "Rx DMA", "Tx MAC",
++	"Rx MAC", "MAC", "MAC Stat", "MMC"
++};
++
++
+ /**
+  * DumpDeviceBlock
+  * @etdev: pointer to our adapter
+@@ -144,30 +149,23 @@ void DumpTxQueueContents(int dbgLvl, struct et131x_adapter *etdev)
+  * mapped to a new page, each page is 4096 bytes).
+  */
+ #define NUM_BLOCKS 8
+-void DumpDeviceBlock(int dbgLvl, struct et131x_adapter *etdev,
+-		     uint32_t Block)
++void DumpDeviceBlock(int debug, struct et131x_adapter *etdev,
++		     u32 block)
+ {
+-	uint32_t Address1, Address2;
+-	uint32_t __iomem *BigDevicePointer =
+-		(uint32_t __iomem *) etdev->regs;
+-	const char *BlockNames[NUM_BLOCKS] = {
+-		"Global", "Tx DMA", "Rx DMA", "Tx MAC",
+-		"Rx MAC", "MAC", "MAC Stat", "MMC"
+-	};
++	u32 addr1, addr2;
++	u32 __iomem *regs = (u32 __iomem *) etdev->regs;
  
- /* Multicast list size */
- #define NIC_MAX_MCAST_LIST	128
-@@ -102,20 +101,13 @@
- #define fMP_ADAPTER_NOT_READY_MASK	0x3ff00000
+ 	/* Output the debug counters to the debug terminal */
+-	if (DBG_FLAGS(et131x_dbginfo) & dbgLvl) {
+-		DBG_PRINT("%s block\n", BlockNames[Block]);
+-		BigDevicePointer += Block * 1024;
+-		for (Address1 = 0; Address1 < 8; Address1++) {
+-			for (Address2 = 0; Address2 < 8; Address2++) {
+-				if (Block == 0 &&
+-				    (Address1 * 8 + Address2) == 6) {
++	if (DBG_FLAGS(et131x_dbginfo) & debug) {
++		DBG_PRINT("%s block\n", BlockNames[block]);
++		regs += block * 1024;
++		for (addr1 = 0; addr1 < 8; addr1++) {
++			for (addr2 = 0; addr2 < 8; addr2++) {
++				if (block == 0 &&
++				    (addr1 * 8 + addr2) == 6)
+ 					DBG_PRINT("  ISR    , ");
+-				} else {
+-					DBG_PRINT("0x%08x, ",
+-						  readl(BigDevicePointer++));
+-				}
++				else
++					DBG_PRINT("0x%08x, ", readl(regs++));
+ 			}
+ 			DBG_PRINT("\n");
+ 		}
+@@ -182,29 +180,22 @@ void DumpDeviceBlock(int dbgLvl, struct et131x_adapter *etdev,
+  * Dumps the first 64 regs of each block of the et-1310 (each block is
+  * mapped to a new page, each page is 4096 bytes).
+  */
+-void DumpDeviceReg(int dbgLvl, struct et131x_adapter *etdev)
++void DumpDeviceReg(int debug, struct et131x_adapter *etdev)
+ {
+-	uint32_t Address1, Address2;
+-	uint32_t Block;
+-	uint32_t __iomem *BigDevicePointer =
+-		(uint32_t __iomem *) etdev->regs;
+-	uint32_t __iomem *Pointer;
+-	const char *BlockNames[NUM_BLOCKS] = {
+-		"Global", "Tx DMA", "Rx DMA", "Tx MAC",
+-		"Rx MAC", "MAC", "MAC Stat", "MMC"
+-	};
++	u32 addr1, addr2;
++	u32 block;
++	u32 __iomem *regs = (u32 __iomem *)etdev->regs;
++	u32 __iomem *p;
  
- /* Some offsets in PCI config space that are actually used. */
--#define ET1310_PCI_PM_CAPABILITY	0x40
--#define ET1310_PCI_PM_CSR		0x44
- #define ET1310_PCI_MAX_PYLD		0x4C
--#define ET1310_PCI_DEV_CTRL		0x50
--#define ET1310_PCI_DEV_STAT		0x52
- #define ET1310_NMI_DISABLE		0x61
- #define ET1310_PCI_MAC_ADDRESS		0xA4
- #define ET1310_PCI_EEPROM_STATUS	0xB2
--#define ET1310_PCI_PHY_INDEX_REG	0xB4
- #define ET1310_PCI_ACK_NACK		0xC0
- #define ET1310_PCI_REPLAY		0xC2
- #define ET1310_PCI_L0L1LATENCY		0xCF
--#define ET1310_PCI_SEL_PHY_CTRL		0xE4
--#define ET1310_PCI_ADVANCED_ERR		0x100
- 
- /* PCI Vendor/Product IDs */
- #define ET131X_PCI_VENDOR_ID		0x11C1	/* Agere Systems */
+ 	/* Output the debug counters to the debug terminal */
+-	if (DBG_FLAGS(et131x_dbginfo) & dbgLvl) {
+-		for (Block = 0; Block < NUM_BLOCKS; Block++) {
+-			DBG_PRINT("%s block\n", BlockNames[Block]);
+-			Pointer = BigDevicePointer + (Block * 1024);
+-
+-			for (Address1 = 0; Address1 < 8; Address1++) {
+-				for (Address2 = 0; Address2 < 8; Address2++) {
+-					DBG_PRINT("0x%08x, ",
+-						  readl(Pointer++));
+-				}
++	if (DBG_FLAGS(et131x_dbginfo) & debug) {
++		for (block = 0; block < NUM_BLOCKS; block++) {
++			DBG_PRINT("%s block\n", BlockNames[block]);
++			p = regs + block * 1024;
++
++			for (addr1 = 0; addr1 < 8; addr1++) {
++				for (addr2 = 0; addr2 < 8; addr2++)
++					DBG_PRINT("0x%08x, ", readl(p++));
+ 				DBG_PRINT("\n");
+ 			}
+ 			DBG_PRINT("\n");
 
