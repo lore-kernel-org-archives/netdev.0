@@ -1,64 +1,99 @@
-From: Denys Fedoryschenko <denys@visp.net.lb>
-Subject: Re: iproute2 / tbf with large burst seems broken again
-Date: Tue, 25 Aug 2009 10:34:09 +0300
-Message-ID: <200908251034.09581.denys@visp.net.lb>
-References: <20090825062203.GA5381@ff.dom.local>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH v2] sctp: fix the check for path failure detection
+Date: Tue, 25 Aug 2009 15:36:59 +0800
+Message-ID: <4A93949B.2020404@cn.fujitsu.com>
+References: <1251106637-434-1-git-send-email-chunbo.luo@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:39322 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754115AbZHYHg7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 03:36:59 -0400
-In-Reply-To: <20090825062203.GA5381@ff.dom.local>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chunbo Luo <chunbo.luo@windriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754649AbZHYHjk@vger.kernel.org>
+In-Reply-To: <1251106637-434-1-git-send-email-chunbo.luo@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 August 2009 09:22:03 Jarek Poplawski wrote:
-
+Chunbo Luo wrote:
+> The transport error count should be incremented when an outstanding
+> HB is not acknowledged. And the path failure detection should be done
+> before sending out the HB.
+>   
+> Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
+> ---
+>  net/sctp/sm_sideeffect.c |    6 +++++-
+>  net/sctp/sm_statefuns.c  |    8 ++++----
+>  2 files changed, 9 insertions(+), 5 deletions(-)
 >
-> Right, it's about an overflow and it was expected (theoretically) for
-> very low rates (as for current times) while doing this resolution
-> change. Probably this kind of warning should be useful if we expect
-> there're more people who can actually use something like this yet ;-)
->
-> Alas INT_MAX could still be not enough to prevent similar issues
-> because in tbf_dequeue such a value (buffer) is increased with tokens.
-> I guess we could try to change some variables to 64 bits there, but
-> the main question is why anybody needs such strange settings today?
-> Did you try e.g. to browse Internet with that rate and the buffer
-> e.g. 1500kb or you punish some users only? ;-) Btw, why do you think
-> 'buffer 2000kb' is better "for you" with that rate than e.g. 20kb?
->
-> Thanks,
-> Jarek P.
-Life in Lebanon:
-Backbone for ISP - $2200 per Mbit and higher.
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 86426aa..fbdf4de 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -446,7 +446,11 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+>  	if (transport->state != SCTP_UNCONFIRMED)
+>  		asoc->overall_error_count++;
+>  
+> -	if (transport->state != SCTP_INACTIVE &&
+> +	/*
+> +	 * The transport error count is incremented when an outstanding HB
+> +	 * is not acknowledged. 
+> +	 */
+>   
 
-Accounts 256Kbit/s cost $66/month in some areas.
-96 Kbits/s for people with low income costs cheaper.
+T3-rtx timer expires also need to increment error count.
 
->From government "alternative" solution - pay $20 for 2GB, but they charge 
-(without any understandable notice for non-tech end-user) extra traffic :-) 
-Some people ending month with bills $200/month. Surprise!
+> +	if (transport->hb_sent && transport->state != SCTP_INACTIVE &&
+>  	    (transport->error_count++ >= transport->pathmaxrxt)) {
+>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+>  					 " transport IP: port:%d failed.\n",
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 7288192..7f77099 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -981,10 +981,6 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+>  	 */
+>  
+>  	if (transport->param_flags & SPP_HB_ENABLE) {
+> -		if (SCTP_DISPOSITION_NOMEM ==
+> -				sctp_sf_heartbeat(ep, asoc, type, arg,
+> -						  commands))
+> -			return SCTP_DISPOSITION_NOMEM;
+>  		/* Set transport error counter and association error counter
+>  		 * when sending heartbeat.
+>  		 */
+> @@ -992,6 +988,10 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+>  				SCTP_TRANSPORT(transport));
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_HB_SENT,
+>  				SCTP_TRANSPORT(transport));
+> +		if (SCTP_DISPOSITION_NOMEM ==
+> +				sctp_sf_heartbeat(ep, asoc, type, arg,
+> +						  commands))
+> +			return SCTP_DISPOSITION_NOMEM;
+>  	}
+>  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMER_UPDATE,
+>  			SCTP_TRANSPORT(transport));
+>   
 
-Try to browse with 96Kbit/s? U can't actually on this days, with pages that 
-weight up to 5-10Mbyte...
+How about this one:
 
-The only solution - first 2-10Mbyte, for example, for user will be transferred 
-on high speed, let's say 512Kbit/s, but if he put downloads - he will have 
-his 96Kbit/s. If he just browse occasionally, his large bucket will 
-be "recharged" with 96 Kbit/s, and next page will open again fast.
-
-That's how this TBF configuration that i show works. But sure if it is 
-difficult to solve i will implement something similar in userspace, that will 
-track user consumption, and just change discipline settings... but sure it 
-will be different thing. Actually because there is noone else complained 
-about this except me, i guess i have to solve it by myself. Because better 
-resolution for high bandwidth traffic shaping much more important even for 
-me :-)
-
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 86426aa..fb723dd 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+ 		asoc->overall_error_count++;
+ 
+ 	if (transport->state != SCTP_INACTIVE &&
+-	    (transport->error_count++ >= transport->pathmaxrxt)) {
++	    (transport->error_count >= transport->pathmaxrxt)) {
+ 		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+ 					 " transport IP: port:%d failed.\n",
+ 					 asoc,
+@@ -468,6 +468,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+ 	 * that indicates that we have an outstanding HB.
+ 	 */
+ 	if (!is_hb || transport->hb_sent) {
++		transport->error_count++;
+ 		transport->last_rto = transport->rto;
+ 		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
+ 	}
