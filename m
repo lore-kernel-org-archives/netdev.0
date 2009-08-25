@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Tue, 25 Aug 2009 14:24:06 -0700
-Message-ID: <m1k50r8u4p.fsf@fess.ebiederm.org>
+Date: Tue, 25 Aug 2009 14:37:28 -0700
+Message-ID: <m1ljl77exz.fsf@fess.ebiederm.org>
 References: <200903041828.49972.m.bueker@berlin.de>
 	<1242001754.4093.12.camel@obelisk.thedillows.org>
 	<200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>
@@ -19,8 +19,6 @@ References: <200903041828.49972.m.bueker@berlin.de>
 	<1250973787.3582.14.camel@obelisk.thedillows.org>
 	<m1r5v0ogvw.fsf@fess.ebiederm.org>
 	<1251169150.4023.11.camel@obelisk.thedillows.org>
-	<m1prajabk8.fsf@fess.ebiederm.org>
-	<1251232848.9607.15.camel@lap75545.ornl.gov>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Michael Riepe <michael.riepe@googlemail.com>,
@@ -30,86 +28,90 @@ Cc: Michael Riepe <michael.riepe@googlemail.com>,
 	Michael =?utf-8?Q?B=C3=BCker?= <m.bueker@berlin.de>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Dillow <dave@thedillows.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:46921 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756082AbZHYVYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 17:24:12 -0400
-In-Reply-To: <1251232848.9607.15.camel@lap75545.ornl.gov> (David Dillow's message of "Tue\, 25 Aug 2009 16\:40\:48 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932150AbZHYVhb@vger.kernel.org>
+In-Reply-To: <1251169150.4023.11.camel@obelisk.thedillows.org> (David Dillow's message of "Mon\, 24 Aug 2009 22\:59\:10 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 David Dillow <dave@thedillows.org> writes:
 
-> On Tue, 2009-08-25 at 13:22 -0700, Eric W. Biederman wrote:
->> David Dillow <dave@thedillows.org> writes:
->> > I'm not real happy with the interrupt handling in the driver; it makes a
->> > certain amount of sense to split the MSI vs non-MSI interrupt cases out.
->> > It also means another pass through re-auditing things against the vendor
->> > driver. That's more work than I'm able to commit to at the moment.
->> >
->> > I've not been able to reproduce it locally on my r8169d, running for ~30
->> > minutes straight at full speed. I've not tried running it in UP, though.
->> > Perhaps I can do that tomorrow.
->> >
->> > Here's a possible patch to mask the NAPI events while we're running in
->> > NAPI mode. I'm not sure it is going to help, since the intr_mask was
->> > 0xffff when you hit the loop guard, so I left it in for now.
+> On Mon, 2009-08-24 at 17:51 -0700, Eric W. Biederman wrote:
+>> When I decode the bits in status they are TxOK, RxOK and TxDescUnavail so it looks
+>> there is some bidirectional communication going on.
 >> 
->> Interesting.
->> 
->> If I understand this correctly the situation is that we have on the
->> chip there is correct logic for a level triggered interrupt and that
->> the msi logic sits on it and sends an event when the interrupt signal
->> goes high, but when we acknowledge some bits but not all it does not
->> send another interrupt.
+>> Do we really want to loop when those bits are set?
 >
-> Correct, we have to acknowledge all current outstanding event sources
-> before we get another MSI interrupt. It looks like the MSI interrupt is
-> triggered on the edge transition of a logical OR of all irq sources.
+> Maybe not when only those bits are set, but I worry that we would trade
+> one race for another where we stop getting interrupts from the card.
 >
->> Baring playing games with what version of the card has working logic
->> and which does not we seem to have to simple choices (if we don't want
->> to loop possibly forever).
->> - Don't use the msi logic on this card.
->> - Move all of the logic into rtl8169_poll and only come out of NAPI
->>   mode when we have caught up with all of the interrupt work.
->> 
->> Is that how you understand the hardware issue you are trying to work
->> around?
+>> Perhaps we want to remove them from rtl_cfg_infos for the part?
 >
-> That's how I understood the issue I was working around with the
-> problematic patch, but I thought I had covered both issues fairly well
-> without having to split the handling any further -- we ACK all existing
-> sources each pass through the loop, so we'll get a new interrupt on the
-> unmasked events, but not on ones we've masked out for NAPI until NAPI
-> completes and unmasks them.
-
-
-> I'm curious how you managed to receive an packet between us clearing the
-> all current sources and reading the current source list continuously for
-> 60+ seconds -- the loop is basically
-
-
-> status = get IRQ events from chip
-> while (status) {
-> 	/* process events, start NAPI if needed */
-> 	clear current events from chip
-> 	status = get IRQ events from chip
-> }
+> Then you'd never get an interrupt for them in the first place, I think.
 >
-> That seems like a very small race window to consistently hit --
-> especially for long enough to trigger soft lockups.
+> I'm not real happy with the interrupt handling in the driver; it makes a
+> certain amount of sense to split the MSI vs non-MSI interrupt cases out.
+> It also means another pass through re-auditing things against the vendor
+> driver. That's more work than I'm able to commit to at the moment.
+>
+> I've not been able to reproduce it locally on my r8169d, running for ~30
+> minutes straight at full speed. I've not tried running it in UP, though.
+> Perhaps I can do that tomorrow.
+>
+> Here's a possible patch to mask the NAPI events while we're running in
+> NAPI mode. I'm not sure it is going to help, since the intr_mask was
+> 0xffff when you hit the loop guard, so I left it in for now.
 
-Interesting indeed.  When I hit the guard we had popped out of NAPI
-mode while we were in the loop.  The only way to do that is if
-poll and interrupt were running on different cpus.
+Ok.  I now get what your patch was trying to do and that does look like
+a reasonable test.  
 
-I am a bit curious about TxDescUnavail.  Perhaps we had a temporary
-memory shortage and that is what was screaming?  I don't think we do
-anything at all with that state.
+I prefer:
+while ((status != 0xffff) && (status & tp->intr_mask))
 
-Perhaps the flaw here is simply not masking TxDescUnavail while we are
-in NAPI mode?
+The presence of TxDescUnavail suggests as is usually the case
+that the interrupt status bits are independent of which interrupts
+are actually enabled to fire.
+
+I will take a moment and give that a try.
+
+I still like the idea of masking everything having poll do all
+of the work and then unmasking everything.  That seems a little less
+fragile to me.
 
 Eric
+
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index b82780d..12755b7 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -3556,6 +3556,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+>  	void __iomem *ioaddr = tp->mmio_addr;
+>  	int handled = 0;
+>  	int status;
+> +	int count = 0;
+>  
+>  	/* loop handling interrupts until we have no new ones or
+>  	 * we hit a invalid/hotplug case.
+> @@ -3564,6 +3565,15 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+>  	while (status && status != 0xffff) {
+>  		handled = 1;
+>  
+> +		if (count++ > 100) {
+> +			printk_once("r8169 screaming irq status %08x "
+> +				"mask %08x event %08x napi %08x\n",
+> +				status, tp->intr_mask, tp->intr_event,
+> +				tp->napi_event);
+> +			break;
+> +		}
+> +
+> +
+>  		/* Handle all of the error cases first. These will reset
+>  		 * the chip, so just exit the loop.
+>  		 */
+> @@ -3613,6 +3623,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+>  		RTL_W16(IntrStatus,
+>  			(status & RxFIFOOver) ? (status | RxOverflow) : status);
+>  		status = RTL_R16(IntrStatus);
+> +		status &= tp->intr_mask;
+>  	}
+>  
+>  	return IRQ_RETVAL(handled);
