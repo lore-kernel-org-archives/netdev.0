@@ -1,49 +1,57 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
-Date: Tue, 25 Aug 2009 13:53:14 -0400 (EDT)
-Message-ID: <alpine.DEB.1.10.0908251351560.10062@gentwo.org>
-References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org>
- <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <1250554332.25939.46.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908241334230.30487@gentwo.org> <4A930DEF.5000008@gmail.com>
- <alpine.DEB.1.10.0908250945460.5972@gentwo.org> <4A93EB9B.5020600@gmail.com> <alpine.DEB.1.10.0908250958540.28552@gentwo.org> <4A9403F0.2060301@gmail.com> <alpine.DEB.1.10.0908251135380.26329@gentwo.org> <4A940A10.60607@gmail.com> <alpine.DEB.1.10.0908251203220.26329@gentwo.org>
- <4A9410E9.6090602@gmail.com> <alpine.DEB.1.10.0908251230430.26329@gentwo.org> <4A9415F5.6020006@gmail.com> <alpine.DEB.1.10.0908251258000.26329@gentwo.org> <4A941AA6.5070506@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
+Date: Tue, 25 Aug 2009 20:50:16 +0300
+Message-ID: <20090825175016.GA15790@redhat.com>
+References: <cover.1250693417.git.mst@redhat.com> <20090819150309.GC4236@redhat.com> <200908252140.41295.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.ultrahosting.com ([74.213.175.253]:45983 "EHLO
-	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755439AbZHYRxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 13:53:38 -0400
-Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id 1751E82CFBC
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:54:34 -0400 (EDT)
-Received: from smtp.ultrahosting.com ([74.213.175.253])
-	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id uG9RSXw4Q2rV for <netdev@vger.kernel.org>;
-	Tue, 25 Aug 2009 13:54:34 -0400 (EDT)
-Received: from gentwo.org (unknown [74.213.171.31])
-	by smtp.ultrahosting.com (Postfix) with ESMTP id C5EB282CFCE
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:54:07 -0400 (EDT)
-In-Reply-To: <4A941AA6.5070506@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+	gregory.haskins@gmail.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200908252140.41295.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Tue, Aug 25, 2009 at 09:40:40PM +0930, Rusty Russell wrote:
+> > +	u32 __user *featurep = argp;
+> > +	int __user *fdp = argp;
+> > +	u32 features;
+> > +	int fd, r;
+> > +	switch (ioctl) {
+> > +	case VHOST_NET_SET_SOCKET:
+> > +		r = get_user(fd, fdp);
+> > +		if (r < 0)
+> > +			return r;
+> > +		return vhost_net_set_socket(n, fd);
+> > +	case VHOST_GET_FEATURES:
+> > +		/* No features for now */
+> > +		features = 0;
+> > +		return put_user(features, featurep);
+> 
+> We may well get more than 32 feature bits, at least for virtio_net, which will
+> force us to do some trickery in virtio_pci.
+
+Unlike PCI, if we ever run out of bits we can just
+add FEATURES_EXTENDED ioctl, no need for trickery.
+
+>  I'd like to avoid that here,
+> though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
+> struct like:
+> 
+> 	u32 feature_size;
+> 	u32 features[];
 
 
-Manpage for send says:
+Thinking about this proposal some more, how will the guest
+determine the size to supply the GET_FEATURES ioctl?
 
-ENOBUFS
-              The output queue for a network interface was full.  This generally indicates that  the  interface  has  stopped
-              sending, but may be caused by transient congestion.  (Normally, this does not occur in Linux.  Packets are just
-              silently dropped when a device queue overflows.)
+Since we are a bit tight in 32 bit space already,
+let's just use a 64 bit integer and be done with it?
+Right?
 
-
-So ENOBUFS seems to be designed to have the role that you envision. We
-just need to remove the statement in (). Its still a change in behavior
-though.
-
-
-
-
+-- 
+MST
