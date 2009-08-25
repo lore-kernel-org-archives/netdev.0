@@ -1,71 +1,129 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 04/12] tg3: Preserve PCIe MPS setting for new devs
-Date: Tue, 25 Aug 2009 13:08:16 -0700
-Message-ID: <1251232429.25405@xw6200>
+Subject: [PATCH 02/12] tg3: Prevent tx BD corruption
+Date: Tue, 25 Aug 2009 13:07:27 -0700
+Message-ID: <1251232429.25401@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1686 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1676 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756168AbZHYUgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756047AbZHYUgP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 25 Aug 2009 16:36:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most older tg3 devices only supported a PCIe maximum payload size of
-128 bytes.  More recent devices bump this limit up to 256 bytes
-though.  This patch modifies the code so that the MPS limit is only
-enforced on those devices that only allow the 128 byte setting.
+This patch prevents a tx BD corruption bug by preventing the device from
+powering down the PLL from L1 if the link speed is 10Mbps or 100Mbps.
+
+The same bits are also used to prevent a system hang during chip reset
+resulting from a complicated set of events that ultimately leads to
+PCIe block register corruption.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   18 +++++++++++++++---
- 1 files changed, 15 insertions(+), 3 deletions(-)
+ drivers/net/tg3.c |   28 ++++++++++++++++++++++++++++
+ drivers/net/tg3.h |    9 ++++++++-
+ 2 files changed, 36 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ca3052d..356b5d0 100644
+index e8def28..595ddf2 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -6226,6 +6226,8 @@ static int tg3_chip_reset(struct tg3 *tp)
- 	udelay(120);
+@@ -3167,6 +3167,15 @@ relink:
+ 			pci_write_config_word(tp->pdev,
+ 					      tp->pcie_cap + PCI_EXP_LNKCTL,
+ 					      newlnkctl);
++	} else if (tp->tg3_flags3 & TG3_FLG3_TOGGLE_10_100_L1PLLPD) {
++		u32 newreg, oldreg = tr32(TG3_PCIE_LNKCTL);
++		if (tp->link_config.active_speed == SPEED_100 ||
++		    tp->link_config.active_speed == SPEED_10)
++			newreg = oldreg & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
++		else
++			newreg = oldreg | TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
++		if (newreg != oldreg)
++			tw32(TG3_PCIE_LNKCTL, newreg);
+ 	}
  
- 	if ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) && tp->pcie_cap) {
-+		u16 val16;
+ 	if (current_link_up != netif_carrier_ok(tp->dev)) {
+@@ -6160,6 +6169,11 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 	smp_mb();
+ 	synchronize_irq(tp->pdev->irq);
+ 
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780) {
++		val = tr32(TG3_PCIE_LNKCTL) & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
++		tw32(TG3_PCIE_LNKCTL, val | TG3_PCIE_LNKCTL_L1_PLL_PD_DIS);
++	}
 +
- 		if (tp->pci_chip_rev_id == CHIPREV_ID_5750_A0) {
- 			int i;
- 			u32 cfg_val;
-@@ -6239,12 +6241,22 @@ static int tg3_chip_reset(struct tg3 *tp)
- 					       cfg_val | (1 << 15));
- 		}
+ 	/* do the reset */
+ 	val = GRC_MISC_CFG_CORECLK_RESET;
  
--		/* Set PCIE max payload size to 128 bytes and
--		 * clear the "no snoop" and "relaxed ordering" bits.
-+		/* Clear the "no snoop" and "relaxed ordering" bits. */
-+		pci_read_config_word(tp->pdev,
-+				     tp->pcie_cap + PCI_EXP_DEVCTL,
-+				     &val16);
-+		val16 &= ~(PCI_EXP_DEVCTL_RELAX_EN |
-+			   PCI_EXP_DEVCTL_NOSNOOP_EN);
-+		/*
-+		 * Older PCIe devices only support the 128 byte
-+		 * MPS setting.  Enforce the restriction.
- 		 */
-+		if (!(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) ||
-+		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784))
-+			val16 &= ~PCI_EXP_DEVCTL_PAYLOAD;
- 		pci_write_config_word(tp->pdev,
- 				      tp->pcie_cap + PCI_EXP_DEVCTL,
--				      0);
-+				      val16);
+@@ -6726,6 +6740,15 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		tw32(TG3_CORR_ERR_STAT, TG3_CORR_ERR_STAT_CLEAR);
+ 	}
  
- 		pcie_set_readrq(tp->pdev, 4096);
++	if (tp->tg3_flags3 & TG3_FLG3_TOGGLE_10_100_L1PLLPD) {
++		val = tr32(TG3_PCIE_LNKCTL);
++		if (tp->tg3_flags3 & TG3_FLG3_CLKREQ_BUG)
++			val |= TG3_PCIE_LNKCTL_L1_PLL_PD_DIS;
++		else
++			val &= ~TG3_PCIE_LNKCTL_L1_PLL_PD_DIS;
++		tw32(TG3_PCIE_LNKCTL, val);
++	}
++
+ 	/* This works around an issue with Athlon chipsets on
+ 	 * B3 tigon3 silicon.  This bit has no effect on any
+ 	 * other revision.  But do not set this on PCI Express
+@@ -12274,6 +12297,11 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
+ 		tp->tg3_flags3 |= TG3_FLG3_USE_PHYLIB;
  
++	if ((tp->pci_chip_rev_id == CHIPREV_ID_57780_A1 &&
++	     tr32(RCVLPC_STATS_ENABLE) & RCVLPC_STATSENAB_ASF_FIX) ||
++	    tp->pci_chip_rev_id == CHIPREV_ID_57780_A0)
++		tp->tg3_flags3 |= TG3_FLG3_TOGGLE_10_100_L1PLLPD;
++
+ 	err = tg3_mdio_init(tp);
+ 	if (err)
+ 		return err;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index c613cbb..bb8591e 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -866,6 +866,7 @@
+ #define  RCVLPC_STATSCTRL_ENABLE	 0x00000001
+ #define  RCVLPC_STATSCTRL_FASTUPD	 0x00000002
+ #define RCVLPC_STATS_ENABLE		0x00002018
++#define  RCVLPC_STATSENAB_ASF_FIX	 0x00000002
+ #define  RCVLPC_STATSENAB_DACK_FIX	 0x00040000
+ #define  RCVLPC_STATSENAB_LNGBRST_RFIX	 0x00400000
+ #define RCVLPC_STATS_INCMASK		0x0000201c
+@@ -1704,7 +1705,12 @@
+ #define PCIE_PWR_MGMT_L1_THRESH_MSK	 0x0000ff00
+ #define PCIE_PWR_MGMT_L1_THRESH_4MS	 0x0000ff00
+ #define PCIE_PWR_MGMT_EXT_ASPM_TMR_EN	 0x01000000
+-/* 0x7d2c --> 0x7e70 unused */
++/* 0x7d2c --> 0x7d54 unused */
++
++#define TG3_PCIE_LNKCTL			0x00007d54
++#define  TG3_PCIE_LNKCTL_L1_PLL_PD_EN	 0x00000008
++#define  TG3_PCIE_LNKCTL_L1_PLL_PD_DIS	 0x00000080
++/* 0x7d58 --> 0x7e70 unused */
+ 
+ #define TG3_PCIE_EIDLE_DELAY		0x00007e70
+ #define  TG3_PCIE_EIDLE_DELAY_MASK	 0x0000001f
+@@ -2650,6 +2656,7 @@ struct tg3 {
+ #define TG3_FLG3_PHY_ENABLE_APD		0x00001000
+ #define TG3_FLG3_5755_PLUS		0x00002000
+ #define TG3_FLG3_NO_NVRAM		0x00004000
++#define TG3_FLG3_TOGGLE_10_100_L1PLLPD	0x00008000
+ 
+ 	struct timer_list		timer;
+ 	u16				timer_counter;
 -- 
 1.6.3.3
 
