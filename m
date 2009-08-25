@@ -1,390 +1,235 @@
 From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH NEXT 2/4] netxen: implement generic pcie semaphore functions
-Date: Mon, 24 Aug 2009 22:23:26 -0700
-Message-ID: <1251177808-16450-2-git-send-email-dhananjay@netxen.com>
+Subject: [PATCH NEXT 4/4] netxen: bridged mode optimizations
+Date: Mon, 24 Aug 2009 22:23:28 -0700
+Message-ID: <1251177808-16450-4-git-send-email-dhananjay@netxen.com>
 References: <1251177808-16450-1-git-send-email-dhananjay@netxen.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Narender Kumar <narender.kumar@qlogic.com>
 To: davem@davemloft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-1.pathscale.com ([198.186.3.73]:54412 "HELO unm84.unmin.com"
+Received: from nat-1.pathscale.com ([198.186.3.73]:54417 "HELO unm84.unmin.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754478AbZHYFX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754480AbZHYFX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 25 Aug 2009 01:23:28 -0400
 In-Reply-To: <1251177808-16450-1-git-send-email-dhananjay@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement common function for locking/unlocking 8 hardware
-semaphores used for serializing access to shared resouces
-on a NIC board by different PCI functions.
+From: Narender Kumar <narender.kumar@qlogic.com>
 
-As by definition, callers of these semaphore API can be
-put to sleep till the semaphore is locked.
+When the interface is put in bridged mode, destination mac
+addresses are unknown to firmware. So packets take a slow
+path (lower priority) in firmware reducing performance.
 
+Firmware can cache limited number of remote unicast mac
+addresses for certain interval, if "dynamic mac learning"
+mode is enabled.
+
+Driver needs to enable this "mac learning" mode in firmware.
+Currently this is done through net device class sysfs entry,
+possibly this can also be done upon netlink notifications to
+from bridge.
+
+Signed-off-by: Narender Kumar <narender.kumar@qlogic.com>
 Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 ---
- drivers/net/netxen/netxen_nic.h      |   24 ++++++++++++++
- drivers/net/netxen/netxen_nic_ctx.c  |   35 ---------------------
- drivers/net/netxen/netxen_nic_hdr.h  |    8 +++++
- drivers/net/netxen/netxen_nic_hw.c   |   57 +++++++++++++++++----------------
- drivers/net/netxen/netxen_nic_init.c |   52 +++++--------------------------
- drivers/net/netxen/netxen_nic_niu.c  |   39 +----------------------
- 6 files changed, 71 insertions(+), 144 deletions(-)
+ drivers/net/netxen/netxen_nic.h      |    3 +
+ drivers/net/netxen/netxen_nic_hw.c   |   31 ++++++++++++
+ drivers/net/netxen/netxen_nic_main.c |   84 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 116 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 74ccef5..061e8aa 100644
+index 63e2f79..449d351 100644
 --- a/drivers/net/netxen/netxen_nic.h
 +++ b/drivers/net/netxen/netxen_nic.h
-@@ -1207,6 +1207,30 @@ int netxen_p3_nic_set_mac_addr(struct netxen_adapter *adapter, u8 *addr);
- #define NXWR32(adapter, off, val) \
- 	(adapter->hw_write_wx(adapter, off, val))
+@@ -964,6 +964,7 @@ typedef struct {
+ #define NX_NIC_H2C_OPCODE_PROXY_STOP_DONE		20
+ #define NX_NIC_H2C_OPCODE_GET_LINKEVENT			21
+ #define NX_NIC_C2C_OPCODE				22
++#define NX_NIC_H2C_OPCODE_CONFIG_BRIDGING               23
+ #define NX_NIC_H2C_OPCODE_CONFIG_HW_LRO			24
+ #define NX_NIC_H2C_OPCODE_LAST				25
  
-+int netxen_pcie_sem_lock(struct netxen_adapter *, int, u32);
-+void netxen_pcie_sem_unlock(struct netxen_adapter *, int);
-+
-+#define netxen_rom_lock(a)	\
-+	netxen_pcie_sem_lock((a), 2, NETXEN_ROM_LOCK_ID)
-+#define netxen_rom_unlock(a)	\
-+	netxen_pcie_sem_unlock((a), 2)
-+#define netxen_phy_lock(a)	\
-+	netxen_pcie_sem_lock((a), 3, NETXEN_PHY_LOCK_ID)
-+#define netxen_phy_unlock(a)	\
-+	netxen_pcie_sem_unlock((a), 3)
-+#define netxen_api_lock(a)	\
-+	netxen_pcie_sem_lock((a), 5, 0)
-+#define netxen_api_unlock(a)	\
-+	netxen_pcie_sem_unlock((a), 5)
-+#define netxen_sw_lock(a)	\
-+	netxen_pcie_sem_lock((a), 6, 0)
-+#define netxen_sw_unlock(a)	\
-+	netxen_pcie_sem_unlock((a), 6)
-+#define crb_win_lock(a)	\
-+	netxen_pcie_sem_lock((a), 7, NETXEN_CRB_WIN_LOCK_ID)
-+#define crb_win_unlock(a)	\
-+	netxen_pcie_sem_unlock((a), 7)
-+
- int netxen_nic_get_board_info(struct netxen_adapter *adapter);
- void netxen_nic_get_firmware_info(struct netxen_adapter *adapter);
- int netxen_nic_wol_supported(struct netxen_adapter *adapter);
-diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
-index 3d676fe..ef846b4 100644
---- a/drivers/net/netxen/netxen_nic_ctx.c
-+++ b/drivers/net/netxen/netxen_nic_ctx.c
-@@ -33,41 +33,6 @@
+@@ -1085,6 +1086,7 @@ typedef struct {
+ #define NETXEN_NIC_MSI_ENABLED		0x02
+ #define NETXEN_NIC_MSIX_ENABLED		0x04
+ #define NETXEN_NIC_LRO_ENABLED		0x08
++#define NETXEN_NIC_BRIDGE_ENABLED       0X10
+ #define NETXEN_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (NETXEN_NIC_MSI_ENABLED | NETXEN_NIC_MSIX_ENABLED))
  
- #define NXHAL_VERSION	1
+@@ -1332,6 +1334,7 @@ void netxen_advert_link_change(struct netxen_adapter *adapter, int linkup);
+ int nx_fw_cmd_set_mtu(struct netxen_adapter *adapter, int mtu);
+ int netxen_nic_change_mtu(struct net_device *netdev, int new_mtu);
+ int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable);
++int netxen_config_bridged_mode(struct netxen_adapter *adapter, int enable);
+ int netxen_send_lro_cleanup(struct netxen_adapter *adapter);
  
--static int
--netxen_api_lock(struct netxen_adapter *adapter)
--{
--	u32 done = 0, timeout = 0;
--
--	for (;;) {
--		/* Acquire PCIE HW semaphore5 */
--		done = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM5_LOCK));
--
--		if (done == 1)
--			break;
--
--		if (++timeout >= NX_OS_CRB_RETRY_COUNT) {
--			printk(KERN_ERR "%s: lock timeout.\n", __func__);
--			return -1;
--		}
--
--		msleep(1);
--	}
--
--#if 0
--	NXWR32(adapter,
--		NETXEN_API_LOCK_ID, NX_OS_API_LOCK_DRIVER);
--#endif
--	return 0;
--}
--
--static int
--netxen_api_unlock(struct netxen_adapter *adapter)
--{
--	/* Release PCIE HW semaphore5 */
--	NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM5_UNLOCK));
--	return 0;
--}
--
- static u32
- netxen_poll_rsp(struct netxen_adapter *adapter)
- {
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/netxen/netxen_nic_hdr.h
-index c4a4a8b..92f5970 100644
---- a/drivers/net/netxen/netxen_nic_hdr.h
-+++ b/drivers/net/netxen/netxen_nic_hdr.h
-@@ -899,16 +899,24 @@ enum {
- 
- #define PCIE_DCR		0x00d8
- 
-+#define PCIE_SEM0_LOCK		(0x1c000)
-+#define PCIE_SEM0_UNLOCK	(0x1c004)
-+#define PCIE_SEM1_LOCK		(0x1c008)
-+#define PCIE_SEM1_UNLOCK	(0x1c00c)
- #define PCIE_SEM2_LOCK		(0x1c010)	/* Flash lock   */
- #define PCIE_SEM2_UNLOCK	(0x1c014)	/* Flash unlock */
- #define PCIE_SEM3_LOCK	  	(0x1c018)	/* Phy lock     */
- #define PCIE_SEM3_UNLOCK	(0x1c01c)	/* Phy unlock   */
-+#define PCIE_SEM4_LOCK	  	(0x1c020)
-+#define PCIE_SEM4_UNLOCK	(0x1c024)
- #define PCIE_SEM5_LOCK		(0x1c028)	/* API lock     */
- #define PCIE_SEM5_UNLOCK	(0x1c02c)	/* API unlock   */
- #define PCIE_SEM6_LOCK		(0x1c030)	/* sw lock      */
- #define PCIE_SEM6_UNLOCK	(0x1c034)	/* sw unlock    */
- #define PCIE_SEM7_LOCK		(0x1c038)	/* crb win lock */
- #define PCIE_SEM7_UNLOCK	(0x1c03c)	/* crbwin unlock*/
-+#define PCIE_SEM_LOCK(N)	(PCIE_SEM0_LOCK + 8*(N))
-+#define PCIE_SEM_UNLOCK(N)	(PCIE_SEM0_UNLOCK + 8*(N))
- 
- #define PCIE_SETUP_FUNCTION	(0x12040)
- #define PCIE_SETUP_FUNCTION2	(0x12048)
+ int netxen_nic_set_mac(struct net_device *netdev, void *p);
 diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
-index 9138bbc..cbfe44c 100644
+index 1a8ad62..db510ce 100644
 --- a/drivers/net/netxen/netxen_nic_hw.c
 +++ b/drivers/net/netxen/netxen_nic_hw.c
-@@ -86,7 +86,6 @@ static void __iomem *pci_base_offset(struct netxen_adapter *adapter,
- 	return NULL;
+@@ -794,6 +794,37 @@ int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable)
+ 	return rv;
  }
  
--#define CRB_WIN_LOCK_TIMEOUT 100000000
- static crb_128M_2M_block_map_t
- crb_128M_2M_map[64] __cacheline_aligned_in_smp = {
-     {{{0, 0,         0,         0} } },		/* 0: PCI */
-@@ -320,6 +319,35 @@ static unsigned crb_hub_agt[64] =
- 
- #define NETXEN_WINDOW_ONE 	0x2000000 /*CRB Window: bit 25 of CRB address */
- 
-+#define NETXEN_PCIE_SEM_TIMEOUT	10000
-+
-+int
-+netxen_pcie_sem_lock(struct netxen_adapter *adapter, int sem, u32 id_reg)
++int netxen_config_bridged_mode(struct netxen_adapter *adapter, int enable)
 +{
-+	int done = 0, timeout = 0;
++	nx_nic_req_t req;
++	u64 word;
++	int rv = 0;
 +
-+	while (!done) {
-+		done = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM_LOCK(sem)));
-+		if (done == 1)
-+			break;
-+		if (++timeout >= NETXEN_PCIE_SEM_TIMEOUT)
-+			return -1;
-+		msleep(1);
++	if (!!(adapter->flags & NETXEN_NIC_BRIDGE_ENABLED) == enable)
++		return rv;
++
++	memset(&req, 0, sizeof(nx_nic_req_t));
++
++	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
++
++	word = NX_NIC_H2C_OPCODE_CONFIG_BRIDGING |
++		((u64)adapter->portnum << 16);
++	req.req_hdr = cpu_to_le64(word);
++
++	req.words[0] = cpu_to_le64(enable);
++
++	rv = netxen_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
++	if (rv != 0) {
++		printk(KERN_ERR "ERROR. Could not send "
++				"configure bridge mode request\n");
 +	}
 +
-+	if (id_reg)
-+		NXWR32(adapter, id_reg, adapter->portnum);
++	adapter->flags ^= NETXEN_NIC_BRIDGE_ENABLED;
 +
-+	return 0;
++	return rv;
 +}
 +
-+void
-+netxen_pcie_sem_unlock(struct netxen_adapter *adapter, int sem)
++
+ #define RSS_HASHTYPE_IP_TCP	0x3
+ 
+ int netxen_config_rss(struct netxen_adapter *adapter, int enable)
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index bd4589f..fab51d1 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -71,6 +71,10 @@ static int netxen_nic_poll(struct napi_struct *napi, int budget);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void netxen_nic_poll_controller(struct net_device *netdev);
+ #endif
++
++static void netxen_create_sysfs_entries(struct netxen_adapter *adapter);
++static void netxen_remove_sysfs_entries(struct netxen_adapter *adapter);
++
+ static irqreturn_t netxen_intr(int irq, void *data);
+ static irqreturn_t netxen_msi_intr(int irq, void *data);
+ static irqreturn_t netxen_msix_intr(int irq, void *data);
+@@ -94,8 +98,6 @@ static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
+ 
+ MODULE_DEVICE_TABLE(pci, netxen_pci_tbl);
+ 
+-static void netxen_watchdog(unsigned long);
+-
+ static uint32_t crb_cmd_producer[4] = {
+ 	CRB_CMD_PRODUCER_OFFSET, CRB_CMD_PRODUCER_OFFSET_1,
+ 	CRB_CMD_PRODUCER_OFFSET_2, CRB_CMD_PRODUCER_OFFSET_3
+@@ -995,6 +997,8 @@ netxen_nic_attach(struct netxen_adapter *adapter)
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		netxen_nic_init_coalesce_defaults(adapter);
+ 
++	netxen_create_sysfs_entries(adapter);
++
+ 	adapter->is_up = NETXEN_ADAPTER_UP_MAGIC;
+ 	return 0;
+ 
+@@ -1012,6 +1016,8 @@ netxen_nic_detach(struct netxen_adapter *adapter)
+ 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+ 		return;
+ 
++	netxen_remove_sysfs_entries(adapter);
++
+ 	netxen_free_hw_resources(adapter);
+ 	netxen_release_rx_buffers(adapter);
+ 	netxen_nic_free_irq(adapter);
+@@ -1959,6 +1965,80 @@ static void netxen_nic_poll_controller(struct net_device *netdev)
+ }
+ #endif
+ 
++static ssize_t
++netxen_store_bridged_mode(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t len)
 +{
-+	int val;
-+	val = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM_UNLOCK(sem)));
++	struct net_device *net = to_net_dev(dev);
++	struct netxen_adapter *adapter = netdev_priv(net);
++	unsigned long new;
++	int ret = -EINVAL;
++
++	if (!(adapter->capabilities & NX_FW_CAPABILITY_BDG))
++		goto err_out;
++
++	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
++		goto err_out;
++
++	if (strict_strtoul(buf, 2, &new))
++		goto err_out;
++
++	if (!netxen_config_bridged_mode(adapter, !!new))
++		ret = len;
++
++err_out:
++	return ret;
 +}
 +
- #define NETXEN_UNICAST_ADDR(port, index) \
- 	(NETXEN_UNICAST_ADDR_BASE+(port*32)+(index*8))
- #define NETXEN_MCAST_ADDR(port, index) \
-@@ -906,33 +934,6 @@ int netxen_p3_get_mac_addr(struct netxen_adapter *adapter, __le64 *mac)
- 	return 0;
- }
++static ssize_t
++netxen_show_bridged_mode(struct device *dev,
++		struct device_attribute *attr, char *buf)
++{
++	struct net_device *net = to_net_dev(dev);
++	struct netxen_adapter *adapter;
++	int bridged_mode = 0;
++
++	adapter = netdev_priv(net);
++
++	if (adapter->capabilities & NX_FW_CAPABILITY_BDG)
++		bridged_mode = !!(adapter->flags & NETXEN_NIC_BRIDGE_ENABLED);
++
++	return sprintf(buf, "%d\n", bridged_mode);
++}
++
++static struct device_attribute dev_attr_bridged_mode = {
++       .attr = {.name = "bridged_mode", .mode = (S_IRUGO | S_IWUSR)},
++       .show = netxen_show_bridged_mode,
++       .store = netxen_store_bridged_mode,
++};
++
++static void
++netxen_create_sysfs_entries(struct netxen_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	struct device *dev = &netdev->dev;
++
++	if (adapter->capabilities & NX_FW_CAPABILITY_BDG) {
++		/* bridged_mode control */
++		if (device_create_file(dev, &dev_attr_bridged_mode)) {
++			dev_warn(&netdev->dev,
++				"failed to create bridged_mode sysfs entry\n");
++		}
++	}
++}
++
++static void
++netxen_remove_sysfs_entries(struct netxen_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	struct device *dev = &netdev->dev;
++
++	if (adapter->capabilities & NX_FW_CAPABILITY_BDG)
++		device_remove_file(dev, &dev_attr_bridged_mode);
++}
++
++static void netxen_watchdog(unsigned long);
++
+ #ifdef CONFIG_INET
  
--#define CRB_WIN_LOCK_TIMEOUT 100000000
--
--static int crb_win_lock(struct netxen_adapter *adapter)
--{
--	int done = 0, timeout = 0;
--
--	while (!done) {
--		/* acquire semaphore3 from PCI HW block */
--		done = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM7_LOCK));
--		if (done == 1)
--			break;
--		if (timeout >= CRB_WIN_LOCK_TIMEOUT)
--			return -1;
--		timeout++;
--		udelay(1);
--	}
--	NXWR32(adapter, NETXEN_CRB_WIN_LOCK_ID, adapter->portnum);
--	return 0;
--}
--
--static void crb_win_unlock(struct netxen_adapter *adapter)
--{
--	int val;
--
--	val = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM7_UNLOCK));
--}
--
- /*
-  * Changes the CRB window to the specified window.
-  */
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index f5807da..313cd26 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -369,37 +369,7 @@ static u32 netxen_decode_crb_addr(u32 addr)
- 		return (pci_base + offset);
- }
- 
--static long rom_max_timeout = 100;
--static long rom_lock_timeout = 10000;
--
--static int rom_lock(struct netxen_adapter *adapter)
--{
--	int iter;
--	u32 done = 0;
--	int timeout = 0;
--
--	while (!done) {
--		/* acquire semaphore2 from PCI HW block */
--		done = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM2_LOCK));
--		if (done == 1)
--			break;
--		if (timeout >= rom_lock_timeout)
--			return -EIO;
--
--		timeout++;
--		/*
--		 * Yield CPU
--		 */
--		if (!in_atomic())
--			schedule();
--		else {
--			for (iter = 0; iter < 20; iter++)
--				cpu_relax();	/*This a nop instr on i386 */
--		}
--	}
--	NXWR32(adapter, NETXEN_ROM_LOCK_ID, ROM_LOCK_DRIVER);
--	return 0;
--}
-+#define NETXEN_MAX_ROM_WAIT_USEC	100
- 
- static int netxen_wait_rom_done(struct netxen_adapter *adapter)
- {
-@@ -411,22 +381,16 @@ static int netxen_wait_rom_done(struct netxen_adapter *adapter)
- 	while (done == 0) {
- 		done = NXRD32(adapter, NETXEN_ROMUSB_GLB_STATUS);
- 		done &= 2;
--		timeout++;
--		if (timeout >= rom_max_timeout) {
--			printk("Timeout reached  waiting for rom done");
-+		if (++timeout >= NETXEN_MAX_ROM_WAIT_USEC) {
-+			dev_err(&adapter->pdev->dev,
-+				"Timeout reached  waiting for rom done");
- 			return -EIO;
- 		}
-+		udelay(1);
- 	}
- 	return 0;
- }
- 
--static void netxen_rom_unlock(struct netxen_adapter *adapter)
--{
--	/* release semaphore2 */
--	NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM2_UNLOCK));
--
--}
--
- static int do_rom_fast_read(struct netxen_adapter *adapter,
- 			    int addr, int *valp)
- {
-@@ -471,7 +435,7 @@ netxen_rom_fast_read_words(struct netxen_adapter *adapter, int addr,
- {
- 	int ret;
- 
--	ret = rom_lock(adapter);
-+	ret = netxen_rom_lock(adapter);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -485,7 +449,7 @@ int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
- {
- 	int ret;
- 
--	if (rom_lock(adapter) != 0)
-+	if (netxen_rom_lock(adapter) != 0)
- 		return -EIO;
- 
- 	ret = do_rom_fast_read(adapter, addr, valp);
-@@ -506,7 +470,7 @@ int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
- 	u32 off;
- 
- 	/* resetall */
--	rom_lock(adapter);
-+	netxen_rom_lock(adapter);
- 	NXWR32(adapter, NETXEN_ROMUSB_GLB_SW_RESET, 0xffffffff);
- 	netxen_rom_unlock(adapter);
- 
-diff --git a/drivers/net/netxen/netxen_nic_niu.c b/drivers/net/netxen/netxen_nic_niu.c
-index 8b7cd9e..1392e89 100644
---- a/drivers/net/netxen/netxen_nic_niu.c
-+++ b/drivers/net/netxen/netxen_nic_niu.c
-@@ -30,40 +30,6 @@
- 
- #include "netxen_nic.h"
- 
--static long phy_lock_timeout = 100000000;
--
--static int phy_lock(struct netxen_adapter *adapter)
--{
--	int i;
--	int done = 0, timeout = 0;
--
--	while (!done) {
--		done = NXRD32(adapter, NETXEN_PCIE_REG(PCIE_SEM3_LOCK));
--		if (done == 1)
--			break;
--		if (timeout >= phy_lock_timeout) {
--			return -1;
--		}
--		timeout++;
--		if (!in_atomic())
--			schedule();
--		else {
--			for (i = 0; i < 20; i++)
--				cpu_relax();
--		}
--	}
--
--	NXWR32(adapter, NETXEN_PHY_LOCK_ID, PHY_LOCK_DRIVER);
--	return 0;
--}
--
--static int phy_unlock(struct netxen_adapter *adapter)
--{
--	adapter->pci_read_immediate(adapter, NETXEN_PCIE_REG(PCIE_SEM3_UNLOCK));
--
--	return 0;
--}
--
- /*
-  * netxen_niu_gbe_phy_read - read a register from the GbE PHY via
-  * mii management interface.
-@@ -89,9 +55,8 @@ int netxen_niu_gbe_phy_read(struct netxen_adapter *adapter, long reg,
- 	__u32 status;
- 	__u32 mac_cfg0;
- 
--	if (phy_lock(adapter) != 0) {
-+	if (netxen_phy_lock(adapter) != 0)
- 		return -1;
--	}
- 
- 	/*
- 	 * MII mgmt all goes through port 0 MAC interface,
-@@ -141,7 +106,7 @@ int netxen_niu_gbe_phy_read(struct netxen_adapter *adapter, long reg,
- 	if (restore)
- 		if (NXWR32(adapter, NETXEN_NIU_GB_MAC_CONFIG_0(0), mac_cfg0))
- 			return -EIO;
--	phy_unlock(adapter);
-+	netxen_phy_unlock(adapter);
- 	return result;
- }
- 
+ #define is_netxen_netdev(dev) (dev->netdev_ops == &netxen_netdev_ops)
 -- 
 1.6.0.2
 
