@@ -1,134 +1,53 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH v2] sctp: fix the check for path failure detection
-Date: Tue, 25 Aug 2009 09:31:54 -0400
-Message-ID: <4A93E7CA.3080300@hp.com>
-References: <1251106637-434-1-git-send-email-chunbo.luo@windriver.com>	 <4A93949B.2020404@cn.fujitsu.com> <1251188548.6498.28.camel@pek-cluo-desktop>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 09:45:30 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908250944160.5972@gentwo.org>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org>
+ <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <4A931ED3.1090206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luo Chunbo <chunbo.luo@windriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753359AbZHYNb4@vger.kernel.org>
-In-Reply-To: <1251188548.6498.28.camel@pek-cluo-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:33677 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753480AbZHYNpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 09:45:34 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 35ADC82CEA0
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 09:46:28 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id MbMzZld3CpGP for <netdev@vger.kernel.org>;
+	Tue, 25 Aug 2009 09:46:28 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id AB44382CEA1
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 09:46:23 -0400 (EDT)
+In-Reply-To: <4A931ED3.1090206@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Luo Chunbo wrote:
-> On Tue, 2009-08-25 at 15:36 +0800, Wei Yongjun wrote:
->> Chunbo Luo wrote:
->>> The transport error count should be incremented when an outstanding
->>> HB is not acknowledged. And the path failure detection should be done
->>> before sending out the HB.
->>>   
->>> Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
->>> ---
->>>  net/sctp/sm_sideeffect.c |    6 +++++-
->>>  net/sctp/sm_statefuns.c  |    8 ++++----
->>>  2 files changed, 9 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->>> index 86426aa..fbdf4de 100644
->>> --- a/net/sctp/sm_sideeffect.c
->>> +++ b/net/sctp/sm_sideeffect.c
->>> @@ -446,7 +446,11 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->>>  	if (transport->state != SCTP_UNCONFIRMED)
->>>  		asoc->overall_error_count++;
->>>  
->>> -	if (transport->state != SCTP_INACTIVE &&
->>> +	/*
->>> +	 * The transport error count is incremented when an outstanding HB
->>> +	 * is not acknowledged. 
->>> +	 */
->>>   
->> T3-rtx timer expires also need to increment error count.
-> 
-> Yes, T3-rtx timer expires need to increment error count.
-> 
->>> +	if (transport->hb_sent && transport->state != SCTP_INACTIVE &&
->>>  	    (transport->error_count++ >= transport->pathmaxrxt)) {
->>>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
->>>  					 " transport IP: port:%d failed.\n",
->>> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
->>> index 7288192..7f77099 100644
->>> --- a/net/sctp/sm_statefuns.c
->>> +++ b/net/sctp/sm_statefuns.c
->>> @@ -981,10 +981,6 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
->>>  	 */
->>>  
->>>  	if (transport->param_flags & SPP_HB_ENABLE) {
->>> -		if (SCTP_DISPOSITION_NOMEM ==
->>> -				sctp_sf_heartbeat(ep, asoc, type, arg,
->>> -						  commands))
->>> -			return SCTP_DISPOSITION_NOMEM;
->>>  		/* Set transport error counter and association error counter
->>>  		 * when sending heartbeat.
->>>  		 */
->>> @@ -992,6 +988,10 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
->>>  				SCTP_TRANSPORT(transport));
->>>  		sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_HB_SENT,
->>>  				SCTP_TRANSPORT(transport));
->>> +		if (SCTP_DISPOSITION_NOMEM ==
->>> +				sctp_sf_heartbeat(ep, asoc, type, arg,
->>> +						  commands))
->>> +			return SCTP_DISPOSITION_NOMEM;
->>>  	}
->>>  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMER_UPDATE,
->>>  			SCTP_TRANSPORT(transport));
->>>   
->> How about this one:
-> 
-> It is ok to increment the error count. But the path failure detection
-> should be done before send HB. Otherwise, an extra HB chunk will be sent
-> out before the transport is marked DOWN . So the changes in
-> net/sctp/sm_statefuns.c is also needed.
+On Tue, 25 Aug 2009, Eric Dumazet wrote:
 
-After running a few simulations with all the different patches from this thread,
-what we are really after was achieved by the original patch.  Looking back over
-the code history, it looks like this was try to implement the old text of
-section 8.3 (prior to errata that fixed it).
+> Thread model: posix
+> gcc version 4.4.1 (GCC)
+> # pwd
+> /opt/src/lldiag-0.14
+> # make
+> gcc -Wall -omcast mcast.c -lrt -lm
+> mcast.c: In function ?set_ip?:
+> mcast.c:121: warning: implicit declaration of function ?htons?
+> mcast.c: In function ?build_pattern_array?:
+> mcast.c:168: warning: implicit declaration of function ?htonl?
+> /tmp/cc4sYCDr.o: In function `lock':
+> mcast.c:(.text+0xcad): undefined reference to `__sync_fetch_and_add_4'
+> collect2: ld returned 1 exit status
+> make: *** [mcast] Error 1
+>
+>
+> I have no idea where is defined sync_fetch_and_add
 
-We still have to send HB on an INACTIVE transport to see if it comes back, so
-that comment of my was entirely wrong.  Sorry, don't know what I was thinking at
-that time...
+Its a GCC builtin for x86 sigh. Ok will put out 0.15 that disables their
+use by default.
 
-So I'll take the original patch Luo submitted.
-
-Thanks
--vlad
-
-> 
-> 
-> 
->> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->> index 86426aa..fb723dd 100644
->> --- a/net/sctp/sm_sideeffect.c
->> +++ b/net/sctp/sm_sideeffect.c
->> @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->>  		asoc->overall_error_count++;
->>  
->>  	if (transport->state != SCTP_INACTIVE &&
->> -	    (transport->error_count++ >= transport->pathmaxrxt)) {
->> +	    (transport->error_count >= transport->pathmaxrxt)) {
->>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
->>  					 " transport IP: port:%d failed.\n",
->>  					 asoc,
->> @@ -468,6 +468,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->>  	 * that indicates that we have an outstanding HB.
->>  	 */
->>  	if (!is_hb || transport->hb_sent) {
->> +		transport->error_count++;
->>  		transport->last_rto = transport->rto;
->>  		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
->>  	}
->>
->>
->>
->>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
