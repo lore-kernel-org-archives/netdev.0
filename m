@@ -1,220 +1,243 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 12/26] et131x: clean up constant rx/tx registry fields
-Date: Tue, 25 Aug 2009 15:59:28 +0100
-Message-ID: <20090825145925.16176.90147.stgit@localhost.localdomain>
+Subject: [PATCH 13/26] et131x: attack the config stuff
+Date: Tue, 25 Aug 2009 15:59:37 +0100
+Message-ID: <20090825145933.16176.18943.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47787 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47791 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755331AbZHYPEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:04:50 -0400
+	with ESMTP id S1755336AbZHYPE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:04:59 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Prune this back as most of it isn't relevant or used
+
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et1310_jagcore.c |    4 ++--
- drivers/staging/et131x/et1310_rx.c      |    6 +++---
- drivers/staging/et131x/et1310_tx.c      |   11 ++++++-----
- drivers/staging/et131x/et131x_adapter.h |    6 ------
- drivers/staging/et131x/et131x_config.c  |   27 ---------------------------
- drivers/staging/et131x/et131x_defs.h    |    8 ++++++++
- 6 files changed, 19 insertions(+), 43 deletions(-)
+ drivers/staging/et131x/et131x_adapter.h |    2 -
+ drivers/staging/et131x/et131x_config.c  |  110 ++++++-------------------------
+ drivers/staging/et131x/et131x_initpci.c |    7 +-
+ 3 files changed, 23 insertions(+), 96 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et1310_jagcore.c b/drivers/staging/et131x/et1310_jagcore.c
-index 4032589..5c847ad 100644
---- a/drivers/staging/et131x/et1310_jagcore.c
-+++ b/drivers/staging/et131x/et1310_jagcore.c
-@@ -113,9 +113,9 @@ void ConfigGlobalRegs(struct et131x_adapter *etdev)
- 			 * 50/50:
- 			 */
- 			writel(0, &pGbl->rxq_start_addr.value);
--			writel(etdev->RegistryRxMemEnd,
-+			writel(PARM_RX_MEM_END_DEF,
- 			       &pGbl->rxq_end_addr.value);
--			writel(etdev->RegistryRxMemEnd + 1,
-+			writel(PARM_RX_MEM_END_DEF + 1,
- 			       &pGbl->txq_start_addr.value);
- 			writel(INTERNAL_MEM_SIZE - 1,
- 			       &pGbl->txq_end_addr.value);
-diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
-index c60e05e..53efa08 100644
---- a/drivers/staging/et131x/et1310_rx.c
-+++ b/drivers/staging/et131x/et1310_rx.c
-@@ -792,14 +792,14 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	 * For version B silicon, this value gets updated once autoneg is
- 	 *complete.
- 	 */
--	writel(etdev->RegistryRxNumBuffers, &pRxDma->num_pkt_done.value);
-+	writel(PARM_RX_NUM_BUFS_DEF, &pRxDma->num_pkt_done.value);
- 
- 	/* The "time_done" is not working correctly to coalesce interrupts
- 	 * after a given time period, but rather is giving us an interrupt
- 	 * regardless of whether we have received packets.
- 	 * This value gets updated once autoneg is complete.
- 	 */
--	writel(etdev->RegistryRxTimeInterval, &pRxDma->max_pkt_time.value);
-+	writel(PARM_RX_TIME_INT_DEF, &pRxDma->max_pkt_time.value);
- 
- 	spin_unlock_irqrestore(&etdev->RcvLock, flags);
- 
-@@ -1272,7 +1272,7 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
- 
- 	if ((PacketArrayCount == NUM_PACKETS_HANDLED) || TempUnfinishedRec) {
- 		etdev->RxRing.UnfinishedReceives = true;
--		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
-+		writel(PARM_TX_TIME_INT_DEF * NANO_IN_A_MICRO,
- 		       &etdev->regs->global.watchdog_timer);
- 	} else {
- 		/* Watchdog timer will disable itself if appropriate. */
-diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
-index 8e8486a..8472c1b 100644
---- a/drivers/staging/et131x/et1310_tx.c
-+++ b/drivers/staging/et131x/et1310_tx.c
-@@ -94,6 +94,7 @@
- 
- #include "et1310_tx.h"
- 
-+
- /* Data for debugging facilities */
- #ifdef CONFIG_ET131X_DEBUG
- extern dbg_info_t *et131x_dbginfo;
-@@ -711,7 +712,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 
- 	if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
- 		if (++etdev->TxRing.TxPacketsSinceLastinterrupt ==
--		    etdev->RegistryTxNumBuffers) {
-+		    PARM_TX_NUM_BUFS_DEF) {
- 			CurDesc[FragmentNumber - 1].word3.value = 0x5;
- 			etdev->TxRing.TxPacketsSinceLastinterrupt = 0;
- 		} else {
-@@ -794,7 +795,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	 * timer to wake us up if this packet isn't followed by N more.
- 	 */
- 	if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
--		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
-+		writel(PARM_TX_TIME_INT_DEF * NANO_IN_A_MICRO,
- 		       &etdev->regs->global.watchdog_timer);
- 	}
- 
-@@ -1064,7 +1065,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 				    TRUEPHY_SPEED_1000MBPS) {
- 					if (++etdev->TxRing.
- 					    TxPacketsSinceLastinterrupt >=
--					    etdev->RegistryTxNumBuffers) {
-+					    PARM_TX_NUM_BUFS_DEF) {
- 						CurDesc.word3.value = 0x5;
- 						etdev->TxRing.
- 						    TxPacketsSinceLastinterrupt
-@@ -1132,7 +1133,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 
- 		if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
- 			if (++etdev->TxRing.TxPacketsSinceLastinterrupt >=
--			    etdev->RegistryTxNumBuffers) {
-+			    PARM_TX_NUM_BUFS_DEF) {
- 				CurDesc.word3.value = 0x5;
- 				etdev->TxRing.TxPacketsSinceLastinterrupt =
- 				    0;
-@@ -1212,7 +1213,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	 * timer to wake us up if this packet isn't followed by N more.
- 	 */
- 	if (etdev->uiLinkSpeed == TRUEPHY_SPEED_1000MBPS) {
--		writel(etdev->RegistryTxTimeInterval * NANO_IN_A_MICRO,
-+		writel(PARM_TX_TIME_INT_DEF * NANO_IN_A_MICRO,
- 		       &etdev->regs->global.watchdog_timer);
- 	}
- 
 diff --git a/drivers/staging/et131x/et131x_adapter.h b/drivers/staging/et131x/et131x_adapter.h
-index a7402a3..bbbada0 100644
+index bbbada0..63d7c8a 100644
 --- a/drivers/staging/et131x/et131x_adapter.h
 +++ b/drivers/staging/et131x/et131x_adapter.h
-@@ -260,12 +260,6 @@ struct et131x_adapter {
- 	u32 RegistryVlanTag;	/* 802.1q Vlan TAG */
+@@ -256,8 +256,6 @@ struct et131x_adapter {
+ 	u8 RegistryPhyComa;	/* Phy Coma mode enable/disable */
+ 
+ 	u32 RegistryRxMemEnd;	/* Size of internal rx memory */
+-	u8 RegistryMACStat;	/* If set, read MACSTAT, else don't */
+-	u32 RegistryVlanTag;	/* 802.1q Vlan TAG */
  	u32 RegistryJumboPacket;	/* Max supported ethernet packet size */
  
--	u32 RegistryTxNumBuffers;
--	u32 RegistryTxTimeInterval;
--
--	u32 RegistryRxNumBuffers;
--	u32 RegistryRxTimeInterval;
--
  	/* Validation helpers */
- 	u8 RegistryNMIDisable;
- 	u8 RegistryPhyLoopbk;	/* Enable Phy loopback */
 diff --git a/drivers/staging/et131x/et131x_config.c b/drivers/staging/et131x/et131x_config.c
-index f8273d1..a31f82a 100644
+index a31f82a..358e6f6 100644
 --- a/drivers/staging/et131x/et131x_config.c
 +++ b/drivers/staging/et131x/et131x_config.c
-@@ -129,26 +129,6 @@ extern dbg_info_t *et131x_dbginfo;
+@@ -105,22 +105,10 @@ extern dbg_info_t *et131x_dbginfo;
+ #define PARM_SPEED_DUPLEX_MIN   0
+ #define PARM_SPEED_DUPLEX_MAX   5
+ 
+-#define PARM_VLAN_TAG_DEF       0
+-#define PARM_VLAN_TAG_MIN       0
+-#define PARM_VLAN_TAG_MAX       4095
+-
+ #define PARM_FLOW_CTL_DEF       0
+ #define PARM_FLOW_CTL_MIN       0
+ #define PARM_FLOW_CTL_MAX       3
+ 
+-#define PARM_WOL_LINK_DEF       3
+-#define PARM_WOL_LINK_MIN       0
+-#define PARM_WOL_LINK_MAX       3
+-
+-#define PARM_WOL_MATCH_DEF      7
+-#define PARM_WOL_MATCH_MIN      0
+-#define PARM_WOL_MATCH_MAX      7
+-
+ #define PARM_JUMBO_PKT_DEF      1514
+ #define PARM_JUMBO_PKT_MIN      1514
+ #define PARM_JUMBO_PKT_MAX      9216
+@@ -129,10 +117,6 @@ extern dbg_info_t *et131x_dbginfo;
  #define PARM_PHY_COMA_MIN       0
  #define PARM_PHY_COMA_MAX       1
  
--#define PARM_RX_NUM_BUFS_DEF    4
--#define PARM_RX_NUM_BUFS_MIN    1
--#define PARM_RX_NUM_BUFS_MAX    64
+-#define PARM_MAC_STAT_DEF       1
+-#define PARM_MAC_STAT_MIN       0
+-#define PARM_MAC_STAT_MAX       1
 -
--#define PARM_RX_TIME_INT_DEF    10
--#define PARM_RX_TIME_INT_MIN    2
--#define PARM_RX_TIME_INT_MAX    320
--
--#define PARM_TX_NUM_BUFS_DEF    4
--#define PARM_TX_NUM_BUFS_MIN    1
--#define PARM_TX_NUM_BUFS_MAX    40
--
--#define PARM_TX_TIME_INT_DEF    40
--#define PARM_TX_TIME_INT_MIN    1
--#define PARM_TX_TIME_INT_MAX    140
--
--#define PARM_RX_MEM_END_DEF     0x2bc
--#define PARM_RX_MEM_END_MIN     0
--#define PARM_RX_MEM_END_MAX     0x3ff
--
- #define PARM_MAC_STAT_DEF       1
- #define PARM_MAC_STAT_MIN       0
- #define PARM_MAC_STAT_MAX       1
-@@ -166,8 +146,6 @@ extern dbg_info_t *et131x_dbginfo;
+ #define PARM_SC_GAIN_DEF        7
+ #define PARM_SC_GAIN_MIN        0
+ #define PARM_SC_GAIN_MAX        7
+@@ -145,13 +129,7 @@ extern dbg_info_t *et131x_dbginfo;
+ #define PARM_NMI_DISABLE_MIN    0
  #define PARM_NMI_DISABLE_MAX    2
  
- #define PARM_DMA_CACHE_DEF      0
--#define PARM_DMA_CACHE_MIN      0
--#define PARM_DMA_CACHE_MAX      15
+-#define PARM_DMA_CACHE_DEF      0
+-
+-#define PARM_PHY_LOOPBK_DEF     0
+-#define PARM_PHY_LOOPBK_MIN     0
+-#define PARM_PHY_LOOPBK_MAX     1
  
- #define PARM_PHY_LOOPBK_DEF     0
- #define PARM_PHY_LOOPBK_MIN     0
-@@ -249,11 +227,6 @@ void et131x_config_parse(struct et131x_adapter *etdev)
+-#define PARM_MAC_ADDRESS_DEF    { 0x00, 0x05, 0x3d, 0x00, 0x02, 0x00 }
+ 
+ /* Module parameter for disabling NMI
+  * et131x_speed_set :
+@@ -184,109 +162,61 @@ MODULE_PARM_DESC(et131x_speed_set,
+  * @etdev: pointer to the private adapter struct
+  *
+  * Parses a configuration from some location (module parameters, for example)
+- * into the private adapter struct
++ * into the private adapter struct. This really has no sensible analogy in
++ * Linux as sysfs parameters are dynamic. Several things that were hee could
++ * go into sysfs, but other stuff like speed handling is part of the mii
++ * interfaces/ethtool.
+  */
+ void et131x_config_parse(struct et131x_adapter *etdev)
+ {
+-	uint8_t macAddrDef[] = PARM_MAC_ADDRESS_DEF;
++	static const u8 default_mac[] = { 0x00, 0x05, 0x3d, 0x00, 0x02, 0x00 };
++	static const u8 duplex[] = { 0, 1, 2, 1, 2, 2 };
++	static const u16 speed[] = { 0, 10, 10, 100, 100, 1000 };
+ 
+ 	DBG_ENTER(et131x_dbginfo);
+ 
+-	/*
+-	 * The NDIS driver uses the registry to store persistent per-device
+-	 * configuration, and reads this configuration into the appropriate
+-	 * elements of the private adapter structure on initialization.
+-	 * Because Linux has no analog to the registry, use this function to
+-	 * initialize the private adapter structure with a default
+-	 * configuration.
+-	 *
+-	 * One other possibility is to use a series of module parameters which
+-	 * can be passed in by the caller when the module is initialized.
+-	 * However, this implementation does not allow for seperate
+-	 * configurations in the event multiple devices are present, and hence
+-	 * will not suffice.
+-	 *
+-	 * If another method is derived which addresses this problem, this is
+-	 * where it should be implemented.
+-	 */
++	etdev->SpeedDuplex = et131x_speed_set;
+ 
+-	 /* Set the private adapter struct with default values for the
+-	  * corresponding parameters
+-	  */
+-	if (et131x_speed_set != PARM_SPEED_DUPLEX_DEF) {
++	if (et131x_speed_set < PARM_SPEED_DUPLEX_MIN ||
++	    et131x_speed_set > PARM_SPEED_DUPLEX_MAX) {
++	    	dev_warn(&etdev->pdev->dev, "invalid speed setting ignored.\n");
++	    	et131x_speed_set = PARM_SPEED_DUPLEX_DEF;
++	}
++	else if (et131x_speed_set != PARM_SPEED_DUPLEX_DEF)
+ 		DBG_VERBOSE(et131x_dbginfo, "Speed set manually to : %d \n",
+ 			    et131x_speed_set);
+-		etdev->SpeedDuplex = et131x_speed_set;
+-	} else {
+-		etdev->SpeedDuplex = PARM_SPEED_DUPLEX_DEF;
+-	}
+ 
+ 	/*  etdev->SpeedDuplex            = PARM_SPEED_DUPLEX_DEF; */
+ 
+-	etdev->RegistryVlanTag = PARM_VLAN_TAG_DEF;
  	etdev->RegistryFlowControl = PARM_FLOW_CTL_DEF;
  	etdev->RegistryJumboPacket = PARM_JUMBO_PKT_DEF;
  	etdev->RegistryPhyComa = PARM_PHY_COMA_DEF;
--	etdev->RegistryRxNumBuffers = PARM_RX_NUM_BUFS_DEF;
--	etdev->RegistryRxTimeInterval = PARM_RX_TIME_INT_DEF;
--	etdev->RegistryTxNumBuffers = PARM_TX_NUM_BUFS_DEF;
--	etdev->RegistryTxTimeInterval = PARM_TX_TIME_INT_DEF;
--	etdev->RegistryRxMemEnd = PARM_RX_MEM_END_DEF;
- 	etdev->RegistryMACStat = PARM_MAC_STAT_DEF;
+-	etdev->RegistryMACStat = PARM_MAC_STAT_DEF;
  
  	if (et131x_nmi_disable != PARM_NMI_DISABLE_DEF)
-diff --git a/drivers/staging/et131x/et131x_defs.h b/drivers/staging/et131x/et131x_defs.h
-index 9d609e5..5665c6a 100644
---- a/drivers/staging/et131x/et131x_defs.h
-+++ b/drivers/staging/et131x/et131x_defs.h
-@@ -125,4 +125,12 @@
- /* Define order of magnitude converter */
- #define NANO_IN_A_MICRO	1000
+ 		etdev->RegistryNMIDisable = et131x_nmi_disable;
+ 	else
+ 		etdev->RegistryNMIDisable = PARM_NMI_DISABLE_DEF;
  
-+#define PARM_RX_NUM_BUFS_DEF    4
-+#define PARM_RX_TIME_INT_DEF    10
-+#define PARM_RX_MEM_END_DEF     0x2bc
-+#define PARM_TX_TIME_INT_DEF    40
-+#define PARM_TX_NUM_BUFS_DEF    4
-+#define PARM_DMA_CACHE_DEF      0
-+
-+
- #endif /* __ET131X_DEFS_H__ */
+-	etdev->RegistryPhyLoopbk = PARM_PHY_LOOPBK_DEF;
++	etdev->RegistryPhyLoopbk = 0;	/* 0 off 1 on */
+ 
+ 	/* Set the MAC address to a default */
+-	memcpy(etdev->CurrentAddress, macAddrDef, ETH_ALEN);
++	memcpy(etdev->CurrentAddress, default_mac, ETH_ALEN);
+ 	etdev->bOverrideAddress = false;
+ 
+-	DBG_TRACE(et131x_dbginfo,
+-		  "Default MAC Address  : %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		  etdev->CurrentAddress[0], etdev->CurrentAddress[1],
+-		  etdev->CurrentAddress[2], etdev->CurrentAddress[3],
+-		  etdev->CurrentAddress[4], etdev->CurrentAddress[5]);
+-
+ 	/* Decode SpeedDuplex
+ 	 *
+ 	 * Set up as if we are auto negotiating always and then change if we
+ 	 * go into force mode
+-	 */
+-	etdev->AiForceSpeed = 0;	/* Auto speed */
+-	etdev->AiForceDpx = 0;	/* Auto FDX */
+-
+-	/* If we are the 10/100 device, and gigabit is somehow requested then
++	 *
++	 * If we are the 10/100 device, and gigabit is somehow requested then
+ 	 * knock it down to 100 full.
+ 	 */
+ 	if (etdev->pdev->device == ET131X_PCI_DEVICE_ID_FAST &&
+ 	    etdev->SpeedDuplex == 5)
+ 		etdev->SpeedDuplex = 4;
+ 
+-	switch (etdev->SpeedDuplex) {
+-	case 1:		/* 10Mb   Half-Duplex */
+-		etdev->AiForceSpeed = 10;
+-		etdev->AiForceDpx = 1;
+-		break;
+-
+-	case 2:		/* 10Mb   Full-Duplex */
+-		etdev->AiForceSpeed = 10;
+-		etdev->AiForceDpx = 2;
+-		break;
+-
+-	case 3:		/* 100Mb  Half-Duplex */
+-		etdev->AiForceSpeed = 100;
+-		etdev->AiForceDpx = 1;
+-		break;
+-
+-	case 4:		/* 100Mb  Full-Duplex */
+-		etdev->AiForceSpeed = 100;
+-		etdev->AiForceDpx = 2;
+-		break;
+-
+-	case 5:		/* 1000Mb Full-Duplex */
+-		etdev->AiForceSpeed = 1000;
+-		etdev->AiForceDpx = 2;
+-		break;
+-	}
++	etdev->AiForceSpeed = speed[etdev->SpeedDuplex];
++	etdev->AiForceDpx = duplex[etdev->SpeedDuplex];	/* Auto FDX */
+ 
+ 	DBG_LEAVE(et131x_dbginfo);
+ }
+diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
+index 4d45941..c489090 100644
+--- a/drivers/staging/et131x/et131x_initpci.c
++++ b/drivers/staging/et131x/et131x_initpci.c
+@@ -442,10 +442,9 @@ void et131x_error_timer_handler(unsigned long data)
+ 
+ 	pm_csr.value = readl(&etdev->regs->global.pm_csr.value);
+ 
+-	if (pm_csr.bits.pm_phy_sw_coma == 0) {
+-		if (etdev->RegistryMACStat)
+-			UpdateMacStatHostCounters(etdev);
+-	} else
++	if (pm_csr.bits.pm_phy_sw_coma == 0)
++		UpdateMacStatHostCounters(etdev);
++	else
+ 		DBG_VERBOSE(et131x_dbginfo,
+ 			    "No interrupts, in PHY coma, pm_csr = 0x%x\n",
+ 			    pm_csr.value);
 
