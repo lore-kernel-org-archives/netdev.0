@@ -1,66 +1,121 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Tue, 25 Aug 2009 06:57:07 -0400
-Message-ID: <20090825105707.GA24710@hmsreliant.think-freely.org>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <20090825075816.GB857@elte.hu>
+From: Luo Chunbo <chunbo.luo@windriver.com>
+Subject: Re: [PATCH v2] sctp: fix the check for path failure detection
+Date: Tue, 25 Aug 2009 16:22:28 +0800
+Message-ID: <1251188548.6498.28.camel@pek-cluo-desktop>
+References: <1251106637-434-1-git-send-email-chunbo.luo@windriver.com>
+	 <4A93949B.2020404@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48939 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754237AbZHYK5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 06:57:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20090825075816.GB857@elte.hu>
+Received: from mail1.windriver.com ([147.11.1.7]:45551 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbZHYLQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 07:16:33 -0400
+In-Reply-To: <4A93949B.2020404@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 25, 2009 at 09:58:16AM +0200, Ingo Molnar wrote:
-> 
-> * Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
-> 
-> > Currently, the napi's tracepoint works will is depend on
-> > "DECLARE_TRACE" definiens in include/trace/define_trace.h,
-> > like below:
-> > 
-> > #include <trace/events/skb.h>    // include define_trace.h
-> > #include <trace/events/napi.h>
-> > 
-> > there have error, if we remove "#include <trace/events/skb.h>"
-> > or include napi.h in the front of include skb.h, It should
-> > depend on the definiens in include/linux/tracepoint.h and we
-> > can remove the "DECLARE_TRACE" definiens in
-> > include/trace/define_trace.h, because "TRACE_EVENT" not use it
-> > 
-> > Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+On Tue, 2009-08-25 at 15:36 +0800, Wei Yongjun wrote:
+> Chunbo Luo wrote:
+> > The transport error count should be incremented when an outstanding
+> > HB is not acknowledged. And the path failure detection should be done
+> > before sending out the HB.
+> >   
+> > Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
 > > ---
-> >  include/trace/define_trace.h |    4 ----
-> >  net/core/net-traces.c        |    4 +++-
-> >  2 files changed, 3 insertions(+), 5 deletions(-)
+> >  net/sctp/sm_sideeffect.c |    6 +++++-
+> >  net/sctp/sm_statefuns.c  |    8 ++++----
+> >  2 files changed, 9 insertions(+), 5 deletions(-)
+> >
+> > diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> > index 86426aa..fbdf4de 100644
+> > --- a/net/sctp/sm_sideeffect.c
+> > +++ b/net/sctp/sm_sideeffect.c
+> > @@ -446,7 +446,11 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+> >  	if (transport->state != SCTP_UNCONFIRMED)
+> >  		asoc->overall_error_count++;
+> >  
+> > -	if (transport->state != SCTP_INACTIVE &&
+> > +	/*
+> > +	 * The transport error count is incremented when an outstanding HB
+> > +	 * is not acknowledged. 
+> > +	 */
+> >   
 > 
-> This will collide with tracing bits in the networking tree. The 
-> skb-tracing plugin there should be turned into proper TRACE_EVENT() 
-> tracepoints.
-> 
-> Neil was away for some time but i think soon we should see some 
-> movement here.
-> 
-> 	Ingo
-> 
+> T3-rtx timer expires also need to increment error count.
 
-Thank you Ingo, yes, I'm back from the beach now and will look at this shortly.
-I concur, we should just convert the napi_poll tracepoint to be defined via the
-TRACE_EVENT macro, same as the kfree_skb tracepoint.  Xaio would you like to
-take care of that, or shall I?
+Yes, T3-rtx timer expires need to increment error count.
 
-Best
-Neil
+> 
+> > +	if (transport->hb_sent && transport->state != SCTP_INACTIVE &&
+> >  	    (transport->error_count++ >= transport->pathmaxrxt)) {
+> >  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+> >  					 " transport IP: port:%d failed.\n",
+> > diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> > index 7288192..7f77099 100644
+> > --- a/net/sctp/sm_statefuns.c
+> > +++ b/net/sctp/sm_statefuns.c
+> > @@ -981,10 +981,6 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+> >  	 */
+> >  
+> >  	if (transport->param_flags & SPP_HB_ENABLE) {
+> > -		if (SCTP_DISPOSITION_NOMEM ==
+> > -				sctp_sf_heartbeat(ep, asoc, type, arg,
+> > -						  commands))
+> > -			return SCTP_DISPOSITION_NOMEM;
+> >  		/* Set transport error counter and association error counter
+> >  		 * when sending heartbeat.
+> >  		 */
+> > @@ -992,6 +988,10 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
+> >  				SCTP_TRANSPORT(transport));
+> >  		sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_HB_SENT,
+> >  				SCTP_TRANSPORT(transport));
+> > +		if (SCTP_DISPOSITION_NOMEM ==
+> > +				sctp_sf_heartbeat(ep, asoc, type, arg,
+> > +						  commands))
+> > +			return SCTP_DISPOSITION_NOMEM;
+> >  	}
+> >  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMER_UPDATE,
+> >  			SCTP_TRANSPORT(transport));
+> >   
+> 
+> How about this one:
 
+It is ok to increment the error count. But the path failure detection
+should be done before send HB. Otherwise, an extra HB chunk will be sent
+out before the transport is marked DOWN . So the changes in
+net/sctp/sm_statefuns.c is also needed.
+
+
+
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 86426aa..fb723dd 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+>  		asoc->overall_error_count++;
+>  
+>  	if (transport->state != SCTP_INACTIVE &&
+> -	    (transport->error_count++ >= transport->pathmaxrxt)) {
+> +	    (transport->error_count >= transport->pathmaxrxt)) {
+>  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
+>  					 " transport IP: port:%d failed.\n",
+>  					 asoc,
+> @@ -468,6 +468,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
+>  	 * that indicates that we have an outstanding HB.
+>  	 */
+>  	if (!is_hb || transport->hb_sent) {
+> +		transport->error_count++;
+>  		transport->last_rto = transport->rto;
+>  		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
+>  	}
+> 
+> 
+> 
+> 
+> 
