@@ -1,132 +1,75 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce
-	primary_lazy option
-Date: Tue, 25 Aug 2009 08:43:52 +0200
-Message-ID: <20090825064351.GA3426@psychotron.englab.brq.redhat.com>
-References: <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr> <20090824111619.GC4018@psychotron.englab.brq.redhat.com> <4A92ACA6.7070600@free.fr> <20090824152002.GD4018@psychotron.englab.brq.redhat.com> <697.1251135317@death.nxdomain.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 08:46:12 +0200
+Message-ID: <4A9388B4.8030401@gmail.com>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org> <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <4A931ED3.1090206@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org,
-	davem@davemloft.net, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Lameter <cl@linux-foundation.org>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25009 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754216AbZHYGoL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2009 02:44:11 -0400
-Content-Disposition: inline
-In-Reply-To: <697.1251135317@death.nxdomain.ibm.com>
+Received: from gw1.cosmosbay.com ([212.99.114.194]:50503 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754356AbZHYGqR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 02:46:17 -0400
+In-Reply-To: <4A931ED3.1090206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Aug 24, 2009 at 07:35:17PM CEST, fubar@us.ibm.com wrote:
->Jiri Pirko <jpirko@redhat.com> wrote:
->
->>Mon, Aug 24, 2009 at 05:07:18PM CEST, nicolas.2p.debian@free.fr wrote:
->>> Jiri Pirko wrote:
->>>> Thu, Aug 20, 2009 at 02:40:07PM CEST, nicolas.2p.debian@free.fr wrote:
->>> [--cut--]
->>>>> I suggest that instead of having a per bond "primary_lazy" option, we
->>>>> define a per slave option, describing whether this particular slave is
->>>>> "sticky when active" or not.
->>>>>
->>>>> The above setup would become :
->>>>>
->>>>> echo 1 > /sys/class/net/eth0/bonding/sticky_active
->>>>> echo 1 > /sys/class/net/eth1/bonding/sticky_active
->>>>> echo 0 > /sys/class/net/eth2/bonding/sticky_active
->>>>> echo eth0 > /sys/class/net/bond0/bonding/primary
->>>>>
->>>>> Or may be better, keeping the "weight" idea in mind, a per slave option
->>>>> "active_weight" that gives the weight of the slave, *when active*.
->>>>>
->>>>> The effective weight of a slave would become :
->>>>>
->>>>> effective_slave =
->>>>> (is_active ? user_supplied_active_weight ? user_supplied_weight) *
->>>>> natural_weight
->>>>>
->>>>> # Prefer eth0, then one of eth1 or eth2, then eth3.
->>>>> echo 1000 > /sys/class/net/eth0/bonding/weight
->>>>> echo 999 > /sys/class/net/eth1/bonding/weight
->>>>> echo 999 > /sys/class/net/eth2/bonding/weight
->>>>> echo 10 > /sys/class/net/eth3/bonding/weight
->>>>>
->>>>> # Do not switch back to primary eth0 if eth1 or eth2 is active.
->>>>> echo 1000 > /sys/class/net/eth1/bonding/active_weight
->>>>> echo 1000 > /sys/class/net/eth2/bonding/active_weight
->>>>>
->>>>> Every time one changes the user_supplied_weight, then
->>>>> user_supplied_active_weight must be reset to the same value. This 
->>>>> way,  if no special setup is done on active_weight, then the current 
->>>>> normal
->>>>> behavior is achieved.
+Eric Dumazet a =E9crit :
+> Christoph Lameter a =E9crit :
+>> On Mon, 17 Aug 2009, Sridhar Samudrala wrote:
+>>
+>>> On Mon, 2009-08-17 at 18:13 -0400, Christoph Lameter wrote:
+>>>> On Mon, 17 Aug 2009, Sridhar Samudrala wrote:
 >>>>
->>>> I must say I like this approach. But it would be not trivial to implement this.
->>>> Therefore I would stick with your propose of extending primary lazy to 3 values
->>>> until the weight option is implemented.
->>>
->>> It sounds good for me. Later, if I eventually implement the weight 
->>> option, it shouldn't be that hard to convert internally the primary_lazy 
->>> setup to active_weight, the same way we plan to convert internally 
->>> primary setup to weight setup.
->>>
->>> primary and primary_lazy are convenient for simple - two slaves only -  
->>> configurations. weight and active_weight are for more advanced 
->>> configurations. Keeping both configuration interface does sound user 
->>> friendly.
+>>>>> What about ethtool -S ? Does it report any errors?
+>>>> Neither. This is is a broadcom bnx2 NIC.
+>>> Are you sure the packets are dropped at the sender?
+>> Yes I am sending 400k messages from the app and the receiver only ge=
+ts
+>> 341k @300 byte (which is the line rate). There is no way that the 40=
+0k get
+>> over the line. Also if I reduce SO_SNDBUF then both receiver and
+>> sender get down to 341k.
 >>
->>Ok, I agree.
+>> I added the output of ethtool -S at the end.
 >>
->>>
->>>> I'm going to implement your propose below.
->>>
->>> By the way, even if I'm not a native English speaker, I think that 
->>> primary_lazy option should be named lazy_primary instead.
+>> The mcast tool can be had from http://gentwo.org/ll or from my direc=
+tory
+>> on www.kernel.org.
 >>
->>Well I've intentionally put "primary" as a first word to amplify it's linked
->>with primary option... But...
->
->	I'm still unclear as to why it's better to add another special
->case option to bonding instead of changing this in user space, other
->than it'd be a change to user space (initscripts / sysconfig).
->
->	The way I see it, this patch is adding a mechanism that says,
->effectively, "make slave X the active slave, but do it only once."
->There is already a way to do that in bonding (sysfs, as above, or
->ifenslave -c); I am reluctant to add another without good reason.
+>=20
+> # gcc -v
+> Using built-in specs.
+> Target: i686-pc-linux-gnu
+> Configured with: ../gcc-4.4.1/configure --enable-languages=3Dc,c++ --=
+prefix=3D/usr
+> Thread model: posix
+> gcc version 4.4.1 (GCC)
+> # pwd
+> /opt/src/lldiag-0.14
+> # make
+> gcc -Wall -omcast mcast.c -lrt -lm
+> mcast.c: In function =91set_ip=92:
+> mcast.c:121: warning: implicit declaration of function =91htons=92
+> mcast.c: In function =91build_pattern_array=92:
+> mcast.c:168: warning: implicit declaration of function =91htonl=92
+> /tmp/cc4sYCDr.o: In function `lock':
+> mcast.c:(.text+0xcad): undefined reference to `__sync_fetch_and_add_4=
+'
+> collect2: ld returned 1 exit status
+> make: *** [mcast] Error 1
+>=20
+>=20
+> I have no idea where is defined sync_fetch_and_add
+>=20
 
-Hello Jay.
+Doh...
 
-As I already replied you once it's not only about selecting a slave at the
-start. It's also about following:
+Dont bother, I had to add "-march=3Di686" to CFLAGS to get "xadd" suppo=
+rt
 
-Imagine you have bond with 3 slaves:
-eth0            eth1            eth2
-UP(curr)        UP              UP
-DOWN            UP(curr)        UP
-UP              UP(curr)        UP
-UP              DOWN            UP(curr)
-
-eth2 ends up being current active but we prefer eth0 (as primary interface).
-This is not desirable and is solved by primary_lazy option.
-
-Jirka
-
->
->	I'm not necessarily against the "weight" business in general.
->For the purposes of this discussion, however, it's a big complex
->solution to a pretty simple problem, and the "weight" system still has
->to have special sauce added it to to handle this special case.
->
->	Last, presuming for the moment that this goes forward as an
->option to bonding, I think this should be named something along the
->lines of "make_active" (or perhaps "make_active_once", but that's a bit
->long).  The option has the effect of making the specified slave the
->active slave one time, then the option setting is cleared.
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
