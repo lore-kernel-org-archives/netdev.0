@@ -1,615 +1,103 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 02/26] et131x: spinlocks
-Date: Tue, 25 Aug 2009 15:57:44 +0100
-Message-ID: <20090825145741.16176.67952.stgit@localhost.localdomain>
+Subject: [PATCH 03/26] et131x: power state
+Date: Tue, 25 Aug 2009 15:57:51 +0100
+Message-ID: <20090825145749.16176.5547.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42568 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:42572 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755265AbZHYPDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:03:09 -0400
+	with ESMTP id S1755307AbZHYPDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:03:16 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch to the more normal "flags" naming. Also fix up the nested use of
-spin_lock_irqsave
+This is assigned once to ndis d0, and then never changes so it is a constant
+and we can zap it
 
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et1310_phy.c     |   10 ++--
- drivers/staging/et131x/et1310_pm.c      |    6 +--
- drivers/staging/et131x/et1310_rx.c      |   28 ++++++------
- drivers/staging/et131x/et1310_tx.c      |   74 ++++++++++++++++---------------
- drivers/staging/et131x/et131x_initpci.c |    6 +--
- drivers/staging/et131x/et131x_netdev.c  |   14 +++---
- 6 files changed, 69 insertions(+), 69 deletions(-)
+ drivers/staging/et131x/et1310_pm.h      |   10 ----------
+ drivers/staging/et131x/et1310_rx.c      |    2 --
+ drivers/staging/et131x/et131x_initpci.c |    2 --
+ drivers/staging/et131x/et131x_isr.c     |    3 +--
+ 4 files changed, 1 insertions(+), 16 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et1310_phy.c b/drivers/staging/et131x/et1310_phy.c
-index 82fcb66..d9c7a44 100644
---- a/drivers/staging/et131x/et1310_phy.c
-+++ b/drivers/staging/et131x/et1310_phy.c
-@@ -484,7 +484,7 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
- 	uint32_t uiMdiMdix;
- 	uint32_t uiMasterSlave;
- 	uint32_t uiPolarity;
--	unsigned long lockflags;
-+	unsigned long flags;
+diff --git a/drivers/staging/et131x/et1310_pm.h b/drivers/staging/et131x/et1310_pm.h
+index dca9977..8e06039 100644
+--- a/drivers/staging/et131x/et1310_pm.h
++++ b/drivers/staging/et131x/et1310_pm.h
+@@ -66,15 +66,6 @@
+ #define NUM_WOL_PATTERNS       0x5
+ #define CRC16_POLY             0x1021
  
- 	DBG_ENTER(et131x_dbginfo);
+-/* Definition of NDIS_DEVICE_POWER_STATE */
+-typedef enum {
+-	NdisDeviceStateUnspecified = 0,
+-	NdisDeviceStateD0,
+-	NdisDeviceStateD1,
+-	NdisDeviceStateD2,
+-	NdisDeviceStateD3
+-} NDIS_DEVICE_POWER_STATE;
+-
+ typedef struct _MP_POWER_MGMT {
+ 	/* variable putting the phy into coma mode when boot up with no cable
+ 	 * plugged in after 5 seconds
+@@ -97,7 +88,6 @@ typedef struct _MP_POWER_MGMT {
+ 	} IPAddress;
  
-@@ -495,12 +495,12 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
- 			/* Update our state variables and indicate the
- 			 * connected state
- 			 */
--			spin_lock_irqsave(&etdev->Lock, lockflags);
-+			spin_lock_irqsave(&etdev->Lock, flags);
- 
- 			etdev->MediaState = NETIF_STATUS_MEDIA_CONNECT;
- 			MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
- 
--			spin_unlock_irqrestore(&etdev->Lock, lockflags);
-+			spin_unlock_irqrestore(&etdev->Lock, flags);
- 
- 			/* Don't indicate state if we're in loopback mode */
- 			if (etdev->RegistryPhyLoopbk == false)
-@@ -533,11 +533,11 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
- 			     (etdev, fMP_ADAPTER_LINK_DETECTION))
- 			    || (etdev->MediaState ==
- 				NETIF_STATUS_MEDIA_DISCONNECT)) {
--				spin_lock_irqsave(&etdev->Lock, lockflags);
-+				spin_lock_irqsave(&etdev->Lock, flags);
- 				etdev->MediaState =
- 				    NETIF_STATUS_MEDIA_DISCONNECT;
- 				spin_unlock_irqrestore(&etdev->Lock,
--						       lockflags);
-+						       flags);
- 
- 				/* Only indicate state if we're in loopback
- 				 * mode
-diff --git a/drivers/staging/et131x/et1310_pm.c b/drivers/staging/et131x/et1310_pm.c
-index 864d3ad..a507411 100644
---- a/drivers/staging/et131x/et1310_pm.c
-+++ b/drivers/staging/et131x/et1310_pm.c
-@@ -119,7 +119,7 @@ extern dbg_info_t *et131x_dbginfo;
-  */
- void EnablePhyComa(struct et131x_adapter *etdev)
- {
--	unsigned long lockflags;
-+	unsigned long flags;
- 	PM_CSR_t GlobalPmCSR;
- 	int32_t LoopCounter = 10;
- 
-@@ -134,9 +134,9 @@ void EnablePhyComa(struct et131x_adapter *etdev)
- 	etdev->PoMgmt.PowerDownDuplex = etdev->AiForceDpx;
- 
- 	/* Stop sending packets. */
--	spin_lock_irqsave(&etdev->SendHWLock, lockflags);
-+	spin_lock_irqsave(&etdev->SendHWLock, flags);
- 	MP_SET_FLAG(etdev, fMP_ADAPTER_LOWER_POWER);
--	spin_unlock_irqrestore(&etdev->SendHWLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
- 
- 	/* Wait for outstanding Receive packets */
- 	while ((MP_GET_RCV_REF(etdev) != 0) && (LoopCounter-- > 0))
+ 	/* Current Power state of the adapter. */
+-	NDIS_DEVICE_POWER_STATE PowerState;
+ 	bool WOLState;
+ 	bool WOLEnabled;
+ 	bool Failed10Half;
 diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
-index f8cc6a6..9dc08fb 100644
+index 9dc08fb..b05b8c5 100644
 --- a/drivers/staging/et131x/et1310_rx.c
 +++ b/drivers/staging/et131x/et1310_rx.c
-@@ -685,7 +685,7 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	PFBR_DESC_t pFbrEntry;
- 	uint32_t iEntry;
- 	RXDMA_PSR_NUM_DES_t psr_num_des;
--	unsigned long lockflags;
-+	unsigned long flags;
- 
- 	DBG_ENTER(et131x_dbginfo);
- 
-@@ -718,7 +718,7 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	writel((psr_num_des.bits.psr_ndes * LO_MARK_PERCENT_FOR_PSR) / 100,
- 	       &pRxDma->psr_min_des.value);
- 
--	spin_lock_irqsave(&etdev->RcvLock, lockflags);
-+	spin_lock_irqsave(&etdev->RcvLock, flags);
- 
- 	/* These local variables track the PSR in the adapter structure */
- 	pRxLocal->local_psr_full.bits.psr_full = 0;
-@@ -801,7 +801,7 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	 */
- 	writel(etdev->RegistryRxTimeInterval, &pRxDma->max_pkt_time.value);
- 
--	spin_unlock_irqrestore(&etdev->RcvLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->RcvLock, flags);
- 
- 	DBG_LEAVE(et131x_dbginfo);
- }
-@@ -914,7 +914,7 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
- 	PMP_RFD pMpRfd;
- 	uint32_t nIndex;
- 	uint8_t *pBufVa;
--	unsigned long lockflags;
-+	unsigned long flags;
- 	struct list_head *element;
- 	uint8_t ringIndex;
- 	uint16_t bufferIndex;
-@@ -1013,7 +1013,7 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
- 	}
- 
- 	/* Get and fill the RFD. */
--	spin_lock_irqsave(&etdev->RcvLock, lockflags);
-+	spin_lock_irqsave(&etdev->RcvLock, flags);
- 
- 	pMpRfd = NULL;
- 	element = pRxLocal->RecvList.next;
-@@ -1023,14 +1023,14 @@ PMP_RFD nic_rx_pkts(struct et131x_adapter *etdev)
- 		DBG_RX(et131x_dbginfo,
- 		       "NULL RFD returned from RecvList via list_entry()\n");
- 		DBG_RX_LEAVE(et131x_dbginfo);
--		spin_unlock_irqrestore(&etdev->RcvLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->RcvLock, flags);
- 		return NULL;
- 	}
- 
- 	list_del(&pMpRfd->list_node);
- 	pRxLocal->nReadyRecv--;
- 
--	spin_unlock_irqrestore(&etdev->RcvLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->RcvLock, flags);
- 
- 	pMpRfd->iBufferIndex = bufferIndex;
- 	pMpRfd->iRingIndex = ringIndex;
-@@ -1260,9 +1260,9 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
- 			 * Besides, we don't really need (at this point) the
- 			 * pending list anyway.
- 			 */
--			/* spin_lock_irqsave( &etdev->RcvPendLock, lockflags );
-+			/* spin_lock_irqsave( &etdev->RcvPendLock, flags );
- 			 * list_add_tail( &pMpRfd->list_node, &etdev->RxRing.RecvPendingList );
--			 * spin_unlock_irqrestore( &etdev->RcvPendLock, lockflags );
-+			 * spin_unlock_irqrestore( &etdev->RcvPendLock, flags );
- 			 */
- 
- 			/* Update the number of outstanding Recvs */
-@@ -1302,7 +1302,7 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 	struct _RXDMA_t __iomem *pRxDma = &etdev->CSRAddress->rxdma;
- 	uint16_t bi = pMpRfd->iBufferIndex;
- 	uint8_t ri = pMpRfd->iRingIndex;
--	unsigned long lockflags;
-+	unsigned long flags;
- 
- 	DBG_RX_ENTER(et131x_dbginfo);
- 
-@@ -1314,7 +1314,7 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 	    (ri == 0 && bi < pRxLocal->Fbr0NumEntries) ||
- #endif
- 	    (ri == 1 && bi < pRxLocal->Fbr1NumEntries)) {
--		spin_lock_irqsave(&etdev->FbrLock, lockflags);
-+		spin_lock_irqsave(&etdev->FbrLock, flags);
- 
- 		if (ri == 1) {
- 			PFBR_DESC_t pNextDesc =
-@@ -1362,7 +1362,7 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 			       &pRxDma->fbr0_full_offset.value);
- 		}
- #endif
--		spin_unlock_irqrestore(&etdev->FbrLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->FbrLock, flags);
- 	} else {
- 		DBG_ERROR(et131x_dbginfo,
- 			  "NICReturnRFD illegal Buffer Index returned\n");
-@@ -1371,10 +1371,10 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 	/* The processing on this RFD is done, so put it back on the tail of
- 	 * our list
- 	 */
--	spin_lock_irqsave(&etdev->RcvLock, lockflags);
-+	spin_lock_irqsave(&etdev->RcvLock, flags);
- 	list_add_tail(&pMpRfd->list_node, &pRxLocal->RecvList);
- 	pRxLocal->nReadyRecv++;
--	spin_unlock_irqrestore(&etdev->RcvLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->RcvLock, flags);
- 
- 	DBG_ASSERT(pRxLocal->nReadyRecv <= pRxLocal->NumRfd);
- 	DBG_RX_LEAVE(et131x_dbginfo);
-diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
-index db0f538..a017d27 100644
---- a/drivers/staging/et131x/et1310_tx.c
-+++ b/drivers/staging/et131x/et1310_tx.c
-@@ -461,7 +461,7 @@ static int et131x_send_packet(struct sk_buff *skb,
- 	int status = 0;
- 	PMP_TCB pMpTcb = NULL;
- 	uint16_t *pShBufVa;
--	unsigned long lockflags;
-+	unsigned long flags;
- 
- 	DBG_TX_ENTER(et131x_dbginfo);
- 
-@@ -482,12 +482,12 @@ static int et131x_send_packet(struct sk_buff *skb,
- 	}
- 
- 	/* Get a TCB for this packet */
--	spin_lock_irqsave(&etdev->TCBReadyQLock, lockflags);
-+	spin_lock_irqsave(&etdev->TCBReadyQLock, flags);
- 
- 	pMpTcb = etdev->TxRing.TCBReadyQueueHead;
- 
- 	if (pMpTcb == NULL) {
--		spin_unlock_irqrestore(&etdev->TCBReadyQLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->TCBReadyQLock, flags);
- 
- 		DBG_WARNING(et131x_dbginfo, "Can't obtain a TCB\n");
- 		DBG_TX_LEAVE(et131x_dbginfo);
-@@ -499,7 +499,7 @@ static int et131x_send_packet(struct sk_buff *skb,
- 	if (etdev->TxRing.TCBReadyQueueHead == NULL)
- 		etdev->TxRing.TCBReadyQueueTail = NULL;
- 
--	spin_unlock_irqrestore(&etdev->TCBReadyQLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->TCBReadyQLock, flags);
- 
- 	pMpTcb->PacketLength = skb->len;
- 	pMpTcb->Packet = skb;
-@@ -522,7 +522,7 @@ static int et131x_send_packet(struct sk_buff *skb,
- 		status = nic_send_packet(etdev, pMpTcb);
- 
- 	if (status != 0) {
--		spin_lock_irqsave(&etdev->TCBReadyQLock, lockflags);
-+		spin_lock_irqsave(&etdev->TCBReadyQLock, flags);
- 
- 		if (etdev->TxRing.TCBReadyQueueTail) {
- 			etdev->TxRing.TCBReadyQueueTail->Next = pMpTcb;
-@@ -533,7 +533,7 @@ static int et131x_send_packet(struct sk_buff *skb,
- 
- 		etdev->TxRing.TCBReadyQueueTail = pMpTcb;
- 
--		spin_unlock_irqrestore(&etdev->TCBReadyQLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->TCBReadyQLock, flags);
- 
- 		DBG_TX_LEAVE(et131x_dbginfo);
- 		return status;
-@@ -561,7 +561,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	struct sk_buff *pPacket = pMpTcb->Packet;
- 	uint32_t FragListCount = skb_shinfo(pPacket)->nr_frags + 1;
- 	struct skb_frag_struct *pFragList = &skb_shinfo(pPacket)->frags[0];
--	unsigned long lockflags1, lockflags2;
-+	unsigned long flags;
- 
- 	DBG_TX_ENTER(et131x_dbginfo);
- 
-@@ -726,7 +726,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	pMpTcb->WrIndexStart = etdev->TxRing.txDmaReadyToSend;
- 	pMpTcb->PacketStaleCount = 0;
- 
--	spin_lock_irqsave(&etdev->SendHWLock, lockflags1);
-+	spin_lock_irqsave(&etdev->SendHWLock, flags);
- 
- 	iThisCopy =
- 	    NUM_DESC_PER_RING_TX - etdev->TxRing.txDmaReadyToSend.bits.val;
-@@ -771,7 +771,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		pMpTcb->WrIndex.value =
- 		    etdev->TxRing.txDmaReadyToSend.value - 1;
- 
--	spin_lock_irqsave(&etdev->TCBSendQLock, lockflags2);
-+	spin_lock(&etdev->TCBSendQLock);
- 
- 	if (etdev->TxRing.CurrSendTail)
- 		etdev->TxRing.CurrSendTail->Next = pMpTcb;
-@@ -784,7 +784,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 
- 	etdev->TxRing.nBusySend++;
- 
--	spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags2);
-+	spin_unlock(&etdev->TCBSendQLock);
- 
- 	/* Write the new write pointer back to the device. */
- 	writel(etdev->TxRing.txDmaReadyToSend.value,
-@@ -798,7 +798,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		       &etdev->CSRAddress->global.watchdog_timer);
- 	}
- 
--	spin_unlock_irqrestore(&etdev->SendHWLock, lockflags1);
-+	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
- 
- 	DBG_TX_LEAVE(et131x_dbginfo);
- 	return 0;
-@@ -829,7 +829,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	TX_DESC_ENTRY_t *CurDescPostCopy = NULL;
- 	uint32_t SlotsAvailable;
- 	DMA10W_t ServiceComplete;
--	unsigned int lockflags1, lockflags2;
-+	unsigned int flags;
- 	struct sk_buff *pPacket = pMpTcb->Packet;
- 	uint32_t FragListCount = skb_shinfo(pPacket)->nr_frags + 1;
- 	struct skb_frag_struct *pFragList = &skb_shinfo(pPacket)->frags[0];
-@@ -875,7 +875,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		SegmentSize = (pPacket->len - pPacket->data_len) / 2;
- 	}
- 
--	spin_lock_irqsave(&etdev->SendHWLock, lockflags1);
-+	spin_lock_irqsave(&etdev->SendHWLock, flags);
- 
- 	if (etdev->TxRing.txDmaReadyToSend.bits.serv_req_wrap ==
- 	    ServiceComplete.bits.serv_cpl_wrap) {
-@@ -896,7 +896,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	if ((FragListCount + iSplitFirstElement) > SlotsAvailable) {
- 		DBG_WARNING(et131x_dbginfo,
- 			    "Not Enough Space in Tx Desc Ring\n");
--		spin_unlock_irqrestore(&etdev->SendHWLock, lockflags1);
-+		spin_unlock_irqrestore(&etdev->SendHWLock, flags);
- 		return -ENOMEM;
- 	}
- 
-@@ -1185,7 +1185,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		       NIC_MIN_PACKET_SIZE - pMpTcb->PacketLength);
- 	}
- 
--	spin_lock_irqsave(&etdev->TCBSendQLock, lockflags2);
-+	spin_lock(&etdev->TCBSendQLock);
- 
- 	if (etdev->TxRing.CurrSendTail)
- 		etdev->TxRing.CurrSendTail->Next = pMpTcb;
-@@ -1198,7 +1198,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 
- 	etdev->TxRing.nBusySend++;
- 
--	spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags2);
-+	spin_unlock(&etdev->TCBSendQLock);
- 
- 	/* Write the new write pointer back to the device. */
- 	writel(etdev->TxRing.txDmaReadyToSend.value,
-@@ -1216,7 +1216,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		       &etdev->CSRAddress->global.watchdog_timer);
- 	}
- 
--	spin_unlock_irqrestore(&etdev->SendHWLock, lockflags1);
-+	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
- 
- 	DBG_TX_LEAVE(et131x_dbginfo);
- 	return 0;
-@@ -1234,7 +1234,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 							PMP_TCB pMpTcb)
- {
--	unsigned long lockflags;
-+	unsigned long flags;
- 	TX_DESC_ENTRY_t *desc = NULL;
- 	struct net_device_stats *stats = &etdev->net_stats;
- 
-@@ -1311,7 +1311,7 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 	memset(pMpTcb, 0, sizeof(MP_TCB));
- 
- 	/* Add the TCB to the Ready Q */
--	spin_lock_irqsave(&etdev->TCBReadyQLock, lockflags);
-+	spin_lock_irqsave(&etdev->TCBReadyQLock, flags);
- 
- 	etdev->Stats.opackets++;
- 
-@@ -1324,7 +1324,7 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 
- 	etdev->TxRing.TCBReadyQueueTail = pMpTcb;
- 
--	spin_unlock_irqrestore(&etdev->TCBReadyQLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->TCBReadyQLock, flags);
- 
- 	DBG_ASSERT(etdev->TxRing.nBusySend >= 0);
- }
-@@ -1339,16 +1339,16 @@ void et131x_free_busy_send_packets(struct et131x_adapter *etdev)
- {
- 	PMP_TCB pMpTcb;
- 	struct list_head *pEntry;
--	unsigned long lockflags;
-+	unsigned long flags;
- 	uint32_t FreeCounter = 0;
- 
- 	DBG_ENTER(et131x_dbginfo);
- 
- 	while (!list_empty(&etdev->TxRing.SendWaitQueue)) {
--		spin_lock_irqsave(&etdev->SendWaitLock, lockflags);
-+		spin_lock_irqsave(&etdev->SendWaitLock, flags);
- 
- 		etdev->TxRing.nWaitSend--;
--		spin_unlock_irqrestore(&etdev->SendWaitLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->SendWaitLock, flags);
- 
- 		pEntry = etdev->TxRing.SendWaitQueue.next;
- 	}
-@@ -1356,7 +1356,7 @@ void et131x_free_busy_send_packets(struct et131x_adapter *etdev)
- 	etdev->TxRing.nWaitSend = 0;
- 
- 	/* Any packets being sent? Check the first TCB on the send list */
--	spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+	spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 	pMpTcb = etdev->TxRing.CurrSendHead;
- 
-@@ -1370,14 +1370,14 @@ void et131x_free_busy_send_packets(struct et131x_adapter *etdev)
- 
- 		etdev->TxRing.nBusySend--;
- 
--		spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
- 
- 		DBG_VERBOSE(et131x_dbginfo, "pMpTcb = 0x%p\n", pMpTcb);
- 
- 		FreeCounter++;
- 		MP_FREE_SEND_PACKET_FUN(etdev, pMpTcb);
- 
--		spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+		spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 		pMpTcb = etdev->TxRing.CurrSendHead;
- 	}
-@@ -1388,7 +1388,7 @@ void et131x_free_busy_send_packets(struct et131x_adapter *etdev)
- 		BUG();
- 	}
- 
--	spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
- 
- 	etdev->TxRing.nBusySend = 0;
- 
-@@ -1429,7 +1429,7 @@ void et131x_handle_send_interrupt(struct et131x_adapter *etdev)
-  */
- static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- {
--	unsigned long lockflags;
-+	unsigned long flags;
- 	DMA10W_t ServiceComplete;
- 	PMP_TCB pMpTcb;
- 
-@@ -1439,7 +1439,7 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 	/* Has the ring wrapped?  Process any descriptors that do not have
- 	 * the same "wrap" indicator as the current completion indicator
- 	 */
--	spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+	spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 	pMpTcb = etdev->TxRing.CurrSendHead;
- 	while (pMpTcb &&
-@@ -1450,9 +1450,9 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 		if (pMpTcb->Next == NULL)
- 			etdev->TxRing.CurrSendTail = NULL;
- 
--		spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
- 		MP_FREE_SEND_PACKET_FUN(etdev, pMpTcb);
--		spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+		spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 		/* Goto the next packet */
- 		pMpTcb = etdev->TxRing.CurrSendHead;
-@@ -1465,9 +1465,9 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 		if (pMpTcb->Next == NULL)
- 			etdev->TxRing.CurrSendTail = NULL;
- 
--		spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+		spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
- 		MP_FREE_SEND_PACKET_FUN(etdev, pMpTcb);
--		spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+		spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 		/* Goto the next packet */
- 		pMpTcb = etdev->TxRing.CurrSendHead;
-@@ -1477,7 +1477,7 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 	if (etdev->TxRing.nBusySend <= (NUM_TCB / 3))
- 		netif_wake_queue(etdev->netdev);
- 
--	spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
- }
- 
- /**
-@@ -1489,9 +1489,9 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
-  */
- static void et131x_check_send_wait_list(struct et131x_adapter *etdev)
- {
--	unsigned long lockflags;
-+	unsigned long flags;
- 
--	spin_lock_irqsave(&etdev->SendWaitLock, lockflags);
-+	spin_lock_irqsave(&etdev->SendWaitLock, flags);
- 
- 	while (!list_empty(&etdev->TxRing.SendWaitQueue) &&
- 				MP_TCB_RESOURCES_AVAILABLE(etdev)) {
-@@ -1508,5 +1508,5 @@ static void et131x_check_send_wait_list(struct et131x_adapter *etdev)
- 				etdev->TxRing.nWaitSend);
- 	}
- 
--	spin_unlock_irqrestore(&etdev->SendWaitLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->SendWaitLock, flags);
- }
+@@ -1235,13 +1235,11 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
+ 			break;
+ 
+ 		/* Do not receive any packets until a filter has been set.
+-		 * Do not receive any packets until we are at D0.
+ 		 * Do not receive any packets until we have link.
+ 		 * If length is zero, return the RFD in order to advance the
+ 		 * Free buffer ring.
+ 		 */
+ 		if ((!etdev->PacketFilter) ||
+-		    (etdev->PoMgmt.PowerState != NdisDeviceStateD0) ||
+ 		    (!MP_LINK_DETECTED(etdev)) ||
+ 		    (pMpRfd->PacketSize == 0)) {
+ 			continue;
 diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
-index 8455e0a..b9018e6 100644
+index b9018e6..d84b654 100644
 --- a/drivers/staging/et131x/et131x_initpci.c
 +++ b/drivers/staging/et131x/et131x_initpci.c
-@@ -492,18 +492,18 @@ void et131x_error_timer_handler(unsigned long data)
- void et131x_link_detection_handler(unsigned long data)
- {
- 	struct et131x_adapter *etdev = (struct et131x_adapter *) data;
--	unsigned long lockflags;
-+	unsigned long flags;
+@@ -967,8 +967,6 @@ int __devinit et131x_pci_setup(struct pci_dev *pdev,
+ 	DBG_TRACE(et131x_dbginfo, "Init send data structures...\n");
+ 	et131x_init_send(adapter);
  
- 	/* Let everyone know that we have run */
- 	etdev->bLinkTimerActive = false;
- 
- 	if (etdev->MediaState == 0) {
--		spin_lock_irqsave(&etdev->Lock, lockflags);
-+		spin_lock_irqsave(&etdev->Lock, flags);
- 
- 		etdev->MediaState = NETIF_STATUS_MEDIA_DISCONNECT;
- 		MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
- 
--		spin_unlock_irqrestore(&etdev->Lock, lockflags);
-+		spin_unlock_irqrestore(&etdev->Lock, flags);
- 
- 		netif_carrier_off(etdev->netdev);
- 
-diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
-index 77fac95..74ba177 100644
---- a/drivers/staging/et131x/et131x_netdev.c
-+++ b/drivers/staging/et131x/et131x_netdev.c
-@@ -467,12 +467,12 @@ void et131x_multicast(struct net_device *netdev)
- 	struct et131x_adapter *adapter = netdev_priv(netdev);
- 	uint32_t PacketFilter = 0;
- 	uint32_t count;
--	unsigned long lockflags;
-+	unsigned long flags;
- 	struct dev_mc_list *mclist = netdev->mc_list;
- 
- 	DBG_ENTER(et131x_dbginfo);
- 
--	spin_lock_irqsave(&adapter->Lock, lockflags);
-+	spin_lock_irqsave(&adapter->Lock, flags);
- 
- 	/* Before we modify the platform-independent filter flags, store them
- 	 * locally. This allows us to determine if anything's changed and if
-@@ -552,7 +552,7 @@ void et131x_multicast(struct net_device *netdev)
- 			    "NO UPDATE REQUIRED, FLAGS didn't change\n");
- 	}
- 
--	spin_unlock_irqrestore(&adapter->Lock, lockflags);
-+	spin_unlock_irqrestore(&adapter->Lock, flags);
- 
- 	DBG_LEAVE(et131x_dbginfo);
- }
-@@ -610,7 +610,7 @@ void et131x_tx_timeout(struct net_device *netdev)
- {
- 	struct et131x_adapter *etdev = netdev_priv(netdev);
- 	PMP_TCB pMpTcb;
--	unsigned long lockflags;
-+	unsigned long flags;
- 
- 	DBG_WARNING(et131x_dbginfo, "TX TIMEOUT\n");
- 
-@@ -635,7 +635,7 @@ void et131x_tx_timeout(struct net_device *netdev)
- 	}
- 
- 	/* Is send stuck? */
--	spin_lock_irqsave(&etdev->TCBSendQLock, lockflags);
-+	spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 	pMpTcb = etdev->TxRing.CurrSendHead;
- 
-@@ -660,7 +660,7 @@ void et131x_tx_timeout(struct net_device *netdev)
- 			}
- 
- 			spin_unlock_irqrestore(&etdev->TCBSendQLock,
--					       lockflags);
-+					       flags);
- 
- 			DBG_WARNING(et131x_dbginfo,
- 				"Send stuck - reset.  pMpTcb->WrIndex %x, Flags 0x%08x\n",
-@@ -689,7 +689,7 @@ void et131x_tx_timeout(struct net_device *netdev)
+-	adapter->PoMgmt.PowerState = NdisDeviceStateD0;
+-
+ 	/* Register the interrupt
+ 	 *
+ 	 * NOTE - This is being done in the open routine, where most other
+diff --git a/drivers/staging/et131x/et131x_isr.c b/drivers/staging/et131x/et131x_isr.c
+index 9f51425..f9687b3 100644
+--- a/drivers/staging/et131x/et131x_isr.c
++++ b/drivers/staging/et131x/et131x_isr.c
+@@ -479,6 +479,5 @@ void et131x_isr_handler(struct work_struct *work)
  		}
  	}
  
--	spin_unlock_irqrestore(&etdev->TCBSendQLock, lockflags);
-+	spin_unlock_irqrestore(&etdev->TCBSendQLock, flags);
+-	if (etdev->PoMgmt.PowerState == NdisDeviceStateD0)
+-		et131x_enable_interrupts(etdev);
++	et131x_enable_interrupts(etdev);
  }
- 
- /**
 
