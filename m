@@ -1,17 +1,17 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 25/26] et131x: clean up DMA10/DMA4 types
-Date: Tue, 25 Aug 2009 16:01:31 +0100
-Message-ID: <20090825150128.16176.74269.stgit@localhost.localdomain>
+Subject: [PATCH 26/26] et131x: clean up MP_FLAG macros
+Date: Tue, 25 Aug 2009 16:01:39 +0100
+Message-ID: <20090825150136.16176.96990.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47840 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47844 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755404AbZHYPGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:06:53 -0400
+	with ESMTP id S1755416AbZHYPHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:07:00 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,647 +19,249 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et1310_address_map.h |  150 +++++++++------------------
- drivers/staging/et131x/et1310_rx.c          |   60 ++++-------
- drivers/staging/et131x/et1310_rx.h          |    4 -
- drivers/staging/et131x/et1310_tx.c          |   93 +++++++----------
- drivers/staging/et131x/et1310_tx.h          |    6 +
- drivers/staging/et131x/et131x_netdev.c      |    8 +
- 6 files changed, 120 insertions(+), 201 deletions(-)
+ drivers/staging/et131x/et1310_mac.c     |    2 +-
+ drivers/staging/et131x/et1310_phy.c     |    8 +++-----
+ drivers/staging/et131x/et1310_pm.c      |    4 ++--
+ drivers/staging/et131x/et1310_rx.c      |   12 ++++++------
+ drivers/staging/et131x/et1310_tx.c      |    8 ++++----
+ drivers/staging/et131x/et131x_adapter.h |   13 -------------
+ drivers/staging/et131x/et131x_initpci.c |    2 +-
+ drivers/staging/et131x/et131x_netdev.c  |   14 +++++++-------
+ 8 files changed, 24 insertions(+), 39 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et1310_address_map.h b/drivers/staging/et131x/et1310_address_map.h
-index f4867f5..7d1bdc8 100644
---- a/drivers/staging/et131x/et1310_address_map.h
-+++ b/drivers/staging/et131x/et1310_address_map.h
-@@ -329,94 +329,40 @@ typedef union _TXDMA_PR_NUM_DES_t {
- } TXDMA_PR_NUM_DES_t, *PTXDMA_PR_NUM_DES_t;
+diff --git a/drivers/staging/et131x/et1310_mac.c b/drivers/staging/et131x/et1310_mac.c
+index a27d815..c94d661 100644
+--- a/drivers/staging/et131x/et1310_mac.c
++++ b/drivers/staging/et131x/et1310_mac.c
+@@ -272,7 +272,7 @@ void ConfigMACRegs2(struct et131x_adapter *etdev)
+ 	writel(ctl.value, &etdev->regs->txmac.ctl.value);
  
+ 	/* Ready to start the RXDMA/TXDMA engine */
+-	if (!MP_TEST_FLAG(etdev, fMP_ADAPTER_LOWER_POWER)) {
++	if (etdev->Flags & fMP_ADAPTER_LOWER_POWER) {
+ 		et131x_rx_dma_enable(etdev);
+ 		et131x_tx_dma_enable(etdev);
+ 	} else {
+diff --git a/drivers/staging/et131x/et1310_phy.c b/drivers/staging/et131x/et1310_phy.c
+index 19ffb65..f856381 100644
+--- a/drivers/staging/et131x/et1310_phy.c
++++ b/drivers/staging/et131x/et1310_phy.c
+@@ -498,7 +498,7 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
+ 			spin_lock_irqsave(&etdev->Lock, flags);
  
--typedef union _DMA10W_t {
--	u32 value;
--	struct {
--#ifdef _BIT_FIELDS_HTOL
--		u32 unused:21;	/* bits 11-31 */
--		u32 wrap:1;	/* bit 10 */
--		u32 val:10;	/* bits 0-9 */
--#else
--		u32 val:10;	/* bits 0-9 */
--		u32 wrap:1;	/* bit 10 */
--		u32 unused:21;	/* bits 11-31 */
--#endif
--	} bits;
--} DMA10W_t, *PDMA10W_t;
--
--/*
-- * structure for txdma tx queue write address reg in txdma address map
-- * located at address 0x1010
-- * Defined earlier (DMA10W_t)
-- */
--
--/*
-- * structure for txdma tx queue write address external reg in txdma address map
-- * located at address 0x1014
-- * Defined earlier (DMA10W_t)
-- */
--
--/*
-- * structure for txdma tx queue read address reg in txdma address map
-- * located at address 0x1018
-- * Defined earlier (DMA10W_t)
-- */
--
--/*
-- * structure for txdma status writeback address hi reg in txdma address map
-- * located at address 0x101C
-- * Defined earlier (u32)
-- */
--
--/*
-- * structure for txdma status writeback address lo reg in txdma address map
-- * located at address 0x1020
-- * Defined earlier (u32)
-- */
--
--/*
-- * structure for txdma service request reg in txdma address map
-- * located at address 0x1024
-- * Defined earlier (DMA10W_t)
-- */
-+#define ET_DMA10_MASK		0x3FF	/* 10 bit mask for DMA10W types */
-+#define ET_DMA10_WRAP		0x400
-+#define ET_DMA4_MASK		0x00F	/* 4 bit mask for DMA4W types */
-+#define ET_DMA4_WRAP		0x010
+ 			etdev->MediaState = NETIF_STATUS_MEDIA_CONNECT;
+-			MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
++			etdev->Flags &= ~fMP_ADAPTER_LINK_DETECTION);
  
--/*
-- * structure for txdma service complete reg in txdma address map
-- * located at address 0x1028
-- * Defined earlier (DMA10W_t)
-- */
-+#define INDEX10(x)	((x) & ET_DMA10_MASK)
-+#define INDEX4(x)	((x) & ET_DMA4_MASK)
+ 			spin_unlock_irqrestore(&etdev->Lock, flags);
  
--typedef union _DMA4W_t {
--	u32 value;
--	struct {
--#ifdef _BIT_FIELDS_HTOL
--		u32 unused:27;	/* bits 5-31 */
--		u32 wrap:1;	/* bit 4 */
--		u32 val:4;		/* bit 0-3 */
--#else
--		u32 val:4;		/* bits 0-3 */
--		u32 wrap:1;	/* bit 4 */
--		u32 unused:27;	/* bits 5-31 */
--#endif
--	} bits;
--} DMA4W_t, *PDMA4W_t;
-+extern inline void add_10bit(u32 *v, int n)
-+{
-+	*v = INDEX10(*v + n);
-+}
+@@ -529,10 +529,8 @@ void et131x_Mii_check(struct et131x_adapter *etdev,
+ 			 * Timer expires, we can report disconnected (handled
+ 			 * in the LinkDetectionDPC).
+ 			 */
+-			if ((MP_IS_FLAG_CLEAR
+-			     (etdev, fMP_ADAPTER_LINK_DETECTION))
+-			    || (etdev->MediaState ==
+-				NETIF_STATUS_MEDIA_DISCONNECT)) {
++			if (!(etdev->Flags & fMP_ADAPTER_LINK_DETECTION) ||
++			  (etdev->MediaState == NETIF_STATUS_MEDIA_DISCONNECT)) {
+ 				spin_lock_irqsave(&etdev->Lock, flags);
+ 				etdev->MediaState =
+ 				    NETIF_STATUS_MEDIA_DISCONNECT;
+diff --git a/drivers/staging/et131x/et1310_pm.c b/drivers/staging/et131x/et1310_pm.c
+index ea186a8..f4c942c 100644
+--- a/drivers/staging/et131x/et1310_pm.c
++++ b/drivers/staging/et131x/et1310_pm.c
+@@ -134,7 +134,7 @@ void EnablePhyComa(struct et131x_adapter *etdev)
  
- /*
-- * structure for txdma tx descriptor cache read index reg in txdma address map
-- * located at address 0x102C
-- * Defined earlier (DMA4W_t)
-- */
--
--/*
-- * structure for txdma tx descriptor cache write index reg in txdma address map
-- * located at address 0x1030
-- * Defined earlier (DMA4W_t)
-+ * 10bit DMA with wrap
-+ * txdma tx queue write address reg in txdma address map at 0x1010
-+ * txdma tx queue write address external reg in txdma address map at 0x1014
-+ * txdma tx queue read address reg in txdma address map at 0x1018
-+ *
-+ * u32
-+ * txdma status writeback address hi reg in txdma address map at0x101C
-+ * txdma status writeback address lo reg in txdma address map at 0x1020
-+ *
-+ * 10bit DMA with wrap
-+ * txdma service request reg in txdma address map at 0x1024
-+ * structure for txdma service complete reg in txdma address map at 0x1028
-+ *
-+ * 4bit DMA with wrap
-+ * txdma tx descriptor cache read index reg in txdma address map at 0x102C
-+ * txdma tx descriptor cache write index reg in txdma address map at 0x1030
-+ *
-+ * txdma error reg in txdma address map at address 0x1034
-  */
+ 	/* Stop sending packets. */
+ 	spin_lock_irqsave(&etdev->SendHWLock, flags);
+-	MP_SET_FLAG(etdev, fMP_ADAPTER_LOWER_POWER);
++	etdev->Flags |= fMP_ADAPTER_LOWER_POWER;
+ 	spin_unlock_irqrestore(&etdev->SendHWLock, flags);
  
--/*
-- * structure for txdma error reg in txdma address map
-- * located at address 0x1034
-- */
- typedef union _TXDMA_ERROR_t {
- 	u32 value;
- 	struct {
-@@ -453,15 +399,15 @@ typedef struct _TXDMA_t {		/* Location: */
- 	u32 pr_base_hi;			/*  0x1004 */
- 	u32 pr_base_lo;			/*  0x1008 */
- 	TXDMA_PR_NUM_DES_t pr_num_des;	/*  0x100C */
--	DMA10W_t txq_wr_addr;		/*  0x1010 */
--	DMA10W_t txq_wr_addr_ext;	/*  0x1014 */
--	DMA10W_t txq_rd_addr;		/*  0x1018 */
-+	u32 txq_wr_addr;		/*  0x1010 */
-+	u32 txq_wr_addr_ext;		/*  0x1014 */
-+	u32 txq_rd_addr;		/*  0x1018 */
- 	u32 dma_wb_base_hi;		/*  0x101C */
- 	u32 dma_wb_base_lo;		/*  0x1020 */
--	DMA10W_t service_request;	/*  0x1024 */
--	DMA10W_t service_complete;	/*  0x1028 */
--	DMA4W_t cache_rd_index;		/*  0x102C */
--	DMA4W_t cache_wr_index;		/*  0x1030 */
-+	u32 service_request;		/*  0x1024 */
-+	u32 service_complete;		/*  0x1028 */
-+	u32 cache_rd_index;		/*  0x102C */
-+	u32 cache_wr_index;		/*  0x1030 */
- 	TXDMA_ERROR_t TxDmaError;	/*  0x1034 */
- 	u32 DescAbortCount;		/*  0x1038 */
- 	u32 PayloadAbortCnt;		/*  0x103c */
-@@ -473,7 +419,7 @@ typedef struct _TXDMA_t {		/* Location: */
- 	u32 PayloadErrorCnt;		/*  0x1054 */
- 	u32 WriteBackErrorCnt;		/*  0x1058 */
- 	u32 DroppedTLPCount;		/*  0x105c */
--	DMA10W_t NewServiceComplete;	/*  0x1060 */
-+	u32 NewServiceComplete;		/*  0x1060 */
- 	u32 EthernetPacketCount;	/*  0x1064 */
- } TXDMA_t, *PTXDMA_t;
+ 	/* Wait for outstanding Receive packets */
+@@ -189,7 +189,7 @@ void DisablePhyComa(struct et131x_adapter *etdev)
+ 	et131x_adapter_setup(etdev);
  
-@@ -574,19 +520,19 @@ typedef union _RXDMA_MAX_PKT_TIME_t {
- /*
-  * structure for rx queue read address reg in rxdma address map
-  * located at address 0x2014
-- * Defined earlier (DMA10W_t)
-+ * Defined earlier (u32)
-  */
+ 	/* Allow Tx to restart */
+-	MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LOWER_POWER);
++	etdev->Flags &= ~fMP_ADAPTER_LOWER_POWER;
  
- /*
-  * structure for rx queue read address external reg in rxdma address map
-  * located at address 0x2018
-- * Defined earlier (DMA10W_t)
-+ * Defined earlier (u32)
-  */
- 
- /*
-  * structure for rx queue write address reg in rxdma address map
-  * located at address 0x201C
-- * Defined earlier (DMA10W_t)
-+ * Defined earlier (u32)
-  */
- 
- /*
-@@ -722,13 +668,13 @@ typedef union _RXDMA_FBR_NUM_DES_t {
- /*
-  * structure for free buffer ring 0 available offset reg in rxdma address map
-  * located at address 0x2048
-- * Defined earlier (DMA10W_t)
-+ * Defined earlier (u32)
-  */
- 
- /*
-  * structure for free buffer ring 0 full offset reg in rxdma address map
-  * located at address 0x204C
-- * Defined earlier (DMA10W_t)
-+ * Defined earlier (u32)
-  */
- 
- /*
-@@ -811,9 +757,9 @@ typedef struct _RXDMA_t {				/* Location: */
- 	u32 dma_wb_base_hi;				/*  0x2008 */
- 	RXDMA_NUM_PKT_DONE_t num_pkt_done;		/*  0x200C */
- 	RXDMA_MAX_PKT_TIME_t max_pkt_time;		/*  0x2010 */
--	DMA10W_t rxq_rd_addr;				/*  0x2014 */
--	DMA10W_t rxq_rd_addr_ext;			/*  0x2018 */
--	DMA10W_t rxq_wr_addr;				/*  0x201C */
-+	u32 rxq_rd_addr;				/*  0x2014 */
-+	u32 rxq_rd_addr_ext;			/*  0x2018 */
-+	u32 rxq_wr_addr;				/*  0x201C */
- 	u32 psr_base_lo;				/*  0x2020 */
- 	u32 psr_base_hi;				/*  0x2024 */
- 	RXDMA_PSR_NUM_DES_t psr_num_des;		/*  0x2028 */
-@@ -824,15 +770,15 @@ typedef struct _RXDMA_t {				/* Location: */
- 	u32 fbr0_base_lo;				/*  0x203C */
- 	u32 fbr0_base_hi;				/*  0x2040 */
- 	RXDMA_FBR_NUM_DES_t fbr0_num_des;		/*  0x2044 */
--	DMA10W_t fbr0_avail_offset;			/*  0x2048 */
--	DMA10W_t fbr0_full_offset;			/*  0x204C */
-+	u32 fbr0_avail_offset;			/*  0x2048 */
-+	u32 fbr0_full_offset;			/*  0x204C */
- 	RXDMA_FBC_RD_INDEX_t fbr0_rd_index;		/*  0x2050 */
- 	RXDMA_FBR_MIN_DES_t fbr0_min_des;		/*  0x2054 */
- 	u32 fbr1_base_lo;				/*  0x2058 */
- 	u32 fbr1_base_hi;				/*  0x205C */
- 	RXDMA_FBR_NUM_DES_t fbr1_num_des;		/*  0x2060 */
--	DMA10W_t fbr1_avail_offset;			/*  0x2064 */
--	DMA10W_t fbr1_full_offset;			/*  0x2068 */
-+	u32 fbr1_avail_offset;			/*  0x2064 */
-+	u32 fbr1_full_offset;			/*  0x2068 */
- 	RXDMA_FBC_RD_INDEX_t fbr1_rd_index;		/*  0x206C */
- 	RXDMA_FBR_MIN_DES_t fbr1_min_des;		/*  0x2070 */
- } RXDMA_t, *PRXDMA_t;
+ 	/* Need to re-enable Rx. */
+ 	et131x_rx_dma_enable(etdev);
 diff --git a/drivers/staging/et131x/et1310_rx.c b/drivers/staging/et131x/et1310_rx.c
-index 7f36de0..757a8cd 100644
+index 757a8cd..54a7ecf 100644
 --- a/drivers/staging/et131x/et1310_rx.c
 +++ b/drivers/staging/et131x/et1310_rx.c
-@@ -739,20 +739,12 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	writel((uint32_t) (pRxLocal->Fbr1Realpa >> 32), &rx_dma->fbr1_base_hi);
- 	writel((uint32_t) pRxLocal->Fbr1Realpa, &rx_dma->fbr1_base_lo);
- 	writel(pRxLocal->Fbr1NumEntries - 1, &rx_dma->fbr1_num_des.value);
--
--	{
--		DMA10W_t fbr1_full = { 0 };
--
--		fbr1_full.bits.val = 0;
--		fbr1_full.bits.wrap = 1;
--		writel(fbr1_full.value, &rx_dma->fbr1_full_offset.value);
--	}
-+	writel(ET_DMA10_WRAP, &rx_dma->fbr1_full_offset);
+@@ -415,7 +415,7 @@ int et131x_rx_dma_memory_alloc(struct et131x_adapter *adapter)
+ 						   SLAB_HWCACHE_ALIGN,
+ 						   NULL);
  
- 	/* This variable tracks the free buffer ring 1 full position, so it
- 	 * has to match the above.
- 	 */
--	pRxLocal->local_Fbr1_full.bits.val = 0;
--	pRxLocal->local_Fbr1_full.bits.wrap = 1;
-+	pRxLocal->local_Fbr1_full = ET_DMA10_WRAP;
- 	writel(((pRxLocal->Fbr1NumEntries * LO_MARK_PERCENT_FOR_RX) / 100) - 1,
- 	       &rx_dma->fbr1_min_des.value);
+-	MP_SET_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE);
++	adapter->Flags |= fMP_ADAPTER_RECV_LOOKASIDE;
  
-@@ -769,20 +761,12 @@ void ConfigRxDmaRegs(struct et131x_adapter *etdev)
- 	writel((uint32_t) (pRxLocal->Fbr0Realpa >> 32), &rx_dma->fbr0_base_hi);
- 	writel((uint32_t) pRxLocal->Fbr0Realpa, &rx_dma->fbr0_base_lo);
- 	writel(pRxLocal->Fbr0NumEntries - 1, &rx_dma->fbr0_num_des.value);
--
--	{
--		DMA10W_t fbr0_full = { 0 };
--
--		fbr0_full.bits.val = 0;
--		fbr0_full.bits.wrap = 1;
--		writel(fbr0_full.value, &rx_dma->fbr0_full_offset.value);
--	}
-+	writel(ET_DMA10_WRAP, &rx_dma->fbr0_full_offset);
+ 	/* The RFDs are going to be put on lists later on, so initialize the
+ 	 * lists now.
+@@ -569,9 +569,9 @@ void et131x_rx_dma_memory_free(struct et131x_adapter *adapter)
+ 	/* Free receive packet pool */
  
- 	/* This variable tracks the free buffer ring 0 full position, so it
- 	 * has to match the above.
- 	 */
--	pRxLocal->local_Fbr0_full.bits.val = 0;
--	pRxLocal->local_Fbr0_full.bits.wrap = 1;
-+	pRxLocal->local_Fbr0_full = ET_DMA10_WRAP;
- 	writel(((pRxLocal->Fbr0NumEntries * LO_MARK_PERCENT_FOR_RX) / 100) - 1,
- 	       &rx_dma->fbr0_min_des.value);
- #endif
-@@ -1282,6 +1266,16 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
- 	DBG_RX_LEAVE(et131x_dbginfo);
- }
+ 	/* Destroy the lookaside (RFD) pool */
+-	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE)) {
++	if (adapter->Flags & fMP_ADAPTER_RECV_LOOKASIDE) {
+ 		kmem_cache_destroy(rx_ring->RecvLookaside);
+-		MP_CLEAR_FLAG(adapter, fMP_ADAPTER_RECV_LOOKASIDE);
++		adapter->Flags &= ~fMP_ADAPTER_RECV_LOOKASIDE;
+ 	}
  
-+static inline u32 bump_fbr(u32 *fbr, u32 limit)
-+{
-+	u32 v = *fbr;
-+	add_10bit(&v, 1);
-+	if (v > limit)
-+		v = (*fbr & ~ET_DMA10_MASK) ^ ET_DMA10_WRAP;
-+	*fbr = v;
-+	return v;
-+}
-+
- /**
-  * NICReturnRFD - Recycle a RFD and put it back onto the receive list
-  * @etdev: pointer to our adapter
-@@ -1310,7 +1304,7 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 		if (ri == 1) {
- 			PFBR_DESC_t pNextDesc =
- 			    (PFBR_DESC_t) (rx_local->pFbr1RingVa) +
--			    rx_local->local_Fbr1_full.bits.val;
-+			    INDEX10(rx_local->local_Fbr1_full);
- 
- 			/* Handle the Free Buffer Ring advancement here. Write
- 			 * the PA / Buffer Index for the returned buffer into
-@@ -1320,20 +1314,15 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 			pNextDesc->addr_lo = rx_local->Fbr[1]->PALow[bi];
- 			pNextDesc->word2.value = bi;
- 
--			if (++rx_local->local_Fbr1_full.bits.val >
--			    (rx_local->Fbr1NumEntries - 1)) {
--				rx_local->local_Fbr1_full.bits.val = 0;
--				rx_local->local_Fbr1_full.bits.wrap ^= 1;
--			}
--
--			writel(rx_local->local_Fbr1_full.value,
--			       &rx_dma->fbr1_full_offset.value);
-+			writel(bump_fbr(&rx_local->local_Fbr1_full,
-+				rx_local->Fbr1NumEntries - 1),
-+				&rx_dma->fbr1_full_offset);
+ 	/* Free the FBR Lookup Table */
+@@ -1223,9 +1223,9 @@ void et131x_handle_recv_interrupt(struct et131x_adapter *etdev)
+ 		 * If length is zero, return the RFD in order to advance the
+ 		 * Free buffer ring.
+ 		 */
+-		if ((!etdev->PacketFilter) ||
+-		    (!MP_LINK_DETECTED(etdev)) ||
+-		    (pMpRfd->PacketSize == 0)) {
++		if (!etdev->PacketFilter ||
++		    !(etdev->Flags & fMP_ADAPTER_LINK_DETECTION) ||
++		    pMpRfd->PacketSize == 0) {
+ 			continue;
  		}
- #ifdef USE_FBR0
- 		else {
- 			PFBR_DESC_t pNextDesc =
- 			    (PFBR_DESC_t) rx_local->pFbr0RingVa +
--			    rx_local->local_Fbr0_full.bits.val;
-+			    INDEX10(rx_local->local_Fbr0_full);
- 
- 			/* Handle the Free Buffer Ring advancement here. Write
- 			 * the PA / Buffer Index for the returned buffer into
-@@ -1343,14 +1332,9 @@ void nic_return_rfd(struct et131x_adapter *etdev, PMP_RFD pMpRfd)
- 			pNextDesc->addr_lo = rx_local->Fbr[0]->PALow[bi];
- 			pNextDesc->word2.value = bi;
- 
--			if (++rx_local->local_Fbr0_full.bits.val >
--			    (rx_local->Fbr0NumEntries - 1)) {
--				rx_local->local_Fbr0_full.bits.val = 0;
--				rx_local->local_Fbr0_full.bits.wrap ^= 1;
--			}
--
--			writel(rx_local->local_Fbr0_full.value,
--			       &rx_dma->fbr0_full_offset.value);
-+			writel(bump_fbr(&rx_local->local_Fbr0_full,
-+					rx_local->Fbr0NumEntries - 1),
-+			       &rx_dma->fbr0_full_offset);
- 		}
- #endif
- 		spin_unlock_irqrestore(&etdev->FbrLock, flags);
-diff --git a/drivers/staging/et131x/et1310_rx.h b/drivers/staging/et131x/et1310_rx.h
-index 3bfabd8..72a5229 100644
---- a/drivers/staging/et131x/et1310_rx.h
-+++ b/drivers/staging/et131x/et1310_rx.h
-@@ -302,7 +302,7 @@ typedef struct _rx_ring_t {
- 	dma_addr_t Fbr0MemPa[MAX_DESC_PER_RING_RX / FBR_CHUNKS];
- 	uint64_t Fbr0Realpa;
- 	uint64_t Fbr0offset;
--	DMA10W_t local_Fbr0_full;
-+	u32 local_Fbr0_full;
- 	u32 Fbr0NumEntries;
- 	u32 Fbr0BufferSize;
- #endif
-@@ -313,7 +313,7 @@ typedef struct _rx_ring_t {
- 	uint64_t Fbr1Realpa;
- 	uint64_t Fbr1offset;
- 	FBRLOOKUPTABLE *Fbr[2];
--	DMA10W_t local_Fbr1_full;
-+	u32 local_Fbr1_full;
- 	u32 Fbr1NumEntries;
- 	u32 Fbr1BufferSize;
  
 diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
-index 16aef44..dd79975 100644
+index dd79975..4a0108f 100644
 --- a/drivers/staging/et131x/et1310_tx.c
 +++ b/drivers/staging/et131x/et1310_tx.c
-@@ -275,8 +275,8 @@ void ConfigTxDmaRegs(struct et131x_adapter *etdev)
+@@ -510,9 +510,9 @@ static int et131x_send_packet(struct sk_buff *skb,
  
- 	memset(etdev->TxRing.pTxStatusVa, 0, sizeof(TX_STATUS_BLOCK_t));
- 
--	writel(0, &txdma->service_request.value);
--	etdev->TxRing.txDmaReadyToSend.value = 0;
-+	writel(0, &txdma->service_request);
-+	etdev->TxRing.txDmaReadyToSend = 0;
- 
- 	DBG_LEAVE(et131x_dbginfo);
- }
-@@ -601,8 +601,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 				       "filling desc entry %d, "
- 				       "TCB: 0x%p\n",
- 				       (pPacket->len - pPacket->data_len),
--				       etdev->TxRing.txDmaReadyToSend.bits.
--				       val, pMpTcb);
-+				       etdev->TxRing.txDmaReadyToSend, pMpTcb);
- 
- 				CurDesc[FragmentNumber].DataBufferPtrHigh = 0;
- 
-@@ -630,8 +629,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 				       "filling desc entry %d, "
- 				       "TCB: 0x%p\n",
- 				       (pPacket->len - pPacket->data_len),
--				       etdev->TxRing.txDmaReadyToSend.bits.
--				       val, pMpTcb);
-+				       etdev->TxRing.txDmaReadyToSend, pMpTcb);
- 
- 				CurDesc[FragmentNumber].DataBufferPtrHigh = 0;
- 
-@@ -682,7 +680,7 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 			       "filling desc entry %d\n"
- 			       "TCB: 0x%p\n",
- 			       pFragList[loopIndex].size,
--			       etdev->TxRing.txDmaReadyToSend.bits.val,
-+			       etdev->TxRing.txDmaReadyToSend,
- 			       pMpTcb);
- 
- 			CurDesc[FragmentNumber].DataBufferPtrHigh = 0;
-@@ -729,8 +727,8 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 
- 	spin_lock_irqsave(&etdev->SendHWLock, flags);
- 
--	thiscopy =
--	    NUM_DESC_PER_RING_TX - etdev->TxRing.txDmaReadyToSend.bits.val;
-+	thiscopy = NUM_DESC_PER_RING_TX - 
-+				INDEX10(etdev->TxRing.txDmaReadyToSend);
- 
- 	if (thiscopy >= FragmentNumber) {
- 		remainder = 0;
-@@ -740,18 +738,15 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
+ 		if ((shbufva[0] == 0xffff) &&
+ 		    (shbufva[1] == 0xffff) && (shbufva[2] == 0xffff)) {
+-			MP_SET_FLAG(pMpTcb, fMP_DEST_BROAD);
++			pMpTcb->Flags |= fMP_DEST_BROAD;
+ 		} else if ((shbufva[0] & 0x3) == 0x0001) {
+-			MP_SET_FLAG(pMpTcb, fMP_DEST_MULTI);
++			pMpTcb->Flags |=  fMP_DEST_MULTI;
+ 		}
  	}
  
- 	memcpy(etdev->TxRing.pTxDescRingVa +
--	       etdev->TxRing.txDmaReadyToSend.bits.val, CurDesc,
-+	       INDEX10(etdev->TxRing.txDmaReadyToSend), CurDesc,
- 	       sizeof(TX_DESC_ENTRY_t) * thiscopy);
+@@ -1232,9 +1232,9 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
+ 	TX_DESC_ENTRY_t *desc = NULL;
+ 	struct net_device_stats *stats = &etdev->net_stats;
  
--	etdev->TxRing.txDmaReadyToSend.bits.val += thiscopy;
-+	add_10bit(&etdev->TxRing.txDmaReadyToSend, thiscopy);
+-	if (MP_TEST_FLAG(pMpTcb, fMP_DEST_BROAD))
++	if (pMpTcb->Flags & fMP_DEST_BROAD))
+ 		atomic_inc(&etdev->Stats.brdcstxmt);
+-	else if (MP_TEST_FLAG(pMpTcb, fMP_DEST_MULTI))
++	else if (pMpTcb->Flags & fMP_DEST_MULTI))
+ 		atomic_inc(&etdev->Stats.multixmt);
+ 	else
+ 		atomic_inc(&etdev->Stats.unixmt);
+diff --git a/drivers/staging/et131x/et131x_adapter.h b/drivers/staging/et131x/et131x_adapter.h
+index 04bb603..05388eb 100644
+--- a/drivers/staging/et131x/et131x_adapter.h
++++ b/drivers/staging/et131x/et131x_adapter.h
+@@ -100,24 +100,11 @@
+ #define LO_MARK_PERCENT_FOR_PSR     15
+ #define LO_MARK_PERCENT_FOR_RX      15
  
--	if ((etdev->TxRing.txDmaReadyToSend.bits.val == 0) ||
--	    (etdev->TxRing.txDmaReadyToSend.bits.val ==
--	     NUM_DESC_PER_RING_TX)) {
--		if (etdev->TxRing.txDmaReadyToSend.bits.wrap)
--			etdev->TxRing.txDmaReadyToSend.value = 0;
--		else
--			etdev->TxRing.txDmaReadyToSend.value = 0x400;
-+	if (INDEX10(etdev->TxRing.txDmaReadyToSend)== 0 ||
-+	    INDEX10(etdev->TxRing.txDmaReadyToSend) == NUM_DESC_PER_RING_TX) {
-+	     	etdev->TxRing.txDmaReadyToSend &= ~ET_DMA10_MASK;
-+	     	etdev->TxRing.txDmaReadyToSend ^= ET_DMA10_WRAP;
- 	}
+-/* Macros for flag and ref count operations        */
+-#define MP_SET_FLAG(_M, _F)         ((_M)->Flags |= (_F))
+-#define MP_CLEAR_FLAG(_M, _F)       ((_M)->Flags &= ~(_F))
+-#define MP_CLEAR_FLAGS(_M)          ((_M)->Flags = 0)
+-#define MP_TEST_FLAG(_M, _F)        (((_M)->Flags & (_F)) != 0)
+-#define MP_TEST_FLAGS(_M, _F)       (((_M)->Flags & (_F)) == (_F))
+-#define MP_IS_FLAG_CLEAR(_M, _F)    (((_M)->Flags & (_F)) == 0)
+-
+ /* Macros specific to the private adapter structure */
+ #define MP_TCB_RESOURCES_AVAILABLE(_M) ((_M)->TxRing.nBusySend < NUM_TCB)
+ #define MP_TCB_RESOURCES_NOT_AVAILABLE(_M) ((_M)->TxRing.nBusySend >= NUM_TCB)
  
- 	if (remainder) {
-@@ -759,18 +754,16 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 		       CurDesc + thiscopy,
- 		       sizeof(TX_DESC_ENTRY_t) * remainder);
+ #define MP_SHOULD_FAIL_SEND(_M)   ((_M)->Flags & fMP_ADAPTER_FAIL_SEND_MASK)
+-#define MP_IS_NOT_READY(_M)       ((_M)->Flags & fMP_ADAPTER_NOT_READY_MASK)
+-#define MP_IS_READY(_M)           (!((_M)->Flags & fMP_ADAPTER_NOT_READY_MASK))
+-
+-#define MP_HAS_CABLE(_M)           (!((_M)->Flags & fMP_ADAPTER_NO_CABLE))
+-#define MP_LINK_DETECTED(_M)       (!((_M)->Flags & fMP_ADAPTER_LINK_DETECTION))
  
--		etdev->TxRing.txDmaReadyToSend.bits.val += remainder;
-+		add_10bit(&etdev->TxRing.txDmaReadyToSend, remainder);
- 	}
+ /* Counters for error rate monitoring */
+ typedef struct _MP_ERR_COUNTERS {
+diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
+index d7a1b34..0a3464a 100644
+--- a/drivers/staging/et131x/et131x_initpci.c
++++ b/drivers/staging/et131x/et131x_initpci.c
+@@ -523,7 +523,7 @@ void et131x_link_detection_handler(unsigned long data)
+ 		spin_lock_irqsave(&etdev->Lock, flags);
  
--	if (etdev->TxRing.txDmaReadyToSend.bits.val == 0) {
--		if (etdev->TxRing.txDmaReadyToSend.value)
--			pMpTcb->WrIndex.value = NUM_DESC_PER_RING_TX - 1;
-+	if (INDEX10(etdev->TxRing.txDmaReadyToSend) == 0) {
-+		if (etdev->TxRing.txDmaReadyToSend)
-+			pMpTcb->WrIndex = NUM_DESC_PER_RING_TX - 1;
- 		else
--			pMpTcb->WrIndex.value =
--			    0x400 | (NUM_DESC_PER_RING_TX - 1);
-+			pMpTcb->WrIndex= ET_DMA10_WRAP | (NUM_DESC_PER_RING_TX - 1);
- 	} else
--		pMpTcb->WrIndex.value =
--		    etdev->TxRing.txDmaReadyToSend.value - 1;
-+		pMpTcb->WrIndex = etdev->TxRing.txDmaReadyToSend - 1;
+ 		etdev->MediaState = NETIF_STATUS_MEDIA_DISCONNECT;
+-		MP_CLEAR_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION);
++		etdev->Flags &= ~fMP_ADAPTER_LINK_DETECTION;
  
- 	spin_lock(&etdev->TCBSendQLock);
+ 		spin_unlock_irqrestore(&etdev->Lock, flags);
  
-@@ -788,8 +781,8 @@ static int nic_send_packet(struct et131x_adapter *etdev, PMP_TCB pMpTcb)
- 	spin_unlock(&etdev->TCBSendQLock);
- 
- 	/* Write the new write pointer back to the device. */
--	writel(etdev->TxRing.txDmaReadyToSend.value,
--	       &etdev->regs->txdma.service_request.value);
-+	writel(etdev->TxRing.txDmaReadyToSend,
-+	       &etdev->regs->txdma.service_request);
- 
- 	/* For Gig only, we use Tx Interrupt coalescing.  Enable the software
- 	 * timer to wake us up if this packet isn't followed by N more.
-@@ -1258,23 +1251,18 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 		       "TCB                  : 0x%p\n"
- 		       "TCB Next             : 0x%p\n"
- 		       "TCB PacketLength     : %d\n"
--		       "TCB WrIndex.value    : 0x%08x\n"
--		       "TCB WrIndex.bits.val : %d\n"
--		       "TCB WrIndex.value    : 0x%08x\n"
--		       "TCB WrIndex.bits.val : %d\n",
-+		       "TCB WrIndexS.value   : 0x%08x\n"
-+		       "TCB WrIndex.value    : 0x%08x\n",
- 		       pMpTcb,
- 		       pMpTcb->Next,
- 		       pMpTcb->PacketLength,
--		       pMpTcb->WrIndexStart.value,
--		       pMpTcb->WrIndexStart.bits.val,
--		       pMpTcb->WrIndex.value,
--		       pMpTcb->WrIndex.bits.val);
-+		       pMpTcb->WrIndexStart,
-+		       pMpTcb->WrIndex);
- 
- 		do {
- 			desc =
--			    (TX_DESC_ENTRY_t *) (etdev->TxRing.
--						 pTxDescRingVa +
--						 pMpTcb->WrIndexStart.bits.val);
-+			    (TX_DESC_ENTRY_t *) (etdev->TxRing.pTxDescRingVa +
-+			    	INDEX10(pMpTcb->WrIndexStart));
- 
- 			DBG_TX(et131x_dbginfo,
- 			       "CURRENT DESCRIPTOR\n"
-@@ -1293,15 +1281,14 @@ inline void et131x_free_send_packet(struct et131x_adapter *etdev,
- 					 desc->DataBufferPtrLow,
- 					 desc->word2.value, PCI_DMA_TODEVICE);
- 
--			if (++pMpTcb->WrIndexStart.bits.val >=
-+			add_10bit(&pMpTcb->WrIndexStart, 1);
-+			if (INDEX10(pMpTcb->WrIndexStart) >=
- 			    NUM_DESC_PER_RING_TX) {
--				if (pMpTcb->WrIndexStart.bits.wrap)
--					pMpTcb->WrIndexStart.value = 0;
--				else
--					pMpTcb->WrIndexStart.value = 0x400;
-+			    	pMpTcb->WrIndexStart &= ~ET_DMA10_MASK;
-+			    	pMpTcb->WrIndexStart ^= ET_DMA10_WRAP;
- 			}
- 		} while (desc != (etdev->TxRing.pTxDescRingVa +
--				pMpTcb->WrIndex.bits.val));
-+				INDEX10(pMpTcb->WrIndex)));
- 
- 		DBG_TX(et131x_dbginfo,
- 		       "Free Packet (SKB)   : 0x%p\n", pMpTcb->Packet);
-@@ -1431,11 +1418,12 @@ void et131x_handle_send_interrupt(struct et131x_adapter *etdev)
- static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- {
- 	unsigned long flags;
--	DMA10W_t ServiceComplete;
-+	u32 ServiceComplete;
- 	PMP_TCB pMpTcb;
-+	u32 index;
- 
--	ServiceComplete.value =
--	    readl(&etdev->regs->txdma.NewServiceComplete.value);
-+	ServiceComplete = readl(&etdev->regs->txdma.NewServiceComplete);
-+	index = INDEX10(ServiceComplete);
- 
- 	/* Has the ring wrapped?  Process any descriptors that do not have
- 	 * the same "wrap" indicator as the current completion indicator
-@@ -1443,9 +1431,10 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 	spin_lock_irqsave(&etdev->TCBSendQLock, flags);
- 
- 	pMpTcb = etdev->TxRing.CurrSendHead;
-+
- 	while (pMpTcb &&
--	       ServiceComplete.bits.wrap != pMpTcb->WrIndex.bits.wrap  &&
--	       ServiceComplete.bits.val < pMpTcb->WrIndex.bits.val) {
-+	       ((ServiceComplete ^ pMpTcb->WrIndex) & ET_DMA10_WRAP) &&
-+	       index < INDEX10(pMpTcb->WrIndex)) {
- 		etdev->TxRing.nBusySend--;
- 		etdev->TxRing.CurrSendHead = pMpTcb->Next;
- 		if (pMpTcb->Next == NULL)
-@@ -1459,8 +1448,8 @@ static void et131x_update_tcb_list(struct et131x_adapter *etdev)
- 		pMpTcb = etdev->TxRing.CurrSendHead;
- 	}
- 	while (pMpTcb &&
--	       ServiceComplete.bits.wrap == pMpTcb->WrIndex.bits.wrap &&
--	       ServiceComplete.bits.val > pMpTcb->WrIndex.bits.val) {
-+	       !((ServiceComplete ^ pMpTcb->WrIndex) & ET_DMA10_WRAP)
-+	       && index > (pMpTcb->WrIndex & ET_DMA10_MASK)) {
- 		etdev->TxRing.nBusySend--;
- 		etdev->TxRing.CurrSendHead = pMpTcb->Next;
- 		if (pMpTcb->Next == NULL)
-diff --git a/drivers/staging/et131x/et1310_tx.h b/drivers/staging/et131x/et1310_tx.h
-index 1072928..ad03721 100644
---- a/drivers/staging/et131x/et1310_tx.h
-+++ b/drivers/staging/et131x/et1310_tx.h
-@@ -166,8 +166,8 @@ typedef struct _MP_TCB {
- 	u32 PacketStaleCount;
- 	struct sk_buff *Packet;
- 	u32 PacketLength;
--	DMA10W_t WrIndex;
--	DMA10W_t WrIndexStart;
-+	u32 WrIndex;
-+	u32 WrIndexStart;
- } MP_TCB, *PMP_TCB;
- 
- /* Structure to hold the skb's in a list */
-@@ -206,7 +206,7 @@ typedef struct _tx_ring_t {
- 	uint64_t TxDescOffset;
- 
- 	/* ReadyToSend indicates where we last wrote to in the descriptor ring. */
--	DMA10W_t txDmaReadyToSend;
-+	u32 txDmaReadyToSend;
- 
- 	/* The location of the write-back status block */
- 	PTX_STATUS_BLOCK_t pTxStatusVa;
 diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
-index fec3f86..62febe9 100644
+index 62febe9..2a4b9ac 100644
 --- a/drivers/staging/et131x/et131x_netdev.c
 +++ b/drivers/staging/et131x/et131x_netdev.c
-@@ -648,14 +648,14 @@ void et131x_tx_timeout(struct net_device *netdev)
- 			    *(etdev->TxRing.pTxStatusVa);
- 			PTX_DESC_ENTRY_t pDesc =
- 			    etdev->TxRing.pTxDescRingVa +
--			    pMpTcb->WrIndex.bits.val;
-+			    INDEX10(pMpTcb->WrIndex);
- #endif
- 			TX_DESC_ENTRY_t StuckDescriptors[10];
+@@ -253,7 +253,7 @@ int et131x_open(struct net_device *netdev)
+ 	/* Enable device interrupts */
+ 	et131x_enable_interrupts(adapter);
  
--			if (pMpTcb->WrIndex.bits.val > 7) {
-+			if (INDEX10(pMpTcb->WrIndex) > 7) {
- 				memcpy(StuckDescriptors,
- 				       etdev->TxRing.pTxDescRingVa +
--				       pMpTcb->WrIndex.bits.val - 6,
-+				       INDEX10(pMpTcb->WrIndex) - 6,
- 				       sizeof(TX_DESC_ENTRY_t) * 10);
- 			}
+-	MP_SET_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE);
++	adapter->Flags |= fMP_ADAPTER_INTERRUPT_IN_USE;
  
-@@ -664,7 +664,7 @@ void et131x_tx_timeout(struct net_device *netdev)
+ 	/* We're ready to move some data, so start the queue */
+ 	netif_start_queue(netdev);
+@@ -285,7 +285,7 @@ int et131x_close(struct net_device *netdev)
+ 	et131x_disable_interrupts(adapter);
  
- 			DBG_WARNING(et131x_dbginfo,
- 				"Send stuck - reset.  pMpTcb->WrIndex %x, Flags 0x%08x\n",
--				pMpTcb->WrIndex.bits.val,
-+				pMpTcb->WrIndex,
- 				pMpTcb->Flags);
+ 	/* Deregistering ISR */
+-	MP_CLEAR_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE);
++	adapter->Flags &= ~fMP_ADAPTER_INTERRUPT_IN_USE;
  
- 			DBG_WARNING(et131x_dbginfo,
+ 	DBG_TRACE(et131x_dbginfo, "Deregistering ISR...\n");
+ 	free_irq(netdev->irq, netdev);
+@@ -615,7 +615,7 @@ void et131x_tx_timeout(struct net_device *netdev)
+ 	DBG_WARNING(et131x_dbginfo, "TX TIMEOUT\n");
+ 
+ 	/* Just skip this part if the adapter is doing link detection */
+-	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_LINK_DETECTION)) {
++	if (etdev->Flags & fMP_ADAPTER_LINK_DETECTION) {
+ 		DBG_ERROR(et131x_dbginfo, "Still doing link detection\n");
+ 		return;
+ 	}
+@@ -623,13 +623,13 @@ void et131x_tx_timeout(struct net_device *netdev)
+ 	/* Any nonrecoverable hardware error?
+ 	 * Checks adapter->flags for any failure in phy reading
+ 	 */
+-	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_NON_RECOVER_ERROR)) {
++	if (etdev->Flags & fMP_ADAPTER_NON_RECOVER_ERROR) {
+ 		DBG_WARNING(et131x_dbginfo, "Non recoverable error - remove\n");
+ 		return;
+ 	}
+ 
+ 	/* Hardware failure? */
+-	if (MP_TEST_FLAG(etdev, fMP_ADAPTER_HARDWARE_ERROR)) {
++	if (etdev->Flags & fMP_ADAPTER_HARDWARE_ERROR) {
+ 		DBG_WARNING(et131x_dbginfo, "hardware error - reset\n");
+ 		return;
+ 	}
+@@ -751,7 +751,7 @@ int et131x_change_mtu(struct net_device *netdev, int new_mtu)
+ 	et131x_adapter_setup(adapter);
+ 
+ 	/* Enable interrupts */
+-	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE))
++	if (adapter->Flags & fMP_ADAPTER_INTERRUPT_IN_USE)
+ 		et131x_enable_interrupts(adapter);
+ 
+ 	/* Restart the Tx and Rx DMA engines */
+@@ -847,7 +847,7 @@ int et131x_set_mac_addr(struct net_device *netdev, void *new_mac)
+ 	et131x_adapter_setup(adapter);
+ 
+ 	/* Enable interrupts */
+-	if (MP_TEST_FLAG(adapter, fMP_ADAPTER_INTERRUPT_IN_USE))
++	if (adapter->Flags & fMP_ADAPTER_INTERRUPT_IN_USE)
+ 		et131x_enable_interrupts(adapter);
+ 
+ 	/* Restart the Tx and Rx DMA engines */
 
