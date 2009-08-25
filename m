@@ -1,42 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Wed, 26 Aug 2009 00:19:03 +0200
-Message-ID: <20090825221903.GA13630@electric-eye.fr.zoreil.com>
-References: <1250895567.23419.1.camel@obelisk.thedillows.org> <1250897657.23419.5.camel@obelisk.thedillows.org> <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org> <1250973787.3582.14.camel@obelisk.thedillows.org> <m1r5v0ogvw.fsf@fess.ebiederm.org> <1251169150.4023.11.camel@obelisk.thedillows.org> <m1prajabk8.fsf@fess.ebiederm.org> <1251232848.9607.15.camel@lap75545.ornl.gov> <m1k50r8u4p.fsf@fess.ebiederm.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 15:35:34 -0700
+Message-ID: <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>
+	 <alpine.DEB.1.10.0908251514190.17963@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael B??ker <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, niv@linux.vnet.ibm.com,
+	sri@linux.vnet.ibm.com
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:50643 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753873AbZHYWO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 18:14:59 -0400
-Content-Disposition: inline
-In-Reply-To: <m1k50r8u4p.fsf@fess.ebiederm.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:57668 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756244AbZHYWff (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2009 18:35:35 -0400
+In-Reply-To: <alpine.DEB.1.10.0908251514190.17963@gentwo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman <ebiederm@xmission.com> :
-[...]
-> I am a bit curious about TxDescUnavail.  Perhaps we had a temporary
-> memory shortage and that is what was screaming?  I don't think we do
-> anything at all with that state.
+On Tue, 2009-08-25 at 15:15 -0400, Christoph Lameter wrote:
+> On Tue, 25 Aug 2009, David Stevens wrote:
+> 
+> > Christoph Lameter <cl@linux-foundation.org> wrote on 08/25/2009 06:48:24
+> > AM:
+> >
+> > > On Mon, 24 Aug 2009, Sridhar Samudrala wrote:
+> >
+> > > > If we count these drops as qdisc drops, should we also count them as
+> > IP OUTDISCARDS?
+> > >
+> > > Yes.
+> >
+> > Actually, no. (!)
+> >
+> > IP_OUTDISCARDS should count the packets IP dropped, not
+> > anything dropped at a lower layer (which, in general, it
+> > is not aware of). If you count these in multiple layers,
+> > then you don't really know who dropped it.
+> 
+> You are right. I skipped that IP OUTDICARDS reference. They need to be
+> accounted at the qdisc level though.
 
-You are not alone, the driver completely ignores this bit.
+Yes. Now that we agree that drops at dev_queue_xmit level should be counted
+under qdisc stats, the following patch should address 1 of the 3 places where
+NET_XMIT_DROP is returned, but qdisc drop stats is not incremented.
+The other 2 places are in ipsec output functions esp_output and esp6_output.
+I am not sure where these drops should be accounted.
 
-As far as I remember, the TxDescUnavail event mostly pops up when the
-driver makes an excessive use of TxPoll requests.
+Could you check if the UDP packet losses you are seeing are accounted for in
+qdisc drops with this patch. But i am not completely positive on this as this
+case happens only if qdisc is deactivated.
 
-> Perhaps the flaw here is simply not masking TxDescUnavail while we are
-> in NAPI mode ?
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6a94475..8b6a075 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1864,8 +1864,7 @@ gso:
+ 		spin_lock(root_lock);
+ 
+ 		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+-			kfree_skb(skb);
+-			rc = NET_XMIT_DROP;
++			rc = qdisc_drop(skb, q);
+ 		} else {
+ 			rc = qdisc_enqueue_root(skb, q);
+ 			qdisc_run(q);
 
-Yes, it is worth trying.
+Thanks
+Sridhar
 
--- 
-Ueimor
