@@ -1,121 +1,116 @@
-From: Luo Chunbo <chunbo.luo@windriver.com>
-Subject: Re: [PATCH v2] sctp: fix the check for path failure detection
-Date: Tue, 25 Aug 2009 16:22:28 +0800
-Message-ID: <1251188548.6498.28.camel@pek-cluo-desktop>
-References: <1251106637-434-1-git-send-email-chunbo.luo@windriver.com>
-	 <4A93949B.2020404@cn.fujitsu.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: iproute2 / tbf with large burst seems broken again
+Date: Tue, 25 Aug 2009 14:16:13 +0300
+Message-ID: <200908251416.13888.denys@visp.net.lb>
+References: <20090825062203.GA5381@ff.dom.local> <20090825090035.GB7879@ff.dom.local> <20090825094120.GA11478@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.1.7]:45551 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751740AbZHYLQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 07:16:33 -0400
-In-Reply-To: <4A93949B.2020404@cn.fujitsu.com>
+Received: from hosting.visp.net.lb ([194.146.153.11]:37423 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740AbZHYLTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 07:19:17 -0400
+In-Reply-To: <20090825094120.GA11478@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2009-08-25 at 15:36 +0800, Wei Yongjun wrote:
-> Chunbo Luo wrote:
-> > The transport error count should be incremented when an outstanding
-> > HB is not acknowledged. And the path failure detection should be done
-> > before sending out the HB.
-> >   
-> > Signed-off-by: Chunbo Luo <chunbo.luo@windriver.com>
-> > ---
-> >  net/sctp/sm_sideeffect.c |    6 +++++-
-> >  net/sctp/sm_statefuns.c  |    8 ++++----
-> >  2 files changed, 9 insertions(+), 5 deletions(-)
+Done, tested, it doesn't stale and fix the issue but:
+
+PPPoE_146 ~ # ./tc qdisc del dev ppp13 root;./tc qdisc add dev ppp13 root tbf 
+rate 96000 burst 2048000 latency 500ms                                               
+
+This one is ok
+PPPoE_146 ~ # ./tc -s -d qdisc show dev ppp13
+qdisc tbf 8005: root rate 96000bit burst 2000Kb/8 mpu 0b lat 500.0ms
+ Sent 55260 bytes 65 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
+qdisc ingress ffff: parent ffff:fff1 ----------------
+ Sent 641055 bytes 2485 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
+
+PPPoE_146 ~ # ./tc qdisc del dev ppp13 root;./tc qdisc add dev ppp13 root tbf 
+rate 96000 burst 4096000 latency 500ms                                               
+
+But this one maybe will overflow because of limitations in iproute2.
+
+PPoE_146 ~ # ./tc -s -d qdisc show dev ppp13
+qdisc tbf 8004: root rate 96000bit burst 797465b/8 mpu 0b lat 275.4s
+ Sent 82867 bytes 123 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
+qdisc ingress ffff: parent ffff:fff1 ----------------
+ Sent 506821 bytes 1916 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 0bit 0pps backlog 0b 0p requeues 0
+
+So maybe all of that just wrong way of using TBF.
+At same time this means, if HTB and policers in filters done same way, that 
+QoS in Linux cannot do similar to squid delay pools feature:
+
+First 10Mb give with 1Mbit/s, then slow 64Kbit/s. If user use less than 64K - 
+recharge with that unused bandwidth a "10 Mb / 1Mbit bucket".
+
+On Tuesday 25 August 2009 12:41:20 Jarek Poplawski wrote:
+> On Tue, Aug 25, 2009 at 09:00:35AM +0000, Jarek Poplawski wrote:
+> > On Tue, Aug 25, 2009 at 08:43:06AM +0000, Jarek Poplawski wrote:
+> > ...
 > >
-> > diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> > index 86426aa..fbdf4de 100644
-> > --- a/net/sctp/sm_sideeffect.c
-> > +++ b/net/sctp/sm_sideeffect.c
-> > @@ -446,7 +446,11 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
-> >  	if (transport->state != SCTP_UNCONFIRMED)
-> >  		asoc->overall_error_count++;
-> >  
-> > -	if (transport->state != SCTP_INACTIVE &&
-> > +	/*
-> > +	 * The transport error count is incremented when an outstanding HB
-> > +	 * is not acknowledged. 
-> > +	 */
-> >   
-> 
-> T3-rtx timer expires also need to increment error count.
-
-Yes, T3-rtx timer expires need to increment error count.
-
-> 
-> > +	if (transport->hb_sent && transport->state != SCTP_INACTIVE &&
-> >  	    (transport->error_count++ >= transport->pathmaxrxt)) {
-> >  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
-> >  					 " transport IP: port:%d failed.\n",
-> > diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> > index 7288192..7f77099 100644
-> > --- a/net/sctp/sm_statefuns.c
-> > +++ b/net/sctp/sm_statefuns.c
-> > @@ -981,10 +981,6 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
-> >  	 */
-> >  
-> >  	if (transport->param_flags & SPP_HB_ENABLE) {
-> > -		if (SCTP_DISPOSITION_NOMEM ==
-> > -				sctp_sf_heartbeat(ep, asoc, type, arg,
-> > -						  commands))
-> > -			return SCTP_DISPOSITION_NOMEM;
-> >  		/* Set transport error counter and association error counter
-> >  		 * when sending heartbeat.
-> >  		 */
-> > @@ -992,6 +988,10 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(const struct sctp_endpoint *ep,
-> >  				SCTP_TRANSPORT(transport));
-> >  		sctp_add_cmd_sf(commands, SCTP_CMD_TRANSPORT_HB_SENT,
-> >  				SCTP_TRANSPORT(transport));
-> > +		if (SCTP_DISPOSITION_NOMEM ==
-> > +				sctp_sf_heartbeat(ep, asoc, type, arg,
-> > +						  commands))
-> > +			return SCTP_DISPOSITION_NOMEM;
-> >  	}
-> >  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMER_UPDATE,
-> >  			SCTP_TRANSPORT(transport));
-> >   
-> 
-> How about this one:
-
-It is ok to increment the error count. But the path failure detection
-should be done before send HB. Otherwise, an extra HB chunk will be sent
-out before the transport is marked DOWN . So the changes in
-net/sctp/sm_statefuns.c is also needed.
+> > > since these 64 bits will be needed soon for higher rates anyway, I
+> > > guess we could try some change like the patch below, if you find it
+> > > works for you (I didn't test it yet.)
+>
+> I hope this time it works...
+>
+> Jarek P.
+>
+> --- (take 2)
+>
+>  net/sched/sch_tbf.c |   14 +++++++-------
+>  1 files changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index e22dfe8..7d0fe69 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+> @@ -108,8 +108,8 @@ struct tbf_sched_data
+>  	struct qdisc_rate_table	*P_tab;
+>
+>  /* Variables */
+> -	long	tokens;			/* Current number of B tokens */
+> -	long	ptokens;		/* Current number of P tokens */
+> +	u32	tokens;			/* Current number of B tokens */
+> +	u32	ptokens;		/* Current number of P tokens */
+>  	psched_time_t	t_c;		/* Time check-point */
+>  	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+>  	struct qdisc_watchdog watchdog;	/* Watchdog timer */
+> @@ -160,21 +160,21 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
+>
+>  	if (skb) {
+>  		psched_time_t now;
+> -		long toks;
+> -		long ptoks = 0;
+> +		long long toks;
+> +		long long ptoks = 0;
+>  		unsigned int len = qdisc_pkt_len(skb);
+>
+>  		now = psched_get_time();
+> -		toks = psched_tdiff_bounded(now, q->t_c, q->buffer);
+> +		toks = min_t(u32, now - q->t_c, q->buffer);
+>
+>  		if (q->P_tab) {
+>  			ptoks = toks + q->ptokens;
+> -			if (ptoks > (long)q->mtu)
+> +			if (ptoks > q->mtu)
+>  				ptoks = q->mtu;
+>  			ptoks -= L2T_P(q, len);
+>  		}
+>  		toks += q->tokens;
+> -		if (toks > (long)q->buffer)
+> +		if (toks > q->buffer)
+>  			toks = q->buffer;
+>  		toks -= L2T(q, len);
 
 
-
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 86426aa..fb723dd 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -447,7 +447,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->  		asoc->overall_error_count++;
->  
->  	if (transport->state != SCTP_INACTIVE &&
-> -	    (transport->error_count++ >= transport->pathmaxrxt)) {
-> +	    (transport->error_count >= transport->pathmaxrxt)) {
->  		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
->  					 " transport IP: port:%d failed.\n",
->  					 asoc,
-> @@ -468,6 +468,7 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
->  	 * that indicates that we have an outstanding HB.
->  	 */
->  	if (!is_hb || transport->hb_sent) {
-> +		transport->error_count++;
->  		transport->last_rto = transport->rto;
->  		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
->  	}
-> 
-> 
-> 
-> 
-> 
