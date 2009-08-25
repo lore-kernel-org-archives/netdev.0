@@ -1,36 +1,64 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Dave Miller's NYLUG paper on Multiqueue
-Date: Tue, 25 Aug 2009 13:02:40 +0530
-Message-ID: <OF183FE24E.2D1BB479-ON6525761D.0029177A-6525761D.0029719F@in.ibm.com>
+From: Denys Fedoryschenko <denys@visp.net.lb>
+Subject: Re: iproute2 / tbf with large burst seems broken again
+Date: Tue, 25 Aug 2009 10:34:09 +0300
+Message-ID: <200908251034.09581.denys@visp.net.lb>
+References: <20090825062203.GA5381@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([59.145.155.7]:38298 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752342AbZHYHeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 03:34:03 -0400
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by e28smtp07.in.ibm.com (8.14.3/8.13.1) with ESMTP id n7P7Y30d026362
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:04:03 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7P7Y36g381096
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:04:03 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id n7P7Y3gI014543
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:34:03 +1000
-Received: from d23ml172.in.ibm.com (d23ml172.in.ibm.com [9.124.105.37])
-	by d28av04.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVin) with ESMTP id n7P7Y3uo014537
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:34:03 +1000
+Received: from hosting.visp.net.lb ([194.146.153.11]:39322 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115AbZHYHg7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 03:36:59 -0400
+In-Reply-To: <20090825062203.GA5381@ff.dom.local>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 25 August 2009 09:22:03 Jarek Poplawski wrote:
 
-I read some time back that this presentation paper would be available
-online, but I haven't been able to locate it till now. Does someone have
-a copy (or link) they can post?
+>
+> Right, it's about an overflow and it was expected (theoretically) for
+> very low rates (as for current times) while doing this resolution
+> change. Probably this kind of warning should be useful if we expect
+> there're more people who can actually use something like this yet ;-)
+>
+> Alas INT_MAX could still be not enough to prevent similar issues
+> because in tbf_dequeue such a value (buffer) is increased with tokens.
+> I guess we could try to change some variables to 64 bits there, but
+> the main question is why anybody needs such strange settings today?
+> Did you try e.g. to browse Internet with that rate and the buffer
+> e.g. 1500kb or you punish some users only? ;-) Btw, why do you think
+> 'buffer 2000kb' is better "for you" with that rate than e.g. 20kb?
+>
+> Thanks,
+> Jarek P.
+Life in Lebanon:
+Backbone for ISP - $2200 per Mbit and higher.
 
-thanks,
+Accounts 256Kbit/s cost $66/month in some areas.
+96 Kbits/s for people with low income costs cheaper.
 
-- KK
+>From government "alternative" solution - pay $20 for 2GB, but they charge 
+(without any understandable notice for non-tech end-user) extra traffic :-) 
+Some people ending month with bills $200/month. Surprise!
+
+Try to browse with 96Kbit/s? U can't actually on this days, with pages that 
+weight up to 5-10Mbyte...
+
+The only solution - first 2-10Mbyte, for example, for user will be transferred 
+on high speed, let's say 512Kbit/s, but if he put downloads - he will have 
+his 96Kbit/s. If he just browse occasionally, his large bucket will 
+be "recharged" with 96 Kbit/s, and next page will open again fast.
+
+That's how this TBF configuration that i show works. But sure if it is 
+difficult to solve i will implement something similar in userspace, that will 
+track user consumption, and just change discipline settings... but sure it 
+will be different thing. Actually because there is noone else complained 
+about this except me, i guess i have to solve it by myself. Because better 
+resolution for high bandwidth traffic shaping much more important even for 
+me :-)
 
