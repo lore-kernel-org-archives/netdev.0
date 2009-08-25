@@ -1,234 +1,133 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Tue, 25 Aug 2009 21:40:40 +0930
-Message-ID: <200908252140.41295.rusty@rustcorp.com.au>
-References: <cover.1250693417.git.mst@redhat.com> <20090819150309.GC4236@redhat.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: iproute2 / tbf with large burst seems broken again
+Date: Tue, 25 Aug 2009 12:13:44 +0000
+Message-ID: <20090825121344.GA12320@ff.dom.local>
+References: <20090825062203.GA5381@ff.dom.local> <20090825090035.GB7879@ff.dom.local> <20090825094120.GA11478@ff.dom.local> <200908251416.13888.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-	linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-	gregory.haskins@gmail.com
-To: virtualization@lists.linux-foundation.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754759AbZHYMKr@vger.kernel.org>
-In-Reply-To: <20090819150309.GC4236@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:34408 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027AbZHYMNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 08:13:48 -0400
+Received: by bwz19 with SMTP id 19so2022487bwz.37
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 05:13:49 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <200908251416.13888.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Aug 2009 12:33:09 am Michael S. Tsirkin wrote:
-> What it is: vhost net is a character device that can be used to reduce
-> the number of system calls involved in virtio networking.
-> Existing virtio net code is used in the guest without modification.
+On Tue, Aug 25, 2009 at 02:16:13PM +0300, Denys Fedoryschenko wrote:
+> Done, tested, it doesn't stale and fix the issue but:
+> 
+> PPPoE_146 ~ # ./tc qdisc del dev ppp13 root;./tc qdisc add dev ppp13 root tbf 
+> rate 96000 burst 2048000 latency 500ms                                               
+> 
+> This one is ok
+> PPPoE_146 ~ # ./tc -s -d qdisc show dev ppp13
+> qdisc tbf 8005: root rate 96000bit burst 2000Kb/8 mpu 0b lat 500.0ms
+>  Sent 55260 bytes 65 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> qdisc ingress ffff: parent ffff:fff1 ----------------
+>  Sent 641055 bytes 2485 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> 
+> PPPoE_146 ~ # ./tc qdisc del dev ppp13 root;./tc qdisc add dev ppp13 root tbf 
+> rate 96000 burst 4096000 latency 500ms                                               
+> 
+> But this one maybe will overflow because of limitations in iproute2.
 
-...
+Sure, as I wrote before:
+"It shouldn't be so difficult just for 2000kb buffer here, but of course
+there're some limits."
+I tried to optimize sch_tbf variables usage only, but this is still
+mostly within 32 bits.
 
-> +config VHOST_NET
-> +	tristate "Host kernel accelerator for virtio net"
-> +	depends on NET && EVENTFD
-> +	---help---
-> +	  This kernel module can be loaded in host kernel to accelerate
-> +	  guest networking with virtio_net. Not to be confused with virtio_net
-> +	  module itself which needs to be loaded in guest kernel.
-> +
-> +	  To compile this driver as a module, choose M here: the module will
-> +	  be called vhost_net.
+> 
+> PPoE_146 ~ # ./tc -s -d qdisc show dev ppp13
+> qdisc tbf 8004: root rate 96000bit burst 797465b/8 mpu 0b lat 275.4s
+>  Sent 82867 bytes 123 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> qdisc ingress ffff: parent ffff:fff1 ----------------
+>  Sent 506821 bytes 1916 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 0bit 0pps backlog 0b 0p requeues 0
+> 
+> So maybe all of that just wrong way of using TBF.
+> At same time this means, if HTB and policers in filters done same way, that 
+> QoS in Linux cannot do similar to squid delay pools feature:
+> 
+> First 10Mb give with 1Mbit/s, then slow 64Kbit/s. If user use less than 64K - 
+> recharge with that unused bandwidth a "10 Mb / 1Mbit bucket".
 
-Just want to note that the patch explanation and the Kconfig help text are
-exceptional examples of reader-oriented text.  Nice!
+I'll need to find more time to rethink your problem (and this patch),
+because it really looks like your tbf usage is very uncommon. Anyway,
+I guess these changes aren't for 2.6.31, unless there're similar
+requests from other users soon.
 
-> +		/* Sanity check */
-> +		if (vq->iov->iov_len != sizeof(struct virtio_net_hdr)) {
-> +			vq_err(vq, "Unexpected header len for TX: "
-> +			       "%ld expected %zd\n", vq->iov->iov_len,
-> +			       sizeof(struct virtio_net_hdr));
-> +			break;
-> +		}
+Thanks for testing,
+Jarek P.
 
-OK, this check, which is in the qemu version, is *wrong*.  There should be
-no assumption on sg boundaries.  For example, the guest should be able to
-put the virtio_net_hdr in the front of the skbuf data if there is room.
-
-You should try to explicitly "consume" sizeof(struct virtio_net_hdr) of the
-iov, and if fail, do this message.  You can skip the out <= 1 test then,
-too.
-
-Anyway, I really prefer vq->iov[0]. to vq->iov-> here.
-
-> +		/* Sanity check */
-> +		if (vq->iov->iov_len != sizeof(struct virtio_net_hdr)) {
-> +			vq_err(vq, "Unexpected header len for RX: "
-> +			       "%ld expected %zd\n",
-> +			       vq->iov->iov_len, sizeof(struct virtio_net_hdr));
-> +			break;
-
-Here too.
-
-> +	u32 __user *featurep = argp;
-> +	int __user *fdp = argp;
-> +	u32 features;
-> +	int fd, r;
-> +	switch (ioctl) {
-> +	case VHOST_NET_SET_SOCKET:
-> +		r = get_user(fd, fdp);
-> +		if (r < 0)
-> +			return r;
-> +		return vhost_net_set_socket(n, fd);
-> +	case VHOST_GET_FEATURES:
-> +		/* No features for now */
-> +		features = 0;
-> +		return put_user(features, featurep);
-
-We may well get more than 32 feature bits, at least for virtio_net, which will
-force us to do some trickery in virtio_pci.  I'd like to avoid that here,
-though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
-struct like:
-
-	u32 feature_size;
-	u32 features[];
-
-> +int vhost_net_init(void)
-
-static?
-
-> +void vhost_net_exit(void)
-
-static?
-
-> +/* Start polling a file. We add ourselves to file's wait queue. The user must
-> + * keep a reference to a file until after vhost_poll_stop is called. */
-
-I experienced minor confusion from the comments in this file.  Where you said
-"user" I think "caller".  No biggie though.
-
-> +	memory->nregions = 2;
-> +	memory->regions[0].guest_phys_addr = 1;
-> +	memory->regions[0].userspace_addr = 1;
-> +	memory->regions[0].memory_size = ~0ULL;
-> +	memory->regions[1].guest_phys_addr = 0;
-> +	memory->regions[1].userspace_addr = 0;
-> +	memory->regions[1].memory_size = 1;
-
-Not sure I understand why there are two regions to start?
-
-> +	case VHOST_SET_VRING_BASE:
-> +		r = copy_from_user(&s, argp, sizeof s);
-> +		if (r < 0)
-> +			break;
-> +		if (s.num > 0xffff) {
-> +			r = -EINVAL;
-> +			break;
-> +		}
-> +		vq->last_avail_idx = s.num;
-> +		break;
-> +	case VHOST_GET_VRING_BASE:
-> +		s.index = idx;
-> +		s.num = vq->last_avail_idx;
-> +		r = copy_to_user(argp, &s, sizeof s);
-> +		break;
-
-Ah, this is my fault.  I didn't expose the last_avail_idx in the ring
-because the other side doesn't need it; but without it the ring state is not
-fully observable from outside (no external save / restore!).
-
-I have a patch which published these indices (we have room), see:
-	http://ozlabs.org/~rusty/kernel/rr-2009-08-12-1/virtio:ring-publish-indices.patch
-
-Perhaps we should use that mechanism instead?  We don't actually have to
-offer the feature (we don't care about the guest state), but it's nice as
-documentation.  I've been waiting for an excuse to use that patch.
-
-> +long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, unsigned long arg)
-> +{
-> +	void __user *argp = (void __user *)arg;
-> +	long r;
-> +
-> +	mutex_lock(&d->mutex);
-> +	if (ioctl == VHOST_SET_OWNER) {
-> +		r = vhost_dev_set_owner(d);
-> +		goto done;
-> +	}
-> +
-> +	r = vhost_dev_check_owner(d);
-
-You can do a VHOST_SET_OWNER without being the owner?  So really,
-the -EPERM from all the vhost_dev_check_owner() is not a security thing,
-but a "I don't think you mean to do that" thing?
-
-If so, a comment above it might help?
-
-> +static const struct vhost_memory_region *find_region(struct vhost_memory *mem,
-> +						     __u64 addr, __u32 len)
-> +{
-> +	struct vhost_memory_region *reg;
-> +	int i;
-> +	/* linear search is not brilliant, but we really have on the order of 6
-> +	 * regions in practice */
-
-Ah, you actually mean "this code has been carefully cache-optimized for the
-common case" :)
-
-> +/* FIXME: this does not handle a region that spans multiple
-> + * address/len pairs */
-> +int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
-> +		   struct iovec iov[], int iov_count, int iov_size,
-> +		   unsigned *num)
-> +{
-> +	const struct vhost_memory_region *reg;
-> +	struct vhost_memory *mem;
-> +	struct iovec *_iov;
-> +	u64 s = 0;
-> +	int ret = 0;
-
-Would this be neater if it returned the num iovecs used?  And offsetting
-iov in the caller, rather than passing iov_count?
-
-> +	/* If their number is silly, that's a fatal mistake. */
-> +	if (head >= vq->num) {
-> +		vq_err(vq, "Guest says index %u > %u is available",
-> +		       head, vq->num);
-> +		return vq->num;
-> +	}
-
-Not a fatal mistake in this code/
-
-> +	vq->inflight++;
-
-vq->inflight was a brain fart in the old lguest code.  See
-commit ebf9a5a99c1a464afe0b4dfa64416fc8b273bc5c.
-
-Also, see other fixes to the lguest launcher since then which might
-be relevant to this code:
-	lguest: get more serious about wmb() in example Launcher code
-	lguest: clean up length-used value in example launcher
-
-> +	/* If they don't want an interrupt, don't send one, unless empty. */
-> +	if ((flags & VRING_AVAIL_F_NO_INTERRUPT) && vq->inflight)
-> +		return;
-
-And I wouldn't support notify on empty at all, TBH.  It should
-definitely be conditional on the guest accepting the NOTIFY_ON_EMPTY
-feature.
-
-> +/* The virtqueue structure describes a queue attached to a device. */
-> +struct vhost_virtqueue {
-...
-> +} ____cacheline_aligned;
-
-Really?  I'd want to see numbers on this one.  False sharing vs. more cache
-utilization.
-
-> +#define vq_err(vq, fmt, ...) do {                                  \
-> +		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__);       \
-> +		if ((vq)->error_ctx)                               \
-> +				eventfd_signal((vq)->error_ctx, 1);\
-> +	} while (0)
-
-Mmm... guests should not be able to create unlimited printks in the host.
-
-But really, nothing major to object to in here...
-
-Thanks!
-Rusty.
+> 
+> On Tuesday 25 August 2009 12:41:20 Jarek Poplawski wrote:
+> > On Tue, Aug 25, 2009 at 09:00:35AM +0000, Jarek Poplawski wrote:
+> > > On Tue, Aug 25, 2009 at 08:43:06AM +0000, Jarek Poplawski wrote:
+> > > ...
+> > >
+> > > > since these 64 bits will be needed soon for higher rates anyway, I
+> > > > guess we could try some change like the patch below, if you find it
+> > > > works for you (I didn't test it yet.)
+> >
+> > I hope this time it works...
+> >
+> > Jarek P.
+> >
+> > --- (take 2)
+> >
+> >  net/sched/sch_tbf.c |   14 +++++++-------
+> >  1 files changed, 7 insertions(+), 7 deletions(-)
+> >
+> > diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> > index e22dfe8..7d0fe69 100644
+> > --- a/net/sched/sch_tbf.c
+> > +++ b/net/sched/sch_tbf.c
+> > @@ -108,8 +108,8 @@ struct tbf_sched_data
+> >  	struct qdisc_rate_table	*P_tab;
+> >
+> >  /* Variables */
+> > -	long	tokens;			/* Current number of B tokens */
+> > -	long	ptokens;		/* Current number of P tokens */
+> > +	u32	tokens;			/* Current number of B tokens */
+> > +	u32	ptokens;		/* Current number of P tokens */
+> >  	psched_time_t	t_c;		/* Time check-point */
+> >  	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+> >  	struct qdisc_watchdog watchdog;	/* Watchdog timer */
+> > @@ -160,21 +160,21 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
+> >
+> >  	if (skb) {
+> >  		psched_time_t now;
+> > -		long toks;
+> > -		long ptoks = 0;
+> > +		long long toks;
+> > +		long long ptoks = 0;
+> >  		unsigned int len = qdisc_pkt_len(skb);
+> >
+> >  		now = psched_get_time();
+> > -		toks = psched_tdiff_bounded(now, q->t_c, q->buffer);
+> > +		toks = min_t(u32, now - q->t_c, q->buffer);
+> >
+> >  		if (q->P_tab) {
+> >  			ptoks = toks + q->ptokens;
+> > -			if (ptoks > (long)q->mtu)
+> > +			if (ptoks > q->mtu)
+> >  				ptoks = q->mtu;
+> >  			ptoks -= L2T_P(q, len);
+> >  		}
+> >  		toks += q->tokens;
+> > -		if (toks > (long)q->buffer)
+> > +		if (toks > q->buffer)
+> >  			toks = q->buffer;
+> >  		toks -= L2T(q, len);
+> 
+> 
