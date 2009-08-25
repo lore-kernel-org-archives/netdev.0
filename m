@@ -1,95 +1,72 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?= <nicolas.2p.debian@free.fr>
-Subject: Re: [Bonding-devel] [PATCH net-next-2.6] bonding: introduce	primary_lazy
- option
-Date: Tue, 25 Aug 2009 19:31:05 +0200
-Message-ID: <4A941FD9.6050304@free.fr>
-References: <20090814105938.GE3457@psychotron.englab.brq.redhat.com> <4A859057.3020606@free.fr> <20090817114938.GA3416@psychotron.englab.brq.redhat.com> <4A89C3B1.3070509@free.fr> <20090818124550.GB3539@psychotron.englab.brq.redhat.com> <4A8D4427.8080004@free.fr> <20090824111619.GC4018@psychotron.englab.brq.redhat.com> <4A92ACA6.7070600@free.fr> <20090824152002.GD4018@psychotron.englab.brq.redhat.com> <697.1251135317@death.nxdomain.ibm.com> <20090825064351.GA3426@psychotron.englab.brq.redhat.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Tue, 25 Aug 2009 13:44:20 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908251340510.26329@gentwo.org>
+References: <alpine.DEB.1.10.0908171548040.20399@gentwo.org>  <4A89C026.4030402@us.ibm.com>  <alpine.DEB.1.10.0908171642500.20399@gentwo.org>  <1250545839.25939.21.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171813070.15956@gentwo.org>
+ <1250549034.25939.30.camel@w-sridhar.beaverton.ibm.com>  <alpine.DEB.1.10.0908171848370.15956@gentwo.org> <1250554332.25939.46.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908241334230.30487@gentwo.org> <4A930DEF.5000008@gmail.com>
+ <alpine.DEB.1.10.0908250945460.5972@gentwo.org> <4A93EB9B.5020600@gmail.com> <alpine.DEB.1.10.0908250958540.28552@gentwo.org> <4A9403F0.2060301@gmail.com> <alpine.DEB.1.10.0908251135380.26329@gentwo.org> <4A940A10.60607@gmail.com> <alpine.DEB.1.10.0908251203220.26329@gentwo.org>
+ <4A9410E9.6090602@gmail.com> <alpine.DEB.1.10.0908251230430.26329@gentwo.org> <4A9415F5.6020006@gmail.com> <alpine.DEB.1.10.0908251258000.26329@gentwo.org> <4A941AA6.5070506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Nivedita Singhvi <niv@us.ibm.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp22.services.sfr.fr ([93.17.128.11]:59010 "EHLO
-	smtp22.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755351AbZHYRbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 13:31:07 -0400
-In-Reply-To: <20090825064351.GA3426@psychotron.englab.brq.redhat.com>
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:43311 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755046AbZHYRoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 13:44:24 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 46EBD82C2DD
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:45:19 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id j62AeOu-IJ4y for <netdev@vger.kernel.org>;
+	Tue, 25 Aug 2009 13:45:19 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 8D7C182C2E1
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 13:45:14 -0400 (EDT)
+In-Reply-To: <4A941AA6.5070506@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko wrote:
-> Mon, Aug 24, 2009 at 07:35:17PM CEST, fubar@us.ibm.com wrote:
->> 	I'm still unclear as to why it's better to add another special
->> case option to bonding instead of changing this in user space, other
->> than it'd be a change to user space (initscripts / sysconfig).
->>
->> 	The way I see it, this patch is adding a mechanism that says,
->> effectively, "make slave X the active slave, but do it only once."
->> There is already a way to do that in bonding (sysfs, as above, or
->> ifenslave -c); I am reluctant to add another without good reason.
-> 
-> Hello Jay.
-> 
-> As I already replied you once it's not only about selecting a slave at the
-> start. It's also about following:
-> 
-> Imagine you have bond with 3 slaves:
-> eth0            eth1            eth2
-> UP(curr)        UP              UP
-> DOWN            UP(curr)        UP
-> UP              UP(curr)        UP
-> UP              DOWN            UP(curr)
-> 
-> eth2 ends up being current active but we prefer eth0 (as primary interface).
-> This is not desirable and is solved by primary_lazy option.
-> 
-> Jirka
-> 
->> 	I'm not necessarily against the "weight" business in general.
->> For the purposes of this discussion, however, it's a big complex
->> solution to a pretty simple problem, and the "weight" system still has
->> to have special sauce added it to to handle this special case.
->>
->> 	Last, presuming for the moment that this goes forward as an
->> option to bonding, I think this should be named something along the
->> lines of "make_active" (or perhaps "make_active_once", but that's a bit
->> long).  The option has the effect of making the specified slave the
->> active slave one time, then the option setting is cleared.
+On Tue, 25 Aug 2009, Eric Dumazet wrote:
 
-Hi Jay,
+> Christoph Lameter a ?crit :
+> > On Tue, 25 Aug 2009, Eric Dumazet wrote:
+> >
+> >>> The initial point was that the SNMP counters are not updated if IP_RECVERR
+> >>> is not set which is clearly a bug and your and my patch addresses that.
+> >> Technically speaking, the send() syscall is in error. Frame is not sent, so
+> >> there is no drop at all. Like trying to send() from a bad user buffer, or write()
+> >> to a too big file...
+> >
+> > Frame is submitted to the IP layer which discards it. That is the
+> > definition of an output discard.
+> >
+>
+> Last patch accounts for this *error* AFAIK, or did I missed something ?
 
- From what I understand from Jirka's needs, the exact expected behaviors are :
+Right.
 
-1/ If a slave is active, keep it active, even if the primary comes back up.
-2/ If the current slave just failed, choose the new active slave, giving 
-priority to the master.
+> >> Question is : should we just allow send() to return an error (-ENOBUF) regardless
+> >> of IP_RECVERR being set or not ? I dont think it would be so bad after all.
+> >> Most apps probably dont care, or already handle the error.
+> >
+> > Some applications will then start to fail because so far you can send with
+> > impunity without getting errors. AFAICT IP_RECVERR was added to preserve
+> > that behavior. Your patch is changing basic send() semantics.
+>
+> Sorry ???, I guess your machines have plenty available LOWMEM then, and kmalloc() never fail then...
 
-Selecting the active slave at startup (by using ifenslave -c or writing into 
-/sys/class/net/bond0/bonding/active_slave) would solve 1, but not 2.
+Nope. Currently sendto() just drops the packet and returns success if the
+TX ring is full. That can be done ad infinitum and at very high traffic
+rates. We had one person here believing he could send 800k 300 byte
+packets per second on a 1G wire.... ROTFL.
 
-Also, I suggested to change 1 in this way :
+> basic send() semantics are respected.
 
-1/ If a slave is active, keep it active, even if the primary comes back up, 
-*except if the speed of the primary is better than the speed of the active slave*.
-
-Thinking about all that, I start feeling that some sort of user space system to 
-select the "best" slave would be better. If we can design a NETLINK interface to 
-report events (slave up, slave down...) to user space, then any user space 
-daemon would be able to tell bonding what to do. Only if no process register to 
-receive those events would bonding use the normal slave selection rules.
-
-Designing such a NETLINK interface would replace my proposed weight option (at 
-least for best slave selection in active-backup mode and for best aggregator 
-selection in 802.3ad mode). It would also solve the problem reported by Jirka 
-and so replace the proposed primary_lazy option.
-
-Any way, NETLINK is something that is supposed to come into bonding at some 
-times, because we know that the sysfs purists hate the sysfs bonding stuff and 
-that NETLINK is the target to setup networking.
-
-Any comments ?
-
-	Nicolas.
+basic send() semantics are changed by your patch. The 800k pps would no
+longer work without sendto() returning errors.
 
