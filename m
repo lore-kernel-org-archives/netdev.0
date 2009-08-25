@@ -1,84 +1,84 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 06/12] tg3: Tune 5785 clock switching
-Date: Tue, 25 Aug 2009 13:09:07 -0700
-Message-ID: <1251232429.25409@xw6200>
+Subject: [PATCH 01/12] tg3: Fix 57780 asic rev PCIe link receiver errors
+Date: Tue, 25 Aug 2009 13:06:01 -0700
+Message-ID: <1251232429.25399@xw6200>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4225 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3451 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109AbZHYUeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2009 16:34:25 -0400
+	id S1755550AbZHYUeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2009 16:34:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch tunes the timeouts the CPMU uses to decide when to switch
-from the clocks output by the PHY to internal clock sources.
+This patch fixes some PCIe link receiver errors by decreasing the internal
+electrical idle timeout.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   15 ++++++++++-----
- drivers/net/tg3.h |    4 ++++
- 2 files changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/tg3.c |    5 +++++
+ drivers/net/tg3.h |   13 +++++++++++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9ae3320..41e0d40 100644
+index 46a3f86..e8def28 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -917,7 +917,9 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
- 		tw32(MAC_PHYCFG2, val);
- 
- 		val = tr32(MAC_PHYCFG1);
--		val &= ~MAC_PHYCFG1_RGMII_INT;
-+		val &= ~(MAC_PHYCFG1_RGMII_INT |
-+			 MAC_PHYCFG1_RXCLK_TO_MASK | MAC_PHYCFG1_TXCLK_TO_MASK);
-+		val |= MAC_PHYCFG1_RXCLK_TIMEOUT | MAC_PHYCFG1_TXCLK_TIMEOUT;
- 		tw32(MAC_PHYCFG1, val);
- 
- 		return;
-@@ -933,15 +935,18 @@ static void tg3_mdio_config_5785(struct tg3 *tp)
- 
- 	tw32(MAC_PHYCFG2, val);
- 
--	val = tr32(MAC_PHYCFG1) & ~(MAC_PHYCFG1_RGMII_EXT_RX_DEC |
--				    MAC_PHYCFG1_RGMII_SND_STAT_EN);
--	if (tp->tg3_flags3 & TG3_FLG3_RGMII_STD_IBND_DISABLE) {
-+	val = tr32(MAC_PHYCFG1);
-+	val &= ~(MAC_PHYCFG1_RXCLK_TO_MASK | MAC_PHYCFG1_TXCLK_TO_MASK |
-+		 MAC_PHYCFG1_RGMII_EXT_RX_DEC | MAC_PHYCFG1_RGMII_SND_STAT_EN);
-+	if (!(tp->tg3_flags3 & TG3_FLG3_RGMII_STD_IBND_DISABLE)) {
- 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_EXT_IBND_RX_EN)
- 			val |= MAC_PHYCFG1_RGMII_EXT_RX_DEC;
- 		if (tp->tg3_flags3 & TG3_FLG3_RGMII_EXT_IBND_TX_EN)
- 			val |= MAC_PHYCFG1_RGMII_SND_STAT_EN;
+@@ -6719,6 +6719,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		val |= PCIE_PWR_MGMT_EXT_ASPM_TMR_EN |
+ 		       PCIE_PWR_MGMT_L1_THRESH_4MS;
+ 		tw32(PCIE_PWR_MGMT_THRESH, val);
++
++		val = tr32(TG3_PCIE_EIDLE_DELAY) & ~TG3_PCIE_EIDLE_DELAY_MASK;
++		tw32(TG3_PCIE_EIDLE_DELAY, val | TG3_PCIE_EIDLE_DELAY_13_CLKS);
++
++		tw32(TG3_CORR_ERR_STAT, TG3_CORR_ERR_STAT_CLEAR);
  	}
--	tw32(MAC_PHYCFG1, val | MAC_PHYCFG1_RGMII_INT | MAC_PHYCFG1_TXC_DRV);
-+	val |= MAC_PHYCFG1_RXCLK_TIMEOUT | MAC_PHYCFG1_TXCLK_TIMEOUT |
-+	       MAC_PHYCFG1_RGMII_INT | MAC_PHYCFG1_TXC_DRV;
-+	tw32(MAC_PHYCFG1, val);
  
- 	val = tr32(MAC_EXT_RGMII_MODE);
- 	val &= ~(MAC_RGMII_MODE_RX_INT_B |
+ 	/* This works around an issue with Athlon chipsets on
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 636008c..d096e10 100644
+index b3347c4..c613cbb 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -524,6 +524,10 @@
- /* 0x598 --> 0x5a0 unused */
- #define MAC_PHYCFG1			0x000005a0
- #define  MAC_PHYCFG1_RGMII_INT		 0x00000001
-+#define  MAC_PHYCFG1_RXCLK_TO_MASK	 0x00001ff0
-+#define  MAC_PHYCFG1_RXCLK_TIMEOUT	 0x00001000
-+#define  MAC_PHYCFG1_TXCLK_TO_MASK	 0x01ff0000
-+#define  MAC_PHYCFG1_TXCLK_TIMEOUT	 0x01000000
- #define  MAC_PHYCFG1_RGMII_EXT_RX_DEC	 0x02000000
- #define  MAC_PHYCFG1_RGMII_SND_STAT_EN	 0x04000000
- #define  MAC_PHYCFG1_TXC_DRV		 0x20000000
+@@ -214,9 +214,11 @@
+ #define  DUAL_MAC_CTRL_ID		 0x00000004
+ #define TG3PCI_PRODID_ASICREV		0x000000bc
+ #define  PROD_ID_ASIC_REV_MASK		 0x0fffffff
+-/* 0xc0 --> 0x100 unused */
++/* 0xc0 --> 0x110 unused */
+ 
+-/* 0x100 --> 0x200 unused */
++#define TG3_CORR_ERR_STAT		0x00000110
++#define  TG3_CORR_ERR_STAT_CLEAR	0xffffffff
++/* 0x114 --> 0x200 unused */
+ 
+ /* Mailbox registers */
+ #define MAILBOX_INTERRUPT_0		0x00000200 /* 64-bit */
+@@ -1696,11 +1698,18 @@
+ #define PCIE_TRANSACTION_CFG		0x00007c04
+ #define PCIE_TRANS_CFG_1SHOT_MSI	 0x20000000
+ #define PCIE_TRANS_CFG_LOM		 0x00000020
++/* 0x7c08 --> 0x7d28 unused */
+ 
+ #define PCIE_PWR_MGMT_THRESH		0x00007d28
+ #define PCIE_PWR_MGMT_L1_THRESH_MSK	 0x0000ff00
+ #define PCIE_PWR_MGMT_L1_THRESH_4MS	 0x0000ff00
+ #define PCIE_PWR_MGMT_EXT_ASPM_TMR_EN	 0x01000000
++/* 0x7d2c --> 0x7e70 unused */
++
++#define TG3_PCIE_EIDLE_DELAY		0x00007e70
++#define  TG3_PCIE_EIDLE_DELAY_MASK	 0x0000001f
++#define  TG3_PCIE_EIDLE_DELAY_13_CLKS	 0x0000000c
++/* 0x7e74 --> 0x8000 unused */
+ 
+ 
+ /* OTP bit definitions */
 -- 
 1.6.3.3
 
