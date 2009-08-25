@@ -1,50 +1,66 @@
-From: Sascha Hlusiak <contact@saschahlusiak.de>
-Subject: [PATCH] sit: allow ip fragmentation when using nopmtudisc to fix package loss
-Date: Tue, 25 Aug 2009 12:48:42 +0200
-Message-ID: <1251197322-3177-1-git-send-email-contact@saschahlusiak.de>
-Cc: Sascha Hlusiak <contact@saschahlusiak.de>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
+Date: Tue, 25 Aug 2009 06:57:07 -0400
+Message-ID: <20090825105707.GA24710@hmsreliant.think-freely.org>
+References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <20090825075816.GB857@elte.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:54055 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754237AbZHYKrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 06:47:20 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48939 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754237AbZHYK5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 06:57:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20090825075816.GB857@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-if tunnel parameters have frag_off set to IP_DF, pmtudisc on the ipv4 link
-will be performed by deriving the mtu from the ipv4 link and setting the
-DF-Flag of the encapsulating IPv4 Header. If fragmentation is needed on the
-way, the IPv4 pmtu gets adjusted, the ipv6 package will be resent eventually,
-using the new and lower mtu and everyone is happy.
+On Tue, Aug 25, 2009 at 09:58:16AM +0200, Ingo Molnar wrote:
+> 
+> * Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
+> 
+> > Currently, the napi's tracepoint works will is depend on
+> > "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+> > like below:
+> > 
+> > #include <trace/events/skb.h>    // include define_trace.h
+> > #include <trace/events/napi.h>
+> > 
+> > there have error, if we remove "#include <trace/events/skb.h>"
+> > or include napi.h in the front of include skb.h, It should
+> > depend on the definiens in include/linux/tracepoint.h and we
+> > can remove the "DECLARE_TRACE" definiens in
+> > include/trace/define_trace.h, because "TRACE_EVENT" not use it
+> > 
+> > Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> > ---
+> >  include/trace/define_trace.h |    4 ----
+> >  net/core/net-traces.c        |    4 +++-
+> >  2 files changed, 3 insertions(+), 5 deletions(-)
+> 
+> This will collide with tracing bits in the networking tree. The 
+> skb-tracing plugin there should be turned into proper TRACE_EVENT() 
+> tracepoints.
+> 
+> Neil was away for some time but i think soon we should see some 
+> movement here.
+> 
+> 	Ingo
+> 
 
-If the frag_off parameter is unset, the mtu for the tunnel will be derived
-from the tunnel device or the ipv6 pmtu, which might be higher than the ipv4
-pmtu. In that case we must allow the fragmentation of the IPv4 packet because
-the IPv6 mtu wouldn't 'learn' from the adjusted IPv4 pmtu, resulting in
-frequent icmp_frag_needed and package loss on the IPv6 layer.
+Thank you Ingo, yes, I'm back from the beach now and will look at this shortly.
+I concur, we should just convert the napi_poll tracepoint to be defined via the
+TRACE_EVENT macro, same as the kfree_skb tracepoint.  Xaio would you like to
+take care of that, or shall I?
 
-This patch allows fragmentation when tunnel was created with parameter
-nopmtudisc, like in ipip/gre tunnels.
-
-Signed-off-by: Sascha Hlusiak <contact@saschahlusiak.de>
----
- net/ipv6/sit.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 98b7327..386f1e9 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -778,7 +778,7 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	iph->version		=	4;
- 	iph->ihl		=	sizeof(struct iphdr)>>2;
- 	if (mtu > IPV6_MIN_MTU)
--		iph->frag_off	=	htons(IP_DF);
-+		iph->frag_off	=	tiph->frag_off;
- 	else
- 		iph->frag_off	=	0;
- 
--- 
-1.6.4
+Best
+Neil
 
