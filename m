@@ -1,56 +1,27 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Tue, 25 Aug 2009 09:58:16 +0200
-Message-ID: <20090825075816.GB857@elte.hu>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Dave Miller's NYLUG paper on Multiqueue
+Date: Tue, 25 Aug 2009 01:20:58 -0700 (PDT)
+Message-ID: <20090825.012058.31662560.davem@davemloft.net>
+References: <OF183FE24E.2D1BB479-ON6525761D.0029177A-6525761D.0029719F@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: krkumar2@in.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:59356 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750887AbZHYH60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2009 03:58:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4A93895F.4010708@cn.fujitsu.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51484
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754454AbZHYIUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 04:20:46 -0400
+In-Reply-To: <OF183FE24E.2D1BB479-ON6525761D.0029177A-6525761D.0029719F@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Tue, 25 Aug 2009 13:02:40 +0530
 
-* Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
+> I read some time back that this presentation paper would be available
+> online, but I haven't been able to locate it till now. Does someone have
+> a copy (or link) they can post?
 
-> Currently, the napi's tracepoint works will is depend on
-> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
-> like below:
-> 
-> #include <trace/events/skb.h>    // include define_trace.h
-> #include <trace/events/napi.h>
-> 
-> there have error, if we remove "#include <trace/events/skb.h>"
-> or include napi.h in the front of include skb.h, It should
-> depend on the definiens in include/linux/tracepoint.h and we
-> can remove the "DECLARE_TRACE" definiens in
-> include/trace/define_trace.h, because "TRACE_EVENT" not use it
-> 
-> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-> ---
->  include/trace/define_trace.h |    4 ----
->  net/core/net-traces.c        |    4 +++-
->  2 files changed, 3 insertions(+), 5 deletions(-)
-
-This will collide with tracing bits in the networking tree. The 
-skb-tracing plugin there should be turned into proper TRACE_EVENT() 
-tracepoints.
-
-Neil was away for some time but i think soon we should see some 
-movement here.
-
-	Ingo
+http://vger.kernel.org/~davem/davem_nyc09.pdf
