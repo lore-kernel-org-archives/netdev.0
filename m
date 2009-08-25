@@ -1,243 +1,144 @@
 From: Alan Cox <alan@linux.intel.com>
-Subject: [PATCH 13/26] et131x: attack the config stuff
-Date: Tue, 25 Aug 2009 15:59:37 +0100
-Message-ID: <20090825145933.16176.18943.stgit@localhost.localdomain>
+Subject: [PATCH 14/26] et131x: config is already zeroed
+Date: Tue, 25 Aug 2009 15:59:48 +0100
+Message-ID: <20090825145942.16176.16307.stgit@localhost.localdomain>
 References: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: greg@kroah.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47791 "EHLO
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:47795 "EHLO
 	bob.linux.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755336AbZHYPE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:04:59 -0400
+	with ESMTP id S1755339AbZHYPFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 11:05:10 -0400
 In-Reply-To: <20090825145619.16176.68780.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prune this back as most of it isn't relevant or used
+Adapter was cleared by netdev allocation so any zero defaults do not need
+writing.
 
 Signed-off-by: Alan Cox <alan@linux.intel.com>
 ---
 
- drivers/staging/et131x/et131x_adapter.h |    2 -
- drivers/staging/et131x/et131x_config.c  |  110 ++++++-------------------------
- drivers/staging/et131x/et131x_initpci.c |    7 +-
- 3 files changed, 23 insertions(+), 96 deletions(-)
+ drivers/staging/et131x/et131x_config.c |   75 ++++++++------------------------
+ 1 files changed, 18 insertions(+), 57 deletions(-)
 
 
-diff --git a/drivers/staging/et131x/et131x_adapter.h b/drivers/staging/et131x/et131x_adapter.h
-index bbbada0..63d7c8a 100644
---- a/drivers/staging/et131x/et131x_adapter.h
-+++ b/drivers/staging/et131x/et131x_adapter.h
-@@ -256,8 +256,6 @@ struct et131x_adapter {
- 	u8 RegistryPhyComa;	/* Phy Coma mode enable/disable */
- 
- 	u32 RegistryRxMemEnd;	/* Size of internal rx memory */
--	u8 RegistryMACStat;	/* If set, read MACSTAT, else don't */
--	u32 RegistryVlanTag;	/* 802.1q Vlan TAG */
- 	u32 RegistryJumboPacket;	/* Max supported ethernet packet size */
- 
- 	/* Validation helpers */
 diff --git a/drivers/staging/et131x/et131x_config.c b/drivers/staging/et131x/et131x_config.c
-index a31f82a..358e6f6 100644
+index 358e6f6..cde727d 100644
 --- a/drivers/staging/et131x/et131x_config.c
 +++ b/drivers/staging/et131x/et131x_config.c
-@@ -105,22 +105,10 @@ extern dbg_info_t *et131x_dbginfo;
+@@ -101,58 +101,30 @@ extern dbg_info_t *et131x_dbginfo;
+ #endif /* CONFIG_ET131X_DEBUG */
+ 
+ /* Defines for Parameter Default/Min/Max vaules */
+-#define PARM_SPEED_DUPLEX_DEF   0
  #define PARM_SPEED_DUPLEX_MIN   0
  #define PARM_SPEED_DUPLEX_MAX   5
  
--#define PARM_VLAN_TAG_DEF       0
--#define PARM_VLAN_TAG_MIN       0
--#define PARM_VLAN_TAG_MAX       4095
+-#define PARM_FLOW_CTL_DEF       0
+-#define PARM_FLOW_CTL_MIN       0
+-#define PARM_FLOW_CTL_MAX       3
 -
- #define PARM_FLOW_CTL_DEF       0
- #define PARM_FLOW_CTL_MIN       0
- #define PARM_FLOW_CTL_MAX       3
- 
--#define PARM_WOL_LINK_DEF       3
--#define PARM_WOL_LINK_MIN       0
--#define PARM_WOL_LINK_MAX       3
+-#define PARM_JUMBO_PKT_DEF      1514
+-#define PARM_JUMBO_PKT_MIN      1514
+-#define PARM_JUMBO_PKT_MAX      9216
 -
--#define PARM_WOL_MATCH_DEF      7
--#define PARM_WOL_MATCH_MIN      0
--#define PARM_WOL_MATCH_MAX      7
+-#define PARM_PHY_COMA_DEF       0
+-#define PARM_PHY_COMA_MIN       0
+-#define PARM_PHY_COMA_MAX       1
 -
- #define PARM_JUMBO_PKT_DEF      1514
- #define PARM_JUMBO_PKT_MIN      1514
- #define PARM_JUMBO_PKT_MAX      9216
-@@ -129,10 +117,6 @@ extern dbg_info_t *et131x_dbginfo;
- #define PARM_PHY_COMA_MIN       0
- #define PARM_PHY_COMA_MAX       1
- 
--#define PARM_MAC_STAT_DEF       1
--#define PARM_MAC_STAT_MIN       0
--#define PARM_MAC_STAT_MAX       1
+-#define PARM_SC_GAIN_DEF        7
+-#define PARM_SC_GAIN_MIN        0
+-#define PARM_SC_GAIN_MAX        7
 -
- #define PARM_SC_GAIN_DEF        7
- #define PARM_SC_GAIN_MIN        0
- #define PARM_SC_GAIN_MAX        7
-@@ -145,13 +129,7 @@ extern dbg_info_t *et131x_dbginfo;
- #define PARM_NMI_DISABLE_MIN    0
- #define PARM_NMI_DISABLE_MAX    2
- 
--#define PARM_DMA_CACHE_DEF      0
+-#define PARM_PM_WOL_DEF         0
+-#define PARM_PM_WOL_MIN         0
+-#define PARM_PM_WOL_MAX         1
 -
--#define PARM_PHY_LOOPBK_DEF     0
--#define PARM_PHY_LOOPBK_MIN     0
--#define PARM_PHY_LOOPBK_MAX     1
- 
--#define PARM_MAC_ADDRESS_DEF    { 0x00, 0x05, 0x3d, 0x00, 0x02, 0x00 }
- 
+-#define PARM_NMI_DISABLE_DEF    0
+-#define PARM_NMI_DISABLE_MIN    0
+-#define PARM_NMI_DISABLE_MAX    2
+-
+-
+-
  /* Module parameter for disabling NMI
-  * et131x_speed_set :
-@@ -184,109 +162,61 @@ MODULE_PARM_DESC(et131x_speed_set,
-  * @etdev: pointer to the private adapter struct
-  *
-  * Parses a configuration from some location (module parameters, for example)
-- * into the private adapter struct
-+ * into the private adapter struct. This really has no sensible analogy in
-+ * Linux as sysfs parameters are dynamic. Several things that were hee could
-+ * go into sysfs, but other stuff like speed handling is part of the mii
-+ * interfaces/ethtool.
+- * et131x_speed_set :
++ * et131x_nmi_disable :
++ * Disable NMI (0-2) [0]
++ *  0 :
++ *  1 :
++ *  2 :
++ */
++static u32 et131x_nmi_disable;	/* 0-2 */
++module_param(et131x_nmi_disable, uint, 0);
++MODULE_PARM_DESC(et131x_nmi_disable, "Disable NMI (0-2) [0]");
++
++/* Module parameter for manual speed setting
+  * Set Link speed and dublex manually (0-5)  [0]
+  *  1 : 10Mb   Half-Duplex
+  *  2 : 10Mb   Full-Duplex
+  *  3 : 100Mb  Half-Duplex
+  *  4 : 100Mb  Full-Duplex
+  *  5 : 1000Mb Full-Duplex
+- *  0 : Auto Speed Auto Dublex // default
+- */
+-static u32 et131x_nmi_disable = PARM_NMI_DISABLE_DEF;
+-module_param(et131x_nmi_disable, uint, 0);
+-MODULE_PARM_DESC(et131x_nmi_disable, "Disable NMI (0-2) [0]");
+-
+-/* Module parameter for manual speed setting
+- * et131x_nmi_disable :
+- * Disable NMI (0-2) [0]
+- *  0 :
+- *  1 :
+- *  2 :
++ *  0 : Auto Speed Auto Duplex // default
   */
- void et131x_config_parse(struct et131x_adapter *etdev)
- {
--	uint8_t macAddrDef[] = PARM_MAC_ADDRESS_DEF;
-+	static const u8 default_mac[] = { 0x00, 0x05, 0x3d, 0x00, 0x02, 0x00 };
-+	static const u8 duplex[] = { 0, 1, 2, 1, 2, 2 };
-+	static const u16 speed[] = { 0, 10, 10, 100, 100, 1000 };
+-static u32 et131x_speed_set = PARM_SPEED_DUPLEX_DEF;
++static u32 et131x_speed_set;
+ module_param(et131x_speed_set, uint, 0);
+ MODULE_PARM_DESC(et131x_speed_set,
+ 		"Set Link speed and dublex manually (0-5)  [0] \n  1 : 10Mb   Half-Duplex \n  2 : 10Mb   Full-Duplex \n  3 : 100Mb  Half-Duplex \n  4 : 100Mb  Full-Duplex \n  5 : 1000Mb Full-Duplex \n 0 : Auto Speed Auto Dublex");
+@@ -175,33 +147,22 @@ void et131x_config_parse(struct et131x_adapter *etdev)
  
  	DBG_ENTER(et131x_dbginfo);
  
--	/*
--	 * The NDIS driver uses the registry to store persistent per-device
--	 * configuration, and reads this configuration into the appropriate
--	 * elements of the private adapter structure on initialization.
--	 * Because Linux has no analog to the registry, use this function to
--	 * initialize the private adapter structure with a default
--	 * configuration.
--	 *
--	 * One other possibility is to use a series of module parameters which
--	 * can be passed in by the caller when the module is initialized.
--	 * However, this implementation does not allow for seperate
--	 * configurations in the event multiple devices are present, and hence
--	 * will not suffice.
--	 *
--	 * If another method is derived which addresses this problem, this is
--	 * where it should be implemented.
--	 */
-+	etdev->SpeedDuplex = et131x_speed_set;
- 
--	 /* Set the private adapter struct with default values for the
--	  * corresponding parameters
--	  */
--	if (et131x_speed_set != PARM_SPEED_DUPLEX_DEF) {
-+	if (et131x_speed_set < PARM_SPEED_DUPLEX_MIN ||
-+	    et131x_speed_set > PARM_SPEED_DUPLEX_MAX) {
-+	    	dev_warn(&etdev->pdev->dev, "invalid speed setting ignored.\n");
-+	    	et131x_speed_set = PARM_SPEED_DUPLEX_DEF;
-+	}
-+	else if (et131x_speed_set != PARM_SPEED_DUPLEX_DEF)
+-	etdev->SpeedDuplex = et131x_speed_set;
+-
+ 	if (et131x_speed_set < PARM_SPEED_DUPLEX_MIN ||
+ 	    et131x_speed_set > PARM_SPEED_DUPLEX_MAX) {
+ 	    	dev_warn(&etdev->pdev->dev, "invalid speed setting ignored.\n");
+-	    	et131x_speed_set = PARM_SPEED_DUPLEX_DEF;
++	    	et131x_speed_set = 0;
+ 	}
+-	else if (et131x_speed_set != PARM_SPEED_DUPLEX_DEF)
++	else if (et131x_speed_set)
  		DBG_VERBOSE(et131x_dbginfo, "Speed set manually to : %d \n",
  			    et131x_speed_set);
--		etdev->SpeedDuplex = et131x_speed_set;
--	} else {
--		etdev->SpeedDuplex = PARM_SPEED_DUPLEX_DEF;
--	}
  
- 	/*  etdev->SpeedDuplex            = PARM_SPEED_DUPLEX_DEF; */
+-	/*  etdev->SpeedDuplex            = PARM_SPEED_DUPLEX_DEF; */
+-
+-	etdev->RegistryFlowControl = PARM_FLOW_CTL_DEF;
+-	etdev->RegistryJumboPacket = PARM_JUMBO_PKT_DEF;
+-	etdev->RegistryPhyComa = PARM_PHY_COMA_DEF;
+-
+-	if (et131x_nmi_disable != PARM_NMI_DISABLE_DEF)
+-		etdev->RegistryNMIDisable = et131x_nmi_disable;
+-	else
+-		etdev->RegistryNMIDisable = PARM_NMI_DISABLE_DEF;
++	etdev->SpeedDuplex = et131x_speed_set;
++	etdev->RegistryJumboPacket = 1514;	/* 1514-9216 */
  
--	etdev->RegistryVlanTag = PARM_VLAN_TAG_DEF;
- 	etdev->RegistryFlowControl = PARM_FLOW_CTL_DEF;
- 	etdev->RegistryJumboPacket = PARM_JUMBO_PKT_DEF;
- 	etdev->RegistryPhyComa = PARM_PHY_COMA_DEF;
--	etdev->RegistryMACStat = PARM_MAC_STAT_DEF;
- 
- 	if (et131x_nmi_disable != PARM_NMI_DISABLE_DEF)
- 		etdev->RegistryNMIDisable = et131x_nmi_disable;
- 	else
- 		etdev->RegistryNMIDisable = PARM_NMI_DISABLE_DEF;
- 
--	etdev->RegistryPhyLoopbk = PARM_PHY_LOOPBK_DEF;
-+	etdev->RegistryPhyLoopbk = 0;	/* 0 off 1 on */
+-	etdev->RegistryPhyLoopbk = 0;	/* 0 off 1 on */
++	etdev->RegistryNMIDisable = et131x_nmi_disable;
  
  	/* Set the MAC address to a default */
--	memcpy(etdev->CurrentAddress, macAddrDef, ETH_ALEN);
-+	memcpy(etdev->CurrentAddress, default_mac, ETH_ALEN);
- 	etdev->bOverrideAddress = false;
+ 	memcpy(etdev->CurrentAddress, default_mac, ETH_ALEN);
+-	etdev->bOverrideAddress = false;
  
--	DBG_TRACE(et131x_dbginfo,
--		  "Default MAC Address  : %02x:%02x:%02x:%02x:%02x:%02x\n",
--		  etdev->CurrentAddress[0], etdev->CurrentAddress[1],
--		  etdev->CurrentAddress[2], etdev->CurrentAddress[3],
--		  etdev->CurrentAddress[4], etdev->CurrentAddress[5]);
--
  	/* Decode SpeedDuplex
  	 *
- 	 * Set up as if we are auto negotiating always and then change if we
- 	 * go into force mode
--	 */
--	etdev->AiForceSpeed = 0;	/* Auto speed */
--	etdev->AiForceDpx = 0;	/* Auto FDX */
--
--	/* If we are the 10/100 device, and gigabit is somehow requested then
-+	 *
-+	 * If we are the 10/100 device, and gigabit is somehow requested then
- 	 * knock it down to 100 full.
- 	 */
- 	if (etdev->pdev->device == ET131X_PCI_DEVICE_ID_FAST &&
- 	    etdev->SpeedDuplex == 5)
- 		etdev->SpeedDuplex = 4;
- 
--	switch (etdev->SpeedDuplex) {
--	case 1:		/* 10Mb   Half-Duplex */
--		etdev->AiForceSpeed = 10;
--		etdev->AiForceDpx = 1;
--		break;
--
--	case 2:		/* 10Mb   Full-Duplex */
--		etdev->AiForceSpeed = 10;
--		etdev->AiForceDpx = 2;
--		break;
--
--	case 3:		/* 100Mb  Half-Duplex */
--		etdev->AiForceSpeed = 100;
--		etdev->AiForceDpx = 1;
--		break;
--
--	case 4:		/* 100Mb  Full-Duplex */
--		etdev->AiForceSpeed = 100;
--		etdev->AiForceDpx = 2;
--		break;
--
--	case 5:		/* 1000Mb Full-Duplex */
--		etdev->AiForceSpeed = 1000;
--		etdev->AiForceDpx = 2;
--		break;
--	}
-+	etdev->AiForceSpeed = speed[etdev->SpeedDuplex];
-+	etdev->AiForceDpx = duplex[etdev->SpeedDuplex];	/* Auto FDX */
- 
- 	DBG_LEAVE(et131x_dbginfo);
- }
-diff --git a/drivers/staging/et131x/et131x_initpci.c b/drivers/staging/et131x/et131x_initpci.c
-index 4d45941..c489090 100644
---- a/drivers/staging/et131x/et131x_initpci.c
-+++ b/drivers/staging/et131x/et131x_initpci.c
-@@ -442,10 +442,9 @@ void et131x_error_timer_handler(unsigned long data)
- 
- 	pm_csr.value = readl(&etdev->regs->global.pm_csr.value);
- 
--	if (pm_csr.bits.pm_phy_sw_coma == 0) {
--		if (etdev->RegistryMACStat)
--			UpdateMacStatHostCounters(etdev);
--	} else
-+	if (pm_csr.bits.pm_phy_sw_coma == 0)
-+		UpdateMacStatHostCounters(etdev);
-+	else
- 		DBG_VERBOSE(et131x_dbginfo,
- 			    "No interrupts, in PHY coma, pm_csr = 0x%x\n",
- 			    pm_csr.value);
 
