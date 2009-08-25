@@ -1,35 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Wed, 26 Aug 2009 01:11:38 +0200
-Message-ID: <20090825231138.GB13630@electric-eye.fr.zoreil.com>
-References: <m1skfkrik2.fsf@fess.ebiederm.org> <1250895567.23419.1.camel@obelisk.thedillows.org> <1250897657.23419.5.camel@obelisk.thedillows.org> <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org> <1250973787.3582.14.camel@obelisk.thedillows.org> <m1r5v0ogvw.fsf@fess.ebiederm.org> <1251169150.4023.11.camel@obelisk.thedillows.org> <m1ljl77exz.fsf@fess.ebiederm.org> <1251237296.9607.42.camel@lap75545.ornl.gov>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: why is IP_MAX_MTU limited to 65520 bytes
+Date: Tue, 25 Aug 2009 16:25:40 -0700
+Message-ID: <1251242740.3169.69.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael B?ker <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932339AbZHYXHy@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1251237296.9607.42.camel@lap75545.ornl.gov>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:33001 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932255AbZHYXZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 19:25:41 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e39.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7PNKbiG001414
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:20:37 -0600
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7PNPgdw217036
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:25:42 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7PNPgSj030547
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:25:42 -0600
+Received: from [9.47.18.19] (w-sridhar.beaverton.ibm.com [9.47.18.19])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id n7PNPfK2030517
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 17:25:42 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Dillow <dave@thedillows.org> :
-[...]
-> I wouldn't object if you did it, but I don't have time for it right now.
-> And it may make Francois's life harder when he does his periodic sweep
-> of the vendor driver, looking for differences.
+Any reason why the maximum IP payload is limited to IP_MAX_MTU(0xFFF0) bytes
+instead of the maximum possible value of 0xFFFF
 
-This part of Realtek's driver(s) is not too tricky (I wonder if some code is
-there by design or accident but it is a different story).
+Thanks
+Sridhar
 
-I do not feel safe with the TxDescUnavail bit : the driver does not
-explicitely do anything to handle it but the behavior of the driver
-can change depending on it. :o/
-
--- 
-Ueimor
