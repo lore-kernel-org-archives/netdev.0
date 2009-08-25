@@ -1,97 +1,153 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH 2.6.30-rc4] r8169: avoid losing MSI interrupts
-Date: Mon, 24 Aug 2009 22:59:10 -0400
-Message-ID: <1251169150.4023.11.camel@obelisk.thedillows.org>
-References: <200903041828.49972.m.bueker@berlin.de>
-	 <1242001754.4093.12.camel@obelisk.thedillows.org>
-	 <200905112248.44868.mb@bu3sch.de> <200905112310.08534.mb@bu3sch.de>
-	 <1242077392.3716.15.camel@lap75545.ornl.gov>
-	 <4A09DC3E.2080807@googlemail.com>
-	 <1242268709.4979.7.camel@obelisk.thedillows.org>
-	 <4A0C6504.8000704@googlemail.com>
-	 <1242328457.32579.12.camel@lap75545.ornl.gov>
-	 <4A0C7443.1010000@googlemail.com>
-	 <1243042174.3580.23.camel@obelisk.thedillows.org>
-	 <m1skfkrik2.fsf@fess.ebiederm.org>
-	 <1250895567.23419.1.camel@obelisk.thedillows.org>
-	 <1250897657.23419.5.camel@obelisk.thedillows.org>
-	 <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org>
-	 <1250973787.3582.14.camel@obelisk.thedillows.org>
-	 <m1r5v0ogvw.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael =?ISO-8859-1?Q?B=FCker?= <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754262AbZHYC7P@vger.kernel.org>
-In-Reply-To: <m1r5v0ogvw.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 3/9] s2io.c: Use calculated size in kmallocs
+Date: Mon, 24 Aug 2009 20:29:42 -0700
+Message-ID: <7b9b5a99f982358f09b83e2100217d9d1d7bf3b3.1251170438.git.joe@perches.com>
+References: <cover.1251170438.git.joe@perches.com>
+Cc: Anil Murthy <anil.murthy@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Rastapur Santosh <santosh.rastapur@neterion.com>,
+	Ramkrishna Vepa <ram.vepa@neterion.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-next@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <cover.1251170438.git.joe@perches.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2009-08-24 at 17:51 -0700, Eric W. Biederman wrote:
-> When I decode the bits in status they are TxOK, RxOK and TxDescUnavail so it looks
-> there is some bidirectional communication going on.
-> 
-> Do we really want to loop when those bits are set?
+Use consistent style.  Don't calculate the kmalloc size multiple times
 
-Maybe not when only those bits are set, but I worry that we would trade
-one race for another where we stop getting interrupts from the card.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/s2io.c |   63 +++++++++++++++++++++++----------------------------
+ 1 files changed, 28 insertions(+), 35 deletions(-)
 
-> Perhaps we want to remove them from rtl_cfg_infos for the part?
-
-Then you'd never get an interrupt for them in the first place, I think.
-
-I'm not real happy with the interrupt handling in the driver; it makes a
-certain amount of sense to split the MSI vs non-MSI interrupt cases out.
-It also means another pass through re-auditing things against the vendor
-driver. That's more work than I'm able to commit to at the moment.
-
-I've not been able to reproduce it locally on my r8169d, running for ~30
-minutes straight at full speed. I've not tried running it in UP, though.
-Perhaps I can do that tomorrow.
-
-Here's a possible patch to mask the NAPI events while we're running in
-NAPI mode. I'm not sure it is going to help, since the intr_mask was
-0xffff when you hit the loop guard, so I left it in for now.
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b82780d..12755b7 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3556,6 +3556,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	int handled = 0;
- 	int status;
-+	int count = 0;
- 
- 	/* loop handling interrupts until we have no new ones or
- 	 * we hit a invalid/hotplug case.
-@@ -3564,6 +3565,15 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	while (status && status != 0xffff) {
- 		handled = 1;
- 
-+		if (count++ > 100) {
-+			printk_once("r8169 screaming irq status %08x "
-+				"mask %08x event %08x napi %08x\n",
-+				status, tp->intr_mask, tp->intr_event,
-+				tp->napi_event);
-+			break;
-+		}
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index b6bd3c8..75f2209 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -823,15 +823,15 @@ static int init_shared_mem(struct s2io_nic *nic)
+ 			}
+ 			mem_allocated += size;
+ 			memset(tmp_v_addr, 0, size);
 +
++			size = sizeof(struct rxd_info) *
++				rxd_count[nic->rxd_mode];
+ 			rx_blocks->block_virt_addr = tmp_v_addr;
+ 			rx_blocks->block_dma_addr = tmp_p_addr;
+-			rx_blocks->rxds = kmalloc(sizeof(struct rxd_info)*
+-						  rxd_count[nic->rxd_mode],
+-						  GFP_KERNEL);
++			rx_blocks->rxds = kmalloc(size,  GFP_KERNEL);
+ 			if (!rx_blocks->rxds)
+ 				return -ENOMEM;
+-			mem_allocated +=
+-			(sizeof(struct rxd_info)* rxd_count[nic->rxd_mode]);
++			mem_allocated += size;
+ 			for (l=0; l<rxd_count[nic->rxd_mode];l++) {
+ 				rx_blocks->rxds[l].virt_addr =
+ 					rx_blocks->block_virt_addr +
+@@ -867,41 +867,37 @@ static int init_shared_mem(struct s2io_nic *nic)
+ 
+ 			blk_cnt = rx_cfg->num_rxd /
+ 				(rxd_count[nic->rxd_mode]+ 1);
+-			ring->ba = kmalloc((sizeof(struct buffAdd *) * blk_cnt),
+-					   GFP_KERNEL);
++			size = sizeof(struct buffAdd *) * blk_cnt;
++			ring->ba = kmalloc(size, GFP_KERNEL);
+ 			if (!ring->ba)
+ 				return -ENOMEM;
+-			mem_allocated +=(sizeof(struct buffAdd *) * blk_cnt);
++			mem_allocated += size;
+ 			for (j = 0; j < blk_cnt; j++) {
+ 				int k = 0;
+-				ring->ba[j] =
+-					kmalloc((sizeof(struct buffAdd) *
+-						(rxd_count[nic->rxd_mode] + 1)),
+-						GFP_KERNEL);
 +
- 		/* Handle all of the error cases first. These will reset
- 		 * the chip, so just exit the loop.
- 		 */
-@@ -3613,6 +3623,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 		RTL_W16(IntrStatus,
- 			(status & RxFIFOOver) ? (status | RxOverflow) : status);
- 		status = RTL_R16(IntrStatus);
-+		status &= tp->intr_mask;
++				size = sizeof(struct buffAdd) *
++					(rxd_count[nic->rxd_mode] + 1);
++				ring->ba[j] = kmalloc(size, GFP_KERNEL);
+ 				if (!ring->ba[j])
+ 					return -ENOMEM;
+-				mem_allocated += (sizeof(struct buffAdd) *  \
+-					(rxd_count[nic->rxd_mode] + 1));
++				mem_allocated += size;
+ 				while (k != rxd_count[nic->rxd_mode]) {
+ 					ba = &ring->ba[j][k];
+-
+-					ba->ba_0_org = (void *) kmalloc
+-					    (BUF0_LEN + ALIGN_SIZE, GFP_KERNEL);
++					size = BUF0_LEN + ALIGN_SIZE;
++					ba->ba_0_org = kmalloc(size, GFP_KERNEL);
+ 					if (!ba->ba_0_org)
+ 						return -ENOMEM;
+-					mem_allocated +=
+-						(BUF0_LEN + ALIGN_SIZE);
++					mem_allocated += size;
+ 					tmp = (unsigned long)ba->ba_0_org;
+ 					tmp += ALIGN_SIZE;
+ 					tmp &= ~((unsigned long) ALIGN_SIZE);
+ 					ba->ba_0 = (void *) tmp;
+ 
+-					ba->ba_1_org = (void *) kmalloc
+-					    (BUF1_LEN + ALIGN_SIZE, GFP_KERNEL);
++					size = BUF1_LEN + ALIGN_SIZE;
++					ba->ba_1_org = kmalloc(size, GFP_KERNEL);
+ 					if (!ba->ba_1_org)
+ 						return -ENOMEM;
+-					mem_allocated
+-						+= (BUF1_LEN + ALIGN_SIZE);
++					mem_allocated += size;
+ 					tmp = (unsigned long) ba->ba_1_org;
+ 					tmp += ALIGN_SIZE;
+ 					tmp &= ~((unsigned long) ALIGN_SIZE);
+@@ -3835,23 +3831,22 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
+ 	u64 rx_mat;
+ 	u16 msi_control; /* Temp variable */
+ 	int ret, i, j, msix_indx = 1;
++	int size;
+ 
+-	nic->entries = kmalloc(nic->num_entries * sizeof(struct msix_entry),
+-			       GFP_KERNEL);
++	size = nic->num_entries * sizeof(struct msix_entry);
++	nic->entries = kmalloc(size, GFP_KERNEL);
+ 	if (!nic->entries) {
+ 		DBG_PRINT(INFO_DBG, "%s: Memory allocation failed\n", \
+ 			__func__);
+ 		nic->mac_control.stats_info->sw_stat.mem_alloc_fail_cnt++;
+ 		return -ENOMEM;
  	}
+-	nic->mac_control.stats_info->sw_stat.mem_allocated
+-		+= (nic->num_entries * sizeof(struct msix_entry));
++	nic->mac_control.stats_info->sw_stat.mem_allocated += size;
  
- 	return IRQ_RETVAL(handled);
+-	memset(nic->entries, 0, nic->num_entries * sizeof(struct msix_entry));
++	memset(nic->entries, 0, size);
+ 
+-	nic->s2io_entries =
+-		kmalloc(nic->num_entries * sizeof(struct s2io_msix_entry),
+-				   GFP_KERNEL);
++	size = nic->num_entries * sizeof(struct s2io_msix_entry);
++	nic->s2io_entries = kmalloc(size, GFP_KERNEL);
+ 	if (!nic->s2io_entries) {
+ 		DBG_PRINT(INFO_DBG, "%s: Memory allocation failed\n",
+ 			__func__);
+@@ -3861,10 +3856,8 @@ static int s2io_enable_msi_x(struct s2io_nic *nic)
+ 			+= (nic->num_entries * sizeof(struct msix_entry));
+ 		return -ENOMEM;
+ 	}
+-	 nic->mac_control.stats_info->sw_stat.mem_allocated
+-		+= (nic->num_entries * sizeof(struct s2io_msix_entry));
+-	memset(nic->s2io_entries, 0,
+-		nic->num_entries * sizeof(struct s2io_msix_entry));
++	nic->mac_control.stats_info->sw_stat.mem_allocated += size;
++	memset(nic->s2io_entries, 0, size);
+ 
+ 	nic->entries[0].entry = 0;
+ 	nic->s2io_entries[0].entry = 0;
+-- 
+1.6.3.1.10.g659a0.dirty
