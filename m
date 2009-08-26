@@ -1,36 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Page allocation failures in guest
-Date: Wed, 26 Aug 2009 11:47:17 +0930
-Message-ID: <200908261147.17838.rusty@rustcorp.com.au>
-References: <20090713115158.0a4892b0@mjolnir.ossman.eu> <200908121501.53167.rusty@rustcorp.com.au> <20090813222548.5e0743dd@mjolnir.ossman.eu>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: [IPv6] kernel refuses to install blackhole routes without dev lo
+Date: Tue, 25 Aug 2009 23:35:46 -0300
+Message-ID: <20090826023546.GC14047@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, Minchan Kim <minchan.kim@gmail.com>,
-	kvm@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-mm@kvack.org, Wu Fengguang <fengguang.wu@intel.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Rik van Riel <riel@redhat.com>, netdev@vger.kernel.org
-To: Pierre Ossman <drzeus-list@drzeus.cx>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48797 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751697AbZHZCRW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Aug 2009 22:17:22 -0400
-In-Reply-To: <20090813222548.5e0743dd@mjolnir.ossman.eu>
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:49744 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756532AbZHZCfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 22:35:47 -0400
+Received: from compute2.internal (compute2.internal [10.202.2.42])
+	by gateway1.messagingengine.com (Postfix) with ESMTP id 4B92C298B4
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 22:35:49 -0400 (EDT)
+Received: from khazad-dum.debian.net (unknown [201.82.70.134])
+	by mail.messagingengine.com (Postfix) with ESMTPSA id EAFB415E98
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 22:35:48 -0400 (EDT)
+Received: from localhost (localhost [127.0.0.1])
+	by localhost.khazad-dum.debian.net (Postfix) with ESMTP id B3ADD10003
+	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 23:35:46 -0300 (BRT)
+Received: from khazad-dum.debian.net ([127.0.0.1])
+	by localhost (khazad-dum.debian.net [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id UVZvVoyq1SBW for <netdev@vger.kernel.org>;
+	Tue, 25 Aug 2009 23:35:46 -0300 (BRT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Aug 2009 05:55:48 am Pierre Ossman wrote:
-> On Wed, 12 Aug 2009 15:01:52 +0930
-> Rusty Russell <rusty@rustcorp.com.au> wrote:
-> > Subject: virtio: net refill on out-of-memory
-... 
-> Patch applied. Now we wait. :)
+(Please keep me in the CC, I am not subscribed to netdev)
 
-Any results?
+To make a long history short, and to get right to the point:
 
-Thanks,
-Rusty.
+# ip -6 route add blackhole ::/0
+RTNETLINK answers: No such device
+
+while
+
+# ip -6 route add blackhole ::/0 dev lo
+
+and
+
+# ip route add unreachable ::/0     
+
+works just fine.  Looks like a bug, and it annoys the heck out of people
+trying to use the standard way of null-routing on Quagga :-)
+
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
