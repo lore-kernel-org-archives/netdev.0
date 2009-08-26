@@ -1,197 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] scripts/get_maintainer.pl: Add maintainers in order listed
- in matched section
-Date: Wed, 26 Aug 2009 14:48:23 -0700
-Message-ID: <1251323303.13026.40.camel@Joe-Laptop.home>
-References: <cover.1249525834.git.joe@perches.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] Re: iproute2 / tbf with large burst seems broken again
+Date: Wed, 26 Aug 2009 23:59:56 +0200
+Message-ID: <20090826215956.GA5148@ami.dom.local>
+References: <200908251518.00762.denys@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Greg KH <greg@kroah.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753979AbZHZVsY@vger.kernel.org>
-In-Reply-To: <cover.1249525834.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryschenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f222.google.com ([209.85.218.222]:38473 "EHLO
+	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054AbZHZWAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 18:00:33 -0400
+Received: by bwz22 with SMTP id 22so508494bwz.18
+        for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 15:00:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200908251518.00762.denys@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is on top of patches that are already queued in mm.
+Denys Fedoryschenko wrote, On 08/25/2009 02:18 PM:
+...
+> Just maybe good idea in next kernels to document this or handle overflow, that 
+> it will give warning in kernel. Otherwise user will have non-functional qdisc 
+> that will not pass traffic.
 
-Previous behavior was "bottom-up" in each section from the pattern "F:"
-entry that matched.  Now information is entered into the various lists
-in the "as entered" order for each matched section.
+OK, if this patch works for you send your Tested-by, please.
 
-This also allows the F: entry to be put anywhere in a section, not just
-as the last entries in the section.
+Thanks,
+Jarek P.
+---------------->
+pkt_sched: Warn on tokens overflow in tbf_dequeue
 
-And a couple of improvements:
+After recent change of scheduling resolution some "extreme" configs
+can cause token overflows with stalls. This patch warns when tokens
+were negative before accounting for a packet length.
 
-Don't alphabetically sort before outputting the matched scm, status,
-subsystem and web sections.
-
-Ignore content after a single email address so these entries are acceptable
-M:	name <address> whatever other comment
-
-And a fix:
-
-Make an M: entry without a name again use the name from an immediately
-preceding P: line if it exists.
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 ---
- scripts/get_maintainer.pl |   70 ++++++++++++++++++++++++++++++++++----------
- 1 files changed, 54 insertions(+), 16 deletions(-)
 
-diff --git a/scripts/get_maintainer.pl b/scripts/get_maintainer.pl
-index b8d1223..b54db05 100755
---- a/scripts/get_maintainer.pl
-+++ b/scripts/get_maintainer.pl
-@@ -313,22 +313,22 @@ if ($email || $email_list) {
- }
+ net/sched/sch_tbf.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index e22dfe8..ef191c4 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -191,6 +191,12 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
+ 			return skb;
+ 		}
  
- if ($scm) {
--    @scm = sort_and_uniq(@scm);
-+    @scm = uniq(@scm);
-     output(@scm);
- }
++		if (unlikely((long)(toks + L2T(q, len)) < 0 ||
++			     (long)(ptoks + L2T_P(q, len) < 0)))
++			if (net_ratelimit())
++				pr_warning("tbf: tokens overflow;"
++					   " fix limits.\n");
++
+ 		qdisc_watchdog_schedule(&q->watchdog,
+ 					now + max_t(long, -toks, -ptoks));
  
- if ($status) {
--    @status = sort_and_uniq(@status);
-+    @status = uniq(@status);
-     output(@status);
- }
- 
- if ($subsystem) {
--    @subsystem = sort_and_uniq(@subsystem);
-+    @subsystem = uniq(@subsystem);
-     output(@subsystem);
- }
- 
- if ($web) {
--    @web = sort_and_uniq(@web);
-+    @web = uniq(@web);
-     output(@web);
- }
- 
-@@ -442,7 +442,7 @@ sub parse_email {
- 	$address = $2;
-     } elsif ($formatted_email =~ /^\s*<(.+\@\S*)>.*$/) {
- 	$address = $1;
--    } elsif ($formatted_email =~ /^(.+\@\S*)$/) {
-+    } elsif ($formatted_email =~ /^(.+\@\S*).*$/) {
- 	$address = $1;
-     }
- 
-@@ -485,12 +485,46 @@ sub format_email {
-     return $formatted_email;
- }
- 
--sub add_categories {
-+sub find_starting_index {
-+
-+    my ($index) = @_;
-+
-+    while ($index > 0) {
-+	my $tv = $typevalue[$index];
-+	if (!($tv =~ m/^(\C):\s*(.*)/)) {
-+	    last;
-+	}
-+	$index--;
-+    }
-+
-+    return $index;
-+}
-+
-+sub find_ending_index {
-     my ($index) = @_;
- 
--    $index = $index - 1;
--    while ($index >= 0) {
-+    while ($index < @typevalue) {
- 	my $tv = $typevalue[$index];
-+	if (!($tv =~ m/^(\C):\s*(.*)/)) {
-+	    last;
-+	}
-+	$index++;
-+    }
-+
-+    return $index;
-+}
-+
-+sub add_categories {
-+    my ($index) = @_;
-+
-+    my $i;
-+    my $start = find_starting_index($index);
-+    my $end = find_ending_index($index);
-+
-+    push(@subsystem, $typevalue[$start]);
-+
-+    for ($i = $start + 1; $i < $end; $i++) {
-+	my $tv = $typevalue[$i];
- 	if ($tv =~ m/^(\C):\s*(.*)/) {
- 	    my $ptype = $1;
- 	    my $pvalue = $2;
-@@ -513,11 +547,12 @@ sub add_categories {
- 	    } elsif ($ptype eq "M") {
- 		my ($name, $address) = parse_email($pvalue);
- 		if ($name eq "") {
--		    if ($index >= 0) {
--			my $tv = $typevalue[$index - 1];
-+		    if ($i > 0) {
-+			my $tv = $typevalue[$i - 1];
- 			if ($tv =~ m/^(\C):\s*(.*)/) {
- 			    if ($1 eq "P") {
- 				$name = $2;
-+				$pvalue = format_email($name, $address);
- 			    }
- 			}
- 		    }
-@@ -532,11 +567,6 @@ sub add_categories {
- 	    } elsif ($ptype eq "S") {
- 		push(@status, $pvalue);
- 	    }
--
--	    $index--;
--	} else {
--	    push(@subsystem,$tv);
--	    $index = -1;
- 	}
-     }
- }
-@@ -559,6 +589,10 @@ sub push_email_address {
- 
-     my ($name, $address) = parse_email($line);
- 
-+    if ($address eq "") {
-+	return 0;
-+    }
-+
-     if (!$email_remove_duplicates) {
- 	push(@email_to, format_email($name, $address));
-     } elsif (!email_inuse($name, $address)) {
-@@ -566,6 +600,8 @@ sub push_email_address {
- 	$email_hash_name{$name}++;
- 	$email_hash_address{$address}++;
-     }
-+
-+    return 1;
- }
-  
- sub push_email_addresses {
-@@ -581,7 +617,9 @@ sub push_email_addresses {
- 	    push_email_address($entry);
- 	}
-     } else {
--	warn("Invalid MAINTAINERS address: '" . $address . "'\n");
-+	if (!push_email_address($address)) {
-+	    warn("Invalid MAINTAINERS address: '" . $address . "'\n");
-+	}
-     }
- }
- 
--- 
-1.6.3.1.10.g659a0.dirty
