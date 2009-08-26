@@ -1,91 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 22:40:27 +0200
-Message-ID: <20090826204027.GA21159@elte.hu>
-References: <20090826181502.GC13632@elte.hu> <20090826190435.GC10816@hmsreliant.think-freely.org> <20090826190830.GF13632@elte.hu> <20090826.123631.79533250.davem@davemloft.net> <20090826194835.GA16508@elte.hu> <20090826202344.GE10816@hmsreliant.think-freely.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
+Date: Wed, 26 Aug 2009 23:30:24 +0200
+Message-ID: <20090826213024.GA20428@electric-eye.fr.zoreil.com>
+References: <m1r5v0ogvw.fsf@fess.ebiederm.org> <1251169150.4023.11.camel@obelisk.thedillows.org> <m1prajabk8.fsf@fess.ebiederm.org> <1251232848.9607.15.camel@lap75545.ornl.gov> <m1k50r8u4p.fsf@fess.ebiederm.org> <20090825221903.GA13630@electric-eye.fr.zoreil.com> <m1iqgbknun.fsf_-_@fess.ebiederm.org> <1251294974.14241.9.camel@obelisk.thedillows.org> <1251295175.14241.11.camel@obelisk.thedillows.org> <m11vmy737x.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org,
-	fweisbec@gmail.com, billfink@mindspring.com,
-	netdev@vger.kernel.org, brice@myri.com, gallatin@myri.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: David Dillow <dave@thedillows.org>,
+	Michael Riepe <michael.riepe@googlemail.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael B??ker <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:35340 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480AbZHZUkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 16:40:37 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:57607 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751011AbZHZV0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 17:26:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20090826202344.GE10816@hmsreliant.think-freely.org>
+In-Reply-To: <m11vmy737x.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric W. Biederman <ebiederm@xmission.com> :
+[...]
+> It is a bit weird but it also means we aren't playing silly games
+> with status inside the loop.  So if we go through the loop we ack
+> everything in status.
 
-* Neil Horman <nhorman@tuxdriver.com> wrote:
+I fear we have some longstanding problem anyway :
 
-> On Wed, Aug 26, 2009 at 09:48:35PM +0200, Ingo Molnar wrote:
-> > 
-> > * David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Ingo Molnar <mingo@elte.hu>
-> > > Date: Wed, 26 Aug 2009 21:08:30 +0200
-> > > 
-> > > > Sigh, no. Please re-read the past discussions about this. 
-> > > > trace_skb_sources.c is a hack and should be converted to generic 
-> > > > tracepoints. Is there anything in it that cannot be expressed in 
-> > > > terms of TRACE_EVENT()?
-> > > 
-> > > Neil explained why he needed to implement it this way in his reply 
-> > > to Steven Rostedt.  I attach it here for your convenience.
-> > 
-> > thanks. The argument is invalid:
-> 
-> Just because you assert that doesn't make it so, Ingo.
+1. quiescent state
+2. packets are received
+3. rtl8169_interrupt schedules napi, clears IntrStatus and exits
+4. packets are received and some non-napi event happens
+5. rtl8169_interrupt wakes up, reads IntrStatus and goes on...
+6. rtl8169_poll wakes up, processes Rx and Tx napi events and goes on...
+7. tp->intr_mask still equals ~tp->napi_event : rtl8169_interrupt
+   handler does not even try to schedule napi.
+8. more packets are received
+9. rtl8169_interrupt clears IntrStatus
+a. rtl8169_poll reenables napi scheduling, updates IntrMask and exits
+b. rtl8169_interrupt reads a perfectly clean IntrStatus and exits
 
-I stand by that statement, the argument is invalid, for the many 
-reasons i outlined in my previous mails. (you'd have gotten those 
-same arguments had you submitted that patch to the folks who 
-maintain kernel/trace/)
-
-> > > > BTW, why not just do this as events? Or was this just a easy way 
-> > > > to communicate with the user space tools?
-> > > 
-> > > Thats exactly why I did it.  the idea is for me to now write a 
-> > > user space tool that lets me analyze the events and ajust process 
-> > > scheduling to optimize the rx path. Neil
-> > 
-> > All tooling (in fact _more_ tooling) can be done based on generic, 
-> > TRACE_EVENT() based tracepoints. Generic tracepoints are far more 
-> > available, have a generalized format with format parsers and user 
-> > tooling implemented, etc. etc.
-> 
-> Then why allow for ftrace modules at all?  [...]
-
-We routinely reject trivial plugins like yours and ask people to use 
-the proper mechanism: TRACE_EVENT().
-
-We are also converting non-trivial plugins to generic tracepoints. A 
-recent example are the system call tracepoints, but we also 
-converted blktrace and kmemtrace to generic tracepoints.
-
-But trace_skb_sources.c got committed to the networking tree, 
-without review and acks from the tracing folks. Now you are 
-unwilling to fix it and that's not very constructive.
-
-> [...] I grant that the skb ftracer is a bit trivial at the moment 
-> for an ftrace module, but I really prefer to leave it is so that I 
-> can expand it with additional tracepoints.  And looking at them, 
-> anything you've said above applies to any of the currently 
-> implemented ftrace modules.  If you're so adamant that we should 
-> just do everything with TRACE_EVENT log messages, then lets get 
-> rid of the ftrace infrastructure all together.  Until we do that, 
-> however, I like my skb tracer just as it is.
-
-You dont seem to be aware of the breath of features and capabilities 
-that TRACE_EVENT() based tooling allows us to do. Please see my 
-previous mail about an (incomplete) list.
-
-( One item i forgot to mention there: using them you can for example 
-  trace full workloads, such as a kernel build - without other 
-  workloads mixed into that trace. Etc. etc. - the list goes on. )
-
-	Ingo
+-- 
+Ueimor
