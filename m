@@ -1,31 +1,52 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: [Bug #13328] b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Date: Tue, 25 Aug 2009 23:05:00 +0200 (CEST)
-Message-ID: <Cg6cQYLdUxG.A.qxC.J2GlKB@chimera>
-References: <JuOd1ZASH0B.A.YGB.0zGlKB@chimera>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
+Date: Wed, 26 Aug 2009 08:49:16 +0800
+Message-ID: <4A94868C.4080801@cn.fujitsu.com>
+References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <20090825075816.GB857@elte.hu> <20090825105707.GA24710@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Francis Moreau" <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <JuOd1ZASH0B.A.YGB.0zGlKB@chimera>
-Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@elte.hu>, Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932759AbZHZAtt@vger.kernel.org>
+In-Reply-To: <20090825105707.GA24710@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message has been generated automatically as a part of a report
-of regressions introduced between 2.6.29 and 2.6.30.
-
-The following bug entry is on the current list of known regressions
-introduced between 2.6.29 and 2.6.30.  Please verify if it still should
-be listed and let me know (either way).
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=13328
-Subject		: b44: eth0: BUG! Timeout waiting for bit 00000002 of register 42c to clear.
-Submitter	: Francis Moreau <francis.moro-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2009-05-03 16:22 (115 days old)
-References	: http://marc.info/?l=linux-kernel&m=124136778012280&w=4
+Neil Horman wrote:
+> On Tue, Aug 25, 2009 at 09:58:16AM +0200, Ingo Molnar wrote:
+>> * Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
+>>
+>> This will collide with tracing bits in the networking tree. The 
+>> skb-tracing plugin there should be turned into proper TRACE_EVENT() 
+>> tracepoints.
+>>
+>> Neil was away for some time but i think soon we should see some 
+>> movement here.
+>>
+>> 	Ingo
+>>
+> 
+> Thank you Ingo, yes, I'm back from the beach now and will look at this shortly.
+> I concur, we should just convert the napi_poll tracepoint to be defined via the
+> TRACE_EVENT macro, same as the kfree_skb tracepoint.  Xaio would you like to
+> take care of that, or shall I?
+>
+
+Hi Neil,
+
+I'm glad to do it.
+
+Actually, we should fix the include file dependencies first
+(the second patch in this patchset), else we can't include two
+TRACE_EVENT head files in net-traces.c
+
+Steve will pull this patchset, so, I'll convert it after this
+patchset merged.
