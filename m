@@ -1,109 +1,107 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] r8169: Reduce looping in the interrupt handler.
-Date: Wed, 26 Aug 2009 00:58:56 -0700
-Message-ID: <m1iqgbknun.fsf_-_@fess.ebiederm.org>
-References: <1250895567.23419.1.camel@obelisk.thedillows.org>
-	<1250897657.23419.5.camel@obelisk.thedillows.org>
-	<m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org>
-	<1250973787.3582.14.camel@obelisk.thedillows.org>
-	<m1r5v0ogvw.fsf@fess.ebiederm.org>
-	<1251169150.4023.11.camel@obelisk.thedillows.org>
-	<m1prajabk8.fsf@fess.ebiederm.org>
-	<1251232848.9607.15.camel@lap75545.ornl.gov>
-	<m1k50r8u4p.fsf@fess.ebiederm.org>
-	<20090825221903.GA13630@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [kmemcheck] WARNING: kmemcheck: Caught 32-bit read from 	uninitialized
+ memory, in sock_init_data()
+Date: Wed, 26 Aug 2009 10:08:20 +0200
+Message-ID: <4A94ED74.6000200@gmail.com>
+References: <20090826055659.GA6066@elte.hu> <19f34abd0908260013n4e701796j90fb2b1ab74495de@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael B??ker <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51456 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbZHZH7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 03:59:00 -0400
-In-Reply-To: <20090825221903.GA13630@electric-eye.fr.zoreil.com> (Francois Romieu's message of "Wed\, 26 Aug 2009 00\:19\:03 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752525AbZHZIIi@vger.kernel.org>
+In-Reply-To: <19f34abd0908260013n4e701796j90fb2b1ab74495de@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Vegard Nossum a =C3=A9crit :
+> 2009/8/26 Ingo Molnar <mingo@elte.hu>:
+>> -tip testing found another kmemcheck warning:
+>>
+>> calling  netlink_proto_init+0x0/0x1b0 @ 1
+>> NET: Registered protocol family 16
+>> initcall netlink_proto_init+0x0/0x1b0 returned 0 after 39062 usecs
+>> calling  olpc_init+0x0/0x110 @ 1
+>> WARNING: kmemcheck: Caught 32-bit read from uninitialized memory (f5=
+c38304)
+>> 0100000002000000000000000000000000000000ad4eaddeffffffffffffffff
+>>  i i i i i i u u i i i i i i i i i i i i i i i i i i i i i i i i
+>>         ^
+>>
+>> Pid: 1, comm: swapper Not tainted (2.6.31-rc7-tip-01170-gaaea9cf-dir=
+ty #24) P4DC6
+>> EIP: 0060:[<c15c8ab1>] EFLAGS: 00010286 CPU: 0
+>> EIP is at sock_init_data+0xe1/0x220
+>> EAX: 0001b000 EBX: f606196c ECX: 00000000 EDX: c1a148d2
+>> ESI: f6061800 EDI: f5c38300 EBP: f606ef0c ESP: c1ceb9ac
+>>  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+>> CR0: 8005003b CR2: f60a8108 CR3: 01a61000 CR4: 000006f0
+>> DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+>> DR6: ffff4ff0 DR7: 00000400
+>>  [<c15fac15>] __netlink_create+0x35/0xa0
+>>  [<c15fd01a>] netlink_kernel_create+0x5a/0x180
+>>  [<c15df55e>] rtnetlink_net_init+0x1e/0x50
+>>  [<c15d130a>] register_pernet_operations+0x6a/0xf0
+>>  [<c15d14fe>] register_pernet_subsys+0x1e/0x30
+>>  [<c1b3d84c>] rtnetlink_init+0x4c/0x100
+>>  [<c1b3e105>] netlink_proto_init+0x105/0x1b0
+>>  [<c1001037>] do_one_initcall+0x27/0x170
+>>  [<c1afea97>] kernel_init+0x157/0x210
+>>  [<c10039a7>] kernel_thread_helper+0x7/0x10
+>>  [<ffffffff>] 0xffffffff
+>> initcall olpc_init+0x0/0x110 returned 0 after 0 usecs
+>> calling  bdi_class_init+0x0/0x40 @ 1
+>>
+>> config attached.
+>=20
+> Thanks. AFAICT, it's this one:
+>=20
+> 1816 void sock_init_data(struct socket *sock, struct sock *sk)
+> 1817 {
+> ...
+> 1835         sock_set_flag(sk, SOCK_ZAPPED);
+
+Are you sure it is not the 16 bit padding in 'struct sock', after 'type=
+' field ?
+
+struct socket {
+	socket_state        state;
+	short           type;
+// here, a 16 bits hole
+	unsigned long       flags;
+
+the warning is strange since I suspect it happens here :
+
+    if (sock) {
+<<>>	sk->sk_type =3D   sock->type; // here, kmemcheck warning while rea=
+ding sock->type
+	sk->sk_sleep    =3D   &sock->wait;
+	sock->sk    =3D   sk;
+
+and sock->type is a 16 bit field, correctly initialized (with value =3D=
+ 2)
+(Yes the hole, right after, is not initialized)
+
+WARNING: kmemcheck: Caught 32-bit read from uninitialized memory (f5c38=
+304)
+0100000002000000000000000000000000000000ad4eaddeffffffffffffffff
+ i i i i i i u u i i i i i i i i i i i i i i i i i i i i i i i i
 
 
-As of 2.6.30 I have been observing soft lockups and netdev watchdog
-timeouts caused by looping in the r8169 interrupt handler.
 
-- Introduce a hard limit to the maximum number of times we will loop in
-  the interrupt handler, and print a message when we hit it.
 
-- Break out of the loop if after looking none of the events in status
-  are events we expect to be delivered by an interrupt.
 
-With just the hard limit and message bits of my patch in my test case
-I get hit my limit of 10 loops 12 times.  After filtering by intr_mask
-and intr_event I don't get any warnings.
-
-Any complaints from those who know the driver better than I?
-
-Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
----
- drivers/net/r8169.c |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 3b19e0c..2214945 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -61,6 +61,8 @@ static const int multicast_filter_limit = 32;
- /* MAC address length */
- #define MAC_ADDR_LEN	6
- 
-+#define MAX_INTR_LOOPS 10	/* Limit the msi acking loop from going crazy */
-+
- #define MAX_READ_REQUEST_SHIFT	12
- #define RX_FIFO_THRESH	7	/* 7 means NO threshold, Rx buffer level before first PCI xfer. */
- #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
-@@ -3552,6 +3554,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	int handled = 0;
- 	int status;
-+	int count = 0;
- 
- 	/* loop handling interrupts until we have no new ones or
- 	 * we hit a invalid/hotplug case.
-@@ -3560,6 +3563,17 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	while (status && status != 0xffff) {
- 		handled = 1;
- 
-+		if (count++ >= MAX_INTR_LOOPS) {
-+			if (netif_msg_intr(tp) && net_ratelimit()) {
-+				printk(KERN_INFO " %s Screaming irq "
-+					"status %08x mask %08x event %08x "
-+					"napi %08x\n",
-+					dev->name, status, tp->intr_mask,
-+					tp->intr_event,	tp->napi_event);
-+			}
-+			break;
-+		}
-+
- 		/* Handle all of the error cases first. These will reset
- 		 * the chip, so just exit the loop.
- 		 */
-@@ -3609,6 +3623,13 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 		RTL_W16(IntrStatus,
- 			(status & RxFIFOOver) ? (status | RxOverflow) : status);
- 		status = RTL_R16(IntrStatus);
-+
-+		/* Ignore the parts of status that reflect more than
-+		 * the enabled interrupts.
-+		 */
-+		smp_rmb();
-+		if (!(status & tp->intr_mask & tp->intr_event))
-+			break;
- 	}
- 
- 	return IRQ_RETVAL(handled);
--- 
-1.6.2.5
-
+>=20
+> Which sort of makes sense, given all the trouble we've had with bitfi=
+elds/flags.
+>=20
+> Is it possible that struct sock's sk_flags is (partially)
+> uninitialized at this point?
+>=20
+> I'll investigate more later, lecture of statistics is about to begin.
+>=20
+>=20
+> Vegard
+>
