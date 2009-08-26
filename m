@@ -1,323 +1,139 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 12:36:31 -0700 (PDT)
-Message-ID: <20090826.123631.79533250.davem@davemloft.net>
-References: <20090826181502.GC13632@elte.hu>
-	<20090826190435.GC10816@hmsreliant.think-freely.org>
-	<20090826190830.GF13632@elte.hu>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 2/2] cnic: Put uio init in separate function.
+Date: Wed, 26 Aug 2009 12:49:23 -0700
+Message-ID: <1251316163-9359-2-git-send-email-mchan@broadcom.com>
+References: <1251316163-9359-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, rostedt@goodmis.org, fweisbec@gmail.com,
-	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
-	gallatin@myri.com
-To: mingo@elte.hu
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35749
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751308AbZHZTgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 15:36:18 -0400
-In-Reply-To: <20090826190830.GF13632@elte.hu>
+Received: from mms2.broadcom.com ([216.31.210.18]:4553 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752889AbZHZTmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 15:42:18 -0400
+In-Reply-To: <1251316163-9359-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 26 Aug 2009 21:08:30 +0200
+This will allow the 10G iSCSI code to reuse the function.
 
-> Sigh, no. Please re-read the past discussions about this. 
-> trace_skb_sources.c is a hack and should be converted to generic 
-> tracepoints. Is there anything in it that cannot be expressed in 
-> terms of TRACE_EVENT()?
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/cnic.c |   68 +++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 41 insertions(+), 27 deletions(-)
 
-Neil explained why he needed to implement it this way in his
-reply to Steven Rostedt.  I attach it here for your
-convenience.
-
-Subject: Re: [PATCH 3/3] net: skb ftracer - Add actual ftrace code to kernel (v3)
-From: Neil Horman <nhorman@tuxdriver.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-Date: Tue, 18 Aug 2009 12:39:58 -0400
-User-Agent: Mutt/1.5.18 (2008-05-17)
-X-Mew: tab/spc characters on Subject: are simplified.
-
-On Mon, Aug 17, 2009 at 04:55:38PM -0400, Steven Rostedt wrote:
-> 
-> Hi Neil!
-> 
-> Sorry for the late reply, I've been on vacation for the last week.
-> 
-> On Thu, 13 Aug 2009, Neil Horman wrote:
-> 
-> > skb allocation / consumption correlator
-> > 
-> > Add ftracer module to kernel to print out a list that correlates a process id,
-> > an skb it read, and the numa nodes on wich the process was running when it was
-> > read along with the numa node the skbuff was allocated on.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > 
-> > 
-> >  Makefile            |    1 
-> >  trace.h             |   19 ++++++
-> >  trace_skb_sources.c |  154 ++++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  3 files changed, 174 insertions(+)
-> > 
-> > diff --git a/kernel/trace/Makefile b/kernel/trace/Makefile
-> > index 844164d..ee5e5b1 100644
-> > --- a/kernel/trace/Makefile
-> > +++ b/kernel/trace/Makefile
-> > @@ -49,6 +49,7 @@ obj-$(CONFIG_BLK_DEV_IO_TRACE) += blktrace.o
-> >  ifeq ($(CONFIG_BLOCK),y)
-> >  obj-$(CONFIG_EVENT_TRACING) += blktrace.o
-> >  endif
-> > +obj-$(CONFIG_SKB_SOURCES_TRACER) += trace_skb_sources.o
-> >  obj-$(CONFIG_EVENT_TRACING) += trace_events.o
-> >  obj-$(CONFIG_EVENT_TRACING) += trace_export.o
-> >  obj-$(CONFIG_FTRACE_SYSCALLS) += trace_syscalls.o
-> > diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
-> > index 8b9f4f6..8a6281b 100644
-> > --- a/kernel/trace/trace.h
-> > +++ b/kernel/trace/trace.h
-> > @@ -11,6 +11,7 @@
-> >  #include <trace/boot.h>
-> >  #include <linux/kmemtrace.h>
-> >  #include <trace/power.h>
-> > +#include <trace/events/skb.h>
-> >  
-> >  #include <linux/trace_seq.h>
-> >  #include <linux/ftrace_event.h>
-> > @@ -40,6 +41,7 @@ enum trace_type {
-> >  	TRACE_KMEM_FREE,
-> >  	TRACE_POWER,
-> >  	TRACE_BLK,
-> > +	TRACE_SKB_SOURCE,
-> >  
-> >  	__TRACE_LAST_TYPE,
-> >  };
-> > @@ -171,6 +173,21 @@ struct trace_power {
-> >  	struct power_trace	state_data;
-> >  };
-> >  
-> > +struct skb_record {
-> > +	pid_t pid;		/* pid of the copying process */
-> > +	int anid;		/* node where skb was allocated */
-> > +	int cnid;		/* node to which skb was copied in userspace */
-> > +	char ifname[IFNAMSIZ];	/* Name of the receiving interface */
-> > +	int rx_queue;		/* The rx queue the skb was received on */
-> > +	int ccpu;		/* Cpu the application got this frame from */
-> > +	int len;		/* length of the data copied */
-> > +};
-> > +
-> > +struct trace_skb_event {
-> > +	struct trace_entry	ent;
-> > +	struct skb_record	event_data;
-> > +};
-> > +
-> >  enum kmemtrace_type_id {
-> >  	KMEMTRACE_TYPE_KMALLOC = 0,	/* kmalloc() or kfree(). */
-> >  	KMEMTRACE_TYPE_CACHE,		/* kmem_cache_*(). */
-> > @@ -323,6 +340,8 @@ extern void __ftrace_bad_type(void);
-> >  			  TRACE_SYSCALL_ENTER);				\
-> >  		IF_ASSIGN(var, ent, struct syscall_trace_exit,		\
-> >  			  TRACE_SYSCALL_EXIT);				\
-> > +		IF_ASSIGN(var, ent, struct trace_skb_event,		\
-> > +			  TRACE_SKB_SOURCE);				\
-> >  		__ftrace_bad_type();					\
-> >  	} while (0)
-> >  
-> > diff --git a/kernel/trace/trace_skb_sources.c b/kernel/trace/trace_skb_sources.c
-> > new file mode 100644
-> > index 0000000..4ba3671
-> > --- /dev/null
-> > +++ b/kernel/trace/trace_skb_sources.c
-> > @@ -0,0 +1,154 @@
-> > +/*
-> > + * ring buffer based tracer for analyzing per-socket skb sources
-> > + *
-> > + * Neil Horman <nhorman@tuxdriver.com> 
-> > + * Copyright (C) 2009
-> > + *
-> > + *
-> > + */
-> > +
-> > +#include <linux/init.h>
-> > +#include <linux/debugfs.h>
-> > +#include <trace/events/skb.h>
-> > +#include <linux/kallsyms.h>
-> > +#include <linux/module.h>
-> > +#include <linux/hardirq.h>
-> > +#include <linux/netdevice.h>
-> > +#include <net/sock.h>
-> > +
-> > +#include "trace.h"
-> > +#include "trace_output.h"
-> > +
-> > +EXPORT_TRACEPOINT_SYMBOL_GPL(skb_copy_datagram_iovec);
-> > +
-> > +static struct trace_array *skb_trace;
-> > +static int __read_mostly trace_skb_source_enabled;
-> > +
-> > +static void probe_skb_dequeue(const struct sk_buff *skb, int len)
-> > +{
-> > +	struct ring_buffer_event *event;
-> > +	struct trace_skb_event *entry;
-> > +	struct trace_array *tr = skb_trace;
-> > +	struct net_device *dev;
-> > +
-> > +	if (!trace_skb_source_enabled)
-> > +		return;
-> > +
-> > +	if (in_interrupt())
-> > +		return;
-> 
-> Is there a reason for not doing this in an interrupt?
-> 
-Because the idea is to correlate skb consumption to a process.  If we get in
-this tracepoint in an interrupt, it doesn't make sense to record.
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index 039900c..f8a0923 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -762,33 +762,14 @@ static int cnic_alloc_l2_rings(struct cnic_dev *dev, int pages)
+ 	return 0;
+ }
+ 
+-static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
+-{
++static int cnic_alloc_uio(struct cnic_dev *dev) {
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct uio_info *uinfo;
+ 	int ret;
+ 
+-	ret = cnic_alloc_dma(dev, &cp->kwq_info, KWQ_PAGE_CNT, 1);
+-	if (ret)
+-		goto error;
+-	cp->kwq = (struct kwqe **) cp->kwq_info.pg_arr;
+-
+-	ret = cnic_alloc_dma(dev, &cp->kcq_info, KCQ_PAGE_CNT, 1);
+-	if (ret)
+-		goto error;
+-	cp->kcq = (struct kcqe **) cp->kcq_info.pg_arr;
+-
+-	ret = cnic_alloc_context(dev);
+-	if (ret)
+-		goto error;
+-
+-	ret = cnic_alloc_l2_rings(dev, 2);
+-	if (ret)
+-		goto error;
+-
+ 	uinfo = kzalloc(sizeof(*uinfo), GFP_ATOMIC);
+ 	if (!uinfo)
+-		goto error;
++		return -ENOMEM;
+ 
+ 	uinfo->mem[0].addr = dev->netdev->base_addr;
+ 	uinfo->mem[0].internal_addr = dev->regview;
+@@ -796,10 +777,15 @@ static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
+ 	uinfo->mem[0].memtype = UIO_MEM_PHYS;
+ 
+ 	uinfo->mem[1].addr = (unsigned long) cp->status_blk & PAGE_MASK;
+-	if (cp->ethdev->drv_state & CNIC_DRV_STATE_USING_MSIX)
+-		uinfo->mem[1].size = BNX2_SBLK_MSIX_ALIGN_SIZE * 9;
+-	else
+-		uinfo->mem[1].size = BNX2_SBLK_MSIX_ALIGN_SIZE;
++	if (test_bit(CNIC_F_BNX2_CLASS, &dev->flags)) {
++		if (cp->ethdev->drv_state & CNIC_DRV_STATE_USING_MSIX)
++			uinfo->mem[1].size = BNX2_SBLK_MSIX_ALIGN_SIZE * 9;
++		else
++			uinfo->mem[1].size = BNX2_SBLK_MSIX_ALIGN_SIZE;
++
++		uinfo->name = "bnx2_cnic";
++	}
++
+ 	uinfo->mem[1].memtype = UIO_MEM_LOGICAL;
+ 
+ 	uinfo->mem[2].addr = (unsigned long) cp->l2_ring;
+@@ -810,7 +796,6 @@ static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
+ 	uinfo->mem[3].size = cp->l2_buf_size;
+ 	uinfo->mem[3].memtype = UIO_MEM_LOGICAL;
+ 
+-	uinfo->name = "bnx2_cnic";
+ 	uinfo->version = CNIC_MODULE_VERSION;
+ 	uinfo->irq = UIO_IRQ_CUSTOM;
+ 
+@@ -822,10 +807,39 @@ static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
+ 	ret = uio_register_device(&dev->pcidev->dev, uinfo);
+ 	if (ret) {
+ 		kfree(uinfo);
+-		goto error;
++		return ret;
+ 	}
+ 
+ 	cp->cnic_uinfo = uinfo;
++	return 0;
++}
++
++static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	int ret;
++
++	ret = cnic_alloc_dma(dev, &cp->kwq_info, KWQ_PAGE_CNT, 1);
++	if (ret)
++		goto error;
++	cp->kwq = (struct kwqe **) cp->kwq_info.pg_arr;
++
++	ret = cnic_alloc_dma(dev, &cp->kcq_info, KCQ_PAGE_CNT, 1);
++	if (ret)
++		goto error;
++	cp->kcq = (struct kcqe **) cp->kcq_info.pg_arr;
++
++	ret = cnic_alloc_context(dev);
++	if (ret)
++		goto error;
++
++	ret = cnic_alloc_l2_rings(dev, 2);
++	if (ret)
++		goto error;
++
++	ret = cnic_alloc_uio(dev);
++	if (ret)
++		goto error;
+ 
+ 	return 0;
+ 
+-- 
+1.6.4.GIT
 
 
-> > +
-> > +	event = trace_buffer_lock_reserve(tr, TRACE_SKB_SOURCE,
-> > +					  sizeof(*entry), 0, 0);
-> > +	if (!event)
-> > +		return;
-> > +	entry = ring_buffer_event_data(event);
-> > +
-> > +	entry->event_data.pid = current->pid;
-> 
-> Note, the trace_buffer_lock_reserve will record the current pid, thus you 
-> do not need to record it here.
-> 
-> > +	entry->event_data.anid = page_to_nid(virt_to_page(skb->data));
-> > +	entry->event_data.cnid = cpu_to_node(smp_processor_id());
-> > +	entry->event_data.len = len;
-> > +	entry->event_data.rx_queue = skb->queue_mapping;
-> > +	entry->event_data.ccpu = smp_processor_id();
-> 
-> Also, the cpu is recorded in the ring buffer. They are per cpu ring 
-> buffers and that determines the cpu it was recorded on.
-> 
-> > +
-> > +	dev = dev_get_by_index(sock_net(skb->sk), skb->iif);
-> > +	if (dev) {
-> > +		memcpy(entry->event_data.ifname, dev->name, IFNAMSIZ);
-> > +		dev_put(dev);
-> > +	} else {
-> > +		strcpy(entry->event_data.ifname, "Unknown");
-> > +	}
-> > +
-> > +	trace_buffer_unlock_commit(tr, event, 0, 0);
-> > +}
-> > +
-> > +static int tracing_skb_source_register(void)
-> > +{
-> > +	int ret;
-> > +
-> > +	ret = register_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-> > +	if (ret)
-> > +		pr_info("skb source trace: Couldn't activate dequeue tracepoint");
-> > +	
-> > +	return ret;
-> > +}
-> > +
-> > +static void start_skb_source_trace(struct trace_array *tr)
-> > +{
-> > +	trace_skb_source_enabled = 1;
-> > +}
-> > +
-> > +static void stop_skb_source_trace(struct trace_array *tr)
-> > +{
-> > +	trace_skb_source_enabled = 0;
-> > +}
-> > +
-> > +static void skb_source_trace_reset(struct trace_array *tr)
-> > +{
-> > +	trace_skb_source_enabled = 0;
-> > +	unregister_trace_skb_copy_datagram_iovec(probe_skb_dequeue);
-> > +}
-> > +
-> > +
-> > +static int skb_source_trace_init(struct trace_array *tr)
-> > +{
-> > +	int cpu;
-> > +	skb_trace = tr;
-> > +
-> > +	trace_skb_source_enabled = 1;
-> > +	tracing_skb_source_register();
-> > +
-> > +	for_each_cpu(cpu, cpu_possible_mask)
-> > +		tracing_reset(tr, cpu);
-> > +	return 0;
-> > +}
-> > +
-> > +static enum print_line_t skb_source_print_line(struct trace_iterator *iter)
-> > +{
-> > +	int ret = 0;
-> > +	struct trace_entry *entry = iter->ent;
-> 
-> iter->cpu has the cpu that trace was recorded on.
-> entry->pid has the pid of the process that did the recording.
-> 
-ok, I'll clean this up in a subsequent patch, since davem has already rolled
-them in.
-
-> > +	struct trace_skb_event *event;
-> > +	struct skb_record *record;
-> > +	struct trace_seq *s = &iter->seq;
-> > +
-> > +	trace_assign_type(event, entry);
-> > +	record = &event->event_data;
-> > +	if (entry->type != TRACE_SKB_SOURCE)
-> > +		return TRACE_TYPE_UNHANDLED;
-> > +
-> > +	ret = trace_seq_printf(s, "	%d	%d	%d	%s	%d	%d	%d\n",
-> > +			record->pid,
-> > +			record->anid,
-> > +			record->cnid,
-> > +			record->ifname,
-> > +			record->rx_queue,
-> > +			record->ccpu,
-> > +			record->len);
-> > +
-> > +	if (!ret)
-> > +		return TRACE_TYPE_PARTIAL_LINE;
-> > +
-> > +	return TRACE_TYPE_HANDLED;
-> > +}
-> > +
-> > +static void skb_source_print_header(struct seq_file *s)
-> > +{
-> > +	seq_puts(s, "#	PID	ANID	CNID	IFC	RXQ	CCPU	LEN\n");
-> > +	seq_puts(s, "#	 |	 |	 |	 |	 |	 |	 |\n");
-> > +}
-> > +
-> > +static struct tracer skb_source_tracer __read_mostly =
-> > +{
-> > +	.name		= "skb_sources",
-> > +	.init		= skb_source_trace_init,
-> > +	.start		= start_skb_source_trace,
-> > +	.stop		= stop_skb_source_trace,
-> > +	.reset		= skb_source_trace_reset,
-> > +	.print_line	= skb_source_print_line,
-> > +	.print_header	= skb_source_print_header,
-> > +};
-> > +
-> > +static int init_skb_source_trace(void)
-> > +{
-> > +	return register_tracer(&skb_source_tracer);
-> > +}
-> > +device_initcall(init_skb_source_trace);
-> > 
-> 
-> BTW, why not just do this as events? Or was this just a easy way to 
-> communicate with the user space tools?
-> 
-Thats exactly why I did it.  the idea is for me to now write a user space tool
-that lets me analyze the events and ajust process scheduling to optimize the rx
-path.
-Neil
-
-> -- Steve
-> 
-> 
