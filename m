@@ -1,43 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/9] drivers/net/s2io.c: Cleanups
-Date: Wed, 26 Aug 2009 15:47:58 -0700
-Message-ID: <1251326878.13026.52.camel@Joe-Laptop.home>
-References: <cover.1251170438.git.joe@perches.com>
-	 <20090826.153353.259743590.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/12] tg3: Updates and bugfixes
+Date: Wed, 26 Aug 2009 15:52:31 -0700 (PDT)
+Message-ID: <20090826.155231.42992984.davem@davemloft.net>
+References: <1251232429.25397@xw6200>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anil.murthy@neterion.com,
-	sreenivasa.honnur@neterion.com, sivakumar.subramani@neterion.com,
-	santosh.rastapur@neterion.com, ram.vepa@neterion.com,
-	akpm@linux-foundation.org, linux-next@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20090826.153353.259743590.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45681
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754289AbZHZWwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 18:52:18 -0400
+In-Reply-To: <1251232429.25397@xw6200>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-26 at 15:33 -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Mon, 24 Aug 2009 20:29:39 -0700
-> > Just a few cleanups, compiled, untested.  No hardware.
-> >   s2io.c: Use const for strings
-> >   s2io.c: Shorten code line length by using intermediate pointers
-> >   s2io.c: Use calculated size in kmallocs
-> >   s2io.c: use kzalloc
-> >   s2io.c: Make more conforming to normal kernel style
-> >   s2io.c: convert printks to pr_<level>
-> >   s2io.c: fix spelling explaination
-> >   s2io.c: Standardize statistics accessors
-> >   s2io.c: Convert skipped nic->config.tx_cfg[i]. to tx_cfg->
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Tue, 25 Aug 2009 13:06:01 -0700
+
+> This patchset contains a set of bugfixes for the tg3 driver.
 > 
-> Since this is a pretty serious set of cleanups, I'd like to
-> let the S2IO driver folks have some time to look at this and
-> at least have a chance to ACK/NACK them.
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Reviewed-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
 
-No worries.  That's fine.  It's only cleanups.
+One of the nicest driver patch series submissions I've
+seen in a while.
 
-I haven't heard from them though and they haven't
-submitted or signed a patch for s2io in over a year.
+The changes were broken up.  And also they were well formed and with
+adequately detailed commit messages.
 
-Hey!  Neterion people!  Is anybody home?
+And it even looks compile tested :-)
+
+Nice work, applied to net-next-2.6
+
+Thanks!
