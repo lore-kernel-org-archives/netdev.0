@@ -1,78 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 26 Aug 2009 15:40:59 +0200
-Message-ID: <200908261540.59900.arnd@arndb.de>
-References: <cover.1250693417.git.mst@redhat.com> <200908252140.41295.rusty@rustcorp.com.au> <20090825175016.GA15790@redhat.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
+Date: Wed, 26 Aug 2009 09:56:14 -0400
+Message-ID: <1251294974.14241.9.camel@obelisk.thedillows.org>
+References: <1250895567.23419.1.camel@obelisk.thedillows.org>
+	 <1250897657.23419.5.camel@obelisk.thedillows.org>
+	 <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org>
+	 <1250973787.3582.14.camel@obelisk.thedillows.org>
+	 <m1r5v0ogvw.fsf@fess.ebiederm.org>
+	 <1251169150.4023.11.camel@obelisk.thedillows.org>
+	 <m1prajabk8.fsf@fess.ebiederm.org>
+	 <1251232848.9607.15.camel@lap75545.ornl.gov>
+	 <m1k50r8u4p.fsf@fess.ebiederm.org>
+	 <20090825221903.GA13630@electric-eye.fr.zoreil.com>
+	 <m1iqgbknun.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
- Rusty Russell <rusty@rustcorp.com.au>,
- kvm@vger.kernel.org,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- linux-mm@kvack.org,
- hpa@zytor.com,
- mingo@elte.hu,
- akpm@linux-foundation.org
-To: virtualization@lists.linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20090825175016.GA15790@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Riepe <michael.riepe@googlemail.com>,
+	Michael Buesch <mb@bu3sch.de>,
+	Rui Santos <rsantos@grupopie.com>,
+	Michael B??ker <m.bueker@berlin.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757426AbZHZN4S@vger.kernel.org>
+In-Reply-To: <m1iqgbknun.fsf_-_@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 August 2009, Michael S. Tsirkin wrote:
-> >  I'd like to avoid that here,
-> > though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
-> > struct like:
-> > 
-> >       u32 feature_size;
-> >       u32 features[];
+On Wed, 2009-08-26 at 00:58 -0700, Eric W. Biederman wrote:
+> As of 2.6.30 I have been observing soft lockups and netdev watchdog
+> timeouts caused by looping in the r8169 interrupt handler.
+> 
+> - Introduce a hard limit to the maximum number of times we will loop in
+>   the interrupt handler, and print a message when we hit it.
+> 
+> - Break out of the loop if after looking none of the events in status
+>   are events we expect to be delivered by an interrupt.
+> 
+> With just the hard limit and message bits of my patch in my test case
+> I get hit my limit of 10 loops 12 times.  After filtering by intr_mask
+> and intr_event I don't get any warnings.
+> 
+> Any complaints from those who know the driver better than I?
 
-Hmm, variable length ioctl arguments, I'd rather not go there.
-The ioctl infrastructure already has a length argument encoded
-in the ioctl number. We can use that if we need more, e.g.
+Have you tried this under a sustained heavy transmit load? I think you
+may have reintroduced the problem the original patch was trying to
+prevent -- wedging the MSI interrupt by not ACKing all outstanding
+interrupt sources, masked or otherwise. I'll try to test this out on the
+machine where I've seen the problem consistently, but it may be this
+weekend.
 
-/* now */
-#define VHOST_GET_FEATURES     _IOR(VHOST_VIRTIO, 0x00, __u64)
-/*
- * uncomment if we run out of feature bits:
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 3b19e0c..2214945 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
 
-struct vhost_get_features2 {
-	__u64 bits[2];
-};
-#define VHOST_GET_FEATURES2     _IOR(VHOST_VIRTIO, 0x00, \
-			struct  vhost_get_features2)
- */
+> +
+> +		/* Ignore the parts of status that reflect more than
+> +		 * the enabled interrupts.
+> +		 */
+> +		smp_rmb();
+> +		if (!(status & tp->intr_mask & tp->intr_event))
+> +			break;
+>  	}
 
-> Thinking about this proposal some more, how will the guest
-> determine the size to supply the GET_FEATURES ioctl?
-
-Wait, the *guest*?
-
-Maybe I misunderstood something in a major way here, but
-I expected the features to be negotiated between host
-user space (qemu) and host kernel, as well as between
-guest and qemu (as they are already), but never between
-guest and kernel.
-
-I would certainly expect the bits to be distinct from
-the virtio-net feature bits. E.g. stuff like TAP frame
-format opposed to TCP socket frame format (length+date)
-is something we need to negotiate here but that the
-guest does not care about.
-
-> Since we are a bit tight in 32 bit space already,
-> let's just use a 64 bit integer and be done with it?
-
-Can't hurt, but don't use a struct unless you think
-we are going to need more than 64 bits.
-
-	Arnd <><
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This looks like an odd construct, since we're just about to go back the
+while condition up top -- why not just mask it here and let the loop
+handle it naturally?
