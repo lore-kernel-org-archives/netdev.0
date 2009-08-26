@@ -1,45 +1,43 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 5/5] [PATCH] qeth: display "undefined" value of sysfs-attribute "layer2"
-Date: Wed, 26 Aug 2009 14:01:10 +0200
-Message-ID: <20090826120136.512410000@de.ibm.com>
+Subject: [patch 2/5] [PATCH] qeth: scheduling while atomic during ifconfig online sequence
+Date: Wed, 26 Aug 2009 14:01:07 +0200
+Message-ID: <20090826120136.122811000@de.ibm.com>
 References: <20090826120105.727838000@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.17.162]:36829 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754576AbZHZMBf (ORCPT
+Received: from mtagate8-bp.emea.ibm.com ([195.212.17.168]:41126 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756078AbZHZMBf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 08:01:35 -0400
-Content-Disposition: inline; filename=612-qeth-layer2-attribute.diff
+Content-Disposition: inline; filename=606-qeth-online-sequence.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-If nothing has been written into the qeth sysfs-attribute layer2,
-its value is "-1" meaning "not yet defined". But the value is
-displayed as "1" meaning "layer2 selected". The patch changes the
-reading of this "-1"-value to "-1" to make clear the layer2-attribute
-has not yet been defined.
+In case the IP address list contains entries (not removed when the device was set
+offline) this entries should be registered next time the device is brought online.
+In the past this was done implicitly with the device open call but since we wait
+in the set IPv4 IPA and the device open common code holds various locks this
+does not work any longer.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- drivers/s390/net/qeth_core_sys.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/s390/net/qeth_l3_main.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Index: git_net-next/drivers/s390/net/qeth_core_sys.c
+Index: git_net-next/drivers/s390/net/qeth_l3_main.c
 ===================================================================
---- git_net-next.orig/drivers/s390/net/qeth_core_sys.c
-+++ git_net-next/drivers/s390/net/qeth_core_sys.c
-@@ -364,7 +364,7 @@ static ssize_t qeth_dev_layer2_show(stru
- 	if (!card)
- 		return -EINVAL;
+--- git_net-next.orig/drivers/s390/net/qeth_l3_main.c
++++ git_net-next/drivers/s390/net/qeth_l3_main.c
+@@ -3180,6 +3180,7 @@ static int __qeth_l3_set_online(struct c
+ 	netif_carrier_on(card->dev);
  
--	return sprintf(buf, "%i\n", card->options.layer2 ? 1:0);
-+	return sprintf(buf, "%i\n", card->options.layer2);
- }
- 
- static ssize_t qeth_dev_layer2_store(struct device *dev,
+ 	qeth_set_allowed_threads(card, 0xffffffff, 0);
++	qeth_l3_set_ip_addr_list(card);
+ 	if (recover_flag == CARD_STATE_RECOVER) {
+ 		if (recovery_mode)
+ 			qeth_l3_open(card->dev);
 
