@@ -1,43 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [BUG bisected] 2.6.30.4: NET: active FTP doesn't work
-Date: Wed, 26 Aug 2009 14:51:23 +0200
-Message-ID: <4A952FCB.6010101@trash.net>
-References: <20090826083358.GB6010@pc11.op.pod.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
+Date: Wed, 26 Aug 2009 15:40:59 +0200
+Message-ID: <200908261540.59900.arnd@arndb.de>
+References: <cover.1250693417.git.mst@redhat.com> <200908252140.41295.rusty@rustcorp.com.au> <20090825175016.GA15790@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Piotr Oledzki <ole@ans.pl>,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org
-To: Vitezslav Samel <vitezslav@samel.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40167 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932901AbZHZMvY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 08:51:24 -0400
-In-Reply-To: <20090826083358.GB6010@pc11.op.pod.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+ Rusty Russell <rusty@rustcorp.com.au>,
+ kvm@vger.kernel.org,
+ netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ linux-mm@kvack.org,
+ hpa@zytor.com,
+ mingo@elte.hu,
+ akpm@linux-foundation.org
+To: virtualization@lists.linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20090825175016.GA15790@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Vitezslav Samel wrote:
-> 	Hi!
-> 
->   When testing 2.6.30.4+ kernel, I discovered active ftp does not work
-> anymore (2.6.30.3 is OK).
-> 
->                LAN              internet
->    machine1  -------  router1   -------   machine2
-> 
-> 
->  Active ftp from machine1 to machine2 connects, transfers some files and
-> then hangs. Passive ftp works OK. The faulty box (router1)
-> is router/firewall and is doing NAT.
-> 
->   I bisected it down to commit 7500f93f415a2fc07e0031d99fa3964bf8981cfc
-> in linux-2.6.30.y tree ("netfilter: tcp conntrack: fix unacknowledged
-> data detection with NAT").
-> 
->   Could you, please, take look at it?
+On Tuesday 25 August 2009, Michael S. Tsirkin wrote:
+> >  I'd like to avoid that here,
+> > though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
+> > struct like:
+> > 
+> >       u32 feature_size;
+> >       u32 features[];
 
-Please send me a tcpdump (binary dump, with -o <file> and -s0) of an
-FTP session on both the internal and external interfaces and your NAT
-rules. Thanks.
+Hmm, variable length ioctl arguments, I'd rather not go there.
+The ioctl infrastructure already has a length argument encoded
+in the ioctl number. We can use that if we need more, e.g.
+
+/* now */
+#define VHOST_GET_FEATURES     _IOR(VHOST_VIRTIO, 0x00, __u64)
+/*
+ * uncomment if we run out of feature bits:
+
+struct vhost_get_features2 {
+	__u64 bits[2];
+};
+#define VHOST_GET_FEATURES2     _IOR(VHOST_VIRTIO, 0x00, \
+			struct  vhost_get_features2)
+ */
+
+> Thinking about this proposal some more, how will the guest
+> determine the size to supply the GET_FEATURES ioctl?
+
+Wait, the *guest*?
+
+Maybe I misunderstood something in a major way here, but
+I expected the features to be negotiated between host
+user space (qemu) and host kernel, as well as between
+guest and qemu (as they are already), but never between
+guest and kernel.
+
+I would certainly expect the bits to be distinct from
+the virtio-net feature bits. E.g. stuff like TAP frame
+format opposed to TCP socket frame format (length+date)
+is something we need to negotiate here but that the
+guest does not care about.
+
+> Since we are a bit tight in 32 bit space already,
+> let's just use a 64 bit integer and be done with it?
+
+Can't hurt, but don't use a struct unless you think
+we are going to need more than 64 bits.
+
+	Arnd <><
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
