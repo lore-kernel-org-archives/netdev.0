@@ -1,77 +1,51 @@
-From: Pierre Ossman <drzeus-list@drzeus.cx>
-Subject: Re: Page allocation failures in guest
-Date: Wed, 26 Aug 2009 06:55:01 +0200
-Message-ID: <20090826065501.7ab677b9@mjolnir.ossman.eu>
-References: <20090713115158.0a4892b0@mjolnir.ossman.eu>
-	<200908121501.53167.rusty@rustcorp.com.au>
-	<20090813222548.5e0743dd@mjolnir.ossman.eu>
-	<200908261147.17838.rusty@rustcorp.com.au>
+From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
+Date: Wed, 26 Aug 2009 13:20:18 +0800
+Message-ID: <4A94C612.60200@cn.fujitsu.com>
+References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1; protocol="application/pgp-signature"; boundary="=_freyr.ossman.eu-655-1251262508-0001-2"
-Cc: Avi Kivity <avi@redhat.com>, Minchan Kim <minchan.kim@gmail.com>,
-  kvm@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-  linux-mm@kvack.org, Wu Fengguang <fengguang.wu@intel.com>,
-  KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-  Rik van Riel <riel@redhat.com>, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200908261147.17838.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
-
---=_freyr.ossman.eu-655-1251262508-0001-2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 26 Aug 2009 11:47:17 +0930
-Rusty Russell <rusty@rustcorp.com.au> wrote:
-
-> On Fri, 14 Aug 2009 05:55:48 am Pierre Ossman wrote:
-> > On Wed, 12 Aug 2009 15:01:52 +0930
-> > Rusty Russell <rusty@rustcorp.com.au> wrote:
-> > > Subject: virtio: net refill on out-of-memory
-> ...=20
-> > Patch applied. Now we wait. :)
->=20
-> Any results?
->=20
-
-It's been up for 12 days, so I'd say it works. But there is nothing in
-dmesg, which suggests I haven't triggered the condition yet.
-
-I wonder if there might be something broken with Fedora's kernel. :/
-(I am running the same upstream version, and their conf, for this test,
-but not all of their patches)
-
-Rgds
---=20
-     -- Pierre Ossman
-
-  WARNING: This correspondence is being monitored by the
-  Swedish government. Make sure your server uses encryption
-  for SMTP traffic and consider using PGP for end-to-end
-  encryption.
-
---=_freyr.ossman.eu-655-1251262508-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=signature.asc
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:49671 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722AbZHZFUw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 01:20:52 -0400
+In-Reply-To: <4A93895F.4010708@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.11 (GNU/Linux)
 
-iEYEARECAAYFAkqUwCkACgkQ7b8eESbyJLhvfgCeJdWl6lSQa8Zi7CGsSLbjyr4x
-1+EAnjLeYeg7bXuVqJ3AACXj23IMc+uk
-=tuHm
------END PGP SIGNATURE-----
 
---=_freyr.ossman.eu-655-1251262508-0001-2--
+Xiao Guangrong wrote:
+> Currently, the napi's tracepoint works will is depend on
+> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+> like below:
+> 
+> #include <trace/events/skb.h>    // include define_trace.h
+> #include <trace/events/napi.h>
+> 
+> there have error, if we remove "#include <trace/events/skb.h>"
+> or include napi.h in the front of include skb.h, It should
+> depend on the definiens in include/linux/tracepoint.h and we
+> can remove the "DECLARE_TRACE" definiens in
+> include/trace/define_trace.h, because "TRACE_EVENT" not use it
+> 
+> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hi Steven,
+
+I'm sorry, please pull this patch too, because 
+"[PATCH 7/8] tracing/events: fix the include file dependencies" 
+is based on this patch, else will occur building error.
+
+Thanks,
+Xiao
