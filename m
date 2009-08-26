@@ -1,45 +1,168 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [Bridge] VLANs and bridge
-Date: Wed, 26 Aug 2009 08:56:49 +0200
-Message-ID: <OF89F33C42.59FE9B41-ONC125761E.002582F4-C125761E.0026292A@transmode.se>
-References: <OFC5BA9A4A.DCCE8D0D-ONC125761A.004A7620-C125761A.004BEA17@transmode.se> <4A9001E3.6060506@superduper.net> <OF2C06F138.1BC279AE-ONC125761A.0054117B-C125761A.0055C6F1@LocalDomain> <OF9BD07CB5.A2197AEA-ONC125761A.005AE004-C125761A.005B662E@transmode.se> <4A9026EA.9020404@superduper.net> <OF7400A5E8.F4AC001F-ONC125761C.00674A25-C125761C.00679758@transmode.se> <4A93EE8C.6040008@trash.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Wed, 26 Aug 2009 03:10:57 -0400
+Message-ID: <20090826031057.375303c9.billfink@mindspring.com>
+References: <20090807170600.9a2eff2e.billfink@mindspring.com>
+	<20090807221211.GA16874@localhost.localdomain>
+	<20090807205442.32918186.billfink@mindspring.com>
+	<20090808015612.GA17710@localhost.localdomain>
+	<20090814164412.be5daa74.billfink@mindspring.com>
+	<20090814232543.GA28599@hmsreliant.think-freely.org>
+	<20090820035044.9b70fca6.billfink@mindspring.com>
+	<20090820201919.GA20750@localhost.localdomain>
+	<20090821001421.214a560b.billfink@mindspring.com>
+	<20090821152341.GA2998@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Simon Barber <simon@superduper.net>
-To: Patrick McHardy <kaber@trash.net>
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Developers <netdev@vger.kernel.org>, brice@myri.com,
+	gallatin@myri.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:60262 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932163AbZHZHAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 03:00:54 -0400
-In-Reply-To: <4A93EE8C.6040008@trash.net>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:45445 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756810AbZHZHLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 03:11:01 -0400
+In-Reply-To: <20090821152341.GA2998@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy <kaber@trash.net> wrote on 25/08/2009 16:00:44:
->
-> Joakim Tjernlund wrote:
-> > Simon Barber <simon@superduper.net> wrote on 22/08/2009 19:12:10:
-> >> Looking through B.1.3 it looks like the patch would need some
-> >> enhancement. It provides a good basis - handling tagging/untagging and
-> >> filtering, but would need a way to specify the untagged vlan separately
-> >> for in and out.
-> >
-> > I see. Perhaps the VLAN maintainer(CC:ed) can comment too. Especially about extending
-> > the VLAN code to allowed several VLANs in one interface?
->
-> Just accepting additional VIDs on one VLAN device should be
-> a relatively trivial change, all you need to do is call
-> vlan_group_set_device() with the additional VIDs.
->
-> I'd suggest to add something similar to the QoS-mapping lists
-> in vlan_netlink.c for the additional VIDs.
+On Fri, 21 Aug 2009, Neil Horman wrote:
 
-Yes, this seems to be the easy part. There are a few bride issues though:
-How would the bridge be able to filter pks based on VID?
-How to control which VID to use at pkg TX?
-Can you have the same VID on multiple VLAN interfaces?
+> On Fri, Aug 21, 2009 at 12:14:21AM -0400, Bill Fink wrote:
+> > On Thu, 20 Aug 2009, Neil Horman wrote:
+> > 
+> > > On Thu, Aug 20, 2009 at 03:50:44AM -0400, Bill Fink wrote:
+> > > 
+> > > > When I tried an actual nuttcp performance test, even when rate limiting
+> > > > to just 1 Mbps, I immediately got a kernel oops.  I tried to get a
+> > > > crashdump via kexec/kdump, but the kexec kernel, instead of just
+> > > > generating a crashdump, fully booted the new kernel, which was
+> > > > extremely sluggish until I rebooted it through a BIOS re-init,
+> > > > and never produced a crashdump.  I tried this several times and
+> > > > an immediate kernel oops was always the result (with either a TCP
+> > > > or UDP test).  A ping test of 1000 9000-byte packets with an interval
+> > > > of 0.001 seconds (which is 72 Mbps for 1 second) on the other hand
+> > > > worked just fine.
+> > > 
+> > > The sluggishness is expected, since the kdump kernel operates out of such
+> > > limited memory.  don't know why you booted to a full system rather than did a
+> > > crash recovery.  Don't suppose you got a backtrace did you?
+> > 
+> > There was a backtrace on the screen but I didn't have a chance to
+> > record it.  BTW did anyone ever think to print the backtrace in
+> > reverse (first to some reserved memory and then output to the display)
+> > so the more interesting parts wouldn't have scrolled off the top of
+> > the screen?
+> > 
+> The real solution is to use a console to which the output doesn't scroll off the
+> screen.  Normally people use a serial console they can log, or a RAC card that
+> they can record. Even on a regular vga monitor in text mode, you can set up the
+> vt iirc to allow for scrolling.
 
-     Jocke
+None of our Asus P6T6 systems have serial consoles.  I don't know of
+any RAC cards for them either, nor are there spare PCI slots available
+in many cases.  I wouldn't think the Shift-PageUp trick would work
+with a crashed kernel, but I admit I didn't try it.  I haven't checked
+out netconsole yet either, but I'm not sure it would help either in a
+case like this that was a network related kernel crash.
 
+In any case, a simple kernel command line that would provide a reversed
+backtrace would be a simple thing to facilitate Linux users providing
+useful info to Linux kernel developers in helping to debug kernel
+problems.  The most useful info would still be on the screen, so it
+could be transcribed or a photo image of the screen could be taken.
+
+Fortunately, in this specific case, the SuperMicro X8DAH+-F system
+does have a serial console, and after a fair amount of effort I was
+able to get it to work as desired, and was able to finally capture
+a backtrace of the kernel oops.  BTW I believe the reason the
+kexec/kdump didn't work was probably because it couldn't find
+a /proc/vmcore file, although I don't know why that would be,
+and the Fedora 10 /etc/init.d/kdump script will then just boot
+up normally if it fails to find the /proc/vmcore file (or it's
+zero size).
+
+The following shows a simple ping test usage of the skb_sources
+tracing feature:
+
+[root@xeontest1 tracing]# numactl --membind=1 taskset -c 4 ping -c 5 -s 1472 192.168.1.10
+PING 192.168.1.10 (192.168.1.10) 1472(1500) bytes of data.
+1480 bytes from 192.168.1.10: icmp_seq=1 ttl=64 time=0.139 ms
+1480 bytes from 192.168.1.10: icmp_seq=2 ttl=64 time=0.182 ms
+1480 bytes from 192.168.1.10: icmp_seq=3 ttl=64 time=0.178 ms
+1480 bytes from 192.168.1.10: icmp_seq=4 ttl=64 time=0.188 ms
+1480 bytes from 192.168.1.10: icmp_seq=5 ttl=64 time=0.178 ms
+
+--- 192.168.1.10 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 3999ms
+rtt min/avg/max/mdev = 0.139/0.173/0.188/0.017 ms
+
+[root@xeontest1 tracing]# cat trace
+# tracer: skb_sources
+#
+#       PID     ANID    CNID    IFC     RXQ     CCPU    LEN
+#        |       |       |       |       |       |       |
+        4217    1       1       eth2    0       4       1500
+        4217    1       1       eth2    0       4       1500
+        4217    1       1       eth2    0       4       1500
+        4217    1       1       eth2    0       4       1500
+        4217    1       1       eth2    0       4       1500
+
+All is as was expected.
+
+But if I try an actual nuttcp performance test (even rate limited
+to 1 Mbps), I get the following kernel oops:
+
+[root@xeontest1 tracing]# numactl --membind=1 nuttcp -In2 -Ri1m -xc4/0 192.168.1.10
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000038
+IP: [<ffffffff810b01ab>] probe_skb_dequeue+0xf7/0x152
+PGD 337d12067 PUD 337d11067 PMD 0
+Oops: 0000 [#1] SMP
+last sysfs file: /sys/devices/pci0000:80/0000:80:07.0/0000:8b:00.0/0000:8c:04.0e
+CPU 4
+Modules linked in: w83627ehf hwmon_vid coretemp hwmon ipv6 dm_multipath uinput ]
+Pid: 4222, comm: nuttcp Not tainted 2.6.31-rc6-bf #3 X8DAH
+RIP: 0010:[<ffffffff810b01ab>]  [<ffffffff810b01ab>] probe_skb_dequeue+0xf7/0x12
+RSP: 0018:ffff8801a5811a88  EFLAGS: 00010213
+RAX: 0000000000000000 RBX: ffff88033906d154 RCX: 000000000000000d
+RDX: 000000000000f88c RSI: 000000000000000b RDI: ffff8803383d3044
+RBP: ffff8801a5811ab8 R08: 0000000000000001 R09: ffff8801ab311a00
+R10: 0000000000000005 R11: ffffc9000080e2b0 R12: ffff880337c45400
+R13: ffff88033906d150 R14: 0000000000000014 R15: ffffffff818bb890
+FS:  00007fa976d326f0(0000) GS:ffffc90000800000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000038 CR3: 000000033801e000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process nuttcp (pid: 4222, threadinfo ffff8801a5810000, task ffff8801ab2e5d00)
+Stack:
+ ffff8801a5811ab8 ffff8801b35d4ab0 0000000000000014 0000000000000000
+<0> 0000000000000014 0000000000000014 ffff8801a5811b18 ffffffff81366ae8
+<0> ffff8801a5811ed8 0000001439084000 ffff880337c45400 00000001001416ef
+Call Trace:
+ [<ffffffff81366ae8>] skb_copy_datagram_iovec+0x50/0x1f5
+ [<ffffffff813ac875>] tcp_rcv_established+0x278/0x6db
+ [<ffffffff813b3ef5>] tcp_v4_do_rcv+0x1b8/0x366
+ [<ffffffff8135f99e>] ? release_sock+0xab/0xb4
+ [<ffffffff8136004d>] ? sk_wait_data+0xc8/0xd6
+ [<ffffffff813a32d6>] tcp_prequeue_process+0x79/0x8f
+ [<ffffffff813a455d>] tcp_recvmsg+0x4e8/0xaa0
+ [<ffffffff8135ec90>] sock_common_recvmsg+0x37/0x4c
+ [<ffffffff8135cb06>] __sock_recvmsg+0x72/0x7f
+ [<ffffffff8135cbdd>] sock_aio_read+0xca/0xda
+ [<ffffffff810d9536>] ? vma_merge+0x2a0/0x318
+ [<ffffffff810f6d4f>] do_sync_read+0xec/0x132
+ [<ffffffff81067ddc>] ? autoremove_wake_function+0x0/0x3d
+ [<ffffffff811b646c>] ? security_file_permission+0x16/0x18
+ [<ffffffff810f785c>] vfs_read+0xc0/0x107
+ [<ffffffff810f7971>] sys_read+0x4c/0x75
+ [<ffffffff81011c82>] system_call_fastpath+0x16/0x1b
+Code: 44 89 73 30 89 43 14 41 0f b7 84 24 ac 00 00 00 89 43 28 65 8b 04 25 98 e
+RIP  [<ffffffff810b01ab>] probe_skb_dequeue+0xf7/0x152
+ RSP <ffff8801a5811a88>
+CR2: 0000000000000038
+
+						-Thanks
+
+						-Bill
