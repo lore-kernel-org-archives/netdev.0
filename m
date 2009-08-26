@@ -1,62 +1,89 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] Re: iproute2 / tbf with large burst seems broken again
-Date: Wed, 26 Aug 2009 23:59:56 +0200
-Message-ID: <20090826215956.GA5148@ami.dom.local>
-References: <200908251518.00762.denys@visp.net.lb>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Wed, 26 Aug 2009 15:11:06 -0700
+Message-ID: <1251324666.10599.72.camel@w-sridhar.beaverton.ibm.com>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>
+	 <alpine.DEB.1.10.0908251514190.17963@gentwo.org>
+	 <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>
+	 <alpine.DEB.1.10.0908261223210.9933@gentwo.org>
+	 <1251309040.10599.34.camel@w-sridhar.beaverton.ibm.com>
+	 <alpine.DEB.1.10.0908261506590.9933@gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Denys Fedoryschenko <denys@visp.net.lb>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f222.google.com ([209.85.218.222]:38473 "EHLO
-	mail-bw0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754054AbZHZWAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 18:00:33 -0400
-Received: by bwz22 with SMTP id 22so508494bwz.18
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 15:00:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <200908251518.00762.denys@visp.net.lb>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:49336 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753931AbZHZWLH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 18:11:07 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id n7QM2s6s027054
+	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 18:02:54 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7QMB8ib254260
+	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 18:11:08 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7QMB7Qp008150
+	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 18:11:08 -0400
+In-Reply-To: <alpine.DEB.1.10.0908261506590.9933@gentwo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryschenko wrote, On 08/25/2009 02:18 PM:
-...
-> Just maybe good idea in next kernels to document this or handle overflow, that 
-> it will give warning in kernel. Otherwise user will have non-functional qdisc 
-> that will not pass traffic.
+On Wed, 2009-08-26 at 15:09 -0400, Christoph Lameter wrote:
+> On Wed, 26 Aug 2009, Sridhar Samudrala wrote:
+> 
+> > >  They are reported for IP and UDP.
+> > Not clear what you meant by this.
+> 
+> The SNMP and UDP statistics show the loss. qdisc level does not show the
+> loss.
+> > > root@rd-strategy3-deb64:/home/clameter#tc -s qdisc show
+> > > qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1
+> > > 1 1 1 1
+> > >  Sent 6208 bytes 64 pkt (dropped 0, overlimits 0 requeues 0)
+> > >  rate 0bit 0pps backlog 0b 0p requeues 0
+> >
+> > Even the Sent count seems to be too low. Are you looking at the right
+> > device?
+> 
+> I would think that tc displays all queues? It says eth0 and eth0 is the
+> device that we sent the data out on.
 
-OK, if this patch works for you send your Tested-by, please.
 
-Thanks,
-Jarek P.
----------------->
-pkt_sched: Warn on tokens overflow in tbf_dequeue
+> 
+> > So based on the current analysis, the packets are getting dropped after
+> > the call to ip_local_out() in ip_push_pending_frames(). ip_local_out()
+> > is failing with NET_XMIT_DROP. But we are not sure where they are
+> > getting dropped. Is that right?
+> 
+> ip_local_out is returning ENOBUFS. Something at the qdisc layer is
+> dropping the packet and not incrementing counters.
 
-After recent change of scheduling resolution some "extreme" configs
-can cause token overflows with stalls. This patch warns when tokens
-were negative before accounting for a packet length.
+Is the ENOBUFS return with your/Eric's patch? I thought you were
+were seeing NET_XMIT_DROP without any patches.
 
-Reported-by: Denys Fedoryschenko <denys@visp.net.lb>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
+> 
+> > I think we need to figure out where they are getting dropped and then
+> > decide on the appropriate counter to be incremented.
+> 
+> Right. Where in the qdisc layer do drops occur?
 
- net/sched/sch_tbf.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+The normal path where the packets are dropped when the tx qlen is exceeded is
+  pfifo_fast_enqueue() -> qdisc_drop()
+In this path, drops are counted.
+The other place is in dev_queue_xmit(), but you are not hitting that case too.
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index e22dfe8..ef191c4 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -191,6 +191,12 @@ static struct sk_buff *tbf_dequeue(struct Qdisc* sch)
- 			return skb;
- 		}
- 
-+		if (unlikely((long)(toks + L2T(q, len)) < 0 ||
-+			     (long)(ptoks + L2T_P(q, len) < 0)))
-+			if (net_ratelimit())
-+				pr_warning("tbf: tokens overflow;"
-+					   " fix limits.\n");
-+
- 		qdisc_watchdog_schedule(&q->watchdog,
- 					now + max_t(long, -toks, -ptoks));
- 
+So it looks like there is another place where they are getting dropped.
+
+Thanks
+Sridhar
+
+
+
+
+
