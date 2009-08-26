@@ -1,53 +1,62 @@
-From: Chris Ross <chris@compilednetworks.com>
-Subject: skb_copy/clone question
-Date: Wed, 26 Aug 2009 10:07:59 -0500
-Message-ID: <17cd85320908260807k78a0353ha82da7f8dbc34ec@mail.gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Wed, 26 Aug 2009 11:27:43 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908261115140.9933@gentwo.org>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org> <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com> <alpine.DEB.1.10.0908261006520.9924@gentwo.org>
+ <4A954535.2000304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	niv@linux.vnet.ibm.com, sri@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f204.google.com ([209.85.223.204]:55727 "EHLO
-	mail-iw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751190AbZHZPH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 11:07:57 -0400
-Received: by iwn42 with SMTP id 42so102295iwn.33
-        for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 08:07:59 -0700 (PDT)
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:54225 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750828AbZHZP2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 11:28:09 -0400
+Received: from localhost (smtp.ultrahosting.com [127.0.0.1])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 3246282CDFE
+	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 11:29:10 -0400 (EDT)
+Received: from smtp.ultrahosting.com ([74.213.175.253])
+	by localhost (smtp.ultrahosting.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 4LAjkHcJiyKa for <netdev@vger.kernel.org>;
+	Wed, 26 Aug 2009 11:29:10 -0400 (EDT)
+Received: from gentwo.org (unknown [74.213.171.31])
+	by smtp.ultrahosting.com (Postfix) with ESMTP id 76E3282CE02
+	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 11:29:05 -0400 (EDT)
+In-Reply-To: <4A954535.2000304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a driver that generate N packets to send for every 1 it
-receives, similar to a bridge in functionality. I need to insert a
-slightly different header for each output packet. My current approach
-which is causing some issues is ..
+On Wed, 26 Aug 2009, Eric Dumazet wrote:
 
-send_packet(struct sk_buff* skb)
-{
-  if (skb_cow_head(skb, some_val) < 0)
-    goto error_condition;
+> I think it's already done in udp_sendmsg()>
+> Code starting at line 765 in net/ipv4/udp.c
+>
+>         /*
+>          * ENOBUFS = no kernel mem, SOCK_NOSPACE = no sndbuf space.  Reporting
+>          * ENOBUFS might not be good (it's not tunable per se), but otherwise
+>          * we don't have a good statistic (IpOutDiscards but it can be too many
+>          * things).  We could add another new stat but at least for now that
+>          * seems like overkill.
+>          */
+>         if (err == -ENOBUFS || test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
+>                 UDP_INC_STATS_USER(sock_net(sk),
+>                                 UDP_MIB_SNDBUFERRORS, is_udplite);
+>         }
+>
 
-  .. insert header ..
+Right. That would mean the fix to ip_push_pending_frames() would also fix
+UDP tx drop accounting.
 
-  .. set skb->dst, and ident ..
+ENOBUFS is then returned for two cases.
 
-  ip_local_out(skb)
-}
+1. SNDBUF overflow
+2. NIC TX overflow
 
-// main section
-for each egress packet
-{
-  // skb->len is always > 0 here
-  if ((tskb = pskb_copy(skb, GFP_ATOMIC)) == NULL)
-    goto error_condition;
+Hope that is not confusing.
 
-  // tskb->len seems to be 0 here
-  send_packet(tskb)
-}
 
-I've played with both pskb_copy and skb_copy and both seem to result
-in a packet with len of 0. I was expecting skb->len to be equivalent
-to tskb->len. I am running 2.6.29, any pointers would be appreciated.
 
-thanks,
-
--chris
