@@ -1,82 +1,76 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv4 2/2] vhost_net: a kernel-level virtio server
-Date: Wed, 26 Aug 2009 16:58:00 +0300
-Message-ID: <20090826135759.GA21988@redhat.com>
-References: <cover.1250693417.git.mst@redhat.com> <200908252140.41295.rusty@rustcorp.com.au> <20090825175016.GA15790@redhat.com> <200908261540.59900.arnd@arndb.de>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
+Date: Wed, 26 Aug 2009 10:01:20 -0400 (EDT)
+Message-ID: <alpine.DEB.2.00.0908260957470.23885@gandalf.stny.rr.com>
+References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <4A94C612.60200@cn.fujitsu.com> <4A94CACD.6020309@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org,
-        Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, hpa@zytor.com, mingo@elte.hu,
-        akpm@linux-foundation.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <200908261540.59900.arnd@arndb.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757485AbZHZOBZ@vger.kernel.org>
+In-Reply-To: <4A94CACD.6020309@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 26, 2009 at 03:40:59PM +0200, Arnd Bergmann wrote:
-> On Tuesday 25 August 2009, Michael S. Tsirkin wrote:
-> > >  I'd like to avoid that here,
-> > > though it's kind of ugly.  We'd need VHOST_GET_FEATURES (and ACK) to take a
-> > > struct like:
-> > > 
-> > >       u32 feature_size;
-> > >       u32 features[];
-> 
-> Hmm, variable length ioctl arguments, I'd rather not go there.
-> The ioctl infrastructure already has a length argument encoded
-> in the ioctl number. We can use that if we need more, e.g.
-> 
-> /* now */
-> #define VHOST_GET_FEATURES     _IOR(VHOST_VIRTIO, 0x00, __u64)
-> /*
->  * uncomment if we run out of feature bits:
-> 
-> struct vhost_get_features2 {
-> 	__u64 bits[2];
-> };
-> #define VHOST_GET_FEATURES2     _IOR(VHOST_VIRTIO, 0x00, \
-> 			struct  vhost_get_features2)
->  */
-> 
-> > Thinking about this proposal some more, how will the guest
-> > determine the size to supply the GET_FEATURES ioctl?
-> 
-> Wait, the *guest*?
 
-Sorry. the userspace hypervisor.
+On Wed, 26 Aug 2009, Xiao Guangrong wrote:
 
-> Maybe I misunderstood something in a major way here, but
-> I expected the features to be negotiated between host
-> user space (qemu) and host kernel, as well as between
-> guest and qemu (as they are already), but never between
-> guest and kernel.
-
-Yes.
-
-> I would certainly expect the bits to be distinct from
-> the virtio-net feature bits. E.g. stuff like TAP frame
-> format opposed to TCP socket frame format (length+date)
-> is something we need to negotiate here but that the
-> guest does not care about.
-
-My idea is to use virtio format for things I share with virtio (e.g.
-mergeable buffers).  Since we are a kind of transport, I thought that I
-will use the transport bits, that is bits 28 and up for vhost things.
-
-> > Since we are a bit tight in 32 bit space already,
-> > let's just use a 64 bit integer and be done with it?
 > 
-> Can't hurt, but don't use a struct unless you think
-> we are going to need more than 64 bits.
 > 
-> 	Arnd <><
+> Xiao Guangrong wrote:
+> > 
+> > Xiao Guangrong wrote:
+> >> Currently, the napi's tracepoint works will is depend on
+> >> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+> >> like below:
+> >>
+> >> #include <trace/events/skb.h>    // include define_trace.h
+> >> #include <trace/events/napi.h>
+> >>
+> >> there have error, if we remove "#include <trace/events/skb.h>"
+> >> or include napi.h in the front of include skb.h, It should
+> >> depend on the definiens in include/linux/tracepoint.h and we
+> >> can remove the "DECLARE_TRACE" definiens in
+> >> include/trace/define_trace.h, because "TRACE_EVENT" not use it
+> >>
+> >> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> > 
+> > Hi Steven,
+> > 
+> > I'm sorry, please pull this patch too, because 
+> > "[PATCH 7/8] tracing/events: fix the include file dependencies" 
+> > is based on this patch, else will occur building error.
+> > 
+> 
+> Sorry again, I say the wrong words, it not has building error, just
+> not complete fix the bug which I mention it in the changelog of
+> "[PATCH 7/8] tracing/events: fix the include file dependencies", that
+> is we can't include more TRACE_EVENT head file in .c file all the same,
+> like below:
+> 
+> Both define TRACE_EVENT in trace_a.h and trace_b.h, if we include
+> those in .c file, like this:
+> 
+> #define CREATE_TRACE_POINTS
+> include <trace/events/trace_a.h>  // re-define DECLARE_TRACE
+> 
+> include <trace/events/trace_b.h>  // use the DECLARE_TRACE definition
+> 				  // that re-define by trace_a.h
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hi Xiao,
+
+I pushed out the "fix the include file dependencies" patch since that was 
+a bug fix in its own right. I held off the NAPI patch because it looked 
+like it needed rework and only depended on the include dependencies fix. 
+
+Could you update this code to do as Neil and Ingo has mentioned.
+
+Thanks,
+
+-- Steve
