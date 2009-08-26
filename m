@@ -1,76 +1,56 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Wed, 26 Aug 2009 10:01:20 -0400 (EDT)
-Message-ID: <alpine.DEB.2.00.0908260957470.23885@gandalf.stny.rr.com>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <4A94C612.60200@cn.fujitsu.com> <4A94CACD.6020309@cn.fujitsu.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: UDP multicast packet loss not reported if TX ring overrun?
+Date: Wed, 26 Aug 2009 10:08:26 -0400 (EDT)
+Message-ID: <alpine.DEB.1.10.0908261006520.9924@gentwo.org>
+References: <OFB18AD855.24C5AC71-ON8825761D.00687D5E-8825761D.0068BB9C@us.ibm.com>  <alpine.DEB.1.10.0908251514190.17963@gentwo.org> <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo@elte.hu>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757485AbZHZOBZ@vger.kernel.org>
-In-Reply-To: <4A94CACD.6020309@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, niv@linux.vnet.ibm.com,
+	sri@linux.vnet.ibm.com
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.ultrahosting.com ([74.213.175.253]:48965 "EHLO
+	smtp.ultrahosting.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757402AbZHZOIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 10:08:54 -0400
+In-Reply-To: <1251239734.3169.65.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+I also see no UDP stats for packet drops. If Erics fix gets in then
+ip_push_pending_frames() will give us an error code on drop.
+Incrementing SNDBUFERRORS would require this simple patch.
 
 
-On Wed, 26 Aug 2009, Xiao Guangrong wrote:
+UDP: Account for TX drops
 
-> 
-> 
-> Xiao Guangrong wrote:
-> > 
-> > Xiao Guangrong wrote:
-> >> Currently, the napi's tracepoint works will is depend on
-> >> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
-> >> like below:
-> >>
-> >> #include <trace/events/skb.h>    // include define_trace.h
-> >> #include <trace/events/napi.h>
-> >>
-> >> there have error, if we remove "#include <trace/events/skb.h>"
-> >> or include napi.h in the front of include skb.h, It should
-> >> depend on the definiens in include/linux/tracepoint.h and we
-> >> can remove the "DECLARE_TRACE" definiens in
-> >> include/trace/define_trace.h, because "TRACE_EVENT" not use it
-> >>
-> >> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-> > 
-> > Hi Steven,
-> > 
-> > I'm sorry, please pull this patch too, because 
-> > "[PATCH 7/8] tracing/events: fix the include file dependencies" 
-> > is based on this patch, else will occur building error.
-> > 
-> 
-> Sorry again, I say the wrong words, it not has building error, just
-> not complete fix the bug which I mention it in the changelog of
-> "[PATCH 7/8] tracing/events: fix the include file dependencies", that
-> is we can't include more TRACE_EVENT head file in .c file all the same,
-> like below:
-> 
-> Both define TRACE_EVENT in trace_a.h and trace_b.h, if we include
-> those in .c file, like this:
-> 
-> #define CREATE_TRACE_POINTS
-> include <trace/events/trace_a.h>  // re-define DECLARE_TRACE
-> 
-> include <trace/events/trace_b.h>  // use the DECLARE_TRACE definition
-> 				  // that re-define by trace_a.h
+UDP layer is currently not incrementing error counters when packets are
+dropped. Use the SNDBUFERRORS to indicate packet drops on send.
 
-Hi Xiao,
+Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
 
-I pushed out the "fix the include file dependencies" patch since that was 
-a bug fix in its own right. I held off the NAPI patch because it looked 
-like it needed rework and only depended on the include dependencies fix. 
+---
+ net/ipv4/udp.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Could you update this code to do as Neil and Ingo has mentioned.
+Index: linux-2.6/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/udp.c	2009-08-26 13:21:30.000000000 +0000
++++ linux-2.6/net/ipv4/udp.c	2009-08-26 13:46:35.000000000 +0000
+@@ -559,6 +559,13 @@ static int udp_push_pending_frames(struc
 
-Thanks,
-
--- Steve
+ send:
+ 	err = ip_push_pending_frames(sk);
++
++	if (err)
++		/*
++		 * Packet was dropped.
++		 */
++		UDP_INC_STATS_USER(sock_net(sk),
++			UDP_MIB_SNDBUFERRORS, is_udplite);
+ out:
+ 	up->len = 0;
+ 	up->pending = 0;
