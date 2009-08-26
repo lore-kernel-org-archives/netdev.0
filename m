@@ -1,80 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/2] cnic: Put rx/tx ring allocation in
- separate function.
-Date: Wed, 26 Aug 2009 12:49:22 -0700
-Message-ID: <1251316163-9359-1-git-send-email-mchan@broadcom.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
+Date: Wed, 26 Aug 2009 21:48:35 +0200
+Message-ID: <20090826194835.GA16508@elte.hu>
+References: <20090826181502.GC13632@elte.hu> <20090826190435.GC10816@hmsreliant.think-freely.org> <20090826190830.GF13632@elte.hu> <20090826.123631.79533250.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: nhorman@tuxdriver.com, rostedt@goodmis.org, fweisbec@gmail.com,
+	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
+	gallatin@myri.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1397 "EHLO mms1.broadcom.com"
+Received: from mx3.mail.elte.hu ([157.181.1.138]:42759 "EHLO mx3.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751390AbZHZTmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 15:42:07 -0400
+	id S1751390AbZHZTsm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 15:48:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20090826.123631.79533250.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will allow the 10G iSCSI code to reuse the function.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/cnic.c |   33 ++++++++++++++++++++++-----------
- 1 files changed, 22 insertions(+), 11 deletions(-)
+* David Miller <davem@davemloft.net> wrote:
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 4869d77..039900c 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -742,6 +742,26 @@ static int cnic_alloc_context(struct cnic_dev *dev)
- 	return 0;
- }
- 
-+static int cnic_alloc_l2_rings(struct cnic_dev *dev, int pages)
-+{
-+	struct cnic_local *cp = dev->cnic_priv;
-+
-+	cp->l2_ring_size = pages * BCM_PAGE_SIZE;
-+	cp->l2_ring = pci_alloc_consistent(dev->pcidev, cp->l2_ring_size,
-+					   &cp->l2_ring_map);
-+	if (!cp->l2_ring)
-+		return -ENOMEM;
-+
-+	cp->l2_buf_size = (cp->l2_rx_ring_size + 1) * cp->l2_single_buf_size;
-+	cp->l2_buf_size = PAGE_ALIGN(cp->l2_buf_size);
-+	cp->l2_buf = pci_alloc_consistent(dev->pcidev, cp->l2_buf_size,
-+					   &cp->l2_buf_map);
-+	if (!cp->l2_buf)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
- static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
-@@ -762,17 +782,8 @@ static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
- 	if (ret)
- 		goto error;
- 
--	cp->l2_ring_size = 2 * BCM_PAGE_SIZE;
--	cp->l2_ring = pci_alloc_consistent(dev->pcidev, cp->l2_ring_size,
--					   &cp->l2_ring_map);
--	if (!cp->l2_ring)
--		goto error;
--
--	cp->l2_buf_size = (cp->l2_rx_ring_size + 1) * cp->l2_single_buf_size;
--	cp->l2_buf_size = PAGE_ALIGN(cp->l2_buf_size);
--	cp->l2_buf = pci_alloc_consistent(dev->pcidev, cp->l2_buf_size,
--					   &cp->l2_buf_map);
--	if (!cp->l2_buf)
-+	ret = cnic_alloc_l2_rings(dev, 2);
-+	if (ret)
- 		goto error;
- 
- 	uinfo = kzalloc(sizeof(*uinfo), GFP_ATOMIC);
--- 
-1.6.4.GIT
+> From: Ingo Molnar <mingo@elte.hu>
+> Date: Wed, 26 Aug 2009 21:08:30 +0200
+> 
+> > Sigh, no. Please re-read the past discussions about this. 
+> > trace_skb_sources.c is a hack and should be converted to generic 
+> > tracepoints. Is there anything in it that cannot be expressed in 
+> > terms of TRACE_EVENT()?
+> 
+> Neil explained why he needed to implement it this way in his reply 
+> to Steven Rostedt.  I attach it here for your convenience.
 
+thanks. The argument is invalid:
 
+> > BTW, why not just do this as events? Or was this just a easy way 
+> > to communicate with the user space tools?
+> 
+> Thats exactly why I did it.  the idea is for me to now write a 
+> user space tool that lets me analyze the events and ajust process 
+> scheduling to optimize the rx path. Neil
+
+All tooling (in fact _more_ tooling) can be done based on generic, 
+TRACE_EVENT() based tracepoints. Generic tracepoints are far more 
+available, have a generalized format with format parsers and user 
+tooling implemented, etc. etc.
+
+	Ingo
