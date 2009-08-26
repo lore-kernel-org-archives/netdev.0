@@ -1,68 +1,65 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: Re: skb header allocation
-Date: Wed, 26 Aug 2009 08:01:23 +0200
-Message-ID: <4A94CFB3.4020706@linux.vnet.ibm.com>
-References: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com> <20090825201514.0dd143ad@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Chris Ross <chris@compilednetworks.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC 3/4] pktgen: clock optimizations
+Date: Tue, 25 Aug 2009 23:15:16 -0700
+Message-ID: <20090826061728.771777518@vyatta.com>
+References: <20090826061513.755294685@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.17.166]:53144 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756761AbZHZGBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 02:01:31 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.1/8.13.1) with ESMTP id n7Q61WMl016873
-	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 06:01:32 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id n7Q61WZP2764992
-	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 08:01:32 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id n7Q61WtG016126
-	for <netdev@vger.kernel.org>; Wed, 26 Aug 2009 08:01:32 +0200
-In-Reply-To: <20090825201514.0dd143ad@nehalam>
+Received: from suva.vyatta.com ([76.74.103.44]:36504 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751240AbZHZGZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 02:25:26 -0400
+Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>
+Content-Disposition: inline; filename=pktgen-avoid-clock.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is it save to change dev->hard_header_len to a value other than ETH_HLEN for
-an ethernet device?
+This optimizes pktgen to avoid calling ktime_get_ts unless
+it is needed. 
+  * if delay is 0, then no need to update next_tx
+  * if queue is stopped, then keep old value will already force
+    tx on next cycle.
 
-I rememeber we run in trouble with some kernel components (netfilter?, I'm
-not sure can't remember the details ...) when we did this is the past.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Is this not an issue any more?
+---
+ net/core/pktgen.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Thanks
+--- a/net/core/pktgen.c	2009-08-25 22:49:55.966424251 -0700
++++ b/net/core/pktgen.c	2009-08-25 22:51:21.162461840 -0700
+@@ -3425,11 +3425,12 @@ static __inline__ void pktgen_xmit(struc
+ 	txq = netdev_get_tx_queue(odev, queue_map);
+ 
+ 	__netif_tx_lock_bh(txq);
+-	if (!netif_tx_queue_stopped(txq) &&
+-	    !netif_tx_queue_frozen(txq)) {
++	if (netif_tx_queue_stopped(txq) || netif_tx_queue_frozen(txq))
++		pkt_dev->last_ok = 0; 			/* Retry it next time */
++	else {
+ 
+ 		atomic_inc(&(pkt_dev->skb->users));
+-	      retry_now:
++retry_now:
+ 		ret = (*xmit)(pkt_dev->skb, odev);
+ 		if (likely(ret == NETDEV_TX_OK)) {
+ 			txq_trans_update(txq);
+@@ -3453,10 +3454,9 @@ static __inline__ void pktgen_xmit(struc
+ 			pkt_dev->last_ok = 0;
+ 		}
+ 
+-		pkt_dev->next_tx = ktime_add_ns(ktime_now(), pkt_dev->delay);
+-	} else {			/* Retry it next time */
+-		pkt_dev->last_ok = 0;
+-		pkt_dev->next_tx = ktime_now();
++		if (pkt_dev->delay)
++			pkt_dev->next_tx = ktime_add_ns(ktime_now(),
++							pkt_dev->delay);
+ 	}
+ 
+ 	__netif_tx_unlock_bh(txq);
 
-Stephen Hemminger schrieb:
-> On Tue, 25 Aug 2009 22:04:10 -0500
-> Chris Ross <chris@compilednetworks.com> wrote:
-> 
->> I have a network driver that acts as a Ethernet device and builds up a
->> series of outer headers on skb(s) it receives from upper layers. I am
->> currently using the technique that is in ipip.c to ensure I have
->> enough room to add my header ...
->>
->> if (skb_headroom(skb) < some_value || skb_shared(skb) ||
->>          ((skb_cloned(skb) && !skb_clone_writable(skb, 0))))
->>    {
->>       if ((skb2 = skb_realloc_headroom(skb, some_value)) == NULL)
->>          return -1;
->>
->>       dev_kfree_skb(skb);
->>       skb = skb2;
->>    }
->>
->> Is this the best practice for a high bandwidth scenario?
-> 
-> Define a value of dev->hard_header_len that adds space for what you need.
-> Use skb_cow_head(skb, headroom) before touching skb header.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+-- 
 
