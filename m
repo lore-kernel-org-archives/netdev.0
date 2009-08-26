@@ -1,52 +1,58 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Wed, 26 Aug 2009 08:49:16 +0800
-Message-ID: <4A94868C.4080801@cn.fujitsu.com>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <20090825075816.GB857@elte.hu> <20090825105707.GA24710@hmsreliant.think-freely.org>
+From: Gregory Haskins <gregory.haskins@gmail.com>
+Subject: AlacrityVM benchmark numbers updated
+Date: Tue, 25 Aug 2009 21:01:22 -0400
+Message-ID: <4A948962.7090909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932759AbZHZAtt@vger.kernel.org>
-In-Reply-To: <20090825105707.GA24710@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBAF2F37F4D27E7A7E6AA6204"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: alacrityvm-devel@lists.sourceforge.net
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBAF2F37F4D27E7A7E6AA6204
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+We are pleased to announce the availability of the latest networking
+benchmark numbers for AlacrityVM.  We've made several tweaks to the
+original v0.1 release to improve performance.  The most notable is a
+switch from get_user_pages to switch_mm+copy_[to/from]_user thanks to a
+review suggestion from Michael Tsirkin (as well as his patch to
+implement it).
+
+This change alone accounted for freeing up an additional 1.2Gbps, which
+is over 25% improvement from v0.1.  The previous numbers were 4560Gbps
+before the change, and 5708Gbps after (for 1500mtu over 10GE).  This
+moves us ever closer to the goal of native performance under virtualizati=
+on.
+
+These changes will be incorporated into the upcoming v0.2 release.  For
+more details, please visit our project wiki:
+
+http://developer.novell.com/wiki/index.php/AlacrityVM
+
+Kind Regards,
+-Greg
 
 
-Neil Horman wrote:
-> On Tue, Aug 25, 2009 at 09:58:16AM +0200, Ingo Molnar wrote:
->> * Xiao Guangrong <xiaoguangrong@cn.fujitsu.com> wrote:
->>
->> This will collide with tracing bits in the networking tree. The 
->> skb-tracing plugin there should be turned into proper TRACE_EVENT() 
->> tracepoints.
->>
->> Neil was away for some time but i think soon we should see some 
->> movement here.
->>
->> 	Ingo
->>
-> 
-> Thank you Ingo, yes, I'm back from the beach now and will look at this shortly.
-> I concur, we should just convert the napi_poll tracepoint to be defined via the
-> TRACE_EVENT macro, same as the kfree_skb tracepoint.  Xaio would you like to
-> take care of that, or shall I?
->
+--------------enigBAF2F37F4D27E7A7E6AA6204
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Hi Neil,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-I'm glad to do it.
+iEYEARECAAYFAkqUiWIACgkQP5K2CMvXmqF9BwCdFTp8kstaf1ZPUuYdn3KnC1dH
+XOYAnihscqZ86aDpLrA7yZ7gMYo3jjfP
+=apF0
+-----END PGP SIGNATURE-----
 
-Actually, we should fix the include file dependencies first
-(the second patch in this patchset), else we can't include two
-TRACE_EVENT head files in net-traces.c
-
-Steve will pull this patchset, so, I'll convert it after this
-patchset merged.
+--------------enigBAF2F37F4D27E7A7E6AA6204--
