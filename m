@@ -1,71 +1,31 @@
-From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Wed, 26 Aug 2009 13:40:29 +0800
-Message-ID: <4A94CACD.6020309@cn.fujitsu.com>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <4A94C612.60200@cn.fujitsu.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 01/26] et1310: kill pAdapter in favour of a sane name
+Date: Tue, 25 Aug 2009 22:49:45 -0700
+Message-ID: <20090826054945.GA25352@kroah.com>
+References: <20090825145619.16176.68780.stgit@localhost.localdomain>
+ <20090825145732.16176.83630.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Alan Cox <alan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:55212 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756659AbZHZFlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 01:41:01 -0400
-In-Reply-To: <4A94C612.60200@cn.fujitsu.com>
+Received: from kroah.org ([198.145.64.141]:57215 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756673AbZHZFvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 01:51:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20090825145732.16176.83630.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 25, 2009 at 03:57:36PM +0100, Alan Cox wrote:
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
+Odd, every single hunk of this patch fails to apply to my tree :(
 
-Xiao Guangrong wrote:
-> 
-> Xiao Guangrong wrote:
->> Currently, the napi's tracepoint works will is depend on
->> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
->> like below:
->>
->> #include <trace/events/skb.h>    // include define_trace.h
->> #include <trace/events/napi.h>
->>
->> there have error, if we remove "#include <trace/events/skb.h>"
->> or include napi.h in the front of include skb.h, It should
->> depend on the definiens in include/linux/tracepoint.h and we
->> can remove the "DECLARE_TRACE" definiens in
->> include/trace/define_trace.h, because "TRACE_EVENT" not use it
->>
->> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
-> 
-> Hi Steven,
-> 
-> I'm sorry, please pull this patch too, because 
-> "[PATCH 7/8] tracing/events: fix the include file dependencies" 
-> is based on this patch, else will occur building error.
-> 
+What did you diff it against? I have 4 et131x patches in my tree, but
+they are all from you already.
 
-Sorry again, I say the wrong words, it not has building error, just
-not complete fix the bug which I mention it in the changelog of
-"[PATCH 7/8] tracing/events: fix the include file dependencies", that
-is we can't include more TRACE_EVENT head file in .c file all the same,
-like below:
+confused,
 
-Both define TRACE_EVENT in trace_a.h and trace_b.h, if we include
-those in .c file, like this:
-
-#define CREATE_TRACE_POINTS
-include <trace/events/trace_a.h>  // re-define DECLARE_TRACE
-
-include <trace/events/trace_b.h>  // use the DECLARE_TRACE definition
-				  // that re-define by trace_a.h
-
-Thanks,
-Xiao
-
-
+greg k-h
