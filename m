@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 15:44:10 -0700 (PDT)
-Message-ID: <20090826.154410.95005620.davem@davemloft.net>
-References: <20090826202344.GE10816@hmsreliant.think-freely.org>
-	<20090826204027.GA21159@elte.hu>
-	<20090826223922.GA25318@hmsreliant.think-freely.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/9] drivers/net/s2io.c: Cleanups
+Date: Wed, 26 Aug 2009 15:47:58 -0700
+Message-ID: <1251326878.13026.52.camel@Joe-Laptop.home>
+References: <cover.1251170438.git.joe@perches.com>
+	 <20090826.153353.259743590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, rostedt@goodmis.org, fweisbec@gmail.com,
-	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
-	gallatin@myri.com
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55944
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754218AbZHZWn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 18:43:57 -0400
-In-Reply-To: <20090826223922.GA25318@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, anil.murthy@neterion.com,
+	sreenivasa.honnur@neterion.com, sivakumar.subramani@neterion.com,
+	santosh.rastapur@neterion.com, ram.vepa@neterion.com,
+	akpm@linux-foundation.org, linux-next@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20090826.153353.259743590.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 26 Aug 2009 18:39:22 -0400
+On Wed, 2009-08-26 at 15:33 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Mon, 24 Aug 2009 20:29:39 -0700
+> > Just a few cleanups, compiled, untested.  No hardware.
+> >   s2io.c: Use const for strings
+> >   s2io.c: Shorten code line length by using intermediate pointers
+> >   s2io.c: Use calculated size in kmallocs
+> >   s2io.c: use kzalloc
+> >   s2io.c: Make more conforming to normal kernel style
+> >   s2io.c: convert printks to pr_<level>
+> >   s2io.c: fix spelling explaination
+> >   s2io.c: Standardize statistics accessors
+> >   s2io.c: Convert skipped nic->config.tx_cfg[i]. to tx_cfg->
+> 
+> Since this is a pretty serious set of cleanups, I'd like to
+> let the S2IO driver folks have some time to look at this and
+> at least have a chance to ACK/NACK them.
 
-> Ok, I'm rather tired of arguing.  Dave, I'll leave this in your hands.
+No worries.  That's fine.  It's only cleanups.
 
-I've gotten this kind of urging, both in private and in public, from
-both of you now.  And I'm sorry, that's not how this works.
+I haven't heard from them though and they haven't
+submitted or signed a patch for s2io in over a year.
 
-It is not my job to somehow force you turkeys how to work effectively
-together. :-)
-
-What we can do is ask Mr. Rostedt to asses the situation and give
-his feedback.
-
-So if Steven could give some feedback about this specific situation
-that would be great and might help us move forward.
+Hey!  Neterion people!  Is anybody home?
