@@ -1,42 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Page allocation failures in guest
-Date: Wed, 26 Aug 2009 12:22:48 -0700 (PDT)
-Message-ID: <20090826.122248.47485961.davem@davemloft.net>
-References: <200908261147.17838.rusty@rustcorp.com.au>
-	<20090826065501.7ab677b9@mjolnir.ossman.eu>
-	<200908262148.59664.rusty@rustcorp.com.au>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH] [resend] Remove useless condition: max_bonds is of type int
+ and cannot be greater than INT_MAX.
+Date: Wed, 26 Aug 2009 21:22:47 +0200
+Message-ID: <4A958B87.1030800@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: drzeus-list@drzeus.cx, avi@redhat.com, minchan.kim@gmail.com,
- kvm@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- fengguang.wu@intel.com, kosaki.motohiro@jp.fujitsu.com, riel@redhat.com,
- netdev@vger.kernel.org
-To: rusty@rustcorp.com.au
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <200908262148.59664.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp21.services.sfr.fr ([93.17.128.1]:54020 "EHLO
+	smtp21.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628AbZHZTWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 15:22:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Wed, 26 Aug 2009 21:48:58 +0930
+Remove useless condition: max_bonds is of type int and cannot be greate=
+r than=20
+INT_MAX.
 
-> Dave, can you push this to Linus ASAP?
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+---
+  drivers/net/bonding/bond_main.c |    2 +-
+  1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ok.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 4798d30..edd71a1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4755,7 +4755,7 @@ static int bond_check_params(struct bond_params *=
+params)
+  		params->ad_select =3D BOND_AD_STABLE;
+  	}
 
-> Subject: virtio: net refill on out-of-memory
-> 
-> If we run out of memory, use keventd to fill the buffer.  There's a
-> report of this happening: "Page allocation failures in guest",
-> Message-ID: <20090713115158.0a4892b0@mjolnir.ossman.eu>
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+-	if (max_bonds < 0 || max_bonds > INT_MAX) {
++	if (max_bonds < 0) {
+  		pr_warning(DRV_NAME
+  		       ": Warning: max_bonds (%d) not in range %d-%d, so it "
+  		       "was reset to BOND_DEFAULT_MAX_BONDS (%d)\n",
 
-Applied, thanks.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
