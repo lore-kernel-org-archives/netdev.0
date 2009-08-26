@@ -1,42 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Receive side performance issue with multi-10-GigE and NUMA
-Date: Wed, 26 Aug 2009 16:09:10 -0700 (PDT)
-Message-ID: <20090826.160910.187803108.davem@davemloft.net>
-References: <20090826223922.GA25318@hmsreliant.think-freely.org>
-	<20090826.154410.95005620.davem@davemloft.net>
-	<alpine.DEB.2.00.0908261901270.11291@gandalf.stny.rr.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH][net-next] LRO: improve aggregation in case of zero TSecr packets
+Date: Thu, 27 Aug 2009 02:08:31 +0300
+Message-ID: <200908270208.31581.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, mingo@elte.hu, fweisbec@gmail.com,
-	billfink@mindspring.com, netdev@vger.kernel.org, brice@myri.com,
-	gallatin@myri.com
-To: rostedt@goodmis.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_vBclKyI536+P5Z0"
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: "Jan-Bernd Themann" <themann@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53605
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753342AbZHZXI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 19:08:57 -0400
-In-Reply-To: <alpine.DEB.2.00.0908261901270.11291@gandalf.stny.rr.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:24651 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753437AbZHZXKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 19:10:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Wed, 26 Aug 2009 19:05:20 -0400 (EDT)
+This is a multi-part message in MIME format.
+--Boundary-00=_vBclKyI536+P5Z0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
-> How about Neil try out doing all he can with the existing TRACE_EVENT 
-> work. I'm sure Ingo and myself would be fine with helping him with any 
-> issues he comes up with. If there is something that he hates about it, 
-> that really makes his user space code messy, then he can put the ball back 
-> in our court, and Ingo and I will need to come up with a solution.
-> 
-> If we truly hit a show stopper, than we can always fall back to the ftrace 
-> plugin. But until we find out for sure that TRACE_EVENT is not good 
-> enough, then we should try that out.
-> 
-> How's that sound?
 
-That works for me, thanks Steven!
+This fixes a temporary performance issue we noticed in back to back
+TSO - LRO tests when such tests are run within five minutes after
+boot.
 
-I'll revert Neil's change from net-next-2.6 and we can work on a
-usable solution, long-term.
+The TSval field of TCP packets is filled in based on the current
+jiffie, which is initialized at -300*HZ. That means that in 5 minutes
+after reboot it will wrap to zero.
+
+While the jiffie value is 0 on the LRO side, TCP packets will be
+send out with TSVal zero as well. The TSO side will respond with 
+packets in which TSecr is set to zero. 
+
+At this point LRO will avoid aggregating the packets, suddenly 
+putting a lot of pressure on the stack which will result in drops and 
+retransmission for a short while.
+
+There are cases where aggregating zero TSecr is better and cases in
+which is not:
+
+1. non zero TSecr packets, zero TSecr packet
+
+   Better not to aggregate, otherwise we miss a valid TSecr.
+
+2. zero TSecr packets (amplified by TSO)
+
+   Better to aggregate.
+
+3. zero TSecr packet, non zero TSecr packets
+
+   OK to aggregate.
+
+4. non zero TSecr packets, zero TSecr packets, non zero TSecr packet
+
+   OK to aggregate, but not a big overhead if we aggregate in 2
+   segments instead of one.
+
+This patch allows aggregation for cases 2 and 3 as well as aggregation
+in 2 segments for case 4, while denying aggregation in case 1.
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+---
+ net/ipv4/inet_lro.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+--Boundary-00=_vBclKyI536+P5Z0
+Content-Type: text/x-patch;
+  charset="utf-8";
+  name="d943fa4bd69b5ff21505eb6187120fe60868b5f9.diff"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: inline;
+	filename="d943fa4bd69b5ff21505eb6187120fe60868b5f9.diff"
+
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index 6a667da..d16c9d5 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -90,9 +90,9 @@ static int lro_tcp_ip_check(struct iphdr *iph, struct tcphdr *tcph,
+ 				      ntohl(*topt)))
+ 			return -1;
+ 
+-		/* timestamp reply should not be zero */
++		/* aggregate if we are sure we won't miss a valid TSecr */
+ 		topt++;
+-		if (*topt == 0)
++		if (*topt == 0 && lro_desc->tcp_rcv_tsecr != 0)
+ 			return -1;
+ 	}
+ 
+
+--Boundary-00=_vBclKyI536+P5Z0--
+
+
