@@ -1,58 +1,36 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: AlacrityVM benchmark numbers updated
-Date: Tue, 25 Aug 2009 21:01:22 -0400
-Message-ID: <4A948962.7090909@gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Page allocation failures in guest
+Date: Wed, 26 Aug 2009 11:47:17 +0930
+Message-ID: <200908261147.17838.rusty@rustcorp.com.au>
+References: <20090713115158.0a4892b0@mjolnir.ossman.eu> <200908121501.53167.rusty@rustcorp.com.au> <20090813222548.5e0743dd@mjolnir.ossman.eu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBAF2F37F4D27E7A7E6AA6204"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: alacrityvm-devel@lists.sourceforge.net
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Avi Kivity <avi@redhat.com>, Minchan Kim <minchan.kim@gmail.com>,
+	kvm@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Wu Fengguang <fengguang.wu@intel.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Rik van Riel <riel@redhat.com>, netdev@vger.kernel.org
+To: Pierre Ossman <drzeus-list@drzeus.cx>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:48797 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751697AbZHZCRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Aug 2009 22:17:22 -0400
+In-Reply-To: <20090813222548.5e0743dd@mjolnir.ossman.eu>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBAF2F37F4D27E7A7E6AA6204
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Fri, 14 Aug 2009 05:55:48 am Pierre Ossman wrote:
+> On Wed, 12 Aug 2009 15:01:52 +0930
+> Rusty Russell <rusty@rustcorp.com.au> wrote:
+> > Subject: virtio: net refill on out-of-memory
+... 
+> Patch applied. Now we wait. :)
 
-We are pleased to announce the availability of the latest networking
-benchmark numbers for AlacrityVM.  We've made several tweaks to the
-original v0.1 release to improve performance.  The most notable is a
-switch from get_user_pages to switch_mm+copy_[to/from]_user thanks to a
-review suggestion from Michael Tsirkin (as well as his patch to
-implement it).
+Any results?
 
-This change alone accounted for freeing up an additional 1.2Gbps, which
-is over 25% improvement from v0.1.  The previous numbers were 4560Gbps
-before the change, and 5708Gbps after (for 1500mtu over 10GE).  This
-moves us ever closer to the goal of native performance under virtualizati=
-on.
-
-These changes will be incorporated into the upcoming v0.2 release.  For
-more details, please visit our project wiki:
-
-http://developer.novell.com/wiki/index.php/AlacrityVM
-
-Kind Regards,
--Greg
-
-
---------------enigBAF2F37F4D27E7A7E6AA6204
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqUiWIACgkQP5K2CMvXmqF9BwCdFTp8kstaf1ZPUuYdn3KnC1dH
-XOYAnihscqZ86aDpLrA7yZ7gMYo3jjfP
-=apF0
------END PGP SIGNATURE-----
-
---------------enigBAF2F37F4D27E7A7E6AA6204--
+Thanks,
+Rusty.
