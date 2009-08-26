@@ -1,8 +1,8 @@
 From: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 Subject: Re: [PATCH 1/2] trace_events: fix napi's tracepoint
-Date: Wed, 26 Aug 2009 13:20:18 +0800
-Message-ID: <4A94C612.60200@cn.fujitsu.com>
-References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com>
+Date: Wed, 26 Aug 2009 13:40:29 +0800
+Message-ID: <4A94CACD.6020309@cn.fujitsu.com>
+References: <4A937EF5.4040505@cn.fujitsu.com> <4A93895F.4010708@cn.fujitsu.com> <4A94C612.60200@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -15,37 +15,57 @@ Cc: Steven Rostedt <rostedt@goodmis.org>,
 	LKML <linux-kernel@vger.kernel.org>
 To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49671 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:55212 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752722AbZHZFUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Aug 2009 01:20:52 -0400
-In-Reply-To: <4A93895F.4010708@cn.fujitsu.com>
+	id S1756659AbZHZFlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 01:41:01 -0400
+In-Reply-To: <4A94C612.60200@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
 Xiao Guangrong wrote:
-> Currently, the napi's tracepoint works will is depend on
-> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
-> like below:
 > 
-> #include <trace/events/skb.h>    // include define_trace.h
-> #include <trace/events/napi.h>
+> Xiao Guangrong wrote:
+>> Currently, the napi's tracepoint works will is depend on
+>> "DECLARE_TRACE" definiens in include/trace/define_trace.h,
+>> like below:
+>>
+>> #include <trace/events/skb.h>    // include define_trace.h
+>> #include <trace/events/napi.h>
+>>
+>> there have error, if we remove "#include <trace/events/skb.h>"
+>> or include napi.h in the front of include skb.h, It should
+>> depend on the definiens in include/linux/tracepoint.h and we
+>> can remove the "DECLARE_TRACE" definiens in
+>> include/trace/define_trace.h, because "TRACE_EVENT" not use it
+>>
+>> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
 > 
-> there have error, if we remove "#include <trace/events/skb.h>"
-> or include napi.h in the front of include skb.h, It should
-> depend on the definiens in include/linux/tracepoint.h and we
-> can remove the "DECLARE_TRACE" definiens in
-> include/trace/define_trace.h, because "TRACE_EVENT" not use it
+> Hi Steven,
 > 
-> Signed-off-by: Xiao Guangrong <xiaoguangrong@cn.fujitsu.com>
+> I'm sorry, please pull this patch too, because 
+> "[PATCH 7/8] tracing/events: fix the include file dependencies" 
+> is based on this patch, else will occur building error.
+> 
 
-Hi Steven,
+Sorry again, I say the wrong words, it not has building error, just
+not complete fix the bug which I mention it in the changelog of
+"[PATCH 7/8] tracing/events: fix the include file dependencies", that
+is we can't include more TRACE_EVENT head file in .c file all the same,
+like below:
 
-I'm sorry, please pull this patch too, because 
-"[PATCH 7/8] tracing/events: fix the include file dependencies" 
-is based on this patch, else will occur building error.
+Both define TRACE_EVENT in trace_a.h and trace_b.h, if we include
+those in .c file, like this:
+
+#define CREATE_TRACE_POINTS
+include <trace/events/trace_a.h>  // re-define DECLARE_TRACE
+
+include <trace/events/trace_b.h>  // use the DECLARE_TRACE definition
+				  // that re-define by trace_a.h
 
 Thanks,
 Xiao
+
+
