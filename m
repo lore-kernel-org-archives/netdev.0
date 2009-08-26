@@ -1,69 +1,48 @@
-From: Gregory Haskins <gregory.haskins@gmail.com>
-Subject: Re: AlacrityVM benchmark numbers updated
-Date: Wed, 26 Aug 2009 16:05:57 -0400
-Message-ID: <4A9595A5.9060809@gmail.com>
-References: <4A948962.7090909@gmail.com> <4A950B75.5020409@redhat.com> <4A95822D.9060207@gmail.com> <4A958BA0.2000801@redhat.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.31-rc7-git2: Reported regressions 2.6.29 -> 2.6.30
+Date: Wed, 26 Aug 2009 22:11:39 +0200
+Message-ID: <200908262211.39228.rjw@sisk.pl>
+References: <JuOd1ZASH0B.A.YGB.0zGlKB@chimera> <b170af450908260147o60427997ne6b9872198893c41@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8FC4678BFD16BC9A0DD9C085"
-Cc: alacrityvm-devel@lists.sourceforge.net,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f192.google.com ([209.85.222.192]:45629 "EHLO
-	mail-pz0-f192.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbZHZUGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 16:06:02 -0400
-In-Reply-To: <4A958BA0.2000801@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Natalie Protasevich <protasnb@gmail.com>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Len Brown <lenb@kernel.org>
+To: =?utf-8?q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <b170af450908260147o60427997ne6b9872198893c41@mail.gmail.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8FC4678BFD16BC9A0DD9C085
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Avi Kivity wrote:
-> On 08/26/2009 09:42 PM, Gregory Haskins wrote:
->> Actually, I have already look at this and it does indeed seem better t=
-o
->> use switch_mm+gupf() over gup() by quite a large margin.  You could th=
-en
->> couple that with your DMA-engine idea to potentially gain even more
->> benefits (though probably not for networking since most NICs have thei=
-r
->> own DMA engine anyway).
->>
->>   =20
+On Wednesday 26 August 2009, Rafa=C5=82 Mi=C5=82ecki wrote:
+> 2009/8/25 Rafael J. Wysocki <rjw@sisk.pl>:
+> > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D1351=
+4
+> > Subject         : acer_wmi causes stack corruption
+> > Submitter       : Rus <harbour@sfinx.od.ua>
+> > Date            : 2009-06-12 08:13 (75 days old)
 >=20
-> For tx, we'll just go copyless once we plumb the destructors properly. =
-
-> But for rx on a shared interface it is impossible to avoid the copy.=20
-> You can only choose if you want it done by the cpu or a local dma engin=
-e.
+> It has patch, just Len doesn't seem to... don't know, read the topic?
+> http://patchwork.kernel.org/patch/29082/
 >=20
->=20
+> Can we ping Len somehow to push this patch directly to Linus's tree?
 
-Yep, agree on both counts.
+I have updated the bug entry, hopefully Len will notice it now.
 
--Greg
-
-
---------------enig8FC4678BFD16BC9A0DD9C085
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkqVlaUACgkQP5K2CMvXmqHoFwCfek8O5cudY+AaXCFINZG7xkl+
-7KQAniST0CkgR/J/DWuiquv3L0y3x+oo
-=YzEV
------END PGP SIGNATURE-----
-
---------------enig8FC4678BFD16BC9A0DD9C085--
+Thanks,
+Rafael
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
