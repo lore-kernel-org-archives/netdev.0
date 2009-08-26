@@ -1,7 +1,7 @@
 From: David Dillow <dave@thedillows.org>
 Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
-Date: Wed, 26 Aug 2009 09:56:14 -0400
-Message-ID: <1251294974.14241.9.camel@obelisk.thedillows.org>
+Date: Wed, 26 Aug 2009 09:59:35 -0400
+Message-ID: <1251295175.14241.11.camel@obelisk.thedillows.org>
 References: <1250895567.23419.1.camel@obelisk.thedillows.org>
 	 <1250897657.23419.5.camel@obelisk.thedillows.org>
 	 <m1iqggf4rf.fsf@fess.ebiederm.org> <m18whcf3w2.fsf@fess.ebiederm.org>
@@ -13,6 +13,7 @@ References: <1250895567.23419.1.camel@obelisk.thedillows.org>
 	 <m1k50r8u4p.fsf@fess.ebiederm.org>
 	 <20090825221903.GA13630@electric-eye.fr.zoreil.com>
 	 <m1iqgbknun.fsf_-_@fess.ebiederm.org>
+	 <1251294974.14241.9.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -23,48 +24,38 @@ Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	Michael B??ker <m.bueker@berlin.de>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757426AbZHZN4S@vger.kernel.org>
-In-Reply-To: <m1iqgbknun.fsf_-_@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.knology.net ([24.214.63.101]:38434 "EHLO smtp.knology.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757409AbZHZN7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Aug 2009 09:59:37 -0400
+In-Reply-To: <1251294974.14241.9.camel@obelisk.thedillows.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2009-08-26 at 00:58 -0700, Eric W. Biederman wrote:
-> As of 2.6.30 I have been observing soft lockups and netdev watchdog
-> timeouts caused by looping in the r8169 interrupt handler.
+On Wed, 2009-08-26 at 09:56 -0400, David Dillow wrote:
+> On Wed, 2009-08-26 at 00:58 -0700, Eric W. Biederman wrote:
+> > diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> > index 3b19e0c..2214945 100644
+> > --- a/drivers/net/r8169.c
+> > +++ b/drivers/net/r8169.c
 > 
-> - Introduce a hard limit to the maximum number of times we will loop in
->   the interrupt handler, and print a message when we hit it.
+> > +
+> > +		/* Ignore the parts of status that reflect more than
+> > +		 * the enabled interrupts.
+> > +		 */
+> > +		smp_rmb();
+> > +		if (!(status & tp->intr_mask & tp->intr_event))
+> > +			break;
+> >  	}
 > 
-> - Break out of the loop if after looking none of the events in status
->   are events we expect to be delivered by an interrupt.
-> 
-> With just the hard limit and message bits of my patch in my test case
-> I get hit my limit of 10 loops 12 times.  After filtering by intr_mask
-> and intr_event I don't get any warnings.
-> 
-> Any complaints from those who know the driver better than I?
+> This looks like an odd construct, since we're just about to go back the
+> while condition up top -- why not just mask it here and let the loop
+> handle it naturally?
 
-Have you tried this under a sustained heavy transmit load? I think you
-may have reintroduced the problem the original patch was trying to
-prevent -- wedging the MSI interrupt by not ACKing all outstanding
-interrupt sources, masked or otherwise. I'll try to test this out on the
-machine where I've seen the problem consistently, but it may be this
-weekend.
+Never mind, I see what you are doing -- avoiding a false loop if we get
+status == 0xffff. I still don't like the aesthetics of it, but it makes
+sense, and I'll blame it on the card. :)
 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 3b19e0c..2214945 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
+I should really get some caffeine before posting...  
 
-> +
-> +		/* Ignore the parts of status that reflect more than
-> +		 * the enabled interrupts.
-> +		 */
-> +		smp_rmb();
-> +		if (!(status & tp->intr_mask & tp->intr_event))
-> +			break;
->  	}
-
-This looks like an odd construct, since we're just about to go back the
-while condition up top -- why not just mask it here and let the loop
-handle it naturally?
