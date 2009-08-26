@@ -1,52 +1,40 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: [IPv6] kernel refuses to install blackhole routes without dev lo
-Date: Tue, 25 Aug 2009 23:35:46 -0300
-Message-ID: <20090826023546.GC14047@khazad-dum.debian.net>
+From: Chris Ross <chris@compilednetworks.com>
+Subject: skb header allocation
+Date: Tue, 25 Aug 2009 22:04:10 -0500
+Message-ID: <17cd85320908252004r31874732n9e06921d6eae4ad7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.smtp.messagingengine.com ([66.111.4.25]:49744 "EHLO
-	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756532AbZHZCfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 22:35:47 -0400
-Received: from compute2.internal (compute2.internal [10.202.2.42])
-	by gateway1.messagingengine.com (Postfix) with ESMTP id 4B92C298B4
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 22:35:49 -0400 (EDT)
-Received: from khazad-dum.debian.net (unknown [201.82.70.134])
-	by mail.messagingengine.com (Postfix) with ESMTPSA id EAFB415E98
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 22:35:48 -0400 (EDT)
-Received: from localhost (localhost [127.0.0.1])
-	by localhost.khazad-dum.debian.net (Postfix) with ESMTP id B3ADD10003
-	for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 23:35:46 -0300 (BRT)
-Received: from khazad-dum.debian.net ([127.0.0.1])
-	by localhost (khazad-dum.debian.net [127.0.0.1]) (amavisd-new, port 10024)
-	with LMTP id UVZvVoyq1SBW for <netdev@vger.kernel.org>;
-	Tue, 25 Aug 2009 23:35:46 -0300 (BRT)
-Content-Disposition: inline
+Received: from mail-px0-f182.google.com ([209.85.216.182]:50133 "EHLO
+	mail-px0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756585AbZHZDEI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Aug 2009 23:04:08 -0400
+Received: by pxi12 with SMTP id 12so3915824pxi.22
+        for <netdev@vger.kernel.org>; Tue, 25 Aug 2009 20:04:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Please keep me in the CC, I am not subscribed to netdev)
+I have a network driver that acts as a Ethernet device and builds up a
+series of outer headers on skb(s) it receives from upper layers. I am
+currently using the technique that is in ipip.c to ensure I have
+enough room to add my header ...
 
-To make a long history short, and to get right to the point:
+if (skb_headroom(skb) < some_value || skb_shared(skb) ||
+=A0=A0=A0=A0=A0=A0=A0=A0 ((skb_cloned(skb) && !skb_clone_writable(skb, =
+0))))
+=A0=A0 {
+=A0=A0=A0=A0=A0 if ((skb2 =3D skb_realloc_headroom(skb, some_value)) =3D=
+=3D NULL)
+=A0=A0=A0=A0=A0=A0=A0=A0 return -1;
 
-# ip -6 route add blackhole ::/0
-RTNETLINK answers: No such device
+=A0=A0=A0=A0=A0 dev_kfree_skb(skb);
+=A0=A0=A0=A0=A0 skb =3D skb2;
+=A0=A0 }
 
-while
+Is this the best practice for a high bandwidth scenario?
 
-# ip -6 route add blackhole ::/0 dev lo
+thanks
 
-and
-
-# ip route add unreachable ::/0     
-
-works just fine.  Looks like a bug, and it annoys the heck out of people
-trying to use the standard way of null-routing on Quagga :-)
-
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+-chris
