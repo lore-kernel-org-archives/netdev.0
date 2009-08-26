@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] drivers/net/s2io.c: Cleanups
-Date: Wed, 26 Aug 2009 15:33:53 -0700 (PDT)
-Message-ID: <20090826.153353.259743590.davem@davemloft.net>
-References: <cover.1251170438.git.joe@perches.com>
+Subject: Re: [PATCH NEXT 1/4] netxen: remove unused code
+Date: Wed, 26 Aug 2009 15:37:41 -0700 (PDT)
+Message-ID: <20090826.153741.260531884.davem@davemloft.net>
+References: <1251177808-16450-1-git-send-email-dhananjay@netxen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anil.murthy@neterion.com,
-	sreenivasa.honnur@neterion.com, sivakumar.subramani@neterion.com,
-	santosh.rastapur@neterion.com, ram.vepa@neterion.com,
-	akpm@linux-foundation.org, linux-next@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <cover.1251170438.git.joe@perches.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.com, netdev@vger.kernel.org
+To: dhananjay@netxen.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51664
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750749AbZHZWh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 18:37:28 -0400
+In-Reply-To: <1251177808-16450-1-git-send-email-dhananjay@netxen.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 24 Aug 2009 20:29:39 -0700
+From: Dhananjay Phadke <dhananjay@netxen.com>
+Date: Mon, 24 Aug 2009 22:23:25 -0700
 
-> Just a few cleanups, compiled, untested.  No hardware.
+> Remove code for phy access on unreleased NX2031 based quad-gig board.
 > 
-> Joe Perches (9):
->   s2io.c: Use const for strings
->   s2io.c: Shorten code line length by using intermediate pointers
->   s2io.c: Use calculated size in kmallocs
->   s2io.c: use kzalloc
->   s2io.c: Make more conforming to normal kernel style
->   s2io.c: convert printks to pr_<level>
->   s2io.c: fix spelling explaination
->   s2io.c: Standardize statistics accessors
->   s2io.c: Convert skipped nic->config.tx_cfg[i]. to tx_cfg->
+> NX3031 based production quad-gig boards do not require direct phy
+> access by driver.
+> 
+> Signed-off-by: Dhananjay Phadke <dhananjay@netxen.com>
 
-Since this is a pretty serious set of cleanups, I'd like to
-let the S2IO driver folks have some time to look at this and
-at least have a chance to ACK/NACK them.
+Applied.
