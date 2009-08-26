@@ -1,69 +1,197 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] r8169: Reduce looping in the interrupt handler.
-Date: Wed, 26 Aug 2009 14:40:57 -0700
-Message-ID: <m1hbvu45jq.fsf@fess.ebiederm.org>
-References: <m1r5v0ogvw.fsf@fess.ebiederm.org>
-	<1251169150.4023.11.camel@obelisk.thedillows.org>
-	<m1prajabk8.fsf@fess.ebiederm.org>
-	<1251232848.9607.15.camel@lap75545.ornl.gov>
-	<m1k50r8u4p.fsf@fess.ebiederm.org>
-	<20090825221903.GA13630@electric-eye.fr.zoreil.com>
-	<m1iqgbknun.fsf_-_@fess.ebiederm.org>
-	<1251294974.14241.9.camel@obelisk.thedillows.org>
-	<1251295175.14241.11.camel@obelisk.thedillows.org>
-	<m11vmy737x.fsf@fess.ebiederm.org>
-	<20090826213024.GA20428@electric-eye.fr.zoreil.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] scripts/get_maintainer.pl: Add maintainers in order listed
+ in matched section
+Date: Wed, 26 Aug 2009 14:48:23 -0700
+Message-ID: <1251323303.13026.40.camel@Joe-Laptop.home>
+References: <cover.1249525834.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Dillow <dave@thedillows.org>,
-	Michael Riepe <michael.riepe@googlemail.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Rui Santos <rsantos@grupopie.com>,
-	Michael B??ker <m.bueker@berlin.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:57291 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478AbZHZVlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Aug 2009 17:41:04 -0400
-In-Reply-To: <20090826213024.GA20428@electric-eye.fr.zoreil.com> (Francois Romieu's message of "Wed\, 26 Aug 2009 23\:30\:24 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Greg KH <greg@kroah.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753979AbZHZVsY@vger.kernel.org>
+In-Reply-To: <cover.1249525834.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> writes:
+This patch is on top of patches that are already queued in mm.
 
-> Eric W. Biederman <ebiederm@xmission.com> :
-> [...]
->> It is a bit weird but it also means we aren't playing silly games
->> with status inside the loop.  So if we go through the loop we ack
->> everything in status.
->
-> I fear we have some longstanding problem anyway :
->
-> 1. quiescent state
-> 2. packets are received
-> 3. rtl8169_interrupt schedules napi, clears IntrStatus and exits
-> 4. packets are received and some non-napi event happens
-> 5. rtl8169_interrupt wakes up, reads IntrStatus and goes on...
-> 6. rtl8169_poll wakes up, processes Rx and Tx napi events and goes on...
-> 7. tp->intr_mask still equals ~tp->napi_event : rtl8169_interrupt
->    handler does not even try to schedule napi.
-> 8. more packets are received
-> 9. rtl8169_interrupt clears IntrStatus
-> a. rtl8169_poll reenables napi scheduling, updates IntrMask and exits
-> b. rtl8169_interrupt reads a perfectly clean IntrStatus and exits
+Previous behavior was "bottom-up" in each section from the pattern "F:"
+entry that matched.  Now information is entered into the various lists
+in the "as entered" order for each matched section.
 
-That would not surprise me.
+This also allows the F: entry to be put anywhere in a section, not just
+as the last entries in the section.
 
-Right now I really don't have much more test bandwidth.  So I tried
-for something simple that would address my problem without
-fundamentally changing the already tested logic.  I am not seeing any
-of the weird corner cases where we get confused.  The changes to fix
-that problem is totally killing my ability to use the NIC, because it
-loops way to much.
+And a couple of improvements:
 
-Perhaps we should unconditionally ack everything after changing the 
-interrupt mask?  If that would prevent races it sounds like a simple fix.
+Don't alphabetically sort before outputting the matched scm, status,
+subsystem and web sections.
 
-Eric
+Ignore content after a single email address so these entries are acceptable
+M:	name <address> whatever other comment
+
+And a fix:
+
+Make an M: entry without a name again use the name from an immediately
+preceding P: line if it exists.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ scripts/get_maintainer.pl |   70 ++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 54 insertions(+), 16 deletions(-)
+
+diff --git a/scripts/get_maintainer.pl b/scripts/get_maintainer.pl
+index b8d1223..b54db05 100755
+--- a/scripts/get_maintainer.pl
++++ b/scripts/get_maintainer.pl
+@@ -313,22 +313,22 @@ if ($email || $email_list) {
+ }
+ 
+ if ($scm) {
+-    @scm = sort_and_uniq(@scm);
++    @scm = uniq(@scm);
+     output(@scm);
+ }
+ 
+ if ($status) {
+-    @status = sort_and_uniq(@status);
++    @status = uniq(@status);
+     output(@status);
+ }
+ 
+ if ($subsystem) {
+-    @subsystem = sort_and_uniq(@subsystem);
++    @subsystem = uniq(@subsystem);
+     output(@subsystem);
+ }
+ 
+ if ($web) {
+-    @web = sort_and_uniq(@web);
++    @web = uniq(@web);
+     output(@web);
+ }
+ 
+@@ -442,7 +442,7 @@ sub parse_email {
+ 	$address = $2;
+     } elsif ($formatted_email =~ /^\s*<(.+\@\S*)>.*$/) {
+ 	$address = $1;
+-    } elsif ($formatted_email =~ /^(.+\@\S*)$/) {
++    } elsif ($formatted_email =~ /^(.+\@\S*).*$/) {
+ 	$address = $1;
+     }
+ 
+@@ -485,12 +485,46 @@ sub format_email {
+     return $formatted_email;
+ }
+ 
+-sub add_categories {
++sub find_starting_index {
++
++    my ($index) = @_;
++
++    while ($index > 0) {
++	my $tv = $typevalue[$index];
++	if (!($tv =~ m/^(\C):\s*(.*)/)) {
++	    last;
++	}
++	$index--;
++    }
++
++    return $index;
++}
++
++sub find_ending_index {
+     my ($index) = @_;
+ 
+-    $index = $index - 1;
+-    while ($index >= 0) {
++    while ($index < @typevalue) {
+ 	my $tv = $typevalue[$index];
++	if (!($tv =~ m/^(\C):\s*(.*)/)) {
++	    last;
++	}
++	$index++;
++    }
++
++    return $index;
++}
++
++sub add_categories {
++    my ($index) = @_;
++
++    my $i;
++    my $start = find_starting_index($index);
++    my $end = find_ending_index($index);
++
++    push(@subsystem, $typevalue[$start]);
++
++    for ($i = $start + 1; $i < $end; $i++) {
++	my $tv = $typevalue[$i];
+ 	if ($tv =~ m/^(\C):\s*(.*)/) {
+ 	    my $ptype = $1;
+ 	    my $pvalue = $2;
+@@ -513,11 +547,12 @@ sub add_categories {
+ 	    } elsif ($ptype eq "M") {
+ 		my ($name, $address) = parse_email($pvalue);
+ 		if ($name eq "") {
+-		    if ($index >= 0) {
+-			my $tv = $typevalue[$index - 1];
++		    if ($i > 0) {
++			my $tv = $typevalue[$i - 1];
+ 			if ($tv =~ m/^(\C):\s*(.*)/) {
+ 			    if ($1 eq "P") {
+ 				$name = $2;
++				$pvalue = format_email($name, $address);
+ 			    }
+ 			}
+ 		    }
+@@ -532,11 +567,6 @@ sub add_categories {
+ 	    } elsif ($ptype eq "S") {
+ 		push(@status, $pvalue);
+ 	    }
+-
+-	    $index--;
+-	} else {
+-	    push(@subsystem,$tv);
+-	    $index = -1;
+ 	}
+     }
+ }
+@@ -559,6 +589,10 @@ sub push_email_address {
+ 
+     my ($name, $address) = parse_email($line);
+ 
++    if ($address eq "") {
++	return 0;
++    }
++
+     if (!$email_remove_duplicates) {
+ 	push(@email_to, format_email($name, $address));
+     } elsif (!email_inuse($name, $address)) {
+@@ -566,6 +600,8 @@ sub push_email_address {
+ 	$email_hash_name{$name}++;
+ 	$email_hash_address{$address}++;
+     }
++
++    return 1;
+ }
+  
+ sub push_email_addresses {
+@@ -581,7 +617,9 @@ sub push_email_addresses {
+ 	    push_email_address($entry);
+ 	}
+     } else {
+-	warn("Invalid MAINTAINERS address: '" . $address . "'\n");
++	if (!push_email_address($address)) {
++	    warn("Invalid MAINTAINERS address: '" . $address . "'\n");
++	}
+     }
+ }
+ 
+-- 
+1.6.3.1.10.g659a0.dirty
